@@ -64,7 +64,8 @@
 
 *.sh text eol=lf
 network-version.txt text eol=lf
-assets/terrain-hd/**/*.png binary
+/data/hd-sources/*.zip filter=lfs diff=lfs merge=lfs -text
+/data/hd-runtime/*.7z.* filter=lfs diff=lfs merge=lfs -text
 
 # Frozen packet48 evidence preserves exact hashed bytes. Historical text rules stay intact.
 assets/terrain-hd/expanded/accepted-git-stage-completeness-forty-eighth.json -text

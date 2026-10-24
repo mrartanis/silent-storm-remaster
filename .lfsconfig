@@ -1,0 +1,2 @@
+[lfs]
+	fetchinclude = data/hd-runtime/*

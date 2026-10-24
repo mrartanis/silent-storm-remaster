@@ -94,8 +94,8 @@ release** собирает Windows x64 и Linux x64 по тегам `v*` и ав
 
 ### Зависимости
 
-- **CMake 3.21+**, **Python 3.11+**, **Pillow**. NumPy нужен только для
-  калибровки новых HD-текстур. Для существующего пакета достаточно Pillow.
+- **CMake 3.21+**, **Python 3.11+**. Для готового HD-пака нужны **Git LFS**
+  и **7-Zip** (`7zz`/`7z`). Pillow и NumPy нужны только для работы с исходными PNG.
 - **SDL3 3.4.16**, пакет разработки для целевой архитектуры.
 - **bgfx.cmake v1.161.9510-579** с закреплёнными деревьями bgfx/bimg/bx.
   Версии, хеши и устройство каталогов: [SDL3 + bgfx](probes/sdl3-bgfx/README.md).
@@ -112,10 +112,13 @@ release** собирает Windows x64 и Linux x64 по тегам `v*` и ав
   Версионируемый `network-version.txt` кладётся рядом с движком и переносится
   вместе с ним; его не нужно генерировать по установленной игре.
 
-HD собирается по умолчанию. Сам готовый пакет занимает около **9,2 ГБ**;
-дополнительно нужно место для клона с PNG, зависимостей и сборки.
-`-DS2_BUILD_HD_TEXTURES=OFF` отключает его сборку, но не удаляет существующий
-пакет и не меняет настройку HD в игре.
+HD устанавливается из готового релизного архива по умолчанию. Git LFS скачивает
+только архив runtime (около **2,26 ГБ**); исходные PNG упакованы отдельно и
+скачиваются по необходимости. При первой сборке пак распаковывается в
+игнорируемый `data/res-hd` (около **9,2 ГБ**) и подключается к каталогу Game.
+Следующие сборки используют кеш; текстуры не пересобираются.
+`-DS2_BUILD_HD_TEXTURES=OFF` пропускает установку HD, сохраняя имеющийся пакет
+и настройку HD в игре. Команды восстановления исходников: [data/README.md](data/README.md).
 
 ### Windows x64
 
@@ -127,7 +130,8 @@ HD собирается по умолчанию. Сам готовый паке�
 ```powershell
 python -m venv build/hd-python
 $hdPython = (Resolve-Path build/hd-python/Scripts/python.exe).Path
-& $hdPython -m pip install Pillow
+git lfs install
+git lfs pull --include="data/hd-runtime/*" --exclude=""
 $deps = 'C:/s2-deps'
 
 cmake -S . -B build -A x64 `
@@ -173,7 +177,8 @@ zlib, X11/OpenGL** и `pkg-config`. XInput2 нужен для относител
 
 ```sh
 python3 -m venv build/hd-python
-build/hd-python/bin/python -m pip install Pillow
+git lfs install
+git lfs pull --include="data/hd-runtime/*" --exclude=""
 deps=/opt/s2-deps
 
 cmake -S . -B build-linux -G Ninja \
@@ -254,10 +259,12 @@ HD на совместимость не влияет. TCP-порт хоста д
 
 ```powershell
 ctest --test-dir build -C Release --output-on-failure
-& $hdPython assets/terrain-hd/validate_pack.py --pack build/Release/res-hd
+& $hdPython packaging/prepare_hd.py --output build/Release/res-hd
 ```
 
 На Linux используйте `ctest --test-dir build-linux --output-on-failure`.
+`prepare_hd.py` проверяет готовый пак без исходных PNG. Полная авторская
+проверка `validate_pack.py` требует восстановления PNG и Pillow.
 Ресурсные проверки регистрируются при заданном `S2_GAME_DIR` с нужными данными;
 графические проверки требуют дисплея и рабочего графического backend.
 Расширенные сценарии могут выполняться долго. Исторические результаты и

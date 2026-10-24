@@ -387,8 +387,11 @@ build/
 
 # Previous local ZIP bundles are no longer used for distribution.
 assets/terrain-hd/archives/*.zip
-# Deterministic native payloads are rebuilt from calibrated PNG sources.
+# Local native HD cache and restored authoring sources are never committed.
 res-hd/
+/data/res-hd/
+/data/hd-unpack-*/
+/assets/terrain-hd/**/*.png
 
 # Restored locally from the verified .json.gz; exceeds GitHub's file limit.
 /assets/terrain-hd/expanded/native-matrices-clothing-forty-fifth.json

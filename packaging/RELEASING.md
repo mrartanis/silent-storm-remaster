@@ -61,7 +61,10 @@ audio-device compatibility.
 
 Use a tag beginning with `hd-`, for example `hd-v0.1`; it does not match the
 engine workflow's `v*` trigger. Build the native runtime pack locally from the
-approved PNGs, with Python 3.11+ and Pillow. Use a new staging directory outside
+approved PNGs, with Python 3.11+ and Pillow. First fetch and restore the frozen
+authoring sources using [data/README.md](../data/README.md). Ordinary Game builds
+install the existing LFS runtime archive and never regenerate PNG textures.
+Use a new staging directory outside
 the checkout. From the checkout, for example:
 
 ```powershell
