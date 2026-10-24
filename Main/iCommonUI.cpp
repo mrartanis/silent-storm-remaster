@@ -26,12 +26,35 @@
 #include "UIWrap.h"
 #include "iMission.h"
 #include "iCommonUI.h"
+#include "PerkToolTip.h"
 #include "RWGame.h"
 #include "iGameStates.h"
 #include "iActionDecorator.h"
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NUI
 {
+////////////////////////////////////////////////////////////////////////////////////////////////////
+static void SetPerkParam(CToolTip* tip, float value, const wstring& points, const wstring& percent)
+{
+    tip->SetVal(points, int(value));
+    if (value > 1.f)
+        value -= 1.f;
+    tip->SetVal(percent, Float2Int(value * 100.f));
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+CToolTip* CreatePerkToolTip(CWindow* parent, NDb::CDBPerk* perk)
+{
+    CToolTip* tip = new CToolTip(SWindowInfo(parent, SPoint(0, 0), SPoint(0, 0), "tooltip", STYLE_ENABLED));
+    if (IsValid(perk->pToolTip)) {
+        tip->SetText(GetDBString(perk->pToolTip));
+        if (!perk->params.empty())
+            SetPerkParam(tip, perk->params[0], L"paramonepoint", L"paramoneperc");
+        if (perk->params.size() >= 2)
+            SetPerkParam(tip, perk->params[1], L"paramtwopoint", L"paramtwoperc");
+    } else
+        tip->SetText(NStr::ToUnicode(perk->szUserName));
+    return tip;
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float CalcFlashCoeff( float fCoeff, float fTargetCoeff, const STime &sTime, const STime &sFlashTime, const STime &sMorphTime )
 {

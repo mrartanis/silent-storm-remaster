@@ -8,6 +8,8 @@
 #include "../Main/wMain.h"
 #include "../Main/wUnitGroup.h"
 #include "../Main/iCommonUI.h"
+#include "../Main/PerkToolTip.h"
+#include "../DBFormat/DataPerk.h"
 #include "../Main/GView.h"
 #include "../Main/iMission.h"
 #include "../Main/iGameStates.h"
@@ -292,6 +294,44 @@ static void CompletedZoneRecommendation()
     firstClue->SetDestroyed(false);
     tracker->BlockZone(first);
     Require(!tracker->GetRecommendedZone(player), "blocked mission produced a recommendation");
+}
+
+static void PerkTooltipParameters()
+{
+    CObj<NDb::CDBPerk> perk = new NDb::CDBPerk;
+    CObj<NDb::CString> description = new NDb::CString;
+    description->szStr = L"<value paramonepoint> <value paramoneperc> <value paramtwopoint> <value paramtwoperc>";
+    perk->pToolTip = description;
+    perk->params = {1.256f, .346f};
+    CObj<NUI::CToolTip> tooltip = NUI::CreatePerkToolTip(nullptr, perk);
+    auto* text = dynamic_cast<NUI::CText*>(tooltip->GetChildByID(""));
+    Require(text && text->GetText() == description->szStr, "perk tooltip lost its localized description");
+    wstring value;
+    Require(text->GetVal(L"paramonepoint", &value) && value == L"1",
+        "perk tooltip omitted its numeric point parameter");
+    Require(text->GetVal(L"paramoneperc", &value) && value == L"26", "perk tooltip percentage did not round its multiplier delta");
+    Require(text->GetVal(L"paramtwopoint", &value) && value == L"0", "perk tooltip point parameter did not truncate");
+    Require(text->GetVal(L"paramtwoperc", &value) && value == L"35", "perk tooltip fractional percentage is incorrect");
+    Require(perk->params == vector<float>({1.256f, .346f}), "tooltip formatting changed perk mechanics");
+    perk->params = {2.f, -.4f};
+    tooltip = NUI::CreatePerkToolTip(nullptr, perk);
+    text = dynamic_cast<NUI::CText*>(tooltip->GetChildByID(""));
+    Require(text->GetVal(L"paramoneperc", &value) && value == L"100", "perk tooltip multiplier percentage is incorrect");
+    Require(text->GetVal(L"paramtwoperc", &value) && value == L"-40", "perk tooltip negative percentage is incorrect");
+    perk->params = {1.f};
+    tooltip = NUI::CreatePerkToolTip(nullptr, perk);
+    text = dynamic_cast<NUI::CText*>(tooltip->GetChildByID(""));
+    Require(text->GetVal(L"paramoneperc", &value) && value == L"100", "perk tooltip changed the exact-one percentage boundary");
+    Require(!text->GetVal(L"paramtwopoint", &value), "single-parameter perk acquired a second substitution");
+    perk->params.clear();
+    tooltip = NUI::CreatePerkToolTip(nullptr, perk);
+    text = dynamic_cast<NUI::CText*>(tooltip->GetChildByID(""));
+    Require(!text->GetVal(L"paramonepoint", &value), "parameter-free perk inherited a numeric substitution");
+    perk->pToolTip = nullptr;
+    perk->szUserName = "Fallback perk";
+    tooltip = NUI::CreatePerkToolTip(nullptr, perk);
+    text = dynamic_cast<NUI::CText*>(tooltip->GetChildByID(""));
+    Require(text && text->GetText() == L"Fallback perk", "perk tooltip lost its name fallback");
 }
 
 static void TemporaryGroups()
@@ -1678,6 +1718,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "decal-projection")) DecalProjection();
         else if (!std::strcmp(mode, "partial-reference-import") && argc == 3) PartialReferenceImport(argv[2]);
         else if (!std::strcmp(mode, "completed-zone-recommendation")) CompletedZoneRecommendation();
+        else if (!std::strcmp(mode, "perk-tooltip-parameters")) PerkTooltipParameters();
         else if (!std::strcmp(mode, "nearest-invalid")) InvalidNearestPosition();
         else if (!std::strcmp(mode, "nearest-empty")) EmptyNearestPosition();
         else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();

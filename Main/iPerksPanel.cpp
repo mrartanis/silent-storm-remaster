@@ -19,6 +19,7 @@
 #include "iMission.h"
 #include "Interface.h"
 #include "iCommonUI.h"
+#include "PerkToolTip.h"
 #include "iPerksPanel.h"
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NUI
@@ -67,8 +68,7 @@ CPerkButton::CPerkButton( const SWindowInfo &sInfo, NRPG::CPerk *_pPerk ):
 	AddImageState( STATE_DISABLED_AVAILABLE, pDBPerk->pIconDisabled );
 	AddImageState( STATE_DISABLED_AVAILABLE_HOVER, pDBPerk->pIconDisabled, NGfx::SPixel8888( 0x7F, 0x7F, 0xFF, 0xFF ) );
 
-	CPtr<CToolTip> pToolTip = new CToolTip( SWindowInfo( GetInterface(), SPoint( 0, 0 ), SPoint( 0, 0 ), "tooltip", STYLE_ENABLED ) );
-	pToolTip->SetText( GetDBString( pDBPerk->pToolTip ) );
+	CPtr<CToolTip> pToolTip = CreatePerkToolTip( GetInterface(), pDBPerk );
 	SetToolTip( pToolTip );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
