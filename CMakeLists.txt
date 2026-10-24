@@ -97,6 +97,9 @@ add_executable(PortablePackageIndexTests "${root}/diagnostics/PortablePackageInd
 target_link_libraries(PortablePackageIndexTests PRIVATE s2_portable_package)
 target_compile_features(PortablePackageIndexTests PRIVATE cxx_std_17)
 enable_testing()
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+add_test(NAME UpstreamRegistrationTests COMMAND "${Python3_EXECUTABLE}"
+  "${root}/diagnostics/UpstreamRegistrationTests.py")
 include("${root}/cmake/VectorFonts.cmake")
 add_executable(DisplayGeometryTests "${root}/diagnostics/DisplayGeometryTests.cpp")
 target_compile_features(DisplayGeometryTests PRIVATE cxx_std_17)

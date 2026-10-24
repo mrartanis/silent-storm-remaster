@@ -46,3 +46,12 @@ mounted gun modes, sniper fire, partial DB import, clues/route, tooltips,
 ragdoll rotation, negative bounds, mechanical footsteps, dialogue edge cases.
 После них пройти все остальные pending/split/retail/adapt строки ведомости.
 Нельзя считать задачу завершенной только по двадцати приоритетным находкам.
+
+## Регистрация Linux и Windows
+
+Новые регрессии подключены к обеим веткам CMake. Проверка
+`UpstreamRegistrationTests.py` сначала выявила 16 отсутствующих Linux
+регистраций, затем подтвердила совпадение 47 точек входа. Windows CTest:
+52/52, включая эту проверку и тесты с оригинальными ресурсами.
+Linux CMake также успешно сконфигурирован; полная сборка выполняется
+в существующем каталоге без создания дополнительной копии.
