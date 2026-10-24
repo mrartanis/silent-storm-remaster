@@ -77,13 +77,11 @@ NAI::SPosition GetNearestPosition( CVec3 ptPos, IPathNetwork *_pPathNetwork, boo
 		{
 			ASSERT(0); // No position found near search place
 			ASSERT( !vNearestPlaces.empty() );
+			SPosition fallback;
+			fallback.SetNetwork( pPathNetwork );
 			if ( !vNearestPlaces.empty() )
-			{
-				SPosition sPlace;
-				sPlace.p = vNearestPlaces[0];
-				sPlace.SetNetwork( pPathNetwork );
-				return sPlace;
-			}
+				fallback.p = vNearestPlaces[0];
+			return fallback;
 		}
 	}
 	return sNearestPlace;

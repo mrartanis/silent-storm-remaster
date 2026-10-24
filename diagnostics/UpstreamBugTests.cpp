@@ -17,6 +17,7 @@
 #include "../Main/wUnitCommands.h"
 #include "../Main/wUICommands.h"
 #include "../Main/aiGrid.h"
+#include "../Main/aiNearestPosition.h"
 #include "../Main/aiLocker.h"
 #include "../Main/wUnitServer.h"
 #include "../Main/RPGItem.h"
@@ -77,6 +78,26 @@ static void Require(bool value, const char* message)
     if (!value) throw std::runtime_error(message);
 }
 
+
+class EmptySearchNetwork: public NAI::CPathNetwork
+{
+    OBJECT_BASIC_METHODS(EmptySearchNetwork);
+public:
+    int queries = 0;
+    void GetNearPlaces(const SSphere&, vector<NAI::SPathPlace>* places, bool) override {
+        Require(++queries <= 8, "nearest-position search continued beyond its maximum radius on an empty grid");
+        places->clear();
+    }
+};
+
+static void EmptyNearestPosition()
+{
+    CObj<EmptySearchNetwork> network = new EmptySearchNetwork;
+    const auto result = NAI::GetNearestPosition(VNULL3, network);
+    Require(result.p == NAI::SPathPlace() && result.GetNetwork() == network.GetPtr(),
+        "empty nearest-position search returned an unrelated grid or a valid tile");
+    Require(network->queries == 8, "nearest-position search skipped its bounded fallback attempts");
+}
 
 class RagdollRestorationProbe: public NAnimation::CAParticle
 {
@@ -1507,6 +1528,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "sniping-aim")) SnipingAim();
         else if (!std::strcmp(mode, "decal-rebuild")) DecalRebuild();
         else if (!std::strcmp(mode, "decal-projection")) DecalProjection();
+        else if (!std::strcmp(mode, "nearest-empty")) EmptyNearestPosition();
         else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();
         else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
