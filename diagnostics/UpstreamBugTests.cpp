@@ -689,7 +689,7 @@ static ShotCommandSnapshot ReadStartedShot(NWorld::CExecShootUnit* shot,
     return snapshot;
 }
 
-static void SniperHeldAim(const char* databasePath, const char* resourcePath)
+static void SniperHeldAim(const char* databasePath, const char* resourcePath, bool targetlessProbe = false)
 {
     auto world = FixtureWorld(databasePath, resourcePath);
     vector<CPtr<NWorld::CUnit>> units;
@@ -731,6 +731,45 @@ static void SniperHeldAim(const char* databasePath, const char* resourcePath)
         unit->SetState(new NWorld::CUnitStateNormal(unit));
     }
     Require(actor && target && state, "fixture contains no currently shootable held sniper target");
+    if (targetlessProbe) {
+        auto check = [&](CObjectBase* requestedTarget, NAI::EHitLocation point, int extraAP,
+                         bool onlyPrepare, NAI::EHitLocation expectedPoint) {
+            CObj<NRPG::CWeaponItem> weapon = new NRPG::CWeaponItem(rifle);
+            auto* inventory = actor->GetUnitRPG()->GetInventory();
+            Require(inventory->Equip(NDb::SLOT_1, weapon) && inventory->Activate(NDb::SLOT_1) &&
+                weapon->SetShootMode(NDb::SM_Snipe), "fixture could not reset the sniper magazine");
+            CObj<NWorld::CCmdShootObject> command = new NWorld::CCmdShootObject(requestedTarget, extraAP, point);
+            command->bOnlyPrepareToShoot = onlyPrepare;
+            NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
+            CObj<NWorld::CCommandExecute> executor = state->CreateExecutor(command, &result);
+            auto* shot = executor ? FindQueuedUnitShot(executor) : nullptr;
+            Require(shot && result == NWorld::UCR_OK, "targetless sniper Fire did not resolve the held target");
+            CObj<NWorld::CExecShootUnit> reference = new NWorld::CExecShootUnit(actor, target, expectedPoint, extraAP, onlyPrepare);
+            Require(shot->GetStartAP() == reference->GetStartAP(), "sniper Fire lost the extra-AP preview cost");
+            const int beforeAP = actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP);
+            const auto snapshot = ReadStartedShot(shot, actor, target);
+            Require(snapshot.target.GetPtr() == target && snapshot.hitLocation == expectedPoint,
+                "sniper Fire resolved the wrong target or aim point");
+            Require(snapshot.base.onlyPrepare == onlyPrepare, "sniper Fire lost its prepare-only command flag");
+            if (onlyPrepare) {
+                Require(snapshot.base.extraAP == extraAP, "sniper preparation lost its extra-AP parameter");
+                Require(actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == beforeAP,
+                    "sniper preparation spent firing action points");
+            }
+        };
+        check(nullptr, NAI::HL_ANY, 7, true, NAI::HL_HEAD);
+        check(target, NAI::HL_ANY, 5, true, NAI::HL_HEAD);
+        check(nullptr, NAI::HL_BODY, 3, true, NAI::HL_BODY);
+        CObj<NWorld::CCmdShootObject> wrongTarget = new NWorld::CCmdShootObject(actor, 0);
+        NWorld::EUnitCommandResult result = NWorld::UCR_OK;
+        CObj<NWorld::CCommandExecute> rejected = state->CreateExecutor(wrongTarget, &result);
+        Require(!rejected && result == NWorld::UCR_UNAVAILABLE, "sniper Fire retargeted an unrelated explicit target");
+        state = new NWorld::CUnitStateSniping(actor, target, 30, NAI::HL_ANY);
+        actor->SetState(state);
+        check(nullptr, NAI::HL_ANY, 0, true, NAI::HL_ANY);
+        check(nullptr, NAI::HL_HEAD, 0, false, NAI::HL_HEAD);
+        return;
+    }
     CObj<NWorld::CCmdSnipeAttack> command = new NWorld::CCmdSnipeAttack;
     NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
     CObj<NWorld::CCommandExecute> executor = state->CreateExecutor(command, &result);
@@ -1999,6 +2038,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "nearest-empty")) EmptyNearestPosition();
         else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();
         else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();
+        else if (!std::strcmp(mode, "sniper-targetless-probe") && argc == 4) SniperHeldAim(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "sniper-held-aim") && argc == 4) SniperHeldAim(argv[2], argv[3]);
         else if (!std::strcmp(mode, "hide-cooldown") && argc == 4) HideCooldown(argv[2], argv[3]);
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);

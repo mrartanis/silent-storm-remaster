@@ -265,6 +265,7 @@ void CUnitStateSniping::Segment()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CCommandExecute* CUnitStateSniping::CreateExecutor( CCmd *pCmd, EUnitCommandResult *pResult ) 
 {
+	CObj<CCmd> pHold = pCmd;
 	if ( IsCriticalsFailCommand( pCmd, pResult ) )
 		return 0;
 
@@ -280,8 +281,13 @@ CCommandExecute* CUnitStateSniping::CreateExecutor( CCmd *pCmd, EUnitCommandResu
 			CDynamicCast<CCmdShootObject> pShootObject(pCmd);
 			if (pShootObject)
 			{
-				if (IsValid(pShootObject->pTarget) && (dynamic_cast<CUnitServer*>(pShootObject->pTarget.GetPtr()) == pTarget))
-					return NWorld::CreateExecutor(pUS, pShootObject, pResult);
+				if ( !IsValid( pShootObject->pTarget ) || pShootObject->pTarget.GetPtr() == static_cast<CObjectBase*>(pTarget.GetPtr()) )
+				{
+					NAI::EHitLocation eHL = pShootObject->eHL == NAI::HL_ANY ? hitLocation : pShootObject->eHL;
+					CPtr<CCmdShootObject> pShoot = new CCmdShootObject( pTarget, pShootObject->nExtraAttackAP, eHL );
+					pShoot->bOnlyPrepareToShoot = pShootObject->bOnlyPrepareToShoot;
+					return NWorld::CreateExecutor( pUS, pShoot, pResult );
+				}
 			}
 		}
 	}
