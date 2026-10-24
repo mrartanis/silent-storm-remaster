@@ -23,6 +23,9 @@ the local cache through a hard link. The game only reads them.
 
 `S2_BUILD_HD_TEXTURES=OFF` skips HD preparation entirely, as before. Engine
 release CI keeps HD disabled and does not need LFS or 7-Zip.
+The manual **Verify frozen HD storage** workflow checks the default LFS selection,
+extracts and verifies the published runtime, exercises CMake cache reuse, and
+tests corruption recovery without fetching authoring PNGs.
 
 ## Authoring sources
 

@@ -1,0 +1,78 @@
+name: Verify frozen HD storage
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - name: Ensure 7-Zip is available
+        run: |
+          if ! command -v 7zz && ! command -v 7z; then
+            sudo apt-get update
+            sudo apt-get install -y 7zip
+          fi
+      - name: Fetch the default runtime-only LFS selection
+        run: git lfs pull
+      - name: Check source archives remain pointers
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('data/hd-sources')
+          manifest = json.loads((root / 'manifest.json').read_text())
+          for part in manifest['archives']:
+              path = root / part['file']
+              assert path.stat().st_size < 200
+              assert path.read_text().startswith('version https://git-lfs.github.com/spec/v1\n')
+          print('All seven source ZIPs remain LFS pointers')
+          PY
+      - name: Verify extraction and unchanged-cache reuse
+        run: |
+          python3 packaging/prepare_hd.py
+          cp data/res-hd/.prepared-hd.json "$RUNNER_TEMP/prepared-hd-before.json"
+          python3 packaging/prepare_hd.py
+          cmp data/res-hd/.prepared-hd.json "$RUNNER_TEMP/prepared-hd-before.json"
+      - name: Check CMake preparation without PNG authoring dependencies
+        run: |
+          mkdir -p "$RUNNER_TEMP/hd-cmake"
+          cat > "$RUNNER_TEMP/hd-cmake/CMakeLists.txt" <<'CMAKE'
+          cmake_minimum_required(VERSION 3.21)
+          project(HDStorageCheck NONE)
+          set(root "$ENV{GITHUB_WORKSPACE}")
+          add_executable(Game IMPORTED GLOBAL)
+          set_target_properties(Game PROPERTIES IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/bin/Game")
+          include("${root}/cmake/HDTextures.cmake")
+          s2_build_hd_textures(Game)
+          CMAKE
+          cmake -S "$RUNNER_TEMP/hd-cmake" -B "$RUNNER_TEMP/hd-cmake/build"
+          cmake --build "$RUNNER_TEMP/hd-cmake/build" --target S2HDTextures
+          cmake --build "$RUNNER_TEMP/hd-cmake/build" --target S2HDTextures
+      - name: Test cache repair and source-restoration safeguards
+        run: python3 diagnostics/HDStorageTests.py
+      - name: Record verified release identity
+        run: |
+          python3 - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          index = json.loads(Path('data/hd-runtime/hd-v0.1-index.json').read_text())
+          report = {'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip(),
+                    'release': index['release'], 'manifest_sha256': index['manifestSha256'],
+                    'native_archives': index['nativeArchiveCount'], 'native_bytes': index['nativeBytes'],
+                    'source_archives_downloaded': 0, 'runtime_parts_downloaded': len(index['parts']),
+                    'fresh_extraction_verified': True, 'repeated_build_used_cache': True}
+          Path('hd-storage-verification.json').write_text(json.dumps(report, indent=2) + '\n')
+          print(json.dumps(report, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hd-storage-verification
+          path: hd-storage-verification.json
