@@ -275,7 +275,7 @@ CCommandExecute* CUnitStateSniping::CreateExecutor( CCmd *pCmd, EUnitCommandResu
 	else {
 		CDynamicCast<CCmdSnipeAttack> pSnipeAttack(pCmd);
 		if (pSnipeAttack)
-			return NWorld::CreateExecutor(pUS, new CCmdShootObject(pTarget, 0), pResult);
+			return NWorld::CreateExecutor(pUS, new CCmdShootObject(pTarget, 0, hitLocation), pResult);
 		else {
 			CDynamicCast<CCmdShootObject> pShootObject(pCmd);
 			if (pShootObject)

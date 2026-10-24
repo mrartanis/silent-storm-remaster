@@ -634,6 +634,113 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     return world;
 }
 
+static NWorld::CExecShootUnit* FindQueuedUnitShot(NWorld::CCommandExecute* executor)
+{
+    if (auto* shot = dynamic_cast<NWorld::CExecShootUnit*>(executor)) return shot;
+    NWorld::CExecShootUnit* found = nullptr;
+    CStructureNetworkContext graph;
+    graph.include = [&](CObjectBase* object) {
+        if (auto* shot = dynamic_cast<NWorld::CExecShootUnit*>(object)) {
+            found = shot;
+            return false;
+        }
+        return dynamic_cast<NWorld::CSimpleExecQueue*>(object) != nullptr;
+    };
+    CObj<NWorld::CCommandExecute> root = executor;
+    CMemoryStream traversal;
+    { CStructureSaver writer(traversal, CStructureSaver::WRITE, &graph); writer.Add(1, &root); }
+    return found;
+}
+
+struct ShotBaseSnapshot
+{
+    int extraAP = 0;
+    bool onlyPrepare = false;
+    int operator&(CStructureSaver& saver) {
+        saver.Add(2, &extraAP); saver.Add(12, &onlyPrepare); return 0;
+    }
+};
+struct ShotCommandSnapshot
+{
+    ShotBaseSnapshot base;
+    CPtr<NWorld::CUnitServer> target;
+    NAI::EHitLocation hitLocation = NAI::HL_ANY;
+};
+
+static ShotCommandSnapshot ReadStartedShot(NWorld::CExecShootUnit* shot,
+    NWorld::CUnitServer* actor, NWorld::CUnitServer* target)
+{
+    // Start fills the shot/ray bookkeeping before inspecting a valid in-flight
+    // snapshot. No animation labels or world segments fire a bullet here.
+    shot->Start();
+    CStructureNetworkContext references;
+    references.externalReferences = true;
+    references.ids[actor] = 1; references.refs[1] = actor;
+    references.ids[target] = 2; references.refs[2] = target;
+    references.nextID = 100;
+    references.include = [](CObjectBase*) { return false; };
+    CMemoryStream state;
+    { CStructureSaver writer(state, CStructureSaver::WRITE, &references);
+      static_cast<CObjectBase*>(shot)->operator&(writer); }
+    state.Seek(0);
+    ShotCommandSnapshot snapshot;
+    { CStructureSaver reader(state, CStructureSaver::READ, &references);
+      reader.Add(1, &snapshot.base); reader.Add(2, &snapshot.target); reader.Add(3, &snapshot.hitLocation); }
+    return snapshot;
+}
+
+static void SniperHeldAim(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NDb::CRPGWeapon* rifle = nullptr;
+    CDBIterator<NDb::CRPGWeapon> weapons(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while (weapons.MoveNext()) {
+        auto* candidate = weapons.Get();
+        if (candidate->shootModes[NDb::SM_Snipe] && !candidate->bBazookaLogic &&
+                IsValid(candidate->pItem) && IsValid(candidate->pInnerClip)) {
+            rifle = candidate; break;
+        }
+    }
+    Require(rifle != nullptr, "fixture database has no sniper-capable firearm");
+    NWorld::CUnitServer* actor = nullptr;
+    NWorld::CUnitServer* target = nullptr;
+    CObj<NWorld::CUnitStateSniping> state;
+    for (auto& candidate : units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(candidate.GetPtr());
+        if (!unit || !unit->CanFight() || unit->IsEmptyPK() || unit->IsWearingPK()) continue;
+        CObj<NRPG::CWeaponItem> weapon = new NRPG::CWeaponItem(rifle);
+        auto* inventory = unit->GetUnitRPG()->GetInventory();
+        if (!inventory->Equip(NDb::SLOT_1, weapon) || !inventory->Activate(NDb::SLOT_1) ||
+                !weapon->SetShootMode(NDb::SM_Snipe)) continue;
+        for (auto& other : units) {
+            auto* victim = dynamic_cast<NWorld::CUnitServer*>(other.GetPtr());
+            if (!victim || victim == unit || !victim->CanFight() || victim->GetPlayer() != unit->GetPlayer()) continue;
+            CObj<NWorld::CUnitStateSniping> probe = new NWorld::CUnitStateSniping(unit, victim, 30, NAI::HL_HEAD);
+            unit->SetState(probe);
+            CObj<NWorld::CCmdShootObject> explicitShot = new NWorld::CCmdShootObject(victim, 0, NAI::HL_HEAD);
+            NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
+            CObj<NWorld::CCommandExecute> executor = probe->CreateExecutor(explicitShot, &result);
+            auto* shot = executor ? FindQueuedUnitShot(executor) : nullptr;
+            if (shot && result == NWorld::UCR_OK && shot->CanDoIt(unit->GetPosition()) == NWorld::UCR_OK) {
+                actor = unit; target = victim; state = probe; break;
+            }
+        }
+        if (actor) break;
+        unit->SetState(new NWorld::CUnitStateNormal(unit));
+    }
+    Require(actor && target && state, "fixture contains no currently shootable held sniper target");
+    CObj<NWorld::CCmdSnipeAttack> command = new NWorld::CCmdSnipeAttack;
+    NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
+    CObj<NWorld::CCommandExecute> executor = state->CreateExecutor(command, &result);
+    auto* shot = executor ? FindQueuedUnitShot(executor) : nullptr;
+    Require(shot && result == NWorld::UCR_OK, "sniper Fire did not create a unit shot");
+    const auto snapshot = ReadStartedShot(shot, actor, target);
+    Require(snapshot.hitLocation == NAI::HL_HEAD, "sniper Fire discarded the held called-shot location");
+    Require(snapshot.target.GetPtr() == target, "sniper Fire changed its held target");
+}
+
 static void HideCooldown(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -1892,6 +1999,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "nearest-empty")) EmptyNearestPosition();
         else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();
         else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();
+        else if (!std::strcmp(mode, "sniper-held-aim") && argc == 4) SniperHeldAim(argv[2], argv[3]);
         else if (!std::strcmp(mode, "hide-cooldown") && argc == 4) HideCooldown(argv[2], argv[3]);
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
         else if (!std::strcmp(mode, "mounted-mode-button") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], 3);
