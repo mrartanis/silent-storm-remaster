@@ -1066,18 +1066,22 @@ public:
     CObj<NGame::CStateWait> state = new NGame::CStateWait;
     NGame::EActionIconsSet icons = NGame::AIS_MAIN;
     bool attackAvailable = true;
+    bool mixedActionFixture = false;
+    bool togglesAvailable = true;
     void Step() override {}
     bool ProcessEvent(const NInput::SEvent&) override { return false; }
     void GetSelectedUnits(vector<CPtr<NGame::IUnitTracker>>* units) const override { *units = selected; }
     NGame::IState* GetState() const override { return state; }
-    int GetUnitsState() override { return NGame::N_UNITSTATE_CANNON; }
-    NWorld::CUnit::EState GetUnitsWorldState() override { return NWorld::CUnit::ST_MACHINE_GUN; }
+    int GetUnitsState() override { return mixedActionFixture ? NGame::N_UNITSTATE_DEFAULT : NGame::N_UNITSTATE_CANNON; }
+    NWorld::CUnit::EState GetUnitsWorldState() override { return mixedActionFixture ? NWorld::CUnit::ST_NORMAL_MELEE : NWorld::CUnit::ST_MACHINE_GUN; }
     NGame::EActionIconsSet GetActionIconsSet() const override { return icons; }
     void SetActionIconsSet(NGame::EActionIconsSet value) override { icons = value; }
     void GetActionInfo(NGame::EUnitAction action, NGame::SActionInfo* info) override {
         *info = NGame::SActionInfo();
         info->bValid = info->bOk = true;
-        info->bAvailable = action != NGame::UA_ATTACK || attackAvailable;
+        info->bAvailable = mixedActionFixture
+            ? togglesAvailable && (action == NGame::UA_HIDE || action == NGame::UA_STRAFE)
+            : action != NGame::UA_ATTACK || attackAvailable;
         info->eResult = NWorld::UCR_OK;
     }
 };
@@ -1095,35 +1099,47 @@ public:
     }
 };
 
+class IconBarFixture
+{
+public:
+    CObj<IconBarProbe> bar;
+    CObj<NDb::CUIContainer> layout;
+    vector<CObj<NDb::CUIControl>> controls;
+    vector<CObj<NUI::CComplexButton>> buttons;
+    explicit IconBarFixture(NGame::IMission* mission) {
+        bar = new IconBarProbe(
+            NUI::SWindowInfo(nullptr, NUI::SPoint(0, 0), NUI::SPoint(400, 80), "mounted-mode-test"), mission);
+        layout = new NDb::CUIContainer();
+        layout->nWidth = 400; layout->nHeight = 80;
+        for (int i = 0; i < 8; ++i) {
+            CObj<NDb::CUIControl> control = new NDb::CUIControl();
+            control->szID = "icon_" + std::to_string(i + 1);
+            control->type = NDb::UI_WINDOW;
+            control->nDepth = i; control->bVisible = true;
+            control->rect = CTRect<int>(i % 4 * 100, i / 4 * 40, i % 4 * 100 + 100, i / 4 * 40 + 40);
+            controls.push_back(control); layout->controls.push_back(control.GetPtr());
+        }
+        NUI::LoadTemplate(bar, layout);
+        for (int i = 0; i < 8; ++i) {
+            auto* button = dynamic_cast<NUI::CComplexButton*>(bar->GetChildByID("icon_" + std::to_string(i + 1)));
+            Require(button != nullptr, "fixture icon template did not build all action buttons");
+            buttons.emplace_back(button);
+        }
+        bar->DetachRendering();
+        CMemoryStream state;
+        int worldState = mission->GetUnitsWorldState();
+        { CStructureSaver writer(state, CStructureSaver::WRITE); writer.Add(6, &worldState); }
+        state.Seek(0);
+        { CStructureSaver reader(state, CStructureSaver::READ);
+          static_cast<CObjectBase*>(bar.GetPtr())->operator&(reader); }
+    }
+};
+
 static void MountedModeButton(WeaponIconMission* mission)
 {
-    CObj<IconBarProbe> bar = new IconBarProbe(
-        NUI::SWindowInfo(nullptr, NUI::SPoint(0, 0), NUI::SPoint(400, 80), "mounted-mode-test"), mission);
-    CObj<NDb::CUIContainer> layout = new NDb::CUIContainer();
-    layout->nWidth = 400; layout->nHeight = 80;
-    vector<CObj<NDb::CUIControl>> controls;
-    for (int i = 0; i < 8; ++i) {
-        CObj<NDb::CUIControl> control = new NDb::CUIControl();
-        control->szID = "icon_" + std::to_string(i + 1);
-        control->type = NDb::UI_WINDOW;
-        control->nDepth = i; control->bVisible = true;
-        control->rect = CTRect<int>(i % 4 * 100, i / 4 * 40, i % 4 * 100 + 100, i / 4 * 40 + 40);
-        controls.push_back(control); layout->controls.push_back(control.GetPtr());
-    }
-    NUI::LoadTemplate(bar, layout);
-    vector<CObj<NUI::CComplexButton>> buttons;
-    for (int i = 0; i < 8; ++i) {
-        auto* button = dynamic_cast<NUI::CComplexButton*>(bar->GetChildByID("icon_" + std::to_string(i + 1)));
-        Require(button != nullptr, "fixture icon template did not build all action buttons");
-        buttons.emplace_back(button);
-    }
-    bar->DetachRendering();
-    CMemoryStream state;
-    int worldState = mission->GetUnitsWorldState();
-    { CStructureSaver writer(state, CStructureSaver::WRITE); writer.Add(6, &worldState); }
-    state.Seek(0);
-    { CStructureSaver reader(state, CStructureSaver::READ);
-      static_cast<CObjectBase*>(bar.GetPtr())->operator&(reader); }
+    IconBarFixture fixture(mission);
+    auto& bar = fixture.bar;
+    auto& buttons = fixture.buttons;
     bar->Draw(0, nullptr);
     Require(buttons[4]->GetStyle(NUI::STYLE_VISIBLE) && buttons[4]->GetStyle(NUI::STYLE_ENABLED),
         "mounted-gun action bar omitted the fire-mode submenu button");
@@ -1141,6 +1157,52 @@ static void MountedModeButton(WeaponIconMission* mission)
             buttons[1]->GetStyle(NUI::STYLE_VISIBLE) && buttons[1]->IsChecked(),
         "actual mounted-gun mode controls did not check the mounted aimed mode");
     mission->icons = NGame::AIS_MAIN;
+}
+
+
+static void MixedActionButton(const char* databasePath, const char* resourcePath, bool hide)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    vector<NWorld::CUnitServer*> actors;
+    for (auto& candidate : units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(candidate.GetPtr());
+        if (unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) actors.push_back(unit);
+        if (actors.size() == 2) break;
+    }
+    Require(actors.size() == 2, "mixed-button fixture needs two ordinary actors");
+    CObj<WeaponIconMission> mission = new WeaponIconMission;
+    mission->mixedActionFixture = true;
+    vector<CObj<NGame::CUnitTracker>> trackers;
+    for (auto* actor : actors) {
+        trackers.emplace_back(new NGame::CUnitTracker(mission, actor));
+        mission->selected.push_back(trackers.back().GetPtr());
+    }
+    IconBarFixture fixture(mission);
+    auto& button = fixture.buttons[hide ? 7 : 6];
+    auto setGroup = [&](bool first, bool second) {
+        for (int i = 0; i < 2; ++i)
+            if (hide) actors[i]->GetUnitRPG()->SetHiding(i == 0 ? first : second);
+            else actors[i]->SetStrafe(i == 0 ? first : second);
+        fixture.bar->Draw(0, nullptr);
+    };
+    setGroup(true, false);
+    Require(button->GetStyle(NUI::STYLE_VISIBLE) && button->GetStyle(NUI::STYLE_ENABLED) && !button->IsChecked(),
+        hide ? "Hide button disappeared for a selection with mixed hiding states"
+             : "Strafe button disappeared for a selection with mixed strafe states");
+    setGroup(false, true);
+    Require(button->GetStyle(NUI::STYLE_VISIBLE) && !button->IsChecked(), "mixed toggle depends on selection order");
+    setGroup(true, true);
+    Require(button->GetStyle(NUI::STYLE_VISIBLE) && button->IsChecked(), "all-active selection did not check its toggle");
+    setGroup(false, false);
+    Require(button->GetStyle(NUI::STYLE_VISIBLE) && !button->IsChecked(), "all-inactive selection did not uncheck its toggle");
+    mission->togglesAvailable = false;
+    fixture.bar->Draw(0, nullptr);
+    Require(!button->GetStyle(NUI::STYLE_VISIBLE), "unavailable group toggle remained visible");
+    mission->togglesAvailable = true;
+    setGroup(true, false);
+    Require(button->GetStyle(NUI::STYLE_VISIBLE), "mixed toggle did not return after becoming available");
 }
 
 static void EffectiveWeaponMode(const char* databasePath, const char* resourcePath, int checkIcons = 0)
@@ -2299,6 +2361,8 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "movement-critical-probe") && argc == 4) MovementCriticalProbe(argv[2], argv[3]);
         else if (!std::strcmp(mode, "hide-cooldown") && argc == 4) HideCooldown(argv[2], argv[3]);
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
+        else if (!std::strcmp(mode, "mixed-hide-button") && argc == 4) MixedActionButton(argv[2], argv[3], true);
+        else if (!std::strcmp(mode, "mixed-strafe-button") && argc == 4) MixedActionButton(argv[2], argv[3], false);
         else if (!std::strcmp(mode, "mounted-mode-button") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], 3);
         else if (!std::strcmp(mode, "mounted-weapon-submenu") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], 2);
         else if (!std::strcmp(mode, "mounted-weapon-mode-ui") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], true);

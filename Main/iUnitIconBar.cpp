@@ -62,50 +62,24 @@ static int GetUnitsGroupStrafe( NGame::IMission *pMission )
 {
 	vector<CPtr<NGame::IUnitTracker> > unitsSet;
 	pMission->GetSelectedUnits( &unitsSet );
-
-	int nStrafe = N_ICON_UNAVAILABLE;
-	bool bPoseSet = false;
+	if ( unitsSet.empty() )
+		return 0;
 	for ( int nTemp = 0; nTemp < unitsSet.size(); nTemp++ )
-	{
-		int nNewStrafe = 0;
-		if ( unitsSet[nTemp]->GetUnit()->IsStrafing() )
-			nNewStrafe = 1;
-
-		if ( !bPoseSet )
-		{
-			nStrafe = nNewStrafe;
-			bPoseSet = true;
-		}
-		else if ( nStrafe != nNewStrafe )
-			nStrafe = N_ICON_UNDEFAINED;
-	}
-
-	return nStrafe;
+		if ( !unitsSet[nTemp]->GetUnit()->IsStrafing() )
+			return 0;
+	return 1;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static int GetUnitsGroupHide( NGame::IMission *pMission )
 {
 	vector<CPtr<NGame::IUnitTracker> > unitsSet;
 	pMission->GetSelectedUnits( &unitsSet );
-
-	int nHide = N_ICON_UNAVAILABLE;
-	bool bSet = false;
+	if ( unitsSet.empty() )
+		return 0;
 	for ( int nTemp = 0; nTemp < unitsSet.size(); nTemp++ )
-	{
-		int nNewHide = 0;
-		if ( unitsSet[nTemp]->GetUnit()->IsHiding() )
-			nNewHide = 1;
-
-		if ( !bSet )
-		{
-			nHide = nNewHide;
-			bSet = true;
-		}
-		else if ( nHide != nNewHide )
-			nHide = N_ICON_UNDEFAINED;
-	}
-
-	return nHide;
+		if ( !unitsSet[nTemp]->GetUnit()->IsHiding() )
+			return 0;
+	return 1;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetUnitsGroupWeaponMode( NGame::IMission *pMission )
