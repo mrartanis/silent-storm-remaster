@@ -22,6 +22,11 @@
 #include "../Input/BindInternal.h"
 #include "../Main/iUnitPanel.h"
 #include "../Main/iDesktopWindow.h"
+#include "../Main/Sound.h"
+#include "../Main/iMissionDlgUI.h"
+#include "../Main/G2DView.h"
+#include "../Main/UIML.h"
+#include "../DBFormat/DataAck.h"
 #include "../Main/wUnitCommands.h"
 #include "../Main/wUICommands.h"
 #include "../Main/aiGrid.h"
@@ -1089,6 +1094,99 @@ static void LatestRouteCommand(const char* databasePath, const char* resourcePat
         "rejected retarget replaced the route retained for interruption recovery");
     Require(actor->GetPosition() == original && actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == ap,
         "retarget bookkeeping moved the actor or changed action points");
+}
+
+
+class DialogueLayoutView: public NGScene::I2DGameView
+{
+    OBJECT_BASIC_METHODS(DialogueLayoutView);
+    CObj<NGScene::CTextLocaleInfo> locale;
+    CVec2 viewport = CVec2(1024, 768);
+public:
+    DialogueLayoutView(): locale(new NGScene::CTextLocaleInfo) { locale->Setup(viewport); }
+    void CreateDynamicRects(CFuncBase<NGScene::SText>*, const CTPoint<int>&, const CTRect<int>&) override {}
+    void CreateDynamicRects(NDb::CTexture*, const CRectLayout&, const CTPoint<int>&, const CTRect<int>&) override {}
+    void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>*, const CRectLayout&, const CTPoint<int>&, const CTRect<int>&) override {}
+    CFuncBase<NGScene::SText>* CreateText(CFuncBase<wstring>*, CFuncBase<CTPoint<int>>*, bool) override { return nullptr; }
+    void CreateDynamicClearRects(const CRectLayout&, const CTPoint<int>&, const CTRect<int>&, float) override {}
+    NGScene::CTextLocaleInfo* GetLocaleInfo() const override { return locale; }
+    const CVec2& GetViewportSize() override { return viewport; }
+    void StartNewFrame() override {}
+    void Flush() override {}
+};
+
+class DialogueMissionProbe: public NGame::CMissionBase
+{
+    OBJECT_BASIC_METHODS(DialogueMissionProbe);
+public:
+    int stageEvents = 0;
+    void Step() override {}
+    bool ProcessEvent(const NInput::SEvent&) override { return false; }
+    void DoEvent(NWorld::CCommand* command) override { CObj<NWorld::CCommand> hold = command; ++stageEvents; }
+};
+
+class DialoguePagesProbe: public NUI::CMissionDlgUI
+{
+    OBJECT_NOCOPY_METHODS(DialoguePagesProbe);
+public:
+    using CMissionDlgUI::CMissionDlgUI;
+    using CMissionDlgUI::UpdatePhrases;
+    using CMissionDlgUI::SetStage;
+};
+
+static void OversizedDialogueLine(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    vector<CPtr<NWorld::CUnit>> actors;
+    world->GetAllUnits(&actors);
+    Require(!actors.empty(), "dialogue fixture has no speaker");
+    CObj<DialogueMissionProbe> mission = new DialogueMissionProbe;
+    vector<CObj<NDb::CString>> texts;
+    vector<CObj<NDb::CDBAckInfo>> records;
+    vector<CObj<NWorld::CAckEvent>> owners;
+    vector<CPtr<NWorld::CAckEvent>> phrases;
+    for (const wchar_t* value : {L"Oversized first phrase", L"Following second phrase"}) {
+        CObj<NDb::CString> text = new NDb::CString; text->szStr = value; texts.push_back(text);
+        CObj<NDb::CDBAckInfo> info = new NDb::CDBAckInfo;
+        info->pText = text; info->voices.resize(6); records.push_back(info);
+        owners.emplace_back(new NWorld::CAckEvent(1, actors.front(), info));
+        phrases.push_back(owners.back().GetPtr());
+    }
+    CObj<DialoguePagesProbe> dialog = new DialoguePagesProbe(
+        NUI::SWindowInfo(nullptr, NUI::SPoint(0, 0), NUI::SPoint(500, 100), "dialogue-test"),
+        mission, nullptr, "diagnostic", vector<CObj<NWorld::CUnit>>{}, phrases);
+    CObj<NUI::CText> text = new NUI::CText(
+        NUI::SWindowInfo(nullptr, NUI::SPoint(0, 0), NUI::SPoint(500, 1), "dialogue-text"));
+    CObj<NUI::CHoverButton> back = new NUI::CHoverButton, next = new NUI::CHoverButton, exit = new NUI::CHoverButton;
+    CStructureNetworkContext references;
+    references.externalReferences = true;
+    references.ids[text.GetPtr()] = 1; references.refs[1] = text.GetPtr();
+    references.ids[back.GetPtr()] = 2; references.refs[2] = back.GetPtr();
+    references.ids[next.GetPtr()] = 3; references.refs[3] = next.GetPtr();
+    references.ids[exit.GetPtr()] = 4; references.refs[4] = exit.GetPtr();
+    references.nextID = 100; references.include = [](CObjectBase*) { return false; };
+    CMemoryStream controls;
+    { CStructureSaver writer(controls, CStructureSaver::WRITE, &references);
+      writer.Add(14, &text); writer.Add(15, &back); writer.Add(16, &next); writer.Add(17, &exit); }
+    controls.Seek(0);
+    { CStructureSaver reader(controls, CStructureSaver::READ, &references);
+      static_cast<CObjectBase*>(dialog.GetPtr())->operator&(reader); }
+    CObj<DialogueLayoutView> view = new DialogueLayoutView;
+    CObj<NUI::IML> layout = NUI::CreateML();
+    layout->SetText(texts.front()->szStr, 0); layout->Generate(view, 500);
+    Require(layout->GetSize().y > 1, "dialogue fixture did not produce an oversized real text line");
+    dialog->UpdatePhrases(view);
+    dialog->SetStage(0);
+    Require(text->GetText().find(texts[0]->szStr) != wstring::npos,
+        "oversized dialogue line aborted subtitle pagination");
+    dialog->SetStage(1);
+    Require(text->GetText().find(texts[1]->szStr) != wstring::npos && mission->stageEvents == 2,
+        "oversized dialogue line discarded later phrases");
+    int page, phrase, offset, phase;
+    dialog->GetDisplayProgressForDiagnostics(&page, &phrase, &offset, &phase);
+    Require(page == 1 && phrase == 1 && offset == 0, "oversized dialogue fallback lost logical save progress");
+    Require(back->GetStyle(NUI::STYLE_VISIBLE) && exit->GetStyle(NUI::STYLE_VISIBLE) && !next->GetStyle(NUI::STYLE_VISIBLE),
+        "dialogue fallback did not preserve final-page navigation");
 }
 
 static void HideCooldown(const char* databasePath, const char* resourcePath)
@@ -2464,6 +2562,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "corpse-snap-failure") && argc == 4) FailedCorpseSnap(argv[2], argv[3]);
         else if (!std::strcmp(mode, "movement-critical-probe") && argc == 4) MovementCriticalProbe(argv[2], argv[3]);
         else if (!std::strcmp(mode, "latest-route-command") && argc == 4) LatestRouteCommand(argv[2], argv[3]);
+        else if (!std::strcmp(mode, "oversized-dialogue-line") && argc == 4) OversizedDialogueLine(argv[2], argv[3]);
         else if (!std::strcmp(mode, "hide-cooldown") && argc == 4) HideCooldown(argv[2], argv[3]);
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
         else if (!std::strcmp(mode, "mixed-hide-button") && argc == 4) MixedActionButton(argv[2], argv[3], true);

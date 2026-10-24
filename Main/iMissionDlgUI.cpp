@@ -414,6 +414,21 @@ void CMissionDlgUI::UpdatePhrases( NGScene::I2DGameView *pView )
 		int sourceOffset=0;
 		bool bFirstPage = true;
 		NDb::CSequence *pExpression = NDb::GetSequenceByExpression( sVoice.eExpression );
+		auto AppendPage = [&]( const wstring &pageText )
+		{
+			SAckEvent &sEvent = *parsedPhrasesSet.insert( parsedPhrasesSet.end(), SAckEvent());
+			sEvent.nSourcePhrase=sourcePhrase; sEvent.nSourceOffset=sourceOffset;
+			sEvent.pUnit = pEvent->pUnit;
+			sEvent.wsText = pageText;
+			sEvent.nPriority = pEvent->nPriority;
+			if ( bFirstPage )
+			{
+				sEvent.pSound = sVoice.pSound;
+				sEvent.pSequence = sVoice.pSequence;
+				sEvent.pExpression = pExpression;
+				bFirstPage = false;
+			}
+		};
 		do
 		{
 			pML->SetText( wsText, 0 );
@@ -441,9 +456,10 @@ void CMissionDlgUI::UpdatePhrases( NGScene::I2DGameView *pView )
 
 				if ( nCutChar == 0 )
 				{
-					csSystem << "ERROR: Text-line height bigger then dialog size!" << endl;
-					ASSERT( 0 && "Text size bigger then dialog size!" );
-					return;
+					// Keep an oversized line as one page and continue later phrases.
+					AppendPage( wsText );
+					wsText.clear();
+					continue;
 				}
 
 				int nTemp = 0, nCursor = 0;
@@ -466,18 +482,7 @@ void CMissionDlgUI::UpdatePhrases( NGScene::I2DGameView *pView )
 					nCursor++;
 					if ( nTemp == nCutChar )
 					{
-						SAckEvent &sEvent = *parsedPhrasesSet.insert( parsedPhrasesSet.end(), SAckEvent());
-						sEvent.nSourcePhrase=sourcePhrase; sEvent.nSourceOffset=sourceOffset;
-						sEvent.pUnit = pEvent->pUnit;
-						sEvent.wsText = wsText.substr( 0, nCursor );
-						sEvent.nPriority = pEvent->nPriority;
-						if ( bFirstPage )
-						{
-							sEvent.pSound = sVoice.pSound;
-							sEvent.pSequence = sVoice.pSequence;
-							sEvent.pExpression = pExpression;
-							bFirstPage = false;
-						}
+						AppendPage( wsText.substr( 0, nCursor ) );
 
 						sourceOffset += nCursor;
 						wsText = wsText.substr( nCursor );
@@ -486,18 +491,7 @@ void CMissionDlgUI::UpdatePhrases( NGScene::I2DGameView *pView )
 			}
 			else
 			{
-				SAckEvent &sEvent = *parsedPhrasesSet.insert( parsedPhrasesSet.end(), SAckEvent());
-				sEvent.nSourcePhrase=sourcePhrase; sEvent.nSourceOffset=sourceOffset;
-				sEvent.pUnit = pEvent->pUnit;
-				sEvent.wsText = wsText;
-				sEvent.nPriority = pEvent->nPriority;
-				if ( bFirstPage )
-				{
-					sEvent.pSound = sVoice.pSound;
-					sEvent.pSequence = sVoice.pSequence;
-					sEvent.pExpression = pExpression;
-					bFirstPage = false;
-				}
+				AppendPage( wsText );
 			}
 
 		} while( !wsText.empty() && ( sRealSize.y > pDialog->GetSize().y ) );
