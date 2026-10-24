@@ -68,6 +68,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include <new>
 #include <cstddef>
 #include <cmath>
+#include <limits>
 
 extern CPtr<NScript::CScript> pScript;
 
@@ -97,6 +98,44 @@ static void EmptyNearestPosition()
     Require(result.p == NAI::SPathPlace() && result.GetNetwork() == network.GetPtr(),
         "empty nearest-position search returned an unrelated grid or a valid tile");
     Require(network->queries == 8, "nearest-position search skipped its bounded fallback attempts");
+}
+
+class FiniteSearchNetwork: public NAI::CPathNetwork
+{
+    OBJECT_BASIC_METHODS(FiniteSearchNetwork);
+public:
+    int queries = 0;
+    void GetNearPlaces(const SSphere& sphere, vector<NAI::SPathPlace>* places, bool) override {
+        ++queries;
+        Require(std::isfinite(sphere.ptCenter.x) && std::isfinite(sphere.ptCenter.y) && std::isfinite(sphere.ptCenter.z),
+            "non-finite nearest-position coordinates reached navigation grid conversion");
+        places->clear();
+    }
+};
+
+static void InvalidNearestPosition()
+{
+    CObj<FiniteSearchNetwork> network = new FiniteSearchNetwork;
+    for (float invalid : {std::numeric_limits<float>::quiet_NaN(),
+            std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity()}) {
+        for (int axis = 0; axis < 3; ++axis) {
+            CVec3 point = VNULL3;
+            if (axis == 0) point.x = invalid;
+            if (axis == 1) point.y = invalid;
+            if (axis == 2) point.z = invalid;
+            for (bool native : {false, true}) {
+                const auto result = native ? NAI::GetNearestNativePosition(point, network)
+                    : NAI::GetNearestPosition(point, network);
+                Require(result.p == NAI::SPathPlace(), "invalid coordinates produced a navigation tile");
+            }
+        }
+    }
+    Require(network->queries == 0, "invalid nearest-position search queried navigation tiles");
+    Require(NAI::GetNearestPosition(VNULL3, nullptr).p == NAI::SPathPlace(),
+        "missing navigation network produced a valid tile");
+    network->Invalidate();
+    Require(NAI::GetNearestPosition(VNULL3, network).p == NAI::SPathPlace(),
+        "invalid navigation network produced a valid tile");
 }
 
 class RagdollRestorationProbe: public NAnimation::CAParticle
@@ -1528,6 +1567,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "sniping-aim")) SnipingAim();
         else if (!std::strcmp(mode, "decal-rebuild")) DecalRebuild();
         else if (!std::strcmp(mode, "decal-projection")) DecalProjection();
+        else if (!std::strcmp(mode, "nearest-invalid")) InvalidNearestPosition();
         else if (!std::strcmp(mode, "nearest-empty")) EmptyNearestPosition();
         else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();
         else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();

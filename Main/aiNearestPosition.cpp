@@ -10,6 +10,7 @@
 #include "aiGrid.h"
 #include "aiMap.h"
 #include "wTSFlags.h"
+#include <cmath>
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NAI
 {
@@ -17,6 +18,12 @@ namespace NAI
 NAI::SPosition GetNearestPosition( CVec3 ptPos, IPathNetwork *_pPathNetwork, bool bMustHaveLink, const CVec3 &ptLink, bool bNative )
 {
 	CDynamicCast<CPathNetwork> pPathNetwork(_pPathNetwork);
+	if ( !IsValid( pPathNetwork ) || !std::isfinite( ptPos.x ) || !std::isfinite( ptPos.y ) || !std::isfinite( ptPos.z ) )
+	{
+		SPosition invalidPlace;
+		invalidPlace.SetNetwork( pPathNetwork );
+		return invalidPlace;
+	}
 	float fMinDistance = 0xFFFF;
 
 	SPosition sNearestPlace;
