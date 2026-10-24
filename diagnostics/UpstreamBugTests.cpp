@@ -24,6 +24,7 @@
 #include "../Main/wUnitAttackExec.h"
 #include "../Main/wUnitStates.h"
 #include "../Main/wUnitQueue.h"
+#include "../Main/wUnitExec.h"
 #include "../Main/GDecalGeometry.h"
 #include "../Main/GCombiner.h"
 #include "../Main/GSceneUtils.h"
@@ -382,6 +383,35 @@ static void IdleAI(const char* databasePath, const char* resourcePath)
             routine == 2 ? "a route with movement was incorrectly skipped" : "inactive stationary AI route blocks the end of turn");
     }
     actor->SetTemporaryPosition(original);
+}
+
+static void EffectiveWeaponMode(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath);
+    std::vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    CPtr<NRPG::CWeaponItem> personal;
+    for (auto& candidate : units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(candidate.GetPtr());
+        if (!unit || !unit->CanFight() || unit->IsEmptyPK() || unit->IsWearingPK()) continue;
+        auto* item = dynamic_cast<NRPG::CWeaponItem*>(unit->GetUnitRPG()->GetInventory()->GetActive());
+        if (item && item->IsShootModeSupported(NDb::SM_Snap) && item->IsShootModeSupported(NDb::SM_Aimed)) {
+            actor = unit; personal = item; break;
+        }
+    }
+    Require(actor && IsValid(personal), "mission fixture has no suitable personal firearm");
+    CObj<NRPG::CWeaponItem> mounted = new NRPG::CWeaponItem(personal->GetDBWeapon());
+    Require(personal->SetShootMode(NDb::SM_Snap) && mounted->SetShootMode(NDb::SM_Snap), "fixture modes are unsupported");
+    actor->GetUnitRPG()->SetCannonItem(mounted);
+    CObj<NWorld::CCmdShootMode> command = new NWorld::CCmdShootMode(NDb::SM_Aimed);
+    NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
+    CObj<NWorld::CCommandExecute> executor = NWorld::CreateExecutor(actor, command, &result);
+    Require(executor && result == NWorld::UCR_OK, "could not create a fire-mode executor");
+    executor->Run();
+    Require(mounted->GetShootMode() == NDb::SM_Aimed, "fire-mode executor changed the personal weapon instead of the mounted gun");
+    Require(personal->GetShootMode() == NDb::SM_Snap, "mounted fire-mode change modified the holstered personal weapon");
+    actor->GetUnitRPG()->SetCannonItem(nullptr);
 }
 
 class RenderCache;
@@ -1429,6 +1459,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "decal-projection")) DecalProjection();
         else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
+        else if (!std::strcmp(mode, "effective-weapon-mode") && argc == 4) EffectiveWeaponMode(argv[2], argv[3]);
         else if (!std::strcmp(mode, "render-removal")) RenderRemoval();
         else if (!std::strcmp(mode, "render-pass-compaction")) RenderPassCompaction();
         else if (!std::strcmp(mode, "state-lifetime")) ReentrantStateLifetime();

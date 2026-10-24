@@ -307,14 +307,9 @@ public:
 	CExecShootMode( CUnitServer *_pUS, CCmdShootMode *_pCmd ): CCommandExecute(_pUS), pCmd( _pCmd ) {}
 	virtual void Run()
 	{
-		CPtr<NRPG::IInventoryItem> pItem = pUS->GetUnitRPG()->GetInventory()->GetActive();
-		ASSERT( IsValid( pItem ) );
-		if ( IsValid( pItem ) )
-		{
-			CDynamicCast<NRPG::IWeaponItem> pWeapon(pItem);
-			if (pWeapon)
-				pWeapon->SetShootMode( pCmd->eMode );
-		}
+		CPtr<NRPG::IWeaponItem> pWeapon = pUS->GetUnitRPG()->GetWeaponItem();
+		if ( IsValid( pWeapon ) )
+			pWeapon->SetShootMode( pCmd->eMode );
 
 		Finished();
 	}
