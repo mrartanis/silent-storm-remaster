@@ -808,6 +808,7 @@ add_test(NAME UpstreamFlyingRestoration COMMAND UpstreamBugTests flying-restorat
 add_test(NAME UpstreamSnipingAim COMMAND UpstreamBugTests sniping-aim)
 add_test(NAME UpstreamDecalRebuild COMMAND UpstreamBugTests decal-rebuild)
 add_test(NAME UpstreamDecalProjection COMMAND UpstreamBugTests decal-projection)
+add_test(NAME UpstreamNegativeMeshBounds COMMAND UpstreamBugTests negative-mesh-bounds)
 add_test(NAME UpstreamRenderRemoval COMMAND UpstreamBugTests render-removal)
 add_test(NAME UpstreamRenderPassCompaction COMMAND UpstreamBugTests render-pass-compaction)
 add_test(NAME UpstreamStateLifetime COMMAND UpstreamBugTests state-lifetime)

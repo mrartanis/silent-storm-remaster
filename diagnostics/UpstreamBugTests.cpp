@@ -249,6 +249,39 @@ public:
     NGScene::ETransformType GetTransformType() const override { return transform; }
 };
 
+class BoundsProbe: public NGScene::CVBCombiner
+{
+    OBJECT_NOCOPY_METHODS(BoundsProbe);
+public:
+    explicit BoundsProbe(CFuncBase<std::vector<CPtr<NGScene::IPart>>>* parts = nullptr):
+        CVBCombiner(parts, NGScene::LT_NONE, NGScene::CT_DYNAMIC, nullptr) {}
+    void Calculate() { XFormPosition(); }
+};
+
+static void NegativeMeshBounds()
+{
+    for (float shift : {0.f, 20.f, 4.f}) {
+        NGScene::CObjectInfo::SData data;
+        for (auto position : {CVec3(-4,-6,-8), CVec3(-2,-5,-7), CVec3(-3,-4,-9)}) {
+            NGScene::SVertex vertex{};
+            vertex.pos = position + CVec3(shift, shift, shift);
+            data.verts.push_back(vertex);
+        }
+        data.geometry.SetTriangles({STriangle(0,1,2)});
+        CObj<NGScene::CObjectInfo> mesh = new NGScene::CObjectInfo;
+        mesh->AssignFast(data);
+        CObj<MeshNode> node = new MeshNode(mesh);
+        CObj<GeometryPart> part = new GeometryPart(node);
+        CObj<NGScene::CAutomaticCombiner> parts = new NGScene::CAutomaticCombiner;
+        parts->AddPart(part);
+        CObj<BoundsProbe> combiner = new BoundsProbe(parts);
+        combiner->Calculate();
+        Require(part->vBVMax == CVec3(shift-2, shift-4, shift-7),
+            "negative-coordinate mesh bounds incorrectly include the origin");
+        Require(part->vBVMin == CVec3(shift-4, shift-6, shift-9), "mesh bounds lost the minimum vertex");
+    }
+}
+
 class ProjectionRecorder: public NGScene::CPerPolyDecal
 {
     OBJECT_BASIC_METHODS(ProjectionRecorder);
@@ -1313,6 +1346,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "sniping-aim")) SnipingAim();
         else if (!std::strcmp(mode, "decal-rebuild")) DecalRebuild();
         else if (!std::strcmp(mode, "decal-projection")) DecalProjection();
+        else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
         else if (!std::strcmp(mode, "render-removal")) RenderRemoval();
         else if (!std::strcmp(mode, "render-pass-compaction")) RenderPassCompaction();
