@@ -37,6 +37,7 @@
 #include "../Main/wUnitQueue.h"
 #include "../Main/wUnitExec.h"
 #include "../Main/GAnimParticles.h"
+#include "../Main/GAnimation.h"
 #include "../Main/GDecalGeometry.h"
 #include "../Main/GCombiner.h"
 #include "../Main/GSceneUtils.h"
@@ -129,6 +130,38 @@ static void EmptyLuaDefault()
     script.DoString("OptionalStringBridge()");
     script.ExecuteThreads();
     Require(!optionalStringAccepted, "empty-default handling accepted a missing required Lua argument");
+}
+
+
+DEFINE_DG_CONSTANT_NODE(AimerPoseProbe, NAnimation::SSkeletonPose);
+DEFINE_DG_CONSTANT_NODE(AimerTimeProbe, STime);
+
+static void SmartAimerBoundary()
+{
+    NAnimation::SSkeletonPose target(1), output(1);
+    CObj<AimerPoseProbe> pose = new AimerPoseProbe(target);
+    CObj<AimerTimeProbe> time = new AimerTimeProbe(200);
+    CObj<NAnimation::CASmartAimer> aimer = new NAnimation::CASmartAimer;
+    aimer->pNextPose = pose;
+    aimer->pNextPoseTime = time;
+    aimer->GetFrame(100, &output);
+    Require(fabs2(output[0].pos) < 0.000001f, "smart-aimer fixture did not start at its initial pose");
+    target[0].pos.x = 10.f;
+    pose->Set(target);
+    aimer->GetFrame(200, &output);
+    Require(fabs2(output[0].pos - target[0].pos) < 0.000001f,
+        "smart aimer did not return the exact target at the transition endpoint");
+    // Retail returns the endpoint without reseeding the interpolator. The next
+    // target must still blend from the last sampled interior pose/time.
+    target[0].pos.x = 25.f;
+    pose->Set(target);
+    time->Set(300);
+    aimer->GetFrame(250, &output);
+    Require(std::fabs(output[0].pos.x - 18.75f) < 0.0001f,
+        "exact animation endpoint reseeded smart-aimer interpolation for the next transition");
+    aimer->GetFrame(301, &output);
+    Require(fabs2(output[0].pos - target[0].pos) < 0.000001f,
+        "smart aimer changed its completed-transition output");
 }
 
 class EmptySearchNetwork: public NAI::CPathNetwork
@@ -2253,6 +2286,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "mechanical-step-sound")) MechanicalStepSound();
         else if (!std::strcmp(mode, "nearest-invalid")) InvalidNearestPosition();
         else if (!std::strcmp(mode, "lua-empty-default")) EmptyLuaDefault();
+        else if (!std::strcmp(mode, "smart-aimer-boundary")) SmartAimerBoundary();
         else if (!std::strcmp(mode, "nearest-empty")) EmptyNearestPosition();
         else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();
         else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();

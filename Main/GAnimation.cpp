@@ -777,7 +777,7 @@ void CASmartAimer::GetFrame( STime t, SSkeletonPose *pPose )
 		current = aim;
 	}
 
-	if ( t > tNext || tCurrent == tNext )
+	if ( t >= tNext || tCurrent == tNext )
 	{
 		*pPose = aim;
 		return;
