@@ -439,62 +439,45 @@ void CMissionDlgUI::UpdatePhrases( NGScene::I2DGameView *pView )
 			sRealSize.x = S2UI::FromPixel(sRealSize.x);
 			sRealSize.y = S2UI::FromPixel(sRealSize.y);
 
+			// The whole remainder is the fallback when no rendered line fits,
+			// all bounds fit, or markup bounds cannot map back to a character.
+			int nPageEnd = wsText.length();
 			if ( sRealSize.y > pDialog->GetSize().y )
 			{
 				list<SRect> rects;
 				pML->Render( &rects, SPoint( 0, 0 ), SRect( 0, 0, 0, 0 ) );
-
 				int nCutChar = 0;
 				for ( list<SRect>::const_iterator iRect = rects.begin(); iRect != rects.end(); iRect++ )
 				{
-					float fY = S2UI::FromPixel(iRect->y2);
-					if ( fY > pDialog->GetSize().y )
+					if ( S2UI::FromPixel(iRect->y2) > pDialog->GetSize().y )
 						break;
-
 					nCutChar++;
 				}
-
-				if ( nCutChar == 0 )
+				if ( nCutChar > 0 && nCutChar < rects.size() )
 				{
-					// Keep an oversized line as one page and continue later phrases.
-					AppendPage( wsText );
-					wsText.clear();
-					continue;
-				}
-
-				int nTemp = 0, nCursor = 0;
-				while( nCursor < wsText.length() )
-				{
-					WCHAR wcChar = wsText.c_str()[nCursor];
-
-					if ( wcChar == '<' )
+					int nChar = 0, nCursor = 0;
+					while ( nCursor < wsText.length() )
 					{
-						int nFind = wsText.find_first_of( '>', nCursor );
-						if ( nFind != wstring::npos )
-							nCursor = nFind + 1;
-						else
-							nCursor = wsText.length();
-
-						continue;
-					}
-
-					nTemp++;
-					nCursor++;
-					if ( nTemp == nCutChar )
-					{
-						AppendPage( wsText.substr( 0, nCursor ) );
-
-						sourceOffset += nCursor;
-						wsText = wsText.substr( nCursor );
+						if ( wsText[nCursor] == '<' )
+						{
+							int nFind = wsText.find_first_of( '>', nCursor );
+							nCursor = nFind != wstring::npos ? nFind + 1 : wsText.length();
+							continue;
+						}
+						nCursor++;
+						if ( ++nChar == nCutChar )
+						{
+							nPageEnd = nCursor;
+							break;
+						}
 					}
 				}
 			}
-			else
-			{
-				AppendPage( wsText );
-			}
+			AppendPage( wsText.substr( 0, nPageEnd ) );
+			sourceOffset += nPageEnd;
+			wsText = wsText.substr( nPageEnd );
 
-		} while( !wsText.empty() && ( sRealSize.y > pDialog->GetSize().y ) );
+		} while( !wsText.empty() );
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
