@@ -22,7 +22,7 @@ Do not edit the generated `.res` files: a build output may share its file with
 the local cache through a hard link. The game only reads them.
 
 `S2_BUILD_HD_TEXTURES=OFF` skips HD preparation entirely, as before. Engine
-release CI keeps HD disabled and does not need LFS or 7-Zip.
+engine build and release CI keep HD disabled and do not need LFS or 7-Zip.
 The manual **Verify frozen HD storage** workflow checks the default LFS selection,
 extracts and verifies the published runtime, exercises CMake cache reuse, and
 tests corruption recovery without fetching authoring PNGs.

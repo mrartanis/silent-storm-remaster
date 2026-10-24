@@ -33,13 +33,6 @@ jobs:
       with:
         python-version: '3.13'
 
-    - name: Fetch prebuilt HD runtime
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: >-
-        git -c 'credential.helper=!gh auth git-credential' lfs pull
-        --include="data/hd-runtime/*" --exclude=""
-
     - name: Cache pinned native dependencies
       id: dependencies
       uses: actions/cache@v4
@@ -79,6 +72,7 @@ jobs:
         -DS2_BGFX_DIR="$env:RUNNER_TEMP/s2-deps/bgfx"
         -DS2_BIMG_DIR="$env:RUNNER_TEMP/s2-deps/bimg"
         -DS2_BX_DIR="$env:RUNNER_TEMP/s2-deps/bx"
+        -DS2_BUILD_HD_TEXTURES=OFF
 
     - name: Build
       run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel 4
