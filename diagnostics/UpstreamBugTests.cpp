@@ -31,6 +31,7 @@
 #include "../Main/wUnitServer.h"
 #include "../Main/RPGItem.h"
 #include "../Main/RPGItemSet.h"
+#include "../Main/RPGCritical.h"
 #include "../Main/wUnitAttackExec.h"
 #include "../Main/wUnitStates.h"
 #include "../Main/wUnitQueue.h"
@@ -918,6 +919,39 @@ static void FailedCorpseSnap(const char* databasePath, const char* resourcePath)
     actor->CDumbUnitServer::Segment();
     Require(actor->GetPosition() == logical && network->queries == 16,
         "failed corpse snap was cached instead of being retried on the next segment");
+}
+
+
+static void MovementCriticalProbe(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& candidate : units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(candidate.GetPtr());
+        if (unit && !unit->IsAIUnit() && unit->CanFight() && !unit->IsWearingPK()) { actor = unit; break; }
+    }
+    Require(actor != nullptr, "movement-critical fixture has no human actor");
+    actor->SetState(new NWorld::CUnitStateNormal(actor));
+    CObj<NWorld::CCmdPath> command = new NWorld::CCmdPath(actor->GetPosition().pos);
+    const auto wishPose = actor->GetWishPose();
+    Require(actor->CanDo(command) == NWorld::UCR_OK, "movement-critical fixture has no baseline path");
+    for (auto injury : {NDb::C_PATIENT, NDb::C_MOTIONLESS}) {
+        actor->GetUnitRPG()->ApplyCritical(NRPG::SCritical(NDb::CL_LEGS, injury, 3, 2.0f));
+        Require(actor->GetUnitRPG()->HasCritical(injury), "fixture did not apply the movement-banning critical");
+        const int ap = actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP);
+        int startAP = 0;
+        Require(actor->CanDo(command, &startAP) == NWorld::UCR_CRITICALS_BAN,
+            "normal movement eligibility did not reject the actual injury");
+        Require(actor->CanDo(command) == NWorld::UCR_CRITICALS_BAN,
+            "fast movement preview discarded the existing critical-injury rejection");
+        Require(actor->GetWishPose() == wishPose && actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == ap,
+            "movement eligibility probes changed stance or action points");
+        Require(actor->GetUnitRPG()->RemoveCritical(injury), "fixture injury could not be removed");
+        Require(actor->CanDo(command) == NWorld::UCR_OK, "movement preview stayed blocked after the injury was removed");
+    }
+    Require(actor->GetWishPose() == wishPose, "movement preview changed the requested stance");
 }
 
 static void HideCooldown(const char* databasePath, const char* resourcePath)
@@ -2185,6 +2219,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "inventory-clue-count") && argc == 4) InventoryClueCreation(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "inventory-clue-capacity") && argc == 4) InventoryClueCreation(argv[2], argv[3], true, true);
         else if (!std::strcmp(mode, "corpse-snap-failure") && argc == 4) FailedCorpseSnap(argv[2], argv[3]);
+        else if (!std::strcmp(mode, "movement-critical-probe") && argc == 4) MovementCriticalProbe(argv[2], argv[3]);
         else if (!std::strcmp(mode, "hide-cooldown") && argc == 4) HideCooldown(argv[2], argv[3]);
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
         else if (!std::strcmp(mode, "mounted-mode-button") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], 3);

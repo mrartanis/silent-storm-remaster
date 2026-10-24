@@ -576,6 +576,10 @@ EUnitCommandResult CUnitServer::CanDo( CCmd *p, int *pnStartAP, int *pnFullAP )
 	CDynamicCast<CCmdPath> pMove(p);
 	if ( pMove && ( !pnStartAP ) )
 	{
+		EUnitCommandResult eResult = UCR_OK;
+		if ( IsValid( pState ) && pState->IsCriticalsFailCommand( pMove, &eResult ) )
+			return eResult;
+
 		// Finding a path is much faster when the unit is standing rather than lying down, so the check for whether a path exists is
 		// done with WishPose = STAND.
 		vector<NAI::SPathPlace> dst;
