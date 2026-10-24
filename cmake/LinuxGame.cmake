@@ -1913,6 +1913,9 @@ if(APPLE)
       GraphicsOptionsRuntimeTests)
     if(TEST ${displayTest})
       set_tests_properties(${displayTest} PROPERTIES ENVIRONMENT "S2_NO_HIGHDPI=1")
+      # Real Cocoa windows share desktop focus/fullscreen spaces. Do not run
+      # these tests concurrently even when ctest is invoked with --parallel.
+      set_tests_properties(${displayTest} PROPERTIES RUN_SERIAL TRUE)
     endif()
   endforeach()
 endif()

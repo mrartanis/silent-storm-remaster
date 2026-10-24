@@ -83,7 +83,7 @@ Status as of **October 23, 2026**:
 | **Linux x64** | Complete native game; Clang, SDL3/X11, bgfx/Vulkan. Gameplay and network runs use Xvfb/lavapipe, including Windows ↔ Linux. Physical GPUs, audio devices and HiDPI have not been separately verified. |
 | **Linux ARM64** | Complete AArch64 build; game, graphics and core/network checks have run through QEMU and ARM64 lavapipe. Physical ARM64 hardware and a graphical network client on that hardware remain unverified. |
 | **Windows x86** | Retained as a diagnostic reference for comparisons with the original 32-bit DLLs, rather than the main distribution target. |
-| **macOS** | Game support is not claimed yet: a complete build and run on a real Mac remain unverified. |
+| **macOS ARM64** | Native Apple clang/SDL3/Metal build on Apple silicon. Core, networking and renderer/input regressions run on real hardware. Full campaign and audio-device coverage remain unverified. |
 
 A full campaign playthrough and complete behavioral/visual parity with the
 Steam release have not yet been established. The reports below describe tested
@@ -237,6 +237,22 @@ For a complete environment example, see
 script requires prepared dependency directories. Verification and limits:
 [BGFX-LINUX.md](diagnostics/BGFX-LINUX.md),
 [MODERN-DISPLAY.md](diagnostics/MODERN-DISPLAY.md).
+
+### macOS (Apple silicon)
+
+Install Xcode command line tools and `brew install cmake ninja pkg-config libgsf libpng`,
+then run `./build-mac.sh`. Pinned SDL3, FFmpeg, bgfx and miniaudio dependencies
+live in `../ss-deps-mac` (override with `S2_DEPS`); incremental builds reuse
+`build-mac/`. The local executable is `build-mac/Game`, linked to the installed
+dependency paths. Run it with the original game data as the working directory.
+HD preparation is disabled by default; no textures are generated.
+
+Metal shaders are compiled by the pinned shaderc. The game enables Retina
+backing pixels; CTest uses `S2_NO_HIGHDPI=1` for pixel-exact renderer/input
+regressions. Cocoa display tests run serially because they share desktop focus
+and fullscreen spaces. User data defaults to
+`~/Library/Application Support/Silent Storm Reconstruction`; `S2_USER_DATA_DIR`
+can select an isolated absolute directory for testing.
 
 ## Running and settings
 

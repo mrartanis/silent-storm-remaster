@@ -3,13 +3,13 @@ set -euo pipefail
 deps=$1
 platform=$2
 jobs=${S2_BUILD_JOBS:-4}
-deps=$(cd "$deps" && pwd)
 if [[ "$platform" == windows ]]; then
   deps=$(cygpath -u "$deps")
   # MSYS also has a link program. FFmpeg must find the MSVC linker first.
   export PATH="$(cygpath -u "$VCToolsInstallDir")/bin/Hostx64/x64:$PATH"
   toolchain=(--toolchain=msvc --arch=x86_64 --target-os=win32)
 else
+  deps=$(cd "$deps" && pwd)
   toolchain=()
   sdl_options=(-DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TESTS=OFF)
   if [[ "$platform" == linux ]]; then

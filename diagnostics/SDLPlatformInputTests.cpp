@@ -287,8 +287,9 @@ int main(int argc, char** argv)
   // against the menu-bar height by a couple of pixels in either direction.
   SDL_Rect usable;
   SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(S2Platform::Window()),&usable);
-  const bool filled=pixelWidth>=usable.w-3&&pixelWidth<=usable.w+3&&
-                    pixelHeight>=usable.h-3&&pixelHeight<=usable.h+3;
+  const bool filled=(desktop && pixelWidth==desktop->w && pixelHeight==desktop->h) ||
+                    (pixelWidth>=usable.w-3&&pixelWidth<=usable.w+3&&
+                     pixelHeight>=usable.h-3&&pixelHeight<=usable.h+3);
   Check(desktop && filled,"borderless fills desktop pixels");
 #else
   Check(desktop && pixelWidth==desktop->w && pixelHeight==desktop->h,"borderless fills desktop pixels");
