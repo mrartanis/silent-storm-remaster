@@ -11,6 +11,9 @@
 #include "../Main/PerkToolTip.h"
 #include "../Main/UnitStepSound.h"
 #include "../Main/UnitIconWeaponMode.h"
+#include "../Main/iUnitIconBar.h"
+#include "../Main/UIInterface.h"
+#include "../DBFormat/DataInterface.h"
 #include "../DBFormat/DataPerk.h"
 #include "../Main/GView.h"
 #include "../Main/iMission.h"
@@ -678,10 +681,85 @@ class WeaponIconMission: public NGame::CMissionBase
     OBJECT_BASIC_METHODS(WeaponIconMission);
 public:
     vector<CPtr<NGame::IUnitTracker>> selected;
+    CObj<NGame::CStateWait> state = new NGame::CStateWait;
+    NGame::EActionIconsSet icons = NGame::AIS_MAIN;
+    bool attackAvailable = true;
     void Step() override {}
     bool ProcessEvent(const NInput::SEvent&) override { return false; }
     void GetSelectedUnits(vector<CPtr<NGame::IUnitTracker>>* units) const override { *units = selected; }
+    NGame::IState* GetState() const override { return state; }
+    int GetUnitsState() override { return NGame::N_UNITSTATE_CANNON; }
+    NWorld::CUnit::EState GetUnitsWorldState() override { return NWorld::CUnit::ST_MACHINE_GUN; }
+    NGame::EActionIconsSet GetActionIconsSet() const override { return icons; }
+    void SetActionIconsSet(NGame::EActionIconsSet value) override { icons = value; }
+    void GetActionInfo(NGame::EUnitAction action, NGame::SActionInfo* info) override {
+        *info = NGame::SActionInfo();
+        info->bValid = info->bOk = true;
+        info->bAvailable = action != NGame::UA_ATTACK || attackAvailable;
+        info->eResult = NWorld::UCR_OK;
+    }
 };
+
+class IconBarProbe: public NUI::CUnitIconsBar
+{
+    vector<CMObj<NUI::CWindow>> detachedControls;
+public:
+    using CUnitIconsBar::CUnitIconsBar;
+    void DetachRendering() {
+        // Transfer the main owning references; RemoveChild would invalidate
+        // a control even if the fixture retained an ordinary CObj reference.
+        detachedControls.swap(listChildren);
+        for (auto& control : detachedControls) control->SetParent(nullptr);
+    }
+};
+
+static void MountedModeButton(WeaponIconMission* mission)
+{
+    CObj<IconBarProbe> bar = new IconBarProbe(
+        NUI::SWindowInfo(nullptr, NUI::SPoint(0, 0), NUI::SPoint(400, 80), "mounted-mode-test"), mission);
+    CObj<NDb::CUIContainer> layout = new NDb::CUIContainer();
+    layout->nWidth = 400; layout->nHeight = 80;
+    vector<CObj<NDb::CUIControl>> controls;
+    for (int i = 0; i < 8; ++i) {
+        CObj<NDb::CUIControl> control = new NDb::CUIControl();
+        control->szID = "icon_" + std::to_string(i + 1);
+        control->type = NDb::UI_WINDOW;
+        control->nDepth = i; control->bVisible = true;
+        control->rect = CTRect<int>(i % 4 * 100, i / 4 * 40, i % 4 * 100 + 100, i / 4 * 40 + 40);
+        controls.push_back(control); layout->controls.push_back(control.GetPtr());
+    }
+    NUI::LoadTemplate(bar, layout);
+    vector<CObj<NUI::CComplexButton>> buttons;
+    for (int i = 0; i < 8; ++i) {
+        auto* button = dynamic_cast<NUI::CComplexButton*>(bar->GetChildByID("icon_" + std::to_string(i + 1)));
+        Require(button != nullptr, "fixture icon template did not build all action buttons");
+        buttons.emplace_back(button);
+    }
+    bar->DetachRendering();
+    CMemoryStream state;
+    int worldState = mission->GetUnitsWorldState();
+    { CStructureSaver writer(state, CStructureSaver::WRITE); writer.Add(6, &worldState); }
+    state.Seek(0);
+    { CStructureSaver reader(state, CStructureSaver::READ);
+      static_cast<CObjectBase*>(bar.GetPtr())->operator&(reader); }
+    bar->Draw(0, nullptr);
+    Require(buttons[4]->GetStyle(NUI::STYLE_VISIBLE) && buttons[4]->GetStyle(NUI::STYLE_ENABLED),
+        "mounted-gun action bar omitted the fire-mode submenu button");
+    Require(buttons[0]->GetStyle(NUI::STYLE_VISIBLE) && buttons[7]->GetStyle(NUI::STYLE_VISIBLE),
+        "mounted-gun mode button replaced attack or stop");
+    mission->attackAvailable = false;
+    bar->Draw(0, nullptr);
+    Require(!buttons[4]->GetStyle(NUI::STYLE_VISIBLE), "unavailable mounted attack still exposed fire modes");
+    mission->attackAvailable = true;
+    bar->Draw(0, nullptr);
+    Require(buttons[4]->GetStyle(NUI::STYLE_VISIBLE), "mounted fire-mode button did not return with attack eligibility");
+    mission->icons = NGame::AIS_WEAPONMODES;
+    bar->Draw(0, nullptr);
+    Require(buttons[0]->GetStyle(NUI::STYLE_VISIBLE) && !buttons[0]->IsChecked() &&
+            buttons[1]->GetStyle(NUI::STYLE_VISIBLE) && buttons[1]->IsChecked(),
+        "actual mounted-gun mode controls did not check the mounted aimed mode");
+    mission->icons = NGame::AIS_MAIN;
+}
 
 static void EffectiveWeaponMode(const char* databasePath, const char* resourcePath, int checkIcons = 0)
 {
@@ -713,6 +791,7 @@ static void EffectiveWeaponMode(const char* databasePath, const char* resourcePa
         CObj<WeaponIconMission> mission = new WeaponIconMission;
         CObj<NGame::CUnitTracker> tracker = new NGame::CUnitTracker(mission, actor);
         mission->selected.push_back(tracker.GetPtr());
+        if (checkIcons == 3) MountedModeButton(mission);
         if (checkIcons == 2)
             Require(NUI::GetSelectedWeaponForIcons(mission) == mounted.GetPtr(),
                 "fire-mode submenu enumerated the personal firearm instead of the mounted gun");
@@ -1785,6 +1864,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();
         else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
+        else if (!std::strcmp(mode, "mounted-mode-button") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], 3);
         else if (!std::strcmp(mode, "mounted-weapon-submenu") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], 2);
         else if (!std::strcmp(mode, "mounted-weapon-mode-ui") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "effective-weapon-mode") && argc == 4) EffectiveWeaponMode(argv[2], argv[3]);

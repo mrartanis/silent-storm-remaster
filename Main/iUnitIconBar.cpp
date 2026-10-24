@@ -440,6 +440,35 @@ void CMainIconBarSet::Update()
 		{
 			CreateButton( 387, 419, CComplexButton::NORMAL, 4289, SLOT_R1C1, 0, NGame::UA_ATTACK, NWorld::CUnit::ST_MACHINE_GUN, "attack" );
 			CreateButton( 382, 570, CComplexButton::NORMAL, 4283, SLOT_R2C4, 0, NGame::UA_STOP, N_ANY_VALUE, "cancelaction" );
+			// Retail v1.2 0x650c92: mounted weapons retain the fire-mode submenu.
+			GetMission()->GetActionInfo( NGame::UA_ATTACK, &sActionInfo );
+			if ( sActionInfo.bAvailable )
+			{
+				switch( GetUnitsGroupWeaponMode( GetMission() ) )
+				{
+				case N_ICON_UNDEFAINED:
+					CreateButton( 516, 572, CComplexButton::NORMAL, 4522, SLOT_R2C1, 0, NGame::UA_DEFAULT, N_ANY_VALUE, "submenu_weaponmode" );
+					break;
+				case NDb::SM_Snap:
+					CreateButton( 501, 576, CComplexButton::NORMAL, 4522, SLOT_R2C1, 0, NGame::UA_DEFAULT, N_ANY_VALUE, "submenu_weaponmode" );
+					break;
+				case NDb::SM_Aimed:
+					CreateButton( 503, 578, CComplexButton::NORMAL, 4522, SLOT_R2C1, 0, NGame::UA_DEFAULT, N_ANY_VALUE, "submenu_weaponmode" );
+					break;
+				case NDb::SM_Careful:
+					CreateButton( 502, 577, CComplexButton::NORMAL, 4522, SLOT_R2C1, 0, NGame::UA_DEFAULT, N_ANY_VALUE, "submenu_weaponmode" );
+					break;
+				case NDb::SM_ShortBurst:
+					CreateButton( 500, 575, CComplexButton::NORMAL, 4522, SLOT_R2C1, 0, NGame::UA_DEFAULT, N_ANY_VALUE, "submenu_weaponmode" );
+					break;
+				case NDb::SM_LongBurst:
+					CreateButton( 499, 574, CComplexButton::NORMAL, 4522, SLOT_R2C1, 0, NGame::UA_DEFAULT, N_ANY_VALUE, "submenu_weaponmode" );
+					break;
+				case NDb::SM_Snipe:
+					CreateButton( 498, 573, CComplexButton::NORMAL, 4522, SLOT_R2C1, 0, NGame::UA_DEFAULT, N_ANY_VALUE, "submenu_weaponmode" );
+					break;
+				}
+			}
 			break;
 		}
 	case NGame::N_UNITSTATE_SNIPE:
