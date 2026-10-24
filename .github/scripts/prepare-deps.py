@@ -53,7 +53,7 @@ def download(root, name):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, required=True)
-    parser.add_argument('--platform', choices=('windows', 'linux'), required=True)
+    parser.add_argument('--platform', choices=('windows', 'linux', 'macos'), required=True)
     args = parser.parse_args()
     root = args.root.resolve()
     root.mkdir(parents=True, exist_ok=True)

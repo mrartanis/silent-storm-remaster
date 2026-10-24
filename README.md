@@ -83,7 +83,7 @@ Nival. Цель проекта — сохранить поведение ори�
 | **Linux x64** | Полная нативная игра; Clang, SDL3/X11, bgfx/Vulkan. Игровые и сетевые прогоны выполнены через Xvfb/lavapipe, включая Windows ↔ Linux. Физические GPU, звуковые устройства и HiDPI отдельно не проверены. |
 | **Linux ARM64** | Полная AArch64-сборка; игра, графика и проверки ядра/сети запускались через QEMU и ARM64 lavapipe. Физическое ARM64-оборудование и сетевой графический клиент на нём не проверены. |
 | **Windows x86** | Сохранён как диагностический эталон для сравнений с оригинальными 32-битными DLL; не основной вариант поставки. |
-| **macOS** | Поддержка игры пока не заявляется: полноценная сборка и запуск на настоящем Mac не проверены. |
+| **macOS** | Сборка на Apple silicon: Apple clang, SDL3, bgfx/Metal. Переносимые проверки и игровые тесты рендера/ввода выполняются на реальном GPU. Кампейн-прогоны и звуковые устройства отдельно не проверялись. |
 
 Полное прохождение кампании и полный поведенческий/визуальный паритет с релизной
 Steam-версией ещё не подтверждены. Проверенные сценарии и оставшиеся отличия
@@ -235,6 +235,31 @@ ARM64 GCC toolchain и заполненный ARM64 sysroot со всеми це
 скрипт требует подготовленных каталогов зависимостей. Проверки и ограничения:
 [BGFX-LINUX.md](diagnostics/BGFX-LINUX.md),
 [MODERN-DISPLAY.md](diagnostics/MODERN-DISPLAY.md).
+
+### macOS (Apple silicon)
+
+Проверенная конфигурация — Apple clang (Xcode command line tools), Ninja и
+пакеты Homebrew `cmake ninja pkg-config libgsf libpng`. Игра использует backend
+bgfx/Metal с шейдерами в формате MSL; Vulkan/D3D11 в этой сборке не участвуют.
+Закреплённые SDL3 3.4.16, FFmpeg 8.1, bgfx и miniaudio готовятся теми же
+скриптами, что и для Linux:
+
+```sh
+brew install cmake ninja pkg-config libgsf libpng
+deps=../ss-deps-mac
+python3 .github/scripts/prepare-deps.py --root "$deps" --platform macos
+S2_BUILD_JOBS=10 bash .github/scripts/build-deps.sh "$deps" macos
+```
+
+Далее — обычная конфигурация с `-DS2_BUILD_GAME=ON`, путями `SDL3_DIR`,
+`S2_BGFX_*`, `S2_FFMPEG_ROOT`, `S2_MINIAUDIO_INCLUDE_DIR` из `$deps` и
+`-DS2_BUILD_HD_TEXTURES=OFF`; готовая обёртка — `./build-mac.sh` (каталог
+сборки `build-mac/`). Результат — `build-mac/Game`; запускать из копии игровых
+данных. Локальная сборка содержит пути к установленным библиотекам зависимостей.
+
+Особенности платформы: регрессионные проверки графики и ввода выполняются с
+`S2_NO_HIGHDPI=1` (CTest задаёт его сам), чтобы окна тестов имели масштаб 1:1
+на Retina-дисплеях; игра по-прежнему рендерит в нативном разрешении дисплея.
 
 ## Запуск и настройки
 

@@ -70,7 +70,13 @@ int main(){try{
   int before=commands;peer.Send({Message::Command,1,{42}});peer.Send({Message::Command,1,{42}});
   for(int i=0;i<100;++i){peer.Poll();dedup.Poll();std::this_thread::sleep_for(std::chrono::milliseconds(1));}
   Require(commands==before+1,"duplicate command executed twice");
-  peer.Close();dedup.Poll();
+  peer.Close();
+  // Loopback FIN can lag behind close() by more than one poll cycle on macOS;
+  // give the session a bounded window to observe the disconnect.
+  auto closedDeadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
+  while(dedup.State()!=SessionState::Failed && std::chrono::steady_clock::now()<closedDeadline){
+    dedup.Poll();std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
   Require(dedup.State()==SessionState::Failed,"disconnect did not stop match");
   NetworkSession wrongBuildHost({"build","data"},server),wrongBuild({"other","data"},mirror);
   wrongBuildHost.Host(0);wrongBuild.Connect("127.0.0.1",wrongBuildHost.Port());

@@ -1,6 +1,7 @@
 #include "Platform.h"
 #include <SDL3/SDL.h>
 #include <cstdio>
+#include <cstdlib>
 #include <clocale>
 #include <deque>
 #include <map>
@@ -86,8 +87,11 @@ bool S2Platform::Init(const char* title, int width, int height, bool hidden)
     SDL_Quit();
     return false;
   }
-  window = SDL_CreateWindow(title, width, height,
-      SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | (hidden ? SDL_WINDOW_HIDDEN : 0));
+  // The renderer regression tests compare screenshots against window-pixel
+  // coordinates; on Retina displays they request this deterministic 1:1 mode.
+  Uint32 windowFlags = SDL_WINDOW_RESIZABLE | (hidden ? SDL_WINDOW_HIDDEN : 0);
+  if (!std::getenv("S2_NO_HIGHDPI")) windowFlags |= SDL_WINDOW_HIGH_PIXEL_DENSITY;
+  window = SDL_CreateWindow(title, width, height, windowFlags);
   if (!window) {
     InitError("SDL_CreateWindow");
     SDL_Quit();
@@ -128,6 +132,12 @@ void* S2Platform::NativeWindow()
 #if defined(_WIN32)
   return window ? SDL_GetPointerProperty(SDL_GetWindowProperties(window),
       SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr) : nullptr;
+#elif defined(__APPLE__)
+  // bgfx Metal takes the NSWindow* and installs its own CAMetalLayer.
+  // SDL_PLATFORM_MACOS is the public spelling; COCOA names the video backend
+  // toggle that only exists inside the SDL build itself.
+  return window ? SDL_GetPointerProperty(SDL_GetWindowProperties(window),
+      SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr) : nullptr;
 #else
   if (!window) return nullptr;
   const auto properties = SDL_GetWindowProperties(window);

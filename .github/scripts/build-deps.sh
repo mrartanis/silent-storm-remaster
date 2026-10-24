@@ -3,6 +3,7 @@ set -euo pipefail
 deps=$1
 platform=$2
 jobs=${S2_BUILD_JOBS:-4}
+deps=$(cd "$deps" && pwd)
 if [[ "$platform" == windows ]]; then
   deps=$(cygpath -u "$deps")
   # MSYS also has a link program. FFmpeg must find the MSVC linker first.
@@ -10,9 +11,13 @@ if [[ "$platform" == windows ]]; then
   toolchain=(--toolchain=msvc --arch=x86_64 --target-os=win32)
 else
   toolchain=()
+  sdl_options=(-DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TESTS=OFF)
+  if [[ "$platform" == linux ]]; then
+    sdl_options+=(-DSDL_X11=ON -DSDL_X11_XINPUT=ON -DSDL_WAYLAND=OFF)
+  fi
   cmake -S "$deps/SDL3-3.4.16" -B "$deps/sdl-build" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$deps/install" \
-    -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TESTS=OFF -DSDL_X11=ON -DSDL_X11_XINPUT=ON -DSDL_WAYLAND=OFF
+    "${sdl_options[@]}"
   cmake --build "$deps/sdl-build" --parallel "$jobs"
   cmake --install "$deps/sdl-build"
 fi

@@ -7,7 +7,7 @@ add_library(s2_game_objects STATIC
 target_include_directories(s2_game_objects PUBLIC "${root}/Misc")
 target_compile_features(s2_game_objects PUBLIC cxx_std_17)
 add_executable(NativeObjectCoreTests "${root}/diagnostics/NativeObjectCoreTests.cpp")
-target_link_libraries(NativeObjectCoreTests PRIVATE s2_game_objects)
+s2_target_link_libraries(NativeObjectCoreTests PRIVATE s2_game_objects)
 add_test(NAME NativeObjectCoreTests COMMAND NativeObjectCoreTests)
 
 # The game's own binary memory/file stream layer, shared with Windows FileIO.
@@ -17,7 +17,7 @@ add_library(s2_game_streams STATIC "${root}/FileIO/Streams.cpp")
 target_include_directories(s2_game_streams PRIVATE "${CMAKE_BINARY_DIR}/fileio_include")
 target_compile_features(s2_game_streams PUBLIC cxx_std_17)
 add_executable(NativeStreamsTests "${root}/diagnostics/NativeStreamsTests.cpp")
-target_link_libraries(NativeStreamsTests PRIVATE s2_game_streams)
+s2_target_link_libraries(NativeStreamsTests PRIVATE s2_game_streams)
 add_test(NAME NativeStreamsTests COMMAND NativeStreamsTests)
 
 # The game's object-graph serializer, including its retail packed-chunk codec.
@@ -25,14 +25,14 @@ add_library(s2_game_structure STATIC
   "${root}/FileIO/BasicChunk1.cpp"
   "${root}/FileIO/Cruncher.cpp")
 target_include_directories(s2_game_structure PRIVATE "${CMAKE_BINARY_DIR}/fileio_include")
-target_link_libraries(s2_game_structure PUBLIC
+s2_target_link_libraries(s2_game_structure PUBLIC
   s2_game_streams s2_game_objects s2_portable_structure)
 target_compile_features(s2_game_structure PUBLIC cxx_std_17)
 add_executable(NetworkSerializerTests "${root}/diagnostics/NetworkSerializerTests.cpp")
-target_link_libraries(NetworkSerializerTests PRIVATE s2_game_structure s2_network_graph)
+s2_target_link_libraries(NetworkSerializerTests PRIVATE s2_game_structure s2_network_graph)
 add_test(NAME NetworkSerializerTests COMMAND NetworkSerializerTests)
 add_executable(StructureWireProbe "${root}/diagnostics/StructureWireProbe.cpp")
-target_link_libraries(StructureWireProbe PRIVATE s2_game_structure)
+s2_target_link_libraries(StructureWireProbe PRIVATE s2_game_structure)
 add_test(NAME StructureWireWrite
   COMMAND StructureWireProbe write "${CMAKE_BINARY_DIR}/StructureWireProbe.bin")
 add_test(NAME StructureWireRead
@@ -40,7 +40,7 @@ add_test(NAME StructureWireRead
 set_tests_properties(StructureWireWrite PROPERTIES FIXTURES_SETUP structure_wire)
 set_tests_properties(StructureWireRead PROPERTIES FIXTURES_REQUIRED structure_wire)
 add_executable(NativeCruncherTests "${root}/diagnostics/NativeCruncherTests.cpp")
-target_link_libraries(NativeCruncherTests PRIVATE s2_game_structure)
+s2_target_link_libraries(NativeCruncherTests PRIVATE s2_game_structure)
 add_test(NAME NativeCruncherTests COMMAND NativeCruncherTests)
 
 # The game's .res package stream, excluding its Windows/editor-only package
@@ -48,13 +48,13 @@ add_test(NAME NativeCruncherTests COMMAND NativeCruncherTests)
 add_library(s2_game_resource_package STATIC "${root}/FileIO/FilesPackage.cpp")
 target_include_directories(s2_game_resource_package PRIVATE
   "${root}/FileIO" "${root}/Misc")
-target_link_libraries(s2_game_resource_package PUBLIC
+s2_target_link_libraries(s2_game_resource_package PUBLIC
   s2_game_structure s2_portable_package)
 target_compile_features(s2_game_resource_package PUBLIC cxx_std_17)
 set(S2_RESOURCE_PACKAGE_PATH "" CACHE FILEPATH "Original .res package for native stream regression")
 add_executable(NativeResourcePackageTests
   "${root}/diagnostics/NativeResourcePackageTests.cpp")
-target_link_libraries(NativeResourcePackageTests PRIVATE s2_game_resource_package)
+s2_target_link_libraries(NativeResourcePackageTests PRIVATE s2_game_resource_package)
 if(S2_RESOURCE_PACKAGE_PATH)
   add_test(NAME NativeResourcePackageTests
     COMMAND NativeResourcePackageTests "${S2_RESOURCE_PACKAGE_PATH}")
@@ -72,7 +72,7 @@ add_library(s2_game_transform STATIC "${root}/Main/Transform.cpp")
 target_include_directories(s2_game_transform PRIVATE "${root}/Main" "${root}/Misc" "${root}/FileIO")
 target_compile_features(s2_game_transform PUBLIC cxx_std_17)
 add_executable(NativeTransformTests "${root}/diagnostics/NativeTransformTests.cpp")
-target_link_libraries(NativeTransformTests PRIVATE s2_game_transform)
+s2_target_link_libraries(NativeTransformTests PRIVATE s2_game_transform)
 add_test(NAME NativeTransformTests COMMAND NativeTransformTests)
 
 # The game's terrain-height smoothing kernel; world/path-network ownership follows later.
@@ -80,29 +80,29 @@ add_library(s2_game_beta_spline STATIC "${root}/Main/BetaSpline.cpp")
 target_include_directories(s2_game_beta_spline PRIVATE "${root}/Main" "${root}/Misc" "${root}/FileIO")
 target_compile_features(s2_game_beta_spline PUBLIC cxx_std_17)
 add_executable(NativeBetaSplineTests "${root}/diagnostics/NativeBetaSplineTests.cpp")
-target_link_libraries(NativeBetaSplineTests PRIVATE s2_game_beta_spline)
+s2_target_link_libraries(NativeBetaSplineTests PRIVATE s2_game_beta_spline)
 add_test(NAME NativeBetaSplineTests COMMAND NativeBetaSplineTests)
 
 # The game's dependency-graph frame/version and deferred object-hold runtime.
 add_library(s2_game_dg STATIC "${root}/Main/DG.CPP")
 target_include_directories(s2_game_dg PRIVATE "${root}/Main" "${root}/FileIO" "${root}/Misc")
-target_link_libraries(s2_game_dg PUBLIC s2_game_structure)
+s2_target_link_libraries(s2_game_dg PUBLIC s2_game_structure)
 target_compile_features(s2_game_dg PUBLIC cxx_std_17)
 add_executable(NativeDGTests "${root}/diagnostics/NativeDGTests.cpp")
-target_link_libraries(NativeDGTests PRIVATE s2_game_dg)
+s2_target_link_libraries(NativeDGTests PRIVATE s2_game_dg)
 add_test(NAME NativeDGTests COMMAND NativeDGTests)
 
 # Original terrain data fields, save tags, and region invalidation atop DG.
 add_library(s2_game_terrain_info STATIC "${root}/Main/TerrainInfo.cpp")
 target_include_directories(s2_game_terrain_info PRIVATE "${root}/Main" "${root}/FileIO" "${root}/Misc")
-target_link_libraries(s2_game_terrain_info PUBLIC s2_game_dg)
+s2_target_link_libraries(s2_game_terrain_info PUBLIC s2_game_dg)
 target_compile_features(s2_game_terrain_info PUBLIC cxx_std_17)
 # The game's original registry and columnar game.db import, excluding the
 # SQL/ADO source importer used by editor tools.
 add_library(s2_game_database_runtime STATIC "${root}/ADOImport/BasicDB.cpp")
 target_include_directories(s2_game_database_runtime PRIVATE
   "${root}/ADOImport" "${root}/FileIO" "${root}/Misc")
-target_link_libraries(s2_game_database_runtime PUBLIC
+s2_target_link_libraries(s2_game_database_runtime PUBLIC
   s2_game_structure s2_portable_database)
 target_compile_features(s2_game_database_runtime PUBLIC cxx_std_17)
 add_library(s2_game_misc_runtime STATIC
@@ -112,10 +112,10 @@ add_library(s2_game_misc_runtime STATIC
   "${root}/Misc/Tools.cpp")
 target_include_directories(s2_game_misc_runtime PRIVATE
   "${root}/Misc" "${root}/FileIO")
-target_link_libraries(s2_game_misc_runtime PUBLIC s2_game_structure)
+s2_target_link_libraries(s2_game_misc_runtime PUBLIC s2_game_structure)
 target_compile_features(s2_game_misc_runtime PUBLIC cxx_std_17)
 add_executable(NativeStrProcTests "${root}/diagnostics/NativeStrProcTests.cpp")
-target_link_libraries(NativeStrProcTests PRIVATE s2_game_misc_runtime)
+s2_target_link_libraries(NativeStrProcTests PRIVATE s2_game_misc_runtime)
 add_test(NAME NativeStrProcTests COMMAND NativeStrProcTests)
 # Typed game.db records and the original post-load link builder. Editor-only
 # dbinfo/StdAfx translation units are intentionally not part of this target.
@@ -140,13 +140,13 @@ add_library(s2_game_dbformat_records STATIC
   "${root}/DBFormat/DataScript.cpp")
 target_include_directories(s2_game_dbformat_records PRIVATE
   "${root}/DBFormat" "${root}/ADOImport" "${root}/FileIO" "${root}/Misc" "${root}/Main")
-target_link_libraries(s2_game_dbformat_records PUBLIC
+s2_target_link_libraries(s2_game_dbformat_records PUBLIC
   s2_game_database_runtime s2_game_misc_runtime)
 target_compile_features(s2_game_dbformat_records PUBLIC cxx_std_17)
 set(S2_GAME_DB_PATH "" CACHE FILEPATH "Path to an original game.db for native load regression")
 add_executable(NativeGameDatabaseLoadTests
   "${root}/diagnostics/NativeGameDatabaseLoadTests.cpp")
-target_link_libraries(NativeGameDatabaseLoadTests PRIVATE
+s2_target_link_libraries(NativeGameDatabaseLoadTests PRIVATE
   "-Wl,--whole-archive" s2_game_dbformat_records "-Wl,--no-whole-archive")
 if(S2_GAME_DB_PATH)
   add_test(NAME NativeGameDatabaseLoadTests
@@ -154,7 +154,7 @@ if(S2_GAME_DB_PATH)
 endif()
 add_executable(NativeMapDatabaseTests
   "${root}/diagnostics/NativeMapDatabaseTests.cpp")
-target_link_libraries(NativeMapDatabaseTests PRIVATE
+s2_target_link_libraries(NativeMapDatabaseTests PRIVATE
   "-Wl,--whole-archive" s2_game_dbformat_records "-Wl,--no-whole-archive")
 if(S2_GAME_DB_PATH)
   add_test(NAME NativeMapDatabaseTests
@@ -163,7 +163,7 @@ endif()
 # The typed database now supplies the material/armor vtables required by
 # STerrainInfo's saved CDBPtr fields. Link the original region/version test.
 add_executable(NativeTerrainInfoTests "${root}/diagnostics/NativeTerrainInfoTests.cpp")
-target_link_libraries(NativeTerrainInfoTests PRIVATE s2_game_terrain_info
+s2_target_link_libraries(NativeTerrainInfoTests PRIVATE s2_game_terrain_info
   "-Wl,--whole-archive" s2_game_dbformat_records "-Wl,--no-whole-archive")
 add_test(NAME NativeTerrainInfoTests COMMAND NativeTerrainInfoTests)
 if(S2_GAME_DB_PATH)
@@ -176,14 +176,14 @@ endif()
 add_library(s2_game_height_layers STATIC "${root}/Main/wHeightLayers.cpp")
 target_include_directories(s2_game_height_layers PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat" "${root}/ADOImport")
-target_link_libraries(s2_game_height_layers PUBLIC
+s2_target_link_libraries(s2_game_height_layers PUBLIC
   s2_game_terrain_info s2_game_beta_spline)
 target_compile_features(s2_game_height_layers PUBLIC cxx_std_17)
 target_compile_options(s2_game_height_layers PRIVATE
   -ffunction-sections -fdata-sections -fno-sanitize=vptr)
 add_executable(NativeHeightLayersTests "${root}/diagnostics/NativeHeightLayersTests.cpp")
-target_link_libraries(NativeHeightLayersTests PRIVATE s2_game_height_layers)
-target_link_options(NativeHeightLayersTests PRIVATE -Wl,--gc-sections)
+s2_target_link_libraries(NativeHeightLayersTests PRIVATE s2_game_height_layers)
+s2_target_link_options(NativeHeightLayersTests PRIVATE -Wl,--gc-sections)
 add_test(NAME NativeHeightLayersTests COMMAND NativeHeightLayersTests)
 add_executable(NativePoolTests "${root}/diagnostics/NativePoolTests.cpp")
 target_compile_features(NativePoolTests PUBLIC cxx_std_17)
@@ -210,34 +210,34 @@ add_test(NAME NativeAIDistanceWireTests COMMAND NativeAIDistanceWireTests)
 add_library(s2_game_ai_position STATIC "${root}/Main/aiPosition.cpp")
 target_include_directories(s2_game_ai_position PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc")
-target_link_libraries(s2_game_ai_position PUBLIC s2_game_ai_grid s2_game_structure)
+s2_target_link_libraries(s2_game_ai_position PUBLIC s2_game_ai_grid s2_game_structure)
 target_compile_features(s2_game_ai_position PUBLIC cxx_std_17)
 add_library(s2_game_ai_locker STATIC "${root}/Main/aiLocker.cpp")
 target_include_directories(s2_game_ai_locker PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat" "${root}/ADOImport")
-target_link_libraries(s2_game_ai_locker PUBLIC s2_game_ai_grid)
+s2_target_link_libraries(s2_game_ai_locker PUBLIC s2_game_ai_grid)
 target_compile_features(s2_game_ai_locker PUBLIC cxx_std_17)
 add_library(s2_game_ai_pass_jobs STATIC "${root}/Main/aiPassCalcJob.cpp")
 target_include_directories(s2_game_ai_pass_jobs PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat" "${root}/ADOImport")
-target_link_libraries(s2_game_ai_pass_jobs PUBLIC s2_game_ai_grid)
+s2_target_link_libraries(s2_game_ai_pass_jobs PUBLIC s2_game_ai_grid)
 target_compile_features(s2_game_ai_pass_jobs PUBLIC cxx_std_17)
 add_library(s2_game_ai_calculators STATIC
   "${root}/Main/aiPassCalcer.cpp"
   "${root}/Main/aiMovesCalcer.cpp")
 target_include_directories(s2_game_ai_calculators PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat" "${root}/ADOImport")
-target_link_libraries(s2_game_ai_calculators PUBLIC s2_game_ai_grid)
+s2_target_link_libraries(s2_game_ai_calculators PUBLIC s2_game_ai_grid)
 target_compile_features(s2_game_ai_calculators PUBLIC cxx_std_17)
 add_library(s2_game_ai_render STATIC "${root}/Main/aiRender.cpp")
 target_include_directories(s2_game_ai_render PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat" "${root}/ADOImport")
-target_link_libraries(s2_game_ai_render PUBLIC s2_game_ai_grid)
+s2_target_link_libraries(s2_game_ai_render PUBLIC s2_game_ai_grid)
 target_compile_features(s2_game_ai_render PUBLIC cxx_std_17)
 add_library(s2_game_ai_colourer STATIC "${root}/Main/aiColourer.cpp")
 target_include_directories(s2_game_ai_colourer PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat" "${root}/ADOImport")
-target_link_libraries(s2_game_ai_colourer PUBLIC s2_game_ai_grid)
+s2_target_link_libraries(s2_game_ai_colourer PUBLIC s2_game_ai_grid)
 target_compile_features(s2_game_ai_colourer PUBLIC cxx_std_17)
 add_library(s2_game_ai_collision STATIC
   "${root}/Main/aiCollider.cpp"
@@ -247,13 +247,13 @@ add_library(s2_game_ai_collision STATIC
   "${root}/Main/phCollider.cpp")
 target_include_directories(s2_game_ai_collision PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat" "${root}/ADOImport")
-target_link_libraries(s2_game_ai_collision PUBLIC s2_game_ai_grid s2_game_transform)
+s2_target_link_libraries(s2_game_ai_collision PUBLIC s2_game_ai_grid s2_game_transform)
 target_compile_features(s2_game_ai_collision PUBLIC cxx_std_17)
 add_library(s2_game_ai_geometry_loader STATIC
   "${root}/Main/aiObjectLoader.cpp")
 target_include_directories(s2_game_ai_geometry_loader PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat")
-target_link_libraries(s2_game_ai_geometry_loader PUBLIC
+s2_target_link_libraries(s2_game_ai_geometry_loader PUBLIC
   s2_game_ai_collision s2_game_resource_loader s2_game_basic_share)
 target_compile_features(s2_game_ai_geometry_loader PUBLIC cxx_std_17)
 target_compile_options(s2_game_ai_geometry_loader PRIVATE
@@ -261,14 +261,14 @@ target_compile_options(s2_game_ai_geometry_loader PRIVATE
 add_library(s2_game_ai_log STATIC "${root}/MiscDll/LogStream.cpp")
 target_include_directories(s2_game_ai_log PRIVATE
   "${root}/MiscDll" "${root}/Main" "${root}/FileIO" "${root}/Misc")
-target_link_libraries(s2_game_ai_log PUBLIC s2_game_misc_runtime)
+s2_target_link_libraries(s2_game_ai_log PUBLIC s2_game_misc_runtime)
 target_compile_features(s2_game_ai_log PUBLIC cxx_std_17)
 add_library(s2_game_console STATIC
   "${root}/MiscDll/Commands.cpp"
   "${root}/FileIO/LinuxUserData.cpp")
 target_include_directories(s2_game_console PRIVATE
   "${root}/MiscDll" "${root}/FileIO" "${root}/Misc" "${root}/Main")
-target_link_libraries(s2_game_console PUBLIC
+s2_target_link_libraries(s2_game_console PUBLIC
   s2_game_ai_log s2_game_misc_runtime s2_game_structure
   s2_portable_user_paths)
 target_compile_features(s2_game_console PUBLIC cxx_std_17)
@@ -288,33 +288,33 @@ target_compile_options(s2_game_rpg_execution PRIVATE
   -ffunction-sections -fdata-sections)
 add_executable(NativeAttackRulesTests
   "${root}/diagnostics/NativeAttackRulesTests.cpp")
-target_link_libraries(NativeAttackRulesTests PRIVATE
+s2_target_link_libraries(NativeAttackRulesTests PRIVATE
   s2_game_rpg_execution s2_game_dbformat_records
   s2_game_structure s2_game_objects)
-target_link_options(NativeAttackRulesTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeAttackRulesTests PRIVATE -Wl,--gc-sections)
 add_test(NAME NativeAttackRulesTests COMMAND NativeAttackRulesTests)
 add_executable(NativePerkPointsTests
   "${root}/diagnostics/NativePerkPointsTests.cpp")
-target_link_libraries(NativePerkPointsTests PRIVATE
+s2_target_link_libraries(NativePerkPointsTests PRIVATE
   s2_game_rpg_execution s2_game_dbformat_records
   s2_game_ai_log s2_game_structure s2_game_objects)
-target_link_options(NativePerkPointsTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativePerkPointsTests PRIVATE -Wl,--gc-sections)
 add_test(NAME NativePerkPointsTests COMMAND NativePerkPointsTests)
 add_executable(NativeConsoleConfigTests
   "${root}/diagnostics/NativeConsoleConfigTests.cpp")
-target_link_libraries(NativeConsoleConfigTests PRIVATE s2_game_console)
+s2_target_link_libraries(NativeConsoleConfigTests PRIVATE s2_game_console)
 add_test(NAME NativeConsoleConfigTests COMMAND NativeConsoleConfigTests)
 set_tests_properties(NativeConsoleConfigTests PROPERTIES
   ENVIRONMENT "S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/native-console-user")
 add_library(s2_game_save_manager STATIC "${root}/Main/iSaveManagerLinux.cpp")
 target_include_directories(s2_game_save_manager PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/MiscDll")
-target_link_libraries(s2_game_save_manager PUBLIC
+s2_target_link_libraries(s2_game_save_manager PUBLIC
   s2_game_console s2_game_streams s2_portable_user_paths)
 target_compile_features(s2_game_save_manager PUBLIC cxx_std_17)
 add_executable(NativeSaveManagerTests
   "${root}/diagnostics/NativeSaveManagerTests.cpp")
-target_link_libraries(NativeSaveManagerTests PRIVATE s2_game_save_manager)
+s2_target_link_libraries(NativeSaveManagerTests PRIVATE s2_game_save_manager)
 add_test(NAME NativeSaveManagerTests COMMAND NativeSaveManagerTests)
 set_tests_properties(NativeSaveManagerTests PROPERTIES
   ENVIRONMENT "S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/native-save-user")
@@ -322,7 +322,7 @@ add_library(s2_game_world_object STATIC "${root}/Main/wOSBase.cpp")
 target_include_directories(s2_game_world_object PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat"
   "${root}/ADOImport" "${root}/MiscDll")
-target_link_libraries(s2_game_world_object PUBLIC
+s2_target_link_libraries(s2_game_world_object PUBLIC
   s2_game_ai_collision s2_game_ai_log s2_game_transform)
 target_compile_features(s2_game_world_object PUBLIC cxx_std_17)
 # vptr metadata retains every world/DB RTTI reference even when the link
@@ -346,7 +346,7 @@ target_include_directories(s2_game_world PRIVATE
   "${root}/ADOImport" "${root}/MiscDll" "${root}/Script"
   "${root}/third_party/lifestudio/include")
 target_compile_features(s2_game_world PUBLIC cxx_std_17)
-target_link_libraries(s2_game_world PUBLIC s2_network_graph)
+s2_target_link_libraries(s2_game_world PUBLIC s2_network_graph)
 target_compile_options(s2_game_world PRIVATE -ffunction-sections -fdata-sections)
 add_library(s2_game_unit_execution STATIC
   "${root}/Main/wUnitAttack.cpp"
@@ -367,9 +367,9 @@ target_compile_features(s2_game_human_reach PUBLIC cxx_std_17)
 target_compile_options(s2_game_human_reach PRIVATE -ffunction-sections -fdata-sections)
 add_executable(NativeHumanReachTests
   "${root}/diagnostics/NativeHumanReachTests.cpp")
-target_link_libraries(NativeHumanReachTests PRIVATE
+s2_target_link_libraries(NativeHumanReachTests PRIVATE
   s2_game_human_reach)
-target_link_options(NativeHumanReachTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeHumanReachTests PRIVATE -Wl,--gc-sections)
 add_test(NAME NativeHumanReachTests COMMAND NativeHumanReachTests)
 add_library(s2_game_world_entities STATIC
   "${root}/Main/wHintsFunc.cpp"
@@ -390,18 +390,18 @@ target_include_directories(s2_game_locks PRIVATE
 target_compile_features(s2_game_locks PUBLIC cxx_std_17)
 add_executable(NativeLockTokenTests
   "${root}/diagnostics/NativeLockTokenTests.cpp")
-target_link_libraries(NativeLockTokenTests PRIVATE
+s2_target_link_libraries(NativeLockTokenTests PRIVATE
   -Wl,--whole-archive s2_game_locks -Wl,--no-whole-archive
   s2_game_structure s2_game_streams s2_game_objects s2_portable_structure)
 add_test(NAME NativeLockTokenTests COMMAND NativeLockTokenTests)
 add_executable(NativeUnitAreaWireTests
   "${root}/diagnostics/NativeUnitAreaWireTests.cpp")
-target_link_libraries(NativeUnitAreaWireTests PRIVATE
+s2_target_link_libraries(NativeUnitAreaWireTests PRIVATE
   s2_game_structure s2_game_streams s2_game_objects s2_portable_structure)
 add_test(NAME NativeUnitAreaWireTests COMMAND NativeUnitAreaWireTests)
 add_executable(NativeUnitDeathTimeWireTests
   "${root}/diagnostics/NativeUnitDeathTimeWireTests.cpp")
-target_link_libraries(NativeUnitDeathTimeWireTests PRIVATE
+s2_target_link_libraries(NativeUnitDeathTimeWireTests PRIVATE
   s2_game_structure s2_game_streams s2_game_objects s2_portable_structure)
 add_test(NAME NativeUnitDeathTimeWireTests COMMAND NativeUnitDeathTimeWireTests)
 add_library(s2_game_world_events STATIC
@@ -457,7 +457,7 @@ target_include_directories(s2_game_combiner_core PRIVATE
   "${CMAKE_BINARY_DIR}/main_case_include"
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat"
   "${root}/ADOImport" "${root}/MiscDll")
-target_link_libraries(s2_game_combiner_core PUBLIC
+s2_target_link_libraries(s2_game_combiner_core PUBLIC
   s2_game_dg s2_game_structure s2_game_objects)
 target_compile_features(s2_game_combiner_core PUBLIC cxx_std_17)
 target_compile_options(s2_game_combiner_core PRIVATE -ffunction-sections -fdata-sections)
@@ -465,24 +465,24 @@ add_executable(NativeCombinerCoreTests
   "${root}/diagnostics/NativeCombinerCoreTests.cpp")
 target_include_directories(NativeCombinerCoreTests PRIVATE
   "${CMAKE_BINARY_DIR}/main_case_include" "${root}/Main")
-target_link_libraries(NativeCombinerCoreTests PRIVATE s2_game_combiner_core)
-target_link_options(NativeCombinerCoreTests PRIVATE -Wl,--gc-sections)
+s2_target_link_libraries(NativeCombinerCoreTests PRIVATE s2_game_combiner_core)
+s2_target_link_options(NativeCombinerCoreTests PRIVATE -Wl,--gc-sections)
 add_test(NAME NativeCombinerCoreTests COMMAND NativeCombinerCoreTests)
 add_library(s2_game_scene_part_core STATIC "${root}/Main/GScenePartCore.cpp")
 target_include_directories(s2_game_scene_part_core PRIVATE
   "${CMAKE_BINARY_DIR}/main_case_include"
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat"
   "${root}/ADOImport" "${root}/MiscDll")
-target_link_libraries(s2_game_scene_part_core PUBLIC s2_game_combiner_core)
+s2_target_link_libraries(s2_game_scene_part_core PUBLIC s2_game_combiner_core)
 target_compile_features(s2_game_scene_part_core PUBLIC cxx_std_17)
 target_compile_options(s2_game_scene_part_core PRIVATE -ffunction-sections -fdata-sections)
 add_executable(NativeScenePartCoreTests
   "${root}/diagnostics/NativeScenePartCoreTests.cpp")
 target_include_directories(NativeScenePartCoreTests PRIVATE
   "${CMAKE_BINARY_DIR}/main_case_include" "${root}/Main")
-target_link_libraries(NativeScenePartCoreTests PRIVATE
+s2_target_link_libraries(NativeScenePartCoreTests PRIVATE
   -Wl,--whole-archive s2_game_scene_part_core -Wl,--no-whole-archive)
-target_link_options(NativeScenePartCoreTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeScenePartCoreTests PRIVATE -Wl,--gc-sections)
 add_test(NAME NativeScenePartCoreTests COMMAND NativeScenePartCoreTests)
 add_library(s2_game_scene_serialization STATIC
   "${root}/Main/GSceneUtils.cpp"
@@ -492,7 +492,7 @@ target_include_directories(s2_game_scene_serialization PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat"
   "${root}/ADOImport" "${root}/MiscDll" "${root}/Script"
   "${root}/third_party/lifestudio/include")
-target_link_libraries(s2_game_scene_serialization PUBLIC s2_game_scene_part_core)
+s2_target_link_libraries(s2_game_scene_serialization PUBLIC s2_game_scene_part_core)
 target_compile_features(s2_game_scene_serialization PUBLIC cxx_std_17)
 target_compile_options(s2_game_scene_serialization PRIVATE -ffunction-sections -fdata-sections)
 add_executable(NativeRenderStateWireTests
@@ -508,18 +508,18 @@ add_executable(NativeSceneClassIDsTests
   "${root}/Main/GSceneUtils.cpp")
 target_include_directories(NativeSceneClassIDsTests PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat")
-target_link_libraries(NativeSceneClassIDsTests PRIVATE
+s2_target_link_libraries(NativeSceneClassIDsTests PRIVATE
   -Wl,--start-group s2_game_transform
   s2_game_dg s2_game_structure s2_game_streams s2_game_objects
   s2_portable_structure -Wl,--end-group)
-target_link_options(NativeSceneClassIDsTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeSceneClassIDsTests PRIVATE -Wl,--gc-sections)
 add_test(NAME NativeSceneClassIDsTests COMMAND NativeSceneClassIDsTests)
 add_executable(NativeGeometryCoreTests
   "${root}/diagnostics/NativeGeometryCoreTests.cpp")
 target_include_directories(NativeGeometryCoreTests PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc")
-target_link_libraries(NativeGeometryCoreTests PRIVATE s2_game_scene_data)
-target_link_options(NativeGeometryCoreTests PRIVATE -Wl,--gc-sections)
+s2_target_link_libraries(NativeGeometryCoreTests PRIVATE s2_game_scene_data)
+s2_target_link_options(NativeGeometryCoreTests PRIVATE -Wl,--gc-sections)
 add_test(NAME NativeGeometryCoreTests COMMAND NativeGeometryCoreTests)
 add_library(s2_game_scenario_scripts STATIC
   "${root}/Main/scScenarioTracker.cpp"
@@ -533,7 +533,7 @@ target_include_directories(s2_game_scenario_scripts PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat"
   "${root}/ADOImport" "${root}/MiscDll" "${root}/Script"
   "${root}/third_party/lifestudio/include")
-target_link_libraries(s2_game_scenario_scripts PUBLIC s2_portable_package)
+s2_target_link_libraries(s2_game_scenario_scripts PUBLIC s2_portable_package)
 target_compile_features(s2_game_scenario_scripts PUBLIC cxx_std_17)
 target_compile_options(s2_game_scenario_scripts PRIVATE -ffunction-sections -fdata-sections)
 add_library(s2_game_script_bindings STATIC
@@ -649,27 +649,27 @@ target_compile_features(s2_game_rpg_inventory_vision PUBLIC cxx_std_17)
 target_compile_options(s2_game_rpg_inventory_vision PRIVATE -ffunction-sections -fdata-sections)
 add_executable(NativeRPGItemMapTests
   "${root}/diagnostics/NativeRPGItemMapTests.cpp")
-target_link_libraries(NativeRPGItemMapTests PRIVATE
+s2_target_link_libraries(NativeRPGItemMapTests PRIVATE
   s2_game_rpg_inventory_vision s2_game_structure s2_game_objects)
-target_link_options(NativeRPGItemMapTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeRPGItemMapTests PRIVATE -Wl,--gc-sections)
 add_test(NAME NativeRPGItemMapTests COMMAND NativeRPGItemMapTests)
 add_executable(NativeAIIntervalTests
   "${root}/diagnostics/NativeAIIntervalTests.cpp")
-target_link_libraries(NativeAIIntervalTests PRIVATE
+s2_target_link_libraries(NativeAIIntervalTests PRIVATE
   s2_game_ai_actions s2_game_objects)
-target_link_options(NativeAIIntervalTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeAIIntervalTests PRIVATE -Wl,--gc-sections)
 add_test(NAME NativeAIIntervalTests COMMAND NativeAIIntervalTests)
 add_executable(NativeAITraceSphereTests
   "${root}/diagnostics/NativeAITraceSphereTests.cpp")
-target_link_libraries(NativeAITraceSphereTests PRIVATE
+s2_target_link_libraries(NativeAITraceSphereTests PRIVATE
   s2_game_ai_perception s2_game_transform s2_game_structure s2_game_objects)
-target_link_options(NativeAITraceSphereTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeAITraceSphereTests PRIVATE -Wl,--gc-sections)
 add_test(NAME NativeAITraceSphereTests COMMAND NativeAITraceSphereTests)
 add_executable(NativeExplosionVoxelRendererTests
   "${root}/diagnostics/NativeExplosionVoxelRendererTests.cpp")
-target_link_libraries(NativeExplosionVoxelRendererTests PRIVATE
+s2_target_link_libraries(NativeExplosionVoxelRendererTests PRIVATE
   s2_game_ai_perception s2_game_transform s2_game_structure s2_game_objects)
-target_link_options(NativeExplosionVoxelRendererTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeExplosionVoxelRendererTests PRIVATE -Wl,--gc-sections)
 add_test(NAME NativeExplosionVoxelRendererTests COMMAND NativeExplosionVoxelRendererTests)
 # Original AI map and RPG mission state are game-used prerequisites for
 # executing a Linux world. Static archives alone do not close the link.
@@ -694,10 +694,10 @@ target_compile_features(s2_game_rpg_mission PUBLIC cxx_std_17)
 target_compile_options(s2_game_rpg_mission PRIVATE -ffunction-sections -fdata-sections)
 add_executable(NativeDiplomacyBitsTests
   "${root}/diagnostics/NativeDiplomacyBitsTests.cpp")
-target_link_libraries(NativeDiplomacyBitsTests PRIVATE
+s2_target_link_libraries(NativeDiplomacyBitsTests PRIVATE
   s2_game_rpg_mission s2_game_dbformat_records
   s2_game_structure s2_game_objects)
-target_link_options(NativeDiplomacyBitsTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeDiplomacyBitsTests PRIVATE -Wl,--gc-sections)
 add_test(NAME NativeDiplomacyBitsTests COMMAND NativeDiplomacyBitsTests)
 # The original command-driven AI logic base. It compiles on Linux, but
 # executable linking still needs the world unit server and command queue;
@@ -758,21 +758,21 @@ target_compile_features(s2_game_ai_height PUBLIC cxx_std_17)
 target_compile_options(s2_game_ai_height PRIVATE -ffunction-sections -fdata-sections)
 add_executable(NativeAnimationPathTests
   "${root}/diagnostics/NativeAnimationPathTests.cpp")
-target_link_libraries(NativeAnimationPathTests PRIVATE
+s2_target_link_libraries(NativeAnimationPathTests PRIVATE
   s2_game_animation_runtime s2_game_dg s2_game_structure s2_game_objects)
-target_link_options(NativeAnimationPathTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeAnimationPathTests PRIVATE -Wl,--gc-sections)
 add_test(NAME NativeAnimationPathTests COMMAND NativeAnimationPathTests)
 add_executable(NativeAnimationResourceTests
   "${root}/diagnostics/NativeAnimationResourceTests.cpp")
 target_include_directories(NativeAnimationResourceTests PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc")
-target_link_libraries(NativeAnimationResourceTests PRIVATE
+s2_target_link_libraries(NativeAnimationResourceTests PRIVATE
   -Wl,--start-group s2_game_animation_runtime s2_game_basic_share
   s2_game_resource_loader s2_game_resource_package s2_game_dg
   s2_game_structure s2_game_streams s2_game_objects
   s2_portable_package s2_portable_structure s2_game_misc_runtime
   -Wl,--end-group)
-target_link_options(NativeAnimationResourceTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeAnimationResourceTests PRIVATE -Wl,--gc-sections)
 if(S2_RESOURCE_PACKAGE_PATH)
   get_filename_component(S2_ANIMATION_RESOURCE_DIR
     "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
@@ -796,16 +796,16 @@ target_include_directories(s2_game_unit_commands PRIVATE
 target_compile_features(s2_game_unit_commands PUBLIC cxx_std_17)
 add_executable(NativeCommandBridgeTests
   "${root}/diagnostics/NativeCommandBridgeTests.cpp")
-target_link_libraries(NativeCommandBridgeTests PRIVATE
+s2_target_link_libraries(NativeCommandBridgeTests PRIVATE
   s2_game_command_bridge s2_game_unit_commands
   s2_game_structure s2_game_objects)
 add_test(NAME NativeCommandBridgeTests COMMAND NativeCommandBridgeTests)
 add_executable(NativeAILogTests "${root}/diagnostics/NativeAILogTests.cpp")
-target_link_libraries(NativeAILogTests PRIVATE s2_game_ai_log)
+s2_target_link_libraries(NativeAILogTests PRIVATE s2_game_ai_log)
 add_test(NAME NativeAILogTests COMMAND NativeAILogTests)
 add_executable(NativeHeightNetworkTests
   "${root}/diagnostics/NativeHeightNetworkTests.cpp")
-target_link_libraries(NativeHeightNetworkTests PRIVATE
+s2_target_link_libraries(NativeHeightNetworkTests PRIVATE
   -Wl,--start-group
   s2_game_height_layers s2_game_ai_position s2_game_ai_locker
   s2_game_ai_pass_jobs s2_game_ai_calculators s2_game_ai_render
@@ -815,7 +815,7 @@ target_link_libraries(NativeHeightNetworkTests PRIVATE
   s2_portable_structure s2_game_beta_spline s2_game_transform
   s2_game_misc_runtime
   -Wl,--end-group)
-target_link_options(NativeHeightNetworkTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeHeightNetworkTests PRIVATE -Wl,--gc-sections)
 add_test(NAME NativeHeightNetworkTests COMMAND NativeHeightNetworkTests)
 
 # Original mission-template traversal and map assembly, adjacent to the
@@ -830,7 +830,7 @@ target_include_directories(s2_game_map_build PRIVATE
   "${CMAKE_BINARY_DIR}/main_case_include"
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat"
   "${root}/ADOImport" "${root}/MiscDll")
-target_link_libraries(s2_game_map_build PUBLIC
+s2_target_link_libraries(s2_game_map_build PUBLIC
   s2_game_dbformat_records s2_game_ai_grid s2_game_terrain_info
   s2_game_building_grid s2_game_building_info s2_game_building_internal
   s2_game_make_building s2_game_map_terrain)
@@ -840,7 +840,7 @@ option(S2_ENABLE_MISSION_MAP_PROBE "Link the original game mission builder probe
 if(S2_ENABLE_MISSION_MAP_PROBE)
   add_executable(NativeMissionMapProbe
     "${root}/diagnostics/NativeMissionMapProbe.cpp")
-  target_link_libraries(NativeMissionMapProbe PRIVATE
+  s2_target_link_libraries(NativeMissionMapProbe PRIVATE
     -Wl,--start-group s2_game_map_build s2_game_lua s2_game_make_building
     s2_game_building_internal s2_game_building_info s2_game_building_grid
     s2_game_building_clip s2_game_map_terrain s2_game_ai_geometry_loader
@@ -855,7 +855,7 @@ if(S2_ENABLE_MISSION_MAP_PROBE)
     s2_portable_package s2_game_misc_runtime s2_game_database_runtime
     -Wl,--whole-archive s2_game_dbformat_records -Wl,--no-whole-archive
     -Wl,--end-group)
-  target_link_options(NativeMissionMapProbe PRIVATE -Wl,--gc-sections)
+  s2_target_link_options(NativeMissionMapProbe PRIVATE -Wl,--gc-sections)
   if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
     get_filename_component(_s2_mission_res_dir "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
     if(EXISTS "${_s2_mission_res_dir}/Waypoints.res" AND
@@ -902,14 +902,14 @@ add_library(s2_game_building_grid STATIC
   "${root}/Main/rod.cpp")
 target_include_directories(s2_game_building_grid PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc")
-target_link_libraries(s2_game_building_grid PUBLIC
+s2_target_link_libraries(s2_game_building_grid PUBLIC
   s2_game_dg s2_game_transform s2_game_structure)
 target_compile_features(s2_game_building_grid PUBLIC cxx_std_17)
 target_compile_options(s2_game_building_grid PRIVATE -ffunction-sections -fdata-sections)
 add_library(s2_game_building_info STATIC "${root}/Main/BuildingInfo.cpp")
 target_include_directories(s2_game_building_info PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat")
-target_link_libraries(s2_game_building_info PUBLIC
+s2_target_link_libraries(s2_game_building_info PUBLIC
   s2_game_resource_loader s2_game_dbformat_records s2_game_structure
   s2_game_basic_share)
 target_compile_features(s2_game_building_info PUBLIC cxx_std_17)
@@ -918,14 +918,14 @@ add_library(s2_game_building_internal STATIC
   "${root}/Main/MakeBuildingInternal.cpp")
 target_include_directories(s2_game_building_internal PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat")
-target_link_libraries(s2_game_building_internal PUBLIC
+s2_target_link_libraries(s2_game_building_internal PUBLIC
   s2_game_building_info s2_game_building_grid s2_game_dbformat_records)
 target_compile_features(s2_game_building_internal PUBLIC cxx_std_17)
 target_compile_options(s2_game_building_internal PRIVATE -ffunction-sections -fdata-sections)
 add_library(s2_game_building_clip STATIC "${root}/Main/BuildingClip.cpp")
 target_include_directories(s2_game_building_clip PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc")
-target_link_libraries(s2_game_building_clip PUBLIC
+s2_target_link_libraries(s2_game_building_clip PUBLIC
   s2_game_building_grid s2_game_structure)
 target_compile_features(s2_game_building_clip PUBLIC cxx_std_17)
 target_compile_options(s2_game_building_clip PRIVATE -ffunction-sections -fdata-sections)
@@ -933,7 +933,7 @@ add_library(s2_game_make_building STATIC "${root}/Main/MakeBuilding.cpp")
 target_include_directories(s2_game_make_building PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat"
   "${root}/ADOImport" "${root}/MiscDll")
-target_link_libraries(s2_game_make_building PUBLIC
+s2_target_link_libraries(s2_game_make_building PUBLIC
   s2_game_building_internal s2_game_building_clip
   s2_game_building_grid s2_game_building_info
   s2_game_dbformat_records s2_game_ai_geometry_loader)
@@ -942,20 +942,20 @@ target_compile_options(s2_game_make_building PRIVATE -ffunction-sections -fdata-
 add_library(s2_game_map_terrain STATIC "${root}/Main/MapBuildTerrain.cpp")
 target_include_directories(s2_game_map_terrain PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat")
-target_link_libraries(s2_game_map_terrain PUBLIC
+s2_target_link_libraries(s2_game_map_terrain PUBLIC
   s2_game_building_info s2_game_terrain_info s2_game_poly_utils
   s2_game_resource_loader s2_game_dbformat_records s2_game_basic_share)
 target_compile_features(s2_game_map_terrain PUBLIC cxx_std_17)
 target_compile_options(s2_game_map_terrain PRIVATE -ffunction-sections -fdata-sections)
 add_executable(NativeAIBindResourceTests
   "${root}/diagnostics/NativeAIBindResourceTests.cpp")
-target_link_libraries(NativeAIBindResourceTests PRIVATE
+s2_target_link_libraries(NativeAIBindResourceTests PRIVATE
   -Wl,--start-group s2_game_scene_data s2_game_animation_runtime
   s2_game_resource_loader s2_game_resource_package s2_game_basic_share
   s2_game_transform s2_game_dg s2_game_structure s2_game_streams
   s2_game_objects s2_portable_structure s2_portable_package
   s2_game_misc_runtime -Wl,--end-group)
-target_link_options(NativeAIBindResourceTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeAIBindResourceTests PRIVATE -Wl,--gc-sections)
 if(S2_RESOURCE_PACKAGE_PATH)
   get_filename_component(_s2_ai_bind_res_dir
     "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
@@ -966,15 +966,15 @@ if(S2_RESOURCE_PACKAGE_PATH)
 endif()
 add_executable(NativeAIBindPoseTests
   "${root}/diagnostics/NativeAIBindPoseTests.cpp")
-target_link_libraries(NativeAIBindPoseTests PRIVATE
+s2_target_link_libraries(NativeAIBindPoseTests PRIVATE
   -Wl,--start-group s2_game_scene_data s2_game_animation_runtime
   s2_game_resource_loader s2_game_resource_package s2_game_basic_share
   s2_game_transform s2_game_dg s2_game_structure s2_game_streams
   s2_game_objects s2_portable_structure s2_portable_package
   s2_game_misc_runtime -Wl,--end-group)
-target_link_libraries(NativeAIBindPoseTests PRIVATE
+s2_target_link_libraries(NativeAIBindPoseTests PRIVATE
   "-Wl,--whole-archive" s2_game_dbformat_records "-Wl,--no-whole-archive")
-target_link_options(NativeAIBindPoseTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeAIBindPoseTests PRIVATE -Wl,--gc-sections)
 if(S2_RESOURCE_PACKAGE_PATH AND S2_GAME_DB_PATH)
   get_filename_component(_s2_ai_pose_res_dir
     "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
@@ -988,13 +988,13 @@ if(S2_RESOURCE_PACKAGE_PATH AND S2_GAME_DB_PATH)
 endif()
 add_executable(NativeAIBSPResourceTests
   "${root}/diagnostics/NativeAIBSPResourceTests.cpp")
-target_link_libraries(NativeAIBSPResourceTests PRIVATE
+s2_target_link_libraries(NativeAIBSPResourceTests PRIVATE
   -Wl,--start-group s2_game_ai_geometry_loader s2_game_ai_collision
   s2_game_resource_loader s2_game_resource_package s2_game_basic_share
   s2_game_transform s2_game_dg s2_game_structure s2_game_streams
   s2_game_objects s2_portable_structure s2_portable_package
   s2_game_misc_runtime -Wl,--end-group)
-target_link_options(NativeAIBSPResourceTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeAIBSPResourceTests PRIVATE -Wl,--gc-sections)
 if(S2_RESOURCE_PACKAGE_PATH)
   get_filename_component(_s2_ai_bsp_res_dir
     "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
@@ -1005,14 +1005,14 @@ if(S2_RESOURCE_PACKAGE_PATH)
 endif()
 add_executable(NativeAIGeometryResourceTests
   "${root}/diagnostics/NativeAIGeometryResourceTests.cpp")
-target_link_libraries(NativeAIGeometryResourceTests PRIVATE
+s2_target_link_libraries(NativeAIGeometryResourceTests PRIVATE
   -Wl,--start-group s2_game_ai_geometry_loader s2_game_ai_collision
   s2_game_dbformat_records s2_game_database_runtime
   s2_game_resource_loader s2_game_resource_package s2_game_basic_share
   s2_game_transform s2_game_dg s2_game_structure s2_game_streams
   s2_game_objects s2_portable_structure s2_portable_package
   s2_game_misc_runtime -Wl,--end-group)
-target_link_options(NativeAIGeometryResourceTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeAIGeometryResourceTests PRIVATE -Wl,--gc-sections)
 if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
   get_filename_component(_s2_ai_geometry_res_dir
     "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
@@ -1024,13 +1024,13 @@ if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
 endif()
 add_executable(NativeModelGeometryResourceTests
   "${root}/diagnostics/NativeModelGeometryResourceTests.cpp")
-target_link_libraries(NativeModelGeometryResourceTests PRIVATE
+s2_target_link_libraries(NativeModelGeometryResourceTests PRIVATE
   -Wl,--start-group s2_game_dbformat_records s2_game_database_runtime
   s2_game_resource_loader s2_game_resource_package s2_game_structure
   s2_game_streams s2_game_objects s2_portable_structure
   s2_portable_package s2_game_misc_runtime s2_game_scene_data
   -Wl,--end-group)
-target_link_options(NativeModelGeometryResourceTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeModelGeometryResourceTests PRIVATE -Wl,--gc-sections)
 if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
   get_filename_component(_s2_model_geometry_res_dir
     "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
@@ -1042,12 +1042,12 @@ if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
 endif()
 add_executable(NativeBuildingPieceResourceTests
   "${root}/diagnostics/NativeBuildingPieceResourceTests.cpp")
-target_link_libraries(NativeBuildingPieceResourceTests PRIVATE
+s2_target_link_libraries(NativeBuildingPieceResourceTests PRIVATE
   -Wl,--start-group s2_portable_database s2_game_resource_loader
   s2_game_resource_package s2_game_structure s2_game_streams s2_game_objects
   s2_portable_structure s2_portable_package s2_game_misc_runtime
   -Wl,--end-group)
-target_link_options(NativeBuildingPieceResourceTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeBuildingPieceResourceTests PRIVATE -Wl,--gc-sections)
 if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
   get_filename_component(_s2_building_piece_res_dir
     "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
@@ -1059,7 +1059,7 @@ if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
 endif()
 add_executable(NativeBuildingClipperTests
   "${root}/diagnostics/NativeBuildingClipperTests.cpp")
-target_link_libraries(NativeBuildingClipperTests PRIVATE
+s2_target_link_libraries(NativeBuildingClipperTests PRIVATE
   -Wl,--start-group s2_portable_database s2_game_scene_data
   s2_game_animation_runtime s2_game_ai_geometry_loader s2_game_ai_collision
   s2_game_building_clip s2_game_make_building s2_game_building_internal
@@ -1068,7 +1068,7 @@ target_link_libraries(NativeBuildingClipperTests PRIVATE
   s2_game_dbformat_records s2_game_database_runtime s2_game_structure
   s2_game_streams s2_game_objects s2_portable_structure s2_portable_package
   s2_game_misc_runtime -Wl,--end-group)
-target_link_options(NativeBuildingClipperTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeBuildingClipperTests PRIVATE -Wl,--gc-sections)
 if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
   get_filename_component(_s2_building_clipper_res_dir
     "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
@@ -1080,7 +1080,7 @@ if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
 endif()
 add_executable(NativeBuildingTerrainResourceTests
   "${root}/diagnostics/NativeBuildingTerrainResourceTests.cpp")
-target_link_libraries(NativeBuildingTerrainResourceTests PRIVATE
+s2_target_link_libraries(NativeBuildingTerrainResourceTests PRIVATE
   -Wl,--start-group s2_game_make_building s2_game_building_internal
   s2_game_building_info
   s2_game_building_grid s2_game_building_clip s2_game_ai_geometry_loader
@@ -1092,7 +1092,7 @@ target_link_libraries(NativeBuildingTerrainResourceTests PRIVATE
   s2_game_database_runtime
   -Wl,--whole-archive s2_game_dbformat_records -Wl,--no-whole-archive
   -Wl,--end-group)
-target_link_options(NativeBuildingTerrainResourceTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeBuildingTerrainResourceTests PRIVATE -Wl,--gc-sections)
 if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
   get_filename_component(_s2_resource_dir "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
   if(EXISTS "${_s2_resource_dir}/Buildings.res" AND
@@ -1105,22 +1105,22 @@ if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
 endif()
 add_executable(NativeBuildingGridTests
   "${root}/diagnostics/NativeBuildingGridTests.cpp")
-target_link_libraries(NativeBuildingGridTests PRIVATE
+s2_target_link_libraries(NativeBuildingGridTests PRIVATE
   -Wl,--start-group s2_game_building_grid s2_game_transform s2_game_dg
   s2_game_structure s2_game_streams s2_game_objects s2_portable_structure
   s2_game_misc_runtime s2_game_dbformat_records s2_game_database_runtime
   -Wl,--end-group)
-target_link_options(NativeBuildingGridTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeBuildingGridTests PRIVATE -Wl,--gc-sections)
 add_test(NAME NativeBuildingGridTests COMMAND NativeBuildingGridTests)
 add_library(s2_game_poly_utils STATIC "${root}/Main/PolyUtils.cpp")
 target_include_directories(s2_game_poly_utils PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc")
-target_link_libraries(s2_game_poly_utils PUBLIC s2_game_transform)
+s2_target_link_libraries(s2_game_poly_utils PUBLIC s2_game_transform)
 target_compile_features(s2_game_poly_utils PUBLIC cxx_std_17)
 target_compile_options(s2_game_poly_utils PRIVATE -ffunction-sections -fdata-sections)
 add_executable(NativeMapPolygonTests "${root}/diagnostics/NativeMapPolygonTests.cpp")
-target_link_libraries(NativeMapPolygonTests PRIVATE s2_game_poly_utils)
-target_link_options(NativeMapPolygonTests PRIVATE -Wl,--gc-sections)
+s2_target_link_libraries(NativeMapPolygonTests PRIVATE s2_game_poly_utils)
+s2_target_link_options(NativeMapPolygonTests PRIVATE -Wl,--gc-sections)
 add_test(NAME NativeMapPolygonTests COMMAND NativeMapPolygonTests)
 add_library(s2_game_basic_share STATIC "${root}/Misc/BasicShare.cpp")
 target_include_directories(s2_game_basic_share PRIVATE
@@ -1136,31 +1136,31 @@ add_library(s2_game_resource_loader STATIC
   "${root}/Main/HeadResourceData.cpp")
 target_include_directories(s2_game_resource_loader PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc")
-target_link_libraries(s2_game_resource_loader PUBLIC
+s2_target_link_libraries(s2_game_resource_loader PUBLIC
   s2_game_resource_package s2_game_dg s2_game_structure)
 if(UNIX)
-  target_link_libraries(s2_game_resource_loader PUBLIC pthread)
+  s2_target_link_libraries(s2_game_resource_loader PUBLIC pthread)
 endif()
 target_compile_features(s2_game_resource_loader PUBLIC cxx_std_17)
 target_compile_options(s2_game_resource_loader PRIVATE -ffunction-sections -fdata-sections)
 add_library(s2_game_mod_manager STATIC "${root}/Main/ModManager.cpp")
 target_include_directories(s2_game_mod_manager PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/ADOImport")
-target_link_libraries(s2_game_mod_manager PUBLIC
+s2_target_link_libraries(s2_game_mod_manager PUBLIC
   s2_game_database_runtime s2_game_resource_loader s2_game_dg)
 target_compile_features(s2_game_mod_manager PUBLIC cxx_std_17)
 target_compile_options(s2_game_mod_manager PRIVATE -ffunction-sections -fdata-sections)
 add_executable(NativeModManagerTests "${root}/diagnostics/NativeModManagerTests.cpp")
 target_include_directories(NativeModManagerTests PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat")
-target_link_libraries(NativeModManagerTests PRIVATE
+s2_target_link_libraries(NativeModManagerTests PRIVATE
   -Wl,--whole-archive s2_game_dbformat_records -Wl,--no-whole-archive
   -Wl,--start-group s2_game_mod_manager s2_game_resource_loader
   s2_game_resource_package s2_game_dg s2_game_database_runtime
   s2_game_misc_runtime s2_game_structure s2_game_streams s2_game_objects
   s2_portable_database s2_portable_package s2_portable_structure
   -Wl,--end-group)
-target_link_options(NativeModManagerTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeModManagerTests PRIVATE -Wl,--gc-sections)
 if(S2_GAME_DB_PATH)
   add_test(NAME NativeModManagerTests COMMAND NativeModManagerTests
     "${S2_GAME_DB_PATH}" "${CMAKE_BINARY_DIR}/mod-manager-scratch")
@@ -1170,19 +1170,19 @@ add_library(s2_game_campaign_map_data STATIC
   "${root}/Main/GlobalInfo.cpp")
 target_include_directories(s2_game_campaign_map_data PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc")
-target_link_libraries(s2_game_campaign_map_data PUBLIC s2_game_resource_loader)
+s2_target_link_libraries(s2_game_campaign_map_data PUBLIC s2_game_resource_loader)
 target_compile_features(s2_game_campaign_map_data PUBLIC cxx_std_17)
 target_compile_options(s2_game_campaign_map_data PRIVATE -ffunction-sections -fdata-sections)
 add_executable(NativeCampaignMapResourceTests
   "${root}/diagnostics/NativeCampaignMapResourceTests.cpp")
 target_include_directories(NativeCampaignMapResourceTests PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc")
-target_link_libraries(NativeCampaignMapResourceTests PRIVATE
+s2_target_link_libraries(NativeCampaignMapResourceTests PRIVATE
   -Wl,--start-group s2_game_campaign_map_data s2_game_resource_loader
   s2_game_resource_package s2_game_dg s2_game_structure s2_game_streams
   s2_game_objects s2_portable_package s2_portable_structure
   s2_game_misc_runtime -Wl,--end-group)
-target_link_options(NativeCampaignMapResourceTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeCampaignMapResourceTests PRIVATE -Wl,--gc-sections)
 if(S2_RESOURCE_PACKAGE_PATH)
   get_filename_component(_s2_campaign_resource_dir "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
   if(EXISTS "${_s2_campaign_resource_dir}/Chapters.res" AND
@@ -1194,11 +1194,11 @@ if(S2_RESOURCE_PACKAGE_PATH)
 endif()
 add_executable(NativeResourceOpenerTests
   "${root}/diagnostics/NativeResourceOpenerTests.cpp")
-target_link_libraries(NativeResourceOpenerTests PRIVATE
+s2_target_link_libraries(NativeResourceOpenerTests PRIVATE
   -Wl,--start-group s2_game_resource_loader s2_game_resource_package
   s2_game_dg s2_game_structure s2_game_streams s2_game_objects
   s2_portable_package s2_portable_structure -Wl,--end-group)
-target_link_options(NativeResourceOpenerTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeResourceOpenerTests PRIVATE -Wl,--gc-sections)
 if(S2_RESOURCE_PACKAGE_PATH)
   add_test(NAME NativeResourceOpenerTests
     COMMAND NativeResourceOpenerTests "${S2_RESOURCE_PACKAGE_PATH}"
@@ -1208,13 +1208,13 @@ add_executable(NativeWaypointResourceTests
   "${root}/diagnostics/NativeWaypointResourceTests.cpp")
 target_include_directories(NativeWaypointResourceTests PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc")
-target_link_libraries(NativeWaypointResourceTests PRIVATE
+s2_target_link_libraries(NativeWaypointResourceTests PRIVATE
   -Wl,--start-group s2_game_ai_waypoint s2_game_basic_share
   s2_game_resource_loader s2_game_resource_package s2_game_ai_position
   s2_game_dg s2_game_structure s2_game_streams s2_game_objects
   s2_portable_package s2_portable_structure s2_game_misc_runtime
   -Wl,--end-group)
-target_link_options(NativeWaypointResourceTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeWaypointResourceTests PRIVATE -Wl,--gc-sections)
 if(S2_RESOURCE_PACKAGE_PATH)
   add_test(NAME NativeWaypointResourceTests
     COMMAND NativeWaypointResourceTests "${S2_RESOURCE_PACKAGE_PATH}")
@@ -1223,7 +1223,7 @@ add_executable(NativeAIRouteResourceTests
   "${root}/diagnostics/NativeAIRouteResourceTests.cpp")
 target_include_directories(NativeAIRouteResourceTests PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc")
-target_link_libraries(NativeAIRouteResourceTests PRIVATE
+s2_target_link_libraries(NativeAIRouteResourceTests PRIVATE
   -Wl,--start-group s2_game_ai_waypoint s2_game_basic_share
   s2_game_resource_loader s2_game_resource_package s2_game_ai_position
   s2_game_dg s2_game_structure s2_game_streams s2_game_objects
@@ -1231,7 +1231,7 @@ target_link_libraries(NativeAIRouteResourceTests PRIVATE
   s2_game_database_runtime
   -Wl,--whole-archive s2_game_dbformat_records -Wl,--no-whole-archive
   -Wl,--end-group)
-target_link_options(NativeAIRouteResourceTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeAIRouteResourceTests PRIVATE -Wl,--gc-sections)
 if(S2_RESOURCE_PACKAGE_PATH AND S2_GAME_DB_PATH)
   get_filename_component(_s2_ai_route_res_dir "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
   if(EXISTS "${_s2_ai_route_res_dir}/Units.res" AND
@@ -1241,13 +1241,13 @@ if(S2_RESOURCE_PACKAGE_PATH AND S2_GAME_DB_PATH)
   endif()
 endif()
 add_executable(NativeMapFlagsTests "${root}/diagnostics/NativeMapFlagsTests.cpp")
-target_link_libraries(NativeMapFlagsTests PRIVATE
+s2_target_link_libraries(NativeMapFlagsTests PRIVATE
   -Wl,--start-group s2_game_map_build
   s2_game_misc_runtime s2_game_ai_grid s2_game_terrain_info
   s2_game_structure s2_game_streams s2_game_objects s2_portable_structure
   -Wl,--whole-archive s2_game_dbformat_records -Wl,--no-whole-archive
   -Wl,--end-group)
-target_link_options(NativeMapFlagsTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeMapFlagsTests PRIVATE -Wl,--gc-sections)
 if(S2_GAME_DB_PATH)
   add_test(NAME NativeMapFlagsTests
     COMMAND NativeMapFlagsTests "${S2_GAME_DB_PATH}")
@@ -1281,14 +1281,14 @@ add_library(s2_game_lua STATIC
   "${root}/Main/scriptRandom.cpp")
 target_include_directories(s2_game_lua PRIVATE "${CMAKE_BINARY_DIR}/lua_include")
 # Missing-global diagnostics in the VM use the shared engine log runtime.
-target_link_libraries(s2_game_lua PUBLIC s2_game_structure s2_game_misc_runtime s2_game_ai_log)
+s2_target_link_libraries(s2_game_lua PUBLIC s2_game_structure s2_game_misc_runtime s2_game_ai_log)
 target_compile_features(s2_game_lua PUBLIC cxx_std_17)
 add_executable(NativeLuaRuntimeTests "${root}/diagnostics/NativeLuaRuntimeTests.cpp")
-target_link_libraries(NativeLuaRuntimeTests PRIVATE s2_game_lua)
+s2_target_link_libraries(NativeLuaRuntimeTests PRIVATE s2_game_lua)
 add_test(NAME NativeLuaRuntimeTests COMMAND NativeLuaRuntimeTests)
 add_executable(NativeMissionScriptCorpusTests
   "${root}/diagnostics/NativeMissionScriptCorpusTests.cpp")
-target_link_libraries(NativeMissionScriptCorpusTests PRIVATE
+s2_target_link_libraries(NativeMissionScriptCorpusTests PRIVATE
   -Wl,--start-group s2_game_lua
   s2_game_database_runtime s2_game_misc_runtime s2_game_structure
   s2_game_streams s2_game_objects s2_portable_structure
@@ -1317,13 +1317,13 @@ target_include_directories(s2_native_lifestudio PUBLIC
   "${root}/third_party/lifestudio/src")
 target_compile_definitions(s2_native_lifestudio PUBLIC
   LIFESTUDIOHEADAPI_EXPORTS_LIB "__stdcall=")
-target_link_libraries(s2_native_lifestudio PUBLIC s2_portable_core)
+s2_target_link_libraries(s2_native_lifestudio PUBLIC s2_portable_core)
 target_compile_features(s2_native_lifestudio PUBLIC cxx_std_17)
 add_library(s2_game_head_runtime STATIC "${root}/Main/LSHeadPortable.cpp")
 target_include_directories(s2_game_head_runtime PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat"
   "${root}/third_party/lifestudio/include")
-target_link_libraries(s2_game_head_runtime PUBLIC
+s2_target_link_libraries(s2_game_head_runtime PUBLIC
   s2_native_lifestudio s2_game_resource_loader s2_game_basic_share
   s2_game_dbformat_records)
 target_compile_features(s2_game_head_runtime PUBLIC cxx_std_17)
@@ -1341,14 +1341,14 @@ add_executable(NativeHeadResourceTests
   "${root}/diagnostics/NativeHeadResourceTests.cpp")
 target_include_directories(NativeHeadResourceTests PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc")
-target_link_libraries(NativeHeadResourceTests PRIVATE
+s2_target_link_libraries(NativeHeadResourceTests PRIVATE
   -Wl,--start-group s2_game_head_runtime s2_native_lifestudio s2_portable_core s2_game_resource_loader
   s2_game_resource_package s2_game_dg s2_game_structure
   s2_game_streams s2_game_objects s2_game_dbformat_records
   s2_game_database_runtime s2_game_misc_runtime s2_portable_database
   s2_portable_package
   s2_portable_structure -Wl,--end-group)
-target_link_options(NativeHeadResourceTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeHeadResourceTests PRIVATE -Wl,--gc-sections)
 if(S2_HEAD_RESOURCE_PATH)
   if(S2_GAME_DB_PATH AND EXISTS "${S2_HEAD_TREE_PATH}")
     add_test(NAME NativeHeadResourceTests
@@ -1362,14 +1362,14 @@ add_executable(NativeHeadSequenceRuntimeTests
   "${root}/diagnostics/NativeHeadSequenceRuntimeTests.cpp")
 target_include_directories(NativeHeadSequenceRuntimeTests PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc")
-target_link_libraries(NativeHeadSequenceRuntimeTests PRIVATE
+s2_target_link_libraries(NativeHeadSequenceRuntimeTests PRIVATE
   -Wl,--start-group s2_game_head_runtime s2_native_lifestudio s2_portable_core s2_game_resource_loader
   s2_game_resource_package s2_game_dg s2_game_structure
   s2_game_streams s2_game_objects s2_game_dbformat_records
   s2_game_database_runtime s2_game_misc_runtime s2_portable_database
   s2_portable_package
   s2_portable_structure -Wl,--end-group)
-target_link_options(NativeHeadSequenceRuntimeTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeHeadSequenceRuntimeTests PRIVATE -Wl,--gc-sections)
 if(S2_HEAD_RESOURCE_PATH)
   if(EXISTS "${_s2_head_resource_dir}/Sequences.res" AND EXISTS "${S2_HEAD_TREE_PATH}")
     add_test(NAME NativeHeadSequenceRuntimeTests
@@ -1395,14 +1395,14 @@ foreach(_s2_target IN LISTS _s2_all_targets)
     list(APPEND _s2_portable_archives ${_s2_target})
   endif()
 endforeach()
-target_link_libraries(NativeAIBindPoseTests PRIVATE
+s2_target_link_libraries(NativeAIBindPoseTests PRIVATE
   -Wl,--start-group ${_s2_portable_archives} -Wl,--end-group)
 add_executable(NativeAILogicTests "${root}/diagnostics/NativeAILogicTests.cpp")
 target_include_directories(NativeAILogicTests PRIVATE
   "${CMAKE_BINARY_DIR}/main_case_include" "${root}/Main")
-target_link_libraries(NativeAILogicTests PRIVATE
+s2_target_link_libraries(NativeAILogicTests PRIVATE
   -Wl,--start-group ${_s2_portable_archives} -Wl,--end-group)
-target_link_options(NativeAILogicTests PRIVATE -Wl,--gc-sections
+s2_target_link_options(NativeAILogicTests PRIVATE -Wl,--gc-sections
   -Wl,-u,_ZN6NWorld12CDFrozenItem5VisitEPNS_14IRenderVisitorE
   -Wl,-u,_ZN6NWorld6CWorldC1EPN4NRPG11CGlobalGameE)
 add_test(NAME NativeAILogicTests COMMAND NativeAILogicTests)
@@ -1412,18 +1412,18 @@ add_executable(NativeWorldInitProbe
   "${root}/Main/DiscretePos.cpp")
 target_include_directories(NativeWorldInitProbe PRIVATE
   "${CMAKE_BINARY_DIR}/main_case_include" "${root}/Main")
-target_link_libraries(NativeWorldInitProbe PRIVATE
+s2_target_link_libraries(NativeWorldInitProbe PRIVATE
   -Wl,--whole-archive s2_game_locks -Wl,--no-whole-archive
   -Wl,--start-group ${_s2_portable_archives} -Wl,--end-group)
-target_link_options(NativeWorldInitProbe PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeWorldInitProbe PRIVATE -Wl,--gc-sections)
 add_executable(NetworkMatchTests
   "${root}/diagnostics/NetworkMatchTests.cpp"
   "${root}/Main/Time.cpp" "${root}/Main/DiscretePos.cpp")
 target_include_directories(NetworkMatchTests PRIVATE "${CMAKE_BINARY_DIR}/main_case_include" "${root}/Main")
-target_link_libraries(NetworkMatchTests PRIVATE
+s2_target_link_libraries(NetworkMatchTests PRIVATE
   -Wl,--whole-archive s2_game_locks -Wl,--no-whole-archive
   -Wl,--start-group ${_s2_portable_archives} s2_network_graph -Wl,--end-group)
-target_link_options(NetworkMatchTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NetworkMatchTests PRIVATE -Wl,--gc-sections)
 if(S2_GAME_DIR AND EXISTS "${S2_GAME_DIR}/game.db")
   add_test(NAME NetworkMatchTests COMMAND NetworkMatchTests "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   set_tests_properties(NetworkMatchTests PROPERTIES WORKING_DIRECTORY "${S2_GAME_DIR}")
@@ -1441,19 +1441,19 @@ add_executable(NativeCampaignSequenceTests
   "${root}/Main/Time.cpp" "${root}/Main/DiscretePos.cpp")
 target_include_directories(NativeCampaignSequenceTests PRIVATE
   "${CMAKE_BINARY_DIR}/main_case_include" "${root}/Main")
-target_link_libraries(NativeCampaignSequenceTests PRIVATE
+s2_target_link_libraries(NativeCampaignSequenceTests PRIVATE
   -Wl,--whole-archive s2_game_locks -Wl,--no-whole-archive
   -Wl,--start-group ${_s2_portable_archives} -Wl,--end-group)
-target_link_options(NativeCampaignSequenceTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeCampaignSequenceTests PRIVATE -Wl,--gc-sections)
 add_executable(ChapterTravelTests "${root}/diagnostics/ChapterTravelTests.cpp")
 target_compile_features(ChapterTravelTests PRIVATE cxx_std_17)
 add_test(NAME ChapterTravelTests COMMAND ChapterTravelTests)
 set_tests_properties(ChapterTravelTests PROPERTIES LABELS "bugs;campaign")
 add_executable(NativeParticleRuntimeResourceTests
   "${root}/diagnostics/NativeParticleRuntimeResourceTests.cpp")
-target_link_libraries(NativeParticleRuntimeResourceTests PRIVATE
+s2_target_link_libraries(NativeParticleRuntimeResourceTests PRIVATE
   -Wl,--start-group ${_s2_portable_archives} -Wl,--end-group)
-target_link_options(NativeParticleRuntimeResourceTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeParticleRuntimeResourceTests PRIVATE -Wl,--gc-sections)
 if(S2_RESOURCE_PACKAGE_PATH)
   get_filename_component(_s2_effect_resource_dir
     "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
@@ -1465,9 +1465,9 @@ if(S2_RESOURCE_PACKAGE_PATH)
 endif()
 add_executable(NativeAnimatedLightResourceTests
   "${root}/diagnostics/NativeAnimatedLightResourceTests.cpp")
-target_link_libraries(NativeAnimatedLightResourceTests PRIVATE
+s2_target_link_libraries(NativeAnimatedLightResourceTests PRIVATE
   -Wl,--start-group ${_s2_portable_archives} -Wl,--end-group)
-target_link_options(NativeAnimatedLightResourceTests PRIVATE -Wl,--gc-sections)
+s2_target_link_options(NativeAnimatedLightResourceTests PRIVATE -Wl,--gc-sections)
 if(S2_ENABLE_DEFERRED_LIGHT_TEST AND S2_RESOURCE_PACKAGE_PATH)
   get_filename_component(_s2_light_resource_dir
     "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
@@ -1623,6 +1623,6 @@ add_test(NAME NativeHeadSeedTests COMMAND NativeHeadSeedTests)
 foreach(test IN ITEMS NativeHeadDataTests NativeFaceGenDataTests
                       NativeMMTreeDataTests NativeSequenceDataTests)
   add_executable(${test} "${root}/diagnostics/${test}.cpp")
-  target_link_libraries(${test} PRIVATE s2_portable_core)
+  s2_target_link_libraries(${test} PRIVATE s2_portable_core)
   add_test(NAME ${test} COMMAND ${test})
 endforeach()

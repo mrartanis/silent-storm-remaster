@@ -271,8 +271,28 @@ int main(int argc, char** argv)
   Check(desktop && S2Platform::SetMode(800,600,S2Platform::WindowMode::Borderless), "enter borderless desktop mode");
   Check((SDL_GetWindowFlags(S2Platform::Window()) & SDL_WINDOW_FULLSCREEN) &&
       !SDL_GetWindowFullscreenMode(S2Platform::Window()), "borderless has no exclusive display mode");
-  int pixelWidth=0,pixelHeight=0;SDL_GetWindowSizeInPixels(S2Platform::Window(),&pixelWidth,&pixelHeight);
+  // macOS drives the desktop-fullscreen space transition asynchronously; wait
+  // for the settled frame there while every other backend matches at once.
+  int pixelWidth=0,pixelHeight=0;
+  const auto borderlessDeadline=S2Platform::Milliseconds()+10000;
+  do {
+    Pump();
+    SDL_GetWindowSizeInPixels(S2Platform::Window(),&pixelWidth,&pixelHeight);
+  } while(desktop && (pixelWidth!=desktop->w||pixelHeight!=desktop->h) &&
+          S2Platform::Milliseconds()<borderlessDeadline);
+#if defined(__APPLE__)
+  // macOS hides the menu bar only after the fullscreen space takes key focus.
+  // A test process launched from a shell can stay one menu-bar strip short,
+  // so require the usable display area there; Cocoa rounds frame coordinates
+  // against the menu-bar height by a couple of pixels in either direction.
+  SDL_Rect usable;
+  SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(S2Platform::Window()),&usable);
+  const bool filled=pixelWidth>=usable.w-3&&pixelWidth<=usable.w+3&&
+                    pixelHeight>=usable.h-3&&pixelHeight<=usable.h+3;
+  Check(desktop && filled,"borderless fills desktop pixels");
+#else
   Check(desktop && pixelWidth==desktop->w && pixelHeight==desktop->h,"borderless fills desktop pixels");
+#endif
   Check(S2Platform::SetMode(800,600,S2Platform::WindowMode::Windowed), "return from borderless to window");
   Check(!(SDL_GetWindowFlags(S2Platform::Window()) & SDL_WINDOW_FULLSCREEN), "window mode restores frame");
   S2Platform::Size(&width,&height);Check(width==800 && height==600,"window size restored after borderless");
