@@ -18,6 +18,7 @@
 #include "../Main/wUICommands.h"
 #include "../Main/aiGrid.h"
 #include "../Main/aiNearestPosition.h"
+#include "../FileIO/PortableGameDatabase.h"
 #include "../Main/aiLocker.h"
 #include "../Main/wUnitServer.h"
 #include "../Main/RPGItem.h"
@@ -69,6 +70,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include <cstddef>
 #include <cmath>
 #include <limits>
+#include <algorithm>
 
 extern CPtr<NScript::CScript> pScript;
 
@@ -183,6 +185,65 @@ static void RagdollRestoration()
             }
         }
     }
+}
+
+static void PartialReferenceImport(const char* databasePath)
+{
+    CFileStream source;
+    source.OpenRead(databasePath);
+    vector<unsigned char> bytes(source.GetSize());
+    source.Read(bytes.data(), static_cast<unsigned int>(bytes.size()));
+    auto load = [](const vector<unsigned char>& data, bool overlay) {
+        CMemoryStream stream;
+        stream.Write(data.data(), static_cast<unsigned int>(data.size()));
+        stream.Seek(0);
+        NDatabase::Serialize(stream, CStructureSaver::READ, overlay);
+    };
+    load(bytes, false);
+    auto* map = NDb::GetGlobalMap(3);
+    Require(map && IsValid(map->pStartZone), "fixture intro zone reference is missing");
+    CPtr<NDb::CDBScenarioZone> previous = map->pStartZone;
+    vector<unsigned char> partial = bytes;
+    const string column = "StartZoneID", absent = "AbsentZoneX";
+    int replaced = 0;
+    for (auto it = partial.begin();;) {
+        it = std::search(it, partial.end(), column.begin(), column.end());
+        if (it == partial.end()) break;
+        std::copy(absent.begin(), absent.end(), it);
+        it += column.size(); ++replaced;
+    }
+    Require(replaced == 2, "fixture reference column is not uniquely described");
+    load(partial, true);
+    Require(NDb::GetGlobalMap(3) == map && map->pStartZone == previous,
+        "partial database import cleared a reference whose column was absent");
+
+    // A present reference must still be imported, including an explicit null.
+    S2FileIO::PortableGameDatabase database;
+    string error;
+    Require(S2FileIO::LoadPortableGameDatabaseBytes(bytes.data(), bytes.size(), &database, &error),
+        "fixture database decoder failed");
+    bool changed = false;
+    for (const auto& table : database.tables) {
+        if (table.tableId != 16) continue;
+        const auto id = std::find(table.intNames.begin(), table.intNames.end(), "ID") - table.intNames.begin();
+        const auto ref = std::find(table.intNames.begin(), table.intNames.end(), column) - table.intNames.begin();
+        Require(id < table.intNames.size() && ref < table.intNames.size(), "fixture reference indices are missing");
+        for (const auto& row : table.intRows) {
+            if (row[id] != 3) continue;
+            vector<unsigned char> pattern;
+            for (int value : row)
+                for (unsigned shift = 0; shift < 32; shift += 8)
+                    pattern.push_back(static_cast<unsigned char>(static_cast<unsigned>(value) >> shift));
+            auto it = std::search(bytes.begin(), bytes.end(), pattern.begin(), pattern.end());
+            Require(it != bytes.end() && std::search(it + 1, bytes.end(), pattern.begin(), pattern.end()) == bytes.end(),
+                "fixture database row bytes are not unique");
+            std::fill(it + 4 * ref, it + 4 * ref + 4, 0);
+            changed = true;
+        }
+    }
+    Require(changed, "fixture reference row was not patched");
+    load(bytes, true);
+    Require(!IsValid(map->pStartZone), "explicit null reference was ignored during partial database import");
 }
 
 static void TemporaryGroups()
@@ -1567,6 +1628,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "sniping-aim")) SnipingAim();
         else if (!std::strcmp(mode, "decal-rebuild")) DecalRebuild();
         else if (!std::strcmp(mode, "decal-projection")) DecalProjection();
+        else if (!std::strcmp(mode, "partial-reference-import") && argc == 3) PartialReferenceImport(argv[2]);
         else if (!std::strcmp(mode, "nearest-invalid")) InvalidNearestPosition();
         else if (!std::strcmp(mode, "nearest-empty")) EmptyNearestPosition();
         else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();

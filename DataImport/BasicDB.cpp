@@ -557,13 +557,14 @@ void NDatabase::ImportRelation( CDBRecord *pSrc, CDBTableBase *pDestTable, std::
 	ASSERT( bDone );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void NDatabase::ImportField( const char *pszFieldName, CDBRecord **pRef, CDBTableBase *pDestTable )
+bool NDatabase::ImportField( const char *pszFieldName, CDBRecord **pRef, CDBTableBase *pDestTable )
 {
 	ASSERT( pDestTable );
-	*pRef = 0;
-	int nID = table.GetInt( pszFieldName );
-	if ( pDestTable )
-		*pRef = pDestTable->GetDBRecord( nID );
+	int nID = 0;
+	if ( !ImportField( pszFieldName, &nID ) )
+		return false;
+	*pRef = pDestTable ? pDestTable->GetDBRecord( nID ) : 0;
+	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void NDatabase::Serialize( CDataStream &file, CStructureSaver::EMode mode, bool overlay )

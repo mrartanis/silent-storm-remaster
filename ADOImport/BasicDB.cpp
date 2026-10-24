@@ -1007,29 +1007,31 @@ void NDatabase::ImportRelation( CDBRecord *pSrc, CDBTableBase *pDestTable, std::
 	ASSERT( bDone );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void NDatabase::ImportField( const char *pszFieldName, CDBRecord **pRef, CDBTableBase *pDestTable )
+bool NDatabase::ImportField( const char *pszFieldName, CDBRecord **pRef, CDBTableBase *pDestTable )
 {
 	ASSERT( pDestTable );
-	*pRef = 0;
 	if ( pStorageSource && !pStorageSource->HasIntField( pszFieldName ) )
 	{
 		AddMissingStorageField( pszFieldName, "reference",
 			pStorageDiagnostics ? pStorageDiagnostics->nTableID : 0,
 			pStorageSource->GetCurrentRecordID() );
-		return;
+		return false;
 	}
 	int nID = 0;
 	if ( pStorageSource )
 		nID = pStorageSource->GetInt( pszFieldName );
 #if defined(_WIN32)
 	else
+	{
+		if ( !table.HasField( pszFieldName ) )
+			return false;
 		nID = table.GetInt( pszFieldName );
+	}
 #else
 	else
 		throw std::runtime_error( "ADO reference import is unavailable on Linux" );
 #endif
-	if ( pDestTable )
-		*pRef = pDestTable->GetDBRecord( nID );
+	*pRef = pDestTable ? pDestTable->GetDBRecord( nID ) : 0;
 	if ( nID > 0 && !*pRef )
 	{
 		const int nSourceTable = pStorageDiagnostics ? pStorageDiagnostics->nTableID : 0;
@@ -1037,6 +1039,7 @@ void NDatabase::ImportField( const char *pszFieldName, CDBRecord **pRef, CDBTabl
 		AddUnresolvedReference( pszFieldName, nSourceTable, nSourceRecord,
 			GetTableID( pDestTable ), nID );
 	}
+	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Post-load link builder (DBFormat/DataMap.cpp). For the dev-format (v0) game.db these links are
