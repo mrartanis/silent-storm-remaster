@@ -33,8 +33,12 @@ jobs:
       with:
         python-version: '3.13'
 
-    - name: Install offline texture build dependency
-      run: python -m pip install Pillow
+    - name: Fetch prebuilt HD runtime
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: >-
+        git -c 'credential.helper=!gh auth git-credential' lfs pull
+        --include="data/hd-runtime/*" --exclude=""
 
     - name: Cache pinned native dependencies
       id: dependencies
