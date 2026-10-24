@@ -46,6 +46,7 @@
 | [c764609a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c764609a174a34932ba00dd0538d85f2af7b851e) — Select mechanical footsteps for worn Panzerkleins | `worn Panzerklein played the pilot armor's ordinary footsteps` | 59/59; `mechanical-step-sound` | `Upstream-Commit` в commit message |
 | [97127c0d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/97127c0d592810910e08f9850e96803de919256e) — Use the effective weapon for fire-mode indicators and submenu selection | `mounted-gun mode indicator displayed the personal firearm mode` | 61/61; `mounted-weapon-mode-ui` | `Upstream-Commit` в commit message |
 | [97127c0d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/97127c0d592810910e08f9850e96803de919256e) — Restore the mounted-gun fire-mode submenu button | `mounted-gun action bar omitted the fire-mode submenu button` | 62/62; `mounted-mode-button` | `Upstream-Commit` в commit message |
+| [89617b3c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/89617b3c4af774fb012d352b34935d35382bbb61) — Reject Hide orders during the existing hide cooldown | `Hide order was accepted during the existing hide cooldown` | 63/63; `hide-cooldown` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -69,3 +70,12 @@ Linux Game и UpstreamBugTests собраны. Регрессии Linux: 53/53,
 Полный ресурсный прогон с extended-сценариями остановлен: массовый
 NetworkEncounterMapsTests превысил установленный общий лимит 120 секунд;
 результат этого прогона не заявляется как GREEN.
+
+## Проверка после переноса интерфейса станкового оружия и Hide
+
+Windows и Linux: 63/63 upstream регрессии с оригинальными ресурсами.
+Windows расширенный набор без внешних ресурсов/дисплея: 175/175.
+Полная Windows сборка и Linux Game/UpstreamBugTests проходят; сборки
+переиспользуются, HD pack не генерируется. Проверка реальных UI-контролов
+станкового оружия обходится без открытия окна игры. Исторические значения
+в таблице выше относятся к состоянию на момент соответствующего коммита.

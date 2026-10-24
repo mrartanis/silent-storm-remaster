@@ -634,6 +634,35 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     return world;
 }
 
+static void HideCooldown(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& candidate : units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(candidate.GetPtr());
+        if (unit && !unit->IsAIUnit() && unit->CanFight()) { actor = unit; break; }
+    }
+    Require(actor != nullptr, "hide fixture has no human actor");
+    CObj<NWorld::CCmdHide> command = new NWorld::CCmdHide;
+    NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
+    actor->EnableHide();
+    CObj<NWorld::CCommandExecute> initial = NWorld::CreateExecutor(actor, command, &result);
+    Require(initial && result == NWorld::UCR_OK, "fixture actor cannot hide before the cooldown");
+    const int beforeAP = actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP);
+    actor->Hide(false, false);
+    CObj<NWorld::CCommandExecute> blocked = NWorld::CreateExecutor(actor, command, &result);
+    Require(!blocked && result == NWorld::UCR_GENERAL_FAILURE,
+        "Hide order was accepted during the existing hide cooldown");
+    actor->EnableHide();
+    CObj<NWorld::CCommandExecute> resumed = NWorld::CreateExecutor(actor, command, &result);
+    Require(resumed && result == NWorld::UCR_OK, "Hide order did not resume after cooldown rearming");
+    Require(actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == beforeAP,
+        "hide eligibility probes changed the unit's action points");
+}
+
 static void IdleAI(const char* databasePath, const char* resourcePath)
 {
     auto world = FixtureWorld(databasePath, resourcePath);
@@ -1863,6 +1892,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "nearest-empty")) EmptyNearestPosition();
         else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();
         else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();
+        else if (!std::strcmp(mode, "hide-cooldown") && argc == 4) HideCooldown(argv[2], argv[3]);
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
         else if (!std::strcmp(mode, "mounted-mode-button") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], 3);
         else if (!std::strcmp(mode, "mounted-weapon-submenu") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], 2);
