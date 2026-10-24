@@ -159,7 +159,7 @@ d919d91066b15951e2a14cc4c78e70745aa0ea88	Restore retail shooting torso limit and
 438991a1fdc5ab68be3d163b67aa1c007d7d130e	Pass the creating world through click-of-death actions	CANDIDATE	pending	ClickOfDeath получает мир создавшей его команды вместо глобального pCurrentWorld.
 67ac71a9831fea31095b52f2d74d0309414b8f44	Match retail explosion command preset and ownership	OPTIONAL	pending	Отладочная команда Explosion: исправление developer cheat, низкий приоритет.
 01eb873b41cd2c8b9ce2d7b81835d2e00d492118	Restore retail cover projection extent and sampling center	RETAIL	pending	Cover projection, target center и range caps: проверить исходные combat/LOS правила.
-dccaf48dce19c4e0064a7b7f48c817a7e85a2bd9	Preserve incoming unit state through reentrant startup	CANDIDATE	pending	Удержание CUnitState через CObj во время reentrant SetState предотвращает преждевременное уничтожение.
+dccaf48dce19c4e0064a7b7f48c817a7e85a2bd9	Preserve incoming unit state through reentrant startup	CANDIDATE	imported	state-lifetime: RED self-replacing unit state was destroyed before its callback returned; GREEN 35 tests. 
 bbeb35c8fe27e923b52decd93c1850dcb80f8ba0	Match retail medical effect eligibility and hand-slot charges	SPLIT	pending	Medical eligibility/curable critical gates требуют original oracle; отображение charges в руке независимо.
 7a9e903dd299c89f260c0e9311fbb15127bbd980	Honor held-item visibility and retail shared action-key priority	CANDIDATE	pending	Held-item bPlaceInHand rendering и общий приоритет action key с CanPerformAction.
 853fbb7189bfdc0a4fa3c16781107d752840fa8e	Clear temporary bleeding suppression on new bleeding criticals	RETAIL	pending	Новая bleeding critical сбрасывает накопление остановки кровотечения: проверить original.

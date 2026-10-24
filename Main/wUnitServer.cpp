@@ -314,6 +314,8 @@ void CUnitServer::RunCriticalExecutor( CCommandExecute *p )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitServer::SetState( CUnitState *_pState ) 
 { 
+	// State callbacks can replace themselves; retain the incoming contents.
+	CObj<CUnitState> pHold( _pState );
 	ASSERT( IsValid( _pState ) );
 	if ( !IsValid( _pState ) )
 		return;

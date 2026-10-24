@@ -401,6 +401,39 @@ static void RenderPassCompaction()
     }
 }
 
+class PassiveUnitState: public NWorld::CUnitState
+{
+    OBJECT_NOCOPY_METHODS(PassiveUnitState);
+public:
+    NWorld::CCommandExecute* CreateExecutor(NWorld::CCmd*, NWorld::EUnitCommandResult*) override { return nullptr; }
+    void FilterCriticals() override {}
+};
+
+class ReplacingUnitState: public PassiveUnitState
+{
+    OBJECT_NOCOPY_METHODS(ReplacingUnitState);
+    bool* callbackAlive = nullptr;
+    int marker = 0;
+public:
+    ReplacingUnitState() {}
+    ReplacingUnitState(NWorld::CUnitServer* unit, bool* alive): callbackAlive(alive), marker(42) { pUS = unit; }
+    void OnStateStarted() override {
+        // Keep the allocation to observe destroyed contents without a UAF.
+        CPtr<ReplacingUnitState> weak(this);
+        bool* result = callbackAlive;
+        pUS->SetState(new PassiveUnitState);
+        *result = IsValid(this) && marker == 42;
+    }
+};
+
+static void ReentrantStateLifetime()
+{
+    CObj<NWorld::CUnitServer> unit = new NWorld::CUnitServer;
+    bool callbackAlive = false;
+    unit->SetState(new ReplacingUnitState(unit, &callbackAlive));
+    Require(callbackAlive, "self-replacing unit state was destroyed before its callback returned");
+}
+
 class ScriptActor: public NWorld::CUnitServer
 {
     OBJECT_NOCOPY_METHODS(ScriptActor);
@@ -1049,6 +1082,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
         else if (!std::strcmp(mode, "render-removal")) RenderRemoval();
         else if (!std::strcmp(mode, "render-pass-compaction")) RenderPassCompaction();
+        else if (!std::strcmp(mode, "state-lifetime")) ReentrantStateLifetime();
         else if (!std::strcmp(mode, "pk-leave")) ScriptPK(true);
         else if (!std::strcmp(mode, "pk-wear")) ScriptPK(false);
         else if (!std::strcmp(mode, "pk-equipment")) PKEquipmentTransfer();
