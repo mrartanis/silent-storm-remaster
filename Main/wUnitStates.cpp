@@ -70,10 +70,15 @@ bool CUnitState::IsCriticalsFailCommand( CCmd *pCmd, EUnitCommandResult *pResult
 	const list<NDb::ECritical> &criticals = GetCriticalsBan().GetCommandBans( pUS, pCmd );
 	for ( list<NDb::ECritical>::const_iterator i = criticals.begin(); i != criticals.end(); ++i )
 		if ( pUS->GetUnitRPG()->HasCritical( *i ) )
+		{
+			if ( *i >= NDb::C_PANZERKLEIN_AXIS && *i <= NDb::C_PANZERKLEIN_TERRORS_HWG )
+				*pResult = UCR_PK_BAN;
 			return true;
+		}
 	//
 	if ( pUS->IsWearingPK() ) // has Panzerklein critical - special bans
 	{
+		*pResult = UCR_PK_BAN;
 		CDynamicCast<CCmdPath> pPath(pCmd);
 		if (pPath)
 		{

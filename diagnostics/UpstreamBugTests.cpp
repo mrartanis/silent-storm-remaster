@@ -2096,7 +2096,7 @@ static void ImmediateCluePickup(const char* databasePath, const char* resourcePa
     }
 }
 
-static void PKShellWorld(const char* databasePath, const char* resourcePath, bool extractPilot, bool checkModel = false)
+static void PKShellWorld(const char* databasePath, const char* resourcePath, bool extractPilot, bool checkModel = false, int checkFeedback = 0)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath, resourcePath, true, &game);
@@ -2129,6 +2129,49 @@ static void PKShellWorld(const char* databasePath, const char* resourcePath, boo
     Require(found, "fixture has no unobstructed PK footprint");
     CObj<NWorld::CUnitServer> shell = world->AddUnitInGame(anchor, NRPG::CreateUnit(suitRecord), nullptr);
     Require(shell && shell->IsEmptyPK(), "could not create a PK shell");
+    if (checkFeedback) {
+        CObj<NWorld::CUnitStateNormal> state = new NWorld::CUnitStateNormal(pilot);
+        if (checkFeedback == 1) {
+            CObj<NWorld::CCmdHeal> command = new NWorld::CCmdHeal(nullptr);
+            for (int value = NDb::C_PANZERKLEIN_AXIS; value <= NDb::C_PANZERKLEIN_TERRORS_HWG; ++value) {
+                const auto status = static_cast<NDb::ECritical>(value);
+                pilot->GetUnitRPG()->ApplyCritical(NRPG::SCritical(NDb::CL_ANY, status));
+                Require(pilot->GetUnitRPG()->HasCritical(status), "PK feedback fixture did not apply a status");
+                auto result = NWorld::UCR_NO_TARGET;
+                Require(state->IsCriticalsFailCommand(command, &result) && result == NWorld::UCR_PK_BAN,
+                    "PK command ban reported an ordinary critical-injury rejection");
+                Require(pilot->GetUnitRPG()->RemoveCritical(status), "PK fixture status could not be removed");
+            }
+            pilot->GetUnitRPG()->ApplyCritical(NRPG::SCritical(NDb::CL_HEAD, NDb::C_BLIND, 3));
+            auto result = NWorld::UCR_NO_TARGET;
+            Require(state->IsCriticalsFailCommand(command, &result) && result == NWorld::UCR_CRITICALS_BAN,
+                "ordinary injury incorrectly reported a PK restriction");
+            pilot->GetUnitRPG()->RemoveCritical(NDb::C_BLIND);
+            result = NWorld::UCR_NO_TARGET;
+            Require(!state->IsCriticalsFailCommand(command, &result) && result == NWorld::UCR_NO_TARGET,
+                "successful command probe did not preserve its prior result");
+            return;
+        }
+        Require(shell->WearAsPK(true), "PK feedback fixture could not prepare its shell");
+        pilot->SetPosition(shell->GetPosition());
+        pilot->FlipPanzerklein(shell, false, false);
+        Require(pilot->IsWearingPK(), "PK feedback fixture did not put on the suit");
+        const int ap = pilot->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP);
+        for (auto pose : {NAI::CRAWL, NAI::RUN}) {
+            CObj<NWorld::CCmdWishPose> command = new NWorld::CCmdWishPose(pose);
+            auto result = NWorld::UCR_NO_TARGET;
+            Require(state->IsCriticalsFailCommand(command, &result) && result == NWorld::UCR_PK_BAN,
+                "worn-PK pose ban reported an ordinary critical-injury rejection");
+        }
+        CObj<NWorld::CCmdWishPose> allowed = new NWorld::CCmdWishPose(NAI::WALK);
+        auto result = NWorld::UCR_NO_TARGET;
+        Require(!state->IsCriticalsFailCommand(allowed, &result) && result == NWorld::UCR_NO_TARGET,
+            "allowed PK pose did not preserve its prior eligibility result");
+        Require(pilot->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == ap,
+            "PK eligibility feedback changed action points");
+        return;
+    }
+
     if (checkModel) {
         auto verifyPrivateModel = [](NWorld::CUnitServer* unit, NDb::CModel* source) {
             auto* live = unit->GetModel();
@@ -2265,6 +2308,8 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "clue-capacity") && argc == 4) ImmediateCluePickup(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "dead-pilot") && argc == 4) PKShellWorld(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "pk-waypoint") && argc == 4) PKShellWorld(argv[2], argv[3], false);
+        else if (!std::strcmp(mode, "pk-critical-feedback") && argc == 4) PKShellWorld(argv[2], argv[3], false, false, 1);
+        else if (!std::strcmp(mode, "pk-pose-feedback") && argc == 4) PKShellWorld(argv[2], argv[3], false, false, 2);
         else if (!std::strcmp(mode, "pk-model-ownership") && argc == 4) PKShellWorld(argv[2], argv[3], false, true);
         else throw std::runtime_error("unknown upstream regression mode");
         std::printf("PASS: %s\n", mode);
