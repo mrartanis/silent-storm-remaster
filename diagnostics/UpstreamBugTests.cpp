@@ -597,6 +597,55 @@ static void OverlappingUnitLocks()
     network->Unlock(second);
 }
 
+static void CheckStaleUnitLocks(NWorld::CUnitServer* actor, int path, bool dead)
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    network->CreateLayer(8, 8, VNULL2, 0.f, 0);
+    network->Freeze(true);
+    NAI::SPathPlace shared(3, 3, 0), other(4, 3, 0);
+    shared.SetPose(NAI::CM_STAND); other.SetPose(NAI::CM_STAND);
+    auto* layer = network->GetLayer(0);
+    layer->tiles[3][3].nPassable = layer->tiles[3][4].nPassable = NAI::CP_STAND;
+    network->Lock(actor, shared);
+    Require(network->IsLocked(shared, true), "live actor did not lock its footprint");
+    if (path == 2) network->LockSelected(std::list<CObjectBase*>{actor});
+    if (dead) {
+        actor->GetUnitRPG()->GetRPGUnit()->Kill();
+        actor->SetState(new NWorld::CUnitStateDeath(actor));
+        Require(actor->IsDead() && !actor->IsWearingPK(), "fixture actor is not an ordinary corpse");
+    } else actor->Invalidate();
+    Require(!NAI::IsLockerUnit(actor), "stale actor unexpectedly remains an eligible locker");
+    if (path == 0) network->Lock(actor, shared);
+    if (path == 1) network->LockMovingObject(actor, shared, other);
+    if (path == 2) network->UnlockSelected();
+    Require(!network->IsLocked(shared, true) && !network->IsLocked(other, true),
+        "path query restored an ineligible unit's movement footprint");
+    network->Unlock(actor);
+}
+
+static void InvalidUnitLocks()
+{
+    for (int path = 0; path < 3; ++path) {
+        CObj<LockerActor> actor = new LockerActor;
+        CheckStaleUnitLocks(actor, path, false);
+    }
+}
+
+static void DeadUnitLocks(const char* databasePath, const char* resourcePath, int path)
+{
+    auto world = FixtureWorld(databasePath, resourcePath);
+    std::vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    for (auto& candidate : units) {
+        auto* actor = dynamic_cast<NWorld::CUnitServer*>(candidate.GetPtr());
+        if (actor && actor->CanFight() && !actor->IsEmptyPK() && !actor->IsWearingPK()) {
+            CheckStaleUnitLocks(actor, path, true);
+            return;
+        }
+    }
+    throw std::runtime_error("dead-lock mission fixture contains no ordinary live actor");
+}
+
 class ScriptActor: public NWorld::CUnitServer
 {
     OBJECT_NOCOPY_METHODS(ScriptActor);
@@ -1249,6 +1298,10 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "invalid-ai-weapon")) InvalidAIWeapon();
         else if (!std::strcmp(mode, "stale-ai-reaction")) StaleAIReaction();
         else if (!std::strcmp(mode, "overlapping-unit-locks")) OverlappingUnitLocks();
+        else if (!std::strcmp(mode, "invalid-unit-locks")) InvalidUnitLocks();
+        else if (!std::strcmp(mode, "dead-unit-locks-single") && argc == 4) DeadUnitLocks(argv[2], argv[3], 0);
+        else if (!std::strcmp(mode, "dead-unit-locks-moving") && argc == 4) DeadUnitLocks(argv[2], argv[3], 1);
+        else if (!std::strcmp(mode, "dead-unit-locks-selection") && argc == 4) DeadUnitLocks(argv[2], argv[3], 2);
         else if (!std::strcmp(mode, "queue-lifetime")) ReentrantQueueLifetime(false);
         else if (!std::strcmp(mode, "queue-animation-lifetime")) ReentrantQueueLifetime(true);
         else if (!std::strcmp(mode, "pk-leave")) ScriptPK(true);

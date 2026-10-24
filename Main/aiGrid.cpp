@@ -1891,11 +1891,14 @@ void CPathNetwork::LockUnlockPoint( const SPathPlace &p, bool bLock )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathNetwork::Lock( CObjectBase *pUnit, const SPathPlace &p )
 {
+	if ( !IsLockerUnit( pUnit ) )
+	{
+		Unlock( pUnit );
+		return;
+	}
 	CLocksHash::iterator i = lockedPlaces.find( pUnit );
 	if ( i != lockedPlaces.end() )
 		DisableLocks( pUnit );
-	//if ( pUnit->IsDead() )
-	//	return;
 	vector<SPathPlace> res;
 	bool bBigUnit = IsBigLocker( pUnit );
 	GetLockArea( &res, p, bBigUnit );
@@ -1909,7 +1912,11 @@ void CPathNetwork::Lock( CObjectBase *pUnit, const SPathPlace &p )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathNetwork::Lock( CObjectBase *pUnit, const vector<SPathPlace> &places )
 {
-	CLocksHash::iterator i = lockedPlaces.find( pUnit );
+	if ( !IsLockerUnit( pUnit ) )
+	{
+		Unlock( pUnit );
+		return;
+	}
 	for ( unsigned int i = 0; i < places.size(); ++i )
 	{
 		const SPathPlace &l = places[i];
@@ -1920,11 +1927,14 @@ void CPathNetwork::Lock( CObjectBase *pUnit, const vector<SPathPlace> &places )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathNetwork::LockMovingObject( CObjectBase *pUnit, const SPathPlace &p1, const SPathPlace &p2 )
 {
+	if ( !IsLockerUnit( pUnit ) )
+	{
+		Unlock( pUnit );
+		return;
+	}
 	CLocksHash::iterator i = lockedPlaces.find( pUnit );
 	if ( i != lockedPlaces.end() )
 		DisableLocks( pUnit );
-	//if ( pUnit->IsDead() )
-	//	return;
 	vector<SPathPlace> res;
 	bool bBigUnit = IsBigLocker( pUnit );
 	GetLockArea( &res, p1, bBigUnit );
@@ -2076,10 +2086,11 @@ void CPathNetwork::LockSelected( const list<CObjectBase*> &selected )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathNetwork::UnlockSelected()
 {
-	for ( CLocksHash::iterator i = lockedPlaces.begin(); i != lockedPlaces.end(); ++i )
+	for ( CLocksHash::iterator i = lockedPlaces.begin(); i != lockedPlaces.end(); )
 	{
-		//if ( !i->second.bLocked )
-			Lock( i->first, i->second.places );
+		// Restoring a stale owner's footprint may erase its record.
+		CLocksHash::iterator current = i++;
+		Lock( current->first, current->second.places );
 	}
 	for ( vector<SFlipper>::iterator it = flippers.begin(); it != flippers.end(); ++it )
 		it->nFixedFlags &= ~F_VISIBLE_TRAP;

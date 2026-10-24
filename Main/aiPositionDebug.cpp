@@ -8,8 +8,8 @@ namespace NAI
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // aiPositionDebug -- locker-validity probes consumed by CPathNetwork::DebugCheck (retail @0x3f270,
 // absent from the dev tree). Reconstructed faithfully from retail NAI::IsLockerUnit @0x4917d0 and
-// NAI::IsUnitNear @0x491810. The sole caller is absent, so both land compile-GREEN but UNWIRED
-// (debug dead code) -- parity surface only, zero live-behaviour / save-format impact.
+// NAI::IsUnitNear @0x491810. IsLockerUnit also gates runtime path-lock restoration.
+// IsUnitNear remains a debug probe; neither helper changes the save format.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // The lock owner must be a live NWorld::CUnitServer for which CDumbUnitServer::IsLocker() holds.
 // The retail null+dead-object test is the engine-standard IsValid() (non-null and not ref-invalid).
