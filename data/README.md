@@ -57,3 +57,7 @@ python assets/terrain-hd/validate_pack.py --pack ../hd-authoring-build/res-hd --
 Publish a new validated runtime archive and index to update the frozen pack.
 Keep the release's original source revision hashes as provenance, even after
 the repository history is rewritten. They refer to the pre-migration history.
+That history and the original published releases remain available in
+[Silent-Storm-Reconstruction](https://github.com/mrartanis/Silent-Storm-Reconstruction).
+The full BFG old/new object map is in
+[`packaging/history-rewrite-map.txt`](../packaging/history-rewrite-map.txt).

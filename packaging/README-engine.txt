@@ -24,7 +24,7 @@ libgsf-1-114, libpng16-16t64, zlib1g, libx11-6, libxi6 and libgl1, plus a workin
 Vulkan driver/loader (libvulkan1). Hardware GPU/audio testing is separate from CI.
 Windows baseline: Windows 10/11 x64; MSVC runtime DLLs are included.
 
-Source and releases: https://github.com/mrartanis/Silent-Storm-Reconstruction
+Source and releases: https://github.com/mrartanis/silent-storm-remaster
 Engine licensing: LICENSE.md. Component notices: licenses/ and fonts/.
 Portions of this software are copyright (c) The FreeType Project
 (www.freetype.org). All rights reserved. See fonts/FreeType-FTL.txt.

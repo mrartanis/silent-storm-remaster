@@ -1,6 +1,6 @@
 # Engine releases
 
-Push a tag beginning with `v` to `mrartanis/Silent-Storm-Reconstruction`.
+Push a tag beginning with `v` to `mrartanis/silent-storm-remaster`.
 The `Engine release` workflow builds and tests Windows x64 and Linux x64,
 then publishes both archives and `SHA256SUMS` as a GitHub Release.
 Tags with a hyphen, such as `v0.1.0-rc1`, produce prereleases.
@@ -115,7 +115,7 @@ sizes and SHA-256 in a release index, with `SHA256SUMS` for downloaded assets.
 Use the v0.1 release's `hd-v0.1-index.json` as an example. Create an HD release
 as a draft, upload and verify every asset's remote size and SHA-256, then publish
 with `--latest=false` so the engine remains the main latest release. Explicitly
-pass `--repo mrartanis/Silent-Storm-Reconstruction` to release commands.
+pass `--repo mrartanis/silent-storm-remaster` to release commands.
 
 Attach the current `INSTALLATION_RU.md` to both releases. If packaging changes
 after an engine tag, keep the tag and its binaries intact, explain the change

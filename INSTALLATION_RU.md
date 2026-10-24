@@ -1,5 +1,8 @@
 # Установка Silent Storm Reconstruction v0.1
 
+Разработка переехала в [silent-storm-remaster](https://github.com/mrartanis/silent-storm-remaster).
+Релизы v0.1 и hd-v0.1 по ссылкам ниже сохраняются в прежнем репозитории без изменения архивов.
+
 Готовый движок выпускается для Windows 10/11 x64 и Linux x86_64. Для игры нужны данные **оригинальной Silent Storm версии 1.2** из вашей установленной копии. В Steam Gold Edition есть также Sentinels: для этой инструкции выбирайте основную Silent Storm.
 
 ## Что скачать

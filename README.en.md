@@ -1,4 +1,9 @@
-# Silent Storm Reconstruction
+# Silent Storm Remaster
+
+Development moved here on 24 October 2026: **[mrartanis/silent-storm-remaster](https://github.com/mrartanis/silent-storm-remaster)**.
+The rewritten history excludes loose PNGs; frozen source and runtime archives use LFS.
+Existing v0.1 and hd-v0.1 releases remain [in the previous repository](https://github.com/mrartanis/Silent-Storm-Reconstruction/releases).
+
 
 *[Русский](README.md) | English*
 
@@ -51,8 +56,9 @@ Status as of **October 23, 2026**:
   effects. Available artwork in the world, heads/hair, clothing and main-menu
   categories is complete; technical masks retain their originals. HD is enabled
   by default and can be toggled without restarting. Load order is mods → HD →
-  original. The pack is built from PNGs in Git, with no image generation during
-  builds or gameplay. Coverage of all game resources is still incomplete.
+  original. The frozen runtime pack is stored in LFS and reused across builds;
+  authoring PNGs are archived separately. No image generation runs during builds
+  or gameplay. Coverage of all game resources is still incomplete.
 - **Two-player tactical multiplayer.** Direct TCP/IPv4 connections, encounter
   map selection, separate preparation bases, squads of 1–6 soldiers,
   levels 1–20 and supply levels 1–14. Character selection, equipment, perks
@@ -94,8 +100,8 @@ publishes a GitHub Release after successful checks. See
 
 ### Dependencies
 
-- **CMake 3.21+**, **Python 3.11+**, **Pillow**. NumPy is only needed to
-  calibrate new HD textures; Pillow is sufficient to build the existing pack.
+- **CMake 3.21+**, **Python 3.11+**. The prebuilt HD pack needs **Git LFS**
+  and **7-Zip** (`7zz`/`7z`). Pillow and NumPy are needed only for PNG authoring.
 - **SDL3 3.4.16**, development package for the target architecture.
 - **bgfx.cmake v1.161.9510-579**, with the pinned bgfx/bimg/bx trees.
   Versions, hashes and directory layout: [SDL3 + bgfx](probes/sdl3-bgfx/README.md).
@@ -112,10 +118,12 @@ publishes a GitHub Release after successful checks. See
   `network-version.txt` is copied beside the engine and installed with it;
   players do not generate it from their installed game data.
 
-HD is built by default. The generated pack alone occupies about **9.2 GB**;
-allow additional space for the PNG-containing clone, dependencies and build.
-`-DS2_BUILD_HD_TEXTURES=OFF` skips pack generation, but does not delete an
-existing pack or change the in-game HD setting.
+HD is installed from the frozen release by default. Git LFS fetches only the
+runtime archive (about **2.26 GB**); authoring PNG archives are fetched on demand.
+The first build extracts the pack into ignored `data/res-hd` (about **9.2 GB**).
+Later builds reuse this cache and never regenerate textures.
+`-DS2_BUILD_HD_TEXTURES=OFF` skips HD installation, preserving existing files
+and the in-game setting. Source restoration: [data/README.md](data/README.md).
 
 ### Windows x64
 
@@ -128,7 +136,8 @@ the `bgfx`, `bimg` and `bx` subdirectories.
 ```powershell
 python -m venv build/hd-python
 $hdPython = (Resolve-Path build/hd-python/Scripts/python.exe).Path
-& $hdPython -m pip install Pillow
+git lfs install
+git lfs pull --include="data/hd-runtime/*" --exclude=""
 $deps = 'C:/s2-deps'
 
 cmake -S . -B build -A x64 `
@@ -174,7 +183,8 @@ The paths below refer to dependencies prepared in advance.
 
 ```sh
 python3 -m venv build/hd-python
-build/hd-python/bin/python -m pip install Pillow
+git lfs install
+git lfs pull --include="data/hd-runtime/*" --exclude=""
 deps=/opt/s2-deps
 
 cmake -S . -B build-linux -G Ninja \
@@ -256,7 +266,7 @@ After building all targets:
 
 ```powershell
 ctest --test-dir build -C Release --output-on-failure
-& $hdPython assets/terrain-hd/validate_pack.py --pack build/Release/res-hd
+& $hdPython packaging/prepare_hd.py --output build/Release/res-hd
 ```
 
 On Linux, use `ctest --test-dir build-linux --output-on-failure`.

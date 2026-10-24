@@ -1,4 +1,10 @@
-Current scope (15 October 2026): complete all artwork in the exact MainMenu folder;
+Storage update (24 October 2026): artwork is frozen. PNGs are preserved in the
+deduplicated LFS ZIPs in `data/hd-sources`; restore them explicitly with
+`packaging/restore_hd_sources.py` before authoring. Ordinary builds reuse the
+prebuilt HD release in `data/res-hd` and do not generate textures. Restored PNGs
+are ignored by Git. See `../../data/README.md` for the current workflow.
+
+Previous scope (15 October 2026): complete all artwork in the exact MainMenu folder;
 fonts/captions/rendering are explicitly excluded. Completed33 resources:29 HD
 (9 prior preserved +20 new) and4 individually technical originals. Other unfinished
 categories stay paused. See expanded/mainmenu-complete-20261015/category-final.json.
