@@ -9,6 +9,7 @@
 #include "../Main/wUnitGroup.h"
 #include "../Main/iCommonUI.h"
 #include "../Main/PerkToolTip.h"
+#include "../Main/UnitStepSound.h"
 #include "../DBFormat/DataPerk.h"
 #include "../Main/GView.h"
 #include "../Main/iMission.h"
@@ -332,6 +333,33 @@ static void PerkTooltipParameters()
     tooltip = NUI::CreatePerkToolTip(nullptr, perk);
     text = dynamic_cast<NUI::CText*>(tooltip->GetChildByID(""));
     Require(text && text->GetText() == L"Fallback perk", "perk tooltip lost its name fallback");
+}
+
+static void MechanicalStepSound()
+{
+    CObj<NDb::CRPGArmor> armor = new NDb::CRPGArmor;
+    armor->nAISoundType = 17;
+    CObj<NDb::CPanzerklein> suit = new NDb::CPanzerklein;
+    CObj<NDb::CTSound> ordinary = new NDb::CTSound, mechanical = new NDb::CTSound, empty = new NDb::CTSound;
+    CObj<NDb::CSoundVariant> ordinaryVariant = new NDb::CSoundVariant, mechanicalVariant = new NDb::CSoundVariant;
+    CObj<NDb::CSound> ordinarySound = new NDb::CSound, mechanicalSound = new NDb::CSound;
+    ordinaryVariant->pSound = ordinarySound.GetPtr(); mechanicalVariant->pSound = mechanicalSound.GetPtr();
+    ordinary->variants.push_back(ordinaryVariant.GetPtr()); ordinary->roulette.AddSector(1.f);
+    mechanical->variants.push_back(mechanicalVariant.GetPtr()); mechanical->roulette.AddSector(1.f);
+    armor->pSoundStep = ordinary.GetPtr(); suit->pStepSound = mechanical.GetPtr();
+    SRand random(SRandomSeed(123));
+    Require(NWorld::SelectUnitStepSound(armor, suit, &random) == mechanicalSound.GetPtr(),
+        "worn Panzerklein played the pilot armor's ordinary footsteps");
+    Require(NWorld::SelectUnitStepSound(nullptr, suit, &random) == mechanicalSound.GetPtr(), "mechanical footsteps depended on pilot armor");
+    Require(NWorld::SelectUnitStepSound(armor, nullptr, &random) == ordinarySound.GetPtr(), "ordinary footsteps changed for an unsuited unit");
+    suit->pStepSound = nullptr;
+    Require(NWorld::SelectUnitStepSound(armor, suit, &random) == ordinarySound.GetPtr(), "missing mechanical footsteps lost the armor fallback");
+    suit->pStepSound = empty.GetPtr();
+    Require(!NWorld::SelectUnitStepSound(armor, suit, &random), "empty mechanical sound set produced a sound");
+    armor->pSoundStep = empty.GetPtr();
+    Require(!NWorld::SelectUnitStepSound(armor, nullptr, &random), "empty ordinary sound set produced a sound");
+    Require(!NWorld::SelectUnitStepSound(nullptr, nullptr, &random), "missing footstep definitions produced a sound");
+    Require(armor->nAISoundType == 17, "mechanical sound selection changed AI noise classification");
 }
 
 static void TemporaryGroups()
@@ -1719,6 +1747,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "partial-reference-import") && argc == 3) PartialReferenceImport(argv[2]);
         else if (!std::strcmp(mode, "completed-zone-recommendation")) CompletedZoneRecommendation();
         else if (!std::strcmp(mode, "perk-tooltip-parameters")) PerkTooltipParameters();
+        else if (!std::strcmp(mode, "mechanical-step-sound")) MechanicalStepSound();
         else if (!std::strcmp(mode, "nearest-invalid")) InvalidNearestPosition();
         else if (!std::strcmp(mode, "nearest-empty")) EmptyNearestPosition();
         else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();

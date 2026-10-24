@@ -6,6 +6,7 @@
 #include "../Misc/Geom.h"
 #endif
 #include "wDumbUnit.h"
+#include "UnitStepSound.h"
 #include "wUnitServer.h"     // NWorld::CUnitServer (Die's retail server arg -- cross-cast from this)
 #include "wMain.h"
 #include "wUICommands.h"     // BUG 5: NWorld::CUICmdUnitCamera (death-beauty auto-focus, ProcessAttack)
@@ -1144,16 +1145,27 @@ NDb::CAISound *CDumbUnitServer::GetStepAISound()
 	return NDb::GetAISound( nID );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+NDb::CSound* SelectUnitStepSound(NDb::CRPGArmor* armor, NDb::CPanzerklein* panzerklein, SRand* random)
+{
+    NDb::CTSound* sounds = 0;
+    if (IsValid(panzerklein) && panzerklein->pStepSound)
+        sounds = panzerklein->pStepSound;
+    else if (armor && armor->pSoundStep)
+        sounds = armor->pSoundStep;
+    if (sounds) {
+        NDb::CSoundVariant* variant = sounds->GetSound(random);
+        if (variant)
+            return variant->pSound;
+    }
+    return 0;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 NDb::CSound* CDumbUnitServer::GetStepSound( NDb::CRPGArmor *pArmor )
 {
 	if ( position.GetPose() == NAI::CRAWL )
 		return 0;
-
 	SRand rand;
-	if ( pArmor && pArmor->pSoundStep )
-		return pArmor->pSoundStep->GetSound( &rand )->pSound;
-
-	return 0;
+	return SelectUnitStepSound(pArmor, GetWearingDBPK(), &rand);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDumbUnitServer::MakeStepSound( bool bSound )
