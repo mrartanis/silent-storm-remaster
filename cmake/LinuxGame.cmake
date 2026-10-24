@@ -157,6 +157,7 @@ add_test(NAME UpstreamNegativeMeshBounds COMMAND UpstreamBugTests negative-mesh-
 add_test(NAME UpstreamRagdollRestoration COMMAND UpstreamBugTests ragdoll-restoration)
 add_test(NAME UpstreamNearestEmpty COMMAND UpstreamBugTests nearest-empty)
 add_test(NAME UpstreamNearestInvalid COMMAND UpstreamBugTests nearest-invalid)
+add_test(NAME UpstreamCompletedZoneRecommendation COMMAND UpstreamBugTests completed-zone-recommendation)
 add_test(NAME UpstreamRenderPassCompaction COMMAND UpstreamBugTests render-pass-compaction)
 add_test(NAME UpstreamStateLifetime COMMAND UpstreamBugTests state-lifetime)
 add_test(NAME UpstreamMountedModeCommand COMMAND UpstreamBugTests mounted-mode-command)

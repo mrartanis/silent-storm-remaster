@@ -246,6 +246,54 @@ static void PartialReferenceImport(const char* databasePath)
     Require(!IsValid(map->pStartZone), "explicit null reference was ignored during partial database import");
 }
 
+
+static void CompletedZoneRecommendation()
+{
+    CObj<NRPG::CGlobalPlayer> player = new NRPG::CGlobalPlayer;
+    CObj<NRPG::CUnit> mercenary = new NRPG::CUnit;
+    mercenary->skills[NDb::ST_VP] = new NRPG::CDynamicSkill(100);
+    mercenary->skills[NDb::ST_LEVEL] = new NRPG::CDynamicSkill(5);
+    player->mercs.push_back(mercenary);
+    CObj<NScenario::CScenarioTracker> tracker = new NScenario::CScenarioTracker;
+    CObj<NDb::CDBScenarioClue> clueRecord = new NDb::CDBScenarioClue;
+    clueRecord->clueType = NDb::CT_PERSON;
+    CObj<NScenario::CScenarioClue> firstClue = new NScenario::CScenarioClue(clueRecord, 1);
+    CObj<NScenario::CScenarioClue> secondClue = new NScenario::CScenarioClue(clueRecord, 2);
+    vector<CObj<NDb::CDBScenarioZone>> zoneRecords;
+    auto makeZone = [&](NScenario::CScenarioClue* clue, int difficulty) {
+        CObj<NDb::CDBScenarioZone> record = new NDb::CDBScenarioZone;
+        zoneRecords.push_back(record);
+        CObj<NScenario::CScenarioZone> zone = new NScenario::CScenarioZone(record, difficulty);
+        // Populate one person-clue slot through the existing save field. No
+        // map resource is needed for the recommendation's scenario graph.
+        record->templatesIDs.push_back(1);
+        unordered_map<int, NScenario::CScenarioZone::STemplate> slots;
+        slots[1].nPersonSlots = slots[1].nEmptyPersonSlots = 1;
+        CMemoryStream state;
+        { CStructureSaver writer(state, CStructureSaver::WRITE); writer.Add(13, &slots); }
+        state.Seek(0);
+        { CStructureSaver reader(state, CStructureSaver::READ); static_cast<CObjectBase*>(zone.GetPtr())->operator&(reader); }
+        zone->PlaceClue(clue);
+        zone->SetDifficulty(difficulty);
+        tracker->OpenZone(zone);
+        return zone;
+    };
+    auto first = makeZone(firstClue, 1), second = makeZone(secondClue, 3);
+    Require(tracker->GetRecommendedZone(player) == first.GetPtr(), "fixture zone priority is unexpected");
+    first->SetPassed();
+    Require(tracker->GetRecommendedZone(player) == second.GetPtr(),
+        "completed mission with a leftover clue was recommended again");
+    second->SetPassed();
+    Require(!tracker->GetRecommendedZone(player), "all completed missions still produced a recommendation");
+    first->SetPassed(false);
+    Require(tracker->GetRecommendedZone(player) == first.GetPtr(), "unfinished mission disappeared from recommendations");
+    firstClue->SetDestroyed(true);
+    Require(!tracker->GetRecommendedZone(player), "destroyed clue produced a recommendation");
+    firstClue->SetDestroyed(false);
+    tracker->BlockZone(first);
+    Require(!tracker->GetRecommendedZone(player), "blocked mission produced a recommendation");
+}
+
 static void TemporaryGroups()
 {
     CObj<NWorld::CWorld> world = new NWorld::CWorld;
@@ -1629,6 +1677,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "decal-rebuild")) DecalRebuild();
         else if (!std::strcmp(mode, "decal-projection")) DecalProjection();
         else if (!std::strcmp(mode, "partial-reference-import") && argc == 3) PartialReferenceImport(argv[2]);
+        else if (!std::strcmp(mode, "completed-zone-recommendation")) CompletedZoneRecommendation();
         else if (!std::strcmp(mode, "nearest-invalid")) InvalidNearestPosition();
         else if (!std::strcmp(mode, "nearest-empty")) EmptyNearestPosition();
         else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();
