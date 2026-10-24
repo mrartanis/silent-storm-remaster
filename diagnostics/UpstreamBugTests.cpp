@@ -25,6 +25,7 @@
 #include "../Main/wUnitStates.h"
 #include "../Main/wUnitQueue.h"
 #include "../Main/wUnitExec.h"
+#include "../Main/GAnimParticles.h"
 #include "../Main/GDecalGeometry.h"
 #include "../Main/GCombiner.h"
 #include "../Main/GSceneUtils.h"
@@ -65,6 +66,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include <stdexcept>
 #include <new>
 #include <cstddef>
+#include <cmath>
 
 extern CPtr<NScript::CScript> pScript;
 
@@ -73,6 +75,54 @@ REGISTER_SAVELOAD_CLASS_NM(0x7f550105, AIUnitFixture, NAI);
 static void Require(bool value, const char* message)
 {
     if (!value) throw std::runtime_error(message);
+}
+
+
+class RagdollRestorationProbe: public NAnimation::CAParticle
+{
+    OBJECT_BASIC_METHODS(RagdollRestorationProbe);
+public:
+    RagdollRestorationProbe() { nParticleBones = {0, 1, 2}; }
+    using CAParticle::RestoreLine;
+    using CAParticle::RestoreTriangle;
+};
+
+static void RagdollRestoration()
+{
+    CObj<RagdollRestorationProbe> particle = new RagdollRestorationProbe;
+    const CVec3 shift(7, 8, 9);
+    for (bool triangle : {false, true}) {
+        // Reversing the first edge exercises the second alignment; flipping
+        // the plane additionally exercises the first triangle alignment.
+        for (int shape = 0; shape < 5; ++shape) {
+            NAnimation::SSkeletonPose pose(3);
+            pose[0].pos = VNULL3;
+            pose[1].pos = CVec3(1, 0, 0);
+            pose[2].pos = CVec3(0, 1, 0);
+            vector<CVec3> parts = {shift, shift + CVec3(-1, 0, 0), shift + CVec3(0, -1, 0)};
+            if (shape == 1) parts[1] = shift + CVec3(1, 0, 0);
+            if (shape == 2) parts[1] = shift; // collapsed destination edge
+            if (shape == 3) pose[1].pos = VNULL3; // collapsed source edge
+            if (shape == 4) parts[2] = parts[1]; // collapsed triangle plane
+            const CVec3 oldEdge = pose[1].pos - pose[0].pos;
+            const CVec3 oldOther = pose[2].pos - pose[0].pos;
+            if (triangle) particle->RestoreTriangle(parts, 0, 1, 2, 0, &pose);
+            else particle->RestoreLine(parts, 0, 1, 0, &pose);
+            float rotation[4];
+            pose[0].rot.GetComponentsForWire(rotation);
+            for (float value : rotation)
+                Require(std::isfinite(value), "degenerate ragdoll restoration produced a non-finite rotation");
+            Require(fabs2(pose[0].pos - shift) < 1e-8f,
+                "ragdoll restoration lost the particle translation");
+            if (shape < 2) {
+                Require(fabs2(pose[0].rot.Rotate(oldEdge) - (parts[1] - parts[0])) < 1e-8f,
+                    "half-turn ragdoll restoration failed to align the bone");
+                if (triangle)
+                    Require(fabs2(pose[0].rot.Rotate(oldOther) - (parts[2] - parts[0])) < 1e-8f,
+                        "half-turn ragdoll restoration failed to align the triangle plane");
+            }
+        }
+    }
 }
 
 static void TemporaryGroups()
@@ -1457,6 +1507,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "sniping-aim")) SnipingAim();
         else if (!std::strcmp(mode, "decal-rebuild")) DecalRebuild();
         else if (!std::strcmp(mode, "decal-projection")) DecalProjection();
+        else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();
         else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
         else if (!std::strcmp(mode, "effective-weapon-mode") && argc == 4) EffectiveWeaponMode(argv[2], argv[3]);
