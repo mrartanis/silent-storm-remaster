@@ -56,6 +56,9 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/RPGStore.h"
 #include "../Main/UnitTracker.h"
 #include "../DBFormat/DataFormat.h"
+#include "AIUnitFixture.h"
+#include "../Main/aiInventory.h"
+#include "../Main/aiWeapon.h"
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -63,6 +66,8 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include <cstddef>
 
 extern CPtr<NScript::CScript> pScript;
+
+REGISTER_SAVELOAD_CLASS_NM(0x7f550105, AIUnitFixture, NAI);
 
 static void Require(bool value, const char* message)
 {
@@ -474,6 +479,46 @@ static void ReentrantQueueLifetime(bool animationFinished)
         "callback replacement was removed from the action queue");
     Require(queue->GetState() == NWorld::CCommandExecute::RUNNING,
         "callback replacement incorrectly finished the action queue");
+}
+
+class InventoryFirearm: public NAI::CAIFireArmsWeapon
+{
+    OBJECT_NOCOPY_METHODS(InventoryFirearm);
+public:
+    void SetItem(NRPG::CWeaponItem* item) { pWeaponItem = item; }
+};
+
+static void InvalidAIWeapon()
+{
+    CObj<NAI::AIUnitFixture> owner = new NAI::AIUnitFixture;
+    CObj<NAI::AIUnitFixture> target = new NAI::AIUnitFixture;
+    CObj<NAI::CAIInventory> inventory = new NAI::CAIInventory;
+    CObj<InventoryFirearm> firearm = new InventoryFirearm;
+    inventory->RestoreItem(firearm);
+    // Inject the inventory's owner through its existing serialized field.
+    CMemoryStream stream;
+    CObj<NAI::IAIUnit> ownerReference = owner;
+    { CStructureSaver saver(stream, CStructureSaver::WRITE); saver.Add(2, &ownerReference); }
+    stream.Seek(0);
+    CObj<NAI::IAIUnit> loadedOwner;
+    { CStructureSaver saver(stream, CStructureSaver::READ);
+      saver.Add(2, &loadedOwner);
+      static_cast<CObjectBase*>(inventory.GetPtr())->operator&(saver); }
+    owner = dynamic_cast<NAI::AIUnitFixture*>(loadedOwner.GetPtr());
+    Require(IsValid(owner), "fixture inventory has no live owner");
+    for (bool stale : {false, true}) {
+        CObj<NRPG::CWeaponItem> weapon = new NRPG::CWeaponItem;
+        firearm->SetItem(stale ? weapon.GetPtr() : nullptr);
+        weapon = nullptr;
+        Require(!IsValid(firearm->GetItem()), "fixture weapon should be missing or invalid");
+        int cover = 123, quality = 123, hit = 123;
+        NDb::EShootMode mode = NDb::SM_Snap;
+        auto* best = inventory->GetBestFireArms(NAI::SUnitPosition(), target, 30,
+            &cover, &quality, &mode, &hit);
+        Require(best == nullptr && cover == 0 && hit == 0 && quality == -0xFFFF,
+            "invalid-only AI inventory produced a weapon quote");
+        Require(owner->coverCalls == 0, "invalid AI weapon entered attack evaluation");
+    }
 }
 
 class ScriptActor: public NWorld::CUnitServer
@@ -1125,6 +1170,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "render-removal")) RenderRemoval();
         else if (!std::strcmp(mode, "render-pass-compaction")) RenderPassCompaction();
         else if (!std::strcmp(mode, "state-lifetime")) ReentrantStateLifetime();
+        else if (!std::strcmp(mode, "invalid-ai-weapon")) InvalidAIWeapon();
         else if (!std::strcmp(mode, "queue-lifetime")) ReentrantQueueLifetime(false);
         else if (!std::strcmp(mode, "queue-animation-lifetime")) ReentrantQueueLifetime(true);
         else if (!std::strcmp(mode, "pk-leave")) ScriptPK(true);

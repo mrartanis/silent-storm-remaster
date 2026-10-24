@@ -389,6 +389,8 @@ CAIFireArmsWeapon* CAIInventory::GetBestFireArms( const NAI::SUnitPosition &pos,
 	for ( vector< CObj<CAIFireArmsWeapon> >::const_iterator i = fireArms.begin(); i != fireArms.end(); ++i  )
 	{
 		CPtr<NRPG::CWeaponItem> pWeaponItem( (*i)->GetItem() );
+		if ( !IsValid( pWeaponItem ) )
+			continue;
 		int nHitCover = pOwner->GetCoverForFixedUnit( pos, pTarget->GetUnitServer(), pWeaponItem, NAI::HL_ANY );
 		//
 		for ( int nShootMode = ( int )NDb::SM_Snap; nShootMode != ( int )NDb::SM_Snipe; ++nShootMode )
