@@ -1205,7 +1205,7 @@ static void ImmediateCluePickup(const char* databasePath, const char* resourcePa
     }
 }
 
-static void PKShellWorld(const char* databasePath, const char* resourcePath, bool extractPilot)
+static void PKShellWorld(const char* databasePath, const char* resourcePath, bool extractPilot, bool checkModel = false)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath, resourcePath, true, &game);
@@ -1238,6 +1238,28 @@ static void PKShellWorld(const char* databasePath, const char* resourcePath, boo
     Require(found, "fixture has no unobstructed PK footprint");
     CObj<NWorld::CUnitServer> shell = world->AddUnitInGame(anchor, NRPG::CreateUnit(suitRecord), nullptr);
     Require(shell && shell->IsEmptyPK(), "could not create a PK shell");
+    if (checkModel) {
+        auto verifyPrivateModel = [](NWorld::CUnitServer* unit, NDb::CModel* source) {
+            auto* live = unit->GetModel();
+            Require(live && live != source, "PK mode change reused the shared RPG model");
+            Require(live->pGeometry.GetPtr() == source->pGeometry.GetPtr() &&
+                live->pSkeleton.GetPtr() == source->pSkeleton.GetPtr(), "private PK model lost its geometry or skeleton");
+            auto geometry = source->pGeometry;
+            Require(IsValid(geometry), "PK model fixture has no geometry");
+            live->pGeometry = nullptr;
+            Require(source->pGeometry.GetPtr() == geometry.GetPtr(), "live model mutation changed the RPG source model");
+            live->pGeometry = geometry;
+        };
+        auto* humanModel = pilot->GetUnitRPG()->GetRPGUnit()->pModel.GetPtr();
+        auto* suitModel = shell->GetUnitRPG()->GetRPGUnit()->pModel.GetPtr();
+        Require(shell->WearAsPK(true), "could not prepare the model ownership fixture");
+        pilot->SetPosition(shell->GetPosition());
+        pilot->FlipPanzerklein(shell, false, false);
+        verifyPrivateModel(pilot, suitModel);
+        pilot->FlipPanzerklein(nullptr, false, false);
+        verifyPrivateModel(pilot, humanModel);
+        return;
+    }
     if (!extractPilot) {
         NAI::SPosition target = shell->GetPosition().pos;
         bool targetFound = false;
@@ -1327,6 +1349,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "clue-capacity") && argc == 4) ImmediateCluePickup(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "dead-pilot") && argc == 4) PKShellWorld(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "pk-waypoint") && argc == 4) PKShellWorld(argv[2], argv[3], false);
+        else if (!std::strcmp(mode, "pk-model-ownership") && argc == 4) PKShellWorld(argv[2], argv[3], false, true);
         else throw std::runtime_error("unknown upstream regression mode");
         std::printf("PASS: %s\n", mode);
         return 0;

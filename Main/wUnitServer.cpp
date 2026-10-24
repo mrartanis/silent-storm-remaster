@@ -1823,11 +1823,11 @@ bool CUnitServer::IsFlyingBoss() const
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitServer::FlipPanzerklein( CUnitServer *pPK, bool bUnloadWeapons, bool bTakeInventory )
 {
-	NDb::CModel *pPKModel;
+	CPtr<NDb::CModel> pPKModel = new NDb::CModel;
 	if ( !pPK ) // return to non-PK mode
-		pPKModel = GetUnitRPG()->GetRPGUnit()->pModel;
+		*pPKModel = *GetUnitRPG()->GetRPGUnit()->pModel;
 	else
-		pPKModel = pPK->GetUnitRPG()->GetRPGUnit()->pModel;
+		*pPKModel = *pPK->GetUnitRPG()->GetRPGUnit()->pModel;
 	CUnitServer *pOldPK = pWearingPK;
 	pWearingPK = pPK;
 	NAI::SUnitPosition pos = GetPosition();
