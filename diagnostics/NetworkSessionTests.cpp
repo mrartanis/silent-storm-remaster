@@ -10,6 +10,14 @@ template<class Condition> void Pump(NetworkSession& host,NetworkSession& client,
   while(!done() && std::chrono::steady_clock::now()<deadline){host.Poll();client.Poll();std::this_thread::sleep_for(std::chrono::milliseconds(1));}
   Require(done(),"network session test timed out");
 }
+static void AwaitDisconnect(NetworkSession& session,const char* message) {
+  // close() does not synchronously deliver a loopback FIN to the other socket.
+  const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
+  while(session.State()!=SessionState::Failed && std::chrono::steady_clock::now()<deadline){
+    session.Poll();std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  Require(session.State()==SessionState::Failed,message);
+}
 int main(){try{
   int commands=0,queries=0,clientInitial=0,hostTicks=0,events=0,results=0;
   SessionCallbacks server,mirror;
@@ -71,13 +79,7 @@ int main(){try{
   for(int i=0;i<100;++i){peer.Poll();dedup.Poll();std::this_thread::sleep_for(std::chrono::milliseconds(1));}
   Require(commands==before+1,"duplicate command executed twice");
   peer.Close();
-  // Loopback FIN can lag behind close() by more than one poll cycle on macOS;
-  // give the session a bounded window to observe the disconnect.
-  auto closedDeadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
-  while(dedup.State()!=SessionState::Failed && std::chrono::steady_clock::now()<closedDeadline){
-    dedup.Poll();std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  }
-  Require(dedup.State()==SessionState::Failed,"disconnect did not stop match");
+  AwaitDisconnect(dedup,"disconnect did not stop match");
   NetworkSession wrongBuildHost({"build","data"},server),wrongBuild({"other","data"},mirror);
   wrongBuildHost.Host(0);wrongBuild.Connect("127.0.0.1",wrongBuildHost.Port());
   Pump(wrongBuildHost,wrongBuild,[&]{return wrongBuildHost.State()==SessionState::Failed && wrongBuild.State()==SessionState::Failed;});
@@ -120,8 +122,8 @@ int main(){try{
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
   Require(burstApplied==12 && longestPoll<std::chrono::milliseconds(150),"world backlog froze a frame or lost revisions");
-  burstHost.Close();burstClient.Poll();Require(burstClient.State()==SessionState::Failed,"queued-state disconnect ignored");
-  rawHost.Close();rawClient.Poll();Require(rawClient.State()==SessionState::Failed,"raw host disconnect ignored");
+  burstHost.Close();AwaitDisconnect(burstClient,"queued-state disconnect ignored");
+  rawHost.Close();AwaitDisconnect(rawClient,"raw host disconnect ignored");
   Transport loadingHost;loadingHost.Listen(0);NetworkSession loadingClient({"build","data"},mirror);loadingClient.Connect("127.0.0.1",loadingHost.Port());
   welcome=false;deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
   while(loadingClient.State()!=SessionState::Loading && std::chrono::steady_clock::now()<deadline){

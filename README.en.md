@@ -254,6 +254,8 @@ and fullscreen spaces. User data defaults to
 `~/Library/Application Support/Silent Storm Reconstruction`; `S2_USER_DATA_DIR`
 can select an isolated absolute directory for testing.
 
+Verification and remaining limits: [MACOS-ARM64.md](diagnostics/MACOS-ARM64.md).
+
 ## Running and settings
 
 Copy the executable, **all libraries from your build**, `fonts`, the complete
