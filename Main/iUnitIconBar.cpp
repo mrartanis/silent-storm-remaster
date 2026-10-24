@@ -5,6 +5,8 @@
 #include "wInterface.h"
 #include "RPGItemInfo.h"
 #include "RPGUnitInfo.h"
+#include "RPGUnit.h"
+#include "RPGItemSet.h"
 #include "..\Misc\StrProc.h"
 #include "..\Input\Bind.h"
 #include "..\DBFormat\DataFormat.h"
@@ -24,6 +26,7 @@
 #include "iActionDecorator.h"
 #include "UIWrap.h"
 #include "iUnitIconBar.h"
+#include "UnitIconWeaponMode.h"
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NUI
 {
@@ -105,7 +108,7 @@ static int GetUnitsGroupHide( NGame::IMission *pMission )
 	return nHide;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-static int GetUnitsGroupWeaponMode( NGame::IMission *pMission )
+int GetUnitsGroupWeaponMode( NGame::IMission *pMission )
 {
 	vector<CPtr<NGame::IUnitTracker> > unitsSet;
 	pMission->GetSelectedUnits( &unitsSet );
@@ -114,8 +117,7 @@ static int GetUnitsGroupWeaponMode( NGame::IMission *pMission )
 	bool bModeSet = false;
 	for ( int nTemp = 0; nTemp < unitsSet.size(); nTemp++ )
 	{
-		CPtr<NRPG::IInventoryItem> pItem = unitsSet[nTemp]->GetUnit()->GetRPG()->GetInventoryInfo()->GetActive();
-		CPtr<NRPG::IWeaponItemInfo> pWeapon = dynamic_cast<NRPG::IWeaponItemInfo*>( pItem.GetPtr() );
+		CPtr<NRPG::IWeaponItemInfo> pWeapon = unitsSet[nTemp]->GetUnit()->GetRPG()->GetRPGUnit()->GetWeaponItem();
 		if ( IsValid( pWeapon ) )
 		{
 			NDb::EShootMode eMode = pWeapon->GetShootMode();
@@ -165,6 +167,15 @@ static int GetUnitsGroupGrenadeMode( NGame::IMission *pMission )
 	}
 
 	return nMode;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+NRPG::IWeaponItemInfo* GetSelectedWeaponForIcons(NGame::IMission* mission)
+{
+    vector<CPtr<NGame::IUnitTracker>> selected;
+    mission->GetSelectedUnits(&selected);
+    if (selected.size() != 1)
+        return 0;
+    return selected[0]->GetUnit()->GetRPG()->GetRPGUnit()->GetWeaponItem();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CIconBarSet
@@ -534,9 +545,7 @@ void CWeaponModeIconBarSet::Update()
 
 	int nWeaponMode = GetUnitsGroupWeaponMode( GetMission() );
 
-	CPtr<NRPG::IInventoryInfo> pInventory = unitsSet[0]->GetUnit()->GetRPG()->GetInventoryInfo();
-	CPtr<NRPG::IInventoryItem> pItem = pInventory->GetActive();
-	CPtr<NRPG::IWeaponItemInfo> pWeapon = dynamic_cast<NRPG::IWeaponItemInfo*>( pItem.GetPtr() );
+	CPtr<NRPG::IWeaponItemInfo> pWeapon = GetSelectedWeaponForIcons(GetMission());
 	if ( !IsValid( pWeapon ) )
 	{
 		GetMission()->SetActionIconsSet( NGame::AIS_MAIN );

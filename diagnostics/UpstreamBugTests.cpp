@@ -10,6 +10,7 @@
 #include "../Main/iCommonUI.h"
 #include "../Main/PerkToolTip.h"
 #include "../Main/UnitStepSound.h"
+#include "../Main/UnitIconWeaponMode.h"
 #include "../DBFormat/DataPerk.h"
 #include "../Main/GView.h"
 #include "../Main/iMission.h"
@@ -672,7 +673,17 @@ static void IdleAI(const char* databasePath, const char* resourcePath)
     actor->SetTemporaryPosition(original);
 }
 
-static void EffectiveWeaponMode(const char* databasePath, const char* resourcePath)
+class WeaponIconMission: public NGame::CMissionBase
+{
+    OBJECT_BASIC_METHODS(WeaponIconMission);
+public:
+    vector<CPtr<NGame::IUnitTracker>> selected;
+    void Step() override {}
+    bool ProcessEvent(const NInput::SEvent&) override { return false; }
+    void GetSelectedUnits(vector<CPtr<NGame::IUnitTracker>>* units) const override { *units = selected; }
+};
+
+static void EffectiveWeaponMode(const char* databasePath, const char* resourcePath, int checkIcons = 0)
 {
     auto world = FixtureWorld(databasePath, resourcePath);
     std::vector<CPtr<NWorld::CUnit>> units;
@@ -698,6 +709,27 @@ static void EffectiveWeaponMode(const char* databasePath, const char* resourcePa
     executor->Run();
     Require(mounted->GetShootMode() == NDb::SM_Aimed, "fire-mode executor changed the personal weapon instead of the mounted gun");
     Require(personal->GetShootMode() == NDb::SM_Snap, "mounted fire-mode change modified the holstered personal weapon");
+    if (checkIcons) {
+        CObj<WeaponIconMission> mission = new WeaponIconMission;
+        CObj<NGame::CUnitTracker> tracker = new NGame::CUnitTracker(mission, actor);
+        mission->selected.push_back(tracker.GetPtr());
+        if (checkIcons == 2)
+            Require(NUI::GetSelectedWeaponForIcons(mission) == mounted.GetPtr(),
+                "fire-mode submenu enumerated the personal firearm instead of the mounted gun");
+        Require(NUI::GetUnitsGroupWeaponMode(mission) == NDb::SM_Aimed,
+            "mounted-gun mode indicator displayed the personal firearm mode");
+        Require(NUI::GetSelectedWeaponForIcons(mission) == mounted.GetPtr(),
+            "fire-mode submenu enumerated the personal firearm instead of the mounted gun");
+        actor->GetUnitRPG()->SetCannonItem(nullptr);
+        Require(NUI::GetUnitsGroupWeaponMode(mission) == NDb::SM_Snap &&
+                NUI::GetSelectedWeaponForIcons(mission) == personal.GetPtr(),
+            "personal fire-mode UI did not resume after leaving the mounted gun");
+        mission->selected.push_back(tracker.GetPtr());
+        Require(!NUI::GetSelectedWeaponForIcons(mission), "multi-selection enabled the single-weapon submenu");
+        mission->selected.clear();
+        Require(NUI::GetUnitsGroupWeaponMode(mission) == -2 && !NUI::GetSelectedWeaponForIcons(mission),
+            "empty selection exposed a weapon mode");
+    }
     actor->GetUnitRPG()->SetCannonItem(nullptr);
 }
 
@@ -1753,6 +1785,8 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();
         else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
+        else if (!std::strcmp(mode, "mounted-weapon-submenu") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], 2);
+        else if (!std::strcmp(mode, "mounted-weapon-mode-ui") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "effective-weapon-mode") && argc == 4) EffectiveWeaponMode(argv[2], argv[3]);
         else if (!std::strcmp(mode, "render-removal")) RenderRemoval();
         else if (!std::strcmp(mode, "render-pass-compaction")) RenderPassCompaction();
