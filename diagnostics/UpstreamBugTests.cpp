@@ -563,6 +563,40 @@ static void StaleAIReaction()
     }
 }
 
+static void OverlappingUnitLocks()
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    network->CreateLayer(8, 8, VNULL2, 0.f, 0);
+    network->Freeze(true);
+    NAI::SPathPlace shared(3, 3, 0), other(4, 3, 0);
+    shared.SetPose(NAI::CM_STAND); other.SetPose(NAI::CM_STAND);
+    auto* layer = network->GetLayer(0);
+    layer->tiles[3][3].nPassable = layer->tiles[3][4].nPassable = NAI::CP_STAND;
+    CObj<LockerActor> first = new LockerActor, second = new LockerActor;
+    network->LockMovingObject(first, shared, other);
+    network->Lock(second, shared);
+    Require(network->IsLocked(shared, true) && network->IsLocked(other, true), "invalid lock fixture");
+    network->Unlock(first);
+    Require(network->IsLocked(shared, true), "unlocking one unit cleared another unit's overlapping footprint");
+    Require(!network->IsLocked(other, true), "exclusive footprint remained locked after its owner left");
+    network->Unlock(second);
+    Require(!network->IsLocked(shared, true), "last footprint owner did not release the tile");
+
+    // Selected-only queries deliberately disable everyone except the selection.
+    network->Lock(first, shared);
+    network->Lock(second, shared);
+    network->LockSelected(std::list<CObjectBase*>{first.GetPtr()});
+    network->Unlock(first);
+    Require(!network->IsLocked(shared, true), "disabled unselected owner was incorrectly relocked");
+    network->UnlockSelected();
+    Require(network->IsLocked(shared, true), "selection query lost the surviving unit's lock");
+    second->Invalidate();
+    network->Lock(first, shared);
+    network->Unlock(first);
+    Require(!network->IsLocked(shared, true), "overlap restoration revived an invalid owner's footprint");
+    network->Unlock(second);
+}
+
 class ScriptActor: public NWorld::CUnitServer
 {
     OBJECT_NOCOPY_METHODS(ScriptActor);
@@ -1214,6 +1248,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "state-lifetime")) ReentrantStateLifetime();
         else if (!std::strcmp(mode, "invalid-ai-weapon")) InvalidAIWeapon();
         else if (!std::strcmp(mode, "stale-ai-reaction")) StaleAIReaction();
+        else if (!std::strcmp(mode, "overlapping-unit-locks")) OverlappingUnitLocks();
         else if (!std::strcmp(mode, "queue-lifetime")) ReentrantQueueLifetime(false);
         else if (!std::strcmp(mode, "queue-animation-lifetime")) ReentrantQueueLifetime(true);
         else if (!std::strcmp(mode, "pk-leave")) ScriptPK(true);

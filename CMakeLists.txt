@@ -813,6 +813,7 @@ add_test(NAME UpstreamRenderPassCompaction COMMAND UpstreamBugTests render-pass-
 add_test(NAME UpstreamStateLifetime COMMAND UpstreamBugTests state-lifetime)
 add_test(NAME UpstreamInvalidAIWeapon COMMAND UpstreamBugTests invalid-ai-weapon)
 add_test(NAME UpstreamStaleAIReaction COMMAND UpstreamBugTests stale-ai-reaction)
+add_test(NAME UpstreamOverlappingUnitLocks COMMAND UpstreamBugTests overlapping-unit-locks)
 add_test(NAME UpstreamQueueLifetime COMMAND UpstreamBugTests queue-lifetime)
 add_test(NAME UpstreamQueueAnimationLifetime COMMAND UpstreamBugTests queue-animation-lifetime)
 add_test(NAME UpstreamPKLeave COMMAND UpstreamBugTests pk-leave)

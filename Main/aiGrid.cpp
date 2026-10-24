@@ -1960,6 +1960,11 @@ void CPathNetwork::DisableLocks( CObjectBase *pUnit )
 			LockUnlockPoint( l, false );
 		}
 		i->second.bLocked = false;
+		// Tile locks are booleans; preserve other enabled footprint owners.
+		for ( CLocksHash::const_iterator k = lockedPlaces.begin(); k != lockedPlaces.end(); ++k )
+			if ( k->second.bLocked && IsLockerUnit( k->first ) )
+				for ( unsigned int n = 0; n < k->second.places.size(); ++n )
+					LockUnlockPoint( k->second.places[n], true );
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
