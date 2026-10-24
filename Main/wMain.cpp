@@ -1439,7 +1439,7 @@ void CWorld::PlaceItemSlotsToInventory( const ClueToSlot &clueToSlot )
 	{
 		if ( i->second.bInventorySlot )
 		{
-			CPtr<NRPG::IInventoryItem> pItem = NRPG::CreateItem( NDb::GetRPGItem( i->first->GetDBClue()->nItemID )->pSuccessor );
+			CPtr<NRPG::IInventoryItem> pItem = NRPG::CreateClueItem( NDb::GetRPGItem( i->first->GetDBClue()->nItemID ) );
 			if ( IsValid( pItem ) )
 			{
 				// place into inventory

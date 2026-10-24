@@ -14,6 +14,7 @@
 #include "../Main/iUnitIconBar.h"
 #include "../Main/UIInterface.h"
 #include "../DBFormat/DataInterface.h"
+#include "../DBFormat/DataObject.h"
 #include "../DBFormat/DataPerk.h"
 #include "../Main/GView.h"
 #include "../Main/iMission.h"
@@ -778,6 +779,50 @@ static void SniperHeldAim(const char* databasePath, const char* resourcePath, bo
     const auto snapshot = ReadStartedShot(shot, actor, target);
     Require(snapshot.hitLocation == NAI::HL_HEAD, "sniper Fire discarded the held called-shot location");
     Require(snapshot.target.GetPtr() == target, "sniper Fire changed its held target");
+}
+
+static void InventoryClueCreation(const char* databasePath, const char* resourcePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database, CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(1);
+    auto* clue = game->pScenarioTracker->GetClueByName("Find_Cipher_key");
+    Require(clue && clue->GetDBClue()->clueType == NDb::CT_ITEM, "fixture has no item clue");
+    auto* record = NDb::GetRPGItem(clue->GetDBClue()->nItemID);
+    Require(record != nullptr, "fixture item clue has no RPG record");
+    // A pure quest item has no ordinary-item successor. Keep fixture changes
+    // in the loaded database only; no game.db or resource copy is written.
+    record->pSuccessor = nullptr;
+    record->sSize = CTPoint<int>(1, 1);
+    CDBIterator<NDb::CUnit> units(*NDatabase::GetTable<NDb::CUnit>());
+    while (units.MoveNext()) {
+        auto* unit = units.Get();
+        unit->bClueSlot = false;
+        unit->bClueInventorySlot = IsValid(unit->pMonster) && !IsValid(unit->pMonster->pPanzerklein);
+    }
+    // MapBuild's item 188 is the floor clue-slot marker. This fixture routes
+    // every candidate slot through a normal human's backpack instead.
+    CDBIterator<NDb::CPlacableObject> objects(*NDatabase::GetTable<NDb::CPlacableObject>());
+    while (objects.MoveNext()) {
+        auto* object = objects.Get();
+        if (IsValid(object->pRPGItem) && object->pRPGItem->GetRecordID() == 188)
+            object->pRPGItem = nullptr;
+    }
+    CObj<NWorld::CWorld> world = new NWorld::CWorld(game);
+    CObj<NWorld::CPostWorldCreateInfo> post;
+    world->CreateRandom(810, {}, true, std::list<CPtr<NScenario::CScenarioClue>>{clue}, 0, &post, SRandomSeed(123));
+    vector<CPtr<NWorld::CUnit>> actors;
+    world->GetAllUnits(&actors);
+    int found = 0;
+    for (auto& actor : actors) {
+        auto* inventory = actor->GetRPG()->GetInventoryInfo();
+        for (const auto& entry : inventory->GetItems())
+            if (dynamic_cast<NRPG::IClueItem*>(entry.pItem.GetPtr()) && entry.pItem->GetDBItem() == record)
+                ++found;
+    }
+    Require(found == 1, "inventory clue placement lost a quest item without an ordinary successor");
 }
 
 static void HideCooldown(const char* databasePath, const char* resourcePath)
@@ -2040,6 +2085,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();
         else if (!std::strcmp(mode, "sniper-targetless-probe") && argc == 4) SniperHeldAim(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "sniper-held-aim") && argc == 4) SniperHeldAim(argv[2], argv[3]);
+        else if (!std::strcmp(mode, "inventory-clue-creation") && argc == 4) InventoryClueCreation(argv[2], argv[3]);
         else if (!std::strcmp(mode, "hide-cooldown") && argc == 4) HideCooldown(argv[2], argv[3]);
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
         else if (!std::strcmp(mode, "mounted-mode-button") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], 3);
