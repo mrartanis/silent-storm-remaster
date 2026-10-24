@@ -1450,6 +1450,7 @@ void CWorld::PlaceItemSlotsToInventory( const ClueToSlot &clueToSlot )
 					CTPoint<int> position;
 					pInventory->FindPlace( pItem, &position );
 					pInventory->Place( position, pItem );
+					++pUnitServer->nClueCount;
 					sprintf( szStr, "[SCENARIO TRACKER] item %d was placed in an inventory\n", i->first->GetDBClue()->nItemID );
 					GameDebugString( szStr );
 				}

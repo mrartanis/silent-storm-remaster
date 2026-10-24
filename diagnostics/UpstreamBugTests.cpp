@@ -781,7 +781,7 @@ static void SniperHeldAim(const char* databasePath, const char* resourcePath, bo
     Require(snapshot.target.GetPtr() == target, "sniper Fire changed its held target");
 }
 
-static void InventoryClueCreation(const char* databasePath, const char* resourcePath)
+static void InventoryClueCreation(const char* databasePath, const char* resourcePath, bool checkCount = false)
 {
     CFileStream database;
     database.OpenRead(databasePath);
@@ -818,9 +818,14 @@ static void InventoryClueCreation(const char* databasePath, const char* resource
     int found = 0;
     for (auto& actor : actors) {
         auto* inventory = actor->GetRPG()->GetInventoryInfo();
+        int carried = 0;
         for (const auto& entry : inventory->GetItems())
             if (dynamic_cast<NRPG::IClueItem*>(entry.pItem.GetPtr()) && entry.pItem->GetDBItem() == record)
-                ++found;
+                ++carried;
+        found += carried;
+        if (checkCount)
+            Require(dynamic_cast<NWorld::CUnitServer*>(actor.GetPtr())->nClueCount == carried,
+                "inventory clue placement did not count the clue on its carrier");
     }
     Require(found == 1, "inventory clue placement lost a quest item without an ordinary successor");
 }
@@ -2086,6 +2091,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "sniper-targetless-probe") && argc == 4) SniperHeldAim(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "sniper-held-aim") && argc == 4) SniperHeldAim(argv[2], argv[3]);
         else if (!std::strcmp(mode, "inventory-clue-creation") && argc == 4) InventoryClueCreation(argv[2], argv[3]);
+        else if (!std::strcmp(mode, "inventory-clue-count") && argc == 4) InventoryClueCreation(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "hide-cooldown") && argc == 4) HideCooldown(argv[2], argv[3]);
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
         else if (!std::strcmp(mode, "mounted-mode-button") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], 3);
