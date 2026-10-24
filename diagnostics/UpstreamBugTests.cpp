@@ -90,6 +90,46 @@ static void Require(bool value, const char* message)
 }
 
 
+
+static bool optionalStringAccepted = false;
+
+static int OptionalStringBridge(lua_State* state)
+{
+    Script script(state);
+    vector<SLuaParams> params;
+    optionalStringAccepted = false;
+    if (!script.CheckArgs("ss[]", "OptionalStringBridge", &params)) return 0;
+    optionalStringAccepted = true;
+    script.PushString(params[1].s.c_str());
+    return 1;
+}
+
+static void EmptyLuaDefault()
+{
+    Script script;
+    script.Register("OptionalStringBridge", OptionalStringBridge);
+    Require(script.DoString("result = OptionalStringBridge('first-visit-key')") == LUA_NOERR,
+        "optional-string fixture did not compile");
+    script.ExecuteThreads();
+    Require(optionalStringAccepted, "Lua rejected an omitted optional string with an empty default");
+    Require(script.GetGlobal("result").IsString() && std::string(script.GetGlobal("result").GetString()).empty(),
+        "omitted optional Lua string did not receive its empty default");
+    script.SetTop(0);
+    script.DoString("result = OptionalStringBridge('key', 'explicit')");
+    script.ExecuteThreads();
+    Require(optionalStringAccepted && std::string(script.GetGlobal("result").GetString()) == "explicit",
+        "empty-default handling changed an explicitly supplied Lua string");
+    script.SetTop(0);
+    script.DoString("result = OptionalStringBridge('key', '')");
+    script.ExecuteThreads();
+    Require(optionalStringAccepted && std::string(script.GetGlobal("result").GetString()).empty(),
+        "empty-default handling changed an explicitly empty Lua string");
+    script.SetTop(0);
+    script.DoString("OptionalStringBridge()");
+    script.ExecuteThreads();
+    Require(!optionalStringAccepted, "empty-default handling accepted a missing required Lua argument");
+}
+
 class EmptySearchNetwork: public NAI::CPathNetwork
 {
     OBJECT_BASIC_METHODS(EmptySearchNetwork);
@@ -2088,6 +2128,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "perk-tooltip-parameters")) PerkTooltipParameters();
         else if (!std::strcmp(mode, "mechanical-step-sound")) MechanicalStepSound();
         else if (!std::strcmp(mode, "nearest-invalid")) InvalidNearestPosition();
+        else if (!std::strcmp(mode, "lua-empty-default")) EmptyLuaDefault();
         else if (!std::strcmp(mode, "nearest-empty")) EmptyNearestPosition();
         else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();
         else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();
