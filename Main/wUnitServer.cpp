@@ -430,7 +430,10 @@ void CUnitServer::Do( CCommand *_pCmd )
 						CPtr<NAI::CPath> pPath = FindPath(GetWorld()->GetPathNetwork(), this, src, dst,
 							0, true, pCmdPath->eParams, IsStrafing());
 						if (IsValid(pPath))
+						{
 							pMove->SetNewPath(pPath, pCmdPath->eParams);
+							pCurrentCmd = pCmdPath;
+						}
 						/*else
 						{
 							CancelAction();

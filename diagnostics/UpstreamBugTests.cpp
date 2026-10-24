@@ -36,6 +36,8 @@
 #include "../Main/wUnitStates.h"
 #include "../Main/wUnitQueue.h"
 #include "../Main/wUnitExec.h"
+#include "../Main/wUnitMove.h"
+#include "../Main/aiPath.h"
 #include "../Main/GAnimParticles.h"
 #include "../Main/GAnimation.h"
 #include "../Main/GDecalGeometry.h"
@@ -985,6 +987,108 @@ static void MovementCriticalProbe(const char* databasePath, const char* resource
         Require(actor->CanDo(command) == NWorld::UCR_OK, "movement preview stayed blocked after the injury was removed");
     }
     Require(actor->GetWishPose() == wishPose, "movement preview changed the requested stance");
+}
+
+
+class RetargetMoveProbe: public NWorld::CCommandExecute, public NWorld::IExecMove
+{
+    OBJECT_BASIC_METHODS(RetargetMoveProbe);
+    bool started = false;
+    NAI::EFindPathParams params = NAI::PF_DEFAULT;
+    CObj<NAI::CPath> path;
+public:
+    int updates = 0;
+    NAI::SPathPlace destination;
+    RetargetMoveProbe() {}
+    RetargetMoveProbe(NWorld::CUnitServer* unit, NWorld::CCmdPath* command): CCommandExecute(unit),
+        params(command->eParams), destination(command->ptDst.p) {}
+    void Run() override { started = true; }
+    bool IsExecuting() override { return started; }
+    void GetSearchFromPosition(NAI::SPathPlace* result) override { *result = pUS->GetPosition().pos.p; }
+    void SetNewPath(NAI::CPath* value, NAI::EFindPathParams flags, NWorld::ENeedActiveItem) override {
+        Require(value && !value->points.empty(), "retarget fixture received an empty accepted path");
+        path = value; params = flags; destination = value->points.back(); ++updates;
+    }
+    void GetDesiredPlace(NAI::SPathPlace* result, NAI::EFindPathParams* flags, NWorld::ENeedActiveItem* active) override {
+        *result = destination; *flags = params; *active = NWorld::ITEM_NO_MATTER;
+    }
+    void GetPathPoints(std::list<SPathPoint>* result) override { result->clear(); }
+    void FullCancel() override { started = false; Failed(); }
+    NAI::CPath* GetCurrentPath() const override { return path; }
+};
+
+class RetargetStateProbe: public NWorld::CUnitStateNormal
+{
+    OBJECT_BASIC_METHODS(RetargetStateProbe);
+public:
+    int creations = 0;
+    CPtr<NWorld::CCmdPath> restoredCommand;
+    CObj<RetargetMoveProbe> move;
+    explicit RetargetStateProbe(NWorld::CUnitServer* unit = nullptr): CUnitStateNormal(unit) {}
+    NWorld::CCommandExecute* CreateExecutor(NWorld::CCmd* command, NWorld::EUnitCommandResult* result) override {
+        auto* route = dynamic_cast<NWorld::CCmdPath*>(command);
+        if (!route) return CUnitStateNormal::CreateExecutor(command, result);
+        restoredCommand = route; ++creations;
+        move = new RetargetMoveProbe(pUS, route);
+        *result = NWorld::UCR_OK;
+        return move;
+    }
+};
+
+static void LatestRouteCommand(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& candidate : units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(candidate.GetPtr());
+        if (unit && !unit->IsAIUnit() && unit->CanFight() && !unit->IsWearingPK()) { actor = unit; break; }
+    }
+    Require(actor != nullptr, "retarget fixture has no human actor");
+    const auto original = actor->GetPosition();
+    vector<NAI::SPathPlace> nearby;
+    world->GetPathNetwork()->GetNearPlaces(SSphere(original.GetCP(), 5.f), &nearby);
+    vector<CObj<NWorld::CCmdPath>> commands;
+    for (auto place : nearby) {
+        place.SetPose(NAI::CM_STAND); place.SetDirection(original.GetDir());
+        auto destination = original.pos; destination.p = place;
+        if (fabs2(destination.GetCP() - original.GetCP()) < 1.f) continue;
+        if (!commands.empty() && commands.front()->ptDst.p.GetX() == place.GetX() &&
+                commands.front()->ptDst.p.GetY() == place.GetY()) continue;
+        CObj<NWorld::CCmdPath> command = new NWorld::CCmdPath(destination);
+        if (actor->CanDo(command) != NWorld::UCR_OK) continue;
+        commands.push_back(command);
+        if (commands.size() == 2) break;
+    }
+    Require(commands.size() == 2, "retarget fixture needs two different reachable destinations");
+    CObj<RetargetStateProbe> state = new RetargetStateProbe(actor);
+    actor->SetState(state);
+    const int ap = actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP);
+    actor->Do(new NWorld::CCmdSetCommand(actor, commands[0]));
+    actor->Do(new NWorld::CCmdSetCommand(actor, new NWorld::CCmdContinue));
+    Require(state->creations == 1 && actor->IsPerformingAction(), "retarget fixture did not start its original route");
+    CObj<RetargetMoveProbe> previous = state->move;
+    actor->Do(new NWorld::CCmdSetCommand(actor, commands[1]));
+    Require(previous->updates == 1, "retarget fixture did not accept the replacement path through real pathfinding");
+    Require(previous->destination.GetX() == commands[1]->ptDst.p.GetX() &&
+            previous->destination.GetY() == commands[1]->ptDst.p.GetY(), "accepted live path has the wrong replacement endpoint");
+    // The executor is controlled, but command dispatch, pathfinding, the actual
+    // interruption event and RefreshExecutor all run through production code.
+    actor->OnTBSEvent(NWorld::TBS_RECALC_COMMAND);
+    actor->Do(new NWorld::CCmdSetCommand(actor, new NWorld::CCmdContinue));
+    Require(state->creations == 2 && state->restoredCommand == commands[1].GetPtr(),
+        "movement interruption restored the old route after a new path was accepted");
+    actor->GetUnitRPG()->ApplyCritical(NRPG::SCritical(NDb::CL_LEGS, NDb::C_PATIENT, 3));
+    actor->Do(new NWorld::CCmdSetCommand(actor, commands[0]));
+    Require(state->move->updates == 0, "injury-blocked route replaced the accepted live path");
+    actor->GetUnitRPG()->RemoveCritical(NDb::C_PATIENT);
+    actor->OnTBSEvent(NWorld::TBS_RECALC_COMMAND);
+    actor->Do(new NWorld::CCmdSetCommand(actor, new NWorld::CCmdContinue));
+    Require(state->creations == 3 && state->restoredCommand == commands[1].GetPtr(),
+        "rejected retarget replaced the route retained for interruption recovery");
+    Require(actor->GetPosition() == original && actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == ap,
+        "retarget bookkeeping moved the actor or changed action points");
 }
 
 static void HideCooldown(const char* databasePath, const char* resourcePath)
@@ -2359,6 +2463,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "inventory-clue-capacity") && argc == 4) InventoryClueCreation(argv[2], argv[3], true, true);
         else if (!std::strcmp(mode, "corpse-snap-failure") && argc == 4) FailedCorpseSnap(argv[2], argv[3]);
         else if (!std::strcmp(mode, "movement-critical-probe") && argc == 4) MovementCriticalProbe(argv[2], argv[3]);
+        else if (!std::strcmp(mode, "latest-route-command") && argc == 4) LatestRouteCommand(argv[2], argv[3]);
         else if (!std::strcmp(mode, "hide-cooldown") && argc == 4) HideCooldown(argv[2], argv[3]);
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
         else if (!std::strcmp(mode, "mixed-hide-button") && argc == 4) MixedActionButton(argv[2], argv[3], true);
