@@ -317,7 +317,7 @@ void SplitOps( CRenderCmdList *pLower, CRenderCmdList *pSrc, int nHighPass )
 		else
 		{
 			if ( nDest != k )
-				pLower->ops[ nDest++ ] = pSrc->ops[k];
+				pSrc->ops[ nDest++ ] = pSrc->ops[k];
 			else
 				++nDest;
 		}

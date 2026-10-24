@@ -26,6 +26,7 @@
 #include "../Main/GDecalGeometry.h"
 #include "../Main/GCombiner.h"
 #include "../Main/GSceneUtils.h"
+#include "../Main/GRenderCore.h"
 #include "../Main/GGeometryPositionHash.h"
 using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/rpgGlobal.h"
@@ -372,6 +373,32 @@ static void RenderRemoval()
     source->Set(std::vector<RenderFixture*>{});
     cache.Sync();
     Require(!cache.cached, "removed render slot retained a live object reference");
+}
+
+static void RenderPassCompaction()
+{
+    // Start with two low passes so the old wrong-destination write fails
+    // deterministically without needing an out-of-bounds memory access.
+    for (const auto& passes : std::vector<std::vector<int>>{
+            {1, 2, 8, 9}, {8, 1, 9, 2}, {1, 8}, {8, 9}, {1, 2}, {}, {8}}) {
+        NGScene::CRenderCmdList source, lower;
+        std::vector<float> expectedLower, expectedRetained;
+        for (int i = 0; i < int(passes.size()); ++i) {
+            source.ops.emplace_back(nullptr, NGScene::RO_NOP,
+                static_cast<unsigned char>(passes[i]), 0, 0,
+                NGScene::CRenderCmdList::UParameter(float(i + 1)));
+            (passes[i] < 8 ? expectedLower : expectedRetained).push_back(float(i + 1));
+        }
+        NGScene::SplitOps(&lower, &source, 8);
+        Require(lower.ops.size() == expectedLower.size(), "render split changed lower-pass count");
+        Require(source.ops.size() == expectedRetained.size(), "render split changed retained-pass count");
+        for (int i = 0; i < int(expectedLower.size()); ++i)
+            Require(lower.ops[i].p1.f == expectedLower[i] && lower.ops[i].nPass < 8,
+                "retained render passes overwrote lower passes");
+        for (int i = 0; i < int(expectedRetained.size()); ++i)
+            Require(source.ops[i].p1.f == expectedRetained[i] && source.ops[i].nPass >= 8,
+                "render split lost or reordered retained passes");
+    }
 }
 
 class ScriptActor: public NWorld::CUnitServer
@@ -1021,6 +1048,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "decal-projection")) DecalProjection();
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
         else if (!std::strcmp(mode, "render-removal")) RenderRemoval();
+        else if (!std::strcmp(mode, "render-pass-compaction")) RenderPassCompaction();
         else if (!std::strcmp(mode, "pk-leave")) ScriptPK(true);
         else if (!std::strcmp(mode, "pk-wear")) ScriptPK(false);
         else if (!std::strcmp(mode, "pk-equipment")) PKEquipmentTransfer();
