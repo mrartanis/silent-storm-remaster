@@ -864,8 +864,13 @@ void CDumbUnitServer::Segment()
 		GetRealUnitPosition( &ptReal );
 		if ( fabs2( ptReal - vPrevGetCorpseAIPosition ) > 2.0f || corpseHLpos.empty() )
 		{
-			position.pos = NAI::GetNearestPosition( ptReal, position.pos.GetNetwork() );
-			vPrevGetCorpseAIPosition = ptReal;
+			NAI::SPosition nearest = NAI::GetNearestPosition( ptReal, position.pos.GetNetwork() );
+			// Keep the last usable logical tile when the physical body cannot snap.
+			if ( nearest.p.GetData() != NAI::SPathPlace().GetData() && IsValid( nearest.pNet ) && nearest.IsValid() )
+			{
+				position.pos = nearest;
+				vPrevGetCorpseAIPosition = ptReal;
+			}
 			corpseHLpos.resize( 6 );
 			NAI::IAIMap *pMap = pWorld->GetAIMap();
 			CObjectBase *pHull = pMap->GetHull( this );

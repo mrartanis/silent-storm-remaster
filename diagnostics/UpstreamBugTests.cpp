@@ -873,6 +873,53 @@ static void InventoryClueCreation(const char* databasePath, const char* resource
         Require(found == 1, "inventory clue placement lost a quest item without an ordinary successor");
 }
 
+
+class EmptyCorpseNetwork: public NAI::CPathNetwork
+{
+    OBJECT_BASIC_METHODS(EmptyCorpseNetwork);
+public:
+    int queries = 0;
+    void GetNearPlaces(const SSphere&, vector<NAI::SPathPlace>* places, bool) override {
+        Require(++queries <= 16, "corpse snap exceeded two bounded navigation searches");
+        places->clear();
+    }
+};
+
+static void FailedCorpseSnap(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& candidate : units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(candidate.GetPtr());
+        if (unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) {
+            actor = unit; break;
+        }
+    }
+    Require(actor != nullptr, "corpse-snap fixture contains no ordinary actor");
+    CObj<EmptyCorpseNetwork> network = new EmptyCorpseNetwork;
+    network->CreateLayer(8, 8, VNULL2, 0.f, 0);
+    network->Freeze(true);
+    NAI::SUnitPosition logical = actor->GetPosition();
+    logical.pos = NAI::SPosition(NAI::SPathPlace(3, 3, 0), network);
+    logical.pos.p.SetPose(NAI::CM_STAND);
+    network->GetLayer(0)->tiles[3][3].nFloor = 0;
+    actor->GetUnitRPG()->GetRPGUnit()->Kill();
+    actor->SetState(new NWorld::CUnitStateDeath(actor));
+    actor->SetTemporaryPosition(logical);
+    Require(!actor->CanFight() && actor->GetPosition().IsValid(), "corpse fixture did not retain a valid logical tile");
+    // Empty physical-search results are transient: retain the prior valid tile
+    // and retry on the next segment rather than caching the failed body snap.
+    actor->CDumbUnitServer::Segment();
+    Require(actor->GetPosition() == logical, "failed corpse snap replaced the last valid logical position");
+    Require(network->queries == 8 && actor->GetCorpseHLs()->size() == 6,
+        "corpse segment did not refresh hit locations after its bounded search");
+    actor->CDumbUnitServer::Segment();
+    Require(actor->GetPosition() == logical && network->queries == 16,
+        "failed corpse snap was cached instead of being retried on the next segment");
+}
+
 static void HideCooldown(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -2137,6 +2184,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "inventory-clue-creation") && argc == 4) InventoryClueCreation(argv[2], argv[3]);
         else if (!std::strcmp(mode, "inventory-clue-count") && argc == 4) InventoryClueCreation(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "inventory-clue-capacity") && argc == 4) InventoryClueCreation(argv[2], argv[3], true, true);
+        else if (!std::strcmp(mode, "corpse-snap-failure") && argc == 4) FailedCorpseSnap(argv[2], argv[3]);
         else if (!std::strcmp(mode, "hide-cooldown") && argc == 4) HideCooldown(argv[2], argv[3]);
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
         else if (!std::strcmp(mode, "mounted-mode-button") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], 3);
