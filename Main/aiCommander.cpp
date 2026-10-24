@@ -108,7 +108,7 @@ void SAIUpdateTracker::Update()
 		return;
 	CPtr<CAIReaction> pR = reactions.front();
 	reactions.pop_front();
-	if ( IsValid( pR ) )
+	if ( IsValid( pR ) && pR->CanUpdate() )
 		pR->Update();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

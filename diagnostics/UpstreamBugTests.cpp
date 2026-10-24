@@ -521,6 +521,48 @@ static void InvalidAIWeapon()
     }
 }
 
+class LockerActor: public NWorld::CUnitServer
+{
+    OBJECT_NOCOPY_METHODS(LockerActor);
+public:
+    bool active = true;
+    bool shell = false;
+    bool CanFight() const override { return active; }
+    bool IsEmptyPK() const override { return shell; }
+};
+
+class ReactionProbe: public NAI::CAIReaction
+{
+    OBJECT_NOCOPY_METHODS(ReactionProbe);
+public:
+    int updates = 0;
+    ReactionProbe() {}
+    explicit ReactionProbe(NAI::IAIUnit* unit): CAIReaction(unit) {}
+    void Update() override { ++updates; }
+};
+
+static void StaleAIReaction()
+{
+    for (int staleReason = 0; staleReason < 4; ++staleReason) {
+        CObj<LockerActor> actor = new LockerActor, liveActor = new LockerActor;
+        CObj<NAI::AIUnitFixture> unit = new NAI::AIUnitFixture, liveUnit = new NAI::AIUnitFixture;
+        unit->server = actor; liveUnit->server = liveActor;
+        CObj<ReactionProbe> stale = new ReactionProbe(unit), live = new ReactionProbe(liveUnit);
+        NAI::SAIUpdateTracker tracker;
+        tracker.Add(stale); tracker.Add(live);
+        // State changes after the reaction has already been enqueued.
+        if (staleReason == 0) actor->active = false;
+        if (staleReason == 1) unit->underAIControl = false;
+        if (staleReason == 2) unit->server = nullptr;
+        if (staleReason == 3) unit->Invalidate();
+        tracker.Update();
+        Require(stale->updates == 0, "queued AI reaction updated an actor that can no longer operate");
+        Require(live->updates == 0 && !tracker.CanGetCommand(), "AI update drained more than one queued reaction");
+        tracker.Update();
+        Require(live->updates == 1 && tracker.CanGetCommand(), "live AI reaction did not resume on the next segment");
+    }
+}
+
 class ScriptActor: public NWorld::CUnitServer
 {
     OBJECT_NOCOPY_METHODS(ScriptActor);
@@ -1171,6 +1213,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "render-pass-compaction")) RenderPassCompaction();
         else if (!std::strcmp(mode, "state-lifetime")) ReentrantStateLifetime();
         else if (!std::strcmp(mode, "invalid-ai-weapon")) InvalidAIWeapon();
+        else if (!std::strcmp(mode, "stale-ai-reaction")) StaleAIReaction();
         else if (!std::strcmp(mode, "queue-lifetime")) ReentrantQueueLifetime(false);
         else if (!std::strcmp(mode, "queue-animation-lifetime")) ReentrantQueueLifetime(true);
         else if (!std::strcmp(mode, "pk-leave")) ScriptPK(true);
