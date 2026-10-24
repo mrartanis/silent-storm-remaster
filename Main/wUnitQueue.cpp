@@ -66,8 +66,9 @@ void CSimpleExecQueue::Run()
 	while ( !execList.empty() )
 	{
 		CObj<CSimpleExecQueue> pHold( this ); // in case the unit dies while the action is being executed
-		execList.front()->Run();
-		EFinishType f = execList.front()->GetState();
+		CObj<CCommandExecute> pFront = execList.front();
+		pFront->Run();
+		EFinishType f = pFront->GetState();
 		if ( f == RUNNING )
 			return;
 		if ( f == FAILED )
@@ -93,10 +94,14 @@ bool CSimpleExecQueue::TimeLabelReached()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleExecQueue::AnimationFinished() 
 { 
+	CPtr<CSimpleExecQueue> pHoldSelf( this );
 	if ( !execList.empty() )
 	{
-		execList.front()->AnimationFinished();
-		EFinishType f = execList.front()->GetState();
+		CObj<CCommandExecute> pFront = execList.front();
+		pFront->AnimationFinished();
+		if ( !IsValid( this ) )
+			return;
+		EFinishType f = pFront->GetState();
 		if ( f != RUNNING )
 		{
 			if ( f == FAILED )

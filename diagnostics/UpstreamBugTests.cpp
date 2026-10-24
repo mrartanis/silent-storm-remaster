@@ -23,6 +23,7 @@
 #include "../Main/RPGItemSet.h"
 #include "../Main/wUnitAttackExec.h"
 #include "../Main/wUnitStates.h"
+#include "../Main/wUnitQueue.h"
 #include "../Main/GDecalGeometry.h"
 #include "../Main/GCombiner.h"
 #include "../Main/GSceneUtils.h"
@@ -432,6 +433,47 @@ static void ReentrantStateLifetime()
     bool callbackAlive = false;
     unit->SetState(new ReplacingUnitState(unit, &callbackAlive));
     Require(callbackAlive, "self-replacing unit state was destroyed before its callback returned");
+}
+
+class CallbackQueue: public NWorld::CSimpleExecQueue
+{
+    OBJECT_NOCOPY_METHODS(CallbackQueue);
+public:
+    void Replace(NWorld::CCommandExecute* replacement) { execList.clear(); AddExecutor(replacement); }
+};
+
+class WaitingExecutor: public NWorld::CCommandExecute
+{
+    OBJECT_NOCOPY_METHODS(WaitingExecutor);
+};
+
+class ReplacingExecutor: public NWorld::CCommandExecute
+{
+    OBJECT_NOCOPY_METHODS(ReplacingExecutor);
+    CPtr<CallbackQueue> queue;
+    CPtr<WaitingExecutor> replacement;
+    void Callback() {
+        CPtr<ReplacingExecutor> weak(this);
+        queue->Replace(replacement);
+        Require(IsValid(this), "queue destroyed its executor while the executor callback was running");
+    }
+public:
+    ReplacingExecutor() {}
+    ReplacingExecutor(CallbackQueue* owner, WaitingExecutor* next): queue(owner), replacement(next) {}
+    void Run() override { Callback(); }
+    void AnimationFinished() override { Callback(); }
+};
+
+static void ReentrantQueueLifetime(bool animationFinished)
+{
+    CObj<CallbackQueue> queue = new CallbackQueue;
+    CObj<WaitingExecutor> replacement = new WaitingExecutor;
+    queue->AddExecutor(new ReplacingExecutor(queue, replacement));
+    if (animationFinished) queue->AnimationFinished(); else queue->Run();
+    Require(queue->GetFrontExecutor() == replacement.GetPtr(),
+        "callback replacement was removed from the action queue");
+    Require(queue->GetState() == NWorld::CCommandExecute::RUNNING,
+        "callback replacement incorrectly finished the action queue");
 }
 
 class ScriptActor: public NWorld::CUnitServer
@@ -1083,6 +1125,8 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "render-removal")) RenderRemoval();
         else if (!std::strcmp(mode, "render-pass-compaction")) RenderPassCompaction();
         else if (!std::strcmp(mode, "state-lifetime")) ReentrantStateLifetime();
+        else if (!std::strcmp(mode, "queue-lifetime")) ReentrantQueueLifetime(false);
+        else if (!std::strcmp(mode, "queue-animation-lifetime")) ReentrantQueueLifetime(true);
         else if (!std::strcmp(mode, "pk-leave")) ScriptPK(true);
         else if (!std::strcmp(mode, "pk-wear")) ScriptPK(false);
         else if (!std::strcmp(mode, "pk-equipment")) PKEquipmentTransfer();
