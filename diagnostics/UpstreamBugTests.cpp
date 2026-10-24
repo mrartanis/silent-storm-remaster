@@ -643,7 +643,7 @@ static void InvalidAIWeapon()
     inventory->RestoreItem(firearm);
     // Inject the inventory's owner through its existing serialized field.
     CMemoryStream stream;
-    CObj<NAI::IAIUnit> ownerReference = owner;
+    CObj<NAI::IAIUnit> ownerReference = owner.GetPtr();
     { CStructureSaver saver(stream, CStructureSaver::WRITE); saver.Add(2, &ownerReference); }
     stream.Seek(0);
     CObj<NAI::IAIUnit> loadedOwner;
