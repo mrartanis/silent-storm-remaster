@@ -1448,7 +1448,11 @@ void CWorld::PlaceItemSlotsToInventory( const ClueToSlot &clueToSlot )
 				{
 					CPtr<NRPG::IInventory> pInventory = pUnitServer->GetUnitRPG()->GetInventory();
 					CTPoint<int> position;
-					pInventory->FindPlace( pItem, &position );
+					if ( !pInventory->FindPlace( pItem, &position ) )
+					{
+						GameDebugString( "[SCENARIO TRACKER] no inventory space for item clue\n" );
+						continue;
+					}
 					pInventory->Place( position, pItem );
 					++pUnitServer->nClueCount;
 					sprintf( szStr, "[SCENARIO TRACKER] item %d was placed in an inventory\n", i->first->GetDBClue()->nItemID );
