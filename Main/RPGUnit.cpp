@@ -548,11 +548,11 @@ NDb::EWeaponType CUnit::GetWeaponType() const
 		return NDb::WT_MINE_DETECTOR;
 
 	CWeaponItem *pWeapon = GetWeaponItem();
-	if ( pWeapon )
+	if ( IsValid( pWeapon ) )
 		return pWeapon->GetWeaponType();
 
 	CMeleeWeaponItem *pMeleeWeapon = GetMeleeWeaponItem();
-	if ( pMeleeWeapon )
+	if ( IsValid( pMeleeWeapon ) )
 		return pMeleeWeapon->GetWeaponType();
 
 	return NDb::WT_DEFAULT;
@@ -631,7 +631,7 @@ int CUnit::GetWeaponReloadAP( CWeaponItem *_pWeapon ) const
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CWeaponItem* CUnit::GetWeaponItem() const
 {
-	if ( pCannonItem )
+	if ( IsValid( pCannonItem ) )
 		return pCannonItem;
 	CDynamicCast<NRPG::CWeaponItem> pWeapon(pInventory->GetActive());
 	if (pWeapon)

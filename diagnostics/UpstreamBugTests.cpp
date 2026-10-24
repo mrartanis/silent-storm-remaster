@@ -587,6 +587,54 @@ static void InvalidAIWeapon()
     }
 }
 
+class FirearmTypeProbe: public NRPG::CWeaponItem
+{
+    OBJECT_NOCOPY_METHODS(FirearmTypeProbe);
+public:
+    NDb::EWeaponType GetWeaponType() const override {
+        Require(!IsRefInvalid(), "invalid firearm reached weapon-type lookup");
+        return NDb::WT_PISTOL;
+    }
+};
+
+class MeleeTypeProbe: public NRPG::CMeleeWeaponItem
+{
+    OBJECT_NOCOPY_METHODS(MeleeTypeProbe);
+public:
+    NDb::EWeaponType GetWeaponType() const override {
+        Require(!IsRefInvalid(), "invalid melee weapon reached weapon-type lookup");
+        return NDb::WT_KNIFE;
+    }
+};
+
+static void StaleWeaponReferences(int kind)
+{
+    CObj<NRPG::CUnit> unit = new NRPG::CUnit;
+    unit->pInventory = NRPG::CreateInventory(unit);
+    if (kind < 2) {
+        CObj<FirearmTypeProbe> personal = new FirearmTypeProbe;
+        Require(unit->pInventory->Equip(NDb::SLOT_1, personal) && unit->pInventory->Activate(NDb::SLOT_1),
+            "could not equip the weapon-reference fixture");
+        Require(unit->GetWeaponType() == NDb::WT_PISTOL, "live personal weapon was not selected");
+        if (kind == 0) {
+            CObj<FirearmTypeProbe> cannon = new FirearmTypeProbe;
+            unit->pCannonItem = cannon;
+            cannon = nullptr;
+            Require(!IsValid(unit->pCannonItem), "fixture cannon must be invalid");
+            Require(unit->GetWeaponItem() == personal.GetPtr(), "invalid mounted weapon masked the equipped firearm");
+        } else {
+            personal->Invalidate();
+            Require(unit->GetWeaponType() == NDb::WT_DEFAULT, "invalid firearm changed the unit's weapon type");
+        }
+    } else {
+        CObj<MeleeTypeProbe> melee = new MeleeTypeProbe;
+        unit->pDefaultWeapon = melee;
+        Require(unit->GetWeaponType() == NDb::WT_KNIFE, "live default melee weapon was not selected");
+        melee->Invalidate();
+        Require(unit->GetWeaponType() == NDb::WT_DEFAULT, "invalid melee weapon changed the unit's weapon type");
+    }
+}
+
 class LockerActor: public NWorld::CUnitServer
 {
     OBJECT_NOCOPY_METHODS(LockerActor);
@@ -1386,6 +1434,9 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "state-lifetime")) ReentrantStateLifetime();
         else if (!std::strcmp(mode, "mounted-mode-command")) MountedModeCommand();
         else if (!std::strcmp(mode, "invalid-ai-weapon")) InvalidAIWeapon();
+        else if (!std::strcmp(mode, "stale-cannon-selection")) StaleWeaponReferences(0);
+        else if (!std::strcmp(mode, "stale-firearm-type")) StaleWeaponReferences(1);
+        else if (!std::strcmp(mode, "stale-melee-type")) StaleWeaponReferences(2);
         else if (!std::strcmp(mode, "stale-ai-reaction")) StaleAIReaction();
         else if (!std::strcmp(mode, "overlapping-unit-locks")) OverlappingUnitLocks();
         else if (!std::strcmp(mode, "invalid-unit-locks")) InvalidUnitLocks();
