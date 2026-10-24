@@ -473,6 +473,39 @@ static void ReentrantStateLifetime()
     Require(callbackAlive, "self-replacing unit state was destroyed before its callback returned");
 }
 
+class MountedStateProbe: public NWorld::CUnitStateUsingCannon
+{
+    OBJECT_NOCOPY_METHODS(MountedStateProbe);
+public:
+    bool blocked = false;
+    explicit MountedStateProbe(NWorld::CUnitServer* unit = nullptr): CUnitStateUsingCannon(unit, nullptr) {}
+    bool IsCriticalsFailCommand(NWorld::CCmd*, NWorld::EUnitCommandResult* result) override {
+        if (blocked) *result = NWorld::UCR_CRITICALS_BAN;
+        return blocked;
+    }
+};
+
+static void MountedModeCommand()
+{
+    CObj<NWorld::CUnitServer> unit = new NWorld::CUnitServer;
+    CObj<MountedStateProbe> state = new MountedStateProbe(unit);
+    for (auto mode : {NDb::SM_Snap, NDb::SM_Aimed, NDb::SM_Careful, NDb::SM_ShortBurst, NDb::SM_LongBurst}) {
+        CObj<NWorld::CCmdShootMode> command = new NWorld::CCmdShootMode(mode);
+        NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
+        CObj<NWorld::CCommandExecute> executor = state->CreateExecutor(command, &result);
+        Require(executor && result == NWorld::UCR_OK, "mounted-gun state rejected a fire-mode command");
+    }
+    state->blocked = true;
+    CObj<NWorld::CCmdShootMode> blocked = new NWorld::CCmdShootMode(NDb::SM_Aimed);
+    NWorld::EUnitCommandResult result = NWorld::UCR_OK;
+    CObj<NWorld::CCommandExecute> executor = state->CreateExecutor(blocked, &result);
+    Require(!executor && result == NWorld::UCR_CRITICALS_BAN, "mounted fire-mode command bypassed injury restrictions");
+    state->blocked = false;
+    CObj<NWorld::CCmdSetActiveItem> inventory = new NWorld::CCmdSetActiveItem(0);
+    executor = state->CreateExecutor(inventory, &result);
+    Require(!executor && result == NWorld::UCR_UNAVAILABLE, "mounted state accepted an unrelated inventory command");
+}
+
 class CallbackQueue: public NWorld::CSimpleExecQueue
 {
     OBJECT_NOCOPY_METHODS(CallbackQueue);
@@ -1351,6 +1384,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "render-removal")) RenderRemoval();
         else if (!std::strcmp(mode, "render-pass-compaction")) RenderPassCompaction();
         else if (!std::strcmp(mode, "state-lifetime")) ReentrantStateLifetime();
+        else if (!std::strcmp(mode, "mounted-mode-command")) MountedModeCommand();
         else if (!std::strcmp(mode, "invalid-ai-weapon")) InvalidAIWeapon();
         else if (!std::strcmp(mode, "stale-ai-reaction")) StaleAIReaction();
         else if (!std::strcmp(mode, "overlapping-unit-locks")) OverlappingUnitLocks();

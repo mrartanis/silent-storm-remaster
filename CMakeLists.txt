@@ -812,6 +812,7 @@ add_test(NAME UpstreamNegativeMeshBounds COMMAND UpstreamBugTests negative-mesh-
 add_test(NAME UpstreamRenderRemoval COMMAND UpstreamBugTests render-removal)
 add_test(NAME UpstreamRenderPassCompaction COMMAND UpstreamBugTests render-pass-compaction)
 add_test(NAME UpstreamStateLifetime COMMAND UpstreamBugTests state-lifetime)
+add_test(NAME UpstreamMountedModeCommand COMMAND UpstreamBugTests mounted-mode-command)
 add_test(NAME UpstreamInvalidAIWeapon COMMAND UpstreamBugTests invalid-ai-weapon)
 add_test(NAME UpstreamStaleAIReaction COMMAND UpstreamBugTests stale-ai-reaction)
 add_test(NAME UpstreamOverlappingUnitLocks COMMAND UpstreamBugTests overlapping-unit-locks)

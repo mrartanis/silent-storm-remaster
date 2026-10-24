@@ -320,6 +320,9 @@ CCommandExecute* CUnitStateUsingCannon::CreateExecutor( CCmd *pCmd, EUnitCommand
 	CDynamicCast<CCmdReload> pReload(pCmd);
 	if (pReload)
 		return NWorld::CreateExecutor( pUS, pCmd, pResult );
+	CDynamicCast<CCmdShootMode> pShootMode(pCmd);
+	if (pShootMode)
+		return NWorld::CreateExecutor( pUS, pCmd, pResult );
 	// Spending a level-up point changes the RPG sheet, not the mounted gun.
 	// The manual save "stational weapons" has an available point while the
 	// selected unit is mounted; rejecting this command makes its perk buttons
