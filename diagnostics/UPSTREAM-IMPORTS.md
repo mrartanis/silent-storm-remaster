@@ -228,6 +228,7 @@
 | [f6455c9f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6455c9f92eb6d4c66efebc74face61d1e1065bb) — Hide out-of-reach melee percentages without changing shared hit calculations | `a melee target outside current-pose reach still displayed a hit percentage instead of only its AP preview` | 273/273; `melee-current-pose-caption` | `Upstream-Commit` в commit message |
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Preserve authored item visibility when cancelling inventory animations | `cancelling inventory movement restored a held-weapon pose for an item marked invisible in hand` | 274/274; `cancelled-inventory-hidden-item-pose` | `Upstream-Commit` в commit message |
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Respect active-item visibility when constructing a unit held pose | `a newly created actor treated an invisible active item as a held weapon` | 275/275; `initial-hidden-item-pose` | `Upstream-Commit` в commit message |
+| [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Respect active-item visibility when cancelling equipment activation | `cancelling equipment activation restored a held-weapon pose for an item marked invisible in hand` | 13/13; `cancelled-equipment-hidden-item-pose` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
