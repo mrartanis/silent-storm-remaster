@@ -2475,6 +2475,52 @@ static void UnsupportedNavigationBake(const char* databasePath, const char* reso
     Require(unsupported == 0, "native navigation bake generated passable tiles without supporting surfaces");
 }
 
+class HiddenUnitPresentation: public NWorld::IRenderVisitor
+{
+public:
+    vector<CVec4> filters;
+    int flares = 0, meshes = 0;
+    void AddColorPostFilter(const CVec4& value) override { filters.push_back(value); }
+    void AddFlare(CFuncBase<CVec3>*, float, NDb::CTexture*, int, float, float) override { ++flares; }
+    void AddMesh(NDb::CModel*, CFuncBase<NAnimation::SSkeletonPose>*, CFuncBase<NAnimation::SSkeletonState>*,
+        const vector<SBoundMesh>&, NGScene::CLightGroup*, int, NWorld::CUnit*, int) override { ++meshes; }
+};
+
+static void HiddenUnitTint(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (const auto& unit: units) {
+        auto* candidate = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if (candidate && candidate->CanFight() && !candidate->IsEmptyPK() && !candidate->IsWearingPK()
+                && !candidate->IsClueUnit() && candidate->IsAddedToVisitor()) { actor = candidate; break; }
+    }
+    Require(actor && !world->IsSequence(), "hidden tint fixture has no ordinary actor outside a sequence");
+    auto* rpg = actor->GetUnitRPG();
+    const auto position = actor->GetPosition();
+    const float ap = rpg->GetRPGUnit()->Skills(NDb::ST_AP);
+    rpg->SetHiding(false);
+    HiddenUnitPresentation visible;
+    actor->Visit(&visible);
+    Require(visible.meshes == 1 && visible.filters.empty() && visible.flares == 0,
+        "visible human unexpectedly received a hiding overlay");
+    rpg->SetHiding(true);
+    HiddenUnitPresentation hidden;
+    actor->Visit(&hidden);
+    Require(hidden.meshes == 1 && hidden.filters.size() == 1 && hidden.flares == 1,
+        "hidden human did not receive exactly one overlay and flare");
+    const auto& tint = hidden.filters.front();
+    std::printf("Hidden human tint: %.8f %.8f %.8f %.8f\n", tint.x, tint.y, tint.z, tint.w);
+    Require(tint.x == 0.0703125f && tint.y == 0.11015625f && tint.z == 0.140625f && tint.w == 0.6f,
+        "hidden human rendered with an opaque black overlay instead of the translucent blue-gray tint");
+    Require(rpg->IsHiding() && actor->GetPosition().pos.p == position.pos.p
+            && rpg->GetRPGUnit()->Skills(NDb::ST_AP) == ap,
+        "rendering a hiding tint changed hiding state, position or AP");
+}
+
 class UnitFloorPresentation: public CSyncDst<NWorld::IVisObj>, public NWorld::IRenderVisitor
 {
     NWorld::IVisObj* target;
@@ -6349,6 +6395,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "hidden-unit-tint") && argc == 4) { HiddenUnitTint(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "living-unit-floor-refresh") && argc == 4) { LivingUnitFloorRefresh(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "owned-ai-commander-rosters") && argc == 4) { OwnedAICommanderRosters(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "navigation-colouring-occupancy")) { NavigationColouringOccupancy(); return true; }
