@@ -56,6 +56,7 @@
 #include "scriptCommon.h"				// luaPrepareData, BEGIN_SCRIPT_COMMAND, SLuaParams
 #include "scriptPtr.h"					// tagLuaWindow (lua.h), luaGetPtr
 #include "scriptUI.h"
+#include "../Script/lstate.h"
 #include "rpgGlobal.h"
 #include "iShowObjectives.h"
 //
@@ -154,7 +155,9 @@ static NUI::CWindow* GetChildByPath( NUI::CWindow *pRoot, const string &szPath )
 static bool CheckProperty( lua_State *pState, bool bIsGet, CScript **ppScript, NUI::CWindow **ppWindow,
 	string *pszName )
 {
-	CScript *pScript = GetScript();
+	CScript *pScript = CDynamicCast<CScript>( pState->pContext );
+	if ( !IsValid( pScript ) )
+		pScript = GetScript();
 	if ( pScript == 0 )
 		return false;
 	if ( lua_gettop( pState ) < ( bIsGet ? 2 : 3 ) )

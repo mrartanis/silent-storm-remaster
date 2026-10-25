@@ -52,7 +52,11 @@ bool luaPrepareData( lua_State* pState,
 	ASSERT( pState != 0 );
 	if ( pState == 0 )
 		return false;
-	*ppScript = GetScript();
+	*ppScript = CDynamicCast<CScript>( pState->pContext );
+	if ( !IsValid( *ppScript ) )
+		*ppScript = GetScript();
+	if ( !IsValid( *ppScript ) )
+		return false;
 	ASSERT( (*ppScript)->m_state == pState );
 	if ( (*ppScript)->m_state != pState )
 		return false;

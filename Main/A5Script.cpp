@@ -14,6 +14,7 @@
 #include "wUICommands.h"
 #include "wInterface.h"
 #include "../Script/lua.h"
+#include "../Script/lstate.h"
 #include "A5Script.h"
 #if !defined(_WIN32)
 #include "../FileIO/PortablePackageIndex.h"
@@ -76,6 +77,7 @@ static void CommandShowScriptError( const string &szID, const vector<wstring> &p
 CScript::CScript():
 	cmdShowError( "scripterror", CommandShowScriptError, this )
 {
+	m_state->pContext = this;
 	SharedInit(this);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

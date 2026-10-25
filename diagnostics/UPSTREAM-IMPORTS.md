@@ -125,6 +125,7 @@
 | [15d5d41f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/15d5d41fc37267ecc80dcc621df24be99e3b52a9) — Allow native UI scripts to be created without a tactical world | `native script factory rejected a UI script without a tactical world` | 159/159; `worldless-ui-script` | `Upstream-Commit` в commit message |
 | [15d5d41f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/15d5d41fc37267ecc80dcc621df24be99e3b52a9) — Preserve borrowed window references in native Lua userdata | `Lua window userdata discarded its borrowed native window reference` | 160/160; `lua-window-userdata` | `Upstream-Commit` в commit message |
 | [15d5d41f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/15d5d41fc37267ecc80dcc621df24be99e3b52a9) — Preserve the Lua VM stack across window setter tag callbacks | `Lua dotted window assignment corrupted the stack before the following native call` | 161/161; `lua-window-setter-stack` | `Upstream-Commit` в commit message |
+| [15d5d41f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/15d5d41fc37267ecc80dcc621df24be99e3b52a9) — Dispatch Lua UI calls through their owning execution state | `Lua window lookup/property dispatch ignored its owning state in favor of an unrelated global script` | 162/162; `lua-window-state-context` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -408,3 +409,15 @@ Windows/Linux — 160/160; Windows `ALL_BUILD`, Linux `Game` собраны.
 диагностирована отдельно: setter уже вызывается, но threaded VM теряет
 stack slot после tag callback, затем сообщает `attempt to call a userdata value`.
 Это еще не считается исправленным; отдельный следующий RED предусмотрен.
+
+### Контроль после Lua-контекста интерфейса
+
+Windows/Linux — 162/162; Windows `ALL_BUILD` и Linux `Game` собраны.
+Расширенные проверки Windows — 217/217; стрельба/сжатое сохранение/загрузка
+мира — 4/4, включая новые state-context ссылки скрипта на самого себя.
+Логи `lua-window-state-context-{red,green}-test.log`,
+`state-context-linux-test.log`, `checkpoint-162-all-build.log`,
+`checkpoint-162-ci-test.log`, `checkpoint-162-shots-test.log`.
+Проверены собственное окно при чужом глобальном скрипте, отсутствие глобального
+скрипта, сохраненный запасной путь и безопасный отказ полностью unbound Lua.
+Шаблонные скрипты и onmessage из `15d5d41f` еще в работе.

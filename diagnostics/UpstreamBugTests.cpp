@@ -91,6 +91,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/Sync.h"
 #include "../Main/A5Script.h"
 #include "../Main/scriptCommon.h"
+#include "../Main/scriptUI.h"
 #include "../Script/lstate.h"
 #include "../Main/scriptPtr.h"
 #include "../Main/aiMisc.h"
@@ -376,6 +377,52 @@ static void LuaWindowSetterStack()
     script->ExecuteThreads();
     Require(script->GetGlobal("plainSetter").GetNumber() == 8 && script->GetGlobal("afterPlain").GetNumber() == 99,
         "window setter correction changed ordinary Lua table assignment");
+}
+
+static void LuaWindowStateContext()
+{
+    CObj<NUI::CInterface> first = new NUI::CInterface, second = new NUI::CInterface;
+    first->SetInterface(first); second->SetInterface(second);
+    CMObj<NUI::CWindow> own = new NUI::CWindow(NUI::SWindowInfo(first,
+        NUI::SPoint(3, 4), NUI::SPoint(20, 20), "context-child"));
+    CMObj<NUI::CWindow> foreign = new NUI::CWindow(NUI::SWindowInfo(second,
+        NUI::SPoint(7, 8), NUI::SPoint(20, 20), "context-child"));
+    CObj<NScript::CScript> executing = NScript::CreateScript(nullptr), other = NScript::CreateScript(nullptr);
+    executing->SetScriptInterface(first); other->SetScriptInterface(second);
+    other->PushNumber(999);
+    struct GlobalScriptRestore {
+        CPtr<NScript::CScript> previous;
+        ~GlobalScriptRestore() { pScript = previous; }
+    } restore{pScript};
+    pScript = other;
+    Require(executing->DoString("local w=GetWindow('context-child'); if w then w.x=31 end; afterOwnContext=1") == LUA_NOERR,
+        "per-state UI script fixture did not compile");
+    executing->ExecuteThreads();
+    Require(own->GetPosition() == NUI::SPoint(31, 4) && foreign->GetPosition() == NUI::SPoint(7, 8),
+        "Lua window lookup/property dispatch ignored its owning state in favor of an unrelated global script");
+    Require(executing->GetState()->pContext == executing.GetPtr() && other->GetTop() == 1,
+        "per-state script context or the unrelated script stack was changed incorrectly");
+    executing->SetTop(0);
+    pScript = nullptr;
+    Require(executing->DoString("local w=GetWindow('context-child'); if w then w.y=47 end; afterNullContext=1") == LUA_NOERR,
+        "UI script without a global context did not compile");
+    executing->ExecuteThreads();
+    Require(own->GetPosition() == NUI::SPoint(31, 47) && foreign->GetPosition() == NUI::SPoint(7, 8),
+        "UI dispatch could not resolve its own state when the global script was empty");
+    executing->SetTop(0);
+    executing->GetState()->pContext = nullptr;
+    pScript = executing;
+    Require(executing->DoString("windowSetProperty(GetWindow('context-child'), 'x', 59)") == LUA_NOERR,
+        "legacy global-context control did not compile");
+    executing->ExecuteThreads();
+    Require(own->GetPosition() == NUI::SPoint(59, 47), "UI dispatch lost the existing global fallback for unbound Lua states");
+    pScript = nullptr;
+    Script unbound;
+    unbound.Register("GetWindow", NScript::luaGetWindow);
+    Require(unbound.DoString("missing=GetWindow('context-child')") == LUA_NOERR,
+        "unbound Lua-state control did not compile");
+    unbound.ExecuteThreads();
+    Require(unbound.GetGlobal("missing").IsNil(), "an unbound Lua state acquired a foreign window context");
 }
 
 static void WorldlessUIScript()
@@ -5681,6 +5728,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "worldless-ui-script")) { WorldlessUIScript(); return true; }
     if (!std::strcmp(mode, "lua-window-userdata")) { LuaWindowUserdata(); return true; }
     if (!std::strcmp(mode, "lua-window-setter-stack")) { LuaWindowSetterStack(); return true; }
+    if (!std::strcmp(mode, "lua-window-state-context")) { LuaWindowStateContext(); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
     if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }
     if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) { AIReactionValueLatch(argv[2], argv[3]); return true; }
