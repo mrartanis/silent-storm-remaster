@@ -833,6 +833,27 @@ public:
     NGScene::CAnimLight* Light() { return pValue; }
 };
 
+static void WindowInterfacePropagation()
+{
+    CObj<NUI::CInterface> first = new NUI::CInterface, second = new NUI::CInterface;
+    CObj<NUI::CWindow> parent = new NUI::CWindow(NUI::SWindowInfo());
+    parent->SetInterface(first);
+    CObj<NUI::CWindow> child = new NUI::CWindow(NUI::SWindowInfo(parent, NUI::SPoint(0, 0), NUI::SPoint(20, 20), "child"));
+    CObj<NUI::CWindow> grandchild = new NUI::CWindow(NUI::SWindowInfo(child, NUI::SPoint(0, 0), NUI::SPoint(10, 10), "grandchild"));
+    CObj<NUI::CWindow> unrelated = new NUI::CWindow(NUI::SWindowInfo());
+    unrelated->SetInterface(first);
+    Require(parent->GetInterface() == first.GetPtr() && child->GetInterface() == first.GetPtr()
+            && grandchild->GetInterface() == first.GetPtr(), "window-interface fixture did not inherit its initial context");
+    parent->SetInterface(second);
+    Require(child->GetInterface() == second.GetPtr() && grandchild->GetInterface() == second.GetPtr(),
+        "changing a window's interface left its descendants attached to the old context");
+    Require(unrelated->GetInterface() == first.GetPtr() && child->GetParent() == parent.GetPtr()
+            && grandchild->GetParent() == child.GetPtr(), "interface propagation changed another branch or its parent links");
+    parent->SetInterface(nullptr);
+    Require(!parent->GetInterface() && !child->GetInterface() && !grandchild->GetInterface(),
+        "clearing a window's interface left stale descendant contexts");
+}
+
 static CMemoryStream BorrowedObjectFields(CObjectBase* object, CStructureNetworkContext* references)
 {
     vector<CObjectBase*> referenced;
@@ -5469,6 +5490,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "tiny-animated-light")) { AnimatedPointLightGuard(false); return true; }
     if (!std::strcmp(mode, "fresh-ambient-graph")) { FreshAmbientGraph(); return true; }
     if (!std::strcmp(mode, "compressed-save-writing")) { CompressedSaveWriting(); return true; }
+    if (!std::strcmp(mode, "window-interface-propagation")) { WindowInterfacePropagation(); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
     if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }
     if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) { AIReactionValueLatch(argv[2], argv[3]); return true; }

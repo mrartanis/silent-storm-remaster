@@ -91,6 +91,8 @@ CInterface* CWindow::GetInterface() const
 void CWindow::SetInterface( CInterface *_pInterface )
 {
 	pInterface = _pInterface;
+	for ( int i = 0; i < listChildren.size(); ++i )
+		listChildren[i]->SetInterface( _pInterface );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CWindow* CWindow::GetParent() const
