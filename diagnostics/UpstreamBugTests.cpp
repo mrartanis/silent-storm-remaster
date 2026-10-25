@@ -1594,6 +1594,37 @@ struct TemporaryAudioFile
     ~TemporaryAudioFile() { std::error_code error; std::filesystem::remove(path,error); }
 };
 
+static void TracklessSceneMusicContinuity()
+{
+    Require(std::getenv("S2_AUDIO_HEADLESS") != nullptr, "music continuity fixture requires headless audio");
+    TemporaryAudioFile wave;
+    CObj<NDb::CMusic> track = new NDb::CMusic;
+    track->szFileName = wave.path.string();
+    track->nFadeIn = 0; track->nRndPlayTime = 0; track->nPlayTime = 60000;
+    CObj<NDb::CTMusic> pool = new NDb::CTMusic;
+    pool->variants.push_back(track.GetPtr()); pool->roulette.AddSector(1);
+    CObj<CCTime> clock = new CCTime(0);
+    Require(NFMSound::Init(NFMSound::SStartInfo()), "music continuity fixture could not initialize audio");
+    struct AudioCleanup { ~AudioCleanup() { NFMSound::Done(); } } cleanup;
+    CObj<NSound::ISoundScene> owner = NSound::CreateSoundScene(pool,nullptr,clock);
+    CTransformStack transform; transform.Init();
+    owner->Draw(&transform);
+    CObj<NFMSound::CStream> stream = NFMSound::PlayStream(track->szFileName.c_str(),true,0,true,0);
+    Require(IsValid(stream) && NFMSound::IsPlaying(stream) && NFMSound::GetStreamTime(stream) == 0,
+        "music continuity control did not open and retain a genuinely playing decoded stream");
+    CObj<NSound::ISoundScene> overlay = NSound::CreateSoundScene(nullptr,nullptr,clock);
+    const auto deadline = SDL_GetTicks()+4500;
+    do { overlay->Draw(&transform); SDL_Delay(25); } while (SDL_GetTicks() < deadline);
+    Require(NFMSound::IsPlaying(stream),
+        "a sound scene without its own music faded out another scene's playing track");
+    NFMSound::FadeOut(stream,0.05f);
+    SDL_Delay(100);
+    NFMSound::SListener listener;
+    listener.vPosition = CVec3(0,0,0); listener.toProjective = transform.Get().forward;
+    NFMSound::Update(listener);
+    Require(!NFMSound::IsPlaying(stream), "explicit music fade-out control failed to stop actual playback");
+}
+
 static void HeadlessMusicStream()
 {
     Require(std::getenv("S2_AUDIO_HEADLESS") != nullptr, "native music fixture requires headless audio");
@@ -8751,6 +8782,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
     if (!std::strcmp(mode, "late-looping-sound-offset")) { LateLoopingSoundOffset(); return true; }
     if (!std::strcmp(mode, "headless-music-stream")) { HeadlessMusicStream(); return true; }
+    if (!std::strcmp(mode, "trackless-scene-music")) { TracklessSceneMusicContinuity(); return true; }
     if (!std::strcmp(mode, "exit-menu-confirmation") && argc == 4) { ExitMenuConfirmation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "supplied-defeat-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "supplied-options-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3]); return true; }
