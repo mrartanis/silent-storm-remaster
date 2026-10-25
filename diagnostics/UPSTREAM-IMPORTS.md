@@ -121,6 +121,7 @@
 | [476cd3b1](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/476cd3b1115153828ab21298e179900dc1cbe612) — Write retail-compressed campaign and mission save files | `native snapshot command wrote an uncompressed save without the retail A3 marker` | 155/155; `compressed-save-writing` | `Upstream-Commit` в commit message |
 | [d4de53d5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d4de53d5eef8444a372b7dbe582f8dbff2754b49) — Propagate changed window interfaces to the complete child tree | `changing a window's interface left its descendants attached to the old context` | 156/156; `window-interface-propagation` | `Upstream-Commit` в commit message |
 | [d4de53d5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d4de53d5eef8444a372b7dbe582f8dbff2754b49) — Install parent and interface links when registering a child window | `AddChild retained a window without installing its parent link` | 157/157; `window-child-registration` | `Upstream-Commit` в commit message |
+| [15d5d41f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/15d5d41fc37267ecc80dcc621df24be99e3b52a9) — Count Lua callback arguments in the supplied execution state | `native Lua argument count came from another script's stack` | 158/158; `lua-argument-state` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

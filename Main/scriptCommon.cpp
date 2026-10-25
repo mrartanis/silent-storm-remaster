@@ -42,7 +42,7 @@ int luaGetParamCount( lua_State* pState )
 	if ( pState == 0 )
 		return 0;
 	//
-	return GetScript()->GetTop();
+	return lua_gettop( pState );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool luaPrepareData( lua_State* pState, 

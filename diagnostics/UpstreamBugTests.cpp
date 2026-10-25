@@ -90,6 +90,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/aiThreatTracker.h"
 #include "../Main/Sync.h"
 #include "../Main/A5Script.h"
+#include "../Main/scriptCommon.h"
 #include "../Main/scriptPtr.h"
 #include "../Main/aiMisc.h"
 #include "../Main/wOSBase.h"
@@ -241,6 +242,39 @@ static int OptionalStringBridge(lua_State* state)
     optionalStringAccepted = true;
     script.PushString(params[1].s.c_str());
     return 1;
+}
+
+static int PerStateArgumentCount(lua_State* state)
+{
+    const int count = NScript::luaGetParamCount(state);
+    lua_pushnumber(state, count);
+    return 1;
+}
+
+static void LuaArgumentState()
+{
+    CObj<NScript::CScript> executing = new NScript::CScript, other = new NScript::CScript;
+    executing->Register("PerStateArgumentCount", PerStateArgumentCount);
+    other->PushNumber(99);
+    struct GlobalScriptRestore {
+        CPtr<NScript::CScript> previous;
+        ~GlobalScriptRestore() { pScript = previous; }
+    } restore{pScript};
+    pScript = other;
+    Require(executing->DoString("count = PerStateArgumentCount(7, 8, 9)") == LUA_NOERR,
+        "Lua argument-state fixture did not compile");
+    executing->ExecuteThreads();
+    Require(executing->GetGlobal("count").IsNumber() && executing->GetGlobal("count").GetNumber() == 3,
+        "native Lua argument count came from another script's stack");
+    Require(other->GetTop() == 1, "counting another Lua state's arguments changed the global script stack");
+    pScript = nullptr;
+    for (const char* code : {"count = PerStateArgumentCount()", "count = PerStateArgumentCount(1, 2, 3, 4, 5)"}) {
+        Require(executing->DoString(code) == LUA_NOERR, "Lua argument-state boundary did not compile");
+        executing->ExecuteThreads();
+        const int expected = std::strstr(code, "1, 2") ? 5 : 0;
+        Require(executing->GetGlobal("count").IsNumber() && executing->GetGlobal("count").GetNumber() == expected,
+            "native Lua argument count still depended on a globally active script");
+    }
 }
 
 static void EmptyLuaDefault()
@@ -5515,6 +5549,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "compressed-save-writing")) { CompressedSaveWriting(); return true; }
     if (!std::strcmp(mode, "window-interface-propagation")) { WindowInterfacePropagation(); return true; }
     if (!std::strcmp(mode, "window-child-registration")) { WindowChildRegistration(); return true; }
+    if (!std::strcmp(mode, "lua-argument-state")) { LuaArgumentState(); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
     if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }
     if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) { AIReactionValueLatch(argv[2], argv[3]); return true; }
