@@ -3057,6 +3057,46 @@ static void RunScript(NScript::CScript* script, const char* code)
     pScript = nullptr;
 }
 
+static void ScriptAIActivation(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    NAI::IAIUnit* ai = nullptr;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (!unit || !unit->CanFight()) continue;
+        auto* candidate = NAI::GetAIUnit(unit);
+        if (candidate && candidate->IsUnderAIControl() && IsValid(candidate->GetReaction())) {
+            actor = unit; ai = candidate; break;
+        }
+    }
+    Require(actor && ai, "script activation fixture has no controlled AI actor");
+    CObj<NAI::CAILogic> route = new NAI::CAILogic(ai);
+    ai->SetRouteLogic(route);
+    Require(ai->GetRouteLogic() == route.GetPtr() && route->IsActive(), "script activation fixture route is not active");
+    CObj<NAI::CAIReaction> original = ai->GetReaction();
+    CObj<NScript::CScript> script = NScript::CreateScript(world);
+    NScript::luaPushCPtr(*script, actor); script->SetGlobal("upstreamActor");
+    const int beforeAP = actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP);
+    RunScript(script, "UnitCheat(upstreamActor, 32, 1)");
+    Require(actor->GetUnitRPG()->GetRPGUnit()->IsCheatEnabled(NRPG::CHEAT_NOAI), "script failed to set the no-AI flag");
+    Require(ai->GetRouteLogic() == route.GetPtr() && !route->IsActive(),
+        "scripted AI deactivation left the current native route running");
+    CObj<NAI::CAIReaction> disabled = ai->GetReaction();
+    Require(IsValid(disabled) && disabled != original.GetPtr(), "scripted AI deactivation did not replace the active reaction");
+    RunScript(script, "UnitCheat(upstreamActor, 32, nil)");
+    Require(!actor->GetUnitRPG()->GetRPGUnit()->IsCheatEnabled(NRPG::CHEAT_NOAI)
+            && ai->GetRouteLogic() == route.GetPtr() && route->IsActive(),
+        "scripted AI activation did not resume the preserved route");
+    Require(IsValid(ai->GetReaction()) && ai->GetReaction() != disabled.GetPtr(),
+        "scripted AI activation retained the disabled reaction");
+    Require(actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == beforeAP,
+        "scripted AI activation changed the actor's action points");
+}
+
 static void ScriptPK(bool leave)
 {
     CObj<NWorld::CWorld> world = new NWorld::CWorld;
@@ -3798,6 +3838,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "console-visibility-toggle")) ConsoleVisibilityToggle();
         else if (!std::strcmp(mode, "ai-reaction-reset-contacts")) AIReactionResetContacts();
         else if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) AIReactionValueLatch(argv[2], argv[3]);
+        else if (!std::strcmp(mode, "script-ai-activation") && argc == 4) ScriptAIActivation(argv[2], argv[3]);
         else if (!std::strcmp(mode, "ai-event-collection-locks") && argc == 4) AIEventCollectionLocks(argv[2], argv[3]);
         else if (!std::strcmp(mode, "dialogue-camera-filter")) CinematicCameraCommands(0);
         else if (!std::strcmp(mode, "movie-camera-filter")) CinematicCameraCommands(1);

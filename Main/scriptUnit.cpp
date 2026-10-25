@@ -42,6 +42,7 @@
 #include "aiInventory.h"
 #include "aiMisc.h"			// NAI::GetAIUnit
 #include "aiLogic.h"		// NAI::IAILogic
+#include "aiReactions.h"
 #include "aiRouteLogic.h"	// NAI::CAIRouteLogic::IsRouteComplete
 //
 #include "scriptUnit.h"
@@ -390,20 +391,25 @@ BEGIN_SCRIPT_COMMAND( UnitCheat, "unb" )
 		int nCheat = luaParams[ 1 ].n;
 		bool bEnable = luaParams[ 2 ].b;
 		pUS->GetUnitRPG()->GetRPGUnit()->SetCheat( nCheat, bEnable );
-		//
 		if ( nCheat == NRPG::CHEAT_NOAI )
 		{
-			CDynamicCast<NAI::CAICommander> pAICommander(pUS->GetPlayer()->GetCommander());
-			if (pAICommander)
+			CPtr<NAI::IAIUnit> pAIUnit = NAI::GetAIUnit( pUS );
+			if ( IsValid( pAIUnit ) )
 			{
-				CPtr<NAI::IAIUnit> pAIUnit = pAICommander->GetAIUnit( pUS );
-				ASSERT( IsValid( pAIUnit ) );
-				if ( IsValid( pAIUnit ) )
+				// Retail v1.2 0x6f86bd: control the route and reaction together.
+				CPtr<NAI::IAILogic> pRoute = pAIUnit->GetRouteLogic();
+				pUS->Do( new NWorld::CCmdCancel() );
+				if ( bEnable )
 				{
-					if ( bEnable ) 
-						pAIUnit->DeactivateCurrentControl();
-					else
-						pAIUnit->ActivateCurrentControl();
+					if ( IsValid( pRoute ) )
+						pRoute->Pause();
+					pAIUnit->SetReaction( NAI::CreateAIEmptyReaction( pAIUnit ) );
+				}
+				else
+				{
+					if ( IsValid( pRoute ) )
+						pRoute->Resume();
+					pAIUnit->SetReaction( NAI::CreateAINormalReaction( pAIUnit ) );
 				}
 			}
 		}
