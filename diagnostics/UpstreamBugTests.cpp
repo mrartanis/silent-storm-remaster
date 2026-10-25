@@ -2561,6 +2561,48 @@ static void BeginTurnLiveContacts(const char* databasePath, const char* resource
             && enemy->GetRPG()->GetAP() == enemyAP, "begin-turn contact refresh changed live health or action points");
 }
 
+static void FinishedAILogicRetirement(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    NAI::IAIUnit* unit = nullptr;
+    for (const auto& candidate: units) {
+        auto* wrapper = NAI::GetAIUnit(candidate);
+        if (IsValid(candidate) && candidate->CanFight() && !candidate->IsEmptyPK() && !candidate->IsWearingPK()
+                && !candidate->HasCommand() && IsValid(wrapper)) { actor = candidate.GetPtr(); unit = wrapper; break; }
+    }
+    Require(actor && unit, "AI retirement fixture has no idle native actor");
+    CObj<NAI::CAILogic> logic = new NAI::CAILogic(unit);
+    Require(!logic->IsFinished(), "unfinished AI logic was already retired");
+    auto* network = world->GetPathNetwork();
+    const auto original = actor->GetPosition();
+    vector<NAI::SPathPlace> places;
+    network->GetNearPlaces(SSphere(original.GetCP(), 8.f), &places);
+    CObj<NWorld::CCmdPath> command;
+    for (auto place: places) {
+        place.SetPose(NAI::CM_STAND); place.SetDirection(original.GetDir());
+        NAI::SPosition destination(place, network);
+        if (fabs2(destination.GetCP() - original.GetCP()) < 4.f) continue;
+        CObj<NWorld::CCmdPath> candidate = new NWorld::CCmdPath(destination);
+        if (actor->CanDo(candidate) == NWorld::UCR_OK) { command = candidate; break; }
+    }
+    Require(IsValid(command), "AI retirement fixture has no valid movement order");
+    actor->Do(new NWorld::CCmdSetCommand(actor, command));
+    Require(actor->HasCommand(), "AI retirement fixture did not install its native world command");
+    logic->Finish();
+    const int busyAP = actor->GetRPG()->GetAP();
+    Require(!logic->IsFinished() && actor->GetRPG()->GetAP() == busyAP,
+        "finished AI logic was retired while its world command was still installed");
+    actor->Do(new NWorld::CCmdCancel(actor));
+    Require(!actor->HasCommand() && IsValid(actor->GetRPG()), "AI retirement fixture did not cancel its order while retaining its RPG actor");
+    const int idleAP = actor->GetRPG()->GetAP();
+    Require(logic->IsFinished(), "finished idle AI logic stayed alive merely because its RPG actor still existed");
+    Require(actor->GetRPG()->GetAP() == idleAP && actor->CanFight(), "AI logic retirement changed live AP or health");
+}
+
 class CombatContextProbe: public NAI::CAICombatLogic
 {
     OBJECT_NOCOPY_METHODS(CombatContextProbe);
@@ -6892,6 +6934,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "finished-ai-logic-retirement") && argc == 4) { FinishedAILogicRetirement(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "removed-selected-enemy")) { RemovedSelectedAIContact(0); return true; }
     if (!std::strcmp(mode, "removed-selected-possible")) { RemovedSelectedAIContact(1); return true; }
     if (!std::strcmp(mode, "removed-selected-ally")) { RemovedSelectedAIContact(2); return true; }

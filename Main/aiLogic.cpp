@@ -39,17 +39,14 @@ SAIState*            CAILogic::GetAIState() const     { return IsValid( pUnit ) 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // state
 void CAILogic::Finish()                              { bFinished = true; }
-// retail @0x62460: while the unit chain is ALIVE (AI unit -> server -> the server's RPG object all
-// valid), the logic is NEVER finished -- bFinished only answers once that chain breaks (death/removal).
-// The dev's bare `return bFinished;` let CheckForFinishedLogics retire a LIVING unit's logic on every
-// self-Finish (the cycling guard, a spent route), after which nothing re-decided the unit until its
-// threat state changed -- the "shoots a bit then stands around forever" starvation.
+// Defer retirement while a world command remains installed.
+// The live RPG object alone does not mean there is pending work.
 bool CAILogic::IsFinished()
 {
 	if ( IsValid( pUnit ) )
 	{
 		NWorld::CUnitServer *pUS = pUnit->GetUnitServer();
-		if ( IsValid( pUS ) && IsValid( pUS->GetRPG() ) )
+		if ( IsValid( pUS ) && pUS->HasCommand() )
 			return false;
 	}
 	return bFinished;
@@ -133,8 +130,8 @@ NWorld::CCommand* CAILogic::GetCommand()
 //  * escalation, not a kill switch: 16..30 repeats -> 25% chance per pop to CCmdCancel the server's
 //    running command (unwedge the executor) + re-set the AP pool to the just-read value (retail person
 //    vtbl+0x7c, the IUnitMission AP setter -- dev seam IAIUnit::SetAP, as CAIDefenceReaction uses);
-//    only at >= 31 repeats log the fatal cycle and set bFinished. (For a LIVING unit bFinished no longer
-//    retires the logic -- IsFinished @0x62460 masks it -- it only ends the TBS turn via base IsEndOfTurn.)
+//    only at >= 31 repeats log the fatal cycle and set bFinished. IsFinished defers retirement
+//    while the server still has an installed command, then lets the finished logic retire.
 //  * the LIVE-AP read (retail reads the unit's current AP skill, which decreases as an action spends AP)
 //    is kept from the earlier root-fix: a progressing shoot resets the counter instead of tripping it.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
