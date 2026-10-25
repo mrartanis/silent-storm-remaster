@@ -326,6 +326,7 @@ void CICLoad::Exec()
 #endif
 
 	pSaveManager->LoadSlot( szName );
+	csGame << NUI::GetDBString( 20260 ) << endl;
 	SaveLoadDiag( "LOAD-SLOT-DONE (interfaces restored; entering main loop)\n" );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

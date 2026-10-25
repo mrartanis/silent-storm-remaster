@@ -1849,6 +1849,60 @@ static std::map<unsigned char, vector<unsigned char>> OuterSaveChunks(CDataStrea
     return chunks;
 }
 
+static void LoadSuccessFeedback(const char* databasePath,const char* resourcePath)
+{
+    Require(std::getenv("S2_USER_DATA_DIR") != nullptr, "load feedback fixture needs isolated user data");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "load feedback fixture started with a live interface or command");
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    NMainLoop::CreateProfile("UpstreamLoadFeedback");
+    NMainLoop::SetActiveProfile("UpstreamLoadFeedback");
+    auto* manager = NMainLoop::GetSaveManager();
+    struct Cleanup {
+        NMainLoop::CSaveManager* manager;
+        ~Cleanup() { NMainLoop::DoneInterface(); manager->DeleteSlot("Feedback"); }
+    } cleanup{manager};
+    CObj<NGScene::CScreenshotTexture> texture = new NGScene::CScreenshotTexture;
+    CArray2D<NGfx::SPixel8888> pixels; pixels.SetSizes(2,2);
+    for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x) pixels[y][x] = NGfx::SPixel8888(12,23,34,255);
+    texture->Set(pixels);
+    CObj<NGame::CICExitMenu> menu = new NGame::CICExitMenu(texture);
+    menu->Exec();
+    CObj<NMainLoop::IInterfaceBase> original = NMainLoop::GetCurrentInterfaceForHarness();
+    Require(IsValid(original) && NMainLoop::GetInterfaceStackDepth() == 1,
+        "load feedback fixture did not create its native interface stack");
+    CObj<NMainLoop::CICSave> save = new NMainLoop::CICSave("Feedback",texture,true);
+    save->Exec();
+    const auto localized = NUI::GetDBString(20260);
+    Require(!localized.empty(), "load feedback fixture has no localized success message");
+    csGame << localized << endl;
+    Require(!consoleLines.empty() && consoleLines.front().eType == STREAM_GAME && !consoleLines.front().szText.empty(),
+        "load feedback log control did not receive its localized game-stream message");
+    const auto expected = consoleLines.front().szText;
+    auto messages = [&]() {
+        return std::count_if(consoleLines.begin(),consoleLines.end(),[&](const SConsoleLine& line) {
+            return line.eType == STREAM_GAME && line.szText == expected;
+        });
+    };
+    const auto before = messages();
+    CObj<NMainLoop::CICLoad> load = new NMainLoop::CICLoad("Feedback",true);
+    load->Exec();
+    CObj<NMainLoop::IInterfaceBase> restored = NMainLoop::GetCurrentInterfaceForHarness();
+    Require(IsValid(restored) && restored.GetPtr() != original.GetPtr() && NMainLoop::GetInterfaceStackDepth() == 1,
+        "load feedback control did not restore a new native interface from the actual slot");
+    Require(messages() == before + 1, "a completed silent native load omitted its localized success feedback");
+    Require(!std::filesystem::exists(std::filesystem::path(manager->GetSlotFilePathW("Missing",NMainLoop::S_SAVE_FILENAME))),
+        "load failure control unexpectedly has an existing slot");
+    const auto beforeFailure = messages();
+    CObj<NMainLoop::CICLoad> failed = new NMainLoop::CICLoad("Missing",true);
+    try { failed->Exec(); } catch (...) {} // Debug builds can propagate the expected read failure.
+    Require(messages() == beforeFailure && NMainLoop::GetCurrentInterfaceForHarness() == restored.GetPtr(),
+        "a missing native slot reported success or replaced the active interface");
+}
+
 static void SaveSuccessFeedback(const char* databasePath)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr, "save feedback fixture needs isolated user data");
@@ -8191,6 +8245,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "fresh-ambient-graph")) { FreshAmbientGraph(); return true; }
     if (!std::strcmp(mode, "compressed-save-writing")) { CompressedSaveWriting(); return true; }
     if (!std::strcmp(mode, "save-success-feedback") && argc == 3) { SaveSuccessFeedback(argv[2]); return true; }
+    if (!std::strcmp(mode, "load-success-feedback") && argc == 4) { LoadSuccessFeedback(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "window-interface-propagation")) { WindowInterfacePropagation(); return true; }
     if (!std::strcmp(mode, "window-child-registration")) { WindowChildRegistration(); return true; }
     if (!std::strcmp(mode, "lua-argument-state")) { LuaArgumentState(); return true; }
