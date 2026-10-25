@@ -1675,37 +1675,43 @@ bool CStateDragItem::OnLButtonDown( int nX, int nY )
 bool CStateUntrap::Initialize( IMission *pMission )
 {
 	CStateBase::Initialize( pMission );
-
-	vector< CPtr<NGame::IUnitTracker> > unitsSet;
-	GetMission()->GetSelectedUnits( &unitsSet );
-	if ( unitsSet.size() != 1 )
-		return false;
-
-	if ( unitsSet[0]->GetUnit()->GetState() != NWorld::CUnit::ST_NORMAL_TOOL )
-		return false;
-
 	SActionInfo sGeneralInfo;
-	pMission->GetActionInfo( UA_USE, &sGeneralInfo );
-	if ( ( GetType() == FORCED ) && sGeneralInfo.eResult!=NWorld::UCR_PENDING && ( !sGeneralInfo.bOk || !sGeneralInfo.bEnoughAP ) )
+	pMission->GetActionInfo( UA_USETOOL, &sGeneralInfo );
+	if ( ( GetType() == FORCED ) && sGeneralInfo.eResult != NWorld::UCR_PENDING && ( !sGeneralInfo.bOk || !sGeneralInfo.bEnoughAP ) )
 	{
 		ShowError( GetMission(), sGeneralInfo.eResult );
 		return false;
 	}
-
-	SActionInfo sInfo;
-	CPtr<NWorld::CCmd> pCmd = GetTargetCmd();
-	if ( !IsValid( pCmd ) )
-		return false;
-
-	GetMission()->CanDoCommand( pCmd, false, &sInfo );
-	if ( !sInfo.bAvailable )
-		return false;
-
-	// retail caption: the shared MakeCursorString (@0x1d7990) AP line
-	wstring wsText;
-	MakeCursorString( GetMission(), sInfo, &wsText );
-	sCursorInfo = NUI::SCursorInfo( NDb::GetUICursor( N_CURSOR_HEAL ), wsText.c_str() );
+	// Explicit tool targeting may begin before hovering an object.
+	// Automatic hover activation still requires a trap known to the player.
+	if ( GetType() != FORCED )
+	{
+		CObjectBase *pObject = GetMission()->GetStateTarget();
+		if ( !IsValid( pObject ) )
+			return false;
+		list< CPtr<CObjectBase> > trappedObjects;
+		GetMission()->GetActivePlayer()->GetPlayer()->GetTrappedObjectsList( &trappedObjects );
+		if ( !IsInSet( trappedObjects, pObject ) )
+			return false;
+	}
+	UpdateCursor();
 	return true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CStateUntrap::UpdateCursor()
+{
+	SActionInfo sInfo;
+	CObj<NWorld::CCmd> pCmd = GetTargetCmd();
+	if ( IsValid( pCmd ) )
+		GetMission()->CanDoCommand( pCmd, false, &sInfo );
+	if ( sInfo.bOk )
+	{
+		wstring wsText;
+		MakeCursorString( GetMission(), sInfo, &wsText );
+		sCursorInfo = NUI::SCursorInfo( NDb::GetUICursor( N_CURSOR_USE_TOOL ), wsText.c_str() );
+	}
+	else
+		sCursorInfo = NUI::SCursorInfo( NDb::GetUICursor( N_CURSOR_BLOCK ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStateUntrap::OnLButtonUp( int nX, int nY )

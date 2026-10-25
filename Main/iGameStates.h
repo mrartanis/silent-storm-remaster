@@ -363,6 +363,7 @@ private:
 
 protected:
 	NWorld::CCmd* GetTargetCmd();
+	void UpdateCursor();
 
 public:
 	CStateUntrap(): bForced( false ) {}						// retail default ctor @0x1e00f0 leaves bForced at the zeroed head

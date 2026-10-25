@@ -53,6 +53,7 @@
 #include "../FileIO/Cruncher.h"
 #include "../Main/iMain.h"
 #include "../Main/iGlobalMap.h"
+#include "../Main/PlayerTracker.h"
 #include "../Main/iOptionsMenu.h"
 #include "../Main/iLoseFake.h"
 #include "../Main/iExitMenu.h"
@@ -2846,6 +2847,86 @@ public:
     int CountSelected() override { return static_cast<int>(selection.size()); }
     bool GetTracePosition(CVec3* result) const override { *result = VNULL3; return traceAvailable; }
 };
+
+class ToolTargetPlayer: public NWorld::CPlayer
+{
+    OBJECT_NOCOPY_METHODS(ToolTargetPlayer);
+public:
+    list<CPtr<CObjectBase>> traps;
+    void GetTrappedObjectsList(list<CPtr<CObjectBase>>* result) const override { *result = traps; }
+};
+
+class ToolTargetPlayerTracker: public NGame::CPlayerTracker
+{
+    OBJECT_NOCOPY_METHODS(ToolTargetPlayerTracker);
+public:
+    CObj<ToolTargetPlayer> player = new ToolTargetPlayer;
+    NWorld::IPlayer* GetPlayer() const override { return player; }
+};
+
+class ToolTargetMission: public AttackCursorMission
+{
+    OBJECT_NOCOPY_METHODS(ToolTargetMission);
+public:
+    CObj<ToolTargetPlayerTracker> player = new ToolTargetPlayerTracker;
+    CPtr<CObjectBase> target;
+    NGame::EUnitAction requested = NGame::UA_USE;
+    NGame::SActionInfo general, targeted;
+    int commands = 0, targetQueries = 0;
+    ToolTargetMission() { general.SetValid(); targeted.SetValid(); targeted.nMinAP = targeted.nMaxAP = 7; }
+    NGame::IPlayerTracker* GetActivePlayer() const override { return player; }
+    CObjectBase* GetStateTarget(bool* fromWorld = nullptr) const override {
+        if (fromWorld) *fromWorld = true;
+        return target;
+    }
+    void GetActionInfo(NGame::EUnitAction action,NGame::SActionInfo* result) override {
+        requested = action;
+        *result = action == NGame::UA_USETOOL ? general : NGame::SActionInfo();
+    }
+    void CanDoCommand(NWorld::CCmd* command,bool,NGame::SActionInfo* result) override {
+        auto* untrap = dynamic_cast<NWorld::CCmdUntrapObject*>(command);
+        Require(untrap && untrap->pTarget == target.GetPtr(), "tool cursor probed the wrong command or hovered target");
+        ++targetQueries; *result = targeted;
+    }
+    void Command(NWorld::CUnit*,NWorld::CCmd*,bool) override { ++commands; }
+};
+
+static void ForcedToolTargetingEntry(const char* databasePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    CObj<ToolTargetMission> mission = new ToolTargetMission;
+    CObj<AttackCursorUnit> unit = new AttackCursorUnit;
+    unit->cursorState = NWorld::CUnit::ST_NORMAL_TOOL;
+    CObj<NGame::CUnitTracker> tracker = new NGame::CUnitTracker(mission,unit);
+    mission->selection.push_back(tracker.GetPtr());
+    CObj<NGame::CStateUntrap> state = new NGame::CStateUntrap(true);
+    const bool entered = state->Initialize(mission);
+    Require(mission->requested == NGame::UA_USETOOL,
+        "forced disarm targeting queried generic Use eligibility instead of UseTool");
+    Require(entered && state->GetType() == NGame::IState::FORCED,
+        "forced disarm targeting could not begin before a trapped object was hovered");
+    Require(state->GetCursorInfo().pCursor == NDb::GetUICursor(NGame::N_CURSOR_BLOCK) && mission->targetQueries == 0,
+        "tool targeting without an object did not begin with a blocked cursor");
+    Require(state->OnLButtonUp(0,0) && mission->commands == 0,
+        "clicking empty tool-targeting space queued a command");
+    CObj<NGame::CStateUntrap> hover = new NGame::CStateUntrap(false);
+    Require(!hover->Initialize(mission), "automatic disarm hover mode entered without a known trap");
+    mission->general = NGame::SActionInfo();
+    CObj<NGame::CStateUntrap> denied = new NGame::CStateUntrap(true);
+    Require(!denied->Initialize(mission), "forced tool mode ignored failed general action eligibility");
+    mission->general.eResult = NWorld::UCR_PENDING;
+    CObj<NGame::CStateUntrap> pending = new NGame::CStateUntrap(true);
+    Require(pending->Initialize(mission), "forced tool mode lost the remaster's asynchronous pending eligibility");
+    mission->general.SetValid();
+    // The general action query owns selection/tool eligibility, as for the other targeting modes.
+    unit->cursorState = NWorld::CUnit::ST_NORMAL_RIFLE;
+    mission->selection.push_back(tracker.GetPtr());
+    CObj<NGame::CStateUntrap> aggregate = new NGame::CStateUntrap(true);
+    Require(aggregate->Initialize(mission), "tool targeting overrode the mission's aggregate action eligibility");
+    Require(mission->commands == 0, "entering or rejecting tool mode issued gameplay commands");
+}
 
 static void SetAttackPreview(AttackState* state, const NGame::SActionInfo& info)
 {
@@ -8817,6 +8898,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "exit-menu-save-shortcut") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "global-map-return-destination") && argc == 4) { GlobalMapReturnDestination(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "forced-tool-targeting-entry") && argc == 3) { ForcedToolTargetingEntry(argv[2]); return true; }
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
     if (!std::strcmp(mode, "late-looping-sound-offset")) { LateLoopingSoundOffset(); return true; }
     if (!std::strcmp(mode, "headless-music-stream")) { HeadlessMusicStream(); return true; }
