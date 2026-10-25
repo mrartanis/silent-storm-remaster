@@ -6077,6 +6077,41 @@ static void NavigationAliasDestinations(bool arrayOutput, bool isolatedSource = 
     Require(aliases().empty(), "unequal displacement or isolated aliases were still reported as connected copies");
 }
 
+static void IsolatedTransitionLinkMatch()
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    for (int i = 0; i < 3; ++i)
+        network->CreateLayer(4,4,VNULL2,0.f,i,i ? network->GetLayer(0)->pGroup.GetPtr() : nullptr);
+    network->Freeze(true);
+    NAI::STile connected{};
+    connected.nHeight = 200;
+    connected.nPassable = NAI::CP_STAND | NAI::CP_CROUCH;
+    connected.nMoveStand = 1;
+    connected.nFlags = NAI::TF_STAND_PASSABLE | NAI::TF_HAS_INTERGRID;
+    const NAI::SPathPlace source(1,1,0), target(2,1,1), linkTarget(2,1,2);
+    network->GetLayer(0)->tiles[1][1] = connected;
+    network->GetLayer(0)->tiles[1][1].nHeight = 100;
+    network->GetLayer(1)->tiles[1][2] = connected;
+    auto& alias = network->GetLayer(2)->tiles[1][2];
+    alias = connected;
+    alias.nFlags = NAI::TF_STAND_PASSABLE;
+    network->GetLayer(0)->transitions[source].links.emplace_back(linkTarget,10);
+    network->GetLayer(1)->transitions[target];
+    Require(NAI::GetTransitionType(network,source,target) == NAI::TT_INTERGRID,
+        "connected transition link matching control failed");
+    alias.nMoveStand = 0;
+    Require(NAI::GetTransitionType(network,source,target) == NAI::TT_NO_WAY,
+        "a recorded transition ending at an isolated copy matched a connected destination on another layer");
+    alias.nMoveStand = 1;
+    alias.nPassable = 0;
+    Require(NAI::GetTransitionType(network,source,target) == NAI::TT_NO_WAY,
+        "a recorded transition ending at an impassable copy matched a connected destination");
+    alias = connected;
+    ++alias.nHeight;
+    Require(NAI::GetTransitionType(network,source,target) == NAI::TT_NO_WAY,
+        "a recorded transition ending at a different height matched the destination");
+}
+
 static void IsolatedTransitionShortcut()
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
@@ -7935,6 +7970,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "empty-passage-exit") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "scripted-passage-transition") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "flying-attack-queue") && argc == 4) { FlyingAttackQueue(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "isolated-transition-link-match")) { IsolatedTransitionLinkMatch(); return true; }
     if (!std::strcmp(mode, "isolated-transition-shortcut")) { IsolatedTransitionShortcut(); return true; }
     if (!std::strcmp(mode, "isolated-transition-entry")) { IsolatedTransitionEntry(); return true; }
     if (!std::strcmp(mode, "connected-direct-transitions")) { ConnectedDirectTransitions(); return true; }

@@ -111,7 +111,7 @@ static bool IsSame( CPathNetwork *pNet, const SPathPlace &src, const SPathPlace 
 		return false;
 	CNodesLayer::STile &t1 = pSrcL->tiles[ src.GetY() ][ src.GetX() ];
 	CNodesLayer::STile &t2 = pDstL->tiles[ src.GetY() ][ src.GetX() ];
-	return ( t1.nHeight == t2.nHeight && t1.nDisplacement == t2.nDisplacement );
+	return t1.HasNavigationLinks() && t2.IsLinkedSame( t1 );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 ETransitionType GetTransitionType( const IPathNetwork *_pNet, const SPathPlace &src, const SPathPlace &dst )

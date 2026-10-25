@@ -175,6 +175,7 @@
 | [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Preserve direct transitions obscured by isolated lower copies | `an isolated lower copy suppressed a connected bidirectional navigation transition` | 220/220; `connected-direct-transitions` | `Upstream-Commit` в commit message |
 | [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Reject reverse shortcuts into isolated navigation destinations | `a reverse same-point shortcut allowed entry into an isolated destination` | 221/221; `isolated-transition-entry` | `Upstream-Commit` в commit message |
 | [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Require connected intermediate copies for navigation shortcuts | `a cross-layer shortcut borrowed movement through an isolated intermediate copy` | 222/222; `isolated-transition-shortcut` | `Upstream-Commit` в commit message |
+| [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Reject isolated aliases when matching recorded navigation links | `a recorded transition ending at an isolated copy matched a connected destination on another layer` | 223/223; `isolated-transition-link-match` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
