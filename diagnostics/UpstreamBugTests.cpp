@@ -47,6 +47,8 @@
 #include "../FileIO/PortableStructureChunks.h"
 #include "../FileIO/Cruncher.h"
 #include "../Main/iMain.h"
+#include "../Main/iOptionsMenu.h"
+#include "../Main/ScreenShot.h"
 #include "../Main/iSaveManager.h"
 #include "../Main/aiLocker.h"
 #include "../Main/wUnitServer.h"
@@ -1321,6 +1323,55 @@ static CMemoryStream BorrowedObjectFields(CObjectBase* object, CStructureNetwork
     { CStructureSaver writer(saved, CStructureSaver::WRITE, references); object->operator&(writer); }
     saved.Seek(0);
     return saved;
+}
+
+static void SuppliedOptionsScreenshot(const char* databasePath,const char* resourcePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    Require(NMainLoop::GetCurrentInterfaceForHarness() == nullptr,
+        "supplied screenshot fixture must start without an active interface");
+    struct InterfaceCleanup { ~InterfaceCleanup() { NMainLoop::DoneInterface(); } } cleanup;
+    CObj<NGScene::CScreenshotTexture> texture = new NGScene::CScreenshotTexture;
+    CArray2D<NGfx::SPixel8888> pixels;
+    pixels.SetSizes(2,2);
+    pixels[0][0] = NGfx::SPixel8888(11,22,33,255);
+    pixels[0][1] = NGfx::SPixel8888(44,55,66,255);
+    pixels[1][0] = NGfx::SPixel8888(77,88,99,255);
+    pixels[1][1] = NGfx::SPixel8888(111,122,133,255);
+    texture->Set(pixels);
+    CObj<NGame::CICOptions> command = new NGame::CICOptions(NGame::OS_VIDEO,texture);
+    command->Exec();
+    auto* active = NMainLoop::GetCurrentInterfaceForHarness();
+    Require(IsValid(active), "supplied screenshot fixture did not open the native options interface");
+    CStructureNetworkContext references;
+    auto interfaceFields = BorrowedObjectFields(active,&references);
+    CPtr<NUI::CScreenShot> widget;
+    { CStructureSaver reader(interfaceFields,CStructureSaver::READ,&references); reader.Add(5,&widget); }
+    Require(IsValid(widget) && widget->GetTexture() == texture.GetPtr(),
+        "native options interface replaced or failed to adopt the supplied screenshot");
+    CMemoryStream fields;
+    { CStructureSaver writer(fields,CStructureSaver::WRITE); static_cast<CObjectBase*>(texture.GetPtr())->operator&(writer); }
+    fields.Seek(0);
+    NGScene::CScreenshotTexture::EMode mode = NGScene::CScreenshotTexture::COLOR;
+    CVec4 coefficient(0,0,0,0);
+    { CStructureSaver reader(fields,CStructureSaver::READ); reader.Add(2,&mode); reader.Add(3,&coefficient); }
+    Require(mode == NGScene::CScreenshotTexture::BLACKANDWHITE,
+        "opening options with a supplied screenshot left it in the widget's default color mode");
+    Require(fabs(coefficient.x-0.677f) < 1e-6f && fabs(coefficient.y-0.877f) < 1e-6f &&
+        coefficient.z == 1.f && coefficient.w == 1.f,
+        "supplied options screenshot did not receive the original menu tint");
+    CArray2D<NGfx::SPixel8888> retained;
+    texture->Get(&retained);
+    Require(retained.GetXSize() == 2 && retained.GetYSize() == 2,
+        "opening options resized the supplied screenshot pixels");
+    for (int y = 0; y < 2; ++y)
+        for (int x = 0; x < 2; ++x)
+            Require(retained[y][x].r == pixels[y][x].r && retained[y][x].g == pixels[y][x].g &&
+                retained[y][x].b == pixels[y][x].b && retained[y][x].a == pixels[y][x].a,
+                "options screenshot treatment overwrote the original pixels");
 }
 
 static void NewLayerCompactSave()
@@ -7330,6 +7381,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "fresh-navigation-colouring")) { FreshNavigationColouring(); return true; }
     if (!std::strcmp(mode, "fresh-navigation-transitions")) { FreshNavigationTransitions(); return true; }
     if (!std::strcmp(mode, "lazy-navigation-colourer")) { LazyNavigationColourer(); return true; }
+    if (!std::strcmp(mode, "supplied-options-screenshot") && argc == 4) { SuppliedOptionsScreenshot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
