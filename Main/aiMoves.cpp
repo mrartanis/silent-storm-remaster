@@ -791,7 +791,7 @@ void GetNonStandartMoves(
 		{
 			CLayersGroup *pGroup = pLayer->pGroup;
 			int nFloor = pLayer->nFloor; 
-			if ( t.nFlags & TF_HAS_SAME )
+			if ( ( t.nFlags & TF_HAS_SAME ) || !t.HasNavigationLinks() )
 			{
 				for ( int nL = 0; nL < N_MAX_FLOORS * N_MAX_LAYERS_PER_FLOOR; ++nL )
 				{
