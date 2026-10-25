@@ -31,6 +31,7 @@ static int luaS_newudata (lua_State *L, CObjectBase *pData, int tag )
 	switch ( tag ) 
 	{
 		case tagLuaCPtr:
+		case tagLuaWindow:
 			pRes->pPtr = pData;
 			break;
 		case tagLuaCObj:

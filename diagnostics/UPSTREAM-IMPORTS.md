@@ -123,6 +123,7 @@
 | [d4de53d5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d4de53d5eef8444a372b7dbe582f8dbff2754b49) — Install parent and interface links when registering a child window | `AddChild retained a window without installing its parent link` | 157/157; `window-child-registration` | `Upstream-Commit` в commit message |
 | [15d5d41f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/15d5d41fc37267ecc80dcc621df24be99e3b52a9) — Count Lua callback arguments in the supplied execution state | `native Lua argument count came from another script's stack` | 158/158; `lua-argument-state` | `Upstream-Commit` в commit message |
 | [15d5d41f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/15d5d41fc37267ecc80dcc621df24be99e3b52a9) — Allow native UI scripts to be created without a tactical world | `native script factory rejected a UI script without a tactical world` | 159/159; `worldless-ui-script` | `Upstream-Commit` в commit message |
+| [15d5d41f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/15d5d41fc37267ecc80dcc621df24be99e3b52a9) — Preserve borrowed window references in native Lua userdata | `Lua window userdata discarded its borrowed native window reference` | 160/160; `lua-window-userdata` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -387,3 +388,22 @@ Windows/Linux — 157/157; Windows `ALL_BUILD` и Linux `Game` собраны.
 оконный setter не считается исправленным фабричным коммитом.
 Логи `worldless-ui-script-{red,green}-test.log`, `worldless-ui-linux-test.log`,
 `worldless-ui-property-conditions.txt`. Связи callback/шаблонов еще в работе.
+
+### Адаптация ссылок окна для callback-части `15d5d41f`
+
+Это необходимая локальная адаптация Lua для переноса параметра `tagLuaWindow`
+из upstream, а не дословный hunk его allocator: исходный diff не меняет
+`lstring.cpp`/чтение ссылок. Новый tag 8 хранит borrowed `CPtr`, поскольку
+деревом окон владеет UI через `CMObj`. Сохраненные owning-записи tag 8
+продолжают читаться по прежнему полю `pObj`. Обычные tags 6/7 не изменены.
+Тест подтверждает, что закрытие скрипта не уничтожает окно UI, а удаление
+окна не откладывается из-за Lua. Явные `GetWindow/windowSetProperty` работают.
+
+Windows/Linux — 160/160; Windows `ALL_BUILD`, Linux `Game` собраны.
+Расширенный Windows набор — 215/215; стрельба/сжатое сохранение/загрузка — 4/4.
+Логи `lua-window-userdata-{red,green}-test.log`, `window-userdata-linux-test.log`,
+`checkpoint-160-all-build.log`, `checkpoint-160-ci-test.log`,
+`checkpoint-160-shots-test.log`. Неправильная короткая форма `w.x=...`
+диагностирована отдельно: setter уже вызывается, но threaded VM теряет
+stack slot после tag callback, затем сообщает `attempt to call a userdata value`.
+Это еще не считается исправленным; отдельный следующий RED предусмотрен.

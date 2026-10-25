@@ -177,7 +177,9 @@ LUA_API CObjectBase *lua_touserdata (lua_State *L, int index)
 	if ( o == STK_NULL || LObj(L, o)->GetType() != LUA_TUSERDATA )
 		return NULL;
   UserData *pUD = L->GetUData(o);
-	return pUD->tag == tagLuaCPtr ? pUD->pPtr.GetPtr() : pUD->pObj.GetPtr();
+	// Fresh UI handles borrow their window; keep reading existing owning records.
+	return pUD->tag == tagLuaCPtr || ( pUD->tag == tagLuaWindow && pUD->pPtr.GetPtr() )
+		? pUD->pPtr.GetPtr() : pUD->pObj.GetPtr();
 }
 
 LUA_API const void *lua_topointer( lua_State *L, int index ) 

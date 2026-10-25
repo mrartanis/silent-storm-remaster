@@ -91,6 +91,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/Sync.h"
 #include "../Main/A5Script.h"
 #include "../Main/scriptCommon.h"
+#include "../Script/lstate.h"
 #include "../Main/scriptPtr.h"
 #include "../Main/aiMisc.h"
 #include "../Main/wOSBase.h"
@@ -275,6 +276,72 @@ static void LuaArgumentState()
         Require(executing->GetGlobal("count").IsNumber() && executing->GetGlobal("count").GetNumber() == expected,
             "native Lua argument count still depended on a globally active script");
     }
+}
+
+static void LuaWindowUserdata()
+{
+    CMObj<NUI::CWindow> borrowed = new NUI::CWindow(NUI::SWindowInfo());
+    {
+        CObj<NWorld::CCmdReload> command = new NWorld::CCmdReload(2);
+        CObj<NScript::CScript> script = new NScript::CScript;
+        script->PushUserTag(borrowed.GetPtr(), tagLuaWindow);
+        const int slot = script->GetTop();
+        Require(lua_tag(script->GetState(), slot) == tagLuaWindow
+                && lua_touserdata(script->GetState(), slot) == borrowed.GetPtr(),
+            "Lua window userdata discarded its borrowed native window reference");
+        script->PushUserTag(command.GetPtr(), tagLuaCPtr);
+        Require(lua_touserdata(script->GetState(), -1) == command.GetPtr(), "window userdata adaptation broke ordinary Lua CPtr values");
+        script->PushUserTag(command.GetPtr(), tagLuaCObj);
+        Require(lua_touserdata(script->GetState(), -1) == command.GetPtr(), "window userdata adaptation broke owning Lua CObj values");
+        CObj<NUI::CWindow> legacy = new NUI::CWindow(NUI::SWindowInfo());
+        script->PushUserTag(legacy.GetPtr(), tagLuaWindow);
+        UserData* record = nullptr;
+        auto* state = script->GetState();
+        for (int i = 0; i < state->userdatas.size(); ++i) {
+            auto* candidate = state->userdatas[i];
+            if (candidate && candidate->tag == tagLuaWindow &&
+                    (candidate->pPtr == legacy.GetPtr() || candidate->pObj == legacy.GetPtr())) record = candidate;
+        }
+        Require(record != nullptr, "window userdata fixture could not find its native record");
+        // Existing save fields also permit an owning tag-8 handle. Preserve
+        // its read path while creating fresh UI handles as borrowed references.
+        UserData owning; owning.tag = tagLuaWindow; owning.marked = 0; owning.pObj = legacy.GetPtr();
+        CStructureNetworkContext references;
+        references.externalReferences = true; references.include = [](CObjectBase*) { return false; };
+        references.ids[legacy.GetPtr()] = 1; references.refs[1] = legacy.GetPtr();
+        CMemoryStream saved;
+        { CStructureSaver writer(saved, CStructureSaver::WRITE, &references); owning.operator&(writer); }
+        saved.Seek(0);
+        { CStructureSaver reader(saved, CStructureSaver::READ, &references); record->operator&(reader); }
+        Require(lua_touserdata(state, -1) == legacy.GetPtr(), "Lua stopped reading existing owning window-userdata save records");
+    }
+    Require(IsValid(borrowed), "destroying a Lua script invalidated a window still owned by the UI");
+    {
+        CObj<NScript::CScript> script = new NScript::CScript;
+        CMObj<NUI::CWindow> dying = new NUI::CWindow(NUI::SWindowInfo());
+        script->PushUserTag(dying.GetPtr(), tagLuaWindow);
+        dying = nullptr;
+        Require(!IsValid(lua_touserdata(script->GetState(), -1)), "Lua window userdata kept a removed window alive");
+    }
+    CObj<NUI::CInterface> interface = new NUI::CInterface;
+    interface->SetInterface(interface);
+    CMObj<NUI::CWindow> child = new NUI::CWindow(NUI::SWindowInfo(interface,
+        NUI::SPoint(3, 4), NUI::SPoint(20, 20), "userdata-child"));
+    {
+        CObj<NScript::CScript> script = NScript::CreateScript(nullptr);
+        script->SetScriptInterface(interface);
+        struct GlobalScriptRestore {
+            CPtr<NScript::CScript> previous;
+            ~GlobalScriptRestore() { pScript = previous; }
+        } restore{pScript};
+        pScript = script;
+        Require(script->DoString("w=GetWindow('userdata-child'); if w then windowSetProperty(w, 'x', 42); windowSetProperty(w, 'y', 17) end") == LUA_NOERR,
+            "native window-userdata fixture did not compile");
+        script->ExecuteThreads();
+        Require(child->GetPosition() == NUI::SPoint(42, 17), "Lua window lookup/property bindings did not reach the borrowed native control");
+    }
+    Require(IsValid(child) && interface->GetChildByID("userdata-child") == child.GetPtr(),
+        "closing a window script invalidated a control retained by its interface");
 }
 
 static void WorldlessUIScript()
@@ -5578,6 +5645,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "window-child-registration")) { WindowChildRegistration(); return true; }
     if (!std::strcmp(mode, "lua-argument-state")) { LuaArgumentState(); return true; }
     if (!std::strcmp(mode, "worldless-ui-script")) { WorldlessUIScript(); return true; }
+    if (!std::strcmp(mode, "lua-window-userdata")) { LuaWindowUserdata(); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
     if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }
     if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) { AIReactionValueLatch(argv[2], argv[3]); return true; }

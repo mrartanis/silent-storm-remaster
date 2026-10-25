@@ -847,6 +847,7 @@ add_test(NAME UpstreamWindowInterfacePropagation COMMAND UpstreamBugTests window
 add_test(NAME UpstreamWindowChildRegistration COMMAND UpstreamBugTests window-child-registration)
 add_test(NAME UpstreamLuaArgumentState COMMAND UpstreamBugTests lua-argument-state)
 add_test(NAME UpstreamWorldlessUIScript COMMAND UpstreamBugTests worldless-ui-script)
+add_test(NAME UpstreamLuaWindowUserdata COMMAND UpstreamBugTests lua-window-userdata)
 add_test(NAME UpstreamCompressedSaveWriting COMMAND UpstreamBugTests compressed-save-writing)
 set_tests_properties(UpstreamCompressedSaveWriting PROPERTIES ENVIRONMENT "S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/upstream-compressed-save-fixture")
 add_test(NAME UpstreamConsoleVisibilityToggle COMMAND UpstreamBugTests console-visibility-toggle)
