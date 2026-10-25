@@ -55,6 +55,8 @@
 #include "../Main/GCombiner.h"
 #include "../Main/GSceneUtils.h"
 #include "../Main/GRenderCore.h"
+#include "../Main/GAnimLight.h"
+#include "../Main/GRenderLight.h"
 #include "../Main/GLightmapStateWire.h"
 #include "../Main/GGeometryPositionHash.h"
 using GeometryTestHash = NGScene::SGeometryPosHash;
@@ -522,6 +524,25 @@ static void PointLightShadowFlag()
     light.TraceDynamicLM(&result, receiver, scene);
     Require(scene->traceCalls == 2 && fabs2(result.vXNeg.v - CVec3(4.f/9.f, 8.f/9.f, 12.f/9.f)) < 1e-10f,
         "visible shadow-casting point light changed its original attenuation");
+}
+
+static void PointLightRadiance()
+{
+    CObj<NGScene::CPointLight> light = new NGScene::CPointLight(CVec3(4, 2, 1), CVec3(3, -2, 5), 3.f, nullptr, true);
+    NGScene::CPointLight::SRadianceInfo info;
+    light->GetRadianceInfo(&info, NGScene::RP_GF3_CL);
+    Require(info.vColor == CVec3(1, 0.5f, 0.25f) && info.fRadius == 6.f,
+        "point-light radiance failed to fold colour strength into its cached radius");
+    Require(info.vCenter == CVec3(3, -2, 5) && !info.bIsRendered,
+        "radiance conversion changed light position or lightmap-only eligibility");
+    CObj<NGScene::CPointLight> dim = new NGScene::CPointLight(CVec3(0.25f, 0.125f, 0), VNULL3, 8.f, nullptr, true);
+    dim->GetRadianceInfo(&info, NGScene::RP_GF3_CL);
+    Require(info.vColor == CVec3(1, 0.5f, 0) && info.fRadius == 4.f,
+        "dim point-light radiance used the wrong radius scaling");
+    CObj<NGScene::CPointLight> dark = new NGScene::CPointLight(VNULL3, VNULL3, 3.f, nullptr, true);
+    dark->GetRadianceInfo(&info, NGScene::RP_GF3_CL);
+    Require(info.vColor == VNULL3 && info.fRadius == 3.f,
+        "zero-strength point light generated nonfinite radiance or changed its radius");
 }
 
 struct RetailGlobalPointFixture
@@ -3425,6 +3446,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "legacy-point-light-save-layout")) PointLightSaveLayout(true);
         else if (!std::strcmp(mode, "point-light-shadow-flag")) PointLightShadowFlag();
         else if (!std::strcmp(mode, "global-point-light-shadow-flag")) GlobalPointLightShadowFlag();
+        else if (!std::strcmp(mode, "point-light-radiance")) PointLightRadiance();
         else if (!std::strcmp(mode, "dialogue-camera-filter")) CinematicCameraCommands(0);
         else if (!std::strcmp(mode, "movie-camera-filter")) CinematicCameraCommands(1);
         else if (!std::strcmp(mode, "fade-camera-filter")) CinematicCameraCommands(2);
