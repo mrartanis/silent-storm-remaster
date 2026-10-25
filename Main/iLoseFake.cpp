@@ -171,9 +171,10 @@ void CLoseMenuInterface::Initialize( int nStringID, NGScene::CScreenshotTexture 
 	pInterface = new NUI::CInterface( pCursor );
 
 	pScreenShot = new NUI::CScreenShot( NUI::SWindowInfo( pInterface, NUI::SPoint( 0, 0 ), NUI::SPoint( 1024, 768 ), "clues", NUI::STYLE_ENABLED | NUI::STYLE_VISIBLE | NUI::STYLE_BOTTOMMOST ) );
+	// A supplied multiplayer screenshot needs the same loss treatment as a fresh one.
+	pScreenShot->SetMode( NUI::CScreenShot::BLACKANDWHITE, CVec4( 1.0f, 0.677f, 0.877f, 1.0f ) );
 	if ( !IsValid( pScreenShotTexture ) )
 	{
-		pScreenShot->SetMode( NUI::CScreenShot::BLACKANDWHITE, CVec4( 0.5f, 0.5f, 0.5f, 1 ) );
 		pScreenShot->Generate();
 	}
 	else
