@@ -122,6 +122,7 @@
 | [d4de53d5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d4de53d5eef8444a372b7dbe582f8dbff2754b49) — Propagate changed window interfaces to the complete child tree | `changing a window's interface left its descendants attached to the old context` | 156/156; `window-interface-propagation` | `Upstream-Commit` в commit message |
 | [d4de53d5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d4de53d5eef8444a372b7dbe582f8dbff2754b49) — Install parent and interface links when registering a child window | `AddChild retained a window without installing its parent link` | 157/157; `window-child-registration` | `Upstream-Commit` в commit message |
 | [15d5d41f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/15d5d41fc37267ecc80dcc621df24be99e3b52a9) — Count Lua callback arguments in the supplied execution state | `native Lua argument count came from another script's stack` | 158/158; `lua-argument-state` | `Upstream-Commit` в commit message |
+| [15d5d41f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/15d5d41fc37267ecc80dcc621df24be99e3b52a9) — Allow native UI scripts to be created without a tactical world | `native script factory rejected a UI script without a tactical world` | 159/159; `worldless-ui-script` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -372,3 +373,17 @@ Windows/Linux — 157/157; Windows `ALL_BUILD` и Linux `Game` собраны.
 две строки временно сняты, RED на отсутствующем parent воспроизведен повторно,
 после возвращения фикса все проверки прошли. Семантика самих smart pointers
 не менялась. Dirty latch и bool-return обновления из `d4de53d5` еще в работе.
+
+### Разделение фабрики UI-скриптов и ссылок на окна
+
+Фабрика проверена правильным RED после повторного снятия четырехстрочного
+фикса, затем GREEN — 159/159 на Windows/Linux. Проверяются контекст интерфейса,
+настоящий `GetCursorPos`, выполнение Lua и прежний тактический путь фабрики.
+Первый дополнительный тест записи `window.x` обнаружил самостоятельную дыру:
+`luaS_newudata` принимает только tags 6/7, а tag 8 оставляет без ссылки;
+`lua_touserdata` тоже знает только прежние виды. Debugger подтверждает tag 8,
+три корректных аргумента и null перед RTTI cast в `CheckProperty`.
+Это отдельная адаптация, необходимая для callback-части `15d5d41f`;
+оконный setter не считается исправленным фабричным коммитом.
+Логи `worldless-ui-script-{red,green}-test.log`, `worldless-ui-linux-test.log`,
+`worldless-ui-property-conditions.txt`. Связи callback/шаблонов еще в работе.

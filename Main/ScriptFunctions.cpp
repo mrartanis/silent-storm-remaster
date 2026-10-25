@@ -287,10 +287,6 @@ Script::SRegFunction pRegList[] =
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CScript *CreateScript( NWorld::IWorld *pWorld )
 {
-	ASSERT( IsValid( pWorld ) );
-	if ( !IsValid( pWorld ) )
-		return 0;
-	//
 	CScript *pRes = new NScript::CScript();
 	CDynamicCast<NWorld::CWorld> pTmpWorld( pWorld );
 	pRes->pWorld = pTmpWorld;

@@ -277,6 +277,33 @@ static void LuaArgumentState()
     }
 }
 
+static void WorldlessUIScript()
+{
+    CObj<NScript::CScript> script = NScript::CreateScript(nullptr);
+    Require(IsValid(script), "native script factory rejected a UI script without a tactical world");
+    Require(!IsValid(script->pWorld), "worldless UI script unexpectedly acquired a tactical world");
+    CObj<NUI::CInterface> interface = new NUI::CInterface;
+    interface->SetInterface(interface);
+    script->SetScriptInterface(interface);
+    struct GlobalScriptRestore {
+        CPtr<NScript::CScript> previous;
+        ~GlobalScriptRestore() { pScript = previous; }
+    } restore{pScript};
+    pScript = script;
+    Require(script->DoString("cursor=GetCursorPos(); factoryValue=40+2; cursorX=cursor.x; cursorY=cursor.y") == LUA_NOERR,
+        "worldless UI script did not compile its native cursor binding");
+    script->ExecuteThreads();
+    Require(script->GetScriptInterface() == interface.GetPtr()
+            && script->GetGlobal("factoryValue").IsNumber() && script->GetGlobal("factoryValue").GetNumber() == 42
+            && script->GetGlobal("cursorX").IsNumber() && script->GetGlobal("cursorX").GetNumber() == interface->GetCursorPos().x
+            && script->GetGlobal("cursorY").IsNumber() && script->GetGlobal("cursorY").GetNumber() == interface->GetCursorPos().y,
+        "worldless UI script lost its interface, Lua execution or native cursor access");
+    CObj<NWorld::CWorld> world = new NWorld::CWorld;
+    CObj<NScript::CScript> tactical = NScript::CreateScript(world);
+    Require(IsValid(tactical) && tactical->pWorld == world.GetPtr(),
+        "allowing UI scripts changed the native tactical script factory path");
+}
+
 static void EmptyLuaDefault()
 {
     Script script;
@@ -5550,6 +5577,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "window-interface-propagation")) { WindowInterfacePropagation(); return true; }
     if (!std::strcmp(mode, "window-child-registration")) { WindowChildRegistration(); return true; }
     if (!std::strcmp(mode, "lua-argument-state")) { LuaArgumentState(); return true; }
+    if (!std::strcmp(mode, "worldless-ui-script")) { WorldlessUIScript(); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
     if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }
     if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) { AIReactionValueLatch(argv[2], argv[3]); return true; }
