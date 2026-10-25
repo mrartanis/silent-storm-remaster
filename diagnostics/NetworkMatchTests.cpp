@@ -471,11 +471,16 @@ int main(int argc,char** argv) {
       Require(client->Preview(unit,pose,&start,&full,true)==NWorld::UCR_PENDING,"selection reused an old preview generation");
       until([&]{return client->Preview(unit,pose,&start,&full,true)!=NWorld::UCR_PENDING;});
       auto before=actor->GetPosition().GetCP();
+      const int movementAPBefore=actor->GetAP();
       peer->Submit(client->EncodeCommand(new NWorld::CCmdSetCommand(unit,path)));
       peer->Submit(client->EncodeCommand(new NWorld::CCmdSetCommand(unit,new NWorld::CCmdContinue)));
       until([&]{return actor->GetPosition().GetCP()!=before;});
       Require(client->Match().world.GetPtr()==world && client->Match().players[1]->GetPlayerUnits().front().GetPtr()==selected,"UI references were replaced");
       until([&]{return !actor->HasCommand() && !host->Match().world->IsExecuting();});
+      std::printf("Movement completion AP: before=%d host=%d replica=%d\n",movementAPBefore,actor->GetAP(),unit->GetAP());
+      const auto completionRevision=host->Revision();
+      until([&]{return client->Revision()>=completionRevision;});
+      Require(actor->GetAP()<movementAPBefore,"completed fixture movement did not spend action points");
       Require(unit->GetAP()==actor->GetAP(),"movement AP did not replicate");
       Require(client->Preview(unit,pose,&start,&full,true)==NWorld::UCR_PENDING,"AP change reused stale availability");
       until([&]{return client->Preview(unit,pose,&start,&full,true)!=NWorld::UCR_PENDING;});

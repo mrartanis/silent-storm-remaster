@@ -520,3 +520,17 @@ StopResume. ClientUI падает на `movement AP did not replicate`, Preparat
 его `GetColourer`. Полный `NetworkPreparationTests` прошёл для отрядов из 1 и
 6 бойцов (49,63 с); логи `network-preparation-cache-{red,green}-test.log`.
 Ошибки ClientUI/ObjectStages пока остаются открытыми.
+
+### Локальная синхронизация проверки AP сетевого интерфейса
+
+`NetworkClientUITests` из [782eb719](https://github.com/mrartanis/silent-storm-remaster/commit/782eb719e1325f3a6ad3f2feeeab01d898a4d415)
+проверял AP реплики сразу после завершения серверной команды. Подтверждённый
+RED: до движения 53 AP, после него сервер уже имел 49, а реплика ещё 53.
+Проверка теперь ждёт применения клиентом версии снимка на момент завершения
+и затем отдельно проверяет AP. Дополнительно подтверждается расход AP самим
+движением. Ожидание по версии снимка не заменяет проверку содержимого снимка.
+
+Это локальное исправление теста, а не скопированная игровая логика upstream.
+`NetworkClientUITests` прошёл после исправления и ещё три раза подряд;
+логи `network-client-ap-wait-{red,green}-test.log`,
+`network-client-ap-wait-repeat.log`. ObjectStages остаётся в разборе.
