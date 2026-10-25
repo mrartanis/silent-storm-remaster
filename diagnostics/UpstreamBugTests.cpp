@@ -5420,6 +5420,45 @@ public:
     NAI::SAIUnitState* GetAIUnitState() override { return exposeThreat ? &threat : nullptr; }
 };
 
+static void RemovedSelectedAIContact(int kind)
+{
+    CObj<ThreatOwnerFixture> owner = new ThreatOwnerFixture;
+    CObj<NAI::AIUnitFixture> first = new NAI::AIUnitFixture, second = new NAI::AIUnitFixture;
+    auto& state = owner->threat;
+    state.SetUnit(owner);
+    auto* selected = kind == 0 ? &state.pEnemy : kind == 1 ? &state.pPossibleEnemy : &state.pAlly;
+    auto* collection = kind == 0 ? &state.enemies : kind == 1 ? &state.possibleEnemies : &state.allies;
+    auto add = [&](NAI::IAIUnit* unit) {
+        if (kind == 0) state.AddEnemy(unit);
+        else if (kind == 1) state.AddPossibleEnemy(unit);
+        else state.AddAlly(unit);
+    };
+    auto remove = [&](NAI::IAIUnit* unit) {
+        if (kind == 0) state.RemoveEnemy(unit);
+        else if (kind == 1) state.RemovePossibleEnemy(unit);
+        else state.RemoveAlly(unit);
+    };
+    add(first); add(second); *selected = first.GetPtr();
+    state.selfModified.data = false;
+    collection->bModified = false;
+    remove(second);
+    Require(selected->GetPtr() == first.GetPtr() && collection->data.units.size() == 1,
+        "removing an unrelated AI contact cleared the selected contact");
+    Require(collection->bModified && !state.selfModified.data,
+        "removing an unrelated contact lost collection invalidation or reported a new threat");
+    collection->bModified = false;
+    remove(first);
+    Require(!IsValid(*selected), "removing the selected AI contact left a stale target for subsequent reactions");
+    Require(collection->data.units.empty() && collection->bModified && !state.selfModified.data,
+        "removing a selected contact lost collection invalidation or synthesized a threat change");
+    // Removal must also clear a selected reference absent from the member list,
+    // as can happen while an event consumes a contact with updates deferred.
+    *selected = second.GetPtr();
+    remove(second);
+    Require(!IsValid(*selected) && !state.selfModified.data,
+        "removing an already-consumed AI contact retained its selected reference");
+}
+
 class ThreatActionProbe: public NAI::CAIAction
 {
     OBJECT_NOCOPY_METHODS(ThreatActionProbe);
@@ -6853,6 +6892,9 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "removed-selected-enemy")) { RemovedSelectedAIContact(0); return true; }
+    if (!std::strcmp(mode, "removed-selected-possible")) { RemovedSelectedAIContact(1); return true; }
+    if (!std::strcmp(mode, "removed-selected-ally")) { RemovedSelectedAIContact(2); return true; }
     if (!std::strcmp(mode, "begin-turn-live-watcher") && argc == 4) { BeginTurnLiveContacts(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "begin-turn-live-enemy") && argc == 4) { BeginTurnLiveContacts(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "combat-chooser-context") && argc == 4) { CombatChooserContext(argv[2], argv[3]); return true; }
