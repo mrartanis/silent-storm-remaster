@@ -97,7 +97,7 @@ void CAICombatLogic::GenerateCommand()
 	pLog->Clear();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// @0x00432aa0 -- the retail 5-stage/one-tick DoJob machine (switch on prepareState). Instead of pumping the
+// @0x00432aa0 -- the retail five-stage DoJob machine (one stage per tick) (switch on prepareState). Instead of pumping the
 // choose-place job inline, PS_ACTION queues it on the WORLD job manager (Add-before-WaitForJob) and yields;
 // the manager re-DoJob()s this logic across Segments until the chooser finishes, then PS_THINK decides.
 // Top guard is retail IsIdleJob() (@0x004331c0): a logic that is invalid, or has nothing queued while not in a
@@ -139,23 +139,6 @@ void CAICombatLogic::DoJob()
 		prepareState = PS_THINK;
 		return;
 	case PS_THINK:
-		// Re-pin the shared tactical state to THIS unit before deciding. Retail's DoJob @0x432aa0 runs
-		// the whole 5-stage machine in ONE tick, so the state set for the unit stays valid through
-		// MakeDecision; the dev pipeline yields across segments waiting on the world job manager, and
-		// the commander round-robin repoints state.pCurrentUnit/pCurrentEnemy at OTHER units meanwhile.
-		// Every action reads the enemy through that shared state (CAIAction::GetEnemy @0x13ac0), so a
-		// decision landing after a repoint saw a foreign unit's enemy -- an IDLE unit's NULL made
-		// GetInfoInner bail out (weapon=0/toHit=0, DEF-DECIDE best=NONE forever: the GFirst car-guy
-		// standing at his attack spot doing nothing).
-		{
-			SAIState *pState = GetUnit()->GetAIState();
-			if ( pState != 0 )
-			{
-				pState->SetCurrentAIUnit( GetUnit() );
-				SAIUnitState *pUState = GetUnit()->GetAIUnitState();
-				pState->SetCurrentAIEnemy( pUState != 0 ? pUState->pEnemy.GetPtr() : 0 );
-			}
-		}
 		// the chooser has finished; decide, then the job is done this same tick
 		MakeDecision();
 		prepareState = PS_FINISHED;

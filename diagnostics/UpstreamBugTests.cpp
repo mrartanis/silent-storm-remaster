@@ -91,6 +91,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/aiPlayer.h"
 #include "../Main/aiReaction.h"
 #include "../Main/aiActionPlaceSource.h"
+#include "../Main/aiCombatLogic.h"
 #include "../Main/aiUnitState.h"
 #include "../Main/aiEvent.h"
 #include "../Main/aiThreatTracker.h"
@@ -2479,6 +2480,53 @@ static void UnsupportedNavigationBake(const char* databasePath, const char* reso
     std::printf("Navigation bake: %d passable tiles, %d unsupported tiles\n", passable, unsupported);
     Require(passable > 0, "navigation bake fixture did not generate playable surfaces");
     Require(unsupported == 0, "native navigation bake generated passable tiles without supporting surfaces");
+}
+
+class CombatContextProbe: public NAI::CAICombatLogic
+{
+    OBJECT_NOCOPY_METHODS(CombatContextProbe);
+public:
+    int decisions = 0;
+    explicit CombatContextProbe(NAI::IAIUnit* unit = nullptr): CAICombatLogic(unit, nullptr) {}
+    void MakeDecision() override { ++decisions; }
+    bool CanSkip() const override { return false; }
+};
+
+static void CombatChooserContext(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    NAI::IAIUnit* acting = nullptr;
+    NAI::IAIUnit* other = nullptr;
+    for (const auto& actor: units) {
+        auto* unit = NAI::GetAIUnit(actor);
+        if (!IsValid(actor) || !actor->CanFight() || !IsValid(unit) || actor->HasCommand()) continue;
+        if (!acting) acting = unit;
+        else { other = unit; break; }
+    }
+    Require(acting && other, "combat chooser fixture needs two idle native AI wrappers");
+    auto* commander = dynamic_cast<NAI::CAICommander*>(acting->GetUnitServer()->GetPlayer()->GetCommander());
+    Require(commander, "combat chooser fixture has no owning commander");
+    auto* shared = commander->GetAIState();
+    shared->Synchronize();
+    Require(acting->GetAIState() == shared, "combat chooser fixture did not attach its owning tactical state");
+    CObj<CombatContextProbe> logic = new CombatContextProbe(acting);
+    logic->Think();
+    Require(logic->IsThinking() && !logic->IsJobFinished(), "combat chooser did not start its staged native job");
+    for (int i = 0; i < 3; ++i) {
+        logic->DoJob();
+        Require(logic->decisions == 0 && logic->IsThinking() && !logic->IsJobFinished(),
+            "combat chooser skipped a stage or decided before the chooser boundary");
+    }
+    shared->SetCurrentAIUnit(other); shared->SetCurrentAIEnemy(other);
+    logic->DoJob();
+    Require(logic->decisions == 1 && !logic->IsThinking() && logic->IsJobFinished(),
+        "combat chooser failed to decide once and finish its staged job");
+    Require(shared->GetCurrentAIUnit() == other && shared->GetCurrentAIEnemy() == other,
+        "finishing an older combat chooser overwrote another unit's shared planning context");
+    world->GetAIJobManager()->Remove(static_cast<NAI::CAIJob*>(logic.GetPtr()));
 }
 
 static void LiveAIPosition(const char* databasePath, const char* resourcePath, bool fullPosition)
@@ -6726,6 +6774,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "combat-chooser-context") && argc == 4) { CombatChooserContext(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "live-ai-position") && argc == 4) { LiveAIPosition(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "live-ai-unit-position") && argc == 4) { LiveAIPosition(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "owned-ai-action-enemy")) { OwnedAIEnemySelection(false); return true; }
