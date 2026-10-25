@@ -942,9 +942,7 @@ void CMission::UpdateActionsInfo()
 	CanDoCommand( new NWorld::CCmdLook( NAI::SPosition() ), true, &actionsInfoSet[UA_LOOK] );
 
 	actionsInfoSet[UA_USE].SetValid();	// retail @0x1fb9c0 SetValid slot (see above)
-	// the use-tool action (retail action 9) is availability-shaped like USE; the icon-bar button
-	// is additionally gated on the unit actually holding a tool (ST_NORMAL_TOOL)
-	actionsInfoSet[UA_USETOOL] = actionsInfoSet[UA_USE];
+	CanDoCommand( new NWorld::CCmdUntrapObject( 0 ), true, &actionsInfoSet[UA_USETOOL] );
 
 	// Attack-mode entry follows the same replacement-reload policy as its cursor.
 	NWorld::CCmdShootObject *pAttack = new NWorld::CCmdShootObject( 0, 0 );

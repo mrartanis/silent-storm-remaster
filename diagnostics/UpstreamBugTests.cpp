@@ -7152,6 +7152,55 @@ public:
     void GetSelectedUnits(vector<CPtr<NGame::IUnitTracker>>* result) const override { *result = selection; }
 };
 
+static void EquippedToolActionAvailability(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (unit && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK() &&
+            unit->GetUnitRPG()->CanMove()) { actor = unit; break; }
+    }
+    Require(actor != nullptr, "tool-availability fixture has no mobile actor");
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    CObj<NRPG::IInventoryItem> old = inventory->Get(NDb::SLOT_1) ? inventory->TakeOff(NDb::SLOT_1) : nullptr;
+    Require(inventory->Activate(NDb::SLOT_1), "tool-availability fixture could not activate its empty hand");
+    CObj<NativeActionInfoMission> mission = new NativeActionInfoMission;
+    mission->Attach(world,game);
+    CObj<NGame::CUnitTracker> tracker = new NGame::CUnitTracker(mission,actor);
+    mission->selection.push_back(tracker.GetPtr());
+    const int ap = actor->GetAP();
+    auto check = [&](bool available) {
+        NGame::SActionInfo direct, cached;
+        mission->CanDoCommand(new NWorld::CCmdUntrapObject(nullptr),true,&direct);
+        Require(direct.bAvailable == available, "native tool-probe control has unexpected equipment eligibility");
+        mission->RefreshActions();
+        mission->GetActionInfo(NGame::UA_USETOOL,&cached);
+        Require(cached.bValid && cached.bAvailable == direct.bAvailable && cached.bOk == direct.bOk &&
+            cached.eResult == direct.eResult && cached.nMinAP == direct.nMinAP && cached.nMaxAP == direct.nMaxAP,
+            "the mission's use-tool cache advertised availability without consulting the equipped tool");
+        Require(actor->GetAP() == ap && !actor->HasCommand(),
+            "checking use-tool availability spent AP or installed a gameplay command");
+    };
+    check(false);
+    NDb::CRPGTool* record = nullptr;
+    CDBIterator<NDb::CRPGTool> tools(*NDatabase::GetTable<NDb::CRPGTool>());
+    while (tools.MoveNext()) {
+        if (IsValid(tools.Get()->pItem) && tools.Get()->bCanUseForMineCleaning) { record = tools.Get(); break; }
+    }
+    Require(record != nullptr, "tool-availability fixture has no authored mine-clearing tool");
+    CObj<NRPG::CToolItem> tool = new NRPG::CToolItem(record);
+    Require(inventory->Equip(NDb::SLOT_1,tool), "tool-availability fixture could not equip its authored tool");
+    const int quantity = tool->GetQuantity();
+    check(true);
+    Require(tool->GetQuantity() == quantity, "checking tool availability consumed a charge");
+    CObj<NRPG::IInventoryItem> removed = inventory->TakeOff(NDb::SLOT_1);
+    check(false);
+}
+
 static void EmptyClipAttackEntry(const char* databasePath,const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -9866,6 +9915,7 @@ static void PKShellWorld(const char* databasePath, const char* resourcePath, boo
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
+    if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "temporary-groups")) { TemporaryGroups(); return true; }
     if (!std::strcmp(mode, "scroll-initialization")) { ScrollInitialization(); return true; }
     if (!std::strcmp(mode, "attack-location")) { AttackLocationRefresh(); return true; }
