@@ -179,6 +179,8 @@ add_test(NAME UpstreamTinyPointLightCache COMMAND UpstreamBugTests tiny-point-li
 add_test(NAME UpstreamInactiveAnimatedLight COMMAND UpstreamBugTests inactive-animated-light)
 add_test(NAME UpstreamTinyAnimatedLight COMMAND UpstreamBugTests tiny-animated-light)
 add_test(NAME UpstreamFreshAmbientGraph COMMAND UpstreamBugTests fresh-ambient-graph)
+add_test(NAME UpstreamCompressedSaveWriting COMMAND UpstreamBugTests compressed-save-writing)
+set_tests_properties(UpstreamCompressedSaveWriting PROPERTIES ENVIRONMENT "S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/upstream-compressed-save-fixture")
 add_test(NAME UpstreamConsoleVisibilityToggle COMMAND UpstreamBugTests console-visibility-toggle)
 add_test(NAME UpstreamAIReactionResetContacts COMMAND UpstreamBugTests ai-reaction-reset-contacts)
 add_test(NAME UpstreamMissionOverlayReadiness COMMAND UpstreamBugTests mission-overlay-readiness)

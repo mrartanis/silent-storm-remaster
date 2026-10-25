@@ -130,6 +130,7 @@ private:
 	typedef std::vector<CChunkLevel>::iterator CChunkLevelIterator;
 	typedef std::vector<CChunkLevel>::reverse_iterator CChunkLevelReverseIterator;
 	bool bIsReading;
+	bool bPackResult;
 	// file format version. Stored as top-level chunk id 4 (value, 4 bytes). Absent in legacy
 	// files => v0. The release stamps v1 and packs the payload chunks 0/2/1 with CNetCompressor
 	// behind an "A3\0" marker chunk (id 3); the content layout is otherwise identical to v0.
@@ -476,9 +477,10 @@ public:
 	enum EMode
 	{
 		READ,
-		WRITE
+		WRITE,
+		WRITE_COMPRESSED
 	};
-	CStructureSaver( CDataStream &res, EMode mode, CStructureNetworkContext *context = nullptr ): destStream(res), network(context)
+	CStructureSaver( CDataStream &res, EMode mode, CStructureNetworkContext *context = nullptr ): destStream(res), network(context), bPackResult(mode == WRITE_COMPRESSED)
 	{ 
 		if(network && mode==READ && !network->externalReferences)network->changed.clear();
 		Start( mode == READ ); 

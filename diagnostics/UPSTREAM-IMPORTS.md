@@ -118,6 +118,7 @@
 | [61b033f2](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/61b033f25a299389a648c0f84dc0f8140a6c7ef7) — Restore the retail nested reload action save format | `reload action wrote a weapon reference in the retail slot-number field` | 151/151; `reload-action-wire` | `Upstream-Commit` в commit message |
 | [07e6ad72](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/07e6ad72e4142862864e7383a102808072d02d52) — Skip inactive and undersized animated point lights | `inactive animated point light entered scene rendering before its parameters were ready` | 153/153; `animated-light-guard` | `Upstream-Commit` в commit message |
 | [92816737](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9281673753420631d4a5d2bb8e2ab3d38d7c367c) — Connect fresh scenes to the retail animated ambient graph | `fresh scene omitted its retail animated top-ambient node` | 154/154; `fresh-ambient-graph` | `Upstream-Commit` в commit message |
+| [476cd3b1](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/476cd3b1115153828ab21298e179900dc1cbe612) — Write retail-compressed campaign and mission save files | `native snapshot command wrote an uncompressed save without the retail A3 marker` | 155/155; `compressed-save-writing` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -341,3 +342,17 @@ Windows/Linux — 151/151; Windows `ALL_BUILD` и Linux `Game` собраны.
 `checkpoint-154-ci-test.log`, `checkpoint-154-shots-test.log`.
 Нативная сцена создается без окна/GPU; тест проверяет реальные связи узлов,
 обновление цвета, конец анимации и возврат к настроенному фоновому свету.
+
+### Контроль после сжатой записи сохранений
+
+Профильная группа Windows/Linux — 155/155; Windows `ALL_BUILD`, Linux `Game`
+собраны. Расширенные проверки Windows — 210/210; настоящая стрельба и
+сохранение/загрузка — 4/4. В двух существующих post-shot проверках мира
+использован новый сжатый writer, включая сохранение в слот и восстановление.
+Логи `compressed-save-writing-{red,green}-test.log`,
+`compressed-save-linux-test.log`, `checkpoint-155-all-build.log`,
+`checkpoint-155-ci-test.log`, `checkpoint-155-shots-test.log`.
+Тест настоящей `CICSaveFile` работает в одном отдельном каталоге внутри
+текущей сборки. Блоки распаковываются по отдельности и сравниваются побайтно
+с обычным writer; 1024 настоящие команды восстанавливаются с исходными слотами.
+Несжатая запись и сетевой формат сохранены. Дополнительных копий сборок нет.

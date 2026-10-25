@@ -148,8 +148,17 @@ static bool ReadShortChunkSave( CDataStream &file, chunk_id &dwID, CMemoryStream
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-static bool WriteShortChunkSave( CDataStream &file, chunk_id dwID, CMemoryStream &chunk )
+static bool WriteShortChunkSave( CDataStream &file, chunk_id dwID, CMemoryStream &chunk, bool bPacked = false )
 {
+	if ( bPacked )
+	{
+		// Retail uses a fresh dictionary for each complete payload chunk.
+		CMemoryStream packed;
+		CNetCompressor compressor;
+		compressor.Pack( chunk, packed );
+		packed.Seek( 0 );
+		return WriteShortChunkSave( file, dwID, packed );
+	}
 	if ( chunk.GetSize() < 0 )
 		throw std::runtime_error( "negative structure chunk size" );
 	std::uint8_t encoded[4] = {};
@@ -857,7 +866,6 @@ void CStructureSaver::Finish()
 		struct SProfile { double ms=0; unsigned count=0; std::size_t bytes=0; };
 		std::map<const std::type_info*,SProfile> profiles;
 		// Retail Finish (v1.2 0x812a53..0x812a85): version is a separate, unpacked chunk.
-		// Payloads remain unpacked here, so no compression marker (chunk 3) is emitted.
 		CMemoryStream version;
 		std::uint8_t encodedVersion[4] = {};
 		if ( !S2FileIO::EncodeStructureScalar( nVersion, encodedVersion, 4 ) )
@@ -866,7 +874,7 @@ void CStructureSaver::Finish()
 		WriteShortChunkSave( res, 4, version );
 		// save standard data
 		AlignDataFileSize();
-		WriteShortChunkSave( res, 1, data );
+		WriteShortChunkSave( res, 1, data, bPackResult );
 		// store referenced objects
 		data.Clear();
 		chunks.back().Clear();
@@ -905,9 +913,15 @@ void CStructureSaver::Finish()
 			FinishChunk();
 		}
 		// save data into resulting file
-		WriteShortChunkSave( res, 0, obj );
+		WriteShortChunkSave( res, 0, obj, bPackResult );
 		AlignDataFileSize();
-		WriteShortChunkSave( res, 2, data );
+		WriteShortChunkSave( res, 2, data, bPackResult );
+		if ( bPackResult )
+		{
+			CMemoryStream marker;
+			marker.Write( "A3", 3 );
+			WriteShortChunkSave( res, 3, marker );
+		}
 		if(profile) {
 			if(auto* output=std::fopen("_network_serialization_profile.tsv","a")) {
 				for(const auto& entry:profiles)std::fprintf(output,"%u\t%s\t%u\t%.6f\t%zu\n",

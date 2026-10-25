@@ -1002,7 +1002,7 @@ int main(int argc, char** argv) {
             CFileStream saved;
             if (missionPartyShotSlot) saved.OpenWrite(slotPath.c_str());
             else saved.OpenWrite(argv[5]);
-            CStructureSaver saver(saved, CStructureSaver::WRITE);
+            CStructureSaver saver(saved, CStructureSaver::WRITE_COMPRESSED);
             saver.Add(2, &world);
             SerializeShared(&saver);
           }

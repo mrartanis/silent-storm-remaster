@@ -44,6 +44,9 @@
 #include "../Main/aiNearestPosition.h"
 #include "../FileIO/PortableGameDatabase.h"
 #include "../FileIO/PortableStructureChunks.h"
+#include "../FileIO/Cruncher.h"
+#include "../Main/iMain.h"
+#include "../Main/iSaveManager.h"
 #include "../Main/aiLocker.h"
 #include "../Main/wUnitServer.h"
 #include "../Main/RPGItem.h"
@@ -120,6 +123,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include <limits>
 #include <algorithm>
 #include <type_traits>
+#include <map>
 
 extern CPtr<NScript::CScript> pScript;
 
@@ -848,6 +852,72 @@ static CMemoryStream BorrowedObjectFields(CObjectBase* object, CStructureNetwork
     { CStructureSaver writer(saved, CStructureSaver::WRITE, references); object->operator&(writer); }
     saved.Seek(0);
     return saved;
+}
+
+static std::map<unsigned char, vector<unsigned char>> OuterSaveChunks(CDataStream& stream)
+{
+    std::map<unsigned char, vector<unsigned char>> chunks;
+    stream.Seek(0);
+    while (stream.GetPosition() < stream.GetSize()) {
+        unsigned char tag = 0, encoded[4] = {};
+        stream.Read(&tag, 1); stream.Read(encoded, 1);
+        const std::size_t prefix = encoded[0] & 1 ? 4 : 1;
+        if (prefix == 4) stream.Read(encoded + 1, 3);
+        std::uint32_t length = 0;
+        Require(S2FileIO::DecodeStructureLength(encoded, prefix, stream.GetSize() - stream.GetPosition(), &length),
+            "compressed-save fixture found an invalid outer chunk length");
+        auto& payload = chunks[tag]; payload.resize(length);
+        if (length) stream.Read(payload.data(), length);
+    }
+    return chunks;
+}
+
+static void CompressedSaveWriting()
+{
+    Require(std::getenv("S2_USER_DATA_DIR") != nullptr, "compressed-save fixture needs an isolated user-data directory");
+    NMainLoop::CreateProfile("UpstreamCompression");
+    NMainLoop::SetActiveProfile("UpstreamCompression");
+    CObj<NMainLoop::CICSaveFile> snapshot = new NMainLoop::CICSaveFile("upstream-compression.sav");
+    snapshot->Exec();
+    auto* manager = NMainLoop::GetSaveManager();
+    const auto path = manager->GetSlotFilePathW(NMainLoop::S_SLOT_ACTIVE, "upstream-compression.sav");
+    CFileStream file; file.OpenRead(path.c_str());
+    auto snapshotChunks = OuterSaveChunks(file);
+    const vector<unsigned char> marker = {'A', '3', 0};
+    Require(snapshotChunks[3] == marker, "native snapshot command wrote an uncompressed save without the retail A3 marker");
+    Require(snapshotChunks[4] == vector<unsigned char>({1, 0, 0, 0}), "compressed snapshot lost its unpacked format version");
+    file.Seek(0);
+    list<CObj<NMainLoop::IInterfaceBase>> interfaces;
+    { CStructureSaver reader(file, CStructureSaver::READ); reader.Add(2, &interfaces); }
+    Require(interfaces.empty(), "empty native snapshot did not round-trip its interface list");
+    vector<CObj<NWorld::CCmdReload>> commands;
+    for (int i = 0; i < 1024; ++i) commands.emplace_back(new NWorld::CCmdReload(i % NDb::N_SLOTS));
+    CMemoryStream plain, packed;
+    { CStructureSaver writer(plain, CStructureSaver::WRITE); writer.Add(2, &commands); }
+    // The new compressed writer occupies the next EMode value. Using its wire
+    // value keeps this behavioral regression compilable before the API exists.
+    { CStructureSaver writer(packed, static_cast<CStructureSaver::EMode>(2)); writer.Add(2, &commands); }
+    auto plainChunks = OuterSaveChunks(plain), packedChunks = OuterSaveChunks(packed);
+    Require(!plainChunks.count(3) && packedChunks[3] == marker && plainChunks[4] == packedChunks[4],
+        "compressed writing changed plain-stream compatibility or the version envelope");
+    Require(packed.GetSize() < plain.GetSize() / 2, "repetitive native command save was not actually compressed");
+    for (unsigned char tag : {0, 1, 2}) {
+        Require(packedChunks.count(tag) && plainChunks.count(tag), "compressed save omitted a required payload chunk");
+        CMemoryStream payload, unpacked;
+        payload.Write(packedChunks[tag].data(), static_cast<unsigned int>(packedChunks[tag].size()));
+        payload.Seek(0);
+        CNetCompressor decoder; decoder.Unpack(payload, unpacked);
+        Require(unpacked.GetSize() == static_cast<int>(plainChunks[tag].size())
+                && (unpacked.GetSize() == 0 || !std::memcmp(unpacked.GetBuffer(), plainChunks[tag].data(), unpacked.GetSize())),
+            "a compressed payload did not independently decompress to its native plain contents");
+    }
+    vector<CObj<NWorld::CCmdReload>> restored;
+    packed.Seek(0);
+    { CStructureSaver reader(packed, CStructureSaver::READ); reader.Add(2, &restored); }
+    Require(restored.size() == commands.size(), "compressed save lost referenced command objects");
+    for (std::size_t i = 0; i < restored.size(); ++i)
+        Require(IsValid(restored[i]) && restored[i]->nSlot == commands[i]->nSlot,
+            "compressed save changed a restored command's slot");
 }
 
 static void FreshAmbientGraph()
@@ -5398,6 +5468,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "inactive-animated-light")) { AnimatedPointLightGuard(true); return true; }
     if (!std::strcmp(mode, "tiny-animated-light")) { AnimatedPointLightGuard(false); return true; }
     if (!std::strcmp(mode, "fresh-ambient-graph")) { FreshAmbientGraph(); return true; }
+    if (!std::strcmp(mode, "compressed-save-writing")) { CompressedSaveWriting(); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
     if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }
     if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) { AIReactionValueLatch(argv[2], argv[3]); return true; }
