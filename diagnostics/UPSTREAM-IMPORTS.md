@@ -624,3 +624,20 @@ CDB показал `CNodesLayer::GetSamePoints` через `ChangeDynamicLocks`.
 `checkpoint-196-linux-{configure,build,test}.log`,
 `checkpoint-196-turn-red-cdb.log`, `flying-dynamic-locks-{red,green}-test.log`,
 `flying-dynamic-locks-scenario-green-{build,test}.log`.
+
+### Linux registration correction after the airborne attack test
+
+The new `UpstreamFlyingAttackQueue` registration in `e3668019` incorrectly used
+Windows-only `S2_GAME_DIR` in the standalone Linux configuration. The first
+Linux run at checkpoint 203 built `Game`, but this test and the still-uncommitted
+scripted passage test were `Not Run` because the working directory was empty.
+This is a local test-registration mistake, not an engine RED.
+The Linux registration now uses the existing `S2_GAME_DB_PATH`,
+`_s2_upstream_res_dir`, and `_s2_upstream_game_dir` variables.
+After reconfiguration the full Linux group passed 203/203, including both new
+tests; Windows passed 203/203 and the native shot/save/load/5247 scenarios 5/5.
+Evidence: `checkpoint-203-linux-registration-red-test.log`,
+`checkpoint-203-linux-{configure,build,test}.log`,
+`checkpoint-203-scenario-green-{build,test}.log`.
+This commit contains only the already-committed airborne test registration
+repair; the scripted passage runtime correction is committed separately.
