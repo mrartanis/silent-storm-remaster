@@ -7909,6 +7909,95 @@ static void TrapPlacementSuccessorHandoff(const char* databasePath,const char* r
     }
 }
 
+static void ThrownKnifeSuccessorHandoff(const char* databasePath,const char* resourcePath)
+{
+    for (int variant: {1,0,2}) {
+        CObj<NRPG::CGlobalGame> game;
+        auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+        vector<CPtr<NWorld::CUnit>> units;
+        world->GetAllUnits(&units);
+        NWorld::CUnitServer* actor = nullptr;
+        for (auto& entry: units) {
+            auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+            if (unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) { actor = unit; break; }
+        }
+        Require(actor != nullptr, "knife-handoff fixture lacks an ordinary native actor");
+        NDb::CRPGMeleeWeapon* record = nullptr;
+        CDBIterator<NDb::CRPGMeleeWeapon> rows(*NDatabase::GetTable<NDb::CRPGMeleeWeapon>());
+        while (rows.MoveNext()) {
+            auto* blade = rows.Get();
+            if (blade->bThrowing && IsValid(blade->pItem) && IsValid(blade->pItem->pModel)) { record = blade; break; }
+        }
+        Require(record != nullptr, "knife-handoff fixture has no authored modelled throwing knife");
+        const bool replacement = variant != 0;
+        record->pItem->bPlaceInHand = variant != 2;
+        CObj<NRPG::CMeleeWeaponItem> spent = new NRPG::CMeleeWeaponItem(record);
+        CObj<NRPG::CMeleeWeaponItem> next = replacement ? new NRPG::CMeleeWeaponItem(record) : nullptr;
+        spent->nQuantity = 1;
+        if (next) next->nQuantity = 1;
+        auto* inventory = actor->GetUnitRPG()->GetInventory();
+        while (!inventory->GetItems().empty()) inventory->Take(inventory->GetItems().front().pItem);
+        CObj<NRPG::IInventoryItem> previous = inventory->Get(NDb::SLOT_1) ? inventory->TakeOff(NDb::SLOT_1) : nullptr;
+        Require(inventory->Equip(NDb::SLOT_1,spent) && inventory->Activate(NDb::SLOT_1) &&
+            NWorld::GetActionType(actor) == NWorld::AT_THROW, "knife-handoff fixture did not equip a native throwing knife");
+        if (replacement) {
+            CTPoint<int> place;
+            Require(inventory->FindPlace(next,&place) && inventory->Place(place,next), "knife-handoff fixture could not store its successor");
+        }
+        CObj<NWorld::CExecThrowKnife> executor;
+        CVec3 target;
+        for (const auto& offset: {CVec3(1,0,0.5f),CVec3(-1,0,0.5f),CVec3(0,1,0.5f),CVec3(0,-1,0.5f)}) {
+            target = actor->GetPosition().GetCP()+offset;
+            CObj<NWorld::CExecThrowKnife> candidate = new NWorld::CExecThrowKnife(actor,target);
+            if (candidate->CanDoIt(actor->GetPosition()) == NWorld::UCR_OK) { executor = candidate; break; }
+        }
+        Require(executor != nullptr, "knife-handoff fixture has no nearby valid native throw target");
+        actor->animator.SetActiveItem(variant != 2);
+        actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
+        actor->animator.ThrowKnife(actor->GetPosition(),target);
+        const auto animationEnd = actor->animator.GetTimeEnd(), animationLabel = actor->animator.GetTimeLabel1();
+        Require(!actor->animator.IsActiveItem() && animationLabel > 0 && animationEnd >= animationLabel,
+            "knife-handoff fixture did not start a real native throwing animation");
+        const int ap = actor->GetAP(), vp = actor->GetUnitRPG()->GetTotalVP();
+        vector<NWorld::IDynamicObject*> previousObjects;
+        for (auto& object: *world->GetMiscObjects()) previousObjects.push_back(object.GetPtr());
+        Require(!executor->TimeLabelReached() && executor->GetState() == NWorld::CCommandExecute::FINISHED,
+            "the native throwing-knife label did not finish its one-shot command");
+        int projectiles = 0;
+        for (auto& object: *world->GetMiscObjects()) {
+            if (std::find(previousObjects.begin(),previousObjects.end(),object.GetPtr()) != previousObjects.end() ||
+                pSSClasses->GetObjectTypeID(object.GetPtr()) != int(0x10662182)) continue;
+            ++projectiles;
+            CStructureNetworkContext projectileReferences;
+            auto projectileFields = BorrowedObjectFields(object,&projectileReferences);
+            CObj<NRPG::IInventoryItem> flyingItem;
+            NRPG::SAttackRayInfo ray;
+            { CStructureSaver reader(projectileFields,CStructureSaver::READ,&projectileReferences); reader.Add(8,&flyingItem); reader.Add(11,&ray); }
+            Require(flyingItem.GetPtr() == spent.GetPtr() && ray.pUS.GetPtr() == actor &&
+                dynamic_cast<NWorld::CUnitServer*>(ray.pIgnore.GetPtr()) == actor,
+                "the native knife projectile lost the consumed item or throwing actor");
+        }
+        Require(projectiles == 1 && inventory->GetActive() == next.GetPtr(),
+            "the native knife callback failed to launch one blade and equip only its successor");
+        CStructureNetworkContext references;
+        auto fields = BorrowedObjectFields(executor,&references);
+        CObj<NRPG::IInventoryItem> pending;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(4,&pending); }
+        Require(pending.GetPtr() == next.GetPtr(), "the thrown-knife executor did not retain its successor in saved field four");
+        Require(actor->animator.GetTimeEnd() == animationEnd && actor->animator.GetTimeLabel1() == animationLabel,
+            "equipping the next throwing knife interrupted the native throw animation");
+        Require(!actor->animator.IsActiveItem(), "the successor knife became visible in the hand during the throwing animation");
+        fields.Seek(0);
+        CObj<NWorld::CExecThrowKnife> restored = new NWorld::CExecThrowKnife;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&references); static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader); }
+        Require(restored->GetUnitServer() == actor && restored->GetState() == NWorld::CCommandExecute::FINISHED,
+            "restoring the completed knife callback lost its actor or completion state");
+        Require(inventory->GetItems().empty() && actor->GetAP() == ap && actor->GetUnitRPG()->GetTotalVP() == vp &&
+            !actor->HasCommand() && spent->GetQuantity() == 1 && (!replacement || next->GetQuantity() == 1),
+            "knife successor handoff changed quantities, AP, VP or installed a gameplay order");
+    }
+}
+
 static void PersonaFullDisplayName(const char* databasePath)
 {
     CFileStream database;
@@ -10751,6 +10840,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mine-placement-successor-handoff")) { Require(argc == 4, "mine handoff requires db and res"); MinePlacementSuccessorHandoff(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "trap-placement-successor-handoff")) { Require(argc == 4, "trap handoff requires db and res"); TrapPlacementSuccessorHandoff(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "engineer-trap-placement-successor-handoff")) { Require(argc == 4, "engineer trap handoff requires db and res"); TrapPlacementSuccessorHandoff(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "thrown-knife-successor-handoff")) { Require(argc == 4, "knife handoff requires db and res"); ThrownKnifeSuccessorHandoff(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }

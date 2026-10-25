@@ -3250,7 +3250,15 @@ void CExecThrowKnife::ThrowKnife()
 	CreateAttack( &attack, 0, false );
 	if ( attack.empty() )
 		return;
-	pUS->TearOffItem( &item, (NDb::ESlot)pInventory->GetActiveSlot(), true );
+	pUS->TearOffItem( &item, (NDb::ESlot)pInventory->GetActiveSlot(), &pNextSameItem );
+	if ( IsValid( pNextSameItem ) )
+	{
+		pInventory->Take( pNextSameItem );
+		pInventory->Equip( (NDb::ESlot)pInventory->GetActiveSlot(), pNextSameItem );
+	}
+	pUS->Update();
+	if ( IsActiveItemToShow( pInventory ) )
+		pUS->animator.SetWeaponAnimation( pRPG->GetWeaponType() );
 
 	int nToHit;
 	int nDistance = fabs( ptTarget - pUS->GetPosition().GetCP() ) / FP_GRID_STEP;

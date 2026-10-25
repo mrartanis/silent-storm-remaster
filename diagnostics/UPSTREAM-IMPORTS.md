@@ -234,6 +234,7 @@
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Clear the held item and weapon animation after the final picklock charge | `consuming the last picklock charge retained the held-item or weapon animation state` | 17/17; `spent-picklock-pose-cleanup` | `Upstream-Commit` в commit message |
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Defer mine successor activation until placement animation completion | `mine placement equipped the successor before its animation finished` | 279/279; `mine-placement-successor-handoff` | `Upstream-Commit` в commit message |
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Defer door-trap successor activation until placement animation completion | `door trap placement equipped the successor before its animation finished` | 20/20; `trap-placement-successor-handoff` | `Upstream-Commit` в commit message |
+| [7e46d2a6](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7e46d2a66d1ba9ca3bef8f41e14b684425febed3) — Preserve the throwing animation while retaining the successor knife | `the thrown-knife executor did not retain its successor in saved field four` | 21/21; `thrown-knife-successor-handoff` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1089,3 +1090,30 @@ Windows `Game` и Linux `Game` собраны. Связанный набор —
 Свидетельства: `trap-placement-successor-handoff-{red,green}-{build,test}.log`,
 `trap-placement-successor-handoff-game-build.log`,
 `trap-placement-linux-{configure,build,test}.log`, `checkpoint-281-ci-test.log`.
+
+### Передача запасного метательного ножа без перезапуска анимации
+
+Следующий независимый фрагмент `7e46d2a6` использует уже перенесённый overload
+снятия предмета. Настоящий `CExecThrowKnife::TimeLabelReached` воспроизвёл
+отсутствующую ссылку на следующий нож в существующем поле сохранения 4.
+Теперь нож экипируется на метке без новой `ActivateItem`-анимации, а обработчик
+удерживает ссылку на него. Это соответствует knife-ветке upstream; в отличие
+от установки мины/ловушки, экипирование здесь не ждёт отдельного finish-callback.
+
+Тест требует настоящую анимацию броска, посещает новый `CKnifeServer`, проверяет
+его израсходованный нож и бросившего юнита, один снаряд, окончание команды,
+сохранённого преемника, восстановленное состояние, неизменные времена анимации,
+скрытую руку во время броска, AP, VP и количество предметов. Есть варианты со
+следующим ножом, без него и с флагом скрытого предмета. Проверка восстановления
+по-прежнему относится к native field fragment, а не полному игровому save.
+
+Windows/Linux `Game` собраны, связанный набор — 21/21 на каждой платформе;
+Windows configured registration — 1/1. Последние полные профили относятся к
+точке 279, широкий локальный набор 268/268 — к точке 281 перед этим исправлением.
+Звуковой фрагмент `7e46d2a6` остаётся отдельным следующим исправлением.
+Формулы броска из `5780c0be`, шрифты и HD-данные не переносились.
+
+Свидетельства: `thrown-knife-successor-handoff-{red,green}-{build,test}.log`,
+`thrown-knife-successor-handoff-game-build.log`,
+`thrown-knife-successor-handoff-registration-test.log`,
+`thrown-knife-linux-{configure,build,test}.log`.
