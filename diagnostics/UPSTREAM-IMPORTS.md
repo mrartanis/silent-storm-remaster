@@ -534,3 +534,19 @@ RED: до движения 53 AP, после него сервер уже име
 `NetworkClientUITests` прошёл после исправления и ещё три раза подряд;
 логи `network-client-ap-wait-{red,green}-test.log`,
 `network-client-ap-wait-repeat.log`. ObjectStages остаётся в разборе.
+
+### Стабильное сопоставление объектов в сетевой проверке повреждений
+
+Локальный тест из [ef3ad054](https://github.com/mrartanis/silent-storm-remaster/commit/ef3ad054da1529a36a647089238b44282f3aabe2)
+сохранял итератор клиентского списка между применениями сетевых снимков,
+которые пересоздают этот список. RED: `initial object presentation differs`
+после полного прохода стадий первого объекта; в предыдущих запусках также
+проявлялась ошибка доступа. Теперь пары объектов собираются до изменения мира
+и хранятся как слабые ссылки; проверяются исходные DB ID и валидность ссылок.
+Игровой код и владение объектами не изменены, новая upstream-логика не заявляется.
+
+GREEN: ObjectStages 1/1 и три повторения подряд, затем весь выбранный набор
+из шести сетевых сценариев 6/6 (50,21 с). `NetworkEncounterMapsTests` в этот
+набор не входит и остаётся отдельной незавершённой проверкой.
+Логи: `network-object-pairs-{red,green}-test.log`,
+`network-object-pairs-repeat.log`, `network-object-pairs-full-network-test.log`.

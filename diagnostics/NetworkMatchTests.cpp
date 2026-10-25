@@ -75,12 +75,27 @@ int main(int argc,char** argv) {
     NGScene::AddResourceDir(argv[2]);
     if(argc==4 && std::string(argv[3])=="--object-stages") {
       S2Net::NetworkWorld host(true),client(false);client.Apply(host.Initial(),true);
+      // Applying a snapshot rebuilds the client's object list. Resolve the
+      // initial pairs before advancing either world, without retaining iterators.
+      typedef CPtr<NWorld::CObjectServerBase> ObjectRef;
+      vector<pair<ObjectRef,ObjectRef>> objects;
       auto remote=client.Match().world->GetObjectsForHarness().begin();
-      int checked=0;
+      const auto remoteEnd=client.Match().world->GetObjectsForHarness().end();
       for(auto object:host.Match().world->GetObjectsForHarness()) {
+        Require(remote!=remoteEnd,"replica object list is shorter than the host list");
         auto* replica=remote++->GetPtr();
+        Require(replica && replica->GetDBObjectID()==object->GetDBObjectID(),"initial object pairing differs");
         auto* db=object->GetDBObjectForHarness();
         if(!db || db->GetStagesQuantity()<3 || object->GetDestroyStage()!=0)continue;
+        objects.push_back(make_pair(ObjectRef(object.GetPtr()),ObjectRef(replica)));
+        if(objects.size()==3)break;
+      }
+      int checked=0;
+      for(const auto& entry:objects) {
+        Require(IsValid(entry.first) && IsValid(entry.second),"staged object disappeared before testing");
+        auto* object=entry.first.GetPtr();
+        auto* replica=entry.second.GetPtr();
+        auto* db=object->GetDBObjectForHarness();
         ObjectRenderProbe local(host.Match().world,object),peer(client.Match().world,replica);
         local.Sync();peer.Sync();
         Require(local.models==peer.models,"initial object presentation differs");
