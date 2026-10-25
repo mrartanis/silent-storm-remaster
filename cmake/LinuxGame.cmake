@@ -178,6 +178,7 @@ add_test(NAME UpstreamPointLightRadiance COMMAND UpstreamBugTests point-light-ra
 add_test(NAME UpstreamTinyPointLightCache COMMAND UpstreamBugTests tiny-point-light-cache)
 add_test(NAME UpstreamConsoleVisibilityToggle COMMAND UpstreamBugTests console-visibility-toggle)
 add_test(NAME UpstreamAIReactionResetContacts COMMAND UpstreamBugTests ai-reaction-reset-contacts)
+add_test(NAME UpstreamMissionOverlayReadiness COMMAND UpstreamBugTests mission-overlay-readiness)
 add_test(NAME UpstreamDialogueCameraFilter COMMAND UpstreamBugTests dialogue-camera-filter)
 add_test(NAME UpstreamMovieCameraFilter COMMAND UpstreamBugTests movie-camera-filter)
 add_test(NAME UpstreamFadeCameraFilter COMMAND UpstreamBugTests fade-camera-filter)

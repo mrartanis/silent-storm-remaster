@@ -122,7 +122,8 @@ bool CMissionBase::IsReady() const
 	if ( !IsRealTime() && ( IsActionExecuted() || ( pWorld->GetCurrentPlayer() != pActivePlayer->GetPlayer() ) ) )
 		return false;
 
-	return true;
+	NUI::CDesktopWindow *pDesktop = GetDesktop();
+	return !IsValid( pDesktop ) || pDesktop->IsReady();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail CMissionBase::IsActionExecuted @0x1a3e30

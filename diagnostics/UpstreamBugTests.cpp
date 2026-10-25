@@ -822,6 +822,59 @@ public:
     bool TutorialEnabled() const { return bTutorialMode; }
 };
 
+class ReadinessWorld: public NWorld::CWorld
+{
+    OBJECT_NOCOPY_METHODS(ReadinessWorld);
+public:
+    bool sequence = false;
+    bool IsSequence() const override { return sequence; }
+};
+
+class ReadinessMission: public NGame::CMissionBase
+{
+    OBJECT_NOCOPY_METHODS(ReadinessMission);
+    CObj<NUI::CDesktopWindow> desktop;
+public:
+    bool clientSequence = false;
+    void Attach(NWorld::CWorld* world, NUI::CDesktopWindow* top) { pWorld = world; desktop = top; }
+    void Step() override {}
+    bool ProcessEvent(const NInput::SEvent&) override { return false; }
+    bool IsSequence() const override { return clientSequence; }
+    bool IsRealTime() const override { return true; }
+    NUI::CDesktopWindow* GetDesktop() const override { return desktop; }
+};
+
+static void MissionOverlayReadiness()
+{
+    CObj<ReadinessWorld> world = new ReadinessWorld;
+    CObj<ReadinessMission> mission = new ReadinessMission;
+    mission->Attach(world, nullptr);
+    Require(mission->IsReady(), "readiness fixture without an overlay is not interactive");
+    CObj<NUI::CDesktopWindow> gameplay = dynamic_cast<NUI::CDesktopWindow*>(
+        pSSClasses->CreateObject(int(0xB0241942))); // Actual registered CMissionUI.
+    Require(IsValid(gameplay), "native mission desktop class is not registered");
+    mission->Attach(world, gameplay);
+    Require(mission->IsReady(), "ordinary mission desktop incorrectly blocks interaction");
+    vector<CObj<NUI::CDesktopWindow>> overlays;
+    overlays.emplace_back(new NUI::CDesktopWindow);
+    overlays.emplace_back(new NUI::CMissionDlgUI);
+    overlays.emplace_back(new NUI::CMissionMovieUI);
+    overlays.emplace_back(new NUI::CMissionFadeUI);
+    for (const auto& overlay: overlays) {
+        mission->Attach(world, overlay);
+        Require(!mission->IsReady(), "mission remained interactive behind a noninteractive desktop overlay");
+    }
+    mission->Attach(world, gameplay);
+    Require(mission->IsReady(), "closing an overlay did not restore ordinary mission interaction");
+    mission->clientSequence = true;
+    Require(!mission->IsReady(), "desktop readiness bypassed a client-side cinematic sequence");
+    mission->clientSequence = false;
+    world->sequence = true;
+    Require(!mission->IsReady(), "desktop readiness bypassed the remaster's world-sequence guard");
+    world->sequence = false;
+    Require(mission->IsReady(), "sequence completion did not restore mission readiness");
+}
+
 static void CinematicCameraCommands(int kind)
 {
     CObj<NUI::CDesktopWindow> desktop;
@@ -4023,6 +4076,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) { AIReactionValueLatch(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "script-ai-activation") && argc == 4) { ScriptAIActivation(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-event-collection-locks") && argc == 4) { AIEventCollectionLocks(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "mission-overlay-readiness")) { MissionOverlayReadiness(); return true; }
     if (!std::strcmp(mode, "dialogue-camera-filter")) { CinematicCameraCommands(0); return true; }
     if (!std::strcmp(mode, "movie-camera-filter")) { CinematicCameraCommands(1); return true; }
     if (!std::strcmp(mode, "fade-camera-filter")) { CinematicCameraCommands(2); return true; }

@@ -115,6 +115,7 @@ protected:
 public:
 	CMissionUI();
 	CMissionUI( const SWindowInfo &sInfo, NGame::IMission *pMission );
+	bool IsReady() const override { return true; }
 
 	NGame::CUICmdExec* CreateExecutor( NWorld::CUICmd *pCmd );
 
