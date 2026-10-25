@@ -219,6 +219,7 @@
 | [360344ca](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387) — Let unavailable attack modes fall through shared action shortcuts | `an unavailable attack swallowed the shared shortcut instead of falling through to set-mine` | 264/264; `unavailable-attack-shortcut` | `Upstream-Commit` в commit message |
 | [9af844d6](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9af844d6b62ed800bb59a64057b03e0eafc83878) — Probe equipped tools when caching use-tool availability | `the mission's use-tool cache advertised availability without consulting the equipped tool` | 265/265; `equipped-tool-action-availability` | `Upstream-Commit` в commit message |
 | [7a9e903d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7a9e903dd299c89f260c0e9311fbb15127bbd980) — Select available shared-key actions in the original priority order | `shared action key selected set-mine ahead of available first aid` | 266/266; `shared-action-shortcut-priority` | `Upstream-Commit` в commit message |
+| [9af844d6](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9af844d6b62ed800bb59a64057b03e0eafc83878) — Compute invalid mission action caches when they are queried | `querying an invalid action cache returned an uncomputed unavailable action` | 267/267; `invalid-action-cache-query` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -973,3 +974,16 @@ portable/native font wire). Ранняя ошибка компиляции ср�
 исправлена до действительных runtime RED. Случайный запуск устаревшего exe
 после той ошибки не принят за RED; основной RED-log затем перезаписан
 действительным результатом окончательного fixture.
+
+### Контрольная проверка после исправления кэша действий
+
+Windows `ALL_BUILD` и Linux `Game` собраны. Регрессионные профили прошли
+267/267 на каждой платформе; широкий локальный набор — 268/268;
+сетевые сценарии — 6/6; нативный мир, выстрелы и сохранения — 5/5.
+Сценарий 5247 завершился за 2.70s. Это локальная проверка выбранных наборов;
+окончательный GitHub Actions после завершения всех переносов ещё требуется.
+
+Свидетельства: `lazy-action-cache-all-green-build.log`,
+`invalid-action-cache-query-green-test.log`,
+`checkpoint-267-linux-{configure,build,test}.log`,
+`checkpoint-267-ci-test.log`, `checkpoint-267-{network,world}-green-test.log`.

@@ -7245,7 +7245,7 @@ static void EquippedToolActionAvailability(const char* databasePath,const char* 
     check(false);
 }
 
-static void EmptyClipAttackEntry(const char* databasePath,const char* resourcePath)
+static void EmptyClipAttackEntry(const char* databasePath,const char* resourcePath,bool invalidCache = false)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath,resourcePath,false,&game);
@@ -7269,6 +7269,18 @@ static void EmptyClipAttackEntry(const char* databasePath,const char* resourcePa
     mission->Attach(world,game);
     CObj<NGame::CUnitTracker> tracker = new NGame::CUnitTracker(mission,actor);
     mission->selection.push_back(tracker.GetPtr());
+    if (invalidCache) {
+        NGame::SActionInfo expected, queried;
+        auto* attack = new NWorld::CCmdShootObject(nullptr,0);
+        attack->bCanBeReplacedByReload = true;
+        mission->CanDoCommand(attack,true,&expected);
+        Require(expected.bValid && expected.bAvailable && expected.bOk,
+            "invalid-cache control could not probe its loaded native firearm");
+        mission->GetActionInfo(NGame::UA_ATTACK,&queried);
+        Require(queried.bValid && queried.bAvailable == expected.bAvailable && queried.bOk == expected.bOk &&
+            queried.eResult == expected.eResult && queried.nMinAP == expected.nMinAP && queried.nMaxAP == expected.nMaxAP,
+            "querying an invalid action cache returned an uncomputed unavailable action");
+    }
     mission->RefreshActions();
     NGame::SActionInfo loaded;
     mission->GetActionInfo(NGame::UA_ATTACK,&loaded);
@@ -7277,6 +7289,12 @@ static void EmptyClipAttackEntry(const char* databasePath,const char* resourcePa
     weapon->DiscardAmmo();
     Require(weapon->GetAmmoQuantity() == 0 && weapon->CanReload(actor->GetUnitRPG()->GetInventory()),
         "attack-entry fixture failed to empty its weapon while retaining spare ammunition");
+    if (invalidCache) {
+        NGame::SActionInfo retained;
+        mission->GetActionInfo(NGame::UA_ATTACK,&retained);
+        Require(retained.bValid && retained.eResult == loaded.eResult && retained.nMinAP == loaded.nMinAP &&
+            retained.nMaxAP == loaded.nMaxAP, "a valid action cache was recomputed before invalidation");
+    }
     const int ap = actor->GetAP();
     CObj<NWorld::CCmdShootObject> explicitReload = new NWorld::CCmdShootObject(nullptr,0);
     explicitReload->bCanBeReplacedByReload = true;
@@ -10029,6 +10047,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mounted-reload-weapon")) { Require(argc == 4, "mounted reload requires db and res"); MountedReloadWeapon(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "holstered-reload-preparation")) { Require(argc == 4, "reload preparation requires db and res"); HolsteredReloadPreparation(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "empty-clip-attack-entry") && argc == 4) { EmptyClipAttackEntry(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "invalid-action-cache-query") && argc == 4) { EmptyClipAttackEntry(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "object-trap-placement-cursor") && argc == 3) { PlacementCursor(argv[2]); return true; }
     if (!std::strcmp(mode, "mine-placement-cursor") && argc == 3) { PlacementCursor(argv[2],true); return true; }
     if (!std::strcmp(mode, "reload-action-wire")) { Require(argc == 4, "reload wire requires db and res"); ReloadActionWire(argv[2], argv[3]); return true; }

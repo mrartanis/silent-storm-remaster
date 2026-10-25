@@ -690,7 +690,47 @@ NWorld::CUnit::EState CMission::GetUnitsWorldState()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMission::GetActionInfo( EUnitAction eAction, SActionInfo *pInfo )
 {
-	*pInfo = actionsInfoSet[eAction];
+	SActionInfo &info = actionsInfoSet[eAction];
+	if ( !info.bValid )
+	{
+		NWorld::CCmd *pCmd = 0;
+		switch ( eAction )
+		{
+		case UA_DEFAULT:
+		case UA_STOP:
+		case UA_USE: info.SetValid(); break;
+		case UA_CONTINUE: pCmd = new NWorld::CCmdContinue(); break;
+		case UA_MOVE: pCmd = new NWorld::CCmdPath( NAI::SPosition(), NAI::PF_DEFAULT ); break;
+		case UA_LOOK: pCmd = new NWorld::CCmdLook( NAI::SPosition() ); break;
+		case UA_HEAL: pCmd = new NWorld::CCmdHeal( 0 ); break;
+		case UA_MINE: pCmd = new NWorld::CCmdSetMineOnTile( NAI::SPosition() ); break;
+		case UA_ATTACK:
+			{
+				NWorld::CCmdShootObject *pAttack = new NWorld::CCmdShootObject( 0, 0 );
+				pAttack->bCanBeReplacedByReload = true;
+				pCmd = pAttack;
+				break;
+			}
+		case UA_USETOOL: pCmd = new NWorld::CCmdUntrapObject( 0 ); break;
+		case UA_DROPCORPSE: pCmd = new NWorld::CCmdDropCorpse(); break;
+		case UA_WEAPONRELOAD: pCmd = new NWorld::CCmdReload(); break;
+		case UA_EXITPK: pCmd = new NWorld::CCmdExitPK(); break;
+		case UA_HIDE: pCmd = new NWorld::CCmdHide(); break;
+		case UA_STRAFE: pCmd = new NWorld::CCmdStrafe( true ); break;
+		case UA_POSERUN: pCmd = new NWorld::CCmdWishPose( NAI::RUN ); break;
+		case UA_POSEWALK: pCmd = new NWorld::CCmdWishPose( NAI::WALK ); break;
+		case UA_POSECROUCH: pCmd = new NWorld::CCmdWishPose( NAI::CROUCH ); break;
+		case UA_POSECRAWL: pCmd = new NWorld::CCmdWishPose( NAI::CRAWL ); break;
+		case UA_SNIPE_ATTACK: pCmd = new NWorld::CCmdSnipeAttack(); break;
+		case UA_COLLECTAP_1AP: pCmd = new NWorld::CCmdCollectSnipeAP( NWorld::CSAP_1AP ); break;
+		case UA_COLLECTAP_10AP: pCmd = new NWorld::CCmdCollectSnipeAP( NWorld::CSAP_10AP ); break;
+		case UA_COLLECTAP_MAX: pCmd = new NWorld::CCmdCollectSnipeAP( NWorld::CSAP_MAX ); break;
+		case UA_COLLECTAP_ALL: pCmd = new NWorld::CCmdCollectSnipeAP( NWorld::CSAP_ALL ); break;
+		}
+		if ( pCmd )
+			CanDoCommand( pCmd, true, &info );
+	}
+	*pInfo = info;
 }
 bool CMission::CanPerformAction( EUnitAction eAction )
 {
@@ -929,43 +969,11 @@ void CMission::UpdateActionsInfo()
 		std::vector<NWorld::CUnit*> units;for(auto tracker:selected)units.push_back(tracker->GetUnit());
 		networkWorld->SetPreviewSelection(units);
 	}
-	// retail SActionInfo::SetValid @0x1a18d0 -- the "instant OK, zero AP" filler retail's
-	// UpdateActionsInfo (@0x1fb9c0) applies to the always-possible actions
+	for ( int i = 0; i < actionsInfoSet.size(); ++i )
+		actionsInfoSet[i].bValid = false;
+	actionsInfoSet[UA_USE].SetValid();
 	actionsInfoSet[UA_DEFAULT].SetValid();
-
 	actionsInfoSet[UA_STOP].SetValid();
-
-	CanDoCommand( new NWorld::CCmdContinue(), true, &actionsInfoSet[UA_CONTINUE] );
-	CanDoCommand( new NWorld::CCmdReload(), true, &actionsInfoSet[UA_WEAPONRELOAD] );
-
-	CanDoCommand( new NWorld::CCmdPath( NAI::SPosition(), NAI::PF_DEFAULT ), true, &actionsInfoSet[UA_MOVE] );
-	CanDoCommand( new NWorld::CCmdLook( NAI::SPosition() ), true, &actionsInfoSet[UA_LOOK] );
-
-	actionsInfoSet[UA_USE].SetValid();	// retail @0x1fb9c0 SetValid slot (see above)
-	CanDoCommand( new NWorld::CCmdUntrapObject( 0 ), true, &actionsInfoSet[UA_USETOOL] );
-
-	// Attack-mode entry follows the same replacement-reload policy as its cursor.
-	NWorld::CCmdShootObject *pAttack = new NWorld::CCmdShootObject( 0, 0 );
-	pAttack->bCanBeReplacedByReload = true;
-	CanDoCommand( pAttack, true, &actionsInfoSet[UA_ATTACK] );
-
-	CanDoCommand( new NWorld::CCmdHeal( 0 ), true, &actionsInfoSet[UA_HEAL] );
-	CanDoCommand( new NWorld::CCmdSetMineOnTile( NAI::SPosition() ), true, &actionsInfoSet[UA_MINE] );
-	CanDoCommand( new NWorld::CCmdDropCorpse(), true, &actionsInfoSet[UA_DROPCORPSE] );
-	CanDoCommand( new NWorld::CCmdExitPK(), true, &actionsInfoSet[UA_EXITPK] );
-	CanDoCommand( new NWorld::CCmdHide(), true, &actionsInfoSet[UA_HIDE] );
-
-	CanDoCommand( new NWorld::CCmdStrafe( true ), true, &actionsInfoSet[UA_STRAFE] );
-	CanDoCommand( new NWorld::CCmdWishPose( NAI::RUN ), true, &actionsInfoSet[UA_POSERUN] );
-	CanDoCommand( new NWorld::CCmdWishPose( NAI::WALK ), true, &actionsInfoSet[UA_POSEWALK] );
-	CanDoCommand( new NWorld::CCmdWishPose( NAI::CROUCH ), true, &actionsInfoSet[UA_POSECROUCH] );
-	CanDoCommand( new NWorld::CCmdWishPose( NAI::CRAWL ), true, &actionsInfoSet[UA_POSECRAWL] );
-
-	CanDoCommand( new NWorld::CCmdSnipeAttack(), true, &actionsInfoSet[UA_SNIPE_ATTACK] );
-	CanDoCommand( new NWorld::CCmdCollectSnipeAP( NWorld::CSAP_1AP ), true, &actionsInfoSet[UA_COLLECTAP_1AP] );
-	CanDoCommand( new NWorld::CCmdCollectSnipeAP( NWorld::CSAP_10AP ), true, &actionsInfoSet[UA_COLLECTAP_10AP] );
-	CanDoCommand( new NWorld::CCmdCollectSnipeAP( NWorld::CSAP_MAX ), true, &actionsInfoSet[UA_COLLECTAP_MAX] );
-	CanDoCommand( new NWorld::CCmdCollectSnipeAP( NWorld::CSAP_ALL ), true, &actionsInfoSet[UA_COLLECTAP_ALL] );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // W4.2: GetCamera moved to CMissionBase (retail @0x1a1ee0).
