@@ -829,6 +829,85 @@ public:
     NGScene::CAnimLight* Light() { return pValue; }
 };
 
+static CMemoryStream BorrowedObjectFields(CObjectBase* object, CStructureNetworkContext* references)
+{
+    vector<CObjectBase*> referenced;
+    CStructureNetworkContext graph;
+    graph.include = [&](CObjectBase* child) { referenced.push_back(child); return false; };
+    CMemoryStream traversal;
+    { CStructureSaver writer(traversal, CStructureSaver::WRITE, &graph); object->operator&(writer); }
+    references->externalReferences = true;
+    references->nextID = 100;
+    references->include = [](CObjectBase*) { return false; };
+    for (auto* child : referenced) {
+        if (references->ids.count(child)) continue;
+        const auto id = references->nextID++;
+        references->ids[child] = id; references->refs[id] = child;
+    }
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE, references); object->operator&(writer); }
+    saved.Seek(0);
+    return saved;
+}
+
+static void FreshAmbientGraph()
+{
+    Require(S2Platform::Window() == nullptr, "fresh ambient fixture unexpectedly owns a display window");
+    CObj<NGScene::IGScene> scene = NGScene::CreateScene();
+    CStructureNetworkContext references;
+    auto saved = BorrowedObjectFields(scene, &references);
+    CPtr<CFuncBase<CVec3>> mean, top, bottom, animated;
+    { CStructureSaver reader(saved, CStructureSaver::READ, &references);
+      reader.Add(18, &mean); reader.Add(31, &top); reader.Add(32, &bottom); reader.Add(33, &animated); }
+    Require(IsValid(animated) && pSSClasses->GetObjectTypeID(animated.GetPtr()) == int(0x01123131),
+        "fresh scene omitted its retail animated top-ambient node");
+    Require(IsValid(mean) && IsValid(top) && IsValid(bottom), "fresh scene lost its ambient endpoints");
+    CStructureNetworkContext meanReferences;
+    auto meanFields = BorrowedObjectFields(mean, &meanReferences);
+    CPtr<CFuncBase<CVec3>> meanTop, meanBottom;
+    { CStructureSaver reader(meanFields, CStructureSaver::READ, &meanReferences);
+      reader.Add(2, &meanTop); reader.Add(3, &meanBottom); }
+    Require(meanTop == animated && meanBottom == bottom, "fresh ambient mean bypassed its animated top edge");
+    const CVec3 topColor(0.8f, 0.6f, 0.4f), bottomColor(0.2f, 0.1f, 0.3f);
+    scene->SetAmbient(bottomColor, topColor);
+    CDGPtr<CFuncBase<CVec3>> refreshed(mean);
+    MarkNewDGFrame(); refreshed.Refresh();
+    Require(fabs2(refreshed->GetValue() - (topColor + bottomColor) * 0.5f) < 1e-10f,
+        "fresh animated ambient node changed the unanimated scene mean");
+    CObj<FixedAnimatedLight> animation = new FixedAnimatedLight;
+    animation->Light()->color = CVec3(0.4f, 0.8f, 0.2f); animation->Light()->bEnd = false;
+    references.ids[animation.GetPtr()] = 1; references.refs[1] = animation.GetPtr();
+    CPtr<CPtrFuncBase<NGScene::CAnimLight>> animationEdge = animation.GetPtr();
+    CMemoryStream binding;
+    { CStructureSaver writer(binding, CStructureSaver::WRITE, &references); writer.Add(3, &animationEdge); }
+    binding.Seek(0);
+    { CStructureSaver reader(binding, CStructureSaver::READ, &references); animated->operator&(reader); }
+    animated->NetworkFieldsChanged();
+    MarkNewDGFrame(); refreshed.Refresh();
+    Require(fabs2(refreshed->GetValue() - (animation->Light()->color + bottomColor) * 0.5f) < 1e-10f,
+        "live animated ambient did not reach the scene mean");
+    animation->Light()->color = CVec3(0.9f, 0.3f, 0.7f); animation->Updated();
+    MarkNewDGFrame(); refreshed.Refresh();
+    Require(fabs2(refreshed->GetValue() - (animation->Light()->color + bottomColor) * 0.5f) < 1e-10f,
+        "animated ambient changes did not invalidate the native dependency graph");
+    animation->Light()->bEnd = true; animation->Updated();
+    MarkNewDGFrame(); refreshed.Refresh();
+    Require(fabs2(refreshed->GetValue() - (topColor + bottomColor) * 0.5f) < 1e-10f,
+        "ended ambient animation did not restore the configured top color");
+    CObj<NGScene::CCVec3> sunlight = new NGScene::CCVec3(CVec3(1, 1, 1));
+    CObj<NGScene::CCVec3> gloss = new NGScene::CCVec3(VNULL3);
+    CPtr<CObjectBase> directional = scene->AddDirectionalLight(sunlight, gloss, VNULL3,
+        CVec3(0, 0, 1), VNULL3, CVec2(8, 8), 16.f, true, 0);
+    Require(IsValid(directional), "fresh ambient fixture did not create a native directional light");
+    CStructureNetworkContext directionalReferences;
+    auto directionalFields = BorrowedObjectFields(directional, &directionalReferences);
+    CPtr<CFuncBase<CVec3>> directionalTop;
+    { CStructureSaver reader(directionalFields, CStructureSaver::READ, &directionalReferences);
+      reader.Add(15, &directionalTop); }
+    Require(directionalTop == animated, "directional lighting bypassed the scene's animated ambient edge");
+    Require(S2Platform::Window() == nullptr, "ambient dependency test unexpectedly created a display window");
+}
+
 static void AnimatedPointLightGuard(bool inactive)
 {
     CObj<FixedAnimatedLight> animator = new FixedAnimatedLight;
@@ -5318,6 +5397,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "tiny-point-light-cache")) { TinyPointLightCache(); return true; }
     if (!std::strcmp(mode, "inactive-animated-light")) { AnimatedPointLightGuard(true); return true; }
     if (!std::strcmp(mode, "tiny-animated-light")) { AnimatedPointLightGuard(false); return true; }
+    if (!std::strcmp(mode, "fresh-ambient-graph")) { FreshAmbientGraph(); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
     if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }
     if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) { AIReactionValueLatch(argv[2], argv[3]); return true; }

@@ -117,6 +117,7 @@
 | [ece00052](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/ece000527fc42aa8f059bf82bb6e0e50f9f6f780) — Draw a holstered weapon before starting its reload action | `holstered reload started without scheduling weapon activation preparation` | 150/150; `holstered-reload-preparation` | `Upstream-Commit` в commit message |
 | [61b033f2](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/61b033f25a299389a648c0f84dc0f8140a6c7ef7) — Restore the retail nested reload action save format | `reload action wrote a weapon reference in the retail slot-number field` | 151/151; `reload-action-wire` | `Upstream-Commit` в commit message |
 | [07e6ad72](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/07e6ad72e4142862864e7383a102808072d02d52) — Skip inactive and undersized animated point lights | `inactive animated point light entered scene rendering before its parameters were ready` | 153/153; `animated-light-guard` | `Upstream-Commit` в commit message |
+| [92816737](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9281673753420631d4a5d2bb8e2ab3d38d7c367c) — Connect fresh scenes to the retail animated ambient graph | `fresh scene omitted its retail animated top-ambient node` | 154/154; `fresh-ambient-graph` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -330,3 +331,13 @@ Windows/Linux — 151/151; Windows `ALL_BUILD` и Linux `Game` собраны.
 до освобождения executor. Временный патч исходников удален; копий сборок нет.
 Все части `61b033f2` завершены. Оставшиеся источники и итоговый GitHub Actions
 продолжают проверяться.
+
+### Контроль после новых сцен и анимированных источников света
+
+Профильная группа Windows/Linux — 154/154, Windows `ALL_BUILD`, Linux `Game`
+собраны. Расширенные проверки Windows — 209/209; настоящая стрельба и
+сохранение/загрузка — 4/4. Логи `fresh-ambient-graph-{red,green}-test.log`,
+`fresh-ambient-linux-test.log`, `checkpoint-154-all-build.log`,
+`checkpoint-154-ci-test.log`, `checkpoint-154-shots-test.log`.
+Нативная сцена создается без окна/GPU; тест проверяет реальные связи узлов,
+обновление цвета, конец анимации и возврат к настроенному фоновому свету.

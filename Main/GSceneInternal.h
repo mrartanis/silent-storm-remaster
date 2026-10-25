@@ -494,8 +494,7 @@ OBJECT_BASIC_METHODS(CGScene);
 	CObj<CDecalsManager> pDecalsManager;
 	CObj<CCVec3> pTopAmbient, pBottomAmbient;
 	// release save-format tags 33/34: animated top-ambient DG node + lighting-options bitmask.
-	// pTopAmbientAnimator is the release-new animated-ambient feature; this predecessor render
-	// never creates it (stays a null CObj -> serializes as a null ref).
+	// Fresh and restored scenes share the animated top edge feeding the mean and directional lights.
 	CObj<CAmbientAnimator> pTopAmbientAnimator;
 	// bit 1 = scene receives no depth shadows (fast interface views), bit 2 = no CL updates
 	int nLightingOptions = 0;

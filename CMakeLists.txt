@@ -842,6 +842,7 @@ add_test(NAME UpstreamPointLightRadiance COMMAND UpstreamBugTests point-light-ra
 add_test(NAME UpstreamTinyPointLightCache COMMAND UpstreamBugTests tiny-point-light-cache)
 add_test(NAME UpstreamInactiveAnimatedLight COMMAND UpstreamBugTests inactive-animated-light)
 add_test(NAME UpstreamTinyAnimatedLight COMMAND UpstreamBugTests tiny-animated-light)
+add_test(NAME UpstreamFreshAmbientGraph COMMAND UpstreamBugTests fresh-ambient-graph)
 add_test(NAME UpstreamConsoleVisibilityToggle COMMAND UpstreamBugTests console-visibility-toggle)
 add_test(NAME UpstreamAIReactionResetContacts COMMAND UpstreamBugTests ai-reaction-reset-contacts)
 add_test(NAME UpstreamMissionOverlayReadiness COMMAND UpstreamBugTests mission-overlay-readiness)
