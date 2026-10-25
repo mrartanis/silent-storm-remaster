@@ -822,3 +822,21 @@ Windows `ALL_BUILD` и Linux `Game` собраны. Upstream-набор — 238/
 `simple-cross-layer-pose-entry-{red,green,world-green,network-green}-test.log`,
 `simple-cross-layer-pose-entry-all-green-build.log`,
 `checkpoint-238-linux-{configure,build,test}.log`, `checkpoint-238-ci-test.log`.
+
+### Локальное исправление регистрации для CI без игровых ресурсов
+
+Существующая проверка сравнивала исходные списки Windows и Linux, но 31 тест
+без игровых аргументов был ошибочно помещён под одинаковое условие наличия
+игры. Новый runtime-контроль сгенерированного списка CTest дал RED в
+конфигурации с пустым `S2_GAME_DIR`: отсутствуют именно эти 31 регистрации.
+После выноса регистраций и свойства SDL dummy из условия набор прошёл 125/125;
+все 122 теста движка без ресурсных аргументов присутствуют. Обычный путь
+`G:/SS/lab/baseline` восстановлен, контроль регистрации снова прошёл 1/1.
+Linux `Game` собран, полный upstream-набор прошёл 238/238.
+
+Это локальная ошибка регистрации. В commit message указаны `Original-Test-Commit`
+для 25 исходных коммитов регистраций и первоначальной проверки паритета;
+ложного `Upstream-Commit` нет. Код движка и реестр 281 upstream-коммита не меняются.
+Доказательства и полное происхождение тестов описаны в
+[UPSTREAM-TEST-REGISTRATION.md](UPSTREAM-TEST-REGISTRATION.md).
+Это не подтверждение реального GitHub Actions на окончательной ревизии задачи.
