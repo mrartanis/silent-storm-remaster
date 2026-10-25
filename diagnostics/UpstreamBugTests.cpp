@@ -9036,6 +9036,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "holstered-reload-preparation")) { Require(argc == 4, "reload preparation requires db and res"); HolsteredReloadPreparation(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "empty-clip-attack-entry") && argc == 4) { EmptyClipAttackEntry(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "object-trap-placement-cursor") && argc == 3) { PlacementCursor(argv[2]); return true; }
+    if (!std::strcmp(mode, "mine-placement-cursor") && argc == 3) { PlacementCursor(argv[2],true); return true; }
     if (!std::strcmp(mode, "reload-action-wire")) { Require(argc == 4, "reload wire requires db and res"); ReloadActionWire(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-reload-log-wire")) { AIReloadLogRecord(0); return true; }
     if (!std::strcmp(mode, "ai-reload-log-rollback")) { AIReloadLogRecord(1); return true; }

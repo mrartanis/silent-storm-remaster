@@ -199,6 +199,7 @@
 | [038b1bca](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/038b1bca53b9b94432f7716c772674563917a143) — Refresh disarm targeting cursor and action-point captions | `the native disarm cursor retained valid targeting after the hovered action became unavailable` | 245/245; `tool-targeting-cursor-refresh` | `Upstream-Commit` в commit message |
 | [1c81137e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1c81137e48730ece25e22156919f5390b1c4e667) — Offer replacement reloads when entering attack mode with an empty clip | `the mission's attack-mode entry rejected an empty clip despite an available replacement reload` | 246/246; `empty-clip-attack-entry` | `Upstream-Commit` в commit message |
 | [360344ca](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387) — Use the authored placement cursor for object traps | `object trap placement used the healing cursor instead of the authored trap-placement cursor` | 247/247; `object-trap-placement-cursor` | `Upstream-Commit` в commit message |
+| [360344ca](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387) — Use the authored placement cursor when setting mines | `mine placement used the healing cursor instead of the authored trap-placement cursor` | 248/248; `mine-placement-cursor` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
