@@ -2482,6 +2482,85 @@ static void UnsupportedNavigationBake(const char* databasePath, const char* reso
     Require(unsupported == 0, "native navigation bake generated passable tiles without supporting surfaces");
 }
 
+static void BeginTurnLiveContacts(const char* databasePath, const char* resourcePath, bool staleOwner)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer *watcher = nullptr, *enemy = nullptr, *friendly = nullptr;
+    for (const auto& unit: units)
+        if (IsValid(unit) && unit->CanFight() && !unit->IsAIUnit() && !unit->IsEmptyPK()) { watcher = unit.GetPtr(); break; }
+    Require(watcher, "begin-turn contact fixture has no human watcher");
+    for (const auto& unit: units) {
+        if (!IsValid(unit) || !unit->CanFight() || unit.GetPtr() == watcher) continue;
+        if (!enemy && watcher->GetDiplomacyState(unit) == NDb::DS_ENEMY) enemy = unit.GetPtr();
+        if (!friendly && unit->GetPlayer() == watcher->GetPlayer()) friendly = unit.GetPtr();
+    }
+    if (!friendly) {
+        auto* network = world->GetPathNetwork();
+        vector<NAI::SPathPlace> places;
+        network->GetNearPlaces(SSphere(watcher->GetPosition().GetCP(), 10.f), &places);
+        for (auto place: places) {
+            place.SetPose(NAI::CM_STAND); place.SetDirection(0);
+            if (!network->IsPassable(place) || network->IsLocked(place, true)) continue;
+            friendly = world->AddUnitInGame(place, NRPG::CreateUnit(watcher->GetUnitRPG()->GetRPGUnit()->GetPers()),
+                dynamic_cast<NWorld::CPlayer*>(watcher->GetPlayer()));
+            break;
+        }
+    }
+    Require(enemy && friendly, "begin-turn contact fixture needs an enemy and friendly control");
+    auto* owner = NAI::GetAIUnit(watcher);
+    auto* contact = NAI::GetAIUnit(enemy);
+    Require(IsValid(owner) && IsValid(contact), "begin-turn contact fixture has no native AI wrappers");
+    owner->Synchronize(); contact->Synchronize();
+    auto* state = owner->GetAIUnitState();
+    Require(state && state->pUnit.GetPtr() == owner, "begin-turn fixture lost its native threat owner");
+    const auto known = state->GetKnownEnemies();
+    for (const auto& unit: known) state->RemoveEnemy(unit);
+    const auto possible = state->possibleEnemies.data.units;
+    for (const auto& unit: possible) state->RemovePossibleEnemy(unit);
+    list<CPtr<NWorld::CUnitServer>> visible;
+    if (!staleOwner) { visible.push_back(enemy); visible.push_back(nullptr); visible.push_back(friendly); }
+    // Restore the real TBS visibility base through its existing save format.
+    // Planning HP is a different snapshot and may already have been spent.
+    CStructureNetworkContext references;
+    references.externalReferences = true;
+    references.ids[enemy] = 1; references.refs[1] = enemy;
+    references.ids[friendly] = 2; references.refs[2] = friendly;
+    references.nextID = 100; references.include = [](CObjectBase*) { return false; };
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE, &references); writer.Add(2, &visible); }
+    saved.Seek(0);
+    { CStructureSaver reader(saved, CStructureSaver::READ, &references);
+      static_cast<NWorld::CTBSUnitVision<NWorld::CUnitServer,NWorld::CPlayer>*>(watcher)->operator&(reader); }
+    Require(watcher->GetTBSVisible().size() == visible.size(), "begin-turn fixture did not restore the native visibility list");
+    const int watcherAP = watcher->GetRPG()->GetAP(), enemyAP = enemy->GetRPG()->GetAP();
+    if (staleOwner) {
+        state->AddEnemy(contact); state->pEnemy = contact;
+        owner->SetHP(0, owner->GetMaxHP());
+        Require(owner->IsDead() && watcher->CanFight(), "watcher's planning HP did not diverge from the live unit");
+    } else {
+        state->AddPossibleEnemy(contact); state->pPossibleEnemy = contact;
+        contact->SetHP(0, contact->GetMaxHP());
+        Require(contact->IsDead() && enemy->CanFight(), "contact's planning HP did not diverge from the live unit");
+    }
+    state->PrepareEnemies();
+    std::printf("BEGIN-TURN staleOwner=%d known=%zu possible=%zu selectedEnemy=%d selectedPossible=%d\n", int(staleOwner),
+        state->GetKnownEnemies().size(), state->possibleEnemies.data.units.size(), int(IsValid(state->pEnemy)), int(IsValid(state->pPossibleEnemy)));
+    if (staleOwner) {
+        Require(state->GetKnownEnemies().empty() && state->possibleEnemies.data.units.size() == 1
+                && state->possibleEnemies.data.units.front().GetPtr() == contact,
+            "cached zero watcher HP suppressed the live begin-turn contact refresh");
+    } else {
+        Require(state->GetKnownEnemies().size() == 1 && state->GetKnownEnemies().front().GetPtr() == contact
+                && state->possibleEnemies.data.units.empty(),
+            "cached zero enemy HP suppressed promotion of a visible fighting contact");
+    }
+    Require(watcher->CanFight() && enemy->CanFight() && watcher->GetRPG()->GetAP() == watcherAP
+            && enemy->GetRPG()->GetAP() == enemyAP, "begin-turn contact refresh changed live health or action points");
+}
+
 class CombatContextProbe: public NAI::CAICombatLogic
 {
     OBJECT_NOCOPY_METHODS(CombatContextProbe);
@@ -6774,6 +6853,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "begin-turn-live-watcher") && argc == 4) { BeginTurnLiveContacts(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "begin-turn-live-enemy") && argc == 4) { BeginTurnLiveContacts(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "combat-chooser-context") && argc == 4) { CombatChooserContext(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "live-ai-position") && argc == 4) { LiveAIPosition(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "live-ai-unit-position") && argc == 4) { LiveAIPosition(argv[2], argv[3], true); return true; }

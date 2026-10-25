@@ -151,6 +151,7 @@
 | [e15373d3](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e15373d3e9a6c0e7b0fa0f76e94f94180f737743) — Read AI action targets from the acting unit threat state | `AI action selected another unit's shared target instead of its own contact` | 186/186; `owned-ai-target-selection` | `Upstream-Commit` в commit message |
 | [e15373d3](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e15373d3e9a6c0e7b0fa0f76e94f94180f737743) — Report live server positions from AI unit accessors | `AI position accessor exposed the speculative planning snapshot` | 188/188; `live-ai-position` | `Upstream-Commit` в commit message |
 | [e15373d3](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e15373d3e9a6c0e7b0fa0f76e94f94180f737743) — Preserve another unit context when an older combat chooser completes | `finishing an older combat chooser overwrote another unit's shared planning context` | 189/189; `combat-chooser-context` | `Upstream-Commit` в commit message |
+| [e15373d3](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e15373d3e9a6c0e7b0fa0f76e94f94180f737743) — Refresh begin-turn contacts independently of speculative AI health | `cached zero watcher HP suppressed the live begin-turn contact refresh` | 191/191; `begin-turn-live-contacts` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -583,3 +584,13 @@ GREEN: ObjectStages 1/1 и три повторения подряд, затем 
 исторический импорт, документация, подтверждённое исключение баланса и
 проверка последующих версий. Эти числа описывают исходные коммиты,
 а не число отдельных исправлений.
+
+Уточнение тестов `begin-turn-live-contacts`: исходная миссия предоставляет
+одного человеческого бойца, поэтому дружеский контроль создан штатным
+`AddUnitInGame` на свободной клетке. Первый вариант проверки также требовал
+немедленной очистки выбранного контакта — это отдельная часть `d247d37c`.
+Диагностический запуск показал правильные списки после HP-исправления и
+оставшиеся выбранные указатели. Проверки сужены до списков контактов; обе
+исходные HP-проверки в движке временно восстановлены, RED подтверждён заново,
+затем применён текущий фикс и получен GREEN 191/191. Дополнительный лог —
+`begin-turn-live-contacts-diagnostic-test.log`.

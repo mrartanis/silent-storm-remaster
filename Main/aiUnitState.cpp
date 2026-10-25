@@ -129,7 +129,7 @@ void SAIUnitState::Modified()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void SAIUnitState::PrepareEnemies()
 {
-	if ( !IsAlive( pUnit ) )
+	if ( !IsValid( pUnit ) )
 		return;
 	NWorld::CUnitServer *pUS = pUnit->GetUnitServer();
 	if ( !IsValid( pUS ) )
@@ -143,7 +143,7 @@ void SAIUnitState::PrepareEnemies()
 		if ( !IsValid( pSeen ) || !pSeen->CanFight() )
 			continue;
 		IAIUnit *pAI = GetAIUnit( pSeen );
-		if ( !IsAlive( pAI ) || pUS->GetDiplomacyState( pSeen ) != NDb::DS_ENEMY )
+		if ( !IsValid( pAI ) || pUS->GetDiplomacyState( pSeen ) != NDb::DS_ENEMY )
 			continue;
 		RemoveFrom( &vanished, pAI );
 		RemovePossibleEnemy( pAI );
