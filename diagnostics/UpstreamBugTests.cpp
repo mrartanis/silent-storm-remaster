@@ -84,6 +84,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/UnitTracker.h"
 #include "../DBFormat/DataFormat.h"
 #include "AIUnitFixture.h"
+#include "LightingSceneFixture.h"
 #include "../Main/aiInventory.h"
 #include "../Main/aiWeapon.h"
 #include <cstdio>
@@ -497,6 +498,26 @@ static void PointLightSaveLayout(bool legacy = false)
             Require(roundtrip[i].center[axis] == original[i].center[axis] && roundtrip[i].color[axis] == original[i].color[axis],
                 "point-light resave changed saved position or colour");
     }
+}
+
+static void PointLightShadowFlag()
+{
+    CObj<NGScene::LightingSceneFixture> scene = new NGScene::LightingSceneFixture;
+    NGScene::CLightState light;
+    light.points.emplace_back(CVec3(1, 2, 3), VNULL3, 12.f, false);
+    const SSphere receiver(CVec3(1, 0, 0), 0.1f);
+    NGScene::SDynamicAmbientInfo result;
+    light.TraceDynamicLM(&result, receiver, scene);
+    Require(scene->traceCalls == 0 && result.vXNeg.v.x > 0.f,
+        "point light with shadows disabled still performed an occlusion test");
+    light.points[0].bCastShadow = true;
+    light.TraceDynamicLM(&result, receiver, scene);
+    Require(scene->traceCalls == 1 && fabs2(result.vXNeg.v) == 0,
+        "shadow-casting point light ignored an intervening occluder");
+    scene->blocked = false;
+    light.TraceDynamicLM(&result, receiver, scene);
+    Require(scene->traceCalls == 2 && fabs2(result.vXNeg.v - CVec3(4.f/9.f, 8.f/9.f, 12.f/9.f)) < 1e-10f,
+        "visible shadow-casting point light changed its original attenuation");
 }
 
 static void CompletedZoneRecommendation()
@@ -3291,6 +3312,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "point-light-without-scene")) PointLightWithoutScene();
         else if (!std::strcmp(mode, "point-light-save-layout")) PointLightSaveLayout();
         else if (!std::strcmp(mode, "legacy-point-light-save-layout")) PointLightSaveLayout(true);
+        else if (!std::strcmp(mode, "point-light-shadow-flag")) PointLightShadowFlag();
         else if (!std::strcmp(mode, "completed-zone-recommendation")) CompletedZoneRecommendation();
         else if (!std::strcmp(mode, "perk-tooltip-parameters")) PerkTooltipParameters();
         else if (!std::strcmp(mode, "mechanical-step-sound")) MechanicalStepSound();

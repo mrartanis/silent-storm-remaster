@@ -332,7 +332,7 @@ void CLightState::TraceDynamicLM( SDynamicAmbientInfo *pRes, const SSphere &bv, 
 	for ( int k = 0; k < points.size(); ++k )
 	{
 		const SPointLight &p = points[k];
-		TraceDynamicLMPointLight( pRes, bv.ptCenter, bv.fRadius, p.vCenter, p.fRadius, p.vColor, CVec3(0,0,0), pVis );
+		TraceDynamicLMPointLight( pRes, bv.ptCenter, bv.fRadius, p.vCenter, p.fRadius, p.vColor, CVec3(0,0,0), p.bCastShadow ? pVis : 0 );
 	}
 	for ( int k = 0; k < semiPoints.size(); ++k )
 	{
