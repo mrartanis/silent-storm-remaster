@@ -528,7 +528,74 @@ class AttackState: public NGame::CStateAttack
 public:
     void Attach(NGame::IMission* mission) { CStateBase::Initialize(mission); }
     void RefreshCursor() { UpdateCursor(); }
+    void RefreshCaption() { UpdateCursorInfo(); }
 };
+
+class AttackCursorUnit: public NWorld::CUnitServer
+{
+    OBJECT_NOCOPY_METHODS(AttackCursorUnit);
+public:
+    EState cursorState = ST_NORMAL_MELEE;
+    EState GetState() override { return cursorState; }
+};
+
+class AttackCursorMission: public AttackMission
+{
+    OBJECT_NOCOPY_METHODS(AttackCursorMission);
+public:
+    vector<CPtr<NGame::IUnitTracker>> selection;
+    void GetSelectedUnits(vector<CPtr<NGame::IUnitTracker>>* result) const override { *result = selection; }
+    int CountSelected() override { return static_cast<int>(selection.size()); }
+    bool IsRealTime() const override { return false; }
+};
+
+static void SetAttackPreview(AttackState* state, const NGame::SActionInfo& info)
+{
+    CMemoryStream stream;
+    auto value = info;
+    auto location = NAI::HL_ANY;
+    { CStructureSaver writer(stream, CStructureSaver::WRITE); writer.Add(3, &value); writer.Add(5, &location); }
+    stream.Seek(0);
+    { CStructureSaver reader(stream, CStructureSaver::READ); static_cast<CObjectBase*>(state)->operator&(reader); }
+}
+
+static void MeleeAttackCursor(const char* databasePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database, CStructureSaver::READ);
+    CObj<AttackCursorMission> mission = new AttackCursorMission;
+    CObj<AttackCursorUnit> unit = new AttackCursorUnit;
+    CObj<NGame::CUnitTracker> tracker = new NGame::CUnitTracker(mission, unit);
+    mission->selection.push_back(tracker.GetPtr());
+    CObj<AttackState> state = new AttackState;
+    state->Attach(mission);
+    NGame::SActionInfo info;
+    info.SetValid();
+    SetAttackPreview(state, info);
+    NInput::SEvent event;
+    while (NInput::GetEvent(&event)) {}
+    for (auto entry : {std::make_pair(NWorld::CUnit::ST_NORMAL_MELEE, 8),
+                       std::make_pair(NWorld::CUnit::ST_NORMAL_KNIFE, 9),
+                       std::make_pair(NWorld::CUnit::ST_NORMAL_RIFLE, 10)}) {
+        Require(NDb::GetUICursor(entry.second) != nullptr, "fixture attack cursor record is absent");
+        unit->cursorState = entry.first;
+        state->RefreshCursor();
+        Require(state->GetCursorInfo().pCursor == NDb::GetUICursor(entry.second),
+            "attack cursor did not distinguish fists, knife and firearm");
+    }
+    info.eResult = NWorld::UCR_OK_RELOAD;
+    SetAttackPreview(state, info);
+    state->RefreshCursor();
+    Require(state->GetCursorInfo().pCursor == NDb::GetUICursor(NGame::N_CURSOR_RELOAD),
+        "attack cursor lost replacement-reload priority");
+    info.bOk = false;
+    info.eResult = NWorld::UCR_UNAVAILABLE;
+    SetAttackPreview(state, info);
+    state->RefreshCursor();
+    Require(state->GetCursorInfo().pCursor == NDb::GetUICursor(NGame::N_CURSOR_BLOCK),
+        "unavailable attack did not retain the blocked cursor");
+}
 
 static void BindInitialization()
 {
@@ -2818,6 +2885,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "sniper-targetless-probe") && argc == 4) SniperHeldAim(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "sniper-held-aim") && argc == 4) SniperHeldAim(argv[2], argv[3]);
         else if (!std::strcmp(mode, "person-clue-creation") && argc == 4) PersonClueCreation(argv[2], argv[3]);
+        else if (!std::strcmp(mode, "melee-attack-cursor") && argc == 4) MeleeAttackCursor(argv[2]);
         else if (!std::strcmp(mode, "replacement-person-inventory-clue") && argc == 4) PersonClueCreation(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "inventory-clue-creation") && argc == 4) InventoryClueCreation(argv[2], argv[3]);
         else if (!std::strcmp(mode, "inventory-clue-count") && argc == 4) InventoryClueCreation(argv[2], argv[3], true);

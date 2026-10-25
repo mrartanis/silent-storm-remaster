@@ -921,6 +921,9 @@ void CStateAttack::UpdateCursor()
 					switch( eState )
 					{
 						case NWorld::CUnit::ST_NORMAL_MELEE:
+							nDefault = N_CURSOR_ATTACK_FIST;
+							break;
+						case NWorld::CUnit::ST_NORMAL_KNIFE:
 							nDefault = N_CURSOR_ATTACK_MELEE;
 							break;
 						case NWorld::CUnit::ST_NORMAL_GRENADE:
