@@ -6077,6 +6077,38 @@ static void NavigationAliasDestinations(bool arrayOutput, bool isolatedSource = 
     Require(aliases().empty(), "unequal displacement or isolated aliases were still reported as connected copies");
 }
 
+static void IsolatedTransitionEntry()
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    network->CreateLayer(4,4,VNULL2,0.f,0);
+    network->CreateLayer(4,4,VNULL2,0.f,1,network->GetLayer(0)->pGroup);
+    network->Freeze(true);
+    NAI::STile connected{};
+    connected.nHeight = 100;
+    connected.nPassable = NAI::CP_STAND | NAI::CP_CROUCH;
+    connected.nMoveStand = 1;
+    connected.nFlags = NAI::TF_STAND_PASSABLE | NAI::TF_HAS_SAME;
+    auto& sourceTile = network->GetLayer(0)->tiles[1][1];
+    auto& targetTile = network->GetLayer(1)->tiles[1][1];
+    sourceTile = targetTile = connected;
+    NAI::SPathPlace source(1,1,0), target(1,1,1);
+    source.SetPose(NAI::CM_STAND); target.SetPose(NAI::CM_STAND);
+    Require(NAI::GetTransitionType(network,source,target) != NAI::TT_NO_WAY,
+        "connected same-point transition control failed");
+    targetTile.nMoveStand = 0;
+    Require(NAI::GetTransitionType(network,target,source) != NAI::TT_NO_WAY,
+        "an occupied isolated source could not escape to a connected same-point copy");
+    Require(NAI::GetTransitionType(network,source,target) == NAI::TT_NO_WAY,
+        "a reverse same-point shortcut allowed entry into an isolated destination");
+    targetTile.nMoveCrouch = 1;
+    Require(NAI::GetTransitionType(network,source,target) != NAI::TT_NO_WAY,
+        "a structurally connected crouch alias was rejected by transition classification");
+    targetTile.nMoveCrouch = 0;
+    targetTile.nFlags |= NAI::TF_HAS_INTERGRID;
+    Require(NAI::GetTransitionType(network,source,target) != NAI::TT_NO_WAY,
+        "an intergrid-connected alias was rejected by transition classification");
+}
+
 static void ConnectedDirectTransitions()
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
@@ -7872,6 +7904,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "empty-passage-exit") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "scripted-passage-transition") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "flying-attack-queue") && argc == 4) { FlyingAttackQueue(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "isolated-transition-entry")) { IsolatedTransitionEntry(); return true; }
     if (!std::strcmp(mode, "connected-direct-transitions")) { ConnectedDirectTransitions(); return true; }
     if (!std::strcmp(mode, "nearby-connected-destination")) { NearbyConnectedDestination(); return true; }
     if (!std::strcmp(mode, "isolated-source-alias-vector")) { NavigationAliasDestinations(false,true); return true; }

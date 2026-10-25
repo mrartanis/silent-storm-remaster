@@ -151,6 +151,8 @@ ETransitionType GetTransitionType( const IPathNetwork *_pNet, const SPathPlace &
 		SPathPlace s( src.GetX(), src.GetY(), src.GetLayer() );
 		SPathPlace d( dst.GetX(), dst.GetY(), dst.GetLayer() );
 		CNodesLayer *pDstLayer = layers[dst.GetLayer()];
+		if ( !pDstLayer->tiles[dst.GetY()][dst.GetX()].HasNavigationLinks() )
+			return TT_NO_WAY;
 		if ( HasSame( pNet, s, d.GetLayer() ) )
 		{
 			SPathPlace test( src );
