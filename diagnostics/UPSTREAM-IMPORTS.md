@@ -203,6 +203,7 @@
 | [72000d27](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/72000d27a460a0300bc6cae497e1d69b61d80f17) — Keep opposing hotseat players out of allied visibility sharing | `opposing hotseat players shared contacts, objects or traps merely because both used scenario ID zero` | 249/249; `hotseat-opponent-visibility` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Keep playing music when its database record is replaced | `replacing a music database record restarted its already-playing file instead of adopting the live stream` | 250/250; `reloaded-music-record` | `Upstream-Commit` в commit message |
 | [2826ebed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2826ebed4e5a7edd6e15161b21e347d025d4a2e5) — Advance mission sound on the game clock including skipped intervals | `the native mission passed raw wall time to sound and omitted the fast-forwarded game interval` | 251/251; `mission-sound-game-clock` | `Upstream-Commit` в commit message |
+| [2826ebed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2826ebed4e5a7edd6e15161b21e347d025d4a2e5) — Age world sound effects before scheduling and seeking their samples | `an expired world sound effect restarted after visibility was restored instead of seeking past its sample end` | 252/252; `delayed-sound-effect-age` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

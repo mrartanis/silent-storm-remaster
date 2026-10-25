@@ -71,7 +71,11 @@ void CRenderSound::AddEffect( STime tStart, NDb::CSoundEffect *pEffect, CFuncBas
 	if ( !pEffect )
 		CPtr< CFuncBase<CVec3> > pHold( pPosition );
 	else
-		Register( pScene->AddEffect( pEffect, timer.GetTime()->GetValue(), timer.GetTime(), pPosition, flags ) );
+	{
+		// Effects take the same elapsed age as positional sound events.
+		const int nDelay = Max( 0, (int)( timer.GetTime()->GetValue() - tStart ) - 50 );
+		Register( pScene->AddEffect( pEffect, (STime)nDelay, timer.GetTime(), pPosition, flags ) );
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Retail v1.2 0x6d5eb0: use the same saved-event age as positional sounds.

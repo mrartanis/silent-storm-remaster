@@ -30,7 +30,11 @@
 #include "../Main/Sound.h"
 #include "../Main/RWSound.h"
 #include "../Main/RWGame.h"
+#include "../Main/SoundFormat.h"
+#include "../Misc/BasicShare.h"
 #include "../FModSound/FMsound.h"
+#include "../DBFormat/DataSound.h"
+#include "../Main/SoundEffect.h"
 #include "../third_party/fmod/include/fmod.h"
 #include "../Main/iMissionDlgUI.h"
 #include "../Main/iMissionUI.h"
@@ -1881,6 +1885,172 @@ static void MissionSoundGameClock()
     draw(false);
     Require(renderer->calls == 3 && !renderer->advance && renderer->time == 15000,
         "using the game clock lost the native sound pause flag or skipped-time offset");
+}
+
+namespace NSound { extern CBasicShare<int,CFileSample3D> share3DSamples; }
+
+class CachedEffectSampleAccess: public NSound::CFileSample3D
+{
+public:
+    static auto ValueMember() { return &CachedEffectSampleAccess::pValue; }
+};
+
+class EffectSoundSource: public NWorld::IVisObj
+{
+    OBJECT_NOCOPY_METHODS(EffectSoundSource);
+public:
+    CPtr<NDb::CSoundEffect> effect;
+    CObj<NGScene::CCVec3> position = new NGScene::CCVec3(CVec3(0,0,0));
+    STime start;
+    EffectSoundSource(): start(0) {}
+    EffectSoundSource(NDb::CSoundEffect* record,STime time): effect(record),start(time) {}
+    void Visit(NWorld::ISoundVisitor* visitor) override { visitor->AddEffect(start,effect,position,vector<int>()); }
+};
+
+static void LegacySoundEffectFields(NDb::CSoundInstance* record,CFuncBase<STime>* time,CFuncBase<CVec3>* position)
+{
+    CStructureNetworkContext references;
+    references.externalReferences = true; references.nextID = 100;
+    references.ids[time] = 1; references.refs[1] = time;
+    references.ids[position] = 2; references.refs[2] = position;
+    references.include = [](CObjectBase*) { return false; };
+    STime begin = 12000, last = 11000;
+    CDBPtr<NDb::CSoundInstance> data = record;
+    CDGPtr<CFuncBase<STime>> clock = time;
+    CDGPtr<CFuncBase<CVec3>> placement = position;
+    CObj<NFMSound::CSound3D> channel;
+    vector<int> flags{21,34};
+    CMemoryStream legacy;
+    { CStructureSaver writer(legacy,CStructureSaver::WRITE,&references);
+      writer.Add(2,&begin); writer.Add(3,&last); writer.Add(4,&data); writer.Add(5,&clock);
+      writer.Add(6,&placement); writer.Add(7,&channel); writer.Add(8,&flags); }
+    CObj<NSound::CSoundInstance> restored = new NSound::CSoundInstance;
+    legacy.Seek(0);
+    { CStructureSaver reader(legacy,CStructureSaver::READ,&references);
+      static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader); }
+    CStructureNetworkContext roundReferences;
+    auto saved = BorrowedObjectFields(restored,&roundReferences);
+    STime savedBegin = 0, savedLast = 0;
+    CDBPtr<NDb::CSoundInstance> savedRecord;
+    CDGPtr<CFuncBase<STime>> savedTime;
+    CDGPtr<CFuncBase<CVec3>> savedPosition;
+    vector<int> savedFlags;
+    { CStructureSaver reader(saved,CStructureSaver::READ,&roundReferences);
+      reader.Add(2,&savedBegin); reader.Add(3,&savedLast); reader.Add(4,&savedRecord);
+      reader.Add(5,&savedTime); reader.Add(6,&savedPosition); reader.Add(8,&savedFlags); }
+    Require(savedBegin == begin && savedLast == last && savedRecord.GetPtr() == record &&
+        savedTime.Get() == time && savedPosition.Get() == position && savedFlags == flags,
+        "sound-effect ageing changed the existing saved field numbers or their original meanings");
+}
+
+static void DelayedSoundEffectAge(const char* databasePath)
+{
+    Require(std::getenv("S2_AUDIO_HEADLESS") != nullptr, "sound-effect fixture requires headless native audio");
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    CDBIterator<NDb::CSound> sounds(*NDatabase::GetTable<NDb::CSound>());
+    Require(sounds.MoveNext(), "sound-effect fixture has no actual sample record");
+    auto* soundRecord = sounds.Get(); soundRecord->bLoop = false;
+    NFMSound::SStartInfo info; info.nMaxChannels = 4;
+    Require(NFMSound::Init(info), "sound-effect fixture could not initialize audio");
+    struct AudioCleanup { ~AudioCleanup() { ClearHoldQueue(); NFMSound::Done(); } } cleanup;
+    const auto wave = SilentPCMFixture();
+    CObj<NFMSound::CSample3D> sample = NFMSound::LoadSample3D(wave.data(),static_cast<int>(wave.size()),1.f,100.f,0);
+    Require(IsValid(sample), "sound-effect fixture could not decode its real PCM sample");
+    CObj<NSound::CFileSample3D> loader = NSound::share3DSamples.Get(soundRecord->GetRecordID());
+    (loader.GetPtr()->*CachedEffectSampleAccess::ValueMember()) = sample.GetPtr();
+    CDGPtr<CPtrFuncBase<NFMSound::CSample3D>> cached = loader.GetPtr();
+    cached.Refresh();
+    Require(cached->GetValue() == sample.GetPtr(), "sound-effect fixture did not seed the actual native sample cache");
+    CObj<NDb::CSoundVariant> variant = new NDb::CSoundVariant;
+    variant->pSound = soundRecord;
+    CObj<NDb::CTSound> pool = new NDb::CTSound;
+    pool->variants.push_back(variant.GetPtr()); pool->roulette.AddSector(1);
+    CDBIterator<NDb::CSoundInstance> instances(*NDatabase::GetTable<NDb::CSoundInstance>());
+    Require(instances.MoveNext(), "sound-effect fixture has no native instance record for save compatibility");
+    auto* instance = instances.Get();
+    instance->pSound = pool; instance->nStartTime = 200; instance->nCycleCount = 1;
+    instance->bFadeIn = instance->bFadeOut = false; instance->nFadeSamples = 64;
+    instance->eSoundType = NDb::ST_PERMANENT; instance->fSoundAvgInterval = 1.f; instance->nVolume = 128;
+    CObj<NDb::CSoundEffect> effect = new NDb::CSoundEffect;
+    effect->instances.push_back(instance);
+    CObj<CSetSyncSrc<NWorld::IVisObj>> source = new CSetSyncSrc<NWorld::IVisObj>;
+    CTimeCounter clock; clock.SetCurrent(10000);
+    CObj<NSound::ISoundScene> scene = NSound::CreateSoundScene(nullptr,nullptr,clock.GetTime());
+    CObj<NRender::IRenderSound> mixer = dynamic_cast<NRender::IRenderSound*>(pSSClasses->CreateObject(int(0x03081142)));
+    Require(IsValid(mixer), "sound-effect fixture has no registered native render mixer");
+    CStructureNetworkContext references;
+    references.externalReferences = true; references.nextID = 100;
+    const vector<CObjectBase*> objects{source.GetPtr(),scene.GetPtr(),clock.GetTime()};
+    for (std::size_t i = 0; i < objects.size(); ++i) {
+        references.ids[objects[i]] = unsigned(i+1); references.refs[unsigned(i+1)] = objects[i];
+    }
+    references.include = [](CObjectBase*) { return false; };
+    CMemoryStream saved;
+    { CStructureSaver writer(saved,CStructureSaver::WRITE,&references);
+      writer.Add(1,&source); writer.Add(2,&scene); writer.Add(3,&clock); }
+    saved.Seek(0);
+    { CStructureSaver reader(saved,CStructureSaver::READ,&references); static_cast<CObjectBase*>(mixer.GetPtr())->operator&(reader); }
+    CObj<ICamera> camera = ::CreateCamera(CAMERA_PC);
+    CTransformStack transform; camera->GetTransform(&transform,CVec2(1024,768));
+    auto tick = [&](STime time) { MarkNewDGFrame(); mixer->Update(true,&transform,time); };
+    auto playingChannel = [&]() {
+        int channel = -1;
+        // Native handles increase across sequential starts; maxChannels only caps live voices.
+        // This isolated fixture performs fewer than 16 starts, with handles beginning at one.
+        for (int i = 0; i < 32; ++i) if (FSOUND_IsPlaying(i)) {
+            Require(channel == -1, "sound-effect fixture unexpectedly has multiple playing channels"); channel = i;
+        }
+        return channel;
+    };
+    CObj<EffectSoundSource> expired = new EffectSoundSource(effect,9500);
+    LegacySoundEffectFields(instance,clock.GetTime(),expired->position);
+    source->Set(vector<NWorld::IVisObj*>{expired.GetPtr()});
+    tick(1000);
+    Require(clock.GetTime()->GetValue() == 10000 && playingChannel() == -1,
+        "sound-effect initial-delay control unexpectedly played or moved its baseline clock");
+    tick(1300);
+    Require(clock.GetTime()->GetValue() == 10300, "sound-effect fixture did not advance its real mixer clock");
+    Require(playingChannel() == -1,
+        "an expired world sound effect restarted after visibility was restored instead of seeking past its sample end");
+    source->Set(vector<NWorld::IVisObj*>()); tick(1300);
+    instance->nStartTime = 0;
+    CObj<EffectSoundSource> tail = new EffectSoundSource(effect,10240);
+    source->Set(vector<NWorld::IVisObj*>{tail.GetPtr()}); tick(1300);
+    const int tailChannel = playingChannel();
+    Require(tailChannel >= 0 && FSOUND_GetCurrentPosition(tailChannel) == 441,
+        "a still-audible late effect did not retain its ten-millisecond sample offset");
+    source->Set(vector<NWorld::IVisObj*>()); tick(1300);
+    Require(playingChannel() == -1, "removing an effect source retained its actual native channel");
+    {
+        // Save a not-yet-started runtime node so only the new seek state, not a live channel,
+        // must survive the native object-field round trip.
+        CObj<NSound::CSoundInstance> node = new NSound::CSoundInstance(instance,10,clock.GetTime(),tail->position,vector<int>());
+        CStructureNetworkContext graph;
+        auto snapshot = BorrowedObjectFields(node,&graph);
+        CObj<NSound::CSoundInstance> restored = new NSound::CSoundInstance;
+        { CStructureSaver reader(snapshot,CStructureSaver::READ,&graph);
+          static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader); }
+        CDGPtr<CFuncBase<bool>> refreshed = restored.GetPtr();
+        MarkNewDGFrame(); refreshed.Refresh();
+        const int restoredChannel = playingChannel();
+        Require(restoredChannel >= 0 && FSOUND_GetCurrentPosition(restoredChannel) == 441,
+            "restoring a late sound-effect node discarded its saved sample seek offset");
+    }
+    Require(playingChannel() == -1, "releasing the restored effect node retained its native channel");
+    instance->nStartTime = 200;
+    CObj<EffectSoundSource> future = new EffectSoundSource(effect,10300);
+    source->Set(vector<NWorld::IVisObj*>{future.GetPtr()}); tick(1300);
+    Require(playingChannel() == -1, "a fresh effect ignored its authored start delay");
+    tick(1499);
+    Require(playingChannel() == -1, "a delayed effect started before its scheduled native clock value");
+    tick(1500);
+    const int freshChannel = playingChannel();
+    Require(freshChannel >= 0 && FSOUND_GetCurrentPosition(freshChannel) == 0,
+        "an ordinary delayed effect failed to begin at its authored time and sample start");
+    source->Set(vector<NWorld::IVisObj*>()); tick(1500);
+    Require(playingChannel() == -1, "sound-effect fixture retained a playback channel after source removal");
 }
 
 static void SoundMixerClockCatchUp()
@@ -9264,6 +9434,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
     if (!std::strcmp(mode, "hotseat-opponent-visibility")) { HotseatOpponentVisibility(); return true; }
     if (!std::strcmp(mode, "mission-sound-game-clock")) { MissionSoundGameClock(); return true; }
+    if (!std::strcmp(mode, "delayed-sound-effect-age") && argc == 3) { DelayedSoundEffectAge(argv[2]); return true; }
     if (!std::strcmp(mode, "late-looping-sound-offset")) { LateLoopingSoundOffset(); return true; }
     if (!std::strcmp(mode, "headless-music-stream")) { HeadlessMusicStream(); return true; }
     if (!std::strcmp(mode, "trackless-scene-music")) { TracklessSceneMusicContinuity(); return true; }

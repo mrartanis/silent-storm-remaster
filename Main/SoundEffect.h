@@ -22,10 +22,11 @@ private:
 	CDGPtr< CFuncBase<CVec3> > pPlacement;
 	CObj<NFMSound::CSound3D> pSound;
 	vector<int> flags;
+	STime tStartTime; // elapsed sample seek offset; appended to the existing save fields
 public:
-	ZEND int operator&( CStructureSaver &f ) { f.Add(2,&stBeginTime); f.Add(3,&tLastSound); f.Add(4,&pInstance); f.Add(5,&pTime); f.Add(6,&pPlacement); f.Add(7,&pSound); f.Add(8,&flags); return 0; }
+	ZEND int operator&( CStructureSaver &f ) { f.Add(2,&stBeginTime); f.Add(3,&tLastSound); f.Add(4,&pInstance); f.Add(5,&pTime); f.Add(6,&pPlacement); f.Add(7,&pSound); f.Add(8,&flags); f.Add(9,&tStartTime); return 0; }
 
-	CSoundInstance() {}
+	CSoundInstance(): stBeginTime(0), tLastSound(0), tStartTime(0) { value = false; }
 	CSoundInstance( NDb::CSoundInstance *_pInstance, STime t, CFuncBase<STime> *_pTime, CFuncBase<CVec3> *pPos, const vector<int> &flags );
 
 	void Pause( bool bPause );	// retail @0x308eb0 leg: freeze/resume the instance's channel

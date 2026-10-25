@@ -12,10 +12,14 @@ namespace NSound
 extern CBasicShare<int, CFileSample3D> share3DSamples;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CSoundInstance::CSoundInstance( NDb::CSoundInstance *_pInstance, STime t, CFuncBase<STime> *_pTime, CFuncBase<CVec3> *pPos, const vector<int> &_flags )
-	: pInstance(_pInstance), stBeginTime(t), pTime(_pTime), pPlacement(pPos), flags(_flags) 
+	: pInstance(_pInstance), pTime(_pTime), pPlacement(pPos), flags(_flags)
 {
 	value = false;
-	stBeginTime += pInstance->nStartTime;
+	// t is elapsed effect age; keep the authored delay on the current clock.
+	pTime.Refresh();
+	const int nWait = (int)( pInstance->nStartTime - t );
+	tStartTime = nWait < 0 ? (STime)-( (__int64)nWait ) : 0;
+	stBeginTime = pTime->GetValue() + (STime)Max( 0, nWait );
 	tLastSound = stBeginTime - 1000 * pInstance->fSoundAvgInterval;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -77,6 +81,7 @@ void CSoundInstance::Recalc()
 		p.bFadeIn = pInstance->bFadeIn;
 		p.bFadeOut = pInstance->bFadeOut;
 		p.nFadeSamples = pInstance->nFadeSamples;
+		p.nStartMs = (int)tStartTime;
 		pSound = NFMSound::Play3DSound( p );
 		tLastSound = pTime->GetValue();
 	}
