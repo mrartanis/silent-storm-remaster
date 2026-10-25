@@ -7724,7 +7724,7 @@ static void SpentPicklockPoseCleanup(const char* databasePath,const char* resour
 
 static void MinePlacementSuccessorHandoff(const char* databasePath,const char* resourcePath)
 {
-    for (int variant: {1,0,2}) {
+    for (int variant: {1,0,2,3}) {
         CObj<NRPG::CGlobalGame> game;
         auto world = FixtureWorld(databasePath,resourcePath,false,&game);
         vector<CPtr<NWorld::CUnit>> units;
@@ -7764,7 +7764,8 @@ static void MinePlacementSuccessorHandoff(const char* databasePath,const char* r
         vector<CVec3> places(1,target.GetCP());
         vector<CPtr<NWorld::CMine>> nearby;
         Require(!world->GetMineTracker()->GetMines(places,&nearby), "mine-handoff fixture target already has a mine");
-        CObj<NWorld::CExecSetMine> executor = new NWorld::CExecSetMine(actor,new NWorld::CCmdSetMineOnTile(target));
+        CObj<NWorld::CCmdSetMineOnTile> command = new NWorld::CCmdSetMineOnTile(target);
+        CObj<NWorld::CExecSetMine> executor = new NWorld::CExecSetMine(actor,command);
         Require(executor->CanDoIt(actor->GetPosition()) == NWorld::UCR_OK,
             "mine-handoff fixture cannot perform the ordinary placement command");
         actor->animator.SetActiveItem(!hidden);
@@ -7788,7 +7789,18 @@ static void MinePlacementSuccessorHandoff(const char* databasePath,const char* r
         Require(savedNext.GetPtr() == next.GetPtr(), "the pending mine successor was not retained in executor saved field three");
         fields.Seek(0);
         CObj<NWorld::CExecSetMine> restored = new NWorld::CExecSetMine;
-        { CStructureSaver reader(fields,CStructureSaver::READ,&references); static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader); }
+        if (variant == 3) {
+            // Old saves had no pending field: the next item was already equipped at the label.
+            inventory->Take(next);
+            Require(inventory->Equip(NDb::SLOT_1,next), "legacy mine fixture could not install its already-active successor");
+            CMemoryStream legacy;
+            { CStructureSaver writer(legacy,CStructureSaver::WRITE,&references); writer.Add(1,static_cast<NWorld::CCommandExecute*>(executor.GetPtr())); writer.Add(2,&command); }
+            legacy.Seek(0);
+            { CStructureSaver reader(legacy,CStructureSaver::READ,&references); static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader); }
+        } else {
+            CStructureSaver reader(fields,CStructureSaver::READ,&references);
+            static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader);
+        }
         Require(restored->GetUnitServer() == actor, "restoring the pending mine callback lost its native actor");
         executor = nullptr;
         restored->AnimationFinished();
@@ -7799,6 +7811,101 @@ static void MinePlacementSuccessorHandoff(const char* databasePath,const char* r
         Require(inventory->GetItems().empty() && actor->GetAP() == ap && !actor->HasCommand() &&
             spent->GetQuantity() == 1 && (!replacement || next->GetQuantity() == 1),
             "mine animation handoff duplicated an item, changed quantity or AP, or installed an order");
+    }
+}
+
+static void TrapPlacementSuccessorHandoff(const char* databasePath,const char* resourcePath,bool engineer = false)
+{
+    for (int variant: {1,0,2,3}) {
+        CObj<NRPG::CGlobalGame> game;
+        auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+        vector<CPtr<NWorld::CUnit>> units;
+        world->GetAllUnits(&units);
+        NWorld::CUnitServer* actor = nullptr;
+        for (auto& entry: units) {
+            auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+            if (unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) { actor = unit; break; }
+        }
+        CPtr<NWorld::CWindowDoor> door;
+        for (const auto& entry: world->GetObjectsForHarness()) {
+            auto* candidate = dynamic_cast<NWorld::CWindowDoor*>(entry.GetPtr());
+            if (candidate && !candidate->IsBroken() && !candidate->IsMineSet() && world->GetAIMap()->GetHull(entry.GetPtr())) {
+                door = candidate; break;
+            }
+        }
+        Require(actor && door, "trap-handoff fixture lacks a native actor or untrapped authored door with an AI hull");
+        NDb::CRPGGrenade* grenade = nullptr;
+        NDb::CRPGEngGrenade* engGrenade = nullptr;
+        NDb::CRPGItem* item = nullptr;
+        if (engineer) {
+            CDBIterator<NDb::CRPGEngGrenade> rows(*NDatabase::GetTable<NDb::CRPGEngGrenade>());
+            while (rows.MoveNext()) if (IsValid(rows.Get()->pItem) && IsValid(rows.Get()->pItem->pModel)) {
+                engGrenade = rows.Get(); item = engGrenade->pItem; break;
+            }
+        } else {
+            CDBIterator<NDb::CRPGGrenade> rows(*NDatabase::GetTable<NDb::CRPGGrenade>());
+            while (rows.MoveNext()) if (IsValid(rows.Get()->pItem) && IsValid(rows.Get()->pItem->pModel)) {
+                grenade = rows.Get(); item = grenade->pItem; break;
+            }
+        }
+        Require(item != nullptr, "trap-handoff fixture has no modelled authored grenade of the required kind");
+        const bool hidden = variant == 2, replacement = variant != 0;
+        item->bPlaceInHand = !hidden;
+        CObj<NRPG::CGrenadeItem> spent = engineer ? new NRPG::CGrenadeItem(engGrenade) : new NRPG::CGrenadeItem(grenade);
+        CObj<NRPG::CGrenadeItem> next = replacement ?
+            (engineer ? new NRPG::CGrenadeItem(engGrenade) : new NRPG::CGrenadeItem(grenade)) : nullptr;
+        spent->nQuantity = 1; spent->SetMode(NRPG::GM_SETTRAP);
+        if (next) next->nQuantity = 1; // Leave its initial THROW mode for the native handoff to copy.
+        auto* inventory = actor->GetUnitRPG()->GetInventory();
+        while (!inventory->GetItems().empty()) inventory->Take(inventory->GetItems().front().pItem);
+        CObj<NRPG::IInventoryItem> previous = inventory->Get(NDb::SLOT_1) ? inventory->TakeOff(NDb::SLOT_1) : nullptr;
+        Require(inventory->Equip(NDb::SLOT_1,spent) && inventory->Activate(NDb::SLOT_1),
+            "trap-handoff fixture could not equip its native grenade");
+        if (replacement) {
+            CTPoint<int> place;
+            Require(inventory->FindPlace(next,&place) && inventory->Place(place,next), "trap-handoff fixture could not store a successor");
+        }
+        CObj<NWorld::CExecSetTrap> executor = new NWorld::CExecSetTrap(actor,door);
+        Require(executor->CanDoIt(actor->GetPosition()) == NWorld::UCR_OK, "trap-handoff fixture cannot perform its native command");
+        actor->animator.SetActiveItem(!hidden);
+        actor->animator.SetMine(actor->GetPosition(),false);
+        const auto animationEnd = actor->animator.GetTimeEnd(), animationLabel = actor->animator.GetTimeLabel1();
+        const int ap = actor->GetAP();
+        const bool open = door->IsOpen(), locked = door->IsLockedDoor();
+        const int dc = actor->GetUnitRPG()->GetGrenadeTrapDC(grenade);
+        executor->TimeLabelReached();
+        Require(door->IsMineSet() && door->GetMineDC() == dc, "trap handoff changed the placed grenade or disarm difficulty");
+        Require(!inventory->GetActive(), "door trap placement equipped the successor before its animation finished");
+        Require(actor->animator.GetTimeEnd() == animationEnd && actor->animator.GetTimeLabel1() == animationLabel,
+            "consuming a trap grenade interrupted its placement animation");
+        Require(!replacement || next->GetMode() == NRPG::GM_SETTRAP, "pending trap successor lost the grenade's set-trap mode");
+        CStructureNetworkContext references;
+        auto fields = BorrowedObjectFields(executor,&references);
+        CObj<NRPG::IInventoryItem> savedNext;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(3,&savedNext); }
+        Require(savedNext.GetPtr() == next.GetPtr(), "the pending trap grenade was not retained in saved field three");
+        fields.Seek(0);
+        CObj<NWorld::CExecSetTrap> restored = new NWorld::CExecSetTrap;
+        if (variant == 3) {
+            inventory->Take(next);
+            Require(inventory->Equip(NDb::SLOT_1,next), "legacy trap fixture could not install its already-active successor");
+            CMemoryStream legacy;
+            { CStructureSaver writer(legacy,CStructureSaver::WRITE,&references); writer.Add(1,static_cast<NWorld::CCommandExecute*>(executor.GetPtr())); writer.Add(2,&door); }
+            legacy.Seek(0);
+            { CStructureSaver reader(legacy,CStructureSaver::READ,&references); static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader); }
+        } else {
+            CStructureSaver reader(fields,CStructureSaver::READ,&references);
+            static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader);
+        }
+        Require(restored->GetUnitServer() == actor, "restoring the trap callback lost its native actor");
+        executor = nullptr;
+        restored->AnimationFinished();
+        Require(restored->GetState() == NWorld::CCommandExecute::FINISHED && inventory->GetActive() == next.GetPtr(),
+            "the restored trap callback failed to finish with its pending grenade");
+        Require(actor->animator.IsActiveItem() == (replacement && !hidden), "trap completion retained an empty or hidden held pose");
+        Require(door->IsMineSet() && door->GetMineDC() == dc && door->IsOpen() == open && door->IsLockedDoor() == locked &&
+            actor->GetAP() == ap && !actor->HasCommand() && inventory->GetItems().empty() && spent->GetQuantity() == 1 &&
+            (!replacement || next->GetQuantity() == 1), "trap animation handoff changed door state, difficulty, AP, quantity or orders");
     }
 }
 
@@ -10642,6 +10749,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "spent-medkit-pose-cleanup")) { Require(argc == 4, "spent medkit requires db and res"); SpentMedkitPoseCleanup(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "spent-picklock-pose-cleanup")) { Require(argc == 4, "spent picklock requires db and res"); SpentPicklockPoseCleanup(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mine-placement-successor-handoff")) { Require(argc == 4, "mine handoff requires db and res"); MinePlacementSuccessorHandoff(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "trap-placement-successor-handoff")) { Require(argc == 4, "trap handoff requires db and res"); TrapPlacementSuccessorHandoff(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "engineer-trap-placement-successor-handoff")) { Require(argc == 4, "engineer trap handoff requires db and res"); TrapPlacementSuccessorHandoff(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }

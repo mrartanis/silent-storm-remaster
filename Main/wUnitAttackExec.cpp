@@ -2708,7 +2708,7 @@ bool CExecSetTrap::TimeLabelReached()
 				if ( pTarget->SetTrap( pRPGGrenade, pRPG->GetGrenadeTrapDC( pRPGGrenade ), &mods ) )
 				{
 					CUnitServer::SResItem item;
-					pUS->TearOffItem( &item, (NDb::ESlot)pInventory->GetActiveSlot(), true );
+					pUS->TearOffItem( &item, (NDb::ESlot)pInventory->GetActiveSlot(), &pNextSameItem );
 					pUS->AddToVisibleTraps( pTarget );
 				}
 			}
@@ -2718,7 +2718,7 @@ bool CExecSetTrap::TimeLabelReached()
 				if ( pTarget->SetTrap( pRPGEngGrenade, pRPG->GetGrenadeTrapDC( 0 ), &mods, nEngSkill ) )
 				{
 					CUnitServer::SResItem item;
-					pUS->TearOffItem( &item, (NDb::ESlot)pInventory->GetActiveSlot(), true );
+					pUS->TearOffItem( &item, (NDb::ESlot)pInventory->GetActiveSlot(), &pNextSameItem );
 					pUS->AddToVisibleTraps( pTarget );
 				}
 			}
@@ -2727,6 +2727,12 @@ bool CExecSetTrap::TimeLabelReached()
 			ASSERT(0);
 	}
 	return false;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CExecSetTrap::AnimationFinished()
+{
+	TakeNextSameItem( pUS, pNextSameItem );
+	Finished();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecDisarmTrap

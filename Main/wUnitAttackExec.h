@@ -508,7 +508,8 @@ class CExecSetTrap: public CCommandExecute
 private:
 	ZDATA_(CCommandExecute)
 	CPtr<CWindowDoor> pTarget;
-	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CCommandExecute*)this); f.Add(2,&pTarget); return 0; }
+	CObj<NRPG::IInventoryItem> pNextSameItem;
+	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CCommandExecute*)this); f.Add(2,&pTarget); f.Add(3,&pNextSameItem); return 0; }
 	//
 public:
 	CExecSetTrap() {}
@@ -518,6 +519,7 @@ public:
 	virtual int GetStartAP() const;
 	virtual void Run();
 	virtual bool TimeLabelReached();
+	virtual void AnimationFinished();
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecDisarmTrap

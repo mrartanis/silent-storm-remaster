@@ -233,6 +233,7 @@
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Clear temporary holster flags when equipment activation completes | `completed equipment activation retained temporary item or heavy-weapon hiding flags` | 16/16; `equipment-completion-holster-flags` | `Upstream-Commit` в commit message |
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Clear the held item and weapon animation after the final picklock charge | `consuming the last picklock charge retained the held-item or weapon animation state` | 17/17; `spent-picklock-pose-cleanup` | `Upstream-Commit` в commit message |
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Defer mine successor activation until placement animation completion | `mine placement equipped the successor before its animation finished` | 279/279; `mine-placement-successor-handoff` | `Upstream-Commit` в commit message |
+| [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Defer door-trap successor activation until placement animation completion | `door trap placement equipped the successor before its animation finished` | 20/20; `trap-placement-successor-handoff` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1064,3 +1065,27 @@ Windows `ALL_BUILD` и Linux `Game` собраны; полные профили 
 `checkpoint-279-{network,world}-green-test.log`.
 Окончательный GitHub Actions на финальном HEAD остаётся обязательным после
 завершения всех переносов.
+
+### Завершение установки дверной ловушки
+
+`UpstreamTrapPlacementSuccessorHandoff` и
+`UpstreamEngineerTrapPlacementSuccessorHandoff` по отдельности воспроизвели
+раннее экипирование следующей гранаты до исправления `CExecSetTrap`.
+Обе ветки теперь сохраняют отложенный предмет в добавленном теге 3 и передают
+его при завершении анимации. Проверяются обычная/инженерная граната, запасной
+предмет, его отсутствие, флаг скрытого предмета, перенос режима `SETTRAP`,
+восстановленный обработчик и старые поля без тега 3 с уже экипированным
+преемником. Такой старый формат дополнительно проверен для обработчика мины.
+Это field-fragment проверки native обработчиков, а не полный игровой save.
+
+Windows `Game` и Linux `Game` собраны. Связанный набор — 20/20 на каждой
+платформе, широкий текущий локальный набор — 268/268. Последние полные профили
+и `ALL_BUILD` относятся к предыдущей контрольной точке 279; полный текущий
+профиль из 281 проверки в этом шаге не заявляется. Положение двери, замок,
+ловушка, сложность разминирования, AP, количество и режим гранаты сохранены.
+Прежний boolean-wrapper пока нужен отдельным не перенесённым обработчикам
+гранаты и ножа; после их миграции его нужно удалить по итоговому upstream.
+
+Свидетельства: `trap-placement-successor-handoff-{red,green}-{build,test}.log`,
+`trap-placement-successor-handoff-game-build.log`,
+`trap-placement-linux-{configure,build,test}.log`, `checkpoint-281-ci-test.log`.
