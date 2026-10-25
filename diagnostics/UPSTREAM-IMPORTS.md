@@ -96,6 +96,7 @@
 | [884f91f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b) — Drop every backpack item before clearing a dead units inventory | `ordinary death skipped a backpack item while removing earlier entries` | 124/124; `corpse-backpack-drop` | `Upstream-Commit` в commit message |
 | [884f91f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b) — Let scripted dialogue preempt ordinary acknowledgement playback | `scripted dialogue was rejected behind an active ordinary acknowledgement` | 125/125; `scripted-dialogue-priority` | `Upstream-Commit` в commit message |
 | [e36eeb2f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e36eeb2f0b68564688ddea1ca920b2b5535ddad8) — Gate mission interaction on the active desktop readiness | `mission remained interactive behind a noninteractive desktop overlay` | 126/126; `mission-overlay-readiness` | `Upstream-Commit` в commit message |
+| [e36eeb2f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e36eeb2f0b68564688ddea1ca920b2b5535ddad8) — Block manual mission interaction during an AI-controlled turn | `AI-controlled active player remained eligible for manual mission interaction` | 127/127; `ai-player-mission-readiness` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

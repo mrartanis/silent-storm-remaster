@@ -837,12 +837,45 @@ class ReadinessMission: public NGame::CMissionBase
 public:
     bool clientSequence = false;
     void Attach(NWorld::CWorld* world, NUI::CDesktopWindow* top) { pWorld = world; desktop = top; }
+    void AttachActive(NGame::IPlayerTracker* player) { pActivePlayer = player; }
     void Step() override {}
     bool ProcessEvent(const NInput::SEvent&) override { return false; }
     bool IsSequence() const override { return clientSequence; }
     bool IsRealTime() const override { return true; }
     NUI::CDesktopWindow* GetDesktop() const override { return desktop; }
 };
+
+static void AIPlayerMissionReadiness()
+{
+    CObj<ReadinessWorld> world = new ReadinessWorld;
+    CObj<ReadinessMission> mission = new ReadinessMission;
+    CObj<NUI::CDesktopWindow> gameplay = dynamic_cast<NUI::CDesktopWindow*>(
+        pSSClasses->CreateObject(int(0xB0241942)));
+    CObj<NGame::IPlayerTracker> player = dynamic_cast<NGame::IPlayerTracker*>(
+        pSSClasses->CreateObject(int(0xB2022800))); // Actual CPlayerTracker.
+    Require(IsValid(gameplay) && IsValid(player), "AI-player readiness fixture classes are not registered");
+    CObj<NRPG::CGlobalPlayer> global = new NRPG::CGlobalPlayer;
+    global->bAIPlayer = false;
+    CStructureNetworkContext references;
+    references.externalReferences = true;
+    references.ids[global.GetPtr()] = 1; references.refs[1] = global.GetPtr();
+    references.nextID = 100; references.include = [](CObjectBase*) { return false; };
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE, &references); writer.Add(4, &global); }
+    saved.Seek(0);
+    { CStructureSaver reader(saved, CStructureSaver::READ, &references);
+      static_cast<CObjectBase*>(player.GetPtr())->operator&(reader); }
+    Require(player->GetGlobalPlayer() == global.GetPtr(), "native player tracker lost its restored global player");
+    mission->Attach(world, gameplay);
+    mission->AttachActive(player);
+    Require(mission->IsReady(), "human player was not ready in the ordinary mission desktop");
+    global->bAIPlayer = true;
+    Require(!mission->IsReady(), "AI-controlled active player remained eligible for manual mission interaction");
+    global->bAIPlayer = false;
+    Require(mission->IsReady(), "returning to a human active player did not restore mission readiness");
+    mission->AttachActive(nullptr);
+    Require(mission->IsReady(), "AI-player readiness gate broke the pre-player initialization path");
+}
 
 static void MissionOverlayReadiness()
 {
@@ -4077,6 +4110,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "script-ai-activation") && argc == 4) { ScriptAIActivation(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-event-collection-locks") && argc == 4) { AIEventCollectionLocks(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "mission-overlay-readiness")) { MissionOverlayReadiness(); return true; }
+    if (!std::strcmp(mode, "ai-player-mission-readiness")) { AIPlayerMissionReadiness(); return true; }
     if (!std::strcmp(mode, "dialogue-camera-filter")) { CinematicCameraCommands(0); return true; }
     if (!std::strcmp(mode, "movie-camera-filter")) { CinematicCameraCommands(1); return true; }
     if (!std::strcmp(mode, "fade-camera-filter")) { CinematicCameraCommands(2); return true; }

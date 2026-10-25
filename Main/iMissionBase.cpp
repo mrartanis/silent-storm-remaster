@@ -119,6 +119,10 @@ bool CMissionBase::IsReady() const
 	if ( IsSequence() || pWorld->IsSequence() )
 		return false;
 
+	NRPG::CGlobalPlayer *pPlayer = IsValid( pActivePlayer ) ? pActivePlayer->GetGlobalPlayer() : 0;
+	if ( IsValid( pPlayer ) && pPlayer->bAIPlayer )
+		return false;
+
 	if ( !IsRealTime() && ( IsActionExecuted() || ( pWorld->GetCurrentPlayer() != pActivePlayer->GetPlayer() ) ) )
 		return false;
 
