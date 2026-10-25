@@ -3021,6 +3021,21 @@ static void ImmediateCluePickup(const char* databasePath, const char* resourcePa
     }
 }
 
+static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonAnimator* animator)
+{
+    CPtr<NAnimation::CASequence> sequence;
+    CStructureNetworkContext graph;
+    graph.include = [&](CObjectBase* object) {
+        if (auto* found = dynamic_cast<NAnimation::CASequence*>(object)) sequence = found;
+        return false;
+    };
+    CMemoryStream traversal;
+    { CStructureSaver writer(traversal, CStructureSaver::WRITE, &graph);
+      static_cast<CObjectBase*>(animator)->operator&(writer); }
+    Require(IsValid(sequence), "fixture has no current animation sequence");
+    return sequence;
+}
+
 static void PKShellWorld(const char* databasePath, const char* resourcePath, bool extractPilot, bool checkModel = false, int checkFeedback = 0)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -3054,6 +3069,30 @@ static void PKShellWorld(const char* databasePath, const char* resourcePath, boo
     Require(found, "fixture has no unobstructed PK footprint");
     CObj<NWorld::CUnitServer> shell = world->AddUnitInGame(anchor, NRPG::CreateUnit(suitRecord), nullptr);
     Require(shell && shell->IsEmptyPK(), "could not create a PK shell");
+    if (checkFeedback == 3) {
+        Require(shell->WearAsPK(true), "turn-animation fixture could not prepare its shell");
+        pilot->SetPosition(shell->GetPosition());
+        pilot->FlipPanzerklein(shell, false, false);
+        Require(pilot->IsWearingPK(), "turn-animation fixture did not put on the suit");
+        const int ap = pilot->GetRPG()->GetAP();
+        auto sequence = ReadAnimationSequence(pilot->animator.GetSkeletonAnimator());
+        const auto time = pilot->animator.GetTimeEnd();
+        CPtr<NAnimation::CAnimator> before = sequence->GetAnimator(time);
+        Require(IsValid(before), "fixture PK has no active animation track");
+        pilot->animator.StartNewTurn(pilot->GetPosition());
+        Require(sequence->GetAnimator(time) == before.GetPtr(),
+            "new turn replaced the Panzerklein animation with a normal standing track");
+        Require(pilot->GetRPG()->GetAP() == ap, "PK turn animation changed action points");
+        pilot->FlipPanzerklein(nullptr, false, false);
+        pilot->animator.PlaceUnit(pilot->GetPosition());
+        sequence = ReadAnimationSequence(pilot->animator.GetSkeletonAnimator());
+        const auto ordinaryTime = pilot->animator.GetTimeEnd();
+        before = sequence->GetAnimator(ordinaryTime);
+        pilot->animator.StartNewTurn(pilot->GetPosition());
+        Require(sequence->GetAnimator(ordinaryTime) != before.GetPtr(),
+            "ordinary human lost the original turn-start standing refresh");
+        return;
+    }
     if (checkFeedback) {
         CObj<NWorld::CUnitStateNormal> state = new NWorld::CUnitStateNormal(pilot);
         if (checkFeedback == 1) {
@@ -3261,6 +3300,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "pk-waypoint") && argc == 4) PKShellWorld(argv[2], argv[3], false);
         else if (!std::strcmp(mode, "pk-critical-feedback") && argc == 4) PKShellWorld(argv[2], argv[3], false, false, 1);
         else if (!std::strcmp(mode, "pk-pose-feedback") && argc == 4) PKShellWorld(argv[2], argv[3], false, false, 2);
+        else if (!std::strcmp(mode, "pk-turn-animation") && argc == 4) PKShellWorld(argv[2], argv[3], false, false, 3);
         else if (!std::strcmp(mode, "pk-model-ownership") && argc == 4) PKShellWorld(argv[2], argv[3], false, true);
         else throw std::runtime_error("unknown upstream regression mode");
         std::printf("PASS: %s\n", mode);

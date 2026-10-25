@@ -1628,7 +1628,7 @@ void CUnitAnimator::Jump( const NAI::SUnitPosition &prevPos, const NAI::SUnitPos
 // !IsDead()
 void CUnitAnimator::StartNewTurn( const NAI::SUnitPosition &cmdPos )
 {
-	if ( !bAimed && !bInactivePose && !IsValid( pCannon ) && !bHealing && !bLadder )
+	if ( !bAimed && !bInactivePose && !IsValid( pCannon ) && !bHealing && !bLadder && !bHasPKSkeleton )
 		Stand( cmdPos, bAimedStrafe );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
