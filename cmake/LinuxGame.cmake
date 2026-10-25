@@ -163,6 +163,8 @@ add_test(NAME UpstreamCompletedZoneRecommendation COMMAND UpstreamBugTests compl
 add_test(NAME UpstreamPermanentClueSingleMap COMMAND UpstreamBugTests permanent-clue-single-map)
 add_test(NAME UpstreamDeferredClickWorld COMMAND UpstreamBugTests deferred-click-world)
 add_test(NAME UpstreamPointLightWithoutScene COMMAND UpstreamBugTests point-light-without-scene)
+add_test(NAME UpstreamPointLightSaveLayout COMMAND UpstreamBugTests point-light-save-layout)
+add_test(NAME UpstreamLegacyPointLightSaveLayout COMMAND UpstreamBugTests legacy-point-light-save-layout)
 add_test(NAME UpstreamPerkTooltipParameters COMMAND UpstreamBugTests perk-tooltip-parameters)
 add_test(NAME UpstreamMechanicalStepSound COMMAND UpstreamBugTests mechanical-step-sound)
 add_test(NAME UpstreamRenderPassCompaction COMMAND UpstreamBugTests render-pass-compaction)

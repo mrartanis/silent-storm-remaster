@@ -91,11 +91,13 @@ public:
 	{
 		CVec3 vColor, vCenter;
 		float fRadius;
+		bool bCastShadow = true;
 		
 		SPointLight() {}
-		SPointLight( const CVec3 _vColor, const CVec3 &_vCenter, float _fR )
-			: vColor(_vColor), vCenter(_vCenter), fRadius(_fR) {}
+		SPointLight( const CVec3 _vColor, const CVec3 &_vCenter, float _fR, bool _bCastShadow = true )
+			: vColor(_vColor), vCenter(_vCenter), fRadius(_fR), bCastShadow(_bCastShadow) {}
 	};
+	static_assert( sizeof(SPointLight) == 32, "Retail cached point-light save layout" );
 	ZDATA
 	vector<SParallelLight> parallel;
 	vector<SSemiPointLight> semiPoints;
@@ -199,4 +201,37 @@ public:
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 }
+// Keep the inline state serializer's codec visible to every caller.
+#include "../FileIO/PortableRenderStateWire.h"
+namespace S2FileIO {
+template<>
+struct StructureFieldCodec<NGScene::CLightState::SPointLight, void> {
+  static constexpr bool kPortable = true;
+  static constexpr std::size_t kWireSize = 32;
+  static constexpr std::size_t kLegacyWireSize = 28;
+  static bool Decode(const std::uint8_t* source, std::size_t length,
+                     NGScene::CLightState::SPointLight* value) {
+    if (!source || !value || (length != kWireSize && length != kLegacyWireSize)) return false;
+    float fields[7];
+    if (!DecodeRenderFloatFields<7>(source, 28, fields)) return false;
+    value->vColor = CVec3(fields[0], fields[1], fields[2]);
+    value->vCenter = CVec3(fields[3], fields[4], fields[5]);
+    value->fRadius = fields[6];
+    value->bCastShadow = length == kLegacyWireSize || source[28] != 0;
+    return true;
+  }
+  static bool Encode(const NGScene::CLightState::SPointLight& value,
+                     std::uint8_t* destination, std::size_t length) {
+    if (!destination || length != kWireSize) return false;
+    const float fields[7] = {value.vColor.x, value.vColor.y, value.vColor.z,
+                            value.vCenter.x, value.vCenter.y, value.vCenter.z,
+                            value.fRadius};
+    if (!EncodeRenderFloatFields<7>(fields, destination, 28)) return false;
+    destination[28] = value.bCastShadow ? 1 : 0;
+    destination[29] = destination[30] = destination[31] = 0;
+    return true;
+  }
+};
+
+} // namespace S2FileIO
 #endif

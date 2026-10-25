@@ -155,6 +155,10 @@ private:
 	int CountChunks( const chunk_id idChunk );
 	//
 	void DataChunk( const chunk_id idChunk, void *pData, int nSize, int nChunkNumber );
+	template<class Codec>
+	static constexpr auto LegacyArrayWireSize(int) -> decltype(Codec::kLegacyWireSize) { return Codec::kLegacyWireSize; }
+	template<class Codec>
+	static constexpr std::size_t LegacyArrayWireSize(...) { return 0; }
 	template<class T>
 	void DataArrayChunk( const chunk_id idChunk, T *p, std::size_t count,
 		int nChunkNumber, std::true_type )
@@ -162,13 +166,22 @@ private:
 		typedef S2FileIO::StructureFieldCodec<T> Codec;
 		if ( count > static_cast<std::size_t>((std::numeric_limits<int>::max)()) / Codec::kWireSize )
 			throw std::runtime_error( "structure array too large" );
-		const int nBytes = static_cast<int>(count * Codec::kWireSize);
+		std::size_t wireSize = Codec::kWireSize;
+		constexpr std::size_t legacySize = LegacyArrayWireSize<Codec>(0);
+		if constexpr (legacySize != 0) {
+			if (IsReading()) {
+				CChunkLevel parent = chunks.back(), saved;
+				if (GetShortChunk(parent, idChunk, saved, nChunkNumber) &&
+				    saved.nLength == static_cast<int>(count * legacySize)) wireSize = legacySize;
+			}
+		}
+		const int nBytes = static_cast<int>(count * wireSize);
 		std::vector<std::uint8_t> bytes(static_cast<std::size_t>(nBytes));
 		if ( IsReading() )
 		{
 			DataChunk( idChunk, bytes.data(), nBytes, nChunkNumber );
 			for ( std::size_t i = 0; i < count; ++i )
-				if ( !Codec::Decode( bytes.data() + i * Codec::kWireSize, Codec::kWireSize, p + i ) )
+				if ( !Codec::Decode( bytes.data() + i * wireSize, wireSize, p + i ) )
 					throw std::runtime_error( "unsupported structure field array" );
 		}
 		else

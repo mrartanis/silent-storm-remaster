@@ -54,7 +54,7 @@
 #include "../Main/GCombiner.h"
 #include "../Main/GSceneUtils.h"
 #include "../Main/GRenderCore.h"
-#include "../Main/GLightmapCalc.h"
+#include "../Main/GLightmapStateWire.h"
 #include "../Main/GGeometryPositionHash.h"
 using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/rpgGlobal.h"
@@ -447,6 +447,56 @@ static void PointLightWithoutScene()
     light.TraceDynamicLM(&result, SSphere(CVec3(1, 0, 0), 0.1f), nullptr);
     Require(fabs2(result.vXNeg.v - CVec3(4.f/9.f, 8.f/9.f, 12.f/9.f)) < 1e-10f,
         "unshadowed semi-point light lost its allowed hemisphere");
+}
+
+struct RetailPointLightFixture
+{
+    float color[3], center[3], radius;
+    bool shadow;
+    unsigned char padding[3];
+};
+static_assert(sizeof(RetailPointLightFixture) == 32, "retail cached point-light record size");
+
+static void PointLightSaveLayout(bool legacy = false)
+{
+    vector<RetailPointLightFixture> original(2);
+    std::memset(original.data(), 0, original.size() * sizeof(original[0]));
+    original[0].color[0] = 0.25f; original[0].color[1] = 0.5f; original[0].color[2] = 0.75f;
+    original[0].center[0] = -3.f; original[0].center[1] = 7.f; original[0].center[2] = 1.f;
+    original[0].radius = 12.f; original[0].shadow = false;
+    original[1].color[0] = 1.f; original[1].color[1] = 0.125f; original[1].color[2] = 0.625f;
+    original[1].center[0] = 9.f; original[1].center[1] = -8.f; original[1].center[2] = 2.f;
+    original[1].radius = 19.f; original[1].shadow = true;
+    CMemoryStream saved;
+    if (legacy) {
+        struct OldPoint { float values[7]; };
+        vector<OldPoint> old(2);
+        for (int i = 0; i < 2; ++i) std::memcpy(old[i].values, &original[i], 28);
+        { CStructureSaver writer(saved, CStructureSaver::WRITE); writer.Add(4, &old); }
+        original[0].shadow = original[1].shadow = true; // Previous remaster always traced shadows.
+    } else {
+        CStructureSaver writer(saved, CStructureSaver::WRITE); writer.Add(4, &original);
+    }
+    saved.Seek(0);
+    NGScene::CLightState light;
+    light.vAmbientColor = light.vUpDifColor = VNULL3;
+    { CStructureSaver reader(saved, CStructureSaver::READ); light.operator&(reader); }
+    Require(light.points.size() == 2, "retail save lost cached point-light records");
+    Require(light.points[1].vCenter == CVec3(9, -8, 2) && light.points[1].fRadius == 19.f,
+        "retail 32-byte point-light records were loaded with the wrong array stride");
+    CMemoryStream resaved;
+    { CStructureSaver writer(resaved, CStructureSaver::WRITE); light.operator&(writer); }
+    resaved.Seek(0);
+    vector<RetailPointLightFixture> roundtrip;
+    { CStructureSaver reader(resaved, CStructureSaver::READ); reader.Add(4, &roundtrip); }
+    Require(roundtrip.size() == original.size(), "point-light resave changed the record count");
+    for (int i = 0; i < 2; ++i) {
+        Require(roundtrip[i].shadow == original[i].shadow && roundtrip[i].radius == original[i].radius,
+            "point-light resave lost the original shadow flag or radius");
+        for (int axis = 0; axis < 3; ++axis)
+            Require(roundtrip[i].center[axis] == original[i].center[axis] && roundtrip[i].color[axis] == original[i].color[axis],
+                "point-light resave changed saved position or colour");
+    }
 }
 
 static void CompletedZoneRecommendation()
@@ -3239,6 +3289,8 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "permanent-clue-single-map")) PermanentClueSingleMap();
         else if (!std::strcmp(mode, "deferred-click-world")) DeferredClickWorld();
         else if (!std::strcmp(mode, "point-light-without-scene")) PointLightWithoutScene();
+        else if (!std::strcmp(mode, "point-light-save-layout")) PointLightSaveLayout();
+        else if (!std::strcmp(mode, "legacy-point-light-save-layout")) PointLightSaveLayout(true);
         else if (!std::strcmp(mode, "completed-zone-recommendation")) CompletedZoneRecommendation();
         else if (!std::strcmp(mode, "perk-tooltip-parameters")) PerkTooltipParameters();
         else if (!std::strcmp(mode, "mechanical-step-sound")) MechanicalStepSound();

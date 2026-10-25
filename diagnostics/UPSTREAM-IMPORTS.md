@@ -77,6 +77,7 @@
 | [438991a1](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/438991a1fdc5ab68be3d163b67aa1c007d7d130e) — Pass the creating world to deferred ClickOfDeath damage | `deferred ClickOfDeath damage lost its creating world` | 100/100; `deferred-click-world` | `Upstream-Commit` в commit message |
 | [5d97df47](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5d97df475142a9f6a08fa56bf69d119d9115ecdc) — Preserve Panzerklein animation tracks at the start of a turn | `new turn replaced the Panzerklein animation with a normal standing track` | 101/101; `pk-turn-animation` | `Upstream-Commit` в commit message |
 | [5d97df47](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5d97df475142a9f6a08fa56bf69d119d9115ecdc) — Skip point-light shadow tracing when no scene is supplied | `access violation in CLightState::TraceDynamicLMPointLight: null pVis passed to TraceScene (confirmed by CDB)` | 102/102; `point-light-without-scene` | `Upstream-Commit` в commit message |
+| [abc36d82](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/abc36d82d852e44560eae4225df9b1a9fc333fbc) — Read retail point-light saves while retaining remaster compatibility | `structure field size mismatch: tag=2 wire=64 memory=56` | 104/104; `point-light-save-layout` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -138,3 +139,17 @@ Windows расширенный набор без внешних ресурсов
 недостающий режим времени в старой тестовой миссии. `8fa7f09f` исправил эту
 оснастку и зафиксировал достоверный GREEN 91/91. Исходный upstream-хеш в обоих
 коммитах относится к правильному источнику `b7f57bd4`; общая история сохранена.
+
+## Проверка совместимости кэша точечных источников света
+
+`point-light-save-layout` сначала воспроизвел несовпадение размера двух
+retail-записей: 64 байта в сохранении против 56 в памяти. Отдельный тест
+старого формата remaster выявил обратное несовпадение при прямом переходе
+на 32 байта. Совместимый читатель принимает оба размера; новая запись
+сохраняет retail-формат, цвет, положение, радиус и флаг теней. Для прежних
+28-байтовых записей сохраняется старое поведение проверки теней.
+
+После этой адаптации Windows ALL_BUILD и Linux Game собираются; на каждой
+платформе проходят 104/104 регрессии. Windows набор без внешних ресурсов
+и дисплея — 183/183, отдельные сценарии стрельбы/сохранения/перезарядки —
+4/4. Это локальные проверки; результат GitHub Actions отслеживается отдельно.
