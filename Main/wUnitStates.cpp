@@ -621,6 +621,8 @@ void CUnitStateHealer::OnStateFinished()
 		{
 			// healing finished and the medkits are used up, remove the item
 			CObj<NRPG::IInventoryItem> pErase = pInventory->TakeOff( (NDb::ESlot)pInventory->GetActiveSlot() );
+			pUS->animator.SetActiveItem( false );
+			pUS->animator.SetWeaponAnimation( NDb::WT_DEFAULT );
 			pUS->Update();
 		}
 	}

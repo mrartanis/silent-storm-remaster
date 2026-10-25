@@ -7602,6 +7602,65 @@ static void CancelledInventoryHiddenItemPose(const char* databasePath,const char
         "cancelling the visual inventory transition changed equipment, AP, quantity or gameplay orders");
 }
 
+static void SpentMedkitPoseCleanup(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    vector<NWorld::CUnitServer*> actors;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) actors.push_back(unit);
+        if (actors.size() == 2) break;
+    }
+    Require(actors.size() == 2, "spent-medkit fixture has fewer than two ordinary native actors");
+    auto* actor = actors[0]; auto* target = actors[1];
+    NDb::CRPGFirstAid* record = nullptr;
+    CDBIterator<NDb::CRPGFirstAid> kits(*NDatabase::GetTable<NDb::CRPGFirstAid>());
+    while (kits.MoveNext()) {
+        auto* kit = kits.Get();
+        if (IsValid(kit->pItem) && kit->effect == NDb::FAE_NORMAL && kit->nQuantity >= 2) { record = kit; break; }
+    }
+    Require(record != nullptr, "spent-medkit fixture has no authored ordinary kit with at least two charges");
+    CObj<NRPG::CFirstAidItem> kit = new NRPG::CFirstAidItem(record);
+    kit->GetItem()->nQuantity = 2;
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    const auto previousWeaponType = actor->GetUnitRPG()->GetWeaponType();
+    Require(previousWeaponType != NDb::WT_DEFAULT, "spent-medkit fixture needs a previous held weapon animation for its restore control");
+    CObj<NRPG::IInventoryItem> previous = inventory->Get(NDb::SLOT_1) ? inventory->TakeOff(NDb::SLOT_1) : nullptr;
+    Require(inventory->Equip(NDb::SLOT_1,kit) && inventory->Activate(NDb::SLOT_1),
+        "spent-medkit fixture could not equip its native first-aid item");
+    const auto weaponType = actor->GetUnitRPG()->GetWeaponType();
+    actor->animator.SetActiveItem(true);
+    actor->animator.SetWeaponAnimation(weaponType);
+    const int ap = actor->GetAP(), vp = target->GetUnitRPG()->GetTotalVP();
+    auto finish = [&]() {
+        CObj<NWorld::CUnitStateHealer> state = new NWorld::CUnitStateHealer(actor,target);
+        state->OnStateFinished();
+    };
+    finish();
+    Require(kit->GetIncQuantity() == 1 && inventory->GetActive() == kit.GetPtr() && actor->animator.IsActiveItem(),
+        "finishing with a nonempty kit changed its remaining charge or held-state control");
+    // A restored legacy pose can still carry the preceding item's animation set.
+    actor->animator.SetWeaponAnimation(previousWeaponType);
+    finish();
+    Require(kit->GetIncQuantity() == 0 && !inventory->GetActive(),
+        "finishing the final medical charge failed to remove exactly one exhausted kit");
+    CMemoryStream fields;
+    CStructureNetworkContext references;
+    references.include = [](CObjectBase*) { return false; };
+    { CStructureSaver writer(fields,CStructureSaver::WRITE,&references); actor->animator.operator&(writer); }
+    fields.Seek(0);
+    auto animation = weaponType;
+    { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(29,&animation); }
+    Require(!actor->animator.IsActiveItem() && animation == NDb::WT_DEFAULT,
+        "finishing the last medkit charge retained the held-item or healing weapon animation state");
+    Require(actor->GetAP() == ap && target->GetUnitRPG()->GetTotalVP() == vp &&
+        !actor->HasCommand() && !target->HasCommand(),
+        "cleaning up the spent medkit changed AP, healed VP or installed an action");
+}
+
 static void PersonaFullDisplayName(const char* databasePath)
 {
     CFileStream database;
@@ -10420,6 +10479,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "cancelled-inventory-hidden-item-pose")) { Require(argc == 4, "inventory cancellation requires db and res"); CancelledInventoryHiddenItemPose(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "initial-hidden-item-pose")) { Require(argc == 4, "initial item pose requires db and res"); CancelledInventoryHiddenItemPose(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "cancelled-equipment-hidden-item-pose")) { Require(argc == 4, "equipment cancellation requires db and res"); CancelledInventoryHiddenItemPose(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "spent-medkit-pose-cleanup")) { Require(argc == 4, "spent medkit requires db and res"); SpentMedkitPoseCleanup(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }
