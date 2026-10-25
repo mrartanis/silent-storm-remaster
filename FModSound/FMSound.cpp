@@ -774,7 +774,8 @@ CSound3D *Play3DSound( const SPlayParams &params )
 	CSound3D *pSound = new CSound3D( params.pSample, params.position, vFPos, params.nVolume, params.nLoops, nChannel );
 	pSound->SetFadeOut( params.bFadeIn, params.bFadeOut, params.nFadeSamples );
 	pSound->nChannel = nChannel;
-	hashChannel[nChannel] = pSound;
+	if ( nChannel != -1 )
+		hashChannel[nChannel] = pSound;
 //	DebugTrace( "Playing channels: %d (max channels: %d, hw:%d)\n", FSOUND_GetChannelsPlaying(), FSOUND_GetMaxChannels(), FSOUND_GetNumHardwareChannels() );
 	return pSound;
 }

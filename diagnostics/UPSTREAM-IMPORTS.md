@@ -205,6 +205,7 @@
 | [2826ebed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2826ebed4e5a7edd6e15161b21e347d025d4a2e5) — Advance mission sound on the game clock including skipped intervals | `the native mission passed raw wall time to sound and omitted the fast-forwarded game interval` | 251/251; `mission-sound-game-clock` | `Upstream-Commit` в commit message |
 | [2826ebed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2826ebed4e5a7edd6e15161b21e347d025d4a2e5) — Age world sound effects before scheduling and seeking their samples | `an expired world sound effect restarted after visibility was restored instead of seeking past its sample end` | 252/252; `delayed-sound-effect-age` | `Upstream-Commit` в commit message |
 | [2826ebed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2826ebed4e5a7edd6e15161b21e347d025d4a2e5) — Keep infinitely repeated world effects looping independently of sample metadata | `an effect with infinite cycle count played once because its sample record was not itself looped` | 253/253; `infinite-sound-effect-loop` | `Upstream-Commit` в commit message |
+| [2826ebed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2826ebed4e5a7edd6e15161b21e347d025d4a2e5) — Release failed and expired sound samples without registering a phantom channel | `the channel table retained an expired sound and its decoded sample under the invalid channel ID` | 254/254; `failed-sound-channel-lifetime` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

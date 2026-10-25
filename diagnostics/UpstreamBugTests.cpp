@@ -1746,6 +1746,41 @@ static void LateLoopingSoundOffset()
         "an expired non-looping event restarted while correcting looping offsets");
 }
 
+static void FailedSoundChannelLifetime()
+{
+    Require(std::getenv("S2_AUDIO_HEADLESS") != nullptr, "failed-channel fixture requires headless native audio");
+    NFMSound::SStartInfo info;
+    info.nMaxChannels = 1;
+    Require(NFMSound::Init(info), "failed-channel fixture could not initialize native audio");
+    struct AudioCleanup { ~AudioCleanup() { NFMSound::Done(); } } cleanup;
+    const auto wave = SilentPCMFixture();
+    auto sample = [&]() { return NFMSound::LoadSample3D(wave.data(),static_cast<int>(wave.size()),1.f,100.f,0); };
+    CPtr<NFMSound::CSample3D> expiredSample = sample();
+    Require(IsValid(expiredSample), "failed-channel fixture could not decode its expired sample");
+    NFMSound::SPlayParams params;
+    params.pSample = expiredSample.GetPtr(); params.nStartMs = 35;
+    {
+        // Only observe the returned handle: no caller owns an already-expired sound.
+        CPtr<NFMSound::CSound3D> expired = NFMSound::Play3DSound(params);
+        Require(IsValid(expired) && !NFMSound::IsPlaying(expired), "expired-channel control unexpectedly played");
+    }
+    Require(!IsValid(expiredSample),
+        "the channel table retained an expired sound and its decoded sample under the invalid channel ID");
+    CObj<NFMSound::CSample3D> liveSample = sample();
+    params.pSample = liveSample.GetPtr(); params.nStartMs = 0; params.bLoop = true;
+    CObj<NFMSound::CSound3D> live = NFMSound::Play3DSound(params);
+    Require(IsValid(live) && NFMSound::IsPlaying(live), "failed-channel fixture did not fill its single native voice");
+    CPtr<NFMSound::CSample3D> rejectedSample = sample();
+    params.pSample = rejectedSample.GetPtr();
+    {
+        CPtr<NFMSound::CSound3D> rejected = NFMSound::Play3DSound(params);
+        Require(IsValid(rejected) && !NFMSound::IsPlaying(rejected) && NFMSound::IsPlaying(live),
+            "a saturated mixer stole the existing voice or played the rejected sound");
+    }
+    Require(!IsValid(rejectedSample), "the channel table retained a rejected voice's decoded sample");
+    Require(NFMSound::IsPlaying(live), "releasing a failed channel interrupted an unrelated live sound");
+}
+
 class HotseatVisibilityWorld: public NWorld::CWorld
 {
     OBJECT_NOCOPY_METHODS(HotseatVisibilityWorld);
@@ -9471,6 +9506,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "delayed-sound-effect-age") && argc == 3) { DelayedSoundEffectAge(argv[2]); return true; }
     if (!std::strcmp(mode, "infinite-sound-effect-loop") && argc == 3) { DelayedSoundEffectAge(argv[2],true); return true; }
     if (!std::strcmp(mode, "late-looping-sound-offset")) { LateLoopingSoundOffset(); return true; }
+    if (!std::strcmp(mode, "failed-sound-channel-lifetime")) { FailedSoundChannelLifetime(); return true; }
     if (!std::strcmp(mode, "headless-music-stream")) { HeadlessMusicStream(); return true; }
     if (!std::strcmp(mode, "trackless-scene-music")) { TracklessSceneMusicContinuity(); return true; }
     if (!std::strcmp(mode, "reloaded-music-record")) { ReloadedMusicRecordContinuity(); return true; }
