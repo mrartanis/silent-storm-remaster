@@ -60,6 +60,7 @@
 #include "../Main/wMainPath.h"
 #include "../Main/wGrenade.h"
 #include "../Main/wBullet.h"
+#include "../Main/wAckBase.h"
 #include "../Main/wDynObject.h"
 #include "../Main/wDebris.h"
 #include "../Main/wMisc.h"
@@ -2477,7 +2478,7 @@ static void UnsupportedNavigationBake(const char* databasePath, const char* reso
     Require(unsupported == 0, "native navigation bake generated passable tiles without supporting surfaces");
 }
 
-static void RemovedPlayerFootprints(const char* databasePath, const char* resourcePath)
+static void RemovedPlayerFootprints(const char* databasePath, const char* resourcePath, bool checkAcks = false)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath, resourcePath, true, &game);
@@ -2504,7 +2505,29 @@ static void RemovedPlayerFootprints(const char* databasePath, const char* resour
         } else surviving.push_back(place);
     }
     Require(!vacated.empty() && !surviving.empty(), "player teardown fixture needs departing and surviving footprints");
+    vector<CPtr<CObjectBase>> departingAcks, survivingAcks;
+    if (checkAcks) {
+        CStructureNetworkContext graph;
+        graph.include = [&](CObjectBase* object) {
+            auto* ack = dynamic_cast<NWorld::CAckBase*>(object);
+            if (ack && IsValid(ack->GetUnit())) {
+                if (ack->GetUnit()->GetPlayer() == departing) departingAcks.push_back(object);
+                else survivingAcks.push_back(object);
+            }
+            return false;
+        };
+        CMemoryStream traversal;
+        { CStructureSaver writer(traversal, CStructureSaver::WRITE, &graph);
+          static_cast<CObjectBase*>(world->GetGlobalAck())->operator&(writer); }
+        Require(!departingAcks.empty() && !survivingAcks.empty(), "player teardown fixture needs owned and foreign ack listeners");
+    }
     world->RemovePlayer(departing);
+    if (checkAcks) {
+        for (const auto& ack: departingAcks)
+            Require(!IsValid(ack), "removed player retained acknowledgement listeners for its destroyed units");
+        for (const auto& ack: survivingAcks)
+            Require(IsValid(ack), "removing one player destroyed another player's acknowledgement listeners");
+    }
     for (const auto& actor: departingUnits)
         Require(!IsValid(actor), "unregistered player left a master-owned unit alive");
     for (const auto& place: vacated)
@@ -6459,6 +6482,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "removed-player-acks") && argc == 4) { RemovedPlayerFootprints(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "removed-player-footprints") && argc == 4) { RemovedPlayerFootprints(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "empty-bullet-retirement") && argc == 4) { EmptyBulletConstruction(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "empty-bullet-construction") && argc == 4) { EmptyBulletConstruction(argv[2], argv[3]); return true; }
