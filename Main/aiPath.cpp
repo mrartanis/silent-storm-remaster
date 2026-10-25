@@ -879,7 +879,8 @@ CPath* FindSimplePath( const SPathPlace &ptSrc, const vector<SPathPlace> &ptDst,
 	
 	SPathPlace bestDest;
 
-	if ( ptSrc.GetPose() == CM_INACTIVE || ptSrc.GetPose() == CM_LAY )
+	if ( ptDst.empty() || ptSrc.GetPose() == CM_INACTIVE ||
+		( ptSrc.GetPose() == CM_LAY && ptDst.front().GetPose() == CM_LAY ) )
 		return 0;
 	for ( vector<SPathPlace>::const_iterator i = ptDst.begin(); i != ptDst.end(); ++i )
 	{

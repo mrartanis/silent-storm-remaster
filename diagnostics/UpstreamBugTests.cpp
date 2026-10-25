@@ -6430,6 +6430,41 @@ static void NavigationAliasDestinations(bool arrayOutput, bool isolatedSource = 
     Require(aliases().empty(), "unequal displacement or isolated aliases were still reported as connected copies");
 }
 
+static void SimplePronePosePath()
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    network->CreateLayer(8,8,VNULL2,0.f,0);
+    network->Freeze(true);
+    for (int y = 0; y < 8; ++y) for (int x = 0; x < 8; ++x) {
+        auto& tile = network->GetLayer(0)->tiles[y][x];
+        tile = NAI::STile{};
+        tile.nPassable = 0xff;
+        tile.nMoveStand = tile.nMoveCrouch = tile.nMoveLay = 0xff;
+        tile.nFlags = NAI::TF_STAND_PASSABLE;
+    }
+    NAI::SPathPlace prone(4,4,0,0,NAI::CM_LAY,0), standing(4,4,0,0,NAI::CM_STAND,0);
+    auto find = [&](const NAI::SPathPlace& source,const vector<NAI::SPathPlace>& goals,bool corpse = false) {
+        return CObj<NAI::CPath>(NAI::FindSimplePath(source,goals,NAI::PF_USE_POSE,network,false,false,corpse));
+    };
+    auto crouched = standing;
+    crouched.SetPose(NAI::CM_CROUCH);
+    Require(IsValid(find(standing,{crouched})), "ordinary direct pose-change control failed");
+    auto path = find(prone,{standing});
+    Require(IsValid(path), "simple native pathfinding rejected a direct pose change from prone");
+    Require(path->points.size() == 2 && path->points.front() == prone && path->points.back() == standing && path->actions.empty(),
+        "direct prone pose path changed its coordinates, heading or action list");
+    Require(IsValid(find(prone,{crouched})), "simple native pathfinding rejected a direct crouch transition from prone");
+    Require(!IsValid(find(prone,{})) && !IsValid(find(prone,{prone})),
+        "simple prone pathfinding changed empty-goal or prone-only rejection");
+    auto inactive = prone;
+    inactive.SetPose(NAI::CM_INACTIVE);
+    Require(!IsValid(find(inactive,{standing})) && !IsValid(find(prone,{standing},true)),
+        "simple pose paths bypassed inactive-source or corpse-carrying restrictions");
+    auto displaced = standing;
+    displaced.SetXY(5,4);
+    Require(!IsValid(find(prone,{displaced})), "simple prone pose handling incorrectly replaced a movement route");
+}
+
 static void PronePoseChangeFacing()
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
@@ -8505,6 +8540,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "locked-alias-moves")) { ConnectedAliasMoves(false,true); return true; }
     if (!std::strcmp(mode, "isolated-source-path")) { IsolatedSourcePath(); return true; }
     if (!std::strcmp(mode, "prone-pose-change-facing")) { PronePoseChangeFacing(); return true; }
+    if (!std::strcmp(mode, "simple-prone-pose-path")) { SimplePronePosePath(); return true; }
     if (!std::strcmp(mode, "isolated-transition-link-match")) { IsolatedTransitionLinkMatch(); return true; }
     if (!std::strcmp(mode, "isolated-transition-shortcut")) { IsolatedTransitionShortcut(); return true; }
     if (!std::strcmp(mode, "isolated-transition-entry")) { IsolatedTransitionEntry(); return true; }
