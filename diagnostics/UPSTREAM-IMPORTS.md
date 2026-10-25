@@ -225,6 +225,7 @@
 | [da0fabc0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/da0fabc03f4e1fa4b7487b3dd35d458a792ee0c2) — Anchor heard-unit ear icons inside the sound marker head | `the heard-unit ear icon used visible-enemy clearance instead of its sound-marker head height` | 270/270; `heard-icon-anchor-height` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Resolve unavailable UI samples through the native lazy resource loader | `a missing UI sound never resolved to a stable silent sample` | 271/271; `missing-ui-sound-fallback` | `Upstream-Commit` в commit message |
 | [f6455c9f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6455c9f92eb6d4c66efebc74face61d1e1065bb) — Reject attack cursor targets belonging to the selected group | `the attack cursor created a shot at its own selected attacker` | 272/272; `selected-attack-target-rejection` | `Upstream-Commit` в commit message |
+| [f6455c9f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6455c9f92eb6d4c66efebc74face61d1e1065bb) — Hide out-of-reach melee percentages without changing shared hit calculations | `a melee target outside current-pose reach still displayed a hit percentage instead of only its AP preview` | 273/273; `melee-current-pose-caption` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

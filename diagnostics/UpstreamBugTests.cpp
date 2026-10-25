@@ -7333,6 +7333,67 @@ public:
     bool GetTracePosition(CVec3* position) const override { *position = CVec3(1,2,3); return true; }
 };
 
+class MeleeReachCaptionMission: public SelectedAttackTargetMission
+{
+    OBJECT_NOCOPY_METHODS(MeleeReachCaptionMission);
+public:
+    int CountSelected() override { return int(selection.size()); }
+    bool IsRealTime() const override { return false; }
+};
+
+static void MeleeReachCaption(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) { actor = unit; break; }
+    }
+    Require(actor != nullptr, "melee reach fixture has no ordinary native actor");
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    auto slot = NDb::ESlot(inventory->GetActiveSlot());
+    CObj<NRPG::IInventoryItem> held = inventory->Get(slot) ? inventory->TakeOff(slot) : nullptr;
+    Require(NRPG::GetToHitType(actor) == NRPG::TH_MELEE, "melee reach fixture did not select its native empty-hand attack");
+    NWorld::CUnit* target = nullptr;
+    CVec3 center;
+    for (auto& entry: units) {
+        if (entry.GetPtr() == actor || !entry->CanFight() || entry->IsEmptyPK()) continue;
+        world->GetAIMap()->GetUnitHLPos(&center,world->GetAIMap()->GetHull(entry),NAI::HL_ANY);
+        if (!NWorld::CanMeleeAttack(actor,actor->GetPosition(),center)) { target = entry; break; }
+    }
+    Require(target != nullptr, "melee reach fixture has no target outside the current-pose reach");
+    const int sharedChance = world->GetGame()->GetCompositeToHit(actor,target,NAI::HL_ANY,world->IsFirstTurn());
+    Require(sharedChance >= 0, "melee reach fixture needs the unchanged shared numeric-chance contract");
+    CObj<MeleeReachCaptionMission> mission = new MeleeReachCaptionMission;
+    mission->Attach(world,game); mission->target = target;
+    CObj<NGame::CUnitTracker> tracker = new NGame::CUnitTracker(mission,actor);
+    mission->selection.push_back(tracker.GetPtr());
+    CObj<AttackState> state = new AttackState;
+    state->Attach(mission);
+    NGame::SActionInfo info;
+    info.SetValid(); info.nMinAP = info.nMaxAP = 7;
+    SetAttackPreview(state,info);
+    const int ap = actor->GetAP();
+    state->RefreshCaption();
+    const auto expected = NUI::GetDBString(20276) + NUI::GetDBString(19808) + L"7";
+    Require(state->GetCursorInfo().wsText == expected,
+        "a melee target outside current-pose reach still displayed a hit percentage instead of only its AP preview");
+    Require(world->GetGame()->GetCompositeToHit(actor,target,NAI::HL_ANY,world->IsFirstTurn()) == sharedChance,
+        "formatting melee reach changed the numeric chance contract used by scripts and LAN preview");
+    const auto original = actor->GetPosition();
+    actor->SetTemporaryPosition(target->GetPosition());
+    Require(NWorld::CanMeleeAttack(actor,actor->GetPosition(),center),
+        "melee reach fixture failed to place its control within current-pose reach");
+    state->RefreshCaption();
+    Require(state->GetCursorInfo().wsText.find(L'%') != wstring::npos,
+        "an in-reach native melee target lost its ordinary percentage preview");
+    actor->SetTemporaryPosition(original);
+    Require(actor->GetAP() == ap && !actor->HasCommand(), "formatting melee reach spent AP or installed an action");
+}
+
 static void SelectedAttackTargetRejection(const char* databasePath,const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -10248,6 +10309,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "missing-ui-sound-fallback")) { Require(argc == 4, "missing UI sound requires db and res"); MissingUISoundFallback(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "selected-attack-target-rejection")) { Require(argc == 4, "selected target requires db and res"); SelectedAttackTargetRejection(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "melee-current-pose-caption")) { Require(argc == 4, "melee caption requires db and res"); MeleeReachCaption(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }

@@ -15,6 +15,12 @@
 #include "RPGGlobal.h"
 #include "RPGItemInfo.h"
 #include "RPGUnitInfo.h"
+#include "RPGUnitMission.h"
+#include "wUnitServer.h"
+#include "RPGItem.h"
+#include "wObject.h"
+#include "wUnitAttackExec.h"
+#include "aiMap.h"
 #include "..\Input\Bind.h"
 #include "Interface.h"
 #include "iMission.h"
@@ -1012,6 +1018,15 @@ void CStateAttack::UpdateCursorInfo()
 			CDynamicCast<NWorld::CUnit> pUnit(pTraceObject);
 			if (pUnit)
 			{
+				NWorld::CUnit *pAttacker = (*iTemp)->GetUnit();
+				if ( NRPG::GetToHitType( pAttacker ) == NRPG::TH_MELEE )
+				{
+					CVec3 ptTarget;
+					pWorld->GetAIMap()->GetUnitHLPos( &ptTarget, pWorld->GetAIMap()->GetHull( pUnit ), NAI::HL_ANY );
+					CDynamicCast<NWorld::CUnitServer> pActor( pAttacker );
+					if ( !NWorld::CanMeleeAttack( pActor, pAttacker->GetPosition(), ptTarget ) )
+						continue;
+				}
 				CDynamicCast<NRPG::IWeaponItemInfo> pWeapon((*iTemp)->GetUnit()->GetRPG()->GetInventoryInfo()->GetActive());
 				if (pWeapon)
 				{
