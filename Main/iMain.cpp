@@ -400,8 +400,10 @@ void CICSave::Exec()
 #ifndef _DEBUG
 	catch(...)
 	{
+		return;
 	}
 #endif
+	csGame << NUI::GetDBString( 20259 ) << endl;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CICSaveFile -- retail @0x1f6a80: write the whole interface stack into temp\<name> as a raw

@@ -55,6 +55,8 @@
 #include "../Main/ScreenShot.h"
 #include "../Main/iSaveManager.h"
 #include "../Main/iSaveLoad.h"
+#include "../MiscDll/LogStream.h"
+#include <filesystem>
 #include "../Main/aiLocker.h"
 #include "../Main/wUnitServer.h"
 #include "../Main/RPGItem.h"
@@ -1845,6 +1847,65 @@ static std::map<unsigned char, vector<unsigned char>> OuterSaveChunks(CDataStrea
         if (length) stream.Read(payload.data(), length);
     }
     return chunks;
+}
+
+static void SaveSuccessFeedback(const char* databasePath)
+{
+    Require(std::getenv("S2_USER_DATA_DIR") != nullptr, "save feedback fixture needs isolated user data");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "save feedback fixture started with a live interface or command");
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    NMainLoop::CreateProfile("UpstreamSaveFeedback");
+    NMainLoop::SetActiveProfile("UpstreamSaveFeedback");
+    auto* manager = NMainLoop::GetSaveManager();
+    struct SlotCleanup {
+        NMainLoop::CSaveManager* manager;
+        ~SlotCleanup() { manager->DeleteSlot("Feedback"); }
+    } cleanup{manager};
+    const auto localized = NUI::GetDBString(20259);
+    Require(!localized.empty(), "save feedback fixture has no localized success message");
+    csGame << localized << endl;
+    Require(!consoleLines.empty() && consoleLines.front().eType == STREAM_GAME && !consoleLines.front().szText.empty(),
+        "save feedback log control did not receive its localized game-stream message");
+    const auto expected = consoleLines.front().szText;
+    auto messages = [&]() {
+        return std::count_if(consoleLines.begin(),consoleLines.end(),[&](const SConsoleLine& line) {
+            return line.eType == STREAM_GAME && line.szText == expected;
+        });
+    };
+    CObj<NGScene::CScreenshotTexture> texture = new NGScene::CScreenshotTexture;
+    CArray2D<NGfx::SPixel8888> pixels; pixels.SetSizes(2,2);
+    for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x) pixels[y][x] = NGfx::SPixel8888(12,23,34,255);
+    texture->Set(pixels);
+    const auto before = messages();
+    CObj<NMainLoop::CICSave> save = new NMainLoop::CICSave("Feedback",texture,true);
+    save->Exec();
+    {
+        CFileStream file;
+        file.OpenRead(manager->GetSlotFilePathW("Feedback",NMainLoop::S_SAVE_FILENAME).c_str());
+        NMainLoop::SSaveFileHeader header;
+        NMainLoop::ReadSaveFileHeader(file,&header);
+        Require(header.nMagic == NMainLoop::N_SAVE_MAGIC_NUMBER && header.nMods == 0,
+            "save feedback control did not write a complete native save header");
+        list<CObj<NMainLoop::IInterfaceBase>> restored;
+        { CStructureSaver reader(file,CStructureSaver::READ); reader.Add(2,&restored); }
+        Require(restored.empty(), "save feedback control did not round-trip its empty native interface stack");
+    }
+    Require(messages() == before + 1, "a completed silent native save omitted its localized success feedback");
+    const auto blockedPath = std::filesystem::path(manager->GetSlotFilePathW(NMainLoop::S_SLOT_ACTIVE,NMainLoop::S_SAVE_FILENAME));
+    std::filesystem::create_directories(blockedPath.parent_path());
+    Require(std::filesystem::create_directory(blockedPath), "save failure control could not block its isolated target with a directory");
+    struct BlockerCleanup {
+        std::filesystem::path path;
+        ~BlockerCleanup() { std::error_code error; std::filesystem::remove(path,error); }
+    } blocker{blockedPath};
+    const auto beforeFailure = messages();
+    CObj<NMainLoop::CICSave> failed = new NMainLoop::CICSave(NMainLoop::S_SLOT_ACTIVE,texture,true);
+    try { failed->Exec(); } catch (...) {} // Debug builds propagate the expected write failure.
+    Require(std::filesystem::is_directory(blockedPath), "save failure control unexpectedly replaced its blocked target");
+    Require(messages() == beforeFailure, "a failed native save emitted a false localized success message");
 }
 
 static void CompressedSaveWriting()
@@ -8129,6 +8190,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "tiny-animated-light")) { AnimatedPointLightGuard(false); return true; }
     if (!std::strcmp(mode, "fresh-ambient-graph")) { FreshAmbientGraph(); return true; }
     if (!std::strcmp(mode, "compressed-save-writing")) { CompressedSaveWriting(); return true; }
+    if (!std::strcmp(mode, "save-success-feedback") && argc == 3) { SaveSuccessFeedback(argv[2]); return true; }
     if (!std::strcmp(mode, "window-interface-propagation")) { WindowInterfacePropagation(); return true; }
     if (!std::strcmp(mode, "window-child-registration")) { WindowChildRegistration(); return true; }
     if (!std::strcmp(mode, "lua-argument-state")) { LuaArgumentState(); return true; }
