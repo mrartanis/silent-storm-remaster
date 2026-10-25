@@ -1325,6 +1325,44 @@ static CMemoryStream BorrowedObjectFields(CObjectBase* object, CStructureNetwork
     return saved;
 }
 
+static void DisabledCursorInput()
+{
+    struct CursorModeRestore {
+        bool previous = S2Platform::NativeCursorEnabled();
+        ~CursorModeRestore() { S2Platform::UseNativeCursor(previous); }
+    } restore;
+    S2Platform::UseNativeCursor(true);
+    CObj<NUI::ICursor> cursor = NUI::ICursor::Create(false,CVec2(17,23));
+    auto setDisableCount = [&](int count) {
+        CMemoryStream fields;
+        { CStructureSaver writer(fields,CStructureSaver::WRITE); writer.Add(2,&count); }
+        fields.Seek(0);
+        { CStructureSaver reader(fields,CStructureSaver::READ); static_cast<CObjectBase*>(cursor.GetPtr())->operator&(reader); }
+    };
+    NInput::SEvent event;
+    event.mMessage.hasPointer = true;
+    event.mMessage.pointerX = 91;
+    event.mMessage.pointerY = 57;
+    setDisableCount(2);
+    cursor->ProcessEvent(event);
+    Require(cursor->GetPos().x == 17 && cursor->GetPos().y == 23,
+        "a disabled native cursor consumed pointer input while its serialized nesting counter was positive");
+    setDisableCount(1);
+    cursor->ProcessEvent(event);
+    Require(cursor->GetPos().x == 17 && cursor->GetPos().y == 23,
+        "reducing nested cursor disable count enabled input before the last lock was released");
+    setDisableCount(0);
+    cursor->ProcessEvent(event);
+    Require(cursor->GetPos().x == 91 && cursor->GetPos().y == 57,
+        "releasing the final cursor lock did not restore native pointer input");
+    setDisableCount(-1);
+    event.mMessage.pointerX = 45;
+    event.mMessage.pointerY = 67;
+    cursor->ProcessEvent(event);
+    Require(cursor->GetPos().x == 45 && cursor->GetPos().y == 67,
+        "cursor input no longer follows the original count-below-one enable rule");
+}
+
 static void SuppliedOptionsScreenshot(const char* databasePath,const char* resourcePath)
 {
     CFileStream database;
@@ -7381,6 +7419,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "fresh-navigation-colouring")) { FreshNavigationColouring(); return true; }
     if (!std::strcmp(mode, "fresh-navigation-transitions")) { FreshNavigationTransitions(); return true; }
     if (!std::strcmp(mode, "lazy-navigation-colourer")) { LazyNavigationColourer(); return true; }
+    if (!std::strcmp(mode, "disabled-cursor-input")) { DisabledCursorInput(); return true; }
     if (!std::strcmp(mode, "supplied-options-screenshot") && argc == 4) { SuppliedOptionsScreenshot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }

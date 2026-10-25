@@ -284,6 +284,8 @@ void CCursor::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCursor::ProcessEvent( const NInput::SEvent &sEvent )
 {
+	if ( nDisableCount > 0 )
+		return;
 	if (S2Platform::NativeCursorEnabled() && sEvent.mMessage.hasPointer)
 		vCursorPos=CVec2(sEvent.mMessage.pointerX,sEvent.mMessage.pointerY);
 	bindX.ProcessEvent( sEvent );
