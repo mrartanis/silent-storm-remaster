@@ -3786,6 +3786,46 @@ static void RunScript(NScript::CScript* script, const char* code)
     pScript = nullptr;
 }
 
+static bool SavedWalkWithoutWeapon(NWorld::CUnitServer* actor)
+{
+    CStructureNetworkContext graph;
+    graph.include = [](CObjectBase*) { return false; };
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE, &graph);
+      static_cast<CObjectBase*>(actor)->operator&(writer); }
+    saved.Seek(0);
+    bool holstered = false;
+    { CStructureSaver reader(saved, CStructureSaver::READ, &graph); reader.Add(26, &holstered); }
+    return holstered;
+}
+
+static void ScriptHolsterPersistence(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& entry: units) {
+        auto* server = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (server && server->CanFight() && !server->IsEmptyPK() && !server->IsWearingPK()) { actor = server; break; }
+    }
+    Require(actor != nullptr, "scripted holster fixture has no living actor");
+    CObj<NScript::CScript> script = NScript::CreateScript(world);
+    NScript::luaPushCPtr(*script, actor); script->SetGlobal("upstreamActor");
+    const int ap = actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP);
+    Require(!SavedWalkWithoutWeapon(actor), "new actor unexpectedly requested persistent holstering");
+    RunScript(script, "UnitActivateWeapon(upstreamActor, nil)");
+    Require(SavedWalkWithoutWeapon(actor), "scripted holstering did not persist the walk-without-weapon flag");
+    RunScript(script, "UnitActivateWeapon(upstreamActor, 1)");
+    Require(!SavedWalkWithoutWeapon(actor), "scripted weapon activation did not clear persistent holstering");
+    RunScript(script, "UnitActivateWeapon(upstreamActor, nil)");
+    RunScript(script, "UnitActivateWeapon(upstreamActor)");
+    Require(!SavedWalkWithoutWeapon(actor), "default scripted activation retained the holster flag");
+    Require(actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == ap,
+        "recording scripted holster intent spent action points before queued execution");
+}
+
 static void ScriptAIActivation(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -4578,6 +4618,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "enemy-icon-visibility")) { Require(argc == 4, "enemy icons require db and res"); EnemyIconVisibility(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "finished-music-silence")) { Require(argc == 3, "finished music requires db"); FinishedMusicSilence(argv[2]); return true; }
     if (!std::strcmp(mode, "holstered-heavy-weapon-mesh")) { Require(argc == 4, "heavy mesh requires db and res"); HolsteredHeavyWeaponMesh(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "script-holster-persistence")) { Require(argc == 4, "script holster requires db and res"); ScriptHolsterPersistence(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "pain-voice-owner")) { Require(argc == 4, "pain voice requires db and res"); PainVoiceOwner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "unconscious-pain-voice")) { Require(argc == 4, "pain eligibility requires db and res"); PainVoiceOwner(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "world-ui-refresh-latch")) { Require(argc == 4, "world UI refresh requires db and res"); WorldUIRefreshLatch(argv[2], argv[3]); return true; }
