@@ -2481,6 +2481,52 @@ static void UnsupportedNavigationBake(const char* databasePath, const char* reso
     Require(unsupported == 0, "native navigation bake generated passable tiles without supporting surfaces");
 }
 
+static void LiveAIPosition(const char* databasePath, const char* resourcePath, bool fullPosition)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    NAI::IAIUnit* unit = nullptr;
+    for (const auto& candidate: units) {
+        auto* wrapper = NAI::GetAIUnit(candidate);
+        if (IsValid(candidate) && candidate->CanFight() && !candidate->IsEmptyPK() && IsValid(wrapper)) {
+            actor = candidate.GetPtr(); unit = wrapper; break;
+        }
+    }
+    Require(actor && unit, "live AI position fixture has no native wrapper and server");
+    const auto initial = actor->GetPosition();
+    const int ap = actor->GetRPG()->GetAP();
+    auto plan = initial.pos;
+    plan.p.SetDirection((plan.p.GetDirection() + 2) & 7);
+    unit->SetPosition(plan);
+    auto savedPlan = [&]() {
+        CStructureNetworkContext references;
+        auto saved = BorrowedObjectFields(unit, &references);
+        NAI::SUnitPosition result;
+        { CStructureSaver reader(saved, CStructureSaver::READ, &references); reader.Add(4, &result); }
+        return result;
+    };
+    Require(savedPlan().pos == plan && actor->GetPosition() == initial,
+        "logging an AI planning position moved the live server or lost the saved planning snapshot");
+    if (fullPosition)
+        Require(unit->GetUnitPosition() == initial, "AI full-position accessor exposed the speculative planning snapshot");
+    else
+        Require(unit->GetPosition() == initial.pos, "AI position accessor exposed the speculative planning snapshot");
+    unit->SavePrevPosition();
+    Require(unit->GetPrevPosition() == plan, "live AI position lookup changed planning rollback semantics");
+    auto moved = initial;
+    moved.pos.p.SetDirection((moved.pos.p.GetDirection() + 4) & 7);
+    moved.bRun = !initial.bRun;
+    actor->SetPosition(moved);
+    const auto live = actor->GetPosition();
+    Require(live == moved && unit->GetPosition() == live.pos && unit->GetUnitPosition() == live,
+        "AI position lookup missed a live server update or dropped its run flag");
+    Require(savedPlan().pos == plan && actor->GetRPG()->GetAP() == ap,
+        "reading live AI positions replaced the planning snapshot or changed action points");
+}
+
 static void RemovedPlayerAIRosters(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -6680,6 +6726,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "live-ai-position") && argc == 4) { LiveAIPosition(argv[2], argv[3], false); return true; }
+    if (!std::strcmp(mode, "live-ai-unit-position") && argc == 4) { LiveAIPosition(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "owned-ai-action-enemy")) { OwnedAIEnemySelection(false); return true; }
     if (!std::strcmp(mode, "owned-ai-place-enemy")) { OwnedAIEnemySelection(true); return true; }
     if (!std::strcmp(mode, "mounted-ai-log-commands")) { MountedAILogCommands(); return true; }

@@ -160,7 +160,7 @@ public:
 	virtual NWorld::CUnitServer *GetUnitServer() const { return pUnitServer; }
 	virtual NRPG::IUnitMission* GetUnitMission() const { return pUnitServer->GetUnitRPG(); }
 	virtual NRPG::CUnit* GetRPGUnit() const { return pUnitServer->GetUnitRPG()->GetRPGUnit(); }
-	virtual SPosition GetPosition() { return pos.pos; } 
+	virtual SPosition GetPosition();
 	virtual SUnitPosition GetUnitPosition();
 	virtual void SetPosition( SPosition _ptPrevPosition );
 	virtual void SetPosition( SPathPlace _ptPrevPosition );
@@ -700,9 +700,15 @@ bool CAIUnit::HasInactivePose()
 	return pos.pos.p.GetPose() == NAI::CM_INACTIVE;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+SPosition CAIUnit::GetPosition()
+{
+	return pUnitServer->GetPosition().pos;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 SUnitPosition CAIUnit::GetUnitPosition()
 {
-	return pos;   // retail: the member IS the full SUnitPosition (the Jan03 bRun=false stub is gone)
+	// SetPosition and log records retain the separate serialized planning snapshot.
+	return pUnitServer->GetPosition();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIUnit::SetPosition( SPosition _ptPosition ) 
