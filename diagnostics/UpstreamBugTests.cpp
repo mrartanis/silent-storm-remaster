@@ -7196,6 +7196,37 @@ public:
     void GetSelectedUnits(vector<CPtr<NGame::IUnitTracker>>* result) const override { *result = selection; }
 };
 
+static void PersonaFullDisplayName(const char* databasePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    NDb::CRPGPers* persona = nullptr;
+    CDBIterator<NDb::CRPGPers> rows(*NDatabase::GetTable<NDb::CRPGPers>());
+    while (rows.MoveNext()) {
+        auto* record = rows.Get();
+        if (IsValid(record->pName) && IsValid(record->pLongName) && IsValid(record->pModel) &&
+            IsValid(record->pBaseValue) && !record->pLongName->szStr.empty() &&
+            record->pLongName->szStr != record->pName->szStr) { persona = record; break; }
+    }
+    Require(persona != nullptr, "full-name fixture has no authored persona with a distinct full name");
+    CObj<NRPG::CUnit> unit = new NRPG::CUnit(persona);
+    Require(unit->GetName() == persona->pName->szStr, "creating a full display name changed the persona nickname");
+    Require(unit->wsFullName == persona->pLongName->szStr,
+        "creating an RPG unit discarded its authored full display name");
+    CStructureNetworkContext references;
+    auto fields = BorrowedObjectFields(unit,&references);
+    wstring saved;
+    { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(4,&saved); }
+    Require(saved == persona->pLongName->szStr, "the authored full name did not reach the existing saved field");
+    CPtr<NDb::CString> longName = persona->pLongName;
+    persona->pLongName = nullptr;
+    CObj<NRPG::CUnit> unnamed = new NRPG::CUnit(persona);
+    persona->pLongName = longName;
+    Require(unnamed->wsFullName.empty() && unnamed->GetName() == unit->GetName(),
+        "a persona without a long-name record changed the existing nickname or missing-name behavior");
+}
+
 static void EquippedToolActionAvailability(const char* databasePath,const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -9979,6 +10010,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "persona-full-display-name")) { Require(argc == 3, "full display name requires db"); PersonaFullDisplayName(argv[2]); return true; }
     if (!std::strcmp(mode, "temporary-groups")) { TemporaryGroups(); return true; }
     if (!std::strcmp(mode, "scroll-initialization")) { ScrollInitialization(); return true; }
     if (!std::strcmp(mode, "attack-location")) { AttackLocationRefresh(); return true; }
