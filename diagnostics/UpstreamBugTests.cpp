@@ -26,6 +26,7 @@
 #include "../Main/iUnitPanel.h"
 #include "../Main/iDesktopWindow.h"
 #include "../Main/Sound.h"
+#include "../FModSound/FMsound.h"
 #include "../Main/iMissionDlgUI.h"
 #include "../Main/iMissionUI.h"
 #include "../Main/iMissionMovieUI.h"
@@ -1748,6 +1749,90 @@ static void EnemyIconVisibility(const char* databasePath, const char* resourcePa
     desktop->RefreshEnemies();
     Require(markerCount(int(0xB0241948)) == 0 && markerCount(int(0xB3123180)) == 1,
         "enemy-icon visibility suppressed the independently visible quest-clue marker");
+
+}
+
+static void FinishedMusicSilence(const char* databasePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database, CStructureSaver::READ);
+    CDBIterator<NDb::CMusic> rows(*NDatabase::GetTable<NDb::CMusic>());
+    Require(rows.MoveNext(), "finished-music fixture has no track record");
+    auto* track = rows.Get();
+    track->szFileName = "__upstream_missing_music_fixture__.ogg";
+    track->nFadeIn = 0; track->nRndPlayTime = 0;
+    track->nSilence = 10000; track->nRndSilence = 0;
+    CObj<NDb::CTMusic> pool = new NDb::CTMusic;
+    pool->variants.push_back(track); pool->roulette.AddSector(1);
+    CObj<CCTime> clock = new CCTime(0);
+    Require(NFMSound::Init(NFMSound::SStartInfo()), "headless native audio initialization failed");
+    struct AudioCleanup { ~AudioCleanup() { NFMSound::Done(); } } cleanup;
+    CObj<NSound::ISoundScene> scene = NSound::CreateSoundScene(pool, nullptr, clock);
+    CTransformStack transform; transform.Init();
+    scene->Draw(&transform); // Starts the native stream and leaves the silence state.
+    CPtr<NFMSound::CStream> stream = NFMSound::PlayStream(track->szFileName.c_str(), true, 0, true, 0);
+    Require(IsValid(stream), "finished-music fixture did not retain a native stream");
+    CPtr<CObjectBase> music;
+    CStructureNetworkContext graph;
+    graph.include = [&](CObjectBase* object) {
+        if (pSSClasses->GetObjectTypeID(object) == int(0xa1063160)) music = object;
+        return false;
+    };
+    CMemoryStream traversal;
+    { CStructureSaver writer(traversal, CStructureSaver::WRITE, &graph);
+      static_cast<CObjectBase*>(scene.GetPtr())->operator&(writer); }
+    Require(IsValid(music), "native sound scene did not retain its current music record");
+    NFMSound::Done();
+    Require(stream.GetPtr() != nullptr && !IsValid(stream), "native stream teardown did not leave its retained invalid reference");
+    unsigned current = 777;
+    CMemoryStream position;
+    { CStructureSaver writer(position, CStructureSaver::WRITE); writer.Add(4, &current); }
+    position.Seek(0);
+    { CStructureSaver reader(position, CStructureSaver::READ); music->operator&(reader); }
+    clock->Set(1000);
+    scene->Draw(&transform);
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE, &graph);
+      static_cast<CObjectBase*>(scene.GetPtr())->operator&(writer); }
+    saved.Seek(0);
+    __int64 nextTrack = -1;
+    { CStructureSaver reader(saved, CStructureSaver::READ, &graph); reader.Add(2, &nextTrack); }
+    Require(nextTrack == 11000,
+        "finished retained music stream entered restore logic and lost its authored silence interval");
+    // A genuinely restored music object has no runtime stream. With audio
+    // unavailable it must still attempt restoration and drop the failed track.
+    CObj<CObjectBase> restored = pSSClasses->CreateObject(int(0xa1063160));
+    Require(IsValid(restored), "native restored-music class is not registered");
+    CDBPtr<NDb::CMusic> record = track;
+    bool loop = true;
+    CMemoryStream trackSave;
+    { CStructureSaver writer(trackSave, CStructureSaver::WRITE);
+      writer.Add(2, &record); writer.Add(3, &loop); writer.Add(4, &current); }
+    trackSave.Seek(0);
+    { CStructureSaver reader(trackSave, CStructureSaver::READ); restored->operator&(reader); }
+    CObj<NSound::ISoundScene> loaded = NSound::CreateSoundScene(nullptr, nullptr, clock);
+    CStructureNetworkContext references;
+    references.externalReferences = true; references.nextID = 100;
+    references.ids[restored.GetPtr()] = 1; references.refs[1] = restored.GetPtr();
+    references.include = [](CObjectBase*) { return false; };
+    CMemoryStream sceneSave;
+    { CStructureSaver writer(sceneSave, CStructureSaver::WRITE, &references); writer.Add(5, &restored); }
+    sceneSave.Seek(0);
+    { CStructureSaver reader(sceneSave, CStructureSaver::READ, &references);
+      static_cast<CObjectBase*>(loaded.GetPtr())->operator&(reader); }
+    auto retainsRestored = [&]() {
+        bool retained = false;
+        CStructureNetworkContext inspect;
+        inspect.include = [&](CObjectBase* object) { if (object == restored.GetPtr()) retained = true; return false; };
+        CMemoryStream traversal;
+        { CStructureSaver writer(traversal, CStructureSaver::WRITE, &inspect);
+          static_cast<CObjectBase*>(loaded.GetPtr())->operator&(writer); }
+        return retained;
+    };
+    Require(retainsRestored(), "restored sound scene lost its saved track before drawing");
+    loaded->Draw(&transform);
+    Require(!retainsRestored(), "genuinely missing stream no longer entered failed-resume cleanup");
 
 }
 
@@ -4446,6 +4531,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "sound-icon-visibility")) { OverlayIconVisibility(false); return true; }
     if (!std::strcmp(mode, "trap-icon-visibility")) { OverlayIconVisibility(true); return true; }
     if (!std::strcmp(mode, "enemy-icon-visibility")) { Require(argc == 4, "enemy icons require db and res"); EnemyIconVisibility(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "finished-music-silence")) { Require(argc == 3, "finished music requires db"); FinishedMusicSilence(argv[2]); return true; }
     if (!std::strcmp(mode, "pain-voice-owner")) { Require(argc == 4, "pain voice requires db and res"); PainVoiceOwner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "unconscious-pain-voice")) { Require(argc == 4, "pain eligibility requires db and res"); PainVoiceOwner(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "world-ui-refresh-latch")) { Require(argc == 4, "world UI refresh requires db and res"); WorldUIRefreshLatch(argv[2], argv[3]); return true; }
