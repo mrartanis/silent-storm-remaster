@@ -863,6 +863,50 @@ static void SniperHeldAim(const char* databasePath, const char* resourcePath, bo
     Require(snapshot.target.GetPtr() == target, "sniper Fire changed its held target");
 }
 
+static void PersonClueCreation(const char* databasePath, const char* resourcePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database, CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(1);
+    NScenario::CScenarioClue* clue = nullptr;
+    CDBIterator<NDb::CDBScenarioClue> clues(*NDatabase::GetTable<NDb::CDBScenarioClue>());
+    while (clues.MoveNext()) {
+        auto* record = clues.Get();
+        if (record->clueType == NDb::CT_PERSON && record->nPersID > 0 && NDb::GetPers(record->nPersID)) {
+            clue = game->pScenarioTracker->GetClueByPersID(record->nPersID);
+            if (clue) break;
+        }
+    }
+    Require(clue != nullptr, "fixture has no scenario person clue");
+    // Force the authored human spawn points to offer person-clue slots. All
+    // changes stay in the loaded database, without writing any game assets.
+    CDBIterator<NDb::CUnit> records(*NDatabase::GetTable<NDb::CUnit>());
+    while (records.MoveNext()) {
+        auto* unit = records.Get();
+        unit->bClueSlot = IsValid(unit->pMonster) && !IsValid(unit->pMonster->pPanzerklein);
+        unit->bClueInventorySlot = false;
+    }
+    CObj<NWorld::CWorld> world = new NWorld::CWorld(game);
+    CObj<NWorld::CPostWorldCreateInfo> post;
+    world->CreateRandom(810, {}, true, std::list<CPtr<NScenario::CScenarioClue>>{clue}, 0, &post, SRandomSeed(123));
+    vector<CPtr<NWorld::CUnit>> actors;
+    world->GetAllUnits(&actors);
+    int found = 0;
+    for (auto& actor : actors) {
+        auto* server = dynamic_cast<NWorld::CUnitServer*>(actor.GetPtr());
+        if (actor->GetRPG()->GetRPGUnit()->GetPers()->GetRecordID() == clue->GetDBClue()->nPersID) {
+            ++found;
+            Require(server->IsClueUnit() && server->nClueCount == 1,
+                "spawned scenario person lost its clue marker and corpse-cleanup protection");
+        } else {
+            Require(!server->IsClueUnit(), "ordinary actor was marked as a scenario person");
+        }
+    }
+    Require(found == 1, "fixture did not spawn exactly one scenario person");
+}
+
 static void InventoryClueCreation(const char* databasePath, const char* resourcePath, bool checkCount = false, bool noSpace = false)
 {
     CFileStream database;
@@ -2716,6 +2760,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();
         else if (!std::strcmp(mode, "sniper-targetless-probe") && argc == 4) SniperHeldAim(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "sniper-held-aim") && argc == 4) SniperHeldAim(argv[2], argv[3]);
+        else if (!std::strcmp(mode, "person-clue-creation") && argc == 4) PersonClueCreation(argv[2], argv[3]);
         else if (!std::strcmp(mode, "inventory-clue-creation") && argc == 4) InventoryClueCreation(argv[2], argv[3]);
         else if (!std::strcmp(mode, "inventory-clue-count") && argc == 4) InventoryClueCreation(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "inventory-clue-capacity") && argc == 4) InventoryClueCreation(argv[2], argv[3], true, true);
