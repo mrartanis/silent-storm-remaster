@@ -171,6 +171,7 @@
 | [f49af57f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f49af57f5fac26ad87cbab5206a3350ceb1f7509) — Honor save permission throughout the exit dialog | `the default exit dialog displayed Save despite its disabled save permission` | 214/214; `exit-menu-save-permission` | `Upstream-Commit` в commit message |
 | [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Exclude isolated and blocked copies from navigation aliases | `same-point enumeration included isolated or blocked navigation aliases instead of only the connected copy` | 216/216; `navigation-alias-destinations` | `Upstream-Commit` в commit message |
 | [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Expose connected navigation copies for isolated source cells | `an isolated occupied source without the same-point flag could not enumerate its connected escape copy` | 218/218; `isolated-source-aliases` | `Upstream-Commit` в commit message |
+| [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Retain connected nearby destinations over isolated lower copies | `nearby destination deduplication discarded a connected tile in favor of an isolated lower copy` | 219/219; `nearby-connected-destination` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

@@ -867,7 +867,7 @@ void CNodesLayer::AddNearPoints( const SSphere &s, vector<SPathPlace> *pRes, boo
 						bool bBetter = ( t2.nPassable & t1.nPassable ) == t1.nPassable;
 						if ( t2.nPassable == t1.nPassable )
 							bBetter = pL->nLayer < nLayer;
-						if ( t2.nHeight == t1.nHeight && t2.nDisplacement == t1.nDisplacement && bBetter )
+						if ( t2.IsLinkedSame( t1 ) && bBetter )
 						{
 							bAdd = false;
 							break;

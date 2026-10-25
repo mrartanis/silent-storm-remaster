@@ -6076,6 +6076,55 @@ static void NavigationAliasDestinations(bool arrayOutput, bool isolatedSource = 
     Require(aliases().empty(), "unequal displacement or isolated aliases were still reported as connected copies");
 }
 
+static void NearbyConnectedDestination()
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    network->CreateLayer(4,4,VNULL2,0.f,0);
+    network->CreateLayer(4,4,VNULL2,0.f,1,network->GetLayer(0)->pGroup);
+    network->Freeze(true);
+    NAI::STile connected{};
+    connected.nHeight = 100;
+    connected.nPassable = 7;
+    connected.nMoveStand = 1;
+    connected.nFlags = NAI::TF_STAND_PASSABLE;
+    auto* upper = network->GetLayer(1);
+    auto& lowerTile = network->GetLayer(0)->tiles[1][1];
+    auto& upperTile = upper->tiles[1][1];
+    upperTile = lowerTile = connected;
+    lowerTile.nMoveStand = 0;
+    const NAI::SPathPlace destination(1,1,1);
+    const SSphere sphere(network->GetCP(destination),0.05f);
+    auto nearby = [&](bool all) {
+        vector<NAI::SPathPlace> result;
+        upper->AddNearPoints(sphere,&result,all);
+        vector<int> layers;
+        for (const auto& place: result) {
+            Require(place.IsIntegral() && place.GetX() == 1 && place.GetY() == 1,
+                "nearby fixture returned a point outside the requested sphere");
+            layers.push_back(place.GetLayer());
+        }
+        return layers;
+    };
+    Require(nearby(true) == vector<int>({1}),
+        "nearby fixture did not locate exactly its connected upper destination");
+    Require(nearby(false) == vector<int>({1}),
+        "nearby destination deduplication discarded a connected tile in favor of an isolated lower copy");
+    lowerTile.nMoveStand = 1;
+    Require(nearby(false).empty(), "nearby search did not retain canonical lower connected copies");
+    lowerTile.nPassable = 1;
+    Require(nearby(false) == vector<int>({1}),
+        "a lower copy with fewer supported poses suppressed the better destination");
+    lowerTile = connected;
+    ++lowerTile.nHeight;
+    Require(nearby(false) == vector<int>({1}),
+        "a lower tile at a different height suppressed the destination");
+    lowerTile = connected;
+    lowerTile.nLocks = 1;
+    lowerTile.nDynLocks = 1;
+    Require(nearby(false).empty() && lowerTile.nLocks == 1 && lowerTile.nDynLocks == 1,
+        "temporary occupancy changed structural deduplication or its lock counters");
+}
+
 static void FlyingShootDirection()
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
@@ -7769,6 +7818,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "empty-passage-exit") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "scripted-passage-transition") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "flying-attack-queue") && argc == 4) { FlyingAttackQueue(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "nearby-connected-destination")) { NearbyConnectedDestination(); return true; }
     if (!std::strcmp(mode, "isolated-source-alias-vector")) { NavigationAliasDestinations(false,true); return true; }
     if (!std::strcmp(mode, "isolated-source-alias-array")) { NavigationAliasDestinations(true,true); return true; }
     if (!std::strcmp(mode, "navigation-alias-vector")) { NavigationAliasDestinations(false); return true; }
