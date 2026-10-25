@@ -5598,6 +5598,43 @@ public:
     bool IsEmptyPK() const override { return shell; }
 };
 
+static void FlyingShootDirection()
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    network->CreateLayer(8,8,VNULL2,0.f,0);
+    network->CreateLayer(8,8,VNULL2,FP_PI2,1);
+    network->Freeze(true);
+    for (int n = 0; n < 2; ++n)
+        for (int y = 0; y < 8; ++y)
+            for (int x = 0; x < 8; ++x) {
+                network->GetLayer(n)->tiles[y][x] = NAI::STile{};
+                network->GetLayer(n)->tiles[y][x].nPassable = 7;
+                network->GetLayer(n)->tiles[y][x].nFlags = NAI::TF_STAND_PASSABLE;
+            }
+    NAI::SPathPlace ground(2,2,0), rotated(2,2,1);
+    ground.SetPose(NAI::CM_STAND); rotated.SetPose(NAI::CM_CROUCH);
+    Require(NRPG::GetShootDirection(network,ground,network->GetCP(ground)+CVec3(10,0,0)) == NAI::RIGHT,
+        "shoot-direction control did not face east on the ordinary layer");
+    Require(NRPG::GetShootDirection(network,rotated,network->GetCP(rotated)+CVec3(10,0,0)) == NAI::DOWN,
+        "shoot-direction control ignored the rotated ground layer");
+    NAI::SPosition flying;
+    Require(NAI::MakeFlyPos(CVec3(2,2,16),network,&flying), "shoot-direction fixture could not encode an airborne position");
+    Require(flying.p.IsFinal() && flying.p.GetLayer() >= network->GetNumLayers(),
+        "shoot-direction fixture altitude must differ from a valid navigation layer");
+    const auto before = flying.p.GetBits();
+    std::printf("Shoot direction: final=%d altitude-bits=%d navigation-layers=%d\n",
+        int(flying.p.IsFinal()),flying.p.GetLayer(),network->GetNumLayers());
+    std::fflush(stdout);
+    const CVec3 origin = flying.GetCP();
+    Require(NRPG::GetShootDirection(network,flying.p,origin+CVec3(10,0,0)) == NAI::RIGHT,
+        "an airborne shot did not face east using the base-layer axes");
+    Require(NRPG::GetShootDirection(network,flying.p,origin+CVec3(0,10,0)) == NAI::UP,
+        "an airborne shot did not face north using the base-layer axes");
+    Require(NRPG::GetShootDirection(network,flying.p,origin+CVec3(-10,0,0)) == NAI::LEFT,
+        "an airborne shot did not face west using the base-layer axes");
+    Require(flying.p.GetBits() == before, "shoot-direction lookup changed the airborne position or pose");
+}
+
 static void FlyingDynamicLocks()
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
@@ -7109,6 +7146,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "restored-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 0); return true; }
     if (!std::strcmp(mode, "fresh-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "legacy-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "flying-shoot-direction")) { FlyingShootDirection(); return true; }
     if (!std::strcmp(mode, "flying-dynamic-locks")) { FlyingDynamicLocks(); return true; }
     if (!std::strcmp(mode, "arrived-retreat-completion") && argc == 4) { ArrivedRetreatCompletion(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "finished-ai-logic-retirement") && argc == 4) { FinishedAILogicRetirement(argv[2], argv[3]); return true; }

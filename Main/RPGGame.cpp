@@ -887,7 +887,8 @@ NAI::EDirection GetShootDirection( NAI::IPathNetwork *pNet, const NAI::SPathPlac
 	fromPos.SetNetwork( pNet );
 	CVec3 ptDir( ptTarget - fromPos.GetCP() );
 	float fAngle = atan2( ptDir.y, ptDir.x );
-	return pNet->GetClosestDir( from.GetLayer(), fAngle );
+	// Flying places encode altitude in the layer field; their axes belong to layer 0.
+	return pNet->GetClosestDir( from.IsFinal() ? 0 : from.GetLayer(), fAngle );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CVec3 GetMeleeAttackPos( const NWorld::CUnit *pAttacker, const CVec3 &ptTarget )
