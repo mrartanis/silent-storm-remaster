@@ -201,6 +201,7 @@
 | [360344ca](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387) — Use the authored placement cursor for object traps | `object trap placement used the healing cursor instead of the authored trap-placement cursor` | 247/247; `object-trap-placement-cursor` | `Upstream-Commit` в commit message |
 | [360344ca](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387) — Use the authored placement cursor when setting mines | `mine placement used the healing cursor instead of the authored trap-placement cursor` | 248/248; `mine-placement-cursor` | `Upstream-Commit` в commit message |
 | [72000d27](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/72000d27a460a0300bc6cae497e1d69b61d80f17) — Keep opposing hotseat players out of allied visibility sharing | `opposing hotseat players shared contacts, objects or traps merely because both used scenario ID zero` | 249/249; `hotseat-opponent-visibility` | `Upstream-Commit` в commit message |
+| [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Keep playing music when its database record is replaced | `replacing a music database record restarted its already-playing file instead of adopting the live stream` | 250/250; `reloaded-music-record` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

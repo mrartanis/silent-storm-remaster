@@ -1583,11 +1583,11 @@ static vector<unsigned char> SilentPCMFixture(unsigned frames = 1000,unsigned sa
 struct TemporaryAudioFile
 {
     std::filesystem::path path;
-    TemporaryAudioFile()
+    explicit TemporaryAudioFile(const char* filename = "native-music-fixture.wav")
     {
         const char* directory = std::getenv("S2_USER_DATA_DIR");
         Require(directory != nullptr, "native music fixture needs an isolated temporary directory");
-        path = std::filesystem::path(directory)/"native-music-fixture.wav";
+        path = std::filesystem::path(directory)/filename;
         std::filesystem::create_directories(path.parent_path());
         const auto wave = SilentPCMFixture(88200);
         std::ofstream output(path,std::ios::binary|std::ios::trunc);
@@ -1596,6 +1596,52 @@ struct TemporaryAudioFile
     }
     ~TemporaryAudioFile() { std::error_code error; std::filesystem::remove(path,error); }
 };
+
+static void ReloadedMusicRecordContinuity()
+{
+    Require(std::getenv("S2_AUDIO_HEADLESS") != nullptr, "music-record fixture requires headless audio");
+    TemporaryAudioFile wave, otherWave("native-music-other.wav");
+    Require(NFMSound::Init(NFMSound::SStartInfo()), "music-record fixture could not initialize native audio");
+    struct AudioCleanup { ~AudioCleanup() { NFMSound::Done(); } } cleanup;
+    CObj<NFMSound::CStream> stream = NFMSound::PlayStream(wave.path.string().c_str(),false,250,true,0);
+    Require(IsValid(stream) && NFMSound::IsPlaying(stream) && NFMSound::GetStreamTime(stream) == 250,
+        "music-record control did not start and seek an actual decoded stream");
+    CObj<CCTime> clock = new CCTime(0);
+    vector<CObj<NDb::CTMusic>> pools;
+    auto track = [](const string& path) {
+        CObj<NDb::CMusic> record = new NDb::CMusic;
+        record->szFileName = path; record->nFadeIn = 0; record->nPlayTime = 60000; record->nRndPlayTime = 0;
+        return record;
+    };
+    auto scene = [&](NDb::CMusic* record) {
+        CObj<NDb::CTMusic> pool = new NDb::CTMusic;
+        pool->variants.push_back(record); pool->roulette.AddSector(1); pools.push_back(pool);
+        CObj<NSound::ISoundScene> result = NSound::CreateSoundScene(pool,nullptr,clock);
+        return result;
+    };
+    auto original = track(wave.path.string());
+    auto owner = scene(original);
+    CTransformStack transform; transform.Init();
+    owner->Draw(&transform);
+    Require(NFMSound::IsPlaying(stream) && NFMSound::GetStreamTime(stream) == 250,
+        "the original sound scene did not adopt its already-playing track");
+    original = nullptr;
+    Require(!IsValid(pools.front()->variants.front()) && NFMSound::IsPlaying(stream),
+        "music-record fixture failed to invalidate the old database record independently of the live stream");
+    auto replacement = track(wave.path.string());
+    auto resumed = scene(replacement);
+    resumed->Draw(&transform);
+    Require(NFMSound::IsPlaying(stream) && NFMSound::GetStreamTime(stream) == 250 &&
+        NFMSound::PlayStream(wave.path.string().c_str(),true,0,true,0) == stream.GetPtr(),
+        "replacing a music database record restarted its already-playing file instead of adopting the live stream");
+    auto different = track(otherWave.path.string());
+    auto switched = scene(different);
+    switched->Draw(&transform);
+    CObj<NFMSound::CStream> current = NFMSound::PlayStream(otherWave.path.string().c_str(),true,0,true,0);
+    Require(!NFMSound::IsPlaying(stream) && IsValid(current) && current.GetPtr() != stream.GetPtr() &&
+        NFMSound::IsPlaying(current) && NFMSound::GetStreamTime(current) == 0,
+        "preserving a same-file stream prevented an actual different music file from replacing it");
+}
 
 static void TracklessSceneMusicContinuity()
 {
@@ -9154,6 +9200,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "late-looping-sound-offset")) { LateLoopingSoundOffset(); return true; }
     if (!std::strcmp(mode, "headless-music-stream")) { HeadlessMusicStream(); return true; }
     if (!std::strcmp(mode, "trackless-scene-music")) { TracklessSceneMusicContinuity(); return true; }
+    if (!std::strcmp(mode, "reloaded-music-record")) { ReloadedMusicRecordContinuity(); return true; }
     if (!std::strcmp(mode, "exit-menu-confirmation") && argc == 4) { ExitMenuConfirmation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "supplied-defeat-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "supplied-options-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3]); return true; }

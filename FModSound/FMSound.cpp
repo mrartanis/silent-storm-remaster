@@ -834,6 +834,11 @@ void CancelFadeOut( CStream *pStream )
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+bool IsStreamFile( CStream *pStream, const char *pszName )
+{
+	return IsValid( pStream ) && pszName && pStream->GetFileName() == pszName;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IsPlaying( CStream *pStream )
 {
 	for ( CStreamList::iterator i = streams.begin(); i != streams.end(); ++i )

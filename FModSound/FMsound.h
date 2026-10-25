@@ -126,6 +126,7 @@ CStream* PlayStream( const char *pszName, bool bUseExisting, int nStartMs, bool 
 // retail @0x3dbb50: the new stream replaces pOldStream (which is closed); fFadeInSec ramps the
 // NEW stream in over the switch (retail SetSwitchStream @0x3dd190 fade-in priming).
 CStream* SwitchStream( CStream *pOldStream, const char *pszNameNewStream, bool bLoop, float fFadeInSec ); // �� ��������� ������� ������������� �� ����� �����
+bool IsStreamFile( CStream *pStream, const char *pszName );
 bool IsPlaying( CStream *pStream );
 unsigned long GetStreamTime( CStream *pStream );   // current play position ms, 0xFFFFFFFF if not playing (retail NSound::CMusic save capture)
 bool IsPlaying( CSound2D *pSound );

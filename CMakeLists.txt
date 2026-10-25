@@ -925,6 +925,8 @@ add_test(NAME UpstreamHeadlessMusicStream COMMAND UpstreamBugTests headless-musi
 set_tests_properties(UpstreamHeadlessMusicStream PROPERTIES ENVIRONMENT "S2_AUDIO_HEADLESS=1;S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/upstream-headless-music-user")
 add_test(NAME UpstreamTracklessSceneMusic COMMAND UpstreamBugTests trackless-scene-music)
 set_tests_properties(UpstreamTracklessSceneMusic PROPERTIES TIMEOUT 15 ENVIRONMENT "S2_AUDIO_HEADLESS=1;S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/upstream-trackless-music-user")
+add_test(NAME UpstreamReloadedMusicRecord COMMAND UpstreamBugTests reloaded-music-record)
+set_tests_properties(UpstreamReloadedMusicRecord PROPERTIES ENVIRONMENT "S2_AUDIO_HEADLESS=1;S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/upstream-reloaded-music-user")
 add_test(NAME UpstreamConnectedAliasMoves COMMAND UpstreamBugTests connected-alias-moves)
 add_test(NAME UpstreamIsolatedSourceMoves COMMAND UpstreamBugTests isolated-source-moves)
 add_test(NAME UpstreamLockedAliasMoves COMMAND UpstreamBugTests locked-alias-moves)
