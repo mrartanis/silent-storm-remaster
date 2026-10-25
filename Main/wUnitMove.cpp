@@ -1033,6 +1033,7 @@ void CExecMove::ConvertPath( NAI::CPath *pPath, ENeedActiveItem eActive )
 	NRPG::IInventoryItem *pActiveItem = pInventory->GetActive();
 	//CDynamicCast<NRPG::IWeaponItem> pWeapon(pActiveItem);
 	bool bWeapon = ( pActiveItem != 0 && !animator.IsCarryingCorpse() );
+	bool bAutoActivate = bWeapon && !pUS->IsWalkingWithoutWeapon();
 	if ( !bWeapon && bActive )
 	{
 		commandsQueue.push_back( new CCmdDeactivateItem( pUS, nSlot ) );
@@ -1097,7 +1098,7 @@ void CExecMove::ConvertPath( NAI::CPath *pPath, ENeedActiveItem eActive )
 				// retail @0x3b9330: a cross-layer in-place turn goes through CreateRotateQueue @0x3b9000
 				// (end the pending move, then rotate to cur's heading) -- NOT the inter-grid fold below,
 				// which silently drops the heading change.
-				if ( bWeapon && !bActive )
+				if ( bAutoActivate && !bActive )
 				{
 					commandsQueue.push_back( new CCmdActivateItem( pUS, nSlot ) );
 					bActive = true;
@@ -1118,7 +1119,7 @@ void CExecMove::ConvertPath( NAI::CPath *pPath, ENeedActiveItem eActive )
 				bMoving = true;
 				continue;
 			}
-			if ( bWeapon && !bActive )
+			if ( bAutoActivate && !bActive )
 			{
 				commandsQueue.push_back( new CCmdActivateItem( pUS, nSlot ) );
 				bActive = true;
@@ -1163,7 +1164,7 @@ void CExecMove::ConvertPath( NAI::CPath *pPath, ENeedActiveItem eActive )
 		}
 		else if ( prev.GetPose() != cur.GetPose() )
 		{
-			if ( bWeapon && !bActive )
+			if ( bAutoActivate && !bActive )
 			{
 				commandsQueue.push_back( new CCmdActivateItem( pUS, nSlot ) );
 				bActive = true;
@@ -1172,7 +1173,7 @@ void CExecMove::ConvertPath( NAI::CPath *pPath, ENeedActiveItem eActive )
 		}
 		else if ( prev.GetX() == cur.GetX() && prev.GetY() == cur.GetY() && prev.GetDirection() != cur.GetDirection() )
 		{
-			if ( bWeapon && !bActive )
+			if ( bAutoActivate && !bActive )
 			{
 				commandsQueue.push_back( new CCmdActivateItem( pUS, nSlot ) );
 				bActive = true;
@@ -1188,7 +1189,7 @@ void CExecMove::ConvertPath( NAI::CPath *pPath, ENeedActiveItem eActive )
 		}
 		else if ( prev.GetX() != cur.GetX() || prev.GetY() != cur.GetY() )
 		{
-			if ( bWeapon && !bActive )
+			if ( bAutoActivate && !bActive )
 			{
 				commandsQueue.push_back( new CCmdActivateItem( pUS, nSlot ) );
 				bActive = true;

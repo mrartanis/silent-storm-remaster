@@ -3826,6 +3826,59 @@ static void ScriptHolsterPersistence(const char* databasePath, const char* resou
         "recording scripted holster intent spent action points before queued execution");
 }
 
+static void MovementHolsterPolicy(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& entry: units) {
+        auto* server = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (server && server->CanFight() && !server->IsEmptyPK() && !server->IsWearingPK()
+                && server->GetUnitRPG()->CanMove() && server->GetPosition().pos.p.GetPose() != NAI::CM_INACTIVE
+                && IsValid(server->GetUnitRPG()->GetInventoryInfo()->GetActive())) { actor = server; break; }
+    }
+    Require(actor != nullptr, "movement holster fixture has no mobile armed actor");
+    CObj<NAI::CPath> path = new NAI::CPath;
+    path->pNet = world->GetPathNetwork();
+    auto place = actor->GetPosition().pos.p;
+    const int initialDirection = place.GetDirection();
+    for (int turn = 0; turn < 4; ++turn) {
+        place.SetDirection((initialDirection + turn) & 7);
+        path->points.push_back(place);
+    }
+    const int ap = actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP);
+    auto activationCount = [&](bool persistent, NWorld::ENeedActiveItem constraint) {
+        actor->SetWalkWithoutWeapon(persistent);
+        actor->animator.SetActiveItem(false);
+        actor->SetUndrawItem(true);
+        CObj<NWorld::CCommandExecute> move = NWorld::CreateSimpleMoveExecutor(actor, path, NAI::PF_DEFAULT, constraint);
+        Require(IsValid(move), "movement holster fixture could not create its native path executor");
+        int activations = 0, rotations = 0;
+        CStructureNetworkContext graph;
+        graph.include = [&](CObjectBase* object) {
+            const int type = pSSClasses->GetObjectTypeID(object);
+            if (type == int(0x113B1130)) ++activations;
+            if (type == int(0x02731143)) ++rotations;
+            return false;
+        };
+        CMemoryStream traversal;
+        { CStructureSaver writer(traversal, CStructureSaver::WRITE, &graph);
+          static_cast<CObjectBase*>(move.GetPtr())->operator&(writer); }
+        Require(rotations >= 3, "movement holster fixture lost its native turn commands");
+        return activations;
+    };
+    Require(activationCount(false, NWorld::ITEM_NO_MATTER) == 1,
+        "ordinary movement did not retain its normal weapon activation");
+    Require(activationCount(true, NWorld::ITEM_NO_MATTER) == 0,
+        "native movement queued automatic weapon activation despite persistent scripted holstering");
+    Require(activationCount(true, NWorld::ITEM_ACTIVE) == 1,
+        "persistent holstering suppressed an explicit active-weapon path constraint");
+    Require(actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == ap,
+        "constructing the movement activation policy spent action points");
+}
+
 static void ScriptAIActivation(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -4619,6 +4672,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "finished-music-silence")) { Require(argc == 3, "finished music requires db"); FinishedMusicSilence(argv[2]); return true; }
     if (!std::strcmp(mode, "holstered-heavy-weapon-mesh")) { Require(argc == 4, "heavy mesh requires db and res"); HolsteredHeavyWeaponMesh(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "script-holster-persistence")) { Require(argc == 4, "script holster requires db and res"); ScriptHolsterPersistence(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "movement-holster-policy")) { Require(argc == 4, "movement holster requires db and res"); MovementHolsterPolicy(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "pain-voice-owner")) { Require(argc == 4, "pain voice requires db and res"); PainVoiceOwner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "unconscious-pain-voice")) { Require(argc == 4, "pain eligibility requires db and res"); PainVoiceOwner(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "world-ui-refresh-latch")) { Require(argc == 4, "world UI refresh requires db and res"); WorldUIRefreshLatch(argv[2], argv[3]); return true; }
