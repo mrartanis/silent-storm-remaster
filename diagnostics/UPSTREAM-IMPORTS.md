@@ -170,6 +170,7 @@
 | [b14bbb4f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b14bbb4f21ddb7bd3a1df837e63b49726ff1dfeb) — Restore saved party portrait selection without legacy image vectors | `native saved-format multi-unit panels crashed in CInfoPanelMultipleUnits::Draw while indexing the absent legacy selection-image vector, for both populated and empty rosters` | 212/212; `restored-portrait-selection` | `Upstream-Commit` в commit message |
 | [f49af57f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f49af57f5fac26ad87cbab5206a3350ceb1f7509) — Honor save permission throughout the exit dialog | `the default exit dialog displayed Save despite its disabled save permission` | 214/214; `exit-menu-save-permission` | `Upstream-Commit` в commit message |
 | [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Exclude isolated and blocked copies from navigation aliases | `same-point enumeration included isolated or blocked navigation aliases instead of only the connected copy` | 216/216; `navigation-alias-destinations` | `Upstream-Commit` в commit message |
+| [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Expose connected navigation copies for isolated source cells | `an isolated occupied source without the same-point flag could not enumerate its connected escape copy` | 218/218; `isolated-source-aliases` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

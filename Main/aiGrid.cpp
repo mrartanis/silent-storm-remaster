@@ -664,7 +664,7 @@ bool CLayersGroup::IsIgnored( float x, float y ) const
 void CNodesLayer::GetSamePoints( const SPathPlace& p, vector<SPathPlace> *pRes )
 {
 	STile &t1 = tiles[ p.GetY() ][ p.GetX() ];
-	if ( ( t1.nFlags & TF_HAS_SAME ) == 0 )
+	if ( ( t1.nFlags & TF_HAS_SAME ) == 0 && t1.HasNavigationLinks() )
 		return;
 	for ( int i = 0; i < N_MAX_FLOORS * N_MAX_LAYERS_PER_FLOOR; ++i )
 	{
@@ -682,7 +682,7 @@ void CNodesLayer::GetSamePoints( const SPathPlace& p, vector<SPathPlace> *pRes )
 int CNodesLayer::GetSamePoints( const SPathPlace& p, SPathPlace *places )
 {
 	STile &t1 = tiles[ p.GetY() ][ p.GetX() ];
-	if ( ( t1.nFlags & TF_HAS_SAME ) == 0 )
+	if ( ( t1.nFlags & TF_HAS_SAME ) == 0 && t1.HasNavigationLinks() )
 		return 0;
 	int nP = 0;
 	for ( int i = 0; i < N_MAX_FLOORS * N_MAX_LAYERS_PER_FLOOR; ++i )

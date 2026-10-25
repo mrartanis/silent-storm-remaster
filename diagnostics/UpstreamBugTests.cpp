@@ -5992,7 +5992,7 @@ public:
     bool IsEmptyPK() const override { return shell; }
 };
 
-static void NavigationAliasDestinations(bool arrayOutput)
+static void NavigationAliasDestinations(bool arrayOutput, bool isolatedSource = false)
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
     for (int i = 0; i < 5; ++i) {
@@ -6017,6 +6017,11 @@ static void NavigationAliasDestinations(bool arrayOutput)
     network->GetLayer(3)->tiles[1][1].nHeight = 101;
     network->GetLayer(4)->tiles[1][1].nPassable = 0;
     NAI::SPathPlace origin(1,1,0);
+    auto& source = network->GetLayer(0)->tiles[1][1];
+    if (isolatedSource) {
+        source.nMoveStand = 0;
+        source.nFlags = NAI::TF_STAND_PASSABLE;
+    }
     auto aliases = [&]() {
         vector<int> result;
         if (arrayOutput) {
@@ -6043,11 +6048,22 @@ static void NavigationAliasDestinations(bool arrayOutput)
         return result;
     };
     const auto initial = aliases();
-    std::printf("Navigation aliases (%s):",arrayOutput ? "array" : "vector");
+    std::printf("Navigation aliases (%s, source %s):",arrayOutput ? "array" : "vector",isolatedSource ? "isolated" : "connected");
     for (int layer: initial) std::printf(" %d",layer);
     std::puts("; expected only connected layer 2");
     Require(initial == vector<int>({2}),
-        "same-point enumeration included isolated or blocked navigation aliases instead of only the connected copy");
+        isolatedSource ? "an isolated occupied source without the same-point flag could not enumerate its connected escape copy"
+                       : "same-point enumeration included isolated or blocked navigation aliases instead of only the connected copy");
+    auto& connectedCopy = network->GetLayer(2)->tiles[1][1];
+    connectedCopy.nLocks = 1; connectedCopy.nDynLocks = 1;
+    Require(aliases() == vector<int>({2}) && connectedCopy.nLocks == 1 && connectedCopy.nDynLocks == 1,
+        "temporary occupancy removed a structural alias or enumeration changed its locks");
+    connectedCopy.nLocks = 0; connectedCopy.nDynLocks = 0;
+    if (isolatedSource) {
+        source.nMoveStand = 1;
+        Require(aliases().empty(), "a connected source without the same-point flag invented undeclared aliases");
+        source.nMoveStand = 0;
+    }
     isolated.nMoveCrouch = 1;
     Require(aliases() == vector<int>({1,2}), "a crouch-connected alias was rejected or changed destination order");
     isolated.nMoveCrouch = 0;
@@ -7753,6 +7769,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "empty-passage-exit") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "scripted-passage-transition") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "flying-attack-queue") && argc == 4) { FlyingAttackQueue(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "isolated-source-alias-vector")) { NavigationAliasDestinations(false,true); return true; }
+    if (!std::strcmp(mode, "isolated-source-alias-array")) { NavigationAliasDestinations(true,true); return true; }
     if (!std::strcmp(mode, "navigation-alias-vector")) { NavigationAliasDestinations(false); return true; }
     if (!std::strcmp(mode, "navigation-alias-array")) { NavigationAliasDestinations(true); return true; }
     if (!std::strcmp(mode, "flying-shoot-direction")) { FlyingShootDirection(); return true; }
