@@ -583,6 +583,31 @@ static void WorldlessUIScript()
         "allowing UI scripts changed the native tactical script factory path");
 }
 
+static void MissingLuaGlobalWarning()
+{
+    Script script;
+    auto warnings = [&]() {
+        return std::count_if(consoleLines.begin(),consoleLines.end(),[](const SConsoleLine& line) {
+            return line.eType == STREAM_SYSTEM && line.szText.find(L"[Script warning!] Value was NIL when getting global with name ") != wstring::npos;
+        });
+    };
+    const auto before = warnings();
+    Require(script.GetGlobal("UpstreamMissingGlobalDiagnostic").IsNil(), "missing-global lookup changed its nil result");
+    Require(warnings() == before + 1 &&
+        consoleLines.front().szText.find(L"UpstreamMissingGlobalDiagnostic") != wstring::npos,
+        "native Lua silently returned nil for a missing global without naming it in the diagnostic log");
+    script.SetTop(0);
+    const auto afterMissing = warnings();
+    Require(script.GetGlobal("FALSE").IsNil() && warnings() == afterMissing,
+        "Lua's deliberately nil FALSE constant generated a missing-global warning");
+    script.SetTop(0);
+    Require(script.DoString("UpstreamDeclaredGlobalDiagnostic=42") == LUA_NOERR,
+        "missing-global fixture could not compile its declared-variable control");
+    script.ExecuteThreads();
+    Require(script.GetGlobal("UpstreamDeclaredGlobalDiagnostic").GetNumber() == 42 && warnings() == afterMissing,
+        "a declared Lua global changed value or generated a missing-global warning");
+}
+
 static void EmptyLuaDefault()
 {
     Script script;
@@ -8297,6 +8322,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mechanical-step-sound")) { MechanicalStepSound(); return true; }
     if (!std::strcmp(mode, "nearest-invalid")) { InvalidNearestPosition(); return true; }
     if (!std::strcmp(mode, "lua-empty-default")) { EmptyLuaDefault(); return true; }
+    if (!std::strcmp(mode, "missing-lua-global-warning")) { MissingLuaGlobalWarning(); return true; }
     if (!std::strcmp(mode, "smart-aimer-boundary")) { SmartAimerBoundary(); return true; }
     if (!std::strcmp(mode, "nearest-empty")) { EmptyNearestPosition(); return true; }
     if (!std::strcmp(mode, "fresh-navigation-colouring")) { FreshNavigationColouring(); return true; }

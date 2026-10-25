@@ -184,6 +184,7 @@
 | [5c13b0d0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5c13b0d0219aed4684563a01b694d2d9da9aeccd) — Honor the standard confirmation command in the exit dialog | `the native exit dialog ignored its standard confirmation command` | 229/229; `exit-menu-confirmation` | `Upstream-Commit` в commit message |
 | [5c13b0d0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5c13b0d0219aed4684563a01b694d2d9da9aeccd) — Report successful saves only after serialization completes | `a completed silent native save omitted its localized success feedback` | 230/230; `save-success-feedback` | `Upstream-Commit` в commit message |
 | [5c13b0d0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5c13b0d0219aed4684563a01b694d2d9da9aeccd) — Report successful loads after the native slot and interface restore finish | `a completed silent native load omitted its localized success feedback` | 231/231; `load-success-feedback` | `Upstream-Commit` в commit message |
+| [cc9fbeab](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc9fbeab94c206c59606fb91902c800c5690f0c9) — Name missing Lua globals in the diagnostic log without changing lookup results | `native Lua silently returned nil for a missing global without naming it in the diagnostic log` | 232/232; `missing-lua-global-warning` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
