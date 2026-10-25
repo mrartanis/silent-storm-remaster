@@ -6834,6 +6834,70 @@ static CObj<NAI::CPathNetwork> SimplePathNetwork(int layerCount = 1)
     return network;
 }
 
+class PlacementCursorMission: public AttackMission
+{
+    OBJECT_NOCOPY_METHODS(PlacementCursorMission);
+public:
+    NAI::SPosition position;
+    CObj<NWorld::CWindowDoor> target = new NWorld::CWindowDoor;
+    NGame::SActionInfo info;
+    bool traceAvailable = true, mine = false;
+    int queries = 0, commands = 0;
+    PlacementCursorMission() { info.SetValid(); info.nMinAP = info.nMaxAP = 7; }
+    bool GetTracePosition(NAI::SPosition* result) const override { *result = position; return traceAvailable; }
+    CObjectBase* GetStateTarget(bool* fromWorld = nullptr) const override {
+        if (fromWorld) *fromWorld = true;
+        return target;
+    }
+    void GetActionInfo(NGame::EUnitAction,NGame::SActionInfo* result) override { result->SetValid(); }
+    void CanDoCommand(NWorld::CCmd* command,bool,NGame::SActionInfo* result) override {
+        if (mine) {
+            auto* placement = dynamic_cast<NWorld::CCmdSetMineOnTile*>(command);
+            Require(placement && placement->ptDst == position, "mine cursor probed a different command or traced position");
+        } else {
+            auto* placement = dynamic_cast<NWorld::CCmdSetGrenadeOnObject*>(command);
+            Require(placement && placement->pTarget == target.GetPtr(), "trap cursor probed a different command or object");
+        }
+        ++queries; *result = info;
+    }
+    void Command(NWorld::CUnit*,NWorld::CCmd*,bool) override { ++commands; }
+};
+
+static void PlacementCursor(const char* databasePath,bool mine = false)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    Require(NDb::GetUICursor(19) && NDb::GetUICursor(NGame::N_CURSOR_BLOCK),
+        "placement-cursor fixture has no authored placement or blocked cursor");
+    auto network = SimplePathNetwork();
+    CObj<PlacementCursorMission> mission = new PlacementCursorMission;
+    mission->mine = mine;
+    mission->position = NAI::SPosition(NAI::SPathPlace(2,3,0),network);
+    Require(mission->position.IsValid(), "placement-cursor fixture has no valid native navigation position");
+    CObj<NGame::IState> state = mine ? static_cast<NGame::IState*>(new NGame::CStateSetMine) :
+        static_cast<NGame::IState*>(new NGame::CStateSetTrap);
+    Require(state->Initialize(mission) && mission->queries == 1,
+        "placement-cursor control did not initialize and probe its native targeting state");
+    const auto expectedCaption = NUI::GetDBString(20276)+NUI::GetDBString(19808)+L"7";
+    Require(state->GetCursorInfo().wsText == expectedCaption, "placement cursor lost its original action-point caption");
+    Require(state->GetCursorInfo().pCursor == NDb::GetUICursor(19), mine ?
+        "mine placement used the healing cursor instead of the authored trap-placement cursor" :
+        "object trap placement used the healing cursor instead of the authored trap-placement cursor");
+    mission->traceAvailable = false;
+    state->Step();
+    Require(mission->queries == 1 && state->GetCursorInfo().pCursor == NDb::GetUICursor(NGame::N_CURSOR_BLOCK) &&
+        state->GetCursorInfo().wsText.empty(), "losing the placement trace retained its action cursor or AP caption");
+    mission->traceAvailable = true; mission->position = NAI::SPosition(NAI::SPathPlace(3,3,0),network);
+    state->Step();
+    Require(mission->queries == 2 && state->GetCursorInfo().pCursor == NDb::GetUICursor(19),
+        "restoring a placement trace did not recover its authored action cursor");
+    mission->info = NGame::SActionInfo(); mission->position = NAI::SPosition(NAI::SPathPlace(4,3,0),network);
+    state->Step();
+    Require(mission->queries == 3 && state->GetCursorInfo().pCursor == NDb::GetUICursor(NGame::N_CURSOR_BLOCK) &&
+        mission->commands == 0, "unavailable placement retained an action cursor or cursor updates issued gameplay commands");
+}
+
 static void SimpleCrossLayerPoseEntry()
 {
     auto network = SimplePathNetwork(2);
@@ -8971,6 +9035,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mounted-reload-weapon")) { Require(argc == 4, "mounted reload requires db and res"); MountedReloadWeapon(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "holstered-reload-preparation")) { Require(argc == 4, "reload preparation requires db and res"); HolsteredReloadPreparation(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "empty-clip-attack-entry") && argc == 4) { EmptyClipAttackEntry(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "object-trap-placement-cursor") && argc == 3) { PlacementCursor(argv[2]); return true; }
     if (!std::strcmp(mode, "reload-action-wire")) { Require(argc == 4, "reload wire requires db and res"); ReloadActionWire(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-reload-log-wire")) { AIReloadLogRecord(0); return true; }
     if (!std::strcmp(mode, "ai-reload-log-rollback")) { AIReloadLogRecord(1); return true; }

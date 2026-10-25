@@ -950,6 +950,7 @@ if(S2_GAME_DIR)
   add_test(NAME UpstreamForcedToolTargetingEntry COMMAND UpstreamBugTests forced-tool-targeting-entry "${S2_GAME_DIR}/game.db")
   add_test(NAME UpstreamEmptyClipAttackEntry COMMAND UpstreamBugTests empty-clip-attack-entry "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamToolTargetingCursorRefresh COMMAND UpstreamBugTests tool-targeting-cursor-refresh "${S2_GAME_DIR}/game.db")
+  add_test(NAME UpstreamObjectTrapPlacementCursor COMMAND UpstreamBugTests object-trap-placement-cursor "${S2_GAME_DIR}/game.db")
   set_tests_properties(UpstreamGlobalMapReturnDestination PROPERTIES WORKING_DIRECTORY "${S2_GAME_DIR}" TIMEOUT 60)
   foreach(mode IN ITEMS single moving selection)
     add_test(NAME UpstreamDeadUnitLocks-${mode} COMMAND UpstreamBugTests dead-unit-locks-${mode}

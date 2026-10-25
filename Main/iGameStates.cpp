@@ -2000,7 +2000,7 @@ void CStateSetTrap::UpdateCursor()
 	{
 		wstring wsText;
 		MakeCursorString( GetMission(), sInfo, &wsText );	// retail caption: shared MakeCursorString @0x1d7990
-		sCursorInfo = NUI::SCursorInfo( NDb::GetUICursor( N_CURSOR_HEAL ), wsText.c_str() );
+		sCursorInfo = NUI::SCursorInfo( NDb::GetUICursor( N_CURSOR_SETTRAP ), wsText.c_str() );
 	}
 	else
 		sCursorInfo = NUI::SCursorInfo( NDb::GetUICursor( N_CURSOR_BLOCK ) );

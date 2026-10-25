@@ -270,6 +270,7 @@ if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
   add_test(NAME UpstreamForcedToolTargetingEntry COMMAND UpstreamBugTests forced-tool-targeting-entry "${S2_GAME_DB_PATH}")
   add_test(NAME UpstreamEmptyClipAttackEntry COMMAND UpstreamBugTests empty-clip-attack-entry "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   add_test(NAME UpstreamToolTargetingCursorRefresh COMMAND UpstreamBugTests tool-targeting-cursor-refresh "${S2_GAME_DB_PATH}")
+  add_test(NAME UpstreamObjectTrapPlacementCursor COMMAND UpstreamBugTests object-trap-placement-cursor "${S2_GAME_DB_PATH}")
   set_tests_properties(UpstreamGlobalMapReturnDestination PROPERTIES WORKING_DIRECTORY "${_s2_upstream_game_dir}" TIMEOUT 60)
   foreach(mode IN ITEMS single moving selection)
     add_test(NAME UpstreamDeadUnitLocks-${mode} COMMAND UpstreamBugTests dead-unit-locks-${mode}
