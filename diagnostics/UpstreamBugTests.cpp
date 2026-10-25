@@ -2834,6 +2834,7 @@ public:
     mutable int steps = 0, callbacks = 0;
     mutable NAI::SPathPlace observed, cancelledAt;
     int cancelOnStep = 1;
+    bool gracefulCancel = false;
     CPtr<NWorld::CCommandExecute> mover;
     CObj<NWorld::CCommandExecute>* releasingOwner = nullptr;
     bool CanFight() const override {
@@ -2845,7 +2846,8 @@ public:
                     armed = false; ++callbacks; cancelledAt = current;
                     auto* moving = dynamic_cast<NWorld::IExecMove*>(releasingOwner ? releasingOwner->GetPtr() : mover.GetPtr());
                     Require(moving != nullptr, "movement-callback fixture lost its mover");
-                    moving->FullCancel();
+                    if (gracefulCancel) (releasingOwner ? releasingOwner->GetPtr() : mover.GetPtr())->Cancel();
+                    else moving->FullCancel();
                     if (releasingOwner) *releasingOwner = nullptr;
                 }
             }
@@ -2980,6 +2982,74 @@ static void MovementFirstStepWaitTimer(const char* databasePath, const char* res
     Require(moved, "first-step wait fixture did not begin a physical native move");
     Require(timer == 0, "starting a new physical movement step retained the previous wait timer");
     Require(!fixture.world->IsAction(), "first-step wait fixture retained a cancelled movement action");
+}
+
+struct MovementCommandSnapshot
+{
+    list<CObj<CObjectBase>> queued;
+    CObj<CObjectBase> current;
+};
+
+static MovementCommandSnapshot ReadMovementCommands(NWorld::CCommandExecute* move)
+{
+    vector<CObjectBase*> objects;
+    CStructureNetworkContext gather;
+    gather.include = [&](CObjectBase* object) {
+        if (std::find(objects.begin(), objects.end(), object) == objects.end()) objects.push_back(object);
+        return false;
+    };
+    CMemoryStream traversal;
+    { CStructureSaver writer(traversal, CStructureSaver::WRITE, &gather);
+      static_cast<CObjectBase*>(move)->operator&(writer); }
+    CStructureNetworkContext references;
+    references.externalReferences = true;
+    references.include = [](CObjectBase*) { return false; };
+    unsigned id = 1;
+    for (auto* object: objects) { references.ids[object] = id; references.refs[id++] = object; }
+    references.nextID = id + 100;
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE, &references);
+      static_cast<CObjectBase*>(move)->operator&(writer); }
+    saved.Seek(0);
+    MovementCommandSnapshot snapshot;
+    { CStructureSaver reader(saved, CStructureSaver::READ, &references);
+      reader.Add(2, &snapshot.queued); reader.Add(3, &snapshot.current); }
+    return snapshot;
+}
+
+static void MovementTerminalCompletion(const char* databasePath, const char* resourcePath, bool cancelled)
+{
+    auto fixture = MakeNativeMovementFixture(databasePath, resourcePath);
+    fixture.path->points.resize(2); // Retail completion latch is in the first-step/last-ender branch.
+    CObj<NWorld::CCommandExecute> move = NWorld::CreateSimpleMoveExecutor(fixture.actor, fixture.path, NAI::PF_DEFAULT);
+    Require(IsValid(move), "terminal-movement fixture could not create its native mover");
+    if (cancelled) {
+        fixture.actor->mover = move;
+        fixture.actor->observed = fixture.actor->GetPosition().pos.p;
+        fixture.actor->gracefulCancel = true;
+        fixture.actor->cancelOnStep = 1;
+        fixture.actor->armed = true;
+    }
+    move->Run();
+    if (cancelled) Require(fixture.actor->callbacks == 1,
+        "single-step terminal fixture did not cancel through the physical first-step callback");
+    for (int frame = 0; frame < 64; ++frame) {
+        auto snapshot = ReadMovementCommands(move);
+        if (IsValid(snapshot.current) && snapshot.queued.empty()
+                && pSSClasses->GetObjectTypeID(snapshot.current.GetPtr()) == int(0x12541120)) {
+            const auto state = move->GetState();
+            fixture.actor->mover = nullptr;
+            move = nullptr;
+            Require(state == (cancelled ? NWorld::CCommandExecute::FAILED : NWorld::CCommandExecute::FINISHED),
+                "single-step end-move command did not latch the mover completion result");
+            Require(!fixture.world->IsAction(), "released terminal movement retained its action counter");
+            return;
+        }
+        Require(move->GetState() == NWorld::CCommandExecute::RUNNING,
+            "terminal-movement fixture completed before exposing its final end command");
+        move->AnimationFinished();
+    }
+    throw std::runtime_error("terminal-movement fixture never reached the last end command");
 }
 
 static void HideCooldown(const char* databasePath, const char* resourcePath)
@@ -4840,6 +4910,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "equipment-holster-reset")) { Require(argc == 4, "equipment activation requires db and res"); ExplicitWeaponActivation(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "movement-holster-reset")) { Require(argc == 4, "movement activation requires db and res"); ExplicitWeaponActivation(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "movement-first-step-wait")) { Require(argc == 4, "movement wait requires db and res"); MovementFirstStepWaitTimer(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "movement-terminal-finished")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], false); return true; }
+    if (!std::strcmp(mode, "movement-terminal-failed")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "pain-voice-owner")) { Require(argc == 4, "pain voice requires db and res"); PainVoiceOwner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "unconscious-pain-voice")) { Require(argc == 4, "pain eligibility requires db and res"); PainVoiceOwner(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "world-ui-refresh-latch")) { Require(argc == 4, "world UI refresh requires db and res"); WorldUIRefreshLatch(argv[2], argv[3]); return true; }

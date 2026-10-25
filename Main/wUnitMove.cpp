@@ -604,6 +604,13 @@ void CExecMove::DoCommand()
 					animator.EndMove( prevPos, pEndMove->pWhatToEnd->pos, false, pEndMove->pWhatToEnd->bInterGrid );
 				else
 					animator.EndRotate( prevPos );
+				if ( commandsQueue.empty() )
+				{
+					if ( result == FINISHED )
+						Finished();
+					else
+						Failed();
+				}
 			}
 			else
 				ASSERT(0);
