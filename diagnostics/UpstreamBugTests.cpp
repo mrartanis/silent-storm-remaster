@@ -664,6 +664,60 @@ static void UnsupportedNavigationFloor()
     Require(network->GetFloor(flying) == 4, "navigation support correction changed flying-position floor handling");
 }
 
+static void LazyNavigationColourer()
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    network->CreateLayer(8, 8, VNULL2, 0.f, 0);
+    network->Freeze(true);
+    auto* layer = network->GetLayer(0);
+    const bool allocatedBeforeFirstRequest = IsValid(layer->pColourer);
+    layer->pColourer = nullptr; // Same missing-cache state as a compact save.
+    for (int y = 0; y < 8; ++y)
+        for (int x = 0; x < 8; ++x) {
+            auto& tile = layer->tiles[y][x];
+            tile = NAI::STile{}; tile.nPassable = NAI::CP_STAND;
+            tile.nMoveStand = static_cast<char>(0xff); tile.nFlags = NAI::TF_STAND_PASSABLE;
+        }
+    const NAI::CPathNetwork* query = network.GetPtr();
+    auto* cache = query->GetColourer(0);
+    Require(IsValid(cache) && cache == layer->pColourer.GetPtr(), "native navigation lookup did not reconstruct a cache omitted by a compact save");
+    cache->ConstructColouring(network);
+    Require(cache->IsReady() && cache->GetPointColor(3, 3) == cache->GetPointColor(4, 3),
+        "lazily allocated navigation cache did not build the real open-floor connectivity");
+    Require(query->GetColourer(0) == cache && cache->IsReady(), "repeated navigation cache lookup discarded a completed cache");
+    CPtr<NAI::CMapColourer> previous = cache;
+    layer->pColourer = nullptr;
+    cache = query->GetColourer(0);
+    Require(IsValid(cache) && !IsValid(previous) && cache != previous.GetPtr(),
+        "navigation cache lookup failed to restore a cache omitted by a compact save");
+    cache->ConstructColouring(network);
+    cache->Invalidate();
+    Require(!IsValid(layer->pColourer), "stale navigation cache fixture remained valid");
+    cache = query->GetColourer(0);
+    Require(IsValid(cache), "navigation lookup returned an invalidated colour cache");
+    cache->ConstructColouring(network);
+    Require(cache->IsReady() && cache->GetPointColor(3, 3) == cache->GetPointColor(4, 3),
+        "replacement navigation cache lost its layer binding or connectivity");
+    CObj<NAI::IAIMapTracker> tracker = dynamic_cast<NAI::IAIMapTracker*>(pSSClasses->CreateObject(0x72952150));
+    Require(IsValid(tracker), "native navigation change tracker is not registered");
+    CStructureNetworkContext references;
+    references.externalReferences = true; references.nextID = 100;
+    references.include = [](CObjectBase*) { return false; };
+    references.ids[layer->pGroup.GetPtr()] = 1; references.refs[1] = layer->pGroup.GetPtr();
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE, &references);
+      CPtr<NAI::CLayersGroup> group = layer->pGroup.GetPtr(); CTPoint<int> cell(0, 0);
+      writer.Add(2, &group); writer.Add(3, &cell); }
+    saved.Seek(0);
+    { CStructureSaver reader(saved, CStructureSaver::READ, &references); static_cast<CObjectBase*>(tracker.GetPtr())->operator&(reader); }
+    layer->pColourer = nullptr;
+    layer->pGroup->squareLevel[0][0] = 2;
+    tracker->OnChange();
+    Require(IsValid(layer->pColourer) && !layer->pColourer->zonesToRecalc.empty() && layer->pGroup->squareLevel[0][0] == 0,
+        "native scenery change did not reconstruct an omitted navigation cache before marking its dirty zone");
+    Require(!allocatedBeforeFirstRequest, "fresh navigation layer allocated its colour cache before the first request");
+}
+
 static void FreshNavigationTransitions()
 {
     // Full attachment is the control; the incremental entry point must produce
@@ -4902,21 +4956,9 @@ public:
     bool IsEmptyPK() const override { return shell; }
 };
 
-class ColouringNetworkProbe: public NAI::CPathNetwork
-{
-    OBJECT_NOCOPY_METHODS(ColouringNetworkProbe);
-public:
-    bool allowRebuild = true;
-    void LockSelected(const list<CObjectBase*>& selected) override {
-        Require(allowRebuild,
-            "recolour job started changing occupancy for a missing or invalid navigation cache");
-        CPathNetwork::LockSelected(selected);
-    }
-};
-
 static void NavigationColouringOccupancy(int unavailable = 0)
 {
-    CObj<ColouringNetworkProbe> network = new ColouringNetworkProbe;
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
     network->CreateLayer(8, 8, VNULL2, 0.f, 0);
     network->Freeze(true);
     auto* layer = network->GetLayer(0);
@@ -4953,15 +4995,8 @@ static void NavigationColouringOccupancy(int unavailable = 0)
       static_cast<CObjectBase*>(job.GetPtr())->operator&(reader); }
     if (unavailable) {
         if (unavailable == 1) layer->pColourer = nullptr;
-        else layer->pColourer->Invalidate();
-        Require(!IsValid(network->GetColourer(0)), "unavailable colouring fixture retained a valid cache");
-        network->allowRebuild = false;
-        for (int step = 0; step < 4 && !job->IsJobFinished(); ++step) job->DoJob();
-        Require(job->IsJobFinished(), "recolouring job did not finish after skipping an unavailable cache");
-        Require(network->IsLocked(occupied, true) && layer->tiles[3][3].nLocks == 1
-                && network->GetWhoLocksThisPlace(occupied) == actor.GetPtr(),
-            "skipping an unavailable colourer altered a live occupancy lock");
-        return;
+        else network->GetColourer(0)->Invalidate();
+        Require(!IsValid(layer->pColourer), "unavailable colouring fixture retained a valid cache");
     }
     job->DoJob();
     auto* actual = network->GetColourer(0);
@@ -6225,6 +6260,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "nearest-empty")) { EmptyNearestPosition(); return true; }
     if (!std::strcmp(mode, "fresh-navigation-colouring")) { FreshNavigationColouring(); return true; }
     if (!std::strcmp(mode, "fresh-navigation-transitions")) { FreshNavigationTransitions(); return true; }
+    if (!std::strcmp(mode, "lazy-navigation-colourer")) { LazyNavigationColourer(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "living-unit-floor-refresh") && argc == 4) { LivingUnitFloorRefresh(argv[2], argv[3]); return true; }
