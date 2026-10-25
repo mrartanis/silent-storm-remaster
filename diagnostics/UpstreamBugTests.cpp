@@ -6077,6 +6077,37 @@ static void NavigationAliasDestinations(bool arrayOutput, bool isolatedSource = 
     Require(aliases().empty(), "unequal displacement or isolated aliases were still reported as connected copies");
 }
 
+static void IsolatedTransitionShortcut()
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    network->CreateLayer(4,4,VNULL2,0.f,0);
+    network->CreateLayer(4,4,VNULL2,0.f,1,network->GetLayer(0)->pGroup);
+    network->Freeze(true);
+    NAI::STile connected{};
+    connected.nHeight = 200;
+    connected.nPassable = NAI::CP_STAND | NAI::CP_CROUCH;
+    connected.nMoveStand = 1;
+    connected.nFlags = NAI::TF_STAND_PASSABLE;
+    NAI::SPathPlace source(1,1,0), target(2,1,1), intermediate(2,1,0);
+    source.SetPose(NAI::CM_STAND); target.SetPose(NAI::CM_STAND);
+    auto& start = network->GetLayer(0)->tiles[1][1];
+    auto& alias = network->GetLayer(0)->tiles[1][2];
+    start = alias = network->GetLayer(1)->tiles[1][2] = connected;
+    start.nHeight = 100;
+    start.nMoveStand = 1 << network->GetDir(source,intermediate);
+    Require(NAI::GetTransitionType(network,source,target) == NAI::TT_MOVE,
+        "connected cross-layer shortcut control failed");
+    alias.nMoveStand = 0;
+    Require(NAI::GetTransitionType(network,source,target) == NAI::TT_NO_WAY,
+        "a cross-layer shortcut borrowed movement through an isolated intermediate copy");
+    alias.nMoveCrouch = 1;
+    Require(NAI::GetTransitionType(network,source,target) == NAI::TT_MOVE,
+        "a crouch-linked intermediate copy no longer supported its structural shortcut");
+    ++alias.nHeight;
+    Require(NAI::GetTransitionType(network,source,target) == NAI::TT_NO_WAY,
+        "a cross-layer shortcut accepted an intermediate copy at a different height");
+}
+
 static void IsolatedTransitionEntry()
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
@@ -7904,6 +7935,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "empty-passage-exit") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "scripted-passage-transition") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "flying-attack-queue") && argc == 4) { FlyingAttackQueue(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "isolated-transition-shortcut")) { IsolatedTransitionShortcut(); return true; }
     if (!std::strcmp(mode, "isolated-transition-entry")) { IsolatedTransitionEntry(); return true; }
     if (!std::strcmp(mode, "connected-direct-transitions")) { ConnectedDirectTransitions(); return true; }
     if (!std::strcmp(mode, "nearby-connected-destination")) { NearbyConnectedDestination(); return true; }

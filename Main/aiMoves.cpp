@@ -84,7 +84,7 @@ static bool HasSame( CPathNetwork *pNet, const SPathPlace &src, int nLayer )
 		return false;
 	CNodesLayer::STile &t1 = pSrcL->tiles[ src.GetY() ][ src.GetX() ];
 	CNodesLayer::STile &t2 = pDstL->tiles[ src.GetY() ][ src.GetX() ];
-	return ( t1.nHeight == t2.nHeight && t1.nDisplacement == t2.nDisplacement );
+	return t2.IsLinkedSame( t1 );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static void SetOnBaseLayer( CPathNetwork *pNet, SPathPlace *pSrc )
