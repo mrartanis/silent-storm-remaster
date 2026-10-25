@@ -545,8 +545,10 @@ class AttackCursorMission: public AttackMission
     OBJECT_NOCOPY_METHODS(AttackCursorMission);
 public:
     vector<CPtr<NGame::IUnitTracker>> selection;
+    bool traceAvailable = true;
     void GetSelectedUnits(vector<CPtr<NGame::IUnitTracker>>* result) const override { *result = selection; }
     int CountSelected() override { return static_cast<int>(selection.size()); }
+    bool GetTracePosition(CVec3* result) const override { *result = VNULL3; return traceAvailable; }
 };
 
 static void SetAttackPreview(AttackState* state, const NGame::SActionInfo& info)
@@ -597,12 +599,13 @@ static void MeleeAttackCursor(const char* databasePath)
         "unavailable attack did not retain the blocked cursor");
 }
 
-static void AttackCaptionWithoutHitChance(const char* databasePath, bool reload)
+static void AttackCaptionWithoutHitChance(const char* databasePath, bool reload, bool missingTarget = false)
 {
     CFileStream database;
     database.OpenRead(databasePath);
     NDatabase::Serialize(database, CStructureSaver::READ);
     CObj<AttackCursorMission> mission = new AttackCursorMission;
+    mission->traceAvailable = !missingTarget;
     CObj<AttackCursorUnit> unit = new AttackCursorUnit;
     CObj<NGame::CUnitTracker> tracker = new NGame::CUnitTracker(mission, unit);
     mission->selection.push_back(tracker.GetPtr());
@@ -610,16 +613,18 @@ static void AttackCaptionWithoutHitChance(const char* databasePath, bool reload)
     state->Attach(mission);
     NGame::SActionInfo info;
     info.bValid = info.bAvailable = true;
-    info.bOk = info.bEnoughAP = reload;
+    info.bOk = info.bEnoughAP = reload || missingTarget;
     info.nMinAP = reload ? 5 : 17;
     info.nMaxAP = reload ? 5 : 21;
-    info.eResult = reload ? NWorld::UCR_OK_RELOAD : NWorld::UCR_TARGET_OUT_OF_RANGE;
+    info.eResult = reload ? NWorld::UCR_OK_RELOAD : missingTarget ? NWorld::UCR_OK : NWorld::UCR_TARGET_OUT_OF_RANGE;
     SetAttackPreview(state, info);
     state->RefreshCaption();
     auto caption = state->GetCursorInfo().wsText;
-    const auto expected = NUI::GetDBString(reload ? 20276 : 19807) + NUI::GetDBString(19808)
+    const auto expected = NUI::GetDBString(info.bEnoughAP ? 20276 : 19807) + NUI::GetDBString(19808)
         + (reload ? L"5" : L"17-21");
-    Require(caption == expected, reload
+    Require(caption == expected, missingTarget
+        ? "attack preview displayed a percentage without a valid attack target"
+        : reload
         ? "replacement reload preview displayed a shooting percentage instead of only its AP cost"
         : "unavailable attack preview did not preserve its AP cost without a shooting percentage");
 }
@@ -892,6 +897,61 @@ static void ExactAttackPreviewTarget(const char* databasePath, const char* resou
     Require(state->GetCursorInfo().wsText == expected,
         "attack preview lost the exact 3D target when no movement tile was available");
     Require(shooter->GetRPG()->GetAP() == ap, "attack preview spent action points");
+}
+
+static void GroupAttackPreview(const char* databasePath, const char* resourcePath, bool mixedChance)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    vector<CPtr<NWorld::CUnit>> units, candidates;
+    world->GetAllUnits(&units);
+    for (auto& actor : units) {
+        auto* weapon = dynamic_cast<NRPG::IWeaponItemInfo*>(actor->GetRPG()->GetInventoryInfo()->GetActive());
+        if (weapon && !weapon->GetDBWeapon()->bBazookaLogic) candidates.push_back(actor);
+    }
+    Require(candidates.size() >= 2, "fixture needs two distinct firearm users");
+    vector<CPtr<NWorld::CUnit>> shooters{candidates[0], candidates[1]};
+    auto chances = [&](const CVec3& target) {
+        const int a = world->GetGame()->GetTileCompositeToHit(shooters[0], target, NAI::THL_MIDDLE, world->IsFirstTurn());
+        const int b = world->GetGame()->GetTileCompositeToHit(shooters[1], target, NAI::THL_MIDDLE, world->IsFirstTurn());
+        return std::make_pair((std::min)(a, b), (std::max)(a, b));
+    };
+    CVec3 target(1000, 1000, 1);
+    auto range = chances(target);
+    if (mixedChance) {
+        // Exercise the existing native-client preview cache with two server
+        // results. This controls UI inputs without changing combat formulas.
+        world->bNetworkReplica = true;
+        world->networkHitChance = [&](int kind, NWorld::CUnit* actor, NWorld::CUnit*, CVec3, int, bool) {
+            Require(kind == 2, "group preview requested the wrong cached attack kind");
+            return actor == shooters[0].GetPtr() ? 73 : 0;
+        };
+        range = chances(target);
+    } else {
+        Require(range.first == 0 && range.second == 0, "fixture distant target is not out of range for both shooters");
+    }
+    CObj<TileAttackMission> mission = new TileAttackMission;
+    mission->AttachWorld(world);
+    mission->target = target;
+    vector<CObj<NGame::CUnitTracker>> trackers;
+    for (auto& shooter : shooters) {
+        trackers.emplace_back(new NGame::CUnitTracker(mission, shooter));
+        mission->selection.push_back(trackers.back().GetPtr());
+    }
+    CObj<AttackState> state = new AttackState;
+    state->Attach(mission);
+    NGame::SActionInfo info;
+    info.SetValid();
+    SetAttackPreview(state, info);
+    state->RefreshCaption();
+    auto percent = std::to_wstring(range.first);
+    if (range.first != range.second) percent += L"-" + std::to_wstring(range.second);
+    percent += L"%";
+    const auto expected = NUI::GetDBString(20276) + NUI::GetDBString(19808) + L"0"
+        + NUI::GetDBString(range.second >= 2 ? 20276 : 19807) + NUI::GetDBString(19809) + percent;
+    Require(state->GetCursorInfo().wsText == expected, mixedChance
+        ? "group attack caption was coloured by the worst chance despite a valid selected shooter"
+        : "equal selected-unit hit chances were displayed as a redundant percentage range");
 }
 
 static NWorld::CExecShootUnit* FindQueuedUnitShot(NWorld::CCommandExecute* executor)
@@ -2965,6 +3025,9 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "blocked-attack-caption") && argc == 4) AttackCaptionWithoutHitChance(argv[2], false);
         else if (!std::strcmp(mode, "reload-attack-caption") && argc == 4) AttackCaptionWithoutHitChance(argv[2], true);
         else if (!std::strcmp(mode, "exact-attack-preview-target") && argc == 4) ExactAttackPreviewTarget(argv[2], argv[3]);
+        else if (!std::strcmp(mode, "equal-group-attack-caption") && argc == 4) GroupAttackPreview(argv[2], argv[3], false);
+        else if (!std::strcmp(mode, "mixed-group-attack-caption") && argc == 4) GroupAttackPreview(argv[2], argv[3], true);
+        else if (!std::strcmp(mode, "missing-attack-target-caption") && argc == 4) AttackCaptionWithoutHitChance(argv[2], false, true);
         else if (!std::strcmp(mode, "replacement-person-inventory-clue") && argc == 4) PersonClueCreation(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "inventory-clue-creation") && argc == 4) InventoryClueCreation(argv[2], argv[3]);
         else if (!std::strcmp(mode, "inventory-clue-count") && argc == 4) InventoryClueCreation(argv[2], argv[3], true);
