@@ -51,6 +51,7 @@
 #include "../Main/wUnitMove.h"
 #include "../Main/wMainPath.h"
 #include "../Main/wGrenade.h"
+#include "../Main/wDebris.h"
 #include "../Main/aiPath.h"
 #include "../Main/GAnimParticles.h"
 #include "../Main/GAnimation.h"
@@ -1329,6 +1330,64 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     // Deliberately exclude mission scripts: this fixture isolates AI scheduling.
     world->RunPostInit(nullptr);
     return world;
+}
+
+static void CorpseBackpackDrop(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) { actor = unit; break; }
+    }
+    Require(actor != nullptr, "backpack-drop fixture has no ordinary living actor");
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    while (!inventory->GetItems().empty()) inventory->Take(inventory->GetItems().front().pItem);
+    NDb::CRPGItem* itemTemplate = nullptr;
+    CDBIterator<NDb::CRPGItem> items(*NDatabase::GetTable<NDb::CRPGItem>());
+    while (items.MoveNext()) {
+        auto* item = items.Get();
+        if (IsValid(item->pModel) && IsValid(item->pSuccessor) && item->sSize.x > 0
+                && item->sSize.y > 0 && item->sSize.x <= 2 && item->sSize.y <= 2) {
+            itemTemplate = item; break;
+        }
+    }
+    Require(itemTemplate != nullptr, "backpack-drop fixture has no small modelled inventory item");
+    vector<CObj<NRPG::IInventoryItem>> expected;
+    for (int i = 0; i < 3; ++i) {
+        CObj<NRPG::IInventoryItem> item = NRPG::CreateItem(itemTemplate->pSuccessor);
+        CTPoint<int> place;
+        Require(IsValid(item) && inventory->FindPlace(item, &place) && inventory->Place(place, item),
+            "backpack-drop fixture could not store its three distinct items");
+        expected.push_back(item);
+    }
+    CObj<NDb::CRPGItem> inertTemplate = new NDb::CRPGItem;
+    inertTemplate->sSize = CTPoint<int>(1, 1);
+    inertTemplate->subType = NDb::SUBTYPE_NONE;
+    inertTemplate->nWeight = inertTemplate->nSubTypePriority = 0;
+    CObj<NDb::CRPGKey> inertKey = new NDb::CRPGKey;
+    inertKey->pItem = inertTemplate.GetPtr();
+    inertKey->nKeyID = 0;
+    CObj<NRPG::IInventoryItem> inert = NRPG::CreateItem(inertKey);
+    CTPoint<int> inertPlace;
+    Require(IsValid(inert) && inventory->FindPlace(inert, &inertPlace) && inventory->Place(inertPlace, inert),
+        "backpack-drop fixture could not store its unmodelled item");
+    Require(inventory->GetItems().size() == 4, "backpack-drop fixture merged distinct inventory entries");
+    actor->SetBloodyDeath(false);
+    actor->GetUnitRPG()->GetRPGUnit()->Kill();
+    actor->SyncConscious();
+    Require(actor->IsDead(), "backpack-drop fixture did not take the ordinary death path");
+    Require(inventory->GetItems().empty(), "ordinary death skipped a backpack item while removing earlier entries");
+    vector<CPtr<NRPG::IInventoryItem>> ground;
+    world->GetDebris()->GetGroundItemsForDiagnostics(&ground);
+    for (const auto& item: expected)
+        Require(std::count_if(ground.begin(), ground.end(), [&](const auto& entry) { return entry.GetPtr() == item.GetPtr(); }) == 1,
+            "ordinary death lost or duplicated a backpack item instead of launching it once");
+    Require(std::none_of(ground.begin(), ground.end(), [&](const auto& item) { return item.GetPtr() == inert.GetPtr(); }),
+        "unmodelled backpack record changed retail's nonvisual cleanup policy");
 }
 
 static void RestoreActionState(const char* databasePath, const char* resourcePath, bool zoneReentry)
@@ -3888,6 +3947,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "point-light-without-scene")) PointLightWithoutScene();
         else if (!std::strcmp(mode, "dynamic-ambient-fallback")) DynamicAmbientFallback();
         else if (!std::strcmp(mode, "inventory-without-uniform")) InventoryWithoutUniform();
+        else if (!std::strcmp(mode, "corpse-backpack-drop") && argc == 4) CorpseBackpackDrop(argv[2], argv[3]);
         else if (!std::strcmp(mode, "point-light-save-layout")) PointLightSaveLayout();
         else if (!std::strcmp(mode, "legacy-point-light-save-layout")) PointLightSaveLayout(true);
         else if (!std::strcmp(mode, "point-light-shadow-flag")) PointLightShadowFlag();

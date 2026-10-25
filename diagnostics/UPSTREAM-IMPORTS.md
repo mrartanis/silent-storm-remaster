@@ -93,6 +93,7 @@
 | [bab2713f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/bab2713f93ec512bb002e9cabd0139f29dd85745) — Pause and resume native AI routes when scripted AI control is toggled | `scripted AI deactivation left the current native route running` | 121/121; `script-ai-activation` | `Upstream-Commit` в commit message |
 | [b6e82c68](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b6e82c68c984aa1f4058d4f453e92f6ccbb3beb4) — Restore full dynamic ambient lighting when sky textures are unavailable | `dynamic objects lost the full ambient fallback when sky textures were unavailable` | 122/122; `dynamic-ambient-fallback` | `Upstream-Commit` в commit message |
 | [884f91f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b) — Reject belt placement safely when an inventory has no uniform | `null uniform dereference in CInventory::GetPlaceBySubType, confirmed by CDB at RPGInventory.cpp:298` | 123/123; `inventory-without-uniform` | `Upstream-Commit` в commit message |
+| [884f91f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b) — Drop every backpack item before clearing a dead units inventory | `ordinary death skipped a backpack item while removing earlier entries` | 124/124; `corpse-backpack-drop` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -201,3 +202,15 @@ retail-записей: 64 байта в сохранении против 56 в 
 Логи: `navigation-checkpoint-linux-test.log`,
 `navigation-checkpoint-ci-test.log`, `navigation-checkpoint-shots-full-test.log`.
 Перенос остальных источников и итоговая проверка GitHub Actions продолжаются.
+
+### Сверка выпадения рюкзака с оригиналом
+
+Оригинальный Steam `Game.exe` SHA-256
+`4F417593A9F73E2BFDE12D83CDBD694AE47EECB92812140D67B8B343E4A95705`
+содержит `DropItems` по адресу `0x750a10`. После цикла запуска моделей
+отдельный цикл `0x750e23..0x750e54` берёт первый предмет из `GetItems()`
+и вызывает `IInventory::Take` до опустошения списка, включая записи без
+модели. Поэтому перенос сохраняет исходную политику, устраняя пропуск
+записей при удалении внутри индексного обхода. Дизассемблирование сохранено
+в `corpse-backpack-retail-disassembly.txt` общей папки свидетельств;
+оригинальный EXE только читался, процесс оригинальной игры не запускался.

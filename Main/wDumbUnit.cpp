@@ -497,11 +497,14 @@ void CDumbUnitServer::DropItems( bool bDropHands, bool bDropCap, bool bDropBackP
 				SRand rnd;
 				item.pModel = item.pItem->GetDBItem()->pModel->CreateModel( &rnd );
 				GetBonePos( &item.ptCenter, &item.q, pszBoneName );
-				pRPG->GetInventory()->Take( item.pItem );
 				CVec3 vInitial( GameRandom().GetFloat( -0.3f, 0.3f ), GameRandom().GetFloat( -0.3f, 0.3f ), 2 );
 				LaunchItem( pWorld, item, vInitial, true, (CObjectBase*)this, nFloor );   // retail @0x750688
 			}
 		}
+		// Retail clears the backpack only after launching every visible item.
+		// Steam 1.2 cleanup loop: 0x750e23..0x750e54.
+		while ( !sItems.empty() )
+			pRPG->GetInventory()->Take( sItems.front().pItem );
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
