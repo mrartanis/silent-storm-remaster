@@ -7009,6 +7009,97 @@ public:
     void Command(NWorld::CUnit* actor, NWorld::CCmd* command, bool) override { issuedActor = actor; issuedCommand = command; }
 };
 
+class PortraitSelectionTracker: public NGame::CUnitTracker
+{
+    OBJECT_NOCOPY_METHODS(PortraitSelectionTracker);
+public:
+    bool selected = false;
+    bool IsSelected() const override { return selected; }
+};
+
+class PortraitPanelView: public DialogueLayoutView
+{
+    OBJECT_NOCOPY_METHODS(PortraitPanelView);
+public:
+    vector<float> clears;
+    void CreateDynamicClearRects(const CRectLayout&,const CTPoint<int>&,const CTRect<int>&,float depth) override
+    { clears.push_back(depth); }
+};
+
+static void RestoredPortraitPanel(bool emptyRoster)
+{
+    CObj<OwnerlessDragMission> mission = new OwnerlessDragMission;
+    CObj<PortraitSelectionTracker> first = new PortraitSelectionTracker, second = new PortraitSelectionTracker;
+    first->selected = true;
+    if (!emptyRoster) mission->available = {first.GetPtr(),second.GetPtr()};
+    CObj<NUI::CWindow> panel = dynamic_cast<NUI::CWindow*>(pSSClasses->CreateObject(int(0xB0521157)));
+    Require(IsValid(panel), "portrait panel fixture could not create the native saved panel class");
+    vector<CObj<NUI::CUnitView>> faces;
+    for (int i = 0; i < 3; ++i) {
+        CObj<NUI::CUnitView> face = dynamic_cast<NUI::CUnitView*>(pSSClasses->CreateObject(int(0xB0521153)));
+        Require(IsValid(face), "portrait panel fixture could not create a native saved unit face");
+        face->SetStyle(NUI::STYLE_VISIBLE,true);
+        float angle = 1.f;
+        CMemoryStream fields;
+        { CStructureSaver writer(fields,CStructureSaver::WRITE); writer.Add(4,&angle); }
+        fields.Seek(0);
+        { CStructureSaver reader(fields,CStructureSaver::READ); face->NUI::CUnitView::operator&(reader); }
+        faces.push_back(face);
+    }
+    CStructureNetworkContext references;
+    references.externalReferences = true; references.nextID = 100;
+    references.include = [](CObjectBase*) { return false; };
+    references.ids[mission.GetPtr()] = 1; references.refs[1] = mission.GetPtr();
+    for (int i = 0; i < int(faces.size()); ++i) {
+        references.ids[faces[i].GetPtr()] = i+2;
+        references.refs[i+2] = faces[i].GetPtr();
+    }
+    CPtr<NGame::IMission> missionReference = mission.GetPtr();
+    CMemoryStream saved;
+    { CStructureSaver writer(saved,CStructureSaver::WRITE,&references);
+      writer.Add(2,&missionReference); writer.Add(4,&faces); }
+    saved.Seek(0);
+    { CStructureSaver reader(saved,CStructureSaver::READ,&references);
+      static_cast<CObjectBase*>(panel.GetPtr())->operator&(reader); }
+    panel->SetSize(NUI::SPoint(240,120));
+    panel->SetPosition(NUI::SPoint(0,0));
+    panel->SetStyle(NUI::STYLE_VISIBLE,true);
+    CObj<PortraitPanelView> view = new PortraitPanelView;
+    auto angle = [](NUI::CUnitView* face) {
+        CMemoryStream fields;
+        { CStructureSaver writer(fields,CStructureSaver::WRITE); face->NUI::CUnitView::operator&(writer); }
+        fields.Seek(0);
+        float result = 0;
+        { CStructureSaver reader(fields,CStructureSaver::READ); reader.Add(4,&result); }
+        return result;
+    };
+    // Face references retain their native types. They are deliberately not children:
+    // exercise the panel's real state update without invoking unrelated 3D rendering.
+    panel->Draw(0,view);
+    Require(view->clears == vector<float>({1.f,0.f}),
+        "native portrait panel did not bracket its drawing with depth clears");
+    if (emptyRoster) {
+        for (const auto& face: faces)
+            Require(!face->GetStyle(NUI::STYLE_VISIBLE), "restored empty roster retained a visible portrait");
+        return;
+    }
+    Require(faces[0]->GetStyle(NUI::STYLE_VISIBLE) && faces[1]->GetStyle(NUI::STYLE_VISIBLE) &&
+        !faces[2]->GetStyle(NUI::STYLE_VISIBLE), "restored portrait panel displayed an unused face or hid a living roster slot");
+    Require(fabs(angle(faces[0])-(-0.3f)) < 1e-6f && angle(faces[1]) == 1.f,
+        "portrait selection did not turn the selected face toward the viewer");
+    first->selected = false; second->selected = true;
+    view->clears.clear();
+    panel->Draw(1,view);
+    Require(angle(faces[0]) == 1.f && fabs(angle(faces[1])-(-0.3f)) < 1e-6f,
+        "changing selection did not restore the old portrait angle and turn the newly selected face");
+    Require(view->clears == vector<float>({1.f,0.f}), "selection refresh left portrait depth state uncleared");
+    mission->available.clear();
+    view->clears.clear();
+    panel->Draw(2,view);
+    for (const auto& face: faces)
+        Require(!face->GetStyle(NUI::STYLE_VISIBLE), "clearing the restored roster left a visible portrait");
+}
+
 class DragState: public NGame::CStateDragItem
 {
 public:
@@ -7481,6 +7572,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "fresh-navigation-colouring")) { FreshNavigationColouring(); return true; }
     if (!std::strcmp(mode, "fresh-navigation-transitions")) { FreshNavigationTransitions(); return true; }
     if (!std::strcmp(mode, "lazy-navigation-colourer")) { LazyNavigationColourer(); return true; }
+    if (!std::strcmp(mode, "restored-portrait-selection")) { RestoredPortraitPanel(false); return true; }
+    if (!std::strcmp(mode, "restored-empty-portraits")) { RestoredPortraitPanel(true); return true; }
     if (!std::strcmp(mode, "native-cursor-position")) { NativeCursorPositioning(); return true; }
     if (!std::strcmp(mode, "disabled-cursor-input")) { DisabledCursorInput(); return true; }
     if (!std::strcmp(mode, "supplied-defeat-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3],true); return true; }

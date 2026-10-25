@@ -167,6 +167,7 @@
 | [c9a7c93e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c9a7c93eb2924c072edec1d8c8a00a401a803a14) — Respect nested cursor input locks for native pointer events | `a disabled native cursor consumed pointer input while its serialized nesting counter was positive` | 208/208; `disabled-cursor-input` | `Upstream-Commit` в commit message |
 | [01c4688d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/01c4688d7c4750e7a5b51c9858ea42a01bfe84cd) — Apply defeat tint when adopting a supplied screenshot | `opening the defeat menu with a supplied screenshot left it in default color mode` | 209/209; `supplied-defeat-screenshot` | `Upstream-Commit` в commit message |
 | [c9a7c93e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c9a7c93eb2924c072edec1d8c8a00a401a803a14) — Synchronize requested native cursor positions through SDL | `creating a native cursor at a requested position left SDL at the previous pointer location` | 210/210; `native-cursor-position` | `Upstream-Commit` в commit message |
+| [b14bbb4f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b14bbb4f21ddb7bd3a1df837e63b49726ff1dfeb) — Restore saved party portrait selection without legacy image vectors | `native saved-format multi-unit panels crashed in CInfoPanelMultipleUnits::Draw while indexing the absent legacy selection-image vector, for both populated and empty rosters` | 212/212; `restored-portrait-selection` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
