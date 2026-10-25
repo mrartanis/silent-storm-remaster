@@ -2928,6 +2928,49 @@ static void ForcedToolTargetingEntry(const char* databasePath)
     Require(mission->commands == 0, "entering or rejecting tool mode issued gameplay commands");
 }
 
+static void ToolTargetingCursorRefresh(const char* databasePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    Require(NDb::GetUICursor(NGame::N_CURSOR_USE_TOOL) && NDb::GetUICursor(NGame::N_CURSOR_BLOCK),
+        "tool cursor fixture has no authored tool or blocked cursor");
+    CObj<ToolTargetMission> mission = new ToolTargetMission;
+    CObj<NWorld::CWindowDoor> trap = new NWorld::CWindowDoor;
+    mission->target = trap.GetPtr(); mission->player->player->traps.push_back(trap.GetPtr());
+    CObj<NGame::CStateUntrap> state = new NGame::CStateUntrap(true);
+    Require(state->Initialize(mission) && mission->targetQueries == 1 &&
+        state->GetCursorInfo().pCursor == NDb::GetUICursor(NGame::N_CURSOR_USE_TOOL),
+        "tool cursor control did not start with a valid known trap and its real tool cursor");
+    const auto caption = [&](int ap) {
+        return NUI::GetDBString(20276)+NUI::GetDBString(19808)+std::to_wstring(ap);
+    };
+    Require(state->GetCursorInfo().wsText == caption(7), "initial native tool cursor lost its action-point caption");
+    mission->targeted.bOk = false;
+    state->Step();
+    Require(mission->targetQueries == 2 && state->GetCursorInfo().pCursor == NDb::GetUICursor(NGame::N_CURSOR_BLOCK) &&
+        state->GetCursorInfo().wsText.empty(),
+        "the native disarm cursor retained valid targeting after the hovered action became unavailable");
+    mission->targeted.SetValid(); mission->targeted.nMinAP = mission->targeted.nMaxAP = 11;
+    state->Step();
+    Require(mission->targetQueries == 3 && state->GetCursorInfo().pCursor == NDb::GetUICursor(NGame::N_CURSOR_USE_TOOL) &&
+        state->GetCursorInfo().wsText == caption(11), "disarm cursor did not recover with the current target's action-point cost");
+    mission->target = nullptr;
+    state->Step();
+    Require(mission->targetQueries == 3 && state->GetCursorInfo().pCursor == NDb::GetUICursor(NGame::N_CURSOR_BLOCK) &&
+        state->GetCursorInfo().wsText.empty(), "moving off a trap retained its tool cursor or action-point caption");
+    mission->target = trap.GetPtr(); mission->player->player->traps.clear();
+    state->Step();
+    Require(mission->targetQueries == 3 && state->GetCursorInfo().pCursor == NDb::GetUICursor(NGame::N_CURSOR_BLOCK),
+        "tool cursor exposed an unknown trap to its targeting probe");
+    CObj<NGame::CStateUntrap> hover = new NGame::CStateUntrap(false);
+    Require(!hover->Initialize(mission), "automatic hover state entered for an unknown trap");
+    mission->player->player->traps.push_back(trap.GetPtr());
+    Require(hover->Initialize(mission) && hover->GetCursorInfo().pCursor == NDb::GetUICursor(NGame::N_CURSOR_USE_TOOL),
+        "automatic disarm hover did not activate for a known valid trap");
+    Require(mission->commands == 0, "refreshing a disarm cursor issued a gameplay command");
+}
+
 static void SetAttackPreview(AttackState* state, const NGame::SActionInfo& info)
 {
     CMemoryStream stream;
@@ -8899,6 +8942,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "global-map-return-destination") && argc == 4) { GlobalMapReturnDestination(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "forced-tool-targeting-entry") && argc == 3) { ForcedToolTargetingEntry(argv[2]); return true; }
+    if (!std::strcmp(mode, "tool-targeting-cursor-refresh") && argc == 3) { ToolTargetingCursorRefresh(argv[2]); return true; }
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
     if (!std::strcmp(mode, "late-looping-sound-offset")) { LateLoopingSoundOffset(); return true; }
     if (!std::strcmp(mode, "headless-music-stream")) { HeadlessMusicStream(); return true; }

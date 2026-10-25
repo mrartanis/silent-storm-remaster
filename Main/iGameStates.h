@@ -370,6 +370,7 @@ public:
 	CStateUntrap( bool _bForced ): bForced( _bForced ) {}	// retail @0x1d72a0
 
 	bool Initialize( IMission *pMission );
+	void Step();
 
 	bool OnLButtonUp( int nX, int nY );
 	NUI::SCursorInfo GetCursorInfo() const;

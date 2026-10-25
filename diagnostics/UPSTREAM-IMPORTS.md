@@ -196,6 +196,7 @@
 | [2006fec4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2006fec4aa455437c74537c25fed44547c81163c) — Preserve playing music when drawing a trackless sound scene | `a sound scene without its own music faded out another scene's playing track` | 242/242; `trackless-scene-music` | `Upstream-Commit` в commit message |
 | [7cb6e2c5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7cb6e2c5d8c649d8fcd3d994deb7090a66c476f6) — Clear the chapter return destination when continuing the campaign | `continuing to the global map retained the old chapter return destination` | 243/243; `global-map-return-destination` | `Upstream-Commit` в commit message |
 | [038b1bca](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/038b1bca53b9b94432f7716c772674563917a143) — Allow explicit disarm targeting before hovering a trap | `forced disarm targeting queried generic Use eligibility instead of UseTool` | 244/244; `forced-tool-targeting-entry` | `Upstream-Commit` в commit message |
+| [038b1bca](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/038b1bca53b9b94432f7716c772674563917a143) — Refresh disarm targeting cursor and action-point captions | `the native disarm cursor retained valid targeting after the hovered action became unavailable` | 245/245; `tool-targeting-cursor-refresh` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
