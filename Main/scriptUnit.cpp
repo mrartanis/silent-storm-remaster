@@ -952,7 +952,7 @@ BEGIN_SCRIPT_COMMAND( KillEmAll, "" )
 	for ( vector< CPtr<NWorld::CUnit> >::iterator i = units.begin(); i != units.end(); ++i )
 	{
 		CDynamicCast<NWorld::CUnitServer> pUS( *i );
-		if ( IsValid( pUS ) && !pUS->IsDead() && IsValid( pUS->GetPlayer() ) &&
+		if ( IsValid( pUS ) && pUS->CanFight() && IsValid( pUS->GetPlayer() ) &&
 			pScript->pWorld->GetDiplomacyState( pHuman, pUS->GetPlayer() ) == NDb::DS_ENEMY )
 		{
 			// Commit RPG death before the world/animation death transition.

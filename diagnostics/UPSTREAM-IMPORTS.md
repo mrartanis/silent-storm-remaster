@@ -162,6 +162,7 @@
 | [8e620755](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8e620755aedcc01558c1b7f4bdd921126d9048cd) — Allow scripted zone exits after cutscenes away from passages | `scripted LeaveToSubZone failed to leave after a cutscene while the party was away from the passage` | 203/203; `scripted-passage-transition` | `Upstream-Commit` в commit message |
 | [8e620755](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8e620755aedcc01558c1b7f4bdd921126d9048cd) — Reject zone exits when no matching passage exists | `an entirely unconscious party left through a nonexistent passage` | 204/204; `empty-passage-exit` | `Upstream-Commit` в commit message |
 | [d247d37c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d247d37c06ebf6d73a10997ec44de64db57e689b) — Commit RPG death before scripted enemy world death | `KillEmAll left a world-dead hostile's RPG persona alive` | 205/205; `scripted-enemy-death` | `Upstream-Commit` в commit message |
+| [d247d37c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d247d37c06ebf6d73a10997ec44de64db57e689b) — Limit scripted enemy cleanup to fight-capable units | `KillEmAll killed an incapacitated hostile outside its fight-capable target set` | 206/206; `scripted-unconscious-enemy` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

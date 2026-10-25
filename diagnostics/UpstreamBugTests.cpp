@@ -6130,7 +6130,7 @@ static void RunScript(NScript::CScript* script, const char* code)
     pScript = nullptr;
 }
 
-static void ScriptedEnemyDeath(const char* databasePath,const char* resourcePath)
+static void ScriptedEnemyDeath(const char* databasePath,const char* resourcePath, bool spareUnconscious = false)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath,resourcePath,true,&game);
@@ -6147,8 +6147,20 @@ static void ScriptedEnemyDeath(const char* databasePath,const char* resourcePath
         else protectedUnits.push_back({unit,unit->GetAP()});
     }
     Require(!enemies.empty() && !protectedUnits.empty(), "scripted death fixture needs hostile and protected units");
+    CPtr<NWorld::CUnitServer> unconscious;
+    if (spareUnconscious) {
+        Require(enemies.size() > 1, "scripted unconscious gate fixture needs two hostile actors");
+        unconscious = enemies.front();
+        enemies.erase(enemies.begin());
+        unconscious->MakeUnconscious(VNULL3,true,false);
+        Require(unconscious->IsUnconscious() && !unconscious->IsDead() && !unconscious->CanFight() &&
+            !unconscious->GetUnitRPG()->IsDead(), "scripted unconscious gate fixture did not preserve a living incapacitated hostile");
+    }
     CObj<NScript::CScript> script = NScript::CreateScript(world);
     RunScript(script,"KillEmAll()");
+    if (spareUnconscious)
+        Require(unconscious->IsUnconscious() && !unconscious->IsDead() && !unconscious->GetUnitRPG()->IsDead(),
+            "KillEmAll killed an incapacitated hostile outside its fight-capable target set");
     for (const auto& enemy: enemies) {
         Require(enemy->GetUnitRPG()->IsDead(),
             "KillEmAll left a world-dead hostile's RPG persona alive");
@@ -7324,6 +7336,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "restored-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 0); return true; }
     if (!std::strcmp(mode, "fresh-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "legacy-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "scripted-unconscious-enemy") && argc == 4) { ScriptedEnemyDeath(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "scripted-enemy-death") && argc == 4) { ScriptedEnemyDeath(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "empty-passage-exit") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "scripted-passage-transition") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3]); return true; }
