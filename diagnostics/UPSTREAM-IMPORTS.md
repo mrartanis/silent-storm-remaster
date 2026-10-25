@@ -245,3 +245,14 @@ Windows `ALL_BUILD` и Linux `Game` собираются; профильная �
 `dialogue-backpack-checkpoint-ci-test.log`, `dialogue-backpack-shots-full-test.log`.
 Остальные upstream источники и итоговая проверка GitHub Actions остаются
 в работе; этот контроль не означает завершения всей цели.
+
+### Размер объектного файла тестовой программы MSVC
+
+При добавлении теста для `cf087f74` MSVC остановился с C1128 (предел числа
+секций COFF); это ошибка сборки, а не поведенческий RED игрового бага.
+Для `UpstreamBugTests` включен `/bigobj` только под MSVC. Незавершенный тест
+временно убран в один небольшой патч вне репозитория, прежние 133/133
+проверки прошли; после коммита патч возвращается и удаляется. Логи:
+`upstream-bigobj-compiler-red-build.log`, `upstream-bigobj-green-build.log`,
+`upstream-bigobj-green-test.log`. Это поддержка тестового стенда; сам
+`cf087f74` пока не отмечен перенесенным.
