@@ -750,13 +750,16 @@ CSound3D *Play3DSound( const SPlayParams &params )
 	{
 		FSOUND_3D_SetAttributes( nChannel, &vFPos.x, 0 );
 		FSOUND_SetVolume( nChannel, params.bFadeIn ? 0 : params.nVolume );
-		// retail tStartTime semantics: seek nStartMs into the sample; a start past the sample end
-		// means the sound already finished in world time -- keep it silent (stop the channel).
-		if ( params.nStartMs > 0 && !bLoop )
+		// Seek late starts, wrapping loops at the sample length.
+		// Non-looping expired events must remain silent.
+		if ( params.nStartMs > 0 )
 		{
 			int nFreq = FSOUND_GetFrequency( nChannel );
 			unsigned int nOffsetSamples = (unsigned int)( (__int64)nFreq * params.nStartMs / 1000 );
-			if ( nOffsetSamples >= FSOUND_Sample_GetLength( *params.pSample ) )
+			const unsigned int nLength = FSOUND_Sample_GetLength( *params.pSample );
+			if ( bLoop && nLength != 0 )
+				nOffsetSamples %= nLength;
+			if ( nOffsetSamples >= nLength )
 			{
 				FSOUND_StopSound( nChannel );
 				nChannel = -1;

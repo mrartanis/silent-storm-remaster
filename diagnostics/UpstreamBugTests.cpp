@@ -30,6 +30,7 @@
 #include "../Main/Sound.h"
 #include "../Main/RWSound.h"
 #include "../FModSound/FMsound.h"
+#include "../third_party/fmod/include/fmod.h"
 #include "../Main/iMissionDlgUI.h"
 #include "../Main/iMissionUI.h"
 #include "../Main/iMissionMovieUI.h"
@@ -1560,6 +1561,67 @@ static void ExitMenuConfirmation(const char* databasePath,const char* resourcePa
         "the native exit dialog ignored its standard confirmation command");
     Require(!NMainLoop::StepApp(false,false,false) && NMainLoop::GetInterfaceStackDepth() == 1,
         "standard exit confirmation did not produce the same application exit sentinel");
+}
+
+static vector<unsigned char> SilentPCMFixture(unsigned frames = 1000,unsigned sampleRate = 44100)
+{
+    vector<unsigned char> wave(44+frames*2,0);
+    auto put = [&](std::size_t offset,unsigned value,int bytes) {
+        for (int i = 0; i < bytes; ++i) wave[offset+i] = static_cast<unsigned char>(value >> (i*8));
+    };
+    std::memcpy(wave.data(),"RIFF",4); put(4,36+frames*2,4);
+    std::memcpy(wave.data()+8,"WAVEfmt ",8); put(16,16,4);
+    put(20,1,2); put(22,1,2); put(24,sampleRate,4); put(28,sampleRate*2,4);
+    put(32,2,2); put(34,16,2); std::memcpy(wave.data()+36,"data",4); put(40,frames*2,4);
+    return wave;
+}
+
+static void LateLoopingSoundOffset()
+{
+    Require(std::getenv("S2_AUDIO_HEADLESS") != nullptr, "late-loop fixture requires headless native audio");
+    NFMSound::SStartInfo info;
+    info.nMaxChannels = 4;
+    Require(NFMSound::Init(info), "late-loop fixture could not initialize the native audio engine");
+    struct AudioCleanup { ~AudioCleanup() { NFMSound::Done(); } } cleanup;
+    const auto wave = SilentPCMFixture();
+    CObj<NFMSound::CSample3D> sample = NFMSound::LoadSample3D(wave.data(),static_cast<int>(wave.size()),1.f,100.f,0);
+    Require(IsValid(sample), "late-loop fixture could not load its real PCM sample");
+    auto activeChannel = [&]() {
+        int channel = -1;
+        for (int i = 0; i < info.nMaxChannels; ++i) if (FSOUND_IsPlaying(i)) {
+            Require(channel == -1, "late-loop fixture unexpectedly has multiple live channels");
+            channel = i;
+        }
+        return channel;
+    };
+    NFMSound::SPlayParams params;
+    params.pSample = sample.GetPtr();
+    params.nStartMs = 10;
+    {
+        CObj<NFMSound::CSound3D> control = NFMSound::Play3DSound(params);
+        const int channel = activeChannel();
+        Require(IsValid(control) && NFMSound::IsPlaying(control) && channel >= 0 && FSOUND_GetFrequency(channel) == 44100 &&
+            FSOUND_GetCurrentPosition(channel) == 441,
+            "non-looping late-start control did not seek the actual decoded channel");
+    }
+    Require(activeChannel() == -1, "releasing the control sound did not stop its native channel");
+    params.bLoop = true;
+    for (int start: {35,1000001}) {
+        params.nStartMs = start;
+        CObj<NFMSound::CSound3D> loop = NFMSound::Play3DSound(params);
+        const int channel = activeChannel();
+        Require(IsValid(loop) && NFMSound::IsPlaying(loop) && channel >= 0,
+            "late-loop fixture did not start an actual looping channel");
+        const unsigned expected = static_cast<unsigned>((std::int64_t(44100)*start/1000)%1000);
+        Require(FSOUND_GetCurrentPosition(channel) == expected,
+            "a late looping native sound restarted at frame zero instead of wrapping its elapsed seek offset");
+    }
+    Require(activeChannel() == -1, "loop test retained a native playback channel");
+    params.bLoop = false;
+    params.nStartMs = 35;
+    CObj<NFMSound::CSound3D> expired = NFMSound::Play3DSound(params);
+    Require(!NFMSound::IsPlaying(expired) && activeChannel() == -1,
+        "an expired non-looping event restarted while correcting looping offsets");
 }
 
 static void SoundMixerClockCatchUp()
@@ -8653,6 +8715,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "exit-menu-save-shortcut") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
+    if (!std::strcmp(mode, "late-looping-sound-offset")) { LateLoopingSoundOffset(); return true; }
     if (!std::strcmp(mode, "exit-menu-confirmation") && argc == 4) { ExitMenuConfirmation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "supplied-defeat-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "supplied-options-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3]); return true; }
