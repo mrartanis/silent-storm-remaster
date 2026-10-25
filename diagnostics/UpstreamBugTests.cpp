@@ -72,6 +72,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/aiUnit.h"
 #include "../Main/aiPlayer.h"
 #include "../Main/aiReaction.h"
+#include "../Main/aiEvent.h"
 #include "../Main/Sync.h"
 #include "../Main/A5Script.h"
 #include "../Main/scriptPtr.h"
@@ -2129,6 +2130,68 @@ static void HideCooldown(const char* databasePath, const char* resourcePath)
         "hide eligibility probes changed the unit's action points");
 }
 
+static void AIReactionResetContacts()
+{
+    CObj<NAI::AIUnitFixture> contact = new NAI::AIUnitFixture;
+    NAI::SAIUnitState state;
+    state.enemies.data.units.push_back(contact.GetPtr());
+    state.possibleEnemies.data.units.push_back(contact.GetPtr());
+    state.allies.data.units.push_back(contact.GetPtr());
+    state.knownCorpses.push_back(contact.GetPtr());
+    state.pEnemy = state.pPossibleEnemy = state.pAlly = contact.GetPtr();
+    state.bHelpCalled = state.bScared = true;
+    CObj<NAI::IAIEvent> event = NAI::CreateAIUpdateEvent();
+    event->Modify(&state);
+    Require(state.IsModified(), "AI update event did not arm a reaction before reset");
+    state.Reset();
+    Require(state.enemies.data.units.size() == 1 && state.possibleEnemies.data.units.size() == 1
+            && state.allies.data.units.size() == 1 && state.pEnemy == contact.GetPtr()
+            && state.pPossibleEnemy == contact.GetPtr() && state.pAlly == contact.GetPtr()
+            && state.knownCorpses.size() == 1 && state.bHelpCalled && state.bScared,
+        "consuming an AI reaction notification erased contacts or morale state");
+    Require(!state.IsModified(), "AI notification reset failed to consume its boolean value");
+}
+
+static void AIReactionValueLatch(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NAI::IAIUnit* actor = nullptr;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (!unit || !unit->CanFight()) continue;
+        auto* ai = NAI::GetAIUnit(unit);
+        if (ai && ai->IsUnderAIControl() && IsValid(ai->GetReaction())) { actor = ai; break; }
+    }
+    Require(actor != nullptr, "reaction fixture has no AI-controlled actor with a reaction");
+    auto* state = actor->GetAIUnitState();
+    auto* reaction = actor->GetReaction();
+    auto restoreLatch = [&](bool value, bool dirty, int locks) {
+        CMemoryStream saved;
+        { CStructureSaver writer(saved, CStructureSaver::WRITE);
+          writer.Add(2, &locks); writer.Add(3, &dirty); writer.Add(4, &value); }
+        saved.Seek(0);
+        { CStructureSaver reader(saved, CStructureSaver::READ); state->selfModified.operator&(reader); }
+    };
+    restoreLatch(true, false, 1);
+    Require(actor->GetReactionForUpdate() == reaction,
+        "AI reaction pump ignored a restored notification value when its tracking flag was clear");
+    Require(actor->GetReactionForUpdate() == nullptr && !state->selfModified.bModified,
+        "AI reaction pump repeated a consumed value or dirtied a locked tracking flag");
+    CObj<NAI::IAIEvent> event = NAI::CreateAIUpdateEvent();
+    event->Modify(state);
+    Require(actor->GetReactionForUpdate() == reaction && actor->GetReactionForUpdate() == nullptr,
+        "AI update event did not deliver exactly one notification under a tracking lock");
+    restoreLatch(false, true, 0);
+    Require(actor->GetReactionForUpdate() == nullptr,
+        "AI reaction pump treated a dirty tracking flag as a new notification");
+    actor->SetReaction(reaction);
+    Require(actor->GetReactionForUpdate() == reaction && actor->GetReactionForUpdate() == nullptr,
+        "installing an AI reaction did not arm and consume exactly one notification");
+}
+
 static void IdleAI(const char* databasePath, const char* resourcePath)
 {
     auto world = FixtureWorld(databasePath, resourcePath);
@@ -3505,6 +3568,8 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "point-light-radiance")) PointLightRadiance();
         else if (!std::strcmp(mode, "tiny-point-light-cache")) TinyPointLightCache();
         else if (!std::strcmp(mode, "console-visibility-toggle")) ConsoleVisibilityToggle();
+        else if (!std::strcmp(mode, "ai-reaction-reset-contacts")) AIReactionResetContacts();
+        else if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) AIReactionValueLatch(argv[2], argv[3]);
         else if (!std::strcmp(mode, "dialogue-camera-filter")) CinematicCameraCommands(0);
         else if (!std::strcmp(mode, "movie-camera-filter")) CinematicCameraCommands(1);
         else if (!std::strcmp(mode, "fade-camera-filter")) CinematicCameraCommands(2);

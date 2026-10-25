@@ -15,7 +15,7 @@
 // the lists incrementally through the AI event system (Notify/OnAIEvent -> AddEnemy/AddAlly) and a
 // begin-turn visibility sweep (PrepareEnemies). The
 // SUnitsAndPositions per-unit position cache and the SModifiable lazy-recompute lock are kept structurally
-// but driven eagerly. State is transient on CAIUnit (rebuilt each turn), so it is not serialized.
+// but driven eagerly. State is serialized by value in CAIUnit tag 9.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "aiPosition.h"     // SUnitPosition
 namespace NAI
@@ -76,12 +76,13 @@ struct SAIUnitState
 	void PrepareEnemies(); // @0x004b17a0: begin-turn visible-enemy refresh
 	void Update();        // recompute pEnemy/pPossibleEnemy/pAlly when lists changed, then CheckScared
 	void Reset();
+	void Modified();
 	// AI-convergence Stage 2: the commander's reaction pump reads this dirty flag. IsModified @0xb0550
 	// reports "the derived threat changed since last processed"; the commander's GetReactionForUpdate
-	// consumes it (ClearModified) when it enqueues the unit's reaction. selfModified is SET by
+	// consumes its value (Reset) when it enqueues the unit's reaction. selfModified.data is SET by
 	// FindMostDangerousEnemy/FindNearestAlly (a pEnemy/pAlly change) and OnSequenceFinished.
-	bool IsModified() const { return selfModified.bModified; }   // @0xb0550 (dev: the dirty flag)
-	void ClearModified() { selfModified.bModified = false; selfModified.data = false; }
+	bool IsModified() const { return selfModified.data; }   // retail v1.2 0x4b0990
+	void ClearModified() { Reset(); }
 	const vector< CPtr<IAIUnit> >& GetKnownEnemies() const { return enemies.data.units; }
 private:
 	void FindMostDangerousEnemy();         // @0x004b0b10  -> pEnemy

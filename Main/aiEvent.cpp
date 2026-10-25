@@ -27,7 +27,7 @@ void CAIBeginTurnEvent::Modify( SAIUnitState *pState )
 // @0x3b940: mark the state changed so the next Update() recomputes the derived enemy/ally.
 void CAIUpdateEvent::Modify( SAIUnitState *pState )
 {
-	pState->selfModified.SetModified();
+	pState->Modified();
 }
 
 // @0x3b930: the first help call (or any while scared) sets bHelpCalled, clears bScared, marks dirty.
@@ -37,7 +37,7 @@ void CAIHelpCalledEvent::Modify( SAIUnitState *pState )
 	{
 		pState->bHelpCalled = true;
 		pState->bScared = false;
-		pState->selfModified.SetModified();
+		pState->Modified();
 	}
 }
 
@@ -66,7 +66,7 @@ void CAILostEnemyEvent::Modify( SAIUnitState *pState )
 void CAIPossibleEnemyEvent::Modify( SAIUnitState *pState )
 {
 	pState->AddPossibleEnemy( pEnemy.GetPtr() );
-	pState->selfModified.SetModified();
+	pState->Modified();
 }
 
 // @0x3c190.
