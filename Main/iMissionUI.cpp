@@ -1701,7 +1701,8 @@ void CMissionUI::UpdateEnemies()
 			continue;
 		}
 
-		if ( pEnemy->IsUnconscious() || pMission->GetWorld()->GetDiplomacyState( pPlayer, pEnemy->GetPlayer() ) != NDb::DS_ENEMY )
+		if ( NGlobal::GetVar( "ui_showicons" ).GetFloat() == 0 || pEnemy->IsUnconscious() ||
+			pMission->GetWorld()->GetDiplomacyState( pPlayer, pEnemy->GetPlayer() ) != NDb::DS_ENEMY )
 			continue;
 		bool bVisible = false;
 		for ( int n = 0; n < unitsSet.size(); ++n )

@@ -101,6 +101,7 @@
 | [b6e82c68](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b6e82c68c984aa1f4058d4f453e92f6ccbb3beb4) — Use the acknowledgement owner for pain voices | `native hit processing used the persona voice instead of its acknowledgement owner` | 129/129; `pain-voice-owner` | `Upstream-Commit` в commit message |
 | [b6e82c68](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b6e82c68c984aa1f4058d4f453e92f6ccbb3beb4) — Suppress pain voices for already unconscious actors | `an already unconscious actor emitted a new pain voice on a hit` | 130/130; `unconscious-pain-voice` | `Upstream-Commit` в commit message |
 | [e36eeb2f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e36eeb2f0b68564688ddea1ca920b2b5535ddad8) — Honor the icon visibility setting for sound and trap markers | `disabled overlay icons still queried the scene to rebuild markers` | 132/132; `overlay-icon-visibility` | `Upstream-Commit` в commit message |
+| [e36eeb2f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e36eeb2f0b68564688ddea1ca920b2b5535ddad8) — Honor icon visibility for enemies while retaining quest markers | `disabled enemy icons were rebuilt for a visible hostile actor` | 133/133; `enemy-icon-visibility` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

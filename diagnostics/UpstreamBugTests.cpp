@@ -104,6 +104,8 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../DBFormat/DataFormat.h"
 #include "AIUnitFixture.h"
 #include "LightingSceneFixture.h"
+#include "GameViewFixture.h"
+#include "../Main/Transform.h"
 #include "../Main/aiInventory.h"
 #include "../Main/aiWeapon.h"
 #include <cstdio>
@@ -864,6 +866,7 @@ class MissionIconProbe: public NUI::CMissionUI
     OBJECT_NOCOPY_METHODS(MissionIconProbe);
 public:
     void RefreshIcons(bool traps) { if (traps) UpdateTraps(); else UpdateClues(); }
+    void RefreshEnemies() { UpdateEnemies(); }
 };
 
 static void OverlayIconVisibility(bool traps)
@@ -1649,6 +1652,102 @@ static void PainVoiceOwner(const char* databasePath, const char* resourcePath, b
         Require(actor->GetUnitRPG()->GetTotalVP() == vp && actor->IsUnconscious(),
             "pain eligibility changed health or the native unconscious state");
     }
+
+}
+
+class VisibleIconPlayer: public NWorld::CPlayer
+{
+    OBJECT_NOCOPY_METHODS(VisibleIconPlayer);
+public:
+    void See(NWorld::CUnitServer* actor) { NWorld::CPlayerBaseVision<NWorld::CUnitServer>::visible.push_back(actor); }
+    int GetScenarioPlayerID() const override { return 0; }
+};
+
+class EnemyIconMission: public ReadinessMission
+{
+    OBJECT_NOCOPY_METHODS(EnemyIconMission);
+public:
+    CObj<NGScene::IGameView> view;
+    CTransformStack transform;
+    EnemyIconMission() { transform.Init(); }
+    NGScene::IGameView* GetScene() const override { return view; }
+    const CTransformStack& GetCameraTransform() const override { return transform; }
+};
+
+static void EnemyIconVisibility(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    CObj<VisibleIconPlayer> visiblePlayer = new VisibleIconPlayer;
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& entry: units) {
+        auto* server = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (server && server->CanFight() && !server->IsClueUnit() && !server->IsEmptyPK()
+                && world->GetDiplomacyState(visiblePlayer.GetPtr(), server->GetPlayer()) == NDb::DS_ENEMY) {
+            actor = server; break;
+        }
+    }
+    Require(actor != nullptr, "enemy-icon fixture has no visible hostile actor");
+    visiblePlayer->See(actor);
+    CObj<NGame::IPlayerTracker> tracker = dynamic_cast<NGame::IPlayerTracker*>(pSSClasses->CreateObject(int(0xB2022800)));
+    CObj<EnemyIconMission> mission = new EnemyIconMission;
+    mission->view = new NGScene::GameViewFixture;
+    CObj<MissionIconProbe> desktop = new MissionIconProbe;
+    mission->Attach(world, desktop); mission->AttachActive(tracker);
+    CObj<NUI::CWindow> client = new NUI::CWindow(NUI::SWindowInfo(nullptr,
+        NUI::SPoint(0, 0), NUI::SPoint(1024, 768), "view", NUI::STYLE_ENABLED | NUI::STYLE_VISIBLE));
+    CObj<NUI::CText> pause = new NUI::CText;
+    CStructureNetworkContext references;
+    references.externalReferences = true; references.nextID = 100;
+    references.include = [](CObjectBase*) { return false; };
+    auto retain = [&](CObjectBase* object, unsigned id) { references.ids[object] = id; references.refs[id] = object; };
+    retain(mission.GetPtr(), 1); retain(visiblePlayer.GetPtr(), 2); retain(client.GetPtr(), 3); retain(pause.GetPtr(), 4);
+    CPtr<NWorld::IPlayer> worldPlayer = visiblePlayer.GetPtr();
+    CMemoryStream playerSaved;
+    { CStructureSaver writer(playerSaved, CStructureSaver::WRITE, &references); writer.Add(5, &worldPlayer); }
+    playerSaved.Seek(0);
+    { CStructureSaver reader(playerSaved, CStructureSaver::READ, &references);
+      static_cast<CObjectBase*>(tracker.GetPtr())->operator&(reader); }
+    struct DesktopClientWire {
+        CObj<NUI::CWindow> client;
+        int operator&(CStructureSaver& saver) { saver.Add(2, &client); return 0; }
+    } base;
+    base.client = client.GetPtr();
+    CPtr<NGame::IMission> missionRef = mission.GetPtr();
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE, &references);
+      writer.Add(1, &base); writer.Add(2, &missionRef); writer.Add(27, &pause); }
+    saved.Seek(0);
+    { CStructureSaver reader(saved, CStructureSaver::READ, &references);
+      static_cast<CObjectBase*>(desktop.GetPtr())->operator&(reader); }
+    auto markerCount = [&](int typeID) {
+        int count = 0;
+        CStructureNetworkContext graph;
+        graph.include = [&](CObjectBase* object) {
+            if (pSSClasses->GetObjectTypeID(object) == typeID) ++count;
+            return false;
+        };
+        CMemoryStream traversal;
+        { CStructureSaver writer(traversal, CStructureSaver::WRITE, &graph);
+          static_cast<CObjectBase*>(desktop.GetPtr())->operator&(writer); }
+        return count;
+    };
+    NGlobal::SetVar("ui_showicons", 1);
+    desktop->RefreshEnemies();
+    Require(markerCount(int(0xB0241948)) == 1, "visible hostile actor did not receive its normal enemy icon");
+    NGlobal::SetVar("ui_showicons", 0);
+    desktop->RefreshEnemies();
+    Require(markerCount(int(0xB0241948)) == 0, "disabled enemy icons were rebuilt for a visible hostile actor");
+    NGlobal::SetVar("ui_showicons", 1);
+    desktop->RefreshEnemies();
+    Require(markerCount(int(0xB0241948)) == 1, "re-enabling enemy icons did not restore the visible hostile marker");
+    actor->nClueCount = 1;
+    NGlobal::SetVar("ui_showicons", 0);
+    desktop->RefreshEnemies();
+    Require(markerCount(int(0xB0241948)) == 0 && markerCount(int(0xB3123180)) == 1,
+        "enemy-icon visibility suppressed the independently visible quest-clue marker");
 
 }
 
@@ -4346,6 +4445,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-player-mission-readiness")) { AIPlayerMissionReadiness(); return true; }
     if (!std::strcmp(mode, "sound-icon-visibility")) { OverlayIconVisibility(false); return true; }
     if (!std::strcmp(mode, "trap-icon-visibility")) { OverlayIconVisibility(true); return true; }
+    if (!std::strcmp(mode, "enemy-icon-visibility")) { Require(argc == 4, "enemy icons require db and res"); EnemyIconVisibility(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "pain-voice-owner")) { Require(argc == 4, "pain voice requires db and res"); PainVoiceOwner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "unconscious-pain-voice")) { Require(argc == 4, "pain eligibility requires db and res"); PainVoiceOwner(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "world-ui-refresh-latch")) { Require(argc == 4, "world UI refresh requires db and res"); WorldUIRefreshLatch(argv[2], argv[3]); return true; }
