@@ -31,6 +31,7 @@
 #include "../Main/wUnitCommands.h"
 #include "../Main/wUICommands.h"
 #include "../Main/aiGrid.h"
+#include "../Main/aiMap.h"
 #include "../Main/aiNearestPosition.h"
 #include "../FileIO/PortableGameDatabase.h"
 #include "../Main/aiLocker.h"
@@ -874,6 +875,28 @@ static void RestoreActionState(const char* databasePath, const char* resourcePat
         Require(world->IsRealTime() == realtime && world->GetCurrentPlayer() == player,
             "save cache restoration restarted the active turn");
     }
+}
+
+static void RestoreBuildingHulls(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    Require(!world->GetBuildingsForHarness().empty(), "fixture has no building geometry");
+    auto* map = world->GetAIMap();
+    map->Sync();
+    SBound area;
+    area.SphereInit(VNULL3, 10000.f);
+    vector<CPtr<CObjectBase>> hulls;
+    map->SelectHullPointers(&hulls, area, ~0, 0);
+    Require(!hulls.empty(), "fixture has no live AI geometry hulls");
+    for (const auto& hull : hulls) Require(IsValid(hull), "fixture retained an invalid AI hull");
+    // Stability catchers retain weak hull references too. Reconnecting derived
+    // save caches must leave unchanged support geometry alive through AI Sync.
+    world->RestoreRuntimeCaches(game);
+    map->Sync();
+    for (const auto& hull : hulls)
+        Require(IsValid(hull), "save cache restoration destroyed existing AI support hulls");
+    Require(!world->IsAction(), "cache-only building restoration started simulation");
 }
 
 class TileAttackMission: public AttackCursorMission
@@ -3056,6 +3079,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "missing-attack-target-caption") && argc == 4) AttackCaptionWithoutHitChance(argv[2], false, true);
         else if (!std::strcmp(mode, "restore-action-state") && argc == 4) RestoreActionState(argv[2], argv[3], false);
         else if (!std::strcmp(mode, "zone-reentry-action-state") && argc == 4) RestoreActionState(argv[2], argv[3], true);
+        else if (!std::strcmp(mode, "restore-building-hulls") && argc == 4) RestoreBuildingHulls(argv[2], argv[3]);
         else if (!std::strcmp(mode, "replacement-person-inventory-clue") && argc == 4) PersonClueCreation(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "inventory-clue-creation") && argc == 4) InventoryClueCreation(argv[2], argv[3]);
         else if (!std::strcmp(mode, "inventory-clue-count") && argc == 4) InventoryClueCreation(argv[2], argv[3], true);

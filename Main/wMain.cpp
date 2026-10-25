@@ -2035,8 +2035,12 @@ void CWorld::RestoreRuntimeCaches( NRPG::CGlobalGame *_pGlobalGame, bool bZoneRe
 		if ( bZoneReentry )
 			(*i)->Update();
 		else
-			// A raw save resumes its existing action and segment state.
-			(*i)->UpdateAllParts();
+		{
+			// Rebuild only unserialized geometry caches. Rebinding unchanged
+			// parts would invalidate AI hulls retained by stability catchers.
+			(*i)->pBInfo->UpdateInfo();
+			(*i)->pSplitBInfo->UpdateInfo();
+		}
 	}
 
 	pGlobalGame = _pGlobalGame;
