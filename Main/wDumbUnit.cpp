@@ -716,7 +716,11 @@ int CDumbUnitServer::ProcessAttack( NWorld::IWorld *_pWorld, int nUserID, NRPG::
 		bool bPK = IsValid( pRPG->GetRPGPers()->pPanzerklein ) ||
 			( IsValid( pRPG->GetPanzerklein() ) && nRes < 0 );
 		pWorld->AddHitLocator( new CHitLocator( nRes, bPK, ptHit, CDynamicCast<CUnit>( (CObjectBase*)this ) ) );
-		PlaySound( pRPG->GetRPGPers()->pSoundHit );
+		NDb::CRPGPers *pAckPers = pRPG->GetRPGUnit()->GetAckHolder();
+		if ( !pAckPers )
+			pAckPers = pRPG->GetRPGPers();
+		if ( pAckPers )
+			PlaySound( pAckPers->pSoundHit );
 
 		if ( nRes > 5 )
 		{

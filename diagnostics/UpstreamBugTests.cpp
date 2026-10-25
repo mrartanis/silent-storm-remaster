@@ -54,6 +54,8 @@
 #include "../Main/wMainPath.h"
 #include "../Main/wGrenade.h"
 #include "../Main/wDebris.h"
+#include "../Main/wMisc.h"
+#include "../Main/RPGAttackMech.h"
 #include "../Main/aiPath.h"
 #include "../Main/GAnimParticles.h"
 #include "../Main/GAnimation.h"
@@ -1494,6 +1496,88 @@ static void WorldUIRefreshLatch(const char* databasePath, const char* resourcePa
             "ordinary save restore lost the pending/consumed UI-refresh state");
     }
 
+}
+
+class PainSoundVisitor: public NWorld::ISoundVisitor
+{
+public:
+    vector<NDb::CSound*> sounds;
+    void Add3DSound(STime, NDb::CSound* sound, CFuncBase<CVec3>*) override { sounds.push_back(sound); }
+    void AddEffect(STime, NDb::CSoundEffect*, CFuncBase<CVec3>*, const vector<int>&) override {
+        throw std::runtime_error("unexpected effect in pain-sound fixture");
+    }
+    void Add2DSound(STime, NDb::CSound*) override { throw std::runtime_error("unexpected 2D pain sound"); }
+};
+
+static vector<NDb::CSound*> UnitAttachedSounds(NWorld::CUnitServer* actor)
+{
+    vector<CPtr<NWorld::C3DSound>> attached;
+    CStructureNetworkContext graph;
+    graph.include = [&](CObjectBase* object) {
+        if (auto* sound = dynamic_cast<NWorld::C3DSound*>(object)) attached.push_back(sound);
+        return false;
+    };
+    CMemoryStream traversal;
+    { CStructureSaver writer(traversal, CStructureSaver::WRITE, &graph);
+      actor->NWorld::CDumbUnitServer::operator&(writer); }
+    PainSoundVisitor visitor;
+    for (auto& sound: attached) sound->Visit(&visitor);
+    return visitor.sounds;
+}
+
+static void PainVoiceOwner(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& entry: units) {
+        auto* server = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (server && server->CanFight() && !server->IsEmptyPK() && !server->IsWearingPK()
+                && server->IsAIUnit()) { actor = server; break; }
+    }
+    Require(actor != nullptr, "pain-voice fixture has no ordinary conscious NPC");
+    CDBIterator<NDb::CSound> rows(*NDatabase::GetTable<NDb::CSound>());
+    Require(rows.MoveNext(), "pain-voice fixture has no first sound");
+    NDb::CSound* ownSound = rows.Get();
+    Require(rows.MoveNext(), "pain-voice fixture has no donor sound");
+    NDb::CSound* donorSound = rows.Get();
+    CObj<NDb::CTSound> ownTemplate = new NDb::CTSound, donorTemplate = new NDb::CTSound;
+    CObj<NDb::CSoundVariant> ownVariant = new NDb::CSoundVariant, donorVariant = new NDb::CSoundVariant;
+    ownVariant->pSound = ownSound; donorVariant->pSound = donorSound;
+    ownTemplate->variants.push_back(ownVariant.GetPtr()); ownTemplate->roulette.AddSector(1);
+    donorTemplate->variants.push_back(donorVariant.GetPtr()); donorTemplate->roulette.AddSector(1);
+    CObj<NDb::CRPGPers> donor = new NDb::CRPGPers;
+    donor->pSoundHit = donorTemplate.GetPtr();
+    auto* persona = actor->GetUnitRPG()->GetRPGPers();
+    persona->pSoundHit = ownTemplate.GetPtr();
+    persona->pAcksHolder = donor.GetPtr();
+    Require(actor->GetUnitRPG()->GetRPGUnit()->GetAckHolder() == donor.GetPtr(),
+        "pain-voice fixture did not install a different acknowledgement owner");
+    auto before = UnitAttachedSounds(actor);
+    const int vp = actor->GetUnitRPG()->GetTotalVP();
+    auto strike = [&]() {
+        NRPG::CAttackPortion attack(0, 2, 0, 0, 0, 0, 0, nullptr, actor->GetUnitRPG());
+        attack.rTtrajectory.ptOrigin = actor->GetPosition().GetCP();
+        attack.rTtrajectory.ptDir = CVec3(0, 1, 0);
+        Require(actor->ProcessAttack(world, NAI::HL_BODY, &attack, CVec3(0, 1, 0), nullptr) == 0,
+            "pain-voice fixture unexpectedly dealt damage");
+    };
+    strike();
+    auto sounds = UnitAttachedSounds(actor);
+    Require(sounds.size() == before.size() + 1 && sounds.back() == donorSound,
+        "native hit processing used the persona voice instead of its acknowledgement owner");
+    persona->pAcksHolder = nullptr;
+    strike();
+    sounds = UnitAttachedSounds(actor);
+    Require(sounds.size() == before.size() + 2 && sounds.back() == ownSound,
+        "missing acknowledgement owner did not fall back to the persona pain voice");
+    persona->pSoundHit = nullptr;
+    strike();
+    Require(UnitAttachedSounds(actor).size() == sounds.size(), "missing pain voice created a spurious sound");
+    Require(actor->CanFight() && actor->GetUnitRPG()->GetTotalVP() == vp,
+        "pain-voice selection changed combat health or consciousness");
 }
 
 class AckPriorityDesktop: public NUI::CDesktopWindow
@@ -4188,6 +4272,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-event-collection-locks") && argc == 4) { AIEventCollectionLocks(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "mission-overlay-readiness")) { MissionOverlayReadiness(); return true; }
     if (!std::strcmp(mode, "ai-player-mission-readiness")) { AIPlayerMissionReadiness(); return true; }
+    if (!std::strcmp(mode, "pain-voice-owner")) { Require(argc == 4, "pain voice requires db and res"); PainVoiceOwner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "world-ui-refresh-latch")) { Require(argc == 4, "world UI refresh requires db and res"); WorldUIRefreshLatch(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "dialogue-camera-filter")) { CinematicCameraCommands(0); return true; }
     if (!std::strcmp(mode, "movie-camera-filter")) { CinematicCameraCommands(1); return true; }
