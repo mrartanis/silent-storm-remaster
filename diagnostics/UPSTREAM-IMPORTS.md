@@ -218,6 +218,7 @@
 | [7a9e903d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7a9e903dd299c89f260c0e9311fbb15127bbd980) — Honor the authored visibility flag for inactive carried heavy meshes | `an inactive heavy item marked invisible still attached its carried weapon mesh` | 262/262; `hidden-carried-heavy-mesh` | `Upstream-Commit` в commit message |
 | [360344ca](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387) — Let unavailable attack modes fall through shared action shortcuts | `an unavailable attack swallowed the shared shortcut instead of falling through to set-mine` | 264/264; `unavailable-attack-shortcut` | `Upstream-Commit` в commit message |
 | [9af844d6](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9af844d6b62ed800bb59a64057b03e0eafc83878) — Probe equipped tools when caching use-tool availability | `the mission's use-tool cache advertised availability without consulting the equipped tool` | 265/265; `equipped-tool-action-availability` | `Upstream-Commit` в commit message |
+| [7a9e903d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7a9e903dd299c89f260c0e9311fbb15127bbd980) — Select available shared-key actions in the original priority order | `shared action key selected set-mine ahead of available first aid` | 266/266; `shared-action-shortcut-priority` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

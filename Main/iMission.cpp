@@ -1928,16 +1928,16 @@ bool CMission::ProcessEvent( const NInput::SEvent &sEvent )
 		CommandState( new CStateRotate() );
 	else if ( bindAttack.ProcessEvent( sEvent ) && CanPerformAction( UA_ATTACK ) )
 		CommandState( new CStateAttack( true ) );
+	else if ( bindFirstAid.ProcessEvent( sEvent ) && CanPerformAction( UA_HEAL ) )
+		CommandState( new CStateFirstAid() );
+	else if ( bindUseTool.ProcessEvent( sEvent ) && CanPerformAction( UA_USETOOL ) )
+		CommandState( new CStateUntrap( true ) );
+	else if ( bindDropCorpse.ProcessEvent( sEvent ) && CanPerformAction( UA_DROPCORPSE ) )
+		CommandState( new CStateDropCorpse() );
 	else if ( bindSetMine.ProcessEvent( sEvent ) )
 		CommandState( new CStateSetMine() );
-	else if ( bindUseTool.ProcessEvent( sEvent ) )
-		CommandState( new CStateUntrap( true ) );	// use the held tool on a target (disassemble/disarm/mount) -- retail @0x202600 constructs the FORCED untrap here
 	else if ( bindSetTrap.ProcessEvent( sEvent ) )
 		CommandState( new CStateSetTrap() );
-	else if ( bindFirstAid.ProcessEvent( sEvent ) )
-		CommandState( new CStateFirstAid() );
-	else if ( bindDropCorpse.ProcessEvent( sEvent ) )
-		CommandState( new CStateDropCorpse() );
 	else if ( bindExitPK.ProcessEvent( sEvent ) ) //// CRAP
 	{
 		vector< CPtr<NGame::IUnitTracker> > unitsSet;

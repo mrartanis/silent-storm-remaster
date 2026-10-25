@@ -7142,6 +7142,50 @@ static void UnavailableAttackShortcut()
     Require(!NMainLoop::HaveInterfaceCommand(), "selecting an action mode unexpectedly queued a game command");
 }
 
+static void SharedActionShortcutPriority()
+{
+    CObj<SharedShortcutMission> mission = new SharedShortcutMission;
+    mission->Prepare();
+    vector<NGame::SActionInfo> actions(NGame::UA_MAXVALUE);
+    for (auto& action: actions) action.bValid = true;
+    const NGame::EUnitAction priority[] = {NGame::UA_ATTACK,NGame::UA_HEAL,NGame::UA_USETOOL,
+        NGame::UA_DROPCORPSE,NGame::UA_MINE};
+    for (auto action: priority) actions[action].bAvailable = true;
+    auto event = SharedActionEvent({"attack","firstaid","usetool","dropcorpse","setmine"});
+    auto send = [&]() {
+        mission->CacheActions(actions);
+        mission->selectedState = nullptr;
+        mission->ProcessEvent(event);
+    };
+    send();
+    Require(dynamic_cast<NGame::CStateAttack*>(mission->selectedState.GetPtr()),
+        "shared action key lost its available attack priority");
+    actions[NGame::UA_ATTACK].bAvailable = false;
+    send();
+    Require(dynamic_cast<NGame::CStateFirstAid*>(mission->selectedState.GetPtr()),
+        "shared action key selected set-mine ahead of available first aid");
+    actions[NGame::UA_HEAL].bAvailable = false;
+    send();
+    Require(dynamic_cast<NGame::CStateUntrap*>(mission->selectedState.GetPtr()) &&
+        mission->selectedState->GetType() == NGame::IState::FORCED,
+        "shared action key failed to choose the available forced use-tool mode");
+    actions[NGame::UA_USETOOL].bAvailable = false;
+    send();
+    Require(dynamic_cast<NGame::CStateDropCorpse*>(mission->selectedState.GetPtr()),
+        "shared action key failed to choose available drop-corpse after unavailable aid and tools");
+    actions[NGame::UA_DROPCORPSE].bAvailable = false;
+    send();
+    Require(dynamic_cast<NGame::CStateSetMine*>(mission->selectedState.GetPtr()),
+        "shared action key failed to reach the available set-mine fallback");
+    for (const char* command: {"firstaid","usetool","dropcorpse"}) {
+        mission->selectedState = nullptr;
+        mission->ProcessEvent(SharedActionEvent({command}));
+        Require(!IsValid(mission->selectedState),
+            "an individually unavailable aid, tool or body shortcut still selected its mode");
+    }
+    Require(!NMainLoop::HaveInterfaceCommand(), "shared-key mode selection queued a game command");
+}
+
 class NativeActionInfoMission: public NGame::CMission
 {
     OBJECT_NOCOPY_METHODS(NativeActionInfoMission);
@@ -9915,6 +9959,7 @@ static void PKShellWorld(const char* databasePath, const char* resourcePath, boo
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
+    if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "temporary-groups")) { TemporaryGroups(); return true; }
     if (!std::strcmp(mode, "scroll-initialization")) { ScrollInitialization(); return true; }
