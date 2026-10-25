@@ -975,6 +975,9 @@ void CStateAttack::UpdateCursor()
 void CStateAttack::UpdateCursorInfo()
 {
 	sCursorInfo.wsText = L"";
+	MakeCursorString( GetMission(), sInfo, &sCursorInfo.wsText );
+	if ( !sInfo.bOk || sInfo.eResult == NWorld::UCR_OK_RELOAD )
+		return;
 
 	int nSelectedCount = GetMission()->CountSelected();
 	if ( nSelectedCount )
@@ -1076,8 +1079,7 @@ void CStateAttack::UpdateCursorInfo()
 			// The AP line is green iff the action is affordable (sInfo.bEnoughAP), the ToHit line is green iff
 			// the hit chance is non-zero (`cmp nToHit,2; jge green`). The AP part is the shared
 			// MakeCursorString over the state's cached sInfo (nMinAP/nMaxAP fold across the selection).
-			wstring wsText;
-			MakeCursorString( GetMission(), sInfo, &wsText );
+			wstring wsText = sCursorInfo.wsText;
 			wsText += NUI::GetDBString( nMin >= 2 ? 20276 : 19807 );       // ToHit line: green if hit chance > 0, else red
 			wsText += NUI::GetDBString( 19809 );                   // "<br>ToHit: " (localized label)
 			WCHAR wsToHit[32];

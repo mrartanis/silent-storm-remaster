@@ -597,6 +597,33 @@ static void MeleeAttackCursor(const char* databasePath)
         "unavailable attack did not retain the blocked cursor");
 }
 
+static void AttackCaptionWithoutHitChance(const char* databasePath, bool reload)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database, CStructureSaver::READ);
+    CObj<AttackCursorMission> mission = new AttackCursorMission;
+    CObj<AttackCursorUnit> unit = new AttackCursorUnit;
+    CObj<NGame::CUnitTracker> tracker = new NGame::CUnitTracker(mission, unit);
+    mission->selection.push_back(tracker.GetPtr());
+    CObj<AttackState> state = new AttackState;
+    state->Attach(mission);
+    NGame::SActionInfo info;
+    info.bValid = info.bAvailable = true;
+    info.bOk = info.bEnoughAP = reload;
+    info.nMinAP = reload ? 5 : 17;
+    info.nMaxAP = reload ? 5 : 21;
+    info.eResult = reload ? NWorld::UCR_OK_RELOAD : NWorld::UCR_TARGET_OUT_OF_RANGE;
+    SetAttackPreview(state, info);
+    state->RefreshCaption();
+    auto caption = state->GetCursorInfo().wsText;
+    const auto expected = NUI::GetDBString(reload ? 20276 : 19807) + NUI::GetDBString(19808)
+        + (reload ? L"5" : L"17-21");
+    Require(caption == expected, reload
+        ? "replacement reload preview displayed a shooting percentage instead of only its AP cost"
+        : "unavailable attack preview did not preserve its AP cost without a shooting percentage");
+}
+
 static void BindInitialization()
 {
     for (unsigned char pattern : {0x01, 0x11}) {
@@ -2886,6 +2913,8 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "sniper-held-aim") && argc == 4) SniperHeldAim(argv[2], argv[3]);
         else if (!std::strcmp(mode, "person-clue-creation") && argc == 4) PersonClueCreation(argv[2], argv[3]);
         else if (!std::strcmp(mode, "melee-attack-cursor") && argc == 4) MeleeAttackCursor(argv[2]);
+        else if (!std::strcmp(mode, "blocked-attack-caption") && argc == 4) AttackCaptionWithoutHitChance(argv[2], false);
+        else if (!std::strcmp(mode, "reload-attack-caption") && argc == 4) AttackCaptionWithoutHitChance(argv[2], true);
         else if (!std::strcmp(mode, "replacement-person-inventory-clue") && argc == 4) PersonClueCreation(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "inventory-clue-creation") && argc == 4) InventoryClueCreation(argv[2], argv[3]);
         else if (!std::strcmp(mode, "inventory-clue-count") && argc == 4) InventoryClueCreation(argv[2], argv[3], true);
