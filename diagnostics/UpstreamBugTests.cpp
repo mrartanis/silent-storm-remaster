@@ -6,6 +6,7 @@
 #include "../Misc/Geom.h"
 #endif
 #include "../Main/wMain.h"
+#include "../Main/wBuilding.h"
 #include "../Main/wUnitGroup.h"
 #include "../Main/iCommonUI.h"
 #include "../Main/PerkToolTip.h"
@@ -848,6 +849,31 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     // Deliberately exclude mission scripts: this fixture isolates AI scheduling.
     world->RunPostInit(nullptr);
     return world;
+}
+
+static void RestoreActionState(const char* databasePath, const char* resourcePath, bool zoneReentry)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    Require(!world->GetBuildingsForHarness().empty() && !world->IsAction(), "fixture has no settled buildings");
+    vector<int> segments;
+    for (const auto& building : world->GetBuildingsForHarness()) segments.push_back(building->nSegemntCnt);
+    const bool realtime = world->IsRealTime();
+    auto* player = world->GetCurrentPlayer();
+    if (zoneReentry) {
+        world->CreateRestored(game);
+        Require(world->IsAction(), "zone reentry no longer resumed its building simulation");
+        for (const auto& building : world->GetBuildingsForHarness())
+            Require(building->nSegemntCnt == 0, "zone reentry did not rearm its building updates");
+    } else {
+        world->RestoreRuntimeCaches(game);
+        Require(!world->IsAction(), "restoring save runtime caches started a new building action");
+        int index = 0;
+        for (const auto& building : world->GetBuildingsForHarness())
+            Require(building->nSegemntCnt == segments[index++], "save cache restoration reset building segment timing");
+        Require(world->IsRealTime() == realtime && world->GetCurrentPlayer() == player,
+            "save cache restoration restarted the active turn");
+    }
 }
 
 class TileAttackMission: public AttackCursorMission
@@ -3028,6 +3054,8 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "equal-group-attack-caption") && argc == 4) GroupAttackPreview(argv[2], argv[3], false);
         else if (!std::strcmp(mode, "mixed-group-attack-caption") && argc == 4) GroupAttackPreview(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "missing-attack-target-caption") && argc == 4) AttackCaptionWithoutHitChance(argv[2], false, true);
+        else if (!std::strcmp(mode, "restore-action-state") && argc == 4) RestoreActionState(argv[2], argv[3], false);
+        else if (!std::strcmp(mode, "zone-reentry-action-state") && argc == 4) RestoreActionState(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "replacement-person-inventory-clue") && argc == 4) PersonClueCreation(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "inventory-clue-creation") && argc == 4) InventoryClueCreation(argv[2], argv[3]);
         else if (!std::strcmp(mode, "inventory-clue-count") && argc == 4) InventoryClueCreation(argv[2], argv[3], true);

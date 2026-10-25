@@ -685,7 +685,7 @@ public:
 	// CMission::OnLoad @0x1fb8e0 = loading-bar counters only; CICLoadFile::Exec @0x1f6830 runs nothing),
 	// so loading must NOT touch TBS state: a realtime save stores bTurnDone=0 for every live player and
 	// StartGame's IsRealTimePossible (@0x364f10) gate would falsely restart a player turn.
-	virtual void RestoreRuntimeCaches( NRPG::CGlobalGame *pGlobalGame ) {}
+	virtual void RestoreRuntimeCaches( NRPG::CGlobalGame *pGlobalGame, bool bZoneReentry = false ) {}
 	virtual IPlayer* AddPlayer( const wstring &wsName, NRPG::CGlobalPlayer *pGlobalPlayer, 
 		CCommander *pCommander, bool bAddOnManyDeploySpots = false ) = 0;
 	virtual void RemovePlayer( IPlayer *pPlayer ) = 0;

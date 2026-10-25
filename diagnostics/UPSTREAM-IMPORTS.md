@@ -71,6 +71,7 @@
 | [b7f57bd4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b7f57bd484d7d74f7d8dcf1d602b9738fc4bb4de) — Validate blocked attack captions and correct their regression record | `unavailable attack preview did not preserve its AP cost without a shooting percentage` | 91/91; `attack-caption-eligibility` | `Upstream-Commit` в commit message |
 | [b7f57bd4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b7f57bd484d7d74f7d8dcf1d602b9738fc4bb4de) — Use the attack command target for hit-chance previews | `attack preview lost the exact 3D target when no movement tile was available` | 92/92; `exact-attack-target` | `Upstream-Commit` в commit message |
 | [b7f57bd4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b7f57bd484d7d74f7d8dcf1d602b9738fc4bb4de) — Format one aggregate hit-chance line for the selected group | `equal selected-unit hit chances were displayed as a redundant percentage range` | 95/95; `group-attack-caption` | `Upstream-Commit` в commit message |
+| [adea40c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/adea40c8c240da92fad84b5d714a27f94e641cb3) — Preserve building action state while restoring save runtime caches | `restoring save runtime caches started a new building action` | 97/97; `restore-action-state` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -117,3 +118,18 @@ Windows расширенный набор без внешних ресурсов
 перезарядки — 4/4. Это историческая контрольная точка до последующих
 исправлений маршрута, диалогов и x86 bounds; она не выдается за отдельный
 полный прогон всех ресурсных/extended тестов на каждом новом коммите.
+
+## Проверка сценарных улик и подписей атаки
+
+На коммите `87757413` Windows ALL_BUILD и Linux Game собираются; на обеих
+платформах проходят 95/95 регрессионных проверок. Более широкий Windows
+набор без внешних ресурсов и дисплея — 179/179, отдельные игровые сценарии
+стрельбы, сохранения выстрела и перезарядки — 4/4. Использованы те же каталоги
+сборки, без копий игры и генерации HD pack.
+
+Коммит `26048494` был ошибочно отправлен после неуспешного общего прогона и
+с повторенным сообщением предыдущего исправления курсоров. Два новых теста
+подписи до production-фикса падали по ожидаемой причине; общий прогон выявил
+недостающий режим времени в старой тестовой миссии. `8fa7f09f` исправил эту
+оснастку и зафиксировал достоверный GREEN 91/91. Исходный upstream-хеш в обоих
+коммитах относится к правильному источнику `b7f57bd4`; общая история сохранена.

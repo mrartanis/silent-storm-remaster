@@ -2027,11 +2027,17 @@ int CWorld::RepairInactiveSequenceFlags()
 	if (repaired) SaveLoadDiag("[sequence-repair] inactive=1 units=%d\n",repaired);
 	return repaired;
 }
-void CWorld::RestoreRuntimeCaches( NRPG::CGlobalGame *_pGlobalGame )
+void CWorld::RestoreRuntimeCaches( NRPG::CGlobalGame *_pGlobalGame, bool bZoneReentry )
 {
 	RepairInactiveSequenceFlags();
 	for ( list< CObj<CBuilding> >::iterator i = buildings.begin(); i != buildings.end(); ++i )
-		(*i)->Update();
+	{
+		if ( bZoneReentry )
+			(*i)->Update();
+		else
+			// A raw save resumes its existing action and segment state.
+			(*i)->UpdateAllParts();
+	}
 
 	pGlobalGame = _pGlobalGame;
 
@@ -2057,7 +2063,7 @@ void CWorld::CreateRestored( NRPG::CGlobalGame *_pGlobalGame )
 {
 	nPartiesAdded = 0;
 
-	RestoreRuntimeCaches( _pGlobalGame );
+	RestoreRuntimeCaches( _pGlobalGame, true );
 
 	StartGame();
 }
