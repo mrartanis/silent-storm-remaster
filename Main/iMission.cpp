@@ -2792,7 +2792,7 @@ void CMission::ExecWorldCommands()
 								if (pClue)
 								{
 									if (IsValid(pClue->pClue))
-										NMainLoop::Command(new NGame::CICShowClue(pGlobalGame, pClue->pClue));
+										NMainLoop::Command(new NGame::CICShowClue(this, pClue->GetID(), pGlobalGame, pClue->pClue));
 								}
 								// W5 serialization-convergence: the NGame UICmdExec wrappers are gone -- retail
 								// CMission::ExecWorldCommand @0x1fd8c0 executes these three INLINE:

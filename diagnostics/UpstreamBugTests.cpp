@@ -3055,6 +3055,66 @@ public:
     bool IsSequence() const override { return sequence; }
 };
 
+class ClueDispatchMission: public NGame::CMission
+{
+    OBJECT_NOCOPY_METHODS(ClueDispatchMission);
+    CObj<NUI::CDesktopWindow> desktop;
+public:
+    void Attach(NWorld::CWorld* world,NRPG::CGlobalGame* game) {
+        pWorld = world; pGlobalGame = game; desktop = new NUI::CDesktopWindow;
+    }
+    void Step() override {}
+    void OnGetFocus() override {}
+    void OnLostFocus() override {}
+    NUI::CDesktopWindow* GetDesktop() const override { return desktop; }
+    void DoEvent(NWorld::CCommand* command) override { dynamic_cast<NWorld::CWorld*>(pWorld.GetPtr())->ExecuteCommand(command); }
+    void Drain() { ExecWorldCommands(); }
+};
+
+static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath,const char* resourcePath,
+    bool deployParty,CObj<NRPG::CGlobalGame>* retainedGame);
+
+static void FreshClueWaitRelease(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "fresh clue fixture must begin without an active interface or command");
+    struct Cleanup { ~Cleanup() { NMainLoop::StepApp(false,false,false); NMainLoop::DoneInterface(); } } cleanup;
+    auto* clue = game->pScenarioTracker->GetClueByName("Find_Cipher_key");
+    Require(clue != nullptr, "fresh clue fixture has no authored campaign clue");
+    auto* script = world->GetOwnScript();
+    Require(script != nullptr, "fresh clue fixture has no native mission script");
+    CObj<NWorld::CUICmdShowClue> command = new NWorld::CUICmdShowClue(clue);
+    const int event = command->GetID();
+    Require(script->AddUICommandWithID(command) == 1 && script->IsUIActionIDPresent(event),
+        "fresh clue fixture did not register its actual pending script UI action");
+    CObj<ClueDispatchMission> mission = new ClueDispatchMission;
+    mission->Attach(world,game); mission->Drain();
+    Require(NMainLoop::HaveInterfaceCommand() && script->IsUIActionIDPresent(event),
+        "dispatching a clue skipped its modal or prematurely released its script wait");
+    Require(NMainLoop::StepApp(false,false,false), "the native queued clue modal did not open");
+    auto* modal = NMainLoop::GetCurrentInterfaceForHarness();
+    Require(IsValid(modal) && pSSClasses->GetObjectTypeID(modal) == int(0xB1001180),
+        "fresh clue dispatch opened an unrelated interface");
+    CStructureNetworkContext references;
+    auto fields = BorrowedObjectFields(modal,&references);
+    CPtr<NGame::IMission> origin;
+    int restoredEvent = -1;
+    { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(2,&restoredEvent); reader.Add(3,&origin); }
+    Require(origin.GetPtr() == mission.GetPtr() && restoredEvent == event,
+        "fresh clue dispatch dropped the originating mission and its waiting script event ID");
+    NInput::SEvent input;
+    while (NInput::GetEvent(&input)) {}
+    NInput::PostEvent("cancel");
+    Require(NInput::GetEvent(&input) && modal->ProcessEvent(input) && NMainLoop::HaveInterfaceCommand(),
+        "the fresh clue modal did not consume its native close command");
+    Require(!script->IsUIActionIDPresent(event), "closing a fresh clue left its actual script UI action waiting forever");
+    NMainLoop::StepApp(false,false,false);
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "the fresh clue fixture retained its modal after closing");
+}
+
 class ReadinessMission: public NGame::CMissionBase
 {
     OBJECT_NOCOPY_METHODS(ReadinessMission);
@@ -9699,6 +9759,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
     if (!std::strcmp(mode, "hotseat-opponent-visibility")) { HotseatOpponentVisibility(); return true; }
     if (!std::strcmp(mode, "restored-clue-close-notification")) { RestoredClueCloseNotification(); return true; }
+    if (!std::strcmp(mode, "fresh-clue-wait-release") && argc == 4) { FreshClueWaitRelease(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-sound-game-clock")) { MissionSoundGameClock(); return true; }
     if (!std::strcmp(mode, "delayed-sound-effect-age") && argc == 3) { DelayedSoundEffectAge(argv[2]); return true; }
     if (!std::strcmp(mode, "infinite-sound-effect-loop") && argc == 3) { DelayedSoundEffectAge(argv[2],true); return true; }

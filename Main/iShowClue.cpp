@@ -183,7 +183,7 @@ private:
 public:
 	CShowClueInterface();
 
-	void Initialize( NRPG::CGlobalGame *pGame, NScenario::CScenarioClue *pClue, NUI::CScreenShot *pScreenShot );
+	void Initialize( IMission *pMission, int nEventID, NRPG::CGlobalGame *pGame, NScenario::CScenarioClue *pClue, NUI::CScreenShot *pScreenShot );
 
 	void Step();
 	void OnGetFocus();
@@ -196,8 +196,10 @@ CShowClueInterface::CShowClueInterface():
 {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CShowClueInterface::Initialize( NRPG::CGlobalGame *_pGame, NScenario::CScenarioClue *_pClue, NUI::CScreenShot *_pScreenShot )
+void CShowClueInterface::Initialize( IMission *_pMission, int _nEventID, NRPG::CGlobalGame *_pGame, NScenario::CScenarioClue *_pClue, NUI::CScreenShot *_pScreenShot )
 {
+	pMission = _pMission;
+	nEventID = _nEventID;
 	pGame = _pGame;
 	pClue = _pClue;
 
@@ -260,15 +262,15 @@ void CShowClueInterface::RenderFrame()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CICShowClue
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-CICShowClue::CICShowClue( NRPG::CGlobalGame *_pGame, NScenario::CScenarioClue *_pClue, NUI::CScreenShot *_pScreenShot ):
-	pGame( _pGame ), pClue( _pClue ), pScreenShot( _pScreenShot )
+CICShowClue::CICShowClue( IMission *_pMission, int _nEventID, NRPG::CGlobalGame *_pGame, NScenario::CScenarioClue *_pClue, NUI::CScreenShot *_pScreenShot ):
+	nEventID( _nEventID ), pMission( _pMission ), pGame( _pGame ), pClue( _pClue ), pScreenShot( _pScreenShot )
 {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICShowClue::Exec()
 {
 	CShowClueInterface *pRes = new CShowClueInterface();
-	pRes->Initialize( pGame, pClue, pScreenShot );
+	pRes->Initialize( pMission, nEventID, pGame, pClue, pScreenShot );
 	PushInterface( pRes );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

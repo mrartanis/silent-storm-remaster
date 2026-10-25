@@ -16,18 +16,21 @@ namespace NScenario
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NGame
 {
+class IMission;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICShowClue: public NMainLoop::CInterfaceCommand
 {
 	OBJECT_BASIC_METHODS(CICShowClue);
 private:
+	int nEventID = 0;
+	CPtr<IMission> pMission;
 	CPtr<NUI::CScreenShot> pScreenShot;
 	CPtr<NRPG::CGlobalGame> pGame;
 	CPtr<NScenario::CScenarioClue> pClue;
 
 public:
 	CICShowClue() {}
-	CICShowClue( NRPG::CGlobalGame *pGame, NScenario::CScenarioClue *pClue, NUI::CScreenShot *pScreenShot = 0 );
+	CICShowClue( IMission *pMission, int nEventID, NRPG::CGlobalGame *pGame, NScenario::CScenarioClue *pClue, NUI::CScreenShot *pScreenShot = 0 );
 
 	virtual void Exec();
 };
