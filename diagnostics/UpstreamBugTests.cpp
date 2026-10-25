@@ -6298,6 +6298,65 @@ static void ReloadActionWire(const char* databasePath, const char* resourcePath)
     Require(!world->IsAction(), "restored reload retained an action counter after completion");
 }
 
+class NativeActionInfoMission: public NGame::CMission
+{
+    OBJECT_NOCOPY_METHODS(NativeActionInfoMission);
+public:
+    vector<CPtr<NGame::IUnitTracker>> selection;
+    void Attach(NWorld::CWorld* world,NRPG::CGlobalGame* game) { pWorld = world; pGlobalGame = game; }
+    void RefreshActions() { UpdateActionsInfo(); }
+    void GetSelectedUnits(vector<CPtr<NGame::IUnitTracker>>* result) const override { *result = selection; }
+};
+
+static void EmptyClipAttackEntry(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    CPtr<NRPG::CWeaponItem> weapon;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (!unit || !unit->CanFight() || unit->IsWearingPK() || unit->IsEmptyPK() ||
+            !unit->GetUnitRPG()->CanMove()) continue;
+        auto* firearm = dynamic_cast<NRPG::CWeaponItem*>(unit->GetUnitRPG()->GetInventory()->GetActive());
+        if (firearm && firearm->GetAmmoQuantity() > 0 && firearm->SetShootMode(NDb::SM_Snap) &&
+            firearm->CanReload(unit->GetUnitRPG()->GetInventory()) &&
+            unit->CanSpendAP(unit->GetActionAP(NRPG::AC_RELOAD))) {
+            actor = unit; weapon = firearm; break;
+        }
+    }
+    Require(actor && IsValid(weapon), "attack-entry fixture has no mobile firearm user with spare ammunition");
+    CObj<NativeActionInfoMission> mission = new NativeActionInfoMission;
+    mission->Attach(world,game);
+    CObj<NGame::CUnitTracker> tracker = new NGame::CUnitTracker(mission,actor);
+    mission->selection.push_back(tracker.GetPtr());
+    mission->RefreshActions();
+    NGame::SActionInfo loaded;
+    mission->GetActionInfo(NGame::UA_ATTACK,&loaded);
+    Require(loaded.bOk && loaded.bAvailable && loaded.eResult != NWorld::UCR_OK_RELOAD,
+        "loaded-weapon control could not enter the native attack mode");
+    weapon->DiscardAmmo();
+    Require(weapon->GetAmmoQuantity() == 0 && weapon->CanReload(actor->GetUnitRPG()->GetInventory()),
+        "attack-entry fixture failed to empty its weapon while retaining spare ammunition");
+    const int ap = actor->GetAP();
+    CObj<NWorld::CCmdShootObject> explicitReload = new NWorld::CCmdShootObject(nullptr,0);
+    explicitReload->bCanBeReplacedByReload = true;
+    NGame::SActionInfo expected;
+    mission->CanDoCommand(explicitReload,true,&expected);
+    Require(expected.bOk && expected.bAvailable && expected.eResult == NWorld::UCR_OK_RELOAD,
+        "explicit attack-preview control did not offer the existing native replacement reload");
+    mission->RefreshActions();
+    NGame::SActionInfo cached;
+    mission->GetActionInfo(NGame::UA_ATTACK,&cached);
+    Require(cached.bOk && cached.bAvailable && cached.eResult == expected.eResult &&
+        cached.nMinAP == expected.nMinAP && cached.nMaxAP == expected.nMaxAP,
+        "the mission's attack-mode entry rejected an empty clip despite an available replacement reload");
+    Require(weapon->GetAmmoQuantity() == 0 && actor->GetAP() == ap && !actor->HasCommand(),
+        "probing native attack-mode entry spent ammunition or AP or installed a command");
+}
+
 static void HolsteredReloadPreparation(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -8911,6 +8970,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-action-camera")) { Require(argc == 4, "movement camera requires db and res"); MovementActionCamera(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "mounted-reload-weapon")) { Require(argc == 4, "mounted reload requires db and res"); MountedReloadWeapon(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "holstered-reload-preparation")) { Require(argc == 4, "reload preparation requires db and res"); HolsteredReloadPreparation(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "empty-clip-attack-entry") && argc == 4) { EmptyClipAttackEntry(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "reload-action-wire")) { Require(argc == 4, "reload wire requires db and res"); ReloadActionWire(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-reload-log-wire")) { AIReloadLogRecord(0); return true; }
     if (!std::strcmp(mode, "ai-reload-log-rollback")) { AIReloadLogRecord(1); return true; }

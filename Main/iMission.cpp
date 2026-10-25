@@ -939,7 +939,10 @@ void CMission::UpdateActionsInfo()
 	// is additionally gated on the unit actually holding a tool (ST_NORMAL_TOOL)
 	actionsInfoSet[UA_USETOOL] = actionsInfoSet[UA_USE];
 
-	CanDoCommand( new NWorld::CCmdShootObject( 0, 0 ), true, &actionsInfoSet[UA_ATTACK] );
+	// Attack-mode entry follows the same replacement-reload policy as its cursor.
+	NWorld::CCmdShootObject *pAttack = new NWorld::CCmdShootObject( 0, 0 );
+	pAttack->bCanBeReplacedByReload = true;
+	CanDoCommand( pAttack, true, &actionsInfoSet[UA_ATTACK] );
 
 	CanDoCommand( new NWorld::CCmdHeal( 0 ), true, &actionsInfoSet[UA_HEAL] );
 	CanDoCommand( new NWorld::CCmdSetMineOnTile( NAI::SPosition() ), true, &actionsInfoSet[UA_MINE] );
