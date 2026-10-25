@@ -34,6 +34,7 @@
 #include "../Main/wUnitCommands.h"
 #include "../Main/wUICommands.h"
 #include "../Main/aiGrid.h"
+#include "../Main/aiColourer.h"
 #include "../Main/aiMap.h"
 #include "../Main/aiStability.h"
 #include "../Main/aiNearestPosition.h"
@@ -187,6 +188,43 @@ static void SmartAimerBoundary()
     aimer->GetFrame(301, &output);
     Require(fabs2(output[0].pos - target[0].pos) < 0.000001f,
         "smart aimer changed its completed-transition output");
+}
+
+static void FreshNavigationColouring()
+{
+    CObj<NAI::CNodesLayer> layer = new NAI::CNodesLayer;
+    layer->nLayer = layer->nFloor = 0;
+    layer->tiles.SetSizes(8, 8);
+    for (int y = 0; y < 8; ++y)
+        for (int x = 0; x < 8; ++x) layer->tiles[y][x] = NAI::STile{};
+    CObj<NAI::CMapColourer> full = new NAI::CMapColourer;
+    full->SetLayer(layer, nullptr, 0);
+    full->ConstructColouring(nullptr);
+    Require(full->IsReady() && full->GetPointColor(0, 0) != full->GetPointColor(7, 7),
+        "fresh-colouring fixture did not build separate blocked regions");
+    CObj<NAI::CMapColourer> incremental = new NAI::CMapColourer;
+    incremental->SetLayer(layer, nullptr, 0);
+    incremental->RecalcColouring(nullptr, 0);
+    Require(incremental->IsReady(),
+        "first incremental navigation update left a new layer without its connectivity cache");
+    for (int y = 0; y < 8; ++y)
+        for (int x = 0; x < 8; ++x)
+            Require(incremental->GetPointColor(x, y) == full->GetPointColor(x, y),
+                "first incremental navigation update differs from a full connectivity build");
+    const auto first = incremental->GetPointColor(0, 0), last = incremental->GetPointColor(7, 7);
+    for (int y = 0; y < 8; ++y)
+        for (int x = 0; x < 8; ++x) {
+            auto& tile = layer->tiles[y][x];
+            for (auto& moves: tile.nMove) moves = static_cast<char>(0xff);
+            tile.nFlags = NAI::TF_STAND_PASSABLE;
+            tile.nPassable = 7;
+        }
+    full->ConstructColouring(nullptr);
+    Require(full->GetPointColor(0, 0) == full->GetPointColor(7, 7),
+        "modified colouring fixture did not form a connected region");
+    incremental->RecalcColouring(nullptr, 0);
+    Require(incremental->GetPointColor(0, 0) == first && incremental->GetPointColor(7, 7) == last,
+        "already constructed colourer repeated a full build without a dirty region");
 }
 
 class EmptySearchNetwork: public NAI::CPathNetwork
@@ -3651,6 +3689,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "lua-empty-default")) EmptyLuaDefault();
         else if (!std::strcmp(mode, "smart-aimer-boundary")) SmartAimerBoundary();
         else if (!std::strcmp(mode, "nearest-empty")) EmptyNearestPosition();
+        else if (!std::strcmp(mode, "fresh-navigation-colouring")) FreshNavigationColouring();
         else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();
         else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();
         else if (!std::strcmp(mode, "sniper-targetless-probe") && argc == 4) SniperHeldAim(argv[2], argv[3], true);

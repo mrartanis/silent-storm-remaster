@@ -181,6 +181,7 @@ void CMapColourer::ConstructColouring( CPathNetwork* pNet )
 	CreateZonesMap( &zonesAnyMove, &pLayer->ladders );
 
 	zonesToRecalc.clear();
+	bAlreadyConstructed = true; // Retail v1.2 0x42f657.
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapColourer::InvestigateSquareMap( const vector< CTRect<unsigned char> > &areas )
@@ -754,10 +755,16 @@ bool CMapColourer::IsColorTouchingArea( WORD wColor, const vector< CTRect<unsign
 	return IsPointTouchingArea( cAX, cAY, areas );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CMapColourer::RecalcColouring( CPathNetwork *pNet, int nCurrentLayer )
+bool CMapColourer::RecalcColouring( CPathNetwork *pNet, int nCurrentLayer )
 {
+	// Retail v1.2 0x42f692: a new layer needs full connectivity tables first.
+	if ( !bAlreadyConstructed )
+	{
+		ConstructColouring( pNet );
+		return true;
+	}
 	if ( zonesToRecalc.empty() )
-		return;
+		return false;
 /*	DebugTrace("Recalc %d zones\n", zonesToRecalc.size());
 	for ( int i = 0; i < zonesToRecalc.size(); ++i ) 
 	{
@@ -926,6 +933,7 @@ void CMapColourer::RecalcColouring( CPathNetwork *pNet, int nCurrentLayer )
 		}
 	}
 
+	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapColourer::FindAdjacentColours( unsigned char cMinX, unsigned char cMinY, 
