@@ -6130,6 +6130,35 @@ static void RunScript(NScript::CScript* script, const char* code)
     pScript = nullptr;
 }
 
+static void ScriptedEnemyDeath(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,true,&game);
+    auto* human = world->GetPlayerByID(0);
+    Require(IsValid(human) && !NAI::IsAIPlayer(human), "scripted death fixture has no scenario-player-zero human");
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    vector<CPtr<NWorld::CUnitServer>> enemies;
+    vector<std::pair<CPtr<NWorld::CUnitServer>,int>> protectedUnits;
+    for (const auto& unit: units) {
+        if (!IsValid(unit) || !unit->CanFight()) continue;
+        if (world->GetDiplomacyState(human,unit->GetPlayer()) == NDb::DS_ENEMY)
+            enemies.push_back(unit);
+        else protectedUnits.push_back({unit,unit->GetAP()});
+    }
+    Require(!enemies.empty() && !protectedUnits.empty(), "scripted death fixture needs hostile and protected units");
+    CObj<NScript::CScript> script = NScript::CreateScript(world);
+    RunScript(script,"KillEmAll()");
+    for (const auto& enemy: enemies) {
+        Require(enemy->GetUnitRPG()->IsDead(),
+            "KillEmAll left a world-dead hostile's RPG persona alive");
+        Require(enemy->IsDead() && !enemy->CanFight(), "KillEmAll did not complete the hostile's world death");
+    }
+    for (const auto& item: protectedUnits)
+        Require(item.first->CanFight() && !item.first->GetUnitRPG()->IsDead() && item.first->GetAP() == item.second,
+            "KillEmAll harmed a friendly or neutral unit or spent its AP");
+}
+
 static bool SavedWalkWithoutWeapon(NWorld::CUnitServer* actor)
 {
     CStructureNetworkContext graph;
@@ -7295,6 +7324,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "restored-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 0); return true; }
     if (!std::strcmp(mode, "fresh-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "legacy-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "scripted-enemy-death") && argc == 4) { ScriptedEnemyDeath(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "empty-passage-exit") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "scripted-passage-transition") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "flying-attack-queue") && argc == 4) { FlyingAttackQueue(argv[2],argv[3]); return true; }

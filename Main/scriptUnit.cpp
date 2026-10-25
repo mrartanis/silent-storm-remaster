@@ -954,7 +954,11 @@ BEGIN_SCRIPT_COMMAND( KillEmAll, "" )
 		CDynamicCast<NWorld::CUnitServer> pUS( *i );
 		if ( IsValid( pUS ) && !pUS->IsDead() && IsValid( pUS->GetPlayer() ) &&
 			pScript->pWorld->GetDiplomacyState( pHuman, pUS->GetPlayer() ) == NDb::DS_ENEMY )
+		{
+			// Commit RPG death before the world/animation death transition.
+			pUS->GetUnitRPG()->Kill();
 			pUS->KillUnit( CVec3( 0, 0, 1 ) );		// VNULL3 with z=1 (death direction seed)
+		}
 	}
 	return 0;
 END_SCRIPT_COMMAND
