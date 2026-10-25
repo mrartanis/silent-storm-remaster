@@ -1538,6 +1538,82 @@ static void CheckPermittedExitMenu(NGScene::CScreenshotTexture* texture,bool sho
     }
 }
 
+class ClueCloseMission: public NGame::CMissionBase
+{
+    OBJECT_NOCOPY_METHODS(ClueCloseMission);
+public:
+    vector<int> notifications;
+    void Step() override {}
+    bool ProcessEvent(const NInput::SEvent&) override { return false; }
+    void OnGetFocus() override {}
+    void OnLostFocus() override {}
+    void DoEvent(NWorld::CCommand* command) override {
+        CObj<NWorld::CCommand> hold = command;
+        auto* event = dynamic_cast<NWorld::CCmdInterfaceEvent*>(command);
+        Require(event != nullptr, "clue close delivered an unrelated mission event");
+        notifications.push_back(event->nID);
+    }
+};
+
+static void RestoredClueCloseNotification()
+{
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "clue close fixture must begin without an active interface or command");
+    struct Cleanup { ~Cleanup() { NMainLoop::StepApp(false,false,false); NMainLoop::DoneInterface(); } } cleanup;
+    CObj<ClueCloseMission> mission = new ClueCloseMission;
+    auto open = [&](bool withMission) {
+        CObj<NMainLoop::IInterfaceBase> modal = dynamic_cast<NMainLoop::IInterfaceBase*>(pSSClasses->CreateObject(int(0xB1001180)));
+        Require(IsValid(modal), "clue close fixture could not create its native restored clue dialog");
+        CObj<NUI::ICursor> cursor = NUI::ICursor::Create(false);
+        CObj<NUI::CInterface> interface = new NUI::CInterface(cursor);
+        CPtr<NGame::IMission> sender = withMission ? mission.GetPtr() : nullptr;
+        int event = 73;
+        CStructureNetworkContext references;
+        references.externalReferences = true; references.include = [](CObjectBase*) { return false; }; references.nextID = 100;
+        for (auto* object: vector<CObjectBase*>{mission.GetPtr(),cursor.GetPtr(),interface.GetPtr()}) {
+            auto id = references.nextID++; references.ids[object] = id; references.refs[id] = object;
+        }
+        CMemoryStream saved;
+        {
+            CStructureSaver writer(saved,CStructureSaver::WRITE,&references);
+            writer.Add(2,&event); writer.Add(3,&sender); writer.Add(7,&cursor); writer.Add(8,&interface);
+        }
+        saved.Seek(0);
+        { CStructureSaver reader(saved,CStructureSaver::READ,&references); modal->operator&(reader); }
+        class InstallClue: public NMainLoop::CInterfaceCommand {
+            OBJECT_NOCOPY_METHODS(InstallClue);
+        public:
+            NMainLoop::IInterfaceBase* owner = nullptr;
+            NMainLoop::IInterfaceBase* modal = nullptr;
+            void Exec() override { SetInterface(owner); PushInterface(modal); }
+        };
+        CObj<InstallClue> install = new InstallClue;
+        install->owner = mission; install->modal = modal; install->Exec();
+        return modal;
+    };
+    auto send = [&](NMainLoop::IInterfaceBase* modal,const char* name) {
+        NInput::SEvent event;
+        while (NInput::GetEvent(&event)) {}
+        NInput::PostEvent(name);
+        Require(NInput::GetEvent(&event), "clue close fixture did not receive its native input command");
+        return modal->ProcessEvent(event);
+    };
+    auto chapterClue = open(false);
+    Require(send(chapterClue,"cancel") && NMainLoop::HaveInterfaceCommand() && mission->notifications.empty(),
+        "a chapter clue without an originating mission should close without a notification");
+    Require(NMainLoop::StepApp(false,false,false) && NMainLoop::GetCurrentInterfaceForHarness() == mission.GetPtr(),
+        "the native clue dialog did not leave its actual modal stack");
+    NMainLoop::DoneInterface();
+    auto missionClue = open(true);
+    Require(!send(missionClue,"unrelated_clue_event") && mission->notifications.empty() && !NMainLoop::HaveInterfaceCommand(),
+        "an unrelated input command released the mission's clue wait");
+    Require(send(missionClue,"cancel") && NMainLoop::HaveInterfaceCommand(), "the restored mission clue did not close");
+    Require(mission->notifications == vector<int>{73},
+        "closing a restored clue modal never notified the mission of its waiting UI event");
+    Require(NMainLoop::StepApp(false,false,false) && NMainLoop::GetCurrentInterfaceForHarness() == mission.GetPtr() &&
+        mission->notifications == vector<int>{73}, "closing a clue sent duplicate events or failed to restore the mission");
+}
+
 static void ExitMenuConfirmation(const char* databasePath,const char* resourcePath)
 {
     CFileStream database;
@@ -9622,6 +9698,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "tool-targeting-cursor-refresh") && argc == 3) { ToolTargetingCursorRefresh(argv[2]); return true; }
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
     if (!std::strcmp(mode, "hotseat-opponent-visibility")) { HotseatOpponentVisibility(); return true; }
+    if (!std::strcmp(mode, "restored-clue-close-notification")) { RestoredClueCloseNotification(); return true; }
     if (!std::strcmp(mode, "mission-sound-game-clock")) { MissionSoundGameClock(); return true; }
     if (!std::strcmp(mode, "delayed-sound-effect-age") && argc == 3) { DelayedSoundEffectAge(argv[2]); return true; }
     if (!std::strcmp(mode, "infinite-sound-effect-loop") && argc == 3) { DelayedSoundEffectAge(argv[2],true); return true; }

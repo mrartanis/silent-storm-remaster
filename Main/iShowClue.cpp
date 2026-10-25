@@ -9,6 +9,7 @@
 #include "Interface.h"
 #include "iCommonUI.h"
 #include "iMission.h"
+#include "wInterface.h"
 #include "iShowClue.h"
 #include "RPGGlobal.h"
 #include "scScenarioTracker.h"
@@ -241,6 +242,8 @@ bool CShowClueInterface::ProcessEvent( const NInput::SEvent &sEvent )
 
 	if ( bindClose.ProcessEvent( sEvent ) )
 	{
+		if ( IsValid( pMission ) )
+			pMission->DoEvent( new NWorld::CCmdInterfaceEvent( nEventID ) );
 		NMainLoop::Command( new NMainLoop::CICExitModal() );
 		return true;
 	}
