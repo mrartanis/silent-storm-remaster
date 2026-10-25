@@ -7249,6 +7249,58 @@ public:
     explicit RenderCache(CSyncSrc<RenderFixture>* source): COrdinarySyncDst(source) {}
 };
 
+static void LongBurstVoiceDonor(const char* databasePath,const char* resourcePath)
+{
+    for (int scenario = 0; scenario < 3; ++scenario) {
+        auto world = FixtureWorld(databasePath,resourcePath,false,nullptr);
+        vector<CPtr<NWorld::CUnit>> units;
+        world->GetAllUnits(&units);
+        NWorld::CUnitServer* actor = nullptr;
+        CPtr<NRPG::CWeaponItem> weapon;
+        for (auto& entry: units) {
+            auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+            if (!unit || !unit->CanFight() || unit->IsWearingPK() || unit->IsEmptyPK() ||
+                !unit->GetUnitRPG()->CanMove() || unit->GetPosition().GetPose() == NAI::CRAWL) continue;
+            auto* firearm = dynamic_cast<NRPG::CWeaponItem*>(unit->GetUnitRPG()->GetInventory()->GetActive());
+            if (firearm && firearm->GetAmmoQuantity() > 0 && IsValid(firearm->GetDBWeapon()->pAnimWeaponType) &&
+                firearm->SetShootMode(NDb::SM_LongBurst)) { actor = unit; weapon = firearm; break; }
+        }
+        Require(actor && IsValid(weapon), "long-burst voice fixture has no actual armed mobile burst shooter");
+        weapon->GetDBWeapon()->pAnimWeaponType->type = NDb::WT_MACHINE_GUN;
+        auto* persona = actor->GetUnitRPG()->GetRPGUnit();
+        persona->bHero = false;
+        CObj<NDb::CRPGPers> donor = new NDb::CRPGPers;
+        CObj<NDb::CSound> donorVoice = new NDb::CSound, ownVoice = new NDb::CSound;
+        persona->pPers->pAcksHolder = scenario == 1 ? nullptr : donor.GetPtr();
+        persona->pPers->pLongBurstSnd = ownVoice;
+        donor->pLongBurstSnd = scenario == 2 ? nullptr : donorVoice.GetPtr();
+        Require(persona->GetAckHolder() == (scenario == 1 ? nullptr : donor.GetPtr()),
+            "long-burst voice fixture did not select its native acknowledgement donor");
+        vector<NWorld::IDynamicObject*> previous;
+        for (auto& object: *world->GetMiscObjects()) previous.push_back(object.GetPtr());
+        CObj<NWorld::CExecShootTile> attack = new NWorld::CExecShootTile(actor,actor->GetPosition().GetCP()+CVec3(5,0,0));
+        attack->Start();
+        struct Voices: NWorld::ISoundVisitor {
+            vector<NDb::CSound*> sounds;
+            void Add3DSound(STime,NDb::CSound* sound,CFuncBase<CVec3>*) override { sounds.push_back(sound); }
+            void AddEffect(STime,NDb::CSoundEffect*,CFuncBase<CVec3>*,const vector<int>&) override {
+                throw std::runtime_error("long-burst voice unexpectedly created an effect");
+            }
+            void Add2DSound(STime,NDb::CSound*) override { throw std::runtime_error("long-burst voice unexpectedly became non-positional"); }
+        } voices;
+        for (auto& object: *world->GetMiscObjects()) {
+            if (std::find(previous.begin(),previous.end(),object.GetPtr()) != previous.end()) continue;
+            if (auto* sound = dynamic_cast<NWorld::C3DSound*>(object.GetPtr())) sound->Visit(&voices);
+        }
+        if (scenario == 0) Require(voices.sounds == vector<NDb::CSound*>{donorVoice.GetPtr()},
+            "starting a real long burst played the fixed generic voice instead of the shooter's acknowledgement donor");
+        if (scenario == 1) Require(voices.sounds == vector<NDb::CSound*>{ownVoice.GetPtr()},
+            "a long-burst shooter without a donor did not fall back to its own persona voice");
+        if (scenario == 2) Require(voices.sounds.empty(),
+            "a donor without a long-burst voice incorrectly fell back to another persona");
+    }
+}
+
 static void RenderRemoval()
 {
     CObj<CSetSyncSrc<RenderFixture>> source = new CSetSyncSrc<RenderFixture>;
@@ -9836,6 +9888,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "hotseat-opponent-visibility")) { HotseatOpponentVisibility(); return true; }
     if (!std::strcmp(mode, "restored-clue-close-notification")) { RestoredClueCloseNotification(); return true; }
     if (!std::strcmp(mode, "scaled-edit-text-layout")) { ScaledEditTextLayout(); return true; }
+    if (!std::strcmp(mode, "long-burst-voice-donor") && argc == 4) { LongBurstVoiceDonor(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "fresh-clue-wait-release") && argc == 4) { FreshClueWaitRelease(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-sound-game-clock")) { MissionSoundGameClock(); return true; }
     if (!std::strcmp(mode, "delayed-sound-effect-age") && argc == 3) { DelayedSoundEffectAge(argv[2]); return true; }
