@@ -110,6 +110,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/Transform.h"
 #include "../Main/aiInventory.h"
 #include "../Main/aiWeapon.h"
+#include "../Main/AILog.h"
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -130,6 +131,100 @@ static void Require(bool value, const char* message)
 }
 
 
+
+struct ReloadLogFixture
+{
+    CObj<NAI::CAIFireArmsWeapon> weapon;
+    CObj<NAI::CAIFireArmsWeaponClip> current, next;
+};
+
+static CStructureNetworkContext ReloadReferences(const ReloadLogFixture& fixture)
+{
+    CStructureNetworkContext references;
+    references.externalReferences = true;
+    references.ids[fixture.weapon.GetPtr()] = 1; references.refs[1] = fixture.weapon.GetPtr();
+    references.ids[fixture.current.GetPtr()] = 2; references.refs[2] = fixture.current.GetPtr();
+    references.ids[fixture.next.GetPtr()] = 3; references.refs[3] = fixture.next.GetPtr();
+    references.nextID = 100; references.include = [](CObjectBase*) { return false; };
+    return references;
+}
+
+static ReloadLogFixture MakeReloadLogFixture()
+{
+    ReloadLogFixture fixture;
+    fixture.weapon = new NAI::CAIFireArmsWeapon;
+    fixture.current = new NAI::CAIFireArmsWeaponClip; fixture.current->SetAmmoCount(3);
+    fixture.next = new NAI::CAIFireArmsWeaponClip; fixture.next->SetAmmoCount(12);
+    struct FirearmClipsWire {
+        CObj<NAI::CAIFireArmsWeaponClip> current;
+        vector<CObj<NAI::CAIFireArmsWeaponClip>> spare;
+        int operator&(CStructureSaver& saver) { saver.Add(3, &current); saver.Add(4, &spare); return 0; }
+    } base;
+    base.current = fixture.current.GetPtr(); base.spare.push_back(fixture.next.GetPtr());
+    auto references = ReloadReferences(fixture);
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE, &references); writer.Add(2, &base); }
+    saved.Seek(0);
+    { CStructureSaver reader(saved, CStructureSaver::READ, &references);
+      static_cast<CObjectBase*>(fixture.weapon.GetPtr())->operator&(reader); }
+    Require(fixture.weapon->GetCurrentClip() == fixture.current.GetPtr()
+            && fixture.weapon->GetNextClip() == fixture.next.GetPtr(), "native AI reload clip fixture failed to restore");
+    return fixture;
+}
+
+static CObj<NAI::CAILogReloadWeapon> RestoreRetailReloadLog(const ReloadLogFixture& fixture)
+{
+    CObj<NAI::CAILogReloadWeapon> restored = new NAI::CAILogReloadWeapon;
+    auto references = ReloadReferences(fixture);
+    CPtr<NAI::CAIFireArmsWeapon> weapon = fixture.weapon.GetPtr();
+    CPtr<NAI::CAIFireArmsWeaponClip> next = fixture.next.GetPtr();
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE, &references); writer.Add(3, &weapon); writer.Add(4, &next); }
+    saved.Seek(0);
+    { CStructureSaver reader(saved, CStructureSaver::READ, &references);
+      static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader); }
+    return restored;
+}
+
+static void AIReloadLogRecord(int check)
+{
+    auto fixture = MakeReloadLogFixture();
+    if (check == 0) {
+        CObj<NAI::CAILogReloadWeapon> created = new NAI::CAILogReloadWeapon(nullptr, fixture.weapon);
+        auto references = ReloadReferences(fixture);
+        CMemoryStream saved;
+        { CStructureSaver writer(saved, CStructureSaver::WRITE, &references);
+          static_cast<CObjectBase*>(created.GetPtr())->operator&(writer); }
+        saved.Seek(0);
+        CPtr<NAI::CAIFireArmsWeaponClip> next, obsolete;
+        { CStructureSaver reader(saved, CStructureSaver::READ, &references); reader.Add(4, &next); reader.Add(5, &obsolete); }
+        Require(next == fixture.next.GetPtr(), "AI reload record did not write the next clip in retail save tag 4");
+        Require(obsolete == nullptr, "AI reload record retained its obsolete clip save tag 5");
+        auto restored = RestoreRetailReloadLog(fixture);
+        CPtr<NAI::CAIFireArmsWeaponClip> expected = fixture.next.GetPtr();
+        fixture.next = nullptr;
+        restored->Commit();
+        Require(IsValid(expected) && fixture.weapon->GetCurrentClip() == expected.GetPtr()
+                && expected->GetAmmoCount() == 12 && fixture.weapon->GetNextClip() == nullptr,
+            "restored retail reload record failed to transfer spare-clip ownership before removing it");
+    } else if (check == 1) {
+        auto restored = RestoreRetailReloadLog(fixture);
+        restored->RollBack();
+        Require(fixture.weapon->GetCurrentClip() == fixture.current.GetPtr()
+                && fixture.current->GetAmmoCount() == 3 && fixture.next->GetAmmoCount() == 12,
+            "restored AI reload rollback changed the loaded magazine without committing");
+        restored->Commit();
+        Require(fixture.weapon->GetCurrentClip() == fixture.next.GetPtr(), "AI reload commit did not install the next clip");
+    } else {
+        CObj<NAI::CAILogReloadWeapon> created = new NAI::CAILogReloadWeapon(nullptr, fixture.weapon);
+        CPtr<NAI::CAIFireArmsWeaponClip> old = fixture.current.GetPtr(), next = fixture.next.GetPtr();
+        fixture.current = nullptr; fixture.next = nullptr;
+        created->Commit();
+        Require(!IsValid(old), "committed AI reload log retained ownership of the obsolete magazine");
+        Require(IsValid(next) && fixture.weapon->GetCurrentClip() == next.GetPtr() && next->GetAmmoCount() == 12,
+            "AI reload log lost the loaded spare or changed its ammunition during ownership transfer");
+    }
+}
 
 static bool optionalStringAccepted = false;
 
@@ -4946,6 +5041,9 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-terminal-finished")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "movement-terminal-failed")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "movement-action-camera")) { Require(argc == 4, "movement camera requires db and res"); MovementActionCamera(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "ai-reload-log-wire")) { AIReloadLogRecord(0); return true; }
+    if (!std::strcmp(mode, "ai-reload-log-rollback")) { AIReloadLogRecord(1); return true; }
+    if (!std::strcmp(mode, "ai-reload-log-ownership")) { AIReloadLogRecord(2); return true; }
     if (!std::strcmp(mode, "pain-voice-owner")) { Require(argc == 4, "pain voice requires db and res"); PainVoiceOwner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "unconscious-pain-voice")) { Require(argc == 4, "pain eligibility requires db and res"); PainVoiceOwner(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "world-ui-refresh-latch")) { Require(argc == 4, "world UI refresh requires db and res"); WorldUIRefreshLatch(argv[2], argv[3]); return true; }

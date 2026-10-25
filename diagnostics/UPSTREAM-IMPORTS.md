@@ -112,6 +112,7 @@
 | [e5830013](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e583001380393e1e1034c33791f41c69b659f4ad) — Reset the previous wait timer when a movement step starts | `starting a new physical movement step retained the previous wait timer` | 142/142; `movement-first-step-wait` | `Upstream-Commit` в commit message |
 | [e5830013](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e583001380393e1e1034c33791f41c69b659f4ad) — Latch one-step movement completion when its final end command starts | `single-step end-move command did not latch the mover completion result` | 144/144; `movement-terminal-completion` | `Upstream-Commit` в commit message |
 | [e5830013](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e583001380393e1e1034c33791f41c69b659f4ad) — Notify the automatic camera when preparing the next movement step | `native movement did not notify the automatic camera when preparing its next step` | 145/145; `movement-action-camera` | `Upstream-Commit` в commit message |
+| [1e2f1d4f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1e2f1d4fe9ec2f7bacfeed195210ddb6c3b2c25e) — Restore the retail AI reload record format and clip ownership | `AI reload record did not write the next clip in retail save tag 4` | 148/148; `ai-reload-log` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -289,3 +290,12 @@ Windows/Linux профильная группа — 145/145; Windows `ALL_BUILD`
 на настоящем UI-пакете. Состояние последней команды проверено именно в
 одношаговой ветке upstream; более длинная ветка сохранена.
 Общий покоммитный перенос и итоговый GitHub Actions еще не завершены.
+
+### Контроль после формата журнала перезарядки ИИ
+
+Windows/Linux — 148/148; Windows `ALL_BUILD`, Linux `Game` собраны.
+Расширенный Windows набор — 206/206; настоящая стрельба, сохранение и
+загрузка — 4/4. Логи `checkpoint-148-all-build.log`, `checkpoint-148-ci-test.log`,
+`checkpoint-148-shots-test.log`, `ai-reload-log-linux-test.log`.
+Три новых проверки журнала ИИ работают без внешних игровых ресурсов и
+включены в набор GitHub. Завершение всего переноса и итоговый CI впереди.
