@@ -6430,6 +6430,44 @@ static void NavigationAliasDestinations(bool arrayOutput, bool isolatedSource = 
     Require(aliases().empty(), "unequal displacement or isolated aliases were still reported as connected copies");
 }
 
+static void PronePoseChangeFacing()
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    network->CreateLayer(8,8,VNULL2,0.f,0);
+    network->Freeze(true);
+    for (int y = 0; y < 8; ++y) for (int x = 0; x < 8; ++x) {
+        auto& tile = network->GetLayer(0)->tiles[y][x];
+        tile = NAI::STile{};
+        tile.nPassable = 0xff;
+        tile.nMoveStand = tile.nMoveCrouch = tile.nMoveLay = 0xff;
+        tile.nFlags = NAI::TF_STAND_PASSABLE;
+    }
+    NAI::SPathPlace prone(4,4,0,3,NAI::CM_LAY,0);
+    CObj<NAI::CPath> turn = new NAI::CPath;
+    turn->pNet = network.GetPtr();
+    auto turned = prone;
+    turned.SetDirection(4);
+    Require(turn->AddNewPoint(prone) && turn->AddNewPoint(turned) && turn->points.back() == turned,
+        "explicit same-pose prone turn control lost its requested heading");
+    for (int pose: {NAI::CM_STAND,NAI::CM_CROUCH}) {
+        CObj<NAI::CPath> path = new NAI::CPath;
+        path->pNet = network.GetPtr();
+        NAI::SPathPlace canonical(4,4,0,0,pose,0);
+        Require(path->AddNewPoint(prone) && path->AddNewPoint(canonical),
+            "native path rejected a valid prone-to-upright pose transition");
+        Require(path->points.size() == 2 && path->points.back().GetPose() == pose &&
+            path->points.back().GetDirection() == prone.GetDirection(),
+            "leaving prone adopted the wave's canonical direction instead of retaining the actual facing");
+        Require(path->points.front() == prone && path->points.back().GetX() == 4 &&
+            path->points.back().GetY() == 4 && path->points.back().GetLayer() == 0 && path->actions.empty(),
+            "preserving pose-change facing moved the unit or introduced an unrelated path action");
+        auto finalTurn = path->points.back();
+        finalTurn.SetDirection(6);
+        Require(path->AddNewPoint(finalTurn) && path->points.back().GetDirection() == 6,
+            "the following explicit upright turn lost its requested heading");
+    }
+}
+
 static void IsolatedSourcePath()
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
@@ -8466,6 +8504,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "isolated-source-moves")) { ConnectedAliasMoves(true); return true; }
     if (!std::strcmp(mode, "locked-alias-moves")) { ConnectedAliasMoves(false,true); return true; }
     if (!std::strcmp(mode, "isolated-source-path")) { IsolatedSourcePath(); return true; }
+    if (!std::strcmp(mode, "prone-pose-change-facing")) { PronePoseChangeFacing(); return true; }
     if (!std::strcmp(mode, "isolated-transition-link-match")) { IsolatedTransitionLinkMatch(); return true; }
     if (!std::strcmp(mode, "isolated-transition-shortcut")) { IsolatedTransitionShortcut(); return true; }
     if (!std::strcmp(mode, "isolated-transition-entry")) { IsolatedTransitionEntry(); return true; }

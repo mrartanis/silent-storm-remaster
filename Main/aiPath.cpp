@@ -179,7 +179,7 @@ bool CPath::AddNewPoint( const SPathPlace& point )
 		if ( ( point.GetPose() != CM_LAY && point.GetPose() != CM_INACTIVE ) || bTurn )
 		{
 			SPathPlace pushPoint( point );
-			if ( !bTurn )
+			if ( !bTurn || point.GetPose() != last.GetPose() )
 				pushPoint.SetDirection( last.GetDirection() );
 			if ( !AddWithPossibleAction( pushPoint ) )
 				return false;

@@ -187,6 +187,7 @@
 | [cc9fbeab](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc9fbeab94c206c59606fb91902c800c5690f0c9) — Name missing Lua globals in the diagnostic log without changing lookup results | `native Lua silently returned nil for a missing global without naming it in the diagnostic log` | 232/232; `missing-lua-global-warning` | `Upstream-Commit` в commit message |
 | [cc9fbeab](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc9fbeab94c206c59606fb91902c800c5690f0c9) — Avoid counting the sweep radius twice in precalculated collisions | `a precalculated thin wall reported a collision outside its radius-padded bound because the sweep radius was counted twice` | 233/233; `precalc-sweep-bounds` | `Upstream-Commit` в commit message |
 | [37e5bf12](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/37e5bf129ae99b76830786918d63c4d0fdbc078c) — Exclude mission HUD reachability from zone re-entry snapshots | `a native zone snapshot retained the HUD and mission graph through its world-script interface bridge` | 234/234; `zone-snapshot-excludes-hud` | `Upstream-Commit` в commit message |
+| [d14e92f9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d14e92f95f112fa31d59f2e95866fd4e0bdf49ae) — Preserve actual facing when leaving prone through canonical path points | `leaving prone adopted the wave's canonical direction instead of retaining the actual facing` | 235/235; `prone-pose-change-facing` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
