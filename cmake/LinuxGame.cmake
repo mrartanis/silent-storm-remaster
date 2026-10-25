@@ -266,6 +266,8 @@ add_test(NAME UpstreamMountedAILogCommands COMMAND UpstreamBugTests mounted-ai-l
 if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
   get_filename_component(_s2_upstream_game_dir "${S2_GAME_DB_PATH}" DIRECTORY)
   get_filename_component(_s2_upstream_res_dir "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
+  add_test(NAME UpstreamGlobalMapReturnDestination COMMAND UpstreamBugTests global-map-return-destination "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
+  set_tests_properties(UpstreamGlobalMapReturnDestination PROPERTIES WORKING_DIRECTORY "${_s2_upstream_game_dir}" TIMEOUT 60)
   foreach(mode IN ITEMS single moving selection)
     add_test(NAME UpstreamDeadUnitLocks-${mode} COMMAND UpstreamBugTests dead-unit-locks-${mode}
       "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")

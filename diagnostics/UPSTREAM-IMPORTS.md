@@ -194,6 +194,7 @@
 | [2826ebed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2826ebed4e5a7edd6e15161b21e347d025d4a2e5) — Consume complete elapsed intervals in the native sound mixer clock | `the native sound mixer lost most of a skipped interval by clamping its clock advance to one 150ms step` | 239/239; `sound-mixer-clock-catchup` | `Upstream-Commit` в commit message |
 | [2826ebed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2826ebed4e5a7edd6e15161b21e347d025d4a2e5) — Wrap late looping sound seeks at the sample length | `a late looping native sound restarted at frame zero instead of wrapping its elapsed seek offset` | 240/240; `late-looping-sound-offset` | `Upstream-Commit` в commit message |
 | [2006fec4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2006fec4aa455437c74537c25fed44547c81163c) — Preserve playing music when drawing a trackless sound scene | `a sound scene without its own music faded out another scene's playing track` | 242/242; `trackless-scene-music` | `Upstream-Commit` в commit message |
+| [7cb6e2c5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7cb6e2c5d8c649d8fcd3d994deb7090a66c476f6) — Clear the chapter return destination when continuing the campaign | `continuing to the global map retained the old chapter return destination` | 243/243; `global-map-return-destination` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

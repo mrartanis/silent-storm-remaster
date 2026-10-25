@@ -52,6 +52,7 @@
 #include "../FileIO/PortableStructureChunks.h"
 #include "../FileIO/Cruncher.h"
 #include "../Main/iMain.h"
+#include "../Main/iGlobalMap.h"
 #include "../Main/iOptionsMenu.h"
 #include "../Main/iLoseFake.h"
 #include "../Main/iExitMenu.h"
@@ -1726,6 +1727,42 @@ static void SoundMixerClockCatchUp()
     mixer->ResetTiming();
     mixer->Update(true,&transform,20000);
     Require(clock.GetTime()->GetValue() == 10400, "resetting mixer timing caused a spurious catch-up jump");
+}
+
+static void GlobalMapReturnDestination(const char* databasePath,const char* resourcePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "global-map return fixture must begin without interfaces or queued commands");
+    struct InterfaceCleanup { ~InterfaceCleanup() { NMainLoop::DoneInterface(); } } cleanup;
+    CDBIterator<NDb::CGlobalMap> maps(*NDatabase::GetTable<NDb::CGlobalMap>());
+    NDb::CGlobalMap* map = nullptr;
+    while (maps.MoveNext()) if (IsValid(maps.Get()->pScenario)) { map = maps.Get(); break; }
+    Require(map != nullptr, "global-map return fixture has no authored campaign map");
+    CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(map->pScenario->GetRecordID());
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    game->bGlobalMapSet = true; game->nGlobalMapID = map->GetRecordID();
+    game->bChapterMapSet = true; game->nChapterMapID = 987654;
+    game->vChapterPos = CVec2(12,34);
+    CObj<NGame::CICShowGlobal> overview = new NGame::CICShowGlobal(game);
+    overview->Exec();
+    auto* modal = NMainLoop::GetCurrentInterfaceForHarness();
+    Require(IsValid(modal) && pSSClasses->GetObjectTypeID(modal) == int(0xB1808180) && game->bChapterMapSet,
+        "modal global-map overview did not preserve its chapter return destination");
+    NMainLoop::DoneInterface();
+    CObj<NGame::CICContinueGlobal> leaveChapter = new NGame::CICContinueGlobal(game);
+    leaveChapter->Exec();
+    auto* active = NMainLoop::GetCurrentInterfaceForHarness();
+    Require(IsValid(active) && pSSClasses->GetObjectTypeID(active) == int(0xB1808180),
+        "continuing the campaign did not open the actual native global map");
+    Require(!game->bChapterMapSet,
+        "continuing to the global map retained the old chapter return destination");
+    Require(game->bGlobalMapSet && game->nGlobalMapID == map->GetRecordID() &&
+        game->nChapterMapID == 987654 && game->vChapterPos == CVec2(12,34) && game->players.size() == 1,
+        "clearing the chapter return flag also changed saved map IDs, position or party");
 }
 
 static void MainMenuLoadSaveTab(const char* databasePath,const char* resourcePath)
@@ -8779,6 +8816,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "exit-menu-save-visibility") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "exit-menu-save-shortcut") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "global-map-return-destination") && argc == 4) { GlobalMapReturnDestination(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
     if (!std::strcmp(mode, "late-looping-sound-offset")) { LateLoopingSoundOffset(); return true; }
     if (!std::strcmp(mode, "headless-music-stream")) { HeadlessMusicStream(); return true; }

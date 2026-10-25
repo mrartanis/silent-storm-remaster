@@ -946,6 +946,8 @@ add_test(NAME UpstreamOwnedAIActionEnemy COMMAND UpstreamBugTests owned-ai-actio
 add_test(NAME UpstreamOwnedAIPlaceEnemy COMMAND UpstreamBugTests owned-ai-place-enemy)
 add_test(NAME UpstreamMountedAILogCommands COMMAND UpstreamBugTests mounted-ai-log-commands)
 if(S2_GAME_DIR)
+  add_test(NAME UpstreamGlobalMapReturnDestination COMMAND UpstreamBugTests global-map-return-destination "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
+  set_tests_properties(UpstreamGlobalMapReturnDestination PROPERTIES WORKING_DIRECTORY "${S2_GAME_DIR}" TIMEOUT 60)
   foreach(mode IN ITEMS single moving selection)
     add_test(NAME UpstreamDeadUnitLocks-${mode} COMMAND UpstreamBugTests dead-unit-locks-${mode}
       "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
