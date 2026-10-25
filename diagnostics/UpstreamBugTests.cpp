@@ -32,6 +32,7 @@
 #include "../Main/wUICommands.h"
 #include "../Main/aiGrid.h"
 #include "../Main/aiMap.h"
+#include "../Main/aiStability.h"
 #include "../Main/aiNearestPosition.h"
 #include "../FileIO/PortableGameDatabase.h"
 #include "../Main/aiLocker.h"
@@ -897,6 +898,70 @@ static void RestoreBuildingHulls(const char* databasePath, const char* resourceP
     for (const auto& hull : hulls)
         Require(IsValid(hull), "save cache restoration destroyed existing AI support hulls");
     Require(!world->IsAction(), "cache-only building restoration started simulation");
+}
+
+class RetiredSupportFixture: public CObjectBase
+{
+    OBJECT_BASIC_METHODS(RetiredSupportFixture);
+};
+
+struct TrackedCorpseFixture
+{
+    CPtr<NWorld::CUnitServer> unit;
+    vector<CPtr<CObjectBase>> catchers;
+    SBound bound;
+    int operator&(CStructureSaver& saver) {
+        saver.Add(2, &unit); saver.Add(3, &catchers); saver.Add(4, &bound); return 0;
+    }
+};
+
+static void CarriedCorpseStability(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    vector<NWorld::CUnitServer*> humans;
+    for (auto& actor : units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(actor.GetPtr());
+        if (unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) humans.push_back(unit);
+        if (humans.size() == 2) break;
+    }
+    Require(humans.size() == 2, "fixture needs a body and its carrier");
+    auto* body = humans[0];
+    auto* carrier = humans[1];
+    body->GetUnitRPG()->GetRPGUnit()->Kill();
+    body->SetState(new NWorld::CUnitStateDeath(body));
+    body->animator.BeTaken(carrier, &carrier->animator, body);
+    Require(body->animator.bIsCarried, "fixture did not attach the corpse to its carrier");
+
+    // Restore the existing tracker wire with the former resting support absent
+    // from the current map. No private production accessor or map copy is needed.
+    CObj<RetiredSupportFixture> formerSupport = new RetiredSupportFixture;
+    TrackedCorpseFixture record;
+    record.unit = body;
+    record.catchers.push_back(formerSupport.GetPtr());
+    record.bound.SphereInit(body->GetPosition().GetCP(), 1.f);
+    vector<TrackedCorpseFixture> corpses{record};
+    CPtr<NWorld::IWorld> worldRef = world.GetPtr();
+    CStructureNetworkContext references;
+    references.externalReferences = true;
+    references.ids[world.GetPtr()] = 1; references.refs[1] = world.GetPtr();
+    references.ids[body] = 2; references.refs[2] = body;
+    references.ids[formerSupport.GetPtr()] = 3; references.refs[3] = formerSupport.GetPtr();
+    references.nextID = 100; references.include = [](CObjectBase*) { return false; };
+    CObj<NAI::IAIMapTracker> tracker = dynamic_cast<NAI::IAIMapTracker*>(pSSClasses->CreateObject(int(0x71812130)));
+    Require(tracker != nullptr, "corpse stability tracker class is not registered");
+    CMemoryStream state;
+    { CStructureSaver writer(state, CStructureSaver::WRITE, &references);
+      writer.Add(2, &corpses); writer.Add(5, &worldRef); writer.Add(6, &record.bound); }
+    state.Seek(0);
+    { CStructureSaver reader(state, CStructureSaver::READ, &references);
+      static_cast<CObjectBase*>(tracker.GetPtr())->operator&(reader); }
+    tracker->OnChange();
+    Require(body->animator.bIsCarried, "old ground stability tracking dropped a corpse already attached to its carrier");
+    tracker->OnChange();
+    Require(body->animator.bIsCarried, "repeated stability notification detached a carried corpse");
 }
 
 class TileAttackMission: public AttackCursorMission
@@ -3080,6 +3145,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "restore-action-state") && argc == 4) RestoreActionState(argv[2], argv[3], false);
         else if (!std::strcmp(mode, "zone-reentry-action-state") && argc == 4) RestoreActionState(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "restore-building-hulls") && argc == 4) RestoreBuildingHulls(argv[2], argv[3]);
+        else if (!std::strcmp(mode, "carried-corpse-stability") && argc == 4) CarriedCorpseStability(argv[2], argv[3]);
         else if (!std::strcmp(mode, "replacement-person-inventory-clue") && argc == 4) PersonClueCreation(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "inventory-clue-creation") && argc == 4) InventoryClueCreation(argv[2], argv[3]);
         else if (!std::strcmp(mode, "inventory-clue-count") && argc == 4) InventoryClueCreation(argv[2], argv[3], true);
