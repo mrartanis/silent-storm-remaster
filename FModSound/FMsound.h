@@ -115,6 +115,7 @@ void* GetSoundAPI();   // @0x3db240 -- underlying output device handle (the IDir
 void Update( const SListener &listen );
 CSample2D* LoadSample2D( const void *pData, int nLength );
 CSample3D* LoadSample3D( const void *pData, int nLength, float fMinDistance, float fMaxDistance, int nPriority, int nStartSamples = 0, int nEndingSamples = 0 );
+CSample2D* GetDefault2DSound();
 CSample3D* GetDefault3DSound();
 CSound2D* PlaySound( CSample2D *pSample, int nStartMs = 0, int nStartSamples = 0, int nEndingSamples = 0, bool bLoop = false );
 CSound3D* Play3DSound( const SPlayParams &params );

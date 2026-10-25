@@ -74,6 +74,8 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../MiscDll/LogStream.h"
 #include <filesystem>
 #include <fstream>
+#include <thread>
+#include <chrono>
 #include "../Main/aiLocker.h"
 #include "../Main/wUnitServer.h"
 #include "../Main/RPGItem.h"
@@ -4974,6 +4976,84 @@ static void EnemyIconVisibility(const char* databasePath, const char* resourcePa
     Require(markerCount(int(0xB0241948)) == 0 && markerCount(int(0xB3123180)) == 1,
         "enemy-icon visibility suppressed the independently visible quest-clue marker");
 
+}
+
+static void MissingUISoundFallback(const char* databasePath,const char* resourcePath)
+{
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+    Require(std::getenv("S2_AUDIO_HEADLESS") != nullptr, "missing UI sound fixture requires headless native audio");
+    Require(NFMSound::Init(NFMSound::SStartInfo()), "missing UI sound fixture could not initialize native audio");
+    struct AudioCleanup { ~AudioCleanup() { NFMSound::Done(); } } audioCleanup;
+#endif
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    NDb::CSound* sound = nullptr;
+    CDBIterator<NDb::CSound> sounds(*NDatabase::GetTable<NDb::CSound>());
+    while (sounds.MoveNext()) {
+        if (!NGScene::CResourceFileOpener::DoesExist("Sounds",sounds.Get()->GetRecordID())) {
+            sound = sounds.Get(); break;
+        }
+    }
+    Require(sound != nullptr, "missing UI sound fixture needs an authored sound without an available resource");
+    const int id = sound->GetRecordID();
+    CObj<NGScene::CFileRequest> missing = new NGScene::CFileRequest("Sounds",id);
+    missing->Read();
+    Require(missing->IsReady() && missing->GetStream()->GetSize() == 0,
+        "missing UI sound fixture unexpectedly resolved actual sound data");
+    struct LoaderCleanup { ~LoaderCleanup() { NGScene::StopResourceLoadingThread(); } } cleanup;
+    NGScene::RunResourceLoadingThread();
+    CObj<NSound::CFileSample2D> loader = new NSound::CFileSample2D;
+    loader->SetKey(id);
+    CDGPtr<NSound::CFileSample2D> refreshed = loader.GetPtr();
+    NFMSound::CSample2D* sample = nullptr;
+    for (int retry = 0; retry < 500 && !sample; ++retry) {
+        MarkNewDGFrame(); refreshed.Refresh();
+        sample = loader->GetValue();
+        if (!sample) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    Require(sample != nullptr, "a missing UI sound never resolved to a stable silent sample");
+    for (int retry = 0; retry < 4; ++retry) {
+        MarkNewDGFrame(); refreshed.Refresh();
+        Require(loader->GetValue() == sample, "the missing UI sound fallback was discarded or loaded repeatedly");
+    }
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+    Require(NFMSound::PlaySound(sample) == nullptr, "a silent missing UI sample started an actual channel");
+#endif
+    CStructureNetworkContext references;
+    auto fields = BorrowedObjectFields(loader,&references);
+    int savedKey = -1;
+    { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(1,&savedKey); }
+    Require(savedKey == id, "changing the UI sound loading path changed its existing resource-key wire field");
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+    NGScene::AddResourceDir(resourcePath);
+    NDb::CSound* playable = nullptr;
+    CDBIterator<NDb::CSound> actual(*NDatabase::GetTable<NDb::CSound>());
+    while (actual.MoveNext()) {
+        if (!NGScene::CResourceFileOpener::DoesExist("Sounds",actual.Get()->GetRecordID())) continue;
+        CObj<NGScene::CFileRequest> request = new NGScene::CFileRequest("Sounds",actual.Get()->GetRecordID());
+        request->Read();
+        auto* stream = request->GetStream();
+        if (stream->GetSize() == 0) continue;
+        CObj<NFMSound::CSample2D> decoded = NFMSound::LoadSample2D(stream->GetBuffer(),stream->GetSize());
+        if (!decoded.GetPtr()) continue;
+        CObj<NFMSound::CSound2D> channel = NFMSound::PlaySound(decoded);
+        if (channel.GetPtr()) { playable = actual.Get(); break; }
+    }
+    Require(playable != nullptr, "UI sound fixture has no authored, decodable and playable resource control");
+    CObj<NSound::CFileSample2D> available = new NSound::CFileSample2D;
+    available->SetKey(playable->GetRecordID());
+    CDGPtr<NSound::CFileSample2D> availableRef = available.GetPtr();
+    MarkNewDGFrame(); availableRef.Refresh();
+    Require(available->GetValue() == nullptr, "a UI sample decoded synchronously before its resource request completed");
+    for (int retry = 0; retry < 500 && !available->GetValue(); ++retry) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        MarkNewDGFrame(); availableRef.Refresh();
+    }
+    Require(available->GetValue() != nullptr, "an available UI sound never completed its native resource load");
+    CObj<NFMSound::CSound2D> playing = NFMSound::PlaySound(available->GetValue());
+    Require(playing.GetPtr() != nullptr, "a successfully loaded UI sound could no longer start its native channel");
+#endif
 }
 
 static void FinishedMusicSilence(const char* databasePath)
@@ -10103,6 +10183,7 @@ static void PKShellWorld(const char* databasePath, const char* resourcePath, boo
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "missing-ui-sound-fallback")) { Require(argc == 4, "missing UI sound requires db and res"); MissingUISoundFallback(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }

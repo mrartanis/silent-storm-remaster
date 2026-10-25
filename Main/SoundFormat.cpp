@@ -67,20 +67,20 @@ void CFileSoftwareSample3D::RecalcValue( NGScene::CFileRequest *p )
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CFileSample2D::Recalc()
+NGScene::CFileRequest* CFileSample2D::CreateRequest()
 {
-	try
-	{
-		NGScene::CResourceFileOpener file( "Sounds", GetKey() );
-
-		const int nSize = file->GetSize();
-		vector<char> buff( nSize );
-		file->Read( &buff[0], nSize );
-		pValue = NFMSound::LoadSample2D( &buff[0], nSize );
-	}
-	catch(...)
-	{
-	}
+	return new NGScene::CFileRequest( "Sounds", GetKey() );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CFileSample2D::RecalcValue( NGScene::CFileRequest *p )
+{
+	if ( !NDb::GetSound( GetKey() ) )
+		return;
+	CMemoryStream *pStream = p->GetStream();
+	if ( pStream->GetSize() )
+		pValue = NFMSound::LoadSample2D( pStream->GetBuffer(), pStream->GetSize() );
+	else
+		pValue = NFMSound::GetDefault2DSound();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 }
