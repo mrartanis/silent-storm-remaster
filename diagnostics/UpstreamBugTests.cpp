@@ -3445,6 +3445,7 @@ public:
 class AttackState: public NGame::CStateAttack
 {
 public:
+    NWorld::CCmd* TargetCommand() { return GetTargetCmd(); }
     void Attach(NGame::IMission* mission) { CStateBase::Initialize(mission); }
     void RefreshCursor() { UpdateCursor(); }
     void RefreshCaption() { UpdateCursorInfo(); }
@@ -7320,6 +7321,64 @@ public:
     void GetSelectedUnits(vector<CPtr<NGame::IUnitTracker>>* result) const override { *result = selection; }
 };
 
+class SelectedAttackTargetMission: public NativeActionInfoMission
+{
+    OBJECT_NOCOPY_METHODS(SelectedAttackTargetMission);
+public:
+    CPtr<CObjectBase> target;
+    CObjectBase* GetStateTarget(bool* fromWorld = nullptr) const override {
+        if (fromWorld) *fromWorld = true;
+        return target;
+    }
+    bool GetTracePosition(CVec3* position) const override { *position = CVec3(1,2,3); return true; }
+};
+
+static void SelectedAttackTargetRejection(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    vector<NWorld::CUnitServer*> actors;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) actors.push_back(unit);
+        if (actors.size() == 2) break;
+    }
+    Require(actors.size() == 2, "self-target fixture has fewer than two ordinary native actors");
+    CObj<SelectedAttackTargetMission> mission = new SelectedAttackTargetMission;
+    mission->Attach(world,game);
+    CObj<NGame::CUnitTracker> first = new NGame::CUnitTracker(mission,actors[0]);
+    CObj<NGame::CUnitTracker> second = new NGame::CUnitTracker(mission,actors[1]);
+    mission->selection.push_back(first.GetPtr());
+    CObj<AttackState> state = new AttackState;
+    state->Attach(mission);
+    auto objectTarget = [&](NWorld::CUnit* target) {
+        mission->target = target;
+        CObj<NWorld::CCmd> command = state->TargetCommand();
+        auto* attack = dynamic_cast<NWorld::CCmdShootObject*>(command.GetPtr());
+        Require(attack && attack->pTarget == target && attack->bCanBeReplacedByReload,
+            "an unselected target lost its native object-attack command or replacement-reload policy");
+    };
+    objectTarget(actors[1]);
+    mission->target = actors[0];
+    CObj<NWorld::CCmd> command = state->TargetCommand();
+    Require(!command.GetPtr(), "the attack cursor created a shot at its own selected attacker");
+    mission->selection.push_back(second.GetPtr());
+    mission->target = actors[1];
+    command = state->TargetCommand();
+    Require(!command.GetPtr(), "the attack cursor created a shot at another member of the selected group");
+    mission->selection.erase(mission->selection.begin());
+    objectTarget(actors[0]);
+    mission->target = nullptr;
+    command = state->TargetCommand();
+    auto* tile = dynamic_cast<NWorld::CCmdShootTile*>(command.GetPtr());
+    Require(tile && tile->ptTarget == CVec3(1,2,3) && tile->bCanBeReplacedByReload,
+        "rejecting a selected object changed ordinary traced-tile attacks");
+    Require(!actors[0]->HasCommand() && !actors[1]->HasCommand(),
+        "building an attack cursor preview installed an actual unit command");
+}
+
 static void CharacterPanelFullName(const char* databasePath,const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -10188,6 +10247,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "missing-ui-sound-fallback")) { Require(argc == 4, "missing UI sound requires db and res"); MissingUISoundFallback(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "selected-attack-target-rejection")) { Require(argc == 4, "selected target requires db and res"); SelectedAttackTargetRejection(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }

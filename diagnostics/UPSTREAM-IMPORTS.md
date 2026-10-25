@@ -224,6 +224,7 @@
 | [6a66dadd](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6a66daddde3e9090f9fbb95e30f79a4262097e12) — Show stored full names in the character panel without changing its fonts | `the character panel showed the nickname instead of the full display name` | 269/269; `character-panel-full-name` | `Upstream-Commit` в commit message |
 | [da0fabc0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/da0fabc03f4e1fa4b7487b3dd35d458a792ee0c2) — Anchor heard-unit ear icons inside the sound marker head | `the heard-unit ear icon used visible-enemy clearance instead of its sound-marker head height` | 270/270; `heard-icon-anchor-height` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Resolve unavailable UI samples through the native lazy resource loader | `a missing UI sound never resolved to a stable silent sample` | 271/271; `missing-ui-sound-fallback` | `Upstream-Commit` в commit message |
+| [f6455c9f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6455c9f92eb6d4c66efebc74face61d1e1065bb) — Reject attack cursor targets belonging to the selected group | `the attack cursor created a shot at its own selected attacker` | 272/272; `selected-attack-target-rejection` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
