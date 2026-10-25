@@ -3529,6 +3529,77 @@ static void MixedActionButton(const char* databasePath, const char* resourcePath
     Require(button->GetStyle(NUI::STYLE_VISIBLE), "mixed toggle did not return after becoming available");
 }
 
+static NWorld::CCommandExecute* FindNativeReload(NWorld::CCommandExecute* executor)
+{
+    if (pSSClasses->GetObjectTypeID(executor) == int(0x00122170)) return executor;
+    CPtr<NWorld::CCommandExecute> reload;
+    CStructureNetworkContext graph;
+    graph.include = [&](CObjectBase* object) {
+        if (pSSClasses->GetObjectTypeID(object) == int(0x00122170)) {
+            reload = dynamic_cast<NWorld::CCommandExecute*>(object); return false;
+        }
+        return dynamic_cast<NWorld::CCommandExecute*>(object) != nullptr;
+    };
+    CMemoryStream traversal;
+    { CStructureSaver writer(traversal, CStructureSaver::WRITE, &graph);
+      static_cast<CObjectBase*>(executor)->operator&(writer); }
+    Require(IsValid(reload), "native executor queue did not contain its reload action");
+    return reload;
+}
+
+static void MountedReloadWeapon(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    CPtr<NRPG::CWeaponItem> personal;
+    for (auto& entry: units) {
+        auto* server = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (!server || !server->CanFight() || server->IsEmptyPK() || server->IsWearingPK()) continue;
+        auto* firearm = dynamic_cast<NRPG::CWeaponItem*>(server->GetUnitRPG()->GetInventory()->GetActive());
+        if (!firearm || firearm->GetAmmoQuantity() <= 0) continue;
+        firearm->DiscardAmmo();
+        if (firearm->CanReload(server->GetUnitRPG()->GetInventory())) { actor = server; personal = firearm; break; }
+    }
+    Require(actor && IsValid(personal), "mounted-reload fixture has no firearm with spare ammunition");
+    CObj<NRPG::CWeaponItem> mounted = new NRPG::CWeaponItem(personal->GetDBWeapon());
+    mounted->DiscardAmmo();
+    Require(mounted->CanReload(actor->GetUnitRPG()->GetInventory()), "mounted-reload fixture has no compatible spare for its cannon");
+    actor->GetUnitRPG()->SetCannonItem(mounted);
+    Require(actor->GetUnitRPG()->GetWeaponItem() == mounted.GetPtr(), "mounted-reload fixture did not install its effective weapon");
+    const int ap = actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP);
+    auto selectedWeapon = [&](int slot) {
+        CObj<NWorld::CCmdReload> command = new NWorld::CCmdReload(slot);
+        NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
+        CObj<NWorld::CCommandExecute> queue = NWorld::CreateExecutor(actor, command, &result);
+        Require(IsValid(queue) && result == NWorld::UCR_OK, "mounted-reload fixture could not create a reload executor");
+        auto* reload = FindNativeReload(queue);
+        CStructureNetworkContext references;
+        references.externalReferences = true;
+        references.ids[actor] = 1; references.refs[1] = actor;
+        references.ids[personal.GetPtr()] = 2; references.refs[2] = personal.GetPtr();
+        references.ids[mounted.GetPtr()] = 3; references.refs[3] = mounted.GetPtr();
+        references.nextID = 100; references.include = [](CObjectBase*) { return false; };
+        CMemoryStream saved;
+        { CStructureSaver writer(saved, CStructureSaver::WRITE, &references);
+          static_cast<CObjectBase*>(reload)->operator&(writer); }
+        saved.Seek(0);
+        CPtr<NRPG::IInventoryItem> item;
+        { CStructureSaver reader(saved, CStructureSaver::READ, &references); reader.Add(2, &item); }
+        return item;
+    };
+    Require(selectedWeapon(-1) == mounted.GetPtr(), "default reload selected the personal firearm instead of the effective mounted weapon");
+    Require(selectedWeapon(actor->GetUnitRPG()->GetInventory()->GetActiveSlot()) == personal.GetPtr(),
+        "explicit inventory-slot reload stopped selecting the requested personal item");
+    actor->GetUnitRPG()->SetCannonItem(nullptr);
+    Require(selectedWeapon(-1) == personal.GetPtr(), "leaving the cannon did not restore personal weapon reload selection");
+    Require(personal->GetAmmoQuantity() == 0 && mounted->GetAmmoQuantity() == 0
+            && actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == ap,
+        "constructing reload executors spent ammunition or action points");
+}
+
 static void EffectiveWeaponMode(const char* databasePath, const char* resourcePath, int checkIcons = 0)
 {
     auto world = FixtureWorld(databasePath, resourcePath);
@@ -5041,6 +5112,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-terminal-finished")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "movement-terminal-failed")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "movement-action-camera")) { Require(argc == 4, "movement camera requires db and res"); MovementActionCamera(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "mounted-reload-weapon")) { Require(argc == 4, "mounted reload requires db and res"); MountedReloadWeapon(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-reload-log-wire")) { AIReloadLogRecord(0); return true; }
     if (!std::strcmp(mode, "ai-reload-log-rollback")) { AIReloadLogRecord(1); return true; }
     if (!std::strcmp(mode, "ai-reload-log-ownership")) { AIReloadLogRecord(2); return true; }

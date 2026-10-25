@@ -61,9 +61,9 @@ public:
 	{
 		if ( !IsValid( pUS ) )
 			return;   // saveload path: operator& restores pItem
-		// retail CExecReloadWeapon ctor @0x394710: -1 = active weapon, else that slot's item
+		// Retail v1.2 0x794a89: default reload follows the effective weapon, including a cannon.
 		if ( nSlot == -1 )
-			pItem = pUS->GetUnitRPG()->GetInventory()->GetActive();
+			pItem = pUS->GetUnitRPG()->GetWeaponItem();
 		else
 			pItem = pUS->GetUnitRPG()->GetInventory()->Get( NDb::ESlot( nSlot ) );
 	}
