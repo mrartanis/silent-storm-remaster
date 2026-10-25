@@ -2942,6 +2942,79 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     return world;
 }
 
+class ZoneSnapshotMissionFixture: public NGame::CMission
+{
+public:
+    static auto SaveWorldMethod() { return &ZoneSnapshotMissionFixture::SaveWorld; }
+};
+
+static void ZoneSnapshotExcludesHUD(const char* databasePath,const char* resourcePath)
+{
+    Require(std::getenv("S2_USER_DATA_DIR") != nullptr, "zone snapshot fixture needs isolated user data");
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    Require(IsValid(world->GetOwnScript()), "zone snapshot fixture has no native world script");
+    NMainLoop::CreateProfile("UpstreamZoneSnapshot");
+    NMainLoop::SetActiveProfile("UpstreamZoneSnapshot");
+    auto* manager = NMainLoop::GetSaveManager();
+    struct Cleanup {
+        NMainLoop::CSaveManager* manager;
+        ~Cleanup() { manager->DeleteSlot(NMainLoop::S_SLOT_ACTIVE); }
+    } cleanup{manager};
+    CObj<NGame::CMission> mission = new NGame::CMission;
+    CObj<NUI::ICursor> cursor = NUI::ICursor::Create(false);
+    CObj<NUI::CInterface> interface = new NUI::CInterface(cursor);
+    CStructureNetworkContext references;
+    references.externalReferences = true;
+    references.include = [](CObjectBase*) { return false; };
+    const vector<CObjectBase*> objects{game.GetPtr(),world.GetPtr(),cursor.GetPtr(),interface.GetPtr()};
+    for (std::size_t i = 0; i < objects.size(); ++i) {
+        references.ids[objects[i]] = unsigned(i+1); references.refs[unsigned(i+1)] = objects[i];
+    }
+    references.nextID = 100;
+    CMemoryStream base;
+    { CStructureSaver writer(base,CStructureSaver::WRITE,&references);
+      writer.Add(2,&game); writer.Add(10,&world); writer.Add(15,&cursor); writer.Add(16,&interface); }
+    base.Seek(0);
+    { CStructureSaver reader(base,CStructureSaver::READ,&references); mission->NGame::CMissionBase::operator&(reader); }
+    CMObj<NUI::CMissionUI> hud = new NUI::CMissionUI(
+        NUI::SWindowInfo(interface,NUI::SPoint(0,0),NUI::SPoint(1024,768),"snapshot-hud",NUI::STYLE_ENABLED),mission);
+    world->GetOwnScript()->SetScriptInterface(interface);
+    Require(world->GetOwnScript()->GetScriptInterface() == interface.GetPtr() &&
+        interface->GetChildByID("snapshot-hud") == hud.GetPtr(),
+        "zone snapshot fixture did not connect its real world script, HUD and mission");
+    {
+        // Normal mission saves must keep the UI bridge and the HUD's mission link.
+        CObj<NGame::CMission> savedMission = mission.GetPtr(), restoredMission;
+        CMemoryStream full;
+        { CStructureSaver writer(full,CStructureSaver::WRITE_COMPRESSED); writer.Add(2,&savedMission); }
+        full.Seek(0);
+        CStructureSaver reader(full,CStructureSaver::READ);
+        reader.Add(2,&restoredMission);
+        Require(IsValid(restoredMission) && IsValid(restoredMission->GetInterface()),
+            "normal native mission save did not restore its registered mission root and interface");
+        auto* restoredWorld = dynamic_cast<NWorld::CWorld*>(restoredMission->GetWorld());
+        Require(IsValid(restoredWorld) && IsValid(restoredWorld->GetOwnScript()) &&
+            restoredWorld->GetOwnScript()->GetScriptInterface() == restoredMission->GetInterface() &&
+            IsValid(restoredMission->GetInterface()->GetChildByID("snapshot-hud")),
+            "normal native mission save did not retain its script-to-HUD bridge");
+    }
+    const auto saveWorld = ZoneSnapshotMissionFixture::SaveWorldMethod();
+    (mission.GetPtr()->*saveWorld)("upstream-zone-ui.sav");
+    Require(world->GetOwnScript()->GetScriptInterface() == interface.GetPtr(),
+        "writing a zone snapshot did not restore the live world's HUD bridge");
+    CFileStream snapshot;
+    snapshot.OpenRead(manager->GetSlotFilePathW(NMainLoop::S_SLOT_ACTIVE,"upstream-zone-ui.sav").c_str());
+    CObj<NWorld::IWorld> restored;
+    CStructureSaver reader(snapshot,CStructureSaver::READ);
+    reader.Add(2,&restored);
+    auto* restoredWorld = dynamic_cast<NWorld::CWorld*>(restored.GetPtr());
+    Require(IsValid(restoredWorld) && IsValid(restoredWorld->GetOwnScript()),
+        "native zone snapshot did not restore its world and script");
+    Require(restoredWorld->GetOwnScript()->GetScriptInterface() == nullptr,
+        "a native zone snapshot retained the HUD and mission graph through its world-script interface bridge");
+}
+
 class PassageGateProbe: public NWorld::CObjectServerBase, public NWorld::IPassageObject
 {
     OBJECT_NOCOPY_METHODS(PassageGateProbe);
@@ -8309,6 +8382,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "compressed-save-writing")) { CompressedSaveWriting(); return true; }
     if (!std::strcmp(mode, "save-success-feedback") && argc == 3) { SaveSuccessFeedback(argv[2]); return true; }
     if (!std::strcmp(mode, "load-success-feedback") && argc == 4) { LoadSuccessFeedback(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "zone-snapshot-excludes-hud") && argc == 4) { ZoneSnapshotExcludesHUD(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "window-interface-propagation")) { WindowInterfacePropagation(); return true; }
     if (!std::strcmp(mode, "window-child-registration")) { WindowChildRegistration(); return true; }
     if (!std::strcmp(mode, "lua-argument-state")) { LuaArgumentState(); return true; }

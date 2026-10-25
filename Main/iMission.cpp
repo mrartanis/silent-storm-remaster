@@ -2831,6 +2831,31 @@ void CMission::ExecWorldCommands()
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Zone snapshots exclude HUD reachability; full-game saves keep the bridge.
+class CZoneScriptInterfaceScope
+{
+    CPtr<NScript::CScript> pScript;
+    CPtr<NUI::CInterface> pSavedInterface;
+    CZoneScriptInterfaceScope( const CZoneScriptInterfaceScope & );
+    CZoneScriptInterfaceScope &operator=( const CZoneScriptInterfaceScope & );
+public:
+    explicit CZoneScriptInterfaceScope( NWorld::IWorld *pWorld )
+    {
+        CDynamicCast<NWorld::CWorld> pCWorld( pWorld );
+        if ( IsValid( pCWorld ) && IsValid( pCWorld->GetOwnScript() ) )
+        {
+            pScript = pCWorld->GetOwnScript();
+            pSavedInterface = pScript->GetScriptInterface();
+            pScript->SetScriptInterface( 0 );
+        }
+    }
+    ~CZoneScriptInterfaceScope()
+    {
+        if ( IsValid( pScript ) )
+            pScript->SetScriptInterface( pSavedInterface );
+    }
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMission::SaveWorld( const string &szFile )
 {
 	NMainLoop::CSaveManager *pSaveManager = NMainLoop::GetSaveManager();
@@ -2856,6 +2881,7 @@ void CMission::SaveWorld( const string &szFile )
 		CFileStream sFile;
 		sFile.OpenWrite( szPath.c_str() );
 
+		CZoneScriptInterfaceScope scriptInterfaceScope( pWorld );
 		CStructureSaver sSaver( sFile, CStructureSaver::WRITE_COMPRESSED );
 		sSaver.Add( 2, &pWorld );
 		SerializeShared( &sSaver );
