@@ -854,6 +854,29 @@ static void WindowInterfacePropagation()
         "clearing a window's interface left stale descendant contexts");
 }
 
+static void WindowChildRegistration()
+{
+    CObj<NUI::CInterface> context = new NUI::CInterface;
+    CObj<NUI::CWindow> parent = new NUI::CWindow(NUI::SWindowInfo());
+    parent->SetInterface(context);
+    CMObj<NUI::CWindow> child = new NUI::CWindow(NUI::SWindowInfo(nullptr,
+        NUI::SPoint(0, 0), NUI::SPoint(20, 20), "registered-child"));
+    CObj<NUI::CWindow> grandchild = new NUI::CWindow(NUI::SWindowInfo(child,
+        NUI::SPoint(0, 0), NUI::SPoint(10, 10), "registered-grandchild"));
+    Require(!child->GetParent() && grandchild->GetParent() == child.GetPtr()
+            && !grandchild->GetInterface(), "child-registration fixture is not a detached window tree");
+    parent->AddChild(child);
+    Require(child->GetParent() == parent.GetPtr(), "AddChild retained a window without installing its parent link");
+    Require(child->GetInterface() == context.GetPtr() && grandchild->GetInterface() == context.GetPtr(),
+        "AddChild failed to install the parent's interface throughout its new subtree");
+    Require(parent->GetChildByID("registered-child") == child.GetPtr()
+            && grandchild->GetParent() == child.GetPtr(), "AddChild changed the registered subtree's identity or nested parent");
+    CPtr<NUI::CWindow> retained = child.GetPtr();
+    child = nullptr;
+    Require(IsValid(retained) && grandchild->GetParent() == retained.GetPtr(),
+        "the parent did not retain ownership of its registered child tree");
+}
+
 static CMemoryStream BorrowedObjectFields(CObjectBase* object, CStructureNetworkContext* references)
 {
     vector<CObjectBase*> referenced;
@@ -5491,6 +5514,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "fresh-ambient-graph")) { FreshAmbientGraph(); return true; }
     if (!std::strcmp(mode, "compressed-save-writing")) { CompressedSaveWriting(); return true; }
     if (!std::strcmp(mode, "window-interface-propagation")) { WindowInterfacePropagation(); return true; }
+    if (!std::strcmp(mode, "window-child-registration")) { WindowChildRegistration(); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
     if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }
     if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) { AIReactionValueLatch(argv[2], argv[3]); return true; }

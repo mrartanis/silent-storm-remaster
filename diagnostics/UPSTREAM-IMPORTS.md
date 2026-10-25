@@ -120,6 +120,7 @@
 | [92816737](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9281673753420631d4a5d2bb8e2ab3d38d7c367c) — Connect fresh scenes to the retail animated ambient graph | `fresh scene omitted its retail animated top-ambient node` | 154/154; `fresh-ambient-graph` | `Upstream-Commit` в commit message |
 | [476cd3b1](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/476cd3b1115153828ab21298e179900dc1cbe612) — Write retail-compressed campaign and mission save files | `native snapshot command wrote an uncompressed save without the retail A3 marker` | 155/155; `compressed-save-writing` | `Upstream-Commit` в commit message |
 | [d4de53d5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d4de53d5eef8444a372b7dbe582f8dbff2754b49) — Propagate changed window interfaces to the complete child tree | `changing a window's interface left its descendants attached to the old context` | 156/156; `window-interface-propagation` | `Upstream-Commit` в commit message |
+| [d4de53d5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d4de53d5eef8444a372b7dbe582f8dbff2754b49) — Install parent and interface links when registering a child window | `AddChild retained a window without installing its parent link` | 157/157; `window-child-registration` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -357,3 +358,16 @@ Windows/Linux — 151/151; Windows `ALL_BUILD` и Linux `Game` собраны.
 текущей сборки. Блоки распаковываются по отдельности и сравниваются побайтно
 с обычным writer; 1024 настоящие команды восстанавливаются с исходными слотами.
 Несжатая запись и сетевой формат сохранены. Дополнительных копий сборок нет.
+
+### Контроль после связей оконного дерева
+
+Windows/Linux — 157/157; Windows `ALL_BUILD` и Linux `Game` собраны.
+Расширенные проверки Windows — 212/212; стрельба и сжатое сохранение/загрузка
+мира — 4/4. Логи `window-child-registration-{red,green}-test.log`,
+`window-child-linux-test.log`, `checkpoint-157-all-build.log`,
+`checkpoint-157-ci-test.log`, `checkpoint-157-shots-test.log`.
+Дополнительный ownership-контроль сначала ошибочно отпускал `CObj`, хотя UI
+владеет детьми через `CMObj`. Стенд исправлен на настоящий `CMObj`; игровые
+две строки временно сняты, RED на отсутствующем parent воспроизведен повторно,
+после возвращения фикса все проверки прошли. Семантика самих smart pointers
+не менялась. Dirty latch и bool-return обновления из `d4de53d5` еще в работе.

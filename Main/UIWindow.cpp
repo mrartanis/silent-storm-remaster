@@ -110,6 +110,8 @@ void CWindow::AddChild( CWindow *pWindow )
 	listChildren.push_back( pWindow );
 	if ( *listChildren.begin() == pWindow )
 		SendMessage( *listChildren.begin(), SEvent( EVENT_ACTIVATE, EAF_ACTIVATE ) );
+	pWindow->pParent = this;
+	pWindow->SetInterface( pInterface );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWindow::RemoveChild( CWindow *pWindow )
