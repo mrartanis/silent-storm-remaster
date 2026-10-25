@@ -524,6 +524,30 @@ static void DeferredClickWorld()
     Require(!world->IsAction(), "targetless ClickOfDeath retained its action counter");
 }
 
+static void InventoryWithoutUniform()
+{
+    CObj<NRPG::CUnit> owner = new NRPG::CUnit;
+    CObj<NRPG::IInventory> inventory = NRPG::CreateInventory(owner);
+    CObj<NDb::CRPGUniform> uniform = new NDb::CRPGUniform;
+    for (auto& slot: uniform->subTypes)
+        for (auto& priority: slot.priorities) priority = NDb::SUBTYPE_NONE;
+    uniform->subTypes[1].priorities[1] = NDb::SUBTYPE_KNIFE;
+    uniform->subTypes[2].priorities[0] = NDb::SUBTYPE_KNIFE;
+    owner->pUniform = uniform;
+    Require(inventory->GetPlaceBySubType(NDb::SUBTYPE_KNIFE) == 2,
+        "uniform placement control did not preserve preferred-subtype-only matching");
+    owner->pUniform = nullptr;
+    Require(inventory->GetUniform() == nullptr, "uniform-less fixture unexpectedly retained a uniform");
+    Require(inventory->GetPlaceBySubType(NDb::SUBTYPE_KNIFE) == -1,
+        "uniform-less NPC inventory invented a belt placement");
+    CObj<NRPG::IInventory> ownerless = NRPG::CreateInventory(nullptr);
+    Require(ownerless->GetPlaceBySubType(NDb::SUBTYPE_HEAVY) == -1,
+        "ownerless inventory invented a belt placement");
+    owner->pUniform = uniform;
+    Require(inventory->GetPlaceBySubType(NDb::SUBTYPE_KNIFE) == 2,
+        "restoring a uniform did not restore its original belt placement");
+}
+
 static void DynamicAmbientFallback()
 {
     Require(S2Platform::Window() == nullptr, "ambient fallback fixture unexpectedly owns a display window");
@@ -3863,6 +3887,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "deferred-click-world")) DeferredClickWorld();
         else if (!std::strcmp(mode, "point-light-without-scene")) PointLightWithoutScene();
         else if (!std::strcmp(mode, "dynamic-ambient-fallback")) DynamicAmbientFallback();
+        else if (!std::strcmp(mode, "inventory-without-uniform")) InventoryWithoutUniform();
         else if (!std::strcmp(mode, "point-light-save-layout")) PointLightSaveLayout();
         else if (!std::strcmp(mode, "legacy-point-light-save-layout")) PointLightSaveLayout(true);
         else if (!std::strcmp(mode, "point-light-shadow-flag")) PointLightShadowFlag();
