@@ -845,6 +845,55 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     return world;
 }
 
+class TileAttackMission: public AttackCursorMission
+{
+    OBJECT_NOCOPY_METHODS(TileAttackMission);
+public:
+    CVec3 target = VNULL3;
+    void AttachWorld(NWorld::CWorld* world) { pWorld = world; }
+    bool GetTracePosition(CVec3* result) const override { *result = target; return true; }
+    bool GetTracePosition(NAI::SPosition*) const override { return false; }
+};
+
+static void ExactAttackPreviewTarget(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnit* shooter = nullptr;
+    CVec3 target = VNULL3;
+    int chance = 0;
+    for (auto& actor : units) {
+        auto* weapon = dynamic_cast<NRPG::IWeaponItemInfo*>(actor->GetRPG()->GetInventoryInfo()->GetActive());
+        if (!weapon || weapon->GetDBWeapon()->bBazookaLogic) continue;
+        for (float distance : {1.f, 2.f, 4.f}) {
+            target = actor->GetPosition().GetCP() + CVec3(distance, 0.f, 0.97f);
+            chance = world->GetGame()->GetTileCompositeToHit(actor, target, NAI::THL_MIDDLE, world->IsFirstTurn());
+            if (chance >= 2) { shooter = actor; break; }
+        }
+        if (shooter) break;
+    }
+    Require(shooter != nullptr, "fixture has no positive firearm chance at a 3D target");
+    CObj<TileAttackMission> mission = new TileAttackMission;
+    mission->AttachWorld(world);
+    mission->target = target;
+    CObj<NGame::CUnitTracker> tracker = new NGame::CUnitTracker(mission, shooter);
+    mission->selection.push_back(tracker.GetPtr());
+    CObj<AttackState> state = new AttackState;
+    state->Attach(mission);
+    NGame::SActionInfo info;
+    info.SetValid();
+    SetAttackPreview(state, info);
+    const int ap = shooter->GetRPG()->GetAP();
+    state->RefreshCaption();
+    const auto expected = NUI::GetDBString(20276) + NUI::GetDBString(19808) + L"0"
+        + NUI::GetDBString(20276) + NUI::GetDBString(19809) + std::to_wstring(chance) + L"%";
+    Require(state->GetCursorInfo().wsText == expected,
+        "attack preview lost the exact 3D target when no movement tile was available");
+    Require(shooter->GetRPG()->GetAP() == ap, "attack preview spent action points");
+}
+
 static NWorld::CExecShootUnit* FindQueuedUnitShot(NWorld::CCommandExecute* executor)
 {
     if (auto* shot = dynamic_cast<NWorld::CExecShootUnit*>(executor)) return shot;
@@ -2915,6 +2964,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "melee-attack-cursor") && argc == 4) MeleeAttackCursor(argv[2]);
         else if (!std::strcmp(mode, "blocked-attack-caption") && argc == 4) AttackCaptionWithoutHitChance(argv[2], false);
         else if (!std::strcmp(mode, "reload-attack-caption") && argc == 4) AttackCaptionWithoutHitChance(argv[2], true);
+        else if (!std::strcmp(mode, "exact-attack-preview-target") && argc == 4) ExactAttackPreviewTarget(argv[2], argv[3]);
         else if (!std::strcmp(mode, "replacement-person-inventory-clue") && argc == 4) PersonClueCreation(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "inventory-clue-creation") && argc == 4) InventoryClueCreation(argv[2], argv[3]);
         else if (!std::strcmp(mode, "inventory-clue-count") && argc == 4) InventoryClueCreation(argv[2], argv[3], true);

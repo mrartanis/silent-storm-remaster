@@ -982,7 +982,16 @@ void CStateAttack::UpdateCursorInfo()
 	int nSelectedCount = GetMission()->CountSelected();
 	if ( nSelectedCount )
 	{
-		CPtr<CObjectBase> pTraceObject = GetMission()->GetStateTarget();
+		CObj<NWorld::CCmd> pCmd = GetTargetCmd();
+		CDynamicCast<NWorld::CCmdShootObject> pObjectCmd( pCmd );
+		CDynamicCast<NWorld::CCmdShootTile> pTileCmd( pCmd );
+		CPtr<CObjectBase> pTraceObject = pObjectCmd ? pObjectCmd->pTarget.GetPtr() : 0;
+		CVec3 pos;
+		bool bTraceOk = pTileCmd != 0;
+		if ( pTileCmd )
+			pos = pTileCmd->ptTarget;
+		else
+			bTraceOk = GetMission()->GetTracePosition( &pos );
 
 		int nTotalShootAP = 0;
 		int nMin = 0x7fffffff, nMax = -0x7fffffff; // numeric_limits<int>::max(), numeric_limits<int>::min();
@@ -994,8 +1003,6 @@ void CStateAttack::UpdateCursorInfo()
 
 			int nToHit = 0;
 
-			NAI::SPosition pos;
-			bool bTraceOk = GetMission()->GetTracePosition( &pos );
 			CDynamicCast<NWorld::CUnit> pUnit(pTraceObject);
 			if (pUnit)
 			{
@@ -1007,7 +1014,7 @@ void CStateAttack::UpdateCursorInfo()
 					else
 					{
 						if ( bTraceOk )
-							nToHit = pWorld->GetGame()->GetBazookaToHit( (*iTemp)->GetUnit(), pos.GetCP(),	NAI::THL_MIDDLE, pWorld->IsFirstTurn() );
+							nToHit = pWorld->GetGame()->GetBazookaToHit( (*iTemp)->GetUnit(), pos,	NAI::THL_MIDDLE, pWorld->IsFirstTurn() );
 					}
 				}
 				else {
@@ -1015,7 +1022,7 @@ void CStateAttack::UpdateCursorInfo()
 					if (pGrenade)
 					{
 						if (bTraceOk)
-							nToHit = pWorld->GetGame()->GetGrenadeCompositeToHit((*iTemp)->GetUnit(), pos.GetCP(), pWorld->IsFirstTurn(), pGrenade->GetDBGrenade());
+							nToHit = pWorld->GetGame()->GetGrenadeCompositeToHit((*iTemp)->GetUnit(), pos, pWorld->IsFirstTurn(), pGrenade->GetDBGrenade());
 					}
 					else
 					{
@@ -1034,15 +1041,15 @@ void CStateAttack::UpdateCursorInfo()
 			{
 				CDynamicCast<NRPG::IGrenadeItemInfo> pGrenade((*iTemp)->GetUnit()->GetRPG()->GetInventoryInfo()->GetActive());
 				if (pGrenade)
-					nToHit = pWorld->GetGame()->GetGrenadeCompositeToHit( (*iTemp)->GetUnit(), pos.GetCP(), pWorld->IsFirstTurn(), pGrenade->GetDBGrenade() );
+					nToHit = pWorld->GetGame()->GetGrenadeCompositeToHit( (*iTemp)->GetUnit(), pos, pWorld->IsFirstTurn(), pGrenade->GetDBGrenade() );
 				else {
 					CDynamicCast<NRPG::IWeaponItemInfo> pWeapon((*iTemp)->GetUnit()->GetRPG()->GetInventoryInfo()->GetActive());
 					if (pWeapon)
 					{
 						if (!pWeapon->GetDBWeapon()->bBazookaLogic)
-							nToHit = pWorld->GetGame()->GetTileCompositeToHit((*iTemp)->GetUnit(), pos.GetCP(), NAI::THL_MIDDLE, pWorld->IsFirstTurn());
+							nToHit = pWorld->GetGame()->GetTileCompositeToHit((*iTemp)->GetUnit(), pos, NAI::THL_MIDDLE, pWorld->IsFirstTurn());
 						else
-							nToHit = pWorld->GetGame()->GetBazookaToHit((*iTemp)->GetUnit(), pos.GetCP(),
+							nToHit = pWorld->GetGame()->GetBazookaToHit((*iTemp)->GetUnit(), pos,
 								NAI::THL_MIDDLE, pWorld->IsFirstTurn());
 					}
 					else
@@ -1055,7 +1062,7 @@ void CStateAttack::UpdateCursorInfo()
 						// `if (pMelee)` cast was null and a punch aimed at ground/walls/objects showed 0%;
 						// GetTileCompositeToHit derives TH_MELEE from the unit's default fists weapon and
 						// casts covers from GetMeleeAttackPos, matching retail's TH_MELEE tile rule.
-						nToHit = pWorld->GetGame()->GetTileCompositeToHit((*iTemp)->GetUnit(), pos.GetCP(), NAI::THL_MIDDLE, pWorld->IsFirstTurn());
+						nToHit = pWorld->GetGame()->GetTileCompositeToHit((*iTemp)->GetUnit(), pos, NAI::THL_MIDDLE, pWorld->IsFirstTurn());
 					}
 				}
 			}
