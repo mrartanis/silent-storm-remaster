@@ -708,12 +708,11 @@ void CAIRetreatLogic::MakeDecision()
 {
 	// arrival gate: |selfCP - retreatCP| < 0.5 (float @0x008b19ec) -> done. Path net from the unit
 	// server's world (== the AI state's world for an in-world unit), as Guard/Defence/Retreat-reaction.
-	IAIUnit *u = GetUnit();
 	IPathNetwork *pNet = GetUnitServer()->GetWorld()->GetPathNetwork();
 	CVec3 cpRetreat = GetUnitPos( pos, pNet ).pos.GetCP();
-	CVec3 cpCur     = u->GetPosition().GetCP();
+	CVec3 cpCur     = GetUnitServer()->GetPosition().GetCP();
 	float du = cpCur.u - cpRetreat.u, dv = cpCur.v - cpRetreat.v, dq = cpCur.q - cpRetreat.q;
-	if ( sqrtf( du * du + dv * dv + dq * dq ) < 0.5f ) { CAIJob::Finish(); return; }
+	if ( sqrtf( du * du + dv * dv + dq * dq ) < 0.5f ) { CAILogic::Finish(); return; }
 
 	CAIShootAction::SInfo shoot; GetInfo( pShoot.GetPtr(), &shoot );
 	CAIThrowGrenadeAction::SInfo grenade; GetInfo( pThrowGrenade.GetPtr(), &grenade );

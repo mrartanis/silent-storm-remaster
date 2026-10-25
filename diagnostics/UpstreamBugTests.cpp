@@ -2603,6 +2603,31 @@ static void FinishedAILogicRetirement(const char* databasePath, const char* reso
     Require(actor->GetRPG()->GetAP() == idleAP && actor->CanFight(), "AI logic retirement changed live AP or health");
 }
 
+static void ArrivedRetreatCompletion(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    NAI::IAIUnit* unit = nullptr;
+    for (const auto& candidate: units) {
+        auto* wrapper = NAI::GetAIUnit(candidate);
+        if (IsValid(candidate) && candidate->CanFight() && !candidate->HasCommand() && IsValid(wrapper)) {
+            actor = candidate.GetPtr(); unit = wrapper; break;
+        }
+    }
+    Require(actor && unit, "retreat completion fixture has no idle native actor");
+    const auto position = actor->GetPosition();
+    const int ap = actor->GetRPG()->GetAP();
+    CObj<NAI::CAIRetreatLogic> retreat = new NAI::CAIRetreatLogic(unit, position.pos.p);
+    Require(!retreat->IsFinished(), "new retreat logic completed before checking its destination");
+    retreat->MakeDecision();
+    Require(retreat->IsFinished(), "arrived retreat finished its chooser job but left the retreat logic unfinished");
+    Require(!actor->HasCommand() && actor->GetPosition() == position && actor->GetRPG()->GetAP() == ap,
+        "completing an arrived retreat queued an action, moved the actor or spent AP");
+}
+
 class CombatContextProbe: public NAI::CAICombatLogic
 {
     OBJECT_NOCOPY_METHODS(CombatContextProbe);
@@ -6934,6 +6959,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "arrived-retreat-completion") && argc == 4) { ArrivedRetreatCompletion(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "finished-ai-logic-retirement") && argc == 4) { FinishedAILogicRetirement(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "removed-selected-enemy")) { RemovedSelectedAIContact(0); return true; }
     if (!std::strcmp(mode, "removed-selected-possible")) { RemovedSelectedAIContact(1); return true; }
