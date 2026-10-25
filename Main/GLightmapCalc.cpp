@@ -184,10 +184,10 @@ void CLightState::AddParallel( bool bDoRender, const SSphere &_bound, const CVec
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CLightState::AddPoint( bool bDoRender, const CVec3 &vCenter, float fRadius, const CVec3 &_vColor )
+void CLightState::AddPoint( bool bDoRender, const CVec3 &vCenter, float fRadius, const CVec3 &_vColor, bool bCastShadow )
 {
 	if ( bDoRender )
-		points.push_back( SPointLight( _vColor, vCenter, fRadius ) );
+		points.push_back( SPointLight( _vColor, vCenter, fRadius, bCastShadow ) );
 	if ( !pVis )
 		return;
 	float fTest = GlobalGameRandom().GetFloat( 0, F_POINT_STRENGTH );
@@ -259,7 +259,7 @@ void CLightState::CreateScattered( SLightStateCalcSeed *pSeed, const SGlobalIllu
 	for ( int k = 0; k < l.points.size(); ++k )
 	{
 		const SGlobalIlluminationInfo::SPoint &p = l.points[k];
-		AddPoint( !p.bIsRendered, p.vCenter, p.fRadius, p.vColor );
+		AddPoint( !p.bIsRendered, p.vCenter, p.fRadius, p.vColor, p.bCastShadow );
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -36,10 +36,11 @@ struct SGlobalIlluminationInfo
 		CVec3 vColor, vCenter;
 		float fRadius;
 		bool bIsRendered;
+		bool bCastShadow = true;
 		
 		SPoint() {}
-		SPoint( const CVec3 &_vColor, const CVec3 &_vCenter, float _fRadius, bool _bIsRendered )
-			: vColor(_vColor), vCenter(_vCenter), fRadius(_fRadius), bIsRendered(_bIsRendered) {}
+		SPoint( const CVec3 &_vColor, const CVec3 &_vCenter, float _fRadius, bool _bIsRendered, bool _bCastShadow = true )
+			: vColor(_vColor), vCenter(_vCenter), fRadius(_fRadius), bIsRendered(_bIsRendered), bCastShadow(_bCastShadow) {}
 	};
 	ZDATA
 	SSphere globalBounds;
@@ -64,7 +65,7 @@ class CLightState
 {
 	void AddRay( const CVec3 &vFrom, const CVec3 &vDir, const CVec3 &vColor );
 	void AddParallel( bool bDoRender, const SSphere &_bound, const CVec3 &vDir, const CVec3 &vColor );
-	void AddPoint( bool bDoRender, const CVec3 &vCenter, float fRadius, const CVec3 &_vColor );
+	void AddPoint( bool bDoRender, const CVec3 &vCenter, float fRadius, const CVec3 &_vColor, bool bCastShadow );
 	void TraceDynamicLMPointLight( SDynamicAmbientInfo *pRes, const CVec3 &vTarget, float fTargetR, 
 		const CVec3 &vCenter, float fRadius, const CVec3 &vColor, const CVec3 &vSemiNormal, IGScene *pVis ) const;
 	CPtr<IGScene> pVis;
@@ -204,6 +205,35 @@ public:
 // Keep the inline state serializer's codec visible to every caller.
 #include "../FileIO/PortableRenderStateWire.h"
 namespace S2FileIO {
+template<>
+struct StructureFieldCodec<NGScene::SGlobalIlluminationInfo::SPoint, void> {
+  static constexpr bool kPortable = true;
+  static constexpr std::size_t kWireSize = 32;
+  static bool Decode(const std::uint8_t* source, std::size_t length,
+                     NGScene::SGlobalIlluminationInfo::SPoint* value) {
+    if (!source || !value || length != kWireSize) return false;
+    float fields[7];
+    if (!DecodeRenderFloatFields<7>(source, 28, fields)) return false;
+    value->vColor = CVec3(fields[0], fields[1], fields[2]);
+    value->vCenter = CVec3(fields[3], fields[4], fields[5]);
+    value->fRadius = fields[6];
+    value->bIsRendered = source[28] != 0;
+    value->bCastShadow = source[29] != 0;
+    return true;
+  }
+  static bool Encode(const NGScene::SGlobalIlluminationInfo::SPoint& value,
+                     std::uint8_t* destination, std::size_t length) {
+    if (!destination || length != kWireSize) return false;
+    const float fields[7] = {value.vColor.x, value.vColor.y, value.vColor.z,
+                            value.vCenter.x, value.vCenter.y, value.vCenter.z,
+                            value.fRadius};
+    if (!EncodeRenderFloatFields<7>(fields, destination, 28)) return false;
+    destination[28] = value.bIsRendered ? 1 : 0;
+    destination[29] = value.bCastShadow ? 1 : 0;
+    destination[30] = destination[31] = 0;
+    return true;
+  }
+};
 template<>
 struct StructureFieldCodec<NGScene::CLightState::SPointLight, void> {
   static constexpr bool kPortable = true;

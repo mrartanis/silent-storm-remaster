@@ -143,6 +143,7 @@ public:
 		CVec3 vCenter;
 		CVec3 vColor;
 		float fRadius;
+		bool bCastShadow;
 	};
 	void GetRadianceInfo( SRadianceInfo *pRes, ERenderPath renderPath );
 };

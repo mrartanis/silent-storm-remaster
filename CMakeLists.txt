@@ -827,6 +827,7 @@ add_test(NAME UpstreamPointLightWithoutScene COMMAND UpstreamBugTests point-ligh
 add_test(NAME UpstreamPointLightSaveLayout COMMAND UpstreamBugTests point-light-save-layout)
 add_test(NAME UpstreamLegacyPointLightSaveLayout COMMAND UpstreamBugTests legacy-point-light-save-layout)
 add_test(NAME UpstreamPointLightShadowFlag COMMAND UpstreamBugTests point-light-shadow-flag)
+add_test(NAME UpstreamGlobalPointLightShadowFlag COMMAND UpstreamBugTests global-point-light-shadow-flag)
 add_test(NAME UpstreamDialogueCameraFilter COMMAND UpstreamBugTests dialogue-camera-filter)
 add_test(NAME UpstreamMovieCameraFilter COMMAND UpstreamBugTests movie-camera-filter)
 add_test(NAME UpstreamFadeCameraFilter COMMAND UpstreamBugTests fade-camera-filter)

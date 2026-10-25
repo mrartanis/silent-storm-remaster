@@ -1107,6 +1107,7 @@ void CPointLight::GetRadianceInfo( SRadianceInfo *pRes, ERenderPath renderPath )
 	pRes->vColor = vColor;
 	pRes->vCenter = CVec3( ptCenter.x, ptCenter.y, ptCenter.z );
 	pRes->fRadius = vRadius.x;
+	pRes->bCastShadow = bCastShadow;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CDynamicPointLight

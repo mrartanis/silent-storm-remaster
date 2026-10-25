@@ -524,6 +524,52 @@ static void PointLightShadowFlag()
         "visible shadow-casting point light changed its original attenuation");
 }
 
+struct RetailGlobalPointFixture
+{
+    float color[3], center[3], radius;
+    bool rendered, shadow;
+    unsigned char padding[2];
+};
+static_assert(sizeof(RetailGlobalPointFixture) == 32, "retail global point-light record size");
+
+static void GlobalPointLightShadowFlag()
+{
+    vector<RetailGlobalPointFixture> original(3);
+    std::memset(original.data(), 0, original.size() * sizeof(original[0]));
+    for (int i = 0; i < 3; ++i) {
+        original[i].color[0] = 0.25f;
+        original[i].color[1] = 0.5f;
+        original[i].color[2] = 0.75f;
+        original[i].center[0] = float(i * 4);
+        original[i].radius = float(12 + i);
+        original[i].shadow = i != 0;
+        original[i].rendered = i == 2;
+    }
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE); writer.Add(5, &original); }
+    saved.Seek(0);
+    NGScene::SGlobalIlluminationInfo global;
+    global.vUpDifColor = VNULL3;
+    { CStructureSaver reader(saved, CStructureSaver::READ); global.operator&(reader); }
+    NGScene::SLightStateCalcSeed seed;
+    NGScene::CLightState cached;
+    cached.CreateSimple(&seed, global);
+    Require(cached.points.size() == 2, "global lighting cache lost points or duplicated an already rendered light");
+    Require(!cached.points[0].bCastShadow && cached.points[1].bCastShadow,
+        "global illumination discarded the saved point-light shadow flags while building its cache");
+    Require(cached.points[1].vCenter == CVec3(4, 0, 0) && cached.points[1].fRadius == 13.f
+            && cached.points[1].vColor == CVec3(0.25f, 0.5f, 0.75f),
+        "global lighting cache changed saved colour, radius or position");
+    CMemoryStream resaved;
+    { CStructureSaver writer(resaved, CStructureSaver::WRITE); global.operator&(writer); }
+    resaved.Seek(0);
+    vector<RetailGlobalPointFixture> roundtrip;
+    { CStructureSaver reader(resaved, CStructureSaver::READ); reader.Add(5, &roundtrip); }
+    Require(roundtrip.size() == 3 && !roundtrip[0].shadow && roundtrip[1].shadow
+            && roundtrip[2].shadow && roundtrip[2].rendered,
+        "global lighting resave lost retail rendered/shadow flags");
+}
+
 class CameraExecutorReached: public std::runtime_error
 {
 public:
@@ -3378,6 +3424,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "point-light-save-layout")) PointLightSaveLayout();
         else if (!std::strcmp(mode, "legacy-point-light-save-layout")) PointLightSaveLayout(true);
         else if (!std::strcmp(mode, "point-light-shadow-flag")) PointLightShadowFlag();
+        else if (!std::strcmp(mode, "global-point-light-shadow-flag")) GlobalPointLightShadowFlag();
         else if (!std::strcmp(mode, "dialogue-camera-filter")) CinematicCameraCommands(0);
         else if (!std::strcmp(mode, "movie-camera-filter")) CinematicCameraCommands(1);
         else if (!std::strcmp(mode, "fade-camera-filter")) CinematicCameraCommands(2);
