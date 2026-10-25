@@ -2606,10 +2606,14 @@ class HiddenUnitPresentation: public NWorld::IRenderVisitor
 public:
     vector<CVec4> filters;
     int flares = 0, meshes = 0;
+    int alienBegin = 0, alienEnd = 0, alienDepth = 0;
+    bool alienMesh = false;
+    void StartAlienStyle() override { ++alienBegin; ++alienDepth; }
+    void FinishAlienStyle() override { ++alienEnd; --alienDepth; }
     void AddColorPostFilter(const CVec4& value) override { filters.push_back(value); }
     void AddFlare(CFuncBase<CVec3>*, float, NDb::CTexture*, int, float, float) override { ++flares; }
     void AddMesh(NDb::CModel*, CFuncBase<NAnimation::SSkeletonPose>*, CFuncBase<NAnimation::SSkeletonState>*,
-        const vector<SBoundMesh>&, NGScene::CLightGroup*, int, NWorld::CUnit*, int) override { ++meshes; }
+        const vector<SBoundMesh>&, NGScene::CLightGroup*, int, NWorld::CUnit*, int) override { ++meshes; alienMesh = alienDepth > 0; }
 };
 
 static void HiddenUnitTint(const char* databasePath, const char* resourcePath)
@@ -6336,6 +6340,34 @@ static void PKShellWorld(const char* databasePath, const char* resourcePath, boo
     Require(found, "fixture has no unobstructed PK footprint");
     CObj<NWorld::CUnitServer> shell = world->AddUnitInGame(anchor, NRPG::CreateUnit(suitRecord), nullptr);
     Require(shell && shell->IsEmptyPK(), "could not create a PK shell");
+    if (checkFeedback == 4) {
+        Require(shell->WearAsPK(true), "hidden PK fixture could not prepare its shell");
+        pilot->SetPosition(shell->GetPosition());
+        pilot->FlipPanzerklein(shell, false, false);
+        Require(pilot->IsWearingPK(), "hidden PK fixture did not equip its pilot");
+        const int ap = pilot->GetRPG()->GetAP();
+        for (bool hidden: {false, true}) {
+            pilot->GetUnitRPG()->SetHiding(hidden);
+            HiddenUnitPresentation shown;
+            pilot->Visit(&shown);
+            Require(shown.meshes == 1 && shown.alienMesh == hidden && shown.alienBegin == int(hidden)
+                    && shown.alienEnd == int(hidden) && shown.alienDepth == 0,
+                "hidden Panzerklein mesh did not use its bracketed alien material");
+            Require(shown.filters.empty() && shown.flares == 0,
+                "Panzerklein incorrectly received the human hiding tint or flare");
+            Require(pilot->GetUnitRPG()->IsHiding() == hidden && pilot->GetRPG()->GetAP() == ap,
+                "PK hiding presentation changed hiding state or action points");
+        }
+        // The existing global material override remains independent of hiding.
+        pilot->GetUnitRPG()->SetHiding(false);
+        NGlobal::SetVar("i_am_an_alien", 1);
+        HiddenUnitPresentation forced;
+        pilot->Visit(&forced);
+        NGlobal::SetVar("i_am_an_alien", 0);
+        Require(forced.alienMesh && forced.alienBegin == 1 && forced.alienEnd == 1 && forced.alienDepth == 0,
+            "PK hiding material changed the existing global alien-style override");
+        return;
+    }
     if (checkFeedback == 3) {
         Require(shell->WearAsPK(true), "turn-animation fixture could not prepare its shell");
         pilot->SetPosition(shell->GetPosition());
@@ -6645,6 +6677,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "pk-waypoint") && argc == 4) { PKShellWorld(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "pk-critical-feedback") && argc == 4) { PKShellWorld(argv[2], argv[3], false, false, 1); return true; }
     if (!std::strcmp(mode, "pk-pose-feedback") && argc == 4) { PKShellWorld(argv[2], argv[3], false, false, 2); return true; }
+    if (!std::strcmp(mode, "hidden-pk-material") && argc == 4) { PKShellWorld(argv[2], argv[3], false, false, 4); return true; }
     if (!std::strcmp(mode, "pk-turn-animation") && argc == 4) { PKShellWorld(argv[2], argv[3], false, false, 3); return true; }
     if (!std::strcmp(mode, "pk-model-ownership") && argc == 4) { PKShellWorld(argv[2], argv[3], false, true); return true; }
     return false;
