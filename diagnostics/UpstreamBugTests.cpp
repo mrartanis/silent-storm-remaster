@@ -337,6 +337,40 @@ static void PartialReferenceImport(const char* databasePath)
 }
 
 
+static void PermanentClueSingleMap()
+{
+    CObj<NDb::CDBScenarioZone> record = new NDb::CDBScenarioZone;
+    record->templatesIDs = {710, 0, 0, 0};
+    record->nItemSlots = 1;
+    record->nPersonSlots = 0;
+    record->nCluesMaxNumber = 1;
+    CObj<NScenario::CScenarioZone> zone = new NScenario::CScenarioZone(record, 1);
+    unordered_map<int, NScenario::CScenarioZone::STemplate> slots;
+    slots[710].nItemSlots = slots[710].nEmptyItemSlots = 1;
+    CMemoryStream state;
+    { CStructureSaver writer(state, CStructureSaver::WRITE); writer.Add(13, &slots); }
+    state.Seek(0);
+    { CStructureSaver reader(state, CStructureSaver::READ); static_cast<CObjectBase*>(zone.GetPtr())->operator&(reader); }
+    CObj<NDb::CDBScenarioClue> ordinaryRecord = new NDb::CDBScenarioClue;
+    ordinaryRecord->clueType = NDb::CT_ITEM;
+    ordinaryRecord->bPermanent = false;
+    CObj<NDb::CDBScenarioClue> permanentRecord = new NDb::CDBScenarioClue;
+    permanentRecord->clueType = NDb::CT_ITEM;
+    permanentRecord->bPermanent = true;
+    CObj<NScenario::CScenarioClue> ordinary = new NScenario::CScenarioClue(ordinaryRecord, 1);
+    CObj<NScenario::CScenarioClue> permanent = new NScenario::CScenarioClue(permanentRecord, 2);
+    Require(zone->CanPlaceClue(NDb::CT_ITEM), "fixture has no ordinary clue capacity");
+    zone->PlaceClue(ordinary);
+    Require(ordinary->GetTemplateID() == 710, "ordinary clue lost its map");
+    Require(!zone->CanPlaceClue(NDb::CT_ITEM), "ordinary clue admission exceeded its retail limit");
+    zone->PlaceClue(permanent);
+    Require(permanent->GetTemplateID() == 710,
+        "permanent clue lost its single map after ordinary clue capacity was consumed");
+    Require(!zone->CanPlaceClue(NDb::CT_ITEM), "permanent clue changed ordinary clue admission limits");
+    Require(zone->GetClues().size() == 2 && permanent->GetParentZones().front() == zone.GetPtr(),
+        "permanent clue was detached from its scenario zone");
+}
+
 static void CompletedZoneRecommendation()
 {
     CObj<NRPG::CGlobalPlayer> player = new NRPG::CGlobalPlayer;
@@ -2749,6 +2783,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "decal-rebuild")) DecalRebuild();
         else if (!std::strcmp(mode, "decal-projection")) DecalProjection();
         else if (!std::strcmp(mode, "partial-reference-import") && argc == 3) PartialReferenceImport(argv[2]);
+        else if (!std::strcmp(mode, "permanent-clue-single-map")) PermanentClueSingleMap();
         else if (!std::strcmp(mode, "completed-zone-recommendation")) CompletedZoneRecommendation();
         else if (!std::strcmp(mode, "perk-tooltip-parameters")) PerkTooltipParameters();
         else if (!std::strcmp(mode, "mechanical-step-sound")) MechanicalStepSound();

@@ -160,6 +160,7 @@ add_test(NAME UpstreamSmartAimerBoundary COMMAND UpstreamBugTests smart-aimer-bo
 add_test(NAME UpstreamLuaEmptyDefault COMMAND UpstreamBugTests lua-empty-default)
 add_test(NAME UpstreamNearestInvalid COMMAND UpstreamBugTests nearest-invalid)
 add_test(NAME UpstreamCompletedZoneRecommendation COMMAND UpstreamBugTests completed-zone-recommendation)
+add_test(NAME UpstreamPermanentClueSingleMap COMMAND UpstreamBugTests permanent-clue-single-map)
 add_test(NAME UpstreamPerkTooltipParameters COMMAND UpstreamBugTests perk-tooltip-parameters)
 add_test(NAME UpstreamMechanicalStepSound COMMAND UpstreamBugTests mechanical-step-sound)
 add_test(NAME UpstreamRenderPassCompaction COMMAND UpstreamBugTests render-pass-compaction)

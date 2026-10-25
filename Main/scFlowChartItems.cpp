@@ -174,6 +174,10 @@ int CScenarioZone::GetTemplateIDForClue( CScenarioClue *pClue )
 		return 0;
 	//
 	vector<int> &templatesIDs = GetDBZone()->templatesIDs;
+	// A single-map zone assigns that map directly. Ordinary clue admission
+	// is enforced by CanPlaceClue; permanent clues do not consume its quota.
+	if ( !templatesIDs.empty() && ( templatesIDs.size() == 1 || templatesIDs[1] == 0 ) )
+		return templatesIDs[0];
 	//
 	NDb::EScenarioClueType type = pClue->GetDBClue()->clueType;
 	int nMax = 0;
