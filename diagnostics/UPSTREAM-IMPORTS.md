@@ -559,3 +559,24 @@ GREEN: ObjectStages 1/1 и три повторения подряд, затем 
 набор не входит и остаётся отдельной незавершённой проверкой.
 Логи: `network-object-pairs-{red,green}-test.log`,
 `network-object-pairs-repeat.log`, `network-object-pairs-full-network-test.log`.
+
+### Промежуточная проверка после очистки игроков и отображения скрытности
+
+На HEAD `b0d649d2` собран Windows `ALL_BUILD` и Linux `Game`.
+Общий upstream-набор с NativeBind/NativeBound — Windows и Linux 184/184.
+Расширенный набор без игровых ресурсов/окон — 226/226; стрельба, сжатое
+сохранение и слот — 4/4; шесть дополнительных сетевых сценариев — 6/6.
+Это промежуточный результат, а не итоговый GitHub Actions на финальном HEAD.
+`NetworkEncounterMapsTests` и семь отдельных проверок графического окна
+не входят в объявленные здесь успешные наборы.
+
+Логи: `checkpoint-184-all-build.log`, `checkpoint-184-ci-test.log`,
+`checkpoint-184-shots-test.log`, `checkpoint-184-network-test.log`,
+`checkpoint-184-linux-{configure,build,test}.log`. Предыдущий Linux этап
+очистки игроков — `player-teardown-linux-{configure,build,test}.log` (179/179).
+
+Повторный отбор ещё продолжается: из 281 источника 54 перенесены полностью,
+8 частично, 35 уже решены локально; 177 остаются в разборе. Ещё 7 строк —
+исторический импорт, документация, подтверждённое исключение баланса и
+проверка последующих версий. Эти числа описывают исходные коммиты,
+а не число отдельных исправлений.
