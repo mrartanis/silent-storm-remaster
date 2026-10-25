@@ -645,3 +645,25 @@ Evidence: `checkpoint-203-linux-registration-red-test.log`,
 `checkpoint-203-scenario-green-{build,test}.log`.
 This commit contains only the already-committed airborne test registration
 repair; the scripted passage runtime correction is committed separately.
+
+### Контрольная точка 206 — `aa3f388f`
+
+Windows `ALL_BUILD` собран; Linux `Game` собран и upstream-набор прошёл
+206/206. Расширенный Windows набор без игровых ресурсов и семи display/runtime
+проверок прошёл 233/233. Выбранные сетевые сценарии прошли 6/6, а стрельба,
+сохранение, слот с самостоятельным выстрелом ИИ после загрузки и сценарий
+`NativeWorldMission5247PartySaveTurn` — 5/5.
+
+Это не результат всего CTest: `NetworkEncounterMapsTests` с ранее отмеченным
+таймаутом не входил в выбранные шесть сетевых сценариев; семь display/runtime
+проверок также не запускались. GitHub Actions на итоговой ревизии всей задачи
+ещё предстоит проверить; текущие промежуточные запуски отменяются новыми push.
+
+В реестре 281 исходный коммит: 56 imported, 10 partially-imported,
+35 already-present, 173 pending, 2 review-final-version, 3 documentation-only,
+1 historical-own-import и 1 excluded-balance. Задача переноса не завершена.
+
+Логи: `checkpoint-206-all-build.log`,
+`checkpoint-206-linux-{configure,build,test}.log`,
+`checkpoint-206-ci-test.log`, `checkpoint-206-network-test.log`,
+`checkpoint-206-shots-test.log`.
