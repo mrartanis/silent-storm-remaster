@@ -2630,6 +2630,21 @@ void CExecHeal::AnimationFinished()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecSetTrap
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static void TakeNextSameItem( CUnitServer *pUS, NRPG::IInventoryItem *pNextSameItem )
+{
+	NRPG::IUnitMission *pRPG = pUS->GetUnitRPG();
+	NRPG::IInventory *pInventory = pRPG->GetInventory();
+	if ( IsValid( pNextSameItem ) )
+	{
+		pInventory->Take( pNextSameItem );
+		pInventory->Equip( (NDb::ESlot)pInventory->GetActiveSlot(), pNextSameItem );
+	}
+	pUS->Update();
+	if ( IsActiveItemToShow( pInventory ) )
+		pUS->animator.SetWeaponAnimation( pRPG->GetWeaponType() );
+	pUS->AnimateActivation();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 CExecSetTrap::CExecSetTrap( CUnitServer *_pUS, CWindowDoor *_pTarget ): 
 	CCommandExecute(_pUS), pTarget(_pTarget)
 {
@@ -2919,10 +2934,16 @@ bool CExecSetMine::TimeLabelReached()
 			pUS->AddToVisibleTraps( pRes );
 			NRPG::IInventory *pInventory = pRPG->GetInventory();
 			CUnitServer::SResItem item;
-			pUS->TearOffItem( &item, (NDb::ESlot)pInventory->GetActiveSlot(), true );
+			pUS->TearOffItem( &item, (NDb::ESlot)pInventory->GetActiveSlot(), &pNextSameItem );
 		}
 	}
 	return false;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CExecSetMine::AnimationFinished()
+{
+	TakeNextSameItem( pUS, pNextSameItem );
+	Finished();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecDisarmMine

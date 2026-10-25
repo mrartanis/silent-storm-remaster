@@ -181,6 +181,8 @@ public:
 	void DoAction( NRPG::EAction action ); // register action & spends AP
 	void GetBonePos( CVec3 *pRes, CQuat *pQuat, const char *pszBoneName );
 	bool TearOffItem( SResItem *pRes, NDb::ESlot slot, bool bPlaceNextSameItem = false );
+	bool TearOffItem( SResItem *pRes, NDb::ESlot slot, CObj<NRPG::IInventoryItem> *pNextSameItem );
+	void AnimateActivation();
 	void AttachMiscObject( CTimedObject *p );
 	void SetRunning( bool bRun ) { position.bRun = bRun; }
 

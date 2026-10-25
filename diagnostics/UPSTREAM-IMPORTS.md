@@ -232,6 +232,7 @@
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Clear the held item and weapon animation after the final medkit charge | `finishing the last medkit charge retained the held-item or healing weapon animation state` | 16/16; `spent-medkit-pose-cleanup` | `Upstream-Commit` в commit message |
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Clear temporary holster flags when equipment activation completes | `completed equipment activation retained temporary item or heavy-weapon hiding flags` | 16/16; `equipment-completion-holster-flags` | `Upstream-Commit` в commit message |
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Clear the held item and weapon animation after the final picklock charge | `consuming the last picklock charge retained the held-item or weapon animation state` | 17/17; `spent-picklock-pose-cleanup` | `Upstream-Commit` в commit message |
+| [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Defer mine successor activation until placement animation completion | `mine placement equipped the successor before its animation finished` | 279/279; `mine-placement-successor-handoff` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1032,3 +1033,34 @@ Windows `ALL_BUILD` собран на контрольной точке из 277
 `checkpoint-278-{network,world}-green-test.log`.
 Это локальные проверки выбранных наборов; окончательный GitHub Actions после
 завершения всех переносов ещё требуется.
+
+### Передача следующей мины после окончания установки
+
+Из `4c6b10fb` перенесено завершение `CExecSetMine`; вспомогательное выделение
+следующего предмета заимствовано из `7e46d2a6`. Новый тест вызывает настоящие
+обработчики метки и завершения анимации. Проверены видимая запасная мина,
+отсутствие запасной и скрытый предмет из игровых данных; восстановление
+обработчика из его полей сохраняет отложенную ссылку в добавленном теге 3.
+Это проверка native field fragment, а не полного игрового save-файла.
+
+Финальный RED воспроизведён с количеством предмета 1 на исходном production
+коде после временного снятия всех его изменений и пересборки. Ранняя ошибка
+подготовки количества в fixture исправлена до принятого RED. Текущий source
+diff удерживался только в памяти инструмента; отдельные старые сборки и
+временные копии исходников не сохранялись. Прежнее поведение boolean-варианта
+`TearOffItem` сохранено для ещё не перенесённых обработчиков гранаты и ножа.
+Дверная ловушка остаётся отдельным следующим исправлением.
+
+Windows `ALL_BUILD` и Linux `Game` собраны; полные профили — 279/279 на каждой
+платформе. Широкий локальный набор — 268/268, сетевые сценарии — 6/6, проверки
+нативного мира и сохранений — 5/5; сценарий 5247 занял 3.20s. Проверки сохраняют
+позицию и сложность разминирования установленной мины, AP, количество предметов
+и исходную анимацию до завершения. Шрифты и HD-данные не изменены.
+
+Свидетельства: `mine-placement-successor-handoff-{red,green}-{build,test}.log`,
+`mine-placement-successor-handoff-game-build.log`,
+`mine-placement-linux-{configure,build,test}.log`, `mine-placement-linux-full-test.log`,
+`checkpoint-279-all-build.log`, `checkpoint-279-ci-test.log`,
+`checkpoint-279-{network,world}-green-test.log`.
+Окончательный GitHub Actions на финальном HEAD остаётся обязательным после
+завершения всех переносов.

@@ -8,6 +8,7 @@
 #include "../Main/wMain.h"
 #include "../Main/wBuilding.h"
 #include "../Main/wObject.h"
+#include "../Main/wMine.h"
 #include "../Main/wUnitGroup.h"
 #include "../Main/iCommonUI.h"
 #include "../Main/PerkToolTip.h"
@@ -7721,6 +7722,86 @@ static void SpentPicklockPoseCleanup(const char* databasePath,const char* resour
         "picklock pose cleanup changed the failed lock result, AP or gameplay orders");
 }
 
+static void MinePlacementSuccessorHandoff(const char* databasePath,const char* resourcePath)
+{
+    for (int variant: {1,0,2}) {
+        CObj<NRPG::CGlobalGame> game;
+        auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+        vector<CPtr<NWorld::CUnit>> units;
+        world->GetAllUnits(&units);
+        NWorld::CUnitServer* actor = nullptr;
+        for (auto& entry: units) {
+            auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+            if (unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) { actor = unit; break; }
+        }
+        Require(actor != nullptr, "mine-handoff fixture lacks an ordinary native actor");
+        NDb::CRPGMine* record = nullptr;
+        CDBIterator<NDb::CRPGMine> mines(*NDatabase::GetTable<NDb::CRPGMine>());
+        while (mines.MoveNext()) {
+            auto* mine = mines.Get();
+            if (IsValid(mine->pItem) && IsValid(mine->pItem->pModel) && IsValid(mine->pExplosion) &&
+                mine->pItem->bPlaceInHand) { record = mine; break; }
+        }
+        Require(record != nullptr, "mine-handoff fixture has no authored visible mine");
+        const bool hidden = variant == 2;
+        const bool replacement = variant != 0;
+        record->pItem->bPlaceInHand = !hidden;
+        CObj<NRPG::CMineItem> spent = new NRPG::CMineItem(record);
+        CObj<NRPG::CMineItem> next = replacement ? new NRPG::CMineItem(record) : nullptr;
+        spent->nQuantity = 1;
+        if (next) next->nQuantity = 1;
+        auto* inventory = actor->GetUnitRPG()->GetInventory();
+        while (!inventory->GetItems().empty()) inventory->Take(inventory->GetItems().front().pItem);
+        CObj<NRPG::IInventoryItem> previous = inventory->Get(NDb::SLOT_1) ? inventory->TakeOff(NDb::SLOT_1) : nullptr;
+        Require(inventory->Equip(NDb::SLOT_1,spent) && inventory->Activate(NDb::SLOT_1),
+            "mine-handoff fixture could not equip the first mine");
+        if (replacement) {
+            CTPoint<int> place;
+            Require(inventory->FindPlace(next,&place) && inventory->Place(place,next),
+                "mine-handoff fixture could not store the second mine");
+        }
+        const auto target = actor->GetPosition().pos;
+        vector<CVec3> places(1,target.GetCP());
+        vector<CPtr<NWorld::CMine>> nearby;
+        Require(!world->GetMineTracker()->GetMines(places,&nearby), "mine-handoff fixture target already has a mine");
+        CObj<NWorld::CExecSetMine> executor = new NWorld::CExecSetMine(actor,new NWorld::CCmdSetMineOnTile(target));
+        Require(executor->CanDoIt(actor->GetPosition()) == NWorld::UCR_OK,
+            "mine-handoff fixture cannot perform the ordinary placement command");
+        actor->animator.SetActiveItem(!hidden);
+        actor->animator.SetMine(actor->GetPosition(),true);
+        const auto animationEnd = actor->animator.GetTimeEnd();
+        const auto animationLabel = actor->animator.GetTimeLabel1();
+        const int ap = actor->GetAP();
+        executor->TimeLabelReached();
+        nearby.clear();
+        Require(world->GetMineTracker()->GetMines(places,&nearby) && nearby.size() == 1,
+            "mine placement did not create exactly one native mine at the label");
+        Require(nearby.front()->GetMineDC() == actor->GetUnitRPG()->GetMineDC(record) &&
+            nearby.front()->GetMinePos() == target.GetCP(), "mine animation handoff changed placement or disarm difficulty");
+        Require(!inventory->GetActive(), "mine placement equipped the successor before its animation finished");
+        Require(actor->animator.GetTimeEnd() == animationEnd && actor->animator.GetTimeLabel1() == animationLabel,
+            "consuming a mine interrupted its native placement animation");
+        CStructureNetworkContext references;
+        auto fields = BorrowedObjectFields(executor,&references);
+        CObj<NRPG::IInventoryItem> savedNext;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(3,&savedNext); }
+        Require(savedNext.GetPtr() == next.GetPtr(), "the pending mine successor was not retained in executor saved field three");
+        fields.Seek(0);
+        CObj<NWorld::CExecSetMine> restored = new NWorld::CExecSetMine;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&references); static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader); }
+        Require(restored->GetUnitServer() == actor, "restoring the pending mine callback lost its native actor");
+        executor = nullptr;
+        restored->AnimationFinished();
+        Require(restored->GetState() == NWorld::CCommandExecute::FINISHED && inventory->GetActive() == next.GetPtr(),
+            "completing the restored mine callback failed to equip its pending successor");
+        Require(actor->animator.IsActiveItem() == (replacement && !hidden),
+            "mine placement completion retained an empty or authored-hidden held pose");
+        Require(inventory->GetItems().empty() && actor->GetAP() == ap && !actor->HasCommand() &&
+            spent->GetQuantity() == 1 && (!replacement || next->GetQuantity() == 1),
+            "mine animation handoff duplicated an item, changed quantity or AP, or installed an order");
+    }
+}
+
 static void PersonaFullDisplayName(const char* databasePath)
 {
     CFileStream database;
@@ -10560,6 +10641,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "cancelled-equipment-hidden-item-pose")) { Require(argc == 4, "equipment cancellation requires db and res"); CancelledInventoryHiddenItemPose(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "spent-medkit-pose-cleanup")) { Require(argc == 4, "spent medkit requires db and res"); SpentMedkitPoseCleanup(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "spent-picklock-pose-cleanup")) { Require(argc == 4, "spent picklock requires db and res"); SpentPicklockPoseCleanup(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "mine-placement-successor-handoff")) { Require(argc == 4, "mine handoff requires db and res"); MinePlacementSuccessorHandoff(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }

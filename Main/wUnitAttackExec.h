@@ -548,7 +548,8 @@ class CExecSetMine: public CCommandExecute
 private:
 	ZDATA_(CCommandExecute)
 	CObj<CCmdSetMineOnTile> pCmd;
-	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CCommandExecute*)this); f.Add(2,&pCmd); return 0; }
+	CObj<NRPG::IInventoryItem> pNextSameItem;
+	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CCommandExecute*)this); f.Add(2,&pCmd); f.Add(3,&pNextSameItem); return 0; }
 	//
 	NRPG::IMineItem* GetMine() const;
 	bool GetMinesNearTarget( vector<CPtr<CMine> > *pRes ) const;
@@ -560,6 +561,7 @@ public:
 	virtual int GetStartAP() const;
 	virtual void Run();
 	virtual bool TimeLabelReached();
+	virtual void AnimationFinished();
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecDisarmMine
