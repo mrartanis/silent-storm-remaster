@@ -144,6 +144,10 @@ class CAIUnit: public IAIUnit
 		f.Add( 11, &disabledShootModes );
 		f.Add( 12, &nHideProbability );
 		f.Add( 13, &nNonFreezeCounter );
+		// Older fork saves stored the standalone adapter at impl tag 3. The inline
+		// tracker is owned here, so restore its exact owner before any event arrives.
+		if ( f.IsReading() && IsValid( pEventTracker ) && IsValid( pEventTracker->pImpl ) )
+			pEventTracker->pImpl->pInterface = this;
 		return 0;
 	}
 	//
@@ -341,7 +345,7 @@ public:
 		// (re)build the tracker -- also re-arms an impl-less shell created by the serializer
 		// (a fresh load whose save was taken before the tracker's first tick).
 		if ( ( !IsValid( pEventTracker ) || !IsValid( pEventTracker->pImpl ) ) && IsValid( pUnitServer ) )
-			pEventTracker = new CAIEventTracker( pUnitServer );
+			pEventTracker = new CAIEventTracker( this, pUnitServer );
 		if ( IsValid( pEventTracker ) )
 			pEventTracker->ProcessAISegment();
 		// AI-convergence Stage 2: refresh the poll-based threat state each segment (release maintains it
@@ -374,7 +378,7 @@ CAIUnit::CAIUnit( NWorld::CUnitServer *_pUnitServer, bool _bUnderAIControl ) :
 	// Retail constructs its CAIEventTracker base subobject before the rest of CAIUnit.  Subscribe
 	// fresh map-deployed units now so they receive CEventOnStartGame; waiting for OnAISegment loses
 	// the initial enemy sweep in random encounters.
-	pEventTracker = new CAIEventTracker( pUnitServer );
+	pEventTracker = new CAIEventTracker( this, pUnitServer );
 	pInventory = CreateAIInventory( this );
 	pUnitServer->GetRPG()->PrintLog( false );
 	// release CAIUnit ctor tail (@0xae420): seed the AI hide-roll chance from the current difficulty record

@@ -4611,6 +4611,129 @@ public:
     AICollectionCallbackException(): std::runtime_error("expected AI collection callback exception") {}
 };
 
+class ThreatOwnerFixture: public NAI::AIUnitFixture
+{
+    OBJECT_NOCOPY_METHODS(ThreatOwnerFixture);
+public:
+    NAI::SAIUnitState threat;
+    NAI::SAIState* shared = nullptr;
+    bool exposeThreat = true;
+    int sharedReads = 0;
+    NAI::SAIState* GetAIState() override { ++sharedReads; return shared; }
+    NAI::SAIUnitState* GetAIUnitState() override { return exposeThreat ? &threat : nullptr; }
+};
+
+class AIOwnerEventProbe: public NAI::IAIEvent
+{
+    OBJECT_NOCOPY_METHODS(AIOwnerEventProbe);
+public:
+    int calls = 0;
+    NAI::SAIUnitState* received = nullptr;
+    void Modify(NAI::SAIUnitState* state) override { ++calls; received = state; }
+};
+
+struct InlineAITrackerFields
+{
+    CPtr<NAI::CAIEventTrackerImpl> impl;
+    int operator&(CStructureSaver& saver) { saver.Add(2, &impl); return 0; }
+};
+
+static CPtr<NAI::CAIEventTrackerImpl> ReadNativeAITracker(NAI::IAIUnit* owner)
+{
+    CStructureNetworkContext references;
+    auto saved = BorrowedObjectFields(owner, &references);
+    InlineAITrackerFields tracker;
+    { CStructureSaver reader(saved, CStructureSaver::READ, &references); reader.Add(2, &tracker); }
+    Require(IsValid(tracker.impl), "native AI wrapper did not retain its inline event tracker");
+    return tracker.impl;
+}
+
+static void AIEventOwnerBinding(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    NAI::IAIUnit* owner = nullptr;
+    for (const auto& unit: units) {
+        auto* wrapper = NAI::GetAIUnit(unit);
+        if (IsValid(unit) && unit->CanFight() && unit->IsAIUnit() && IsValid(wrapper)) {
+            actor = unit.GetPtr(); owner = wrapper; break;
+        }
+    }
+    Require(actor && owner && owner->GetAIUnitState(), "event-owner fixture has no native AI actor");
+    CObj<NAI::CAIEventTrackerImpl> restored;
+    CObj<NAI::CAIEventTracker> legacyAdapter;
+    CPtr<NAI::CAIEventTrackerImpl> impl = ReadNativeAITracker(owner);
+    CObj<ThreatOwnerFixture> boundOwner;
+    if (mode == 0) {
+        // The serialized owner must win over a fresh global lookup for the same
+        // server, including retained callbacks across wrapper replacement.
+        boundOwner = new ThreatOwnerFixture;
+        boundOwner->server = actor;
+        boundOwner->threat.SetUnit(boundOwner);
+        owner = boundOwner.GetPtr();
+    }
+
+    if (mode != 1) {
+        restored = new NAI::CAIEventTrackerImpl;
+        CStructureNetworkContext references;
+        references.externalReferences = true;
+        references.ids[actor] = 1; references.refs[1] = actor;
+        references.ids[owner] = 2; references.refs[2] = owner;
+        references.ids[restored.GetPtr()] = 3; references.refs[3] = restored.GetPtr();
+        references.nextID = 100; references.include = [](CObjectBase*) { return false; };
+        CPtr<NWorld::CUnitServer> server = actor;
+        CPtr<NAI::IAIUnit> ownerRef = owner;
+        if (mode == 2) {
+            legacyAdapter = new NAI::CAIEventTracker(actor);
+            references.ids[legacyAdapter.GetPtr()] = 4; references.refs[4] = legacyAdapter.GetPtr();
+        }
+        CMemoryStream saved;
+        { CStructureSaver writer(saved, CStructureSaver::WRITE, &references);
+          writer.Add(2, &server);
+          if (mode == 2) writer.Add(3, &legacyAdapter); else writer.Add(3, &ownerRef); }
+        saved.Seek(0);
+        { CStructureSaver reader(saved, CStructureSaver::READ, &references); restored->operator&(reader); }
+        Require(restored->GetUnit() == actor, "restored AI event tracker lost its server reference");
+        impl = restored.GetPtr();
+        if (mode == 2) {
+            InlineAITrackerFields tracker; tracker.impl = restored.GetPtr();
+            CMemoryStream legacyUnit;
+            { CStructureSaver writer(legacyUnit, CStructureSaver::WRITE, &references); writer.Add(2, &tracker); }
+            legacyUnit.Seek(0);
+            { CStructureSaver reader(legacyUnit, CStructureSaver::READ, &references);
+              static_cast<CObjectBase*>(owner)->operator&(reader); }
+            impl = ReadNativeAITracker(owner);
+        }
+    }
+    if (mode == 1) {
+        CStructureNetworkContext references;
+        auto saved = BorrowedObjectFields(impl, &references);
+        CPtr<NAI::IAIUnit> serializedOwner;
+        { CStructureSaver reader(saved, CStructureSaver::READ, &references); reader.Add(3, &serializedOwner); }
+        Require(serializedOwner.GetPtr() == owner,
+            "fresh AI event tracker serialized its adapter instead of the owning AI unit identity");
+    }
+    const int ap = actor->GetRPG()->GetAP();
+    CObj<AIOwnerEventProbe> event = new AIOwnerEventProbe;
+    impl->ThrowAIEvent(event);
+    Require(event->calls == 1 && event->received == owner->GetAIUnitState(),
+        "restored owner-identity AI event tracker did not deliver to its bound unit threat state");
+    impl->ThrowAIEvent(nullptr);
+    Require(event->calls == 1 && actor->GetRPG()->GetAP() == ap,
+        "AI event owner binding duplicated delivery or changed live action points");
+    Require(event->received->enemies.nLock == 0 && event->received->possibleEnemies.nLock == 0
+            && event->received->allies.nLock == 0, "AI owner dispatch retained contact locks after returning");
+    if (mode == 0) {
+        boundOwner->Invalidate();
+        impl->ThrowAIEvent(event);
+        Require(event->calls == 1, "invalid bound AI owner was silently replaced by a global lookup");
+    }
+
+}
+
 class AICollectionEventProbe: public NAI::IAIEvent
 {
     OBJECT_NOCOPY_METHODS(AICollectionEventProbe);
@@ -5510,18 +5633,6 @@ static void FlyingDynamicLocks()
             Require(layer->tiles[y][x].nDynLocks == 0 && layer->tiles[y][x].nLocks == 0,
                 "an airborne-only route locked a ground cell");
 }
-
-class ThreatOwnerFixture: public NAI::AIUnitFixture
-{
-    OBJECT_NOCOPY_METHODS(ThreatOwnerFixture);
-public:
-    NAI::SAIUnitState threat;
-    NAI::SAIState* shared = nullptr;
-    bool exposeThreat = true;
-    int sharedReads = 0;
-    NAI::SAIState* GetAIState() override { ++sharedReads; return shared; }
-    NAI::SAIUnitState* GetAIUnitState() override { return exposeThreat ? &threat : nullptr; }
-};
 
 static void RemovedSelectedAIContact(int kind)
 {
@@ -6995,6 +7106,9 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "restored-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 0); return true; }
+    if (!std::strcmp(mode, "fresh-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 1); return true; }
+    if (!std::strcmp(mode, "legacy-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "flying-dynamic-locks")) { FlyingDynamicLocks(); return true; }
     if (!std::strcmp(mode, "arrived-retreat-completion") && argc == 4) { ArrivedRetreatCompletion(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "finished-ai-logic-retirement") && argc == 4) { FinishedAILogicRetirement(argv[2], argv[3]); return true; }

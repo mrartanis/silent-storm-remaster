@@ -58,11 +58,11 @@ public:
 	NGlobal::CEventRegister< CAIEventTrackerImpl, NWorld::CEventOnAttackAtUnit >                regOnAttack;
 	NGlobal::CEventRegister< CAIEventTrackerImpl, NWorld::CEventOnUnitUnhide >                  regOnUnhide;
 	CPtr<NWorld::CUnitServer> pUnit;
-	CPtr<CAIEventTracker>     pInterface;
-	int operator&( CStructureSaver &f ) { f.Add( 2, &pUnit ); f.Add( 3, &pInterface ); return 0; }   // retail @0xac1c0 (the CEventRegisters resubscribe on load, not serialized)
+	CPtr<IAIUnit>            pInterface;   // owning AI unit identity
+	int operator&( CStructureSaver &f );   // retail @0xac1c0 (the CEventRegisters resubscribe on load, not serialized)
 
 	CAIEventTrackerImpl();
-	CAIEventTrackerImpl( CAIEventTracker *_pInterface, NWorld::CUnitServer *_pUnit );
+	CAIEventTrackerImpl( IAIUnit *_pInterface, NWorld::CUnitServer *_pUnit );
 
 	NWorld::CUnitServer* GetUnit() const { return pUnit; }
 
@@ -96,6 +96,7 @@ public:
 
 	CAIEventTracker() {}
 	CAIEventTracker( NWorld::CUnitServer *pUS );
+	CAIEventTracker( IAIUnit *pOwner, NWorld::CUnitServer *pUS );
 	CAIEventTracker( const CAIEventTracker &src );
 
 	virtual void Notify( IAIEvent *pEvent );   // release vtbl slot 0: hand the event to the subscribers

@@ -74,7 +74,7 @@ CAIEventTrackerImpl::CAIEventTrackerImpl()
 {
 }
 // @0xab4b0: the bound ctor used by CAIEventTracker (interface + unit back-pointers).
-CAIEventTrackerImpl::CAIEventTrackerImpl( CAIEventTracker *_pInterface, CUnitServer *_pUnit )
+CAIEventTrackerImpl::CAIEventTrackerImpl( IAIUnit *_pInterface, CUnitServer *_pUnit )
 	: regOnSeeEnemy ( this, &CAIEventTrackerImpl::OnSeeEnemy ),
 	  regOnLostEnemy( this, &CAIEventTrackerImpl::OnLostEnemy ),
 	  regOnHearEnemy( this, &CAIEventTrackerImpl::OnHearEnemy ),
@@ -90,11 +90,21 @@ CAIEventTrackerImpl::CAIEventTrackerImpl( CAIEventTracker *_pInterface, CUnitSer
 {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// CAIEventTracker @0xab6b0: news the impl for a live unit (interface = this, unit = pUS).
+// The tracker belongs to the AI unit, including while it is still being constructed.
+int CAIEventTrackerImpl::operator&( CStructureSaver &f )
+{
+	f.Add( 2, &pUnit );
+	f.Add( 3, &pInterface );
+	return 0;
+}
 CAIEventTracker::CAIEventTracker( CUnitServer *pUS )
+	: CAIEventTracker( IsValid( pUS ) ? GetAIUnit( pUS ) : 0, pUS )
+{
+}
+CAIEventTracker::CAIEventTracker( IAIUnit *pOwner, CUnitServer *pUS )
 {
 	if ( IsValid( pUS ) )
-		pImpl = new CAIEventTrackerImpl( this, pUS );
+		pImpl = new CAIEventTrackerImpl( pOwner, pUS );
 }
 // CAIEventTracker copy ctor @0xabfe0: CObj copy -- alias + AddRef the shared impl.
 CAIEventTracker::CAIEventTracker( const CAIEventTracker &src )
@@ -107,10 +117,14 @@ CAIEventTracker::CAIEventTracker( const CAIEventTracker &src )
 void CAIEventTrackerImpl::ThrowAIEvent( IAIEvent *pEvent )
 {
 	CObj<IAIEvent> ev = pEvent;
-	CAIEventTracker *pIface = pInterface;
+	IAIUnit *pIface = pInterface;
 	CUnitServer *pUS = pUnit;
-	if ( IsValid( pIface ) && IsValid( pUS ) && pUS->CanFight() && pUS->IsAIUnit() )
-		pIface->Notify( pEvent );
+	if ( IsValid( pEvent ) && IsValid( pIface ) && IsValid( pUS ) && pUS->CanFight() && pUS->IsAIUnit() )
+	{
+		SAIUnitState *pState = pIface->GetAIUnitState();
+		if ( pState != 0 )
+			pState->Notify( pEvent );
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CAIEventTracker::Notify (release vtbl slot 0): mutate the owning unit's threat state.
@@ -121,7 +135,9 @@ void CAIEventTracker::Notify( IAIEvent *pEvent )
 	CUnitServer *pUS = pImpl->GetUnit();
 	if ( !IsValid( pUS ) )
 		return;
-	IAIUnit *pAI = GetAIUnit( pUS );
+	if ( pImpl->pInterface.GetPtr() == 0 )
+		pImpl->pInterface = GetAIUnit( pUS );
+	IAIUnit *pAI = pImpl->pInterface;
 	if ( !IsValid( pAI ) )
 		return;
 	SAIUnitState *pState = pAI->GetAIUnitState();
