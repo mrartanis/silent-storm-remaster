@@ -471,3 +471,20 @@ Windows/Linux — 171/171; Windows `ALL_BUILD` и Linux `Game` собраны.
 `unsupported-navigation-bake-counts.log`, `living-unit-floor-refresh-{red,green}-test.log`,
 `living-floor-linux-test.log`, `checkpoint-171-all-build.log`,
 `checkpoint-171-ci-test.log`, `checkpoint-171-shots-test.log`.
+
+### Уже имеющееся покрытие больших UV и DPI
+
+[8d646658](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8d646658a98829230854e4029522fa7a025de712) — DPI защищён текущей SDL 3.4.16:
+её Windows backend по умолчанию включает Per-Monitor V2, а игра использует
+HIGH_PIXEL_DENSITY и перевод координат drawable/UI. Старый system-aware
+manifest переносить не требуется.
+
+[ed8cb002](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/ed8cb00231ddd8637b52db341a810ecdec583021) — большие UV уже защищены адаптивной упаковкой
+в `Main/TextureSampling.h` / `Main/GfxUtils.cpp`: масштаб выбирается до записи
+SHORT2 и учитывается при выводе, смена масштаба разделяет пакеты.
+`TextureSamplingTests` покрывает границу 4096, размеры 8192/16384, NPOT8204,
+отрицательные координаты и диапазон за 32768.
+
+`SDLPlatformInputTests` и `TextureSamplingTests` прошли в расширенном
+`checkpoint-171-ci-test.log` (223/223). В этих двух пунктах код уже был исправлен
+в репозитории; новые RED/GREEN-переносы не заявляются.
