@@ -211,6 +211,7 @@
 | [5cdf627b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5cdf627bb6ce601188e39945b93742515216655a) — Distinguish the chapter exit marker from mission entry | `the native chapter map selected a mission-entry marker for its campaign exit sector` | 257/257; `chapter-exit-marker-hint` | `Upstream-Commit` в commit message |
 | [1ca0541b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1ca0541b5a1eb3ab4cba65e07e7f24de254ac98c) — Notify the originating mission when a restored clue modal closes | `closing a restored clue modal never notified the mission of its waiting UI event` | 258/258; `restored-clue-close-notification` | `Upstream-Commit` в commit message |
 | [1ca0541b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1ca0541b5a1eb3ab4cba65e07e7f24de254ac98c) — Forward clue wait ownership through mission dispatch and modal construction | `fresh clue dispatch dropped the originating mission and its waiting script event ID` | 259/259; `fresh-clue-wait-release` | `Upstream-Commit` в commit message |
+| [5528542f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5528542f16fdd90afe1ff2964c193f5af54d4f36) — Use the shared markup layout for screen-scaled editable text | `the native edit renderer wrapped screen-sized text at the unscaled logical control width` | 260/260; `scaled-edit-text-layout` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -917,3 +918,17 @@ CTest и не подтверждение GitHub Actions на финальной 
 Свидетельства: `checkpoint-255-all-green-build.log`,
 `checkpoint-255-linux-{configure,build,test}.log`, `checkpoint-255-ci-test.log`,
 `checkpoint-255-{world-green,network-green}-test.log`.
+
+### Проверка после подсказок карты, ожидания окна улики и разметки редактируемого текста
+
+Контрольная точка 260: Windows `ALL_BUILD` и Linux `Game` собраны;
+upstream-профили прошли 260/260 на каждой платформе. Широкий локальный набор
+без игровых ресурсов прошёл 266/266, выбранные сетевые сценарии — 6/6,
+проверки нативного мира/выстрела/сохранения/загрузки — 5/5. Сценарий 5247
+завершился за 4.87s при параллельном запуске других наборов.
+Прежние исключения широкого набора сохраняются; это не полный CTest и не
+подтверждение GitHub Actions окончательной ревизии.
+
+Свидетельства: `checkpoint-260-all-green-build.log`,
+`checkpoint-260-linux-{configure,build,test}.log`, `checkpoint-260-ci-test.log`,
+`checkpoint-260-{world-green,network-green}-test.log`.

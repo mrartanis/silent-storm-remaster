@@ -5871,6 +5871,48 @@ public:
     void Flush() override {}
 };
 
+static void ScaledEditTextLayout()
+{
+    S2Platform::SetErrorDialogs(false);
+    struct Cleanup { ~Cleanup() { S2Platform::Done(); } } cleanup;
+    Require(S2Platform::Init("scaled native edit text",2048,1536,true), "edit layout fixture could not initialize dummy SDL");
+    S2Platform::UpdateDisplay(200);
+    Require(std::fabs(S2Platform::Display().uiScale-2.f) < 0.001f, "edit layout fixture did not establish 200 percent UI scaling");
+    struct LegacyEditTextRequest {};
+    class EditLayoutView: public DialogueLayoutView {
+        OBJECT_NOCOPY_METHODS(EditLayoutView);
+    public:
+        int requestedWidth = -1;
+        CFuncBase<NGScene::SText>* CreateText(CFuncBase<wstring>*,CFuncBase<CTPoint<int>>* size,bool) override {
+            CDGPtr<CFuncBase<CTPoint<int>>> dimensions = size;
+            dimensions.Refresh(); requestedWidth = dimensions->GetValue().x; throw LegacyEditTextRequest();
+        }
+    };
+    CObj<EditLayoutView> view = new EditLayoutView;
+    CObj<NUI::ICursor> cursor = NUI::ICursor::Create(false);
+    CObj<NUI::CInterface> interface = new NUI::CInterface(cursor);
+    NUI::CEdit* edit = new NUI::CEdit(NUI::SWindowInfo(interface,NUI::SPoint(5,5),NUI::SPoint(48,100),"edit",
+        NUI::STYLE_VISIBLE | NUI::STYLE_ENABLED));
+    edit->SetTextFormat(L"<left>"); edit->SetText(L"alpha beta gamma delta");
+    try { edit->Draw(1000,view); } catch (const LegacyEditTextRequest&) {}
+    Require(view->requestedWidth == -1 || view->requestedWidth == 96,
+        "the native edit renderer wrapped screen-sized text at the unscaled logical control width");
+    Require(edit->NUI::CText::GetText() == L"<left>alpha beta gamma delta",
+        "the edit draw did not synchronize its actual native markup text");
+    CStructureNetworkContext references;
+    references.include = [](CObjectBase*) { return false; };
+    CMemoryStream fields;
+    { CStructureSaver writer(fields,CStructureSaver::WRITE,&references); edit->NUI::CText::operator&(writer); }
+    fields.Seek(0);
+    int width = 0;
+    { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(2,&width); }
+    Require(width == 96, "the edit markup layout did not use the current screen-scaled width");
+    edit->SetText(L"replacement text");
+    try { edit->Draw(1001,view); } catch (const LegacyEditTextRequest&) {}
+    Require(edit->GetText() == L"replacement text" && edit->NUI::CText::GetText() == L"<left>replacement text",
+        "redrawing an edited caption retained stale markup or changed its source text");
+}
+
 static void CheckChapterMarkerToolTipTransitions(NUI::CWindow* marker,NUI::CText* text)
 {
     CObj<DialogueLayoutView> view = new DialogueLayoutView;
@@ -9759,6 +9801,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
     if (!std::strcmp(mode, "hotseat-opponent-visibility")) { HotseatOpponentVisibility(); return true; }
     if (!std::strcmp(mode, "restored-clue-close-notification")) { RestoredClueCloseNotification(); return true; }
+    if (!std::strcmp(mode, "scaled-edit-text-layout")) { ScaledEditTextLayout(); return true; }
     if (!std::strcmp(mode, "fresh-clue-wait-release") && argc == 4) { FreshClueWaitRelease(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-sound-game-clock")) { MissionSoundGameClock(); return true; }
     if (!std::strcmp(mode, "delayed-sound-effect-age") && argc == 3) { DelayedSoundEffectAge(argv[2]); return true; }
