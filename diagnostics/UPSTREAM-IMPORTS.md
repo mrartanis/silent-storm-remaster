@@ -137,6 +137,7 @@
 | [a3051bb1](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a3051bb1bd1a24c5901d7094b3d913426993a6ff) — Refresh rendered living units after navigation floor changes | `living unit with a stale rendered floor did not refresh its native visibility binding` | 171/171; `living-unit-floor-refresh` | `Upstream-Commit` в commit message |
 | [8853794e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8853794e2ad267be5df39bcc78ab246ac8414cb7) — Reconstruct omitted navigation colour caches on demand | `native navigation lookup did not reconstruct a cache omitted by a compact save` | 172/172; `lazy-navigation-colourer` | `Upstream-Commit` в commit message |
 | [8853794e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8853794e2ad267be5df39bcc78ab246ac8414cb7) — Inherit compact-save mode when creating navigation layers | `navigation layer created after enabling compact saves did not inherit the small-save flag` | 173/173; `new-layer-compact-save` | `Upstream-Commit` в commit message |
+| [2eee1b62](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2eee1b6280f55129eb2cca681fbbbeb1c27f1e18) — Keep AI commander ownership separate from tactical world views | `AI commander retained a foreign unit in its strongly owned roster` | 174/174; `owned-ai-commander-rosters` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -488,3 +489,27 @@ SHORT2 и учитывается при выводе, смена масштаб�
 `SDLPlatformInputTests` и `TextureSamplingTests` прошли в расширенном
 `checkpoint-171-ci-test.log` (223/223). В этих двух пунктах код уже был исправлен
 в репозитории; новые RED/GREEN-переносы не заявляются.
+
+### Контроль разделения владения бойцами ИИ и сведений о мире
+
+Часть `2eee1b62` переносит регистрацию бойца только его командиру. Существующие
+адаптеры союзников/противников получают живых бойцов из мира и сохраняют прежние
+фильтры своего игрока/враждебной стороны. Расширение на нейтральных союзников,
+новые alarm-запросы, обновление combat snapshot и доставка событий ещё в работе.
+
+Windows/Linux — 174/174; полная Windows сборка и Linux `Game` собраны.
+Расширенный Windows набор — 225/225; стрельба/сжатое сохранение/слот — 4/4.
+Из шести дополнительных сетевых сценариев проходят Match, PartialMovement и
+StopResume. ClientUI падает на `movement AP did not replicate`, Preparation —
+на `path colour cache leaked to replica or removed on host`, ObjectStages —
+на сравнении исходной модели либо с ошибкой доступа после нескольких стадий.
+Все три воспроизвелись при временном удалении только текущих изменений владения
+из `wMain.cpp`/`aistate.cpp`, то есть на функциональном состоянии HEAD `c6f4a03b`.
+После сравнения изменения восстановлены с проверкой SHA-256 diff, временный
+патч удалён. Это не подтверждает, что сбои существовали до всего переноса.
+Они требуют отдельного исправления; зелёным весь сетевой набор не объявляется.
+
+Логи: `owned-ai-commander-rosters-{red,green}-test.log`,
+`owned-rosters-linux-test.log`, `checkpoint-174-{all,restored}-build.log`,
+`checkpoint-174-ci-test.log`, `checkpoint-174-shots-test.log`,
+`checkpoint-174-network-test.log`, `owned-rosters-network-baseline-test.log`.

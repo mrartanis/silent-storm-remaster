@@ -2408,6 +2408,52 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     return world;
 }
 
+static void OwnedAICommanderRosters(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    vector<CPtr<NWorld::CPlayer>> players;
+    world->GetPlayersList(&players);
+    list<CPtr<NWorld::CUnitServer>> allUnits;
+    world->GetAllUnits(&allUnits);
+    Require(players.size() > 1 && !allUnits.empty(), "AI roster fixture has no opposing parties");
+    int checked = 0, hostileViews = 0;
+    for (const auto& player: players) {
+        auto* commander = dynamic_cast<NAI::CAICommander*>(player->GetCommander());
+        if (!commander) continue;
+        ++checked;
+        auto verifyOwnership = [&]() {
+            for (const auto& unit: commander->GetUnitsList())
+                Require(IsValid(unit) && IsValid(unit->GetUnitServer()) && unit->GetUnitServer()->GetPlayer() == player.GetPtr(),
+                    "AI commander retained a foreign unit in its strongly owned roster");
+        };
+        verifyOwnership();
+        auto* state = commander->GetAIState();
+        state->Synchronize();
+        const auto& allies = *state->GetAllyAIPlayer()->GetUnits();
+        const auto& enemies = *state->GetEnemyAIPlayer()->GetUnits();
+        int expectedAllies = 0, expectedEnemies = 0;
+        for (const auto& server: allUnits) {
+            if (!IsValid(server) || !server->CanFight()) continue;
+            auto* wrapper = NAI::GetAIUnit(server);
+            if (!IsValid(wrapper)) continue;
+            if (server->GetPlayer() == player.GetPtr()) {
+                ++expectedAllies;
+                Require(std::count(allies.begin(), allies.end(), wrapper) == 1 && wrapper->GetAIState() == state,
+                    "commander world view lost an owned fighter or attached another commander's state");
+            } else if (world->GetDiplomacyState(player.GetPtr(), server->GetPlayer()) == NDb::DS_ENEMY) {
+                ++expectedEnemies;
+                Require(std::count(enemies.begin(), enemies.end(), wrapper) == 1,
+                    "removing foreign ownership also removed a live hostile from the tactical world view");
+            }
+        }
+        Require(allies.size() == expectedAllies && enemies.size() == expectedEnemies,
+            "AI tactical views duplicated contacts or mixed ownership with diplomacy");
+        if (expectedEnemies) ++hostileViews;
+    }
+    Require(checked > 1 && hostileViews > 0, "AI roster fixture did not verify multiple commanders and a hostile view");
+}
+
 static void UnsupportedNavigationBake(const char* databasePath, const char* resourcePath)
 {
     auto world = FixtureWorld(databasePath, resourcePath);
@@ -6304,6 +6350,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "living-unit-floor-refresh") && argc == 4) { LivingUnitFloorRefresh(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "owned-ai-commander-rosters") && argc == 4) { OwnedAICommanderRosters(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "navigation-colouring-occupancy")) { NavigationColouringOccupancy(); return true; }
     if (!std::strcmp(mode, "missing-navigation-colourer")) { NavigationColouringOccupancy(1); return true; }
     if (!std::strcmp(mode, "stale-navigation-colourer")) { NavigationColouringOccupancy(2); return true; }

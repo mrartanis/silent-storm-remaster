@@ -8,6 +8,7 @@
 //
 #include "AILog.h"
 #include "aiUnit.h"
+#include "aiMisc.h"
 #include "aiPlayer.h"
 #include "aiCommander.h"
 #include "aiInventory.h"     // CAIInventory::GetBestFireArms (GetDangerousAttackableEnemy)
@@ -76,32 +77,33 @@ bool SAIState::IsAITurn()
 	return IsValid( pAICommander ) && pAICommander->IsAITurn();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// AI-convergence Stage 2 -- rebuild the ally/enemy rosters from the owning commander's unit list (every
-// world unit is registered on every commander, so the split is by player + diplomacy), thread the AI
-// state into the own (ally) units so their poll-based SAIUnitState::Populate can reach it, then rebuild
-// the enemy clusters. Called every AI segment (was the tactical commander's AddAllyUnit/AddEnemyUnit
-// incremental build + retail SAIState::Synchronize @0xa9ff0).
+// Commander ownership and tactical visibility are separate: enumerate the world
+// for the legacy ally/enemy adapters without retaining foreign units as owners.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void SAIState::Synchronize()
 {
 	pAlly->GetUnits()->clear();
 	pEnemy->GetUnits()->clear();
-	if ( !IsValid( pAICommander ) )
+	if ( !IsValid( pAICommander ) || !IsValid( pWorld ) )
 		return;
 	NWorld::CPlayer *pMyPlayer = pAICommander->GetPlayer();
-	const vector< CObj<IAIUnit> > &units = pAICommander->GetUnitsList();
-	for ( vector< CObj<IAIUnit> >::const_iterator i = units.begin(); i != units.end(); ++i )
+	list< CPtr<NWorld::CUnitServer> > units;
+	pWorld->GetAllUnits( &units );
+	for ( list< CPtr<NWorld::CUnitServer> >::const_iterator i = units.begin(); i != units.end(); ++i )
 	{
-		if ( !IsValid( *i ) || !IsValid( (*i)->GetUnitServer() ) || !(*i)->GetUnitServer()->CanFight() )
+		if ( !IsValid( *i ) || !(*i)->CanFight() )
 			continue;
-		NWorld::IPlayer *pUP = (*i)->GetUnitServer()->GetPlayer();
+		IAIUnit *pAI = NAI::GetAIUnit( *i );
+		if ( !IsValid( pAI ) )
+			continue;
+		NWorld::IPlayer *pUP = (*i)->GetPlayer();
 		if ( pUP == (NWorld::IPlayer*)pMyPlayer )
 		{
-			pAlly->AddUnit( *i );
-			(*i)->SetAIState( this );   // own units read the enemy set through this state (raw, transient back-ref)
+			pAlly->AddUnit( pAI );
+			pAI->SetAIState( this );
 		}
-		else if ( IsValid( pWorld ) && pWorld->GetDiplomacyState( pMyPlayer, pUP ) == NDb::DS_ENEMY )
-			pEnemy->AddUnit( *i );
+		else if ( pWorld->GetDiplomacyState( pMyPlayer, pUP ) == NDb::DS_ENEMY )
+			pEnemy->AddUnit( pAI );
 	}
 	MakeEnemyGroups();
 }
