@@ -46,6 +46,7 @@
 #include "../Main/wUnitExec.h"
 #include "../Main/wUnitMove.h"
 #include "../Main/wMainPath.h"
+#include "../Main/wGrenade.h"
 #include "../Main/aiPath.h"
 #include "../Main/GAnimParticles.h"
 #include "../Main/GAnimation.h"
@@ -92,6 +93,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include <cmath>
 #include <limits>
 #include <algorithm>
+#include <type_traits>
 
 extern CPtr<NScript::CScript> pScript;
 
@@ -372,6 +374,55 @@ static void PermanentClueSingleMap()
     Require(!zone->CanPlaceClue(NDb::CT_ITEM), "permanent clue changed ordinary clue admission limits");
     Require(zone->GetClues().size() == 2 && permanent->GetParentZones().front() == zone.GetPtr(),
         "permanent clue was detached from its scenario zone");
+}
+
+class DeferredClickTarget: public CObjectBase, public NRPG::IAttackable
+{
+    OBJECT_NOCOPY_METHODS(DeferredClickTarget);
+public:
+    NWorld::IWorld* expectedWorld = nullptr;
+    int calls = 0;
+    int ProcessAttack(NWorld::IWorld* world, int user, NRPG::CAttackPortion* attack,
+        const CVec3& direction, NDb::CRPGArmor*) override {
+        ++calls;
+        Require(world == expectedWorld, "deferred ClickOfDeath damage lost its creating world");
+        Require(user == 42 && attack->atkType == NRPG::AT_CLICK_OF_DEATH &&
+                attack->nDmgMin == 10000000 && attack->nDmgMax == 10000001,
+            "deferred ClickOfDeath changed its original damage payload");
+        Require(direction == CVec3(0, 1, 0), "deferred ClickOfDeath changed its trajectory");
+        return 3;
+    }
+};
+
+template<class Factory>
+static NWorld::IDynamicObject* CreateDeferredClick(Factory factory, NWorld::IWorld* world,
+    NWorld::CActionCounter* action, CObjectBase* target, const CRay& ray)
+{
+    // Exercise the pre-port factory too, before it accepts the missing world.
+    if constexpr (std::is_invocable_v<Factory, NWorld::IWorld*, NWorld::CActionCounter*, CObjectBase*, int, const CRay&>)
+        return factory(world, action, target, 42, ray);
+    else
+        return factory(action, target, 42, ray);
+}
+
+static void DeferredClickWorld()
+{
+    CObj<NWorld::CWorld> world = new NWorld::CWorld;
+    CObj<DeferredClickTarget> target = new DeferredClickTarget;
+    target->expectedWorld = world;
+    CRay ray;
+    ray.ptOrigin = CVec3(1, 2, 3);
+    ray.ptDir = CVec3(0, 1, 0);
+    CObj<NWorld::IDynamicObject> click = CreateDeferredClick(&NWorld::CreateClickOfDeath,
+        world, world->GetActiveCounter(), target, ray);
+    Require(world->IsAction(), "deferred ClickOfDeath did not hold its active action counter");
+    Require(click->Segment() && target->calls == 1, "deferred ClickOfDeath did not complete one target callback");
+    click = nullptr;
+    Require(!world->IsAction(), "completed ClickOfDeath retained its action counter");
+    click = CreateDeferredClick(&NWorld::CreateClickOfDeath, world, world->GetActiveCounter(), nullptr, ray);
+    Require(click->Segment() && target->calls == 1, "targetless ClickOfDeath invoked a damage callback");
+    click = nullptr;
+    Require(!world->IsAction(), "targetless ClickOfDeath retained its action counter");
 }
 
 static void CompletedZoneRecommendation()
@@ -3123,6 +3174,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "decal-projection")) DecalProjection();
         else if (!std::strcmp(mode, "partial-reference-import") && argc == 3) PartialReferenceImport(argv[2]);
         else if (!std::strcmp(mode, "permanent-clue-single-map")) PermanentClueSingleMap();
+        else if (!std::strcmp(mode, "deferred-click-world")) DeferredClickWorld();
         else if (!std::strcmp(mode, "completed-zone-recommendation")) CompletedZoneRecommendation();
         else if (!std::strcmp(mode, "perk-tooltip-parameters")) PerkTooltipParameters();
         else if (!std::strcmp(mode, "mechanical-step-sound")) MechanicalStepSound();
