@@ -955,6 +955,7 @@ add_test(NAME UpstreamMountedAILogCommands COMMAND UpstreamBugTests mounted-ai-l
 if(S2_GAME_DIR)
   add_test(NAME UpstreamGlobalMapReturnDestination COMMAND UpstreamBugTests global-map-return-destination "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamChapterTeamMarkerToolTip COMMAND UpstreamBugTests chapter-team-marker-tooltip "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
+  add_test(NAME UpstreamChapterMarkerToolTipTransitions COMMAND UpstreamBugTests chapter-marker-tooltip-transitions "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamForcedToolTargetingEntry COMMAND UpstreamBugTests forced-tool-targeting-entry "${S2_GAME_DIR}/game.db")
   add_test(NAME UpstreamDelayedSoundEffectAge COMMAND UpstreamBugTests delayed-sound-effect-age "${S2_GAME_DIR}/game.db")
   set_tests_properties(UpstreamDelayedSoundEffectAge PROPERTIES LABELS "native-audio" ENVIRONMENT "S2_AUDIO_HEADLESS=1")

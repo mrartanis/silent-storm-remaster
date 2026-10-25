@@ -2198,7 +2198,9 @@ static void GlobalMapReturnDestination(const char* databasePath,const char* reso
         "clearing the chapter return flag also changed saved map IDs, position or party");
 }
 
-static void ChapterTeamMarkerToolTip(const char* databasePath,const char* resourcePath)
+static void CheckChapterMarkerToolTipTransitions(NUI::CWindow* marker,NUI::CText* text);
+
+static void ChapterTeamMarkerToolTip(const char* databasePath,const char* resourcePath,bool transitions = false)
 {
     CFileStream database;
     database.OpenRead(databasePath);
@@ -2237,6 +2239,7 @@ static void ChapterTeamMarkerToolTip(const char* databasePath,const char* resour
     { CStructureSaver reader(tooltipFields,CStructureSaver::READ,&tooltipRefs); reader.Add(2,&text); }
     Require(IsValid(text) && !NUI::GetDBString(11124).empty() && text->GetText() == NUI::GetDBString(11124),
         "the chapter marker tooltip lost its authored initial text");
+    if (transitions) CheckChapterMarkerToolTipTransitions(marker,text);
     Require(game->bChapterMapSet && game->nChapterMapID == map->GetRecordID() && game->players.size() == 1,
         "creating a chapter marker tooltip changed the campaign destination or party");
 }
@@ -5729,6 +5732,30 @@ public:
     void StartNewFrame() override {}
     void Flush() override {}
 };
+
+static void CheckChapterMarkerToolTipTransitions(NUI::CWindow* marker,NUI::CText* text)
+{
+    CObj<DialogueLayoutView> view = new DialogueLayoutView;
+    const int modes[] = {0,1,2}; // Existing native Move, Normal and Zone marker states.
+    const int hints[] = {11123,11124,11126};
+    for (int i = 0; i < 3; ++i) {
+        int from = modes[i] == 0 ? 1 : 0, target = modes[i];
+        STime morph = 1000, flash = 1000;
+        CMemoryStream state;
+        {
+            CStructureSaver writer(state,CStructureSaver::WRITE);
+            writer.Add(2,&from); writer.Add(3,&target); writer.Add(4,&morph); writer.Add(5,&flash);
+        }
+        state.Seek(0);
+        { CStructureSaver reader(state,CStructureSaver::READ); static_cast<CObjectBase*>(marker)->operator&(reader); }
+        marker->Draw(1001,view);
+        Require(!NUI::GetDBString(hints[i]).empty() && text->GetText() == NUI::GetDBString(hints[i]),
+            "the chapter marker retained its previous hint when its real draw transitioned to another action");
+        // Finish this transition and ensure the hint survives steady-state drawing.
+        marker->Draw(10000,view);
+        Require(text->GetText() == NUI::GetDBString(hints[i]), "the chapter action hint disappeared after its transition");
+    }
+}
 
 class DialogueMissionProbe: public NGame::CMissionBase
 {
@@ -9543,6 +9570,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "global-map-return-destination") && argc == 4) { GlobalMapReturnDestination(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-team-marker-tooltip") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "chapter-marker-tooltip-transitions") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "forced-tool-targeting-entry") && argc == 3) { ForcedToolTargetingEntry(argv[2]); return true; }
     if (!std::strcmp(mode, "tool-targeting-cursor-refresh") && argc == 3) { ToolTargetingCursorRefresh(argv[2]); return true; }
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }

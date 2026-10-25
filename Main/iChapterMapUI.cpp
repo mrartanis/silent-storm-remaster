@@ -123,6 +123,19 @@ void CTeamMarker::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 		switch( eTargetMode )
 		{
 		case MODE_MOVE:
+			pToolTip->SetText( GetDBString( 11123 ) );
+			break;
+		case MODE_NORMAL:
+			pToolTip->SetText( GetDBString( 11124 ) );
+			break;
+		case MODE_ZONE:
+			pToolTip->SetText( GetDBString( 11126 ) );
+			break;
+		}
+
+		switch( eTargetMode )
+		{
+		case MODE_MOVE:
 			fMoving = float( sTime - sMorphTime ) / N_STANDART_MORPHTIME;
 			fNormal = 1.0f;
 			break;

@@ -207,6 +207,7 @@
 | [2826ebed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2826ebed4e5a7edd6e15161b21e347d025d4a2e5) — Keep infinitely repeated world effects looping independently of sample metadata | `an effect with infinite cycle count played once because its sample record was not itself looped` | 253/253; `infinite-sound-effect-loop` | `Upstream-Commit` в commit message |
 | [2826ebed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2826ebed4e5a7edd6e15161b21e347d025d4a2e5) — Release failed and expired sound samples without registering a phantom channel | `the channel table retained an expired sound and its decoded sample under the invalid channel ID` | 254/254; `failed-sound-channel-lifetime` | `Upstream-Commit` в commit message |
 | [9785abf3](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9785abf308b0fab7b2b6bd3f0663a8e1e99b668e) — Create and retain the chapter party marker tooltip | `the chapter party marker never created its saved tooltip` | 255/255; `chapter-team-marker-tooltip` | `Upstream-Commit` в commit message |
+| [5cdf627b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5cdf627bb6ce601188e39945b93742515216655a) — Refresh chapter marker hints during movement and zone transitions | `the chapter marker retained its previous hint when its real draw transitioned to another action` | 256/256; `chapter-marker-tooltip-transitions` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -900,3 +901,16 @@ CTest и не подтверждение GitHub Actions на финальной 
 `hotseat-opponent-visibility-all-green-build.log`,
 `checkpoint-249-linux-{configure,build,test}.log`, `checkpoint-249-ci-test.log`,
 `checkpoint-249-{world-green,network-green}-test.log` в общей папке evidence.
+
+### Проверка после завершения звуковых исправлений `2826ebed` и подсказки карты главы
+
+На контрольной точке 255 Windows `ALL_BUILD` и Linux `Game` собраны,
+профили upstream прошли 255/255 на обеих платформах. Широкий локальный набор
+без игровых ресурсов прошёл 264/264; выбранные сетевые сценарии — 6/6;
+нативные проверки мира, выстрела, сохранения и загрузки — 5/5, включая 5247 за 2.63s.
+Прежние исключения широкого набора перечислены выше. Это не полный CTest
+и не подтверждение реального GitHub Actions окончательной ревизии.
+
+Свидетельства: `checkpoint-255-all-green-build.log`,
+`checkpoint-255-linux-{configure,build,test}.log`, `checkpoint-255-ci-test.log`,
+`checkpoint-255-{world-green,network-green}-test.log`.
