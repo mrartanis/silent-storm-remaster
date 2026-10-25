@@ -94,6 +94,7 @@
 | [b6e82c68](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b6e82c68c984aa1f4058d4f453e92f6ccbb3beb4) — Restore full dynamic ambient lighting when sky textures are unavailable | `dynamic objects lost the full ambient fallback when sky textures were unavailable` | 122/122; `dynamic-ambient-fallback` | `Upstream-Commit` в commit message |
 | [884f91f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b) — Reject belt placement safely when an inventory has no uniform | `null uniform dereference in CInventory::GetPlaceBySubType, confirmed by CDB at RPGInventory.cpp:298` | 123/123; `inventory-without-uniform` | `Upstream-Commit` в commit message |
 | [884f91f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b) — Drop every backpack item before clearing a dead units inventory | `ordinary death skipped a backpack item while removing earlier entries` | 124/124; `corpse-backpack-drop` | `Upstream-Commit` в commit message |
+| [884f91f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b) — Let scripted dialogue preempt ordinary acknowledgement playback | `scripted dialogue was rejected behind an active ordinary acknowledgement` | 125/125; `scripted-dialogue-priority` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -222,7 +223,18 @@ retail-записей: 64 байта в сохранении против 56 в 
 сборки не считается runtime RED исправления диалогов. Диспетчер заменён на
 плоские проверки с ранним возвратом; обработка исключений и аргументов
 сохранена. Все существующие 124 сценария Windows проходят; неизвестный режим
-и отсутствующие аргументы по-прежнему завершаются с ошибкой. Свидетельства:
-`scripted-dialogue-priority-red-build.log` (исходный C1061),
+и отсутствующие аргументы по-прежнему завершаются с ошибкой. Исходный C1061
+зафиксирован в выводе компилятора в этой задаче; повторный RED диалогов
+перезаписывает журнал его сборки. Отдельные свидетельства успешной поправки:
 `regression-dispatch-green-build.log`, `regression-dispatch-green-test.log`.
 Это отдельная служебная поправка тестов, игровая логика не меняется.
+
+### Контроль после инвентаря, выпадения предметов и приоритета диалога
+
+Windows `ALL_BUILD` и Linux `Game` собираются; профильная группа — 125/125
+на каждой платформе. Более широкий набор Windows без окна и внешних
+ресурсов — 199/199; настоящие выстрелы, сохранение и загрузка — 4/4.
+Логи: `dialogue-priority-linux-test.log`,
+`dialogue-backpack-checkpoint-ci-test.log`, `dialogue-backpack-shots-full-test.log`.
+Остальные upstream источники и итоговая проверка GitHub Actions остаются
+в работе; этот контроль не означает завершения всей цели.

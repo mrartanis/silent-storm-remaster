@@ -33,6 +33,7 @@
 #include "../DBFormat/DataAck.h"
 #include "../Main/wUnitCommands.h"
 #include "../Main/wUICommands.h"
+#include "../Main/wDialog.h"
 #include "../Main/aiGrid.h"
 #include "../Main/aiColourer.h"
 #include "../Main/aiMap.h"
@@ -1330,6 +1331,70 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     // Deliberately exclude mission scripts: this fixture isolates AI scheduling.
     world->RunPostInit(nullptr);
     return world;
+}
+
+class AckPriorityDesktop: public NUI::CDesktopWindow
+{
+    OBJECT_NOCOPY_METHODS(AckPriorityDesktop);
+public:
+    vector<CPtr<NWorld::CAckEvent>> played;
+    AckPriorityDesktop(): CDesktopWindow(NUI::SWindowInfo(nullptr, NUI::SPoint(0, 0),
+        NUI::SPoint(100, 100), "ack-priority-probe")) {}
+protected:
+    NUI::CAckEvent* PlayAckEvent(const STime&, NWorld::CAckEvent* event) override {
+        played.push_back(event);
+        return new NUI::CAckEvent(event);
+    }
+};
+
+static void ScriptedDialoguePriority(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    CObj<NWorld::CUnitServer> actor;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (!unit || !unit->CanFight() || unit->IsEmptyPK()) continue;
+        int personID = unit->GetUnitRPG()->GetRPGPers()->GetRecordID();
+        if (personID != game->GetDialogHeroPersID() && world->GetUnitServerByPersID(personID) == unit) {
+            actor = unit; break;
+        }
+    }
+    Require(IsValid(actor), "dialogue-priority fixture has no existing persona speaker");
+    CObj<NDb::CDBAckInfo> info = new NDb::CDBAckInfo;
+    info->nRPGPersID = actor->GetUnitRPG()->GetRPGPers()->GetRecordID();
+    info->voices.resize(6);
+    const int dialogID = 900001;
+    CDBIterator<NDb::CDBDialogSeq> rows(*NDatabase::GetTable<NDb::CDBDialogSeq>());
+    int count = 0;
+    while (count < 4 && rows.MoveNext()) {
+        rows.Get()->nDialogID = dialogID;
+        rows.Get()->pAckInfo = info.GetPtr();
+        ++count;
+    }
+    Require(count == 4, "dialogue-priority fixture has fewer than four sequence rows");
+    while (auto* pending = world->GetUICommand()) { CObj<NWorld::CUICmd> release = pending; }
+    NWorld::PlayDialogAsAcks(world, dialogID);
+    CObj<NWorld::CUICmd> command = world->GetUICommand();
+    auto* packet = dynamic_cast<NWorld::CUICmdPlayAck*>(command.GetPtr());
+    Require(packet && packet->phrases.size() == NDb::N_ACKINFO_MAX_COUNT,
+        "scripted dialogue did not queue its original capped phrase sequence");
+    CObj<NWorld::CAckEvent> ordinary = new NWorld::CAckEvent(10, actor, info);
+    CObj<AckPriorityDesktop> desktop = new AckPriorityDesktop;
+    desktop->PlayAck(ordinary);
+    desktop->Draw(0, nullptr);
+    Require(desktop->played.size() == 1 && desktop->played.back() == ordinary.GetPtr(),
+        "dialogue-priority fixture did not start its ordinary acknowledgement");
+    desktop->PlayAck(packet->phrases.front());
+    desktop->Draw(1, nullptr);
+    Require(desktop->played.size() == 2 && desktop->played.back() == packet->phrases.front().GetPtr(),
+        "scripted dialogue was rejected behind an active ordinary acknowledgement");
+    desktop->PlayAck(ordinary);
+    desktop->Draw(2, nullptr);
+    Require(desktop->played.size() == 2 && ordinary->nPriority == 10,
+        "ordinary acknowledgement interrupted scripted dialogue or changed its own priority");
 }
 
 static void CorpseBackpackDrop(const char* databasePath, const char* resourcePath)
@@ -3946,6 +4011,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "dynamic-ambient-fallback")) { DynamicAmbientFallback(); return true; }
     if (!std::strcmp(mode, "inventory-without-uniform")) { InventoryWithoutUniform(); return true; }
     if (!std::strcmp(mode, "corpse-backpack-drop") && argc == 4) { CorpseBackpackDrop(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "scripted-dialogue-priority") && argc == 4) { ScriptedDialoguePriority(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "point-light-save-layout")) { PointLightSaveLayout(); return true; }
     if (!std::strcmp(mode, "legacy-point-light-save-layout")) { PointLightSaveLayout(true); return true; }
     if (!std::strcmp(mode, "point-light-shadow-flag")) { PointLightShadowFlag(); return true; }
