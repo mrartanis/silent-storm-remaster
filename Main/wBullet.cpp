@@ -212,7 +212,7 @@ bool CBulletServer::Segment()
 	}
 
 	// Retail v1.2 0x746f5e: an explosive bullet retires after its first reached point.
-	if ( nTrailCount >= trailpointsSet.size() - 1 || ( nTrailCount > 0 && IsValid( pGrenade ) ) )
+	if ( nTrailCount >= int( trailpointsSet.size() ) - 1 || ( nTrailCount > 0 && IsValid( pGrenade ) ) )
 	{
 		if ( IsValid( pShooter ) )
 		{

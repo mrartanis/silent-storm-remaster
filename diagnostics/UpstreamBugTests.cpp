@@ -2477,7 +2477,7 @@ static void UnsupportedNavigationBake(const char* databasePath, const char* reso
     Require(unsupported == 0, "native navigation bake generated passable tiles without supporting surfaces");
 }
 
-static void EmptyBulletConstruction(const char* databasePath, const char* resourcePath)
+static void EmptyBulletConstruction(const char* databasePath, const char* resourcePath, bool checkRetirement = false)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath, resourcePath, false, &game);
@@ -2487,6 +2487,7 @@ static void EmptyBulletConstruction(const char* databasePath, const char* resour
     CObj<NWorld::IDynamicObject> bullet = NWorld::CreateBulletServer(world, trail,
         world->GetTime()->GetValue(), nullptr, 100.f);
     Require(IsValid(bullet), "empty hit trail did not produce a native bullet object");
+    if (checkRetirement) Require(bullet->Segment(), "empty bullet never retired because its endpoint index underflowed");
     bullet = nullptr;
     Require(world->IsAction() == action, "discarding an empty bullet retained the world's action counter");
     NRPG::STrailPoint origin;
@@ -6421,6 +6422,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "empty-bullet-retirement") && argc == 4) { EmptyBulletConstruction(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "empty-bullet-construction") && argc == 4) { EmptyBulletConstruction(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hidden-unit-tint") && argc == 4) { HiddenUnitTint(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "living-unit-floor-refresh") && argc == 4) { LivingUnitFloorRefresh(argv[2], argv[3]); return true; }

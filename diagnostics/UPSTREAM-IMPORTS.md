@@ -141,6 +141,7 @@
 | [8853794e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8853794e2ad267be5df39bcc78ab246ac8414cb7) — Keep replica cache assertions passive after lazy navigation restoration | `path colour cache leaked to replica or removed on host` | 1/1; `network-preparation-cache` | `Upstream-Commit` в commit message |
 | [fa51df91](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fa51df91afc61e6a24f381efc5c60bd06e7b424a) — Restore translucent blue-gray rendering for hidden human units | `hidden human rendered with an opaque black overlay instead of the translucent blue-gray tint` | 175/175; `hidden-unit-tint` | `Upstream-Commit` в commit message |
 | [f638aca9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90) — Guard native bullet construction against empty hit trails | `Access violation in CBulletServer constructor at wBullet.cpp:108 when indexing trailpointsSet[0]; verified with CDB stack` | 176/176; `empty-bullet-construction` | `Upstream-Commit` в commit message |
+| [f638aca9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90) — Retire empty bullet trails without an unsigned endpoint underflow | `empty bullet never retired because its endpoint index underflowed` | 177/177; `empty-bullet-retirement` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
