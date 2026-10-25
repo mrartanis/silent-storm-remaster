@@ -85,6 +85,7 @@
 | [abc36d82](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/abc36d82d852e44560eae4225df9b1a9fc333fbc) — Discard zero and tiny point lights before caching illumination | `point-light cache retained zero/tiny radii that retail discards before lighting` | 111/111; `tiny-point-light-cache` | `Upstream-Commit` в commit message |
 | [abc36d82](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/abc36d82d852e44560eae4225df9b1a9fc333fbc) — Toggle console visibility directly without transient sliding state | `console close retained visible sliding state until a later render` | 112/112; `console-visibility-toggle` | `Upstream-Commit` в commit message |
 | [8134756b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8134756b0f33ed8d384ace2ac880b51b2f0f2ff4) — Use notification values for AI reaction latches and retain contacts on reset | `consuming an AI reaction notification erased contacts or morale state` | 114/114; `ai-reaction-value` | `Upstream-Commit` в commit message |
+| [77393cff](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/77393cff7835ccbad51a8e5979e7e079cedcfb45) — Retain contact dirty flags throughout nested AI event delivery | `AI event callback ran without holding all three contact collection locks` | 115/115; `ai-event-collection-locks` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

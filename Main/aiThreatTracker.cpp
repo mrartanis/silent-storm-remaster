@@ -126,7 +126,7 @@ void CAIEventTracker::Notify( IAIEvent *pEvent )
 		return;
 	SAIUnitState *pState = pAI->GetAIUnitState();
 	if ( pState != 0 )
-		pEvent->Modify( pState );
+		pState->Notify( pEvent );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // ---- handlers (oracle s2_threattracker.h, disasm-verified). The dev event factories take ONE

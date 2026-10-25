@@ -7,6 +7,7 @@
 #endif
 //
 #include "aiUnitState.h"
+#include "aiEvent.h"
 #include "aiUnit.h"        // IAIUnit
 #include "aiMisc.h"        // GetAIUnit
 #include "aistate.h"       // SAIState
@@ -60,6 +61,34 @@ IAIUnit *FindNearestUnit( IAIUnit *pSelf, vector< CPtr<IAIUnit> > &units )
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 SAIUnitState::SAIUnitState(): bHelpCalled( false ), bScared( false ) {}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void SAIUnitState::Notify( IAIEvent *pEvent )
+{
+	// Retail v1.2 0x4b0e80: defer consuming contact dirty flags during delivery.
+	if ( !IsValid( pEvent ) )
+		return;
+	CObj<IAIEvent> event = pEvent;
+	CObj<IAIUnit> unit = pUnit;
+	if ( !IsValid( unit ) || !IsValid( unit->GetUnitServer() ) || !unit->GetUnitServer()->CanFight() )
+		return;
+	struct SCollectionLock
+	{
+		SAIUnitState &state;
+		explicit SCollectionLock( SAIUnitState &_state ): state(_state)
+		{
+			++state.enemies.nLock;
+			++state.possibleEnemies.nLock;
+			++state.allies.nLock;
+		}
+		~SCollectionLock()
+		{
+			--state.enemies.nLock;
+			--state.possibleEnemies.nLock;
+			--state.allies.nLock;
+		}
+	} lock( *this );
+	event->Modify( this );
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void SAIUnitState::AddEnemy( IAIUnit *p )         { if ( IsValid( p ) ) { AddUnique( &enemies.data.units, p ); enemies.SetModified(); } }
 void SAIUnitState::RemoveEnemy( IAIUnit *p )      { RemoveFrom( &enemies.data.units, p ); enemies.SetModified(); }

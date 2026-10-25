@@ -73,6 +73,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/aiPlayer.h"
 #include "../Main/aiReaction.h"
 #include "../Main/aiEvent.h"
+#include "../Main/aiThreatTracker.h"
 #include "../Main/Sync.h"
 #include "../Main/A5Script.h"
 #include "../Main/scriptPtr.h"
@@ -2130,6 +2131,75 @@ static void HideCooldown(const char* databasePath, const char* resourcePath)
         "hide eligibility probes changed the unit's action points");
 }
 
+class AICollectionCallbackException: public std::runtime_error
+{
+public:
+    AICollectionCallbackException(): std::runtime_error("expected AI collection callback exception") {}
+};
+
+class AICollectionEventProbe: public NAI::IAIEvent
+{
+    OBJECT_NOCOPY_METHODS(AICollectionEventProbe);
+public:
+    CPtr<NAI::CAIEventTracker> tracker;
+    CObj<NAI::IAIEvent> nested;
+    int expectedDepth = 1, calls = 0;
+    bool throwAfterUpdate = false;
+    void Modify(NAI::SAIUnitState* state) override {
+        ++calls;
+        Require(state->enemies.nLock == expectedDepth && state->possibleEnemies.nLock == expectedDepth
+                && state->allies.nLock == expectedDepth,
+            "AI event callback ran without holding all three contact collection locks");
+        state->enemies.bModified = state->possibleEnemies.bModified = state->allies.bModified = true;
+        state->Update();
+        Require(state->enemies.bModified && state->possibleEnemies.bModified && state->allies.bModified,
+            "AI event callback consumed contact dirty flags before notification completed");
+        if (IsValid(nested)) tracker->Notify(nested);
+        Require(state->enemies.nLock == expectedDepth && state->possibleEnemies.nLock == expectedDepth
+                && state->allies.nLock == expectedDepth,
+            "nested AI notification corrupted its caller's collection lock depth");
+        if (throwAfterUpdate) throw AICollectionCallbackException();
+    }
+};
+
+static void AIEventCollectionLocks(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    NAI::SAIUnitState* state = nullptr;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (!unit || !unit->CanFight()) continue;
+        auto* ai = NAI::GetAIUnit(unit);
+        if (ai && ai->IsUnderAIControl() && ai->GetAIUnitState()) {
+            actor = unit; state = ai->GetAIUnitState(); break;
+        }
+    }
+    Require(actor && state, "event-lock fixture has no live AI threat state");
+    CObj<NAI::CAIEventTracker> tracker = new NAI::CAIEventTracker(actor);
+    CObj<AICollectionEventProbe> outer = new AICollectionEventProbe;
+    CObj<AICollectionEventProbe> inner = new AICollectionEventProbe;
+    outer->tracker = inner->tracker = tracker.GetPtr();
+    inner->expectedDepth = 2;
+    outer->nested = inner.GetPtr();
+    tracker->Notify(outer);
+    Require(outer->calls == 1 && inner->calls == 1, "nested AI notification was lost or duplicated");
+    Require(state->enemies.nLock == 0 && state->possibleEnemies.nLock == 0 && state->allies.nLock == 0,
+        "completed AI notification retained contact collection locks");
+    state->Update();
+    Require(!state->enemies.bModified && !state->possibleEnemies.bModified && !state->allies.bModified,
+        "contact collection dirty flags were not consumed after leaving notification");
+    outer->nested = nullptr;
+    outer->throwAfterUpdate = true;
+    bool caught = false;
+    try { tracker->Notify(outer); } catch (const AICollectionCallbackException&) { caught = true; }
+    Require(caught && state->enemies.nLock == 0 && state->possibleEnemies.nLock == 0 && state->allies.nLock == 0,
+        "throwing AI callback leaked contact collection locks");
+}
+
 static void AIReactionResetContacts()
 {
     CObj<NAI::AIUnitFixture> contact = new NAI::AIUnitFixture;
@@ -3570,6 +3640,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "console-visibility-toggle")) ConsoleVisibilityToggle();
         else if (!std::strcmp(mode, "ai-reaction-reset-contacts")) AIReactionResetContacts();
         else if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) AIReactionValueLatch(argv[2], argv[3]);
+        else if (!std::strcmp(mode, "ai-event-collection-locks") && argc == 4) AIEventCollectionLocks(argv[2], argv[3]);
         else if (!std::strcmp(mode, "dialogue-camera-filter")) CinematicCameraCommands(0);
         else if (!std::strcmp(mode, "movie-camera-filter")) CinematicCameraCommands(1);
         else if (!std::strcmp(mode, "fade-camera-filter")) CinematicCameraCommands(2);
