@@ -11,6 +11,7 @@
 #include "../Main/iCommonUI.h"
 #include "../Main/PerkToolTip.h"
 #include "../Main/UnitStepSound.h"
+#include "../Main/InventoryUnit.h"
 #include "../Main/UnitIconWeaponMode.h"
 #include "../Main/iUnitIconBar.h"
 #include "../Main/UIInterface.h"
@@ -1834,6 +1835,50 @@ static void FinishedMusicSilence(const char* databasePath)
     loaded->Draw(&transform);
     Require(!retainsRestored(), "genuinely missing stream no longer entered failed-resume cleanup");
 
+}
+
+static void HolsteredHeavyWeaponMesh(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& entry: units) {
+        auto* server = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (server && server->CanFight() && !server->IsEmptyPK() && !server->IsWearingPK()) { actor = server; break; }
+    }
+    Require(actor != nullptr, "heavy-mesh fixture has no ordinary actor");
+    NDb::CRPGWeapon* heavy = nullptr;
+    CDBIterator<NDb::CRPGWeapon> rows(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while (rows.MoveNext()) {
+        auto* candidate = rows.Get();
+        if (IsValid(candidate->pItem) && candidate->pItem->subType == NDb::SUBTYPE_HEAVY
+                && IsValid(candidate->pItem->pModel) && IsValid(candidate->pAnimWeaponType)) {
+            heavy = candidate; break;
+        }
+    }
+    Require(heavy != nullptr, "heavy-mesh fixture has no modelled heavy weapon");
+    CObj<NRPG::CWeaponItem> weapon = new NRPG::CWeaponItem(heavy);
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    CObj<NRPG::IInventoryItem> oldFirst = inventory->Get(NDb::SLOT_1) ? inventory->TakeOff(NDb::SLOT_1) : nullptr;
+    CObj<NRPG::IInventoryItem> oldSecond = inventory->Get(NDb::SLOT_2) ? inventory->TakeOff(NDb::SLOT_2) : nullptr;
+    Require(inventory->Equip(NDb::SLOT_1, weapon) && inventory->Activate(NDb::SLOT_1),
+        "heavy-mesh fixture could not equip its active weapon");
+    const char* bone = NWorld::GetBoneName(NWorld::UIT_WEAPON_HEAVY, weapon);
+    Require(bone && bone[0], "heavy-mesh fixture weapon has no heavy bind bone");
+    auto heavyCount = [&](bool holstered, bool noHeavy = false) {
+        vector<NWorld::IRenderVisitor::SBoundMesh> meshes;
+        NWorld::GetItemsBindPlaces(&meshes, actor->GetUnitRPG(), holstered, nullptr, noHeavy);
+        return std::count_if(meshes.begin(), meshes.end(), [&](const auto& mesh) {
+            return mesh.pszBindBone && !std::strcmp(mesh.pszBindBone, bone);
+        });
+    };
+    Require(heavyCount(false) == 1, "drawn heavy weapon lost its normal mesh");
+    Require(heavyCount(false, true) == 0, "no-heavy render mode did not suppress the weapon");
+    Require(heavyCount(true) == 0, "holstered active heavy weapon remained in the native render bindings");
+    Require(inventory->Activate(NDb::SLOT_2) && heavyCount(true) == 1,
+        "active-weapon holster gate incorrectly hid an inactive carried heavy weapon");
 }
 
 class AckPriorityDesktop: public NUI::CDesktopWindow
@@ -4532,6 +4577,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "trap-icon-visibility")) { OverlayIconVisibility(true); return true; }
     if (!std::strcmp(mode, "enemy-icon-visibility")) { Require(argc == 4, "enemy icons require db and res"); EnemyIconVisibility(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "finished-music-silence")) { Require(argc == 3, "finished music requires db"); FinishedMusicSilence(argv[2]); return true; }
+    if (!std::strcmp(mode, "holstered-heavy-weapon-mesh")) { Require(argc == 4, "heavy mesh requires db and res"); HolsteredHeavyWeaponMesh(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "pain-voice-owner")) { Require(argc == 4, "pain voice requires db and res"); PainVoiceOwner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "unconscious-pain-voice")) { Require(argc == 4, "pain eligibility requires db and res"); PainVoiceOwner(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "world-ui-refresh-latch")) { Require(argc == 4, "world UI refresh requires db and res"); WorldUIRefreshLatch(argv[2], argv[3]); return true; }
