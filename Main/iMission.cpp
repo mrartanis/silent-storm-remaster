@@ -692,6 +692,13 @@ void CMission::GetActionInfo( EUnitAction eAction, SActionInfo *pInfo )
 {
 	*pInfo = actionsInfoSet[eAction];
 }
+bool CMission::CanPerformAction( EUnitAction eAction )
+{
+	SActionInfo sInfo;
+	GetActionInfo( eAction, &sInfo );
+	return sInfo.bAvailable;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMission::IsNetworkClient() const {return networkSession && !networkSession->IsHost();}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail CMission::CanDoCommand @0x1fbf10 (mission vtbl+0xa8): only CCmdEndOfTurn is gated -- a 2s
@@ -1921,7 +1928,7 @@ bool CMission::ProcessEvent( const NInput::SEvent &sEvent )
 		CommandState( new CStateMove( true ) );
 	else if ( bindRotate.ProcessEvent( sEvent ) )
 		CommandState( new CStateRotate() );
-	else if ( bindAttack.ProcessEvent( sEvent ) )
+	else if ( bindAttack.ProcessEvent( sEvent ) && CanPerformAction( UA_ATTACK ) )
 		CommandState( new CStateAttack( true ) );
 	else if ( bindSetMine.ProcessEvent( sEvent ) )
 		CommandState( new CStateSetMine() );

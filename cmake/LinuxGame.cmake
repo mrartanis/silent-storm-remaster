@@ -239,6 +239,7 @@ add_test(NAME UpstreamSoundMixerClockCatchUp COMMAND UpstreamBugTests sound-mixe
 add_test(NAME UpstreamHotseatOpponentVisibility COMMAND UpstreamBugTests hotseat-opponent-visibility)
 add_test(NAME UpstreamRestoredClueCloseNotification COMMAND UpstreamBugTests restored-clue-close-notification)
 add_test(NAME UpstreamScaledEditTextLayout COMMAND UpstreamBugTests scaled-edit-text-layout)
+add_test(NAME UpstreamUnavailableAttackShortcut COMMAND UpstreamBugTests unavailable-attack-shortcut)
 set_tests_properties(UpstreamScaledEditTextLayout PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")
 add_test(NAME UpstreamMissionSoundGameClock COMMAND UpstreamBugTests mission-sound-game-clock)
 set_tests_properties(UpstreamSoundMixerClockCatchUp PROPERTIES ENVIRONMENT "S2_AUDIO_HEADLESS=1")

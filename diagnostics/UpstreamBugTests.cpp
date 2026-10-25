@@ -7080,6 +7080,68 @@ static void ReloadActionWire(const char* databasePath, const char* resourcePath)
     Require(!world->IsAction(), "restored reload retained an action counter after completion");
 }
 
+class SharedShortcutMission: public NGame::CMission
+{
+    OBJECT_NOCOPY_METHODS(SharedShortcutMission);
+public:
+    CObj<NGame::IState> selectedState;
+    void Prepare() {
+        pCursor = NUI::ICursor::Create(false);
+        pInterface = new NUI::CInterface(pCursor);
+        desktopWindowsList.push_back(new NUI::CDesktopWindow(NUI::SWindowInfo(
+            pInterface,NUI::SPoint(0,0),NUI::SPoint(100,100),"shortcut-probe")));
+    }
+    bool IsReady() const override { return false; }
+    bool IsSequence() const override { return true; }
+    bool IsPlayerTurn() const override { return true; }
+    bool IsRealTime() const override { return true; }
+    bool CommandState(NGame::IState* state) override { selectedState = state; return true; }
+    void CacheActions(const vector<NGame::SActionInfo>& actions) {
+        auto copy = actions;
+        CMemoryStream fields;
+        { CStructureSaver writer(fields,CStructureSaver::WRITE); writer.Add(16,&copy); }
+        fields.Seek(0);
+        { CStructureSaver reader(fields,CStructureSaver::READ); CMission::operator&(reader); }
+    }
+};
+
+static NInput::SEvent SharedActionEvent(std::initializer_list<const char*> commands)
+{
+    NInput::SEvent event, part;
+    while (NInput::GetEvent(&part)) {}
+    for (const char* command: commands) {
+        NInput::PostEvent(command);
+        Require(NInput::GetEvent(&part) && !part.commands.empty(),
+            "shared-key fixture could not obtain its native binding command");
+        event.mMessage = part.mMessage;
+        event.commands.insert(event.commands.end(),part.commands.begin(),part.commands.end());
+    }
+    return event;
+}
+
+static void UnavailableAttackShortcut()
+{
+    CObj<SharedShortcutMission> mission = new SharedShortcutMission;
+    mission->Prepare();
+    vector<NGame::SActionInfo> actions(NGame::UA_MAXVALUE);
+    actions[NGame::UA_ATTACK].bValid = true;
+    actions[NGame::UA_ATTACK].bAvailable = true;
+    // Mode entry remains available even when a target or AP is still needed.
+    Require(!actions[NGame::UA_ATTACK].bOk, "shortcut control unexpectedly permits immediate execution");
+    mission->CacheActions(actions);
+    auto event = SharedActionEvent({"attack","setmine"});
+    mission->ProcessEvent(event);
+    Require(dynamic_cast<NGame::CStateAttack*>(mission->selectedState.GetPtr()),
+        "an available attack with no immediate execution target lost its shared-key priority");
+    actions[NGame::UA_ATTACK].bAvailable = false;
+    mission->CacheActions(actions);
+    mission->selectedState = nullptr;
+    mission->ProcessEvent(event);
+    Require(dynamic_cast<NGame::CStateSetMine*>(mission->selectedState.GetPtr()),
+        "an unavailable attack swallowed the shared shortcut instead of falling through to set-mine");
+    Require(!NMainLoop::HaveInterfaceCommand(), "selecting an action mode unexpectedly queued a game command");
+}
+
 class NativeActionInfoMission: public NGame::CMission
 {
     OBJECT_NOCOPY_METHODS(NativeActionInfoMission);
@@ -9803,6 +9865,7 @@ static void PKShellWorld(const char* databasePath, const char* resourcePath, boo
 
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "temporary-groups")) { TemporaryGroups(); return true; }
     if (!std::strcmp(mode, "scroll-initialization")) { ScrollInitialization(); return true; }
     if (!std::strcmp(mode, "attack-location")) { AttackLocationRefresh(); return true; }
