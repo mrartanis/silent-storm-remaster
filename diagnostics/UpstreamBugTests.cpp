@@ -2848,6 +2848,55 @@ public:
     bool IsEmptyPK() const override { return shell; }
 };
 
+static void NavigationColouringOccupancy()
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    network->CreateLayer(8, 8, VNULL2, 0.f, 0);
+    network->Freeze(true);
+    auto* layer = network->GetLayer(0);
+    for (int y = 0; y < 8; ++y)
+        for (int x = 0; x < 8; ++x) {
+            auto& tile = layer->tiles[y][x];
+            tile = NAI::STile{};
+            tile.nMoveStand = static_cast<char>(0xff);
+            tile.nPassable = NAI::CP_STAND;
+            tile.nFlags = NAI::TF_STAND_PASSABLE;
+        }
+    CObj<NAI::CMapColourer> control = new NAI::CMapColourer;
+    control->SetLayer(layer, nullptr, 0);
+    control->ConstructColouring(network);
+    Require(control->GetPointColor(3, 3) == control->GetPointColor(4, 3),
+        "occupancy-colouring fixture has no connected open floor");
+    CObj<LockerActor> actor = new LockerActor;
+    NAI::SPathPlace occupied(3, 3, 0);
+    occupied.SetPose(NAI::CM_STAND);
+    network->Lock(actor, occupied);
+    Require(network->IsLocked(occupied, true) && network->GetWhoLocksThisPlace(occupied) == actor.GetPtr(),
+        "occupancy-colouring fixture did not register a live actor footprint");
+    CObj<NAI::IAIJob> job = dynamic_cast<NAI::IAIJob*>(pSSClasses->CreateObject(0x00513131));
+    Require(IsValid(job), "native recolouring job class is not registered");
+    CObj<NAI::CLayersGroup> group = layer->pGroup;
+    CStructureNetworkContext references;
+    references.externalReferences = true;
+    references.ids[group.GetPtr()] = 1; references.refs[1] = group.GetPtr();
+    references.nextID = 100; references.include = [](CObjectBase*) { return false; };
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE, &references); writer.Add(3, &group); }
+    saved.Seek(0);
+    { CStructureSaver reader(saved, CStructureSaver::READ, &references);
+      static_cast<CObjectBase*>(job.GetPtr())->operator&(reader); }
+    job->DoJob();
+    auto* actual = network->GetColourer(0);
+    Require(actual->IsReady(), "native recolouring job did not build its layer cache");
+    Require(actual->GetPointColor(3, 3) == actual->GetPointColor(4, 3),
+        "navigation rebuild cached a standing actor's temporary footprint as disconnected scenery");
+    Require(network->IsLocked(occupied, true) && network->GetWhoLocksThisPlace(occupied) == actor.GetPtr()
+            && layer->tiles[3][3].nLocks == 1,
+        "navigation rebuild failed to restore the actor's original occupancy lock");
+    network->Unlock(actor);
+    Require(!network->IsLocked(occupied, true), "recolouring changed occupancy ownership or duplicated its lock");
+}
+
 class ReactionProbe: public NAI::CAIReaction
 {
     OBJECT_NOCOPY_METHODS(ReactionProbe);
@@ -3738,6 +3787,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "nearest-empty")) EmptyNearestPosition();
         else if (!std::strcmp(mode, "fresh-navigation-colouring")) FreshNavigationColouring();
         else if (!std::strcmp(mode, "fresh-navigation-transitions")) FreshNavigationTransitions();
+        else if (!std::strcmp(mode, "navigation-colouring-occupancy")) NavigationColouringOccupancy();
         else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();
         else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();
         else if (!std::strcmp(mode, "sniper-targetless-probe") && argc == 4) SniperHeldAim(argv[2], argv[3], true);

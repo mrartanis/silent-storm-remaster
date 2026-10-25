@@ -101,7 +101,11 @@ void CRecountColourerJob::DoJob()
 	DebugTrace( "Recolour job: layer %d in group, ", nCurrentLayer-1 );
 	if ( !bAllColoured )
 	{
+		// Retail v1.2 0x488e2a: scenery connectivity excludes temporary unit occupancy.
+		list<CObjectBase*> empty;
+		pGroup->pNet->LockSelected( empty );
 		pC->RecalcColouring( pGroup->pNet, nL );
+		pGroup->pNet->UnlockSelected();
 		DebugTrace("Recolour job half-complete\n" );
 	}
 	else

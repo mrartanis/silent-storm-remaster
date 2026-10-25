@@ -819,6 +819,7 @@ add_test(NAME UpstreamRagdollRestoration COMMAND UpstreamBugTests ragdoll-restor
 add_test(NAME UpstreamNearestEmpty COMMAND UpstreamBugTests nearest-empty)
 add_test(NAME UpstreamFreshNavigationColouring COMMAND UpstreamBugTests fresh-navigation-colouring)
 add_test(NAME UpstreamFreshNavigationTransitions COMMAND UpstreamBugTests fresh-navigation-transitions)
+add_test(NAME UpstreamNavigationColouringOccupancy COMMAND UpstreamBugTests navigation-colouring-occupancy)
 add_test(NAME UpstreamSmartAimerBoundary COMMAND UpstreamBugTests smart-aimer-boundary)
 add_test(NAME UpstreamLuaEmptyDefault COMMAND UpstreamBugTests lua-empty-default)
 add_test(NAME UpstreamNearestInvalid COMMAND UpstreamBugTests nearest-invalid)
