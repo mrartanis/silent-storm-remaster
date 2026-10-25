@@ -3929,133 +3929,138 @@ static void PKShellWorld(const char* databasePath, const char* resourcePath, boo
         "restoring the shell treated its dead pilot as an obstacle and relocated it");
 }
 
+static bool RunRegressionMode(const char* mode, int argc, char** argv)
+{
+    if (!std::strcmp(mode, "temporary-groups")) { TemporaryGroups(); return true; }
+    if (!std::strcmp(mode, "scroll-initialization")) { ScrollInitialization(); return true; }
+    if (!std::strcmp(mode, "attack-location")) { AttackLocationRefresh(); return true; }
+    if (!std::strcmp(mode, "bind-initialization")) { BindInitialization(); return true; }
+    if (!std::strcmp(mode, "flying-restoration")) { FlyingRestoration(); return true; }
+    if (!std::strcmp(mode, "sniping-aim")) { SnipingAim(); return true; }
+    if (!std::strcmp(mode, "decal-rebuild")) { DecalRebuild(); return true; }
+    if (!std::strcmp(mode, "decal-projection")) { DecalProjection(); return true; }
+    if (!std::strcmp(mode, "partial-reference-import") && argc == 3) { PartialReferenceImport(argv[2]); return true; }
+    if (!std::strcmp(mode, "permanent-clue-single-map")) { PermanentClueSingleMap(); return true; }
+    if (!std::strcmp(mode, "deferred-click-world")) { DeferredClickWorld(); return true; }
+    if (!std::strcmp(mode, "point-light-without-scene")) { PointLightWithoutScene(); return true; }
+    if (!std::strcmp(mode, "dynamic-ambient-fallback")) { DynamicAmbientFallback(); return true; }
+    if (!std::strcmp(mode, "inventory-without-uniform")) { InventoryWithoutUniform(); return true; }
+    if (!std::strcmp(mode, "corpse-backpack-drop") && argc == 4) { CorpseBackpackDrop(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "point-light-save-layout")) { PointLightSaveLayout(); return true; }
+    if (!std::strcmp(mode, "legacy-point-light-save-layout")) { PointLightSaveLayout(true); return true; }
+    if (!std::strcmp(mode, "point-light-shadow-flag")) { PointLightShadowFlag(); return true; }
+    if (!std::strcmp(mode, "global-point-light-shadow-flag")) { GlobalPointLightShadowFlag(); return true; }
+    if (!std::strcmp(mode, "point-light-radiance")) { PointLightRadiance(); return true; }
+    if (!std::strcmp(mode, "tiny-point-light-cache")) { TinyPointLightCache(); return true; }
+    if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
+    if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }
+    if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) { AIReactionValueLatch(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "script-ai-activation") && argc == 4) { ScriptAIActivation(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "ai-event-collection-locks") && argc == 4) { AIEventCollectionLocks(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "dialogue-camera-filter")) { CinematicCameraCommands(0); return true; }
+    if (!std::strcmp(mode, "movie-camera-filter")) { CinematicCameraCommands(1); return true; }
+    if (!std::strcmp(mode, "fade-camera-filter")) { CinematicCameraCommands(2); return true; }
+    if (!std::strcmp(mode, "completed-zone-recommendation")) { CompletedZoneRecommendation(); return true; }
+    if (!std::strcmp(mode, "perk-tooltip-parameters")) { PerkTooltipParameters(); return true; }
+    if (!std::strcmp(mode, "mechanical-step-sound")) { MechanicalStepSound(); return true; }
+    if (!std::strcmp(mode, "nearest-invalid")) { InvalidNearestPosition(); return true; }
+    if (!std::strcmp(mode, "lua-empty-default")) { EmptyLuaDefault(); return true; }
+    if (!std::strcmp(mode, "smart-aimer-boundary")) { SmartAimerBoundary(); return true; }
+    if (!std::strcmp(mode, "nearest-empty")) { EmptyNearestPosition(); return true; }
+    if (!std::strcmp(mode, "fresh-navigation-colouring")) { FreshNavigationColouring(); return true; }
+    if (!std::strcmp(mode, "fresh-navigation-transitions")) { FreshNavigationTransitions(); return true; }
+    if (!std::strcmp(mode, "navigation-colouring-occupancy")) { NavigationColouringOccupancy(); return true; }
+    if (!std::strcmp(mode, "missing-navigation-colourer")) { NavigationColouringOccupancy(1); return true; }
+    if (!std::strcmp(mode, "stale-navigation-colourer")) { NavigationColouringOccupancy(2); return true; }
+    if (!std::strcmp(mode, "ragdoll-restoration")) { RagdollRestoration(); return true; }
+    if (!std::strcmp(mode, "negative-mesh-bounds")) { NegativeMeshBounds(); return true; }
+    if (!std::strcmp(mode, "sniper-targetless-probe") && argc == 4) { SniperHeldAim(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "sniper-held-aim") && argc == 4) { SniperHeldAim(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "person-clue-creation") && argc == 4) { PersonClueCreation(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "melee-attack-cursor") && argc == 4) { MeleeAttackCursor(argv[2]); return true; }
+    if (!std::strcmp(mode, "blocked-attack-caption") && argc == 4) { AttackCaptionWithoutHitChance(argv[2], false); return true; }
+    if (!std::strcmp(mode, "reload-attack-caption") && argc == 4) { AttackCaptionWithoutHitChance(argv[2], true); return true; }
+    if (!std::strcmp(mode, "exact-attack-preview-target") && argc == 4) { ExactAttackPreviewTarget(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "equal-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], false); return true; }
+    if (!std::strcmp(mode, "mixed-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "missing-attack-target-caption") && argc == 4) { AttackCaptionWithoutHitChance(argv[2], false, true); return true; }
+    if (!std::strcmp(mode, "restore-action-state") && argc == 4) { RestoreActionState(argv[2], argv[3], false); return true; }
+    if (!std::strcmp(mode, "zone-reentry-action-state") && argc == 4) { RestoreActionState(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "restore-building-hulls") && argc == 4) { RestoreBuildingHulls(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "carried-corpse-stability") && argc == 4) { CarriedCorpseStability(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "replacement-person-inventory-clue") && argc == 4) { PersonClueCreation(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "inventory-clue-creation") && argc == 4) { InventoryClueCreation(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "inventory-clue-count") && argc == 4) { InventoryClueCreation(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "inventory-clue-capacity") && argc == 4) { InventoryClueCreation(argv[2], argv[3], true, true); return true; }
+    if (!std::strcmp(mode, "corpse-snap-failure") && argc == 4) { FailedCorpseSnap(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "movement-critical-probe") && argc == 4) { MovementCriticalProbe(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "latest-route-command") && argc == 4) { LatestRouteCommand(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "oversized-dialogue-line") && argc == 4) { OversizedDialogueLine(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "markup-dialogue-progress") && argc == 4) { OversizedDialogueLine(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "dialogue-normal-pagination") && argc == 4) { OversizedDialogueLine(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "movement-first-step-cancel") && argc == 4) { MovementCallbackCancellation(argv[2], argv[3], 1); return true; }
+    if (!std::strcmp(mode, "movement-next-step-cancel") && argc == 4) { MovementCallbackCancellation(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "movement-first-step-release") && argc == 4) { MovementCallbackCancellation(argv[2], argv[3], 1, true); return true; }
+    if (!std::strcmp(mode, "movement-next-step-release") && argc == 4) { MovementCallbackCancellation(argv[2], argv[3], 2, true); return true; }
+    if (!std::strcmp(mode, "hide-cooldown") && argc == 4) { HideCooldown(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "ai-idle") && argc == 4) { IdleAI(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "mixed-hide-button") && argc == 4) { MixedActionButton(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "mixed-strafe-button") && argc == 4) { MixedActionButton(argv[2], argv[3], false); return true; }
+    if (!std::strcmp(mode, "mounted-mode-button") && argc == 4) { EffectiveWeaponMode(argv[2], argv[3], 3); return true; }
+    if (!std::strcmp(mode, "mounted-weapon-submenu") && argc == 4) { EffectiveWeaponMode(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "mounted-weapon-mode-ui") && argc == 4) { EffectiveWeaponMode(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "effective-weapon-mode") && argc == 4) { EffectiveWeaponMode(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "render-removal")) { RenderRemoval(); return true; }
+    if (!std::strcmp(mode, "render-pass-compaction")) { RenderPassCompaction(); return true; }
+    if (!std::strcmp(mode, "state-lifetime")) { ReentrantStateLifetime(); return true; }
+    if (!std::strcmp(mode, "mounted-mode-command")) { MountedModeCommand(); return true; }
+    if (!std::strcmp(mode, "invalid-ai-weapon")) { InvalidAIWeapon(); return true; }
+    if (!std::strcmp(mode, "stale-cannon-selection")) { StaleWeaponReferences(0); return true; }
+    if (!std::strcmp(mode, "stale-firearm-type")) { StaleWeaponReferences(1); return true; }
+    if (!std::strcmp(mode, "stale-melee-type")) { StaleWeaponReferences(2); return true; }
+    if (!std::strcmp(mode, "stale-ai-reaction")) { StaleAIReaction(); return true; }
+    if (!std::strcmp(mode, "overlapping-unit-locks")) { OverlappingUnitLocks(); return true; }
+    if (!std::strcmp(mode, "invalid-unit-locks")) { InvalidUnitLocks(); return true; }
+    if (!std::strcmp(mode, "dead-unit-locks-single") && argc == 4) { DeadUnitLocks(argv[2], argv[3], 0); return true; }
+    if (!std::strcmp(mode, "dead-unit-locks-moving") && argc == 4) { DeadUnitLocks(argv[2], argv[3], 1); return true; }
+    if (!std::strcmp(mode, "dead-unit-locks-selection") && argc == 4) { DeadUnitLocks(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "queue-lifetime")) { ReentrantQueueLifetime(false); return true; }
+    if (!std::strcmp(mode, "queue-animation-lifetime")) { ReentrantQueueLifetime(true); return true; }
+    if (!std::strcmp(mode, "pk-leave")) { ScriptPK(true); return true; }
+    if (!std::strcmp(mode, "pk-wear")) { ScriptPK(false); return true; }
+    if (!std::strcmp(mode, "pk-equipment")) { PKEquipmentTransfer(); return true; }
+    if (!std::strcmp(mode, "pk-fixed-weapon")) { PKFixedWeaponPolicy(); return true; }
+    if (!std::strcmp(mode, "door-collision")) { DoorCollision(); return true; }
+    if (!std::strcmp(mode, "overlapping-doors")) { OverlappingDoors(); return true; }
+    if (!std::strcmp(mode, "weapon-familiarity")) { WeaponFamiliarity(); return true; }
+    if (!std::strcmp(mode, "clue-slots")) { ClueSlotSelection(); return true; }
+    if (!std::strcmp(mode, "conclusions") && argc == 4) { ConclusionRouting(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "pk-placement")) { PKPlacement(); return true; }
+    if (!std::strcmp(mode, "critical-ids") && argc == 3) { CriticalIDs(argv[2]); return true; }
+    if (!std::strcmp(mode, "idle-blocker") && argc == 4) { IdlePathBlocker(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "hidden-portrait")) { HiddenPortraitAck(); return true; }
+    if (!std::strcmp(mode, "clue-initialization")) { ClueInitialization(); return true; }
+    if (!std::strcmp(mode, "store-drop")) { StoreDropPosition(); return true; }
+    if (!std::strcmp(mode, "inventory-actor")) { InventoryTransferActor(true); return true; }
+    if (!std::strcmp(mode, "slot-actor")) { InventoryTransferActor(false); return true; }
+    if (!std::strcmp(mode, "geometry-hash")) { GeometryHashBuckets(); return true; }
+    if (!std::strcmp(mode, "clue-notification") && argc == 4) { ImmediateClueNotification(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "clue-pickup") && argc == 4) { ImmediateCluePickup(argv[2], argv[3], false); return true; }
+    if (!std::strcmp(mode, "clue-capacity") && argc == 4) { ImmediateCluePickup(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "dead-pilot") && argc == 4) { PKShellWorld(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "pk-waypoint") && argc == 4) { PKShellWorld(argv[2], argv[3], false); return true; }
+    if (!std::strcmp(mode, "pk-critical-feedback") && argc == 4) { PKShellWorld(argv[2], argv[3], false, false, 1); return true; }
+    if (!std::strcmp(mode, "pk-pose-feedback") && argc == 4) { PKShellWorld(argv[2], argv[3], false, false, 2); return true; }
+    if (!std::strcmp(mode, "pk-turn-animation") && argc == 4) { PKShellWorld(argv[2], argv[3], false, false, 3); return true; }
+    if (!std::strcmp(mode, "pk-model-ownership") && argc == 4) { PKShellWorld(argv[2], argv[3], false, true); return true; }
+    return false;
+}
+
 int main(int argc, char** argv)
 {
     try {
         const char* mode = argc > 1 ? argv[1] : "temporary-groups";
-        if (!std::strcmp(mode, "temporary-groups")) TemporaryGroups();
-        else if (!std::strcmp(mode, "scroll-initialization")) ScrollInitialization();
-        else if (!std::strcmp(mode, "attack-location")) AttackLocationRefresh();
-        else if (!std::strcmp(mode, "bind-initialization")) BindInitialization();
-        else if (!std::strcmp(mode, "flying-restoration")) FlyingRestoration();
-        else if (!std::strcmp(mode, "sniping-aim")) SnipingAim();
-        else if (!std::strcmp(mode, "decal-rebuild")) DecalRebuild();
-        else if (!std::strcmp(mode, "decal-projection")) DecalProjection();
-        else if (!std::strcmp(mode, "partial-reference-import") && argc == 3) PartialReferenceImport(argv[2]);
-        else if (!std::strcmp(mode, "permanent-clue-single-map")) PermanentClueSingleMap();
-        else if (!std::strcmp(mode, "deferred-click-world")) DeferredClickWorld();
-        else if (!std::strcmp(mode, "point-light-without-scene")) PointLightWithoutScene();
-        else if (!std::strcmp(mode, "dynamic-ambient-fallback")) DynamicAmbientFallback();
-        else if (!std::strcmp(mode, "inventory-without-uniform")) InventoryWithoutUniform();
-        else if (!std::strcmp(mode, "corpse-backpack-drop") && argc == 4) CorpseBackpackDrop(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "point-light-save-layout")) PointLightSaveLayout();
-        else if (!std::strcmp(mode, "legacy-point-light-save-layout")) PointLightSaveLayout(true);
-        else if (!std::strcmp(mode, "point-light-shadow-flag")) PointLightShadowFlag();
-        else if (!std::strcmp(mode, "global-point-light-shadow-flag")) GlobalPointLightShadowFlag();
-        else if (!std::strcmp(mode, "point-light-radiance")) PointLightRadiance();
-        else if (!std::strcmp(mode, "tiny-point-light-cache")) TinyPointLightCache();
-        else if (!std::strcmp(mode, "console-visibility-toggle")) ConsoleVisibilityToggle();
-        else if (!std::strcmp(mode, "ai-reaction-reset-contacts")) AIReactionResetContacts();
-        else if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) AIReactionValueLatch(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "script-ai-activation") && argc == 4) ScriptAIActivation(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "ai-event-collection-locks") && argc == 4) AIEventCollectionLocks(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "dialogue-camera-filter")) CinematicCameraCommands(0);
-        else if (!std::strcmp(mode, "movie-camera-filter")) CinematicCameraCommands(1);
-        else if (!std::strcmp(mode, "fade-camera-filter")) CinematicCameraCommands(2);
-        else if (!std::strcmp(mode, "completed-zone-recommendation")) CompletedZoneRecommendation();
-        else if (!std::strcmp(mode, "perk-tooltip-parameters")) PerkTooltipParameters();
-        else if (!std::strcmp(mode, "mechanical-step-sound")) MechanicalStepSound();
-        else if (!std::strcmp(mode, "nearest-invalid")) InvalidNearestPosition();
-        else if (!std::strcmp(mode, "lua-empty-default")) EmptyLuaDefault();
-        else if (!std::strcmp(mode, "smart-aimer-boundary")) SmartAimerBoundary();
-        else if (!std::strcmp(mode, "nearest-empty")) EmptyNearestPosition();
-        else if (!std::strcmp(mode, "fresh-navigation-colouring")) FreshNavigationColouring();
-        else if (!std::strcmp(mode, "fresh-navigation-transitions")) FreshNavigationTransitions();
-        else if (!std::strcmp(mode, "navigation-colouring-occupancy")) NavigationColouringOccupancy();
-        else if (!std::strcmp(mode, "missing-navigation-colourer")) NavigationColouringOccupancy(1);
-        else if (!std::strcmp(mode, "stale-navigation-colourer")) NavigationColouringOccupancy(2);
-        else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();
-        else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();
-        else if (!std::strcmp(mode, "sniper-targetless-probe") && argc == 4) SniperHeldAim(argv[2], argv[3], true);
-        else if (!std::strcmp(mode, "sniper-held-aim") && argc == 4) SniperHeldAim(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "person-clue-creation") && argc == 4) PersonClueCreation(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "melee-attack-cursor") && argc == 4) MeleeAttackCursor(argv[2]);
-        else if (!std::strcmp(mode, "blocked-attack-caption") && argc == 4) AttackCaptionWithoutHitChance(argv[2], false);
-        else if (!std::strcmp(mode, "reload-attack-caption") && argc == 4) AttackCaptionWithoutHitChance(argv[2], true);
-        else if (!std::strcmp(mode, "exact-attack-preview-target") && argc == 4) ExactAttackPreviewTarget(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "equal-group-attack-caption") && argc == 4) GroupAttackPreview(argv[2], argv[3], false);
-        else if (!std::strcmp(mode, "mixed-group-attack-caption") && argc == 4) GroupAttackPreview(argv[2], argv[3], true);
-        else if (!std::strcmp(mode, "missing-attack-target-caption") && argc == 4) AttackCaptionWithoutHitChance(argv[2], false, true);
-        else if (!std::strcmp(mode, "restore-action-state") && argc == 4) RestoreActionState(argv[2], argv[3], false);
-        else if (!std::strcmp(mode, "zone-reentry-action-state") && argc == 4) RestoreActionState(argv[2], argv[3], true);
-        else if (!std::strcmp(mode, "restore-building-hulls") && argc == 4) RestoreBuildingHulls(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "carried-corpse-stability") && argc == 4) CarriedCorpseStability(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "replacement-person-inventory-clue") && argc == 4) PersonClueCreation(argv[2], argv[3], true);
-        else if (!std::strcmp(mode, "inventory-clue-creation") && argc == 4) InventoryClueCreation(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "inventory-clue-count") && argc == 4) InventoryClueCreation(argv[2], argv[3], true);
-        else if (!std::strcmp(mode, "inventory-clue-capacity") && argc == 4) InventoryClueCreation(argv[2], argv[3], true, true);
-        else if (!std::strcmp(mode, "corpse-snap-failure") && argc == 4) FailedCorpseSnap(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "movement-critical-probe") && argc == 4) MovementCriticalProbe(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "latest-route-command") && argc == 4) LatestRouteCommand(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "oversized-dialogue-line") && argc == 4) OversizedDialogueLine(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "markup-dialogue-progress") && argc == 4) OversizedDialogueLine(argv[2], argv[3], true);
-        else if (!std::strcmp(mode, "dialogue-normal-pagination") && argc == 4) OversizedDialogueLine(argv[2], argv[3], 2);
-        else if (!std::strcmp(mode, "movement-first-step-cancel") && argc == 4) MovementCallbackCancellation(argv[2], argv[3], 1);
-        else if (!std::strcmp(mode, "movement-next-step-cancel") && argc == 4) MovementCallbackCancellation(argv[2], argv[3], 2);
-        else if (!std::strcmp(mode, "movement-first-step-release") && argc == 4) MovementCallbackCancellation(argv[2], argv[3], 1, true);
-        else if (!std::strcmp(mode, "movement-next-step-release") && argc == 4) MovementCallbackCancellation(argv[2], argv[3], 2, true);
-        else if (!std::strcmp(mode, "hide-cooldown") && argc == 4) HideCooldown(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "mixed-hide-button") && argc == 4) MixedActionButton(argv[2], argv[3], true);
-        else if (!std::strcmp(mode, "mixed-strafe-button") && argc == 4) MixedActionButton(argv[2], argv[3], false);
-        else if (!std::strcmp(mode, "mounted-mode-button") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], 3);
-        else if (!std::strcmp(mode, "mounted-weapon-submenu") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], 2);
-        else if (!std::strcmp(mode, "mounted-weapon-mode-ui") && argc == 4) EffectiveWeaponMode(argv[2], argv[3], true);
-        else if (!std::strcmp(mode, "effective-weapon-mode") && argc == 4) EffectiveWeaponMode(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "render-removal")) RenderRemoval();
-        else if (!std::strcmp(mode, "render-pass-compaction")) RenderPassCompaction();
-        else if (!std::strcmp(mode, "state-lifetime")) ReentrantStateLifetime();
-        else if (!std::strcmp(mode, "mounted-mode-command")) MountedModeCommand();
-        else if (!std::strcmp(mode, "invalid-ai-weapon")) InvalidAIWeapon();
-        else if (!std::strcmp(mode, "stale-cannon-selection")) StaleWeaponReferences(0);
-        else if (!std::strcmp(mode, "stale-firearm-type")) StaleWeaponReferences(1);
-        else if (!std::strcmp(mode, "stale-melee-type")) StaleWeaponReferences(2);
-        else if (!std::strcmp(mode, "stale-ai-reaction")) StaleAIReaction();
-        else if (!std::strcmp(mode, "overlapping-unit-locks")) OverlappingUnitLocks();
-        else if (!std::strcmp(mode, "invalid-unit-locks")) InvalidUnitLocks();
-        else if (!std::strcmp(mode, "dead-unit-locks-single") && argc == 4) DeadUnitLocks(argv[2], argv[3], 0);
-        else if (!std::strcmp(mode, "dead-unit-locks-moving") && argc == 4) DeadUnitLocks(argv[2], argv[3], 1);
-        else if (!std::strcmp(mode, "dead-unit-locks-selection") && argc == 4) DeadUnitLocks(argv[2], argv[3], 2);
-        else if (!std::strcmp(mode, "queue-lifetime")) ReentrantQueueLifetime(false);
-        else if (!std::strcmp(mode, "queue-animation-lifetime")) ReentrantQueueLifetime(true);
-        else if (!std::strcmp(mode, "pk-leave")) ScriptPK(true);
-        else if (!std::strcmp(mode, "pk-wear")) ScriptPK(false);
-        else if (!std::strcmp(mode, "pk-equipment")) PKEquipmentTransfer();
-        else if (!std::strcmp(mode, "pk-fixed-weapon")) PKFixedWeaponPolicy();
-        else if (!std::strcmp(mode, "door-collision")) DoorCollision();
-        else if (!std::strcmp(mode, "overlapping-doors")) OverlappingDoors();
-        else if (!std::strcmp(mode, "weapon-familiarity")) WeaponFamiliarity();
-        else if (!std::strcmp(mode, "clue-slots")) ClueSlotSelection();
-        else if (!std::strcmp(mode, "conclusions") && argc == 4) ConclusionRouting(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "pk-placement")) PKPlacement();
-        else if (!std::strcmp(mode, "critical-ids") && argc == 3) CriticalIDs(argv[2]);
-        else if (!std::strcmp(mode, "idle-blocker") && argc == 4) IdlePathBlocker(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "hidden-portrait")) HiddenPortraitAck();
-        else if (!std::strcmp(mode, "clue-initialization")) ClueInitialization();
-        else if (!std::strcmp(mode, "store-drop")) StoreDropPosition();
-        else if (!std::strcmp(mode, "inventory-actor")) InventoryTransferActor(true);
-        else if (!std::strcmp(mode, "slot-actor")) InventoryTransferActor(false);
-        else if (!std::strcmp(mode, "geometry-hash")) GeometryHashBuckets();
-        else if (!std::strcmp(mode, "clue-notification") && argc == 4) ImmediateClueNotification(argv[2], argv[3]);
-        else if (!std::strcmp(mode, "clue-pickup") && argc == 4) ImmediateCluePickup(argv[2], argv[3], false);
-        else if (!std::strcmp(mode, "clue-capacity") && argc == 4) ImmediateCluePickup(argv[2], argv[3], true);
-        else if (!std::strcmp(mode, "dead-pilot") && argc == 4) PKShellWorld(argv[2], argv[3], true);
-        else if (!std::strcmp(mode, "pk-waypoint") && argc == 4) PKShellWorld(argv[2], argv[3], false);
-        else if (!std::strcmp(mode, "pk-critical-feedback") && argc == 4) PKShellWorld(argv[2], argv[3], false, false, 1);
-        else if (!std::strcmp(mode, "pk-pose-feedback") && argc == 4) PKShellWorld(argv[2], argv[3], false, false, 2);
-        else if (!std::strcmp(mode, "pk-turn-animation") && argc == 4) PKShellWorld(argv[2], argv[3], false, false, 3);
-        else if (!std::strcmp(mode, "pk-model-ownership") && argc == 4) PKShellWorld(argv[2], argv[3], false, true);
-        else throw std::runtime_error("unknown upstream regression mode");
+        if (!RunRegressionMode(mode, argc, argv)) throw std::runtime_error("unknown upstream regression mode");
         std::printf("PASS: %s\n", mode);
         return 0;
     } catch (const std::exception& error) {
