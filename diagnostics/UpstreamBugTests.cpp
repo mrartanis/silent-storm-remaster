@@ -3052,6 +3052,39 @@ static void MovementTerminalCompletion(const char* databasePath, const char* res
     throw std::runtime_error("terminal-movement fixture never reached the last end command");
 }
 
+static void MovementActionCamera(const char* databasePath, const char* resourcePath)
+{
+    auto fixture = MakeNativeMovementFixture(databasePath, resourcePath);
+    while (auto* pending = fixture.world->GetUICommand()) { CObj<NWorld::CUICmd> release = pending; }
+    CObj<NWorld::CCommandExecute> move = NWorld::CreateSimpleMoveExecutor(fixture.actor, fixture.path, NAI::PF_DEFAULT);
+    Require(IsValid(move), "movement camera fixture could not create its native mover");
+    const auto initial = fixture.actor->GetPosition().pos.p;
+    auto stepped = [&]() {
+        const auto current = fixture.actor->GetPosition().pos.p;
+        return current.GetX() != initial.GetX() || current.GetY() != initial.GetY() || current.GetLayer() != initial.GetLayer();
+    };
+    move->Run();
+    for (int frame = 0; frame < 32 && !stepped() && move->GetState() == NWorld::CCommandExecute::RUNNING; ++frame)
+        move->AnimationFinished();
+    Require(stepped(), "movement camera fixture did not begin its physical move");
+    auto snapshot = ReadMovementCommands(move);
+    Require(IsValid(snapshot.current) && !snapshot.queued.empty()
+            && pSSClasses->GetObjectTypeID(snapshot.current.GetPtr()) == int(0x02731142),
+        "movement camera fixture did not prepare its next moving step");
+    int cameras = 0;
+    while (auto* pending = fixture.world->GetUICommand()) {
+        CObj<NWorld::CUICmd> command = pending;
+        auto* camera = dynamic_cast<NWorld::CUICmdUnitCamera*>(command.GetPtr());
+        if (!camera || camera->pUnit != fixture.actor.GetPtr() || camera->GetPriority() != NWorld::PR_UNIT_ACTION) continue;
+        ++cameras;
+        Require(!camera->bUseSloMo && camera->fSloMoIncrProbability == 1.f && camera->pUnitTarget == nullptr,
+            "movement camera notification changed its original framing parameters");
+    }
+    dynamic_cast<NWorld::IExecMove*>(move.GetPtr())->FullCancel(); move = nullptr;
+    Require(cameras > 0, "native movement did not notify the automatic camera when preparing its next step");
+    Require(!fixture.world->IsAction(), "movement camera fixture retained a cancelled action");
+}
+
 static void HideCooldown(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -4912,6 +4945,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-first-step-wait")) { Require(argc == 4, "movement wait requires db and res"); MovementFirstStepWaitTimer(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "movement-terminal-finished")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "movement-terminal-failed")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "movement-action-camera")) { Require(argc == 4, "movement camera requires db and res"); MovementActionCamera(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "pain-voice-owner")) { Require(argc == 4, "pain voice requires db and res"); PainVoiceOwner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "unconscious-pain-voice")) { Require(argc == 4, "pain eligibility requires db and res"); PainVoiceOwner(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "world-ui-refresh-latch")) { Require(argc == 4, "world UI refresh requires db and res"); WorldUIRefreshLatch(argv[2], argv[3]); return true; }

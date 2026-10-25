@@ -589,6 +589,7 @@ void CExecMove::DoCommand()
 			}
 			else
 			{
+				pUS->GetWorld()->AddUICommand( new CUICmdUnitCamera( pUS, PR_UNIT_ACTION, false, 1.0f, 0 ) );
 				animator.Move( prevPos, pPrevMove->pos, pNextMove->pos, pPrevMove->bInterGrid );
 				// lock next tile on the way
 				pUS->LockNextPlace( pNextMove->pos );

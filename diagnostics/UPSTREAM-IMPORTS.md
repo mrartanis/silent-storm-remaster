@@ -111,6 +111,7 @@
 | [b6b20e29](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b6b20e291ccdaeb82e5a67baf75df99f236b7c0b) — Clear scripted holstering when an explicit weapon activation begins | `explicit equipment activation retained the scripted holster flag` | 141/141; `explicit-holster-reset` | `Upstream-Commit` в commit message |
 | [e5830013](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e583001380393e1e1034c33791f41c69b659f4ad) — Reset the previous wait timer when a movement step starts | `starting a new physical movement step retained the previous wait timer` | 142/142; `movement-first-step-wait` | `Upstream-Commit` в commit message |
 | [e5830013](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e583001380393e1e1034c33791f41c69b659f4ad) — Latch one-step movement completion when its final end command starts | `single-step end-move command did not latch the mover completion result` | 144/144; `movement-terminal-completion` | `Upstream-Commit` в commit message |
+| [e5830013](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e583001380393e1e1034c33791f41c69b659f4ad) — Notify the automatic camera when preparing the next movement step | `native movement did not notify the automatic camera when preparing its next step` | 145/145; `movement-action-camera` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -277,3 +278,14 @@ Windows `ALL_BUILD` и Linux `Game` собраны с отключенной г�
 Один текущий каталог сборки на платформу переиспользован; временный маленький
 патч, использованный для отдельного коммита `/bigobj`, возвращен и удален.
 Остальные upstream источники и итоговый запуск GitHub Actions остаются в работе.
+
+### Контроль после завершения частей `e5830013`
+
+Windows/Linux профильная группа — 145/145; Windows `ALL_BUILD` и Linux `Game`
+собраны. Расширенный Windows набор — 203/203, настоящая стрельба и
+сохранение/загрузка — 4/4. Логи `checkpoint-145-all-build.log`,
+`checkpoint-145-ci-test.log`, `checkpoint-145-shots-test.log`,
+`movement-camera-linux-test.log`. Параметры автоматической камеры проверены
+на настоящем UI-пакете. Состояние последней команды проверено именно в
+одношаговой ветке upstream; более длинная ветка сохранена.
+Общий покоммитный перенос и итоговый GitHub Actions еще не завершены.
