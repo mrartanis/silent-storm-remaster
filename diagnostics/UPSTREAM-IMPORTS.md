@@ -133,6 +133,7 @@
 | [d4de53d5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d4de53d5eef8444a372b7dbe582f8dbff2754b49) — Wake sleeping UI ancestors when inserting a descendant | `new active descendant did not wake all sleeping ancestor windows` | 167/167; `window-nested-wakeup` | `Upstream-Commit` в commit message |
 | [fd6e670e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fd6e670eb20104ae2d7da195170af9adbdd5a6c2) — Resolve a source actor for ownerless inventory drags | `ownerless inventory drag did not use the first selected unit` | 168/168; `ownerless-inventory-drag` | `Upstream-Commit` в commit message |
 | [a3051bb1](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a3051bb1bd1a24c5901d7094b3d913426993a6ff) — Resolve loaded empty navigation slots through matching support surfaces | `loaded empty navigation slot did not resolve its real supporting surface floor` | 169/169; `unsupported-navigation-floor` | `Upstream-Commit` в commit message |
+| [a3051bb1](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a3051bb1bd1a24c5901d7094b3d913426993a6ff) — Reject unsupported height-field slots during navigation baking | `native navigation bake generated passable tiles without supporting surfaces` | 170/170; `unsupported-navigation-bake` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

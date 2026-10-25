@@ -2315,6 +2315,27 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     return world;
 }
 
+static void UnsupportedNavigationBake(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath);
+    auto* network = dynamic_cast<NAI::CPathNetwork*>(world->GetPathNetwork());
+    Require(network != nullptr, "navigation bake fixture did not construct the native path network");
+    int passable = 0, unsupported = 0;
+    for (const auto& layer: network->GetLayers()) {
+        for (int y = 0; y < layer->tiles.GetYSize(); ++y) {
+            for (int x = 0; x < layer->tiles.GetXSize(); ++x) {
+                const auto& tile = layer->tiles[y][x];
+                if (tile.nPassable == 0) continue;
+                ++passable;
+                if (tile.nFloor == 100) ++unsupported;
+            }
+        }
+    }
+    std::printf("Navigation bake: %d passable tiles, %d unsupported tiles\n", passable, unsupported);
+    Require(passable > 0, "navigation bake fixture did not generate playable surfaces");
+    Require(unsupported == 0, "native navigation bake generated passable tiles without supporting surfaces");
+}
+
 static bool SavedWorldUIRefresh(NWorld::CWorld* world)
 {
     CMemoryStream saved;
@@ -6137,6 +6158,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "fresh-navigation-colouring")) { FreshNavigationColouring(); return true; }
     if (!std::strcmp(mode, "fresh-navigation-transitions")) { FreshNavigationTransitions(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
+    if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "navigation-colouring-occupancy")) { NavigationColouringOccupancy(); return true; }
     if (!std::strcmp(mode, "missing-navigation-colourer")) { NavigationColouringOccupancy(1); return true; }
     if (!std::strcmp(mode, "stale-navigation-colourer")) { NavigationColouringOccupancy(2); return true; }
