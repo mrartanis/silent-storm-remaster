@@ -33,6 +33,7 @@ inline bool SetMode(int width, int height, bool fullscreen) {
   return SetMode(width,height,fullscreen?WindowMode::Fullscreen:WindowMode::Windowed);
 }
 void CursorPosition(float* x, float* y);
+void SetCursorPosition(float x, float y); // drawable pixels; active native cursors only
 void CaptureMouse(bool capture);
 void UseNativeCursor(bool enabled);
 bool NativeCursorEnabled();

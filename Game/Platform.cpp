@@ -285,6 +285,13 @@ void S2Platform::CursorPosition(float* x, float* y) {
   else SDL_GetMouseState(x, y);
   *x = display.WindowToPixelX(*x); *y = display.WindowToPixelY(*y);
 }
+void S2Platform::SetCursorPosition(float x, float y)
+{
+  if (!window || !active || !nativeCursor || cameraButtons) return;
+  // Cursor coordinates are drawable pixels; SDL warps use window coordinates.
+  SDL_WarpMouseInWindow(window, x * display.windowWidth / (std::max)(1, display.pixelWidth),
+      y * display.windowHeight / (std::max)(1, display.pixelHeight));
+}
 void S2Platform::CaptureMouse(bool capture)
 {
   if (!window) return;

@@ -82,6 +82,7 @@
 #include "../Main/GLightmapStateWire.h"
 #include "../Main/GInit.h"
 #include "../Game/Platform.h"
+#include <SDL3/SDL.h>
 #include "../Main/GGeometryPositionHash.h"
 using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/rpgGlobal.h"
@@ -1324,6 +1325,58 @@ static CMemoryStream BorrowedObjectFields(CObjectBase* object, CStructureNetwork
     { CStructureSaver writer(saved, CStructureSaver::WRITE, references); object->operator&(writer); }
     saved.Seek(0);
     return saved;
+}
+
+static void NativeCursorPositioning()
+{
+    S2Platform::SetErrorDialogs(false);
+    struct PlatformCleanup { ~PlatformCleanup() { S2Platform::Done(); } } cleanup;
+    Require(S2Platform::Init("native cursor position regression",640,480,true),
+        "native cursor position fixture could not initialize its hidden SDL window");
+    Require(std::strcmp(SDL_GetCurrentVideoDriver(),"dummy") == 0,
+        "native cursor position regression requires the dummy backend to avoid moving the desktop pointer");
+    S2Platform::UseNativeCursor(true);
+    SDL_Event focus{};
+    focus.type = SDL_EVENT_WINDOW_FOCUS_GAINED;
+    focus.window.windowID = SDL_GetWindowID(S2Platform::Window());
+    Require(SDL_PushEvent(&focus), "native cursor position fixture could not queue focus");
+    S2Platform::PumpEvents();
+    Require(S2Platform::Active(), "native cursor position fixture did not become active");
+    SDL_WarpMouseInWindow(S2Platform::Window(),5,7);
+    S2Platform::PumpEvents();
+    float x = 0, y = 0;
+    S2Platform::CursorPosition(&x,&y);
+    Require(x == 5 && y == 7, "dummy SDL cursor fixture does not support observable pointer warps");
+    CObj<NUI::ICursor> cursor = NUI::ICursor::Create(false,CVec2(50,60));
+    S2Platform::PumpEvents();
+    S2Platform::CursorPosition(&x,&y);
+    Require(x == 50 && y == 60,
+        "creating a native cursor at a requested position left SDL at the previous pointer location");
+    cursor->Update();
+    Require(cursor->GetPos().x == 50 && cursor->GetPos().y == 60,
+        "the first native cursor update discarded its requested initial position");
+    cursor->SetPos(CVec2(130,140));
+    S2Platform::PumpEvents();
+    S2Platform::CursorPosition(&x,&y);
+    Require(x == 130 && y == 140, "setting a native cursor position did not synchronize SDL");
+    cursor->Update();
+    Require(cursor->GetPos().x == 130 && cursor->GetPos().y == 140,
+        "native pointer polling undid an explicit cursor position change");
+    S2Platform::UseNativeCursor(false);
+    cursor->SetPos(CVec2(21,31));
+    S2Platform::PumpEvents();
+    S2Platform::CursorPosition(&x,&y);
+    Require(x == 130 && y == 140 && cursor->GetPos().x == 21 && cursor->GetPos().y == 31,
+        "logical software cursor positioning unexpectedly warped the SDL pointer");
+    S2Platform::UseNativeCursor(true);
+    focus.type = SDL_EVENT_WINDOW_FOCUS_LOST;
+    Require(SDL_PushEvent(&focus), "native cursor position fixture could not queue focus loss");
+    S2Platform::PumpEvents();
+    Require(!S2Platform::Active(), "native cursor position fixture retained input focus");
+    cursor->SetPos(CVec2(41,51));
+    S2Platform::PumpEvents();
+    S2Platform::CursorPosition(&x,&y);
+    Require(x == 130 && y == 140, "an inactive native cursor warped the SDL pointer");
 }
 
 static void DisabledCursorInput()
@@ -7428,6 +7481,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "fresh-navigation-colouring")) { FreshNavigationColouring(); return true; }
     if (!std::strcmp(mode, "fresh-navigation-transitions")) { FreshNavigationTransitions(); return true; }
     if (!std::strcmp(mode, "lazy-navigation-colourer")) { LazyNavigationColourer(); return true; }
+    if (!std::strcmp(mode, "native-cursor-position")) { NativeCursorPositioning(); return true; }
     if (!std::strcmp(mode, "disabled-cursor-input")) { DisabledCursorInput(); return true; }
     if (!std::strcmp(mode, "supplied-defeat-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "supplied-options-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3]); return true; }

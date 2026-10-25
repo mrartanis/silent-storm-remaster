@@ -131,10 +131,11 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 ICursor* ICursor::Create( bool bShowCursor, CVec2 vBegPos )
 {
+	CCursor *pCursor = new CCursor( bShowCursor );
 	if ( ( vBegPos.x > 0 ) && ( vBegPos.y > 0 ) )
-		vCursorPos = vBegPos;
+		pCursor->SetPos( vBegPos );
 
-	return new CCursor( bShowCursor );
+	return pCursor;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CCursor
@@ -169,6 +170,7 @@ const CVec2& CCursor::GetPos() const
 void CCursor::SetPos( const CVec2 &_vCursorPos )
 {
 	vCursorPos = _vCursorPos;
+	S2Platform::SetCursorPosition( vCursorPos.x, vCursorPos.y );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 const SCursorInfo& CCursor::GetCursor() const
