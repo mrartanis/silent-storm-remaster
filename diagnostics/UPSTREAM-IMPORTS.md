@@ -181,6 +181,7 @@
 | [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Check occupancy before emitting zero-distance alias moves | `native move enumeration offered a zero-distance step into a locked connected alias` | 226/226; `locked-alias-moves` | `Upstream-Commit` в commit message |
 | [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Allow isolated starts to escape stale navigation zones without relaxing pose pruning | `upper-net zone pruning rejected a reachable route from an isolated source or stopped before its goal` | 227/227; `isolated-source-path` | `Upstream-Commit` в commit message |
 | [26165318](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/26165318773cc357672f706aefd3d3dd93da3718) — Hide the Save tab when opening Load Game from the main menu | `loading from the main menu offered a Save tab without an active game` | 228/228; `main-menu-load-save-tab` | `Upstream-Commit` в commit message |
+| [5c13b0d0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5c13b0d0219aed4684563a01b694d2d9da9aeccd) — Honor the standard confirmation command in the exit dialog | `the native exit dialog ignored its standard confirmation command` | 229/229; `exit-menu-confirmation` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

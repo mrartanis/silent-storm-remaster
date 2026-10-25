@@ -1458,6 +1458,44 @@ static void CheckPermittedExitMenu(NGScene::CScreenshotTexture* texture,bool sho
     }
 }
 
+static void ExitMenuConfirmation(const char* databasePath,const char* resourcePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "exit confirmation fixture started with an active interface or command");
+    struct InterfaceCleanup { ~InterfaceCleanup() { NMainLoop::DoneInterface(); } } cleanup;
+    CObj<NGScene::CScreenshotTexture> texture = new NGScene::CScreenshotTexture;
+    CArray2D<NGfx::SPixel8888> pixels; pixels.SetSizes(2,2);
+    for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x) pixels[y][x] = NGfx::SPixel8888(12,23,34,255);
+    texture->Set(pixels);
+    auto open = [&]() {
+        CObj<NGame::CICExitMenu> command = new NGame::CICExitMenu(texture);
+        command->Exec();
+        Require(NMainLoop::GetInterfaceStackDepth() == 1 && !NMainLoop::HaveInterfaceCommand(),
+            "exit confirmation fixture did not open exactly one clean native modal");
+    };
+    auto send = [&](const char* name) {
+        NInput::SEvent event;
+        while (NInput::GetEvent(&event)) {}
+        NInput::PostEvent(name);
+        Require(NInput::GetEvent(&event), "exit confirmation fixture did not receive its native input command");
+        return NMainLoop::GetCurrentInterfaceForHarness()->ProcessEvent(event);
+    };
+    open();
+    Require(send("exitgame") && NMainLoop::HaveInterfaceCommand(), "existing exitgame confirmation control did not queue exit");
+    Require(!NMainLoop::StepApp(false,false,false) && NMainLoop::GetInterfaceStackDepth() == 1,
+        "existing exitgame control did not produce the application exit sentinel");
+    NMainLoop::DoneInterface();
+    open();
+    Require(send("confirm") && NMainLoop::HaveInterfaceCommand(),
+        "the native exit dialog ignored its standard confirmation command");
+    Require(!NMainLoop::StepApp(false,false,false) && NMainLoop::GetInterfaceStackDepth() == 1,
+        "standard exit confirmation did not produce the same application exit sentinel");
+}
+
 static void MainMenuLoadSaveTab(const char* databasePath,const char* resourcePath)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr, "main-menu load fixture needs isolated user data");
@@ -8154,6 +8192,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "exit-menu-save-visibility") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "exit-menu-save-shortcut") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "exit-menu-confirmation") && argc == 4) { ExitMenuConfirmation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "supplied-defeat-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "supplied-options-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
