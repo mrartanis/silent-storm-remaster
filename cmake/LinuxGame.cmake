@@ -526,3 +526,4 @@ add_test(NAME FocusRestoreRuntimeTests COMMAND BgfxRendererTests --focus-restore
 set_tests_properties(FocusRestoreRuntimeTests PROPERTIES TIMEOUT 60)
 add_test(NAME GraphicsOptionsRuntimeTests COMMAND BgfxRendererTests --graphics)
 s2_copy_fonts(BgfxRendererTests)
+s2_copy_fonts(UpstreamBugTests)

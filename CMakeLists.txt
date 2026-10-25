@@ -809,6 +809,7 @@ target_include_directories(UpstreamBugTests PRIVATE "${root}/Main" "${CMAKE_BINA
 target_precompile_headers(UpstreamBugTests PRIVATE "${root}/Main/StdAfx.h")
 target_link_libraries(UpstreamBugTests PRIVATE Main)
 target_compile_features(UpstreamBugTests PRIVATE cxx_std_17)
+s2_copy_fonts(UpstreamBugTests)
 if(MSVC)
   target_compile_options(UpstreamBugTests PRIVATE /bigobj)
 endif()

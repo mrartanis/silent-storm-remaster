@@ -5911,9 +5911,9 @@ static void ScaledEditTextLayout()
         Require(std::fabs(S2Platform::Display().uiScale-scale) < 0.001f, "edit font fixture could not establish its actual UI scale");
         edit->SetTextFormat(formats[family]); edit->SetText(caption); edit->SetCursorPosition(2);
         view->textures.clear();
-        edit->Draw(1000,view);
         auto* font = view->GetLocaleInfo()->GetFont(NGScene::SFont(Float2Int(points[family]*scale),families[family]));
-        Require(IsValid(font) && font->IsVector(), "edit text stopped using the remaster's packaged high-resolution fonts");
+        Require(IsValid(font) && font->IsVector(), "the test application is missing its packaged high-resolution fonts");
+        edit->Draw(1000,view);
         Require(!view->textures.empty() && std::all_of(view->textures.begin(),view->textures.end(),
             [&](auto* texture) { return texture == font->GetTexture(); }),
             "the edit renderer changed the remaster's original high-resolution font or its default point size");
