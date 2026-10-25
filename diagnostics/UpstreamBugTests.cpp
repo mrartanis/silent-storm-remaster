@@ -54,6 +54,7 @@
 #include "../Main/iExitMenu.h"
 #include "../Main/ScreenShot.h"
 #include "../Main/iSaveManager.h"
+#include "../Main/iSaveLoad.h"
 #include "../Main/aiLocker.h"
 #include "../Main/wUnitServer.h"
 #include "../Main/RPGItem.h"
@@ -1455,6 +1456,68 @@ static void CheckPermittedExitMenu(NGScene::CScreenshotTexture* texture,bool sho
             Require(NMainLoop::HaveInterfaceCommand(), "an explicitly permitted exit command rejected its Save shortcut");
         }
     }
+}
+
+static void MainMenuLoadSaveTab(const char* databasePath,const char* resourcePath)
+{
+    Require(std::getenv("S2_USER_DATA_DIR") != nullptr, "main-menu load fixture needs isolated user data");
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "main-menu load fixture started with an active interface or command");
+    struct InterfaceCleanup { ~InterfaceCleanup() { NMainLoop::DoneInterface(); } } cleanup;
+    auto saveTab = [&]() {
+        auto* active = NMainLoop::GetCurrentInterfaceForHarness();
+        Require(IsValid(active), "native load command did not open a modal interface");
+        CStructureNetworkContext references;
+        auto fields = BorrowedObjectFields(active,&references);
+        int type = -1;
+        CPtr<NUI::CWindow> menu;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(3,&type); reader.Add(6,&menu); }
+        Require(type == NGame::LOAD && IsValid(menu), "native load command opened the wrong mode or lost its dialog");
+        CStructureNetworkContext menuReferences;
+        auto menuFields = BorrowedObjectFields(menu,&menuReferences);
+        CPtr<NUI::CWindow> view;
+        { CStructureSaver reader(menuFields,CStructureSaver::READ,&menuReferences); reader.Add(4,&view); }
+        Require(IsValid(view), "native load dialog did not construct its mode view");
+        CStructureNetworkContext viewReferences;
+        auto viewFields = BorrowedObjectFields(view,&viewReferences);
+        CPtr<NUI::CWindow> tab;
+        { CStructureSaver reader(viewFields,CStructureSaver::READ,&viewReferences); reader.Add(4,&tab); }
+        Require(IsValid(tab) && tab->GetWindowID() == "tab_save", "native load view did not construct its actual Save tab");
+        return tab->GetStyle(NUI::STYLE_VISIBLE);
+    };
+    CObj<NGScene::CScreenshotTexture> texture = new NGScene::CScreenshotTexture;
+    CArray2D<NGfx::SPixel8888> pixels; pixels.SetSizes(2,2);
+    for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x) pixels[y][x] = NGfx::SPixel8888(12,23,34,255);
+    texture->Set(pixels);
+    CObj<NGame::CICSaveLoadMenu> allowed = new NGame::CICSaveLoadMenu(NGame::LOAD,texture,true);
+    allowed->Exec();
+    Require(saveTab(), "a load dialog with explicit save permission hid its Save tab");
+    NMainLoop::DoneInterface();
+    CObj<NGame::CMissionBase> mainMenu = dynamic_cast<NGame::CMissionBase*>(pSSClasses->CreateObject(int(0xB2540912)));
+    Require(IsValid(mainMenu), "main-menu load fixture has no native menu interface class");
+    CObj<NUI::ICursor> cursor = NUI::ICursor::Create(false);
+    CObj<NUI::CInterface> interface = new NUI::CInterface(cursor);
+    CStructureNetworkContext references;
+    references.externalReferences = true;
+    references.include = [](CObjectBase*) { return false; };
+    references.ids[cursor.GetPtr()] = 1; references.refs[1] = cursor.GetPtr();
+    references.ids[interface.GetPtr()] = 2; references.refs[2] = interface.GetPtr();
+    references.nextID = 100;
+    CMemoryStream saved;
+    { CStructureSaver writer(saved,CStructureSaver::WRITE,&references); writer.Add(15,&cursor); writer.Add(16,&interface); }
+    saved.Seek(0);
+    { CStructureSaver reader(saved,CStructureSaver::READ,&references); mainMenu->NGame::CMissionBase::operator&(reader); }
+    NInput::SEvent event;
+    while (NInput::GetEvent(&event)) {}
+    NInput::PostEvent("loadgame");
+    Require(NInput::GetEvent(&event) && mainMenu->ProcessEvent(event) && NMainLoop::HaveInterfaceCommand(),
+        "native main menu did not consume its Load Game command");
+    Require(NMainLoop::StepApp(false,false,false), "main-menu load command did not execute through the application queue");
+    Require(!saveTab(), "loading from the main menu offered a Save tab without an active game");
 }
 
 static void ExitMenuSavePermission(const char* databasePath,const char* resourcePath,bool shortcut)
@@ -8090,6 +8153,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "disabled-cursor-input")) { DisabledCursorInput(); return true; }
     if (!std::strcmp(mode, "exit-menu-save-visibility") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "exit-menu-save-shortcut") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "supplied-defeat-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "supplied-options-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }

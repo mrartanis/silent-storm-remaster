@@ -277,7 +277,7 @@ bool CMainMenuInterface::ProcessEvent( const NInput::SEvent &sEvent )
 	}
 	else if ( bindLoadGame.ProcessEvent( sEvent ) )
 	{
-		NMainLoop::Command( new NGame::CICSaveLoadMenu( NGame::LOAD ) ); 
+		NMainLoop::Command( new NGame::CICSaveLoadMenu( NGame::LOAD, 0, false ) );
 		return true;
 	}
 	else if ( bindOptions.ProcessEvent( sEvent ) )
