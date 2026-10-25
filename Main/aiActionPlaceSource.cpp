@@ -7,6 +7,7 @@
 #endif
 //
 #include "aiUnit.h"
+#include "aiUnitState.h"
 #include "aistate.h"
 #include "aiActionBase.h"      // SPlaceWithAP, CAIAction (new substrate base - phase 3)
 #include "aiMoveAction.h"      // GetUnitPos, GetPos
@@ -159,8 +160,12 @@ SAIState* CAIActionPlaceSource::GetAIState() const                       // @0x0
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 IAIUnit* CAIActionPlaceSource::GetEnemy() const                         // @0x00490510
 {
-	if ( IsValid( pUnit ) && IsValid( pUnit->GetAIState() ) )
-		return pUnit->GetAIState()->GetCurrentAIEnemy();   // release reads GetAIUnitState()+0x88
+	if ( IsValid( pUnit ) )
+	{
+		SAIUnitState *pState = pUnit->GetAIUnitState();
+		if ( pState != 0 )
+			return pState->pEnemy;
+	}
 	return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

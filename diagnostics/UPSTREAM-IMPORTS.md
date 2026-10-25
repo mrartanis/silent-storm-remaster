@@ -148,6 +148,7 @@
 | [75341d49](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/75341d49319b927a76537c6021e6e655d635de95) — Preserve cannon identity in AI entry and exit command casts | `AI cannon entry lost its pose and docking commands during an incomplete-type cast` | 181/181; `mounted-ai-log-commands` | `Upstream-Commit` в commit message |
 | [31cb3b6a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31cb3b6a7081bc322e4586d078d61710475349a0) — Use the alien render material for hidden Panzerklein pilots | `hidden Panzerklein mesh did not use its bracketed alien material` | 182/182; `hidden-pk-material` | `Upstream-Commit` в commit message |
 | [31cb3b6a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31cb3b6a7081bc322e4586d078d61710475349a0) — Suspend hiding render effects during cinematic sequences | `cinematic sequence still rendered the human hiding overlay` | 184/184; `sequence-hiding-materials` | `Upstream-Commit` в commit message |
+| [e15373d3](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e15373d3e9a6c0e7b0fa0f76e94f94180f737743) — Read AI action targets from the acting unit threat state | `AI action selected another unit's shared target instead of its own contact` | 186/186; `owned-ai-target-selection` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

@@ -7,13 +7,13 @@
 #endif
 //
 #include "aiUnit.h"
-#include "aistate.h"          // SAIState::GetCurrentAIEnemy
+#include "aiUnitState.h"
+#include "aistate.h"
 //
 #include "aiActionBase.h"
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// Release CAICombatLogic substrate - CAIAction base helpers. WIP - reconstructed; the release reads the
-// enemy from GetAIUnitState()+0x88, reconciled here to the dev SAIState::GetCurrentAIEnemy().
+// Release CAICombatLogic substrate - CAIAction base helpers.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NAI
 {
@@ -29,8 +29,12 @@ SAIState* CAIAction::GetAIState() const
 //
 IAIUnit* CAIAction::GetEnemy() const
 {
-	if ( IsValid( pUnit ) && IsValid( pUnit->GetAIState() ) )
-		return pUnit->GetAIState()->GetCurrentAIEnemy();
+	if ( IsValid( pUnit ) )
+	{
+		SAIUnitState *pState = pUnit->GetAIUnitState();
+		if ( pState != 0 )
+			return pState->pEnemy;
+	}
 	return 0;
 }
 //

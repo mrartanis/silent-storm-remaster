@@ -90,6 +90,8 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/aiUnit.h"
 #include "../Main/aiPlayer.h"
 #include "../Main/aiReaction.h"
+#include "../Main/aiActionPlaceSource.h"
+#include "../Main/aiUnitState.h"
 #include "../Main/aiEvent.h"
 #include "../Main/aiThreatTracker.h"
 #include "../Main/Sync.h"
@@ -5233,6 +5235,67 @@ public:
     bool IsEmptyPK() const override { return shell; }
 };
 
+class ThreatOwnerFixture: public NAI::AIUnitFixture
+{
+    OBJECT_NOCOPY_METHODS(ThreatOwnerFixture);
+public:
+    NAI::SAIUnitState threat;
+    NAI::SAIState* shared = nullptr;
+    bool exposeThreat = true;
+    int sharedReads = 0;
+    NAI::SAIState* GetAIState() override { ++sharedReads; return shared; }
+    NAI::SAIUnitState* GetAIUnitState() override { return exposeThreat ? &threat : nullptr; }
+};
+
+class ThreatActionProbe: public NAI::CAIAction
+{
+    OBJECT_NOCOPY_METHODS(ThreatActionProbe);
+public:
+    explicit ThreatActionProbe(NAI::IAIUnit* unit = nullptr): CAIAction(unit) {}
+    using NAI::CAIAction::GetEnemy;
+    void Do(NAI::CAILog*) const override {}
+    bool ComparePlaces(const NAI::SPlaceWithAP&, const NAI::SPlaceWithAP&) const override { return false; }
+    bool CanDo(const NAI::SPlaceWithAP&) override { return false; }
+    void ResetInfoHash() override {}
+};
+
+class ThreatPlaceSourceProbe: public NAI::CAIActionPlaceSource
+{
+    OBJECT_NOCOPY_METHODS(ThreatPlaceSourceProbe);
+public:
+    explicit ThreatPlaceSourceProbe(NAI::IAIUnit* unit = nullptr): CAIActionPlaceSource(unit) {}
+    using NAI::CAIActionPlaceSource::GetEnemy;
+    void Prepare() override {}
+};
+
+static void OwnedAIEnemySelection(bool placeSource)
+{
+    CObj<ThreatOwnerFixture> owner = new ThreatOwnerFixture;
+    CObj<NAI::AIUnitFixture> first = new NAI::AIUnitFixture, second = new NAI::AIUnitFixture;
+    NAI::SAIState shared;
+    owner->shared = &shared;
+    owner->threat.pEnemy = first.GetPtr();
+    shared.SetCurrentAIEnemy(second);
+    CObj<ThreatActionProbe> action = new ThreatActionProbe(owner);
+    CObj<ThreatPlaceSourceProbe> source = new ThreatPlaceSourceProbe(owner);
+    auto selected = [&]() { return placeSource ? source->GetEnemy() : action->GetEnemy(); };
+    Require(selected() == first.GetPtr(), "AI action selected another unit's shared target instead of its own contact");
+    shared.SetCurrentAIEnemy(nullptr);
+    Require(selected() == first.GetPtr(), "clearing the shared chooser context erased the acting unit's target");
+    owner->threat.pEnemy = second.GetPtr();
+    shared.SetCurrentAIEnemy(first);
+    Require(selected() == second.GetPtr(), "AI action did not follow a change to its own threat target");
+    owner->shared = nullptr;
+    Require(selected() == second.GetPtr(), "own target lookup required a shared commander context");
+    owner->threat.pEnemy = nullptr;
+    Require(selected() == nullptr, "cleared own contact fell back to a shared target");
+    owner->exposeThreat = false;
+    Require(selected() == nullptr, "AI unit without a threat-state implementation was not handled safely");
+    Require(owner->sharedReads == 0, "own-target lookup queried shared commander state");
+    owner->Invalidate();
+    Require(selected() == nullptr, "own-target lookup queried an invalid AI unit");
+}
+
 static void MountedAILogCommands()
 {
     CObj<LockerActor> actor = new LockerActor;
@@ -6617,6 +6680,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "owned-ai-action-enemy")) { OwnedAIEnemySelection(false); return true; }
+    if (!std::strcmp(mode, "owned-ai-place-enemy")) { OwnedAIEnemySelection(true); return true; }
     if (!std::strcmp(mode, "mounted-ai-log-commands")) { MountedAILogCommands(); return true; }
     if (!std::strcmp(mode, "removed-player-ai-rosters") && argc == 4) { RemovedPlayerAIRosters(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "removed-player-acks") && argc == 4) { RemovedPlayerFootprints(argv[2], argv[3], true); return true; }
