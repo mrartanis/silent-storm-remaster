@@ -140,3 +140,22 @@ Linux `Game` и профиль также прошли 261/261. После эт�
 | UpstreamOwnedAIActionEnemy | [ea3ef71a](https://github.com/mrartanis/silent-storm-remaster/commit/ea3ef71a8c027731f02b7eb3fa596ec5f5bfc8b8) |
 | UpstreamOwnedAIPlaceEnemy | [ea3ef71a](https://github.com/mrartanis/silent-storm-remaster/commit/ea3ef71a8c027731f02b7eb3fa596ec5f5bfc8b8) |
 | UpstreamMountedAILogCommands | [084eeb02](https://github.com/mrartanis/silent-storm-remaster/commit/084eeb02e8a9e8e23c22fac092c855b04a881e68) |
+
+## Контракт списка выбранных юнитов в заглушке attack-location
+
+В исходной тестовой заглушке `AttackMission` отсутствовал `GetSelectedUnits`:
+унаследованный метод обращался к неустановленному `pActivePlayer`.
+Новая проверка выбранной цели законно запросила этот список и обнаружила
+падение старого `UpstreamAttackLocation` на Windows и Linux.
+
+Перед исправлением добавлена явная проверка пустого списка в worldless-заглушке.
+Она воспроизвела падение также без нового игрового исправления. CDB подтвердил
+`CMissionBase::GetSelectedUnits`, `iMissionBase.cpp:189`, из
+`AttackLocationRefresh`. Заглушка теперь возвращает пустой список;
+`AttackCursorMission` по-прежнему предоставляет свой настоящий список выбора.
+
+Источник тестовой заглушки:
+[671ebe975b1a5a077899483ad03d3ea56f5a91a2](https://github.com/mrartanis/silent-storm-remaster/commit/671ebe975b1a5a077899483ad03d3ea56f5a91a2).
+Это локальная поправка теста с `Original-Test-Commit`, а не перенос production-кода.
+Свидетельства: `worldless-attack-fixture-selection-{red,green}-{build,test}.log`
+и `worldless-attack-fixture-selection-red-cdb.log`.

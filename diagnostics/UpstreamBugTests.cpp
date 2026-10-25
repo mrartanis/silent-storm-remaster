@@ -3433,6 +3433,7 @@ public:
     void Step() override {}
     bool ProcessEvent(const NInput::SEvent&) override { return false; }
     int CountSelected() override { return selected; }
+    void GetSelectedUnits(vector<CPtr<NGame::IUnitTracker>>* result) const override { result->clear(); }
     bool IsRealTime() const override { return false; }
     bool GetTracePosition(CVec3* position) const override { *position = VNULL3; return true; }
     void CanDoCommand(NWorld::CCmd*, bool, NGame::SActionInfo* info) override {
@@ -3687,6 +3688,9 @@ static void BindInitialization()
 static void AttackLocationRefresh()
 {
     CObj<AttackMission> mission = new AttackMission;
+    vector<CPtr<NGame::IUnitTracker>> selection;
+    mission->GetSelectedUnits(&selection);
+    Require(selection.empty(), "the worldless attack-location fixture unexpectedly selected native units");
     CObj<AttackState> state = new AttackState;
     state->Attach(mission);
     // Sample an input frame before updating the cursor, as the game does.
