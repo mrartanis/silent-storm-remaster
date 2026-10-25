@@ -98,6 +98,7 @@
 #include "../Main/GGeometryPositionHash.h"
 using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/rpgGlobal.h"
+#include "../Main/RPGDiplomacy.h"
 #include "../Main/RPGUnit.h"
 #include "../Main/RPGUnitMission.h"
 #include "../Main/rpgCheatConstants.h"
@@ -1689,6 +1690,85 @@ static void LateLoopingSoundOffset()
     CObj<NFMSound::CSound3D> expired = NFMSound::Play3DSound(params);
     Require(!NFMSound::IsPlaying(expired) && activeChannel() == -1,
         "an expired non-looping event restarted while correcting looping offsets");
+}
+
+class HotseatVisibilityWorld: public NWorld::CWorld
+{
+    OBJECT_NOCOPY_METHODS(HotseatVisibilityWorld);
+public:
+    using NWorld::CWorld::RegisterPlayer;
+    using NWorld::CWorld::UnregisterPlayer;
+};
+
+static void HotseatOpponentVisibility()
+{
+    CObj<HotseatVisibilityWorld> world = new HotseatVisibilityWorld;
+    CObj<NRPG::CGlobalDiplomacy> diplomacy = NRPG::CreateGlobalDiplomacy();
+    CStructureNetworkContext references;
+    references.externalReferences = true; references.nextID = 100;
+    references.ids[diplomacy.GetPtr()] = 1; references.refs[1] = diplomacy.GetPtr();
+    references.include = [](CObjectBase*) { return false; };
+    CMemoryStream saved;
+    { CStructureSaver writer(saved,CStructureSaver::WRITE,&references); writer.Add(40,&diplomacy); }
+    saved.Seek(0);
+    { CStructureSaver reader(saved,CStructureSaver::READ,&references); static_cast<CObjectBase*>(world.GetPtr())->operator&(reader); }
+    Require(world->GetDiplomacy() == diplomacy.GetPtr(), "hotseat vision fixture did not bind its native diplomacy table");
+    auto player = [&](const wchar_t* name,int scenario) {
+        CObj<NWorld::CPlayer> result = new NWorld::CPlayer(name,nullptr,nullptr,scenario);
+        result->SetCommander(new NAI::CSequenceCommander(world));
+        world->RegisterPlayer(result);
+        Require(!NAI::IsAIPlayer(result.GetPtr()), "hotseat vision fixture unexpectedly created an AI-controlled player");
+        return result;
+    };
+    auto first = player(L"first hotseat player",0);
+    auto second = player(L"second hotseat player",0);
+    Require(world->GetDiplomacyState(static_cast<NWorld::IPlayer*>(first.GetPtr()),
+        static_cast<NWorld::IPlayer*>(second.GetPtr())) == NDb::DS_ENEMY &&
+        diplomacy->GetDiplomacyState(0,0) == NDb::DS_ALLY,
+        "hotseat vision control did not reproduce distinct opponents sharing scenario ID zero");
+    CObj<NWorld::CUnitServer> firstContact = new NWorld::CUnitServer;
+    CObj<NWorld::CUnitServer> secondContact = new NWorld::CUnitServer;
+    CObj<NWorld::CWindowDoor> object = new NWorld::CWindowDoor, trap = new NWorld::CWindowDoor;
+    auto setVision = [&](NWorld::CPlayer* owner,NWorld::CUnitServer* contact,bool extras) {
+        CStructureNetworkContext graph;
+        graph.externalReferences = true; graph.nextID = 100;
+        vector<CObjectBase*> objects{contact,object.GetPtr(),trap.GetPtr()};
+        for (std::size_t i = 0; i < objects.size(); ++i) {
+            graph.ids[objects[i]] = unsigned(i+1); graph.refs[unsigned(i+1)] = objects[i];
+        }
+        graph.include = [](CObjectBase*) { return false; };
+        list<CPtr<NWorld::CUnitServer>> visible{contact};
+        list<CPtr<CObjectBase>> visibleObjects, traps;
+        if (extras) { visibleObjects.push_back(object.GetPtr()); traps.push_back(trap.GetPtr()); }
+        CMemoryStream state;
+        { CStructureSaver writer(state,CStructureSaver::WRITE,&graph);
+          writer.Add(3,&visible); writer.Add(4,&visibleObjects); writer.Add(6,&traps); }
+        state.Seek(0);
+        { CStructureSaver reader(state,CStructureSaver::READ,&graph);
+          static_cast<NWorld::CPlayerBaseVision<NWorld::CUnitServer>*>(owner)->operator&(reader); }
+    };
+    setVision(first,firstContact,true); setVision(second,secondContact,false);
+    Require(first->CanSee(firstContact) && !second->CanSee(firstContact) && second->CanSee(secondContact),
+        "hotseat vision fixture did not restore distinct native contact sets");
+    world->MergeFriendlyPlayersVisibleSets();
+    Require(!second->CanSee(firstContact) && !first->CanSee(secondContact) &&
+        !second->CanSeeObject(object) && !second->CanSeeTrap(trap),
+        "opposing hotseat players shared contacts, objects or traps merely because both used scenario ID zero");
+    Require(first->CanSee(firstContact) && second->CanSee(secondContact) &&
+        first->CanSeeObject(object) && first->CanSeeTrap(trap), "preventing opponent vision sharing erased existing sightings");
+    world->UnregisterPlayer(second);
+    auto ally = player(L"distinct allied side",1);
+    const vector<CPtr<NRPG::IUnitMission>> units;
+    diplomacy->SetDiplomacyState(0,units,1,NDb::DS_ALLY);
+    diplomacy->SetDiplomacyState(1,units,0,NDb::DS_ALLY);
+    Require(world->GetDiplomacyState(static_cast<NWorld::IPlayer*>(first.GetPtr()),
+        static_cast<NWorld::IPlayer*>(ally.GetPtr())) == NDb::DS_ALLY,
+        "allied-visibility control did not establish an actual native alliance");
+    setVision(ally,secondContact,false);
+    world->MergeFriendlyPlayersVisibleSets();
+    Require(first->CanSee(secondContact) && ally->CanSee(firstContact) &&
+        ally->CanSeeObject(object) && ally->CanSeeTrap(trap),
+        "the opponent-visibility correction also prevented actual allies from sharing sightings");
 }
 
 static void SoundMixerClockCatchUp()
@@ -9070,6 +9150,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "forced-tool-targeting-entry") && argc == 3) { ForcedToolTargetingEntry(argv[2]); return true; }
     if (!std::strcmp(mode, "tool-targeting-cursor-refresh") && argc == 3) { ToolTargetingCursorRefresh(argv[2]); return true; }
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
+    if (!std::strcmp(mode, "hotseat-opponent-visibility")) { HotseatOpponentVisibility(); return true; }
     if (!std::strcmp(mode, "late-looping-sound-offset")) { LateLoopingSoundOffset(); return true; }
     if (!std::strcmp(mode, "headless-music-stream")) { HeadlessMusicStream(); return true; }
     if (!std::strcmp(mode, "trackless-scene-music")) { TracklessSceneMusicContinuity(); return true; }

@@ -1141,15 +1141,15 @@ void CWorld::MergeFriendlyPlayersVisibleSets()
 		bool bWasMerge = false;
 		for ( int k = 0; k < players.size(); ++k )
 		{
-			int nKID = players[k]->GetScenarioPlayerID();
 			for ( int m = 0; m < players.size(); ++m )
 			{
 				// players[m] - target: retail @0x3669f0 skips AI sides via IsAIPlayer (the human's
 				// CSequenceCommander must keep RECEIVING allied vision merges)
 				if ( NAI::IsAIPlayer( players[m].GetPtr() ) )
 					continue;
-				int nMID = players[m]->GetScenarioPlayerID();
-				if ( pDiplomacy->GetDiplomacyState( nKID, nMID ) == NDb::DS_ALLY )
+				// Distinct hotseat opponents share scenario ID zero, not their sightings.
+				if ( GetDiplomacyState( static_cast<IPlayer*>( players[k].GetPtr() ),
+					static_cast<IPlayer*>( players[m].GetPtr() ) ) == NDb::DS_ALLY )
 					bWasMerge |= players[m]->MergeVisibility( players[k] );
 			}
 		}
