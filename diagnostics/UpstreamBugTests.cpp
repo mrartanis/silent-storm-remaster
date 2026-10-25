@@ -6447,6 +6447,50 @@ static CObj<NAI::CPathNetwork> SimplePathNetwork(int layerCount = 1)
     return network;
 }
 
+static void SimpleCrossLayerPoseEntry()
+{
+    auto network = SimplePathNetwork(2);
+    auto find = [&](const NAI::SPathPlace& source,const NAI::SPathPlace& goal) {
+        return CObj<NAI::CPath>(NAI::FindSimplePath(source,{goal},NAI::PF_USE_POSEDIR,network,false,false,false));
+    };
+    const NAI::SPathPlace standing(4,4,0,3,NAI::CM_STAND,0), prone(4,4,0,3,NAI::CM_LAY,0);
+    Require(IsValid(find(standing,prone)), "unlocked prone footprint control rejected a direct pose path");
+    vector<NAI::SPathPlace> footprint;
+    network->GetLockArea(&footprint,prone,true);
+    auto other = std::find_if(footprint.begin(),footprint.end(),[&](const NAI::SPathPlace& place) {
+        return place.GetX() != prone.GetX() || place.GetY() != prone.GetY();
+    });
+    Require(other != footprint.end(), "prone footprint control has no neighbouring occupied cell");
+    auto& blocked = network->GetLayer(other->GetLayer())->tiles[other->GetY()][other->GetX()];
+    blocked.nLocks = 1;
+    Require(network->GetPassability(prone) == NAI::AIP_LOCKED && !network->IsPassable(prone) &&
+        NAI::BigLockerPassableState(network,prone) == NAI::AIP_LOCKED && !IsValid(find(standing,prone)),
+        "existing native passability did not enforce the full prone footprint on a simple pose path");
+    blocked.nLocks = 0;
+    Require(IsValid(find(standing,prone)), "unlocking the prone footprint did not restore the simple pose path");
+    for (int startPose: {NAI::CM_STAND,NAI::CM_LAY}) {
+        const int endPose = startPose == NAI::CM_STAND ? NAI::CM_CROUCH : NAI::CM_STAND;
+        const NAI::SPathPlace source(4,4,0,3,startPose,0), destination(4,4,1,3,endPose,0);
+        auto sameLayer = destination;
+        sameLayer.SetLayer(0);
+        auto direct = find(source,sameLayer);
+        Require(IsValid(direct) && direct->points.size() == 2,
+            "same-layer pose control acquired an unnecessary intermediate point");
+        auto path = find(source,destination);
+        Require(IsValid(path) && path->points.front() == source && path->points.back() == destination,
+            "cross-layer pose fixture did not find the requested native direct route");
+        Require(path->points.size() == 3,
+            "a simple cross-layer pose path omitted its layer-only entry point and combined the layer and pose change");
+        auto entry = source;
+        entry.SetLayer(destination.GetLayer());
+        Require(path->points[1] == entry && path->actions.empty(),
+            "a cross-layer entry changed source pose, heading, coordinates or unrelated path actions");
+        for (std::size_t i = 1; i < path->points.size(); ++i)
+            Require(NAI::GetTransitionType(network,path->points[i-1],path->points[i]) != NAI::TT_NO_WAY,
+                "an emitted layer/pose path segment was not traversable by the native transition classifier");
+    }
+}
+
 static void SimplePoseFacingPreference()
 {
     auto network = SimplePathNetwork();
@@ -8589,6 +8633,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "prone-pose-change-facing")) { PronePoseChangeFacing(); return true; }
     if (!std::strcmp(mode, "simple-prone-pose-path")) { SimplePronePosePath(); return true; }
     if (!std::strcmp(mode, "simple-pose-facing-preference")) { SimplePoseFacingPreference(); return true; }
+    if (!std::strcmp(mode, "simple-cross-layer-pose-entry")) { SimpleCrossLayerPoseEntry(); return true; }
     if (!std::strcmp(mode, "isolated-transition-link-match")) { IsolatedTransitionLinkMatch(); return true; }
     if (!std::strcmp(mode, "isolated-transition-shortcut")) { IsolatedTransitionShortcut(); return true; }
     if (!std::strcmp(mode, "isolated-transition-entry")) { IsolatedTransitionEntry(); return true; }

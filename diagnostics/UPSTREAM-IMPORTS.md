@@ -190,6 +190,7 @@
 | [d14e92f9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d14e92f95f112fa31d59f2e95866fd4e0bdf49ae) — Preserve actual facing when leaving prone through canonical path points | `leaving prone adopted the wave's canonical direction instead of retaining the actual facing` | 235/235; `prone-pose-change-facing` | `Upstream-Commit` в commit message |
 | [c0c1914c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c0c1914c23df17eb98151f85184cab0f9bb81e2b) — Allow direct simple pose paths from prone sources | `simple native pathfinding rejected a direct pose change from prone` | 236/236; `simple-prone-pose-path` | `Upstream-Commit` в commit message |
 | [c0c1914c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c0c1914c23df17eb98151f85184cab0f9bb81e2b) — Prefer unchanged facing when selecting direct pose paths | `simple pose-path selection chose direction zero over an equally valid unchanged facing` | 237/237; `simple-pose-facing-preference` | `Upstream-Commit` в commit message |
+| [c0c1914c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c0c1914c23df17eb98151f85184cab0f9bb81e2b) — Separate layer entry from pose changes in direct navigation paths | `a simple cross-layer pose path omitted its layer-only entry point and combined the layer and pose change` | 238/238; `simple-cross-layer-pose-entry` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -784,3 +785,40 @@ display/runtime тестов не входят в приведённые рез�
 `precalc-sweep-bounds-{red,green,world-green,network-green}-test.log`,
 `precalc-sweep-bounds-all-green-build.log`,
 `checkpoint-233-linux-{configure,build,test}.log`, `checkpoint-233-ci-test.log`.
+
+### Контрольная точка 238 — снимки зон и прямые пути
+
+Полностью перенесён `37e5bf12`: native-снимок зоны исключает связь скрипта с
+HUD, восстанавливая её после окончания записи. Отдельный полный save/restore
+настоящей `CMission` сохраняет эту связь. Первый тестовый подкласс не был
+зарегистрирован в сериализаторе; ошибка окружения и CDB сохранены отдельно.
+Окончательный RED получен на штатном классе до изменения рабочего кода.
+
+`d14e92f9` сохраняет направление при выходе из положения лёжа, оставляя явно
+заданные повороты. `c0c1914c` перенесён тремя независимыми исправлениями:
+прямой подъём из положения лёжа, предпочтение прежнего направления при выборе
+пути и точка перехода на новый слой до смены позы. Ранжирование кандидатов не
+меняет цены AP. Часть исходных проверок уже эквивалентна native-коду:
+`IsPassable` соответствует `AIP_YES`, проверка проходимости уже расширяет
+занимаемую область для лежащего бойца, а sentinel равен 16. Контроль с
+заблокированной соседней клеткой тела прошёл и до последнего RED; фиктивного
+падающего теста для уже работающего поведения не создавалось.
+
+Windows `ALL_BUILD` и Linux `Game` собраны. Upstream-набор — 238/238 на обеих
+платформах, расширенный Windows набор — 256/256, выбранные сетевые сценарии —
+6/6, игровые сценарии — 5/5; ход сценария 5247 занял 3.00 секунды.
+`NetworkEncounterMapsTests` и семь display/runtime проверок не включены.
+Итоговый GitHub Actions всей задачи ещё предстоит проверить.
+
+В реестре: 67 imported, 10 partially-imported, 35 already-present,
+162 pending, 2 review-final-version, 3 documentation-only,
+1 historical-own-import и 1 excluded-balance. Перенос продолжается.
+
+Логи: `zone-snapshot-excludes-hud-{red,green}-test.log`,
+`zone-snapshot-excludes-hud-fixture-{test,red-cdb}.log`,
+`prone-pose-change-facing-{red,green}-test.log`,
+`simple-prone-pose-path-{red,green}-test.log`,
+`simple-pose-facing-preference-{red,green}-test.log`,
+`simple-cross-layer-pose-entry-{red,green,world-green,network-green}-test.log`,
+`simple-cross-layer-pose-entry-all-green-build.log`,
+`checkpoint-238-linux-{configure,build,test}.log`, `checkpoint-238-ci-test.log`.

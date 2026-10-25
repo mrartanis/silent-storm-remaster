@@ -944,6 +944,12 @@ CPath* FindSimplePath( const SPathPlace &ptSrc, const vector<SPathPlace> &ptDst,
 		pRes = new CPath;
 		pRes->pNet = pPathNetwork;
 		pRes->points.push_back( a );
+		if ( a.GetPose() != bestDest.GetPose() && a.GetLayer() != bestDest.GetLayer() )
+		{
+			SPathPlace onLayer( a );
+			onLayer.SetLayer( bestDest.GetLayer() );
+			pRes->points.push_back( onLayer );
+		}
 		pRes->points.push_back( bestDest );
 	}
 	return pRes;
