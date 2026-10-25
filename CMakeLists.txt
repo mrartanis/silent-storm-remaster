@@ -853,6 +853,7 @@ add_test(NAME UpstreamLuaWindowStateContext COMMAND UpstreamBugTests lua-window-
 add_test(NAME UpstreamWindowMessageCallbacks COMMAND UpstreamBugTests window-message-callbacks)
 add_test(NAME UpstreamWindowCallbackLifetime COMMAND UpstreamBugTests window-callback-lifetime)
 add_test(NAME UpstreamWindowLazyUpdate COMMAND UpstreamBugTests window-lazy-update)
+add_test(NAME UpstreamWindowNestedWakeup COMMAND UpstreamBugTests window-nested-wakeup)
 add_test(NAME UpstreamCompressedSaveWriting COMMAND UpstreamBugTests compressed-save-writing)
 set_tests_properties(UpstreamCompressedSaveWriting PROPERTIES ENVIRONMENT "S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/upstream-compressed-save-fixture")
 add_test(NAME UpstreamConsoleVisibilityToggle COMMAND UpstreamBugTests console-visibility-toggle)

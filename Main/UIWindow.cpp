@@ -132,7 +132,9 @@ void CWindow::AddChild( CWindow *pWindow )
 		SendMessage( *listChildren.begin(), SEvent( EVENT_ACTIVATE, EAF_ACTIVATE ) );
 	pWindow->pParent = this;
 	pWindow->SetInterface( pInterface );
-	bRequireUpdate = true;
+	// A newly active descendant must be reachable from the root traversal.
+	for (CWindow* ancestor = this; IsValid(ancestor); ancestor = ancestor->GetParent())
+		ancestor->bRequireUpdate = true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWindow::RemoveChild( CWindow *pWindow )

@@ -1257,6 +1257,38 @@ static void WindowLazyUpdate()
     Require(!requiresUpdate(restored), "restored sleeping UI window lost the retail tag-4 latch");
 }
 
+static void WindowNestedWakeup()
+{
+    auto requiresUpdate = [](NUI::CWindow* window) {
+        CStructureNetworkContext references;
+        auto fields = BorrowedObjectFields(window, &references);
+        bool flag = true;
+        { CStructureSaver reader(fields, CStructureSaver::READ, &references); reader.Add(4, &flag); }
+        return flag;
+    };
+    CObj<NUI::CWindow> root = new NUI::CWindow;
+    CMObj<NUI::CWindow> branch = new NUI::CWindow(NUI::SWindowInfo(root,
+        NUI::SPoint(0, 0), NUI::SPoint(20, 20), "sleeping-branch"));
+    root->Update(1, nullptr);
+    Require(!requiresUpdate(root) && !requiresUpdate(branch), "nested UI wakeup fixture did not become idle");
+    CMObj<NUI::CSlider> active = new NUI::CSlider(NUI::SWindowInfo(branch,
+        NUI::SPoint(0, 0), NUI::SPoint(20, 20), "late-active-descendant"));
+    Require(requiresUpdate(root) && requiresUpdate(branch),
+        "new active descendant did not wake all sleeping ancestor windows");
+    root->Update(2, nullptr); root->Update(3, nullptr);
+    Require(requiresUpdate(root) && requiresUpdate(branch), "active descendant stopped updating beneath a sleeping ancestor");
+    branch->RemoveChild(active);
+    active = nullptr;
+    root->Update(4, nullptr);
+    Require(!requiresUpdate(root) && !requiresUpdate(branch), "removing the active descendant left idle ancestors permanently awake");
+    CMObj<NUI::CWindow> passive = new NUI::CWindow(NUI::SWindowInfo(branch,
+        NUI::SPoint(0, 0), NUI::SPoint(20, 20), "late-passive-descendant"));
+    Require(requiresUpdate(root), "a passive descendant did not request its initial ancestor traversal");
+    root->Update(5, nullptr);
+    Require(!requiresUpdate(root) && !requiresUpdate(branch) && !requiresUpdate(passive),
+        "passive descendant insertion disabled lazy UI updates");
+}
+
 static void WindowTemplateScript(const char* databasePath)
 {
     CFileStream database;
@@ -5931,6 +5963,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "window-message-callbacks")) { WindowMessageCallbacks(); return true; }
     if (!std::strcmp(mode, "window-callback-lifetime")) { WindowCallbackLifetime(); return true; }
     if (!std::strcmp(mode, "window-lazy-update")) { WindowLazyUpdate(); return true; }
+    if (!std::strcmp(mode, "window-nested-wakeup")) { WindowNestedWakeup(); return true; }
     if (!std::strcmp(mode, "window-template-script")) { Require(argc == 3, "window template script requires db"); WindowTemplateScript(argv[2]); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
     if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }
