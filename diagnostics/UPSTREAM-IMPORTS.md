@@ -160,6 +160,7 @@
 | [8e620755](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8e620755aedcc01558c1b7f4bdd921126d9048cd) — Use base-layer axes for airborne shooting direction | `airborne GetShootDirection indexed navigation layers with encoded altitude 160 (only two layers), causing an access violation; under CDB the invalid read instead produced a wrong direction` | 201/201; `flying-shoot-direction` | `Upstream-Commit` в commit message |
 | [8e620755](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8e620755aedcc01558c1b7f4bdd921126d9048cd) — Preserve airborne positions in attack pose candidates | `native airborne shot preparation crashed in GetAttackOrigin -> CPathNetwork::GetDirection after GetDirectedPoints discarded the flight bit` | 202/202; `flying-attack-queue` | `Upstream-Commit` в commit message |
 | [8e620755](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8e620755aedcc01558c1b7f4bdd921126d9048cd) — Allow scripted zone exits after cutscenes away from passages | `scripted LeaveToSubZone failed to leave after a cutscene while the party was away from the passage` | 203/203; `scripted-passage-transition` | `Upstream-Commit` в commit message |
+| [8e620755](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8e620755aedcc01558c1b7f4bdd921126d9048cd) — Reject zone exits when no matching passage exists | `an entirely unconscious party left through a nonexistent passage` | 204/204; `empty-passage-exit` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

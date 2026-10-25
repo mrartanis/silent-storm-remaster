@@ -3302,6 +3302,8 @@ bool CWorld::UsePassageObject( CUnitServer *pUS, int nPassageZoneID, bool bForce
 	//
 	list< CPtr<IPassageObject> > passageObjects;
 	GetPassageObjects( nPassageZoneID, &passageObjects );
+	if ( passageObjects.empty() )
+		return false;
 	// Scripted cutscene exits bypass proximity; ordinary party exits still require it.
 	bool bCanPass = true;
 	unordered_map< CPtr<CUnitServer>, CPtr<IPassageObject>, SPtrHash > passagesForUnits;

@@ -2431,7 +2431,7 @@ public:
     int GetPassageObjectID() const override { return 123; }
 };
 
-static void ScriptedPassageTransition(const char* databasePath,const char* resourcePath)
+static void ScriptedPassageTransition(const char* databasePath,const char* resourcePath, bool emptyPassage = false)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath,resourcePath,true,&game);
@@ -2446,7 +2446,12 @@ static void ScriptedPassageTransition(const char* databasePath,const char* resou
     Require(actor != nullptr, "scripted passage fixture has no living human party");
     CObj<PassageGateProbe> passage = new PassageGateProbe;
     list<CObj<NWorld::CObjectServerBase>> objects = world->GetObjectsForHarness();
-    objects.push_back(passage.GetPtr());
+    if (emptyPassage) {
+        objects.remove_if([](const CObj<NWorld::CObjectServerBase>& object) {
+            auto* exit = dynamic_cast<NWorld::IPassageObject*>(object.GetPtr());
+            return exit && exit->GetPassageZoneID() == 0;
+        });
+    } else objects.push_back(passage.GetPtr());
     CStructureNetworkContext references;
     auto nativeFields = BorrowedObjectFields(world,&references);
     auto id = references.nextID++;
@@ -2456,7 +2461,7 @@ static void ScriptedPassageTransition(const char* databasePath,const char* resou
     fields.Seek(0);
     { CStructureSaver reader(fields,CStructureSaver::READ,&references); static_cast<CObjectBase*>(world.GetPtr())->operator&(reader); }
     const auto& restoredObjects = world->GetObjectsForHarness();
-    Require(std::count(restoredObjects.begin(),restoredObjects.end(),passage.GetPtr()) == 1,
+    Require(std::count(restoredObjects.begin(),restoredObjects.end(),passage.GetPtr()) == int(!emptyPassage),
         "scripted passage fixture did not register its passage in the native world");
     auto drainTransitions = [&]() {
         int count = 0;
@@ -2467,6 +2472,22 @@ static void ScriptedPassageTransition(const char* databasePath,const char* resou
         return count;
     };
     drainTransitions();
+    if (emptyPassage) {
+        actor->MakeUnconscious(VNULL3,true,false);
+        Require(actor->IsUnconscious() && !actor->IsDead(), "empty-passage fixture failed to incapacitate its human actor");
+        for (const auto& unit: units)
+            Require(unit->GetPlayer() != actor->GetPlayer() || unit->IsUnconscious() || unit->GetUnitRPG()->IsDead(),
+                "empty-passage fixture still has a conscious party member");
+        const int ap = actor->GetAP();
+        Require(!world->UsePassageObject(actor,0) && drainTransitions() == 0,
+            "an entirely unconscious party left through a nonexistent passage");
+        CObj<NScript::CScript> script = NScript::CreateScript(world);
+        Require(script->DoString("LeaveToSubZone(0)") == 0, "empty-passage script fixture failed to compile");
+        script->ExecuteThreads();
+        Require(drainTransitions() == 0, "scripted exit fabricated a missing passage for an unconscious party");
+        Require(actor->GetAP() == ap, "rejecting an empty passage spent action points");
+        return;
+    }
     const int ap = actor->GetAP();
     Require(!world->UsePassageObject(actor,0) && passage->proximityChecks > 0 && drainTransitions() == 0,
         "ordinary passage control accepted a party outside the passage radius");
@@ -7274,6 +7295,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "restored-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 0); return true; }
     if (!std::strcmp(mode, "fresh-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "legacy-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "empty-passage-exit") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "scripted-passage-transition") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "flying-attack-queue") && argc == 4) { FlyingAttackQueue(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "flying-shoot-direction")) { FlyingShootDirection(); return true; }
