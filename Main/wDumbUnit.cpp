@@ -87,7 +87,7 @@ CDumbUnitServer::CDumbUnitServer( CWorld *_pWorld, NRPG::IUnitMission *_pRPG, ND
 	wishPose = pos.GetPose();
 	animator.SetWeaponAnimation( pRPG->GetWeaponType() );
 	NRPG::IInventory *pInventory = pRPG->GetInventory();
-	if ( IsValid( pInventory->GetActive() ) )
+	if ( IsActiveItemToShow( pInventory ) )
 		animator.SetActiveItem( true );
 	animator.PlaceUnit( pos );
 	pHold.Extract();

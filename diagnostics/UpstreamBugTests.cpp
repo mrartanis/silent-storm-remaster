@@ -7495,7 +7495,19 @@ static void CharacterPanelFullName(const char* databasePath,const char* resource
     Require(actor->GetAP() == ap && !actor->HasCommand(), "updating the character name changed native gameplay state");
 }
 
-static void CancelledInventoryHiddenItemPose(const char* databasePath,const char* resourcePath)
+class InitialHeldItemActor: public NWorld::CDumbUnitServer
+{
+    OBJECT_NOCOPY_METHODS(InitialHeldItemActor);
+public:
+    InitialHeldItemActor() {}
+    InitialHeldItemActor(NWorld::CWorld* world,NRPG::IUnitMission* rpg,NDb::CModel* model,const NAI::SUnitPosition& position):
+        CDumbUnitServer(world,rpg,model,position) {}
+    bool IsDead() const override { return false; }
+    bool IsUnconscious() const override { return false; }
+    bool CanFight() const override { return true; }
+};
+
+static void CancelledInventoryHiddenItemPose(const char* databasePath,const char* resourcePath,bool initialPose = false)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath,resourcePath,false,&game);
@@ -7513,6 +7525,29 @@ static void CancelledInventoryHiddenItemPose(const char* databasePath,const char
     auto* item = inventory->GetActive();
     const auto slot = NDb::ESlot(inventory->GetActiveSlot());
     const int ap = actor->GetAP(), quantity = item->GetQuantity();
+    if (initialPose) {
+        auto create = [&]() {
+            return CObj<InitialHeldItemActor>(new InitialHeldItemActor(world,actor->GetUnitRPG(),actor->GetModel(),actor->GetPosition()));
+        };
+        {
+            auto shown = create();
+            Require(shown->animator.IsActiveItem(), "new actor with a visible active item lost its initial held pose");
+        }
+        item->GetDBItem()->bPlaceInHand = false;
+        {
+            auto hidden = create();
+            Require(!hidden->animator.IsActiveItem(), "a newly created actor treated an invisible active item as a held weapon");
+            Require(hidden->GetUnitRPG() == actor->GetUnitRPG() && hidden->GetUnitPosition().pos.p == actor->GetPosition().pos.p,
+                "initial held-pose gating changed the constructor's RPG owner or position");
+        }
+        item->GetDBItem()->bPlaceInHand = true;
+        auto restored = create();
+        Require(restored->animator.IsActiveItem(), "new actor did not recover its visible-item held pose");
+        Require(inventory->GetActive() == item && inventory->GetActiveSlot() == slot &&
+            actor->GetAP() == ap && item->GetQuantity() == quantity,
+            "initial held-pose gating changed equipment, quantity or AP");
+        return;
+    }
     auto animationWeapon = [&]() {
         CMemoryStream fields;
         CStructureNetworkContext references;
@@ -10363,6 +10398,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "selected-attack-target-rejection")) { Require(argc == 4, "selected target requires db and res"); SelectedAttackTargetRejection(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "melee-current-pose-caption")) { Require(argc == 4, "melee caption requires db and res"); MeleeReachCaption(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "cancelled-inventory-hidden-item-pose")) { Require(argc == 4, "inventory cancellation requires db and res"); CancelledInventoryHiddenItemPose(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "initial-hidden-item-pose")) { Require(argc == 4, "initial item pose requires db and res"); CancelledInventoryHiddenItemPose(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }
