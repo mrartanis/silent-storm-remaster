@@ -54,6 +54,7 @@
 #include "../Main/RPGItemSet.h"
 #include "../Main/RPGCritical.h"
 #include "../Main/wUnitAttackExec.h"
+#include "../Main/wUnitAttack.h"
 #include "../Main/wUnitStates.h"
 #include "../Main/wUnitQueue.h"
 #include "../Main/wUnitExec.h"
@@ -2413,6 +2414,61 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     // Deliberately exclude mission scripts: this fixture isolates AI scheduling.
     world->RunPostInit(nullptr);
     return world;
+}
+
+static void FlyingAttackQueue(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (const auto& unit: units) {
+        if (!IsValid(unit) || !unit->CanFight() || unit->IsWearingPK() || unit->IsEmptyPK()) continue;
+        auto* weapon = unit->GetUnitRPG()->GetWeaponItem();
+        if (IsValid(weapon) && weapon->GetAmmoQuantity() > 0 && weapon->SetShootMode(NDb::SM_Snap) &&
+            NWorld::GetActionType(unit) == NWorld::AT_SHOOT && unit->GetUnitRPG()->CanMove()) {
+            actor = unit; break;
+        }
+    }
+    Require(actor != nullptr, "airborne attack fixture has no mobile armed actor");
+    const NAI::SUnitPosition original = actor->GetPosition();
+    struct PositionRestore {
+        NWorld::CUnitServer* unit;
+        NAI::SUnitPosition position;
+        ~PositionRestore() { unit->SetTemporaryPosition(position); }
+    } restore{actor,original};
+    NAI::SUnitPosition airborne = original;
+    Require(NAI::MakeFlyPos(original.GetCP()+CVec3(0,0,30),world->GetPathNetwork(),&airborne.pos),
+        "airborne attack fixture could not encode its flight position");
+    airborne.pos.p.SetPose(NAI::CM_STAND);
+    actor->SetTemporaryPosition(airborne);
+    auto* weapon = actor->GetUnitRPG()->GetWeaponItem();
+    const int ap = actor->GetAP(), ammo = weapon->GetAmmoQuantity();
+    const CVec3 target = airborne.GetCP()+CVec3(10,0,0);
+    CObj<NWorld::CExecShootTile> shot = new NWorld::CExecShootTile(actor,target);
+    Require(shot->CanDoIt(airborne) == NWorld::UCR_OK,
+        "airborne attack fixture cannot shoot from its unmodified flight position");
+    CObj<NWorld::CCmdShootTile> command = new NWorld::CCmdShootTile(target);
+    NWorld::EUnitCommandResult error = NWorld::UCR_GENERAL_FAILURE;
+    CObj<NWorld::CCommandExecute> executor = NWorld::CreateActionExecutor(actor,command,&error);
+    std::printf("Airborne attack queue: final=%d altitude=%d result=%d executor=%d\n",
+        int(airborne.pos.p.IsFinal()),airborne.pos.p.GetLayer(),int(error),int(IsValid(executor)));
+    Require(IsValid(executor) && error == NWorld::UCR_OK,
+        "airborne attack pose candidates lost the flight bit and prevented a valid shot queue");
+    auto* mover = dynamic_cast<NWorld::IExecMove*>(executor.GetPtr());
+    Require(mover != nullptr, "airborne shot queue has no movement plan");
+    NAI::SPathPlace desired;
+    NAI::EFindPathParams parameters;
+    NWorld::ENeedActiveItem active;
+    mover->GetDesiredPlace(&desired,&parameters,&active);
+    Require(desired.IsFinal() && desired.GetX() == airborne.pos.p.GetX() &&
+        desired.GetY() == airborne.pos.p.GetY() && desired.GetLayer() == airborne.pos.p.GetLayer() &&
+        desired.GetPose() == NAI::CM_STAND && desired.GetDirection() ==
+            NRPG::GetShootDirection(world->GetPathNetwork(),airborne.pos.p,target),
+        "airborne shot queue changed its altitude, place, pose, or target facing");
+    Require(actor->GetAP() == ap && weapon->GetAmmoQuantity() == ammo && !actor->HasCommand(),
+        "preparing an airborne shot queue spent AP/ammunition or installed a command");
 }
 
 static void OwnedAICommanderRosters(const char* databasePath, const char* resourcePath)
@@ -7146,6 +7202,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "restored-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 0); return true; }
     if (!std::strcmp(mode, "fresh-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "legacy-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "flying-attack-queue") && argc == 4) { FlyingAttackQueue(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "flying-shoot-direction")) { FlyingShootDirection(); return true; }
     if (!std::strcmp(mode, "flying-dynamic-locks")) { FlyingDynamicLocks(); return true; }
     if (!std::strcmp(mode, "arrived-retreat-completion") && argc == 4) { ArrivedRetreatCompletion(argv[2], argv[3]); return true; }
