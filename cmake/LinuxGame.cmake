@@ -236,6 +236,7 @@ add_test(NAME UpstreamSimplePoseFacingPreference COMMAND UpstreamBugTests simple
 add_test(NAME UpstreamSimpleCrossLayerPoseEntry COMMAND UpstreamBugTests simple-cross-layer-pose-entry)
 add_test(NAME UpstreamSoundMixerClockCatchUp COMMAND UpstreamBugTests sound-mixer-clock-catchup)
 add_test(NAME UpstreamHotseatOpponentVisibility COMMAND UpstreamBugTests hotseat-opponent-visibility)
+add_test(NAME UpstreamMissionSoundGameClock COMMAND UpstreamBugTests mission-sound-game-clock)
 set_tests_properties(UpstreamSoundMixerClockCatchUp PROPERTIES ENVIRONMENT "S2_AUDIO_HEADLESS=1")
 add_test(NAME UpstreamLateLoopingSoundOffset COMMAND UpstreamBugTests late-looping-sound-offset)
 set_tests_properties(UpstreamLateLoopingSoundOffset PROPERTIES ENVIRONMENT "S2_AUDIO_HEADLESS=1")

@@ -247,8 +247,8 @@ private:
 
 protected:
 	// NO GetTime() override: retail's mission GetTime() IS the raw main-loop clock (@0x1f4e00).
-	// nDeltaTime (the script skip-part fast-forward) is applied ONLY at Step's UpdateViewWorld call
-	// site (retail @0x5a3c24), so it never leaks into the sound/UI clocks.
+	// nDeltaTime supplies the script skip offset to world updates (retail @0x5a3c24).
+	// Sound separately uses GetGameTime with that offset; the UI has its own clock.
 	void SetDeltaTime( STime _nDeltaTime ) { nDeltaTime = _nDeltaTime; }
 	STime GetDeltaTime() const { return nDeltaTime; }
 	bool TrackChanges();

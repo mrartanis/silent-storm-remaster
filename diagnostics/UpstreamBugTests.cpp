@@ -29,6 +29,7 @@
 #include "../Main/iDesktopWindow.h"
 #include "../Main/Sound.h"
 #include "../Main/RWSound.h"
+#include "../Main/RWGame.h"
 #include "../FModSound/FMsound.h"
 #include "../third_party/fmod/include/fmod.h"
 #include "../Main/iMissionDlgUI.h"
@@ -1815,6 +1816,71 @@ static void HotseatOpponentVisibility()
     Require(first->CanSee(secondContact) && ally->CanSee(firstContact) &&
         ally->CanSeeObject(object) && ally->CanSeeTrap(trap),
         "the opponent-visibility correction also prevented actual allies from sharing sightings");
+}
+
+struct MissionSoundClockCaptured {};
+
+class MissionSoundClockRenderer: public NRender::IRenderGame
+{
+    OBJECT_NOCOPY_METHODS(MissionSoundClockRenderer);
+public:
+    STime time = 0;
+    bool advance = false;
+    int calls = 0;
+    CObjectBase* Select(CObjectBase*,const CVec4&,bool) override { throw std::runtime_error("unexpected sound-clock selection"); }
+    CCTime* GetTime() override { throw std::runtime_error("unexpected sound-clock render timer query"); }
+    NLSHead::CHeadsController* GetHeadController() const override { throw std::runtime_error("unexpected sound-clock head query"); }
+    void UpdateViewWorld(bool,STime,NWorld::IPlayer*,bool) override { throw std::runtime_error("unexpected sound-clock world update"); }
+    void FastUpdate(STime) override { throw std::runtime_error("unexpected sound-clock fast update"); }
+    void ResetTiming() override { throw std::runtime_error("unexpected sound-clock reset"); }
+    void UpdateSound(bool shouldAdvance,CTransformStack* transform,STime current) override {
+        Require(transform != nullptr, "native mission did not supply its camera transform to sound");
+        ++calls; time = current; advance = shouldAdvance;
+        // Observe the real caller, then stop before any GPU rendering or presentation.
+        throw MissionSoundClockCaptured();
+    }
+};
+
+class MissionSoundClockMission: public NGame::CMissionBase
+{
+    OBJECT_NOCOPY_METHODS(MissionSoundClockMission);
+protected:
+    const STime GetTime() override { return 10000; }
+public:
+    void Step() override {}
+    bool ProcessEvent(const NInput::SEvent&) override { return false; }
+    void Attach(NRender::IRenderGame* renderer,NGScene::IGameView* scene) {
+        pRender = renderer; pScene = scene; sTimeCounter.SetCurrent(10000);
+    }
+    void SetSkippedTime(STime skipped) { nDeltaTime = skipped; }
+    void DrawSound(ICamera* camera,bool advance) { RenderFrame(NGame::N_RENDERMODE_3D|8,advance,camera,false); }
+};
+
+static void MissionSoundGameClock()
+{
+    CObj<MissionSoundClockMission> mission = new MissionSoundClockMission;
+    CObj<MissionSoundClockRenderer> renderer = new MissionSoundClockRenderer;
+    CObj<NGScene::GameViewFixture> scene = new NGScene::GameViewFixture;
+    CObj<ICamera> camera = ::CreateCamera(CAMERA_PC);
+    Require(IsValid(camera), "sound-clock fixture could not create a real native camera");
+    mission->Attach(renderer,scene);
+    auto draw = [&](bool advance) {
+        bool reached = false;
+        try { mission->DrawSound(camera,advance); }
+        catch (const MissionSoundClockCaptured&) { reached = true; }
+        Require(reached, "native mission frame did not reach its sound update before rendering");
+    };
+    draw(true);
+    Require(renderer->calls == 1 && renderer->advance && renderer->time == 10000,
+        "ordinary native mission frame did not pass its baseline sound clock");
+    mission->SetSkippedTime(5000);
+    Require(mission->GetGameTime() == 15000, "sound-clock fixture did not retain the native skipped-game-time offset");
+    draw(true);
+    Require(renderer->calls == 2 && renderer->advance && renderer->time == 15000,
+        "the native mission passed raw wall time to sound and omitted the fast-forwarded game interval");
+    draw(false);
+    Require(renderer->calls == 3 && !renderer->advance && renderer->time == 15000,
+        "using the game clock lost the native sound pause flag or skipped-time offset");
 }
 
 static void SoundMixerClockCatchUp()
@@ -9197,6 +9263,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "tool-targeting-cursor-refresh") && argc == 3) { ToolTargetingCursorRefresh(argv[2]); return true; }
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
     if (!std::strcmp(mode, "hotseat-opponent-visibility")) { HotseatOpponentVisibility(); return true; }
+    if (!std::strcmp(mode, "mission-sound-game-clock")) { MissionSoundGameClock(); return true; }
     if (!std::strcmp(mode, "late-looping-sound-offset")) { LateLoopingSoundOffset(); return true; }
     if (!std::strcmp(mode, "headless-music-stream")) { HeadlessMusicStream(); return true; }
     if (!std::strcmp(mode, "trackless-scene-music")) { TracklessSceneMusicContinuity(); return true; }
