@@ -41,6 +41,7 @@
 #include "../Main/aiGrid.h"
 #include "../Main/aiMoves.h"
 #include "../Main/aiPath.h"
+#include "../Main/PrecalcCollider.h"
 #include "../Main/aiColourer.h"
 #include "../Main/aiMap.h"
 #include "../Main/aiStability.h"
@@ -581,6 +582,43 @@ static void WorldlessUIScript()
     CObj<NScript::CScript> tactical = NScript::CreateScript(world);
     Require(IsValid(tactical) && tactical->pWorld == world.GetPtr(),
         "allowing UI scripts changed the native tactical script factory path");
+}
+
+static void PrecalcSweepBounds()
+{
+    const vector<CVec3> points{
+        CVec3(0,-.5f,-.5f),CVec3(.07f,-.5f,-.5f),CVec3(.07f,.5f,-.5f),CVec3(0,.5f,-.5f),
+        CVec3(0,-.5f,.5f),CVec3(.07f,-.5f,.5f),CVec3(.07f,.5f,.5f),CVec3(0,.5f,.5f)};
+    const vector<STriangle> triangles{
+        STriangle(0,2,1),STriangle(0,3,2),STriangle(4,5,6),STriangle(4,6,7),
+        STriangle(0,1,5),STriangle(0,5,4),STriangle(3,7,6),STriangle(3,6,2),
+        STriangle(0,4,7),STriangle(0,7,3),STriangle(1,2,6),STriangle(1,6,5)};
+    CObj<NAI::CPrecalcSpheres> grid = new NAI::CPrecalcSpheres;
+    Require(!grid->Generate(points,triangles,0), "thin-wall fixture unexpectedly requires another voxel Z block");
+    NCollider::CPrecalcCollider<int> collider;
+    SBound sceneBound,geometryBound;
+    sceneBound.BoxInit(CVec3(-4,-4,-4),CVec3(4,4,4));
+    geometryBound.BoxInit(CVec3(0,-.5f,-.5f),CVec3(.07f,.5f,.5f));
+    collider.PrepareCollider(sceneBound,1.f);
+    SHMatrix identity; Identity(&identity);
+    collider.AddEntity(identity,identity,vector<CPtr<NAI::CPrecalcSpheres>>{grid.GetPtr()},false,17,geometryBound);
+    struct HitAnalyzer {
+        int calls = 0;
+        bool operator()(int owner) { Require(owner == 17, "precalc sweep changed its collision owner"); ++calls; return true; }
+    };
+    for (const auto& velocity: {VNULL3,CVec3(0,.05f,0)}) {
+        for (float x: {-.30f,.37f}) {
+            HitAnalyzer hit;
+            Require(collider.CollideBool(SSphere(CVec3(x,0,0),NAI::F_TEST_SPHERE_RADIUS),velocity,&hit) && hit.calls == 1,
+                "a genuine thin-wall collision was lost, including the neighbouring broad-phase cell");
+        }
+        const CVec3 outside(.381f,0,0);
+        Require(outside.x - .07f > NAI::F_TEST_SPHERE_RADIUS && grid->IsMovingSphereCollided(outside,outside+velocity),
+            "thin-wall fixture did not expose conservative voxel rounding outside the exact padded bound");
+        HitAnalyzer hit;
+        Require(!collider.CollideBool(SSphere(outside,NAI::F_TEST_SPHERE_RADIUS),velocity,&hit) && hit.calls == 0,
+            "a precalculated thin wall reported a collision outside its radius-padded bound because the sweep radius was counted twice");
+    }
 }
 
 static void MissingLuaGlobalWarning()
@@ -8323,6 +8361,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "nearest-invalid")) { InvalidNearestPosition(); return true; }
     if (!std::strcmp(mode, "lua-empty-default")) { EmptyLuaDefault(); return true; }
     if (!std::strcmp(mode, "missing-lua-global-warning")) { MissingLuaGlobalWarning(); return true; }
+    if (!std::strcmp(mode, "precalc-sweep-bounds")) { PrecalcSweepBounds(); return true; }
     if (!std::strcmp(mode, "smart-aimer-boundary")) { SmartAimerBoundary(); return true; }
     if (!std::strcmp(mode, "nearest-empty")) { EmptyNearestPosition(); return true; }
     if (!std::strcmp(mode, "fresh-navigation-colouring")) { FreshNavigationColouring(); return true; }

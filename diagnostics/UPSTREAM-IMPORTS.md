@@ -185,6 +185,7 @@
 | [5c13b0d0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5c13b0d0219aed4684563a01b694d2d9da9aeccd) — Report successful saves only after serialization completes | `a completed silent native save omitted its localized success feedback` | 230/230; `save-success-feedback` | `Upstream-Commit` в commit message |
 | [5c13b0d0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5c13b0d0219aed4684563a01b694d2d9da9aeccd) — Report successful loads after the native slot and interface restore finish | `a completed silent native load omitted its localized success feedback` | 231/231; `load-success-feedback` | `Upstream-Commit` в commit message |
 | [cc9fbeab](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc9fbeab94c206c59606fb91902c800c5690f0c9) — Name missing Lua globals in the diagnostic log without changing lookup results | `native Lua silently returned nil for a missing global without naming it in the diagnostic log` | 232/232; `missing-lua-global-warning` | `Upstream-Commit` в commit message |
+| [cc9fbeab](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc9fbeab94c206c59606fb91902c800c5690f0c9) — Avoid counting the sweep radius twice in precalculated collisions | `a precalculated thin wall reported a collision outside its radius-padded bound because the sweep radius was counted twice` | 233/233; `precalc-sweep-bounds` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -740,3 +741,42 @@ Windows `ALL_BUILD` и Linux `Game` собраны. Upstream-набор прош
 `isolated-source-path-all-green-build.log`,
 `isolated-source-path-{world,network}-green-test.log`,
 `checkpoint-227-linux-{configure,build,test}.log`, `checkpoint-227-ci-test.log`.
+
+### Контрольная точка 233 — меню, сообщения и столкновения
+
+После навигационного пакета полностью перенесены `26165318` (вкладка Save
+в загрузке из главного меню), `5c13b0d0` (подтверждение выхода и сообщения
+после успешного сохранения/загрузки) и `cc9fbeab` (диагностика отсутствующей
+Lua-переменной и устранение повторного учёта радиуса в столкновениях).
+Независимые исправления имеют отдельные коммиты и runtime RED перед фиксом.
+
+Сообщения проверены на реальных слотах в отдельных тестовых профилях:
+сохранённый заголовок и сжатый payload прочитаны обратно, при загрузке
+восстановлен новый native-интерфейс. Заблокированная запись и отсутствующий
+слот не сообщают об успехе. Промежуточный RED отдельно подтвердил, что простое
+добавление сообщения после старого пустого catch ложно сообщает об успехе.
+
+Тест столкновений генерирует штатную voxel-сетку для коробки толщиной 0.07.
+Исходный код принимает округлённый voxel за столкновение в x=0.381 за точной
+границей 0.38. Фикс расширяет только область поиска, сохраняя исходный радиус
+0.31 и прежние проверки действительных столкновений в покое и движении.
+
+Windows `ALL_BUILD` и Linux `Game` собраны, upstream-набор — 233/233 на обеих
+платформах. Расширенный Windows набор — 252/252, выбранные сетевые сценарии —
+6/6, игровые сценарии стрельбы/сохранения/загрузки/хода 5247 — 5/5; последний
+занял 2.69 секунды. Использованы прежние каталоги сборки, без HD-генерации.
+
+В реестре 281 коммит: 64 imported, 10 partially-imported, 35 already-present,
+165 pending, 2 review-final-version, 3 documentation-only,
+1 historical-own-import и 1 excluded-balance. Общая задача продолжается;
+итоговый GitHub Actions ещё не проверен. `NetworkEncounterMapsTests` и семь
+display/runtime тестов не входят в приведённые результаты.
+
+Логи: `main-menu-load-save-tab-{red,green}-test.log`,
+`exit-menu-confirmation-{red,green}-test.log`,
+`save-success-feedback-{red,green,failure-control-red}-test.log`,
+`load-success-feedback-{red,green,world-green}-test.log`,
+`missing-lua-global-warning-{red,green,world-green}-test.log`,
+`precalc-sweep-bounds-{red,green,world-green,network-green}-test.log`,
+`precalc-sweep-bounds-all-green-build.log`,
+`checkpoint-233-linux-{configure,build,test}.log`, `checkpoint-233-ci-test.log`.
