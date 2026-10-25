@@ -719,6 +719,7 @@ void CExecMove::DoCommand()
 								CPtr<NRPG::IInventoryItem> pItem = pInventory->Get((NDb::ESlot)pActivateItem->nSlot);
 								if (IsValid(pItem))
 								{
+									pUS->SetWalkWithoutWeapon( false );
 									NDb::EItemSubType subType = pItem->GetDBItem()->subType;
 									if (subType == NDb::SUBTYPE_HEAVY)
 										animator.ActivateItem(position, true, false, NDb::BELT_M1, pRPG->GetWeaponType());

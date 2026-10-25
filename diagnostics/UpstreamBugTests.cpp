@@ -3905,6 +3905,76 @@ static void MovementHolsterPolicy(const char* databasePath, const char* resource
         "constructing the movement activation policy spent action points");
 }
 
+static void ExplicitWeaponActivation(const char* databasePath, const char* resourcePath, bool movement)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& entry: units) {
+        auto* server = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (server && server->CanFight() && !server->IsEmptyPK() && !server->IsWearingPK()
+                && server->GetUnitRPG()->CanMove() && IsValid(server->GetUnitRPG()->GetInventoryInfo()->GetActive())) {
+            actor = server; break;
+        }
+    }
+    Require(actor != nullptr, "explicit activation fixture has no mobile armed actor");
+    actor->SetWalkWithoutWeapon(true);
+    actor->animator.SetActiveItem(false);
+    actor->SetUndrawItem(true);
+    if (movement) {
+        CObj<NAI::CPath> path = new NAI::CPath;
+        path->pNet = world->GetPathNetwork(); path->points.push_back(actor->GetPosition().pos.p);
+        CObj<NWorld::CCommandExecute> move = NWorld::CreateSimpleMoveExecutor(actor, path, NAI::PF_DEFAULT, NWorld::ITEM_ACTIVE);
+        Require(IsValid(move), "explicit activation fixture could not create its movement executor");
+        move->Run();
+        const bool reset = !actor->IsWalkingWithoutWeapon();
+        move->TimeLabelReached(); move->AnimationFinished(); move = nullptr;
+        Require(reset, "explicit movement weapon activation retained the scripted holster flag");
+        Require(!world->IsAction(), "completed movement activation retained its action counter");
+        return;
+    }
+    const auto slot = static_cast<NDb::ESlot>(actor->GetUnitRPG()->GetInventoryInfo()->GetActiveSlot());
+    auto equipment = [&](int stage) {
+        CObj<NWorld::CCommandExecute> executor = dynamic_cast<NWorld::CCommandExecute*>(
+            pSSClasses->CreateObject(int(0x01122133))); // Native CExecSetActiveItem.
+        Require(IsValid(executor), "native equipment activation class is not registered");
+        struct OwnerWire {
+            CPtr<NWorld::CUnitServer> actor;
+            int operator&(CStructureSaver& saver) { saver.Add(4, &actor); return 0; }
+        } owner;
+        owner.actor = actor;
+        auto savedSlot = slot;
+        bool twoHeavy = false;
+        CStructureNetworkContext references;
+        references.externalReferences = true;
+        references.ids[actor] = 1; references.refs[1] = actor;
+        references.nextID = 100; references.include = [](CObjectBase*) { return false; };
+        CMemoryStream saved;
+        { CStructureSaver writer(saved, CStructureSaver::WRITE, &references);
+          writer.Add(1, &owner); writer.Add(2, &savedSlot); writer.Add(3, &stage); writer.Add(4, &twoHeavy); }
+        saved.Seek(0);
+        { CStructureSaver reader(saved, CStructureSaver::READ, &references);
+          static_cast<CObjectBase*>(executor.GetPtr())->operator&(reader); }
+        Require(executor->GetUnitServer() == actor, "restored equipment callback lost its native actor");
+        return executor;
+    };
+    auto executor = equipment(1);
+    executor->AnimationFinished();
+    const bool reset = !actor->IsWalkingWithoutWeapon();
+    actor->SetWalkWithoutWeapon(true); // A newer script request while the animation completes.
+    executor->AnimationFinished();
+    Require(reset, "explicit equipment activation retained the scripted holster flag");
+    Require(actor->IsWalkingWithoutWeapon() && executor->GetState() == NWorld::CCommandExecute::FINISHED,
+        "equipment completion overwrote a later scripted holster request");
+    CObj<NRPG::IInventoryItem> removed = actor->GetUnitRPG()->GetInventory()->TakeOff(slot);
+    auto empty = equipment(1);
+    empty->AnimationFinished();
+    Require(actor->IsWalkingWithoutWeapon() && empty->GetState() == NWorld::CCommandExecute::FINISHED,
+        "empty equipment slot cancelled scripted holstering without activating an item");
+}
+
 static void ScriptAIActivation(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -4701,6 +4771,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-holster-policy")) { Require(argc == 4, "movement holster requires db and res"); MovementHolsterPolicy(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "short-inactive-movement")) { Require(argc == 4, "inactive movement requires db and res"); MovementHolsterPolicy(argv[2], argv[3], MovementHolsterCheck::ShortInactive); return true; }
     if (!std::strcmp(mode, "hidden-active-movement")) { Require(argc == 4, "hidden active movement requires db and res"); MovementHolsterPolicy(argv[2], argv[3], MovementHolsterCheck::HiddenActive); return true; }
+    if (!std::strcmp(mode, "equipment-holster-reset")) { Require(argc == 4, "equipment activation requires db and res"); ExplicitWeaponActivation(argv[2], argv[3], false); return true; }
+    if (!std::strcmp(mode, "movement-holster-reset")) { Require(argc == 4, "movement activation requires db and res"); ExplicitWeaponActivation(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "pain-voice-owner")) { Require(argc == 4, "pain voice requires db and res"); PainVoiceOwner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "unconscious-pain-voice")) { Require(argc == 4, "pain eligibility requires db and res"); PainVoiceOwner(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "world-ui-refresh-latch")) { Require(argc == 4, "world UI refresh requires db and res"); WorldUIRefreshLatch(argv[2], argv[3]); return true; }

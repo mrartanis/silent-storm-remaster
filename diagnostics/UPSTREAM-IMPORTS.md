@@ -108,6 +108,7 @@
 | [b6b20e29](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b6b20e291ccdaeb82e5a67baf75df99f236b7c0b) — Preserve scripted holstering during automatic path preparation | `native movement queued automatic weapon activation despite persistent scripted holstering` | 137/137; `movement-holster-policy` | `Upstream-Commit` в commit message |
 | [b6b20e29](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b6b20e291ccdaeb82e5a67baf75df99f236b7c0b) — Avoid redundant weapon activation on short inactive paths | `short inactive path queued an unnecessary weapon draw and holster cycle` | 138/138; `short-inactive-movement` | `Upstream-Commit` в commit message |
 | [b6b20e29](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b6b20e291ccdaeb82e5a67baf75df99f236b7c0b) — Reconcile hidden weapon state when preparing movement | `hidden weapon was treated as drawn solely because its animator flag was active` | 139/139; `hidden-active-movement` | `Upstream-Commit` в commit message |
+| [b6b20e29](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b6b20e291ccdaeb82e5a67baf75df99f236b7c0b) — Clear scripted holstering when an explicit weapon activation begins | `explicit equipment activation retained the scripted holster flag` | 141/141; `explicit-holster-reset` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -262,3 +263,15 @@ Windows `ALL_BUILD` и Linux `Game` собираются; профильная �
 `upstream-bigobj-compiler-red-build.log`, `upstream-bigobj-green-build.log`,
 `upstream-bigobj-green-test.log`. Это поддержка тестового стенда; сам
 `cf087f74` пока не отмечен перенесенным.
+
+### Контроль после готовности интерфейса, голосов, музыки и scripted holster
+
+Профильная группа Windows/Linux — 141/141 на каждой платформе.
+Windows `ALL_BUILD` и Linux `Game` собраны с отключенной генерацией HD.
+Расширенный Windows набор без окна/внешних ресурсов — 203/203;
+настоящая стрельба, сохранение и загрузка — 4/4. Логи:
+`checkpoint-141-all-build.log`, `checkpoint-141-ci-test.log`,
+`checkpoint-141-shots-test.log`, `explicit-reset-linux-test.log`.
+Один текущий каталог сборки на платформу переиспользован; временный маленький
+патч, использованный для отдельного коммита `/bigobj`, возвращен и удален.
+Остальные upstream источники и итоговый запуск GitHub Actions остаются в работе.

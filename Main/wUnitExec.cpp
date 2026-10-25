@@ -470,6 +470,7 @@ public:
 			return;
 		}
 		nStage = 2;
+		pUS->SetWalkWithoutWeapon( false );
 		NDb::EItemSubType subType = pInventory->Get(slot)->GetDBItem()->subType;
 		if ( subType == NDb::SUBTYPE_HEAVY || subType == NDb::SUBTYPE_MINE_DETECTOR )
 			pUS->animator.ActivateItem( pUS->GetPosition(), true, bTwoHeavy, NDb::BELT_M1, pRPG->GetWeaponType() );
