@@ -26,6 +26,7 @@
 #include "../Main/iGameStates.h"
 #include "../Input/BindInternal.h"
 #include "../Main/iUnitPanel.h"
+#include "../Main/iCharacterPanel.h"
 #include "../Main/iDesktopWindow.h"
 #include "../Main/Sound.h"
 #include "../Main/RWSound.h"
@@ -7196,6 +7197,61 @@ public:
     void GetSelectedUnits(vector<CPtr<NGame::IUnitTracker>>* result) const override { *result = selection; }
 };
 
+static void CharacterPanelFullName(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) { actor = unit; break; }
+    }
+    Require(actor != nullptr, "character-name fixture has no native actor");
+    auto* rpg = actor->GetRPG()->GetRPGUnit();
+    rpg->wsFullName = L"Character panel full display name";
+    Require(rpg->GetName() != rpg->wsFullName, "character-name fixture needs distinct full and nick names");
+    CObj<NativeActionInfoMission> mission = new NativeActionInfoMission;
+    mission->Attach(world,game);
+    CObj<NGame::CUnitTracker> tracker = new NGame::CUnitTracker(mission,actor);
+    mission->selection.push_back(tracker.GetPtr());
+    NDb::CUIContainer* layout = nullptr;
+    CDBIterator<NDb::CUIContainer> layouts(*NDatabase::GetTable<NDb::CUIContainer>());
+    while (layouts.MoveNext()) {
+        bool fullName = false, strength = false, biography = false;
+        for (auto& control: layouts.Get()->controls) {
+            if (!IsValid(control)) continue;
+            fullName |= control->szID == "fullname";
+            strength |= control->szID == "strength";
+            biography |= control->szID == "biography";
+        }
+        if (fullName && strength && biography) { layout = layouts.Get(); break; }
+    }
+    Require(layout != nullptr, "character-name fixture could not find the authored character-panel layout");
+    CObj<NUI::ICursor> cursor = NUI::ICursor::Create(false);
+    CObj<NUI::CInterface> interface = new NUI::CInterface(cursor);
+    CObj<NUI::CCharacterPanel> panel = new NUI::CCharacterPanel(NUI::SWindowInfo(
+        interface,NUI::SPoint(0,0),NUI::SPoint(layout->nWidth,layout->nHeight),"character-name-probe"),mission);
+    NUI::LoadTemplate(panel,layout);
+    auto* fullName = dynamic_cast<NUI::CText*>(panel->GetChildByID("fullname"));
+    Require(fullName != nullptr, "native character panel did not create its authored full-name label");
+    const int ap = actor->GetAP();
+    panel->SetStyle(NUI::STYLE_VISIBLE,true);
+    Require(panel->Update(0,nullptr), "native character panel failed to update its visible controls");
+    Require(fullName->GetText() == L"<font face=Courier size=16pt><center>" + rpg->wsFullName,
+        "the character panel showed the nickname instead of the full display name");
+    rpg->wsFullName = wstring(320,L'X');
+    panel->Update(1,nullptr);
+    Require(fullName->GetText() == L"<font face=Courier size=16pt><center>" + rpg->wsFullName,
+        "the character panel truncated the stored full name to its legacy formatting buffer");
+    rpg->wsFullName.clear();
+    panel->Update(2,nullptr);
+    Require(fullName->GetText() == L"<font face=Courier size=16pt><center>" + rpg->GetName(),
+        "an older save without a full name lost its existing nickname heading");
+    Require(actor->GetAP() == ap && !actor->HasCommand(), "updating the character name changed native gameplay state");
+}
+
 static void PersonaFullDisplayName(const char* databasePath)
 {
     CFileStream database;
@@ -10011,6 +10067,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "persona-full-display-name")) { Require(argc == 3, "full display name requires db"); PersonaFullDisplayName(argv[2]); return true; }
+    if (!std::strcmp(mode, "character-panel-full-name")) { Require(argc == 4, "character panel name requires db and res"); CharacterPanelFullName(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "temporary-groups")) { TemporaryGroups(); return true; }
     if (!std::strcmp(mode, "scroll-initialization")) { ScrollInitialization(); return true; }
     if (!std::strcmp(mode, "attack-location")) { AttackLocationRefresh(); return true; }

@@ -221,6 +221,7 @@
 | [7a9e903d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7a9e903dd299c89f260c0e9311fbb15127bbd980) — Select available shared-key actions in the original priority order | `shared action key selected set-mine ahead of available first aid` | 266/266; `shared-action-shortcut-priority` | `Upstream-Commit` в commit message |
 | [9af844d6](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9af844d6b62ed800bb59a64057b03e0eafc83878) — Compute invalid mission action caches when they are queried | `querying an invalid action cache returned an uncomputed unavailable action` | 267/267; `invalid-action-cache-query` | `Upstream-Commit` в commit message |
 | [6a66dadd](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6a66daddde3e9090f9fbb95e30f79a4262097e12) — Initialize RPG unit full names from their authored persona records | `creating an RPG unit discarded its authored full display name` | 268/268; `persona-full-display-name` | `Upstream-Commit` в commit message |
+| [6a66dadd](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6a66daddde3e9090f9fbb95e30f79a4262097e12) — Show stored full names in the character panel without changing its fonts | `the character panel showed the nickname instead of the full display name` | 269/269; `character-panel-full-name` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

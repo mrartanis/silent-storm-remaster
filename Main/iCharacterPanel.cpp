@@ -229,8 +229,8 @@ bool CCharacterPanel::Update( const STime &sTime, NGScene::I2DGameView *pView )
 	NRPG::CUnit *pRPGUnit = pUnitInfo->GetRPGUnit();
 	if ( IsValid( pRPGUnit ) )
 	{
-		swprintf( wsText, sizeof(wsText) / sizeof(wsText[0]), L"<font face=Courier size=16pt><center>%ls", pRPGUnit->GetName().c_str() );
-		pFullName->SetText( wsText );
+		const wstring &wsName = pRPGUnit->wsFullName.empty() ? pRPGUnit->GetName() : pRPGUnit->wsFullName;
+		pFullName->SetText( L"<font face=Courier size=16pt><center>" + wsName );
 	}
 
 	swprintf( wsText, sizeof(wsText) / sizeof(wsText[0]), L"<font face=Courier size=16pt><center>%d", pUnitInfo->GetSkillMaxValue( NDb::ST_LEVEL ) );
