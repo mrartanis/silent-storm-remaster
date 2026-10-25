@@ -503,7 +503,7 @@ static void ProcessStandardEvents( const NInput::SEvent &eEvent )
 #ifdef _MAPEDIT
 		Command( 0 );
 #else
-		Command( new NGame::CICExitMenu() );
+		Command( new NGame::CICExitMenu( 0, false ) );
 #endif
 	else if ( cWireframe.ProcessEvent( eEvent ) )
 		NGScene::SetWireframe( bWireFrame = !bWireFrame );

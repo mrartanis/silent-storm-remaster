@@ -49,6 +49,7 @@
 #include "../Main/iMain.h"
 #include "../Main/iOptionsMenu.h"
 #include "../Main/iLoseFake.h"
+#include "../Main/iExitMenu.h"
 #include "../Main/ScreenShot.h"
 #include "../Main/iSaveManager.h"
 #include "../Main/aiLocker.h"
@@ -133,6 +134,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
+#include <type_traits>
 #include <new>
 #include <cstddef>
 #include <cmath>
@@ -1415,6 +1417,98 @@ static void DisabledCursorInput()
     cursor->ProcessEvent(event);
     Require(cursor->GetPos().x == 45 && cursor->GetPos().y == 67,
         "cursor input no longer follows the original count-below-one enable rule");
+}
+
+template<class Command,class = void>
+struct HasExitPermissionArgument: std::false_type {};
+template<class Command>
+struct HasExitPermissionArgument<Command,std::void_t<decltype(new Command(std::declval<NGScene::CScreenshotTexture*>(),true))>>: std::true_type {};
+
+template<class Command>
+static void CheckPermittedExitMenu(NGScene::CScreenshotTexture* texture,bool shortcut)
+{
+    // Keep the RED fixture compilable with the old one-argument command API.
+    constexpr bool hasPermissionArgument = HasExitPermissionArgument<Command>::value;
+    Require(hasPermissionArgument, "exit menu command cannot carry an explicit true save permission");
+    if constexpr (hasPermissionArgument) {
+        NMainLoop::DoneInterface();
+        CObj<Command> permitted = new Command(texture,true);
+        permitted->Exec();
+        auto* active = NMainLoop::GetCurrentInterfaceForHarness();
+        Require(IsValid(active), "explicitly permitted exit command did not open its menu");
+        CStructureNetworkContext references;
+        auto fields = BorrowedObjectFields(active,&references);
+        bool allow = false;
+        CPtr<NUI::CWindow> dialog;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(2,&allow); reader.Add(5,&dialog); }
+        Require(allow && IsValid(dialog), "exit menu command did not forward its true save permission");
+        auto* save = dialog->GetChildByID("save");
+        Require(IsValid(save) && save->GetStyle(NUI::STYLE_VISIBLE),
+            "an explicitly permitted exit command hid its Save button");
+        if (shortcut) {
+            NInput::SEvent event;
+            NInput::PostEvent("save");
+            Require(NInput::GetEvent(&event), "permitted exit save shortcut was not queued");
+            active->ProcessEvent(event);
+            Require(NMainLoop::HaveInterfaceCommand(), "an explicitly permitted exit command rejected its Save shortcut");
+        }
+    }
+}
+
+static void ExitMenuSavePermission(const char* databasePath,const char* resourcePath,bool shortcut)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    Require(NMainLoop::GetCurrentInterfaceForHarness() == nullptr && !NMainLoop::HaveInterfaceCommand(),
+        "exit save-gate fixture must start without an interface or queued command");
+    struct InterfaceCleanup { ~InterfaceCleanup() { NMainLoop::DoneInterface(); } } cleanup;
+    // The existing saved UI permission must still permit Save when explicitly true.
+    CObj<NUI::ICursor> controlCursor = NUI::ICursor::Create(false);
+    CObj<NUI::CInterface> controlInterface = new NUI::CInterface(controlCursor);
+    CObj<NUI::CWindow> permitted = dynamic_cast<NUI::CWindow*>(pSSClasses->CreateObject(int(0xB1203151)));
+    Require(IsValid(permitted), "exit save-gate fixture has no native dialog class");
+    permitted->SetInterface(controlInterface);
+    bool allow = true;
+    CMemoryStream fields;
+    { CStructureSaver writer(fields,CStructureSaver::WRITE); writer.Add(2,&allow); }
+    fields.Seek(0);
+    { CStructureSaver reader(fields,CStructureSaver::READ); static_cast<CObjectBase*>(permitted.GetPtr())->operator&(reader); }
+    NUI::LoadTemplate(permitted,NDb::GetUIContainer(357));
+    auto* allowedSave = permitted->GetChildByID("save");
+    Require(IsValid(allowedSave) && allowedSave->GetStyle(NUI::STYLE_VISIBLE),
+        "exit dialog control did not show Save for an explicitly permitted saved UI");
+    CObj<NGScene::CScreenshotTexture> texture = new NGScene::CScreenshotTexture;
+    CArray2D<NGfx::SPixel8888> pixels; pixels.SetSizes(1,1);
+    pixels[0][0] = NGfx::SPixel8888(12,23,34,255); texture->Set(pixels);
+    CObj<NGame::CICExitMenu> command = new NGame::CICExitMenu(texture);
+    command->Exec();
+    auto* active = NMainLoop::GetCurrentInterfaceForHarness();
+    Require(IsValid(active) && !NMainLoop::HaveInterfaceCommand(),
+        "exit save-gate fixture did not initialize the actual exit menu cleanly");
+    if (shortcut) {
+        NInput::SEvent event;
+        while (NInput::GetEvent(&event)) {}
+        NInput::PostEvent("save");
+        Require(NInput::GetEvent(&event), "exit save-gate fixture did not receive the native save command");
+        active->ProcessEvent(event);
+        Require(!NMainLoop::HaveInterfaceCommand(),
+            "the default exit dialog queued a Save menu through its forbidden save shortcut");
+    } else {
+        CStructureNetworkContext references;
+        auto saved = BorrowedObjectFields(active,&references);
+        CPtr<NUI::CWindow> dialog;
+        { CStructureSaver reader(saved,CStructureSaver::READ,&references); reader.Add(5,&dialog); }
+        Require(IsValid(dialog), "exit save-gate fixture did not retain the native dialog");
+        auto* save = dialog->GetChildByID("save");
+        auto* cancel = dialog->GetChildByID("cancel");
+        Require(IsValid(save) && IsValid(cancel), "exit save-gate fixture lacks save or cancel buttons");
+        Require(!save->GetStyle(NUI::STYLE_VISIBLE),
+            "the default exit dialog displayed Save despite its disabled save permission");
+        Require(cancel->GetStyle(NUI::STYLE_VISIBLE), "disabling Save also hid the exit dialog's Cancel button");
+    }
+    CheckPermittedExitMenu<NGame::CICExitMenu>(texture,shortcut);
 }
 
 static void SuppliedMenuScreenshot(const char* databasePath,const char* resourcePath, bool lose = false)
@@ -7576,6 +7670,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "restored-empty-portraits")) { RestoredPortraitPanel(true); return true; }
     if (!std::strcmp(mode, "native-cursor-position")) { NativeCursorPositioning(); return true; }
     if (!std::strcmp(mode, "disabled-cursor-input")) { DisabledCursorInput(); return true; }
+    if (!std::strcmp(mode, "exit-menu-save-visibility") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],false); return true; }
+    if (!std::strcmp(mode, "exit-menu-save-shortcut") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "supplied-defeat-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "supplied-options-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
