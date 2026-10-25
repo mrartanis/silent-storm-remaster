@@ -376,6 +376,13 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdDropCorpse
 	return result;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdReload *, vector<NAI::SPathPlace> *pRes )
+{
+	// Retail v1.2 0x79b62e: retain the current tile, pose and direction for reload.
+	pRes->push_back( pUS->GetPosition().pos.p );
+	return UCR_OK;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdMoveInventoryItem *pCmd, vector<NAI::SPathPlace> *pRes )
 {
 	if ( pCmd->GetSource().eType == SItem::GROUND )
@@ -510,6 +517,10 @@ static CCommandExecute* CreateActionQueueOrReload( CUnitServer *pUS, TCommand *p
 CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitCommandResult *pError )
 {
 	*pError = UCR_OK;
+	CDynamicCast<CCmdReload> pReload( pCmd );
+	if ( pReload )
+		return CreateActionQueue( pUS, pReload.GetPtr(), new CExecReload( pUS, pReload->nSlot ), ITEM_ACTIVE, pError );
+
 	CDynamicCast<CCmdPlayAnimation> pAnim(pCmd);
 	if (pAnim)
 		return new CExecPlayAnimation(pUS, pAnim->nDBAnimationID, pAnim->bFreezeAfterLastFrame);

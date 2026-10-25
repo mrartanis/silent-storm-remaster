@@ -114,6 +114,7 @@
 | [e5830013](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e583001380393e1e1034c33791f41c69b659f4ad) — Notify the automatic camera when preparing the next movement step | `native movement did not notify the automatic camera when preparing its next step` | 145/145; `movement-action-camera` | `Upstream-Commit` в commit message |
 | [1e2f1d4f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1e2f1d4fe9ec2f7bacfeed195210ddb6c3b2c25e) — Restore the retail AI reload record format and clip ownership | `AI reload record did not write the next clip in retail save tag 4` | 148/148; `ai-reload-log` | `Upstream-Commit` в commit message |
 | [156ccd17](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/156ccd173ff6c9671904e6d94e709397fc701d66) — Select the effective mounted weapon for default reloads | `default reload selected the personal firearm instead of the effective mounted weapon` | 149/149; `mounted-reload-weapon` | `Upstream-Commit` в commit message |
+| [ece00052](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/ece000527fc42aa8f059bf82bb6e0e50f9f6f780) — Draw a holstered weapon before starting its reload action | `holstered reload started without scheduling weapon activation preparation` | 150/150; `holstered-reload-preparation` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -300,3 +301,15 @@ Windows/Linux — 148/148; Windows `ALL_BUILD`, Linux `Game` собраны.
 `checkpoint-148-shots-test.log`, `ai-reload-log-linux-test.log`.
 Три новых проверки журнала ИИ работают без внешних игровых ресурсов и
 включены в набор GitHub. Завершение всего переноса и итоговый CI впереди.
+
+### Контроль после подготовки оружия к перезарядке
+
+Windows/Linux — 150/150; Windows `ALL_BUILD` и Linux `Game` собраны.
+Нативный тест выполняет всю последовательность: доставание оружия, его
+появление на time label, запуск reload после конца подготовительной анимации,
+загрузка патронов и завершение счетчика действия. Место, поза и направление
+солдата сохраняются. Расширенный Windows набор — 206/206; настоящая стрельба,
+сохранение и загрузка — 4/4. Логи `checkpoint-150-all-build.log`,
+`checkpoint-150-ci-test.log`, `checkpoint-150-shots-test.log`,
+`reload-preparation-linux-test.log`. Итоговый GitHub Actions и оставшиеся
+источники отчета еще в работе.

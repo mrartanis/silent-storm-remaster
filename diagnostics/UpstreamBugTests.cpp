@@ -3600,6 +3600,70 @@ static void MountedReloadWeapon(const char* databasePath, const char* resourcePa
         "constructing reload executors spent ammunition or action points");
 }
 
+static void HolsteredReloadPreparation(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    CPtr<NRPG::CWeaponItem> weapon;
+    for (auto& entry: units) {
+        auto* server = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (!server || !server->CanFight() || server->IsEmptyPK() || server->IsWearingPK()
+                || !server->GetUnitRPG()->CanMove() || server->GetPosition().pos.p.GetPose() == NAI::CM_INACTIVE) continue;
+        auto* firearm = dynamic_cast<NRPG::CWeaponItem*>(server->GetUnitRPG()->GetInventory()->GetActive());
+        if (!firearm || firearm->GetAmmoQuantity() <= 0) continue;
+        firearm->DiscardAmmo();
+        if (firearm->CanReload(server->GetUnitRPG()->GetInventory())
+                && server->CanSpendAP(server->GetActionAP(NRPG::AC_RELOAD))) { actor = server; weapon = firearm; break; }
+    }
+    Require(actor && IsValid(weapon), "holstered reload fixture has no mobile firearm user with spare ammunition");
+    actor->animator.SetActiveItem(false); actor->SetUndrawItem(true); actor->SetWalkWithoutWeapon(true);
+    const auto original = actor->GetPosition().pos.p;
+    const int ap = actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP);
+    CObj<NWorld::CCmdReload> command = new NWorld::CCmdReload(-1);
+    NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
+    CObj<NWorld::CCommandExecute> executor = NWorld::CreateExecutor(actor, command, &result);
+    Require(IsValid(executor) && result == NWorld::UCR_OK, "holstered reload fixture could not create its reload action");
+    auto* sequence = dynamic_cast<NWorld::CSimpleExecQueue*>(executor.GetPtr());
+    Require(sequence != nullptr, "holstered reload started without scheduling weapon activation preparation");
+    auto* preparation = sequence->GetFrontExecutor();
+    auto* move = dynamic_cast<NWorld::IExecMove*>(preparation);
+    Require(move && preparation != FindNativeReload(executor), "reload action preceded its native weapon preparation");
+    NAI::SPathPlace target;
+    NAI::EFindPathParams params;
+    NWorld::ENeedActiveItem active;
+    move->GetDesiredPlace(&target, &params, &active);
+    Require(target == original && active == NWorld::ITEM_ACTIVE,
+        "reload preparation changed the tile/pose/direction or omitted the active-weapon constraint");
+    auto plan = ReadMovementCommands(preparation);
+    const auto activations = std::count_if(plan.queued.begin(), plan.queued.end(), [](const auto& item) {
+        return pSSClasses->GetObjectTypeID(item.GetPtr()) == int(0x113B1130);
+    });
+    Require(activations == 1, "holstered reload preparation did not queue its explicit weapon draw");
+    Require(actor->GetPosition().pos.p == original && weapon->GetAmmoQuantity() == 0
+            && actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == ap,
+        "preparing reload moved the actor or spent ammunition/AP before execution");
+    CPtr<NWorld::CCommandExecute> reload = FindNativeReload(executor);
+    executor->Run();
+    Require(preparation->IsExecuting() && !reload->IsExecuting() && !actor->IsWalkingWithoutWeapon(),
+        "reload started before its explicit weapon-draw action");
+    executor->TimeLabelReached();
+    Require(!actor->GetUndrawItem() && weapon->GetAmmoQuantity() == 0,
+        "weapon-draw time label did not reveal the weapon before loading ammunition");
+    executor->AnimationFinished();
+    Require(IsValid(reload) && reload->IsExecuting() && !actor->GetUndrawItem(),
+        "weapon-draw completion did not start the native reload action");
+    executor->TimeLabelReached();
+    Require(weapon->GetAmmoQuantity() > 0 && actor->GetPosition().pos.p == original,
+        "prepared native reload did not load ammunition in the original tile and pose");
+    executor->AnimationFinished();
+    executor = nullptr;
+    Require(!world->IsAction(), "completed prepared reload retained its action counter");
+
+}
+
 static void EffectiveWeaponMode(const char* databasePath, const char* resourcePath, int checkIcons = 0)
 {
     auto world = FixtureWorld(databasePath, resourcePath);
@@ -5113,6 +5177,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-terminal-failed")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "movement-action-camera")) { Require(argc == 4, "movement camera requires db and res"); MovementActionCamera(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "mounted-reload-weapon")) { Require(argc == 4, "mounted reload requires db and res"); MountedReloadWeapon(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "holstered-reload-preparation")) { Require(argc == 4, "reload preparation requires db and res"); HolsteredReloadPreparation(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-reload-log-wire")) { AIReloadLogRecord(0); return true; }
     if (!std::strcmp(mode, "ai-reload-log-rollback")) { AIReloadLogRecord(1); return true; }
     if (!std::strcmp(mode, "ai-reload-log-ownership")) { AIReloadLogRecord(2); return true; }
