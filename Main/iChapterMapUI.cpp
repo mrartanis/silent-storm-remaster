@@ -64,7 +64,8 @@ public:
 	{
 		MODE_MOVE,
 		MODE_NORMAL,
-		MODE_ZONE
+		MODE_ZONE,
+		MODE_EXITZONE
 	};
 
 private:
@@ -131,6 +132,9 @@ void CTeamMarker::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 		case MODE_ZONE:
 			pToolTip->SetText( GetDBString( 11126 ) );
 			break;
+		case MODE_EXITZONE:
+			pToolTip->SetText( GetDBString( 20253 ) );
+			break;
 		}
 
 		switch( eTargetMode )
@@ -140,6 +144,7 @@ void CTeamMarker::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 			fNormal = 1.0f;
 			break;
 		case MODE_ZONE:
+		case MODE_EXITZONE:
 		case MODE_NORMAL:
 			fNormal = float( sTime - sMorphTime ) / N_STANDART_MORPHTIME;
 			fMoving = 1.0f;
@@ -157,6 +162,7 @@ void CTeamMarker::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 			fMoving = 1.0f;
 			break;
 		case MODE_ZONE:
+		case MODE_EXITZONE:
 		case MODE_NORMAL:
 			fNormal = 1.0f;
 			fFlash = float( ( sTime - sFlashTime ) % ( N_STANDART_FLASHTIME * 2 ) ) / N_STANDART_FLASHTIME;
@@ -180,19 +186,20 @@ void CTeamMarker::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 	switch( eTargetMode )
 	{
 	case MODE_MOVE:
-		if ( eMode == MODE_ZONE )
+		if ( ( eMode == MODE_ZONE ) || ( eMode == MODE_EXITZONE ) )
 			pZone->Draw( this, sTime, pView );
 		else if ( eMode == MODE_NORMAL )
 			pNormal->Draw( this, sTime, pView );
 
 		pMoving->Draw( this, sTime, pView );
 
-		if ( eMode == MODE_ZONE )
+		if ( ( eMode == MODE_ZONE ) || ( eMode == MODE_EXITZONE ) )
 			pZoneFlash->Draw( this, sTime, pView );
 		else if ( eMode == MODE_NORMAL )
 			pNormalFlash->Draw( this, sTime, pView );
 		break;
 	case MODE_ZONE:
+	case MODE_EXITZONE:
 		pMoving->Draw( this, sTime, pView );
 		pZone->Draw( this, sTime, pView );
 		pZoneFlash->Draw( this, sTime, pView );
@@ -1025,12 +1032,14 @@ void CChapterMapUI::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 	pMapView->ScreenToClient( SPoint( vCurrentPos.x+S2UI::MapOffsetX(), vCurrentPos.y+S2UI::MapOffsetY() ), &sPoint );
 
 	bool bHitSector = false;
+	EChapterSectorType eSectorType = RANDOM;
 	for ( int nTemp = 0; nTemp < sectorsSet.size(); nTemp++ )
 	{
 		if ( !sectorsSet[nTemp]->HitTestMap( vCurrentPos ) )
 			continue;
 
 		bHitSector = true;
+		eSectorType = sectorsSet[nTemp]->GetSector().eType;
 		break;
 	}
 
@@ -1049,7 +1058,8 @@ void CChapterMapUI::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 	}
 	const SPoint &sSize = pTeamMarker->GetSize();
 	pTeamMarker->SetPosition( SPoint( sPoint.x - sSize.x / 2, sPoint.y - sSize.y / 2 ) );
-	pTeamMarker->SetMode( bMoving ? CTeamMarker::MODE_MOVE : bHitSector ? CTeamMarker::MODE_ZONE : CTeamMarker::MODE_NORMAL );
+	pTeamMarker->SetMode( bMoving ? CTeamMarker::MODE_MOVE : bHitSector ?
+		( eSectorType == ZONE ? CTeamMarker::MODE_ZONE : CTeamMarker::MODE_EXITZONE ) : CTeamMarker::MODE_NORMAL );
 
 	// retail @0x1aac20: the clue drain is gated on the SECOND frame -- nWaitForSpecialFrame is
 	// post-incremented every Draw and the drain runs only when it reaches 2, i.e. exactly once, on

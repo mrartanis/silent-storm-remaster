@@ -2199,8 +2199,9 @@ static void GlobalMapReturnDestination(const char* databasePath,const char* reso
 }
 
 static void CheckChapterMarkerToolTipTransitions(NUI::CWindow* marker,NUI::CText* text);
+static void CheckChapterExitMarkerHint(NGame::CMissionBase* mission,NUI::CWindow* chapter,NUI::CWindow* marker,NUI::CText* text);
 
-static void ChapterTeamMarkerToolTip(const char* databasePath,const char* resourcePath,bool transitions = false)
+static void ChapterTeamMarkerToolTip(const char* databasePath,const char* resourcePath,int transitions = 0)
 {
     CFileStream database;
     database.OpenRead(databasePath);
@@ -2239,7 +2240,8 @@ static void ChapterTeamMarkerToolTip(const char* databasePath,const char* resour
     { CStructureSaver reader(tooltipFields,CStructureSaver::READ,&tooltipRefs); reader.Add(2,&text); }
     Require(IsValid(text) && !NUI::GetDBString(11124).empty() && text->GetText() == NUI::GetDBString(11124),
         "the chapter marker tooltip lost its authored initial text");
-    if (transitions) CheckChapterMarkerToolTipTransitions(marker,text);
+    if (transitions == 1) CheckChapterMarkerToolTipTransitions(marker,text);
+    if (transitions == 2) CheckChapterExitMarkerHint(mission,chapter,marker,text);
     Require(game->bChapterMapSet && game->nChapterMapID == map->GetRecordID() && game->players.size() == 1,
         "creating a chapter marker tooltip changed the campaign destination or party");
 }
@@ -5755,6 +5757,50 @@ static void CheckChapterMarkerToolTipTransitions(NUI::CWindow* marker,NUI::CText
         marker->Draw(10000,view);
         Require(text->GetText() == NUI::GetDBString(hints[i]), "the chapter action hint disappeared after its transition");
     }
+}
+
+static void CheckChapterExitMarkerHint(NGame::CMissionBase* mission,NUI::CWindow* chapter,NUI::CWindow* marker,NUI::CText* text)
+{
+    CDGPtr<CPtrFuncBase<CChapterInfo>> info = mission->GetChapterInfo(); info.Refresh();
+    CVec2 position;
+    bool found = false;
+    for (const auto& sector: info->GetValue()->sectorsSet) {
+        if (sector.eType != EXITZONE || sector.pointsSet.empty()) continue;
+        position = sector.pointsSet.front()+CVec2(10,10); found = true; break;
+    }
+    Require(found, "chapter exit-hint fixture has no authored exit sector");
+    CMemoryStream state;
+    STime last = 1000;
+    int specialFrame = 3;
+    {
+        CStructureSaver writer(state,CStructureSaver::WRITE);
+        writer.Add(8,&position); writer.Add(9,&position); writer.Add(10,&last); writer.Add(18,&specialFrame);
+    }
+    state.Seek(0);
+    { CStructureSaver reader(state,CStructureSaver::READ); static_cast<CObjectBase*>(chapter)->operator&(reader); }
+    struct ReachedChapterRender {};
+    class ChapterSelectionView: public DialogueLayoutView {
+        OBJECT_NOCOPY_METHODS(ChapterSelectionView);
+    public:
+        const CVec2& GetViewportSize() override { throw ReachedChapterRender(); }
+    };
+    CObj<ChapterSelectionView> selectionView = new ChapterSelectionView;
+    CObj<DialogueLayoutView> view = new DialogueLayoutView;
+    marker->Draw(1000,view); // A real preceding frame establishes the marker's transition clock.
+    bool reachedRender = false;
+    try { chapter->Draw(1001,selectionView); }
+    catch (const ReachedChapterRender&) { reachedRender = true; }
+    Require(reachedRender, "chapter exit-hint fixture never reached its rendering boundary");
+    Require(!NMainLoop::HaveInterfaceCommand(), "chapter exit-hint selection unexpectedly queued a campaign command");
+    CStructureNetworkContext references;
+    auto fields = BorrowedObjectFields(marker,&references);
+    int target = -1;
+    { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(3,&target); }
+    Require(target == 2 || target == 3, "chapter exit-hint fixture did not place the party inside an action sector");
+    Require(target == 3, "the native chapter map selected a mission-entry marker for its campaign exit sector");
+    marker->Draw(1001,view);
+    Require(!NUI::GetDBString(20253).empty() && text->GetText() == NUI::GetDBString(20253),
+        "the chapter exit marker displayed the mission-entry hint instead of its authored exit hint");
 }
 
 class DialogueMissionProbe: public NGame::CMissionBase
@@ -9571,6 +9617,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "global-map-return-destination") && argc == 4) { GlobalMapReturnDestination(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-team-marker-tooltip") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-marker-tooltip-transitions") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "chapter-exit-marker-hint") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "forced-tool-targeting-entry") && argc == 3) { ForcedToolTargetingEntry(argv[2]); return true; }
     if (!std::strcmp(mode, "tool-targeting-cursor-refresh") && argc == 3) { ToolTargetingCursorRefresh(argv[2]); return true; }
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
