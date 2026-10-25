@@ -124,6 +124,7 @@
 | [15d5d41f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/15d5d41fc37267ecc80dcc621df24be99e3b52a9) — Count Lua callback arguments in the supplied execution state | `native Lua argument count came from another script's stack` | 158/158; `lua-argument-state` | `Upstream-Commit` в commit message |
 | [15d5d41f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/15d5d41fc37267ecc80dcc621df24be99e3b52a9) — Allow native UI scripts to be created without a tactical world | `native script factory rejected a UI script without a tactical world` | 159/159; `worldless-ui-script` | `Upstream-Commit` в commit message |
 | [15d5d41f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/15d5d41fc37267ecc80dcc621df24be99e3b52a9) — Preserve borrowed window references in native Lua userdata | `Lua window userdata discarded its borrowed native window reference` | 160/160; `lua-window-userdata` | `Upstream-Commit` в commit message |
+| [15d5d41f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/15d5d41fc37267ecc80dcc621df24be99e3b52a9) — Preserve the Lua VM stack across window setter tag callbacks | `Lua dotted window assignment corrupted the stack before the following native call` | 161/161; `lua-window-setter-stack` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

@@ -344,6 +344,40 @@ static void LuaWindowUserdata()
         "closing a window script invalidated a control retained by its interface");
 }
 
+static void LuaWindowSetterStack()
+{
+    CObj<NUI::CInterface> interface = new NUI::CInterface;
+    interface->SetInterface(interface);
+    CMObj<NUI::CWindow> child = new NUI::CWindow(NUI::SWindowInfo(interface,
+        NUI::SPoint(3, 4), NUI::SPoint(20, 20), "setter-child"));
+    CObj<NScript::CScript> script = NScript::CreateScript(nullptr);
+    script->SetScriptInterface(interface);
+    struct GlobalScriptRestore {
+        CPtr<NScript::CScript> previous;
+        ~GlobalScriptRestore() { pScript = previous; }
+    } restore{pScript};
+    pScript = script;
+    Require(script->DoString("local w=GetWindow('setter-child'); w.x=42; windowSetProperty(w, 'y', 17); afterSetter=123") == LUA_NOERR,
+        "native Lua setter-stack fixture did not compile");
+    script->ExecuteThreads();
+    Require(script->GetGlobal("afterSetter").IsNumber() && script->GetGlobal("afterSetter").GetNumber() == 123
+            && child->GetPosition() == NUI::SPoint(42, 17),
+        "Lua dotted window assignment corrupted the stack before the following native call");
+    script->SetTop(0);
+    script->PushUserTag(child.GetPtr(), tagLuaWindow);
+    const int originalTop = script->GetTop();
+    lua_pushstring(script->GetState(), "x"); lua_pushnumber(script->GetState(), 51);
+    lua_settable(script->GetState(), -3);
+    Require(script->GetTop() == originalTop && child->GetPosition() == NUI::SPoint(51, 17),
+        "Lua VM setter correction changed the C API's explicit stack-pop contract");
+    script->SetTop(0);
+    Require(script->DoString("local t={}; t.x=7; plainSetter=t.x+1; afterPlain=99") == LUA_NOERR,
+        "plain Lua setter control did not compile");
+    script->ExecuteThreads();
+    Require(script->GetGlobal("plainSetter").GetNumber() == 8 && script->GetGlobal("afterPlain").GetNumber() == 99,
+        "window setter correction changed ordinary Lua table assignment");
+}
+
 static void WorldlessUIScript()
 {
     CObj<NScript::CScript> script = NScript::CreateScript(nullptr);
@@ -5646,6 +5680,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "lua-argument-state")) { LuaArgumentState(); return true; }
     if (!std::strcmp(mode, "worldless-ui-script")) { WorldlessUIScript(); return true; }
     if (!std::strcmp(mode, "lua-window-userdata")) { LuaWindowUserdata(); return true; }
+    if (!std::strcmp(mode, "lua-window-setter-stack")) { LuaWindowSetterStack(); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
     if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }
     if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) { AIReactionValueLatch(argv[2], argv[3]); return true; }

@@ -518,8 +518,10 @@ void luaV_stepExecute( lua_State *L )
 			}
 			case OP_SETTABLE: {
 				StkId t = top-GETARG_A(i);
+				// A tag callback changes the thread top aliased by this VM loop.
+				StkId resultTop = top-GETARG_B(i);
 				luaV_settable(L, t, t+1);
-				top -= GETARG_B(i);  /* pop values */
+				top = resultTop;  /* pop the original operands exactly once */
 				break;
 			}
 			case OP_SETLIST: {
