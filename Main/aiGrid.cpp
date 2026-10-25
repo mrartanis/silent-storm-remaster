@@ -1130,6 +1130,7 @@ int CPathNetwork::CreateLayer( int nXSize, int nYSize, const CVec2 &ptOrigin,
 		OutputDebugString("Warning! Layers number limit exceeded!\n");
 		return -1;
 	}
+	pLayer->bHappySave = bHappySave;
 	pLayer->BuildLayer( nXSize, nYSize, ptOrigin, ptXDir, nFloor, nLayer, this, pGroup );
 	layers.push_back( pLayer );
 	bColouringConstructed = false;

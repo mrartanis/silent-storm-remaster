@@ -1315,6 +1315,45 @@ static CMemoryStream BorrowedObjectFields(CObjectBase* object, CStructureNetwork
     return saved;
 }
 
+static void NewLayerCompactSave()
+{
+    auto roundtrip = [](NAI::CNodesLayer* layer) {
+        CObj<NAI::CNodesLayer> original = layer, restored;
+        CMemoryStream fields;
+        { CStructureSaver writer(fields, CStructureSaver::WRITE); writer.Add(2, &original); }
+        fields.Seek(0);
+        { CStructureSaver reader(fields, CStructureSaver::READ); reader.Add(2, &restored); }
+        Require(IsValid(restored), "navigation save fixture did not restore the layer graph");
+        return restored;
+    };
+    auto inspect = [&](NAI::CNodesLayer* layer) {
+        auto restored = roundtrip(layer);
+        return std::make_pair(restored->bHappySave, IsValid(restored->pColourer));
+    };
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    const int normal = network->CreateLayer(8, 8, VNULL2, 0.f, 0);
+    network->GetColourer(normal);
+    const auto ordinary = inspect(network->GetLayer(normal));
+    Require(!ordinary.first && ordinary.second, "ordinary layer save did not retain its existing navigation cache");
+    network->SetSmallSaveSize(true);
+    const int added = network->CreateLayer(8, 8, VNULL2, 0.f, 1);
+    network->GetColourer(added);
+    const auto fresh = inspect(network->GetLayer(added));
+    Require(fresh.first, "navigation layer created after enabling compact saves did not inherit the small-save flag");
+    Require(!fresh.second && !inspect(network->GetLayer(normal)).second,
+        "compact layer save retained a cache on a new or existing layer");
+    Require(IsValid(network->GetLayer(added)->pColourer) && IsValid(network->GetLayer(normal)->pColourer),
+        "compact serialization destroyed the live navigation caches");
+    auto restored = roundtrip(network->GetLayer(added));
+    Require(restored->bHappySave && !IsValid(restored->pColourer),
+        "compact layer save did not round-trip the flag and omitted-cache state");
+    network->SetSmallSaveSize(false);
+    for (int index: {normal, added}) {
+        const auto full = inspect(network->GetLayer(index));
+        Require(!full.first && full.second, "disabling compact saves did not restore full cache serialization on all layers");
+    }
+}
+
 static void WindowLazyUpdate()
 {
     auto requiresUpdate = [](NUI::CWindow* window) {
@@ -6261,6 +6300,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "fresh-navigation-colouring")) { FreshNavigationColouring(); return true; }
     if (!std::strcmp(mode, "fresh-navigation-transitions")) { FreshNavigationTransitions(); return true; }
     if (!std::strcmp(mode, "lazy-navigation-colourer")) { LazyNavigationColourer(); return true; }
+    if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "living-unit-floor-refresh") && argc == 4) { LivingUnitFloorRefresh(argv[2], argv[3]); return true; }

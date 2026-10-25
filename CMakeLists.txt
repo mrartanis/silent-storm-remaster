@@ -857,6 +857,7 @@ add_test(NAME UpstreamWindowNestedWakeup COMMAND UpstreamBugTests window-nested-
 add_test(NAME UpstreamOwnerlessInventoryDrag COMMAND UpstreamBugTests ownerless-inventory-drag)
 add_test(NAME UpstreamUnsupportedNavigationFloor COMMAND UpstreamBugTests unsupported-navigation-floor)
 add_test(NAME UpstreamLazyNavigationColourer COMMAND UpstreamBugTests lazy-navigation-colourer)
+add_test(NAME UpstreamNewLayerCompactSave COMMAND UpstreamBugTests new-layer-compact-save)
 add_test(NAME UpstreamCompressedSaveWriting COMMAND UpstreamBugTests compressed-save-writing)
 set_tests_properties(UpstreamCompressedSaveWriting PROPERTIES ENVIRONMENT "S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/upstream-compressed-save-fixture")
 add_test(NAME UpstreamConsoleVisibilityToggle COMMAND UpstreamBugTests console-visibility-toggle)
