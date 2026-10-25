@@ -829,6 +829,7 @@ add_test(NAME UpstreamCompletedZoneRecommendation COMMAND UpstreamBugTests compl
 add_test(NAME UpstreamPermanentClueSingleMap COMMAND UpstreamBugTests permanent-clue-single-map)
 add_test(NAME UpstreamDeferredClickWorld COMMAND UpstreamBugTests deferred-click-world)
 add_test(NAME UpstreamPointLightWithoutScene COMMAND UpstreamBugTests point-light-without-scene)
+add_test(NAME UpstreamDynamicAmbientFallback COMMAND UpstreamBugTests dynamic-ambient-fallback)
 add_test(NAME UpstreamPointLightSaveLayout COMMAND UpstreamBugTests point-light-save-layout)
 add_test(NAME UpstreamLegacyPointLightSaveLayout COMMAND UpstreamBugTests legacy-point-light-save-layout)
 add_test(NAME UpstreamPointLightShadowFlag COMMAND UpstreamBugTests point-light-shadow-flag)

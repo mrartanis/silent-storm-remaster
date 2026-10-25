@@ -37,7 +37,7 @@ public:
         *time = 0.5f; *normal = CVec3(0, 0, 1); *color = VNULL3;
         return blocked;
     }
-    SGroupSelect GetLastMask() override { throw std::runtime_error("unexpected lighting fixture operation"); }
+    SGroupSelect GetLastMask() override { return MakeSelectAll(); }
     void PrecacheMaterials() override { throw std::runtime_error("unexpected lighting fixture operation"); }
     void SetLightingOptions( int nOptions ) override { throw std::runtime_error("unexpected lighting fixture operation"); }
 };

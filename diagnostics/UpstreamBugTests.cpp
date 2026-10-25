@@ -61,6 +61,8 @@
 #include "../Main/GAnimLight.h"
 #include "../Main/GRenderLight.h"
 #include "../Main/GLightmapStateWire.h"
+#include "../Main/GInit.h"
+#include "../Game/Platform.h"
 #include "../Main/GGeometryPositionHash.h"
 using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/rpgGlobal.h"
@@ -520,6 +522,37 @@ static void DeferredClickWorld()
     Require(click->Segment() && target->calls == 1, "targetless ClickOfDeath invoked a damage callback");
     click = nullptr;
     Require(!world->IsAction(), "targetless ClickOfDeath retained its action counter");
+}
+
+static void DynamicAmbientFallback()
+{
+    Require(S2Platform::Window() == nullptr, "ambient fallback fixture unexpectedly owns a display window");
+    // The real mode setter takes its documented failure fallback without a
+    // platform window; no GPU or display is initialized by this test.
+    NGlobal::SetVar("gfx_fullscreen", 0);
+    Require(!NGScene::SetModeFromConfig(false) && NGScene::GetCLSkyTexturesNumber() == 0,
+        "ambient fixture did not enter the real no-sky-texture fallback");
+    Require(S2Platform::Window() == nullptr, "ambient fallback fixture created a display window");
+    CObj<NGScene::LightingSceneFixture> scene = new NGScene::LightingSceneFixture;
+    NGScene::CLightState light;
+    light.vAmbientColor = CVec3(0.3f, 0.4f, 0.5f);
+    light.vUpDifColor = CVec3(0.1f, 0.2f, 0.3f);
+    light.skyDirections.emplace_back(0, 0, -1);
+    NGScene::SDynamicAmbientInfo result;
+    light.TraceDynamicLM(&result, SSphere(VNULL3, 0.1f), scene);
+    Require(fabs2(result.vXPos.v - light.vAmbientColor) < 1e-10f
+            && fabs2(result.vXNeg.v - light.vAmbientColor) < 1e-10f
+            && fabs2(result.vYPos.v - light.vAmbientColor) < 1e-10f
+            && fabs2(result.vYNeg.v - light.vAmbientColor) < 1e-10f
+            && fabs2(result.vZPos.v - (light.vAmbientColor + light.vUpDifColor)) < 1e-10f
+            && fabs2(result.vZNeg.v - (light.vAmbientColor - light.vUpDifColor)) < 1e-10f,
+        "dynamic objects lost the full ambient fallback when sky textures were unavailable");
+    Require(scene->traceCalls == 0, "no-sky-texture fallback still traced unavailable sky occlusion");
+    light.skyDirections.clear();
+    light.TraceDynamicLM(&result, SSphere(VNULL3, 0.1f), scene);
+    Require(fabs2(result.vXPos.v) + fabs2(result.vXNeg.v) + fabs2(result.vYPos.v)
+            + fabs2(result.vYNeg.v) + fabs2(result.vZPos.v) + fabs2(result.vZNeg.v) == 0,
+        "ambient fallback injected sky light into a cache without sky samples");
 }
 
 static void PointLightWithoutScene()
@@ -3829,6 +3862,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "permanent-clue-single-map")) PermanentClueSingleMap();
         else if (!std::strcmp(mode, "deferred-click-world")) DeferredClickWorld();
         else if (!std::strcmp(mode, "point-light-without-scene")) PointLightWithoutScene();
+        else if (!std::strcmp(mode, "dynamic-ambient-fallback")) DynamicAmbientFallback();
         else if (!std::strcmp(mode, "point-light-save-layout")) PointLightSaveLayout();
         else if (!std::strcmp(mode, "legacy-point-light-save-layout")) PointLightSaveLayout(true);
         else if (!std::strcmp(mode, "point-light-shadow-flag")) PointLightShadowFlag();

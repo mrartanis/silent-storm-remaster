@@ -311,7 +311,17 @@ void CLightState::TraceDynamicLM( SDynamicAmbientInfo *pRes, const SSphere &bv, 
 		if ( !pVis->TraceScene( MakeSelectOccluders( pVis ), r, &f, &vA, &vColor, SPS_STATIC )  )
 			pRes->AddLight( p.vColor, -p.vDir );
 	}
-	if ( !skyDirections.empty() )
+	// Retail v1.2 0x52b453: match static ambient when sky textures are absent.
+	if ( !skyDirections.empty() && !CanDrawSky() )
+	{
+		pRes->vZPos.v += vAmbientColor + vUpDifColor;
+		pRes->vXPos.v += vAmbientColor;
+		pRes->vYPos.v += vAmbientColor;
+		pRes->vXNeg.v += vAmbientColor;
+		pRes->vYNeg.v += vAmbientColor;
+		pRes->vZNeg.v += vAmbientColor - vUpDifColor;
+	}
+	else if ( !skyDirections.empty() )
 	{
 		SDynamicAmbientInfo ambient;
 		ambient.Clear();
