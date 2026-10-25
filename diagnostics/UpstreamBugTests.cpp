@@ -6077,7 +6077,7 @@ static void NavigationAliasDestinations(bool arrayOutput, bool isolatedSource = 
     Require(aliases().empty(), "unequal displacement or isolated aliases were still reported as connected copies");
 }
 
-static void ConnectedAliasMoves(bool isolatedSource = false)
+static void ConnectedAliasMoves(bool isolatedSource = false, bool lockedDestination = false)
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
     for (int i = 0; i < 3; ++i)
@@ -6093,6 +6093,7 @@ static void ConnectedAliasMoves(bool isolatedSource = false)
     isolated.nMoveStand = 0;
     isolated.nFlags = NAI::TF_STAND_PASSABLE;
     auto& destination = network->GetLayer(2)->tiles[1][1];
+    if (lockedDestination) destination.nLocks = 1;
     NAI::SPathPlace source(1,1,0);
     source.SetPose(NAI::CM_STAND);
     auto& sourceTile = network->GetLayer(0)->tiles[1][1];
@@ -6117,9 +6118,21 @@ static void ConnectedAliasMoves(bool isolatedSource = false)
         }
         return result;
     };
-    Require(aliases() == vector<int>({2}), isolatedSource
-        ? "native move enumeration could not escape an isolated source lacking the same-point flag"
-        : "native move enumeration offered a zero-distance step into an isolated alias");
+    Require(aliases() == (lockedDestination ? vector<int>{} : vector<int>{2}), lockedDestination
+        ? "native move enumeration offered a zero-distance step into a locked connected alias"
+        : isolatedSource ? "native move enumeration could not escape an isolated source lacking the same-point flag"
+                         : "native move enumeration offered a zero-distance step into an isolated alias");
+    if (lockedDestination) {
+        destination.nLocks = 0;
+        Require(aliases() == vector<int>({2}), "unlocking a connected alias did not restore its zero-distance step");
+        destination.nDynLocks = 1;
+        Require(aliases() == vector<int>({2}) && destination.nDynLocks == 1,
+            "a dynamic counter alone was treated as a hard lock or was changed by enumeration");
+        destination.nLocks = 1;
+        Require(aliases().empty() && destination.nLocks == 1 && destination.nDynLocks == 1,
+            "an occupied alias was accepted or its lock counters were modified");
+        destination.nLocks = 0; destination.nDynLocks = 0;
+    }
     if (isolatedSource) {
         sourceTile.nMoveStand = 1;
         Require(aliases().empty(), "a connected source invented a same-point step without its declared flag");
@@ -8028,6 +8041,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "flying-attack-queue") && argc == 4) { FlyingAttackQueue(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "connected-alias-moves")) { ConnectedAliasMoves(); return true; }
     if (!std::strcmp(mode, "isolated-source-moves")) { ConnectedAliasMoves(true); return true; }
+    if (!std::strcmp(mode, "locked-alias-moves")) { ConnectedAliasMoves(false,true); return true; }
     if (!std::strcmp(mode, "isolated-transition-link-match")) { IsolatedTransitionLinkMatch(); return true; }
     if (!std::strcmp(mode, "isolated-transition-shortcut")) { IsolatedTransitionShortcut(); return true; }
     if (!std::strcmp(mode, "isolated-transition-entry")) { IsolatedTransitionEntry(); return true; }

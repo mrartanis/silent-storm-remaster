@@ -817,6 +817,8 @@ void GetNonStandartMoves(
 							m.dest = SPathPlace( src.GetX(), src.GetY(), pNew->nLayer, 0, src.GetPose(), 0 );
 						else
 							m.dest = SPathPlace( src.GetX(), src.GetY(), pNew->nLayer, src.GetDirection(), src.GetPose(), src.IsMoving() );
+						if ( !IsGoodPt( m.dest, pNet ) )
+							continue;
 						m.type = MT_ZERO;
 						res[ pResPos ] = m;
 						dynLocks[ pResPos ] = 0;
