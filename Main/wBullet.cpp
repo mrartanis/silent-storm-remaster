@@ -105,7 +105,8 @@ CBulletServer::CBulletServer( CWorld *_pWorld, const vector<NRPG::STrailPoint> &
 
 	bindGlobal.Link( pWorld->GetActive(), this );
 	pAction = pWorld->GetActiveCounter();
-	pShooter = pWorld->GetUnitServer( trailpointsSet[0].sAttack.pAttacker );
+	if ( !trailpointsSet.empty() )
+		pShooter = pWorld->GetUnitServer( trailpointsSet[0].sAttack.pAttacker );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBulletServer::Visit( IRenderVisitor *pVisitor )

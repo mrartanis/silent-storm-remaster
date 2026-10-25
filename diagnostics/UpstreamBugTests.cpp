@@ -59,6 +59,8 @@
 #include "../Main/wUnitMove.h"
 #include "../Main/wMainPath.h"
 #include "../Main/wGrenade.h"
+#include "../Main/wBullet.h"
+#include "../Main/wDynObject.h"
 #include "../Main/wDebris.h"
 #include "../Main/wMisc.h"
 #include "../Main/RPGAttackMech.h"
@@ -2473,6 +2475,30 @@ static void UnsupportedNavigationBake(const char* databasePath, const char* reso
     std::printf("Navigation bake: %d passable tiles, %d unsupported tiles\n", passable, unsupported);
     Require(passable > 0, "navigation bake fixture did not generate playable surfaces");
     Require(unsupported == 0, "native navigation bake generated passable tiles without supporting surfaces");
+}
+
+static void EmptyBulletConstruction(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    const bool action = world->IsAction();
+    vector<NRPG::STrailPoint> trail;
+    std::puts("Constructing native bullet with an empty cached hit trail"); std::fflush(stdout);
+    CObj<NWorld::IDynamicObject> bullet = NWorld::CreateBulletServer(world, trail,
+        world->GetTime()->GetValue(), nullptr, 100.f);
+    Require(IsValid(bullet), "empty hit trail did not produce a native bullet object");
+    bullet = nullptr;
+    Require(world->IsAction() == action, "discarding an empty bullet retained the world's action counter");
+    NRPG::STrailPoint origin;
+    origin.vDir = CVec3(1,0,0); origin.vPosition = VNULL3; origin.vNormal = CVec3(0,0,1);
+    origin.nUserID = -1; origin.nFloor = 0;
+    trail.push_back(origin);
+    CObj<NWorld::IDynamicObject> onePoint = NWorld::CreateBulletServer(world, trail,
+        world->GetTime()->GetValue(), nullptr, 100.f);
+    Require(IsValid(onePoint), "empty-trail guard rejected a nonempty bullet trail");
+    Require(onePoint->Segment(), "one-point bullet did not retire at its existing endpoint");
+    onePoint = nullptr;
+    Require(world->IsAction() == action, "one-point bullet retained the world's action counter");
 }
 
 class HiddenUnitPresentation: public NWorld::IRenderVisitor
@@ -6395,6 +6421,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "empty-bullet-construction") && argc == 4) { EmptyBulletConstruction(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hidden-unit-tint") && argc == 4) { HiddenUnitTint(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "living-unit-floor-refresh") && argc == 4) { LivingUnitFloorRefresh(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "owned-ai-commander-rosters") && argc == 4) { OwnedAICommanderRosters(argv[2], argv[3]); return true; }
