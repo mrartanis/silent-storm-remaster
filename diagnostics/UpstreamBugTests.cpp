@@ -42,6 +42,7 @@
 #include "../Main/wUnitQueue.h"
 #include "../Main/wUnitExec.h"
 #include "../Main/wUnitMove.h"
+#include "../Main/wMainPath.h"
 #include "../Main/aiPath.h"
 #include "../Main/GAnimParticles.h"
 #include "../Main/GAnimation.h"
@@ -1254,6 +1255,93 @@ static void OversizedDialogueLine(const char* databasePath, const char* resource
     Require(page == 1 && phrase == 1 && offset == 0, "oversized dialogue fallback lost logical save progress");
     Require(back->GetStyle(NUI::STYLE_VISIBLE) && exit->GetStyle(NUI::STYLE_VISIBLE) && !next->GetStyle(NUI::STYLE_VISIBLE),
         "dialogue fallback did not preserve final-page navigation");
+}
+
+
+class CancellingMoveActor: public NWorld::CUnitServer
+{
+    OBJECT_NOCOPY_METHODS(CancellingMoveActor);
+public:
+    using CUnitServer::CUnitServer;
+    mutable bool armed = false;
+    mutable int steps = 0, callbacks = 0;
+    mutable NAI::SPathPlace observed, cancelledAt;
+    int cancelOnStep = 1;
+    CPtr<NWorld::CCommandExecute> mover;
+    bool CanFight() const override {
+        if (armed) {
+            const auto current = CUnitServer::GetPosition().pos.p;
+            if (current.GetX() != observed.GetX() || current.GetY() != observed.GetY() || current.GetLayer() != observed.GetLayer()) {
+                observed = current;
+                if (++steps == cancelOnStep) {
+                    armed = false; ++callbacks; cancelledAt = current;
+                    auto* moving = dynamic_cast<NWorld::IExecMove*>(mover.GetPtr());
+                    Require(moving != nullptr, "movement-callback fixture lost its mover");
+                    moving->FullCancel();
+                }
+            }
+        }
+        return CUnitServer::CanFight();
+    }
+};
+REGISTER_SAVELOAD_CLASS(0x7f550106, CancellingMoveActor);
+
+static void MovementCallbackCancellation(const char* databasePath, const char* resourcePath, int cancelOnStep)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* source = nullptr;
+    for (auto& candidate : units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(candidate.GetPtr());
+        if (unit && !unit->IsAIUnit() && unit->CanFight() && !unit->IsWearingPK()) { source = unit; break; }
+    }
+    Require(source != nullptr, "movement-callback fixture has no ordinary actor");
+    auto* network = world->GetPathNetwork();
+    vector<NAI::SPathPlace> places;
+    network->GetNearPlaces(SSphere(source->GetPosition().GetCP(), 8.f), &places);
+    auto position = source->GetPosition();
+    bool found = false;
+    for (auto place : places) {
+        place.SetPose(NAI::CM_STAND); place.SetDirection(0);
+        if (network->IsPassable(place) && !network->IsLocked(place, true)) {
+            position.pos.p = place; found = true; break;
+        }
+    }
+    Require(found, "movement-callback fixture has no free spawn tile");
+    CObj<NRPG::IUnitMission> rpg = NRPG::CreateUnit(source->GetUnitRPG()->GetRPGUnit()->GetPers());
+    CObj<CancellingMoveActor> actor = new CancellingMoveActor(world, rpg, rpg->GetModel(),
+        dynamic_cast<NWorld::CPlayer*>(source->GetPlayer()), position);
+    world->AddUnit(actor);
+    actor->SetPosition(position);
+    CObj<NAI::CPath> path;
+    network->GetNearPlaces(SSphere(position.GetCP(), 5.f), &places);
+    for (auto destination : places) {
+        destination.SetPose(NAI::CM_STAND); destination.SetDirection(0);
+        NAI::SPosition target(destination, network);
+        if (fabs2(target.GetCP() - position.GetCP()) < 9.f) continue;
+        path = NWorld::FindPath(network, actor, position.pos.p, vector<NAI::SPathPlace>{destination}, nullptr, true);
+        if (path && path->points.size() >= 5) break;
+        path = nullptr;
+    }
+    Require(path && path->points.size() >= 5, "movement-callback fixture needs a multi-step reachable path");
+    CObj<NWorld::CCommandExecute> move = NWorld::CreateSimpleMoveExecutor(actor, path, NAI::PF_DEFAULT);
+    Require(move != nullptr, "movement-callback fixture could not create a real move executor");
+    actor->mover = move;
+    actor->observed = actor->GetPosition().pos.p;
+    actor->cancelOnStep = cancelOnStep;
+    actor->armed = true;
+    move->Run();
+    for (int animation = 0; actor->callbacks == 0 && animation < 32 && move->GetState() == NWorld::CCommandExecute::RUNNING; ++animation)
+        move->AnimationFinished();
+    Require(actor->callbacks == 1 && actor->steps == cancelOnStep,
+        "movement callback did not cancel at the requested physical step");
+    Require(move->GetState() != NWorld::CCommandExecute::RUNNING && actor->GetPosition().pos.p == actor->cancelledAt,
+        "cancelled movement continued to a later queued tile");
+    actor->mover = nullptr;
+    move = nullptr;
+    Require(!world->IsAction(), "cancelled movement left an action counter running");
 }
 
 static void HideCooldown(const char* databasePath, const char* resourcePath)
@@ -2632,6 +2720,8 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "oversized-dialogue-line") && argc == 4) OversizedDialogueLine(argv[2], argv[3]);
         else if (!std::strcmp(mode, "markup-dialogue-progress") && argc == 4) OversizedDialogueLine(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "dialogue-normal-pagination") && argc == 4) OversizedDialogueLine(argv[2], argv[3], 2);
+        else if (!std::strcmp(mode, "movement-first-step-cancel") && argc == 4) MovementCallbackCancellation(argv[2], argv[3], 1);
+        else if (!std::strcmp(mode, "movement-next-step-cancel") && argc == 4) MovementCallbackCancellation(argv[2], argv[3], 2);
         else if (!std::strcmp(mode, "hide-cooldown") && argc == 4) HideCooldown(argv[2], argv[3]);
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
         else if (!std::strcmp(mode, "mixed-hide-button") && argc == 4) MixedActionButton(argv[2], argv[3], true);

@@ -517,6 +517,9 @@ void CExecMove::DoCommand()
 	CDynamicCast<CCmdJump> pJumpCur(pCurCmd);
 	if (pJumpCur)
 		pUS->FallFromHigh( pJumpCur->processPos.GetCP().z - pJumpCur->pos.GetCP().z );
+	// Movement/visibility and fall callbacks may have cancelled the queue.
+	if ( commandsQueue.empty() )
+		return;
 	// fetch command
 	CObj<CCommand> pCmd = commandsQueue.front(), pHoldCmd(pCurCmd);
 	commandsQueue.pop_front();
@@ -552,8 +555,16 @@ void CExecMove::DoCommand()
 			pCurCmd = pCmd; // for correct Cancel() (possible in DoGameMove()) pCurCmd should be valid before DoGameMove
 			pHoldCmd = pCurCmd;
 			DoGameMove( pMove->pos );
-			// fetch next cmd
-			ASSERT( !commandsQueue.empty() );
+			// Starting the first step can cancel all continuation commands.
+			if ( commandsQueue.empty() )
+			{
+				pCurCmd = 0;
+				if ( result == FINISHED )
+					Finished();
+				else
+					Failed();
+				return;
+			}
 			pCmd = commandsQueue.front();
 			commandsQueue.pop_front();
 		}
