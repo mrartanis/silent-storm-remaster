@@ -6077,6 +6077,51 @@ static void NavigationAliasDestinations(bool arrayOutput, bool isolatedSource = 
     Require(aliases().empty(), "unequal displacement or isolated aliases were still reported as connected copies");
 }
 
+static void ConnectedAliasMoves()
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    for (int i = 0; i < 3; ++i)
+        network->CreateLayer(4,4,VNULL2,0.f,i,i ? network->GetLayer(0)->pGroup.GetPtr() : nullptr);
+    network->Freeze(true);
+    NAI::STile connected{};
+    connected.nHeight = 100;
+    connected.nPassable = NAI::CP_STAND | NAI::CP_CROUCH;
+    connected.nMoveStand = 1;
+    connected.nFlags = NAI::TF_STAND_PASSABLE | NAI::TF_HAS_SAME;
+    for (int i = 0; i < 3; ++i) network->GetLayer(i)->tiles[1][1] = connected;
+    auto& isolated = network->GetLayer(1)->tiles[1][1];
+    isolated.nMoveStand = 0;
+    isolated.nFlags = NAI::TF_STAND_PASSABLE;
+    auto& destination = network->GetLayer(2)->tiles[1][1];
+    NAI::SPathPlace source(1,1,0);
+    source.SetPose(NAI::CM_STAND);
+    auto aliases = [&]() {
+        vector<NAI::SMove> moves(512);
+        vector<char> locks(512,-1);
+        int count = 0;
+        NAI::GetNonStandartMoves(network,source,true,true,true,&moves,&count,&locks);
+        Require(count >= 0 && count < 512, "alias move enumeration exceeded its fixture capacity");
+        vector<int> result;
+        for (int i = 0; i < count; ++i) {
+            if (moves[i].type != NAI::MT_ZERO) continue;
+            const auto& place = moves[i].dest;
+            Require(place.GetX() == source.GetX() && place.GetY() == source.GetY() &&
+                place.GetPose() == source.GetPose() && locks[i] == 0,
+                "a zero-distance alias changed coordinates, pose or dynamic-lock accounting");
+            result.push_back(place.GetLayer());
+        }
+        return result;
+    };
+    Require(aliases() == vector<int>({2}),
+        "native move enumeration offered a zero-distance step into an isolated alias");
+    isolated.nMoveCrouch = 1;
+    Require(aliases() == vector<int>({1,2}), "move enumeration rejected a linked crouch alias");
+    isolated.nPassable = NAI::CP_CROUCH;
+    Require(aliases() == vector<int>({2}), "move enumeration ignored the current pose on a linked alias");
+    ++destination.nHeight;
+    Require(aliases().empty(), "move enumeration offered an alias at a different height");
+}
+
 static void IsolatedTransitionLinkMatch()
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
@@ -7970,6 +8015,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "empty-passage-exit") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "scripted-passage-transition") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "flying-attack-queue") && argc == 4) { FlyingAttackQueue(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "connected-alias-moves")) { ConnectedAliasMoves(); return true; }
     if (!std::strcmp(mode, "isolated-transition-link-match")) { IsolatedTransitionLinkMatch(); return true; }
     if (!std::strcmp(mode, "isolated-transition-shortcut")) { IsolatedTransitionShortcut(); return true; }
     if (!std::strcmp(mode, "isolated-transition-entry")) { IsolatedTransitionEntry(); return true; }

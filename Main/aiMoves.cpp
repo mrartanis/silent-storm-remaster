@@ -801,7 +801,7 @@ void GetNonStandartMoves(
 					if ( pNew == pLayer )
 						continue;
 					CNodesLayer::STile &tDst = pNew->tiles[ src.GetY() ][ src.GetX() ];
-					if ( tDst.nHeight == t.nHeight && tDst.nDisplacement == t.nDisplacement )
+					if ( tDst.IsLinkedSame( t ) )
 					{
 						// retail @0x479576: the destination tile must allow the current pose
 						bool bDstPassable;
