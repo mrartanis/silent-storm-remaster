@@ -7495,6 +7495,58 @@ static void CharacterPanelFullName(const char* databasePath,const char* resource
     Require(actor->GetAP() == ap && !actor->HasCommand(), "updating the character name changed native gameplay state");
 }
 
+static void CancelledInventoryHiddenItemPose(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (!unit || !unit->CanFight() || unit->IsEmptyPK() || unit->IsWearingPK()) continue;
+        auto* active = unit->GetUnitRPG()->GetInventory()->GetActive();
+        if (active && active->GetDBItem()->bPlaceInHand) { actor = unit; break; }
+    }
+    Require(actor != nullptr, "inventory-cancel fixture has no actor with a visible active item");
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    auto* item = inventory->GetActive();
+    const auto slot = NDb::ESlot(inventory->GetActiveSlot());
+    const int ap = actor->GetAP(), quantity = item->GetQuantity();
+    auto animationWeapon = [&]() {
+        CMemoryStream fields;
+        CStructureNetworkContext references;
+        references.include = [](CObjectBase*) { return false; };
+        { CStructureSaver writer(fields,CStructureSaver::WRITE,&references); actor->animator.operator&(writer); }
+        fields.Seek(0);
+        auto type = NDb::WT_DEFAULT;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(29,&type); }
+        return type;
+    };
+    auto cancel = [&]() {
+        CObj<NWorld::CCmdMoveInventoryItem> command = new NWorld::CCmdMoveInventoryItem(
+            NWorld::SItem(actor,NWorld::SItem::SLOT,slot,item),NWorld::SItem(actor,NWorld::SItem::SLOT,slot,item));
+        CObj<NWorld::CExecMoveInventoryItem> move = new NWorld::CExecMoveInventoryItem(actor,command);
+        move->Cancel();
+        Require(move->GetState() == NWorld::CCommandExecute::FINISHED,
+            "cancelling an inventory animation failed to finish its native executor");
+    };
+    cancel();
+    Require(actor->animator.IsActiveItem() && !actor->GetUndrawItem() &&
+        animationWeapon() == actor->GetUnitRPG()->GetWeaponType(), "visible-item cancellation control lost its held pose");
+    item->GetDBItem()->bPlaceInHand = false;
+    cancel();
+    Require(!actor->animator.IsActiveItem() && actor->GetUndrawItem() && animationWeapon() == NDb::WT_DEFAULT,
+        "cancelling inventory movement restored a held-weapon pose for an item marked invisible in hand");
+    item->GetDBItem()->bPlaceInHand = true;
+    cancel();
+    Require(actor->animator.IsActiveItem() && !actor->GetUndrawItem(),
+        "reenabling item visibility failed to restore its held pose after cancellation");
+    Require(inventory->GetActive() == item && inventory->GetActiveSlot() == slot &&
+        actor->GetAP() == ap && item->GetQuantity() == quantity && !actor->HasCommand(),
+        "cancelling the visual inventory transition changed equipment, AP, quantity or gameplay orders");
+}
+
 static void PersonaFullDisplayName(const char* databasePath)
 {
     CFileStream database;
@@ -10310,6 +10362,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "missing-ui-sound-fallback")) { Require(argc == 4, "missing UI sound requires db and res"); MissingUISoundFallback(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "selected-attack-target-rejection")) { Require(argc == 4, "selected target requires db and res"); SelectedAttackTargetRejection(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "melee-current-pose-caption")) { Require(argc == 4, "melee caption requires db and res"); MeleeReachCaption(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "cancelled-inventory-hidden-item-pose")) { Require(argc == 4, "inventory cancellation requires db and res"); CancelledInventoryHiddenItemPose(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }

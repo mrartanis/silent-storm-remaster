@@ -3483,7 +3483,7 @@ void CExecMoveInventoryItem::Cancel()
 {
 	NRPG::IUnitMission *pRPG = pUS->GetUnitRPG();
 	NRPG::IInventory *pInventory = pUS->GetUnitRPG()->GetInventory();
-	bool bActive = pInventory->GetActive() != 0;
+	bool bActive = IsActiveItemToShow( pInventory );
 	pUS->SetUndrawItem( !bActive );
 	pUS->animator.SetWeaponAnimation( bActive ? pRPG->GetWeaponType() : NDb::WT_DEFAULT );
 	pUS->animator.SetActiveItem( bActive );
