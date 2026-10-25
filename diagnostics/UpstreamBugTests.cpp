@@ -5475,6 +5475,42 @@ public:
     bool IsEmptyPK() const override { return shell; }
 };
 
+static void FlyingDynamicLocks()
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    network->CreateLayer(8, 8, VNULL2, 0.f, 0);
+    network->Freeze(true);
+    auto* layer = network->GetLayer(0);
+    for (int y = 0; y < 8; ++y)
+        for (int x = 0; x < 8; ++x) {
+            layer->tiles[y][x] = NAI::STile{};
+            layer->tiles[y][x].nPassable = 7;
+            layer->tiles[y][x].nFlags = NAI::TF_STAND_PASSABLE;
+        }
+    NAI::SPosition flying;
+    Require(NAI::MakeFlyPos(CVec3(2,2,16), network, &flying), "flying-lock fixture could not encode its airborne position");
+    Require(flying.p.IsFinal() && flying.p.IsIntegral() && flying.p.GetLayer() >= network->GetNumLayers(),
+        "flying-lock fixture did not encode altitude in the layer bits");
+    NAI::SPathPlace first(1,1,0), second(2,1,0);
+    first.SetPose(NAI::CM_STAND); second.SetPose(NAI::CM_STAND);
+    CObj<LockerActor> actor = new LockerActor;
+    std::printf("Dynamic locks: airborne final=%d integral=%d altitude-bits=%d navigation-layers=%d\n",
+        int(flying.p.IsFinal()), int(flying.p.IsIntegral()), flying.p.GetLayer(), network->GetNumLayers());
+    std::fflush(stdout);
+    network->ChangeDynamicLocks(actor, vector<NAI::SPathPlace>{first, flying.p, second, second});
+    Require(layer->tiles[1][1].nDynLocks == 1 && layer->tiles[1][2].nDynLocks == 1,
+        "skipping an airborne point changed the ground route's dynamic locks or duplicate filtering");
+    network->ClearDynamicLocks(actor);
+    Require(layer->tiles[1][1].nDynLocks == 0 && layer->tiles[1][2].nDynLocks == 0,
+        "clearing a mixed airborne route retained ground dynamic locks");
+    network->ChangeDynamicLocks(actor, vector<NAI::SPathPlace>{flying.p});
+    network->ClearDynamicLocks(actor);
+    for (int y = 0; y < 8; ++y)
+        for (int x = 0; x < 8; ++x)
+            Require(layer->tiles[y][x].nDynLocks == 0 && layer->tiles[y][x].nLocks == 0,
+                "an airborne-only route locked a ground cell");
+}
+
 class ThreatOwnerFixture: public NAI::AIUnitFixture
 {
     OBJECT_NOCOPY_METHODS(ThreatOwnerFixture);
@@ -6959,6 +6995,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "flying-dynamic-locks")) { FlyingDynamicLocks(); return true; }
     if (!std::strcmp(mode, "arrived-retreat-completion") && argc == 4) { ArrivedRetreatCompletion(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "finished-ai-logic-retirement") && argc == 4) { FinishedAILogicRetirement(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "removed-selected-enemy")) { RemovedSelectedAIContact(0); return true; }

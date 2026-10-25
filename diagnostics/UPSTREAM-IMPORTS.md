@@ -155,6 +155,7 @@
 | [d247d37c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d247d37c06ebf6d73a10997ec44de64db57e689b) — Clear matching selected AI contacts immediately on removal | `removing the selected AI contact left a stale target for subsequent reactions` | 194/194; `removed-selected-ai-contact` | `Upstream-Commit` в commit message |
 | [360344ca](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387) — Retire finished AI logic once its installed world command is gone | `finished idle AI logic stayed alive merely because its RPG actor still existed` | 195/195; `finished-ai-logic-retirement` | `Upstream-Commit` в commit message |
 | [e15373d3](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e15373d3e9a6c0e7b0fa0f76e94f94180f737743) — Complete retreat logic when its live unit reaches the destination | `arrived retreat finished its chooser job but left the retreat logic unfinished` | 196/196; `arrived-retreat-completion` | `Upstream-Commit` в commit message |
+| [8e620755](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8e620755aedcc01558c1b7f4bdd921126d9048cd) — Skip airborne points before normalizing dynamic path locks | `Access violation after normalizing a final airborne point with altitude bits 160 into a ground layer index; scenario CDB stack reaches GetSamePoints through ChangeDynamicLocks` | 197/197; `flying-dynamic-locks` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -597,3 +598,26 @@ GREEN: ObjectStages 1/1 и три повторения подряд, затем 
 исходные HP-проверки в движке временно восстановлены, RED подтверждён заново,
 затем применён текущий фикс и получен GREEN 191/191. Дополнительный лог —
 `begin-turn-live-contacts-diagnostic-test.log`.
+
+### Проверка AI-пакета и падение сценария 5247
+
+На `dde095cf` Windows `ALL_BUILD` и Linux `Game` собраны, Linux upstream-набор
+196/196, расширенный Windows набор 231/231, выбранные сетевые сценарии 6/6.
+Стрельба/сжатое сохранение/слот с самостоятельным выстрелом ИИ после загрузки
+прошли 4/4. Дополнительно впервые в этом этапе запущен
+`NativeWorldMission5247PartySaveTurn`: общий список из пяти тестов дал 4/5,
+сценарий 5247 упал с ошибкой доступа при скриптовом `UnitSetDirection`.
+Это не свидетельство, что падение существовало до всего переноса.
+
+CDB показал `CNodesLayer::GetSamePoints` через `ChangeDynamicLocks`.
+Отдельный RED воспроизвёл нормализацию летящей точки (`final=1`,
+`integral=1`, высота в поле слоя 160 при одном слое навигации).
+После переноса соответствующего guard из `8e620755` upstream-набор прошёл
+197/197, затем заново скомпонованный `NativeWorldInitProbe` выполнил
+`NativeWorldMission5247PartySaveTurn` — 1/1. Остальные части `8e620755`
+переносятся отдельно.
+
+Логи: `checkpoint-196-{all-build,ci-test,shots-test,network-test}.log`,
+`checkpoint-196-linux-{configure,build,test}.log`,
+`checkpoint-196-turn-red-cdb.log`, `flying-dynamic-locks-{red,green}-test.log`,
+`flying-dynamic-locks-scenario-green-{build,test}.log`.

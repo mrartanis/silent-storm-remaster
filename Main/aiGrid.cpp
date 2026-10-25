@@ -2055,7 +2055,7 @@ void CPathNetwork::ChangeDynamicLocks( CObjectBase *pUnit, const vector<SPathPla
 	bool bBigUnit = IsBigLocker( pUnit );
 	for ( vector<SPathPlace>::const_iterator j = points.begin(); j != points.end(); ++j )
 	{
-		if ( !j->IsIntegral() )
+		if ( !j->IsIntegral() || j->IsFinal() )
 			continue;
 		SPathPlace p( j->GetX(), j->GetY(), j->GetLayer() );
 		if ( ! (p == old) )
