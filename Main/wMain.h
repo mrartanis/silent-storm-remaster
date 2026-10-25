@@ -488,6 +488,7 @@ private:
 	void UpdateAICommander( NAI::CAICommander *pAICommander );
 	void CheckForAcks();
 	void RemoveUnitFromAI( CUnitServer *pUS );
+	void RemoveInvalidUnitsFromAI();
 	void CheckRealTimeTurn();
 
 public:

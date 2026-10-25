@@ -2296,6 +2296,7 @@ void CWorld::RemovePlayer( IPlayer *_pPlayer )
 		else
 			i = units.erase( i );
 	}
+	RemoveInvalidUnitsFromAI();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorld::GetActiveUnits( IPlayer *_pPlayer, list<CUnit*> *pRes )
@@ -3942,6 +3943,18 @@ void CWorld::RemoveUnitFromAI( CUnitServer *pUS )
 		CDynamicCast<NAI::CAICommander> pCommander((*i)->GetCommander());
 		if (pCommander)
 			pCommander->RemoveUnit( pUS );
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CWorld::RemoveInvalidUnitsFromAI()
+{
+	vector<CPtr<CPlayer> > players;
+	GetPlayersList( &players );
+	for ( int k = 0; k < players.size(); ++k )
+	{
+		CDynamicCast<NAI::CAICommander> pCommander( players[k]->GetCommander() );
+		if ( IsValid( pCommander ) )
+			pCommander->RemoveInvalidUnits();
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -2478,6 +2478,44 @@ static void UnsupportedNavigationBake(const char* databasePath, const char* reso
     Require(unsupported == 0, "native navigation bake generated passable tiles without supporting surfaces");
 }
 
+static void RemovedPlayerAIRosters(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    CPtr<NWorld::CUnitServer> departing;
+    for (const auto& actor: units)
+        if (IsValid(actor) && actor->CanFight() && !actor->IsAIUnit() && !actor->IsEmptyPK()) { departing = actor; break; }
+    Require(IsValid(departing), "AI teardown fixture has no human actor");
+    vector<CPtr<NWorld::CPlayer>> players;
+    world->GetPlayersList(&players);
+    NAI::CAICommander* surviving = nullptr;
+    for (const auto& player: players) {
+        auto* commander = dynamic_cast<NAI::CAICommander*>(player->GetCommander());
+        if (player.GetPtr() != departing->GetPlayer() && commander && !commander->GetUnitsList().empty()) {
+            surviving = commander; break;
+        }
+    }
+    Require(surviving, "AI teardown fixture has no surviving commander");
+    const auto original = surviving->GetUnitsList();
+    // Reproduce the foreign registration used by earlier worlds and retained
+    // by existing saves, without running a new AI decision during teardown.
+    surviving->OnUnitAdded(departing);
+    CPtr<NAI::IAIUnit> wrapper = surviving->GetAIUnit(departing);
+    Require(IsValid(wrapper) && surviving->GetUnitsList().size() == original.size() + 1,
+        "legacy AI teardown fixture did not retain the foreign unit");
+    world->RemovePlayer(departing->GetPlayer());
+    Require(!IsValid(departing), "AI teardown fixture did not destroy the departed player unit");
+    Require(surviving->GetUnitsList().size() == original.size(),
+        "surviving AI commander retained a wrapper for a destroyed player's unit");
+    Require(!IsValid(wrapper) && surviving->GetAIUnit(departing) == nullptr,
+        "player teardown retained a stale AI wrapper or server lookup entry");
+    for (size_t i = 0; i < original.size(); ++i)
+        Require(IsValid(original[i]) && surviving->GetUnitsList()[i] == original[i],
+            "AI teardown changed the identity or order of a surviving unit");
+}
+
 static void RemovedPlayerFootprints(const char* databasePath, const char* resourcePath, bool checkAcks = false)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -6482,6 +6520,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "removed-player-ai-rosters") && argc == 4) { RemovedPlayerAIRosters(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "removed-player-acks") && argc == 4) { RemovedPlayerFootprints(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "removed-player-footprints") && argc == 4) { RemovedPlayerFootprints(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "empty-bullet-retirement") && argc == 4) { EmptyBulletConstruction(argv[2], argv[3], true); return true; }
