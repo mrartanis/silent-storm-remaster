@@ -86,23 +86,16 @@ void CRenderSound::Add2DSound( STime tStart, NDb::CSound *pSound )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRenderSound::Update( bool bAdvanceTime, CTransformStack *pTS, STime currentTime )
 {
-	// retail @0x2d5740: accumulate the raw main-loop clock (150ms-clamped) on top of the ctor aim
-	// seed; the advance flag freezes 'now' while the game is paused. Valid because the mission's
-	// GetTime() no longer folds nDeltaTime in (the CTimeCounter revive) -- the skip fast-forward now
-	// rides the world clock only, and aim (= world - tHiddenDelta) stays on the real-time epoch this
-	// timer accumulates.
-	//
-	// KNOWN RETAIL BUG (user-verified in retail v1.2): a heard-but-unseen sound whose emitter
-	// enters the visible set REPLAYS on the sight edge (e.g. shots fired behind your back burst
-	// when you turn around). Cause: this raw clock and the aim-stamped tStart are two
-	// independently-accumulated CTimeCounters; whenever aim slips vs raw (skip fast-forwards,
-	// clamp/baseline races), nDelay = now - tStart - 50 under-ages the old sound and Add3DSound
-	// replays it instead of seeking past its end. DELIBERATE-DEVIATION FIX if ever wanted
-	// (better than retail): pin 'now' to the SAME axis that stamps tStart -- keep a ctor-cached weak
-	// `NWorld::IWorld *pWorld` and replace the Advance below with
-	//   timer.SetCurrent( pWorld->GetAimTime()->GetValue() );   // (Advance(true,...) when pWorld==0: save-restore mixer)
-	// so nDelay is always the sound's true aim-age.
-	timer.Advance( bAdvanceTime, currentTime );
+	// Consume the complete supplied delta before Sync while retaining the
+	// counter's original 150ms increment. Pause and reset still set the baseline.
+	STime t = timer.GetPrevTime();
+	if ( t == 0 )
+		t = currentTime;
+	do
+	{
+		t = t < currentTime ? t + Min( (STime)150, currentTime - t ) : currentTime;
+		timer.Advance( bAdvanceTime, t );
+	} while ( t < currentTime );
 	Sync();
 	pScene->Draw( pTS );
 }

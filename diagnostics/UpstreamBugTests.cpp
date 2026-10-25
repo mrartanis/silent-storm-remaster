@@ -28,6 +28,7 @@
 #include "../Main/iUnitPanel.h"
 #include "../Main/iDesktopWindow.h"
 #include "../Main/Sound.h"
+#include "../Main/RWSound.h"
 #include "../FModSound/FMsound.h"
 #include "../Main/iMissionDlgUI.h"
 #include "../Main/iMissionUI.h"
@@ -1559,6 +1560,45 @@ static void ExitMenuConfirmation(const char* databasePath,const char* resourcePa
         "the native exit dialog ignored its standard confirmation command");
     Require(!NMainLoop::StepApp(false,false,false) && NMainLoop::GetInterfaceStackDepth() == 1,
         "standard exit confirmation did not produce the same application exit sentinel");
+}
+
+static void SoundMixerClockCatchUp()
+{
+    CObj<NWorld::CWorldSyncSrc> source = new NWorld::CWorldSyncSrc;
+    CObj<CCTime> sceneTime = new CCTime(0);
+    CObj<NSound::ISoundScene> scene = NSound::CreateSoundScene(nullptr,nullptr,sceneTime);
+    CObj<NRender::IRenderSound> mixer = dynamic_cast<NRender::IRenderSound*>(pSSClasses->CreateObject(int(0x03081142)));
+    Require(IsValid(mixer), "sound-clock fixture has no registered native render mixer");
+    CTimeCounter clock;
+    clock.SetCurrent(5000);
+    CStructureNetworkContext references;
+    references.externalReferences = true;
+    references.include = [](CObjectBase*) { return false; };
+    const vector<CObjectBase*> objects{source.GetPtr(),scene.GetPtr(),clock.GetTime()};
+    for (std::size_t i = 0; i < objects.size(); ++i) {
+        references.ids[objects[i]] = unsigned(i+1); references.refs[unsigned(i+1)] = objects[i];
+    }
+    references.nextID = 100;
+    CMemoryStream saved;
+    { CStructureSaver writer(saved,CStructureSaver::WRITE,&references);
+      writer.Add(1,&source); writer.Add(2,&scene); writer.Add(3,&clock); }
+    saved.Seek(0);
+    { CStructureSaver reader(saved,CStructureSaver::READ,&references); static_cast<CObjectBase*>(mixer.GetPtr())->operator&(reader); }
+    CTransformStack transform; transform.Init();
+    mixer->Update(true,&transform,1000);
+    Require(clock.GetTime()->GetValue() == 5000, "first mixer update advanced before establishing its restored clock baseline");
+    mixer->Update(true,&transform,1100);
+    Require(clock.GetTime()->GetValue() == 5100, "ordinary mixer-frame control did not advance its actual shared clock");
+    mixer->Update(true,&transform,6100);
+    Require(clock.GetTime()->GetValue() == 10100,
+        "the native sound mixer lost most of a skipped interval by clamping its clock advance to one 150ms step");
+    mixer->Update(false,&transform,9000);
+    Require(clock.GetTime()->GetValue() == 10100, "a paused mixer advanced while consuming its clock baseline");
+    mixer->Update(true,&transform,9300);
+    Require(clock.GetTime()->GetValue() == 10400, "resuming the mixer replayed paused time or lost the resumed interval");
+    mixer->ResetTiming();
+    mixer->Update(true,&transform,20000);
+    Require(clock.GetTime()->GetValue() == 10400, "resetting mixer timing caused a spurious catch-up jump");
 }
 
 static void MainMenuLoadSaveTab(const char* databasePath,const char* resourcePath)
@@ -8612,6 +8652,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "exit-menu-save-visibility") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "exit-menu-save-shortcut") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
     if (!std::strcmp(mode, "exit-menu-confirmation") && argc == 4) { ExitMenuConfirmation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "supplied-defeat-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "supplied-options-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3]); return true; }

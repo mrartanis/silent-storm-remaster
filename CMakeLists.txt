@@ -916,6 +916,8 @@ add_test(NAME UpstreamPronePoseChangeFacing COMMAND UpstreamBugTests prone-pose-
 add_test(NAME UpstreamSimplePronePosePath COMMAND UpstreamBugTests simple-prone-pose-path)
 add_test(NAME UpstreamSimplePoseFacingPreference COMMAND UpstreamBugTests simple-pose-facing-preference)
 add_test(NAME UpstreamSimpleCrossLayerPoseEntry COMMAND UpstreamBugTests simple-cross-layer-pose-entry)
+add_test(NAME UpstreamSoundMixerClockCatchUp COMMAND UpstreamBugTests sound-mixer-clock-catchup)
+set_tests_properties(UpstreamSoundMixerClockCatchUp PROPERTIES ENVIRONMENT "S2_AUDIO_HEADLESS=1")
 add_test(NAME UpstreamConnectedAliasMoves COMMAND UpstreamBugTests connected-alias-moves)
 add_test(NAME UpstreamIsolatedSourceMoves COMMAND UpstreamBugTests isolated-source-moves)
 add_test(NAME UpstreamLockedAliasMoves COMMAND UpstreamBugTests locked-alias-moves)

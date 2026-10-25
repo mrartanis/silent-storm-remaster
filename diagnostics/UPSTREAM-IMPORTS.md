@@ -191,6 +191,7 @@
 | [c0c1914c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c0c1914c23df17eb98151f85184cab0f9bb81e2b) — Allow direct simple pose paths from prone sources | `simple native pathfinding rejected a direct pose change from prone` | 236/236; `simple-prone-pose-path` | `Upstream-Commit` в commit message |
 | [c0c1914c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c0c1914c23df17eb98151f85184cab0f9bb81e2b) — Prefer unchanged facing when selecting direct pose paths | `simple pose-path selection chose direction zero over an equally valid unchanged facing` | 237/237; `simple-pose-facing-preference` | `Upstream-Commit` в commit message |
 | [c0c1914c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c0c1914c23df17eb98151f85184cab0f9bb81e2b) — Separate layer entry from pose changes in direct navigation paths | `a simple cross-layer pose path omitted its layer-only entry point and combined the layer and pose change` | 238/238; `simple-cross-layer-pose-entry` | `Upstream-Commit` в commit message |
+| [2826ebed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2826ebed4e5a7edd6e15161b21e347d025d4a2e5) — Consume complete elapsed intervals in the native sound mixer clock | `the native sound mixer lost most of a skipped interval by clamping its clock advance to one 150ms step` | 239/239; `sound-mixer-clock-catchup` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
