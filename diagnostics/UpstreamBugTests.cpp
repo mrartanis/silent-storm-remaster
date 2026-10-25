@@ -6430,6 +6430,53 @@ static void NavigationAliasDestinations(bool arrayOutput, bool isolatedSource = 
     Require(aliases().empty(), "unequal displacement or isolated aliases were still reported as connected copies");
 }
 
+static CObj<NAI::CPathNetwork> SimplePathNetwork(int layerCount = 1)
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    for (int layer = 0; layer < layerCount; ++layer)
+        network->CreateLayer(8,8,VNULL2,0.f,layer,layer ? network->GetLayer(0)->pGroup.GetPtr() : nullptr);
+    network->Freeze(true);
+    for (int layer = 0; layer < layerCount; ++layer)
+        for (int y = 0; y < 8; ++y) for (int x = 0; x < 8; ++x) {
+            auto& tile = network->GetLayer(layer)->tiles[y][x];
+            tile = NAI::STile{};
+            tile.nPassable = 0xff;
+            tile.nMoveStand = tile.nMoveCrouch = tile.nMoveLay = 0xff;
+            tile.nFlags = NAI::TF_STAND_PASSABLE;
+        }
+    return network;
+}
+
+static void SimplePoseFacingPreference()
+{
+    auto network = SimplePathNetwork();
+    auto find = [&](const NAI::SPathPlace& source,const vector<NAI::SPathPlace>& goals,
+                    NAI::EFindPathParams params,bool pk = false) {
+        return CObj<NAI::CPath>(NAI::FindSimplePath(source,goals,params,network,pk,pk,false));
+    };
+    const NAI::SPathPlace crouched(4,4,0,3,NAI::CM_CROUCH,0);
+    const NAI::SPathPlace stand(4,4,0,3,NAI::CM_STAND,0), turn(4,4,0,4,NAI::CM_CROUCH,0);
+    auto ranked = find(crouched,{stand,turn},NAI::PF_USE_POSEDIR);
+    Require(IsValid(ranked) && ranked->points.back() == turn,
+        "simple-path ranking no longer prefers an explicit turn over a pose change");
+    auto pkPath = find(crouched,{stand,turn},NAI::PF_USE_POSEDIR,true);
+    Require(IsValid(pkPath) && pkPath->points.back() == stand,
+        "simple-path ranking bypassed the crouched Panzerklein turn restriction");
+    const NAI::SPathPlace prone(4,4,0,3,NAI::CM_LAY,0);
+    for (int pose: {NAI::CM_STAND,NAI::CM_CROUCH}) {
+        const NAI::SPathPlace unspecified(4,4,0,0,pose,0);
+        auto path = find(prone,{unspecified},NAI::PF_USE_POSE);
+        Require(IsValid(path), "simple facing fixture did not find its direct pose path");
+        Require(path->points.back().GetDirection() == prone.GetDirection(),
+            "simple pose-path selection chose direction zero over an equally valid unchanged facing");
+        auto explicitGoal = unspecified;
+        explicitGoal.SetDirection(6);
+        auto explicitPath = find(prone,{explicitGoal},NAI::PF_USE_POSEDIR);
+        Require(IsValid(explicitPath) && explicitPath->points.back() == explicitGoal,
+            "simple facing preference overrode the caller's explicit direction request");
+    }
+}
+
 static void SimplePronePosePath()
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
@@ -8541,6 +8588,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "isolated-source-path")) { IsolatedSourcePath(); return true; }
     if (!std::strcmp(mode, "prone-pose-change-facing")) { PronePoseChangeFacing(); return true; }
     if (!std::strcmp(mode, "simple-prone-pose-path")) { SimplePronePosePath(); return true; }
+    if (!std::strcmp(mode, "simple-pose-facing-preference")) { SimplePoseFacingPreference(); return true; }
     if (!std::strcmp(mode, "isolated-transition-link-match")) { IsolatedTransitionLinkMatch(); return true; }
     if (!std::strcmp(mode, "isolated-transition-shortcut")) { IsolatedTransitionShortcut(); return true; }
     if (!std::strcmp(mode, "isolated-transition-entry")) { IsolatedTransitionEntry(); return true; }

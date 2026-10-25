@@ -918,13 +918,15 @@ CPath* FindSimplePath( const SPathPlace &ptSrc, const vector<SPathPlace> &ptDst,
 					nCurCost = 0; break;
 				case TT_TURN:
 					if ( !bPKCroucher )
-						nCurCost = 1; 
+						nCurCost = 0;
 					break;
 				case TT_POSE:
 					nCurCost = bIsCarryingCorpse ? N_PF_MAXWEIGHT : 2; break;
 				case TT_INTERGRID_SAME:
 					nCurCost = 0; break;
 				}
+				if ( where.GetDirection() != a.GetDirection() )
+					++nCurCost;
 				if ( ( nCurCost < nBestCost ) && ( pPathNetwork->IsPassable( where ) ) )
 				{
 					if ( bIsWearingPK && ( !IsBigLockerPassable( pPathNetwork, where ) ) )
