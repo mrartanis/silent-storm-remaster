@@ -138,6 +138,7 @@
 | [8853794e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8853794e2ad267be5df39bcc78ab246ac8414cb7) — Reconstruct omitted navigation colour caches on demand | `native navigation lookup did not reconstruct a cache omitted by a compact save` | 172/172; `lazy-navigation-colourer` | `Upstream-Commit` в commit message |
 | [8853794e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8853794e2ad267be5df39bcc78ab246ac8414cb7) — Inherit compact-save mode when creating navigation layers | `navigation layer created after enabling compact saves did not inherit the small-save flag` | 173/173; `new-layer-compact-save` | `Upstream-Commit` в commit message |
 | [2eee1b62](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2eee1b6280f55129eb2cca681fbbbeb1c27f1e18) — Keep AI commander ownership separate from tactical world views | `AI commander retained a foreign unit in its strongly owned roster` | 174/174; `owned-ai-commander-rosters` | `Upstream-Commit` в commit message |
+| [8853794e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8853794e2ad267be5df39bcc78ab246ac8414cb7) — Keep replica cache assertions passive after lazy navigation restoration | `path colour cache leaked to replica or removed on host` | 1/1; `network-preparation-cache` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -513,3 +514,9 @@ StopResume. ClientUI падает на `movement AP did not replicate`, Preparat
 `owned-rosters-linux-test.log`, `checkpoint-174-{all,restored}-build.log`,
 `checkpoint-174-ci-test.log`, `checkpoint-174-shots-test.log`,
 `checkpoint-174-network-test.log`, `owned-rosters-network-baseline-test.log`.
+
+Подготовка сетевой игры исправлена отдельной адаптацией теста после `8853794e`:
+проверка теперь читает поле кэша реплики напрямую, а не вызывает создающий
+его `GetColourer`. Полный `NetworkPreparationTests` прошёл для отрядов из 1 и
+6 бойцов (49,63 с); логи `network-preparation-cache-{red,green}-test.log`.
+Ошибки ClientUI/ObjectStages пока остаются открытыми.

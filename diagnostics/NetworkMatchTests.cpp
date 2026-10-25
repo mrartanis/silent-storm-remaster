@@ -140,8 +140,12 @@ int main(int argc,char** argv) {
         auto* replicaPaths=dynamic_cast<NAI::CPathNetwork*>(client.Match().world->GetPathNetwork());
         auto* hostPaths=dynamic_cast<NAI::CPathNetwork*>(host.SlotMatch(1).world->GetPathNetwork());
         Require(replicaPaths && hostPaths && !replicaPaths->GetWaysCalcer() && hostPaths->GetWaysCalcer(),"path search cache leaked to replica or removed on host");
-        for(int layer=0;layer<replicaPaths->GetNumLayers();++layer)
-          Require(!replicaPaths->GetColourer(layer) && hostPaths->GetColourer(layer),"path colour cache leaked to replica or removed on host");
+        for(int layer=0;layer<replicaPaths->GetNumLayers();++layer) {
+          // GetColourer now reconstructs omitted caches. Inspect the replica's
+          // stored field directly so this serialization check stays passive.
+          Require(!IsValid(replicaPaths->GetLayer(layer)->pColourer),"path colour cache leaked to replica");
+          Require(IsValid(hostPaths->GetColourer(layer)),"host navigation colour cache could not be restored");
+        }
         Require(client.Match().ambient && client.Match().ambient.GetPtr()!=host.SlotMatch(1).ambient.GetPtr(),"ambient light missing on replica");
         auto serverBuildings=host.SlotMatch(1).world->GetBuildingsForHarness();
         auto clientBuildings=client.Match().world->GetBuildingsForHarness();
@@ -817,7 +821,7 @@ int main(int argc,char** argv) {
     Require(host.Match().Winner()==-1 && client.Match().Winner()==-1,"simultaneous squad loss is not a draw");
     std::puts("Network arena and replica: deployment, identities, clock, events, turns, movement, pose, burst/reload, inventory, healing, mines, doors/traps, grenade/destruction, aiming, interrupt/return, victory/draw passed");
     return 0;
-  } catch(const SFileIOError& e) { std::fprintf(stderr,"%s\n",e.szError.c_str()); }
-    catch(const std::exception& e) { std::fprintf(stderr,"%s\n",e.what()); }
+  } catch(const SFileIOError& e) { std::fprintf(stderr,"FAIL: %s\n",e.szError.c_str()); }
+    catch(const std::exception& e) { std::fprintf(stderr,"FAIL: %s\n",e.what()); }
   return 1;
 }
