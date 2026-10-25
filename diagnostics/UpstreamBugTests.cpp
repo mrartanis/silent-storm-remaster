@@ -39,6 +39,7 @@
 #include "../Main/wUICommands.h"
 #include "../Main/wDialog.h"
 #include "../Main/aiGrid.h"
+#include "../Main/aiMoves.h"
 #include "../Main/aiColourer.h"
 #include "../Main/aiMap.h"
 #include "../Main/aiStability.h"
@@ -6076,6 +6077,59 @@ static void NavigationAliasDestinations(bool arrayOutput, bool isolatedSource = 
     Require(aliases().empty(), "unequal displacement or isolated aliases were still reported as connected copies");
 }
 
+static void ConnectedDirectTransitions()
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    for (int i = 0; i < 3; ++i)
+        network->CreateLayer(4,4,VNULL2,0.f,i,i ? network->GetLayer(0)->pGroup.GetPtr() : nullptr);
+    network->Freeze(true);
+    NAI::STile connected{};
+    connected.nHeight = 100;
+    connected.nPassable = 7;
+    connected.nMoveStand = 1;
+    connected.nFlags = NAI::TF_STAND_PASSABLE;
+    const NAI::SPathPlace source(1,1,1), destination(2,1,2);
+    auto& lower = network->GetLayer(0)->tiles[1][1];
+    lower = network->GetLayer(1)->tiles[1][1] = connected;
+    network->GetLayer(1)->tiles[1][1].nFlags |= NAI::TF_HAS_SAME | NAI::TF_HAS_INTERGRID;
+    auto& target = network->GetLayer(2)->tiles[1][2];
+    target = connected;
+    target.nHeight = 110;
+    NAI::CNodesLayer::CTransitionsHash incoming;
+    incoming[source].links.push_back(NAI::CNodesLayer::SLink(destination,10));
+    auto install = [&]() {
+        for (int i = 0; i < 3; ++i) network->GetLayer(i)->transitions.clear();
+        network->AddDirectTransitions(incoming);
+    };
+    auto requireTransition = [&]() {
+        const auto& forward = network->GetLayer(1)->transitions;
+        const auto& reverse = network->GetLayer(2)->transitions;
+        const auto f = forward.find(source), r = reverse.find(destination);
+        Require(f != forward.end() && r != reverse.end() && f->second.links.size() == 1 &&
+            r->second.links.size() == 1 && f->second.links.front().dst == destination &&
+            r->second.links.front().dst == source && f->second.links.front().nHeight == 10 &&
+            r->second.links.front().nHeight == 10,
+            "an isolated lower copy suppressed a connected bidirectional navigation transition");
+        Require(NAI::GetTransitionType(network,source,destination) == NAI::TT_INTERGRID &&
+            NAI::GetTransitionType(network,destination,source) == NAI::TT_INTERGRID,
+            "the retained direct transition could not be traversed in both directions");
+    };
+    lower.nMoveStand = 0;
+    install();
+    requireTransition();
+    lower.nMoveStand = 1;
+    install();
+    Require(network->GetLayer(1)->transitions.empty() && network->GetLayer(2)->transitions.empty(),
+        "a connected canonical lower copy no longer suppressed its duplicate transition");
+    lower.nPassable = 0;
+    install();
+    requireTransition();
+    lower = connected;
+    ++lower.nDisplacement;
+    install();
+    requireTransition();
+}
+
 static void NearbyConnectedDestination()
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
@@ -7818,6 +7872,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "empty-passage-exit") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "scripted-passage-transition") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "flying-attack-queue") && argc == 4) { FlyingAttackQueue(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "connected-direct-transitions")) { ConnectedDirectTransitions(); return true; }
     if (!std::strcmp(mode, "nearby-connected-destination")) { NearbyConnectedDestination(); return true; }
     if (!std::strcmp(mode, "isolated-source-alias-vector")) { NavigationAliasDestinations(false,true); return true; }
     if (!std::strcmp(mode, "isolated-source-alias-array")) { NavigationAliasDestinations(true,true); return true; }

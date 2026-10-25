@@ -1316,7 +1316,7 @@ bool CPathNetwork::HasLowerSame( const SPathPlace &p )
 		if ( pL == pLayer )
 			return false;
 		CNodesLayer::STile &t2 = pL->tiles[ p.GetY() ][ p.GetX() ];
-		if ( t2.nHeight == t.nHeight && t2.nDisplacement == t.nDisplacement )
+		if ( t2.IsLinkedSame( t ) )
 			return true;
 	}
 	ASSERT(0);

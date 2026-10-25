@@ -172,6 +172,7 @@
 | [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Exclude isolated and blocked copies from navigation aliases | `same-point enumeration included isolated or blocked navigation aliases instead of only the connected copy` | 216/216; `navigation-alias-destinations` | `Upstream-Commit` в commit message |
 | [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Expose connected navigation copies for isolated source cells | `an isolated occupied source without the same-point flag could not enumerate its connected escape copy` | 218/218; `isolated-source-aliases` | `Upstream-Commit` в commit message |
 | [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Retain connected nearby destinations over isolated lower copies | `nearby destination deduplication discarded a connected tile in favor of an isolated lower copy` | 219/219; `nearby-connected-destination` | `Upstream-Commit` в commit message |
+| [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Preserve direct transitions obscured by isolated lower copies | `an isolated lower copy suppressed a connected bidirectional navigation transition` | 220/220; `connected-direct-transitions` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
