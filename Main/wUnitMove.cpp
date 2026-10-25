@@ -1034,6 +1034,8 @@ void CExecMove::ConvertPath( NAI::CPath *pPath, ENeedActiveItem eActive )
 	//CDynamicCast<NRPG::IWeaponItem> pWeapon(pActiveItem);
 	bool bWeapon = ( pActiveItem != 0 && !animator.IsCarryingCorpse() );
 	bool bAutoActivate = bWeapon && !pUS->IsWalkingWithoutWeapon();
+	if ( pPath->points.size() <= 3 && eActive == ITEM_INACTIVE )
+		bAutoActivate = false;
 	if ( !bWeapon && bActive )
 	{
 		commandsQueue.push_back( new CCmdDeactivateItem( pUS, nSlot ) );

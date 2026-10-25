@@ -106,6 +106,7 @@
 | [b6b20e29](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b6b20e291ccdaeb82e5a67baf75df99f236b7c0b) — Hide the active heavy weapon mesh while it is holstered | `holstered active heavy weapon remained in the native render bindings` | 135/135; `holstered-heavy-weapon-mesh` | `Upstream-Commit` в commit message |
 | [b6b20e29](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b6b20e291ccdaeb82e5a67baf75df99f236b7c0b) — Persist scripted holster intent on the native unit | `scripted holstering did not persist the walk-without-weapon flag` | 136/136; `script-holster-persistence` | `Upstream-Commit` в commit message |
 | [b6b20e29](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b6b20e291ccdaeb82e5a67baf75df99f236b7c0b) — Preserve scripted holstering during automatic path preparation | `native movement queued automatic weapon activation despite persistent scripted holstering` | 137/137; `movement-holster-policy` | `Upstream-Commit` в commit message |
+| [b6b20e29](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b6b20e291ccdaeb82e5a67baf75df99f236b7c0b) — Avoid redundant weapon activation on short inactive paths | `short inactive path queued an unnecessary weapon draw and holster cycle` | 138/138; `short-inactive-movement` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
