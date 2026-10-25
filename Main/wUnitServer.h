@@ -263,6 +263,7 @@ public:
 	virtual CObjectBase* GetAIMapHull() { return GetAIMapUnitHull(); }
 
 	void Segment();
+	void PrepareToRemove();
 	void UpdateVisible( SInterruptInfo *pRes );
 	// retail CUnitServer::CheckSpot @0x3bfe30: one distance-roll to unhide a spotted enemy (this=spotter).
 	bool CheckSpot( CUnitServer *pTarget );

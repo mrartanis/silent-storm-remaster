@@ -2477,6 +2477,43 @@ static void UnsupportedNavigationBake(const char* databasePath, const char* reso
     Require(unsupported == 0, "native navigation bake generated passable tiles without supporting surfaces");
 }
 
+static void RemovedPlayerFootprints(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* network = world->GetPathNetwork();
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::IPlayer* departing = nullptr;
+    for (const auto& unit: units) {
+        auto* actor = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if (actor && actor->CanFight() && !actor->IsAIUnit() && !actor->IsEmptyPK()) {
+            departing = actor->GetPlayer(); break;
+        }
+    }
+    Require(departing != nullptr, "player teardown fixture has no deployed human squad");
+    vector<NAI::SPathPlace> vacated, surviving;
+    vector<CPtr<NWorld::CUnitServer>> departingUnits;
+    for (const auto& unit: units) {
+        auto* actor = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if (!actor || !actor->CanFight()) continue;
+        const auto place = actor->GetPosition().pos.p;
+        if (!network->IsLocked(place, true) || network->GetWhoLocksThisPlace(place) != actor) continue;
+        if (actor->GetPlayer() == departing) {
+            vacated.push_back(place); departingUnits.push_back(actor);
+        } else surviving.push_back(place);
+    }
+    Require(!vacated.empty() && !surviving.empty(), "player teardown fixture needs departing and surviving footprints");
+    world->RemovePlayer(departing);
+    for (const auto& actor: departingUnits)
+        Require(!IsValid(actor), "unregistered player left a master-owned unit alive");
+    for (const auto& place: vacated)
+        Require(!network->IsLocked(place, true), "removed player left an occupied navigation tile after its unit was destroyed");
+    for (const auto& place: surviving)
+        Require(network->IsLocked(place, true), "removing one player released another player's footprint");
+    std::printf("Player teardown: %zu vacated and %zu surviving footprints\n", vacated.size(), surviving.size());
+}
+
 static void EmptyBulletConstruction(const char* databasePath, const char* resourcePath, bool checkRetirement = false)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -6422,6 +6459,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "removed-player-footprints") && argc == 4) { RemovedPlayerFootprints(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "empty-bullet-retirement") && argc == 4) { EmptyBulletConstruction(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "empty-bullet-construction") && argc == 4) { EmptyBulletConstruction(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hidden-unit-tint") && argc == 4) { HiddenUnitTint(argv[2], argv[3]); return true; }

@@ -2279,6 +2279,11 @@ IPlayer* CWorld::AddPlayer( const wstring &wsName, NRPG::CGlobalPlayer *pGlobalP
 void CWorld::RemovePlayer( IPlayer *_pPlayer )
 {
 	CDynamicCast<CPlayer> pPlayer( _pPlayer );
+	vector<CPtr<CUnitServer> > departing;
+	pPlayer->GetUnits( &departing );
+	for ( int k = 0; k < departing.size(); ++k )
+		if ( IsValid( departing[k] ) )
+			departing[k]->PrepareToRemove();
 	UnregisterPlayer( pPlayer );
 
 	for ( list< CObj<CUnitServer> >::iterator i = units.begin(); i != units.end(); )
