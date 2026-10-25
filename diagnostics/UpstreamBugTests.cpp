@@ -1107,6 +1107,55 @@ static CMemoryStream BorrowedObjectFields(CObjectBase* object, CStructureNetwork
     return saved;
 }
 
+static void WindowTemplateScript(const char* databasePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database, CStructureSaver::READ);
+    CDBIterator<NDb::CScript> scripts(*NDatabase::GetTable<NDb::CScript>());
+    NDb::CScript* record = nullptr;
+    while (scripts.MoveNext()) if (scripts.Get()->GetRecordID() > 0) { record = scripts.Get(); break; }
+    Require(record && NDb::GetDBScript(record->GetRecordID()) == record,
+        "template script fixture did not resolve its native database script record");
+    record->strCode = "local w=GetWindow('template-child'); if w then w.x=84 end; templateReady=1";
+    CObj<NDb::CUIContainer> layout = new NDb::CUIContainer;
+    layout->pScript = record;
+    CObj<NUI::CInterface> interface = new NUI::CInterface;
+    interface->SetInterface(interface);
+    CMObj<NUI::CWindow> window = new NUI::CWindow(NUI::SWindowInfo(interface,
+        NUI::SPoint(1, 2), NUI::SPoint(20, 20), "template-child"));
+    CObj<NScript::CScript> unrelated = NScript::CreateScript(nullptr);
+    unrelated->PushNumber(777);
+    struct GlobalScriptRestore {
+        CPtr<NScript::CScript> previous;
+        ~GlobalScriptRestore() { pScript = previous; }
+    } restore{pScript};
+    pScript = unrelated;
+    window->ProcessMessage(NUI::SEvent(NUI::EVENT_TEMPLATELOAD, nullptr, layout.GetPtr()));
+    Require(window->GetPosition() == NUI::SPoint(1, 2), "template script ran before the native window update phase");
+    window->Update(123, nullptr);
+    Require(window->GetPosition() == NUI::SPoint(84, 2),
+        "window template Lua script was not created and executed in its own interface during Update");
+    CStructureNetworkContext references;
+    auto fields = BorrowedObjectFields(window, &references);
+    CPtr<NScript::CScript> script;
+    { CStructureSaver reader(fields, CStructureSaver::READ, &references); reader.Add(17, &script); }
+    Require(IsValid(script) && !IsValid(script->pWorld) && script->GetScriptInterface() == interface.GetPtr()
+            && script->GetGlobal("templateReady").IsNumber() && script->GetGlobal("templateReady").GetNumber() == 1
+            && unrelated->GetTop() == 1,
+        "template Lua lifecycle lost its saved script/context or modified an unrelated script stack");
+    CObj<NDb::CUIContainer> plainLayout = new NDb::CUIContainer;
+    CMObj<NUI::CWindow> plain = new NUI::CWindow(NUI::SWindowInfo(interface,
+        NUI::SPoint(5, 6), NUI::SPoint(10, 10), "unscripted-child"));
+    plain->ProcessMessage(NUI::SEvent(NUI::EVENT_TEMPLATELOAD, nullptr, plainLayout.GetPtr()));
+    plain->Update(124, nullptr);
+    CStructureNetworkContext plainReferences;
+    auto plainFields = BorrowedObjectFields(plain, &plainReferences);
+    CPtr<NScript::CScript> absent;
+    { CStructureSaver reader(plainFields, CStructureSaver::READ, &plainReferences); reader.Add(17, &absent); }
+    Require(!IsValid(absent) && plain->GetPosition() == NUI::SPoint(5, 6), "unscripted templates acquired a script or changed their native window");
+}
+
 static std::map<unsigned char, vector<unsigned char>> OuterSaveChunks(CDataStream& stream)
 {
     std::map<unsigned char, vector<unsigned char>> chunks;
@@ -5729,6 +5778,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "lua-window-userdata")) { LuaWindowUserdata(); return true; }
     if (!std::strcmp(mode, "lua-window-setter-stack")) { LuaWindowSetterStack(); return true; }
     if (!std::strcmp(mode, "lua-window-state-context")) { LuaWindowStateContext(); return true; }
+    if (!std::strcmp(mode, "window-template-script")) { Require(argc == 3, "window template script requires db"); WindowTemplateScript(argv[2]); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
     if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }
     if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) { AIReactionValueLatch(argv[2], argv[3]); return true; }

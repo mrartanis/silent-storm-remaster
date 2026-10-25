@@ -7,6 +7,7 @@
 #include "..\Misc\StrProc.h"
 #include "..\DBFormat\DataFormat.h"
 #include "..\DBFormat\DataInterface.h"
+#include "../DBFormat/DataRPG.h"
 #include "Interface.h"
 #include "UIWindow.h"
 #include "UIBaseCtrls.h"
@@ -494,6 +495,16 @@ bool CWindow::ProcessMessage( const SEvent &sEvent )
 			pMouseFocus = 0;
 			break;
 		}
+	case EVENT_TEMPLATELOAD:
+		{
+			if ( IsValid( sEvent.pContainer ) && IsValid( sEvent.pContainer->pScript ) )
+			{
+				pScript = NScript::CreateScript( 0 );
+				pScript->SetScriptInterface( GetInterface() );
+				pScript->RunScriptByID( sEvent.pContainer->pScript->GetRecordID() );
+			}
+			break;
+		}
 	case EVENT_TEMPLATECREATE:
 		{
 			if ( IsValid( sEvent.pControl ) )
@@ -565,6 +576,8 @@ bool CWindow::ProcessMessage( const SEvent &sEvent )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWindow::Update( const STime &sTime, NGScene::I2DGameView *pView )
 {
+	if ( IsValid( pScript ) )
+		pScript->ExecuteThreads();
 	// retail @0x3273d0 walks listChildren (a vector) BY INDEX, re-reading the bounds each step so a child's
 	// Update mutating the vector cannot invalidate the walk. The guard below is defensive: a rare deserialize
 	// can leave a wild/dangling child entry; retail has no guard, but keep it (verify the object AND its
