@@ -483,6 +483,7 @@ public:
 		NRPG::IInventory *pInventory = pRPG->GetInventory();
 		if ( nStage == 2 || !pInventory->Get(slot) )
 		{
+			pUS->SetUndrawItem( false );
 			Finished();
 			return;
 		}

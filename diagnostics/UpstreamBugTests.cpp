@@ -9478,19 +9478,38 @@ static void ExplicitWeaponActivation(const char* databasePath, const char* resou
         Require(executor->GetUnitServer() == actor, "restored equipment callback lost its native actor");
         return executor;
     };
+    auto transientFlags = [&]() {
+        struct BaseFlags {
+            bool undraw = false, noHeavy = false;
+            int operator&(CStructureSaver& saver) { saver.Add(10,&undraw); saver.Add(11,&noHeavy); return 0; }
+        } flags;
+        CStructureNetworkContext references;
+        auto fields = BorrowedObjectFields(actor,&references);
+        { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(2,&flags); }
+        return std::make_pair(flags.undraw,flags.noHeavy);
+    };
+    const int ap = actor->GetAP();
     auto executor = equipment(1);
     executor->AnimationFinished();
     const bool reset = !actor->IsWalkingWithoutWeapon();
     actor->SetWalkWithoutWeapon(true); // A newer script request while the animation completes.
+    actor->SetUndrawItem(true,true);
+    Require(transientFlags() == std::make_pair(true,true), "equipment fixture did not seed both native temporary holster flags");
     executor->AnimationFinished();
     Require(reset, "explicit equipment activation retained the scripted holster flag");
     Require(actor->IsWalkingWithoutWeapon() && executor->GetState() == NWorld::CCommandExecute::FINISHED,
         "equipment completion overwrote a later scripted holster request");
+    Require(!actor->GetUndrawItem() && transientFlags() == std::make_pair(false,false),
+        "completed equipment activation retained temporary item or heavy-weapon hiding flags");
     CObj<NRPG::IInventoryItem> removed = actor->GetUnitRPG()->GetInventory()->TakeOff(slot);
+    actor->SetUndrawItem(true,true);
     auto empty = equipment(1);
     empty->AnimationFinished();
     Require(actor->IsWalkingWithoutWeapon() && empty->GetState() == NWorld::CCommandExecute::FINISHED,
         "empty equipment slot cancelled scripted holstering without activating an item");
+    Require(!actor->GetUndrawItem() && transientFlags() == std::make_pair(false,false),
+        "completing activation of an empty slot retained temporary item hiding flags");
+    Require(actor->GetAP() == ap && !actor->HasCommand(), "clearing equipment visibility flags spent AP or installed an action");
 }
 
 static void ScriptAIActivation(const char* databasePath, const char* resourcePath)
