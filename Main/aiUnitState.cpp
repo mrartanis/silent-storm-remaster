@@ -68,7 +68,7 @@ void SAIUnitState::Notify( IAIEvent *pEvent )
 	if ( !IsValid( pEvent ) )
 		return;
 	CObj<IAIEvent> event = pEvent;
-	CObj<IAIUnit> unit = pUnit;
+	CObj<IAIUnit> unit = pUnit.GetPtr();
 	if ( !IsValid( unit ) || !IsValid( unit->GetUnitServer() ) || !unit->GetUnitServer()->CanFight() )
 		return;
 	struct SCollectionLock

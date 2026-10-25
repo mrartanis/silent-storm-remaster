@@ -172,3 +172,14 @@ retail-записей: 64 байта в сохранении против 56 в 
 `lighting-console-shots-full-test.log`, `console-linux-test.log`
 в общей папке свидетельств. Это промежуточная проверка, перенос остальных
 коммитов и финальная проверка GitHub Actions ещё продолжаются.
+
+### Совместимость удержания владельца AI
+
+После `4252cc86` Linux-сборка выявила неоднозначное для Clang преобразование
+`CPtr<IAIUnit>` в `CObj<IAIUnit>` в добавленном коде удержания владельца
+состояния. Явный `GetPtr()` устраняет ошибку компиляции без изменения логики.
+Повторные Windows и Linux проверки — 115/115, Linux `Game` собран.
+Это исправление переносимости адаптации `77393cff`, а не новый upstream баг.
+Свидетельства: `ai-locks-linux-build.log` (исходная ошибка),
+`ai-locks-portable-linux-build.log`, `ai-locks-portable-linux-test.log`,
+`ai-locks-portable-green-test.log`.
