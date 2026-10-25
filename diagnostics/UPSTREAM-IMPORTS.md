@@ -145,6 +145,7 @@
 | [a8311049](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8311049890a7fa91a1a439a43fdfc2da9619a3e) — Release departing player footprints before destroying its units | `removed player left an occupied navigation tile after its unit was destroyed` | 178/178; `removed-player-footprints` | `Upstream-Commit` в commit message |
 | [a8311049](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8311049890a7fa91a1a439a43fdfc2da9619a3e) — Remove departing squad acknowledgement listeners during player teardown | `removed player retained acknowledgement listeners for its destroyed units` | 179/179; `removed-player-acks` | `Upstream-Commit` в commit message |
 | [a8311049](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8311049890a7fa91a1a439a43fdfc2da9619a3e) — Prune stale AI wrappers and cache entries during player removal | `surviving AI commander retained a wrapper for a destroyed player's unit` | 180/180; `removed-player-ai-rosters` | `Upstream-Commit` в commit message |
+| [75341d49](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/75341d49319b927a76537c6021e6e655d635de95) — Preserve cannon identity in AI entry and exit command casts | `AI cannon entry lost its pose and docking commands during an incomplete-type cast` | 181/181; `mounted-ai-log-commands` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

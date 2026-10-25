@@ -7,6 +7,7 @@
 #endif
 #include "../Main/wMain.h"
 #include "../Main/wBuilding.h"
+#include "../Main/wObject.h"
 #include "../Main/wUnitGroup.h"
 #include "../Main/iCommonUI.h"
 #include "../Main/PerkToolTip.h"
@@ -5212,6 +5213,38 @@ public:
     bool IsEmptyPK() const override { return shell; }
 };
 
+static void MountedAILogCommands()
+{
+    CObj<LockerActor> actor = new LockerActor;
+    CObj<NAI::AIUnitFixture> unit = new NAI::AIUnitFixture;
+    unit->server = actor.GetPtr();
+    CObj<NWorld::CCannon> cannon = new NWorld::CCannon;
+    CObj<NAI::CAILogUseCannon> enter = new NAI::CAILogUseCannon(unit, cannon);
+    CObj<NAI::CAILogExitCannon> leave = new NAI::CAILogExitCannon(unit, cannon);
+    list<CPtr<NWorld::CCommand>> commands;
+    enter->GetCommands(&commands);
+    Require(commands.size() == 2, "AI cannon entry lost its pose and docking commands during an incomplete-type cast");
+    auto entry = commands.begin();
+    auto* poseOrder = dynamic_cast<NWorld::CCmdSetCommand*>(entry++->GetPtr());
+    auto* cannonOrder = dynamic_cast<NWorld::CCmdSetCommand*>(entry->GetPtr());
+    Require(poseOrder && cannonOrder, "AI cannon entry emitted an unexpected world command");
+    auto* pose = dynamic_cast<NWorld::CCmdWishPose*>(poseOrder->GetCmd());
+    auto* dock = dynamic_cast<NWorld::CCmdCannon*>(cannonOrder->GetCmd());
+    Require(pose && pose->pose == NAI::RUN && dock && dock->pObject.GetPtr() == static_cast<NWorld::IObject*>(cannon.GetPtr()),
+        "AI cannon entry did not preserve its pose or exact cannon target");
+    commands.clear();
+    leave->GetCommands(&commands);
+    Require(commands.size() == 1, "AI cannon exit lost its command during an incomplete-type cast");
+    auto* exitOrder = dynamic_cast<NWorld::CCmdSetCommand*>(commands.front().GetPtr());
+    auto* exit = exitOrder ? dynamic_cast<NWorld::CCmdExitCannon*>(exitOrder->GetCmd()) : nullptr;
+    Require(exit && exit->pCannon.GetPtr() == static_cast<NWorld::IObject*>(cannon.GetPtr()),
+        "AI cannon exit targeted another object");
+    commands.clear();
+    cannon->Invalidate();
+    enter->GetCommands(&commands); leave->GetCommands(&commands);
+    Require(commands.empty(), "invalid cannon generated an AI entry or exit command");
+}
+
 static void NavigationColouringOccupancy(int unavailable = 0)
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
@@ -6520,6 +6553,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "mounted-ai-log-commands")) { MountedAILogCommands(); return true; }
     if (!std::strcmp(mode, "removed-player-ai-rosters") && argc == 4) { RemovedPlayerAIRosters(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "removed-player-acks") && argc == 4) { RemovedPlayerFootprints(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "removed-player-footprints") && argc == 4) { RemovedPlayerFootprints(argv[2], argv[3]); return true; }
