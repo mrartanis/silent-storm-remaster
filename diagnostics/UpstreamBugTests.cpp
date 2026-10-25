@@ -61,6 +61,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../FileIO/Cruncher.h"
 #include "../Main/iMain.h"
 #include "../Main/iGlobalMap.h"
+#include "../Main/iChapterMap.h"
 #include "../Main/PlayerTracker.h"
 #include "../Main/iOptionsMenu.h"
 #include "../Main/iLoseFake.h"
@@ -2195,6 +2196,49 @@ static void GlobalMapReturnDestination(const char* databasePath,const char* reso
     Require(game->bGlobalMapSet && game->nGlobalMapID == map->GetRecordID() &&
         game->nChapterMapID == 987654 && game->vChapterPos == CVec2(12,34) && game->players.size() == 1,
         "clearing the chapter return flag also changed saved map IDs, position or party");
+}
+
+static void ChapterTeamMarkerToolTip(const char* databasePath,const char* resourcePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "chapter marker fixture must begin without interfaces or queued commands");
+    struct InterfaceCleanup { ~InterfaceCleanup() { NMainLoop::DoneInterface(); } } cleanup;
+    CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());
+    NDb::CChapterMap* map = nullptr;
+    while (maps.MoveNext()) if (IsValid(maps.Get()->pBackground)) { map = maps.Get(); break; }
+    Require(map != nullptr, "chapter marker fixture has no authored chapter map");
+    CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(1);
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    CObj<NGame::CICBeginChapter> enter = new NGame::CICBeginChapter(map->GetRecordID(),game);
+    enter->Exec();
+    auto* mission = dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(IsValid(mission) && pSSClasses->GetObjectTypeID(mission) == int(0xB2301230) && mission->GetInterface(),
+        "chapter marker fixture did not open the actual native chapter interface");
+    auto* chapter = mission->GetInterface()->GetChildByID("chaptermapUI");
+    auto* view = chapter ? chapter->GetChildByID("view") : nullptr;
+    auto* marker = view ? view->GetChildByID("action") : nullptr;
+    Require(IsValid(marker), "chapter marker fixture did not create its native party marker");
+    auto* tooltip = marker->GetToolTip();
+    Require(IsValid(tooltip), "the chapter party marker never created its saved tooltip");
+    Require(tooltip->GetParent() == mission->GetInterface() && tooltip->GetStyle(NUI::STYLE_TOPMOST),
+        "the chapter marker tooltip is not owned by the native topmost interface");
+    CStructureNetworkContext markerRefs;
+    auto markerFields = BorrowedObjectFields(marker,&markerRefs);
+    CPtr<NUI::CToolTip> retained;
+    { CStructureSaver reader(markerFields,CStructureSaver::READ,&markerRefs); reader.Add(11,&retained); }
+    Require(retained.GetPtr() == tooltip, "the chapter marker did not retain the same tooltip in its existing saved field");
+    CStructureNetworkContext tooltipRefs;
+    auto tooltipFields = BorrowedObjectFields(tooltip,&tooltipRefs);
+    CPtr<NUI::CText> text;
+    { CStructureSaver reader(tooltipFields,CStructureSaver::READ,&tooltipRefs); reader.Add(2,&text); }
+    Require(IsValid(text) && !NUI::GetDBString(11124).empty() && text->GetText() == NUI::GetDBString(11124),
+        "the chapter marker tooltip lost its authored initial text");
+    Require(game->bChapterMapSet && game->nChapterMapID == map->GetRecordID() && game->players.size() == 1,
+        "creating a chapter marker tooltip changed the campaign destination or party");
 }
 
 static void MainMenuLoadSaveTab(const char* databasePath,const char* resourcePath)
@@ -9498,6 +9542,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "exit-menu-save-shortcut") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "global-map-return-destination") && argc == 4) { GlobalMapReturnDestination(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "chapter-team-marker-tooltip") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "forced-tool-targeting-entry") && argc == 3) { ForcedToolTargetingEntry(argv[2]); return true; }
     if (!std::strcmp(mode, "tool-targeting-cursor-refresh") && argc == 3) { ToolTargetingCursorRefresh(argv[2]); return true; }
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
