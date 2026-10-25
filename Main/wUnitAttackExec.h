@@ -45,15 +45,36 @@ bool CanMeleeAttack( CUnitServer *pUS, const NAI::SUnitPosition &from, const CVe
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Reload participates in the same active-item preparation queue as other actions.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-class CExecReload: public CCommandExecute
+class CExecLoadWeapon: public CCommandExecute
+{
+	OBJECT_BASIC_METHODS(CExecLoadWeapon);
+protected:
+	ZDATA_(CCommandExecute)
+	SItem sClip;
+	CPtr<NRPG::IWeaponItemInfo> pWeapon;
+public:
+	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CCommandExecute*)this); f.Add(2,&sClip); f.Add(3,&pWeapon); return 0; }
+	CExecLoadWeapon();
+	CExecLoadWeapon( CUnitServer *_pUS, NRPG::IWeaponItemInfo *_pWeapon, const SItem &_sClip );
+	int GetStartAP() const override;
+	int GetActionAP() const override;
+	void Run() override;
+	bool TimeLabelReached() override;
+	EUnitCommandResult CanDoIt();
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Retail saves nest ReloadWeapon -> LoadWeapon -> CommandExecute.
+class CExecReload: public CExecLoadWeapon
 {
 	OBJECT_BASIC_METHODS(CExecReload);
 private:
-	ZDATA_(CCommandExecute)
-	CPtr<NRPG::IInventoryItem> pItem;
+	ZDATA_(CExecLoadWeapon)
+	int nSlot;
+	bool bSameColor;
+	void FindReloadClip();
 public:
-	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CCommandExecute*)this); f.Add(2,&pItem); return 0; }
-	CExecReload( CUnitServer *_pUS = 0, int nSlot = -1 );
+	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CExecLoadWeapon*)this); f.Add(2,&nSlot); f.Add(3,&bSameColor); return 0; }
+	CExecReload( CUnitServer *_pUS = 0, int _nSlot = -1 );
 	int GetStartAP() const override;
 	int GetActionAP() const override;
 	void Run() override;

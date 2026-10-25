@@ -3586,9 +3586,12 @@ static void MountedReloadWeapon(const char* databasePath, const char* resourcePa
         { CStructureSaver writer(saved, CStructureSaver::WRITE, &references);
           static_cast<CObjectBase*>(reload)->operator&(writer); }
         saved.Seek(0);
-        CPtr<NRPG::IInventoryItem> item;
-        { CStructureSaver reader(saved, CStructureSaver::READ, &references); reader.Add(2, &item); }
-        return item;
+        struct LoadState {
+            CPtr<NRPG::IWeaponItemInfo> weapon;
+            int operator&(CStructureSaver& saver) { saver.Add(3, &weapon); return 0; }
+        } load;
+        { CStructureSaver reader(saved, CStructureSaver::READ, &references); reader.Add(1, &load); }
+        return load.weapon;
     };
     Require(selectedWeapon(-1) == mounted.GetPtr(), "default reload selected the personal firearm instead of the effective mounted weapon");
     Require(selectedWeapon(actor->GetUnitRPG()->GetInventory()->GetActiveSlot()) == personal.GetPtr(),
@@ -3598,6 +3601,106 @@ static void MountedReloadWeapon(const char* databasePath, const char* resourcePa
     Require(personal->GetAmmoQuantity() == 0 && mounted->GetAmmoQuantity() == 0
             && actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == ap,
         "constructing reload executors spent ammunition or action points");
+}
+
+static void ReloadActionWire(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    CPtr<NRPG::CWeaponItem> weapon;
+    for (auto& entry : units) {
+        auto* server = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (!server || !server->CanFight() || server->IsEmptyPK() || server->IsWearingPK()) continue;
+        auto* firearm = dynamic_cast<NRPG::CWeaponItem*>(server->GetUnitRPG()->GetInventory()->GetActive());
+        if (!firearm || firearm->GetAmmoQuantity() <= 0) continue;
+        firearm->DiscardAmmo();
+        if (firearm->CanReload(server->GetUnitRPG()->GetInventory())
+                && server->CanSpendAP(server->GetActionAP(NRPG::AC_RELOAD))) { actor = server; weapon = firearm; break; }
+    }
+    Require(actor && IsValid(weapon), "reload-wire fixture needs a firearm user with spare ammunition and AP");
+    CStructureNetworkContext references;
+    references.externalReferences = true;
+    references.ids[actor] = 1; references.refs[1] = actor;
+    references.ids[weapon.GetPtr()] = 2; references.refs[2] = weapon.GetPtr();
+    references.nextID = 100; references.include = [](CObjectBase*) { return false; };
+    auto registerItem = [&](NRPG::IInventoryItem* item) {
+        if (item && !references.ids.count(item)) {
+            const auto id = references.nextID++;
+            references.ids[item] = id; references.refs[id] = item;
+        }
+    };
+    auto* sourceInventory = actor->GetUnitRPG()->GetInventory();
+    for (int i = 0; i < NDb::N_SLOTS; ++i) registerItem(sourceInventory->Get(NDb::ESlot(i)));
+    for (const auto& item : sourceInventory->GetItems()) registerItem(item.pItem);
+    auto writeReload = [&](int slot) {
+        CObj<NWorld::CExecReload> action = new NWorld::CExecReload(actor, slot);
+        CMemoryStream saved;
+        { CStructureSaver writer(saved, CStructureSaver::WRITE, &references);
+          static_cast<CObjectBase*>(action.GetPtr())->operator&(writer); }
+        saved.Seek(0);
+        return saved;
+    };
+    auto saved = writeReload(-1);
+    int slot = -7;
+    { CStructureSaver reader(saved, CStructureSaver::READ, &references); reader.Add(2, &slot); }
+    Require(slot == -1, "reload action wrote a weapon reference in the retail slot-number field");
+    struct CommandState {
+        CPtr<NWorld::CUnitServer> actor;
+        int operator&(CStructureSaver& saver) { saver.Add(4, &actor); return 0; }
+    };
+    struct LoadState {
+        CommandState command;
+        NWorld::SItem clip;
+        CPtr<NRPG::IWeaponItemInfo> weapon;
+        int operator&(CStructureSaver& saver) {
+            saver.Add(1, &command); saver.Add(2, &clip); saver.Add(3, &weapon); return 0;
+        }
+    } load;
+    bool sameColor = false;
+    saved.Seek(0);
+    { CStructureSaver reader(saved, CStructureSaver::READ, &references);
+      reader.Add(1, &load); reader.Add(3, &sameColor); }
+    Require(load.command.actor == actor && load.weapon == weapon.GetPtr(),
+        "reload action omitted its nested load-weapon/command ownership state");
+    auto* spare = dynamic_cast<NRPG::CClipItem*>(load.clip.pItem.GetPtr());
+    auto* inner = dynamic_cast<NRPG::CClipItem*>(weapon->GetInnerClip());
+    Require(load.clip.pUnit == actor, "reload action lost its magazine's unit owner");
+    Require(spare && inner, "reload-wire fixture could not resolve its external magazine references");
+    Require(load.clip.sPosition == CTPoint<int>(0, 0)
+            && (load.clip.eType == NWorld::SItem::SLOT || load.clip.eType == NWorld::SItem::BACKPACK)
+            && inner->IsCompatible(spare, sameColor),
+        "reload action did not save its selected native spare magazine and inventory source");
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    if (load.clip.eType == NWorld::SItem::SLOT)
+        Require(inventory->Get(NDb::ESlot(load.clip.nSlot)) == spare, "reload saved the wrong spare slot");
+    else {
+        const auto& items = inventory->GetItems();
+        Require(std::any_of(items.begin(), items.end(), [&](const auto& item) { return item.pItem == spare; }),
+            "reload saved a spare that is absent from its backpack");
+    }
+    auto explicitSaved = writeReload(inventory->GetActiveSlot());
+    { CStructureSaver reader(explicitSaved, CStructureSaver::READ, &references); reader.Add(2, &slot); }
+    Require(slot == inventory->GetActiveSlot(), "explicit reload lost its slot number on save");
+    const int ap = actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP);
+    const int rounds = spare->GetQuantity();
+    CObj<NWorld::CExecReload> restored = new NWorld::CExecReload;
+    saved.Seek(0);
+    { CStructureSaver reader(saved, CStructureSaver::READ, &references);
+      static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader); }
+    Require(restored->CanDoIt() == NWorld::UCR_OK && weapon->GetAmmoQuantity() == 0
+            && spare->GetQuantity() == rounds && actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == ap,
+        "restoring reload mutated ammunition/AP or lost execution eligibility");
+    const int cost = actor->GetActionAP(NRPG::AC_RELOAD);
+    Require(restored->GetStartAP() == cost && restored->GetActionAP() == cost,
+        "restoring reload changed the native action cost");
+    restored->Run(); restored->TimeLabelReached(); restored->AnimationFinished();
+    Require(weapon->GetAmmoQuantity() > 0 && restored->GetState() == NWorld::CCommandExecute::FINISHED,
+        "saved reload could not finish its actual ammunition-loading action");
+    restored = nullptr;
+    Require(!world->IsAction(), "restored reload retained an action counter after completion");
 }
 
 static void HolsteredReloadPreparation(const char* databasePath, const char* resourcePath)
@@ -5178,6 +5281,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-action-camera")) { Require(argc == 4, "movement camera requires db and res"); MovementActionCamera(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "mounted-reload-weapon")) { Require(argc == 4, "mounted reload requires db and res"); MountedReloadWeapon(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "holstered-reload-preparation")) { Require(argc == 4, "reload preparation requires db and res"); HolsteredReloadPreparation(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "reload-action-wire")) { Require(argc == 4, "reload wire requires db and res"); ReloadActionWire(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-reload-log-wire")) { AIReloadLogRecord(0); return true; }
     if (!std::strcmp(mode, "ai-reload-log-rollback")) { AIReloadLogRecord(1); return true; }
     if (!std::strcmp(mode, "ai-reload-log-ownership")) { AIReloadLogRecord(2); return true; }

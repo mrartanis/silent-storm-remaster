@@ -115,6 +115,7 @@
 | [1e2f1d4f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1e2f1d4fe9ec2f7bacfeed195210ddb6c3b2c25e) — Restore the retail AI reload record format and clip ownership | `AI reload record did not write the next clip in retail save tag 4` | 148/148; `ai-reload-log` | `Upstream-Commit` в commit message |
 | [156ccd17](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/156ccd173ff6c9671904e6d94e709397fc701d66) — Select the effective mounted weapon for default reloads | `default reload selected the personal firearm instead of the effective mounted weapon` | 149/149; `mounted-reload-weapon` | `Upstream-Commit` в commit message |
 | [ece00052](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/ece000527fc42aa8f059bf82bb6e0e50f9f6f780) — Draw a holstered weapon before starting its reload action | `holstered reload started without scheduling weapon activation preparation` | 150/150; `holstered-reload-preparation` | `Upstream-Commit` в commit message |
+| [61b033f2](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/61b033f25a299389a648c0f84dc0f8140a6c7ef7) — Restore the retail nested reload action save format | `reload action wrote a weapon reference in the retail slot-number field` | 151/151; `reload-action-wire` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -313,3 +314,18 @@ Windows/Linux — 150/150; Windows `ALL_BUILD` и Linux `Game` собраны.
 `checkpoint-150-ci-test.log`, `checkpoint-150-shots-test.log`,
 `reload-preparation-linux-test.log`. Итоговый GitHub Actions и оставшиеся
 источники отчета еще в работе.
+
+### Контроль после формата действия перезарядки
+
+Windows/Linux — 151/151; Windows `ALL_BUILD` и Linux `Game` собраны.
+Расширенные проверки Windows — 206/206; настоящая стрельба и
+сохранение/загрузка — 4/4. Логи `reload-action-wire-{red,green}-test.log`,
+`reload-wire-linux-test.log`, `checkpoint-151-all-build.log`,
+`checkpoint-151-ci-test.log`, `checkpoint-151-shots-test.log`.
+В первой версии теста не был перемотан поток перед чтением; после исправления
+стенда игровой фикс временно снят, правильный RED воспроизведен заново,
+затем фикс возвращен. Внешние ссылки магазина зарегистрированы в стенде;
+проверка завершения использует FINISHED, поскольку счетчик действия живет
+до освобождения executor. Временный патч исходников удален; копий сборок нет.
+Все части `61b033f2` завершены. Оставшиеся источники и итоговый GitHub Actions
+продолжают проверяться.
