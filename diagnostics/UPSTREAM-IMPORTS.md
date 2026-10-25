@@ -61,6 +61,7 @@
 | [abd9981b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/abd9981b01aa893fa1d1a136c2cfa7e3b34770fa) — Retain the latest accepted route command across movement interruptions | `movement interruption restored the old route after a new path was accepted` | 77/77; `latest-route-command` | `Upstream-Commit` в commit message |
 | [e9f4cdd0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e9f4cdd052b4b80452879241d6fd309ca7b0ff49) — Preserve dialogue phrases when a text line exceeds the subtitle box | `oversized dialogue line aborted subtitle pagination` | 78/78; `oversized-dialogue-line` | `Upstream-Commit` в commit message |
 | [e9f4cdd0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e9f4cdd052b4b80452879241d6fd309ca7b0ff49) — Guarantee progress when paginating markup-only dialogue pages | `dialogue pagination made no progress with markup-only content` | 80/80; `markup-dialogue-progress` | `Upstream-Commit` в commit message |
+| [5d36de28](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5d36de28be48d2e4580369e26575fd1d250e1161) — Compare legacy bound coordinates as floating-point values | `bound accumulator reversed negative floating-point coordinates` | 81/81; `signed-bound-accumulator` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -93,3 +94,17 @@ Windows расширенный набор без внешних ресурсов
 переиспользуются, HD pack не генерируется. Проверка реальных UI-контролов
 станкового оружия обходится без открытия окна игры. Исторические значения
 в таблице выше относятся к состоянию на момент соответствующего коммита.
+
+## Проверка после диалогов и legacy bounds
+
+Текущий Windows ALL_BUILD и Linux Game собираются. На обеих платформах
+проходят 81/81 проверка: upstream-группа и NativeBoundAccumulatorTests.
+Отдельный реальный x86 тест сначала упал на отрицательных координатах,
+затем прошел после фикса; x64 вариант прошел и до него. Дополнительных
+копий сборок не создавалось: использованы прежние x64/Linux/x86 каталоги.
+
+На контрольном коммите `4b5d63b0` более широкий Windows набор без внешних
+ресурсов/дисплея прошел 177/177, реальные игровые сценарии стрельбы и
+перезарядки — 4/4. Это историческая контрольная точка до последующих
+исправлений маршрута, диалогов и x86 bounds; она не выдается за отдельный
+полный прогон всех ресурсных/extended тестов на каждом новом коммите.
