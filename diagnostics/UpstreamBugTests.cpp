@@ -622,6 +622,48 @@ static void SmartAimerBoundary()
         "smart aimer changed its completed-transition output");
 }
 
+static void UnsupportedNavigationFloor()
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    const int first = network->CreateLayer(8, 8, VNULL2, 0.f, 0);
+    auto* layer = network->GetLayer(first);
+    const int supporting = network->CreateLayer(8, 8, VNULL2, 0.f, 1, layer->pGroup);
+    auto* same = network->GetLayer(supporting);
+    auto& empty = layer->tiles[2][3];
+    auto& support = same->tiles[2][3];
+    empty = NAI::STile{}; support = NAI::STile{};
+    empty.nFloor = 100;
+    support.nFloor = -1; support.nPassable = 7;
+    const NAI::SPathPlace place(3, 2, first);
+    Require(network->GetFloor(place) == -1, "loaded empty navigation slot did not resolve its real supporting surface floor");
+    Require(empty.nFloor == 100 && empty.nHeight == 0 && empty.nPassable == 0,
+        "navigation floor lookup rewrote the saved empty tile instead of resolving its support");
+    empty.nFloor = 2;
+    Require(network->GetFloor(place) == 2, "native tile floor was replaced by another layer's surface floor");
+    empty.nFloor = 100;
+    support.nHeight = 1;
+    Require(network->GetFloor(place) == 100, "unrelated height was accepted as navigation support");
+    support.nHeight = 0; support.nDisplacement = 1;
+    Require(network->GetFloor(place) == 100, "displaced navigation tile was accepted as identical support");
+    support.nDisplacement = 0; support.nPassable = 0;
+    Require(network->GetFloor(place) == 100, "impassable navigation surface was accepted as support");
+    const int foreign = network->CreateLayer(8, 8, CVec2(8, 0), 0.f, 0);
+    auto& foreignTile = network->GetLayer(foreign)->tiles[2][3];
+    foreignTile = NAI::STile{}; foreignTile.nFloor = 3; foreignTile.nPassable = 7;
+    Require(network->GetFloor(place) == 100, "navigation support leaked across unrelated layer groups");
+    support.nFloor = 100; support.nPassable = 7;
+    Require(network->GetFloor(place) == 100, "another empty navigation slot invented a supporting floor");
+    support.nFloor = -1; empty.nHeight = support.nHeight = 123;
+    Require(network->GetFloor(place) == -1, "saved duplicate support resolution failed above zero height");
+    NAI::CNodesLayer::SLadder ladder{};
+    ladder.placeOnBottom = place;
+    layer->ladders.push_back(ladder);
+    NAI::SPathPlace rung(0, 4, first); rung.SetIntegral(0);
+    Require(network->GetFloor(rung) == 0, "ladder floor calculation did not resolve its bottom support before adding rung floors");
+    NAI::SPathPlace flying(0, 0, 200); flying.SetFinal(1);
+    Require(network->GetFloor(flying) == 4, "navigation support correction changed flying-position floor handling");
+}
+
 static void FreshNavigationTransitions()
 {
     // Full attachment is the control; the incremental entry point must produce
@@ -6094,6 +6136,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "nearest-empty")) { EmptyNearestPosition(); return true; }
     if (!std::strcmp(mode, "fresh-navigation-colouring")) { FreshNavigationColouring(); return true; }
     if (!std::strcmp(mode, "fresh-navigation-transitions")) { FreshNavigationTransitions(); return true; }
+    if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "navigation-colouring-occupancy")) { NavigationColouringOccupancy(); return true; }
     if (!std::strcmp(mode, "missing-navigation-colourer")) { NavigationColouringOccupancy(1); return true; }
     if (!std::strcmp(mode, "stale-navigation-colourer")) { NavigationColouringOccupancy(2); return true; }
