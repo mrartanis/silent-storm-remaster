@@ -89,6 +89,7 @@
 | [5f9b0d8f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5f9b0d8f5e85a77d659575dc8dcea85d6407fd07) — Build navigation connectivity before the first incremental colour update | `first incremental navigation update left a new layer without its connectivity cache` | 116/116; `fresh-navigation-colouring` | `Upstream-Commit` в commit message |
 | [5f9b0d8f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5f9b0d8f5e85a77d659575dc8dcea85d6407fd07) — Attach existing inter-layer transitions on the first navigation update | `first incremental transition update omitted existing inter-layer links` | 117/117; `fresh-navigation-transitions` | `Upstream-Commit` в commit message |
 | [89ee0503](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/89ee0503cdb6a97e12d37d4ac2dfad94af32755d) — Exclude temporary unit occupancy while rebuilding scenery connectivity | `navigation rebuild cached a standing actor's temporary footprint as disconnected scenery` | 118/118; `navigation-colouring-occupancy` | `Upstream-Commit` в commit message |
+| [89ee0503](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/89ee0503cdb6a97e12d37d4ac2dfad94af32755d) — Skip missing or invalid navigation caches in background recolouring jobs | `recolour job started changing occupancy for a missing or invalid navigation cache` | 120/120; `unavailable-navigation-colourer` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -186,3 +187,14 @@ retail-записей: 64 байта в сохранении против 56 в 
 Свидетельства: `ai-locks-linux-build.log` (исходная ошибка),
 `ai-locks-portable-linux-build.log`, `ai-locks-portable-linux-test.log`,
 `ai-locks-portable-green-test.log`.
+
+### Контроль после навигационных исправлений
+
+`5f9b0d8f` и `89ee0503` перенесены отдельными исправлениями первого построения
+связности, первичного соединения слоёв, временных occupancy locks и
+недоступного кэша фоновой задачи. Windows `ALL_BUILD` и Linux `Game`
+собираются; профильная группа — 120/120 на обеих платформах.
+Более широкий Windows набор — 197/197, реальные выстрелы с save/load — 4/4.
+Логи: `navigation-checkpoint-linux-test.log`,
+`navigation-checkpoint-ci-test.log`, `navigation-checkpoint-shots-full-test.log`.
+Перенос остальных источников и итоговая проверка GitHub Actions продолжаются.

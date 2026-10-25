@@ -80,7 +80,7 @@ void CRecountColourerJob::DoJob()
 					{
 						int nL = pLayer->nLayer;
 						CMapColourer *pC = pGroup->pNet->GetColourer(nL);
-						ASSERT( pC->zonesToRecalc.empty() );
+						ASSERT( !IsValid(pC) || pC->zonesToRecalc.empty() );
 					}
 				}
 				Finish();
@@ -97,7 +97,9 @@ void CRecountColourerJob::DoJob()
 		++nCurrentLayer;
 	}
 	int nL = pLayer->nLayer;
-	CMapColourer *pC = pGroup->pNet->GetColourer(nL);
+	CPtr<CMapColourer> pC = pGroup->pNet->GetColourer(nL);
+	if ( !IsValid(pC) )
+		return;
 	DebugTrace( "Recolour job: layer %d in group, ", nCurrentLayer-1 );
 	if ( !bAllColoured )
 	{

@@ -2848,9 +2848,21 @@ public:
     bool IsEmptyPK() const override { return shell; }
 };
 
-static void NavigationColouringOccupancy()
+class ColouringNetworkProbe: public NAI::CPathNetwork
 {
-    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    OBJECT_NOCOPY_METHODS(ColouringNetworkProbe);
+public:
+    bool allowRebuild = true;
+    void LockSelected(const list<CObjectBase*>& selected) override {
+        Require(allowRebuild,
+            "recolour job started changing occupancy for a missing or invalid navigation cache");
+        CPathNetwork::LockSelected(selected);
+    }
+};
+
+static void NavigationColouringOccupancy(int unavailable = 0)
+{
+    CObj<ColouringNetworkProbe> network = new ColouringNetworkProbe;
     network->CreateLayer(8, 8, VNULL2, 0.f, 0);
     network->Freeze(true);
     auto* layer = network->GetLayer(0);
@@ -2885,6 +2897,18 @@ static void NavigationColouringOccupancy()
     saved.Seek(0);
     { CStructureSaver reader(saved, CStructureSaver::READ, &references);
       static_cast<CObjectBase*>(job.GetPtr())->operator&(reader); }
+    if (unavailable) {
+        if (unavailable == 1) layer->pColourer = nullptr;
+        else layer->pColourer->Invalidate();
+        Require(!IsValid(network->GetColourer(0)), "unavailable colouring fixture retained a valid cache");
+        network->allowRebuild = false;
+        for (int step = 0; step < 4 && !job->IsJobFinished(); ++step) job->DoJob();
+        Require(job->IsJobFinished(), "recolouring job did not finish after skipping an unavailable cache");
+        Require(network->IsLocked(occupied, true) && layer->tiles[3][3].nLocks == 1
+                && network->GetWhoLocksThisPlace(occupied) == actor.GetPtr(),
+            "skipping an unavailable colourer altered a live occupancy lock");
+        return;
+    }
     job->DoJob();
     auto* actual = network->GetColourer(0);
     Require(actual->IsReady(), "native recolouring job did not build its layer cache");
@@ -3788,6 +3812,8 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "fresh-navigation-colouring")) FreshNavigationColouring();
         else if (!std::strcmp(mode, "fresh-navigation-transitions")) FreshNavigationTransitions();
         else if (!std::strcmp(mode, "navigation-colouring-occupancy")) NavigationColouringOccupancy();
+        else if (!std::strcmp(mode, "missing-navigation-colourer")) NavigationColouringOccupancy(1);
+        else if (!std::strcmp(mode, "stale-navigation-colourer")) NavigationColouringOccupancy(2);
         else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();
         else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();
         else if (!std::strcmp(mode, "sniper-targetless-probe") && argc == 4) SniperHeldAim(argv[2], argv[3], true);
