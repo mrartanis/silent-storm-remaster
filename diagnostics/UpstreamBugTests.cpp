@@ -2416,6 +2416,78 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     return world;
 }
 
+class PassageGateProbe: public NWorld::CObjectServerBase, public NWorld::IPassageObject
+{
+    OBJECT_NOCOPY_METHODS(PassageGateProbe);
+public:
+    bool nearby = false;
+    int proximityChecks = 0;
+    bool IsBroken() const override { return false; }
+    bool CanPass(NWorld::CUnitServer*) override { ++proximityChecks; return nearby; }
+    bool UsePassageObject(NWorld::CUnitServer*) override { return false; }
+    void GetObjectApproaches(vector<NAI::SPathPlace>*) override {}
+    int GetAPRadius() const override { return 4; }
+    int GetPassageZoneID() const override { return 0; }
+    int GetPassageObjectID() const override { return 123; }
+};
+
+static void ScriptedPassageTransition(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,true,&game);
+    CObj<NDb::CDBScenarioZone> zoneRecord = new NDb::CDBScenarioZone;
+    CObj<NScenario::CScenarioZone> zone = new NScenario::CScenarioZone(zoneRecord,1);
+    game->pCurrentZone = zone;
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (const auto& unit: units)
+        if (IsValid(unit) && unit->CanFight() && !unit->IsAIUnit()) { actor = unit; break; }
+    Require(actor != nullptr, "scripted passage fixture has no living human party");
+    CObj<PassageGateProbe> passage = new PassageGateProbe;
+    list<CObj<NWorld::CObjectServerBase>> objects = world->GetObjectsForHarness();
+    objects.push_back(passage.GetPtr());
+    CStructureNetworkContext references;
+    auto nativeFields = BorrowedObjectFields(world,&references);
+    auto id = references.nextID++;
+    references.ids[passage.GetPtr()] = id; references.refs[id] = passage.GetPtr();
+    CMemoryStream fields;
+    { CStructureSaver writer(fields,CStructureSaver::WRITE,&references); writer.Add(20,&objects); }
+    fields.Seek(0);
+    { CStructureSaver reader(fields,CStructureSaver::READ,&references); static_cast<CObjectBase*>(world.GetPtr())->operator&(reader); }
+    const auto& restoredObjects = world->GetObjectsForHarness();
+    Require(std::count(restoredObjects.begin(),restoredObjects.end(),passage.GetPtr()) == 1,
+        "scripted passage fixture did not register its passage in the native world");
+    auto drainTransitions = [&]() {
+        int count = 0;
+        while (auto* raw = world->GetUICommand()) {
+            CObj<NWorld::CUICmd> command = raw;
+            if (dynamic_cast<NWorld::CUICmdContinueChapter*>(raw)) ++count;
+        }
+        return count;
+    };
+    drainTransitions();
+    const int ap = actor->GetAP();
+    Require(!world->UsePassageObject(actor,0) && passage->proximityChecks > 0 && drainTransitions() == 0,
+        "ordinary passage control accepted a party outside the passage radius");
+    const int checks = passage->proximityChecks;
+    CObj<NScript::CScript> script = NScript::CreateScript(world);
+    Require(script->DoString("LeaveToSubZone(0)") == 0, "scripted passage fixture failed to compile");
+    script->ExecuteThreads();
+    Require(drainTransitions() == 1,
+        "scripted LeaveToSubZone failed to leave after a cutscene while the party was away from the passage");
+    Require(passage->proximityChecks == checks,
+        "scripted forced passage still performed an ordinary proximity check");
+    Require(!world->UsePassageObject(actor,0) && drainTransitions() == 0,
+        "scripted forced passage weakened later ordinary passage eligibility");
+    passage->nearby = true;
+    Require(world->UsePassageObject(actor,0) && drainTransitions() == 1,
+        "ordinary passage control rejected a party within the passage radius");
+    Require(!world->UsePassageObject(actor,999999) && drainTransitions() == 0,
+        "missing passage produced a transition command");
+    Require(actor->GetAP() == ap, "scripted or previewed passage transition spent action points");
+}
+
 static void FlyingAttackQueue(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -7202,6 +7274,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "restored-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 0); return true; }
     if (!std::strcmp(mode, "fresh-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "legacy-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "scripted-passage-transition") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "flying-attack-queue") && argc == 4) { FlyingAttackQueue(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "flying-shoot-direction")) { FlyingShootDirection(); return true; }
     if (!std::strcmp(mode, "flying-dynamic-locks")) { FlyingDynamicLocks(); return true; }

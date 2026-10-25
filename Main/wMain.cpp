@@ -3286,7 +3286,7 @@ CUnitServer *CWorld::GetUnitServerByPersID( int nPersID ) const
 	return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-bool CWorld::UsePassageObject( CUnitServer *pUS, int nPassageZoneID )
+bool CWorld::UsePassageObject( CUnitServer *pUS, int nPassageZoneID, bool bForced )
 {
 	ASSERT( IsValid( pUS ) );
 	if ( !IsValid( pUS ) )
@@ -3302,7 +3302,7 @@ bool CWorld::UsePassageObject( CUnitServer *pUS, int nPassageZoneID )
 	//
 	list< CPtr<IPassageObject> > passageObjects;
 	GetPassageObjects( nPassageZoneID, &passageObjects );
-	// check that everyone is standing next to the found passage objects
+	// Scripted cutscene exits bypass proximity; ordinary party exits still require it.
 	bool bCanPass = true;
 	unordered_map< CPtr<CUnitServer>, CPtr<IPassageObject>, SPtrHash > passagesForUnits;
 	for ( list< CObj<CUnitServer> >::iterator i = units.begin(); i != units.end(); ++i )
@@ -3312,7 +3312,7 @@ bool CWorld::UsePassageObject( CUnitServer *pUS, int nPassageZoneID )
 		{
 			bool bCanUnitPass = false;
 			for (	list< CPtr<IPassageObject> >::iterator j = passageObjects.begin(); j != passageObjects.end(); ++j )
-				if ( (*j)->CanPass( *i ) )
+				if ( bForced || (*j)->CanPass( *i ) )
 				{
 					bCanUnitPass = true;
 					passagesForUnits[ (*i).GetPtr() ] = *j;

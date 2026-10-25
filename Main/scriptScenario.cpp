@@ -207,7 +207,7 @@ BEGIN_SCRIPT_COMMAND( LeaveToSubZone, "n" )
 			{
 				if ( IsValid( units[ i ] ) )
 				{
-					pWorld->UsePassageObject( units[ i ], nPassageZoneID );
+					pWorld->UsePassageObject( units[ i ], nPassageZoneID, true );
 					return 0;
 				}
 			}
