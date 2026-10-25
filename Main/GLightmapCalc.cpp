@@ -186,6 +186,9 @@ void CLightState::AddParallel( bool bDoRender, const SSphere &_bound, const CVec
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLightState::AddPoint( bool bDoRender, const CVec3 &vCenter, float fRadius, const CVec3 &_vColor, bool bCastShadow )
 {
+	// Retail v1.2 0x52c330: omit tiny sources before caching or scattering.
+	if ( fRadius <= 0.5f )
+		return;
 	if ( bDoRender )
 		points.push_back( SPointLight( _vColor, vCenter, fRadius, bCastShadow ) );
 	if ( !pVis )

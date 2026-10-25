@@ -526,6 +526,28 @@ static void PointLightShadowFlag()
         "visible shadow-casting point light changed its original attenuation");
 }
 
+static void TinyPointLightCache()
+{
+    NGScene::SGlobalIlluminationInfo global;
+    global.vUpDifColor = VNULL3;
+    const float radii[] = {0.f, 0.25f, 0.5f, 0.5001f, 12.f};
+    for (float radius: radii)
+        global.points.emplace_back(CVec3(1, 0.5f, 0.25f), VNULL3, radius, false, false);
+    NGScene::SLightStateCalcSeed seed;
+    NGScene::CLightState cached;
+    cached.CreateSimple(&seed, global);
+    Require(cached.points.size() == 2,
+        "point-light cache retained zero/tiny radii that retail discards before lighting");
+    Require(cached.points[0].fRadius == 0.5001f && cached.points[1].fRadius == 12.f
+            && cached.points[1].vColor == CVec3(1, 0.5f, 0.25f) && !cached.points[1].bCastShadow,
+        "tiny-light cutoff changed surviving radii, colour, ordering or shadow settings");
+    cached.skyDirections.clear();
+    NGScene::SDynamicAmbientInfo result;
+    cached.TraceDynamicLM(&result, SSphere(CVec3(1, 0, 0), 0.1f), nullptr);
+    Require(fabs2(result.vXNeg.v - CVec3(4.f/9.f, 2.f/9.f, 1.f/9.f)) < 1e-10f,
+        "surviving point light changed its distance attenuation after tiny-light filtering");
+}
+
 static void PointLightRadiance()
 {
     CObj<NGScene::CPointLight> light = new NGScene::CPointLight(CVec3(4, 2, 1), CVec3(3, -2, 5), 3.f, nullptr, true);
@@ -3447,6 +3469,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "point-light-shadow-flag")) PointLightShadowFlag();
         else if (!std::strcmp(mode, "global-point-light-shadow-flag")) GlobalPointLightShadowFlag();
         else if (!std::strcmp(mode, "point-light-radiance")) PointLightRadiance();
+        else if (!std::strcmp(mode, "tiny-point-light-cache")) TinyPointLightCache();
         else if (!std::strcmp(mode, "dialogue-camera-filter")) CinematicCameraCommands(0);
         else if (!std::strcmp(mode, "movie-camera-filter")) CinematicCameraCommands(1);
         else if (!std::strcmp(mode, "fade-camera-filter")) CinematicCameraCommands(2);
