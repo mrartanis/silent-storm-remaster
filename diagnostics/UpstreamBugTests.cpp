@@ -516,6 +516,7 @@ public:
     void Step() override {}
     bool ProcessEvent(const NInput::SEvent&) override { return false; }
     int CountSelected() override { return selected; }
+    bool IsRealTime() const override { return false; }
     bool GetTracePosition(CVec3* position) const override { *position = VNULL3; return true; }
     void CanDoCommand(NWorld::CCmd*, bool, NGame::SActionInfo* info) override {
         ++probes;
@@ -546,7 +547,6 @@ public:
     vector<CPtr<NGame::IUnitTracker>> selection;
     void GetSelectedUnits(vector<CPtr<NGame::IUnitTracker>>* result) const override { *result = selection; }
     int CountSelected() override { return static_cast<int>(selection.size()); }
-    bool IsRealTime() const override { return false; }
 };
 
 static void SetAttackPreview(AttackState* state, const NGame::SActionInfo& info)
