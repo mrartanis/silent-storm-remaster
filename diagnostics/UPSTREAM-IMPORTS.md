@@ -211,7 +211,8 @@
 | [5cdf627b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5cdf627bb6ce601188e39945b93742515216655a) — Distinguish the chapter exit marker from mission entry | `the native chapter map selected a mission-entry marker for its campaign exit sector` | 257/257; `chapter-exit-marker-hint` | `Upstream-Commit` в commit message |
 | [1ca0541b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1ca0541b5a1eb3ab4cba65e07e7f24de254ac98c) — Notify the originating mission when a restored clue modal closes | `closing a restored clue modal never notified the mission of its waiting UI event` | 258/258; `restored-clue-close-notification` | `Upstream-Commit` в commit message |
 | [1ca0541b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1ca0541b5a1eb3ab4cba65e07e7f24de254ac98c) — Forward clue wait ownership through mission dispatch and modal construction | `fresh clue dispatch dropped the originating mission and its waiting script event ID` | 259/259; `fresh-clue-wait-release` | `Upstream-Commit` в commit message |
-| [5528542f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5528542f16fdd90afe1ff2964c193f5af54d4f36) — Use the shared markup layout for screen-scaled editable text | `the native edit renderer wrapped screen-sized text at the unscaled logical control width` | 260/260; `scaled-edit-text-layout` | `Upstream-Commit` в commit message |
+| [5528542f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5528542f16fdd90afe1ff2964c193f5af54d4f36) — Use the shared markup layout for screen-scaled editable text (заменено узкой native-адаптацией ниже) | `the native edit renderer wrapped screen-sized text at the unscaled logical control width` | 260/260; `scaled-edit-text-layout` | `Upstream-Commit` в commit message |
+| [5528542f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5528542f16fdd90afe1ff2964c193f5af54d4f36) — Preserve packaged edit fonts while correcting screen-scaled layout bounds | `the edit renderer changed the remaster's original high-resolution font or its default point size` | 260/260; `preserve-native-edit-fonts` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -932,3 +933,37 @@ upstream-профили прошли 260/260 на каждой платформ�
 Свидетельства: `checkpoint-260-all-green-build.log`,
 `checkpoint-260-linux-{configure,build,test}.log`, `checkpoint-260-ci-test.log`,
 `checkpoint-260-{world-green,network-green}-test.log`.
+
+### Уточнение переноса редактируемого текста: сохранить собственные шрифты
+
+После замечания пользователя перенос `3cf392b945550460e7982f3bce7fdba61ad287e9`
+пересмотрен. Смена `CEdit` на базовую markup-разметку была слишком широкой:
+старый formatter использует 22pt для неформатированного поля, новый путь — 16pt.
+Сами файлы шрифтов не менялись, но этот побочный эффект исходная проверка
+переданной ширины не обнаруживала.
+
+Усиленная проверка с настоящими packaged vector fonts воспроизвела изменение
+шрифта/размера на отправленном `3cf392b9` (`committed-head-red`). Отдельно
+исходный formatter без исправления сохранял устаревшие метрики после смены
+UI scale, поскольку его размеры оставались логическими и не обновляли узел.
+
+Итоговая адаптация сохраняет весь прежний formatter, его размеры по умолчанию,
+форматы, high-resolution font provider и off-wire caches. От кода до `3cf392b9`
+отличается только передача `GetSize() * S2UI::Scale()` в пикселях. Шрифты,
+их растеризация и другие потребители текста не изменены.
+
+`UpstreamScaledEditTextLayout` теперь действительно форматирует и сравнивает
+геометрию каждого символа, включая кириллицу, с неизменённым native formatter.
+Проверяются System 22pt, Courier 16pt, Times 18pt и Arial 20pt при 100%,
+150% и 200%, identity используемого font atlas, исходный текст и позиция курсора.
+Все 12 сочетаний проходят. Это проверка геометрии и источника шрифта без GPU,
+а не утверждение о пиксельном сравнении скриншотов игры.
+
+Свидетельства: `preserve-native-edit-fonts-committed-head-red-test.log`,
+`preserve-native-edit-fonts-red-test.log`,
+`preserve-native-edit-fonts-real-glyphs-green.log`,
+`preserve-native-edit-fonts-font-assets-green-test.log` (3/3: vector rasterizer,
+portable/native font wire). Ранняя ошибка компиляции сравнения `CTRect`
+исправлена до действительных runtime RED. Случайный запуск устаревшего exe
+после той ошибки не принят за RED; основной RED-log затем перезаписан
+действительным результатом окончательного fixture.

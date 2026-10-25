@@ -5876,16 +5876,25 @@ static void ScaledEditTextLayout()
     S2Platform::SetErrorDialogs(false);
     struct Cleanup { ~Cleanup() { S2Platform::Done(); } } cleanup;
     Require(S2Platform::Init("scaled native edit text",2048,1536,true), "edit layout fixture could not initialize dummy SDL");
-    S2Platform::UpdateDisplay(200);
-    Require(std::fabs(S2Platform::Display().uiScale-2.f) < 0.001f, "edit layout fixture did not establish 200 percent UI scaling");
-    struct LegacyEditTextRequest {};
     class EditLayoutView: public DialogueLayoutView {
         OBJECT_NOCOPY_METHODS(EditLayoutView);
+        CObj<NGScene::CCVec2> screen = new NGScene::CCVec2(CVec2(2048,1536));
     public:
-        int requestedWidth = -1;
-        CFuncBase<NGScene::SText>* CreateText(CFuncBase<wstring>*,CFuncBase<CTPoint<int>>* size,bool) override {
-            CDGPtr<CFuncBase<CTPoint<int>>> dimensions = size;
-            dimensions.Refresh(); requestedWidth = dimensions->GetValue().x; throw LegacyEditTextRequest();
+        CDGPtr<CFuncBase<CTPoint<int>>> dimensions;
+        NGScene::SText rendered;
+        vector<CPtrFuncBase<NGfx::CTexture>*> textures;
+        CFuncBase<NGScene::SText>* CreateText(CFuncBase<wstring>* text,CFuncBase<CTPoint<int>>* size,bool tags) override {
+            dimensions = size;
+            return NGScene::CreateTextFormater(GetLocaleInfo(),screen,text,size,tags);
+        }
+        void CreateDynamicRects(CFuncBase<NGScene::SText>* node,const CTPoint<int>&,const CTRect<int>&) override {
+            CDGPtr<CFuncBase<NGScene::SText>> text = node;
+            text.Refresh(); rendered = text->GetValue();
+            for (const auto& layout: rendered.rectLayouts) textures.push_back(layout.pFontInfo->GetTexture());
+        }
+        void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>* texture,const CRectLayout& layout,
+            const CTPoint<int>&,const CTRect<int>&) override {
+            if (!layout.rects.empty()) textures.push_back(texture);
         }
     };
     CObj<EditLayoutView> view = new EditLayoutView;
@@ -5893,24 +5902,49 @@ static void ScaledEditTextLayout()
     CObj<NUI::CInterface> interface = new NUI::CInterface(cursor);
     NUI::CEdit* edit = new NUI::CEdit(NUI::SWindowInfo(interface,NUI::SPoint(5,5),NUI::SPoint(48,100),"edit",
         NUI::STYLE_VISIBLE | NUI::STYLE_ENABLED));
-    edit->SetTextFormat(L"<left>"); edit->SetText(L"alpha beta gamma delta");
-    try { edit->Draw(1000,view); } catch (const LegacyEditTextRequest&) {}
-    Require(view->requestedWidth == -1 || view->requestedWidth == 96,
-        "the native edit renderer wrapped screen-sized text at the unscaled logical control width");
-    Require(edit->NUI::CText::GetText() == L"<left>alpha beta gamma delta",
-        "the edit draw did not synchronize its actual native markup text");
-    CStructureNetworkContext references;
-    references.include = [](CObjectBase*) { return false; };
-    CMemoryStream fields;
-    { CStructureSaver writer(fields,CStructureSaver::WRITE,&references); edit->NUI::CText::operator&(writer); }
-    fields.Seek(0);
-    int width = 0;
-    { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(2,&width); }
-    Require(width == 96, "the edit markup layout did not use the current screen-scaled width");
-    edit->SetText(L"replacement text");
-    try { edit->Draw(1001,view); } catch (const LegacyEditTextRequest&) {}
-    Require(edit->GetText() == L"replacement text" && edit->NUI::CText::GetText() == L"<left>replacement text",
-        "redrawing an edited caption retained stale markup or changed its source text");
+    const wchar_t* formats[] = {L"",L"<font face=Courier size=16pt><left>",L"<font face=Times size=18pt><left>",L"<font face=Arial size=20pt><left>"};
+    const char* families[] = {"System","Courier","Times","Arial"};
+    const int points[] = {22,16,18,20}; // Preserve the existing formatter's 22pt unformatted default.
+    const wstring caption = L"a b c \u0416 \u042f \u0451 d e f g h i j k";
+    for (int family = 0; family < 4; ++family) for (float scale: {1.f,1.5f,2.f}) {
+        S2Platform::UpdateDisplay(scale*100); MarkNewDGFrame();
+        Require(std::fabs(S2Platform::Display().uiScale-scale) < 0.001f, "edit font fixture could not establish its actual UI scale");
+        edit->SetTextFormat(formats[family]); edit->SetText(caption); edit->SetCursorPosition(2);
+        view->textures.clear();
+        edit->Draw(1000,view);
+        auto* font = view->GetLocaleInfo()->GetFont(NGScene::SFont(Float2Int(points[family]*scale),families[family]));
+        Require(IsValid(font) && font->IsVector(), "edit text stopped using the remaster's packaged high-resolution fonts");
+        Require(!view->textures.empty() && std::all_of(view->textures.begin(),view->textures.end(),
+            [&](auto* texture) { return texture == font->GetTexture(); }),
+            "the edit renderer changed the remaster's original high-resolution font or its default point size");
+        Require(view->dimensions.GetPtr() && !view->rendered.charsSet.empty() && !view->rendered.rectLayouts.empty(),
+            "edit font fixture did not evaluate the real native formatter and packaged glyphs");
+        view->dimensions.Refresh();
+        const CTPoint<int> expectedSize(Float2Int(48*scale),Float2Int(100*scale));
+        Require(view->dimensions->GetValue() == expectedSize,
+            "the native edit renderer wrapped packaged screen-sized glyphs at the unscaled logical control width");
+        for (const auto& layout: view->rendered.rectLayouts)
+            Require(layout.pFontInfo.GetPtr() == font, "edit layout changed the packaged font family or its original point size");
+        CObj<NGScene::CCWString> source = new NGScene::CCWString(wstring(formats[family])+caption);
+        CObj<NGScene::CCTPoint> size = new NGScene::CCTPoint(expectedSize);
+        CObj<NGScene::CCVec2> screen = new NGScene::CCVec2(CVec2(2048,1536));
+        CDGPtr<CFuncBase<NGScene::SText>> reference = NGScene::CreateTextFormater(view->GetLocaleInfo(),screen,source,size,true);
+        reference.Refresh();
+        const auto& expected = reference->GetValue();
+        Require(view->rendered.sSize == expected.sSize && view->rendered.charsSet.size() == expected.charsSet.size(),
+            "edit text wraps differently from the unchanged native font renderer at the correct pixel width");
+        for (std::size_t i = 0; i < expected.charsSet.size(); ++i) {
+            const auto& actualRect = view->rendered.charsSet[i].sRect;
+            const auto& expectedRect = expected.charsSet[i].sRect;
+            Require(view->rendered.charsSet[i].nIndex == expected.charsSet[i].nIndex &&
+                actualRect.x1 == expectedRect.x1 && actualRect.y1 == expectedRect.y1 &&
+                actualRect.x2 == expectedRect.x2 && actualRect.y2 == expectedRect.y2,
+                "edit glyph geometry differs from the remaster's original font renderer");
+        }
+        Require(edit->GetText() == caption && edit->GetCursorPosition() == 2, "font layout modified the editable source or cursor position");
+        std::printf("FONT-COMPAT: %s %dpt scale=%.1f vector=1 glyphs=%zu width=%d height=%d\n",
+            families[family],points[family],scale,expected.charsSet.size(),expectedSize.x,expected.sSize.y);
+    }
 }
 
 static void CheckChapterMarkerToolTipTransitions(NUI::CWindow* marker,NUI::CText* text)
