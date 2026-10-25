@@ -443,7 +443,7 @@ private:
 	void UpdateFromConfig();
 	void ArrangeControls();
 public:
-	void Update(const STime& time, NGScene::I2DGameView* view);
+	bool Update(const STime& time, NGScene::I2DGameView* view);
 	CVideoOptionsUI(): bIgnoreNotify(false) {}
 	CVideoOptionsUI(const SWindowInfo& info): CEmptyOptionsUI(info,NGame::OS_VIDEO),bIgnoreNotify(false) {}
 	bool ProcessMessage(const SEvent& event);
@@ -480,11 +480,12 @@ void CVideoOptionsUI::RefreshModes()
 	displayRevision=S2Platform::Display().revision;
 	bIgnoreNotify=previous;
 }
-void CVideoOptionsUI::Update(const STime& time, NGScene::I2DGameView* view)
+bool CVideoOptionsUI::Update(const STime& time, NGScene::I2DGameView* view)
 {
 	if(displayRevision!=S2Platform::Display().revision) RefreshModes();
 	UpdateFromConfig(); // Also tracks hotkeys and a display-mode rollback.
 	CEmptyOptionsUI::Update(time,view);
+	return true;
 }
 void CVideoOptionsUI::UpdateFromConfig()
 {

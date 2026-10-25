@@ -1219,6 +1219,44 @@ static CMemoryStream BorrowedObjectFields(CObjectBase* object, CStructureNetwork
     return saved;
 }
 
+static void WindowLazyUpdate()
+{
+    auto requiresUpdate = [](NUI::CWindow* window) {
+        CStructureNetworkContext references;
+        auto fields = BorrowedObjectFields(window, &references);
+        bool flag = true;
+        { CStructureSaver reader(fields, CStructureSaver::READ, &references); reader.Add(4, &flag); }
+        return flag;
+    };
+    CObj<NUI::CWindow> idle = new NUI::CWindow;
+    Require(requiresUpdate(idle), "new UI window did not start with an update pending");
+    idle->Update(1, nullptr);
+    Require(!requiresUpdate(idle), "idle UI branch never cleared its serialized update latch");
+    idle->Update(2, nullptr);
+    Require(!requiresUpdate(idle), "sleeping UI branch spontaneously resumed its per-frame traversal");
+    CMObj<NUI::CWindow> child = new NUI::CWindow(NUI::SWindowInfo(idle,
+        NUI::SPoint(0, 0), NUI::SPoint(20, 20), "late-child"));
+    Require(requiresUpdate(idle), "adding a child did not wake its sleeping parent");
+    idle->Update(3, nullptr);
+    Require(!requiresUpdate(idle) && !requiresUpdate(child), "static child kept its UI branch awake forever");
+    CObj<NUI::CWindow> animated = new NUI::CWindow(NUI::SWindowInfo(nullptr,
+        NUI::SPoint(0, 0), NUI::SPoint(20, 20), "always-update", 0x80));
+    animated->Update(1, nullptr); animated->Update(2, nullptr);
+    Require(requiresUpdate(animated), "retail always-update style did not keep its UI window awake");
+    CObj<NUI::CWindow> active = new NUI::CWindow;
+    CMObj<NUI::CSlider> slider = new NUI::CSlider(NUI::SWindowInfo(active,
+        NUI::SPoint(0, 0), NUI::SPoint(20, 20), "active-slider"));
+    active->Update(1, nullptr); active->Update(2, nullptr);
+    Require(requiresUpdate(active), "active slider's update result did not keep its parent branch awake");
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE); bool pending = false; writer.Add(4, &pending); }
+    saved.Seek(0);
+    CObj<NUI::CWindow> restored = new NUI::CWindow;
+    { CStructureSaver reader(saved, CStructureSaver::READ); restored->operator&(reader); }
+    restored->Update(4, nullptr);
+    Require(!requiresUpdate(restored), "restored sleeping UI window lost the retail tag-4 latch");
+}
+
 static void WindowTemplateScript(const char* databasePath)
 {
     CFileStream database;
@@ -5892,6 +5930,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "lua-window-state-context")) { LuaWindowStateContext(); return true; }
     if (!std::strcmp(mode, "window-message-callbacks")) { WindowMessageCallbacks(); return true; }
     if (!std::strcmp(mode, "window-callback-lifetime")) { WindowCallbackLifetime(); return true; }
+    if (!std::strcmp(mode, "window-lazy-update")) { WindowLazyUpdate(); return true; }
     if (!std::strcmp(mode, "window-template-script")) { Require(argc == 3, "window template script requires db"); WindowTemplateScript(argv[2]); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
     if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }

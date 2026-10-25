@@ -444,7 +444,7 @@ bool CButton::ProcessMessage( const SEvent &sEvent )
 	return CWindow::ProcessMessage( sEvent );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CButton::Update( const STime &sTime, NGScene::I2DGameView *pView )
+bool CButton::Update( const STime &sTime, NGScene::I2DGameView *pView )
 {
 	if ( !GetStyle( STYLE_VISIBLE ) )
 	{
@@ -454,6 +454,7 @@ void CButton::Update( const STime &sTime, NGScene::I2DGameView *pView )
 	}
 
 	CWindow::Update( sTime, pView );
+	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CButton::Draw( const STime &sTime, NGScene::I2DGameView *pView )
@@ -935,7 +936,7 @@ void CSlider::PageSlide( int nX, int nY )
 	OnAction();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CSlider::Update( const STime &sTime, NGScene::I2DGameView *pView )
+bool CSlider::Update( const STime &sTime, NGScene::I2DGameView *pView )
 {
 	// RELEASE-DATA RESILIENCE: pSlider is the "slider" child looked up at TEMPLATELOADCOMPLETE; a UI
 	// container that ships no such child leaves it null. The shipped game.db (32MB) differs from the
@@ -943,7 +944,7 @@ void CSlider::Update( const STime &sTime, NGScene::I2DGameView *pView )
 	if ( !IsValid( pSlider ) )
 	{
 		CWindow::Update( sTime, pView );
-		return;
+		return true;
 	}
 	const SPoint &sPadSize = GetSize();
 	const SPoint &sSliderSize = pSlider->GetSize();
@@ -955,6 +956,7 @@ void CSlider::Update( const STime &sTime, NGScene::I2DGameView *pView )
 		pSlider->SetPosition( SPoint( sSliderPosition.x, float( nValue ) * ( sPadSize.y - sSliderSize.y ) / nMaxValue ) );
 
 	CWindow::Update( sTime, pView );
+	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSlider::OnAction()
@@ -1206,7 +1208,7 @@ bool CListView::ProcessMessage( const SEvent &sEvent )
 	return CWindow::ProcessMessage( sEvent );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CListView::Update( const STime &sTime, NGScene::I2DGameView *pView )
+bool CListView::Update( const STime &sTime, NGScene::I2DGameView *pView )
 {
 	int nY = 0, nX = 0;
 	for ( list<SItem>::iterator iTemp = itemsList.begin(); iTemp != itemsList.end(); iTemp++ )
@@ -1224,6 +1226,7 @@ void CListView::Update( const STime &sTime, NGScene::I2DGameView *pView )
 	SetSize( SPoint( GetSize().x, nY ) );
 
 	CWindow::Update( sTime, pView );
+	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CListView::OnAction()
@@ -1526,7 +1529,7 @@ void CComboBox::SetSelectedItem( int nID )
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CComboBox::Update( const STime &sTime, NGScene::I2DGameView *pView )
+bool CComboBox::Update( const STime &sTime, NGScene::I2DGameView *pView )
 {
 	// The popup is a sibling. Follow the field's right edge while retaining
 	// the authored row artwork width, even when the field itself is narrower.
@@ -1536,6 +1539,7 @@ void CComboBox::Update( const STime &sTime, NGScene::I2DGameView *pView )
 	pList->SetStyle(STYLE_ENABLED,GetStyle(STYLE_ENABLED));
 	if(!GetStyle(STYLE_VISIBLE)) pList->SetStyle(STYLE_VISIBLE,false);
 	CWindow::Update(sTime,pView);
+	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CComboBox::ProcessMessage( const SEvent &sEvent )

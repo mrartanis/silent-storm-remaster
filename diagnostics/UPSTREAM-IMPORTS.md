@@ -129,6 +129,7 @@
 | [15d5d41f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/15d5d41fc37267ecc80dcc621df24be99e3b52a9) — Create and execute native window template Lua scripts | `window template Lua script was not created and executed in its own interface during Update` | 163/163; `window-template-script` | `Upstream-Commit` в commit message |
 | [15d5d41f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/15d5d41fc37267ecc80dcc621df24be99e3b52a9) — Dispatch native window messages to their owning Lua callbacks | `registered Lua onmessage handler did not receive the native window notification` | 164/164; `window-message-callbacks` | `Upstream-Commit` в commit message |
 | [15d5d41f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/15d5d41fc37267ecc80dcc621df24be99e3b52a9) — Retain anonymous window callbacks until their registrations end | `anonymous window callback was reclaimed while still registered` | 165/165; `window-callback-lifetime` | `Upstream-Commit` в commit message |
+| [d4de53d5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d4de53d5eef8444a372b7dbe582f8dbff2754b49) — Propagate active UI updates and suspend idle window branches | `idle UI branch never cleared its serialized update latch` | 166/166; `window-lazy-update` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -424,3 +425,25 @@ Windows/Linux — 162/162; Windows `ALL_BUILD` и Linux `Game` собраны.
 Проверены собственное окно при чужом глобальном скрипте, отсутствие глобального
 скрипта, сохраненный запасной путь и безопасный отказ полностью unbound Lua.
 Шаблонные скрипты и onmessage из `15d5d41f` еще в работе.
+
+### Контроль после оконных скриптов и ленивого обновления UI
+
+`15d5d41f` завершён: шаблонные скрипты, уведомления и шесть событий мыши
+выполняются в своём Lua state. Дескриптор кодируется как closure-index + 1:
+наша VM выделяет слот 0 настоящей функции, поэтому upstream-проверка на 0
+теряла первый обработчик. Анонимные обработчики удерживаются ключами функций
+в существующем сериализуемом registry; счётчики позволяют делить одну функцию
+между окнами и освобождать её при снятии регистрации или уничтожении окна.
+Это локальная адаптация времени жизни, отсутствующая в буквальном diff upstream.
+
+`d4de53d5` завершён: добавлены результат активности `Update`, стиль 0x80,
+сброс и пробуждение флага tag 4; сохранены современные настройки экрана,
+размещение combo popup и проверки недействительных детей окна.
+Windows/Linux — 166/166; Windows `ALL_BUILD`, Linux `Game` собраны.
+Расширенный Windows набор — 220/220; стрельба/сжатое сохранение/слот — 4/4.
+Логи `window-message-callbacks-{red,green}-test.log`,
+`window-callback-lifetime-{red,green}-test.log`,
+`window-lazy-update-{red,green}-test.log`, `window-lazy-linux-test.log`,
+`checkpoint-166-all-build.log`, `checkpoint-166-ci-test.log`,
+`checkpoint-166-shots-test.log`. Это локальные проверки; финальный GitHub Actions
+всё ещё должен быть проверен на конечном HEAD всего переноса.

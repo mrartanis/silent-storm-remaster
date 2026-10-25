@@ -82,7 +82,7 @@ public:
 
 	void Set( CAckEvent *pEvent );
 	void PlayAck();	// retail CAckView::PlayAck @0x210ff0 -- deferred voice + heads-controller lipsync
-	void Update( const STime &sTime, NGScene::I2DGameView *pView );	// retail @0x2110e0
+	bool Update( const STime &sTime, NGScene::I2DGameView *pView );	// retail @0x2110e0
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 inline wstring ConvertLineBreaks( const wstring &szStr )
@@ -166,7 +166,7 @@ void CAckIcon::PlayAck()
 // retail NUI::CAckView::Update @0x2110e0 (the ONLY behaviour override CAckView has: vftable
 // @0x8be960 slot 11; slot 10 ProcessMessage = CWindow's, slot 12 Draw = CFrame::Draw): age the
 // ack, run the DEFERRED voice/lipsync, reflow the band; release + hide once the event completes.
-void CAckIcon::Update( const STime &sTime, NGScene::I2DGameView *pView )
+bool CAckIcon::Update( const STime &sTime, NGScene::I2DGameView *pView )
 {
 	if ( IsValid( pEvent ) && !pEvent->IsComplete( sTime ) )
 	{
@@ -207,6 +207,7 @@ void CAckIcon::Update( const STime &sTime, NGScene::I2DGameView *pView )
 	}
 
 	CWindow::Update( sTime, pView );
+	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CItemText
@@ -1205,7 +1206,7 @@ bool CMissionUI::ProcessMessage( const SEvent &sEvent )
 	return pMission->GetState()->ProcessMessage( sEvent );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CMissionUI::Update( const STime &sTime, NGScene::I2DGameView *pView )
+bool CMissionUI::Update( const STime &sTime, NGScene::I2DGameView *pView )
 {
 	// Side panels span the mission viewport, including when restored from a save.
 	CWindow* panels[]={pPerksPanel,pStorePanel,pInventoryPanel,pCharacterPanel,pMedalsPanel,pBiographyPanel};
@@ -1291,6 +1292,7 @@ void CMissionUI::Update( const STime &sTime, NGScene::I2DGameView *pView )
 	pLogPanel->SetPosition( SPoint( sLogRect.x1, sLogRect.y1 ) );
 
 	CDesktopWindow::Update( sTime, pView );
+	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMissionUI::Draw( const STime &sTime, NGScene::I2DGameView *pView )

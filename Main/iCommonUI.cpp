@@ -413,12 +413,12 @@ bool CFlashButton::ProcessMessage( const SEvent &sEvent )
 	return CButton::ProcessMessage( sEvent );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CFlashButton::Update( const STime &sTime, NGScene::I2DGameView *pView )
+bool CFlashButton::Update( const STime &sTime, NGScene::I2DGameView *pView )
 {
 	if ( !GetStyle( STYLE_ENABLED ) )
 	{
 		pActive->SetStyle( STYLE_VISIBLE, false );
-		return;
+		return true;
 	}
 
 	pActive->SetStyle( STYLE_VISIBLE, true );
@@ -437,6 +437,7 @@ void CFlashButton::Update( const STime &sTime, NGScene::I2DGameView *pView )
 	pActive->SetColor( NGfx::SPixel8888( 0xFF, 0xFF, 0xFF, 0xFF * fCoeff ) );
 
 	CButton::Update( sTime, pView );
+	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CHoverFlashButton
@@ -539,7 +540,7 @@ bool CScrollWindowBase::ProcessMessage( const SEvent &sEvent )
 	return CWindow::ProcessMessage( sEvent );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CScrollWindowBase::Update( const STime &sTime, NGScene::I2DGameView *pView )
+bool CScrollWindowBase::Update( const STime &sTime, NGScene::I2DGameView *pView )
 {
 	if ( IsValid( pClient ) ) 
 	{
@@ -561,6 +562,7 @@ void CScrollWindowBase::Update( const STime &sTime, NGScene::I2DGameView *pView 
 	}
 
 	CWindow::Update( sTime, pView );
+	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScrollWindowBase::UpdateScrollers()

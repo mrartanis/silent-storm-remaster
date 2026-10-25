@@ -319,7 +319,7 @@ bool CGlobalMapUI::ProcessMessage( const SEvent &sEvent )
 	return false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CGlobalMapUI::Update( const STime &sTime, NGScene::I2DGameView *pView )
+bool CGlobalMapUI::Update( const STime &sTime, NGScene::I2DGameView *pView )
 {
 	const SPoint &sCursorPos = GetInterface()->GetCursorPos();
 	for ( int nTemp = 0; nTemp < sectorsSet.size(); nTemp++ )
@@ -333,6 +333,7 @@ void CGlobalMapUI::Update( const STime &sTime, NGScene::I2DGameView *pView )
 	}
 
 	CWindow::Update( sTime, pView );
+	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalMapUI::GetGlobalSectorInfo( const SGlobalSector &sSector, bool *pbVisible, bool *pRecommended )
