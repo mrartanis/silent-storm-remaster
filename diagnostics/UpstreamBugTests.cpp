@@ -40,6 +40,7 @@
 #include "../Main/aiStability.h"
 #include "../Main/aiNearestPosition.h"
 #include "../FileIO/PortableGameDatabase.h"
+#include "../FileIO/PortableStructureChunks.h"
 #include "../Main/aiLocker.h"
 #include "../Main/wUnitServer.h"
 #include "../Main/RPGItem.h"
@@ -1417,6 +1418,82 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     // Deliberately exclude mission scripts: this fixture isolates AI scheduling.
     world->RunPostInit(nullptr);
     return world;
+}
+
+static bool SavedWorldUIRefresh(NWorld::CWorld* world)
+{
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE); static_cast<CObjectBase*>(world)->operator&(writer); }
+    const auto* bytes = static_cast<const std::uint8_t*>(saved.GetBuffer());
+    const auto size = static_cast<std::size_t>(saved.GetSize());
+    S2FileIO::StructureChunk root;
+    bool foundRoot = false;
+    for (std::size_t offset = 0; offset < size;) {
+        S2FileIO::StructureChunk chunk;
+        Require(S2FileIO::DecodeStructureChunkAt(bytes, size, offset, &chunk), "invalid world save chunk");
+        if (chunk.id == 1) { root = chunk; foundRoot = true; break; }
+        offset = static_cast<std::size_t>(chunk.payloadOffset + chunk.length);
+    }
+    Require(foundRoot, "world save has no root payload");
+    const auto* fields = bytes + root.payloadOffset;
+    for (std::size_t offset = 0; offset < root.length;) {
+        S2FileIO::StructureChunk chunk;
+        Require(S2FileIO::DecodeStructureChunkAt(fields, root.length, offset, &chunk), "invalid world save field");
+        if (chunk.id == 47) {
+            Require(chunk.length == 1, "world UI-refresh latch has an unexpected wire size");
+            return fields[chunk.payloadOffset] != 0;
+        }
+        offset = static_cast<std::size_t>(chunk.payloadOffset + chunk.length);
+    }
+    return false;
+}
+
+static void WorldUIRefreshLatch(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    Require(SavedWorldUIRefresh(world), "fresh world did not preserve its pending UI refresh in save tag 47");
+    NWorld::IWorld* api = world.GetPtr();
+    Require(api->IsUINeedUpdate() && !api->IsUINeedUpdate(), "fresh-world UI refresh was not consumed exactly once");
+    Require(!SavedWorldUIRefresh(world), "consumed UI refresh was still armed in an ordinary save");
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& unit: units) {
+        auto* server = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if (server && server->CanFight() && !server->IsEmptyPK()) { actor = server; break; }
+    }
+    Require(actor != nullptr, "UI-refresh fixture has no living actor");
+    actor->Hide(false, false);
+    api->IsUINeedUpdate();
+    actor->EnableHide();
+    Require(api->IsUINeedUpdate() && !api->IsUINeedUpdate(), "re-arming Hide did not request exactly one UI refresh");
+    actor->EnableHide();
+    Require(!api->IsUINeedUpdate(), "already enabled Hide requested an unnecessary UI refresh");
+    auto networkBytes = [&]() {
+        CStructureNetworkContext context;
+        context.include = [](CObjectBase*) { return false; };
+        CMemoryStream saved;
+        { CStructureSaver writer(saved, CStructureSaver::WRITE, &context);
+          static_cast<CObjectBase*>(world.GetPtr())->operator&(writer); }
+        const auto* bytes = static_cast<const std::uint8_t*>(saved.GetBuffer());
+        return vector<std::uint8_t>(bytes, bytes + saved.GetSize());
+    };
+    const auto cleanNetwork = networkBytes();
+    api->UINeedUpdate();
+    Require(SavedWorldUIRefresh(world), "explicit UI-refresh request was missing from an ordinary save");
+    Require(networkBytes() == cleanNetwork, "local UI refresh changed the synchronized world payload");
+    Require(api->IsUINeedUpdate() && !api->IsUINeedUpdate(), "explicit UI-refresh request was not consumed exactly once");
+    for (bool pending: {true, false}) {
+        CMemoryStream saved;
+        { CStructureSaver writer(saved, CStructureSaver::WRITE); writer.Add(47, &pending); }
+        saved.Seek(0);
+        { CStructureSaver reader(saved, CStructureSaver::READ);
+          static_cast<CObjectBase*>(world.GetPtr())->operator&(reader); }
+        Require(api->IsUINeedUpdate() == pending && !api->IsUINeedUpdate(),
+            "ordinary save restore lost the pending/consumed UI-refresh state");
+    }
+
 }
 
 class AckPriorityDesktop: public NUI::CDesktopWindow
@@ -4111,6 +4188,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-event-collection-locks") && argc == 4) { AIEventCollectionLocks(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "mission-overlay-readiness")) { MissionOverlayReadiness(); return true; }
     if (!std::strcmp(mode, "ai-player-mission-readiness")) { AIPlayerMissionReadiness(); return true; }
+    if (!std::strcmp(mode, "world-ui-refresh-latch")) { Require(argc == 4, "world UI refresh requires db and res"); WorldUIRefreshLatch(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "dialogue-camera-filter")) { CinematicCameraCommands(0); return true; }
     if (!std::strcmp(mode, "movie-camera-filter")) { CinematicCameraCommands(1); return true; }
     if (!std::strcmp(mode, "fade-camera-filter")) { CinematicCameraCommands(2); return true; }

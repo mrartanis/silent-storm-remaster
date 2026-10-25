@@ -1405,7 +1405,7 @@ void CMission::InternalStep()
 	{
 		TraceCursor();
 
-		bUpdated = TrackChanges() || bForceUpdateNextFrame;
+		bUpdated = TrackChanges() || pWorld->IsUINeedUpdate() || bForceUpdateNextFrame;
 		bForceUpdateNextFrame = false;
 
 		if ( bUpdated )
