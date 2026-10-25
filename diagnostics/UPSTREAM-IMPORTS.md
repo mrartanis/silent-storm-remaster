@@ -179,6 +179,7 @@
 | [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Exclude isolated destinations from zero-distance navigation moves | `native move enumeration offered a zero-distance step into an isolated alias` | 224/224; `connected-alias-moves` | `Upstream-Commit` в commit message |
 | [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Enumerate connected escape steps from isolated source tiles | `native move enumeration could not escape an isolated source lacking the same-point flag` | 225/225; `isolated-source-moves` | `Upstream-Commit` в commit message |
 | [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Check occupancy before emitting zero-distance alias moves | `native move enumeration offered a zero-distance step into a locked connected alias` | 226/226; `locked-alias-moves` | `Upstream-Commit` в commit message |
+| [6d313faa](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6d313faaa22df6cfc05a5017621b684eb8a6d3d8) — Allow isolated starts to escape stale navigation zones without relaxing pose pruning | `upper-net zone pruning rejected a reachable route from an isolated source or stopped before its goal` | 227/227; `isolated-source-path` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -700,3 +701,37 @@ GitHub Actions и оставшийся покоммитный разбор ещ�
 `checkpoint-214-linux-{configure,build,test}.log`,
 `checkpoint-214-ci-test.log`, `checkpoint-214-network-test.log`,
 `checkpoint-214-shots-test.log`.
+
+### Контрольная точка 227 — завершение `6d313faa`
+
+Навигационные части исходного коммита перенесены отдельными исправлениями:
+поиск копий площадок, поиск ближайших целей, сохранение прямых переходов,
+проверка переходов и записанных ссылок, выдача шагов и проверка занятости,
+полный поиск пути из изолированного старта. Перед каждым исправлением получен
+свой runtime RED. Проверки не меняют стоимость движения или игровые формулы.
+
+Последний тест использует настоящий публичный `NAI::FindPath` и его кэш зон.
+Локальный поиск с лимитом 39 достигает цели, но исходный поиск с лимитом 100
+не находит маршрут. Дополнительная временная замена на полное `DoNotCheck`
+воспроизводит другую ошибку: маршрут заканчивается в `(4,2)` вместо `(5,2)`.
+Окончательный фикс сохраняет ограничения позы и снимает только отсечение по
+зонам для изолированного старта. Оба временных изменения восстановлены;
+итоговый тест достигает точной цели и отвергает старт без связанного выхода.
+
+Windows `ALL_BUILD` и Linux `Game` собраны. Upstream-набор прошёл 227/227
+на обеих платформах, расширенный Windows набор — 250/250, выбранные сетевые
+сценарии — 6/6, стрельба/сохранения/загрузка/ход сценария 5247 — 5/5.
+Сценарий 5247 выполнен за 2.77 секунды. Проверки прошли в существующих каталогах
+сборки, без копий старых сборок и генерации HD-текстур.
+
+Эти результаты не включают `NetworkEncounterMapsTests` и семь display/runtime
+проверок. Итоговый GitHub Actions ещё предстоит проверить после оставшегося
+переноса. В реестре 281 коммит: 61 imported, 10 partially-imported,
+35 already-present, 168 pending, 2 review-final-version, 3 documentation-only,
+1 historical-own-import и 1 excluded-balance. Общая задача ещё не завершена.
+
+Логи: `isolated-source-path-{red,green}-test.log`,
+`isolated-source-path-pose-control-red-test.log`,
+`isolated-source-path-all-green-build.log`,
+`isolated-source-path-{world,network}-green-test.log`,
+`checkpoint-227-linux-{configure,build,test}.log`, `checkpoint-227-ci-test.log`.

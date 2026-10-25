@@ -40,6 +40,7 @@
 #include "../Main/wDialog.h"
 #include "../Main/aiGrid.h"
 #include "../Main/aiMoves.h"
+#include "../Main/aiPath.h"
 #include "../Main/aiColourer.h"
 #include "../Main/aiMap.h"
 #include "../Main/aiStability.h"
@@ -6077,6 +6078,69 @@ static void NavigationAliasDestinations(bool arrayOutput, bool isolatedSource = 
     Require(aliases().empty(), "unequal displacement or isolated aliases were still reported as connected copies");
 }
 
+static void IsolatedSourcePath()
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    network->CreateLayer(8,8,VNULL2,0.f,0);
+    network->CreateLayer(8,8,VNULL2,0.f,1,network->GetLayer(0)->pGroup);
+    // Keep the real pathfinder and colour caches active; only geometry refresh
+    // is frozen because these native tiles are the complete fixture map.
+    network->GetLayer(0)->pGroup->bFreeze = true;
+    NAI::SPathPlace source(2,2,0), goal(5,2,1);
+    source.SetPose(NAI::CM_STAND); goal.SetPose(NAI::CM_STAND);
+    const int right = network->GetDir(NAI::SPathPlace(2,2,1),NAI::SPathPlace(3,2,1));
+    const int left = (right + 4) & 7;
+    for (int x = 1; x <= 6; ++x) {
+        auto& tile = network->GetLayer(1)->tiles[2][x];
+        tile = NAI::STile{};
+        tile.nHeight = 100;
+        tile.nPassable = 0xff;
+        tile.nFlags = NAI::TF_STAND_PASSABLE;
+        tile.nMoveStand = (x > 1 ? 1 << left : 0) | (x < 6 ? 1 << right : 0);
+        tile.nMoveCrouch = tile.nMoveLay = tile.nMoveStand;
+    }
+    auto& isolated = network->GetLayer(0)->tiles[2][2];
+    isolated = network->GetLayer(1)->tiles[2][2];
+    isolated.nMoveStand = isolated.nMoveCrouch = isolated.nMoveLay = 0;
+    int costs[NAI::N_MOVE_TYPES];
+    std::fill(std::begin(costs),std::end(costs),1);
+    costs[NAI::MT_ZERO] = 0;
+    costs[NAI::MT_MOVE_STAND] = 2;
+    costs[NAI::MT_MOVE_CROUCH] = 3;
+    costs[NAI::MT_MOVE_CRAWL] = 4;
+    const list<CObjectBase*> occupants;
+    auto find = [&](int limit, NAI::EFindPathParams params) {
+        return CObj<NAI::CPath>(NAI::FindPath(network,source,vector<NAI::SPathPlace>{goal},
+            costs,limit,false,occupants,nullptr,true,false,params,false));
+    };
+    auto reachesGoal = [&](NAI::CPath* path) {
+        if (!IsValid(path) || path->points.empty()) return false;
+        const auto& end = path->points.back();
+        return end.GetX() == goal.GetX() && end.GetY() == goal.GetY() && end.GetLayer() == goal.GetLayer();
+    };
+    const auto shortSearch = find(39,NAI::PF_USE_POSE);
+    Require(reachesGoal(shortSearch), "local-wave control could not leave the isolated source and reach its exact standing goal");
+    vector<unsigned char> xs,ys;
+    vector<int> neighbours;
+    auto* colourer = network->GetColourer(0);
+    colourer->GetColorNeighbourCenters(network,colourer->GetPointColor(2,2),&xs,&ys,&neighbours,NAI::PM_ANY_MOVE);
+    Require(neighbours.empty(), "path fixture unexpectedly had a cached upper-net escape route");
+    const auto route = find(100,NAI::PF_DEFAULT);
+    if (IsValid(route) && !route->points.empty()) {
+        const auto& end = route->points.back();
+        std::printf("Full isolated-source route ends at (%u,%u,layer %u,pose %u); expected (%u,%u,layer %u)\n",
+            unsigned(end.GetX()),unsigned(end.GetY()),unsigned(end.GetLayer()),unsigned(end.GetPose()),
+            unsigned(goal.GetX()),unsigned(goal.GetY()),unsigned(goal.GetLayer()));
+    } else std::puts("Full isolated-source route was absent despite the successful local-wave control");
+    Require(reachesGoal(route), "upper-net zone pruning rejected a reachable route from an isolated source or stopped before its goal");
+    Require(route->points.front().GetLayer() == source.GetLayer() &&
+        route->points.front().GetX() == source.GetX() && route->points.front().GetY() == source.GetY(),
+        "isolated-source path changed its starting position");
+    auto& escape = network->GetLayer(1)->tiles[2][2];
+    escape.nMoveStand = escape.nMoveCrouch = escape.nMoveLay = 0;
+    Require(!IsValid(find(100,NAI::PF_DEFAULT)), "isolated-source zone bypass invented a route without a connected escape");
+}
+
 static void ConnectedAliasMoves(bool isolatedSource = false, bool lockedDestination = false)
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
@@ -8042,6 +8106,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "connected-alias-moves")) { ConnectedAliasMoves(); return true; }
     if (!std::strcmp(mode, "isolated-source-moves")) { ConnectedAliasMoves(true); return true; }
     if (!std::strcmp(mode, "locked-alias-moves")) { ConnectedAliasMoves(false,true); return true; }
+    if (!std::strcmp(mode, "isolated-source-path")) { IsolatedSourcePath(); return true; }
     if (!std::strcmp(mode, "isolated-transition-link-match")) { IsolatedTransitionLinkMatch(); return true; }
     if (!std::strcmp(mode, "isolated-transition-shortcut")) { IsolatedTransitionShortcut(); return true; }
     if (!std::strcmp(mode, "isolated-transition-entry")) { IsolatedTransitionEntry(); return true; }

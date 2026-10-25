@@ -685,7 +685,9 @@ CPath* SPathFinder2::FindPath( CPathNetwork *pNet, const SPathPlace &src, const 
 	// Simple path not found, find complex path
 	CMovesEnumerator enumerator( pNet, pCosts, bCheckSuicide, bMoveOnly, bCountAsBigUnit, bNoClimb );
 	CLayerColorConstraints constraints( pNet, bMoveOnly, pCosts );
-	if ( nPriceLimit >= 40 )
+	const bool bIsolatedSource = src.IsIntegral() &&
+		!pNet->GetLayer( src.GetLayer() )->tiles[src.GetY()][src.GetX()].HasNavigationLinks();
+	if ( nPriceLimit >= 40 && !bIsolatedSource )
 	{
 		// preparing constraints
 		CUpperNetWay way;
@@ -706,7 +708,10 @@ CPath* SPathFinder2::FindPath( CPathNetwork *pNet, const SPathPlace &src, const 
 		if ( constraints.IsClear() ) 
 			return 0;
 	}
-	else 
+	else if ( nPriceLimit >= 40 )
+		// Escape a stale upper-net zone while retaining pose pruning.
+		constraints.DoNotCheckZones();
+	else
 		constraints.DoNotCheck();
 
 	// counting
