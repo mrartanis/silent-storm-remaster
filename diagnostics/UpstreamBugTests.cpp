@@ -1268,6 +1268,7 @@ public:
     mutable NAI::SPathPlace observed, cancelledAt;
     int cancelOnStep = 1;
     CPtr<NWorld::CCommandExecute> mover;
+    CObj<NWorld::CCommandExecute>* releasingOwner = nullptr;
     bool CanFight() const override {
         if (armed) {
             const auto current = CUnitServer::GetPosition().pos.p;
@@ -1275,9 +1276,10 @@ public:
                 observed = current;
                 if (++steps == cancelOnStep) {
                     armed = false; ++callbacks; cancelledAt = current;
-                    auto* moving = dynamic_cast<NWorld::IExecMove*>(mover.GetPtr());
+                    auto* moving = dynamic_cast<NWorld::IExecMove*>(releasingOwner ? releasingOwner->GetPtr() : mover.GetPtr());
                     Require(moving != nullptr, "movement-callback fixture lost its mover");
                     moving->FullCancel();
+                    if (releasingOwner) *releasingOwner = nullptr;
                 }
             }
         }
@@ -1286,7 +1288,7 @@ public:
 };
 REGISTER_SAVELOAD_CLASS(0x7f550106, CancellingMoveActor);
 
-static void MovementCallbackCancellation(const char* databasePath, const char* resourcePath, int cancelOnStep)
+static void MovementCallbackCancellation(const char* databasePath, const char* resourcePath, int cancelOnStep, bool releaseOwner = false)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath, resourcePath, true, &game);
@@ -1328,7 +1330,8 @@ static void MovementCallbackCancellation(const char* databasePath, const char* r
     Require(path && path->points.size() >= 5, "movement-callback fixture needs a multi-step reachable path");
     CObj<NWorld::CCommandExecute> move = NWorld::CreateSimpleMoveExecutor(actor, path, NAI::PF_DEFAULT);
     Require(move != nullptr, "movement-callback fixture could not create a real move executor");
-    actor->mover = move;
+    if (releaseOwner) actor->releasingOwner = &move;
+    else actor->mover = move;
     actor->observed = actor->GetPosition().pos.p;
     actor->cancelOnStep = cancelOnStep;
     actor->armed = true;
@@ -1337,8 +1340,10 @@ static void MovementCallbackCancellation(const char* databasePath, const char* r
         move->AnimationFinished();
     Require(actor->callbacks == 1 && actor->steps == cancelOnStep,
         "movement callback did not cancel at the requested physical step");
-    Require(move->GetState() != NWorld::CCommandExecute::RUNNING && actor->GetPosition().pos.p == actor->cancelledAt,
-        "cancelled movement continued to a later queued tile");
+    Require((releaseOwner ? !move : move->GetState() != NWorld::CCommandExecute::RUNNING) &&
+            actor->GetPosition().pos.p == actor->cancelledAt,
+        "cancelled movement continued to a later queued tile or retained its released owner");
+    actor->releasingOwner = nullptr;
     actor->mover = nullptr;
     move = nullptr;
     Require(!world->IsAction(), "cancelled movement left an action counter running");
@@ -2722,6 +2727,8 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "dialogue-normal-pagination") && argc == 4) OversizedDialogueLine(argv[2], argv[3], 2);
         else if (!std::strcmp(mode, "movement-first-step-cancel") && argc == 4) MovementCallbackCancellation(argv[2], argv[3], 1);
         else if (!std::strcmp(mode, "movement-next-step-cancel") && argc == 4) MovementCallbackCancellation(argv[2], argv[3], 2);
+        else if (!std::strcmp(mode, "movement-first-step-release") && argc == 4) MovementCallbackCancellation(argv[2], argv[3], 1, true);
+        else if (!std::strcmp(mode, "movement-next-step-release") && argc == 4) MovementCallbackCancellation(argv[2], argv[3], 2, true);
         else if (!std::strcmp(mode, "hide-cooldown") && argc == 4) HideCooldown(argv[2], argv[3]);
         else if (!std::strcmp(mode, "ai-idle") && argc == 4) IdleAI(argv[2], argv[3]);
         else if (!std::strcmp(mode, "mixed-hide-button") && argc == 4) MixedActionButton(argv[2], argv[3], true);

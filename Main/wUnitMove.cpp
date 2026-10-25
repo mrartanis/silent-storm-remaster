@@ -486,6 +486,7 @@ void CPathConflictsRemover::Segment()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecMove::DoCommand()
 {
+	CPtr<CExecMove> pHoldSelf( this );
 	if ( commandsQueue.empty() )
 	{
 		pCurCmd = 0;
@@ -518,7 +519,7 @@ void CExecMove::DoCommand()
 	if (pJumpCur)
 		pUS->FallFromHigh( pJumpCur->processPos.GetCP().z - pJumpCur->pos.GetCP().z );
 	// Movement/visibility and fall callbacks may have cancelled the queue.
-	if ( commandsQueue.empty() )
+	if ( !IsValid( this ) || commandsQueue.empty() )
 		return;
 	// fetch command
 	CObj<CCommand> pCmd = commandsQueue.front(), pHoldCmd(pCurCmd);
@@ -555,6 +556,8 @@ void CExecMove::DoCommand()
 			pCurCmd = pCmd; // for correct Cancel() (possible in DoGameMove()) pCurCmd should be valid before DoGameMove
 			pHoldCmd = pCurCmd;
 			DoGameMove( pMove->pos );
+			if ( !IsValid( this ) )
+				return;
 			// Starting the first step can cancel all continuation commands.
 			if ( commandsQueue.empty() )
 			{
@@ -874,6 +877,7 @@ bool CExecMove::TimeLabelReached()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecMove::AnimationFinished()
 {
+	CPtr<CExecMove> pHoldSelf( this );
 	pUS->UpdateCriticalsState();
 	//ASSERT( pCurCmd->IsValid() );
 	if ( IsValid( pCurCmd ) || !commandsQueue.empty() )
@@ -887,6 +891,8 @@ void CExecMove::AnimationFinished()
 		else
 			DoCommand();
 	}
+	if ( !IsValid( this ) )
+		return;
 	pUS->DynamicallyLockWay( GetCurrentPath() );
 	if ( !commandsQueue.empty() || IsValid( pCurCmd ) )
 		return;
