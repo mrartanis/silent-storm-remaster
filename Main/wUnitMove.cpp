@@ -551,7 +551,9 @@ void CExecMove::DoCommand()
 				commandsQueue.push_front( pCmd );
 				return;
 			}
+			bWaiting = false;
 			bAfterWaiting = false;
+			nTimeToWait = 0;
 			animator.StartMove( pMove->bStrafe );
 			pCurCmd = pCmd; // for correct Cancel() (possible in DoGameMove()) pCurCmd should be valid before DoGameMove
 			pHoldCmd = pCurCmd;

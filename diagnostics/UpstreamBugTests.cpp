@@ -2855,7 +2855,16 @@ public:
 };
 REGISTER_SAVELOAD_CLASS(0x7f550106, CancellingMoveActor);
 
-static void MovementCallbackCancellation(const char* databasePath, const char* resourcePath, int cancelOnStep, bool releaseOwner = false)
+struct NativeMovementFixture
+{
+    CObj<NRPG::CGlobalGame> game;
+    CObj<NWorld::CWorld> world;
+    CObj<NRPG::IUnitMission> rpg;
+    CObj<CancellingMoveActor> actor;
+    CObj<NAI::CPath> path;
+};
+
+static NativeMovementFixture MakeNativeMovementFixture(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath, resourcePath, true, &game);
@@ -2895,6 +2904,15 @@ static void MovementCallbackCancellation(const char* databasePath, const char* r
         path = nullptr;
     }
     Require(path && path->points.size() >= 5, "movement-callback fixture needs a multi-step reachable path");
+    return {game, world, rpg, actor, path};
+}
+
+static void MovementCallbackCancellation(const char* databasePath, const char* resourcePath, int cancelOnStep, bool releaseOwner = false)
+{
+    auto fixture = MakeNativeMovementFixture(databasePath, resourcePath);
+    auto world = fixture.world;
+    auto actor = fixture.actor;
+    auto path = fixture.path;
     CObj<NWorld::CCommandExecute> move = NWorld::CreateSimpleMoveExecutor(actor, path, NAI::PF_DEFAULT);
     Require(move != nullptr, "movement-callback fixture could not create a real move executor");
     if (releaseOwner) actor->releasingOwner = &move;
@@ -2914,6 +2932,54 @@ static void MovementCallbackCancellation(const char* databasePath, const char* r
     actor->mover = nullptr;
     move = nullptr;
     Require(!world->IsAction(), "cancelled movement left an action counter running");
+}
+
+struct MovementWaitWire
+{
+    int timer = -1;
+    int operator&(CStructureSaver& saver) { saver.Add(4, &timer); return 0; }
+};
+
+static int MovementWaitTimer(NWorld::CCommandExecute* move)
+{
+    CStructureNetworkContext graph;
+    graph.include = [](CObjectBase*) { return false; };
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE, &graph);
+      static_cast<CObjectBase*>(move)->operator&(writer); }
+    saved.Seek(0);
+    MovementWaitWire state;
+    { CStructureSaver reader(saved, CStructureSaver::READ, &graph); reader.Add(1, &state); }
+    return state.timer;
+}
+
+static void MovementFirstStepWaitTimer(const char* databasePath, const char* resourcePath)
+{
+    auto fixture = MakeNativeMovementFixture(databasePath, resourcePath);
+    CObj<NWorld::CCommandExecute> move = NWorld::CreateSimpleMoveExecutor(fixture.actor, fixture.path, NAI::PF_DEFAULT);
+    Require(IsValid(move), "first-step wait fixture could not create its native mover");
+    MovementWaitWire previous; previous.timer = 123;
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE); writer.Add(1, &previous); }
+    saved.Seek(0);
+    { CStructureSaver reader(saved, CStructureSaver::READ);
+      static_cast<CObjectBase*>(move.GetPtr())->operator&(reader); }
+    Require(MovementWaitTimer(move) == 123, "first-step wait fixture did not restore its previous wait timer");
+    const auto initial = fixture.actor->GetPosition().pos.p;
+    auto stepped = [&]() {
+        const auto current = fixture.actor->GetPosition().pos.p;
+        return current.GetX() != initial.GetX() || current.GetY() != initial.GetY() || current.GetLayer() != initial.GetLayer();
+    };
+    move->Run();
+    for (int frame = 0; frame < 32 && !stepped() && move->GetState() == NWorld::CCommandExecute::RUNNING; ++frame)
+        move->AnimationFinished();
+    const bool moved = stepped();
+    const int timer = MovementWaitTimer(move);
+    dynamic_cast<NWorld::IExecMove*>(move.GetPtr())->FullCancel();
+    move = nullptr;
+    Require(moved, "first-step wait fixture did not begin a physical native move");
+    Require(timer == 0, "starting a new physical movement step retained the previous wait timer");
+    Require(!fixture.world->IsAction(), "first-step wait fixture retained a cancelled movement action");
 }
 
 static void HideCooldown(const char* databasePath, const char* resourcePath)
@@ -4773,6 +4839,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "hidden-active-movement")) { Require(argc == 4, "hidden active movement requires db and res"); MovementHolsterPolicy(argv[2], argv[3], MovementHolsterCheck::HiddenActive); return true; }
     if (!std::strcmp(mode, "equipment-holster-reset")) { Require(argc == 4, "equipment activation requires db and res"); ExplicitWeaponActivation(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "movement-holster-reset")) { Require(argc == 4, "movement activation requires db and res"); ExplicitWeaponActivation(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "movement-first-step-wait")) { Require(argc == 4, "movement wait requires db and res"); MovementFirstStepWaitTimer(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "pain-voice-owner")) { Require(argc == 4, "pain voice requires db and res"); PainVoiceOwner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "unconscious-pain-voice")) { Require(argc == 4, "pain eligibility requires db and res"); PainVoiceOwner(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "world-ui-refresh-latch")) { Require(argc == 4, "world UI refresh requires db and res"); WorldUIRefreshLatch(argv[2], argv[3]); return true; }
