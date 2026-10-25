@@ -841,6 +841,8 @@ add_test(NAME UpstreamConsoleVisibilityToggle COMMAND UpstreamBugTests console-v
 add_test(NAME UpstreamAIReactionResetContacts COMMAND UpstreamBugTests ai-reaction-reset-contacts)
 add_test(NAME UpstreamMissionOverlayReadiness COMMAND UpstreamBugTests mission-overlay-readiness)
 add_test(NAME UpstreamAIPlayerMissionReadiness COMMAND UpstreamBugTests ai-player-mission-readiness)
+add_test(NAME UpstreamSoundIconVisibility COMMAND UpstreamBugTests sound-icon-visibility)
+add_test(NAME UpstreamTrapIconVisibility COMMAND UpstreamBugTests trap-icon-visibility)
 add_test(NAME UpstreamDialogueCameraFilter COMMAND UpstreamBugTests dialogue-camera-filter)
 add_test(NAME UpstreamMovieCameraFilter COMMAND UpstreamBugTests movie-camera-filter)
 add_test(NAME UpstreamFadeCameraFilter COMMAND UpstreamBugTests fade-camera-filter)

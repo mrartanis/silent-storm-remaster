@@ -27,6 +27,7 @@
 #include "../Main/iDesktopWindow.h"
 #include "../Main/Sound.h"
 #include "../Main/iMissionDlgUI.h"
+#include "../Main/iMissionUI.h"
 #include "../Main/iMissionMovieUI.h"
 #include "../Main/G2DView.h"
 #include "../Main/UIML.h"
@@ -847,6 +848,64 @@ public:
     bool IsRealTime() const override { return true; }
     NUI::CDesktopWindow* GetDesktop() const override { return desktop; }
 };
+
+class IconSceneReached: public std::exception {};
+
+class IconGateMission: public ReadinessMission
+{
+    OBJECT_NOCOPY_METHODS(IconGateMission);
+public:
+    mutable int sceneQueries = 0;
+    NGScene::IGameView* GetScene() const override { ++sceneQueries; throw IconSceneReached(); }
+};
+
+class MissionIconProbe: public NUI::CMissionUI
+{
+    OBJECT_NOCOPY_METHODS(MissionIconProbe);
+public:
+    void RefreshIcons(bool traps) { if (traps) UpdateTraps(); else UpdateClues(); }
+};
+
+static void OverlayIconVisibility(bool traps)
+{
+    CObj<IconGateMission> mission = new IconGateMission;
+    CObj<MissionIconProbe> desktop = new MissionIconProbe;
+    CObj<NUI::CText> pause = new NUI::CText;
+    CObj<CObjectBase> icon = pSSClasses->CreateObject(int(traps ? 0xB3618130u : 0xB3131150u));
+    Require(IsValid(icon), "native overlay icon class is not registered");
+    CStructureNetworkContext references;
+    references.externalReferences = true;
+    references.ids[mission.GetPtr()] = 1; references.refs[1] = mission.GetPtr();
+    references.ids[pause.GetPtr()] = 2; references.refs[2] = pause.GetPtr();
+    references.ids[icon.GetPtr()] = 3; references.refs[3] = icon.GetPtr();
+    references.nextID = 100; references.include = [](CObjectBase*) { return false; };
+    CPtr<NGame::IMission> missionRef = mission.GetPtr();
+    list<CObj<CObjectBase>> icons; icons.push_back(icon);
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE, &references);
+      writer.Add(2, &missionRef); writer.Add(27, &pause); writer.Add(traps ? 10 : 11, &icons); }
+    saved.Seek(0);
+    { CStructureSaver reader(saved, CStructureSaver::READ, &references);
+      static_cast<CObjectBase*>(desktop.GetPtr())->operator&(reader); }
+    auto countRetained = [&]() {
+        int count = 0;
+        CStructureNetworkContext graph;
+        graph.include = [&](CObjectBase* object) { if (object == icon.GetPtr()) ++count; return false; };
+        CMemoryStream traversal;
+        { CStructureSaver writer(traversal, CStructureSaver::WRITE, &graph);
+          static_cast<CObjectBase*>(desktop.GetPtr())->operator&(writer); }
+        return count;
+    };
+    Require(countRetained() == 1, "overlay fixture did not restore its existing native icon");
+    NGlobal::SetVar("ui_showicons", 0);
+    bool queriedScene = false;
+    try { desktop->RefreshIcons(traps); } catch (const IconSceneReached&) { queriedScene = true; }
+    Require(!queriedScene, "disabled overlay icons still queried the scene to rebuild markers");
+    Require(countRetained() == 0, "disabling overlay icons retained a stale marker");
+    NGlobal::SetVar("ui_showicons", 1);
+    try { desktop->RefreshIcons(traps); } catch (const IconSceneReached&) { queriedScene = true; }
+    Require(queriedScene && mission->sceneQueries == 1, "enabling overlay icons did not restore native marker updates");
+}
 
 static void AIPlayerMissionReadiness()
 {
@@ -4285,6 +4344,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-event-collection-locks") && argc == 4) { AIEventCollectionLocks(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "mission-overlay-readiness")) { MissionOverlayReadiness(); return true; }
     if (!std::strcmp(mode, "ai-player-mission-readiness")) { AIPlayerMissionReadiness(); return true; }
+    if (!std::strcmp(mode, "sound-icon-visibility")) { OverlayIconVisibility(false); return true; }
+    if (!std::strcmp(mode, "trap-icon-visibility")) { OverlayIconVisibility(true); return true; }
     if (!std::strcmp(mode, "pain-voice-owner")) { Require(argc == 4, "pain voice requires db and res"); PainVoiceOwner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "unconscious-pain-voice")) { Require(argc == 4, "pain eligibility requires db and res"); PainVoiceOwner(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "world-ui-refresh-latch")) { Require(argc == 4, "world UI refresh requires db and res"); WorldUIRefreshLatch(argv[2], argv[3]); return true; }
