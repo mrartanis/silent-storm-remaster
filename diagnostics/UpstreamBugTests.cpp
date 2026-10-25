@@ -5992,6 +5992,74 @@ public:
     bool IsEmptyPK() const override { return shell; }
 };
 
+static void NavigationAliasDestinations(bool arrayOutput)
+{
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    for (int i = 0; i < 5; ++i) {
+        auto* group = i ? network->GetLayer(0)->pGroup.GetPtr() : nullptr;
+        network->CreateLayer(4,4,VNULL2,0.f,i,group);
+    }
+    network->Freeze(true);
+    Require(network->GetNumLayers() == 5, "alias fixture did not create its five shared-group surfaces");
+    for (int i = 0; i < 5; ++i)
+        Require(network->GetLayer(0)->pGroup->layers[i*NAI::N_MAX_LAYERS_PER_FLOOR] == network->GetLayer(i),
+            "alias fixture did not register every candidate in the shared layers group");
+    NAI::STile connected{};
+    connected.nHeight = 100;
+    connected.nDisplacement = 2;
+    connected.nPassable = 7;
+    connected.nMoveStand = 1;
+    connected.nFlags = NAI::TF_HAS_SAME | NAI::TF_STAND_PASSABLE;
+    for (int i = 0; i < 5; ++i) network->GetLayer(i)->tiles[1][1] = connected;
+    auto& isolated = network->GetLayer(1)->tiles[1][1];
+    isolated.nMoveStand = 0;
+    isolated.nFlags = NAI::TF_STAND_PASSABLE;
+    network->GetLayer(3)->tiles[1][1].nHeight = 101;
+    network->GetLayer(4)->tiles[1][1].nPassable = 0;
+    NAI::SPathPlace origin(1,1,0);
+    auto aliases = [&]() {
+        vector<int> result;
+        if (arrayOutput) {
+            NAI::SPathPlace places[5];
+            const auto guard = places[4].GetBits();
+            const int count = network->GetLayer(0)->GetSamePoints(origin,places);
+            Require(count >= 0 && count < 5 && places[4].GetBits() == guard,
+                "array alias enumeration wrote outside its destination slots");
+            for (int i = 0; i < count; ++i) {
+                Require(places[i].GetX() == 1 && places[i].GetY() == 1, "array alias changed the tile coordinates");
+                result.push_back(places[i].GetLayer());
+            }
+        } else {
+            const NAI::SPathPlace sentinel(0,0,0);
+            vector<NAI::SPathPlace> places{sentinel};
+            network->GetLayer(0)->GetSamePoints(origin,&places);
+            Require(!places.empty() && places.front() == sentinel,
+                "vector alias enumeration discarded its caller's existing destinations");
+            for (std::size_t i = 1; i < places.size(); ++i) {
+                Require(places[i].GetX() == 1 && places[i].GetY() == 1, "vector alias changed the tile coordinates");
+                result.push_back(places[i].GetLayer());
+            }
+        }
+        return result;
+    };
+    const auto initial = aliases();
+    std::printf("Navigation aliases (%s):",arrayOutput ? "array" : "vector");
+    for (int layer: initial) std::printf(" %d",layer);
+    std::puts("; expected only connected layer 2");
+    Require(initial == vector<int>({2}),
+        "same-point enumeration included isolated or blocked navigation aliases instead of only the connected copy");
+    isolated.nMoveCrouch = 1;
+    Require(aliases() == vector<int>({1,2}), "a crouch-connected alias was rejected or changed destination order");
+    isolated.nMoveCrouch = 0;
+    isolated.nFlags |= NAI::TF_HAS_INTERGRID;
+    Require(aliases() == vector<int>({1,2}), "an intergrid-linked alias was incorrectly rejected");
+    isolated.nFlags = NAI::TF_STAND_PASSABLE | NAI::TF_IS_LADDER_UP;
+    Require(aliases() == vector<int>({1,2}), "a ladder-connected alias was incorrectly rejected");
+    isolated.nFlags = NAI::TF_STAND_PASSABLE;
+    ++network->GetLayer(2)->tiles[1][1].nDisplacement;
+    Require(aliases().empty(), "unequal displacement or isolated aliases were still reported as connected copies");
+}
+
 static void FlyingShootDirection()
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
@@ -7685,6 +7753,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "empty-passage-exit") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "scripted-passage-transition") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "flying-attack-queue") && argc == 4) { FlyingAttackQueue(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "navigation-alias-vector")) { NavigationAliasDestinations(false); return true; }
+    if (!std::strcmp(mode, "navigation-alias-array")) { NavigationAliasDestinations(true); return true; }
     if (!std::strcmp(mode, "flying-shoot-direction")) { FlyingShootDirection(); return true; }
     if (!std::strcmp(mode, "flying-dynamic-locks")) { FlyingDynamicLocks(); return true; }
     if (!std::strcmp(mode, "arrived-retreat-completion") && argc == 4) { ArrivedRetreatCompletion(argv[2], argv[3]); return true; }

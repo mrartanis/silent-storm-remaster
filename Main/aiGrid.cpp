@@ -674,7 +674,7 @@ void CNodesLayer::GetSamePoints( const SPathPlace& p, vector<SPathPlace> *pRes )
 		if ( pL == this )
 			continue;
 		STile &t2 = pL->tiles[ p.GetY() ][ p.GetX() ];
-		if ( t2.nHeight == t1.nHeight && t2.nDisplacement == t1.nDisplacement )
+		if ( t2.IsLinkedSame( t1 ) )
 			pRes->push_back( SPathPlace( p.GetX(), p.GetY(), pL->nLayer ) );
 	}
 }
@@ -693,7 +693,7 @@ int CNodesLayer::GetSamePoints( const SPathPlace& p, SPathPlace *places )
 		if ( pL == this )
 			continue;
 		STile &t2 = pL->tiles[ p.GetY() ][ p.GetX() ];
-		if ( t2.nHeight == t1.nHeight && t2.nDisplacement == t1.nDisplacement )
+		if ( t2.IsLinkedSame( t1 ) )
 		{
 			places[ nP ] = SPathPlace( p.GetX(), p.GetY(), pL->nLayer );
 			++nP;
