@@ -3826,7 +3826,7 @@ static void ScriptHolsterPersistence(const char* databasePath, const char* resou
         "recording scripted holster intent spent action points before queued execution");
 }
 
-enum class MovementHolsterCheck { Persistent, ShortInactive };
+enum class MovementHolsterCheck { Persistent, ShortInactive, HiddenActive };
 
 static void MovementHolsterPolicy(const char* databasePath, const char* resourcePath,
     MovementHolsterCheck check = MovementHolsterCheck::Persistent)
@@ -3853,10 +3853,11 @@ static void MovementHolsterPolicy(const char* databasePath, const char* resource
     }
     const int ap = actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP);
     int deactivations = 0;
-    auto activationCount = [&](bool persistent, NWorld::ENeedActiveItem constraint, int pointCount = 4) {
+    auto activationCount = [&](bool persistent, NWorld::ENeedActiveItem constraint, int pointCount = 4,
+        bool animationActive = false, bool modelHidden = true) {
         actor->SetWalkWithoutWeapon(persistent);
-        actor->animator.SetActiveItem(false);
-        actor->SetUndrawItem(true);
+        actor->animator.SetActiveItem(animationActive);
+        actor->SetUndrawItem(modelHidden);
         CObj<NAI::CPath> planned = new NAI::CPath;
         planned->pNet = path->pNet.GetPtr();
         planned->points.assign(path->points.begin(), path->points.begin() + pointCount);
@@ -3891,6 +3892,14 @@ static void MovementHolsterPolicy(const char* databasePath, const char* resource
         }
         Require(activationCount(false, NWorld::ITEM_INACTIVE, 4) == 1 && deactivations == 1,
             "short inactive-path exception changed activation policy for a longer path");
+    }
+    if (check == MovementHolsterCheck::HiddenActive) {
+        Require(activationCount(false, NWorld::ITEM_NO_MATTER, 4, true, true) == 1,
+            "hidden weapon was treated as drawn solely because its animator flag was active");
+        Require(activationCount(false, NWorld::ITEM_NO_MATTER, 4, true, false) == 0,
+            "a genuinely drawn weapon received a redundant activation command");
+        Require(activationCount(true, NWorld::ITEM_NO_MATTER, 4, true, true) == 0,
+            "drawn-state reconciliation bypassed persistent scripted holstering");
     }
     Require(actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == ap,
         "constructing the movement activation policy spent action points");
@@ -4691,6 +4700,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "script-holster-persistence")) { Require(argc == 4, "script holster requires db and res"); ScriptHolsterPersistence(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "movement-holster-policy")) { Require(argc == 4, "movement holster requires db and res"); MovementHolsterPolicy(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "short-inactive-movement")) { Require(argc == 4, "inactive movement requires db and res"); MovementHolsterPolicy(argv[2], argv[3], MovementHolsterCheck::ShortInactive); return true; }
+    if (!std::strcmp(mode, "hidden-active-movement")) { Require(argc == 4, "hidden active movement requires db and res"); MovementHolsterPolicy(argv[2], argv[3], MovementHolsterCheck::HiddenActive); return true; }
     if (!std::strcmp(mode, "pain-voice-owner")) { Require(argc == 4, "pain voice requires db and res"); PainVoiceOwner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "unconscious-pain-voice")) { Require(argc == 4, "pain eligibility requires db and res"); PainVoiceOwner(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "world-ui-refresh-latch")) { Require(argc == 4, "world UI refresh requires db and res"); WorldUIRefreshLatch(argv[2], argv[3]); return true; }

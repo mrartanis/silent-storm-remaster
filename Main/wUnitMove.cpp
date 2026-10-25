@@ -1013,7 +1013,7 @@ void CExecMove::ConvertPath( NAI::CPath *pPath, ENeedActiveItem eActive )
 	NRPG::IInventory *pInventory = pUS->GetUnitRPG()->GetInventory();
 	int nSlot = pInventory->GetActiveSlot();
 	CUnitAnimator &animator = pUS->animator;
-	bool bActive = animator.IsActiveItem();
+	bool bActive = animator.IsActiveItem() && !pUS->GetUndrawItem();
 	bool bInactivePose = ( pUS->GetPosition().pos.p.GetPose() == NAI::CM_INACTIVE );
 
 	bLastCommand = false;
