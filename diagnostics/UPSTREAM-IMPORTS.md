@@ -231,6 +231,7 @@
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Respect active-item visibility when cancelling equipment activation | `cancelling equipment activation restored a held-weapon pose for an item marked invisible in hand` | 13/13; `cancelled-equipment-hidden-item-pose` | `Upstream-Commit` в commit message |
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Clear the held item and weapon animation after the final medkit charge | `finishing the last medkit charge retained the held-item or healing weapon animation state` | 16/16; `spent-medkit-pose-cleanup` | `Upstream-Commit` в commit message |
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Clear temporary holster flags when equipment activation completes | `completed equipment activation retained temporary item or heavy-weapon hiding flags` | 16/16; `equipment-completion-holster-flags` | `Upstream-Commit` в commit message |
+| [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Clear the held item and weapon animation after the final picklock charge | `consuming the last picklock charge retained the held-item or weapon animation state` | 17/17; `spent-picklock-pose-cleanup` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1005,3 +1006,29 @@ Windows `ALL_BUILD` и Linux `Game` собраны. Регрессионные �
 `invalid-action-cache-query-green-test.log`,
 `checkpoint-267-linux-{configure,build,test}.log`,
 `checkpoint-267-ci-test.log`, `checkpoint-267-{network,world}-green-test.log`.
+
+### Контрольная проверка после исправления позы исчерпанной отмычки
+
+Windows `ALL_BUILD` собран на контрольной точке из 277 регрессий; полный
+профиль этой точки прошёл 277/277. После добавления проверки отмычки и её
+исправления пересобраны Windows `Game` и тестовый executable, связанный набор
+прошёл 17/17. Linux `Game` собран с исправлением, полный профиль — 278/278.
+Текущий широкий локальный набор Windows — 268/268, сетевые сценарии — 6/6,
+нативный мир, выстрелы и сохранения — 5/5. Сценарий 5247 занял 2.63s.
+Проверка `UpstreamScaledEditTextLayout` повторно прошла в широком наборе;
+прежние packaged fonts, размеры и formatter сохранены.
+
+Первоначально новая проверка отмычки была добавлена только в Windows-список.
+`UpstreamRegistrationTests` обнаружил пропуск Linux-регистрации. Оба списка
+исправлены и проверены повторно; первоначальные журналы с этим отказом и
+прерванным повторным прогоном сохранены отдельно. Это ошибка регистрации
+нового теста, а не игровой RED для исправления позы. Игровой RED отдельно
+подтверждает оставшуюся позу после последнего заряда отмычки.
+
+Свидетельства: `checkpoint-277-all-build.log`,
+`checkpoint-277-full-test.log`, `spent-picklock-pose-cleanup-{red,green}-test.log`,
+`spent-picklock-pose-cleanup-game-build.log`,
+`spent-picklock-linux-{configure,build,test}.log`, `checkpoint-278-ci-test.log`,
+`checkpoint-278-{network,world}-green-test.log`.
+Это локальные проверки выбранных наборов; окончательный GitHub Actions после
+завершения всех переносов ещё требуется.

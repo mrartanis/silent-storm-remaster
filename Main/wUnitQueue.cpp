@@ -587,9 +587,9 @@ bool CExecOpenClose::TimeLabelReached()
 			csSystem << CC_GREEN << L"Picklock used: skill " << nSkill << L", item bonus " << pPick->GetDBPicklock()->nAddToEngSkill << endl;
 			if ( pPick->GetIncQuantity() < 1 )
 			{
-				// the drained picklock is ripped out of the hand and destroyed (retail: TakeOff + ReleaseObj
-				// + animator active-item clear; dev's Update() refreshes the same visuals)
 				CObj<NRPG::IInventoryItem> pErase = pInventory->TakeOff( (NDb::ESlot)pInventory->GetActiveSlot() );
+				pUS->animator.SetActiveItem( false );
+				pUS->animator.SetWeaponAnimation( NDb::WT_DEFAULT );
 				pUS->Update();
 			}
 			float fBonus = 0;

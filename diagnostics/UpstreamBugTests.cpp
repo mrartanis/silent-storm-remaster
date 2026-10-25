@@ -20,6 +20,7 @@
 #include "../MiscDll/Commands.h"
 #include "../DBFormat/DataInterface.h"
 #include "../DBFormat/DataObject.h"
+#include "../DBFormat/DataMisc.h"
 #include "../DBFormat/DataPerk.h"
 #include "../Main/GView.h"
 #include "../Main/iMission.h"
@@ -7661,6 +7662,65 @@ static void SpentMedkitPoseCleanup(const char* databasePath,const char* resource
         "cleaning up the spent medkit changed AP, healed VP or installed an action");
 }
 
+static void SpentPicklockPoseCleanup(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) { actor = unit; break; }
+    }
+    NWorld::CWindowDoor* door = nullptr;
+    for (const auto& entry: world->GetObjectsForHarness()) {
+        auto* candidate = dynamic_cast<NWorld::CWindowDoor*>(entry.GetPtr());
+        if (candidate && !candidate->IsBroken()) { door = candidate; break; }
+    }
+    Require(actor && door, "spent-picklock fixture lacks a native actor or authored door");
+    NDb::CRPGPicklock* record = nullptr;
+    CDBIterator<NDb::CRPGPicklock> picks(*NDatabase::GetTable<NDb::CRPGPicklock>());
+    while (picks.MoveNext()) {
+        auto* pick = picks.Get();
+        if (IsValid(pick->pItem) && pick->nQuantity >= 2) { record = pick; break; }
+    }
+    Require(record != nullptr, "spent-picklock fixture has no authored picklock with two charges");
+    CObj<NRPG::CPicklockItem> pick = new NRPG::CPicklockItem(record);
+    pick->GetItem()->nQuantity = 2;
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    const auto previousWeaponType = actor->GetUnitRPG()->GetWeaponType();
+    Require(previousWeaponType != NDb::WT_DEFAULT, "spent-picklock fixture needs a preceding held weapon pose");
+    CObj<NRPG::IInventoryItem> previous = inventory->Get(NDb::SLOT_1) ? inventory->TakeOff(NDb::SLOT_1) : nullptr;
+    Require(inventory->Equip(NDb::SLOT_1,pick) && inventory->Activate(NDb::SLOT_1),
+        "spent-picklock fixture could not equip its native picklock");
+    door->LockDoor(true,0x7fffffff,0x7fffffff); // Guaranteed failed attempts, independently of the native roll.
+    const bool open = door->IsOpen();
+    const int ap = actor->GetAP();
+    actor->animator.SetActiveItem(true);
+    actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
+    CObj<NWorld::CExecOpenClose> executor = new NWorld::CExecOpenClose(actor,new NWorld::CCmdOpenClose(door,!open));
+    executor->TimeLabelReached();
+    Require(pick->GetIncQuantity() == 1 && inventory->GetActive() == pick.GetPtr() && actor->animator.IsActiveItem(),
+        "a failed pick attempt did not retain the nonempty picklock and its held pose");
+    // Include the preceding weapon set retained in a restored legacy animation state.
+    actor->animator.SetWeaponAnimation(previousWeaponType);
+    executor->TimeLabelReached();
+    Require(pick->GetIncQuantity() == 0 && !inventory->GetActive(),
+        "the final failed pick attempt did not remove exactly one exhausted picklock");
+    CMemoryStream fields;
+    CStructureNetworkContext references;
+    references.include = [](CObjectBase*) { return false; };
+    { CStructureSaver writer(fields,CStructureSaver::WRITE,&references); actor->animator.operator&(writer); }
+    fields.Seek(0);
+    auto animation = previousWeaponType;
+    { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(29,&animation); }
+    Require(!actor->animator.IsActiveItem() && animation == NDb::WT_DEFAULT,
+        "consuming the last picklock charge retained the held-item or weapon animation state");
+    Require(door->IsLockedDoor() && door->IsOpen() == open && actor->GetAP() == ap && !actor->HasCommand(),
+        "picklock pose cleanup changed the failed lock result, AP or gameplay orders");
+}
+
 static void PersonaFullDisplayName(const char* databasePath)
 {
     CFileStream database;
@@ -10499,6 +10559,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "initial-hidden-item-pose")) { Require(argc == 4, "initial item pose requires db and res"); CancelledInventoryHiddenItemPose(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "cancelled-equipment-hidden-item-pose")) { Require(argc == 4, "equipment cancellation requires db and res"); CancelledInventoryHiddenItemPose(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "spent-medkit-pose-cleanup")) { Require(argc == 4, "spent medkit requires db and res"); SpentMedkitPoseCleanup(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "spent-picklock-pose-cleanup")) { Require(argc == 4, "spent picklock requires db and res"); SpentPicklockPoseCleanup(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }
