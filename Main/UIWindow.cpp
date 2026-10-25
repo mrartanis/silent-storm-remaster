@@ -20,6 +20,22 @@
 namespace NUI
 {
 namespace {
+// Registry function keys keep anonymous handlers alive. Counts allow several
+// windows to share one closure; the existing Lua registry is already serialized.
+void ChangeHandlerReference(NScript::CScript* script, int handle, int delta) {
+  if (!IsValid(script) || handle == 0) return;
+  Script::AutoBlock stack(*script);
+  lua_State* state = script->GetState();
+  lua_getregistry(state);
+  lua_pushcallinfo(state, handle);
+  lua_rawget(state, -2);
+  const int count = int(lua_tonumber(state, -1)) + delta;
+  lua_pop(state, 1);
+  lua_pushcallinfo(state, handle);
+  if (count > 0) lua_pushnumber(state, count);
+  else lua_pushnil(state);
+  lua_rawset(state, -3);
+}
 bool MissionPanel(const string& id) {
   return id=="inventorypanel" || id=="characterpanel" || id=="perkspanel" ||
       id=="storepanel" || id=="medalspanel" || id=="biographypanel";
@@ -75,6 +91,8 @@ int CWindow::operator&( CStructureSaver &f )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CWindow::~CWindow()
 {
+	for (unordered_map<CPtr<NScript::CScript>,int,SPtrHash>::const_iterator i = eventsMap.begin(); i != eventsMap.end(); ++i)
+		ChangeHandlerReference(i->first, i->second, -1);
 	// retail @0x327920: RemoveChild(pParent, this) iff pParent is set and not ref-invalid (== IsValid).
 	if ( IsValid( pParent ) )
 		pParent->RemoveChild( this );
@@ -612,6 +630,8 @@ int CWindow::GetEventHandler( NScript::CScript *pHandlerScript ) const
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWindow::SetEventHandler( int nCallInfo, NScript::CScript *pHandlerScript )
 {
+	ChangeHandlerReference(pHandlerScript, nCallInfo, 1);
+	ChangeHandlerReference(pHandlerScript, GetEventHandler(pHandlerScript), -1);
 	eventsMap[pHandlerScript] = nCallInfo;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

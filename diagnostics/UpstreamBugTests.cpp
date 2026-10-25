@@ -93,6 +93,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/scriptCommon.h"
 #include "../Main/scriptUI.h"
 #include "../Script/lstate.h"
+#include "../Script/lgc.h"
 #include "../Main/scriptPtr.h"
 #include "../Main/aiMisc.h"
 #include "../Main/wOSBase.h"
@@ -486,6 +487,54 @@ static void WindowMessageCallbacks()
     window->ProcessMessage(NUI::SEvent(NUI::EVENT_NOTIFY, std::string("after-clear")));
     Require(number("calls") == expected && number("cleared") == 1 && IsValid(window),
         "clearing a Lua callback retained its handler or invalidated the UI-owned window");
+}
+
+static void WindowCallbackLifetime()
+{
+    CObj<NUI::CInterface> interface = new NUI::CInterface;
+    interface->SetInterface(interface);
+    CMObj<NUI::CWindow> first = new NUI::CWindow(NUI::SWindowInfo(interface,
+        NUI::SPoint(0, 0), NUI::SPoint(20, 20), "gc-first"));
+    CMObj<NUI::CWindow> second = new NUI::CWindow(NUI::SWindowInfo(interface,
+        NUI::SPoint(0, 0), NUI::SPoint(20, 20), "gc-second"));
+    CObj<NScript::CScript> script = NScript::CreateScript(nullptr);
+    script->SetScriptInterface(interface);
+    lua_State* state = script->GetState();
+    auto execute = [&](const char* code) {
+        Require(script->DoString(code) == LUA_NOERR, "window callback lifetime fixture did not compile");
+        script->ExecuteThreads();
+        script->SetTop(0);
+        luaC_checkGC(state);
+    };
+    auto alive = [&](int handle) {
+        return handle > 0 && handle <= state->closures.size() && state->closures[handle - 1] != nullptr;
+    };
+    auto calls = [&]() {
+        Script::AutoBlock stack(*script);
+        return script->GetGlobal("calls").GetNumber();
+    };
+    execute("calls=0; GetWindow('gc-first').onmessage=function(w,event,id) calls=calls+1; w.y=15 end");
+    const int anonymous = first->GetEventHandler(script);
+    Require(alive(anonymous), "anonymous window callback was reclaimed while still registered");
+    first->ProcessMessage(NUI::SEvent(NUI::EVENT_NOTIFY, std::string("anonymous")));
+    Require(calls() == 1 && first->GetPosition().y == 15,
+        "anonymous window callback could not execute after Lua garbage collection");
+    execute("GetWindow('gc-first').onmessage=nil");
+    Require(!alive(anonymous), "cleared anonymous window callback remained rooted in Lua");
+    execute("shared=function(w,event,id) calls=calls+1 end; GetWindow('gc-first').onmessage=shared; GetWindow('gc-second').onmessage=shared; shared=nil");
+    const int shared = second->GetEventHandler(script);
+    Require(alive(shared) && shared == first->GetEventHandler(script),
+        "two windows could not share a callback without a Lua global root");
+    execute("GetWindow('gc-first').onmessage=nil");
+    Require(alive(shared), "clearing one window reclaimed another window's shared callback");
+    second->ProcessMessage(NUI::SEvent(NUI::EVENT_NOTIFY, std::string("shared")));
+    Require(calls() == 2, "shared window callback did not survive removal from another window");
+    CPtr<NUI::CWindow> released = second.GetPtr();
+    interface->RemoveChild(second);
+    second = nullptr;
+    luaC_checkGC(state);
+    Require(!IsValid(released) && !alive(shared), "destroying a window retained its otherwise unreachable callback");
+    Require(script->GetTop() == 0, "window callback rooting changed the owning Lua stack");
 }
 
 static void WorldlessUIScript()
@@ -5842,6 +5891,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "lua-window-setter-stack")) { LuaWindowSetterStack(); return true; }
     if (!std::strcmp(mode, "lua-window-state-context")) { LuaWindowStateContext(); return true; }
     if (!std::strcmp(mode, "window-message-callbacks")) { WindowMessageCallbacks(); return true; }
+    if (!std::strcmp(mode, "window-callback-lifetime")) { WindowCallbackLifetime(); return true; }
     if (!std::strcmp(mode, "window-template-script")) { Require(argc == 3, "window template script requires db"); WindowTemplateScript(argv[2]); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
     if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }
