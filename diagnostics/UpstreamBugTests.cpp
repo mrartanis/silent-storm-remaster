@@ -5073,6 +5073,17 @@ static void HolsteredHeavyWeaponMesh(const char* databasePath, const char* resou
     Require(heavyCount(true) == 0, "holstered active heavy weapon remained in the native render bindings");
     Require(inventory->Activate(NDb::SLOT_2) && heavyCount(true) == 1,
         "active-weapon holster gate incorrectly hid an inactive carried heavy weapon");
+    if (visibility == 2) {
+        const int ap = actor->GetAP(), ammo = weapon->GetAmmoQuantity();
+        heavy->pItem->bPlaceInHand = false;
+        Require(heavyCount(true) == 0,
+            "an inactive heavy item marked invisible still attached its carried weapon mesh");
+        Require(inventory->Get(NDb::SLOT_1) == weapon.GetPtr() && inventory->GetActiveSlot() == NDb::SLOT_2 &&
+            actor->GetAP() == ap && weapon->GetAmmoQuantity() == ammo,
+            "hiding an inactive heavy mesh changed equipment, the active slot, AP or ammunition");
+        heavy->pItem->bPlaceInHand = true;
+        Require(heavyCount(true) == 1, "reenabling an inactive heavy item's visibility failed to restore its carried mesh");
+    }
 }
 
 class AckPriorityDesktop: public NUI::CDesktopWindow
@@ -9846,6 +9857,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "finished-music-silence")) { Require(argc == 3, "finished music requires db"); FinishedMusicSilence(argv[2]); return true; }
     if (!std::strcmp(mode, "holstered-heavy-weapon-mesh")) { Require(argc == 4, "heavy mesh requires db and res"); HolsteredHeavyWeaponMesh(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hidden-active-item-mesh")) { Require(argc == 4, "hidden active mesh requires db and res"); HolsteredHeavyWeaponMesh(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "hidden-carried-heavy-mesh")) { Require(argc == 4, "hidden carried mesh requires db and res"); HolsteredHeavyWeaponMesh(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "script-holster-persistence")) { Require(argc == 4, "script holster requires db and res"); ScriptHolsterPersistence(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "movement-holster-policy")) { Require(argc == 4, "movement holster requires db and res"); MovementHolsterPolicy(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "short-inactive-movement")) { Require(argc == 4, "inactive movement requires db and res"); MovementHolsterPolicy(argv[2], argv[3], MovementHolsterCheck::ShortInactive); return true; }

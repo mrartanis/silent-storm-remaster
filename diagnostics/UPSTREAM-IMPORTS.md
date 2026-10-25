@@ -215,6 +215,7 @@
 | [5528542f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5528542f16fdd90afe1ff2964c193f5af54d4f36) — Preserve packaged edit fonts while correcting screen-scaled layout bounds | `the edit renderer changed the remaster's original high-resolution font or its default point size` | 260/260; `preserve-native-edit-fonts` | `Upstream-Commit` в commit message |
 | [5528542f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5528542f16fdd90afe1ff2964c193f5af54d4f36) — Select long-burst voice from the firing unit acknowledgement donor | `starting a real long burst played the fixed generic voice instead of the shooter's acknowledgement donor` | 261/261; `long-burst-voice-donor` | `Upstream-Commit` в commit message |
 | [7a9e903d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7a9e903dd299c89f260c0e9311fbb15127bbd980) — Honor the authored visibility flag for active item meshes | `an active item marked invisible in hand still attached its native weapon mesh` | 262/262; `hidden-active-item-mesh` | `Upstream-Commit` в commit message |
+| [7a9e903d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7a9e903dd299c89f260c0e9311fbb15127bbd980) — Honor the authored visibility flag for inactive carried heavy meshes | `an inactive heavy item marked invisible still attached its carried weapon mesh` | 262/262; `hidden-carried-heavy-mesh` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

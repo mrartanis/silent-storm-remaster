@@ -230,7 +230,7 @@ void GetItemsBindPlaces( vector<IRenderVisitor::SBoundMesh> *pRes, NRPG::IUnitMi
 			continue;
 		if ( pItem->subType == NDb::SUBTYPE_HEAVY && !bHeavy )
 		{
-			if ( !bNoHeavyWeapon )
+			if ( pItem->bPlaceInHand && !bNoHeavyWeapon )
 				AttachItem( pRes, &rnd, UIT_WEAPON_HEAVY, pItem->pModel, bIsPK, pIItem );
 			bHeavy = true;
 		}
