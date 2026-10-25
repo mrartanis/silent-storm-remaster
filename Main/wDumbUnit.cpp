@@ -705,6 +705,16 @@ int CDumbUnitServer::ProcessAttack( NWorld::IWorld *_pWorld, int nUserID, NRPG::
 		pRPG->ApplyCritical( suffer );
 	}
 
+	// Retail v1.2 0x7512e6: use the world state before death/KO reconciliation.
+	if ( CanFight() )
+	{
+		NDb::CRPGPers *pAckPers = pRPG->GetRPGUnit()->GetAckHolder();
+		if ( !pAckPers )
+			pAckPers = pRPG->GetRPGPers();
+		if ( pAckPers )
+			PlaySound( pAckPers->pSoundHit );
+	}
+
 	if ( !IsDead() )
 	{
 		CVec3 ptHit;
@@ -716,11 +726,6 @@ int CDumbUnitServer::ProcessAttack( NWorld::IWorld *_pWorld, int nUserID, NRPG::
 		bool bPK = IsValid( pRPG->GetRPGPers()->pPanzerklein ) ||
 			( IsValid( pRPG->GetPanzerklein() ) && nRes < 0 );
 		pWorld->AddHitLocator( new CHitLocator( nRes, bPK, ptHit, CDynamicCast<CUnit>( (CObjectBase*)this ) ) );
-		NDb::CRPGPers *pAckPers = pRPG->GetRPGUnit()->GetAckHolder();
-		if ( !pAckPers )
-			pAckPers = pRPG->GetRPGPers();
-		if ( pAckPers )
-			PlaySound( pAckPers->pSoundHit );
 
 		if ( nRes > 5 )
 		{

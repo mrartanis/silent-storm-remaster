@@ -1525,7 +1525,7 @@ static vector<NDb::CSound*> UnitAttachedSounds(NWorld::CUnitServer* actor)
     return visitor.sounds;
 }
 
-static void PainVoiceOwner(const char* databasePath, const char* resourcePath)
+static void PainVoiceOwner(const char* databasePath, const char* resourcePath, bool unconscious = false)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath, resourcePath, false, &game);
@@ -1578,6 +1578,19 @@ static void PainVoiceOwner(const char* databasePath, const char* resourcePath)
     Require(UnitAttachedSounds(actor).size() == sounds.size(), "missing pain voice created a spurious sound");
     Require(actor->CanFight() && actor->GetUnitRPG()->GetTotalVP() == vp,
         "pain-voice selection changed combat health or consciousness");
+    if (unconscious) {
+        persona->pSoundHit = ownTemplate.GetPtr();
+        actor->MakeUnconscious(VNULL3, true, false);
+        Require(actor->IsUnconscious() && !actor->IsDead() && !actor->CanFight(),
+            "pain-eligibility fixture did not enter the native unconscious state");
+        const auto quiet = UnitAttachedSounds(actor);
+        strike();
+        Require(UnitAttachedSounds(actor).size() == quiet.size(),
+            "an already unconscious actor emitted a new pain voice on a hit");
+        Require(actor->GetUnitRPG()->GetTotalVP() == vp && actor->IsUnconscious(),
+            "pain eligibility changed health or the native unconscious state");
+    }
+
 }
 
 class AckPriorityDesktop: public NUI::CDesktopWindow
@@ -4273,6 +4286,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-overlay-readiness")) { MissionOverlayReadiness(); return true; }
     if (!std::strcmp(mode, "ai-player-mission-readiness")) { AIPlayerMissionReadiness(); return true; }
     if (!std::strcmp(mode, "pain-voice-owner")) { Require(argc == 4, "pain voice requires db and res"); PainVoiceOwner(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "unconscious-pain-voice")) { Require(argc == 4, "pain eligibility requires db and res"); PainVoiceOwner(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "world-ui-refresh-latch")) { Require(argc == 4, "world UI refresh requires db and res"); WorldUIRefreshLatch(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "dialogue-camera-filter")) { CinematicCameraCommands(0); return true; }
     if (!std::strcmp(mode, "movie-camera-filter")) { CinematicCameraCommands(1); return true; }
