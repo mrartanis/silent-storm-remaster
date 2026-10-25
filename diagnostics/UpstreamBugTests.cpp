@@ -60,6 +60,7 @@
 #include "../Main/iSaveLoad.h"
 #include "../MiscDll/LogStream.h"
 #include <filesystem>
+#include <fstream>
 #include "../Main/aiLocker.h"
 #include "../Main/wUnitServer.h"
 #include "../Main/RPGItem.h"
@@ -1574,6 +1575,39 @@ static vector<unsigned char> SilentPCMFixture(unsigned frames = 1000,unsigned sa
     put(20,1,2); put(22,1,2); put(24,sampleRate,4); put(28,sampleRate*2,4);
     put(32,2,2); put(34,16,2); std::memcpy(wave.data()+36,"data",4); put(40,frames*2,4);
     return wave;
+}
+
+struct TemporaryAudioFile
+{
+    std::filesystem::path path;
+    TemporaryAudioFile()
+    {
+        const char* directory = std::getenv("S2_USER_DATA_DIR");
+        Require(directory != nullptr, "native music fixture needs an isolated temporary directory");
+        path = std::filesystem::path(directory)/"native-music-fixture.wav";
+        std::filesystem::create_directories(path.parent_path());
+        const auto wave = SilentPCMFixture(88200);
+        std::ofstream output(path,std::ios::binary|std::ios::trunc);
+        output.write(reinterpret_cast<const char*>(wave.data()),static_cast<std::streamsize>(wave.size()));
+        Require(output.good(), "native music fixture could not write its temporary PCM file");
+    }
+    ~TemporaryAudioFile() { std::error_code error; std::filesystem::remove(path,error); }
+};
+
+static void HeadlessMusicStream()
+{
+    Require(std::getenv("S2_AUDIO_HEADLESS") != nullptr, "native music fixture requires headless audio");
+    TemporaryAudioFile wave;
+    Require(NFMSound::Init(NFMSound::SStartInfo()), "native music fixture could not initialize audio");
+    struct AudioCleanup { ~AudioCleanup() { NFMSound::Done(); } } cleanup;
+    CObj<NFMSound::CStream> stream = NFMSound::PlayStream(wave.path.string().c_str(),false,250,true,0);
+    Require(IsValid(stream) && NFMSound::IsPlaying(stream),
+        "headless native music still required a physical audio device to open a valid PCM stream");
+    Require(NFMSound::GetStreamTime(stream) == 250,
+        "headless native music did not retain its exact initial PCM cursor");
+    SDL_Delay(100);
+    Require(NFMSound::IsPlaying(stream) && NFMSound::GetStreamTime(stream) == 250,
+        "headless native music advanced on a physical device instead of waiting for explicit rendering");
 }
 
 static void LateLoopingSoundOffset()
@@ -8716,6 +8750,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
     if (!std::strcmp(mode, "late-looping-sound-offset")) { LateLoopingSoundOffset(); return true; }
+    if (!std::strcmp(mode, "headless-music-stream")) { HeadlessMusicStream(); return true; }
     if (!std::strcmp(mode, "exit-menu-confirmation") && argc == 4) { ExitMenuConfirmation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "supplied-defeat-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "supplied-options-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3]); return true; }

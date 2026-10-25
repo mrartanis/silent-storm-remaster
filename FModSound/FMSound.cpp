@@ -12,6 +12,7 @@
 #if defined(S2_NATIVE_MUSIC)
 #include "..\Media\NativeMusicPlayer.h"
 #include <memory>
+#include <cstdlib>
 #endif
 
 namespace NFMSound 
@@ -249,7 +250,7 @@ public:
 		nFlags = bLoop ? nFlags | FSOUND_LOOP_NORMAL : nFlags;
 #if defined(S2_NATIVE_MUSIC)
 		music.reset( new S2Media::NativeMusicPlayer );
-		if ( !music->Init() || !music->Play( pszFileName, bLoop, nStartMs ) )
+		if ( !music->Init( std::getenv("S2_AUDIO_HEADLESS") != 0 ) || !music->Play( pszFileName, bLoop, nStartMs ) )
 		{
 			DebugTrace( "NATIVE-MUSIC open failed: %s\n", pszFileName );
 			music.reset();

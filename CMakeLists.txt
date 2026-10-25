@@ -920,6 +920,8 @@ add_test(NAME UpstreamSoundMixerClockCatchUp COMMAND UpstreamBugTests sound-mixe
 set_tests_properties(UpstreamSoundMixerClockCatchUp PROPERTIES ENVIRONMENT "S2_AUDIO_HEADLESS=1")
 add_test(NAME UpstreamLateLoopingSoundOffset COMMAND UpstreamBugTests late-looping-sound-offset)
 set_tests_properties(UpstreamLateLoopingSoundOffset PROPERTIES ENVIRONMENT "S2_AUDIO_HEADLESS=1")
+add_test(NAME UpstreamHeadlessMusicStream COMMAND UpstreamBugTests headless-music-stream)
+set_tests_properties(UpstreamHeadlessMusicStream PROPERTIES ENVIRONMENT "S2_AUDIO_HEADLESS=1;S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/upstream-headless-music-user")
 add_test(NAME UpstreamConnectedAliasMoves COMMAND UpstreamBugTests connected-alias-moves)
 add_test(NAME UpstreamIsolatedSourceMoves COMMAND UpstreamBugTests isolated-source-moves)
 add_test(NAME UpstreamLockedAliasMoves COMMAND UpstreamBugTests locked-alias-moves)

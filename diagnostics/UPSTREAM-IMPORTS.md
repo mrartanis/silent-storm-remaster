@@ -196,6 +196,16 @@
 
 ## Продолжение
 
+Локальная предпосылка музыкальных проверок: `headless-music-stream` воспроизвел,
+что музыка игнорировала `S2_AUDIO_HEADLESS` и продвигала PCM-позицию через физическое
+аудиоустройство. Нативный stream теперь передает существующий headless-флаг
+в `NativeMusicPlayer::Init`; обычный запуск без флага сохраняет прежний режим.
+Тест открывает настоящий временный WAV, проверяет playback и точный seek 250ms,
+ждет 100ms и подтверждает отсутствие аппаратного продвижения. Файл удаляется.
+Это исправление нашего backend, а не перенос upstream: исходная интеграция
+`d0cd6acd96d98be395de6f27e2edda1c0ef134b8` указана как `Original-Commit`.
+Windows профиль после исправления: 241/241. Это не подтверждение успеха GitHub Actions.
+
 Сначала priority findings отчета: render compaction, invalid AI weapon,
 state/queue lifetime, dead AI/overlapping locks, PK model ownership,
 mounted gun modes, sniper fire, partial DB import, clues/route, tooltips,
