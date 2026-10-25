@@ -282,7 +282,7 @@ void CLightState::TraceDynamicLMPointLight( SDynamicAmbientInfo *pRes, const CVe
 	float f;
 	CVec3 vA, vColor;
 	CRay r;
-	if ( fDist > fTargetR )
+	if ( pVis && fDist > fTargetR )
 	{
 		float fStep = fTargetR / fDist;
 		r.ptOrigin = vCenter;

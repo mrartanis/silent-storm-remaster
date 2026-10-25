@@ -54,6 +54,7 @@
 #include "../Main/GCombiner.h"
 #include "../Main/GSceneUtils.h"
 #include "../Main/GRenderCore.h"
+#include "../Main/GLightmapCalc.h"
 #include "../Main/GGeometryPositionHash.h"
 using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/rpgGlobal.h"
@@ -423,6 +424,29 @@ static void DeferredClickWorld()
     Require(click->Segment() && target->calls == 1, "targetless ClickOfDeath invoked a damage callback");
     click = nullptr;
     Require(!world->IsAction(), "targetless ClickOfDeath retained its action counter");
+}
+
+static void PointLightWithoutScene()
+{
+    NGScene::CLightState light;
+    light.points.emplace_back(CVec3(1, 2, 3), VNULL3, 12.f);
+    NGScene::SDynamicAmbientInfo result;
+    light.TraceDynamicLM(&result, SSphere(CVec3(1, 0, 0), 0.1f), nullptr);
+    // Original falloff at distance 1 with radius 12 is 1/(1+6/12)^2.
+    Require(fabs2(result.vXNeg.v - CVec3(4.f/9.f, 8.f/9.f, 12.f/9.f)) < 1e-10f,
+        "unshadowed point light changed its original colour or distance attenuation");
+    Require(fabs2(result.vXPos.v) + fabs2(result.vYPos.v) + fabs2(result.vYNeg.v)
+            + fabs2(result.vZPos.v) + fabs2(result.vZNeg.v) == 0,
+        "unshadowed point light illuminated the wrong receiver direction");
+    light.TraceDynamicLM(&result, SSphere(CVec3(20, 0, 0), 0.1f), nullptr);
+    Require(fabs2(result.vXNeg.v) == 0, "out-of-radius point light contributed to the receiver");
+    light.points.clear();
+    light.semiPoints.emplace_back(CVec3(1, 2, 3), VNULL3, CVec3(1, 0, 0), 12.f);
+    light.TraceDynamicLM(&result, SSphere(CVec3(-1, 0, 0), 0.1f), nullptr);
+    Require(fabs2(result.vXPos.v) == 0, "semi-point light illuminated its excluded hemisphere");
+    light.TraceDynamicLM(&result, SSphere(CVec3(1, 0, 0), 0.1f), nullptr);
+    Require(fabs2(result.vXNeg.v - CVec3(4.f/9.f, 8.f/9.f, 12.f/9.f)) < 1e-10f,
+        "unshadowed semi-point light lost its allowed hemisphere");
 }
 
 static void CompletedZoneRecommendation()
@@ -3214,6 +3238,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "partial-reference-import") && argc == 3) PartialReferenceImport(argv[2]);
         else if (!std::strcmp(mode, "permanent-clue-single-map")) PermanentClueSingleMap();
         else if (!std::strcmp(mode, "deferred-click-world")) DeferredClickWorld();
+        else if (!std::strcmp(mode, "point-light-without-scene")) PointLightWithoutScene();
         else if (!std::strcmp(mode, "completed-zone-recommendation")) CompletedZoneRecommendation();
         else if (!std::strcmp(mode, "perk-tooltip-parameters")) PerkTooltipParameters();
         else if (!std::strcmp(mode, "mechanical-step-sound")) MechanicalStepSound();
