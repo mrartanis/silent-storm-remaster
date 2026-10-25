@@ -26,6 +26,7 @@ def main():
     parser.add_argument("--ctest", default="ctest")
     parser.add_argument("--config", default="")
     parser.add_argument("--check-configured", choices=("0", "1"), default="0")
+    parser.add_argument("--native-audio", choices=("0", "1"), default="0")
     args = parser.parse_args()
     root = pathlib.Path(__file__).resolve().parent.parent
     windows = registrations(root / "CMakeLists.txt")
@@ -59,12 +60,28 @@ def main():
         if result.returncode:
             print(f"FAIL: cannot inspect configured CTest inventory: {result.stderr.strip()}")
             return 1
-        configured = {test["name"] for test in json.loads(result.stdout)["tests"]}
+        inventory = json.loads(result.stdout)["tests"]
+        configured = {test["name"] for test in inventory}
         missing = sorted(expected - configured)
         if missing:
             print(f"FAIL: {len(missing)} resource-free engine regressions are absent from configured CTest: {missing}")
             return 1
         print(f"PASS: all {len(expected)} resource-free engine regressions are configured")
+        audio = []
+        for test in inventory:
+            properties = {item["name"]: item["value"] for item in test.get("properties", [])}
+            if "native-audio" not in properties.get("LABELS", []):
+                continue
+            audio.append(test["name"])
+            disabled = bool(properties.get("DISABLED", False))
+            if disabled != (args.native_audio == "0"):
+                print(f"FAIL: {test['name']} native-audio availability disagrees with the configured backend "
+                      f"(native={args.native_audio}, disabled={disabled})")
+                return 1
+        if not audio:
+            print("FAIL: no native-audio regressions were identified in configured CTest")
+            return 1
+        print(f"PASS: {len(audio)} native-audio regressions match backend availability={args.native_audio}")
     return 0
 
 
