@@ -134,6 +134,7 @@
 | [fd6e670e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fd6e670eb20104ae2d7da195170af9adbdd5a6c2) — Resolve a source actor for ownerless inventory drags | `ownerless inventory drag did not use the first selected unit` | 168/168; `ownerless-inventory-drag` | `Upstream-Commit` в commit message |
 | [a3051bb1](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a3051bb1bd1a24c5901d7094b3d913426993a6ff) — Resolve loaded empty navigation slots through matching support surfaces | `loaded empty navigation slot did not resolve its real supporting surface floor` | 169/169; `unsupported-navigation-floor` | `Upstream-Commit` в commit message |
 | [a3051bb1](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a3051bb1bd1a24c5901d7094b3d913426993a6ff) — Reject unsupported height-field slots during navigation baking | `native navigation bake generated passable tiles without supporting surfaces` | 170/170; `unsupported-navigation-bake` | `Upstream-Commit` в commit message |
+| [a3051bb1](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a3051bb1bd1a24c5901d7094b3d913426993a6ff) — Refresh rendered living units after navigation floor changes | `living unit with a stale rendered floor did not refresh its native visibility binding` | 171/171; `living-unit-floor-refresh` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -451,3 +452,20 @@ Windows/Linux — 166/166; Windows `ALL_BUILD`, Linux `Game` собраны.
 `checkpoint-166-all-build.log`, `checkpoint-166-ci-test.log`,
 `checkpoint-166-shots-test.log`. Это локальные проверки; финальный GitHub Actions
 всё ещё должен быть проверен на конечном HEAD всего переноса.
+
+### Контроль после исправления пустых навигационных поверхностей
+
+`a3051bb1` завершён тремя отдельными RED/GREEN-коммитами: определение этажа
+загруженной пустой ячейки, построение сетки без фиктивной опоры и обновление
+уже нарисованной модели живого бойца при изменении этажа без перемещения.
+На реальной карте 810 до исправления было 338 проходимых ячеек, из них
+32 без поверхности; после исправления — 306, все с опорой.
+Тест обновления модели проходит через настоящий visibility binding и
+render visitor, проверяет подтверждение отрисовкой и сохранение позиции/AP.
+
+Windows/Linux — 171/171; Windows `ALL_BUILD` и Linux `Game` собраны.
+Расширенные Windows проверки — 223/223; стрельба/сжатое сохранение/слот — 4/4.
+Логи `unsupported-navigation-{floor,bake}-{red,green}-test.log`,
+`unsupported-navigation-bake-counts.log`, `living-unit-floor-refresh-{red,green}-test.log`,
+`living-floor-linux-test.log`, `checkpoint-171-all-build.log`,
+`checkpoint-171-ci-test.log`, `checkpoint-171-shots-test.log`.

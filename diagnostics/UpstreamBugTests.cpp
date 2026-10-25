@@ -2336,6 +2336,74 @@ static void UnsupportedNavigationBake(const char* databasePath, const char* reso
     Require(unsupported == 0, "native navigation bake generated passable tiles without supporting surfaces");
 }
 
+class UnitFloorPresentation: public CSyncDst<NWorld::IVisObj>, public NWorld::IRenderVisitor
+{
+    NWorld::IVisObj* target;
+    void VisitObject(int, NWorld::IVisObj* object) override {
+        if (object != target) return;
+        ++updates;
+        if (render) object->Visit(this);
+    }
+public:
+    int updates = 0, meshFloor = 1000;
+    bool render = false;
+    UnitFloorPresentation(NWorld::CWorld* world, NWorld::IVisObj* actor): CSyncDst(world->GetUnits()), target(actor) {}
+    void AddMesh(NDb::CModel*, CFuncBase<NAnimation::SSkeletonPose>*, CFuncBase<NAnimation::SSkeletonState>*,
+        const vector<SBoundMesh>&, NGScene::CLightGroup*, int floor, NWorld::CUnit*, int) override { meshFloor = floor; }
+};
+
+static void LivingUnitFloorRefresh(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (const auto& unit: units) {
+        auto* candidate = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if (candidate && candidate->CanFight() && !candidate->IsEmptyPK() && !candidate->IsClueUnit()
+                && candidate->IsAddedToVisitor() && candidate->GetPosition().pos.p.IsIntegral()) {
+            actor = candidate; break;
+        }
+    }
+    Require(actor != nullptr, "living-unit floor fixture has no ordinary visible actor");
+    const auto position = actor->GetPosition();
+    auto* network = dynamic_cast<NAI::CPathNetwork*>(world->GetPathNetwork());
+    auto& tile = network->GetLayer(position.pos.p.GetLayer())->tiles[position.pos.p.GetY()][position.pos.p.GetX()];
+    const short originalFloor = tile.nFloor;
+    const float originalAP = actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP);
+    UnitFloorPresentation presentation(world, actor);
+    presentation.Sync(); presentation.updates = 0;
+    tile.nFloor = originalFloor + 1;
+    actor->NWorld::CDumbUnitServer::Segment(); presentation.Sync();
+    Require(presentation.updates == 0, "never-rendered living unit was unnecessarily requeued for a floor refresh");
+    tile.nFloor = originalFloor;
+    actor->Visit(static_cast<NWorld::IRenderVisitor*>(&presentation));
+    Require(presentation.meshFloor == originalFloor, "native render visitor did not record the unit's initial floor");
+    actor->NWorld::CDumbUnitServer::Segment(); presentation.Sync();
+    Require(presentation.updates == 0, "unchanged living unit was repeatedly marked dirty for rendering");
+    tile.nFloor = originalFloor + 1;
+    Require(actor->NWorld::CDumbUnitServer::GetFloor() == originalFloor + 1,
+        "navigation floor edit did not reach the living unit's live position");
+    actor->NWorld::CDumbUnitServer::Segment(); presentation.Sync();
+    Require(presentation.updates == 1, "living unit with a stale rendered floor did not refresh its native visibility binding");
+    Require(presentation.meshFloor == originalFloor, "unit floor cache was overwritten before the render visitor rebuilt its mesh");
+    actor->NWorld::CDumbUnitServer::Segment(); presentation.Sync();
+    Require(presentation.updates == 2, "unrendered stale unit stopped requesting its pending floor refresh");
+    presentation.render = true;
+    actor->NWorld::CDumbUnitServer::Segment(); presentation.Sync();
+    Require(presentation.updates == 3 && presentation.meshFloor == originalFloor + 1,
+        "rendered living unit did not rebuild its mesh on the current navigation floor");
+    actor->NWorld::CDumbUnitServer::Segment(); presentation.Sync();
+    Require(presentation.updates == 3, "render visitor did not acknowledge the completed floor refresh");
+    Require(actor->GetPosition().pos.p == position.pos.p && actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == originalAP,
+        "living unit floor refresh moved its logical position or changed AP");
+    actor->MarkNotAddedToVisitors();
+    tile.nFloor = originalFloor;
+    actor->NWorld::CDumbUnitServer::Segment(); presentation.Sync();
+    Require(presentation.updates == 3, "unit excluded from rendering was requeued for a floor refresh");
+}
+
 static bool SavedWorldUIRefresh(NWorld::CWorld* world)
 {
     CMemoryStream saved;
@@ -6159,6 +6227,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "fresh-navigation-transitions")) { FreshNavigationTransitions(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "living-unit-floor-refresh") && argc == 4) { LivingUnitFloorRefresh(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "navigation-colouring-occupancy")) { NavigationColouringOccupancy(); return true; }
     if (!std::strcmp(mode, "missing-navigation-colourer")) { NavigationColouringOccupancy(1); return true; }
     if (!std::strcmp(mode, "stale-navigation-colourer")) { NavigationColouringOccupancy(2); return true; }
