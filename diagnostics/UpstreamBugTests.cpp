@@ -27,6 +27,7 @@
 #include "../Input/BindInternal.h"
 #include "../Main/iUnitPanel.h"
 #include "../Main/iCharacterPanel.h"
+#include "../Main/DisplayLayout.h"
 #include "../Main/iDesktopWindow.h"
 #include "../Main/Sound.h"
 #include "../Main/RWSound.h"
@@ -4845,6 +4846,8 @@ class VisibleIconPlayer: public NWorld::CPlayer
 {
     OBJECT_NOCOPY_METHODS(VisibleIconPlayer);
 public:
+    vector<NWorld::IVisObj*> sounds;
+    void GetSounds(vector<NWorld::IVisObj*>* result) override { *result = sounds; }
     void See(NWorld::CUnitServer* actor) { NWorld::CPlayerBaseVision<NWorld::CUnitServer>::visible.push_back(actor); }
     int GetScenarioPlayerID() const override { return 0; }
 };
@@ -4860,7 +4863,7 @@ public:
     const CTransformStack& GetCameraTransform() const override { return transform; }
 };
 
-static void EnemyIconVisibility(const char* databasePath, const char* resourcePath)
+static void EnemyIconVisibility(const char* databasePath, const char* resourcePath,bool heardAnchor = false)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath, resourcePath, false, &game);
@@ -4876,7 +4879,7 @@ static void EnemyIconVisibility(const char* databasePath, const char* resourcePa
         }
     }
     Require(actor != nullptr, "enemy-icon fixture has no visible hostile actor");
-    visiblePlayer->See(actor);
+    if (!heardAnchor) visiblePlayer->See(actor);
     CObj<NGame::IPlayerTracker> tracker = dynamic_cast<NGame::IPlayerTracker*>(pSSClasses->CreateObject(int(0xB2022800)));
     CObj<EnemyIconMission> mission = new EnemyIconMission;
     mission->view = new NGScene::GameViewFixture;
@@ -4921,6 +4924,42 @@ static void EnemyIconVisibility(const char* databasePath, const char* resourcePa
         return count;
     };
     NGlobal::SetVar("ui_showicons", 1);
+    if (heardAnchor) {
+        CObj<NWorld::CTimedObject> marker = NWorld::CreateDMesh(actor,VNULL3,QNULL,NDb::GetModel(3899),0);
+        visiblePlayer->sounds.push_back(marker.GetPtr());
+        SHMatrix projection;
+        Identity(&projection);
+        projection._23 = .2f;
+        mission->transform.Init(projection);
+        auto positionAtHeight = [&](float height) {
+            CVec2 point;
+            Require(TestRayInFrustrum(CVec3(0,0,height),&mission->transform,CVec2(1024,768),&point),
+                "heard-icon fixture placed its expected anchor outside the view");
+            return NUI::SPoint(int(point.x / S2UI::Scale()),int(point.y / S2UI::Scale()));
+        };
+        const auto expected = positionAtHeight(1.6f), oldHeight = positionAtHeight(2.2f);
+        Require(expected.y != oldHeight.y, "heard-icon fixture cannot distinguish the two anchor heights");
+        desktop->RefreshIcons(false);
+        Require(markerCount(int(0xB3131150)) == 1, "native heard marker did not produce exactly one ear icon");
+        auto* icon = client->GetChildByID("");
+        Require(icon && pSSClasses->GetObjectTypeID(icon) == int(0xB3131150),
+            "native heard marker did not attach its sound icon to the client view");
+        Require(icon->GetPosition().x == expected.x && icon->GetPosition().y == expected.y,
+            "the heard-unit ear icon used visible-enemy clearance instead of its sound-marker head height");
+        const auto original = actor->GetPosition();
+        auto moved = original;
+        moved.pos.p = NAI::SPathPlace(original.pos.p.GetX()+3,original.pos.p.GetY(),original.pos.p.GetLayer(),
+            original.pos.p.GetDirection(),original.pos.p.GetPose(),original.pos.p.IsMoving());
+        actor->SetTemporaryPosition(moved);
+        desktop->RefreshIcons(false);
+        Require(icon->GetPosition().x == expected.x && icon->GetPosition().y == expected.y,
+            "moving an unseen unit leaked its live position through the sound-marker icon");
+        actor->SetTemporaryPosition(original);
+        visiblePlayer->See(actor);
+        desktop->RefreshIcons(false);
+        Require(markerCount(int(0xB3131150)) == 0, "a visible unit retained its heard-only ear icon");
+        return;
+    }
     desktop->RefreshEnemies();
     Require(markerCount(int(0xB0241948)) == 1, "visible hostile actor did not receive its normal enemy icon");
     NGlobal::SetVar("ui_showicons", 0);
@@ -10063,6 +10102,7 @@ static void PKShellWorld(const char* databasePath, const char* resourcePath, boo
 
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }
