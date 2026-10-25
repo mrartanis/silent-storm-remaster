@@ -5645,6 +5645,92 @@ static void InventoryTransferActor(bool backpack)
     TransferMission::actor = nullptr; TransferMission::command = nullptr;
 }
 
+class DragActor: public NWorld::CUnitServer
+{
+    OBJECT_NOCOPY_METHODS(DragActor);
+public:
+    CPtr<NWorld::IPlayer> owner;
+    NWorld::IPlayer* GetPlayer() const override { return owner; }
+};
+
+class OwnerlessDragMission: public ReadinessMission
+{
+    OBJECT_NOCOPY_METHODS(OwnerlessDragMission);
+public:
+    vector<CPtr<NGame::IUnitTracker>> selected, available;
+    CPtr<CObjectBase> target;
+    CPtr<NWorld::CUnit> issuedActor;
+    CObj<NWorld::CCmd> issuedCommand;
+    void GetSelectedUnits(vector<CPtr<NGame::IUnitTracker>>* result) const override { *result = selected; }
+    void GetUnits(vector<CPtr<NGame::IUnitTracker>>* result) const override { *result = available; }
+    CObjectBase* GetStateTarget(bool* fromWorld = nullptr) const override { if (fromWorld) *fromWorld = false; return target; }
+    void Command(NWorld::CUnit* actor, NWorld::CCmd* command, bool) override { issuedActor = actor; issuedCommand = command; }
+};
+
+class DragState: public NGame::CStateDragItem
+{
+public:
+    void Attach(NGame::IMission* mission) { CStateBase::Initialize(mission); }
+    using CStateDragItem::GetTargetCmd;
+};
+
+static void OwnerlessInventoryDrag()
+{
+    CObj<OwnerlessDragMission> mission = new OwnerlessDragMission;
+    CObj<NWorld::CPlayer> player = new NWorld::CPlayer;
+    CObj<NGame::IPlayerTracker> playerTracker = dynamic_cast<NGame::IPlayerTracker*>(pSSClasses->CreateObject(int(0xB2022800)));
+    Require(IsValid(playerTracker), "ownerless drag fixture could not create the native player tracker");
+    CStructureNetworkContext references;
+    references.externalReferences = true; references.nextID = 100;
+    references.include = [](CObjectBase*) { return false; };
+    references.ids[player.GetPtr()] = 1; references.refs[1] = player.GetPtr();
+    CMemoryStream savedPlayer;
+    { CStructureSaver writer(savedPlayer, CStructureSaver::WRITE, &references); CPtr<NWorld::IPlayer> ref = player.GetPtr(); writer.Add(5, &ref); }
+    savedPlayer.Seek(0);
+    { CStructureSaver reader(savedPlayer, CStructureSaver::READ, &references); static_cast<CObjectBase*>(playerTracker.GetPtr())->operator&(reader); }
+    mission->AttachActive(playerTracker);
+    CObj<DragActor> selected = new DragActor, available = new DragActor, recipient = new DragActor;
+    selected->owner = available->owner = recipient->owner = player.GetPtr();
+    CObj<NGame::CUnitTracker> selectedTracker = new NGame::CUnitTracker(mission, selected);
+    CObj<NGame::CUnitTracker> availableTracker = new NGame::CUnitTracker(mission, available);
+    mission->selected.push_back(selectedTracker.GetPtr()); mission->available.push_back(availableTracker.GetPtr());
+    CObj<NDb::CRPGItem> record = new NDb::CRPGItem;
+    record->sSize = CTPoint<int>(1, 1);
+    CObj<NRPG::IInventoryItem> item = NRPG::CreateDummyItem(record);
+    player->SetInHandItem(NWorld::SItem(nullptr, NWorld::SItem::HAND, item));
+    CObj<DragState> state = new DragState;
+    state->Attach(mission);
+    CObj<NWorld::CCmd> command = state->GetTargetCmd(false);
+    auto* drop = dynamic_cast<NWorld::CCmdMoveInventoryItem*>(command.GetPtr());
+    Require(drop && drop->GetSource().pUnit == selected.GetPtr(), "ownerless inventory drag did not use the first selected unit");
+    Require(drop->GetSource().eType == NWorld::SItem::HAND && drop->GetTarget().eType == NWorld::SItem::GROUND
+            && drop->GetTarget().pUnit == selected.GetPtr(), "ownerless ground drop lost its selected actor or placement");
+    Require(state->OnLButtonDown(0, 0) && mission->issuedActor == selected.GetPtr(),
+        "ownerless inventory click dispatched the move without its selected source actor");
+    mission->target = recipient.GetPtr();
+    command = state->GetTargetCmd(false); drop = dynamic_cast<NWorld::CCmdMoveInventoryItem*>(command.GetPtr());
+    Require(drop && drop->GetSource().pUnit == selected.GetPtr() && drop->GetTarget().pUnit == recipient.GetPtr()
+            && drop->GetTarget().eType == NWorld::SItem::UNIT_ANYPLACE, "ownerless drag confused the selected actor with its recipient");
+    CObj<NUI::CSlotInfo> storage = new NUI::CSlotInfo(NUI::CSlotInfo::STORAGE);
+    mission->target = storage.GetPtr();
+    command = state->GetTargetCmd(true); drop = dynamic_cast<NWorld::CCmdMoveInventoryItem*>(command.GetPtr());
+    Require(drop && drop->GetTarget().eType == NWorld::SItem::STORAGE && drop->GetTarget().pPlayer == player.GetPtr(),
+        "ownerless storage drop did not resolve the selected unit's player");
+    command = state->GetTargetCmd(false);
+    Require(!IsValid(command) && !state->OnLButtonDown(0, 0), "inventory drag bypassed the inventory slot's own click handler");
+    mission->target = nullptr; mission->selected.clear();
+    command = state->GetTargetCmd(false); drop = dynamic_cast<NWorld::CCmdMoveInventoryItem*>(command.GetPtr());
+    Require(drop && drop->GetSource().pUnit == available.GetPtr(), "ownerless inventory drag did not fall back to the mission roster");
+    Require(state->OnLButtonDown(0, 0) && mission->issuedActor == available.GetPtr(), "roster fallback was not used for click dispatch");
+    mission->available.clear();
+    command = state->GetTargetCmd(false);
+    Require(!IsValid(command) && !state->OnLButtonDown(0, 0), "ownerless drag invented an actor for an empty party");
+    player->SetInHandItem(NWorld::SItem());
+    mission->selected.push_back(selectedTracker.GetPtr());
+    command = state->GetTargetCmd(false);
+    Require(!IsValid(command), "inventory drag produced a command without an in-hand item");
+}
+
 static void GeometryHashBuckets()
 {
     int buckets[4096] = {};
@@ -6082,6 +6168,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "store-drop")) { StoreDropPosition(); return true; }
     if (!std::strcmp(mode, "inventory-actor")) { InventoryTransferActor(true); return true; }
     if (!std::strcmp(mode, "slot-actor")) { InventoryTransferActor(false); return true; }
+    if (!std::strcmp(mode, "ownerless-inventory-drag")) { OwnerlessInventoryDrag(); return true; }
     if (!std::strcmp(mode, "geometry-hash")) { GeometryHashBuckets(); return true; }
     if (!std::strcmp(mode, "clue-notification") && argc == 4) { ImmediateClueNotification(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "clue-pickup") && argc == 4) { ImmediateCluePickup(argv[2], argv[3], false); return true; }
