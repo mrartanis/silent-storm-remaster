@@ -36,6 +36,9 @@
 #include "../DBFormat/DataSound.h"
 #include "../Main/SoundEffect.h"
 #include "../third_party/fmod/include/fmod.h"
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
+#endif
 #include "../Main/iMissionDlgUI.h"
 #include "../Main/iMissionUI.h"
 #include "../Main/iMissionMovieUI.h"
@@ -1943,7 +1946,7 @@ static void LegacySoundEffectFields(NDb::CSoundInstance* record,CFuncBase<STime>
         "sound-effect ageing changed the existing saved field numbers or their original meanings");
 }
 
-static void DelayedSoundEffectAge(const char* databasePath)
+static void DelayedSoundEffectAge(const char* databasePath,bool infiniteLoop = false)
 {
     Require(std::getenv("S2_AUDIO_HEADLESS") != nullptr, "sound-effect fixture requires headless native audio");
     CFileStream database;
@@ -2004,6 +2007,37 @@ static void DelayedSoundEffectAge(const char* databasePath)
         }
         return channel;
     };
+    if (infiniteLoop) {
+        instance->nStartTime = 0; instance->nCycleCount = -1;
+        CObj<EffectSoundSource> loop = new EffectSoundSource(effect,10000);
+        source->Set(vector<NWorld::IVisObj*>{loop.GetPtr()}); tick(1000);
+        const int loopChannel = playingChannel();
+        Require(loopChannel >= 0, "infinite-effect fixture did not start an actual native channel");
+        Require(FSOUND_GetLoopMode(loopChannel) == FSOUND_LOOP_NORMAL,
+            "an effect with infinite cycle count played once because its sample record was not itself looped");
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+        vector<float> output(4096*2);
+        Require(S2FmodRenderForTest(output.data(),4096) != 0, "infinite-effect fixture could not render real native PCM frames");
+        Require(FSOUND_IsPlaying(loopChannel) && FSOUND_GetCurrentPosition(loopChannel) > 0 &&
+            FSOUND_GetCurrentPosition(loopChannel) < 1000,
+            "an infinitely repeated effect stopped instead of wrapping after more than four actual sample lengths");
+#endif
+        source->Set(vector<NWorld::IVisObj*>()); tick(1000);
+        Require(playingChannel() == -1, "removing an infinite effect did not release its actual native channel");
+        instance->nCycleCount = 1;
+        CObj<EffectSoundSource> once = new EffectSoundSource(effect,10000);
+        source->Set(vector<NWorld::IVisObj*>{once.GetPtr()}); tick(1000);
+        const int onceChannel = playingChannel();
+        Require(onceChannel >= 0 && FSOUND_GetLoopMode(onceChannel) == FSOUND_LOOP_OFF,
+            "correcting infinite effects also looped an explicitly single-cycle effect");
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+        Require(S2FmodRenderForTest(output.data(),4096) != 0, "single-cycle control could not render its native PCM frames");
+        Require(!FSOUND_IsPlaying(onceChannel), "an explicitly single-cycle effect continued after its actual sample ended");
+#endif
+        source->Set(vector<NWorld::IVisObj*>()); tick(1000);
+        Require(playingChannel() == -1, "infinite-effect fixture retained a native playback channel");
+        return;
+    }
     CObj<EffectSoundSource> expired = new EffectSoundSource(effect,9500);
     LegacySoundEffectFields(instance,clock.GetTime(),expired->position);
     source->Set(vector<NWorld::IVisObj*>{expired.GetPtr()});
@@ -9435,6 +9469,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "hotseat-opponent-visibility")) { HotseatOpponentVisibility(); return true; }
     if (!std::strcmp(mode, "mission-sound-game-clock")) { MissionSoundGameClock(); return true; }
     if (!std::strcmp(mode, "delayed-sound-effect-age") && argc == 3) { DelayedSoundEffectAge(argv[2]); return true; }
+    if (!std::strcmp(mode, "infinite-sound-effect-loop") && argc == 3) { DelayedSoundEffectAge(argv[2],true); return true; }
     if (!std::strcmp(mode, "late-looping-sound-offset")) { LateLoopingSoundOffset(); return true; }
     if (!std::strcmp(mode, "headless-music-stream")) { HeadlessMusicStream(); return true; }
     if (!std::strcmp(mode, "trackless-scene-music")) { TracklessSceneMusicContinuity(); return true; }

@@ -74,7 +74,7 @@ void CSoundInstance::Recalc()
 	{
 		NFMSound::SPlayParams p;
 		p.pSample = pData;
-		p.bLoop = pSVar->pSound->bLoop;
+		p.bLoop = pInstance->nCycleCount == -1 ? true : pSVar->pSound->bLoop;
 		p.nVolume = pInstance->nVolume;
 		p.position = pPlacement->GetValue();
 		p.nLoops = pInstance->nCycleCount;
