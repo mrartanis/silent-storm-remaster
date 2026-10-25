@@ -480,7 +480,7 @@ bool CInterface::ProcessEvent( const NInput::SEvent &eEvent )
 	{
 		// retail @0x71C0CB: locked console still consumes the toggle event
 		if ( bEnableConsole )
-			pConsole->SetConsoleState( !pConsole->GetStyle( NUI::STYLE_VISIBLE ) );
+			pConsole->ShowWindow( pConsole->GetStyle( NUI::STYLE_VISIBLE ) ? SWTYPE_HIDE : SWTYPE_SHOW );
 		return true;
 	}
 	if ( pConsole->ProcessEvent( eEvent ) )

@@ -14,6 +14,8 @@
 #include "../Main/UnitIconWeaponMode.h"
 #include "../Main/iUnitIconBar.h"
 #include "../Main/UIInterface.h"
+#include "../Main/Console.h"
+#include "../MiscDll/Commands.h"
 #include "../DBFormat/DataInterface.h"
 #include "../DBFormat/DataObject.h"
 #include "../DBFormat/DataPerk.h"
@@ -524,6 +526,38 @@ static void PointLightShadowFlag()
     light.TraceDynamicLM(&result, receiver, scene);
     Require(scene->traceCalls == 2 && fabs2(result.vXNeg.v - CVec3(4.f/9.f, 8.f/9.f, 12.f/9.f)) < 1e-10f,
         "visible shadow-casting point light changed its original attenuation");
+}
+
+static void ConsoleVisibilityToggle()
+{
+    CObj<NUI::CInterface> ui = new NUI::CInterface;
+    CObj<NUI::CConsole> console = new NUI::CConsole(NUI::SWindowInfo(nullptr,
+        NUI::SPoint(0, 0), NUI::SPoint(1024, 300), "console", NUI::STYLE_ENABLED));
+    CStructureNetworkContext references;
+    references.externalReferences = true;
+    references.ids[console.GetPtr()] = 1; references.refs[1] = console.GetPtr();
+    references.nextID = 100; references.include = [](CObjectBase*) { return false; };
+    CMemoryStream controls;
+    { CStructureSaver writer(controls, CStructureSaver::WRITE, &references); writer.Add(11, &console); }
+    controls.Seek(0);
+    { CStructureSaver reader(controls, CStructureSaver::READ, &references); static_cast<CObjectBase*>(ui.GetPtr())->operator&(reader); }
+    auto toggle = [&] {
+        NInput::PostEvent("console");
+        NInput::SEvent event;
+        Require(NInput::GetEvent(&event), "console fixture did not receive its posted toggle");
+        Require(ui->ProcessEvent(event), "console toggle was not consumed by its interface");
+    };
+    toggle();
+    Require(!console->GetStyle(NUI::STYLE_VISIBLE), "locked console became visible without unlocking");
+    NGlobal::ProcessCommand(L"wirbelwind");
+    toggle();
+    Require(console->GetStyle(NUI::STYLE_VISIBLE), "unlocked console did not open");
+    toggle();
+    Require(!console->GetStyle(NUI::STYLE_VISIBLE),
+        "console close retained visible sliding state until a later render");
+    toggle();
+    Require(console->GetStyle(NUI::STYLE_VISIBLE) && console->GetPosition().y == 0,
+        "reopened console remained hidden or inherited an offscreen sliding position");
 }
 
 static void TinyPointLightCache()
@@ -3470,6 +3504,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "global-point-light-shadow-flag")) GlobalPointLightShadowFlag();
         else if (!std::strcmp(mode, "point-light-radiance")) PointLightRadiance();
         else if (!std::strcmp(mode, "tiny-point-light-cache")) TinyPointLightCache();
+        else if (!std::strcmp(mode, "console-visibility-toggle")) ConsoleVisibilityToggle();
         else if (!std::strcmp(mode, "dialogue-camera-filter")) CinematicCameraCommands(0);
         else if (!std::strcmp(mode, "movie-camera-filter")) CinematicCameraCommands(1);
         else if (!std::strcmp(mode, "fade-camera-filter")) CinematicCameraCommands(2);

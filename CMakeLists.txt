@@ -830,6 +830,7 @@ add_test(NAME UpstreamPointLightShadowFlag COMMAND UpstreamBugTests point-light-
 add_test(NAME UpstreamGlobalPointLightShadowFlag COMMAND UpstreamBugTests global-point-light-shadow-flag)
 add_test(NAME UpstreamPointLightRadiance COMMAND UpstreamBugTests point-light-radiance)
 add_test(NAME UpstreamTinyPointLightCache COMMAND UpstreamBugTests tiny-point-light-cache)
+add_test(NAME UpstreamConsoleVisibilityToggle COMMAND UpstreamBugTests console-visibility-toggle)
 add_test(NAME UpstreamDialogueCameraFilter COMMAND UpstreamBugTests dialogue-camera-filter)
 add_test(NAME UpstreamMovieCameraFilter COMMAND UpstreamBugTests movie-camera-filter)
 add_test(NAME UpstreamFadeCameraFilter COMMAND UpstreamBugTests fade-camera-filter)

@@ -83,6 +83,7 @@
 | [abc36d82](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/abc36d82d852e44560eae4225df9b1a9fc333fbc) — Preserve point-light shadow metadata through global illumination caches | `global illumination discarded the saved point-light shadow flags while building its cache` | 109/109; `global-point-light-shadow-flag` | `Upstream-Commit` в commit message |
 | [abc36d82](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/abc36d82d852e44560eae4225df9b1a9fc333fbc) — Restore point-light radiance normalization for lightmap caches | `point-light radiance failed to fold colour strength into its cached radius` | 110/110; `point-light-radiance` | `Upstream-Commit` в commit message |
 | [abc36d82](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/abc36d82d852e44560eae4225df9b1a9fc333fbc) — Discard zero and tiny point lights before caching illumination | `point-light cache retained zero/tiny radii that retail discards before lighting` | 111/111; `tiny-point-light-cache` | `Upstream-Commit` в commit message |
+| [abc36d82](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/abc36d82d852e44560eae4225df9b1a9fc333fbc) — Toggle console visibility directly without transient sliding state | `console close retained visible sliding state until a later render` | 112/112; `console-visibility-toggle` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -158,3 +159,14 @@ retail-записей: 64 байта в сохранении против 56 в 
 платформе проходят 104/104 регрессии. Windows набор без внешних ресурсов
 и дисплея — 183/183, отдельные сценарии стрельбы/сохранения/перезарядки —
 4/4. Это локальные проверки; результат GitHub Actions отслеживается отдельно.
+
+### Контроль после света и консоли
+
+После отдельных переносов `cb065556` и оставшихся частей `abc36d82`
+полная Windows `ALL_BUILD` и Linux `Game` собираются; профильная группа
+112/112 на каждой платформе. Более широкий набор без окна на Windows —
+191/191; реальные выстрелы, сохранение и загрузка — 4/4.
+Логи: `lighting-console-checkpoint-ci-test.log`,
+`lighting-console-shots-full-test.log`, `console-linux-test.log`
+в общей папке свидетельств. Это промежуточная проверка, перенос остальных
+коммитов и финальная проверка GitHub Actions ещё продолжаются.
