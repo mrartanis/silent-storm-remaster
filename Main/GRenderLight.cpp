@@ -1252,7 +1252,7 @@ void CDynamicPointLight::Render( CTransformStack *pTS, CTransformStack *pClipTS,
 	float fScale = 0.5f;
 	CVec3 lColor = CVec3( fScale * sqrt(l.color.x), fScale * sqrt(l.color.y), fScale * sqrt(l.color.z) );
 
-	if ( fabs2( lColor ) < 0.001f || l.bEnd )
+	if ( fabs2( lColor ) < 0.001f || l.bEnd || !l.bActive || l.fRadius < 0.1f )
 		return;
 
 	SBound sBound;

@@ -809,6 +809,65 @@ static void ConsoleVisibilityToggle()
         "reopened console remained hidden or inherited an offscreen sliding position");
 }
 
+class AnimatedLightRenderReached: public std::exception {};
+
+class AnimatedLightMaterial: public NGScene::IMaterial
+{
+    OBJECT_NOCOPY_METHODS(AnimatedLightMaterial);
+public:
+    bool DoesCastShadow() const override { return false; }
+    const NGScene::SMaterialInfo& GetMaterialInfo() override { throw AnimatedLightRenderReached(); }
+};
+
+class FixedAnimatedLight: public CPtrFuncBase<NGScene::CAnimLight>
+{
+    OBJECT_NOCOPY_METHODS(FixedAnimatedLight);
+    bool NeedUpdate() override { return false; }
+    void Recalc() override {}
+public:
+    FixedAnimatedLight() { pValue = new NGScene::CAnimLight; }
+    NGScene::CAnimLight* Light() { return pValue; }
+};
+
+static void AnimatedPointLightGuard(bool inactive)
+{
+    CObj<FixedAnimatedLight> animator = new FixedAnimatedLight;
+    auto* state = animator->Light();
+    state->position = VNULL3; state->color = CVec3(1, 1, 1);
+    state->fRadius = 4; state->bActive = true; state->bEnd = false;
+    CObj<NGScene::CDynamicPointLight> light = new NGScene::CDynamicPointLight(animator);
+    CObj<AnimatedLightMaterial> material = new AnimatedLightMaterial;
+    NGScene::CSceneFragments scene;
+    NGScene::CPartFlags parts; parts.Clear(); parts.Set(0);
+    scene.AddElement(0, parts, material, nullptr, nullptr);
+    NGScene::SParticleLMRenderTargetInfo particles;
+    CTransformStack transform;
+    auto reachesMaterials = [&]() {
+        // Observe the real render traversal before any graphics calls; the
+        // material sentinel also proves that a valid light is not skipped.
+        try { light->Render(&transform, &transform, nullptr, NGScene::RP_GF3_CL, nullptr, scene, particles); }
+        catch (const AnimatedLightRenderReached&) { return true; }
+        return false;
+    };
+    Require(reachesMaterials(), "animated-light fixture did not enter rendering for a live ordinary light");
+    if (inactive) {
+        state->bActive = false;
+        Require(!reachesMaterials(), "inactive animated point light entered scene rendering before its parameters were ready");
+        state->bActive = true;
+    } else {
+        for (float radius : {0.f, -1.f, 0.0999f}) {
+            state->fRadius = radius;
+            Require(!reachesMaterials(), "zero/tiny animated point-light radius reached the rendering pipeline");
+        }
+        state->fRadius = 0.1f;
+        Require(reachesMaterials(), "minimum valid animated point-light radius stopped rendering");
+    }
+    state->bEnd = true;
+    Require(!reachesMaterials(), "ended animated point light still rendered");
+    state->bEnd = false; state->color = VNULL3;
+    Require(!reachesMaterials(), "dark animated point light still rendered");
+}
+
 static void TinyPointLightCache()
 {
     NGScene::SGlobalIlluminationInfo global;
@@ -5257,6 +5316,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "global-point-light-shadow-flag")) { GlobalPointLightShadowFlag(); return true; }
     if (!std::strcmp(mode, "point-light-radiance")) { PointLightRadiance(); return true; }
     if (!std::strcmp(mode, "tiny-point-light-cache")) { TinyPointLightCache(); return true; }
+    if (!std::strcmp(mode, "inactive-animated-light")) { AnimatedPointLightGuard(true); return true; }
+    if (!std::strcmp(mode, "tiny-animated-light")) { AnimatedPointLightGuard(false); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
     if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }
     if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) { AIReactionValueLatch(argv[2], argv[3]); return true; }
