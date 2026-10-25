@@ -188,7 +188,7 @@ public:
 		zonesToRecalc.push_back( rect ); 
 	}
 	bool RecalcColouring( CPathNetwork *pNet, int nCurrentLayer );
-	void RecalcTransitions( CPathNetwork* pNet );
+	bool RecalcTransitions( CPathNetwork* pNet );
 	bool IsReady() { return nLocalColors!=0; }  // Map was already investigated
 	WORD GetPointColor( unsigned char cX, unsigned char cY ) { return pointColors[ cY ][ cX ]; }
 	void GetColorCenter( WORD wColor, unsigned char *cX, unsigned char *cY )

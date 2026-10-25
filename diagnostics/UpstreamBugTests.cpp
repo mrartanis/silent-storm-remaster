@@ -190,6 +190,53 @@ static void SmartAimerBoundary()
         "smart aimer changed its completed-transition output");
 }
 
+static void FreshNavigationTransitions()
+{
+    // Full attachment is the control; the incremental entry point must produce
+    // the same real inter-layer neighbours even with no dirty rectangles.
+    for (bool fullFirst: {true, false}) {
+        CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+        const int first = network->CreateLayer(8, 8, CVec2(0, 0), 0.f, 0);
+        const int second = network->CreateLayer(8, 8, CVec2(8, 0), 0.f, 0);
+        Require(first == 0 && second == 1, "transition fixture did not create its two layers");
+        for (int index: {first, second}) {
+            auto* layer = network->GetLayer(index);
+            for (int y = 0; y < 8; ++y)
+                for (int x = 0; x < 8; ++x) {
+                    layer->tiles[y][x] = NAI::STile{};
+                    layer->tiles[y][x].nPassable = 7;
+                    layer->tiles[y][x].nFlags = NAI::TF_STAND_PASSABLE;
+                }
+        }
+        const NAI::SPathPlace source(1, 1, first), destination(1, 1, second);
+        auto* sourceLayer = network->GetLayer(first);
+        sourceLayer->tiles[1][1].nFlags |= NAI::TF_HAS_INTERGRID;
+        sourceLayer->transitions[source].links.emplace_back(destination, 0);
+        auto* colourer = network->GetColourer(first);
+        colourer->ConstructColouring(network);
+        network->GetColourer(second)->ConstructColouring(network);
+        if (fullFirst) colourer->AttachTransitions(network);
+        else colourer->RecalcTransitions(network);
+        auto neighbours = [&](NAI::EPathfinderMode mode) {
+            vector<unsigned char> xs, ys;
+            vector<int> layers;
+            colourer->GetColorNeighbourCenters(network, colourer->GetPointColor(1, 1), &xs, &ys, &layers, mode);
+            Require(xs.size() == layers.size() && ys.size() == layers.size(), "transition neighbour coordinates were truncated");
+            return layers;
+        };
+        for (auto mode: {NAI::PM_STAND_ONLY, NAI::PM_ANY_MOVE}) {
+            const auto result = neighbours(mode);
+            Require(result.size() == 1 && result[0] == second,
+                fullFirst ? "full attachment control did not connect the two layers"
+                          : "first incremental transition update omitted existing inter-layer links");
+        }
+        sourceLayer->transitions[source].links.emplace_back(NAI::SPathPlace(2, 2, second), 0);
+        colourer->RecalcTransitions(network);
+        Require(neighbours(NAI::PM_STAND_ONLY).size() == 1 && neighbours(NAI::PM_ANY_MOVE).size() == 1,
+            "already attached transition cache was rebuilt without a dirty region");
+    }
+}
+
 static void FreshNavigationColouring()
 {
     CObj<NAI::CNodesLayer> layer = new NAI::CNodesLayer;
@@ -3690,6 +3737,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "smart-aimer-boundary")) SmartAimerBoundary();
         else if (!std::strcmp(mode, "nearest-empty")) EmptyNearestPosition();
         else if (!std::strcmp(mode, "fresh-navigation-colouring")) FreshNavigationColouring();
+        else if (!std::strcmp(mode, "fresh-navigation-transitions")) FreshNavigationTransitions();
         else if (!std::strcmp(mode, "ragdoll-restoration")) RagdollRestoration();
         else if (!std::strcmp(mode, "negative-mesh-bounds")) NegativeMeshBounds();
         else if (!std::strcmp(mode, "sniper-targetless-probe") && argc == 4) SniperHeldAim(argv[2], argv[3], true);

@@ -1284,8 +1284,17 @@ void CMapColourer::AttachLadderTransition( CPathNetwork* pNet, int nLadder, cons
 	pAnother->zonesAnyMove.nodes[ wColor ].AddNeighbour( wLadderColor, wDistance + wDistance1, nLayer );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CMapColourer::RecalcTransitions( CPathNetwork* pNet )
+bool CMapColourer::RecalcTransitions( CPathNetwork* pNet )
 {
+	// Retail v1.2 0x42f203: the initial pass must attach every existing link.
+	if ( !bTransitionsAttached )
+	{
+		AttachTransitions( pNet );
+		zonesToRecalc.clear();
+		return true;
+	}
+	if ( zonesToRecalc.empty() )
+		return false;
 	RecalcTransitions( pNet, PM_STAND_ONLY );
 	RecalcTransitions( pNet, PM_ANY_MOVE );
 	for ( int i = 0; i < pMap->pLayer->ladders.size(); ++i )
@@ -1332,6 +1341,7 @@ void CMapColourer::RecalcTransitions( CPathNetwork* pNet )
 		}
 	}*/
 	zonesToRecalc.clear();
+	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapColourer::RecalcTransitions( CPathNetwork* pNet, EPathfinderMode mode )
@@ -1411,6 +1421,7 @@ void CMapColourer::AttachTransitions(	CPathNetwork* pNet )
 			}
 		}
 	}
+	bTransitionsAttached = true; // Retail v1.2 0x42e7ee.
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMapColourer::GetColorNeighbourCenters( CPathNetwork *pNet, WORD wColor, 
