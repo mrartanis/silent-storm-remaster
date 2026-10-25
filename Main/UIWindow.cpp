@@ -14,6 +14,7 @@
 #include "UIWrap.h"
 #include "UICommCtrls.h"	// CToolTip -- CWindow::pToolTip is the typed retail CObj<CToolTip>
 #include "A5Script.h"		// NScript::CScript -- retail CWindow window-scripting members (eventsMap/pScript)
+#include "scriptCallLUA.h"
 #include <cstdint>
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NUI
@@ -414,6 +415,7 @@ bool CWindow::SendMessage( CWindow *_pTarget, const SEvent &sEvent )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWindow::ProcessMessage( const SEvent &sEvent )
 {
+	DispatchScriptEvent( sEvent );
 	switch( sEvent.nEvent )
 	{
 	case EVENT_ACTIVATE:
@@ -599,6 +601,52 @@ void CWindow::Update( const STime &sTime, NGScene::I2DGameView *pView )
 #endif
 			continue;
 		pChild->Update( sTime, pView );
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+int CWindow::GetEventHandler( NScript::CScript *pHandlerScript ) const
+{
+	unordered_map<CPtr<NScript::CScript>,int,SPtrHash>::const_iterator i = eventsMap.find( pHandlerScript );
+	return i != eventsMap.end() ? i->second : 0;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CWindow::SetEventHandler( int nCallInfo, NScript::CScript *pHandlerScript )
+{
+	eventsMap[pHandlerScript] = nCallInfo;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CWindow::DispatchScriptEvent( const SEvent &sEvent )
+{
+	// Retail v1.2 0x728760..0x728f10: callbacks observe these events before
+	// built-in dispatch; callback return values do not consume the message.
+	const char *pszEvent = 0;
+	switch ( sEvent.nEvent )
+	{
+		case EVENT_NOTIFY: pszEvent = "notify"; break;
+		case EVENT_LBUTTONUP: pszEvent = "lbtnup"; break;
+		case EVENT_LBUTTONDOWN: pszEvent = "lbtndown"; break;
+		case EVENT_LBUTTONDBLCLK: pszEvent = "lbtndblclk"; break;
+		case EVENT_RBUTTONUP: pszEvent = "rbtnup"; break;
+		case EVENT_RBUTTONDOWN: pszEvent = "rbtndown"; break;
+		case EVENT_RBUTTONDBLCLK: pszEvent = "rbtndblclk"; break;
+		default: return;
+	}
+	// A callback can register another script: pin the dispatch list across rehash.
+	vector< pair<CPtr<NScript::CScript>, int> > handlers;
+	for ( unordered_map<CPtr<NScript::CScript>,int,SPtrHash>::const_iterator i = eventsMap.begin(); i != eventsMap.end(); ++i )
+		handlers.push_back( make_pair( i->first, i->second ) );
+	for ( int i = 0; i < handlers.size(); ++i )
+	{
+		NScript::CScript *pHandler = handlers[i].first;
+		if ( !IsValid( pHandler ) || handlers[i].second == 0 )
+			continue;
+		vector< CObj<NScript::CLUACallParam> > params;
+		params.push_back( new NScript::CLUACallParam( tagLuaWindow, this ) );
+		params.push_back( new NScript::CLUACallParam( string( pszEvent ) ) );
+		if ( sEvent.nEvent == EVENT_NOTIFY )
+			params.push_back( new NScript::CLUACallParam( sEvent.szID ) );
+		NScript::luaCallFunction( pHandler, handlers[i].second, params );
+		pHandler->ExecuteThreads();
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

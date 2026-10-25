@@ -339,6 +339,9 @@ static bool luaPushCallParameters( string szName,
 				case CLUACallParam::PT_POINTER:
 					luaPushCPtr( pState, (*i)->pObject );
 					break;
+				case CLUACallParam::PT_TAGGED_POINTER:
+					lua_pushusertag( pState, (*i)->pObject, (*i)->nInt );
+					break;
 				default:
 					lua_pushnil( pState );
 					ASSERT( 0 ); // unknown parameter type
@@ -355,6 +358,27 @@ static bool luaPushCallParameters( string szName,
 		ASSERT( pState->pCT->top == stackTop ); // stack corrupted
 		return false;
 	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void luaCallFunction( CScript *pScript, int nCallInfo, const vector< CObj<CLUACallParam> > &params )
+{
+	// Retail v1.2 0x6e4130: begin on this script's current thread; the caller pumps it.
+	lua_State *pState = pScript->GetState();
+	lua_pushcallinfo( pState, nCallInfo );
+	for ( int i = 0; i < params.size(); ++i )
+	{
+		const CLUACallParam &param = *params[i];
+		switch ( param.type )
+		{
+			case CLUACallParam::PT_POINTER: luaPushCPtr( pState, param.pObject ); break;
+			case CLUACallParam::PT_INT: lua_pushnumber( pState, param.nInt ); break;
+			case CLUACallParam::PT_FLOAT: lua_pushnumber( pState, param.fFloat ); break;
+			case CLUACallParam::PT_STRING: lua_pushstring( pState, param.szString.c_str() ); break;
+			case CLUACallParam::PT_TAGGED_POINTER: lua_pushusertag( pState, param.pObject, param.nInt ); break;
+			default: lua_pushnil( pState ); break;
+		}
+	}
+	lua_startCall( pState, params.size(), 0 );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void luaCallFunction( string szName, const vector< CObj<CLUACallParam> > &params )

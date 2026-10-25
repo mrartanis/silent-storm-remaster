@@ -425,6 +425,69 @@ static void LuaWindowStateContext()
     Require(unbound.GetGlobal("missing").IsNil(), "an unbound Lua state acquired a foreign window context");
 }
 
+static void WindowMessageCallbacks()
+{
+    CObj<NUI::CInterface> interface = new NUI::CInterface;
+    interface->SetInterface(interface);
+    CMObj<NUI::CWindow> window = new NUI::CWindow(NUI::SWindowInfo(interface,
+        NUI::SPoint(3, 4), NUI::SPoint(20, 20), "callback-child"));
+    CObj<NScript::CScript> script = NScript::CreateScript(nullptr), unrelated = NScript::CreateScript(nullptr);
+    script->SetScriptInterface(interface);
+    unrelated->PushNumber(888);
+    struct GlobalScriptRestore {
+        CPtr<NScript::CScript> previous;
+        ~GlobalScriptRestore() { pScript = previous; }
+    } restore{pScript};
+    pScript = unrelated;
+    const bool baselineHandled = window->ProcessMessage(NUI::SEvent(NUI::EVENT_NOTIFY, std::string("baseline")));
+    Require(script->DoString("calls=0; local w=GetWindow('callback-child'); unset=(w.onmessage==nil) and 1 or 0; handler=function(w,event,id) calls=calls+1; kind=event; notice=id; w.x=w.x+1; return 1 end; w.onmessage=handler; sameHandler=(w.onmessage==handler) and 1 or 0") == LUA_NOERR,
+        "window callback fixture did not compile");
+    script->ExecuteThreads();
+    auto number = [&](const char* name) {
+        Script::AutoBlock stack(*script);
+        auto value = script->GetGlobal(name);
+        Require(value.IsNumber(), "window callback did not publish its numeric result");
+        return value.GetNumber();
+    };
+    auto text = [&](const char* name) {
+        Script::AutoBlock stack(*script);
+        auto value = script->GetGlobal(name);
+        Require(value.IsString(), "window callback did not publish its event name");
+        return std::string(value.GetString());
+    };
+    const bool handled = window->ProcessMessage(NUI::SEvent(NUI::EVENT_NOTIFY, std::string("ready")));
+    Require(number("calls") == 1 && window->GetPosition() == NUI::SPoint(4, 4),
+        "registered Lua onmessage handler did not receive the native window notification");
+    Require(handled == baselineHandled, "Lua callback changed native notification handling");
+    Require(text("kind") == "notify" && text("notice") == "ready", "Lua callback received incorrect notification arguments");
+    Require(number("unset") == 1, "an unset window callback was not nil");
+    Require(number("sameHandler") == 1, "window callback getter did not return the registered closure");
+    Require(unrelated->GetTop() == 1, "window callback changed an unrelated script stack");
+    const std::pair<int, const char*> mouseEvents[] = {
+        {NUI::EVENT_LBUTTONDOWN, "lbtndown"}, {NUI::EVENT_LBUTTONUP, "lbtnup"},
+        {NUI::EVENT_LBUTTONDBLCLK, "lbtndblclk"}, {NUI::EVENT_RBUTTONDOWN, "rbtndown"},
+        {NUI::EVENT_RBUTTONUP, "rbtnup"}, {NUI::EVENT_RBUTTONDBLCLK, "rbtndblclk"}
+    };
+    int expected = 1;
+    for (const auto& event : mouseEvents) {
+        Require(!window->ProcessMessage(NUI::SEvent(event.first, -100, -100)),
+            "Lua callback return value consumed an unhandled mouse event");
+        Require(number("calls") == ++expected && text("kind") == event.second,
+            "native mouse event was not forwarded under its retail Lua callback name");
+        Script::AutoBlock stack(*script);
+        Require(script->GetGlobal("notice").IsNil(), "mouse callback received a spurious notification ID");
+    }
+    window->ProcessMessage(NUI::SEvent(NUI::EVENT_ACTIVATE, NUI::EAF_DEACTIVATE));
+    Require(!window->IsActive() && number("calls") == expected,
+        "window callback intercepted an unsupported event or prevented built-in activation handling");
+    Require(script->DoString("GetWindow('callback-child').onmessage=nil; cleared=(GetWindow('callback-child').onmessage==nil) and 1 or 0") == LUA_NOERR,
+        "window callback clear control did not compile");
+    script->ExecuteThreads();
+    window->ProcessMessage(NUI::SEvent(NUI::EVENT_NOTIFY, std::string("after-clear")));
+    Require(number("calls") == expected && number("cleared") == 1 && IsValid(window),
+        "clearing a Lua callback retained its handler or invalidated the UI-owned window");
+}
+
 static void WorldlessUIScript()
 {
     CObj<NScript::CScript> script = NScript::CreateScript(nullptr);
@@ -5778,6 +5841,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "lua-window-userdata")) { LuaWindowUserdata(); return true; }
     if (!std::strcmp(mode, "lua-window-setter-stack")) { LuaWindowSetterStack(); return true; }
     if (!std::strcmp(mode, "lua-window-state-context")) { LuaWindowStateContext(); return true; }
+    if (!std::strcmp(mode, "window-message-callbacks")) { WindowMessageCallbacks(); return true; }
     if (!std::strcmp(mode, "window-template-script")) { Require(argc == 3, "window template script requires db"); WindowTemplateScript(argv[2]); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
     if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }

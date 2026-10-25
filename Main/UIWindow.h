@@ -98,6 +98,7 @@ protected:
 	void ActivateTest( int nX, int nY );
 	void BringWindowToTop( CWindow *pWindow );
 	void FormChildrenList( list<CPtr<CWindow> > *pList );
+	void DispatchScriptEvent( const SEvent &sEvent );
 	
 public:
 	// retail SWindowInfo-ctor (@0x2112d0 family / oracle iMissionUI): bActive=false, bRequireUpdate=true,
@@ -157,6 +158,8 @@ public:
 
 	virtual bool SendMessage( CWindow *pTarget, const SEvent &sEvent );
 	virtual bool ProcessMessage( const SEvent &sEvent );
+	int GetEventHandler( NScript::CScript *pScript ) const;
+	void SetEventHandler( int nCallInfo, NScript::CScript *pScript );
 
 	virtual void Update( const STime &sTime, NGScene::I2DGameView *pView );
 	virtual void Draw( const STime &sTime, NGScene::I2DGameView *pView );

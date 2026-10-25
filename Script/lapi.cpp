@@ -52,6 +52,19 @@ LUA_API void luaA_pushobject (lua_State *L, const TObject *o) {
   incr_top;
 }
 
+// Zero means no handler. This VM can allocate closure slot zero, so external
+// handles use the local closure index plus one.
+LUA_API int lua_tocallinfo (lua_State *L, int index) {
+  StkId o = luaA_indexAcceptable( L, index );
+  return o != STK_NULL && LObj(L, o)->GetType() == LUA_TFUNCTION ? LObj(L, o)->GetCL() + 1 : 0;
+}
+
+LUA_API void lua_pushcallinfo (lua_State *L, int callinfo) {
+  if (callinfo == 0) LObj(L, L->pCT->top)->SetNil();
+  else LObj(L, L->pCT->top)->SetCL( callinfo - 1 );
+  api_incr_top( L );
+}
+
 /*
 ** basic stack manipulation
 */
