@@ -183,7 +183,7 @@ void GetItemsBindPlaces( vector<IRenderVisitor::SBoundMesh> *pRes, NRPG::IUnitMi
 	NDb::CRPGItem *pActiveItem = 0;
 	if ( pActiveIItem )
 		pActiveItem = pActiveIItem->GetDBItem();
-	if ( pActiveItem )
+	if ( pActiveItem && pActiveItem->bPlaceInHand )
 	{
 		if ( bIsPK )
 		{

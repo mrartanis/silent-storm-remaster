@@ -5020,7 +5020,7 @@ static void FinishedMusicSilence(const char* databasePath)
 
 }
 
-static void HolsteredHeavyWeaponMesh(const char* databasePath, const char* resourcePath)
+static void HolsteredHeavyWeaponMesh(const char* databasePath, const char* resourcePath,int visibility = 0)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath, resourcePath, false, &game);
@@ -5036,7 +5036,7 @@ static void HolsteredHeavyWeaponMesh(const char* databasePath, const char* resou
     CDBIterator<NDb::CRPGWeapon> rows(*NDatabase::GetTable<NDb::CRPGWeapon>());
     while (rows.MoveNext()) {
         auto* candidate = rows.Get();
-        if (IsValid(candidate->pItem) && candidate->pItem->subType == NDb::SUBTYPE_HEAVY
+        if (IsValid(candidate->pItem) && candidate->pItem->bPlaceInHand && candidate->pItem->subType == NDb::SUBTYPE_HEAVY
                 && IsValid(candidate->pItem->pModel) && IsValid(candidate->pAnimWeaponType)) {
             heavy = candidate; break;
         }
@@ -5059,6 +5059,17 @@ static void HolsteredHeavyWeaponMesh(const char* databasePath, const char* resou
     };
     Require(heavyCount(false) == 1, "drawn heavy weapon lost its normal mesh");
     Require(heavyCount(false, true) == 0, "no-heavy render mode did not suppress the weapon");
+    if (visibility == 1) {
+        const int ap = actor->GetAP(), ammo = weapon->GetAmmoQuantity();
+        heavy->pItem->bPlaceInHand = false;
+        Require(heavyCount(false) == 0,
+            "an active item marked invisible in hand still attached its native weapon mesh");
+        Require(inventory->GetActive() == weapon.GetPtr() && actor->GetAP() == ap && weapon->GetAmmoQuantity() == ammo,
+            "honoring the in-hand visibility flag changed the actual active item, AP or ammunition");
+        heavy->pItem->bPlaceInHand = true;
+        Require(heavyCount(false) == 1, "reenabling an item's authored visibility failed to restore its native mesh");
+        return;
+    }
     Require(heavyCount(true) == 0, "holstered active heavy weapon remained in the native render bindings");
     Require(inventory->Activate(NDb::SLOT_2) && heavyCount(true) == 1,
         "active-weapon holster gate incorrectly hid an inactive carried heavy weapon");
@@ -9834,6 +9845,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "enemy-icon-visibility")) { Require(argc == 4, "enemy icons require db and res"); EnemyIconVisibility(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "finished-music-silence")) { Require(argc == 3, "finished music requires db"); FinishedMusicSilence(argv[2]); return true; }
     if (!std::strcmp(mode, "holstered-heavy-weapon-mesh")) { Require(argc == 4, "heavy mesh requires db and res"); HolsteredHeavyWeaponMesh(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "hidden-active-item-mesh")) { Require(argc == 4, "hidden active mesh requires db and res"); HolsteredHeavyWeaponMesh(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "script-holster-persistence")) { Require(argc == 4, "script holster requires db and res"); ScriptHolsterPersistence(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "movement-holster-policy")) { Require(argc == 4, "movement holster requires db and res"); MovementHolsterPolicy(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "short-inactive-movement")) { Require(argc == 4, "inactive movement requires db and res"); MovementHolsterPolicy(argv[2], argv[3], MovementHolsterCheck::ShortInactive); return true; }
