@@ -2616,7 +2616,7 @@ public:
         const vector<SBoundMesh>&, NGScene::CLightGroup*, int, NWorld::CUnit*, int) override { ++meshes; alienMesh = alienDepth > 0; }
 };
 
-static void HiddenUnitTint(const char* databasePath, const char* resourcePath)
+static void HiddenUnitTint(const char* databasePath, const char* resourcePath, bool checkSequence = false)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath, resourcePath, true, &game);
@@ -2649,6 +2649,22 @@ static void HiddenUnitTint(const char* databasePath, const char* resourcePath)
     Require(rpg->IsHiding() && actor->GetPosition().pos.p == position.pos.p
             && rpg->GetRPGUnit()->Skills(NDb::ST_AP) == ap,
         "rendering a hiding tint changed hiding state, position or AP");
+    if (checkSequence) {
+        world->StartSequence();
+        Require(world->IsSequence() && rpg->IsHiding(), "human sequence fixture lost its hidden state");
+        HiddenUnitPresentation cinematic;
+        actor->Visit(&cinematic);
+        Require(cinematic.meshes == 1 && cinematic.filters.empty() && cinematic.flares == 0 && !cinematic.alienMesh,
+            "cinematic sequence still rendered the human hiding overlay");
+        Require(rpg->IsHiding(), "hiding presentation changed the human's logical hiding state");
+        world->EndOfTurn();
+        Require(!world->IsSequence(), "human sequence fixture did not leave the sequence");
+        HiddenUnitPresentation resumed;
+        actor->Visit(&resumed);
+        Require(resumed.filters.size() == 1 && resumed.flares == 1,
+            "human hiding presentation did not resume after the sequence");
+    }
+
 }
 
 class UnitFloorPresentation: public CSyncDst<NWorld::IVisObj>, public NWorld::IRenderVisitor
@@ -6340,7 +6356,7 @@ static void PKShellWorld(const char* databasePath, const char* resourcePath, boo
     Require(found, "fixture has no unobstructed PK footprint");
     CObj<NWorld::CUnitServer> shell = world->AddUnitInGame(anchor, NRPG::CreateUnit(suitRecord), nullptr);
     Require(shell && shell->IsEmptyPK(), "could not create a PK shell");
-    if (checkFeedback == 4) {
+    if (checkFeedback == 4 || checkFeedback == 5) {
         Require(shell->WearAsPK(true), "hidden PK fixture could not prepare its shell");
         pilot->SetPosition(shell->GetPosition());
         pilot->FlipPanzerklein(shell, false, false);
@@ -6357,6 +6373,22 @@ static void PKShellWorld(const char* databasePath, const char* resourcePath, boo
                 "Panzerklein incorrectly received the human hiding tint or flare");
             Require(pilot->GetUnitRPG()->IsHiding() == hidden && pilot->GetRPG()->GetAP() == ap,
                 "PK hiding presentation changed hiding state or action points");
+        }
+        if (checkFeedback == 5) {
+            world->StartSequence();
+            Require(world->IsSequence() && pilot->GetUnitRPG()->IsHiding(), "PK sequence fixture lost its hidden state");
+            HiddenUnitPresentation cinematic;
+            pilot->Visit(&cinematic);
+            Require(cinematic.meshes == 1 && !cinematic.alienMesh && cinematic.alienBegin == 0
+                    && cinematic.alienEnd == 0 && cinematic.filters.empty() && cinematic.flares == 0,
+                "cinematic sequence still rendered the Panzerklein hiding material");
+            Require(pilot->GetUnitRPG()->IsHiding(), "cinematic rendering cleared the PK's logical hiding state");
+            world->EndOfTurn();
+            Require(!world->IsSequence(), "PK sequence fixture did not leave the sequence");
+            HiddenUnitPresentation resumed;
+            pilot->Visit(&resumed);
+            Require(resumed.alienMesh && resumed.alienBegin == 1 && resumed.alienEnd == 1,
+                "PK hiding presentation did not resume after the sequence");
         }
         // The existing global material override remains independent of hiding.
         pilot->GetUnitRPG()->SetHiding(false);
@@ -6677,6 +6709,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "pk-waypoint") && argc == 4) { PKShellWorld(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "pk-critical-feedback") && argc == 4) { PKShellWorld(argv[2], argv[3], false, false, 1); return true; }
     if (!std::strcmp(mode, "pk-pose-feedback") && argc == 4) { PKShellWorld(argv[2], argv[3], false, false, 2); return true; }
+    if (!std::strcmp(mode, "human-sequence-hiding") && argc == 4) { HiddenUnitTint(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "pk-sequence-hiding") && argc == 4) { PKShellWorld(argv[2], argv[3], false, false, 5); return true; }
     if (!std::strcmp(mode, "hidden-pk-material") && argc == 4) { PKShellWorld(argv[2], argv[3], false, false, 4); return true; }
     if (!std::strcmp(mode, "pk-turn-animation") && argc == 4) { PKShellWorld(argv[2], argv[3], false, false, 3); return true; }
     if (!std::strcmp(mode, "pk-model-ownership") && argc == 4) { PKShellWorld(argv[2], argv[3], false, true); return true; }

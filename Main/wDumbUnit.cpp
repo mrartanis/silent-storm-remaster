@@ -214,7 +214,8 @@ void CDumbUnitServer::Visit( IRenderVisitor *p )
 	}
 	NGScene::CLightGroup *pGroup = p->MakeGroup();
 
-	bool bAlienStyle = ( pRPG->IsHiding() && IsWearingPK() ) || bEverybodyIsAlien;
+	bool bHidden = pRPG->IsHiding() && !GetWorld()->IsSequence();
+	bool bAlienStyle = ( bHidden && IsWearingPK() ) || bEverybodyIsAlien;
 	if ( bAlienStyle )
 		p->StartAlienStyle();
 	CUnit *pHead = dynamic_cast<CUnit*>(this);
@@ -231,7 +232,7 @@ void CDumbUnitServer::Visit( IRenderVisitor *p )
 		if ( IsValid( i->pEffect ) )
 			p->AddParticleEffect( i->tBegin, i->pEffect, nFloor,
 				new NAnimation::CAddBoneFilter( animator.GetSkeletonAnimator(), 0 ), animator.GetSkeletonAnimator() );
-	if ( pRPG->IsHiding() && !bAlienStyle )
+	if ( bHidden && !bAlienStyle )
 	{
 		p->AddFlare( 
 			new NGScene::CExtractTranslation( new NAnimation::CAddBoneFilter( animator.GetSkeletonAnimator(), 0 ) ), 
