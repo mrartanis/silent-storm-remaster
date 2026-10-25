@@ -3234,7 +3234,8 @@ void CExecThrowKnife::OnLabel()
 	ThrowKnife();
 	// @0x3ab700 -- retail marks the attack canceled after the throw label fires so CExecAttack::TimeLabelReached
 	// finishes the executor for this one-shot throw (the decomp writes [esi+0x18]=1). Jan03 omitted this.
-	// NOTE: the retail "knife gone / torn-off" feedback sound is deferred.
+	if ( !IsValid( pUS->GetWearingDBPK() ) )
+		pUS->GetWorld()->MakeSound( pUS->GetPosition().GetCP(), NDb::GetSound( 0x3285 ) );
 	bAttackCanceled = true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

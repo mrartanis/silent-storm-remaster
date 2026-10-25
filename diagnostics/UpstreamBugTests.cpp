@@ -7909,9 +7909,10 @@ static void TrapPlacementSuccessorHandoff(const char* databasePath,const char* r
     }
 }
 
-static void ThrownKnifeSuccessorHandoff(const char* databasePath,const char* resourcePath)
+static void ThrownKnifeSuccessorHandoff(const char* databasePath,const char* resourcePath,bool feedback = false)
 {
-    for (int variant: {1,0,2}) {
+    const vector<int> variants = feedback ? vector<int>{1,3} : vector<int>{1,0,2};
+    for (int variant: variants) {
         CObj<NRPG::CGlobalGame> game;
         auto world = FixtureWorld(databasePath,resourcePath,false,&game);
         vector<CPtr<NWorld::CUnit>> units;
@@ -7922,6 +7923,28 @@ static void ThrownKnifeSuccessorHandoff(const char* databasePath,const char* res
             if (unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) { actor = unit; break; }
         }
         Require(actor != nullptr, "knife-handoff fixture lacks an ordinary native actor");
+        CObj<NWorld::CUnitServer> shell;
+        if (variant == 3) {
+            NDb::CRPGPers* suit = nullptr;
+            CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+            while (people.MoveNext()) if (IsValid(people.Get()->pPanzerklein) &&
+                !people.Get()->pPanzerklein->bHasNoHead && IsValid(people.Get()->pModel)) { suit = people.Get(); break; }
+            Require(suit != nullptr, "knife feedback fixture has no ordinary authored PK shell");
+            vector<NAI::SPathPlace> places;
+            world->GetPathNetwork()->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),20.f),&places);
+            NAI::SPathPlace anchor;
+            bool found = false;
+            for (auto place: places) {
+                place.SetPose(NAI::CM_STAND); place.SetDirection(0);
+                if (NAI::IsBigLockerPlacePassable(world->GetPathNetwork(),place)) { anchor = place; found = true; break; }
+            }
+            Require(found, "knife feedback fixture has no free native PK footprint");
+            shell = world->AddUnitInGame(anchor,NRPG::CreateUnit(suit),nullptr);
+            Require(shell && shell->IsEmptyPK() && shell->WearAsPK(true), "knife feedback fixture could not prepare its native shell");
+            actor->SetPosition(shell->GetPosition());
+            actor->FlipPanzerklein(shell,false,false);
+            Require(actor->IsWearingPK(), "knife feedback fixture did not put on its actual PK shell");
+        }
         NDb::CRPGMeleeWeapon* record = nullptr;
         CDBIterator<NDb::CRPGMeleeWeapon> rows(*NDatabase::GetTable<NDb::CRPGMeleeWeapon>());
         while (rows.MoveNext()) {
@@ -7956,7 +7979,7 @@ static void ThrownKnifeSuccessorHandoff(const char* databasePath,const char* res
         actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
         actor->animator.ThrowKnife(actor->GetPosition(),target);
         const auto animationEnd = actor->animator.GetTimeEnd(), animationLabel = actor->animator.GetTimeLabel1();
-        Require(!actor->animator.IsActiveItem() && animationLabel > 0 && animationEnd >= animationLabel,
+        Require(!actor->animator.IsActiveItem() && (shell || (animationLabel > 0 && animationEnd >= animationLabel)),
             "knife-handoff fixture did not start a real native throwing animation");
         const int ap = actor->GetAP(), vp = actor->GetUnitRPG()->GetTotalVP();
         vector<NWorld::IDynamicObject*> previousObjects;
@@ -7979,6 +8002,31 @@ static void ThrownKnifeSuccessorHandoff(const char* databasePath,const char* res
         }
         Require(projectiles == 1 && inventory->GetActive() == next.GetPtr(),
             "the native knife callback failed to launch one blade and equip only its successor");
+        if (feedback) {
+            struct Feedback: NWorld::ISoundVisitor {
+                vector<NDb::CSound*> sounds;
+                vector<CVec3> positions;
+                void Add3DSound(STime,NDb::CSound* sound,CFuncBase<CVec3>* source) override {
+                    sounds.push_back(sound);
+                    CDGPtr<CFuncBase<CVec3>> position(source); position.Refresh();
+                    positions.push_back(position->GetValue());
+                }
+                void AddEffect(STime,NDb::CSoundEffect*,CFuncBase<CVec3>*,const vector<int>&) override {
+                    throw std::runtime_error("knife feedback unexpectedly created a sound effect");
+                }
+                void Add2DSound(STime,NDb::CSound*) override { throw std::runtime_error("knife feedback unexpectedly became non-positional"); }
+            } sounds;
+            for (auto& object: *world->GetMiscObjects()) {
+                if (std::find(previousObjects.begin(),previousObjects.end(),object.GetPtr()) != previousObjects.end()) continue;
+                if (auto* sound = dynamic_cast<NWorld::C3DSound*>(object.GetPtr())) sound->Visit(&sounds);
+            }
+            auto* expected = NDb::GetSound(0x3285);
+            Require(IsValid(expected), "knife feedback fixture has no authored ordinary throw sound");
+            if (!shell) Require(sounds.sounds == vector<NDb::CSound*>{expected} &&
+                sounds.positions == vector<CVec3>{actor->GetPosition().GetCP()},
+                "throwing a native knife omitted its ordinary positional feedback sound");
+            else Require(sounds.sounds.empty(), "a knife thrown from a worn PK played the ordinary human feedback sound");
+        }
         CStructureNetworkContext references;
         auto fields = BorrowedObjectFields(executor,&references);
         CObj<NRPG::IInventoryItem> pending;
@@ -10841,6 +10889,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "trap-placement-successor-handoff")) { Require(argc == 4, "trap handoff requires db and res"); TrapPlacementSuccessorHandoff(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "engineer-trap-placement-successor-handoff")) { Require(argc == 4, "engineer trap handoff requires db and res"); TrapPlacementSuccessorHandoff(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "thrown-knife-successor-handoff")) { Require(argc == 4, "knife handoff requires db and res"); ThrownKnifeSuccessorHandoff(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "thrown-knife-feedback")) { Require(argc == 4, "knife feedback requires db and res"); ThrownKnifeSuccessorHandoff(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }

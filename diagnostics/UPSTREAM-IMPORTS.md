@@ -235,6 +235,7 @@
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Defer mine successor activation until placement animation completion | `mine placement equipped the successor before its animation finished` | 279/279; `mine-placement-successor-handoff` | `Upstream-Commit` в commit message |
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Defer door-trap successor activation until placement animation completion | `door trap placement equipped the successor before its animation finished` | 20/20; `trap-placement-successor-handoff` | `Upstream-Commit` в commit message |
 | [7e46d2a6](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7e46d2a66d1ba9ca3bef8f41e14b684425febed3) — Preserve the throwing animation while retaining the successor knife | `the thrown-knife executor did not retain its successor in saved field four` | 21/21; `thrown-knife-successor-handoff` | `Upstream-Commit` в commit message |
+| [7e46d2a6](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7e46d2a66d1ba9ca3bef8f41e14b684425febed3) — Restore ordinary positional knife-throw feedback outside worn Panzerkleins | `throwing a native knife omitted its ordinary positional feedback sound` | 283/283; `thrown-knife-feedback` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1117,3 +1118,33 @@ Windows configured registration — 1/1. Последние полные про�
 `thrown-knife-successor-handoff-game-build.log`,
 `thrown-knife-successor-handoff-registration-test.log`,
 `thrown-knife-linux-{configure,build,test}.log`.
+
+### Звук метательного ножа и контрольная точка 283
+
+Последний функциональный фрагмент `7e46d2a6` восстановил позиционный звук
+`0x3285` после метки броска, с исходным подавлением при надетом Panzerklein.
+Native test воспроизвёл отсутствующий звук, затем проверил новые `C3DSound` и
+вычисленные функции их позиции: одна запись в точке обычного бросающего,
+ни одной для бойца, действительно надевшего созданный native PK. Оба варианта
+проходят проверку пригодности команды и создают один нож; обычный вариант
+требует настоящую анимацию. Проверяется создание world sound records,
+а не декодирование файла или слышимое воспроизведение через устройство.
+`MakeSound` не вызывает `MakeAISound` и не меняет правила слышимости AI.
+
+Этим завершён `7e46d2a6`: shared reservation, удержание следующего ножа и звук
+проверены независимо. У `4c6b10fb` остаётся удаление временного boolean-wrapper
+после миграции отдельных обработчиков гранаты. Параметры физики и попаданий
+из соседних upstream-коммитов в эту группу не включались.
+
+Windows `ALL_BUILD` и Linux `Game` собраны. Полные профили — 283/283 на каждой
+платформе, широкий локальный набор — 268/268, сеть — 6/6, мир и сохранения — 5/5.
+Сценарий 5247 занял 2.56s. Полные профили выполнялись последовательно по одному
+процессу; сборки переиспользованы. Исходные шрифты и HD-данные сохранены.
+
+Свидетельства: `thrown-knife-feedback-{red,green}-{build,test}.log`,
+`thrown-knife-feedback-focused-test.log`,
+`thrown-knife-feedback-linux-{configure,build,test}.log`,
+`thrown-knife-feedback-linux-full-test.log`, `checkpoint-283-all-build.log`,
+`checkpoint-283-ci-test.log`, `checkpoint-283-{network,world}-green-test.log`.
+Окончательный GitHub Actions на финальном HEAD остаётся обязательным после
+завершения всех переносов; локальная контрольная точка его не заменяет.
