@@ -897,7 +897,7 @@ static void SniperHeldAim(const char* databasePath, const char* resourcePath, bo
     Require(snapshot.target.GetPtr() == target, "sniper Fire changed its held target");
 }
 
-static void PersonClueCreation(const char* databasePath, const char* resourcePath)
+static void PersonClueCreation(const char* databasePath, const char* resourcePath, bool withInventoryClue = false)
 {
     CFileStream database;
     database.OpenRead(databasePath);
@@ -914,17 +914,30 @@ static void PersonClueCreation(const char* databasePath, const char* resourcePat
         }
     }
     Require(clue != nullptr, "fixture has no scenario person clue");
+    auto* itemClue = game->pScenarioTracker->GetClueByName("Find_Cipher_key");
+    auto* item = itemClue ? NDb::GetRPGItem(itemClue->GetDBClue()->nItemID) : nullptr;
+    Require(item != nullptr, "fixture has no inventory clue item");
+    item->pSuccessor = nullptr;
+    item->sSize = CTPoint<int>(1, 1);
     // Force the authored human spawn points to offer person-clue slots. All
     // changes stay in the loaded database, without writing any game assets.
     CDBIterator<NDb::CUnit> records(*NDatabase::GetTable<NDb::CUnit>());
     while (records.MoveNext()) {
         auto* unit = records.Get();
         unit->bClueSlot = IsValid(unit->pMonster) && !IsValid(unit->pMonster->pPanzerklein);
-        unit->bClueInventorySlot = false;
+        unit->bClueInventorySlot = withInventoryClue;
+    }
+    CDBIterator<NDb::CPlacableObject> objects(*NDatabase::GetTable<NDb::CPlacableObject>());
+    while (objects.MoveNext()) {
+        auto* object = objects.Get();
+        if (IsValid(object->pRPGItem) && object->pRPGItem->GetRecordID() == 188)
+            object->pRPGItem = nullptr;
     }
     CObj<NWorld::CWorld> world = new NWorld::CWorld(game);
     CObj<NWorld::CPostWorldCreateInfo> post;
-    world->CreateRandom(810, {}, true, std::list<CPtr<NScenario::CScenarioClue>>{clue}, 0, &post, SRandomSeed(123));
+    std::list<CPtr<NScenario::CScenarioClue>> requested{clue};
+    if (withInventoryClue) requested.push_back(itemClue);
+    world->CreateRandom(810, {}, true, requested, 0, &post, SRandomSeed(123));
     vector<CPtr<NWorld::CUnit>> actors;
     world->GetAllUnits(&actors);
     int found = 0;
@@ -932,8 +945,17 @@ static void PersonClueCreation(const char* databasePath, const char* resourcePat
         auto* server = dynamic_cast<NWorld::CUnitServer*>(actor.GetPtr());
         if (actor->GetRPG()->GetRPGUnit()->GetPers()->GetRecordID() == clue->GetDBClue()->nPersID) {
             ++found;
-            Require(server->IsClueUnit() && server->nClueCount == 1,
-                "spawned scenario person lost its clue marker and corpse-cleanup protection");
+            if (withInventoryClue) {
+                int carried = 0;
+                for (const auto& entry : actor->GetRPG()->GetInventoryInfo()->GetItems())
+                    if (dynamic_cast<NRPG::IClueItem*>(entry.pItem.GetPtr()) && entry.pItem->GetDBItem() == item)
+                        ++carried;
+                Require(carried == 1, "inventory clue was lost when its slot's authored person was replaced");
+                Require(server->nClueCount == 2, "replacement person did not retain both scenario clues");
+            } else {
+                Require(server->IsClueUnit() && server->nClueCount == 1,
+                    "spawned scenario person lost its clue marker and corpse-cleanup protection");
+            }
         } else {
             Require(!server->IsClueUnit(), "ordinary actor was marked as a scenario person");
         }
@@ -2796,6 +2818,7 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "sniper-targetless-probe") && argc == 4) SniperHeldAim(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "sniper-held-aim") && argc == 4) SniperHeldAim(argv[2], argv[3]);
         else if (!std::strcmp(mode, "person-clue-creation") && argc == 4) PersonClueCreation(argv[2], argv[3]);
+        else if (!std::strcmp(mode, "replacement-person-inventory-clue") && argc == 4) PersonClueCreation(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "inventory-clue-creation") && argc == 4) InventoryClueCreation(argv[2], argv[3]);
         else if (!std::strcmp(mode, "inventory-clue-count") && argc == 4) InventoryClueCreation(argv[2], argv[3], true);
         else if (!std::strcmp(mode, "inventory-clue-capacity") && argc == 4) InventoryClueCreation(argv[2], argv[3], true, true);
