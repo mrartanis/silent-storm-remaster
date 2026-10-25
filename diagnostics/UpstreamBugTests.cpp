@@ -25,6 +25,7 @@
 #include "../Main/iDesktopWindow.h"
 #include "../Main/Sound.h"
 #include "../Main/iMissionDlgUI.h"
+#include "../Main/iMissionMovieUI.h"
 #include "../Main/G2DView.h"
 #include "../Main/UIML.h"
 #include "../DBFormat/DataAck.h"
@@ -80,6 +81,9 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/scFlowChart.h"
 #include "../Main/scScenarioTracker.h"
 #include "../Main/RPGGame.h"
+#include "../Main/aiJob.h"
+#include "../Main/iMissionExec.h"
+#include "../Main/iMissionInternal.h"
 #include "../Main/RPGStore.h"
 #include "../Main/UnitTracker.h"
 #include "../DBFormat/DataFormat.h"
@@ -518,6 +522,67 @@ static void PointLightShadowFlag()
     light.TraceDynamicLM(&result, receiver, scene);
     Require(scene->traceCalls == 2 && fabs2(result.vXNeg.v - CVec3(4.f/9.f, 8.f/9.f, 12.f/9.f)) < 1e-10f,
         "visible shadow-casting point light changed its original attenuation");
+}
+
+class CameraExecutorReached: public std::runtime_error
+{
+public:
+    CameraExecutorReached(): std::runtime_error("automatic action camera escaped cinematic desktop filtering") {}
+};
+
+class QueuedCameraWorld: public NWorld::CWorld
+{
+    OBJECT_NOCOPY_METHODS(QueuedCameraWorld);
+public:
+    vector<CObj<NWorld::CUICmd>> commands;
+    std::size_t next = 0;
+    NWorld::CUICmd* GetUICommand() override {
+        return next < commands.size() ? commands[next++].GetPtr() : nullptr;
+    }
+};
+
+class CinematicDrainMission: public NGame::CMission
+{
+    OBJECT_NOCOPY_METHODS(CinematicDrainMission);
+    CObj<NUI::CDesktopWindow> desktop;
+public:
+    void Attach(NWorld::CWorld* world, NUI::CDesktopWindow* top) { pWorld = world; desktop = top; }
+    NUI::CDesktopWindow* GetDesktop() const override { return desktop; }
+    ICamera* GetCamera() const override { throw CameraExecutorReached(); }
+    void Drain() { ExecWorldCommands(); }
+    bool TutorialEnabled() const { return bTutorialMode; }
+};
+
+static void CinematicCameraCommands(int kind)
+{
+    CObj<NUI::CDesktopWindow> desktop;
+    if (kind == 0) desktop = new NUI::CMissionDlgUI;
+    else if (kind == 1) desktop = new NUI::CMissionMovieUI;
+    else desktop = new NUI::CMissionFadeUI;
+    CObj<QueuedCameraWorld> world = new QueuedCameraWorld;
+    CObj<CinematicDrainMission> mission = new CinematicDrainMission;
+    mission->Attach(world, desktop);
+    world->commands.emplace_back(new NWorld::CUICmdUnitCamera(nullptr, 1, false, 0.f, nullptr));
+    world->commands.emplace_back(new NWorld::CUICmdTutorialMode(true));
+    // Exercise the actual mission queue drain: automatic locators must be
+    // rejected before they instantiate a camera executor or lock the camera.
+    mission->Drain();
+    Require(mission->TutorialEnabled(), "cinematic command filter discarded an unrelated script command");
+    world->commands.emplace_back(new NWorld::CUICmdScriptMoveCamera({}, 0));
+    bool scriptedCameraAccepted = false;
+    try { mission->Drain(); }
+    catch (const CameraExecutorReached&) { scriptedCameraAccepted = true; }
+    Require(scriptedCameraAccepted, "cinematic command filter blocked a scripted camera move");
+
+    CObj<NUI::CDesktopWindow> ordinary = new NUI::CDesktopWindow;
+    CObj<QueuedCameraWorld> ordinaryWorld = new QueuedCameraWorld;
+    CObj<CinematicDrainMission> ordinaryMission = new CinematicDrainMission;
+    ordinaryMission->Attach(ordinaryWorld, ordinary);
+    ordinaryWorld->commands.emplace_back(new NWorld::CUICmdUnitCamera(nullptr, 1, false, 0.f, nullptr));
+    bool ordinaryCameraAccepted = false;
+    try { ordinaryMission->Drain(); }
+    catch (const CameraExecutorReached&) { ordinaryCameraAccepted = true; }
+    Require(ordinaryCameraAccepted, "ordinary mission desktop lost automatic camera commands");
 }
 
 static void CompletedZoneRecommendation()
@@ -3313,6 +3378,9 @@ int main(int argc, char** argv)
         else if (!std::strcmp(mode, "point-light-save-layout")) PointLightSaveLayout();
         else if (!std::strcmp(mode, "legacy-point-light-save-layout")) PointLightSaveLayout(true);
         else if (!std::strcmp(mode, "point-light-shadow-flag")) PointLightShadowFlag();
+        else if (!std::strcmp(mode, "dialogue-camera-filter")) CinematicCameraCommands(0);
+        else if (!std::strcmp(mode, "movie-camera-filter")) CinematicCameraCommands(1);
+        else if (!std::strcmp(mode, "fade-camera-filter")) CinematicCameraCommands(2);
         else if (!std::strcmp(mode, "completed-zone-recommendation")) CompletedZoneRecommendation();
         else if (!std::strcmp(mode, "perk-tooltip-parameters")) PerkTooltipParameters();
         else if (!std::strcmp(mode, "mechanical-step-sound")) MechanicalStepSound();
