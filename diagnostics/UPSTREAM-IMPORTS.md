@@ -243,6 +243,7 @@
 | [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Refresh held-item flags before selecting a grenade throw animation | `a grenade throw after the native unarmed POSE fallback omitted its authored held-item throw animation` | 29/29; `grenade-throw-animation-refresh` | `Upstream-Commit` в commit message |
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Detach default slot items without starting unrelated activation animations | `native default item detachment started an unrelated activation animation while processing equipment slots` | 31/31; `default-item-detachment` | `Upstream-Commit` в commit message |
 | [0ffb568d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0ffb568d67bc6ca389d7ca63a9da4f3978c801a7) — Persist total experience when assigning a native unit level | `assigning a native unit level updated skill XP but discarded the corresponding total experience` | 292/292; `assigned-level-experience` | `Upstream-Commit` в commit message |
+| [432b64c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/432b64c8bbe97a9f347a6c9468e7c69173d68394) — Reload the retreat reaction owner after switching an arrived unit to guard | `native AI pump crashed in GetColourer via HasPath after an arrived retreat replaced and cleared itself` | 26/26; `arrived-retreat-reaction-lifetime` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1358,3 +1359,34 @@ workflow нужен после завершения всех переносов.
 `assigned-level-linux-{configure,build,test}.log`, `checkpoint-292-ci-test.log`,
 `checkpoint-292-{network,world}-green-test.log`. Работа по исходному списку
 281 коммита продолжается; pending-строки не считаются выполненными.
+
+### Реакция отступления после передачи бойца охране
+
+Независимая часть `432b64c8` воспроизведена через настоящий CAIRetreatReaction,
+нативного владельца AI и SAIUpdateTracker. У точки отступления SetReaction
+устанавливал Guard и освобождал последний CObj прежней реакции. CPtr счётчика
+удерживал её allocation, но не содержимое. Хвост Update продолжал использовать
+прежний cached unit и очищенную точку отступления. Native RED — access violation;
+CDB подтвердил SAIUpdateTracker::Update → CAIRetreatReaction::Update →
+CreateAIMoveToPositionLogic/HasPath → CPathNetwork::GetColourer.
+
+Как в upstream, ссылка на владельца заново читается через GetUnit перед хвостом.
+Правила испуга, выбора точки и движения не менялись. Проверены прибытие,
+недопустимая точка и настоящая достижимая точка до прибытия. Первые два случая
+оставляют Guard без новой movement logic; третий сохраняет live retreat и
+штатную movement logic. AP, VP, место бойца и игровые команды не меняются;
+нативный tracker потребляет ровно одну очередь. Тест не держит дополнительный
+CObj реакции, который скрыл бы потерю последнего владельца.
+
+Windows/Linux Game собраны; связанный набор — 26/26 на каждой платформе,
+Windows configured registration — 1/1. Последняя полная контрольная точка —
+292, весь текущий набор из 293 проверок здесь не заявляется. Inventory PK-часть
+уже присутствует; group Hide, hit-label presentation и PK damage остаются
+отдельными частями смешанного источника. Изменения PK-расчётов описаны в
+UPSTREAM-BALANCE-CHANGES.md и сюда не включены.
+
+Свидетельства: `arrived-retreat-reaction-lifetime-{red,green}-{build,test}.log`,
+`arrived-retreat-reaction-lifetime-red-cdb.log`,
+`arrived-retreat-reaction-lifetime-game-build.log`,
+`arrived-retreat-reaction-lifetime-registration-test.log`,
+`retreat-reaction-linux-{configure,build,test}.log`.

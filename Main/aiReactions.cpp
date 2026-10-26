@@ -298,12 +298,8 @@ void CAINormalReaction::Update()
 //    pWorld -- the same NWorld::IWorld for an in-world unit; the release's GetAIState()!=NULL gate is folded
 //    into the GetAIUnitState()!=NULL gate (both non-null for a live in-world unit).
 //
-// LIFETIME: the dist<0.5 arm SetReaction()s a Guard and then the tail still runs (matching the release, which
-// reads `this` after the SetReaction). That is safe because every Update() caller holds the reaction in a
-// CPtr<CAIReaction> across the call -- the tactical commander (aiTacticalCommander.cpp:120/126) and the
-// hardened inline path in CAINormalReaction::Update above -- so SetReaction releasing the unit's ref does not
-// free `this` mid-Update. LIVE (build-validation scope: build-verified, NOT runtime-validated; this changes
-// in-mission AI for scared units that reach their fall-back or lose their enemy).
+// LIFETIME: SetReaction can clear this reaction while the pump's CPtr retains its allocation.
+// Reload the owning unit before the tail, as retail does.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIRetreatReaction::Update()
 {
@@ -363,7 +359,8 @@ void CAIRetreatReaction::Update()
 			}
 		}
 	}
-	// tail: a unit left with no current logic keeps moving to the fall-back at a run, ending crouched.
+	// SetReaction can release the last CObj owner and clear pUnit/pos before this tail.
+	u = GetUnit();
 	if ( IsValid( u ) && !IsValid( u->GetLogic() ) )
 		SetLogic( CreateAIMoveToPositionLogic( u, pos, RUN, CROUCH, true ) );
 }

@@ -125,6 +125,8 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/aiReaction.h"
 #include "../Main/aiActionPlaceSource.h"
 #include "../Main/aiCombatLogic.h"
+#include "../Main/aiReactions.h"
+#include "../Main/aiGuardReaction.h"
 #include "../Main/aiUnitState.h"
 #include "../Main/aiEvent.h"
 #include "../Main/aiThreatTracker.h"
@@ -4304,6 +4306,64 @@ static void FinishedAILogicRetirement(const char* databasePath, const char* reso
     const int idleAP = actor->GetRPG()->GetAP();
     Require(logic->IsFinished(), "finished idle AI logic stayed alive merely because its RPG actor still existed");
     Require(actor->GetRPG()->GetAP() == idleAP && actor->CanFight(), "AI logic retirement changed live AP or health");
+}
+
+static void ArrivedRetreatReactionLifetime(const char* databasePath,const char* resourcePath)
+{
+    for (int variant: {0,1,2}) {
+        CObj<NRPG::CGlobalGame> game;
+        auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+        list<CPtr<NWorld::CUnitServer>> units;
+        world->GetAllUnits(&units);
+        NWorld::CUnitServer* actor = nullptr;
+        NAI::IAIUnit* unit = nullptr;
+        for (const auto& candidate: units) {
+            auto* wrapper = NAI::GetAIUnit(candidate);
+            if (IsValid(candidate) && candidate->CanFight() && candidate->IsAIUnit() &&
+                !candidate->HasCommand() && IsValid(wrapper)) {
+                actor = candidate.GetPtr(); unit = wrapper; break;
+            }
+        }
+        Require(actor && unit, "retreat-reaction fixture has no idle native AI actor");
+        unit->SetRouteLogic(nullptr);
+        unit->SetLogic(nullptr);
+        const auto position = actor->GetPosition();
+        auto destination = position.pos.p;
+        if (variant == 1) destination = NAI::SPathPlace();
+        if (variant == 2) {
+            auto* network = world->GetPathNetwork();
+            vector<NAI::SPathPlace> places;
+            network->GetNearPlaces(SSphere(position.GetCP(),5.f),&places);
+            bool found = false;
+            for (auto place: places) {
+                place.SetPose(NAI::CM_STAND); place.SetDirection(0);
+                if (!network->IsPassable(place) || network->IsLocked(place,true) ||
+                    fabs2(NAI::SPosition(place,network).GetCP()-position.GetCP()) < 4.f) continue;
+                CObj<NAI::CPath> path = NWorld::FindPath(network,actor,position.pos.p,vector<NAI::SPathPlace>{place},nullptr,true);
+                if (path && path->points.size() >= 3) { destination = place; found = true; break; }
+            }
+            Require(found, "retreat-reaction fixture found no genuine reachable fallback place");
+        }
+        const int ap = actor->GetAP(), vp = actor->GetUnitRPG()->GetTotalVP();
+        // As in the commander, retain only the allocation; the unit owns the reaction's contents.
+        CPtr<NAI::CAIReaction> retreat = NAI::CreateAIRetreatReaction(unit,destination);
+        unit->SetReaction(retreat);
+        Require(IsValid(retreat) && unit->GetReaction() == retreat.GetPtr(),
+            "retreat-reaction fixture did not install the actual native reaction");
+        std::printf("native retreat reaction variant=%d\n",variant); std::fflush(stdout);
+        Require(retreat->CanUpdate(), "retreat-reaction fixture is not eligible for the native AI pump");
+        NAI::SAIUpdateTracker tracker;
+        tracker.Add(retreat);
+        Require(!tracker.CanGetCommand(), "the native AI pump did not retain its queued reaction");
+        tracker.Update();
+        Require(tracker.CanGetCommand(), "the native AI pump failed to consume its one queued reaction");
+        if (variant == 2) Require(IsValid(retreat) && unit->GetReaction() == retreat.GetPtr() && IsValid(unit->GetLogic()),
+            "a live retreat before arrival lost its reaction or genuine movement logic");
+        else Require(!IsValid(retreat) && dynamic_cast<NAI::CAIGuardReaction*>(unit->GetReaction()) && !IsValid(unit->GetLogic()),
+            "a completed retreat used its cleared reaction to install another movement logic after switching to guard");
+        Require(actor->GetPosition() == position && actor->GetAP() == ap && actor->GetUnitRPG()->GetTotalVP() == vp &&
+            !actor->HasCommand(), "updating a retreat reaction moved the actor, spent AP/VP or issued a gameplay order");
+    }
 }
 
 static void ArrivedRetreatCompletion(const char* databasePath, const char* resourcePath)
@@ -11568,6 +11628,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "navigation-alias-array")) { NavigationAliasDestinations(true); return true; }
     if (!std::strcmp(mode, "flying-shoot-direction")) { FlyingShootDirection(); return true; }
     if (!std::strcmp(mode, "flying-dynamic-locks")) { FlyingDynamicLocks(); return true; }
+    if (!std::strcmp(mode, "arrived-retreat-reaction-lifetime")) { Require(argc == 4, "retreat reaction lifetime requires db and res"); ArrivedRetreatReactionLifetime(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "arrived-retreat-completion") && argc == 4) { ArrivedRetreatCompletion(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "finished-ai-logic-retirement") && argc == 4) { FinishedAILogicRetirement(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "removed-selected-enemy")) { RemovedSelectedAIContact(0); return true; }
