@@ -37,7 +37,7 @@ namespace NGame
 // Script commands keep weak channel handles; the mission owns active playback.
 bool CMissionBase::ExecWorldSoundCommand( NWorld::CUICmd *pCmd )
 {
-	CDynamicCast<NWorld::CUICmdPlaySound> pSound( pCmd );
+	CObj<NWorld::CUICmdPlaySound> pSound = dynamic_cast<NWorld::CUICmdPlaySound*>( pCmd );
 	if ( !pSound )
 		return false;
 	if ( IsValid( pSound->pChannel ) )

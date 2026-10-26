@@ -250,7 +250,8 @@ public:
 	OBJECT_BASIC_METHODS(CWorld);
 	ZDATA_(TTBSWorld)
 	CObj<CWorldSyncSrc> pShow, pShowUnits;
-	list< CPtr<CUICmd> > uiCmdsList;
+	// Pending commands must survive Lua userdata collection until native dispatch.
+	list< CObj<CUICmd> > uiCmdsList;
 	list< CPtr<CHitLocator> > eventHits;
 	// retail CWorld+0x1bc: the grenade-blast camera-shake queue (retail save tag 0x37; dev tag 51 --
 	// numbering is independent). Producers: AddGrenadeExplosion (gated on game_eq_on_grenades);

@@ -4386,7 +4386,7 @@ public:
     void Drain() { ExecWorldCommands(); }
 };
 
-static void ScriptSoundStop(const char* databasePath,const char* resourcePath,bool spatial)
+static void ScriptSoundStop(const char* databasePath,const char* resourcePath,bool spatial,bool unassigned = false)
 {
 #if defined(S2_UPSTREAM_NATIVE_SFX)
     Require(std::getenv("S2_AUDIO_HEADLESS") != nullptr,"script sound fixture requires headless native audio");
@@ -4414,6 +4414,9 @@ static void ScriptSoundStop(const char* databasePath,const char* resourcePath,bo
     Require(IsValid(script),"script sound fixture has no actual world Lua state");
     CObj<NScript::CLUAObjectPosition> position = new NScript::CLUAObjectPosition(CVec3(0,0,0));
     NScript::luaPushCObj(script->GetState(),position); script->SetGlobal("SoundPosition");
+    // A second live userdata exercises commands outside the first root's adjacent GC slot.
+    CObj<NScript::CLUAObjectPosition> guard = new NScript::CLUAObjectPosition(CVec3(4,5,6));
+    NScript::luaPushCObj(script->GetState(),guard); script->SetGlobal("SoundPositionGuard");
     CObj<ICamera> camera = ::CreateCamera(CAMERA_PC);
     CTransformStack transform; camera->GetTransform(&transform,CVec2(1024,768));
     vector<float> output(512*2);
@@ -4432,6 +4435,35 @@ static void ScriptSoundStop(const char* databasePath,const char* resourcePath,bo
         }
         return found;
     };
+    auto collect = [&]() {
+        Require(script->GetState()->nGCAvoid == 0,"full GC fixture is running inside a collection-avoid scope");
+        CObj<NScript::CLUAObjectPosition> orphan = new NScript::CLUAObjectPosition(CVec3(7,8,9));
+        CPtr<NScript::CLUAObjectPosition> witness = orphan.GetPtr();
+        NScript::luaPushCObj(script->GetState(),orphan); script->Pop(); orphan = nullptr;
+        // Drive the VM's full collector, including marking of live globals.
+        // luaC_collect alone is the sweep phase and is not a complete GC cycle.
+        for (int check = 0; check < 2001; ++check) luaC_checkGC(script->GetState());
+        Require(!IsValid(witness),"the GC fixture never collected its unreachable native userdata");
+        const int top = script->GetTop(); auto live = script->GetGlobal("SoundPosition");
+        Require(live.IsUserData() && live.GetUserData() == position.GetPtr(),"a full Lua collection destroyed a live fixture global");
+        script->SetTop(top);
+    };
+    if (unassigned) {
+        Require(script->DoString((play+"; Pause()").c_str()) == 0,"unassigned sound fixture could not queue its Lua producer");
+        world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);
+        collect(); // A full collection may occur before the interface consumes the queue.
+        mission->Drain(); scene->Draw(&transform);
+        const int pending = channelExcept(-1);
+        Require(pending >= 0,"an unassigned Lua PlaySound result was collected before its native UI command could start playback");
+        Require(mission->IsGamePaused(),"a collected unassigned sound blocked the following native UI command");
+        render();
+        Require(FSOUND_GetCurrentPosition(pending) > 0,"an unassigned scripted sound did not advance native PCM playback");
+        collect(); scene->Draw(&transform); render();
+        Require(FSOUND_IsPlaying(pending),"a dispatched unassigned sound did not survive a subsequent full Lua collection");
+        mission = nullptr; render();
+        Require(!FSOUND_IsPlaying(pending),"mission teardown leaked its unassigned script sound");
+        return;
+    }
     run("PlayHandle = "+play);
     const int played = channelExcept(-1);
     Require(played >= 0,"native Lua PlaySound dispatch did not start a real PCM channel");
@@ -4453,7 +4485,7 @@ static void ScriptSoundStop(const char* databasePath,const char* resourcePath,bo
     const int retained = channelExcept(control);
     Require(retained >= 0,"a new scripted sound failed after stopping the preceding channel");
     run("PlayHandle = nil");
-    luaC_collect(script->GetState(),0);
+    collect();
     render();
     Require(FSOUND_IsPlaying(retained) && FSOUND_GetCurrentPosition(retained) > 0,
         "collecting a dispatched PlaySound userdata stopped its scene-owned playback");
@@ -12645,6 +12677,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "exit-menu-save-shortcut") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-legacy-fixture-write") && argc == 5) { WriteLegacyChapterFixture(argv[2],argv[3],argv[4]); return true; }
+    if (!std::strcmp(mode, "script-sound-unassigned-2d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],false,true); return true; }
+    if (!std::strcmp(mode, "script-sound-unassigned-3d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],true,true); return true; }
     if (!std::strcmp(mode, "script-sound-stop-2d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "script-sound-stop-3d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "legacy-chapter-world-migration") && argc == 5) { LegacyChapterWorldMigration(argv[2],argv[3],argv[4]); return true; }

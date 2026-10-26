@@ -258,6 +258,7 @@
 | [e9dc218f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e9dc218fcbf45f8ae952b0381112beba1193ca02) — Queue chapter entry scripts in their native world context | `the native chapter never evaluated its assigned ScriptID entry point` | 23/23; `chapter-script-initialization` | `Upstream-Commit` в commit message |
 | [e9dc218f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e9dc218fcbf45f8ae952b0381112beba1193ca02) — Resume chapter sound when a native menu returns focus | `returning from a native menu left the chapter audio channel permanently paused` | 24/24; `chapter-focus-audio` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Stop scripted sound through the mission-owned channel list | `native Lua StopSound cleared its weak handle but left the actual sound playing` | 43/43; `script-sound-stop` | `Upstream-Commit` в commit message |
+| [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Keep pending UI commands alive across native Lua collection | `an unassigned Lua PlaySound result was collected before its native UI command could start playback` | 313/313; `script-sound-unassigned` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1804,3 +1805,69 @@ PCM и проверяют реальные каналы/курсоры чере�
 текущее полное число проверок — 311. Свидетельства:
 `script-sound-stop-{red,green}-{build,test}.log`,
 `script-sound-stop-game-build.log`, `script-sound-stop-linux-*`.
+
+### Ожидающие команды и неприсвоенный результат PlaySound
+
+Вторая независимая часть e399ef89 адаптирована к владению объектами в форке.
+Upstream менял частоту GC; здесь сохранена прежняя частота, а ожидающие
+команды принадлежат очереди мира до обработки. Native RED для 2D и 3D:
+результат PlaySound/Play3DSound не присваивается переменной, полный GC
+выполняется до обработки очереди, и звук не запускается. После исправления
+запускается настоящий PCM-канал и обрабатывается следующая команда Pause.
+
+Первый вариант фикстуры с одним живым userdata маскировал ошибку: текущий
+collectudata пропускает соседний слот после помеченного объекта. Два живых
+корня позволяют проверить другой слот. Отдельный недостижимый userdata
+действительно освобождается, а живая глобальная переменная сохраняется —
+прохождение теста не объясняется отключённым GC. Сам collectudata не менялся.
+
+Также исправлена дополнительная GC-проверка теста StopSound из75378994:
+luaC_collect без маркировки был только фазой удаления. Теперь вызывается
+полный сборщик через luaC_checkGC с контролем освобождения недостижимого
+объекта и сохранности живых корней. Исходный RED StopSound происходил раньше
+и не зависел от этой проверки.
+
+Очередь CWorld::uiCmdsList использует CObj; существующая передача через
+Extract и потребители CPtr сохранены для асинхронных исполнителей камер.
+Звуковая команда получает владельца на время обработки; после обработки
+её сборка не останавливает канал из soundsList. Tag8 и форма записи указателя
+в сохранении не меняются. Проверки PCM/курсоров, повторной остановки и
+завершения миссии выполняются обоими звуковыми режимами.
+
+Расширенный набор камер/сценариев/подсказок/звука — 64/64 на Windows
+(47.84 с) и Linux (47.09 с). Полные наборы — 313/313 на Windows (235.15 с)
+и Linux (231.43 с), Windows ALL_BUILD и обе игры собраны. Свидетельства:
+`script-sound-unassigned-{red,green}-{build,test}.log`,
+`script-sound-unassigned-all-build.log`,
+`script-sound-unassigned-game-build.log`, `script-sound-unassigned-linux-*`,
+`script-sound-unassigned-linux-full-*`. Успех GitHub Actions этим не заявляется.
+
+### Контрольная точка 313 — очередь мира и звук сценариев
+
+После исправления времени жизни ожидающих UI-команд успешно выполнены
+Windows ALL_BUILD, обе игры и полные native-наборы: Windows 313/313
+(235.15 с), Linux 313/313 (231.43 с). На актуальных пересобранных программах
+прошли локальный CI-набор 271/271 (25.91 с), сеть 6/6 (52.11 с) и world/save
+5/5 (5.64 с), включая 5247 (2.55 с). Профили шли последовательно по одному
+процессу на платформу; NetworkEncounterMapsTests по-прежнему не включён.
+Успех всего CTest не заявляется.
+
+Свидетельства полного native-набора находятся в
+`script-sound-unassigned-green-test.log` и
+`script-sound-unassigned-linux-full-test.log`; остальных проверок —
+`script-sound-unassigned-all-build.log`, `checkpoint-313-ci-test.log`,
+`checkpoint-313-network-green-test.log`, `checkpoint-313-world-green-test.log`.
+Сборки переиспользованы, архивных копий на каждый баг нет.
+
+Общий обработчик звука теперь присутствует в CMissionBase. У70d12946 ещё
+остаются сам Step, общая ветка BeginZone и подключение очереди главы.
+Уe399ef89 отдельно остаются начальный offset 3D-звука, ввод после загрузки
+и инициализация/обновление backdrop-меню. Поведение неприсвоенного результата
+PlaySound исправлено через владение очередью; частота GC не менялась.
+
+При последней проверке GitHub Actions для75378994
+([40301213742](https://github.com/mrartanis/silent-storm-remaster/actions/runs/40301213742))
+ещё выполнял Build; Configure прошёл, Test оставался pending. Успех
+окончательного HEAD на GitHub остаётся отдельным обязательным условием
+завершения всего переноса. Непросмотренные и частично перенесённые строки
+покоммитного плана по-прежнему означают незавершённую работу.
