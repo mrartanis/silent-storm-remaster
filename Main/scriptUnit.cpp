@@ -1062,8 +1062,8 @@ BEGIN_SCRIPT_COMMAND( UnitCreateItem, "unb[false]" )
 END_SCRIPT_COMMAND
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Shared scan+equip for UnitDrawWeapon / UnitSwitchToGrenade (retail @0x2faa50 / @0x2fa760): find the
-// FIRST live backpack item of runtime type TItem and exchange it into the unit's active hand, displacing
-// the in-hand item. The target hand slot = (no active item) ? SLOT_2 : SLOT_1 (the retail "(active==0)?1:0",
+// FIRST live backpack item of runtime type TItem and exchange it into the opposite hand, then activate it.
+// The target slot is opposite the active SLOT index (the retail "(active==0)?1:0",
 // disasm @0x6fabc9). The exchange is the new NWorld::CCmdExchangeInventoryItems.
 template< class TItem >
 static void DrawFirstInventoryItem( NWorld::CUnitServer *pUS )
@@ -1075,7 +1075,7 @@ static void DrawFirstInventoryItem( NWorld::CUnitServer *pUS )
 		NRPG::IInventoryItem *pItem = items[ i ].pItem;
 		if ( !IsValid( pItem ) || !CDynamicCast<TItem>( pItem ) )
 			continue;
-		int nSlot = ( pInfo->GetActive() == 0 ) ? NDb::SLOT_2 : NDb::SLOT_1;
+		int nSlot = ( pInfo->GetActiveSlot() == NDb::SLOT_1 ) ? NDb::SLOT_2 : NDb::SLOT_1;
 		NWorld::SItem sSource( pUS, NWorld::SItem::BACKPACK, pItem );
 		NWorld::SItem sTarget( pUS, NWorld::SItem::SLOT, nSlot, pInfo->Get( (NDb::ESlot)nSlot ) );
 		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdExchangeInventoryItems( sSource, sTarget, true, nSlot ) ) );

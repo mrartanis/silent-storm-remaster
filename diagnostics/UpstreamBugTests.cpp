@@ -13102,6 +13102,86 @@ static void ForcedActionRecalc(const char* databasePath,const char* resourcePath
     }
 }
 
+static void ScriptDrawWeaponSlot(const char* databasePath,const char* resourcePath,bool requireQueued = false)
+{
+    for (auto active : {NDb::SLOT_1,NDb::SLOT_2}) {
+        auto world = FixtureWorld(databasePath,resourcePath);
+        vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+        NWorld::CUnitServer* actor = nullptr; NDb::CRPGWeapon* record = nullptr;
+        for (auto unit : units) {
+            auto* candidate = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+            if (!candidate || !candidate->CanFight() || candidate->IsEmptyPK() || candidate->IsWearingPK() ||
+                candidate->animator.GetCannon()) continue;
+            auto* weapon = dynamic_cast<NRPG::CWeaponItem*>(candidate->GetUnitRPG()->GetInventory()->GetActive());
+            if (weapon) { actor = candidate; record = weapon->GetDBWeapon(); break; }
+        }
+        Require(actor && IsValid(record),"script draw fixture has no native armed actor");
+        auto* inventory = actor->GetUnitRPG()->GetInventory();
+        vector<CObj<NRPG::IInventoryItem>> removed;
+        while (!inventory->GetItems().empty()) {
+            CObj<NRPG::IInventoryItem> item = inventory->GetItems().back().pItem;
+            removed.push_back(item); inventory->Take(item);
+        }
+        for (auto slot : {NDb::SLOT_1,NDb::SLOT_2})
+            if (inventory->Get(slot)) removed.push_back(inventory->TakeOff(slot));
+        CObj<NRPG::CWeaponItem> first = new NRPG::CWeaponItem(record), second = new NRPG::CWeaponItem(record);
+        CObj<NRPG::CWeaponItem> spare = new NRPG::CWeaponItem(record);
+        Require(inventory->Equip(NDb::SLOT_1,first) && inventory->Equip(NDb::SLOT_2,second) && inventory->Activate(active),
+            "script draw fixture could not equip and select its two native hand slots");
+        auto* commander = actor->GetPlayer()->GetCommander();
+        Require(IsValid(commander) && !commander->HasCommands() && !actor->HasCommand(),
+            "script draw fixture started with a pending order");
+        CObj<NScript::CScript> script = NScript::CreateScript(world);
+        NScript::luaPushCPtr(*script,actor); script->SetGlobal("upstreamActor");
+        RunScript(script,"UnitDrawWeapon(upstreamActor); UpstreamDrawReturned = 1");
+        Require(!commander->HasCommands() && !actor->HasCommand() && inventory->GetActiveSlot() == active,
+            "native script draw without a backpack weapon changed a hand or issued a command");
+        CTPoint<int> place;
+        Require(inventory->FindPlace(spare,&place) && inventory->Place(place,spare),
+            "script draw fixture could not store its real backpack weapon");
+        const auto targetSlot = active == NDb::SLOT_1 ? NDb::SLOT_2 : NDb::SLOT_1;
+        auto* targetItem = inventory->Get(targetSlot);
+        const auto ap = actor->GetAP();
+        RunScript(script,"UnitDrawWeapon(upstreamActor); UpstreamDrawReturned = 7");
+        auto returned = script->GetGlobal("UpstreamDrawReturned");
+        Require(returned.IsNumber() && returned.GetNumber() == 7,"native draw script did not finish its callback");
+        const bool queued = commander->HasCommands();
+        if (requireQueued) Require(queued && !actor->HasCommand(),
+            "native script inventory draw executes immediately instead of entering its owning commander's queue");
+        CObj<NWorld::CCmd> requested;
+        if (queued) {
+            CObj<NWorld::CCommand> firstOrder = commander->GetCommand(), resume = commander->GetCommand();
+            auto* set = dynamic_cast<NWorld::CCmdSetCommand*>(firstOrder.GetPtr());
+            auto* next = dynamic_cast<NWorld::CCmdSetCommand*>(resume.GetPtr());
+            Require(set && set->pUnit == actor && next && next->pUnit == actor &&
+                dynamic_cast<NWorld::CCmdContinue*>(next->GetCmd()) && !commander->HasCommands(),
+                "native draw did not issue its exact actor command and ordered Continue");
+            requested = set->GetCmd();
+        } else {
+            CStructureNetworkContext refs; auto fields = BorrowedObjectFields(actor,&refs);
+            { CStructureSaver reader(fields,CStructureSaver::READ,&refs); reader.Add(9,&requested); }
+        }
+        auto* exchange = dynamic_cast<NWorld::CCmdExchangeInventoryItems*>(requested.GetPtr());
+        Require(exchange != nullptr,"native script draw did not retain its actual inventory exchange request");
+        std::printf("native script draw slot: active=%d expected=%d actual=%d target=%d queued=%d\n",
+            int(active),int(targetSlot),exchange->GetSlot(),exchange->GetTarget().nSlot,int(queued));
+        Require(exchange->GetSlot() == targetSlot && exchange->GetTarget().nSlot == targetSlot,
+            "native script draw chooses the active hand instead of the opposite active-slot index");
+        Require(exchange->GetActivate() && exchange->GetSource().pUnit == actor && exchange->GetTarget().pUnit == actor &&
+            exchange->GetSource().eType == NWorld::SItem::BACKPACK && exchange->GetSource().pItem == spare.GetPtr() &&
+            exchange->GetTarget().eType == NWorld::SItem::SLOT && exchange->GetTarget().pItem == targetItem,
+            "native script draw lost its real source item, target item, owner or activation intent");
+        if (requireQueued) Require(actor->GetAP() == ap && inventory->GetActiveSlot() == active &&
+            inventory->Get(NDb::SLOT_1) == first.GetPtr() && inventory->Get(NDb::SLOT_2) == second.GetPtr() &&
+            inventory->GetItems().size() == 1 && inventory->GetItems().front().pItem == spare.GetPtr(),
+            "native draw changed inventory or AP before queued command consumption");
+        CStructureNetworkContext refs; auto fields = BorrowedObjectFields(actor,&refs);
+        CObj<NWorld::CCommandExecute> executor;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&refs); reader.Add(7,&executor); }
+        if (IsValid(executor)) executor->Cancel();
+    }
+}
+
 static void ScriptedEnemyDeath(const char* databasePath,const char* resourcePath, bool spareUnconscious = false)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -14760,6 +14840,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "deferred-wish-pose-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::WishPose); return true; }
     if (!std::strcmp(mode, "deferred-shoot-mode-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode); return true; }
     if (!std::strcmp(mode, "deferred-script-command-order") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode,true); return true; }
+    if (!std::strcmp(mode, "script-draw-weapon-slot") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "forced-action-recalc") && argc == 4) { ForcedActionRecalc(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "overlapping-doors")) { OverlappingDoors(); return true; }
     if (!std::strcmp(mode, "weapon-familiarity")) { WeaponFamiliarity(); return true; }

@@ -3106,6 +3106,35 @@ all-build.log, related-test.log, linux-{configure,build,test}.log,
 Другие producers и inventory/UnitHide hunks 14ffbcc8 остаются отдельной работой.
 Формулы и исходные правила выбора позы не редактируются.
 
+## Выбор руки при извлечении оружия — часть 14ffbcc8
+
+UpstreamScriptDrawWeaponSlot запускает настоящую Lua UnitDrawWeapon на actor
+world 810 с двумя реальными оружиями в руках и третьим в рюкзаке. Каждый
+из двух active SLOT проверяется в отдельном мире в памяти, без копий сборки.
+Пустой рюкзак служит контролем отсутствия команды. Compiled runtime RED,
+затем повторный verified RED после уточнения fixture: active=0, expected=1,
+actual=0/target=0. Причина — сравнение указателя GetActive() с нулём вместо
+индекса GetActiveSlot().
+
+Изменена только формула выбора противоположного SLOT в общем helper.
+GREEN для active 0/1 проверяет реальные CCmdExchangeInventoryItems, оба
+индекса target, source/target item и владельца, намерение активации. Тест
+принимает непосредственную или queued доставку, сохраняя одинаковые проверки
+payload: отдельная ошибка доставки ещё не исправлена. Полное перемещение
+предмета, цена AP, пустая активная рука и grenade fallback здесь не проверены.
+
+Связанные 75/75 прошли на Windows (71.80 с) и Linux (71.60 с), обе Game и
+Windows ALL_BUILD собраны; по 12 FONT-COMPAT controls сохранены. Windows
+NetworkSerializer/Preparation/StopResume прошли 3/3 за 31.82 с. Текущий CPU
+base 333 не заявляется новым полным прогоном. Наши шрифты, facial engine,
+HD и численные параметры оружия не меняются. Source 14ffbcc8 остаётся частичным.
+
+Свидетельства script-draw-weapon-slot: red-{build,test}.log,
+red-native-test.log, verified-red-{build,test}.log,
+verified-red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log, network-test.log и network-native-test.log.
+
 ## Режим стрельбы и порядок смешанного сценария — часть 14ffbcc8
 
 UpstreamDeferredShootModeCommand использует настоящий вооружённый actor world
