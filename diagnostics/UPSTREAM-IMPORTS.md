@@ -3757,3 +3757,48 @@ all-build.log, related-test.log, linux-{configure,build,test}.log,
 {windows,linux}-native-test.log. CPU base 351, полный 351 не запускался.
 Source432 и all281/final actual Actions не завершены; API/serialization,
 групповой Hide, PK damage и цвет/fade не входят в этот однострочный фикс.
+
+## Явное состояние команды скрытности с legacy compatibility — часть 432b64c8
+
+Новый native UpstreamExplicitHideState сначала подтвердил runtime RED:
+после двух старых toggle controls явный запрос false для открытого human actor
+получает стоимость AC_HIDE вместо нуля. Запрос подготовлен через serializer,
+чтобы тест собирался до появления bool-конструктора. Начальные ошибки fixture
+(private operator&, отсутствующий CanDoIt у base executor, попытка создать
+незарегистрированный one-shot CExecHide по ID) исправлены до содержательного
+RED, их отдельные логи сохранены.
+
+В CCmdHide и CExecHide добавлены bState/tag3 и bExplicitState/tag4.
+Старый base/tag2 сохранён; upstream base1/bool2 буквально не переносится.
+CCmdHide() и отсутствующие новые поля оставляют live toggle, bool ctor задаёт
+явное состояние. Factory передаёт оба признака исполнителю. Явное повторение
+уже установленного состояния не переключает его и не вызывает DoAction.
+Явное открытие имеет нулевую стоимость и обновляет visibility при переходе.
+Прежние cooldown/PK guards и формула стоимости скрытия не изменены.
+
+GREEN проверяет десять native выполнений: два legacy toggle controls и все
+initial/requested false/true с восстановлением executor fields и без него.
+Отдельно проверены новый bool constructor и зарегистрированный graph round trip
+самой CCmdHide. Legacy payload формируется старым base-only/tag2 serializer;
+проверяется совместимость полей, не полный исторический save. CExecHide не имеет
+saveload class ID и остаётся one-shot: fixture восстанавливает его поля через
+native CreateExecutor с borrowed actor references, не заявляет восстановление
+произвольного save с этим executor. Ни создание, ни восстановление не меняют
+живое состояние до Run; после Run проверены FINISHED, position и action counter.
+
+Проверка усилена настоящим GivePlayerTurn: не realtime/sequence, точное
+списание неизменённой native AC_HIDE стоимости и ноль для unhide/no-op.
+На Windows финальные target 5/5 и связанные 54/54 (47.19 с); Linux связанные
+54/54 (45.69 с), затем повторная сборка актуального усиленного fixture и
+ExplicitHideState 1/1 (8.97 с). Обе Game и Windows ALL_BUILD собраны,
+по 12 FONT-COMPAT, оба related raw LastTest полные без NUL.
+Существующие NetworkSerializer/Match/StopResume 3/3 (39.19 с); отдельный
+боевой LAN Hide сценарий этим прогоном не заявляется.
+
+Свидетельства explicit-hide-state: fixture-interface-build.log,
+fixture-registration-test.log, red-{build,test}.log, red-native-test.log,
+green-{build,test}.log, green-{initial-,}native-test.log, all-build.log,
+related-test.log, linux-{configure,initial-build,build,related-test,test}.log,
+{windows,linux,linux-final}-native-test.log, network-{test,native-test}.log.
+CPU base 352, полный 352 не запускался. Group Hide UI и Lua optional bool
+ещё отдельные исправления; source432 и all281/final actual Actions не завершены.

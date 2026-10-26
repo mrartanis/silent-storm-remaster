@@ -752,10 +752,13 @@ class CExecHide: public CCommandExecute
 	OBJECT_BASIC_METHODS( CExecHide );
 	ZDATA
 	ZPARENT( CCommandExecute );
-	ZEND int operator&( CStructureSaver &f ) { f.Add(2,(CCommandExecute *)this); return 0; }
+	bool bState;
+	bool bExplicitState;
+	ZEND int operator&( CStructureSaver &f ) { f.Add(2,(CCommandExecute *)this); f.Add(3,&bState); f.Add(4,&bExplicitState); return 0; }
 	//
 public:
-	CExecHide( CUnitServer *_pUS = 0 ): CCommandExecute(_pUS) {}
+	CExecHide( CUnitServer *_pUS = 0, bool _bExplicitState = false, bool _bState = true ):
+		CCommandExecute(_pUS), bState(_bState), bExplicitState(_bExplicitState) {}
 	//
 	virtual int GetStartAP() const;
 	virtual int GetActionAP() const;
@@ -765,7 +768,7 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CExecHide::GetStartAP() const
 {
-	if ( pUS->GetUnitRPG()->IsHiding() )
+	if ( ( bExplicitState && !bState ) || pUS->GetUnitRPG()->IsHiding() )
 		return 0;
 
 	return pUS->GetActionAP( NRPG::AC_HIDE );
@@ -786,7 +789,7 @@ EUnitCommandResult CExecHide::CanDoIt()
 	if ( pUS->IsWearingPK() )
 		return UCR_GENERAL_FAILURE;
 
-	if ( pUS->GetUnitRPG()->IsHiding() )
+	if ( bExplicitState ? !bState : pUS->GetUnitRPG()->IsHiding() )
 		return UCR_OK;
 	//
 	vector< CPtr<CPlayer> > players;
@@ -809,13 +812,18 @@ EUnitCommandResult CExecHide::CanDoIt()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecHide::Run() 
 { 
-	if ( !pUS->GetUnitRPG()->IsHiding() )
+	const bool bHide = bExplicitState ? bState : !pUS->GetUnitRPG()->IsHiding();
+	if ( bHide && !pUS->GetUnitRPG()->IsHiding() )
 	{
 		pUS->DoAction( NRPG::AC_HIDE );
 		pUS->Hide( true, false );
 	}
-	else
-		pUS->Hide( false, false );   // retail CExecHide @0x3b2b5b: the voluntary toggle passes bThrowEvent=false
+	else if ( !bHide && pUS->GetUnitRPG()->IsHiding() )
+	{
+		pUS->Hide( false, false );
+		if ( bExplicitState )
+			pUS->GetWorld()->UpdateVisible();
+	}
 
 	Finished();
 }
@@ -988,7 +996,7 @@ CCommandExecute* CreateExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitCommandResul
 																		else {
 																			CDynamicCast<CCmdHide> pHide(pCmd);
 																			if (pHide)
-																				return CreateSimpleExec(new CExecHide(pUS), pError);
+																				return CreateSimpleExec(new CExecHide(pUS, pHide->bExplicitState, pHide->bState), pError);
 																			else {
 																				CDynamicCast<CCmdTakePerk> pTakePerk(pCmd);
 																				if (pTakePerk)

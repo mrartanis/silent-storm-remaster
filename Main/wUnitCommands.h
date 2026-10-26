@@ -679,12 +679,15 @@ public:
 class CCmdHide: public CCmd
 {
 	OBJECT_BASIC_METHODS( CCmdHide );
+public:
 	ZDATA
 	ZPARENT( CCmd )
-	ZEND int operator&( CStructureSaver &f ) { f.Add(2,(CCmd *)this); return 0; }
-	//
-public:
-	CCmdHide() {}
+	bool bState;
+	bool bExplicitState;
+	// Keep the legacy base at tag 2; absent appended fields mean live toggle.
+	ZEND int operator&( CStructureSaver &f ) { f.Add(2,(CCmd *)this); f.Add(3,&bState); f.Add(4,&bExplicitState); return 0; }
+	CCmdHide(): bState(true), bExplicitState(false) {}
+	explicit CCmdHide( bool _bState ): bState(_bState), bExplicitState(true) {}
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCmdTakePerk: public CCmd

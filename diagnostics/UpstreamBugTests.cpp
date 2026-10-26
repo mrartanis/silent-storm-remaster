@@ -8908,6 +8908,98 @@ static void HideCooldown(const char* databasePath, const char* resourcePath)
         "hide eligibility probes changed the unit's action points");
 }
 
+static void ExplicitHideState(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,true,&game);
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (unit && !unit->IsAIUnit() && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) { actor = unit; break; }
+    }
+    Require(actor != nullptr, "explicit Hide fixture has no ordinary human actor");
+    world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer()));
+    Require(!world->IsRealTime() && !world->IsSequence(), "explicit Hide AP fixture did not enter its native player turn");
+    auto command = [](bool explicitState,bool state) {
+        CObj<NWorld::CCmdHide> result = new NWorld::CCmdHide;
+        CMemoryStream fields;
+        { CStructureSaver writer(fields,CStructureSaver::WRITE);
+          writer.Add(2,static_cast<NWorld::CCmd*>(result.GetPtr()));
+          if (explicitState) { writer.Add(3,&state); writer.Add(4,&explicitState); } }
+        fields.Seek(0);
+        { CStructureSaver reader(fields,CStructureSaver::READ); static_cast<CObjectBase*>(result.GetPtr())->operator&(reader); }
+        return result;
+    };
+    auto execute = [&](bool initial,bool explicitState,bool requested,bool restore) {
+        actor->EnableHide(); actor->Hide(initial,false); actor->EnableHide();
+        Require(actor->IsHiding() == initial, "explicit Hide fixture did not establish its native initial state");
+        const auto position = actor->GetPosition();
+        const int beforeAP = actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP);
+        auto request = command(explicitState,requested);
+        NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
+        CObj<NWorld::CCommandExecute> executor = NWorld::CreateExecutor(actor,request,&result);
+        Require(executor && result == NWorld::UCR_OK, "explicit Hide fixture could not create its native executor");
+        const bool expected = explicitState ? requested : !initial;
+        const int cost = !initial && expected ? actor->GetActionAP(NRPG::AC_HIDE) : 0;
+        Require(executor->GetStartAP() == cost && executor->GetActionAP() == cost,
+            "explicit Hide charged AP for an unhide or an unchanged requested state");
+        if (restore) {
+            CStructureNetworkContext references;
+            auto fields = BorrowedObjectFields(executor,&references);
+            CMemoryStream legacyFields;
+            if (!explicitState) {
+                { CStructureSaver writer(legacyFields,CStructureSaver::WRITE,&references);
+                  writer.Add(2,executor.GetPtr()); }
+                legacyFields.Seek(0);
+            }
+            // This one-shot executor has no saveload class ID. Recreate through
+            // its real factory and restore fields with borrowed live references.
+            auto defaultRequest = command(false,true);
+            CObj<NWorld::CCommandExecute> restored = NWorld::CreateExecutor(actor,defaultRequest,&result);
+            Require(IsValid(restored), "Hide executor could not be recreated through its native factory");
+            { CStructureSaver reader(explicitState ? fields : legacyFields,CStructureSaver::READ,&references);
+              restored->operator&(reader); }
+            executor = restored;
+            Require(executor->GetStartAP() == cost && executor->GetActionAP() == cost,
+                "restoring Hide lost its actor, requested state or cost");
+        }
+        Require(actor->IsHiding() == initial && actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == beforeAP,
+            "creating/restoring Hide changed live hiding or AP before execution");
+        executor->Run();
+        std::printf("native Hide explicit=%d initial=%d requested=%d restored=%d actual=%d\n",
+            int(explicitState),int(initial),int(requested),int(restore),int(actor->IsHiding()));
+        Require(actor->IsHiding() == expected, "native Hide toggled instead of applying the explicit requested state");
+        Require(executor->GetState() == NWorld::CCommandExecute::FINISHED,
+            "native Hide did not finish its one-shot action");
+        Require(actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == beforeAP-cost,
+            "Hide spent a different number of turn-based AP than its unchanged native action cost");
+        Require(actor->GetPosition().pos.p == position.pos.p && actor->GetPosition().pos.pNet == position.pos.pNet,
+            "native Hide changed the actor's location");
+        executor = nullptr;
+        Require(!world->IsAction(), "finished Hide retained an action counter");
+    };
+    // Exercise both the new native constructor and registered command graph
+    // round trip; the matrix below separately probes legacy fields and executor fields.
+    for (bool requested: {false,true}) {
+        CObj<NWorld::CCmdHide> original = new NWorld::CCmdHide(requested), restored;
+        Require(original->bExplicitState && original->bState == requested,
+            "explicit Hide constructor did not retain its requested state");
+        CMemoryStream wire;
+        { CStructureSaver writer(wire,CStructureSaver::WRITE); writer.Add(1,&original); }
+        wire.Seek(0);
+        { CStructureSaver reader(wire,CStructureSaver::READ); reader.Add(1,&restored); }
+        Require(restored && restored.GetPtr() != original.GetPtr() &&
+            restored->bExplicitState && restored->bState == requested,
+            "registered Hide command graph lost its explicit state");
+    }
+    // The no-argument legacy command must retain its live toggle semantics.
+    execute(false,false,true,false); execute(true,false,true,true);
+    for (bool restore: {false,true})
+        for (bool requested: {false,true})
+            for (bool initial: {false,true}) execute(initial,true,requested,restore);
+}
+
 class AICollectionCallbackException: public std::runtime_error
 {
 public:
@@ -15457,6 +15549,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-first-step-release") && argc == 4) { MovementCallbackCancellation(argv[2], argv[3], 1, true); return true; }
     if (!std::strcmp(mode, "movement-next-step-release") && argc == 4) { MovementCallbackCancellation(argv[2], argv[3], 2, true); return true; }
     if (!std::strcmp(mode, "hide-cooldown") && argc == 4) { HideCooldown(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "explicit-hide-state") && argc == 4) { ExplicitHideState(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-idle") && argc == 4) { IdleAI(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "mixed-hide-button") && argc == 4) { MixedActionButton(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "mixed-strafe-button") && argc == 4) { MixedActionButton(argv[2], argv[3], false); return true; }
