@@ -8277,6 +8277,64 @@ static void GrenadeSuccessorHandoff(const char* databasePath,const char* resourc
     }
 }
 
+static void DefaultItemDetachment(const char* databasePath,const char* resourcePath)
+{
+    for (int operation: {1,0,2}) {
+        NativeGrenadeThrowFixture fixture(databasePath,resourcePath,false);
+        auto* actor = fixture.actor;
+        auto* inventory = actor->GetUnitRPG()->GetInventory();
+        CObj<NRPG::IInventoryItem> offhand = inventory->Get(NDb::SLOT_2) ? inventory->TakeOff(NDb::SLOT_2) : nullptr;
+        if (operation == 1) {
+            CObj<NRPG::IInventoryItem> item = inventory->TakeOff(NDb::SLOT_1);
+            Require(inventory->Equip(NDb::SLOT_2,item) && inventory->Activate(NDb::SLOT_2),
+                "default-detachment fixture could not select its second-slot item");
+        }
+        CObj<NRPG::CGrenadeItem> spare = new NRPG::CGrenadeItem(fixture.regular);
+        spare->nQuantity = 1;
+        CTPoint<int> place;
+        Require(inventory->FindPlace(spare,&place) && inventory->Place(place,spare),
+            "default-detachment fixture could not store its untouched spare");
+        actor->animator.SetActiveItem(true);
+        actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
+        actor->animator.ThrowGrenade(actor->GetPosition(),actor->GetPosition().GetCP()+CVec3(1,0,0),0);
+        const auto end = actor->animator.GetTimeEnd(), label = actor->animator.GetTimeLabel1();
+        Require(label > 0 && !actor->animator.IsActiveItem(),
+            "default-detachment fixture did not establish its native pending throw animation");
+        const int ap = actor->GetAP(), vp = actor->GetUnitRPG()->GetTotalVP();
+        if (operation == 0) {
+            NWorld::CUnitServer::SResItem removed;
+            Require(!actor->TearOffItem(&removed,NDb::SLOT_2) && !IsValid(removed.pItem),
+                "detaching an empty native slot reported a modelled item");
+            Require(inventory->GetActive() == fixture.grenade.GetPtr(),
+                "detaching an empty slot changed the active inventory item");
+        } else if (operation == 1) {
+            actor->MakeUnconscious(VNULL3,true,false); // Public scripted fall, with its explicit death-clip suppression.
+            Require(actor->IsUnconscious(), "default-detachment fixture did not enter native unconsciousness");
+            Require(!inventory->Get(NDb::SLOT_1) && !inventory->Get(NDb::SLOT_2),
+                "native hand-item dropping did not empty both equipment slots");
+        } else {
+            CObj<NWorld::CCommandExecute> lost = NWorld::CreateLostWeapon(actor,false);
+            lost->Run();
+            Require(lost->GetState() == NWorld::CCommandExecute::FINISHED && !inventory->GetActive() &&
+                !actor->animator.IsActiveItem(), "native critical weapon loss failed to finish with an empty hand");
+        }
+        if (operation != 2) Require(actor->animator.GetTimeEnd() == end && actor->animator.GetTimeLabel1() == label &&
+            !actor->animator.IsActiveItem(),
+            "native default item detachment started an unrelated activation animation while processing equipment slots");
+        vector<CPtr<NRPG::IInventoryItem>> ground;
+        fixture.world->GetDebris()->GetGroundItemsForDiagnostics(&ground);
+        const int dropped = int(std::count_if(ground.begin(),ground.end(),[&](const auto& item) {
+            return item.GetPtr() == fixture.grenade.GetPtr();
+        }));
+        Require(dropped == (operation == 0 ? 0 : 1),
+            "default detachment lost or duplicated its native falling inventory item");
+        Require(inventory->GetItems().size() == 1 && inventory->GetItems().front().pItem == spare.GetPtr() &&
+            spare->GetQuantity() == 1 && fixture.grenade->GetQuantity() == 1 && actor->GetAP() == ap &&
+            actor->GetUnitRPG()->GetTotalVP() == vp && !actor->HasCommand(),
+            "default detachment consumed a backpack spare, changed AP/VP/quantities or installed a gameplay order");
+    }
+}
+
 static void GrenadeThrowAnimationRefresh(const char* databasePath,const char* resourcePath)
 {
     NativeGrenadeThrowFixture fixture(databasePath,resourcePath,false);
@@ -11305,6 +11363,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "restored-engineer-grenade-throw")) { Require(argc == 4, "saved engineer grenade requires db and res"); RestoredGrenadeThrow(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "grenade-successor-handoff")) { Require(argc == 4, "grenade handoff requires db and res"); GrenadeSuccessorHandoff(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "engineer-grenade-successor-handoff")) { Require(argc == 4, "engineer grenade handoff requires db and res"); GrenadeSuccessorHandoff(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "default-item-detachment")) { Require(argc == 4, "item detachment requires db and res"); DefaultItemDetachment(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "grenade-throw-animation-refresh")) { Require(argc == 4, "grenade animation requires db and res"); GrenadeThrowAnimationRefresh(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "invalidated-grenade-trajectory")) { Require(argc == 4, "grenade trajectory requires db and res"); InvalidatedGrenadeTrajectory(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "grenade-completion-visibility")) { Require(argc == 4, "grenade visibility requires db and res"); GrenadeCompletionVisibility(argv[2],argv[3]); return true; }

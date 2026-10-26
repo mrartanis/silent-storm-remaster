@@ -241,6 +241,7 @@
 | [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Honor saved grenade visibility requests when the action completes | `finishing a restored grenade action discarded its requested deferred visibility refresh` | 27/27; `grenade-completion-visibility` | `Upstream-Commit` в commit message |
 | [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Stop grenade release when its recalculated trajectory is unavailable | `releasing a grenade after its native trajectory became unavailable consumed the item and launched stale parameters` | 28/28; `invalidated-grenade-trajectory` | `Upstream-Commit` в commit message |
 | [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Refresh held-item flags before selecting a grenade throw animation | `a grenade throw after the native unarmed POSE fallback omitted its authored held-item throw animation` | 29/29; `grenade-throw-animation-refresh` | `Upstream-Commit` в commit message |
+| [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Detach default slot items without starting unrelated activation animations | `native default item detachment started an unrelated activation animation while processing equipment slots` | 31/31; `default-item-detachment` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1292,3 +1293,32 @@ Hide-правила из смешанного `3cfccbee` остаются опи
 `grenade-throw-animation-refresh-registration-test.log`,
 `grenade-animation-repeat-test.log`,
 `grenade-animation-linux-{configure,build,test}.log`.
+
+### Снятие предметов без лишнего доставания из другого слота
+
+Последняя часть `4c6b10fb` удаляет временный boolean-wrapper TearOffItem,
+который добавлял ActivateItem даже после обработки пустого слота. Native RED
+через публичный MakeUnconscious(VNULL3,true,false) подтвердил лишнюю анимацию
+при выпадении предмета из активного второго слота. Скриптовый вариант явно
+подавляет death clip; обработка пустого первого слота всё равно сдвигала время
+и включала active flag. Теперь вызовы по умолчанию идут прямо в уже перенесённый
+reservation overload, без анимационных побочных эффектов.
+
+Проверены scripted unconscious hand-drop, прямое снятие из пустого слота и
+настоящий CreateLostWeapon/Run. Выпавший предмет появляется в native debris
+ровно один раз; запасной остаётся в рюкзаке. AP, VP и количества не меняются;
+явная очистка позы при критическом выбивании сохраняется. Проверка позы
+не утверждает результат GPU-рендеринга или обычного death clip. Ранняя попытка
+вызвать закрытый DropItems не компилировалась и не принята за RED; принятый
+тест идёт через действующий публичный игровой путь.
+
+Этим `4c6b10fb` завершён: первоначальная/отменённая видимость, завершение
+экипирования, исчерпанные меднаборы/отмычки, мины/ловушки и удаление wrapper
+проверены независимо. Ножи и гранаты уже переведены на явное резервирование.
+Windows/Linux Game собраны; связанный набор — 31/31 на каждой платформе,
+Windows registration — 1/1. Последняя полная контрольная точка — 283,
+весь текущий набор из 291 проверок здесь не заявляется.
+Свидетельства: `default-item-detachment-{red,green}-{build,test}.log`,
+`default-item-detachment-game-build.log`,
+`default-item-detachment-registration-test.log`,
+`default-detachment-linux-{configure,build,test}.log`.

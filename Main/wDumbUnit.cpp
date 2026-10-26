@@ -303,27 +303,6 @@ void CDumbUnitServer::GetBonePos( CVec3 *pRes, CQuat *pQuat, const char *pszBone
 	pQuat->FromEulerMatrix( t.forward );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-bool CDumbUnitServer::TearOffItem( SResItem *pRes, NDb::ESlot slot, bool bPlaceNextSameItem )
-{
-	CObj<NRPG::IInventoryItem> pNext;
-	bool bRes = TearOffItem( pRes, slot, bPlaceNextSameItem ? &pNext : 0 );
-	NRPG::IInventory *pInventory = pRPG->GetInventory();
-	if ( IsValid( pNext ) )
-	{
-		pInventory->Take( pNext );
-		pInventory->Equip( slot, pNext );
-	}
-	CPtr<NRPG::IInventoryItem> pItem = pInventory->GetActive();
-	if ( IsValid( pItem ) )
-	{
-		NDb::EItemSubType subType = pItem->GetDBItem()->subType;
-		int nPlace = pInventory->GetPlaceBySubType( subType );
-		animator.ActivateItem( position, false, nPlace == -1, (NDb::EItemPlace)nPlace, pRPG->GetWeaponType() );
-	}
-
-	return bRes;
-}
-////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CDumbUnitServer::TearOffItem( SResItem *pRes, NDb::ESlot slot, CObj<NRPG::IInventoryItem> *pNextSameItem )
 {
 	if ( pNextSameItem )
