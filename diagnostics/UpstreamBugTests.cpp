@@ -77,6 +77,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/iChapterMapUI.h"
 #include "../Main/iShowMedal.h"
 #include "../Main/iMedalsPanel.h"
+#include "../Main/UIWrap.h"
 #include "../Main/PlayerTracker.h"
 #include "../Main/iOptionsMenu.h"
 #include "../Main/iInGameMenu.h"
@@ -8067,7 +8068,7 @@ static void ChapterMedalScreenshot(const char* databasePath,const char* resource
     }
 }
 
-static void MedalPanelCaption(const char* databasePath,const char* resourcePath)
+static void MedalPanelCaption(const char* databasePath,const char* resourcePath,bool camera = false)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"medal panel fixture requires isolated user data");
     Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
@@ -8092,7 +8093,15 @@ static void MedalPanelCaption(const char* databasePath,const char* resourcePath)
     auto* merc = actor->GetRPG()->GetRPGUnit();
     Require(!merc->medalInfos.empty(),"medal panel fixture has no authored medal records");
     for (auto& medal : merc->medalInfos) medal.bIsGained = false;
-    merc->medalInfos.front().bIsGained = true; // Prepare an existing award, without scoring it.
+    int awardIndex = 0;
+    if (camera) {
+        awardIndex = -1;
+        const auto& medals = merc->pPers->pSide->medals;
+        for (int i=0; i<medals.size() && i<merc->medalInfos.size(); ++i)
+            if (IsValid(medals[i]->pModel) && IsValid(medals[i]->pModel->pModel)) { awardIndex = i; break; }
+        Require(awardIndex >= 0,"medal camera fixture has no authored award model");
+    }
+    merc->medalInfos[awardIndex].bIsGained = true; // Prepare an existing award, without scoring it.
     vector<CDBPtr<NDb::CMedal>> gained; merc->GetGainedMedals(&gained);
     Require(gained.size() == 1 && IsValid(gained.front()->pName),"medal panel fixture did not expose its actual award");
     const auto name = NUI::GetDBString(gained.front()->pName);
@@ -8135,6 +8144,61 @@ static void MedalPanelCaption(const char* databasePath,const char* resourcePath)
         NUI::SPoint size; text->GetRealSize(&size);
         Require(size.x > 0 && size.y > 0,"native medal caption has empty text layout");
     }
+    if (camera) {
+        fields.Seek(0); CPtr<NUI::CModel> preview;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&refs); reader.Add(9,&preview); }
+        Require(IsValid(preview) && IsValid(preview->GetModel()),"native medal panel did not assign its actual preview model");
+        CMemoryStream base; CStructureNetworkContext modelRefs;
+        { CStructureSaver writer(base,CStructureSaver::WRITE,&modelRefs); preview->NUI::CModel::operator&(writer); }
+        base.Seek(0); CPtr<NUI::CModelDraw> model;
+        { CStructureSaver reader(base,CStructureSaver::READ,&modelRefs); reader.Add(2,&model); }
+        Require(IsValid(model),"native medal preview did not retain its real renderer");
+        auto modelFields = BorrowedObjectFields(model,&modelRefs); SHMatrix actual;
+        { CStructureSaver reader(modelFields,CStructureSaver::READ,&modelRefs); reader.Add(6,&actual); }
+        auto matrix = [](const NDb::SCameraParams& parameters) {
+            CVec3 forward; (CQuat(parameters.fYaw,V3_AXIS_Z)*CQuat(parameters.fPitch,V3_AXIS_X)).GetYAxis(&forward);
+            SHMatrix result; MakeMatrix(&result,parameters.fPitch,parameters.fYaw,parameters.fRoll,
+                parameters.vAnchor-forward*parameters.fDistance); return result;
+        };
+        const auto& parameters = gained.front()->pModel->sCameras[NDb::CAMERA_RELOADBUTTON];
+        const auto expected = matrix(parameters), normal = matrix(gained.front()->pModel->sCameras[NDb::CAMERA_NORMAL]);
+        auto distance = [](const SHMatrix& a,const SHMatrix& b) {
+            const float left[] = {a._11,a._12,a._13,a._14,a._21,a._22,a._23,a._24,a._31,a._32,a._33,a._34,a._41,a._42,a._43,a._44};
+            const float right[] = {b._11,b._12,b._13,b._14,b._21,b._22,b._23,b._24,b._31,b._32,b._33,b._34,b._41,b._42,b._43,b._44};
+            float result = 0;
+            for (int i=0; i<16; ++i) result = Max(result,float(fabs(left[i]-right[i])));
+            return result;
+        };
+        const float authoredDifference = distance(expected,normal);
+        Require(authoredDifference > 0.01f,"medal camera fixture cannot distinguish its two authored camera slots");
+        std::printf("native medal preview camera: award=%d item=%d authored-slot-difference=%.6f reload-error=%.6f normal-error=%.6f\n",
+            gained.front()->GetRecordID(),gained.front()->pModel->GetRecordID(),authoredDifference,distance(actual,expected),distance(actual,normal));
+        Require(distance(actual,expected) < 0.0001f,"native medal preview uses the normal inventory camera instead of its authored award camera");
+    }
+    // Existing remaster snapshots serialize these raw bits. Do not reinterpret
+    // an old inventory panel as medals when importing unrelated UI fixes.
+    auto loadPanelFields = [&](int bits,bool firstMission) {
+        CMemoryStream saved;
+        { CStructureSaver writer(saved,CStructureSaver::WRITE); writer.Add(22,&bits); writer.Add(34,&firstMission); }
+        saved.Seek(0); { CStructureSaver reader(saved,CStructureSaver::READ); static_cast<CObjectBase*>(mission.GetPtr())->operator&(reader); }
+    };
+    loadPanelFields(0x4,true);
+    Require(mission->GetPanelState(NGame::PANEL_INVENTORY) == 0x4 &&
+        !mission->GetPanelState(NGame::PANEL_MEDALS|NGame::PANEL_BIOGRAPHY),
+        "existing remaster inventory snapshot bits were reinterpreted as another panel");
+    mission->SetPanelState(NGame::PANEL_MEDALS|NGame::PANEL_BIOGRAPHY,true);
+    Require(mission->GetPanelState(NGame::PANEL_INVENTORY) == 0x4 &&
+        !mission->GetPanelState(NGame::PANEL_MEDALS|NGame::PANEL_BIOGRAPHY),
+        "native first-mission restriction blocked inventory or allowed a restricted character tab");
+    loadPanelFields(0x10,false);
+    Require(mission->GetPanelState(NGame::PANEL_MEDALS) == 0x10 &&
+        !mission->GetPanelState(NGame::PANEL_INVENTORY|NGame::PANEL_BIOGRAPHY),
+        "existing remaster medal snapshot bits were reinterpreted as another panel");
+    loadPanelFields(0x20,false);
+    Require(mission->GetPanelState(NGame::PANEL_BIOGRAPHY) == 0x20 &&
+        !mission->GetPanelState(NGame::PANEL_INVENTORY|NGame::PANEL_MEDALS),
+        "existing remaster biography snapshot bits were reinterpreted as another panel");
+    std::puts("native medal panel compatibility: saved bits 4/16/32 and named first-mission restrictions preserved");
     Require(!NMainLoop::HaveInterfaceCommand(),"measuring native medal captions queued an unrelated game command");
 }
 
@@ -14153,6 +14217,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "medal-cursor-visible") && argc == 4) { MedalCursorVisible(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-medal-screenshot") && argc == 4) { ChapterMedalScreenshot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "medal-panel-caption") && argc == 4) { MedalPanelCaption(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "medal-preview-camera") && argc == 4) { MedalPanelCaption(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "window-nested-wakeup")) { WindowNestedWakeup(); return true; }
     if (!std::strcmp(mode, "window-template-script")) { Require(argc == 3, "window template script requires db"); WindowTemplateScript(argv[2]); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }

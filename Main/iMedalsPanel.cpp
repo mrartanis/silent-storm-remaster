@@ -180,7 +180,7 @@ void CMedalsPanelView::UpdateMatrix()
 	SetModelTransform( sTransform.forward );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// CMedalsPanelView::Set @0x1f95f0 -- aim the preview camera at the medal's award item (sCameras[0]) and
+// CMedalsPanelView::Set @0x1f95f0 -- aim the preview camera at the medal's award item (sCameras[CAMERA_RELOADBUTTON]) and
 // instance its random model. The camera math is the canonical SCameraParams idiom (cf. CEarthView /
 // iCommonUI.cpp): forward dir of a yaw*pitch rotation, camera point = anchor - fwd*distance, then the
 // pitch/yaw/roll camera matrix at that point.
@@ -191,7 +191,7 @@ void CMedalsPanelView::Set( NDb::CMedal *pMedal )
 	if ( !IsValid( pItem ) )
 		return;
 
-	const NDb::SCameraParams &sCamera = pItem->sCameras[0];
+	const NDb::SCameraParams &sCamera = pItem->sCameras[NDb::CAMERA_RELOADBUTTON];
 
 	CVec3 vForwardDir;
 	CQuat q = CQuat( sCamera.fYaw, V3_AXIS_Z ) * CQuat( sCamera.fPitch, V3_AXIS_X );

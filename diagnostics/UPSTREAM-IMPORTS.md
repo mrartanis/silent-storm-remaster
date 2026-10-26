@@ -2809,7 +2809,47 @@ Windows ALL_BUILD собраны. Bgfx/DisplayRuntime и 12 FONT-COMPAT controls
 verified-red-{build,test}.log, verified-red-native-test.log, green-{build,test}.log,
 related-green-test.log, all-build.log, linux-{configure,build,test}.log и
 {windows,linux}-native-test.log. Источник остаётся частичным: preview camera
-и перенумерация сохраняемых panel bits проверяются отдельно.
+и перенумерация сохраняемых panel bits проверяются следующим шагом.
+
+## Камера предпросмотра медали и совместимость панелей — завершение 0611f275
+
+NativeMedalPreviewCamera повторяет реальный tactical panel fixture, выбирает
+авторскую медаль с моделью и читает матрицу настоящего CModelDraw через его
+saved field 6. Base CModel field 2 читается явным вызовом существующего
+сериализатора, без копирования private CMedalsPanelView или его vtable.
+Compiled runtime RED: medal 1 / item 457 имеет разные authored CAMERA_NORMAL
+и CAMERA_RELOADBUTTON (max matrix delta 6.576942); фактическая матрица точно
+совпадает с NORMAL, ошибка относительно award camera — 6.576942.
+
+В CMedalsPanelView::Set заменён только индекс камеры на CAMERA_RELOADBUTTON.
+GREEN: ошибка относительно authored award camera 0, относительно NORMAL
+6.576942. Сама камера, модель и её данные не редактируются. Это проверка
+параметров настоящего preview renderer; модельные pixels не проверяются.
+Первый compile с несуществующим SHMatrix::m исправлен в fixture до runtime
+RED; ошибка компиляции не считается подтверждением бага.
+
+Оставшийся enum hunk не переносится. Наши собственные snapshot поля содержат
+INVENTORY=0x4, MEDALS=0x10, BIOGRAPHY=0x20. Upstream замена констант без
+миграции прочитала бы собственный inventory как medals, а medals как biography.
+CMission field 22 и dialogue field 4 хранят эти значения напрямую. Текущий
+CMission::SetPanelState уже ограничивает первую миссию по именам MEDALS и
+BIOGRAPHY, поэтому исходная проблема numeric mask 0x14 решена у нас.
+
+Добавлены native compatibility controls: чтение существующих raw 4/16/32
+в настоящий CMission field 22 и проверка семантики GetPanelState; при first
+mission field 34=true установка MEDALS|BIOGRAPHY остаётся запрещённой,
+inventory=4 сохраняется. Это проверка native fields/flags, не загрузка целого
+исторического slot и не pixel-проверка открытых окон. Разделение retail и
+нашего encoding требует отдельного versioned importer, слепая перенумерация
+не является полезным исправлением для текущего форка. Все source hunks учтены.
+
+Финальные связанные 29/29 прошли на Windows (24.56 с) и Linux (20.10 с),
+обе Game и Windows ALL_BUILD собраны. По 12 FONT-COMPAT controls сохранены.
+Свидетельства medal-preview-camera: compiled-red-build.log, red-test.log,
+red-native-test.log, green-{build,test}.log, all-build.log,
+final-{build,test}.log, final-linux-{configure,build,test}.log и
+final-{windows,linux}-native-test.log. Оригинальный баланс, scoring и HD
+остаются прежними. All281/final actual GitHub Actions ещё не завершены.
 
 ## Выпадающий список вне clip вложенной строки — часть c0f64c74
 
