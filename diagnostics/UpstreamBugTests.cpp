@@ -75,6 +75,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/iMainMenu.h"
 #include "../Main/iLoading.h"
 #include "../Main/iChapterMapUI.h"
+#include "../Main/iShowMedal.h"
 #include "../Main/PlayerTracker.h"
 #include "../Main/iOptionsMenu.h"
 #include "../Main/iInGameMenu.h"
@@ -7906,6 +7907,58 @@ public:
     void Flush() override {}
 };
 
+static void MedalCursorVisible(const char* databasePath,const char* resourcePath)
+{
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "medal cursor fixture started with a live interface or command");
+    CFileStream database; database.OpenRead(databasePath); NDatabase::Serialize(database,CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    struct Cleanup { bool native = S2Platform::NativeCursorEnabled();
+        ~Cleanup() { NMainLoop::DoneInterface(); S2Platform::UseNativeCursor(native); } } cleanup;
+    S2Platform::UseNativeCursor(false); // Exercise the same cursor's existing software fallback.
+    NDb::CSide* side = nullptr; NDb::CMedal* medal = nullptr;
+    CDBIterator<NDb::CSide> sides(*NDatabase::GetTable<NDb::CSide>());
+    while (sides.MoveNext()) if (IsValid(sides.Get()->pMedalPaperContainer)) { side = sides.Get(); break; }
+    CDBIterator<NDb::CMedal> medals(*NDatabase::GetTable<NDb::CMedal>());
+    while (medals.MoveNext()) if (IsValid(medals.Get()->pName)) { medal = medals.Get(); break; }
+    Require(side && medal,"medal cursor fixture has no authored medal and side paper");
+    CObj<NGScene::CScreenshotTexture> texture = new NGScene::CScreenshotTexture;
+    CArray2D<NGfx::SPixel8888> pixels; pixels.SetSizes(2,2);
+    for (int y=0; y<2; ++y) for (int x=0; x<2; ++x) pixels[y][x] = NGfx::SPixel8888(12,23,34,255);
+    texture->Set(pixels);
+    CObj<NGame::CICShowMedal> show = new NGame::CICShowMedal(side,L"Cursor fixture",medal,texture); show->Exec();
+    CObj<NMainLoop::IInterfaceBase> modal = NMainLoop::GetCurrentInterfaceForHarness();
+    Require(IsValid(modal) && NMainLoop::GetInterfaceStackDepth() == 1,"native medal command did not open its real dialog");
+    CStructureNetworkContext refs; auto fields = BorrowedObjectFields(modal,&refs);
+    CPtr<NUI::ICursor> cursor; CPtr<NUI::CInterface> interface;
+    { CStructureSaver reader(fields,CStructureSaver::READ,&refs); reader.Add(5,&cursor); reader.Add(6,&interface); }
+    Require(IsValid(cursor) && IsValid(interface) && IsValid(interface->GetDefaultCursorInfo().pCursor),
+        "native medal dialog did not retain its cursor and authored arrow");
+    class CursorPaintView: public DialogueLayoutView {
+        OBJECT_NOCOPY_METHODS(CursorPaintView);
+    public:
+        int images = 0;
+        void CreateDynamicRects(NDb::CTexture*,const CRectLayout&,const CTPoint<int>&,const CTRect<int>&) override { ++images; }
+        void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>*,const CRectLayout&,const CTPoint<int>&,const CTRect<int>&) override { ++images; }
+    };
+    CObj<CursorPaintView> view = new CursorPaintView;
+    const auto info = interface->GetDefaultCursorInfo();
+    CObj<NUI::ICursor> control = NUI::ICursor::Create(true);
+    control->SetCursor(info); control->SetPos(CVec2(60,60)); control->Draw(1000,view); control->Draw(2000,view);
+    Require(view->images > 0,"native visible-cursor control submitted no arrow image");
+    const int expected = view->images; view->images = 0;
+    cursor->SetCursor(info); cursor->SetPos(CVec2(60,60)); cursor->Draw(1000,view); cursor->Draw(2000,view);
+    std::printf("native medal cursor image submissions=%d visible control=%d\n",view->images,expected);
+    Require(view->images == expected,"native medal dialog hides its cursor instead of submitting its arrow image");
+    NInput::SEvent event; while (NInput::GetEvent(&event)) {}
+    NInput::PostEvent("cancel");
+    Require(NInput::GetEvent(&event) && modal->ProcessEvent(event),"native medal dialog did not consume its close command");
+    CObj<NMainLoop::CInterfaceCommand> close = NMainLoop::TakeInterfaceCommandForHarness();
+    Require(dynamic_cast<NMainLoop::CICExitModal*>(close.GetPtr()) != nullptr,"native medal close did not use its ordinary modal command");
+    close->Exec();
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"native medal dialog did not close cleanly");
+}
+
 static void CheckChapterClueHeading(NGame::CMissionBase* mission,NUI::CWindow* chapter)
 {
     auto* game = mission->GetRPGGame(); auto* tracker = game->pScenarioTracker.GetPtr();
@@ -13918,6 +13971,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "combo-popup-clipping")) { ComboPopupClipping(); return true; }
     if (!std::strcmp(mode, "combo-popup-item-width")) { ComboPopupClipping(true); return true; }
     if (!std::strcmp(mode, "chapter-clue-heading") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "medal-cursor-visible") && argc == 4) { MedalCursorVisible(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "window-nested-wakeup")) { WindowNestedWakeup(); return true; }
     if (!std::strcmp(mode, "window-template-script")) { Require(argc == 3, "window template script requires db"); WindowTemplateScript(argv[2]); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }

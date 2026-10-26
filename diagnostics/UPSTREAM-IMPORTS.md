@@ -2705,8 +2705,32 @@ chapter-clue-heading-green-{build,test}.log, chapter-clue-heading-game-build.log
 chapter-clue-heading-verified-green-{build,test}.log,
 chapter-clue-heading-verified-linux-{configure,build,test}.log,
 chapter-sound9-probe-repeat-test.log и native success logs.
-Source 29554756 остаётся частичным: camp eligibility, medal screenshot и cursor
-ещё проверяются отдельно с учётом нашего renderer. HD generation выключена.
+Source 29554756 остаётся частичным: camp eligibility и medal screenshot
+проверяются отдельно с учётом нашего renderer; cursor перенесён следующим
+независимым исправлением. HD generation выключена.
+
+## Видимый курсор в окне медали — часть 29554756
+
+UpstreamMedalCursorVisible открывает настоящий CICShowMedal с авторскими
+side/medal и заданным screenshot, читает его реальные cursor/interface через
+существующие saved fields 5/6. Native CCursor и CImageDraw работают в нашем
+software fallback; видимый контрольный курсор с той же стрелкой выдаёт две
+image submissions, а курсор окна медали в compiled runtime RED — ноль.
+
+В Initialize изменён только bShowCursor с false на true. Наша SDL/native cursor
+реализация сохраняется: этот флаг управляет обеими её ветвями. GREEN выдаёт
+те же две картинки стрелки и проверяет обычное закрытие реального modal через
+cancel/CICExitModal без оставшихся interfaces/commands. Физическая видимость
+OS cursor и glyph/pixel output этим fixture не заявляются. Медаль не выдаётся
+игровому отряду, боевые и кампанийные параметры не меняются.
+
+Compiled RED и GREEN сохранены в medal-cursor-visible-{red,green}-{build,test}.log.
+Связанные 26/26 прошли на Windows (19.98 с) и Linux (16.33 с), обе Game собраны.
+BgfxRendererTests и DisplayRuntimeTests входят в этот набор; сохранены native
+LastTest logs с 12 FONT-COMPAT controls на каждой платформе. Свидетельства:
+medal-cursor-visible-related-green-test.log, medal-cursor-visible-linux-*.log,
+medal-cursor-visible-{renderer,game}-build.log и platform-native-test.log.
+Source остаётся частичным до проверки screenshot/gamma и eligibility.
 
 ## Выпадающий список вне clip вложенной строки — часть c0f64c74
 
