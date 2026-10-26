@@ -906,6 +906,7 @@ add_test(NAME UpstreamStoreDrop COMMAND UpstreamBugTests store-drop)
 add_test(NAME UpstreamInventoryActor COMMAND UpstreamBugTests inventory-actor)
 add_test(NAME UpstreamSlotActor COMMAND UpstreamBugTests slot-actor)
 add_test(NAME UpstreamGeometryHash COMMAND UpstreamBugTests geometry-hash)
+add_test(NAME UpstreamProjectiveRayUnprojection COMMAND UpstreamBugTests projective-ray-unprojection)
 # Fixture-only regressions must also run on CI without proprietary game assets.
 add_test(NAME UpstreamRestoredPortraitSelection COMMAND UpstreamBugTests restored-portrait-selection)
 add_test(NAME UpstreamRestoredEmptyPortraits COMMAND UpstreamBugTests restored-empty-portraits)

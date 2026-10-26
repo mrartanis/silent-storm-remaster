@@ -248,6 +248,7 @@
 | [c1ab9336](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c) — Report equipped melee weapons to the existing knife cursor without changing attack rules | `an equipped native melee weapon still advertised the unarmed fist state and cursor` | 11/11; `equipped-melee-attack-cursor` | `Upstream-Commit` в commit message |
 | [d919d910](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d919d91066b15951e2a14cc4c78e70745aa0ea88) — Clamp shooting torso animation turns without changing the selected aim | `the native shooting animation twisted the torso past its allowed horizontal angle` | 25/25; `shooting-torso-turn-limit` | `Upstream-Commit` в commit message |
 | [394d64fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/394d64fb59f1f82e80cc928bf195e0280cfb7999) — Log successful hit rolls at the equality boundary | `a native hit-roll equality returned the hit ratio but was logged as a miss` | 10/10; `hit-roll-equality-log` | `Upstream-Commit` в commit message |
+| [d919d910](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d919d91066b15951e2a14cc4c78e70745aa0ea88) — Preserve homogeneous coordinates when unprojecting native rays | `a translated native projective ray disagreed with the renderer's homogeneous point conversion` | 9/9; `projective-ray-unprojection` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

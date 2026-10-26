@@ -58,6 +58,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/PrecalcCollider.h"
 #include "../Main/aiColourer.h"
 #include "../Main/aiMap.h"
+#include "../Main/aiRender.h"
 #include "../Main/aiStability.h"
 #include "../Main/aiNearestPosition.h"
 #include "../FileIO/PortableGameDatabase.h"
@@ -8556,6 +8557,52 @@ static void HitRollEqualityLog(const char* databasePath,const char* resourcePath
         !actor->HasCommand(), "checking hit-roll diagnostics changed AP/VP/ammunition or issued a gameplay order");
 }
 
+static void ProjectiveRayUnprojection()
+{
+    float worst = 0;
+    for (const auto& origin: {CVec3(0,0,0),CVec3(12.5f,31.25f,1.8f),CVec3(0,80,2),CVec3(-60,90,12),CVec3(175,-125,30)})
+        for (const auto& direction: {CVec3(1,0,0.15f),CVec3(-0.7f,0.8f,-0.2f)})
+            for (float distance: {3.f,15.f,40.f}) {
+                CVec3 forward = direction;
+                Normalize(&forward);
+                const CVec3 target = origin+forward*distance;
+                NAI::CFastRenderer renderer;
+                renderer.InitProjective(origin,target,0.625f,16);
+                float targetX = 0, targetY = 0;
+                renderer.GetCoordsClamped(target,&targetX,&targetY);
+                Require(fabs(targetX-15.5f) < 0.5f && fabs(targetY-15.5f) < 0.5f,
+                    "projective-ray fixture did not put its actual target at the centre of the native projection");
+                for (const auto& pixel: {CVec2(16,16),CVec2(8,13),CVec2(23,20)}) {
+                    CVec3 ray;
+                    renderer.GetDir(&ray,pixel.x,pixel.y);
+                    Require(std::isfinite(ray.x) && std::isfinite(ray.y) && std::isfinite(ray.z) && fabs(fabs2(ray)-1.f) < 1e-5f,
+                        "native projective unprojection returned a nonfinite or unnormalised ray");
+                    float x = 0, y = 0;
+                    renderer.GetCoordsClamped(origin+ray*distance,&x,&y);
+                    // GetPoints consumes the public native trace-interval record. A unit-distance
+                    // interval describes the same sample point from which GetDir derives its ray.
+                    NAI::CFastRenderer::SResult interval{};
+                    interval.fEnter = interval.fExit = 1.f;
+                    const int ix = int(pixel.x), iy = int(pixel.y);
+                    renderer.resGrid[iy][ix] = &interval;
+                    vector<CVec3> entries, exits;
+                    renderer.GetPoints(&entries,&exits,ix,iy);
+                    renderer.resGrid[iy][ix] = nullptr;
+                    Require(entries.size() == 1 && exits.size() == 1 && entries.front() == exits.front(),
+                        "native projective point conversion did not consume its unit-distance interval");
+                    CVec3 expected = entries.front()-origin;
+                    Normalize(&expected);
+                    const float error = fabs(ray-expected);
+                    worst = Max(worst,error);
+                    if (error > 1e-6f) std::printf("native projective ray origin=(%.2f,%.2f,%.2f) distance=%.2f pixel=(%.2f,%.2f) projected=(%.5f,%.5f) point_direction_error=%.8f\n",
+                        double(origin.x),double(origin.y),double(origin.z),double(distance),double(pixel.x),double(pixel.y),double(x),double(y),double(error));
+                    Require(error <= 1e-6f,
+                        "a translated native projective ray disagreed with the renderer's homogeneous point conversion");
+                }
+            }
+    std::printf("native projective ray worst unit-direction error=%.7f\n",double(worst));
+}
+
 static void ShootingTorsoTurnLimit(const char* databasePath,const char* resourcePath)
 {
     for (float relative: {0.5f,2.4f,-2.4f,0.f}) {
@@ -11761,6 +11808,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "default-item-detachment")) { Require(argc == 4, "item detachment requires db and res"); DefaultItemDetachment(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "unit-hit-roll-equality-log")) { Require(argc == 4, "unit hit log requires db and res"); HitRollEqualityLog(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "tile-hit-roll-equality-log")) { Require(argc == 4, "tile hit log requires db and res"); HitRollEqualityLog(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "projective-ray-unprojection")) { ProjectiveRayUnprojection(); return true; }
     if (!std::strcmp(mode, "shooting-torso-turn-limit")) { Require(argc == 4, "shooting torso limit requires db and res"); ShootingTorsoTurnLimit(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "grenade-throw-animation-refresh")) { Require(argc == 4, "grenade animation requires db and res"); GrenadeThrowAnimationRefresh(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "invalidated-grenade-trajectory")) { Require(argc == 4, "grenade trajectory requires db and res"); InvalidatedGrenadeTrajectory(argv[2],argv[3]); return true; }
