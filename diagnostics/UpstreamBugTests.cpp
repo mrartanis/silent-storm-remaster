@@ -2451,6 +2451,93 @@ static void LegacyChapterWorldMigration(const char* databasePath,const char* res
     chapter->OnLostFocus(); chapter->OnGetFocus(); loaded->OnLostFocus(); loaded->OnGetFocus();
 }
 
+static void ChapterClockStep(const char* databasePath,const char* resourcePath,const char* legacyPath)
+{
+    CFileStream database; database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ); NGScene::AddResourceDir(resourcePath);
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NGScene::Is3DActive(),
+        "chapter clock fixture needs an inactive native chapter with no render device");
+    struct Cleanup { ~Cleanup() { NMainLoop::DoneInterface(); } } cleanup;
+    struct ClockRestore { STime previous; ~ClockRestore() { NMainLoop::SetTimeForHarness(previous); } } clock{NMainLoop::SetTimeForHarness(1000)};
+    int chapterID = 0;
+    { CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());
+      while (maps.MoveNext()) if (IsValid(maps.Get()->pBackground)) { chapterID = maps.Get()->GetRecordID(); break; } }
+    Require(chapterID != 0,"chapter clock fixture has no authored chapter map");
+    auto roundTrip = [&](CObj<NRPG::CGlobalGame>& game,CObj<NGame::CMissionBase>& chapter) {
+        CMemoryStream snapshot;
+        { CStructureSaver writer(snapshot,CStructureSaver::WRITE); writer.Add(2,&game); writer.Add(3,&chapter); }
+        snapshot.Seek(0);
+        CObj<NRPG::CGlobalGame> loadedGame; CObj<NGame::CMissionBase> loaded;
+        { CStructureSaver reader(snapshot,CStructureSaver::READ); reader.Add(2,&loadedGame); reader.Add(3,&loaded); }
+        Require(IsValid(loadedGame) && IsValid(loaded) && loaded->GetWorld() != chapter->GetWorld(),
+            "chapter clock snapshot did not restore an independent complete graph");
+        NMainLoop::DoneInterface(); chapter = loaded; game = loadedGame;
+        chapter->OnSnapshotRestored();
+    };
+    // Fresh chapter; actual old null-world graph; previous complete fork save
+    // with a zero interval; and a saved custom nonzero interval to retain.
+    for (int variant = 0; variant < 4; ++variant) {
+        NMainLoop::DoneInterface(); NMainLoop::SetTimeForHarness(1000);
+        CObj<NRPG::CGlobalGame> game; CObj<NGame::CMissionBase> chapter;
+        const STime interval = variant == 3 ? 7 : 5;
+        if (variant == 1) {
+            CFileStream legacy; legacy.OpenRead(legacyPath);
+            { CStructureSaver reader(legacy,CStructureSaver::READ); reader.Add(2,&game); reader.Add(3,&chapter); }
+            Require(IsValid(chapter) && !chapter->GetWorld(),"chapter clock fixture did not load its historical null-world graph");
+            chapter->OnSnapshotRestored();
+        } else {
+            game = NRPG::CreateGlobalGame(1);
+            game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+            CObj<NGame::CICBeginChapter> enter = new NGame::CICBeginChapter(chapterID,game);
+            enter->Exec();
+            chapter = dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+            if (variant >= 2) {
+                STime savedInterval = variant == 2 ? 0 : interval;
+                CMemoryStream base;
+                { CStructureSaver writer(base,CStructureSaver::WRITE); writer.Add(36,&savedInterval); }
+                base.Seek(0);
+                { CStructureSaver reader(base,CStructureSaver::READ); chapter->NGame::CMissionBase::operator&(reader); }
+                roundTrip(game,chapter);
+            }
+        }
+        Require(IsValid(chapter) && chapter->GetWorld() && chapter->GetWorld()->GetAimTime()->GetValue() == 0,
+            "chapter clock fixture lacks its native world or ran a tactical warm-up");
+        auto* ui = dynamic_cast<NUI::CChapterMapUI*>(chapter->GetInterface()->GetChildByID("chaptermapUI"));
+        Require(ui != nullptr,"chapter clock fixture lost its actual saved chapter UI");
+        const string travel = ui->GetTravelForDiagnostics();
+        const int mapID = game->nChapterMapID, difficulty = game->nCurrentChapterDifficulty;
+        const auto mercs = game->players.front()->mercs;
+        auto step = [&](STime time) { NMainLoop::SetTimeForHarness(time); chapter->Step(); };
+        step(1000);
+        Require(chapter->GetGameTime() == 0 && chapter->GetUITime() == 0,"the first chapter clock step jumped instead of establishing a baseline");
+        step(1003);
+        Require(chapter->GetGameTime() == 0 && chapter->GetUITime() == 0,"the chapter frame gate accepted an update before its saved minimum interval");
+        step(1000+interval);
+        Require(chapter->GetGameTime() == interval && chapter->GetUITime() == interval,
+            "the native chapter Step did not advance its actual game and interface clocks");
+        chapter->PauseGame(true); step(1000+2*interval);
+        Require(chapter->GetGameTime() == interval && chapter->GetUITime() == 2*interval,
+            "pausing the native chapter froze its interface clock or advanced its game clock");
+        chapter->PauseGame(false); step(1000+4*interval);
+        Require(chapter->GetGameTime() == 3*interval && chapter->GetUITime() == 4*interval,
+            "resuming the native chapter replayed paused time or lost its resumed interval");
+        Require(game->nChapterMapID == mapID && game->nCurrentChapterDifficulty == difficulty && game->players.front()->mercs == mercs &&
+            chapter->GetWorld()->GetAimTime()->GetValue() == 0 && ui->GetTravelForDiagnostics() == travel,
+            "inactive chapter clock bookkeeping changed its world, campaign, party or saved travel");
+        roundTrip(game,chapter);
+        Require(chapter->GetGameTime() == 3*interval && chapter->GetUITime() == 4*interval,
+            "loading a complete chapter reset its saved interface/game clock values");
+        step(2000);
+        Require(chapter->GetGameTime() == 3*interval && chapter->GetUITime() == 4*interval,
+            "the restored chapter replayed an unsaved wall-time gap");
+        step(2000+interval);
+        Require(chapter->GetGameTime() == 4*interval && chapter->GetUITime() == 5*interval &&
+            chapter->GetWorld()->GetAimTime()->GetValue() == 0,
+            "the restored native chapter clocks failed to continue without simulating the inactive world");
+    }
+    NMainLoop::DoneInterface();
+}
+
 class CachedChapterSampleAccess: public NSound::CFileSample2D
 {
 public:
@@ -12686,6 +12773,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "script-sound-unassigned-3d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],true,true); return true; }
     if (!std::strcmp(mode, "script-sound-stop-2d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "script-sound-stop-3d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "chapter-clock-step") && argc == 5) { ChapterClockStep(argv[2],argv[3],argv[4]); return true; }
     if (!std::strcmp(mode, "legacy-chapter-world-migration") && argc == 5) { LegacyChapterWorldMigration(argv[2],argv[3],argv[4]); return true; }
     if (!std::strcmp(mode, "chapter-focus-audio") && argc == 4) { ChapterFocusAudio(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-script-initialization") && argc == 4) { ChapterScriptInitialization(argv[2],argv[3]); return true; }

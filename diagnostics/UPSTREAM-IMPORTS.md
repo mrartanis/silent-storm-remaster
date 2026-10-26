@@ -260,6 +260,7 @@
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Stop scripted sound through the mission-owned channel list | `native Lua StopSound cleared its weak handle but left the actual sound playing` | 43/43; `script-sound-stop` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Keep pending UI commands alive across native Lua collection | `an unassigned Lua PlaySound result was collected before its native UI command could start playback` | 313/313; `script-sound-unassigned` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Start fresh scripted positional sounds at the beginning of their sample | `a fresh scripted sound inherited absolute interface time as a sample start offset` | 66/66; `script-sound-start-offset` | `Upstream-Commit` в commit message |
+| [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Maintain native chapter counters and saved frame timing | `the native chapter Step did not advance its actual game and interface clocks` | 67/67; `chapter-clock-step` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1893,3 +1894,36 @@ PlaySound исправлено через владение очередью; ч�
 `script-sound-start-offset-game-build.log`, `script-sound-start-linux-*`.
 Оставшиеся части e399ef89 — ввод после загрузки и инициализация/обновление
 backdrop-меню; их перенос ещё не завершён.
+
+### Базовые часы главы и интервал обновления
+
+Перенесены независимая часть Step из70d12946 и оставшийся default 5 мс
+из e9dc218f. Native RED: настоящий CChapterMap::Step при контролируемом
+времени не продвигал GetGameTime/GetUITime. Тест проверяет базовые счётчики
+на неактивной карте: первая точка задаёт baseline, обновление через 3 мс
+пропускается, после нужного интервала счётчики продвигаются. На паузе
+останавливается игровой счётчик, интерфейсный продолжает идти; возврат
+не проигрывает паузу повторно. Мир при неактивном интерфейсе не симулируется.
+
+Проверены новая глава, настоящий исторический null-world граф, прежний
+полноценный граф форка с нулевым интервалом и сохранённый нестандартный
+интервал 7 мс. Нулевой старый placeholder заменяется на 5 мс при загрузке;
+ненулевой интервал сохраняется. Повторная запись и независимая загрузка
+полного графа сохраняют значения часов и заново устанавливают baseline
+внешнего времени без скачка. Состав отряда, сложность и маршрут не меняются.
+
+Учитывается собственный расчёт ChapterTravel: в Step/RenderFrame интерфейса
+сохранён прежний GetTime. Подмена его на ограниченный GetUITime из upstream
+могла бы замедлить перемещение при низком FPS; часть отложена в
+`UPSTREAM-BALANCE-CHANGES.md`. ChapterTravelTests проходят на Windows и
+Linux (на Linux тот же тест собран Clang в существующем каталоге сборки).
+
+Связанный набор — 67/67 на Windows (52.04 с) и Linux (50.21 с), обе игры
+собраны. Последний полный checkpoint — 313, текущее полное число — 316.
+Свидетельства: `chapter-clock-step-{red,green}-{build,test}.log`,
+`chapter-clock-step-game-build.log`, `chapter-clock-step-travel-test.log`,
+`chapter-clock-linux-*`, `chapter-clock-linux-travel-{build,test}.log`.
+Это CPU/runtime-проверка часов, без GPU-кадра и исполнения мира в активном
+кадре. Для70d12946 ещё нужны world pump, BeginZone и обработка очереди главы.
+Все части e9dc218f теперь учтены: предыдущие world/save graph, script hook,
+OnGetFocus, собственный DB loader и данный default/frame interval.

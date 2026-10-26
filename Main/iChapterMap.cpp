@@ -206,6 +206,7 @@ bool CChapterMap::Initialize( NRPG::CGlobalGame *_pGame )
 	pChapterMapUI->ShowWindow( NUI::SWTYPE_SHOW );
 	PushDesktop( pChapterMapUI );
 	pWorld->RunPostInitScript( pChapterMap->pScript );
+	sMinFrameTime = 5;
 
 	return true;
 }
@@ -214,6 +215,9 @@ bool CChapterMap::Initialize( NRPG::CGlobalGame *_pGame )
 // Preserve their UI/travel graph; only the missing world graph is initialized.
 void CChapterMap::OnSnapshotRestored()
 {
+	// Earlier remaster chapters saved zero before the frame gate existed.
+	if ( sMinFrameTime == 0 )
+		sMinFrameTime = 5;
 	if ( !IsValid( pWorld ) )
 	{
 		InitializeWorld();
@@ -278,12 +282,21 @@ bool CChapterMap::ProcessEvent( const NInput::SEvent &sEvent )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChapterMap::Step()
 {
+	if ( GetTime() - sFPSLimitLastTime < sMinFrameTime )
+		return;
+	sFPSLimitLastTime = GetTime();
+	sTimeCounter.Advance( !bPause, GetTime() );
+	sUITimeCounter.Advance( true, GetTime() );
+	EraseInvalidRefs( &soundsList );
 	if ( CanRender() )
 	{
 		pInterface->UpdateCursor();
+		// Keep the remaster UI/travel clock independent of the clamped game counters.
 		pInterface->Step( GetTime() );
 		RenderFrame( GetTime() );
 	}
+	else
+		pRender->ResetTiming();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChapterMap::RenderFrame( const STime &sTime )
