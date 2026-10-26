@@ -417,6 +417,17 @@ void CDebrisController::RemoveFrozenItem( NRPG::IInventoryItem *pInvItem )
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void CDebrisController::RemoveAllHintItems()
+{
+	for ( list<CObj<CDFrozenItem> >::iterator it = showFrozenItems.begin(); it != showFrozenItems.end(); )
+	{
+		if ( dynamic_cast<NRPG::IHintItem*>( (*it)->GetInvItem() ) )
+			it = showFrozenItems.erase( it );
+		else
+			++it;
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDebrisController::GetVisibleItems( const SSphere &sphere, list<IVisible*> *pRes )
 {
 	// retail FilterVisibleItems<CDFrozenItem> @0x34bc40: dead entries erased; the range test point is

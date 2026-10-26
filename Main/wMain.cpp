@@ -2542,10 +2542,8 @@ void CWorld::ScriptWantTurnBased( bool bWant )
 // LUA convergence (hint machinery): retail NWorld::CWorld::AddNextUIHint @0x368140 (IWorld vtbl+0x118).
 // Walk the CUIHint table and pick the not-yet-shown hint with the smallest nSequenceID strictly greater
 // than the global game's cursor (nHintSequenceID); advance the cursor onto it and remember it in hintsSet.
-// When bSilent is false it also pops the hint modal -- but the sole caller (lua AddHints) passes true, so the
-// sequence advances silently. When fewer than two unshown hints remained, the sequence is exhausted: set
-// bNoMoreHints and refresh. (Retail also RemoveAllHintItems()s the in-world hint pickups here; this
-// predecessor fork has no in-world hint-item subsystem, so there is nothing to remove.)
+// Pickups show the hint modal; lua AddHints advances silently. On exhaustion,
+// remove the remaining frozen hint books before refreshing visibility.
 void CWorld::AddNextUIHint( bool bSilent )
 {
 	NRPG::CGlobalGame *pGlobalGame = GetGlobalGame();
@@ -2587,6 +2585,7 @@ void CWorld::AddNextUIHint( bool bSilent )
 	if ( nUnshown < 2 )
 	{
 		pGlobalGame->bNoMoreHints = true;
+		RemoveAllHintItems();
 		UpdateVisible();
 	}
 }

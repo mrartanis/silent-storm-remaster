@@ -3921,3 +3921,40 @@ network-{test,native-test}.log. CPU base 355; последний полный ch
 остаётся base354+5=359 на HEAD69d75801. Source8da теперь partially-imported:
 hint slot placement, world spawning и exhaustion cleanup ещё проверяются.
 All281/final actual Actions не завершены.
+
+## Удаление книг после исчерпания подсказок — часть 8da24a09
+
+Новый native UpstreamExhaustedHintPickups создаёт два настоящих CHintItem
+через CreateHintItem и world.AddFrozenItem. Третий frozen предмет создан как
+обычный CDummyItem с тем же DB438 и моделью: это контроль marker type,
+а не иной record ID. Первая AddNextUIHint(true) продвигает реальную authored
+последовательность и сохраняет все три предмета. Затем без подмены cursor/
+flags исчерпывается настоящая таблица подсказок. Compiled runtime RED:
+hints=34, remaining-books=2, ordinary-retained=1. Первоначальная ошибка
+fixture overload AddFrozenItem исправлена до runtime RED, лог сохранён.
+
+RemoveAllHintItems удаляет только showFrozenItems с IHintItem. Метод вызывается
+после bNoMoreHints=true перед прежним UpdateVisible. Новых persistent fields
+и virtual slots нет; порядок/выбор подсказок, threshold exhaustion и AP не
+редактируются. Устаревший комментарий об отсутствии hint subsystem исправлен.
+
+GREEN подтверждает удаление обеих книг, сохранение обычного предмета с той же
+моделью/DB, отсутствие продвижения cursor/hintsSet и потери ordinary предмета
+при повторном exhausted вызове, отсутствие gameplay action. Это проверка
+очистки существующих pickups, не доказательство ещё отсутствующей map-slot
+цепочки появления книг. По коду pickup executor извлекает GROUND source до
+AddNextUIHint(false), после вызова сразу возвращается; полный pickup animation/
+AP/interaction сценарий этим прямым fixture не исполняется.
+
+Target 1/1, связанные 38/38 Windows (28.42 с) и Linux (81.34 с),
+обе Game и Windows ALL_BUILD собраны, по 12 FONT-COMPAT, raw38 полные без NUL.
+NetworkSerializer/StopResume: 2/2 (4.09 с). CPU base 356; последний полный
+checkpoint остаётся base354+5=359 на HEAD69d75801.
+
+Свидетельства exhausted-hint-pickups: fixture-interface-build.log,
+red-{build,test}.log, red-native-test.log, green-{build,test}.log,
+green-native-test.log, all-build.log, related-test.log,
+linux-{configure,build,test}.log, {windows,linux}-native-test.log,
+network-{test,native-test}.log. Source8da остаётся частичным:
+hintSlots/MapBuild transport и вызов PlaceHintsToMap ещё проверяются.
+All281/final actual Actions не завершены.

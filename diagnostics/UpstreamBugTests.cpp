@@ -9000,6 +9000,51 @@ static void ExplicitHideState(const char* databasePath,const char* resourcePath)
             for (bool initial: {false,true}) execute(initial,true,requested,restore);
 }
 
+static void ExhaustedHintPickups(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+    Require(!units.empty() && !game->bNoMoreHints && game->hintsSet.empty(),
+        "hint exhaustion fixture did not start with an unconsumed authored sequence");
+    int candidates = 0;
+    CDBIterator<NDb::CUIHint> records(*NDatabase::GetTable<NDb::CUIHint>());
+    while (records.MoveNext()) if (records.Get()->nSequenceID > game->nHintSequenceID) ++candidates;
+    Require(candidates >= 2, "hint exhaustion fixture needs at least two remaining authored hints");
+    CObj<NRPG::IInventoryItem> first = NRPG::CreateHintItem(), second = NRPG::CreateHintItem();
+    Require(first && second && dynamic_cast<NRPG::IHintItem*>(first.GetPtr()) &&
+        dynamic_cast<NRPG::IHintItem*>(second.GetPtr()), "hint exhaustion fixture did not create genuine hint items");
+    CObj<NRPG::IInventoryItem> ordinary = NRPG::CreateDummyItem(first->GetDBItem());
+    Require(ordinary && !dynamic_cast<NRPG::IHintItem*>(ordinary.GetPtr()) &&
+        ordinary->GetDBItem() == first->GetDBItem(), "hint exhaustion marker control differs from the authored book record");
+    const auto point = units.front()->GetPosition().GetCP();
+    CPtr<NWorld::CDFrozenItem> bodyA = world->AddFrozenItem(world->GetAIMap(),point,QNULL,first);
+    CPtr<NWorld::CDFrozenItem> bodyB = world->AddFrozenItem(world->GetAIMap(),point+CVec3(1,0,0),QNULL,second);
+    CPtr<NWorld::CDFrozenItem> otherBody = world->AddFrozenItem(world->GetAIMap(),point+CVec3(0,1,0),QNULL,ordinary);
+    Require(bodyA && bodyB && otherBody && world->GetFrozenItem(first) == bodyA.GetPtr() &&
+        world->GetFrozenItem(second) == bodyB.GetPtr() && world->GetFrozenItem(ordinary) == otherBody.GetPtr(),
+        "hint exhaustion fixture could not place its actual frozen pickups");
+    while (CObj<NWorld::CUICmd> pending = world->GetUICommand()) {}
+    world->AddNextUIHint(true);
+    Require(!game->bNoMoreHints && game->hintsSet.size() == 1 &&
+        world->GetFrozenItem(first) == bodyA.GetPtr() && world->GetFrozenItem(second) == bodyB.GetPtr() &&
+        world->GetFrozenItem(ordinary) == otherBody.GetPtr(), "non-exhausted hints removed their books or ordinary control");
+    for (int step=0;step<candidates && !game->bNoMoreHints;++step) world->AddNextUIHint(true);
+    Require(game->bNoMoreHints, "actual authored hint sequence did not exhaust within its record count");
+    std::printf("native hint sequence exhausted: hints=%zu remaining-books=%d ordinary-retained=%d\n",
+        game->hintsSet.size(),int(bool(world->GetFrozenItem(first)))+int(bool(world->GetFrozenItem(second))),
+        int(world->GetFrozenItem(ordinary) == otherBody.GetPtr()));
+    Require(!world->GetFrozenItem(first) && !world->GetFrozenItem(second),
+        "exhausting the authored hint sequence left obsolete hint pickups in the world");
+    Require(world->GetFrozenItem(ordinary) == otherBody.GetPtr() && IsValid(otherBody),
+        "hint exhaustion removed an ordinary item sharing the same authored book record");
+    const auto shown = game->hintsSet.size(); const auto cursor = game->nHintSequenceID;
+    world->AddNextUIHint(true);
+    Require(game->bNoMoreHints && game->hintsSet.size() == shown && game->nHintSequenceID == cursor &&
+        world->GetFrozenItem(ordinary) == otherBody.GetPtr(), "repeated exhausted hint cleanup changed progression or ordinary items");
+    Require(!world->IsAction(), "hint exhaustion started a gameplay action");
+}
+
 class AICollectionCallbackException: public std::runtime_error
 {
 public:
@@ -15757,6 +15802,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "explicit-hide-state") && argc == 4) { ExplicitHideState(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "group-hide-shortcut") && argc == 4) { GroupHideShortcut(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "script-hide-state") && argc == 4) { ScriptHideState(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "exhausted-hint-pickups") && argc == 4) { ExhaustedHintPickups(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-idle") && argc == 4) { IdleAI(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "mixed-hide-button") && argc == 4) { MixedActionButton(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "mixed-strafe-button") && argc == 4) { MixedActionButton(argv[2], argv[3], false); return true; }
