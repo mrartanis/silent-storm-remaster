@@ -244,6 +244,7 @@
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Detach default slot items without starting unrelated activation animations | `native default item detachment started an unrelated activation animation while processing equipment slots` | 31/31; `default-item-detachment` | `Upstream-Commit` в commit message |
 | [0ffb568d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0ffb568d67bc6ca389d7ca63a9da4f3978c801a7) — Persist total experience when assigning a native unit level | `assigning a native unit level updated skill XP but discarded the corresponding total experience` | 292/292; `assigned-level-experience` | `Upstream-Commit` в commit message |
 | [432b64c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/432b64c8bbe97a9f347a6c9468e7c69173d68394) — Reload the retreat reaction owner after switching an arrived unit to guard | `native AI pump crashed in GetColourer via HasPath after an arrived retreat replaced and cleared itself` | 26/26; `arrived-retreat-reaction-lifetime` | `Upstream-Commit` в commit message |
+| [432b64c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/432b64c8bbe97a9f347a6c9468e7c69173d68394) — Localize rejected hit labels instead of displaying negative damage sentinels | `a rejected native HUD hit displayed the negative damage sentinel instead of its localized label` | 17/17; `rejected-hit-label-text` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1390,3 +1391,25 @@ UPSTREAM-BALANCE-CHANGES.md и сюда не включены.
 `arrived-retreat-reaction-lifetime-game-build.log`,
 `arrived-retreat-reaction-lifetime-registration-test.log`,
 `retreat-reaction-linux-{configure,build,test}.log`.
+
+### Локализованный текст вместо отрицательного hit sentinel
+
+Следующая независимая часть `432b64c8` исправляет текст отклонённого попадания.
+Native world hit event проходит через CMissionUI::UpdateHits и создаёт настоящий
+CHitTracker. Его Draw раньше помещал служебное -1 в CText вместо существующей
+локализованной строки 21060; это подтверждено runtime RED. Теперь отрицательное
+значение заменяется этой строкой, а 0 и положительный урон форматируются как
+раньше. Цветовые/физические/PK damage-части исходного коммита сюда не включены.
+
+Проверены human/PK, -1/0/42, начало/половина TTL и истечение TTL. Тест читает
+действительный CText после native Draw и прерывает view на входе в layout;
+он не утверждает результат GPU-рисования или отрисованные пиксели glyphs.
+Текущие цветовые теги, fade, шрифты и размеры сохраняются.
+Windows/Linux Game собраны; связанный UI/font набор — 17/17 на каждой платформе,
+Windows configured registration — 1/1. Последняя полная контрольная точка —
+292; весь текущий набор из 294 проверок здесь не заявляется.
+
+Свидетельства: `rejected-hit-label-text-{red,green}-{build,test}.log`,
+`rejected-hit-label-text-game-build.log`,
+`rejected-hit-label-text-registration-test.log`,
+`rejected-hit-label-linux-{configure,build,test}.log`.

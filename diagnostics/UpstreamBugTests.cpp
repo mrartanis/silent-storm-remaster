@@ -3154,6 +3154,7 @@ class MissionIconProbe: public NUI::CMissionUI
 public:
     void RefreshIcons(bool traps) { if (traps) UpdateTraps(); else UpdateClues(); }
     void RefreshEnemies() { UpdateEnemies(); }
+    void RefreshHits(STime time) { UpdateHits(time); }
 };
 
 static void OverlayIconVisibility(bool traps)
@@ -6079,6 +6080,69 @@ public:
     void StartNewFrame() override {}
     void Flush() override {}
 };
+
+static void RejectedHitLabelText(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    auto* rejected = NDb::GetString(21060);
+    Require(IsValid(rejected) && !rejected->szStr.empty(), "hit-label fixture has no authored localized rejected-hit text");
+    class HitLayoutReached: public std::exception {};
+    class HitView: public DialogueLayoutView {
+        OBJECT_NOCOPY_METHODS(HitView);
+    public:
+        const CVec2& GetViewportSize() override { throw HitLayoutReached(); }
+    };
+    CObj<HitView> view = new HitView;
+    for (bool pk: {false,true}) for (int value: {-1,0,42}) {
+        CObj<EnemyIconMission> mission = new EnemyIconMission;
+        mission->view = new NGScene::GameViewFixture;
+        CObj<MissionIconProbe> desktop = new MissionIconProbe;
+        mission->Attach(world,desktop);
+        CObj<NUI::CWindow> client = new NUI::CWindow(NUI::SWindowInfo(nullptr,
+            NUI::SPoint(0,0),NUI::SPoint(1024,768),"hit-view",NUI::STYLE_ENABLED|NUI::STYLE_VISIBLE));
+        CObj<NUI::CText> pause = new NUI::CText;
+        CStructureNetworkContext refs;
+        refs.externalReferences = true; refs.nextID = 100; refs.include = [](CObjectBase*) { return false; };
+        for (CObjectBase* object: {static_cast<CObjectBase*>(mission.GetPtr()),static_cast<CObjectBase*>(client.GetPtr()),static_cast<CObjectBase*>(pause.GetPtr())}) {
+            const auto id = refs.nextID++; refs.ids[object] = id; refs.refs[id] = object;
+        }
+        struct ClientWire {
+            CObj<NUI::CWindow> client;
+            int operator&(CStructureSaver& saver) { saver.Add(2,&client); return 0; }
+        } base;
+        base.client = client;
+        CPtr<NGame::IMission> missionRef = mission.GetPtr();
+        CMemoryStream saved;
+        { CStructureSaver writer(saved,CStructureSaver::WRITE,&refs); writer.Add(1,&base); writer.Add(2,&missionRef); writer.Add(27,&pause); }
+        saved.Seek(0);
+        { CStructureSaver reader(saved,CStructureSaver::READ,&refs); static_cast<CObjectBase*>(desktop.GetPtr())->operator&(reader); }
+        world->AddHitLocator(new NWorld::CHitLocator(value,pk,CVec3(0,0,0.5f),nullptr));
+        desktop->RefreshHits(0);
+        auto* label = dynamic_cast<NUI::CText*>(client->GetChildByID("hit"));
+        Require(label && pSSClasses->GetObjectTypeID(label) == int(0xB0241949),
+            "native HUD did not create its actual hit-text tracker from a world hit event");
+        for (STime time: {STime(0),STime(1000)}) {
+            bool reached = false;
+            try { label->Draw(time,view); } catch (const HitLayoutReached&) { reached = true; }
+            Require(reached, "native hit text did not reach layout after updating its position and source");
+            const auto& text = label->GetText();
+            const auto prefixEnd = text.find(L'>');
+            Require(prefixEnd != wstring::npos && text.substr(0,7) == L"<color=",
+                "native hit text lost its existing colour markup");
+            const wstring expected = value < 0 ? rejected->szStr : std::to_wstring(value);
+            Require(text.substr(prefixEnd+1) == expected,
+                "a rejected native HUD hit displayed the negative damage sentinel instead of its localized label");
+            const wstring oldColour = pk ? (time == 0 ? L"<color=fff3bf00>" : L"<color=7f795f00>") :
+                (time == 0 ? L"<color=ffff0000>" : L"<color=7fff0000>");
+            Require(text.substr(0,prefixEnd+1) == oldColour,
+                "localizing a rejected hit changed the independent existing colour or fade rules");
+        }
+        const auto lastText = label->GetText();
+        label->Draw(2001,view);
+        Require(label->GetText() == lastText, "an expired native hit label regenerated or changed its text");
+    }
+}
 
 static void ScaledEditTextLayout()
 {
@@ -11584,6 +11648,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
     if (!std::strcmp(mode, "hotseat-opponent-visibility")) { HotseatOpponentVisibility(); return true; }
     if (!std::strcmp(mode, "restored-clue-close-notification")) { RestoredClueCloseNotification(); return true; }
+    if (!std::strcmp(mode, "rejected-hit-label-text")) { Require(argc == 4, "hit label text requires db and res"); RejectedHitLabelText(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "scaled-edit-text-layout")) { ScaledEditTextLayout(); return true; }
     if (!std::strcmp(mode, "long-burst-voice-donor") && argc == 4) { LongBurstVoiceDonor(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "fresh-clue-wait-release") && argc == 4) { FreshClueWaitRelease(argv[2],argv[3]); return true; }

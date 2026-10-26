@@ -992,12 +992,20 @@ void CHitTracker::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 	// retail CHitText colour packing @0x6117c0: a PK hit fades the ORANGE R=243(f3),G=191(bf),B=0
 	// channels; a normal hit keeps the dev damage colour.
 	if ( bPK )
-		swprintf( wsText, sizeof(wsText) / sizeof(wsText[0]), L"<color=%.2x%.2x%.2x00>%d", nAlpha, int( ( 1 - fWeight ) * 243 ), int( ( 1 - fWeight ) * 191 ), nHitValue );
+		swprintf( wsText, sizeof(wsText) / sizeof(wsText[0]), L"<color=%.2x%.2x%.2x00>", nAlpha, int( ( 1 - fWeight ) * 243 ), int( ( 1 - fWeight ) * 191 ) );
 	else
-		swprintf( wsText, sizeof(wsText) / sizeof(wsText[0]), L"<color=%.2xff0000>%d", nAlpha, nHitValue );
+		swprintf( wsText, sizeof(wsText) / sizeof(wsText[0]), L"<color=%.2xff0000>", nAlpha );
 
+	wstring wsHitText = wsText;
+	if ( nHitValue < 0 )
+		wsHitText += NDb::GetString( 21060 )->szStr;
+	else
+	{
+		swprintf( wsText, sizeof(wsText) / sizeof(wsText[0]), L"%d", nHitValue );
+		wsHitText += wsText;
+	}
 	SetPosition( sPosition );
-	SetText( wsText );
+	SetText( wsHitText );
 
 	bComplete = false;
 
