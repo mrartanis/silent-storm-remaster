@@ -51,6 +51,14 @@ STime SetTimeForHarness( STime time )
 	currentTime = time;
 	return previous;
 }
+CInterfaceCommand* TakeInterfaceCommandForHarness()
+{
+	if ( cmds.empty() )
+		return nullptr;
+	CInterfaceCommand* result = cmds.front().Extract();
+	cmds.pop_front();
+	return result;
+}
 IInterfaceBase* GetCurrentInterfaceForHarness()
 {
 	return interfaces.empty() ? 0 : (IInterfaceBase*)interfaces.back();

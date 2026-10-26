@@ -12,6 +12,8 @@
 #include "RWGame.h"
 #include "RPGGame.h"
 #include "RPGGlobal.h"
+#include "scScenarioTracker.h"
+#include "scFlowChartItems.h"
 #include "Interface.h"
 #include "iMain.h"
 #include "iMission.h"
@@ -33,6 +35,26 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NGame
 {
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Both mission and chapter scripts enter zones through the native transition.
+// Only a direct tactical jump still needs leave-zone bookkeeping.
+bool CMissionBase::ExecWorldBeginZoneCommand( NWorld::CUICmd *pCmd, bool bEmulateChapter, NDb::CUITexture *pPWLImage )
+{
+	CDynamicCast<NWorld::CUICmdBeginZone> pBeginZone( pCmd );
+	if ( !pBeginZone )
+		return false;
+	if ( !pGlobalGame->pScenarioTracker->IsScenarioAvailable() )
+		csSystem << "ERROR: Scenario not available!" << endl;
+	else
+	{
+		NScenario::CScenarioZone *pZone = pGlobalGame->pScenarioTracker->GetZoneByName( pBeginZone->szZone );
+		if ( IsValid( pZone ) )
+			NMainLoop::Command( new CICBeginMission( pZone, -1, vector<string>(), pGlobalGame, bEmulateChapter, pPWLImage ) );
+		else
+			csSystem << "ERROR: Zone not found " << pBeginZone->szZone << " !" << endl;
+	}
+	return true;
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Script commands keep weak channel handles; the mission owns active playback.
 bool CMissionBase::ExecWorldSoundCommand( NWorld::CUICmd *pCmd )

@@ -262,6 +262,7 @@
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Start fresh scripted positional sounds at the beginning of their sample | `a fresh scripted sound inherited absolute interface time as a sample start offset` | 66/66; `script-sound-start-offset` | `Upstream-Commit` в commit message |
 | [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Maintain native chapter counters and saved frame timing | `the native chapter Step did not advance its actual game and interface clocks` | 67/67; `chapter-clock-step` | `Upstream-Commit` в commit message |
 | [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Advance the native chapter world during active frames | `the real active chapter Step never advanced its world or executed the assigned Lua script` | 68/68; `chapter-active-script` | `Upstream-Commit` в commit message |
+| [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Dispatch chapter script commands through the remaster interfaces | `the chapter hint command never released its real Lua UI wait` | 73/73; `chapter-world-commands` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1963,3 +1964,56 @@ NativeChapterActiveScript. Последний полный checkpoint пока 3
 `chapter-active-script-{windows,linux}-native-test.log`.
 Для завершения70d12946 остаются очередь команд, общая ветка BeginZone,
 обновления player tracker и desktop; их перенос ещё продолжается.
+
+
+## Проверка обработки сценарных команд карты главы — `70d12946`
+
+RED получен после успешной сборки на настоящей активной главе с SDL/bgfx:
+ShowHint при выключенных подсказках навсегда оставлял Lua UI wait; включённая
+подсказка и tutorial override не открывали интерфейс; BeginZone('ffight')
+не создавал команду перехода. Четыре native-display случая проверяют именно
+CChapterMap::Step через StepApp, с настоящим миром, Lua и существующими UI.
+
+Добавлены обработка очереди и остановка кадра перед переходом, общий BeginZone
+handler, существующие потребители подсказки, звука и меню отряда, загрузка
+шаблона через прежний autosave helper и сохранённый флаг reenter. Отдельный
+native RED на Linux проверил необходимую адаптацию порядка обновления:
+закрытие меню отряда на первом кадре повторно добавляло прежнего бойца.
+Список player trackers обновляется до dispatch; настоящий UI открывается,
+закрывается, мир продолжает работу с теми же объектами бойцов и их количеством.
+
+У главы сохраняются обычный вход без повторной обработки выхода из зоны,
+собственный фон загрузки и прежний raw GetTime для UI/travel. Тактический
+BeginZone сохраняет bEmulateChapter=true. Это проверено на реально созданных
+командах перехода обоих путей; новый сектор в этом тесте не загружается.
+Для подсказки проверены origin/event ID, реальное закрытие, возобновление Lua,
+прекращение продвижения покрытого мира и tutorial override. Параметры шрифтов,
+баланс, собственные SDL/bgfx/audio/facial реализации не заменяются.
+
+Связанный набор: 73/73 Windows (62.22 с) и Linux (60.92 с), включая шесть
+native-display случаев. Windows использует Direct3D 11, Linux — Vulkan/lavapipe
+в Xvfb/Openbox. Это проверка работы native кадров, мира и UI-команд; отдельной
+оценки пикселей шрифта/лица или скриншота загрузки здесь нет. Малый test-only
+TakeInterfaceCommandForHarness позволяет проверить созданный переход и снять
+его с очереди без исполнения; обычная игра его не вызывает.
+
+Свидетельства: chapter-world-commands-red-{build,test}.log,
+chapter-world-commands-roster-red-linux-{build,test}.log,
+chapter-world-commands-green-{build,test}.log,
+chapter-world-commands-linux-{configure,build,test}.log и отдельные
+chapter-world-commands-{windows,linux}-native-test.log с успешным выводом
+рендерера. Обе существующие сборки переиспользуются, копий игры не создаётся.
+Источник остаётся частичным: собственная звуковая сцена главы требует отдельной
+проверки запуска PCM через активный кадр; наличие handler само по себе
+не доказывает воспроизведение. Подмена UI clock и повторы leave-zone
+bookkeeping разобраны в UPSTREAM-BALANCE-CHANGES.md.
+
+
+Итоговая проверка текущего кода после последней адаптации: CPU 316/316
+Windows (241.81 с) и Linux (240.49 с); Windows ALL_BUILD и обе Game собраны.
+После ALL_BUILD повторно проверены локальный CI-набор 271/271 (26.45 с),
+сеть 6/6 (57.98 с), world/save/command bridge 5/5 (5.85 с).
+Свидетельства: checkpoint-316-chapter-final-{all-build,full-test,ci-test,
+network-test,world-test,linux-test}.log. Результат GitHub Actions для итогового
+HEAD остаётся отдельным условием завершения всех переносов; эти локальные
+проверки его не заменяют. Общая задача ещё не завершена.

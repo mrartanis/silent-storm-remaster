@@ -14,6 +14,9 @@ namespace NMainLoop
 {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class IInterfaceBase;
+class CInterfaceCommand;
+// Harness-only: transfer the next queued command without executing a transition.
+CInterfaceCommand* TakeInterfaceCommandForHarness();
 int GetInterfaceStackDepth();
 // Harness clock override; returns the previous interface time for restoration.
 STime SetTimeForHarness( STime time );

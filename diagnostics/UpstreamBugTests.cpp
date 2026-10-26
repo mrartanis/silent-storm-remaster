@@ -2452,7 +2452,29 @@ static void LegacyChapterWorldMigration(const char* databasePath,const char* res
     chapter->OnLostFocus(); chapter->OnGetFocus(); loaded->OnLostFocus(); loaded->OnGetFocus();
 }
 
-static void ChapterActiveScript(const char* databasePath,const char* resourcePath)
+class ChapterZoneDrainMission: public NGame::CMission
+{
+    OBJECT_NOCOPY_METHODS(ChapterZoneDrainMission);
+    CPtr<NUI::CDesktopWindow> desktop;
+public:
+    void Attach(NWorld::CWorld* world,NRPG::CGlobalGame* game,NUI::CDesktopWindow* top) {
+        pWorld = world; pGlobalGame = game; desktop = top;
+    }
+    NUI::CDesktopWindow* GetDesktop() const override { return desktop; }
+    void Drain() { ExecWorldCommands(); }
+};
+
+class BeginMissionCommandAccess: public NGame::CICBeginMission
+{
+public:
+    static auto Zone() { return &BeginMissionCommandAccess::pZone; }
+    static auto Game() { return &BeginMissionCommandAccess::pGlobalGame; }
+    static auto Template() { return &BeginMissionCommandAccess::nTemplateID; }
+    static auto EmulatesChapter() { return &BeginMissionCommandAccess::bEmulateChapter; }
+    static auto Image() { return &BeginMissionCommandAccess::pPWLImage; }
+};
+
+static void ChapterActiveScript(const char* databasePath,const char* resourcePath,int commandMode = 0)
 {
     Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
         "active chapter fixture started with an interface or pending command");
@@ -2460,7 +2482,9 @@ static void ChapterActiveScript(const char* databasePath,const char* resourcePat
     struct Cleanup {
         bool platform = false, graphics = false;
         ~Cleanup() {
-            NGScene::StopResourceLoadingThread(); NMainLoop::DoneInterface(); ClearHoldQueue();
+            NGScene::StopResourceLoadingThread(); NMainLoop::DoneInterface();
+            while (NMainLoop::HaveInterfaceCommand()) { CObj<NMainLoop::CInterfaceCommand> command = NMainLoop::TakeInterfaceCommandForHarness(); }
+            ClearHoldQueue();
             if (graphics) NGfx::Done3D();
             if (platform) S2Platform::Done();
         }
@@ -2490,6 +2514,27 @@ static void ChapterActiveScript(const char* databasePath,const char* resourcePat
     map->pScript = entry;
     CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(1);
     game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    CPtr<NScenario::CScenarioZone> destination;
+    if (commandMode == 4) {
+        destination = game->pScenarioTracker->GetZoneByName("ffight");
+        Require(IsValid(destination),"chapter command fixture has no authored final fight zone");
+        entry->strCode = "BeginZone('ffight'); ChapterRequested = 1";
+    } else if (commandMode == 5) {
+        entry->strCode = "ChapterRequested = 1; uiShowTeamMngMenu()";
+    } else if (commandMode != 0) {
+        CDBIterator<NDb::CUIHint> hints(*NDatabase::GetTable<NDb::CUIHint>());
+        int hintID = 0;
+        while (hints.MoveNext()) if (IsValid(hints.Get()->pString)) { hintID = hints.Get()->GetRecordID(); break; }
+        Require(hintID != 0,"chapter command fixture has no authored hint");
+        game->hintsSet.clear();
+        entry->strCode = "ChapterRequested = 1; ChapterHint = ShowHint(" + std::to_string(hintID) +
+            "); while IsUIActionIDPresent(ChapterHint) do Sleep(1) end; ChapterCommandFinished = 9";
+    }
+    struct HintOptionRestore {
+        NGlobal::CValue previous;
+        ~HintOptionRestore() { NGlobal::SetVar("ui_showhints",previous); }
+    } option{NGlobal::GetVar("ui_showhints",1)};
+    if (commandMode != 0) NGlobal::SetVar("ui_showhints",commandMode == 2 ? 1 : 0);
     // Startup notifications would legitimately cover the chapter on its second
     // painted frame; this fixture isolates the native chapter's script pump.
     list<CPtr<NScenario::CScenarioClue>> clues; game->pScenarioTracker->GetAvailableClues(&clues);
@@ -2499,6 +2544,12 @@ static void ChapterActiveScript(const char* databasePath,const char* resourcePat
     CObj<NGame::CMissionBase> chapter = dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
     auto* world = chapter ? dynamic_cast<NWorld::CWorld*>(chapter->GetWorld()) : nullptr;
     Require(world && IsValid(world->GetOwnScript()),"active chapter fixture did not create its native world/script");
+    if (commandMode == 3) {
+        bool tutorial = true; CMemoryStream base;
+        { CStructureSaver writer(base,CStructureSaver::WRITE); writer.Add(31,&tutorial); }
+        base.Seek(0);
+        { CStructureSaver reader(base,CStructureSaver::READ); chapter->NGame::CMissionBase::operator&(reader); }
+    }
     auto* script = world->GetOwnScript();
     auto number = [&](const char* name,int expected) {
         const int top = script->GetTop(); auto value = script->GetGlobal(name);
@@ -2516,6 +2567,89 @@ static void ChapterActiveScript(const char* databasePath,const char* resourcePat
     };
     frame(1000,false);
     Require(world->GetAimTime()->GetValue() == 0 && absent("ChapterStarts"),"an inactive chapter executed its queued world script");
+    if (commandMode != 0) {
+        auto step = [&](STime time) {
+            NMainLoop::SetTimeForHarness(time);
+            Require(NMainLoop::StepApp(true,false,false),"native chapter command frame requested application exit");
+        };
+        vector<CPtr<NWorld::CUnit>> originalUnits;
+        world->GetAllUnits(&originalUnits);
+        const auto originalMercs = game->players.front()->mercs;
+        step(1050);
+        Require(number("ChapterRequested",1),"chapter command fixture never executed its native Lua request");
+        if (commandMode == 5) {
+            Require(NMainLoop::HaveInterfaceCommand(),"the active chapter ignored its native Lua roster command");
+            step(1100);
+            auto* modal = NMainLoop::GetCurrentInterfaceForHarness();
+            Require(modal && pSSClasses->GetObjectTypeID(modal) == int(0xB0925140) && NMainLoop::GetInterfaceStackDepth() == 2,
+                "the chapter roster command did not open the existing native team interface");
+            NInput::SEvent input; while (NInput::GetEvent(&input)) {}
+            NInput::PostEvent("cancel");
+            Require(NInput::GetEvent(&input) && modal->ProcessEvent(input),"the native chapter roster did not consume its close event");
+            for (int tick = 0; tick < 12; ++tick) step(1200+tick*50);
+            vector<CPtr<NWorld::CUnit>> afterUnits; world->GetAllUnits(&afterUnits);
+            Require(afterUnits == originalUnits && game->players.front()->mercs == originalMercs,
+                "closing the native chapter roster duplicated or replaced the unchanged deployed party");
+            vector<CPtr<NGame::IUnitTracker>> tracked; chapter->GetUnits(&tracked);
+            Require(tracked.size() == originalUnits.size() && !tracked.empty(),
+                "chapter roster dispatch left deployed party units without native player trackers");
+            Require(NMainLoop::GetCurrentInterfaceForHarness() == chapter.GetPtr() && !NMainLoop::HaveInterfaceCommand(),
+                "the closed native roster did not return to the original chapter");
+        } else if (commandMode == 4) {
+            Require(NMainLoop::HaveInterfaceCommand(),"the active chapter ignored its native Lua BeginZone transition");
+            CObj<NMainLoop::CInterfaceCommand> queued = NMainLoop::TakeInterfaceCommandForHarness();
+            auto* begin = dynamic_cast<NGame::CICBeginMission*>(queued.GetPtr());
+            Require(begin && (begin->*BeginMissionCommandAccess::Zone()) == destination &&
+                (begin->*BeginMissionCommandAccess::Game()) == game && (begin->*BeginMissionCommandAccess::Template()) == -1,
+                "chapter BeginZone lost its actual scenario destination, campaign or default template");
+            Require(!(begin->*BeginMissionCommandAccess::EmulatesChapter()),
+                "chapter BeginZone would repeat tactical leave-zone healing/scenario/medal bookkeeping");
+            Require((begin->*BeginMissionCommandAccess::Image()) == map->pPWLImage,
+                "scripted chapter entry discarded the remaster's chapter loading background");
+            Require(!NMainLoop::HaveInterfaceCommand(),"one chapter BeginZone queued multiple transitions");
+            CObj<ChapterZoneDrainMission> tactical = new ChapterZoneDrainMission;
+            tactical->Attach(world,game,chapter->GetDesktop());
+            world->AddUICommand(new NWorld::CUICmdBeginZone("ffight")); tactical->Drain();
+            queued = NMainLoop::TakeInterfaceCommandForHarness(); begin = dynamic_cast<NGame::CICBeginMission*>(queued.GetPtr());
+            Require(begin && (begin->*BeginMissionCommandAccess::Zone()) == destination &&
+                (begin->*BeginMissionCommandAccess::Game()) == game && (begin->*BeginMissionCommandAccess::EmulatesChapter()),
+                "sharing BeginZone dispatch broke the existing tactical leave-zone transition");
+            Require(!NMainLoop::HaveInterfaceCommand(),"one tactical BeginZone queued multiple transitions");
+        } else {
+            const int top = script->GetTop(); auto hint = script->GetGlobal("ChapterHint");
+            Require(hint.IsNumber(),"the actual chapter ShowHint binding returned no wait ID");
+            const int eventID = int(hint.GetNumber()); script->SetTop(top);
+            Require(script->IsUIActionIDPresent(eventID) && absent("ChapterCommandFinished"),
+                "chapter hint bypassed its actual asynchronous UI wait");
+            if (commandMode >= 2) {
+                Require(NMainLoop::HaveInterfaceCommand(),"the active chapter ignored its native Lua hint command");
+                step(1100);
+                auto* modal = NMainLoop::GetCurrentInterfaceForHarness();
+                Require(modal && pSSClasses->GetObjectTypeID(modal) == int(0x1423130) && NMainLoop::GetInterfaceStackDepth() == 2,
+                    "chapter ShowHint did not open the existing native hint interface");
+                CStructureNetworkContext references; auto fields = BorrowedObjectFields(modal,&references);
+                CPtr<NGame::IMission> origin; int modalEvent = -1;
+                { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(2,&origin); reader.Add(3,&modalEvent); }
+                Require(origin.GetPtr() == chapter.GetPtr() && modalEvent == eventID,
+                    "the native chapter hint lost its origin or pending script event");
+                const STime coveredTime = world->GetAimTime()->GetValue(); step(1150); step(1200);
+                Require(world->GetAimTime()->GetValue() == coveredTime && script->IsUIActionIDPresent(eventID),
+                    "the covered chapter advanced its world or prematurely released its hint wait");
+                NInput::SEvent input; while (NInput::GetEvent(&input)) {}
+                NInput::PostEvent("cancel");
+                Require(NInput::GetEvent(&input) && modal->ProcessEvent(input),"native chapter hint did not consume its close event");
+                step(1250);
+                Require(NMainLoop::GetCurrentInterfaceForHarness() == chapter.GetPtr() && NMainLoop::GetInterfaceStackDepth() == 1,
+                    "closing the hint did not restore its actual chapter interface");
+            } else Require(!NMainLoop::HaveInterfaceCommand(),"disabled chapter hints opened a modal");
+            for (int tick = 0; tick < 12; ++tick) step(1300+tick*50);
+            Require(!script->IsUIActionIDPresent(eventID) && number("ChapterCommandFinished",9),
+                "the chapter hint command never released its real Lua UI wait");
+        }
+        Require(game->nChapterMapID == map->GetRecordID() && game->players.size() == 1,
+            "chapter command dispatch changed campaign destination or party before a transition");
+        NMainLoop::DoneInterface(); return;
+    }
     frame(1050,true);
     Require(number("ChapterStarts",1) && world->GetAimTime()->GetValue() > 0,
         "the real active chapter Step never advanced its world or executed the assigned Lua script");
@@ -12857,6 +12991,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "script-sound-stop-2d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "script-sound-stop-3d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "chapter-active-script") && argc == 4) { ChapterActiveScript(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "chapter-active-command") && argc == 5) { ChapterActiveScript(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "chapter-clock-step") && argc == 5) { ChapterClockStep(argv[2],argv[3],argv[4]); return true; }
     if (!std::strcmp(mode, "legacy-chapter-world-migration") && argc == 5) { LegacyChapterWorldMigration(argv[2],argv[3],argv[4]); return true; }
     if (!std::strcmp(mode, "chapter-focus-audio") && argc == 4) { ChapterFocusAudio(argv[2],argv[3]); return true; }

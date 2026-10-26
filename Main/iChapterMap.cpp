@@ -14,6 +14,10 @@
 #include "iInterMission.h"
 #include "iMission.h"			// NGame::CMissionBase -- the CChapterMap base (retail @0x1a8480 tag 1)
 #include "wInterface.h"
+#include "wUICommands.h"
+#include "iTeamMngMenu.h"
+#include "iShowHint.h"
+#include "iDesktopWindow.h"
 #include "RWGame.h"
 #include "PlayerTracker.h"
 #include "iGameStates.h"
@@ -52,8 +56,7 @@ private:
 	CDGPtr<CPtrFuncBase<CChapterInfo> > pChapterInfo;
 	//// interface
 	CObj<NUI::CChapterMapUI> pChapterMapUI;
-	// v1.2-only flag (name is ours -- Game.pdb is v1.1). Retail sets it in ExecWorldCommand
-	// @0x5a7140; this fork models neither that nor any consumer yet, so it only round-trips.
+	// v1.2 EnableFeature("reenter") flag, set by chapter command dispatch.
 	bool bV12WorldCmdFlag;
 	// retail NGame::CChapterMap::operator& @0x1a8480 -- 4 tags, tag 1 = the CMissionBase base chunk
 	// (emitted non-polymorphically, exactly like CMission's @0x1a03a0).
@@ -90,6 +93,7 @@ private:
 
 	void UpdateChapterDifficulty();
 	void InitializeWorld();
+	void ProcessWorldCommands();
 
 protected:
 	void RenderFrame( const STime &sTime );
@@ -280,6 +284,40 @@ bool CChapterMap::ProcessEvent( const NInput::SEvent &sEvent )
 	return false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void CChapterMap::ProcessWorldCommands()
+{
+	while ( true )
+	{
+		CPtr<NWorld::CUICmd> pCmd = pWorld->GetUICommand();
+		if ( !IsValid( pCmd ) )
+			return;
+		if ( !GetDesktop()->IsValidCommand( pCmd ) )
+			continue;
+		// Chapter entry already completed leave-zone bookkeeping. Preserve the
+		// remaster's manual map-entry path and its chapter loading background.
+		if ( ExecWorldBeginZoneCommand( pCmd, false, pChapterMap->pPWLImage ) || ExecWorldSoundCommand( pCmd ) )
+			continue;
+		if ( CDynamicCast<NWorld::CUICmdLoadTemplate> pLoad = pCmd )
+			NMainLoop::CommandWithAutoSave( NStr::ToAscii( NUI::GetDBString( 20243 ).c_str() ),
+				new CICBeginMission( (NScenario::CScenarioZone*)0, pLoad->nTemplateID, vector<string>(), pGlobalGame,
+					false, pChapterMap->pPWLImage ) );
+		else if ( CDynamicCast<NWorld::CUICmdShowTeamMng> pTeam = pCmd )
+			NMainLoop::Command( new CICTeamMngMenu( pActivePlayer->GetGlobalPlayer(), this, pTeam->GetID() ) );
+		else if ( CDynamicCast<NWorld::CUICmdEnableFeature> pFeature = pCmd )
+		{
+			if ( pFeature->nFeature == 0 )
+				bV12WorldCmdFlag = true;
+		}
+		else if ( CDynamicCast<NWorld::CUICmdShowHint> pHint = pCmd )
+		{
+			if ( NGlobal::GetVar( "ui_showhints" ).GetFloat() == 1.0f || bTutorialMode )
+				NMainLoop::Command( new CICShowHint( this, pHint->GetID(), pHint->pHint, pGlobalGame ) );
+			else
+				DoEvent( new NWorld::CCmdInterfaceEvent( pHint->GetID() ) );
+		}
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CChapterMap::Step()
 {
 	if ( GetTime() - sFPSLimitLastTime < sMinFrameTime )
@@ -291,6 +329,14 @@ void CChapterMap::Step()
 	if ( CanRender() )
 	{
 		pRender->UpdateViewWorld( !bPause, GetGameTime(), pActivePlayer->GetPlayer(), bCheatVisibility );
+		// The roster can open on the first script frame; synchronize the native
+		// party trackers before dispatch so closing it cannot redeploy old units.
+		for ( int nPlayer = 0; nPlayer < playersSet.size(); ++nPlayer )
+			playersSet[nPlayer]->Update( IsRealTime() );
+		ProcessWorldCommands();
+		if ( NMainLoop::HaveInterfaceCommand() )
+			return;
+		GetDesktop()->UpdateDesktop( GetGameTime() );
 		pInterface->UpdateCursor();
 		// Keep the remaster UI/travel clock independent of the clamped game counters.
 		pInterface->Step( GetTime() );
