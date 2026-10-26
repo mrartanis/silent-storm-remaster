@@ -2635,7 +2635,7 @@ static void BackdropScriptAudio(const char* databasePath,const char* resourcePat
 #endif
 }
 
-static void InGameSaveButton(const char* databasePath,const char* resourcePath)
+static void InGameSaveButton(const char* databasePath,const char* resourcePath,bool shortcut = false)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"in-game save button fixture requires isolated user data");
     Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"in-game save button fixture started with an active interface");
@@ -2676,7 +2676,10 @@ static void InGameSaveButton(const char* databasePath,const char* resourcePath)
         Require(pagePermission == allowed && !pageRestart && savedPlayer.GetPtr() == player.GetPtr() && savedButton.GetPtr() == save,
             "in-game menu changed its existing saved permission or button fields");
         NInput::SEvent event; while (NInput::GetEvent(&event)) {}
-        if (!allowed) {
+        if (shortcut) {
+            NInput::PostEvent("savegame");
+            Require(NInput::GetEvent(&event) && saveBind.ProcessEvent(event),"in-game save shortcut fixture did not receive its actual bound command");
+        } else if (!allowed) {
             click(save);
             Require(!NInput::GetEvent(&event) && !NMainLoop::HaveInterfaceCommand(),"a disabled in-game Save button still emitted a save action");
             click(load);
@@ -2690,12 +2693,18 @@ static void InGameSaveButton(const char* databasePath,const char* resourcePath)
         Require(dynamic_cast<NGame::CICSaveLoadMenu*>(command.GetPtr()) != nullptr,"the in-game button queued an unrelated command");
         command->Exec();
         CStructureNetworkContext dialogReferences; auto dialog = BorrowedObjectFields(NMainLoop::GetCurrentInterfaceForHarness(),&dialogReferences);
-        bool dialogPermission = !allowed; int mode = -1;
-        { CStructureSaver reader(dialog,CStructureSaver::READ,&dialogReferences); reader.Add(2,&dialogPermission); reader.Add(3,&mode); }
+        bool dialogPermission = !allowed; int mode = -1; CPtr<NUI::CWindow> dialogPage;
+        { CStructureSaver reader(dialog,CStructureSaver::READ,&dialogReferences); reader.Add(2,&dialogPermission); reader.Add(3,&mode); reader.Add(6,&dialogPage); }
+        Require(IsValid(dialogPage),"in-game save/load command did not create its native dialog page");
+        CStructureNetworkContext viewReferences; auto viewFields = BorrowedObjectFields(dialogPage,&viewReferences);
+        CPtr<NUI::CWindow> view;
+        { CStructureSaver reader(viewFields,CStructureSaver::READ,&viewReferences); reader.Add(4,&view); }
+        Require(IsValid(view),"a forbidden in-game Save shortcut opened an empty native save/load page");
         Require(dialogPermission == allowed && mode == (allowed ? NGame::SAVE : NGame::LOAD),"the in-game button lost its save/load destination or permission");
+        Require(pSSClasses->GetObjectTypeID(view) == int(allowed ? 0xB1014135 : 0xB1014134),"the in-game command created the wrong native save/load view");
         NMainLoop::DoneInterface();
     }
-    std::puts("actual in-game Save permission false/true, disabled click, Load control and saved UI fields verified");
+    std::printf("actual in-game Save permission false/true, shortcut=%d, native save/load views and saved UI fields verified\n",int(shortcut));
 }
 
 static void LuaUnusedStackInitialization()
@@ -13665,6 +13674,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "audio-option-defaults") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "lua-unused-stack-init")) { LuaUnusedStackInitialization(); return true; }
     if (!std::strcmp(mode, "in-game-save-button") && argc == 4) { InGameSaveButton(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "in-game-save-shortcut") && argc == 4) { InGameSaveButton(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "backdrop-script-audio-3d") && argc == 4) { BackdropScriptAudio(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "chapter-active-script") && argc == 4) { ChapterActiveScript(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-active-command") && argc == 5) { ChapterActiveScript(argv[2],argv[3],std::atoi(argv[4])); return true; }

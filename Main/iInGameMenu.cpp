@@ -208,7 +208,7 @@ bool CInGameMenuInterface::ProcessEvent( const NInput::SEvent &sEvent )
 	}
 	else if ( bindSaveGame.ProcessEvent( sEvent ) )
 	{
-		NMainLoop::Command( new CICSaveLoadMenu( SAVE, pScreenShot->GetTexture(), bAllowSave ) );
+		NMainLoop::Command( new CICSaveLoadMenu( bAllowSave ? SAVE : LOAD, pScreenShot->GetTexture(), bAllowSave ) );
 		return true;
 	}
 	else if ( bindLoadGame.ProcessEvent( sEvent ) )

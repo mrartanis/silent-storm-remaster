@@ -272,6 +272,7 @@
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Restore registered audio defaults without restarting native playback | `the native audio Default button did not restore registered settings` | 86/86; `audio-option-defaults` | `Upstream-Commit` в commit message |
 | [dbb74c6e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/dbb74c6e661c0344061a79a86b0ebf3e01617526) — Preserve native selection outlines over lighting stencil marks | `selection outline changed over lighting stencil 0x80 at 47,47: expected ff407f20, got ff000000` | Windows 104/104; Linux 100/100 + дополнительные GPU/registration; `selection-stencil` | `Upstream-Commit` в commit message |
 | [02d85e5b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/02d85e5b939ac897f726293b37f30b55d0f2ff72) — Reflect the incoming save permission in the actual in-game Save button | `the in-game Save button ignored its explicit save permission` | 91/91; `in-game-save-button` | `Upstream-Commit` в commit message |
+| [02d85e5b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/02d85e5b939ac897f726293b37f30b55d0f2ff72) — Open Load for an in-game Save command when saving is forbidden | `a forbidden in-game Save shortcut opened an empty native save/load page` | 92/92; `in-game-save-shortcut` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -2439,3 +2440,35 @@ save permissions, QuickSave consumption, mapping сложности и selected 
 описано в UPSTREAM-BALANCE-CHANGES.md. Реестр: 129 pending, 89 imported,
 19 partially-imported, 38 already-present, остальные шесть записей прежних
 категорий. Весь аудит и проверка окончательного GitHub Actions не завершены.
+
+## Команда Save при запрете сохранения — часть `02d85e5b`
+
+Отдельный compiled runtime RED после исправления кнопки: существующий
+NativeInGameSaveButton проходит, новый NativeInGameSaveShortcut посылает
+реальный bound command savegame прямо в отрисованное игровое меню с false
+permission. Команда создаёт настоящий CICSaveLoadMenu, но SAVE при false
+не создаёт pModeView. Тест обнаруживает пустую страницу через существующие
+поля живого native UI. Это не тест физического F-key: используется штатный
+PostEvent и настоящий обработчик команды.
+
+Изменена одна строка CInGameMenuInterface::ProcessEvent: false открывает LOAD,
+true сохраняет SAVE. Флаг передаётся без изменения. GREEN проверяет не только
+mode enum, но существование настоящего view и его конкретный class id:
+CLoadView/CSaveView. Оба значения разрешения, настоящий button path и Load,
+прежние permission/player/button fields сохраняются. Новых правил вычисления
+разрешения и изменений формата данных нет.
+
+Связанные 92/92 Windows (89.04 с) и Linux (79.26 с), обе Game собраны,
+22 native-display случая. Регистрация и предыдущий stencil pixel test проходят.
+CPU count 317 остаётся прежним; полный CPU прогон и реальный окончательный
+GitHub Actions здесь не заявляются. Свидетельства:
+in-game-save-shortcut-red-{build,test}.log,
+in-game-save-shortcut-green-{build,test}.log,
+in-game-save-shortcut-related-green-test.log,
+in-game-save-shortcut-game-build.log,
+in-game-save-shortcut-linux-{configure,build,test}.log и
+in-game-save-shortcut-{windows,linux}-native-test.log.
+Сборки переиспользованы, HD generation не запускалась, собственные процессы
+завершены. Источник остаётся частичным: такой же Save-menu вызов в CMission,
+QuickSave consumption, live permission policy, mapping сложности и selected
+style ещё рассматриваются отдельно. Правила/сложность отмечены в BalanceMD.
