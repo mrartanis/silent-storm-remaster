@@ -994,7 +994,7 @@ BEGIN_SCRIPT_COMMAND( UnitWearPK, "uu" )
 	if ( pWho && pCorpse )
 	{
 		if ( pCorpse->IsEmptyPK() )
-			pWho->Do( new NWorld::CCmdSetCommand( pWho, new NWorld::CCmdTakeCorpse( ( NWorld::CUnit * )pCorpse ) ) );
+			DoCommand( pWho, new NWorld::CCmdTakeCorpse( ( NWorld::CUnit * )pCorpse ), true );
 		else
 		{
 			string szWho, szCorpse;

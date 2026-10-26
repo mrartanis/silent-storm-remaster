@@ -3698,3 +3698,36 @@ combo-popup-clipping-{renderer,game}-build.log,
 combo-popup-clipping-linux-{configure,build,test}.log и native success logs.
 CPU count 320; полный текущий CPU-набор не повторялся для этого UI-фикса.
 Source c0f64c74 остаётся частичным: отдельный item-width hunk ещё проверяется.
+
+## Очередь скриптовой посадки в панцеркляйн — часть 14ffbcc8
+
+Перед production изменением обновлён прежний resource-free UpstreamPKWear:
+существующие CPlayer/CAICommander и ScriptActor.owner установлены до Lua вызова,
+проверяются настоящие два queued wrapper вместо непосредственного actor.Do.
+Новый UpstreamDeferredWearPKCommand использует тот же native world/pilot/shell
+fixture, что LeavePK, но без предварительного ношения. Nil actor/target и живой
+солдат вместо пустого корпуса не создают команд. Compiled runtime RED 2/2:
+старый тест обнаруживает обход owning queue, native — queued=0/unit-command=0
+при валидном пустом корпусе. Затем изменена только отправка TakeCorpse(shell)
+на DoCommand(...,true). Наш правильный IsEmptyPK guard сохранён.
+
+GREEN 6/6 проверяет обе Lua операции, legacy resource-free PK controls,
+точные TakeCorpse(shell)/Continue, actor и отсутствие лишних wrappers.
+Native Wear не меняет отношения pilot/shell, обе позиции, AP, реальные hands/
+backpack identities/order/active slots до consumer. Полный подход, анимация
+посадки, переход footprint и стоимость AP этим fixture не доказываются.
+
+Связанные 76/76 прошли на Windows (72.14 с) и Linux (72.66 с).
+Обе Game и Windows ALL_BUILD собраны; PK/mounted/corpse/pose/holster,
+native medal, DisplayRuntime и 12 FONT-COMPAT на каждой платформе прошли.
+Оба raw LastTest содержат все 76 блоков без NUL. NetworkSerializer и
+NetworkStopResume: 2/2 (3.83 с). CPU base 350; полный набор 350 не запускался.
+
+Свидетельства deferred-wear-pk-command: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log и network-{test,native-test}.log.
+Все перечисленные queue producers source14 теперь перенесены отдельно.
+UnitHide optional bool зависит от stateful API 432b64c8; both-held-grenade
+priority coverage и DB-only engineering classification остаются на проверке.
+Source14 и весь аудит/final actual Actions ещё не завершены.

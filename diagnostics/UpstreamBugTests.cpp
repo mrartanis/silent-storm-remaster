@@ -14066,15 +14066,24 @@ static void ScriptPK(bool leave)
         RunScript(script, "upstreamResult = UnitLeavePK(upstreamActor)");
         Require(script->GetGlobal("upstreamResult").IsNil(), "UnitLeavePK returned a pilot instead of its missing shell");
     } else {
-        RunScript(script, "UnitWearPK(upstreamActor, upstreamShell)");
-        Require(actor->orders > 0, "UnitWearPK rejected an empty shell because it cannot fight");
-        const int before = actor->orders;
-        RunScript(script, "UnitWearPK(upstreamActor, upstreamActor)");
-        Require(actor->orders == before, "UnitWearPK accepted a living soldier as a shell");
         CObj<NWorld::CPlayer> owner = new NWorld::CPlayer;
         CObj<NAI::CAICommander> commander = new NAI::CAICommander;
         owner->SetCommander(commander);
         actor->owner = owner; shell->owner = owner;
+        RunScript(script, "UnitWearPK(upstreamActor, upstreamShell)");
+        Require(commander->HasCommands() && actor->orders == 0,
+            "UnitWearPK bypassed its owning queue for a valid nonfighting empty shell");
+        CObj<NWorld::CCommand> first = commander->GetCommand();
+        Require(commander->HasCommands(),"UnitWearPK omitted its ordered Continue");
+        CObj<NWorld::CCommand> second = commander->GetCommand();
+        auto* set = dynamic_cast<NWorld::CCmdSetCommand*>(first.GetPtr());
+        auto* resume = dynamic_cast<NWorld::CCmdSetCommand*>(second.GetPtr());
+        auto* enter = set ? dynamic_cast<NWorld::CCmdTakeCorpse*>(set->GetCmd()) : nullptr;
+        Require(set && set->pUnit == actor.GetPtr() && enter && enter->pCorpse == shell.GetPtr() &&
+            resume && resume->pUnit == actor.GetPtr() && dynamic_cast<NWorld::CCmdContinue*>(resume->GetCmd()) &&
+            !commander->HasCommands(),"UnitWearPK lost its empty-shell target, actor or exact Continue order");
+        RunScript(script, "UnitWearPK(upstreamActor, upstreamActor)");
+        Require(!commander->HasCommands() && actor->orders == 0, "UnitWearPK accepted a living soldier as a shell");
         Require(NAI::GetAICommander(actor) == commander, "live pilot lost its AI commander");
         Require(!NAI::GetAICommander(shell), "empty PK shell acquired an AI commander");
     }
@@ -15432,6 +15441,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "deferred-take-corpse-command") && argc == 4) { DeferredCorpseCommand(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-drop-corpse-command") && argc == 4) { DeferredCorpseCommand(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "deferred-leave-pk-command") && argc == 4) { DeferredPKCommand(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "deferred-wear-pk-command") && argc == 4) { DeferredPKCommand(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "deferred-script-command-order") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode,true); return true; }
     if (!std::strcmp(mode, "script-draw-weapon-slot") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-draw-weapon-command") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3],true); return true; }
