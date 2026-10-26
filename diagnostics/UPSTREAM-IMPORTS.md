@@ -1598,3 +1598,51 @@ fullscreen, поэтому ему требуется Xvfb + Openbox + noreset. �
 Свидетельства: `edit-keyboard-routing-{red,green}-{build,test}.log`,
 `edit-keyboard-routing-game-build.log`, `edit-keyboard-routing-registration-test.log`,
 `edit-keyboard-routing-sdl-{build,test}.log`, `edit-keyboard-linux-*`.
+
+
+### Контрольная точка 306 — компоновка и состояние карты главы
+
+Кодовая ревизия `ab1d8566` прошла Windows ALL_BUILD, полный native-набор
+Windows 306/306 (223.58 с), Linux 306/306 (224.28 с), локальный CI-набор
+271/271 (26.03 с), network-профиль 6/6 (53.93 с) и world/save-профиль 5/5
+(5.64 с), включая 5247 (2.52 с). Профили переиспользуют прежние сборки и
+исполняют один тестовый процесс на платформу. Отдельный известный
+NetworkEncounterMapsTests не включён; весь CTest этим не объявляется успешным.
+
+После контрольной точки 301 добавлены SDL Escape/keyboard edges (eeaa1251),
+активный hull двери (e2c81468), описание сектора глобальной карты (f79b0b89)
+и мир главы (ab1d8566). Каждый независимый фикс имел свой native RED/GREEN,
+отдельный commit с полным upstream URL и немедленный push.
+
+Глобальная подпись в authored шаблоне 329 уже существовала как CText:
+предположение об отсутствии текста не подтвердилось и не использовалось как
+RED. Реальный RED — фиксированная высота панели 299 при измеренном тексте 216.
+Подключён существующий CFrameText для подгонки высоты и рамки, с проверкой
+реального GetRealSize на масштабах100/150/200. Сохранены исходная строка,
+font markup и DB rectangle; GPU-картинка и обрезка текста не заявляются.
+
+CICBeginChapter теперь создаёт штатный мир, player tracker/commander,
+сцену/render, раздельные камеры игрока и cinematics, общий world-clock sound
+scene и стек desktop. Native проверка сериализует в память полный граф
+CGlobalGame + настоящего CChapterMap, загружает независимый граф, проверяет
+все связи и продолжает реальные тики мира. Штатный AddPlayer размещает
+живой отряд: тест проверяет его состав и идентичность RPG-объектов, а не
+ошибочное предположение о пустом мире. Файловый save-slot и GPU не проверяются.
+Импорт ScriptID/campZones.clear/save tags в DBFormat уже был реализован в
+собственном typed database loader форка и повторно не переносился.
+
+Остаются независимые части e9dc218f: запуск chapter script без tactical
+warm-up, штатный OnGetFocus и минимальный frame interval. До переноса нового
+цикла Step/очереди команд из70d12946 также нужна native проверка совместимости
+со старыми собственными chapter saves, где прежний 2D Initialize сохранял
+null world. Пропуск simulation по null guard не будет считаться переносом
+необходимой логики. Сохранённый полноценный мир должен продолжаться без
+повторной инициализации и сброса игрового состояния.
+
+Актуальный GitHub Actions для кодового HEAD ещё выполнялся при проверке;
+финальный успешный run на окончательной ревизии по-прежнему обязателен.
+Свидетельства: `checkpoint-306-all-build.log`,
+`checkpoint-306-upstream-test.log`, `checkpoint-306-linux-{configure,build,test}.log`,
+`checkpoint-306-ci-test.log`, `checkpoint-306-network-green-test.log`,
+`checkpoint-306-world-green-test.log`, `global-sector-description-*`,
+`global-description-linux-*`, `chapter-world-graph-*`, `chapter-world-linux-*`.
