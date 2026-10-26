@@ -2474,17 +2474,26 @@ public:
     static auto Image() { return &BeginMissionCommandAccess::pPWLImage; }
 };
 
+class CachedChapterSampleAccess: public NSound::CFileSample2D
+{
+public:
+    static auto ValueMember() { return &CachedChapterSampleAccess::pValue; }
+};
+
 static void ChapterActiveScript(const char* databasePath,const char* resourcePath,int commandMode = 0)
 {
     Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
         "active chapter fixture started with an interface or pending command");
     S2Platform::SetErrorDialogs(false);
     struct Cleanup {
-        bool platform = false, graphics = false;
+        bool platform = false, graphics = false, audio = false;
         ~Cleanup() {
             NGScene::StopResourceLoadingThread(); NMainLoop::DoneInterface();
             while (NMainLoop::HaveInterfaceCommand()) { CObj<NMainLoop::CInterfaceCommand> command = NMainLoop::TakeInterfaceCommandForHarness(); }
             ClearHoldQueue();
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+            if (audio) NFMSound::Done();
+#endif
             if (graphics) NGfx::Done3D();
             if (platform) S2Platform::Done();
         }
@@ -2515,7 +2524,44 @@ static void ChapterActiveScript(const char* databasePath,const char* resourcePat
     CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(1);
     game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
     CPtr<NScenario::CScenarioZone> destination;
-    if (commandMode == 4) {
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+    CObj<NFMSound::CSample2D> audioSample2D;
+    CObj<NFMSound::CSample3D> audioSample3D;
+    CObj<NSound::CFileSample2D> audioLoader2D;
+    CObj<NSound::CFileSample3D> audioLoader3D;
+#endif
+    string chapterPlay;
+    if (commandMode >= 6) {
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+        Require(std::getenv("S2_AUDIO_HEADLESS") != nullptr,"active chapter sound fixture requires headless native audio");
+        Require(NFMSound::Init(NFMSound::SStartInfo()),"active chapter sound fixture could not initialize native audio");
+        cleanup.audio = true; NFMSound::SetMusicMasterVolume(0);
+        CDBIterator<NDb::CSound> sounds(*NDatabase::GetTable<NDb::CSound>());
+        Require(sounds.MoveNext(),"active chapter sound fixture has no native sound record");
+        auto* record = sounds.Get(); record->bLoop = true; record->nStartSamples = record->nEndingSamples = 0;
+        const auto wave = SilentPCMFixture(44100);
+        audioSample2D = NFMSound::LoadSample2D(wave.data(),static_cast<int>(wave.size()));
+        audioSample3D = NFMSound::LoadSample3D(wave.data(),static_cast<int>(wave.size()),1.f,100.f,0);
+        Require(IsValid(audioSample2D) && IsValid(audioSample3D),"active chapter sound fixture could not decode its native PCM samples");
+        audioLoader2D = NSound::share2DSamples.Get(record->GetRecordID());
+        audioLoader3D = NSound::share3DSamples.Get(record->GetRecordID());
+        (audioLoader2D.GetPtr()->*CachedChapterSampleAccess::ValueMember()) = audioSample2D.GetPtr();
+        (audioLoader3D.GetPtr()->*CachedEffectSampleAccess::ValueMember()) = audioSample3D.GetPtr();
+        chapterPlay = commandMode % 2 == 0 ? "PlaySound("+std::to_string(record->GetRecordID())+")" :
+            "Play3DSound("+std::to_string(record->GetRecordID())+",SoundPosition)";
+        entry->strCode = "ChapterHandle = "+chapterPlay+"; ChapterRequested = 1";
+        if (commandMode >= 8) {
+            CDBIterator<NDb::CUIHint> hints(*NDatabase::GetTable<NDb::CUIHint>());
+            int hintID = 0;
+            while (hints.MoveNext()) if (IsValid(hints.Get()->pString)) { hintID = hints.Get()->GetRecordID(); break; }
+            Require(hintID != 0,"queued chapter sound fixture has no authored hint");
+            game->hintsSet.clear();
+            entry->strCode += "; ChapterHint = ShowHint("+std::to_string(hintID)+")";
+        }
+#else
+        Require(false,"active chapter sound test requires the native SFX backend");
+#endif
+    } else if (commandMode == 4) {
         destination = game->pScenarioTracker->GetZoneByName("ffight");
         Require(IsValid(destination),"chapter command fixture has no authored final fight zone");
         entry->strCode = "BeginZone('ffight'); ChapterRequested = 1";
@@ -2534,7 +2580,7 @@ static void ChapterActiveScript(const char* databasePath,const char* resourcePat
         NGlobal::CValue previous;
         ~HintOptionRestore() { NGlobal::SetVar("ui_showhints",previous); }
     } option{NGlobal::GetVar("ui_showhints",1)};
-    if (commandMode != 0) NGlobal::SetVar("ui_showhints",commandMode == 2 ? 1 : 0);
+    if (commandMode != 0) NGlobal::SetVar("ui_showhints",commandMode == 2 || commandMode >= 8 ? 1 : 0);
     // Startup notifications would legitimately cover the chapter on its second
     // painted frame; this fixture isolates the native chapter's script pump.
     list<CPtr<NScenario::CScenarioClue>> clues; game->pScenarioTracker->GetAvailableClues(&clues);
@@ -2551,6 +2597,10 @@ static void ChapterActiveScript(const char* databasePath,const char* resourcePat
         { CStructureSaver reader(base,CStructureSaver::READ); chapter->NGame::CMissionBase::operator&(reader); }
     }
     auto* script = world->GetOwnScript();
+    if (commandMode >= 6) {
+        CObj<NScript::CLUAObjectPosition> position = new NScript::CLUAObjectPosition(CVec3(0,0,0));
+        NScript::luaPushCObj(script->GetState(),position); script->SetGlobal("SoundPosition");
+    }
     auto number = [&](const char* name,int expected) {
         const int top = script->GetTop(); auto value = script->GetGlobal(name);
         const bool matches = value.IsNumber() && value.GetNumber() == expected; script->SetTop(top); return matches;
@@ -2567,6 +2617,82 @@ static void ChapterActiveScript(const char* databasePath,const char* resourcePat
     };
     frame(1000,false);
     Require(world->GetAimTime()->GetValue() == 0 && absent("ChapterStarts"),"an inactive chapter executed its queued world script");
+    if (commandMode >= 6) {
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+        auto channelExcept = [&](int except) {
+            int found = -1;
+            for (int i = 0; i < 128; ++i) if (i != except && FSOUND_IsPlaying(i)) {
+                Require(found == -1,"active chapter sound fixture has an unexpected extra native channel"); found = i;
+            }
+            return found;
+        };
+        Require(channelExcept(-1) == -1,"an inactive chapter started its scripted native audio");
+        if (commandMode >= 8) {
+            NMainLoop::SetTimeForHarness(1050);
+            Require(NMainLoop::StepApp(true,false,false) && NMainLoop::HaveInterfaceCommand() &&
+                NMainLoop::GetCurrentInterfaceForHarness() == chapter.GetPtr(),
+                "the chapter did not queue its native hint alongside its scripted sound");
+        } else frame(1050,true);
+        Require(number("ChapterRequested",1),"the active chapter never executed its native Lua sound request");
+        const int top = script->GetTop(); auto handle = script->GetGlobal("ChapterHandle");
+        auto* soundCommand = handle.IsUserData() ? dynamic_cast<NWorld::CUICmdPlaySound*>(handle.GetUserData()) : nullptr;
+        Require(soundCommand && IsValid(soundCommand->pChannel),
+            "the native chapter sound dispatcher never created its scene-owned channel wrapper");
+        script->SetTop(top);
+        const int played = channelExcept(-1);
+        Require(played >= 0,"the active chapter created a script sound wrapper but never started native PCM playback");
+        Require(FSOUND_GetCurrentPosition(played) == 0,"fresh chapter script audio inherited absolute frame time as its sample offset");
+        vector<float> output(512*2);
+        auto render = [&]() { Require(S2FmodRenderForTest(output.data(),512) != 0,"active chapter sound fixture could not render native PCM"); };
+        render();
+        Require(FSOUND_GetCurrentPosition(played) > 0,"active chapter sound never advanced its real native PCM cursor");
+        CObj<NFMSound::CSound2D> independent = NFMSound::PlaySound(audioSample2D);
+        const int control = channelExcept(played);
+        Require(IsValid(independent) && control >= 0,"active chapter sound fixture could not start its independent native control");
+        const unsigned before = FSOUND_GetCurrentPosition(played), other = FSOUND_GetCurrentPosition(control);
+        CObj<NGame::CICExitMenu> menu;
+        if (commandMode >= 8) {
+            NMainLoop::SetTimeForHarness(1100);
+            Require(NMainLoop::StepApp(true,false,false),"queued chapter sound fixture could not open its native hint");
+            auto* modal = NMainLoop::GetCurrentInterfaceForHarness();
+            Require(modal && pSSClasses->GetObjectTypeID(modal) == int(0x1423130),"queued chapter sound fixture opened the wrong interface");
+        } else { menu = new NGame::CICExitMenu; menu->Exec(); }
+        Require(NMainLoop::GetInterfaceStackDepth() == 2,"chapter sound fixture did not open its native modal");
+        render();
+        Require(FSOUND_IsPlaying(played) && FSOUND_GetCurrentPosition(played) == before && FSOUND_GetCurrentPosition(control) > other,
+            "covering the active chapter failed to pause only its own playing audio");
+        if (commandMode >= 8) {
+            NInput::SEvent input; while (NInput::GetEvent(&input)) {}
+            NInput::PostEvent("cancel");
+            Require(NInput::GetEvent(&input) && NMainLoop::GetCurrentInterfaceForHarness()->ProcessEvent(input),
+                "queued chapter sound fixture could not close its actual hint");
+            NMainLoop::SetTimeForHarness(1150);
+            Require(NMainLoop::StepApp(false,false,false),"queued chapter sound fixture did not restore its chapter");
+        } else {
+            CObj<NMainLoop::CICExitModal> close = new NMainLoop::CICExitModal; close->Exec();
+        }
+        render();
+        Require(NMainLoop::GetCurrentInterfaceForHarness() == chapter.GetPtr() && FSOUND_GetCurrentPosition(played) > before,
+            "returning from the native menu did not resume the chapter's real playback");
+        Require(script->DoString("StopSound(ChapterHandle); ChapterStopped = 1") == 0,"chapter sound fixture could not queue its native Lua stop request");
+        for (int tick = 0; tick < 8; ++tick) frame(1200+tick*50,true);
+        render();
+        Require(number("ChapterStopped",1) && !FSOUND_IsPlaying(played),"active chapter Lua StopSound left its actual native channel playing");
+        Require(FSOUND_IsPlaying(control) && FSOUND_GetCurrentPosition(control) > other,
+            "chapter StopSound interrupted the independent native control");
+        Require(script->DoString(("ChapterHandle = "+chapterPlay+"; ChapterRestarted = 1").c_str()) == 0,
+            "chapter sound fixture could not queue its native restart request");
+        for (int tick = 0; tick < 8; ++tick) frame(1600+tick*50,true);
+        const int restarted = channelExcept(control);
+        Require(number("ChapterRestarted",1) && restarted >= 0,"chapter audio failed to start a new native channel after StopSound");
+        render();
+        Require(FSOUND_GetCurrentPosition(restarted) > 0,"restarted chapter audio did not advance native PCM");
+        NMainLoop::DoneInterface(); chapter = nullptr; ClearHoldQueue(); render();
+        Require(!FSOUND_IsPlaying(restarted) && FSOUND_IsPlaying(control),
+            "closing the chapter leaked its scripted audio or stopped the independent control");
+#endif
+        return;
+    }
     if (commandMode != 0) {
         auto step = [&](STime time) {
             NMainLoop::SetTimeForHarness(time);
@@ -2754,12 +2880,6 @@ static void ChapterClockStep(const char* databasePath,const char* resourcePath,c
     }
     NMainLoop::DoneInterface();
 }
-
-class CachedChapterSampleAccess: public NSound::CFileSample2D
-{
-public:
-    static auto ValueMember() { return &CachedChapterSampleAccess::pValue; }
-};
 
 static void ChapterFocusAudio(const char* databasePath,const char* resourcePath)
 {

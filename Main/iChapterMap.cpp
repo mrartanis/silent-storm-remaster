@@ -6,6 +6,7 @@
 // selects the declaration-only void* overload -> unresolved CastToObjectBaseImpl at link time.
 // iMissionBase.cpp (which owns CMissionBase and serializes the same wire) includes GView.h likewise.
 #include "GView.h"
+#include "Transform.h"
 #include "G2DView.h"
 #include "RPGGlobal.h"
 #include "Sound.h"
@@ -334,6 +335,11 @@ void CChapterMap::Step()
 		for ( int nPlayer = 0; nPlayer < playersSet.size(); ++nPlayer )
 			playersSet[nPlayer]->Update( IsRealTime() );
 		ProcessWorldCommands();
+		// Script channels start lazily in the native scene. Pump it before a
+		// queued modal can cover this chapter, without syncing hidden world SFX.
+		CTransformStack soundTransform;
+		GetCamera()->GetTransform( &soundTransform, pScene->GetScreenRect() );
+		pSoundScene->Draw( &soundTransform );
 		if ( NMainLoop::HaveInterfaceCommand() )
 			return;
 		GetDesktop()->UpdateDesktop( GetGameTime() );

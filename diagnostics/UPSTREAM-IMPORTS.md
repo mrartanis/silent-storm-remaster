@@ -263,6 +263,7 @@
 | [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Maintain native chapter counters and saved frame timing | `the native chapter Step did not advance its actual game and interface clocks` | 67/67; `chapter-clock-step` | `Upstream-Commit` в commit message |
 | [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Advance the native chapter world during active frames | `the real active chapter Step never advanced its world or executed the assigned Lua script` | 68/68; `chapter-active-script` | `Upstream-Commit` в commit message |
 | [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Dispatch chapter script commands through the remaster interfaces | `the chapter hint command never released its real Lua UI wait` | 73/73; `chapter-world-commands` | `Upstream-Commit` в commit message |
+| [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Pump deferred native audio in active chapter frames | `the active chapter created a script sound wrapper but never started native PCM playback` | 77/77; `chapter-script-audio` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -2017,3 +2018,47 @@ Windows (241.81 с) и Linux (240.49 с); Windows ALL_BUILD и обе Game со�
 network-test,world-test,linux-test}.log. Результат GitHub Actions для итогового
 HEAD остаётся отдельным условием завершения всех переносов; эти локальные
 проверки его не заменяют. Общая задача ещё не завершена.
+
+
+## Звук сценария в активной главе — завершение адаптации `70d12946`
+
+Четыре успешно собранных native-display теста воспроизвели одинаковый RED:
+реальный Lua PlaySound/Play3DSound создавал сценовый объект, но активный кадр
+главы не запускал ни одного PCM-канала. Проверены также звук и ShowHint в одном
+кадре: обновление звука должно предшествовать выходу к новому интерфейсу.
+
+В CChapterMap::Step после обработки команд добавлено получение listener transform
+от существующей выбранной камеры и Draw существующей звуковой сцены. Это
+адаптация сценарного звука к отложенному запуску в нашем native backend;
+она не переносит чужой движок. Общая синхронизация звуков скрытых объектов
+тактического мира не вызывается. Raw GetTime для UI/travel, баланс, HD-пак,
+шрифты и правила перехода в сектор сохраняются.
+
+Native тесты используют настоящий декодированный PCM в существующем кеше,
+активные SDL/bgfx кадры и headless native audio. Проверены offset=0, продвижение
+PCM cursor, пауза под настоящим меню и под подсказкой, поставленной в очередь
+вместе со звуком; независимый канал продолжает работу. Возврат возобновляет звук,
+Lua StopSound останавливает его, повторный PlaySound работает, закрытие главы
+освобождает её канал без остановки независимого. Исходные данные WAV молчат;
+это проверка запуска и жизни native канала, а не оценки слышимости или загрузки
+холодного файла из пакета. Фикстура закрывает только своё скрытое окно.
+
+GREEN: 77/77 Windows (68.92 с), 77/77 Linux (65.18 с); обе Game собраны.
+В этот набор входят десять настоящих native-display случаев, четыре новых
+помечены также native-audio и S2_AUDIO_HEADLESS=1. Windows — Direct3D 11,
+Linux — Vulkan/lavapipe в Xvfb/Openbox. CPU-набор по-прежнему содержит 316
+тестов; последний полный checkpoint316 на обеих платформах предшествует
+этому изменению активного кадра. После успешного связанного набора он здесь
+повторно не запускался. Обе прежние сборки переиспользованы.
+
+Свидетельства: chapter-script-audio-red-{build,test}.log,
+chapter-script-audio-green-{build,test}.log, chapter-script-audio-game-build.log,
+chapter-script-audio-linux-{configure,build,test}.log и успешный вывод рендереров
+в chapter-script-audio-{windows,linux}-native-test.log.
+
+Все полезные части source 70d12946 учтены: framed description — f79b0b89,
+часы — 3590693a, активный мир — 6e4b076e, обработчик команд и связанные
+адаптации — cca92dbf, отложенный native звук — этот перенос. Статус источника
+переведён в imported. Несовместимые буквальные изменения UI clock и повторной
+обработки выхода описаны в UPSTREAM-BALANCE-CHANGES.md; они не применяются.
+Это завершение одного источника; полный аудит 281 коммита ещё продолжается.
