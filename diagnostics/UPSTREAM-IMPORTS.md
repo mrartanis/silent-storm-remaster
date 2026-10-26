@@ -3802,3 +3802,41 @@ related-test.log, linux-{configure,initial-build,build,related-test,test}.log,
 {windows,linux,linux-final}-native-test.log, network-{test,native-test}.log.
 CPU base 352, полный 352 не запускался. Group Hide UI и Lua optional bool
 ещё отдельные исправления; source432 и all281/final actual Actions не завершены.
+
+## Общее состояние скрытности выбранного отряда — часть 432b64c8
+
+UpstreamGroupHideShortcut выбирает реального human actor и создаёт второго
+того же владельца через AddUnitInGame/NRPG::CreateUnit на свободном native
+path-network месте. Это два настоящих бойца с authored RPG, а не fake states.
+Тест вызывает настоящий ProcessEvent через PostEvent/CBind и lazy GetActionInfo.
+Availability probe и outbound Command перехвачены на границе; исходящие команды
+затем исполняются настоящими CreateExecutor/Run в native player turn.
+Compiled runtime RED: два открытых выбранных бойца, requests=0 вместо двух.
+
+Добавлен локальный GetGroupHideState в iMission.cpp: непустой полностью
+скрытый выбор означает открыть, остальные — скрыть. Он используется и при
+lazy создании UA_HIDE preview, и при отправке одного explicit CCmdHide на каждого.
+Upstream eager UpdateActionsInfo буквально не копируется: у нас lazy cache
+и собственный network preview. Новые поля CMission и сериализация не нужны.
+
+GREEN покрывает все четыре пары initial states в обоих порядках выбора:
+восемь групповых случаев, один общий target, точные адресаты/порядок,
+совпадение preview и requests, отсутствие ранней смены состояния/AP,
+реальное исполнение обоих участников и точную прежнюю стоимость AC_HIDE.
+Недоступная операция и пустой выбор не отправляют команд.
+Старый resource-free routing fixture имел bare CUnitServer без RPG; после
+нового чтения IsHiding он падал. Ему добавлен explicit visible-state override;
+native group fixture продолжает читать настоящее RPG. Первые failed logs
+сохранены, затем обе платформы пересобраны и повторно проверены.
+
+Target 4/4, связанные 24/24 Windows (15.48 с) и Linux (13.92 с).
+Обе Game и Windows ALL_BUILD собраны, по 12 FONT-COMPAT, raw24 полные без NUL.
+NetworkSerializer/ClientUI/StopResume: 3/3 (5.54 с). Это регрессии существующего
+LAN; отдельный multiplayer group-hide gameplay сценарий не заявляется.
+Свидетельства group-hide-shortcut: red-{build,test}.log, red-native-test.log,
+fixture-eligibility-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+linux-fixture-{test,native-test}.log, {windows,linux}-native-test.log,
+network-{test,native-test}.log. CPU base 353, полный 353 не запускался.
+Source432 остаётся частичным из-за независимых PK damage/colour/fade hunks;
+all281/final actual Actions ещё не завершены.

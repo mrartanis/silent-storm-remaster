@@ -9723,6 +9723,15 @@ static void SharedActionShortcutPriority()
     Require(!NMainLoop::HaveInterfaceCommand(), "shared-key mode selection queued a game command");
 }
 
+class ShortcutVisibleActor: public NWorld::CUnitServer
+{
+    OBJECT_NOCOPY_METHODS(ShortcutVisibleActor);
+public:
+    // The resource-free routing fixture has no RPG. Native group tests below
+    // use actual squad members and their real hiding state.
+    bool IsHiding() const override { return false; }
+};
+
 class HideShortcutMission: public SharedShortcutMission
 {
     OBJECT_NOCOPY_METHODS(HideShortcutMission);
@@ -9746,7 +9755,7 @@ static void HideShortcutEligibility()
 {
     CObj<HideShortcutMission> mission = new HideShortcutMission;
     mission->Prepare();
-    CObj<NWorld::CUnitServer> actor = new NWorld::CUnitServer;
+    CObj<NWorld::CUnitServer> actor = new ShortcutVisibleActor;
     CObj<NGame::CUnitTracker> tracker = new NGame::CUnitTracker(mission,actor);
     mission->selection.push_back(tracker.GetPtr());
     const auto event = SharedActionEvent({"hide"});
@@ -9783,6 +9792,100 @@ static void HideShortcutEligibility()
     mission->ProcessEvent(event);
     Require(mission->commands.empty(), "Hide shortcut issued a command without a selection");
     Require(!NMainLoop::HaveInterfaceCommand(), "Hide shortcut queued an unrelated interface command");
+}
+
+class GroupHideMission: public HideShortcutMission
+{
+    OBJECT_NOCOPY_METHODS(GroupHideMission);
+public:
+    CObj<NWorld::CCmd> preview;
+    bool allowed = true;
+    void Refresh() { UpdateActionsInfo(); preview = nullptr; }
+    void CanDoCommand(NWorld::CCmd* command,bool noTarget,NGame::SActionInfo* info) override {
+        Require(noTarget, "Hide action preview unexpectedly requested a target");
+        preview = command;
+        *info = NGame::SActionInfo();
+        if (allowed) info->SetValid();
+        else { info->bValid = true; info->eResult = NWorld::UCR_UNAVAILABLE; }
+    }
+};
+
+static void GroupHideShortcut(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,true,&game);
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer* first = nullptr;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (unit && !unit->IsAIUnit() && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) { first = unit; break; }
+    }
+    Require(first != nullptr, "group Hide fixture has no ordinary human actor");
+    CObj<NWorld::CUnitServer> second;
+    auto* network = world->GetPathNetwork(); vector<NAI::SPathPlace> places;
+    network->GetNearPlaces(SSphere(first->GetPosition().GetCP(),10.f),&places);
+    for (auto place: places) {
+        place.SetPose(NAI::CM_STAND); place.SetDirection(0);
+        if (!network->IsPassable(place) || network->IsLocked(place,true)) continue;
+        second = world->AddUnitInGame(place,NRPG::CreateUnit(first->GetUnitRPG()->GetRPGUnit()->GetPers()),
+            dynamic_cast<NWorld::CPlayer*>(first->GetPlayer()));
+        if (second) break;
+    }
+    Require(second && second->CanFight() && second->GetPlayer() == first->GetPlayer(),
+        "group Hide fixture could not deploy a second native squad member");
+    world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(first->GetPlayer()));
+    Require(!world->IsRealTime() && !world->IsSequence(), "group Hide fixture did not enter its actual player turn");
+    CObj<GroupHideMission> mission = new GroupHideMission; mission->Prepare();
+    mission->CacheActions(vector<NGame::SActionInfo>(NGame::UA_MAXVALUE));
+    vector<CObj<NGame::CUnitTracker>> trackers{
+        new NGame::CUnitTracker(mission,first), new NGame::CUnitTracker(mission,second)};
+    NWorld::CUnitServer* actors[] = {first,second.GetPtr()};
+    for (bool reverse: {false,true})
+        for (bool a: {false,true})
+            for (bool b: {false,true}) {
+                bool initial[] = {a,b};
+                const bool target = !(a && b);
+                int ap[2];
+                for (int i=0;i<2;++i) {
+                    actors[i]->EnableHide(); actors[i]->Hide(initial[i],false); actors[i]->EnableHide();
+                    ap[i] = actors[i]->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP);
+                }
+                mission->selection = {trackers[reverse ? 1 : 0].GetPtr(),trackers[reverse ? 0 : 1].GetPtr()};
+                mission->commands.clear(); mission->recipients.clear(); mission->Refresh();
+                mission->ProcessEvent(SharedActionEvent({"hide"}));
+                std::printf("group Hide initial=%d/%d reverse=%d requests=%zu target=%d\n",
+                    int(a),int(b),int(reverse),mission->commands.size(),int(target));
+                Require(mission->commands.size() == 2, "Hide shortcut did not issue a command for every selected squad member");
+                auto* preview = dynamic_cast<NWorld::CCmdHide*>(mission->preview.GetPtr());
+                Require(preview && preview->bExplicitState && preview->bState == target,
+                    "group Hide availability preview used a different state than its actual requests");
+                for (int i=0;i<2;++i) {
+                    int index = reverse ? 1-i : i;
+                    auto* command = dynamic_cast<NWorld::CCmdHide*>(mission->commands[i].GetPtr());
+                    Require(command && command->bExplicitState && command->bState == target &&
+                        mission->recipients[i] == actors[index],
+                        "group Hide did not use one common explicit state in selection order");
+                    Require(actors[index]->IsHiding() == initial[index] &&
+                        actors[index]->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == ap[index],
+                        "group Hide input changed a member before command consumption");
+                    NWorld::EUnitCommandResult result;
+                    CObj<NWorld::CCommandExecute> executor = NWorld::CreateExecutor(actors[index],command,&result);
+                    Require(executor && result == NWorld::UCR_OK, "group Hide native execution was rejected");
+                    const int cost = !initial[index] && target ? actors[index]->GetActionAP(NRPG::AC_HIDE) : 0;
+                    executor->Run();
+                    Require(actors[index]->IsHiding() == target &&
+                        actors[index]->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == ap[index]-cost,
+                        "mixed squad did not converge to one hiding state at the original AP cost");
+                }
+                Require(!world->IsAction(), "group Hide retained an action counter");
+            }
+    mission->commands.clear(); mission->recipients.clear(); mission->allowed = false; mission->Refresh();
+    mission->ProcessEvent(SharedActionEvent({"hide"}));
+    Require(mission->commands.empty(), "unavailable group Hide issued squad commands");
+    mission->selection.clear(); mission->allowed = true; mission->Refresh();
+    mission->ProcessEvent(SharedActionEvent({"hide"}));
+    Require(mission->commands.empty() && !NMainLoop::HaveInterfaceCommand(),
+        "empty group Hide issued a unit or interface command");
 }
 
 class NativeActionInfoMission: public NGame::CMission
@@ -15550,6 +15653,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-next-step-release") && argc == 4) { MovementCallbackCancellation(argv[2], argv[3], 2, true); return true; }
     if (!std::strcmp(mode, "hide-cooldown") && argc == 4) { HideCooldown(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "explicit-hide-state") && argc == 4) { ExplicitHideState(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "group-hide-shortcut") && argc == 4) { GroupHideShortcut(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-idle") && argc == 4) { IdleAI(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "mixed-hide-button") && argc == 4) { MixedActionButton(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "mixed-strafe-button") && argc == 4) { MixedActionButton(argv[2], argv[3], false); return true; }

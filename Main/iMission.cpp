@@ -711,6 +711,18 @@ NWorld::CUnit::EState CMission::GetUnitsWorldState()
 	return unitsSet.front()->GetUnit()->GetState();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static bool GetGroupHideState( IMission *pMission )
+{
+	vector< CPtr<IUnitTracker> > unitsSet;
+	pMission->GetSelectedUnits( &unitsSet );
+	if ( unitsSet.empty() )
+		return false;
+	for ( int i = 0; i < unitsSet.size(); ++i )
+		if ( !unitsSet[i]->GetUnit()->IsHiding() )
+			return false;
+	return true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMission::GetActionInfo( EUnitAction eAction, SActionInfo *pInfo )
 {
 	SActionInfo &info = actionsInfoSet[eAction];
@@ -738,7 +750,7 @@ void CMission::GetActionInfo( EUnitAction eAction, SActionInfo *pInfo )
 		case UA_DROPCORPSE: pCmd = new NWorld::CCmdDropCorpse(); break;
 		case UA_WEAPONRELOAD: pCmd = new NWorld::CCmdReload(); break;
 		case UA_EXITPK: pCmd = new NWorld::CCmdExitPK(); break;
-		case UA_HIDE: pCmd = new NWorld::CCmdHide(); break;
+		case UA_HIDE: pCmd = new NWorld::CCmdHide( !GetGroupHideState( this ) ); break;
 		case UA_STRAFE: pCmd = new NWorld::CCmdStrafe( true ); break;
 		case UA_POSERUN: pCmd = new NWorld::CCmdWishPose( NAI::RUN ); break;
 		case UA_POSEWALK: pCmd = new NWorld::CCmdWishPose( NAI::WALK ); break;
@@ -2018,8 +2030,9 @@ bool CMission::ProcessEvent( const NInput::SEvent &sEvent )
 		{
 			vector< CPtr<NGame::IUnitTracker> > unitsSet;
 			GetSelectedUnits( &unitsSet );
-			if ( unitsSet.size() == 1 )
-				Command( unitsSet.front()->GetUnit(), new NWorld::CCmdHide() );
+			const bool bHide = !GetGroupHideState( this );
+			for ( int i = 0; i < unitsSet.size(); ++i )
+				Command( unitsSet[i]->GetUnit(), new NWorld::CCmdHide( bHide ) );
 		}
 		else
 			ShowError( this, sAction.eResult );
