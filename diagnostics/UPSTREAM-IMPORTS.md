@@ -1513,3 +1513,51 @@ Windows configured registration — 1/1. Последняя полная кон�
 `hit-roll-equality-log-game-build.log`,
 `hit-roll-equality-log-registration-test.log`,
 `hit-roll-log-linux-{configure,build,test}.log`.
+
+
+### Контрольная точка 301 и особенности форка
+
+Проверена кодовая ревизия `33653150`: Windows ALL_BUILD успешен; полный
+native upstream-набор Windows — 301/301 (233.77 с), Linux — 301/301 (228.72 с).
+Локальный CI-набор — 269/269 (26.04 с), сетевой профиль — 6/6 (55.58 с),
+world/save-профиль — 5/5 (5.88 с), включая 5247 (2.64 с). Профили запускались
+последовательно, один тестовый процесс на платформу, в прежних каталогах
+сборки. Это не утверждение об успешности всего CTest: известный отдельный
+NetworkEncounterMapsTests здесь не запускался.
+
+После контрольной точки 295 добавлены torso clamp, два hit-roll log теста,
+projective ray test и два downed-head теста. `d919d910` теперь завершён:
+`3b601b8b` переносит оставшийся CVec4/Unhomogen hunk. Тест сравнивает реальные
+GetDir/GetPoints для 90 лучей на заданном публичном trace interval. Первоначально
+более широкая проверка roundtrip выявила независимую погрешность инверсии
+матриц даже после upstream-исправления; математические алгоритмы и точность
+вычислений в этом переносе дополнительно не менялись. Тест не моделирует
+полную collision scene и не проверяет GPU.
+
+`7de2769d` перенесён коммитом `33653150`: игровой юнит сообщает о смерти или
+потере сознания через CSetRender в уже существующий CHeadsController::KillHead.
+Переписанный движок лицевой анимации, вычисление вершин, resource decoder и
+графический backend не заменяются. Проверены реальный world render, общий
+контроллер и портрет, переход IDLE_NORMAL -> IDLE_DEATH и сохранение состояния
+после обновления/удаления портрета. CPU recording view удерживает входные
+объекты без GPU-ресурсов: внешний вид лица и death-mask вершины не проверялись.
+
+Уточнение пользователя для всех следующих переносов: сначала сверять смысл
+ошибки с текущей реализацией форка. SDL, bgfx, native audio/media, собственная
+лицевая анимация и изменённый HD pipeline учитываются отдельно; устаревший
+backend-код upstream не возвращается механически. Эквивалентное существующее
+решение подтверждается по текущему коду и подходящим runtime-проверкам.
+Собственные HD-шрифты, их исходные размеры и замороженный data/res-hd сохраняются.
+
+Реальный GitHub Actions run `40257943770` для более раннего HEAD
+`645acb520c3f7ac582f47183ab6e7082e5249bd3` завершился успешно: Build и Test,
+270/270 выполненных тестов (275 зарегистрированы, 5 native-audio отключены
+в hosted-конфигурации). Это не проверка окончательного HEAD; после всех
+переносов требуется новый успешный запуск для итоговой ревизии.
+
+Свидетельства: `checkpoint-301-all-build.log`,
+`checkpoint-301-upstream-test.log`, `checkpoint-301-linux-{configure,build,test}.log`,
+`checkpoint-301-ci-test.log`, `checkpoint-301-network-green-test.log`,
+`checkpoint-301-world-green-test.log`, `projective-ray-unprojection-*`,
+`projective-ray-linux-*`, `downed-head-idle-*`, `downed-head-linux-*`,
+`github-40257943770-{result.json,test.log}`.
