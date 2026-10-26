@@ -13176,6 +13176,79 @@ static void DeferredScriptShot(const char* databasePath,const char* resourcePath
     }
 }
 
+static void DeferredWaypointCommand(const char* databasePath,const char* resourcePath,bool fly = true)
+{
+    auto world = FixtureWorld(databasePath,resourcePath,true);
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr; NRPG::CWeaponItem* weapon = nullptr;
+    for (auto entry : units) {
+        auto* candidate = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (!candidate || !candidate->CanFight() || candidate->IsEmptyPK() || candidate->IsWearingPK() ||
+            candidate->animator.GetCannon() || candidate->GetPosition().pos.GetFloor() != 0) continue;
+        auto* firearm = dynamic_cast<NRPG::CWeaponItem*>(candidate->GetUnitRPG()->GetInventory()->GetActive());
+        if (firearm) { actor = candidate; weapon = firearm; break; }
+    }
+    Require(actor && weapon,"deferred waypoint fixture has no ordinary armed actor on the ground floor");
+    const auto position = actor->GetPosition(); const int ap = actor->GetAP(), ammo = weapon->GetAmmoQuantity();
+    auto* commander = actor->GetPlayer()->GetCommander();
+    Require(IsValid(commander) && !commander->HasCommands() && !actor->HasCommand(),
+        "deferred waypoint fixture started with an existing native order");
+    CObj<NScript::CScript> script = NScript::CreateScript(world);
+    NScript::luaPushCPtr(*script,actor); script->SetGlobal("upstreamActor");
+    const string function = fly ? "UnitFlyToWaypoint" : "UnitAttackWaypoint";
+    for (bool threeD : {false,true}) {
+        CObj<NDb::CWaypointName> name = new NDb::CWaypointName;
+        name->szName = threeD ? "upstream_dispatch_probe_fly" : "upstream_dispatch_probe_ground";
+        CObj<CMapWaypoint> authored = new CMapWaypoint;
+        authored->pName = name; authored->b3DWaypoint = threeD;
+        authored->pos.ptPos = position.GetCP()+CVec3(2,0,threeD ? 2.f : 0.f);
+        world->AddWaypoint(authored);
+        auto* waypoint = world->GetWaypoint(name->szName);
+        Require(waypoint && waypoint->pos.p.IsFinal() == threeD,
+            "deferred waypoint fixture did not load its actual ground/fly point through the world's registry");
+        const auto target = waypoint->pos;
+        const string controls = function+"(nil,'"+name->szName+"'); "+function+
+            "(upstreamActor,'upstream_dispatch_probe_missing'); UpstreamWaypointReturned = 23";
+        RunScript(script,controls.c_str());
+        auto returned = script->GetGlobal("UpstreamWaypointReturned");
+        Require(returned.IsNumber() && returned.GetNumber() == 23 && !commander->HasCommands() && !actor->HasCommand(),
+            "native waypoint nil-actor/missing-point controls issued an order or stopped the script");
+        const string call = function+"(upstreamActor,'"+name->szName+"'); UpstreamWaypointReturned = 29";
+        RunScript(script,call.c_str());
+        returned = script->GetGlobal("UpstreamWaypointReturned");
+        Require(returned.IsNumber() && returned.GetNumber() == 29,"native waypoint Lua callback did not finish");
+        std::printf("native script waypoint dispatch: fly=%d three-dimensional=%d queued=%d unit-command=%d\n",
+            int(fly),int(threeD),int(commander->HasCommands()),int(actor->HasCommand()));
+        Require(commander->HasCommands() && !actor->HasCommand(),
+            "native script waypoint command bypasses the owning commander's queue");
+        CObj<NWorld::CCommand> first = commander->GetCommand(), second = commander->GetCommand();
+        auto* set = dynamic_cast<NWorld::CCmdSetCommand*>(first.GetPtr());
+        auto* resume = dynamic_cast<NWorld::CCmdSetCommand*>(second.GetPtr());
+        Require(set && set->pUnit == actor && resume && resume->pUnit == actor &&
+            dynamic_cast<NWorld::CCmdContinue*>(resume->GetCmd()) && !commander->HasCommands(),
+            "queued waypoint command lost its actor or exact ordered Continue");
+        if (fly) {
+            auto* request = dynamic_cast<NWorld::CCmdFly*>(set->GetCmd());
+            Require(request && request->dst.pos.p.IsFinal() && !request->dst.bRun,
+                "queued fly request lost its command type, fly-place encoding or walk/run flag");
+            const auto actual = request->dst.GetCP(), expected = target.GetCP();
+            Require(std::fabs(actual.x-expected.x)<0.001f && std::fabs(actual.y-expected.y)<0.001f &&
+                std::fabs(actual.z-expected.z)<=NAI::F_3D_STEP+0.001f,
+                "queued fly destination differs from its native waypoint beyond fly-height quantization");
+            if (threeD) Require(request->dst.pos.p == target.p && request->dst.pos.pNet == target.pNet,
+                "queued fly request reinterpreted an already loaded 3D waypoint's position, altitude or heading bits");
+        } else {
+            auto* request = dynamic_cast<NWorld::CCmdShootTile*>(set->GetCmd());
+            Require(request && fabs2(request->ptTarget-target.GetCP())<0.000001f && !request->bCanBeReplacedByReload,
+                "queued waypoint attack lost its native tile destination, type or reload replacement flag");
+        }
+        Require(!actor->HasCommand() && actor->GetAP() == ap && actor->GetPosition().pos.p == position.pos.p &&
+            actor->GetUnitRPG()->GetInventory()->GetActive() == weapon && weapon->GetAmmoQuantity() == ammo &&
+            waypoint->pos.p == target.p && waypoint->pos.pNet == target.pNet,
+            "native waypoint producer moved the actor, changed AP/ammo or rewrote its loaded point before consumption");
+    }
+}
+
 static void ForcedActionRecalc(const char* databasePath,const char* resourcePath)
 {
     for (bool forced : {false,true}) {
@@ -15189,6 +15262,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "deferred-take-object-command") && argc == 4) { DeferredTakeObject(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-shoot-command") && argc == 4) { DeferredScriptShot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-shoot-prepare-command") && argc == 4) { DeferredScriptShot(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "deferred-fly-waypoint-command") && argc == 4) { DeferredWaypointCommand(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-script-command-order") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode,true); return true; }
     if (!std::strcmp(mode, "script-draw-weapon-slot") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-draw-weapon-command") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3],true); return true; }

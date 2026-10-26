@@ -3125,6 +3125,39 @@ patch поверх нашего кода не запускался. Не зая�
 проверяют каждый `u` consumer или весь tutorial. Полезных независимых hunks
 в этом source нет, статус excluded-own-behavior; production не редактируется.
 
+## Очередь полёта к waypoint — часть 14ffbcc8
+
+UpstreamDeferredFlyWaypointCommand использует настоящий ordinary actor world
+810 и две CMapWaypoint через world.AddWaypoint: обычную наземную и authored
+b3DWaypoint. Никакой записи в runtime waypoint.pos или подмены path network
+нет. Nil actor/missing point controls завершают callback без заказа.
+Compiled runtime RED: fly=1/3D=0, queued=0/unit-command=1. Начальная ошибка
+компиляции fixture (неуказанный namespace F_3D_STEP) исправлена только в
+тесте на NAI::F_3D_STEP и не считается RED.
+
+После runtime RED только dispatch Fly/Continue в scriptRoute.cpp заменён
+на DoCommand. Сохранены прежние ветка IsFinal, MakeFlyPos и bRun=false.
+GREEN проверяет тип CCmdFly, final encoding, bRun=false, XY destination и
+Z в пределах native fly-height quantization. Для уже загруженной 3D-точки
+проверяются точные p/pNet bits, включая altitude/heading; повторного её
+преобразования нет. Две wrappers адресованы прежнему actor с Continue.
+До consumer нет unit action, actor position/AP/weapon/ammo и registry point
+не меняются. Полная flight animation, movement cost или LAN flight playback
+не исполняются этим producer test. UnitAttackWaypoint ещё отдельная работа.
+
+Связанные 96/96 прошли на Windows (124.95 с) и Linux (122.38 с), обе Game и
+Windows ALL_BUILD собраны. Набор включает прежние FlyingRestoration,
+FlyingShootDirection/DynamicLocks/AttackQueue, PKWaypoint, native medal/GPU/
+display и по 12 FONT-COMPAT controls. Текущий CPU base 345 не заявляется
+новым полным прогоном. Windows NetworkSerializer/StopResume прошли 2/2 за 4.78 с.
+
+Свидетельства deferred-fly-waypoint-command: fixture-scope-build.log,
+red-{build,test}.log, red-native-test.log, green-{build,test}.log,
+green-native-test.log, all-build.log, related-test.log,
+linux-{configure,build,test}.log, {windows,linux}-native-test.log и
+network-{test,native-test}.log. Source 14ffbcc8 и all281/final actual Actions
+ещё не завершены.
+
 ## Очередь скриптовой скрытности — часть 14ffbcc8
 
 UpstreamDeferredHideCommand использует настоящего visible human actor world
