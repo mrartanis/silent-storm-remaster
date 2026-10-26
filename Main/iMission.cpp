@@ -1619,7 +1619,7 @@ bool CMission::ProcessEvent( const NInput::SEvent &sEvent )
 	}
 	else if ( bindSaveMenu.ProcessEvent( sEvent ) )
 	{
-		NMainLoop::Command( new CICSaveLoadMenu( SAVE, 0, bCanSave ) );   // retail CMissionBase::ProcessEvent passes this->bCanSave (disasm mov al,[esi+0xe4])
+		NMainLoop::Command( new CICSaveLoadMenu( bCanSave ? SAVE : LOAD, 0, bCanSave ) );   // retail CMissionBase::ProcessEvent passes this->bCanSave (disasm mov al,[esi+0xe4])
 		return true;
 	}
 	else if ( bindLoadMenu.ProcessEvent( sEvent ) )

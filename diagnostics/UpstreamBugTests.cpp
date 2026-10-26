@@ -2859,6 +2859,60 @@ static void AudioOptionCheckboxes(const char* databasePath,const char* resourceP
 #endif
 }
 
+static void MissionSaveMenu(const char* databasePath,const char* resourcePath)
+{
+    Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"mission save-menu fixture requires isolated user data");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"mission save-menu fixture started with an active interface");
+    NativeDisplayContext cleanup;
+    cleanup.Initialize(databasePath,resourcePath,"Silent Storm mission save-menu regression");
+    NMainLoop::CreateProfile("UpstreamMissionSaveMenu"); NMainLoop::SetActiveProfile("UpstreamMissionSaveMenu");
+    auto* manager = NMainLoop::GetSaveManager();
+    struct SlotCleanup { NMainLoop::CSaveManager* manager; ~SlotCleanup() { manager->DeleteSlot(NMainLoop::S_SLOT_ACTIVE); } } slotCleanup{manager};
+    NGame::InitLoadingScreen();
+    CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(-1);
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    CObj<NGame::CICBeginMission> enter = new NGame::CICBeginMission(810,-1,vector<string>(),game); enter->Exec();
+    CObj<NGame::CMission> mission = dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(IsValid(mission) && IsValid(mission->GetWorld()),"mission save-menu fixture did not open its actual tactical mission");
+    CObj<NMainLoop::CInterfaceCommand> snapshot = NMainLoop::TakeInterfaceCommandForHarness();
+    Require(dynamic_cast<NMainLoop::CICSaveFile*>(snapshot.GetPtr()) && !NMainLoop::HaveInterfaceCommand(),"mission save-menu fixture did not isolate its real restart snapshot");
+    snapshot->Exec();
+    const auto* world = mission->GetWorld(); const STime worldTime = world->GetAimTime()->GetValue();
+    const auto* difficulty = game->pDifficulty.GetPtr();
+    NWorld::IPlayer::CUnitSet party; mission->GetActivePlayer()->GetPlayer()->GetUnits(&party);
+    NInput::CBind saveMenu("savemenu");
+    for (bool allowed : {false,true}) {
+        // Supply an existing saved permission without changing its calculation.
+        CMemoryStream permission;
+        { CStructureSaver writer(permission,CStructureSaver::WRITE); writer.Add(30,&allowed); }
+        permission.Seek(0);
+        { CStructureSaver reader(permission,CStructureSaver::READ); mission->NGame::CMissionBase::operator&(reader); }
+        NInput::SEvent event; while (NInput::GetEvent(&event)) {}
+        NInput::PostEvent("savemenu");
+        Require(NInput::GetEvent(&event) && saveMenu.ProcessEvent(event) && mission->ProcessEvent(event) && NMainLoop::HaveInterfaceCommand(),
+            "mission save-menu fixture did not dispatch its actual native bound command");
+        CObj<NMainLoop::CInterfaceCommand> command = NMainLoop::TakeInterfaceCommandForHarness();
+        Require(dynamic_cast<NGame::CICSaveLoadMenu*>(command.GetPtr()) && !NMainLoop::HaveInterfaceCommand(),"mission Save-menu action queued an unrelated command");
+        command->Exec();
+        CStructureNetworkContext dialogReferences; auto dialog = BorrowedObjectFields(NMainLoop::GetCurrentInterfaceForHarness(),&dialogReferences);
+        bool dialogPermission = !allowed; int mode = -1; CPtr<NUI::CWindow> page;
+        { CStructureSaver reader(dialog,CStructureSaver::READ,&dialogReferences); reader.Add(2,&dialogPermission); reader.Add(3,&mode); reader.Add(6,&page); }
+        Require(dialogPermission == allowed && IsValid(page),"the actual mission did not forward its existing save permission to the native dialog");
+        CStructureNetworkContext viewReferences; auto fields = BorrowedObjectFields(page,&viewReferences); CPtr<NUI::CWindow> view;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&viewReferences); reader.Add(4,&view); }
+        Require(IsValid(view),"a forbidden mission Save-menu command opened an empty native save/load page");
+        Require(mode == (allowed ? NGame::SAVE : NGame::LOAD) && pSSClasses->GetObjectTypeID(view) == int(allowed ? 0xB1014135 : 0xB1014134),
+            "the mission save-menu command selected the wrong actual native view");
+        CObj<NMainLoop::CICExitModal> close = new NMainLoop::CICExitModal; close->Exec();
+        NWorld::IPlayer::CUnitSet after; mission->GetActivePlayer()->GetPlayer()->GetUnits(&after);
+        Require(NMainLoop::GetCurrentInterfaceForHarness() == mission.GetPtr() && !NMainLoop::HaveInterfaceCommand() && mission->GetWorld() == world &&
+            world->GetAimTime()->GetValue() == worldTime && after == party && game->pDifficulty.GetPtr() == difficulty,
+            "opening and closing a mission save-menu changed the world, party or difficulty");
+    }
+    std::puts("actual tactical mission Save-menu false/true selected native Load/Save views; world/party/difficulty preserved");
+    NMainLoop::DoneInterface();
+}
+
 static void MissionLoadingInput(const char* databasePath,const char* resourcePath)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"mission loading input fixture requires isolated user data");
@@ -13669,6 +13723,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-authored-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-script-cadence") && argc == 4) { MainMenuMapScript(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "audio-option-checkboxes") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "audio-option-checkbox-notify") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "audio-option-defaults") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3],false,true); return true; }

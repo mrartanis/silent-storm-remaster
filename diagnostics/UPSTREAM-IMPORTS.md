@@ -273,6 +273,7 @@
 | [dbb74c6e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/dbb74c6e661c0344061a79a86b0ebf3e01617526) — Preserve native selection outlines over lighting stencil marks | `selection outline changed over lighting stencil 0x80 at 47,47: expected ff407f20, got ff000000` | Windows 104/104; Linux 100/100 + дополнительные GPU/registration; `selection-stencil` | `Upstream-Commit` в commit message |
 | [02d85e5b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/02d85e5b939ac897f726293b37f30b55d0f2ff72) — Reflect the incoming save permission in the actual in-game Save button | `the in-game Save button ignored its explicit save permission` | 91/91; `in-game-save-button` | `Upstream-Commit` в commit message |
 | [02d85e5b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/02d85e5b939ac897f726293b37f30b55d0f2ff72) — Open Load for an in-game Save command when saving is forbidden | `a forbidden in-game Save shortcut opened an empty native save/load page` | 92/92; `in-game-save-shortcut` | `Upstream-Commit` в commit message |
+| [02d85e5b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/02d85e5b939ac897f726293b37f30b55d0f2ff72) — Open Load for a tactical mission Save-menu command when saving is forbidden | `a forbidden mission Save-menu command opened an empty native save/load page` | 93/93; `mission-save-menu` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -2472,3 +2473,36 @@ in-game-save-shortcut-{windows,linux}-native-test.log.
 завершены. Источник остаётся частичным: такой же Save-menu вызов в CMission,
 QuickSave consumption, live permission policy, mapping сложности и selected
 style ещё рассматриваются отдельно. Правила/сложность отмечены в BalanceMD.
+
+## Меню сохранения тактической миссии — часть `02d85e5b`
+
+Compiled runtime RED создаёт настоящую миссию 810 через CICBeginMission,
+записывает её реальный queued restart snapshot, затем задаёт уже существующий
+saved permission через CMissionBase tag 30. Команда savemenu проходит через
+настоящий CMission::ProcessEvent и исполняет фактически созданный CICSaveLoadMenu.
+Флаг false доходит до диалога, но его pModeView отсутствует: прежний SAVE/false
+не создаёт содержимое. Fixture использует отдельный профиль и удаляет свой
+active slot, не меняя пользовательских сохранений.
+
+Изменена одна строка выбора режима: при false открывается LOAD, при true — SAVE.
+Новая NativeMissionSaveMenu проверяет реальные CLoadView/CSaveView, оба значения
+permission и штатное закрытие модального диалога. Оно возвращает тот же объект
+миссии, тот же мир и отряд с теми же объектами бойцов; aim time и запись сложности
+не меняются. Это применение готового разрешения, без пересчёта difficulty policy.
+
+Связанные 93/93 Windows (90.49 с) и Linux (80.98 с), обе Game собраны;
+23 native-display случая. CPU count остаётся 317, полного прогона здесь нет.
+Свидетельства: mission-save-menu-red-{build,test}.log,
+mission-save-menu-green-{build,test}.log,
+mission-save-menu-related-green-test.log,
+mission-save-menu-game-build.log,
+mission-save-menu-linux-{configure,build,test}.log и
+mission-save-menu-{windows,linux}-native-test.log.
+
+Один промежуточный запуск проверки был ошибочно начат до завершения линковки:
+старый exe был занят, новая линковка получила LNK1168. Он не считается GREEN
+или новым RED; сохранён отдельно как mission-save-menu-build-in-use-{build,test}.log.
+Затем сборка и тест выполнены последовательно, прошли и составляют результаты выше.
+Использованы прежние каталоги сборки, HD generation не запускалась, процессы
+проверок завершены. Source 02d85e5b остаётся частичным: QuickSave consumption,
+live permission policy, mapping сложности и selected style ещё требуют работы.
