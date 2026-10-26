@@ -973,8 +973,7 @@ BEGIN_SCRIPT_COMMAND( UnitLeavePK, "u" )
 		pPK = pUS->GetWearingPK();
 		if ( IsValid( pPK ) )
 		{
-			pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdExitPK() ) );
-			pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdContinue() ) );
+			DoCommand( pUS, new NWorld::CCmdExitPK(), true );
 		}
 		else
 		{

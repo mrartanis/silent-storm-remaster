@@ -3125,6 +3125,40 @@ patch поверх нашего кода не запускался. Не зая�
 проверяют каждый `u` consumer или весь tutorial. Полезных независимых hunks
 в этом source нет, статус excluded-own-behavior; production не редактируется.
 
+## Очередь скриптового выхода из панцеркляйна — часть 14ffbcc8
+
+UpstreamDeferredLeavePKCommand использует настоящего human pilot world 810
+и authored CRPGPers suit. Свободное место найдено через native path network/
+IsBigLockerPlacePassable; корпус создан world.AddUnitInGame. Nil pilot и
+пилот без костюма возвращают nil без заказа. Worn fixture готовится штатными
+WearAsPK/SetPosition/FlipPanzerklein(false,false), без записи private flags.
+IsEmptyPK у shell остаётся true как признак класса; факт ношения проверяется
+через pilot.IsWearingPK/GetWearingPK, не через инверсию shell.IsEmptyPK.
+
+Compiled runtime RED: leave=1, queued=0/unit-command=1, wearing=1,
+shell-empty=1. Возврат исходного корпуса в Lua уже корректен и отдельно
+проверяется настоящим luaGetPtr. После RED только ExitPK/Continue dispatch
+заменён на DoCommand. Capture pPK и возвращаемое значение не изменены.
+
+GREEN проверяет CCmdExitPK, две wrappers с прежним pilot/Continue и return
+того же shell. До consumer сохраняются wearing relation, обе позиции и AP пилота,
+два native inventory (руки, порядок предметов рюкзака, active slots), нет
+unit action. Реальный queued exit/animation/footprint transition и AP cost
+не исполняются этим producer test; прежние native PK проверки проходят.
+
+Связанные 75/75 прошли на Windows (73.62 с) и Linux (68.56 с), обе Game и
+Windows ALL_BUILD собраны с task-local parallel 2. Включены PK equipment/
+fixed weapon/placement/waypoint/model/feedback, mounted/pose/holster/corpse,
+native medal/GPU/display и по 12 FONT-COMPAT controls. Текущий CPU base 349
+не заявляется новым полным прогоном. Windows NetworkSerializer/StopResume
+прошли 2/2 за 5.66 с.
+
+Свидетельства deferred-leave-pk-command: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log и network-{test,native-test}.log.
+Source 14ffbcc8 и all281/final actual Actions ещё не завершены.
+
 ## Очередь скриптовой команды положить тело — часть 14ffbcc8
 
 Отдельный UpstreamDeferredDropCorpseCommand запускает drop branch native
@@ -3172,7 +3206,7 @@ verified compiled RED: queued=0/unit-command=1, carrying=0. Причина в о
 После verified RED только dispatch UnitTakeCorpse/Continue заменён на
 DoCommand. Guard CanFight(actor)/!CanFight(body) остаётся прежним. GREEN
 проверяет CCmdTakeCorpse с настоящим body, actor, две wrappers/Continue.
-До consumer не меняются AP/positions обоих, corpse/carrier binding,
+До consumer не меняются AP переносчика и позиции обоих, corpse/carrier binding,
 IsCarryingCorpse, death state и unit action. Полный подход, pickup animation,
 стоимость AP и завершение переноса здесь не исполняются. Drop mode fixture
 подготовлен отдельно, но этим случаем ещё не запускался.

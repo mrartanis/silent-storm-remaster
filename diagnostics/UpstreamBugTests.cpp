@@ -13322,6 +13322,98 @@ static void DeferredCorpseCommand(const char* databasePath,const char* resourceP
         "native corpse producer changed position/AP/carry state or body attachment before queued consumption");
 }
 
+static void DeferredPKCommand(const char* databasePath,const char* resourcePath,bool leave = true)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,true,&game);
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer* pilot = nullptr;
+    for (auto entry : units) {
+        auto* candidate = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (candidate && !candidate->IsAIUnit() && candidate->CanFight() && !candidate->IsEmptyPK() &&
+            !candidate->IsWearingPK() && !candidate->animator.GetCannon()) { pilot = candidate; break; }
+    }
+    Require(pilot != nullptr,"deferred PK fixture has no ordinary living human pilot");
+    NDb::CRPGPers* suitRecord = nullptr;
+    CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while (people.MoveNext()) if (IsValid(people.Get()->pPanzerklein) &&
+        !people.Get()->pPanzerklein->bHasNoHead && IsValid(people.Get()->pModel)) { suitRecord = people.Get(); break; }
+    Require(suitRecord != nullptr,"deferred PK fixture has no regular authored suit record");
+    auto* network = world->GetPathNetwork();
+    vector<NAI::SPathPlace> places;
+    network->GetNearPlaces(SSphere(pilot->GetPosition().GetCP(),20.f),&places);
+    NAI::SPathPlace anchor; bool found = false;
+    for (auto place : places) {
+        place.SetPose(NAI::CM_STAND); place.SetDirection(0);
+        if (NAI::IsBigLockerPlacePassable(network,place)) { anchor = place; found = true; break; }
+    }
+    Require(found,"deferred PK fixture has no free native suit footprint");
+    CObj<NWorld::CUnitServer> shell = world->AddUnitInGame(anchor,NRPG::CreateUnit(suitRecord),nullptr);
+    Require(shell && shell->IsEmptyPK() && !shell->CanFight(),"deferred PK fixture did not create an actual nonfighting empty shell");
+    auto* commander = pilot->GetPlayer()->GetCommander();
+    Require(IsValid(commander) && !commander->HasCommands() && !pilot->HasCommand(),
+        "deferred PK fixture started with an existing pilot order");
+    CObj<NScript::CScript> script = NScript::CreateScript(world);
+    NScript::luaPushCPtr(*script,pilot); script->SetGlobal("upstreamPilot");
+    NScript::luaPushCPtr(*script,shell.GetPtr()); script->SetGlobal("upstreamShell");
+    if (leave) {
+        RunScript(script,"UpstreamNilShell = UnitLeavePK(nil); UpstreamMissingShell = UnitLeavePK(upstreamPilot); UpstreamPKReturned = 11");
+        Require(script->GetGlobal("UpstreamNilShell").IsNil() && script->GetGlobal("UpstreamMissingShell").IsNil(),
+            "native PK exit returned a shell for a nil or unarmoured pilot");
+        Require(shell->WearAsPK(true),"deferred PK exit fixture could not hide its shell for entry");
+        pilot->SetPosition(shell->GetPosition());
+        pilot->FlipPanzerklein(shell,false,false);
+        Require(pilot->IsWearingPK() && pilot->GetWearingPK() == shell.GetPtr(),
+            "deferred PK exit fixture did not attach the real suit to its pilot");
+    } else RunScript(script,"UnitWearPK(nil,upstreamShell); UnitWearPK(upstreamPilot,nil); "
+        "UnitWearPK(upstreamPilot,upstreamPilot); UpstreamPKReturned = 11");
+    auto returned = script->GetGlobal("UpstreamPKReturned");
+    Require(returned.IsNumber() && returned.GetNumber() == 11 && !commander->HasCommands() && !pilot->HasCommand(),
+        "native PK controls or fixture preparation issued an order or stopped the script");
+    auto inventoryItems = [](NRPG::IInventory* inventory) {
+        vector<CObj<NRPG::IInventoryItem>> items;
+        for (auto slot : {NDb::SLOT_1,NDb::SLOT_2}) items.push_back(inventory->Get(slot));
+        for (const auto& entry : inventory->GetItems()) items.push_back(entry.pItem.GetPtr());
+        return items;
+    };
+    auto* pilotInventory = pilot->GetUnitRPG()->GetInventory();
+    auto* shellInventory = shell->GetUnitRPG()->GetInventory();
+    const auto pilotItems = inventoryItems(pilotInventory), shellItems = inventoryItems(shellInventory);
+    const auto pilotSlot = pilotInventory->GetActiveSlot(), shellSlot = shellInventory->GetActiveSlot();
+    const auto position = pilot->GetPosition(), shellPosition = shell->GetPosition(); const int ap = pilot->GetAP();
+    auto* worn = pilot->GetWearingPK(); const bool empty = shell->IsEmptyPK();
+    RunScript(script,leave ? "UpstreamExitedShell = UnitLeavePK(upstreamPilot); UpstreamPKReturned = 17" :
+        "UnitWearPK(upstreamPilot,upstreamShell); UpstreamPKReturned = 17");
+    returned = script->GetGlobal("UpstreamPKReturned");
+    Require(returned.IsNumber() && returned.GetNumber() == 17,"native PK Lua callback did not finish");
+    if (leave) {
+        auto result = script->GetGlobal("UpstreamExitedShell");
+        Require(result.IsUserData() && NScript::luaGetPtr(result) == shell.GetPtr(),
+            "native PK exit did not return its original shell through the fork's Lua pointer adapter");
+    }
+    std::printf("native script PK dispatch: leave=%d queued=%d unit-command=%d wearing=%d shell-empty=%d\n",
+        int(leave),int(commander->HasCommands()),int(pilot->HasCommand()),int(pilot->IsWearingPK()),int(shell->IsEmptyPK()));
+    Require(commander->HasCommands() && !pilot->HasCommand(),
+        "native scripted PK transition bypasses the owning commander's queue");
+    CObj<NWorld::CCommand> first = commander->GetCommand(), second = commander->GetCommand();
+    auto* set = dynamic_cast<NWorld::CCmdSetCommand*>(first.GetPtr());
+    auto* resume = dynamic_cast<NWorld::CCmdSetCommand*>(second.GetPtr());
+    Require(set && set->pUnit == pilot && resume && resume->pUnit == pilot &&
+        dynamic_cast<NWorld::CCmdContinue*>(resume->GetCmd()) && !commander->HasCommands(),
+        "queued PK transition lost its pilot or exact ordered Continue");
+    if (leave) Require(dynamic_cast<NWorld::CCmdExitPK*>(set->GetCmd()) != nullptr,"queued PK exit lost its original command type");
+    else {
+        auto* request = dynamic_cast<NWorld::CCmdTakeCorpse*>(set->GetCmd());
+        Require(request && request->pCorpse == shell.GetPtr(),"queued PK entry lost its original empty-shell target");
+    }
+    Require(!pilot->HasCommand() && pilot->GetAP() == ap && pilot->GetPosition().pos.p == position.pos.p &&
+        shell->GetPosition().pos.p == shellPosition.pos.p && pilot->GetWearingPK() == worn &&
+        pilot->IsWearingPK() == leave && shell->IsEmptyPK() == empty &&
+        inventoryItems(pilotInventory) == pilotItems && inventoryItems(shellInventory) == shellItems &&
+        pilotInventory->GetActiveSlot() == pilotSlot && shellInventory->GetActiveSlot() == shellSlot,
+        "native PK producer changed suit binding, positions, AP or either inventory before queued consumption");
+}
+
 static void ForcedActionRecalc(const char* databasePath,const char* resourcePath)
 {
     for (bool forced : {false,true}) {
@@ -15339,6 +15431,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "deferred-attack-waypoint-command") && argc == 4) { DeferredWaypointCommand(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "deferred-take-corpse-command") && argc == 4) { DeferredCorpseCommand(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-drop-corpse-command") && argc == 4) { DeferredCorpseCommand(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "deferred-leave-pk-command") && argc == 4) { DeferredPKCommand(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-script-command-order") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode,true); return true; }
     if (!std::strcmp(mode, "script-draw-weapon-slot") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-draw-weapon-command") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3],true); return true; }
