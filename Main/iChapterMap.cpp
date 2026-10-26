@@ -290,6 +290,7 @@ void CChapterMap::Step()
 	EraseInvalidRefs( &soundsList );
 	if ( CanRender() )
 	{
+		pRender->UpdateViewWorld( !bPause, GetGameTime(), pActivePlayer->GetPlayer(), bCheatVisibility );
 		pInterface->UpdateCursor();
 		// Keep the remaster UI/travel clock independent of the clamped game counters.
 		pInterface->Step( GetTime() );

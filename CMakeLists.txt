@@ -963,6 +963,8 @@ add_test(NAME UpstreamOwnedAIActionEnemy COMMAND UpstreamBugTests owned-ai-actio
 add_test(NAME UpstreamOwnedAIPlaceEnemy COMMAND UpstreamBugTests owned-ai-place-enemy)
 add_test(NAME UpstreamMountedAILogCommands COMMAND UpstreamBugTests mounted-ai-log-commands)
 if(S2_GAME_DIR)
+  add_test(NAME NativeChapterActiveScript COMMAND UpstreamBugTests chapter-active-script "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
+  set_tests_properties(NativeChapterActiveScript PROPERTIES LABELS "extended;native-display")
   add_test(NAME UpstreamScriptSoundStart2D COMMAND UpstreamBugTests script-sound-start-2d "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamScriptSoundStart3D COMMAND UpstreamBugTests script-sound-start-3d "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   set_tests_properties(UpstreamScriptSoundStart2D UpstreamScriptSoundStart3D PROPERTIES LABELS "native-audio" ENVIRONMENT "S2_AUDIO_HEADLESS=1")

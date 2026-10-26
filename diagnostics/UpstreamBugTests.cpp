@@ -113,6 +113,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/GRenderLight.h"
 #include "../Main/GLightmapStateWire.h"
 #include "../Main/GInit.h"
+#include "../Main/Gfx.h"
 #include "../Game/Platform.h"
 #include <SDL3/SDL.h>
 #include "../Main/GGeometryPositionHash.h"
@@ -2449,6 +2450,88 @@ static void LegacyChapterWorldMigration(const char* databasePath,const char* res
     Require(savedWorld->GetAimTime()->GetValue() > savedTime,"a complete migrated chapter failed to resume after its next snapshot load");
     // Real focus and rendering clocks must now be safe for both generations.
     chapter->OnLostFocus(); chapter->OnGetFocus(); loaded->OnLostFocus(); loaded->OnGetFocus();
+}
+
+static void ChapterActiveScript(const char* databasePath,const char* resourcePath)
+{
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "active chapter fixture started with an interface or pending command");
+    S2Platform::SetErrorDialogs(false);
+    struct Cleanup {
+        bool platform = false, graphics = false;
+        ~Cleanup() {
+            NGScene::StopResourceLoadingThread(); NMainLoop::DoneInterface(); ClearHoldQueue();
+            if (graphics) NGfx::Done3D();
+            if (platform) S2Platform::Done();
+        }
+    } cleanup;
+    Require(S2Platform::Init("Silent Storm chapter script regression",320,240,true),
+        "active chapter fixture could not create its hidden native SDL window");
+    cleanup.platform = true;
+    Require(NGfx::Init3D(static_cast<HWND>(S2Platform::NativeWindow())),"active chapter fixture has no native graphics window handle");
+    cleanup.graphics = true;
+    NGfx::SRenderTargetsInfo targets;
+    Require(NGfx::SetMode(NGfx::SVideoMode(320,240,32,NGfx::WINDOWED),targets) && NGScene::Is3DActive() && S2Platform::Display().drawable,
+        "active chapter fixture could not initialize its real healthy bgfx renderer");
+    CFileStream database; database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ); NGScene::AddResourceDir(resourcePath);
+    NGScene::RunResourceLoadingThread();
+    CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());
+    NDb::CChapterMap* map = nullptr;
+    while (maps.MoveNext()) if (IsValid(maps.Get()->pBackground)) { map = maps.Get(); break; }
+    Require(map != nullptr,"active chapter fixture has no authored map");
+    struct ScriptRecordRestore {
+        CPtr<NDb::CChapterMap> map; CPtr<NDb::CScript> script;
+        ~ScriptRecordRestore() { if (IsValid(map)) map->pScript = script; }
+    } restore{map,map->pScript};
+    CObj<NDb::CScript> entry = new NDb::CScript;
+    entry->strCode = "ChapterStarts = (ChapterStarts or 0) + 1; ChapterEnters = 0; "
+        "function OnEnterZone() ChapterEnters = ChapterEnters + 1 end; Sleep(2); ChapterResumed = 23";
+    map->pScript = entry;
+    CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(1);
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    // Startup notifications would legitimately cover the chapter on its second
+    // painted frame; this fixture isolates the native chapter's script pump.
+    list<CPtr<NScenario::CScenarioClue>> clues; game->pScenarioTracker->GetAvailableClues(&clues);
+    for (auto clue: clues) if (IsValid(clue)) clue->SetJustFound(false);
+    for (auto merc: game->players.front()->mercs) { vector<CDBPtr<NDb::CMedal>> medals; merc->GetJustFoundMedals(&medals); }
+    CObj<NGame::CICBeginChapter> enter = new NGame::CICBeginChapter(map->GetRecordID(),game); enter->Exec();
+    CObj<NGame::CMissionBase> chapter = dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    auto* world = chapter ? dynamic_cast<NWorld::CWorld*>(chapter->GetWorld()) : nullptr;
+    Require(world && IsValid(world->GetOwnScript()),"active chapter fixture did not create its native world/script");
+    auto* script = world->GetOwnScript();
+    auto number = [&](const char* name,int expected) {
+        const int top = script->GetTop(); auto value = script->GetGlobal(name);
+        const bool matches = value.IsNumber() && value.GetNumber() == expected; script->SetTop(top); return matches;
+    };
+    auto absent = [&](const char* name) {
+        const int top = script->GetTop(); const bool nil = script->GetGlobal(name).IsNil(); script->SetTop(top); return nil;
+    };
+    struct ClockRestore { STime previous; ~ClockRestore() { NMainLoop::SetTimeForHarness(previous); } } clock{NMainLoop::SetTimeForHarness(1000)};
+    auto frame = [&](STime time,bool active) {
+        NMainLoop::SetTimeForHarness(time);
+        Require(NMainLoop::StepApp(active,false,false),"native chapter frame unexpectedly requested application exit");
+        Require(NMainLoop::GetCurrentInterfaceForHarness() == chapter.GetPtr() && !NMainLoop::HaveInterfaceCommand(),
+            "active chapter fixture was covered by an unrelated interface command");
+    };
+    frame(1000,false);
+    Require(world->GetAimTime()->GetValue() == 0 && absent("ChapterStarts"),"an inactive chapter executed its queued world script");
+    frame(1050,true);
+    Require(number("ChapterStarts",1) && world->GetAimTime()->GetValue() > 0,
+        "the real active chapter Step never advanced its world or executed the assigned Lua script");
+    Require(absent("ChapterResumed"),"the chapter script bypassed its native Sleep segment delay");
+    const STime covered = world->GetAimTime()->GetValue();
+    frame(1100,false); frame(1150,false);
+    Require(world->GetAimTime()->GetValue() == covered && absent("ChapterResumed"),"inactive frames advanced a sleeping chapter's simulation");
+    chapter->PauseGame(true); frame(1200,true); frame(1250,true);
+    Require(world->GetAimTime()->GetValue() == covered && absent("ChapterResumed"),"active paused chapter frames advanced their sleeping world");
+    chapter->PauseGame(false);
+    for (int tick = 0; tick < 8; ++tick) frame(1300+tick*50,true);
+    Require(number("ChapterResumed",23) && number("ChapterStarts",1) && number("ChapterEnters",1),
+        "active chapter frames did not resume Sleep or reran initialization/OnEnterZone");
+    Require(game->bChapterMapSet && game->nChapterMapID == map->GetRecordID() && game->players.size() == 1,
+        "the native chapter pump changed campaign destination or party");
+    NMainLoop::DoneInterface();
 }
 
 static void ChapterClockStep(const char* databasePath,const char* resourcePath,const char* legacyPath)
@@ -12773,6 +12856,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "script-sound-unassigned-3d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],true,true); return true; }
     if (!std::strcmp(mode, "script-sound-stop-2d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "script-sound-stop-3d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "chapter-active-script") && argc == 4) { ChapterActiveScript(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-clock-step") && argc == 5) { ChapterClockStep(argv[2],argv[3],argv[4]); return true; }
     if (!std::strcmp(mode, "legacy-chapter-world-migration") && argc == 5) { LegacyChapterWorldMigration(argv[2],argv[3],argv[4]); return true; }
     if (!std::strcmp(mode, "chapter-focus-audio") && argc == 4) { ChapterFocusAudio(argv[2],argv[3]); return true; }

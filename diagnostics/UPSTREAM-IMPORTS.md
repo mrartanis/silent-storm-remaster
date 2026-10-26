@@ -261,6 +261,7 @@
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Keep pending UI commands alive across native Lua collection | `an unassigned Lua PlaySound result was collected before its native UI command could start playback` | 313/313; `script-sound-unassigned` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Start fresh scripted positional sounds at the beginning of their sample | `a fresh scripted sound inherited absolute interface time as a sample start offset` | 66/66; `script-sound-start-offset` | `Upstream-Commit` в commit message |
 | [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Maintain native chapter counters and saved frame timing | `the native chapter Step did not advance its actual game and interface clocks` | 67/67; `chapter-clock-step` | `Upstream-Commit` в commit message |
+| [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Advance the native chapter world during active frames | `the real active chapter Step never advanced its world or executed the assigned Lua script` | 68/68; `chapter-active-script` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1927,3 +1928,38 @@ Linux (на Linux тот же тест собран Clang в существую�
 кадре. Для70d12946 ещё нужны world pump, BeginZone и обработка очереди главы.
 Все части e9dc218f теперь учтены: предыдущие world/save graph, script hook,
 OnGetFocus, собственный DB loader и данный default/frame interval.
+
+### Активные кадры карты главы исполняют мир и Lua
+
+Из70d12946 отдельно перенесён вызов существующего
+CRenderGame::UpdateViewWorld внутри активного CChapterMap::Step. Native RED
+получен со скрытым SDL-окном и настоящим bgfx Direct3D 11: интерфейс рисовал
+кадр, но мир и назначенный Lua-сценарий не продвигались.
+
+После исправления настоящий NMainLoop::StepApp исполняет инициализацию
+сценария, затем возобновляет Sleep(2) по сегментам мира. OnEnterZone и
+инициализация исполняются по одному разу. Неактивные кадры и активная пауза
+останавливают симуляцию; после возврата она продолжается. Исправление
+использует существующие классы мира/рендера/контроллеров форка. Сохранён
+собственный GetTime для отрисовки и перемещения карты главы.
+
+Новый NativeChapterActiveScript помечен extended/native-display и отдельно
+проверяет активный путь. Его данные — настоящий шаблон главы с временно
+назначенным CScript в памяти; стартовые уведомления погашены в тестовых
+данных, чтобы не перекрывать главу модальными окнами. Файлы базы не меняются.
+Скрытое окно и контекст рендера освобождаются штатно. Не используются
+подменённый мир или фиктивный графический backend.
+
+Связанный набор — 68/68 на Windows (54.12 с) и Linux (53.08 с), обе игры
+собраны. В Windows активный тест прошёл на Direct3D 11, GPU10de:2482;
+в Linux — на Vulkan, GPU0005:0000, под Xvfb/Openbox. Это доказательство
+настоящих активных кадров и CPU/Lua-состояния; правильность пикселей,
+мимики и обработка UI-команд этим не заявляются. Новый display-тест
+не включён в прежний CPU-prefix: его число остаётся 316, плюс отдельный
+NativeChapterActiveScript. Последний полный checkpoint пока 313.
+
+Свидетельства: `chapter-active-script-{red,green}-{build,test}.log`,
+`chapter-active-script-game-build.log`, `chapter-active-script-linux-*`,
+`chapter-active-script-{windows,linux}-native-test.log`.
+Для завершения70d12946 остаются очередь команд, общая ветка BeginZone,
+обновления player tracker и desktop; их перенос ещё продолжается.
