@@ -3840,3 +3840,32 @@ linux-fixture-{test,native-test}.log, {windows,linux}-native-test.log,
 network-{test,native-test}.log. CPU base 353, полный 353 не запускался.
 Source432 остаётся частичным из-за независимых PK damage/colour/fade hunks;
 all281/final actual Actions ещё не завершены.
+
+## Явное/default состояние Lua UnitHide — часть 14ffbcc8
+
+Отдельный UpstreamScriptHideState использует настоящего human actor, Lua
+CScript, owning commander и native TBS turn. Nil actor возвращается без
+команды. Первый вызов UnitHide(actor) для открытого актёра проходит; compiled
+runtime RED при повторении для уже скрытого: requested=1, actual=0,
+explicit=0. Это ошибочное переключение, а не воспроизведение по тексту кода.
+
+После RED меняются только signature на ub[true] и конструктор CCmdHide,
+получающий luaParams[1].b. Наши nil hardening и DoCommand/Continue сохраняются.
+GREEN: шесть случаев — default/nil/1 в Lua 4, начальное hidden false/true.
+Проверены callback return, ровно два wrapper/точный actor/CCmdHide+Continue/
+порядок/нет extras, состояние/AP/position до consumer, затем настоящее
+CreateExecutor/Run, итоговое состояние и точная прежняя стоимость AC_HIDE.
+Сохранённые request objects отдельно подтверждают explicit flag и bool target,
+независимые от последующего live state. Полный Lua scheduler/world playback
+и отдельный LAN script-hide сценарий не заявляются.
+
+Target 4/4, связанные 54/54 Windows (48.92 с) и Linux (47.73 с),
+обе Game и Windows ALL_BUILD собраны. По 12 FONT-COMPAT; raw54 полные без NUL.
+NetworkSerializer/StopResume 2/2 (4.01 с). CPU base 354, полный 354 не запускался.
+Свидетельства script-hide-state: red-{build,test}.log, red-native-test.log,
+green-{build,test}.log, green-native-test.log, all-build.log,
+related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log и network-{test,native-test}.log.
+UnitHide bool dependency теперь перенесена. Source14 остаётся частичным:
+both-held priority controls и DB-only engineer classification/retail review.
+All281/final actual Actions ещё не завершены.

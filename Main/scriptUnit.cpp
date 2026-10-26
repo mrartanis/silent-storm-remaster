@@ -445,11 +445,11 @@ BEGIN_SCRIPT_COMMAND( UnitPlayAnimation, "unbb[false]" )
 	return 0;
 END_SCRIPT_COMMAND
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-BEGIN_SCRIPT_COMMAND( UnitHide, "u" )
+BEGIN_SCRIPT_COMMAND( UnitHide, "ub[true]" )
 	CDynamicCast<NWorld::CUnitServer> pUS(luaParams[0].p);
 	if (pUS)
 	{
-		DoCommand( pUS, new NWorld::CCmdHide(), true );
+		DoCommand( pUS, new NWorld::CCmdHide( luaParams[ 1 ].b ), true );
 	}
 	return 0;
 END_SCRIPT_COMMAND

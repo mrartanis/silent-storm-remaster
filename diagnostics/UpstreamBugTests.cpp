@@ -13164,6 +13164,70 @@ static void RunScript(NScript::CScript* script, const char* code)
     pScript = nullptr;
 }
 
+static void ScriptHideState(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,true,&game);
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (unit && !unit->IsAIUnit() && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) { actor = unit; break; }
+    }
+    Require(actor != nullptr, "script Hide state fixture has no human actor");
+    auto* commander = actor->GetPlayer()->GetCommander();
+    Require(commander && !commander->HasCommands() && !actor->HasCommand(),
+        "script Hide state fixture started with native orders");
+    world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer()));
+    Require(!world->IsRealTime() && !world->IsSequence(), "script Hide AP fixture did not enter its native player turn");
+    CObj<NScript::CScript> script = NScript::CreateScript(world);
+    NScript::luaPushCPtr(*script,actor); script->SetGlobal("upstreamActor");
+    RunScript(script,"UnitHide(nil); UpstreamHideReturned=7");
+    auto returned = script->GetGlobal("UpstreamHideReturned");
+    Require(returned.IsNumber() && returned.GetNumber() == 7 && !commander->HasCommands(),
+        "script Hide lost our nil-actor return-without-command behavior");
+    vector<CObj<NWorld::CCmdHide>> requests;
+    for (int option=0;option<3;++option)
+        for (bool initial: {false,true}) {
+            const bool requested = option != 1;
+            actor->EnableHide(); actor->Hide(initial,false); actor->EnableHide();
+            const int ap = actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP);
+            const auto position = actor->GetPosition();
+            const string call = string("UnitHide(upstreamActor")+(option == 0 ? "" : option == 1 ? ",nil" : ",1")+
+                "); UpstreamHideReturned=11";
+            RunScript(script,call.c_str());
+            returned = script->GetGlobal("UpstreamHideReturned");
+            Require(returned.IsNumber() && returned.GetNumber() == 11 && commander->HasCommands(),
+                "script Hide state call did not return with a queued request");
+            CObj<NWorld::CCommand> first = commander->GetCommand();
+            auto* set = dynamic_cast<NWorld::CCmdSetCommand*>(first.GetPtr());
+            auto* hide = set ? dynamic_cast<NWorld::CCmdHide*>(set->GetCmd()) : nullptr;
+            Require(hide && set->pUnit == actor && commander->HasCommands(),
+                "script Hide state lost its actor, payload or Continue");
+            CObj<NWorld::CCommand> second = commander->GetCommand();
+            auto* next = dynamic_cast<NWorld::CCmdSetCommand*>(second.GetPtr());
+            Require(next && next->pUnit == actor && dynamic_cast<NWorld::CCmdContinue*>(next->GetCmd()) &&
+                !commander->HasCommands() && !actor->HasCommand(), "script Hide state changed native queue order or added commands");
+            Require(actor->IsHiding() == initial && actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == ap &&
+                actor->GetPosition().pos.p == position.pos.p, "script Hide changed native state before consumption");
+            NWorld::EUnitCommandResult result;
+            CObj<NWorld::CCommandExecute> executor = NWorld::CreateExecutor(actor,hide,&result);
+            Require(executor && result == NWorld::UCR_OK, "script Hide native executor rejected a valid request");
+            const int cost = !initial && requested ? actor->GetActionAP(NRPG::AC_HIDE) : 0;
+            executor->Run();
+            std::printf("Lua Hide option=%d initial=%d requested=%d actual=%d explicit=%d\n",
+                option,int(initial),int(requested),int(actor->IsHiding()),int(hide->bExplicitState));
+            Require(actor->IsHiding() == requested, "Lua UnitHide toggled hiding instead of applying its requested/default state");
+            Require(actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP) == ap-cost,
+                "Lua Hide changed the original native AP cost");
+            requests.emplace_back(hide);
+        }
+    for (std::size_t i=0;i<requests.size();++i)
+        Require(requests[i]->bExplicitState && requests[i]->bState == (i/2 != 1),
+            "Lua Hide did not preserve its explicit/default request independently of live state");
+    Require(!world->IsAction() && !actor->HasCommand(), "script Hide left an executor or action counter");
+}
+
 enum class DeferredScriptProducer { Animation, Direction, Pose, WishPose, ShootMode, Reload, ActivateWeapon, Hide };
 
 static void DeferredUnitScriptCommand(const char* databasePath,const char* resourcePath,
@@ -15654,6 +15718,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "hide-cooldown") && argc == 4) { HideCooldown(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "explicit-hide-state") && argc == 4) { ExplicitHideState(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "group-hide-shortcut") && argc == 4) { GroupHideShortcut(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "script-hide-state") && argc == 4) { ScriptHideState(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-idle") && argc == 4) { IdleAI(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "mixed-hide-button") && argc == 4) { MixedActionButton(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "mixed-strafe-button") && argc == 4) { MixedActionButton(argv[2], argv[3], false); return true; }
