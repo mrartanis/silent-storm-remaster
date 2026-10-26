@@ -264,8 +264,7 @@ BEGIN_SCRIPT_COMMAND( UnitShoot, "uun" )
 		return 0;
 	//
 	NAI::EHitLocation hl = ( NAI::EHitLocation )( int )luaParams[ 2 ].n;
-	pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdShootObject( pTarget, 0, hl ) ) );
-	pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdContinue() ) );
+	DoCommand( pUS, new NWorld::CCmdShootObject( pTarget, 0, hl ), true );
 	return 0;
 END_SCRIPT_COMMAND
 ////////////////////////////////////////////////////////////////////////////////////////////////////

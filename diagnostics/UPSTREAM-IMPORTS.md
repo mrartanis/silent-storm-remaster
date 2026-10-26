@@ -3106,6 +3106,34 @@ all-build.log, related-test.log, linux-{configure,build,test}.log,
 Другие producers и inventory/UnitHide hunks 14ffbcc8 остаются отдельной работой.
 Формулы и исходные правила выбора позы не редактируются.
 
+## Очередь скриптового выстрела — часть 14ffbcc8
+
+UpstreamDeferredShootCommand использует настоящий вооружённый ordinary actor
+и другого живого юнита с реальной ENEMY diplomacy в world 810. Пустые actor
+и target отдельно проверяют нашу nil-hardening policy: Lua продолжает thread
+и не выдаёт заказ. Compiled runtime RED для корректных объектов: prepare=0,
+body=0, commander-pending=0/unit-command=0. Это потеря queued request;
+тест не утверждает, что непосредственная команда в этом fixture выстрелила.
+
+После RED только UnitShoot переведён на DoCommand с прежним CCmdShootObject.
+GREEN для BODY=0/HEAD=1 проверяет ровно две queued wrappers, actor, target,
+hit location, extra AP=0, prepare=false, reload replacement=false и Continue.
+До consumer не меняются AP, position, weapon identity/ammo и HP/CanFight
+цели, нет unit action. Nil controls сохраняются. Полный выстрел, попадание,
+урон, выбор цели AI и LAN playback этим producer test не проверяются.
+UnitShootPrepare остаётся отдельным ещё не исправленным producer.
+
+Связанные 76/76 прошли на Windows (93.66 с) и Linux (91.19 с), обе Game и
+Windows ALL_BUILD собраны. DisplayRuntimeTests и по 12 FONT-COMPAT controls
+включены. Windows NetworkSerializer/Match/StopResume прошли 3/3 за 19.19 с.
+Текущий CPU base 338 не заявляется новым полным прогоном.
+
+Свидетельства deferred-shoot-command: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log и network-{test,native-test}.log.
+Source 14ffbcc8 остаётся частичным; all281/final actual Actions не завершены.
+
 ## Очередь скриптовой перезарядки — часть 14ffbcc8
 
 UpstreamDeferredReloadCommand выбирает настоящий ordinary actor с оружием

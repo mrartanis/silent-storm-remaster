@@ -13083,6 +13083,67 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
     }
 }
 
+static void DeferredScriptShot(const char* databasePath,const char* resourcePath,bool prepare = false)
+{
+    auto world = FixtureWorld(databasePath,resourcePath,true);
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    NWorld::CUnitServer* target = nullptr;
+    for (auto entry : units) {
+        auto* candidate = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (!candidate || !candidate->CanFight() || candidate->IsEmptyPK() || candidate->IsWearingPK() ||
+            candidate->animator.GetCannon() || !dynamic_cast<NRPG::CWeaponItem*>(candidate->GetUnitRPG()->GetWeaponItem())) continue;
+        for (auto other : units) {
+            auto* enemy = dynamic_cast<NWorld::CUnitServer*>(other.GetPtr());
+            if (enemy && enemy != candidate && enemy->CanFight() && !enemy->IsEmptyPK() && !enemy->IsWearingPK() &&
+                world->GetDiplomacyState(candidate->GetPlayer(),enemy->GetPlayer()) == NDb::DS_ENEMY) {
+                actor = candidate; target = enemy; break;
+            }
+        }
+        if (actor) break;
+    }
+    Require(actor && target,"deferred shot fixture has no real armed actor and distinct living enemy");
+    auto* weapon = actor->GetUnitRPG()->GetWeaponItem();
+    const int ammo = weapon->GetAmmoQuantity(), ap = actor->GetAP();
+    const auto position = actor->GetPosition();
+    NRPG::SUnitInfo before; target->GetInfo(&before);
+    auto* commander = actor->GetPlayer()->GetCommander();
+    Require(IsValid(commander) && !commander->HasCommands() && !actor->HasCommand(),
+        "deferred shot fixture started with an existing native order");
+    CObj<NScript::CScript> script = NScript::CreateScript(world);
+    NScript::luaPushCPtr(*script,actor); script->SetGlobal("upstreamActor");
+    NScript::luaPushCPtr(*script,target); script->SetGlobal("upstreamTarget");
+    const string function = prepare ? "UnitShootPrepare" : "UnitShoot";
+    const string nilControl = function+"(upstreamActor,nil,0); "+function+"(nil,upstreamTarget,0); UpstreamShotReturned = 13";
+    RunScript(script,nilControl.c_str());
+    auto returned = script->GetGlobal("UpstreamShotReturned");
+    Require(returned.IsNumber() && returned.GetNumber() == 13 && !commander->HasCommands() && !actor->HasCommand(),
+        "deferred shot lost the fork's nil hardening or issued an order for a null actor/target");
+    for (auto location : {NAI::HL_BODY,NAI::HL_HEAD}) {
+        const string call = function+"(upstreamActor,upstreamTarget,"+std::to_string(int(location))+"); UpstreamShotReturned = 17";
+        RunScript(script,call.c_str());
+        returned = script->GetGlobal("UpstreamShotReturned");
+        Require(returned.IsNumber() && returned.GetNumber() == 17,"deferred shot Lua callback did not finish");
+        std::printf("native script shot dispatch: prepare=%d location=%d commander-pending=%d unit-command=%d\n",
+            int(prepare),int(location),int(commander->HasCommands()),int(actor->HasCommand()));
+        Require(commander->HasCommands() && !actor->HasCommand(),
+            "native script shot bypasses the owning commander's queue");
+        CObj<NWorld::CCommand> first = commander->GetCommand(), second = commander->GetCommand();
+        auto* set = dynamic_cast<NWorld::CCmdSetCommand*>(first.GetPtr());
+        auto* resume = dynamic_cast<NWorld::CCmdSetCommand*>(second.GetPtr());
+        auto* shot = set ? dynamic_cast<NWorld::CCmdShootObject*>(set->GetCmd()) : nullptr;
+        Require(set && set->pUnit == actor && shot && shot->pTarget == target && shot->eHL == location &&
+            shot->nExtraAttackAP == 0 && shot->bOnlyPrepareToShoot == prepare && !shot->bCanBeReplacedByReload &&
+            resume && resume->pUnit == actor && dynamic_cast<NWorld::CCmdContinue*>(resume->GetCmd()) &&
+            !commander->HasCommands(),"queued native shot lost its target, hit location, flags, actor or ordered Continue");
+        NRPG::SUnitInfo after; target->GetInfo(&after);
+        Require(!actor->HasCommand() && actor->GetAP() == ap && actor->GetPosition().pos.p == position.pos.p &&
+            actor->GetUnitRPG()->GetWeaponItem() == weapon && weapon->GetAmmoQuantity() == ammo &&
+            target->CanFight() && after.nHP == before.nHP,
+            "native script shot changed actor/AP/ammunition or damaged the target before queued command consumption");
+    }
+}
+
 static void ForcedActionRecalc(const char* databasePath,const char* resourcePath)
 {
     for (bool forced : {false,true}) {
@@ -14948,6 +15009,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "deferred-wish-pose-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::WishPose); return true; }
     if (!std::strcmp(mode, "deferred-shoot-mode-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode); return true; }
     if (!std::strcmp(mode, "deferred-reload-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::Reload); return true; }
+    if (!std::strcmp(mode, "deferred-shoot-command") && argc == 4) { DeferredScriptShot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-script-command-order") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode,true); return true; }
     if (!std::strcmp(mode, "script-draw-weapon-slot") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-draw-weapon-command") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3],true); return true; }
