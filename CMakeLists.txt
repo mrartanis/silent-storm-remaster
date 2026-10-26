@@ -861,6 +861,7 @@ add_test(NAME UpstreamWindowMessageCallbacks COMMAND UpstreamBugTests window-mes
 add_test(NAME UpstreamWindowCallbackLifetime COMMAND UpstreamBugTests window-callback-lifetime)
 add_test(NAME UpstreamWindowLazyUpdate COMMAND UpstreamBugTests window-lazy-update)
 add_test(NAME UpstreamComboPopupClipping COMMAND UpstreamBugTests combo-popup-clipping)
+add_test(NAME UpstreamComboPopupItemWidth COMMAND UpstreamBugTests combo-popup-item-width)
 add_test(NAME UpstreamWindowNestedWakeup COMMAND UpstreamBugTests window-nested-wakeup)
 add_test(NAME UpstreamOwnerlessInventoryDrag COMMAND UpstreamBugTests ownerless-inventory-drag)
 add_test(NAME UpstreamUnsupportedNavigationFloor COMMAND UpstreamBugTests unsupported-navigation-floor)

@@ -4100,7 +4100,7 @@ static void NewLayerCompactSave()
     }
 }
 
-static void ComboPopupClipping()
+static void ComboPopupClipping(bool itemWidth = false)
 {
     CObj<NUI::CInterface> root = new NUI::CInterface;
     root->SetInterface(root); root->SetSize(NUI::SPoint(640,480)); root->SetPosition(NUI::SPoint(20,10));
@@ -4132,6 +4132,28 @@ static void ComboPopupClipping()
             "native combo lost interface coordinates, right alignment or remaster artwork width");
     };
     update(); open(); check();
+    if (itemWidth) {
+        auto* wide = popup->GetItem(9);
+        wide->SetSize(NUI::SPoint(250,22)); update();
+        NUI::SPoint position; NUI::SRect clip; wide->ClientToScreen(&position,&clip);
+        std::printf("native combo row width=%d popup width=%d row-end hit=%d\n",wide->GetSize().x,popup->GetSize().x,
+            int(wide->HitTest(position.x+240,position.y+10)));
+        Require(wide->HitTest(position.x+240,position.y+10),"native combo popup clips an item wider than its closed field");
+        auto width = [&](int expected) {
+            NUI::SPoint field, list; NUI::SRect clip;
+            combo->ClientToScreen(&field,&clip); popup->ClientToScreen(&list,&clip);
+            Require(popup->GetSize() == NUI::SPoint(expected,44) && list.x+expected == field.x+combo->GetSize().x,
+                "native item-width layout lost the field right edge, list height or remaster artwork minimum");
+        };
+        width(250);
+        combo->SetSize(NUI::SPoint(300,18)); update(); width(300);
+        combo->SetSize(NUI::SPoint(80,18)); update(); width(250);
+        wide->SetSize(NUI::SPoint(100,22)); update(); width(160);
+        combo->RemoveAllItems(); update();
+        Require(popup->GetSize() == NUI::SPoint(160,0) && combo->GetSelectedItem() == -1,
+            "empty native combo lost the remaster artwork width or retained rows");
+        return;
+    }
     panel->SetPosition(NUI::SPoint(150,90)); combo->SetSize(NUI::SPoint(60,18)); update(); check();
     // An older native UI graph can still carry the popup below its row.
     { CMObj<NUI::CWindow> hold = popup.GetPtr(); root->RemoveChild(popup); row->AddChild(popup); }
@@ -13791,6 +13813,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "window-callback-lifetime")) { WindowCallbackLifetime(); return true; }
     if (!std::strcmp(mode, "window-lazy-update")) { WindowLazyUpdate(); return true; }
     if (!std::strcmp(mode, "combo-popup-clipping")) { ComboPopupClipping(); return true; }
+    if (!std::strcmp(mode, "combo-popup-item-width")) { ComboPopupClipping(true); return true; }
     if (!std::strcmp(mode, "window-nested-wakeup")) { WindowNestedWakeup(); return true; }
     if (!std::strcmp(mode, "window-template-script")) { Require(argc == 3, "window template script requires db"); WindowTemplateScript(argv[2]); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }

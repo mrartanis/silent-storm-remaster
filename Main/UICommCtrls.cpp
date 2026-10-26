@@ -1552,7 +1552,13 @@ bool CComboBox::Update( const STime &sTime, NGScene::I2DGameView *pView )
 	ClientToScreen( &position, &clip );
 	if ( IsValid( pPopupParent ) )
 		pPopupParent->ScreenToClient( position, &position );
-	const int popupWidth=Max(pList->GetAuthoredSize().x,GetSize().x);
+	if ( nPopupArtworkWidth < 0 )
+		nPopupArtworkWidth = pList->GetAuthoredSize().x;
+	int popupWidth = Max( nPopupArtworkWidth, GetSize().x );
+	list<CPtr<CWindow> > items;
+	pList->GetItemsList( &items );
+	for ( list<CPtr<CWindow> >::const_iterator item = items.begin(); item != items.end(); ++item )
+		popupWidth = Max( popupWidth, (*item)->GetSize().x );
 	pList->SetPosition(SPoint(position.x+GetSize().x-popupWidth,position.y+GetSize().y));
 	pList->SetSize(SPoint(popupWidth,pList->GetSize().y));
 	bool enabled = true, visible = true;

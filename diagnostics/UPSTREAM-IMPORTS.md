@@ -2618,6 +2618,42 @@ encoded-load-name-green-{build,test}.log, encoded-load-name-game-build.log
 и сохранённые native success logs. Использованы прежние каталоги сборки,
 HD generation не запускалась, собственные тестовые процессы завершены.
 
+## Ширина выпадающего списка по его пунктам — завершение c0f64c74
+
+Независимый compiled runtime RED после фикса clipping: настоящий CComboBoxItem
+имеет ширину 250, popup остаётся 160, HitTest у правого края пункта false.
+Новый resource-free UpstreamComboPopupItemWidth использует тот же настоящий
+оконный путь и проверяет доступность края, а не только численное поле ширины.
+Геометрия пунктов задаётся native SetSize; это не проверка отрисовки конкретного
+DB-template или текста.
+
+В существующий CComboBox::Update добавлен максимум ширин реальных пунктов.
+В отличие от буквального upstream override списка, позиция и ширина вычисляются
+вместе, сохраняя наше выравнивание по правой границе. Начальная либо восстановленная
+ширина popup остаётся минимальной шириной artwork; runtime cache вынесен за ZDATA,
+старые поля и номера сохранений не меняются. Поэтому временное расширение под
+широкий пункт не превращается в постоянный новый минимум при обычном обновлении.
+
+GREEN проверяет доступность всего пункта, размеры 160 -> 250 -> 300 -> 250 -> 160,
+прежнюю высоту списка и правую границу при изменении поля/пункта; пустой список
+сохраняет artwork minimum и имеет нулевую высоту. Предыдущая native clipping
+fixture также остаётся обязательной. Шрифты, изображения, HD pack, правила игры
+и сериализация списка не переписываются.
+
+Финальный код: Windows ALL_BUILD и обе Game собраны, связанные 27/27 на Windows
+(19.44 с) и Linux (57.11 с), локальные CI-like 274/274 (26.57 с).
+DisplayRuntimeTests проходит те же пять размеров до 3840x2160, сохранены 12
+FONT-COMPAT controls на каждой платформе. Current CPU count 321; это не новый
+полный прогон всех 321 и не результат окончательного GitHub Actions.
+Свидетельства: combo-popup-item-width-red-{build,test}.log,
+combo-popup-item-width-green-{build,test}.log,
+combo-popup-item-width-final-all-build.log,
+combo-popup-item-width-final-related-test.log,
+combo-popup-item-width-final-ci-test.log,
+combo-popup-item-width-final-linux-{configure,build,test}.log и native success logs.
+Оба полезных hunk c0f64c74 перенесены с адаптацией к нашему layout; источник
+полностью учтён. Сборки переиспользованы, HD generation выключена.
+
 ## Выпадающий список вне clip вложенной строки — часть c0f64c74
 
 Новый resource-free UpstreamComboPopupClipping создаёт настоящие CInterface,

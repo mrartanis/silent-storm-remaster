@@ -446,6 +446,7 @@ public:
 	};
 
 private:
+	int nPopupArtworkWidth = -1; // Runtime only: retain the initial/restored popup artwork minimum.
 	ZDATA_(CWindow)
 	CObj<CWindow> pSelected;
 	CPtr<CWindow> pSelectedView;
