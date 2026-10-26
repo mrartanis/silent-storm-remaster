@@ -249,6 +249,7 @@
 | [d919d910](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d919d91066b15951e2a14cc4c78e70745aa0ea88) — Clamp shooting torso animation turns without changing the selected aim | `the native shooting animation twisted the torso past its allowed horizontal angle` | 25/25; `shooting-torso-turn-limit` | `Upstream-Commit` в commit message |
 | [394d64fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/394d64fb59f1f82e80cc928bf195e0280cfb7999) — Log successful hit rolls at the equality boundary | `a native hit-roll equality returned the hit ratio but was logged as a miss` | 10/10; `hit-roll-equality-log` | `Upstream-Commit` в commit message |
 | [d919d910](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d919d91066b15951e2a14cc4c78e70745aa0ea88) — Preserve homogeneous coordinates when unprojecting native rays | `a translated native projective ray disagreed with the renderer's homogeneous point conversion` | 9/9; `projective-ray-unprojection` | `Upstream-Commit` в commit message |
+| [7de2769d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7de2769dedfde7e6cf1ddabfcb4dfee8dc05404c) — Freeze shared facial idle when native units are incapacitated | `a downed native world unit left its shared portrait head in living facial idle` | 14/14; `downed-head-idle` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

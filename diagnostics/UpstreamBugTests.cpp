@@ -34,6 +34,8 @@
 #include "../Main/Sound.h"
 #include "../Main/RWSound.h"
 #include "../Main/RWGame.h"
+#include "../Main/LSController.h"
+#include "../Main/LSHead.h"
 #include "../Main/SoundFormat.h"
 #include "../Misc/BasicShare.h"
 #include "../FModSound/FMsound.h"
@@ -100,6 +102,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/RPGAttackMech.h"
 #include "../Main/aiPath.h"
 #include "../Main/GAnimParticles.h"
+#include "../Main/GParticleInfo.h"
 #include "../Main/GAnimation.h"
 #include "../Main/GDecalGeometry.h"
 #include "../Main/GCombiner.h"
@@ -8557,6 +8560,87 @@ static void HitRollEqualityLog(const char* databasePath,const char* resourcePath
         !actor->HasCommand(), "checking hit-roll diagnostics changed AP/VP/ammunition or issued a gameplay order");
 }
 
+
+// Native world/render/head-controller code runs unchanged; this sink records CPU
+// head animators and retains their inputs without creating GPU resources.
+class HeadStateView: public NGScene::GameViewFixture
+{
+    OBJECT_NOCOPY_METHODS(HeadStateView);
+    vector<CObj<CObjectBase>> inputs;
+    template<class T> void Keep(T* object) { if (object) inputs.push_back(object); }
+public:
+    std::map<const NLSHead::CHeadInfo*,NLSHead::CHeadAnimator*> heads;
+    NGScene::CLightGroup* CreateLightGroup() override { return nullptr; }
+    CObjectBase* CreateSkin(NDb::CModel*,CFuncBase<NAnimation::SSkeletonPose>* pose,const NGScene::SFullRoomInfo&) override { Keep(pose); return nullptr; }
+    CObjectBase* CreateMesh(NDb::CModel*,CFuncBase<SFBTransform>* pose,const NGScene::SFullRoomInfo&) override { Keep(pose); return nullptr; }
+    CObjectBase* CreateMesh(NDb::CModel*,const SFBTransform&,const NGScene::SFullRoomInfo&) override { return nullptr; }
+    CObjectBase* CreateOccluder(NDb::CAIGeometry*,const SFBTransform&,const NGScene::SRoomInfo&) override { return nullptr; }
+    CObjectBase* CreateOccluder(NDb::CAIGeometry*,NDb::CSkeleton*,CFuncBase<NAnimation::SSkeletonPose>* pose,const NGScene::SRoomInfo&) override { Keep(pose); return nullptr; }
+    CObjectBase* CreateTerrainRegion(CFuncBase<STerrainInfo>* info,CVersioningBase*,const SRandomSeed&,const CTRect<int>&,const list<CObj<CPtrFuncBase<CTerrainPart>>>&,NGScene::CGrassTracker*,const NGScene::SFullRoomInfo&) override { Keep(info); return nullptr; }
+    CObjectBase* CreateTerrainWall(CPtrFuncBase<CTerrainPart>* part,NDb::CTexture*,const NGScene::SFullRoomInfo&) override { Keep(part); return nullptr; }
+    CObjectBase* CreateGrassSector(NGScene::CGrassAnimator*,NDb::CTexture*,CFuncBase<SFBTransform>* pose,const SBound&,const NGScene::SRoomInfo&) override { Keep(pose); return nullptr; }
+    NGScene::CBuilding* CreateBuildingPart(int,const SMapBuilding&,NBuilding::CBuildingInfoHold*) override { return nullptr; }
+    CObjectBase* AddDirectionalLight(const CVec3&,const CVec3&,const CVec3&,const CVec2&,float,bool) override { return nullptr; }
+    CObjectBase* AddPointLight(const CVec3&,const CVec3&,float,bool) override { return nullptr; }
+    CObjectBase* AddSpotLight(const CVec3&,const CVec3&,const CVec3&,float,float,NDb::CTexture*,bool) override { return nullptr; }
+    CObjectBase* AddFlare(CFuncBase<CVec3>* position,CFuncBase<STime>* time,int,float,NDb::CTexture*,float,float) override { Keep(position); Keep(time); return nullptr; }
+    CObjectBase* CreateParticles(NDb::CEffect*,STime,CFuncBase<STime>* time,CFuncBase<SFBTransform>* pose,const NGScene::SRoomInfo&,NAnimation::CSkeletonAnimator* skeleton,NGScene::IParticleFilter* filter) override { Keep(time); Keep(pose); Keep(skeleton); Keep(filter); return nullptr; }
+    CObjectBase* CreateParticles(NDb::CEffect*,STime,CFuncBase<STime>* time,const SFBTransform&,const NGScene::SRoomInfo&,NGScene::IParticleFilter* filter) override { Keep(time); Keep(filter); return nullptr; }
+    CObjectBase* Precache(NDb::CModel*) override { return nullptr; }
+    void SetFogBaseHeight(float) override {}
+    CObjectBase* CreateLSHead(NDb::CComplexHead*,CPtrFuncBase<NGScene::CObjectInfo>* animator,CFuncBase<STime>* time,
+        CFuncBase<SFBTransform>* pose,bool,const SRandomSeed&,bool,const NGScene::SRoomInfo&,CPtrFuncBase<NGfx::CTexture>*,const NLSHead::CHeadInfo* head) override {
+        auto* native = dynamic_cast<NLSHead::CHeadAnimator*>(animator);
+        Require(native && head,"downed-head fixture did not receive the native shared head animator");
+        heads[head] = native; Keep(animator); Keep(time); Keep(pose);
+        return nullptr;
+    }
+};
+
+static void DownedHeadIdle(const char* databasePath,const char* resourcePath,bool dead)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (unit && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK() && unit->IsAddedToVisitor()
+                && unit->GetDBHead() && unit->GetDBHead()->pHead) { actor = unit; break; }
+    }
+    Require(actor != nullptr,"downed-head fixture has no ordinary live actor with a facial head");
+    CObj<HeadStateView> view = new HeadStateView;
+    CObj<NRender::IRenderGame> render = NRender::CreateRenderGame(world,view,nullptr);
+    auto update = [&]() { render->UpdateViewWorld(false,world->GetTime()->GetValue(),nullptr,true); };
+    update();
+    auto* head = actor->GetHeadInfo();
+    Require(view->heads.count(head) == 1,"native world render did not visit the actor's head");
+    auto* animator = view->heads.at(head);
+    Require(animator == render->GetHeadController()->GetAnimator(head),"world render and controller did not share the native head");
+    CObj<NRender::IShowUnit> portrait = NRender::CreateShowUnit(view,static_cast<NWorld::CUnit*>(actor),world->GetTime(),render,false,true,true);
+    portrait->Update(0);
+    Require(view->heads.at(head) == animator && animator->GetIdleType() == NLSHead::IDLE_NORMAL,
+        "living native portrait did not arm facial idle on the shared world head");
+    const auto position = actor->GetPosition();
+    if (dead) actor->KillUnit(VNULL3);
+    else actor->MakeUnconscious(VNULL3,true,false);
+    Require(!actor->CanFight() && (dead ? actor->IsDead() : actor->IsUnconscious()),
+        "downed-head fixture did not enter its actual native incapacitated state");
+    const int vp = actor->GetUnitRPG()->GetTotalVP(), ap = actor->GetAP();
+    update();
+    std::printf("native %s head idle=%d\n",dead ? "dead" : "unconscious",int(animator->GetIdleType()));
+    Require(animator->GetIdleType() == NLSHead::IDLE_DEATH,
+        "a downed native world unit left its shared portrait head in living facial idle");
+    portrait->Update(0);
+    Require(animator->GetIdleType() == NLSHead::IDLE_DEATH,"refreshing a downed native portrait restarted living facial idle");
+    portrait = nullptr;
+    Require(animator->GetIdleType() == NLSHead::IDLE_DEATH,"removing a downed portrait reset the frozen facial idle");
+    Require(actor->GetUnitRPG()->GetTotalVP() == vp && actor->GetAP() == ap &&
+        actor->GetPosition().pos.p == position.pos.p && !actor->CanFight(),
+        "refreshing downed head presentation changed health, AP, position or combat eligibility");
+}
+
 static void ProjectiveRayUnprojection()
 {
     float worst = 0;
@@ -11808,6 +11892,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "default-item-detachment")) { Require(argc == 4, "item detachment requires db and res"); DefaultItemDetachment(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "unit-hit-roll-equality-log")) { Require(argc == 4, "unit hit log requires db and res"); HitRollEqualityLog(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "tile-hit-roll-equality-log")) { Require(argc == 4, "tile hit log requires db and res"); HitRollEqualityLog(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "dead-head-idle") && argc == 4) { DownedHeadIdle(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "unconscious-head-idle") && argc == 4) { DownedHeadIdle(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "projective-ray-unprojection")) { ProjectiveRayUnprojection(); return true; }
     if (!std::strcmp(mode, "shooting-torso-turn-limit")) { Require(argc == 4, "shooting torso limit requires db and res"); ShootingTorsoTurnLimit(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "grenade-throw-animation-refresh")) { Require(argc == 4, "grenade animation requires db and res"); GrenadeThrowAnimationRefresh(argv[2],argv[3]); return true; }
