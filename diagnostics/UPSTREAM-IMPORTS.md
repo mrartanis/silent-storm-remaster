@@ -2930,6 +2930,48 @@ green-{build,test}.log, green-native-test.log, all-build.log, related-test.log,
 linux-{configure,build,test}.log и {windows,linux}-native-test.log.
 Все hunks 68595fd2 учтены. All281 и final actual GitHub Actions ещё не завершены.
 
+## Сценарная анимация через очередь командира — часть 51a184b8
+
+UpstreamDeferredAnimationCommand использует настоящий human roster actor world
+810, native CScript/UnitPlayAnimation и существующий authored animation 4437.
+Lua выполняется через штатный ExecuteThreads, без последующего world step,
+поэтому граница producer/consumer наблюдается непосредственно. Compiled runtime
+RED: Lua вернулась успешно, commander-pending=0, unit-command=1 — действие
+установлено немедленно из сценарного вызова.
+
+Добавлен общий NScript::DoCommand из source и переведён только command-mode
+UnitPlayAnimation. Он ставит CCmdSetCommand с animation, затем с Continue
+на существующий owning commander. В нашей адаптации входной command удерживается
+CObj до передачи, включая invalid-owner возврат; native queue и её формат
+не меняются. Freeze-last-frame флаг передаётся прежним образом.
+
+GREEN проверяет commander-pending=1/unit-command=0 для freeze false/true,
+извлекает две настоящие queued CCmdSetCommand и проверяет target actor,
+animation 4437, freeze и точный порядок Continue без лишних записей. Actor
+не получает действие, AP и положение не меняются до исполнения очереди.
+Custom-idle ветка возвращается из Lua без новых queued commands; само её
+присваивание и движок анимации не переписываются. Тест не исполняет queued
+действия и не заявляет clip/face pixels, устранение конкретного визуального
+рывка или сетевое воспроизведение этой анимации.
+
+Связанные script/animation/forced/recalc/cannon/movement/door случаи плюс native
+medal и GPU/display прошли 42/42 на Windows (44.25 с) и Linux (41.33 с).
+Обе Game и Windows ALL_BUILD собраны; по 12 FONT-COMPAT controls сохранены.
+Windows NetworkSerializer/Match/PartialMovement/StopResume прошли 4/4 за 24.97 с.
+Наши LAN validation и wire types не меняются; эти четыре проверки не являются
+отдельным тестом script animation по сети.
+
+Свидетельства deferred-animation-command: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log, network-test.log и network-native-test.log.
+51a184b8 остаётся частичным: dismount clip, recalc/stop flags и forced-action
+условия требуют самостоятельной проверки с учётом нашего lifecycle. Общий
+helper теперь доступен для оставшихся producers source 14ffbcc8; они ещё
+не перенесены. Полный последний checkpoint CPU base 324 предшествует двум
+новым случаям, полный новый CPU base 326 здесь не заявляется. All281/final
+actual GitHub Actions остаются незавершёнными.
+
 ## Выпадающий список вне clip вложенной строки — часть c0f64c74
 
 Новый resource-free UpstreamComboPopupClipping создаёт настоящие CInterface,

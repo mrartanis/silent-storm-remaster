@@ -8,6 +8,7 @@
 #include "A5Script.h"
 #include "wMain.h"
 #include "wUnitServer.h"
+#include "wUnitCommands.h"
 #include "wUnitGroup.h"
 #include "wOSBase.h"
 #include "../DBFormat/DataCamera.h"
@@ -35,6 +36,19 @@ namespace NScript
 {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static void ShowLuaLog( const string &szFuncName, std::uintptr_t nThread, const vector<SLuaParams> &params, bool bOK );
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void DoCommand( NWorld::CUnitServer *pUnit, NWorld::CCmd *pCmd, bool bContinue )
+{
+	CObj<NWorld::CCmd> hold = pCmd;
+	if ( !IsValid( pCmd ) || !IsValid( pUnit ) || !IsValid( pUnit->GetPlayer() ) )
+		return;
+	CPtr<NWorld::CCommander> commander = pUnit->GetPlayer()->GetCommander();
+	if ( !IsValid( commander ) )
+		return;
+	commander->Do( new NWorld::CCmdSetCommand( pUnit, pCmd ) );
+	if ( bContinue )
+		commander->Do( new NWorld::CCmdSetCommand( pUnit, new NWorld::CCmdContinue() ) );
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int luaGetParamCount( lua_State* pState )
 {

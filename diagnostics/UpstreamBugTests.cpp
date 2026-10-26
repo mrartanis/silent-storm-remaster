@@ -12907,6 +12907,51 @@ static void RunScript(NScript::CScript* script, const char* code)
     pScript = nullptr;
 }
 
+static void DeferredAnimationCommand(const char* databasePath,const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath,resourcePath,true);
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto unit : units) {
+        auto* candidate = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if (candidate && !candidate->IsAIUnit() && candidate->CanFight()) { actor = candidate; break; }
+    }
+    Require(actor != nullptr,"deferred animation fixture has no actual roster actor");
+    auto* commander = actor->GetPlayer()->GetCommander();
+    Require(IsValid(commander) && !commander->HasCommands() && !actor->HasCommand(),
+        "deferred animation fixture started with a pending native order");
+    auto* animation = NDb::GetAnimation(4437);
+    Require(IsValid(animation),"deferred animation fixture has no authored script-animation record");
+    CObj<NScript::CScript> script = NScript::CreateScript(world);
+    NScript::luaPushCPtr(*script,actor); script->SetGlobal("upstreamActor");
+    const auto position = actor->GetPosition(); const int ap = actor->GetAP();
+    for (bool freeze : {false,true}) {
+        const string code = "UnitPlayAnimation(upstreamActor,4437,nil,"+string(freeze ? "1" : "nil")+
+            "); UpstreamAnimationReturned = 19";
+        RunScript(script,code.c_str());
+        auto returned = script->GetGlobal("UpstreamAnimationReturned");
+        Require(returned.IsNumber() && returned.GetNumber() == 19,"native animation script did not finish its call");
+        std::printf("native script animation dispatch: freeze=%d commander-pending=%d unit-command=%d\n",
+            int(freeze),int(commander->HasCommands()),int(actor->HasCommand()));
+        Require(commander->HasCommands() && !actor->HasCommand(),
+            "native script animation executes immediately instead of entering the owning commander's queue");
+        CObj<NWorld::CCommand> first = commander->GetCommand(), second = commander->GetCommand();
+        auto* set = dynamic_cast<NWorld::CCmdSetCommand*>(first.GetPtr());
+        auto* resume = dynamic_cast<NWorld::CCmdSetCommand*>(second.GetPtr());
+        auto* play = set ? dynamic_cast<NWorld::CCmdPlayAnimation*>(set->GetCmd()) : nullptr;
+        Require(set && set->pUnit == actor && play && play->nDBAnimationID == 4437 &&
+            play->bFreezeAfterLastFrame == freeze,"queued native animation lost its unit, clip or freeze parameter");
+        Require(resume && resume->pUnit == actor && dynamic_cast<NWorld::CCmdContinue*>(resume->GetCmd()) &&
+            !commander->HasCommands(),"native animation did not queue exactly one ordered Continue");
+        Require(!actor->HasCommand() && actor->GetAP() == ap &&
+            actor->GetPosition().pos.p == position.pos.p,"queueing a script animation executed an actor action");
+    }
+    RunScript(script,"UnitPlayAnimation(upstreamActor,4437,1); UpstreamAnimationReturned = 23");
+    auto returned = script->GetGlobal("UpstreamAnimationReturned");
+    Require(returned.IsNumber() && returned.GetNumber() == 23 && !commander->HasCommands() && !actor->HasCommand(),
+        "native custom-idle animation was incorrectly converted into a queued action");
+}
+
 static void ScriptedEnemyDeath(const char* databasePath,const char* resourcePath, bool spareUnconscious = false)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -14559,6 +14604,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "door-collision")) { DoorCollision(); return true; }
     if (!std::strcmp(mode, "door-swing-direction") && argc == 4) { DoorSwingDirection(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "door-approach-heading") && argc == 4) { DoorApproachHeading(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "deferred-animation-command") && argc == 4) { DeferredAnimationCommand(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "overlapping-doors")) { OverlappingDoors(); return true; }
     if (!std::strcmp(mode, "weapon-familiarity")) { WeaponFamiliarity(); return true; }
     if (!std::strcmp(mode, "clue-slots")) { ClueSlotSelection(); return true; }
