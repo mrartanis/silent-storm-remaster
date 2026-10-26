@@ -2504,24 +2504,8 @@ void CMission::ExecWorldCommands()
 					eDiplomacy == NDb::DS_ENEMY ? GetSelectionColor( 2 ) : GetSelectionColor( 5 ) );
 			}
 		}
-		// LUA convergence PART B: PlaySound opens a sound channel on the mission's sound scene and
-		// parks the live handle in the command (retail CMissionBase::ExecWorldCommand @0x1a30c0:
-		// CUICmdPlaySound -> soundsList add channel). StopSound later releases pChannel to stop it.
-		// (Only the 2D path here; the 3D path -- Add3DSound, managed by the render-sound sync -- is a
-		// follow-up once Play3DSound lands.)
-		else if ( CDynamicCast<NWorld::CUICmdPlaySound>( pCmd ) )
+		else if ( ExecWorldSoundCommand( pCmd ) )
 		{
-			NWorld::CUICmdPlaySound *pPlaySound = CDynamicCast<NWorld::CUICmdPlaySound>( pCmd );
-			if ( IsValid( pPlaySound->pSound ) )
-			{
-				if ( pPlaySound->b3DSound )
-					// NSound::CSound is opaque here (defined in Sound.cpp); it derives from CObjectBase
-					// at offset 0 (single inheritance), so reinterpret to park it in the generic handle.
-					pPlaySound->pChannel = reinterpret_cast<CObjectBase *>(
-						GetSoundScene()->Add3DSound( pPlaySound->pSound, new NGScene::CCVec3( pPlaySound->vPos ), GetTime() ) );
-				else
-					pPlaySound->pChannel = GetSoundScene()->Add2DSound( pPlaySound->pSound );
-			}
 		}
 		// LUA convergence PART B: PlayEffect spawns a particle effect at the command's position and parks the
 		// live handle (retail CMissionBase::ExecWorldCommand @0x1a30c0: GetEffect + MakeTransform + render).

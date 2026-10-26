@@ -257,6 +257,7 @@
 | [e9dc218f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e9dc218fcbf45f8ae952b0381112beba1193ca02) — Initialize the native campaign chapter world and saved mission graph | `the native chapter initialized without the world required by its saved mission state` | 9/9; `chapter-world-graph` | `Upstream-Commit` в commit message |
 | [e9dc218f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e9dc218fcbf45f8ae952b0381112beba1193ca02) — Queue chapter entry scripts in their native world context | `the native chapter never evaluated its assigned ScriptID entry point` | 23/23; `chapter-script-initialization` | `Upstream-Commit` в commit message |
 | [e9dc218f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e9dc218fcbf45f8ae952b0381112beba1193ca02) — Resume chapter sound when a native menu returns focus | `returning from a native menu left the chapter audio channel permanently paused` | 24/24; `chapter-focus-audio` | `Upstream-Commit` в commit message |
+| [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Stop scripted sound through the mission-owned channel list | `native Lua StopSound cleared its weak handle but left the actual sound playing` | 43/43; `script-sound-stop` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1773,3 +1774,33 @@ GitHub Actions для этой кодовой ревизии:
 `checkpoint-309-upstream-test.log`, `checkpoint-309-linux-*`,
 `checkpoint-309-ci-test.log`, `checkpoint-309-network-green-test.log`,
 `checkpoint-309-world-green-test.log` и журналы отдельных фиксов выше.
+
+### StopSound и владение звуком сценариев
+
+Из e399ef89 отдельно перенесена общая обработка звуковой команды и владение
+каналами в CMissionBase::soundsList. На текущем коде форка оба native RED
+подтвердили: StopSound очищал слабую ссылку команды, но настоящий 2D- или
+3D-канал продолжал играть. Теперь StopSound ставит команду обратно в очередь
+без записи звука, а обработчик удаляет соответствующего владельца канала.
+Сохранены existing tag38 списка каналов и слабый tag5 ссылки команды.
+Собственный звуковой backend и порядок исполнения Lua не заменяются.
+
+Два теста исполняют настоящие PlaySound/Play3DSound/StopSound в Lua мира,
+вызывают существующий CMission::ExecWorldCommands и sound scene, декодируют
+PCM и проверяют реальные каналы/курсоры через native headless mixer.
+Проверены повторная остановка без перезапуска, независимый контрольный канал,
+продолжение воспроизведения после GC уже обработанной команды и освобождение
+звука при освобождении миссии. Сохранность команды ДО её обработки при
+неприсвоенном результате PlaySound этим не заявляется — это отдельная проверка.
+Физический вывод на динамики и GPU-картинка не проверяются.
+
+Для изоляции исправления сохранён прежний GetTime в аргументе старта 3D-звука.
+Изменение этого аргумента на 0 из того же upstream требует собственного RED.
+Частота GC не менялась. Общий обработчик теперь доступен CMissionBase,
+но его подключение к циклам backdrop/главы ещё не считается перенесённым.
+
+Связанный набор с регистрацией — 43/43 на Windows (33.03 с) и Linux
+(31.74 с), обе игры собраны. Последний полный checkpoint — 309,
+текущее полное число проверок — 311. Свидетельства:
+`script-sound-stop-{red,green}-{build,test}.log`,
+`script-sound-stop-game-build.log`, `script-sound-stop-linux-*`.

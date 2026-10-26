@@ -142,6 +142,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Script/lstate.h"
 #include "../Script/lgc.h"
 #include "../Main/scriptPtr.h"
+#include "../Main/scriptPosition.h"
 #include "../Main/aiMisc.h"
 #include "../Main/wOSBase.h"
 #include "../Main/aiInterval.h"
@@ -4371,6 +4372,98 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     // Deliberately exclude mission scripts: this fixture isolates AI scheduling.
     world->RunPostInit(nullptr);
     return world;
+}
+
+class ScriptSoundDispatchMission: public NGame::CMission
+{
+    OBJECT_NOCOPY_METHODS(ScriptSoundDispatchMission);
+    CObj<NUI::CDesktopWindow> desktop;
+public:
+    void Attach(NWorld::CWorld* world,NRPG::CGlobalGame* game,NSound::ISoundScene* scene) {
+        pWorld = world; pGlobalGame = game; pSoundScene = scene; desktop = new NUI::CDesktopWindow;
+    }
+    NUI::CDesktopWindow* GetDesktop() const override { return desktop; }
+    void Drain() { ExecWorldCommands(); }
+};
+
+static void ScriptSoundStop(const char* databasePath,const char* resourcePath,bool spatial)
+{
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+    Require(std::getenv("S2_AUDIO_HEADLESS") != nullptr,"script sound fixture requires headless native audio");
+    Require(NFMSound::Init(NFMSound::SStartInfo()),"script sound fixture could not initialize native audio");
+    struct AudioCleanup { ~AudioCleanup() { ClearHoldQueue(); NFMSound::Done(); } } audioCleanup;
+    NFMSound::SetMusicMasterVolume(0);
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    while (auto* pending = world->GetUICommand()) { CObj<NWorld::CUICmd> release = pending; }
+    CObj<NSound::ISoundScene> scene = NSound::CreateSoundScene(nullptr,nullptr,world->GetAimTime());
+    CObj<ScriptSoundDispatchMission> mission = new ScriptSoundDispatchMission;
+    mission->Attach(world,game,scene);
+    CDBIterator<NDb::CSound> sounds(*NDatabase::GetTable<NDb::CSound>());
+    Require(sounds.MoveNext(),"script sound fixture has no native sound record");
+    auto* record = sounds.Get(); record->bLoop = true; record->nStartSamples = record->nEndingSamples = 0;
+    const auto wave = SilentPCMFixture(44100);
+    CObj<NFMSound::CSample2D> sample2D = NFMSound::LoadSample2D(wave.data(),static_cast<int>(wave.size()));
+    CObj<NFMSound::CSample3D> sample3D = NFMSound::LoadSample3D(wave.data(),static_cast<int>(wave.size()),1.f,100.f,0);
+    Require(IsValid(sample2D) && IsValid(sample3D),"script sound fixture could not decode its native PCM samples");
+    CObj<NSound::CFileSample2D> loader2D = NSound::share2DSamples.Get(record->GetRecordID());
+    CObj<NSound::CFileSample3D> loader3D = NSound::share3DSamples.Get(record->GetRecordID());
+    (loader2D.GetPtr()->*CachedChapterSampleAccess::ValueMember()) = sample2D.GetPtr();
+    (loader3D.GetPtr()->*CachedEffectSampleAccess::ValueMember()) = sample3D.GetPtr();
+    auto* script = world->GetOwnScript();
+    Require(IsValid(script),"script sound fixture has no actual world Lua state");
+    CObj<NScript::CLUAObjectPosition> position = new NScript::CLUAObjectPosition(CVec3(0,0,0));
+    NScript::luaPushCObj(script->GetState(),position); script->SetGlobal("SoundPosition");
+    CObj<ICamera> camera = ::CreateCamera(CAMERA_PC);
+    CTransformStack transform; camera->GetTransform(&transform,CVec2(1024,768));
+    vector<float> output(512*2);
+    auto render = [&]() { Require(S2FmodRenderForTest(output.data(),512) != 0,"script sound fixture could not render native PCM"); };
+    auto run = [&](const string& code) {
+        Require(script->DoString(code.c_str()) == 0,"script sound fixture could not queue its native Lua command");
+        world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);
+        mission->Drain(); scene->Draw(&transform);
+    };
+    const string play = spatial ? "Play3DSound("+std::to_string(record->GetRecordID())+",SoundPosition)" :
+        "PlaySound("+std::to_string(record->GetRecordID())+")";
+    auto channelExcept = [&](int except) {
+        int found = -1;
+        for (int i = 0; i < 128; ++i) if (i != except && FSOUND_IsPlaying(i)) {
+            Require(found == -1,"script sound fixture has an unexpected extra channel"); found = i;
+        }
+        return found;
+    };
+    run("PlayHandle = "+play);
+    const int played = channelExcept(-1);
+    Require(played >= 0,"native Lua PlaySound dispatch did not start a real PCM channel");
+    render();
+    Require(FSOUND_GetCurrentPosition(played) > 0,"native scripted sound never advanced before StopSound");
+    CObj<NFMSound::CSound2D> independent = NFMSound::PlaySound(sample2D);
+    const int control = channelExcept(played);
+    Require(IsValid(independent) && control >= 0,"script sound fixture did not start its unrelated control");
+    run("StopSound(PlayHandle)");
+    render();
+    Require(!FSOUND_IsPlaying(played),"native Lua StopSound cleared its weak handle but left the actual sound playing");
+    Require(FSOUND_IsPlaying(control) && FSOUND_GetCurrentPosition(control) > 0,
+        "stopping a scripted sound stopped an unrelated native channel");
+    const unsigned beforeControl = FSOUND_GetCurrentPosition(control);
+    run("StopSound(PlayHandle)"); render();
+    Require(channelExcept(control) == -1 && FSOUND_GetCurrentPosition(control) > beforeControl,
+        "repeated StopSound replayed the sample or interrupted unrelated playback");
+    run("PlayHandle = "+play);
+    const int retained = channelExcept(control);
+    Require(retained >= 0,"a new scripted sound failed after stopping the preceding channel");
+    run("PlayHandle = nil");
+    luaC_collect(script->GetState(),0);
+    render();
+    Require(FSOUND_IsPlaying(retained) && FSOUND_GetCurrentPosition(retained) > 0,
+        "collecting a dispatched PlaySound userdata stopped its scene-owned playback");
+    mission = nullptr;
+    render();
+    Require(!FSOUND_IsPlaying(retained) && FSOUND_IsPlaying(control),
+        "releasing the mission left its scripted playback alive or stopped unrelated audio");
+#else
+    Require(false,"script sound test requires the native SFX backend");
+#endif
 }
 
 class ZoneSnapshotMissionFixture: public NGame::CMission
@@ -12552,6 +12645,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "exit-menu-save-shortcut") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-legacy-fixture-write") && argc == 5) { WriteLegacyChapterFixture(argv[2],argv[3],argv[4]); return true; }
+    if (!std::strcmp(mode, "script-sound-stop-2d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],false); return true; }
+    if (!std::strcmp(mode, "script-sound-stop-3d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "legacy-chapter-world-migration") && argc == 5) { LegacyChapterWorldMigration(argv[2],argv[3],argv[4]); return true; }
     if (!std::strcmp(mode, "chapter-focus-audio") && argc == 4) { ChapterFocusAudio(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-script-initialization") && argc == 4) { ChapterScriptInitialization(argv[2],argv[3]); return true; }
