@@ -8046,6 +8046,133 @@ static void ThrownKnifeSuccessorHandoff(const char* databasePath,const char* res
     }
 }
 
+static void RestoredGrenadeThrow(const char* databasePath,const char* resourcePath,bool engineer = false)
+{
+    for (int variant: {0,1,2}) {
+        const bool reload = variant != 0;
+        CObj<NRPG::CGlobalGame> game;
+        auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+        vector<CPtr<NWorld::CUnit>> units;
+        world->GetAllUnits(&units);
+        NWorld::CUnitServer* actor = nullptr;
+        for (auto& entry: units) {
+            auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+            if (unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) { actor = unit; break; }
+        }
+        Require(actor != nullptr, "restored-grenade fixture lacks an ordinary native actor");
+        NDb::CRPGGrenade* regular = nullptr;
+        NDb::CRPGEngGrenade* special = nullptr;
+        if (engineer) {
+            CDBIterator<NDb::CRPGEngGrenade> rows(*NDatabase::GetTable<NDb::CRPGEngGrenade>());
+            while (rows.MoveNext()) if (IsValid(rows.Get()->pItem) && IsValid(rows.Get()->pItem->pModel) &&
+                rows.Get()->pItem->nWeight > 0 && (rows.Get()->nRequiredPerkID <= 0 ||
+                actor->GetUnitRPG()->HasPerk(rows.Get()->nRequiredPerkID))) { special = rows.Get(); break; }
+        } else {
+            CDBIterator<NDb::CRPGGrenade> rows(*NDatabase::GetTable<NDb::CRPGGrenade>());
+            while (rows.MoveNext()) if (IsValid(rows.Get()->pItem) && IsValid(rows.Get()->pItem->pModel) &&
+                rows.Get()->pItem->nWeight > 0) { regular = rows.Get(); break; }
+        }
+        Require(regular || special, "restored-grenade fixture lacks a modelled authored grenade of positive weight");
+        if (special) {
+            auto& engineering = actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_ENGINEERING);
+            if (int(engineering) < special->nSkillReq) engineering.SetConst(special->nSkillReq);
+        }
+        CObj<NRPG::CGrenadeItem> grenade = engineer ? new NRPG::CGrenadeItem(special) : new NRPG::CGrenadeItem(regular);
+        grenade->nQuantity = 1;
+        auto* inventory = actor->GetUnitRPG()->GetInventory();
+        while (!inventory->GetItems().empty()) inventory->Take(inventory->GetItems().front().pItem);
+        CObj<NRPG::IInventoryItem> previous = inventory->Get(NDb::SLOT_1) ? inventory->TakeOff(NDb::SLOT_1) : nullptr;
+        Require(inventory->Equip(NDb::SLOT_1,grenade) && inventory->Activate(NDb::SLOT_1),
+            "restored-grenade fixture could not equip its authored grenade");
+        actor->animator.SetActiveItem(true);
+        actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
+        CObj<NWorld::CExecThrowGrenade> executor;
+        for (float radius: {0.5f,1.f,2.f,3.f,5.f}) {
+            for (const auto& offset: {CVec3(radius,0,0.1f),CVec3(-radius,0,0.1f),CVec3(0,radius,0.1f),CVec3(0,-radius,0.1f)}) {
+                CObj<NWorld::CExecThrowGrenade> candidate = new NWorld::CExecThrowGrenade(actor,actor->GetPosition().GetCP()+offset);
+                const auto result = candidate->CanDoIt(actor->GetPosition());
+                if (result == NWorld::UCR_OK && actor->CanSpendAP(candidate->GetStartAP())) {
+                    executor = candidate; break;
+                }
+            }
+            if (executor) break;
+        }
+        Require(executor != nullptr, "restored-grenade fixture has no nearby valid native throw with sufficient AP");
+        const int actionCost = executor->GetStartAP();
+        executor->Run(); // Initializes the real trajectory and enters the native action-start path once.
+        Require(executor->GetState() == NWorld::CCommandExecute::RUNNING && executor->IsExecuting() &&
+            actor->animator.GetTimeLabel1() > 0, "restored-grenade fixture did not start a real pending native throw");
+        const int ap = actor->GetAP(), vp = actor->GetUnitRPG()->GetTotalVP();
+        CPtr<NRPG::IGrenadeItem> remembered;
+        if (reload) {
+            CStructureNetworkContext references;
+            auto fields = BorrowedObjectFields(executor,&references);
+            { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(4,&remembered); }
+            fields.Seek(0);
+            CObj<NWorld::CExecThrowGrenade> restored = new NWorld::CExecThrowGrenade;
+            if (variant == 2) {
+                CVec3 target;
+                NWorld::SGrenadeParams params;
+                { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(2,&target); reader.Add(3,&params); }
+                CPtr<NRPG::IGrenadeItem> missingReference;
+                CObj<NRPG::IInventoryItem> noSuccessor;
+                bool updateVision = false;
+                CMemoryStream legacy;
+                { CStructureSaver writer(legacy,CStructureSaver::WRITE,&references);
+                  writer.Add(1,static_cast<NWorld::CCommandExecute*>(executor.GetPtr()));
+                  writer.Add(2,&target); writer.Add(3,&params); writer.Add(4,&missingReference);
+                  writer.Add(5,&noSuccessor); writer.Add(6,&updateVision); }
+                legacy.Seek(0);
+                { CStructureSaver reader(legacy,CStructureSaver::READ,&references); static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader); }
+            } else {
+                CStructureSaver reader(fields,CStructureSaver::READ,&references);
+                static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader);
+            }
+            executor = restored;
+            Require(executor->GetUnitServer() == actor && executor->IsExecuting(),
+                "restoring the grenade executor lost its native actor or action counter");
+            Require(executor->GetStartAP() == actionCost, "restoring the grenade executor changed its native action-cost query");
+        }
+        vector<NWorld::IDynamicObject*> before;
+        for (auto& object: *world->GetMiscObjects()) before.push_back(object.GetPtr());
+        std::printf("grenade continuation: engineer=%d restore_variant=%d AP=%d\n",int(engineer),variant,ap);
+        std::fflush(stdout);
+        Require(!executor->TimeLabelReached(), "a single grenade throw unexpectedly requested another time label");
+        int projectiles = 0;
+        for (auto& object: *world->GetMiscObjects()) {
+            if (std::find(before.begin(),before.end(),object.GetPtr()) != before.end() ||
+                pSSClasses->GetObjectTypeID(object.GetPtr()) != int(0x118B1160)) continue;
+            ++projectiles;
+            CStructureNetworkContext references;
+            auto fields = BorrowedObjectFields(object,&references);
+            CDBPtr<NDb::CRPGGrenade> actualRegular;
+            CDBPtr<NDb::CRPGEngGrenade> actualSpecial;
+            CPtr<NWorld::CUnitServer> thrower;
+            int skill = 0;
+            { CStructureSaver reader(fields,CStructureSaver::READ,&references);
+              reader.Add(7,&actualRegular); reader.Add(9,&thrower); reader.Add(13,&actualSpecial); reader.Add(14,&skill); }
+            Require(actualRegular.GetPtr() == regular && actualSpecial.GetPtr() == special && thrower.GetPtr() == actor &&
+                (!engineer || skill == actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_ENGINEERING)),
+                "the continued grenade throw changed its authored type, thrower or engineering skill");
+        }
+        Require(projectiles == 1 && !inventory->GetActive(), "the continued grenade throw did not consume and launch exactly one grenade");
+        if (variant == 1) Require(remembered.GetPtr() == grenade.GetPtr(), "the saved grenade executor discarded its actual grenade reference");
+        if (variant == 2) {
+            CStructureNetworkContext references;
+            auto fields = BorrowedObjectFields(executor,&references);
+            CPtr<NRPG::IGrenadeItem> rebound;
+            { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(4,&rebound); }
+            Require(rebound.GetPtr() == grenade.GetPtr(), "continuing an old local save did not restore its missing grenade reference");
+        }
+        executor->AnimationFinished();
+        Require(executor->GetState() == NWorld::CCommandExecute::FINISHED && actor->GetAP() == ap &&
+            actor->GetUnitRPG()->GetTotalVP() == vp && grenade->GetQuantity() == 1 && !actor->HasCommand(),
+            "continuing a saved grenade action charged AP again, changed VP/quantity or installed an order");
+        executor = nullptr;
+        Require(world->IsAction(), "the launched grenade lost its in-flight action counter");
+    }
+}
+
 static void PersonaFullDisplayName(const char* databasePath)
 {
     CFileStream database;
@@ -10890,6 +11017,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "engineer-trap-placement-successor-handoff")) { Require(argc == 4, "engineer trap handoff requires db and res"); TrapPlacementSuccessorHandoff(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "thrown-knife-successor-handoff")) { Require(argc == 4, "knife handoff requires db and res"); ThrownKnifeSuccessorHandoff(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "thrown-knife-feedback")) { Require(argc == 4, "knife feedback requires db and res"); ThrownKnifeSuccessorHandoff(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "restored-grenade-throw")) { Require(argc == 4, "saved grenade requires db and res"); RestoredGrenadeThrow(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "restored-engineer-grenade-throw")) { Require(argc == 4, "saved engineer grenade requires db and res"); RestoredGrenadeThrow(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }

@@ -1873,26 +1873,33 @@ void CExecMeleeUnit::OnLabel()
 CExecThrowGrenade::CExecThrowGrenade( CUnitServer *_pUS, const CVec3 &_ptTarget ): 
 	CCommandExecute(_pUS), ptTarget(_ptTarget)
 {
-	CDynamicCast<NRPG::IGrenadeItem> pGrenade( pUS->GetUnitRPG()->GetInventory()->GetActive() );
+	pGrenade = CDynamicCast<NRPG::IGrenadeItem>( pUS->GetUnitRPG()->GetInventory()->GetActive() );
 	ASSERT( IsValid(pGrenade) );
-	int nDistance = fabs( ptTarget - pUS->GetPosition().GetCP() ) / FP_GRID_STEP;
-	pToHitCalcer = new NRPG::CGrenadeToHitCalcer( pUS, pUS->GetPosition().GetPose(),
-		nDistance, pUS->GetPosition().GetCP(), pUS->GetWorld()->IsFirstTurn(), false, CVec3(1,1,1), ptTarget );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+CPtr<NRPG::CGrenadeToHitCalcer> CExecThrowGrenade::CreateToHitCalcer( NRPG::IGrenadeItem *pItem ) const
+{
+	const NAI::SUnitPosition &position = pUS->GetPosition();
+	int nDistance = fabs( ptTarget - position.GetCP() ) / FP_GRID_STEP;
+	return new NRPG::CGrenadeToHitCalcer( pUS, position.GetPose(), nDistance, position.GetCP(),
+		pUS->GetWorld()->IsFirstTurn(), false, CVec3(1,1,1), ptTarget, pItem );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 EUnitCommandResult CExecThrowGrenade::CanDoIt( const NAI::SUnitPosition &from, bool bIgnoreTarget ) const
 {
-	CDynamicCast<NRPG::IGrenadeItem> pGrenade( pUS->GetUnitRPG()->GetInventory()->GetActive() );
-	if ( !IsValid( pGrenade ) )
+	CPtr<NRPG::IGrenadeItem> pActionGrenade = pGrenade;
+	if ( !pActionGrenade.GetPtr() )
+		pActionGrenade = CDynamicCast<NRPG::IGrenadeItem>( pUS->GetUnitRPG()->GetInventory()->GetActive() );
+	if ( !IsValid( pActionGrenade ) )
 		return UCR_INVALID_COMMAND;
 
 	if ( bIgnoreTarget )
 		return UCR_NO_TARGET;
 
-	if ( pGrenade->GetMode() != NRPG::GM_THROW )
+	if ( pActionGrenade->GetMode() != NRPG::GM_THROW )
 		return UCR_GENERAL_FAILURE;
 
-	return CanUnitThrowGrenade( pUS, from, ptTarget, pGrenade );
+	return CanUnitThrowGrenade( pUS, from, ptTarget, pActionGrenade );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CExecThrowGrenade::GetStartAP() const
@@ -1904,6 +1911,7 @@ int CExecThrowGrenade::GetStartAP() const
 // read through the which-record branch, so an engineer grenade works too.
 void CExecThrowGrenade::CheckToHitAndDelay( NRPG::IGrenadeItem *pGrenade )
 {
+	CPtr<NRPG::CGrenadeToHitCalcer> pToHitCalcer = CreateToHitCalcer( pGrenade );
 	// check ToHit and find the point where the grenade is actually thrown
 	int nToHit = pToHitCalcer->GetToHit();
 	pToHitCalcer->Log();
@@ -1942,10 +1950,12 @@ void CExecThrowGrenade::ThrowGrenade()
 	NRPG::IUnitMission *pRPG = pUS->GetUnitRPG();
 	NRPG::IInventory *pInventory = pRPG->GetInventory();
 	CUnitServer::SResItem item;
-	CDynamicCast<NRPG::IGrenadeItem> pGrenade( pInventory->GetActive() );
+	if ( !pGrenade.GetPtr() )
+		pGrenade = CDynamicCast<NRPG::IGrenadeItem>( pInventory->GetActive() );
 	if ( !IsValid( pGrenade ) )
 		return;
 
+	CPtr<NRPG::CGrenadeToHitCalcer> pToHitCalcer = CreateToHitCalcer( pGrenade );
 	FindGrenadeParams( pUS->GetWorld(), pUS->GetPosition(), ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &grenadeParams );
 	CheckToHitAndDelay( pGrenade );
 
@@ -1967,9 +1977,12 @@ void CExecThrowGrenade::ThrowGrenade()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecThrowGrenade::Run()
 {
+	if ( !pGrenade.GetPtr() )
+		pGrenade = CDynamicCast<NRPG::IGrenadeItem>( pUS->GetUnitRPG()->GetInventory()->GetActive() );
 	ASSERT( CanDoIt( pUS->GetPosition() ) == UCR_OK );
 	ASSERT( pUS->CanSpendAP( GetStartAP() ) );
 
+	CPtr<NRPG::CGrenadeToHitCalcer> pToHitCalcer = CreateToHitCalcer( pGrenade );
 	if ( !FindGrenadeParams( pUS->GetWorld(), pUS->GetPosition(), ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &grenadeParams ) )
 	{
 		Failed();

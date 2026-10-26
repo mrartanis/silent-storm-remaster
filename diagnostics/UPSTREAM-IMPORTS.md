@@ -236,6 +236,7 @@
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Defer door-trap successor activation until placement animation completion | `door trap placement equipped the successor before its animation finished` | 20/20; `trap-placement-successor-handoff` | `Upstream-Commit` в commit message |
 | [7e46d2a6](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7e46d2a66d1ba9ca3bef8f41e14b684425febed3) — Preserve the throwing animation while retaining the successor knife | `the thrown-knife executor did not retain its successor in saved field four` | 21/21; `thrown-knife-successor-handoff` | `Upstream-Commit` в commit message |
 | [7e46d2a6](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7e46d2a66d1ba9ca3bef8f41e14b684425febed3) — Restore ordinary positional knife-throw feedback outside worn Panzerkleins | `throwing a native knife omitted its ordinary positional feedback sound` | 283/283; `thrown-knife-feedback` | `Upstream-Commit` в commit message |
+| [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Rebuild grenade throw calculations when continuing saved executors | `restoring a pending grenade throw dereferenced its unsaved to-hit calculator (null this, CDB-confirmed)` | 24/24; `restored-grenade-throw` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1148,3 +1149,43 @@ Windows `ALL_BUILD` и Linux `Game` собраны. Полные профили 
 `checkpoint-283-ci-test.log`, `checkpoint-283-{network,world}-green-test.log`.
 Окончательный GitHub Actions на финальном HEAD остаётся обязательным после
 завершения всех переносов; локальная контрольная точка его не заменяет.
+
+### Продолжение сохранённого броска гранаты
+
+Отдельная часть `3cfccbee` исправляет потерю runtime-only калькулятора при
+восстановлении `CExecThrowGrenade`. Тест сначала действительно выполняет `Run`,
+инициализируя траекторию и action counter, затем восстанавливает native
+field fragment и вызывает `TimeLabelReached` без повторного `Run`.
+Прямая ветка проходила, восстановленные обычная/инженерная гранаты падали.
+В обоих CDB-стеках `rcx=0` в `CGrenadeToHitCalcer::GetMaxGrenadeVelocity`,
+вызванном из `CExecThrowGrenade::ThrowGrenade`.
+
+Ссылка на гранату теперь записывается в уже существующий тег 4; временный
+калькулятор создаётся при выполнении запроса. Отдельный RED промежуточного
+исправления воспроизвёл пропуск броска у прежних локальных сохранений с пустым
+полем 4. Для них сохранён старый lookup активной гранаты из `00af3fcb`;
+существующая сохранённая ссылка не подменяется. После продолжения ссылка
+вновь присутствует в сохранённых полях. Полный игровой save-файл в этом тесте
+не создаётся; проверяется native обработчик и его действующие ссылки.
+
+Проверены прямая ветка, новый и прежний форматы для обоих типов гранаты,
+один настоящий `CGrenadeServer`, выбранный тип, бросающий и инженерный навык,
+прежняя запрашиваемая цена, AP после старта, VP, количество и in-flight counter.
+Fixture удовлетворяет исходным skill/perk gates и ищет доступную native цель;
+ранние отказы подготовки не приняты за игровой RED. В real-time fixture AP
+сохраняются по штатным правилам; повторного запуска `Run` после загрузки нет.
+
+Windows/Linux `Game` собраны, связанный набор — 24/24 на каждой платформе,
+Windows configured registration — 1/1. Последние полные профили и `ALL_BUILD`
+по-прежнему относятся к точке 283, а не к текущим 285 проверкам.
+Функции `RPGToHit`, числовые формулы и RNG не менялись. Остальные физические,
+perk/PK/Hide-части описаны отдельно в `UPSTREAM-BALANCE-CHANGES.md`;
+передача следующей гранаты, обработка недоступной траектории и animation flags
+остаются независимыми следующими исправлениями.
+
+Свидетельства: `restored-grenade-throw-{red,green}-{build,test}.log`,
+`restored-{engineer-,}grenade-throw-red-cdb.log`,
+`restored-grenade-throw-legacy-red-{build,test}.log`,
+`restored-grenade-throw-game-build.log`,
+`restored-grenade-throw-registration-test.log`,
+`restored-grenade-linux-{configure,build,test}.log`.

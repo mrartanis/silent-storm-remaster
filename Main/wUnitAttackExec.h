@@ -312,13 +312,13 @@ class CExecThrowGrenade: public CCommandExecute
 	ZDATA_(CCommandExecute)
 	CVec3 ptTarget;
 	SGrenadeParams grenadeParams;
-	CPtr<NRPG::CGrenadeToHitCalcer> pToHitCalcer;
 	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CCommandExecute*)this); f.Add(2,&ptTarget); f.Add(3,&grenadeParams); f.Add(4,&pGrenade); f.Add(5,&pNextSameItem); f.Add(6,&bUpdateVision); return 0; }
 	CPtr<NRPG::IGrenadeItem> pGrenade;
 	CObj<NRPG::IInventoryItem> pNextSameItem;
 	bool bUpdateVision = false;
 
 protected:
+	CPtr<NRPG::CGrenadeToHitCalcer> CreateToHitCalcer( NRPG::IGrenadeItem *pItem ) const;
 	void CheckToHitAndDelay( NRPG::IGrenadeItem *pGrenade );   // retail @0x3a1700 takes the ITEM
 	void ThrowGrenade();
 
