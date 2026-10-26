@@ -2584,3 +2584,36 @@ mission-quick-save-final-ci-test.log, mission-quick-save-final-linux-{configure,
 и отдельные native success logs на обеих платформах.
 Один временный pending diff на 17 KB для независимого compatibility-коммита
 восстановлен и удалён; копий игры или сборки не создавалось, HD pack не менялся.
+
+## Загрузка имён сохранений в собственном Linux-порте
+
+После отдельного исправления записи e2db8844 новый UpstreamEncodedLoadCommand
+создаёт настоящий native CICExitMenu, сохраняет его под корректным Unicode-именем,
+затем исполняет настоящий silent CICLoad. Compiled runtime RED: запись проходит,
+но загрузка отвергает S2U8: identifier и оставляет старый interface вместо
+нового объекта, восстановленного из файла.
+
+Существующая проверка имени из CICSave выделена в общий локальный helper и
+используется также CICLoad. Windows сохраняет прежнее условие, Linux проверяет
+штатно декодированное имя и прежние запрещённые символы. Кодек, расположение
+файлов, заголовок и сериализация сохранений не меняются.
+GREEN требует нового настоящего interface из записанного файла и обычное
+сообщение об успешной загрузке; недопустимые decoded имена не заменяют interface,
+не меняют список слотов и не сообщают об успехе. Прежний missing-file контроль
+и отдельные ASCII Save/Load случаи сохраняются. Fixture удаляет только свои
+слот и active snapshot из отдельного профиля.
+
+Это собственная совместимость порта из 590320324eda981f7e41b58f22a36b938f4612a6,
+выявленная при переносе 02d85e5b; другой анимационный, графический или файловый
+backend не возвращается. Полного текущего CPU-прогона после этого узкого
+исправления здесь не заявляется; предыдущий полный Linux checkpoint — 343
+при 318 CPU cases. Новый encoded-load case повышает CPU count до 319.
+
+Связанные 13/13 прошли на Windows (14.99 с) и Linux (12.07 с), включая обе
+encoded команды, прежние ASCII Save/Load, invalid-name/missing-file controls,
+compressed writing, регистрацию, меню и native mission QuickSave. Обе Game
+собраны. Свидетельства: encoded-load-name-red-linux-{configure,build,test}.log,
+encoded-load-name-green-linux-{configure,build,test}.log,
+encoded-load-name-green-{build,test}.log, encoded-load-name-game-build.log
+и сохранённые native success logs. Использованы прежние каталоги сборки,
+HD generation не запускалась, собственные тестовые процессы завершены.

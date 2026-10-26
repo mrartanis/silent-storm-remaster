@@ -4237,7 +4237,7 @@ static std::map<unsigned char, vector<unsigned char>> OuterSaveChunks(CDataStrea
     return chunks;
 }
 
-static void LoadSuccessFeedback(const char* databasePath,const char* resourcePath)
+static void LoadSuccessFeedback(const char* databasePath,const char* resourcePath,bool encodedName = false)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr, "load feedback fixture needs isolated user data");
     Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
@@ -4246,13 +4246,16 @@ static void LoadSuccessFeedback(const char* databasePath,const char* resourcePat
     database.OpenRead(databasePath);
     NDatabase::Serialize(database,CStructureSaver::READ);
     NGScene::AddResourceDir(resourcePath);
-    NMainLoop::CreateProfile("UpstreamLoadFeedback");
-    NMainLoop::SetActiveProfile("UpstreamLoadFeedback");
+    const char* profile = encodedName ? "UpstreamEncodedLoad" : "UpstreamLoadFeedback";
+    NMainLoop::CreateProfile(profile);
+    NMainLoop::SetActiveProfile(profile);
+    const string slot = encodedName ? S2FileIO::EncodeWindowsSaveName(L"Load \u0417\u0430\u043F\u0438\u0441\u044C \u65E5\u672C") : "Feedback";
     auto* manager = NMainLoop::GetSaveManager();
     struct Cleanup {
         NMainLoop::CSaveManager* manager;
-        ~Cleanup() { NMainLoop::DoneInterface(); manager->DeleteSlot("Feedback"); }
-    } cleanup{manager};
+        string slot;
+        ~Cleanup() { NMainLoop::DoneInterface(); manager->DeleteSlot(slot); manager->DeleteSlot(NMainLoop::S_SLOT_ACTIVE); }
+    } cleanup{manager,slot};
     CObj<NGScene::CScreenshotTexture> texture = new NGScene::CScreenshotTexture;
     CArray2D<NGfx::SPixel8888> pixels; pixels.SetSizes(2,2);
     for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x) pixels[y][x] = NGfx::SPixel8888(12,23,34,255);
@@ -4262,7 +4265,7 @@ static void LoadSuccessFeedback(const char* databasePath,const char* resourcePat
     CObj<NMainLoop::IInterfaceBase> original = NMainLoop::GetCurrentInterfaceForHarness();
     Require(IsValid(original) && NMainLoop::GetInterfaceStackDepth() == 1,
         "load feedback fixture did not create its native interface stack");
-    CObj<NMainLoop::CICSave> save = new NMainLoop::CICSave("Feedback",texture,true);
+    CObj<NMainLoop::CICSave> save = new NMainLoop::CICSave(slot,texture,true);
     save->Exec();
     const auto localized = NUI::GetDBString(20260);
     Require(!localized.empty(), "load feedback fixture has no localized success message");
@@ -4276,12 +4279,23 @@ static void LoadSuccessFeedback(const char* databasePath,const char* resourcePat
         });
     };
     const auto before = messages();
-    CObj<NMainLoop::CICLoad> load = new NMainLoop::CICLoad("Feedback",true);
+    CObj<NMainLoop::CICLoad> load = new NMainLoop::CICLoad(slot,true);
     load->Exec();
     CObj<NMainLoop::IInterfaceBase> restored = NMainLoop::GetCurrentInterfaceForHarness();
     Require(IsValid(restored) && restored.GetPtr() != original.GetPtr() && NMainLoop::GetInterfaceStackDepth() == 1,
         "load feedback control did not restore a new native interface from the actual slot");
     Require(messages() == before + 1, "a completed silent native load omitted its localized success feedback");
+    if (encodedName) {
+        list<string> written; manager->GetSlotsList(&written);
+        for (const auto* invalid : {L"bad.name",L"bad^name",L"bad:name",L"bad/name",L".."}) {
+            CObj<NMainLoop::CICLoad> rejected = new NMainLoop::CICLoad(S2FileIO::EncodeWindowsSaveName(invalid),true);
+            rejected->Exec();
+            list<string> after; manager->GetSlotsList(&after);
+            Require(after == written && NMainLoop::GetCurrentInterfaceForHarness() == restored.GetPtr() && messages() == before+1,
+                "encoded invalid load name changed the active interface or reported success");
+        }
+        std::puts("native encoded Unicode load: restored a new interface from the actual saved file; invalid names rejected");
+    }
     Require(!std::filesystem::exists(std::filesystem::path(manager->GetSlotFilePathW("Missing",NMainLoop::S_SAVE_FILENAME))),
         "load failure control unexpectedly has an existing slot");
     const auto beforeFailure = messages();
@@ -13713,6 +13727,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "save-success-feedback") && argc == 3) { SaveSuccessFeedback(argv[2]); return true; }
     if (!std::strcmp(mode, "encoded-save-command") && argc == 3) { SaveSuccessFeedback(argv[2],true); return true; }
     if (!std::strcmp(mode, "load-success-feedback") && argc == 4) { LoadSuccessFeedback(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "encoded-load-command") && argc == 4) { LoadSuccessFeedback(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "zone-snapshot-excludes-hud") && argc == 4) { ZoneSnapshotExcludesHUD(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "window-interface-propagation")) { WindowInterfacePropagation(); return true; }
     if (!std::strcmp(mode, "window-child-registration")) { WindowChildRegistration(); return true; }

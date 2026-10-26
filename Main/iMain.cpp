@@ -273,9 +273,22 @@ void CICExitModal::Exec()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CICLoad
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static bool IsValidSaveCommandSlot( const string &name )
+{
+#if defined(_WIN32)
+	return strcspn( name.c_str(), S_INVALID_SAVE_CHARS ) == name.length();
+#else
+	// Linux slot identifiers carry S2U8: transport encoding, not a literal filename.
+	wstring decodedName;
+	const wstring invalidChars( S_INVALID_SAVE_CHARS, S_INVALID_SAVE_CHARS + sizeof( S_INVALID_SAVE_CHARS ) - 1 );
+	return S2FileIO::DecodeLinuxProfileConfig( name, &decodedName ) &&
+		S2FileIO::IsSafeSaveComponent( decodedName ) && decodedName.find_first_of( invalidChars ) == wstring::npos;
+#endif
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICLoad::Exec()
 {
-	if ( strcspn( szName.c_str(), S_INVALID_SAVE_CHARS ) != szName.length() )
+	if ( !IsValidSaveCommandSlot( szName ) )
 	{
 		csSystem << "Invalid save file name \"" << szName << "\"" << endl;
 		return;
@@ -364,16 +377,7 @@ CICSave::CICSave( const string &_szName, NGScene::CScreenshotTexture *pTexture, 
 }
 void CICSave::Exec()
 {
-#if defined(_WIN32)
-	const bool bInvalidName = strcspn( szName.c_str(), S_INVALID_SAVE_CHARS ) != szName.length();
-#else
-	// Linux slot identifiers carry S2U8: transport encoding, not a literal filename.
-	wstring decodedName;
-	const wstring invalidChars( S_INVALID_SAVE_CHARS, S_INVALID_SAVE_CHARS + sizeof( S_INVALID_SAVE_CHARS ) - 1 );
-	const bool bInvalidName = !S2FileIO::DecodeLinuxProfileConfig( szName, &decodedName ) ||
-		!S2FileIO::IsSafeSaveComponent( decodedName ) || decodedName.find_first_of( invalidChars ) != wstring::npos;
-#endif
-	if ( bInvalidName )
+	if ( !IsValidSaveCommandSlot( szName ) )
 	{
 		csSystem << "Invalid save file name \"" << szName << "\"" << endl;
 		return;
