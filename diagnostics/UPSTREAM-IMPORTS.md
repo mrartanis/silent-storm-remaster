@@ -3106,6 +3106,45 @@ all-build.log, related-test.log, linux-{configure,build,test}.log,
 Другие producers и inventory/UnitHide hunks 14ffbcc8 остаются отдельной работой.
 Формулы и исходные правила выбора позы не редактируются.
 
+## Режим стрельбы и порядок смешанного сценария — часть 14ffbcc8
+
+UpstreamDeferredShootModeCommand использует настоящий вооружённый actor world
+810 с поддержкой SNAP/AIMED; он может принадлежать AI. Исходный SNAP выбран
+существующим weapon API только в fixture. Compiled runtime RED: requested
+AIMED=1, commander-pending=0/unit-command=0, живой режим уже 1.
+
+До изменения production добавлен второй самостоятельный native случай
+UpstreamDeferredScriptCommandOrder: реальная Lua вызывает LOOK, SHOOTMODE,
+WISHPOSE и PLAYANIMATION последовательно. Verified RED 2/2: отдельный вызов
+меняет режим сразу, смешанный создаёт шесть queued wrappers вместо восьми,
+а live mode уже 1. Остальные три producer ранее перенесены и сохраняют пары
+с Continue; так подтверждается конкретное нарушение порядка из-за mode call.
+
+После этих RED только UnitSetShootMode переведён на существующий DoCommand
+с прежним CCmdShootMode. GREEN проверяет AIMED/SNAP, тип и value payload,
+actor identity и точный Continue. Живой weapon остаётся тем же и в SNAP до
+consumer. Смешанный случай извлекает восемь настоящих wrappers, проверяет
+порядок LOOK/Continue, SHOOTMODE/Continue, WISHPOSE/Continue,
+PLAYANIMATION/Continue и параметры. До потребления live mode=0/wish=2,
+положение/AP/unit action не меняются. Другие ещё не перенесённые producers
+этим смешанным тестом не охватываются. Это проверка очереди, не выполнение
+четырёх действий, визуальная анимация, точность/цена выстрела или LAN playback.
+
+Связанные script/pose/movement/forced/route/queue/fire-mode и mounted mode UI,
+native medal/GPU/display прошли 67/67 на Windows (68.18 с) и Linux (65.59 с).
+Обе Game и Windows ALL_BUILD собраны; по 12 FONT-COMPAT controls сохранены.
+Windows NetworkSerializer/Match/StopResume прошли 3/3 за 22.74 с. Формулы,
+поддерживаемые weapon modes, наш выбор effective/mounted weapon и wire types
+не переписываются. Текущий CPU base 332 не заявляется новым полным прогоном.
+
+Свидетельства deferred-shoot-mode-command: initial-red-{test,native-test}.log,
+verified-red-{build,test}.log, verified-red-native-test.log,
+green-{build,test}.log, green-native-test.log, all-build.log, related-test.log,
+linux-{configure,build,test}.log, {windows,linux}-native-test.log,
+network-test.log и network-native-test.log. Source 14ffbcc8 остаётся частичным:
+остальные producers, UnitHide bool и inventory/held-item hunks ещё проверяются.
+All281/final actual GitHub Actions остаются незавершёнными.
+
 ## Выпадающий список вне clip вложенной строки — часть c0f64c74
 
 Новый resource-free UpstreamComboPopupClipping создаёт настоящие CInterface,

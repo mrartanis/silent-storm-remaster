@@ -12907,21 +12907,28 @@ static void RunScript(NScript::CScript* script, const char* code)
     pScript = nullptr;
 }
 
-enum class DeferredScriptProducer { Animation, Direction, Pose, WishPose };
+enum class DeferredScriptProducer { Animation, Direction, Pose, WishPose, ShootMode };
 
 static void DeferredUnitScriptCommand(const char* databasePath,const char* resourcePath,
-    DeferredScriptProducer producer = DeferredScriptProducer::Animation)
+    DeferredScriptProducer producer = DeferredScriptProducer::Animation,bool mixedOnly = false)
 {
     const bool direction = producer == DeferredScriptProducer::Direction;
     const bool pose = producer == DeferredScriptProducer::Pose;
     const bool wishPose = producer == DeferredScriptProducer::WishPose;
+    const bool shootMode = producer == DeferredScriptProducer::ShootMode;
     const bool animationMode = producer == DeferredScriptProducer::Animation;
     auto world = FixtureWorld(databasePath,resourcePath,true);
     vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
     NWorld::CUnitServer* actor = nullptr;
     for (auto unit : units) {
         auto* candidate = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
-        if (candidate && !candidate->IsAIUnit() && candidate->CanFight()) { actor = candidate; break; }
+        if (!candidate || !candidate->CanFight()) continue;
+        if (shootMode) {
+            auto* weapon = candidate->GetUnitRPG()->GetWeaponItem();
+            if (candidate->IsEmptyPK() || candidate->IsWearingPK() || candidate->animator.GetCannon() || !weapon ||
+                !weapon->IsShootModeSupported(NDb::SM_Snap) || !weapon->IsShootModeSupported(NDb::SM_Aimed)) continue;
+        } else if (candidate->IsAIUnit()) continue;
+        actor = candidate; break;
     }
     Require(actor != nullptr,"deferred animation fixture has no actual roster actor");
     auto* commander = actor->GetPlayer()->GetCommander();
@@ -12933,13 +12940,18 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
     NScript::luaPushCPtr(*script,actor); script->SetGlobal("upstreamActor");
     const auto position = actor->GetPosition(); const int ap = actor->GetAP();
     const auto originalWishPose = actor->GetWishPose();
-    for (bool freeze : {false,true}) {
+    auto* weapon = shootMode ? actor->GetUnitRPG()->GetWeaponItem() : nullptr;
+    if (shootMode) Require(weapon && weapon->SetShootMode(NDb::SM_Snap),"deferred fire-mode fixture cannot select its native weapon's snap mode");
+    const vector<bool> options = mixedOnly ? vector<bool>{} : vector<bool>{false,true};
+    for (bool freeze : options) {
         const int requestedDirection = (position.pos.p.GetDirection()+(freeze ? 7 : 1))&7;
         const auto requestedPose = freeze ? NAI::WALK : NAI::CRAWL;
+        const auto requestedMode = freeze ? NDb::SM_Snap : NDb::SM_Aimed;
         string call;
         if (direction) call = "UnitSetDirection(upstreamActor,"+std::to_string(requestedDirection)+")";
         else if (pose) call = "UnitSetPose(upstreamActor,"+std::to_string(int(requestedPose))+")";
         else if (wishPose) call = "UnitSetWishPose(upstreamActor,"+std::to_string(int(requestedPose))+")";
+        else if (shootMode) call = "UnitSetShootMode(upstreamActor,"+std::to_string(int(requestedMode))+")";
         else call = "UnitPlayAnimation(upstreamActor,4437,nil,"+string(freeze ? "1" : "nil")+")";
         const string code = call+"; UpstreamAnimationReturned = 19";
         RunScript(script,code.c_str());
@@ -12954,6 +12966,9 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
         else if (wishPose)
             std::printf("native script preferred-pose dispatch: requested=%d commander-pending=%d unit-command=%d before=%d after=%d\n",
                 int(requestedPose),int(commander->HasCommands()),int(actor->HasCommand()),int(originalWishPose),int(actor->GetWishPose()));
+        else if (shootMode)
+            std::printf("native script fire-mode dispatch: requested=%d commander-pending=%d unit-command=%d live-mode=%d\n",
+                int(requestedMode),int(commander->HasCommands()),int(actor->HasCommand()),int(weapon->GetShootMode()));
         else
             std::printf("native script animation dispatch: freeze=%d commander-pending=%d unit-command=%d\n",
                 int(freeze),int(commander->HasCommands()),int(actor->HasCommand()));
@@ -12961,6 +12976,7 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
             direction ? "native script direction executes immediately instead of entering the owning commander's queue" :
             pose ? "native script pose bypasses the owning commander's queue" :
             wishPose ? "native script preferred pose bypasses the owning commander's queue" :
+            shootMode ? "native script fire mode bypasses the owning commander's queue" :
             "native script animation executes immediately instead of entering the owning commander's queue");
         CObj<NWorld::CCommand> first = commander->GetCommand(), second = commander->GetCommand();
         auto* set = dynamic_cast<NWorld::CCmdSetCommand*>(first.GetPtr());
@@ -12981,6 +12997,9 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
             auto* preference = dynamic_cast<NWorld::CCmdWishPose*>(set->GetCmd());
             Require(preference && preference->pose == requestedPose,
                 "queued native script preferred pose lost its WISHPOSE type or requested value");
+        } else if (shootMode) {
+            auto* mode = dynamic_cast<NWorld::CCmdShootMode*>(set->GetCmd());
+            Require(mode && mode->eMode == requestedMode,"queued native script fire mode lost its type or requested value");
         } else {
             auto* play = dynamic_cast<NWorld::CCmdPlayAnimation*>(set->GetCmd());
             Require(play && play->nDBAnimationID == 4437 && play->bFreezeAfterLastFrame == freeze,
@@ -12992,12 +13011,42 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
             actor->GetPosition().pos.p == position.pos.p,"queueing a script animation executed an actor action");
         if (wishPose) Require(actor->GetWishPose() == originalWishPose,
             "native preferred pose changed before its queued command was consumed");
+        if (shootMode) Require(actor->GetUnitRPG()->GetWeaponItem() == weapon && weapon->GetShootMode() == NDb::SM_Snap,
+            "native weapon mode changed before its queued script command was consumed");
     }
     if (animationMode) {
         RunScript(script,"UnitPlayAnimation(upstreamActor,4437,1); UpstreamAnimationReturned = 23");
         auto returned = script->GetGlobal("UpstreamAnimationReturned");
         Require(returned.IsNumber() && returned.GetNumber() == 23 && !commander->HasCommands() && !actor->HasCommand(),
             "native custom-idle animation was incorrectly converted into a queued action");
+    }
+    if (mixedOnly) {
+        Require(shootMode && IsValid(animation),"mixed script fixture has no native weapon or authored clip");
+        RunScript(script,"UnitSetDirection(upstreamActor,1); UnitSetShootMode(upstreamActor,1); "
+            "UnitSetWishPose(upstreamActor,0); UnitPlayAnimation(upstreamActor,4437,nil,nil); UpstreamMixedReturned = 31");
+        auto returned = script->GetGlobal("UpstreamMixedReturned");
+        Require(returned.IsNumber() && returned.GetNumber() == 31,"mixed native script did not finish its four calls");
+        vector<CObj<NWorld::CCommand>> pending;
+        while (commander->HasCommands()) pending.push_back(commander->GetCommand());
+        std::printf("native mixed script order: commands=%zu expected=8 live-mode=%d live-wish=%d\n",
+            pending.size(),int(weapon->GetShootMode()),int(actor->GetWishPose()));
+        Require(pending.size() == 8 && weapon->GetShootMode() == NDb::SM_Snap &&
+            actor->GetWishPose() == originalWishPose && !actor->HasCommand(),
+            "native mixed script loses a queued request or changes live state ahead of its command order");
+        for (int i=0; i<8; ++i) {
+            auto* set = dynamic_cast<NWorld::CCmdSetCommand*>(pending[i].GetPtr());
+            Require(set && set->pUnit == actor,"mixed native queue lost its command wrapper or target actor");
+            auto* payload = set->GetCmd();
+            bool matches = false;
+            if (i%2) matches = dynamic_cast<NWorld::CCmdContinue*>(payload) != nullptr;
+            else if (i == 0) { auto* look = dynamic_cast<NWorld::CCmdLook*>(payload); matches = look && look->ptDst.p.GetDirection() == 1; }
+            else if (i == 2) { auto* mode = dynamic_cast<NWorld::CCmdShootMode*>(payload); matches = mode && mode->eMode == NDb::SM_Aimed; }
+            else if (i == 4) { auto* wish = dynamic_cast<NWorld::CCmdWishPose*>(payload); matches = wish && wish->pose == NAI::CRAWL; }
+            else if (i == 6) { auto* play = dynamic_cast<NWorld::CCmdPlayAnimation*>(payload); matches = play && play->nDBAnimationID == 4437 && !play->bFreezeAfterLastFrame; }
+            Require(matches,"native mixed script commands arrived in a different order or lost their parameters");
+        }
+        Require(actor->GetAP() == ap && actor->GetPosition().pos.p == position.pos.p,
+            "queueing the mixed native script moved its actor or spent action points");
     }
 }
 
@@ -14709,6 +14758,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "deferred-direction-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::Direction); return true; }
     if (!std::strcmp(mode, "deferred-pose-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::Pose); return true; }
     if (!std::strcmp(mode, "deferred-wish-pose-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::WishPose); return true; }
+    if (!std::strcmp(mode, "deferred-shoot-mode-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode); return true; }
+    if (!std::strcmp(mode, "deferred-script-command-order") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode,true); return true; }
     if (!std::strcmp(mode, "forced-action-recalc") && argc == 4) { ForcedActionRecalc(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "overlapping-doors")) { OverlappingDoors(); return true; }
     if (!std::strcmp(mode, "weapon-familiarity")) { WeaponFamiliarity(); return true; }

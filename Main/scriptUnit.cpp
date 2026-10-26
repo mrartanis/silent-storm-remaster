@@ -274,8 +274,7 @@ BEGIN_SCRIPT_COMMAND( UnitSetShootMode, "un" )
 	if (pUS)
 	{
 		NDb::EShootMode mode = ( NDb::EShootMode )luaParams[ 1 ].n;
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdShootMode( mode ) ) );
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdContinue() ) );
+		DoCommand( pUS, new NWorld::CCmdShootMode( mode ), true );
 	}
 	return 0;
 END_SCRIPT_COMMAND
