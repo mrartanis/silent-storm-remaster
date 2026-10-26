@@ -278,3 +278,24 @@ PerformMeleeAttackPortion с явными world/AI map/target filter. Для а�
 побочный сдвиг eligibility не включён в UI-фикс: действующие dispatch, цена
 и обе таблицы запретов проверены отдельно и сохранены. Это не доказательство
 того, какие именно ограничения ножа должны быть в retail; они требуют сверки.
+
+
+## Object-melee dispatch — оставшаяся часть `4cdc1ead`
+
+[Исходный коммит](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8)
+содержит независимый дефект выбора активного hull двери: он перенесён отдельно
+через существующий CUserHullsTracker, после native RED на открытой двери.
+Формулы атаки и melee executor при этом не меняются.
+
+Не перенесены добавление CExecMeleeObject и переключение object attacks для
+AT_MELEE/AT_KNIFE на этот executor. Новый путь удерживает объект-цель, получает
+его текущий hull, выбирает CalcCovers вместо tile covers при живой цели,
+использует CheckTileToHit/PeekRay и передаёт target filter в PerformAttack.
+Это влияет на геометрию попадания и выбор получателя повреждения.
+
+Upstream-комментарий прямо связывает сохранение target с Sentinels и отмечает,
+что SS v1.2 передавал null при сходном object executor. Это указание самого
+upstream, не независимая проверка оригинала. До native/retail сверки этот
+боевой путь не переносится. Успешный тест активного hull не подтверждает
+правильность новой melee-логики; её следует сопоставить также с оставшимися
+изменениями c1ab9336 и действующими ограничениями ранений.

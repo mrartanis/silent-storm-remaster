@@ -251,6 +251,7 @@
 | [d919d910](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d919d91066b15951e2a14cc4c78e70745aa0ea88) — Preserve homogeneous coordinates when unprojecting native rays | `a translated native projective ray disagreed with the renderer's homogeneous point conversion` | 9/9; `projective-ray-unprojection` | `Upstream-Commit` в commit message |
 | [7de2769d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7de2769dedfde7e6cf1ddabfcb4dfee8dc05404c) — Freeze shared facial idle when native units are incapacitated | `a downed native world unit left its shared portrait head in living facial idle` | 14/14; `downed-head-idle` | `Upstream-Commit` в commit message |
 | [ccdb6ca7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/ccdb6ca7c7ee525b4e8aeb1c5c9c0c18effa9ff0) — Keep SDL Escape available to cancel focused edit dialogs | `the focused native edit swallowed Escape before the save/load modal's cancel binding` | 18/18; `edit-keyboard-routing` | `Upstream-Commit` в commit message |
+| [4cdc1ead](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8) — Resolve active door geometry through the native hull registry | `native object lookup returned an inactive door-pose hull` | 17/17; `active-door-hull-lookup` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 

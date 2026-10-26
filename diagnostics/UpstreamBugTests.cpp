@@ -8742,6 +8742,80 @@ static void DownedHeadIdle(const char* databasePath,const char* resourcePath,boo
         "refreshing downed head presentation changed health, AP, position or combat eligibility");
 }
 
+
+static NAI::SSourceInfo NativeHullSource(CObjectBase* hull)
+{
+    CStructureNetworkContext refs;
+    auto fields = BorrowedObjectFields(hull,&refs);
+    NAI::SSourceInfo source(nullptr,nullptr,0,0);
+    { CStructureSaver reader(fields,CStructureSaver::READ,&refs);
+      const int type = pSSClasses->GetObjectTypeID(hull);
+      if (type == int(0x02942161)) {
+          struct BaseFields { NAI::SSourceInfo* source; int operator&(CStructureSaver& saver) { saver.Add(6,source); return 0; } } base{&source};
+          reader.Add(1,&base);
+      } else {
+          Require(type == int(0x02942160),"active-hull fixture encountered an unsupported native hull save layout");
+          reader.Add(6,&source);
+      }
+    }
+    return source;
+}
+
+static void ActiveDoorHullLookup(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    auto* map = world->GetAIMap(); map->Sync();
+    NWorld::CWindowDoor* door = nullptr;
+    for (const auto& entry: world->GetObjectsForHarness()) {
+        auto* candidate = dynamic_cast<NWorld::CWindowDoor*>(entry.GetPtr());
+        if (!candidate || candidate->IsBroken() || candidate->IsMineSet()) continue;
+        auto* hull = map->GetHull(candidate);
+        if (hull && (NativeHullSource(hull).nTSFlags & (NWorld::TS_STATE_OPEN | NWorld::TS_STATE_CLOSED))) {
+            door = candidate; break;
+        }
+    }
+    Require(door != nullptr,"active-hull fixture has no authored flipping door with registered AI geometry");
+    CObj<RetiredSupportFixture> unregistered = new RetiredSupportFixture;
+    Require(!map->GetHull(unregistered),"unregistered-object control unexpectedly resolved an AI hull");
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& unit: units) {
+        auto* candidate = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if (candidate && candidate->CanFight() && map->GetHull(candidate)) { actor = candidate; break; }
+    }
+    Require(actor != nullptr,"active-hull fixture has no ordinary registered unit control");
+    const int ap = actor->GetAP(), vp = actor->GetUnitRPG()->GetTotalVP();
+    auto* ordinary = map->GetHull(actor);
+    Require(NativeHullSource(ordinary).pUserData == actor &&
+        !(NativeHullSource(ordinary).nTSFlags & (NWorld::TS_STATE_OPEN | NWorld::TS_STATE_CLOSED)),
+        "ordinary-unit control unexpectedly used a door-state hull");
+    door->LockDoor(false,0,0);
+    for (bool open: {false,true,false}) {
+        door->OpenClose(open,true); map->Sync();
+        Require(door->IsOpen() == open,"active-hull fixture did not enter its real native door state");
+        const bool action = world->IsAction();
+        auto* hull = map->GetHull(door);
+        Require(hull != nullptr,"a live native door lost all registered AI hulls");
+        const auto source = NativeHullSource(hull);
+        Require(source.pUserData == door,"native object lookup returned another object's AI hull");
+        const int state = source.nTSFlags & (NWorld::TS_STATE_OPEN | NWorld::TS_STATE_CLOSED);
+        std::printf("native door open=%d lookup flags=0x%x\n",int(open),source.nTSFlags);
+        Require((source.nTSFlags & NWorld::TS_DOOR_HULL_VALID) && state == (open ? NWorld::TS_STATE_OPEN : NWorld::TS_STATE_CLOSED),
+            "native object lookup returned an inactive door-pose hull");
+        SBound area; area.SphereInit(VNULL3,10000.f);
+        vector<CPtr<CObjectBase>> active; map->SelectHullPointers(&active,area,~0,0);
+        Require(std::find(active.begin(),active.end(),hull) != active.end(),
+            "the lookup hull disagreed with native active spatial selection");
+        CVec3 point;
+        Require(map->GetUnitHLPos(&point,hull,-1) && std::isfinite(point.x) && std::isfinite(point.y) && std::isfinite(point.z),
+            "the active native door hull did not provide a finite hit-location point");
+        Require(door->IsOpen() == open && world->IsAction() == action && actor->GetAP() == ap &&
+            actor->GetUnitRPG()->GetTotalVP() == vp && map->GetHull(actor) == ordinary && !map->GetHull(unregistered),
+            "querying active door geometry changed door state, action bookkeeping, unit health/AP or ordinary lookups");
+    }
+}
+
 static void ProjectiveRayUnprojection()
 {
     float worst = 0;
@@ -11995,6 +12069,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "tile-hit-roll-equality-log")) { Require(argc == 4, "tile hit log requires db and res"); HitRollEqualityLog(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "dead-head-idle") && argc == 4) { DownedHeadIdle(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "unconscious-head-idle") && argc == 4) { DownedHeadIdle(argv[2],argv[3],false); return true; }
+    if (!std::strcmp(mode, "active-door-hull-lookup") && argc == 4) { ActiveDoorHullLookup(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "projective-ray-unprojection")) { ProjectiveRayUnprojection(); return true; }
     if (!std::strcmp(mode, "shooting-torso-turn-limit")) { Require(argc == 4, "shooting torso limit requires db and res"); ShootingTorsoTurnLimit(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "grenade-throw-animation-refresh")) { Require(argc == 4, "grenade animation requires db and res"); GrenadeThrowAnimationRefresh(argv[2],argv[3]); return true; }

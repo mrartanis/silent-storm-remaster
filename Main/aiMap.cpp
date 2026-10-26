@@ -1331,7 +1331,9 @@ void CAIMap::GetAccessibleUnitHL( vector<int> *pRes, const CVec3 &ptFrom, CObjec
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CObjectBase* CAIMap::GetHull( CObjectBase *pUser )
 {
-	return GetHull( pUser, 0 );
+	vector<CConvexHull*> hulls;
+	pUserHullsTracker->GetHulls( pUser, &hulls, true );
+	return hulls.empty() ? 0 : hulls.front();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SSphereSphere
