@@ -268,6 +268,7 @@
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Start the main-menu map script without the obsolete second launcher | `the native main menu launched an extra DB script after its map entry was already initialized` | 81/81; `main-menu-map-script` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Drive main-menu Lua only from native world segments | `the main menu executed a sleeping Lua coroutine between native world segments` | 82/82; `main-menu-script-cadence` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Consume loading input after writing the mission restart snapshot | `restart snapshot completion did not consume a key release accumulated during loading` | 317/317; `mission-loading-input` | `Upstream-Commit` в commit message |
+| [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Connect native audio acknowledgement checkboxes to saved settings | `the native audio page did not initialize its acknowledgement checkboxes from config`; `the native response checkbox did not apply its change to config` | 85/85; `audio-option-checkboxes` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -2220,3 +2221,47 @@ linux-test}.log, mission-loading-input-native-network-world-test.log,
 mission-loading-input-ci-test.log, mission-loading-input-display-linux-test.log
 и mission-loading-input-linux-{invalid-driver,platform,platform-bindings}-test.log.
 GitHub Actions окончательной ревизии всей задачи этим не заявляется.
+
+## Переключатели реплик в настройках звука — часть `e399ef89`
+
+Два compiled native RED проверяют настоящий CICOptions(OS_AUDIO), authored
+container 162, активный bgfx кадр и CCheckButton. Первый обнаруживает, что при
+config responses=1/subtitles=0 галочки не инициализированы. Второй выставляет
+только стартовое визуальное состояние, затем нажимает настоящий checkbox
+через down/up и обнаруживает, что конфиг не изменился. Подготовка renderer,
+контролов, поля прежнего wire layout и нормализованная громкость проходят
+до обеих ожидаемых ошибок.
+
+Добавлены чтение настроек при TEMPLATELOADCOMPLETE и применение/сохранение
+только изменённого checkbox при EVENT_NOTIFY. Дочерние элементы разрешаются
+через существующее дерево; новых сериализованных или transient ссылок нет.
+Старые tags 2=Apply, 3=Default, 4=Sound, 5=Music, 6=Output сохраняются. Тест
+читает реальные поля через CStructureSaver и проверяет их прежние объекты;
+upstream перестановка bool/checkbox/slider на те же номера не переносится.
+Полный старый бинарный save fixture в этом тесте не используется.
+
+GREEN требует независимого переключения обеих настроек, сохранения в
+изолированный config, его загрузки после изменения значений и правильных
+галочек после повторного открытия страницы. Громкости 0.23/0.61 и положения
+23/61 при max=100 сохраняются. Независимый настоящий PCM channel продолжает
+проигрывание. Это проверка живого канала и cursor advance с silent PCM,
+а не слышимости или пикселей текста.
+
+Наши CComplexScroll уже преобразуют int slider в float 0..1; CSlider::SetValue
+не посылает уведомления. Повторный integer normalization и добавление guard
+ради этих setters не требуются; тест открытия также проверяет отсутствие
+побочного изменения громкости. Используется существующий SaveConfig, который
+перенаправляет config.cfg в S2_USER_DATA_DIR на обеих платформах.
+
+Связанные 85/85 прошли Windows (81.31 с) и Linux (74.68 с), обе Game собраны.
+Из них 18 native-display случаев. CPU count остаётся 316; последний полный
+316 плюс loading case 317/317 был выполнен непосредственно перед этим UI-фиксом
+в e2bbf516. Новая полная проверка 316 этим не заявляется. Использованы прежние
+два каталога сборки, HD pack не пересобирался, тестовые процессы завершены.
+Свидетельства: audio-option-checkboxes-red-{build,test}.log,
+audio-option-checkboxes-green-{build,test}.log,
+audio-option-checkboxes-related-green-test.log,
+audio-option-checkboxes-game-build.log,
+audio-option-checkboxes-linux-{configure,build,test}.log и native renderer blocks
+audio-option-checkboxes-{windows,linux}-native-test.log.
+Кнопка Default остаётся отдельной неперенесённой частью источника.

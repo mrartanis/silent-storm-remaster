@@ -2634,6 +2634,96 @@ static void BackdropScriptAudio(const char* databasePath,const char* resourcePat
 #endif
 }
 
+static void AudioOptionCheckboxes(const char* databasePath,const char* resourcePath,bool notificationOnly = false)
+{
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+    Require(std::getenv("S2_USER_DATA_DIR") && std::getenv("S2_AUDIO_HEADLESS"),"audio options fixture requires isolated user data and native headless audio");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"audio options fixture started with an active interface");
+    NativeDisplayContext cleanup;
+    cleanup.Initialize(databasePath,resourcePath,"Silent Storm audio option regression");
+    Require(NFMSound::Init(NFMSound::SStartInfo()),"audio options fixture could not initialize native audio");
+    cleanup.audio = true;
+    NGlobal::SetVar("sound_sfxvolume",0.23f); NGlobal::SetVar("sound_musicvolume",0.61f);
+    NGlobal::SetVar("ui_charresponses",1.f); NGlobal::SetVar("ui_charresponsessubtitles",0.f);
+    const auto wave = SilentPCMFixture(44100);
+    CObj<NFMSound::CSample2D> sample = NFMSound::LoadSample2D(wave.data(),static_cast<int>(wave.size()));
+    Require(IsValid(sample),"audio options fixture could not decode its native control sample");
+    CObj<NFMSound::CSound2D> playing = NFMSound::PlaySound(sample,0,0,0,true);
+    Require(IsValid(playing),"audio options fixture could not start its independent native sound");
+    int channel = -1;
+    for (int i = 0; i < 128; ++i) if (FSOUND_IsPlaying(i)) {
+        Require(channel == -1,"audio options fixture started with unexpected sound channels"); channel = i;
+    }
+    Require(channel >= 0,"audio options fixture has no actual playing native channel");
+    CObj<NGScene::CScreenshotTexture> texture = new NGScene::CScreenshotTexture;
+    CArray2D<NGfx::SPixel8888> pixels; pixels.SetSizes(1,1); pixels[0][0] = NGfx::SPixel8888(11,22,33,255); texture->Set(pixels);
+    CObj<NGame::CICOptions> open = new NGame::CICOptions(NGame::OS_AUDIO,texture); open->Exec();
+    auto* active = NMainLoop::GetCurrentInterfaceForHarness();
+    Require(IsValid(active),"audio options fixture did not open the actual native page");
+    Require(NMainLoop::StepApp(true,false,false) && NMainLoop::GetCurrentInterfaceForHarness() == active && !NMainLoop::HaveInterfaceCommand(),
+        "audio options fixture did not render its active native interface");
+    CStructureNetworkContext interfaceReferences;
+    auto interfaceFields = BorrowedObjectFields(active,&interfaceReferences);
+    CPtr<NUI::CWindow> page;
+    { CStructureSaver reader(interfaceFields,CStructureSaver::READ,&interfaceReferences); reader.Add(6,&page); }
+    Require(IsValid(page) && pSSClasses->GetObjectTypeID(page) == int(0xB0815152),"audio options fixture did not retain the authored audio page");
+    auto* responses = dynamic_cast<NUI::CCheckButton*>(page->GetChildByID("char_responses"));
+    auto* subtitles = dynamic_cast<NUI::CCheckButton*>(page->GetChildByID("char_subtitles"));
+    auto* sfx = dynamic_cast<NUI::CScroll*>(page->GetChildByID("sound_volume"));
+    auto* music = dynamic_cast<NUI::CScroll*>(page->GetChildByID("music_volume"));
+    Require(IsValid(responses) && IsValid(subtitles) && IsValid(sfx) && IsValid(music),"authored native audio options lack their real controls");
+    CStructureNetworkContext pageReferences;
+    auto pageFields = BorrowedObjectFields(page,&pageReferences);
+    CPtr<NUI::CWindow> legacyApply, legacyDefault, legacySfx, legacyMusic, legacyOutput;
+    { CStructureSaver reader(pageFields,CStructureSaver::READ,&pageReferences);
+      reader.Add(2,&legacyApply); reader.Add(3,&legacyDefault); reader.Add(4,&legacySfx); reader.Add(5,&legacyMusic); reader.Add(6,&legacyOutput); }
+    Require(IsValid(legacyApply) && legacyDefault.GetPtr() == page->GetChildByID("default") && legacySfx.GetPtr() == sfx && legacyMusic.GetPtr() == music && IsValid(legacyOutput),
+        "audio option changes reinterpreted the fork's existing serialized field tags");
+    auto volumes = [&]() {
+        Require(fabs(NGlobal::GetVar("sound_sfxvolume").GetFloat()-0.23f) < 1e-6f && fabs(NGlobal::GetVar("sound_musicvolume").GetFloat()-0.61f) < 1e-6f &&
+            sfx->GetMaxValue() == 100 && sfx->GetValue() == 23 && music->GetMaxValue() == 100 && music->GetValue() == 61,
+            "audio checkbox initialization or notification changed the existing normalized volume controls");
+    };
+    volumes();
+    if (notificationOnly) { responses->SetChecked(true); subtitles->SetChecked(false); }
+    else Require(responses->IsChecked() && !subtitles->IsChecked(),"the native audio page did not initialize its acknowledgement checkboxes from config");
+    auto click = [&](NUI::CWindow* control) {
+        NUI::SPoint position; NUI::SRect rect;
+        Require(control->ClientToScreen(&position,&rect) && rect.x2 > rect.x1 && rect.y2 > rect.y1,"audio option button has no native hit-test rectangle");
+        const int x = (rect.x1+rect.x2)/2, y = (rect.y1+rect.y2)/2;
+        Require(control->ProcessMessage(NUI::SEvent(NUI::EVENT_LBUTTONDOWN,x,y)) && control->ProcessMessage(NUI::SEvent(NUI::EVENT_LBUTTONUP,x,y)),
+            "audio options fixture could not click its real button");
+    };
+    click(responses);
+    Require(!responses->IsChecked() && NGlobal::GetVar("ui_charresponses").GetFloat() == 0.f && NGlobal::GetVar("ui_charresponsessubtitles").GetFloat() == 0.f,
+        "the native response checkbox did not apply its change to config");
+    click(subtitles);
+    Require(subtitles->IsChecked() && NGlobal::GetVar("ui_charresponses").GetFloat() == 0.f && NGlobal::GetVar("ui_charresponsessubtitles").GetFloat() == 1.f,
+        "the native subtitle checkbox did not apply its independent change to config");
+    volumes();
+    NGlobal::SetVar("ui_charresponses",1.f); NGlobal::SetVar("ui_charresponsessubtitles",0.f);
+    NGlobal::LoadConfig(".\\cfg\\config.cfg");
+    Require(NGlobal::GetVar("ui_charresponses").GetFloat() == 0.f && NGlobal::GetVar("ui_charresponsessubtitles").GetFloat() == 1.f,
+        "native audio acknowledgement checkbox changes were not saved to isolated config");
+    vector<float> output(512*2);
+    Require(FSOUND_IsPlaying(channel) && S2FmodRenderForTest(output.data(),512) != 0 && FSOUND_GetCurrentPosition(channel) > 0,
+        "audio checkbox changes interrupted an existing native sound");
+    NMainLoop::DoneInterface();
+    open = new NGame::CICOptions(NGame::OS_AUDIO,texture); open->Exec();
+    CStructureNetworkContext reopenedReferences;
+    auto reopened = BorrowedObjectFields(NMainLoop::GetCurrentInterfaceForHarness(),&reopenedReferences);
+    { CStructureSaver reader(reopened,CStructureSaver::READ,&reopenedReferences); reader.Add(6,&page); }
+    responses = dynamic_cast<NUI::CCheckButton*>(page->GetChildByID("char_responses"));
+    subtitles = dynamic_cast<NUI::CCheckButton*>(page->GetChildByID("char_subtitles"));
+    Require(IsValid(responses) && IsValid(subtitles) && !responses->IsChecked() && subtitles->IsChecked(),"reopening native audio options lost the saved acknowledgement state");
+    std::printf("native audio acknowledgement click/config/reopen and legacy tags 2..6 preserved; PCM channel=%d\n",channel);
+    NMainLoop::DoneInterface();
+#else
+    (void)databasePath; (void)resourcePath; (void)notificationOnly;
+    Require(false,"native audio options fixture requires native SFX");
+#endif
+}
+
 static void MissionLoadingInput(const char* databasePath,const char* resourcePath)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"mission loading input fixture requires isolated user data");
@@ -13444,6 +13534,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-authored-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-script-cadence") && argc == 4) { MainMenuMapScript(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "audio-option-checkboxes") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "audio-option-checkbox-notify") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "backdrop-script-audio-3d") && argc == 4) { BackdropScriptAudio(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "chapter-active-script") && argc == 4) { ChapterActiveScript(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-active-command") && argc == 5) { ChapterActiveScript(argv[2],argv[3],std::atoi(argv[4])); return true; }

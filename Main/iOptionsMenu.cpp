@@ -686,7 +686,14 @@ bool CAudioOptionsUI::ProcessMessage( const SEvent &sEvent )
 	{
 	case EVENT_NOTIFY:
 		{
-			if (sEvent.szID == "apply" || sEvent.szID == "sound_volume" || sEvent.szID == "music_volume")
+			if (sEvent.szID == "char_responses" || sEvent.szID == "char_subtitles")
+			{
+				// Look up the existing child tree, including pages restored from older saves.
+				UpdateConfig( GetUIWindow<CCheckButton>( this, sEvent.szID ),
+					sEvent.szID == "char_responses" ? "ui_charresponses" : "ui_charresponsessubtitles" );
+				NGlobal::SaveConfig(".\\cfg\\config.cfg");
+			}
+			else if (sEvent.szID == "apply" || sEvent.szID == "sound_volume" || sEvent.szID == "music_volume")
             {
                 // The shipped audio page has no Apply button. Scroll notifications
                 // must update the live mixer, including already playing channels.
@@ -732,6 +739,8 @@ bool CAudioOptionsUI::ProcessMessage( const SEvent &sEvent )
 		}
 	case EVENT_TEMPLATELOADCOMPLETE:
 		{
+			UpdateUIElement( GetUIWindow<CCheckButton>( this, "char_responses" ), "ui_charresponses" );
+			UpdateUIElement( GetUIWindow<CCheckButton>( this, "char_subtitles" ), "ui_charresponsessubtitles" );
 			pSoundVolume->SetValue( NGlobal::GetVar( "sound_sfxvolume", 0 ).GetFloat() );
 			pMusicVolume->SetValue( NGlobal::GetVar( "sound_musicvolume", 0 ).GetFloat() );
 			break;
