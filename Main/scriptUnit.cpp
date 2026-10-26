@@ -449,8 +449,7 @@ BEGIN_SCRIPT_COMMAND( UnitHide, "u" )
 	CDynamicCast<NWorld::CUnitServer> pUS(luaParams[0].p);
 	if (pUS)
 	{
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdHide() ) );
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdContinue() ) );
+		DoCommand( pUS, new NWorld::CCmdHide(), true );
 	}
 	return 0;
 END_SCRIPT_COMMAND

@@ -12907,7 +12907,7 @@ static void RunScript(NScript::CScript* script, const char* code)
     pScript = nullptr;
 }
 
-enum class DeferredScriptProducer { Animation, Direction, Pose, WishPose, ShootMode, Reload, ActivateWeapon };
+enum class DeferredScriptProducer { Animation, Direction, Pose, WishPose, ShootMode, Reload, ActivateWeapon, Hide };
 
 static void DeferredUnitScriptCommand(const char* databasePath,const char* resourcePath,
     DeferredScriptProducer producer = DeferredScriptProducer::Animation,bool mixedOnly = false)
@@ -12918,6 +12918,7 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
     const bool shootMode = producer == DeferredScriptProducer::ShootMode;
     const bool reload = producer == DeferredScriptProducer::Reload;
     const bool activateWeapon = producer == DeferredScriptProducer::ActivateWeapon;
+    const bool hide = producer == DeferredScriptProducer::Hide;
     const bool animationMode = producer == DeferredScriptProducer::Animation;
     auto world = FixtureWorld(databasePath,resourcePath,true);
     vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
@@ -12939,6 +12940,10 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
         actor = candidate; break;
     }
     Require(actor != nullptr,"deferred animation fixture has no actual roster actor");
+    if (hide) {
+        Require(!actor->IsHiding(),"deferred hide fixture started with an already hidden actor");
+        actor->EnableHide();
+    }
     auto* commander = actor->GetPlayer()->GetCommander();
     Require(IsValid(commander) && !commander->HasCommands() && !actor->HasCommand(),
         "deferred animation fixture started with a pending native order");
@@ -12949,6 +12954,7 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
     const auto position = actor->GetPosition(); const int ap = actor->GetAP();
     const auto originalWishPose = actor->GetWishPose();
     const bool originalActiveItem = actor->animator.IsActiveItem();
+    const bool originalHiding = actor->IsHiding();
     auto* weapon = (shootMode || reload || activateWeapon) ? actor->GetUnitRPG()->GetWeaponItem() : nullptr;
     auto* clip = weapon ? weapon->GetInnerClip() : nullptr;
     const int ammo = weapon ? weapon->GetAmmoQuantity() : 0;
@@ -12958,7 +12964,7 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
         backpack.emplace_back(entry.pItem,item ? item->GetIncQuantity() : -1);
     }
     if (shootMode) Require(weapon && weapon->SetShootMode(NDb::SM_Snap),"deferred fire-mode fixture cannot select its native weapon's snap mode");
-    const vector<bool> options = mixedOnly ? vector<bool>{} : reload ? vector<bool>{false} : vector<bool>{false,true};
+    const vector<bool> options = mixedOnly ? vector<bool>{} : (reload || hide) ? vector<bool>{false} : vector<bool>{false,true};
     for (bool freeze : options) {
         const int requestedDirection = (position.pos.p.GetDirection()+(freeze ? 7 : 1))&7;
         const auto requestedPose = freeze ? NAI::WALK : NAI::CRAWL;
@@ -12970,6 +12976,7 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
         else if (shootMode) call = "UnitSetShootMode(upstreamActor,"+std::to_string(int(requestedMode))+")";
         else if (reload) call = "UnitReload(upstreamActor)";
         else if (activateWeapon) call = "UnitActivateWeapon(upstreamActor,"+string(freeze ? "1" : "nil")+")";
+        else if (hide) call = "UnitHide(upstreamActor)";
         else call = "UnitPlayAnimation(upstreamActor,4437,nil,"+string(freeze ? "1" : "nil")+")";
         const string code = call+"; UpstreamAnimationReturned = 19";
         RunScript(script,code.c_str());
@@ -12993,6 +13000,9 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
         else if (activateWeapon)
             std::printf("native script weapon activation: requested=%d commander-pending=%d unit-command=%d walk-without-weapon=%d\n",
                 int(freeze),int(commander->HasCommands()),int(actor->HasCommand()),int(actor->IsWalkingWithoutWeapon()));
+        else if (hide)
+            std::printf("native script hide dispatch: commander-pending=%d unit-command=%d before=%d after=%d\n",
+                int(commander->HasCommands()),int(actor->HasCommand()),int(originalHiding),int(actor->IsHiding()));
         else
             std::printf("native script animation dispatch: freeze=%d commander-pending=%d unit-command=%d\n",
                 int(freeze),int(commander->HasCommands()),int(actor->HasCommand()));
@@ -13003,6 +13013,7 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
             shootMode ? "native script fire mode bypasses the owning commander's queue" :
             reload ? "native script reload bypasses the owning commander's queue" :
             activateWeapon ? "native script weapon activation bypasses the owning commander's queue" :
+            hide ? "native script hide bypasses the owning commander's queue" :
             "native script animation executes immediately instead of entering the owning commander's queue");
         CObj<NWorld::CCommand> first = commander->GetCommand(), second = commander->GetCommand();
         auto* set = dynamic_cast<NWorld::CCmdSetCommand*>(first.GetPtr());
@@ -13035,6 +13046,9 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
                 path->eParams == NAI::PF_DEFAULT && !path->bLeaveZone && !path->bCanFindNotExact &&
                 path->needActiveItem == (freeze ? NWorld::ITEM_ACTIVE : NWorld::ITEM_INACTIVE),
                 "queued native weapon activation lost its PATH destination, flags or requested hand state");
+        } else if (hide) {
+            Require(dynamic_cast<NWorld::CCmdHide*>(set->GetCmd()) != nullptr,
+                "queued native script hide lost its original command type");
         } else {
             auto* play = dynamic_cast<NWorld::CCmdPlayAnimation*>(set->GetCmd());
             Require(play && play->nDBAnimationID == 4437 && play->bFreezeAfterLastFrame == freeze,
@@ -13052,6 +13066,7 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
             actor->animator.IsActiveItem() == originalActiveItem &&
             actor->GetUnitRPG()->GetWeaponItem() == weapon && weapon->GetAmmoQuantity() == ammo,
             "queued weapon activation lost the immediate persistent holster preference or changed the live weapon");
+        if (hide) Require(actor->IsHiding() == originalHiding,"native script changed hiding state before queued command consumption");
         if (reload) {
             const auto& items = actor->GetUnitRPG()->GetInventory()->GetItems();
             Require(actor->GetUnitRPG()->GetWeaponItem() == weapon && weapon->GetInnerClip() == clip &&
@@ -15169,6 +15184,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "deferred-shoot-mode-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode); return true; }
     if (!std::strcmp(mode, "deferred-reload-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::Reload); return true; }
     if (!std::strcmp(mode, "deferred-weapon-activation-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ActivateWeapon); return true; }
+    if (!std::strcmp(mode, "deferred-hide-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::Hide); return true; }
     if (!std::strcmp(mode, "deferred-create-activate-command") && argc == 4) { DeferredCreateAndActivateItem(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-take-object-command") && argc == 4) { DeferredTakeObject(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-shoot-command") && argc == 4) { DeferredScriptShot(argv[2],argv[3]); return true; }

@@ -3125,6 +3125,35 @@ patch поверх нашего кода не запускался. Не зая�
 проверяют каждый `u` consumer или весь tutorial. Полезных независимых hunks
 в этом source нет, статус excluded-own-behavior; production не редактируется.
 
+## Очередь скриптовой скрытности — часть 14ffbcc8
+
+UpstreamDeferredHideCommand использует настоящего visible human actor world
+810; EnableHide только подготавливает cooldown fixture. Compiled runtime
+RED: commander-pending=0/unit-command=0, IsHiding 0->1 ещё внутри Lua callback.
+После RED только dispatch существующего CCmdHide() и Continue заменён на
+DoCommand. GREEN проверяет точный native type, actor, две wrappers/Continue,
+нет раннего hiding transition, AP/position/unit action.
+
+Сохраняются нынешняя сигнатура UnitHide("u"), legacy command wire/base tag2
+и toggle/eligibility/AP/training. Optional bool из 14ffbcc8 не переносится
+этим исправлением: он зависит от stateful CCmdHide/CExecHide из 432b64c8. Их retail
+base1/bool2 нельзя вслепую записать поверх нашего legacy base2; нужен отдельный
+native state/wire/save compatibility тест. Training AC_HIDE из 2e15 — ещё
+одна самостоятельная часть, не зависимость конструктора bool.
+
+Связанные 92/92 прошли на Windows (109.13 с) и Linux (108.95 с), обе Game и
+Windows ALL_BUILD собраны. Набор включает MixedHideButton, HumanSequenceHiding,
+PKSequenceHiding, HideCooldown, прежние producer/pose/holster/inventory,
+native medal/GPU/display и по 12 FONT-COMPAT controls. Текущий CPU base 344
+не заявляется новым полным прогоном; реальный queued hide не исполняется.
+Windows NetworkSerializer/StopResume прошли 2/2 за 3.82 с.
+
+Свидетельства deferred-hide-command: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log и network-{test,native-test}.log.
+Source 14ffbcc8 и all281/final actual Actions ещё не завершены.
+
 ## Очередь скриптового подбора предмета — часть 14ffbcc8
 
 UpstreamDeferredTakeObjectCommand создаёт настоящий CWeaponItem из authored
