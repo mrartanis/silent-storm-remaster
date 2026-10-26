@@ -69,6 +69,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/iMain.h"
 #include "../Main/iGlobalMap.h"
 #include "../Main/iChapterMap.h"
+#include "../Main/iChapterMapUI.h"
 #include "../Main/PlayerTracker.h"
 #include "../Main/iOptionsMenu.h"
 #include "../Main/iLoseFake.h"
@@ -2353,6 +2354,101 @@ static void SoundMixerClockCatchUp()
 
 
 
+
+static void WriteLegacyChapterFixture(const char* databasePath,const char* resourcePath,const char* fixturePath)
+{
+    CFileStream database; database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ); NGScene::AddResourceDir(resourcePath);
+    struct Cleanup { ~Cleanup() { NMainLoop::DoneInterface(); } } cleanup;
+    CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());
+    NDb::CChapterMap* map = nullptr;
+    while (maps.MoveNext()) if (IsValid(maps.Get()->pBackground)) { map = maps.Get(); break; }
+    Require(map != nullptr,"legacy chapter fixture has no authored map");
+    CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(1);
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    CObj<NGame::CICBeginChapter> enter = new NGame::CICBeginChapter(map->GetRecordID(),game);
+    enter->Exec();
+    CObj<NGame::CMissionBase> chapter = dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(IsValid(chapter) && !chapter->GetWorld() && !chapter->GetRenderGame() && !chapter->GetScene(),
+        "legacy fixture writer must run with the historical pre-world chapter implementation");
+    auto* ui = dynamic_cast<NUI::CChapterMapUI*>(chapter->GetInterface()->GetChildByID("chaptermapUI"));
+    Require(ui && !chapter->GetDesktop() && !chapter->GetActivePlayer(),"historical chapter graph has an unexpected shape");
+    ui->SetTarget(CVec2(113,227));
+    CFileStream snapshot; snapshot.OpenWrite(fixturePath);
+    { CStructureSaver writer(snapshot,CStructureSaver::WRITE); writer.Add(2,&game); writer.Add(3,&chapter); }
+    NMainLoop::DoneInterface();
+}
+
+static void LegacyChapterWorldMigration(const char* databasePath,const char* resourcePath,const char* fixturePath)
+{
+    CFileStream database; database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ); NGScene::AddResourceDir(resourcePath);
+    Require(!NMainLoop::GetCurrentInterfaceForHarness(),"legacy chapter test started with an active interface");
+    struct Cleanup { ~Cleanup() { NMainLoop::DoneInterface(); } } cleanup;
+    CObj<NRPG::CGlobalGame> game;
+    CObj<NGame::CMissionBase> chapter;
+    CFileStream snapshot; snapshot.OpenRead(fixturePath);
+    { CStructureSaver reader(snapshot,CStructureSaver::READ); reader.Add(2,&game); reader.Add(3,&chapter); }
+    Require(IsValid(game) && IsValid(chapter) && pSSClasses->GetObjectTypeID(chapter) == int(0xB2301230) &&
+        !chapter->GetWorld() && !chapter->GetRenderGame() && !chapter->GetScene(),
+        "legacy fixture did not restore the actual historical null-world chapter graph");
+    auto* ui = dynamic_cast<NUI::CChapterMapUI*>(chapter->GetInterface()->GetChildByID("chaptermapUI"));
+    Require(ui && !chapter->GetDesktop() && !chapter->GetActivePlayer(),"legacy chapter fixture lost its original UI graph");
+    auto* interface = chapter->GetInterface(); auto* cursor = chapter->GetCursor();
+    const string travel = ui->GetTravelForDiagnostics();
+    const int chapterID = game->nChapterMapID, difficulty = game->nCurrentChapterDifficulty;
+    const auto mercs = game->players.front()->mercs;
+    chapter->OnSnapshotRestored();
+    Require(IsValid(chapter->GetWorld()) && IsValid(chapter->GetRenderGame()) && IsValid(chapter->GetScene()),
+        "loading a historical chapter save left its native world/render graph missing");
+    auto check = [&](NGame::CMissionBase* restored,NRPG::CGlobalGame* global) {
+        auto* world = restored->GetWorld(); auto* player = restored->GetActivePlayer();
+        auto* mapUI = dynamic_cast<NUI::CChapterMapUI*>(restored->GetInterface()->GetChildByID("chaptermapUI"));
+        Require(IsValid(world) && world->GetGlobalGame() == global && IsValid(world->GetAIMap()) && IsValid(world->GetPathNetwork()) &&
+            IsValid(player) && player->GetGlobalPlayer() == global->players.front() && IsValid(player->GetCommander()) &&
+            IsValid(player->GetPlayer()) && IsValid(player->GetCamera()) && IsValid(restored->GetEnemyTurnCamera()),
+            "legacy chapter migration did not rebuild its complete native world/player/camera links");
+        Require(mapUI && restored->GetDesktop() == mapUI && mapUI->GetTravelForDiagnostics() == travel &&
+            restored->GetInterface()->GetSound() == restored->GetSoundScene(),
+            "legacy chapter migration discarded saved travel/UI state or failed to share its new sound scene");
+        CStructureNetworkContext references;
+        auto fields = BorrowedObjectFields(restored->GetInterface(),&references);
+        bool ownsSound = true;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(23,&ownsSound); }
+        Require(!ownsSound,"migrated chapter UI still pumps its old independently clocked sound scene");
+        Require(global->bChapterMapSet && global->nChapterMapID == chapterID && global->nCurrentChapterDifficulty == difficulty &&
+            global->players.size() == 1 && global->players.front()->mercs.size() == mercs.size(),
+            "legacy chapter migration changed campaign destination, difficulty or party size");
+    };
+    check(chapter,game);
+    Require(chapter->GetInterface() == interface && chapter->GetCursor() == cursor && chapter->GetDesktop() == ui &&
+        game->players.front()->mercs == mercs,"legacy migration replaced the original UI, cursor or RPG party objects");
+    auto* world = chapter->GetWorld();
+    const STime initial = world->GetAimTime()->GetValue();
+    Require(initial == 0,"legacy migration ran a tactical warm-up");
+    world->UpdateWorld(initial+100,nullptr);
+    const STime savedTime = world->GetAimTime()->GetValue();
+    Require(savedTime > initial,"migrated historical chapter world cannot advance native simulation");
+    chapter->OnSnapshotRestored();
+    Require(chapter->GetWorld() == world && world->GetAimTime()->GetValue() == savedTime,
+        "a second restoration hook recreated the migrated world or reset its simulation");
+    CMemoryStream current;
+    { CStructureSaver writer(current,CStructureSaver::WRITE); writer.Add(2,&game); writer.Add(3,&chapter); }
+    current.Seek(0);
+    CObj<NRPG::CGlobalGame> loadedGame; CObj<NGame::CMissionBase> loaded;
+    { CStructureSaver reader(current,CStructureSaver::READ); reader.Add(2,&loadedGame); reader.Add(3,&loaded); }
+    auto* savedWorld = loaded->GetWorld(); auto* savedRender = loaded->GetRenderGame();
+    Require(savedWorld && savedWorld != world && savedWorld->GetAimTime()->GetValue() == savedTime,
+        "a migrated chapter did not save a complete independent world graph");
+    loaded->OnSnapshotRestored(); loaded->OnSnapshotRestored();
+    check(loaded,loadedGame);
+    Require(loaded->GetWorld() == savedWorld && loaded->GetRenderGame() == savedRender && savedWorld->GetAimTime()->GetValue() == savedTime,
+        "restoring an already complete chapter recreated its world/render or reset the saved clock");
+    savedWorld->UpdateWorld(savedTime+50,nullptr);
+    Require(savedWorld->GetAimTime()->GetValue() > savedTime,"a complete migrated chapter failed to resume after its next snapshot load");
+    // Real focus and rendering clocks must now be safe for both generations.
+    chapter->OnLostFocus(); chapter->OnGetFocus(); loaded->OnLostFocus(); loaded->OnGetFocus();
+}
 
 class CachedChapterSampleAccess: public NSound::CFileSample2D
 {
@@ -12455,6 +12551,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "exit-menu-save-visibility") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "exit-menu-save-shortcut") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "chapter-legacy-fixture-write") && argc == 5) { WriteLegacyChapterFixture(argv[2],argv[3],argv[4]); return true; }
+    if (!std::strcmp(mode, "legacy-chapter-world-migration") && argc == 5) { LegacyChapterWorldMigration(argv[2],argv[3],argv[4]); return true; }
     if (!std::strcmp(mode, "chapter-focus-audio") && argc == 4) { ChapterFocusAudio(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-script-initialization") && argc == 4) { ChapterScriptInitialization(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-world-graph") && argc == 4) { ChapterWorldGraph(argv[2],argv[3]); return true; }

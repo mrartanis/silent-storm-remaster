@@ -447,6 +447,13 @@ void CInterface::ResetMouseCapture()
 	pMouseCapture = 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void CInterface::SetSharedSoundScene( NSound::ISoundScene *pScene )
+{
+	ASSERT( IsValid( pScene ) );
+	pSound = pScene;
+	bOwnSoundScene = false;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 NSound::ISoundScene* CInterface::GetSound()
 {
 	return pSound;

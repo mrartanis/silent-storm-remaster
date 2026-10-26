@@ -89,6 +89,7 @@ private:
 	}
 
 	void UpdateChapterDifficulty();
+	void InitializeWorld();
 
 protected:
 	void RenderFrame( const STime &sTime );
@@ -97,6 +98,7 @@ public:
 	CChapterMap();
 
 	bool Initialize( NRPG::CGlobalGame* pGame );
+	void OnSnapshotRestored();
 
 	// GetCursor / GetInterface / GetSoundScene / GetRPGGame are NOT overridden here: retail's
 	// CChapterMap vftable (@0x4b9adc) leaves those slots pointing at the CMissionBase bodies
@@ -155,15 +157,8 @@ void CChapterMap::UpdateChapterDifficulty()
 	pGlobalGame->nCurrentChapterDifficulty = nDifficulty;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-bool CChapterMap::Initialize( NRPG::CGlobalGame *_pGame )
+void CChapterMap::InitializeWorld()
 {
-	pGlobalGame = _pGame;
-
-	pChapterMap = NDb::GetChapterMap( pGlobalGame->nChapterMapID );
-	pChapterInfo = shareChapterInfo.Get( pGlobalGame->nChapterMapID );
-	if ( !IsValid( pChapterMap ) || !IsValid( pChapterInfo ) )
-		return false;
-
 	pWorld = NWorld::CreateWorld( pGlobalGame );
 	pWorld->CreateDefault();
 	playersSet.resize( pGlobalGame->players.size() );
@@ -183,6 +178,18 @@ bool CChapterMap::Initialize( NRPG::CGlobalGame *_pGame )
 	limits.bMovie = true;
 	pCamera->SetLimits( limits );
 	pCamera->SetLock( true );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CChapterMap::Initialize( NRPG::CGlobalGame *_pGame )
+{
+	pGlobalGame = _pGame;
+
+	pChapterMap = NDb::GetChapterMap( pGlobalGame->nChapterMapID );
+	pChapterInfo = shareChapterInfo.Get( pGlobalGame->nChapterMapID );
+	if ( !IsValid( pChapterMap ) || !IsValid( pChapterInfo ) )
+		return false;
+
+	InitializeWorld();
 
 	UpdateChapterDifficulty();
 
@@ -201,6 +208,32 @@ bool CChapterMap::Initialize( NRPG::CGlobalGame *_pGame )
 	pWorld->RunPostInitScript( pChapterMap->pScript );
 
 	return true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Older remaster chapter snapshots predate the world-backed chapter screen.
+// Preserve their UI/travel graph; only the missing world graph is initialized.
+void CChapterMap::OnSnapshotRestored()
+{
+	if ( !IsValid( pWorld ) )
+	{
+		InitializeWorld();
+		pInterface->SetSharedSoundScene( pSoundScene );
+		PushDesktop( pChapterMapUI );
+		pWorld->RunPostInitScript( pChapterMap->pScript );
+	}
+	else
+		pWorld->RestoreRuntimeCaches( pGlobalGame );
+
+	pCamera->SetWorld( pWorld );
+	pCamera->SetView( pScene );
+	pCamera->SetUI( pInterface );
+	for ( int nPlayer = 0; nPlayer < playersSet.size(); ++nPlayer )
+	{
+		ICamera *pPlayerCamera = playersSet[nPlayer]->GetCamera();
+		pPlayerCamera->SetWorld( pWorld );
+		pPlayerCamera->SetView( pScene );
+		pPlayerCamera->SetUI( pInterface );
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 NDb::CChapterMap* CChapterMap::GetChapterMap() const

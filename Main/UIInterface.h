@@ -117,6 +117,7 @@ public:
 	void ResetMouseCapture();		// retail @0x31c060
 
 	NSound::ISoundScene* GetSound();
+	void SetSharedSoundScene( NSound::ISoundScene *pScene );
 	NGScene::I2DGameView* GetView();
 
 	bool IsActive() const { return true; };

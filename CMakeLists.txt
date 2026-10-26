@@ -963,6 +963,7 @@ add_test(NAME UpstreamOwnedAIActionEnemy COMMAND UpstreamBugTests owned-ai-actio
 add_test(NAME UpstreamOwnedAIPlaceEnemy COMMAND UpstreamBugTests owned-ai-place-enemy)
 add_test(NAME UpstreamMountedAILogCommands COMMAND UpstreamBugTests mounted-ai-log-commands)
 if(S2_GAME_DIR)
+  add_test(NAME UpstreamLegacyChapterWorldMigration COMMAND UpstreamBugTests legacy-chapter-world-migration "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res" "${CMAKE_SOURCE_DIR}/diagnostics/fixtures/chapter-before-world-init.bin")
   add_test(NAME UpstreamChapterFocusAudio COMMAND UpstreamBugTests chapter-focus-audio "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   set_tests_properties(UpstreamChapterFocusAudio PROPERTIES LABELS "native-audio" ENVIRONMENT "S2_AUDIO_HEADLESS=1")
   add_test(NAME UpstreamChapterScriptInitialization COMMAND UpstreamBugTests chapter-script-initialization "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
