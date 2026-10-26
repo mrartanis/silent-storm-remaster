@@ -2654,6 +2654,60 @@ combo-popup-item-width-final-linux-{configure,build,test}.log и native success 
 Оба полезных hunk c0f64c74 перенесены с адаптацией к нашему layout; источник
 полностью учтён. Сборки переиспользованы, HD generation выключена.
 
+## Локализованный заголовок улик сектора — часть 29554756
+
+Новый UpstreamChapterClueHeading открывает настоящую главу через CICBeginChapter,
+находит её настоящий CZoneSector, получает существующую размещённую улику штатными
+ScenarioTracker API и передаёт положение курсора в существующее поле CInterface.
+Реальный CChapterMapUI::Draw вызывает GetDescription и заполняет настоящий CText
+панели описания. Проверка останавливается на границе рисования; glyph/pixel output
+и физическое движение мыши здесь не проверяются.
+
+Первая подготовка fixture выбрала произвольную карту 12, не принадлежащую сценарию
+1: все её native zone pointers были null. Это не RED бага. Свидетельства сохранены
+как chapter-clue-heading-fixture-setup-test.log и fixture-probe-{build,test}.log.
+Fixture теперь выбирает подходящую авторскую карту по настоящему CChapterInfoLoader,
+сопоставлению scenario zone и размещённой улике. Production до настоящего RED
+не менялась.
+
+Compiled runtime RED на карте 22, scenario 1, zone 2: текст самой полученной улики
+уже присутствует в реальной панели, но её локализованного заголовка нет; вместо
+него отображается hardcoded English Clues found. Исправлена одна строка:
+используется существующий DB string 0x4f35. Механика размещения, получения улик
+и их сценарные последствия не меняются.
+
+GREEN проверяет авторскую строку и её заведомо отличающийся временный вариант
+с кириллицей; временная запись восстанавливается после теста. Текст улики
+обязательно остаётся в описании. Получение улики и отключение второго кадра
+уведомлений относятся только к подготовке отдельного тестового сценария.
+Обычные marker/tooltip/exit-marker случаи продолжают использовать тот же
+настоящий chapter fixture.
+
+Финальный код прошёл связанные 25/25 на Windows (34.26 с) и Linux (27.95 с),
+обе Game собраны; сохранены 12 FONT-COMPAT controls на каждой платформе.
+Авторская heading record имеет 31 символ, без font tags и count placeholder:
+дополнительное форматирование или подмена наших шрифтов не требуются.
+CPU count 322 подтверждён текущим CTest inventory; полный новый 322-набор
+и окончательный GitHub Actions здесь не заявляются.
+
+Один промежуточный Linux-прогон имел 24/25: существующий NativeChapterScriptSound9
+получил unrelated interface command. Исходный полный LastTest сохранён как
+chapter-clue-heading-final-linux-initial-native-test.log (24 passed / 1 failed).
+Одиночный повтор использовал прежний prefix и заменил CTest summary, но raw
+LastTest был сохранён до повторения. Затем 20 последовательных запусков
+этого случая прошли, после добавления failure-only диагностики типов interface
+и command прошёл финальный набор 25/25. Условие assert осталось прежним;
+diagnostic extraction выполняется только после фиксации false результата.
+Причина единичного сбоя не установлена и не объявляется исправленной.
+
+Свидетельства: chapter-clue-heading-final-red-{build,test}.log,
+chapter-clue-heading-green-{build,test}.log, chapter-clue-heading-game-build.log,
+chapter-clue-heading-verified-green-{build,test}.log,
+chapter-clue-heading-verified-linux-{configure,build,test}.log,
+chapter-sound9-probe-repeat-test.log и native success logs.
+Source 29554756 остаётся частичным: camp eligibility, medal screenshot и cursor
+ещё проверяются отдельно с учётом нашего renderer. HD generation выключена.
+
 ## Выпадающий список вне clip вложенной строки — часть c0f64c74
 
 Новый resource-free UpstreamComboPopupClipping создаёт настоящие CInterface,

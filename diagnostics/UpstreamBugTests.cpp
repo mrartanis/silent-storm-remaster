@@ -19,6 +19,7 @@
 #include "../Main/UIInterface.h"
 #include "../Main/Console.h"
 #include "../FileIO/WindowsSaveNames.h"
+#include <typeinfo>
 #include "../MiscDll/Commands.h"
 #include "../DBFormat/DataInterface.h"
 #include "../DBFormat/DataObject.h"
@@ -3270,8 +3271,17 @@ static void ChapterActiveScript(const char* databasePath,const char* resourcePat
     auto frame = [&](STime time,bool active) {
         NMainLoop::SetTimeForHarness(time);
         Require(NMainLoop::StepApp(active,false,false),"native chapter frame unexpectedly requested application exit");
-        Require(NMainLoop::GetCurrentInterfaceForHarness() == chapter.GetPtr() && !NMainLoop::HaveInterfaceCommand(),
-            "active chapter fixture was covered by an unrelated interface command");
+        const bool stable = NMainLoop::GetCurrentInterfaceForHarness() == chapter.GetPtr() && !NMainLoop::HaveInterfaceCommand();
+        if (!stable) {
+            auto* current = NMainLoop::GetCurrentInterfaceForHarness();
+            std::printf("chapter fixture mode=%d time=%u active=%s depth=%d queued=%d\n",commandMode,unsigned(time),
+                current ? typeid(*current).name() : "null",NMainLoop::GetInterfaceStackDepth(),int(NMainLoop::HaveInterfaceCommand()));
+            if (NMainLoop::HaveInterfaceCommand()) {
+                CObj<NMainLoop::CInterfaceCommand> command = NMainLoop::TakeInterfaceCommandForHarness();
+                std::printf("chapter fixture unexpected command=%s\n",typeid(*command.GetPtr()).name());
+            }
+        }
+        Require(stable,"active chapter fixture was covered by an unrelated interface command");
     };
     frame(1000,false);
     Require(world->GetAimTime()->GetValue() == 0 && absent("ChapterStarts"),"an inactive chapter executed its queued world script");
@@ -3840,6 +3850,7 @@ static void GlobalMapReturnDestination(const char* databasePath,const char* reso
 
 static void CheckChapterMarkerToolTipTransitions(NUI::CWindow* marker,NUI::CText* text);
 static void CheckChapterExitMarkerHint(NGame::CMissionBase* mission,NUI::CWindow* chapter,NUI::CWindow* marker,NUI::CText* text);
+static void CheckChapterClueHeading(NGame::CMissionBase* mission,NUI::CWindow* chapter);
 
 static void ChapterTeamMarkerToolTip(const char* databasePath,const char* resourcePath,int transitions = 0)
 {
@@ -3850,12 +3861,30 @@ static void ChapterTeamMarkerToolTip(const char* databasePath,const char* resour
     Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
         "chapter marker fixture must begin without interfaces or queued commands");
     struct InterfaceCleanup { ~InterfaceCleanup() { NMainLoop::DoneInterface(); } } cleanup;
-    CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());
-    NDb::CChapterMap* map = nullptr;
-    while (maps.MoveNext()) if (IsValid(maps.Get()->pBackground)) { map = maps.Get(); break; }
-    Require(map != nullptr, "chapter marker fixture has no authored chapter map");
     CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(1);
     game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());
+    NDb::CChapterMap* map = nullptr;
+    while (maps.MoveNext()) if (IsValid(maps.Get()->pBackground)) {
+        if (transitions == 3) {
+            CObj<CChapterInfoLoader> loader = new CChapterInfoLoader;
+            loader->SetKey(maps.Get()->GetRecordID());
+            CDGPtr<CPtrFuncBase<CChapterInfo>> info = loader.GetPtr(); info.Refresh();
+            bool usable = false;
+            for (const auto& sector : info->GetValue()->sectorsSet) {
+                if (sector.eType != ZONE || sector.nDescriptionID == -1 || sector.pointsSet.empty()) continue;
+                auto* zone = game->pScenarioTracker->GetZoneByDBZone(NDb::GetDBScenarioZone(sector.nTemplate));
+                if (!IsValid(zone)) continue;
+                for (auto clue : zone->GetClues())
+                    if (!clue->IsCompound() && clue->IsPlaced() && !clue->IsDestroyed() &&
+                        !clue->GetParentZones().empty() && clue->GetParentZones().front() == zone &&
+                        !NUI::GetDBString(clue->GetDBClue()->pDescription).empty()) usable = true;
+            }
+            if (!usable) continue;
+        }
+        map = maps.Get(); break;
+    }
+    Require(map != nullptr, "chapter marker fixture has no authored chapter map");
     CObj<NGame::CICBeginChapter> enter = new NGame::CICBeginChapter(map->GetRecordID(),game);
     enter->Exec();
     auto* mission = dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
@@ -3882,6 +3911,7 @@ static void ChapterTeamMarkerToolTip(const char* databasePath,const char* resour
         "the chapter marker tooltip lost its authored initial text");
     if (transitions == 1) CheckChapterMarkerToolTipTransitions(marker,text);
     if (transitions == 2) CheckChapterExitMarkerHint(mission,chapter,marker,text);
+    if (transitions == 3) CheckChapterClueHeading(mission,chapter);
     Require(game->bChapterMapSet && game->nChapterMapID == map->GetRecordID() && game->players.size() == 1,
         "creating a chapter marker tooltip changed the campaign destination or party");
 }
@@ -7875,6 +7905,79 @@ public:
     void StartNewFrame() override {}
     void Flush() override {}
 };
+
+static void CheckChapterClueHeading(NGame::CMissionBase* mission,NUI::CWindow* chapter)
+{
+    auto* game = mission->GetRPGGame(); auto* tracker = game->pScenarioTracker.GetPtr();
+    auto* map = chapter->GetChildByID("view");
+    list<CPtr<NUI::CWindow>> children; map->GetChildrenList(&children);
+    std::printf("chapter heading fixture map=%d scenario=%d available=%d children=%zu\n",
+        mission->GetChapterMap()->GetRecordID(),tracker->GetScenarioID(),int(tracker->IsScenarioAvailable()),children.size());
+    CPtr<NUI::CWindow> sector; CPtr<NScenario::CScenarioZone> zone; CPtr<NScenario::CScenarioClue> clue;
+    for (auto child : children) {
+        if (pSSClasses->GetObjectTypeID(child) != int(0xB2606153)) continue;
+        CStructureNetworkContext refs; auto fields = BorrowedObjectFields(child,&refs);
+        CPtr<NScenario::CScenarioZone> candidate;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&refs); reader.Add(3,&candidate); }
+        std::printf("chapter zone=%d clues=%zu\n",IsValid(candidate) ? candidate->GetDBZone()->GetRecordID() : -1,
+            IsValid(candidate) ? candidate->GetClues().size() : 0);
+        if (!IsValid(candidate)) continue;
+        for (auto entry : candidate->GetClues()) {
+            if (!entry->IsCompound() && entry->IsPlaced() && !entry->IsDestroyed() &&
+                !entry->GetParentZones().empty() && entry->GetParentZones().front() == candidate &&
+                !NUI::GetDBString(entry->GetDBClue()->pDescription).empty()) {
+                sector = child; zone = candidate; clue = entry; break;
+            }
+        }
+        if (IsValid(clue)) break;
+    }
+    Require(IsValid(clue),"chapter clue-heading fixture found no native map sector with a placed clue");
+    tracker->CheatOpenZone(zone); tracker->CheatTakeClue(clue,true);
+    list<CPtr<NScenario::CScenarioClue>> found; tracker->GetAvailableClues(&found);
+    Require(std::find(found.begin(),found.end(),clue) != found.end(),"native chapter fixture did not acquire its actual clue");
+    for (auto entry : found) entry->SetJustFound(false);
+    const auto clueText = NUI::GetDBString(clue->GetDBClue()->pDescription);
+    auto* header = NDb::GetString(0x4f35);
+    Require(IsValid(header) && !header->szStr.empty(),"native chapter clue heading has no authored localized record");
+    std::printf("native chapter heading record: chars=%zu font-tag=%d count-placeholder=%d\n",header->szStr.size(),
+        int(header->szStr.find(L"<font") != wstring::npos),int(header->szStr.find(L"%d") != wstring::npos));
+    struct Restore { NDb::CString* record; wstring original; ~Restore() { record->szStr = original; } } restore{header,header->szStr};
+    struct ReachedRender {};
+    class StopBeforeRender: public DialogueLayoutView {
+        OBJECT_NOCOPY_METHODS(StopBeforeRender);
+        const CVec2& GetViewportSize() override { throw ReachedRender(); }
+    };
+    CObj<StopBeforeRender> view = new StopBeforeRender;
+    CStructureNetworkContext chapterRefs; auto chapterFields = BorrowedObjectFields(chapter,&chapterRefs);
+    CVec2 position; { CStructureSaver reader(chapterFields,CStructureSaver::READ,&chapterRefs); reader.Add(8,&position); }
+    CMemoryStream settled; STime time = 1000; int specialFrame = 3;
+    { CStructureSaver writer(settled,CStructureSaver::WRITE); writer.Add(8,&position); writer.Add(9,&position); writer.Add(10,&time); writer.Add(18,&specialFrame); }
+    settled.Seek(0); { CStructureSaver reader(settled,CStructureSaver::READ); static_cast<CObjectBase*>(chapter)->operator&(reader); }
+    auto draw = [&]() {
+        bool reached = false;
+        try { chapter->Draw(time,view); } catch (const ReachedRender&) { reached = true; }
+        Require(reached && !NMainLoop::HaveInterfaceCommand(),"chapter heading fixture did not reach its drawing boundary cleanly");
+    };
+    draw(); // Native UpdateSector establishes scenario visibility before the hover pass.
+    NUI::SPoint origin; NUI::SRect clip;
+    Require(sector->ClientToScreen(&origin,&clip),"native clue sector has no visible map rectangle");
+    NUI::SPoint cursor((clip.x1+clip.x2)/2,(clip.y1+clip.y2)/2);
+    CMemoryStream cursorFields;
+    { CStructureSaver writer(cursorFields,CStructureSaver::WRITE); writer.Add(5,&cursor); }
+    cursorFields.Seek(0);
+    { CStructureSaver reader(cursorFields,CStructureSaver::READ); static_cast<CObjectBase*>(mission->GetInterface())->operator&(reader); }
+    const char* panelID = cursor.x > S2UI::MapOffsetX()+512 ? "text_left" : "text_right";
+    auto* panel = chapter->GetChildByID(panelID);
+    auto* text = panel ? dynamic_cast<NUI::CText*>(panel->GetChildByID("text")) : nullptr;
+    Require(IsValid(text),"native chapter map did not build its description text");
+    for (const auto& localized : {restore.original,restore.original+L"\u0423\u043B\u0438\u043A\u0438 regression"}) {
+        header->szStr = localized; draw();
+        Require(text->GetText().find(clueText) != wstring::npos,"hovering the actual chapter sector did not display its acquired clue");
+        std::printf("native chapter clue text: localized heading=%d hardcoded English=%d\n",
+            int(text->GetText().find(localized) != wstring::npos),int(text->GetText().find(L"Clues found:") != wstring::npos));
+        Require(text->GetText().find(localized) != wstring::npos,"native chapter clue description ignored its localized heading record");
+    }
+}
 
 static void RejectedHitLabelText(const char* databasePath,const char* resourcePath)
 {
@@ -13814,6 +13917,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "window-lazy-update")) { WindowLazyUpdate(); return true; }
     if (!std::strcmp(mode, "combo-popup-clipping")) { ComboPopupClipping(); return true; }
     if (!std::strcmp(mode, "combo-popup-item-width")) { ComboPopupClipping(true); return true; }
+    if (!std::strcmp(mode, "chapter-clue-heading") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "window-nested-wakeup")) { WindowNestedWakeup(); return true; }
     if (!std::strcmp(mode, "window-template-script")) { Require(argc == 3, "window template script requires db"); WindowTemplateScript(argv[2]); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }

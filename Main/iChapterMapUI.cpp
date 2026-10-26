@@ -476,7 +476,7 @@ bool CZoneSector::GetDescription( wstring *psText ) const
 
 		if ( nCount > 0 )
 		{
-			*psText += NStr::Format( L"<br><br>%d Clues found:<br>", nCount );
+			*psText += GetDBString( 0x4f35 );
 			*psText += wsDescr;
 		}
 	}
