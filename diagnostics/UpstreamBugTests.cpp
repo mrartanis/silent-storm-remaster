@@ -8277,6 +8277,81 @@ static void GrenadeSuccessorHandoff(const char* databasePath,const char* resourc
     }
 }
 
+static void GrenadeThrowAnimationRefresh(const char* databasePath,const char* resourcePath)
+{
+    NativeGrenadeThrowFixture fixture(databasePath,resourcePath,false);
+    auto* actor = fixture.actor;
+    CDBPtr<NDb::CSkeleton> skeleton;
+    CObj<NAnimation::CSkeletonAnimator> animator = actor->animator.GetSkeletonAnimator();
+    CDBPtr<NDb::CSide> side;
+    int poseFlags = 0, classFlags = 0;
+    actor->animator.PlaceUnit(actor->GetPosition());
+    {
+        CMemoryStream fields;
+        CStructureNetworkContext refs;
+        refs.include = [](CObjectBase*) { return false; };
+        { CStructureSaver writer(fields,CStructureSaver::WRITE,&refs); actor->animator.operator&(writer); }
+        fields.Seek(0);
+        { CStructureSaver reader(fields,CStructureSaver::READ,&refs);
+          reader.Add(4,&poseFlags); reader.Add(5,&classFlags); reader.Add(31,&skeleton);
+          reader.Add(40,&side); }
+    }
+    Require(IsValid(skeleton) && IsValid(animator), "grenade animation fixture lost its native skeleton or animator");
+    const int itemFlags = NDb::WeaponTypeToAnimFlags(actor->GetUnitRPG()->GetWeaponType(),true,false);
+    const int expectedFlags = (poseFlags & 7) | itemFlags;
+    auto* expected = skeleton->GetAnimation(NDb::CAnimation::USE,expectedFlags,"F1",classFlags,side);
+    Require(IsValid(expected) && (itemFlags & NDb::CAnimation::WEAPON_ITEM),
+        "grenade animation fixture has no authored item-specific forward throw clip");
+    auto clips = [&]() {
+        vector<NAnimation::CAnimation*> result;
+        vector<CObjectBase*> pending{animator.GetPtr()}, visited;
+        while (!pending.empty()) {
+            auto* object = pending.back(); pending.pop_back();
+            if (std::find(visited.begin(),visited.end(),object) != visited.end()) continue;
+            visited.push_back(object);
+            if (auto* clip = dynamic_cast<NAnimation::CAnimation*>(object)) result.push_back(clip);
+            CStructureNetworkContext refs;
+            auto fields = BorrowedObjectFields(object,&refs);
+            for (const auto& ref: refs.refs)
+                if (dynamic_cast<NAnimation::CAnimator*>(ref.second.GetPtr())) pending.push_back(ref.second.GetPtr());
+        }
+        return result;
+    };
+    // Preserve the native unarmed fallback but remove only the held-item POSE eligibility.
+    struct RestorePoses {
+        vector<std::pair<NDb::CAnimation*,int>> saved;
+        ~RestorePoses() { for (auto& entry: saved) entry.first->nPoseWeaponFlags = entry.second; }
+    } poses;
+    for (auto& entry: skeleton->pAnimations[NDb::CAnimation::POSE].anims)
+        if (entry->nPoseWeaponFlags & itemFlags) {
+            poses.saved.emplace_back(entry.GetPtr(),entry->nPoseWeaponFlags);
+            entry->nPoseWeaponFlags &= ~itemFlags;
+        }
+    Require(!poses.saved.empty() && !skeleton->GetAnimation(NDb::CAnimation::POSE,expectedFlags,0,classFlags,side) &&
+        IsValid(skeleton->GetAnimation(NDb::CAnimation::POSE,(poseFlags & 7) | NDb::CAnimation::WEAPON_NONE,0,classFlags,side)),
+        "grenade animation fixture did not preserve an unarmed POSE fallback without a held-item POSE");
+    const int ap = actor->GetAP();
+    auto* equipped = actor->GetUnitRPG()->GetInventory()->GetActive();
+    auto isThrowClip = [&](NAnimation::CAnimation* clip) {
+        CStructureNetworkContext refs;
+        auto fields = BorrowedObjectFields(clip,&refs);
+        CDBPtr<NDb::CAnimation> record;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&refs); reader.Add(4,&record); }
+        return IsValid(record) && record->nType == NDb::CAnimation::USE &&
+            record->szParams == "F1" && (record->nPoseWeaponFlags & itemFlags) == itemFlags;
+    };
+    const auto before = clips();
+    Require(std::none_of(before.begin(),before.end(),isThrowClip),
+        "grenade animation fixture already contained a throw clip before its first throw");
+    actor->animator.ThrowGrenade(actor->GetPosition(),actor->GetPosition().GetCP()+CVec3(1,0,0),0);
+    const auto after = clips();
+    const bool usedThrow = std::any_of(after.begin(),after.end(),isThrowClip);
+    Require(usedThrow, "a grenade throw after the native unarmed POSE fallback omitted its authored held-item throw animation");
+    Require(!actor->animator.IsActiveItem() && actor->GetAP() == ap &&
+        actor->GetUnitRPG()->GetInventory()->GetActive() == equipped,
+        "refreshing the grenade animation changed item ownership, AP or the post-throw active flag");
+}
+
 static void InvalidatedGrenadeTrajectory(const char* databasePath,const char* resourcePath)
 {
     for (bool engineer: {false,true}) {
@@ -11230,6 +11305,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "restored-engineer-grenade-throw")) { Require(argc == 4, "saved engineer grenade requires db and res"); RestoredGrenadeThrow(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "grenade-successor-handoff")) { Require(argc == 4, "grenade handoff requires db and res"); GrenadeSuccessorHandoff(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "engineer-grenade-successor-handoff")) { Require(argc == 4, "engineer grenade handoff requires db and res"); GrenadeSuccessorHandoff(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "grenade-throw-animation-refresh")) { Require(argc == 4, "grenade animation requires db and res"); GrenadeThrowAnimationRefresh(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "invalidated-grenade-trajectory")) { Require(argc == 4, "grenade trajectory requires db and res"); InvalidatedGrenadeTrajectory(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "grenade-completion-visibility")) { Require(argc == 4, "grenade visibility requires db and res"); GrenadeCompletionVisibility(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }

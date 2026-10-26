@@ -240,6 +240,7 @@
 | [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Defer spare grenade equipment until the throwing animation finishes | `throwing a grenade equipped the successor before the animation completed` | 26/26; `grenade-successor-handoff` | `Upstream-Commit` в commit message |
 | [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Honor saved grenade visibility requests when the action completes | `finishing a restored grenade action discarded its requested deferred visibility refresh` | 27/27; `grenade-completion-visibility` | `Upstream-Commit` в commit message |
 | [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Stop grenade release when its recalculated trajectory is unavailable | `releasing a grenade after its native trajectory became unavailable consumed the item and launched stale parameters` | 28/28; `invalidated-grenade-trajectory` | `Upstream-Commit` в commit message |
+| [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Refresh held-item flags before selecting a grenade throw animation | `a grenade throw after the native unarmed POSE fallback omitted its authored held-item throw animation` | 29/29; `grenade-throw-animation-refresh` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1262,3 +1263,32 @@ Windows configured registration — 1/1. Последняя полная кон�
 `invalidated-grenade-trajectory-game-build.log`,
 `invalidated-grenade-trajectory-registration-test.log`,
 `invalidated-grenade-linux-{configure,build,test}.log`.
+
+### Бросок гранаты после запасной стойки без предмета
+
+Native RED подтвердил пропуск существующего authored USE/F1 клипа гранаты,
+когда Stand выбрал допустимую запасную стойку без предмета. Тест временно
+снимает только item eligibility у POSE-записей действующего скелета в памяти;
+unarmed POSE и USE-клипы остаются штатными, оригинальные маски восстанавливаются.
+Это проверка поддерживаемого fallback-сценария, а не утверждение, что каждый
+стандартный скелет поставляется без стойки гранаты.
+
+Однострочная часть `3cfccbee` пересчитывает item flags после Stand и до выбора
+USE-клипа. Тест обходит настоящий native граф анимации и проверяет присутствие
+клипа броска, прежние AP/предмет и штатный post-throw active flag. GPU-кадр
+не проверяется. Первоначальный oracle, сравнивавший адреса прежних/новых
+клипов, был нестабилен из-за повторного использования адреса освобождённого
+объекта. Он заменён проверкой отсутствия/наличия подходящего authored клипа
+в действующем графе до первого броска и после него; повторный RED подтверждён
+на исправленном тесте без production-строки, затем GREEN и 10 повторов подряд.
+Ошибки ранней подготовки fixture не использованы как свидетельство бага.
+
+Windows/Linux Game собраны; связанный набор — 29/29 на каждой платформе,
+Windows registration — 1/1. Последняя полная контрольная точка остаётся 283;
+весь текущий набор из 290 проверок здесь не заявляется. Числовые, perk/PK и
+Hide-правила из смешанного `3cfccbee` остаются описаны отдельно и не перенесены.
+Свидетельства: `grenade-throw-animation-refresh-{red,green}-{build,test}.log`,
+`grenade-throw-animation-refresh-game-build.log`,
+`grenade-throw-animation-refresh-registration-test.log`,
+`grenade-animation-repeat-test.log`,
+`grenade-animation-linux-{configure,build,test}.log`.
