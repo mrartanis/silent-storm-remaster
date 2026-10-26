@@ -3047,6 +3047,36 @@ network-test.log и network-native-test.log. Source 51a184b8 остаётся ч
 dismount clip и дополнительные animator/stop/recalc flags проверяются отдельно.
 All281 и final actual GitHub Actions остаются незавершёнными.
 
+## Сценарная смена позы через очередь — часть 14ffbcc8
+
+UpstreamDeferredPoseCommand использует общий native world/actor/Lua fixture;
+producer выбирается явным enum, прежние animation и direction случаи
+сохранены. Compiled runtime RED: UnitSetPose(CRAWL=0) возвращается из Lua
+с commander-pending=0/unit-command=1. После RED только этот producer переведён
+на DoCommand с прежним CCmdPath(pos.pos, PF_USE_POSEDIR) и Continue.
+
+GREEN проверяет CRAWL=0 и WALK=2 через реальный Lua callback. Из native очереди
+извлекаются ровно два CCmdSetCommand с тем же actor, настоящим PATH и Continue.
+Проверяются pose, heading, tile/network и PF_USE_POSEDIR; ожидаемое представление
+позы получено существующим SUnitPosition::SetPose. Положение/AP/unit action
+до исполнения queue не меняются. Это граница producer/consumer, не исполнение
+полного pose transition, его pixels или AP cost.
+
+Связанные pose/script/animation/forced/route/queue/movement/door случаи,
+native medal и GPU/display прошли 61/61 на Windows (63.37 с) и Linux (59.24 с).
+Обе Game и Windows ALL_BUILD собраны, по 12 FONT-COMPAT controls сохранены.
+Windows NetworkSerializer/StopResume прошли 2/2 за 3.86 с. Формулы, movement
+rules, наш native facial pipeline и сетевые wire types не редактируются.
+Текущий CPU base 329 не является повтором последнего полного selected 329:
+checkpoint c97d9971 включал CPU base 324 плюс пять native/GPU случаев.
+
+Свидетельства deferred-pose-command: red-{build,test}.log, red-native-test.log,
+green-{build,test}.log, green-native-test.log, all-build.log, related-test.log,
+linux-{configure,build,test}.log, {windows,linux}-native-test.log,
+network-test.log и network-native-test.log. 14ffbcc8 остаётся частичным;
+остальные producers, UnitHide bool и выбор/активация предметов не перенесены
+этим исправлением. All281/final actual GitHub Actions ещё не завершены.
+
 ## Выпадающий список вне clip вложенной строки — часть c0f64c74
 
 Новый resource-free UpstreamComboPopupClipping создаёт настоящие CInterface,

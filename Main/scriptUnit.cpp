@@ -298,8 +298,7 @@ BEGIN_SCRIPT_COMMAND( UnitSetPose, "un" )
 		NAI::EPose pose = ( NAI::EPose )luaParams[ 1 ].n;
 		NAI::SUnitPosition pos = pUS->GetPosition();
 		pos.SetPose( pose );
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdPath( pos.pos, NAI::PF_USE_POSEDIR ) ) );
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdContinue() ) );
+		DoCommand( pUS, new NWorld::CCmdPath( pos.pos, NAI::PF_USE_POSEDIR ), true );
 	}
 	return 0;
 END_SCRIPT_COMMAND
