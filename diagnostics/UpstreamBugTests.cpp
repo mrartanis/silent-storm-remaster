@@ -2860,15 +2860,21 @@ static void AudioOptionCheckboxes(const char* databasePath,const char* resourceP
 #endif
 }
 
-static void MissionSaveMenu(const char* databasePath,const char* resourcePath)
+static void MissionSaveMenu(const char* databasePath,const char* resourcePath,bool quickSave = false)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"mission save-menu fixture requires isolated user data");
     Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"mission save-menu fixture started with an active interface");
     NativeDisplayContext cleanup;
     cleanup.Initialize(databasePath,resourcePath,"Silent Storm mission save-menu regression");
-    NMainLoop::CreateProfile("UpstreamMissionSaveMenu"); NMainLoop::SetActiveProfile("UpstreamMissionSaveMenu");
+    const char* profile = quickSave ? "UpstreamMissionQuickSave" : "UpstreamMissionSaveMenu";
+    NMainLoop::CreateProfile(profile); NMainLoop::SetActiveProfile(profile);
     auto* manager = NMainLoop::GetSaveManager();
-    struct SlotCleanup { NMainLoop::CSaveManager* manager; ~SlotCleanup() { manager->DeleteSlot(NMainLoop::S_SLOT_ACTIVE); } } slotCleanup{manager};
+    struct SlotCleanup {
+        NMainLoop::CSaveManager* manager; bool visible;
+        void ClearVisible() { list<string> slots; manager->GetSlotsList(&slots); for (const auto& slot : slots) manager->DeleteSlot(slot); }
+        ~SlotCleanup() { if (visible) ClearVisible(); manager->DeleteSlot(NMainLoop::S_SLOT_ACTIVE); }
+    } slotCleanup{manager,quickSave};
+    if (quickSave) slotCleanup.ClearVisible();
     NGame::InitLoadingScreen();
     CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(-1);
     game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
@@ -2881,13 +2887,56 @@ static void MissionSaveMenu(const char* databasePath,const char* resourcePath)
     const auto* world = mission->GetWorld(); const STime worldTime = world->GetAimTime()->GetValue();
     const auto* difficulty = game->pDifficulty.GetPtr();
     NWorld::IPlayer::CUnitSet party; mission->GetActivePlayer()->GetPlayer()->GetUnits(&party);
+    auto permission = [&](bool allowed) {
+        // Supply an existing saved permission without changing its calculation.
+        CMemoryStream fields;
+        { CStructureSaver writer(fields,CStructureSaver::WRITE); writer.Add(30,&allowed); }
+        fields.Seek(0);
+        { CStructureSaver reader(fields,CStructureSaver::READ); mission->NGame::CMissionBase::operator&(reader); }
+    };
+    if (quickSave) {
+        auto slots = [&]() { list<string> result; manager->GetSlotsList(&result); result.sort(); return result; };
+        auto bytes = [&](const string& slot) {
+            CFileStream file; file.OpenRead(manager->GetSlotFilePathW(slot,NMainLoop::S_SAVE_FILENAME).c_str());
+            vector<unsigned char> data(file.GetSize()); if (!data.empty()) file.Read(data.data(),data.size()); return data;
+        };
+        Require(slots().empty(),"mission QuickSave fixture did not clear its own isolated slots");
+        NInput::CBind save("save");
+        for (bool allowed : {false,true,false}) {
+            permission(allowed);
+            const auto before = slots(); map<string,vector<unsigned char>> previous;
+            for (const auto& slot : before) previous[slot] = bytes(slot);
+            const string target = NMainLoop::GetQuickSaveSlot(false);
+            NInput::SEvent event; while (NInput::GetEvent(&event)) {}
+            NInput::PostEvent("save");
+            // Exercise the real application dispatcher, including its global
+            // fallback when the active mission does not consume this event.
+            Require(NMainLoop::StepApp(false,false,true),"native mission QuickSave dispatch requested application exit");
+            const auto after = slots();
+            std::printf("native QuickSave permission=%d, slots before=%zu after=%zu\n",int(allowed),before.size(),after.size());
+            if (!allowed) {
+                Require(after == before,"a forbidden mission QuickSave created or changed a save slot");
+                for (const auto& slot : before) Require(bytes(slot) == previous[slot],"a forbidden mission QuickSave overwrote an existing save");
+            } else {
+                Require(after.size() == before.size()+1 && std::find(after.begin(),after.end(),target) != after.end(),
+                    "an explicitly permitted native mission QuickSave did not write its expected slot");
+                CFileStream file; file.OpenRead(manager->GetSlotFilePathW(target,NMainLoop::S_SAVE_FILENAME).c_str());
+                auto header = std::make_unique<NMainLoop::SSaveFileHeader>(); NMainLoop::ReadSaveFileHeader(file,header.get());
+                Require(header->nMagic == NMainLoop::N_SAVE_MAGIC_NUMBER && header->nMods == 0 &&
+                    file.GetSize() > 8+NMainLoop::N_SAVE_SCREENSHOT_X*NMainLoop::N_SAVE_SCREENSHOT_Y*4+1024,
+                    "native mission QuickSave did not write its real header and serialized mission data");
+            }
+            NWorld::IPlayer::CUnitSet afterParty; mission->GetActivePlayer()->GetPlayer()->GetUnits(&afterParty);
+            Require(NMainLoop::GetCurrentInterfaceForHarness() == mission.GetPtr() && !NMainLoop::HaveInterfaceCommand() && mission->GetWorld() == world &&
+                world->GetAimTime()->GetValue() == worldTime && afterParty == party && game->pDifficulty.GetPtr() == difficulty,
+                "native QuickSave dispatch changed the mission, world, party or difficulty");
+        }
+        std::puts("native mission QuickSave false/true/false: no forbidden slot or overwrite; permitted save header/data written");
+        NMainLoop::DoneInterface(); return;
+    }
     NInput::CBind saveMenu("savemenu");
     for (bool allowed : {false,true}) {
-        // Supply an existing saved permission without changing its calculation.
-        CMemoryStream permission;
-        { CStructureSaver writer(permission,CStructureSaver::WRITE); writer.Add(30,&allowed); }
-        permission.Seek(0);
-        { CStructureSaver reader(permission,CStructureSaver::READ); mission->NGame::CMissionBase::operator&(reader); }
+        permission(allowed);
         NInput::SEvent event; while (NInput::GetEvent(&event)) {}
         NInput::PostEvent("savemenu");
         Require(NInput::GetEvent(&event) && saveMenu.ProcessEvent(event) && mission->ProcessEvent(event) && NMainLoop::HaveInterfaceCommand(),
@@ -13751,6 +13800,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-script-cadence") && argc == 4) { MainMenuMapScript(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "audio-option-checkboxes") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "audio-option-checkbox-notify") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "audio-option-defaults") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3],false,true); return true; }

@@ -2542,3 +2542,45 @@ encoded-save-name-final-green-{build,test}.log. Связанные пять пр
 на Windows и Linux; Linux Game собран. Нативный screenshot заранее задан
 тестом: это проверка файла и команд сохранения, а не GPU readback.
 Использованы прежние каталоги сборки, HD generation не запускалась.
+
+## Быстрая запись тактической миссии — часть 02d85e5b
+
+Compiled runtime RED новой NativeMissionQuickSave запускает настоящую миссию 810,
+исполняет её restart snapshot и задаёт существующее сохранённое разрешение через
+CMissionBase tag 30. Команда save проходит через настоящий StepApp с обработкой
+событий и общим fallback. При false миссия не поглощала команду: fallback создал
+настоящий слот, число сохранений выросло с нуля до одного.
+
+В CMission добавлен собственный bind команды save. При готовом true permission
+он создаёт обычный CICSave с GetQuickSaveSlot(false); при false показывает
+существующее сообщение и поглощает событие до глобального обработчика.
+Правила вычисления permission, сложность и сериализованные поля не меняются.
+Собственный LAN menu routing остаётся прежним; старый hotseat код не возвращается.
+
+GREEN проходит последовательность false/true/false через реальный dispatcher:
+запрещённая команда не создаёт слот и не меняет байты уже существующего сохранения,
+разрешённая пишет штатный заголовок, screenshot и сериализованную миссию.
+Проверяются прежние объекты миссии, мира и отряда, aim time и запись сложности.
+Файлы создаются только в отдельном тестовом профиле и удаляются после проверки.
+Это тест команды, а не физического F-key; отдельного полного LAN UI запуска
+данная fixture не выполняет.
+
+На Windows первоначальная полная проверка переноса прошла 353/353 (349.73 с),
+включая CPU-набор, 24 native-display случая, шесть сетевых и пять world/save
+проверок. После отдельного e2db8844 и добавления encoded-name regression
+повторно собраны ALL_BUILD и Game, связанные 95/95 прошли за 96.01 с,
+локальные CI-like 272/272 — за 27.37 с. На Linux финальный полный текущий
+CPU-набор (318) вместе с 24 native-display и renderer case прошёл 343/343
+за 271.42 с; Game собран. Это локальные проверки, не финальный GitHub Actions.
+
+Первый Linux-прогон 94 случаев имел единственный сбой в разрешённой ветке
+QuickSave из-за собственного encoded-name guard. Он сохранён без подмены
+результата, причина исправлена отдельным TDD-коммитом e2db8844, затем проведён
+финальный полный прогон. Свидетельства: mission-quick-save-red-{build,test}.log,
+mission-quick-save-green-{build,test}.log, mission-quick-save-full-test.log,
+mission-quick-save-linux-{configure,build,test}.log,
+mission-quick-save-final-all-build.log, mission-quick-save-final-related-test.log,
+mission-quick-save-final-ci-test.log, mission-quick-save-final-linux-{configure,build,test}.log
+и отдельные native success logs на обеих платформах.
+Один временный pending diff на 17 KB для независимого compatibility-коммита
+восстановлен и удалён; копий игры или сборки не создавалось, HD pack не менялся.

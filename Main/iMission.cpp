@@ -176,7 +176,7 @@ CMission::CMission():
 	varCheatAP( "cheat_ap", VarCheatAP, this, NGlobal::CValue( L"off" ) ),
 	bindCluesMenu( "clues" ), bindObjectivesMenu( "objectives" ), bindGameMenu( "gamemenu" ),
 	bindStartOfTurn( "startofturn" ), bindEndOfTurn( "endofturn" ), 
-	bindSaveMenu( "savemenu" ), bindLoadMenu( "loadmenu" ), 
+	bindSaveMenu( "savemenu" ), bindLoadMenu( "loadmenu" ), bindQuickSave( "save" ),
 	bindMove( "move" ), bindAttack( "attack" ), bindSetMine( "setmine" ), bindSetTrap( "settrap" ), bindFirstAid( "firstaid" ), bindDropCorpse( "dropcorpse" ), bindExitPK( "exitpk" ), bindRotate( "unit_rotate" ), bindUseTool( "usetool" ),
 	bindSnipeAttack( "snipe_attack" ), bindCollect1AP( "collectap_1ap" ), bindCollect10AP( "collectap_10ap" ), bindCollectMaxAP( "collectap_max" ), bindCollectAllAP( "collectap_all" ),
 	bindNormalPose( "pose_normal" ), bindCrawlPose( "pose_crawl" ), bindCrouchPose( "pose_crouch" ), bindRunPose( "pose_run" ), bindStrafe( "pose_strafe" ), bindHide( "hide" ),
@@ -1621,6 +1621,14 @@ bool CMission::ProcessEvent( const NInput::SEvent &sEvent )
 	{
 		NMainLoop::Command( new CICSaveLoadMenu( bCanSave ? SAVE : LOAD, 0, bCanSave ) );   // retail CMissionBase::ProcessEvent passes this->bCanSave (disasm mov al,[esi+0xe4])
 		return true;
+	}
+	else if ( bindQuickSave.ProcessEvent( sEvent ) )
+	{
+		if ( bCanSave )
+			NMainLoop::Command( new NMainLoop::CICSave( NMainLoop::GetQuickSaveSlot( false ) ) );
+		else
+			csGame << NUI::GetDBString( 19881 ) << endl;
+		return true; // Do not let a forbidden save reach the application's global fallback.
 	}
 	else if ( bindLoadMenu.ProcessEvent( sEvent ) )
 	{
