@@ -255,6 +255,7 @@
 | [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Fit global-sector description panels to their native captions | `the native global-sector description kept its fixed height instead of fitting its actual caption and border` | 10/10; `global-sector-description` | `Upstream-Commit` в commit message |
 | [e9dc218f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e9dc218fcbf45f8ae952b0381112beba1193ca02) — Initialize the native campaign chapter world and saved mission graph | `the native chapter initialized without the world required by its saved mission state` | 9/9; `chapter-world-graph` | `Upstream-Commit` в commit message |
 | [e9dc218f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e9dc218fcbf45f8ae952b0381112beba1193ca02) — Queue chapter entry scripts in their native world context | `the native chapter never evaluated its assigned ScriptID entry point` | 23/23; `chapter-script-initialization` | `Upstream-Commit` в commit message |
+| [e9dc218f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e9dc218fcbf45f8ae952b0381112beba1193ca02) — Resume chapter sound when a native menu returns focus | `returning from a native menu left the chapter audio channel permanently paused` | 24/24; `chapter-focus-audio` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1675,3 +1676,25 @@ OnEnterZone — следующим, ровно один раз. Принудит
 Исходный коммит остаётся частично перенесённым: OnGetFocus и минимальный
 интервал кадра требуют отдельных проверок; перед новым Step из70d12946
 нужно проверить совместимость со старыми сохранениями форка с null world.
+
+### Возврат звука главы после меню
+
+Следующая независимая часть e9dc218f убирает пустой CChapterMap::OnGetFocus,
+который перекрывал существующий CMissionBase::OnGetFocus. Теперь используются
+его ResetTiming и Pause(false); собственный звуковой движок не изменён.
+Native RED: после реального CICExitMenu/CICExitModal канал главы оставался
+на паузе. Тест запускает настоящий PCM-канал через sound scene главы и
+дважды проверяет остановку курсора под меню и продолжение после закрытия.
+Независимый контрольный канал продолжает воспроизведение во время паузы главы.
+Контролируемый PCM и запись кэша находятся только в памяти; физическое
+аудиоустройство, GPU-картинка и фактический вывод на динамики не заявляются.
+
+Набор главы/глобальной карты/меню/звука — 24/24 на Windows (21.17 с) и
+Linux (20.60 с), обе игры собраны, регистрация Windows — 2/2.
+Свидетельства: `chapter-focus-audio-{red,green}-{build,test}.log`,
+`chapter-focus-audio-game-build.log`,
+`chapter-focus-audio-registration-test.log`, `chapter-focus-linux-*`.
+Последний полный checkpoint — 306, текущее полное число — 308.
+Остаются минимальный интервал кадра и проверка/миграция старых собственных
+chapter saves с null world; миграция должна также обеспечить безопасный
+возврат фокуса после загрузки такого сохранения.

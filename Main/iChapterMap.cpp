@@ -107,7 +107,6 @@ public:
 	NDb::CChapterMap* GetChapterMap() const;
 	CPtrFuncBase<CChapterInfo>* GetChapterInfo() const;
 
-	void OnGetFocus();
 	bool ProcessEvent( const NInput::SEvent &sEvent );
 	void Step();
 };
@@ -212,10 +211,6 @@ NDb::CChapterMap* CChapterMap::GetChapterMap() const
 CPtrFuncBase<CChapterInfo>* CChapterMap::GetChapterInfo() const
 {
 	return pChapterInfo;
-}
-////////////////////////////////////////////////////////////////////////////////////////////////////
-void CChapterMap::OnGetFocus()
-{
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CChapterMap::ProcessEvent( const NInput::SEvent &sEvent )

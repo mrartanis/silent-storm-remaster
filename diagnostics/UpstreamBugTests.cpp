@@ -2115,7 +2115,7 @@ static void MissionSoundGameClock()
         "using the game clock lost the native sound pause flag or skipped-time offset");
 }
 
-namespace NSound { extern CBasicShare<int,CFileSample3D> share3DSamples; }
+namespace NSound { extern CBasicShare<int,CFileSample3D> share3DSamples; extern CBasicShare<int,CFileSample2D> share2DSamples; }
 
 class CachedEffectSampleAccess: public NSound::CFileSample3D
 {
@@ -2353,6 +2353,86 @@ static void SoundMixerClockCatchUp()
 
 
 
+
+class CachedChapterSampleAccess: public NSound::CFileSample2D
+{
+public:
+    static auto ValueMember() { return &CachedChapterSampleAccess::pValue; }
+};
+
+static void ChapterFocusAudio(const char* databasePath,const char* resourcePath)
+{
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+    Require(std::getenv("S2_AUDIO_HEADLESS") != nullptr,"chapter-focus fixture requires headless native audio");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "chapter-focus fixture started with an active interface or pending command");
+    CFileStream database; database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ); NGScene::AddResourceDir(resourcePath);
+    Require(NFMSound::Init(NFMSound::SStartInfo()),"chapter-focus fixture could not initialize native audio");
+    struct Cleanup { ~Cleanup() { NMainLoop::DoneInterface(); ClearHoldQueue(); NFMSound::Done(); } } cleanup;
+    NFMSound::SetMusicMasterVolume(0);
+    CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());
+    NDb::CChapterMap* map = nullptr;
+    while (maps.MoveNext()) if (IsValid(maps.Get()->pBackground)) { map = maps.Get(); break; }
+    Require(map != nullptr,"chapter-focus fixture has no authored chapter map");
+    CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(1);
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    CObj<NGame::CICBeginChapter> enter = new NGame::CICBeginChapter(map->GetRecordID(),game);
+    enter->Exec();
+    CObj<NGame::CMissionBase> chapter = dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(IsValid(chapter) && chapter->GetSoundScene(),"chapter-focus fixture did not open its actual native chapter");
+    CDBIterator<NDb::CSound> sounds(*NDatabase::GetTable<NDb::CSound>());
+    Require(sounds.MoveNext(),"chapter-focus fixture has no native sound record");
+    auto* record = sounds.Get(); record->bLoop = false; record->nStartSamples = record->nEndingSamples = 0;
+    const auto wave = SilentPCMFixture(44100);
+    CObj<NFMSound::CSample2D> sample = NFMSound::LoadSample2D(wave.data(),static_cast<int>(wave.size()));
+    Require(IsValid(sample),"chapter-focus fixture could not decode its PCM sample");
+    CObj<NSound::CFileSample2D> loader = NSound::share2DSamples.Get(record->GetRecordID());
+    (loader.GetPtr()->*CachedChapterSampleAccess::ValueMember()) = sample.GetPtr();
+    CObj<NSound::ISound2D> sound = chapter->GetSoundScene()->Add2DSound(record);
+    CObj<ICamera> camera = ::CreateCamera(CAMERA_PC);
+    CTransformStack transform; camera->GetTransform(&transform,CVec2(1024,768));
+    chapter->GetSoundScene()->Draw(&transform);
+    auto findChannel = [&](int except) {
+        int found = -1;
+        for (int i = 0; i < 128; ++i) if (i != except && FSOUND_IsPlaying(i)) {
+            Require(found == -1,"chapter-focus fixture has unexpected extra channels"); found = i;
+        }
+        return found;
+    };
+    const int channel = findChannel(-1);
+    Require(IsValid(sound) && sound->IsPlaying() && channel >= 0,"chapter scene did not start an actual native PCM channel");
+    CObj<NFMSound::CSound2D> unrelated = NFMSound::PlaySound(sample);
+    const int control = findChannel(channel);
+    Require(IsValid(unrelated) && control >= 0,"chapter-focus fixture did not start its unrelated audio control");
+    vector<float> output(512*2);
+    auto render = [&]() { Require(S2FmodRenderForTest(output.data(),512) != 0,"chapter-focus fixture could not render native PCM"); };
+    render();
+    Require(FSOUND_GetCurrentPosition(channel) > 0,"chapter-focus fixture has no observable live playback before its menu");
+    for (int pass = 0; pass < 2; ++pass) {
+        const unsigned before = FSOUND_GetCurrentPosition(channel), other = FSOUND_GetCurrentPosition(control);
+        CObj<NGame::CICExitMenu> menu = new NGame::CICExitMenu;
+        menu->Exec();
+        Require(NMainLoop::GetInterfaceStackDepth() == 2 && NMainLoop::GetCurrentInterfaceForHarness() != chapter.GetPtr(),
+            "chapter-focus fixture did not cover the chapter with its actual native menu");
+        render();
+        Require(FSOUND_IsPlaying(channel) && FSOUND_GetCurrentPosition(channel) == before && FSOUND_GetCurrentPosition(control) > other,
+            "covering a chapter did not freeze only its own live audio channel");
+        CObj<NMainLoop::CICExitModal> close = new NMainLoop::CICExitModal;
+        close->Exec();
+        Require(NMainLoop::GetInterfaceStackDepth() == 1 && NMainLoop::GetCurrentInterfaceForHarness() == chapter.GetPtr(),
+            "closing the native menu did not return focus to the chapter");
+        render();
+        Require(FSOUND_IsPlaying(channel) && FSOUND_GetCurrentPosition(channel) > before,
+            "returning from a native menu left the chapter audio channel permanently paused");
+    }
+    Require(game->bChapterMapSet && game->nChapterMapID == map->GetRecordID() && game->players.size() == 1,
+        "chapter focus changed campaign destination or party");
+    NMainLoop::DoneInterface();
+#else
+    Require(false,"chapter-focus test requires the native SFX backend");
+#endif
+}
 
 static void ChapterScriptInitialization(const char* databasePath,const char* resourcePath)
 {
@@ -12375,6 +12455,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "exit-menu-save-visibility") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "exit-menu-save-shortcut") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "chapter-focus-audio") && argc == 4) { ChapterFocusAudio(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-script-initialization") && argc == 4) { ChapterScriptInitialization(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-world-graph") && argc == 4) { ChapterWorldGraph(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "global-sector-description") && argc == 4) { GlobalSectorDescription(argv[2],argv[3]); return true; }
