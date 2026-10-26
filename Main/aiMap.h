@@ -108,6 +108,8 @@ public:
 	// Pushes the CConvexHull objects themselves (pointer identity is what the stability trackers
 	// diff); the output vector is NOT cleared first.
 	virtual void SelectHullPointers( vector< CPtr<CObjectBase> > *pRes, const SBound &b, int nIncludeMask, int nExcludeMask ) = 0;
+	// Both authored door states, including the inactive collision hull. Append to preserve existing slots.
+	virtual bool GetWindowPos( CObjectBase *pSrc, CVec3 *pClosed, CVec3 *pOpen ) = 0;
 };
 void GetGeometry( list<SObjectInfo> *pRes, vector<SMassSphere> *pSpheres, int nAIGeometryID, bool *pbClosed = 0 );
 void GetSpheres( NDb::CModel *pModel, vector<SMassSphere> *pRes, CVec3 *pMassCenter );

@@ -13259,6 +13259,43 @@ static void PKFixedWeaponPolicy()
     Require(!CanRemovePKWeapon(inventory.GetPtr(), 0), "manual removal of a fixed PK weapon is allowed");
 }
 
+static void DoorSwingDirection(const char* databasePath,const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath,resourcePath);
+    auto* map = world->GetAIMap(); map->Sync();
+    int doors = 0;
+    for (const auto& entry : world->GetObjectsForHarness()) {
+        auto* door = dynamic_cast<NWorld::CWindowDoor*>(entry.GetPtr());
+        if (!door || door->IsBroken()) continue;
+        const bool wasOpen = door->IsOpen();
+        struct Restore { NAI::IAIMap* map; NWorld::CWindowDoor* door; bool open;
+            ~Restore() { map->FlipDoorWindow(door,open); } } restore{map,door,wasOpen};
+        // Existing native state filtering exposes each real collision hull in turn.
+        // No grid cells or synthetic hull bounds are used as the expected direction.
+        map->FlipDoorWindow(door,false); CObj<CObjectBase> closedHull = map->GetHull(door);
+        CVec3 closed;
+        if (!IsValid(closedHull) || !map->GetUnitHLPos(&closed,closedHull,-1)) continue;
+        map->FlipDoorWindow(door,true); CObj<CObjectBase> openHull = map->GetHull(door);
+        CVec3 opened;
+        if (!IsValid(openHull) || openHull == closedHull || !map->GetUnitHLPos(&opened,openHull,-1)) continue;
+        CVec3 expected = opened-closed;
+        if (fabs2(expected) < 0.0001f) continue;
+        Normalize(&expected);
+        for (bool visibleOpen : {false,true}) {
+            map->FlipDoorWindow(door,visibleOpen);
+            const auto forward = door->GetChangeStateDirection(true), backward = door->GetChangeStateDirection(false);
+            std::printf("native door swing: door=%d visible-open=%d length=%.6f hull-error=%.6f reverse-error=%.6f\n",
+                doors,int(visibleOpen),float(fabs(forward)),float(fabs(forward-expected)),float(fabs(backward+expected)));
+            Require(fabs2(forward-expected) < 0.00001f && fabs2(backward+expected) < 0.00001f,
+                "native door swing uses arbitrary grid locks instead of its normalized collision-hull direction");
+            Require(door->IsOpen() == wasOpen,"measuring a native door swing changed its logical open state");
+        }
+        ++doors;
+    }
+    Require(doors > 0,"door swing fixture has no authored door with distinct closed and open hulls");
+    std::printf("native door swing: checked %d authored doors in both collision states\n",doors);
+}
+
 static void DoorCollision()
 {
     CObj<RenderFixture> first = new RenderFixture, second = new RenderFixture;
@@ -14449,6 +14486,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "pk-equipment")) { PKEquipmentTransfer(); return true; }
     if (!std::strcmp(mode, "pk-fixed-weapon")) { PKFixedWeaponPolicy(); return true; }
     if (!std::strcmp(mode, "door-collision")) { DoorCollision(); return true; }
+    if (!std::strcmp(mode, "door-swing-direction") && argc == 4) { DoorSwingDirection(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "overlapping-doors")) { OverlappingDoors(); return true; }
     if (!std::strcmp(mode, "weapon-familiarity")) { WeaponFamiliarity(); return true; }
     if (!std::strcmp(mode, "clue-slots")) { ClueSlotSelection(); return true; }

@@ -2851,6 +2851,47 @@ final-{build,test}.log, final-linux-{configure,build,test}.log и
 final-{windows,linux}-native-test.log. Оригинальный баланс, scoring и HD
 остаются прежними. All281/final actual GitHub Actions ещё не завершены.
 
+## Направление движения двери по её hull — часть 68595fd2
+
+UpstreamDoorSwingDirection создаёт настоящий authored world 810 без mission
+scripts и проверяет его дверь с двумя различными collision hulls. Ожидаемые
+центры получаются существующими AIMap FlipDoorWindow/GetHull/GetUnitHLPos:
+сначала открывается доступ к закрытому hull, затем к открытому. Направление
+не выводится из grid locks или скопированного private CConvexHull layout.
+Fixture возвращает collision state через RAII и не меняет door.IsOpen.
+
+Compiled runtime RED: длина старого вектора 0.673095, отклонение от направления
+между центрами настоящих hull 0.747133 в обе стороны. Production выбирала
+первую произвольную запись unordered grid locks, а для >100 locks возвращала
+ноль. Минимальный перенос добавляет CAIMap::GetWindowPos, получает оба hull
+через существующий tracker с filter=false (включая inactive state), использует
+их штатные центры и нормализует разность в CWindowDoor. Новый virtual добавлен
+в конец нашего IAIMap, чтобы не сдвигать прежние slots. Saved fields не меняются.
+
+GREEN: длина 1, ошибки forward/reverse 0 и при закрытой, и при открытой
+collision state. Проверена одна authored дверь fixture 810; отдельное покрытие
+больших ворот и всех карт здесь не заявляется. Настоящее открывание действием
+бойца, его AP и shove animation этим тестом не исполняются. Цены действий,
+урон и существующий порог shove 0.707 не редактируются.
+
+Из-за общего IAIMap header выполнены Windows ALL_BUILD и обе Game, полный
+актуальный набор 329: upstream/native CPU base 324 (включая bind и bound), три
+native medal случая и Bgfx/DisplayRuntime. Обе платформы прошли 329/329: Windows за 277.70 с, Linux за 280.05 с.
+В native logs по 12 FONT-COMPAT controls на каждой платформе.
+Windows CI-like 274/274 также прошёл за 26.15 с. Windows full summary содержит
+329 passed, но его raw LastTest сохранил 328 blocks: самый первый Bound был
+затёрт header/нулевым промежутком при nested CTest --show-only из существующего
+UpstreamRegistrationTests.py. Исходный raw оставлен как есть; пропущенный
+Bound отдельно прошёл 1/1 (0.02 с), его raw сохранён как
+door-swing-direction-bound-log-recheck-native-test.log. Это ограничение
+локального журнала, а не failure теста; nested logging требует отдельного
+исправления при заключительной проверке CI.
+Source остаётся частичным: отдельное смешивание heading в CanSimplyOpen
+должно получить собственное native RED/GREEN до изменения production.
+Свидетельства door-swing-direction-{red,green}-{build,test}.log,
+red-native-test.log, green-native-test.log, all-build.log, full-test.log,
+linux-{configure,build,test}.log и platform-native-test.log.
+
 ## Выпадающий список вне clip вложенной строки — часть c0f64c74
 
 Новый resource-free UpstreamComboPopupClipping создаёт настоящие CInterface,
