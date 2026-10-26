@@ -1454,7 +1454,13 @@ void CComboBoxList::OnAction()
 CComboBox::CComboBox( const SWindowInfo &sInfo ):
 	CWindow( sInfo ), statesSet( STATE_LAST )
 {
-	CPtr<CComboBoxList> pComboBoxList = new CComboBoxList( SWindowInfo( GetParent(), SPoint( GetPosition().x, GetPosition().y + GetSize().y ), SPoint( GetSize().x, 0 ), "list", STYLE_ENABLED | STYLE_TOPMOST ) );
+	CWindow *pPopupParent = IsValid( GetInterface() ) ? GetInterface() : GetParent();
+	SPoint position;
+	SRect clip;
+	ClientToScreen( &position, &clip );
+	if ( IsValid( pPopupParent ) )
+		pPopupParent->ScreenToClient( position, &position );
+	CPtr<CComboBoxList> pComboBoxList = new CComboBoxList( SWindowInfo( pPopupParent, SPoint( position.x, position.y + GetSize().y ), SPoint( GetSize().x, 0 ), "list", STYLE_ENABLED | STYLE_TOPMOST ) );
 	pComboBoxList->SetOwner( this );
 	pList = pComboBoxList;
 }
@@ -1532,13 +1538,31 @@ void CComboBox::SetSelectedItem( int nID )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CComboBox::Update( const STime &sTime, NGScene::I2DGameView *pView )
 {
-	// The popup is a sibling. Follow the field's right edge while retaining
-	// the authored row artwork width, even when the field itself is narrower.
+	// Escape the row clip while preserving the remaster's right-aligned artwork.
+	CWindow *pPopupParent = IsValid( GetInterface() ) ? GetInterface() : GetParent();
+	if ( IsValid( pPopupParent ) && pList->GetParent() != pPopupParent )
+	{
+		CMObj<CWindow> keepAlive = pList.GetPtr();
+		if ( IsValid( pList->GetParent() ) )
+			pList->GetParent()->RemoveChild( pList );
+		pPopupParent->AddChild( pList );
+	}
+	SPoint position;
+	SRect clip;
+	ClientToScreen( &position, &clip );
+	if ( IsValid( pPopupParent ) )
+		pPopupParent->ScreenToClient( position, &position );
 	const int popupWidth=Max(pList->GetAuthoredSize().x,GetSize().x);
-	pList->SetPosition(SPoint(GetPosition().x+GetSize().x-popupWidth,GetPosition().y+GetSize().y));
+	pList->SetPosition(SPoint(position.x+GetSize().x-popupWidth,position.y+GetSize().y));
 	pList->SetSize(SPoint(popupWidth,pList->GetSize().y));
-	pList->SetStyle(STYLE_ENABLED,GetStyle(STYLE_ENABLED));
-	if(!GetStyle(STYLE_VISIBLE)) pList->SetStyle(STYLE_VISIBLE,false);
+	bool enabled = true, visible = true;
+	for ( CWindow *owner = this; IsValid( owner ); owner = owner->GetParent() )
+	{
+		enabled = enabled && owner->GetStyle( STYLE_ENABLED );
+		visible = visible && owner->GetStyle( STYLE_VISIBLE );
+	}
+	pList->SetStyle(STYLE_ENABLED,enabled);
+	if(!visible) pList->SetStyle(STYLE_VISIBLE,false);
 	CWindow::Update(sTime,pView);
 	return true;
 }

@@ -2617,3 +2617,38 @@ encoded-load-name-green-linux-{configure,build,test}.log,
 encoded-load-name-green-{build,test}.log, encoded-load-name-game-build.log
 и сохранённые native success logs. Использованы прежние каталоги сборки,
 HD generation не запускалась, собственные тестовые процессы завершены.
+
+## Выпадающий список вне clip вложенной строки — часть c0f64c74
+
+Новый resource-free UpstreamComboPopupClipping создаёт настоящие CInterface,
+вложенную панель, строку высотой 20, CComboBox и его настоящий CComboBoxList
+с двумя CComboBoxItem. Compiled runtime RED: координаты popup уже правильные
+(95,130), но parent=row обрезает popup; HitTest внутри его первой строки false.
+Это проверка действующей оконной геометрии, а не сравнение текста реализации.
+
+Popup прикрепляется к CInterface. Расчёт его позиции учитывает пространство
+родителя, сохраняет наше выравнивание по правой границе и authored artwork width.
+При отсутствии интерфейса остаётся прежний sibling layout. Update также
+переносит popup из старого вложенного parent с временным CMObj ownership,
+чтобы RemoveChild не уничтожил его при reparent. Скрытие/отключение предков
+теперь учитывается явно, поскольку popup больше не находится в их child tree.
+Сериализованные поля и наш адаптивный layout не заменяются.
+
+GREEN проверяет HitTest за границей исходной строки, nonzero origin интерфейса,
+перемещение вложенной панели, сужение поля при сохранении artwork width,
+старую вложенную parent-связь, disabled/hidden предков, настоящую выборку ID
+через CListView с уведомлением combo, закрытие по outside click и уничтожение
+popup вместе с combo. Старый parent в fixture смоделирован действующими API;
+это не прогон полного исторического сохранения.
+
+Связанные 26/26 прошли на Windows (19.89 с) и Linux (15.20 с), обе Game собраны.
+DisplayRuntimeTests прошёл на 1024x768, 1280x720, 1920x1080, 3440x1440 и
+3840x2160, включая прежнюю адаптивную right-edge/artwork проверку combo без
+интерфейса. Native clipping fixture сама не рисует glyph/pixel output.
+Свидетельства: combo-popup-clipping-red-{build,test}.log,
+combo-popup-clipping-green-{build,test}.log,
+combo-popup-clipping-related-green-test.log,
+combo-popup-clipping-{renderer,game}-build.log,
+combo-popup-clipping-linux-{configure,build,test}.log и native success logs.
+CPU count 320; полный текущий CPU-набор не повторялся для этого UI-фикса.
+Source c0f64c74 остаётся частичным: отдельный item-width hunk ещё проверяется.

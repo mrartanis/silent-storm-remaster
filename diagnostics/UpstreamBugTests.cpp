@@ -4100,6 +4100,57 @@ static void NewLayerCompactSave()
     }
 }
 
+static void ComboPopupClipping()
+{
+    CObj<NUI::CInterface> root = new NUI::CInterface;
+    root->SetInterface(root); root->SetSize(NUI::SPoint(640,480)); root->SetPosition(NUI::SPoint(20,10));
+    root->SetStyle(NUI::STYLE_VISIBLE | NUI::STYLE_ENABLED,true);
+    CObj<NUI::CWindow> panel = new NUI::CWindow(NUI::SWindowInfo(root,NUI::SPoint(100,80),NUI::SPoint(300,100),"panel"));
+    CObj<NUI::CWindow> row = new NUI::CWindow(NUI::SWindowInfo(panel,NUI::SPoint(25,20),NUI::SPoint(230,20),"row"));
+    CObj<NUI::CComboBox> combo = new NUI::CComboBox(NUI::SWindowInfo(row,NUI::SPoint(10,2),NUI::SPoint(100,18),"combo"));
+    CStructureNetworkContext references;
+    auto fields = BorrowedObjectFields(combo,&references);
+    CPtr<NUI::CListView> popup;
+    { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(4,&popup); }
+    Require(IsValid(popup),"native combo did not create its actual popup");
+    combo->AddItem(7,NUI::CComboBox::SInfo(L"First"));
+    combo->AddItem(9,NUI::CComboBox::SInfo(L"Second"));
+    for (int id : {7,9}) popup->GetItem(id)->SetSize(NUI::SPoint(100,22));
+    popup->SetSize(NUI::SPoint(160,44)); // Existing remaster artwork can exceed the closed field.
+    auto update = [&]() { combo->Update(1,nullptr); popup->Update(1,nullptr); };
+    auto open = [&]() { Require(combo->ProcessMessage(NUI::SEvent(NUI::EVENT_NOTIFY,"drop_list")) &&
+        popup->GetStyle(NUI::STYLE_VISIBLE),"native combo did not open its actual popup"); };
+    auto check = [&]() {
+        NUI::SPoint field; NUI::SRect clip;
+        combo->ClientToScreen(&field,&clip);
+        const NUI::SPoint expected(field.x+combo->GetSize().x-160,field.y+combo->GetSize().y);
+        NUI::SPoint position; popup->ClientToScreen(&position,&clip);
+        std::printf("native combo parent=%s popup=%d,%d expected=%d,%d hit=%d\n",popup->GetParent()->GetWindowID().c_str(),
+            position.x,position.y,expected.x,expected.y,int(popup->HitTest(expected.x+10,expected.y+10)));
+        Require(popup->HitTest(expected.x+10,expected.y+10),"native combo popup is clipped by its owning row");
+        Require(popup->GetParent() == root.GetPtr() && position == expected && popup->GetSize().x == 160,
+            "native combo lost interface coordinates, right alignment or remaster artwork width");
+    };
+    update(); open(); check();
+    panel->SetPosition(NUI::SPoint(150,90)); combo->SetSize(NUI::SPoint(60,18)); update(); check();
+    // An older native UI graph can still carry the popup below its row.
+    { CMObj<NUI::CWindow> hold = popup.GetPtr(); root->RemoveChild(popup); row->AddChild(popup); }
+    update(); check();
+    row->SetStyle(NUI::STYLE_ENABLED,false); update();
+    Require(!popup->GetStyle(NUI::STYLE_ENABLED),"root-level popup remained interactive below a disabled owner");
+    row->SetStyle(NUI::STYLE_ENABLED,true); panel->SetStyle(NUI::STYLE_VISIBLE,false); update();
+    Require(!popup->GetStyle(NUI::STYLE_VISIBLE),"root-level popup remained visible below a hidden owner");
+    panel->SetStyle(NUI::STYLE_VISIBLE,true); update(); open(); check();
+    popup->SetSelectedItem(9);
+    Require(combo->GetSelectedItem() == 9 && !popup->GetStyle(NUI::STYLE_VISIBLE),
+        "native popup selection did not notify its combo and close");
+    open();
+    combo->ProcessMessage(NUI::SEvent(NUI::EVENT_LBUTTONDOWN,0,0));
+    Require(!popup->GetStyle(NUI::STYLE_VISIBLE),"native popup did not close on an outside click");
+    combo = nullptr;
+    Require(!IsValid(popup),"destroying a combo left its root-level popup alive");
+}
+
 static void WindowLazyUpdate()
 {
     auto requiresUpdate = [](NUI::CWindow* window) {
@@ -13739,6 +13790,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "window-message-callbacks")) { WindowMessageCallbacks(); return true; }
     if (!std::strcmp(mode, "window-callback-lifetime")) { WindowCallbackLifetime(); return true; }
     if (!std::strcmp(mode, "window-lazy-update")) { WindowLazyUpdate(); return true; }
+    if (!std::strcmp(mode, "combo-popup-clipping")) { ComboPopupClipping(); return true; }
     if (!std::strcmp(mode, "window-nested-wakeup")) { WindowNestedWakeup(); return true; }
     if (!std::strcmp(mode, "window-template-script")) { Require(argc == 3, "window template script requires db"); WindowTemplateScript(argv[2]); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
