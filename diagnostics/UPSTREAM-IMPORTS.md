@@ -271,6 +271,7 @@
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Connect native audio acknowledgement checkboxes to saved settings | `the native audio page did not initialize its acknowledgement checkboxes from config`; `the native response checkbox did not apply its change to config` | 85/85; `audio-option-checkboxes` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Restore registered audio defaults without restarting native playback | `the native audio Default button did not restore registered settings` | 86/86; `audio-option-defaults` | `Upstream-Commit` в commit message |
 | [dbb74c6e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/dbb74c6e661c0344061a79a86b0ebf3e01617526) — Preserve native selection outlines over lighting stencil marks | `selection outline changed over lighting stencil 0x80 at 47,47: expected ff407f20, got ff000000` | Windows 104/104; Linux 100/100 + дополнительные GPU/registration; `selection-stencil` | `Upstream-Commit` в commit message |
+| [02d85e5b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/02d85e5b939ac897f726293b37f30b55d0f2ff72) — Reflect the incoming save permission in the actual in-game Save button | `the in-game Save button ignored its explicit save permission` | 91/91; `in-game-save-button` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -2394,3 +2395,47 @@ HD pack не пересобирался; собственные test windows/pro
 18 partially-imported, 38 already-present, по одному historical-own-import,
 review-final-version и excluded-balance, три documentation-only.
 Остальной аудит и реальный GitHub Actions окончательного HEAD ещё не завершены.
+
+## Разрешение кнопки Save в игровом меню — часть `02d85e5b`
+
+Compiled native RED открывает и рисует настоящий CICInGameMenu с явно
+переданным save permission=false. Интерфейс сохраняет входной false, но кнопка
+Save остаётся enabled: он не передаёт permission в CInGameMenuUI и UI не
+применяет его к кнопке. Fixture использует authored container 158 и реальный
+bgfx screenshot/background, отдельный профиль в S2_USER_DATA_DIR; миссия и
+пересчёт сложности в этой проверке не создаются.
+
+Разрешение передано в существующий конструктор страницы и в STYLE_ENABLED
+кнопки. Формат полей сохранён. GREEN проверяет оба значения false/true,
+реальный down/up: отключённый Save не выдаёт события; разрешённый открывает
+настоящий SAVE view; Load продолжает работать при false и передаёт тот же
+флаг в настоящий LOAD view. Restart остаётся отключён независимо от разрешения
+Save. CStructureSaver читает существующие tags 2/3/4/8 UI и подтверждает флаги,
+того же игрока и ту же кнопку. Полный старый бинарный save здесь не проверяется.
+
+Связанные 91/91 Windows (87.10 с) и Linux (77.70 с), обе Game собраны.
+Из них 21 actual native-display случай. Новый тест вне CPU prefix, поэтому
+полный CPU count остаётся 317, его полный прогон не заявляется. Регистрация
+311 upstream entry points / 138 resource-free случаев проходит на обеих
+платформах. Используются прежние две сборки; шрифты/HD не пересобирались,
+тестовые процессы завершены. Свидетельства: in-game-save-button-red-{build,test}.log,
+in-game-save-button-green-{build,test}.log,
+in-game-save-button-related-green-test.log,
+in-game-save-button-game-build.log,
+in-game-save-button-linux-{configure,build,test}.log и
+in-game-save-button-{windows,linux}-native-test.log.
+
+Исправлено применение уже принятого решения, а не правило разрешения Save.
+Main/iMission.cpp, его LAN menu/shortcut routing и difficulty coefficients
+не меняются. Сетевые миссии используют собственный networkMenuControls,
+что подтверждено чтением текущего CMission::ProcessEvent; эта UI fixture
+не заявляется проверкой полного сетевого матча.
+
+02d85e5b остаётся partially-imported: прямой Save shortcut и такой же вызов
+из миссии ещё могут создать SAVE mode при false, где текущий SetMode(SAVE)
+не создаёт view. Это отдельный следующий runtime RED. Вычисление live
+save permissions, QuickSave consumption, mapping сложности и selected style
+рассматриваются отдельно; потенциальное влияние правил и выбора сложности
+описано в UPSTREAM-BALANCE-CHANGES.md. Реестр: 129 pending, 89 imported,
+19 partially-imported, 38 already-present, остальные шесть записей прежних
+категорий. Весь аудит и проверка окончательного GitHub Actions не завершены.

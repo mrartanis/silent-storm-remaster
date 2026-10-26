@@ -283,6 +283,8 @@ add_test(NAME UpstreamMountedAILogCommands COMMAND UpstreamBugTests mounted-ai-l
 if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
   get_filename_component(_s2_upstream_game_dir "${S2_GAME_DB_PATH}" DIRECTORY)
   get_filename_component(_s2_upstream_res_dir "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
+  add_test(NAME NativeInGameSaveButton COMMAND UpstreamBugTests in-game-save-button "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
+  set_tests_properties(NativeInGameSaveButton PROPERTIES LABELS "extended;native-display" WORKING_DIRECTORY "${_s2_upstream_game_dir}" ENVIRONMENT "S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/upstream-native-in-game-save-button-user")
   add_test(NAME NativeMissionLoadingInput COMMAND UpstreamBugTests mission-loading-input "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   add_test(NAME NativeAudioOptionCheckboxes COMMAND UpstreamBugTests audio-option-checkboxes "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   set_tests_properties(NativeAudioOptionCheckboxes PROPERTIES LABELS "extended;native-display;native-audio" WORKING_DIRECTORY "${_s2_upstream_game_dir}" ENVIRONMENT "S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/upstream-native-audio-checkbox-user;S2_AUDIO_HEADLESS=1")

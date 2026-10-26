@@ -75,6 +75,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/iChapterMapUI.h"
 #include "../Main/PlayerTracker.h"
 #include "../Main/iOptionsMenu.h"
+#include "../Main/iInGameMenu.h"
 #include "../Main/iLoseFake.h"
 #include "../Main/iExitMenu.h"
 #include "../Main/ScreenShot.h"
@@ -2632,6 +2633,69 @@ static void BackdropScriptAudio(const char* databasePath,const char* resourcePat
 #else
     Require(false,"backdrop sound test requires the native SFX backend");
 #endif
+}
+
+static void InGameSaveButton(const char* databasePath,const char* resourcePath)
+{
+    Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"in-game save button fixture requires isolated user data");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"in-game save button fixture started with an active interface");
+    NativeDisplayContext cleanup;
+    cleanup.Initialize(databasePath,resourcePath,"Silent Storm in-game save permission regression");
+    NMainLoop::CreateProfile("UpstreamInGameSave"); NMainLoop::SetActiveProfile("UpstreamInGameSave");
+    CObj<NRPG::CGlobalPlayer> player = NRPG::CreateGlobalPlayer(vector<int>{54});
+    player->pSide = NDb::GetDBSide(1);
+    Require(IsValid(player->pSide),"in-game save button fixture has no authored player side");
+    NInput::CBind saveBind("savegame"), loadBind("loadgame");
+    auto click = [&](NUI::CWindow* control) {
+        NUI::SPoint position; NUI::SRect rect;
+        Require(IsValid(control) && control->ClientToScreen(&position,&rect) && rect.x2 > rect.x1 && rect.y2 > rect.y1,
+            "in-game menu button has no native hit-test rectangle");
+        const int x = (rect.x1+rect.x2)/2, y = (rect.y1+rect.y2)/2;
+        Require(control->ProcessMessage(NUI::SEvent(NUI::EVENT_LBUTTONDOWN,x,y)) && control->ProcessMessage(NUI::SEvent(NUI::EVENT_LBUTTONUP,x,y)),
+            "in-game menu fixture could not click its native button");
+    };
+    for (bool allowed : {false,true}) {
+        CObj<NGame::CICInGameMenu> open = new NGame::CICInGameMenu(player,false,allowed); open->Exec();
+        auto* active = NMainLoop::GetCurrentInterfaceForHarness();
+        Require(IsValid(active) && pSSClasses->GetObjectTypeID(active) == int(0xB0905130) && NMainLoop::StepApp(true,false,false),
+            "in-game save button fixture did not open and draw its actual native menu");
+        CStructureNetworkContext references; auto fields = BorrowedObjectFields(active,&references);
+        bool menuPermission = !allowed; CPtr<NUI::CWindow> page;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(2,&menuPermission); reader.Add(9,&page); }
+        Require(menuPermission == allowed && IsValid(page),"in-game menu lost its incoming save permission");
+        auto* save = dynamic_cast<NUI::CButton*>(page->GetChildByID("savegame"));
+        auto* load = dynamic_cast<NUI::CButton*>(page->GetChildByID("loadgame"));
+        auto* restart = page->GetChildByID("restart");
+        Require(IsValid(save) && IsValid(load) && IsValid(restart) && load->GetStyle(NUI::STYLE_ENABLED) && !restart->GetStyle(NUI::STYLE_ENABLED),
+            "in-game save button fixture has no independent Load/Restart controls");
+        Require(save->GetStyle(NUI::STYLE_ENABLED) == allowed,"the in-game Save button ignored its explicit save permission");
+        CStructureNetworkContext pageReferences; auto pageFields = BorrowedObjectFields(page,&pageReferences);
+        bool pagePermission = !allowed, pageRestart = true; CPtr<NRPG::CGlobalPlayer> savedPlayer; CPtr<NUI::CWindow> savedButton;
+        { CStructureSaver reader(pageFields,CStructureSaver::READ,&pageReferences);
+          reader.Add(2,&pagePermission); reader.Add(3,&pageRestart); reader.Add(4,&savedPlayer); reader.Add(8,&savedButton); }
+        Require(pagePermission == allowed && !pageRestart && savedPlayer.GetPtr() == player.GetPtr() && savedButton.GetPtr() == save,
+            "in-game menu changed its existing saved permission or button fields");
+        NInput::SEvent event; while (NInput::GetEvent(&event)) {}
+        if (!allowed) {
+            click(save);
+            Require(!NInput::GetEvent(&event) && !NMainLoop::HaveInterfaceCommand(),"a disabled in-game Save button still emitted a save action");
+            click(load);
+            Require(NInput::GetEvent(&event) && loadBind.ProcessEvent(event),"disabling in-game Save also disabled the real Load button");
+        } else {
+            click(save);
+            Require(NInput::GetEvent(&event) && saveBind.ProcessEvent(event),"an explicitly permitted in-game Save button did not emit its action");
+        }
+        Require(active->ProcessEvent(event) && NMainLoop::HaveInterfaceCommand(),"the in-game menu did not dispatch its actual save/load button action");
+        CObj<NMainLoop::CInterfaceCommand> command = NMainLoop::TakeInterfaceCommandForHarness();
+        Require(dynamic_cast<NGame::CICSaveLoadMenu*>(command.GetPtr()) != nullptr,"the in-game button queued an unrelated command");
+        command->Exec();
+        CStructureNetworkContext dialogReferences; auto dialog = BorrowedObjectFields(NMainLoop::GetCurrentInterfaceForHarness(),&dialogReferences);
+        bool dialogPermission = !allowed; int mode = -1;
+        { CStructureSaver reader(dialog,CStructureSaver::READ,&dialogReferences); reader.Add(2,&dialogPermission); reader.Add(3,&mode); }
+        Require(dialogPermission == allowed && mode == (allowed ? NGame::SAVE : NGame::LOAD),"the in-game button lost its save/load destination or permission");
+        NMainLoop::DoneInterface();
+    }
+    std::puts("actual in-game Save permission false/true, disabled click, Load control and saved UI fields verified");
 }
 
 static void LuaUnusedStackInitialization()
@@ -13600,6 +13664,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "audio-option-checkbox-notify") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "audio-option-defaults") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "lua-unused-stack-init")) { LuaUnusedStackInitialization(); return true; }
+    if (!std::strcmp(mode, "in-game-save-button") && argc == 4) { InGameSaveButton(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "backdrop-script-audio-3d") && argc == 4) { BackdropScriptAudio(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "chapter-active-script") && argc == 4) { ChapterActiveScript(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-active-command") && argc == 5) { ChapterActiveScript(argv[2],argv[3],std::atoi(argv[4])); return true; }
