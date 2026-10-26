@@ -237,6 +237,7 @@
 | [7e46d2a6](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7e46d2a66d1ba9ca3bef8f41e14b684425febed3) — Preserve the throwing animation while retaining the successor knife | `the thrown-knife executor did not retain its successor in saved field four` | 21/21; `thrown-knife-successor-handoff` | `Upstream-Commit` в commit message |
 | [7e46d2a6](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7e46d2a66d1ba9ca3bef8f41e14b684425febed3) — Restore ordinary positional knife-throw feedback outside worn Panzerkleins | `throwing a native knife omitted its ordinary positional feedback sound` | 283/283; `thrown-knife-feedback` | `Upstream-Commit` в commit message |
 | [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Rebuild grenade throw calculations when continuing saved executors | `restoring a pending grenade throw dereferenced its unsaved to-hit calculator (null this, CDB-confirmed)` | 24/24; `restored-grenade-throw` | `Upstream-Commit` в commit message |
+| [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Defer spare grenade equipment until the throwing animation finishes | `throwing a grenade equipped the successor before the animation completed` | 26/26; `grenade-successor-handoff` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1189,3 +1190,30 @@ perk/PK/Hide-части описаны отдельно в `UPSTREAM-BALANCE-CHA
 `restored-grenade-throw-game-build.log`,
 `restored-grenade-throw-registration-test.log`,
 `restored-grenade-linux-{configure,build,test}.log`.
+
+### Запасная граната после окончания анимации
+
+Native human-броски обычной и инженерной гранаты отдельно воспроизвели раннее
+экипирование запасной гранаты на метке. Теперь ссылка удерживается в существующем
+поле 5, а экипирование выполняется в `AnimationFinished`. Правило AI сохранено:
+запасная граната остаётся в рюкзаке и автоматически не выбирается.
+
+Оба типа проверены с запасным предметом, без него, с флагом скрытого предмета
+перед завершением, с AI-запасом, восстановленными полями после метки и прежним
+локальным форматом, где следующий предмет уже был активен. Проверяются один
+снаряд, времена и флаги анимации, AP после старта, VP, количества, команды и
+счётчик летящей гранаты. Native fixture извлечён из уже существующих тестов
+загрузки; их контрольные случаи остались зелёными до нового production-фикса.
+Проверяются field fragments, а не полный игровой save-файл.
+
+Windows/Linux `Game` собраны; связанный набор — 26/26 на каждой платформе,
+configured Windows registration — 1/1. Последняя полная контрольная точка —
+283, полный текущий набор из 287 проверок здесь не заявляется.
+Обработка неудачной траектории, animation flags и сохранённый флаг обновления
+видимости остаются отдельными частями; числовые/Hide-изменения по-прежнему
+описаны в `UPSTREAM-BALANCE-CHANGES.md` и не включены в этот фикс.
+
+Свидетельства: `grenade-successor-handoff-{red,green}-{build,test}.log`,
+`grenade-successor-handoff-game-build.log`,
+`grenade-successor-handoff-registration-test.log`,
+`grenade-handoff-linux-{configure,build,test}.log`.

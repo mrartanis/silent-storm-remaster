@@ -330,6 +330,7 @@ public:
 	virtual int GetStartAP() const;
 	virtual void Run();
 	virtual bool TimeLabelReached();
+	virtual void AnimationFinished();
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecLaunchRocket

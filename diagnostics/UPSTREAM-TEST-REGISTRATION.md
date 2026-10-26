@@ -159,3 +159,21 @@ Linux `Game` и профиль также прошли 261/261. После эт�
 Это локальная поправка теста с `Original-Test-Commit`, а не перенос production-кода.
 Свидетельства: `worldless-attack-fixture-selection-{red,green}-{build,test}.log`
 и `worldless-attack-fixture-selection-red-cdb.log`.
+
+## Подтверждённый hosted GitHub Actions
+
+[Запуск 40246010705](https://github.com/mrartanis/silent-storm-remaster/actions/runs/40246010705)
+на `00af3fcb6f2d26d9d8af296b22a971ecdd078990` завершил и `Build`, и `Test`
+с результатом `success`. В hosted runner прошло 270/270 исполняемых тестов.
+Пять native-audio случаев остались зарегистрированы, но отключены при
+используемом link-only backend: LateLoopingSoundOffset, FailedSoundChannelLifetime,
+HeadlessMusicStream, TracklessSceneMusic и ReloadedMusicRecord. Это соответствует
+проверяемому условию наличия native SFX; локальный профиль с native SFX по-прежнему
+обязан исполнять соответствующие проверки. Само число 275 в hosted CTest включает
+эти пять отключённых случаев. Тесты, требующие game.db/res, проверяются локально.
+
+Прямые свидетельства: `github-40246010705-result.json` с успешными шагами и
+`github-40246010705-test.log` с CTest summary. Это подтверждает исправление
+прежнего hosted audio-registration отказа на указанной контрольной точке.
+После завершения всех переносов всё ещё нужен успешный запуск на окончательном
+HEAD; более ранний зелёный workflow не подтверждает ещё не отправленные изменения.

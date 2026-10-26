@@ -1959,7 +1959,8 @@ void CExecThrowGrenade::ThrowGrenade()
 	FindGrenadeParams( pUS->GetWorld(), pUS->GetPosition(), ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &grenadeParams );
 	CheckToHitAndDelay( pGrenade );
 
-	pUS->TearOffItem( &item, (NDb::ESlot)pInventory->GetActiveSlot(), !pUS->IsAIUnit() );
+	pUS->TearOffItem( &item, (NDb::ESlot)pInventory->GetActiveSlot(),
+		pUS->IsAIUnit() ? (CObj<NRPG::IInventoryItem>*)0 : &pNextSameItem );
 
 /*	{
 		NDb::EItemSubType subType = pInventory->GetActive()->GetDBItem()->subType;
@@ -2010,6 +2011,20 @@ bool CExecThrowGrenade::TimeLabelReached()
 	// a grenade is a single throw, not a burst, so nBullet must not be advanced here.
 	ThrowGrenade();
 	return false;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CExecThrowGrenade::AnimationFinished()
+{
+	NRPG::IInventory *pInventory = pUS->GetUnitRPG()->GetInventory();
+	if ( IsValid( pNextSameItem ) )
+	{
+		pInventory->Take( pNextSameItem );
+		pInventory->Equip( (NDb::ESlot)pInventory->GetActiveSlot(), pNextSameItem );
+	}
+	pUS->Update();
+	if ( IsActiveItemToShow( pInventory ) )
+		pUS->animator.SetWeaponAnimation( pUS->GetUnitRPG()->GetWeaponType() );
+	Finished();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecLaunchRocket
