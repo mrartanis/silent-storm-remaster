@@ -8459,6 +8459,83 @@ static void DefaultItemDetachment(const char* databasePath,const char* resourceP
     }
 }
 
+static void ShootingTorsoTurnLimit(const char* databasePath,const char* resourcePath)
+{
+    for (float relative: {0.5f,2.4f,-2.4f,0.f}) {
+        CObj<NRPG::CGlobalGame> game;
+        auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+        vector<CPtr<NWorld::CUnit>> units;
+        world->GetAllUnits(&units);
+        NWorld::CUnitServer* actor = nullptr;
+        NRPG::IWeaponItem* weapon = nullptr;
+        for (auto& entry: units) {
+            auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+            if (!unit || !unit->CanFight() || unit->IsEmptyPK() || unit->IsWearingPK() || unit->HasCommand() ||
+                NWorld::GetActionType(unit) != NWorld::AT_SHOOT || unit->animator.GetCannon()) continue;
+            auto* equipped = dynamic_cast<NRPG::IWeaponItem*>(unit->GetUnitRPG()->GetInventory()->GetActive());
+            if (equipped && equipped->GetAmmoQuantity() > 0) { actor = unit; weapon = equipped; break; }
+        }
+        Require(actor && weapon, "torso-turn fixture has no idle native firearm actor with ammunition");
+        const auto position = actor->GetPosition();
+        const int ap = actor->GetAP(), vp = actor->GetUnitRPG()->GetTotalVP(), ammo = weapon->GetAmmoQuantity();
+        actor->animator.SetActiveItem(true);
+        actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
+        actor->animator.PlaceUnit(position);
+        CRay ray;
+        ray.ptOrigin = position.GetEyePosition();
+        ray.ptDir = CVec3(cos(position.GetDirection()+relative),sin(position.GetDirection()+relative),0);
+        const auto requested = ray;
+        actor->animator.Attack(position,ray);
+        auto* animator = actor->animator.GetSkeletonAnimator();
+        Require(animator && actor->animator.GetTimeLabel1() > 0,
+            "torso-turn fixture did not create its native attack animation");
+        vector<NAnimation::CATurnBody*> turns;
+        vector<CObjectBase*> pending{animator}, visited;
+        while (!pending.empty()) {
+            auto* object = pending.back(); pending.pop_back();
+            if (std::find(visited.begin(),visited.end(),object) != visited.end()) continue;
+            visited.push_back(object);
+            if (auto* turn = dynamic_cast<NAnimation::CATurnBody*>(object)) turns.push_back(turn);
+            CStructureNetworkContext refs;
+            auto fields = BorrowedObjectFields(object,&refs);
+            for (const auto& ref: refs.refs)
+                if (dynamic_cast<NAnimation::CAnimator*>(ref.second.GetPtr())) pending.push_back(ref.second.GetPtr());
+        }
+        Require(turns.size() == 1 && turns.front()->nBoneSpine >= 0 && turns.front()->nBoneChest >= 0,
+            "torso-turn fixture has no single native spine/chest turn in its actual animation graph");
+        CStructureNetworkContext refs;
+        auto fields = BorrowedObjectFields(turns.front(),&refs);
+        float angle = 100;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&refs); reader.Add(4,&angle); }
+        int bones = 0;
+        CStructureNetworkContext skeletonRefs;
+        auto skeletonFields = BorrowedObjectFields(animator,&skeletonRefs);
+        { CStructureSaver reader(skeletonFields,CStructureSaver::READ,&skeletonRefs); reader.Add(3,&bones); }
+        Require(bones > turns.front()->nBoneSpine && bones > turns.front()->nBoneChest,
+            "torso-turn fixture has invalid native skeleton bone indices");
+        NAnimation::SSkeletonPose frame(bones);
+        turns.front()->GetFrame(actor->animator.GetTimeLabel1(),&frame);
+        Require(frame.size() == size_t(bones) && std::isfinite(frame[turns.front()->nBoneSpine].pos.x) &&
+            std::isfinite(frame[turns.front()->nBoneChest].pos.x),
+            "the native shooting torso graph did not evaluate a finite skeleton frame");
+        std::printf("native shooting torso requested=%.2f actual=%.2f\n",double(relative),double(angle));
+        const float expected = relative > 1.2f ? 1.2f : (relative < -1.2f ? -1.2f : relative);
+        Require(fabs(angle-expected) < 1e-5f,
+            "the native shooting animation twisted the torso past its allowed horizontal angle");
+        CMemoryStream animatorFields;
+        CStructureNetworkContext animatorRefs;
+        animatorRefs.include = [](CObjectBase*) { return false; };
+        { CStructureSaver writer(animatorFields,CStructureSaver::WRITE,&animatorRefs); actor->animator.operator&(writer); }
+        animatorFields.Seek(0);
+        CVec3 aim;
+        { CStructureSaver reader(animatorFields,CStructureSaver::READ,&animatorRefs); reader.Add(21,&aim); }
+        Require(fabs2(aim-requested.ptDir) < 1e-10f && ray.ptOrigin == requested.ptOrigin && ray.ptDir == requested.ptDir &&
+            actor->GetPosition() == position && actor->GetAP() == ap && actor->GetUnitRPG()->GetTotalVP() == vp &&
+            weapon->GetAmmoQuantity() == ammo && !actor->HasCommand(),
+            "clamping the shooting torso changed the actual aim, shot ray, unit facing, AP/VP/ammunition or orders");
+    }
+}
+
 static void GrenadeThrowAnimationRefresh(const char* databasePath,const char* resourcePath)
 {
     NativeGrenadeThrowFixture fixture(databasePath,resourcePath,false);
@@ -11585,6 +11662,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "grenade-successor-handoff")) { Require(argc == 4, "grenade handoff requires db and res"); GrenadeSuccessorHandoff(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "engineer-grenade-successor-handoff")) { Require(argc == 4, "engineer grenade handoff requires db and res"); GrenadeSuccessorHandoff(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "default-item-detachment")) { Require(argc == 4, "item detachment requires db and res"); DefaultItemDetachment(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "shooting-torso-turn-limit")) { Require(argc == 4, "shooting torso limit requires db and res"); ShootingTorsoTurnLimit(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "grenade-throw-animation-refresh")) { Require(argc == 4, "grenade animation requires db and res"); GrenadeThrowAnimationRefresh(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "invalidated-grenade-trajectory")) { Require(argc == 4, "grenade trajectory requires db and res"); InvalidatedGrenadeTrajectory(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "grenade-completion-visibility")) { Require(argc == 4, "grenade visibility requires db and res"); GrenadeCompletionVisibility(argv[2],argv[3]); return true; }

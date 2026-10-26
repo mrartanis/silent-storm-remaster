@@ -1077,7 +1077,7 @@ void CUnitAnimator::Attack( const NAI::SUnitPosition &cmdPos, const CRay &ray, b
 	}
 
 	// horizontal turn
-	float fHorizAngle = SignumNormalizeAngleInRadian( fNextAngle - fCurAngle );
+	float fHorizAngle = Clamp( SignumNormalizeAngleInRadian( fNextAngle - fCurAngle ), -1.2f, 1.2f );
 	// vertical turn
 	float fVertAngle = asin( shootDir.z );
 

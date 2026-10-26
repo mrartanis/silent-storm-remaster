@@ -246,6 +246,7 @@
 | [432b64c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/432b64c8bbe97a9f347a6c9468e7c69173d68394) — Reload the retreat reaction owner after switching an arrived unit to guard | `native AI pump crashed in GetColourer via HasPath after an arrived retreat replaced and cleared itself` | 26/26; `arrived-retreat-reaction-lifetime` | `Upstream-Commit` в commit message |
 | [432b64c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/432b64c8bbe97a9f347a6c9468e7c69173d68394) — Localize rejected hit labels instead of displaying negative damage sentinels | `a rejected native HUD hit displayed the negative damage sentinel instead of its localized label` | 17/17; `rejected-hit-label-text` | `Upstream-Commit` в commit message |
 | [c1ab9336](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c) — Report equipped melee weapons to the existing knife cursor without changing attack rules | `an equipped native melee weapon still advertised the unarmed fist state and cursor` | 11/11; `equipped-melee-attack-cursor` | `Upstream-Commit` в commit message |
+| [d919d910](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d919d91066b15951e2a14cc4c78e70745aa0ea88) — Clamp shooting torso animation turns without changing the selected aim | `the native shooting animation twisted the torso past its allowed horizontal angle` | 25/25; `shooting-torso-turn-limit` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1460,3 +1461,29 @@ workflow на окончательном HEAD. Финальный GitHub Actions
 run 40246010705 (Build и Test success, 270/270 выполненных проверок).
 Исходные шрифты/размеры и HD pack сохранены; сборки переиспользованы,
 генерация HD/PNG выключена, отдельных копий под баги нет.
+
+### Предел горизонтального поворота корпуса при выстреле
+
+Независимая анимационная часть `d919d910` воспроизведена на настоящем native
+бойце с огнестрельным оружием. CUnitAnimator::Attack создаёт реальный
+CATurnBody в графе скелета; его native GetFrame успешно вычисляет кадр.
+Небольшой угол 0.5 проходит, при запросе 2.4 в узел без ограничения попадало
+2.4 вместо допустимых 1.2 — runtime RED подтверждён после оценки кадра.
+
+Только горизонтальный угол этого узла ограничен диапазоном [-1.2,1.2],
+как в upstream. Проверены 0.5, +2.4, -2.4 и 0; native aimDir, входной луч,
+положение/направление бойца, AP/VP, боеприпасы и игровые команды сохраняются.
+Оценивается действительный граф/кадр CPU-скелета, не GPU-картинка. Реальный
+выстрел с повреждением здесь не выполняется; боевые формулы не менялись.
+
+Windows/Linux Game собраны; связанный animation/attack набор — 25/25 на каждой
+платформе, Windows configured registration — 1/1. Последняя полная контрольная
+точка — 295, весь текущий набор из 296 проверок здесь не заявляется.
+Другая часть смешанного коммита, homogeneous GetDir в CFastRenderer, остаётся
+для отдельного воспроизведения через его штатный InitProjective. Изменение
+закрытой матрицы тестом само по себе не подтвердило бы ошибку игрового вызова.
+
+Свидетельства: `shooting-torso-turn-limit-{red,green}-{build,test}.log`,
+`shooting-torso-turn-limit-game-build.log`,
+`shooting-torso-turn-limit-registration-test.log`,
+`shooting-torso-linux-{configure,build,test}.log`.
