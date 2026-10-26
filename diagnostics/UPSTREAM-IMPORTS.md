@@ -238,6 +238,7 @@
 | [7e46d2a6](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7e46d2a66d1ba9ca3bef8f41e14b684425febed3) — Restore ordinary positional knife-throw feedback outside worn Panzerkleins | `throwing a native knife omitted its ordinary positional feedback sound` | 283/283; `thrown-knife-feedback` | `Upstream-Commit` в commit message |
 | [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Rebuild grenade throw calculations when continuing saved executors | `restoring a pending grenade throw dereferenced its unsaved to-hit calculator (null this, CDB-confirmed)` | 24/24; `restored-grenade-throw` | `Upstream-Commit` в commit message |
 | [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Defer spare grenade equipment until the throwing animation finishes | `throwing a grenade equipped the successor before the animation completed` | 26/26; `grenade-successor-handoff` | `Upstream-Commit` в commit message |
+| [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Honor saved grenade visibility requests when the action completes | `finishing a restored grenade action discarded its requested deferred visibility refresh` | 27/27; `grenade-completion-visibility` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1217,3 +1218,21 @@ configured Windows registration — 1/1. Последняя полная кон�
 `grenade-successor-handoff-game-build.log`,
 `grenade-successor-handoff-registration-test.log`,
 `grenade-handoff-linux-{configure,build,test}.log`.
+
+### Сохранённый запрос видимости после броска гранаты
+
+Отдельный RED `grenade-completion-visibility` подтвердил потерю уже сохранённого
+`bUpdateVision`: при завершении восстановленного native executor отложенный
+пересчёт мира не ставился в очередь. `AnimationFinished` теперь обслуживает
+этот флаг, как в `3cfccbee`. Контроль без запроса не создаёт обновление;
+с запросом выставляется native world queue flag. Скрытность и AP сохраняются.
+Проверяется очередь в режиме отложенного пересчёта, а не новый результат
+восприятия или полный игровой save-файл. Условия снятия Hide не переносились.
+
+Windows/Linux Game собраны; связанный набор — 27/27 на каждой платформе,
+Windows configured registration — 1/1. Последняя полная контрольная точка
+остаётся 283; весь текущий набор из 288 проверок здесь не заявляется.
+Свидетельства: `grenade-completion-visibility-{red,green}-{build,test}.log`,
+`grenade-completion-visibility-game-build.log`,
+`grenade-completion-visibility-registration-test.log`,
+`grenade-visibility-linux-{configure,build,test}.log`.

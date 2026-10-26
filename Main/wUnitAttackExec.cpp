@@ -2024,6 +2024,8 @@ void CExecThrowGrenade::AnimationFinished()
 	pUS->Update();
 	if ( IsActiveItemToShow( pInventory ) )
 		pUS->animator.SetWeaponAnimation( pUS->GetUnitRPG()->GetWeaponType() );
+	if ( bUpdateVision )
+		pUS->GetWorld()->UpdateVisible( false );
 	Finished();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

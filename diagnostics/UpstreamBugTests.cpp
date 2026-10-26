@@ -8277,6 +8277,53 @@ static void GrenadeSuccessorHandoff(const char* databasePath,const char* resourc
     }
 }
 
+static void GrenadeCompletionVisibility(const char* databasePath,const char* resourcePath)
+{
+    for (bool requested: {false,true}) {
+        NativeGrenadeThrowFixture fixture(databasePath,resourcePath,false);
+        auto& world = fixture.world;
+        auto* actor = fixture.actor;
+        auto& executor = fixture.executor;
+        executor->Run();
+        executor->TimeLabelReached();
+        const int ap = actor->GetAP();
+        const bool hidden = actor->IsHiding();
+        CStructureNetworkContext references;
+        CMemoryStream overrideFields;
+        { CStructureSaver writer(overrideFields,CStructureSaver::WRITE,&references); writer.Add(6,&requested); }
+        overrideFields.Seek(0);
+        { CStructureSaver reader(overrideFields,CStructureSaver::READ,&references); static_cast<CObjectBase*>(executor.GetPtr())->operator&(reader); }
+        auto saved = BorrowedObjectFields(executor,&references);
+        CObj<NWorld::CExecThrowGrenade> restored = new NWorld::CExecThrowGrenade;
+        { CStructureSaver reader(saved,CStructureSaver::READ,&references); static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader); }
+        executor = restored;
+        auto setBatch = [&](bool delay,bool queued) {
+            CMemoryStream fields;
+            CStructureNetworkContext context;
+            { CStructureSaver writer(fields,CStructureSaver::WRITE,&context); writer.Add(53,&delay); writer.Add(54,&queued); }
+            fields.Seek(0);
+            { CStructureSaver reader(fields,CStructureSaver::READ,&context); static_cast<CObjectBase*>(world.GetPtr())->operator&(reader); }
+        };
+        auto batch = [&]() {
+            CStructureNetworkContext context;
+            auto fields = BorrowedObjectFields(world,&context);
+            bool delay = false, queued = false;
+            { CStructureSaver reader(fields,CStructureSaver::READ,&context); reader.Add(53,&delay); reader.Add(54,&queued); }
+            return std::make_pair(delay,queued);
+        };
+        const auto originalBatch = batch();
+        setBatch(true,false); // The native state while a world Segment batches visibility requests.
+        Require(batch() == std::make_pair(true,false), "grenade visibility fixture did not establish the native deferred world state");
+        executor->AnimationFinished();
+        const auto result = batch();
+        setBatch(originalBatch.first,originalBatch.second);
+        Require(result == std::make_pair(true,requested),
+            "finishing a restored grenade action discarded its requested deferred visibility refresh");
+        Require(executor->GetState() == NWorld::CCommandExecute::FINISHED && actor->IsHiding() == hidden &&
+            actor->GetAP() == ap, "honouring the saved visibility request changed concealment, AP or completion state");
+    }
+}
+
 static void PersonaFullDisplayName(const char* databasePath)
 {
     CFileStream database;
@@ -11125,6 +11172,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "restored-engineer-grenade-throw")) { Require(argc == 4, "saved engineer grenade requires db and res"); RestoredGrenadeThrow(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "grenade-successor-handoff")) { Require(argc == 4, "grenade handoff requires db and res"); GrenadeSuccessorHandoff(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "engineer-grenade-successor-handoff")) { Require(argc == 4, "engineer grenade handoff requires db and res"); GrenadeSuccessorHandoff(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "grenade-completion-visibility")) { Require(argc == 4, "grenade visibility requires db and res"); GrenadeCompletionVisibility(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }
