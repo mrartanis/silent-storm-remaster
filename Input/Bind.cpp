@@ -279,6 +279,16 @@ bool GetEvent( SEvent *psEvent )
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Discard loading-time actions through the bindings, retaining held-key state.
+void PurgeEvents()
+{
+	S2Platform::PumpEvents();
+	PumpMessages( S2Platform::Active(), true );
+	SEvent event;
+	while ( GetEvent( &event ) )
+		;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void PostEvent( const string &szEvent )
 {
 	SEvent eEvent;

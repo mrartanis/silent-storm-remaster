@@ -133,6 +133,24 @@ static void VarCheatAP( const string &szID, const NGlobal::CValue &sValue, void 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CMission
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Finish loading only after the queued snapshot has captured the installed mission.
+class CICSaveRestartMission: public NMainLoop::CICSaveFile
+{
+	OBJECT_BASIC_METHODS(CICSaveRestartMission);
+	CPtr<CMission> pMission;
+public:
+	CICSaveRestartMission() {}
+	CICSaveRestartMission( CMission *_pMission ): CICSaveFile( "restart.sav" ), pMission( _pMission ) {}
+	void Exec()
+	{
+		if ( !IsValid( pMission ) )
+			return;
+		NMainLoop::CICSaveFile::Exec();
+		if ( IsValid( pMission ) )
+			pMission->InitializeComplete();
+	}
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // W4.2: the base-class members (bPause/bHideInterface/nLightMode/bCheatVisibility/bTutorialMode/...)
 // are initialized by the CMissionBase ctor (retail @0x1a2c70); only the CMission-side state stays here.
 CMission::CMission():
@@ -492,11 +510,16 @@ bool CMission::Initialize( int _nTemplateID, int _nVariantID, NScenario::CScenar
 	// it drains AFTER CICBeginMission::Exec has installed this mission into the interface stack,
 	// so the snapshot contains the fresh mission (an inline save here would capture the OLD stack).
 	// The pause/lose-menu "Restart mission" button loads it back via CICLoadFile.
-	if (!networkSession) NMainLoop::Command( new NMainLoop::CICSaveFile( "restart.sav" ) );
-
-	ShowLoadingScreen( 100 );  // mission fully initialized (release finish helper @0x1fb600 paints 100%)
+	if (!networkSession) NMainLoop::Command( new CICSaveRestartMission( this ) );
+	else InitializeComplete(); // Network preparation has no local restart snapshot.
 
 	return true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CMission::InitializeComplete()
+{
+	ShowLoadingScreen( 100 );
+	NInput::PurgeEvents();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMission::Terminate()

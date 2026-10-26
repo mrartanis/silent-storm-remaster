@@ -47,6 +47,8 @@ typedef std::uint32_t STime;
 	bool DoneInput();
 
 	void PumpMessages( bool bFocus );
+	// Explicit queue draining must also poll when the normal frame clock has not advanced.
+	void PumpMessages( bool bFocus, bool bForce );
 	bool GetMessage( SMessage *pMsg );
 	// Compatibility hook for synthesized UI events; the game uses SDL events.
 	void AddWinMessage( EControlType cType, int nParam );

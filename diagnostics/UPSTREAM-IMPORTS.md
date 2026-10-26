@@ -267,6 +267,7 @@
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Dispatch native script sounds from rendered backdrop menus | `the active native backdrop ignored its initialized map script's sound command` | 79/79; `backdrop-script-audio` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Start the main-menu map script without the obsolete second launcher | `the native main menu launched an extra DB script after its map entry was already initialized` | 81/81; `main-menu-map-script` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Drive main-menu Lua only from native world segments | `the main menu executed a sleeping Lua coroutine between native world segments` | 82/82; `main-menu-script-cadence` | `Upstream-Commit` в commit message |
+| [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Consume loading input after writing the mission restart snapshot | `restart snapshot completion did not consume a key release accumulated during loading` | 317/317; `mission-loading-input` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -2162,3 +2163,60 @@ native RED. В upstream также переставлены serialized tags ст
 перенос поверх существующего формата форка недопустим без проверки совместимости.
 Старый DirectInput buffer-size hunk соотносится с нашим SDL polling отдельно.
 Источник и общая задача остаются незавершёнными.
+
+## Ввод после снимка начала миссии — часть `e399ef89`
+
+Compiled native RED открывает настоящую тактическую миссию 810 через
+CICBeginMission, удерживает две SDL-клавиши через реальные bindings и извлекает
+поставленный миссией отложенный restart snapshot. До его исполнения отпускает
+одну клавишу и добавляет однократное событие. Снимок успешно записывается,
+но старая реализация оставляет отпущенную привязку активной. Ошибка подготовки
+bindings до вызова UpdateBinds не считается RED.
+
+Постановка снимка остаётся отложенной: он должен сохранять уже установленную
+миссию. Его отдельный исполнитель после записи вызывает InitializeComplete;
+тот завершает экран загрузки и очищает ввод через штатный binding layer.
+Слабая ссылка проверяется на валидность. LAN сохраняет свой путь подготовки
+без локального restart snapshot и завершает загрузку непосредственно.
+
+Учтён собственный SDL backend: PurgeEvents сначала забирает события платформы,
+учитывает её действительный фокус и принудительно опрашивает SDL input.
+Обычный frame polling по-прежнему сохраняет ограничение dt==0; его однопараметровый
+API также сохранён. Устаревшее увеличение DirectInput buffer до 1024 не переносится:
+наш SDL polling уже обрабатывает очередь без такого лимита.
+
+Тест требует освобождения отпущенной клавиши, сохранения второй удерживаемой,
+пустой очереди и работоспособности новых keyboard/posted событий. Состав и
+объекты отряда, world aim-time не меняются. Дополнительно восемь очисток должны
+реально попасть в ту же миллисекунду, что и обычный опрос. Отдельный compiled
+RED с оставленным обычным SDL guard подтверждает, что прямого копирования
+upstream PurgeEvents недостаточно: теряется same-tick release. После адаптации
+оба сценария проходят на D3D11 Windows и Vulkan Linux. Это не оценка пикселей
+прогресса загрузки: его существующее ограничение частоты отрисовки сохраняется.
+
+Свидетельства в прежнем каталоге upstream-remaster-20261024:
+mission-loading-input-red-{build,test}.log,
+mission-loading-input-fast-poll-red-{build,test}.log,
+mission-loading-input-green-{build,test}.log,
+mission-loading-input-all-build.log и native renderer blocks
+mission-loading-input-{windows,linux}-native-test.log.
+AudioOptions части источника ещё требуют отдельного воспроизведения;
+источник остаётся partially-imported, вся задача не завершена.
+
+Свежий полный CPU-набор 316 случаев плюс новая native загрузка: 317/317 Windows
+(241.96 с) и Linux (249.35 с). Windows ALL_BUILD успешен; обе Game собраны.
+Широкий локальный набор, подобранный по CI-ограничениям, прошёл 271/271 (25.99 с).
+Ещё 27/27 Windows (89.82 с) покрывают 16 настоящих native интерфейсов, шесть
+сетевых сценариев и пять world/save/slot проверок. На Linux все 16 native
+интерфейсов прошли повторно с окончательным кодом. Отдельные SDL platform/input
+и исходный input.cfg с 256 ссылками на клавиши также проходят без ошибок.
+
+В дополнительном Linux display-запуске SDLPlatformInvalidDriver сначала упал:
+заданная снаружи SDL_VIDEODRIVER=x11 перекрыла его намеренно неверный SDL hint.
+Повторная проверка с unset только этой переменной прошла 1/1; production код
+не менялся. Это ограничение команды проверки, не свидетельство runtime бага.
+Полный и display-наборы сохранены в mission-loading-input-full-{green-test,
+linux-test}.log, mission-loading-input-native-network-world-test.log,
+mission-loading-input-ci-test.log, mission-loading-input-display-linux-test.log
+и mission-loading-input-linux-{invalid-driver,platform,platform-bindings}-test.log.
+GitHub Actions окончательной ревизии всей задачи этим не заявляется.

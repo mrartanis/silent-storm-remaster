@@ -71,6 +71,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/iChapterMap.h"
 #include "../Main/iRenderWorld.h"
 #include "../Main/iMainMenu.h"
+#include "../Main/iLoading.h"
 #include "../Main/iChapterMapUI.h"
 #include "../Main/PlayerTracker.h"
 #include "../Main/iOptionsMenu.h"
@@ -2631,6 +2632,90 @@ static void BackdropScriptAudio(const char* databasePath,const char* resourcePat
 #else
     Require(false,"backdrop sound test requires the native SFX backend");
 #endif
+}
+
+static void MissionLoadingInput(const char* databasePath,const char* resourcePath)
+{
+    Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"mission loading input fixture requires isolated user data");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"mission loading input fixture started with an interface or pending command");
+    NativeDisplayContext cleanup;
+    cleanup.Initialize(databasePath,resourcePath,"Silent Storm loading input regression");
+    Require(NInput::InitInput(true),"mission loading input fixture could not initialize native SDL input");
+    struct InputCleanup { ~InputCleanup() { NMainLoop::DoneInterface(); NInput::DoneInput(); } } inputCleanup;
+    NMainLoop::CreateProfile("UpstreamLoadingInput"); NMainLoop::SetActiveProfile("UpstreamLoadingInput");
+    auto* manager = NMainLoop::GetSaveManager();
+    struct SlotCleanup { NMainLoop::CSaveManager* manager; ~SlotCleanup() { manager->DeleteSlot(NMainLoop::S_SLOT_ACTIVE); } } slotCleanup{manager};
+    NGame::InitLoadingScreen();
+    CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(-1);
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    CObj<NGame::CICBeginMission> enter = new NGame::CICBeginMission(810,-1,vector<string>(),game);
+    enter->Exec();
+    CObj<NGame::CMission> mission = dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(IsValid(mission) && IsValid(mission->GetWorld()),"loading input fixture did not open a real native tactical mission");
+    CObj<NMainLoop::CInterfaceCommand> snapshot = NMainLoop::TakeInterfaceCommandForHarness();
+    Require(dynamic_cast<NMainLoop::CICSaveFile*>(snapshot.GetPtr()) != nullptr && !NMainLoop::HaveInterfaceCommand(),
+        "loading input fixture did not isolate the actual deferred restart snapshot");
+    NInput::CBind released("native_loading_released"), held("native_loading_held"), once("native_loading_once");
+    NInput::SetSection("native_loading_fixture");
+    NGlobal::ProcessCommand(L"bind +native_loading_released 'A'");
+    NGlobal::ProcessCommand(L"bind +native_loading_held 'B'");
+    NInput::UpdateBinds();
+    auto pump = [&]() { S2Platform::Delay(2); S2Platform::PumpEvents(); NInput::PumpMessages(true); };
+    auto drain = [&]() { NInput::SEvent event; while (NInput::GetEvent(&event)) { released.ProcessEvent(event); held.ProcessEvent(event); once.ProcessEvent(event); } };
+    pump(); drain();
+    SDL_Event focus{}; focus.type = SDL_EVENT_WINDOW_FOCUS_GAINED;
+    focus.window.windowID = SDL_GetWindowID(S2Platform::Window());
+    Require(SDL_PushEvent(&focus),"loading input fixture could not queue its native focus event");
+    pump(); drain();
+    auto key = [&](SDL_Scancode scan,bool down) {
+        SDL_Event event{}; event.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+        event.key.windowID = SDL_GetWindowID(S2Platform::Window()); event.key.scancode = scan; event.key.down = down;
+        Require(SDL_PushEvent(&event),"loading input fixture could not queue a native SDL key");
+    };
+    key(SDL_SCANCODE_A,true); key(SDL_SCANCODE_B,true); pump(); drain();
+    Require(released.IsActive() && held.IsActive(),"loading input fixture did not activate its actual native bound controls");
+    key(SDL_SCANCODE_A,false); NInput::PostEvent("native_loading_once");
+    const STime worldTime = mission->GetWorld()->GetAimTime()->GetValue();
+    NWorld::IPlayer::CUnitSet party; mission->GetActivePlayer()->GetPlayer()->GetUnits(&party);
+    snapshot->Exec();
+    {
+        CFileStream saved; saved.OpenRead(manager->GetSlotFilePathW(NMainLoop::S_SLOT_ACTIVE,"restart.sav").c_str());
+        Require(saved.GetSize() > 1024,"native restart completion did not write its real mission snapshot");
+    }
+    Require(!released.IsActive(),"restart snapshot completion did not consume a key release accumulated during loading");
+    Require(held.IsActive(),"restart completion discarded a legitimately held native control");
+    NInput::SEvent event;
+    Require(!NInput::GetEvent(&event),"restart snapshot completion leaked loading-time input into the mission");
+    NWorld::IPlayer::CUnitSet after; mission->GetActivePlayer()->GetPlayer()->GetUnits(&after);
+    Require(mission->GetWorld()->GetAimTime()->GetValue() == worldTime && after == party,
+        "clearing loading input advanced the native world or replaced the party");
+    key(SDL_SCANCODE_A,true); pump();
+    bool fresh = false;
+    while (NInput::GetEvent(&event)) fresh = released.ProcessEvent(event) || fresh;
+    Require(fresh && released.IsActive() && held.IsActive(),"finishing loading disabled subsequent native input");
+    NInput::PostEvent("native_loading_once");
+    Require(NInput::GetEvent(&event) && once.ProcessEvent(event),"finishing loading disabled subsequent posted input events");
+    // Our normal SDL polling deliberately skips dt==0 frames. An explicit purge
+    // must still consume releases; the save itself usually masks this timing.
+    int sameTickPurges = 0;
+    for (int attempt = 0; attempt < 128 && sameTickPurges < 8; ++attempt) {
+        key(SDL_SCANCODE_A,true); pump(); drain();
+        Require(released.IsActive() && held.IsActive(),"immediate input purge fixture lost its held controls");
+        const auto tick = S2Platform::Milliseconds();
+        NInput::PumpMessages(true);
+        key(SDL_SCANCODE_A,false); NInput::PostEvent("native_loading_once");
+        NInput::PurgeEvents();
+        const bool sameTick = S2Platform::Milliseconds() == tick;
+        const bool empty = !NInput::GetEvent(&event);
+        Require(!released.IsActive() && held.IsActive() && empty,
+            "explicit native input purge skipped a same-tick release or leaked a loading action");
+        if (sameTick) ++sameTickPurges;
+    }
+    Require(sameTickPurges == 8,"immediate input purge fixture did not exercise the native same-tick polling guard");
+    std::printf("native restart snapshot and %d same-tick input purges completed without advancing the world\n",sameTickPurges);
+    key(SDL_SCANCODE_A,false); key(SDL_SCANCODE_B,false); pump(); drain();
+    Require(!released.IsActive() && !held.IsActive(),"native loading input controls did not release after their fresh input");
+    NMainLoop::DoneInterface();
 }
 
 static void MainMenuMapScript(const char* databasePath,const char* resourcePath,bool authored = false,bool cadence = false)
@@ -13358,6 +13443,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-map-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "main-menu-authored-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-script-cadence") && argc == 4) { MainMenuMapScript(argv[2],argv[3],false,true); return true; }
+    if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "backdrop-script-audio-3d") && argc == 4) { BackdropScriptAudio(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "chapter-active-script") && argc == 4) { ChapterActiveScript(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-active-command") && argc == 5) { ChapterActiveScript(argv[2],argv[3],std::atoi(argv[4])); return true; }

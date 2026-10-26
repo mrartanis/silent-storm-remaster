@@ -133,14 +133,15 @@ bool DoneInput()
   initialized = focused = false;
   messages.clear(); return true;
 }
-void PumpMessages(bool focus)
+void PumpMessages(bool focus) { PumpMessages(focus, false); }
+void PumpMessages(bool focus, bool force)
 {
   if (!initialized) return;
   // Keep motion on clock-advanced frames: the camera discards dt==0 deltas.
   const std::uint32_t now = S2Platform::Milliseconds();
   if (!focus && focused) { ReleaseAll(); focused = false; }
   if (focus && !focused) { focused = true; S2Platform::CaptureMouse(exclusive); }
-  if (focus && now - lastPump < 1) return;
+  if (focus && !force && now - lastPump < 1) return;
   lastPump = now;
   S2Platform::InputEvent input;
   while (S2Platform::PollInput(&input)) {
