@@ -3106,6 +3106,39 @@ all-build.log, related-test.log, linux-{configure,build,test}.log,
 Другие producers и inventory/UnitHide hunks 14ffbcc8 остаются отдельной работой.
 Формулы и исходные правила выбора позы не редактируются.
 
+## Очередь извлечения оружия и гранаты — часть 14ffbcc8
+
+Два новых native Lua теста UpstreamDeferredDrawWeaponCommand и
+UpstreamDeferredDrawGrenadeCommand используют тот же реальный inventory
+fixture, в grenade case — настоящий CGrenadeItem с authored DB record,
+quantity=1; обе руки удерживают оружие. Пустой рюкзак по-прежнему не выдаёт
+команды. Compiled runtime RED 2/2: queued=0/unit-command=1 для обоих producers.
+
+После RED изменён только общий dispatch в DrawFirstInventoryItem: существующий
+DoCommand получает прежний exchange payload и Continue. GREEN 3/3 включает
+старую проверку SLOT. Оба producers и обе активные руки проверяют ровно две
+настоящие queued wrappers, actor, exchange source/target items/slots/activation
+и порядок Continue, отсутствие ранних изменений рук, рюкзака и AP.
+Это проверка границы очереди, не полное исполнение обмена или стоимость AP.
+Held-grenade activation/priority остаётся отдельной задачей.
+
+Связанные 61/61 прошли на Windows (73.04 с) и Linux (70.40 с), обе Game и
+Windows ALL_BUILD собраны. Windows NetworkSerializer/Preparation/StopResume
+и DisplayRuntimeTests прошли 4/4 за 32.02 с. Font control прошёл на Windows;
+Linux font/display — 2/2 за 0.94 с под Xvfb, по 12 FONT-COMPAT controls.
+Первый дополнительный Linux display-запуск ошибочно был без Xvfb: display
+не запустился, font прошёл; исходные no-display logs сохранены, production
+для повтора не менялся. Начальный regex связанного набора выбрал только 12
+тестов: после уточнения выполнен указанный набор 61, исходные logs сохранены.
+Текущий CPU base 335 не заявляется новым полным прогоном.
+
+Свидетельства deferred-draw-inventory-command: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log, network-{test,native-test}.log,
+font-{test,native-test}.log и linux-font-display-{test,native-test}.log.
+All281 и final actual GitHub Actions остаются незавершёнными.
+
 ## Выбор руки при извлечении оружия — часть 14ffbcc8
 
 UpstreamScriptDrawWeaponSlot запускает настоящую Lua UnitDrawWeapon на actor

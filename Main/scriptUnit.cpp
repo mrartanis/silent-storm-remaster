@@ -1078,8 +1078,7 @@ static void DrawFirstInventoryItem( NWorld::CUnitServer *pUS )
 		int nSlot = ( pInfo->GetActiveSlot() == NDb::SLOT_1 ) ? NDb::SLOT_2 : NDb::SLOT_1;
 		NWorld::SItem sSource( pUS, NWorld::SItem::BACKPACK, pItem );
 		NWorld::SItem sTarget( pUS, NWorld::SItem::SLOT, nSlot, pInfo->Get( (NDb::ESlot)nSlot ) );
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdExchangeInventoryItems( sSource, sTarget, true, nSlot ) ) );
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdContinue() ) );
+		DoCommand( pUS, new NWorld::CCmdExchangeInventoryItems( sSource, sTarget, true, nSlot ), true );
 		return;		// first match only
 	}
 }

@@ -13102,7 +13102,7 @@ static void ForcedActionRecalc(const char* databasePath,const char* resourcePath
     }
 }
 
-static void ScriptDrawWeaponSlot(const char* databasePath,const char* resourcePath,bool requireQueued = false)
+static void ScriptDrawWeaponSlot(const char* databasePath,const char* resourcePath,bool requireQueued = false,bool grenade = false)
 {
     for (auto active : {NDb::SLOT_1,NDb::SLOT_2}) {
         auto world = FixtureWorld(databasePath,resourcePath);
@@ -13125,7 +13125,16 @@ static void ScriptDrawWeaponSlot(const char* databasePath,const char* resourcePa
         for (auto slot : {NDb::SLOT_1,NDb::SLOT_2})
             if (inventory->Get(slot)) removed.push_back(inventory->TakeOff(slot));
         CObj<NRPG::CWeaponItem> first = new NRPG::CWeaponItem(record), second = new NRPG::CWeaponItem(record);
-        CObj<NRPG::CWeaponItem> spare = new NRPG::CWeaponItem(record);
+        CObj<NRPG::IInventoryItem> spare;
+        if (grenade) {
+            NDb::CRPGGrenade* grenadeRecord = nullptr;
+            CDBIterator<NDb::CRPGGrenade> rows(*NDatabase::GetTable<NDb::CRPGGrenade>());
+            while (rows.MoveNext()) if (IsValid(rows.Get()->pItem) && IsValid(rows.Get()->pItem->pModel) &&
+                rows.Get()->pItem->nWeight > 0) { grenadeRecord = rows.Get(); break; }
+            Require(grenadeRecord != nullptr,"script draw fixture has no authored grenade");
+            CObj<NRPG::CGrenadeItem> item = new NRPG::CGrenadeItem(grenadeRecord);
+            item->nQuantity = 1; spare = item;
+        } else spare = new NRPG::CWeaponItem(record);
         Require(inventory->Equip(NDb::SLOT_1,first) && inventory->Equip(NDb::SLOT_2,second) && inventory->Activate(active),
             "script draw fixture could not equip and select its two native hand slots");
         auto* commander = actor->GetPlayer()->GetCommander();
@@ -13133,7 +13142,8 @@ static void ScriptDrawWeaponSlot(const char* databasePath,const char* resourcePa
             "script draw fixture started with a pending order");
         CObj<NScript::CScript> script = NScript::CreateScript(world);
         NScript::luaPushCPtr(*script,actor); script->SetGlobal("upstreamActor");
-        RunScript(script,"UnitDrawWeapon(upstreamActor); UpstreamDrawReturned = 1");
+        const string call = grenade ? "UnitSwitchToGrenade(upstreamActor)" : "UnitDrawWeapon(upstreamActor)";
+        RunScript(script,(call+"; UpstreamDrawReturned = 1").c_str());
         Require(!commander->HasCommands() && !actor->HasCommand() && inventory->GetActiveSlot() == active,
             "native script draw without a backpack weapon changed a hand or issued a command");
         CTPoint<int> place;
@@ -13142,10 +13152,12 @@ static void ScriptDrawWeaponSlot(const char* databasePath,const char* resourcePa
         const auto targetSlot = active == NDb::SLOT_1 ? NDb::SLOT_2 : NDb::SLOT_1;
         auto* targetItem = inventory->Get(targetSlot);
         const auto ap = actor->GetAP();
-        RunScript(script,"UnitDrawWeapon(upstreamActor); UpstreamDrawReturned = 7");
+        RunScript(script,(call+"; UpstreamDrawReturned = 7").c_str());
         auto returned = script->GetGlobal("UpstreamDrawReturned");
         Require(returned.IsNumber() && returned.GetNumber() == 7,"native draw script did not finish its callback");
         const bool queued = commander->HasCommands();
+        std::printf("native script inventory dispatch: grenade=%d active=%d queued=%d unit-command=%d\n",
+            int(grenade),int(active),int(queued),int(actor->HasCommand()));
         if (requireQueued) Require(queued && !actor->HasCommand(),
             "native script inventory draw executes immediately instead of entering its owning commander's queue");
         CObj<NWorld::CCmd> requested;
@@ -14841,6 +14853,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "deferred-shoot-mode-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode); return true; }
     if (!std::strcmp(mode, "deferred-script-command-order") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode,true); return true; }
     if (!std::strcmp(mode, "script-draw-weapon-slot") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "deferred-draw-weapon-command") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "deferred-draw-grenade-command") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3],true,true); return true; }
     if (!std::strcmp(mode, "forced-action-recalc") && argc == 4) { ForcedActionRecalc(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "overlapping-doors")) { OverlappingDoors(); return true; }
     if (!std::strcmp(mode, "weapon-familiarity")) { WeaponFamiliarity(); return true; }
