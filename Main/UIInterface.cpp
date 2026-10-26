@@ -529,8 +529,12 @@ bool CInterface::ProcessEvent( const NInput::SEvent &eEvent )
 			bRet |= ProcessMessage( SEvent( EVENT_SCROLL, sPoint.x, sPoint.y, fWhole * -0.01f ) );
 		}
 	}
-	if ( NInput::GetKeyForMessage( eEvent.mMessage, &nVirtualKey ) )
+	if ( NInput::IsDiscardableKeyboardMessage( eEvent.mMessage ) )
+	{
+		nVirtualKey = 0;
+		NInput::GetKeyForMessage( eEvent.mMessage, &nVirtualKey );
 		bRet |= ProcessMessage( SEvent( EVENT_CHAR, nVirtualKey ) );
+	}
 	// SDL keys and text retain the original UI event contracts.
 	// CT_WIN_CHAR carries a translated wide char, CT_WIN_KEY a virtual-key code.
 	// (CInterface::ProcessEvent @0x31c090 steps 9-10 -> EVENT_WINCHAR / EVENT_WINKEY.)

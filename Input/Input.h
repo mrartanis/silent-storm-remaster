@@ -51,6 +51,8 @@ typedef std::uint32_t STime;
 	// Compatibility hook for synthesized UI events; the game uses SDL events.
 	void AddWinMessage( EControlType cType, int nParam );
 	bool GetKeyForMessage( const SMessage &mMsg, int *pnVirtualKey );
+	// Physical keyboard edges offered to UI controls, excluding Escape.
+	bool IsDiscardableKeyboardMessage( const SMessage &message );
 		
 	int GetControlID( const string &sCommand );
 	void GetControlInfo( int nAction, EControlType *pcType, float *pfGranularity );

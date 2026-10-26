@@ -219,6 +219,14 @@ bool GetKeyForMessage(const SMessage& message, int* key)
   }
   return false;
 }
+bool IsDiscardableKeyboardMessage(const SMessage& message)
+{
+  if (message.cType != CT_KEY) return false;
+  for (const SDLKeyInfo& info : sdlKeys)
+    if (KeyboardAction(info.offset) == message.nAction)
+      return info.scancode != SDL_SCANCODE_ESCAPE;
+  return false;
+}
 int GetControlID(const string& name)
 {
   for (const SDLKeyInfo& key : sdlKeys) if (name == key.name) return KeyboardAction(key.offset);

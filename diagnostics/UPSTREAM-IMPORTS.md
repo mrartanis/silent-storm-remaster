@@ -250,6 +250,7 @@
 | [394d64fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/394d64fb59f1f82e80cc928bf195e0280cfb7999) — Log successful hit rolls at the equality boundary | `a native hit-roll equality returned the hit ratio but was logged as a miss` | 10/10; `hit-roll-equality-log` | `Upstream-Commit` в commit message |
 | [d919d910](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d919d91066b15951e2a14cc4c78e70745aa0ea88) — Preserve homogeneous coordinates when unprojecting native rays | `a translated native projective ray disagreed with the renderer's homogeneous point conversion` | 9/9; `projective-ray-unprojection` | `Upstream-Commit` в commit message |
 | [7de2769d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7de2769dedfde7e6cf1ddabfcb4dfee8dc05404c) — Freeze shared facial idle when native units are incapacitated | `a downed native world unit left its shared portrait head in living facial idle` | 14/14; `downed-head-idle` | `Upstream-Commit` в commit message |
+| [ccdb6ca7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/ccdb6ca7c7ee525b4e8aeb1c5c9c0c18effa9ff0) — Keep SDL Escape available to cancel focused edit dialogs | `the focused native edit swallowed Escape before the save/load modal's cancel binding` | 18/18; `edit-keyboard-routing` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1561,3 +1562,36 @@ backend-код upstream не возвращается механически. Э
 `checkpoint-301-world-green-test.log`, `projective-ray-unprojection-*`,
 `projective-ray-linux-*`, `downed-head-idle-*`, `downed-head-linux-*`,
 `github-40257943770-{result.json,test.log}`.
+
+
+### SDL-клавиатура и Escape в активном поле ввода
+
+`ccdb6ca7` адаптирован к существующему SDL backend. Исторические DirectInput
+таблицы и idNames не перенесены: распознавание клавиатуры использует текущий
+SDLKeyTable, а интерфейс исключает Escape из поглощаемых физических событий.
+Остальные клавиши передаются также при отпускании и отсутствии virtual-key
+перевода; Unicode остаётся отдельным SDL text input. CEdit, его шрифты,
+размеры и текстовый рендерер в этом исправлении не меняются.
+
+Первый native RED: настоящий SDL Escape при активном CEdit поглощался раньше
+реального cancel handler меню сохранения/загрузки. GREEN проверяет постановку
+CICExitModal и единственное закрытие модального интерфейса. Setup восстанавливает
+фрагмент полей настоящего handler с native cursor/interface; это не полное
+сохранение игры и не проверка authored screenshot UI. Второй RED проверяет
+отпускания и клавиши без virtual-key перевода. GREEN включает реальные A/KANA
+SDL edges, Unicode `ZЖ`, а также отрицательные mouse/unknown controls.
+
+Выбранный набор Windows/Linux — 18/18 на каждой платформе, обе Game собраны,
+registration — 1/1; отдельно пересобранный Windows SDL профиль — 3/3.
+Новый полный набор содержит 303 теста; последняя полная контрольная точка — 301.
+Оба новых теста не требуют proprietary assets и зарегистрированы с SDL dummy
+для hosted CI.
+
+Расширенный Linux SDLPlatformInputTests проверяет настоящий native window и
+fullscreen, поэтому ему требуется Xvfb + Openbox + noreset. Первые попытки без
+дисплея, с dummy driver и с Xvfb без WM провалились по этим условиям окружения.
+С правильным виртуальным дисплеем весь набор 18/18 прошёл без изменения его
+проверок. Новые asset-free UI-тесты проходят в dummy driver.
+Свидетельства: `edit-keyboard-routing-{red,green}-{build,test}.log`,
+`edit-keyboard-routing-game-build.log`, `edit-keyboard-routing-registration-test.log`,
+`edit-keyboard-routing-sdl-{build,test}.log`, `edit-keyboard-linux-*`.

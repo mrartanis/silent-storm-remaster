@@ -1424,6 +1424,107 @@ static CMemoryStream BorrowedObjectFields(CObjectBase* object, CStructureNetwork
     return saved;
 }
 
+
+class KeyboardEdgeEdit: public NUI::CEdit
+{
+    OBJECT_NOCOPY_METHODS(KeyboardEdgeEdit);
+public:
+    vector<int> edges;
+    KeyboardEdgeEdit() {}
+    explicit KeyboardEdgeEdit(NUI::CInterface* owner): NUI::CEdit(NUI::SWindowInfo(owner,NUI::SPoint(5,5),NUI::SPoint(300,40),
+        "keyboard-edit",NUI::STYLE_VISIBLE | NUI::STYLE_ENABLED)) {}
+    bool ProcessMessage(const NUI::SEvent& event) override {
+        if (event.nEvent == NUI::EVENT_CHAR) edges.push_back(event.nVal);
+        return NUI::CEdit::ProcessMessage(event);
+    }
+};
+
+static void EditKeyboardRouting(bool escape)
+{
+    S2Platform::SetErrorDialogs(false);
+    struct Cleanup {
+        ~Cleanup() { NMainLoop::DoneInterface(); NInput::DoneInput(); S2Platform::Done(); }
+    } cleanup;
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "edit-keyboard fixture started with another interface or pending command");
+    Require(S2Platform::Init("edit keyboard routing regression",640,480,true) && NInput::InitInput(true),
+        "edit-keyboard fixture could not start its hidden SDL input window");
+    Require(std::strcmp(SDL_GetCurrentVideoDriver(),"dummy") == 0,
+        "edit-keyboard regression requires the dummy backend to avoid changing desktop input");
+    SDL_Event focus{}; focus.type = SDL_EVENT_WINDOW_FOCUS_GAINED;
+    focus.window.windowID = SDL_GetWindowID(S2Platform::Window());
+    Require(SDL_PushEvent(&focus),"edit-keyboard fixture could not queue window focus");
+    auto pump = [&]() { S2Platform::Delay(2); S2Platform::PumpEvents(); NInput::PumpMessages(S2Platform::Active()); };
+    pump();
+    NInput::SEvent event;
+    while (NInput::GetEvent(&event)) {}
+    CObj<NUI::ICursor> cursor = NUI::ICursor::Create(false);
+    CObj<NUI::CInterface> interface = new NUI::CInterface(cursor);
+    auto* edit = new KeyboardEdgeEdit(interface);
+    edit->SetText(L"Save name"); edit->SetCursorPosition(9);
+    edit->ProcessMessage(NUI::SEvent(NUI::EVENT_ACTIVATE,NUI::EAF_ACTIVATE));
+    Require(edit->IsActive(),"edit-keyboard fixture did not focus its native edit control");
+    auto key = [&](SDL_Scancode scan,bool down,bool repeat = false) {
+        SDL_Event input{}; input.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+        input.key.windowID = SDL_GetWindowID(S2Platform::Window());
+        input.key.scancode = scan; input.key.down = down; input.key.repeat = repeat;
+        Require(SDL_PushEvent(&input),"edit-keyboard fixture could not queue a native SDL key");
+    };
+    if (escape) {
+        NInput::SetSection("menu");
+        NGlobal::ProcessCommand(L"bind 'cancel' 'ESC'"); NInput::UpdateBinds();
+        CObj<NMainLoop::IInterfaceBase> modal = dynamic_cast<NMainLoop::IInterfaceBase*>(pSSClasses->CreateObject(int(0xB1014130)));
+        Require(IsValid(modal),"edit-keyboard fixture could not create the native save/load modal");
+        CStructureNetworkContext refs; refs.externalReferences = true; refs.include = [](CObjectBase*) { return false; };
+        refs.ids[cursor] = 100; refs.refs[100] = cursor; refs.ids[interface] = 101; refs.refs[101] = interface;
+        CMemoryStream saved;
+        { CStructureSaver writer(saved,CStructureSaver::WRITE,&refs);
+          bool allowSave = true; auto type = NGame::SAVE;
+          writer.Add(2,&allowSave); writer.Add(3,&type); writer.Add(4,&cursor); writer.Add(5,&interface); }
+        saved.Seek(0);
+        { CStructureSaver reader(saved,CStructureSaver::READ,&refs); modal->operator&(reader); }
+        class OpenModal: public NMainLoop::CInterfaceCommand {
+            OBJECT_NOCOPY_METHODS(OpenModal);
+        public:
+            CPtr<NMainLoop::IInterfaceBase> modal;
+            void Exec() override { PushInterface(modal); }
+        };
+        CObj<OpenModal> open = new OpenModal; open->modal = modal; open->Exec();
+        key(SDL_SCANCODE_ESCAPE,true); key(SDL_SCANCODE_ESCAPE,false); pump();
+        int physical = 0, virtualKeys = 0;
+        while (NInput::GetEvent(&event)) {
+            if (event.mMessage.cType == NInput::CT_KEY) ++physical;
+            if (event.mMessage.cType == NInput::CT_WIN_KEY) ++virtualKeys;
+            modal->ProcessEvent(event);
+        }
+        Require(physical == 2 && virtualKeys == 1,"edit-keyboard fixture did not deliver the actual SDL Escape down/up and virtual key");
+        Require(NMainLoop::HaveInterfaceCommand(),
+            "the focused native edit swallowed Escape before the save/load modal's cancel binding");
+        Require(edit->edges.empty() && edit->GetText() == L"Save name",
+            "Escape entered the edit's discardable-key stream or changed its text");
+        Require(!NMainLoop::StepApp(false,false,false) && !NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+            "the native Escape cancellation did not close the restored save/load modal exactly once");
+    } else {
+        key(SDL_SCANCODE_A,true); key(SDL_SCANCODE_A,false);
+        key(SDL_SCANCODE_LANG3,true); key(SDL_SCANCODE_LANG3,false);
+        SDL_Event text{}; text.type = SDL_EVENT_TEXT_INPUT;
+        text.text.windowID = SDL_GetWindowID(S2Platform::Window()); text.text.text = "Z\xD0\x96";
+        Require(SDL_PushEvent(&text),"edit-keyboard fixture could not queue native Unicode text");
+        pump();
+        while (NInput::GetEvent(&event)) interface->ProcessEvent(event);
+        Require(edit->edges == vector<int>{'A',0,0,0},
+            "the native edit lost physical key releases or keyboard edges without virtual-key translations");
+        Require(edit->GetText() == L"Save nameZ\u0416",
+            "routing physical keyboard edges changed the SDL Unicode text-input contract");
+        const auto edges = edit->edges;
+        NInput::SEvent mouse{}; mouse.mMessage.cType = NInput::CT_KEY; mouse.mMessage.nAction = NInput::GetControlID("MOUSE_BUTTON0"); mouse.mMessage.bState = true;
+        interface->ProcessEvent(mouse);
+        NInput::SEvent unknown{}; unknown.mMessage.cType = NInput::CT_KEY; unknown.mMessage.nAction = -1; unknown.mMessage.bState = true;
+        interface->ProcessEvent(unknown);
+        Require(edit->edges == edges,"mouse or unknown controls were routed as discardable keyboard edges");
+    }
+}
+
 static void NativeCursorPositioning()
 {
     S2Platform::SetErrorDialogs(false);
@@ -12000,6 +12101,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "lazy-navigation-colourer")) { LazyNavigationColourer(); return true; }
     if (!std::strcmp(mode, "restored-portrait-selection")) { RestoredPortraitPanel(false); return true; }
     if (!std::strcmp(mode, "restored-empty-portraits")) { RestoredPortraitPanel(true); return true; }
+    if (!std::strcmp(mode, "edit-escape-cancel")) { EditKeyboardRouting(true); return true; }
+    if (!std::strcmp(mode, "edit-keyboard-edges")) { EditKeyboardRouting(false); return true; }
     if (!std::strcmp(mode, "native-cursor-position")) { NativeCursorPositioning(); return true; }
     if (!std::strcmp(mode, "disabled-cursor-input")) { DisabledCursorInput(); return true; }
     if (!std::strcmp(mode, "exit-menu-save-visibility") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],false); return true; }
