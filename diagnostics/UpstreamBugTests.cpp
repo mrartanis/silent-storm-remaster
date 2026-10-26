@@ -8277,6 +8277,64 @@ static void GrenadeSuccessorHandoff(const char* databasePath,const char* resourc
     }
 }
 
+static void InvalidatedGrenadeTrajectory(const char* databasePath,const char* resourcePath)
+{
+    for (bool engineer: {false,true}) {
+        NativeGrenadeThrowFixture fixture(databasePath,resourcePath,engineer);
+        auto& world = fixture.world;
+        auto* actor = fixture.actor;
+        auto& executor = fixture.executor;
+        auto* inventory = actor->GetUnitRPG()->GetInventory();
+        executor->Run();
+        Require(executor->IsExecuting() && executor->GetState() == NWorld::CCommandExecute::RUNNING,
+            "invalidated-trajectory fixture did not start its native throw");
+        const auto initialPosition = actor->GetPosition();
+        auto* network = world->GetPathNetwork();
+        vector<NAI::SPathPlace> places;
+        network->GetNearPlaces(SSphere(initialPosition.GetCP(),100.f),&places);
+        std::sort(places.begin(),places.end(),[&](const NAI::SPathPlace& a,const NAI::SPathPlace& b) {
+            return fabs2(NAI::SPosition(a,network).GetCP()-initialPosition.GetCP()) >
+                fabs2(NAI::SPosition(b,network).GetCP()-initialPosition.GetCP());
+        });
+        bool moved = false;
+        for (auto place: places) {
+            place.SetPose(NAI::CM_STAND); place.SetDirection(0);
+            if (!network->IsPassable(place) || network->IsLocked(place,true)) continue;
+            auto destination = initialPosition;
+            destination.pos.p = place;
+            if (executor->CanDoIt(destination) != NWorld::UCR_TARGET_OUT_OF_RANGE) continue;
+            actor->SetPosition(destination); // Native relocation to a real free map tile during the pending windup.
+            if (executor->CanDoIt(actor->GetPosition()) == NWorld::UCR_TARGET_OUT_OF_RANGE) {
+                moved = true; break;
+            }
+            actor->SetPosition(initialPosition);
+        }
+        Require(moved, "invalidated-trajectory fixture found no real free map tile blocking the pending throw");
+        const int ap = actor->GetAP(), vp = actor->GetUnitRPG()->GetTotalVP();
+        vector<NWorld::IDynamicObject*> before;
+        for (auto& object: *world->GetMiscObjects()) before.push_back(object.GetPtr());
+        std::printf("invalidated native grenade trajectory: engineer=%d\n",int(engineer));
+        std::fflush(stdout);
+        Require(!executor->TimeLabelReached(), "an unavailable grenade trajectory requested an extra release label");
+        int projectiles = 0;
+        for (auto& object: *world->GetMiscObjects())
+            if (std::find(before.begin(),before.end(),object.GetPtr()) == before.end() &&
+                pSSClasses->GetObjectTypeID(object.GetPtr()) == int(0x118B1160)) ++projectiles;
+        Require(projectiles == 0 && inventory->GetActive() == fixture.grenade.GetPtr(),
+            "releasing a grenade after its native trajectory became unavailable consumed the item and launched stale parameters");
+        CStructureNetworkContext references;
+        auto fields = BorrowedObjectFields(executor,&references);
+        CObj<NRPG::IInventoryItem> pending;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(5,&pending); }
+        Require(!pending, "an unavailable grenade release reserved a replacement item");
+        executor->AnimationFinished();
+        Require(executor->GetState() == NWorld::CCommandExecute::FINISHED && actor->GetAP() == ap &&
+            actor->GetUnitRPG()->GetTotalVP() == vp && fixture.grenade->GetQuantity() == 1 &&
+            inventory->GetActive() == fixture.grenade.GetPtr(),
+            "finishing the unavailable grenade release changed AP, VP, quantity or the equipped grenade");
+    }
+}
+
 static void GrenadeCompletionVisibility(const char* databasePath,const char* resourcePath)
 {
     for (bool requested: {false,true}) {
@@ -11172,6 +11230,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "restored-engineer-grenade-throw")) { Require(argc == 4, "saved engineer grenade requires db and res"); RestoredGrenadeThrow(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "grenade-successor-handoff")) { Require(argc == 4, "grenade handoff requires db and res"); GrenadeSuccessorHandoff(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "engineer-grenade-successor-handoff")) { Require(argc == 4, "engineer grenade handoff requires db and res"); GrenadeSuccessorHandoff(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "invalidated-grenade-trajectory")) { Require(argc == 4, "grenade trajectory requires db and res"); InvalidatedGrenadeTrajectory(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "grenade-completion-visibility")) { Require(argc == 4, "grenade visibility requires db and res"); GrenadeCompletionVisibility(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }

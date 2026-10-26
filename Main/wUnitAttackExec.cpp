@@ -1956,7 +1956,8 @@ void CExecThrowGrenade::ThrowGrenade()
 		return;
 
 	CPtr<NRPG::CGrenadeToHitCalcer> pToHitCalcer = CreateToHitCalcer( pGrenade );
-	FindGrenadeParams( pUS->GetWorld(), pUS->GetPosition(), ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &grenadeParams );
+	if ( !FindGrenadeParams( pUS->GetWorld(), pUS->GetPosition(), ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &grenadeParams ) )
+		return;
 	CheckToHitAndDelay( pGrenade );
 
 	pUS->TearOffItem( &item, (NDb::ESlot)pInventory->GetActiveSlot(),

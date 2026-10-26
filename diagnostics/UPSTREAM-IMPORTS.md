@@ -239,6 +239,7 @@
 | [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Rebuild grenade throw calculations when continuing saved executors | `restoring a pending grenade throw dereferenced its unsaved to-hit calculator (null this, CDB-confirmed)` | 24/24; `restored-grenade-throw` | `Upstream-Commit` в commit message |
 | [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Defer spare grenade equipment until the throwing animation finishes | `throwing a grenade equipped the successor before the animation completed` | 26/26; `grenade-successor-handoff` | `Upstream-Commit` в commit message |
 | [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Honor saved grenade visibility requests when the action completes | `finishing a restored grenade action discarded its requested deferred visibility refresh` | 27/27; `grenade-completion-visibility` | `Upstream-Commit` в commit message |
+| [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Stop grenade release when its recalculated trajectory is unavailable | `releasing a grenade after its native trajectory became unavailable consumed the item and launched stale parameters` | 28/28; `invalidated-grenade-trajectory` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1236,3 +1237,28 @@ Windows configured registration — 1/1. Последняя полная кон�
 `grenade-completion-visibility-game-build.log`,
 `grenade-completion-visibility-registration-test.log`,
 `grenade-visibility-linux-{configure,build,test}.log`.
+
+### Траектория, ставшая недоступной до выпуска гранаты
+
+Отдельный native RED воспроизвёл расход гранаты и запуск старых параметров
+после перемещения бросающего на реальную свободную клетку карты во время
+замаха. До перемещения Run успешно запускает бросок; после перемещения
+штатный CanDoIt возвращает TARGET_OUT_OF_RANGE. Обработчик метки раньше
+игнорировал тот же отказ FindGrenadeParams и продолжал выпуск. Теперь он
+возвращается до разброса, запала, изъятия предмета и создания снаряда.
+
+Обычная и инженерная гранаты проверены: нового CGrenadeServer нет, предмет
+остаётся экипирован, следующий предмет не резервируется, завершение штатное,
+AP после старта, VP и количество не меняются. Исходные прямые/сохранённые
+успешные броски проверяются соседними регрессиями. Формулы физики, диапазоны
+и RNG не изменены. Первоначальная попытка выбрать позицию другого бойца
+не дала недоступной цели и не была принята за RED; принятый тест использует
+свободное проходное место native path network.
+
+Windows/Linux Game собраны; связанный набор — 28/28 на каждой платформе,
+Windows configured registration — 1/1. Последняя полная контрольная точка
+остаётся 283, весь текущий набор из 289 проверок здесь не заявляется.
+Свидетельства: `invalidated-grenade-trajectory-{red,green}-{build,test}.log`,
+`invalidated-grenade-trajectory-game-build.log`,
+`invalidated-grenade-trajectory-registration-test.log`,
+`invalidated-grenade-linux-{configure,build,test}.log`.
