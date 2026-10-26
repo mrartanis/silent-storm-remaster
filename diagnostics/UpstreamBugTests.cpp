@@ -13194,6 +13194,69 @@ static void ScriptDrawWeaponSlot(const char* databasePath,const char* resourcePa
     }
 }
 
+static void ScriptHeldGrenadeActivation(const char* databasePath,const char* resourcePath)
+{
+    for (bool engineer : {true,false}) for (auto heldSlot : {NDb::SLOT_1,NDb::SLOT_2}) for (bool alreadyActive : {true,false}) {
+        NativeGrenadeThrowFixture fixture(databasePath,resourcePath,engineer);
+        auto* actor = fixture.actor;
+        auto* inventory = actor->GetUnitRPG()->GetInventory();
+        NDb::CRPGWeapon* weaponRecord = nullptr;
+        vector<CPtr<NWorld::CUnit>> units; fixture.world->GetAllUnits(&units);
+        for (auto unit : units) {
+            auto* candidate = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+            auto* weapon = candidate ? candidate->GetUnitRPG()->GetWeaponItem() : nullptr;
+            if (weapon && IsValid(weapon->GetDBWeapon())) { weaponRecord = weapon->GetDBWeapon(); break; }
+        }
+        Require(weaponRecord != nullptr,"held-grenade fixture has no authored firearm donor");
+        vector<CObj<NRPG::IInventoryItem>> removed;
+        for (auto slot : {NDb::SLOT_1,NDb::SLOT_2})
+            if (inventory->Get(slot)) removed.push_back(inventory->TakeOff(slot));
+        const auto otherSlot = heldSlot == NDb::SLOT_1 ? NDb::SLOT_2 : NDb::SLOT_1;
+        CObj<NRPG::CWeaponItem> weapon = new NRPG::CWeaponItem(weaponRecord);
+        NDb::CRPGGrenade* spareRecord = fixture.regular;
+        if (!spareRecord) {
+            CDBIterator<NDb::CRPGGrenade> rows(*NDatabase::GetTable<NDb::CRPGGrenade>());
+            while (rows.MoveNext()) if (IsValid(rows.Get()->pItem) && IsValid(rows.Get()->pItem->pModel) &&
+                rows.Get()->pItem->nWeight > 0) { spareRecord = rows.Get(); break; }
+        }
+        Require(spareRecord != nullptr,"held-grenade fixture has no regular backpack grenade");
+        CObj<NRPG::CGrenadeItem> spare = new NRPG::CGrenadeItem(spareRecord);
+        spare->nQuantity = 1;
+        const auto active = alreadyActive ? heldSlot : otherSlot;
+        CTPoint<int> place;
+        Require(inventory->Equip(heldSlot,fixture.grenade) && inventory->Equip(otherSlot,weapon) &&
+            inventory->Activate(active) && inventory->FindPlace(spare,&place) && inventory->Place(place,spare),
+            "held-grenade fixture could not equip its actual hands and spare backpack grenade");
+        auto* commander = actor->GetPlayer()->GetCommander();
+        Require(IsValid(commander) && !commander->HasCommands() && !actor->HasCommand(),
+            "held-grenade fixture started with an existing order");
+        const auto ap = actor->GetAP();
+        CObj<NScript::CScript> script = NScript::CreateScript(fixture.world);
+        NScript::luaPushCPtr(*script,actor); script->SetGlobal("upstreamActor");
+        RunScript(script,"UnitSwitchToGrenade(upstreamActor); UpstreamHeldReturned = 11");
+        auto returned = script->GetGlobal("UpstreamHeldReturned");
+        Require(returned.IsNumber() && returned.GetNumber() == 11,"held-grenade Lua callback did not finish");
+        std::printf("native held grenade: engineer=%d held=%d active=%d already-active=%d queued=%d unit-command=%d\n",
+            int(engineer),int(heldSlot),int(active),int(alreadyActive),int(commander->HasCommands()),int(actor->HasCommand()));
+        if (alreadyActive || engineer) Require(!commander->HasCommands(),
+            "active grenade or existing engineer-grenade selection policy issued a new command");
+        else {
+            Require(commander->HasCommands(),"native grenade switch leaves the held grenade inactive and queues no activation");
+            CObj<NWorld::CCommand> first = commander->GetCommand(), second = commander->GetCommand();
+            auto* set = dynamic_cast<NWorld::CCmdSetCommand*>(first.GetPtr());
+            auto* resume = dynamic_cast<NWorld::CCmdSetCommand*>(second.GetPtr());
+            auto* select = set ? dynamic_cast<NWorld::CCmdSetActiveItem*>(set->GetCmd()) : nullptr;
+            Require(set && set->pUnit == actor && select && select->nSlot == heldSlot &&
+                resume && resume->pUnit == actor && dynamic_cast<NWorld::CCmdContinue*>(resume->GetCmd()) &&
+                !commander->HasCommands(),"held-grenade activation lost its slot/actor/Continue or drew the spare instead");
+        }
+        Require(!actor->HasCommand() && actor->GetAP() == ap && inventory->GetActiveSlot() == active &&
+            inventory->Get(heldSlot) == fixture.grenade.GetPtr() && inventory->Get(otherSlot) == weapon.GetPtr() &&
+            inventory->GetItems().size() == 1 && inventory->GetItems().front().pItem == spare.GetPtr(),
+            "held-grenade script changed inventory or AP before queued activation consumption");
+    }
+}
+
 static void ScriptedEnemyDeath(const char* databasePath,const char* resourcePath, bool spareUnconscious = false)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -14855,6 +14918,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "script-draw-weapon-slot") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-draw-weapon-command") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "deferred-draw-grenade-command") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3],true,true); return true; }
+    if (!std::strcmp(mode, "script-held-grenade-activation") && argc == 4) { ScriptHeldGrenadeActivation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "forced-action-recalc") && argc == 4) { ForcedActionRecalc(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "overlapping-doors")) { OverlappingDoors(); return true; }
     if (!std::strcmp(mode, "weapon-familiarity")) { WeaponFamiliarity(); return true; }

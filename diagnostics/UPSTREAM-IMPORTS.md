@@ -3106,6 +3106,41 @@ all-build.log, related-test.log, linux-{configure,build,test}.log,
 Другие producers и inventory/UnitHide hunks 14ffbcc8 остаются отдельной работой.
 Формулы и исходные правила выбора позы не редактируются.
 
+## Активация гранаты в неактивной руке — часть 14ffbcc8
+
+UpstreamScriptHeldGrenadeActivation вызывает настоящую UnitSwitchToGrenade
+в world 810. В руках — настоящая граната и оружие, в рюкзаке — запасная
+обычная граната. Compiled runtime RED: ordinary held SLOT_1=0, active=1,
+queued=0/unit-command=0: Lua завершилась, но граната осталась неактивной.
+После добавления controls verified RED повторяет тот же сбой; четыре случая
+инженерной гранаты и уже активная обычная граната проходят до failing case.
+
+Новый helper использует исходный DB CRPGGrenade predicate и существующий
+DoCommand(CCmdSetActiveItem, Continue). Он запускается перед прежней runtime
+проверкой. Последняя сохраняется: upstream также менял fallback при
+CRPGEngGrenade в руке; эта отдельная классификация отложена и описана в
+UPSTREAM-BALANCE-CHANGES.md. Не объявляем её ребалансом без retail сверки.
+
+GREEN проверяет восемь сочетаний ordinary/engineer, SLOT_1/SLOT_2 и
+active/inactive. Только неактивная ordinary требует ровно двух queued
+wrappers: правильный actor, CCmdSetActiveItem с held SLOT и Continue. Уже
+активная граната не выдаёт лишнего заказа; spare в рюкзаке не извлекается.
+До consumer руки, активный слот, рюкзак, unit command и AP не меняются.
+Полная анимация переключения, оба grenade одновременно в руках и AP cost
+этим тестом не проверяются.
+
+Связанные 64/64 прошли на Windows (81.08 с) и Linux (84.16 с), обе Game и
+Windows ALL_BUILD собраны. В набор входят DisplayRuntimeTests и 12
+FONT-COMPAT controls на каждой платформе. Windows NetworkSerializer/Match/
+StopResume прошли 3/3 за 21.18 с. Текущий CPU base 336 не заявляется
+новым полным прогоном. Численные формулы и наш facial engine не меняются.
+
+Свидетельства script-held-grenade-activation: red-{build,test}.log,
+red-native-test.log, verified-red-{build,test}.log,
+verified-red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log и network-{test,native-test}.log.
+
 ## Очередь извлечения оружия и гранаты — часть 14ffbcc8
 
 Два новых native Lua теста UpstreamDeferredDrawWeaponCommand и

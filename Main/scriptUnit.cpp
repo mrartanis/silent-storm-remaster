@@ -1091,14 +1091,27 @@ BEGIN_SCRIPT_COMMAND( UnitDrawWeapon, "u" )
 	return 0;
 END_SCRIPT_COMMAND
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// retail @0x2fa760 ("u"): if neither hand already holds a grenade, draw the first grenade from the
-// backpack into the active hand.
+// Activate an ordinary held grenade before considering a backpack draw.
+static bool ActivateHeldGrenade( NWorld::CUnitServer *pUS, NRPG::IInventoryInfo *pInfo, NDb::ESlot slot )
+{
+	NRPG::IInventoryItem *pItem = pInfo->Get( slot );
+	if ( !IsValid( pItem ) || !IsValid( pItem->GetDBItem() ) ||
+		 !CDynamicCast<NDb::CRPGGrenade>( pItem->GetDBItem()->pSuccessor ) )
+		return false;
+	if ( pInfo->GetActiveSlot() != slot )
+		DoCommand( pUS, new NWorld::CCmdSetActiveItem( slot ), true );
+	return true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Preserve the existing engineer-grenade fallback policy pending a separate retail check.
 BEGIN_SCRIPT_COMMAND( UnitSwitchToGrenade, "u" )
 	CDynamicCast<NWorld::CUnitServer> pUS( luaParams[ 0 ].p );
 	if ( IsValid( pUS ) )
 	{
 		NRPG::IInventoryInfo *pInfo = pUS->GetRPG()->GetInventoryInfo();
-		if ( !CDynamicCast<NRPG::CGrenadeItem>( pInfo->Get( NDb::SLOT_1 ) ) &&
+		if ( !ActivateHeldGrenade( pUS, pInfo, NDb::SLOT_1 ) &&
+			 !ActivateHeldGrenade( pUS, pInfo, NDb::SLOT_2 ) &&
+			 !CDynamicCast<NRPG::CGrenadeItem>( pInfo->Get( NDb::SLOT_1 ) ) &&
 			 !CDynamicCast<NRPG::CGrenadeItem>( pInfo->Get( NDb::SLOT_2 ) ) )
 			DrawFirstInventoryItem<NRPG::CGrenadeItem>( pUS );
 	}
