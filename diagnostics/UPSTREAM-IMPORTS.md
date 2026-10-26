@@ -270,6 +270,7 @@
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Consume loading input after writing the mission restart snapshot | `restart snapshot completion did not consume a key release accumulated during loading` | 317/317; `mission-loading-input` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Connect native audio acknowledgement checkboxes to saved settings | `the native audio page did not initialize its acknowledgement checkboxes from config`; `the native response checkbox did not apply its change to config` | 85/85; `audio-option-checkboxes` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Restore registered audio defaults without restarting native playback | `the native audio Default button did not restore registered settings` | 86/86; `audio-option-defaults` | `Upstream-Commit` в commit message |
+| [dbb74c6e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/dbb74c6e661c0344061a79a86b0ebf3e01617526) — Preserve native selection outlines over lighting stencil marks | `selection outline changed over lighting stencil 0x80 at 47,47: expected ff407f20, got ff000000` | Windows 104/104; Linux 100/100 + дополнительные GPU/registration; `selection-stencil` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -2329,3 +2330,67 @@ audio-option-defaults-{windows,linux}-native-test.log.
 historical-own-import, review-final-version и excluded-balance, три
 documentation-only. Общий перенос и реальный GitHub Actions итогового HEAD
 ещё не завершены. Формулы и оригинальный баланс в этих двух UI-фиксах не менялись.
+
+## Контур выделения поверх освещения — `dbb74c6e`
+
+Compiled native RED подтверждён на нашем D3D11 bgfx backend. Тест создаёт
+настоящие CObjectInfo/CNonePart/CCombinedPart и два одинаковых CSelection,
+освежает native vertex combiner и вызывает существующий CGScene::DrawSelection.
+Только доступ к private проходу открыт через test-only member accessor:
+production API и реализация прохода ради теста не менялись. Это позволяет
+заранее заполнить stencil и не запускать поверх него несвязанные lighting passes.
+Изображение читается с GPU; расчёт контура и оба geometry прохода настоящие.
+
+Контроль с нулевым stencil даёт 201 пиксель цвета 64/127/32, пустую внутренность
+силуэта и однократный цвет при наложении двух выделений и обоих winding mesh.
+Затем та же сцена с lighting marker 0x80 теряет пиксель 47,47: цвет ff407f20
+становится ff000000. Это ожидаемый runtime RED, не ошибка подготовки GPU.
+Первое ошибочное предположение fixture о fixed-function TnL было исправлено
+до этого RED: наш bgfx использует свой programmable vsGlow путь, он и проверен.
+
+В production меняются только два stencil вызова и общий marker: силуэт пишет
+0x67, расширенный контур проверяет неравенство этому marker и отмечает уже
+нарисованные пиксели. Прежний equals-zero/increment ошибочно отбрасывал stencil
+освещения. После исправления вся картинка побитно совпадает с контролем при
+начальных значениях 0, 0x80, 0x40, 0xc0 и 1. Внутренний силуэт исключается,
+дублирующиеся outline triangles не увеличивают цвет. Geometry, ширина контура,
+шейдеры и native bgfx backend не заменяются; численные игровые правила не меняются.
+
+Вторая часть upstream уже была в форке: TObject() инициализирует nil tag
+и нулевое значение в aa4fe70e53b9a7965c75c8596fb13223295bd26f от 27 сентября.
+Lua production код не менялся. Новый resource-free native тест проверяет
+placement construction поверх 0xa5, новые/расширенные слоты CLuaThread и
+реальный CStructureSaver round-trip. Два живых числовых значения сохраняются,
+1059 свободных слотов становятся nil; намеренно stale string pointer выше top
+очищается существующим thread saver до сериализации. Это проверка имеющейся
+реализации, а не заявленный новый RED/фикс Lua. NativeLuaStateWireTests проверяет
+другие codec структуры, поэтому вместо него добавлен этот предметный тест.
+
+Связанные Windows 104/104 (89.80 с), Linux 100/100 (79.80 с) прошли. На обеих
+платформах 20 native-display случаев включают настоящий pixel тест выделения,
+и обе Game собраны. Разница наборов — Windows дополнительно запускает три
+старых GPU режима и регистрацию; на Linux они отдельно проверены тем же
+BgfxRendererTests: specular projection, partial geometry, index ring, затем
+UpstreamRegistrationTests 1/1. В частности, native Linux Vulkan даёт те же
+201 пиксель и полное совпадение для всех пяти stencil значений.
+
+Регистрация подтверждает 311 одинаковых upstream entry points и наличие всех
+138 resource-free проверок; новый Lua случай находится вне условий наличия
+игровой базы. SelectionStencilRuntimeTests также не требует игровых ресурсов,
+но требует настоящий GPU/software Vulkan display, как существующие bgfx тесты.
+Native Lua verification добавляет один CPU случай: теперь полный CPU count 317,
+его полный прогон здесь не заявляется. Последний полный checkpoint предшествует
+двум audio UI исправлениям; текущие выбранные проверки включают их actual UI.
+
+Свидетельства в прежнем evidence каталоге: selection-stencil-red-{build,test}.log,
+selection-stencil-green-{build,test}.log, selection-stencil-lua-{build,test}.log,
+selection-stencil-game-build.log, selection-stencil-related-green-test.log,
+selection-stencil-linux-{configure,build,test}.log,
+selection-stencil-linux-{specular-projection,partial,index-ring,registration}-test.log
+и selection-stencil-{windows,linux}-native-test.log. Сборки переиспользованы,
+HD pack не пересобирался; собственные test windows/processes завершены.
+
+Источник теперь imported. Реестр 281: 130 pending, 89 imported,
+18 partially-imported, 38 already-present, по одному historical-own-import,
+review-final-version и excluded-balance, три documentation-only.
+Остальной аудит и реальный GitHub Actions окончательного HEAD ещё не завершены.

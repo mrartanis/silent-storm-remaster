@@ -2634,6 +2634,33 @@ static void BackdropScriptAudio(const char* databasePath,const char* resourcePat
 #endif
 }
 
+static void LuaUnusedStackInitialization()
+{
+    alignas(TObject) unsigned char storage[sizeof(TObject)];
+    std::memset(storage,0xa5,sizeof(storage));
+    TObject* fresh = new(storage) TObject;
+    Require(fresh->GetType() == LUA_TNIL,"a native Lua value created over dirty storage did not start as nil");
+    fresh->~TObject();
+    CObj<CLuaThread> thread = new CLuaThread("unused stack initialization audit");
+    thread->stack.resize(thread->stack.size()+37);
+    for (const auto& value : thread->stack) Require(value.GetType() == LUA_TNIL,"new or expanded native Lua stack slots have invalid tags");
+    thread->top = 2; thread->stack[0].SetN(19); thread->stack[1].SetN(23);
+    // A popped slot can retain an already collected string. The existing
+    // thread saver must clear spare slots before serializing the whole vector.
+    thread->stack[5].SetS(reinterpret_cast<TString*>(std::uintptr_t(1)));
+    CMemoryStream wire;
+    { CStructureSaver writer(wire,CStructureSaver::WRITE); writer.Add(2,&thread); }
+    Require(thread->stack[5].GetType() == LUA_TNIL,"saving a Lua thread dereferenced or retained a stale spare stack slot");
+    wire.Seek(0); CObj<CLuaThread> restored;
+    { CStructureSaver reader(wire,CStructureSaver::READ); reader.Add(2,&restored); }
+    Require(IsValid(restored) && restored.GetPtr() != thread.GetPtr() && restored->top == 2 && restored->stack.size() == thread->stack.size() &&
+        restored->stack[0].GetType() == LUA_TNUMBER && restored->stack[0].GetN() == 19 && restored->stack[1].GetType() == LUA_TNUMBER && restored->stack[1].GetN() == 23,
+        "native Lua thread serialization lost its live numeric slots");
+    for (std::size_t i = restored->top; i < restored->stack.size(); ++i)
+        Require(restored->stack[i].GetType() == LUA_TNIL,"native Lua thread serialization restored an invalid spare slot");
+    std::printf("existing native Lua nil constructor and %zu serialized spare slots verified\n",restored->stack.size()-restored->top);
+}
+
 static void AudioOptionCheckboxes(const char* databasePath,const char* resourcePath,bool notificationOnly = false,bool resetDefaults = false)
 {
 #if defined(S2_UPSTREAM_NATIVE_SFX)
@@ -13572,6 +13599,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "audio-option-checkboxes") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "audio-option-checkbox-notify") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "audio-option-defaults") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3],false,true); return true; }
+    if (!std::strcmp(mode, "lua-unused-stack-init")) { LuaUnusedStackInitialization(); return true; }
     if (!std::strcmp(mode, "backdrop-script-audio-3d") && argc == 4) { BackdropScriptAudio(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "chapter-active-script") && argc == 4) { ChapterActiveScript(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-active-command") && argc == 5) { ChapterActiveScript(argv[2],argv[3],std::atoi(argv[4])); return true; }

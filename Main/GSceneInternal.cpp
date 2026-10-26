@@ -1664,7 +1664,9 @@ void CGScene::DrawSelection( CTransformStack *pTS, NGfx::CRenderContext *pRC, co
 	rc.SetAlphaCombine( NGfx::COMBINE_ZERO_ONE );
 	rc.SetColorWrite( NGfx::COLORWRITE_NONE );
 	rc.SetDepth( NGfx::DEPTH_NONE );
-	rc.SetStencil( NGfx::STENCIL_WRITE, 1 );
+	// Selection must not treat lighting stencil bits as occupied silhouette pixels.
+	const int N_SELECTION_STENCIL = 0x67;
+	rc.SetStencil( NGfx::STENCIL_WRITE, N_SELECTION_STENCIL );
 	NGfx::SEffGlow sGlow;
 	NGfx::SEffConstLight tnlGlow;
 	if ( NGfx::IsTnLDevice() )
@@ -1686,7 +1688,7 @@ void CGScene::DrawSelection( CTransformStack *pTS, NGfx::CRenderContext *pRC, co
 	rc.SetAlphaCombine( NGfx::COMBINE_ADD );
 	rc.SetColorWrite( NGfx::COLORWRITE_ALL );
 	rc.SetDepth( NGfx::DEPTH_NORMAL );
-	rc.SetStencil( NGfx::STENCIL_TESTINCR, 0 );//STENCIL_TESTDECR, 1 );
+	rc.SetStencil( NGfx::STENCIL_TESTNE_WRITE, N_SELECTION_STENCIL );
 	typedef unordered_map<CVec4, list< CPtr<CSelection> >, SVec4Hash> CColorHash;
 	CColorHash hashSel;
 	for ( list< CPtr<CSelection> >::iterator i = selections.begin(); i != selections.end(); ++i )

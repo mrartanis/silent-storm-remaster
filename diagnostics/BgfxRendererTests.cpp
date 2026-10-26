@@ -17,6 +17,10 @@
 #include "../Main/UIWrap.h"
 #include "../DBFormat/DataFormat.h"
 #include "../Main/GInit.h"
+#include "../Main/GSceneInternal.h"
+#include "../Main/GGeometry.h"
+#include "../Main/GMaterial.h"
+#include "../Main/Transform.h"
 #include "../MiscDll/Commands.h"
 #include "../Main/DisplayLayout.h"
 #include "../FileIO/Streams.h"
@@ -25,6 +29,21 @@
 #include "FrameProfiler.h"
 
 namespace {
+// Exercise the existing scene pass without running unrelated lighting passes
+// over the deliberately seeded stencil buffer. No production diagnostic API.
+struct SelectionPassAccess {
+  using Member=void (NGScene::CGScene::*)(CTransformStack*,NGfx::CRenderContext*,const NGScene::SGroupSelect&);
+  friend Member SelectionPass(SelectionPassAccess);
+};
+template<SelectionPassAccess::Member member> struct SelectionPassFriend {
+  friend SelectionPassAccess::Member SelectionPass(SelectionPassAccess) { return member; }
+};
+template struct SelectionPassFriend<&NGScene::CGScene::DrawSelection>;
+class SelectionMeshNode: public CPtrFuncBase<NGScene::CObjectInfo> {
+  void Recalc() override {}
+public:
+  explicit SelectionMeshNode(NGScene::CObjectInfo* mesh) { pValue=mesh; }
+};
 class FixtureModelDraw : public NUI::CModelDraw {
 public:
   void Seed() { pModel=new NDb::CModel;pRender=new CVersioningBase;bParentScene=true; }
@@ -291,6 +310,68 @@ bool Color(const CArray2D<NGfx::SPixel8888>& image,int x,int y,int r,int g,int b
   const auto& pixel=image[y][x];
   if(abs(int(pixel.r)-r)<=3 && abs(int(pixel.g)-g)<=3 && abs(int(pixel.b)-b)<=3)return true;
   fprintf(stderr,"Pixel %d,%d expected %d,%d,%d got %d,%d,%d\n",x,y,r,g,b,pixel.r,pixel.g,pixel.b);return false;
+}
+int RunSelectionStencil() {
+  NGfx::SRenderTargetsInfo targets;
+  if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 190;
+  NGlobal::SetVar("gfx_antialiasing",0);
+  NGScene::CObjectInfo::SData data;
+  const CVec3 positions[]={CVec3(-.25f,.25f,.5f),CVec3(.25f,.25f,.5f),CVec3(.25f,-.25f,.5f),CVec3(-.25f,-.25f,.5f)};
+  for(const auto& position:positions) {
+    NGScene::SVertex vertex{};vertex.pos=position;
+    CVec3 normal(position.x,position.y,0);Normalize(&normal);
+    NGfx::CalcCompactVector(&vertex.normal,normal);
+    NGfx::CalcCompactVector(&vertex.texU,CVec3(1,0,0));NGfx::CalcCompactVector(&vertex.texV,CVec3(0,1,0));
+    data.verts.push_back(vertex);
+  }
+  // Both windings exercise the silhouette culling and overlapping outline
+  // triangles. A second real selection must not add the outline colour twice.
+  data.geometry.SetTriangles({STriangle(0,1,2),STriangle(0,2,3),STriangle(2,1,0),STriangle(3,2,0)});
+  CObj<NGScene::CObjectInfo> mesh=new NGScene::CObjectInfo;mesh->AssignFast(data);
+  CObj<SelectionMeshNode> node=new SelectionMeshNode(mesh);
+  CObj<NGScene::IMaterial> material=NGScene::CreateMaterial(CVec3(1,1,1));
+  CObj<NGScene::CNonePart> part=new NGScene::CNonePart(node,material,NGScene::SFullGroupInfo());
+  CObj<NGScene::CCombinedPart> owner=new NGScene::CCombinedPart(nullptr,NGScene::CCombinedPart::CP_NORMAL);
+  owner->GetCombiner()->AddPart(part);part->pOwner=owner;owner->UpdatePartInfo();
+  CObj<NGScene::CGScene> scene=new NGScene::CGScene(0);
+  CObj<CObjectBase> selection=scene->CreateSelection(part,CVec4(.25f,.5f,.125f,1));
+  CObj<CObjectBase> overlap=scene->CreateSelection(part,CVec4(.25f,.5f,.125f,1));
+  if(!selection || !overlap)return 191;
+  CTransformStack transform;transform.MakeParallel(2,2,0,1);
+  CTransformStack identity;identity.Init();
+  NGfx::CRenderContext context;
+  auto full=Quad(-1,1,1,-1,.5f);
+  CArray2D<NGfx::SPixel8888> reference,image;
+  for(int lighting:{0,0x80,0x40,0xc0,1}) {
+    MarkNewDGFrame();owner->GetGeometryInfo()->pVertices.Refresh();
+    context.SetStencil(NGfx::STENCIL_NONE);context.ClearBuffers(0xff000000);
+    context.SetTransform(identity.Get());context.SetCulling(NGfx::CULL_NONE);context.SetDepth(NGfx::DEPTH_NONE);
+    context.SetAlphaCombine(NGfx::COMBINE_NONE);context.SetColorWrite(NGfx::COLORWRITE_NONE);
+    context.SetVertexShader(vsConstLight);context.SetPixelShader(psDiffuse);context.SetVSConst(16,CVec4(0,0,0,1));
+    context.SetStencil(NGfx::STENCIL_WRITE,lighting);Draw(context,full);
+    context.SetTransform(transform.Get());
+    (scene.GetPtr()->*SelectionPass(SelectionPassAccess{}))(&transform,&context,NGScene::MakeSelectAll());
+    NGfx::MakeScreenShot(&image,false);
+    if(!lighting) {
+      int lit=0;
+      for(int y=0;y<128;++y)for(int x=0;x<128;++x)if(image[y][x].g>20) {
+        ++lit;
+        if(!Color(image,x,y,64,128,32))return 192;
+      }
+      if(lit<40 || lit>512 || !Color(image,64,64,0,0,0)) {
+        std::fprintf(stderr,"selection fixture has no isolated actual mesh outline: pixels=%d\n",lit);return 193;
+      }
+      reference=image;
+      std::printf("actual scene selection control: outline pixels=%d, overlapping mesh rendered once\n",lit);
+    } else {
+      for(int y=0;y<128;++y)for(int x=0;x<128;++x)if(image[y][x].color!=reference[y][x].color) {
+        std::fprintf(stderr,"selection outline changed over lighting stencil 0x%x at %d,%d: expected %08x, got %08x\n",lighting,x,y,reference[y][x].color,image[y][x].color);
+        return 194;
+      }
+    }
+  }
+  std::puts("actual scene selection silhouette, overlapping outlines and lighting stencil 0/80/40/c0/1 passed");
+  return 0;
 }
 int RunShadowPcf() {
   NGfx::SRenderTargetsInfo targets;
@@ -906,7 +987,8 @@ int main(int argc,char** argv) {
              argc>1 && std::string(argv[1])=="--passes" ? RunPassStress() :
              argc>1 && std::string(argv[1])=="--graphics" ? RunGraphicsOptions() :
              argc>1 && std::string(argv[1])=="--shadow-pcf" ? RunShadowPcf() :
-             argc>1 && std::string(argv[1])=="--specular-projection" ? RunSpecularProjection() : Run();
+             argc>1 && std::string(argv[1])=="--specular-projection" ? RunSpecularProjection() :
+             argc>1 && std::string(argv[1])=="--selection-stencil" ? RunSelectionStencil() : Run();
   NGfx::Done3D();S2Platform::Done();
   if(result)fprintf(stderr,"bgfx regression failure code=%d\n",result);
   if(!result)fprintf(stdout,"bgfx shaders, depth, pass order, render targets, texture upload, stencil masks, blending, alpha test, cube sampling, readback, resize and shutdown passed\n");
