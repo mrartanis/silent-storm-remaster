@@ -69,6 +69,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/iMain.h"
 #include "../Main/iGlobalMap.h"
 #include "../Main/iChapterMap.h"
+#include "../Main/iRenderWorld.h"
 #include "../Main/iChapterMapUI.h"
 #include "../Main/PlayerTracker.h"
 #include "../Main/iOptionsMenu.h"
@@ -150,6 +151,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/aiDoorCollider.h"
 #include "../Main/MapBuild.h"
 #include "../DBFormat/DataMap.h"
+#include "../DBFormat/DataCamera.h"
 #include "../Main/scFlowChartItems.h"
 #include "../Main/scFlowChart.h"
 #include "../Main/scScenarioTracker.h"
@@ -2480,35 +2482,162 @@ public:
     static auto ValueMember() { return &CachedChapterSampleAccess::pValue; }
 };
 
+// Shared native display lifetime for world-backed interface regressions.
+// Construct before the interface graph so it also handles partial initialization.
+struct NativeDisplayContext
+{
+    bool platform = false, graphics = false, audio = false;
+    ~NativeDisplayContext() {
+        NGScene::StopResourceLoadingThread(); NMainLoop::DoneInterface();
+        while (NMainLoop::HaveInterfaceCommand()) { CObj<NMainLoop::CInterfaceCommand> command = NMainLoop::TakeInterfaceCommandForHarness(); }
+        ClearHoldQueue();
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+        if (audio) NFMSound::Done();
+#endif
+        if (graphics) NGfx::Done3D();
+        if (platform) S2Platform::Done();
+    }
+    void Initialize(const char* databasePath,const char* resourcePath,const char* title) {
+        S2Platform::SetErrorDialogs(false);
+        Require(S2Platform::Init(title,320,240,true),"native display fixture could not create its hidden SDL window");
+        platform = true;
+        Require(NGfx::Init3D(static_cast<HWND>(S2Platform::NativeWindow())),"native display fixture has no graphics window handle");
+        graphics = true;
+        NGfx::SRenderTargetsInfo targets;
+        Require(NGfx::SetMode(NGfx::SVideoMode(320,240,32,NGfx::WINDOWED),targets) && NGScene::Is3DActive() && S2Platform::Display().drawable,
+            "native display fixture could not initialize its real healthy bgfx renderer");
+        CFileStream database; database.OpenRead(databasePath);
+        NDatabase::Serialize(database,CStructureSaver::READ); NGScene::AddResourceDir(resourcePath);
+        NGScene::RunResourceLoadingThread();
+    }
+};
+
+class NativeBackdropInterface: public NGame::CRenderBaseInterface
+{
+    OBJECT_NOCOPY_METHODS(NativeBackdropInterface);
+public:
+    void Step() override {
+        NGame::CRenderBaseInterface::Step();
+        if (CanRender()) RenderFrame(GetTime(),GetCamera());
+    }
+};
+
+static void BackdropScriptAudio(const char* databasePath,const char* resourcePath,bool spatial)
+{
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+    Require(std::getenv("S2_AUDIO_HEADLESS") != nullptr,"backdrop sound fixture requires headless native audio");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"backdrop sound fixture started with an interface or pending command");
+    NativeDisplayContext cleanup;
+    cleanup.Initialize(databasePath,resourcePath,"Silent Storm backdrop sound regression");
+    Require(NFMSound::Init(NFMSound::SStartInfo()),"backdrop sound fixture could not initialize native audio");
+    cleanup.audio = true; NFMSound::SetMusicMasterVolume(0);
+    CDBIterator<NDb::CSound> sounds(*NDatabase::GetTable<NDb::CSound>());
+    Require(sounds.MoveNext(),"backdrop sound fixture has no native sound record");
+    auto* record = sounds.Get(); record->bLoop = true; record->nStartSamples = record->nEndingSamples = 0;
+    const auto wave = SilentPCMFixture(44100);
+    CObj<NFMSound::CSample2D> sample2D = NFMSound::LoadSample2D(wave.data(),static_cast<int>(wave.size()));
+    CObj<NFMSound::CSample3D> sample3D = NFMSound::LoadSample3D(wave.data(),static_cast<int>(wave.size()),1.f,100.f,0);
+    Require(IsValid(sample2D) && IsValid(sample3D),"backdrop sound fixture could not decode its native PCM samples");
+    CObj<NSound::CFileSample2D> loader2D = NSound::share2DSamples.Get(record->GetRecordID());
+    CObj<NSound::CFileSample3D> loader3D = NSound::share3DSamples.Get(record->GetRecordID());
+    (loader2D.GetPtr()->*CachedChapterSampleAccess::ValueMember()) = sample2D.GetPtr();
+    (loader3D.GetPtr()->*CachedEffectSampleAccess::ValueMember()) = sample3D.GetPtr();
+    CObj<NDb::CScript> entry = new NDb::CScript;
+    const string play = spatial ? "Play3DSound("+std::to_string(record->GetRecordID())+",GetWaypointPos('__native_backdrop_audio__'))" :
+        "PlaySound("+std::to_string(record->GetRecordID())+")";
+    entry->strCode = "BackdropStarts = (BackdropStarts or 0) + 1; BackdropEnters = 0; "
+        "function OnEnterZone() BackdropEnters = BackdropEnters + 1 end; BackdropHandle = "+play+"; BackdropRequested = 1";
+    struct VariantRestore {
+        vector<std::pair<CPtr<NDb::CTemplVariant>,CPtr<NDb::CScript>>> records;
+        ~VariantRestore() { for (auto& pair: records) if (IsValid(pair.first)) pair.first->pScript = pair.second; }
+    } restore;
+    CDBIterator<NDb::CTemplVariant> variants(*NDatabase::GetTable<NDb::CTemplVariant>());
+    while (variants.MoveNext()) {
+        auto* variant = variants.Get();
+        if (IsValid(variant->pTemplate) && variant->pTemplate->GetRecordID() == 2425) {
+            std::printf("backdrop template2425 variant=%d originalScript=%d\n",variant->GetRecordID(),IsValid(variant->pScript) ? variant->pScript->GetRecordID() : 0);
+            restore.records.push_back({variant,variant->pScript}); variant->pScript = entry;
+        }
+    }
+    Require(!restore.records.empty(),"backdrop sound fixture has no authored main-menu map variant");
+    CObj<NativeBackdropInterface> backdrop = new NativeBackdropInterface;
+    backdrop->Initialize(2425);
+    auto* placement = NDb::GetDBCamera(26);
+    Require(placement != nullptr,"backdrop sound fixture has no authored menu camera");
+    backdrop->GetCamera()->SetPlacement(ICamera::SCameraPos(placement->vAnchor,placement->fDistance,placement->fPitch,placement->fYaw,placement->fRoll,placement->fFOV));
+    backdrop->GetCamera()->SetScreenRect(CTRect<float>(0.f,0.f,1.f,1.f));
+    class InstallBackdrop: public NMainLoop::CInterfaceCommand {
+        OBJECT_NOCOPY_METHODS(InstallBackdrop);
+    public:
+        CPtr<NMainLoop::IInterfaceBase> owner;
+        void Exec() override { SetInterface(owner); }
+    };
+    CObj<InstallBackdrop> install = new InstallBackdrop; install->owner = backdrop; install->Exec();
+    auto* world = dynamic_cast<NWorld::CWorld*>(backdrop->GetWorld());
+    auto* script = world ? world->GetOwnScript() : nullptr;
+    Require(IsValid(script),"backdrop sound fixture has no actual initialized world script");
+    auto number = [&](const char* name,int expected) {
+        const int top = script->GetTop(); auto value = script->GetGlobal(name);
+        const bool matches = value.IsNumber() && value.GetNumber() == expected; script->SetTop(top); return matches;
+    };
+    Require(number("BackdropRequested",1) && number("BackdropStarts",1),
+        "the existing native backdrop initializer never ran its map-variant script exactly once");
+    const int top = script->GetTop(); auto handle = script->GetGlobal("BackdropHandle");
+    auto* command = handle.IsUserData() ? dynamic_cast<NWorld::CUICmdPlaySound*>(handle.GetUserData()) : nullptr;
+    Require(command != nullptr,"the backdrop variant script did not create its native Lua sound command");
+    script->SetTop(top);
+    struct ClockRestore { STime previous; ~ClockRestore() { NMainLoop::SetTimeForHarness(previous); } } clock{NMainLoop::SetTimeForHarness(1000)};
+    auto frame = [&](STime time,bool active) {
+        NMainLoop::SetTimeForHarness(time);
+        Require(NMainLoop::StepApp(active,false,false),"native backdrop frame requested application exit");
+        Require(NMainLoop::GetCurrentInterfaceForHarness() == backdrop.GetPtr() && !NMainLoop::HaveInterfaceCommand(),
+            "backdrop sound fixture was covered by an unrelated interface");
+    };
+    frame(1000,false);
+    Require(!IsValid(command->pChannel),"inactive backdrop frames consumed a queued script sound");
+    frame(1050,true);
+    Require(IsValid(command->pChannel),"the active native backdrop ignored its initialized map script's sound command");
+    auto channelExcept = [&](int except) {
+        int found = -1;
+        for (int i = 0; i < 128; ++i) if (i != except && FSOUND_IsPlaying(i)) {
+            Require(found == -1,"backdrop sound fixture has an unexpected extra native channel"); found = i;
+        }
+        return found;
+    };
+    const int played = channelExcept(-1);
+    Require(played >= 0 && FSOUND_GetCurrentPosition(played) == 0,"backdrop dispatch did not start its real native PCM channel at offset zero");
+    vector<float> output(512*2);
+    auto render = [&]() { Require(S2FmodRenderForTest(output.data(),512) != 0,"backdrop sound fixture could not render native PCM"); };
+    render();
+    Require(FSOUND_GetCurrentPosition(played) > 0,"backdrop sound never advanced native PCM playback");
+    CObj<NFMSound::CSound2D> independent = NFMSound::PlaySound(sample2D);
+    const int control = channelExcept(played);
+    Require(IsValid(independent) && control >= 0,"backdrop sound fixture could not start its independent control");
+    Require(script->DoString("StopSound(BackdropHandle); BackdropStopped = 1") == 0,"backdrop sound fixture could not queue its native Lua stop");
+    for (int tick = 0; tick < 8; ++tick) frame(1100+tick*50,true);
+    render();
+    Require(number("BackdropStopped",1) && !FSOUND_IsPlaying(played) && FSOUND_IsPlaying(control),
+        "the native backdrop ignored Lua StopSound or interrupted an unrelated channel");
+    Require(script->DoString(("BackdropHandle = "+play+"; BackdropRestarted = 1").c_str()) == 0,"backdrop sound fixture could not queue its native Lua restart");
+    for (int tick = 0; tick < 8; ++tick) frame(1500+tick*50,true);
+    const int restarted = channelExcept(control);
+    Require(number("BackdropRestarted",1) && restarted >= 0 && number("BackdropStarts",1) && number("BackdropEnters",1),
+        "the native backdrop failed to restart audio or repeated initialization/OnEnterZone");
+    render();
+    Require(FSOUND_GetCurrentPosition(restarted) > 0,"restarted backdrop sound did not advance native PCM");
+    NMainLoop::DoneInterface(); backdrop = nullptr; ClearHoldQueue(); render();
+    Require(!FSOUND_IsPlaying(restarted) && FSOUND_IsPlaying(control),"backdrop teardown leaked its sound or stopped the independent control");
+#else
+    Require(false,"backdrop sound test requires the native SFX backend");
+#endif
+}
+
 static void ChapterActiveScript(const char* databasePath,const char* resourcePath,int commandMode = 0)
 {
     Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
         "active chapter fixture started with an interface or pending command");
-    S2Platform::SetErrorDialogs(false);
-    struct Cleanup {
-        bool platform = false, graphics = false, audio = false;
-        ~Cleanup() {
-            NGScene::StopResourceLoadingThread(); NMainLoop::DoneInterface();
-            while (NMainLoop::HaveInterfaceCommand()) { CObj<NMainLoop::CInterfaceCommand> command = NMainLoop::TakeInterfaceCommandForHarness(); }
-            ClearHoldQueue();
-#if defined(S2_UPSTREAM_NATIVE_SFX)
-            if (audio) NFMSound::Done();
-#endif
-            if (graphics) NGfx::Done3D();
-            if (platform) S2Platform::Done();
-        }
-    } cleanup;
-    Require(S2Platform::Init("Silent Storm chapter script regression",320,240,true),
-        "active chapter fixture could not create its hidden native SDL window");
-    cleanup.platform = true;
-    Require(NGfx::Init3D(static_cast<HWND>(S2Platform::NativeWindow())),"active chapter fixture has no native graphics window handle");
-    cleanup.graphics = true;
-    NGfx::SRenderTargetsInfo targets;
-    Require(NGfx::SetMode(NGfx::SVideoMode(320,240,32,NGfx::WINDOWED),targets) && NGScene::Is3DActive() && S2Platform::Display().drawable,
-        "active chapter fixture could not initialize its real healthy bgfx renderer");
-    CFileStream database; database.OpenRead(databasePath);
-    NDatabase::Serialize(database,CStructureSaver::READ); NGScene::AddResourceDir(resourcePath);
-    NGScene::RunResourceLoadingThread();
+    NativeDisplayContext cleanup;
+    cleanup.Initialize(databasePath,resourcePath,"Silent Storm chapter script regression");
     CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());
     NDb::CChapterMap* map = nullptr;
     while (maps.MoveNext()) if (IsValid(maps.Get()->pBackground)) { map = maps.Get(); break; }
@@ -13110,6 +13239,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "script-sound-unassigned-3d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],true,true); return true; }
     if (!std::strcmp(mode, "script-sound-stop-2d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "script-sound-stop-3d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "backdrop-script-audio-2d") && argc == 4) { BackdropScriptAudio(argv[2],argv[3],false); return true; }
+    if (!std::strcmp(mode, "backdrop-script-audio-3d") && argc == 4) { BackdropScriptAudio(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "chapter-active-script") && argc == 4) { ChapterActiveScript(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-active-command") && argc == 5) { ChapterActiveScript(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "chapter-clock-step") && argc == 5) { ChapterClockStep(argv[2],argv[3],argv[4]); return true; }

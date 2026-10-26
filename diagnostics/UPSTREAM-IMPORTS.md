@@ -264,6 +264,7 @@
 | [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Advance the native chapter world during active frames | `the real active chapter Step never advanced its world or executed the assigned Lua script` | 68/68; `chapter-active-script` | `Upstream-Commit` в commit message |
 | [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Dispatch chapter script commands through the remaster interfaces | `the chapter hint command never released its real Lua UI wait` | 73/73; `chapter-world-commands` | `Upstream-Commit` в commit message |
 | [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Pump deferred native audio in active chapter frames | `the active chapter created a script sound wrapper but never started native PCM playback` | 77/77; `chapter-script-audio` | `Upstream-Commit` в commit message |
+| [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Dispatch native script sounds from rendered backdrop menus | `the active native backdrop ignored its initialized map script's sound command` | 79/79; `backdrop-script-audio` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -2062,3 +2063,40 @@ chapter-script-audio-linux-{configure,build,test}.log и успешный выв
 переведён в imported. Несовместимые буквальные изменения UI clock и повторной
 обработки выхода описаны в UPSTREAM-BALANCE-CHANGES.md; они не применяются.
 Это завершение одного источника; полный аудит 281 коммита ещё продолжается.
+
+## Сценарный звук общих фоновых интерфейсов — часть `e399ef89`
+
+Native CRenderBaseInterface::Initialize(2425) уже получает сценарий карты
+через RunPostInit: настоящий вариант 4075 ссылается на сценарий 10. В тесте
+его ссылка временно заменяется контролируемым Lua entry в памяти и затем
+восстанавливается. Инициализатор исполняет entry один раз; нового запуска
+сценария это исправление не добавляет, игровые файлы не переписываются.
+
+Два успешно собранных native-display RED подтвердили, что активный общий
+интерфейс не обрабатывал 2D/3D PlaySound из этого entry. В Step добавлены
+исходный цикл GetUICommand -> существующий ExecWorldSoundCommand и очистка
+ссылок. Имеющийся RenderFrame продолжает world/sound/scene/UI updates.
+Тестовый наследник вызывает общий Step и полный native RenderFrame так же,
+как фоновые интерфейсы, используя настоящий шаблон меню и его камеру 26.
+
+GREEN: запуск реального декодированного cached PCM с offset=0, продвижение
+cursor, Lua StopSound после world segments, повторный PlaySound, однократные
+entry/OnEnterZone и освобождение звука при закрытии фона. Независимый native
+канал продолжает работу. Входной WAV молчит; слышимость, пиксели и холодная
+загрузка файла не оцениваются. Diagnostic-only NativeDisplayContext также
+переиспользуется десятью тестами главы, которые продолжают проходить.
+
+Результат: 79/79 Windows (72.98 с), 79/79 Linux (68.26 с), обе Game собраны.
+Двенадцать случаев помечены extended/native-display; два новых также
+native-audio с S2_AUDIO_HEADLESS=1. Windows — Direct3D 11, Linux —
+Vulkan/lavapipe в Xvfb/Openbox. CPU count остаётся 316; последний полный
+checkpoint316 предшествует этим локальным изменениям активного интерфейса.
+Две прежние сборки переиспользуются. Своё скрытое окно фикстура закрывает.
+
+Свидетельства: backdrop-script-audio-red-{build,test}.log,
+backdrop-script-audio-green-{build,test}.log, backdrop-script-audio-game-build.log,
+backdrop-script-audio-linux-{configure,build,test}.log и успешные блоки
+backdrop-script-audio-{windows,linux}-native-test.log с renderer/variant IDs.
+Источник остаётся частичным: принудительный script85/ручной ExecuteOwnScript
+в конкретном главном меню и post-load input purge проверяются отдельно.
+Наши рендерер, звук, SDL, мимика, шрифты, HD-пак и формулы сохраняются.

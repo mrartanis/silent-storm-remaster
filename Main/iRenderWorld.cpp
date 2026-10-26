@@ -6,6 +6,7 @@
 #include "G2DView.h"
 #include "GSceneUtils.h"
 #include "wInterface.h"
+#include "wUICommands.h"
 #include "Sound.h"
 #include "RWGame.h"
 #include "RWSound.h"
@@ -126,6 +127,11 @@ void CRenderBaseInterface::Step()
 {
 	if ( CanRender() )
 	{
+		// Backdrop scripts use the same scene-owned sound commands as missions.
+		while ( CPtr<NWorld::CUICmd> pCmd = pWorld->GetUICommand() )
+			if ( IsValid( pCmd ) )
+				ExecWorldSoundCommand( pCmd );
+		EraseInvalidRefs( &soundsList );
 		pCamera->Update( GetTime() );
 
 		pInterface->UpdateCursor();
