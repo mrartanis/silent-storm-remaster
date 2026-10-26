@@ -265,6 +265,7 @@
 | [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Dispatch chapter script commands through the remaster interfaces | `the chapter hint command never released its real Lua UI wait` | 73/73; `chapter-world-commands` | `Upstream-Commit` в commit message |
 | [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Pump deferred native audio in active chapter frames | `the active chapter created a script sound wrapper but never started native PCM playback` | 77/77; `chapter-script-audio` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Dispatch native script sounds from rendered backdrop menus | `the active native backdrop ignored its initialized map script's sound command` | 79/79; `backdrop-script-audio` | `Upstream-Commit` в commit message |
+| [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Start the main-menu map script without the obsolete second launcher | `the native main menu launched an extra DB script after its map entry was already initialized` | 81/81; `main-menu-map-script` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -2100,3 +2101,33 @@ backdrop-script-audio-{windows,linux}-native-test.log с renderer/variant IDs.
 Источник остаётся частичным: принудительный script85/ручной ExecuteOwnScript
 в конкретном главном меню и post-load input purge проверяются отдельно.
 Наши рендерер, звук, SDL, мимика, шрифты, HD-пак и формулы сохраняются.
+
+## Единственный сценарий карты главного меню — часть `e399ef89`
+
+Первый native RED на настоящем CICMainMenu: после однократного variant entry
+исполнялся ещё принудительно поставленный DB script85. Второй RED использует
+настоящие тела сценариев 10 и 85: регистрация с передачей в исходный native
+ObjectPlayAnimation показывает неправильный порядок команд для объекта Man.
+Самостоятельный сценарий 10 уже содержит его последовательность анимаций,
+фоновый PlaySound15691 и штатный sleeping camera thread. В 85 находится
+повторная анимация и прежний camera fly. Содержимое проверено в текущем game.db.
+
+Удалены только константа 85 и дополнительный launcher в Initialize. Существующий
+RunPostInit продолжает запускать script10. Ручной ExecuteOwnScript в Step
+сохранён для следующего независимого TDD-исправления. Тест использует реальный
+интерфейс меню, шаблон 2425, библиотеки Scripts из baseline working directory,
+изолированные каталоги пользовательских данных и восстановление временного
+in-memory кода. Тело authored10 сохраняется, а регистрирующая Lua-функция
+передаёт ObjectPlayAnimation исходной native-функции. Тело authored85 в проверке
+анимации остаётся без изменений. Считываются native action state, порядок
+2520/2520/2521 и продвижение настоящего cached headless PCM от PlaySound15691.
+Это проверка вызовов, состояния и воспроизведения; пиксели лица не оцениваются.
+
+GREEN 81/81 Windows (76.23 с), Linux (70.01 с), обе Game собраны. Новые два
+native-display случая доводят их число до 14; authored case также native-audio.
+CPU count остаётся 316; последний полный checkpoint316 здесь не повторялся.
+Свидетельства: main-menu-map-script-red-{build,test}.log,
+main-menu-map-script-green-{build,test}.log, main-menu-map-script-game-build.log,
+main-menu-map-script-linux-{configure,build,test}.log и успешные renderer blocks
+в main-menu-map-script-{windows,linux}-native-test.log. Исходник остаётся
+частичным: ручной tick Lua и post-load input purge ещё требуют проверки.

@@ -38,7 +38,6 @@
 const int
 	N_MAINMENU_CAMERA = 26,
 	N_MAINMENU_TEMPLATE = 2425,
-	N_MAINMENU_SCRIPT = 85,			// game.db "MainMenu" script: PlayMenuMan animates the background "Man"
 	N_LOGO_FLASHTIME = 2000,
 	N_TUTORIAL_HERO = 730,			// release @0x1f7540: the tutorial global player's single pers id (0x2da)
 	N_TUTORIAL_MISSION = 3589;		// release @0x1f7540: the tutorial mission template (0xe05)
@@ -220,25 +219,8 @@ void CMainMenuInterface::Initialize()
 	NUI::LoadTemplate( pMainMenuUI, NDb::GetUIContainer( 347 ) );
 	pMainMenuUI->ShowWindow( NUI::SWTYPE_SHOW );
 
-	// Animate the 3D background "Man". The MainMenu animation is a scenario script (PlayMenuMan loops
-	// ObjectPlayAnimation + WaitForObject over a list of poses). It must run on the menu world's OWN script
-	// (pOwnScript): that script is bound to this world -- so GetObject('Man') resolves; the retail
-	// luaGetObject @0x2e77a0 requires a non-null world, so the retail UI-script path (CWindow::ProcessMessage
-	// creates a NULL-world script) cannot animate a world object -- and it autoloads Scripts\Common.l, which
-	// defines the WaitForObject helper. NScript::lua_dobuffer QUEUES the chunk; it runs (and StartThreads
-	// PlayMenuMan) when the world's Segment ticks pOwnScript->ExecuteThreads(), and Segment clears each
-	// object's action flag so WaitForObject advances through the pose list. This game.db's container 347
-	// carries no ScriptID, so we launch the MainMenu DB script (id 85) directly here.
-	// NOTE: id 85's PlayMenuCamera camera-fly thread queues its clip + 3 CameraSequence commands onto the
-	// world UI queue, where NOTHING in the menu drains them -- the thread blocks forever on WaitForUI (4
-	// commands total, one parked coroutine; bounded). That matches RETAIL, whose menu camera is the single
-	// static SetPlacement(GetDBCamera(26)) @0x1f7310: the fly is CUT CONTENT (script 85 ships in game.db,
-	// but retail's only DB-script launcher -- CWindow::ProcessMessage @0x328250, gated on
-	// UIContainers.ScriptID -- never fires: ScriptID is 0 for all 167 shipped containers). The Man loop
-	// (PlayMenuMan) is independent and keeps animating.
-	if ( NWorld::CWorld *pCWorld = CDynamicCast<NWorld::CWorld>( GetWorld() ) )
-		if ( NScript::CScript *pWorldScript = pCWorld->GetOwnScript() )
-			pWorldScript->RunScriptByID( N_MAINMENU_SCRIPT );
+	// RunPostInit already starts the map variant script, including the menu
+	// character and ambience. Do not start the obsolete extra script here.
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMainMenuInterface::ProcessEvent( const NInput::SEvent &sEvent )

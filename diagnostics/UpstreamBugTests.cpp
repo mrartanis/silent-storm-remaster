@@ -70,6 +70,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/iGlobalMap.h"
 #include "../Main/iChapterMap.h"
 #include "../Main/iRenderWorld.h"
+#include "../Main/iMainMenu.h"
 #include "../Main/iChapterMapUI.h"
 #include "../Main/PlayerTracker.h"
 #include "../Main/iOptionsMenu.h"
@@ -2630,6 +2631,105 @@ static void BackdropScriptAudio(const char* databasePath,const char* resourcePat
 #else
     Require(false,"backdrop sound test requires the native SFX backend");
 #endif
+}
+
+static void MainMenuMapScript(const char* databasePath,const char* resourcePath,bool authored = false)
+{
+    Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"main-menu script fixture requires isolated user data");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"main-menu script fixture started with an active interface");
+    NativeDisplayContext cleanup;
+    cleanup.Initialize(databasePath,resourcePath,"Silent Storm menu script regression");
+    auto* mapScript = NDb::GetDBScript(10);
+    auto* legacyScript = NDb::GetDBScript(85);
+    Require(IsValid(mapScript) && IsValid(legacyScript),"main-menu script fixture has no authored menu scripts");
+    std::printf("menu script10=%zu bytes; legacy85=%zu bytes; authored=%d\n",mapScript->strCode.size(),legacyScript->strCode.size(),int(authored));
+    bool authoredVariant = false;
+    CDBIterator<NDb::CTemplVariant> variants(*NDatabase::GetTable<NDb::CTemplVariant>());
+    while (variants.MoveNext()) if (IsValid(variants.Get()->pTemplate) && variants.Get()->pTemplate->GetRecordID() == 2425 &&
+        variants.Get()->pScript.GetPtr() == mapScript) authoredVariant = true;
+    Require(authoredVariant,"the authored menu template does not reference the expected map script");
+    struct Restore {
+        CPtr<NDb::CScript> map, legacy;
+        string mapCode, legacyCode;
+        ~Restore() { if (IsValid(map)) map->strCode = mapCode; if (IsValid(legacy)) legacy->strCode = legacyCode; }
+    } restore{mapScript,legacyScript,mapScript->strCode,legacyScript->strCode};
+    const string counter = "MenuMapRuns = (MenuMapRuns or 0) + 1; MenuEnters = 0; "
+        "function OnEnterZone() MenuEnters = MenuEnters + 1 end; ";
+    mapScript->strCode = counter;
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+    CObj<NFMSound::CSample2D> sample;
+    CObj<NSound::CFileSample2D> loader;
+#endif
+    if (authored) {
+        mapScript->strCode += "MenuNativeAnimationCalls = 0; MenuNativePlay = ObjectPlayAnimation; "
+            "function ObjectPlayAnimation(object,animation) MenuNativeAnimationCalls = MenuNativeAnimationCalls + 1; "
+            "MenuLastNativeAnimation = animation; return MenuNativePlay(object,animation) end; "+restore.mapCode;
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+        Require(std::getenv("S2_AUDIO_HEADLESS") != nullptr,"authored menu fixture requires headless native audio");
+        Require(NFMSound::Init(NFMSound::SStartInfo()),"authored menu fixture could not initialize native audio");
+        cleanup.audio = true; NFMSound::SetMusicMasterVolume(0);
+        auto* ambience = NDb::GetSound(15691);
+        Require(ambience != nullptr,"authored menu fixture has no ambient sound record");
+        const auto wave = SilentPCMFixture(44100);
+        sample = NFMSound::LoadSample2D(wave.data(),static_cast<int>(wave.size()));
+        Require(IsValid(sample),"authored menu fixture could not decode native PCM");
+        loader = NSound::share2DSamples.Get(ambience->GetRecordID());
+        (loader.GetPtr()->*CachedChapterSampleAccess::ValueMember()) = sample.GetPtr();
+#else
+        Require(false,"authored menu sound test requires native SFX");
+#endif
+    }
+    legacyScript->strCode = authored ? restore.legacyCode : "MenuLegacyRuns = (MenuLegacyRuns or 0) + 1";
+    CObj<NGame::CICMainMenu> open = new NGame::CICMainMenu; open->Exec();
+    CObj<NGame::CMissionBase> menu = dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(IsValid(menu) && pSSClasses->GetObjectTypeID(menu) == int(0xB2540912),"script fixture did not open the actual native main menu");
+    auto* world = dynamic_cast<NWorld::CWorld*>(menu->GetWorld());
+    auto* script = world ? world->GetOwnScript() : nullptr;
+    Require(IsValid(script),"the native main menu has no initialized world script");
+    auto number = [&](const char* name,int expected) {
+        const int top = script->GetTop(); auto value = script->GetGlobal(name);
+        const bool matches = value.IsNumber() && value.GetNumber() == expected; script->SetTop(top); return matches;
+    };
+    auto absent = [&](const char* name) {
+        const int top = script->GetTop(); const bool nil = script->GetGlobal(name).IsNil(); script->SetTop(top); return nil;
+    };
+    Require(number("MenuMapRuns",1),"the native main-menu initializer did not execute its variant entry exactly once");
+    struct ClockRestore { STime previous; ~ClockRestore() { NMainLoop::SetTimeForHarness(previous); } } clock{NMainLoop::SetTimeForHarness(1050)};
+    auto frame = [&](STime time) {
+        NMainLoop::SetTimeForHarness(time);
+        Require(NMainLoop::StepApp(true,false,false),"native main-menu script frame requested exit");
+        Require(NMainLoop::GetCurrentInterfaceForHarness() == menu.GetPtr() && !NMainLoop::HaveInterfaceCommand(),"the main-menu script fixture changed interfaces");
+    };
+    for (int tick = 0; tick < 4; ++tick) frame(1050);
+    if (!authored) {
+        Require(absent("MenuLegacyRuns"),"the native main menu launched an extra DB script after its map entry was already initialized");
+        for (int tick = 0; tick < 8; ++tick) frame(1100+tick*50);
+    } else {
+        auto* man = dynamic_cast<NWorld::CAnimObjectServerBase*>(world->GetObjectByName("Man"));
+        Require(IsValid(man),"authored menu fixture has no animated Man object");
+        bool performing = man->IsPerformingAction(); int calls = 0;
+        for (int tick = 0; tick < 200; ++tick) {
+            frame(1100+tick*150); performing = performing || man->IsPerformingAction();
+            const int top = script->GetTop(); auto value = script->GetGlobal("MenuNativeAnimationCalls");
+            calls = value.IsNumber() ? int(value.GetNumber()) : 0; script->SetTop(top);
+            if (calls >= 3) break;
+        }
+        std::printf("authored animation calls=%d, performing=%d\n",calls,int(performing));
+        Require(performing && calls == 3 && number("MenuLastNativeAnimation",2521),
+            "the extra menu script duplicated the authored native Man animation sequence");
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+        int channel = -1;
+        for (int i = 0; i < 128; ++i) if (FSOUND_IsPlaying(i)) {
+            Require(channel == -1,"authored menu fixture has unexpected extra native sound channels"); channel = i;
+        }
+        Require(channel >= 0,"authored map script10 did not start its native ambient sound");
+        vector<float> output(512*2);
+        Require(S2FmodRenderForTest(output.data(),512) != 0 && FSOUND_GetCurrentPosition(channel) > 0,
+            "authored menu ambience did not advance real native PCM");
+#endif
+    }
+    Require(number("MenuMapRuns",1) && number("MenuEnters",1),"native main-menu frames reran their map entry or OnEnterZone");
+    NMainLoop::DoneInterface();
 }
 
 static void ChapterActiveScript(const char* databasePath,const char* resourcePath,int commandMode = 0)
@@ -13240,6 +13340,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "script-sound-stop-2d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "script-sound-stop-3d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "backdrop-script-audio-2d") && argc == 4) { BackdropScriptAudio(argv[2],argv[3],false); return true; }
+    if (!std::strcmp(mode, "main-menu-map-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "main-menu-authored-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "backdrop-script-audio-3d") && argc == 4) { BackdropScriptAudio(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "chapter-active-script") && argc == 4) { ChapterActiveScript(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-active-command") && argc == 5) { ChapterActiveScript(argv[2],argv[3],std::atoi(argv[4])); return true; }
