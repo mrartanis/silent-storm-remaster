@@ -1315,8 +1315,8 @@ END_SCRIPT_COMMAND
 // IS-A CDebrisController) GetFrozenItem(). Faithfulness: the retail builds the two SItems inline (the decomp's
 // "@0x76fcb0" calls are just CPtr<IObject>::operator=, NOT a helper) with src/dst eType stores 3/4 -- which,
 // under the release EPlacement enum (a VACUUM=0 prefix the dev enum lacks), are GROUND/BACKPACK; i.e. exactly
-// the dev's proven loot-move idiom (aiLootAction.cpp:77-82). Issued via the CCmdSetCommand+CCmdContinue idiom
-// the landed UnitCreateItem uses. (Build-verified; user runtime-tests the pickup behaviour.)
+// the dev's proven loot-move idiom (aiLootAction.cpp:77-82). Queue the move and Continue through the
+// owning commander, retaining this fork's IItem world-body adapter below.
 BEGIN_SCRIPT_COMMAND( UnitTakeObject, "uu" )
 	CDynamicCast<NWorld::CUnitServer> pUS( luaParams[ 0 ].p );
 	// GetItem(name) returns the on-ground CDFrozenItem -- an IItem that HOLDS the inventory item, not an
@@ -1336,8 +1336,7 @@ BEGIN_SCRIPT_COMMAND( UnitTakeObject, "uu" )
 			NWorld::SItem dst( (NWorld::CUnit*)pUS.GetPtr(), NWorld::SItem::BACKPACK );
 			dst.sPosition.x = -1;
 			dst.sPosition.y = -1;
-			pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdMoveInventoryItem( src, dst ) ) );
-			pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdContinue() ) );
+			DoCommand( pUS, new NWorld::CCmdMoveInventoryItem( src, dst ), true );
 		}
 	}
 	return 0;

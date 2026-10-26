@@ -13383,6 +13383,70 @@ static void DeferredCreateAndActivateItem(const char* databasePath,const char* r
     }
 }
 
+static void DeferredTakeObject(const char* databasePath,const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath,resourcePath);
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr; NRPG::CWeaponItem* weapon = nullptr;
+    for (auto entry : units) {
+        auto* candidate = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (!candidate || !candidate->CanFight() || candidate->IsEmptyPK() || candidate->IsWearingPK() ||
+            candidate->animator.GetCannon()) continue;
+        auto* firearm = dynamic_cast<NRPG::CWeaponItem*>(candidate->GetUnitRPG()->GetInventory()->GetActive());
+        if (firearm) { actor = candidate; weapon = firearm; break; }
+    }
+    Require(actor && weapon,"script pickup fixture has no native armed actor");
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    vector<CObj<NRPG::IInventoryItem>> removed;
+    while (!inventory->GetItems().empty()) {
+        CObj<NRPG::IInventoryItem> item = inventory->GetItems().back().pItem;
+        removed.push_back(item); inventory->Take(item);
+    }
+    CObj<NRPG::CWeaponItem> item = new NRPG::CWeaponItem(weapon->GetDBWeapon());
+    CTPoint<int> place;
+    Require(inventory->FindPlace(item,&place),"script pickup fixture has no real backpack space");
+    auto* body = world->AddFrozenItem(world->GetAIMap(),actor->GetPosition().GetCP()+CVec3(0.25f,0,0.25f),QNULL,item);
+    Require(IsValid(body) && body->GetInvItem() == item.GetPtr() && world->GetFrozenItem(item) == body,
+        "script pickup fixture did not register its actual world-body/item pair");
+    const auto position = actor->GetPosition(); const int ap = actor->GetAP();
+    const auto activeSlot = inventory->GetActiveSlot(); const int ammo = weapon->GetAmmoQuantity();
+    auto* commander = actor->GetPlayer()->GetCommander();
+    Require(IsValid(commander) && !commander->HasCommands() && !actor->HasCommand(),
+        "script pickup fixture started with an existing order");
+    CObj<NScript::CScript> script = NScript::CreateScript(world);
+    NScript::luaPushCPtr(*script,actor); script->SetGlobal("upstreamActor");
+    NScript::luaPushCPtr(*script,body); script->SetGlobal("upstreamGroundItem");
+    NScript::luaPushCPtr(*script,item.GetPtr()); script->SetGlobal("upstreamInventoryItem");
+    RunScript(script,"UnitTakeObject(nil,upstreamGroundItem); UnitTakeObject(upstreamActor,nil); "
+        "UnitTakeObject(upstreamActor,upstreamInventoryItem); UpstreamPickupReturned = 13");
+    auto returned = script->GetGlobal("UpstreamPickupReturned");
+    Require(returned.IsNumber() && returned.GetNumber() == 13 && !commander->HasCommands() && !actor->HasCommand(),
+        "pickup nil controls or the fork's world-body argument contract issued an invalid order");
+    RunScript(script,"UnitTakeObject(upstreamActor,upstreamGroundItem); UpstreamPickupReturned = 19");
+    returned = script->GetGlobal("UpstreamPickupReturned");
+    Require(returned.IsNumber() && returned.GetNumber() == 19,"native pickup Lua callback did not finish");
+    std::printf("native script pickup dispatch: queued=%d unit-command=%d ground-item-retained=%d\n",
+        int(commander->HasCommands()),int(actor->HasCommand()),int(world->GetFrozenItem(item) == body));
+    Require(commander->HasCommands() && !actor->HasCommand(),
+        "native script pickup bypasses the owning commander's queue");
+    CObj<NWorld::CCommand> first = commander->GetCommand(), second = commander->GetCommand();
+    auto* set = dynamic_cast<NWorld::CCmdSetCommand*>(first.GetPtr());
+    auto* resume = dynamic_cast<NWorld::CCmdSetCommand*>(second.GetPtr());
+    auto* move = set ? dynamic_cast<NWorld::CCmdMoveInventoryItem*>(set->GetCmd()) : nullptr;
+    Require(set && set->pUnit == actor && move && resume && resume->pUnit == actor &&
+        dynamic_cast<NWorld::CCmdContinue*>(resume->GetCmd()) && !commander->HasCommands(),
+        "queued pickup lost its actor, move type or exact ordered Continue");
+    const auto& source = move->GetSource(); const auto& target = move->GetTarget();
+    Require(!IsValid(source.pUnit) && source.eType == NWorld::SItem::GROUND && source.nSlot == -1 &&
+        source.pItem == item.GetPtr() && source.pWorldItem == body && target.pUnit == actor &&
+        target.eType == NWorld::SItem::BACKPACK && target.sPosition.x == -1 && target.sPosition.y == -1,
+        "queued pickup lost the fork's ground-body/item adapter or original ground-to-backpack payload");
+    Require(!actor->HasCommand() && actor->GetAP() == ap && actor->GetPosition().pos.p == position.pos.p &&
+        inventory->GetItems().empty() && inventory->GetActiveSlot() == activeSlot && inventory->GetActive() == weapon &&
+        weapon->GetAmmoQuantity() == ammo && world->GetFrozenItem(item) == body && body->GetInvItem() == item.GetPtr(),
+        "native script pickup changed actor/AP/inventory or removed the world body before queued command consumption");
+}
+
 static void ScriptHeldGrenadeActivation(const char* databasePath,const char* resourcePath)
 {
     for (bool engineer : {true,false}) for (auto heldSlot : {NDb::SLOT_1,NDb::SLOT_2}) for (bool alreadyActive : {true,false}) {
@@ -15106,6 +15170,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "deferred-reload-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::Reload); return true; }
     if (!std::strcmp(mode, "deferred-weapon-activation-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ActivateWeapon); return true; }
     if (!std::strcmp(mode, "deferred-create-activate-command") && argc == 4) { DeferredCreateAndActivateItem(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "deferred-take-object-command") && argc == 4) { DeferredTakeObject(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-shoot-command") && argc == 4) { DeferredScriptShot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-shoot-prepare-command") && argc == 4) { DeferredScriptShot(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "deferred-script-command-order") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode,true); return true; }

@@ -3125,6 +3125,38 @@ patch поверх нашего кода не запускался. Не зая�
 проверяют каждый `u` consumer или весь tutorial. Полезных независимых hunks
 в этом source нет, статус excluded-own-behavior; production не редактируется.
 
+## Очередь скриптового подбора предмета — часть 14ffbcc8
+
+UpstreamDeferredTakeObjectCommand создаёт настоящий CWeaponItem из authored
+DB и его CDFrozenItem через world.AddFrozenItem в world 810 рядом с actor.
+Контроль GetFrozenItem связывает реальный world body с содержимым; рюкзак
+очищен native API и способен вместить предмет. Lua получает именно world
+body. Nil actor/target и передача голого inventory item отдельно завершают
+callback без заказа — сохраняется контракт нашего IItem adapter.
+
+Compiled runtime RED нормального вызова: queued=0/unit-command=0,
+ground-item-retained=0. До завершения Lua callback предмет уже отсутствует
+в world.GetFrozenItem. После RED изменён только dispatch Move(src,dst) и
+Continue на DoCommand. Наша GetInvItem/pWorldItem адаптация сохранена.
+
+GREEN проверяет две queued wrappers, actor, CCmdMoveInventoryItem,
+GROUND source с null owner/slot=-1/тем же inventory item и world body,
+BACKPACK target с actor/position=(-1,-1), Continue и отсутствие лишних команд.
+До consumer body и содержимое остаются на земле, рюкзак пуст, прежние active
+weapon/slot/ammo, AP и position не меняются; нет unit action. Полный подход
+к предмету, стоимость AP и итоговый перенос в рюкзак здесь не исполняются.
+
+Связанные 87/87 прошли на Windows (103.19 с) и Linux (102.63 с), обе Game и
+Windows ALL_BUILD собраны; native medal/GPU/display и по 12 FONT-COMPAT
+controls включены. Windows NetworkSerializer/StopResume прошли 2/2 за 3.82 с.
+Текущий CPU base 343 не заявляется новым полным прогоном.
+
+Свидетельства deferred-take-object-command: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log и network-{test,native-test}.log.
+Source 14ffbcc8 и all281/final actual Actions ещё не завершены.
+
 ## Очередь создания и активации предмета — часть 14ffbcc8
 
 UpstreamDeferredCreateActivateCommand использует реальные actor/inventory
