@@ -254,6 +254,7 @@
 | [4cdc1ead](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8) — Resolve active door geometry through the native hull registry | `native object lookup returned an inactive door-pose hull` | 17/17; `active-door-hull-lookup` | `Upstream-Commit` в commit message |
 | [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Fit global-sector description panels to their native captions | `the native global-sector description kept its fixed height instead of fitting its actual caption and border` | 10/10; `global-sector-description` | `Upstream-Commit` в commit message |
 | [e9dc218f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e9dc218fcbf45f8ae952b0381112beba1193ca02) — Initialize the native campaign chapter world and saved mission graph | `the native chapter initialized without the world required by its saved mission state` | 9/9; `chapter-world-graph` | `Upstream-Commit` в commit message |
+| [e9dc218f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e9dc218fcbf45f8ae952b0381112beba1193ca02) — Queue chapter entry scripts in their native world context | `the native chapter never evaluated its assigned ScriptID entry point` | 23/23; `chapter-script-initialization` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1646,3 +1647,31 @@ null world. Пропуск simulation по null guard не будет счита
 `checkpoint-306-ci-test.log`, `checkpoint-306-network-green-test.log`,
 `checkpoint-306-world-green-test.log`, `global-sector-description-*`,
 `global-description-linux-*`, `chapter-world-graph-*`, `chapter-world-linux-*`.
+
+### Сценарий главы: порядок исполнения в собственном Lua
+
+Из e9dc218f отдельно перенесён вызов назначенного сценария главы в её
+собственном мире. Импорт ScriptID в собственном загрузчике уже существовал.
+Тест открывает настоящую карту главы через CICBeginChapter, временно связывая
+её запись с контролируемым CScript в памяти; файлы базы не изменяются.
+На коде без исправления первый настоящий сегмент мира не исполнял этот скрипт.
+
+Первоначальное ожидание немедленного исполнения оказалось неверным для
+текущего Lua форка: DoString создаёт отложенный поток. Проверка исправлена,
+производственный код возвращён к HEAD, затем повторно получен подтверждённый
+runtime RED. После исправления тело скрипта исполняется первым сегментом,
+OnEnterZone — следующим, ровно один раз. Принудительный запуск потоков и
+тактический прогрев не добавлены. Проверены независимость другого Lua-состояния,
+его стека, состава отряда и назначения главы.
+
+Связанный набор прошёл 23/23 на Windows и Linux, обе игры собраны;
+регистрация Windows — 2/2. Последний полный checkpoint остаётся 306,
+новое полное число проверок — 307. Проверяется CPU/runtime, без утверждения
+о GPU-картинке или файловом save-slot. Свидетельства:
+`chapter-script-initialization-{red,green}-{build,test}.log`,
+`chapter-script-initialization-game-build.log`,
+`chapter-script-initialization-registration-test.log`, `chapter-script-linux-*`.
+
+Исходный коммит остаётся частично перенесённым: OnGetFocus и минимальный
+интервал кадра требуют отдельных проверок; перед новым Step из70d12946
+нужно проверить совместимость со старыми сохранениями форка с null world.

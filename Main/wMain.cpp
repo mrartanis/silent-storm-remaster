@@ -1965,6 +1965,15 @@ void CWorld::RunPostInit( CPostWorldCreateInfo *pPostInfo )
 	StartFirstSegments();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void CWorld::RunPostInitScript( NDb::CScript *pDBScript )
+{
+	CFWContext world( &pCurrentWorld, this );
+	pScript = pOwnScript;
+	bFirstSegment = true;
+	if ( IsValid( pScript ) && IsValid( pDBScript ) )
+		pScript->DoString( pDBScript->strCode.c_str() );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorld::CreateDefault()
 {
 	CFWContext world( &pCurrentWorld, this );

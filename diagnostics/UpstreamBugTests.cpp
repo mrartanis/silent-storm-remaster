@@ -2353,6 +2353,71 @@ static void SoundMixerClockCatchUp()
 
 
 
+
+static void ChapterScriptInitialization(const char* databasePath,const char* resourcePath)
+{
+    CFileStream database; database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ); NGScene::AddResourceDir(resourcePath);
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "chapter-script fixture started with an active interface or pending command");
+    struct Cleanup { ~Cleanup() { NMainLoop::DoneInterface(); } } cleanup;
+    CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());
+    NDb::CChapterMap* map = nullptr;
+    while (maps.MoveNext()) if (IsValid(maps.Get()->pBackground)) { map = maps.Get(); break; }
+    Require(map != nullptr,"chapter-script fixture has no authored chapter-map record");
+    struct ScriptRecordRestore {
+        CPtr<NDb::CChapterMap> map; CPtr<NDb::CScript> script;
+        ~ScriptRecordRestore() { if (IsValid(map)) map->pScript = script; }
+    } restore{map,map->pScript};
+    CObj<NDb::CScript> entry = new NDb::CScript;
+    entry->strCode = "UpstreamChapterInit = 17; UpstreamChapterEnter = 0; "
+        "function OnEnterZone() UpstreamChapterEnter = UpstreamChapterEnter + 1 end";
+    CObj<NScript::CScript> foreign = new NScript::CScript;
+    foreign->PushNumber(99);
+    struct GlobalScriptRestore { CPtr<NScript::CScript> previous; ~GlobalScriptRestore() { pScript = previous; } } globalRestore{pScript};
+    auto number = [&](NScript::CScript* script,const char* name,int expected) {
+        const int top = script->GetTop(); auto value = script->GetGlobal(name);
+        const bool matches = value.IsNumber() && value.GetNumber() == expected;
+        script->SetTop(top); return matches;
+    };
+    for (bool withScript: {false,true}) {
+        map->pScript = withScript ? entry.GetPtr() : nullptr;
+        pScript = foreign;
+        CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(1);
+        game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+        CObj<NGame::CICBeginChapter> enter = new NGame::CICBeginChapter(map->GetRecordID(),game);
+        enter->Exec();
+        CObj<NGame::CMissionBase> mission = dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+        auto* world = mission ? dynamic_cast<NWorld::CWorld*>(mission->GetWorld()) : nullptr;
+        Require(world && IsValid(world->GetOwnScript()),"chapter-script fixture did not create its actual native world and Lua state");
+        auto* own = world->GetOwnScript();
+        Require(own != foreign.GetPtr() && own->pWorld == world && own->GetGlobalGame() == game.GetPtr(),
+            "the chapter script was not bound to its own native world/global-game context");
+        Require(world->GetAimTime()->GetValue() == 0,"chapter script initialization ran the tactical first-segments warm-up");
+        if (withScript) {
+            const int top = own->GetTop(); auto pending = own->GetGlobal("UpstreamChapterInit");
+            Require(pending.IsNil(),"chapter initialization eagerly executed its queued Lua thread before the first live segment");
+            own->SetTop(top);
+            // DoString queues the body. Segment pumps it, then queues OnEnterZone;
+            // that callback runs when the next native segment pumps Lua again.
+            world->UpdateWorld(0,nullptr);
+            Require(number(own,"UpstreamChapterInit",17),"the native chapter never evaluated its assigned ScriptID entry point");
+            Require(number(own,"UpstreamChapterEnter",0),"the chapter bypassed the native deferred OnEnterZone scheduling");
+            world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);
+            Require(number(own,"UpstreamChapterEnter",1),"the chapter did not execute its deferred OnEnterZone callback on the next native segment");
+            world->UpdateWorld(world->GetAimTime()->GetValue()+50,nullptr);
+            Require(number(own,"UpstreamChapterEnter",1) && number(own,"UpstreamChapterInit",17),
+                "later world segments reran chapter initialization or the OnEnterZone one-shot");
+        }
+        const int top = foreign->GetTop(); auto other = foreign->GetGlobal("UpstreamChapterInit");
+        Require(other.IsNil() && top == 1,"chapter initialization executed in an unrelated Lua state's globals or changed its stack");
+        foreign->SetTop(top);
+        Require(game->bChapterMapSet && game->nChapterMapID == map->GetRecordID() && game->players.size() == 1,
+            "chapter-script setup changed campaign destination or party");
+        NMainLoop::DoneInterface(); mission = nullptr;
+    }
+}
+
 static void ChapterWorldGraph(const char* databasePath,const char* resourcePath)
 {
     CFileStream database; database.OpenRead(databasePath);
@@ -12310,6 +12375,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "exit-menu-save-visibility") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "exit-menu-save-shortcut") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "chapter-script-initialization") && argc == 4) { ChapterScriptInitialization(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-world-graph") && argc == 4) { ChapterWorldGraph(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "global-sector-description") && argc == 4) { GlobalSectorDescription(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "global-map-return-destination") && argc == 4) { GlobalMapReturnDestination(argv[2],argv[3]); return true; }

@@ -199,6 +199,7 @@ bool CChapterMap::Initialize( NRPG::CGlobalGame *_pGame )
 	NUI::LoadTemplate( pChapterMapUI, NDb::GetUIContainer( 147 ) );
 	pChapterMapUI->ShowWindow( NUI::SWTYPE_SHOW );
 	PushDesktop( pChapterMapUI );
+	pWorld->RunPostInitScript( pChapterMap->pScript );
 
 	return true;
 }
