@@ -965,8 +965,7 @@ BEGIN_SCRIPT_COMMAND( UnitShootPrepare, "uun" )
 		NAI::EHitLocation hl = ( NAI::EHitLocation )( int )luaParams[ 2 ].n;
 		NWorld::CCmdShootObject *pCmd = new NWorld::CCmdShootObject( pTarget, 0, hl );
 		pCmd->bOnlyPrepareToShoot = true;			// public flag: aim/prepare only
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, pCmd ) );
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdContinue() ) );
+		DoCommand( pUS, pCmd, true );
 	}
 	return 0;
 END_SCRIPT_COMMAND

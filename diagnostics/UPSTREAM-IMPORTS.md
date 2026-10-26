@@ -3125,6 +3125,31 @@ patch поверх нашего кода не запускался. Не зая�
 проверяют каждый `u` consumer или весь tutorial. Полезных независимых hunks
 в этом source нет, статус excluded-own-behavior; production не редактируется.
 
+## Очередь скриптовой подготовки выстрела — часть 14ffbcc8
+
+Отдельно зарегистрирован UpstreamDeferredShootPrepareCommand с тем же
+настоящим actor/enemy fixture и реальной UnitShootPrepare. Compiled runtime
+RED: prepare=1/body=0, commander-pending=0/unit-command=0. Nil actor/target
+controls проходят до этого сбоя. После RED изменён только dispatch прежнего
+CCmdShootObject с уже установленным bOnlyPrepareToShoot=true на DoCommand.
+
+GREEN для BODY/HEAD проверяет prepare=true, остальные исходные flags/target/
+actor/extra AP=0, две wrappers и Continue. Обычный UnitShoot параллельно
+сохраняет prepare=false. Нет раннего unit action, изменений HP цели,
+weapon/ammo, AP/position. Это producer proof, не запуск aim animation,
+hold-aim lifecycle, face animation, расчёт попадания или LAN playback.
+
+Связанные 77/77 прошли на Windows (91.09 с) и Linux (90.88 с), обе Game и
+Windows ALL_BUILD собраны. DisplayRuntimeTests и по 12 FONT-COMPAT controls
+включены. Windows NetworkSerializer/StopResume прошли 2/2 за 3.81 с.
+Текущий CPU base 339 не заявляется новым полным прогоном.
+
+Свидетельства deferred-shoot-prepare-command: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log и network-{test,native-test}.log.
+Source 14ffbcc8 и all281/final actual Actions ещё не завершены.
+
 ## Очередь скриптового выстрела — часть 14ffbcc8
 
 UpstreamDeferredShootCommand использует настоящий вооружённый ordinary actor
