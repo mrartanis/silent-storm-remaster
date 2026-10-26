@@ -15,6 +15,8 @@
 Полный исходный список и текущие решения:
 [upstream-import-status.tsv](upstream-import-status.tsv).
 `pending` и `review-final-version` означают незавершенную работу, а не пропуск.
+`excluded-own-behavior` означает полностью проверенный diff, который отменяет
+намеренное поведение нашего форка; причины и границы проверки указаны ниже.
 
 Сборка переиспользует `G:\SS\lab\build-x64-stage4`, конфигурация
 `RelWithDebInfo`, исходники нового репозитория, `S2_BUILD_HD_TEXTURES=OFF`.
@@ -3105,6 +3107,23 @@ all-build.log, related-test.log, linux-{configure,build,test}.log,
 {windows,linux}-native-test.log, network-test.log и network-native-test.log.
 Другие producers и inventory/UnitHide hunks 14ffbcc8 остаются отдельной работой.
 Формулы и исходные правила выбора позы не редактируются.
+
+## Сохранена наша обработка nil script arguments — fa5cab13
+
+Полностью проверен diff
+[fa5cab134d2c74cf26263efdab0e4efb3589bf0b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fa5cab134d2c74cf26263efdab0e4efb3589bf0b):
+единственный runtime hunk удаляет нашу ветку nil hardening для Lua-параметра
+`u`. После этого nil попадает в userdata type check и прекращает текущий
+thread. В нашем коде nil предупреждает и передаёт null в обработчик, который
+проверяет аргумент. Такое намеренное поведение форка сохраняем.
+
+Native UpstreamDeferredShootCommand на Windows и Linux подтверждает для
+UnitShoot обе комбинации nil actor и nil target: Lua доходит до sentinel=13,
+нет заказа или действия. Проверка входит в 76/76 связанных тестов a176da78.
+Вывод о последствиях удаления ветки получен из diff/CheckArgs; сам upstream
+patch поверх нашего кода не запускался. Не заявляем, что эти два controls
+проверяют каждый `u` consumer или весь tutorial. Полезных независимых hunks
+в этом source нет, статус excluded-own-behavior; production не редактируется.
 
 ## Очередь скриптового выстрела — часть 14ffbcc8
 
