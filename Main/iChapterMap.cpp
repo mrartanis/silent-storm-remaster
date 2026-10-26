@@ -13,6 +13,10 @@
 #include "ChapterInfo.h"
 #include "iInterMission.h"
 #include "iMission.h"			// NGame::CMissionBase -- the CChapterMap base (retail @0x1a8480 tag 1)
+#include "wInterface.h"
+#include "RWGame.h"
+#include "PlayerTracker.h"
+#include "iGameStates.h"
 #include "iGlobalMap.h"
 #include "iChapterMap.h"
 #include "iCluesMenu.h"
@@ -161,6 +165,26 @@ bool CChapterMap::Initialize( NRPG::CGlobalGame *_pGame )
 	if ( !IsValid( pChapterMap ) || !IsValid( pChapterInfo ) )
 		return false;
 
+	pWorld = NWorld::CreateWorld( pGlobalGame );
+	pWorld->CreateDefault();
+	playersSet.resize( pGlobalGame->players.size() );
+	for ( int nPlayer = 0; nPlayer < pGlobalGame->players.size(); ++nPlayer )
+	{
+		WCHAR wsName[32];
+		swprintf( wsName, sizeof(wsName) / sizeof(wsName[0]), L"Player %d", nPlayer );
+		playersSet[nPlayer] = new CPlayerTracker( this, pGlobalGame->players[nPlayer], wsName );
+	}
+	pActivePlayer = playersSet.front();
+	CommandState( new CStateEmpty );
+	pScene = NGScene::CreateNewView();
+	pSoundScene = NSound::CreateSoundScene( NDb::GetTMusic( 15 ), 0, pWorld->GetAimTime() );
+	pRender = NRender::CreateRenderGame( pWorld, pScene, pSoundScene );
+	pCamera = CreateCamera( CAMERA_PC );
+	ICamera::SCameraLimits limits;
+	limits.bMovie = true;
+	pCamera->SetLimits( limits );
+	pCamera->SetLock( true );
+
 	UpdateChapterDifficulty();
 
 #ifdef _MAPEDIT
@@ -169,13 +193,12 @@ bool CChapterMap::Initialize( NRPG::CGlobalGame *_pGame )
 	pCursor = NUI::ICursor::Create();
 #endif
 
-	pInterface = new NUI::CInterface( pCursor );
-	// This dev 2D map has no world clock; share the interface's clock-backed sound scene.
-	pSoundScene = pInterface->GetSound();
+	pInterface = new NUI::CInterface( pCursor, pSoundScene );
 
 	pChapterMapUI = new NUI::CChapterMapUI( NUI::SWindowInfo( pInterface, NUI::SPoint( 0, 0 ), NUI::SPoint( 1024, 768 ), "chaptermapUI" ), this );
 	NUI::LoadTemplate( pChapterMapUI, NDb::GetUIContainer( 147 ) );
 	pChapterMapUI->ShowWindow( NUI::SWTYPE_SHOW );
+	PushDesktop( pChapterMapUI );
 
 	return true;
 }

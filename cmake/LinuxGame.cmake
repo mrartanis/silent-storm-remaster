@@ -282,6 +282,7 @@ add_test(NAME UpstreamMountedAILogCommands COMMAND UpstreamBugTests mounted-ai-l
 if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
   get_filename_component(_s2_upstream_game_dir "${S2_GAME_DB_PATH}" DIRECTORY)
   get_filename_component(_s2_upstream_res_dir "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
+  add_test(NAME UpstreamChapterWorldGraph COMMAND UpstreamBugTests chapter-world-graph "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   add_test(NAME UpstreamGlobalSectorDescription COMMAND UpstreamBugTests global-sector-description "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   add_test(NAME UpstreamGlobalMapReturnDestination COMMAND UpstreamBugTests global-map-return-destination "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   add_test(NAME UpstreamChapterTeamMarkerToolTip COMMAND UpstreamBugTests chapter-team-marker-tooltip "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")

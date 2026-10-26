@@ -2352,6 +2352,72 @@ static void SoundMixerClockCatchUp()
 }
 
 
+
+static void ChapterWorldGraph(const char* databasePath,const char* resourcePath)
+{
+    CFileStream database; database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ); NGScene::AddResourceDir(resourcePath);
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "chapter-world fixture started with an active interface or pending command");
+    struct Cleanup { ~Cleanup() { NMainLoop::DoneInterface(); } } cleanup;
+    CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());
+    NDb::CChapterMap* map = nullptr;
+    while (maps.MoveNext()) if (IsValid(maps.Get()->pBackground)) { map = maps.Get(); break; }
+    Require(map != nullptr,"chapter-world fixture has no authored campaign chapter");
+    const int chapterID = map->GetRecordID();
+    CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(1);
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    CObj<NGame::CICBeginChapter> enter = new NGame::CICBeginChapter(map->GetRecordID(),game);
+    enter->Exec();
+    CObj<NGame::CMissionBase> mission = dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(IsValid(mission) && pSSClasses->GetObjectTypeID(mission) == int(0xB2301230),
+        "chapter-world fixture did not open the actual native campaign chapter");
+    auto check = [&](NGame::CMissionBase* chapter,NRPG::CGlobalGame* global) {
+        auto* world = chapter->GetWorld();
+        Require(IsValid(world),"the native chapter initialized without the world required by its saved mission state");
+        Require(world->GetGlobalGame() == global && IsValid(world->GetAIMap()) && IsValid(world->GetPathNetwork()),
+            "the native chapter world lost its global-game or AI/path infrastructure");
+        auto* player = chapter->GetActivePlayer();
+        Require(IsValid(player) && player->GetGlobalPlayer() == global->players.front() && IsValid(player->GetPlayer()) &&
+            IsValid(player->GetCommander()) && IsValid(player->GetCamera()),
+            "the native chapter did not retain its real world player, commander and player camera");
+        Require(IsValid(chapter->GetScene()) && IsValid(chapter->GetRenderGame()) && IsValid(chapter->GetEnemyTurnCamera()) &&
+            chapter->GetEnemyTurnCamera() != player->GetCamera(),"the native chapter did not own its scene/render and separate cinematic camera");
+        auto* ui = chapter->GetInterface();
+        Require(IsValid(ui) && IsValid(chapter->GetSoundScene()) && ui->GetSound() == chapter->GetSoundScene(),
+            "the native chapter interface did not share its world-clock sound scene");
+        Require(IsValid(chapter->GetDesktop()) && chapter->GetDesktop() == ui->GetChildByID("chaptermapUI"),
+            "the native chapter UI was absent from the mission desktop stack");
+        vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+        int aliveMercs = 0;
+        for (const auto& merc: global->players.front()->mercs) if (!merc->IsDead()) ++aliveMercs;
+        Require(int(units.size()) == aliveMercs && global->players.size() == 1 && global->bChapterMapSet && global->nChapterMapID == chapterID,
+            "initializing the chapter world changed campaign destination or the deployed party roster");
+        for (const auto& unit: units) {
+            auto* server = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+            Require(server && std::find(global->players.front()->mercs.begin(),global->players.front()->mercs.end(),
+                server->GetUnitRPG()->GetRPGUnit()) != global->players.front()->mercs.end(),
+                "the native chapter world did not retain its actual global-party RPG units");
+        }
+    };
+    check(mission,game);
+    CMemoryStream snapshot;
+    { CStructureSaver writer(snapshot,CStructureSaver::WRITE); writer.Add(2,&game); writer.Add(3,&mission); }
+    CObj<NRPG::CGlobalGame> restoredGame;
+    CObj<NGame::CMissionBase> restored;
+    snapshot.Seek(0);
+    { CStructureSaver reader(snapshot,CStructureSaver::READ); reader.Add(2,&restoredGame); reader.Add(3,&restored); }
+    Require(IsValid(restoredGame) && IsValid(restored) && restored.GetPtr() != mission.GetPtr() &&
+        restored->GetWorld() != mission->GetWorld(),"chapter-world native snapshot did not restore an independent object graph");
+    check(restored,restoredGame);
+    const STime before = restored->GetWorld()->GetAimTime()->GetValue();
+    restored->GetWorld()->UpdateWorld(before+20,nullptr);
+    Require(restored->GetWorld()->GetAimTime()->GetValue() > before,
+        "the restored native chapter world could not resume its simulation clock");
+    NMainLoop::DoneInterface();
+    restored = nullptr; restoredGame = nullptr; mission = nullptr;
+}
+
 static void GlobalSectorDescription(const char* databasePath,const char* resourcePath)
 {
     CFileStream database; database.OpenRead(databasePath);
@@ -12244,6 +12310,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "exit-menu-save-visibility") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "exit-menu-save-shortcut") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "chapter-world-graph") && argc == 4) { ChapterWorldGraph(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "global-sector-description") && argc == 4) { GlobalSectorDescription(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "global-map-return-destination") && argc == 4) { GlobalMapReturnDestination(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-team-marker-tooltip") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3]); return true; }

@@ -963,6 +963,7 @@ add_test(NAME UpstreamOwnedAIActionEnemy COMMAND UpstreamBugTests owned-ai-actio
 add_test(NAME UpstreamOwnedAIPlaceEnemy COMMAND UpstreamBugTests owned-ai-place-enemy)
 add_test(NAME UpstreamMountedAILogCommands COMMAND UpstreamBugTests mounted-ai-log-commands)
 if(S2_GAME_DIR)
+  add_test(NAME UpstreamChapterWorldGraph COMMAND UpstreamBugTests chapter-world-graph "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamGlobalSectorDescription COMMAND UpstreamBugTests global-sector-description "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamGlobalMapReturnDestination COMMAND UpstreamBugTests global-map-return-destination "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamChapterTeamMarkerToolTip COMMAND UpstreamBugTests chapter-team-marker-tooltip "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")

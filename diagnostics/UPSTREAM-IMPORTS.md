@@ -253,6 +253,7 @@
 | [ccdb6ca7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/ccdb6ca7c7ee525b4e8aeb1c5c9c0c18effa9ff0) — Keep SDL Escape available to cancel focused edit dialogs | `the focused native edit swallowed Escape before the save/load modal's cancel binding` | 18/18; `edit-keyboard-routing` | `Upstream-Commit` в commit message |
 | [4cdc1ead](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8) — Resolve active door geometry through the native hull registry | `native object lookup returned an inactive door-pose hull` | 17/17; `active-door-hull-lookup` | `Upstream-Commit` в commit message |
 | [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Fit global-sector description panels to their native captions | `the native global-sector description kept its fixed height instead of fitting its actual caption and border` | 10/10; `global-sector-description` | `Upstream-Commit` в commit message |
+| [e9dc218f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e9dc218fcbf45f8ae952b0381112beba1193ca02) — Initialize the native campaign chapter world and saved mission graph | `the native chapter initialized without the world required by its saved mission state` | 9/9; `chapter-world-graph` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
