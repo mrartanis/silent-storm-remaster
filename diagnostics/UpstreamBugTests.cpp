@@ -2351,6 +2351,67 @@ static void SoundMixerClockCatchUp()
     Require(clock.GetTime()->GetValue() == 10400, "resetting mixer timing caused a spurious catch-up jump");
 }
 
+
+static void GlobalSectorDescription(const char* databasePath,const char* resourcePath)
+{
+    CFileStream database; database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ); NGScene::AddResourceDir(resourcePath);
+    NDb::CUIContainer* sectorTemplate = nullptr;
+    NDb::CUIControl* descriptionControl = nullptr;
+    CDBIterator<NDb::CUIContainer> templates(*NDatabase::GetTable<NDb::CUIContainer>());
+    while (templates.MoveNext()) {
+        auto* candidate = templates.Get();
+        bool normal = false, highlighted = false, normalZone = false, disabledZone = false;
+        NDb::CUIControl* description = nullptr;
+        for (const auto& control: candidate->controls) if (IsValid(control)) {
+            normal |= control->szID == "text_normal"; highlighted |= control->szID == "text_hilighted";
+            normalZone |= control->szID == "zone_normal"; disabledZone |= control->szID == "zone_disabled";
+            if (control->szID == "description") description = control;
+        }
+        if (normal && highlighted && normalZone && description && description->type == NDb::UI_TEXT &&
+            description->rect.Width() > 8 && !NUI::GetDBString(description->pString).empty()) {
+            sectorTemplate = candidate; descriptionControl = description; break;
+        }
+    }
+    Require(sectorTemplate && descriptionControl,"global description fixture has no authored sector template and localized panel caption");
+    const auto caption = NUI::GetDBString(descriptionControl->pString);
+    const auto originalRect = descriptionControl->rect;
+    std::printf("native global description template=%d control=%d string=%d\n",sectorTemplate->GetRecordID(),
+        descriptionControl->GetRecordID(),descriptionControl->pString->GetRecordID());
+    const float oldScale = S2Platform::Display().uiScale;
+    struct DisplayCleanup { float scale; ~DisplayCleanup() { S2Platform::UpdateDisplay(scale*100); } } cleanup{oldScale};
+    for (float scale: {1.f,1.5f,2.f}) {
+        S2Platform::UpdateDisplay(scale*100); MarkNewDGFrame();
+        CObj<NUI::ICursor> cursor = NUI::ICursor::Create(false);
+        CObj<NUI::CInterface> interface = new NUI::CInterface(cursor);
+        CObj<NUI::CWindow> sector = dynamic_cast<NUI::CWindow*>(pSSClasses->CreateObject(int(0xB0912172)));
+        Require(IsValid(sector),"global description fixture could not create its native zone-sector control");
+        sector->SetInterface(interface); sector->SetPosition(NUI::SPoint(0,0)); sector->SetSize(NUI::SPoint(1024,768));
+        NUI::LoadTemplate(sector,sectorTemplate);
+        auto* description = sector->GetChildByID("description");
+        Require(IsValid(description),"native zone-sector template did not create the description panel");
+        list<CPtr<NUI::CWindow>> children; description->GetChildrenList(&children);
+        NUI::CText* text = dynamic_cast<NUI::CText*>(description);
+        int captions = text && text->GetText() == caption ? 1 : 0;
+        for (const auto& child: children) if (auto* candidate = dynamic_cast<NUI::CText*>(child.GetPtr())) {
+            if (candidate->GetText() == caption) { text = candidate; ++captions; }
+        }
+        Require(captions == 1 && text,
+            "the native global-sector description panel lost its authored localized caption");
+        NUI::SPoint measured; text->GetRealSize(&measured);
+        std::printf("native description scale=%.1f panel=(%d,%d) text=(%d,%d) measured=(%d,%d)\n",double(scale),
+            description->GetSize().x,description->GetSize().y,text->GetSize().x,text->GetSize().y,measured.x,measured.y);
+        Require(measured.y > 0 && text->GetSize().y == measured.y && description->GetSize().y == measured.y+8,
+            "the native global-sector description kept its fixed height instead of fitting its actual caption and border");
+        Require(text->GetPosition() == NUI::SPoint(4,4) && text->GetSize().x == description->GetSize().x-8 &&
+            text->GetStyle(NUI::STYLE_VISIBLE) && text->GetText() == caption,
+            "the global-sector caption lost its inset, width, visibility or authored font markup");
+        Require(descriptionControl->rect.x1 == originalRect.x1 && descriptionControl->rect.y1 == originalRect.y1 &&
+            descriptionControl->rect.x2 == originalRect.x2 && descriptionControl->rect.y2 == originalRect.y2 && NUI::GetDBString(descriptionControl->pString) == caption,
+            "building the global-sector caption modified the authored UI rectangle or localized text");
+    }
+}
+
 static void GlobalMapReturnDestination(const char* databasePath,const char* resourcePath)
 {
     CFileStream database;
@@ -12183,6 +12244,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "exit-menu-save-visibility") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "exit-menu-save-shortcut") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "global-sector-description") && argc == 4) { GlobalSectorDescription(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "global-map-return-destination") && argc == 4) { GlobalMapReturnDestination(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-team-marker-tooltip") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-marker-tooltip-transitions") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3],true); return true; }

@@ -35,8 +35,7 @@ namespace NUI
 // NOTE: retail defines NO operator& of its own -- serialization is the inherited CFrame table
 // (rel_tag_count 0 in the save-format audit); pText is deliberately NOT serialized (it is rebuilt
 // by the template-create event), so none is authored here either. Registered for save-graph
-// identity. Retail creation site: CZoneGlobalSector::pDescription (that retag is a separate
-// convergence leg; until it lands the class is registration+behaviour only).
+// identity. Zone-sector descriptions instantiate it during template loading.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFrameText: public CFrame
 {
@@ -167,6 +166,7 @@ bool CZoneGlobalSector::ProcessMessage( const SEvent &sEvent )
 		{
 			pTextNormal = new CText( sEvent.pLoader->GetControl( "text_normal" ) );
 			pTextHilighted = new CText( sEvent.pLoader->GetControl( "text_hilighted" ) );
+			pDescription = new CFrameText( sEvent.pLoader->GetControl( "description" ) );
 
 			break;
 		}
