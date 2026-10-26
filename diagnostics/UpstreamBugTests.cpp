@@ -7959,6 +7959,113 @@ static void MedalCursorVisible(const char* databasePath,const char* resourcePath
     Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"native medal dialog did not close cleanly");
 }
 
+static void ChapterMedalScreenshot(const char* databasePath,const char* resourcePath)
+{
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "chapter medal screenshot fixture started with a live interface or command");
+    NativeDisplayContext display;
+    display.Initialize(databasePath,resourcePath,"Silent Storm chapter medal screenshot regression");
+    struct GammaRestore {
+        NGlobal::CValue value = NGlobal::GetVar("gfx_gamma",1);
+        ~GammaRestore() { NGlobal::SetVar("gfx_gamma",value); NGfx::SetGamma(true); }
+    } gammaRestore;
+    NGfx::SetGamma(true);
+    CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(1);
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());
+    NDb::CChapterMap* map = nullptr;
+    while (maps.MoveNext()) if (IsValid(maps.Get()->pBackground)) { map = maps.Get(); break; }
+    Require(map != nullptr,"chapter medal fixture has no authored map");
+    CObj<NGame::CICBeginChapter> enter = new NGame::CICBeginChapter(map->GetRecordID(),game); enter->Exec();
+    CObj<NGame::CMissionBase> mission = dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    auto* chapter = IsValid(mission) ? mission->GetInterface()->GetChildByID("chaptermapUI") : nullptr;
+    Require(IsValid(chapter),"chapter medal fixture did not open its actual native chapter UI");
+    list<CPtr<NScenario::CScenarioClue>> clues; game->pScenarioTracker->GetAvailableClues(&clues);
+    for (auto clue : clues) clue->SetJustFound(false);
+    auto* merc = game->players.front()->mercs.front().GetPtr();
+    Require(merc->medalInfos.size() >= 2 && IsValid(game->players.front()->pSide->pMedalPaperContainer),
+        "chapter medal fixture needs two authored medals and their paper");
+    // Prepare notification state only; scoring and award thresholds are not exercised.
+    for (auto& medal : merc->medalInfos) medal.bJustFound = false;
+    struct ReachedRender {};
+    class StopBeforeRender: public DialogueLayoutView {
+        OBJECT_NOCOPY_METHODS(StopBeforeRender);
+        const CVec2& GetViewportSize() override { throw ReachedRender(); }
+    };
+    CObj<StopBeforeRender> stop = new StopBeforeRender;
+    auto drain = [&](STime time) {
+        bool reached = false;
+        try { chapter->Draw(time,stop); } catch (const ReachedRender&) { reached = true; }
+        Require(reached,"native chapter medal drain did not reach its drawing boundary");
+    };
+    for (float gamma : {1.f,2.f}) {
+        NGlobal::SetVar("gfx_gamma",gamma);
+        CMemoryStream reset; int frame = 0;
+        { CStructureSaver writer(reset,CStructureSaver::WRITE); writer.Add(18,&frame); }
+        reset.Seek(0); { CStructureSaver reader(reset,CStructureSaver::READ); static_cast<CObjectBase*>(chapter)->operator&(reader); }
+        for (int i=0; i<2; ++i) { merc->medalInfos[i].bIsGained = true; merc->medalInfos[i].bJustFound = true; }
+        NGScene::ClearScreen(CVec3(0.125f,0.25f,0.5f));
+        mission->GetInterface()->Draw(1000); NGScene::Flip(); MarkNewDGFrame();
+        Require(!NMainLoop::HaveInterfaceCommand(),"native chapter queued its medals before its second painted frame");
+        CArray2D<NGfx::SPixel8888> original,corrected;
+        NGfx::MakeScreenShot(&original,false); NGfx::MakeScreenShot(&corrected,true);
+        Require(original.GetXSize() == 320 && original.GetYSize() == 240,"chapter screenshot did not use its native drawable");
+        int distinct = 0, gammaChanged = 0;
+        const auto first = original[0][0];
+        for (int y=0; y<original.GetYSize(); ++y) for (int x=0; x<original.GetXSize(); ++x) {
+            const auto a = original[y][x], b = corrected[y][x];
+            if (a.r != first.r || a.g != first.g || a.b != first.b) ++distinct;
+            if (a.r != b.r || a.g != b.g || a.b != b.b) ++gammaChanged;
+        }
+        Require(distinct > 100,"the actual painted chapter framebuffer contains no useful image");
+        Require(gamma == 1.f ? gammaChanged == 0 : gammaChanged > 100,
+            "native gamma control did not distinguish raw scene pixels from presentation correction");
+        drain(1000);
+        for (int i=0; i<2; ++i) {
+            CObj<NMainLoop::CInterfaceCommand> award = NMainLoop::TakeInterfaceCommandForHarness();
+            Require(dynamic_cast<NGame::CICShowMedal*>(award.GetPtr()) != nullptr,"native chapter did not queue exactly its medal commands");
+            award->Exec();
+            auto* modal = NMainLoop::GetCurrentInterfaceForHarness();
+            CStructureNetworkContext refs; auto fields = BorrowedObjectFields(modal,&refs);
+            CPtr<NUI::CScreenShot> background;
+            { CStructureSaver reader(fields,CStructureSaver::READ,&refs); reader.Add(8,&background); }
+            std::printf("native chapter medal screenshot: gamma=%.1f award=%d texture=%d distinct=%d gammaChanged=%d\n",
+                gamma,i,int(IsValid(background) && IsValid(background->GetTexture())),distinct,gammaChanged);
+            Require(IsValid(background) && IsValid(background->GetTexture()),
+                "native chapter medal dialog has no frozen chapter backdrop");
+            CArray2D<NGfx::SPixel8888> captured; background->GetTexture()->Get(&captured);
+            Require(captured.GetXSize() == original.GetXSize() && captured.GetYSize() == original.GetYSize(),
+                "native medal backdrop lost the chapter framebuffer size");
+            for (int y=0; y<original.GetYSize(); ++y) for (int x=0; x<original.GetXSize(); ++x) {
+                const auto a = original[y][x], b = captured[y][x];
+                Require(a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a,
+                    "native medal backdrop recaptured an award overlay or applied presentation gamma twice");
+            }
+            // Paint the first modal before inspecting the second queued snapshot.
+            CPtr<NUI::CInterface> root;
+            fields.Seek(0);
+            { CStructureSaver reader(fields,CStructureSaver::READ,&refs); reader.Add(6,&root); }
+            Require(IsValid(root),"native medal dialog has no drawable root");
+            NGScene::ClearScreen(CVec3(0,0,0)); root->Draw(1100); NGScene::Flip(); MarkNewDGFrame();
+            CArray2D<NGfx::SPixel8888> overlay; NGfx::MakeScreenShot(&overlay,false);
+            Require(overlay.GetXSize() == original.GetXSize() && overlay.GetYSize() == original.GetYSize(),
+                "native medal overlay lost its drawable size");
+            int changed = 0;
+            for (int y=0; y<original.GetYSize(); ++y) for (int x=0; x<original.GetXSize(); ++x) {
+                const auto a = original[y][x], b = overlay[y][x];
+                if (a.r != b.r || a.g != b.g || a.b != b.b) ++changed;
+            }
+            Require(changed > 100,"painting the native award modal did not cover its original chapter framebuffer");
+            CObj<NMainLoop::CICExitModal> close = new NMainLoop::CICExitModal; close->Exec();
+            Require(NMainLoop::GetCurrentInterfaceForHarness() == mission.GetPtr(),"native medal close did not restore its chapter");
+        }
+        Require(!NMainLoop::HaveInterfaceCommand() && !merc->medalInfos[0].bJustFound && !merc->medalInfos[1].bJustFound,
+            "native chapter did not consume its two notification bits exactly once");
+        drain(1000);
+        Require(!NMainLoop::HaveInterfaceCommand(),"native chapter repeated its medal notifications on the third frame");
+    }
+}
+
 static void CheckChapterClueHeading(NGame::CMissionBase* mission,NUI::CWindow* chapter)
 {
     auto* game = mission->GetRPGGame(); auto* tracker = game->pScenarioTracker.GetPtr();
@@ -13972,6 +14079,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "combo-popup-item-width")) { ComboPopupClipping(true); return true; }
     if (!std::strcmp(mode, "chapter-clue-heading") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "medal-cursor-visible") && argc == 4) { MedalCursorVisible(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "chapter-medal-screenshot") && argc == 4) { ChapterMedalScreenshot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "window-nested-wakeup")) { WindowNestedWakeup(); return true; }
     if (!std::strcmp(mode, "window-template-script")) { Require(argc == 3, "window template script requires db"); WindowTemplateScript(argv[2]); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }

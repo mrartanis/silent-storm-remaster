@@ -16,6 +16,7 @@
 #include "iChapterMap.h"
 #include "iShowClue.h"
 #include "iShowMedal.h"
+#include "ScreenShot.h"
 #include "RPGUnit.h"
 #include "ChapterInfo.h"
 #include "iLogPanel.h"			// NUI::CLogPanel + STREAM_GAME (the chapter map's tag-19 log panel)
@@ -1091,7 +1092,12 @@ void CChapterMapUI::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 				vector< CDBPtr<NDb::CMedal> > medals;
 				(*u)->GetJustFoundMedals( &medals );
 				for ( int n = 0; n < medals.size(); ++n )
-					NMainLoop::Command( new NGame::CICShowMedal( (*p)->pSide, (*u)->GetName(), medals[n] ) );
+				{
+					// Freeze the painted map before any award modal; bgfx applies gamma at presentation.
+					CObj<NGScene::CScreenshotTexture> screenshot = new NGScene::CScreenshotTexture;
+					screenshot->Generate();
+					NMainLoop::Command( new NGame::CICShowMedal( (*p)->pSide, (*u)->GetName(), medals[n], screenshot ) );
+				}
 			}
 		}
 	}

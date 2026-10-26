@@ -2730,7 +2730,54 @@ BgfxRendererTests и DisplayRuntimeTests входят в этот набор; с
 LastTest logs с 12 FONT-COMPAT controls на каждой платформе. Свидетельства:
 medal-cursor-visible-related-green-test.log, medal-cursor-visible-linux-*.log,
 medal-cursor-visible-{renderer,game}-build.log и platform-native-test.log.
-Source остаётся частичным до проверки screenshot/gamma и eligibility.
+Source оставался частичным до следующей проверки screenshot/gamma и eligibility.
+
+## Замороженный фон окна медали — завершение UI-частей 29554756
+
+NativeChapterMedalScreenshot использует настоящий скрытый SDL window 320x240,
+bgfx и authored chapter UI. Первый Draw действительно рисует карту; две
+подготовленные notification bits ещё не должны ставить modal в очередь.
+Следующий native CChapterMapUI::Draw проходит реальный second-frame drain
+и останавливается на границе последующей отрисовки. Compiled runtime RED:
+первый настоящий CICShowMedal открывает CScreenShot с null texture, хотя
+GPU framebuffer уже содержит 59706 отличающихся от первого пикселей.
+
+Минимальный фикс захватывает CScreenshotTexture перед каждой постановкой
+CICShowMedal и передаёт её существующему аргументу команды. Upstream
+Generate(true) и расширение ScreenShot API не копируются: наш GfxBgfx берёт
+raw scene framebuffer и применяет gamma при Present; повторная correction
+в замороженной текстуре изменила бы его яркость ещё раз. Generate() уже
+использует нужный нашему renderer false. Пересборки шрифтов/HD нет.
+
+GREEN сравнивает все RGBA pixels снимка с фактически нарисованной картой при
+gamma 1 и 2. Положительный контроль MakeScreenShot(true) при gamma 2 обязан
+отличаться от raw более чем на 100 pixels. Между проверками двух queued awards
+первый настоящий medal modal рисуется на GPU и обязан изменить framebuffer;
+второй snapshot всё равно содержит исходную карту. Проверены размеры,
+обычное восстановление chapter после modal и однократный drain notification
+bits. Состояние двух наград подготовлено только в fixture через существующие
+поля; scoring/probability/thresholds не менялись и здесь не проверяются.
+
+Первый GREEN выявил ошибку второго чтения fixture stream (не было Seek(0));
+она исправлена в тесте, отдельно сохранена как fixture-stream-test.log и
+не считается новым production багом. Начальный compiled RED был именно
+null backdrop и сохранён до последующих CTest в red-native-test.log.
+Linux runner один раз не стартовал после сохранения CRLF; восстановлен LF,
+это также не считается runtime RED и не вызвало изменения production.
+
+Eligibility-часть 29554756 зависит от CanEnter/CanReenterZone в 5cdf627b:
+меняет доступность посещённых/скрытых миссий и возможный camp fallback.
+Обе эти policy части исключены из автоматического переноса и описаны в
+UPSTREAM-BALANCE-CHANGES.md. Все полезные non-balance части обоих sources
+учтены; imported в TSV относится к ним, не к переносу исключённых правил.
+
+Свидетельства: chapter-medal-screenshot-red-{build,test}.log,
+red-native-test.log, green-verified-{build,test}.log, all-build.log,
+final-{build,test}.log, final-linux-{configure,build,test}.log и сохранённые
+native logs. Финальные связанные 35/35 прошли на Windows (33.25 с) и Linux
+(27.63 с), включая 12 FONT-COMPAT controls на каждой платформе. Windows
+ALL_BUILD и обе Game собраны. Полный all281 аудит и
+окончательная проверка фактического GitHub Actions остаются незавершёнными.
 
 ## Выпадающий список вне clip вложенной строки — часть c0f64c74
 
