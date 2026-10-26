@@ -1438,3 +1438,25 @@ Windows/Linux Game собраны; связанный cursor/preview набор 
 `equipped-melee-attack-cursor-game-build.log`,
 `equipped-melee-attack-cursor-registration-test.log`,
 `equipped-melee-cursor-linux-{configure,build,test}.log`.
+
+### Полная контрольная точка 295
+
+На `024a8839` проверена вся накопившаяся группа: crash прибывшей реакции
+отступления (`57decfb7`), локализация hit sentinel (`b40b9b00`) и native cursor
+экипированного melee оружия (`024a8839`). Windows ALL_BUILD и Linux Game собраны.
+Полные Upstream/NativeBind/NativeBound профили — 295/295 на каждой платформе
+(211.21s/209.89s), выполнены последовательно по одному процессу. Широкий
+локальный набор — 268/268 с configured registration; сеть — 6/6 (55.89s),
+мир/сохранения — 5/5 (5.81s), включая 5247 за 2.63s.
+
+Свидетельства: `checkpoint-295-all-build.log`,
+`checkpoint-295-upstream-test.log`,
+`checkpoint-295-linux-{configure,build,test}.log`,
+`checkpoint-295-ci-test.log`,
+`checkpoint-295-{network,world}-green-test.log`.
+Это перечисленные локальные профили, не весь CTest и не успешный hosted
+workflow на окончательном HEAD. Финальный GitHub Actions остаётся обязательным
+после окончания всей очереди. Подтверждённая ранее hosted-точка — 00af3fcb,
+run 40246010705 (Build и Test success, 270/270 выполненных проверок).
+Исходные шрифты/размеры и HD pack сохранены; сборки переиспользованы,
+генерация HD/PNG выключена, отдельных копий под баги нет.
