@@ -18,6 +18,7 @@
 #include "../Main/iUnitIconBar.h"
 #include "../Main/UIInterface.h"
 #include "../Main/Console.h"
+#include "../FileIO/WindowsSaveNames.h"
 #include "../MiscDll/Commands.h"
 #include "../DBFormat/DataInterface.h"
 #include "../DBFormat/DataObject.h"
@@ -4241,7 +4242,7 @@ static void LoadSuccessFeedback(const char* databasePath,const char* resourcePat
         "a missing native slot reported success or replaced the active interface");
 }
 
-static void SaveSuccessFeedback(const char* databasePath)
+static void SaveSuccessFeedback(const char* databasePath,bool encodedName = false)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr, "save feedback fixture needs isolated user data");
     Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
@@ -4249,13 +4250,16 @@ static void SaveSuccessFeedback(const char* databasePath)
     CFileStream database;
     database.OpenRead(databasePath);
     NDatabase::Serialize(database,CStructureSaver::READ);
-    NMainLoop::CreateProfile("UpstreamSaveFeedback");
-    NMainLoop::SetActiveProfile("UpstreamSaveFeedback");
+    const char* profile = encodedName ? "UpstreamEncodedSave" : "UpstreamSaveFeedback";
+    NMainLoop::CreateProfile(profile);
+    NMainLoop::SetActiveProfile(profile);
+    const string slot = encodedName ? S2FileIO::EncodeWindowsSaveName(L"Quick \u0417\u0430\u043F\u0438\u0441\u044C \u65E5\u672C") : "Feedback";
     auto* manager = NMainLoop::GetSaveManager();
     struct SlotCleanup {
         NMainLoop::CSaveManager* manager;
-        ~SlotCleanup() { manager->DeleteSlot("Feedback"); }
-    } cleanup{manager};
+        string slot;
+        ~SlotCleanup() { manager->DeleteSlot(slot); }
+    } cleanup{manager,slot};
     const auto localized = NUI::GetDBString(20259);
     Require(!localized.empty(), "save feedback fixture has no localized success message");
     csGame << localized << endl;
@@ -4272,11 +4276,14 @@ static void SaveSuccessFeedback(const char* databasePath)
     for (int y = 0; y < 2; ++y) for (int x = 0; x < 2; ++x) pixels[y][x] = NGfx::SPixel8888(12,23,34,255);
     texture->Set(pixels);
     const auto before = messages();
-    CObj<NMainLoop::CICSave> save = new NMainLoop::CICSave("Feedback",texture,true);
+    CObj<NMainLoop::CICSave> save = new NMainLoop::CICSave(slot,texture,true);
     save->Exec();
+    list<string> written; manager->GetSlotsList(&written);
+    Require(!encodedName || std::find(written.begin(),written.end(),slot) != written.end(),
+        "native save command rejected its platform-encoded valid Unicode slot");
     {
         CFileStream file;
-        file.OpenRead(manager->GetSlotFilePathW("Feedback",NMainLoop::S_SAVE_FILENAME).c_str());
+        file.OpenRead(manager->GetSlotFilePathW(slot,NMainLoop::S_SAVE_FILENAME).c_str());
         NMainLoop::SSaveFileHeader header;
         NMainLoop::ReadSaveFileHeader(file,&header);
         Require(header.nMagic == NMainLoop::N_SAVE_MAGIC_NUMBER && header.nMods == 0,
@@ -4286,6 +4293,25 @@ static void SaveSuccessFeedback(const char* databasePath)
         Require(restored.empty(), "save feedback control did not round-trip its empty native interface stack");
     }
     Require(messages() == before + 1, "a completed silent native save omitted its localized success feedback");
+    if (encodedName) {
+        for (const auto* invalid : {L"bad.name",L"bad^name",L"bad:name",L"bad/name",L".."}) {
+            const auto count = messages();
+            CObj<NMainLoop::CICSave> rejected = new NMainLoop::CICSave(S2FileIO::EncodeWindowsSaveName(invalid),texture,true);
+            rejected->Exec();
+            list<string> after; manager->GetSlotsList(&after);
+            Require(after == written && messages() == count,"encoded invalid save name wrote a slot or reported success");
+        }
+#if !defined(_WIN32)
+        for (const char* invalid : {"S2U8:GG","S2U8:0","S2U8:00"}) {
+            CObj<NMainLoop::CICSave> rejected = new NMainLoop::CICSave(invalid,texture,true);
+            rejected->Exec();
+            list<string> after; manager->GetSlotsList(&after);
+            Require(after == written && messages() == before+1,"malformed Linux save-name encoding wrote a slot or reported success");
+        }
+#endif
+        std::puts("native encoded Unicode save: real header/data round-trip; invalid decoded names rejected");
+        return;
+    }
     const auto blockedPath = std::filesystem::path(manager->GetSlotFilePathW(NMainLoop::S_SLOT_ACTIVE,NMainLoop::S_SAVE_FILENAME));
     std::filesystem::create_directories(blockedPath.parent_path());
     Require(std::filesystem::create_directory(blockedPath), "save failure control could not block its isolated target with a directory");
@@ -13636,6 +13662,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "fresh-ambient-graph")) { FreshAmbientGraph(); return true; }
     if (!std::strcmp(mode, "compressed-save-writing")) { CompressedSaveWriting(); return true; }
     if (!std::strcmp(mode, "save-success-feedback") && argc == 3) { SaveSuccessFeedback(argv[2]); return true; }
+    if (!std::strcmp(mode, "encoded-save-command") && argc == 3) { SaveSuccessFeedback(argv[2],true); return true; }
     if (!std::strcmp(mode, "load-success-feedback") && argc == 4) { LoadSuccessFeedback(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "zone-snapshot-excludes-hud") && argc == 4) { ZoneSnapshotExcludesHUD(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "window-interface-propagation")) { WindowInterfacePropagation(); return true; }

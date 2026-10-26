@@ -2506,3 +2506,39 @@ mission-save-menu-{windows,linux}-native-test.log.
 Использованы прежние каталоги сборки, HD generation не запускалась, процессы
 проверок завершены. Source 02d85e5b остаётся частичным: QuickSave consumption,
 live permission policy, mapping сложности и selected style ещё требуют работы.
+
+## Адаптация к собственному Linux-кодированию имён сохранений
+
+При переносе QuickSave из 02d85e5b отдельная Linux-проверка обнаружила дефект
+собственного порта: GetQuickSaveSlot возвращает штатный S2U8: identifier, а
+CICSave отвергает двоеточие в транспортном представлении как символ имени файла.
+Windows QuickSave в тех же проверках работал. Новый UpstreamEncodedSaveCommand
+отделяет проблему от миссии и её permission: настоящий silent CICSave с
+подготовленной текстурой и корректным Unicode-именем получает compiled runtime
+RED "Invalid save file name S2U8:..." и не создаёт слот.
+
+В Linux-ветке CICSave проверяется декодированное имя: штатный codec должен
+успешно его прочитать, IsSafeSaveComponent — принять, прежний список запрещённых
+символов — отсутствовать. Windows-проверка сохраняет прежнее выражение.
+Проверка читает настоящий save header и сериализованный пустой interface stack;
+кириллица и японские символы сохраняются, недопустимые имена и повреждённый
+Linux identifier не создают слотов и не сообщают об успехе.
+
+В первом связанном прогоне дополнительная проверка списка была ошибочно
+применена и к старому untagged ASCII случаю: Linux возвращает список уже в
+каноническом encoded виде. Уточнена только область этой новой проверки:
+строгое encoded-равенство относится к encoded fixture; прежний ASCII случай
+по-прежнему обязательно читает настоящий файл, header и сериализованные данные.
+Этот промежуточный сбой сохранён как encoded-save-name-canonical-fixture-linux-test.log.
+
+Это отдельный compatibility fix нашего порта, а не буквальный upstream hunk.
+Происхождение адаптера: собственный коммит
+590320324eda981f7e41b58f22a36b938f4612a6. CICLoad содержит аналогичную проверку;
+его encoded-путь требует отдельного воспроизведения и пока здесь не исправлен.
+
+Compiled runtime RED и GREEN: encoded-save-name-red-linux-{configure,build,test}.log,
+encoded-save-name-final-green-linux-{configure,build,test}.log и
+encoded-save-name-final-green-{build,test}.log. Связанные пять проверок прошли
+на Windows и Linux; Linux Game собран. Нативный screenshot заранее задан
+тестом: это проверка файла и команд сохранения, а не GPU readback.
+Использованы прежние каталоги сборки, HD generation не запускалась.

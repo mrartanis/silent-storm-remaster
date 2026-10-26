@@ -8,6 +8,7 @@
 #include "Cursor.h"
 #if !defined(_WIN32)
 #include "../FileIO/LinuxUserData.h"
+#include "../FileIO/PortableUserPaths.h"
 #include <filesystem>
 #include <array>
 #include <ctime>
@@ -363,7 +364,16 @@ CICSave::CICSave( const string &_szName, NGScene::CScreenshotTexture *pTexture, 
 }
 void CICSave::Exec()
 {
-	if ( strcspn( szName.c_str(), S_INVALID_SAVE_CHARS ) != szName.length() )
+#if defined(_WIN32)
+	const bool bInvalidName = strcspn( szName.c_str(), S_INVALID_SAVE_CHARS ) != szName.length();
+#else
+	// Linux slot identifiers carry S2U8: transport encoding, not a literal filename.
+	wstring decodedName;
+	const wstring invalidChars( S_INVALID_SAVE_CHARS, S_INVALID_SAVE_CHARS + sizeof( S_INVALID_SAVE_CHARS ) - 1 );
+	const bool bInvalidName = !S2FileIO::DecodeLinuxProfileConfig( szName, &decodedName ) ||
+		!S2FileIO::IsSafeSaveComponent( decodedName ) || decodedName.find_first_of( invalidChars ) != wstring::npos;
+#endif
+	if ( bInvalidName )
 	{
 		csSystem << "Invalid save file name \"" << szName << "\"" << endl;
 		return;
