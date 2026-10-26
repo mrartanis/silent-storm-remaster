@@ -2892,6 +2892,44 @@ Source остаётся частичным: отдельное смешиван�
 red-native-test.log, green-native-test.log, all-build.log, full-test.log,
 linux-{configure,build,test}.log и platform-native-test.log.
 
+## Доворот у авторской точки двери — завершение 68595fd2
+
+UpstreamDoorApproachHeading использует настоящий roster actor и GetApproaches
+двери world 810: позиции и направления берутся из authored Unit bones.
+CExecQueue::AddPath получает реальное действие PA_OPEN; проверяется путь
+первого настоящего movement executor, содержащий реальные CCmdRotate.
+Обычный поворот того же actor через двухточечный native path служит обязательным
+положительным контролем перед проверкой двери. Очередь подготавливается,
+но Run/Segment и игровое открывание не исполняются; временная позиция actor
+восстанавливается, AP и логическое состояние двери остаются прежними.
+
+Первый probe ошибочно требовал non-null GetCurrentPath для отсутствующего
+поворота. Этот API намеренно возвращает null, когда нет двух точек: это ошибка
+fixture, не RED бага. Диагностический probe-path затем показал, что все
+проверяемые направления оставались без доворота. Production не менялась.
+Финальный compiled RED сначала подтверждает aligned 4->4 и настоящий обычный
+поворот 5->4, затем actual door queue не содержит требуемого поворота 5->4.
+Свидетельства probe и настоящего red сохранены раздельно.
+
+Перенесён только nearby heading hunk CanSimplyOpen: при квадрате расстояния
+менее 0.5 учитывается направление authored approach, включая circular wrap.
+GREEN использует конкретные случаи (authored/from/expected) 4/4/4, 4/5/4,
+4/6/5, 0/4/4, 0/6/7, без копирования production выбора кандидата в expected.
+Они проходят для стоящей и присевшей authored позиции — десять случаев.
+Для aligned/opposite лишний поворот отсутствует; остальные реальные queued
+paths заканчиваются ожидаемым направлением. Это проверка подготовки очереди,
+не полной анимации открытия/расходования AP. Формулы и цены не редактируются.
+
+Связанные movement/queue/retreat/pose/door случаи, native medal и GPU/display:
+39/39 на Windows (36.78 с) и Linux (33.31 с), обе Game и Windows ALL_BUILD
+собраны; сохранены по 12 FONT-COMPAT controls. Предыдущий полный checkpoint
+c97d9971 имел 329/329 на обеих платформах и CI-like 274/274; после отдельного
+heading hunk полный новый CPU base 325 не заявляется.
+Свидетельства door-approach-heading: red-{build,test}.log, red-native-test.log,
+green-{build,test}.log, green-native-test.log, all-build.log, related-test.log,
+linux-{configure,build,test}.log и {windows,linux}-native-test.log.
+Все hunks 68595fd2 учтены. All281 и final actual GitHub Actions ещё не завершены.
+
 ## Выпадающий список вне clip вложенной строки — часть c0f64c74
 
 Новый resource-free UpstreamComboPopupClipping создаёт настоящие CInterface,

@@ -13296,6 +13296,77 @@ static void DoorSwingDirection(const char* databasePath,const char* resourcePath
     std::printf("native door swing: checked %d authored doors in both collision states\n",doors);
 }
 
+static void DoorApproachHeading(const char* databasePath,const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath,resourcePath,true);
+    auto* network = world->GetPathNetwork(); world->GetAIMap()->Sync();
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto unit : units) {
+        auto* candidate = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if (candidate && !candidate->IsAIUnit() && candidate->CanFight() && candidate->GetUnitRPG()->CanMove()) { actor = candidate; break; }
+    }
+    Require(actor != nullptr,"door approach fixture has no movable native roster actor");
+    const auto original = actor->GetPosition();
+    const auto ap = actor->GetAP();
+    struct Restore { NWorld::CUnitServer* actor; NAI::SUnitPosition position;
+        ~Restore() { actor->SetTemporaryPosition(position); } } restore{actor,original};
+    int cases = 0;
+    for (const auto& entry : world->GetObjectsForHarness()) {
+        auto* door = dynamic_cast<NWorld::CWindowDoor*>(entry.GetPtr());
+        if (!door || door->IsBroken() || door->IsOpen()) continue;
+        vector<NAI::SPathPlace> approaches; door->GetApproaches(&approaches,network);
+        const auto swing = door->GetChangeStateDirection(true);
+        for (int i=0; i<approaches.size(); ++i) {
+            auto from = approaches[i];
+            if (!network->IsPassable(from)) continue;
+            // These real authored Unit bones face 4 or 0. Check concrete nearby
+            // headings and the circular 6 -> 7 approach to 0, without reproducing
+            // the production candidate-selection algorithm in the expectation.
+            struct Case { int authored, facing, expected; };
+            const Case casesForBone[] = {{4,4,4},{4,5,4},{4,6,5},{0,4,4},{0,6,7}};
+            for (const auto& test : casesForBone) {
+                if (approaches[i].GetDirection() != test.authored) continue;
+                const int facing = test.facing;
+                from.SetDirection(facing);
+                NAI::SPosition at(from,network); const float angle = at.GetDirection();
+                Require(swing.x*cos(angle)+swing.y*sin(angle) <= 0,"door approach fixture no longer needs a separate opening action");
+                auto placed = original; placed.pos.p = from; actor->SetTemporaryPosition(placed);
+                if (test.expected != facing) {
+                    CObj<NAI::CPath> controlPath = new NAI::CPath;
+                    controlPath->pNet = network; controlPath->points.push_back(from);
+                    auto turn = from; turn.SetDirection(test.expected); controlPath->points.push_back(turn);
+                    CObj<NWorld::CExecQueue> control = new NWorld::CExecQueue(actor);
+                    control->AddPath(controlPath,NAI::PF_DEFAULT,NWorld::ITEM_NO_MATTER);
+                    auto* head = control->GetFrontExecutor();
+                    CObj<NAI::CPath> rotated = head ? head->GetCurrentPath() : nullptr;
+                    Require(IsValid(rotated) && rotated->points.back().GetDirection() == test.expected,
+                        "native rotation control cannot prepare the same actor's expected turn");
+                }
+                CObj<NAI::CPath> path = new NAI::CPath;
+                path->pNet = network; path->points.push_back(from);
+                NAI::CPath::SPathAction action; action.where = from; action.action = NAI::PA_OPEN; action.pObject = door;
+                path->actions.push_back(action);
+                CObj<NWorld::CExecQueue> queue = new NWorld::CExecQueue(actor);
+                queue->AddPath(path,NAI::PF_DEFAULT,NWorld::ITEM_NO_MATTER);
+                auto* front = queue->GetFrontExecutor(); CObj<NAI::CPath> prepared = front ? front->GetCurrentPath() : nullptr;
+                Require(IsValid(front),"native door queue did not create its first movement executor");
+                std::printf("native door approach: approach=%d authored-dir=%d from=%d expected=%d prepared=%d last=%d pose=%d\n",
+                    i,approaches[i].GetDirection(),facing,test.expected,int(IsValid(prepared)),
+                    IsValid(prepared) ? prepared->points.back().GetDirection() : -1,from.GetPose());
+                if (test.expected != facing)
+                    Require(IsValid(prepared) && prepared->points.back().GetDirection() == test.expected,
+                        "native door queue omits the authored near-door approach turn");
+                else
+                    Require(!IsValid(prepared),"native door queue adds an unwanted turn for an aligned or opposite heading");
+                ++cases;
+                Require(actor->GetAP() == ap && door->IsOpen() == false,"preparing the native door queue executed a world action");
+            }
+        }
+    }
+    Require(cases >= 5,"door approach fixture did not cover its authored aligned, near-door and wrap headings");
+}
+
 static void DoorCollision()
 {
     CObj<RenderFixture> first = new RenderFixture, second = new RenderFixture;
@@ -14487,6 +14558,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "pk-fixed-weapon")) { PKFixedWeaponPolicy(); return true; }
     if (!std::strcmp(mode, "door-collision")) { DoorCollision(); return true; }
     if (!std::strcmp(mode, "door-swing-direction") && argc == 4) { DoorSwingDirection(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "door-approach-heading") && argc == 4) { DoorApproachHeading(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "overlapping-doors")) { OverlappingDoors(); return true; }
     if (!std::strcmp(mode, "weapon-familiarity")) { WeaponFamiliarity(); return true; }
     if (!std::strcmp(mode, "clue-slots")) { ClueSlotSelection(); return true; }
