@@ -4386,7 +4386,7 @@ public:
     void Drain() { ExecWorldCommands(); }
 };
 
-static void ScriptSoundStop(const char* databasePath,const char* resourcePath,bool spatial,bool unassigned = false)
+static void ScriptSoundStop(const char* databasePath,const char* resourcePath,bool spatial,bool unassigned = false,STime interfaceTime = 0)
 {
 #if defined(S2_UPSTREAM_NATIVE_SFX)
     Require(std::getenv("S2_AUDIO_HEADLESS") != nullptr,"script sound fixture requires headless native audio");
@@ -4399,6 +4399,7 @@ static void ScriptSoundStop(const char* databasePath,const char* resourcePath,bo
     CObj<NSound::ISoundScene> scene = NSound::CreateSoundScene(nullptr,nullptr,world->GetAimTime());
     CObj<ScriptSoundDispatchMission> mission = new ScriptSoundDispatchMission;
     mission->Attach(world,game,scene);
+    struct ClockRestore { STime previous; ~ClockRestore() { NMainLoop::SetTimeForHarness(previous); } } clock{NMainLoop::SetTimeForHarness(interfaceTime)};
     CDBIterator<NDb::CSound> sounds(*NDatabase::GetTable<NDb::CSound>());
     Require(sounds.MoveNext(),"script sound fixture has no native sound record");
     auto* record = sounds.Get(); record->bLoop = true; record->nStartSamples = record->nEndingSamples = 0;
@@ -4467,6 +4468,8 @@ static void ScriptSoundStop(const char* databasePath,const char* resourcePath,bo
     run("PlayHandle = "+play);
     const int played = channelExcept(-1);
     Require(played >= 0,"native Lua PlaySound dispatch did not start a real PCM channel");
+    if (interfaceTime != 0) Require(FSOUND_GetCurrentPosition(played) == 0,
+        "a fresh scripted sound inherited absolute interface time as a sample start offset");
     render();
     Require(FSOUND_GetCurrentPosition(played) > 0,"native scripted sound never advanced before StopSound");
     CObj<NFMSound::CSound2D> independent = NFMSound::PlaySound(sample2D);
@@ -12677,6 +12680,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "exit-menu-save-shortcut") && argc == 4) { ExitMenuSavePermission(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-load-save-tab") && argc == 4) { MainMenuLoadSaveTab(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-legacy-fixture-write") && argc == 5) { WriteLegacyChapterFixture(argv[2],argv[3],argv[4]); return true; }
+    if (!std::strcmp(mode, "script-sound-start-2d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],false,false,500); return true; }
+    if (!std::strcmp(mode, "script-sound-start-3d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],true,false,500); return true; }
     if (!std::strcmp(mode, "script-sound-unassigned-2d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "script-sound-unassigned-3d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],true,true); return true; }
     if (!std::strcmp(mode, "script-sound-stop-2d") && argc == 4) { ScriptSoundStop(argv[2],argv[3],false); return true; }

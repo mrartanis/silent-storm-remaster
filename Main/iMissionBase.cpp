@@ -53,7 +53,7 @@ bool CMissionBase::ExecWorldSoundCommand( NWorld::CUICmd *pCmd )
 	{
 		if ( pSound->b3DSound )
 			pSound->pChannel = reinterpret_cast<CObjectBase *>( GetSoundScene()->Add3DSound(
-				pSound->pSound, new NGScene::CCVec3( pSound->vPos ), GetTime() ) );
+				pSound->pSound, new NGScene::CCVec3( pSound->vPos ), 0 ) );
 		else
 			pSound->pChannel = GetSoundScene()->Add2DSound( pSound->pSound );
 		soundsList.push_back( pSound->pChannel.GetPtr() );

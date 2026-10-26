@@ -259,6 +259,7 @@
 | [e9dc218f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e9dc218fcbf45f8ae952b0381112beba1193ca02) — Resume chapter sound when a native menu returns focus | `returning from a native menu left the chapter audio channel permanently paused` | 24/24; `chapter-focus-audio` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Stop scripted sound through the mission-owned channel list | `native Lua StopSound cleared its weak handle but left the actual sound playing` | 43/43; `script-sound-stop` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Keep pending UI commands alive across native Lua collection | `an unassigned Lua PlaySound result was collected before its native UI command could start playback` | 313/313; `script-sound-unassigned` | `Upstream-Commit` в commit message |
+| [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Start fresh scripted positional sounds at the beginning of their sample | `a fresh scripted sound inherited absolute interface time as a sample start offset` | 66/66; `script-sound-start-offset` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1871,3 +1872,24 @@ PlaySound исправлено через владение очередью; ч�
 окончательного HEAD на GitHub остаётся отдельным обязательным условием
 завершения всего переноса. Непросмотренные и частично перенесённые строки
 покоммитного плана по-прежнему означают незавершённую работу.
+
+### Начальное смещение нового 3D-звука
+
+Из e399ef89 отдельно перенесён нулевой offset нового Add3DSound.
+Раньше обработчик передавал GetTime как начальное смещение внутри записи.
+При времени интерфейса 500 мс native RED подтвердил, что новый Play3DSound
+начинался внутри PCM, а контрольный PlaySound — с нуля.
+
+Тест управляет настоящими часами интерфейса через SetTimeForHarness,
+восстанавливая прежнее значение при выходе. Новая вспомогательная функция
+используется тестами; обычный игровой цикл продолжает задавать время как
+прежде. Проверяется позиция реального PCM-канала до ручного рендеринга,
+затем воспроизведение, StopSound, GC и независимый звуковой канал.
+Нормальная работа собственного аудиодвижка и частота GC сохраняются.
+
+Связанный набор — 66/66 на Windows (50.95 с) и Linux (48.69 с), обе игры
+собраны. Последний полный checkpoint — 313; текущее полное число — 315.
+Свидетельства: `script-sound-start-offset-{red,green}-{build,test}.log`,
+`script-sound-start-offset-game-build.log`, `script-sound-start-linux-*`.
+Оставшиеся части e399ef89 — ввод после загрузки и инициализация/обновление
+backdrop-меню; их перенос ещё не завершён.

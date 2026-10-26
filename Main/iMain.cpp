@@ -45,6 +45,12 @@ static STime currentTime;
 static bool bAppIsActive = false;
 static list< CPtr<CInterfaceCommand> > cmds;
 static list< CObj<IInterfaceBase> > interfaces;
+STime SetTimeForHarness( STime time )
+{
+	STime previous = currentTime;
+	currentTime = time;
+	return previous;
+}
 IInterfaceBase* GetCurrentInterfaceForHarness()
 {
 	return interfaces.empty() ? 0 : (IInterfaceBase*)interfaces.back();
