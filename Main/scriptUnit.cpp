@@ -374,8 +374,7 @@ BEGIN_SCRIPT_COMMAND( UnitReload, "u" )
 	CDynamicCast<NWorld::CUnitServer> pUS(luaParams[0].p);
 	if (pUS)
 	{
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdReload() ) );
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdContinue() ) );
+		DoCommand( pUS, new NWorld::CCmdReload(), true );
 	}
 	return 0;
 END_SCRIPT_COMMAND

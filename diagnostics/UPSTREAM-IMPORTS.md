@@ -3106,6 +3106,35 @@ all-build.log, related-test.log, linux-{configure,build,test}.log,
 Другие producers и inventory/UnitHide hunks 14ffbcc8 остаются отдельной работой.
 Формулы и исходные правила выбора позы не редактируются.
 
+## Очередь скриптовой перезарядки — часть 14ffbcc8
+
+UpstreamDeferredReloadCommand выбирает настоящий ordinary actor с оружием
+и совместимыми запасными патронами. Native DiscardAmmo используется только
+для подготовки fixture; CanReload подтверждает доступность перезарядки.
+Compiled runtime RED: commander-pending=0/unit-command=1, ammo=0 до/после.
+Первый build fixture обнаружил обращение DiscardAmmo через IWeaponItem;
+исправлена только типизация fixture через CWeaponItem, это не считается RED.
+
+После runtime RED только UnitReload переведён на существующий DoCommand с
+прежним CCmdReload(-1) и Continue. GREEN проверяет точный тип, active-weapon
+slot=-1, actor и ровно две wrappers в нужном порядке. До consumer сохраняются
+weapon identity, inner clip, его ammo, порядок/identity предметов рюкзака,
+количество патронов запасных clips, AP, position и отсутствие unit action.
+Режимы стрельбы и mixed script order повторно проходят. Стоимость reload,
+параметры perks, минимумы AP и реальное выполнение reload здесь не меняются.
+
+Связанные 73/73 прошли на Windows (90.70 с) и Linux (87.83 с), обе Game и
+Windows ALL_BUILD собраны; DisplayRuntimeTests и по 12 FONT-COMPAT controls
+включены. Windows NetworkSerializer/StopResume прошли 2/2 за 3.81 с.
+Текущий CPU base 337 не заявляется новым полным прогоном.
+
+Свидетельства deferred-reload-command: fixture-interface-build.log,
+red-{build,test}.log, red-native-test.log, green-{build,test}.log,
+green-native-test.log, all-build.log, related-test.log,
+linux-{configure,build,test}.log, {windows,linux}-native-test.log и
+network-{test,native-test}.log. Source 14ffbcc8 остаётся частичным;
+all281/final actual GitHub Actions ещё не завершены.
+
 ## Активация гранаты в неактивной руке — часть 14ffbcc8
 
 UpstreamScriptHeldGrenadeActivation вызывает настоящую UnitSwitchToGrenade
