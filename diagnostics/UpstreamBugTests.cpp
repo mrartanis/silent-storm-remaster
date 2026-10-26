@@ -12907,13 +12907,14 @@ static void RunScript(NScript::CScript* script, const char* code)
     pScript = nullptr;
 }
 
-enum class DeferredScriptProducer { Animation, Direction, Pose };
+enum class DeferredScriptProducer { Animation, Direction, Pose, WishPose };
 
 static void DeferredUnitScriptCommand(const char* databasePath,const char* resourcePath,
     DeferredScriptProducer producer = DeferredScriptProducer::Animation)
 {
     const bool direction = producer == DeferredScriptProducer::Direction;
     const bool pose = producer == DeferredScriptProducer::Pose;
+    const bool wishPose = producer == DeferredScriptProducer::WishPose;
     const bool animationMode = producer == DeferredScriptProducer::Animation;
     auto world = FixtureWorld(databasePath,resourcePath,true);
     vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
@@ -12931,12 +12932,14 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
     CObj<NScript::CScript> script = NScript::CreateScript(world);
     NScript::luaPushCPtr(*script,actor); script->SetGlobal("upstreamActor");
     const auto position = actor->GetPosition(); const int ap = actor->GetAP();
+    const auto originalWishPose = actor->GetWishPose();
     for (bool freeze : {false,true}) {
         const int requestedDirection = (position.pos.p.GetDirection()+(freeze ? 7 : 1))&7;
         const auto requestedPose = freeze ? NAI::WALK : NAI::CRAWL;
         string call;
         if (direction) call = "UnitSetDirection(upstreamActor,"+std::to_string(requestedDirection)+")";
         else if (pose) call = "UnitSetPose(upstreamActor,"+std::to_string(int(requestedPose))+")";
+        else if (wishPose) call = "UnitSetWishPose(upstreamActor,"+std::to_string(int(requestedPose))+")";
         else call = "UnitPlayAnimation(upstreamActor,4437,nil,"+string(freeze ? "1" : "nil")+")";
         const string code = call+"; UpstreamAnimationReturned = 19";
         RunScript(script,code.c_str());
@@ -12948,12 +12951,16 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
         else if (pose)
             std::printf("native script pose dispatch: requested=%d commander-pending=%d unit-command=%d\n",
                 int(requestedPose),int(commander->HasCommands()),int(actor->HasCommand()));
+        else if (wishPose)
+            std::printf("native script preferred-pose dispatch: requested=%d commander-pending=%d unit-command=%d before=%d after=%d\n",
+                int(requestedPose),int(commander->HasCommands()),int(actor->HasCommand()),int(originalWishPose),int(actor->GetWishPose()));
         else
             std::printf("native script animation dispatch: freeze=%d commander-pending=%d unit-command=%d\n",
                 int(freeze),int(commander->HasCommands()),int(actor->HasCommand()));
         Require(commander->HasCommands() && !actor->HasCommand(),
             direction ? "native script direction executes immediately instead of entering the owning commander's queue" :
             pose ? "native script pose bypasses the owning commander's queue" :
+            wishPose ? "native script preferred pose bypasses the owning commander's queue" :
             "native script animation executes immediately instead of entering the owning commander's queue");
         CObj<NWorld::CCommand> first = commander->GetCommand(), second = commander->GetCommand();
         auto* set = dynamic_cast<NWorld::CCmdSetCommand*>(first.GetPtr());
@@ -12970,6 +12977,10 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
             Require(path && path->ptDst.p == expected.pos.p && path->ptDst.pNet == expected.pos.pNet &&
                 path->eParams == NAI::PF_USE_POSEDIR,
                 "queued native script pose lost its PATH type, pose/direction option, tile, heading or network");
+        } else if (wishPose) {
+            auto* preference = dynamic_cast<NWorld::CCmdWishPose*>(set->GetCmd());
+            Require(preference && preference->pose == requestedPose,
+                "queued native script preferred pose lost its WISHPOSE type or requested value");
         } else {
             auto* play = dynamic_cast<NWorld::CCmdPlayAnimation*>(set->GetCmd());
             Require(play && play->nDBAnimationID == 4437 && play->bFreezeAfterLastFrame == freeze,
@@ -12979,6 +12990,8 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
             !commander->HasCommands(),"native animation did not queue exactly one ordered Continue");
         Require(!actor->HasCommand() && actor->GetAP() == ap &&
             actor->GetPosition().pos.p == position.pos.p,"queueing a script animation executed an actor action");
+        if (wishPose) Require(actor->GetWishPose() == originalWishPose,
+            "native preferred pose changed before its queued command was consumed");
     }
     if (animationMode) {
         RunScript(script,"UnitPlayAnimation(upstreamActor,4437,1); UpstreamAnimationReturned = 23");
@@ -14695,6 +14708,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "deferred-animation-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-direction-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::Direction); return true; }
     if (!std::strcmp(mode, "deferred-pose-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::Pose); return true; }
+    if (!std::strcmp(mode, "deferred-wish-pose-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::WishPose); return true; }
     if (!std::strcmp(mode, "forced-action-recalc") && argc == 4) { ForcedActionRecalc(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "overlapping-doors")) { OverlappingDoors(); return true; }
     if (!std::strcmp(mode, "weapon-familiarity")) { WeaponFamiliarity(); return true; }

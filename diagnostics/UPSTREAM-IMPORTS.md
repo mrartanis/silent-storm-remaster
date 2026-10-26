@@ -3077,6 +3077,35 @@ network-test.log и network-native-test.log. 14ffbcc8 остаётся част�
 остальные producers, UnitHide bool и выбор/активация предметов не перенесены
 этим исправлением. All281/final actual GitHub Actions ещё не завершены.
 
+## Предпочтительная поза через очередь — часть 14ffbcc8
+
+UpstreamDeferredWishPoseCommand переиспользует настоящий world/actor/Lua
+fixture с отдельным producer enum. Compiled runtime RED: вызов с CRAWL=0
+оставляет commander-pending=0/unit-command=0 и сразу меняет живой GetWishPose
+с WALK=2 на 0. Это подтверждение преждевременной мутации, а не требование
+наличия длительного executor у мгновенной команды.
+
+После RED только UnitSetWishPose переведён на существующий DoCommand с тем
+же CCmdWishPose и Continue. GREEN проверяет requested 0/2, точный WISHPOSE
+payload и две native wrappers с прежним actor/порядком без лишних записей.
+Живое предпочтение остаётся исходным WALK=2 до consumer; logical position,
+AP и unit action также не меняются. Само движение/его цена и применение
+команды в полном world step этим producer test не проверяются.
+
+Связанные 62/62 прошли на Windows (64.86 с) и Linux (58.58 с), обе Game и
+Windows ALL_BUILD собраны; по 12 FONT-COMPAT controls сохранены. Windows
+NetworkSerializer/StopResume прошли 2/2 за 3.95 с. Все ранее добавленные
+producer/forced-recalc проверки входят в связанный набор.
+Текущий CPU base 330 не заявляется новым полным прогоном; последний полный
+checkpoint остаётся c97d9971 с CPU base 324 плюс пять native/GPU случаев.
+
+Свидетельства deferred-wish-pose-command: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log, network-test.log и network-native-test.log.
+Другие producers и inventory/UnitHide hunks 14ffbcc8 остаются отдельной работой.
+Формулы и исходные правила выбора позы не редактируются.
+
 ## Выпадающий список вне clip вложенной строки — часть c0f64c74
 
 Новый resource-free UpstreamComboPopupClipping создаёт настоящие CInterface,

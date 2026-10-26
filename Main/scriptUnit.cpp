@@ -285,8 +285,7 @@ BEGIN_SCRIPT_COMMAND( UnitSetWishPose, "un" )
 	if (pUS)
 	{
 		NAI::EPose pose = ( NAI::EPose )luaParams[ 1 ].n;
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdWishPose( pose ) ) );
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdContinue() ) );
+		DoCommand( pUS, new NWorld::CCmdWishPose( pose ), true );
 	}
 	return 0;
 END_SCRIPT_COMMAND
