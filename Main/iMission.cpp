@@ -2013,7 +2013,7 @@ bool CMission::ProcessEvent( const NInput::SEvent &sEvent )
 	else if ( bindHide.ProcessEvent( sEvent ) )
 	{
 		SActionInfo sAction;
-		GetActionInfo( UA_STRAFE, &sAction );
+		GetActionInfo( UA_HIDE, &sAction );
 		if ( sAction.eResult == NWorld::UCR_OK )
 		{
 			vector< CPtr<NGame::IUnitTracker> > unitsSet;

@@ -9631,6 +9631,68 @@ static void SharedActionShortcutPriority()
     Require(!NMainLoop::HaveInterfaceCommand(), "shared-key mode selection queued a game command");
 }
 
+class HideShortcutMission: public SharedShortcutMission
+{
+    OBJECT_NOCOPY_METHODS(HideShortcutMission);
+public:
+    vector<CPtr<NGame::IUnitTracker>> selection;
+    vector<NGame::EUnitAction> queries;
+    vector<CObj<NWorld::CCmd>> commands;
+    vector<CPtr<NWorld::CUnit>> recipients;
+    void GetSelectedUnits(vector<CPtr<NGame::IUnitTracker>>* result) const override { *result = selection; }
+    void GetActionInfo(NGame::EUnitAction action,NGame::SActionInfo* info) override {
+        queries.push_back(action);
+        CMission::GetActionInfo(action,info);
+    }
+    void Command(NWorld::CUnit* unit,NWorld::CCmd* command,bool instantly = true) override {
+        Require(instantly, "Hide shortcut lost its immediate-start request");
+        recipients.push_back(unit); commands.emplace_back(command);
+    }
+};
+
+static void HideShortcutEligibility()
+{
+    CObj<HideShortcutMission> mission = new HideShortcutMission;
+    mission->Prepare();
+    CObj<NWorld::CUnitServer> actor = new NWorld::CUnitServer;
+    CObj<NGame::CUnitTracker> tracker = new NGame::CUnitTracker(mission,actor);
+    mission->selection.push_back(tracker.GetPtr());
+    const auto event = SharedActionEvent({"hide"});
+    auto send = [&](bool hideAllowed,bool strafeAllowed) {
+        vector<NGame::SActionInfo> actions(NGame::UA_MAXVALUE);
+        for (auto& action: actions) { action.bValid = true; action.eResult = NWorld::UCR_UNAVAILABLE; }
+        for (auto action: {NGame::UA_HIDE,NGame::UA_STRAFE}) {
+            const bool allowed = action == NGame::UA_HIDE ? hideAllowed : strafeAllowed;
+            actions[action].bAvailable = actions[action].bOk = allowed;
+            actions[action].eResult = allowed ? NWorld::UCR_OK : NWorld::UCR_UNAVAILABLE;
+        }
+        mission->CacheActions(actions);
+        mission->queries.clear(); mission->commands.clear(); mission->recipients.clear();
+        mission->ProcessEvent(event);
+        std::printf("Hide hotkey: hide=%d strafe=%d commands=%zu queried=%d\n",
+            int(hideAllowed),int(strafeAllowed),mission->commands.size(),
+            mission->queries.empty() ? -1 : int(mission->queries.back()));
+        Require(mission->commands.size() == size_t(hideAllowed),
+            hideAllowed ? "available Hide shortcut was blocked by unavailable Strafe"
+                        : "unavailable Hide shortcut issued a command because Strafe was available");
+        if (hideAllowed) {
+            Require(dynamic_cast<NWorld::CCmdHide*>(mission->commands.front().GetPtr()) &&
+                mission->recipients.front() == actor.GetPtr(),
+                "Hide shortcut changed its command or selected recipient");
+        }
+    };
+    // Establish both original agreeing-action controls before the divergent case.
+    send(false,false); send(true,true);
+    send(true,false); send(false,true);
+    Require(mission->queries.size() == 1 && mission->queries.front() == NGame::UA_HIDE,
+        "Hide shortcut did not ask its own cached action availability");
+    mission->selection.clear();
+    mission->commands.clear(); mission->recipients.clear();
+    mission->ProcessEvent(event);
+    Require(mission->commands.empty(), "Hide shortcut issued a command without a selection");
+    Require(!NMainLoop::HaveInterfaceCommand(), "Hide shortcut queued an unrelated interface command");
+}
+
 class NativeActionInfoMission: public NGame::CMission
 {
     OBJECT_NOCOPY_METHODS(NativeActionInfoMission);
@@ -15139,6 +15201,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "grenade-completion-visibility")) { Require(argc == 4, "grenade visibility requires db and res"); GrenadeCompletionVisibility(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
+    if (!std::strcmp(mode, "hide-shortcut-eligibility")) { HideShortcutEligibility(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "assigned-level-experience")) { Require(argc == 3, "assigned level experience requires db"); AssignedLevelExperience(argv[2]); return true; }
     if (!std::strcmp(mode, "persona-full-display-name")) { Require(argc == 3, "full display name requires db"); PersonaFullDisplayName(argv[2]); return true; }

@@ -3731,3 +3731,29 @@ all-build.log, related-test.log, linux-{configure,build,test}.log,
 UnitHide optional bool зависит от stateful API 432b64c8; both-held-grenade
 priority coverage и DB-only engineering classification остаются на проверке.
 Source14 и весь аудит/final actual Actions ещё не завершены.
+
+## Доступность горячей клавиши скрытности — часть 432b64c8
+
+UpstreamHideShortcutEligibility вызывает настоящий CMission::ProcessEvent
+через PostEvent/CBind, настоящий action cache и CUnitTracker. Outbound
+Command перехватывается на границе: тест не исполняет игровое действие и
+не подменяет расчёт его стоимости. В cache заданы четыре сочетания разрешений
+Hide/Strafe. Два согласованных контроля проходят до divergent RED:
+Hide разрешён, Strafe запрещён — команда отсутствует, запрошен UA_STRAFE.
+После runtime RED только bindHide GetActionInfo заменён на UA_HIDE.
+
+GREEN: все четыре сочетания, точный CCmdHide/выбранный адресат, отсутствие
+команды при запрещённом Hide и доступном Strafe, пустой выбор и отсутствие
+посторонних interface commands. Этот тест подтверждает правильный routing
+готовой action availability; реальная возможность скрыться в конкретном бою,
+групповая операция и stateful Hide остаются отдельными проверками.
+
+Связанные Hide/Hiding/Strafe/Shortcut/Registration/font/GPU/input проверки:
+20/20 Windows (10.00 с), 20/20 Linux (9.54 с), обе Game и Windows ALL_BUILD
+собраны. По 12 FONT-COMPAT; оба raw LastTest полные, без NUL.
+Свидетельства hide-shortcut-eligibility: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log. CPU base 351, полный 351 не запускался.
+Source432 и all281/final actual Actions не завершены; API/serialization,
+групповой Hide, PK damage и цвет/fade не входят в этот однострочный фикс.
