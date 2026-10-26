@@ -644,20 +644,12 @@ END_SCRIPT_COMMAND
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 BEGIN_SCRIPT_COMMAND( UnitGetRoute, "u" )
 	CDynamicCast<NWorld::CUnitServer> pUS(luaParams[0].p);
-	if (pUS)
+	CPtr<NAI::IAIUnit> pUnit = NAI::GetAIUnit( pUS );
+	if ( IsValid( pUnit ) )
 	{
-		CDynamicCast<NAI::CAICommander> pCommander(pUS->GetPlayer()->GetCommander());
-		if (pCommander)
-		{
-			CPtr<NAI::IAIUnit> pUnit( pCommander->GetAIUnit( pUS ) );
-			if ( IsValid( pUnit ) )
-			{
-				// Retail's route slot is an IAILogic, not the predecessor CTask.
-				// Common.l keeps this handle while WaitForUnitRoute polls it.
-				luaPushCPtr( pState, pUnit->GetRouteLogic() );
-				return 1;
-			}
-		}
+		// Preserve the route slot and our route-specific completion latch.
+		luaPushCPtr( pState, pUnit->GetRouteLogic() );
+		return 1;
 	}
 	pScript->PushNil();
 	return 1;

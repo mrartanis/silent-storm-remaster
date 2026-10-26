@@ -3869,3 +3869,55 @@ related-test.log, linux-{configure,build,test}.log,
 UnitHide bool dependency теперь перенесена. Source14 остаётся частичным:
 both-held priority controls и DB-only engineer classification/retail review.
 All281/final actual Actions ещё не завершены.
+
+## Общий checkpoint после script dispatch и Hide — HEAD 69d75801
+
+До следующего изменения выполнен полный актуальный набор 359:
+CPU base 354, три native medal и Bgfx/DisplayRuntime. Windows 359/359
+(299.84 с), Linux 359/359 (299.98 с), включая 14 native-audio случаев и
+по 12 FONT-COMPAT. Raw LastTest на обеих платформах содержит все 359 blocks
+без NUL; исправление nested CTest больше не теряет первый Bound.
+
+Windows CI-like набор без baseline/extended/GPU: 276/276 (24.54 с),
+raw276 полный, без NUL, с FONT-COMPAT controls. Свидетельства
+script-dispatch-checkpoint: full-test.log, windows-native-test.log,
+linux-{configure,build,test}.log, linux-native-test.log,
+ci-test.log и ci-native-test.log. Это локальный checkpoint точного HEAD.
+GitHub Actions run 40421094390 при наблюдении ещё собирал проект, Test pending;
+он не объявляется успешным и не заменяет финальную проверку после всех переносов.
+
+## Безопасный запрос маршрута пустого панцеркляйна — часть 8da24a09
+
+UpstreamEmptyPKRouteLookup расширяет существующий native PK fixture отдельной
+query веткой: настоящий world/pilot, authored suit через AddUnitInGame, валидный
+пустой корпус без владельца. До опасного вызова проходят nil/non-AI controls,
+а настоящий AI actor получает CAIRouteLogic/Wait(100) через SetRouteLogic.
+Lua возвращает точную route identity; RouteIsFinished даёт nil до Finish
+и 1 после него. Первая подготовка использовала SetLogic (combat slot) и
+не прошла fixture precondition; она исправлена до содержательного RED,
+исходный fixture-slot-test.log сохранён.
+
+Compiled runtime RED: после сообщения об успешных controls
+UnitGetRoute(ownerless empty PK) завершается SEGFAULT. Только затем
+прямая цепочка GetPlayer/GetCommander заменена существующим NAI::GetAIUnit,
+который проверяет nil owner и EmptyPK. GetRouteLogic сохранён.
+
+Наш RouteIsFinished по CAIRouteLogic::IsRouteComplete не изменяется.
+Собственный bc7e00aa74e21cf895ba56c2574238fcc7916f05 уже восстановил ожидание;
+upstream generic IAILogic::IsFinished не подставляется вместо нашего latch.
+Это адаптация к текущему движку, а не повторный перенос старого route stub.
+
+GREEN 5/5, связанные 48/48 Windows (41.00 с) и Linux (40.30 с),
+обе Game и Windows ALL_BUILD собраны, по 12 FONT-COMPAT, raw48 полные без NUL.
+NativeScriptRouteWaitTests и NetworkSerializer/StopResume: 3/3 (4.03 с).
+Проверены nil возврат/завершение callback/нет pilot orders и настоящая route
+identity/completion; полный сценарий движения/sequence/LAN не заявляется.
+
+Свидетельства empty-pk-route-lookup: fixture-slot-test.log,
+red-{build,test}.log, red-native-test.log, green-{build,test}.log,
+green-native-test.log, all-build.log, related-test.log,
+linux-{configure,build,test}.log, {windows,linux}-native-test.log,
+network-{test,native-test}.log. CPU base 355; последний полный checkpoint
+остаётся base354+5=359 на HEAD69d75801. Source8da теперь partially-imported:
+hint slot placement, world spawning и exhaustion cleanup ещё проверяются.
+All281/final actual Actions не завершены.

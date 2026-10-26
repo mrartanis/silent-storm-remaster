@@ -13643,7 +13643,7 @@ static void DeferredCorpseCommand(const char* databasePath,const char* resourceP
         "native corpse producer changed position/AP/carry state or body attachment before queued consumption");
 }
 
-static void DeferredPKCommand(const char* databasePath,const char* resourcePath,bool leave = true)
+static void DeferredPKCommand(const char* databasePath,const char* resourcePath,bool leave = true,bool queryRoute = false)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath,resourcePath,true,&game);
@@ -13677,6 +13677,44 @@ static void DeferredPKCommand(const char* databasePath,const char* resourcePath,
     CObj<NScript::CScript> script = NScript::CreateScript(world);
     NScript::luaPushCPtr(*script,pilot); script->SetGlobal("upstreamPilot");
     NScript::luaPushCPtr(*script,shell.GetPtr()); script->SetGlobal("upstreamShell");
+    if (queryRoute) {
+        Require(!IsValid(shell->GetPlayer()), "empty PK route fixture unexpectedly has a player owner");
+        RunScript(script,"UpstreamNilRoute=UnitGetRoute(nil); UpstreamHumanRoute=UnitGetRoute(upstreamPilot); UpstreamRouteReturned=7");
+        auto returned = script->GetGlobal("UpstreamRouteReturned");
+        Require(returned.IsNumber() && returned.GetNumber() == 7 &&
+            script->GetGlobal("UpstreamNilRoute").IsNil() && script->GetGlobal("UpstreamHumanRoute").IsNil(),
+            "route lookup lost nil/non-AI controls");
+        NWorld::CUnitServer* actor = nullptr; NAI::IAIUnit* ai = nullptr;
+        for (auto& entry: units) {
+            auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+            if (unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) {
+                auto* candidate = NAI::GetAIUnit(unit);
+                if (candidate) { actor = unit; ai = candidate; break; }
+            }
+        }
+        Require(actor && ai, "route lookup fixture has no real AI-controlled actor");
+        CObj<NAI::CAIRouteLogic> route = new NAI::CAIRouteLogic(ai);
+        route->AddCommand(new NAI::CTaskCommandWait(100));
+        ai->SetRouteLogic(route);
+        Require(ai->GetRouteLogic() == route.GetPtr(), "route lookup fixture did not install its real route logic");
+        NScript::luaPushCPtr(*script,actor); script->SetGlobal("upstreamRouteActor");
+        RunScript(script,"UpstreamRealRoute=UnitGetRoute(upstreamRouteActor); UpstreamRouteFinished=RouteIsFinished(UpstreamRealRoute)");
+        auto actual = script->GetGlobal("UpstreamRealRoute");
+        Require(actual.IsUserData() && NScript::luaGetPtr(actual) == route.GetPtr() &&
+            script->GetGlobal("UpstreamRouteFinished").IsNil(),
+            "route lookup lost the actual route identity or reported its unfinished wait complete");
+        route->Finish();
+        RunScript(script,"UpstreamRouteFinished=RouteIsFinished(UpstreamRealRoute)");
+        actual = script->GetGlobal("UpstreamRouteFinished");
+        Require(actual.IsNumber() && actual.GetNumber() == 1, "route lookup stopped observing our own completion latch");
+        std::puts("native UnitGetRoute: nil/non-AI and real route identity/completion controls passed; querying ownerless empty PK");
+        std::fflush(stdout);
+        RunScript(script,"UpstreamShellRoute=UnitGetRoute(upstreamShell); UpstreamRouteReturned=11");
+        returned = script->GetGlobal("UpstreamRouteReturned");
+        Require(returned.IsNumber() && returned.GetNumber() == 11 && script->GetGlobal("UpstreamShellRoute").IsNil() &&
+            !commander->HasCommands() && !pilot->HasCommand(), "empty PK route lookup did not return nil without a command");
+        return;
+    }
     if (leave) {
         RunScript(script,"UpstreamNilShell = UnitLeavePK(nil); UpstreamMissingShell = UnitLeavePK(upstreamPilot); UpstreamPKReturned = 11");
         Require(script->GetGlobal("UpstreamNilShell").IsNil() && script->GetGlobal("UpstreamMissingShell").IsNil(),
@@ -15767,6 +15805,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "deferred-drop-corpse-command") && argc == 4) { DeferredCorpseCommand(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "deferred-leave-pk-command") && argc == 4) { DeferredPKCommand(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-wear-pk-command") && argc == 4) { DeferredPKCommand(argv[2],argv[3],false); return true; }
+    if (!std::strcmp(mode, "empty-pk-route-lookup") && argc == 4) { DeferredPKCommand(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "deferred-script-command-order") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode,true); return true; }
     if (!std::strcmp(mode, "script-draw-weapon-slot") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-draw-weapon-command") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3],true); return true; }
