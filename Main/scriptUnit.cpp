@@ -853,8 +853,7 @@ BEGIN_SCRIPT_COMMAND( UnitAttackWaypoint, "us" )
 		if ( IsValid( pWaypoint ) )
 		{
 			CVec3 cp = pWaypoint->pos.GetCP();
-			pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdShootTile( cp ) ) );
-			pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdContinue() ) );
+			DoCommand( pUS, new NWorld::CCmdShootTile( cp ), true );
 		}
 	}
 	return 0;

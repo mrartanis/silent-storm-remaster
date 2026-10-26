@@ -3125,6 +3125,32 @@ patch поверх нашего кода не запускался. Не зая�
 проверяют каждый `u` consumer или весь tutorial. Полезных независимых hunks
 в этом source нет, статус excluded-own-behavior; production не редактируется.
 
+## Очередь атаки по waypoint — часть 14ffbcc8
+
+Отдельно зарегистрирован UpstreamDeferredAttackWaypointCommand: тот же
+настоящий world/actor и loaded ground/3D waypoint fixture вызывает реальную
+UnitAttackWaypoint. Nil actor/missing point controls проходят. Compiled
+runtime RED: fly=0/3D=0, queued=0/unit-command=1. После RED только dispatch
+ShootTile(cp)/Continue переведён на DoCommand; прежний GetCP и flags сохранены.
+
+GREEN для обеих точек проверяет CCmdShootTile, точный target GetCP,
+reload replacement=false, actor и ровно две wrappers/Continue. До consumer
+нет unit action, перемещения/AP/ammo/смены оружия или изменения registry
+point. Fly companion сохраняет свои позиционные проверки. Фактическая
+стрельба/попадание/урон, AP cost и LAN playback здесь не исполняются.
+
+Связанные producer/queue/waypoint/flying/shoot/reload/mounted и native medal/
+GPU/display проверки прошли 52/52 на Windows (51.47 с) и Linux (50.20 с),
+обе Game и Windows ALL_BUILD собраны, по 12 FONT-COMPAT controls сохранены.
+Windows NetworkSerializer/StopResume прошли 2/2 за 6.08 с. Текущий CPU base
+346 не заявляется новым полным прогоном.
+
+Свидетельства deferred-attack-waypoint-command: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log и network-{test,native-test}.log.
+Source 14ffbcc8 и all281/final actual Actions ещё не завершены.
+
 ## Очередь полёта к waypoint — часть 14ffbcc8
 
 UpstreamDeferredFlyWaypointCommand использует настоящий ordinary actor world
