@@ -12907,7 +12907,7 @@ static void RunScript(NScript::CScript* script, const char* code)
     pScript = nullptr;
 }
 
-enum class DeferredScriptProducer { Animation, Direction, Pose, WishPose, ShootMode, Reload };
+enum class DeferredScriptProducer { Animation, Direction, Pose, WishPose, ShootMode, Reload, ActivateWeapon };
 
 static void DeferredUnitScriptCommand(const char* databasePath,const char* resourcePath,
     DeferredScriptProducer producer = DeferredScriptProducer::Animation,bool mixedOnly = false)
@@ -12917,6 +12917,7 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
     const bool wishPose = producer == DeferredScriptProducer::WishPose;
     const bool shootMode = producer == DeferredScriptProducer::ShootMode;
     const bool reload = producer == DeferredScriptProducer::Reload;
+    const bool activateWeapon = producer == DeferredScriptProducer::ActivateWeapon;
     const bool animationMode = producer == DeferredScriptProducer::Animation;
     auto world = FixtureWorld(databasePath,resourcePath,true);
     vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
@@ -12924,7 +12925,7 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
     for (auto unit : units) {
         auto* candidate = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
         if (!candidate || !candidate->CanFight()) continue;
-        if (shootMode || reload) {
+        if (shootMode || reload || activateWeapon) {
             auto* weapon = candidate->GetUnitRPG()->GetWeaponItem();
             if (candidate->IsEmptyPK() || candidate->IsWearingPK() || candidate->animator.GetCannon() || !weapon) continue;
             if (shootMode && (!weapon->IsShootModeSupported(NDb::SM_Snap) || !weapon->IsShootModeSupported(NDb::SM_Aimed))) continue;
@@ -12947,7 +12948,8 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
     NScript::luaPushCPtr(*script,actor); script->SetGlobal("upstreamActor");
     const auto position = actor->GetPosition(); const int ap = actor->GetAP();
     const auto originalWishPose = actor->GetWishPose();
-    auto* weapon = (shootMode || reload) ? actor->GetUnitRPG()->GetWeaponItem() : nullptr;
+    const bool originalActiveItem = actor->animator.IsActiveItem();
+    auto* weapon = (shootMode || reload || activateWeapon) ? actor->GetUnitRPG()->GetWeaponItem() : nullptr;
     auto* clip = weapon ? weapon->GetInnerClip() : nullptr;
     const int ammo = weapon ? weapon->GetAmmoQuantity() : 0;
     vector<std::pair<CPtr<NRPG::IInventoryItem>,int>> backpack;
@@ -12967,6 +12969,7 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
         else if (wishPose) call = "UnitSetWishPose(upstreamActor,"+std::to_string(int(requestedPose))+")";
         else if (shootMode) call = "UnitSetShootMode(upstreamActor,"+std::to_string(int(requestedMode))+")";
         else if (reload) call = "UnitReload(upstreamActor)";
+        else if (activateWeapon) call = "UnitActivateWeapon(upstreamActor,"+string(freeze ? "1" : "nil")+")";
         else call = "UnitPlayAnimation(upstreamActor,4437,nil,"+string(freeze ? "1" : "nil")+")";
         const string code = call+"; UpstreamAnimationReturned = 19";
         RunScript(script,code.c_str());
@@ -12987,6 +12990,9 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
         else if (reload)
             std::printf("native script reload dispatch: commander-pending=%d unit-command=%d ammo-before=%d ammo-after=%d\n",
                 int(commander->HasCommands()),int(actor->HasCommand()),ammo,weapon->GetAmmoQuantity());
+        else if (activateWeapon)
+            std::printf("native script weapon activation: requested=%d commander-pending=%d unit-command=%d walk-without-weapon=%d\n",
+                int(freeze),int(commander->HasCommands()),int(actor->HasCommand()),int(actor->IsWalkingWithoutWeapon()));
         else
             std::printf("native script animation dispatch: freeze=%d commander-pending=%d unit-command=%d\n",
                 int(freeze),int(commander->HasCommands()),int(actor->HasCommand()));
@@ -12996,6 +13002,7 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
             wishPose ? "native script preferred pose bypasses the owning commander's queue" :
             shootMode ? "native script fire mode bypasses the owning commander's queue" :
             reload ? "native script reload bypasses the owning commander's queue" :
+            activateWeapon ? "native script weapon activation bypasses the owning commander's queue" :
             "native script animation executes immediately instead of entering the owning commander's queue");
         CObj<NWorld::CCommand> first = commander->GetCommand(), second = commander->GetCommand();
         auto* set = dynamic_cast<NWorld::CCmdSetCommand*>(first.GetPtr());
@@ -13022,6 +13029,12 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
         } else if (reload) {
             auto* request = dynamic_cast<NWorld::CCmdReload*>(set->GetCmd());
             Require(request && request->nSlot == -1,"queued native script reload lost its type or active-weapon slot");
+        } else if (activateWeapon) {
+            auto* path = dynamic_cast<NWorld::CCmdPath*>(set->GetCmd());
+            Require(path && path->ptDst.p == position.pos.p && path->ptDst.pNet == position.pos.pNet &&
+                path->eParams == NAI::PF_DEFAULT && !path->bLeaveZone && !path->bCanFindNotExact &&
+                path->needActiveItem == (freeze ? NWorld::ITEM_ACTIVE : NWorld::ITEM_INACTIVE),
+                "queued native weapon activation lost its PATH destination, flags or requested hand state");
         } else {
             auto* play = dynamic_cast<NWorld::CCmdPlayAnimation*>(set->GetCmd());
             Require(play && play->nDBAnimationID == 4437 && play->bFreezeAfterLastFrame == freeze,
@@ -13035,6 +13048,10 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
             "native preferred pose changed before its queued command was consumed");
         if (shootMode) Require(actor->GetUnitRPG()->GetWeaponItem() == weapon && weapon->GetShootMode() == NDb::SM_Snap,
             "native weapon mode changed before its queued script command was consumed");
+        if (activateWeapon) Require(actor->IsWalkingWithoutWeapon() == !freeze &&
+            actor->animator.IsActiveItem() == originalActiveItem &&
+            actor->GetUnitRPG()->GetWeaponItem() == weapon && weapon->GetAmmoQuantity() == ammo,
+            "queued weapon activation lost the immediate persistent holster preference or changed the live weapon");
         if (reload) {
             const auto& items = actor->GetUnitRPG()->GetInventory()->GetItems();
             Require(actor->GetUnitRPG()->GetWeaponItem() == weapon && weapon->GetInnerClip() == clip &&
@@ -15009,6 +15026,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "deferred-wish-pose-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::WishPose); return true; }
     if (!std::strcmp(mode, "deferred-shoot-mode-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode); return true; }
     if (!std::strcmp(mode, "deferred-reload-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::Reload); return true; }
+    if (!std::strcmp(mode, "deferred-weapon-activation-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ActivateWeapon); return true; }
     if (!std::strcmp(mode, "deferred-shoot-command") && argc == 4) { DeferredScriptShot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-shoot-prepare-command") && argc == 4) { DeferredScriptShot(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "deferred-script-command-order") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode,true); return true; }

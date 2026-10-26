@@ -3125,6 +3125,39 @@ patch поверх нашего кода не запускался. Не зая�
 проверяют каждый `u` consumer или весь tutorial. Полезных независимых hunks
 в этом source нет, статус excluded-own-behavior; production не редактируется.
 
+## Очередь скриптовой активации оружия — часть 14ffbcc8
+
+UpstreamDeferredWeaponActivationCommand использует настоящий ordinary armed
+actor world 810 и реальную UnitActivateWeapon(nil/1). Compiled runtime RED:
+requested=0, commander-pending=0/unit-command=1, walk-without-weapon=1.
+Отдельно сохраняем различие между persistent intent и выполнением действия.
+
+После RED только непосредственные PATH/Continue заменены на DoCommand с тем
+же payload. SetWalkWithoutWeapon остаётся на прежнем месте и записывается
+сразу. GREEN для inactive/active проверяет точную destination/network,
+PF_DEFAULT, false leaveZone/findNotExact, needActiveItem, actor и две wrappers
+с Continue. Живые animator.IsActiveItem, weapon identity/ammo, AP/position и
+unit action до consumer не меняются; persistent holster preference уже
+соответствует просьбе Lua. Существующий ScriptHolsterPersistence без
+изменений также проверяет сериализованный tag26 и default argument.
+
+Связанные 84/84 прошли на Windows (99.46 с) и Linux (98.42 с), обе Game и
+Windows ALL_BUILD собраны. Набор включает прежние holster/movement/active-item,
+native medal panel/camera, DisplayRuntimeTests и по 12 FONT-COMPAT controls.
+Windows NetworkSerializer/Preparation/StopResume прошли 3/3 за 33.07 с.
+Известный nested CTest logging defect снова теряет первый Bound block в raw
+Windows LastTest (83 блока при корректном summary 84/84). Исходный raw
+сохранён; NativeBoundAccumulatorTests отдельно прошёл 1/1 с отдельным raw.
+Исправление самой read-only inventory проверки остаётся отдельной CI работой.
+Текущий CPU base 340 не заявляется новым полным прогоном. Это producer test,
+не полный draw/holster clip, стоимость AP, hold-aim или facial animation.
+
+Свидетельства deferred-weapon-activation-command: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log и network-{test,native-test}.log.
+Source 14ffbcc8 и all281/final actual Actions ещё не завершены.
+
 ## Очередь скриптовой подготовки выстрела — часть 14ffbcc8
 
 Отдельно зарегистрирован UpstreamDeferredShootPrepareCommand с тем же

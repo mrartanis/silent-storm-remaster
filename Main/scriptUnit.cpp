@@ -610,9 +610,7 @@ BEGIN_SCRIPT_COMMAND( UnitActivateWeapon, "ub[true]" )
 	if (pUS)
 	{
 		NWorld::ENeedActiveItem needActiveItem = luaParams[ 1 ].b ? NWorld::ITEM_ACTIVE : NWorld::ITEM_INACTIVE;
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, 
-			new NWorld::CCmdPath( pUS->GetPosition().pos, NAI::PF_DEFAULT, needActiveItem ) ) );
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdContinue() ) );
+		DoCommand( pUS, new NWorld::CCmdPath( pUS->GetPosition().pos, NAI::PF_DEFAULT, needActiveItem ), true );
 		pUS->SetWalkWithoutWeapon( !luaParams[ 1 ].b );
 	}
 	return 0;
