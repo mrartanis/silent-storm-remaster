@@ -963,6 +963,8 @@ add_test(NAME UpstreamOwnedAIActionEnemy COMMAND UpstreamBugTests owned-ai-actio
 add_test(NAME UpstreamOwnedAIPlaceEnemy COMMAND UpstreamBugTests owned-ai-place-enemy)
 add_test(NAME UpstreamMountedAILogCommands COMMAND UpstreamBugTests mounted-ai-log-commands)
 if(S2_GAME_DIR)
+  add_test(NAME NativeMainMenuScriptCadence COMMAND UpstreamBugTests main-menu-script-cadence "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
+  set_tests_properties(NativeMainMenuScriptCadence PROPERTIES LABELS "extended;native-display" WORKING_DIRECTORY "${S2_GAME_DIR}" ENVIRONMENT "S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/upstream-native-main-menu-cadence-user")
   add_test(NAME NativeMainMenuMapScript COMMAND UpstreamBugTests main-menu-map-script "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   set_tests_properties(NativeMainMenuMapScript PROPERTIES LABELS "extended;native-display" WORKING_DIRECTORY "${S2_GAME_DIR}" ENVIRONMENT "S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/upstream-native-main-menu-user")
   add_test(NAME NativeMainMenuAuthoredScript COMMAND UpstreamBugTests main-menu-authored-script "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")

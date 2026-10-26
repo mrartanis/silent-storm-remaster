@@ -31,9 +31,6 @@
 #include "..\DBFormat\DataSound.h"
 #include "..\DBFormat\DataFormat.h"
 #include "..\DBFormat\DataCamera.h"
-#include "A5Script.h"
-#include "wMain.h"
-#include "wUICommands.h"
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 const int
 	N_MAINMENU_CAMERA = 26,
@@ -287,18 +284,7 @@ void CMainMenuInterface::Step()
 
 	if ( CanRender() )
 	{
-		// Advance the menu world's script coroutines (PlayMenuMan) each rendered frame. The world's Segment
-		// (driven by RenderFrame->UpdateViewWorld->UpdateWorld) also ticks pOwnScript and clears the object
-		// action flags, but tick here too so the menu animation keeps advancing on frames the world does not
-		// segment. (lua_dobuffer queues chunks; ExecuteThreads is what actually runs them + the StartThread'd
-		// PlayMenuMan loop.)
-		if ( NWorld::CWorld *pCWorld = CDynamicCast<NWorld::CWorld>( GetWorld() ) )
-			pCWorld->ExecuteOwnScript();	// sets the active-script context first; a bare ExecuteThreads() crashes after returning from a pushed interface (GetScript()==0)
-
-		// Deliberately NO camera-command executor here: retail's menu camera is STATIC (the one
-		// GetDBCamera(26) SetPlacement in Initialize); the script-85 camera fly is cut content whose
-		// queued commands retail never plays either (see the Initialize note).
-
+		// RenderFrame advances the world segments and their script coroutines.
 		// Render the 3D menu world full-screen. The predecessor derived a sub-rect from a "clientview" UI
 		// control, but the retail menu container (347) ships no such control (-> GetUIWindow fell back to a
 		// zero-size window -> zero camera screen-rect -> RenderFrame skipped pScene->Draw -> no 3D backdrop,

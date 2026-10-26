@@ -2633,7 +2633,7 @@ static void BackdropScriptAudio(const char* databasePath,const char* resourcePat
 #endif
 }
 
-static void MainMenuMapScript(const char* databasePath,const char* resourcePath,bool authored = false)
+static void MainMenuMapScript(const char* databasePath,const char* resourcePath,bool authored = false,bool cadence = false)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"main-menu script fixture requires isolated user data");
     Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"main-menu script fixture started with an active interface");
@@ -2700,6 +2700,21 @@ static void MainMenuMapScript(const char* databasePath,const char* resourcePath,
         Require(NMainLoop::StepApp(true,false,false),"native main-menu script frame requested exit");
         Require(NMainLoop::GetCurrentInterfaceForHarness() == menu.GetPtr() && !NMainLoop::HaveInterfaceCommand(),"the main-menu script fixture changed interfaces");
     };
+    if (cadence) {
+        frame(1050); // Establish the renderer/world baseline before the new coroutine.
+        Require(script->DoString("MenuFrameRuns = 0; while 1 do MenuFrameRuns = MenuFrameRuns + 1; Sleep(1) end") == 0,
+            "menu cadence fixture could not queue its native sleeping coroutine");
+        const STime frozenWorld = world->GetAimTime()->GetValue();
+        for (int tick = 0; tick < 4; ++tick) frame(1050);
+        Require(world->GetAimTime()->GetValue() == frozenWorld,"menu cadence fixture unexpectedly advanced its frozen world time");
+        Require(absent("MenuFrameRuns"),"the main menu executed a sleeping Lua coroutine between native world segments");
+        for (int tick = 0; tick < 8; ++tick) frame(1100+tick*50);
+        const int top = script->GetTop(); auto value = script->GetGlobal("MenuFrameRuns");
+        const bool resumed = value.IsNumber() && value.GetNumber() >= 2; script->SetTop(top);
+        Require(world->GetAimTime()->GetValue() > frozenWorld && resumed,"real main-menu world segments did not resume the Lua coroutine");
+        Require(number("MenuMapRuns",1) && number("MenuEnters",1),"menu cadence change repeated map initialization");
+        NMainLoop::DoneInterface(); return;
+    }
     for (int tick = 0; tick < 4; ++tick) frame(1050);
     if (!authored) {
         Require(absent("MenuLegacyRuns"),"the native main menu launched an extra DB script after its map entry was already initialized");
@@ -13342,6 +13357,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "backdrop-script-audio-2d") && argc == 4) { BackdropScriptAudio(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "main-menu-map-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "main-menu-authored-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "main-menu-script-cadence") && argc == 4) { MainMenuMapScript(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "backdrop-script-audio-3d") && argc == 4) { BackdropScriptAudio(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "chapter-active-script") && argc == 4) { ChapterActiveScript(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-active-command") && argc == 5) { ChapterActiveScript(argv[2],argv[3],std::atoi(argv[4])); return true; }

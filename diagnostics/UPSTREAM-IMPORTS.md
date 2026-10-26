@@ -266,6 +266,7 @@
 | [70d12946](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70d1294640babb485804aa9fe7be998a3fb82778) — Pump deferred native audio in active chapter frames | `the active chapter created a script sound wrapper but never started native PCM playback` | 77/77; `chapter-script-audio` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Dispatch native script sounds from rendered backdrop menus | `the active native backdrop ignored its initialized map script's sound command` | 79/79; `backdrop-script-audio` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Start the main-menu map script without the obsolete second launcher | `the native main menu launched an extra DB script after its map entry was already initialized` | 81/81; `main-menu-map-script` | `Upstream-Commit` в commit message |
+| [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Drive main-menu Lua only from native world segments | `the main menu executed a sleeping Lua coroutine between native world segments` | 82/82; `main-menu-script-cadence` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -2131,3 +2132,33 @@ main-menu-map-script-green-{build,test}.log, main-menu-map-script-game-build.log
 main-menu-map-script-linux-{configure,build,test}.log и успешные renderer blocks
 в main-menu-map-script-{windows,linux}-native-test.log. Исходник остаётся
 частичным: ручной tick Lua и post-load input purge ещё требуют проверки.
+
+## Корутины меню следуют времени мира — часть `e399ef89`
+
+Отдельный compiled native RED воспроизвёл лишнее исполнение Lua в Step:
+после установки baseline и постановки корутины четыре активных кадра с тем же
+временем не продвигают world aim-time, но исполняют корутину. Дополнительный
+ExecuteOwnScript вызван отдельно от уже существующего world update в RenderFrame.
+
+Удалены только этот вызов и неиспользуемые заголовки. VM, GC cadence и прочие
+интерфейсы не меняются. Новый тест на настоящем CICMainMenu требует отсутствия
+исполнения между world segments, затем продолжает время и проверяет повторное
+возобновление Sleep. Инициализация и OnEnterZone остаются однократными.
+Прежний authored-тест снова подтверждает native Man action/clip sequence и
+фоновый cached PCM из сценария 10. Шрифты, мимика и численные правила сохраняются.
+
+GREEN 82/82 Windows (78.02 с), Linux (72.15 с), обе Game собраны. Из них 15
+native-display случаев; CPU count по-прежнему 316, последний полный checkpoint316
+предшествует этим изменениям конкретного меню. Используются прежние две сборки.
+Свидетельства: main-menu-script-cadence-red-{build,test}.log,
+main-menu-script-cadence-green-{build,test}.log, main-menu-script-cadence-game-build.log,
+main-menu-script-cadence-linux-{configure,build,test}.log и успешные native blocks
+в main-menu-script-cadence-{windows,linux}-native-test.log.
+
+Полный патч e399ef89 перепроверен: кроме post-load input purge остаются части
+AudioOptions. Наши ползунки уже применяются сразу и сохраняют config, однако
+обработка checkbox ответов/субтитров, default и уведомлений требует отдельного
+native RED. В upstream также переставлены serialized tags страницы; буквальный
+перенос поверх существующего формата форка недопустим без проверки совместимости.
+Старый DirectInput buffer-size hunk соотносится с нашим SDL polling отдельно.
+Источник и общая задача остаются незавершёнными.

@@ -282,6 +282,8 @@ add_test(NAME UpstreamMountedAILogCommands COMMAND UpstreamBugTests mounted-ai-l
 if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
   get_filename_component(_s2_upstream_game_dir "${S2_GAME_DB_PATH}" DIRECTORY)
   get_filename_component(_s2_upstream_res_dir "${S2_RESOURCE_PACKAGE_PATH}" DIRECTORY)
+  add_test(NAME NativeMainMenuScriptCadence COMMAND UpstreamBugTests main-menu-script-cadence "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
+  set_tests_properties(NativeMainMenuScriptCadence PROPERTIES LABELS "extended;native-display" WORKING_DIRECTORY "${_s2_upstream_game_dir}" ENVIRONMENT "S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/upstream-native-main-menu-cadence-user")
   add_test(NAME NativeMainMenuMapScript COMMAND UpstreamBugTests main-menu-map-script "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   set_tests_properties(NativeMainMenuMapScript PROPERTIES LABELS "extended;native-display" WORKING_DIRECTORY "${_s2_upstream_game_dir}" ENVIRONMENT "S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/upstream-native-main-menu-user")
   add_test(NAME NativeMainMenuAuthoredScript COMMAND UpstreamBugTests main-menu-authored-script "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
