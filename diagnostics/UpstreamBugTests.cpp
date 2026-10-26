@@ -13305,6 +13305,84 @@ static void ScriptDrawWeaponSlot(const char* databasePath,const char* resourcePa
     }
 }
 
+static void DeferredCreateAndActivateItem(const char* databasePath,const char* resourcePath)
+{
+    for (int scenario=0; scenario<3; ++scenario) {
+        const bool occupied = scenario != 0, full = scenario == 2;
+        auto world = FixtureWorld(databasePath,resourcePath);
+        vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+        NWorld::CUnitServer* actor = nullptr; NDb::CRPGWeapon* record = nullptr;
+        for (auto unit : units) {
+            auto* candidate = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+            if (!candidate || !candidate->CanFight() || candidate->IsEmptyPK() || candidate->IsWearingPK() ||
+                candidate->animator.GetCannon()) continue;
+            auto* weapon = dynamic_cast<NRPG::CWeaponItem*>(candidate->GetUnitRPG()->GetInventory()->GetActive());
+            if (weapon) { actor = candidate; record = weapon->GetDBWeapon(); break; }
+        }
+        Require(actor && IsValid(record) && IsValid(record->pItem),"script create fixture has no native armed actor/item record");
+        auto* inventory = actor->GetUnitRPG()->GetInventory();
+        vector<CObj<NRPG::IInventoryItem>> removed;
+        while (!inventory->GetItems().empty()) {
+            CObj<NRPG::IInventoryItem> item = inventory->GetItems().back().pItem;
+            removed.push_back(item); inventory->Take(item);
+        }
+        for (auto slot : {NDb::SLOT_1,NDb::SLOT_2})
+            if (inventory->Get(slot)) removed.push_back(inventory->TakeOff(slot));
+        CObj<NRPG::CWeaponItem> old = new NRPG::CWeaponItem(record), active = new NRPG::CWeaponItem(record);
+        Require(inventory->Equip(NDb::SLOT_2,active) && inventory->Activate(NDb::SLOT_2) &&
+            (!occupied || inventory->Equip(NDb::SLOT_1,old)),"script create fixture could not prepare its actual hand slots");
+        if (full) for (int i=0; ; ++i) {
+            CObj<NRPG::CWeaponItem> filler = new NRPG::CWeaponItem(record);
+            CTPoint<int> place;
+            if (!inventory->FindPlace(filler,&place)) break;
+            Require(i<100 && inventory->Place(place,filler),"script create fixture could not fill its native backpack");
+        }
+        CTPoint<int> freePlace;
+        Require(inventory->FindPlace(old,&freePlace) == !full,"script create fixture has the wrong real backpack capacity");
+        const auto backpack = inventory->GetItems();
+        const auto position = actor->GetPosition(); const int ap = actor->GetAP();
+        auto* commander = actor->GetPlayer()->GetCommander();
+        Require(IsValid(commander) && !commander->HasCommands() && !actor->HasCommand(),
+            "script create fixture started with an existing order");
+        CObj<NScript::CScript> script = NScript::CreateScript(world);
+        NScript::luaPushCPtr(*script,actor); script->SetGlobal("upstreamActor");
+        const string id = std::to_string(record->pItem->GetRecordID());
+        RunScript(script,("CreateAndActivateItem(nil,"+id+"); UpstreamCreateReturned = 5").c_str());
+        auto returned = script->GetGlobal("UpstreamCreateReturned");
+        Require(returned.IsNumber() && returned.GetNumber() == 5 && !commander->HasCommands() && !actor->HasCommand(),
+            "script create nil-actor control failed to finish or issued an order");
+        RunScript(script,("CreateAndActivateItem(upstreamActor,"+id+"); UpstreamCreateReturned = 9").c_str());
+        returned = script->GetGlobal("UpstreamCreateReturned");
+        Require(returned.IsNumber() && returned.GetNumber() == 9,"native create Lua callback did not finish");
+        std::printf("native script create dispatch: occupied=%d full=%d queued=%d unit-command=%d\n",
+            int(occupied),int(full),int(commander->HasCommands()),int(actor->HasCommand()));
+        Require(commander->HasCommands() && !actor->HasCommand(),
+            "native script create-and-activate bypasses the owning commander's queue");
+        CObj<NWorld::CCommand> first = commander->GetCommand(), second = commander->GetCommand();
+        auto* set = dynamic_cast<NWorld::CCmdSetCommand*>(first.GetPtr());
+        auto* resume = dynamic_cast<NWorld::CCmdSetCommand*>(second.GetPtr());
+        auto* create = set ? dynamic_cast<NWorld::CCmdCreateAndActivateInventoryItem*>(set->GetCmd()) : nullptr;
+        Require(set && set->pUnit == actor && create && create->GetItem() == record->pItem &&
+            create->GetSlot() == NDb::SLOT_1 && create->GetNeedMove() == occupied &&
+            resume && resume->pUnit == actor && dynamic_cast<NWorld::CCmdContinue*>(resume->GetCmd()) &&
+            !commander->HasCommands(),"queued script create lost its record, fixed hand slot, move flag, actor or Continue");
+        if (occupied) {
+            const auto& source = create->GetMoveSource(); const auto& target = create->GetMoveTarget();
+            Require(source.pUnit == actor && source.eType == NWorld::SItem::SLOT && source.nSlot == NDb::SLOT_1 &&
+                source.pItem == old.GetPtr() && target.pUnit == actor &&
+                target.eType == (full ? NWorld::SItem::GROUND : NWorld::SItem::BACKPACK) &&
+                target.sPosition.x == -1 && target.sPosition.y == -1,
+                "queued create lost the old held item or changed backpack/ground stash selection");
+        }
+        Require(!actor->HasCommand() && actor->GetAP() == ap && actor->GetPosition().pos.p == position.pos.p &&
+            inventory->GetActiveSlot() == NDb::SLOT_2 && inventory->Get(NDb::SLOT_2) == active.GetPtr() &&
+            inventory->Get(NDb::SLOT_1) == (occupied ? old.GetPtr() : nullptr) &&
+            inventory->GetItems().size() == backpack.size(),"script create mutated actor/hands/backpack/AP before command consumption");
+        for (std::size_t i=0; i<backpack.size(); ++i)
+            Require(inventory->GetItems()[i].pItem == backpack[i].pItem,"script create replaced backpack items before command consumption");
+    }
+}
+
 static void ScriptHeldGrenadeActivation(const char* databasePath,const char* resourcePath)
 {
     for (bool engineer : {true,false}) for (auto heldSlot : {NDb::SLOT_1,NDb::SLOT_2}) for (bool alreadyActive : {true,false}) {
@@ -15027,6 +15105,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "deferred-shoot-mode-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode); return true; }
     if (!std::strcmp(mode, "deferred-reload-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::Reload); return true; }
     if (!std::strcmp(mode, "deferred-weapon-activation-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ActivateWeapon); return true; }
+    if (!std::strcmp(mode, "deferred-create-activate-command") && argc == 4) { DeferredCreateAndActivateItem(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-shoot-command") && argc == 4) { DeferredScriptShot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-shoot-prepare-command") && argc == 4) { DeferredScriptShot(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "deferred-script-command-order") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode,true); return true; }

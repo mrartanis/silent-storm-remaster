@@ -3125,6 +3125,36 @@ patch поверх нашего кода не запускался. Не зая�
 проверяют каждый `u` consumer или весь tutorial. Полезных независимых hunks
 в этом source нет, статус excluded-own-behavior; production не редактируется.
 
+## Очередь создания и активации предмета — часть 14ffbcc8
+
+UpstreamDeferredCreateActivateCommand использует реальные actor/inventory
+world 810, authored CRPGItem и native CWeaponItem. Три последовательных мира
+в памяти: SLOT_1 пуст; SLOT_1 занят и рюкзак свободен; SLOT_1 занят и рюкзак
+заполнен реальными предметами через FindPlace/Place. Активен SLOT_2.
+Nil actor control завершает Lua и не выдаёт заказа. Compiled runtime RED
+для первого случая: occupied=0/full=0, queued=0/unit-command=1.
+
+После RED только dispatch CreateAndActivateItem заменён на DoCommand с
+прежним CCmdCreateAndActivateInventoryItem и Continue. GREEN для трёх случаев
+проверяет исходный DB record, fixed SLOT_1, needMove, actor и две wrappers.
+Для занятой руки сохраняются реальный old item/source SLOT_1, BACKPACK при
+свободном месте или GROUND при полном рюкзаке, target position (-1,-1).
+До consumer не меняются руки, active SLOT_2, предметы/порядок рюкзака, AP,
+position и unit action. Создание нового экземпляра, stash animation, полный
+ground drop/transfer и AP cost этим producer test не проверяются.
+
+Связанные 86/86 прошли на Windows (101.12 с) и Linux (102.26 с), обе Game и
+Windows ALL_BUILD собраны; native medal/GPU/display и по 12 FONT-COMPAT
+controls включены. Windows NetworkSerializer/StopResume прошли 2/2 за 3.88 с.
+Raw logs обоих связанных наборов содержат все 86 блоков без NUL gap после
+отдельного CI-фикса f3448f16. Текущий CPU base 342 не заявляется новым полным прогоном.
+
+Свидетельства deferred-create-activate-command: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log и network-{test,native-test}.log.
+Source 14ffbcc8 и all281/final actual Actions ещё не завершены.
+
 ## CI: проверка inventory больше не портит общий CTest log
 
 Локальный дефект введён

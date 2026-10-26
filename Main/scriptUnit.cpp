@@ -1135,8 +1135,7 @@ BEGIN_SCRIPT_COMMAND( CreateAndActivateItem, "un" )
 				CTPoint<int> sPlace;
 				sMoveTarget = NWorld::SItem( pUS, pInfo->FindPlace( pOld, &sPlace ) ? NWorld::SItem::BACKPACK : NWorld::SItem::GROUND, CTPoint<int>( -1, -1 ) );
 			}
-			pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdCreateAndActivateInventoryItem( pItem, NDb::SLOT_1, bNeedMove, sMoveSource, sMoveTarget ) ) );
-			pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdContinue() ) );
+			DoCommand( pUS, new NWorld::CCmdCreateAndActivateInventoryItem( pItem, NDb::SLOT_1, bNeedMove, sMoveSource, sMoveTarget ), true );
 		}
 		else
 			csSystem << CC_RED << "Script warning: Invalid rpgitem id: " << luaParams[ 1 ].n << endl;
