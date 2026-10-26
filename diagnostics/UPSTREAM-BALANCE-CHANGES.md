@@ -58,7 +58,7 @@ moving-target multiplier из того же коммита — отдельны�
 |---|---|
 | [2de89e04](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2de89e04ae2713bd7fbd267b5b3a96b60feb810d) Restore incidental bullet impacts and periodic integer bleeding | Попадания по случайным целям, ночная точность и кровотечение меняют боевые расчёты; нужен oracle. |
 | [5780c0be](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027) Restore retail throwing knife targeting, flight and facing | Метательные ножи: штатная дальность, скорость, попадания, направление. Это восстановление формул, не готовый безопасный cherry-pick. |
-| [c1ab9336](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c) Restore retail melee damage dispatch and armed attack cursor | Различение кулака/ножа и dispatch melee damage; проверять реальные попадания и original damage. |
+| [c1ab9336](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c) Restore retail melee damage dispatch and armed attack cursor | Native UI-различение кулака/экипированного оружия адаптировано в GetState; action dispatch и critical bans сохранены. Target-filter/damage dispatch остаётся для проверки реальных попаданий и original damage. |
 | [7f4f0ea8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7f4f0ea872937e4dcb4a887ff6a136d7dce1fcd5) Match retail nearest AI contact selection | Nearest-contact selection использует другие позиции/фильтры; отдельно сверять поведение AI. |
 | [98af43bd](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98af43bdaf252e5a2eac1ad047c92511adb8e565) Restore retail global-game difficulty initialization | Передача выбранной сложности и default difficulty требуют сверки; не менять default незаметно. |
 | [cc0fd988](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc0fd9888357c7a9f5d47fec2c22f3073eb5e7cf) Match retail AI firing range and target reach checks | AI range/target-reached/attack-origin — восстановление retail боевого trace, нужны сравнительные тесты. |
@@ -261,3 +261,20 @@ Upstream помечает это восстановлением retail, а не 
 Локализованный текст hit labels перенесён отдельным native HUD-тестом; цвета
 и fade сохранены. Цветовые изменения и group Hide требуют отдельных проверок
 и не являются частью исправления времени жизни реакции.
+
+## Melee dispatch и ограничения от ранений — оставшаяся часть `c1ab9336`
+
+[Исходный коммит](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c)
+содержит самостоятельный UI-дефект курсора, перенесённый через GetState.
+Полный патч дополнительно вводит AT_KNIFE и перенаправляет melee damage в
+PerformMeleeAttackPortion с явными world/AI map/target filter. Для атаки по
+бойцу filter=pTarget ограничивает выбор получателя; меняется также ignore-list
+(сам боец вместо возможной пушки). Это требует native проверки реальных
+попаданий/отсечения и соответствия original dispatch, а не только курсора.
+
+В текущей legacy CCriticalsBan новый AT_KNIFE без дополнительной адаптации
+попадает в CR_DEFAULT_PARAM. В отличие от прежнего AT_MELEE, у object/tile
+команд тогда не запрашиваются ограничения C_MOTIONLESS/C_PATIENT. Такой
+побочный сдвиг eligibility не включён в UI-фикс: действующие dispatch, цена
+и обе таблицы запретов проверены отдельно и сохранены. Это не доказательство
+того, какие именно ограничения ножа должны быть в retail; они требуют сверки.

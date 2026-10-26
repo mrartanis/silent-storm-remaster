@@ -245,6 +245,7 @@
 | [0ffb568d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0ffb568d67bc6ca389d7ca63a9da4f3978c801a7) — Persist total experience when assigning a native unit level | `assigning a native unit level updated skill XP but discarded the corresponding total experience` | 292/292; `assigned-level-experience` | `Upstream-Commit` в commit message |
 | [432b64c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/432b64c8bbe97a9f347a6c9468e7c69173d68394) — Reload the retreat reaction owner after switching an arrived unit to guard | `native AI pump crashed in GetColourer via HasPath after an arrived retreat replaced and cleared itself` | 26/26; `arrived-retreat-reaction-lifetime` | `Upstream-Commit` в commit message |
 | [432b64c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/432b64c8bbe97a9f347a6c9468e7c69173d68394) — Localize rejected hit labels instead of displaying negative damage sentinels | `a rejected native HUD hit displayed the negative damage sentinel instead of its localized label` | 17/17; `rejected-hit-label-text` | `Upstream-Commit` в commit message |
+| [c1ab9336](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c) — Report equipped melee weapons to the existing knife cursor without changing attack rules | `an equipped native melee weapon still advertised the unarmed fist state and cursor` | 11/11; `equipped-melee-attack-cursor` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1413,3 +1414,27 @@ Windows configured registration — 1/1. Последняя полная кон�
 `rejected-hit-label-text-game-build.log`,
 `rejected-hit-label-text-registration-test.log`,
 `rejected-hit-label-linux-{configure,build,test}.log`.
+
+### Правильный курсор у экипированного melee оружия
+
+Runtime RED части `c1ab9336` подтвердил: настоящее authored nonthrowing melee
+оружие в native CUnitServer даёт ST_NORMAL_MELEE и курсор кулака 8, хотя UI
+уже умеет курсор ножа 9. Исправлен только GetState: внутри прежней AT_MELEE
+ветки активный IMeleeWeaponItem даёт существующий ST_NORMAL_KNIFE, пустая рука
+сохраняет ST_NORMAL_MELEE. Новых wire values и action types не вводится.
+
+Тест проходит через native инвентарь/сервер, настоящий CUnitTracker и
+CStateAttack::UpdateCursor, без подмены GetState. Проверены пустая рука,
+экипирование и снятие. Сохраняются AT_MELEE dispatch, native CCriticalsBan
+для object/tile-команд, melee AP-cost query, AP/VP, количество и отсутствие
+новой команды. Ограничения от ранений и обработка повреждений не меняются.
+Это адаптация самостоятельной UI-части; полное upstream-разделение типов
+затрагивает существующую legacy таблицу критик и требует отдельной сверки.
+
+Windows/Linux Game собраны; связанный cursor/preview набор — 11/11 на каждой
+платформе, Windows configured registration — 1/1. Последняя полная контрольная
+точка — 292; весь текущий набор из 295 проверок здесь не заявляется.
+Свидетельства: `equipped-melee-attack-cursor-{red,green}-{build,test}.log`,
+`equipped-melee-attack-cursor-game-build.log`,
+`equipped-melee-attack-cursor-registration-test.log`,
+`equipped-melee-cursor-linux-{configure,build,test}.log`.

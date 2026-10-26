@@ -652,7 +652,11 @@ CUnit::EState CUnitServer::GetState()
 		case AT_SHOOT:
 		case AT_BAZOOKA:
 			break;//return ST_NORMAL;
-		case AT_MELEE: return ST_NORMAL_MELEE;
+		case AT_MELEE:
+		{
+			CDynamicCast<NRPG::IMeleeWeaponItem> pMelee( GetUnitRPG()->GetInventory()->GetActive() );
+			return IsValid( pMelee ) ? ST_NORMAL_KNIFE : ST_NORMAL_MELEE;
+		}
 		case AT_GRENADE: return ST_NORMAL_GRENADE;
 		case AT_FIRSTAID: return ST_NORMAL_MEDKIT;
 		case AT_MINE: return ST_NORMAL_MINE;

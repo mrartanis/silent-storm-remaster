@@ -8712,6 +8712,61 @@ static void PersonaFullDisplayName(const char* databasePath)
         "a persona without a long-name record changed the existing nickname or missing-name behavior");
 }
 
+static void EquippedMeleeAttackCursor(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    vector<CPtr<NWorld::CUnit>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto& entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK() &&
+            !unit->HasCommand() && NWorld::GetActionType(unit) == NWorld::AT_SHOOT) { actor = unit; break; }
+    }
+    Require(actor != nullptr, "equipped-melee cursor fixture has no idle ordinary firearm user");
+    NDb::CRPGMeleeWeapon* record = nullptr;
+    CDBIterator<NDb::CRPGMeleeWeapon> weapons(*NDatabase::GetTable<NDb::CRPGMeleeWeapon>());
+    while (weapons.MoveNext()) if (!weapons.Get()->bThrowing && IsValid(weapons.Get()->pItem) &&
+        IsValid(weapons.Get()->pItem->pModel)) { record = weapons.Get(); break; }
+    Require(record != nullptr, "equipped-melee cursor fixture has no modelled authored nonthrowing melee weapon");
+    CObj<NRPG::CMeleeWeaponItem> melee = new NRPG::CMeleeWeaponItem(record);
+    melee->nQuantity = 1;
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    CObj<NRPG::IInventoryItem> previous = inventory->Get(NDb::SLOT_1) ? inventory->TakeOff(NDb::SLOT_1) : nullptr;
+    Require(inventory->Activate(NDb::SLOT_1), "equipped-melee cursor fixture could not select its empty hand");
+    CObj<AttackCursorMission> mission = new AttackCursorMission;
+    CObj<NGame::CUnitTracker> tracker = new NGame::CUnitTracker(mission,actor);
+    mission->selection.push_back(tracker.GetPtr());
+    CObj<AttackState> state = new AttackState;
+    state->Attach(mission);
+    NGame::SActionInfo info; info.SetValid(); SetAttackPreview(state,info);
+    NInput::SEvent event;
+    while (NInput::GetEvent(&event)) {}
+    state->RefreshCursor();
+    Require(actor->GetState() == NWorld::CUnit::ST_NORMAL_MELEE && state->GetCursorInfo().pCursor == NDb::GetUICursor(8),
+        "empty-hand native control did not advertise the original fist cursor");
+    NWorld::CCriticalsBan bans;
+    CObj<NWorld::CCmdShootObject> object = new NWorld::CCmdShootObject(nullptr,0);
+    CObj<NWorld::CCmdShootTile> tile = new NWorld::CCmdShootTile(actor->GetPosition().GetCP()+CVec3(1,0,0));
+    const auto objectBans = bans.GetCommandBans(actor,object), tileBans = bans.GetCommandBans(actor,tile);
+    Require(inventory->Equip(NDb::SLOT_1,melee), "equipped-melee cursor fixture could not equip its native weapon");
+    const int ap = actor->GetAP(), vp = actor->GetUnitRPG()->GetTotalVP();
+    const int meleeCost = actor->GetActionAP(NRPG::AC_MELEE);
+    state->RefreshCursor();
+    Require(actor->GetState() == NWorld::CUnit::ST_NORMAL_KNIFE && state->GetCursorInfo().pCursor == NDb::GetUICursor(9),
+        "an equipped native melee weapon still advertised the unarmed fist state and cursor");
+    Require(NWorld::GetActionType(actor) == NWorld::AT_MELEE && bans.GetCommandBans(actor,object) == objectBans &&
+        bans.GetCommandBans(actor,tile) == tileBans && actor->GetActionAP(NRPG::AC_MELEE) == meleeCost,
+        "correcting the melee UI state changed attack dispatch, critical restrictions or its AP-cost query");
+    CObj<NRPG::IInventoryItem> removed = inventory->TakeOff(NDb::SLOT_1);
+    state->RefreshCursor();
+    Require(actor->GetState() == NWorld::CUnit::ST_NORMAL_MELEE && state->GetCursorInfo().pCursor == NDb::GetUICursor(8),
+        "unequipping the melee weapon did not restore the original native fist cursor");
+    Require(actor->GetAP() == ap && actor->GetUnitRPG()->GetTotalVP() == vp && melee->GetQuantity() == 1 && !actor->HasCommand(),
+        "refreshing native equipped-melee cursors spent AP/VP, consumed the weapon or installed an order");
+}
+
 static void EquippedToolActionAvailability(const char* databasePath,const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -11723,6 +11778,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "sniper-targetless-probe") && argc == 4) { SniperHeldAim(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "sniper-held-aim") && argc == 4) { SniperHeldAim(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "person-clue-creation") && argc == 4) { PersonClueCreation(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "equipped-melee-attack-cursor")) { Require(argc == 4, "equipped melee cursor requires db and res"); EquippedMeleeAttackCursor(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "melee-attack-cursor") && argc == 4) { MeleeAttackCursor(argv[2]); return true; }
     if (!std::strcmp(mode, "blocked-attack-caption") && argc == 4) { AttackCaptionWithoutHitChance(argv[2], false); return true; }
     if (!std::strcmp(mode, "reload-attack-caption") && argc == 4) { AttackCaptionWithoutHitChance(argv[2], true); return true; }
