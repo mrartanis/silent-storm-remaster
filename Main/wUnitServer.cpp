@@ -901,11 +901,8 @@ void CUnitServer::OnTBSEvent( ETBSEvent event )
 			//   }
 			// The dev bare `pExec = 0` (a) dropped cannon actions a recalc must NOT drop, and (b) never
 			// re-seated a unit whose move executor it released, leaving the model mid-stride off its
-			// grid cell. NOTE: dropping a RUNNING forced-critical executor here (RECALC fires from
-			// OnPassControl right after turn-start bleed damage rolls a critical) leaves
-			// bIsRunningForcedAction latched in retail too -- retail tolerates that because its Do()
-			// accepts commands regardless and the next executor retire clears the flag; the matching
-			// dev-only hard refusal in Do() is removed this session (see the comment there).
+			// grid cell. A running forced action must reach its normal retirement edge: dropping it
+			// here would leave bIsRunningForcedAction latched without an installed executor.
 			// (The cannon-action guard is carried by IsCancelableExec's CExecCannon check.)
 			// DEV DEVIATION (hold-aim safety): the PlaceUnit re-seat is gated on the exec being an
 			// IExecMove (same pattern as the TBS_STOP arm below). Retail's arm re-seats whenever
@@ -914,7 +911,7 @@ void CUnitServer::OnTBSEvent( ETBSEvent event )
 			// FINISHED shoot executor holding its aiming pose after every shot. Re-seating is only
 			// MEANT for a dropped mid-stride mover; non-movers are dropped without a re-seat exactly
 			// as the pre-session dev code did (hold-aim visuals confirmed working under that drop).
-			if ( IsCancelableExec( pExec ) )
+			if ( !bIsRunningForcedAction && IsCancelableExec( pExec ) )
 			{
 				if ( CDynamicCast<IExecMove>( pExec ) && CanFight() && IsAddedToVisitor() )
 					animator.PlaceUnit( GetPosition() );

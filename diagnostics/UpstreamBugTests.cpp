@@ -12970,6 +12970,58 @@ static void DeferredUnitScriptCommand(const char* databasePath,const char* resou
     }
 }
 
+static void ForcedActionRecalc(const char* databasePath,const char* resourcePath)
+{
+    for (bool forced : {false,true}) {
+        auto world = FixtureWorld(databasePath,resourcePath,true);
+        vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+        NWorld::CUnitServer* actor = nullptr;
+        for (auto unit : units) {
+            auto* candidate = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+            if (candidate && !candidate->IsAIUnit() && candidate->CanFight()) { actor = candidate; break; }
+        }
+        Require(actor != nullptr && IsValid(NDb::GetAnimation(4437)),"forced recalc fixture has no native actor or authored animation");
+        auto read = [&]() {
+            CStructureNetworkContext refs; auto fields = BorrowedObjectFields(actor,&refs);
+            CObj<NWorld::CCommandExecute> executor; bool flag = false;
+            { CStructureSaver reader(fields,CStructureSaver::READ,&refs); reader.Add(7,&executor); reader.Add(12,&flag); }
+            return std::make_pair(executor,flag);
+        };
+        Require(!read().first && !read().second && !actor->IsPerformingAction(),
+            "forced recalc fixture started with a running action");
+        const int ap = actor->GetAP(); const auto position = actor->GetPosition();
+        if (forced) {
+            CObj<NWorld::CExecPlayAnimation> animation = new NWorld::CExecPlayAnimation(actor,4437,false);
+            actor->RunCriticalExecutor(animation);
+        } else {
+            actor->Do(new NWorld::CCmdSetCommand(actor,new NWorld::CCmdPlayAnimation(4437,false)));
+            actor->Do(new NWorld::CCmdSetCommand(actor,new NWorld::CCmdContinue));
+        }
+        auto before = read();
+        Require(IsValid(before.first) && dynamic_cast<NWorld::CExecPlayAnimation*>(before.first.GetPtr()) &&
+            before.first->GetState() == NWorld::CCommandExecute::RUNNING && before.second == forced && actor->IsPerformingAction(),
+            "native animation entry did not establish the expected running/forced action");
+        actor->OnTBSEvent(NWorld::TBS_RECALC_COMMAND);
+        auto after = read();
+        std::printf("native action recalc: forced=%d retained=%d forced-flag=%d executing=%d\n",
+            int(forced),int(after.first.GetPtr() == before.first.GetPtr()),int(after.second),int(before.first->IsExecuting()));
+        if (forced) {
+            Require(after.first.GetPtr() == before.first.GetPtr() && after.second && actor->IsPerformingAction(),
+                "native command recalc drops a running forced action while its forced flag remains latched");
+            world->GetTime()->Set(actor->animator.GetTimeEnd());
+            actor->Segment(); // Reach the existing animation edge and native retirement path.
+            auto finished = read();
+            Require(!IsValid(finished.first) && !finished.second && !actor->IsPerformingAction(),
+                "native forced animation did not retire and release its flag at the ordinary animation edge");
+        } else {
+            Require(!IsValid(after.first) && !after.second,"native recalc stopped retiring an ordinary cancelable action");
+            before.first->Cancel(); // The retained witness owns the detached control until cleanup.
+        }
+        Require(actor->GetAP() == ap && actor->GetPosition().pos.p == position.pos.p,
+            "native recalc lifecycle changed logical position or action points");
+    }
+}
+
 static void ScriptedEnemyDeath(const char* databasePath,const char* resourcePath, bool spareUnconscious = false)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -14624,6 +14676,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "door-approach-heading") && argc == 4) { DoorApproachHeading(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-animation-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-direction-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "forced-action-recalc") && argc == 4) { ForcedActionRecalc(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "overlapping-doors")) { OverlappingDoors(); return true; }
     if (!std::strcmp(mode, "weapon-familiarity")) { WeaponFamiliarity(); return true; }
     if (!std::strcmp(mode, "clue-slots")) { ClueSlotSelection(); return true; }

@@ -3002,6 +3002,51 @@ all-build.log, related-test.log, linux-{configure,build,test}.log,
 выбор/активация предметов требуют собственных native RED/GREEN. Общие правила
 боя и наш переписанный facial pipeline не меняются.
 
+## Сохранение принудительного действия при recalc — часть 51a184b8
+
+UpstreamForcedActionRecalc использует две последовательные in-memory world 810
+fixtures. Нормальный контроль запускает настоящий CExecPlayAnimation через
+обычные CCmdSetCommand/Continue. Основной случай запускает тот же native тип
+через публичный RunCriticalExecutor: native код сам выставляет forced flag.
+Тест не подставляет этот флаг и не копирует private executor layout. Пара
+настоящих полей CUnitServer 7/12 читается существующим сериализатором.
+
+Compiled runtime RED: обычный cancelable executor снимается с forced flag 0,
+затем принудительный тоже снимается с actor, оставляя forced flag 1.
+Локальный CObj witness удерживает executor для наблюдения и cleanup; значение
+executing=1 в trace относится к этому witness, а retained=0 — к настоящему
+pExec бойца. Это не утверждение, что удалённый без witness executor продолжил
+бы исполняться.
+
+Добавлен только !bIsRunningForcedAction в TBS_RECALC_COMMAND gate. Наши
+IExecMove/visibility условия PlaceUnit и cannon guard сохраняются; stop flags
+из оставшейся части source не копируются. GREEN сохраняет native identity и
+forced flag при recalc, затем переводит только fixture clock на существующий
+animator.TimeEnd и вызывает настоящий actor.Segment. Его AnimationFinished/
+CheckCmdExecState освобождают pExec и forced flag штатным путём. Обычный
+контроль по-прежнему снимается; удержанный witness отменяется для cleanup.
+Положение и AP не меняются.
+
+Это проверка forced-entry/retirement lifecycle с настоящим animation executor,
+не критического броска/урона, visual/face pixels или сетевого playback клипа.
+Две world fixtures создаются в памяти последовательно, старых копий игры,
+сборок и файлов сохранения не делается.
+
+Связанные script/animation/recalc/route/retreat/queue/movement/door случаи,
+native medal и GPU/display прошли 49/49 на Windows (58.10 с) и Linux (49.28 с).
+Обе Game и Windows ALL_BUILD собраны; по 12 FONT-COMPAT controls сохранены.
+Windows NetworkSerializer/StopResume прошли 2/2 за 3.90 с. Наш собственный
+PauseNetworkAction уже имел forced guard, его правила и wire types не менялись.
+Текущий CPU base 328 не заявляется полным новым прогоном; последним полным
+checkpoint остаётся c97d9971 с CPU base 324 и 329/329 обеих платформ.
+
+Свидетельства forced-action-recalc: red-{build,test}.log, red-native-test.log,
+green-{build,test}.log, green-native-test.log, all-build.log, related-test.log,
+linux-{configure,build,test}.log, {windows,linux}-native-test.log,
+network-test.log и network-native-test.log. Source 51a184b8 остаётся частичным:
+dismount clip и дополнительные animator/stop/recalc flags проверяются отдельно.
+All281 и final actual GitHub Actions остаются незавершёнными.
+
 ## Выпадающий список вне clip вложенной строки — часть c0f64c74
 
 Новый resource-free UpstreamComboPopupClipping создаёт настоящие CInterface,
