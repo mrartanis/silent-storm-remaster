@@ -247,6 +247,7 @@
 | [432b64c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/432b64c8bbe97a9f347a6c9468e7c69173d68394) — Localize rejected hit labels instead of displaying negative damage sentinels | `a rejected native HUD hit displayed the negative damage sentinel instead of its localized label` | 17/17; `rejected-hit-label-text` | `Upstream-Commit` в commit message |
 | [c1ab9336](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c) — Report equipped melee weapons to the existing knife cursor without changing attack rules | `an equipped native melee weapon still advertised the unarmed fist state and cursor` | 11/11; `equipped-melee-attack-cursor` | `Upstream-Commit` в commit message |
 | [d919d910](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d919d91066b15951e2a14cc4c78e70745aa0ea88) — Clamp shooting torso animation turns without changing the selected aim | `the native shooting animation twisted the torso past its allowed horizontal angle` | 25/25; `shooting-torso-turn-limit` | `Upstream-Commit` в commit message |
+| [394d64fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/394d64fb59f1f82e80cc928bf195e0280cfb7999) — Log successful hit rolls at the equality boundary | `a native hit-roll equality returned the hit ratio but was logged as a miss` | 10/10; `hit-roll-equality-log` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1487,3 +1488,26 @@ Windows/Linux Game собраны; связанный animation/attack набо�
 `shooting-torso-turn-limit-game-build.log`,
 `shooting-torso-turn-limit-registration-test.log`,
 `shooting-torso-linux-{configure,build,test}.log`.
+
+### Диагностика попадания на равенстве порога
+
+Полностью перенесён `394d64fb`: только два сравнения в RPG-логе CheckToHit/
+CheckTileToHit меняются с < на <=. Функции по-прежнему возвращают прежнее
+отношение chance/roll; RNG, фильтрация бросков и расчёт процента не меняются.
+Нативные RED подтверждены независимо: для бойца chance=roll=92, для точки
+chance=roll=87, возвращается 1, а прежний лог пишет false.
+
+Тесты используют настоящих бойцов/оружие, native CalcCovers/CalcCoversForTile,
+обычные расчёты и штатные случайные броски fixture. Через реальный ILogNotify
+перехватывается строка RPG-лога. Проверены roll ниже/равно/выше chance; на
+равенстве native PeekRay принимает hit-ветку без bIsMiss. Входные проценты
+и RNG не подменяются; AP/VP/боеприпасы и команды сохраняются. Повреждение
+живой цели в этой проверке не наносится.
+
+Windows/Linux Game собраны; связанный набор — 10/10 на каждой платформе,
+Windows configured registration — 1/1. Последняя полная контрольная точка —
+295, весь текущий набор из 298 проверок здесь не заявляется.
+Свидетельства: `hit-roll-equality-log-{red,green}-{build,test}.log`,
+`hit-roll-equality-log-game-build.log`,
+`hit-roll-equality-log-registration-test.log`,
+`hit-roll-log-linux-{configure,build,test}.log`.

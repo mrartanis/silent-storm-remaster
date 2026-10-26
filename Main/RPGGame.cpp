@@ -866,7 +866,7 @@ float CheckToHit( NWorld::CUnit *pAttacker, NWorld::CUnit *pTarget, int nExtraAP
 	*nToHit = GetAttackerToHit( pAttacker, pTarget, nExtraAP, eHL, accessibleHLs, pCover, bFirstRound, nBullet );
 	csRPG << "\tToHit = " << *nToHit;
 	int nCheck = GetRandomForToHit( pAttacker );
-	csRPG << "\tCheck = " << nCheck << " Hit: " << bool(nCheck < *nToHit) << "\n";
+	csRPG << "\tCheck = " << nCheck << " Hit: " << bool(nCheck <= *nToHit) << "\n";
 	return float(*nToHit) / float(nCheck);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -876,7 +876,7 @@ float CheckTileToHit( NWorld::CUnit *pAttacker, const CVec3 ptTarget, int nExtra
 	*nToHit = GetAttackerTileToHit( pAttacker, ptTarget, nExtraAP, eHitLocation, pCover, bFirstRound, nBullet );
 	csRPG << "\tTileToHit = " << *nToHit;
 	int nCheck = GetRandomForToHit( pAttacker );
-	csRPG << "\tCheck = " << nCheck << " Hit: " << bool(nCheck < *nToHit) << "\n";
+	csRPG << "\tCheck = " << nCheck << " Hit: " << bool(nCheck <= *nToHit) << "\n";
 	return float(*nToHit) / float(nCheck);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -8459,6 +8459,103 @@ static void DefaultItemDetachment(const char* databasePath,const char* resourceP
     }
 }
 
+static void HitRollEqualityLog(const char* databasePath,const char* resourcePath,bool tile)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    NWorld::CUnitServer* target = nullptr;
+    NRPG::IWeaponItem* weapon = nullptr;
+    CObj<NRPG::CCoverInfo> cover;
+    NRPG::STargetHLInfo hitLocation(NAI::HL_ANY);
+    CVec3 tilePosition;
+    auto check = [&](int* chance) {
+        return tile ? NRPG::CheckTileToHit(actor,tilePosition,0,NAI::THL_LOWER,cover,world->IsFirstTurn(),chance) :
+            NRPG::CheckToHit(actor,target,0,hitLocation.eHL,hitLocation.accessibleHLs,cover,world->IsFirstTurn(),chance);
+    };
+    for (auto& entry: units) {
+        auto* candidate = entry.GetPtr();
+        if (!candidate || !candidate->CanFight() || candidate->IsEmptyPK() || candidate->IsWearingPK() || candidate->HasCommand()) continue;
+        auto* firearm = dynamic_cast<NRPG::IWeaponItem*>(candidate->GetUnitRPG()->GetInventory()->GetActive());
+        if (!firearm || firearm->GetAmmoQuantity() < 1 || !firearm->SetShootMode(NDb::SM_Snap)) continue;
+        actor = candidate; weapon = firearm; cover = nullptr;
+        vector<NRPG::CAttackPortion> attack;
+        actor->GetUnitRPG()->CreateAttack(&attack,false);
+        if (attack.empty()) continue;
+        if (tile) {
+            for (float distance: {2.f,4.f,8.f,12.f,20.f}) {
+                tilePosition = actor->GetPosition().GetCP()+CVec3(distance,0,0.1f);
+                cover = world->GetGame()->CalcCoversForTile(actor->GetAttackOrigin(actor->GetPosition()),attack.front(),actor,
+                    tilePosition,actor->GetMinClearDistance());
+                if (!cover || !NRPG::CanShoot(cover)) { cover = nullptr; continue; }
+                int chance = 0; check(&chance);
+                if (chance > 0 && chance < 100) break;
+                cover = nullptr;
+            }
+        } else {
+            for (auto& other: units) {
+                target = other.GetPtr();
+                if (!target || target == actor || !target->CanFight() || target->IsEmptyPK()) continue;
+                if (!NRPG::SelectTargetHLs(actor,actor->GetPosition(),&hitLocation,target,NAI::HL_ANY)) continue;
+                cover = world->GetGame()->CalcCovers(actor->GetAttackOrigin(actor->GetPosition()),attack.front(),actor,target,
+                    hitLocation.eHL,actor->GetMinClearDistance());
+                if (!cover || !NRPG::CanShoot(cover)) { cover = nullptr; continue; }
+                int chance = 0; check(&chance);
+                if (chance > 0 && chance < 100) break;
+                cover = nullptr;
+            }
+        }
+        if (cover) break;
+    }
+    Require(actor && weapon && cover, "hit-roll log fixture found no actual shootable cover with a nondegenerate native hit chance");
+    class Capture: public ILogNotify {
+        OBJECT_NOCOPY_METHODS(Capture);
+    public:
+        wstring last;
+        void OnAddConsoleLine(const SConsoleLine& line) override {
+            if (line.eType == STREAM_RPG && line.szText.find(L"\tCheck = ") != wstring::npos) last = line.szText;
+        }
+    };
+    CObj<Capture> log = new Capture;
+    SetLogNotify(log);
+    struct RestoreNotify { ~RestoreNotify() { SetLogNotify(nullptr); } } restore;
+    const int ap = actor->GetAP(), ammo = weapon->GetAmmoQuantity(), vp = actor->GetUnitRPG()->GetTotalVP();
+    bool below = false, equal = false, above = false;
+    for (int draw = 0; draw < 4096 && !(below && equal && above); ++draw) {
+        log->last.clear();
+        int chance = 0;
+        const float ratio = check(&chance);
+        const auto& line = log->last;
+        const auto checkStart = line.find(L"\tCheck = ");
+        Require(checkStart != wstring::npos && line.find(tile ? L"TileToHit = " : L"ToHit = ") != wstring::npos,
+            "native hit check did not publish its actual roll and chance diagnostic");
+        const int roll = int(std::wcstol(line.c_str()+checkStart+9,nullptr,10));
+        const bool loggedHit = line.find(L"Hit: <green>true<white>") != wstring::npos;
+        Require(loggedHit || line.find(L"Hit: <red>false<white>") != wstring::npos,
+            "native hit check diagnostic has no boolean outcome");
+        Require(chance > 0 && chance < 100 && roll >= 0 && roll <= 100,
+            "native hit-roll fixture lost its nondegenerate authored chance or legal random draw");
+        if (roll < chance) below = true;
+        else if (roll > chance) above = true;
+        else {
+            equal = true;
+            std::printf("native hit equality: tile=%d chance=%d roll=%d ratio=%.2f\n",int(tile),chance,roll,double(ratio));
+            Require(ratio == 1.f && loggedHit,
+                "a native hit-roll equality returned the hit ratio but was logged as a miss");
+            CRay chosen;
+            bool missed = true;
+            Require(NRPG::PeekRay(cover,&chosen,ratio,&missed) && !missed,
+                "the actual native equality ray gate did not accept its hit-ratio control");
+        }
+        Require(loggedHit == (ratio >= 1.f), "a native hit log disagreed with its actual ratio outside the equality boundary");
+    }
+    Require(below && equal && above, "fixed-seed native hit checks did not cover both sides and equality of the boundary");
+    Require(actor->GetAP() == ap && actor->GetUnitRPG()->GetTotalVP() == vp && weapon->GetAmmoQuantity() == ammo &&
+        !actor->HasCommand(), "checking hit-roll diagnostics changed AP/VP/ammunition or issued a gameplay order");
+}
+
 static void ShootingTorsoTurnLimit(const char* databasePath,const char* resourcePath)
 {
     for (float relative: {0.5f,2.4f,-2.4f,0.f}) {
@@ -11662,6 +11759,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "grenade-successor-handoff")) { Require(argc == 4, "grenade handoff requires db and res"); GrenadeSuccessorHandoff(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "engineer-grenade-successor-handoff")) { Require(argc == 4, "engineer grenade handoff requires db and res"); GrenadeSuccessorHandoff(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "default-item-detachment")) { Require(argc == 4, "item detachment requires db and res"); DefaultItemDetachment(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "unit-hit-roll-equality-log")) { Require(argc == 4, "unit hit log requires db and res"); HitRollEqualityLog(argv[2],argv[3],false); return true; }
+    if (!std::strcmp(mode, "tile-hit-roll-equality-log")) { Require(argc == 4, "tile hit log requires db and res"); HitRollEqualityLog(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "shooting-torso-turn-limit")) { Require(argc == 4, "shooting torso limit requires db and res"); ShootingTorsoTurnLimit(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "grenade-throw-animation-refresh")) { Require(argc == 4, "grenade animation requires db and res"); GrenadeThrowAnimationRefresh(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "invalidated-grenade-trajectory")) { Require(argc == 4, "grenade trajectory requires db and res"); InvalidatedGrenadeTrajectory(argv[2],argv[3]); return true; }
