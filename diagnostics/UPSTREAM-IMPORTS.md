@@ -3125,6 +3125,38 @@ patch поверх нашего кода не запускался. Не зая�
 проверяют каждый `u` consumer или весь tutorial. Полезных независимых hunks
 в этом source нет, статус excluded-own-behavior; production не редактируется.
 
+## Очередь скриптового переноса тела — часть 14ffbcc8
+
+UpstreamDeferredTakeCorpseCommand выбирает двух настоящих ordinary actors
+world 810. Живая цель — positive control: UnitTakeCorpse не выдаёт заказа,
+Lua продолжает callback. Затем native RPG Kill и CUnitStateDeath готовят
+настоящий труп; собственный actor остаётся жив и CanFight. Nil actor/target
+controls сохраняются. Первый compiled runtime RED: queued=0/unit-command=0.
+До production дополнительно усилено предусловие живого CanFight переносчика;
+verified compiled RED: queued=0/unit-command=1, carrying=0. Причина в обоих
+случаях — отсутствие запроса в owning commander queue.
+
+После verified RED только dispatch UnitTakeCorpse/Continue заменён на
+DoCommand. Guard CanFight(actor)/!CanFight(body) остаётся прежним. GREEN
+проверяет CCmdTakeCorpse с настоящим body, actor, две wrappers/Continue.
+До consumer не меняются AP/positions обоих, corpse/carrier binding,
+IsCarryingCorpse, death state и unit action. Полный подход, pickup animation,
+стоимость AP и завершение переноса здесь не исполняются. Drop mode fixture
+подготовлен отдельно, но этим случаем ещё не запускался.
+
+Связанные corpse/producer/queue/pose/holster/active-item и native medal/GPU/
+display проверки прошли 56/56 на Windows (54.43 с) и Linux (59.05 с), обе
+Game и Windows ALL_BUILD собраны, по 12 FONT-COMPAT controls сохранены.
+Windows NetworkSerializer/StopResume прошли 2/2 за 5.89 с. Текущий CPU base
+347 не заявляется новым полным прогоном.
+
+Свидетельства deferred-take-corpse-command: red-{build,test}.log,
+red-native-test.log, verified-red-{build,test}.log,
+verified-red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log и network-{test,native-test}.log.
+Source 14ffbcc8 и all281/final actual Actions ещё не завершены.
+
 ## Очередь атаки по waypoint — часть 14ffbcc8
 
 Отдельно зарегистрирован UpstreamDeferredAttackWaypointCommand: тот же

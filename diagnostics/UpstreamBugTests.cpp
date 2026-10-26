@@ -13249,6 +13249,79 @@ static void DeferredWaypointCommand(const char* databasePath,const char* resourc
     }
 }
 
+static void DeferredCorpseCommand(const char* databasePath,const char* resourcePath,bool drop = false)
+{
+    auto world = FixtureWorld(databasePath,resourcePath,true);
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+    vector<NWorld::CUnitServer*> ordinary;
+    for (auto entry : units) {
+        auto* candidate = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (candidate && candidate->CanFight() && !candidate->IsEmptyPK() && !candidate->IsWearingPK() &&
+            !candidate->animator.GetCannon()) ordinary.push_back(candidate);
+        if (ordinary.size() == 2) break;
+    }
+    Require(ordinary.size() == 2,"deferred corpse fixture has no two living ordinary actors");
+    auto* actor = ordinary[0]; auto* body = ordinary[1];
+    auto* commander = actor->GetPlayer()->GetCommander();
+    Require(IsValid(commander) && !commander->HasCommands() && !actor->HasCommand(),
+        "deferred corpse fixture started with an existing order");
+    CObj<NScript::CScript> script = NScript::CreateScript(world);
+    NScript::luaPushCPtr(*script,actor); script->SetGlobal("upstreamActor");
+    NScript::luaPushCPtr(*script,body); script->SetGlobal("upstreamBody");
+    RunScript(script,"UnitTakeCorpse(upstreamActor,upstreamBody); UpstreamCorpseReturned = 7");
+    auto returned = script->GetGlobal("UpstreamCorpseReturned");
+    Require(returned.IsNumber() && returned.GetNumber() == 7 && !commander->HasCommands() && !actor->HasCommand() && body->CanFight(),
+        "native script corpse pickup accepted a living target or stopped the callback");
+    body->GetUnitRPG()->GetRPGUnit()->Kill();
+    body->SetState(new NWorld::CUnitStateDeath(body));
+    Require(actor->CanFight() && !actor->IsDead() && body->IsDead() && !body->CanFight() && !body->GetCorpseCarrier(),
+        "deferred corpse fixture did not prepare an actual uncarried dead actor");
+    CObj<NWorld::CExecCorpse> take;
+    if (drop) {
+        take = new NWorld::CExecCorpse(actor,body,true);
+        take->Run();
+        take->TimeLabelReached();
+        Require(actor->GetCorpse() == body && actor->IsCarryingCorpse() && body->GetCorpseCarrier() == actor,
+            "deferred drop fixture did not enter the native corpse-carry state and body attachment");
+    }
+    Require(!commander->HasCommands() && !actor->HasCommand(),"corpse fixture preparation issued an actor order");
+    const auto position = actor->GetPosition(), bodyPosition = body->GetPosition(); const int ap = actor->GetAP();
+    auto* previousCorpse = actor->GetCorpse(); auto* previousCarrier = body->GetCorpseCarrier();
+    const bool carrying = actor->IsCarryingCorpse();
+    const string controls = drop ? "UnitDropCorpse(nil); UpstreamCorpseReturned = 11" :
+        "UnitTakeCorpse(nil,upstreamBody); UnitTakeCorpse(upstreamActor,nil); UpstreamCorpseReturned = 11";
+    RunScript(script,controls.c_str());
+    returned = script->GetGlobal("UpstreamCorpseReturned");
+    Require(returned.IsNumber() && returned.GetNumber() == 11 && !commander->HasCommands() && !actor->HasCommand(),
+        "native corpse nil controls issued an order or stopped the callback");
+    RunScript(script,drop ? "UnitDropCorpse(upstreamActor); UpstreamCorpseReturned = 13" :
+        "UnitTakeCorpse(upstreamActor,upstreamBody); UpstreamCorpseReturned = 13");
+    returned = script->GetGlobal("UpstreamCorpseReturned");
+    Require(returned.IsNumber() && returned.GetNumber() == 13,"native corpse Lua callback did not finish");
+    std::printf("native script corpse dispatch: drop=%d queued=%d unit-command=%d carrying=%d\n",
+        int(drop),int(commander->HasCommands()),int(actor->HasCommand()),int(actor->IsCarryingCorpse()));
+    Require(commander->HasCommands() && !actor->HasCommand(),
+        "native script corpse action bypasses the owning commander's queue");
+    CObj<NWorld::CCommand> first = commander->GetCommand(), second = commander->GetCommand();
+    auto* set = dynamic_cast<NWorld::CCmdSetCommand*>(first.GetPtr());
+    auto* resume = dynamic_cast<NWorld::CCmdSetCommand*>(second.GetPtr());
+    Require(set && set->pUnit == actor && resume && resume->pUnit == actor &&
+        dynamic_cast<NWorld::CCmdContinue*>(resume->GetCmd()) && !commander->HasCommands(),
+        "queued corpse command lost its actor or exact ordered Continue");
+    if (drop) {
+        auto* request = dynamic_cast<NWorld::CCmdDropCorpse*>(set->GetCmd());
+        Require(request && !IsValid(request->pCorpse),
+            "queued corpse drop lost its type or resolved the carrier-state body before consumption");
+    } else {
+        auto* request = dynamic_cast<NWorld::CCmdTakeCorpse*>(set->GetCmd());
+        Require(request && request->pCorpse == body,"queued corpse pickup lost its actual target body");
+    }
+    Require(!actor->HasCommand() && actor->GetAP() == ap && actor->GetPosition().pos.p == position.pos.p &&
+        body->GetPosition().pos.p == bodyPosition.pos.p && actor->GetCorpse() == previousCorpse &&
+        body->GetCorpseCarrier() == previousCarrier && actor->IsCarryingCorpse() == carrying && body->IsDead(),
+        "native corpse producer changed position/AP/carry state or body attachment before queued consumption");
+}
+
 static void ForcedActionRecalc(const char* databasePath,const char* resourcePath)
 {
     for (bool forced : {false,true}) {
@@ -15264,6 +15337,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "deferred-shoot-prepare-command") && argc == 4) { DeferredScriptShot(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "deferred-fly-waypoint-command") && argc == 4) { DeferredWaypointCommand(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-attack-waypoint-command") && argc == 4) { DeferredWaypointCommand(argv[2],argv[3],false); return true; }
+    if (!std::strcmp(mode, "deferred-take-corpse-command") && argc == 4) { DeferredCorpseCommand(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-script-command-order") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode,true); return true; }
     if (!std::strcmp(mode, "script-draw-weapon-slot") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-draw-weapon-command") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3],true); return true; }

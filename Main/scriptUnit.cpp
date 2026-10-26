@@ -581,8 +581,7 @@ BEGIN_SCRIPT_COMMAND( UnitTakeCorpse, "uu" )
 	CDynamicCast<NWorld::CUnitServer> pCorpse( luaParams[ 1 ].p );
 	if ( IsValid( pUS ) && IsValid( pCorpse ) && pUS->CanFight() && !pCorpse->CanFight() )
 	{
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdTakeCorpse( ( NWorld::CUnit * )pCorpse ) ) );
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdContinue() ) );
+		DoCommand( pUS, new NWorld::CCmdTakeCorpse( ( NWorld::CUnit * )pCorpse ), true );
 	}
 	return 0;
 END_SCRIPT_COMMAND
