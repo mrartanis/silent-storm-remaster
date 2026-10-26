@@ -76,6 +76,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/iLoading.h"
 #include "../Main/iChapterMapUI.h"
 #include "../Main/iShowMedal.h"
+#include "../Main/iMedalsPanel.h"
 #include "../Main/PlayerTracker.h"
 #include "../Main/iOptionsMenu.h"
 #include "../Main/iInGameMenu.h"
@@ -8066,6 +8067,77 @@ static void ChapterMedalScreenshot(const char* databasePath,const char* resource
     }
 }
 
+static void MedalPanelCaption(const char* databasePath,const char* resourcePath)
+{
+    Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"medal panel fixture requires isolated user data");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "medal panel fixture started with a live interface or command");
+    NativeDisplayContext display;
+    display.Initialize(databasePath,resourcePath,"Silent Storm medal panel caption regression");
+    NMainLoop::CreateProfile("UpstreamMedalPanelCaption"); NMainLoop::SetActiveProfile("UpstreamMedalPanelCaption");
+    NGame::InitLoadingScreen();
+    CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(-1);
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    CObj<NGame::CICBeginMission> enter = new NGame::CICBeginMission(810,-1,vector<string>(),game); enter->Exec();
+    CObj<NGame::CMission> mission = dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(IsValid(mission) && IsValid(mission->GetWorld()),"medal panel fixture did not open its actual tactical mission");
+    CObj<NMainLoop::CInterfaceCommand> restart = NMainLoop::TakeInterfaceCommandForHarness();
+    Require(dynamic_cast<NMainLoop::CICSaveFile*>(restart.GetPtr()) && !NMainLoop::HaveInterfaceCommand(),
+        "medal panel fixture did not isolate its unrelated startup snapshot");
+    // The isolated fixture never writes a restart save; only the live panel is tested.
+    NWorld::IPlayer::CUnitSet party; mission->GetActivePlayer()->GetPlayer()->GetUnits(&party);
+    Require(party.size() == 1,"medal panel fixture needs its single actual roster unit");
+    auto* actor = dynamic_cast<NWorld::CUnit*>(party.begin()->GetPtr());
+    Require(IsValid(actor),"medal panel fixture has no live world unit");
+    auto* merc = actor->GetRPG()->GetRPGUnit();
+    Require(!merc->medalInfos.empty(),"medal panel fixture has no authored medal records");
+    for (auto& medal : merc->medalInfos) medal.bIsGained = false;
+    merc->medalInfos.front().bIsGained = true; // Prepare an existing award, without scoring it.
+    vector<CDBPtr<NDb::CMedal>> gained; merc->GetGainedMedals(&gained);
+    Require(gained.size() == 1 && IsValid(gained.front()->pName),"medal panel fixture did not expose its actual award");
+    const auto name = NUI::GetDBString(gained.front()->pName);
+    const auto normal = NUI::GetDBString(0x1d85), highlighted = NUI::GetDBString(0x1d86);
+    Require(!name.empty() && !normal.empty() && !highlighted.empty() && normal.find(L"<") != wstring::npos,
+        "medal panel fixture has no authored name and formatting prefixes");
+    mission->GetActivePlayer()->Update(true);
+    mission->Select(actor);
+    Require(mission->CountSelected() == 1,"medal panel fixture did not synchronize its native selected tracker");
+    auto* panel = dynamic_cast<NUI::CMedalsPanel*>(mission->GetDesktop()->GetChildByID("medalspanel"));
+    Require(IsValid(panel),"actual tactical UI did not construct its medal panel");
+    // Loading may already have painted this selection before the fixture award.
+    // Reset only the existing cached selection, so Draw regenerates through its native path.
+    CMemoryStream selection; CPtr<NWorld::CUnit> previous;
+    { CStructureSaver writer(selection,CStructureSaver::WRITE); writer.Add(3,&previous); }
+    selection.Seek(0); { CStructureSaver reader(selection,CStructureSaver::READ); static_cast<CObjectBase*>(panel)->operator&(reader); }
+    panel->SetStyle(NUI::STYLE_VISIBLE,true);
+    struct ReachedRender {};
+    class StopBeforeRender: public DialogueLayoutView {
+        OBJECT_NOCOPY_METHODS(StopBeforeRender);
+        const CVec2& GetViewportSize() override { throw ReachedRender(); }
+    };
+    CObj<StopBeforeRender> stop = new StopBeforeRender;
+    bool reached = false;
+    try { panel->Draw(1000,stop); } catch (const ReachedRender&) { reached = true; }
+    Require(reached,"native medal panel did not generate its award before the drawing boundary");
+    CStructureNetworkContext refs; auto fields = BorrowedObjectFields(panel,&refs);
+    CPtr<NUI::CListView> list;
+    { CStructureSaver reader(fields,CStructureSaver::READ,&refs); reader.Add(8,&list); }
+    auto* row = IsValid(list) ? dynamic_cast<NUI::CButton*>(list->GetItem(0)) : nullptr;
+    Require(IsValid(row),"native medal panel did not construct its actual award row");
+    for (int state : {0,1,255}) {
+        auto* window = row->GetState(state);
+        auto* text = IsValid(window) ? dynamic_cast<NUI::CText*>(window->GetChildByID("iml-text")) : nullptr;
+        Require(IsValid(text) && text->GetText().find(name) != wstring::npos,"native medal caption lost its authored name");
+        const auto& prefix = state == 0 ? normal : highlighted;
+        std::printf("native medal caption: state=%d prefix-first=%d name-first=%d prefix-chars=%zu name-chars=%zu\n",
+            state,int(text->GetText() == prefix+name),int(text->GetText() == name+prefix),prefix.size(),name.size());
+        Require(text->GetText() == prefix+name,"native medal caption appends its formatting after the name");
+        NUI::SPoint size; text->GetRealSize(&size);
+        Require(size.x > 0 && size.y > 0,"native medal caption has empty text layout");
+    }
+    Require(!NMainLoop::HaveInterfaceCommand(),"measuring native medal captions queued an unrelated game command");
+}
+
 static void CheckChapterClueHeading(NGame::CMissionBase* mission,NUI::CWindow* chapter)
 {
     auto* game = mission->GetRPGGame(); auto* tracker = game->pScenarioTracker.GetPtr();
@@ -14080,6 +14152,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "chapter-clue-heading") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "medal-cursor-visible") && argc == 4) { MedalCursorVisible(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-medal-screenshot") && argc == 4) { ChapterMedalScreenshot(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "medal-panel-caption") && argc == 4) { MedalPanelCaption(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "window-nested-wakeup")) { WindowNestedWakeup(); return true; }
     if (!std::strcmp(mode, "window-template-script")) { Require(argc == 3, "window template script requires db"); WindowTemplateScript(argv[2]); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }

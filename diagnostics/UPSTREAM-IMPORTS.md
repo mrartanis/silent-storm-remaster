@@ -2779,6 +2779,38 @@ native logs. Финальные связанные 35/35 прошли на Windo
 ALL_BUILD и обе Game собраны. Полный all281 аудит и
 окончательная проверка фактического GitHub Actions остаются незавершёнными.
 
+## Форматирование подписи медали — часть 0611f275
+
+NativeMedalPanelCaption открывает настоящую tactical mission 810 с roster 54,
+синхронизирует её native player tracker и выбирает реального world actor.
+Одна существующая награда отмечается gained только в fixture; реальный
+CMedalsPanel::Draw строит настоящий CMedalsPanelItem через Generate. Чтение
+происходит из CText трёх настоящих CButton states (0/1/255), после остановки
+на границе рисования. Compiled runtime RED: название есть, но 46 символов
+авторского formatting prefix стоят после него (prefix-first=0/name-first=1).
+
+Исправлены только три выражения составления текста: DB 0x1d85/0x1d86 теперь
+предшествуют названию. Содержимое этих строк, наши шрифты/растеризация, цвета,
+размеры и ассеты не заменяются. GREEN проверяет точный prefix+name и ненулевой
+native text layout в normal/hover/selected. Это подтверждение текста и layout,
+не glyph/pixel output, визуальный выбор hover мышью здесь не имитируется.
+
+Начальная ошибка compilation (несуществующий overload GetChildByID), ранние
+fixture failures из-за несинхронизированного tracker/пустого списка не являются
+RED бага. Они сохранены отдельно; production менялась только после compiled
+verified-red с настоящим неправильным текстом. Cached unit panel field 3
+сбрасывается в fixture, чтобы Draw действительно перестроил уже нарисованную
+во время загрузки selection. Startup CICSaveFile берётся из очереди, но не
+выполняется: fixture не делает копию сохранения. Профиль изолирован.
+
+Связанные 28/28 прошли на Windows (22.88 с) и Linux (18.91 с), обе Game и
+Windows ALL_BUILD собраны. Bgfx/DisplayRuntime и 12 FONT-COMPAT controls на
+каждой платформе сохранены в native logs. Свидетельства medal-panel-caption:
+verified-red-{build,test}.log, verified-red-native-test.log, green-{build,test}.log,
+related-green-test.log, all-build.log, linux-{configure,build,test}.log и
+{windows,linux}-native-test.log. Источник остаётся частичным: preview camera
+и перенумерация сохраняемых panel bits проверяются отдельно.
+
 ## Выпадающий список вне clip вложенной строки — часть c0f64c74
 
 Новый resource-free UpstreamComboPopupClipping создаёт настоящие CInterface,

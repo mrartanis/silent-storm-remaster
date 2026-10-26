@@ -62,16 +62,16 @@ public:
 	void Draw( const STime &sTime, NGScene::I2DGameView *pView );
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// CMedalsPanelItem::CMedalsPanelItem @0x1f9e00 -- caption = medal name + a per-state DB suffix (0x1d85
+// CMedalsPanelItem::CMedalsPanelItem @0x1f9e00 -- caption = per-state DB formatting prefix + medal name (0x1d85
 // normal / 0x1d86 hover & selected), tinted RGB 0x877d4d with rising alpha (0x00 / 0x66 / 0xff). The
 // medal name is GetDBString( pMedal->pName ) (CMedal +0x28). Identical shape to CSaveLoadItem's ctor.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CMedalsPanelItem::CMedalsPanelItem( const SWindowInfo &sInfo, NDb::CMedal *_pMedal ):
 	CHoverButton( sInfo ), pMedal( _pMedal ), bSelected( false )
 {
-	AddTextState( STATE_NORMAL,   GetDBString( pMedal->pName ) + GetDBString( 0x1D85 ), NGfx::SPixel8888( 0x87, 0x7D, 0x4D, 0x00 ) );
-	AddTextState( STATE_HOVER,    GetDBString( pMedal->pName ) + GetDBString( 0x1D86 ), NGfx::SPixel8888( 0x87, 0x7D, 0x4D, 0x66 ) );
-	AddTextState( STATE_SELECTED, GetDBString( pMedal->pName ) + GetDBString( 0x1D86 ), NGfx::SPixel8888( 0x87, 0x7D, 0x4D, 0xFF ) );
+	AddTextState( STATE_NORMAL,   GetDBString( 0x1D85 ) + GetDBString( pMedal->pName ), NGfx::SPixel8888( 0x87, 0x7D, 0x4D, 0x00 ) );
+	AddTextState( STATE_HOVER,    GetDBString( 0x1D86 ) + GetDBString( pMedal->pName ), NGfx::SPixel8888( 0x87, 0x7D, 0x4D, 0x66 ) );
+	AddTextState( STATE_SELECTED, GetDBString( 0x1D86 ) + GetDBString( pMedal->pName ), NGfx::SPixel8888( 0x87, 0x7D, 0x4D, 0xFF ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CMedalsPanelItem::AddTextState @0x1f9780 -- add the empty state window, lay an "iml-text" CText over
