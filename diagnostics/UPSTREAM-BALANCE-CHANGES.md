@@ -63,7 +63,7 @@ moving-target multiplier из того же коммита — отдельны�
 | [98af43bd](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98af43bdaf252e5a2eac1ad047c92511adb8e565) Restore retail global-game difficulty initialization | Передача выбранной сложности и default difficulty требуют сверки; не менять default незаметно. |
 | [cc0fd988](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc0fd9888357c7a9f5d47fec2c22f3073eb5e7cf) Match retail AI firing range and target reach checks | AI range/target-reached/attack-origin — восстановление retail боевого trace, нужны сравнительные тесты. |
 | [66fc9e9a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/66fc9e9ad26497bf41f96a1a8c51c8a03e951718) Match retail AI snipe weapon and cover evaluation | AI snipe должен считать выбранным оружием и не терять дробную cover precision. |
-| [0ffb568d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0ffb568d67bc6ca389d7ca63a9da4f3978c801a7) Restore retail level XP persistence and fresh skill maximum flags | Level XP часть уже есть; FreezeToMax для новых skills требует проверки стартовых характеристик retail. |
+| [0ffb568d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0ffb568d67bc6ca389d7ca63a9da4f3978c801a7) Restore retail level XP persistence and fresh skill maximum flags | Повторная native-проверка нового репозитория выявила потерю общего XP в SetXPLevel; сохранение существующего расчёта исправляется отдельно. FreezeToMax для новых skills требует проверки стартовых характеристик retail. |
 | [08c4bb5a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/08c4bb5a6b9a94337d88bd8241a2e51b6984cfce) Restore retail weapon preparation AP costs | AP подготовки оружия из weapon type/перков вместо stub; сверять original, не считать автоматически ребалансом. |
 | [98871d0f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98871d0f0def4f966e097b984c18e57a8f437d7b) Restore wounded AI fear and reachable retreat selection | Раненый AI, fear и достижимое retreat место — требуют retail-сверки, не переносить изменения difficulty вслепую. |
 | [069451e7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/069451e7e61dc0c720812b2f939339f7732fdaf3) Restore retail explosive target groups and friendly clearance | Explosive target groups и safe distance allies — сверять original AI, без новых порогов от себя. |
@@ -222,3 +222,18 @@ Lua-функции. Полезная часть адаптирована в `CSt
 Обслуживание уже сохранённого запроса `bUpdateVision` при завершении перенесено
 отдельно: проверяются native-флаги отложенной очереди мира. Новые условия снятия
 `Hide` этим не вводятся и по-прежнему не перенесены.
+
+## Начальное состояние навыков — оставшаяся часть `0ffb568d`
+
+[Исходный коммит](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0ffb568d67bc6ca389d7ca63a9da4f3978c801a7)
+смешивает сохранение общего опыта при `SetXPLevel` и начальные флаги навыков.
+Потеря опыта отдельно воспроизведена в текущем репозитории: локальная переменная
+затеняла сохранённый `CSkilledObject::fXP`. Исправление записывает результат
+прежнего `GetXPForSkill` в это поле, сохраняя формулы порогов, навыков и обычные
+множители начисления опыта от интеллекта/perks.
+
+Оставшийся hunk вызывает `FreezeToMax(true)` и `Update()` при создании каждого
+навыка, кроме VP/AP. Это меняет выбор текущего значения навыка относительно
+максимального и его дальнейшее обновление при модификаторах. До проверки
+стартовых значений и последующих пересчётов в оригинале эта часть не перенесена;
+сам по себе корректный тест сохранения опыта её не подтверждает.

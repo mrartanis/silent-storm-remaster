@@ -242,6 +242,7 @@
 | [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Stop grenade release when its recalculated trajectory is unavailable | `releasing a grenade after its native trajectory became unavailable consumed the item and launched stale parameters` | 28/28; `invalidated-grenade-trajectory` | `Upstream-Commit` в commit message |
 | [3cfccbee](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a) — Refresh held-item flags before selecting a grenade throw animation | `a grenade throw after the native unarmed POSE fallback omitted its authored held-item throw animation` | 29/29; `grenade-throw-animation-refresh` | `Upstream-Commit` в commit message |
 | [4c6b10fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4c6b10fb85afb750a58e1c28ffe29cdcbb05773c) — Detach default slot items without starting unrelated activation animations | `native default item detachment started an unrelated activation animation while processing equipment slots` | 31/31; `default-item-detachment` | `Upstream-Commit` в commit message |
+| [0ffb568d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0ffb568d67bc6ca389d7ca63a9da4f3978c801a7) — Persist total experience when assigning a native unit level | `assigning a native unit level updated skill XP but discarded the corresponding total experience` | 292/292; `assigned-level-experience` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -1322,3 +1323,38 @@ Windows registration — 1/1. Последняя полная контрольн
 `default-item-detachment-game-build.log`,
 `default-item-detachment-registration-test.log`,
 `default-detachment-linux-{configure,build,test}.log`.
+
+### Общий опыт после явного задания уровня
+
+Повторная проверка нового репозитория опровергла старую пометку аудита о том,
+что XP-часть `0ffb568d` уже присутствует. Native `CUnit::SetXPLevel` задавал
+XP-компоненты навыков, но затенял сохранённый `CSkilledObject::fXP` локальной
+переменной. RED `assigned-level-experience` подтвердил устаревший общий опыт.
+Минимальный фикс убирает локальное объявление и сохраняет результат прежнего
+GetXPForSkill в действующий накопитель; формулы и пороги не меняются.
+
+Проверены назначения уровней 3, 5 и снова 3, native saved base-field 2,
+повторное обновление опыта, первое обычное начисление и сохранение личности/
+инвентаря. Это native field fragment, а не полный игровой save-файл.
+CUnit::AddXP учитывает интеллект и perks: ранний oracle «ровно +1» был неверен
+(у выбранного персонажа штатно +1.25). Проверка сохраняет обычное начисление
+от заданного общего опыта; её RED повторно подтверждён без production-фикса.
+Оставшаяся FreezeToMax-часть исходного коммита не включена и описана отдельно.
+
+Контрольная точка 292: Windows ALL_BUILD и Linux Game собраны; полные профили
+Upstream/NativeBind/NativeBound — 292/292 на каждой платформе (207.45s/205.88s),
+выполнены последовательно по одному test process. Широкий локальный набор —
+268/268, включая configured registration; сеть — 6/6, мир/сохранения — 5/5.
+Таким образом полные проверки охватывают также всю новую группу гранат и
+завершение переноса `4c6b10fb`, а не только тест накопителя XP.
+Это перечисленные локальные профили, не весь CTest и не подтверждение
+GitHub Actions на текущем HEAD. Последний проверенный успешный hosted run
+остаётся `40246010705` на `00af3fcb` (270/270 выполненных проверок); окончательный
+workflow нужен после завершения всех переносов.
+
+Шрифты, исходные текстовые размеры и HD pack не менялись. Сборочные деревья
+переиспользованы; отдельных копий под баги нет, генерация HD/PNG выключена.
+Свидетельства: `assigned-level-experience-{red,green}-{build,test}.log`,
+`assigned-level-linux-{configure,build,test}.log`, `checkpoint-292-ci-test.log`,
+`checkpoint-292-{network,world}-green-test.log`. Работа по исходному списку
+281 коммита продолжается; pending-строки не считаются выполненными.

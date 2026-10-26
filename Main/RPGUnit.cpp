@@ -672,7 +672,7 @@ void CUnit::SetXPLevel( int nLevel )
 	if ( !pClass )
 		return;
 	int nOldLevel = Skills( NDb::ST_LEVEL );
-	float fXP = GetXPForSkill( NDb::ST_LEVEL, nLevel );
+	fXP = GetXPForSkill( NDb::ST_LEVEL, nLevel );
 	for ( int i = NDb::ST_MELEE; i < NDb::SKILL_TYPE_NUMBERS; ++i )
 	{
 		Skills(i).SetXPPart( GetSkillCap( NDb::ESkillType( i ), fXP ) );

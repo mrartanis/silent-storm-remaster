@@ -8515,6 +8515,48 @@ static void GrenadeCompletionVisibility(const char* databasePath,const char* res
     }
 }
 
+static void AssignedLevelExperience(const char* databasePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    NDb::CRPGPers* persona = nullptr;
+    CDBIterator<NDb::CRPGPers> rows(*NDatabase::GetTable<NDb::CRPGPers>());
+    while (rows.MoveNext()) {
+        auto* candidate = rows.Get();
+        if (IsValid(candidate->pClass) && IsValid(candidate->pBaseValue) &&
+            IsValid(candidate->pModel) && IsValid(candidate->pName) && candidate->pClass->skills[NDb::ST_LEVEL] > 0) {
+            persona = candidate; break;
+        }
+    }
+    Require(persona != nullptr, "assigned-level fixture has no authored persona with a positive level cap");
+    CObj<NRPG::CUnit> unit = new NRPG::CUnit(persona);
+    const auto name = unit->GetName();
+    auto* inventory = unit->GetInventory();
+    for (int requested: {3,5,3}) {
+        const float expected = unit->GetXPForSkill(NDb::ST_LEVEL,requested);
+        Require(expected > 0, "assigned-level fixture has no positive authored XP threshold");
+        unit->SetXPLevel(requested);
+        Require(unit->fXP == expected,
+            "assigning a native unit level updated skill XP but discarded the corresponding total experience");
+        CMemoryStream fields;
+        CStructureNetworkContext refs;
+        refs.include = [](CObjectBase*) { return false; };
+        { CStructureSaver writer(fields,CStructureSaver::WRITE,&refs);
+          static_cast<NRPG::CSkilledObject*>(unit.GetPtr())->operator&(writer); }
+        fields.Seek(0);
+        float saved = -1;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&refs); reader.Add(2,&saved); }
+        Require(saved == expected, "the assigned total experience did not reach the native skilled-object saved field");
+        unit->AddXP(0);
+        Require(unit->fXP == expected, "refreshing assigned experience discarded the native level threshold");
+        unit->AddXP(1);
+        Require(unit->fXP > expected, "the first earned experience after level assignment started from an obsolete total");
+        Require(unit->GetName() == name && unit->GetInventory() == inventory,
+            "persisting assigned-level experience changed persona identity or inventory ownership");
+    }
+}
+
 static void PersonaFullDisplayName(const char* databasePath)
 {
     CFileStream database;
@@ -11370,6 +11412,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "assigned-level-experience")) { Require(argc == 3, "assigned level experience requires db"); AssignedLevelExperience(argv[2]); return true; }
     if (!std::strcmp(mode, "persona-full-display-name")) { Require(argc == 3, "full display name requires db"); PersonaFullDisplayName(argv[2]); return true; }
     if (!std::strcmp(mode, "character-panel-full-name")) { Require(argc == 4, "character panel name requires db and res"); CharacterPanelFullName(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "temporary-groups")) { TemporaryGroups(); return true; }
