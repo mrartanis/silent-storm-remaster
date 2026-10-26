@@ -668,6 +668,8 @@ private:
 	CObj<CComplexComboBox> pOutputType;
 	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CEmptyOptionsUI*)this); f.Add(2,&pApply); f.Add(3,&pDefault); f.Add(4,&pSoundVolume); f.Add(5,&pMusicVolume); f.Add(6,&pOutputType); return 0; }
 
+	void UpdateFromConfig();
+
 public:
 	CAudioOptionsUI() {}
 	CAudioOptionsUI( const SWindowInfo &sInfo );
@@ -678,6 +680,14 @@ public:
 CAudioOptionsUI::CAudioOptionsUI( const SWindowInfo &sInfo ):
 	CEmptyOptionsUI( sInfo, NGame::OS_AUDIO )
 {
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CAudioOptionsUI::UpdateFromConfig()
+{
+	UpdateUIElement( GetUIWindow<CCheckButton>( this, "char_responses" ), "ui_charresponses" );
+	UpdateUIElement( GetUIWindow<CCheckButton>( this, "char_subtitles" ), "ui_charresponsessubtitles" );
+	pSoundVolume->SetValue( NGlobal::GetVar( "sound_sfxvolume", 0 ).GetFloat() );
+	pMusicVolume->SetValue( NGlobal::GetVar( "sound_musicvolume", 0 ).GetFloat() );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAudioOptionsUI::ProcessMessage( const SEvent &sEvent )
@@ -703,10 +713,11 @@ bool CAudioOptionsUI::ProcessMessage( const SEvent &sEvent )
             }
 			else if ( sEvent.szID == "default" )
 			{
-				pSoundVolume->SetValue( 1.0f );
-				pMusicVolume->SetValue( 0.5f );
-                NGlobal::SetVar("sound_sfxvolume", pSoundVolume->GetValue());
-                NGlobal::SetVar("sound_musicvolume", pMusicVolume->GetValue());
+				NGlobal::ResetVar( "sound_sfxvolume" );
+				NGlobal::ResetVar( "sound_musicvolume" );
+				NGlobal::ResetVar( "ui_charresponses" );
+				NGlobal::ResetVar( "ui_charresponsessubtitles" );
+				UpdateFromConfig();
                 NGlobal::SaveConfig(".\\cfg\\config.cfg");
 			}
 
@@ -739,10 +750,7 @@ bool CAudioOptionsUI::ProcessMessage( const SEvent &sEvent )
 		}
 	case EVENT_TEMPLATELOADCOMPLETE:
 		{
-			UpdateUIElement( GetUIWindow<CCheckButton>( this, "char_responses" ), "ui_charresponses" );
-			UpdateUIElement( GetUIWindow<CCheckButton>( this, "char_subtitles" ), "ui_charresponsessubtitles" );
-			pSoundVolume->SetValue( NGlobal::GetVar( "sound_sfxvolume", 0 ).GetFloat() );
-			pMusicVolume->SetValue( NGlobal::GetVar( "sound_musicvolume", 0 ).GetFloat() );
+			UpdateFromConfig();
 			break;
 		}
 	}

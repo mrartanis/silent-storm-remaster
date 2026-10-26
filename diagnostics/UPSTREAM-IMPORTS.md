@@ -269,6 +269,7 @@
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Drive main-menu Lua only from native world segments | `the main menu executed a sleeping Lua coroutine between native world segments` | 82/82; `main-menu-script-cadence` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Consume loading input after writing the mission restart snapshot | `restart snapshot completion did not consume a key release accumulated during loading` | 317/317; `mission-loading-input` | `Upstream-Commit` в commit message |
 | [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Connect native audio acknowledgement checkboxes to saved settings | `the native audio page did not initialize its acknowledgement checkboxes from config`; `the native response checkbox did not apply its change to config` | 85/85; `audio-option-checkboxes` | `Upstream-Commit` в commit message |
+| [e399ef89](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e399ef8901588f689462ea9282cc260326097549) — Restore registered audio defaults without restarting native playback | `the native audio Default button did not restore registered settings` | 86/86; `audio-option-defaults` | `Upstream-Commit` в commit message |
 
 ## Продолжение
 
@@ -2265,3 +2266,66 @@ audio-option-checkboxes-game-build.log,
 audio-option-checkboxes-linux-{configure,build,test}.log и native renderer blocks
 audio-option-checkboxes-{windows,linux}-native-test.log.
 Кнопка Default остаётся отдельной неперенесённой частью источника.
+
+## Сброс настроек звука — завершение адаптации `e399ef89`
+
+Compiled native RED нажимает настоящий Default на открытой и отрисованной
+странице звука: вместо зарегистрированных значений возвращаются жёстко
+заданные 1.0/0.5, а настройки реплик не сбрасываются. Тест сначала независимо
+читает четыре зарегистрированных default, затем изменяет все четыре настройки;
+редактирования registration/default значений в production нет.
+
+Кнопка теперь вызывает ResetVar для двух громкостей, реплик и субтитров,
+обновляет существующие controls и сохраняет config. Общий UpdateFromConfig
+используется и при открытии страницы. GREEN проверяет фактические 0.75/0.75,
+обе галочки, загрузку сохранённого config, последующее нажатие настоящего плюса
+громкости и повторный сброс. Существующий native PCM channel продвигается
+с прежней позиции. Дополнительный compiled RED с буквальным sound_update из
+upstream останавливает этот канал: наша команда вызывает DoneSound и новый Init.
+Этот вызов не переносится — собственные volume callbacks уже применяют сброс
+к живому микшеру, перезапуск устройства для него не требуется.
+
+Связанные 86/86 прошли Windows (84.17 с) и Linux (76.77 с), обе Game собраны.
+Из них 19 native-display случаев; CPU count остаётся 316. Последний полный
+CPU checkpoint плюс loading case был 317/317 в e2bbf516; полный набор здесь
+повторно не заявляется. В обоих каталогах сборки используются те же файлы,
+новых копий игры и HD-генерации нет; тестовые процессы завершены.
+Свидетельства: audio-option-defaults-red-{build,test}.log,
+audio-option-defaults-reset-device-red-{build,test}.log,
+audio-option-defaults-green-{build,test}.log,
+audio-option-defaults-related-green-test.log,
+audio-option-defaults-game-build.log,
+audio-option-defaults-linux-{configure,build,test}.log и
+audio-option-defaults-{windows,linux}-native-test.log.
+
+Полный исходный e399ef89 повторно сопоставлен с текущим кодом. Все полезные
+части теперь учтены; источник переведён в imported:
+
+- FModSound и Sound: stable silent 2D fallback, имя живого music stream и
+  повторное использование музыки после замены DB record уже перенесены.
+- SoundFormat: 2D sample идёт через существующий lazy request/decoder с
+  default sample при пустом ресурсе. Прежний синхронный backend не возвращается.
+- iMissionBase/iMission/wUICommands/scriptSequence: scene-owned playback,
+  слабый channel handle, повторный dispatch StopSound и начальный offset
+  позиционного sample проверены отдельно; общий backdrop dispatcher перенесён.
+- MainMenu: остаётся authored map script 10; лишний DB85 launcher и tick
+  корутин между world segments удалены с независимыми native RED.
+- Input/iMission: завершение после реального restart snapshot, SDL polling
+  и purge уже проверены, включая same-tick releases и отдельный LAN путь.
+  Старый DirectInput buffer size не относится к используемому backend.
+- AudioOptions: live normalized sliders уже были в форке; checkbox и Default
+  перенесены двумя независимыми исправлениями. Сериализованные tags 2..6
+  сохранены. Legacy Apply/output objects оставлены ради прежнего graph layout;
+  тест подтверждает, что они невидимы и имеют нулевой размер. Старый output
+  mode не регистрируется. Наши setters не уведомляют parent, поэтому чужой
+  notify guard и перестановка bool/ptr tags не нужны.
+- Script/lgc: задержка сборки мусора до 1000 проверок не копируется как
+  workaround. Текущий CWorld::uiCmdsList хранит CObj и удерживает команду до
+  dispatch; native тест unassigned PlaySound с принудительным GC уже подтвердил
+  lifetime без изменения частоты GC. Владение playing channel отдельно у сцены.
+
+Это завершение одного upstream источника. Из 281 остаются 131 pending,
+88 imported, 18 partially-imported, 38 already-present, по одному
+historical-own-import, review-final-version и excluded-balance, три
+documentation-only. Общий перенос и реальный GitHub Actions итогового HEAD
+ещё не завершены. Формулы и оригинальный баланс в этих двух UI-фиксах не менялись.
