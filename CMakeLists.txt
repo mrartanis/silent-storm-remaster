@@ -106,6 +106,8 @@ add_test(NAME UpstreamRegistrationTests COMMAND "${Python3_EXECUTABLE}"
   --build-dir "${CMAKE_BINARY_DIR}" --ctest "${CMAKE_CTEST_COMMAND}"
   --config "$<CONFIG>" --check-configured "$<TARGET_EXISTS:UpstreamBugTests>"
   --native-audio "$<TARGET_EXISTS:s2_native_fmod>")
+add_test(NAME UpstreamRegistrationInventoryReadOnly COMMAND "${Python3_EXECUTABLE}"
+  "${root}/diagnostics/RegistrationInventoryReadOnlyTests.py" --ctest "${CMAKE_CTEST_COMMAND}")
 include("${root}/cmake/VectorFonts.cmake")
 add_executable(DisplayGeometryTests "${root}/diagnostics/DisplayGeometryTests.cpp")
 target_compile_features(DisplayGeometryTests PRIVATE cxx_std_17)

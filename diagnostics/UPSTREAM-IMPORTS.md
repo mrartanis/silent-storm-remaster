@@ -3125,6 +3125,45 @@ patch поверх нашего кода не запускался. Не зая�
 проверяют каждый `u` consumer или весь tutorial. Полезных независимых hunks
 в этом source нет, статус excluded-own-behavior; production не редактируется.
 
+## CI: проверка inventory больше не портит общий CTest log
+
+Локальный дефект введён
+[276aee6e5ac39dec305c1f070994ce312887f425](https://github.com/mrartanis/silent-storm-remaster/commit/276aee6e5ac39dec305c1f070994ce312887f425):
+вложенный ctest --show-only=json-v1 в рабочем build root Windows перезаписывает
+активные отчёты родительского CTest. Summary остаётся правильным, но начало
+LastTest.log теряется. Это не падение NativeBoundAccumulatorTests и не
+потеря игрового теста; ранее сохранённые исходные raw logs не редактируются.
+
+До фикса запрос выделен в query_inventory без изменения поведения и добавлен
+UpstreamRegistrationInventoryReadOnly. Он использует настоящий CTest и
+маленькое generated test tree во временном каталоге, с nested test и
+конфигурационной веткой audio. RED на Windows: inventory корректен, но
+read-only запрос изменил заранее существующие отчёты. Это не mock CTest
+и не сравнение исходного текста реализации.
+
+После RED запрос запускается из отдельного временного root с subdirs на
+настоящий build tree. Generated test files, executable paths и свойства
+читаются на месте; копий сборки и игры нет. Временный root удаляется штатно.
+GREEN проверяет неизменность всех файлов fixture, nested names, команды,
+config on/off, native-audio label и DISABLED=true. Настоящая registration
+проверка продолжает видеть все нужные resource-free тесты и audio availability.
+
+Три целевых теста (Bound, Registration, ReadOnly) прошли на Windows (0.33 с)
+и Linux (0.19 с). Raw logs содержат по три полных блока, включая Bound, без
+NUL gap. Windows CI-like набор прошёл 275/275 serial за 24.45 с и 275/275
+при --parallel 4 за 11.13 с, как concurrency в GitHub workflow; оба raw logs
+содержат все 275 блоков, без NUL gap. Игра и обе сборки переиспользованы;
+изменены Python/CMake, игровые исходники и workflow exclusions не меняются.
+
+Текущий CPU base 341 подтверждён configured inventory; полный asset-backed
+набор 341 не запускался заново для этого CI-фикса. Final actual GitHub Actions
+после завершения всех переносов остаётся обязательной незавершённой проверкой.
+
+Свидетельства ci-inventory-log: red-{build,test}.log, red-native-test.log,
+green-test.log, green-native-test.log, linux-{configure,build,test}.log,
+linux-native-test.log, ci-tests.txt, ci-{test,native-test}.log и
+ci-parallel-{test,native-test}.log.
+
 ## Очередь скриптовой активации оружия — часть 14ffbcc8
 
 UpstreamDeferredWeaponActivationCommand использует настоящий ordinary armed

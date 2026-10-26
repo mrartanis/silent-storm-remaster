@@ -5,6 +5,7 @@ import sys
 import argparse
 import json
 import subprocess
+import tempfile
 
 
 def registrations(path):
@@ -18,6 +19,23 @@ def registrations(path):
             raise AssertionError(f"Duplicate test {name} in {path.name}")
         result[name] = mode
     return result
+
+
+def query_inventory(ctest, build_dir, config):
+    # Older CTest truncates LastTest.log even for --show-only. Read the real
+    # generated test tree as a subdirectory of a disposable query root, so
+    # that CTest's own reports never share the running parent's build root.
+    directory = pathlib.Path(build_dir).resolve().as_posix()
+    delimiter = "="
+    while f"]{delimiter}]" in directory:
+        delimiter += "="
+    with tempfile.TemporaryDirectory(prefix="s2-ctest-inventory-") as temporary:
+        pathlib.Path(temporary, "CTestTestfile.cmake").write_text(
+            f"subdirs([{delimiter}[{directory}]{delimiter}])\n", encoding="utf-8")
+        command = [ctest, "--test-dir", temporary, "--show-only=json-v1"]
+        if config:
+            command += ["-C", config]
+        return subprocess.run(command, capture_output=True, encoding="utf-8", errors="replace", timeout=30)
 
 
 def main():
@@ -53,10 +71,7 @@ def main():
                 r"^\s*add_test\(NAME\s+((?:Upstream\w*|NativeBindInitialization))\s+"
                 r"COMMAND\s+UpstreamBugTests\s+[^\s)]+\s*\)",
                 path.read_text(encoding="utf-8"), re.MULTILINE))
-        command = [args.ctest, "--test-dir", str(args.build_dir), "--show-only=json-v1"]
-        if args.config:
-            command += ["-C", args.config]
-        result = subprocess.run(command, capture_output=True, encoding="utf-8", errors="replace", timeout=30)
+        result = query_inventory(args.ctest, args.build_dir, args.config)
         if result.returncode:
             print(f"FAIL: cannot inspect configured CTest inventory: {result.stderr.strip()}")
             return 1
