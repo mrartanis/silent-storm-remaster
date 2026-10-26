@@ -3125,6 +3125,39 @@ patch поверх нашего кода не запускался. Не зая�
 проверяют каждый `u` consumer или весь tutorial. Полезных независимых hunks
 в этом source нет, статус excluded-own-behavior; production не редактируется.
 
+## Очередь скриптовой команды положить тело — часть 14ffbcc8
+
+Отдельный UpstreamDeferredDropCorpseCommand запускает drop branch native
+corpse fixture. После living/nil controls реальный RPG Kill/DeathState готовит
+труп; публичные CExecCorpse::Run и TimeLabelReached выполняют штатный handoff
+к CUnitStateCorpseCarrier/BeTaken. Проверяются GetCorpse, IsCarryingCorpse и
+обратный GetCorpseCarrier. Это подготовка через native callback, не прогон
+полной pickup animation/естественного clock label; приватные flags не подменены.
+
+Compiled runtime RED: drop=1, queued=0/unit-command=1, carrying=1. После RED
+только UnitDropCorpse/Continue переведён на DoCommand. GREEN проверяет две
+wrappers/actor/Continue, CCmdDropCorpse с пока null pCorpse: фактическое тело
+разрешает существующий carrier state при исполнении. До consumer сохраняются
+положения обоих, AP, carry state/body attachment и death state, нет unit action.
+Новый queued drop, его animation, placement и AP cost здесь не исполняются.
+
+Связанные 57/57 прошли на Windows (57.32 с) и Linux (59.57 с), обе Game и
+Windows ALL_BUILD собраны, native medal/GPU/display и по 12 FONT-COMPAT
+controls сохранены. Windows ALL_BUILD сначала получил LNK1102 (out of memory)
+только при link NativeExplosionVoxelRendererTests. Исходный failed log
+сохранён; этот target успешно пересобран с --parallel 1, task-local runner
+снижен с parallel 6 до 2, затем ALL_BUILD успешно повторён. Игровые исходники
+для обхода memory error не менялись, копий сборки нет. Два network tests и
+восстановленный NativeExplosionVoxelRendererTests прошли 3/3 за 6.49 с.
+Текущий CPU base 348 не заявляется новым полным прогоном.
+
+Свидетельства deferred-drop-corpse-command: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-initial-build.log, all-recovery-build.log, all-build.log,
+related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log и network-{test,native-test}.log.
+Source 14ffbcc8 и all281/final actual Actions ещё не завершены.
+
 ## Очередь скриптового переноса тела — часть 14ffbcc8
 
 UpstreamDeferredTakeCorpseCommand выбирает двух настоящих ordinary actors

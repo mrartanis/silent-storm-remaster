@@ -15338,6 +15338,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "deferred-fly-waypoint-command") && argc == 4) { DeferredWaypointCommand(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-attack-waypoint-command") && argc == 4) { DeferredWaypointCommand(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "deferred-take-corpse-command") && argc == 4) { DeferredCorpseCommand(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "deferred-drop-corpse-command") && argc == 4) { DeferredCorpseCommand(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "deferred-script-command-order") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::ShootMode,true); return true; }
     if (!std::strcmp(mode, "script-draw-weapon-slot") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-draw-weapon-command") && argc == 4) { ScriptDrawWeaponSlot(argv[2],argv[3],true); return true; }

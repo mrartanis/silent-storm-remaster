@@ -590,8 +590,7 @@ BEGIN_SCRIPT_COMMAND( UnitDropCorpse, "u" )
 	CDynamicCast<NWorld::CUnitServer> pUS(luaParams[0].p);
 	if (pUS)
 	{
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdDropCorpse() ) );
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdContinue() ) );
+		DoCommand( pUS, new NWorld::CCmdDropCorpse(), true );
 	}
 	return 0;
 END_SCRIPT_COMMAND
