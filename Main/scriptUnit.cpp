@@ -312,8 +312,7 @@ BEGIN_SCRIPT_COMMAND( UnitSetDirection, "un" )
 		NAI::SPosition pos = pUS->GetPosition().pos;
 		pos.p.SetDirection( dir );
 		// retail @0x2f7600 queues a LOOK (turn in place), not a path
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdLook( pos ) ) );
-		pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdContinue() ) );
+		DoCommand( pUS, new NWorld::CCmdLook( pos ), true );
 	}
 	return 0;
 END_SCRIPT_COMMAND

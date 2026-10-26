@@ -2972,6 +2972,36 @@ helper теперь доступен для оставшихся producers sourc
 новым случаям, полный новый CPU base 326 здесь не заявляется. All281/final
 actual GitHub Actions остаются незавершёнными.
 
+## Сценарный поворот через очередь командира — часть 14ffbcc8
+
+UpstreamDeferredDirectionCommand переиспользует настоящий world/actor/Lua
+fixture проверки animation dispatch. Compiled runtime RED: UnitSetDirection
+с requested=1 возвращается из Lua, но commander-pending=0/unit-command=1.
+Production меняется только после этого RED: две прямые Do заменены одним
+вызовом существующего DoCommand с CCmdLook и Continue.
+
+GREEN проверяет поворот в обе стороны относительно текущего направления
+(в fixture это 1 и 7), две настоящие queued CCmdSetCommand, тип именно LOOK,
+direction, исходные tile/pose/network, target actor и порядок Continue без
+лишних команд. До consumer step положение/AP и unit command не меняются.
+Старый animation fixture сохранён в общей функции и повторно проходит оба
+freeze варианта и custom-idle контроль. Это producer/queue проверка, не
+выполнение поворота, его визуальная интерполяция или расход AP.
+
+Связанные 43/43 прошли на Windows (47.42 с) и Linux (40.96 с), обе Game и
+Windows ALL_BUILD собраны, по 12 FONT-COMPAT controls сохранены. Дополнительные
+Windows NetworkSerializer/StopResume прошли 2/2 за 3.90 с. Native LAN protocol
+и validation не менялись. Текущий CPU base 327 не означает новый полный прогон:
+последний полный checkpoint c97d9971 остаётся 329/329 с CPU base 324.
+
+Свидетельства deferred-direction-command: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log, network-test.log и network-native-test.log.
+14ffbcc8 остаётся частичным: остальные script producers, UnitHide bool и
+выбор/активация предметов требуют собственных native RED/GREEN. Общие правила
+боя и наш переписанный facial pipeline не меняются.
+
 ## Выпадающий список вне clip вложенной строки — часть c0f64c74
 
 Новый resource-free UpstreamComboPopupClipping создаёт настоящие CInterface,
