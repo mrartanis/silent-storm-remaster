@@ -7753,3 +7753,52 @@ red,anisotropy-green,final-related,final-linux,final-display,linux-display,
 final-ci} test/native-test logs, plus build/lookup/disassembly files.
 Sourcea3f remains partial for shader consumers and cache/storage-scope decisions;
 tracker281/112unfinished and final actual-HEAD hosted CI remain open.
+
+
+## a3f330bb, ambient lightmapped decals — bind diffuse texture
+
+Source a3f330bbd76d67d34c5ed897d253c52cc51692b6 corrects the ambient diffuse-stage
+RO_TEXTURE_DECAL argument: its executor samples p1, but the producer supplied
+pLightmap as p1 and the intended diffuse as unused p2. Pass pTex alone and remove
+the unused local pLM. No shader, lighting formula, alpha policy or balance edits.
+
+Native GPU RED1/1 .33s: actual CDirectionalLight::Render(RP_SHOWLIGHTMAPPED),
+genuine material factory, CNonePart/CAutomaticCombiner/CVBCombiner(LT_NONE)/
+CIBCombiner(IBTT_VERTICES), CSceneFragments, actual ambient producer/Execute and
+bgfx draw to register1. Diffuse is red, lightmap green. Ordinary surface control
+renders red255; overlay decal incorrectly renders green255 instead of red255
+(failure262). First fixture attempts with missing virtual-object helper/shader
+name and unselected virtual-register target were setup failures, not this RED.
+
+The test cache-render callback observes the completed diffuse stage: copies the
+actual register1 to screen and throws a test-only sentinel before unrelated CL
+multiplication. No production probe, synthetic producer or hand-built expected
+render packet. This proves that actual stage and native GPU pixels, not the
+entire cached-light renderer or a complete lit frame. No exceptions are added to
+production. The fixture seeds equal depth for the exact decal, uses the normal
+material factory including overlay/exact/opaque and real geometry combiners.
+
+GREEN1/1 .33s for opaque/overlay/exact; extended control1/1 .34s verifies all nine
+material-kind x diffuse-alpha255/128/0 combinations. Premultiplied source red
+tracks alpha, including transparent0 and half128. Both decal kinds use diffuse
+and preserve the existing smart-alpha/depth behavior. Ordinary branch stays as
+before. Original-image crosscheck: Gold RenderAmbientLightmaps54fcd0/1305 maps
+uniquely to Steam551ba0 masking only EH-handler operand3:7 in first32bytes.
+Steam551c7a loads diffuse texture from material+18;551ca4 stores it as p1 for
+both decal kinds; the unused union args are zeroed and opcode0a is enqueued.
+Saved ambient-decal-texture-{gold,retail}-disassembly.txt documents the body.
+
+Final validation follows below. Sourcea3f stays partial for four shader-alpha
+families and cache/storage scope. In particular CompileBgfxShaders consumes
+GfxShaders.cpp byte tokens, not the human GfxShaders.txt DSL. All eight affected
+current shader token streams decode identically to the upstream parent; shader
+changes therefore require their own native RED and consistent producer/executor
+constants, not merely editing DSL or replacing our backend.
+
+Final Windows/Linux Game and helper builds succeed; related9/9 Windows2.75s/
+Linux1.71s; native-display50/50 Windows76.57s/Linux63.64s; CI-like290/29024.15s.
+Raw9/9/50/50/290 complete, noNUL/Failed/NotRun/missing executables, actual
+runners exit0; owned test games closed. Shared builds reused, no HD generation
+or old binary copies. Evidence ambient-decal-texture-{red,green,controls,
+final-related,final-linux,final-display,linux-display,final-ci} test/native-test
+and build logs. Sourcea3f remains partial; tracker281/112unfinished unchanged.

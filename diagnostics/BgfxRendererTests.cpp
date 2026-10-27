@@ -26,6 +26,7 @@
 #include "../Main/GSceneInternal.h"
 #include "../Main/GGeometry.h"
 #include "../Main/GMaterial.h"
+#include "../Main/GRenderLight.h"
 #include "../Main/Transform.h"
 #include "../MiscDll/Commands.h"
 #include "../Main/DisplayLayout.h"
@@ -482,6 +483,83 @@ int RunRenderParameterAlias() {
     if(!Color(image,32,64,255,0,0) || !Color(image,96,64,0,255,0)) {
       std::fprintf(stderr,"native batch merged distinct x64 color pointers sharing their low word\n");return 244;
     }
+  }
+  return 0;
+}
+
+class AmbientTextureNode: public CPtrFuncBase<NGfx::CTexture> {
+  void Recalc() override {}
+public:
+  explicit AmbientTextureNode(NGfx::CTexture* texture) {pValue=texture;}
+};
+class AmbientColorNode: public CFuncBase<CVec3> {
+  void Recalc() override {}
+public:
+  AmbientColorNode(): CFuncBase<CVec3>(CVec3(1,1,1)) {}
+};
+class AmbientVersionNode: public CVersioningBase {void Recalc() override {}};
+struct AmbientDiffuseObserved {};
+class AmbientPassObserver: public NGScene::ICacheLightRender {
+  OBJECT_BASIC_METHODS(AmbientPassObserver);
+public:
+  bool observed=false;
+  int GetLightingOptions() override {return 1;}
+  void RenderCL(NGfx::CRenderContext* context,NGScene::IRender*,CTransformStack*,NGScene::CSceneFragments*,bool) override {
+    // The real ambient producer/executor has drawn its diffuse stage to register1.
+    // Observe that completed stage, before unrelated light-cache multiplication.
+    CTransformStack identity;identity.Init();context->SetScreenRT();context->ClearBuffers(0xff000000);
+    context->SetTransform(identity.Get());context->SetCulling(NGfx::CULL_NONE);
+    context->SetDepth(NGfx::DEPTH_NONE);context->SetStencil(NGfx::STENCIL_NONE);
+    context->SetAlphaCombine(NGfx::COMBINE_NONE);context->SetVertexShader(vsTexture);context->SetPixelShader(psTextureCopyAlpha);
+    context->SetTexture(0,NGfx::GetRegisterTexture(1),true);Draw(*context,Quad(-1,1,1,-1,.5f));
+    observed=true;throw AmbientDiffuseObserved();
+  }
+};
+int RunAmbientDecalTexture() {
+  using namespace NGScene;
+  NGfx::SRenderTargetsInfo targets;targets.nRegisters=2;
+  if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 260;
+  CObj<NGfx::CTexture> diffuse=NGfx::MakeTexture(1,1,1,NGfx::SPixel8888::ID,NGfx::REGULAR,NGfx::CLAMP);
+  CObj<NGfx::CTexture> lightmap=NGfx::MakeTexture(1,1,1,NGfx::SPixel8888::ID,NGfx::REGULAR,NGfx::CLAMP);
+  {NGfx::CTextureLock<NGfx::SPixel8888> lock(diffuse,0,NGfx::INPLACE);lock[0][0]=NGfx::SPixel8888(255,0,0,255);}
+  {NGfx::CTextureLock<NGfx::SPixel8888> lock(lightmap,0,NGfx::INPLACE);lock[0][0]=NGfx::SPixel8888(0,255,0,255);}
+  CObj<AmbientTextureNode> textureNode=new AmbientTextureNode(diffuse);
+  CObj<AmbientColorNode> color=new AmbientColorNode;CObj<AmbientVersionNode> version=new AmbientVersionNode;
+  CObj<AmbientPassObserver> observer=new AmbientPassObserver;
+  CObj<CDirectionalLight> light=new CDirectionalLight(color,color,VNULL3,CVec3(0,0,-1),VNULL3,CVec2(1,1),
+    10,version,color,false,0,observer,color,color);
+  CObjectInfo::SData data;
+  for(auto position:{CVec3(-.5f,.5f,.5f),CVec3(.5f,.5f,.5f),CVec3(.5f,-.5f,.5f),CVec3(-.5f,-.5f,.5f)}) {
+    SVertex vertex{};vertex.pos=position;vertex.tex=CVec2(.5f,.5f);data.verts.push_back(vertex);
+  }
+  data.geometry.SetTriangles({STriangle(0,1,2),STriangle(0,2,3)});
+  CObj<CObjectInfo> mesh=new CObjectInfo;mesh->AssignFast(data);CObj<SelectionMeshNode> node=new SelectionMeshNode(mesh);
+  CObj<IMaterial> overlay=CreateMaterial(CVec3(1,1,1),textureNode,nullptr,0,VNULL3,nullptr,nullptr,nullptr,0,0,MA_OVERLAY|MA_2SIDED);
+  for(int alpha:{255,128,0})for(int kind=0;kind<3;++kind) {
+    {NGfx::CTextureLock<NGfx::SPixel8888> lock(diffuse,0,NGfx::INPLACE);lock[0][0]=NGfx::SPixel8888(alpha,0,0,alpha);}
+    CObj<IMaterial> material;
+    if(kind==0)material=CreateMaterial(CVec3(1,1,1),textureNode,nullptr,0,VNULL3,nullptr,nullptr,nullptr,0,0,MA_OPAQUE|MA_2SIDED);
+    else if(kind==1)material=overlay.GetPtr();else material=overlay->GetExactDecal();
+    CObj<CNonePart> part=new CNonePart(node,material,SFullGroupInfo());
+    CObj<CAutomaticCombiner> parts=new CAutomaticCombiner;parts->AddPart(part);
+    CObj<LowRamCombinerProbe> vertices=new LowRamCombinerProbe(parts,LT_NONE,CT_STATIC);vertices->Prepare();
+    CObj<CIBCombiner> indices=new CIBCombiner(parts,LT_NONE,IBTT_VERTICES);
+    SRenderGeometryInfo geometry;geometry.pVertices=vertices.GetPtr();geometry.pTriLists[TLT_GEOM]=indices.GetPtr();
+    CSceneFragments scene;SBound bound;mesh->CalcBound(&bound);CPartFlags flags;flags.Clear();flags.Set(0);
+    const int index=scene.AddGeometry(nullptr,&geometry,bound);scene.AddElement(index,flags,material,lightmap,nullptr);
+    CTransformStack identity;identity.Init();NGfx::CRenderContext context;
+    context.SetVirtualRT();context.SetRegister(1);context.ClearBuffers(0xff000000);context.SetTransform(identity.Get());
+    context.SetCulling(NGfx::CULL_NONE);context.SetDepth(NGfx::DEPTH_NORMAL);context.SetStencil(NGfx::STENCIL_NONE);
+    context.SetAlphaCombine(NGfx::COMBINE_NONE);context.SetVertexShader(vsConstLight);context.SetPixelShader(psDiffuse);
+    context.SetVSConst(16,CVec4(0,0,0,1));Draw(context,Quad(-1,1,1,-1,.5f));
+    context.SetPSConst(0,CVec4(1,1,1,1));
+    observer->observed=false;
+    try {light->Render(&identity,&identity,&context,RP_SHOWLIGHTMAPPED,nullptr,scene,SParticleLMRenderTargetInfo());}
+    catch(const AmbientDiffuseObserved&) {}
+    if(!observer->observed)return 261;
+    CArray2D<NGfx::SPixel8888> image;NGfx::MakeScreenShot(&image,false);
+    const auto& pixel=image[64][64];std::printf("native ambient diffuse: kind=%d alpha=%d pixel=%u,%u,%u expected=%d,0,0\n",kind,alpha,pixel.r,pixel.g,pixel.b,alpha);std::fflush(stdout);
+    if(!Color(image,64,64,alpha,0,0))return 262;
   }
   return 0;
 }
@@ -1357,6 +1435,7 @@ int main(int argc,char** argv) {
              argc>1 && std::string(argv[1])=="--graphics" ? RunGraphicsOptions() :
              argc>1 && std::string(argv[1])=="--shadow-pcf" ? RunShadowPcf() :
              argc>1 && std::string(argv[1])=="--specular-projection" ? RunSpecularProjection() :
+             argc>1 && std::string(argv[1])=="--ambient-decal-texture" ? RunAmbientDecalTexture() :
              argc>1 && std::string(argv[1])=="--cube-filtering" ? RunCubeTextureFiltering() :
              argc>1 && std::string(argv[1])=="--render-param-alias" ? RunRenderParameterAlias() :
              argc>1 && std::string(argv[1])=="--render-param-order" ? RunRenderParameterOrder() :

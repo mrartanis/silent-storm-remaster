@@ -492,7 +492,6 @@ void CDirectionalLight::RenderAmbientLightmaps( CTransformStack *pTS, NGfx::CRen
 				continue;
 			if ( frag.pLightmap )
 			{
-				NGfx::CTexture *pLM = frag.pLightmap;
 				SOpGenContext op( &lightOps.ops, &frag );
 
 				if ( info.diffuse.type == SMaterialInfo::T_COLOR )
@@ -503,7 +502,7 @@ void CDirectionalLight::RenderAmbientLightmaps( CTransformStack *pTS, NGfx::CRen
 					if ( info.IsDecal() )
 					{
 						ASSERT( !info.bAlphaTest ); // this is ridiculous - depth is not tested at all in this case
-						op.AddOperation( RO_TEXTURE_DECAL, 20, ABM_SMART|info.GetDecalDepthTest(), 1, pLM, pTex );
+						op.AddOperation( RO_TEXTURE_DECAL, 20, ABM_SMART|info.GetDecalDepthTest(), 1, pTex );
 					}
 					else
 					{
