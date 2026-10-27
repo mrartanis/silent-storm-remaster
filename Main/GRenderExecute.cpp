@@ -829,13 +829,13 @@ static void ExecOps( NGfx::CRenderContext *pRC, const vector<CRenderCmdList::SOp
 			triListType = TLT_GEOM;
 			break;
 		case RO_CL_PNT_LIGHT_SHADOWED:
-			pRC->SetPixelShader( psCLPointLightShadowed );
+			pRC->SetPixelShader( psCLPointDiffuseShadowed );
 			pRC->SetAlphaRef( Float2Int( op.p2.f ) );
-			pRC->SetVertexShader( vsCLPointLightShadowed );
+			pRC->SetVertexShader( vsCLPointDiffuseShadowed );
 			pRC->SetVSConst( 16, CVec4( 0.5f, 1 / ( lightInfo.vRadius.x + 4 ), 0, 0 ) );
-			pRC->SetTexture( 0, GetLightCircle() );
-			pRC->SetTexture( 1, GetNormalizeTexture() );
-			pRC->SetTexture( 2, op.p1.pCubeTex );
+			pRC->SetTexture( 0, GetNormalizeTexture() );
+			pRC->SetTexture( 1, op.p1.pCubeTex );
+			pRC->SetTexture( 2, GetNormalizeTexture() );
 			triListType = TLT_GEOM;
 			break;
 		case RO_CL_PNT_LIGHT_BUMP:

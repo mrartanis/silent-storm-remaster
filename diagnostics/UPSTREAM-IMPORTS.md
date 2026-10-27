@@ -8140,3 +8140,48 @@ HD generation or old binary copies. Evidence cached-point-bump-{red,green,
 final-related,final-linux,final-display,linux-display,final-ci} test/native-test
 and build logs. Sourcee5 remains partial only for the single-pass shadowed
 consumer; tracker281/110unfinished and final actual-HEAD hosted CI remain open.
+
+
+## e5d374c5, part3 — original single-pass shadowed cached point light
+
+Sourcee5d374c592bba5e74a581d2229d58c81c117def7 is now complete. The remaining
+RO_CL_PNT_LIGHT_SHADOWED consumer uses the original CLPointDiffuseShadowed
+vertex/pixel streams and binds normalization cube0, actual depth cube1 and
+normalization cube2. Alpha reference and VS16 depth-comparison constants remain
+unchanged. The plain and bumped consumers and cached-local radial constants
+were independently imported in e82ca0de/917fb830; the shared dynamic-light radius
+and ordinary shader families retain their own behavior.
+
+Native GPU RED1/1 .37s: real CLightmapTracker::RenderPointLightShadowed bFast=true,
+actual native geometry/material/InitLightInfo/Execute and pixel readback produced
+127 versus original-derived82 (failure282). The same fixture first proves the
+existing two-pass path with far/near six-face cube textures: visible80/hidden0.
+GREEN3/3 .90s includes plain/bumped consumers; the single-pass samples agree
+with82/42/112 within6/255 at distances/radii(1,6),(2,6),(2,12). Disabled color,
+small radius, outside bound, backface and near-depth occlusion stay black.
+Uniform cube sentinels verify native binding/alpha visibility; they do not claim
+coverage of scene-generated occluder maps or full mission cache convergence.
+
+Independent original proof: new VS decodes exactly as Gold
+ dwvsCLPointLightShadowed94d0e8/756; its entire raw array matches Steam95e158
+uniquely. New PS decodes exactly as Gold dwps/14CLPointLightShadowed963bb8/963d18,
+each352bytes; complete identical copies match Steam974c28/974d88. These PS copies
+are intentionally acknowledged. All records/hashes/decoded equality are saved in
+cached-point-lighting-retail-shader-oracle.json. Both new streams were rechecked
+against the current actual-token corpus. Append own VS80/PS81, preserving all
+80/81 declared table ordinals, rather than using upstream dependency-state IDs.
+Human shader DSL and header counts agree; no legacy shader is overwritten.
+All five source files and each source consumer are accounted for across the
+three independent commits. This restores original rendering, with no gameplay
+balance, CPU visibility, RNG, facial/font, HD asset or save/wire changes.
+
+Final Windows/Linux Game and helpers built; related13/13 Windows3.79s/Linux2.48s;
+native-display54/54 Windows77.88s/Linux63.61s; CI-like290/29024.31s. All five raw
+logs complete with exact13/54/13/54/290 passed records, no NUL/Failed/NotRun or
+missing executables; real runners exit0. Focused native RED/GREEN and final
+build/test/raw logs use cached-point-shadow-{red,green,final-related,
+final-display,final-linux,linux-display,final-ci} prefixes. Owned test processes
+closed; shared build trees reused, no HD generation or per-bug binary copies.
+The separate earlier stochastic moving-fog positive-control concern is retained
+for test-only follow-up. Tracker281 now129imported/23partial/86pending,
+109unfinished. ALL281 and final actual-HEAD hosted CI remain open.

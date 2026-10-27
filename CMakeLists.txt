@@ -640,6 +640,8 @@ add_test(NAME SpecularProjectionRuntimeTests COMMAND BgfxRendererTests --specula
 add_test(NAME PartialGeometryRuntimeTests COMMAND BgfxRendererTests --partial)
 add_test(NAME IndexRingRuntimeTests COMMAND BgfxRendererTests --index-ring)
 add_test(NAME SelectionStencilRuntimeTests COMMAND BgfxRendererTests --selection-stencil)
+add_test(NAME UpstreamCachedPointShadowed COMMAND BgfxRendererTests --cached-point-shadow)
+set_tests_properties(UpstreamCachedPointShadowed PROPERTIES LABELS "extended;native-display")
 add_test(NAME UpstreamCachedPointBump COMMAND BgfxRendererTests --cached-point-bump)
 set_tests_properties(UpstreamCachedPointBump PROPERTIES LABELS "extended;native-display")
 add_test(NAME UpstreamCachedPointLighting COMMAND BgfxRendererTests --cached-point-lighting)

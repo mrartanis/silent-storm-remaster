@@ -643,7 +643,7 @@ template<auto method> struct CachedPointShadowFriend {
   friend auto CachedPointShadowMethod(CachedPointShadowAccess) {return method;}
 };
 template struct CachedPointShadowFriend<&NGScene::CLightmapTracker::RenderPointLightShadowed>;
-int RunCachedPointLighting(bool bumped = false) {
+int RunCachedPointLighting(bool bumped = false,bool fastShadow = false) {
   using namespace NGScene;
   NGfx::SRenderTargetsInfo targets;
   if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 280;
@@ -665,6 +665,8 @@ int RunCachedPointLighting(bool bumped = false) {
     diffuseTexture=NGfx::MakeTexture(1,1,1,NGfx::SPixel8888::ID,NGfx::REGULAR,NGfx::CLAMP);
     {NGfx::CTextureLock<NGfx::SPixel8888> lock(diffuseTexture,0,NGfx::INPLACE);lock[0][0]=NGfx::SPixel8888(255,255,255,255);}
     diffuseNode=new AmbientTextureNode(diffuseTexture);
+  }
+  if(bumped || fastShadow) {
     for(int occluded=0;occluded<2;++occluded) {
       depth[occluded]=NGfx::MakeCubeTexture(4,1,NGfx::SPixel8888::ID,NGfx::REGULAR);
       for(int face=0;face<6;++face) {
@@ -685,14 +687,14 @@ int RunCachedPointLighting(bool bumped = false) {
   const int index=scene.AddGeometry(nullptr,&geometry,bound);scene.AddElement(index,flags,material,nullptr,nullptr);
   CObj<CLightmapTracker> tracker=new CLightmapTracker;
   CTransformStack identity;identity.Init();NGfx::CRenderContext context;
-  auto capture=[&](const CVec3& center,float radius,const CVec3& color,bool occluded=false) {
+  auto capture=[&](const CVec3& center,float radius,const CVec3& color,bool occluded=false,bool twoPassControl=false) {
     context.SetScreenRT();context.ClearBuffers(0xff000000);context.SetTransform(identity.Get());
     context.SetCulling(NGfx::CULL_NONE);context.SetDepth(NGfx::DEPTH_NORMAL);context.SetStencil(NGfx::STENCIL_NONE);
     context.SetColorWrite(NGfx::COLORWRITE_ALL);context.SetAlphaCombine(NGfx::COMBINE_NONE);
     context.SetVertexShader(vsConstLight);context.SetPixelShader(psDiffuse);context.SetVSConst(16,CVec4(0,0,0,1));
     Draw(context,Quad(-1,1,1,-1,.5f));
     NativeCachedPointTarget target(&scene,&context,&identity,0);
-    if(bumped) (tracker.GetPtr()->*CachedPointShadowMethod(CachedPointShadowAccess{}))(&target,center,radius,color,depth[occluded?1:0].GetPtr(),0,false);
+    if(bumped || fastShadow) (tracker.GetPtr()->*CachedPointShadowMethod(CachedPointShadowAccess{}))(&target,center,radius,color,depth[occluded?1:0].GetPtr(),0,fastShadow && !twoPassControl);
     else (tracker.GetPtr()->*CachedPointMethod(CachedPointAccess{}))(&target,center,radius,color);
     CArray2D<NGfx::SPixel8888> image;NGfx::MakeScreenShot(&image,false);return image;
   };
@@ -701,11 +703,11 @@ int RunCachedPointLighting(bool bumped = false) {
       control==0?CVec3(0,0,0):CVec3(1,1,1));
     if(!Color(image,64,64,0,0,0))return 281;
   }
-  if(bumped) {
+  if(bumped || fastShadow) {
     CObj<IMaterial> plain=CreateMaterial(CVec3(1,1,1));
     scene.GetFragments()[1]->pMaterial=plain.GetPtr();
-    const auto visible=capture(CVec3(0,0,1.5f),6,CVec3(1,1,1));
-    const auto hidden=capture(CVec3(0,0,1.5f),6,CVec3(1,1,1),true);
+    const auto visible=capture(CVec3(0,0,1.5f),6,CVec3(1,1,1),false,true);
+    const auto hidden=capture(CVec3(0,0,1.5f),6,CVec3(1,1,1),true,true);
     std::printf("native two-pass depth controls: visible=%u hidden=%u\n",visible[64][64].r,hidden[64][64].r);std::fflush(stdout);
     if(abs(int(visible[64][64].r)-82)>6 || !Color(hidden,64,64,0,0,0))return 285;
     scene.GetFragments()[1]->pMaterial=material.GetPtr();
@@ -715,8 +717,8 @@ int RunCachedPointLighting(bool bumped = false) {
     const auto image=capture(CVec3(0,0,.5f+distance),radius,CVec3(1,1,1));
     // Original vertex attenuation is interpolated; all four vertices have d*d+1.125.
     const int expected=int(255.f/(1+36*(distance*distance+1.125f)/(radius*radius))+.5f);
-    const auto& pixel=image[64][64];std::printf("native cached point: bumped=%d distance=%.1f radius=%.1f rgb=%u,%u,%u expected=%d\n",
-      int(bumped),distance,radius,pixel.r,pixel.g,pixel.b,expected);std::fflush(stdout);
+    const auto& pixel=image[64][64];std::printf("native cached point: bumped=%d fastShadow=%d distance=%.1f radius=%.1f rgb=%u,%u,%u expected=%d\n",
+      int(bumped),int(fastShadow),distance,radius,pixel.r,pixel.g,pixel.b,expected);std::fflush(stdout);
     if(abs(int(pixel.r)-expected)>6 || abs(int(pixel.g)-expected)>6 || abs(int(pixel.b)-expected)>6)return 282;
   }
   const auto back=capture(CVec3(0,0,-.5f),6,CVec3(1,1,1));
@@ -727,6 +729,10 @@ int RunCachedPointLighting(bool bumped = false) {
     {NGfx::CTextureLock<NGfx::SPixel8888> lock(bumpTexture,0,NGfx::INPLACE);lock[0][0]=NGfx::SPixel8888(255,128,128,255);}
     const auto sideways=capture(CVec3(0,0,1.5f),6,CVec3(1,1,1));
     if(!Color(sideways,64,64,0,0,0))return 286;
+  }
+  if(fastShadow) {
+    const auto hidden=capture(CVec3(0,0,1.5f),6,CVec3(1,1,1),true);
+    if(!Color(hidden,64,64,0,0,0))return 288;
   }
   return 0;
 }
@@ -1602,6 +1608,7 @@ int main(int argc,char** argv) {
              argc>1 && std::string(argv[1])=="--graphics" ? RunGraphicsOptions() :
              argc>1 && std::string(argv[1])=="--shadow-pcf" ? RunShadowPcf() :
              argc>1 && std::string(argv[1])=="--specular-projection" ? RunSpecularProjection() :
+             argc>1 && std::string(argv[1])=="--cached-point-shadow" ? RunCachedPointLighting(false,true) :
              argc>1 && std::string(argv[1])=="--cached-point-bump" ? RunCachedPointLighting(true) :
              argc>1 && std::string(argv[1])=="--cached-point-lighting" ? RunCachedPointLighting() :
              argc>1 && std::string(argv[1])=="--lit-surface-alpha" ? RunLitSurfaceAlpha() :
