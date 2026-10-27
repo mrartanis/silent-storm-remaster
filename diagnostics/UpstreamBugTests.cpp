@@ -11013,6 +11013,95 @@ static MovementCommandSnapshot ReadMovementCommands(NWorld::CCommandExecute* mov
     return snapshot;
 }
 
+struct MovementTravelPosition
+{
+    NAI::SUnitPosition position;
+    int operator&(CStructureSaver& saver) { saver.Add(2,&position);return 0; }
+};
+
+static void MovementBlockedWalkingTrajectory(const char* databasePath,const char* resourcePath)
+{
+    auto fixture=MakeNativeMovementFixture(databasePath,resourcePath);
+    auto* actor=fixture.actor.GetPtr();auto* world=fixture.world.GetPtr();auto* network=world->GetPathNetwork();
+    world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer()));
+    auto facing=actor->GetPosition();facing.pos.p.SetDirection((facing.pos.p.GetDirection()+4)&7);
+    world->GetTime()->Set(1000);actor->animator.AlignTime();
+    actor->SetPosition(facing);actor->animator.PlaceUnit(facing);
+    fixture.path=NWorld::FindPath(network,actor,facing.pos.p,vector<NAI::SPathPlace>{fixture.path->points.back()},nullptr,true);
+    Require(fixture.path && fixture.path->points.size()>=5,"blocked-walking fixture could not find its real route from the opposite facing");
+    CObj<NWorld::CCommandExecute> move=NWorld::CreateSimpleMoveExecutor(actor,fixture.path,NAI::PF_DEFAULT);
+    Require(move,"blocked-walking fixture could not create its native movement executor");
+    const auto initial=actor->GetPosition();
+    auto moving=[](CObjectBase* command) {return command && pSSClasses->GetObjectTypeID(command)==int(0x02731142);};
+    move->Run();
+    for(int edge=0;edge<32 && !moving(ReadMovementCommands(move).current.GetPtr()) && move->GetState()==NWorld::CCommandExecute::RUNNING;++edge) {
+        world->GetTime()->Set(actor->animator.GetTimeEnd());move->AnimationFinished();
+    }
+    auto before=ReadMovementCommands(move);
+    std::printf("native walking gate setup: moving=%d priorTurnFlag=%d position=%u,%u->%u,%u\n",int(moving(before.current.GetPtr())),
+        int(actor->animator.bStandIfRecalcCommand),initial.pos.p.GetX(),initial.pos.p.GetY(),actor->GetPosition().pos.p.GetX(),actor->GetPosition().pos.p.GetY());std::fflush(stdout);
+    Require(moving(before.current.GetPtr()) && actor->animator.bStandIfRecalcCommand && !(actor->GetPosition().pos.p==initial.pos.p),
+        "blocked-walking fixture did not reach a real walking command after a native rotation");
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(before.current,&refs);MovementTravelPosition travel;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(1,&travel);}
+    Require(travel.position.pos.IsValid() && !(travel.position.pos.p==actor->GetPosition().pos.p),
+        "blocked-walking fixture did not read its actual pending native travel destination");
+    // A real running mover has a nonwaiting conflicts remover, so a transient
+    // occupancy waits rather than rerouting around an immobile fixture object.
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);NWorld::CUnitServer* blocker=nullptr;
+    for(auto entry:units) {
+        auto* unit=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if(!unit || unit==actor || unit->IsAIUnit() || !unit->CanFight() || unit->IsWearingPK())continue;
+        vector<NAI::SPathPlace> destinations;network->GetNearPlaces(SSphere(unit->GetPosition().GetCP(),5.f),&destinations);
+        for(auto destination:destinations) {
+            destination.SetPose(NAI::CM_STAND);destination.SetDirection(unit->GetPosition().GetDir());
+            auto target=unit->GetPosition().pos;target.p=destination;
+            if(fabs2(target.GetCP()-unit->GetPosition().GetCP())<4.f || !network->IsPassable(destination) || network->IsLocked(destination))continue;
+            CObj<NWorld::CCmdPath> command=new NWorld::CCmdPath(target);
+            if(unit->CanDo(command)!=NWorld::UCR_OK)continue;
+            unit->Do(new NWorld::CCmdSetCommand(unit,command));
+            unit->Do(new NWorld::CCmdSetCommand(unit,new NWorld::CCmdContinue));
+            if(unit->GetPathConflictsRemover() && unit->IsPerformingAction()) {blocker=unit;break;}
+            unit->Do(new NWorld::CCmdCancel(unit));
+        }
+        if(blocker)break;
+    }
+    Require(blocker,"blocked-walking fixture lacks a real prepared nonwaiting blocker");
+    const auto blockerOriginal=blocker->GetPosition();const auto position=actor->GetPosition();
+    // Native forced placement can occupy a future cell after a route was made.
+    // Release the old two-cell reservation through the ordinary placement API.
+    actor->SetPosition(position);blocker->SetPosition(travel.position);
+    Require(actor->CanDoGameMove(travel.position)==NWorld::CMR_LOCKED && network->GetWhoLocksThisPlace(travel.position.pos.p)==blocker,
+        "blocked-walking fixture did not produce native live-unit occupancy at the pending destination");
+    const int ap=actor->GetAP(),vp=actor->GetUnitRPG()->GetTotalVP();const STime end=actor->animator.GetTimeEnd();
+    world->GetTime()->Set(end);
+    CStructureNetworkContext animationRefs;auto animationFields=BorrowedObjectFields(actor->animator.GetSkeletonAnimator(),&animationRefs);
+    CObj<NAnimation::CASequence> sequence;
+    {CStructureSaver reader(animationFields,CStructureSaver::READ,&animationRefs);reader.Add(2,&sequence);}
+    Require(sequence,"blocked-walking fixture lacks its actual native skeleton animation sequence");
+    CObj<NAnimation::CAnimator> scheduled=sequence->GetAnimator(end);
+    Require(scheduled,"blocked-walking fixture lacks its scheduled native animation at the blocked boundary");
+    move->AnimationFinished();
+    auto after=ReadMovementCommands(move);NAI::SUnitPosition waiting;
+    const bool parked=move->IsWaitingForPath(&waiting);const STime blockedEnd=actor->animator.GetTimeEnd();
+    std::printf("native blocked walking: waiting=%d sameCommand=%d animationEnd=%d->%d AP=%d->%d\n",int(parked),
+        int(after.current==before.current),int(end),int(blockedEnd),ap,actor->GetAP());std::fflush(stdout);
+    Require(parked && after.current==before.current && waiting==travel.position && actor->GetPosition()==position &&
+        actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==vp,
+        "native walking blockage did not preserve its pending command, logical position and AP/VP");
+    const bool sameTrajectory=sequence->GetAnimator(end)==scheduled.GetPtr();
+    std::printf("native blocked walking animation sequence: sameScheduledAnimator=%d extraDelay=%u\n",int(sameTrajectory),unsigned(blockedEnd-end));std::fflush(stdout);
+    Require(blockedEnd==end && sameTrajectory,"blocked native walking command was reseated through EndRotate instead of preserving its scheduled trajectory");
+    CStructureNetworkContext blockerRefs;auto blockerFields=BorrowedObjectFields(blocker,&blockerRefs);
+    CObj<NWorld::CCommandExecute> blockerMove;
+    {CStructureSaver reader(blockerFields,CStructureSaver::READ,&blockerRefs);reader.Add(7,&blockerMove);}
+    Require(blockerMove && !blockerMove->IsWaitingForPath(),"native blocker stopped being a running nonwaiting mover");
+    dynamic_cast<NWorld::IExecMove*>(blockerMove.GetPtr())->FullCancel();
+    blocker->SetPosition(blockerOriginal);blocker->Do(new NWorld::CCmdCancel(blocker));
+    dynamic_cast<NWorld::IExecMove*>(move.GetPtr())->FullCancel();move=nullptr;
+    Require(!world->IsAction(),"blocked-walking fixture retained its cancelled native action");
+}
+
 static void MovementTerminalCompletion(const char* databasePath, const char* resourcePath, bool cancelled)
 {
     auto fixture = MakeNativeMovementFixture(databasePath, resourcePath);
@@ -19131,6 +19220,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "equipment-holster-reset")) { Require(argc == 4, "equipment activation requires db and res"); ExplicitWeaponActivation(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "movement-holster-reset")) { Require(argc == 4, "movement activation requires db and res"); ExplicitWeaponActivation(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "movement-first-step-wait")) { Require(argc == 4, "movement wait requires db and res"); MovementFirstStepWaitTimer(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "movement-blocked-walking")) { Require(argc == 4, "blocked movement requires db and res"); MovementBlockedWalkingTrajectory(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "movement-terminal-finished")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "movement-terminal-failed")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "movement-action-camera")) { Require(argc == 4, "movement camera requires db and res"); MovementActionCamera(argv[2], argv[3]); return true; }

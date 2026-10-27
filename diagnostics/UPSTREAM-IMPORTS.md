@@ -6732,3 +6732,68 @@ Source1b966448 pending -> imported. Tracker281:94pending/120imported/
 23partial/32already/3docs/5excluded-balance/2excluded-own/1historical/1review,
 118 unfinished entries. Overall ALL281 goal/final actual-HEAD hosted CI remain
 open; this individual source is complete.
+
+
+## Blocked walking: retain the scheduled trajectory after an earlier turn
+
+Source [ff91745d9aa43573ee04444745b1f9770578ba7f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/ff91745d9aa43573ee04444745b1f9770578ba7f).
+Our StartMove does not set bStandIfRecalcCommand, contrary to the upstream
+comment; Rotate does, and EndRotate leaves it until EndMove. Applicability was
+therefore reproduced using an actual preceding native rotation, not assumed.
+
+Native FixtureWorld, real FindPath from the opposite facing, actual CExecMove
+and an unarmed CancellingMoveActor using its base CanFight behavior reach a
+real walking CCmdMove. Another actual human unit has a running nonwaiting
+native movement executor. Ordinary SetPosition releases the walker's old
+future reservation and force-places the blocker at the pending destination.
+This models occupancy after route construction; no CanDoGameMove stub is used.
+The real query returns CMR_LOCKED and identifies that blocker. Deterministic
+clock1000+AlignTime and actual native animation-finished callbacks are used.
+
+Compiled runtime RED initially reproduced the extra300ms. The strengthened
+final test was rerun against the complete original production wUnitMove.cpp
+from HEAD: RED1.17s total, native animationEnd1635->1935 and the actual
+CSkeletonAnimator/CASequence scheduled animator replaced. The mover remained
+waiting with the same current command, logical position, AP49 and VP. Native
+GREEN19/19 24.23s includes cancellation, released-owner, wait, completion,
+item visibility, holster policy, camera and carried-corpse cases. Both final
+platform runs confirm1635->1635, identical scheduled animator, extraDelay0.
+This is native movement/animation graph and timing proof under forced live
+occupancy, not a rendered battle, physical input or whole-save E2E claim.
+
+Original oracle: GoldPDB CheckCanDoMove7c0420/245 first32, masking only
+rel32 call operand14:18, uniquely maps to Steam7ccf20. Actual7ccf47 calls
+vslot14; only true reaches stand-flag+c2 and EndRotate73dcf0 call7ccf6e.
+Gold CExecMove RTTI descriptor9740c4/vtable8be784 slot14=7b0710 named
+IsRotating; Steam descriptor985354/vtable8cdd6c slot14=7bcf50. Actual32-byte
+body casts current command+34 from CObjectBase RTTI94f860 to
+CCmdRotate98525c and returns nonzero. Source VAs are not trusted. Evidence
+blocked-walking-retail-{lookup,disassembly}.txt and
+blocked-walking-rotation-retail-disassembly.txt.
+
+Production only adds the rotation query and gates the existing EndRotate.
+Own DoCommand owning holds before reentrant move checks, failed-AI cleanup,
+interrupted human route behavior, full locker-chain walk, AP rules and saved
+fields/IDs remain intact. Existing legacy end-command interpretation stays.
+No font/facial/HD/backend, numeric balance, RNG or asset changes.
+
+Fixture development failures were kept distinct from gameplay RED: SPathPlace
+has equality but no !=; initial path had no rotation; a merely prepared mover
+has no conflicts remover in TBS, so it must actually run; EndOfTurn alone did
+not establish real time in this fixture. The final fixture uses a running
+blocker, actual rotation and an explicitly aligned clock. Earlier exploratory
+clock values are not presented as deterministic timings. No production fix
+was inferred from these fixture setup failures.
+
+Both Game/Windows ALL_BUILD built. Fresh446/446 Windows401.94s and
+Linux394.42s, each38native-display/24native-audio/12FONT-COMPAT. Own7Network
+186.76s including361/361maps131.13s (deployment+replica); CI-like284/28424.55s,
+fonts12. Raw446/446/7/284 complete, no NUL/missing/Failed, actual exit0.
+Evidence blocked-walking-{final-native-red,native-green,full,linux-full,
+network,ci}-native-test.log and corresponding stdout. Shared builds reused,
+no per-bug game/build copies or HD generation.
+
+Sourceff91745d pending -> imported. Tracker281:93pending/121imported/
+23partial/32already/3docs/5excluded-balance/2excluded-own/1historical/1review,
+117 unfinished entries. Overall ALL281 goal and final actual-HEAD hosted
+GitHub Actions remain open.
