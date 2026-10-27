@@ -7551,3 +7551,60 @@ alpha/lightmap shader consumers and cube cache/filter adaptations remain to
 audit. Offset fix98e8aeea was separately committed and immediately pushed.
 Tracker remains281:87pending/126imported/24partial/32already/3docs/5excluded-
 balance/2excluded-own/1historical/1review;112unfinished, ALL281/final hosted CI open.
+
+
+## a3f330bb, part 3 — sort native render parameters by complete bit keys
+
+Sourcea3f330bbd76d67d34c5ed897d253c52cc51692b6. The reconstructed comparator
+interpreted parameter pointer bits as float values. Native GPU RED1/1 0.36s:
+actual red/green constant pages at0x13f800000/0x17fc00000 each render correctly
+alone. Two overlapping native quads render green for red/green input order but
+RED for green/red input order, where original unsigned parameter ordering must
+render green in either case. Failure234/readback center255,0,0 vs0,255,0. The
+green pointer's low word is a quiet-NaN FLOAT pattern; its actual shader color
+is the ordinary finite value(0,1,0,1). This is not invalid shader input.
+
+Fixture uses actual CObjectInfo -> CVBCombiner/CIBCombiner -> CSceneFragments
+-> CRenderCmdList -> Execute -> bgfx/shaders -> screenshot pixel readback.
+Only the source mesh node supplies its fixed authored quad. No fake renderer,
+handwritten sorting oracle or production diagnostic API. Color pages are real
+valid objects in the test process: VirtualAlloc exact reservations on Windows,
+mmap hints on Linux, NEVER MAP_FIXED; failed/different mappings are released.
+RAII releases both64KiB virtual reservations, only a few physical pages; no
+binary fixture, disk image or per-bug build copy. Test is native-display/
+extended and excluded from the default no-display CI manifest.
+
+Restore raw unsigned parameter comparison for all3keys. Our fork uses64bit
+pointers, so retain the ENTIRE uintptr_t instead of upstream's DWORD. Add
+GetBits via memcpy of the object representation, avoiding inactive-union reads
+inside the comparator. Zero the full word before default/float construction so
+upper bytes cannot inherit stack contents. Float payloads and pointer values,
+union size/layout, render pass/register/op/stencil priorities remain intact.
+No game balance/RNG, material formulas, own facial/font/HD or shader changes.
+
+Native GPU GREEN1/1 0.33s on Windows/D3D11, both input orders green. Final test
+also verifies single-color controls, higher pass20red overriding pass10green,
+default word zero and poisoned-storage float0/-0/0.5 exact low bits/zero upper
+bytes. Linux/Vulkan reproduces correct final green readback for both orders.
+Original IsSame batching behavior is not changed in this commit and remains a
+separate64bit adaptation audit; do not conflate comparator order and batching.
+
+Independent original: GoldPDB SCompareOps::operator()5482f0/123 uniquely maps
+Steam54a210 with ALL123bytes EXACT/no masks. It compares unsigned raw DWORD
+parameters at+c/+10/+14 before fragment identity; reconstructed float ordering
+was wrong. Gold SOperation::IsSame548290/94 separately maps Steam54a1b0 with
+ALL94bytes EXACT: that ORIGINAL method uses x87 FLOAT equality. It is not
+claimed to use raw-bit equality. Evidence render-parameter-order-retail-lookup
+and -retail-disassembly.txt. This distinction matters for our wider pointers.
+
+Current Windows ALL_BUILD/Game/helpers and Linux Game/helpers built. Related
+Windows29/29 12.08s/Linux24/24 11.17s; native-display46/46 Windows73.99s and
+Linux60.17s, with actual GPU parameter readbacks, own fog/stencil/low-RAM and
+decal scenes. CI-like290/29024.73s/fonts12. Raw29/24/46/46/290 complete, noNUL/
+Failed/missing executable; actual exits0. Shared builds reused, no HD generation.
+Evidence render-parameter-order-{red,green,related,final-linux,display,linux-
+display,ci} test/native-test logs and Windows ALL_BUILD/Linux build logs.
+Sourcea3f still partial: batch equality on our64bit fork, temporary save
+lifecycle, decal alpha/lightmap shader consumers and cube cache/filter/shadow
+adaptations still require separate evidence. Tracker remains281/112unfinished;
+ALL281/final actual-HEAD hosted CI are still open.

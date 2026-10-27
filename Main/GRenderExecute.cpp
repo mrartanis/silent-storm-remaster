@@ -23,12 +23,12 @@ struct SCompareOps
 			return pA->op < pB->op;
 		if ( pA->nStencilBlendMode != pB->nStencilBlendMode )
 			return pA->nStencilBlendMode < pB->nStencilBlendMode;
-		if ( pA->p1.f != pB->p1.f )
-			return pA->p1.f < pB->p1.f;
-		if ( pA->p2.f != pB->p2.f )
-			return pA->p2.f < pB->p2.f;
-		if ( pA->p3.f != pB->p3.f )
-			return pA->p3.f < pB->p3.f;
+		if ( pA->p1.GetBits() != pB->p1.GetBits() )
+			return pA->p1.GetBits() < pB->p1.GetBits();
+		if ( pA->p2.GetBits() != pB->p2.GetBits() )
+			return pA->p2.GetBits() < pB->p2.GetBits();
+		if ( pA->p3.GetBits() != pB->p3.GetBits() )
+			return pA->p3.GetBits() < pB->p3.GetBits();
 		if( pA->pFrag != pB->pFrag )
 			return pA->pFrag < pB->pFrag;
 		//ASSERT(0);

@@ -1,5 +1,7 @@
 #ifndef __GRenderCore_H_
 #define __GRenderCore_H_
+#include <cstdint>
+#include <cstring>
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
@@ -561,8 +563,16 @@ public:
 		const SDynamicAmbientInfo *pDynamicAmbientInfo;
 		const SSkyDepth3Info *pSkyDepth3;
 		float f;
+		std::uintptr_t bits;
 
-		UParameter() : f(0) {}
+		std::uintptr_t GetBits() const
+		{
+			std::uintptr_t result;
+			std::memcpy( &result, this, sizeof(result) );
+			return result;
+		}
+
+		UParameter() : bits(0) {}
 		UParameter( const CVec3 *v3 ): pVec3(v3) {}
 		UParameter( const CVec4 *v4 ): pVec4(v4) {}
 		UParameter( const SFogParams *_p ): pFog(_p) {}
@@ -572,7 +582,7 @@ public:
 		UParameter( const SPerspDirectionalDepthInfo *_pDirDepth ): pPDirDepth(_pDirDepth) {}
 		UParameter( const SDynamicAmbientInfo *_p ): pDynamicAmbientInfo(_p) {}
 		UParameter( const SSkyDepth3Info *_p ): pSkyDepth3(_p) {}
-		UParameter( float _f ): f(_f) {}
+		UParameter( float _f ): bits(0) { f = _f; }
 	};
 	struct SOperation
 	{

@@ -781,6 +781,8 @@ add_test(NAME FocusRestoreRuntimeTests COMMAND BgfxRendererTests --focus-restore
 set_tests_properties(FocusRestoreRuntimeTests PROPERTIES TIMEOUT 60)
 add_test(NAME GraphicsOptionsRuntimeTests COMMAND BgfxRendererTests --graphics)
 add_test(NAME SelectionStencilRuntimeTests COMMAND BgfxRendererTests --selection-stencil)
+add_test(NAME UpstreamRenderParameterOrder COMMAND BgfxRendererTests --render-param-order)
+set_tests_properties(UpstreamRenderParameterOrder PROPERTIES LABELS "extended;native-display")
 add_test(NAME StationaryFogRuntimeTests COMMAND BgfxRendererTests --stationary-fog)
 set_tests_properties(StationaryFogRuntimeTests PROPERTIES LABELS "extended;native-display")
 add_test(NAME LowRamCombinerRuntimeTests COMMAND BgfxRendererTests --low-ram-combiner)

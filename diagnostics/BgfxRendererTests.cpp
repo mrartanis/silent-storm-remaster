@@ -1,4 +1,10 @@
 #include "../Main/StdAfx.h"
+#include <cstdint>
+#include <cstring>
+#include <new>
+#if !defined(_WIN32)
+#include <sys/mman.h>
+#endif
 #undef for
 #include "../Game/Platform.h"
 #include "../Main/Gfx.h"
@@ -320,6 +326,125 @@ public:
   NGfx::CGeometry* Rebuild() { Recalc();return pValue; }
   NGfx::CGeometry* Geometry() const { return pValue; }
 };
+class FixedRenderColors {
+  void* pages[2]={nullptr,nullptr};
+  static void* Map(std::uintptr_t address) {
+#if defined(_WIN32)
+    return VirtualAlloc(reinterpret_cast<void*>(address),65536,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE);
+#else
+    // A hint, never MAP_FIXED: existing process mappings must remain intact.
+    void* result=mmap(reinterpret_cast<void*>(address),65536,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
+    if(result==MAP_FAILED)return nullptr;
+    if(reinterpret_cast<std::uintptr_t>(result)!=address) {munmap(result,65536);return nullptr;}
+    return result;
+#endif
+  }
+  static void Unmap(void* page) {
+    if(!page)return;
+#if defined(_WIN32)
+    VirtualFree(page,0,MEM_RELEASE);
+#else
+    munmap(page,65536);
+#endif
+  }
+public:
+  ~FixedRenderColors() {Unmap(pages[0]);Unmap(pages[1]);}
+  bool Allocate(std::uint32_t first,std::uint32_t second,bool separateHigh=false) {
+    if(sizeof(void*)!=8)return false;
+    for(std::uintptr_t high=1;high<16;++high) {
+      pages[0]=Map((high<<32)|first);pages[1]=Map(((high+(separateHigh?32:0))<<32)|second);
+      if(pages[0] && pages[1]) {
+        new(pages[0]) CVec4(1,0,0,1);new(pages[1]) CVec4(0,1,0,1);return true;
+      }
+      Unmap(pages[0]);Unmap(pages[1]);pages[0]=pages[1]=nullptr;
+    }
+    return false;
+  }
+  const CVec4* Get(int index) const {return static_cast<const CVec4*>(pages[index]);}
+};
+
+struct RenderParameterQuad {
+  CObj<NGScene::CObjectInfo> mesh;
+  CObj<SelectionMeshNode> node;
+  CObj<NGScene::IMaterial> material;
+  CObj<NGScene::CNonePart> part;
+  CObj<NGScene::CAutomaticCombiner> parts;
+  CObj<LowRamCombinerProbe> vertices;
+  CObj<NGScene::CIBCombiner> indices;
+  NGScene::SRenderGeometryInfo geometry;
+  void Initialize(float left,float right,const CVec3& color) {
+    using namespace NGScene;
+    CObjectInfo::SData data;
+    for(auto position:{CVec3(left,.5f,.5f),CVec3(right,.5f,.5f),CVec3(right,-.5f,.5f),CVec3(left,-.5f,.5f)}) {
+      SVertex vertex{};vertex.pos=position;data.verts.push_back(vertex);
+    }
+    data.geometry.SetTriangles({STriangle(0,1,2),STriangle(0,2,3)});
+    mesh=new CObjectInfo;mesh->AssignFast(data);node=new SelectionMeshNode(mesh);
+    material=CreateMaterial(color);part=new CNonePart(node,material,SFullGroupInfo());
+    parts=new CAutomaticCombiner;parts->AddPart(part);
+    vertices=new LowRamCombinerProbe(parts,LT_POSITION,CT_STATIC);vertices->Prepare();
+    indices=new CIBCombiner(parts,LT_POSITION,IBTT_POSITIONS);
+    geometry.pVertices=vertices.GetPtr();geometry.pTriLists[TLT_POSITION]=indices.GetPtr();
+  }
+};
+
+int RunRenderParameterOrder() {
+  using namespace NGScene;
+  FixedRenderColors colors;
+  if(!colors.Allocate(0x3f800000u,0x7fc00000u)) {std::fprintf(stderr,"cannot reserve two real color-constant pages\n");return 230;}
+  std::printf("native render color pointers: red=%p green=%p (green low word is a quiet-NaN float)\n",
+    static_cast<const void*>(colors.Get(0)),static_cast<const void*>(colors.Get(1)));
+  NGfx::SRenderTargetsInfo targets;
+  if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 231;
+  RenderParameterQuad quads[2];quads[0].Initialize(-.5f,.5f,CVec3(1,0,0));quads[1].Initialize(-.5f,.5f,CVec3(0,1,0));
+  CSceneFragments scene;CPartFlags parts;parts.Clear();parts.Set(0);
+  for(int i=0;i<2;++i) {
+    SBound bound;quads[i].mesh->CalcBound(&bound);
+    const int index=scene.AddGeometry(nullptr,&quads[i].geometry,bound);
+    scene.AddElement(index,parts,quads[i].material,nullptr,nullptr);
+  }
+  if(scene.GetFragments().size()!=3)return 232;
+  CTransformStack identity;identity.Init();NGfx::CRenderContext context;
+  context.SetCulling(NGfx::CULL_NONE);context.SetScreenRT();
+  auto operation=[&](int color) {return CRenderCmdList::SOperation(scene.GetFragments()[color+1],
+    RO_SOLID_COLOR,10,DPM_NONE,0,colors.Get(color));};
+  auto capture=[&](const CRenderCmdList& commands,CArray2D<NGfx::SPixel8888>* image) {
+    context.SetScreenRT();context.ClearBuffers(0xff000000);
+    Execute(nullptr,&context,identity,commands,scene,SLightInfo());NGfx::MakeScreenShot(image,false);
+  };
+  CArray2D<NGfx::SPixel8888> image;
+  for(int color=0;color<2;++color) {
+    CRenderCmdList control;control.ops.push_back(operation(color));capture(control,&image);
+    if(!Color(image,64,64,color==0?255:0,color==1?255:0,0))return 233;
+  }
+  for(bool reversed:{false,true}) {
+    CRenderCmdList commands;commands.ops={operation(reversed?1:0),operation(reversed?0:1)};capture(commands,&image);
+    const auto& pixel=image[64][64];std::printf("native sorted render: reversed=%d center=%u,%u,%u expected=0,255,0\n",
+      int(reversed),unsigned(pixel.r),unsigned(pixel.g),unsigned(pixel.b));std::fflush(stdout);
+    if(!Color(image,64,64,0,255,0)) {
+      std::fprintf(stderr,"valid color pointers with a NaN-shaped low word changed native draw order\n");return 234;
+    }
+  }
+  CRenderCmdList passes;auto laterRed=operation(0);laterRed.nPass=20;
+  passes.ops={laterRed,operation(1)};capture(passes,&image);
+  if(!Color(image,64,64,255,0,0))return 236;
+  {
+    alignas(CRenderCmdList::UParameter) unsigned char storage[sizeof(CRenderCmdList::UParameter)];
+    std::memset(storage,0xcc,sizeof(storage));auto* parameter=new(storage) CRenderCmdList::UParameter;
+    std::uintptr_t actual=1;std::memcpy(&actual,parameter,sizeof(actual));if(actual!=0)return 237;
+  }
+  // Whole-width sorting must not inherit stack bytes above a float payload.
+  for(float value:{0.f,-0.f,0.5f}) {
+    alignas(CRenderCmdList::UParameter) unsigned char storage[sizeof(CRenderCmdList::UParameter)];
+    std::memset(storage,0xcc,sizeof(storage));
+    auto* parameter=new(storage) CRenderCmdList::UParameter(value);
+    std::uintptr_t actual=0;std::memcpy(&actual,parameter,sizeof(actual));
+    std::uint32_t expected=0;std::memcpy(&expected,&value,sizeof(expected));
+    if(actual!=expected || parameter->f!=value)return 235;
+  }
+  return 0;
+}
+
 int RunLowRamCombiner() {
   NGfx::SRenderTargetsInfo targets;
   if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 200;
@@ -1130,6 +1255,7 @@ int main(int argc,char** argv) {
              argc>1 && std::string(argv[1])=="--graphics" ? RunGraphicsOptions() :
              argc>1 && std::string(argv[1])=="--shadow-pcf" ? RunShadowPcf() :
              argc>1 && std::string(argv[1])=="--specular-projection" ? RunSpecularProjection() :
+             argc>1 && std::string(argv[1])=="--render-param-order" ? RunRenderParameterOrder() :
              argc>1 && std::string(argv[1])=="--low-ram-combiner" ? RunLowRamCombiner() :
              argc>1 && std::string(argv[1])=="--stationary-fog" ? RunStationaryFog() :
              argc>1 && std::string(argv[1])=="--selection-stencil" ? RunSelectionStencil() : Run();
