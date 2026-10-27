@@ -12135,6 +12135,60 @@ static void CannonEntryCompletion(const char* databasePath,const char* resourceP
     std::printf("native in-flight cannon full graph restored: bytes=%d\n",snapshot.GetSize());finish(restored,restoredExecutor);finish(fixture,executor);
 }
 
+static void CannonExitIncapacitated(const char* databasePath,const char* resourcePath,int mode)
+{
+    auto fixture=MakeNativeCannonFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* cannon=fixture.cannon.GetPtr();
+    CObj<NWorld::CCmdCannon> command=new NWorld::CCmdCannon(cannon);
+    CObj<NWorld::CExecCannon> enter=new NWorld::CExecCannon(actor,cannon,true,command);
+    Require(enter->CanDoIt(actor->GetPosition())==NWorld::UCR_OK,"cannon exit fixture cannot mount its actual cannon");
+    enter->Run();fixture.world->GetTime()->Set(actor->animator.GetTimeEnd());enter->AnimationFinished();enter=nullptr;
+    Require(actor->GetState()==NWorld::CUnit::ST_MACHINE_GUN && cannon->GetCurrentUnit()==actor && actor->animator.GetCannon()==cannon,
+        "cannon exit fixture did not finish its actual native mounted entry");
+    CObj<NWorld::CExecCannon> exit=new NWorld::CExecCannon(actor,cannon,false);
+    // Exercise the real RPG-to-world seam: the damage result is committed
+    // before CDumbUnitServer::SyncConscious consumes it, while exit is pending.
+    for(int hit=0;hit<mode;++hit) {
+        CRay ray;ray.ptOrigin=actor->GetPosition().GetCP();ray.ptDir=CVec3(0,1,0);
+        NRPG::CAttackPortion attack(0,0,0.f,0,0,0);attack.MakeClickOfDeath(ray);
+        const int damage=actor->GetUnitRPG()->ProcessAttack(fixture.world.GetPtr(),NAI::HL_BODY,&attack,actor->GetUnitRPG()->GetRPGArmor());
+        Require(damage>=0,"native RPG cannon incapacitation control did not penetrate its actual actor armor");
+    }
+    const bool dead=actor->GetUnitRPG()->IsDead(),unconscious=actor->GetUnitRPG()->IsUnconscious();
+    std::printf("native cannon exit input: mode=%d RPGdead=%d RPGunconscious=%d worldMounted=%d\n",mode,int(dead),int(unconscious),int(actor->GetState()==NWorld::CUnit::ST_MACHINE_GUN));std::fflush(stdout);
+    Require(dead==(mode==2) && unconscious==(mode==1) && actor->GetState()==NWorld::CUnit::ST_MACHINE_GUN,
+        "cannon exit fixture did not reach its real unsynchronized RPG damage result with mounted world state");
+    auto* animator=actor->animator.GetSkeletonAnimator();CStructureNetworkContext refs;auto fields=BorrowedObjectFields(animator,&refs);
+    CObj<NAnimation::CASequence> sequence;{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&sequence);}
+    Require(sequence,"cannon exit fixture lacks its actual body animation sequence");
+    const STime now=fixture.world->GetTime()->GetValue(),beforeEnd=actor->animator.GetTimeEnd();
+    CObj<NAnimation::CAnimator> scheduled=sequence->GetAnimator(now);Require(scheduled,"cannon exit fixture lacks its active mounted animation");
+    const int ap=actor->GetAP(),vp=actor->GetUnitRPG()->GetTotalVP();const auto position=actor->GetPosition();
+    Require(exit->CanDoIt(position)==NWorld::UCR_OK,"native queued exit rejected its actual already-mounted cannon");
+    exit->Run();const bool sameAnimation=sequence->GetAnimator(now)==scheduled.GetPtr();const STime afterEnd=actor->animator.GetTimeEnd();
+    std::printf("native cannon exit: mode=%d sameAnimation=%d extraDelay=%u retainedAnimatorCannon=%d AP=%d->%d\n",mode,int(sameAnimation),
+        unsigned(afterEnd-beforeEnd),int(actor->animator.GetCannon()==cannon),ap,actor->GetAP());std::fflush(stdout);
+    Require(!actor->GetUnitRPG()->GetCannonItem() && !cannon->IsOccupied() && actor->GetState()!=NWorld::CUnit::ST_MACHINE_GUN &&
+        actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==vp && actor->GetPosition()==position &&
+        actor->GetUnitRPG()->IsDead()==dead && actor->GetUnitRPG()->IsUnconscious()==unconscious,
+        "native cannon exit failed logical detachment or changed its real RPG damage state, AP, VP or position");
+    if(mode==0) Require(!sameAnimation && afterEnd>beforeEnd && !actor->animator.GetCannon(),"a living cannon exit lost its normal standing transition");
+    else Require(sameAnimation && afterEnd==beforeEnd && actor->animator.GetCannon()==cannon,
+        "incapacitated cannon exit inserted a living stand transition and lost the mounted context needed by native death animation");
+    exit->AnimationFinished();exit=nullptr;
+    Require(!fixture.world->IsAction(),"native cannon exit retained its finished action before consciousness synchronization");
+    if(mode) {
+        actor->SyncConscious();
+        auto* particle=dynamic_cast<NAnimation::CParticleSkeleton*>(sequence->GetAnimator(now));
+        Require(particle && particle->tActive==particle->tMax && !actor->animator.GetCannon() &&
+            (mode==2?actor->IsDead():actor->IsUnconscious()),
+            "native consciousness synchronization did not hand the mounted downed actor directly to its actual clipless ragdoll");
+        CStructureNetworkContext particleRefs;auto particleFields=BorrowedObjectFields(particle,&particleRefs);CPtr<NWorld::CUnitServer> owner;
+        {CStructureSaver reader(particleFields,CStructureSaver::READ,&particleRefs);reader.Add(11,&owner);}
+        Require(owner==actor,"native cannon ragdoll lost its real unit owner");
+        std::printf("native cannon downed sync: mode=%d particleOwner=1 active=%u max=%u\n",mode,unsigned(particle->tActive),unsigned(particle->tMax));
+    }
+}
+
 static void MountedReloadWeapon(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -19499,6 +19553,9 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-terminal-finished")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "movement-terminal-failed")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "movement-action-camera")) { Require(argc == 4, "movement camera requires db and res"); MovementActionCamera(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "cannon-exit-alive")) { Require(argc==4, "cannon exit requires db and res"); CannonExitIncapacitated(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "cannon-exit-unconscious")) { Require(argc==4, "cannon exit requires db and res"); CannonExitIncapacitated(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "cannon-exit-dead")) { Require(argc==4, "cannon exit requires db and res"); CannonExitIncapacitated(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "cannon-entry-legacy-write") && argc==5) { WriteLegacyCannonEntryFixture(argv[2],argv[3],argv[4]); return true; }
     if (!std::strcmp(mode, "cannon-entry-legacy") && argc==5) { LegacyCannonEntryCompletion(argv[2],argv[3],argv[4]); return true; }
     if (!std::strcmp(mode, "cannon-entry-completion")) { Require(argc==4, "cannon completion requires db and res"); CannonEntryCompletion(argv[2],argv[3]); return true; }

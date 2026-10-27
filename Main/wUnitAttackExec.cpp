@@ -2363,7 +2363,9 @@ void CExecCannon::Run()
 	else
 	{
 		pUS->GetUnitRPG()->SetCannonItem(0);
-		pUS->animator.LeaveCannon( pUS->GetPosition() );
+		// Original Steam @0x7a6a44..0x7a6a76: downed actors must keep their death-animation context.
+		if ( !pUS->GetUnitRPG()->IsUnconscious() && !pUS->GetUnitRPG()->IsDead() )
+			pUS->animator.LeaveCannon( pUS->GetPosition() );
 		pOS->SetCurrentUnit(0);
 		pUS->SetState( new CUnitStateNormal( pUS ) );
 	}

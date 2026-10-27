@@ -6965,3 +6965,63 @@ Sourcef2 remains partially-imported until dead/unconscious exit is tested.
 Tracker281 unchanged:91pending/122imported/24partial/32already/3docs/
 5excluded-balance/2excluded-own/1historical/1review,116 unfinished. Overall goal
 and final actual-HEAD hosted CI remain open.
+
+
+## Cannon exit: preserve the downed actor's animation context until world sync
+
+Third independent hunk of [f2ed3ca5ba3d4d0d3002f02f2aa0fb7f0f9a5f86](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f2ed3ca5ba3d4d0d3002f02f2aa0fb7f0f9a5f86), afterde0bccf6/f47b06f6.
+Two compiled native REDs: unconscious1.16s and dead1.13s; living exit positive
+control1.16s already passes. After a real completed mounted entry, a pending
+native CExecCannon exit crosses the actual RPG-to-world seam: fully initialized
+CAttackPortion + native MakeClickOfDeath/ProcessAttack produces the mission's
+unconscious result with1 hit or dead result with2, while world state is still
+using the cannon. This is not a mocked IsUnconscious/IsDead or a private flag
+patch. The normal exit then wrongly adds300ms of standing, replaces the active
+CASequence animator and clears the mounted animator context. Exit AP stays
+42->42 or37->37 after the RPG damage result; no exit price change is involved.
+
+Original oracle: actual Steam Run7a6990 exit calls RPG vslot77 at7a6a44,
+then vslot38 at7a6a56; either true skips to7a6a7b, only a living actor calls
+LeaveCannon73ffe0 at7a6a76. The IUnitMission interface is at offset76(0x4c),
+not its CObjectBase primary table. Gold vtable8b63cc slot38=6b8ae0 named
+CUnitMission::IsDead/11, slot77=6bf5e0 named IsUnconscious/7; Steam interface
+8c54e4 slot38=6beed0/slot77=6c5d70. The unrelated primary slots were explicitly
+discarded during lookup. Evidence cannon-entry-retail-lookup.txt and
+cannon-entry-run-retail-disassembly.txt. No source VA is assumed correct.
+
+Production only gates the existing LeaveCannon call on the two real RPG
+states. Logical item/occupant/state detachment remains; no death/critical,
+ragdoll, face, AP/VP formula, weapon stats, save fields or own renderer changes.
+A downed actor keeps its active animator, end time and mounted marker until
+actual SyncConscious. That native synchronization then installs a real
+CParticleSkeleton at1833/1833 (no intermediate death clip), with actual unit
+owner verified through field11. Existing own ragdoll/impact handling is used
+unchanged. Living exit still transitions to standing for300ms and clears the
+marker. The test checks health, AP and position at the exit boundary before
+world synchronization; it does not claim a whole combat turn/input/rendered
+frame or save-slot UI proof.
+
+Final native related45/45 50.95s. Initial fixture CRay two-argument constructor
+was corrected to the actual field API; no compile error is claimed as RED.
+An initial post-fix43/45 run passed the new graph/context/ragdoll assertions,
+but its cleanup incorrectly demanded no world action after SyncConscious.
+The native synchronization creates its own world action window; exit-counter
+release is now checked before that phase. No production counter was altered
+and no exit invariant was dropped. That failed run remains separately saved.
+
+Both Game/Windows ALL_BUILD built. Fresh full455/455 Windows421.13s and
+Linux400.85s, each38native-display/24native-audio/12FONT-COMPAT. Own7Network
+184.95s including361/361maps130.78s (deployment+replica); CI-like284/28424.59s,
+fonts12. Raw455/455/7/284 complete, no NUL/missing/Failed, actual exit0.
+Both full runs also verify source and restored deferred entry, immutable old
+Windows saved phase on Linux (AP42->42), actual body clip, and the three exit
+controls. Evidence cannon-exit-incapacitated-{native-baseline,final-native-
+green,full,linux-full,network,ci}-native-test.log and stdout. Shared builds
+reused; no old game/build copies or HD generation.
+
+All functional sourcef2ed3ca5 hunks are now imported, including explicit entry
+name, stance flags, completion and downed exit. The legacy-save guard is our
+necessary adaptation; an unused local removal in the source carries no
+behavioral change. Tracker281:91pending/123imported/23partial/32already/3docs/
+5excluded-balance/2excluded-own/1historical/1review,115 unfinished entries.
+The overall ALL281 goal and final actual-HEAD hosted CI remain open.
