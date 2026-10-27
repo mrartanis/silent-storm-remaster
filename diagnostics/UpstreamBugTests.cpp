@@ -11793,6 +11793,67 @@ static void GrenadeCompletionVisibility(const char* databasePath,const char* res
     }
 }
 
+static void ActionSkillAcknowledgment(const char* databasePath)
+{
+    CFileStream database; database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    NDb::CRPGPers* persona = nullptr;
+    CDBIterator<NDb::CRPGPers> rows(*NDatabase::GetTable<NDb::CRPGPers>());
+    while (rows.MoveNext()) {
+        auto* candidate = rows.Get();
+        if (IsValid(candidate->pClass) && IsValid(candidate->pBaseValue) && IsValid(candidate->pModel) &&
+            IsValid(candidate->pName) && !IsValid(candidate->pPanzerklein) &&
+            !IsValid(candidate->pDefaultWearsPanzerklein) && candidate->pClass->skills[NDb::ST_LEVEL] > 0) {
+            persona = candidate; break;
+        }
+    }
+    Require(persona != nullptr,"skill acknowledgment fixture has no authored ordinary classed persona");
+    struct Case { NRPG::EAction action; NDb::ESkillType skill; };
+    const Case cases[] = {
+        {NRPG::AC_MELEE,NDb::ST_MELEE}, {NRPG::AC_THROW_GRENADE,NDb::ST_THROWING},
+        {NRPG::AC_THROW_KNIFE,NDb::ST_THROWING}, {NRPG::AC_SHOOT,NDb::ST_SHOOTING},
+        {NRPG::AC_PREPARE_AND_SHOOT,NDb::ST_SHOOTING}, {NRPG::AC_BURST,NDb::ST_BURST},
+        {NRPG::AC_MOVE_SIDE,NDb::ST_AP}, {NRPG::AC_MOVE_DIAGONAL,NDb::ST_AP}
+    };
+    for (const auto& test: cases) {
+        CObj<NRPG::CUnit> unit = new NRPG::CUnit(persona), reference = new NRPG::CUnit(persona);
+        CObj<NRPG::IUnitMission> mission = NRPG::CreateUnit(unit);
+        const float extraXP = unit->GetXPForSkill(NDb::ST_LEVEL,int(unit->Skills(NDb::ST_LEVEL))+3)-unit->fXP+1;
+        Require(extraXP > 0,"skill acknowledgment fixture has no higher native experience threshold");
+        unit->AddXP(extraXP); reference->AddXP(extraXP);
+        auto unchangedTraining = [&]() {
+            Require(unit->fXP == reference->fXP,"acknowledging training changed total experience");
+            for (int skill=0;skill<NDb::SKILL_TYPE_NUMBERS;++skill) {
+                const auto& actual = unit->Skills(skill); const auto& expected = reference->Skills(skill);
+                Require(int(actual) == int(expected) && actual.GetXPPart() == expected.GetXPPart() &&
+                    actual.GetProgress() == expected.GetProgress() && actual.GetMaxValue() == expected.GetMaxValue(),
+                    "action training diverged from the unchanged native unit training formula");
+            }
+        };
+        unchangedTraining();
+        int ack = -1; NRPG::IUnitMissionInfo* attacker = nullptr;
+        mission->RegisterAction(NRPG::AC_NONE);
+        Require(!mission->GetAck(&ack,&attacker),"an action without skill training emitted an acknowledgment");
+        int gained = 0, fractional = 0;
+        for (int use=0;use<500 && gained<2;++use) {
+            const bool advanced = reference->UseSkill(test.skill,0); // Ordinary human has no PK skill offset.
+            mission->RegisterAction(test.action);
+            unchangedTraining();
+            const bool acknowledged = mission->GetAck(&ack,&attacker);
+            if (!advanced) ++fractional;
+            else {
+                ++gained;
+                std::printf("native skill acknowledgment: action=%d skill=%d use=%d gained=%d ack=%d fractional=%d\n",
+                    int(test.action),int(test.skill),use,gained,int(acknowledged),fractional);
+            }
+            Require(acknowledged == advanced && (!advanced || (ack == NWorld::N_ACK_SKILL && attacker == nullptr)),
+                "a native action improved its skill without the corresponding skill acknowledgment");
+            Require(!mission->GetAck(&ack,&attacker),"one skill improvement emitted duplicate acknowledgments");
+        }
+        Require(gained == 2 && fractional > 0,"skill acknowledgment fixture never crossed two actual native skill boundaries");
+    }
+}
+
 static void AssignedLevelExperience(const char* databasePath)
 {
     CFileStream database;
@@ -15923,6 +15984,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "hide-shortcut-eligibility")) { HideShortcutEligibility(); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "assigned-level-experience")) { Require(argc == 3, "assigned level experience requires db"); AssignedLevelExperience(argv[2]); return true; }
+    if (!std::strcmp(mode, "action-skill-acknowledgment") && argc == 3) { ActionSkillAcknowledgment(argv[2]); return true; }
     if (!std::strcmp(mode, "persona-full-display-name")) { Require(argc == 3, "full display name requires db"); PersonaFullDisplayName(argv[2]); return true; }
     if (!std::strcmp(mode, "character-panel-full-name")) { Require(argc == 4, "character panel name requires db and res"); CharacterPanelFullName(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "temporary-groups")) { TemporaryGroups(); return true; }

@@ -482,25 +482,25 @@ void CUnitMission::RegisterAction( EAction action )
 			nLastActionTimes++;
 			break;
 		case AC_MELEE:
-			pRPGUnit->UseSkill( NDb::ST_MELEE, GetSkillAddValue( NDb::ST_MELEE ) );
+			UseSkill( NDb::ST_MELEE );
 			break;
 		case AC_THROW_GRENADE:
 		case AC_THROW_KNIFE:
-			pRPGUnit->UseSkill( NDb::ST_THROWING, GetSkillAddValue( NDb::ST_THROWING ) );
+			UseSkill( NDb::ST_THROWING );
 			break;
 		case AC_SHOOT:
 		case AC_PREPARE_AND_SHOOT:
-			pRPGUnit->UseSkill( NDb::ST_SHOOTING, GetSkillAddValue( NDb::ST_SHOOTING ) );
+			UseSkill( NDb::ST_SHOOTING );
 			break;
 		case AC_BURST:
-			pRPGUnit->UseSkill( NDb::ST_BURST, GetSkillAddValue( NDb::ST_BURST ) );
+			UseSkill( NDb::ST_BURST );
 			break;
 		case AC_MOVE_DIAGONAL:
 		case AC_MOVE_SIDE:
 			// retail @0x34edb0: the nMoveInLastTurn accounting moved to DoAction (gated on RUN pose); here we
 			// only spend the AP-skill use. (Old code added it unconditionally here, with a diagonal fall-through
 			// bug that summed +3 -- both are corrected by the relocation.)
-			pRPGUnit->UseSkill( NDb::ST_AP, GetSkillAddValue( NDb::ST_AP ) );
+			UseSkill( NDb::ST_AP );
 			break;
 	}
 }

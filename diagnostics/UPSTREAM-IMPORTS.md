@@ -4166,7 +4166,8 @@ UpstreamDoorPathStop на настоящей карте находит authored 
 fixture door оказалась locked; она отпирается штатным LockDoor(false), без
 изменения DB/assets. В path добавляется PA_OPEN в точке взаимодействия,
 как при разделении более длинного пути. Проверка выполняет настоящий
-front mover из CExecQueue.Run/TimeLabelReached/AnimationFinished в player turn,
+front mover, созданный CExecQueue, через Run/TimeLabelReached/AnimationFinished
+в player turn,
 останавливаясь до запуска отдельного OpenClose executor.
 
 Первая fixture compile ошибка с Windows macro near и неуспешные поиски
@@ -4191,3 +4192,37 @@ red-{build,test}.log, red-native-test.log, green-{build,test}.log,
 green-native-test.log, all-build.log, related-test.log,
 linux-{configure,build,test}.log, {windows,linux}-native-test.log,
 network-{test,native-test}.log. Sourcefcc частичный; all281/final Actions pending.
+
+## Уведомление о росте навыка от обычного действия — часть c55ed688
+
+UpstreamActionSkillAcknowledgment создаёт два настоящих CUnit из authored
+ordinary classed persona. Одинаковый AddXP открывает cap для обучения.
+Восемь RegisterAction cases: melee, grenade/knife throw, shoot/prepared shoot,
+burst, side/diagonal movement. Каждый вызов сравнивается с прежним native
+CUnit::UseSkill(skill,0), включая value, XP part, fractional progress, max
+всех skills и общий XP. Для ordinary persona PK skill offset равен нулю.
+
+Compiled native RED: AC_NONE и четыре fractional uses не создают ack, на
+первом реальном melee improvement action20/skill0/use4 native training
+совпадает с reference, но ack отсутствует. Только после RED пять call sites
+RegisterAction используют уже существующий CUnitMission::UseSkill wrapper.
+Он сохраняет наш GetSkillAddValue (в том числе PK offset), прежний native
+CUnit::UseSkill и добавляет N_ACK_SKILL только при его true return.
+Формулы обучения, cap/rounding, XP/perks, AP и damage не переписываются.
+
+GREEN: по два настоящих improvement для каждого из восьми действий,
+один N_ACK_SKILL с null attacker на improvement; на fractional/no-training
+действиях нет уведомлений и дубликатов. Сохранено точное совпадение всех
+training fields с неизменной native формулой на каждом use.
+Это RPG acknowledgment queue boundary, не проигрывание голоса/портрета.
+
+Target3/3; связанные22/22 Windows (14.75 с) и Linux (14.53 с),
+обе Game и Windows ALL_BUILD, по12 FONT-COMPAT/raw22 полные без NUL.
+NetworkSerializer/ClientUI/StopResume3/3 (8.45 с). CPU base363,
+полный checkpoint d33ec7da base359+5=364/CI-like277.
+Свидетельства action-skill-acknowledgment: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log, network-{test,native-test}.log.
+Sourcec55 теперь partial; отдельные snipe/VP/interrupt producers ещё проверяются.
+All281/final actual Actions pending.
