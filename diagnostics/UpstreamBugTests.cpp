@@ -3890,7 +3890,7 @@ static void GlobalSectorDescription(const char* databasePath,const char* resourc
     }
 }
 
-static void GlobalMapReturnDestination(const char* databasePath,const char* resourcePath)
+static void GlobalMapReturnDestination(const char* databasePath,const char* resourcePath,bool missingRecord = false)
 {
     CFileStream database;
     database.OpenRead(databasePath);
@@ -3913,6 +3913,30 @@ static void GlobalMapReturnDestination(const char* databasePath,const char* reso
     auto* modal = NMainLoop::GetCurrentInterfaceForHarness();
     Require(IsValid(modal) && pSSClasses->GetObjectTypeID(modal) == int(0xB1808180) && game->bChapterMapSet,
         "modal global-map overview did not preserve its chapter return destination");
+    if (missingRecord) {
+        const int absentID = 987654;
+        Require(!IsValid(NDb::GetGlobalMap(absentID)),"missing-map fixture record unexpectedly exists");
+        CObj<NRPG::CGlobalGame> invalid = NRPG::CreateGlobalGame(map->pScenario->GetRecordID());
+        invalid->players = game->players; invalid->bGlobalMapSet = true;
+        invalid->nGlobalMapID = absentID;
+        for (bool overviewMode: {true,false}) {
+            std::printf("native missing-map control: valid=%d absent=%d overview=%d existing-interface=%d\n",
+                map->GetRecordID(),absentID,int(overviewMode),int(NMainLoop::GetCurrentInterfaceForHarness() == modal));
+            std::fflush(stdout);
+            if (overviewMode) {
+                CObj<NGame::CICShowGlobal> command = new NGame::CICShowGlobal(invalid);
+                command->Exec();
+            } else {
+                CObj<NGame::CICContinueGlobal> command = new NGame::CICContinueGlobal(invalid);
+                command->Exec();
+            }
+            Require(NMainLoop::GetCurrentInterfaceForHarness() == modal && !NMainLoop::HaveInterfaceCommand() &&
+                game->bGlobalMapSet && game->nGlobalMapID == map->GetRecordID() && game->bChapterMapSet &&
+                game->nChapterMapID == 987654 && game->vChapterPos == CVec2(12,34) &&
+                invalid->bGlobalMapSet && invalid->nGlobalMapID == absentID,
+                "a missing global-map record replaced the active interface or changed campaign state");
+        }
+    }
     NMainLoop::DoneInterface();
     CObj<NGame::CICContinueGlobal> leaveChapter = new NGame::CICContinueGlobal(game);
     leaveChapter->Exec();
@@ -16467,6 +16491,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "chapter-world-graph") && argc == 4) { ChapterWorldGraph(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "global-sector-description") && argc == 4) { GlobalSectorDescription(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "global-map-return-destination") && argc == 4) { GlobalMapReturnDestination(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "global-map-missing-record") && argc == 4) { GlobalMapReturnDestination(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "chapter-team-marker-tooltip") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-marker-tooltip-transitions") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "chapter-exit-marker-hint") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3],2); return true; }

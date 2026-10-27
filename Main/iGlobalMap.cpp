@@ -63,7 +63,7 @@ protected:
 public:
 	CGlobalMap();
 
-	void Initialize( NRPG::CGlobalGame* pGame, bool bShowMode = false );
+	bool Initialize( NRPG::CGlobalGame* pGame, bool bShowMode = false );
 
 	bool IsGlobalMapShowMode() const;
 	NDb::CGlobalMap* GetGlobalMap() const;
@@ -83,13 +83,15 @@ CGlobalMap::CGlobalMap():
 	bRenderWorld = false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CGlobalMap::Initialize( NRPG::CGlobalGame *_pGame, bool _bShowMode )
+bool CGlobalMap::Initialize( NRPG::CGlobalGame *_pGame, bool _bShowMode )
 {
 	bShowMode = _bShowMode;
 	pGlobalGame = _pGame;
 
 	pGlobalMap = NDb::GetGlobalMap( pGlobalGame->nGlobalMapID );
 	pGlobalInfo = shareGlobalInfo.Get( pGlobalGame->nGlobalMapID );
+	if ( !IsValid( pGlobalMap ) || !IsValid( pGlobalInfo ) )
+		return false;
 
 #ifdef _MAPEDIT
 	pCursor = NUI::ICursor::CreateEditorCursor();
@@ -104,6 +106,7 @@ void CGlobalMap::Initialize( NRPG::CGlobalGame *_pGame, bool _bShowMode )
 	pGlobalMapUI = new NUI::CGlobalMapUI( NUI::SWindowInfo( pInterface, NUI::SPoint( 0, 0 ), NUI::SPoint( 1024, 768 ), "globalmapUI" ), this );
 	NUI::LoadTemplate( pGlobalMapUI, NDb::GetUIContainer( 175 ) );
 	pGlobalMapUI->ShowWindow( NUI::SWTYPE_SHOW );
+	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGlobalMap::IsGlobalMapShowMode() const
@@ -250,8 +253,9 @@ void CICContinueGlobal::Exec()
 		return;
 	}
 
-	CGlobalMap *pRes = new CGlobalMap();
-	pRes->Initialize( pGame );
+	CObj<CGlobalMap> pRes = new CGlobalMap();
+	if ( !pRes->Initialize( pGame ) )
+		return;
 	SetInterface( pRes );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -270,8 +274,9 @@ void CICShowGlobal::Exec()
 		return;
 	}
 
-	CGlobalMap *pRes = new CGlobalMap();
-	pRes->Initialize( pGame, true );
+	CObj<CGlobalMap> pRes = new CGlobalMap();
+	if ( !pRes->Initialize( pGame, true ) )
+		return;
 	PushInterface( pRes );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

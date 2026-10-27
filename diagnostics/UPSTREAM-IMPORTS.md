@@ -4436,3 +4436,41 @@ network-{test,native-test}.log. Единственный hunk источника
 Статус281:113 pending/98 imported/21 partial/38 already/3 docs/5 excluded-balance,
 по1 historical/review/excluded-own.135 исходных коммитов ещё разбираются;
 all281/final actual Actions не завершены.
+
+## Отсутствующая запись глобальной карты — часть b91ea228
+
+UpstreamGlobalMapMissingRecord расширяет прежний native ReturnDestination
+fixture. Настоящий CICShowGlobal сначала открывает authored campaign map3.
+Отдельный CGlobalGame с тем же scenario/party, bGlobalMapSet=true, но
+отсутствующим DB id987654 передаётся реальным CICShowGlobal/CICContinueGlobal.
+Fixture заранее подтверждает отсутствие record. Compiled native RED:
+прежний ReturnDestination проходит, valid map/interface есть; первый
+invalid overview приводит к SEGFAULT после flushed positive-control message.
+
+После RED Initialize возвращает bool и проверяет map/info до создания UI.
+Адаптация к нашим callers: временный CGlobalMap держится CObj; SetInterface/
+PushInterface выполняются только при успешном Initialize. Недостаточно просто
+возвратить false внутри initializer и затем опубликовать недостроенный объект.
+Новые data fields, base classes, serialized tags, clocks и шаблоны не добавлены.
+
+GREEN: обе ошибочные команды сохраняют именно прежний active interface,
+не оставляют deferred interface command, не меняют ID/return destination
+отдельной valid campaign и не исправляют bad ID выдуманной картой.
+Затем прежний positive ContinueGlobal действительно открывает valid map и
+сбрасывает chapter return flag как раньше. Это public command/real UI
+construction boundary, не pixel screenshot и не проверка всех mod failures.
+Флаг chapter у отдельной invalid campaign в этом тесте изначально false;
+rollback этого флага на failed continue здесь не заявляется.
+
+Target2/2; связанные21/21 Windows (16.61 с), Linux (15.84 с),
+обе Game и Windows ALL_BUILD/12 FONT-COMPAT/raw21 полные без NUL.
+NetworkSerializer/ClientUI/StopResume3/3 (5.36 с). CPU base369,
+полный checkpoint4da43aaf base366+5=371/CI-like277.
+Свидетельства global-map-missing-record: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log и network-{test,native-test}.log.
+Sourceb91 partial: desktop ownership/drawing и optional globe ещё разбираются.
+Статус281:112 pending/98 imported/22 partial/38 already/3 docs/5 excluded-balance,
+по1 historical/review/excluded-own.135 исходных коммитов остаются в разборе;
+all281/final actual Actions не завершены.
