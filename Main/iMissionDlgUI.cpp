@@ -440,7 +440,8 @@ void CMissionDlgUI::UpdatePhrases( NGScene::I2DGameView *pView )
 		};
 		do
 		{
-			pML->SetText( wsText, 0 );
+			// Use the same formatting as SetStage without changing saved source offsets.
+			pML->SetText( GetDBString( 11209 ) + wsText, 0 );
 			pML->Generate( pView, S2UI::ToPixel(pDialog->GetSize().x) );
 
 			sRealSize = pML->GetSize();

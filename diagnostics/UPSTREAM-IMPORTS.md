@@ -7930,3 +7930,81 @@ HD generation/old binary copies; owned test processes close. Evidence markup-
 leading-whitespace-{red,green,final-related,final-linux,final-display,
 linux-display,final-ci} test/native-test and build logs. Tracker281/111unfinished
 unchanged until the independent6db formatting import completes.
+
+
+## 6db81d60, final own-font audit — reapply dialogue formatting to pagination
+
+Source6db81d60d94042c4c13f0a99d6b9b287a65b7b54 was provisionally marked superseded
+by e9f4cdd052b4b80452879241d6fd309ca7b0ff49. Its useful per-page formatting was
+still missing in our fork. Existing e9 native tests prove progress and source
+integrity, not font-correct measurement on continuation pages. Reopen that
+assumption, reproduce the missing behavior and complete this source as ADAPT.
+
+After the independent own ignored-space fix5aa47bee, native glyph RED1/1 1.28s:
+actual CMissionDlgUI::UpdatePhrases/SetStage, real IML generation/rendered bounds
+and our packaged Courier font. First page glyphBottom72 fits its90 logical-unit
+box, next page glyphBottom324 overflows. UpdatePhrases had dropped the format
+prefix while measuring the remainder; SetStage reapplies it when displaying.
+The test temporarily changes only the loaded DB11209 prefix in RAM and restores
+it by RAII. No database/resource/font/config file is written.
+
+Minimal fix: measure GetDBString(11209)+wsText on EVERY page, matching SetStage.
+Keep our existing stored page text, historical source-offset coordinates and
+save tags. The first page already carries the old prefix in its source text;
+matching the display's existing input preserves those coordinates rather than
+copying the upstream source-string rewrite that would move our saved anchors.
+No font files, actual sizes, scale factors or facial/voice engine are changed.
+
+Native glyph GREEN1/1 1.17s traverses all eight pages and both phrases; all
+visible glyphs fit, text reconstructs exactly, source anchors increase, each
+new phrase starts offset0 and navigation/stage-event counts remain correct.
+Trailing invisible whitespace can add an empty line to GetSize (108) while all
+visible glyphs end at72. The final oracle uses actual rendered character bounds;
+it does not mistake that blank line for clipped text. The source-before-fix was
+rerun with this exact oracle and still produces visible bottom324. Initial
+format-only experiments also exposed the separate uninitialized-space defect,
+which was fixed and pushed first. Temporary production traces are removed.
+
+Extended scale controls3/3 3.52s verify actual native UI scales100/150/200% with
+SDL's dummy2048x1536 display, genuine packaged Courier glyphs and the same
+production pagination path. Earlier scale setup without an SDL window clamped
+to100%; it is fixture setup failure, not a gameplay RED. Final tests assert the
+actual scale, require the selected packaged font to be vector, and retain source
+text/integrity/navigation checks. This is real native glyph layout, not GPU
+pixel proof or a full saved-mission dialogue playthrough.
+
+Independent original-image check: Gold CMissionDlgUI::UpdatePhrases602cb0/1837
+maps uniquely to Steam607740, masking only the EH operand3:7 in the first32bytes.
+The actual page loop loads prefix ID11209 at607883, calls lookup60788f, and has
+its repeat backedge607d90->607870. Saved dialogue-formatting-retail-disassembly
+shows prefix lookup inside the loop. Upstream's607653 comment is not substituted
+for verification against our image.
+
+The rest of6db is accounted for by our current architecture:
+- Our SetStage retains its template-sized text box throughout pagination, so
+  capacity does not shrink to a previously fitted page. Upstream's new stored
+  template height solves its auto-fit behavior. Do not introduce page auto-fit
+  into our current responsive fixed-box UI or replace S2UI::ToPixel/FromPixel
+  with the old1024/768 conversion; all three native scale controls cover ours.
+- Preserve our existing save field IDs and e9 logical source-progress state;
+  parsed live pagination is transient, and reading remaps by logical anchors.
+  Retail field renumbering and moving the live sound handle into serialized
+  fields would change our fork's format. No header/serialization edit is made.
+  Existing first-page voice/sequence/expression rules and own facial engine
+  remain intact; SetStage is not changed.
+
+Final broad validation and source status follow below.
+
+Final Windows/Linux Game and helpers built; related20/20 Windows13.25s and19/19
+Linux12.10s include all three scale cases, ignored-space prerequisite, ordinary
+pagination/markup progress and real packaged-font tests. Native-display51/51
+Windows77.19s/Linux63.01s; CI-like290/29024.36s. Raw20/19/51/51/290 complete,
+noNUL/Failed/NotRun/missing executables; actual runners exit0. Owned Game count0,
+shared builds reused, no HD generation or old binary copies; temporary WIP text
+patch removed and production traces absent. Evidence dialogue-formatted-
+pagination-{glyph-red,glyph-green,final-scales,final-related,final-linux,
+final-display,linux-display,final-ci} test/native-test and build logs plus the
+independent original disassembly. Complete6db for this fork as imported/ADAPT.
+Tracker281: pending87/imported128/partial23/already32/docs3/excluded-balance5/
+excluded-own2/historical1/review0;110 source commits remain unfinished. The full
+ALL281 goal and final actual-HEAD hosted CI remain open.

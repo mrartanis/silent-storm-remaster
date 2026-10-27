@@ -10878,11 +10878,26 @@ static void MarkupLeadingWhitespace(const char* databasePath,const char* resourc
     }
 }
 
-static void OversizedDialogueLine(const char* databasePath, const char* resourcePath, int scenario = 0)
+static void OversizedDialogueLine(const char* databasePath, const char* resourcePath, int scenario = 0, float formattedScale = 1)
 {
     const bool markupOnly = scenario == 1;
-    const bool normalPages = scenario == 2;
+    const bool formattedPages = scenario == 3;
+    const bool normalPages = scenario >= 2;
+    struct PlatformCleanup { bool active; ~PlatformCleanup(){if(active)S2Platform::Done();} } platform{formattedPages};
+    if(formattedPages) {
+        S2Platform::SetErrorDialogs(false);
+        Require(S2Platform::Init("formatted native dialogue",2048,1536,true),"formatted dialogue fixture could not initialize its dummy display");
+    }
     auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* format = NDb::GetString(11209);
+    Require(format != nullptr, "dialogue formatting fixture has no prefix record");
+    struct RestoreFormat { NDb::CString* record; wstring original; ~RestoreFormat(){record->szStr=original;} } restoreFormat{format,format->szStr};
+    if(formattedPages) {
+        format->szStr=L"<font face=Courier size=32pt><left>";
+        S2Platform::UpdateDisplay(Float2Int(formattedScale*100));MarkNewDGFrame();
+        Require(std::fabs(S2Platform::Display().uiScale-formattedScale)<.001f,"formatted dialogue fixture could not set its native UI scale");
+    }
+
     vector<CPtr<NWorld::CUnit>> actors;
     world->GetAllUnits(&actors);
     Require(!actors.empty(), "dialogue fixture has no speaker");
@@ -10919,7 +10934,7 @@ static void OversizedDialogueLine(const char* databasePath, const char* resource
         NUI::SWindowInfo(nullptr, NUI::SPoint(0, 0), NUI::SPoint(500, 100), "dialogue-test"),
         mission, nullptr, "diagnostic", vector<CObj<NWorld::CUnit>>{}, phrases);
     CObj<NUI::CText> text = new NUI::CText(
-        NUI::SWindowInfo(nullptr, NUI::SPoint(0, 0), NUI::SPoint(normalPages ? 120 : 500, normalPages ? 50 : markupOnly ? 10 : 1), "dialogue-text"));
+        NUI::SWindowInfo(nullptr, NUI::SPoint(0, 0), NUI::SPoint(formattedPages ? 240 : normalPages ? 120 : 500, formattedPages ? 90 : normalPages ? 50 : markupOnly ? 10 : 1), "dialogue-text"));
     CObj<NUI::CHoverButton> back = new NUI::CHoverButton, next = new NUI::CHoverButton, exit = new NUI::CHoverButton;
     CStructureNetworkContext references;
     references.externalReferences = true;
@@ -10936,7 +10951,12 @@ static void OversizedDialogueLine(const char* databasePath, const char* resource
       static_cast<CObjectBase*>(dialog.GetPtr())->operator&(reader); }
     CObj<DialogueLayoutView> view = new DialogueLayoutView;
     CObj<NUI::IML> layout = NUI::CreateML();
-    layout->SetText(texts.front()->szStr, 0); layout->Generate(view, text->GetSize().x);
+    if(formattedPages) {
+        auto* font=view->GetLocaleInfo()->GetFont(NGScene::SFont(Float2Int(32*formattedScale),"Courier"));
+        Require(IsValid(font) && font->IsVector(),"dialogue formatting fixture did not use our packaged high-resolution Courier font");
+    }
+    layout->SetText((formattedPages?format->szStr:L"")+texts.front()->szStr, 0);
+    layout->Generate(view, S2UI::ToPixel(text->GetSize().x));
     Require(layout->GetSize().y > text->GetSize().y, "dialogue fixture did not overflow its text box");
     if (markupOnly) {
         list<NUI::SRect> bounds;
@@ -10968,6 +10988,15 @@ static void OversizedDialogueLine(const char* databasePath, const char* resource
                 "normal dialogue page lost its logical progress anchor");
             if (phrase == previousPhrase) Require(offset > previousOffset, "normal dialogue continuation did not advance its source offset");
             else Require(phrase == previousPhrase + 1 && offset == 0, "new dialogue phrase did not restart its source offset");
+            if(formattedPages) {
+                layout->SetText(text->GetText(),0);layout->Generate(view,S2UI::ToPixel(text->GetSize().x));
+                list<NUI::SRect> glyphs;layout->Render(&glyphs,NUI::SPoint(0,0),NUI::SRect(0,0,0,0));
+                int bottom=0;for(const auto& glyph:glyphs)bottom=Max(bottom,glyph.y2);
+                const float glyphBottom=S2UI::FromPixel(bottom);
+                std::printf("native formatted dialogue: page=%d phrase=%d offset=%d layoutHeight=%.1f glyphBottom=%.1f available=%d\n",
+                    page,phrase,offset,S2UI::FromPixel(layout->GetSize().y),glyphBottom,text->GetSize().y);std::fflush(stdout);
+                Require(glyphBottom<=text->GetSize().y,"dialogue continuation was paginated without its packaged-font formatting and its glyphs overflow when displayed");
+            }
             previousPhrase = phrase; previousOffset = offset;
             recovered += plainText(text->GetText());
             ++pages;
@@ -20443,6 +20472,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "oversized-dialogue-line") && argc == 4) { OversizedDialogueLine(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "markup-dialogue-progress") && argc == 4) { OversizedDialogueLine(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "markup-leading-whitespace") && argc == 4) { MarkupLeadingWhitespace(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "dialogue-formatted-pagination") && (argc == 4 || argc == 5)) { OversizedDialogueLine(argv[2], argv[3], 3, argc==5?std::strtof(argv[4],nullptr):1); return true; }
     if (!std::strcmp(mode, "dialogue-normal-pagination") && argc == 4) { OversizedDialogueLine(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "forced-move-item-eligibility") && argc==4) { ForcedMoveItemEligibility(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "interrupted-movement-route-save") && argc==4) { InterruptedMovementRoute(argv[2],argv[3],true); return true; }
