@@ -105,6 +105,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/wMainPath.h"
 #include "../Main/wGrenade.h"
 #include "../Main/wBullet.h"
+#include "../Main/wKnife.h"
 #include "../Main/wAckBase.h"
 #include "../Main/wDynObject.h"
 #include "../Main/wDebris.h"
@@ -6433,6 +6434,62 @@ static void EmptyBulletConstruction(const char* databasePath, const char* resour
     Require(onePoint->Segment(), "one-point bullet did not retire at its existing endpoint");
     onePoint = nullptr;
     Require(world->IsAction() == action, "one-point bullet retained the world's action counter");
+}
+
+class KnifePosePresentation: public NWorld::IRenderVisitor
+{
+public:
+    CPtr<NDb::CModel> model;
+    CPtr<CFuncBase<NAnimation::SSkeletonPose>> animation;
+    int meshes = 0;
+    void AddItemMesh(NDb::CModel* value,CFuncBase<NAnimation::SSkeletonPose>* pose,int) override {
+        model = value; animation = pose; ++meshes;
+    }
+};
+
+static void ThrownKnifeOrientation(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,false,&game);
+    NDb::CRPGMeleeWeapon* record = nullptr;
+    CDBIterator<NDb::CRPGMeleeWeapon> rows(*NDatabase::GetTable<NDb::CRPGMeleeWeapon>());
+    while (rows.MoveNext()) if (rows.Get()->bThrowing && IsValid(rows.Get()->pItem) &&
+        IsValid(rows.Get()->pItem->pModel)) { record = rows.Get(); break; }
+    Require(record != nullptr, "knife orientation fixture has no authored modelled throwing knife");
+    SRand modelRandom; CObj<NDb::CModel> model = record->pItem->pModel->CreateModel(&modelRandom);
+    Require(IsValid(model), "knife orientation fixture did not resolve its authored model pool");
+    CObj<NRPG::CMeleeWeaponItem> item = new NRPG::CMeleeWeaponItem(record);
+    const bool action = world->IsAction();
+    const CVec3 start(11,12,13);
+    const STime now = world->GetTime()->GetValue();
+    // The model's forward axis is -Z. Keep the supported vertical-down identity
+    // control first, then cover four horizontal headings and sloped flights.
+    for (const auto& velocity: {CVec3(0,0,-10),CVec3(10,0,0),CVec3(0,10,0),CVec3(-10,0,0),
+        CVec3(0,-10,0),CVec3(3,4,5),CVec3(3,-4,-5),CVec3(-7,2,-1)}) {
+        NRPG::CAttackPortion attack;
+        CObj<NWorld::IDynamicObject> knife = NWorld::CreateKnifeServer(world,start,velocity,
+            now,100.f,model,attack,item,nullptr);
+        Require(IsValid(knife), "knife orientation fixture could not construct the native projectile");
+        KnifePosePresentation presentation;
+        auto* visual = dynamic_cast<NWorld::IVisObj*>(knife.GetPtr());
+        Require(visual != nullptr, "native knife has no render-visitor interface");
+        visual->Visit(&presentation);
+        Require(presentation.meshes == 1 && presentation.model == model.GetPtr() &&
+            IsValid(presentation.animation), "native knife did not publish its actual model and animation");
+        CDGPtr<CFuncBase<NAnimation::SSkeletonPose>> evaluated(presentation.animation);
+        evaluated.Refresh();
+        const auto& pose = evaluated->GetValue();
+        Require(pose.size() == 1 && fabs2(pose[0].pos-start) < 1e-8f,
+            "native knife orientation changed its initial position or root-pose shape");
+        const CVec3 forward = pose[0].rot.Rotate(CVec3(0,0,-1));
+        CVec3 expected = velocity; Normalize(&expected);
+        const float error = fabs2(forward-expected);
+        std::printf("native knife velocity=(%.1f,%.1f,%.1f) forward=(%.4f,%.4f,%.4f) error=%.6f\n",
+            velocity.x,velocity.y,velocity.z,forward.x,forward.y,forward.z,error);
+        Require(error < 1e-6f, "thrown knife model faces against its flight direction");
+        knife = nullptr;
+        Require(world->IsAction() == action, "inspecting knife orientation retained a projectile action");
+    }
 }
 
 class HiddenUnitPresentation: public NWorld::IRenderVisitor
@@ -15870,6 +15927,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "script-hide-state") && argc == 4) { ScriptHideState(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "exhausted-hint-pickups") && argc == 4) { ExhaustedHintPickups(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "authored-hint-placement") && argc == 4) { AuthoredHintPlacement(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "thrown-knife-orientation") && argc == 4) { ThrownKnifeOrientation(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-idle") && argc == 4) { IdleAI(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "mixed-hide-button") && argc == 4) { MixedActionButton(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "mixed-strafe-button") && argc == 4) { MixedActionButton(argv[2], argv[3], false); return true; }

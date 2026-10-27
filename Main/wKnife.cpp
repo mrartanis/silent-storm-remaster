@@ -75,10 +75,13 @@ CKnifeAnimator::CKnifeAnimator( STime _tStart, const CVec3 &_start, const CVec3 
 	tStart(_tStart), start(_start), vel(_vel)
 {
 	qRot = QNULL;
-	float fAngle = acos( vel.z / fabs(vel) );
-	CVec3 axis( -vel.y, vel.x, 0 );
+	// The authored knife model faces -Z.
+	CVec3 axis( vel.y, -vel.x, 0 );
 	if ( fabs2(axis) > 1e-6f )
+	{
+		float fAngle = acos( -vel.z / fabs(vel) );
 		qRot.FromAngleAxis( fAngle, axis, true );
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CKnifeAnimator::GetFrame( STime t, NAnimation::SSkeletonPose *pPose )

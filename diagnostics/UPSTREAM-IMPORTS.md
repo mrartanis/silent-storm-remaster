@@ -4009,3 +4009,42 @@ CAIRouteLogic::IsRouteComplete сохранён вместо generic IsFinished 
 комментарии, соответствующая реализация уже существует. Source переведён
 в imported с этой адаптацией. Число незавершённых источников 142,
 не число будущих fix commits; весь аудит 281 ещё продолжается.
+
+## Ориентация модели метательного ножа — часть fcc994bc
+
+UpstreamThrownKnifeOrientation создаёт настоящий projectile через
+CreateKnifeServer в native world, с modelled authored throwing-knife record.
+CTRndModel разрешается штатным CreateModel; настоящий IVisObj::Visit передаёт
+этот конкретный model и DG pose в AddItemMesh visitor. Тест оценивает root pose
+на текущем времени и направление local -Z. Начальные fixture compile ошибки
+(model pool против CModel, Visit на отдельном IDynamicObject interface)
+исправлены до runtime RED, их логи сохранены.
+
+Compiled runtime RED: vertical-down control имеет error=0, а при velocity
+(10,0,0) модель направлена (-1,0,0), squared direction error=4.
+После RED только qRot constructor меняет знаки axis/acos в соответствии с
+forward -Z. acos выполняется внутри прежнего nonzero-axis guard.
+GetFrame position/velocity, lifetime, attack/trace/AP/damage и save fields
+не изменены.
+
+GREEN: восемь native projectiles — vertical-down, четыре горизонтальных
+направления, три наклонных. Проверены направление (<1e-6), конкретный model,
+один root bone, начальная позиция и освобождение action counter после удаления
+projectile. Это pose/render-boundary proof, не pixel screenshot и не прогон
+коллизий/урона/времени полёта. Zero velocity и vertical-up не покрываются;
+новое исправление этих входов не заявляется.
+
+Target 3/3 с прежними KnifeFeedback/SuccessorHandoff, связанные 18/18 Windows
+(13.62 с) и Linux (13.37 с), обе Game и Windows ALL_BUILD собраны.
+По 12 FONT-COMPAT; raw18 полные без NUL. NetworkSerializer/StopResume 2/2
+(4.00 с). CPU base 358; последний полный checkpoint a196329d —
+base357+5=362 на обеих платформах, CI-like276.
+
+Свидетельства thrown-knife-orientation: fixture-model-build.log,
+fixture-visitor-build.log, red-{build,test}.log, red-native-test.log,
+green-{build,test}.log, green-native-test.log, all-build.log,
+related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log, network-{test,native-test}.log.
+Sourcefcc теперь partially-imported; независимые melee hull, coloring,
+attack pose, equipment и door-path hunks ещё проверяются. All281/final actual
+Actions не завершены.
