@@ -4883,3 +4883,47 @@ all-build.log, related-test.log, linux-{configure,build,test}.log,
 ещё разбираются. CPU base376; свежий full383 не заявляется. Последний CI-like
 остаётся aef3b6be280/280, парный full с GPU — e356d2db376/376, Linux CPU full —
 6699e500373/373. Все281 и итоговый actual HEAD GitHub Actions ещё не завершены.
+
+
+## Обработка очереди звуков собственной сцены меню — часть695465bc
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/695465bc189bfe93a657a3f48ff51bc664c5b7ef
+
+UpstreamOwnedMenuSoundPump проверяет настоящий CInterface.Draw, CSoundScene,
+Add2DSound и native PCM mixer. Положительный контроль: shared scene остаётся
+необработанной после кадра её интерфейса, явный scene.Draw запускает channel,
+S2FmodRenderForTest выдаёт ненулевой PCM. Затем независимый owned interface
+ставит click в очередь, но Draw оставляет playing=0 — окончательный native RED.
+Оснастка лишь останавливает frame на StartNewFrame, до GPU drawing; она не
+подменяет звук. Первая partial-field подмена view сбрасывала ownership bool:
+fixture logs сохранены отдельно, observer исправлен на полное сохранение полей
+с перенаправлением только view reference, flag/scene проверены после восстановления.
+Продукционный файл был возвращён к HEAD и окончательный RED повторён до фикса.
+
+Перенесён owned-only pump после sCounter.Advance с identity CTransformStack.
+Shared renderer scenes не получают второй pump. Собственные native audio,
+асинхронный loader, сохранённые tags/clock и глобальная music continuity сохранены.
+GREEN подтверждает реальный ненулевой PCM, неизменный channel/cursor на следующем
+Draw, отсутствие дубликата и повторного запуска после естественного конца sample.
+Синтетический PCM помещён в настоящий shared sample cache; это runtime queue/
+playback proof, не отдельная end-to-end проверка задержки дискового async load.
+Баланс, fonts, мимика и HD pipeline не менялись.
+
+Windows ALL_BUILD и Linux Game собраны. FULL: Windows384/384336.03с,
+Linux384/384318.38с (CPUbase377+7 display/renderer extras). Все17 native audio,
+12 FONT-COMPAT на каждой платформе; raw384 полные без NUL. Дополнительно реальные
+menu/options/backdrop/chapter tests: Windows15/1526.37с включая3network,
+Linux12/1216.52с; raw полные без NUL. Полный raw сохранён ДО следующего CTest.
+Свидетельства owned-menu-sound-pump: red/green-{build,test,native-test}.log,
+fixture-{red,green}-{build,test,native-test}.log, all-build.log, full-test.log,
+linux-{configure,build,test}.log, {windows,linux}-full-native-test.log,
+display-network-test.log, windows-display-network-native-test.log,
+linux-display-{test,native-test}.log. Новых копий сборок нет, HD не генерировался.
+
+695465bc остаётся partial: отдельные hotseat player-switch banner и unit diplomacy
+не включены в звуковой фикс. Статус281:103pending/103imported/25partial/38already/
+3docs/5excluded-balance/2excluded-own, по1historical/review.129 исходных коммитов
+ещё разбираются. Последний CI-like до этого фикса aef3b6be280/280, новый CI-like
+не заявляется. Actual hosted run7bc3d00340449767003 наблюдался in_progress;
+предыдущие b403/aef отменены новой отправкой по штатному cancel-in-progress.
+Все281 и итоговый actual HEAD Actions ещё не завершены.

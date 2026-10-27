@@ -356,11 +356,8 @@ CInterface::CInterface( ICursor* _pCursor, NSound::ISoundScene *_pSound ):
 	// retail CInterface ctor @0x31dbd0 (decomp-verified): when NO sound scene is handed in (or it is
 	// dead), the interface CREATES ITS OWN (bOwnSoundScene=true -> NSound::CreateSoundScene) so
 	// CWindow::PlaySound (@0x327380: pInterface->GetSound()->Add2DSound) always has a live target.
-	// The dev ctor left pSound null for every pure-menu screen (TeamMng recruit click, menu button
-	// sounds ...) -> CWindow::PlaySound silently dropped every sample there, while screens hosted on
-	// the mission/render-base interfaces (FaceGen) played fine. Add2DSound starts the buffer
-	// immediately (Sound.cpp: NFMSound::PlaySound inside the call), so an own 2D-only scene needs no
-	// per-frame pump; the CPtr releases it at interface teardown.
+	// Pure-menu screens own a separate scene; Draw pumps queued and asynchronously
+	// loaded samples each frame. Shared renderer scenes retain their own pump.
 	pSound = _pSound;
 	if ( !IsValid( pSound ) )
 	{
@@ -628,12 +625,15 @@ CInterface* CurrentInterfaceForDiagnostics() { return diagnosticInterface; }
 void CInterface::Draw( const STime &sTime )
 {
 	diagnosticInterface = this;
-	// retail Draw @0x31caa0 step 1: when this interface OWNS its sound scene, advance the listener
-	// counter each frame (sCounter is serialized, tag 22). Retail follows with a listener-transform
-	// push (pSound vtbl+0x24, identity transforms); the dev self-created scene is 2D-only and exposes
-	// no listener API, so only the counter advance is live here.
+	// Owned menu scenes start queued samples here; shared mission scenes are
+	// already pumped by their renderer.
 	if ( bOwnSoundScene )
+	{
 		sCounter.Advance( true, sTime );
+		CTransformStack ts;
+		ts.Init();
+		pSound->Draw( &ts );
+	}
 
 	pView->StartNewFrame();
 	CWindow::Draw( sTime, pView );

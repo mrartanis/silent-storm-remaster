@@ -8590,6 +8590,99 @@ public:
     void Flush() override {}
 };
 
+static void OwnedMenuSoundPump(const char* databasePath,const char* resourcePath)
+{
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+    Require(std::getenv("S2_AUDIO_HEADLESS")!=nullptr,"menu sound fixture requires headless native audio");
+    NFMSound::SStartInfo info;info.nMaxChannels=4;
+    Require(NFMSound::Init(info),"menu sound fixture could not initialize native audio");
+    struct Cleanup { ~Cleanup() { ClearHoldQueue(); NFMSound::Done(); } } cleanup;
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    CDBIterator<NDb::CSound> sounds(*NDatabase::GetTable<NDb::CSound>());
+    Require(sounds.MoveNext(),"menu sound fixture has no native sound record");
+    auto* record=sounds.Get();record->bLoop=false;record->nStartSamples=record->nEndingSamples=0;
+    auto wave=SilentPCMFixture(44100);
+    for(std::size_t i=44;i<wave.size();i+=2) { wave[i]=0xa0;wave[i+1]=0x0f; }
+    CObj<NFMSound::CSample2D> sample=NFMSound::LoadSample2D(wave.data(),int(wave.size()));
+    Require(IsValid(sample),"menu sound fixture could not decode its real PCM sample");
+    CObj<NSound::CFileSample2D> loader=NSound::share2DSamples.Get(record->GetRecordID());
+    (loader.GetPtr()->*CachedChapterSampleAccess::ValueMember())=sample.GetPtr();
+    struct ReachedRender {};
+    class FrameBoundaryView: public DialogueLayoutView {
+        OBJECT_NOCOPY_METHODS(FrameBoundaryView);
+        void StartNewFrame() override { throw ReachedRender(); }
+    };
+    CObj<NGScene::I2DGameView> view=new FrameBoundaryView;
+    auto attachView=[&](NUI::CInterface* root,bool expectedOwner) {
+        CStructureNetworkContext references;
+        auto fields=BorrowedObjectFields(root,&references);
+        CObj<NGScene::I2DGameView> original=root->GetView();
+        Require(references.ids.count(original.GetPtr())!=0,"render view was not captured in native interface fields");
+        references.refs[references.ids.at(original.GetPtr())]=view.GetPtr();
+        { CStructureSaver reader(fields,CStructureSaver::READ,&references);static_cast<CObjectBase*>(root)->operator&(reader); }
+        Require(root->GetView()==view.GetPtr(),"menu sound fixture could not attach its render-boundary observer");
+        CStructureNetworkContext verify;auto snapshot=BorrowedObjectFields(root,&verify);
+        bool owner=!expectedOwner;CPtr<NSound::ISoundScene> sound;
+        { CStructureSaver reader(snapshot,CStructureSaver::READ,&verify);reader.Add(12,&sound);reader.Add(23,&owner); }
+        Require(owner==expectedOwner && sound.GetPtr()==root->GetSound(),
+            "render-boundary observer changed native interface sound ownership");
+    };
+    auto draw=[&](NUI::CInterface* root,STime time) {
+        MarkNewDGFrame();bool reached=false;
+        try { root->Draw(time); } catch(const ReachedRender&) { reached=true; }
+        Require(reached,"native interface frame did not reach the render boundary");
+    };
+    CObj<CCTime> clock=new CCTime(0);
+    CObj<NSound::ISoundScene> shared=NSound::CreateSoundScene(nullptr,nullptr,clock);
+    CObj<NUI::ICursor> cursor=NUI::ICursor::Create(false);
+    CObj<NUI::CInterface> overlay=new NUI::CInterface(cursor,shared);attachView(overlay,false);
+    CObj<NSound::ISound2D> control=shared->Add2DSound(record);
+    Require(!control->IsPlaying(),"shared scene started a queued sample before its own pump");
+    draw(overlay,100);
+    Require(!control->IsPlaying(),"interface pumped a shared mission sound scene twice");
+    CTransformStack transform;transform.Init();shared->Draw(&transform);
+    Require(control->IsPlaying(),"explicit shared-scene native audio positive control did not start playback");
+    vector<float> pcm(512*2);
+    Require(S2FmodRenderForTest(pcm.data(),512)!=0 &&
+        std::any_of(pcm.begin(),pcm.end(),[](float value) { return std::abs(value)>0.01f; }),
+        "shared-scene positive control did not render actual non-silent PCM");
+    control=nullptr;shared->Draw(&transform);
+    std::puts("native menu sound control: shared scene remains externally pumped; actual PCM playback passes");std::fflush(stdout);
+    CObj<NUI::CInterface> menu=new NUI::CInterface(cursor);attachView(menu,true);
+    Require(menu->GetSound()!=shared.GetPtr(),"menu did not create its own independent sound scene");
+    CObj<NSound::ISound2D> click=menu->GetSound()->Add2DSound(record);
+    Require(IsValid(click) && !click->IsPlaying(),"menu sample was not queued before the frame");
+    draw(menu,200);
+    std::printf("native owned menu sound after Draw: playing=%d\n",int(click->IsPlaying()));std::fflush(stdout);
+    Require(click->IsPlaying(),"owned menu frame never pumped its queued native click sound");
+    Require(S2FmodRenderForTest(pcm.data(),512)!=0 &&
+        std::any_of(pcm.begin(),pcm.end(),[](float value) { return std::abs(value)>0.01f; }),
+        "owned menu click did not reach the actual PCM mixer");
+    auto activeChannel=[&]() {
+        int channel=-1;
+        for(int i=0;i<info.nMaxChannels;++i) if(FSOUND_IsPlaying(i)) {
+            Require(channel==-1,"menu frame duplicated a queued native channel");channel=i;
+        }
+        return channel;
+    };
+    const int channel=activeChannel();
+    Require(channel>=0,"playing menu sound has no actual native channel");
+    const auto position=FSOUND_GetCurrentPosition(channel);
+    Require(position>0,"native menu PCM rendering did not advance its channel");
+    draw(menu,300);
+    Require(click->IsPlaying() && activeChannel()==channel && FSOUND_GetCurrentPosition(channel)==position,
+        "next owned menu frame restarted or duplicated a live native click");
+    vector<float> finish(44100*2);
+    Require(S2FmodRenderForTest(finish.data(),44100)!=0 && !click->IsPlaying(),
+        "menu click did not naturally complete its real PCM sample");
+    draw(menu,400);
+    Require(!click->IsPlaying() && activeChannel()==-1,"owned menu frame restarted a finished click");
+#else
+    Require(false,"menu sound fixture requires native SFX");
+#endif
+}
+
 static void OversizedTooltipPosition(const char* databasePath,const char* resourcePath)
 {
     S2Platform::SetErrorDialogs(false);
@@ -16779,6 +16872,7 @@ static void PKShellWorld(const char* databasePath, const char* resourcePath, boo
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "owned-menu-sound-pump") && argc==4) { OwnedMenuSoundPump(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "missing-ui-sound-fallback")) { Require(argc == 4, "missing UI sound requires db and res"); MissingUISoundFallback(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "selected-attack-target-rejection")) { Require(argc == 4, "selected target requires db and res"); SelectedAttackTargetRejection(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "melee-current-pose-caption")) { Require(argc == 4, "melee caption requires db and res"); MeleeReachCaption(argv[2],argv[3]); return true; }
