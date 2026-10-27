@@ -1598,7 +1598,7 @@ int CUnitMission::CheckInterrupt( const IUnitMission *pEnemy, bool bIsMutual, bo
 	int nCheck = MissionRandom().Get(100);
 	csRPG << CC_YELLOW << GetName() << CC_WHITE << " interrupt "<< CC_YELLOW << pEnemy->GetName() << CC_WHITE
 		  << " probability " << nProbability << "% Check:" << nCheck << endl;
-	pRPGUnit->UseSkill( NDb::ST_INTERRUPT, GetSkillAddValue( NDb::ST_INTERRUPT ) );
+	UseSkill( NDb::ST_INTERRUPT );
 	return nProbability - nCheck;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

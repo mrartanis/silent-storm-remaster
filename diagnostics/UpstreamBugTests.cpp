@@ -132,6 +132,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/RPGDiplomacy.h"
 #include "../Main/RPGUnit.h"
 #include "../Main/RPGUnitMission.h"
+#include "../Misc/RandomGen.h"
 #include "../Main/rpgCheatConstants.h"
 #include "../Main/aiCommander.h"
 #include "../Main/aiRouteLogic.h"
@@ -11793,7 +11794,7 @@ static void GrenadeCompletionVisibility(const char* databasePath,const char* res
     }
 }
 
-static void ActionSkillAcknowledgment(const char* databasePath)
+static void ActionSkillAcknowledgment(const char* databasePath,bool interrupt = false)
 {
     CFileStream database; database.OpenRead(databasePath);
     NDatabase::Serialize(database,CStructureSaver::READ);
@@ -11808,12 +11809,17 @@ static void ActionSkillAcknowledgment(const char* databasePath)
         }
     }
     Require(persona != nullptr,"skill acknowledgment fixture has no authored ordinary classed persona");
-    struct Case { NRPG::EAction action; NDb::ESkillType skill; };
-    const Case cases[] = {
+    struct Case { NRPG::EAction action; NDb::ESkillType skill; int flags = 0; };
+    vector<Case> cases = {
         {NRPG::AC_MELEE,NDb::ST_MELEE}, {NRPG::AC_THROW_GRENADE,NDb::ST_THROWING},
         {NRPG::AC_THROW_KNIFE,NDb::ST_THROWING}, {NRPG::AC_SHOOT,NDb::ST_SHOOTING},
         {NRPG::AC_PREPARE_AND_SHOOT,NDb::ST_SHOOTING}, {NRPG::AC_BURST,NDb::ST_BURST},
         {NRPG::AC_MOVE_SIDE,NDb::ST_AP}, {NRPG::AC_MOVE_DIAGONAL,NDb::ST_AP}
+    };
+    if (interrupt) cases = {
+        {NRPG::AC_NONE,NDb::ST_INTERRUPT,0}, {NRPG::AC_NONE,NDb::ST_INTERRUPT,1},
+        {NRPG::AC_NONE,NDb::ST_INTERRUPT,2}, {NRPG::AC_NONE,NDb::ST_INTERRUPT,3},
+        {NRPG::AC_NONE,NDb::ST_INTERRUPT,4}
     };
     for (const auto& test: cases) {
         CObj<NRPG::CUnit> unit = new NRPG::CUnit(persona), reference = new NRPG::CUnit(persona);
@@ -11821,6 +11827,17 @@ static void ActionSkillAcknowledgment(const char* databasePath)
         const float extraXP = unit->GetXPForSkill(NDb::ST_LEVEL,int(unit->Skills(NDb::ST_LEVEL))+3)-unit->fXP+1;
         Require(extraXP > 0,"skill acknowledgment fixture has no higher native experience threshold");
         unit->AddXP(extraXP); reference->AddXP(extraXP);
+        CObj<NRPG::IUnitMission> opponent;
+        if (interrupt) {
+            CObj<NRPG::CUnit> enemy = new NRPG::CUnit(persona);
+            opponent = NRPG::CreateUnit(enemy);
+            if (test.flags == 4) {
+                mission->SpendAP(unit->Skills(NDb::ST_AP));
+                CObj<NRPG::IUnitMission> referenceMission = NRPG::CreateUnit(reference);
+                referenceMission->SpendAP(reference->Skills(NDb::ST_AP));
+                Require(unit->Skills(NDb::ST_AP) == 0,"interrupt fixture failed to spend its available AP");
+            }
+        }
         auto unchangedTraining = [&]() {
             Require(unit->fXP == reference->fXP,"acknowledging training changed total experience");
             for (int skill=0;skill<NDb::SKILL_TYPE_NUMBERS;++skill) {
@@ -11837,14 +11854,26 @@ static void ActionSkillAcknowledgment(const char* databasePath)
         int gained = 0, fractional = 0;
         for (int use=0;use<500 && gained<2;++use) {
             const bool advanced = reference->UseSkill(test.skill,0); // Ordinary human has no PK skill offset.
-            mission->RegisterAction(test.action);
+            if (interrupt) {
+                auto expectedRandom = GlobalGameRandom();
+                const int roll = expectedRandom.Get(100);
+                const int outcome = mission->CheckInterrupt(opponent,test.flags & 1,test.flags & 2);
+                auto afterRandom = GlobalGameRandom();
+                for (int next=0;next<4;++next)
+                    Require(afterRandom.Get() == expectedRandom.Get(),
+                        "interrupt skill acknowledgment changed the native single-roll random stream");
+                const int probability = outcome+roll;
+                Require(test.flags == 4 ? probability == 0 : probability >= 5 && probability <= 95,
+                    "interrupt skill acknowledgment changed the native probability range or exhausted-AP gate");
+            }
+            else mission->RegisterAction(test.action);
             unchangedTraining();
             const bool acknowledged = mission->GetAck(&ack,&attacker);
             if (!advanced) ++fractional;
             else {
                 ++gained;
-                std::printf("native skill acknowledgment: action=%d skill=%d use=%d gained=%d ack=%d fractional=%d\n",
-                    int(test.action),int(test.skill),use,gained,int(acknowledged),fractional);
+                std::printf("native skill acknowledgment: action=%d skill=%d use=%d gained=%d ack=%d fractional=%d flags=%d\n",
+                    int(test.action),int(test.skill),use,gained,int(acknowledged),fractional,test.flags);
             }
             Require(acknowledged == advanced && (!advanced || (ack == NWorld::N_ACK_SKILL && attacker == nullptr)),
                 "a native action improved its skill without the corresponding skill acknowledgment");
@@ -15985,6 +16014,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "assigned-level-experience")) { Require(argc == 3, "assigned level experience requires db"); AssignedLevelExperience(argv[2]); return true; }
     if (!std::strcmp(mode, "action-skill-acknowledgment") && argc == 3) { ActionSkillAcknowledgment(argv[2]); return true; }
+    if (!std::strcmp(mode, "interrupt-skill-acknowledgment") && argc == 3) { ActionSkillAcknowledgment(argv[2],true); return true; }
     if (!std::strcmp(mode, "persona-full-display-name")) { Require(argc == 3, "full display name requires db"); PersonaFullDisplayName(argv[2]); return true; }
     if (!std::strcmp(mode, "character-panel-full-name")) { Require(argc == 4, "character panel name requires db and res"); CharacterPanelFullName(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "temporary-groups")) { TemporaryGroups(); return true; }

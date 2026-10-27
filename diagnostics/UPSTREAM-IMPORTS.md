@@ -4226,3 +4226,36 @@ all-build.log, related-test.log, linux-{configure,build,test}.log,
 {windows,linux}-native-test.log, network-{test,native-test}.log.
 Sourcec55 теперь partial; отдельные snipe/VP/interrupt producers ещё проверяются.
 All281/final actual Actions pending.
+
+## Уведомление о росте Interrupt — часть c55ed688
+
+UpstreamInterruptSkillAcknowledgment расширяет native training fixture:
+четыре сочетания mutual/was-shot и отдельный случай с AP, потраченными
+штатным SpendAP. Настоящий CheckInterrupt вызывает native обучение.
+Перед вызовом копируется ISAAC state; контроль потребляет один Get(100),
+после вызова четыре следующих слова совпадают с ним. Проверяется диапазон
+вероятности [5,95] и прежний нулевой результат probability при exhausted AP.
+Это не независимый oracle точной формулы вероятности перехвата.
+
+Compiled native RED: прежний ActionSkillAcknowledgment проходит,
+AC_NONE/four fractional uses и RNG checks проходят; ST_INTERRUPT
+реально растёт на use4, ack=0. После RED изменён только этот UseSkill call
+на существующий mission wrapper. GetSkillAddValue/PK offset, native training,
+probability code, RNG calls и возвращаемый результат не переписываются.
+
+GREEN: по два improvement во всех пяти случаях; все skills/value/XP part/
+fractional progress/max и общий XP совпадают с прежним native UseSkill
+reference на каждом use. Один N_ACK_SKILL/null attacker на рост,
+нет fractional/no-training/duplicate ack. Старое обучение при exhausted AP
+также сохранено; новая политика обучения не вводится. Это RPG queue boundary,
+не реальный world interrupt dispatch и не voice/portrait playback.
+
+Target3/3; связанные23/23 Windows (15.78 с), Linux (15.13 с),
+обе Game и Windows ALL_BUILD/12 FONT-COMPAT/raw23 полные без NUL.
+NetworkSerializer/ClientUI/StopResume3/3 (5.40 с). CPU base364,
+последний полный checkpoint d33ec7da base359+5=364/CI-like277.
+Свидетельства interrupt-skill-acknowledgment: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log, network-{test,native-test}.log.
+Sourcec55 partial: snipe/VP producers остаются. All281/final Actions pending.
