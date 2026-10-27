@@ -6576,3 +6576,61 @@ Source02d85e5b теперь imported: все его независимые hunks
 96pending/118imported/23partial/32already/3docs/5excluded-balance/2excluded-own/
 1historical/1review —120 незавершённых записей. Общая цельALL281 и проверка
 final actual-HEAD GitHub Actions остаются открыты; не выдаём эту часть за конец.
+
+
+## Original reload action price: restore perk33 before AI integration
+
+Первый независимый адаптированный hunk
+[b875e43ddec65e0375d1335eb8d8726e38b4934a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b875e43ddec65e0375d1335eb8d8726e38b4934a).
+Наш AC_RELOAD возвращал только raw weapon cost и не применял perk33.
+Compiled native RED1.02с: настоящий CUnit(persona3)/IUnitMission, effective
+CWeaponItem65; положительный no-perk40, затем реальный TakePerk33/Param0.3
+даёт actual40 вместо исходных12.
+
+Original oracle: GoldPDB CUnitMission::GetActionAP6bac90/3724 first32,
+mask только EH9:13 -> уникальный Steam6c0d30. Настоящий jump table6c1a48,
+action23 AC_RELOAD ->6c13d2. Выбранное оружие передаётся raw query6bb8a0;
+HasPerk33at6c13ef/6c13f3, умножение Param6c1407, truncate6c1416 и прямой
+integer return6c1932. Floor1AP/вычитания из1 нет. Source VA6c1443 не соответствует
+этой ветке нашего Steam. Evidence reload-action-cost-retail-{lookup,disassembly}.
+
+Добавлены nonvirtual CUnit::GetWeaponReloadActionAP(optional selected weapon)
+и именованный constant33, player AC_RELOAD делегирует helper. Он применяет
+оригинальный Param1 без clamp. Существующий raw GetWeaponReloadAP и consumers
+AI shot forecasts сохранены. Upstream1-Param/min1 не переносились. Влияние
+40->12 вместо upstream28 и нулевой край прозрачно описаны в BalanceMD.
+
+Native GREEN0.99с проверяет3poses, effective/explicit weapon, raw price и
+юнит AP неизменны от запросов. Край raw1->action0 — полная отдельная native
+in-memory копия DB weapon, меняется только её raw reloadAP; authored record
+сохраняется. Unarmed0 подтверждён реальным пустым active slot; если у persona
+есть исходный предмет, тест снимает и возвращает его через TakeOff/Equip/
+Activate с проверкой identity. Это native cost API, не полный reload executor,
+анимация, физический ввод или сериализация всей миссии.
+
+Первые fixture compile failures pDefaultClip/NAI::STAND/LAY заменены реальными
+pInnerClip/WALK/CRAWL по заголовкам; это не gameplay RED. Сначала unarmed setup
+ошибочно игнорировал исходное оружие; Take действует на backpack, корректный
+API TakeOff. Затем Linux выявил, что CDBIterator использует unordered_map:
+он выбрал persona265/weapon127(raw12->3), с пустым исходным слотом, тогда как
+Windows выбрал3/65(raw40->12). Исправлена только подготовка возможного empty
+slot; проверка actual empty/current-null/action0 осталась обязательной.
+Первый Linux full441/442387.52с с этой единственной fixture failure сохранён
+в retail-reload-action-linux-first-full-native-test.log. Он не заявлен GREEN.
+
+Оба Game/Windows ALL_BUILD построены. Windows full442/442407.57с, затем
+окончательный portable fixture+registration3/3 1.38с. Linux после исправления
+fixture targeted3/3 1.11с и заново полный442/442391.01с. По38native-display/
+24native-audio/12FONT-COMPAT. Own7Network189.30с, в том числе361/361maps131.08с
+(deployment+replica); CI-like284/28424.59с, fonts12. Raw442/442/7/284 полные
+без NUL/missing/Failed; actual exit0 подтверждён. Evidence retail-reload-action-
+{native-baseline,native-edge-controls,final-portable-fixture,full,linux-full,
+network,ci}-native-test.log; окончательный Linux stdout в
+retail-reload-action-final-linux-test.log. Дополнительных копий сборки не создавали.
+
+Sourceb875e43d pending -> partially-imported. Native AI GetInfo/Do consumers
+ещё не менялись: их использование выбранной action price требует отдельного
+RED/GREEN. Tracker281:95pending/118imported/24partial/32already/3docs/5balance/
+2own/1historical/1review —120 незавершённых записей. ЦельALL281/final-HEAD
+GitHub Actions открыты; исходные perk coefficients/сохранения/LAN/fonts/facial/HD
+сохранены, исключённый ребаланс33 и минимум1AP остаются исключёнными.

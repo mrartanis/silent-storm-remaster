@@ -17457,6 +17457,82 @@ static void OverlappingDoors()
     Require(network->GetFlippersAt(position).empty(), "restored grid retained a stale door lookup");
 }
 
+static void RetailReloadActionCost(const char* databasePath)
+{
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
+    auto* perk=NDb::GetDBPerk(33);
+    Require(perk && !perk->params.empty() && std::isfinite(perk->params[0]) && perk->params[0]>0 && perk->params[0]<1,
+        "reload action fixture lacks the real authored perk33 parameter");
+    NDb::CRPGPers* persona=nullptr;
+    CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while(people.MoveNext()) {
+        auto* candidate=people.Get();
+        if(!IsValid(candidate->pClass) || !IsValid(candidate->pBaseValue) || !IsValid(candidate->pModel) ||
+            IsValid(candidate->pPanzerklein) || IsValid(candidate->pDefaultWearsPanzerklein))continue;
+        CObj<NRPG::CPerksTree> tree=NRPG::CreatePerksTree(candidate->pClass->nPerkTreeID);
+        vector<CPtr<NRPG::CPerk>> entries;tree->GetAllPerks(&entries);
+        for(auto entry:entries)if(entry->GetDBPerk()->GetRecordID()==33) {persona=candidate;break;}
+        if(persona)break;
+    }
+    Require(persona,"reload action fixture lacks an authored persona with perk33");
+    NDb::CRPGWeapon* weapon=nullptr;
+    CDBIterator<NDb::CRPGWeapon> weapons(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while(weapons.MoveNext()) {
+        auto* candidate=weapons.Get();
+        if(IsValid(candidate->pItem) && IsValid(candidate->pInnerClip) && candidate->nReloadAP>3 && int(candidate->nReloadAP*perk->params[0])!=int(candidate->nReloadAP*(1-perk->params[0]))) {
+            weapon=candidate;break;
+        }
+    }
+    Require(weapon,"reload action fixture lacks an authored firearm distinguishing the original multiplier from a discount");
+    CObj<NRPG::CUnit> unit=new NRPG::CUnit(persona);
+    CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(unit);
+    CObj<NRPG::CWeaponItem> gun=new NRPG::CWeaponItem(weapon);unit->SetCannonItem(gun);
+    Require(unit->GetWeaponItem()==gun.GetPtr() && !mission->HasPerk(33),"reload action fixture lacks its native effective weapon or starts with the perk");
+    const int raw=weapon->nReloadAP,ap=unit->Skills(NDb::ST_AP);
+    Require(unit->GetWeaponReloadAP()==raw && gun->GetReloadAP()==raw,"reload action positive control changed the authored raw weapon cost");
+    for(auto pose:{NAI::WALK,NAI::CROUCH,NAI::CRAWL})Require(mission->GetActionAP(pose,NRPG::AC_RELOAD)==raw,"no-perk native reload cost differs from the authored firearm");
+    std::printf("native reload action control: persona=%d weapon=%d raw=%d perkParam=%g noPerk=%d\n",persona->GetRecordID(),weapon->GetRecordID(),raw,
+        perk->params[0],mission->GetActionAP(NAI::WALK,NRPG::AC_RELOAD));std::fflush(stdout);
+    unit->GetPerksTree()->AddPerkPoints(1);unit->GetPerksTree()->TakePerk(33);
+    float parameter=0;Require(mission->HasPerk(33,&parameter) && parameter==perk->params[0],"reload action fixture did not acquire its actual authored perk");
+    const int expected=int(raw*parameter);
+    for(auto pose:{NAI::WALK,NAI::CROUCH,NAI::CRAWL}) {
+        const int actual=mission->GetActionAP(pose,NRPG::AC_RELOAD);
+        std::printf("native reload action: pose=%d raw=%d param=%g actual=%d retailExpected=%d\n",int(pose),raw,parameter,actual,expected);std::fflush(stdout);
+        Require(actual==expected,"native reload action ignores the original perk33 multiplier");
+    }
+    Require(unit->GetWeaponReloadActionAP()==expected && unit->GetWeaponReloadActionAP(gun)==expected,
+        "shared reload action entry lost its effective or explicitly selected authored weapon");
+    // Preserve the original integer-zero edge without mutating game.db: this is
+    // a complete native in-memory record copy with only the raw reload AP set to1.
+    CObj<NDb::CRPGWeapon> small=new NDb::CRPGWeapon;CMemoryStream fields;
+    {CStructureSaver writer(fields,CStructureSaver::WRITE);weapon->operator&(writer);}
+    fields.Seek(0);{CStructureSaver reader(fields,CStructureSaver::READ);small->operator&(reader);}
+    small->nReloadAP=1;CObj<NRPG::CWeaponItem> smallGun=new NRPG::CWeaponItem(small);
+    Require(unit->GetWeaponReloadActionAP(smallGun)==0 && unit->GetWeaponItem()==gun.GetPtr() &&
+        unit->GetWeaponReloadActionAP()==expected,"planned reload query clamped the original zero price or replaced the effective weapon");
+    unit->SetCannonItem(smallGun);
+    for(auto pose:{NAI::WALK,NAI::CROUCH,NAI::CRAWL})Require(mission->GetActionAP(pose,NRPG::AC_RELOAD)==0,
+        "native reload action introduced a one-AP floor after the original fractional multiplier");
+    unit->SetCannonItem(nullptr);
+    auto* inventory=unit->GetInventory();const auto activeSlot=NDb::ESlot(inventory->GetActiveSlot());
+    CObj<NRPG::IInventoryItem> equipped=inventory->GetActive();
+    CObj<NRPG::IInventoryItem> removed;
+    if(equipped) {
+        removed=inventory->TakeOff(activeSlot);
+        Require(removed==equipped.GetPtr(),"unarmed control removed a different equipped item");
+    }
+    Require(!inventory->GetActive() && !unit->GetWeaponItem(),"unarmed control did not establish an actual empty active slot");
+    Require(mission->GetActionAP(NAI::WALK,NRPG::AC_RELOAD)==0,"an unarmed unit acquired a nonzero native reload price");
+    if(equipped)Require(inventory->Equip(activeSlot,equipped) && inventory->Activate(activeSlot) && inventory->GetActive()==equipped.GetPtr(),
+        "reload edge fixture failed to restore the persona's actual inventory item");
+    unit->SetCannonItem(gun);
+    Require(unit->GetWeaponReloadAP()==raw && gun->GetReloadAP()==raw && weapon->nReloadAP==raw &&
+        unit->GetWeaponReloadActionAP()==expected && int(unit->Skills(NDb::ST_AP))==ap,
+        "querying a perk-adjusted action changed authored/raw forecast costs, the effective weapon or unit AP");
+    std::printf("native reload edge controls: selectedRaw=1 action=0 unarmed=0 restoredRaw=%d restoredAction=%d APunchanged=%d\n",raw,expected,ap);
+}
+
 static void GlobalGameDifficulty(const char* databasePath)
 {
     Require(std::getenv("S2_USER_DATA_DIR"),"difficulty campaign fixture requires isolated user data");
@@ -19194,6 +19270,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "script-held-grenade-activation") && argc == 4) { ScriptHeldGrenadeActivation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "forced-action-recalc") && argc == 4) { ForcedActionRecalc(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "overlapping-doors")) { OverlappingDoors(); return true; }
+    if (!std::strcmp(mode, "retail-reload-action-cost") && argc==3) { RetailReloadActionCost(argv[2]); return true; }
     if (!std::strcmp(mode, "global-game-difficulty") && argc==3) { GlobalGameDifficulty(argv[2]); return true; }
     if (!std::strcmp(mode, "weapon-familiarity")) { WeaponFamiliarity(); return true; }
     if (!std::strcmp(mode, "clue-slots")) { ClueSlotSelection(); return true; }

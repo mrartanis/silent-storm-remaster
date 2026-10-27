@@ -640,6 +640,16 @@ int CUnit::GetWeaponReloadAP( CWeaponItem *_pWeapon ) const
 	return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+int CUnit::GetWeaponReloadActionAP( CWeaponItem *_pWeapon ) const
+{
+	int nAP = GetWeaponReloadAP( _pWeapon );
+	float fParam;
+	// Retail pays Param1 (Steam @0x6c1407), with integer truncation and no 1-AP floor.
+	if ( HasPerk( N_PERK_CHEAP_RELOAD, &fParam ) )
+		nAP = int( nAP * fParam );
+	return nAP;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 CWeaponItem* CUnit::GetWeaponItem() const
 {
 	if ( IsValid( pCannonItem ) )

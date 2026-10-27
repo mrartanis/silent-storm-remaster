@@ -631,7 +631,7 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 		case AC_BURST:
 			return pRPGUnit->GetWeaponBurstAP();
 		case AC_RELOAD:
-			return pRPGUnit->GetWeaponReloadAP();
+			return pRPGUnit->GetWeaponReloadActionAP();
 		case AC_OPEN_CLOSE:
 			return 4;
 		case AC_APPROACH_CANNON:
