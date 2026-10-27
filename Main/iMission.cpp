@@ -2532,10 +2532,7 @@ void CMission::ExecWorldCommands()
 			pExecLocator = NGame::CreateCameraExecutor( pLoc, this );
 			// does NOT stall pCmdExec: continue draining the queue (the focus runs in its own slot)
 		}
-		// retail CMissionBase::ExecWorldCommand @0x5a1642: when the AI commander changes the unit it is
-		// about to drive, tint that unit according to its diplomacy toward the active player. The retail
-		// call intentionally does not retain Select()'s return value: CRenderGame's selection set owns the
-		// live association and replaces it when the same unit is selected again.
+		// The AI-turn hint is an additive model flash with its own lifetime.
 		else if ( CDynamicCast<NWorld::CUICmdAIUnitWillMove>( pCmd ) )
 		{
 			NWorld::CUICmdAIUnitWillMove *pWillMove =
@@ -2544,8 +2541,10 @@ void CMission::ExecWorldCommands()
 			{
 				NDb::EDiplomacyState eDiplomacy = pWorld->GetDiplomacyState(
 					pActivePlayer->GetPlayer(), pWillMove->pUnit->GetPlayer() );
-				pRender->Select( pWillMove->pUnit,
-					eDiplomacy == NDb::DS_ENEMY ? GetSelectionColor( 2 ) : GetSelectionColor( 5 ) );
+				if ( eDiplomacy == NDb::DS_ENEMY )
+					pRender->FlashUnit( pWillMove->pUnit, CVec4( 78.0f / 255, 20.0f / 255, 0, 0 ) );
+				else if ( eDiplomacy == NDb::DS_NEUTRAL || eDiplomacy == NDb::DS_ALLY )
+					pRender->FlashUnit( pWillMove->pUnit, CVec4( 0, 77.0f / 255, 78.0f / 255, 0 ) );
 			}
 		}
 		else if ( ExecWorldSoundCommand( pCmd ) )

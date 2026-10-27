@@ -2307,6 +2307,7 @@ public:
     bool advance = false;
     int calls = 0;
     CObjectBase* Select(CObjectBase*,const CVec4&,bool) override { throw std::runtime_error("unexpected sound-clock selection"); }
+    void FlashUnit(CObjectBase*,const CVec4&) override { throw std::runtime_error("unexpected sound-clock flash"); }
     CCTime* GetTime() override { throw std::runtime_error("unexpected sound-clock render timer query"); }
     NLSHead::CHeadsController* GetHeadController() const override { throw std::runtime_error("unexpected sound-clock head query"); }
     void UpdateViewWorld(bool,STime,NWorld::IPlayer*,bool) override { throw std::runtime_error("unexpected sound-clock world update"); }
@@ -3110,6 +3111,150 @@ public:
     }
 };
 REGISTER_SAVELOAD_CLASS(0x7f550107,BodyHoverMission);
+
+static void AIUnitFlash(const char* databasePath,const char* resourcePath)
+{
+    Require(std::getenv("S2_USER_DATA_DIR"),"AI flash fixture requires isolated user data");
+    struct SelectionModeRestore {NGlobal::CValue previous;~SelectionModeRestore(){NGlobal::SetVar("game_selectionmode",previous);}} mode{NGlobal::GetVar("game_selectionmode",0)};
+    NGlobal::SetVar("game_selectionmode",2);
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm native AI flash regression");
+    NGame::InitLoadingScreen();
+    CObj<NRPG::CGlobalGame> game=NRPG::CreateGlobalGame(-1);
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    auto* variant=NDb::GetTemplVariant(810);
+    Require(variant && IsValid(variant->pTemplate),"AI flash fixture lacks its authored mission template");
+    class Begin: public NMainLoop::CInterfaceCommand {
+        OBJECT_NOCOPY_METHODS(Begin);
+    public:
+        CObj<NGame::CMission> mission=new NGame::CMission;
+        CObj<NRPG::CGlobalGame> game;int templateID=-1;
+        void Exec() override {
+            Require(mission->Initialize(templateID,810,nullptr,vector<string>(),game),"AI flash fixture failed actual mission initialization");
+            SetInterface(mission);
+        }
+    };
+    CObj<Begin> begin=new Begin;begin->game=game;begin->templateID=variant->pTemplate->GetRecordID();begin->Exec();
+    auto mission=begin->mission;
+    auto* world=dynamic_cast<NWorld::CWorld*>(mission->GetWorld());auto* player=mission->GetActivePlayer();
+    Require(world && player && mission->GetRenderGame() && mission->GetDesktop(),"AI flash fixture lacks its native world, renderer, player or desktop");
+    world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(player->GetPlayer()));player->Update(true);
+    vector<CPtr<NGame::IUnitTracker>> party;player->GetUnits(&party);
+    Require(!party.empty(),"AI flash fixture lacks its real observer party");
+    auto* observer=dynamic_cast<NWorld::CUnitServer*>(party.front()->GetUnit());
+    Require(observer && observer->CanFight(),"AI flash fixture lacks its living observer");
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);NWorld::CPlayer* enemy=nullptr;
+    for(auto unit: units) {
+        auto* server=dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if(server && server->IsAIUnit() && server->CanFight() && world->GetDiplomacyState(player->GetPlayer(),server->GetPlayer())==NDb::DS_ENEMY) {
+            enemy=dynamic_cast<NWorld::CPlayer*>(server->GetPlayer());break;
+        }
+    }
+    Require(enemy,"AI flash fixture lacks an actual hostile AI commander");
+    auto position=observer->GetPosition();bool placed=false;auto* network=world->GetPathNetwork();
+    for(auto offset: {CTPoint<int>(2,0),CTPoint<int>(-2,0),CTPoint<int>(0,2),CTPoint<int>(0,-2)}) {
+        const int x=int(position.pos.p.GetX())+offset.x,y=int(position.pos.p.GetY())+offset.y;
+        if(x<0 || y<0 || x>255 || y>255)continue;
+        auto point=position.pos.p;point.SetXY(x,y);point.SetPose(NAI::CM_STAND);point.SetMoving(0);
+        if(network->IsPassable(point) && !network->IsLocked(point)) {position.pos.p=point;placed=true;break;}
+    }
+    Require(placed,"AI flash fixture has no free native tile beside its observer");
+    CObj<NRPG::IUnitMission> rpg=NRPG::CreateUnit(observer->GetUnitRPG()->GetRPGUnit()->GetPers());
+    CObj<NWorld::CUnitServer> target=new NWorld::CUnitServer(world,rpg,rpg->GetModel(),enemy,position);world->AddUnit(target);
+    Require(target->IsAIUnit() && target->CanFight() && world->GetDiplomacyState(player->GetPlayer(),target->GetPlayer())==NDb::DS_ENEMY,
+        "AI flash target is not a real hostile native unit");
+    mission->PauseGame(true);mission->SetCheatVisibility(true);mission->GetDesktop()->SetStyle(NUI::STYLE_VISIBLE,false);
+    while(NMainLoop::HaveInterfaceCommand()){CObj<NMainLoop::CInterfaceCommand> pending=NMainLoop::TakeInterfaceCommandForHarness();}
+    // Freeze simulation ahead of the short presentation-clock interval; only
+    // the real renderer's CCTime advances in the following color/lifetime checks.
+    world->GetTime()->Set(1000000);world->GetAimTime()->Set(1000000);
+    struct ClockRestore {STime previous;~ClockRestore(){NMainLoop::SetTimeForHarness(previous);}} clock{NMainLoop::SetTimeForHarness(100000)};
+    Require(NMainLoop::StepApp(true,false,false),"AI flash fixture lost its native first frame");
+    ICamera::SCameraPos placement;mission->GetCamera()->GetPlacement(&placement);
+    placement.ptAnchor=target->GetPosition().GetCP()+CVec3(0,0,1.8f);placement.fRod=18;mission->GetCamera()->SetPlacement(placement);
+    int frames=0;
+    auto capture=[&](CArray2D<NGfx::SPixel8888>* image) {
+        NMainLoop::SetTimeForHarness(100100+(++frames)*100);MarkNewDGFrame();
+        Require(NMainLoop::StepApp(true,false,false) && NMainLoop::GetCurrentInterfaceForHarness()==mission.GetPtr(),"AI flash fixture lost its actual mission frame");
+        NGfx::MakeScreenShot(image,false);
+        Require(image->GetXSize()==320 && image->GetYSize()==240,"AI flash fixture did not read its actual GPU viewport");
+    };
+    CArray2D<NGfx::SPixel8888> bare,selected,stable,flashed;
+    for(int warmup=0;warmup<24;++warmup)capture(&bare);
+    NGlobal::SetVar("game_selectionmode",1);
+    const CVec4 selectedColor(.25f,0,0,1);
+    CObj<CObjectBase> selection=mission->GetRenderGame()->Select(target,selectedColor);
+    Require(selection,"native visible AI target did not accept its ordinary selection control");
+    for(int warmup=0;warmup<4;++warmup)capture(&selected);capture(&stable);
+    vector<CTPoint<int>> mask;
+    for(int y=35;y<205;++y)for(int x=50;x<270;++x) {
+        const auto& a=bare[y][x];const auto& b=selected[y][x];
+        if(int(b.r)-int(a.r)>8 && b.r<245 && a.g<220 && a.b<220)mask.emplace_back(x,y);
+    }
+    std::printf("native AI flash control: unit=%p modelPixels=%zu renderTime=%u worldTime=%u\n",target.GetPtr(),mask.size(),mission->GetRenderGame()->GetTime()->GetValue(),world->GetTime()->GetValue());std::fflush(stdout);
+    Require(mask.size()>=8,"AI flash fixture did not observe an actual selected model on the GPU");
+    for(auto p:mask)Require(std::abs(int(stable[p.y][p.x].r)-int(selected[p.y][p.x].r))<=1 &&
+        std::abs(int(stable[p.y][p.x].g)-int(selected[p.y][p.x].g))<=1 && std::abs(int(stable[p.y][p.x].b)-int(selected[p.y][p.x].b))<=1,
+        "AI flash fixture's paused native model control is not stable");
+    // Idle animation also follows the renderer clock. Record the independent
+    // no-flash control at the same future time used by the expiry assertion.
+    CArray2D<NGfx::SPixel8888> expiryControl;
+    mission->GetRenderGame()->GetTime()->Set(1501);
+    for(int warmup=0;warmup<4;++warmup)capture(&expiryControl);
+    mission->GetRenderGame()->GetTime()->Set(0);
+    for(int warmup=0;warmup<4;++warmup)capture(&stable);
+    NGlobal::SetVar("game_selectionmode",2);
+    const int ap=target->GetAP(),vp=target->GetUnitRPG()->GetTotalVP();const auto unchanged=target->GetPosition();
+    world->AddUICommand(new NWorld::CUICmdAIUnitWillMove(target));capture(&flashed);
+    CObj<NWorld::CUICmd> remaining=world->GetUICommand();Require(!remaining,"AI flash fixture did not dispatch its native world UI command");
+    NGlobal::SetVar("game_selectionmode",1);
+    CObj<CObjectBase> preserved=mission->GetRenderGame()->Select(target,selectedColor);
+    std::printf("native AI flash selection: preserved=%d\n",preserved.GetPtr()==selection.GetPtr());std::fflush(stdout);
+    Require(preserved.GetPtr()==selection.GetPtr(),"AI movement hint replaced the player's ordinary selection instead of adding a temporary flash");
+    int affected=0;
+    for(auto p:mask)if(int(flashed[p.y][p.x].r)-int(selected[p.y][p.x].r)>4 || int(flashed[p.y][p.x].g)-int(selected[p.y][p.x].g)>4)++affected;
+    std::printf("native AI flash GPU: changed model pixels=%d\n",affected);
+    Require(affected>=8,"AI movement flash was suppressed by disabling ordinary selection visuals");
+    // Read the native save fields without retaining the filter whose release is
+    // under test. These are observations of the real renderer, not substitutes.
+    struct Flash {CPtr<CObjectBase> node;STime end=0;int operator&(CStructureSaver& f){f.Add(2,&node);f.Add(3,&end);return 0;}};
+    struct UnitSet {list<Flash> flashes;int operator&(CStructureSaver& f){f.Add(9,&flashes);return 0;}};
+    auto flashes=[&]() {
+        CStructureNetworkContext refs;auto saved=BorrowedObjectFields(mission->GetRenderGame(),&refs);UnitSet state;
+        {CStructureSaver reader(saved,CStructureSaver::READ,&refs);reader.Add(7,&state);}
+        return state.flashes;
+    };
+    auto live=flashes();Require(live.size()==1 && live.front().node && live.front().end==1500,
+        "AI flash did not own exactly one native 1500ms filter");
+    CPtr<CObjectBase> flashNode=live.front().node;
+    auto strength=[&](const CArray2D<NGfx::SPixel8888>& image) {
+        int total=0;for(auto p:mask)total+=Max(0,int(image[p.y][p.x].r)-int(selected[p.y][p.x].r))+
+            Max(0,int(image[p.y][p.x].g)-int(selected[p.y][p.x].g));return total;
+    };
+    const int peak=strength(flashed);CArray2D<NGfx::SPixel8888> faded,expired;
+    mission->GetRenderGame()->GetTime()->Set(300);capture(&faded);capture(&faded);
+    const int after300=strength(faded);
+    std::printf("native AI flash fade: peak=%d at300ms=%d\n",peak,after300);
+    Require(after300>peak/10 && after300<peak*3/4,"native GPU flash did not fade with its presentation clock");
+    mission->GetRenderGame()->GetTime()->Set(1500);capture(&expired);
+    Require(flashes().size()==1 && IsValid(flashNode),"AI flash expired before the original 1500ms boundary");
+    mission->GetRenderGame()->GetTime()->Set(1501);capture(&expired);capture(&expired);
+    Require(flashes().empty() && !IsValid(flashNode),"expired AI flash retained its native scene filter");
+    for(auto p:mask)Require(std::abs(int(expired[p.y][p.x].r)-int(expiryControl[p.y][p.x].r))<=1 &&
+        std::abs(int(expired[p.y][p.x].g)-int(expiryControl[p.y][p.x].g))<=1 && std::abs(int(expired[p.y][p.x].b)-int(expiryControl[p.y][p.x].b))<=1,
+        "expired AI flash left a tint on the native GPU model");
+    mission->GetRenderGame()->FlashUnit(world,CVec4(1,1,1,0));
+    Require(flashes().empty(),"AI flash accepted a non-unit object outside its visible unit set");
+    CObj<CObjectBase> stillSelected=mission->GetRenderGame()->Select(target,selectedColor);
+    Require(stillSelected.GetPtr()==selection.GetPtr(),"flash expiry removed the player's ordinary selection");
+    // FastUpdate is the native renderer path that removes unit visuals (for
+    // previews). A retained selection must not make an absent model flash.
+    mission->GetRenderGame()->FastUpdate(1501);
+    mission->GetRenderGame()->FlashUnit(target,CVec4(1,1,1,0));
+    Require(flashes().empty(),"AI flash created a filter after the native renderer hid its unit set");
+    std::printf("native AI flash lifetime/visibility: expiry1500/1501ms, hidden-set and non-unit controls passed\n");
+    Require(target->GetAP()==ap && target->GetUnitRPG()->GetTotalVP()==vp && target->GetPosition()==unchanged && world->GetTime()->GetValue()==1000000,
+        "AI flash presentation advanced native simulation, spent AP or moved/damaged the target");
+}
 
 static void BodyHoverLabels(const char* databasePath,const char* resourcePath)
 {
@@ -18497,6 +18642,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-authored-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-script-cadence") && argc == 4) { MainMenuMapScript(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "ai-unit-flash") && argc==4) { AIUnitFlash(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "body-hover-labels") && argc==4) { BodyHoverLabels(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "forced-state-cursor-caption") && argc==4) { ForcedAttackTooltip(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "forced-attack-tooltip") && argc==4) { ForcedAttackTooltip(argv[2],argv[3]); return true; }

@@ -73,6 +73,8 @@ public:
 	// bomb highlight in UpdateVisible, disasm @0x6cf22c `push 0`), hence the default.
 	virtual CObjectBase* Select( CObjectBase *pSelect, const CVec4 &vColor = CVec4( 0, 1, 1, 1 ), bool bIgnoreFloorMask = false ) = 0;
 
+	virtual void FlashUnit( CObjectBase *pUnit, const CVec4 &vColor ) = 0;
+
 	virtual CCTime* GetTime() = 0;
 	virtual NLSHead::CHeadsController* GetHeadController() const = 0;
 

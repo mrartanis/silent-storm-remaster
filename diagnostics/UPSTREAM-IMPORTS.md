@@ -6185,3 +6185,78 @@ https://github.com/mrartanis/silent-storm-remaster/actions/runs/40487401584
 нужно рассматривать вместе с deferred delivery, не выдумывать для него RED.
 Глобальный STOP не менялся. Прежний единичный ChapterClueHeading здесь также
 не объявлен исправленным; оба текущих full прогона его прошли.
+
+
+## Временная подсветка бойца ИИ — визуальная часть0726a489
+
+Источник: [0726a489c66ef5131dc5f336d8539c316ca31573](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0726a489c66ef5131dc5f336d8539c316ca31573).
+Рикошеты/clear-distance/RNG из того же исходного коммита не включены.
+
+NativeAIUnitFlash открывает настоящую CMission с authored variant810/party54,
+реальными world/player/HUD, скрытым SDL окном и нашим bgfx renderer. Настоящий
+CUnitServer принадлежит существующему hostile AI commander. Входная граница
+теста — штатная очередь CUICmdAIUnitWillMove, а не выбор бойца AI scheduler.
+Мир остановлен впереди presentation clock; боевые Segments не выполняются.
+
+Первая попытка с4 прогревочными кадрами не прошла контроль стабильности сцены;
+это не RED бага. После24 прогревочных и4 кадров стабилизации настоящего
+выделения GPU выделил525/664 pixels, соседние контрольные кадры совпали.
+Подтверждённый compiled RED2.18с: UI command обработан, а повторный Select
+возвращает другой объект (preserved0). Текущий обработчик подменял обычное
+выделение и при selectionmode2 не создавал ожидаемую вспышку. Evidence
+ai-unit-flash-confirmed-red-native-test.log; production до него не менялась.
+
+Независимая сверка оригинала: SHA256 Steam Game.exe
+4F417593A9F73E2BFDE12D83CDBD694AE47EECB92812140D67B8B343E4A95705.
+GoldPDB FlashUnit6c5e40: первые80 байтов с маской только EH-address9:13
+уникально найдены в Steam6cc8e0. Gold prune6c5b90:48bytes/mask3:7 ->6cc630;
+Gold Recalc6c9870:27bytes/maskfloatAddress23:27 ->6d03d0, константа8c5840
+равна0.003. Оригинал добавляет1500 в6cca68 и удаляет при end<now, без
+подмены selection. Две точные66byte последовательности Gold5a16e0/5a1727
+уникально совпали со Steam5a4070/5a40b7: cyan(0,77/255,78/255,0) для
+neutral/ally и red(78/255,20/255,0,0) дляenemy. Исходный6cc930 не выдаётся
+за проверенный адрес данного exe. Evidence ai-unit-flash-retail-{lookup,disassembly}.
+
+Минимальный перенос использует существующие AddPostFilter/CPostColorer и tag9
+unitFlashes. Добавлены CFlashColorFunc с исходным registrationID02973151,
+IRenderGame::FlashUnit, реализация только для rUnits и удаление просроченных
+эффектов после Sync. Обработчик миссии выбирает оригинальный цвет по diplomacy.
+Собственные SDL/bgfx, facial engine, audio mixers, обычное выделение, HiRes fonts,
+HD pipeline, LAN/save schemas, боевые формулы и RNG не переписывались.
+Независимый sound-clock test double получил только обязательный throwing override
+нового интерфейса; алгоритм проверяемого рендерера ничем не заменён.
+
+Усиленный native GREEN2.39с: выделение сохраняет identity, GPU показывает
+271/332 изменённых model pixels даже приselectionmode2; цвет слабеет на300мс.
+Native borrowed save fields наблюдают ровно один weak filter, живой при1500мс
+и освобождённый при1501мс. Кадр после expiry совпадает с независимым no-flash
+контролем при том же1501мс. Сравнение с исходным кадром при0мс было неверной
+постановкой: idle-анимация также следует renderer clock; это исправление теста,
+не дополнительный игровой баг. Первоначальный Windows max-macro compile error
+также не считался RED. Дополнительный fixture с authored hidden enemy не нашёл
+подходящего скрытого юнита; его заменил настоящий native FastUpdate path,
+который убирает unit render set. Отсутствующая в этом наборе модель и non-unit
+world object не получают flash. Это контроль render-set boundary, не обещание
+полного fog-of-war/AI-commander/hardware-mouse E2E. AP,VP,позиция и world time
+остаются прежними. Снимки/структуры удерживаются только в памяти.
+
+Обе Game и Windows ALL_BUILD собраны. FULL411/411 Windows353.79с и
+Linux350.51с, на каждой17native-audio/15native-display/12FONT-COMPAT.
+Оба raw411 полные без NUL; новый тест отдельно зарегистрирован Windows/Linux
+с изолированным user-data directory. Evidence ai-unit-flash-{full,linux-full}-native-test.log.
+
+Завершена дополнительная сверка оставшихся old PRESENT1bd13094/9ff4893c/
+6d189543/51ab89c5 по всем hunks с текущим кодом: familiarity caps,
+immediate clue transfers, decal rebuild/projection и scripted PK round trips
+уже реализованы. Сохранены собственные RNG/route/validity guards. Уточнения
+добавлены в TSV, статусы already-present не менялись; новые fixes для них
+не выдумывались. 1b1cc6d7 уже имел текущую сверку conclusion/weighted selection.
+
+6/6Network58.03с и CI-like284/28424.68с также прошли; raw6/284 полные,
+без NUL, fonts12 в CI. Последний411 suite — свежий полный прогон на обеих
+платформах;361-map sweep не повторялся для визуального эффекта (последний
+успешный361/361 остаётся проверкой416e09a2). Tracker281:98pending/115imported/
+24partially-imported/32already/3docs/5excluded-balance/2excluded-own/
+1historical/1review,123 незавершённых source entries. Оригинальный баланс
+не менялся; pending ricochet scope описан в balance Markdown. Общая цель
+и final actual-HEAD GitHub Actions остаются активными.
