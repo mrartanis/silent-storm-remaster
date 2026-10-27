@@ -160,6 +160,7 @@ add_test(NAME UpstreamEditEscapeCancel COMMAND UpstreamBugTests edit-escape-canc
 add_test(NAME UpstreamEditKeyboardEdges COMMAND UpstreamBugTests edit-keyboard-edges)
 set_tests_properties(UpstreamEditEscapeCancel UpstreamEditKeyboardEdges PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy")
 add_test(NAME UpstreamNegativeMeshBounds COMMAND UpstreamBugTests negative-mesh-bounds)
+add_test(NAME UpstreamFogSurfaceEligibility COMMAND UpstreamBugTests fog-surface-eligibility)
 add_test(NAME UpstreamRagdollRestoration COMMAND UpstreamBugTests ragdoll-restoration)
 add_test(NAME UpstreamNearestEmpty COMMAND UpstreamBugTests nearest-empty)
 add_test(NAME UpstreamFreshNavigationColouring COMMAND UpstreamBugTests fresh-navigation-colouring)

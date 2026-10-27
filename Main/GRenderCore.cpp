@@ -301,7 +301,10 @@ void AddFinalOps( CRenderCmdList *pRes, CSceneFragments &src, ERenderPath rm,
 			continue;
 		const SRenderFragmentInfo &f = *fragments[k];
 		SOpGenContext fi( &pRes->ops, &f );
-		if ( op != RO_NOP )
+		// Apply surface fog once; decal overlays inherit the fogged surface below.
+		IMaterial::EMaterialType mt = f.pMaterial->GetType();
+		if ( op != RO_NOP && ( mt == IMaterial::MT_NORMAL || mt == IMaterial::MT_ALIEN ) &&
+			f.pMaterial->IsSolid() )
 			fi.AddOperation( op, 50, ABM_SMART|DPM_EQUAL, 0, _p1 );
 		f.pMaterial->AddOperations( &fi, rm );
 	}

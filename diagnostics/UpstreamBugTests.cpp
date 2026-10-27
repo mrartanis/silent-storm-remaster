@@ -119,6 +119,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/GCombiner.h"
 #include "../Main/GSceneUtils.h"
 #include "../Main/GRenderCore.h"
+#include "../Main/GMaterial.h"
 #include "../Main/GAnimLight.h"
 #include "../Main/GRenderLight.h"
 #include "../Main/GLightmapStateWire.h"
@@ -5600,6 +5601,86 @@ static void DecalRebuild()
         decal->Rebuild(&result, *source);
         Require(result.verts.size() == count, "decal rebuild appends another copy of saved vertices");
         Require(result.geometry.indices.size() == 3, "decal triangle count changed on rebuild");
+    }
+}
+
+template<class T> class EmptyFogTextureNode: public CPtrFuncBase<T>
+{
+protected:
+    bool NeedUpdate() override { return false; }
+    void Recalc() override {}
+public:
+    EmptyFogTextureNode() { this->pValue = nullptr; }
+};
+
+static void FogSurfaceEligibility()
+{
+    using namespace NGScene;
+    CObj<EmptyFogTextureNode<NGfx::CTexture>> texture = new EmptyFogTextureNode<NGfx::CTexture>;
+    CObj<EmptyFogTextureNode<NGfx::CCubeTexture>> sky = new EmptyFogTextureNode<NGfx::CCubeTexture>;
+    auto make = [&](int mode) {
+        return CreateMaterial(CVec3(1,1,1), texture, nullptr, 0, CVec3(0,0,0),
+            nullptr, nullptr, nullptr, 0, 0, mode);
+    };
+    struct Case { const char* name; CObj<IMaterial> material; bool fog; };
+    CObj<IMaterial> decal = make(MA_OVERLAY);
+    std::vector<Case> cases = {
+        {"opaque",make(MA_OPAQUE),true},
+        {"alpha-tested solid",make(MA_ALPHA_TEST),true},
+        {"self-illuminated solid",make(MA_SELF_ILLUM),true},
+        {"decal overlay",decal,false},
+        {"exact decal",decal->GetExactDecal(),false},
+        {"transparent",make(MA_TRANSPARENT),false},
+        {"occluder",CreateOccluderMaterial(),false},
+        {"alien fallback",CreateAlienMaterial(sky),false},
+        {"explosion decal",CreateExplosionDecal(texture),false}
+    };
+    Require(decal->IsDecal() && !decal->IsSolid() && cases[4].material->IsDecal(),
+        "fog fixture did not construct genuine native decal materials");
+    for(auto path : {RP_FASTEST,RP_GF3_CL}) for(auto& item : cases) {
+        CSceneFragments fragments;
+        SRenderGeometryInfo geometry;SBound bounds;bounds.BoxInit(CVec3(0,0,0),CVec3(1,1,1));
+        const int index = fragments.AddGeometry(nullptr,&geometry,bounds);
+        CPartFlags flags;flags.Clear();flags.Set(0);
+        fragments.AddElement(index,flags,item.material,nullptr,nullptr);
+        Require(fragments.GetFragments().size()==2 && fragments.HasSelectedFragments(),
+            "fog fixture did not retain its native scene fragment");
+        SFogParams fog{};
+        CRenderCmdList materialOnly;
+        AddFinalOps(&materialOnly,fragments,path,RO_NOP,0.f);
+        Require(materialOnly.ops.size()==(std::string(item.name)=="alien fallback" ? 1u : 0u),
+            "unexpected native material-only operations in fog fixture");
+        for(auto operation : {RO_FOG_STATIC,RO_FOG_DYNAMIC}) {
+            CRenderCmdList commands;AddFinalOps(&commands,fragments,path,operation,&fog);
+            int count=0,other=0;
+            for(const auto& command : commands.ops) {
+                Require(command.pFrag==fragments.GetFragments()[1],
+                    "final fog/material operation lost its genuine scene fragment");
+                if(command.op==operation) {
+                    ++count;
+                    Require(command.nPass==50 && command.nStencilBlendMode==(ABM_SMART|DPM_EQUAL) &&
+                        command.nDestRegister==0 && command.p1.pFog==&fog,
+                        "fog surface operation changed pass, depth/blend policy or parameters");
+                } else {
+                    Require(other<int(materialOnly.ops.size()),"fog changed native material operation count");
+                    const auto& control=materialOnly.ops[other++];
+                    Require(command.op==control.op && command.nPass==control.nPass &&
+                        command.nStencilBlendMode==control.nStencilBlendMode &&
+                        command.nDestRegister==control.nDestRegister &&
+                        command.p1.pVec4==control.p1.pVec4,
+                        "fog changed the existing native alien fallback operation");
+                }
+            }
+            std::printf("native fog material=%s path=%d operation=%d fog=%d expected=%d materialOps=%d\n",
+                item.name,int(path),int(operation),count,int(item.fog),other);std::fflush(stdout);
+            Require(count==int(item.fog),"fog pass exposes non-solid/decal geometry");
+            Require(other==int(materialOnly.ops.size()),"fog omitted the existing material operations");
+            {
+                CSelectFragments filtered(&fragments,[](const SRenderFragmentInfo*) { return true; });
+                CRenderCmdList hidden;AddFinalOps(&hidden,fragments,path,operation,&fog);
+                Require(hidden.IsEmpty(),"final fog pass ignored scene-fragment filtering");
+            }
+        }
     }
 }
 
@@ -16588,6 +16669,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "missing-navigation-colourer")) { NavigationColouringOccupancy(1); return true; }
     if (!std::strcmp(mode, "stale-navigation-colourer")) { NavigationColouringOccupancy(2); return true; }
     if (!std::strcmp(mode, "ragdoll-restoration")) { RagdollRestoration(); return true; }
+    if (!std::strcmp(mode, "fog-surface-eligibility")) { FogSurfaceEligibility(); return true; }
     if (!std::strcmp(mode, "negative-mesh-bounds")) { NegativeMeshBounds(); return true; }
     if (!std::strcmp(mode, "sniper-targetless-probe") && argc == 4) { SniperHeldAim(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "sniper-held-aim") && argc == 4) { SniperHeldAim(argv[2], argv[3]); return true; }

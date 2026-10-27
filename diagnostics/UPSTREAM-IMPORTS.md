@@ -4574,3 +4574,40 @@ CI-like277/277 (23.90 с), raw277 полный без NUL. Статус281:
 110 pending/99 imported/22 partial/38 already/3 docs/5 excluded-balance,
 2 excluded-own, по1 historical/review.133 исходных коммита ещё в разборе;
 итоговая проверка актуального HEAD в GitHub Actions остаётся обязательной.
+
+## Туман поверх decal overlays — 73eae08e
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/73eae08e02a5c20611a629127c5b1be7fe7ca81c
+
+UpstreamFogSurfaceEligibility использует настоящие фабрики девяти материалов,
+CSceneFragments и AddFinalOps. RED получен на исходной реализации: шесть
+проверок opaque/alpha-tested/self-illuminated solid для static/dynamic fog
+проходят, затем настоящий decal overlay ошибочно получает RO_FOG_STATIC.
+Полностью перенесён единственный hunk: самостоятельный fog pass добавляется
+для solid материалов NORMAL/ALIEN, собственный AddOperations вызывается как
+прежде. Никаких изменений RPG/AI visibility, погоды, формул и баланса нет.
+
+GREEN:9 native материалов × RP_FASTEST/RP_GF3_CL × static/dynamic fog.
+Проверены обычный и exact decal, прозрачность, occluder, alien fallback,
+explosion decal; pass50, глубина/смешивание и указатель fog parameters
+для solids сохраняются. Собственная RO_SOLID_COLOR операция настоящего
+alien fallback сохраняется; native fragment filter по-прежнему исключает
+все операции. Тест подтверждает ошибку формирования настоящих render commands.
+Он не заявляется отдельным pixel/readback доказательством fogged decal;
+GPU регрессии проверяют наш существующий native scene/renderer отдельно.
+
+Проверки:22/22 Windows (9.85 с),19/19 Linux (6.81 с), включая5 native-display,
+12 FONT-COMPAT и полные raw без NUL; обе Game и Windows ALL_BUILD.
+NetworkSerializer/ClientUI/StopResume3/3 (8.12 с); CI-like278/278
+(51.27 с), raw278 полный без NUL. Сохранены общие native medal/camera и
+bgfx/selection/low-RAM проверки; на Windows также partial/index/specular.
+Свидетельства fog-surface-eligibility: red-{build,test,native-test}.log,
+green-{build,test,native-test}.log, all-build.log, related-test.log,
+linux-{configure,build,test}.log, {windows,linux}-native-test.log,
+network-{test,native-test}.log, ci-{test,native-test}.log.
+
+CPU base371, последний полный checkpoint e356d2db — base370+6=376 обе
+платформы; свежий полный377 здесь не заявляется. Статус281:
+109 pending/100 imported/22 partial/38 already/3 docs/5 excluded-balance,
+2 excluded-own, по1 historical/review.132 исходных коммита ещё разбираются.
+Итоговая проверка актуального HEAD в GitHub Actions остаётся обязательной.
