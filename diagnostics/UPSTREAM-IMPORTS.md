@@ -6443,3 +6443,39 @@ Evidence portable-locker-interface-{full,linux-full,network,ci}-native-test.log.
 алгоритма. Оригинальный баланс, свои LAN/renderer/facial/HiRes fonts и HD
 не менялись. Статус48c24432 остаётся imported; tracker281 и121 незавершённая
 запись неизменны. Общий аудит и final actual-HEAD GitHub Actions ещё открыты.
+
+
+## Side menu: forward the selected original difficulty
+
+Независимый hunk
+[02d85e5b939ac897f726293b37f30b55d0f2ff72](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/02d85e5b939ac897f726293b37f30b55d0f2ff72).
+Текущий native menu действительно передавал enum ordinal как DB ID:
+normal2 положительный контроль, затем hard1 прибывал в настоящее hero menu
+как Easy1, а не Hard3. Compiled runtime RED1.77с сохранён до правки.
+
+Независимый original oracle: GoldPDB CSideMenuInterface::ProcessEvent638da0,
+RTTI/vtable slot7 -> Steam63e200 (descriptor97ed84, COL8ed95c,
+vtable8c169c). Реальная ветка63e329..350 задаёт0->1/1->3/2->2.
+Адрес63e1e3 из source comment для этого Steam exe не использован. База
+подтвердила distinct DB1Easy/2Normal/3Hard с разными исходными коэффициентами.
+Внесён только switch привязки; ordinal default, faction IDs, DB коэффициенты,
+сохранения и LAN factories не менялись. Прозрачное влияние ошибочного hard1
+и восстановленного hard3 описано в UPSTREAM-BALANCE-CHANGES.md.
+
+Native GREEN2.15с выполняет реальные CICSideMenu/CICHeroMenu и оба SDL/bgfx
+кадра, наблюдает выбранный record в настоящем hero interface. Обе стороны x
+normal/hard/easy/default, no-side запрет и реальный modal return проверены.
+Тест подаёт EVENT_NOTIFY кнопки и native next binding; физический клик,
+полный запуск кампании/сохранение миссии этим тестом не заявляются.
+
+Оба Game и Windows ALL_BUILD собраны. Related72/72 Windows73.70с,
+Linux67.80с, по18native-display/4native-audio/12FONT-COMPAT. Свой LAN
+NetworkMatch+Preparation2/2 GREEN45.65с с сохранёнными DB2 controls.
+CI-like284/28424.51с; raw72/72/2/284 полные без NUL/missing executable/Failed,
+fonts12 также в CI. Evidence side-menu-difficulty-{baseline,green,related,
+linux-related,network,ci}-native-test.log и side-difficulty-retail-{lookup,
+disassembly}. Resource-free CI count не увеличивался для asset/native-display.
+
+02d85e5b остаётся partially-imported: live canSave policy и selected caption
+style ещё открыты. Tracker121 незавершённая запись. Свои facial renderer,
+HiRes fonts/adaptive UI и замороженный HD pack не изменены.

@@ -294,13 +294,18 @@ bool CSideMenuInterface::ProcessEvent( const NInput::SEvent &sEvent )
 	}
 	else if ( bindNext.ProcessEvent( sEvent ) )
 	{
-		// The release (@0x23e330) threads the chosen difficulty as the 2nd CICHeroMenu arg, with the
-		// enum value passed DIRECTLY as the DB id: GetDBSide(eSide) (SIDE_AXIS=1/SIDE_ALLIES=2 = the
-		// N_SIDE_* ids) + GetDBDifficulty(eDifficulty) (DIF_EASY=0/DIF_HARD=1/DIF_NORMAL=2). We guard the
-		// null-side case for direct bind events too; CSideMenuUI::Draw disables the Next button.
+		// Retail maps difficulty ordinals to DB records (Steam ProcessEvent @0x63e329):
+		// EASY=0 -> DB1, HARD=1 -> DB3, NORMAL=2 -> DB2. Side ordinals already match DB IDs.
+		// Keep the no-side guard for direct binds; Draw also disables the Next button.
 		NDb::CSide *pDBSide = ( pSideMenuUI->GetSide() != NUI::CSideMenuUI::SIDE_NONE )
 			? NDb::GetDBSide( pSideMenuUI->GetSide() ) : 0;
-		NDb::CDBDifficulty *pDBDifficulty = NDb::GetDBDifficulty( pSideMenuUI->GetDifficulty() );
+		NDb::CDBDifficulty *pDBDifficulty = 0;
+		switch ( pSideMenuUI->GetDifficulty() )
+		{
+		case NUI::CSideMenuUI::DIF_EASY: pDBDifficulty = NDb::GetDBDifficulty( 1 ); break;
+		case NUI::CSideMenuUI::DIF_HARD: pDBDifficulty = NDb::GetDBDifficulty( 3 ); break;
+		case NUI::CSideMenuUI::DIF_NORMAL: pDBDifficulty = NDb::GetDBDifficulty( 2 ); break;
+		}
 		if ( IsValid( pDBSide ) )
 			NMainLoop::Command( new NGame::CICHeroMenu( pDBSide, pDBDifficulty ) );
 		return true;

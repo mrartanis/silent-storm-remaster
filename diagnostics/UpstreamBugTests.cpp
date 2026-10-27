@@ -81,6 +81,8 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/UIWrap.h"
 #include "../Main/PlayerTracker.h"
 #include "../Main/iOptionsMenu.h"
+#include "../Main/iSideMenu.h"
+#include "../Main/iHeroMenu.h"
 #include "../Main/iInGameMenu.h"
 #include "../Main/iLoseFake.h"
 #include "../Main/iExitMenu.h"
@@ -3111,6 +3113,54 @@ public:
     }
 };
 REGISTER_SAVELOAD_CLASS(0x7f550107,BodyHoverMission);
+
+static void SideMenuDifficultyMapping(const char* databasePath,const char* resourcePath)
+{
+    Require(std::getenv("S2_USER_DATA_DIR"),"side difficulty fixture requires isolated user data");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm side difficulty regression");
+    for(int id:{1,2,3}) {
+        auto* record=NDb::GetDBDifficulty(id);
+        Require(record && record->GetRecordID()==id,"side difficulty fixture lacks its authored difficulty record");
+        std::printf("native side difficulty control: id=%d name=%s AP=%.3f VP=%.3f enemyDamage=%.3f ourDamage=%.3f\n",
+            id,record->szUserName.c_str(),record->fAPCoeff,record->fVPCoeff,record->fEnemyDamageMult,record->fOurDamageMult);
+    }
+    struct Choice { const char* button;int expected; };
+    for(const char* faction:{"axis","allies"}) for(const auto choice:{Choice{"normal",2},Choice{"hard",3},Choice{"easy",1},Choice{nullptr,1}}) {
+        CObj<NGame::CICSideMenu> open=new NGame::CICSideMenu;open->Exec();
+        auto* side=NMainLoop::GetCurrentInterfaceForHarness();
+        Require(side && NMainLoop::StepApp(true,false,false) && NMainLoop::GetCurrentInterfaceForHarness()==side && !NMainLoop::HaveInterfaceCommand(),
+            "side difficulty fixture failed to open the actual native menu/frame");
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(side,&refs);CPtr<NUI::CWindow> page;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&page);}
+        Require(page && page->GetWindowID()=="mainmenuUI","side difficulty fixture lost its actual authored menu page");
+        auto next=[&]() {
+            NInput::SEvent event;while(NInput::GetEvent(&event)) {}
+            NInput::PostEvent("next");
+            Require(NInput::GetEvent(&event) && side->ProcessEvent(event),"side difficulty fixture did not dispatch the native next binding");
+        };
+        next();Require(!NMainLoop::HaveInterfaceCommand(),"side menu advanced without a faction selection");
+        Require(page->ProcessMessage(NUI::SEvent(NUI::EVENT_NOTIFY,string(faction))),"native side menu rejected its faction notification");
+        if(choice.button) Require(page->ProcessMessage(NUI::SEvent(NUI::EVENT_NOTIFY,string(choice.button))),"native side menu rejected its difficulty notification");
+        next();
+        CObj<NMainLoop::CInterfaceCommand> transition=NMainLoop::TakeInterfaceCommandForHarness();
+        Require(dynamic_cast<NGame::CICHeroMenu*>(transition.GetPtr()) && !NMainLoop::HaveInterfaceCommand(),
+            "native side menu did not queue exactly its real hero-menu command");
+        transition->Exec();
+        auto* hero=NMainLoop::GetCurrentInterfaceForHarness();
+        Require(hero && hero!=side && NMainLoop::StepApp(true,false,false) && NMainLoop::GetCurrentInterfaceForHarness()==hero,
+            "side difficulty fixture failed to initialize the real hero menu/frame");
+        CStructureNetworkContext heroRefs;auto heroFields=BorrowedObjectFields(hero,&heroRefs);
+        CDBPtr<NDb::CSide> selectedSide;CDBPtr<NDb::CDBDifficulty> selectedDifficulty;
+        {CStructureSaver reader(heroFields,CStructureSaver::READ,&heroRefs);reader.Add(2,&selectedSide);reader.Add(3,&selectedDifficulty);}
+        Require(selectedSide==NDb::GetDBSide(!std::strcmp(faction,"axis")?1:2),"difficulty choice changed the selected faction");
+        std::printf("native side difficulty: faction=%s button=%s actual=%d expected=%d\n",faction,choice.button?choice.button:"default",
+            IsValid(selectedDifficulty)?selectedDifficulty->GetRecordID():-1,choice.expected);std::fflush(stdout);
+        Require(selectedDifficulty==NDb::GetDBDifficulty(choice.expected),"side menu passed the enum ordinal instead of the original difficulty record to the real hero menu");
+        CObj<NMainLoop::CICExitModal> back=new NMainLoop::CICExitModal;back->Exec();
+        Require(NMainLoop::GetCurrentInterfaceForHarness()==side,"hero-menu return did not restore the same native side menu");
+        NMainLoop::DoneInterface();Require(!NMainLoop::HaveInterfaceCommand(),"side difficulty fixture left a queued interface transition");
+    }
+}
 
 static void OptionsPenCursor(const char* databasePath,const char* resourcePath)
 {
@@ -18741,6 +18791,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-authored-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-script-cadence") && argc == 4) { MainMenuMapScript(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "side-menu-difficulty-mapping") && argc==4) { SideMenuDifficultyMapping(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "options-pen-cursor") && argc==4) { OptionsPenCursor(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "ai-unit-flash") && argc==4) { AIUnitFlash(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "body-hover-labels") && argc==4) { BodyHoverLabels(argv[2],argv[3]); return true; }
