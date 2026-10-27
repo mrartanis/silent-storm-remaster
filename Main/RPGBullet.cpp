@@ -216,7 +216,7 @@ void CalcCoverIntervals( NAI::CFastRenderer::SResult *pList, const SAttackRayInf
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // NRPG::TraceLooseRaySegment @0x292010
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void TraceLooseRaySegment( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, vector<STrailPoint> *pTrail, const CVec3 &vOrigin, const CVec3 &vDir, float fRange )
+void TraceLooseRaySegment( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, vector<STrailPoint> *pTrail, const CVec3 &vOrigin, const CVec3 &vDir, float fRange, float fMinClearDistance )
 {
 	if ( !pAIMap || !pTrail )
 		return;
@@ -232,7 +232,11 @@ void TraceLooseRaySegment( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, v
 
 	for ( vector<NAI::SInterval>::iterator i = intersect.begin(); i != intersect.end(); ++i )
 	{
-		if ( i->enter.fT > 0 && i->enter.fT < fRange )
+		// Original Steam 0x691dc4: retain intervals crossing the clear-distance boundary.
+		if ( i->exit.fT < fMinClearDistance + 0.01f )
+			continue;
+		if ( i->enter.fT > fRange )
+			break;
 		{
 			CObjectBase *pUD = i->pSrc->pUserData;
 			if ( find( seen.begin(), seen.end(), pUD ) != seen.end() )
@@ -276,16 +280,16 @@ void TraceLooseRay( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, vector<S
 		return;
 
 	pTrail->clear();
-	float fRange = rayInfo.fMaxRange > 0.0f ? rayInfo.fMaxRange : 30.0f;
+	const float fRange = rayInfo.fMaxRange;
 	CRay ray; ray.ptOrigin = rayInfo.vOrigin; ray.ptDir = rayInfo.vDir;
 	CAttackPortion tmpAttackPortion( rayInfo.atk );
 	tmpAttackPortion.rTtrajectory = ray;
 
 	// Initial start point
-	pTrail->push_back( STrailPoint( 0, ray.ptDir, ray.ptOrigin, tmpAttackPortion, 0, 0, 0, CVec3(0,0,1), 100 ) );
+	pTrail->push_back( STrailPoint( 0, ray.ptDir, ray.Get( rayInfo.fMinClearDistance ), tmpAttackPortion, 0, 0, 0, CVec3(0,0,1), 100 ) );
 
 	// Trace loose ray through geometry
-	TraceLooseRaySegment( pAIMap, rayInfo, pTrail, rayInfo.vOrigin, rayInfo.vDir, fRange );
+	TraceLooseRaySegment( pAIMap, rayInfo, pTrail, rayInfo.vOrigin, rayInfo.vDir, fRange, rayInfo.fMinClearDistance );
 
 	// Terminal end point
 	pTrail->push_back( STrailPoint( 0, ray.ptDir, ray.Get( fRange ), tmpAttackPortion, 0, 0, 0, CVec3(0,0,1), 100 ) );

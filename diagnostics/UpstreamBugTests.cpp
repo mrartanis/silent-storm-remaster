@@ -126,6 +126,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/wDebris.h"
 #include "../Main/wMisc.h"
 #include "../Main/RPGAttackMech.h"
+#include "../Main/RPGBullet.h"
 #include "../Main/aiPath.h"
 #include "../Main/GAnimParticles.h"
 #include "../Main/GParticleInfo.h"
@@ -14655,6 +14656,78 @@ static void ActiveDoorHullLookup(const char* databasePath,const char* resourcePa
     }
 }
 
+class LooseRayWallToken: public CObjectBase
+{
+    OBJECT_NOCOPY_METHODS(LooseRayWallToken);
+};
+
+// Analytic slab geometry supplies only map intersections. The native bullet code
+// owns clipping, armor traversal, trajectory records, reflection and RNG decisions.
+class LooseRayTraceMap: public NAI::IAIMap
+{
+    OBJECT_NOCOPY_METHODS(LooseRayTraceMap);
+    static void Unused(){Require(false,"loose-ray fixture unexpectedly used an unrelated map operation");}
+public:
+    struct Slab {float lo,hi;NAI::SSourceInfo source;int id;};
+    vector<Slab> slabs;
+    vector<CRay> rays;
+    void Trace(const CRay& ray,vector<NAI::SInterval>* result,int mask,const NAI::CFloorsSet&,ESplitTerrainHGroups) override {
+        Require(mask==NWorld::TS_FRAGMENTED,"loose ray changed its native trace mask");
+        rays.push_back(ray);result->clear();
+        if(fabs(ray.ptDir.x)<1e-6f)return;
+        for(const auto& slab:slabs) {
+            float a=(slab.lo-ray.ptOrigin.x)/ray.ptDir.x,b=(slab.hi-ray.ptOrigin.x)/ray.ptDir.x;
+            CVec3 na(-1,0,0),nb(1,0,0);
+            if(a>b){std::swap(a,b);std::swap(na,nb);}
+            if(b<0)continue;
+            result->push_back(NAI::SInterval(slab.source,slab.id,NAI::SInterval::SCrossPoint(a,na),NAI::SInterval::SCrossPoint(b,nb)));
+        }
+        std::sort(result->begin(),result->end(),[](const NAI::SInterval& a,const NAI::SInterval& b){return a.enter.fT<b.enter.fT;});
+    }
+    void Sync(ESyncType) override {Unused();}
+    void GetEntities(list<NAI::SObjectInfo>*,int,const NAI::CFloorsSet&) override {Unused();}
+    void TraceGrid(NAI::CFastRenderer*,int,ESort,const NAI::CFloorsSet&,ESplitTerrainHGroups,bool) override {Unused();}
+    void TraceVoxelGrid(NAI::CExplVoxelRenderer*,int,const NAI::CFloorsSet&,bool) override {Unused();}
+    void TraceVisionGrid(NAI::CVisionVoxelRenderer*,int,const NAI::CFloorsSet&,bool) override {Unused();}
+    bool GetUnitHLPos(CVec3*,CObjectBase*,int) override {Unused();return false;}
+    void GetAccessibleUnitHL(vector<int>*,const CVec3&,CObjectBase*,float) override {Unused();}
+    CObjectBase* GetHull(CObjectBase*) override {Unused();return nullptr;}
+    bool GetObjectBound(SBound*,CObjectBase*) override {Unused();return false;}
+    bool CalcIntersection(const CVec3&,float,int,CObjectBase*) override {Unused();return false;}
+    void PrepareCollider(NAI::IPrepareCollider*,const SBound&,float,int,bool) override {Unused();}
+    void AddTracker(NAI::IAIMapTracker*,const SBound&,int,bool) override {Unused();}
+    void FlipDoorWindow(CObjectBase*,bool) override {Unused();}
+    NAI::IStabilityTrackers* GetStabilityTrackers() override {Unused();return nullptr;}
+    void SelectHullPointers(vector<CPtr<CObjectBase>>*,const SBound&,int,int) override {Unused();}
+    bool GetWindowPos(CObjectBase*,CVec3*,CVec3*) override {Unused();return false;}
+};
+
+static void LooseRayBounds(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
+    auto* original=NDb::GetArmor(NDb::N_DEFAULT_ARMOR);Require(IsValid(original) && IsValid(original->pMaterial),"loose-ray fixture lacks native default armor");
+    CObj<NDb::CRPGMaterial> material=new NDb::CRPGMaterial;material->nDR=original->pMaterial->nDR;material->fDensity=2;
+    CObj<NDb::CRPGArmor> armor=new NDb::CRPGArmor;armor->pMaterial=material;armor->fRicochetMaxCos=0;armor->fRicochetProbability=0;
+    CObj<LooseRayWallToken> token=new LooseRayWallToken;
+    CObj<LooseRayTraceMap> map=new LooseRayTraceMap;
+    NAI::SSourceInfo source(token,armor,3,NWorld::TS_FRAGMENTED);
+    NRPG::SAttackRayInfo ray;ray.vOrigin=VNULL3;ray.vDir=CVec3(1,0,0);ray.atk.nDmgType=1;ray.atk.nK=100000;
+    ray.fMinClearDistance=5;ray.fMaxRange=8;
+    map->slabs={{2,3,source,1},{4,6,source,2},{10,11,source,3}};
+    vector<NRPG::STrailPoint> trail;NRPG::TraceLooseRay(map,ray,&trail);
+    Require(!trail.empty(),"native bounded loose ray produced no trajectory");
+    std::printf("native loose-ray bounds: start=%g expected=5 points=%zu expected=4 end=%g\n",trail.front().vPosition.x,trail.size(),trail.back().vPosition.x);std::fflush(stdout);
+    Require(fabs(trail.front().vPosition.x-5)<1e-5f,"native loose ray started before its minimum clear distance");
+    Require(trail.size()==4 && trail[1].nUserID==2 && trail[2].nUserID==2 && fabs(trail[1].vPosition.x-4)<1e-5f && fabs(trail[2].vPosition.x-6)<1e-5f && fabs(trail.back().vPosition.x-8)<1e-5f,
+        "loose ray did not skip cleared surfaces, retain a straddling interval or stop at range");
+    ray.fMinClearDistance=0;map->slabs={{8,9,source,4}};NRPG::TraceLooseRay(map,ray,&trail);
+    Require(trail.size()==3 && trail[1].nUserID==4 && fabs(trail[1].vPosition.x-8)<1e-5f,"loose ray discarded an entry exactly at its range boundary");
+    map->slabs.clear();ray.fMaxRange=0;NRPG::TraceLooseRay(map,ray,&trail);
+    Require(trail.size()==2 && trail.front().vPosition==VNULL3 && trail.back().vPosition==VNULL3,"zero-range loose ray invented a thirty-unit trajectory");
+    ray.fMinClearDistance=3;ray.fMaxRange=8;ray.pIgnore=token.GetPtr();map->slabs={{4,6,source,5}};NRPG::TraceLooseRay(map,ray,&trail);
+    Require(trail.size()==2 && fabs(trail.front().vPosition.x-3)<1e-5f && fabs(trail.back().vPosition.x-8)<1e-5f,"loose-ray clipping lost its ignored-object control");
+}
+
 static void ProjectiveRayUnprojection()
 {
     float worst = 0;
@@ -20531,6 +20604,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "equal-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "mixed-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "missing-attack-target-caption") && argc == 4) { AttackCaptionWithoutHitChance(argv[2], false, true); return true; }
+    if (!std::strcmp(mode, "loose-ray-bounds") && argc==4) { LooseRayBounds(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "restore-action-state") && argc == 4) { RestoreActionState(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "zone-reentry-action-state") && argc == 4) { RestoreActionState(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "restore-building-hulls") && argc == 4) { RestoreBuildingHulls(argv[2], argv[3]); return true; }

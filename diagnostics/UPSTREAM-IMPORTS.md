@@ -8334,3 +8334,66 @@ No game balance, AP/VP, CPU perception, production RNG, face/font, HD or save
 format changes. Owned games closed, shared builds reused, no HD generation or
 per-bug binary copies. Tracker281/131imported/22partial/85pending,107unfinished.
 ALL281 and final actual-HEAD hosted CI remain open.
+
+
+## 0726a489, combat part1 — original loose-ray clear-distance and range bounds
+
+Source0726a489c66ef5131dc5f336d8539c316ca31573 remains split. Its independent
+AI flash was already imported. This combat fix restores only original scalar
+trace bounds: start at origin+direction*minimumClearDistance; skip intersections
+whose exit is below minimumClearDistance+0.01; retain straddling intervals and
+entries exactly at maximumRange; stop after entries beyond maximumRange. Use
+the actual maximumRange, including zero, instead of substituting30. Pass the
+minimum to the native segment helper; retain all existing ignored-object and
+intended-target impact guards. Reflection, RNG changes and terminal-point/
+remaining-energy ownership are separate following fixes, not imported here.
+
+Native RED1/1 1.15s: actual NRPG::TraceLooseRay and segment implementation,
+real DB damage-to-armor data and owned armor/material objects. A test-only
+IAIMap adapter computes analytic slab intersections from each input ray;
+it does not choose clipping, armor traversal, trail records, reflection or
+random outcomes. Every unrelated map operation fails explicitly. This isolates
+the native bullet algorithm from mission scenery; it is not a real level's
+NAIMap/BSP traversal or a full firing/damage simulation. Slabs2..3/4..6/10..11,
+clear5/range8 produced start0/6points instead of start5/4points. Native GREEN
+1/1 1.15s retains only the straddling wall, and also verifies an entry exactly
+at range8, zero-range without an invented30unit endpoint, and ignored geometry.
+New fixtures use zero reflection angle/probability; no production RNG call is
+added by this commit. Terminal-point energy assertions are deliberately left
+for their own independently reproduced defect.
+
+Independent original proof: Gold PDB TraceLooseRaySegment68bcd0/2076 and
+TraceLooseRay68c4f0/418. Map the probability block25bytesGold68bee0 uniquely to
+Steam691e8b, masking ONLY verified RNG-global operand8:12 and GetFloat relative
+call13:17. Gold global9b96a8/GetFloat4635a0; Steam9ca918/GetFloat464230. The frame
+containing that block is Steam691ca0; its recursive call6923eb and wrapper call
+692624 both target that segment. Wrapper starts6924a0. Full disassemblies show
+clear+0.01 at691db0..691dd0, enter>maximum at691dd6..691de4; literal8b3bc0 is
+0.009999999776482582. Wrapper6924e5 loads ray+48 (minimum), uses it to advance
+the start along direction, then69260c/69260f pass ray+48/+4c as minimum/maximum.
+Original equality branches preserve an entry exactly on the range boundary.
+Initial whole-entry signatures differ in stack size/layout and are not claimed
+matches; no numeric or register masks were invented to force them. Evidence
+loose-ray-gold-{segment,wrapper}-disassembly.txt,
+loose-ray-retail-segment-wrapper-disassembly.txt and
+loose-ray-retail-oracle.json. The source address691e60 is not blindly reused;
+the imported comment names the independently verified clear-filter691dc4.
+
+Final Windows/Linux Game and helpers built, including fresh NativeAttackRules;
+related14/14 Windows14.69s/Linux14.39s; native-display57/57 Windows82.05s/
+Linux67.63s; asset-free CI-like290/29024.26s. All five raw logs contain exact
+14/57/14/57/290 passed records, no NUL/Failed/NotRun/missing executables, actual
+runners exit0. The new asset-dependent test is explicitly covered by related14;
+it is not in the asset-free290 manifest (working directory/arguments reference
+the laboratory baseline assets). Its actual registered properties have no
+extended label; do not invent a label to explain that exclusion or claim the
+hosted workflow passed. The final header-comment cleanup corrects a pre-existing
+stale deferred-work description without changing executable assertions.
+Evidence loose-ray-bounds-{red,green,final-related,final-display,final-linux,
+linux-display,final-ci}. Shared builds reused, owned games closed, no HD
+generation or per-bug binary copies. This restores original geometric bounds,
+with no new balance tuning, production RNG, AP/VP, face/font, HD or save-format
+changes. Source remains partial for stopped/reflecting trajectory ownership and
+ricochet/energy/RNG verification. Tracker281/107unfinished and final actual-HEAD
+hosted CI remain open; balance Markdown now distinguishes verified bounds from
+remaining unverified combat hunks.
