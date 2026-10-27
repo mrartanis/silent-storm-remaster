@@ -7388,3 +7388,57 @@ green,related-final,verified-linux,ci} test/native-test logs and build logs.
 Source status pending->partially-imported; no-opt assignment still pending.
 Tracker281:88pending/125imported/24partial/32already/3docs/5excluded-balance/
 2excluded-own/1historical/1review,113unfinished. ALL281/final hosted CI remain open.
+
+
+## 48540d9d, part 2 — preserve generated-mesh indexing for saved decal projection
+
+Source48540d9de58b2dadbf0c1095ee7f2b462f2ea6f0. Actual native CMemObjectInfo
+reorders its vertices when only triangle enumeration changes. A transformed
+part's saved projection positions still use the original order: a near-origin
+explosion decal moved onto a distant triangle. Compiled native RED1/1 0.07s:
+reference order centerX0, reversed triangle order centerX10 with the same6points,
+surfaces and point count. This is actual production mesh generation followed
+by CExplosionDecalGeometry and actual CalcBound, with only a valid identity
+IPart fixture. A preliminary fixture compile error is not RED. The test uses
+the saved initial TransformPart result, not a fabricated projection vector;
+it does not claim a complete historical save-slot or GPU-pixel reproduction.
+
+Add the original optional optimization flag to Assign (defaulttrue). Generated
+memory meshes and the three decal assignment paths passfalse; both paths
+clear lightmaps/LODs, merge positions and establish references. Keep our own
+TT_NONE terrain projection refresh and transformed-part saved-pose policy.
+AssignFast remains unchanged: replacing Assign with it would omit position
+merging/reference setup and leave different lightmap semantics. No original
+balance/rules, own facial engine, HiRes font or HD pipeline changes.
+
+Native GREEN3/3 0.10s includes both prior used-vertex tests. Strengthened final
+controls3/3 0.13s verify near-origin decal for both triangle orders and the
+no-opt API's actual5vertices/4positions/3triangles, retained quad plus UV seam,
+and first-vertex reference mapping (GetVxPositionTriangles). This last control
+would distinguish AssignFast from the required native reference semantics.
+
+Independent original: Gold CMemObjectInfo::Recalc537210/501 uniquely maps
+Steam539160, first32 with only EH9:13 masked. EBP cleared539188; pushed5392f3
+as false to Assign wrapper522540 at5392f9. That22byte wrapper, independently
+mapped from Gold520930, forwards the flag to primary Assign5221b0. The core
+compares flag522229, skips optimization522243->5224c1, calls AssignGeometry
+521400 at5224d3, then MergePositions521ed0 and EstablishRefs521b50 at522515.
+Gold CPerPolyDecal::Recalc508d60/597 maps Steam50a780 first32/EH9:13; zeroEBP
+50a7a0 is pushed for both empty522540 and populated522560 assignment calls
+50a877/50a9a7. The latter wrapper forwards the same flag at5225a3..5225b8.
+Evidence memory-mesh-decal-{generator,projection,assign-wrappers}-retail-
+disassembly.txt in the shared evidence directory. WSL disassembly is redirected
+inside Linux because PowerShell piping can truncate its output.
+
+Final Windows ALL_BUILD/Game and Linux Game/helpers built. Full Windows470/470
+426.26s, Linux470/470 420.03s, each39display/24audio/12FONT-COMPAT; raw470/470
+complete/no NUL/Failed/missing executable and actual runner exits0. Shared test
+game processes exited; shared builds reused without per-bug binary copies.
+This completes the source's two independent fixes: first part is7fed1e36,
+separately committed and immediately pushed; this second part is also separate.
+Tracker281:88pending/126imported/23partial/32already/3docs/5excluded-balance/
+2excluded-own/1historical/1review,112unfinished. ALL281/final hosted CI stay open.
+
+Final CI-like287/28724.67s/fonts12, actual exit0/raw287 complete/noNUL/Failed/missing.
+Evidence memory-mesh-decal-{red,green,controls,full,final-linux,ci} test/native-test
+logs plus Windows ALL_BUILD/Linux build logs in the shared evidence directory.

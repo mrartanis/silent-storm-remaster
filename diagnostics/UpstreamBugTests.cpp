@@ -11,6 +11,7 @@
 #include "../Main/wMine.h"
 #include "../Main/wDecal.h"
 #include "../Main/GDecal.h"
+#include "../Main/GMemFormat.h"
 #include "../Main/GSceneInternal.h"
 #include "../Main/wUnitGroup.h"
 #include "../Main/iCommonUI.h"
@@ -7012,6 +7013,67 @@ public:
     ProjectionRecorder(GeometryPart* part, const std::vector<CVec3>& saved): CPerPolyDecal(part, saved) {}
     void Rebuild() { CPerPolyDecal::Recalc(); }
 };
+
+class MemoryProjectionPart: public NGScene::IPart
+{
+    OBJECT_BASIC_METHODS(MemoryProjectionPart);
+    SFBTransform pose;
+public:
+    MemoryProjectionPart() { Identity(&pose.forward);Identity(&pose.backward); }
+    explicit MemoryProjectionPart(NGScene::CMemObjectInfo* node): IPart(node,nullptr,false) {
+        Identity(&pose.forward);Identity(&pose.backward);
+    }
+    NGScene::ETransformType GetTransformType() const override { return NGScene::TT_SIMPLE; }
+    const SFBTransform& GetSimplePos() override { return pose; }
+};
+
+static void MemoryMeshDecalProjection()
+{
+    // Identical points and surfaces; a regenerated mesh enumerates its two
+    // triangles in the opposite order. The saved projection pose stays valid.
+    vector<CVec3> points={CVec3(-0.3f,-0.3f,0),CVec3(0.3f,-0.3f,0),CVec3(0,0.3f,0),
+        CVec3(9.7f,-0.3f,0),CVec3(10.3f,-0.3f,0),CVec3(10,0.3f,0)};
+    vector<CVec3> normals(points.size(),CVec3(0,0,1));
+    vector<CVec3> savedPose;
+    for(bool reversed:{false,true}) {
+        vector<STriangle> triangles={STriangle(0,1,2),STriangle(3,4,5)};
+        if(reversed)std::reverse(triangles.begin(),triangles.end());
+        CDGPtr<NGScene::CMemObjectInfo> source=new NGScene::CMemObjectInfo(triangles,points,normals);
+        CObj<MemoryProjectionPart> part=new MemoryProjectionPart(source.Get());
+        MarkNewDGFrame();source.Refresh();
+        Require(source->GetValue() && source->GetValue()->GetTrisCount()==2,
+            "native memory mesh fixture did not generate both source surfaces");
+        if(!reversed)NGScene::TransformPart(part,&savedPose,nullptr);
+        Require(savedPose.size()==6 && source->GetValue()->GetPositions().size()==6,
+            "native memory mesh fixture lost its fixed point count");
+        CDGPtr<NGScene::CExplosionDecalGeometry> decal=new NGScene::CExplosionDecalGeometry(part,savedPose,VNULL3,2.f,0.f);
+        decal.Refresh();auto* mesh=decal->GetValue();
+        Require(mesh && mesh->GetTrisCount()==1,"native projection did not retain exactly the near source triangle");
+        SBound bound;mesh->CalcBound(&bound);
+        std::printf("native memory decal: reversed=%d sourcePositions=%u decalTriangles=%d center=%.3f,%.3f,%.3f expectedNearOrigin=1\n",
+            int(reversed),unsigned(source->GetValue()->GetPositions().size()),mesh->GetTrisCount(),
+            double(bound.s.ptCenter.x),double(bound.s.ptCenter.y),double(bound.s.ptCenter.z));std::fflush(stdout);
+        Require(std::fabs(bound.s.ptCenter.x)<0.01f && std::fabs(bound.s.ptCenter.y)<0.01f && bound.ptHalfBox.x<0.31f,
+            "regenerating a memory mesh moved its saved explosion decal onto the distant triangle");
+    }
+    // The shared no-opt API still merges UV-seam positions and establishes
+    // native position references; AssignFast deliberately has other semantics.
+    NGScene::CObjectInfo::SData seam;
+    for(auto point:{CVec3(0,0,0),CVec3(1,0,0),CVec3(1,1,0),CVec3(0,1,0),CVec3(0,0,0)}) {
+        NGScene::SVertex vertex{};vertex.pos=point;seam.verts.push_back(vertex);
+    }
+    seam.verts.back().tex=CVec2(1,1);
+    seam.geometry.indices={0,1,2,3,4,2,3};seam.geometry.polys={0,4,7};
+    CObj<NGScene::CObjectInfo> mesh=new NGScene::CObjectInfo;mesh->Assign(seam,false);
+    Require(mesh->GetVertices().size()==5 && mesh->GetPositions().size()==4 && mesh->GetTrisCount()==3 &&
+        mesh->GetGeometry().indices==seam.geometry.indices && mesh->GetGeometry().polys==seam.geometry.polys &&
+        mesh->GetPositionIndices()[0]==mesh->GetPositionIndices()[4],
+        "no-opt generated geometry lost its polygons, UV seam or merged position references");
+    vector<STriangle> references;mesh->GetVxPositionTriangles(&references);
+    Require(references.size()==3 && references.back().i1==0,
+        "no-opt generated geometry failed to establish the first-vertex reference for a UV seam");
+    std::printf("native no-opt control: vertices5/positions4/triangles3, quad and UV seam references retained\n");
+}
 
 static void DecalProjection()
 {
@@ -19955,6 +20017,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "geometry-unused-vertices")) { GeometryUnusedVertices(false); return true; }
     if (!std::strcmp(mode, "geometry-unused-vertices-weighted")) { GeometryUnusedVertices(true); return true; }
     if (!std::strcmp(mode, "decal-rebuild")) { DecalRebuild(); return true; }
+    if (!std::strcmp(mode, "memory-mesh-decal-projection")) { MemoryMeshDecalProjection(); return true; }
     if (!std::strcmp(mode, "decal-projection")) { DecalProjection(); return true; }
     if (!std::strcmp(mode, "empty-model-fallback") && argc==3) { EmptyModelFallback(argv[2]); return true; }
     if (!std::strcmp(mode, "partial-reference-import") && argc == 3) { PartialReferenceImport(argv[2]); return true; }
