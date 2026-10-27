@@ -5799,3 +5799,34 @@ native SEnemyInfo.bUnitInfo=false для PK и соответствующий gu
 не менялись. Tracker281:102pending/112imported/23partial/32already/3docs/
 5excluded-balance/2excluded-own/1historical/1review;126 незавершённых исходных
 entries плюс сверка оставшихся PRESENT. Вся цель и финальные Actions не завершены.
+
+## Дополнительная проверка всех encounter maps и oracle для3f78b519
+
+На HEAD892c6353 NetworkEncounterMapsTests запущен со своим лимитом600с:
+прошли361/361 авторских random-encounter вариантов, размещение обоих отрядов
+и применение состояния к клиентской replica. CTest1/1,127.61с (общий127.65с),
+raw полный/noNUL. Предыдущий тайм-аут был получен с моим общим ограничением
+120с, которого этому набору не хватало. Production, тест и CMake ради него
+не менялись; ошибка движка из того тайм-аута не следует. Evidence:
+encounter-maps-proper-budget-{test,native-test}.log. Это проверка deployment
+и replica обновления по двум segment на карту, не полный бой на каждой карте.
+Нестабильный ChapterClueHeading из прежнего полного Linux прогона остаётся
+открытым расследованием и не закрывается этим результатом.
+
+Для следующего pending источника
+https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3f78b5198af04658670c9abeaf444fc5006f334d
+проведена только независимая статическая сверка, без переноса production.
+Gold PDB GetPassability(const place)442830/385bytes через54 точных байта
+уникально сопоставлен с проверенным Steam443560. Другой Gold overload441840
+принимает иные аргументы; upstream адрес443670 не является началом нужного
+метода. В фактическом Steam порядок: pose check44368e, затем только anchor
+nLocks по4436ae, затем door query4436c2→443410. Цикла GetLockArea нет.
+Направление лестницы проверяется4435ee..443609, bounds слоя —443583..443595
+до доступа к ladder. Сохранены anchor-passability-retail-{lookup,disassembly}
+и обе Gold overload disassembly; Gold только локатор, Steam — oracle.
+
+Источник3f78 остаётся pending: нужны отдельные native RED/GREEN для независимых
+ошибок и адаптация к своим overlap locks/PK/LAN. Эта запись не объявляет
+изменённую механику исправленной и не заменяет TDD. Количество завершённых
+исходных коммитов не меняется. Полная цель281 и финальные hosted Actions
+по-прежнему не завершены.
