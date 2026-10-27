@@ -8397,3 +8397,58 @@ changes. Source remains partial for stopped/reflecting trajectory ownership and
 ricochet/energy/RNG verification. Tracker281/107unfinished and final actual-HEAD
 hosted CI remain open; balance Markdown now distinguishes verified bounds from
 remaining unverified combat hunks.
+
+
+## 0726a489, combat part2 — let the completed segment own its terminal point
+
+Source0726a489c66ef5131dc5f336d8539c316ca31573 moves terminal-point creation
+from TraceLooseRay into the normal completion of TraceLooseRaySegment. The old
+wrapper unconditionally appended a maximum-range point even after a segment
+stopped in armor, and copied the initial attack energy after penetration. These
+are two observations of the same endpoint-ownership error; one minimal move
+fixes both. Preserve every existing stop/ignored/intended-target condition and
+the original armor/AP-subtraction code. No reflection or RNG call is added.
+
+Native RED2/2 2.28s, using the previous analytic-slab IAIMap input adapter and
+the actual native bullet/DB armor algorithm. A slab2..3 with density2, range8
+and kinetic1 stops the segment: the wrapper still gives3points ending8 instead
+of2points ending at the entry2. With kinetic10 the wall is penetrated, but the
+last point wrongly restores10 instead of retaining8. Both tests first prove
+the real nonunit armor-entry record and absence of an intended attack target.
+No expected clipping/armor/trail decision is supplied by the map adapter.
+
+Focused GREEN3/3 3.31s includes the prior range-boundary case. The stopped path
+now ends with its actual surface-entry record; the penetrating path ends at8
+with kinetic8. Each test also removes the obstacle and proves an unobstructed
+ray still reaches full range with unchanged energy. The last blocking entry
+retains its pre-impact attack copy, as in the original; do not invent a new
+in-wall stopping position or replace that record with a zero-energy endpoint.
+This is native trajectory/armor coverage with controlled analytic geometry,
+not actual level BSP traversal, projectile rendering of these exact rays, or
+a complete firing/target-damage simulation.
+
+Independent original proof uses the mapped Gold/Steam functions and full
+loose-ray disassemblies from part1. Steam692185 builds the range endpoint only
+on normal segment completion, using the segment's mutated attack state.
+After attenuation, kinetic compare6920a9 and branch6920b2 jump to the cleanup/
+return path69241f when kinetic is nonpositive, bypassing that endpoint block.
+The wrapper calls the segment at692624 and immediately restores its frame/
+returns692629..69263f; it does not append an endpoint afterward. Extend
+loose-ray-retail-oracle.json with those verified control-flow sites. The prior
+bounds fix f51cd416 and existing intended-target/ignore guards remain intact.
+
+Final Windows/Linux Game/helpers/NativeAttackRules built; related16/16
+Windows16.82s/Linux16.64s, including actual native GPU bullet-decal scene and
+all three loose-ray cases; asset-free CI-like290/29024.36s. All three raw logs
+have exact16/16/290 passed records, no NUL/Failed/NotRun/missing executable,
+actual runners exit0. The default asset-free manifest omits these laboratory
+asset-dependent integration cases; related16 explicitly covers them. No new
+full57case display run or current hosted GitHub success is claimed for this
+pure trajectory-ownership change. Earlier part1 full57 logs are historical.
+Evidence loose-ray-terminal-{red,green,final-related,final-linux,final-ci} and
+shared original oracle files. Owned games closed, shared builds reused, no HD
+generation or old binary copies. No new balance tuning, RNG, AP/VP, face/font,
+HD or save-format changes. Source remains partial for reflection and carried
+energy/RNG verification; tracker281/107unfinished, ALL281 and final actual-HEAD
+hosted CI remain open. Update the balance review to distinguish the imported
+original terminal behavior from remaining unverified ricochet logic.

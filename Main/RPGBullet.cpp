@@ -270,6 +270,8 @@ void TraceLooseRaySegment( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, v
 				pTrail->push_back( STrailPoint( i->nUserID, ray.ptDir, ray.Get( i->exit.fT ), tmpAttackPortion, 0, pUD, pArmor, -i->exit.ptNormal, i->pSrc->nFloor ) );
 		}
 	}
+	// Original Steam 0x692185: only an exhausted segment emits its remaining-energy endpoint.
+	pTrail->push_back( STrailPoint( 0, vDir, ray.Get( fRange ), tmpAttackPortion, 0, 0, 0, CVec3(0,0,1), 100 ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // NRPG::TraceLooseRay @0x292830 -- build loose fly-past tracer trail for missed shots
@@ -291,8 +293,6 @@ void TraceLooseRay( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, vector<S
 	// Trace loose ray through geometry
 	TraceLooseRaySegment( pAIMap, rayInfo, pTrail, rayInfo.vOrigin, rayInfo.vDir, fRange, rayInfo.fMinClearDistance );
 
-	// Terminal end point
-	pTrail->push_back( STrailPoint( 0, ray.ptDir, ray.Get( fRange ), tmpAttackPortion, 0, 0, 0, CVec3(0,0,1), 100 ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // NRPG::PerformRangedAttack @0x2929e0

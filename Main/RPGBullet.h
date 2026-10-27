@@ -9,8 +9,8 @@
 // (SAttackRayInfo, SCoverInterval).
 //
 // PerformRangedAttack is wired into shooting; loose rays honor the original
-// clear-distance and range bounds. Reflection and terminal-point ownership are
-// separate follow-ups; the CGame helpers remain alongside the free functions.
+// clear-distance and range bounds. Each completed segment owns its remaining-energy
+// endpoint. Reflection remains a follow-up; the CGame helpers also remain.
 //
 // DEFERRED (genuine gaps -- see RPGBullet.cpp notes):
 //   * Incidental unit damage in TraceLooseRaySegment needs NRPG::CheckBulletToHit, a

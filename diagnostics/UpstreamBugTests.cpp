@@ -14728,6 +14728,30 @@ static void LooseRayBounds(const char* databasePath,const char* resourcePath)
     Require(trail.size()==2 && fabs(trail.front().vPosition.x-3)<1e-5f && fabs(trail.back().vPosition.x-8)<1e-5f,"loose-ray clipping lost its ignored-object control");
 }
 
+static void LooseRayTermination(const char* databasePath,const char* resourcePath,bool stopped)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
+    auto* original=NDb::GetArmor(NDb::N_DEFAULT_ARMOR);Require(IsValid(original) && IsValid(original->pMaterial),"loose-ray terminal fixture lacks default armor");
+    CObj<NDb::CRPGMaterial> material=new NDb::CRPGMaterial;material->nDR=original->pMaterial->nDR;material->fDensity=2;
+    CObj<NDb::CRPGArmor> armor=new NDb::CRPGArmor;armor->pMaterial=material;armor->fRicochetMaxCos=0;armor->fRicochetProbability=0;
+    CObj<LooseRayWallToken> token=new LooseRayWallToken;CObj<LooseRayTraceMap> map=new LooseRayTraceMap;
+    NAI::SSourceInfo source(token,armor,3,NWorld::TS_FRAGMENTED);map->slabs={{2,3,source,7}};
+    NRPG::SAttackRayInfo ray;ray.vOrigin=VNULL3;ray.vDir=CVec3(1,0,0);ray.fMaxRange=8;ray.atk.nDmgType=1;ray.atk.nK=stopped?1:10;
+    vector<NRPG::STrailPoint> trail;NRPG::TraceLooseRay(map,ray,&trail);
+    Require(trail.size()>=2 && trail[1].nUserID==7 && trail[1].pObject.GetPtr()==token.GetPtr() && !IsValid(trail[1].pAttackTarget),
+        "terminal fixture did not traverse its native nonunit armor entry");
+    const auto& end=trail.back();
+    std::printf("native loose-ray terminal: stopped=%d points=%zu end=%g kinetic=%d expectedEnd=%d expectedKinetic=%d\n",
+        int(stopped),trail.size(),end.vPosition.x,end.sAttack.nK,stopped?2:8,stopped?1:8);std::fflush(stdout);
+    if(stopped)Require(trail.size()==2 && fabs(end.vPosition.x-2)<1e-5f && end.pObject.GetPtr()==token.GetPtr(),
+        "stopped native loose bullet appended an endpoint beyond its blocking surface");
+    else Require(trail.size()==4 && fabs(end.vPosition.x-8)<1e-5f && end.sAttack.nK==8 && !IsValid(end.pObject),
+        "penetrating native loose bullet restored its initial energy at the terminal point");
+    map->slabs.clear();NRPG::TraceLooseRay(map,ray,&trail);
+    Require(trail.size()==2 && fabs(trail.back().vPosition.x-8)<1e-5f && trail.back().sAttack.nK==ray.atk.nK,
+        "terminal ownership truncated or weakened an unobstructed native ray");
+}
+
 static void ProjectiveRayUnprojection()
 {
     float worst = 0;
@@ -20604,6 +20628,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "equal-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "mixed-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "missing-attack-target-caption") && argc == 4) { AttackCaptionWithoutHitChance(argv[2], false, true); return true; }
+    if (!std::strcmp(mode, "loose-ray-stop") && argc==4) { LooseRayTermination(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "loose-ray-terminal-energy") && argc==4) { LooseRayTermination(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "loose-ray-bounds") && argc==4) { LooseRayBounds(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "restore-action-state") && argc == 4) { RestoreActionState(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "zone-reentry-action-state") && argc == 4) { RestoreActionState(argv[2], argv[3], true); return true; }
