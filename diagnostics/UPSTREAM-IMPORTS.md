@@ -7886,3 +7886,47 @@ quality/storage adaptations above. Mark source imported. Tracker281: pending87,
 imported127, partial23, already-present32, documentation3, excluded-balance5,
 excluded-own2, historical1, review-final-version1;111 sources remain unfinished.
 The ALL281 goal and final actual-HEAD GitHub Actions verification stay open.
+
+
+## 6db81d60, own prerequisite — initialize ignored text-space positions
+
+Context source6db81d60d94042c4c13f0a99d6b9b287a65b7b54 restores per-page dialogue
+formatting. Native port verification exposed an independent pre-existing issue
+in our CMLTextObject: sPosition is uninitialized. Reflow skips leading CMD_SPACE
+objects without assigning their position, but character-bound rendering still
+reads it. A reused prior multiline position can make an ignored space appear
+below the current page, forcing the dialogue's whole-remainder fallback.
+
+This initializer is an additional own-fork prerequisite discovered during the
+source import; it is NOT a hunk from6db or an independently verified retail
+constructor behavior. Keep this independent fix separate from the actual
+format-prefix import and cite the upstream context explicitly in its commit.
+Initialize only the text-object position to(0,0), covering both constructors;
+valid assembled positions and loaded position fields still replace it normally.
+No ABI, save tags/types, font assets/sizes/scaling, facial code or balance change.
+
+Native TDD RED1/1 1.14s: genuine CreateML/Generate/Render with our packaged32pt
+Courier font and two leading spaces. A previous multiline layout seeds ordinary
+heap reuse. Iteration5 reports ignored-space bounds0,108..19,144 outside its
+one-line96x36 layout. No synthetic font metrics, poisoned private object field,
+production probe or timing threshold. GREEN1/1 1.17s traverses48 actual layout
+cycles and checks every character rectangle stays in the current line envelope.
+The real high-resolution font is required via IsVector; no font is replaced.
+
+Source6db remains under review until the independent formatting import passes.
+The incomplete formatting experiment is held only as a small temporary text
+patch outside the repository; no old executable/build/resource copy is created.
+Final validation follows below.
+
+Final Game/helpers build on Windows and Linux. Corrected related selection17/17
+Windows9.38s/Linux16/168.44s includes the new native leading-space test, existing
+dialogue progress/pagination and actual packaged-font tests. Native-display51/51
+Windows76.52s/Linux62.26s; CI-like290/29024.35s. Raw17/16/51/51/290 complete,
+actual runners exit0, noNUL/Failed/NotRun/missing executable. Initial Linux
+font-helper NotRun was a missing local helper executable; build both helpers
+and rerun the complete final selection. The initial too-narrow4-case regex was
+replaced, not claimed as the intended verification. Shared builds reused, no
+HD generation/old binary copies; owned test processes close. Evidence markup-
+leading-whitespace-{red,green,final-related,final-linux,final-display,
+linux-display,final-ci} test/native-test and build logs. Tracker281/111unfinished
+unchanged until the independent6db formatting import completes.

@@ -10854,6 +10854,30 @@ public:
     using CMissionDlgUI::SetStage;
 };
 
+static void MarkupLeadingWhitespace(const char* databasePath,const char* resourcePath)
+{
+    auto world=FixtureWorld(databasePath,resourcePath,true);
+    CObj<DialogueLayoutView> view=new DialogueLayoutView;
+    auto* font=view->GetLocaleInfo()->GetFont(NGScene::SFont(32,"Courier"));
+    Require(IsValid(font) && font->IsVector(),"leading-space fixture did not use our packaged Courier font");
+    for(int iteration=0;iteration<48;++iteration) {
+        CObj<NUI::IML> previous=NUI::CreateML();
+        previous->SetText(L"<font face=Courier size=32pt><left>Alpha<br>Beta<br>Gamma<br>Delta",0);
+        previous->Generate(view,240);previous=nullptr;
+        CObj<NUI::IML> text=NUI::CreateML();text->SetText(L"<font face=Courier size=32pt><left>  Alpha",0);text->Generate(view,240);
+        list<NUI::SRect> bounds;text->Render(&bounds,NUI::SPoint(0,0),NUI::SRect(0,0,0,0));
+        Require(bounds.size()==7,"native leading-space fixture lost its character bounds");
+        const auto size=text->GetSize();
+        for(const auto& bound:bounds) {
+            if(bound.x1<0 || bound.y1<0 || bound.y2>size.y || bound.x2>240) {
+                std::printf("native ignored-space bounds: iteration=%d rect=%d,%d..%d,%d layout=%d,%d\n",
+                    iteration,bound.x1,bound.y1,bound.x2,bound.y2,size.x,size.y);std::fflush(stdout);
+                Require(false,"native markup retained undefined coordinates for a leading space omitted from reflow");
+            }
+        }
+    }
+}
+
 static void OversizedDialogueLine(const char* databasePath, const char* resourcePath, int scenario = 0)
 {
     const bool markupOnly = scenario == 1;
@@ -20418,6 +20442,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "latest-route-command") && argc == 4) { LatestRouteCommand(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "oversized-dialogue-line") && argc == 4) { OversizedDialogueLine(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "markup-dialogue-progress") && argc == 4) { OversizedDialogueLine(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "markup-leading-whitespace") && argc == 4) { MarkupLeadingWhitespace(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "dialogue-normal-pagination") && argc == 4) { OversizedDialogueLine(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "forced-move-item-eligibility") && argc==4) { ForcedMoveItemEligibility(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "interrupted-movement-route-save") && argc==4) { InterruptedMovementRoute(argv[2],argv[3],true); return true; }

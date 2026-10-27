@@ -78,7 +78,7 @@ private:
 	////
 	SState sState;
 	CTPoint<float> sSize;       // retail PDB +0x44: CTPoint<float> (was wrongly SPoint/int in dev --
-	CTPoint<float> sPosition;   // +0x4c; the save's 8-byte tag-6/7 chunks are float on the wire)
+	CTPoint<float> sPosition = CTPoint<float>(0,0);   // +0x4c; the save's 8-byte tag-6/7 chunks are float on the wire)
 	////
 	list<float> edges;
 	CRectLayout sNormal;
