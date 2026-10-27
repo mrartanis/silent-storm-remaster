@@ -2356,14 +2356,9 @@ void CExecCannon::Run()
 	ASSERT( pOS );
 	if ( bEnter )
 	{
-		pUS->DoAction( NRPG::AC_APPROACH_CANNON );
-		pUS->GetUnitRPG()->SetCannonItem( pOS->GetItem() );
 		CDynamicCast<NRPG::CWeaponItem> pWeaponItem( pOS->GetItem() );
 		ASSERT( pWeaponItem );
-		pUS->animator.SetWeaponName( pWeaponItem->GetDBWeapon()->szAnimName.c_str() );
-		pUS->animator.EnterCannon( pUS->GetPosition(), pOS );
-		pOS->SetCurrentUnit( pUS );
-		pUS->SetState( new CUnitStateUsingCannon( pUS, pOS ) );
+		pUS->animator.EnterCannon( pUS->GetPosition(), pOS, pWeaponItem->GetDBWeapon()->szAnimName.c_str() );
 	}
 	else
 	{
@@ -2373,6 +2368,29 @@ void CExecCannon::Run()
 		pUS->SetState( new CUnitStateNormal( pUS ) );
 	}
 	StartAction( pUS->GetWorld(), SKIPPABLE );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Original Steam @0x7a6b00: commit entry only after the approach clip finishes.
+void CExecCannon::AnimationFinished()
+{
+	Finished();
+	if ( !bEnter )
+		return;
+	CDynamicCast<CCannon> pOS( pCannon );
+	if ( !IsValid( pOS ) )
+		return;
+	// Older saves from our fork already paid and mounted during Run().
+	// Their running approach must finish without charging that entry again.
+	if ( pUS->GetUnitRPG()->GetCannonItem() == pOS->GetItem() &&
+		pOS->GetCurrentUnit() == pUS.GetPtr() && pUS->GetState() == CUnit::ST_MACHINE_GUN )
+		return;
+	pUS->DoAction( NRPG::AC_APPROACH_CANNON );
+	pUS->GetUnitRPG()->SetCannonItem( pOS->GetItem() );
+	CDynamicCast<NRPG::CWeaponItem> pWeaponItem( pOS->GetItem() );
+	ASSERT( pWeaponItem );
+	pUS->animator.SetWeaponName( pWeaponItem->GetDBWeapon()->szAnimName.c_str() );
+	pOS->SetCurrentUnit( pUS );
+	pUS->SetState( new CUnitStateUsingCannon( pUS, pOS ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecCorpse

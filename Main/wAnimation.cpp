@@ -2132,7 +2132,7 @@ void CUnitAnimator::AttachHandsToCannon()
 	pAnimator->AddSimpleIK( tEnd, "R_Hand", pREff );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CUnitAnimator::EnterCannon( const NAI::SUnitPosition &cmdPos, CCannon *_pCannon )
+void CUnitAnimator::EnterCannon( const NAI::SUnitPosition &cmdPos, CCannon *_pCannon, const char *pszAnimationName )
 {
 	pCannon = _pCannon;
 	ASSERT( IsValid(pCannon) );
@@ -2154,7 +2154,7 @@ void CUnitAnimator::EnterCannon( const NAI::SUnitPosition &cmdPos, CCannon *_pCa
 
 	CPtr<NAnimation::CAnimation> pUnitAnim = pAnimator->CreateAnimation(
 		pSkeleton->GetAnimation( NDb::CAnimation::START_ATTACK, nAnimFlagsPoseWeapon, 
-			szWeaponName.c_str(), nAnimFlagsClassSex, pSide ), tEnd );
+			pszAnimationName, nAnimFlagsClassSex, pSide ), tEnd );
 	if ( pUnitAnim )
 	{
 		CVec3 cannonPosHoNeight( cannonPos );

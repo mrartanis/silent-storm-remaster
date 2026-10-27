@@ -6909,3 +6909,59 @@ occupancy timing and unconscious/dead exit still require separate native TDD.
 Tracker281:91pending/122imported/24partial/32already/3docs/5excluded-balance/
 2excluded-own/1historical/1review,116 unfinished entries. Overall goal and final
 actual-HEAD hosted CI remain open.
+
+
+## Cannon entry: commit the original action only after approach completion
+
+Second independent hunk of [f2ed3ca5ba3d4d0d3002f02f2aa0fb7f0f9a5f86](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f2ed3ca5ba3d4d0d3002f02f2aa0fb7f0f9a5f86), afterde0bccf6.
+Native compiled RED1.15s: actual833ms approach begins, but AP46->42/cost4,
+RPG mounted item, cannon occupancy and state3->7 commit immediately. A separate
+actual historical already-paid graph already passes its baseline completion
+control1.01s, AP42->42. No fixture compile/setup failure is used as this RED.
+
+Original oracle: named Gold CExecCannon::Run79a4e0/357 maps via class RTTI
+9735a8/vtable8bd63c slot6 to Steam descriptor984818/vtable8ccc24 slot6=7a6990.
+First32 Run signature does not match because of RTTI operands; no false unique
+claim. Gold named AnimationFinished79a650/296 slot8 maps to7a6b00 and its
+first32 also matches uniquely. Actual Run7a6a23 calls EnterCannon73ca30 with
+explicit name, cannon and position, then starts the action without mounted
+commit. Actual completion pushes action25 at7a6b5f, calls DoAction74f500 at
+7a6b61, sets RPG cannon item at7a6b75 and then name/occupancy/state. Evidence
+cannon-entry-retail-lookup.txt and cannon-entry-{run,completion}-retail-
+disassembly.txt. Source VAs are not trusted; no numerical AP rule is replaced.
+
+Production Run now schedules approach with an explicit mounted animation
+name; completion commits the existing action25, RPG item, stored name,
+occupant and using-cannon state. The original cost4 in this fixture is retained.
+Entry field IDs and save types stay unchanged. An adaptation detects the
+complete already-mounted phase of our older saves (matching RPG item, actual
+occupant and state) and finishes without charging their already-paid entry.
+It does not skip new unmounted entries. Existing dead/unconscious exit behavior
+is still pending its independent fix. Own LSHead/fonts/HD/backend are untouched.
+
+One actual pre-fix native fixture1182638bytes was emitted by historical Run
+with productionde0bccf6 before modifying completion. SHA256
+05c3307daa22fbb9799b1acd68e73a23db82ffb3f6b943ab43bf25e4aca549d1.
+The generator requires actual already-paid/mounted/running state before it
+opens output, so the new implementation cannot silently regenerate/bless it.
+Details in fixtures/cannon-entry-before-deferred.md. This single1.13MiB
+regression graph is not an old game/build copy; the same builds were reused.
+
+Native GREEN Windows42/42 47.03s and Linux42/42 45.78s. New entry stays
+AP46/state3/unoccupied during approach. A full independently restored
+CGlobalGame/world/actor/cannon/executor graph retains that pending phase;
+both loaded and original live executors commit AP46->42/state7 only on the
+actual AnimationFinished callback. The unchanged historical Windows graph
+also loads on Linux and completes AP42->42, retaining item/occupant/state.
+This is native graph restoration and executor callback proof, not save-slot
+UI loading, full physical input or a completely scheduled game frame.
+Both Game builds pass; CI-like284/28424.27s with12FONT-COMPAT. Raw42/42/284
+complete, no NUL/missing/Failed, actual exit0. Evidence cannon-entry-completion-
+{legacy-generator,native-baseline,native-green,linux-related,ci} logs. No fresh
+full452 or361-map run is claimed for this focused phase; broad regression follows
+the remaining exit hunk. No HD generation, numerical DB edits or extra builds.
+
+Sourcef2 remains partially-imported until dead/unconscious exit is tested.
+Tracker281 unchanged:91pending/122imported/24partial/32already/3docs/
+5excluded-balance/2excluded-own/1historical/1review,116 unfinished. Overall goal
+and final actual-HEAD hosted CI remain open.

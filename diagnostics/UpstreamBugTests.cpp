@@ -12039,6 +12039,102 @@ static void CannonEntryAnimation(const char* databasePath,const char* resourcePa
         "native cannon animation fixture did not release its actual mounted state and action");
 }
 
+static void SaveNativeCannonGraph(CDataStream& snapshot,NativeCannonFixture& fixture,CObj<NWorld::CExecCannon>& executor,int paidAP,int cost)
+{
+    CObj<NWorld::CUnitServer> actor=fixture.actor.GetPtr();CObj<NWorld::CCannon> cannon=fixture.cannon.GetPtr();
+    CStructureSaver writer(snapshot,CStructureSaver::WRITE);writer.Add(1,&fixture.game);writer.Add(2,&fixture.world);
+    writer.Add(3,&actor);writer.Add(4,&cannon);writer.Add(5,&executor);writer.Add(6,&paidAP);writer.Add(7,&cost);
+}
+
+static void LoadNativeCannonGraph(CDataStream& snapshot,NativeCannonFixture* fixture,CObj<NWorld::CExecCannon>* executor,int* paidAP,int* cost)
+{
+    CObj<NWorld::CUnitServer> actor;CObj<NWorld::CCannon> cannon;
+    {CStructureSaver reader(snapshot,CStructureSaver::READ);reader.Add(1,&fixture->game);reader.Add(2,&fixture->world);
+     reader.Add(3,&actor);reader.Add(4,&cannon);reader.Add(5,executor);reader.Add(6,paidAP);reader.Add(7,cost);}
+    Require(fixture->game && fixture->world && actor && cannon && *executor,"cannon snapshot lost part of its complete native game/world/actor/cannon/executor graph");
+    fixture->actor=actor.GetPtr();fixture->cannon=cannon.GetPtr();fixture->world->RestoreRuntimeCaches(fixture->game);
+    Require((*executor)->GetUnitServer()==actor.GetPtr(),"cannon snapshot lost native executor/actor reference identity");
+}
+
+static void FinishNativeCannonFixture(NativeCannonFixture& fixture,CObj<NWorld::CExecCannon>& executor)
+{
+    auto* actor=fixture.actor.GetPtr();auto* cannon=fixture.cannon.GetPtr();
+    executor=nullptr;
+    CObj<NWorld::CExecCannon> leave=new NWorld::CExecCannon(actor,cannon,false);leave->Run();leave->AnimationFinished();leave=nullptr;
+    Require(!fixture.world->IsAction() && !cannon->IsOccupied() && !actor->GetUnitRPG()->GetCannonItem(),
+        "native cannon fixture did not release its completed entry and exit actions");
+}
+
+static void WriteLegacyCannonEntryFixture(const char* databasePath,const char* resourcePath,const char* fixturePath)
+{
+    auto fixture=MakeNativeCannonFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* cannon=fixture.cannon.GetPtr();
+    CObj<NWorld::CCmdCannon> command=new NWorld::CCmdCannon(cannon);
+    CObj<NWorld::CExecCannon> executor=new NWorld::CExecCannon(actor,cannon,true,command);
+    const int beforeAP=actor->GetAP(),cost=executor->GetStartAP();Require(cost>0 && beforeAP>=cost,"legacy cannon fixture has no affordable paid entry control");
+    executor->Run();const int paidAP=actor->GetAP();
+    Require(paidAP==beforeAP-cost && actor->GetUnitRPG()->GetCannonItem()==cannon->GetItem() && cannon->GetCurrentUnit()==actor &&
+        actor->GetState()==NWorld::CUnit::ST_MACHINE_GUN && executor->GetState()==NWorld::CCommandExecute::RUNNING && executor->IsExecuting(),
+        "legacy cannon generator requires the actual historical already-paid and already-mounted running entry implementation");
+    CFileStream snapshot;snapshot.OpenWrite(fixturePath);SaveNativeCannonGraph(snapshot,fixture,executor,paidAP,cost);
+    std::printf("native legacy cannon snapshot written: bytes=%d AP=%d->%d cost=%d mounted=1 entryRunning=1\n",snapshot.GetSize(),beforeAP,paidAP,cost);std::fflush(stdout);
+    executor->AnimationFinished();FinishNativeCannonFixture(fixture,executor);
+}
+
+static void LegacyCannonEntryCompletion(const char* databasePath,const char* resourcePath,const char* fixturePath)
+{
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    NativeCannonFixture fixture;CObj<NWorld::CExecCannon> executor;int paidAP=-1,cost=-1;
+    CFileStream snapshot;snapshot.OpenRead(fixturePath);LoadNativeCannonGraph(snapshot,&fixture,&executor,&paidAP,&cost);
+    auto* actor=fixture.actor.GetPtr();auto* cannon=fixture.cannon.GetPtr();
+    Require(cost>0 && paidAP>=0 && actor->GetAP()==paidAP && actor->GetUnitRPG()->GetCannonItem()==cannon->GetItem() &&
+        cannon->GetCurrentUnit()==actor && actor->GetState()==NWorld::CUnit::ST_MACHINE_GUN &&
+        executor->GetState()==NWorld::CCommandExecute::RUNNING && executor->IsExecuting(),
+        "legacy cannon snapshot did not restore its real already-paid mounted running phase");
+    fixture.world->GetTime()->Set(actor->animator.GetTimeEnd());executor->AnimationFinished();
+    std::printf("native legacy cannon completion: AP=%d->%d historicalCost=%d mounted=%d finished=%d\n",paidAP,actor->GetAP(),cost,
+        int(cannon->GetCurrentUnit()==actor),int(executor->GetState()==NWorld::CCommandExecute::FINISHED));std::fflush(stdout);
+    Require(actor->GetAP()==paidAP && actor->GetUnitRPG()->GetCannonItem()==cannon->GetItem() && cannon->GetCurrentUnit()==actor &&
+        actor->GetState()==NWorld::CUnit::ST_MACHINE_GUN && executor->GetState()==NWorld::CCommandExecute::FINISHED,
+        "completing an actual historical cannon save charged its already-paid approach again or lost its mounted state");
+    FinishNativeCannonFixture(fixture,executor);
+}
+
+static void CannonEntryCompletion(const char* databasePath,const char* resourcePath)
+{
+    auto fixture=MakeNativeCannonFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* cannon=fixture.cannon.GetPtr();
+    CObj<NWorld::CCmdCannon> command=new NWorld::CCmdCannon(cannon);
+    CObj<NWorld::CExecCannon> executor=new NWorld::CExecCannon(actor,cannon,true,command);
+    const int beforeAP=actor->GetAP(),cost=executor->GetStartAP();const auto state=actor->GetState();const auto position=actor->GetPosition();
+    Require(cost>0 && beforeAP>=cost && !actor->GetUnitRPG()->GetCannonItem() && !cannon->IsOccupied() && state!=NWorld::CUnit::ST_MACHINE_GUN,
+        "cannon completion fixture lacks an affordable initially unmounted native actor");
+    const STime start=actor->animator.GetTimeEnd();executor->Run();const STime end=actor->animator.GetTimeEnd();
+    std::printf("native cannon approach phase: AP=%d->%d cost=%d mountedItem=%d occupied=%d state=%d->%d duration=%u\n",beforeAP,actor->GetAP(),cost,
+        int(actor->GetUnitRPG()->GetCannonItem()!=nullptr),int(cannon->IsOccupied()),int(state),int(actor->GetState()),unsigned(end-start));std::fflush(stdout);
+    Require(end>start && executor->GetState()==NWorld::CCommandExecute::RUNNING && executor->IsExecuting(),
+        "cannon completion fixture did not start its actual nonzero approach clip and native action");
+    Require(actor->GetAP()==beforeAP && !actor->GetUnitRPG()->GetCannonItem() && !cannon->IsOccupied() && actor->GetState()==state && actor->GetPosition()==position,
+        "native cannon entry committed AP, weapon, occupancy or mounted state before its approach animation finished");
+    fixture.world->GetTime()->Set(start+(end-start)/2);
+    CMemoryStream snapshot;SaveNativeCannonGraph(snapshot,fixture,executor,beforeAP,cost);snapshot.Seek(0);
+    NativeCannonFixture restored;CObj<NWorld::CExecCannon> restoredExecutor;int restoredAP=-1,restoredCost=-1;
+    LoadNativeCannonGraph(snapshot,&restored,&restoredExecutor,&restoredAP,&restoredCost);
+    Require(restored.world.GetPtr()!=fixture.world.GetPtr() && restored.actor.GetPtr()!=actor && restored.cannon.GetPtr()!=cannon &&
+        restoredAP==beforeAP && restoredCost==cost && restored.actor->GetAP()==beforeAP && !restored.actor->GetUnitRPG()->GetCannonItem() &&
+        !restored.cannon->IsOccupied() && restored.actor->GetState()==state && restoredExecutor->IsExecuting(),
+        "loading an independent in-flight cannon approach committed its uncompleted action or lost its native running phase");
+    auto finish=[&](NativeCannonFixture& current,CObj<NWorld::CExecCannon>& action) {
+        auto* unit=current.actor.GetPtr();auto* gun=current.cannon.GetPtr();current.world->GetTime()->Set(unit->animator.GetTimeEnd());
+        action->AnimationFinished();
+        std::printf("native cannon finished: restored=%d AP=%d->%d cost=%d mounted=%d state=%d\n",int(unit!=actor),beforeAP,unit->GetAP(),cost,
+            int(gun->GetCurrentUnit()==unit),int(unit->GetState()));std::fflush(stdout);
+        Require(action->GetState()==NWorld::CCommandExecute::FINISHED && unit->GetAP()==beforeAP-cost &&
+            unit->GetUnitRPG()->GetCannonItem()==gun->GetItem() && gun->GetCurrentUnit()==unit && unit->GetState()==NWorld::CUnit::ST_MACHINE_GUN,
+            "native cannon completion did not commit its original cost, effective weapon, occupant and state exactly at animation completion");
+        FinishNativeCannonFixture(current,action);
+    };
+    std::printf("native in-flight cannon full graph restored: bytes=%d\n",snapshot.GetSize());finish(restored,restoredExecutor);finish(fixture,executor);
+}
+
 static void MountedReloadWeapon(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -19403,6 +19499,9 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-terminal-finished")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "movement-terminal-failed")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "movement-action-camera")) { Require(argc == 4, "movement camera requires db and res"); MovementActionCamera(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "cannon-entry-legacy-write") && argc==5) { WriteLegacyCannonEntryFixture(argv[2],argv[3],argv[4]); return true; }
+    if (!std::strcmp(mode, "cannon-entry-legacy") && argc==5) { LegacyCannonEntryCompletion(argv[2],argv[3],argv[4]); return true; }
+    if (!std::strcmp(mode, "cannon-entry-completion")) { Require(argc==4, "cannon completion requires db and res"); CannonEntryCompletion(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "cannon-entry-animation")) { Require(argc == 4, "cannon animation requires db and res"); CannonEntryAnimation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mounted-reload-weapon")) { Require(argc == 4, "mounted reload requires db and res"); MountedReloadWeapon(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "holstered-reload-preparation")) { Require(argc == 4, "reload preparation requires db and res"); HolsteredReloadPreparation(argv[2], argv[3]); return true; }
