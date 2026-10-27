@@ -6094,3 +6094,94 @@ CI-like284/28424.27с, raw284/noNUL/12FONT-COMPAT. Новый asset-backed test
 114imported/23partial/32already/3docs/5excluded-balance/2excluded-own/
 1historical/1review —124 незавершённых source entries. Оригинальный баланс
 не менялся. Общий перенос и финальные actual-HEAD GitHub Actions не завершены.
+
+## Ожидающий маршрут после отмены движения — 416e09a2
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/416e09a2e5661cb128ef963dc0338d860bdaf0e4
+
+Native UpstreamInterruptedMovementRoute проверяет настоящий CWorld, AI- и
+human CUnitServer, реальную команду CCmdPath, CExecQueue/CExecMove, штатную
+TBS_CANCEL_ACTION и retirement через Segment/animation boundary. Исполнитель,
+pathfinding, правила проходимости и командный dispatch не подменяются. Поля7/9
+наблюдаются read-only через обычный serializer/external refs. AI определён
+реальным CAICommander, человек — CSequenceCommander, не тестовым bool override.
+
+До RED проверяется действующий AI guard: подготовленный реальный mover
+отменяется своим native Cancel, Run получает FAILED и штатно освобождает
+исполнитель/команду. Это проверка failed-order cleanup, не полный AI-бой.
+Персонаж игрока действительно начинает многоклеточное движение. Штатная отмена
+заканчивает уже начатый шаг:2,8->2,7 и49->45AP, здоровье137 неизменно.
+Начальные ошибочные fixture-предположения «Cancel не завершает шаг/не тратит AP»
+исправлены до утверждения о RED; игровая стоимость остановки не менялась.
+
+Первый подтверждённый RED2.07с, затем окончательный baseline RED2.12с после
+восстановления ровно HEAD-версии wUnitServer.cpp без временной диагностики:
+FAILED исполнитель уже освобождён, команда человека исчезла, target1,4 потерян.
+AI control прошёл раньше. Native final-red log фиксирует command0/target1,4 и
+падение именно assert сохранения назначения. Проходы fixture-step, clear-path,
+ai-retire/cancel-cost, short-route и free-destination не выданы за этот RED.
+
+Independent oracle: GoldPDB CheckCmdExecState7b4b60/242bytes, первые49 EXACT
+байтов уникально найдены в проверенном Steam по7c12e0. В7c1328..7c134d только
+state FINISHED1 и отсутствие forced-action флага очищают pCurrentCmd; FAILED
+его сохраняет. Исходный адрес7c0cb8 для этого exe не использовался как oracle.
+Evidence interrupted-movement-route-retail-{lookup,disassembly}.
+
+Minimal fix сохраняет неудачную команду человека, но оставляет существующую
+очистку FAILED для AI. Это осознанная адаптация: наш scheduler считает
+HasCommand незавершённой работой, и прежний фикс защищает GFirst/RF1 от цикла
+Continue мёртвого исполнителя и блокировки очереди решений. FINISHED и forced
+action guard сохранены. Reentrant release, prompt FAILED reap, hold-aim,
+FullCancel action counters и TBS_STOP обработчик этим коммитом не менялись.
+
+GREEN проверяет native GetCurrentPath до прежней цели, отсутствие движения/AP
+расхода при запросах pending-path и четырёх idle кадрах; явный Continue
+возобновляет ход. Дополнительный реальный TBS_CANCEL_ACTION4 в1,5/AP35 был
+подтверждён временным production printf, после чего диагностика полностью
+удалена. Причина этого дополнительного сигнала здесь не утверждается. Драйвер
+подаёт новый явный Continue после остановки, максимум8 requests/128 edges;
+маршрут доходит до1,4 с31AP и успешная команда удаляется. Первый ошибочный
+драйвер ожидал пройти до цели через единственную команду Continue и падал при
+повторной остановке; это не объявлено отдельной ошибкой end-move/b4505fb0.
+Явный CCmdCancel для нового подготовленного обратного пути по-прежнему удаляет
+команду/путь без исполнения, расхода AP и изменения позиции.
+
+Отдельный UpstreamInterruptedMovementRouteSave сохраняет полный native graph
+CGlobalGame+CWorld+selected CUnitServer в памяти,1167173bytes на Windows.
+Восстановлены независимые world/actor, вызван RestoreRuntimeCaches. Назначение,
+human owner,45AP/137VP/позиция и отсутствие выполнения сохранены. Тот же
+GetCurrentPath/Continue сценарий завершается в1,4 с31AP. Это полный WORLD graph;
+проверка не изображает CMission UI, файловый SaveMission header или SDL mouse
+E2E. Исходный мир удерживается в памяти, отдельной копии сборки/исходников/
+ресурсов на диске не создаётся. Fresh3/3 4.38с и save+fresh+FullCancel+AIIdle
+4/4 6.37с прошли до расширенных прогонов.
+
+Глобальная TBS_STOP_MOVE_AND_CANCEL_ACTION имеет отдельную историю и остаётся
+предметом pending890e4474 (deferred TBS events). Его wholesale patch также
+меняет enum values, очереди, weather timing, first-turn perks и удаляет свои
+reentrant/reap guards. Эти изменения нельзя переносить в рамках одного
+retirement fix без собственных native TDD/oracle и проверки наших LAN/save/AI
+инвариантов. Оригинальный баланс, формулы AP/RNG, HiRes fonts, facial engine,
+SDL/bgfx и HD pipeline данным исправлением не менялись.
+
+Итог: обе Game и Windows ALL_BUILD собраны. FULL410/410 Windows349.66с/
+Linux348.81с,17native-audio/14native-display/12FONT-COMPAT на каждой платформе.
+7/7Network186.00с, включая361/361 authored encounter deployment+replica129.97с
+(лимит600с; не полный бой на каждой карте). CI-like284/28424.53с.
+Raw410/410/7/284 полные без NUL, fonts12 сохранены. Evidence
+interrupted-movement-route-{full,linux-full,network,ci}-native-test.log.
+Новые два asset-backed test зарегистрированы Windows/Linux, resource-free CI
+не расширяют; CPU394, FULL410 актуален. Последний проверенный hosted run для
+HEAD до этого коммита23a36227 завершился success:
+https://github.com/mrartanis/silent-storm-remaster/actions/runs/40487401584
+Это не подтверждение ещё не выполненного Actions для нового коммита.
+
+416e09a2 теперь imported с явно описанной адаптацией AI. Tracker281:
+99pending/115imported/23partial/32already/3docs/5excluded-balance/
+2excluded-own/1historical/1review —123 незавершённых source entries плюс
+оставшаяся сверка old PRESENT. Общая цель и final actual-HEAD Actions не
+завершены. В TSV890e4474 добавлена dependency заметка: текущий OnPassControl
+синхронный, standalone captured-owner bug не доказан; изменение owner API
+нужно рассматривать вместе с deferred delivery, не выдумывать для него RED.
+Глобальный STOP не менялся. Прежний единичный ChapterClueHeading здесь также
+не объявлен исправленным; оба текущих full прогона его прошли.

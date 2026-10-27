@@ -10256,6 +10256,147 @@ static void ForcedMoveItemEligibility(const char* databasePath,const char* resou
     }
 }
 
+static void InterruptedMovementRoute(const char* databasePath,const char* resourcePath,bool restore = false)
+{
+    for(bool ai: {true,false}) {
+        CObj<NRPG::CGlobalGame> game;
+        auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+        vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);
+        NWorld::CUnitServer* actor=nullptr;
+        CObj<NAI::CPath> route;
+        for(auto entry: units) {
+            auto* unit=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+            if(!unit || unit->IsAIUnit()!=ai || !unit->CanFight() || unit->IsWearingPK() || unit->IsEmptyPK() || !unit->GetUnitRPG()->CanMove())continue;
+            world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(unit->GetPlayer()));
+            vector<NAI::SPathPlace> places;
+            world->GetPathNetwork()->GetNearPlaces(SSphere(unit->GetPosition().GetCP(),6.f),&places);
+            for(auto destination: places) {
+                destination.SetPose(NAI::CM_STAND);destination.SetDirection(unit->GetPosition().GetDir());
+                auto target=unit->GetPosition().pos;target.p=destination;
+                if(!world->GetPathNetwork()->IsPassable(destination) || world->GetPathNetwork()->IsLocked(destination))continue;
+                const float distance2=fabs2(target.GetCP()-unit->GetPosition().GetCP());
+                if(distance2<9.f || distance2>16.f)continue;
+                CObj<NWorld::CCmdPath> command=new NWorld::CCmdPath(target);
+                if(unit->CanDo(command)!=NWorld::UCR_OK)continue;
+                route=NWorld::FindPath(world->GetPathNetwork(),unit,unit->GetPosition().pos.p,vector<NAI::SPathPlace>{destination},nullptr,true);
+                if(route && route->points.size()>=5 && route->points.size()<=7 && route->actions.empty() && std::all_of(route->points.begin(),route->points.end(),[&](const NAI::SPathPlace& p) { return p.IsIntegral() && p.GetLayer()==unit->GetPosition().pos.p.GetLayer() && p.GetPose()==NAI::CM_STAND; })) {actor=unit;break;}
+                route=nullptr;
+            }
+            if(actor)break;
+        }
+        Require(actor && route,"interrupted-route fixture has no native reachable multi-step actor path");
+        const auto initial=actor->GetPosition();
+        auto target=initial.pos;target.p=route->points.back();
+        CObj<NWorld::CCmdPath> command=new NWorld::CCmdPath(target);
+        auto readOrder = [&]() {
+            CStructureNetworkContext refs;auto fields=BorrowedObjectFields(actor,&refs);
+            CObj<NWorld::CCommandExecute> executor;CObj<NWorld::CCmd> current;
+            {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(7,&executor);reader.Add(9,&current);}
+            return std::make_pair(executor,current);
+        };
+        auto sameCell = [](const NAI::SPathPlace& a,const NAI::SPathPlace& b) {
+            return a.GetX()==b.GetX() && a.GetY()==b.GetY() && a.GetLayer()==b.GetLayer();
+        };
+        actor->Do(new NWorld::CCmdSetCommand(actor,command));
+        auto prepared=readOrder();
+        CObj<NAI::CPath> preparedPath=actor->GetCurrentPath();
+        Require(prepared.first && prepared.second==command.GetPtr() && preparedPath,
+            "interrupted-route fixture did not prepare its real native command and path");
+        if(ai) {
+            // Exercise the actual FAILED retirement branch, without inventing a
+            // mock executor or depending on the AI's next tactical decision.
+            prepared.first->Cancel();
+            const int ap=actor->GetAP();
+            actor->Do(new NWorld::CCmdSetCommand(actor,new NWorld::CCmdContinue));
+            auto failed=readOrder();
+            Require(prepared.first->GetState()==NWorld::CCommandExecute::FAILED && !failed.first && !failed.second &&
+                !actor->HasCommand() && !actor->IsPerformingAction(),"failed AI movement retained a stale order instead of allowing its commander to decide again");
+            for(int tick=0;tick<4;++tick)actor->Segment();
+            Require(actor->GetAP()==ap && actor->GetPosition()==initial && !actor->HasCommand(),
+                "failed AI cleanup restarted its abandoned movement or spent additional AP");
+            std::puts("native interrupted route: AI native failed executor retired and command cleared");
+            continue;
+        }
+        Require(actor->CanDo(new NWorld::CCmdContinue)==NWorld::UCR_OK,"native prepared movement cannot be explicitly continued");
+        actor->Do(new NWorld::CCmdSetCommand(actor,new NWorld::CCmdContinue));
+        for(int edge=0;edge<32 && sameCell(actor->GetPosition().pos.p,initial.pos.p) && actor->IsPerformingAction();++edge) {
+            world->GetTime()->Set(actor->animator.GetTimeEnd());actor->Segment();
+        }
+        Require(!sameCell(actor->GetPosition().pos.p,initial.pos.p) && !sameCell(actor->GetPosition().pos.p,target.p) &&
+            actor->IsPerformingAction() && actor->HasCommand(),"interrupted-route fixture did not start an actual intermediate native movement step");
+        auto running=readOrder();
+        Require(running.first && running.first->GetState()==NWorld::CCommandExecute::RUNNING,
+            "interrupted-route fixture has no running native executor");
+        const auto cancellingAt=actor->GetPosition();const int beforeCancelAP=actor->GetAP(),vp=actor->GetUnitRPG()->GetTotalVP();
+        actor->OnTBSEvent(NWorld::TBS_CANCEL_ACTION);
+        for(int edge=0;edge<32 && readOrder().first;++edge) {
+            world->GetTime()->Set(actor->animator.GetTimeEnd());actor->Segment();
+        }
+        auto cancelled=readOrder();
+        Require(!cancelled.first && running.first->GetState()==NWorld::CCommandExecute::FAILED && !actor->IsPerformingAction(),
+            "interrupted-route fixture did not retire its failed native movement executor");
+        const int ap=actor->GetAP();
+        const auto stopped=actor->GetPosition();
+        std::printf("native cancellation boundary: AP=%d->%d VP=%d->%d position=%u,%u->%u,%u\n",beforeCancelAP,ap,vp,actor->GetUnitRPG()->GetTotalVP(),cancellingAt.pos.p.GetX(),cancellingAt.pos.p.GetY(),stopped.pos.p.GetX(),stopped.pos.p.GetY());
+        Require(actor->GetUnitRPG()->GetTotalVP()==vp && !sameCell(stopped.pos.p,target.p),
+            "native cancellation did not stop movement before the requested destination");
+        std::printf("native interrupted route: ai=%d failed=1 command=%d target=%u,%u\n",int(ai),int(actor->HasCommand()),target.p.GetX(),target.p.GetY());
+        Require(cancelled.second==command.GetPtr() && actor->HasCommand(),"cancelled human movement discarded the destination needed for its pending route");
+        CObj<NWorld::CWorld> retainedSourceWorld;CObj<NRPG::CGlobalGame> retainedSourceGame;
+        if(restore) {
+            CMemoryStream snapshot;CObj<NWorld::CUnitServer> selected=actor;
+            {CStructureSaver writer(snapshot,CStructureSaver::WRITE);writer.Add(1,&game);writer.Add(2,&world);writer.Add(3,&selected);}
+            snapshot.Seek(0);
+            CObj<NRPG::CGlobalGame> loadedGame;CObj<NWorld::CWorld> loadedWorld;CObj<NWorld::CUnitServer> loadedActor;
+            {CStructureSaver reader(snapshot,CStructureSaver::READ);reader.Add(1,&loadedGame);reader.Add(2,&loadedWorld);reader.Add(3,&loadedActor);}
+            Require(loadedGame && loadedWorld && loadedActor && loadedActor.GetPtr()!=actor && loadedWorld.GetPtr()!=world.GetPtr(),
+                "pending-route snapshot did not restore an independent complete native world and actor graph");
+            retainedSourceWorld=world;retainedSourceGame=game;
+            world=loadedWorld;game=loadedGame;actor=loadedActor;
+            world->RestoreRuntimeCaches(game);
+            auto restored=readOrder();
+            auto* loadedCommand=dynamic_cast<NWorld::CCmdPath*>(restored.second.GetPtr());
+            Require(!restored.first && loadedCommand && loadedCommand->ptDst.p==target.p && actor->HasCommand() && !actor->IsAIUnit() &&
+                !actor->IsPerformingAction() && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==vp && sameCell(actor->GetPosition().pos.p,stopped.pos.p),
+                "loading the pending route lost its target, changed player ownership or started/spent a native action");
+            command=loadedCommand;
+            std::printf("native pending-route complete world graph restored: bytes=%d command=1 idle=1 AP=%d\n",snapshot.GetSize(),actor->GetAP());
+        }
+        CObj<NAI::CPath> pending=actor->GetCurrentPath();
+        Require(pending && !pending->points.empty() && sameCell(pending->points.back(),target.p) && !actor->IsPerformingAction(),
+            "retained human movement did not rebuild an idle native pending path to its destination");
+        for(int edge=0;edge<4;++edge) {world->GetTime()->Set(actor->animator.GetTimeEnd()+1);actor->Segment();}
+        Require(actor->GetAP()==ap && sameCell(actor->GetPosition().pos.p,stopped.pos.p) && !actor->IsPerformingAction(),
+            "querying or displaying a pending native route restarted movement without Continue");
+        Require(actor->CanDo(new NWorld::CCmdContinue)==NWorld::UCR_OK,"cancelled human route cannot be continued through native command validation");
+        actor->Do(new NWorld::CCmdSetCommand(actor,new NWorld::CCmdContinue));
+        Require(actor->IsPerformingAction(),"native Continue did not resume a preserved human movement command");
+        int continues=1;
+        for(int edge=0;edge<128;++edge) {
+            auto current=readOrder();
+            if(!current.first) {
+                if(!actor->HasCommand())break;
+                Require(continues<8 && current.second==command.GetPtr() && actor->CanDo(new NWorld::CCmdContinue)==NWorld::UCR_OK,
+                    "another native movement interruption lost its order or could not be explicitly continued");
+                actor->Do(new NWorld::CCmdSetCommand(actor,new NWorld::CCmdContinue));++continues;
+            } else {world->GetTime()->Set(actor->animator.GetTimeEnd());actor->Segment();}
+        }
+        std::printf("native resumed route explicit Continue requests=%d\n",continues);
+        auto completed=readOrder();
+        std::printf("native resumed route: at=%u,%u target=%u,%u AP=%d->%d command=%d executing=%d executorState=%d\n",actor->GetPosition().pos.p.GetX(),actor->GetPosition().pos.p.GetY(),target.p.GetX(),target.p.GetY(),ap,actor->GetAP(),int(actor->HasCommand()),int(actor->IsPerformingAction()),completed.first ? int(completed.first->GetState()) : -1);std::fflush(stdout);
+        Require(sameCell(actor->GetPosition().pos.p,target.p) && !actor->HasCommand() && !actor->IsPerformingAction(),
+            "continued human movement did not finish at its destination and consume the successful order");
+        const int finalAP=actor->GetAP();const auto finished=actor->GetPosition();
+        actor->Do(new NWorld::CCmdSetCommand(actor,new NWorld::CCmdPath(stopped.pos)));
+        CObj<NAI::CPath> returnPath=actor->GetCurrentPath();
+        Require(actor->HasCommand() && returnPath,"explicit-cancel control did not prepare a new native route");
+        actor->Do(new NWorld::CCmdCancel(actor));
+        Require(!actor->HasCommand() && !actor->GetCurrentPath() && !actor->IsPerformingAction() &&
+            actor->GetAP()==finalAP && actor->GetPosition()==finished,
+            "an explicit player Cancel no longer discards a prepared order without executing it");
+    }
+}
+
 static void MovementFullCancelAction(const char* databasePath,const char* resourcePath)
 {
     auto fixture = MakeNativeMovementFixture(databasePath,resourcePath);
@@ -18501,6 +18642,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "markup-dialogue-progress") && argc == 4) { OversizedDialogueLine(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "dialogue-normal-pagination") && argc == 4) { OversizedDialogueLine(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "forced-move-item-eligibility") && argc==4) { ForcedMoveItemEligibility(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "interrupted-movement-route-save") && argc==4) { InterruptedMovementRoute(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "interrupted-movement-route") && argc==4) { InterruptedMovementRoute(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "movement-full-cancel-action") && argc==4) { MovementFullCancelAction(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "movement-first-step-cancel") && argc == 4) { MovementCallbackCancellation(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "movement-next-step-cancel") && argc == 4) { MovementCallbackCancellation(argv[2], argv[3], 2); return true; }

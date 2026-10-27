@@ -341,14 +341,12 @@ void CUnitServer::CheckCmdExecState()
 	}
 	if ( pExec->GetState() != CCommandExecute::RUNNING )
 	{
-		//ASSERT( pExec->GetState() != CCommandExecute::FAILED );
-		// retail release semantics (same rationale as the session-6 TBS_STOP fix @0x3c2a90 port: when an
-		// executor is released, the command it executed is GONE with it -- the unit's route/logic
-		// re-decides from scratch): a FAILED retire must ALSO drop the command. Keeping it made
-		// CTask::GetCommand's HasCommand() branch pump CCmdContinue forever, re-Running the dead
-		// command's executor every segment (the GFirst RF1 wedge) and starving every later task of the
-		// same commander through the one-decision-per-segment latch.
-		if ( ( pExec->GetState() == CCommandExecute::FINISHED || pExec->GetState() == CCommandExecute::FAILED )
+		// Steam 0x7c1328 consumes only successful orders. A cancelled human
+		// route must retain its destination for pending-path display and Continue.
+		// This fork's AI scheduler treats HasCommand as outstanding work; preserve
+		// its failed-order cleanup so a dead command cannot stall the next decision.
+		if ( ( pExec->GetState() == CCommandExecute::FINISHED ||
+			( pExec->GetState() == CCommandExecute::FAILED && IsAIUnit() ) )
 			&& !bIsRunningForcedAction )
 			pCurrentCmd = 0;
 		pExec = 0;
