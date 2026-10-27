@@ -4507,3 +4507,21 @@ all-build.log, related-test.log, linux-{configure,build,test}.log,
 {windows,linux}-native-test.log, network-{test,native-test}.log.
 Sourceb91 остаётся partial (desktop/drawing/optional globe);135 исходных
 коммитов ещё разбираются, all281/final actual Actions не завершены.
+
+## Ветка выделения в legacy16-bit mode — db4db390 неприменим к нашему backend
+
+Полностью прочитан исходный diff: меняется только ветвь 16-bit targets без
+stencil. При обычном режиме source сохраняет прежний stencil prepass и
+outline pass. В действующем Main/GfxBgfx.cpp Is16BitMode всегда false;
+SetMode создаёт D24S8 depth/stencil. Windows CMake исключает Gfx.cpp,
+подключает GfxBgfx.cpp; Linux делает то же самое.
+
+Поэтому ни один изменённый путь этого коммита в нашей сборке не выбирается.
+Он отмечен excluded-own-behavior. Legacy16-bit mode ради применения ветки
+не добавлялся, код рендера не менялся. Полный371/Bgfx checkpoint относится
+к нашему активному backend, не заявляется тестом отсутствующего режима.
+Для документирования неприменимости новые искусственные тесты не нужны.
+
+Статус281:111 pending/98 imported/22 partial/38 already/3 docs/5 excluded-balance,
+2 excluded-own, по1 historical/review.134 исходных коммитов остаются в разборе.
+Последний полный checkpoint4da43aaf:371/371 обе платформы/CI-like277.
