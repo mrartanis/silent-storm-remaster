@@ -11102,6 +11102,73 @@ static void MovementBlockedWalkingTrajectory(const char* databasePath,const char
     Require(!world->IsAction(),"blocked-walking fixture retained its cancelled native action");
 }
 
+class CollisionUnhideProbe: public CObjectBase
+{
+    OBJECT_NOCOPY_METHODS(CollisionUnhideProbe);
+    NGlobal::CEventRegister<CollisionUnhideProbe,NWorld::CEventOnUnitUnhide> registration;
+public:
+    CPtr<NWorld::CDumbUnitServer> target;
+    int events=0;
+    CollisionUnhideProbe():registration(this,&CollisionUnhideProbe::OnUnhide) {}
+    void OnUnhide(const NWorld::CEventOnUnitUnhide& event) {if(event.pWho==target)++events;}
+};
+
+static void MovementCollisionReveal(const char* databasePath,const char* resourcePath,bool sameOwner,bool hidden)
+{
+    auto fixture=MakeNativeMovementFixture(databasePath,resourcePath);
+    auto* actor=fixture.actor.GetPtr();auto* world=fixture.world.GetPtr();auto* network=world->GetPathNetwork();
+    world->GetTime()->Set(1000);actor->animator.AlignTime();actor->animator.PlaceUnit(actor->GetPosition());
+    CObj<NWorld::CCommandExecute> move=NWorld::CreateSimpleMoveExecutor(actor,fixture.path,NAI::PF_DEFAULT);
+    Require(move,"collision reveal fixture could not create its actual native mover");
+    auto walking=[](CObjectBase* command){return command && pSSClasses->GetObjectTypeID(command)==int(0x02731142);};
+    move->Run();
+    for(int edge=0;edge<32 && !walking(ReadMovementCommands(move).current.GetPtr()) && move->GetState()==NWorld::CCommandExecute::RUNNING;++edge) {
+        world->GetTime()->Set(actor->animator.GetTimeEnd());move->AnimationFinished();
+    }
+    auto pending=ReadMovementCommands(move);Require(walking(pending.current.GetPtr()),"collision reveal fixture did not reach a native pending walking step");
+    CStructureNetworkContext travelRefs;auto travelFields=BorrowedObjectFields(pending.current,&travelRefs);MovementTravelPosition travel;
+    {CStructureSaver reader(travelFields,CStructureSaver::READ,&travelRefs);reader.Add(1,&travel);}
+    Require(travel.position.IsValid() && !(travel.position.pos.p==actor->GetPosition().pos.p),"collision reveal fixture lacks its actual future travel cell");
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);NWorld::CUnitServer* blocker=nullptr;
+    for(auto entry:units) {
+        auto* unit=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if(unit && unit!=actor && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK() &&
+           (unit->GetPlayer()==actor->GetPlayer())==sameOwner) {blocker=unit;break;}
+    }
+    Require(blocker,"collision reveal fixture lacks an actual blocker with the required player ownership");
+    CObj<CollisionUnhideProbe> probe=new CollisionUnhideProbe;probe->target=blocker;
+    auto delayVisibility=[&](bool delay) {
+        CMemoryStream fields;
+        {CStructureSaver writer(fields,CStructureSaver::WRITE);writer.Add(53,&delay);}
+        fields.Seek(0);{CStructureSaver reader(fields,CStructureSaver::READ);static_cast<CObjectBase*>(world)->operator&(reader);}
+    };
+    // Restore the real serialized coalescing flag used during CWorld::Segment.
+    // The normal refresh must defer; the collision must request a forced sweep.
+    delayVisibility(true);
+    actor->SetPosition(actor->GetPosition());blocker->SetPosition(travel.position);
+    blocker->EnableHide();blocker->Hide(hidden,false);
+    Require(blocker->IsHiding()==hidden && probe->events==0,"collision reveal fixture failed to establish its native initial hide state without an event");
+    auto readNight=[&]() {
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(world->GetGame(),&refs);bool night=false;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(5,&night);}return night;
+    };
+    const bool expectedNight=world->GetTimeOfDay()==NWorld::TOD_NIGHT;
+    world->GetGame()->SetNight(!expectedNight);world->UpdateVisible(false);
+    Require(readNight()!=expectedNight,"native ordinary visibility refresh did not defer under its restored coalescing flag");
+    Require(actor->CanDoGameMove(travel.position)==NWorld::CMR_LOCKED && network->GetWhoLocksThisPlace(travel.position.pos.p)==blocker,
+        "collision reveal fixture did not produce actual native live-unit occupancy");
+    world->GetTime()->Set(actor->animator.GetTimeEnd());move->AnimationFinished();
+    const bool revealed=hidden && !sameOwner;
+    std::printf("native collision reveal: sameOwner=%d initiallyHidden=%d hidden=%d unhideEvents=%d forcedVisibility=%d\n",int(sameOwner),int(hidden),
+        int(blocker->IsHiding()),probe->events,int(readNight()==expectedNight));std::fflush(stdout);
+    Require(blocker->IsHiding()==(hidden && !revealed),"native movement collision did not reveal the other player's hidden blocker");
+    Require(probe->events==(revealed?1:0),"native movement collision emitted the wrong number of actual unit-unhide events");
+    Require((readNight()==expectedNight)==revealed,"native movement collision did not force visibility immediately, or refreshed an unrelated control");
+    dynamic_cast<NWorld::IExecMove*>(move.GetPtr())->FullCancel();move=nullptr;
+    delayVisibility(false);
+    Require(!world->IsAction(),"collision reveal fixture retained its cancelled native movement action");
+}
+
 static void MovementTerminalCompletion(const char* databasePath, const char* resourcePath, bool cancelled)
 {
     auto fixture = MakeNativeMovementFixture(databasePath, resourcePath);
@@ -19220,6 +19287,9 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "equipment-holster-reset")) { Require(argc == 4, "equipment activation requires db and res"); ExplicitWeaponActivation(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "movement-holster-reset")) { Require(argc == 4, "movement activation requires db and res"); ExplicitWeaponActivation(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "movement-first-step-wait")) { Require(argc == 4, "movement wait requires db and res"); MovementFirstStepWaitTimer(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "movement-collision-hidden-other")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],false,true); return true; }
+    if (!std::strcmp(mode, "movement-collision-hidden-own")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],true,true); return true; }
+    if (!std::strcmp(mode, "movement-collision-visible-other")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],false,false); return true; }
     if (!std::strcmp(mode, "movement-blocked-walking")) { Require(argc == 4, "blocked movement requires db and res"); MovementBlockedWalkingTrajectory(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "movement-terminal-finished")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "movement-terminal-failed")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], true); return true; }

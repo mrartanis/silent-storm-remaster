@@ -433,15 +433,21 @@ bool CPathConflictsRemover::UseAnotherPCR( CUnitServer *server, CPathConflictsRe
 // BEFORE the membership test, so on the 2nd hop it "finds" the just-inserted node and the walk always
 // terminates at depth 2 (never inspecting past the second locker). This does a full cycle-walk instead:
 // for chains 3+ deep it reroutes in cases retail would leave waiting -- non-crashing, and a reroute is
-// the safer resolution than an unbounded wait. The head-of-chain rotation housekeeping (Hide +
-// interrupted-counter bump, retail 0x7cc332-0x7cc384) is animation-only and elided.
+// the safer resolution than an unbounded wait. Interrupted-counter housekeeping remains separate.
 void CPathConflictsRemover::CheckLockerState()
 {
-	CUnitServer *who = GetWhoLocks();
+	CPtr<CUnitServer> who = GetWhoLocks();
 	if ( !who )
 	{
 		TryToSetNewPath();
 		return;
+	}
+	// Original Steam @0x7cccf1..0x7ccd2e: collision reveals a hidden blocker
+	// owned by another player, then forces the visibility sweep even mid-segment.
+	if ( who->IsHiding() && who->GetPlayer() != pUS->GetPlayer() )
+	{
+		who->Hide( false, true );
+		pUS->GetWorld()->UpdateVisible( true );
 	}
 	CUnitServer *myUnit = pUS;
 	vector<CUnitServer*> visited;

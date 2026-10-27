@@ -6797,3 +6797,67 @@ Sourceff91745d pending -> imported. Tracker281:93pending/121imported/
 23partial/32already/3docs/5excluded-balance/2excluded-own/1historical/1review,
 117 unfinished entries. Overall ALL281 goal and final actual-HEAD hosted
 GitHub Actions remain open.
+
+
+## Movement collision: reveal another owner's hidden blocker immediately
+
+Source [1d260f7faa7d44b32cc35c952447adb5157f21a9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1d260f7faa7d44b32cc35c952447adb5157f21a9).
+Compiled native RED1.11s: actual CExecMove reaches a real CCmdMove, native
+CanDoGameMove returns CMR_LOCKED and identifies an actual other-player unit
+force-placed into its future route cell. The blocker remains hidden, emits0
+CEventOnUnitUnhide and does not force visibility. Both independent positive
+controls already pass before the production fix: same-owner hidden unit stays
+hidden/event0, other-owner visible unit stays visible/event0. Native baseline
+3 tests total3.36s includes that single real failure, not a compile failure.
+
+The native fixture uses FixtureWorld/FindPath and the ordinary unarmed
+CancellingMoveActor base behavior, real SetPosition/EnableHide/Hide, a live
+NGlobal::CEventRegister receiver counting only its target's actual unhide
+event, and the real world/RPG game. It restores the world's existing saved
+coalescing flag53 via the public CObjectBase virtual saver API; no production
+visibility override is used. A deliberately stale night mirror in native
+CGame is read through its real saved field5. Ordinary UpdateVisible(false)
+first demonstrably defers, retaining that mirror. Only the revealed collision
+must force the native sweep and resynchronize it to the actual world TOD.
+This verifies immediate native refresh execution under restored coalescing
+state; it does not claim an actual complete CWorld::Segment, full AI turn,
+rendered enemy visibility/cache, physical input or whole-save E2E proof.
+The initial private CWorld::operator& fixture access failed to compile and
+was corrected to the existing public base virtual API; it is not gameplay RED.
+
+Original oracle: GoldPDB CheckLockerState7c0190/646 first32 EH3:7 uniquely
+maps to immutable Steam7ccc80. Actual IsHiding7cccf1 precedes GetPlayer
+comparison7ccd05/7ccd0f; unequal ownership calls Hide750260 with false/true
+at7ccd1b, then world vslot65 with true at7ccd2e. Gold named Hide744c70/205
+first32 EH9:13 uniquely maps to750260. Unit RTTI offset332/vtable Gold8beb74
+slots3/13 name IsHiding7b3600/GetPlayer7b3930; Steam8ce15c slots3/13 are
+7bfd80/7c00b0. Gold World primary vtable8bc74c slot65=75bb50 names
+UpdateVisible, Steam primary8cbc8c slot65=7673d0. That callee's first32
+signature did not match, so its mapping is through RTTI/vtable rather than a
+false unique-signature claim. Evidence collision-hidden-retail-
+{lookup,disassembly}.txt. Source addresses are not trusted. Ownership, rather
+than hostile diplomacy alone, is the actual original condition.
+
+Production only holds the locker with CPtr, unhides with its ordinary event,
+and calls the existing forced visibility refresh before walking the locker
+chain. Our deliberate full cycle walk, movement lifetime safeguards, saved
+fields/IDs and own network/visibility implementations remain. No AP/range,
+perk coefficient, RNG formula, database, asset, font/facial/HD or backend edit.
+The restored sweep uses the existing normal perception pipeline.
+
+Native GREEN30/30 32.24s includes all3 new cases, movement, hiding, explicit
+Hide state and AI event collection locks. Final Windows and Linux both report
+other-hidden -> hidden0/event1/forced1; own-hidden -> hidden1/event0/forced0;
+other-visible -> hidden0/event0/forced0. Both Game/Windows ALL_BUILD built.
+Fresh449/449 Windows405.27s and Linux397.12s, each38native-display/
+24native-audio/12FONT-COMPAT. Own7Network184.26s including361/361maps129.74s
+(deployment+replica); CI-like284/28424.62s, fonts12. Raw449/449/7/284 complete,
+no NUL/missing/Failed, actual exit0. Evidence collision-hidden-
+{native-baseline,native-green,full,linux-full,network,ci}-native-test.log and
+corresponding stdout. Shared builds reused; no extra game/build copies or HD
+generation.
+
+Source1d260f7f pending -> imported. Tracker281:92pending/122imported/
+23partial/32already/3docs/5excluded-balance/2excluded-own/1historical/1review,
+116 unfinished entries. Overall ALL281 goal and final actual-HEAD hosted
+GitHub Actions remain open; this source is complete.
