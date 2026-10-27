@@ -6066,6 +6066,70 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     return world;
 }
 
+static void UnitDiplomacyIdentity(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,true,&game);
+    vector<CPtr<NWorld::CUnit>> before; world->GetAllUnits(&before);
+    NWorld::CUnitServer* first = nullptr;
+    NWorld::CUnitServer* npc = nullptr;
+    for (auto unit: before) {
+        auto* server = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if (!server || !server->GetPlayer()) continue;
+        if (!NAI::IsAIPlayer(server->GetPlayer())) first = server;
+        else if (server->GetPlayer()->GetScenarioPlayerID() > 0) npc = server;
+    }
+    Require(first && npc,"unit diplomacy fixture needs a deployed human and an authored NPC side");
+    auto* firstPlayer = first->GetPlayer();
+    const auto originalDiplomacy = first->GetUnitRPG()->GetDiplomacy();
+    const int npcID = npc->GetPlayer()->GetScenarioPlayerID();
+    // Per-unit overrides must survive routing through the world. Player-to-player
+    // diplomacy is insufficient: it does not consult this unit's individual mask.
+    for (auto state: {NDb::DS_ENEMY,NDb::DS_NEUTRAL,NDb::DS_ALLY}) {
+        auto individual = originalDiplomacy;
+        individual.SetDiplomacyState(npcID,state);
+        first->GetUnitRPG()->SetDiplomacy(individual);
+        Require(world->GetDiplomacyState(static_cast<NWorld::CUnit*>(first),npc->GetPlayer()) == state &&
+            first->GetDiplomacyState(npc) == state,"unit diplomacy lost an individual authored-side override");
+    }
+    first->GetUnitRPG()->SetDiplomacy(originalDiplomacy);
+    Require(first->GetDiplomacyState(first) == NDb::DS_ALLY,"unit diplomacy self-alliance control failed");
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    CObj<NAI::CSequenceCommander> commander = new NAI::CSequenceCommander(world);
+    auto* secondPlayer = dynamic_cast<NWorld::CPlayer*>(world->AddPlayer(L"Second diplomacy player",game->players.back(),commander));
+    Require(secondPlayer && secondPlayer != firstPlayer,"unit diplomacy did not create a distinct native player");
+    commander->SetPlayer(secondPlayer);
+    vector<CPtr<NWorld::CUnit>> deployed; world->GetAllUnits(&deployed);
+    NWorld::CUnitServer* second = nullptr;
+    for (auto unit: deployed) {
+        auto* server = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if (server && server->GetPlayer() == secondPlayer) { second = server; break; }
+    }
+    Require(second && firstPlayer->GetScenarioPlayerID() == 0 && secondPlayer->GetScenarioPlayerID() == 0,
+        "unit diplomacy did not deploy two real hotseat parties sharing scenario ID zero");
+    Require(originalDiplomacy.GetDiplomacyState(0) == NDb::DS_ALLY &&
+        world->GetDiplomacyState(static_cast<NWorld::CUnit*>(first),secondPlayer) == NDb::DS_ENEMY,
+        "unit diplomacy control did not distinguish player identity from the scenario mask");
+    std::printf("native diplomacy controls: individual enemy/neutral/ally, self ally; distinct players share scenario 0\n");
+    const auto firstPosition = first->GetPosition(), secondPosition = second->GetPosition();
+    const int firstAP = first->GetAP(), secondAP = second->GetAP();
+    const int firstVP = first->GetUnitRPG()->GetTotalVP(), secondVP = second->GetUnitRPG()->GetTotalVP();
+    std::printf("native diplomacy opposing parties: first-to-second=%d, world=%d\n",
+        int(first->GetDiplomacyState(second)),int(NDb::DS_ENEMY));
+    Require(first->GetDiplomacyState(second) == NDb::DS_ENEMY &&
+        second->GetDiplomacyState(first) == NDb::DS_ENEMY,
+        "distinct hotseat players were treated as allies because their scenario IDs matched");
+    Require(second->GetDiplomacyState(second) == NDb::DS_ALLY &&
+        first->GetDiplomacyState(nullptr) == NDb::DS_NEUTRAL,
+        "unit diplomacy lost self alliance or failed to handle an absent target");
+    Require(first->GetAP() == firstAP && second->GetAP() == secondAP &&
+        first->GetUnitRPG()->GetTotalVP() == firstVP && second->GetUnitRPG()->GetTotalVP() == secondVP &&
+        first->GetPosition() == firstPosition && second->GetPosition() == secondPosition &&
+        first->GetPlayer() == firstPlayer && second->GetPlayer() == secondPlayer &&
+        first->GetUnitRPG()->GetDiplomacy().GetDiplomacy() == originalDiplomacy.GetDiplomacy(),
+        "a unit diplomacy query changed player identity, placement, AP, health or individual diplomacy");
+}
+
 class ScriptSoundDispatchMission: public NGame::CMission
 {
     OBJECT_NOCOPY_METHODS(ScriptSoundDispatchMission);
@@ -17652,6 +17716,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "conclusions") && argc == 4) { ConclusionRouting(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "pk-placement")) { PKPlacement(); return true; }
     if (!std::strcmp(mode, "critical-ids") && argc == 3) { CriticalIDs(argv[2]); return true; }
+    if (!std::strcmp(mode, "unit-diplomacy-identity") && argc==4) { UnitDiplomacyIdentity(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "cover-perk-multiplier") && argc==4) { CoverPerkMultiplier(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "moving-target-perk") && argc==4) { MovingTargetPerk(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "attacker-level-critical-rolls") && argc==3) { AttackerLevelCriticalRolls(argv[2]); return true; }

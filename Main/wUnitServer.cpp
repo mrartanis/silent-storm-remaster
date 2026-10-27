@@ -1970,12 +1970,11 @@ void CUnitServer::OnNewPlayerTurnOrTime( const CEventOnNewPlayerTurnOrTime &even
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 NDb::EDiplomacyState CUnitServer::GetDiplomacyState( CUnitServer *pTarget ) const
 {
-	if ( !pTarget->GetPlayer() )
-	{
-		ASSERT( pTarget->IsEmptyPK() );
+	// Resolve player identity before scenario IDs; retain the unit's individual diplomacy.
+	if ( !IsValid( pTarget ) || !pTarget->GetPlayer() )
 		return NDb::DS_NEUTRAL;
-	}
-	return GetUnitRPG()->GetDiplomacy().GetDiplomacyState( pTarget->GetPlayer()->GetScenarioPlayerID() );
+	return GetWorld()->GetDiplomacyState( static_cast<CUnit*>( const_cast<CUnitServer*>( this ) ),
+		pTarget->GetPlayer() );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitServer::SetPlayer( CPlayer *_pPlayer )

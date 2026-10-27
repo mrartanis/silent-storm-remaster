@@ -5229,3 +5229,52 @@ perks остаются прежними. Source7368 теперь imported с э�
 2excluded-own, по1historical/review.126 исходных коммитов ещё разбираются.
 Все281 и final actual HEAD GitHub Actions ещё не завершены; локальный CI
 не выдаётся за hosted run.
+
+
+## Идентичность игроков в дипломатии юнита — часть695465bc
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/695465bc189bfe93a657a3f48ff51bc664c5b7ef
+
+Независимый original Steam oracle SHA256
+4F417593A9F73E2BFDE12D83CDBD694AE47EECB92812140D67B8B343E4A95705:
+реальные wrappers CUnitServer7c0160/7c01b0 вызывают World slots b8/c0.
+Factory778490 -> ctor76a950 -> final vtable8cbc8c:
+b8=7627a0 (unit/unit), c0=7627f0 (unit/player). Последний сначала сравнивает
+player pointers (same=ALLY2), затем scenario IDs (distinct/sameID=ENEMY0),
+иначе вызывает b0=761f20: negativeID=NEUTRAL1, GetRPG/cast IUnitMission,
+индивидуальная SDiplomacy. Gold PDB использован только для поиска opcode
+signature; поведение проверено в Steam, не перенесено между версиями.
+Адрес7bfaf0 из исходного комментария не соответствует этому Steam EXE.
+Оригинальные executable не запускались, не изменялись и не копировались.
+Read-only proof unit-diplomacy-retail-{wrappers,world,mask,world-ctor}.txt
+и unit-diplomacy-retail-identity-notes.txt.
+
+Сначала compiled native RED: FixtureWorld, два действительно созданных
+CGlobalPlayer/AddPlayer/commander и развёрнутых CUnitServer. Оба human
+scenarioID0; self-alliance и три individual NPC overrides ENEMY/NEUTRAL/ALLY
+работают до RED. При запросе первого юнита ко второму получено ALLY2 вместо
+World/original ENEMY0. Это не подставленные private player flags/masks:
+проверка индивидуальной маски использует публичный SetDiplomacy и её
+восстановление. RED1.21с, после минимального исправления GREEN1.15с.
+
+CUnitServer теперь использует существующий own World overload (unit,player)
+и отклоняет отсутствующую цель. Overload (player,player) здесь намеренно
+не применяется: он потерял бы индивидуальную дипломатию. GREEN оба направления,
+self, null, прежние overrides; запросы не меняют AP/VP/placement/player/mask.
+Собственные LAN IDs/командиры/сохранения не заменялись. Это доказательство
+native diplomacy queries, не сыгранный полный hotseat матч/AI attack decision.
+
+FULL Windows391/391323.29с, Linux391/391328.61с, CPUbase384+7GPU extras,
+17native-audio и12FONT-COMPAT на каждой платформе. Both Game и Win ALL_BUILD.
+4Network Serializer/ClientUI/ObjectStages/StopResume6.86с. CI-like280/28024.04с,
+raw280/font12. Все raw полные, без NUL, сохранены до следующего CTest.
+Evidence unit-diplomacy-identity: red/green/full/network/ci build/test logs,
+windows/linux-full-native-test.log, windows-network-native-test.log,
+ci-native-test.log; редактировались прежние build directories, HD OFF.
+
+Source695 остаётся partial: hotseat banner отдельный пункт. Его правильная
+разметка зависит от отсутствующего в нашем Update вызова Show из46b3ace0;
+перенос только constructor не докажет рабочую передачу хода. Все281 и final
+actual HEAD GitHub Actions ещё не завершены. Счётчики прежние101pending,
+106imported,24partial,38already,3docs,5excluded-balance,2excluded-own,
+по1historical/review;126 исходных коммитов остаются в разборе.
