@@ -8590,6 +8590,68 @@ public:
     void Flush() override {}
 };
 
+static void OversizedTooltipPosition(const char* databasePath,const char* resourcePath)
+{
+    S2Platform::SetErrorDialogs(false);
+    struct Cleanup { ~Cleanup() { S2Platform::Done(); } } cleanup;
+    Require(S2Platform::Init("native oversized tooltip",1024,768,true),
+        "tooltip layout fixture could not initialize its dummy display");
+    CFileStream database;database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    class TooltipLayoutView: public DialogueLayoutView {
+        OBJECT_NOCOPY_METHODS(TooltipLayoutView);
+        CObj<NGScene::CCVec2> screen=new NGScene::CCVec2(CVec2(1024,768));
+    public:
+        int images=0,texts=0;
+        CFuncBase<NGScene::SText>* CreateText(CFuncBase<wstring>* text,CFuncBase<CTPoint<int>>* size,bool tags) override {
+            return NGScene::CreateTextFormater(GetLocaleInfo(),screen,text,size,tags);
+        }
+        void CreateDynamicRects(CFuncBase<NGScene::SText>* node,const CTPoint<int>&,const CTRect<int>&) override {
+            CDGPtr<CFuncBase<NGScene::SText>> text=node;text.Refresh();
+            Require(!text->GetValue().rectLayouts.empty(),"tooltip renderer lost its packaged font glyphs");++texts;
+        }
+        void CreateDynamicRects(NDb::CTexture*,const CRectLayout&,const CTPoint<int>&,const CTRect<int>&) override { ++images; }
+        void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>*,const CRectLayout& layout,const CTPoint<int>&,const CTRect<int>&) override {
+            if (!layout.rects.empty()) ++texts;
+        }
+    };
+    CObj<TooltipLayoutView> view=new TooltipLayoutView;
+    CObj<NUI::ICursor> cursor=NUI::ICursor::Create(false);
+    CObj<NUI::CInterface> root=new NUI::CInterface(cursor);
+    CObj<NUI::CToolTip> tip=new NUI::CToolTip(NUI::SWindowInfo(root,NUI::SPoint(0,0),NUI::SPoint(0,0),
+        "tooltip",NUI::STYLE_VISIBLE|NUI::STYLE_ENABLED));
+    const int width=S2UI::Width(),height=S2UI::Height();
+    const wstring format=L"<font face=Courier size=16pt><left>";
+    auto* font=root->GetView()->GetLocaleInfo()->GetFont(NGScene::SFont(16,"Courier"));
+    Require(IsValid(font) && font->IsVector(),"tooltip fixture did not use our packaged high-resolution Courier font");
+    tip->SetText(format+L"Short tooltip");tip->SetPosition(NUI::SPoint(width-1,height-1));
+    tip->Draw(0,view);
+    Require(view->texts>0,"ordinary tooltip control did not submit native packaged-font glyphs");
+    Require(tip->GetSize().x>0 && tip->GetSize().y>0 &&
+        tip->GetPosition().x>=0 && tip->GetPosition().y>=0 &&
+        tip->GetPosition().x+tip->GetSize().x<=width && tip->GetPosition().y+tip->GetSize().y<=height,
+        "ordinary native tooltip edge-placement control failed");
+    std::printf("native tooltip control: viewport=%dx%d tip=%dx%d position=%d,%d\n",width,height,
+        tip->GetSize().x,tip->GetSize().y,tip->GetPosition().x,tip->GetPosition().y);std::fflush(stdout);
+    const auto ordinarySize=tip->GetSize(),ordinaryPosition=tip->GetPosition();
+    wstring oversized=format+L"HEADER";
+    for(int row=0;row<100;++row)oversized+=L"\nNative packaged-font tooltip line";
+    tip->SetText(oversized);tip->SetPosition(NUI::SPoint(width-1,height-1));tip->Draw(0,view);
+    std::printf("native oversized tooltip: tip=%dx%d position=%d,%d glyph submissions=%d\n",
+        tip->GetSize().x,tip->GetSize().y,tip->GetPosition().x,tip->GetPosition().y,view->texts);std::fflush(stdout);
+    Require(tip->GetSize().y>height,
+        "oversized tooltip fixture did not measure content taller than its viewport");
+    Require(tip->GetPosition().x>=0 && tip->GetPosition().y>=0,
+        "oversized native tooltip moves its header above the viewport");
+    const auto measuredSize=tip->GetSize(),position=tip->GetPosition();
+    tip->Draw(0,view);
+    Require(tip->GetSize()==measuredSize && tip->GetPosition()==position,
+        "oversized tooltip drifts during repeated draw");
+    tip->SetText(format+L"Short tooltip");tip->SetPosition(NUI::SPoint(width-1,height-1));tip->Draw(0,view);
+    Require(tip->GetSize()==ordinarySize && tip->GetPosition()==ordinaryPosition,
+        "clamping an oversized tooltip changed ordinary font metrics or edge placement");
+}
+
 static void MedalCursorVisible(const char* databasePath,const char* resourcePath)
 {
     Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
@@ -16911,6 +16973,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "hotseat-opponent-visibility")) { HotseatOpponentVisibility(); return true; }
     if (!std::strcmp(mode, "restored-clue-close-notification")) { RestoredClueCloseNotification(); return true; }
     if (!std::strcmp(mode, "rejected-hit-label-text")) { Require(argc == 4, "hit label text requires db and res"); RejectedHitLabelText(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "oversized-tooltip-position") && argc==4) { OversizedTooltipPosition(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "scaled-edit-text-layout")) { ScaledEditTextLayout(); return true; }
     if (!std::strcmp(mode, "long-burst-voice-donor") && argc == 4) { LongBurstVoiceDonor(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "fresh-clue-wait-release") && argc == 4) { FreshClueWaitRelease(argv[2],argv[3]); return true; }

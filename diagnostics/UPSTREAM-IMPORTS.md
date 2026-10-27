@@ -4847,3 +4847,39 @@ CPU base375; последний CI-like — aef3b6be280/280, последний 
 Статус281:105 pending/103 imported/23 partial/38 already/3 docs/
 5 excluded-balance/2 excluded-own, по1 historical/review.129 исходных
 коммитов ещё разбираются; all281/final actual HEAD Actions не завершены.
+
+
+## Верхняя граница очень длинной подсказки — часть a2bba0ad
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a2bba0ad86c91dcf5a239adda24792664abf1e43
+
+Native RED использует настоящие CInterface/CToolTip/CText/CFrame, packaged
+vector Courier16 и native formatter при dummy SDL viewport1024×768. Обычная
+подсказка138×26 размещается корректно в886,741. Подсказка со100 строками
+измеряется408×1808, но получает origin616,−1040: её заголовок уходит за экран.
+Первоначальная ошибка наблюдателя glyph submission исправлена до окончательного
+RED; fixture logs сохранены отдельно. Вид считает реальные glyph submissions,
+но не рисует GPU textures: это проверка native layout, не pixel screenshot.
+
+Адаптированы только две финальные Max/Min границы из upstream: в нашем Draw
+origin не становится отрицательным, даже когда окно больше экрана. GREEN:
+616,0; повторный Draw не сдвигает окно, возврат короткого текста сохраняет его
+исходные размеры и позицию. Проверка IsVector подтверждает наши HiRes-шрифты.
+Ширина400, font face/size, собственный immediate/sticky SetToolTipOwner pipeline
+не менялись. Перенос upstream UpdateToolTip/anchors/width512 сюда не включён;
+source остаётся partial. Это не изменение баланса.
+
+Windows15/15 (16.86с), Linux12/12 (10.66с), включая две native display проверки
+medal panel/chapter screenshot, родственные dialogue/edit/tooltip проверки и
+Windows3 network tests. На каждой платформе12 FONT-COMPAT, raw15/12 полные без
+NUL. Собраны обе Game и Windows ALL_BUILD. Свидетельства в прежней лаборатории:
+oversized-tooltip-position-{red,green}-{build,test,native-test}.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log; fixture-* сохранены отдельно. Новых копий сборки
+нет, HD pack не генерировался.
+
+Статус281:104 pending/103 imported/24 partial/38 already/3 docs/
+5 excluded-balance/2 excluded-own, по1 historical/review.129 исходных коммитов
+ещё разбираются. CPU base376; свежий full383 не заявляется. Последний CI-like
+остаётся aef3b6be280/280, парный full с GPU — e356d2db376/376, Linux CPU full —
+6699e500373/373. Все281 и итоговый actual HEAD GitHub Actions ещё не завершены.

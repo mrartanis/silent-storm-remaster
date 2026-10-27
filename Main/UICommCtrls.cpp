@@ -656,14 +656,8 @@ void CToolTip::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 	SPoint sPosition = GetPosition();
 	sPosition.y = sPosition.y + GetSize().y - sRealSize.y;
 
-	if ( sPosition.x < 0 )
-		sPosition.x = 0;
-	if ( sPosition.y < 0 )
-		sPosition.y = 0;
-	if ( sPosition.x + sRealSize.x > S2UI::Width() )
-		sPosition.x = S2UI::Width() - sRealSize.x;
-	if ( sPosition.y + sRealSize.y > S2UI::Height() )
-		sPosition.y = S2UI::Height() - sRealSize.y;
+	sPosition.x = Max( 0, Min( sPosition.x, S2UI::Width() - sRealSize.x ) );
+	sPosition.y = Max( 0, Min( sPosition.y, S2UI::Height() - sRealSize.y ) );
 
 	CWindow::SetSize( sRealSize );
 	CWindow::SetPosition( sPosition );
