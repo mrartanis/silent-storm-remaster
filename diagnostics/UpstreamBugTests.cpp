@@ -9384,6 +9384,50 @@ static NativeMovementFixture MakeNativeMovementFixture(const char* databasePath,
     return {game, world, rpg, actor, path};
 }
 
+static void ForcedMoveItemEligibility(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor=nullptr;
+    for(auto& entry:units) {
+        auto* unit=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if(unit && !unit->IsAIUnit() && unit->CanFight() && !unit->IsWearingPK() &&
+           unit->animator.CanActivateItem() && unit->GetUnitRPG()->GetInventory()->GetActive()) {
+            actor=unit;break;
+        }
+    }
+    Require(actor!=nullptr,"forced-move pose fixture has no ordinary armed actor");
+    world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer()));
+    const auto original=actor->GetPosition();
+    const int ap=actor->GetAP();
+    CObj<NRPG::IInventoryItem> item=actor->GetUnitRPG()->GetInventory()->GetActive();
+    const bool active=actor->animator.IsActiveItem();
+    const bool command=actor->HasCommand();
+    const bool action=actor->IsPerformingAction();
+    actor->animator.AlignTime();actor->animator.ForcedMove(original);
+    Require(actor->animator.CanActivateItem(),"ordinary forced-move control disabled item activation");
+    std::puts("native forced-move control: ordinary armed human remains eligible");std::fflush(stdout);
+    for(auto pose:{NAI::CM_STAND,NAI::CM_CROUCH,NAI::CM_LAY}) {
+        auto destination=original;destination.pos.p.SetPose(pose);
+        actor->animator.AlignTime();
+        const STime before=actor->animator.GetTimeEnd();
+        actor->animator.Climb(original,destination,false);
+        Require(actor->animator.GetTimeEnd()>before && !actor->animator.CanActivateItem(),
+            "native jump-start control did not schedule its clip and enter inactive pose");
+        std::printf("native jump-start control pose=%d: clip scheduled, activation blocked\n",int(pose));std::fflush(stdout);
+        actor->animator.ForcedMove(destination);
+        std::printf("native forced-move pose=%d: can activate=%d\n",int(pose),int(actor->animator.CanActivateItem()));
+        std::fflush(stdout);
+        Require(actor->animator.CanActivateItem(),"forced relocation retains stale inactive pose and blocks item activation");
+        Require(actor->GetPosition()==original && actor->GetAP()==ap &&
+            actor->GetUnitRPG()->GetInventory()->GetActive()==item.GetPtr() &&
+            actor->animator.IsActiveItem()==active && actor->HasCommand()==command &&
+            actor->IsPerformingAction()==action,
+            "animator forced-move eligibility altered gameplay AP, inventory, hand state or world order");
+    }
+}
+
 static void MovementCallbackCancellation(const char* databasePath, const char* resourcePath, int cancelOnStep, bool releaseOwner = false)
 {
     auto fixture = MakeNativeMovementFixture(databasePath, resourcePath);
@@ -16968,6 +17012,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "oversized-dialogue-line") && argc == 4) { OversizedDialogueLine(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "markup-dialogue-progress") && argc == 4) { OversizedDialogueLine(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "dialogue-normal-pagination") && argc == 4) { OversizedDialogueLine(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "forced-move-item-eligibility") && argc==4) { ForcedMoveItemEligibility(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "movement-first-step-cancel") && argc == 4) { MovementCallbackCancellation(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "movement-next-step-cancel") && argc == 4) { MovementCallbackCancellation(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "movement-first-step-release") && argc == 4) { MovementCallbackCancellation(argv[2], argv[3], 1, true); return true; }

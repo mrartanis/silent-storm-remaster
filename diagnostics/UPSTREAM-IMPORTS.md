@@ -4809,3 +4809,41 @@ c8b908f2 теперь imported с адаптацией, два независи�
 22 partial/38 already/3 docs/5 excluded-balance/2 excluded-own,
 по1 historical/review.129 исходных коммитов ещё разбираются; все281 и
 итоговый actual HEAD GitHub Actions ещё не завершены.
+
+## Сброс неактивной позы после принудительного перехода — часть71bf7730
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/71bf7730c33bf37b19beaab21042f6a39e5b3285
+
+UpstreamForcedMoveItemEligibility создаёт реальный мир и обычного вооружённого
+бойца. Native RED: обычный ForcedMove сохраняет CanActivateItem=true; публичный
+Climb(false) действительно планирует authored JUMP_START clip (TimeEnd растёт)
+и блокирует активацию на время неактивной позы. Затем ForcedMove в обычную позу
+по-прежнему оставляет CanActivateItem=0. Приватный флаг в fixture не подменяется.
+
+Перенесён ТОЛЬКО animator hunk: после DefaultAction и восстановления константы
+времени bInactivePose синхронизируется с pose конечной команды. Native GREEN
+проверяет STAND/CROUCH/LAY, каждый раз нормальная поза снова разрешает активацию.
+AP, inventory active item, hand-active state, HasCommand/action и серверная
+world position остаются прежними. Границы: проверен настоящий animation/eligibility
+контракт, не поездка бойца по пути, natural-clock clip completion или pixels.
+Мимика, выбор клетки, fall/height/distance heuristics и AP формулы не менялись.
+
+Проверки:29/29 Windows (37.48 с, включая3 network),26/26 Linux (34.24 с).
+Проверены родственные movement callbacks/terminal states/holster/hidden item/
+явная и movement activation/corpse carry;12 FONT-COMPAT, raw29/26 полные без NUL.
+Собраны обе Game и Windows ALL_BUILD. Свидетельства forced-move-item-eligibility:
+red-{build,test,native-test}.log, green-{build,test,native-test}.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log. Сборки прежние, HD pack не генерировался.
+
+71bf7730 остаётся partial: немедленная GridInfoUpdated у двери, AlignTime/
+порядок SetPosition/обновление destination passability в server relocation
+нуждаются в отдельных runtime RED. Heuristic изменения выбора клетки и Fall
+вынесены для сверки оригинала в UPSTREAM-BALANCE-CHANGES.md.
+CPU base375; последний CI-like — aef3b6be280/280, последний Linux CPU full —
+6699e500373/373, последний парный full с GPU — e356d2db376/376.
+Свежие full382/CI для этого изменения не заявляются.
+
+Статус281:105 pending/103 imported/23 partial/38 already/3 docs/
+5 excluded-balance/2 excluded-own, по1 historical/review.129 исходных
+коммитов ещё разбираются; all281/final actual HEAD Actions не завершены.
