@@ -564,6 +564,70 @@ int RunAmbientDecalTexture() {
   return 0;
 }
 
+class SurfaceLightingOptions: public NGScene::ICacheLightRender {
+  OBJECT_BASIC_METHODS(SurfaceLightingOptions);
+public:
+  bool unexpectedCacheCall=false;
+  int GetLightingOptions() override {return 3;}
+  void RenderCL(NGfx::CRenderContext*,NGScene::IRender*,CTransformStack*,NGScene::CSceneFragments*,bool) override {unexpectedCacheCall=true;}
+};
+int RunLitSurfaceAlpha() {
+  using namespace NGScene;
+  NGlobal::SetVar("gfx_blur_sun",0);
+  NGfx::SRenderTargetsInfo targets;targets.nRegisters=5;
+  if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 270;
+  CObj<NGfx::CTexture> diffuse=NGfx::MakeTexture(1,1,1,NGfx::SPixel8888::ID,NGfx::REGULAR,NGfx::CLAMP);
+  CObj<NGfx::CTexture> bump=NGfx::MakeTexture(1,1,1,NGfx::SPixel8888::ID,NGfx::REGULAR,NGfx::CLAMP);
+  CObj<NGfx::CTexture> lightmap=NGfx::MakeTexture(1,1,1,NGfx::SPixel8888::ID,NGfx::REGULAR,NGfx::CLAMP);
+  {NGfx::CTextureLock<NGfx::SPixel8888> lock(bump,0,NGfx::INPLACE);lock[0][0]=NGfx::SPixel8888(128,128,255,255);}
+  {NGfx::CTextureLock<NGfx::SPixel8888> lock(lightmap,0,NGfx::INPLACE);lock[0][0]=NGfx::SPixel8888(0,0,0,255);}
+  CObj<AmbientTextureNode> textureNode=new AmbientTextureNode(diffuse),bumpNode=new AmbientTextureNode(bump);
+  CObj<AmbientColorNode> color=new AmbientColorNode;CObj<AmbientVersionNode> version=new AmbientVersionNode;
+  CObj<SurfaceLightingOptions> options=new SurfaceLightingOptions;
+  CObj<CDirectionalLight> light=new CDirectionalLight(color,color,VNULL3,CVec3(0,0,-1),VNULL3,CVec2(1,1),
+    10,version,color,false,0,options,color,color);
+  CObjectInfo::SData data;
+  for(auto position:{CVec3(-.5f,.5f,.5f),CVec3(.5f,.5f,.5f),CVec3(.5f,-.5f,.5f),CVec3(-.5f,-.5f,.5f)}) {
+    SVertex vertex{};vertex.pos=position;vertex.tex=CVec2(.5f,.5f);
+    NGfx::CalcCompactVector(&vertex.normal,CVec3(0,0,1));NGfx::CalcCompactVector(&vertex.texU,CVec3(1,0,0));
+    NGfx::CalcCompactVector(&vertex.texV,CVec3(0,1,0));data.verts.push_back(vertex);
+  }
+  data.geometry.SetTriangles({STriangle(0,1,2),STriangle(0,2,3)});
+  CObj<CObjectInfo> mesh=new CObjectInfo;mesh->AssignFast(data);CObj<SelectionMeshNode> node=new SelectionMeshNode(mesh);
+  SDynamicAmbientInfo dynamic;dynamic.Clear();for(int i=0;i<6;++i)dynamic.GetVec4()[i]=CVec4(.25f,.25f,.25f,0);
+  for(int family=0;family<4;++family)for(int alpha:{128,0,255})for(int kind=0;kind<3;++kind) {
+    {NGfx::CTextureLock<NGfx::SPixel8888> lock(diffuse,0,NGfx::INPLACE);lock[0][0]=NGfx::SPixel8888(alpha/4,0,0,alpha);}
+    CObj<IMaterial> base=CreateMaterial(CVec3(1,1,1),textureNode,(family&1)?bumpNode.GetPtr():nullptr,0,VNULL3,
+      nullptr,nullptr,nullptr,0,0,(kind==0?MA_OPAQUE:MA_OVERLAY)|MA_2SIDED);
+    CObj<IMaterial> material=kind==2?base->GetExactDecal():base.GetPtr();
+    CObj<CNonePart> part=new CNonePart(node,material,SFullGroupInfo());
+    CObj<CAutomaticCombiner> parts=new CAutomaticCombiner;parts->AddPart(part);
+    CObj<LowRamCombinerProbe> vertices=new LowRamCombinerProbe(parts,LT_NONE,CT_STATIC);vertices->Prepare();
+    CObj<CIBCombiner> indices=new CIBCombiner(parts,LT_NONE,IBTT_VERTICES);
+    SRenderGeometryInfo geometry;geometry.pVertices=vertices.GetPtr();geometry.pTriLists[TLT_GEOM]=indices.GetPtr();geometry.pTriLists[TLT_POSITION]=indices.GetPtr();
+    CSceneFragments scene;SBound bound;mesh->CalcBound(&bound);CPartFlags flags;flags.Clear();flags.Set(0);
+    const int index=scene.AddGeometry(nullptr,&geometry,bound);
+    scene.AddElement(index,flags,material,family<2?lightmap.GetPtr():nullptr,family>=2?&dynamic:nullptr);
+    CTransformStack identity;identity.Init();NGfx::CRenderContext context;context.SetVirtualRT();
+    for(int reg=0;reg<5;++reg) {context.SetRegister(reg);context.ClearBuffers(0);}
+    context.SetRegister(0);context.SetTransform(identity.Get());context.SetCulling(NGfx::CULL_NONE);
+    context.SetDepth(NGfx::DEPTH_NORMAL);context.SetStencil(NGfx::STENCIL_NONE);context.SetAlphaCombine(NGfx::COMBINE_NONE);
+    context.SetVertexShader(vsConstLight);context.SetPixelShader(psDiffuse);context.SetVSConst(16,CVec4(0,0,1,0));
+    Draw(context,Quad(-1,1,1,-1,.5f));context.SetPSConst(4,CVec4(7,7,7,.25f));
+    light->Render(&identity,&identity,&context,RP_GF3_CL,nullptr,scene,SParticleLMRenderTargetInfo());
+    if(options->unexpectedCacheCall)return 271;
+    context.SetScreenRT();context.ClearBuffers(0);context.SetTransform(identity.Get());context.SetCulling(NGfx::CULL_NONE);
+    context.SetDepth(NGfx::DEPTH_NONE);context.SetStencil(NGfx::STENCIL_NONE);context.SetAlphaCombine(NGfx::COMBINE_NONE);
+    context.SetVertexShader(vsTexture);context.SetPixelShader(psTextureCopyAlpha);context.SetTexture(0,NGfx::GetRegisterTexture(0),true);
+    Draw(context,Quad(-1,1,1,-1,.5f));CArray2D<NGfx::SPixel8888> image;NGfx::MakeScreenShot(&image,false);
+    const auto& pixel=image[64][64];const int expectedAlpha=kind==0?255:alpha;
+    std::printf("native lit surface: family=%d kind=%d diffuseAlpha=%d pixel=%u,%u,%u,%u expectedAlpha=%d blue=%d\n",
+      family,kind,alpha,pixel.r,pixel.g,pixel.b,pixel.a,expectedAlpha,255-expectedAlpha);std::fflush(stdout);
+    if(abs(int(pixel.a)-expectedAlpha)>3 || abs(int(pixel.b)-(255-expectedAlpha))>3)return 272;
+  }
+  return 0;
+}
+
 int RunCubeTextureFiltering() {
   NGlobal::SetVar("gfx_anisotropic_filter",1);
   NGfx::SRenderTargetsInfo targets;
@@ -1435,6 +1499,7 @@ int main(int argc,char** argv) {
              argc>1 && std::string(argv[1])=="--graphics" ? RunGraphicsOptions() :
              argc>1 && std::string(argv[1])=="--shadow-pcf" ? RunShadowPcf() :
              argc>1 && std::string(argv[1])=="--specular-projection" ? RunSpecularProjection() :
+             argc>1 && std::string(argv[1])=="--lit-surface-alpha" ? RunLitSurfaceAlpha() :
              argc>1 && std::string(argv[1])=="--ambient-decal-texture" ? RunAmbientDecalTexture() :
              argc>1 && std::string(argv[1])=="--cube-filtering" ? RunCubeTextureFiltering() :
              argc>1 && std::string(argv[1])=="--render-param-alias" ? RunRenderParameterAlias() :

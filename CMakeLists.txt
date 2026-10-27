@@ -640,6 +640,8 @@ add_test(NAME SpecularProjectionRuntimeTests COMMAND BgfxRendererTests --specula
 add_test(NAME PartialGeometryRuntimeTests COMMAND BgfxRendererTests --partial)
 add_test(NAME IndexRingRuntimeTests COMMAND BgfxRendererTests --index-ring)
 add_test(NAME SelectionStencilRuntimeTests COMMAND BgfxRendererTests --selection-stencil)
+add_test(NAME UpstreamLitSurfaceAlpha COMMAND BgfxRendererTests --lit-surface-alpha)
+set_tests_properties(UpstreamLitSurfaceAlpha PROPERTIES LABELS "extended;native-display")
 add_test(NAME UpstreamAmbientDecalTexture COMMAND BgfxRendererTests --ambient-decal-texture)
 set_tests_properties(UpstreamAmbientDecalTexture PROPERTIES LABELS "extended;native-display")
 add_test(NAME UpstreamCubeTextureFiltering COMMAND BgfxRendererTests --cube-filtering)

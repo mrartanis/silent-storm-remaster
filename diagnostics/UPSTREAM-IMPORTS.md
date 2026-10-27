@@ -7802,3 +7802,87 @@ runners exit0; owned test games closed. Shared builds reused, no HD generation
 or old binary copies. Evidence ambient-decal-texture-{red,green,controls,
 final-related,final-linux,final-display,linux-display,final-ci} test/native-test
 and build logs. Sourcea3f remains partial; tracker281/112unfinished unchanged.
+
+
+## a3f330bb, lit surface alpha — distinguish opaque surfaces and decals
+
+Source a3f330bbd76d67d34c5ed897d253c52cc51692b6 adds four decal operation kinds
+for static/dynamic ambient x plain/bumped diffuse. The executor sets pixel
+constant4 per operation: opaque alpha1, decal diffuse alpha; static bumped
+decals also pass their intensity through p3.f instead of an irrelevant lightmap
+pointer. Matching shader byte tokens restore the original alpha/projection/
+shadow-term instructions. The human DSL stays consistent. All own current eight
+affected token streams decoded identically to the upstream parent before this
+change; no own shader correction was overwritten. No gameplay/balance edits.
+
+Native GPU RED1/1 .33s: actual public CDirectionalLight::Render(RP_GF3_CL),
+genuine material factory, CNonePart/automatic native vertex+index combiners,
+CSceneFragments, production shadow-stage/lighting producer/command executor,
+bgfx register0 and screenshot readback. Plain static opaque texture-alpha128
+produces RGBA255,0,0,128 where the surface must be opaque255 (failure272).
+The preliminary missing POSITION-index-list fixture crash is not counted as
+RED; add its valid matching full-vertex index list before the genuine alpha
+failure. No production probe, fake shader or hand-built expected operation.
+
+GREEN1/1 .35s covers36 cases: four actual shader families x opaque/overlay/exact
+x diffuse alpha128/0/255. Prime PSconstant4 with unrelated values every case.
+Seed blue background alpha0 and equal depth; check actual output alpha and
+remaining blue together. Opaque surfaces always output alpha255 and cover blue;
+both decal kinds preserve texture alpha and leave blue*(1-alpha). Tests also
+reach the real new producer opcodes and their executor constants, including
+static bumped p3 intensity. Lighting-options3 select the existing no-CL/no-shadow
+scene mode; the cache callback records any unexpected invocation. This is a
+real fixed native scene through the entire single-pass directional renderer,
+not a complete mission/CL-cache convergence or all shadow-quality modes claim.
+No special shader compiler case or replacement backend shader is introduced;
+our ordinary bgfx token-translation pipeline compiles the corrected bytes.
+
+Independent original-image proof: all eight replacement token streams decode
+EXACTLY as Gold original shader arrays, whose complete raw arrays each have one
+exact match in our immutable Steam image. Gold -> Steam / full array bytes:
+PerPixelFullTex4 95afc8->96c038/548, PS14 95b1f0->96c260/620;
+FastFullBump4 95b488->96c4f8/736, PS14 95b768->96c7d8/796;
+DynLMPerPixelTex4 95d1b0->96e220/400, PS14 95d340->96e3b0/444;
+DynLMPreciseBumpTex4 95d528->96e598/424, PS14 95d6d0->96e740/484.
+Saved lit-surface-alpha-retail-shader-oracle.json includes full-array SHA256,
+unique addresses and original decoded instructions. No masking or source-address
+comments substitute for these whole-array matches. Thus shader arithmetic is
+restored to retail, including its numerical behavior, rather than redesigned.
+
+Source-scope decisions for the remaining a3f hunks:
+- Keep our own maximum-quality cache policy. ApplyMaximumQuality deliberately
+  sets cube256; GInit passes that unchanged to pool allocation and point-shadow
+  downsampling. Upstream halves resolution and trades100 cubes for152 smaller
+  cubes. This is an allocation/quality policy, not a demonstrated defect in our
+  rewritten stable-sky/shared-pool ownership. Copying it would silently reduce
+  our chosen cube256 to128. Keep both our current resolution and capacity;
+  the separate256 refinement target is already present. Stable sky uses its own
+  transient render targets, not the upstream legacy cache ownership assumption.
+- Keep our guarded per-user/per-profile working-save root. Upstream moves temp
+  to a shared game-root directory. Our SaveSlot/LoadSlot/ClearSlot/DeleteSlot/
+  PrepareSlot/GetSlotFilePath already share SlotDirW/profile validation and
+  Unicode-safe paths. The global game-root workspace would lose our profile/
+  process isolation and writable user-data behavior. Functional missing normal
+  exit cleanup was separately ported in f034823b; lazy PrepareSlot immediately
+  before writing already exists. No further save-path change is appropriate.
+- Constructor placement/default/serialization, full64bit command keys, raw-bit
+  equality and bgfx live-anisotropy adaptations are recorded in the earlier
+  independent TDD sections. Harmless EOF/indentation hunks add no behavior.
+
+Final broad validation and source status follow below.
+
+Final validation: Windows ALL_BUILD and Linux Game/helpers succeed. Full native
+regressions480/480 Windows430.98s/Linux423.57s; native-display51/51 Windows76.00s/
+Linux62.95s; CI-like290/29024.67s, including VectorFontTests0failures. Raw480/480/
+51/51/290 complete, noNUL/Failed/NotRun/missing executable; actual runners exit0.
+The focused native GPU log contains all36 completed cases. Shared build trees
+reused; owned tests exit; no HD generation or old game/build copies. Evidence
+lit-surface-alpha-{red,green,final-full,final-linux,final-display,linux-display,
+final-ci} test/native-test logs, ALL_BUILD/Linux build logs, and original shader
+oracle JSON. No complete-HEAD hosted CI success is inferred from local checks.
+
+All useful a3f groups are now complete for this fork, with the explicit existing
+quality/storage adaptations above. Mark source imported. Tracker281: pending87,
+imported127, partial23, already-present32, documentation3, excluded-balance5,
+excluded-own2, historical1, review-final-version1;111 sources remain unfinished.
+The ALL281 goal and final actual-HEAD GitHub Actions verification stay open.

@@ -500,7 +500,9 @@ static void ExecOps( NGfx::CRenderContext *pRC, const vector<CRenderCmdList::SOp
 
 			// full fast render
 		case RO_DIFFUSE_FULL_LIT_TEXTURE_PP:
+		case RO_DIFFUSE_FULL_LIT_TEXTURE_PP_DECAL:
 			pRC->SetPixelShader( psPerPixelFullTex4 );
+			pRC->SetPSConst( 4, CVec4( 0, 0, 0, op.op == RO_DIFFUSE_FULL_LIT_TEXTURE_PP ? 1 : 0 ) );
 			pRC->SetVertexShader( vsPerPixelFullTex );//DirectionalLightTexturePP );
 			pRC->SetPSConst( 0, lightInfo.vLightPos );// * 0.5f + CVec4( 0.5f, 0.5f, 0.5f, 0.5f ) );
 			pRC->SetPSConst( 1, lightInfo.vLightColor );
@@ -513,7 +515,10 @@ static void ExecOps( NGfx::CRenderContext *pRC, const vector<CRenderCmdList::SOp
 			triListType = TLT_GEOM;
 			break;
 		case RO_DIFFUSE_FULL_LIT_BUMP_TEXTURE_PP:
+		case RO_DIFFUSE_FULL_LIT_BUMP_TEXTURE_PP_DECAL:
 			pRC->SetPixelShader( psFastFullBump4 );
+			// Retail uses diffuse alpha for decals, opaque alpha for the surface pass.
+			pRC->SetPSConst( 4, op.op == RO_DIFFUSE_FULL_LIT_BUMP_TEXTURE_PP ? CVec4(1,1,1,1) : CVec4(op.p3.f,op.p3.f,op.p3.f,0) );
 			pRC->SetVertexShader( vsFastFullBumpLight );
 			pRC->SetPSConst( 1, lightInfo.vAmbientColor );
 			pRC->SetPSConst( 2, lightInfo.vUpDifColor );
@@ -569,7 +574,9 @@ static void ExecOps( NGfx::CRenderContext *pRC, const vector<CRenderCmdList::SOp
 			triListType = TLT_GEOM;
 			break;
 		case RO_DIFFUSE_DYNLM_LIT_TEXTURE_PP:
+		case RO_DIFFUSE_DYNLM_LIT_TEXTURE_PP_DECAL:
 			pRC->SetPixelShader( psDynLMPerPixelTex4 );
+			pRC->SetPSConst( 4, CVec4( 0, 0, 0, op.op == RO_DIFFUSE_DYNLM_LIT_TEXTURE_PP ? 1 : 0 ) );
 			pRC->SetVertexShader( vsDynLMPerPixelTex );//DirectionalLightTexturePP );
 			pRC->SetVSConst( 25, op.p1.pDynamicAmbientInfo->GetVec4(), 6 );
 			pRC->SetPSConst( 0, lightInfo.vLightPos );//* 0.5f + CVec4( 0.5f, 0.5f, 0.5f, 0.5f ) );
@@ -580,7 +587,9 @@ static void ExecOps( NGfx::CRenderContext *pRC, const vector<CRenderCmdList::SOp
 			triListType = TLT_GEOM;
 			break;
 		case RO_DIFFUSE_DYNLM_LIT_BUMP_TEXTURE_PP:
+		case RO_DIFFUSE_DYNLM_LIT_BUMP_TEXTURE_PP_DECAL:
 			pRC->SetPixelShader( psDynLMPreciseBumpTex4 );
+			pRC->SetPSConst( 4, CVec4( 0, 0, 0, op.op == RO_DIFFUSE_DYNLM_LIT_BUMP_TEXTURE_PP ? 1 : 0 ) );
 			pRC->SetVertexShader( vsDynLMPreciseBumpTex );
 			pRC->SetVSConst( 25, op.p1.pDynamicAmbientInfo->GetVec4(), 6 );
 			pRC->SetTexture( 0, GetNormalizeTexture() );
