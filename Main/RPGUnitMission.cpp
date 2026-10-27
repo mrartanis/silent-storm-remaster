@@ -1098,7 +1098,7 @@ int CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, CAttackPor
 		switch ( nUserID )
 		{
 		case NAI::HL_HEAD:
-			fDmgModifier = 1.2f;
+			fDmgModifier = 1.5f;
 			break;
 		case NAI::HL_RHAND:
 		case NAI::HL_LHAND:

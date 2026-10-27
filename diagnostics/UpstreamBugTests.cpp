@@ -16099,6 +16099,43 @@ static void PKPlacement()
     Require(position.IsFinal() && CanPlacePK(network.GetPtr(), position, 0), "flying PK restoration was rejected");
 }
 
+static void HeadBodyDamage(const char* databasePath)
+{
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
+    auto* persona=NDb::GetPers(103);auto* armor=NDb::GetArmor(NDb::N_HUMAN_BODY_ARMOR);
+    Require(IsValid(persona) && IsValid(persona->pClass) && !IsValid(persona->pPanzerklein) &&
+        armor && IsValid(armor->pMaterial),"head damage fixture lacks its native persona/body armor");
+    int damageType=-1;
+    CDBIterator<NDb::CRPGDmgToArmor> types(*NDatabase::GetTable<NDb::CRPGDmgToArmor>());
+    while(types.MoveNext()) if(types.Get()->armors[armor->pMaterial->nDR]>0) { damageType=types.Get()->GetRecordID();break; }
+    Require(damageType>=0,"head damage fixture has no authored flesh damage type");
+    auto hit=[&](NAI::EHitLocation location,int expected,int base=40) {
+        CObj<NRPG::CUnit> unit=new NRPG::CUnit(persona);
+        CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(unit);
+        const int before=unit->Skills(NDb::ST_VP);auto* inventory=unit->GetInventory();
+        Require(before>80 && unit->nHealedVP==0 && !mission->GetPanzerklein(),
+            "head damage fixture needs an ordinary living target without healed HP");
+        NRPG::CAttackPortion portion(100000,damageType,0.f,base,base,0,0,nullptr,mission,1.f,-1);
+        Require(portion.CanDealDmg(armor) && portion.CalcStructDmg(nullptr,armor,0)==base,
+            "head damage control did not retain its exact native base flesh damage");
+        auto expectedRandom=GlobalGameRandom();expectedRandom.Get(100);
+        const int damage=mission->ProcessAttack(nullptr,location,&portion,nullptr);
+        auto actualRandom=GlobalGameRandom();
+        for(int next=0;next<4;++next)Require(actualRandom.Get()==expectedRandom.Get(),
+            "head damage multiplier changed native noncritical damage random draws");
+        Require(!mission->IsDead() && !mission->IsUnconscious() && unit->GetInventory()==inventory &&
+            damage==before-int(unit->Skills(NDb::ST_VP)),
+            "head damage fixture did not apply its reported nonfatal damage to actual VP");
+        std::printf("native body-part damage: location=%d base=%d actual=%d expected=%d\n",int(location),base,damage,expected);
+        std::fflush(stdout);
+        Require(damage==expected,"native head damage does not match the original retail multiplier");
+    };
+    hit(NAI::HL_BODY,40);hit(NAI::HL_RHAND,28);hit(NAI::HL_LHAND,28);
+    hit(NAI::HL_RLEG,34);hit(NAI::HL_LLEG,34);
+    hit(NAI::HL_HEAD,60);
+    hit(NAI::HL_HEAD,61,41);hit(NAI::HL_HEAD,1,1);
+}
+
 static void FreshSkillModifierValues(const char* databasePath)
 {
     CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
@@ -17399,6 +17436,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "conclusions") && argc == 4) { ConclusionRouting(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "pk-placement")) { PKPlacement(); return true; }
     if (!std::strcmp(mode, "critical-ids") && argc == 3) { CriticalIDs(argv[2]); return true; }
+    if (!std::strcmp(mode, "head-body-damage") && argc==3) { HeadBodyDamage(argv[2]); return true; }
     if (!std::strcmp(mode, "fresh-skill-modifier-values") && argc==3) { FreshSkillModifierValues(argv[2]); return true; }
     if (!std::strcmp(mode, "health-survival-threshold") && argc==3) { HealthSurvivalThreshold(argv[2]); return true; }
     if (!std::strcmp(mode, "empty-critical-application") && argc == 3) { EmptyCriticalApplication(argv[2]); return true; }

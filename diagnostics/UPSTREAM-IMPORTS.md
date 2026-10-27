@@ -5027,3 +5027,48 @@ linux-wire-{test,native-test}.log, ci-{test,native-test}.log, ci-tests.txt.
 25partial/38already/3docs/5excluded-balance/2excluded-own, по1historical/review.
 128 исходных коммитов ещё разбираются. Все281 и итоговый actual HEAD GitHub
 Actions ещё не завершены; локальный CI-like не выдаётся за hosted CI.
+
+
+## Исходный множитель обычного попадания в голову — частьdfb4e99b
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/dfb4e99b50118531a3f641f46ba22c88ae38314f
+
+Независимый original Steam oracle (SHA256
+4F417593A9F73E2BFDE12D83CDBD694AE47EECB92812140D67B8B343E4A95705):
+switch table0x6c4658 прочитана из PE как6DWORDs
+[6c4060,6c4042,6c404c,6c404c,6c4056,6c4056]. Это BODY0=1.0,
+HEAD1=IEEE3fc00000=1.5 по6c4042, RH/LH=.7, RL/LL=.85. HL ordinals совпадают
+с native aiPosition.h. Адрес source другой сборки6c4092 не принят на веру.
+Файл head-damage-retail-lookahead.txt содержит дизассемблирование и проверку
+jump table; оригинальный EXE не запускался и не менялся.
+
+Native compiled RED с первого запуска: реальный persona103/нативная mission,
+authored human armor и разрешённый damage type, fixed damage40/K100000,
+critical0/attackerNULL/targetself/noKO−1. BODY40/RH28/LH28/RL34/LL34 проходят,
+HEAD возвращает48 вместо исходных60. Native CalcStructDmg positive control
+сам подтверждает base40. Nullworld — поддержанный contract без difficulty
+multipliers; не claim о projectile collision или полном world damage dispatch.
+
+Перенесена только одна строка множителя1.2→1.5 в RPGUnitMission.ProcessAttack.
+GREEN head40→60,41→61 (прежнее truncation),1→1, остальные parts unchanged.
+Возвращённый damage равен потере actual VP, target не погибает/не теряет сознание,
+inventory тот же. Для каждого hit clone shared ISAAC подтверждает прежний один
+KO draw и4 последующих слова, без лишних draws. Это игровая RPG механика,
+собственная лицевая анимация не затрагивается. Повышение относительно текущей
+реконструкции возвращает исходный баланс, а не меняет правило оригинала.
+
+Windows23/2320.75с, Linux19/1914.80с: связанные critical/perk/training/preview
+проверки, Windows3network. Both Game и Windows ALL_BUILD собраны, raw23/19 полные
+без NUL. Font-specific tests в этом narrow profile не запускались; последний
+full/fonts checkpoint49154b89:386/386,17audio/12fonts и CI-like280/280.
+Свидетельства head-body-damage: red/green-{build,test,native-test}.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log. Новых копий сборок/HD generation нет.
+
+dfb4e99b остаётся partial: level-based critical severity loop также найден
+статически в исходном EXE6c40b0..6c40d1, но требует собственного native RED
+и адаптации к нашему persisted shared/network RNG. Здесь RNG/difficulty/
+critical selection/called-shot rules не менялись. Статус281:101pending/
+104imported/26partial/38already/3docs/5excluded-balance/2excluded-own,
+по1historical/review.128 исходных коммитов ещё разбираются. CPUbase380;
+свежий full387/CI не заявляется. Все281 и final actual HEAD Actions не завершены.
