@@ -1362,6 +1362,23 @@ void CMission::InternalStep()
 			tLastCurrentPlayerChange = GetUITime();
 	}
 
+	// Retail GameStep updates this policy each frame (Steam @0x602204). Keep the
+	// fork's network save prohibition; HQ only overrides single-player difficulty.
+	if ( !networkWorld && !networkSession && IsValid( GetRPGGame()->pDifficulty ) )
+	{
+		if ( pWorld->IsBase() )
+			bCanSave = true;
+		else
+		{
+			switch ( GetRPGGame()->pDifficulty->canSave )
+			{
+			case NDb::E_CS_CHAPTER: bCanSave = false; break;
+			case NDb::E_CS_REALTIME: bCanSave = IsRealTime() && !IsSequence(); break;
+			case NDb::E_CS_ALWAYS: bCanSave = true; break;
+			}
+		}
+	}
+
 	// retail CMissionBase::InternalStep @0x1a29f0: on a turn change (hot-seat) just Deactivate ->
 	// swap pActivePlayer -> Activate. NO camera copies -- each tracker OWNS its camera (tag 10) and
 	// the GetCamera selector (@0x1a1ee0) switches with the active player automatically.

@@ -83,6 +83,8 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/iOptionsMenu.h"
 #include "../Main/iSideMenu.h"
 #include "../Main/iHeroMenu.h"
+#include "../Main/NetworkWorld.h"
+#include "../Main/iNetworkMenu.h"
 #include "../Main/iInGameMenu.h"
 #include "../Main/iLoseFake.h"
 #include "../Main/iExitMenu.h"
@@ -3827,6 +3829,143 @@ static void HotseatDialogTemplate(const char* databasePath,const char* resourceP
     for (auto child: rootChildren) if (child->GetWindowID() == "playerswitch") ++dialogs;
     Require(dialogs == 1 && mission->GetInterface()->GetChildByID("playerswitch") == dialog.GetPtr(),
         "showing the hotseat dialog duplicated it or lost its root attachment");
+}
+
+static void MissionSavePolicy(const char* databasePath,const char* resourcePath,bool network = false)
+{
+    Require(std::getenv("S2_USER_DATA_DIR"),"mission save-policy fixture requires isolated user data");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm live save policy regression");
+    NDb::CDBDifficulty* records[3]={};
+    CDBIterator<NDb::CDBDifficulty> difficulties(*NDatabase::GetTable<NDb::CDBDifficulty>());
+    while(difficulties.MoveNext()) {
+        auto* record=difficulties.Get();
+        std::printf("native save policy control: record=%d name=%s canSave=%d\n",record->GetRecordID(),record->szUserName.c_str(),int(record->canSave));
+        if(int(record->canSave)>=0 && int(record->canSave)<3 && !records[int(record->canSave)])records[int(record->canSave)]=record;
+    }
+    std::fflush(stdout);
+    Require(records[NDb::E_CS_ALWAYS] && records[NDb::E_CS_REALTIME],"save policy fixture lacks its authored realtime/always records");
+    NMainLoop::CreateProfile(network?"UpstreamNetworkSavePolicy":"UpstreamMissionSavePolicy");
+    NMainLoop::SetActiveProfile(network?"UpstreamNetworkSavePolicy":"UpstreamMissionSavePolicy");
+    auto* manager=NMainLoop::GetSaveManager();
+    struct SlotCleanup {NMainLoop::CSaveManager* manager;~SlotCleanup(){manager->DeleteSlot(NMainLoop::S_SLOT_ACTIVE);}} slots{manager};
+    NGame::InitLoadingScreen();
+    CObj<NGame::CMission> mission;CObj<NRPG::CGlobalGame> game;
+    std::shared_ptr<S2Net::NetworkWorld> netWorld;std::shared_ptr<S2Net::NetworkSession> session;
+    if(network) {
+        S2Net::NetworkMatchPreset preset;preset.prepareOnBase=true;preset.squadSize=1;
+        netWorld=std::make_shared<S2Net::NetworkWorld>(true,preset);netWorld->Initial();
+        session=std::make_shared<S2Net::NetworkSession>(S2Net::Compatibility{"save-policy-regression","data"},netWorld->Callbacks());session->Host(0);
+        NGame::OpenNetworkMission(netWorld,session);
+        CObj<NMainLoop::CInterfaceCommand> open=NMainLoop::TakeInterfaceCommandForHarness();
+        Require(open && !NMainLoop::HaveInterfaceCommand(),"save policy fixture lost its queued real LAN mission command");open->Exec();
+        mission=dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());
+        Require(mission && netWorld->IsPreparing() && mission->GetWorld()==netWorld->Match().world.GetPtr(),
+            "save policy fixture did not initialize the actual LAN preparation mission");
+        game=netWorld->Match().game;
+    } else {
+        game=NRPG::CreateGlobalGame(-1,records[NDb::E_CS_ALWAYS]);
+        game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+        CObj<NGame::CICBeginMission> enter=new NGame::CICBeginMission(810,-1,vector<string>(),game);enter->Exec();
+        mission=dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());
+        Require(mission,"save policy fixture failed to open its actual native tactical mission");
+        CObj<NMainLoop::CInterfaceCommand> snapshot=NMainLoop::TakeInterfaceCommandForHarness();
+        Require(dynamic_cast<NMainLoop::CICSaveFile*>(snapshot.GetPtr()) && !NMainLoop::HaveInterfaceCommand(),"save policy fixture did not isolate its actual restart snapshot");snapshot->Exec();
+        Require(!mission->GetWorld()->IsBase(),"tactical save-policy fixture unexpectedly entered HQ");
+        mission->PauseGame(true);
+    }
+    auto frame=[&]() {
+        Require(NMainLoop::StepApp(true,false,false) && NMainLoop::GetCurrentInterfaceForHarness()==mission.GetPtr() && !NMainLoop::HaveInterfaceCommand(),
+            "save policy fixture lost its actual native mission/frame");
+    };
+    auto allowed=[&]() {
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(mission,&refs);
+        CMemoryStream base;
+        {CStructureSaver writer(base,CStructureSaver::WRITE,&refs);mission->NGame::CMissionBase::operator&(writer);}
+        base.Seek(0);bool value=false;
+        {CStructureSaver reader(base,CStructureSaver::READ,&refs);reader.Add(30,&value);}return value;
+    };
+    auto check=[&](NDb::ECanSave policy,bool expected,const char* stage) {
+        game->pDifficulty=records[policy];frame();
+        const bool actual=allowed();
+        std::printf("native save policy: network=%d stage=%s policy=%d realtime=%d sequence=%d actual=%d expected=%d\n",int(network),stage,
+            int(policy),int(mission->IsRealTime()),int(mission->IsSequence()),int(actual),int(expected));std::fflush(stdout);
+        Require(actual==expected,"actual mission frame did not recompute the original save policy or preserve the LAN save prohibition");
+    };
+    if(network) {
+        Require(game->pDifficulty==NDb::GetDBDifficulty(2) && !allowed(),"actual LAN preparation lost its original fork difficulty2/save prohibition");
+        for(auto policy:{NDb::E_CS_ALWAYS,NDb::E_CS_REALTIME,NDb::E_CS_ALWAYS})check(policy,false,"LAN-preparation");
+        game->pDifficulty=NDb::GetDBDifficulty(2);frame();
+        Require(!allowed(),"restoring the own LAN difficulty enabled mission saves");
+        NMainLoop::DoneInterface();return;
+    }
+    auto checkMenu=[&](bool expected) {
+        NInput::SEvent event;while(NInput::GetEvent(&event)) {}
+        NInput::PostEvent("savemenu");
+        Require(NInput::GetEvent(&event) && mission->ProcessEvent(event),"live save policy fixture did not dispatch its native Save-menu binding");
+        CObj<NMainLoop::CInterfaceCommand> command=NMainLoop::TakeInterfaceCommandForHarness();
+        Require(dynamic_cast<NGame::CICSaveLoadMenu*>(command.GetPtr()) && !NMainLoop::HaveInterfaceCommand(),"live save policy did not open the actual save/load menu");command->Exec();
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(NMainLoop::GetCurrentInterfaceForHarness(),&refs);
+        bool permission=!expected;NGame::ESaveLoadType mode=NGame::SAVE;CPtr<NUI::CWindow> page;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&permission);reader.Add(3,&mode);reader.Add(6,&page);}
+        Require(permission==expected && mode==(expected?NGame::SAVE:NGame::LOAD) && page,"live mission permission did not reach its actual Save/Load dialog");
+        CStructureNetworkContext pageRefs;auto pageFields=BorrowedObjectFields(page,&pageRefs);CPtr<NUI::CWindow> view;
+        {CStructureSaver reader(pageFields,CStructureSaver::READ,&pageRefs);reader.Add(4,&view);}
+        Require(view && pSSClasses->GetObjectTypeID(view)==int(expected?0xB1014135:0xB1014134),"live save policy opened the wrong native Save/Load view");
+        CObj<NMainLoop::CICExitModal> close=new NMainLoop::CICExitModal;close->Exec();
+        Require(NMainLoop::GetCurrentInterfaceForHarness()==mission.GetPtr(),"closing the live policy dialog lost the original mission");
+        std::printf("native live save dialog: allowed=%d view=%s\n",int(expected),expected?"SAVE":"LOAD");
+    };
+    Require(mission->IsRealTime() && !mission->IsSequence(),"save policy fixture did not start in native realtime outside a sequence");
+    check(NDb::E_CS_ALWAYS,true,"realtime-positive");
+    check(NDb::E_CS_REALTIME,true,"realtime");
+    auto* world=dynamic_cast<NWorld::CWorld*>(mission->GetWorld());Require(world,"save policy fixture lost its real world");
+    world->AddUICommand(new NWorld::CUICmdBeginSequence(true));frame();
+    Require(mission->IsSequence() && mission->IsRealTime(),"save policy fixture did not enter the real native UI sequence");
+    check(NDb::E_CS_REALTIME,false,"sequence");
+    check(NDb::E_CS_ALWAYS,true,"always-in-sequence");
+    world->AddUICommand(new NWorld::CUICmdEndSequence(true,true));frame();
+    Require(!mission->IsSequence(),"save policy fixture did not leave the native UI sequence");
+    check(NDb::E_CS_REALTIME,true,"after-sequence");
+    auto* player=dynamic_cast<NWorld::CPlayer*>(mission->GetActivePlayer()->GetPlayer());Require(player,"save policy fixture lacks its actual native player");
+    world->GivePlayerTurn(player);Require(!mission->IsRealTime(),"save policy fixture did not start a native player turn");
+    check(NDb::E_CS_REALTIME,false,"turn-based");checkMenu(false);
+    check(NDb::E_CS_ALWAYS,true,"always-in-turn");
+    world->EndOfTurn();Require(mission->IsRealTime(),"save policy fixture did not return to real time after ending its native turn");
+    check(NDb::E_CS_REALTIME,true,"after-turn");checkMenu(true);
+    // The shipped DB has Easy=ALWAYS, Normal/Hard=REALTIME and no CHAPTER
+    // record. Exercise enum0 on a separate full native in-memory record; never
+    // mutate the authored DB or present this as an existing difficulty choice.
+    CObj<NDb::CDBDifficulty> chapter=new NDb::CDBDifficulty;CMemoryStream savedDifficulty;
+    {CStructureSaver writer(savedDifficulty,CStructureSaver::WRITE);records[NDb::E_CS_ALWAYS]->operator&(writer);}
+    savedDifficulty.Seek(0);
+    {CStructureSaver reader(savedDifficulty,CStructureSaver::READ);chapter->operator&(reader);}
+    chapter->canSave=NDb::E_CS_CHAPTER;records[NDb::E_CS_CHAPTER]=chapter.GetPtr();
+    Require(chapter.GetPtr()!=NDb::GetDBDifficulty(1) && NDb::GetDBDifficulty(1)->canSave==NDb::E_CS_ALWAYS &&
+        chapter->fAPCoeff==NDb::GetDBDifficulty(1)->fAPCoeff && chapter->fVPCoeff==NDb::GetDBDifficulty(1)->fVPCoeff,
+        "test-defined chapter policy changed an authored difficulty record or coefficients");
+    check(NDb::E_CS_CHAPTER,false,"test-defined-chapter");
+    check(NDb::E_CS_ALWAYS,true,"restored-authored-always");
+    NMainLoop::DoneInterface();
+    auto* campaign=NDb::GetGlobalMap(3);
+    Require(campaign && IsValid(campaign->pScenario) && IsValid(campaign->pBaseZone),"save policy HQ fixture lacks its authored campaign/base");
+    game=NRPG::CreateGlobalGame(campaign->pScenario->GetRecordID(),records[NDb::E_CS_REALTIME]);
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    game->players.front()->pSide=NScenario::GetSideForScenario(game->pScenarioTracker);
+    auto* base=game->pScenarioTracker->GetZoneByDBZone(campaign->pBaseZone);
+    Require(base,"save policy HQ fixture did not construct its actual scenario base zone");
+    CObj<NGame::CICBeginMission> enterBase=new NGame::CICBeginMission(base,-1,vector<string>(),game);enterBase->Exec();
+    mission=dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(mission && mission->GetWorld()->IsBase(),"save policy fixture did not enter an actual original HQ world");
+    CObj<NMainLoop::CInterfaceCommand> snapshot=NMainLoop::TakeInterfaceCommandForHarness();
+    Require(dynamic_cast<NMainLoop::CICSaveFile*>(snapshot.GetPtr()) && !NMainLoop::HaveInterfaceCommand(),"HQ save policy fixture lost its actual restart snapshot");snapshot->Exec();
+    mission->PauseGame(true);
+    check(NDb::E_CS_CHAPTER,true,"HQ-test-defined-chapter");
+    world=dynamic_cast<NWorld::CWorld*>(mission->GetWorld());Require(world,"HQ save policy fixture lost its actual world");
+    world->AddUICommand(new NWorld::CUICmdBeginSequence(true));frame();
+    Require(mission->IsSequence(),"HQ save policy fixture did not enter a native UI sequence");
+    check(NDb::E_CS_REALTIME,true,"HQ-realtime-in-sequence");
+    check(NDb::E_CS_ALWAYS,true,"HQ-always-in-sequence");
+    NMainLoop::DoneInterface();
 }
 
 static void MissionSaveMenu(const char* databasePath,const char* resourcePath,bool quickSave = false)
@@ -18833,6 +18972,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-authored-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-script-cadence") && argc == 4) { MainMenuMapScript(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "mission-save-policy") && argc==4) { MissionSavePolicy(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "mission-network-save-policy") && argc==4) { MissionSavePolicy(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "side-menu-selected-style") && argc==4) { SideMenuSelectedStyle(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "side-menu-difficulty-mapping") && argc==4) { SideMenuDifficultyMapping(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "options-pen-cursor") && argc==4) { OptionsPenCursor(argv[2],argv[3]); return true; }

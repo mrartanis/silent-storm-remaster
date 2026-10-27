@@ -6517,3 +6517,62 @@ Evidence side-selected-style-{baseline,green,related,linux-related,ci}-native-te
 и7/7 с361maps на f74ab551 уже GREEN. Balance rules не менялись.
 Source02d85e5b остаётся partial, теперь открыт только live canSave policy;
 tracker121 незавершённая запись, цельALL281 ещё выполняется.
+
+
+## Mission: recompute original save permissions, preserve own LAN prohibition
+
+Последний независимый hunk
+[02d85e5b939ac897f726293b37f30b55d0f2ff72](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/02d85e5b939ac897f726293b37f30b55d0f2ff72).
+Настоящая CMission810 после положительных ALWAYS/realtime controls продолжала
+разрешать Save при realtime1/sequence1 и authored REALTIME difficulty.
+Compiled runtime RED1.51с captured в final-baseline. Перед правкой настоящая
+инициализированная LAN preparation прошла3.98с: difficulty2/savefalse.
+
+Original oracle: GoldPDB CMission::GameStep5fda20/1079, vtable8ab2a4 slot87;
+Steam RTTI descriptor97b76c/COL8e8d70/vtable8ba394 slot90=602160. Индекс
+изменился с ABI; Steam slot87=696440 и короткий prefix не подошли и не
+выдаются за совпадение. Проверена настоящая policy602204..255/60230a..341:
+IsBase -> true; CHAPTER0 -> false; REALTIME1 -> IsRealTime && !IsSequence;
+ALWAYS2 -> true; invalid/unknown сохраняют предыдущее значение. Вызовы50/44
+соответствуют slot20 IsRealTime (Gold59fbe0/Steam5a24c0) и slot17 IsSequence
+(Gold5f79d0/Steam5fbf50). Source VA6020f4 для этого exe не использован.
+Evidence save-policy-retail-{lookup,disassembly}, save-policy-gold-disassembly.
+
+Минимальный production fix —17 строк в CMission::InternalStep после refresh
+current-player, перед обработкой UI commands, как original GameStep. Добавлен
+обязательный own guard networkWorld/networkSession: штатный LAN savefalse
+сохраняется и в подготовке, и при ALWAYS. Ни save fields/tags, ни gameplay
+coefficients, ни facial/HiRes/HD системы не менялись.
+
+Native GREEN2/2 6.40с использует настоящие SDL/bgfx frames/CMission/CWorld,
+CUICmdBegin/EndSequence, GivePlayerTurn/EndOfTurn. Solo paused останавливает
+физику, сохраняя реальные game-step/UI paths. Policy считается перед UI drain,
+поэтому изменение sequence проверяется на следующем шаге. Реальная Save-menu
+привязка открывает native CLoadView при запрете в TBS и CSaveView после realtime,
+закрытие возвращает ту же mission. Отдельно создан настоящий scenario/base
+campaign3 через GetZoneByDBZone и CICBeginMission: HQ разрешает даже во время
+sequence и при CHAPTER. IsBase/IsRealTime/IsSequence не подменялись.
+
+Текущая DB содержит только3difficulty: Easy1 canSave2, Normal2/Hard3 canSave1.
+CHAPTER0 отсутствует; его ветвь проверяется только на отдельной полной native
+serialized in-memory копии Easy, изменён только её canSave, authored DB не
+мутируется. Первые fixture failures из-за неверного ожидания chapter record и
+неисполненного queued OpenNetworkMission отдельно сохранены; они не gameplay
+RED. После их устранения primary RED и LAN positive получены до production fix.
+LAN fixture действительно открывает свой CMission/renderer/preparation, проверяет
+savefalse при ALWAYS/REALTIME/ALWAYS, затем восстанавливает обычную DB2.
+Полные сетевые бои/физический F-key этими двумя cases не заявляются.
+
+Оба Game и Windows ALL_BUILD собраны. Свежие расширенные Windows441/441
+405.41с и Linux441/441388.57с: по38native-display/24native-audio/12FONT-COMPAT,
+включая обе SideMenu regression и portable map/Lua diagnostics. Own7Network
+184.99с, в том числе361/361maps129.57с (deployment+replica, не полные бои).
+CI-like284/28424.49с, fonts12. Raw441/441/7/284 полные, без NUL/missing/Failed;
+actual CTest exit0 подтверждён. Evidence mission-save-policy-{final-baseline,
+final-controls,full,linux-full,network,ci}-native-test.log и соответствующий stdout.
+Ранее существующие Save/QuickSave native fixtures также прошли без ослабления.
+
+Source02d85e5b теперь imported: все его независимые hunks завершены. Tracker281:
+96pending/118imported/23partial/32already/3docs/5excluded-balance/2excluded-own/
+1historical/1review —120 незавершённых записей. Общая цельALL281 и проверка
+final actual-HEAD GitHub Actions остаются открыты; не выдаём эту часть за конец.
