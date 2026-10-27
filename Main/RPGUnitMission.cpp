@@ -1625,6 +1625,8 @@ bool CUnitMission::RemoveCritical( NDb::ECritical eCritical )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitMission::ApplyCritical( CCritical *p )
 {
+	if ( !IsValid( p ) )
+		return;
 	for ( vector<CObj<CCritical> >::iterator i = criticals.begin(); i != criticals.end(); ++i )
 	{
 		if ( !(*i)->CanBeMerged() )

@@ -4355,3 +4355,46 @@ UPSTREAM-BALANCE-CHANGES.md. Они исключены из текущего no-
 по1 historical/review/excluded-own и5 excluded-balance.137 исходников ещё
 разбираются, не137 заранее определённых fix commits. Последний полный
 checkpoint остаётся4da43aaf:371/371 обе платформы/CI-like277.
+
+## Пустой critical при уже действующем ранении — адаптация853fbb71
+
+UpstreamEmptyCriticalApplication создаёт authored ordinary CUnit/mission.
+В текущем release/NDEBUG коде CreateCritical(C_NONE) возвращает null.
+ApplyCritical(C_NONE) без ранений корректно ничего не меняет.
+Следующий valid control устанавливает настоящий CAPCritical: AP max55->28,
+duration3. Затем повторное public ApplyCritical(C_NONE) приводит к native
+SEGFAULT при Merge(null). Первый RED не сохранил buffered stdout; добавлен
+только fflush для контрольного сообщения и RED повторён до production
+изменения. В окончательном raw виден успешно установленный valid modifier
+непосредственно перед падением. Это API-level native repro, не replay
+конкретного пользовательского save; debug assertion policy factory не меняется.
+
+После RED добавлен только ранний IsValid guard в ApplyCritical(CCritical*).
+GREEN: два пустых применения при активном ранении сохраняют тот же объект,
+duration/value, все skills/value/XP part/progress/max, общий XP и inventory.
+Список типов, Merge rules, AP penalties и медицинские правила не заменены.
+
+Соседняя часть upstream сбрасывает nBleedingStopAmount при новом bleeding.
+В нашем форке этот private member сейчас только объявлен, инициализирован
+и сериализуется (tag35); runtime consumers/producers отсутствуют.
+Поэтому запись в неиспользуемое поле не переносилась; схема/старое значение
+сейва сохранены. Возможный эффект после будущего medical restoration
+описан в UPSTREAM-BALANCE-CHANGES.md. Все применимые части853 разобраны:
+source imported в этой адаптации, без заявления о переносе bleeding policy.
+
+Target3/3; связанные16/16 Windows (7.43 с) и15/15 Linux (6.52 с),
+обе Game и Windows ALL_BUILD, по12 FONT-COMPAT/raw полные без NUL.
+Первый Linux набор выбрал несобранный PortableCriticalTests: остальные14
+прошли, этот тест Not Run. Target собран в прежнем build; повтор15/15.
+NativeCriticalTests есть в Windows inventory, Linux использует portable
+counterpart; отсюда разница количества. NetworkSerializer/StopResume2/2
+(3.99 с). CPU base367; полный checkpoint4da43aaf base366+5=371/CI-like277.
+
+Свидетельства empty-critical-application: unflushed-{build,test,native-test}.log,
+red-{build,test}.log, red-native-test.log, green-{build,test}.log,
+green-native-test.log, all-build.log, related-test.log,
+linux-{configure,build,test}.log, linux-unbuilt-{test,native-test}.log,
+{windows,linux}-native-test.log и network-{test,native-test}.log.
+Статус281:114 pending/97 imported/21 partial/38 already/3 docs/5 excluded-balance,
+по1 historical/review/excluded-own;136 исходных коммитов ещё разбираются.
+All281/final actual Actions не завершены.

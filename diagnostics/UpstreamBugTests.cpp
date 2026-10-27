@@ -15436,6 +15436,59 @@ static void PKPlacement()
     Require(position.IsFinal() && CanPlacePK(network.GetPtr(), position, 0), "flying PK restoration was rejected");
 }
 
+static void EmptyCriticalApplication(const char* databasePath)
+{
+    CFileStream database; database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    NDb::CRPGPers* persona = nullptr;
+    CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while (people.MoveNext()) {
+        auto* candidate = people.Get();
+        if (IsValid(candidate->pClass) && IsValid(candidate->pBaseValue) && IsValid(candidate->pModel) &&
+            IsValid(candidate->pName) && !IsValid(candidate->pPanzerklein) &&
+            !IsValid(candidate->pDefaultWearsPanzerklein)) { persona = candidate; break; }
+    }
+    Require(persona != nullptr,"empty-critical fixture has no authored ordinary classed persona");
+    CObj<NRPG::CUnit> unit = new NRPG::CUnit(persona);
+    CObj<NRPG::IUnitMission> mission = NRPG::CreateUnit(unit);
+    auto fields = [&]() {
+        vector<float> result;
+        result.push_back(unit->fXP);
+        for (int skill=0;skill<NDb::SKILL_TYPE_NUMBERS;++skill) {
+            const auto& value = unit->Skills(skill);
+            result.push_back(int(value)); result.push_back(value.GetXPPart());
+            result.push_back(value.GetProgress()); result.push_back(value.GetMaxValue());
+        }
+        return result;
+    };
+    const NRPG::SCritical none(NDb::CL_ANY,NDb::C_NONE);
+    const auto initial = fields();
+    Require(NRPG::CreateCritical(none) == nullptr,"C_NONE no longer resolves to an empty native critical");
+    mission->ApplyCritical(none);
+    Require(fields() == initial && !mission->HasCritical(NDb::C_NONE),
+        "empty critical changed a native mission without active injuries");
+    const int originalAP = unit->Skills(NDb::ST_AP).GetMaxValue();
+    mission->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_AP_REDUCTION,3,2.f));
+    NRPG::CCritical* injury = nullptr;
+    Require(mission->HasCritical(NDb::C_AP_REDUCTION,&injury) && injury &&
+        unit->Skills(NDb::ST_AP).GetMaxValue() < originalAP,
+        "valid-critical control did not install its native AP modifier");
+    const auto affected = fields();
+    const int remaining = injury->GetRemainingTime(); const float value = injury->GetValue();
+    auto* inventory = mission->GetInventory();
+    std::printf("native empty-critical control: AP=%d reduced=%d duration=%d\n",
+        originalAP,unit->Skills(NDb::ST_AP).GetMaxValue(),remaining);
+    std::fflush(stdout);
+    for (int repeat=0;repeat<2;++repeat) {
+        mission->ApplyCritical(none);
+        NRPG::CCritical* retained = nullptr;
+        Require(fields() == affected && mission->HasCritical(NDb::C_AP_REDUCTION,&retained) && retained == injury &&
+            retained->GetRemainingTime() == remaining && retained->GetValue() == value &&
+            !mission->HasCritical(NDb::C_NONE) && mission->GetInventory() == inventory,
+            "ignoring an empty critical changed an existing injury, modifiers, training or inventory");
+    }
+}
+
 static void CriticalIDs(const char* databasePath)
 {
     CFileStream database;
@@ -16518,6 +16571,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "conclusions") && argc == 4) { ConclusionRouting(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "pk-placement")) { PKPlacement(); return true; }
     if (!std::strcmp(mode, "critical-ids") && argc == 3) { CriticalIDs(argv[2]); return true; }
+    if (!std::strcmp(mode, "empty-critical-application") && argc == 3) { EmptyCriticalApplication(argv[2]); return true; }
     if (!std::strcmp(mode, "idle-blocker") && argc == 4) { IdlePathBlocker(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hidden-portrait")) { HiddenPortraitAck(); return true; }
     if (!std::strcmp(mode, "clue-initialization")) { ClueInitialization(); return true; }
