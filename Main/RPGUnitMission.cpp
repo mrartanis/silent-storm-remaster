@@ -1147,7 +1147,7 @@ int CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, CAttackPor
 		}
 		//
 		csRPG << " \t" << CC_YELLOW << GetName() << CC_WHITE << " damaged on " << nDamage << "hp" << " \tPiercingAbility = " << pAttack->nK << " HP:" << pRPGUnit->Skills(NDb::ST_VP) << "\n";
-		pRPGUnit->UseSkill( NDb::ST_VP, GetSkillAddValue( NDb::ST_VP ) );
+		UseSkill( NDb::ST_VP );
 		nTotalDmg = nDamage;
 		//
 		if ( !IsDead() )

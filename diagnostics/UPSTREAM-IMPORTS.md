@@ -4290,3 +4290,52 @@ red-native-test.log, green-{build,test}.log, green-native-test.log,
 all-build.log, related-test.log, linux-{configure,build,test}.log,
 {windows,linux}-native-test.log, network-{test,native-test}.log.
 Sourcec55 partial: ProcessAttack VP producer остаётся; all281/final Actions pending.
+
+## Уведомление о росте живучести при получении урона — завершение c55ed688
+
+UpstreamVitalitySkillAcknowledgment создаёт authored ordinary persona/body
+armor и выбирает damage type, разрешённый этой бронёй. Настоящий native
+IUnitMission::ProcessAttack получает контролируемую portion: penetration100000,
+body damage1..1, critical probability0, unconscious probability-1,
+target=this mission. World=null использует поддерживаемый CalcStructDmg
+контракт без campaign difficulty factors. Это изоляция producer ack,
+не физическая коллизия пули/полный world damage dispatch.
+
+Zero-penetration control: нет урона/обучения/ack. Затем четыре дробных
+training uses проходят, на use4 skill реально растёт, но ack0 — native
+compiled RED после прежних Action/Interrupt/Snipe green controls.
+До production изменения сверяются все training fields/общий XP с прежним
+native CUnit::UseSkill(VP,0); reference также получает один пункт урона.
+Нулевая вероятность critical обходит crit RNG, target=this обходит dodge;
+ISAAC по-прежнему потребляет один unconscious Get(100), четыре следующих
+слова совпадают с контрольной копией.
+
+После RED меняется только этот VP UseSkill call на существующий mission
+wrapper, сохраняя наш PK offset/обычную native формулу. GREEN:
+identified/anonymous attacks, по два growth, ровно1 damage, без death/KO/
+wound modifier; все training fields/XP совпадают с reference.
+Один N_ACK_SKILL/null attacker на рост, нет blocked/fractional/duplicate ack.
+Между ударами оба fixture unit восстанавливают полученный пункт через
+публичное изменение VP; это не проверка medical gameplay/лечения.
+
+Оба Game и Windows ALL_BUILD собраны. Полный checkpoint371/371 Windows
+(312.00 с),371/371 Linux (310.77 с), CPU base366+5,14 native-audio/12
+FONT-COMPAT на каждой платформе, raw371 полные без NUL.
+Target4/4 (3.93 с); NetworkSerializer/ClientUI/ObjectStages/StopResume4/4
+(7.05 с). CI-like277/277 (24.15 с), raw277 полный без NUL.
+Actual hosted Actions на прежнем6222ff0b проверяется отдельно от локального
+CI-like; весь перенос/all281 ещё не завершён.
+
+Свидетельства vitality-skill-acknowledgment: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, full-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log, network-{test,native-test}.log,
+ci-{test,native-test}.log и ci-tests.txt.
+
+Sourcec55ed688 завершён в адаптации к нашей двухаргументной training формуле:
+RegisterAction13526c34, CheckInterrupt249b8a21, sniper CreateAttack6222ff0b,
+damage ProcessAttack — этот фикс. Прямой pRPGUnit->UseSkill остался только
+внутри уже существующего wrapper с GetSkillAddValue.
+Статус281:119 pending/96 imported/21 partial/38 already/3 docs,
+по1 historical/review/excluded-balance/excluded-own.141 исходный коммит
+ещё требует разбора; это не число будущих fix commits.

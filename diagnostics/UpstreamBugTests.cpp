@@ -11980,6 +11980,86 @@ static void SnipeSkillAcknowledgment(const char* databasePath)
     }
 }
 
+static void VitalitySkillAcknowledgment(const char* databasePath)
+{
+    CFileStream database; database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    NDb::CRPGPers* persona = nullptr;
+    CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while (people.MoveNext()) {
+        auto* candidate = people.Get();
+        if (IsValid(candidate->pClass) && IsValid(candidate->pBaseValue) && IsValid(candidate->pModel) &&
+            IsValid(candidate->pName) && !IsValid(candidate->pPanzerklein) &&
+            !IsValid(candidate->pDefaultWearsPanzerklein) && candidate->pClass->skills[NDb::ST_LEVEL] > 0) {
+            persona = candidate; break;
+        }
+    }
+    auto* armor = NDb::GetArmor(NDb::N_HUMAN_BODY_ARMOR);
+    Require(persona && armor && IsValid(armor->pMaterial),"vitality acknowledgment fixture lacks its authored persona/body armor");
+    int damageType = -1;
+    CDBIterator<NDb::CRPGDmgToArmor> damageTypes(*NDatabase::GetTable<NDb::CRPGDmgToArmor>());
+    while (damageTypes.MoveNext()) {
+        auto* type = damageTypes.Get();
+        if (type->armors[armor->pMaterial->nDR] > 0) { damageType = type->GetRecordID(); break; }
+    }
+    Require(damageType >= 0,"vitality acknowledgment fixture has no damage type that reaches human body armor");
+    for (bool anonymous: {false,true}) {
+        CObj<NRPG::CUnit> unit = new NRPG::CUnit(persona), reference = new NRPG::CUnit(persona);
+        CObj<NRPG::IUnitMission> mission = NRPG::CreateUnit(unit), attackerMission = NRPG::CreateUnit(persona);
+        const float extraXP = unit->GetXPForSkill(NDb::ST_LEVEL,int(unit->Skills(NDb::ST_LEVEL))+3)-unit->fXP+1;
+        Require(extraXP > 0,"vitality acknowledgment fixture has no higher native XP threshold");
+        unit->AddXP(extraXP); reference->AddXP(extraXP);
+        auto unchangedTraining = [&]() {
+            Require(unit->fXP == reference->fXP,"vitality acknowledgment changed total experience");
+            for (int skill=0;skill<NDb::SKILL_TYPE_NUMBERS;++skill) {
+                const auto& actual = unit->Skills(skill); const auto& expected = reference->Skills(skill);
+                Require(int(actual) == int(expected) && actual.GetXPPart() == expected.GetXPPart() &&
+                    actual.GetProgress() == expected.GetProgress() && actual.GetMaxValue() == expected.GetMaxValue(),
+                    "damage/vitality training diverged from the unchanged native training formula");
+            }
+        };
+        NRPG::CAttackPortion portion(100000,damageType,0.f,1,1,0,0,
+            anonymous ? nullptr : attackerMission.GetPtr(),mission,1.f,-1);
+        int ack = -1; NRPG::IUnitMissionInfo* ackAttacker = nullptr;
+        auto blocked = portion; blocked.nK = 0;
+        Require(mission->ProcessAttack(nullptr,NAI::HL_BODY,&blocked,nullptr) == 0,
+            "vitality control did not reject an attack with zero penetration");
+        unchangedTraining();
+        Require(!mission->GetAck(&ack,&ackAttacker),"blocked damage trained or acknowledged vitality");
+        int gained = 0, fractional = 0;
+        for (int use=0;use<500 && gained<2;++use) {
+            Require(int(unit->Skills(NDb::ST_VP)) > 8 && !mission->HasCritical(NDb::C_VP),
+                "vitality fixture is no longer healthy enough to isolate skill acknowledgment");
+            const int beforeVP = unit->Skills(NDb::ST_VP);
+            reference->Skills(NDb::ST_VP) -= 1;
+            const bool advanced = reference->UseSkill(NDb::ST_VP,0);
+            auto expectedRandom = GlobalGameRandom(); expectedRandom.Get(100);
+            const int damage = mission->ProcessAttack(nullptr,NAI::HL_BODY,&portion,nullptr);
+            auto afterRandom = GlobalGameRandom();
+            for (int next=0;next<4;++next)
+                Require(afterRandom.Get() == expectedRandom.Get(),
+                    "vitality acknowledgment changed the native noncritical damage random stream");
+            Require(damage == 1 && !mission->IsDead() && !mission->IsUnconscious() &&
+                !mission->HasCritical(NDb::C_VP) && unit->Skills(NDb::ST_VP) == beforeVP-1,
+                "vitality fixture did not process exactly one noncritical, nonfatal point of body damage");
+            unchangedTraining();
+            const bool acknowledged = mission->GetAck(&ack,&ackAttacker);
+            if (advanced) {
+                ++gained;
+                std::printf("native vitality acknowledgment: anonymous=%d use=%d damage=%d gained=%d ack=%d fractional=%d\n",
+                    int(anonymous),use,damage,gained,int(acknowledged),fractional);
+            } else ++fractional;
+            Require(acknowledged == advanced && (!advanced || (ack == NWorld::N_ACK_SKILL && ackAttacker == nullptr)),
+                "native body damage improved vitality without the corresponding skill acknowledgment");
+            Require(!mission->GetAck(&ack,&ackAttacker),"one vitality improvement emitted duplicate acknowledgments");
+            // Keep this controlled training fixture healthy between hits; medical gameplay is separate.
+            unit->Skills(NDb::ST_VP) += damage; reference->Skills(NDb::ST_VP) += damage;
+            unchangedTraining();
+        }
+        Require(gained == 2 && fractional > 0,"vitality fixture did not cross two native skill boundaries");
+    }
+}
+
 static void AssignedLevelExperience(const char* databasePath)
 {
     CFileStream database;
@@ -16113,6 +16193,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "action-skill-acknowledgment") && argc == 3) { ActionSkillAcknowledgment(argv[2]); return true; }
     if (!std::strcmp(mode, "interrupt-skill-acknowledgment") && argc == 3) { ActionSkillAcknowledgment(argv[2],true); return true; }
     if (!std::strcmp(mode, "snipe-skill-acknowledgment") && argc == 3) { SnipeSkillAcknowledgment(argv[2]); return true; }
+    if (!std::strcmp(mode, "vitality-skill-acknowledgment") && argc == 3) { VitalitySkillAcknowledgment(argv[2]); return true; }
     if (!std::strcmp(mode, "persona-full-display-name")) { Require(argc == 3, "full display name requires db"); PersonaFullDisplayName(argv[2]); return true; }
     if (!std::strcmp(mode, "character-panel-full-name")) { Require(argc == 4, "character panel name requires db and res"); CharacterPanelFullName(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "temporary-groups")) { TemporaryGroups(); return true; }
