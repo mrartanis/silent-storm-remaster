@@ -5681,3 +5681,43 @@ forced-attack-caption-transition-{red,green,related,linux,network-related,ci}.
 CPU387/FULL401 inventory прежние, новый полный прогон не заявляется.
 443 остаётся partial: CStateUse body/emptyPK проверяются независимо с учётом
 нашего Panzerklein-кода. Tracker и общая работа281 остаются незавершёнными.
+
+## Подпись forced курсора поверх дочернего окна —82dfbf13
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/82dfbf1336676954c8f94949e18923cd5d8aa773
+
+Ещё один ложный старый PRESENT проверен заново: SetCursorInfo всё ещё находился
+внутри сравнения значков. Native fixture использует настоящий CICBeginMission,
+публичный CommandState с CStateAttack, обычное дочернее CWindow с собственной
+SCursorInfo и полный CInterface::Step. При совпадении значков дочернее окно
+оставляло свой текст вместо текста игрового действия.
+
+Учтена особенность нашего интерфейса: SetCursorInfo сначала меняет pending
+sCursor, а GetCursorInfo читает уже переданный ICursor, то есть предыдущий кадр.
+Первая версия теста ошибочно сравнивала их сразу и упала в положительном
+контроле; это не RED. После исправления fixture pending проверяется по настоящему
+writer-полю6, существующий cursor получается из поля10, а итог наблюдается
+после штатного Step и передачи результата в ICursor. Production до этого не
+менялась. Первый настоящий RED: sameIcon=1/stateCaption=0/childCaption=1.
+
+Перенесён единственный hunk: SetCursorInfo после дочерних окон выполняется
+всегда для FORCED/TEMPORARY; очистка текста при смене значка остаётся условной.
+GREEN: тот же значок сохраняет caption состояния, другой очищает его на этом
+кадре, возврат восстанавливает caption. Все три проверки идут через настоящий
+UI frame, с положительным контролем native CWindow. Сохраняются переходы
+подсказки юнит→null→юнит→не-юнит, освобождение окна и AP/VP/позиция.
+Нет заявления о физическом движении мыши, аппаратном вводе или проверке пикселей.
+
+Windows ALL_BUILD/Game, Linux Game;59/59 Windows56.97с/Linux52.52с,
+11native-display/12FONT-COMPAT, raw полные без NUL;4Network7.19с;
+CI-like280/28024.04с, raw280/noNUL/12fonts. Новый Native тест extended,
+CPU387 прежний, ожидаемый FULL402 не объявляется выполненным. Полные старые
+Windows400/400 и Linux399/400 с ChapterClueHeading остаются отдельной записью.
+Evidence forced-state-cursor-caption-{red,green,related,linux,network-related,ci},
+а первые ошибки подготовки — fixture-control/fixture-probe-native-test.log.
+Сборки переиспользованы; игровые формулы, шрифты, HD и свои backend не менялись.
+
+Источник82df полностью imported. Tracker281:102pending/111imported/24partial/
+32already/3docs/5excluded-balance/2excluded-own/1historical/1review.
+127 незавершённых исходных entries, плюс сверка оставшихся старых PRESENT.
+Общий перенос, расследование нестабильного теста и финальные Actions не завершены.

@@ -3098,7 +3098,7 @@ static void AudioOptionCheckboxes(const char* databasePath,const char* resourceP
 #endif
 }
 
-static void ForcedAttackTooltip(const char* databasePath,const char* resourcePath)
+static void ForcedAttackTooltip(const char* databasePath,const char* resourcePath,bool cursorRouting = false)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"forced-attack tooltip fixture needs isolated user data");
     NativeDisplayContext cleanup;
@@ -3162,7 +3162,7 @@ static void ForcedAttackTooltip(const char* databasePath,const char* resourcePat
     const auto position = actor->GetPosition();
     mission->SetStateTarget(visible);
     CObj<NGame::CStateAttack> forced = new NGame::CStateAttack(true);
-    Require(forced->Initialize(mission),"forced-attack tooltip fixture did not initialize its native forced state");
+    Require(cursorRouting ? mission->CommandState(forced) : forced->Initialize(mission),"forced-attack tooltip fixture did not initialize its native forced state");
     auto frame = tooltip(forced);
     std::printf("native forced attack tooltip: frame=%d projectedUnit=1\n",IsValid(frame));
     Require(IsValid(frame),"forced attack omitted the native unit tooltip frame");
@@ -3173,6 +3173,54 @@ static void ForcedAttackTooltip(const char* databasePath,const char* resourcePat
     for (auto child: children) if (auto* text = dynamic_cast<NUI::CText*>(child.GetPtr())) { label = text; break; }
     Require(label && label->GetText().find(expected.wsName) != wstring::npos,
         "forced attack lost the active player's fog-of-war unit caption");
+    if (cursorRouting) {
+        auto* hud = mission->GetDesktop();
+        auto* ui = mission->GetInterface();
+        const NUI::SCursorInfo expectedCursor = forced->GetCursorInfo();
+        Require(IsValid(expectedCursor.pCursor) && mission->GetState() == forced.GetPtr(),
+            "cursor routing fixture did not install its native forced state and cursor");
+        CObj<NUI::CWindow> child = new NUI::CWindow(NUI::SWindowInfo(hud,NUI::SPoint(0,0),NUI::SPoint(80,80),
+            "cursor-caption-control",NUI::STYLE_ENABLED|NUI::STYLE_VISIBLE|NUI::STYLE_TOPMOST));
+        const NUI::SEvent move(NUI::EVENT_MOUSEMOVE,10,10);
+        Require(child->HitTest(move.nX,move.nY),"cursor routing fixture did not hit its real child window");
+        CStructureNetworkContext cursorReferences;
+        auto cursorFields = BorrowedObjectFields(ui,&cursorReferences);
+        CPtr<NUI::ICursor> nativeCursor;
+        { CStructureSaver reader(cursorFields,CStructureSaver::READ,&cursorReferences); reader.Add(10,&nativeCursor); }
+        Require(IsValid(nativeCursor),"cursor routing fixture lacks its real interface cursor");
+        auto pendingCursor = [&]() {
+            CStructureNetworkContext references;
+            auto fields = BorrowedObjectFields(ui,&references);
+            NUI::SCursorInfo pending;
+            { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(6,&pending); }
+            return pending;
+        };
+        STime frameTime = 100001;
+        auto route = [&](NDb::CUICursor* icon,const wstring& expectedText) {
+            const wstring childText = L"child caption differs from tactical state";
+            Require(childText != expectedCursor.wsText,"cursor routing fixture cannot distinguish child and state captions");
+            child->SetCursorInfo(NUI::SCursorInfo(icon,childText));
+            child->ProcessMessage(move);
+            const auto pending = pendingCursor();
+            Require(pending.pCursor == icon && pending.wsText == childText,
+                "native child cursor control did not publish its distinct caption");
+            // GetCursorInfo observes the cursor submitted on the previous frame.
+            // Step dispatches this frame's native mouse move, then submits its result.
+            nativeCursor->SetCursor(NUI::SCursorInfo(icon,L"previous frame"));
+            nativeCursor->SetPos(CVec2(10*S2UI::Scale(),10*S2UI::Scale()));
+            ui->Step(frameTime++);
+            std::printf("native tactical cursor after child: sameIcon=%d stateCaption=%d childCaption=%d\n",
+                icon == expectedCursor.pCursor.GetPtr(),ui->GetCursorInfo().wsText == expectedText,ui->GetCursorInfo().wsText == childText);
+            Require(ui->GetCursorInfo().pCursor == expectedCursor.pCursor && ui->GetCursorInfo().wsText == expectedText,
+                "a child window replaced the forced state's caption while using the same cursor icon");
+        };
+        route(expectedCursor.pCursor,expectedCursor.wsText);
+        auto* alternate = NDb::GetUICursor(expectedCursor.pCursor.GetPtr() == NDb::GetUICursor(1) ? 2 : 1);
+        Require(alternate && alternate != expectedCursor.pCursor.GetPtr(),"cursor routing fixture lacks its different-icon control");
+        route(alternate,L"");
+        route(expectedCursor.pCursor,expectedCursor.wsText);
+        hud->RemoveChild(child);
+    }
     mission->SetStateTarget(nullptr);
     forced->Step();
     std::printf("native forced attack caption after leaving unit: visible=%d\n",frame->GetStyle(NUI::STYLE_VISIBLE));
@@ -17967,6 +18015,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-authored-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-script-cadence") && argc == 4) { MainMenuMapScript(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "forced-state-cursor-caption") && argc==4) { ForcedAttackTooltip(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "forced-attack-tooltip") && argc==4) { ForcedAttackTooltip(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "hotseat-keyboard") && argc==4) { HotseatDialogTemplate(argv[2],argv[3],false,true,true); return true; }
     if (!std::strcmp(mode, "hotseat-keyboard-legacy") && argc==4) { HotseatDialogTemplate(argv[2],argv[3],true,true,true); return true; }

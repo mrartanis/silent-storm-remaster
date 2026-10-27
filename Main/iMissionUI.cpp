@@ -1195,10 +1195,8 @@ bool CMissionUI::ProcessMessage( const SEvent &sEvent )
 			{
 				SCursorInfo sStateCursor = pState->GetCursorInfo();
 				if ( sStateCursor.pCursor != GetInterface()->GetCursorInfo().pCursor )
-				{
 					sStateCursor.wsText = L"";
-					GetInterface()->SetCursorInfo( sStateCursor );
-				}
+				GetInterface()->SetCursorInfo( sStateCursor );
 			}
 			break;
 		}
