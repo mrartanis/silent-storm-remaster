@@ -258,7 +258,7 @@ void CPlayer::GetEnemyUnitInfo( CObjectBase *pEnemy, SEnemyInfo *out ) const
 	*out = SEnemyInfo();
 
 	CDynamicCast<CUnitServer> pE( pEnemy );
-	if ( !IsValid( pE ) || pE->IsDead() )
+	if ( !IsValid( pE ) )
 		return;
 
 	// is pEnemy one of MY units? -> full HP visibility (skip the perk scan)

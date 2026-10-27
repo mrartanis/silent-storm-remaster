@@ -6331,6 +6331,68 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     return world;
 }
 
+static void CorpseTargetInformation(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,true,&game);
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer* observer = nullptr;
+    for (auto unit: units) {
+        auto* server = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if (server && server->GetPlayer() && !NAI::IsAIPlayer(server->GetPlayer()) && server->CanFight()) { observer = server; break; }
+    }
+    Require(observer,"corpse information fixture lacks its native human viewer");
+    auto* player = observer->GetPlayer();
+    NWorld::CUnitServer* foreign = nullptr;
+    for (auto unit: units) {
+        auto* server = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if (server && server->GetPlayer() != player && server->CanFight() && !server->IsEmptyPK() && !server->IsWearingPK()) { foreign = server; break; }
+    }
+    Require(foreign,"corpse information fixture lacks its native foreign human target");
+    NWorld::SEnemyInfo ownLive,foreignLive;
+    player->GetEnemyUnitInfo(observer,&ownLive); player->GetEnemyUnitInfo(foreign,&foreignLive);
+    Require(ownLive.bUnitInfo && ownLive.bCanSeeUnitHP && ownLive.bCanSeePKHP && !ownLive.wsName.empty() && ownLive.nMaxUnitHP > 0,
+        "corpse information own-unit live control did not expose its normal name and health");
+    Require(foreignLive.bUnitInfo && !foreignLive.wsName.empty() && foreignLive.nMaxUnitHP > 0 &&
+        !foreignLive.bCanSeeUnitHP && !foreignLive.bCanSeePKHP,
+        "corpse information foreign live control did not preserve the viewer's normal HP restrictions");
+    auto checkInvalid = [&](CObjectBase* target) {
+        NWorld::SEnemyInfo stale = ownLive;
+        player->GetEnemyUnitInfo(target,&stale);
+        Require(stale.wsName.empty() && !stale.bUnitInfo && !stale.bPKInfo && !stale.bCanSeeUnitHP &&
+            !stale.bCanSeePKHP && stale.nUnitHP == 0 && stale.nMaxUnitHP == 0,
+            "an absent or non-unit target retained information from a prior unit");
+    };
+    CObj<NWorld::CWindowDoor> object = new NWorld::CWindowDoor;
+    checkInvalid(nullptr); checkInvalid(object);
+    const int ap = observer->GetAP(), health = observer->GetUnitRPG()->GetTotalVP();
+    const auto observerPosition = observer->GetPosition();
+    auto makeCorpse = [](NWorld::CUnitServer* unit) {
+        unit->GetUnitRPG()->Kill(); unit->SetState(new NWorld::CUnitStateDeath(unit));
+        Require(unit->IsDead() && unit->GetUnitRPG()->IsDead() && !unit->CanFight(),
+            "corpse information fixture failed to enter real server and RPG death states");
+    };
+    makeCorpse(foreign);
+    NWorld::SEnemyInfo corpse;
+    player->GetEnemyUnitInfo(foreign,&corpse);
+    std::printf("native corpse information: foreign liveName=%zu corpseName=%zu unitInfo=%d maxHP=%d HPvisibility=%d/%d\n",
+        foreignLive.wsName.size(),corpse.wsName.size(),corpse.bUnitInfo,corpse.nMaxUnitHP,corpse.bCanSeeUnitHP,corpse.bCanSeePKHP);
+    Require(corpse.wsName == foreignLive.wsName && corpse.bUnitInfo && corpse.nMaxUnitHP == foreignLive.nMaxUnitHP,
+        "the native viewer discarded a corpse's existing name and health information");
+    Require(corpse.nUnitHP < 0 && corpse.eUnitCondition == NWorld::SEnemyInfo::CND_UNCONSCIOUS_DESTROYED &&
+        !corpse.bCanSeeUnitHP && !corpse.bCanSeePKHP,
+        "restoring corpse information changed its actual dead condition or revealed restricted HP");
+    Require(observer->GetAP() == ap && observer->GetUnitRPG()->GetTotalVP() == health && observer->GetPosition() == observerPosition,
+        "querying corpse information altered the viewer's AP, health or placement");
+    makeCorpse(observer);
+    NWorld::SEnemyInfo ownCorpse;
+    player->GetEnemyUnitInfo(observer,&ownCorpse);
+    Require(ownCorpse.wsName == ownLive.wsName && ownCorpse.bUnitInfo && ownCorpse.nMaxUnitHP == ownLive.nMaxUnitHP &&
+        ownCorpse.bCanSeeUnitHP && ownCorpse.bCanSeePKHP && ownCorpse.nUnitHP < 0,
+        "the native player's own corpse lost its existing full health visibility");
+    checkInvalid(nullptr); checkInvalid(object);
+}
+
 static void MountedGunEligibility(const char* databasePath,const char* resourcePath)
 {
     auto world = FixtureWorld(databasePath,resourcePath,true);
@@ -18073,6 +18135,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "conclusions") && argc == 4) { ConclusionRouting(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "pk-placement")) { PKPlacement(); return true; }
     if (!std::strcmp(mode, "critical-ids") && argc == 3) { CriticalIDs(argv[2]); return true; }
+    if (!std::strcmp(mode, "corpse-target-information") && argc==4) { CorpseTargetInformation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mounted-gun-eligibility") && argc==4) { MountedGunEligibility(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "unit-diplomacy-identity") && argc==4) { UnitDiplomacyIdentity(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "cover-perk-multiplier") && argc==4) { CoverPerkMultiplier(argv[2],argv[3]); return true; }
