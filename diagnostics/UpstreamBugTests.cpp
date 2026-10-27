@@ -7712,6 +7712,80 @@ static ShotCommandSnapshot ReadStartedShot(NWorld::CExecShootUnit* shot,
     return snapshot;
 }
 
+static void SnipeTileRestriction(const char* databasePath,const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath,resourcePath);
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+    NDb::CRPGWeapon* rifle = nullptr;
+    CDBIterator<NDb::CRPGWeapon> weapons(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while (weapons.MoveNext()) {
+        auto* record = weapons.Get();
+        if (record->shootModes[NDb::SM_Snipe] && record->shootModes[NDb::SM_Snap] && !record->bBazookaLogic &&
+            IsValid(record->pItem) && IsValid(record->pInnerClip) && IsValid(record->pWeaponType)) { rifle = record; break; }
+    }
+    Require(rifle != nullptr,"sniper tile fixture has no authored rifle supporting snap and snipe");
+    NWorld::CUnitServer* actor = nullptr;
+    NWorld::CUnitServer* target = nullptr;
+    CObj<NRPG::CWeaponItem> weapon;
+    CVec3 point;
+    for (auto entry: units) {
+        auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if (!unit || !unit->CanFight() || unit->IsEmptyPK() || unit->IsWearingPK() || unit->IsSniping()) continue;
+        weapon = new NRPG::CWeaponItem(rifle);
+        auto* inventory = unit->GetUnitRPG()->GetInventory();
+        Require(inventory->Equip(NDb::SLOT_1,weapon) && inventory->Activate(NDb::SLOT_1) &&
+            weapon->SetShootMode(NDb::SM_Snap) && weapon->HasAmmo(),"sniper tile fixture failed to equip its native rifle");
+        bool tileAccepted = false;
+        for (const auto offset: {CVec3(2,0,0.5f),CVec3(0,2,0.5f),CVec3(-2,0,0.5f),CVec3(0,-2,0.5f)}) {
+            point = unit->GetPosition().GetCP()+offset;
+            CObj<NWorld::CCmdShootTile> command = new NWorld::CCmdShootTile(point);
+            NWorld::EUnitCommandResult result;
+            CObj<NWorld::CCommandExecute> executor = NWorld::CreateExecutor(unit,command,&result);
+            if (executor && result == NWorld::UCR_OK) { tileAccepted = true; break; }
+        }
+        if (!tileAccepted) continue;
+        Require(weapon->SetShootMode(NDb::SM_Snipe),"sniper tile fixture could not select snipe mode");
+        for (auto other: units) {
+            auto* candidate = dynamic_cast<NWorld::CUnitServer*>(other.GetPtr());
+            if (!candidate || candidate == unit || !candidate->CanFight() || candidate->GetPlayer() != unit->GetPlayer()) continue;
+            CObj<NWorld::CCmdShootObject> command = new NWorld::CCmdShootObject(candidate,0);
+            NWorld::EUnitCommandResult result;
+            CObj<NWorld::CCommandExecute> executor = NWorld::CreateExecutor(unit,command,&result);
+            if (executor && result == NWorld::UCR_OK) { actor = unit; target = candidate; break; }
+        }
+        if (actor) break;
+    }
+    Require(actor && target,"sniper tile fixture lacks its accepted snap-tile and snipe-unit controls");
+    Require(!actor->IsSniping() && NWorld::GetActionType(actor) == NWorld::AT_SHOOT,
+        "sniper tile fixture already entered the held-aim state");
+    const int ap = actor->GetAP(), ammo = weapon->GetAmmoQuantity();
+    const auto position = actor->GetPosition();
+    const auto saved = actor->GetUnitRPG()->GetSavedAP();
+    CObj<NWorld::CCmdShootTile> tile = new NWorld::CCmdShootTile(point);
+    CObj<NWorld::CUnitStateSniping> held = new NWorld::CUnitStateSniping(actor,target,30,NAI::HL_BODY);
+    NWorld::EUnitCommandResult heldResult;
+    CObj<NWorld::CCommandExecute> heldTile = held->CreateExecutor(tile,&heldResult);
+    Require(!heldTile && heldResult == NWorld::UCR_UNAVAILABLE,
+        "existing held-sniper state no longer rejects tile attacks");
+    // The real held-state constructor seeds saved aim even without installation.
+    actor->GetUnitRPG()->SaveAP(saved);
+    std::puts("native sniper tile controls: snap-tile accepted, snipe-unit accepted, held-state tile unavailable");
+    for (bool replaceReload: {false,true}) {
+        tile->bCanBeReplacedByReload = replaceReload;
+        NWorld::EUnitCommandResult result;
+        CObj<NWorld::CCommandExecute> executor = NWorld::CreateExecutor(actor,tile,&result);
+        std::printf("native pre-aim sniper tile: replacement-reload=%d result=%d executor=%d\n",
+            int(replaceReload),int(result),int(executor != nullptr));
+        Require(!executor && result == NWorld::UCR_UNAVAILABLE,
+            "sniper fire mode accepted a tile attack before entering the held-aim state");
+    }
+    Require(actor->GetAP() == ap && weapon->GetAmmoQuantity() == ammo && !actor->IsSniping() &&
+        actor->GetPosition().pos.p == position.pos.p && actor->GetPosition().pos.pNet == position.pos.pNet &&
+        actor->GetUnitRPG()->GetSavedAP().pTarget == saved.pTarget &&
+        actor->GetUnitRPG()->GetSavedAP().nAP == saved.nAP && !world->IsAction(),
+        "checking sniper target eligibility changed AP, ammo, position, aim state or the native action counter");
+}
+
 static void SniperHeldAim(const char* databasePath, const char* resourcePath, bool targetlessProbe = false)
 {
     auto world = FixtureWorld(databasePath, resourcePath);
@@ -16475,6 +16549,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "negative-mesh-bounds")) { NegativeMeshBounds(); return true; }
     if (!std::strcmp(mode, "sniper-targetless-probe") && argc == 4) { SniperHeldAim(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "sniper-held-aim") && argc == 4) { SniperHeldAim(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "snipe-tile-restriction") && argc == 4) { SnipeTileRestriction(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "person-clue-creation") && argc == 4) { PersonClueCreation(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "equipped-melee-attack-cursor")) { Require(argc == 4, "equipped melee cursor requires db and res"); EquippedMeleeAttackCursor(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "melee-attack-cursor") && argc == 4) { MeleeAttackCursor(argv[2]); return true; }

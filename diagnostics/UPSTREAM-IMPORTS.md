@@ -4398,3 +4398,41 @@ linux-{configure,build,test}.log, linux-unbuilt-{test,native-test}.log,
 Статус281:114 pending/97 imported/21 partial/38 already/3 docs/5 excluded-balance,
 по1 historical/review/excluded-own;136 исходных коммитов ещё разбираются.
 All281/final actual Actions не завершены.
+
+## Одинаковая target policy Snipe до входа в held aim — 1dc30007
+
+UpstreamSnipeTileRestriction использует authored native rifle/Snap+Snipe,
+настоящего бойца, native command factory и очередь подготовки.
+Positive controls: Snap tile принимается, Snipe unit target принимается,
+существующий CUnitStateSniping::CreateExecutor уже отвергает tile с
+UCR_UNAVAILABLE. До входа в held state тот же mode всё ещё классифицируется
+AT_SHOOT и ошибочно принимает tile как обычный выстрел.
+Compiled RED: replacement-reload=false/result0/executor1 после трёх контролей.
+
+Held-state control создаётся настоящим constructor, который устанавливает
+saved aiming AP даже без установки состояния. Его side effect замечен до
+production изменения: fixture восстанавливает исходный SaveAP через public
+API и повторяет окончательный RED. Первый held-control raw сохранён.
+Actor остаётся !IsSniping/AT_SHOOT; новое правило не имитируется private flags.
+
+После RED добавлен только guard SM_Snipe в tile AT_SHOOT branch, до создания
+очереди/reload replacement. GREEN: оба значения replacement-reload flag дают
+UCR_UNAVAILABLE/result1 без executor, сохраняя AP/ammo/позицию/saved aim/
+nonSniping и action counter. Нормальные Snap tile и Snipe unit controls
+сохраняются, старые HeldAim/TargetlessProbe также проходят.
+Формулы прицеливания/урона/стоимости, другие режимы, наши result ordinals и
+reload policy не заменены. Проверяется command eligibility/queue boundary,
+не реальный выстрел/пустой clip reload/все сценарные cutscenes.
+
+Target4/4; связанные40/40 Windows (31.40 с), Linux (30.60 с),
+обе Game и Windows ALL_BUILD/12 FONT-COMPAT/raw40 полные без NUL.
+NetworkSerializer/ClientUI/StopResume3/3 (5.44 с). CPU base368;
+полный checkpoint4da43aaf остаётся base366+5=371/CI-like277.
+Свидетельства snipe-tile-restriction: held-control-{build,test,native-test}.log,
+red-{build,test}.log, red-native-test.log, green-{build,test}.log,
+green-native-test.log, all-build.log, related-test.log,
+linux-{configure,build,test}.log, {windows,linux}-native-test.log,
+network-{test,native-test}.log. Единственный hunk источника перенесён.
+Статус281:113 pending/98 imported/21 partial/38 already/3 docs/5 excluded-balance,
+по1 historical/review/excluded-own.135 исходных коммитов ещё разбираются;
+all281/final actual Actions не завершены.
