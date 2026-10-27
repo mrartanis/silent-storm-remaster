@@ -14760,6 +14760,45 @@ static void PeriodicUnitClocks(const char* databasePath,const char* resourcePath
     }
 }
 
+static void PeriodicCriticalLifetime(const char* databasePath,const char* resourcePath,int kind)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(const auto& unit:units)if(IsValid(unit) && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK() && !unit->IsPerformingAction()){actor=unit.GetPtr();break;}
+    Require(actor,"critical lifetime fixture has no idle healthy non-PK native actor");
+    auto* rpg=actor->GetUnitRPG();rpg->RemoveCritical(NDb::C_BLEEDING);
+    const int duration=kind==3?-1:kind==4?3:1;
+    rpg->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_BLEEDING,duration,0));
+    auto check=[&](bool present,int remaining,const char* phase) {
+        NRPG::CCritical* critical=nullptr;const bool actual=rpg->HasCritical(NDb::C_BLEEDING,&critical);
+        const int actualRemaining=critical?critical->GetRemainingTime():-999;
+        std::printf("native critical lifetime: kind=%d phase=%s present=%d expected=%d remaining=%d expected=%d\n",kind,phase,int(actual),int(present),actualRemaining,remaining);std::fflush(stdout);
+        Require(actual==present && (!present || actualRemaining==remaining),"native critical lifetime advanced at AP refresh or failed to advance at its periodic end tick");
+    };
+    check(true,duration,"installed");
+    if(kind==0) {
+        rpg->StartNewTurn(actor->GetPosition().GetCP());check(true,1,"first AP refresh");
+        rpg->StartNewTurn(actor->GetPosition().GetCP());check(true,1,"second AP refresh");
+    } else if(kind==1) {
+        actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);check(true,0,"first own-turn finish");
+        rpg->StartNewTurn(actor->GetPosition().GetCP());check(true,0,"intervening AP refresh");
+        actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);check(false,0,"second own-turn finish");
+    } else if(kind==2) {
+        Require(world->IsRealTime(),"critical lifetime fixture is not in real time");
+        const STime base=world->GetTime()->GetValue();
+        auto step=[&](STime elapsed) {world->GetTime()->Set(base+elapsed);world->GetAimTime()->Set(base+elapsed);actor->Segment();};
+        step(6000);check(true,1,"state-only interval");step(29900);check(true,1,"before regeneration");
+        step(30000);check(true,0,"first regeneration tick");step(60000);check(false,0,"second regeneration tick");
+    } else if(kind==3) {
+        for(int i=0;i<3;++i){rpg->StartNewTurn(actor->GetPosition().GetCP());actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);check(true,-1,"permanent control");}
+    } else {
+        rpg->SuspendCriticals(1);check(false,0,"suspended");
+        actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);check(true,3,"suspension expired");
+        rpg->StartNewTurn(actor->GetPosition().GetCP());check(true,3,"resumed AP refresh");
+        actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);check(true,2,"resumed periodic tick");
+    }
+}
+
 static void PeriodicBleedingAttack(const char* databasePath,const char* resourcePath,bool fractional)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
@@ -20773,6 +20812,11 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "equal-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "mixed-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "missing-attack-target-caption") && argc == 4) { AttackCaptionWithoutHitChance(argv[2], false, true); return true; }
+    if (!std::strcmp(mode, "critical-lifetime-refresh") && argc==4) { PeriodicCriticalLifetime(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "critical-lifetime-finish") && argc==4) { PeriodicCriticalLifetime(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "critical-lifetime-realtime") && argc==4) { PeriodicCriticalLifetime(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "critical-lifetime-permanent") && argc==4) { PeriodicCriticalLifetime(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "critical-lifetime-suspended") && argc==4) { PeriodicCriticalLifetime(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "periodic-clock-thresholds") && argc==4) { PeriodicUnitClocks(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "periodic-clock-independence") && argc==4) { PeriodicUnitClocks(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "fractional-bleeding-no-hit") && argc==4) { PeriodicBleedingAttack(argv[2],argv[3],true); return true; }

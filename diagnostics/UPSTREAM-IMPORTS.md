@@ -8635,3 +8635,51 @@ claimed. Evidence periodic-unit-clocks-{red,green,final-related,final-display,
 final-linux,linux-display,final-ci}. Owned test games exited; shared build reused,
 no HD generation or old per-bug copies. Source remains partial:132 imported,
 22 partial,84 pending (106 unfinished). ALL281 and final hosted CI remain open.
+
+
+## 2de89e04, part3 — critical lifetimes advance at periodic end ticks
+
+Move the existing ProcessCriticalsOnNewTurnFor call from StartNewTurn to the
+beginning of current DoRegenerations, before its PK-only early return. Thus
+active/suspended effects and postponed modifiers use the existing processing
+body at own-turn finish or the30second real-time regeneration tick. AP refresh
+still resets AP/unit parameters and turn tracking without ageing effects.
+No formula, bleeding dispatch, PK regeneration amount, network guard, serialized
+field or own facial/font/HD implementation changes. This is a standalone
+lifetime-placement fix; full bleeding/regeneration architecture remains pending.
+
+Actual native RED4fail/5cases5.78s: a finite native bleeding critical with zero
+strength loses a turn at StartNewTurn but keeps its full duration at own-turn
+finish and at the30second tick. A one-turn suspension likewise never resumes
+there. The permanent-effect control already passes. The test uses real
+FixtureWorld/CUnitMission/CUnitServer, actual SCritical/CCritical storage,
+SuspendCriticals, native OnTBSEvent and Segment; no duration replacement/mock.
+
+Focused GREEN5/5 5.75s: no ageing at repeated/intervening AP refreshes, finite
+expiry on the second periodic tick, no lifetime change at state-only6000ms or
+before regeneration, proper30/60second ageing/expiry, one-turn suspension resumes
+with original remaining3 then ages to2 at the following tick, and a permanent
+critical remains permanent across3start/end cycles. Zero strength isolates
+lifetime processing from still-pending bleeding formula/dispatch changes.
+
+Independent original proof: Gold StartNewTurn6b9810/67 maps ALL67bytes exactly
+and uniquely to Steam6bfa20, with no critical tick call. Gold PDB
+SegmentCriticals6be0e0/467 has an exact37byte block Gold6be108 uniquely at
+Steam6c47e8; its actual Steam entry6c47c0 is the target of regeneration's direct
+call6c49ec. An exact37byte regeneration context Gold6be311 uniquely maps to
+Steam6c49f1. NO masks; register/stack differences at the regeneration entry
+were retained. Actual regeneration entry6c49a0, not the source's6c49f0 annotation.
+Evidence critical-lifetime-retail-oracle.json and Gold/Steam disassemblies.
+
+Final fresh Windows/Linux Game/helpers/NativeAttackRules builds: related72/72
+(79.53s/79.40s), native-display57/57 (82.47s/67.43s), asset-free local CI290/290
+(24.27s). All five raw logs have exact72/57/72/57/290 passed records, no NUL,
+Failed/NotRun/missing executable, actual runners exit0. Both platforms include
+all5 new lifetime cases and earlier clocks/bleeding regressions in related72;
+asset-dependent cases are not part of the290 manifest. Owned games exited,
+shared builds reused, no old per-bug copies or HD generation. Network replica
+world/AdvanceNetworkSegment guards remain intact; no new client dispatch path.
+Evidence critical-lifetime-{red,green,final-related,final-display,final-linux,
+linux-display,final-ci}. Source remains partial, tracker132imported/22partial/
+84pending (106unfinished); full periodic bleeding/formula and projectile/night
+parts remain pending. ALL281 and final actual-HEAD hosted CI remain open.

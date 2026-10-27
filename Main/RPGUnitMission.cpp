@@ -564,7 +564,6 @@ void CUnitMission::StartNewTurn( const CVec3 &ptCP )
 {
 	++nTurnCounter;               // retail @0x2bf8c0 head
 	ResetUnitParameters();
-	ProcessCriticalsOnNewTurnFor();
 	ptLastCP = ptCP;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2086,6 +2085,8 @@ void CUnitMission::AddVPBoost( float fStrength, int nDuration )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitMission::DoRegenerations()
 {
+	// Original Steam 0x6c49ec: advance critical lifetimes at the periodic end tick.
+	ProcessCriticalsOnNewTurnFor();
 	if ( !pPanzerklein )
 		return;
 	if ( !pPanzerklein->fRegenerationValue )
