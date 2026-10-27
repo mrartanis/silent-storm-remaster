@@ -7119,3 +7119,40 @@ and new EndRotate producers require separate native TDD. Counts unchanged:
 Linux related26/26 31.12s with Game built; CI-like284/284 24.38s. Raw26/26/284
 complete, no NUL/missing/Failed, actual runner exits0. Evidence movement-reroute-
 final-step-{confirmed-red,green,related,linux,ci} logs in shared evidence folder.
+
+
+## b4505fb0 — do not finish an obsolete step after a waiting reroute
+
+Source b4505fb0b183854ea69f680ff770759c5245cebb, independent waiting hunk.
+Extend the existing actual-blocker fixture with a native same-cell crouch reroute
+from its parked search position. This uses real CMR_LOCKED, a running nonwaiting
+blocker, the actual wait flags and pending command, and FindPath(PF_USE_POSEDIR).
+Existing movement-blockage assertions still prove no AP/VP/position change and
+the same scheduled animator before rerouting. No artificial wait flag is injected.
+Compiled RED1.19s (case1.15): after SetNewPath reseats the unit, its first callback
+still sees stand pose2/AP49, cost4 unspent, and adds573ms for an obsolete old
+EndMove. That ender belongs to the interrupted step toward the occupied cell.
+
+Capture the original IsWaitingForPath result, retain the existing reseat, then
+skip old-command ender insertion for that case. Empty replacement queues still
+Cancel. Nonwaiting transition logic is unchanged. Native GREEN1.16s (case1.12):
+first callback begins real crouch pose1/AP49->45, new pose animation685ms;
+completion retains the parked tile and blocker position, charges the original
+pose price exactly once and retires both native world actions during cleanup.
+The test reuses the original blocked-walking control and cleanup, rather than
+replacing its waiting behavior or mocking an animator. This is native planner/
+executor callback evidence, not an entire game turn/input/visual capture.
+
+Original Steam7bb0c0 (Gold SetNewPath7ae8e0/754 uniquely mapped EH3:7) captures
+its wait result at7bb131..136, records waiting flag for the later branch, and
+skips old ender construction at7bb1c5..1ca when that flag is set. The original
+code also holds the interrupted command at7bb0ed; that coupled ownership fix
+was retained in the preceding commit. Evidence move-reroute-retail-disassembly.
+No balance or rule formulas, original AP price, renderer/heads/audio/fonts/HD
+changes. Shared existing builds only. Windows related27/27 32.97s and Game pass.
+Sourceb450 remains partial: direct movement continuation and EndRotate producer
+format still under review. Tracker281/115unfinished unchanged.
+
+Linux related27/27 32.94s, Game built; CI-like284/284 24.21s. Raw27/27/284
+complete/no NUL/missing/Failed, actual exits0. Evidence movement-waiting-reroute-
+{red,green,related,linux,ci} logs in shared evidence directory.

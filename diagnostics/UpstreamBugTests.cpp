@@ -11118,7 +11118,7 @@ struct MovementTravelPosition
     int operator&(CStructureSaver& saver) { saver.Add(2,&position);return 0; }
 };
 
-static void MovementBlockedWalkingTrajectory(const char* databasePath,const char* resourcePath)
+static void MovementBlockedWalkingTrajectory(const char* databasePath,const char* resourcePath,bool rerouteWaiting = false)
 {
     auto fixture=MakeNativeMovementFixture(databasePath,resourcePath);
     auto* actor=fixture.actor.GetPtr();auto* world=fixture.world.GetPtr();auto* network=world->GetPathNetwork();
@@ -11191,6 +11191,29 @@ static void MovementBlockedWalkingTrajectory(const char* databasePath,const char
     const bool sameTrajectory=sequence->GetAnimator(end)==scheduled.GetPtr();
     std::printf("native blocked walking animation sequence: sameScheduledAnimator=%d extraDelay=%u\n",int(sameTrajectory),unsigned(blockedEnd-end));std::fflush(stdout);
     Require(blockedEnd==end && sameTrajectory,"blocked native walking command was reseated through EndRotate instead of preserving its scheduled trajectory");
+    if(rerouteWaiting) {
+        auto* moving=dynamic_cast<NWorld::IExecMove*>(move.GetPtr());NAI::SPathPlace search;moving->GetSearchFromPosition(&search);
+        auto samePlace=[](NAI::SPathPlace a,NAI::SPathPlace b){a.SetMoving(0);b.SetMoving(0);return a==b;};
+        Require(samePlace(search,position.pos.p),"waiting reroute did not search from its actual parked position");
+        search.SetMoving(0);auto target=search;target.SetPose(NAI::CM_CROUCH);
+        CObj<NAI::CPath> path=NWorld::FindPath(network,actor,search,vector<NAI::SPathPlace>{target},nullptr,true,NAI::PF_USE_POSEDIR);
+        Require(path && path->points.size()==2 && samePlace(path->points.front(),search) && samePlace(path->points.back(),target),
+            "waiting reroute could not find its real same-cell native crouch path");
+        const int beforeAP=actor->GetAP(),cost=actor->GetActionAP(NRPG::AC_POSE_CROUCH);
+        moving->SetNewPath(path,NAI::PF_USE_POSEDIR);
+        Require(!move->IsWaitingForPath() && samePlace(actor->GetPosition().pos.p,position.pos.p) && actor->GetAP()==beforeAP,
+            "waiting reroute did not reseat without spending AP or moving into its blocker");
+        const STime reseated=actor->animator.GetTimeEnd();world->GetTime()->Set(reseated);move->AnimationFinished();
+        std::printf("native waiting reroute: first callback pose=%d expected=%d AP=%d->%d cost=%d extraEndTime=%u\n",
+            int(actor->GetPosition().pos.p.GetPose()),int(target.GetPose()),beforeAP,actor->GetAP(),cost,unsigned(actor->animator.GetTimeEnd()-reseated));std::fflush(stdout);
+        Require(actor->GetPosition().pos.p.GetPose()==target.GetPose() && actor->GetAP()==beforeAP-cost,
+            "waiting reroute inserted an obsolete movement ender before the newly requested pose transition");
+        for(int edge=0;edge<32 && move->GetState()==NWorld::CCommandExecute::RUNNING;++edge) {
+            world->GetTime()->Set(actor->animator.GetTimeEnd());move->AnimationFinished();
+        }
+        Require(move->GetState()==NWorld::CCommandExecute::FINISHED && samePlace(actor->GetPosition().pos.p,target) && actor->GetAP()==beforeAP-cost &&
+            blocker->GetPosition()==travel.position,"waiting reroute changed its tile/blocker, repeated its pose cost or failed to complete");
+    }
     CStructureNetworkContext blockerRefs;auto blockerFields=BorrowedObjectFields(blocker,&blockerRefs);
     CObj<NWorld::CCommandExecute> blockerMove;
     {CStructureSaver reader(blockerFields,CStructureSaver::READ,&blockerRefs);reader.Add(7,&blockerMove);}
@@ -19696,6 +19719,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-collision-hidden-other")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "movement-collision-hidden-own")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],true,true); return true; }
     if (!std::strcmp(mode, "movement-collision-visible-other")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],false,false); return true; }
+    if (!std::strcmp(mode, "movement-waiting-reroute")) { Require(argc==4,"waiting reroute requires db and res"); MovementBlockedWalkingTrajectory(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "movement-reroute-final-step")) { Require(argc==4,"reroute final step requires db and res"); MovementRerouteFinalStep(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "movement-end-rotate-wire")) { Require(argc==4,"end rotate requires db and res"); MovementEndRotateWire(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "movement-legacy-end-rotate-wire")) { Require(argc==4,"legacy end rotate requires db and res"); MovementEndRotateWire(argv[2],argv[3],true); return true; }

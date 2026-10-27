@@ -985,7 +985,8 @@ void CExecMove::SetNewPath( NAI::CPath *pPath, NAI::EFindPathParams _eParams, EN
 	CObj<CCommand> pHoldCur( pCurCmd );
 	CDynamicCast<CCmdMove> pWasMove( pCurCmd );
 	CDynamicCast<CCmdRotate> pWasRotate( pCurCmd );
-	if ( IsWaitingForPath() )
+	const bool bWasWaiting = IsWaitingForPath();
+	if ( bWasWaiting )
 	{
 		bWaiting = false;
 		bAfterWaiting = false;
@@ -1009,7 +1010,9 @@ void CExecMove::SetNewPath( NAI::CPath *pPath, NAI::EFindPathParams _eParams, EN
 	eParams = _eParams;
 	eNeedActive = eActive;   // keep the saved active-item constraint current on re-route
 	ConvertPath( pPath, eActive );
-	if ( !commandsQueue.empty() )
+	if ( commandsQueue.empty() )
+		Cancel();
+	else if ( !bWasWaiting )
 	{
 		CDynamicCast<CCmdMove> pStartMove(commandsQueue.front());
 		if (pStartMove)
@@ -1033,8 +1036,6 @@ void CExecMove::SetNewPath( NAI::CPath *pPath, NAI::EFindPathParams _eParams, EN
 			}
 		}
 	}
-	else
-		Cancel();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecMove::GetSearchFromPosition( NAI::SPathPlace *pRes )
