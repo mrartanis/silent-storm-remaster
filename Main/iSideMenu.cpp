@@ -140,14 +140,14 @@ private:
 	CScriptHoverButton* AddScriptButton( CButtonsLine *pLine, const string &szID, int nCaption )
 	{
 		CScriptHoverButton *pButton = new CScriptHoverButton( SWindowInfo( pLine, SPoint( 0, 0 ), SPoint( 0, 0 ), szID, STYLE_ENABLED | STYLE_VISIBLE ), pInterface );
-		// State 3 is the release's "selected" art: the caption bracketed `[ ... ]`. The font/colour tag
-		// (GetDBString 11129) must lead so the brackets share the caption's font (else `[ ` renders in
-		// the default small font).
+		// Retail selected captions use style 17338 before the brackets. Its current DB font
+		// is the same Impact 36pt as normal/hover; only outline/text colors differ.
+		// Keep the markup before the brackets so all characters use the fork's HiRes font.
 		pLine->AddButton( pButton, -1,
 			GetDBString( 11129 ) + GetDBString( nCaption ),                 // normal
 			GetDBString( 11130 ) + GetDBString( nCaption ),                 // hover
-			GetDBString( 11129 ) + L"[ " + GetDBString( nCaption ) + L" ]", // state 3 = selected
-			GetDBString( 17338 ) + GetDBString( nCaption ) );               // disabled
+			GetDBString( 17338 ) + L"[ " + GetDBString( nCaption ) + L" ]", // state 3 = selected
+			L"" );                                                       // disabled
 		return pButton;
 	}
 

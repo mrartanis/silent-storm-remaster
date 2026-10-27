@@ -6479,3 +6479,41 @@ disassembly}. Resource-free CI count не увеличивался для asset/
 02d85e5b остаётся partially-imported: live canSave policy и selected caption
 style ещё открыты. Tracker121 незавершённая запись. Свои facial renderer,
 HiRes fonts/adaptive UI и замороженный HD pack не изменены.
+
+
+## Side menu: selected colors with the fork's existing HiRes font
+
+Отдельный визуальный hunk
+[02d85e5b939ac897f726293b37f30b55d0f2ff72](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/02d85e5b939ac897f726293b37f30b55d0f2ff72).
+Compiled native RED1.40с: настоящий easy button уже в state3 после уведомления
+и native кадра, но его CText использует normal11129 вместо selected17338;
+disabled state тоже ошибочно содержит caption.
+
+Особенности форка проверены по настоящим строкам DB:11129/11130/17338 все
+Impact36pt, outlinesize2. Цвет текста соответственно FF935712/FFDB821B/
+FFFFAB3F; outline FF3E2400/FF5C3600/FF784612. Меняются только выбранный стиль
+цвета и пустой disabled caption. Размер/face/HiRes assets, adaptive reflow,
+normal/hover, markup-before-brackets и facial renderer сохранены.
+
+Original oracle: GoldPDB CSideMenuUI::ProcessMessage637910/4750,
+RTTI descriptor96dbf4/COL8de180/vtable8b24bc slot10 -> Steam descriptor97ed64/
+COL8ed900/vtable8c1604 slot10=63cd40. Например easy caption17329at63d902,
+selected17338at63d91d, UTF16 bracket literals8c1664/8c165c, empty disabled
+8b65b0; настоящая wrapper5c66b0 передаёт state arguments в AddButton5c61f0.
+Последний независимо найден из Gold5c3550 first32/maskEH3:7 uniquely.
+Evidence side-selected-style-retail-{lookup,disassembly,wrapper}.
+
+GREEN2/2 3.50с: обе реальные SideMenu регрессии. Selected-style проверяет все
+пять программных buttons (easy/normal/hard/axis/allies), реальное выбранное
+state3 после кадра, CText selected/disabled, сохранённые normal/hover и
+одинаковый font face/size. Это проверка native state/text/render path;
+попиксельное соответствие цвета или физический клик не заявлены.
+
+Оба Game/Windows ALL_BUILD построены. Related73/73 Windows75.93с,
+Linux70.18с, по19native-display/4native-audio/12FONT-COMPAT. CI-like284/284
+24.60с. Raw73/73/284 полные без NUL/missing/Failed, fonts12 и в CI.
+Evidence side-selected-style-{baseline,green,related,linux-related,ci}-native-test.log.
+Для color-only изменения сеть повторно не запускалась: свежие2/2 на f9b02bd0
+и7/7 с361maps на f74ab551 уже GREEN. Balance rules не менялись.
+Source02d85e5b остаётся partial, теперь открыт только live canSave policy;
+tracker121 незавершённая запись, цельALL281 ещё выполняется.

@@ -3114,6 +3114,48 @@ public:
 };
 REGISTER_SAVELOAD_CLASS(0x7f550107,BodyHoverMission);
 
+static void SideMenuSelectedStyle(const char* databasePath,const char* resourcePath)
+{
+    Require(std::getenv("S2_USER_DATA_DIR"),"side selected-style fixture requires isolated user data");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm side selection regression");
+    const auto normal=NUI::GetDBString(11129),hover=NUI::GetDBString(11130),selected=NUI::GetDBString(17338);
+    Require(!normal.empty() && !hover.empty() && !selected.empty() && normal!=selected,"side style fixture lacks distinct authored state styles");
+    for(const auto& entry:{std::pair<int,wstring>{11129,normal},{11130,hover},{17338,selected}}) {
+        string ascii;for(auto ch:entry.second)ascii+=ch>=32 && ch<127?char(ch):'?';
+        std::printf("native side style control: id=%d markup=%s\n",entry.first,ascii.c_str());
+    }
+    const auto fontPrefix=normal.substr(0,normal.find(L" outlinesize="));
+    Require(fontPrefix==hover.substr(0,hover.find(L" outlinesize=")) && fontPrefix==selected.substr(0,selected.find(L" outlinesize=")),
+        "side style fixture did not retain the same authored font face and size in all states");
+    CObj<NGame::CICSideMenu> open=new NGame::CICSideMenu;open->Exec();
+    auto* side=NMainLoop::GetCurrentInterfaceForHarness();
+    Require(side && NMainLoop::StepApp(true,false,false),"side style fixture failed to initialize its actual native menu/frame");
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(side,&refs);CPtr<NUI::CWindow> page;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&page);}
+    Require(page,"side style fixture lost its native page");
+    struct Button {int tag;const char* id;int caption;};
+    for(const auto entry:{Button{9,"easy",17329},Button{11,"normal",17330},Button{10,"hard",17331},Button{7,"axis",11131},Button{8,"allies",11132}}) {
+        CStructureNetworkContext pageRefs;auto pageFields=BorrowedObjectFields(page,&pageRefs);CPtr<NUI::CButton> button;
+        {CStructureSaver reader(pageFields,CStructureSaver::READ,&pageRefs);reader.Add(entry.tag,&button);}
+        Require(button && button->GetWindowID()==entry.id,"side style fixture did not resolve the actual bottom-panel script button");
+        auto text=[&](int state) {
+            auto* window=button->GetState(state);auto* label=window?dynamic_cast<NUI::CText*>(window->GetChildByID("text")):nullptr;
+            Require(label,"side style fixture lost an actual dynamic state label");return label->GetText();
+        };
+        const auto caption=NUI::GetDBString(entry.caption);
+        Require(text(0)==normal+caption && text(1)==hover+caption,"side selected-style fixture changed the normal or hover caption");
+        Require(page->ProcessMessage(NUI::SEvent(NUI::EVENT_NOTIFY,string(entry.id))) && NMainLoop::StepApp(true,false,false),
+            "side style fixture failed to select its actual button and draw a native frame");
+        Require(button->GetActiveState()==3,"side style fixture did not reach the actual selected button state");
+        std::printf("native side selection: button=%s selectedState=%d selectedMarkupMatches=%d disabledEmpty=%d\n",entry.id,button->GetActiveState(),
+            int(text(3)==selected+L"[ "+caption+L" ]"),int(text(2).empty()));std::fflush(stdout);
+        Require(text(3)==selected+L"[ "+caption+L" ]","selected side-menu caption uses the normal color style instead of the authored selected style");
+        Require(text(2).empty(),"side-menu script button retained a caption for its empty disabled state");
+    }
+    Require(NMainLoop::GetCurrentInterfaceForHarness()==side && !NMainLoop::HaveInterfaceCommand(),"selecting side-menu captions changed the native interface");
+    NMainLoop::DoneInterface();
+}
+
 static void SideMenuDifficultyMapping(const char* databasePath,const char* resourcePath)
 {
     Require(std::getenv("S2_USER_DATA_DIR"),"side difficulty fixture requires isolated user data");
@@ -18791,6 +18833,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-authored-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-script-cadence") && argc == 4) { MainMenuMapScript(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "side-menu-selected-style") && argc==4) { SideMenuSelectedStyle(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "side-menu-difficulty-mapping") && argc==4) { SideMenuDifficultyMapping(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "options-pen-cursor") && argc==4) { OptionsPenCursor(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "ai-unit-flash") && argc==4) { AIUnitFlash(argv[2],argv[3]); return true; }
