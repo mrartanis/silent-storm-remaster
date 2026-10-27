@@ -4646,3 +4646,56 @@ checkpoint e356d2db остаётся376/376 обе платформы, посл�
 Статус281:108 pending/101 imported/22 partial/38 already/3 docs/
 5 excluded-balance/2 excluded-own, по1 historical/review.131 исходный
 коммит ещё разбирается; all281/final actual HEAD Actions не завершены.
+
+## Сохранённая render topology голов — 8997d1a7, с адаптацией старых save
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8997d1a7c369fd1a90eddda8b2792cf2896c62ab
+
+Наш CHeadAnimator уже правильно выводил первые три индекса каждой smoothing
+range. Патч не исправляет формулы мимики или положение вершин: он разделяет
+сохранённый render triangle list и данные smoothing и кэширует первый при
+создании mesh. До переноса отдельные сохранённые trueIndices/trueTris
+игнорировались, хотя их теги8/9 уже присутствуют в SRawHeadMeshInfo.
+
+UpstreamHeadRenderTopology использует настоящий authored head11, его исходные
+LifeStudio streams, CFaceGenMeshHolder, CStructureSaver и наш CHeadAnimator.
+Compiled native RED: legacy empty-tag save/load даёт818 вершин/1274 треугольника;
+ненулевые теги другого допустимого порядка тех же треугольников правильно
+сохраняются/загружаются, но renderer honors them=0. Нейтральные координаты
+обоих случаев до фикса совпадают: проблема именно в чтении topology.
+Файл с прежней сборкой/старое дерево исходников для воспроизведения не создавались.
+
+Теперь CHeadMeshLoader строит отдельный triangle list один раз; native animator
+копирует его в CObjectInfo. CFaceGenMeshHolder читает persisted list; реальный
+CreateHeadInfo переносит его с base mesh в новую baked голову. Все source hunks
+учтены. Адаптация к нашему форку: если ОБА списка пустые, при загрузке holder
+строит их из smoothing ranges. Прямой upstream перенос без этого сделал бы
+невидимыми старые наши головы, у которых эти поля всегда писались пустыми.
+Сериализованные теги и LifeStudio streams не менялись; fallback заполняет только
+runtime cache, не переписывает сохранённые исходные пустые поля.
+
+Native GREEN сохраняет legacy geometry, использует persisted alternate ordering
+и даёт прежние нейтральные координаты. Дополнительно проверен base-loader cache
+и НАСТОЯЩИЙ наш FaceGen producer: authored template94 → CreateHeadInfo,
+один baked stream/непустая topology → CHeadInfo save/load → CHeadAnimator с
+тем же списком треугольников. Это CPU production pipeline собственного движка,
+не вызов стороннего старого LifeStudio DLL; facial math/morph/sequence/scale
+код не переносился. Dedicated pixel сравнения говорящего лица здесь нет.
+
+Проверки:20/20 Windows (67.45 с),15/15 Linux (40.83 с), включая native data/
+FaceGen/MMTree, downed head idle, medal scene и bgfx/low-RAM/stationary fog;
+12 FONT-COMPAT и полные raw без NUL. Windows дополнительно3 network,
+NativeHeadResourceTests (все134 heads/136 streams/56462 vertices, прежний
+digest8A6A6F3A612C18D0) и NativeHeadSequenceRuntimeTests.
+Собраны обе Game и Windows ALL_BUILD. Сборки переиспользованы, HD pack не
+генерировался; все round-trip save bytes существуют только в памяти теста.
+Свидетельства head-render-topology: red-{build,test,native-test}.log,
+green-{build,test,native-test}.log, all-build.log, related-test.log,
+linux-{configure,build,test}.log, {windows,linux}-native-test.log.
+CPU base372; последний полный checkpoint e356d2db —376 обе платформы,
+свежий полный379 не заявляется. Итоговый actual HEAD GitHub Actions ещё нужен.
+
+CI-like278/278 (23.79 с), raw278 полный без NUL. Статус281:
+107 pending/102 imported/22 partial/38 already/3 docs/5 excluded-balance,
+2 excluded-own, по1 historical/review.130 исходных коммитов ещё разбираются;
+все281/final actual HEAD Actions пока не завершены.

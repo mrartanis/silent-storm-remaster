@@ -38,6 +38,7 @@
 #include "../Main/RWGame.h"
 #include "../Main/LSController.h"
 #include "../Main/LSHead.h"
+#include "../Main/HeadResourceData.h"
 #include "../Main/SoundFormat.h"
 #include "../Misc/BasicShare.h"
 #include "../FModSound/FMsound.h"
@@ -5682,6 +5683,118 @@ static void FogSurfaceEligibility()
             }
         }
     }
+}
+
+static void HeadRenderTopology(const char* databasePath,const char* resourcePath)
+{
+    CFileStream database;database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    NLSHead::SHeadResourceData data;NLSHead::LoadHeadResourceData(11,&data);
+    Require(!data.streams.empty() && data.tris.size()>2 && !data.UVs.empty(),
+        "head topology fixture has no authored head11 resource");
+    std::vector<WORD> expectedIndices,expectedPolys{0};
+    int start=0;
+    for(int end:data.tris) {
+        Require(end>=start+3 && end<=int(data.indices.size()),"invalid authored smoothing range");
+        for(int i=0;i<3;++i)expectedIndices.push_back(data.indices[start+i]);
+        expectedPolys.push_back(WORD(expectedIndices.size()));start=end;
+    }
+    auto makeHolder=[&](bool persisted) {
+        CObj<NLSHead::CFaceGenMeshHolder> holder=new NLSHead::CFaceGenMeshHolder;
+        auto& raw=holder->GetInfo();
+        raw.nVertices=data.nVertices;raw.copys=data.copys;raw.UVs=data.UVs;
+        raw.indices=data.indices;raw.tris=data.tris;
+        raw.animatorStreams.resize(data.streams.size());
+        for(int i=0;i<int(data.streams.size());++i)
+            raw.animatorStreams[i].Write(data.streams[i].GetBuffer(),data.streams[i].GetSize());
+        if(persisted) {
+            raw.trueIndices=expectedIndices;raw.trueTris=expectedPolys;
+            // A valid alternate triangle ordering, with identical geometry:
+            // saved render topology must survive independently of smoothing ranges.
+            std::rotate(raw.trueIndices.begin(),raw.trueIndices.begin()+3,raw.trueIndices.end());
+        }
+        CMemoryStream bytes;
+        { CStructureSaver saver(bytes,CStructureSaver::WRITE);saver.Add(1,&holder); }
+        holder=nullptr;bytes.SetRMode();bytes.Seek(0);
+        { CStructureSaver saver(bytes,CStructureSaver::READ);saver.Add(1,&holder); }
+        Require(IsValid(holder) && holder->GetInfo().indices==data.indices &&
+            holder->GetInfo().tris==data.tris && holder->GetInfo().UVs==data.UVs,
+            "head holder save/load changed source geometry");
+        if(persisted) {
+            auto permutation=expectedIndices;
+            std::rotate(permutation.begin(),permutation.begin()+3,permutation.end());
+            Require(holder->GetInfo().trueIndices==permutation && holder->GetInfo().trueTris==expectedPolys,
+                "existing saved render-topology tags did not round-trip");
+        } else Require(holder->GetInfo().trueIndices.empty() && holder->GetInfo().trueTris.empty(),
+            "legacy head fixture unexpectedly has populated render-topology tags");
+        return holder;
+    };
+    CObj<NLSHead::CHeadMeshLoader> baseLoader=new NLSHead::CHeadMeshLoader;
+    baseLoader->SetKey(11);
+    auto* cachedBase=baseLoader->GetValue();
+    Require(cachedBase && cachedBase->trueIndices==expectedIndices && cachedBase->trueTris==expectedPolys,
+        "native head resource loader did not cache the original render topology");
+    CObj<CCTime> clock=new CCTime(0);
+    auto render=[&](NLSHead::CFaceGenMeshHolder* holder) {
+        CDGPtr<NLSHead::CHeadAnimator> animator=new NLSHead::CHeadAnimator(clock,holder);
+        MarkNewDGFrame();animator.Refresh();
+        CObj<NGScene::CObjectInfo> output=animator->GetValue();
+        Require(IsValid(output) && output->GetPositions().size()==data.UVs.size(),
+            "our native facial engine did not produce the authored head mesh");
+        for(const auto& position:output->GetPositions())
+            Require(std::isfinite(position.x) && std::isfinite(position.y) && std::isfinite(position.z),
+                "our native facial engine produced a nonfinite neutral vertex");
+        return output;
+    };
+    auto legacyHolder=makeHolder(false);auto legacy=render(legacyHolder);
+    Require(legacy->GetGeometry().indices==expectedIndices && legacy->GetGeometry().polys==expectedPolys,
+        "legacy saved head lost its derived render triangles");
+    std::printf("native head11 legacy empty-tag save/load control: vertices=%zu triangles=%zu\n",
+        legacy->GetPositions().size(),expectedIndices.size()/3);std::fflush(stdout);
+    auto storedHolder=makeHolder(true);auto stored=render(storedHolder);
+    const auto& saved=storedHolder->GetInfo();
+    Require(stored->GetPositions()==legacy->GetPositions(),
+        "reading stored head topology changed our native neutral facial positions");
+    std::printf("native head11 stored topology tags survive save/load; renderer honors them=%d\n",
+        int(stored->GetGeometry().indices==saved.trueIndices));std::fflush(stdout);
+    Require(stored->GetGeometry().indices==saved.trueIndices && stored->GetGeometry().polys==saved.trueTris,
+        "head renderer ignores the persisted render triangle ordering");
+    NDb::CComplexHead* transformable=nullptr;
+    CDBIterator<NDb::CComplexHead> rows(*NDatabase::GetTable<NDb::CComplexHead>());
+    while(rows.MoveNext()) {
+        auto* candidate=rows.Get();
+        if(IsValid(candidate) && IsValid(candidate->pHead) && candidate->pHead->isTransformable &&
+           IsValid(candidate->pHead->pTransformableTextures)) { transformable=candidate;break; }
+    }
+    Require(transformable!=nullptr,"head topology fixture has no authored FaceGen template");
+    CObj<NLSHead::CHeadTransformInfo> transform=new NLSHead::CHeadTransformInfo(transformable,clock);
+    transform->SetPlayIdle(false);
+    CObj<NLSHead::CHeadInfo> committed=transform->CreateHeadInfo();
+    auto* baked=IsValid(committed) ? dynamic_cast<NLSHead::CFaceGenMeshHolder*>(committed->GetMesh()) : nullptr;
+    Require(baked && committed->IsStaticHead() && baked->GetInfo().animatorStreams.size()==1,
+        "our native FaceGen producer did not commit a real baked head");
+    CObj<NLSHead::CHeadMeshLoader> templateLoader=new NLSHead::CHeadMeshLoader;
+    templateLoader->SetKey(transformable->pHead->GetRecordID());
+    const auto* base=templateLoader->GetValue();
+    const auto committedIndices=baked->GetInfo().trueIndices,committedPolys=baked->GetInfo().trueTris;
+    Require(base && !committedIndices.empty() && committedIndices==base->trueIndices &&
+        committedPolys==base->trueTris,"our FaceGen commit omitted its base render topology");
+    CMemoryStream bytes;
+    { CStructureSaver saver(bytes,CStructureSaver::WRITE);saver.Add(1,&committed); }
+    committed=nullptr;bytes.SetRMode();bytes.Seek(0);
+    { CStructureSaver saver(bytes,CStructureSaver::READ);saver.Add(1,&committed); }
+    baked=IsValid(committed) ? dynamic_cast<NLSHead::CFaceGenMeshHolder*>(committed->GetMesh()) : nullptr;
+    Require(baked && baked->GetInfo().trueIndices==committedIndices &&
+        baked->GetInfo().trueTris==committedPolys,
+        "our FaceGen commit lost render topology after head-info save/load");
+    CDGPtr<NLSHead::CHeadAnimator> live=new NLSHead::CHeadAnimator(clock,baked);
+    MarkNewDGFrame();live.Refresh();
+    Require(live->GetValue() && live->GetValue()->GetGeometry().indices==committedIndices &&
+        live->GetValue()->GetGeometry().polys==committedPolys,
+        "our native facial engine could not render the round-tripped FaceGen commit");
+    std::printf("native FaceGen producer template=%d: single baked stream, populated topology and head-info save/load rendered\n",
+        transformable->GetRecordID());
 }
 
 class MeshNode: public CPtrFuncBase<NGScene::CObjectInfo>
@@ -16670,6 +16783,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "stale-navigation-colourer")) { NavigationColouringOccupancy(2); return true; }
     if (!std::strcmp(mode, "ragdoll-restoration")) { RagdollRestoration(); return true; }
     if (!std::strcmp(mode, "fog-surface-eligibility")) { FogSurfaceEligibility(); return true; }
+    if (!std::strcmp(mode, "head-render-topology") && argc==4) { HeadRenderTopology(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "negative-mesh-bounds")) { NegativeMeshBounds(); return true; }
     if (!std::strcmp(mode, "sniper-targetless-probe") && argc == 4) { SniperHeldAim(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "sniper-held-aim") && argc == 4) { SniperHeldAim(argv[2], argv[3]); return true; }
