@@ -4146,6 +4146,77 @@ static void MissionSaveMenu(const char* databasePath,const char* resourcePath,bo
     NMainLoop::DoneInterface();
 }
 
+static void MissionRestartMenu(const char* databasePath,const char* resourcePath,bool network = false)
+{
+    Require(std::getenv("S2_USER_DATA_DIR"),"restart permission fixture requires isolated user data");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"restart fixture has a pending interface");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm mission restart permission regression");
+    const char* profile=network?"UpstreamNetworkRestart":"UpstreamMissionRestart";
+    NMainLoop::CreateProfile(profile);NMainLoop::SetActiveProfile(profile);
+    auto* manager=NMainLoop::GetSaveManager();
+    struct Slots {NMainLoop::CSaveManager* manager;~Slots(){manager->DeleteSlot(NMainLoop::S_SLOT_ACTIVE);}} slots{manager};
+    NGame::InitLoadingScreen();
+    CObj<NGame::CMission> mission;CObj<NRPG::CGlobalGame> game;
+    std::shared_ptr<S2Net::NetworkWorld> netWorld;std::shared_ptr<S2Net::NetworkSession> session;
+    if(network) {
+        S2Net::NetworkMatchPreset preset;preset.prepareOnBase=true;preset.squadSize=1;
+        netWorld=std::make_shared<S2Net::NetworkWorld>(true,preset);netWorld->Initial();
+        session=std::make_shared<S2Net::NetworkSession>(S2Net::Compatibility{"restart-permission-regression","data"},netWorld->Callbacks());session->Host(0);
+        NGame::OpenNetworkMission(netWorld,session);
+        CObj<NMainLoop::CInterfaceCommand> open=NMainLoop::TakeInterfaceCommandForHarness();
+        Require(open && !NMainLoop::HaveInterfaceCommand(),"restart fixture lost its LAN preparation command");open->Exec();
+        mission=dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());
+        Require(mission && netWorld->IsPreparing(),"restart fixture did not open real LAN preparation");game=netWorld->Match().game;
+        Require(!NMainLoop::HaveInterfaceCommand(),"LAN preparation unexpectedly queued a local restart snapshot");
+    } else {
+        game=NRPG::CreateGlobalGame(-1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+        CObj<NGame::CICBeginMission> enter=new NGame::CICBeginMission(810,-1,vector<string>(),game);enter->Exec();
+        mission=dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());
+        Require(mission,"restart fixture did not open an actual tactical mission");
+        CObj<NMainLoop::CInterfaceCommand> snapshot=NMainLoop::TakeInterfaceCommandForHarness();
+        Require(dynamic_cast<NMainLoop::CICSaveFile*>(snapshot.GetPtr()) && !NMainLoop::HaveInterfaceCommand(),"restart fixture lost its actual queued snapshot");snapshot->Exec();
+    }
+    struct Flags {bool restart=false;int operator&(CStructureSaver& saver){saver.Add(32,&restart);return 0;}} flags;
+    CStructureNetworkContext missionReferences;auto missionFields=BorrowedObjectFields(mission,&missionReferences);
+    {CStructureSaver reader(missionFields,CStructureSaver::READ,&missionReferences);reader.Add(1,&flags);}
+    std::printf("native restart initialization: network=%d saved permission=%d expected=%d\n",int(network),int(flags.restart),int(!network));std::fflush(stdout);
+    const auto* world=mission->GetWorld();const STime worldTime=world->GetAimTime()->GetValue();
+    NWorld::IPlayer::CUnitSet party;mission->GetActivePlayer()->GetPlayer()->GetUnits(&party);
+    NInput::CBind menu("gamemenu");
+    for(bool allowed:{false,true,false}) {
+        if(network && allowed)continue;
+        CMemoryStream fields;
+        {CStructureSaver writer(fields,CStructureSaver::WRITE);writer.Add(32,&allowed);}fields.Seek(0);
+        {CStructureSaver reader(fields,CStructureSaver::READ);mission->NGame::CMissionBase::operator&(reader);}
+        NInput::SEvent event;while(NInput::GetEvent(&event)){}
+        auto* networkMenu=network?mission->GetInterface()->GetChildByID("net_match_menu"):nullptr;
+        const bool networkWasVisible=networkMenu && networkMenu->GetStyle(NUI::STYLE_VISIBLE);
+        NInput::PostEvent("gamemenu");
+        Require(NInput::GetEvent(&event) && menu.ProcessEvent(event) && mission->ProcessEvent(event),"mission did not consume its actual menu binding");
+        if(network) {
+            Require(networkMenu && networkMenu->GetStyle(NUI::STYLE_VISIBLE)!=networkWasVisible && !NMainLoop::HaveInterfaceCommand() &&
+                !networkMenu->GetChildByID("restart") && NMainLoop::GetCurrentInterfaceForHarness()==mission.GetPtr(),
+                "LAN menu binding lost its own overlay or opened a local restart menu");
+            std::puts("native LAN restart control: own match overlay toggled; no local snapshot/menu command");
+            continue;
+        }
+        CObj<NMainLoop::CInterfaceCommand> command=NMainLoop::TakeInterfaceCommandForHarness();
+        Require(dynamic_cast<NGame::CICInGameMenu*>(command.GetPtr()) && !NMainLoop::HaveInterfaceCommand(),"mission did not queue its actual in-game menu");command->Exec();
+        auto* active=NMainLoop::GetCurrentInterfaceForHarness();Require(active && active!=mission.GetPtr(),"in-game menu was not installed");
+        CStructureNetworkContext refs;auto saved=BorrowedObjectFields(active,&refs);CPtr<NUI::CWindow> page;
+        {CStructureSaver reader(saved,CStructureSaver::READ,&refs);reader.Add(9,&page);}
+        auto* restart=IsValid(page)?page->GetChildByID("restart"):nullptr;
+        Require(IsValid(restart),"native restart menu has no authored restart control");
+        std::printf("native restart menu: network=%d permission=%d button=%d\n",int(network),int(allowed),int(restart->GetStyle(NUI::STYLE_ENABLED)));std::fflush(stdout);
+        Require(restart->GetStyle(NUI::STYLE_ENABLED)==allowed,"native mission menu ignored its saved restart permission");
+        CObj<NMainLoop::CICExitModal> close=new NMainLoop::CICExitModal;close->Exec();
+        NWorld::IPlayer::CUnitSet after;mission->GetActivePlayer()->GetPlayer()->GetUnits(&after);
+        Require(NMainLoop::GetCurrentInterfaceForHarness()==mission.GetPtr() && !NMainLoop::HaveInterfaceCommand() && mission->GetWorld()==world && world->GetAimTime()->GetValue()==worldTime && after==party,
+            "opening the restart menu changed the mission, world time or party");
+    }
+    Require(flags.restart==!network,"fresh mission did not preserve the correct local-versus-network restart permission");
+}
+
 static void MissionLoadingInput(const char* databasePath,const char* resourcePath)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"mission loading input fixture requires isolated user data");
@@ -20337,6 +20408,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "hotseat-handoff-legacy") && argc==4) { HotseatDialogTemplate(argv[2],argv[3],true,true); return true; }
     if (!std::strcmp(mode, "hotseat-dialog-legacy") && argc==4) { HotseatDialogTemplate(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "hotseat-dialog-template") && argc==4) { HotseatDialogTemplate(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "mission-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "audio-option-checkboxes") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3]); return true; }

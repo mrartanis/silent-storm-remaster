@@ -510,7 +510,12 @@ bool CMission::Initialize( int _nTemplateID, int _nVariantID, NScenario::CScenar
 	// it drains AFTER CICBeginMission::Exec has installed this mission into the interface stack,
 	// so the snapshot contains the fresh mission (an inline save here would capture the OLD stack).
 	// The pause/lose-menu "Restart mission" button loads it back via CICLoadFile.
-	if (!networkSession) NMainLoop::Command( new CICSaveRestartMission( this ) );
+	if (!networkSession)
+	{
+		NMainLoop::Command( new CICSaveRestartMission( this ) );
+		// Original Steam 0x602086: arm restart after queuing the local snapshot.
+		bCanRestart = true;
+	}
 	else InitializeComplete(); // Network preparation has no local restart snapshot.
 
 	return true;
@@ -1643,7 +1648,7 @@ bool CMission::ProcessEvent( const NInput::SEvent &sEvent )
 	// "mainmenu" is the F10 key; "gamemenu" is the on-screen Pause-Menu (HUD) button -- both open the in-game menu.
 	if ( bindMainMenu.ProcessEvent( sEvent ) || bindGameMenu.ProcessEvent( sEvent ) )
 	{
-		NMainLoop::Command( new CICInGameMenu( GetActivePlayer()->GetGlobalPlayer(), true /*bAllowRestart: opened from a mission*/, bCanSave ) );
+		NMainLoop::Command( new CICInGameMenu( GetActivePlayer()->GetGlobalPlayer(), bCanRestart, bCanSave ) );
 		return true;
 	}
 	else if ( bindSaveMenu.ProcessEvent( sEvent ) )

@@ -8270,3 +8270,67 @@ final-linux,linux-display,final-ci}. Shared builds reused, no per-bug copies or
 HD generation. No gameplay balance, production RNG, face/font, asset or wire
 change. Source fully imported; tracker281/130imported/23partial/85pending,
 108unfinished. ALL281 and final actual-HEAD hosted CI remain open.
+
+
+## adea40c8, remaining part — honor saved mission restart permission
+
+The remaining restart-permission behavior in sourceadea40c8 is now imported.
+After queuing the local restart snapshot, arm bCanRestart; forward that saved
+flag to CICInGameMenu instead of constanttrue. Adapt to our deferred
+CICSaveRestartMission/InitializeComplete lifecycle and LAN preparation: network
+missions have no local restart snapshot, keep their false flag and native LAN
+overlay path. No upstream synchronous-loading sequence is substituted.
+
+Native RED1failure/2cases5.21s: actual tactical mission810, native database,
+CICBeginMission, the real queued restart snapshot, serialized base tag32 and
+actual bound gamemenu event. Initial local flag wasfalse instead oftrue; writing
+an existing savedfalse through its real serializer still opened a native menu
+whose authored restart button wasenabled. Its false permission should disable
+that button. Earlier test setup incorrectly expected the LAN binding to queue
+a local menu; correct the fixture to inspect our actual net_match_menu overlay
+before the final native RED. The LAN case then passes on unchanged production:
+flagfalse, its own overlay toggles, no local menu command or restart snapshot.
+Keep the initial setup log separately; do not count it as a production bug.
+
+Focused GREEN2/2 5.13s: new local mission serializes true; actual native menu
+buttons follow savedfalse/true/false asdisabled/enabled/disabled. Closing each
+menu returns to the same mission/world, party and world time. No native Restart
+button is clicked or user save loaded. LAN preparation still serializesfalse,
+toggles its own overlay twice, and queues no local restart/menu. This is an
+actual native menu/control test, not a GPU screenshot or a complete live-client
+network match test. Existing savedfalse flags remainfalse, including old fork
+saves; no permission migration is inferred from the presence of a snapshot.
+
+Independent original proof: Gold PDB CMissionBase::ProcessEvent5a0240/884 and
+CMission::Initialize5fc930/4324. The complete18byte saved-permission load/push
+sequenceGold5a02df matches Steam5a2c6f exactly and uniquely, with no masks:
+load save+e4 and restart+e6, then pass both to the menu. Initialize entry41bytes
+Gold5fc930 maps uniquely to Steam601070, masking only the verified SEH handler
+operand3:7. The original seven-byte restart-true storeGold5fd938 matches
+Steam602086 uniquely, without masks, within that mapped initializer after the
+snapshot command is queued. Full original initializer/event disassemblies and
+restart-permission-retail-oracle.json retained. An initial longer26byte block
+had no match because surrounding exception-state/loop code differs; no numeric
+mask was invented to force it. The source comment601f76 differs from this
+executable; use the independently verified602086.
+
+Source remainder audit: the save-load versus zone-reentry action-state changes
+are already f320b965026cb8227f28a9a5272b5f81160f4b61. Preserve our additional
+2ddd6a8c0dd1e09468ca7efcec8822e214f8e4a7 cache-only UpdateInfo calls, which keep
+existing AI support hulls intact, instead of overwriting them with the upstream
+UpdateAllParts. The existing world-interface signatures and documentation
+already reflect that adaptation. All six source files' behavior is accounted
+for; sourceadea40c8 can now be marked imported without changing world actions.
+
+Final Windows/Linux Game and helpers built; related11/11 Windows20.69s/
+Linux18.30s, including raw-load and zone-reentry controls; native-display57/57
+Windows82.15s/Linux67.68s; CI-like290/29024.19s. All five raw logs have exact
+11/57/11/57/290 passed records, no NUL/Failed/NotRun/missing executables, actual
+runners exit0. The initial Linux10case related run omitted the zone-reentry name;
+retain it separately and use the corrected complete11case rerun for final
+validation. Evidence mission-restart-permission-{red,green,final-related,
+final-linux,final-display,linux-display,final-ci} and original oracle files.
+No game balance, AP/VP, CPU perception, production RNG, face/font, HD or save
+format changes. Owned games closed, shared builds reused, no HD generation or
+per-bug binary copies. Tracker281/131imported/22partial/85pending,107unfinished.
+ALL281 and final actual-HEAD hosted CI remain open.
