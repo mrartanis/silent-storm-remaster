@@ -320,10 +320,10 @@ float CToHitCalcer::GetTArea()
 float CToHitCalcer::GetCA()
 {
 	float fTArea = GetTArea();
-	// release-new: the "ignore cover" perk (0x48) zeroes the cover/area contribution.
-	if ( pUnitMission->HasPerk( 0x48 ) )
-		fTArea = 0;
 	float fTCover = fHitCover / 100.f;
+	float fCoverMultiplier;
+	if ( pUnitMission->HasPerk( 0x48, &fCoverMultiplier ) )
+		fTCover *= fCoverMultiplier;
 	float fScopeFactor = sWeaponInfo.fScopeFactor; // 20 - normal weapon // 100 - sniper rifle
 	float fDistCoeff = DistanceFunc( nDistance, fScopeFactor );
 	return ( (100-fDistCoeff)*(fTCover*fTArea)+fDistCoeff ) / 100.0f;

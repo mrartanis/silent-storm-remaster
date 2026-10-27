@@ -16103,6 +16103,72 @@ static void PKPlacement()
     Require(position.IsFinal() && CanPlacePK(network.GetPtr(), position, 0), "flying PK restoration was rejected");
 }
 
+static void CoverPerkMultiplier(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    auto* perk=NDb::GetDBPerk(72);
+    Require(IsValid(perk) && !perk->params.empty() && std::isfinite(perk->params[0]),
+        "cover perk fixture lacks its actual authored parameter");
+    std::printf("native cover perk record: id=72 parameter=%g\n",perk->params[0]);std::fflush(stdout);
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);NWorld::CUnitServer* anchor=nullptr;
+    for(auto entry:units) {
+        auto* candidate=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if(candidate && !candidate->IsAIUnit() && candidate->CanFight() && !candidate->IsWearingPK() &&
+            !candidate->GetUnitRPG()->HasPerk(17)) { anchor=candidate;break; }
+    }
+    Require(anchor!=nullptr,"cover perk fixture has no ordinary native target without the separate no-cover perk");
+    NDb::CRPGPers* persona=nullptr;
+    CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while(people.MoveNext()) {
+        auto* candidate=people.Get();
+        if(!IsValid(candidate->pClass) || !IsValid(candidate->pBaseValue) || !IsValid(candidate->pModel) ||
+            IsValid(candidate->pPanzerklein) || IsValid(candidate->pDefaultWearsPanzerklein))continue;
+        CObj<NRPG::CPerksTree> tree=NRPG::CreatePerksTree(candidate->pClass->nPerkTreeID);
+        vector<CPtr<NRPG::CPerk>> entries;tree->GetAllPerks(&entries);
+        for(auto entry:entries)if(entry->GetDBPerk()->GetRecordID()==72) { persona=candidate;break; }
+        if(persona)break;
+    }
+    Require(persona!=nullptr,"cover perk fixture has no authored ordinary class containing perk72");
+    CObj<NRPG::CUnit> rpg=new NRPG::CUnit(persona);CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(rpg);
+    const auto position=anchor->GetPosition();
+    CObj<NWorld::CUnitServer> shooter=new NWorld::CUnitServer(world,mission,rpg->pModel,
+        dynamic_cast<NWorld::CPlayer*>(anchor->GetPlayer()),position);
+    Require(!mission->HasPerk(72),"cover perk control already owns the tested ability");
+    auto measure=[&](int distance,float cover,bool unit) {
+        const CVec3 from=position.GetCP()+CVec3(0,distance*FP_GRID_STEP,1.5f);
+        CObj<NRPG::CToHitCalcer> calcer;
+        if(unit)calcer=new NRPG::CUnitToHitCalcer(shooter,position.GetPose(),distance,from,position.pos,0,0,
+            cover,false,false,VNULL3,NAI::HL_ANY,anchor,0,false);
+        else calcer=new NRPG::CTileToHitCalcer(shooter,position.GetPose(),distance,from,0,cover,false,false,
+            VNULL3,position.GetCP(),0);
+        calcer->Prepare();
+        const int ap=shooter->GetAP();const float xp=rpg->fXP;auto* inventory=mission->GetInventory();
+        const float area=calcer->GetTArea(),factor=calcer->GetCA();
+        Require(std::isfinite(area) && area>0 && std::isfinite(factor),"cover perk native geometry has no finite area/factor");
+        Require(shooter->GetAP()==ap && rpg->fXP==xp && mission->GetInventory()==inventory &&
+            shooter->GetPosition()==position,"cover calculation changed AP, XP, inventory or world placement");
+        return factor;
+    };
+    struct Reference {int distance;bool unit;float floor,exposed;};vector<Reference> references;
+    for(bool unit:{false,true})for(int distance:{5,20,60}) {
+        const float floor=measure(distance,0,unit),exposed=measure(distance,100,unit);
+        Require(exposed>floor && std::abs(measure(distance,25,unit)-(floor+(exposed-floor)*.25f))<1e-5f,
+            "unperked native cover controls lost their real area contribution");
+        references.push_back({distance,unit,floor,exposed});
+    }
+    std::printf("native cover control: persona=%d six tile/unit area-distance cases pass\n",persona->GetRecordID());std::fflush(stdout);
+    rpg->GetPerksTree()->AddPerkPoints(1);rpg->GetPerksTree()->TakePerk(72);float multiplier=0;
+    Require(mission->HasPerk(72,&multiplier) && multiplier==perk->params[0],"cover fixture did not acquire its authored perk");
+    for(auto reference:references)for(float cover:{0.f,25.f,100.f}) {
+        const float actual=measure(reference.distance,cover,reference.unit);
+        const float expected=reference.floor+multiplier*(reference.exposed-reference.floor)*(cover/100.f);
+        std::printf("native cover perk: unit=%d distance=%d cover=%g actual=%g expected=%g\n",
+            int(reference.unit),reference.distance,cover,actual,expected);std::fflush(stdout);
+        Require(std::abs(actual-expected)<1e-5f,"cover perk discards target area instead of applying its authored multiplier");
+    }
+}
+
 static void MovingTargetPerk(const char* databasePath,const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -17586,6 +17652,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "conclusions") && argc == 4) { ConclusionRouting(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "pk-placement")) { PKPlacement(); return true; }
     if (!std::strcmp(mode, "critical-ids") && argc == 3) { CriticalIDs(argv[2]); return true; }
+    if (!std::strcmp(mode, "cover-perk-multiplier") && argc==4) { CoverPerkMultiplier(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "moving-target-perk") && argc==4) { MovingTargetPerk(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "attacker-level-critical-rolls") && argc==3) { AttackerLevelCriticalRolls(argv[2]); return true; }
     if (!std::strcmp(mode, "head-body-damage") && argc==3) { HeadBodyDamage(argv[2]); return true; }

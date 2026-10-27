@@ -5173,3 +5173,59 @@ all-build.log, related-test.log, linux-{configure,build,test}.log,
 25partial/38already/3docs/5excluded-balance/2excluded-own, по1historical/review.
 127 исходных коммитов ещё разбираются. CPUbase382; свежий full389/CI здесь
 не заявляется. Все281 и final actual HEAD GitHub Actions ещё не завершены.
+
+
+## Авторский множитель покрытия без потери площади цели — завершение7368b4b1
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7368b4b10182ef243135d94b93bc481fd6dd593f
+
+Original Steam EXE SHA2564F417593A9F73E2BFDE12D83CDBD694AE47EECB92812140D67B8B343E4A95705:
+GetCA6b6fd0 сохраняет virtual GetTArea, HasPerk72 пишет Param1 local6b6ff1..fc,
+6b7003/07 умножает его на coverage; area остаётся отдельным множителем6b702e.
+Oracle perk-cover-retail-disassembly.txt записан от настоящего начала функции.
+Параметры оригинального executable не выводились из текста описания perk.
+
+Native probe собран ДО production и с первого запуска дал настоящий RED:
+authored perk72Param1=2, persona106 с настоящим деревом и CUnitServer/mission
+в реальном FixtureWorld. Unperked шесть контрольных комбинаций tile/unit ×
+distance5/20/60 подтверждают ненулевую площадь и линейный вклад coverage.
+После public TakePerk72: distance5/tile/cover25 actual.961905 вместо.968190.
+Значение2 взято из DB без её изменений; гипотеза об эквивалентности при Param0
+не подтвердилась на текущих авторских данных. Probe logs — именно runtime RED,
+не fixture/compile ошибка.
+
+Исправлено только чтение multiplier и fTCover*=Param1 вместо fTArea=0.
+Сохранены virtual area, native Prepare/equipment/scope/distance, no-cover perk17
+и called-shot ветви. Unit fixture использует реального target без17 и HL_ANY,
+чтобы изолировать эту часть. GREEN18 combinations двух типов цели, трёх
+дистанций иcoverage0/25/100. Expected factor получен из native unperked floor
+и area contribution с исходным multiplier; DistanceFunc/весь шанс попадания
+в тест не скопированы. AP/XP/inventory/placement при GetCA неизменны. Native
+GetCA coverage0 floor не объявляется равным GetToHit coverage0: его прежний
+entry guard сохраняется. Это calcer geometry proof, не выполненный выстрел,
+collision/путь или AI decision; acquisition prerequisites не тестируются.
+
+Общий GetCA используется разными атаками, поэтому выполнен FULL:
+Windows390/390319.51с, Linux390/390318.99с (CPUbase383+7GPU extras),17audio/
+12FONT-COMPAT на каждой платформе. Raw390 полные без NUL, сохранены до следующих
+CTest. Both Game/Windows ALL_BUILD собраны. NetworkSerializer/ClientUI/
+ObjectStages/StopResume4/47.02с; CI-like280/28023.88с, raw280/fonts12/noNUL.
+Свидетельства cover-perk-multiplier: probe-{build,test,native-test}.log,
+green-{build,test,native-test}.log, all-build.log, full-test.log,
+linux-{configure,build,test}.log, {windows,linux}-full-native-test.log,
+network-test.log, windows-network-native-test.log, ci-{test,native-test}.log,
+ci-tests.txt. Новых копий сборок нет, HD pack не генерировался, тесты завершились.
+
+Повторно сопоставлены все hunks7368 и final1bd13094. Три reconstruction fixes
+перенесены по отдельности: health3f240042, moving1ca11284, cover этот фикс.
+Девять явно помеченных ORIGINAL RETAIL BUG FIXED правил исключены и подробно
+описаны в UPSTREAM-BALANCE-CHANGES.md. Исторический блок6/71 уже заменён final
+retail revert1bd: own UseWeapon использует DB multiplier×counter, rate/cap
+perks остаются прежними. Source7368 теперь imported с этим разделением,
+а не blanket cherry-pick. Собственные facial/HD/SDL/bgfx/network engines и
+форматы сохранений не заменялись.
+
+Статус281:101pending/106imported/24partial/38already/3docs/5excluded-balance/
+2excluded-own, по1historical/review.126 исходных коммитов ещё разбираются.
+Все281 и final actual HEAD GitHub Actions ещё не завершены; локальный CI
+не выдаётся за hosted run.
