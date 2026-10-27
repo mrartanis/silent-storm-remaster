@@ -17457,6 +17457,75 @@ static void OverlappingDoors()
     Require(network->GetFlippersAt(position).empty(), "restored grid retained a stale door lookup");
 }
 
+static void AISelectedReloadActionCost(const char* databasePath,const char* resourcePath,bool spend)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);NWorld::CUnitServer* anchor=nullptr;
+    for(auto entry:units) {
+        auto* actor=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if(actor && actor->IsAIUnit() && actor->CanFight() && !actor->IsEmptyPK() && !actor->IsWearingPK()) {anchor=actor;break;}
+    }
+    Require(anchor,"AI reload fixture lacks a real native AI owner/player");
+    auto* player=dynamic_cast<NWorld::CPlayer*>(anchor->GetPlayer());Require(player,"AI reload fixture lacks its native player");
+    auto point=anchor->GetPosition().pos.p;bool placed=false;auto* network=world->GetPathNetwork();
+    for(auto offset:{CTPoint<int>(2,0),CTPoint<int>(-2,0),CTPoint<int>(0,2),CTPoint<int>(0,-2)}) {
+        const int x=int(point.GetX())+offset.x,y=int(point.GetY())+offset.y;
+        if(x<0 || y<0 || x>255 || y>255)continue;
+        auto candidate=point;candidate.SetXY(x,y);candidate.SetPose(NAI::CM_STAND);candidate.SetMoving(0);
+        if(network->IsPassable(candidate) && !network->IsLocked(candidate)) {point=candidate;placed=true;break;}
+    }
+    Require(placed,"AI reload fixture lacks a real unoccupied tile beside its AI owner");
+    auto* persona=NDb::GetPers(265);auto* currentDB=NDb::GetWeapon(65);auto* selectedDB=NDb::GetWeapon(127);auto* perk=NDb::GetDBPerk(33);
+    Require(persona && currentDB && selectedDB && perk && !perk->params.empty() &&
+        IsValid(currentDB->pInnerClip) && IsValid(selectedDB->pInnerClip) && currentDB->nReloadAP!=selectedDB->nReloadAP,
+        "AI reload fixture lacks distinct authored current/selected firearms or its perk");
+    CObj<NRPG::CUnit> rpg=new NRPG::CUnit(persona);CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(rpg);
+    auto* inventory=mission->GetInventory();vector<CObj<NRPG::IInventoryItem>> original;
+    for(auto slot:{NDb::SLOT_1,NDb::SLOT_2})if(auto* item=inventory->TakeOff(slot))original.push_back(item);
+    const auto bag=inventory->GetItems();
+    for(const auto& item:bag) {original.push_back(item.pItem.GetPtr());inventory->Take(item.pItem);}
+    CObj<NRPG::CWeaponItem> current=new NRPG::CWeaponItem(currentDB),selected=new NRPG::CWeaponItem(selectedDB);
+    selected->DiscardAmmo();
+    Require(inventory->Equip(NDb::SLOT_1,current) && inventory->Equip(NDb::SLOT_2,selected) && inventory->Activate(NDb::SLOT_1),
+        "AI reload fixture did not install its real held and holstered firearms");
+    CObj<NRPG::IInventoryItem> spare=NRPG::CreateClipItem(selectedDB->pInnerClip);CTPoint<int> place;
+    Require(spare && inventory->FindPlace(spare,&place) && inventory->Place(place,spare) && selected->CanReload(inventory),
+        "AI reload fixture failed to place compatible real spare ammunition");
+    auto placement=anchor->GetPosition();placement.pos.p=point;
+    CObj<NWorld::CUnitServer> actor=new NWorld::CUnitServer(world,mission,rpg->pModel,player,placement);world->AddUnit(actor);
+    auto* ai=NAI::GetAIUnit(actor);
+    Require(actor && actor->IsAIUnit() && actor->CanFight() && ai && ai->IsUnderAIControl() && ai->GetUnitServer()==actor.GetPtr(),
+        "AI reload fixture did not register its genuine owned runtime AI unit");
+    ai->Synchronize();auto* planning=ai->GetAIInventory();auto* planned=planning?planning->GetBestWeaponForReload():nullptr;
+    Require(planned && planned->GetItem()==selected.GetPtr() && !planning->IsCurrentItem(planned) &&
+        IsValid(planned->GetNextClip()) && planned->GetNextClip()->GetAmmoCount()>0,
+        "AI reload fixture did not resolve its sole reload-eligible holstered firearm and live spare");
+    Require(!mission->HasPerk(33) && planned->GetReloadAP()==selectedDB->nReloadAP,"AI reload no-perk/raw-price control failed");
+    CObj<NAI::CAIReloadAction> action=new NAI::CAIReloadAction(ai);NAI::SPlaceWithAP query;
+    query.place=ai->GetUnitPosition();query.nUnitAP=selectedDB->nReloadAP;NAI::CAIReloadAction::SInfo info;
+    action->GetInfoInner(query,&info);Require(info.bCanDo && info.pWeapon==planned,"AI reload positive budget control rejected its actual selected weapon");
+    rpg->GetPerksTree()->AddPerkPoints(1);rpg->GetPerksTree()->TakePerk(33);float parameter=0;
+    Require(mission->HasPerk(33,&parameter) && parameter==perk->params[0],"AI reload fixture did not acquire its genuine authored perk33");
+    const int price=rpg->GetWeaponReloadActionAP(selected),held=rpg->GetWeaponReloadActionAP(current),physicalAP=actor->GetAP();
+    Require(price==int(selectedDB->nReloadAP*parameter) && price>0 && price<selectedDB->nReloadAP && price!=held &&
+        mission->GetActionAP(NAI::WALK,NRPG::AC_RELOAD)==held,"AI reload fixture does not distinguish the selected native action price from held/raw prices");
+    query.nUnitAP=price;action->GetInfoInner(query,&info);
+    std::printf("native AI reload budget: selected=%d held=%d raw=%d selectedAction=%d heldAction=%d budget=%d canDo=%d spendMode=%d\n",
+        selectedDB->GetRecordID(),currentDB->GetRecordID(),selectedDB->nReloadAP,price,held,query.nUnitAP,int(info.bCanDo),int(spend));std::fflush(stdout);
+    if(!spend) {
+        Require(info.bCanDo && info.pWeapon==planned,"AI reload rejects an affordable selected weapon by using raw or held-weapon AP instead of its action price");
+        query.nUnitAP=price-1;action->GetInfoInner(query,&info);Require(!info.bCanDo,"AI reload accepts a selected action without sufficient AP");
+        Require(actor->GetAP()==physicalAP && selected->GetAmmoQuantity()==0 && inventory->GetActive()==current.GetPtr(),
+            "AI availability query spent world AP, loaded ammunition or changed the held weapon");return;
+    }
+    const int budget=selectedDB->nReloadAP,maximum=ai->GetMaxAP();Require(budget<=maximum,"AI reload spend fixture exceeds its native maximum planning AP");
+    ai->SetAP(budget,maximum);CObj<NAI::CAILog> log=NAI::CreateAILog();action->Do(log);
+    std::printf("native AI reload spend: before=%d after=%d expected=%d physicalBefore=%d physicalAfter=%d\n",budget,ai->GetAP(),budget-price,physicalAP,actor->GetAP());std::fflush(stdout);
+    Require(!log->IsEmpty() && ai->GetAP()==budget-price,"AI reload log spends raw or held-weapon AP instead of the original selected action price");
+    Require(planning->IsCurrentItem(planned) && planned->IsCurrentClipFull() && actor->GetAP()==physicalAP &&
+        selected->GetAmmoQuantity()==0 && inventory->GetActive()==current.GetPtr(),"AI planning reload changed the real world or failed to update its native inventory mirror");
+}
+
 static void RetailReloadActionCost(const char* databasePath)
 {
     CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
@@ -19270,6 +19339,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "script-held-grenade-activation") && argc == 4) { ScriptHeldGrenadeActivation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "forced-action-recalc") && argc == 4) { ForcedActionRecalc(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "overlapping-doors")) { OverlappingDoors(); return true; }
+    if (!std::strcmp(mode, "ai-selected-reload-availability") && argc==4) { AISelectedReloadActionCost(argv[2],argv[3],false); return true; }
+    if (!std::strcmp(mode, "ai-selected-reload-spend") && argc==4) { AISelectedReloadActionCost(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "retail-reload-action-cost") && argc==3) { RetailReloadActionCost(argv[2]); return true; }
     if (!std::strcmp(mode, "global-game-difficulty") && argc==3) { GlobalGameDifficulty(argv[2]); return true; }
     if (!std::strcmp(mode, "weapon-familiarity")) { WeaponFamiliarity(); return true; }

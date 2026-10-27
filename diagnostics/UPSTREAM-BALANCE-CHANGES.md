@@ -47,9 +47,10 @@ UPSTREAM-IMPORTS.md). Аудит источника завершён с этим
 
 [b875e43d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b875e43ddec65e0375d1335eb8d8726e38b4934a) связывает AI reload с общей стоимостью выбранного оружия,
 но наследует измененный perk 33 и минимум 1 AP. Общая цена для AI и игрока
-полезна. Первый независимый шаг выполнен: общая цена действия и player
-AC_RELOAD восстановлены по исходной retail формуле Param1 с integer truncation,
-без минимального1AP; собственно AI consumers ещё требуют отдельного native TDD.
+полезна. Оба независимых шага выполнены с отдельными native RED/GREEN:
+общая цена действия/player AC_RELOAD и использование этой цены выбранного
+оружия в AI GetInfo/Do. Исходная retail формула Param1 с integer truncation
+сохранена, без минимального1AP.
 Скидка1-Param и минимум из чужой текущей версии остаются исключёнными.
 
 ## Требуют сверки с retail; не объявлены ребалансом заранее
@@ -107,7 +108,6 @@ native controls проверяют оба SLOT, active/inactive и нетрон�
 | [c923fe9e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c923fe9eaa63ed62aee9178976661a74d4daefd9) Restore retail direct-attack XP eligibility and incapacitation timing | XP eligibility только по врагам и правильный момент incapacitation: original reward rules. |
 | [037c41d9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43) Restore missing retail perk effects and combat formulas | Missing retail perks/combat formulas: большое восстановление original, требует отдельных reference tests. |
 | [2f5a3c75](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2f5a3c753d9673bfc9aa24b2852a7fe2e1bbf60f) Match retail Panzerklein pose-dependent movement costs | Pose-dependent PK movement costs: изменение AP только после проверки original. |
-| [b875e43d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b875e43ddec65e0375d1335eb8d8726e38b4934a) Use perk-adjusted selected-weapon cost for AI reload actions | Original цена действия подтверждена и восстановлена отдельно (Param1, без1AP floor); привязка AI к выбранному оружию ещё ожидает native TDD. Upstream1-Param/min1 исключены. |
 | [c8c4e225](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c8c4e225df115072ce176598c1324aaf7bd7a7c0) Allow safe approaches to off-grid mines when disarming | Доступ к off-grid mine для disarm с reach 1.0: новое ограничение дальности проверить по original. |
 | [9cf3fd3d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9cf3fd3dae155de3b0c0e1de443cf54a7f494426) Restore retail AI cover depth and flanking path search | AI cover trace depth и flank paths: поведение original AI требует сравнительных тестов. |
 
@@ -581,8 +581,8 @@ Upstream предлагал28 (1-0.3) и минимум1AP: обе эти пер
 
 Новая общая функция принимает конкретное оружие и используется player
 AC_RELOAD. Обычный GetWeaponReloadAP остаётся raw; AI shot forecasts не
-переведены на новую формулу. Сам AI reload GetInfo/Do пока использует прежний
-raw wrapper: это следующий независимый TDD-фикс, b875e43d ещё partial.
+переведены на новую формулу. Сам AI reload GetInfo/Do исправлен следующим
+независимым TDD-коммитом (раздел ниже), b875e43d завершён в адаптации к original.
 Существующие saves сохраняют свои поля/числа; следующий запрос стоимости
 действия у персонажа с уже взятым perk33 теперь восстанавливает исходную цену.
 
@@ -591,3 +591,28 @@ weapon identity, raw prices/юнит AP неизменны от запроса, 
 исходный zero edge. Полные Windows442/442 и итоговые Linux442/442,7Network/
 361maps и CI284 GREEN. Проверяется native API стоимости, а не анимация
 полной перезарядки. Собственные LAN ruleset, facial/HiRes/HD не менялись.
+
+
+## Проверено: AI reload использует исходную цену выбранного оружия —b875e43d
+
+В оригинальном Steam CAIReloadAction::GetInfoInner41c8b0 и Do41da80 (обе
+независимо найдены из GoldPDB по уникальному first32/maskEH3:7) передают
+AC_RELOAD23 и выбранное оружие в CAIUnit::GetActionAP, а не читают raw price.
+Unit forwarder4ad500/vtable8b5a6c slot5 совпадает всеми11bytes с Gold named
+GetActionAP4abd20 и передаёт параметры в RPG mission. Это исходные правила ИИ.
+
+После отдельного восстановления player/helper цена selected weapon127 равна3,
+а held weapon65 —12 (raw соответственно12/40, authored Param1=0.3). Наша
+реконструкция AI по-прежнему отвергала бюджет3 и списывала12 вместо3.
+Исправлены только оба consumers: GetInfo проверяет3, Do списывает3, выбирая
+конкретное оружие до изменения planning hand. Raw prices для shot forecasts,
+параметр перка, floor/округление, стоимости смены оружия и физический исполнитель
+не менялись. Upstream70%/minimum1 остаются исключены.
+
+Два native RED1.13/1.14с -> GREEN8/8 5.63с: реальный AI unit/commander/world,
+настоящее held/holstered оружие, spare clip и perk, planningAP12->9, физический
+AP47->47; availability3 принимается,2 отвергается. План меняет только свою
+inventory mirror, реальные ammo/held item не затрагивает. Это проверка
+планировщика, а не полной анимации перезарядки/законченного AI turn.
+Windows/Linux444/444,7Network/361maps и CI284 GREEN. Sourceb875e43d завершён
+с сохранением original механики; новых численных правил не добавлено.

@@ -6634,3 +6634,55 @@ RED/GREEN. Tracker281:95pending/118imported/24partial/32already/3docs/5balance/
 2own/1historical/1review —120 незавершённых записей. ЦельALL281/final-HEAD
 GitHub Actions открыты; исходные perk coefficients/сохранения/LAN/fonts/facial/HD
 сохранены, исключённый ребаланс33 и минимум1AP остаются исключёнными.
+
+
+## AI reload: use the selected original action price in both planning paths
+
+Второй независимый hunk
+[b875e43ddec65e0375d1335eb8d8726e38b4934a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b875e43ddec65e0375d1335eb8d8726e38b4934a)
+после52c57831. Два compiled runtime RED: availability1.13с и spend1.14с.
+Native FixtureWorld, настоящий AI commander/player, зарегистрированный CUnitServer
+с authored persona265, реальный CAIUnit/CAIInventory. Controlled current slot1:
+weapon65 raw40/action12; holstered slot2: weapon127 raw12/action3, единственное
+reload-eligible оружие с настоящим spare clip. No-perk budget12 positive,
+затем настоящий TakePerk33/Param0.3. Бюджет3 ошибочно отвергался; при запасе12
+Do списывал12 вместо3, planningAP12->0 вместо9, physicalAP47 не менялся.
+
+Original oracle: GoldPDB GetInfoInner41be10/315, Do41cfe0/369; first32,
+maskEH3:7 -> уникальные Steam41c8b0/41da80. Actual GetInfo41c9a2 и
+Do41db6e передают action23 и selected item в unit vslot5, calls41c9b0/41db7c;
+результат идёт в affordability/SpendAP. Gold named CAIUnit::GetActionAP
+4abd20/11 находится в vtable8a6984 slot5, Steam vtable8b5a6c slot5=4ad500,
+все11bytes8b01ff50048b108bc8ff22 совпадают: передача в RPG mission.
+Source VA41c0d0/41d2a0 здесь не использованы. Evidence ai-reload-action-retail-
+lookup.txt и ai-reload-action-{info,do}-retail-disassembly.txt.
+
+Production — только CAIReloadAction GetInfo/Do: guards реального RPG unit и
+GetWeaponReloadActionAP с конкретным pWeapon->GetItem(). Do получает цену
+до изменения planning hand. Собственные ownership/reentrant guards, raw wrapper
+GetReloadAP/shot forecasts, world executors и численные параметры не менялись.
+Используется уже отдельно проверенная original Param formula/no1AP floor,
+а не upstream1-Param/min1. Сохранения/HiRes/facial/HD не менялись.
+
+Native GREEN8/8 5.63с включает оба новых случая, player price, AIReloadLog
+wire/rollback/ownership, ReloadActionWire и MountedReloadWeapon. Availability3
+принимается,2 отвергается; Do planningAP12->9, planning selected hand и full
+clip обновлены. Физические AP, active weapon и ammo остаются исходными.
+Это native planning/инвентарное зеркало; полный физический AI turn, animation,
+input и whole-save proof этими cases не заявляются. Первый fixture compile
+error вызвал private AddUnit(path) overload; исправлено на штатные публичные
+CUnitServer constructor + world.AddUnit(server), как существующий native path;
+он не выдаётся за gameplay RED.
+
+Оба Game/Windows ALL_BUILD построены. Fresh444/444 Windows409.72с и
+Linux390.77с, по38native-display/24native-audio/12FONT-COMPAT. Own7Network
+184.66с, включая361/361maps129.88с (authored deployment+replica, не полные бои).
+CI-like284/28424.46с, fonts12; raw444/444/7/284 полные, без NUL/missing/Failed,
+actual exit0 подтверждён. Evidence ai-selected-reload-{native-baseline,green,
+full,linux-full,network,ci}-native-test.log и соответствующий stdout.
+
+Sourceb875e43d partially-imported -> imported, ADAPTED к оригиналу. Исключённые
+70%/minimum1 по-прежнему не переносились, BalanceMD обновлён. Tracker281:
+95pending/119imported/23partial/32already/3docs/5excluded-balance/2excluded-own/
+1historical/1review —119 незавершённых записей. Общая цель и final actual-HEAD
+GitHub Actions остаются открыты.
