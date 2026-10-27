@@ -326,9 +326,8 @@ public:
 CEmptyOptionsUI::CEmptyOptionsUI( const SWindowInfo &sInfo, NGame::EOptionsScreen _eScreen ):
 	CWindow( sInfo ), eScreen( _eScreen )
 {
-	// The same "Normal" arrow the rest of the menu UI uses: UICursors row 2 "normal" (UITexture 292);
-	// cf. Interface.cpp / UIInterface.cpp.
-	sCursor = SCursorInfo( NDb::GetUICursor( 2 ) );
+	// The options page uses its authored pen cursor.
+	sCursor = SCursorInfo( NDb::GetUICursor( 1 ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CEmptyOptionsUI::ProcessMessage( const SEvent &sEvent )

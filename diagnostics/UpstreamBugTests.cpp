@@ -3112,6 +3112,40 @@ public:
 };
 REGISTER_SAVELOAD_CLASS(0x7f550107,BodyHoverMission);
 
+static void OptionsPenCursor(const char* databasePath,const char* resourcePath)
+{
+    Require(std::getenv("S2_USER_DATA_DIR"),"options cursor fixture requires isolated user data");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm options cursor regression");
+    auto* pen=NDb::GetUICursor(1);auto* arrow=NDb::GetUICursor(2);
+    Require(pen && arrow && pen!=arrow && IsValid(pen->pUITexture) && IsValid(arrow->pUITexture) && pen->pUITexture!=arrow->pUITexture,
+        "options cursor fixture lacks distinct authored pen and arrow textures");
+    CObj<NGScene::CScreenshotTexture> texture=new NGScene::CScreenshotTexture;
+    CArray2D<NGfx::SPixel8888> pixels;pixels.SetSizes(1,1);pixels[0][0]=NGfx::SPixel8888(11,22,33,255);texture->Set(pixels);
+    for(auto screen:{NGame::OS_VIDEO,NGame::OS_AUDIO,NGame::OS_GAMEPLAY,NGame::OS_CONTROLS,NGame::OS_PROFILE}) {
+        CObj<NGame::CICOptions> open=new NGame::CICOptions(screen,texture);open->Exec();
+        auto* active=NMainLoop::GetCurrentInterfaceForHarness();
+        Require(active && NMainLoop::StepApp(true,false,false) && NMainLoop::GetCurrentInterfaceForHarness()==active,
+            "options cursor fixture did not initialize its actual native page/frame");
+        CStructureNetworkContext refs;auto saved=BorrowedObjectFields(active,&refs);
+        CPtr<NUI::CWindow> page;CPtr<NUI::CInterface> ui;
+        {CStructureSaver reader(saved,CStructureSaver::READ,&refs);reader.Add(6,&page);reader.Add(4,&ui);}
+        Require(page && ui && page->GetInterface()==ui.GetPtr(),"options cursor fixture lost its actual options page or interface");
+        Require(ui->GetDefaultCursorInfo().pCursor==arrow,"options cursor control changed the normal menu arrow");
+        // Supply only the mouse-message boundary; execute the real authored page's
+        // handler and observe what it submits to the native interface.
+        ui->SetCursorInfo(NUI::SCursorInfo(arrow,L"previous child caption"));
+        page->ProcessMessage(NUI::SEvent(NUI::EVENT_MOUSEMOVE,-100,-100));
+        CStructureNetworkContext cursorRefs;auto cursorFields=BorrowedObjectFields(ui,&cursorRefs);NUI::SCursorInfo pending;
+        {CStructureSaver reader(cursorFields,CStructureSaver::READ,&cursorRefs);reader.Add(6,&pending);}
+        std::printf("native options cursor: page=%d record=%d default=%d\n",int(screen),pending.pCursor ? pending.pCursor->GetRecordID() : -1,
+            ui->GetDefaultCursorInfo().pCursor->GetRecordID());std::fflush(stdout);
+        Require(pending.pCursor==pen && pending.wsText.empty(),"options page submitted the normal arrow instead of its authored pen cursor");
+        Require(ui->GetDefaultCursorInfo().pCursor==arrow,"options pen selection changed the normal cursor outside options");
+        NMainLoop::DoneInterface();
+        Require(!NMainLoop::HaveInterfaceCommand(),"options cursor fixture left a queued interface transition");
+    }
+}
+
 static void AIUnitFlash(const char* databasePath,const char* resourcePath)
 {
     Require(std::getenv("S2_USER_DATA_DIR"),"AI flash fixture requires isolated user data");
@@ -18642,6 +18676,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-authored-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-script-cadence") && argc == 4) { MainMenuMapScript(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "options-pen-cursor") && argc==4) { OptionsPenCursor(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "ai-unit-flash") && argc==4) { AIUnitFlash(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "body-hover-labels") && argc==4) { BodyHoverLabels(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "forced-state-cursor-caption") && argc==4) { ForcedAttackTooltip(argv[2],argv[3],true); return true; }

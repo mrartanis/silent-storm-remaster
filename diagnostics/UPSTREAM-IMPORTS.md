@@ -6260,3 +6260,51 @@ immediate clue transfers, decal rebuild/projection и scripted PK round trips
 1historical/1review,123 незавершённых source entries. Оригинальный баланс
 не менялся; pending ricochet scope описан в balance Markdown. Общая цель
 и final actual-HEAD GitHub Actions остаются активными.
+
+
+## Перо в меню настроек — a12d7ee2
+
+Источник: [a12d7ee275f1a05762a09f220df520fc243530df](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a12d7ee275f1a05762a09f220df520fc243530df).
+
+NativeOptionsPenCursor создаёт настоящее SDL/bgfx окно, загружает наши native
+CICOptions pages и выполняет активный кадр. Положительный контроль подтверждает
+доступность разных authored pen1/arrow2 textures и обычный default cursor2.
+На границе входного mouse-message тест передаёт EVENT_MOUSEMOVE настоящему
+page handler и читает его результат в native CInterface. Первый compiled
+RED1.29с: modern video page=1 публикуетrecord2 вместоpen1. Production до этого
+не менялась. Обработчик/конструктор не подменяются. Входное сообщение подано
+тестом; hardware mouse picking и растеризация bitmap курсора не объявлены E2E.
+
+Исправлена только запись GetUICursor2->1 в CEmptyOptionsUI constructor и
+устаревший комментарий. Прежняя стрелка была унаследована от upstreama8c50bf29,
+не являлась самостоятельным решением нашего форка. Пять страниц — video,
+audio, gameplay, controls, profiles — сохраняют нашу современную video UI,
+adaptive layout, собственные HiRes fonts, cursor backend/hotspots и HD assets.
+Их данные, размеры текста и текстуры не меняются. Default arrow2 вне настроек
+остается прежней; pen handler убирает предыдущую child caption.
+
+Independent oracle: GoldPDB parameterized CEmptyOptionsUI constructor61dae0,
+338bytes. Короткий39byte prefix с маскойEH даёт4 Steam candidates, поэтому сам
+по себе не доказывает совпадение. Более длинный102byte prefix не совпадает:
+в Steam CWindow base вырос с0x68 до0x80, что видно по инструкциям и offsets.
+Constructor622bf0 независимо связан с нужным типом через установленную
+vtable8c0668, RTTI locator8eccc4/descriptor97e67c с именем
+.?AVCEmptyOptionsUI@NUI@@. В нём622c97 movECX,1 и622ca1 call7dade0;
+Gold61db7e movECX,1/61db88 call7ec910 (PDB NDb::GetUICursor). Это подтверждает
+выбор pen1. Исходный622b57 не принят за адрес этого exe. Evidence
+options-pen-cursor-retail-{lookup,disassembly}.
+
+GREEN1.37с проверяет все5 настоящих страниц: submitted cursor1, пустая подпись,
+default2; каждая страница закрыта штатно. Обе Game и Windows ALL_BUILD собраны.
+Связанные70/70 Windows69.62с/Linux63.88с включают graphics options, три audio
+options сценария, screenshot adoption, native cursors, AI flash, save/input,
+12FONT-COMPAT и17native-display. CI-like284/28424.68с. Raw70/70/284 полные,
+без NUL, fonts12 в каждом. Evidence options-pen-cursor-{related,linux-related,ci}-native-test.log.
+Полный412 suite не запускался повторно для одной записи курсора; последний
+актуальный полный прогон411/411 на обеих платформах выполнен для8e6e9424.
+
+Tracker281:97pending/116imported/24partially-imported/32already/3docs/
+5excluded-balance/2excluded-own/1historical/1review —122 незавершённые записи.
+Оставшиеся old PRESENT hunks сверены в предыдущем коммите. Боевые формулы,
+оригинальный баланс и HD pipeline не менялись; отдельные старые сборки не
+создавались. Общая цель и final actual-HEAD GitHub Actions не завершены.
