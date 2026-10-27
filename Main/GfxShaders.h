@@ -81,7 +81,8 @@ externA5 SVShader vsDynLMPreciseBumpTex;
 externA5 SVShader vsAlienEffect;
 
 externA5 SVShader vsCLPointDiffuse;
-externA5 SVShader *vsAllShaders[78];
+externA5 SVShader vsCLPointBump;
+externA5 SVShader *vsAllShaders[79];
 
 externA5 SPShader psDiffuse;
 externA5 SPShader psTFactor;
@@ -163,5 +164,6 @@ externA5 SPShader psCLPointDepthCheck;
 externA5 SPShader psCLPointLightShadowed;
 
 externA5 SPShader psCLPointDiffuse;
-externA5 SPShader *psAllShaders[79];
+externA5 SPShader psCLPointBump;
+externA5 SPShader *psAllShaders[80];
 #endif

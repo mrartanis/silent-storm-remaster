@@ -8084,3 +8084,59 @@ linux-display,final-ci} test/native-test and build logs, plus original oracles
 and initial-fog-failure/repeat logs. Sourcee5 becomes partially-imported; its
 bumped/shadowed consumers remain to import with independent native RED/GREEN.
 Tracker281/110unfinished and final actual-HEAD hosted CI remain open.
+
+
+## e5d374c5, part2 — original bumped cached point-light consumer
+
+Sourcee5d374c592bba5e74a581d2229d58c81c117def7 also restores the cached
+RO_CL_PNT_LIGHT_BUMP vertex/pixel pair and sampler bindings. Use normalization
+cube0 and the material bump map1 instead of the legacy falloff/normalization/
+bump binding trio. Keep the shared ordinary dynamic-light program names intact;
+the cached path gets distinct original-token programs. Cached radius constants
+were already restored in e82ca0de.
+
+Native GPU RED1/1 .34s: actual CLightmapTracker::RenderPointLightShadowed with
+two passes, genuine factory-created textured/bumped material, real depth/stencil
+comparison and native geometry/Execute/readback. First prove the same two-pass
+path with a plain material: a far-depth cube gives visible80 and a near-depth
+cube gives black0 with bias0. Both are actual six-face textures and real
+alpha/stencil gates, not replacement depth/visibility callbacks. The bumped
+material then produces126 instead of original-derived82 (failure282). Initial
+fixture284 was an untextured material: the real factory intentionally ignores
+its bump argument in that branch. Supply a genuine white diffuse texture before
+the native RED; do not change the factory to accommodate the fixture.
+
+GREEN2/2 .61s includes the earlier plain cached-light test. Bumped samples are
+81/41/111 versus82/42/112 at the three distance/radius combinations. Zero color,
+small radius, outside bound and backface controls remain black. A flat bump map
+is also blocked by the near-depth cube; changing it to a tangent-facing normal
+makes the otherwise visible surface dark. These checks reach the native
+material producer, actual two-pass light commands and GPU samples; the cube
+sentinels verify the comparison/binding contract, not full scene-generated
+occluder cube maps or every cache-convergence mode.
+
+Independent original shader proof: replacement VS decodes exactly as Gold
+dwvsPrecisePointBump94bbe8/1208, whose complete array has a unique Steam95cc58
+match. Replacement PS decodes exactly as Gold dwps/14CLPrecisePointBump95e8c8/
+95e9b0, each228bytes; the identical complete copies occur at Steam96f938/96fa20.
+The old CLPointLightExact arrays are a different family and are not used as the
+oracle. Saved cached-point-lighting-bump-all-symbol-audit.json records the
+all265-array audit, exact decoded equality, whole-array hashes and actual
+matches. Append new VS79/PS80 to our current78/79 tables and verify every79/80
+ordinal; retain prior shader IDs and the ordinary actual-token bgfx compiler.
+Human DSL stays consistent. No gameplay, CPU light/perception, RNG, facial/font,
+HD or save/wire change. The single-pass shadowed consumer remains to import.
+Final validation follows below.
+
+Final Windows/Linux Game and helpers built, related12/12 Windows4.29s/Linux2.30s;
+native-display53/53 Windows77.00s/Linux63.23s; CI-like290/29024.22s. All final
+raw12/12/53/53/290 complete/noNUL/Failed/NotRun/missing executable, actual
+runners exit0. The initial untextured-material setup failure is not the native
+brightness RED. Existing fog/stencil/low-RAM, all earlier cached/plain/alpha/
+sampler tests and font tests pass. The earlier stochastic moving-fog control
+concern remains recorded for a separate test-only follow-up; no fog assertion
+or seed is changed here. Owned test processes close; shared builds reused, no
+HD generation or old binary copies. Evidence cached-point-bump-{red,green,
+final-related,final-linux,final-display,linux-display,final-ci} test/native-test
+and build logs. Sourcee5 remains partial only for the single-pass shadowed
+consumer; tracker281/110unfinished and final actual-HEAD hosted CI remain open.

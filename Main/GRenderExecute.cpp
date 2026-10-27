@@ -839,11 +839,10 @@ static void ExecOps( NGfx::CRenderContext *pRC, const vector<CRenderCmdList::SOp
 			triListType = TLT_GEOM;
 			break;
 		case RO_CL_PNT_LIGHT_BUMP:
-			pRC->SetPixelShader( psPrecisePointBump );
-			pRC->SetVertexShader( vsPrecisePointBump );
-			pRC->SetTexture( 0, GetLightFalloff() );
-			pRC->SetTexture( 1, GetNormalizeTexture() );
-			pRC->SetTexture( 2, op.p1.pTex );
+			pRC->SetPixelShader( psCLPointBump );
+			pRC->SetVertexShader( vsCLPointBump );
+			pRC->SetTexture( 0, GetNormalizeTexture() );
+			pRC->SetTexture( 1, op.p1.pTex );
 			triListType = TLT_GEOM;
 			break;
 		case RO_CL_SKY_DIR_CHECK:
