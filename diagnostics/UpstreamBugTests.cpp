@@ -14268,6 +14268,52 @@ static void PlacementCursor(const char* databasePath,bool mine = false)
         mission->commands == 0, "unavailable placement retained an action cursor or cursor updates issued gameplay commands");
 }
 
+static void GroundPassabilityPrecedence()
+{
+    auto network=SimplePathNetwork();
+    NAI::SPathPlace point(4,4,0,0,NAI::CM_STAND,0), key(4,4,0);
+    auto& tile=network->GetLayer(0)->tiles[4][4];
+    CObj<NWorld::CWindowDoor> source=new NWorld::CWindowDoor;
+    // Initialize the actual native door's open field through its public serializer.
+    CMemoryStream state;
+    {CStructureSaver save(state,CStructureSaver::WRITE);bool open=false;save.Add(2,&open);}
+    state.Seek(0);
+    {CStructureSaver load(state,CStructureSaver::READ);static_cast<CObjectBase*>(source.GetPtr())->operator&(load);}
+    Require(!source->IsOpen(),"ground verdict fixture did not initialize its native door");
+    auto* door=network->GetFlipper(source);
+    NAI::STile blocked{},open{};open.nPassable=0xff;
+    door->locksClosed[key]=blocked;door->locksOpen[key]=open;
+    network->InvalidateFlipperIndex();
+    Require(network->GetFlippersAt(point).size()==1 && network->GetPassability(point)==NAI::AIP_DOOR,
+        "ground verdict fixture did not register an actual blocking door restriction");
+    for(int pose: {NAI::CM_STAND,NAI::CM_CROUCH,NAI::CM_INACTIVE,NAI::CM_LAY}) {
+        point.SetPose(pose);tile.nPassable=0xff;
+        for(bool doorBlocked: {false,true}) for(bool locked: {false,true}) {
+            door->bOpen=!doorBlocked;tile.nLocks=locked ? 1 : 0;
+            const auto expected=locked ? NAI::AIP_LOCKED : doorBlocked ? NAI::AIP_DOOR : NAI::AIP_YES;
+            Require(network->GetPassability(point)==expected,
+                "ground verdict controls lost their distinct allowed, locked and door results");
+        }
+    }
+    struct BlockedPose {int pose;unsigned char mask;NAI::EPassable expected;};
+    const BlockedPose cases[]={{NAI::CM_STAND,0,NAI::AIP_NOT_PASSABLE},
+        {NAI::CM_CROUCH,0,NAI::AIP_NOT_PASSABLE},{NAI::CM_INACTIVE,0,NAI::AIP_NOT_PASSABLE},
+        {NAI::CM_LAY,0,NAI::AIP_NOT_PASSABLE},{NAI::CM_LAY,NAI::CP_LAY,NAI::AIP_CANNOT_LAY}};
+    for(const auto& test: cases) for(int facing=0;facing<8;++facing)
+        for(bool doorBlocked: {false,true}) for(bool locked: {false,true}) {
+            point.SetPose(test.pose);point.SetDirection(facing);tile.nPassable=test.mask;tile.nLocks=locked ? 1 : 0;door->bOpen=!doorBlocked;
+            const auto actual=network->GetPassability(point);
+            if(actual!=test.expected)std::printf("native ground verdict: pose=%d facing=%d mask=%u lock=%d door=%d actual=%d expected=%d\n",
+                test.pose,facing,unsigned(test.mask),locked,doorBlocked,int(actual),int(test.expected));
+            Require(actual==test.expected,"ground pose failure was misclassified as an occupancy or door failure");
+            Require(!network->IsPassable(point),"correcting a granular failure reason allowed a forbidden pose");
+        }
+    tile.nPassable=0xff;tile.nLocks=0;door->bOpen=true;
+    point.SetPose(NAI::CM_STAND);
+    Require(network->GetPassability(point)==NAI::AIP_YES && network->IsPassable(point),
+        "ground query failed to recover after all native restrictions were removed");
+}
+
 static void LadderPassabilityLayerBounds()
 {
     auto network=SimplePathNetwork(2);
@@ -18345,6 +18391,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "prone-pose-change-facing")) { PronePoseChangeFacing(); return true; }
     if (!std::strcmp(mode, "simple-prone-pose-path")) { SimplePronePosePath(); return true; }
     if (!std::strcmp(mode, "simple-pose-facing-preference")) { SimplePoseFacingPreference(); return true; }
+    if (!std::strcmp(mode, "ground-passability-precedence")) { GroundPassabilityPrecedence(); return true; }
     if (!std::strcmp(mode, "ladder-passability-layer-bounds")) { LadderPassabilityLayerBounds(); return true; }
     if (!std::strcmp(mode, "ladder-passability-facing")) { LadderPassabilityFacing(); return true; }
     if (!std::strcmp(mode, "anchor-passability")) { AnchorPassability(); return true; }

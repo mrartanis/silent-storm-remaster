@@ -5985,3 +5985,54 @@ linux,network,ci}-native-test.log. CPU390; ожидаемый полный на�
 footprint/overlap policies не менялись. Source3f78 всё ещё partial:
 остался независимый порядок ground pose -> lock -> door. Общие tracker counts
 не изменились (126 незавершённых source entries).
+
+## Приоритет причины отказа ground-запроса — последняя часть 3f78b519
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3f78b5198af04658670c9abeaf444fc5006f334d
+
+Новый native UpstreamGroundPassabilityPrecedence использует настоящий
+CPathNetwork, frozen слой и CWindowDoor. Open-state настоящей двери задан
+через её CObjectBase serializer tag2; flipper регистрируется штатным GetFlipper,
+closed/open restriction maps и производный lookup проверяются public query.
+Алгоритмы GetPassability/IsPassable и их door lookup не подменяются.
+Первоначальные fixture compile errors (private IsNotOnDoor и прямой доступ к
+private serializer) сохранены отдельно, исправлены через public query и virtual
+CObjectBase dispatch, не считались native RED и не меняли production API.
+
+Настоящий собранный RED0.09с: поза STAND, facing0, native nPassable0, lock1,
+открытая дверь — возвращается LOCKED3 вместо NOT_PASSABLE1. Перед этим
+прошли16 положительных controls для четырёх поз и allowed/locked/door случаев.
+Тест отдельно задаёт160 комбинаций пяти blocked-pose cases, восьми направлений,
+двух состояний двери и двух состояний блокировки; среди них CANNOT_LAY при
+общей возможности лежать без доступного направления. После удаления ограничений
+проверяет возврат YES. Строгий bool IsPassable во всех blocked случаях остаётсяfalse.
+
+Independent Steam oracle44368e..4436d3 подтверждает именно pose -> anchor lock
+-> door; исходный комментарий с другим адресом не использовался как доказательство.
+Минимальный fix переносит прежнюю IsTilePassable/CP_LAY классификацию перед lock
+и door и удаляет ставший лишним повторный RefreshSpot/чтение той же клетки.
+Anchor-only query, flying guard, bounds и ladder facing из отдельных TDD-коммитов
+сохранены; footprint/overlap ownership и bool IsPassable не менялись. GREEN6/6
+0.15с включает все четыре новых контракта, старые pose path и FlyingRestoration.
+Полный melee/PK gameplay сценарий этот native unit-level тест не изображает.
+
+Итог проверок после всех частей3f78: обе Game/Windows ALL_BUILD собраны;
+FULL407/407 Windows346.36с/Linux340.94с,17native-audio,14native-display,
+12FONT-COMPAT на каждой платформе.7/7Network185.62с, включая полный
+match18.09с и361/361 authored encounter deployment+replica129.70с (лимит600с).
+Это два сегмента на map variant, не полный бой на каждой карте. CI-like284/284
+23.95с. Все raw логи полные/noNUL; evidence ground-verdict-order-{full,
+linux-full,network,ci}-native-test.log. Прежний ChapterClueHeading прошёл оба
+полных прогона без временной диагностики; это не доказательство устранения
+его прежней единичной нестабильности.
+
+3f78 теперь imported: flying guard был уже реализован; anchor footprint,
+ladder facing, bounds-before-ladder и ground verdict precedence внесены
+независимыми native RED->fix->GREEN коммитами с немедленным push.
+CPU391, полный набор407 актуален. Tracker281:101pending/113imported/23partial/
+32already/3docs/5excluded-balance/2excluded-own/1historical/1review;
+125 незавершённых source entries. Оригинальный баланс не менялся, HD OFF,
+сборки переиспользованы. Весь281-пунктный перенос и final actual-HEAD Actions
+ещё не завершены. В TSV дополнена read-only подготовка e5443130 с независимым
+retail oracle: реальные TOOL/KEY достижимы в default tile-attack ветке;
+для этого источника production fix/нативный RED пока не заявляются.

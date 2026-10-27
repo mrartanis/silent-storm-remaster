@@ -2222,23 +2222,13 @@ EPassable CPathNetwork::GetPassability( const SPathPlace &p )
 	if ( p.GetX() >= pPLayer->tiles.GetXSize() || p.GetY() >= pPLayer->tiles.GetYSize() )
 		return AIP_NOT_PASSABLE;
 
+	const CNodesLayer::STile &t = pPLayer->tiles[p.GetY()][p.GetX()];
+	if ( !IsTilePassable( p, t ) )
+		return p.GetPose() == CM_LAY && ( t.nPassable & CP_LAY ) ? AIP_CANNOT_LAY : AIP_NOT_PASSABLE;
 	// The granular query classifies this anchor, not an expanded unit footprint.
-	if ( pPLayer->tiles[p.GetY()][p.GetX()].nLocks != 0 )
+	if ( t.nLocks != 0 )
 		return AIP_LOCKED;
-
-	if ( !IsNotOnDoor( p ) )
-		return AIP_DOOR;
-
-	CNodesLayer *pLayer = layers[p.GetLayer()];
-	pLayer->pGroup->RefreshSpot( p, pMap, 1 );
-	if ( ( p.GetX() >= pLayer->tiles.GetXSize() ) || ( p.GetY() >= pLayer->tiles.GetYSize() ) )
-		return AIP_NOT_PASSABLE;
-	const CNodesLayer::STile &t = pLayer->tiles[p.GetY()][p.GetX()];
-	if ( IsTilePassable( p, t ) )
-		return AIP_YES;
-	if ( p.GetPose() == CM_LAY && ( t.nPassable & CP_LAY ) )
-		return AIP_CANNOT_LAY;
-	return AIP_NOT_PASSABLE;
+	return IsNotOnDoor( p ) ? AIP_YES : AIP_DOOR;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathNetwork::IsPassable( const SPathPlace &p )
