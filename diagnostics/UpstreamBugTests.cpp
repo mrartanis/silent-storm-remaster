@@ -97,6 +97,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/RPGItem.h"
 #include "../Main/RPGItemSet.h"
 #include "../Main/RPGCritical.h"
+#include "../Main/rpgPerk.h"
 #include "../Main/wUnitAttackExec.h"
 #include "../Main/wUnitAttack.h"
 #include "../Main/wUnitStates.h"
@@ -16098,6 +16099,95 @@ static void PKPlacement()
     Require(position.IsFinal() && CanPlacePK(network.GetPtr(), position, 0), "flying PK restoration was rejected");
 }
 
+static void HealthSurvivalThreshold(const char* databasePath)
+{
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
+    NDb::CRPGPers* persona=nullptr;
+    CDBIterator<NDb::CRPGPers> rows(*NDatabase::GetTable<NDb::CRPGPers>());
+    while(rows.MoveNext()) {
+        auto* candidate=rows.Get();
+        if(IsValid(candidate->pPanzerklein) || !IsValid(candidate->pClass) ||
+            !IsValid(candidate->pBaseValue) || !IsValid(candidate->pModel)) continue;
+        CObj<NRPG::CPerksTree> tree=NRPG::CreatePerksTree(candidate->pClass->nPerkTreeID);
+        vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);
+        bool five=false,eight=false;
+        for(auto perk:perks) {
+            const int id=perk->GetDBPerk()->GetRecordID();five|=id==5;eight|=id==8;
+        }
+        if(five && eight) { persona=candidate;break; }
+    }
+    Require(persona!=nullptr,"survival threshold fixture has no authored class containing both perks");
+    auto* survival=NDb::GetDBPerk(8);
+    Require(IsValid(survival) && survival->params.size()>=2 && survival->params[0]>0 &&
+        survival->params[0]<1 && survival->params[1]>0,"survival threshold fixture has no authored threshold and bonus");
+    CObj<NRPG::CUnit> probe=new NRPG::CUnit(persona);
+    const int maximum=probe->Skills(NDb::ST_VP).GetTheoreticalMax();
+    int crossing=-1;
+    for(int health=1;health<maximum;++health) {
+        const int percent=int(float(health)*100.f/float(maximum));
+        if(percent<survival->params[0]*100.f && percent+25>=survival->params[0]*100.f && percent+25<=75) {
+            crossing=health;break;
+        }
+    }
+    Require(crossing>0,"survival threshold fixture has no native VP value crossing the erroneous adjusted threshold");
+    struct Result { int ic;vector<float> fields; };
+    auto apply=[&](int health,bool tolerance,bool instinct) {
+        CObj<NRPG::CUnit> unit=new NRPG::CUnit(persona);
+        auto* tree=unit->GetPerksTree();tree->AddPerkPoints(2);
+        if(tolerance)tree->TakePerk(5);if(instinct)tree->TakePerk(8);
+        Require(unit->HasPerk(5)==tolerance && unit->HasPerk(8)==instinct,
+            "survival threshold fixture did not select its exact native perk combination");
+        Require(unit->nHealedVP==0 && !unit->IsCheatEnabled(0x80),"survival fixture enabled healed VP or harsher-wounds cheats");
+        unit->Skills(NDb::ST_VP).SetValue(health);
+        CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(unit);
+        auto fields=[&]() {
+            vector<float> result{unit->fXP};
+            for(int skill=0;skill<NDb::SKILL_TYPE_NUMBERS;++skill) {
+                auto& value=unit->Skills(skill);
+                result.push_back(int(value));result.push_back(value.GetMaxValue());
+                result.push_back(value.GetXPPart());result.push_back(value.GetProgress());
+            }
+            return result;
+        };
+        const auto initial=fields();auto* inventory=unit->GetInventory();
+        mission->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_VP));
+        Require(int(unit->Skills(NDb::ST_VP))==health && unit->GetInventory()==inventory,
+            "applying wound modifiers changed actual VP or inventory");
+        Result result{unit->Skills(NDb::ST_IC).GetMaxValue(),fields()};
+        mission->RemoveCritical(NDb::C_VP);
+        const auto restored=fields();
+        Require(!mission->HasCritical(NDb::C_VP),"removing native wound modifiers retained the injury");
+        // Native wound penalties clamp live AP downward; removal restores caps,
+        // not spent/clamped points. Training fields must remain unchanged.
+        for(std::size_t i=0;i<restored.size();++i)
+            if(i==0 || (i-1)%4!=0)
+                Require(restored[i]==initial[i],"removing native wound modifiers changed skill caps or training fields");
+        return result;
+    };
+    auto verify=[&](int health) {
+        const int percent=int(float(health)*100.f/float(maximum));
+        const auto none=apply(health,false,false),five=apply(health,true,false),eight=apply(health,false,true);
+        const bool active=percent<survival->params[0]*100.f;
+        Require(five.ic==none.ic && (active ? eight.ic>none.ic : eight.ic==none.ic),
+            "isolated native survival perk cap control failed at its authored threshold");
+        std::printf("native survival control: persona=%d VP=%d/%d raw=%d threshold=%g bonus=%g IC-cap=%d->%d\n",
+            persona->GetRecordID(),health,maximum,percent,survival->params[0]*100.f,
+            survival->params[1],none.ic,eight.ic);std::fflush(stdout);
+        const auto both=apply(health,true,true);
+        std::printf("native combined wound perks: IC-cap=%d expected=%d\n",both.ic,eight.ic);std::fflush(stdout);
+        Require(both.ic==eight.ic,"wound-tolerance perk incorrectly disables survival instinct at the same real VP");
+        for(std::size_t i=0;i<both.fields.size();++i)
+            if(i<1+4*NDb::ST_IC || i>=1+4*(NDb::ST_IC+1))
+                Require(both.fields[i]==five.fields[i],"restoring the raw survival threshold changed wound tiers or other skills");
+    };
+    verify(crossing);
+    int boundary=-1;
+    for(int health=1;health<=maximum;++health)
+        if(int(float(health)*100.f/float(maximum))>=survival->params[0]*100.f) { boundary=health;break; }
+    Require(boundary>1,"survival fixture has no health values straddling the authored threshold");
+    verify(boundary-1);verify(boundary);verify(maximum);
+}
+
 static void EmptyCriticalApplication(const char* databasePath)
 {
     CFileStream database; database.OpenRead(databasePath);
@@ -17243,6 +17333,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "conclusions") && argc == 4) { ConclusionRouting(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "pk-placement")) { PKPlacement(); return true; }
     if (!std::strcmp(mode, "critical-ids") && argc == 3) { CriticalIDs(argv[2]); return true; }
+    if (!std::strcmp(mode, "health-survival-threshold") && argc==3) { HealthSurvivalThreshold(argv[2]); return true; }
     if (!std::strcmp(mode, "empty-critical-application") && argc == 3) { EmptyCriticalApplication(argv[2]); return true; }
     if (!std::strcmp(mode, "idle-blocker") && argc == 4) { IdlePathBlocker(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hidden-portrait")) { HiddenPortraitAck(); return true; }

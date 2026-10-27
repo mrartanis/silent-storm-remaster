@@ -126,11 +126,14 @@ bool CVPCritical::SetModifiers( CUnit *pRPGUnit, IUnitMission *pRPGMission )
 	const int nDenom = vp.GetTheoreticalMax();               // nBaseValue + nXPValue
 	int nPercentage = int( float( pRPGUnit->nHealedVP + nEff ) * 100.0f / float( nDenom ) );
 
+	// The survival threshold uses real health; perk 5 changes wound tiers only.
+	const int nHealthPercentage = nPercentage;
+
 	if ( pRPGUnit->HasPerk( N_PERK_LESS_INFLUENCE_OF_WOUNDS_FOR_TOHIT ) )
 		nPercentage += 25;
 
 	float fP1 = 0, fP2 = 0;
-	if ( pRPGUnit->HasPerk( 8, &fP1, &fP2 ) && float( nPercentage ) < fP1 * 100.0f )
+	if ( pRPGUnit->HasPerk( 8, &fP1, &fP2 ) && float( nHealthPercentage ) < fP1 * 100.0f )
 		PushModifier( new CSkillModifier( &pRPGUnit->Skills(NDb::ST_IC), SSkillModifyInfo( fP2 + 1.0f, 0 ) ) );
 
 	const bool bCheat = pRPGUnit->IsCheatEnabled( 0x80 );    // harsher-wounds cheat bit

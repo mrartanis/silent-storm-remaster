@@ -4927,3 +4927,55 @@ linux-display-{test,native-test}.log. Новых копий сборок нет,
 не заявляется. Actual hosted run7bc3d00340449767003 наблюдался in_progress;
 предыдущие b403/aef отменены новой отправкой по штатному cancel-in-progress.
 Все281 и итоговый actual HEAD Actions ещё не завершены.
+
+
+## Порог инстинкта выживания независимо от переносимости ранений — часть7368b4b1
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7368b4b10182ef243135d94b93bc481fd6dd593f
+
+Сначала независимо сверён оригинальный Steam EXE
+D:/SS-lab/steam-ui-oracle-01/game/Game.exe, SHA256
+4F417593A9F73E2BFDE12D83CDBD694AE47EECB92812140D67B8B343E4A95705
+(тот же проверенный binary, что для DropItems). В CVP routine0x694fb0 исходный
+truncated процент сохраняется в stack local по695054 и копируется в EBX695058.
+Perk5 добавляет25 только в EBX695069; perk8 сравнивает исходный stack local
+695088 с Param1×100. Таким образом перенос исправляет реконструкцию, не retail.
+Адреса upstream другой сборки не использовались как доказательство сами по себе;
+G:/SS/Silent-Storm/bin/Game.exe — другой EXE, для этой сверки не использовался.
+Дизассемблирование сохранено в perk-health-retail-disassembly.txt лаборатории,
+оригинальный процесс не запускался и binary не менялся.
+
+Native RED: авторский persona103, настоящее дерево с perks5/8, параметры8=.25/.1,
+VP1/147. Public TakePerk формирует четыре комбинации; acquisition prerequisites
+не проверяются. Настоящий IUnitMission.ApplyCritical(C_VP): без perks ICcap8,
+с8 ICcap9, с5+8 ошибочно ICcap8. До окончательного RED исправлены две ошибки
+оснастки: снятие wound modifiers восстанавливает caps, но не уже уменьшенный
+live AP; survival modifier меняет IC cap, live effective value не обязан
+автоматически пополняться. Fixture/fixture-live-ic logs сохранены отдельно,
+production до окончательного RED не менялся.
+
+Фикс сохраняет исходный процент в отдельной константе только для gate perk8.
+Perk5 по-прежнему добавляет25 для прежних пяти wound penalties. GREEN проверяет
+VP1/36/37/147 из147: ICcap9 ниже25%,8 на границе и выше; эффект5 не выключает8.
+Все остальные skills/XP/progress точно равны5-only control, actual VP/inventory
+не меняются, снятие critical возвращает все caps и training fields. Никаких
+FreezeToMax flags fixture не подменяет: недостающая fresh-skill часть0ffb568d
+остаётся отдельным кандидатом. Это native modifier-cap/cleanup proof, не тест
+всей combat pipeline или claim об автоматическом изменении текущего effectiveIC.
+
+Windows21/2118.68с (critical/perk wire, четыре training acknowledgements,
+preview/target controls и3network), Linux17/1712.89с. Both Game и Windows
+ALL_BUILD собраны; raw21/17 полные без NUL. Font-specific cases в этой узкой
+группе не запускались; последний FONT-COMPAT checkpoint —1c98ce64 full384.
+Свидетельства health-survival-threshold: red/green-{build,test,native-test}.log,
+fixture-{build,test,native-test}.log, fixture-live-ic-{build,test,native-test}.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log. Новых копий сборок/HD generation нет.
+
+Source7368 остаётся partial. Девять явно помеченных ORIGINAL RETAIL BUG FIXED
+частей исключены, adaptation6/71 уже учтена поздним revert1bd13094; cover/moving
+части нуждаются в независимых native proofs, хотя static oracle найден.
+Статус281:102pending/103imported/26partial/38already/3docs/5excluded-balance/
+2excluded-own, по1historical/review.129 исходных коммитов ещё разбираются.
+CPUbase378; свежий full385 не заявляется. Последний полный парный384 —1c98ce64,
+CI-like280 —aef3b6be; all281/final actual HEAD Actions ещё не завершены.

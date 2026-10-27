@@ -36,9 +36,10 @@ Upstream устанавливает минимум 1 AP после скидок 
 | 52 | Добавляет бонус engineering до picklock roll, не к итоговому score | Меняет вероятность вскрытия. |
 | 6/71 | Разделяет familiarity learning rate и combat bonus | Историческая часть позже отменена [1bd13094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1bd1309408ef97e286f70483a9544f2abcf8a47a); исправленная retail формула уже перенесена ранее. |
 
-**Решение:** эти части не переносить. VP threshold, cover multiplier и
-moving-target multiplier из того же коммита — отдельные reconstruction
-кандидаты, допускаемые только после проверки оригинала.
+**Решение:** эти части не переносить. VP threshold сверён с оригинальным
+Steam EXE и исправлен отдельно (см. UPSTREAM-IMPORTS.md, health-survival-threshold).
+Cover multiplier и moving-target multiplier остаются отдельными reconstruction
+кандидатами; статический oracle найден, native-проверки ещё требуются.
 
 ### Производные коммиты
 
