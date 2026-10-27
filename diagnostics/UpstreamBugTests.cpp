@@ -14268,6 +14268,31 @@ static void PlacementCursor(const char* databasePath,bool mine = false)
         mission->commands == 0, "unavailable placement retained an action cursor or cursor updates issued gameplay commands");
 }
 
+static void LadderPassabilityLayerBounds()
+{
+    auto network=SimplePathNetwork(2);
+    for(int layer=0;layer<network->GetNumLayers();++layer) {
+        NAI::CNodesLayer::SLadder ladder{};
+        ladder.eDir=NAI::LD_RIGHT;ladder.bNeedRecalc=false;ladder.bConsistent=true;
+        ladder.pointPassable.assign(8,1);ladder.pointOnUpperHalf.assign(8,0);ladder.nLocks.assign(8,0);
+        network->GetLayer(layer)->ladders.push_back(ladder);
+        NAI::SPathPlace valid(0,0,layer,4,NAI::CM_STAND,0);valid.SetIntegral(0);
+        Require(network->GetPassability(valid)==NAI::AIP_YES,"ladder layer-bounds fixture rejected its valid layer control");
+    }
+    for(int invalidLayer: {network->GetNumLayers(),255}) {
+        NAI::SPathPlace ground(4,4,invalidLayer,0,NAI::CM_STAND,0);
+        Require(network->GetPassability(ground)==NAI::AIP_NOT_PASSABLE,"ground query lost its existing invalid-layer guard");
+        NAI::SPathPlace flight(0,0,invalidLayer,4,NAI::CM_STAND,0);flight.SetIntegral(0);flight.SetFinal(1);
+        Require(network->GetPassability(flight)==NAI::AIP_YES && network->IsPassable(flight) && NAI::IsBigLockerPlacePassable(network,flight),
+            "layer-bounds checking interpreted flying altitude as a ground-layer index");
+    }
+    for(int invalidLayer: {network->GetNumLayers(),255}) {
+        NAI::SPathPlace invalid(0,0,invalidLayer,4,NAI::CM_STAND,0);invalid.SetIntegral(0);
+        std::printf("native ladder layer-bounds: layer=%d available=%d valid/flying controls passed\n",invalidLayer,network->GetNumLayers());std::fflush(stdout);
+        Require(network->GetPassability(invalid)==NAI::AIP_NOT_PASSABLE,"invalid ladder layer was dereferenced instead of rejected");
+    }
+}
+
 static void LadderPassabilityFacing()
 {
     auto network = SimplePathNetwork();
@@ -18320,6 +18345,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "prone-pose-change-facing")) { PronePoseChangeFacing(); return true; }
     if (!std::strcmp(mode, "simple-prone-pose-path")) { SimplePronePosePath(); return true; }
     if (!std::strcmp(mode, "simple-pose-facing-preference")) { SimplePoseFacingPreference(); return true; }
+    if (!std::strcmp(mode, "ladder-passability-layer-bounds")) { LadderPassabilityLayerBounds(); return true; }
     if (!std::strcmp(mode, "ladder-passability-facing")) { LadderPassabilityFacing(); return true; }
     if (!std::strcmp(mode, "anchor-passability")) { AnchorPassability(); return true; }
     if (!std::strcmp(mode, "simple-cross-layer-pose-entry")) { SimpleCrossLayerPoseEntry(); return true; }

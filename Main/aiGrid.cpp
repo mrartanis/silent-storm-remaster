@@ -2200,11 +2200,14 @@ EPassable CPathNetwork::GetPassability( const SPathPlace &p )
 	// Flying places encode altitude in the layer field, not a ground tile.
 	if ( p.IsFinal() )
 		return AIP_YES;
+	if ( p.GetLayer() >= layers.size() )
+		return AIP_NOT_PASSABLE;
+	CNodesLayer *pPLayer = layers[ p.GetLayer() ];
 	if ( !p.IsIntegral() )
 	{
 		// ladder...
-		CNodesLayer::SLadder &ladder = GetLayer( p.GetLayer() )->ladders[ p.GetX() ];
-		GetLayer( p.GetLayer() )->RefreshLadder( p.GetX(), pMap );
+		CNodesLayer::SLadder &ladder = pPLayer->ladders[ p.GetX() ];
+		pPLayer->RefreshLadder( p.GetX(), pMap );
 		ASSERT( p.GetY() < ladder.GetHeight() );
 		if ( ladder.pointPassable[ p.GetLadderStep() ] == 0 )
 			return AIP_NOT_PASSABLE;
@@ -2213,11 +2216,8 @@ EPassable CPathNetwork::GetPassability( const SPathPlace &p )
 		return p.GetDirection() == ( ( ladder.eDir * 2 + 4 ) & 7 ) ? AIP_YES : AIP_NOT_PASSABLE;
 	}
 
-	// Bounds-check the layer, build the spot, then bounds-check p against the layer's tiles BEFORE any
+	// Build the spot, then bounds-check p against the layer's tiles BEFORE any
 	// tile read (an unbuilt layer has empty tiles -> AV otherwise; see the note on IsPassable below).
-	if ( p.GetLayer() >= layers.size() )
-		return AIP_NOT_PASSABLE;
-	CNodesLayer *pPLayer = layers[ p.GetLayer() ];
 	pPLayer->pGroup->RefreshSpot( p, pMap, 1 );
 	if ( p.GetX() >= pPLayer->tiles.GetXSize() || p.GetY() >= pPLayer->tiles.GetYSize() )
 		return AIP_NOT_PASSABLE;

@@ -5958,3 +5958,30 @@ de185dac и2d238a8b (ограниченный stationary inactive AI yield),3eed
 переноса нет. Это сверка кода, отдельные новые runtime RED для них не заявляются.
 3f78 остаётся partial: bounds-before-ladder и ground verdict precedence открыты.
 CI-like282/28224.00с, raw282 полный/noNUL/12FONT-COMPAT. Новый asset-free test одинаково зарегистрирован Windows/Linux; CPU389, полный набор405 ожидается, новый FULL405 в этой проверке не запускался. Tracker101pending/112imported/24partial/32already/3docs/5excluded-balance/2excluded-own/1historical/1review, всего281,126 незавершённых.
+
+## Границы слоя до обращения к лестнице — отдельная часть 3f78b519
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3f78b5198af04658670c9abeaf444fc5006f334d
+
+Native UpstreamLadderPassabilityLayerBounds сначала проверяет настоящие две
+лестницы в существующих слоях, прежний отказ ground-запросов для слоёв2/255
+и три flying-запроса, в которых layer кодирует высоту. Затем обращается к
+nonintegral ladder place в отсутствующем слое. Первый собранный RED0.09с:
+процесс SegFault на layer2 при available2; положительные controls уже прошли.
+
+Минимальный fix переносит существующую проверку номера слоя перед лестничной
+веткой. IsFinal остаётся самым первым условием, так что flying altitude по-прежнему
+даёт YES, включая IsBigLockerPlacePassable. Лестничная и ground ветки используют
+один уже проверенный указатель слоя. Новых форматов/параметров, произвольных
+ограничений индекса лестницы или её ступеней не добавлено. Independent Steam
+oracle443583..443595 подтверждает ровно такой порядок после flying guard.
+
+GREEN4/4 (новый тест, facing, anchor, прежний FlyingRestoration); расширенные
+22/22 Windows7.10с/Linux12.74с; Windows ALL_BUILD и обе Game собраны.
+Сетевые5/5 37.73с, CI-like283/28327.82с. Raw logs полные без NUL,
+CI сохраняет12FONT-COMPAT. Evidence ladder-layer-bounds-{red,green,related,
+linux,network,ci}-native-test.log. CPU390; ожидаемый полный набор406,
+новый FULL406 здесь не заявляется. Оригинальный баланс, HD и собственные
+footprint/overlap policies не менялись. Source3f78 всё ещё partial:
+остался независимый порядок ground pose -> lock -> door. Общие tracker counts
+не изменились (126 незавершённых source entries).
