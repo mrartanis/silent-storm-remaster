@@ -635,8 +635,8 @@ struct BgfxDevice::Impl {
       if(sampler[i][D3DSAMP_MAGFILTER]==D3DTEXF_POINT)flags|=BGFX_SAMPLER_MAG_POINT;
       // Read the live option even when legacy SetTexturePointFilter's cache
       // skips a sampler update. Keep point sampling for UI/special passes.
-      if(anisotropy && sampler[i][D3DSAMP_MINFILTER]!=D3DTEXF_POINT)flags|=BGFX_SAMPLER_MIN_ANISOTROPIC;
-      if(anisotropy && sampler[i][D3DSAMP_MAGFILTER]!=D3DTEXF_POINT)flags|=BGFX_SAMPLER_MAG_ANISOTROPIC;
+      if(anisotropy && !textures[i]->storage->cube && sampler[i][D3DSAMP_MINFILTER]!=D3DTEXF_POINT)flags|=BGFX_SAMPLER_MIN_ANISOTROPIC;
+      if(anisotropy && !textures[i]->storage->cube && sampler[i][D3DSAMP_MAGFILTER]!=D3DTEXF_POINT)flags|=BGFX_SAMPLER_MAG_ANISOTROPIC;
       if(sampler[i][D3DSAMP_MIPFILTER]==D3DTEXF_POINT)flags|=BGFX_SAMPLER_MIP_POINT;
       bgfx::setTexture(i,samplers[i],textures[i]->storage->handle,flags);
     }

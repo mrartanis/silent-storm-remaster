@@ -7705,3 +7705,51 @@ and legacy shadow adaptations need further own-bgfx audit. Offset98e8aeea,
 filter4d3e7de9, ordering74fcb547 and own x64 batchingee7f4a81 were separate
 commits, each immediately pushed. Tracker281/112unfinished and ALL281/final
 actual-HEAD hosted CI remain open.
+
+
+## a3f330bb, cube sampler — bilinear texels with nearest mip
+
+Source a3f330bbd76d67d34c5ed897d253c52cc51692b6 separates cube filtering from
+ordinary linear/point 2D modes. The old point-only cache let cube textures inherit
+trilinear mip interpolation. Keep cube min/mag LINEAR and mip POINT; include cube
+mode in the cached key and reset it when recreating texture stages. Ordinary 2D
+point/linear behavior remains intact.
+
+Native GPU RED: actual seven-mip 64px 2D and six-face cube textures have distinct
+solid colors per mip. A minified quad draws through the actual shader/backend;
+screenshot ROI contains 144 interpolated pixels for the intended 2D positive
+control, but 136 for the cube where zero is required (failure252, 1/1 .35s).
+After the legacy-state fix, an added anisotropy4 check reveals our own bgfx live
+option overriding cube LINEAR min/mag with anisotropic filtering: point2D has
+zero mixed pixels, cube136 (failure255, 1/1 .32s). Adapt the backend to apply live
+anisotropy to ordinary 2D textures only. This own-backend adjustment is necessary
+for the upstream cube mode; it does not disable ordinary live anisotropy.
+
+Native GREEN1/1 .35s: cube mixed0 with anisotropy1 and4, restored ordinary2D144,
+point2D0, cube-after-point0. A separate single-mip cube checker reads gray128,
+proving bilinear texels rather than accidentally retaining point min/mag.
+These are actual D3D11 pixel readbacks on Windows and Vulkan readbacks on Linux,
+not sampler-state mocks. All mip/checker data is generated in RAM, no PNG or HD
+assets are generated. No gameplay or facial/font/HD changes.
+
+Independent original-image check: Gold SetTextureFilter5199e0/367 maps uniquely
+to Steam51b5b0 with only verified global-array operands8:12/25:29 masked.
+Actual cube CRenderContext::SetTexture519cd0/236 maps uniquely to Steam51b8a0
+with only verified bind-call15:19/global-array26:30 masked. Its inline sampler
+writes set MAG/MIN2 (LINEAR) and MIP1 (POINT), including Steam51b977..51b980.
+The54byte519c90 overload is ordinary2D, not the cube overload. Upstream source
+comment51ba78 is not substituted for verification against our image. Shared
+Steam image SHA256 remains4F417593A9F73E2BFDE12D83CDBD694AE47EECB92812140D67B8B343E4A95705.
+Lookup and both disassemblies are saved as cube-texture-filtering-* evidence.
+
+Final validation and source-scope audit continue below.
+
+Final Windows/Linux Game and helpers built in the same shared build directories.
+Related8/8 Windows2.54s/Linux1.43s; native-display49/49 Windows76.63s/Linux63.13s;
+CI-like290/29024.28s. Raw8/8/49/49/290 logs are complete, noNUL/Failed/NotRun/missing
+executables; actual runners exit0. All owned test games close; no old build/game
+copies or HD generation. Evidence cube-texture-filtering-{red,green,anisotropy-
+red,anisotropy-green,final-related,final-linux,final-display,linux-display,
+final-ci} test/native-test logs, plus build/lookup/disassembly files.
+Sourcea3f remains partial for shader consumers and cache/storage-scope decisions;
+tracker281/112unfinished and final actual-HEAD hosted CI remain open.

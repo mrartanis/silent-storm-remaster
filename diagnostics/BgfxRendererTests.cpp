@@ -486,6 +486,67 @@ int RunRenderParameterAlias() {
   return 0;
 }
 
+int RunCubeTextureFiltering() {
+  NGlobal::SetVar("gfx_anisotropic_filter",1);
+  NGfx::SRenderTargetsInfo targets;
+  if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 250;
+  const NGfx::SPixel8888 colors[]={NGfx::SPixel8888(255,0,0,255),NGfx::SPixel8888(0,255,0,255),
+    NGfx::SPixel8888(0,0,255,255),NGfx::SPixel8888(255,255,255,255),NGfx::SPixel8888(0,0,0,255),
+    NGfx::SPixel8888(255,255,0,255),NGfx::SPixel8888(0,255,255,255)};
+  CObj<NGfx::CTexture> ordinary=NGfx::MakeTexture(64,64,7,NGfx::SPixel8888::ID,NGfx::REGULAR,NGfx::CLAMP);
+  CObj<NGfx::CCubeTexture> cube=NGfx::MakeCubeTexture(64,7,NGfx::SPixel8888::ID,NGfx::REGULAR);
+  for(int level=0;level<7;++level) {
+    const int side=64>>level;
+    {NGfx::CTextureLock<NGfx::SPixel8888> lock(ordinary,level,NGfx::INPLACE);
+      for(int y=0;y<side;++y)for(int x=0;x<side;++x)lock[y][x]=colors[level];}
+    for(int face=0;face<6;++face) {
+      NGfx::CTextureLock<NGfx::SPixel8888> lock(cube,static_cast<NGfx::EFace>(face),level,NGfx::INPLACE);
+      for(int y=0;y<side;++y)for(int x=0;x<side;++x)lock[y][x]=colors[level];
+    }
+  }
+  auto mipQuad=Quad(-.15625f,.15625f,.15625f,-.15625f,.5f);
+  NGfx::CRenderContext context;CTransformStack identity;identity.Init();context.SetTransform(identity.Get());
+  context.SetCulling(NGfx::CULL_NONE);context.SetDepth(NGfx::DEPTH_NONE);context.SetAlphaCombine(NGfx::COMBINE_NONE);
+  context.SetVertexShader(vsTexture);context.SetPixelShader(psTextureCopyAlpha);
+  auto mixed=[](const CArray2D<NGfx::SPixel8888>& image,const NGfx::SPixel8888* palette) {
+    int result=0;
+    for(int y=58;y<70;++y)for(int x=58;x<70;++x) {
+      const auto& pixel=image[y][x];bool match=false;
+      for(int i=0;i<7;++i)match|=abs(int(pixel.r)-int(palette[i].r))<=3 && abs(int(pixel.g)-int(palette[i].g))<=3 && abs(int(pixel.b)-int(palette[i].b))<=3;
+      if(!match)++result;
+    }
+    return result;
+  };
+  auto capture=[&](bool useCube,bool point) {
+    context.SetScreenRT();context.ClearBuffers(0xff000000);
+    if(useCube)context.SetTexture(0,cube);else context.SetTexture(0,ordinary,point);
+    Draw(context,mipQuad);CArray2D<NGfx::SPixel8888> image;NGfx::MakeScreenShot(&image,false);return mixed(image,colors);
+  };
+  const int ordinaryMixed=capture(false,false);
+  if(ordinaryMixed==0) {std::fprintf(stderr,"ordinary trilinear mip control produced no interpolated colors\n");return 251;}
+  const int cubeMixed=capture(true,false);
+  std::printf("native cube mip filtering: ordinaryMixed=%d cubeMixed=%d expectedCubeMixed=0\n",ordinaryMixed,cubeMixed);std::fflush(stdout);
+  if(cubeMixed!=0) {std::fprintf(stderr,"cube sampling inherited ordinary trilinear mip interpolation\n");return 252;}
+  const int restoredMixed=capture(false,false),pointMixed=capture(false,true),cubeAgainMixed=capture(true,false);
+  if(restoredMixed==0 || pointMixed!=0 || cubeAgainMixed!=0)return 253;
+  NGlobal::SetVar("gfx_anisotropic_filter",4);
+  const int anisotropicPointMixed=capture(false,true),anisotropicCubeMixed=capture(true,false);
+  std::printf("native anisotropy4 control: point2DMixed=%d cubeMixed=%d expected=0,0\n",anisotropicPointMixed,anisotropicCubeMixed);std::fflush(stdout);
+  if(anisotropicPointMixed!=0 || anisotropicCubeMixed!=0)return 255;
+  std::printf("native sampler switches: restored2DMixed=%d point2DMixed=%d cubeAgainMixed=%d; anisotropy4 cube control passed\n",
+    restoredMixed,pointMixed,cubeAgainMixed);
+  CObj<NGfx::CCubeTexture> checker=NGfx::MakeCubeTexture(64,1,NGfx::SPixel8888::ID,NGfx::REGULAR);
+  for(int face=0;face<6;++face) {
+    NGfx::CTextureLock<NGfx::SPixel8888> lock(checker,static_cast<NGfx::EFace>(face),0,NGfx::INPLACE);
+    for(int y=0;y<64;++y)for(int x=0;x<64;++x) {const int color=(x&1)?255:0;lock[y][x]=NGfx::SPixel8888(color,color,color,255);}
+  }
+  context.SetTexture(0,ordinary,true);context.SetTexture(0,checker);context.ClearBuffers(0xff000000);
+  Draw(context,Quad(-1,1,1,-1,.5f));CArray2D<NGfx::SPixel8888> image;NGfx::MakeScreenShot(&image,false);
+  if(!Color(image,96,64,128,128,128))return 254;
+  std::printf("native cube sampler transitions: ordinary linear/point restored; cube keeps bilinear texels and nearest mip\n");
+  return 0;
+}
+
 int RunLowRamCombiner() {
   NGfx::SRenderTargetsInfo targets;
   if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 200;
@@ -1296,6 +1357,7 @@ int main(int argc,char** argv) {
              argc>1 && std::string(argv[1])=="--graphics" ? RunGraphicsOptions() :
              argc>1 && std::string(argv[1])=="--shadow-pcf" ? RunShadowPcf() :
              argc>1 && std::string(argv[1])=="--specular-projection" ? RunSpecularProjection() :
+             argc>1 && std::string(argv[1])=="--cube-filtering" ? RunCubeTextureFiltering() :
              argc>1 && std::string(argv[1])=="--render-param-alias" ? RunRenderParameterAlias() :
              argc>1 && std::string(argv[1])=="--render-param-order" ? RunRenderParameterOrder() :
              argc>1 && std::string(argv[1])=="--low-ram-combiner" ? RunLowRamCombiner() :

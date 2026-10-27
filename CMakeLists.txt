@@ -640,6 +640,8 @@ add_test(NAME SpecularProjectionRuntimeTests COMMAND BgfxRendererTests --specula
 add_test(NAME PartialGeometryRuntimeTests COMMAND BgfxRendererTests --partial)
 add_test(NAME IndexRingRuntimeTests COMMAND BgfxRendererTests --index-ring)
 add_test(NAME SelectionStencilRuntimeTests COMMAND BgfxRendererTests --selection-stencil)
+add_test(NAME UpstreamCubeTextureFiltering COMMAND BgfxRendererTests --cube-filtering)
+set_tests_properties(UpstreamCubeTextureFiltering PROPERTIES LABELS "extended;native-display")
 add_test(NAME UpstreamRenderParameterAlias COMMAND BgfxRendererTests --render-param-alias)
 set_tests_properties(UpstreamRenderParameterAlias PROPERTIES LABELS "extended;native-display")
 add_test(NAME UpstreamRenderParameterOrder COMMAND BgfxRendererTests --render-param-order)

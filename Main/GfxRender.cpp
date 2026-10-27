@@ -44,7 +44,7 @@ static CDepthHash sharedZBuffers;
 static CMObj<CTexture> pRegisters[N_MAX_REGISTERS];
 static CTPoint<int> ptRegisterBufferSize, ptScreenSize;
 //static bool bUseSeparateZBuffer;
-static bool bLastUsedAddressMode[8], bPointAddress[8];
+static bool bLastUsedAddressMode[8], bPointAddress[8], bCubeFilter[8];
 static NWin32Helper::com_ptr<BgfxShader> pixelShaders[200];
 static NWin32Helper::com_ptr<BgfxShader> vertexShaders[200];
 static NWin32Helper::com_ptr<BgfxDeclaration> vertexDeclarations[200];
@@ -569,16 +569,23 @@ static void SetTextureWrap( int nStage, bool bWrap )
 	ApplySamplerState( nStage, D3DSAMP_ADDRESSV, bWrap ? D3DTADDRESS_WRAP : D3DTADDRESS_CLAMP );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-static void SetTexturePointFilter( int n, bool bPoint )
+static void SetTexturePointFilter( int n, bool bPoint, bool bCube = false )
 {
-	if ( bPointAddress[n] == bPoint )
+	if ( bPointAddress[n] == bPoint && bCubeFilter[n] == bCube )
 		return;
 	bPointAddress[n] = bPoint;
+	bCubeFilter[n] = bCube;
 	if ( bPoint )
 	{
 		pDevice->SetSamplerState( n, D3DSAMP_MAGFILTER, D3DTEXF_POINT );
 		pDevice->SetSamplerState( n, D3DSAMP_MINFILTER, D3DTEXF_POINT );
 		pDevice->SetSamplerState( n, D3DSAMP_MIPFILTER, D3DTEXF_POINT );//D3DTEXF_POINT );
+	}
+	else if ( bCube )
+	{
+		pDevice->SetSamplerState( n, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR );
+		pDevice->SetSamplerState( n, D3DSAMP_MINFILTER, D3DTEXF_LINEAR );
+		pDevice->SetSamplerState( n, D3DSAMP_MIPFILTER, D3DTEXF_POINT );
 	}
 	else
 	{
@@ -958,7 +965,7 @@ void CRenderContext::SetTexture( int nStage, CCubeTexture *pTex )
 	ASSERT( pCurrentRenderContext == this );
 	NGfx::SetTexture( nStage, pTex );
 	SetTextureWrap( nStage, true );
-	SetTexturePointFilter( nStage, false );
+	SetTexturePointFilter( nStage, false, true );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRenderContext::SetLightParams( const CVec3 &vAmbient, const CVec3 &vLight, const CVec3 &vDir )
@@ -1224,6 +1231,7 @@ static void InitTextureStage( int n )
 	pDevice->SetSamplerState( n, D3DSAMP_MIPMAPLODBIAS, *(DWORD*)&fMipBias );
 	bLastUsedAddressMode[n] = false;
 	bPointAddress[n] = false;
+	bCubeFilter[n] = false;
 	pDevice->SetSamplerState( n, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP );
 	pDevice->SetSamplerState( n, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP );
 }
