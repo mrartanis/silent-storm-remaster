@@ -396,6 +396,63 @@ int RunLowRamCombiner() {
   std::puts("low-RAM native combiner: static/dynamic mesh/position upload, cache release, repeated rebuild and exact pixels restored");
   return 0;
 }
+int RunStationaryFog() {
+  using namespace NGScene;
+  NGfx::SRenderTargetsInfo targets;
+  if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 213;
+  NGlobal::SetVar("gfx_antialiasing",0);
+  CObjectInfo::SData data;
+  for(auto position:{CVec3(-1,1,2),CVec3(1,1,2),CVec3(1,-1,2),CVec3(-1,-1,2)}) {
+    SVertex vertex{};vertex.pos=position;
+    NGfx::CalcCompactVector(&vertex.normal,CVec3(0,0,-1));data.verts.push_back(vertex);
+  }
+  data.geometry.SetTriangles({STriangle(0,1,2),STriangle(0,2,3),STriangle(2,1,0),STriangle(3,2,0)});
+  CObj<CObjectInfo> mesh=new CObjectInfo;mesh->AssignFast(data);
+  CObj<SelectionMeshNode> node=new SelectionMeshNode(mesh);
+  CObj<IMaterial> material=CreateMaterial(CVec3(.25f,.5f,.75f));
+  CObj<CGScene> scene=new CGScene(0);
+  CObj<CObjectBase> geometry=scene->CreateGeometry(node,material,SFullGroupInfo());
+  if(!geometry)return 214;
+  CTransformStack transform;transform.MakeProjective(1.f,90,.1f,100);
+  NGfx::CRenderContext context;auto base=Quad(-1,1,1,-1,2);
+  SFogParams fog{};fog.fDist=10;fog.fDistStart=0;fog.fHeight=5;fog.fDensity=.2f;
+  fog.vFogColor=CVec3(1,0,0);fog.vWaterColor=CVec3(0,0,1);fog.fVapourNoiseParam=.5f;
+  auto capture=[&](EFogMode mode,CArray2D<NGfx::SPixel8888>* image) {
+    context.SetScreenRT();context.ClearBuffers(0xff000000);
+    context.SetTransform(transform.Get());context.SetCulling(NGfx::CULL_NONE);
+    context.SetDepth(NGfx::DEPTH_NORMAL);context.SetStencil(NGfx::STENCIL_NONE);
+    context.SetAlphaCombine(NGfx::COMBINE_NONE);context.SetColorWrite(NGfx::COLORWRITE_ALL);
+    context.SetVertexShader(vsConstLight);context.SetPixelShader(psDiffuse);
+    context.SetVSConst(16,CVec4(.25f,.5f,.75f,1));Draw(context,base);
+    scene->Draw(&transform,&transform,&context,MakeSelectAll(),RP_FASTEST,mode,fog,HSR_NONE,TRM_NONE,nullptr);
+    NGfx::MakeScreenShot(image,false);
+  };
+  auto differences=[](const CArray2D<NGfx::SPixel8888>& a,const CArray2D<NGfx::SPixel8888>& b) {
+    int count=0;for(int y=0;y<128;++y)for(int x=0;x<128;++x)if(a[y][x].color!=b[y][x].color)++count;
+    return count;
+  };
+  CArray2D<NGfx::SPixel8888> clear,reference,image;
+  capture(FOG_NONE,&clear);capture(FOG_PERVERTEX,&reference);
+  const int fogPixels=differences(clear,reference);
+  if(fogPixels<500) {
+    std::fprintf(stderr,"stationary fog fixture did not render actual scene fog: changed=%d\n",fogPixels);return 215;
+  }
+  std::printf("stationary fog native scene control: static fog changes %d pixels\n",fogPixels);std::fflush(stdout);
+  fog.fVapourSpeed=1;fog.fVapourSwitchTime=2;fog.fTime=1;capture(FOG_DYNAMIC,&image);
+  if(differences(reference,image)<100)return 216;
+  std::puts("moving dynamic vapour remains distinct from the static lookup");std::fflush(stdout);
+  fog.fVapourSpeed=0;
+  for(float switchTime:{0.f,2.f})for(float time:{0.f,1.f,7.f}) {
+    fog.fVapourSwitchTime=switchTime;fog.fTime=time;capture(FOG_DYNAMIC,&image);
+    const int changed=differences(reference,image);
+    if(changed) {
+      std::fprintf(stderr,"stationary vapour diverges from static fog: switch=%g time=%g pixels=%d\n",
+                   switchTime,time,changed);return 217;
+    }
+  }
+  std::puts("stationary vapour uses static lookup for zero/positive switch time; exact pixels at times0/1/7");
+  return 0;
+}
 int RunSelectionStencil() {
   NGfx::SRenderTargetsInfo targets;
   if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 190;
@@ -1074,6 +1131,7 @@ int main(int argc,char** argv) {
              argc>1 && std::string(argv[1])=="--shadow-pcf" ? RunShadowPcf() :
              argc>1 && std::string(argv[1])=="--specular-projection" ? RunSpecularProjection() :
              argc>1 && std::string(argv[1])=="--low-ram-combiner" ? RunLowRamCombiner() :
+             argc>1 && std::string(argv[1])=="--stationary-fog" ? RunStationaryFog() :
              argc>1 && std::string(argv[1])=="--selection-stencil" ? RunSelectionStencil() : Run();
   NGfx::Done3D();S2Platform::Done();
   if(result)fprintf(stderr,"bgfx regression failure code=%d\n",result);

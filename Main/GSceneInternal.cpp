@@ -2044,6 +2044,9 @@ void CGScene::Draw( CTransformStack *pTS, CTransformStack *pClipTS, NGfx::CRende
 		if ( renderPath != RP_TNL )
 		{
 			CRenderCmdList finalOps, finalAlienOps, finalPreOps;
+			// Stationary vapour has no animation; its switch interval may be zero.
+			if ( fogMode == FOG_DYNAMIC && fog.fVapourSpeed == 0 )
+				fogMode = FOG_PERVERTEX;
 			switch ( fogMode )
 			{
 			case FOG_PERVERTEX:

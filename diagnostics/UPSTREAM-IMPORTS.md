@@ -4611,3 +4611,38 @@ CPU base371, последний полный checkpoint e356d2db — base370+6=3
 109 pending/100 imported/22 partial/38 already/3 docs/5 excluded-balance,
 2 excluded-own, по1 historical/review.132 исходных коммита ещё разбираются.
 Итоговая проверка актуального HEAD в GitHub Actions остаётся обязательной.
+
+## Статический lookup для неподвижного тумана — ad57a2df
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/ad57a2df018f9eda3f33d3b79a0d595786889dea
+
+StationaryFogRuntimeTests запускает наш native SDL/bgfx, настоящий CGScene.Draw,
+mesh/material и perspective camera. Начальный quad заполняет цвет/глубину
+той же плоскости; затем туман проходит через обычный scene render path.
+Положительные контроли до фикса: static fog меняет4096 пикселей; движущийся
+dynamic vapour отличается от статического минимум на100 пикселей.
+Compiled native RED: при speed0/switchTime0/time0 неподвижный dynamic fog
+отличается от static lookup на4096 пикселях (код217).
+
+Перенесён единственный hunk: внутри Draw локальный FOG_DYNAMIC заменяется
+на FOG_PERVERTEX при fVapourSpeed==0. Это исключает анимационную ветку с
+возможным делением на нулевой интервал. Настройка игрока, SFogParams,
+сериализация, качество движущегося тумана и игровые расчёты не менялись.
+GREEN: полное совпадение128×128 пикселей со static reference при интервалах
+0/2 и временах0/1/7; контроль движущегося пара остаётся отличным от static.
+Fixture синтетический, с допустимым нулевым интервалом; это не запуск
+конкретной authored zone/light4412 из комментария источника.
+
+Проверки:26/26 Windows (15.44 с, включая3 network) и20/20 Linux (6.91 с),
+по6 native-display и12 FONT-COMPAT; raw26/20 полные без NUL.
+Собраны обе Game и Windows ALL_BUILD; сцена работает в нашем D3D11/Vulkan.
+Свидетельства stationary-fog: red-{build,test,native-test}.log,
+green-{build,test,native-test}.log, all-build.log, related-test.log,
+linux-{configure,build,test}.log, {windows,linux}-native-test.log.
+Новая проверка — extended GPU; CPU base371 не изменился. Последний полный
+checkpoint e356d2db остаётся376/376 обе платформы, последний CI-like
+2c74ae84 —278/278. Свежие full378/CI для этого изменения не заявляются.
+
+Статус281:108 pending/101 imported/22 partial/38 already/3 docs/
+5 excluded-balance/2 excluded-own, по1 historical/review.131 исходный
+коммит ещё разбирается; all281/final actual HEAD Actions не завершены.
