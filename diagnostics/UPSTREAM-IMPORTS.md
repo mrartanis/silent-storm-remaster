@@ -4259,3 +4259,34 @@ red-native-test.log, green-{build,test}.log, green-native-test.log,
 all-build.log, related-test.log, linux-{configure,build,test}.log,
 {windows,linux}-native-test.log, network-{test,native-test}.log.
 Sourcec55 partial: snipe/VP producers остаются. All281/final Actions pending.
+
+## Уведомление о росте Snipe при настоящем выстреле — часть c55ed688
+
+UpstreamSnipeSkillAcknowledgment создаёт authored ordinary persona и настоящий
+sniper rifle, public SaveAP(4,target), вызывает native CreateAttack.
+Ordinary ammo-spending shot и sniper preview не тренируют Snipe, не создают
+ack; preview не расходует патрон. Настоящий sniper shot расходует ровно один
+патрон, его все сериализуемые attack fields совпадают с preview до роста skill.
+Saved target/aiming AP сохраняются. Familiarity отключена существующим
+bAdaptWeapon=false для изоляции этого производителя уведомлений.
+
+Compiled runtime RED после этих контролей и четырёх fractional uses:
+anonymous=0/use4/Snipe advanced/ack0, native training fields совпадают с reference.
+После RED меняется только sniper UseSkill call на существующий mission wrapper.
+GREEN: identified/anonymous атаки, по два настоящих skill improvement,
+все skills/value/XP part/fractional progress/max и общий XP совпадают с прежним
+CUnit::UseSkill reference на каждом use. Один N_ACK_SKILL/null attacker на рост,
+нет preview/ordinary/fractional/duplicate ack; ammo/attack fields/saved AP
+контролируются на каждой атаке. Перезаряд fixture — установка свежего rifle
+того же DB record через inventory при исчерпании ammo; reload gameplay не заявлен.
+Это создание native attack portion, не полёт projectile/попадание/урон миру.
+
+Target3/3; связанные42/42 Windows (36.85 с), Linux (36.45 с),
+обе Game и Windows ALL_BUILD/12 FONT-COMPAT/raw42 полные без NUL.
+NetworkSerializer/ObjectStages/StopResume3/3 (5.62 с). CPU base365,
+полный checkpoint d33ec7da base359+5=364/CI-like277.
+Свидетельства snipe-skill-acknowledgment: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log, network-{test,native-test}.log.
+Sourcec55 partial: ProcessAttack VP producer остаётся; all281/final Actions pending.

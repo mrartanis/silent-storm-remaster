@@ -846,7 +846,7 @@ bool CUnitMission::CreateAttack( vector<CAttackPortion> *pRes, bool bSpendAmmo,
 				a.nCrticalDifficulty += savedSnipeAP.nAP;
 				a.nCrtical = (int)( nSnipeSkill * savedSnipeAP.nAP * 0.02f + a.nCrtical );
 				if ( bSpendAmmo )
-					pRPGUnit->UseSkill( NDb::ST_SNIPE, GetSkillAddValue( NDb::ST_SNIPE ) );
+					UseSkill( NDb::ST_SNIPE );
 				float fSniperCrit = 0, fSniperCritDiff = 0;
 				if ( HasPerk( N_PERK_MASTER_SNIPER, &fSniperCrit, &fSniperCritDiff ) )
 				{

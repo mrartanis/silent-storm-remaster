@@ -11883,6 +11883,103 @@ static void ActionSkillAcknowledgment(const char* databasePath,bool interrupt = 
     }
 }
 
+static void SnipeSkillAcknowledgment(const char* databasePath)
+{
+    CFileStream database; database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    NDb::CRPGPers* persona = nullptr;
+    CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while (people.MoveNext()) {
+        auto* candidate = people.Get();
+        if (IsValid(candidate->pClass) && IsValid(candidate->pBaseValue) && IsValid(candidate->pModel) &&
+            IsValid(candidate->pName) && !IsValid(candidate->pPanzerklein) &&
+            !IsValid(candidate->pDefaultWearsPanzerklein) && candidate->pClass->skills[NDb::ST_LEVEL] > 0) {
+            persona = candidate; break;
+        }
+    }
+    NDb::CRPGWeapon* record = nullptr;
+    CDBIterator<NDb::CRPGWeapon> weapons(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while (weapons.MoveNext()) {
+        auto* candidate = weapons.Get();
+        if (IsValid(candidate->pItem) && IsValid(candidate->pInnerClip) && IsValid(candidate->pWeaponType) &&
+            candidate->pInnerClip->nQuantity > 0 && candidate->eWeaponType == NDb::WT_RIFLE &&
+            candidate->shootModes[NDb::SM_Snipe]) { record = candidate; break; }
+    }
+    Require(persona && record,"snipe acknowledgment fixture has no authored ordinary persona and sniper rifle");
+    for (bool anonymous: {false,true}) {
+        CObj<NRPG::CUnit> unit = new NRPG::CUnit(persona), reference = new NRPG::CUnit(persona);
+        CObj<NRPG::IUnitMission> mission = NRPG::CreateUnit(unit), target = NRPG::CreateUnit(persona);
+        const float extraXP = unit->GetXPForSkill(NDb::ST_LEVEL,int(unit->Skills(NDb::ST_LEVEL))+3)-unit->fXP+1;
+        Require(extraXP > 0,"snipe acknowledgment fixture has no higher native XP threshold");
+        unit->AddXP(extraXP); reference->AddXP(extraXP);
+        auto unchangedTraining = [&]() {
+            Require(unit->fXP == reference->fXP,"snipe acknowledgment changed total experience");
+            for (int skill=0;skill<NDb::SKILL_TYPE_NUMBERS;++skill) {
+                const auto& actual = unit->Skills(skill); const auto& expected = reference->Skills(skill);
+                Require(int(actual) == int(expected) && actual.GetXPPart() == expected.GetXPPart() &&
+                    actual.GetProgress() == expected.GetProgress() && actual.GetMaxValue() == expected.GetMaxValue(),
+                    "snipe training diverged from the unchanged native training formula");
+            }
+        };
+        auto* inventory = mission->GetInventory();
+        const auto slot = NDb::ESlot(inventory->GetActiveSlot());
+        CObj<NRPG::CWeaponItem> weapon;
+        auto loadedRifle = [&]() {
+            if (weapon && weapon->HasAmmo()) return;
+            CObj<NRPG::IInventoryItem> previous = inventory->Get(slot) ? inventory->TakeOff(slot) : nullptr;
+            weapon = new NRPG::CWeaponItem(record);
+            Require(weapon->SetShootMode(NDb::SM_Snipe) && weapon->HasAmmo() && inventory->Equip(slot,weapon),
+                "snipe acknowledgment fixture failed to equip a loaded native sniper rifle");
+        };
+        loadedRifle();
+        int ack = -1; NRPG::IUnitMissionInfo* attacker = nullptr;
+        vector<NRPG::CAttackPortion> ordinary;
+        const int initialAmmo = weapon->GetAmmoQuantity();
+        Require(mission->CreateAttack(&ordinary,true,anonymous,target,false,false) && ordinary.size() == 1 &&
+            weapon->GetAmmoQuantity() == initialAmmo-1,"ordinary-shot control did not consume exactly one round");
+        unchangedTraining();
+        Require(!mission->GetAck(&ack,&attacker),"an ordinary shot trained or acknowledged the sniper skill");
+        mission->SaveAP(NRPG::SSnipeAP(4,target));
+        auto attackFields = [&](NRPG::CAttackPortion& attack) {
+            CStructureNetworkContext refs;
+            refs.externalReferences = true; refs.include = [](CObjectBase*) { return false; };
+            refs.ids[mission.GetPtr()] = 1; refs.refs[1] = mission.GetPtr();
+            refs.ids[target.GetPtr()] = 2; refs.refs[2] = target.GetPtr(); refs.nextID = 10;
+            CMemoryStream saved;
+            { CStructureSaver writer(saved,CStructureSaver::WRITE,&refs); writer.Add(2,&attack); }
+            const auto* bytes = static_cast<const unsigned char*>(saved.GetBuffer());
+            return vector<unsigned char>(bytes,bytes+saved.GetSize());
+        };
+        int gained = 0, fractional = 0;
+        for (int use=0;use<500 && gained<2;++use) {
+            loadedRifle();
+            const int ammo = weapon->GetAmmoQuantity();
+            vector<NRPG::CAttackPortion> preview, actual;
+            Require(mission->CreateAttack(&preview,false,anonymous,target,false,false) && preview.size() == 1 &&
+                weapon->GetAmmoQuantity() == ammo,"sniper preview consumed ammunition or lost its attack portion");
+            unchangedTraining();
+            Require(!mission->GetAck(&ack,&attacker),"a sniper preview trained or acknowledged the skill");
+            const bool advanced = reference->UseSkill(NDb::ST_SNIPE,0);
+            Require(mission->CreateAttack(&actual,true,anonymous,target,false,false) && actual.size() == 1 &&
+                weapon->GetAmmoQuantity() == ammo-1,"native sniper shot failed to consume exactly one round");
+            Require(attackFields(actual.front()) == attackFields(preview.front()) &&
+                mission->GetSavedAP().pTarget == target.GetPtr() && mission->GetSavedAP().nAP == 4,
+                "sniper acknowledgment changed the produced attack or saved aiming AP");
+            unchangedTraining();
+            const bool acknowledged = mission->GetAck(&ack,&attacker);
+            if (advanced) {
+                ++gained;
+                std::printf("native snipe acknowledgment: anonymous=%d use=%d gained=%d ack=%d fractional=%d\n",
+                    int(anonymous),use,gained,int(acknowledged),fractional);
+            } else ++fractional;
+            Require(acknowledged == advanced && (!advanced || (ack == NWorld::N_ACK_SKILL && attacker == nullptr)),
+                "a native sniper shot improved its skill without the corresponding acknowledgment");
+            Require(!mission->GetAck(&ack,&attacker),"one sniper skill improvement emitted duplicate acknowledgments");
+        }
+        Require(gained == 2 && fractional > 0,"sniper acknowledgment fixture did not cross two native skill boundaries");
+    }
+}
+
 static void AssignedLevelExperience(const char* databasePath)
 {
     CFileStream database;
@@ -16015,6 +16112,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "assigned-level-experience")) { Require(argc == 3, "assigned level experience requires db"); AssignedLevelExperience(argv[2]); return true; }
     if (!std::strcmp(mode, "action-skill-acknowledgment") && argc == 3) { ActionSkillAcknowledgment(argv[2]); return true; }
     if (!std::strcmp(mode, "interrupt-skill-acknowledgment") && argc == 3) { ActionSkillAcknowledgment(argv[2],true); return true; }
+    if (!std::strcmp(mode, "snipe-skill-acknowledgment") && argc == 3) { SnipeSkillAcknowledgment(argv[2]); return true; }
     if (!std::strcmp(mode, "persona-full-display-name")) { Require(argc == 3, "full display name requires db"); PersonaFullDisplayName(argv[2]); return true; }
     if (!std::strcmp(mode, "character-panel-full-name")) { Require(argc == 4, "character panel name requires db and res"); CharacterPanelFullName(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "temporary-groups")) { TemporaryGroups(); return true; }
