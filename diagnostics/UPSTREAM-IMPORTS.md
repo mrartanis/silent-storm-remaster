@@ -5296,3 +5296,53 @@ Native probe подтвердил, что GetPersVoiceAck на настояще�
 для произвольных модифицированных DB или всех прочих hunks46 не делается.
 Реконструированный комментарий о якобы отсутствующем Steam tag5 не принимается
 как факт вопреки runtime данным. Собственный facial engine не менялся.
+
+
+## Занятое исправное орудие остаётся доступным своему AI стрелку — завершение75341d49
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/75341d49319b927a76537c6021e6e655d635de95
+Реализация и native тест: bb776ca10928fa1adbf1fca9ad651fde8b93c1d3.
+
+Независимый verified Steam SHA2564F417593A9F73E2BFDE12D83CDBD694AE47EECB92812140D67B8B343E4A95705:
+IsWorkingCannon452420 вызывает ICannon IsBroken и weapon HasAmmo, без occupancy.
+Dock GetInfoInner452c60 отдельно проверяет ICannon IsOccupied452dc5 и пропускает
+занятый gun452dca. Gold PDB адреса4518f0/452130 использовались только для поиска
+уникальных exact/masked opcode signatures. Адреса из старого комментария
+source для этого Steam binary не подходят. Proof mounted-gun-{working,dock,
+shoot}-retail.txt регенерирован от настоящих начал функций; original EXE
+не запускался/не менялся. Это восстановление правил оригинала.
+
+Первый compiled native RED1.22с: настоящая карта810, её единственное орудие
+с100ammo, два настоящих AI units. Подобраны реальные cannon approach/path,
+допустимая точка цели и native AI-map body aim/CanAttackWithCannon. Уже первый
+candidate attackable. Контроль незанятого gun разрешает shooting/docking и
+не требует abandon. Затем public SetCurrentUnit устанавливает занятость;
+прежний helper запрещает своему gunner стрельбу (fire0 вместо1).
+
+Минимальная правка: убрать IsOccupied только из working helper и перенести
+в docking scan. Не менялись дальности10/5/3м, cone, path/AP, threat filtering,
+ammo, firing parameters или порядок команды. GREEN1.13с: occupied gun fire/stay,
+запрет docking другого бойца, empty ammo firefalse/leave true; eligibility
+queries не тратят AP/ammo и не двигают actor. Public IAIUnit.SetCannon задаёт
+анализируемое AI состояние; SetCurrentUnit реальное состояние занятости.
+Тест не объявляется проигранной docking animation или выполненным выстрелом.
+
+Both Game/Windows ALL_BUILD. Related23/23 Windows10.76с/Linux10.32с включают
+mounted commands/UI, AI/threat/contact/diplomacy/registration и12FONT-COMPAT.
+4Network Serializer/ClientUI/ObjectStages/StopResume7.02с. CI-like280/28034.98с,
+raw280/fonts12. Все raw полные без NUL, сохранены до последующего CTest.
+Evidence mounted-gun-eligibility-{red,green,related,network,ci} build/test,
+windows/linux-related-native-test.log, windows-network-native-test.log,
+ci-native-test.log. CPUbase385; нового FULL392 здесь не заявляем, последний
+полный391/391 на обеих платформах относится к2c44f24f. Прежние build folders
+используются повторно, HD не генерировались.
+
+Все hunks753 учтены: command cross-casts были перенесены ранее, occupancy/firing
+этим отдельным TDD fix. Source теперь imported. Счётчики281:101pending,
+107imported,23partial,38already,3docs,5excluded-balance,2excluded-own,
+по1historical/review;125 исходных коммитов ещё разбираются. All281/final actual
+HEAD GitHub Actions ещё не завершены. Проверка voice46 выше не считается
+переносом: изменения production для неё не сделано. Журнал обновлён отдельным
+документационным коммитом: при подготовке bb776ca1 проверка индекса столбца
+tracker остановила только обновление метаданных; production и тест уже прошли
+нужные проверки и были отправлены. Переписывания опубликованного коммита нет.
