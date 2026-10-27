@@ -126,7 +126,7 @@ public:
 	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CCmdUnit*)this); f.Add(2,&pWhatToEnd); return 0; }
 
 	CCmdEndMove() {}
-	CCmdEndMove( CUnit *_pUnit, CCmdMove *_pWhatToEnd = 0 ): CCmdUnit(_pUnit), pWhatToEnd(_pWhatToEnd) {}
+	CCmdEndMove( CUnit *_pUnit, CCmdMove *_pWhatToEnd ): CCmdUnit(_pUnit), pWhatToEnd(_pWhatToEnd) {}
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCmdActivateItem: public CCmdUnit
@@ -958,9 +958,10 @@ void CExecMove::Cancel()
 	CDynamicCast<CCmdMove> pWasMove( pCurCmd );
 	CDynamicCast<CCmdRotate> pWasRotate( pCurCmd );
 	commandsQueue.clear();
-	if ( pWasMove || pWasRotate )
-		// @0x3b8cf0 -- the ender remembers the move it terminates (null for a rotate -> end-rotate).
+	if ( pWasMove )
 		commandsQueue.push_back( new CCmdEndMove( pUS, pWasMove.GetPtr() ) );
+	else if ( pWasRotate )
+		commandsQueue.push_back( new CCmdEndRotate( pUS ) );
 	bWaiting = false;
 	bAfterWaiting = false;
 	nTimeToWait = 0;   // @0x3b8cf0 -- retail also clears the wait timer here
@@ -1018,16 +1019,10 @@ void CExecMove::SetNewPath( NAI::CPath *pPath, NAI::EFindPathParams _eParams, EN
 		if ( !pStartMove )
 		{
 			CDynamicCast<CCmdRotate> pStartRotate(commandsQueue.front());
-			if (pStartRotate)
-			{
-				if (pWasMove)
-					commandsQueue.push_front(new CCmdEndMove(pUS, pWasMove.GetPtr()));
-			}
-			else
-			{
-				if (pWasMove || pWasRotate)
-					commandsQueue.push_front(new CCmdEndMove(pUS, pWasMove.GetPtr()));
-			}
+			if ( pWasMove )
+				commandsQueue.push_front( new CCmdEndMove( pUS, pWasMove.GetPtr() ) );
+			else if ( pWasRotate && !pStartRotate )
+				commandsQueue.push_front( new CCmdEndRotate( pUS ) );
 		}
 	}
 }
@@ -1276,7 +1271,7 @@ void CExecMove::CreateRotate( NAI::EDirection dir, const NAI::SUnitPosition &cur
 			CCmdRotate *pRotate = new CCmdRotate( pUS, newPos, phase );
 			commandsQueue.push_back( pRotate );
 		}
-		commandsQueue.push_back( new CCmdEndMove( pUS ) );
+		commandsQueue.push_back( new CCmdEndRotate( pUS ) );
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

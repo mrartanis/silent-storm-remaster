@@ -12127,6 +12127,62 @@ static vector<NAnimation::CAnimation*> NativeCannonAnimationClips(NAnimation::CS
     return result;
 }
 
+static void MovementRotationQueueWire(const char* databasePath,const char* resourcePath,int mode)
+{
+    auto fixture=MakeNativeMovementFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* world=fixture.world.GetPtr();
+    world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer()));world->GetTime()->Set(1000);actor->animator.AlignTime();
+    auto samePlace=[](NAI::SPathPlace a,NAI::SPathPlace b){a.SetMoving(0);b.SetMoving(0);return a==b;};
+    auto expected=actor->GetPosition().pos.p;expected.SetDirection((expected.GetDirection()+2)&7);expected.SetMoving(0);
+    CObj<NAI::CPath> path=NWorld::FindPath(world->GetPathNetwork(),actor,actor->GetPosition().pos.p,vector<NAI::SPathPlace>{expected},nullptr,true,NAI::PF_USE_POSEDIR);
+    Require(path && path->points.size()>=2 && samePlace(path->points.back(),expected),"rotation wire fixture could not find its native same-cell turn");
+    CObj<NWorld::CCommandExecute> move=NWorld::CreateSimpleMoveExecutor(actor,path,NAI::PF_USE_POSEDIR);
+    Require(move,"rotation wire fixture could not create its native mover");
+    if(mode) {
+        auto rotating=[](CObjectBase* command){return command && pSSClasses->GetObjectTypeID(command)==int(0x02731143);};
+        move->Run();
+        for(int edge=0;edge<16 && !rotating(ReadMovementCommands(move).current.GetPtr()) && move->GetState()==NWorld::CCommandExecute::RUNNING;++edge) {
+            world->GetTime()->Set(actor->animator.GetTimeEnd());move->AnimationFinished();
+        }
+        Require(rotating(ReadMovementCommands(move).current),"rotation wire fixture did not reach its native active turn");
+        expected=actor->GetPosition().pos.p;expected.SetMoving(0);
+        if(mode==1)move->Cancel();
+        else {
+            expected.SetPose(NAI::CM_CROUCH);
+            path=NWorld::FindPath(world->GetPathNetwork(),actor,actor->GetPosition().pos.p,vector<NAI::SPathPlace>{expected},nullptr,true,NAI::PF_USE_POSEDIR);
+            Require(path && path->points.size()==2 && samePlace(path->points.back(),expected),"rotation wire fixture lacks its real crouch reroute");
+            dynamic_cast<NWorld::IExecMove*>(move.GetPtr())->SetNewPath(path,NAI::PF_USE_POSEDIR);
+        }
+    }
+    CMemoryStream file;
+    {CStructureSaver writer(file,CStructureSaver::WRITE);writer.Add(1,&fixture.game);writer.Add(2,&fixture.world);writer.Add(3,&fixture.actor);writer.Add(4,&move);}
+    file.Seek(0);NativeMovementFixture restored;CObj<NWorld::CCommandExecute> executor;
+    {CStructureSaver reader(file,CStructureSaver::READ);reader.Add(1,&restored.game);reader.Add(2,&restored.world);reader.Add(3,&restored.actor);reader.Add(4,&executor);}
+    Require(restored.game && restored.world && restored.actor && executor && executor->GetUnitServer()==restored.actor.GetPtr(),"rotation wire snapshot lost its native graph or unit identity");
+    restored.world->RestoreRuntimeCaches(restored.game);auto commands=ReadMovementCommands(executor);unsigned rotations=0,invalidMoveEnders=0;
+    for(auto& command:commands.queued) {
+        const int type=pSSClasses->GetObjectTypeID(command);
+        if(type==int(0x72312170)) {
+            auto* unitCommand=dynamic_cast<NWorld::CCmdUnit*>(command.GetPtr());Require(unitCommand && unitCommand->pUnit==restored.actor.GetPtr(),"saved rotation ender lost its owning unit reference");++rotations;
+        }
+        if(type==int(0x12541120)) {
+            CStructureNetworkContext refs;auto fields=BorrowedObjectFields(command,&refs);CObj<CObjectBase> ended;
+            {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&ended);}
+            if(!ended)++invalidMoveEnders;
+        }
+    }
+    std::printf("native saved rotation queue: mode=%d EndRotate=%u nullEndMove=%u bytes=%u\n",mode,rotations,invalidMoveEnders,unsigned(file.GetSize()));std::fflush(stdout);
+    Require(rotations==1 && invalidMoveEnders==0,"fresh saved rotation queue violates the original separate EndRotate/non-null EndMove wire contract");
+    if(!mode)executor->Run();
+    for(int edge=0;edge<32 && executor->GetState()==NWorld::CCommandExecute::RUNNING;++edge) {
+        restored.world->GetTime()->Set(restored.actor->animator.GetTimeEnd());executor->AnimationFinished();
+    }
+    Require(executor->GetState()==(mode==1?NWorld::CCommandExecute::FAILED:NWorld::CCommandExecute::FINISHED) && samePlace(restored.actor->GetPosition().pos.p,expected),
+        "restored native rotation queue changed its cancellation policy or failed its requested turn/pose");
+    dynamic_cast<NWorld::IExecMove*>(executor.GetPtr())->FullCancel();executor=nullptr;
+    dynamic_cast<NWorld::IExecMove*>(move.GetPtr())->FullCancel();move=nullptr;
+    Require(!restored.world->IsAction() && !world->IsAction(),"rotation wire fixture retained its original/restored action");
+}
+
 static void MovementRerouteContinuation(const char* databasePath,const char* resourcePath,bool strafe)
 {
     auto fixture=MakeNativeMovementFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* world=fixture.world.GetPtr();auto* network=world->GetPathNetwork();
@@ -19766,6 +19822,9 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-collision-hidden-other")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "movement-collision-hidden-own")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],true,true); return true; }
     if (!std::strcmp(mode, "movement-collision-visible-other")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],false,false); return true; }
+    if (!std::strcmp(mode, "movement-rotation-create-wire")) { Require(argc==4,"rotation queue requires db and res"); MovementRotationQueueWire(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "movement-rotation-cancel-wire")) { Require(argc==4,"rotation queue requires db and res"); MovementRotationQueueWire(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "movement-rotation-reroute-wire")) { Require(argc==4,"rotation queue requires db and res"); MovementRotationQueueWire(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "movement-rotate-continuation")) { Require(argc==4,"rotate continuation requires db and res"); MovementRerouteContinuation(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "movement-strafe-continuation")) { Require(argc==4,"strafe continuation requires db and res"); MovementRerouteContinuation(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "movement-waiting-reroute")) { Require(argc==4,"waiting reroute requires db and res"); MovementBlockedWalkingTrajectory(argv[2],argv[3],true); return true; }

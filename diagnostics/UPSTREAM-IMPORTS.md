@@ -7190,3 +7190,71 @@ move-reroute-retail-disassembly.txt in the shared evidence directory.
 
 Linux related29/29 34.90s, Game built; CI-like284/284 24.13s. Raw29/29/284
 complete/no NUL/missing/Failed, actual runner exits0.
+
+
+## b4505fb0 — write distinct rotation enders in new saved queues
+
+Source b4505fb0b183854ea69f680ff770759c5245cebb, final producer-format hunk.
+Three native cases create a real same-cell rotation path, cancel an actual
+running rotation, or reroute that rotation to an actual same-cell crouch.
+Each writes and restores the full strong game/world/actor/mover graph through
+FILE CStructureSaver, then inspects the restored command wire contract before
+executing its real callbacks. Compiled RED3/3 failed3.52s (1.18/1.17/1.12):
+all new queues contain EndRotate0/null-EndMove1. This is an original-format
+contract failure, not a gameplay crash in the remaster's deliberate legacy
+null-EndMove decoder. No claim that the whole modded test graph loads in the
+original unmodified executable is made.
+
+CreateRotate, Cancel and the nonmovement SetNewPath rotation branch now emit
+CCmdEndRotate72312170. New EndMove construction requires an explicit move
+argument; its default SAVE constructor and both old-null consumer branches
+remain for historical fork saves. The two-argument (unit, move) constructor
+API is retained internally; this does not alter the original serialized schema.
+The equivalent nonmovement branch is simplified around the separate types.
+Native GREEN3/3 3.45s: all restored queues have EndRotate1/null-EndMove0 with
+the correct unit reference. They finish the requested turn, keep cancellation
+FAILED, or finish the rerouted crouch. Original and restored actions are retired.
+The immutable legacy/null-EndMove compatibility test remains in both platforms'
+full suite. No balance, original action formula, font, face, renderer, audio or
+HD code changed; no binary fixtures or separate old build/game copies created.
+
+Independent original producer evidence: Gold CreateRotate7ad070/621 maps
+uniquely to Steam7b9880 first32/EH3:7; it writes EndRotate vtable8cdc1c at
+7b9a71 (literal7b9a73). Gold Cancel7acfd0/95 maps uniquely to Steam7b97d0
+masking only two RTTI operands5:9/15:19 and cast-call23:27; plain exact match
+fails. Its call7b97fc reaches helper7b8b90, whose rotation branch writes the
+same vtable at7b8caf. Old-move branch calls owning EndMove ctor7bbb80 at
+7b8bf8. Original SetNewPath7bb2f7/7bb305 calls EndRotate ctor7bbc70, which
+writes vtable8cdc1c at7bbc89 (literal7bbc8b). Vtable RTTI9853e8 and saved
+registration72312170 were independently verified in the first wire-consumer
+commit. Gold CreateRotateQueue7ad2e0/428 also maps uniquely to Steam7b9af0
+(EH13:17). Evidence move-rotation-producers-retail-lookup.txt and corresponding
+move-rotation-{create,ctor,cancel,cancel-wrapper}-retail-disassembly.txt.
+
+All functional b450 hunks are now covered across the separate TDD fixes:
+original wire consumer/legacy decoder, move-to-pose/turn final trajectory,
+already-reseated waiting reroute, direct rotation/strafe continuation, and new
+producer format. The legacy decoder and internal constructor API are necessary
+fork adaptations. Full final platform/network/CI validation follows below.
+
+
+Final whole-block validation: Windows ALL_BUILD/Game and Linux Game/helpers
+built. Fresh full464/464 Windows423.26s and Linux416.61s, each38native-display,
+24native-audio and12FONT-COMPAT; CI-like284/284 24.56s/font12. Raw464/464/284
+complete, no NUL/Failed/missing executable, actual runner exits0. These suites
+include all nine newly registered movement cases and the legacy null-EndMove
+control. Network validation is recorded below after its separate run. The
+whole ALL281 goal and final actual-HEAD hosted GitHub CI remain unfinished.
+
+
+Own Network7/7 185.09s, including361/361maps130.36s: authored deployment and
+replica validation, not full battles. Raw464/464/7/284 complete/no NUL/missing/
+Failed, actual runner exits0; all local suites pass. Windows test processes
+from the shared build have exited. Sourceb450 status partial->imported with the
+necessary old-save decoder/internal constructor adaptations. Tracker281 now
+90pending/124imported/23partial/32already/3docs/5excluded-balance/2excluded-own/
+1historical/1review,114 unfinished entries. This completes only this source
+commit's work, not the ALL281 goal or final actual-HEAD hosted GitHub CI.
+Evidence movement-rotation-wire-{full,full-linux,network,ci}-{test,native-test}
+logs plus build logs. Four previous source-b450 fixes were separately committed
+and immediately pushed: c84f582b,79ca19fa,fa61c31d,a3dbd228.
