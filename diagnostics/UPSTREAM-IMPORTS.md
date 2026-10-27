@@ -5127,3 +5127,49 @@ dfb4e99b теперь imported: head multiplier и level prefix перенесе
 in_progress; он не выдается за success текущего fix. Все281 и final actual
 HEAD GitHub Actions ещё не завершены. Соседние critical math/perk rebalance
 hunks остаются отдельными, явные ORIGINAL RETAIL BUG FIXED изменения исключены.
+
+
+## Авторский множитель perk движущейся цели — часть7368b4b1
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7368b4b10182ef243135d94b93bc481fd6dd593f
+
+Повторно проверен SHA256 оригинального Steam EXE:
+4F417593A9F73E2BFDE12D83CDBD694AE47EECB92812140D67B8B343E4A95705.
+Actual GetTMove начинается6b7660; HasPerk14 получает Param1 output6b7798..a6,
+после восстановления четырёх registers6b77b3/b7 умножает этот local на ранее
+рассчитанный projected movement penalty. Косинус используется ранее при проекции,
+а не как perk multiplier. Файл perk-movement-retail-disassembly.txt обновлён
+от настоящего начала функции до return; original process не запускался.
+
+UpstreamMovingTargetPerk: actual FixtureWorld, обычный party actor, настоящий
+CUnitServer с authored persona130, его моделью/аниматором и реальной mission.
+Perk14 берётся из настоящего дерева, Param1=2 из DB не меняется. Public
+StartNewTurn задаёт turn-start CP для трёх shot directions, normal native
+CUnitToHitCalcer использует настоящий SPosition. Unperked controls3.2 и
+2.26274/2.26274 проходят; native compiled RED с первого запуска: после TakePerk14
+при поперечном движении actual0 вместо6.4. Это fixture геометрии и калькулятора,
+не выполненное перемещение по пути, расход AP, реальный выстрел или AI решение.
+
+Исправлено только получение Param1 и его применение вместо direction cosine.
+Проекция, cap-before-multiplier, first-round guard и native движение не менялись.
+GREEN три направления6.4/4.52548/4.52548, stationary/firstRound0, прежний порядок
+ограничения дальнего перемещения. Сам GetTMove сохраняет AP обоих actors,
+position/inventory/XP. Public TakePerk создаёт состояние владения perk;
+acquisition prerequisites не являются предметом этой проверки. Это исходное
+retail поведение защитного perk, не изменение числовых параметров оригинала.
+
+Windows26/2623.53с, Linux23/2318.44с: родственные accuracy/preview/aim/snipe/
+skill checks, Windows3network. Both Game/Windows ALL_BUILD собраны; raw26/23
+полные без NUL. Font-specific cases в узком профиле не запускались; предыдущий
+full/font/audio/CI checkpoint — e8133062:388/388,17audio/12fonts и280/280.
+Свидетельства moving-target-perk: red/green-{build,test,native-test}.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log. Прежние сборки используются повторно, HD pack
+не генерировался. Собственные facial/SDL/bgfx/network engines не менялись.
+
+7368 остаётся partial: Cover72 последний отдельный reconstruction hunk;
+девять явных ORIGINAL RETAIL BUG FIXED изменений исключены, adaptation6/71
+уже учтена final revert1bd13094. Статус281 прежний:101pending/105imported/
+25partial/38already/3docs/5excluded-balance/2excluded-own, по1historical/review.
+127 исходных коммитов ещё разбираются. CPUbase382; свежий full389/CI здесь
+не заявляется. Все281 и final actual HEAD GitHub Actions ещё не завершены.

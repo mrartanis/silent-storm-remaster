@@ -523,10 +523,10 @@ float CUnitToHitCalcer::GetTMove()
 		(float)pUnitMission->GetToHitConstants()->nMaxMoveBonus );
 	if ( bFirstRound )
 		fRes = 0;
-	// release-new: the target's "lead the moving target" perk (0xe) scales the move penalty by the
-	// cosine between the target move- and the shot-direction.
-	if ( pTarget->GetUnitRPG()->HasPerk( 0xe ) )
-		return fCos * fRes;
+	// The perk scales the projected movement penalty by its authored parameter.
+	float fMoveMultiplier;
+	if ( pTarget->GetUnitRPG()->HasPerk( 0xe, &fMoveMultiplier ) )
+		return fMoveMultiplier * fRes;
 	return fRes;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

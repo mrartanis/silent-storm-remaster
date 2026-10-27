@@ -16103,6 +16103,81 @@ static void PKPlacement()
     Require(position.IsFinal() && CanPlacePK(network.GetPtr(), position, 0), "flying PK restoration was rejected");
 }
 
+static void MovingTargetPerk(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor=nullptr;
+    for(auto entry:units) {
+        auto* candidate=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if(candidate && !candidate->IsAIUnit() && candidate->CanFight() && !candidate->IsWearingPK()) { actor=candidate;break; }
+    }
+    Require(actor!=nullptr,"moving-target fixture has no real ordinary party actor");
+    auto* perk=NDb::GetDBPerk(14);
+    Require(IsValid(perk) && !perk->params.empty() && std::isfinite(perk->params[0]),
+        "moving-target fixture lacks the authored multiplier");
+    NDb::CRPGPers* persona=nullptr;
+    CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while(people.MoveNext()) {
+        auto* candidate=people.Get();
+        if(!IsValid(candidate->pClass) || !IsValid(candidate->pBaseValue) || !IsValid(candidate->pModel) ||
+            IsValid(candidate->pPanzerklein) || IsValid(candidate->pDefaultWearsPanzerklein))continue;
+        CObj<NRPG::CPerksTree> tree=NRPG::CreatePerksTree(candidate->pClass->nPerkTreeID);
+        vector<CPtr<NRPG::CPerk>> entries;tree->GetAllPerks(&entries);
+        for(auto entry:entries)if(entry->GetDBPerk()->GetRecordID()==14) { persona=candidate;break; }
+        if(persona)break;
+    }
+    Require(persona!=nullptr,"moving-target fixture has no authored persona with perk14");
+    CObj<NRPG::CUnit> rpg=new NRPG::CUnit(persona);
+    CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(rpg);
+    const auto position=actor->GetPosition();
+    CObj<NWorld::CUnitServer> target=new NWorld::CUnitServer(world,mission,rpg->pModel,
+        dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer()),position);
+    Require(!mission->HasPerk(14) && target->CanFight(),"moving-target control unexpectedly starts with its perk or an invalid actor");
+    const CVec3 end=position.GetCP();
+    auto measure=[&](const CVec3& movement,const CVec3& shotOffset,bool firstRound=false) {
+        mission->StartNewTurn(end-movement);
+        CObj<NRPG::CUnitToHitCalcer> calcer=new NRPG::CUnitToHitCalcer(actor,actor->GetPosition().GetPose(),4,
+            end+shotOffset,position.pos,0,0,100.f,firstRound,false,VNULL3,NAI::HL_BODY,target,0,false);
+        const int sourceAP=actor->GetAP(),targetAP=target->GetAP();const float xp=rpg->fXP;
+        auto* inventory=mission->GetInventory();const auto actualPosition=target->GetPosition();
+        const float result=calcer->GetTMove();
+        Require(actor->GetAP()==sourceAP && target->GetAP()==targetAP && rpg->fXP==xp &&
+            mission->GetInventory()==inventory && target->GetPosition()==actualPosition,
+            "moving-target calculation changed world position, AP, training or inventory");
+        return result;
+    };
+    const CVec3 movement(2,0,0);
+    const CVec3 angles[]={CVec3(0,-4,0),CVec3(-4,-4,0),CVec3(4,-4,0)};
+    vector<float> baseline;
+    for(auto angle:angles) {
+        const float value=measure(movement,angle);
+        Require(std::isfinite(value) && value>0,"unperked moving-target native geometry control has no projected movement penalty");
+        baseline.push_back(value);
+    }
+    Require(measure(VNULL3,angles[0])==0 && measure(movement,angles[0],true)==0,
+        "native stationary/first-round movement controls failed");
+    const int maxMove=actor->GetUnitRPG()->GetToHitConstants()->nMaxMoveBonus;
+    const CVec3 longMovement((maxMove+10)*FP_GRID_STEP,0,0);
+    const float capped=measure(longMovement,angles[0]);
+    Require(capped==float(maxMove) && capped>0,"native moving-target distance cap control failed");
+    std::printf("native moving-target control: persona=%d authoredParam=%g baseline=%g/%g/%g\n",
+        persona->GetRecordID(),perk->params[0],baseline[0],baseline[1],baseline[2]);std::fflush(stdout);
+    rpg->GetPerksTree()->AddPerkPoints(1);rpg->GetPerksTree()->TakePerk(14);
+    float multiplier=0;
+    Require(mission->HasPerk(14,&multiplier) && multiplier==perk->params[0],"moving-target fixture did not acquire its actual authored perk");
+    for(int i=0;i<3;++i) {
+        const float actual=measure(movement,angles[i]),expected=baseline[i]*multiplier;
+        std::printf("native moving-target perk: angle=%d actual=%g expected=%g\n",i,actual,expected);std::fflush(stdout);
+        Require(std::abs(actual-expected)<1e-5f,"moving-target perk uses direction cosine instead of its original authored multiplier");
+    }
+    Require(std::abs(measure(longMovement,angles[0])-capped*multiplier)<1e-5f,
+        "moving-target perk changed the original cap-before-multiplier ordering");
+    Require(measure(VNULL3,angles[0])==0 && measure(movement,angles[0],true)==0,
+        "moving-target perk changed stationary or first-round rules");
+}
+
 static void AttackerLevelCriticalRolls(const char* databasePath)
 {
     CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
@@ -17511,6 +17586,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "conclusions") && argc == 4) { ConclusionRouting(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "pk-placement")) { PKPlacement(); return true; }
     if (!std::strcmp(mode, "critical-ids") && argc == 3) { CriticalIDs(argv[2]); return true; }
+    if (!std::strcmp(mode, "moving-target-perk") && argc==4) { MovingTargetPerk(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "attacker-level-critical-rolls") && argc==3) { AttackerLevelCriticalRolls(argv[2]); return true; }
     if (!std::strcmp(mode, "head-body-damage") && argc==3) { HeadBodyDamage(argv[2]); return true; }
     if (!std::strcmp(mode, "fresh-skill-modifier-values") && argc==3) { FreshSkillModifierValues(argv[2]); return true; }
