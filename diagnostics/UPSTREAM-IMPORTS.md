@@ -4474,3 +4474,36 @@ Sourceb91 partial: desktop ownership/drawing и optional globe ещё разби
 Статус281:112 pending/98 imported/22 partial/38 already/3 docs/5 excluded-balance,
 по1 historical/review/excluded-own.135 исходных коммитов остаются в разборе;
 all281/final actual Actions не завершены.
+
+## Сохранение chapter return при отказе перехода — own adaptation b91ea228
+
+Отдельный UpstreamFailedGlobalMapChapterReturn расширяет прежний missing-record
+fixture: invalid campaign уже имеет chapter flag=true, id24680/position7,8.
+Первый invalid overview сохраняет его; следующий failed ContinueGlobal
+оставляет текущий interface, но очищает chapter flag — compiled native RED
+(retained-chapter=0). Оба прежних теста проходят в том же RED наборе.
+
+Перенесён только момент существующего bChapterMapSet=false: после успешного
+Initialize, до SetInterface. Это дополнительная адаптация нашей continuation
+логики к bool initialization failure из b91, не заявление, что такая строка
+прямо присутствует в upstream diff. Нормальный успешный переход по-прежнему
+очищает return flag. Наш глобальный UI использует chapter flag вместе с
+show-mode для текущего chapter marker; continuation show-mode=false,
+поэтому временно сохранённый flag при construction не включает этот marker.
+
+GREEN: missing-record Overview/Continue сохраняют flag/id/position и прежний
+interface; отдельно отсутствие bGlobalMapSet также сохраняет chapter/interface.
+После отказов valid Continue всё ещё открывает реальную глобальную карту и
+очищает valid chapter return. Это command/state boundary, не полный save
+roundtrip или pixel comparison. Fields/schema/templates/маршруты/баланс не менялись.
+
+Target3/3; связанные22/22 Windows (17.82 с), Linux (16.89 с),
+обе Game и Windows ALL_BUILD/12 FONT-COMPAT/raw22 полные без NUL.
+NetworkSerializer/ClientUI/StopResume3/3 (5.38 с). CPU base370;
+полный checkpoint4da43aaf base366+5=371/CI-like277.
+Свидетельства failed-global-map-chapter-return: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log, network-{test,native-test}.log.
+Sourceb91 остаётся partial (desktop/drawing/optional globe);135 исходных
+коммитов ещё разбираются, all281/final actual Actions не завершены.
