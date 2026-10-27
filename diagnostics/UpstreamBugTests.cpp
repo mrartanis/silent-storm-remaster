@@ -7166,6 +7166,67 @@ static void FinishedMusicSilence(const char* databasePath)
 
 }
 
+static void ExplicitItemActivationVisibility(const char* databasePath,const char* resourcePath)
+{
+    for (bool visible: {true,false})
+        for (bool heavy: {false,true}) {
+            CObj<NRPG::CGlobalGame> game;
+            auto world = FixtureWorld(databasePath,resourcePath,true,&game);
+            vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+            NWorld::CUnitServer* actor = nullptr;
+            for (auto& entry: units) {
+                auto* unit = dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+                if (unit && !unit->IsAIUnit() && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK() &&
+                    unit->animator.CanActivateItem() && unit->GetUnitRPG()->GetInventory()->GetActive()) { actor = unit; break; }
+            }
+            Require(actor != nullptr, "item activation fixture has no ordinary armed human");
+            auto* inventory = actor->GetUnitRPG()->GetInventory();
+            CObj<NRPG::IInventoryItem> source = inventory->GetActive();
+            const auto oldSlot = NDb::ESlot(inventory->GetActiveSlot());
+            const auto targetSlot = oldSlot == NDb::SLOT_1 ? NDb::SLOT_2 : NDb::SLOT_1;
+            NDb::CRPGWeapon* record = nullptr;
+            CDBIterator<NDb::CRPGWeapon> weapons(*NDatabase::GetTable<NDb::CRPGWeapon>());
+            while (weapons.MoveNext()) {
+                auto* weapon = weapons.Get();
+                if (!IsValid(weapon->pItem) || weapon->pItem.GetPtr() == source->GetDBItem() ||
+                    !IsValid(weapon->pItem->pModel) || weapon->pItem->subType == NDb::SUBTYPE_MINE_DETECTOR) continue;
+                if ((weapon->pItem->subType == NDb::SUBTYPE_HEAVY) == heavy) { record = weapon; break; }
+            }
+            Require(record != nullptr, "item activation fixture has no distinct authored weapon for this branch");
+            record->pItem->bPlaceInHand = visible;
+            CObj<NRPG::CWeaponItem> item = new NRPG::CWeaponItem(record);
+            CObj<NRPG::IInventoryItem> previous = inventory->Get(targetSlot) ? inventory->TakeOff(targetSlot) : nullptr;
+            Require(inventory->Equip(targetSlot,item) && inventory->GetActiveSlot() == oldSlot,
+                "item activation fixture changed its active slot during preparation");
+            world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer()));
+            Require(!world->IsRealTime() && !world->IsSequence(), "item activation fixture did not enter a native player turn");
+            actor->SetWalkWithoutWeapon(true);
+            const auto position = actor->GetPosition(); const int ap = actor->GetAP();
+            const int ammo = item->GetAmmoQuantity();
+            CObj<NWorld::CCmdSetActiveItem> request = new NWorld::CCmdSetActiveItem(targetSlot);
+            NWorld::EUnitCommandResult result;
+            CObj<NWorld::CCommandExecute> executor = NWorld::CreateExecutor(actor,request,&result);
+            Require(executor && result == NWorld::UCR_OK, "item activation fixture could not create its native executor");
+            executor->Run();
+            for (int callback=0;callback<3 && executor->GetState() != NWorld::CCommandExecute::FINISHED;++callback) {
+                executor->TimeLabelReached(); executor->AnimationFinished();
+            }
+            Require(executor->GetState() == NWorld::CCommandExecute::FINISHED &&
+                inventory->GetActiveSlot() == targetSlot && inventory->GetActive() == item.GetPtr(),
+                "item activation did not finish its real slot-switch state machine");
+            std::printf("native active-item visibility: heavy=%d authored-visible=%d animator-active=%d\n",
+                int(heavy),int(visible),int(actor->animator.IsActiveItem()));
+            Require(actor->animator.IsActiveItem() == visible,
+                "explicit activation drew an item whose authored flag forbids showing it in hand");
+            Require(!actor->IsWalkingWithoutWeapon() && inventory->Get(oldSlot) == source.GetPtr() &&
+                actor->GetAP() == ap && item->GetAmmoQuantity() == ammo &&
+                actor->GetPosition().pos.p == position.pos.p && actor->GetPosition().pos.pNet == position.pos.pNet,
+                "visibility handling changed explicit holster cancellation, inventory, turn-based AP, ammo or position");
+            executor = nullptr;
+            Require(!world->IsAction(), "item activation retained its native action counter");
+        }
+}
+
 static void HolsteredHeavyWeaponMesh(const char* databasePath, const char* resourcePath,int visibility = 0)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -15807,6 +15868,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "finished-music-silence")) { Require(argc == 3, "finished music requires db"); FinishedMusicSilence(argv[2]); return true; }
     if (!std::strcmp(mode, "holstered-heavy-weapon-mesh")) { Require(argc == 4, "heavy mesh requires db and res"); HolsteredHeavyWeaponMesh(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hidden-active-item-mesh")) { Require(argc == 4, "hidden active mesh requires db and res"); HolsteredHeavyWeaponMesh(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "explicit-item-activation-visibility") && argc == 4) { ExplicitItemActivationVisibility(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "hidden-carried-heavy-mesh")) { Require(argc == 4, "hidden carried mesh requires db and res"); HolsteredHeavyWeaponMesh(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "script-holster-persistence")) { Require(argc == 4, "script holster requires db and res"); ScriptHolsterPersistence(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "movement-holster-policy")) { Require(argc == 4, "movement holster requires db and res"); MovementHolsterPolicy(argv[2], argv[3]); return true; }

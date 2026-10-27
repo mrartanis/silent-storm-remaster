@@ -489,13 +489,14 @@ public:
 		}
 		nStage = 2;
 		pUS->SetWalkWithoutWeapon( false );
+		bool bHide = !IsActiveItemToShow( pInventory );
 		NDb::EItemSubType subType = pInventory->Get(slot)->GetDBItem()->subType;
 		if ( subType == NDb::SUBTYPE_HEAVY || subType == NDb::SUBTYPE_MINE_DETECTOR )
-			pUS->animator.ActivateItem( pUS->GetPosition(), true, bTwoHeavy, NDb::BELT_M1, pRPG->GetWeaponType() );
+			pUS->animator.ActivateItem( pUS->GetPosition(), true, bTwoHeavy, NDb::BELT_M1, pRPG->GetWeaponType(), bHide );
 		else
 		{
 			int nPlace = pInventory->GetPlaceBySubType( subType );
-			pUS->animator.ActivateItem( pUS->GetPosition(), false, nPlace == -1, (NDb::EItemPlace)nPlace, pRPG->GetWeaponType() );
+			pUS->animator.ActivateItem( pUS->GetPosition(), false, nPlace == -1, (NDb::EItemPlace)nPlace, pRPG->GetWeaponType(), bHide );
 		}
 	}
 	virtual void Cancel()

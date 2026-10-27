@@ -4099,3 +4099,34 @@ linux-{initial-,final-,}native-test.log,
 network-{test,native-test}.log и ci-{test,native-test}.log.
 Sourcefcc остаётся частичным: остальные независимые hunks проверяются.
 All281 и финальный actual Actions не завершены.
+
+## Видимость предмета при явной смене руки — часть fcc994bc
+
+Новый UpstreamExplicitItemActivationVisibility использует настоящего человека,
+inventory, CCmdSetActiveItem, CreateExecutor и Run/TimeLabelReached/
+AnimationFinished. Четыре случая: authored bPlaceInHand true/false для обычного
+и heavy оружия. Флаг меняется только в загруженной fixture DB; файлы ассетов
+не правятся. Переключение идёт на другой slot с отличным authored record.
+В настоящем player turn проверены AP, ammo, позиция, прежний предмет,
+завершение FSM, отмена persistent holster preference и освобождение action.
+
+Compiled runtime RED после двух visible positive controls:
+ordinary authored-visible=0, animator-active=1. Только после RED нормальная
+ветка CExecSetActiveItem::AnimationFinished передаёт существующий
+!IsActiveItemToShow в ActivateItem для обеих веток subType.
+Уже правильный Cancel и особенности нашей holster policy сохранены.
+Это исправление состояния body/item activation, не лицевой анимации.
+Тест вызывает публичные FSM callbacks; естественный animation clock,
+pixel render и ladder/corpse fallback этим тестом не подтверждаются.
+
+GREEN target4/4; связанные 30/30 Windows (33.79 с), Linux (31.05 с),
+обе Game и Windows ALL_BUILD собраны, по 12 FONT-COMPAT,
+raw30 полные без NUL. NetworkSerializer/StopResume 2/2 (4.21 с).
+Первый дополнительный network selection имел ошибочный префикс имени и
+не выбрал тестов; затем исправлен selector, оба реальных теста прошли.
+CPU base360, последний полный checkpoint d33ec7da base359+5=364/CI-like277.
+Свидетельства explicit-item-activation-visibility: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log и network-{test,native-test}.log.
+Sourcefcc остаётся частичным; all281/final actual Actions не завершены.
