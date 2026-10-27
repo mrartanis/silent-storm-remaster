@@ -12,6 +12,7 @@
 #include "../Main/GfxRender.h"
 #include "../Main/GfxShaders.h"
 #include "../Misc/2DArray.h"
+#include "../Misc/RandomGen.h"
 #include <cstdio>
 #include "../Main/VectorFonts.h"
 #include "../Main/GfxUtils.h"
@@ -876,6 +877,8 @@ int RunLowRamCombiner() {
 }
 int RunStationaryFog() {
   using namespace NGScene;
+  // Fix the noise field for paired GPU runs; this seed belongs only to this fixture.
+  GlobalGameRandom().SeedForHarness(42);
   NGfx::SRenderTargetsInfo targets;
   if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 213;
   NGlobal::SetVar("gfx_antialiasing",0);
@@ -917,7 +920,9 @@ int RunStationaryFog() {
   }
   std::printf("stationary fog native scene control: static fog changes %d pixels\n",fogPixels);std::fflush(stdout);
   fog.fVapourSpeed=1;fog.fVapourSwitchTime=2;fog.fTime=1;capture(FOG_DYNAMIC,&image);
-  if(differences(reference,image)<100)return 216;
+  const int movingPixels=differences(reference,image);
+  std::printf("moving vapour native control: seed=42 changed=%d pixels\n",movingPixels);std::fflush(stdout);
+  if(movingPixels<100)return 216;
   std::puts("moving dynamic vapour remains distinct from the static lookup");std::fflush(stdout);
   fog.fVapourSpeed=0;
   for(float switchTime:{0.f,2.f})for(float time:{0.f,1.f,7.f}) {

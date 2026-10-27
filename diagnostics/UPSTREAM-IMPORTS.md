@@ -8185,3 +8185,36 @@ closed; shared build trees reused, no HD generation or per-bug binary copies.
 The separate earlier stochastic moving-fog positive-control concern is retained
 for test-only follow-up. Tracker281 now129imported/23partial/86pending,
 109unfinished. ALL281 and final actual-HEAD hosted CI remain open.
+
+
+## ad57a2df follow-up — deterministic native fog fixture
+
+This is our test-only adaptation for the earlier imported stationary-vapour
+fallback, whose upstream context is ad57a2df018f9eda3f33d3b79a0d595786889dea.
+It is not a new upstream production hunk. A real Linux native-display run failed
+StationaryFogRuntimeTests216: static fog changed4096pixels but the moving-noise
+positive control differed in fewer than100. The same binary later passed ten
+repeats and the complete suite; retain the failed raw log rather than presenting
+those retries as proof the random fixture was reliable. No exact failing seed
+was captured, and no deterministic reproduction of that original seed is claimed.
+
+GeneratePinkNoise consumes GlobalGameRandom; its ordinary initializer uses host
+entropy. SeedForHarness(42) now supplies a fixed noise field only inside this
+standalone native test process, before the fog renderer creates the noise.
+Print the actual moving control's changed-pixel count. Keep its100pixel minimum
+and all six exact stationary/static comparisons unchanged. No game renderer,
+production RNG, level assets, gameplay balance or noise-generation algorithm is
+changed. The existing deterministic harness API also makes Windows/Linux test
+input repeatable; backend rasterization can produce different pixel counts.
+
+Native GREEN Windows1/1 .36s, Linux1/1 .19s; then20 consecutive native passes
+per platform, Windows5.63s/Linux3.64s. All20 read the identical moving count on
+their platform:2137 Windows D3D11,1279 Linux Vulkan, both well above100. Full
+native-display54/54 Windows77.17s/Linux64.02s passes, with complete raw counts,
+no NUL/Failed/NotRun/missing executable, actual runners exit0. ExistingGame
+production binaries do not change. Evidence stationary-fog-seed-{green,linux,
+repeat,linux-repeat,display,linux-display} and the retained original
+cached-point-lighting-linux-display-failure-native-test.log. This stabilizes the
+observed fixture only; it does not claim all GitHub workflow issues are resolved.
+Shared builds reused; no HD generation or per-bug copies. Tracker remains
+281/109unfinished; ALL281 and final actual-HEAD hosted CI remain open.
