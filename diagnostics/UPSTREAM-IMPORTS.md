@@ -4751,3 +4751,61 @@ CPU base373; последний full с GPU extras остаётся e356d2db376/
 5 excluded-balance/2 excluded-own, по1 historical/review.130 исходных
 коммитов ещё в разборе: перенос одного hunk pending→partial не завершает source.
 All281/final actual HEAD Actions остаются незавершёнными.
+
+## Доигрывание 2D-звука после loop — завершающая часть c8b908f2
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c8b908f27c4c8ecb595225715730fb58b32fe63b
+
+Отдельный UpstreamSound2DEnding генерирует короткий PCM с различными уровнями
+loop/tail и прогоняет его через НАШ headless native mixer. Backend control
+на исходном коде: manual LoopOFF при живом владельце доигрывает полный tail,
+peak0.0863167→0.345267. Контроль нескольких scene owners сохраняет loop до
+последнего владельца; отдельный loop того же sample продолжает играть.
+Compiled native RED: после release последнего scene owner ending=0 при
+independent=1 — канал немедленно оборван. Это отдельный дефект от утечки
+таблицы, уже отправленной в6699e500.
+
+Перенесена source логика handoff: CChannel stop-on-delete policy/valid-ID guard/
+SetChannel, CSound2D ending token и временный channel holder после release.
+Адаптация к нашему движку: holder ВЛАДЕЕТ CObj<CSample2D>, поскольку native
+Sample_Free уничтожает его каналы. Token расположен ПОСЛЕ pSample, чтобы
+сработать до освобождения sample и передать владение. Сохранён штатный
+OBJECT_BASIC_METHODS lifecycle: специальный CSound2D destructor не добавлен.
+Первая такая попытка дала compile error из-за автодеструктора макроса,
+сохранённый в macro-build.log; это не runtime RED и не финальный вариант.
+
+Дополнительная обязательная адаптация: Done помечает движок неинициализированным
+ДО очистки owner map, а ending token проверяет этот флаг. Поэтому деструктор
+не вставляет новый holder в очищаемую таблицу при shutdown. Actual native
+backend control доказывает, что LoopOFF достигает полного конца sample:
+его общие loop points на native backend не изменяются, соседние voices
+сохраняют исходный диапазон. Новые Sample_GetLoopPoints/header/export hunks
+из источника здесь не нужны. Для legacy FMOD используется уже известный
+nStartSamples и существующий SetLoopPoints до sample end; отдельного
+runtime/oracle прогона внешнего старого FMOD DLL здесь нет.
+Остальные source hunks учтены: nChannel=-1 уже был в нашем constructor.
+
+Native GREEN проверяет слышимый tail по PCM, last-owner semantics, соседний
+loop того же sample/его диапазон, прежнюю немедленную остановку loop без ending.
+При исчезновении ВСЕХ scene sample references временный holder удерживает
+декодированный sample до конца tail, после cleanup sample инвалидирован и
+таблица пуста. Отдельно проверены shutdown с owned loop и shutdown уже после
+handoff: нет новых channels/retained sample/reinsert. Это native PCM/lifetime
+проверки, без субъективного прослушивания и без изменения 3D/audio math.
+
+Проверки:23/23 Windows (21.73 с, включая3 network),20/20 Linux (16.15 с);
+на каждой платформе все16 native-audio,12 FONT-COMPAT, полные raw без NUL.
+Обе Game и Windows ALL_BUILD; CI-like280/280 (27.69 с), raw280/12fonts полный
+без NUL. Сборки переиспользованы, WAV и mix buffers только в памяти.
+Свидетельства sound-2d-ending: red-{build,test,native-test}.log,
+macro-build.log, green-{build,test,native-test}.log, all-build.log,
+related-test.log, linux-{configure,build,test}.log, {windows,linux}-native-test.log,
+ci-{test,native-test}.log.
+
+c8b908f2 теперь imported с адаптацией, два независимых исправления — два
+отдельных коммита с immediate push. CPU base374; последний Linux CPU checkpoint
+до этого изменения —373, последний парный full с GPU — e356d2db376.
+Свежий полный381 здесь не заявляется. Статус281:106 pending/103 imported/
+22 partial/38 already/3 docs/5 excluded-balance/2 excluded-own,
+по1 historical/review.129 исходных коммитов ещё разбираются; все281 и
+итоговый actual HEAD GitHub Actions ещё не завершены.

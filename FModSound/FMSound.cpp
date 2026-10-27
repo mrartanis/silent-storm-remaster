@@ -75,22 +75,45 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CChannel: public CObjectBase
 {
+protected:
+	bool bStopSoundOnDelete;
 public:
-	CChannel(): nChannel(-1) {}
+	CChannel( bool bStopOnDelete = true ): bStopSoundOnDelete(bStopOnDelete), nChannel(-1) {}
 	virtual ~CChannel()
 	{
-		FSOUND_StopSound( nChannel );
+		if ( bStopSoundOnDelete && nChannel != -1 )
+			FSOUND_StopSound( nChannel );
 	}
 	int nChannel;
+	virtual void SetChannel( int nNewChannel ) { nChannel = nNewChannel; }
 	virtual void Update( double dInterval ) = 0;
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////
+struct SEndSound
+{
+	int nChannel;
+	CSample2D *pSample;
+	int nLoopBegin;
+	SEndSound( CSample2D *_pSample = 0, int _nLoopBegin = 0 ):
+		nChannel(-1), pSample(_pSample), nLoopBegin(_nLoopBegin) {}
+	~SEndSound();
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CSound2D: public CChannel
 {
 	OBJECT_BASIC_METHODS(CSound2D);
 	CObj<CSample2D> pSample;
+	// Destroy the ending token before the sample owner so the handoff can retain it.
+	SEndSound endSound;
 public:
-	CSound2D( CSample2D *_pSample = 0 ): pSample(_pSample) {}
+	CSound2D( CSample2D *_pSample = 0, bool bHasEnding = false, int nLoopBegin = 0 ):
+		CChannel(!bHasEnding), pSample(_pSample),
+		endSound(bHasEnding ? _pSample : 0, nLoopBegin) {}
+	virtual void SetChannel( int nNewChannel )
+	{
+		CChannel::SetChannel( nNewChannel );
+		endSound.nChannel = nNewChannel;
+	}
 	//void SetPan();
 	virtual void Update( double dInterval ) {}
 };
@@ -462,6 +485,39 @@ typedef list< CMObj<CStream> > CStreamList;
 static CStreamList streams;
 typedef unordered_map< int, CMObj<CChannel> > CChannels;
 CChannels hashChannel;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Native Sample_Free stops every voice using the sample: retain it until the tail finishes.
+class CSound2DEnding: public CChannel
+{
+	OBJECT_BASIC_METHODS(CSound2DEnding);
+	CObj<CSample2D> pSample;
+public:
+	CSound2DEnding( CSample2D *_pSample = 0, int _nChannel = -1 ): pSample(_pSample)
+	{
+		nChannel = _nChannel;
+	}
+	virtual void Update( double dInterval ) {}
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////
+SEndSound::~SEndSound()
+{
+	if ( !bIsFMODInitialized || nChannel == -1 ||
+		!IsValid( pSample ) || !FSOUND_IsPlaying( nChannel ) )
+		return;
+#if !defined(S2_NATIVE_SFX)
+	// Legacy FMOD needs its loop range extended; the start is already known.
+	FSOUND_SAMPLE *pFM = *pSample;
+	const int nLength = FSOUND_Sample_GetLength( pFM );
+	if ( nLength > nLoopBegin + 1 )
+		FSOUND_Sample_SetLoopPoints( pFM, nLoopBegin, nLength - 1 );
+#endif
+	CChannel *pEnding = new CSound2DEnding( pSample, nChannel );
+	// Our native backend reaches the full sample end when looping is disabled.
+	// Keep shared sample loop points unchanged for the other voices.
+	FSOUND_SetLoopMode( nChannel, FSOUND_LOOP_OFF );
+	hashChannel[nChannel] = pEnding;
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool SearchDevices()
@@ -679,8 +735,8 @@ CSound2D *PlaySound( CSample2D *pSample, int nStartMs, int nStartSamples, int nE
 	}
 	FSOUND_SetCurrentPosition( nChannel, nOffset );
 	FSOUND_SetLoopMode( nChannel, bLoop ? FSOUND_LOOP_NORMAL : FSOUND_LOOP_OFF );
-	CSound2D *pSound = new CSound2D( pSample );
-	pSound->nChannel = nChannel;
+	CSound2D *pSound = new CSound2D( pSample, nEndingSamples > 0, nStartSamples );
+	pSound->SetChannel( nChannel );
 	hashChannel[nChannel] = pSound;
 	FSOUND_SetPaused( nChannel, false );
 	return pSound;
@@ -1014,11 +1070,12 @@ void Done()
 	if ( !bIsFMODInitialized )
 		return;
 
+	// Sound destructors must not create ending holders while this table is cleared.
+	bIsFMODInitialized = false;
 	hashChannel.clear();
 	samples.clear();
 	streams.clear();
 	FSOUND_Close();
-	bIsFMODInitialized = false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 } // namespace NFMSound

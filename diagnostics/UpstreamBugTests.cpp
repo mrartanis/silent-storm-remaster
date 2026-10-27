@@ -2031,6 +2031,112 @@ class CChannel;
 extern std::unordered_map<int,CMObj<CChannel>> hashChannel;
 }
 
+static void Sound2DEnding()
+{
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+    Require(std::getenv("S2_AUDIO_HEADLESS")!=nullptr,"2D ending fixture requires headless native audio");
+    NFMSound::SStartInfo info;info.nMaxChannels=2;
+    Require(NFMSound::Init(info),"2D ending fixture could not initialize our native mixer");
+    struct Cleanup { ~Cleanup() { NFMSound::Done(); } } cleanup;
+    auto wave=SilentPCMFixture(4096);
+    for(int frame=0;frame<4096;++frame) {
+        const int amplitude=frame<1536 ? 4000 : 16000;
+        wave[44+frame*2]=amplitude&255;wave[45+frame*2]=amplitude>>8;
+    }
+    auto sample=[&]() {
+        CObj<NFMSound::CSample2D> result=NFMSound::LoadSample2D(wave.data(),int(wave.size()));
+        Require(IsValid(result),"2D ending fixture could not decode its marked PCM sample");return result;
+    };
+    std::vector<float> pcm(8192);
+    auto mix=[&](int frames) {
+        Require(S2FmodRenderForTest(pcm.data(),frames)!=0,"2D ending fixture could not render actual PCM");
+        float peak=0;for(int i=0;i<frames*2;++i)peak=Max(peak,std::fabs(pcm[i]));return peak;
+    };
+    auto channel=[&](int except=-1) {
+        int found=-1;
+        for(int id=0;id<128;++id)if(id!=except && FSOUND_IsPlaying(id)) {
+            Require(found==-1,"2D ending fixture has an unexpected extra native voice");found=id;
+        }
+        Require(found>=0,"2D ending fixture could not identify its real voice");return found;
+    };
+    CTransformStack transform;transform.Init();
+    NFMSound::SListener listener;listener.vPosition=CVec3(0,0,0);listener.toProjective=transform.Get().forward;
+    CObj<NFMSound::CSample2D> shared=sample();
+    // Backend control: switching an OWNED loop off reaches the complete sample
+    // tail without changing shared sample loop points or adding an FMOD API.
+    CObj<NFMSound::CSound2D> backend=NFMSound::PlaySound(shared,0,512,1536);
+    const int backendChannel=channel();const float loopPeak=mix(2048);
+    Require(loopPeak>0 && FSOUND_GetLoopMode(backendChannel)==FSOUND_LOOP_NORMAL,
+        "2D ending backend control did not play the loop region");
+    Require(FSOUND_SetLoopMode(backendChannel,FSOUND_LOOP_OFF)!=0,
+        "2D ending backend control could not release its loop");
+    float tailPeak=0;for(int i=0;i<10;++i)tailPeak=Max(tailPeak,mix(512));
+    Require(tailPeak>loopPeak*2 && !FSOUND_IsPlaying(backendChannel),
+        "our native backend did not play the marked tail to completion");
+    NFMSound::Update(listener);
+    Require(NFMSound::hashChannel.empty(),"2D ending backend control did not clean up");
+    std::printf("native 2D backend control: loop peak=%g tail=%g, complete sample reached\n",loopPeak,tailPeak);
+    std::fflush(stdout);
+    CObj<NFMSound::CSound2D> ending=NFMSound::PlaySound(shared,0,512,1536);
+    const int endingChannel=channel();
+    CObj<NFMSound::CSound2D> independent=NFMSound::PlaySound(shared,0,0,0,true);
+    const int independentChannel=channel(endingChannel);
+    const float mixedLoopPeak=mix(2048);
+    CObj<NFMSound::CSound2D> otherOwner=ending.GetPtr();ending=nullptr;
+    Require(NFMSound::IsPlaying(otherOwner) && FSOUND_GetLoopMode(endingChannel)==FSOUND_LOOP_NORMAL,
+        "2D ending started before the last scene owner released the loop");
+    std::puts("native 2D last-owner control: shared sample and independent loop remain active");std::fflush(stdout);
+    CPtr<NFMSound::CSound2D> retired=otherOwner.GetPtr();otherOwner=nullptr;
+    std::printf("native 2D release: retired=%d ending=%d independent=%d\n",
+        int(!IsValid(retired)),int(FSOUND_IsPlaying(endingChannel)),int(NFMSound::IsPlaying(independent)));
+    std::fflush(stdout);
+    Require(!IsValid(retired) && FSOUND_IsPlaying(endingChannel),
+        "releasing the 2D scene owner cuts off its sample ending");
+    Require(FSOUND_GetLoopMode(endingChannel)==FSOUND_LOOP_OFF,
+        "released 2D ending continues looping instead of finishing");
+    tailPeak=0;for(int i=0;i<10;++i)tailPeak=Max(tailPeak,mix(512));
+    NFMSound::Update(listener);
+    Require(tailPeak>mixedLoopPeak*1.8f && !FSOUND_IsPlaying(endingChannel) &&
+        NFMSound::IsPlaying(independent) && FSOUND_GetLoopMode(independentChannel)==FSOUND_LOOP_NORMAL &&
+        FSOUND_GetCurrentPosition(independentChannel)>=512 && FSOUND_GetCurrentPosition(independentChannel)<1536 &&
+        NFMSound::hashChannel.size()==1,
+        "2D ending failed to finish or changed the independent shared-sample loop");
+    independent=nullptr;NFMSound::Update(listener);
+    Require(!FSOUND_IsPlaying(independentChannel) && NFMSound::hashChannel.empty(),
+        "non-ending loop release changed its immediate-stop behavior");
+    shared=nullptr;
+
+    CObj<NFMSound::CSample2D> owned=sample();
+    CPtr<NFMSound::CSample2D> observedSample=owned.GetPtr();
+    ending=NFMSound::PlaySound(owned,0,512,1536);
+    const int ownedChannel=channel();const float ownedLoopPeak=mix(2048);
+    owned=nullptr;ending=nullptr;
+    Require(IsValid(observedSample) && FSOUND_IsPlaying(ownedChannel),
+        "2D ending holder failed to retain the decoded sample after all scene references expired");
+    tailPeak=0;for(int i=0;i<10;++i)tailPeak=Max(tailPeak,mix(512));
+    NFMSound::Update(listener);
+    Require(tailPeak>ownedLoopPeak*2 && !FSOUND_IsPlaying(ownedChannel) &&
+        !IsValid(observedSample) && NFMSound::hashChannel.empty(),
+        "completed 2D ending retained its sample/channel or never played its marked tail");
+
+    // Shutdown must not insert a new tail holder while clearing the owner map.
+    for(bool releaseBeforeShutdown:{false,true}) {
+        Require(NFMSound::IsInitialized() || NFMSound::Init(info),"2D shutdown fixture could not restart audio");
+        owned=sample();observedSample=owned.GetPtr();ending=NFMSound::PlaySound(owned,0,512,1536);
+        const int shutdownChannel=channel();mix(512);owned=nullptr;
+        if(releaseBeforeShutdown)ending=nullptr;
+        NFMSound::Done();
+        Require(!NFMSound::IsInitialized() && NFMSound::hashChannel.empty() &&
+            !FSOUND_IsPlaying(shutdownChannel) && !IsValid(observedSample),
+            "audio shutdown retained or recreated an owned/ending 2D channel");
+        ending=nullptr;
+    }
+    std::puts("native 2D ending: audible tail, shared loop isolation, sample lifetime, immediate-stop control and owned/tail shutdown passed");
+#else
+    throw std::runtime_error("2D ending regression requires the native audio backend");
+#endif
+}
+
 static void ReleasedSoundChannelCleanup()
 {
 #if defined(S2_UPSTREAM_NATIVE_SFX)
@@ -16768,6 +16874,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "delayed-sound-effect-age") && argc == 3) { DelayedSoundEffectAge(argv[2]); return true; }
     if (!std::strcmp(mode, "infinite-sound-effect-loop") && argc == 3) { DelayedSoundEffectAge(argv[2],true); return true; }
     if (!std::strcmp(mode, "late-looping-sound-offset")) { LateLoopingSoundOffset(); return true; }
+    if (!std::strcmp(mode, "sound-2d-ending")) { Sound2DEnding(); return true; }
     if (!std::strcmp(mode, "released-sound-channel-cleanup")) { ReleasedSoundChannelCleanup(); return true; }
     if (!std::strcmp(mode, "failed-sound-channel-lifetime")) { FailedSoundChannelLifetime(); return true; }
     if (!std::strcmp(mode, "headless-music-stream")) { HeadlessMusicStream(); return true; }
