@@ -6686,3 +6686,49 @@ Sourceb875e43d partially-imported -> imported, ADAPTED к оригиналу. И
 95pending/119imported/23partial/32already/3docs/5excluded-balance/2excluded-own/
 1historical/1review —119 незавершённых записей. Общая цель и final actual-HEAD
 GitHub Actions остаются открыты.
+
+
+## Empty models: original nonblocking geometry instead of a sphere
+
+Source [1b9664486352df69fc5e893213d6c4e552ac051b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1b9664486352df69fc5e893213d6c4e552ac051b).
+Compiled native RED1.20s uses the actual authored game.db, not a synthetic
+replacement: Models table1 contains30 null GeometryID variants. Variant433,
+template351, imported as sphere6/AItraffic23 instead of default4299.
+Explicit valid variant5/geometry1/template identity and the existence of4299
+were independently checked before the failing assertion. The production
+CRndModel::Import is active in native portable/legacy database deserialization
+on both platforms, not only an old editor path.
+
+Original oracle: immutable Steam Game.exe SHA256
+4F417593A9F73E2BFDE12D83CDBD694AE47EECB92812140D67B8B343E4A95705.
+GoldPDB CRndModel::Import7edfe0/304 first32, mask EH3:7, uniquely maps to
+Steam7dc560. Actual null/ref-invalid gate7dc649..653 leads to immediate4299
+at7dc657, GetGeometry7f1550 call7dc65c and assignment. Exact and incorrect
+EH9:13 signatures do not match; source VA7dbf67 is not trusted for this binary.
+Evidence empty-model-fallback-retail-{lookup,disassembly}.txt.
+
+Minimal production change only replaces the missing-model fallback6 with4299.
+Actual authored database records, explicit sphere6 and all explicit valid
+geometries stay intact. Native GREEN4/4 4.41s includes registration, readonly
+inventory, PartialReferenceImport and the new fixture. All30/30 authored null
+variants receive4299 with original source-template identity. Real default
+AIgeometry2728 has flags0/no secondary; linked NWorld::GetMask yields0x8,
+while explicit sphere6 yields0x8710. Checked blocking mask0x8720 covers
+movement/weapon/item/cover/vision; it is absent for every empty variant using
+its actual RPGArmor argument. Explicit variant5/geometry1 remains unchanged.
+This proves native database/model/object-mask behavior, not full physical
+ray tracing, path walking, rendered pixels or whole-save compatibility.
+No font/facial/HD/backend, numerical rule, RNG or save-field changes.
+
+Both Game/Windows ALL_BUILD built. Fresh445/445 Windows401.55s and
+Linux390.43s, each38native-display/24native-audio/12FONT-COMPAT. Own7Network
+186.22s including361/361maps130.38s (deployment+replica). CI-like284/28424.60s,
+fonts12; raw445/445/7/284 complete with no NUL/missing/Failed, actual exit0.
+Evidence empty-model-fallback-{baseline,native-mask-controls,full,linux-full,
+network,ci}-native-test.log and corresponding stdout. Shared builds reused;
+no extra game/build copies or HD texture generation.
+
+Source1b966448 pending -> imported. Tracker281:94pending/120imported/
+23partial/32already/3docs/5excluded-balance/2excluded-own/1historical/1review,
+118 unfinished entries. Overall ALL281 goal/final actual-HEAD hosted CI remain
+open; this individual source is complete.

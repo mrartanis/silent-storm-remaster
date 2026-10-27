@@ -596,7 +596,11 @@ void CRndModel::Import()
 	}
 
 	if ( !IsValid( pGeometry ) )
-		pGeometry = GetGeometry( N_SPHERE_GEOMETRY_ID );
+	{
+		// Original empty-model default (Steam @0x7dc657), without sphere collision traffic.
+		const int N_DEFAULT_GEOMETRY_ID = 4299;
+		pGeometry = GetGeometry( N_DEFAULT_GEOMETRY_ID );
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CRndModel::operator&( CStructureSaver &f )

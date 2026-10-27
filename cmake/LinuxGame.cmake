@@ -715,6 +715,7 @@ if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
   add_test(NAME UpstreamConclusions COMMAND UpstreamBugTests conclusions
     "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   set_tests_properties(UpstreamConclusions PROPERTIES WORKING_DIRECTORY "${_s2_upstream_game_dir}" TIMEOUT 60)
+  add_test(NAME UpstreamEmptyModelFallback COMMAND UpstreamBugTests empty-model-fallback "${S2_GAME_DB_PATH}")
   add_test(NAME UpstreamPartialReferenceImport COMMAND UpstreamBugTests partial-reference-import "${S2_GAME_DB_PATH}")
   add_test(NAME UpstreamAISelectedReloadAvailability COMMAND UpstreamBugTests ai-selected-reload-availability "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   add_test(NAME UpstreamAISelectedReloadSpend COMMAND UpstreamBugTests ai-selected-reload-spend "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")

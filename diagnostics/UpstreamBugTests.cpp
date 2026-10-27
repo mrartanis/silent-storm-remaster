@@ -1112,6 +1112,72 @@ static void RagdollRestoration()
     }
 }
 
+static void EmptyModelFallback(const char* databasePath)
+{
+    CFileStream source;source.OpenRead(databasePath);vector<unsigned char> bytes(source.GetSize());source.Read(bytes.data(),unsigned(bytes.size()));
+    S2FileIO::PortableGameDatabase decoded;string error;
+    Require(S2FileIO::LoadPortableGameDatabaseBytes(bytes.data(),bytes.size(),&decoded,&error),"empty-model fixture could not decode its actual game database");
+    const S2FileIO::GameDatabaseTable* models=nullptr;
+    for(const auto& table:decoded.tables)if(table.tableId==1) {models=&table;break;}
+    Require(models,"empty-model fixture lacks the real Models table");
+    auto column=[&](const char* name) {
+        auto found=std::find(models->intNames.begin(),models->intNames.end(),name);
+        Require(found!=models->intNames.end(),"empty-model fixture lacks an authored model column");return size_t(found-models->intNames.begin());
+    };
+    const auto id=column("ID"),geometry=column("GeometryID"),parent=column("TemplateID");
+    int nullVariant=0,nullTemplate=0,validVariant=0,validGeometry=0,validTemplate=0,nullCount=0;
+    for(const auto& row:models->intRows) {
+        if(row[id]<=0 || row[parent]<=0)continue;
+        if(row[geometry]==0) {++nullCount;if(!nullVariant){nullVariant=row[id];nullTemplate=row[parent];}}
+        else if(row[geometry]>0 && row[geometry]!=4299 && !validVariant) {
+            validVariant=row[id];validGeometry=row[geometry];validTemplate=row[parent];
+        }
+    }
+    std::printf("native empty-model input: nullVariants=%d selected=%d template=%d validVariant=%d validGeometry=%d\n",
+        nullCount,nullVariant,nullTemplate,validVariant,validGeometry);std::fflush(stdout);
+    Require(nullVariant && validVariant,"empty-model fixture lacks its actual authored null-geometry variant or valid control");
+    CMemoryStream native;native.Write(bytes.data(),unsigned(bytes.size()));native.Seek(0);NDatabase::Serialize(native,CStructureSaver::READ);
+    auto* expected=NDb::GetGeometry(4299);auto* valid=NDb::GetGeometry(validGeometry);
+    Require(expected && valid && expected!=valid,"empty-model fixture lacks the actual original default geometry and distinct valid control");
+    std::printf("native default geometry control: id=%d primaryAI=%d flags=%u secondaryAI=%d flags=%u bound=%g/%g/%g\n",expected->GetRecordID(),
+        IsValid(expected->pAIGeometry)?expected->pAIGeometry->GetRecordID():-1,IsValid(expected->pAIGeometry)?unsigned(expected->pAIGeometry->traficability):0,
+        IsValid(expected->pAIGeometry2)?expected->pAIGeometry2->GetRecordID():-1,IsValid(expected->pAIGeometry2)?unsigned(expected->pAIGeometry2->traficability):0,
+        expected->boundSize.x,expected->boundSize.y,expected->boundSize.z);
+    SRand random;CObj<NDb::CModel> control=NDb::GetModelVariant(validVariant,&random);
+    Require(control && control->pGeometry==valid && IsValid(control->pSrcRndModel) && control->pSrcRndModel->GetRecordID()==validTemplate,
+        "native model import changed a valid authored geometry or source-template identity");
+    CObj<NDb::CModel> empty=NDb::GetModelVariant(nullVariant,&random);
+    Require(empty && IsValid(empty->pSrcRndModel) && empty->pSrcRndModel->GetRecordID()==nullTemplate,
+        "native empty-model variant lost its actual source template");
+    std::printf("native empty-model fallback: variant=%d geometry=%d expected=%d primaryFlags=%u\n",nullVariant,
+        IsValid(empty->pGeometry)?empty->pGeometry->GetRecordID():-1,expected->GetRecordID(),
+        IsValid(empty->pGeometry) && IsValid(empty->pGeometry->pAIGeometry)?unsigned(empty->pGeometry->pAIGeometry->traficability):0);std::fflush(stdout);
+    Require(empty->pGeometry==expected,"native database import substituted the sphere instead of the original empty-model default geometry4299");
+    Require(IsValid(expected->pAIGeometry) && unsigned(expected->pAIGeometry->traficability)==0 && !IsValid(expected->pAIGeometry2),
+        "original empty-model default unexpectedly injects collision/cover/vision/item traffic");
+    const int pass=NWorld::TS_PASS_BLOCKER|NWorld::TS_WEAPON_BLOCKER|NWorld::TS_ITEM_BLOCKER;
+    const int blocked=pass|NWorld::TS_COVER|NWorld::TS_VISION;
+    const int defaultMask=NWorld::GetMask(expected->pAIGeometry,nullptr);
+    auto* sphere=NDb::GetGeometry(6);Require(sphere && sphere->pAIGeometry,"fallback mask control lacks its explicit original sphere resource");
+    const int sphereMask=NWorld::GetMask(sphere->pAIGeometry,nullptr);
+    Require(!(defaultMask&blocked) && (sphereMask&pass)==pass,"native object mask did not distinguish the nonblocking default from the real sphere");
+    std::printf("native empty-model masks: default4299=0x%X sphere6=0x%X blockerBits=0x%X\n",unsigned(defaultMask),unsigned(sphereMask),unsigned(blocked));
+    int verified=0;
+    for(const auto& row:models->intRows) {
+        if(row[id]<=0 || row[parent]<=0 || row[geometry]!=0)continue;
+        CObj<NDb::CModel> model=NDb::GetModelVariant(row[id],&random);
+        Require(model && model->pGeometry==expected && model->pSrcRndModel && model->pSrcRndModel->GetRecordID()==row[parent],
+            "an authored empty variant retained a blocking fallback or lost its source-template identity");
+        Require(!(NWorld::GetMask(model->pGeometry->pAIGeometry,model->pRPGArmor)&blocked),
+            "native object mask turns an authored empty variant into a movement/weapon/item/cover/vision blocker");++verified;
+    }
+    Require(verified==nullCount,"empty-model fixture did not verify every authored null-geometry variant");
+    CObj<NDb::CModel> retained=NDb::GetModelVariant(validVariant,&random);
+    Require(retained && retained->pGeometry==valid && retained->pSrcRndModel==control->pSrcRndModel,
+        "repairing empty variants changed an explicitly authored model geometry/template");
+    std::printf("native empty-model verified: %d/%d original default4299 AItraffic0, explicit geometry%d retained\n",verified,nullCount,validGeometry);
+}
+
 static void PartialReferenceImport(const char* databasePath)
 {
     CFileStream source;
@@ -18999,6 +19065,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "sniping-aim")) { SnipingAim(); return true; }
     if (!std::strcmp(mode, "decal-rebuild")) { DecalRebuild(); return true; }
     if (!std::strcmp(mode, "decal-projection")) { DecalProjection(); return true; }
+    if (!std::strcmp(mode, "empty-model-fallback") && argc==3) { EmptyModelFallback(argv[2]); return true; }
     if (!std::strcmp(mode, "partial-reference-import") && argc == 3) { PartialReferenceImport(argv[2]); return true; }
     if (!std::strcmp(mode, "permanent-clue-single-map")) { PermanentClueSingleMap(); return true; }
     if (!std::strcmp(mode, "deferred-click-world")) { DeferredClickWorld(); return true; }
