@@ -146,6 +146,8 @@ int main(int argc,char** argv) {
         S2Net::NetworkMatchPreset preset;preset.prepareOnBase=true;preset.squadSize=count;preset.startingLevel=5;preset.supplyLevel=14;
         preset.mapVariant=maps.front().variantID;preset.useEncounterDeployment=true;
         S2Net::NetworkWorld host(true,preset),client(false);client.Apply(host.Initial(),true);
+        Require(host.SlotMatch(0).game->pDifficulty==NDb::GetDBDifficulty(2) && host.SlotMatch(1).game->pDifficulty==NDb::GetDBDifficulty(2) &&
+            client.Match().game->pDifficulty==NDb::GetDBDifficulty(2),"network bases or replica changed their existing difficulty2 balance");
         auto code=[](const S2Net::Bytes& bytes){size_t pos=8;return S2Net::Get32(bytes,pos);};
         auto sync=[&]{auto delta=host.Segment();client.Apply(delta,false);for(auto event:host.DrainEvents()){host.PresentEvent(event);client.PresentEvent(event);}
           if(host.IsPreparing())while(CObj<NWorld::CUICmd> ui=client.Match().world->GetUICommand())host.Handle(1,client.EncodeCommand(new NWorld::CCmdInterfaceEvent(ui->GetID())),false);
@@ -251,6 +253,8 @@ int main(int argc,char** argv) {
         sync();Require(host.IsStartingBattle() && client.IsStartingBattle(),"match start not announced to both sides");
         Require(code(host.Handle(1,client.PreparationCommand(S2Net::PreparationAction::ChooseRecruit,0,recruits.front()),false))!=NWorld::UCR_OK,"roster changed during launch");
         sync();Require(!host.IsPreparing() && !client.IsPreparing(),"did not launch battle");
+        Require(host.Match().game->pDifficulty==NDb::GetDBDifficulty(2) && client.Match().game->pDifficulty==NDb::GetDBDifficulty(2),
+            "network preparation switched the tactical battle away from difficulty2");
         Require(host.Match().variantID==preset.mapVariant && client.Match().variantID==preset.mapVariant,"battle map not preserved");
         for(unsigned side=0;side<2;++side)Require(host.Match().players[side]->GetPlayerUnits().size()==size_t(count),"battle lost roster");
         Require(host.Match().game->players[1]->mercs.front()->GetPerksTree()->GetPerkPoints()==3,"battle lost purchased perk");
@@ -552,6 +556,7 @@ int main(int argc,char** argv) {
       owner->Finish("Acceptance complete");return bound?0:1;
     }
     auto match = S2Net::CreateNetworkMatch(S2Net::NetworkMatchPreset());
+    Require(match.game->pDifficulty==NDb::GetDBDifficulty(2),"network arena changed its existing difficulty2 balance");
     Require(match.world->GetCurrentPlayer() == match.players[0].GetPtr(),"host must move first");
     Require(!match.world->IsRealTime(),"network arena must be turn based");
     vector<CPtr<NWorld::CUnit>> all;

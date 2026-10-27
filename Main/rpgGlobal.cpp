@@ -213,13 +213,12 @@ void CGlobalPlayer::AddMerc( CUnit *pMerc )
 	deployData.unitsDeployData[ pMerc ] = SUnitDeployData();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-CGlobalGame* CreateGlobalGame( int nScenarioID, int nDifficultyID )
+CGlobalGame* CreateGlobalGame( int nScenarioID, NDb::CDBDifficulty *pDifficulty )
 {
 	CGlobalGame *pGame = new CGlobalGame();
-	//pGame->pDifficulty = NDb::GetDBDifficulty( nDifficultyID );
-	pGame->pDifficulty = NDb::GetDBDifficulty( 2 );
 	pGame->pScenarioTracker = NScenario::CreateScenarioTracker( nScenarioID );
-	//pGame->pScenarioTracker = NScenario::CreateScenarioTracker( 1 );
+	// Keep the selected record; retail uses DB1 when none is valid.
+	pGame->pDifficulty = IsValid( pDifficulty ) ? pDifficulty : NDb::GetDBDifficulty( 1 );
 	return pGame;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

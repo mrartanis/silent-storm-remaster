@@ -6308,3 +6308,71 @@ Tracker281:97pending/116imported/24partially-imported/32already/3docs/
 Оставшиеся old PRESENT hunks сверены в предыдущем коммите. Боевые формулы,
 оригинальный баланс и HD pipeline не менялись; отдельные старые сборки не
 создавались. Общая цель и final actual-HEAD GitHub Actions не завершены.
+
+
+## Выбранная и исходная сложность игры —98af43bd
+
+Источник: [98af43bdaf252e5a2eac1ad047c92511adb8e565](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98af43bdaf252e5a2eac1ad047c92511adb8e565).
+
+Original oracle: GoldPDB CreateGlobalGame693f60/189bytes; первые34 байта с
+маской толькоEH3:7 уникально совпали со Steam699f90. В69a007..69a02d проверяется
+валидность переданного record и сохраняется его pointer; fallback передаёт1
+в GetDBDifficulty7db190 (Gold PDB7eccc0). Исходный69a0b7 в данном exe относится
+к другому коду и не использовался как доказательство. Steam SHA256 остаётся
+4F417593A9F73E2BFDE12D83CDBD694AE47EECB92812140D67B8B343E4A95705.
+Evidence global-game-difficulty-retail-{lookup,disassembly}.
+
+UpstreamGlobalGameDifficulty: первый compiled native RED1.01с показал
+factory default2 вместо1. Положительный контроль загрузил разные authored
+DB records1/2 и вывел их реальные коэффициенты. Затем восстановлены selected
+pointer API/factory и его передача из CICBeginGame. Числа DB не редактировались;
+CGlobalGame save fields и scenario construction сохранены. Использований
+прежнего явного integer второго аргумента в исходном текущем репозитории нет.
+Для LAN это не смена правил: две собственные NetworkMatch factories явно
+передают прежнюю DB2. До production fix реальные NetworkMatch/Preparation
+с новыми положительными guards прошли2/2 48.94с (оба host bases, replica,
+переход к бою и обычная arena выбирают2).
+
+Native GREEN1.03с: default/null/сохраняемый native invalid weak record ->1;
+выбранные1/2/3 не заменяются. Существующий ChangeDifficulty2 и native global
+save graph194bytes загружаются с2, даже когда default уже1. Это небольшой
+полный CGlobalGame graph с unavailable scenario tracker, без world/mission UI.
+Дополнительно реальный CICBeginGame для authored maps3/4/6 и четырёх выборов
+(null,1,2,3) сохраняет roster, global-map state, выбранную difficulty и исходные
+intro zones123/122/124; GREEN1.62с. Наблюдается настоящая очередь CICBeginMission
+через существующий pointer-to-member accessor; команда начала миссии не
+исполняется. Сохранения создаются только в изолированном тестовом profile,
+копии игры/сборки не сохраняются. UI mapping кнопок остаётся отдельным02d85e5b.
+
+Обе Game и Windows ALL_BUILD собраны. Windows расширенный436/436392.51с
+включил все game-backed native menu/chapter/save/audio проверки:
+34native-display/24native-audio/12FONT-COMPAT. Linux выполнил431 case успешно
+за375.40с; ещё5 были NotRun из-за отсутствующих legacy executable. Ни
+игрового падения, ни Linux436GREEN это не означает. Расширенный selector
+впервые включил NativeMission{Map,RouteMap,UnitRouteMap,LargeMap}Probe и
+NativeMissionScriptCorpusTests, которые прежний shared script не собирал.
+Попытка собрать их обнаружила независимые старые portable link gaps:
+IsLockerUnit из aiGrid и csSystem/CLogStream из lvm. Их portable dependencies
+не менялись данным исправлением; их ремонт следует отдельным коммитом.
+Evidence global-game-difficulty-linux-{extra-probes,script-corpus}-build.log.
+
+Первый Linux compile отдельно отверг неявное CObj->CPtr copy-init тестового
+invalid record; строка переведена на owner.GetPtr(), без production изменения.
+Windows затем заново собран и выполнил финальный native case1.43с. Ошибка
+сборки не считалась RED игрового бага. Raw LastTest.log у CTest ошибочно пишет
+Test Passed даже для отсутствующих executable: для вывода о результате
+использованы actual stdout и exit8, а не только raw счётчик436.
+
+Windows7/7Network188.80с, включая361/361 authored encounter deployment+replica
+132.70с при timeout600, сохраняют свои difficulty2 guards. CI-like284/28424.49с.
+Raw436/436/7/284 полные без NUL; fonts12 в обоих широких прогонах и CI.
+Linux raw436 включает5 NotRun, его не выдаём за436 выполненных. Новая asset
+регистрация не расширяет resource-free CI. Evidence global-game-difficulty-
+{full,linux-full,network,ci,final-portable-fixture}-native-test.log плюс CTest stdout.
+
+Tracker281:96pending/117imported/24partially-imported/32already/3docs/
+5excluded-balance/2excluded-own/1historical/1review —121 незавершённая запись.
+Исходный баланс, выбранная сложность/старые saves и LAN ruleset сохранены.
+HD, facial engine и HiRes fonts не менялись. Общая цель и final actual-HEAD
+Actions остаются открыты; следующие шаги — отдельный ремонт portable probes
+и оставшиеся difficulty mapping/save-policy hunks02d85e5b.

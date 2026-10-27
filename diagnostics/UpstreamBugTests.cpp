@@ -17226,6 +17226,71 @@ static void OverlappingDoors()
     Require(network->GetFlippersAt(position).empty(), "restored grid retained a stale door lookup");
 }
 
+static void GlobalGameDifficulty(const char* databasePath)
+{
+    Require(std::getenv("S2_USER_DATA_DIR"),"difficulty campaign fixture requires isolated user data");
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
+    auto* originalDefault=NDb::GetDBDifficulty(1);auto* other=NDb::GetDBDifficulty(2);
+    Require(originalDefault && other && originalDefault!=other,"difficulty fixture lacks distinct original DB records1/2");
+    for(auto* record:{originalDefault,other})
+        std::printf("native difficulty control: id=%d AP=%.3f VP=%.3f enemyDamage=%.3f ourDamage=%.3f AILevel=%d\n",
+            record->GetRecordID(),record->fAPCoeff,record->fVPCoeff,record->fEnemyDamageMult,record->fOurDamageMult,record->nAIUnitsLevel);
+    CObj<NRPG::CGlobalGame> game=NRPG::CreateGlobalGame(-1);
+    Require(game && IsValid(game->pScenarioTracker),"difficulty fixture failed native global-game/scenario construction");
+    std::printf("native global difficulty: default=%d expected=%d\n",game->pDifficulty ? game->pDifficulty->GetRecordID() : -1,originalDefault->GetRecordID());std::fflush(stdout);
+    Require(game->pDifficulty==originalDefault,"new global game ignored the original default difficulty1 and silently selected difficulty2");
+    CObj<NRPG::CGlobalGame> nullChoice=NRPG::CreateGlobalGame(-1,nullptr);
+    Require(nullChoice->pDifficulty==originalDefault,"explicit null difficulty did not use original fallback1");
+    for(int id:{1,2,3}) {
+        auto* selected=NDb::GetDBDifficulty(id);Require(selected,"difficulty fixture lacks its authored selected record");
+        CObj<NRPG::CGlobalGame> chosen=NRPG::CreateGlobalGame(-1,selected);
+        Require(chosen->pDifficulty==selected,"native global factory replaced the supplied difficulty record");
+        std::printf("native chosen difficulty: requested=%d actual=%d\n",id,chosen->pDifficulty->GetRecordID());
+    }
+    CObj<NDb::CDBDifficulty> owner=new NDb::CDBDifficulty;CPtr<NDb::CDBDifficulty> expired=owner.GetPtr();
+    owner=nullptr;
+    Require(expired.GetPtr() && !IsValid(expired),"difficulty fixture failed to retain a native invalid weak record");
+    CObj<NRPG::CGlobalGame> invalidChoice=NRPG::CreateGlobalGame(-1,expired.GetPtr());
+    Require(invalidChoice->pDifficulty==originalDefault,"invalid native difficulty record did not use original fallback1");
+    game->ChangeDifficulty(2);
+    Require(game->pDifficulty==other,"existing ChangeDifficulty stopped retaining the requested authored record");
+    CMemoryStream save;
+    {CStructureSaver writer(save,CStructureSaver::WRITE);writer.Add(2,&game);}
+    const int bytes=save.GetSize();save.Seek(0);CObj<NRPG::CGlobalGame> loaded;
+    {CStructureSaver reader(save,CStructureSaver::READ);reader.Add(2,&loaded);}
+    Require(loaded && loaded.GetPtr()!=game.GetPtr() && IsValid(loaded->pScenarioTracker) && loaded->pDifficulty==other,
+        "restoring an existing difficulty2 global-game graph replaced its saved difficulty with the new-game default");
+    Require(NDb::GetDBDifficulty(1)==originalDefault && NDb::GetDBDifficulty(2)==other,
+        "global-game difficulty initialization replaced authored DB records");
+    std::printf("native global difficulty controls: null/invalid fallback1, records1/2/3, saved difficulty2 graph=%d bytes\n",bytes);
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "difficulty campaign fixture started with an interface or queued command");
+    NMainLoop::CreateProfile("UpstreamDifficulty");NMainLoop::SetActiveProfile("UpstreamDifficulty");
+    struct QueueCleanup {~QueueCleanup(){while(NMainLoop::HaveInterfaceCommand()){CObj<NMainLoop::CInterfaceCommand> command=NMainLoop::TakeInterfaceCommandForHarness();}}} cleanup;
+    CDBIterator<NDb::CGlobalMap> maps(*NDatabase::GetTable<NDb::CGlobalMap>());int campaigns=0;
+    while(maps.MoveNext()) {
+        auto* map=maps.Get();if(!IsValid(map->pScenario) || !IsValid(map->pStartZone))continue;
+        vector<CObj<NRPG::CGlobalPlayer>> players{NRPG::CreateGlobalPlayer(vector<int>{54})};
+        for(int id:{-1,1,2,3}) {
+            auto* chosen=id<0 ? nullptr : NDb::GetDBDifficulty(id);
+            CObj<NGame::CICBeginGame> begin=new NGame::CICBeginGame(map->GetRecordID(),players,chosen);begin->Exec();
+            CObj<NMainLoop::CInterfaceCommand> queued=NMainLoop::TakeInterfaceCommandForHarness();
+            auto* mission=dynamic_cast<NGame::CICBeginMission*>(queued.GetPtr());
+            Require(mission && !NMainLoop::HaveInterfaceCommand(),"native campaign begin did not queue exactly one intro mission");
+            auto* global=(mission->*BeginMissionCommandAccess::Game()).GetPtr();
+            Require(global && global->pDifficulty==(chosen ? chosen : originalDefault) && global->players==players &&
+                global->bGlobalMapSet && global->nGlobalMapID==map->GetRecordID(),
+                "native campaign begin lost its selected difficulty, roster or campaign map");
+            auto* zone=(mission->*BeginMissionCommandAccess::Zone()).GetPtr();
+            Require(zone && zone->GetDBZone()==map->pStartZone.GetPtr(),"difficulty forwarding changed the campaign intro destination");
+            std::printf("native campaign difficulty: map=%d requested=%d intro=%d actual=%d\n",map->GetRecordID(),id,
+                zone->GetDBZone()->GetRecordID(),global->pDifficulty->GetRecordID());
+        }
+        ++campaigns;
+    }
+    Require(campaigns>=2,"difficulty fixture did not exercise both authored campaigns");
+}
+
 static void WeaponFamiliarity()
 {
     CObj<NRPG::CUnit> unit = new NRPG::CUnit;
@@ -18894,6 +18959,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "script-held-grenade-activation") && argc == 4) { ScriptHeldGrenadeActivation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "forced-action-recalc") && argc == 4) { ForcedActionRecalc(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "overlapping-doors")) { OverlappingDoors(); return true; }
+    if (!std::strcmp(mode, "global-game-difficulty") && argc==3) { GlobalGameDifficulty(argv[2]); return true; }
     if (!std::strcmp(mode, "weapon-familiarity")) { WeaponFamiliarity(); return true; }
     if (!std::strcmp(mode, "clue-slots")) { ClueSlotSelection(); return true; }
     if (!std::strcmp(mode, "conclusions") && argc == 4) { ConclusionRouting(argv[2], argv[3]); return true; }

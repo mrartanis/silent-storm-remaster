@@ -382,7 +382,8 @@ NetworkMatch CreatePreparedNetworkMatch(const NetworkMatchPreset& preset,NRPG::C
   NetworkMatch match;auto* variant=NDb::GetTemplVariant(preset.mapVariant);
   if(!variant || !IsValid(variant->pTemplate) || variant->bNoAttack)throw std::runtime_error("Network map is unavailable or prohibits combat");
   match.variantID=preset.mapVariant;match.templateID=variant->pTemplate->GetRecordID();
-  match.game=NRPG::CreateGlobalGame();match.game->nCurrentTemplateID=match.templateID;
+  // Network matches and bases keep their existing authored difficulty2 ruleset.
+  match.game=NRPG::CreateGlobalGame(-1,NDb::GetDBDifficulty(2));match.game->nCurrentTemplateID=match.templateID;
   match.game->players.push_back(first);match.game->players.push_back(second);
   first->networkSupplyLevel=second->networkSupplyLevel=0;
   match.world = new NWorld::CWorld(match.game);
@@ -425,7 +426,7 @@ NetworkMatch CreateNetworkBase(const NetworkMatchPreset& preset,unsigned slot,NR
   ValidatePreset(preset);if(slot>1)throw std::runtime_error("invalid base owner");
   NetworkMatch match;match.variantID=5246;auto* variant=NDb::GetTemplVariant(match.variantID);
   if(!variant || !variant->pTemplate)throw std::runtime_error("Network base is unavailable");
-  match.templateID=variant->pTemplate->GetRecordID();match.game=NRPG::CreateGlobalGame();match.game->nCurrentTemplateID=match.templateID;
+  match.templateID=variant->pTemplate->GetRecordID();match.game=NRPG::CreateGlobalGame(-1,NDb::GetDBDifficulty(2));match.game->nCurrentTemplateID=match.templateID;
   match.game->nHotSeatTechLevel=preset.supplyLevel;
   for(unsigned side=0;side<2;++side) {
     CObj<NRPG::CGlobalPlayer> squad=side==slot?existing:nullptr;

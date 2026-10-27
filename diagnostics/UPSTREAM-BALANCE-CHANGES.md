@@ -77,7 +77,6 @@ native controls проверяют оба SLOT, active/inactive и нетрон�
 | [5780c0be](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027) Restore retail throwing knife targeting, flight and facing | Метательные ножи: штатная дальность, скорость, попадания, направление. Это восстановление формул, не готовый безопасный cherry-pick. |
 | [c1ab9336](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c) Restore retail melee damage dispatch and armed attack cursor | Native UI-различение кулака/экипированного оружия адаптировано в GetState; action dispatch и critical bans сохранены. Target-filter/damage dispatch остаётся для проверки реальных попаданий и original damage. |
 | [7f4f0ea8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7f4f0ea872937e4dcb4a887ff6a136d7dce1fcd5) Match retail nearest AI contact selection | Nearest-contact selection использует другие позиции/фильтры; отдельно сверять поведение AI. |
-| [98af43bd](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98af43bdaf252e5a2eac1ad047c92511adb8e565) Restore retail global-game difficulty initialization | Передача выбранной сложности и default difficulty требуют сверки; не менять default незаметно. |
 | [cc0fd988](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc0fd9888357c7a9f5d47fec2c22f3073eb5e7cf) Match retail AI firing range and target reach checks | AI range/target-reached/attack-origin — восстановление retail боевого trace, нужны сравнительные тесты. |
 | [66fc9e9a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/66fc9e9ad26497bf41f96a1a8c51c8a03e951718) Match retail AI snipe weapon and cover evaluation | AI snipe должен считать выбранным оружием и не терять дробную cover precision. |
 | [0ffb568d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0ffb568d67bc6ca389d7ca63a9da4f3978c801a7) Restore retail level XP persistence and fresh skill maximum flags | Повторная native-проверка нового репозитория выявила потерю общего XP в SetXPLevel; сохранение существующего расчёта исправляется отдельно. FreezeToMax для новых skills независимо сверён с original Steam EXE и перенесён: см. fresh-skill-modifier-values в UPSTREAM-IMPORTS.md. |
@@ -492,3 +491,26 @@ compatibility helper. Её соответствие оригиналу и вли
 Без этой сверки они не объявлены ни допустимым исправлением, ни подтверждённым
 изменением оригинального баланса. Независимая визуальная подсветка бойца ИИ
 из того же коммита перенесена отдельно; она не вызывает боевые/RNG функции.
+
+
+## Проверено: выбранная и исходная сложность —98af43bd
+
+[Источник](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98af43bdaf252e5a2eac1ad047c92511adb8e565)
+перенесён после независимой сверки оригинального Steam Game.exe. Factory699f90
+сохраняет валидную переданную запись CDBDifficulty и выбирает DB1 при её
+отсутствии/недействительности. До исправления наша фабрика всегда брала DB2.
+Записи действительно различаются: уDB1/DB2 fAPCoeff0.4/0.7, fVPCoeff0.5/0.75,
+enemyDamage0.66/1, ourDamage1.33/1, AI level adjustment-1/0.
+
+Восстановлен оригинальный fallback1 для новой игры без выбора, включая tutorial.
+Переданные1/2/3 сохраняют identity; реальные CICBeginGame для карт3/4/6 передают
+их в исходные intro123/122/124. Коэффициенты и таблицы DB не редактируются.
+Сохранённый global-game graph с выбранной2 загружается с2. Собственные LAN
+базы/бой явно получают прежнюю DB2; это проверено до и после исправления,
+включая реплику и переход из подготовки в бой. Таким образом, оригинальная
+сложность восстанавливается, а самостоятельные правила LAN сохраняются.
+
+Не следует смешивать этот factory fix с ещё не перенесёнными hunks02d85e5b:
+соответствием видимых кнопок сложности записям и живым вычислением canSave.
+Их native TDD/original проверки выполняются отдельно. Самостоятельного
+изменения числового баланса в98af43bd не выявлено.
