@@ -3098,7 +3098,7 @@ static void AudioOptionCheckboxes(const char* databasePath,const char* resourceP
 #endif
 }
 
-static void HotseatDialogTemplate(const char* databasePath,const char* resourcePath)
+static void HotseatDialogTemplate(const char* databasePath,const char* resourcePath,bool legacy = false)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"hotseat dialog fixture requires isolated user data");
     NativeDisplayContext cleanup;
@@ -3115,11 +3115,45 @@ static void HotseatDialogTemplate(const char* databasePath,const char* resourceP
     vector<CPtr<NGame::IPlayerTracker>> players; mission->GetPlayers(&players);
     Require(players.size() == 2 && !players[0]->GetGlobalPlayer()->bAIPlayer && !players[1]->GetGlobalPlayer()->bAIPlayer,
         "hotseat dialog fixture did not create two real human player trackers");
-    CStructureNetworkContext references;
-    auto fields = BorrowedObjectFields(hud,&references);
-    CObj<NUI::CPlayerSwitchUI> dialog;
-    { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(25,&dialog); }
-    Require(dialog,"hotseat dialog was not retained in the HUD's existing save field");
+    auto readDialog = [](NUI::CMissionUI* source) {
+        CStructureNetworkContext references;
+        auto fields = BorrowedObjectFields(source,&references);
+        CObj<NUI::CPlayerSwitchUI> result;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(25,&result); }
+        Require(result,"hotseat dialog was not retained in the HUD's existing save field");
+        return result;
+    };
+    auto dialog = readDialog(hud);
+    if (legacy) {
+        // Recreate the previous constructor's zero-sized HUD child using public
+        // window APIs, then exercise the actual mission save graph in memory.
+        CMObj<NUI::CPlayerSwitchUI> retained = dialog.GetPtr();
+        dialog->GetParent()->RemoveChild(dialog);
+        hud->AddChild(dialog);
+        dialog->SetSize(NUI::SPoint(0,0));
+        dialog->SetStyle(NUI::STYLE_ENABLED | NUI::STYLE_TOPMOST,false);
+        CMemoryStream saved;
+        { CStructureSaver writer(saved,CStructureSaver::WRITE_COMPRESSED); writer.Add(2,&mission); }
+        saved.Seek(0);
+        CObj<NGame::CMission> restored;
+        { CStructureSaver reader(saved,CStructureSaver::READ); reader.Add(2,&restored); }
+        Require(restored && restored.GetPtr() != mission.GetPtr() && restored->GetWorld() && restored->GetInterface(),
+            "legacy hotseat dialog fixture failed to restore its actual mission graph");
+        mission = restored;
+        hud = dynamic_cast<NUI::CMissionUI*>(mission->GetDesktop());
+        Require(hud,"legacy hotseat dialog fixture did not restore its mission desktop");
+        dialog = readDialog(hud);
+        mission->GetPlayers(&players);
+        Require(players.size() == 2 && dialog->GetParent() == hud && dialog->GetSize() == NUI::SPoint(0,0),
+            "legacy save control did not retain the prior zero-sized HUD dialog");
+        std::printf("native restored legacy dialog: root=0 size=0x0 players=%zu\n",players.size());
+        mission->PauseGame(false);
+        dialog->Show();
+        Require(dialog->GetParent() == mission->GetInterface() && dialog->GetSize().x > 0 && dialog->GetSize().y > 0,
+            "showing the restored legacy hotseat dialog paused the mission with a zero-sized HUD child");
+        dialog->OnOK();
+        Require(!mission->IsGamePaused(),"repairing a legacy hotseat dialog changed its prior pause state");
+    }
     auto* label = dynamic_cast<NUI::CText*>(dialog->GetChildByID("text"));
     auto* ok = dynamic_cast<NUI::CHoverButton*>(dialog->GetChildByID("ok"));
     std::printf("native hotseat dialog: root=%d text=%d ok=%d size=%dx%d\n",
@@ -3139,6 +3173,11 @@ static void HotseatDialogTemplate(const char* databasePath,const char* resourceP
             !dialog->GetStyle(NUI::STYLE_VISIBLE) && mission->IsGamePaused() == paused,
             "accepting the native hotseat dialog did not hide it and restore the prior pause state");
     }
+    list<CPtr<NUI::CWindow>> rootChildren; mission->GetInterface()->GetChildrenList(&rootChildren);
+    int dialogs = 0;
+    for (auto child: rootChildren) if (child->GetWindowID() == "playerswitch") ++dialogs;
+    Require(dialogs == 1 && mission->GetInterface()->GetChildByID("playerswitch") == dialog.GetPtr(),
+        "showing the hotseat dialog duplicated it or lost its root attachment");
 }
 
 static void MissionSaveMenu(const char* databasePath,const char* resourcePath,bool quickSave = false)
@@ -17640,6 +17679,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-authored-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-script-cadence") && argc == 4) { MainMenuMapScript(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "hotseat-dialog-legacy") && argc==4) { HotseatDialogTemplate(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "hotseat-dialog-template") && argc==4) { HotseatDialogTemplate(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }

@@ -3,6 +3,7 @@
 #include "iCommonUI.h"
 #include "iMission.h"
 #include "iPlayerSwitch.h"
+#include "../DBFormat/DataFormat.h"
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NUI
 {
@@ -26,6 +27,19 @@ void CPlayerSwitchUI::OnOK()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPlayerSwitchUI::Show()
 {
+	CInterface *pRoot = GetInterface();
+	if ( IsValid( pRoot ) && ( GetParent() != pRoot || GetSize().x <= 0 || GetSize().y <= 0 ||
+		!IsValid( pText ) || !IsValid( pOk ) ) )
+	{
+		// Older fork saves retained a zero-sized HUD child. Repair it after loading,
+		// when all graph references exist; retain mission ownership while reparenting.
+		CMObj<CPlayerSwitchUI> keepAlive( this );
+		if ( IsValid( GetParent() ) )
+			GetParent()->RemoveChild( this );
+		pRoot->AddChild( this );
+		LoadTemplate( this, NDb::GetUIContainer( 453 ) );
+		SetStyle( STYLE_ENABLED | STYLE_TOPMOST, true );
+	}
 	SetStyle( STYLE_VISIBLE, true );
 	// Title = localized prefix (DB string 0x51F3) + the active player's name.
 	pText->SetText( GetDBString( 0x51F3 ) + pMission->GetActivePlayer()->GetPlayer()->GetPlayerName() );

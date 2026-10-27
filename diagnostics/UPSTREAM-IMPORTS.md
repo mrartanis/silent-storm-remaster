@@ -5388,3 +5388,35 @@ CPUbase385 не изменился; нового полного прогона �
 22partial/38already/3docs/5excluded-balance/2excluded-own, по1historical/review;
 124 исходных коммита ещё в разборе. All281/final actual HEAD GitHub Actions
 ещё не завершены. Автоматический показ относится к46, не приписывается695.
+
+
+## Сохранённое старое окно передачи хода — адаптация695465bc к нашему форку
+
+Источник layout logic: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/695465bc189bfe93a657a3f48ff51bc664c5b7ef
+
+Отдельный compiled native RED1.59с доказал необходимость дополнительной
+совместимости: предыдущая форма окна (zero-size HUD child) воспроизведена
+публичными window APIs в настоящей двухсторонней миссии, затем вся CMission
+записана с компрессией и восстановлена из памяти. После восстановления
+GetDesktop/tag25 действительно дают старое окно0x0; Show ставит паузу, но
+root остаётся0 и разметка не появляется. Это полный native save graph,
+без частичной подмены сериализованных полей и без копии старой сборки.
+
+Show теперь восстанавливает старую/отсутствующую разметку после разрешения
+всех ссылок: тот же CPlayerSwitchUI переносится на свой CInterface root,
+загружается template453, включаются enabled/topmost. Во время RemoveChild/
+AddChild объект держит дополнительный CMObj: обычный CObj не предотвращает
+инвалидацию при обнулении отдельного mission ownership domain. Никаких новых
+сохранённых полей или изменения pause policy; загрузка не запускает Show сама.
+Один include первоначально не объявлял GetUIContainer; исправлен на DataFormat
+до GREEN, исходный compile log сохранён.
+
+Native GREEN original+restored2/2: оба игрока при prior pausefalse/true,
+localized name/пауза/OKrestore, после повторных показов ровно один root dialog.
+Both Game/Windows ALL_BUILD. Related Windows12/1212.17с, Linux12/129.91с,
+семь native display cases и12FONT-COMPAT;4Network7.04с;CI-like280/28023.82с.
+Raw все полные/noNUL;CI raw280/fonts12. Evidence hotseat-dialog-legacy-*.
+HD/facial/fonts/баланс не менялись. CPUbase385 и счётчики281 не изменились;
+последний полный391 обеих платформ относится к2c44f24f, новый full не заявлен.
+Automatic Show из46b3ace0 остаётся отдельным будущим RED. Все281/final actual
+HEAD Actions ещё не завершены.
