@@ -76,7 +76,7 @@ native controls проверяют оба SLOT, active/inactive и нетрон�
 
 | Источник | Что проверять |
 |---|---|
-| [2de89e04](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2de89e04ae2713bd7fbd267b5b3a96b60feb810d) Restore incidental bullet impacts and periodic integer bleeding | Попадания по случайным целям, ночная точность и кровотечение меняют боевые расчёты; нужен oracle. |
+| [2de89e04](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2de89e04ae2713bd7fbd267b5b3a96b60feb810d) Restore incidental bullet impacts and periodic integer bleeding | Пропуск нулевого целого кровотечения уже подтверждён оригиналом и перенесён отдельно; случайные попадания, ночная точность, формулы и периодичность ещё требуют oracle. |
 | [5780c0be](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027) Restore retail throwing knife targeting, flight and facing | Метательные ножи: штатная дальность, скорость, попадания, направление. Это восстановление формул, не готовый безопасный cherry-pick. |
 | [c1ab9336](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c) Restore retail melee damage dispatch and armed attack cursor | Native UI-различение кулака/экипированного оружия адаптировано в GetState; action dispatch и critical bans сохранены. Target-filter/damage dispatch остаётся для проверки реальных попаданий и original damage. |
 | [7f4f0ea8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7f4f0ea872937e4dcb4a887ff6a136d7dce1fcd5) Match retail nearest AI contact selection | Nearest-contact selection использует другие позиции/фильтры; отдельно сверять поведение AI. |
@@ -639,3 +639,23 @@ Windows/Linux444/444,7Network/361maps и CI284 GREEN. Sourceb875e43d завер�
 сохраняется mounted context для штатного SyncConscious/падения. Дополнительной
 оплаты, изменения HP/AP, урона или вероятностей при выходе нет. Все функциональные
 части source теперь завершены; native455/455 на обеих платформах подтверждены.
+
+
+## Проверено: нулевое целое кровотечение не создаёт атаку —2de89e04, часть1
+
+[Источник](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2de89e04ae2713bd7fbd267b5b3a96b60feb810d)
+содержит положительный барьер перед периодическим ProcessAttack. Эта часть
+перенесена отдельно: дробная сила0.5 после преобразования в0 больше не создаёт
+ложное попадание0. Положительный контроль3.5 по-прежнему наносит3урона.
+Формулы, частота, длительности критических эффектов и сохранённые поля
+этим исправлением не меняются. Оригинальный Gold/Steam блок97байт совпадает
+точно и единственно; Steam7c3209 пропускает неположительную целую силу.
+Подробности native RED/GREEN и ограничения проверки — в UPSTREAM-IMPORTS.md.
+
+Остальная периодическая часть ещё не перенесена: исходный коммит предлагает
+разделить часы состояния/критических эффектов, изменить место обновления их
+длительностей, вычислять целую потерю VP с учётом половины здоровья и подавления
+кровотечения, а также учитывать PK и бессознательных носителей улики. Эти
+изменения требуют отдельной проверки исходных правил; они пока не объявлены
+ни безопасным восстановлением, ни подтверждённым ребалансом. Случайные попадания
+и ночная точность из того же источника тоже остаются на отдельный перенос.

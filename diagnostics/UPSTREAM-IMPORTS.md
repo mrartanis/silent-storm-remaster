@@ -8532,3 +8532,62 @@ format and armor/skill/weapon data are unchanged. No new balance tuning, AP/VP,
 face/font, HD or save-format change. Source becomes imported; tracker281 now
 132imported/21partial/85pending,106unfinished. Update balance Markdown from
 pending review to verified original restoration. ALL281 remains active.
+
+
+## 2de89e04, part1 — reject nonpositive whole-number periodic bleeding attacks
+
+Source2de89e04ae2713bd7fbd267b5b3a96b60feb810d contains independent projectile,
+night-accuracy and periodic-critical changes. Import ONLY the original positive
+bleed guard here, adapted to our current native periodic callback. Its float
+strength is already converted to int; dispatch ProcessAttack only when that
+whole amount ispositive. Preserve the fork's network-replica early return,
+player/CanFight/critical filters, damage constructor, formula, critical lifetime,
+regeneration clocks and saved fields. The rest of this mixed source remains
+pending its own original audit/native TDD; this is not the final periodic
+bleeding architecture or a substitute for those remaining fixes.
+
+Native RED1failure/2cases2.27s: actual FixtureWorld, healthy non-PK CUnitServer
+at or above half theoretical VP, real RPG bleeding critical and own-player
+OnNewPlayerTurnOrTime callback. Drain then inspect the real CWorld hit-event
+queue; no damage dispatch spy, mocked event or replacement calculation. With
+strength0.5 the whole amount is0, VP80 remains80, yet a hit locator ofvalue0 is
+emitted. With3.5 the positive control already passes: real hit3, VP80->77.
+The observed false event is0, not the hypothetical negative locator described
+in the upstream comment. A preliminary fixture compile passed IPlayer rather
+than concrete CPlayer; correct the native cast before the actual RED.
+
+GREEN2/2 2.24s: strength0.5 emits no hit event and preserves VP/AP/position/world
+time; strength3.5 still produces its actual hit3 and loses3VP. No duplicate hit
+is queued. This proves the current periodic dispatch/real native attack/event
+path, not rendered damage text, complete critical lifetimes or the future
+regeneration formula. When the remaining original end-of-turn pipeline is
+imported, carry this zero-effect regression to its correct native periodic
+entry; do not preserve the old event location merely to satisfy the fixture.
+
+Independent original proof: Gold PDB
+CUnitServer::ProcessCriticalsAndRegenerations7b6a20/797. Its complete97byte block
+Gold7b6a48 maps exactly and uniquely to Steam7c31c8, with NO masks: RPG regeneration,
+clue/KO zeroing, positive-bleed guard and the attack arguments. Gold7b6a89 /
+Steam7c3209 jumps past attack construction when the whole amount is<=0;
+Steam skip target7c330d. The constructor26byte block alone also occurs at
+Steam7c0fe2 and7c320f, so it is explicitly not claimed unique; the longer parent
+block resolves identity. Full Gold disassembly, Steam parent/candidate body and
+zero-bleed-retail-oracle.json saved. Initial entry signatures differ in stack
+size70/74; no numeric mask was invented to force them. Use the independently
+verified7c3209 rather than the source's different7c2b30 annotation.
+
+Final Windows/Linux Game/helpers built; related9/9 Windows8.32s/Linux8.18s,
+including the two new cases, critical feedback/IDs/rolls and native attack rules;
+asset-free CI-like290/29024.20s. All three raw logs have exact9/9/290 passed
+records, no NUL/Failed/NotRun/missing executable, actual runners exit0. An initial
+related selector wrongly required names to end at its keyword and covered only
+2cases; retain those initial2 logs and use the corrected9case TEST-ONLY rerun
+for final validation. No rebuild/source edit was needed for that correction.
+The asset-dependent regressions are covered by9 rather than the asset-free290
+manifest. No new full57display or current hosted GitHub success is claimed for
+this pure dispatch guard. Evidence fractional-bleeding-{red,green,final-related,
+final-linux,final-ci} and original oracle files. Owned games closed; shared
+builds reused, no HD generation or per-bug copies. No new balance tuning,
+positive damage-rate/formula, production RNG, AP/VP rules, face/font, HD or
+save-format changes. Source becomes PARTIAL; pending84/partial22/imported132,
+106unfinished total. ALL281 and final actual-HEAD hosted CI remain open.

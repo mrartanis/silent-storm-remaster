@@ -110,6 +110,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/RPGItem.h"
 #include "../Main/RPGItemSet.h"
 #include "../Main/RPGCritical.h"
+#include "../Main/eventPlayer.h"
 #include "../Main/rpgPerk.h"
 #include "../Main/wUnitAttackExec.h"
 #include "../Main/wUnitAttack.h"
@@ -14702,6 +14703,36 @@ public:
     bool GetWindowPos(CObjectBase*,CVec3*,CVec3*) override {Unused();return false;}
 };
 
+static void PeriodicBleedingAttack(const char* databasePath,const char* resourcePath,bool fractional)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
+    Require(!world->bNetworkReplica,"periodic bleeding fixture unexpectedly uses a network replica");
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(const auto& unit:units) {
+        if(!IsValid(unit) || !unit->CanFight() || unit->IsWearingPK() || unit->IsEmptyPK())continue;
+        auto* rpg=unit->GetUnitRPG();const auto& vp=rpg->GetRPGUnit()->Skills(NDb::ST_VP);
+        if(vp.GetTheoreticalMax()>=40 && rpg->GetTotalVP()>20 && rpg->GetTotalVP()>=Float2Int(vp.GetTheoreticalMax()*.5f)){actor=unit.GetPtr();break;}
+    }
+    Require(actor,"periodic bleeding fixture has no healthy non-PK native actor");
+    auto* rpg=actor->GetUnitRPG();rpg->RemoveCritical(NDb::C_BLEEDING);
+    const float strength=fractional?.5f:3.5f;
+    rpg->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_BLEEDING,3,strength));
+    NRPG::CCritical* critical=nullptr;
+    Require(rpg->HasCritical(NDb::C_BLEEDING,&critical) && critical && fabs(critical->GetValue()-strength)<1e-5f,
+        "periodic fixture did not install its actual fractional/integer bleeding critical");
+    for(;;){CObj<NWorld::CHitLocator> pending=world->GetHitEvent();if(!pending)break;}
+    const int vp=rpg->GetTotalVP(),ap=actor->GetAP();const STime time=world->GetAimTime()->GetValue();const auto position=actor->GetPosition();
+    auto* player=dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer());Require(player,"bleeding fixture has no concrete native player");
+    actor->OnNewPlayerTurnOrTime(NWorld::CEventOnNewPlayerTurnOrTime(player));
+    CObj<NWorld::CHitLocator> hit=world->GetHitEvent();
+    std::printf("native periodic bleeding: strength=%g whole=%d hit=%d value=%d VP=%d->%d\n",strength,int(strength),int(IsValid(hit)),hit?hit->nHitValue:0,vp,rpg->GetTotalVP());std::fflush(stdout);
+    if(fractional)Require(!hit && rpg->GetTotalVP()==vp && actor->GetAP()==ap && actor->GetPosition()==position && world->GetAimTime()->GetValue()==time,
+        "zero-strength native bleeding dispatched an attack/hit event or changed the unit");
+    else Require(hit && hit->pUnit.GetPtr()==actor && hit->nHitValue>0 && rpg->GetTotalVP()<vp,
+        "positive whole-number bleeding control lost its native damage or hit event");
+    Require(!world->GetHitEvent(),"one periodic bleeding callback emitted duplicate hit events");
+}
+
 static void LooseRayBounds(const char* databasePath,const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
@@ -20685,6 +20716,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "equal-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "mixed-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "missing-attack-target-caption") && argc == 4) { AttackCaptionWithoutHitChance(argv[2], false, true); return true; }
+    if (!std::strcmp(mode, "fractional-bleeding-no-hit") && argc==4) { PeriodicBleedingAttack(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "integer-bleeding-hit") && argc==4) { PeriodicBleedingAttack(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "loose-ray-ricochet") && argc==4) { LooseRayRicochet(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "loose-ray-probability-zero") && argc==4) { LooseRayRicochet(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "loose-ray-normal-incidence") && argc==4) { LooseRayRicochet(argv[2],argv[3],2); return true; }

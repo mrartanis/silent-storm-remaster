@@ -1965,9 +1965,12 @@ void CUnitServer::OnNewPlayerTurnOrTime( const CEventOnNewPlayerTurnOrTime &even
 		if ( GetUnitRPG()->HasCritical( NDb::C_BLEEDING, &pCritical ) )
 		{
 			int nDamage = pCritical->GetCritical().fValue;
-			NRPG::CAttackPortion att( 1, 0, 0.0f, nDamage, -1, 0 );   // retail ProcessCriticalsAndRegenerations @0x3c2770: fPushCoeff=0
-			// retail ProcessCriticalsAndRegenerations @0x3c2770: this->pWorld, straight-down direction.
-			ProcessAttack( GetWorld(), NAI::HL_BODY, &att, CVec3( 0, 0, -1 ), GetUnitRPG()->GetRPGArmor() );
+			// Original Steam 0x7c3209: do not dispatch a nonpositive whole-number bleed.
+			if ( nDamage > 0 )
+			{
+				NRPG::CAttackPortion att( 1, 0, 0.0f, nDamage, -1, 0 );   // fPushCoeff=0
+				ProcessAttack( GetWorld(), NAI::HL_BODY, &att, CVec3( 0, 0, -1 ), GetUnitRPG()->GetRPGArmor() );
+			}
 		}
 	}
 }
