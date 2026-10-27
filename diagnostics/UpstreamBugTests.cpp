@@ -141,6 +141,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/aiRouteLogic.h"
 #include "../Main/aiRoute.h"
 #include "../Main/aiUnit.h"
+#include "../Main/aiActions.h"
 #include "../Main/aiPlayer.h"
 #include "../Main/aiReaction.h"
 #include "../Main/aiActionPlaceSource.h"
@@ -6064,6 +6065,91 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     // Deliberately exclude mission scripts: this fixture isolates AI scheduling.
     world->RunPostInit(nullptr);
     return world;
+}
+
+static void MountedGunEligibility(const char* databasePath,const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath,resourcePath,true);
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    NWorld::CUnitServer* target = nullptr;
+    for (auto unit: units) {
+        auto* server = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if (!server || !server->CanFight() || server->IsWearingPK() || !NAI::GetAIUnit(server)) continue;
+        if (!actor) actor = server; else { target = server; break; }
+    }
+    Require(actor && target,"mounted-gun fixture needs two actual native AI units");
+    auto* gunner = NAI::GetAIUnit(actor);
+    auto* enemy = NAI::GetAIUnit(target);
+    auto* threat = gunner->GetAIUnitState();
+    Require(threat != nullptr,"mounted-gun fixture has no native threat state");
+    threat->AddEnemy(enemy); threat->pEnemy = enemy; threat->pPossibleEnemy = nullptr;
+    CObj<NAI::CAIShootFromHGAction> shoot = new NAI::CAIShootFromHGAction(gunner);
+    CObj<NAI::CAIDockWithHGAction> dock = new NAI::CAIDockWithHGAction(gunner);
+    CObj<NAI::CAIUndockFromHGAction> undock = new NAI::CAIUndockFromHGAction(gunner);
+    vector<NWorld::CCannon*> cannons; world->GetCannons(&cannons);
+    NWorld::CCannon* selected = nullptr;
+    auto* net = world->GetPathNetwork();
+    int examined = 0, attackable = 0;
+    for (auto* cannon: cannons) {
+        if (!cannon || cannon->IsBroken() || cannon->IsOccupied() || !cannon->GetItem() || !cannon->GetItem()->HasAmmo()) continue;
+        vector<NAI::SPathPlace> approaches; cannon->GetApproaches(&approaches,net);
+        vector<NAI::SPathPlace> targets; net->GetNearPlaces(SSphere(cannon->GetPosition(),25.f),&targets);
+        for (auto approach: approaches) {
+            if (!net->IsPassable(approach) || net->IsLocked(approach,false)) continue;
+            auto position = actor->GetPosition(); position.pos.p = approach; actor->SetPosition(position);
+            gunner->Synchronize();
+            for (auto place: targets) {
+                if (!net->IsPassable(place) || net->IsLocked(place,false)) continue;
+                NAI::SPosition at(place,net);
+                if (fabs(at.GetCP()-cannon->GetPosition()) <= 6.f ||
+                    NWorld::CanAttackWithCannon(cannon,at.GetCP()+CVec3(0,0,1)) != NWorld::UCR_OK) continue;
+                auto targetPosition = target->GetPosition(); targetPosition.pos.p = place; target->SetPosition(targetPosition);
+                enemy->Synchronize(); world->GetAIMap()->Sync(); ++examined;
+                CVec3 aim; world->GetAIMap()->GetUnitHLPos(&aim,world->GetAIMap()->GetHull(target),NAI::HL_BODY);
+                if (NWorld::CanAttackWithCannon(cannon,aim) != NWorld::UCR_OK) continue;
+                ++attackable;
+                gunner->SetCannon(cannon);
+                NAI::CAIShootFromHGAction::SInfo firing;
+                shoot->GetInfoInner(NAI::SPlaceWithAP(actor->GetPosition(),gunner->GetAP()),&firing);
+                if (firing.bCanDo && firing.pGun == cannon && firing.pTarget == enemy) { selected = cannon; break; }
+            }
+            if (selected) break;
+        }
+        if (selected) break;
+    }
+    std::printf("native mounted-gun candidates: guns=%zu examined=%d attackable=%d selected=%d\n",cannons.size(),examined,attackable,selected != nullptr);
+    Require(selected,"mounted-gun fixture has no reachable native gun with a damageable known enemy");
+    const NAI::SPlaceWithAP place(actor->GetPosition(),gunner->GetAP());
+    gunner->SetCannon(nullptr);
+    NAI::CAIDockWithHGAction::SInfo freeDock; dock->GetInfoInner(place,&freeDock);
+    Require(freeDock.bCanDo && freeDock.pGun == selected,"unoccupied mounted-gun docking control failed");
+    gunner->SetCannon(selected);
+    NAI::CAIUndockFromHGAction::SInfo freeUndock; undock->GetInfoInner(place,&freeUndock);
+    Require(!freeUndock.bCanDo,"working native gun unexpectedly required abandonment before occupancy");
+    const int ap = actor->GetAP(), ammo = selected->GetItem()->GetAmmoQuantity();
+    const auto actorPosition = actor->GetPosition();
+    selected->SetCurrentUnit(actor);
+    Require(selected->IsOccupied() && selected->GetCurrentUnit() == actor,"mounted-gun fixture did not establish native occupancy");
+    NAI::CAIShootFromHGAction::SInfo mounted; shoot->GetInfoInner(place,&mounted);
+    std::printf("native occupied gun: fire=%d target=%d ammo=%d\n",mounted.bCanDo,mounted.pTarget == enemy,ammo);
+    Require(mounted.bCanDo && mounted.pGun == selected && mounted.pTarget == enemy,
+        "a live occupied cannon prevented its own gunner from selecting a shot");
+    NAI::CAIUndockFromHGAction::SInfo stay; undock->GetInfoInner(place,&stay);
+    Require(!stay.bCanDo,"a working occupied cannon forced its gunner to abandon it");
+    gunner->SetCannon(nullptr);
+    NAI::CAIDockWithHGAction::SInfo occupiedDock; dock->GetInfoInner(place,&occupiedDock);
+    Require(!occupiedDock.bCanDo || occupiedDock.pGun != selected,"another gunner could select an occupied cannon for docking");
+    gunner->SetCannon(selected);
+    Require(actor->GetAP() == ap && selected->GetItem()->GetAmmoQuantity() == ammo && actor->GetPosition() == actorPosition,
+        "mounted-gun eligibility queries spent AP, ammunition or moved the gunner");
+    auto* weapon = dynamic_cast<NRPG::CWeaponItem*>(selected->GetItem());
+    Require(weapon != nullptr,"native cannon has no weapon item for the empty-ammunition control");
+    weapon->DiscardAmmo();
+    NAI::CAIShootFromHGAction::SInfo empty; shoot->GetInfoInner(place,&empty);
+    NAI::CAIUndockFromHGAction::SInfo leave; undock->GetInfoInner(place,&leave);
+    Require(!empty.bCanDo && leave.bCanDo,"an empty occupied cannon remained eligible to fire or failed to release its gunner");
+    gunner->SetCannon(nullptr); selected->SetCurrentUnit(nullptr);
 }
 
 static void UnitDiplomacyIdentity(const char* databasePath,const char* resourcePath)
@@ -17716,6 +17802,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "conclusions") && argc == 4) { ConclusionRouting(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "pk-placement")) { PKPlacement(); return true; }
     if (!std::strcmp(mode, "critical-ids") && argc == 3) { CriticalIDs(argv[2]); return true; }
+    if (!std::strcmp(mode, "mounted-gun-eligibility") && argc==4) { MountedGunEligibility(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "unit-diplomacy-identity") && argc==4) { UnitDiplomacyIdentity(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "cover-perk-multiplier") && argc==4) { CoverPerkMultiplier(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "moving-target-perk") && argc==4) { MovingTargetPerk(argv[2],argv[3]); return true; }

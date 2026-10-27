@@ -5278,3 +5278,21 @@ Source695 остаётся partial: hotseat banner отдельный пункт
 actual HEAD GitHub Actions ещё не завершены. Счётчики прежние101pending,
 106imported,24partial,38already,3docs,5excluded-balance,2excluded-own,
 по1historical/review;126 исходных коммитов остаются в разборе.
+
+
+## Проверка condition voice preview —46b3ace0, без переноса
+
+Native probe подтвердил, что GetPersVoiceAck на настоящей persona54 и hero
+с тремя voice donors уже находит звук и на текущей baseline DB, и на
+проверенной original Steam game.db. Печать показывает pCondition ID102 и
+совпадающий legacy nConditionID102. Original Steam645170/645279 действительно
+читает ссылку pCondition; это независимо найдено через Gold PDB signature.
+Но на поддерживаемых авторских данных изменение не дало функционального
+различия. RED получен только после искусственной записи numeric=-1, поэтому
+не признан доказательством нужного переноса. Production не менялась, probe
+убран из репозитория; небольшие compile/runtime evidence voice-preview-condition-*
+сохранены. Первые ошибки include/API в probe исправлены до запуска.
+Контроль без mutation прошёл на обеих базах; вывод о полной эквивалентности
+для произвольных модифицированных DB или всех прочих hunks46 не делается.
+Реконструированный комментарий о якобы отсутствующем Steam tag5 не принимается
+как факт вопреки runtime данным. Собственный facial engine не менялся.
