@@ -12696,7 +12696,11 @@ static void VitalitySkillAcknowledgment(const char* databasePath)
             const int beforeVP = unit->Skills(NDb::ST_VP);
             reference->Skills(NDb::ST_VP) -= 1;
             const bool advanced = reference->UseSkill(NDb::ST_VP,0);
-            auto expectedRandom = GlobalGameRandom(); expectedRandom.Get(100);
+            auto expectedRandom = GlobalGameRandom();
+            if (!anonymous)
+                for (int level=0;level<attackerMission->GetSkillValue(NDb::ST_LEVEL);++level)
+                    expectedRandom.Get(1,20);
+            expectedRandom.Get(100);
             const int damage = mission->ProcessAttack(nullptr,NAI::HL_BODY,&portion,nullptr);
             auto afterRandom = GlobalGameRandom();
             for (int next=0;next<4;++next)
@@ -16099,6 +16103,77 @@ static void PKPlacement()
     Require(position.IsFinal() && CanPlacePK(network.GetPtr(), position, 0), "flying PK restoration was rejected");
 }
 
+static void AttackerLevelCriticalRolls(const char* databasePath)
+{
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
+    auto* persona=NDb::GetPers(103);auto* armor=NDb::GetArmor(NDb::N_HUMAN_BODY_ARMOR);
+    Require(IsValid(persona) && armor && IsValid(armor->pMaterial),"attacker-level fixture lacks its authored persona/armor");
+    int damageType=-1;
+    CDBIterator<NDb::CRPGDmgToArmor> types(*NDatabase::GetTable<NDb::CRPGDmgToArmor>());
+    while(types.MoveNext()) if(types.Get()->armors[armor->pMaterial->nDR]>0) { damageType=types.Get()->GetRecordID();break; }
+    Require(damageType>=0,"attacker-level fixture has no authored flesh damage type");
+    class Capture: public ILogNotify {
+        OBJECT_NOCOPY_METHODS(Capture);
+    public:
+        wstring line;
+        void OnAddConsoleLine(const SConsoleLine& value) override {
+            if(value.eType==STREAM_RPG && value.szText.find(L"\tseverity=")!=wstring::npos)line=value.szText;
+        }
+    };
+    CObj<Capture> log=new Capture;SetLogNotify(log);
+    struct Cleanup { ~Cleanup() { SetLogNotify(nullptr); } } cleanup;
+    auto hit=[&](int requested,bool critical) {
+        CObj<NRPG::CUnit> attacker=new NRPG::CUnit(persona),victim=new NRPG::CUnit(persona);
+        CObj<NRPG::IUnitMission> source=NRPG::CreateUnit(attacker),target=NRPG::CreateUnit(victim);
+        int level=0;
+        if(requested>0) {
+            attacker->SetXPLevel(requested);level=source->GetSkillValue(NDb::ST_LEVEL);
+            Require(level==requested,"attacker-level fixture did not assign its native requested level");
+        }
+        // Keep actual critical selection out of this argument/RNG test.
+        target->DisableCriticals();
+        NRPG::CAttackPortion portion(100000,damageType,0.f,1,1,critical?100:0,7,
+            requested>0?source.GetPtr():nullptr,target,1.f,-1);
+        const int before=victim->Skills(NDb::ST_VP);auto* inventory=victim->GetInventory();
+        const int attackerAP=attacker->Skills(NDb::ST_AP);const float attackerXP=attacker->fXP;
+        log->line.clear();
+        const float victimXP=victim->fXP;
+        auto blocked=portion;blocked.nK=0;auto idle=GlobalGameRandom();
+        Require(target->ProcessAttack(nullptr,NAI::HL_BODY,&blocked,nullptr)==0 &&
+            int(victim->Skills(NDb::ST_VP))==before && victim->fXP==victimXP && log->line.empty(),
+            "blocked attack entered severity processing or trained/damaged the target");
+        auto afterBlocked=GlobalGameRandom();
+        for(int i=0;i<4;++i)Require(afterBlocked.Get()==idle.Get(),"blocked damage consumed attacker-level random rolls");
+        auto expectedRandom=GlobalGameRandom();int expectedSeverity=7;
+        for(int i=0;i<level;++i)expectedSeverity+=expectedRandom.Get(1,20);
+        if(critical)expectedRandom.Get(100); // Existing RollCritical draw, separate from the level prefix.
+        expectedRandom.Get(100); // Existing unconsciousness gate.
+        const auto expectedNext=expectedRandom;
+        const int damage=target->ProcessAttack(nullptr,NAI::HL_BODY,&portion,nullptr);
+        auto actual=GlobalGameRandom(),expected=expectedNext;
+        bool randomMatches=true;
+        for(int i=0;i<4;++i)randomMatches&=actual.Get()==expected.Get();
+        Require(damage==1 && before-int(victim->Skills(NDb::ST_VP))==1 && !target->IsDead() &&
+            !target->IsUnconscious() && inventory==victim->GetInventory() &&
+            int(attacker->Skills(NDb::ST_AP))==attackerAP && attacker->fXP==attackerXP && portion.nCrticalDifficulty==7,
+            "attacker-level bookkeeping changed base damage, attacker training, inventory or the input portion");
+        std::printf("native attacker-level rolls: level=%d critical=%d expectedSeverity=%d sharedRNG=%d\n",
+            level,int(critical),expectedSeverity,int(randomMatches));std::fflush(stdout);
+        Require(randomMatches,"native damage omitted the attacker-level severity random prefix");
+        if(critical) {
+            const auto position=log->line.find(L"\tseverity=");
+            Require(position!=wstring::npos,"actual critical calculator did not publish its severity input");
+            const int received=int(std::wcstol(log->line.c_str()+position+10,nullptr,10));
+            std::printf("native critical calculator severity input=%d expected=%d\n",received,expectedSeverity);std::fflush(stdout);
+            Require(received==expectedSeverity,"attacker-level severity rolls never reached the actual critical calculator");
+        } else Require(log->line.empty(),"zero-probability control unexpectedly entered critical selection");
+    };
+    hit(0,false);hit(0,true);
+    std::puts("native attacker-level controls: anonymous damage/severity and existing shared draws preserved");std::fflush(stdout);
+    hit(1,false);
+    hit(1,true);hit(3,false);hit(3,true);hit(7,false);hit(7,true);
+}
+
 static void HeadBodyDamage(const char* databasePath)
 {
     CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
@@ -17436,6 +17511,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "conclusions") && argc == 4) { ConclusionRouting(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "pk-placement")) { PKPlacement(); return true; }
     if (!std::strcmp(mode, "critical-ids") && argc == 3) { CriticalIDs(argv[2]); return true; }
+    if (!std::strcmp(mode, "attacker-level-critical-rolls") && argc==3) { AttackerLevelCriticalRolls(argv[2]); return true; }
     if (!std::strcmp(mode, "head-body-damage") && argc==3) { HeadBodyDamage(argv[2]); return true; }
     if (!std::strcmp(mode, "fresh-skill-modifier-values") && argc==3) { FreshSkillModifierValues(argv[2]); return true; }
     if (!std::strcmp(mode, "health-survival-threshold") && argc==3) { HealthSurvivalThreshold(argv[2]); return true; }

@@ -1125,9 +1125,15 @@ int CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, CAttackPor
 			else
 				nDmg = 100000;
 		}
+		int nCriticalDifficulty = pAttack->nCrticalDifficulty;
+		if ( IsValid( pAttack->pAttacker ) )
+		{
+			for ( int i = 0; i < pAttack->pAttacker->GetSkillValue( NDb::ST_LEVEL ); ++i )
+				nCriticalDifficulty += MissionRandom().Get( 1, 20 );
+		}
 		// a critical injury may arise inside GetCriticalDmgModifier
 		float fCriticalDmgModifier = 
-			GetCriticalDmgModifier( (NAI::EHitLocation)nUserID, pAttack->nCrtical, pAttack->nCrticalDifficulty );
+			GetCriticalDmgModifier( (NAI::EHitLocation)nUserID, pAttack->nCrtical, nCriticalDifficulty );
 		fDmgModifier += fCriticalDmgModifier;
 		csRPG << CC_GREY << "\tHL=" << GetHLName( (NAI::EHitLocation)nUserID );
 		csRPG << CC_GREY << " \tDmgModifier=" << fDmgModifier;

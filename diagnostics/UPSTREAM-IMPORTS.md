@@ -5072,3 +5072,58 @@ critical selection/called-shot rules не менялись. Статус281:101p
 104imported/26partial/38already/3docs/5excluded-balance/2excluded-own,
 по1historical/review.128 исходных коммитов ещё разбираются. CPUbase380;
 свежий full387/CI не заявляется. Все281 и final actual HEAD Actions не завершены.
+
+
+## Броски тяжести критического попадания за уровень атакующего — завершениеdfb4e99b
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/dfb4e99b50118531a3f641f46ba22c88ae38314f
+
+Независимый original Steam EXE того же проверенного SHA2564F417593A9F73E2BFDE12D83CDBD694AE47EECB92812140D67B8B343E4A95705:
+6c40b5 вызывает GetSkillValue(ST_LEVEL13);6c40be/c0 передаёт20/1 в global RNG,
+результат прибавляет EBP и повторяет цикл до уровня. Сумма EBP передаётся
+по6c417a/4183 в actual critical calculator. Oracle сохранён отдельно в
+attacker-level-critical-retail-disassembly.txt; старый EXE только читался.
+
+Compiled native RED с первого запуска: actual persona103/real missions,
+body armor, fixed damage1/self target/noKO−1. Контроли без attacker: probability0
+сохраняет один KO draw, probability100 логирует severity7 и сохраняет прежние
+RollCritical+KO shared draws. Затем реальный attackerLVL1 при probability0
+не расходует обязательный level prefix, four-next-ISAAC words расходятся.
+
+Перенесён только local difficulty и один Get(1,20) за уровень через наш
+MissionRandom (Winrandom/Linuxs2_game_random). Generic SRand/global backend,
+save/network RNG ownership не заменялись; входной portion не переписывается.
+Нынешние probability/critical selection/extra RollCritical draw/formулы65558b11
+остались прежними. Native GREEN LVL1/3/7 × probability0/100 проверяет точные
+prefix draws, прежние последующие draws и4 следующих ISAAC слова. Existing
+ILogNotify читает реальный severity argument из diagnostics critical calculator:
+он равен7+sum(prefix), не просто ожидаемому расходу RNG. Public DisableCriticals
+в fixture изолирует выбор травмы; это severity handoff/RNG proof, не отдельный
+oracle итоговой травмы/critical damage. Blocked attack nK0 не расходует RNG,
+не наносит damage и не обучает. Base body damage1/actualVP loss/attackerAP+XP/
+inventory/inputportion сохраняются. Nullworld — supported без difficulty factor.
+
+Старая vitality acknowledgment regression обновлена ровно для identified
+attacker prefix из native GetSkillValue(ST_LEVEL), затем прежний KO draw.
+Anonymous branch и полное сравнение обучения с прежним CUnit.UseSkill
+сохранены, four-next-words assertions не ослаблены. Targeted GREEN5/54.83с.
+
+Так как изменяется shared random stream при каждом identified hit, повторён
+FULL: Windows388/388317.08с, Linux388/388322.14с (CPUbase381+7GPU extras),
+17audio/12FONT-COMPAT на каждой платформе, raw388 полные без NUL. Обе Game и
+Windows ALL_BUILD собраны. NetworkSerializer/ClientUI/ObjectStages/StopResume
+4/46.90с. CI-like280/28023.85с, raw280/12FONT-COMPAT/noNUL. Полные raw сохранены
+до следующего CTest, CI raw скопирован самим wrapper после завершения.
+Свидетельства attacker-level-critical-rolls: red/green-{build,test,native-test}.log,
+all-build.log, full-test.log, linux-{configure,build,test}.log,
+{windows,linux}-full-native-test.log, network-test.log,
+windows-network-native-test.log, ci-{test,native-test}.log, ci-tests.txt.
+Сборки прежние, HD не генерировался, тестовые процессы после проверок завершились.
+
+dfb4e99b теперь imported: head multiplier и level prefix перенесены отдельными
+фиксами/коммитами с immediate push. Статус281:101pending/105imported/25partial/
+38already/3docs/5excluded-balance/2excluded-own, по1historical/review.127 исходных
+коммитов ещё разбираются. Последний observed hosted run3ae77adf40453581256 был
+in_progress; он не выдается за success текущего fix. Все281 и final actual
+HEAD GitHub Actions ещё не завершены. Соседние critical math/perk rebalance
+hunks остаются отдельными, явные ORIGINAL RETAIL BUG FIXED изменения исключены.
