@@ -6404,3 +6404,42 @@ NativeMissionMapProbe/IsLockerUnit — независимая и остаётс�
 Игровой код, оригинальный баланс, HD/textures/fonts и сохранения не менялись.
 Статус cc9fbeab остаётся imported, общий tracker121 незавершённая запись.
 Остальные source entries и final actual-HEAD GitHub Actions ещё открыты.
+
+
+## Portable path lockers: link the real eligibility policy
+
+Отдельный integration follow-up к
+[48c244323ed01b3ba955474d8160e7fde2073c8b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/48c244323ed01b3ba955474d8160e7fde2073c8b)
+(наш исходный import d9bd202f). Расширенный Linux прогон обнаружил, что настоящий
+NativeMissionMapProbe не линкуется: grid ссылается на IsLockerUnit, который жил
+в full-server debug translation unit. Четыре map cases были NotRun. Реальная
+ошибка сборки сохранена в global-game-difficulty-linux-extra-probes-build.log;
+она не объявляется compiled gameplay RED.
+
+IsLockerUnit перенесён в уже связанный aiLocker.cpp и вызывает политику через
+CUnit, как соседний IsBigLocker. Новый IsPathLocker по умолчанию false;
+CUnitServer делегирует существующему CDumbUnitServer::IsLocker без изменения
+его выражения. Виртуальные методы добавлены после прежних методов классов.
+Сохраняются server eligibility, worn/empty PK и corpse правила; поля объектов,
+serialization tags, lock counts, footprint и движение не менялись. Заглушек
+server policy в диагностике и зависимости portable probe от всего Main нет.
+
+После ремонта настоящие четыре map cases выполнились:4/4 GREEN3.81с.
+После окончательного расположения новых virtuals заново собраны оба Game и
+Windows ALL_BUILD, выполнены расширенные Windows437/437395.34с и
+Linux437/437383.77с. В этих прогонах реально запущены NativeMissionMapProbe,
+NativeMissionScriptCorpusTests и NativeLuaRuntimeTests; совместно с1db39d28
+закрыты все5 ранее отсутствовавших portable diagnostics. Native locker tests
+проверяют dead/overlap/moving/selection/flying/removed-player случаи.
+
+Own LAN7/7 GREEN185.33с, в том числе361/361maps130.63с (deployment/replica,
+не полные бои). CI-like284/28424.44с. Raw437/437/7/284 полные, без NUL,
+Test Failed и Unable to find executable; fonts12 в обоих широких прогонах и CI.
+Окончательные CTest stdout и exit0 подтверждают выполнение; прежний CTest raw
+Test Passed при NotRun не использован как доказательство GREEN.
+Evidence portable-locker-interface-{full,linux-full,network,ci}-native-test.log.
+
+Это ремонт зависимости ранее перенесённой логики, а не повторный перенос
+алгоритма. Оригинальный баланс, свои LAN/renderer/facial/HiRes fonts и HD
+не менялись. Статус48c24432 остаётся imported; tracker281 и121 незавершённая
+запись неизменны. Общий аудит и final actual-HEAD GitHub Actions ещё открыты.

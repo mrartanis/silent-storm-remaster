@@ -390,6 +390,8 @@ public:
 	virtual bool IsUnitVisible( const CUnit *pUnit ) const = 0;
 	virtual bool IsUnitAudible( const CUnit *pUnit ) const = 0;
 	virtual bool CanTalk() const = 0;
+	// Only server units expose the native path-lock eligibility policy.
+	virtual bool IsPathLocker() { return false; }
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CAckEvent

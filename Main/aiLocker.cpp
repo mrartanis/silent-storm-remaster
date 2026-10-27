@@ -10,6 +10,14 @@
 namespace NAI
 {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+bool IsLockerUnit( CObjectBase *pUnit )
+{
+	CDynamicCast<NWorld::CUnit> pUS( pUnit );
+	if ( !IsValid( pUS ) )
+		return false;
+	return pUS->IsPathLocker();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IsBigLocker( CObjectBase *pUnit )
 {
 	// CUnitServer::IsWearingPK() is exactly IsValid(GetWearingDBPK()).

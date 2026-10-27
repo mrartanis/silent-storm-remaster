@@ -131,7 +131,6 @@ private:
 	void BlowUp();
 protected:
 	bool IsLocker();
-	friend bool NAI::IsLockerUnit( CObjectBase *pUnit ); // aiPositionDebug locker-validity probe (retail @0x917d0)
 	// retail @0x3c2190 Die(bool,bool) -- arg1 bDeathBeauty ORs into the beauty-cam condition
 	// (the gib path forces it); arg2 bRemove = the silent removal flavor (no ack/state/camera).
 	virtual void Die( bool bDeathBeauty = false, bool bRemove = false ) {}

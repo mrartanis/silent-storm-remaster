@@ -321,6 +321,7 @@ public:
 	void SetCanTalk( bool _bCanTalk ) { bCanTalk = _bCanTalk; }
 	void FallFromHigh( float fHeightDiff );
 	bool IsAIUnit() const;
+	bool IsPathLocker() override { return CDumbUnitServer::IsLocker(); }
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool BeginDeactivatingItem( CUnitServer *pUS, NDb :: EItemSubType subType );
