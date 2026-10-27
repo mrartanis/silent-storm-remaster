@@ -4130,3 +4130,31 @@ red-native-test.log, green-{build,test}.log, green-native-test.log,
 all-build.log, related-test.log, linux-{configure,build,test}.log,
 {windows,linux}-native-test.log и network-{test,native-test}.log.
 Sourcefcc остаётся частичным; all281/final actual Actions не завершены.
+
+## Видимость предмета при команде пути ITEM_ACTIVE — часть fcc994bc
+
+Новый UpstreamMovementItemActivationVisibility расширяет прежний fixture:
+CCmdSetActiveItem.Run/Cancel устанавливает настоящую активную руку,
+затем настоящий одноточечный ITEM_INACTIVE path убирает видимый предмет.
+Прямой записи private/animator flags для подготовки нет. После этого
+настоящий CreateSimpleMoveExecutor с ITEM_ACTIVE исполняет собственную
+CCmdActivateItem ветку нашего mover; проверяется полное завершение её FSM.
+
+Compiled runtime RED: прежний ExplicitItemActivationVisibility проходит,
+два visible movement controls проходят, ordinary hidden остаётся
+animator-active=1. После RED только CExecMove::DoCommand передаёт существующий
+!IsActiveItemToShow в три ActivateItem call sites (heavy/detector/ordinary).
+Планирование ConvertPath, persistent/short-path holster policy, AP и wire
+не заменяются. GREEN: normal/heavy x visible/hidden, AP/ammo/позиция/обе руки,
+отмена старого holster preference и action release. Отдельный detector record,
+путешествие/auto-activation/лестницы/pixels/natural animation clock не покрыты.
+
+Target7/7; связанные 45/45 Windows (50.08 с) и Linux (49.66 с),
+обе Game и Windows ALL_BUILD, по 12 FONT-COMPAT, raw45 полные без NUL.
+NetworkSerializer/PartialMovement/StopResume 3/3 (6.30 с).
+CPU base361; последний полный checkpoint d33ec7da base359+5=364/CI-like277.
+Свидетельства movement-item-activation-visibility: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+all-build.log, related-test.log, linux-{configure,build,test}.log,
+{windows,linux}-native-test.log и network-{test,native-test}.log.
+Sourcefcc остаётся частичным; all281/final actual Actions не завершены.

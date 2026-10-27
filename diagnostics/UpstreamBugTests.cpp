@@ -7166,7 +7166,7 @@ static void FinishedMusicSilence(const char* databasePath)
 
 }
 
-static void ExplicitItemActivationVisibility(const char* databasePath,const char* resourcePath)
+static void ExplicitItemActivationVisibility(const char* databasePath,const char* resourcePath,bool movement = false)
 {
     for (bool visible: {true,false})
         for (bool heavy: {false,true}) {
@@ -7208,6 +7208,32 @@ static void ExplicitItemActivationVisibility(const char* databasePath,const char
             CObj<NWorld::CCommandExecute> executor = NWorld::CreateExecutor(actor,request,&result);
             Require(executor && result == NWorld::UCR_OK, "item activation fixture could not create its native executor");
             executor->Run();
+            if (movement) {
+                // Reconcile the new hand through the real equipment cancellation path.
+                executor->Cancel(); executor = nullptr;
+                Require(inventory->GetActive() == item.GetPtr() && !world->IsAction(),
+                    "movement visibility preparation lost its active hand or retained an action");
+                auto activationPath = [&](NWorld::ENeedActiveItem constraint) {
+                    CObj<NAI::CPath> path = new NAI::CPath;
+                    path->pNet = world->GetPathNetwork();
+                    path->points.push_back(actor->GetPosition().pos.p);
+                    CObj<NWorld::CCommandExecute> move = NWorld::CreateSimpleMoveExecutor(actor,path,NAI::PF_DEFAULT,constraint);
+                    Require(move != nullptr,"movement visibility fixture could not create its native activation path");
+                    return move;
+                };
+                // Holster visible controls through the mover too; do not inject animator flags.
+                executor = activationPath(NWorld::ITEM_INACTIVE);
+                executor->Run();
+                for (int callback=0;callback<3 && executor->GetState() != NWorld::CCommandExecute::FINISHED;++callback) {
+                    executor->TimeLabelReached(); executor->AnimationFinished();
+                }
+                Require(executor->GetState() == NWorld::CCommandExecute::FINISHED && !actor->animator.IsActiveItem(),
+                    "native inactive path failed to prepare a holstered item");
+                executor = nullptr;
+                actor->SetWalkWithoutWeapon(true);
+                executor = activationPath(NWorld::ITEM_ACTIVE);
+                executor->Run();
+            }
             for (int callback=0;callback<3 && executor->GetState() != NWorld::CCommandExecute::FINISHED;++callback) {
                 executor->TimeLabelReached(); executor->AnimationFinished();
             }
@@ -15869,6 +15895,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "holstered-heavy-weapon-mesh")) { Require(argc == 4, "heavy mesh requires db and res"); HolsteredHeavyWeaponMesh(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hidden-active-item-mesh")) { Require(argc == 4, "hidden active mesh requires db and res"); HolsteredHeavyWeaponMesh(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "explicit-item-activation-visibility") && argc == 4) { ExplicitItemActivationVisibility(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "movement-item-activation-visibility") && argc == 4) { ExplicitItemActivationVisibility(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "hidden-carried-heavy-mesh")) { Require(argc == 4, "hidden carried mesh requires db and res"); HolsteredHeavyWeaponMesh(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "script-holster-persistence")) { Require(argc == 4, "script holster requires db and res"); ScriptHolsterPersistence(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "movement-holster-policy")) { Require(argc == 4, "movement holster requires db and res"); MovementHolsterPolicy(argv[2], argv[3]); return true; }
