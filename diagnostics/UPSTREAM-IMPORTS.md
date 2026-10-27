@@ -7649,3 +7649,59 @@ preceding ordering section; its94byte IsSame float proof remains unchanged.
 Sourcea3f stays partial: temporary save lifecycle, decal alpha/lightmap shader
 consumers and cube cache/filter/shadow adaptations remain to audit with our
 SDL/bgfx pipeline. Tracker281/112unfinished and ALL281/final hosted CI stay open.
+
+
+## a3f330bb, temporary saves — clean only a completed native game lifetime
+
+Sourcea3f330bbd76d67d34c5ed897d253c52cc51692b6 adds PrepareSlot(temp) at startup
+and DeleteSlot(temp) on normal exit. Our CICSaveFile::Exec already prepares the
+working slot immediately before snapshot writes (iMain.cpp446), so no redundant
+boot preparation is added. The useful missing behavior is normal-exit cleanup.
+
+Native process RED: TemporarySaveLifecycleTests launches the actual shared
+Game executable, loads the real database/SDL/bgfx/loading UI, creates the native
+intermission interface and requests ordinary main-loop exit with harness quit.
+It confirms loading-screen-ready, quit acknowledgement, normal-exit and exit0;
+seeded working snapshot files still exist, named-save bytes remain unchanged.
+CTest RED1failed/2total1.64s: normal-exit case fails for retained temp directory,
+early missing-database startup control passes and preserves prior working data.
+This is actual application lifecycle/file behavior, not a manager-only unit test
+or a whole mission save/load claim. Named-save control is a byte sentinel, not
+an independently load-tested complete campaign save.
+
+Adapt our SDL GameLifetime RAII with a normalExit flag. Set it only at successful
+RunGame completion. Remove the current working slot through our existing guarded
+user-data/profile save manager AFTER DoneInterface, before device shutdown;
+early return/exception paths keep their prior data. Named/autosave/quicksave
+slots and file formats are unchanged. The upstream old WinMain sequence is not
+copied around our interface lifetime. No gameplay balance, snapshot contents,
+own facial/font/audio/HD or renderer-policy edits.
+
+The fixture has a dedicated small working directory, config and user-data root.
+Database hardlink/file symlink and shared read-only resource directory junction/
+symlink avoid copies of the game or assets. It neither edits shared/user config
+nor recursively removes fixture directories. The real native manager removes
+only its reserved working slot. Test subprocesses close via native harness quit;
+timeout first retries quit and can terminate only that owned child. Database
+and resources are explicit independent arguments for our current build layout.
+Normal case is extended/native-display/native-save; early failure is extended/
+native-save, both outside the default asset-free/no-display CI manifest.
+
+Native GREEN2/2 1.63s, final generic-path fixture Windows2/2 1.74s/Linux2/2 2.16s:
+normal quit removes the entire working directory and leaves named bytes intact;
+failed startup retains both. Current Windows/Linux Game built; native-display
+48/48 Windows75.18s/Linux62.34s, covering previous renderer/own UI/fog/stencil
+regressions as well as actual process quit. CI-like290/29024.28s/fonts12.
+Raw2/2/48/48/290 complete/noNUL/Failed/missing executable, actual exits0. Shared
+builds reused, no HD generation/old binary copies. Evidence temporary-save-exit-
+{red,green,final-focused,final-linux,display,linux-display,ci} test/native-test
+logs plus isolated process/startup/harness logs under the shared build fixtures.
+Provenance here is the upstream lifecycle hunk and native behavior; its source
+comment's absolute retail call-site address is not asserted as independently
+verified against our particular Steam image.
+
+Sourcea3f still partial: decal alpha/lightmap shader consumers, cube cache/filter
+and legacy shadow adaptations need further own-bgfx audit. Offset98e8aeea,
+filter4d3e7de9, ordering74fcb547 and own x64 batchingee7f4a81 were separate
+commits, each immediately pushed. Tracker281/112unfinished and ALL281/final
+actual-HEAD hosted CI remain open.

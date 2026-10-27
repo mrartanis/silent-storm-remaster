@@ -1301,9 +1301,11 @@ static bool HarnessPoll()   // returns false to request main-loop exit
 // Subsystems unwind in dependency order on normal exit and every startup error.
 struct GameLifetime {
  bool graphics = false, sound = false, input = false, interface = false;
+ bool normalExit = false;
  ~GameLifetime() {
   NGScene::StopResourceLoadingThread();
   if (interface) NMainLoop::DoneInterface();
+  if (normalExit) NMainLoop::GetSaveManager()->DeleteSlot( NMainLoop::S_SLOT_ACTIVE );
   if (sound) NSound::DoneSound();
   if (graphics) NGfx::Done3D();
   if (input) NInput::DoneInput();
@@ -1583,6 +1585,7 @@ static int RunGame( const char *lpCmdLine )
 	NGlobal::SaveConfig( ".\\cfg\\config.cfg" );
 
 	S2Net::StartupLog("normal-exit");
+	lifetime.normalExit = true;
 	return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
