@@ -2142,6 +2142,15 @@ void CUnitAnimator::EnterCannon( const NAI::SUnitPosition &cmdPos, CCannon *_pCa
 	NAnimation::CSkeletonAnimator *pCAnimator = pCannon->GetSkeletonAnimator();
 
 	aimDir = CVec3( cos( fCannonDir ), sin( fCannonDir ), 0 );
+	// Original Steam @0x73cae9: cannon approach uses stance-only flags.
+	nAnimFlagsPoseWeapon = 0;
+	switch ( pose )
+	{
+		case NAI::WALK:
+		case NAI::RUN: nAnimFlagsPoseWeapon = NDb::CAnimation::POSE_STAND; break;
+		case NAI::CROUCH: nAnimFlagsPoseWeapon = NDb::CAnimation::POSE_CROUCH; break;
+		case NAI::CRAWL: nAnimFlagsPoseWeapon = NDb::CAnimation::POSE_CRAWL; break;
+	}
 
 	CPtr<NAnimation::CAnimation> pUnitAnim = pAnimator->CreateAnimation(
 		pSkeleton->GetAnimation( NDb::CAnimation::START_ATTACK, nAnimFlagsPoseWeapon, 

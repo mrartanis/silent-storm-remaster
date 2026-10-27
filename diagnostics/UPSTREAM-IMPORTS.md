@@ -6861,3 +6861,51 @@ Source1d260f7f pending -> imported. Tracker281:92pending/122imported/
 23partial/32already/3docs/5excluded-balance/2excluded-own/1historical/1review,
 116 unfinished entries. Overall ALL281 goal and final actual-HEAD hosted
 GitHub Actions remain open; this source is complete.
+
+
+## Cannon approach: play the original body entry clip with stance-only flags
+
+First independent hunk of [f2ed3ca5ba3d4d0d3002f02f2aa0fb7f0f9a5f86](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f2ed3ca5ba3d4d0d3002f02f2aa0fb7f0f9a5f86).
+Native FixtureWorld810, actual CCannon/GetApproaches/CanDoIt and CExecCannon.Run:
+ordinary armed persona838/personal weapon30 has body flags0x1001; actual
+cannon weapon65 uses DShK12.7mm. Original stance-only lookup resolves authored
+START_ATTACK clip3947; native resource loader independently loads833ms.
+Compiled RED1.17s: no cannon entry clip in the real body skeleton graph and
+actual duration0. The fixture accepts both authored clips in that cannon's
+START_ATTACK/name family, rather than assuming roulette always picks the
+same variant. Earlier RED1.88s had the same missing-clip cause. Initial bad
+IUnitMission.IsUsingCannon fixture API was corrected to GetCannonItem; that
+compile failure is not gameplay RED. No DB fields/assets were changed.
+
+Original oracle: GoldPDB CUnitAnimator::EnterCannon731cf0/472 first32,
+maskEH9:13, uniquely maps to immutable Steam73ca30. Actual pose jump73cae9,
+table73cbf8 maps CRAWL0->73cafe(flag4), CROUCH1->73caf5(flag2), WALK2/RUN3
+->73caf0(flag1 via EBP=1 at73ca5f). Pose enum is not guessed. Explicit mounted
+name is passed at73cb1d/73cb2b, START_ATTACK type6 lookup call7dc4f0 at73cb2f.
+Evidence cannon-entry-retail-lookup.txt and
+cannon-entry-animation-retail-disassembly.txt; source VAs are not trusted.
+
+Production is only the stance-only switch in CUnitAnimator::EnterCannon.
+Current Run already supplies the mounted name, so no public API/header,
+AP/state/occupancy timing or completion changes are bundled here. This is
+body CSkeletonAnimator, not our LSHead facial system. Save fields/IDs,
+HiRes fonts, HD assets/build rules, RNG formula and balance numbers remain.
+
+Native GREEN Windows40/40 44.68s and Linux40/40 43.78s include movement,
+mounted UI/reload, corpse/ragdoll, hidden body and torso cases. Both native
+runs play clip3947 for833ms; the test also checks stance-only field1 and a
+finite actual hip pose at the clip midpoint, then completes and leaves the
+actual mounted state with no active action retained. This is native executor,
+resource/animation graph and sampled skeleton proof, not GPU pixels, complete
+AI turn, physical input or whole-save compatibility proof. Both Game builds
+pass; CI-like284/28424.23s (12FONT-COMPAT). Raw40/40/284 complete with no
+NUL/missing/Failed, actual exit0. Evidence cannon-entry-animation-
+{final-native-red,native-green,linux-related,ci}-native-test.log and stdout.
+Focused checks suffice for this isolated body selection change; no new full450
+or361-map run is claimed. Shared builds reused, no old build copies/HD generation.
+
+Sourcef2ed3ca5 pending -> partially-imported: completion/AP/item/state/
+occupancy timing and unconscious/dead exit still require separate native TDD.
+Tracker281:91pending/122imported/24partial/32already/3docs/5excluded-balance/
+2excluded-own/1historical/1review,116 unfinished entries. Overall goal and final
+actual-HEAD hosted CI remain open.

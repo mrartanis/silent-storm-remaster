@@ -11930,6 +11930,115 @@ static NWorld::CCommandExecute* FindNativeReload(NWorld::CCommandExecute* execut
     return reload;
 }
 
+struct NativeCannonFixture
+{
+    CObj<NRPG::CGlobalGame> game;
+    CObj<NWorld::CWorld> world;
+    CPtr<NWorld::CUnitServer> actor;
+    CPtr<NWorld::CCannon> cannon;
+    CDBPtr<NDb::CAnimation> entryAnimation;
+    vector<int> entryClipIDs;
+    int personalFlags=0;
+};
+
+static NativeCannonFixture MakeNativeCannonFixture(const char* databasePath,const char* resourcePath)
+{
+    NativeCannonFixture fixture;fixture.world=FixtureWorld(databasePath,resourcePath,true,&fixture.game);
+    auto* world=fixture.world.GetPtr();auto* network=world->GetPathNetwork();world->GetTime()->Set(1000);
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);
+    vector<NWorld::CCannon*> cannons;world->GetCannons(&cannons);
+    for(auto entry:units) {
+        auto* actor=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if(!actor || !actor->CanFight() || actor->IsWearingPK() || actor->IsEmptyPK() || actor->GetUnitRPG()->GetCannonItem())continue;
+        auto* personal=dynamic_cast<NRPG::CWeaponItem*>(actor->GetUnitRPG()->GetInventory()->GetActive());
+        if(!personal)continue;
+        const auto original=actor->GetPosition();
+        for(auto* cannon:cannons) {
+            if(!cannon || cannon->IsBroken() || cannon->IsOccupied() || !cannon->GetSkeletonAnimator())continue;
+            auto* weapon=dynamic_cast<NRPG::CWeaponItem*>(cannon->GetItem());
+            if(!weapon || weapon->GetDBWeapon()->szAnimName.empty())continue;
+            vector<NAI::SPathPlace> places;cannon->GetApproaches(&places,network);
+            for(auto place:places) {
+                place.SetPose(NAI::CM_STAND);
+                if(!network->IsPassable(place) || network->IsLocked(place))continue;
+                auto position=original;position.pos.p=place;position.bRun=false;actor->SetPosition(position);
+                actor->animator.AlignTime();actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
+                actor->animator.SetActiveItem(true);actor->animator.SetWeaponName(personal->GetDBWeapon()->szAnimName.c_str());
+                actor->animator.PlaceUnit(position);
+                CDBPtr<NDb::CSkeleton> skeleton;CDBPtr<NDb::CSide> side;int flags=0,classFlags=0;
+                CMemoryStream fields;CStructureNetworkContext refs;refs.include=[](CObjectBase*){return false;};
+                {CStructureSaver writer(fields,CStructureSaver::WRITE,&refs);actor->animator.operator&(writer);}
+                fields.Seek(0);{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(4,&flags);reader.Add(5,&classFlags);reader.Add(31,&skeleton);reader.Add(40,&side);}
+                auto* expected=skeleton?skeleton->GetAnimation(NDb::CAnimation::START_ATTACK,NDb::CAnimation::POSE_STAND,
+                    weapon->GetDBWeapon()->szAnimName.c_str(),classFlags,side):nullptr;
+                if(!expected || flags==NDb::CAnimation::POSE_STAND)continue;
+                CObj<NWorld::CCmdCannon> command=new NWorld::CCmdCannon(cannon);
+                CObj<NWorld::CExecCannon> probe=new NWorld::CExecCannon(actor,cannon,true,command);
+                if(probe->CanDoIt(position)!=NWorld::UCR_OK)continue;
+                fixture.actor=actor;fixture.cannon=cannon;fixture.entryAnimation=expected;fixture.personalFlags=flags;
+                for(const auto& clip:skeleton->pAnimations[NDb::CAnimation::START_ATTACK].anims)
+                    if(clip->szParams==weapon->GetDBWeapon()->szAnimName)fixture.entryClipIDs.push_back(clip->GetRecordID());
+                Require(std::find(fixture.entryClipIDs.begin(),fixture.entryClipIDs.end(),expected->GetRecordID())!=fixture.entryClipIDs.end(),
+                    "native cannon positive clip is missing from its authored skeleton entry candidates");
+                std::printf("native cannon fixture: persona=%d personalWeapon=%d cannonWeapon=%d name=%s poseFlags=0x%X entryClip=%d\n",
+                    actor->GetUnitRPG()->GetRPGPers()->GetRecordID(),personal->GetDBWeapon()->GetRecordID(),weapon->GetDBWeapon()->GetRecordID(),
+                    weapon->GetDBWeapon()->szAnimName.c_str(),unsigned(flags),expected->GetRecordID());std::fflush(stdout);
+                return fixture;
+            }
+        }
+        actor->SetPosition(original);actor->animator.AlignTime();actor->animator.PlaceUnit(original);
+    }
+    Require(false,"cannon fixture has no actual armed actor, free authored approach and matching original stance-only entry clip");
+    return fixture;
+}
+
+static vector<NAnimation::CAnimation*> NativeCannonAnimationClips(NAnimation::CSkeletonAnimator* animator)
+{
+    vector<NAnimation::CAnimation*> result;vector<CObjectBase*> pending{animator},visited;
+    while(!pending.empty()) {
+        auto* object=pending.back();pending.pop_back();
+        if(std::find(visited.begin(),visited.end(),object)!=visited.end())continue;visited.push_back(object);
+        if(auto* clip=dynamic_cast<NAnimation::CAnimation*>(object))result.push_back(clip);
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(object,&refs);
+        for(const auto& ref:refs.refs)if(dynamic_cast<NAnimation::CAnimator*>(ref.second.GetPtr()))pending.push_back(ref.second.GetPtr());
+    }
+    return result;
+}
+
+static void CannonEntryAnimation(const char* databasePath,const char* resourcePath)
+{
+    auto fixture=MakeNativeCannonFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* cannon=fixture.cannon.GetPtr();
+    auto* animator=actor->animator.GetSkeletonAnimator();const STime start=actor->animator.GetTimeEnd();
+    CObj<NAnimation::CAnimation> control=animator->CreateAnimation(fixture.entryAnimation,start);
+    Require(control && control->GetTime()>0,"native authored cannon entry clip did not load with a real nonzero duration");
+    const auto before=NativeCannonAnimationClips(animator);
+    Require(std::none_of(before.begin(),before.end(),[&](NAnimation::CAnimation* clip){return clip->GetRecordID()==fixture.entryAnimation->GetRecordID();}),
+        "cannon entry fixture already had its expected clip in the actual skeleton graph");
+    CObj<NWorld::CCmdCannon> command=new NWorld::CCmdCannon(cannon);
+    CObj<NWorld::CExecCannon> executor=new NWorld::CExecCannon(actor,cannon,true,command);
+    Require(executor->CanDoIt(actor->GetPosition())==NWorld::UCR_OK,"native actor cannot enter its actual unoccupied cannon");
+    executor->Run();
+    const STime end=actor->animator.GetTimeEnd();const auto after=NativeCannonAnimationClips(animator);
+    NAnimation::CAnimation* played=nullptr;
+    for(auto* clip:after)
+        if(std::find(before.begin(),before.end(),clip)==before.end() &&
+           std::find(fixture.entryClipIDs.begin(),fixture.entryClipIDs.end(),clip->GetRecordID())!=fixture.entryClipIDs.end()) {played=clip;break;}
+    std::printf("native cannon entry: controlClip=%d actualClip=%d duration=%u controlDuration=%u allowedEntryClips=%u\n",fixture.entryAnimation->GetRecordID(),
+        played?played->GetRecordID():0,unsigned(end-start),unsigned(control->GetTime()),unsigned(fixture.entryClipIDs.size()));std::fflush(stdout);
+    Require(played && played->GetTime()>0 && end-start==played->GetTime(),"native cannon approach lost its authored entry clip by filtering on the personal weapon instead of stance-only flags");
+    CMemoryStream fields;CStructureNetworkContext refs;refs.include=[](CObjectBase*){return false;};int flags=0;
+    {CStructureSaver writer(fields,CStructureSaver::WRITE,&refs);actor->animator.operator&(writer);}
+    fields.Seek(0);{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(4,&flags);}
+    Require(flags==NDb::CAnimation::POSE_STAND,"native cannon approach retained personal weapon flags instead of the original stance-only flags");
+    fixture.world->GetTime()->Set(start+played->GetTime()/2);CVec3 hip;
+    Require(actor->animator.GetHipPos(&hip) && std::isfinite(hip.x) && std::isfinite(hip.y) && std::isfinite(hip.z),
+        "native cannon approach did not produce a finite real skeleton pose during its entry clip");
+    fixture.world->GetTime()->Set(end);executor->AnimationFinished();executor=nullptr;
+    CObj<NWorld::CExecCannon> leave=new NWorld::CExecCannon(actor,cannon,false);leave->Run();leave->AnimationFinished();leave=nullptr;
+    Require(!fixture.world->IsAction() && !cannon->IsOccupied() && !actor->GetUnitRPG()->GetCannonItem(),
+        "native cannon animation fixture did not release its actual mounted state and action");
+}
+
 static void MountedReloadWeapon(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -19294,6 +19403,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-terminal-finished")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "movement-terminal-failed")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "movement-action-camera")) { Require(argc == 4, "movement camera requires db and res"); MovementActionCamera(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "cannon-entry-animation")) { Require(argc == 4, "cannon animation requires db and res"); CannonEntryAnimation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mounted-reload-weapon")) { Require(argc == 4, "mounted reload requires db and res"); MountedReloadWeapon(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "holstered-reload-preparation")) { Require(argc == 4, "reload preparation requires db and res"); HolsteredReloadPreparation(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "empty-clip-attack-entry") && argc == 4) { EmptyClipAttackEntry(argv[2],argv[3]); return true; }
