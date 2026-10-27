@@ -5721,3 +5721,81 @@ Evidence forced-state-cursor-caption-{red,green,related,linux,network-related,ci
 32already/3docs/5excluded-balance/2excluded-own/1historical/1review.
 127 незавершённых исходных entries, плюс сверка оставшихся старых PRESENT.
 Общий перенос, расследование нестабильного теста и финальные Actions не завершены.
+
+## Подпись пустого панцеркляйна при использовании — завершение4430374b
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4430374be9ea6be47346d06be41b68005dd7e835
+
+В нынешнем коде пустой PK получает CUnitStateDeath в CWorld::AddUnit даже при
+положительной прочности брони. Это представление небоеспособного корпуса;
+серверный IsDead здесь не означает разрушение самой брони. Старая проверка
+IsUnconscious для подписи поэтому пропускала настоящий целый пустой PK.
+Первый правильный собранный native RED: persona93, armorHP700, IsEmptyPK1,
+serverDead1, accepted use state, но label0. Настоящая проекция в320x240 и
+native GetEnemyUnitInfo успешно прошли положительные контроли до этой ошибки.
+
+Тест использует настоящий CMission::Initialize с авторским variant810 и его
+родительским template, мир, player54, HUD, renderer и полный активный
+NMainLoop::StepApp. Единственная подменённая граница — вход GetStateTarget:
+тест передаёт настоящий объект и признак world, не проверяя аппаратное
+наведение/трассировку мыши. Тип PK, состояния, SEnemyInfo, CStateUse, камера,
+UI-окно и текст выполняются штатным кодом. Состояния человека и разрушенного
+PK задаются публичными native SetState/RPG API; весь процесс смерти, анимации
+и сохранения не заявляется проверенным.
+
+Предыдущие ошибки подготовки сохранены отдельно и не считаются RED:
+неподходящий конструктор/API fixture, ошибочное ожидание !IsDead у целого PK,
+затем устаревшая cached camera matrix после прямого Mission::Step без активного
+главного цикла. Диагностика показала directProjection1/cachedProjection0.
+Исправлена именно подготовка: полные активные StepApp, штатный scripted
+SetPlacement и clock100100 дают direct1/cached1/current1/ready1. Production
+до окончательного RED не менялась.
+
+Независимая сверка оригинального Steam Game.exe, SHA256
+`4F417593A9F73E2BFDE12D83CDBD694AE47EECB92812140D67B8B343E4A95705`:
+Gold PDB CStateUse::Initialize5d5a10 через уникальную54-байтовую сигнатуру
+с маской EH и сдвига поля mission10→c сопоставлен со Steam5d8f90.
+В Steam5d90a1 вызывается CUnit slot0 и сохраняется отрицание CanFight;
+5d90d4 вызывает slot10, затем создаёт подпись со style2c по5d9126.
+Идентичная34-байтовая функция Gold CanFight7ba9b0 найдена в Steam7c7280;
+её thunk7c7340 и таблица CUnit8ce15c дают slot0. Slot10 указывает на7c72b0,
+чьё тело совпадает с Gold PDB IsEmptyPK7ba9e0 и читает PK-флаг [this+84].
+Таким образом, названия виртуальных функций не взяты только из комментария
+upstream. Некоторые старые адресные комментарии не соответствуют этому EXE:
+например7c6840 здесь находится внутри конструктора, а не CanFight.
+Оригинальные EXE только читались, не запускались, не копировались и не менялись.
+
+Перенесён выбор IsEmptyPK вместо IsUnconscious и исходно скрытый style2c;
+общий helper показывает окно только для валидной проецируемой цели.
+Исправлены соответствующие устаревшие комментарии о dead-hover и поле окна.
+GREEN: целый и разрушенный настоящий PK получают подпись/PK-only состояние
+брони; ограничения точных HP сохранены; обычный живой человек, бессознательное
+тело, труп человека, null и non-world target проходят свои контроли. Terminate
+освобождает окно. Запросы не меняют AP/VP/позицию наблюдателя и не исполняют use.
+
+Отдельная замена gate IsDead||IsUnconscious на !CanFight не нужна: обе
+production реализации CanFight (CUnit и CUnitServer, включая используемые LAN
+объекты) определены как !IsDead&&!IsUnconscious. Для всех нынешних типов это
+эквивалентный hunk, что дополнено native контролями состояний; искусственного
+override ради падающего теста не вводилось. Исходный gate оставлен.
+
+Windows ALL_BUILD/Game и Linux Game;60/60 Windows61.08с/Linux57.84с,
+12native-display/12FONT-COMPAT, raw полные без NUL.4Network12.36с;
+CI-like280/28030.21с, raw280/noNUL/12fonts. Целевые4/4 после фикса.
+Evidence body-hover-labels-{red,green,related,linux,network-related,ci},
+body-hover-label-retail-{lookup,disassembly}; ошибки подготовки — fixture-*
+и camera-probe. Те же сборки, HD OFF, без дополнительных копий игры.
+CPU387 прежний; ожидаемый FULL403 не объявляется выполненным. Последний
+полный Linux399/400 с нестабильным ChapterClueHeading остаётся отдельным
+неустранённым результатом; длительный EncounterMaps также требует проверки
+с подходящим лимитом времени.
+
+443 полностью учтён: forced frame d2f1982f, его native lifecycle адаптация7fb6eda0,
+нынешняя подпись PK и комментарии, эквивалентный CanFight gate. Порядок
+обновления called-shot/trace/info из своего форка сохранён и проверен, буквальная
+перестановка upstream не нужна. Повторно подтверждён эффект06bf8c45 через
+native SEnemyInfo.bUnitInfo=false для PK и соответствующий guard общего helper.
+Оригинальный баланс, свои шрифты, лицевая анимация и графический backend
+не менялись. Tracker281:102pending/112imported/23partial/32already/3docs/
+5excluded-balance/2excluded-own/1historical/1review;126 незавершённых исходных
+entries плюс сверка оставшихся PRESENT. Вся цель и финальные Actions не завершены.

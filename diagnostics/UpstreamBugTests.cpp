@@ -3098,6 +3098,142 @@ static void AudioOptionCheckboxes(const char* databasePath,const char* resourceP
 #endif
 }
 
+class BodyHoverMission: public NGame::CMission
+{
+    OBJECT_NOCOPY_METHODS(BodyHoverMission);
+public:
+    CPtr<CObjectBase> hover;
+    bool fromWorld = true;
+    CObjectBase* GetStateTarget(bool* world = nullptr) const override {
+        if (world) *world = fromWorld;
+        return hover;
+    }
+};
+REGISTER_SAVELOAD_CLASS(0x7f550107,BodyHoverMission);
+
+static void BodyHoverLabels(const char* databasePath,const char* resourcePath)
+{
+    Require(std::getenv("S2_USER_DATA_DIR"),"body hover fixture requires isolated user data");
+    NativeDisplayContext cleanup;
+    cleanup.Initialize(databasePath,resourcePath,"Silent Storm body hover label regression");
+    NGame::InitLoadingScreen();
+    CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(-1);
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    auto* variant = NDb::GetTemplVariant(810);
+    Require(variant && IsValid(variant->pTemplate),"body hover fixture lacks its authored variant and parent template");
+    class Begin: public NMainLoop::CInterfaceCommand {
+        OBJECT_NOCOPY_METHODS(Begin);
+    public:
+        CObj<BodyHoverMission> mission = new BodyHoverMission;
+        CObj<NRPG::CGlobalGame> game;
+        int templateID = -1;
+        void Exec() override {
+            Require(mission->Initialize(templateID,810,nullptr,vector<string>(),game),"body hover fixture failed native mission initialization");
+            SetInterface(mission);
+        }
+    };
+    CObj<Begin> begin = new Begin;
+    begin->game = game; begin->templateID = variant->pTemplate->GetRecordID(); begin->Exec();
+    auto mission = begin->mission;
+    auto* world = dynamic_cast<NWorld::CWorld*>(mission->GetWorld());
+    auto* player = mission->GetActivePlayer();
+    Require(world && player && mission->GetDesktop(),"body hover fixture lacks its actual world, player and HUD");
+    world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(player->GetPlayer())); player->Update(true);
+    vector<CPtr<NGame::IUnitTracker>> party; player->GetUnits(&party);
+    Require(!party.empty(),"body hover fixture has no real party");
+    auto* actor = dynamic_cast<NWorld::CUnitServer*>(party.front()->GetUnit());
+    Require(actor && actor->CanFight() && !actor->IsEmptyPK(),"body hover fixture lacks its native living observer");
+    mission->Select(actor); mission->RefreshPointerTarget();
+    while (NMainLoop::HaveInterfaceCommand()) { CObj<NMainLoop::CInterfaceCommand> pending = NMainLoop::TakeInterfaceCommandForHarness(); }
+    mission->PauseGame(true);
+    struct ClockRestore { STime previous; ~ClockRestore() { NMainLoop::SetTimeForHarness(previous); } } clock{NMainLoop::SetTimeForHarness(100000)};
+    auto frame = [](NGame::CStateUse* state) {
+        CStructureNetworkContext references; auto fields = BorrowedObjectFields(state,&references);
+        CPtr<NUI::CTextFrame> result;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(4,&result); }
+        return result;
+    };
+    auto initialize = [&](CObjectBase* target,bool expect) {
+        mission->hover = target;
+        CObj<NGame::CStateUse> state = new NGame::CStateUse;
+        Require(state->Initialize(mission) == expect,"body hover changed native use-state eligibility");
+        return state;
+    };
+    auto living = initialize(actor,false); Require(!IsValid(frame(living)),"a living human received a pickup label"); living->Terminate();
+    auto absent = initialize(nullptr,false); Require(!IsValid(frame(absent)),"a missing target received a pickup label"); absent->Terminate();
+    NDb::CRPGPers* record = nullptr;
+    CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while (people.MoveNext()) if (IsValid(people.Get()->pPanzerklein) && !people.Get()->pPanzerklein->bHasNoHead && IsValid(people.Get()->pModel)) { record = people.Get(); break; }
+    Require(record,"body hover fixture has no authored ordinary PK persona");
+    auto* network = world->GetPathNetwork(); vector<NAI::SPathPlace> places;
+    network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),20.f),&places);
+    NAI::SPathPlace anchor; bool found = false; float nearest = 1e30f;
+    for (auto place: places) {
+        place.SetPose(NAI::CM_STAND); place.SetDirection(0);
+        if (!NAI::IsBigLockerPlacePassable(network,place)) continue;
+        NAI::SUnitPosition position = actor->GetPosition(); position.pos.p = place;
+        const float length = fabs2(position.GetCP()-actor->GetPosition().GetCP());
+        if (length < nearest) { nearest = length; anchor = place; found = true; }
+    }
+    Require(found,"body hover fixture has no real empty PK footprint");
+    CObj<NWorld::CUnitServer> shell = world->AddUnitInGame(anchor,NRPG::CreateUnit(record),nullptr);
+    std::printf("native spawned PK: valid=%d persona=%d PK=%d fight=%d dead=%d unconscious=%d\n",IsValid(shell),record->GetRecordID(),shell ? shell->IsEmptyPK() : -1,shell ? shell->CanFight() : -1,shell ? shell->IsDead() : -1,shell ? shell->IsUnconscious() : -1);
+    Require(shell && shell->IsEmptyPK() && !shell->CanFight(),"body hover fixture failed to spawn its real empty PK");
+    NWorld::SEnemyInfo intactInfo; player->GetPlayer()->GetEnemyUnitInfo(shell,&intactInfo);
+    Require(intactInfo.bPKInfo && !intactInfo.bUnitInfo && intactInfo.nPKHP > 0,
+        "native empty PK control did not retain its intact armor health");
+    Require(NMainLoop::StepApp(true,false,false),"body hover fixture lost its native first frame");
+    ICamera::SCameraPos placement; mission->GetCamera()->GetPlacement(&placement);
+    placement.ptAnchor = shell->GetPosition().GetCP()+CVec3(0,0,3.6f); placement.fRod = 30;
+    mission->GetCamera()->SetPlacement(placement);
+    NMainLoop::SetTimeForHarness(100100);
+    Require(NMainLoop::StepApp(true,false,false),"body hover fixture lost its focused native frame");
+    const int ap = actor->GetAP(), vp = actor->GetUnitRPG()->GetTotalVP(); const auto position = actor->GetPosition();
+    auto transform = mission->GetCameraTransform(); CVec2 screen;
+    CTransformStack direct; mission->GetCamera()->GetTransform(&direct,mission->GetScene()->GetScreenRect());
+    const auto point = shell->GetPosition().GetCP(); const auto camera = mission->GetCamera()->GetCP();
+    std::printf("native body projection: current=%d ready=%d screen=%.0fx%.0f point=%.2f,%.2f,%.2f camera=%.2f,%.2f,%.2f direct=%d cached=%d\n",
+        NMainLoop::GetCurrentInterfaceForHarness() == mission.GetPtr(),mission->IsReady(),mission->GetScene()->GetScreenRect().x,mission->GetScene()->GetScreenRect().y,
+        point.x,point.y,point.z,camera.x,camera.y,camera.z,
+        TestRayInFrustrum(point+CVec3(0,0,3.6f),&direct,mission->GetScene()->GetScreenRect(),&screen),
+        TestRayInFrustrum(point+CVec3(0,0,3.6f),&transform,mission->GetScene()->GetScreenRect(),&screen));
+    Require(TestRayInFrustrum(shell->GetPosition().GetCP()+CVec3(0,0,3.6f),&transform,mission->GetScene()->GetScreenRect(),&screen),
+        "native intact empty PK control was not projected into the real viewport");
+    auto intact = initialize(shell,true); auto intactFrame = frame(intact);
+    std::printf("native intact PK hover: HP=%d PKlabel=%d serverDead=%d\n",intactInfo.nPKHP,IsValid(intactFrame),shell->IsDead());
+    Require(IsValid(intactFrame) && intactFrame->GetStyle(NUI::STYLE_VISIBLE),"native intact empty PK lost its projected label control");
+    intact->Terminate(); Require(!IsValid(intactFrame),"terminating intact PK hover retained its label");
+    shell->GetUnitRPG()->Kill(); shell->SetState(new NWorld::CUnitStateDeath(shell));
+    Require(shell->IsDead() && shell->IsEmptyPK() && !shell->CanFight(),"body hover fixture failed its native destroyed PK state");
+    auto destroyed = initialize(shell,true); auto destroyedFrame = frame(destroyed);
+    std::printf("native empty PK hover: intactLabel=1 destroyedLabel=%d dead=%d unconscious=%d\n",IsValid(destroyedFrame),shell->IsDead(),shell->IsUnconscious());
+    Require(IsValid(destroyedFrame) && destroyedFrame->GetStyle(NUI::STYLE_VISIBLE),"a destroyed empty Panzerklein lost its native pickup-hover label");
+    NWorld::SEnemyInfo expected; player->GetPlayer()->GetEnemyUnitInfo(shell,&expected);
+    Require(expected.bPKInfo && !expected.bUnitInfo && !expected.bCanSeePKHP && expected.nPKHP < 0,
+        "destroyed PK label fixture changed its native information or visibility policy");
+    list<CPtr<NUI::CWindow>> children; destroyedFrame->GetChildrenList(&children); NUI::CText* text = nullptr;
+    for (auto child: children) if (auto* label = dynamic_cast<NUI::CText*>(child.GetPtr())) { text = label; break; }
+    Require(text && text->GetText().find(NUI::GetDBString(19200)) != wstring::npos &&
+        text->GetText().find(NUI::GetDBString(19208+int(expected.ePKCondition))) != wstring::npos,
+        "destroyed PK hover lost its localized PK-only health condition");
+    destroyed->Terminate(); Require(!IsValid(destroyedFrame),"terminating destroyed PK hover retained its label");
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units); NWorld::CUnitServer* human = nullptr;
+    for (auto unit: units) {
+        auto* candidate = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if (candidate && candidate != actor && candidate != shell.GetPtr() && candidate->CanFight() && !candidate->IsEmptyPK() && !candidate->IsWearingPK()) { human = candidate; break; }
+    }
+    Require(human,"body hover fixture lacks an ordinary second human");
+    human->SetState(new NWorld::CUnitStateUnconscious(human));
+    Require(human->IsUnconscious() && !human->CanFight(),"body hover fixture failed native unconsciousness");
+    auto unconscious = initialize(human,true);
+    Require(!IsValid(frame(unconscious)),"an ordinary unconscious human incorrectly received the empty-PK pickup label"); unconscious->Terminate();
+    human->GetUnitRPG()->Kill(); human->SetState(new NWorld::CUnitStateDeath(human));
+    auto corpse = initialize(human,true); Require(!IsValid(frame(corpse)),"an ordinary corpse received the empty-PK pickup label"); corpse->Terminate();
+    mission->fromWorld = false; auto inventory = initialize(shell,false); Require(!IsValid(frame(inventory)),"a non-world target received a pickup label"); inventory->Terminate();
+    Require(actor->GetAP() == ap && actor->GetUnitRPG()->GetTotalVP() == vp && actor->GetPosition() == position,
+        "querying native body hover labels spent observer AP, changed health or moved the actor");
+}
+
 static void ForcedAttackTooltip(const char* databasePath,const char* resourcePath,bool cursorRouting = false)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"forced-attack tooltip fixture needs isolated user data");
@@ -18015,6 +18151,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-authored-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-script-cadence") && argc == 4) { MainMenuMapScript(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "body-hover-labels") && argc==4) { BodyHoverLabels(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "forced-state-cursor-caption") && argc==4) { ForcedAttackTooltip(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "forced-attack-tooltip") && argc==4) { ForcedAttackTooltip(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "hotseat-keyboard") && argc==4) { HotseatDialogTemplate(argv[2],argv[3],false,true,true); return true; }
