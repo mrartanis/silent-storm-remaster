@@ -802,9 +802,21 @@ static void ExecOps( NGfx::CRenderContext *pRC, const vector<CRenderCmdList::SOp
 
 			// cached light
 		case RO_CL_PNT_LIGHT:
-			pRC->SetPixelShader( psDiffuseProjectedTexture );
-			pRC->SetVertexShader( vsCLPointLight );
-			pRC->SetTexture( 0, GetLightCircle() );
+			if ( NGfx::GetHardwareLevel() >= NGfx::HL_GFORCE3 )
+			{
+				// Original cached-light shaders evaluate the light/normal dot product
+				// per pixel, without projecting a light circle onto each polygon.
+				pRC->SetPixelShader( psCLPointDiffuse );
+				pRC->SetVertexShader( vsCLPointDiffuse );
+				pRC->SetTexture( 0, GetNormalizeTexture() );
+				pRC->SetTexture( 1, GetNormalizeTexture() );
+			}
+			else
+			{
+				pRC->SetPixelShader( psDiffuseProjectedTexture );
+				pRC->SetVertexShader( vsCLPointLight );
+				pRC->SetTexture( 0, GetLightCircle() );
+			}
 			triListType = TLT_GEOM;
 			break;
 		case RO_CL_PNT_DEPTH_CHECK:

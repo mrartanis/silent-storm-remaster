@@ -794,6 +794,8 @@ add_test(NAME FocusRestoreRuntimeTests COMMAND BgfxRendererTests --focus-restore
 set_tests_properties(FocusRestoreRuntimeTests PROPERTIES TIMEOUT 60)
 add_test(NAME GraphicsOptionsRuntimeTests COMMAND BgfxRendererTests --graphics)
 add_test(NAME SelectionStencilRuntimeTests COMMAND BgfxRendererTests --selection-stencil)
+add_test(NAME UpstreamCachedPointLighting COMMAND BgfxRendererTests --cached-point-lighting)
+set_tests_properties(UpstreamCachedPointLighting PROPERTIES LABELS "extended;native-display")
 add_test(NAME UpstreamLitSurfaceAlpha COMMAND BgfxRendererTests --lit-surface-alpha)
 set_tests_properties(UpstreamLitSurfaceAlpha PROPERTIES LABELS "extended;native-display")
 add_test(NAME UpstreamAmbientDecalTexture COMMAND BgfxRendererTests --ambient-decal-texture)

@@ -8008,3 +8008,79 @@ independent original disassembly. Complete6db for this fork as imported/ADAPT.
 Tracker281: pending87/imported128/partial23/already32/docs3/excluded-balance5/
 excluded-own2/historical1/review0;110 source commits remain unfinished. The full
 ALL281 goal and final actual-HEAD hosted CI remain open.
+
+
+## e5d374c5, part1 — restore plain cached point-light falloff and shaders
+
+Sourcee5d374c592bba5e74a581d2229d58c81c117def7 is split into independently tested
+plain, bumped and shadowed consumers. This first fix changes ONLY the plain
+RO_CL_PNT_LIGHT shader-family selection and the cached-local light constants.
+Restore(radius,1,inverseRadius,36*inverseRadiusSquared); use the original plain
+cached-light vertex/pixel tokens and two normalization cubes on shader hardware.
+Keep the old low-hardware fallback. The shared NGfx::InitRadius and ordinary
+dynamic-light paths are unchanged. Existing pending shadow/bump vertex programs
+read only radius.z (unchanged); their depth programs do not use changed y/w.
+
+Native GPU RED1/1 .34s: genuine CObjectInfo/CNonePart/native vertex+index
+combiners/scene geometry, real CLightmapTracker::RenderPointNoShadows selector,
+InitLightInfo, RenderLight/Execute and bgfx pixel readback. Private-method/type
+access uses test-only explicit template friendship, no production API or
+replacement producer. A1.5-unit square has identical distanceSquared+1.125 at
+its four vertices. Original shader attenuation is interpolated per vertex;
+at distance1/radius6 its expected center brightness is82. The legacy projected
+circle instead produces127 (failure282). Initial tiny-square samples already
+passed and are recorded as positive observations, not misreported as RED.
+
+GREEN1/1 .34s: Windows D3D11 and Linux Vulkan read80/41/110 versus independently
+original-derived82/42/112 for distance/radius(1,6),(2,6),(2,12), within6/255 cube
+normalization/quantization tolerance. The old127 is well outside it. Zero-color,
+very small-radius, outside-bound and back-facing controls remain black. Actual
+GPU pixels and the production cached-light constants/command path are tested;
+this is a fixed isolated cache-light scene, not a complete mission light-cache
+convergence or physical per-pixel radial-attenuation claim.
+
+Independent original proof: new plain VS token stream decodes exactly as Gold
+dwvsCLPointLight94ca00/664, whose entire raw array matches Steam95da70 uniquely.
+New plain PS decodes exactly as Gold dwps/14CLPointLight964a90/964b70, each224bytes;
+identical complete copies occur at Steam975b00 and975be0. Those duplicate copies
+are acknowledged, not claimed unique. Cached InitLightInfo529320/172 maps to
+Steam52b100 uniquely after masking only verified float1 operand5:9. It stores
+radius,1,inverseRadius and inverseRadiusSquared*36; the original literal pools
+are Gold8a39e4=1/8a9588=36 and Steam8b2a34=1/8b8660=36. Both complete function
+bodies and shader lookup/hash/decoded records are saved in cached-point-lighting-
+init-*-disassembly.txt and cached-point-lighting-retail-shader-oracle.json.
+
+Own shader tables currently have77 vertex and78 pixel programs, unlike the
+upstream's79/79 dependency state. Append new VS78 and PS79 with matching table/
+header counts; preserve every prior ID and verify all78/79 table ordinals match
+their declared IDs. Compile through the existing actual-token bgfx pipeline
+(475 variants), keep the human DSL consistent, do not invent missing upstream
+history shaders or overwrite legacy program names.
+
+The remaining two e5 shader families are still pending. An all265-original-array
+audit also located their exact token matches: bump VS matches original
+PrecisePointBump, bump PS matches CLPrecisePointBump; shadowed VS/PS match original
+CLPointLightShadowed. Full lookup records are saved in cached-point-lighting-
+bump-all-symbol-audit.json and the shared oracle JSON. These are evidence for
+subsequent independent native TDD imports, not claims that those consumers have
+already been changed. No game balance, CPU perception/light state, facial/fonts,
+HD assets or save/wire format changes.
+
+Final Windows/Linux Game and helpers built; related11/11 Windows3.54s/Linux2.05s;
+native-display52/52 Windows76.17s/Linux62.75s; CI-like290/29024.12s. All final
+raw11/11/52/52/290 complete/noNUL/Failed/NotRun/missing executable, actual
+runners exit0. Initial Linux display had one moving-vapour positive-control
+failure216 in StationaryFogRuntimeTests; the new point-light test passed. Same
+unchanged binary then passed that fog case10 consecutive times and a complete
+fresh52-case display rerun. Keep initial failed raw/stdout and repeat evidence;
+do not relabel the initial run as green. That RP_FASTEST no-light fog fixture
+uses host-seeded generated noise; its independent stochastic-control concern
+remains a test-stability follow-up, not a claimed point-light regression fix.
+No source/test assertion was changed to obtain the final rerun. The final
+comment-only address cleanup does not change tested executable behavior.
+Shared build trees reused, no HD generation or old game/build copies. Evidence
+cached-point-lighting-{red,green,final-related,final-linux,final-display,
+linux-display,final-ci} test/native-test and build logs, plus original oracles
+and initial-fog-failure/repeat logs. Sourcee5 becomes partially-imported; its
+bumped/shadowed consumers remain to import with independent native RED/GREEN.
+Tracker281/110unfinished and final actual-HEAD hosted CI remain open.

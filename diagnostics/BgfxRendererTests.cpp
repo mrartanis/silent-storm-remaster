@@ -27,6 +27,7 @@
 #include "../Main/GGeometry.h"
 #include "../Main/GMaterial.h"
 #include "../Main/GRenderLight.h"
+#include "../Main/GLightmapCalc.h"
 #include "../Main/Transform.h"
 #include "../MiscDll/Commands.h"
 #include "../Main/DisplayLayout.h"
@@ -625,6 +626,65 @@ int RunLitSurfaceAlpha() {
       family,kind,alpha,pixel.r,pixel.g,pixel.b,pixel.a,expectedAlpha,255-expectedAlpha);std::fflush(stdout);
     if(abs(int(pixel.a)-expectedAlpha)>3 || abs(int(pixel.b)-(255-expectedAlpha))>3)return 272;
   }
+  return 0;
+}
+
+// Reach the native cached-light producer without changing production visibility.
+struct CachedPointAccess {friend auto CachedPointMethod(CachedPointAccess);};
+template<auto method> struct CachedPointFriend {
+  friend auto CachedPointMethod(CachedPointAccess) {return method;}
+};
+template struct CachedPointFriend<&NGScene::CLightmapTracker::RenderPointNoShadows>;
+template<class Signature> struct CachedPointTarget;
+template<class Owner,class Target,class... Rest> struct CachedPointTarget<void (Owner::*)(Target*,Rest...)> {using Type=Target;};
+using NativeCachedPointTarget=CachedPointTarget<decltype(CachedPointMethod(CachedPointAccess{}))>::Type;
+int RunCachedPointLighting() {
+  using namespace NGScene;
+  NGfx::SRenderTargetsInfo targets;
+  if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 280;
+  CObjectInfo::SData data;
+  for(auto position:{CVec3(-.75f,.75f,.5f),CVec3(.75f,.75f,.5f),CVec3(.75f,-.75f,.5f),CVec3(-.75f,-.75f,.5f)}) {
+    SVertex vertex{};vertex.pos=position;vertex.tex=CVec2(.5f,.5f);
+    NGfx::CalcCompactVector(&vertex.normal,CVec3(0,0,1));NGfx::CalcCompactVector(&vertex.texU,CVec3(1,0,0));
+    NGfx::CalcCompactVector(&vertex.texV,CVec3(0,1,0));data.verts.push_back(vertex);
+  }
+  data.geometry.SetTriangles({STriangle(0,1,2),STriangle(0,2,3)});
+  CObj<CObjectInfo> mesh=new CObjectInfo;mesh->AssignFast(data);CObj<SelectionMeshNode> node=new SelectionMeshNode(mesh);
+  CObj<IMaterial> material=CreateMaterial(CVec3(1,1,1));CObj<CNonePart> part=new CNonePart(node,material,SFullGroupInfo());
+  CObj<CAutomaticCombiner> parts=new CAutomaticCombiner;parts->AddPart(part);
+  CObj<LowRamCombinerProbe> vertices=new LowRamCombinerProbe(parts,LT_NONE,CT_STATIC);vertices->Prepare();
+  CObj<CIBCombiner> indices=new CIBCombiner(parts,LT_NONE,IBTT_VERTICES);
+  SRenderGeometryInfo geometry;geometry.pVertices=vertices.GetPtr();geometry.pTriLists[TLT_GEOM]=indices.GetPtr();
+  CSceneFragments scene;SBound bound;mesh->CalcBound(&bound);CPartFlags flags;flags.Clear();flags.Set(0);
+  const int index=scene.AddGeometry(nullptr,&geometry,bound);scene.AddElement(index,flags,material,nullptr,nullptr);
+  CObj<CLightmapTracker> tracker=new CLightmapTracker;
+  CTransformStack identity;identity.Init();NGfx::CRenderContext context;
+  auto capture=[&](const CVec3& center,float radius,const CVec3& color) {
+    context.SetScreenRT();context.ClearBuffers(0xff000000);context.SetTransform(identity.Get());
+    context.SetCulling(NGfx::CULL_NONE);context.SetDepth(NGfx::DEPTH_NORMAL);context.SetStencil(NGfx::STENCIL_NONE);
+    context.SetColorWrite(NGfx::COLORWRITE_ALL);context.SetAlphaCombine(NGfx::COMBINE_NONE);
+    context.SetVertexShader(vsConstLight);context.SetPixelShader(psDiffuse);context.SetVSConst(16,CVec4(0,0,0,1));
+    Draw(context,Quad(-1,1,1,-1,.5f));
+    NativeCachedPointTarget target(&scene,&context,&identity,0);
+    (tracker.GetPtr()->*CachedPointMethod(CachedPointAccess{}))(&target,center,radius,color);
+    CArray2D<NGfx::SPixel8888> image;NGfx::MakeScreenShot(&image,false);return image;
+  };
+  for(int control=0;control<3;++control) {
+    const auto image=capture(control==2?CVec3(0,0,10):CVec3(0,0,1.5f),control==1?.01f:control==2?1.f:6.f,
+      control==0?CVec3(0,0,0):CVec3(1,1,1));
+    if(!Color(image,64,64,0,0,0))return 281;
+  }
+  for(int test=0;test<3;++test) {
+    const float distance=test==0?1.f:2.f,radius=test==2?12.f:6.f;
+    const auto image=capture(CVec3(0,0,.5f+distance),radius,CVec3(1,1,1));
+    // Original vertex attenuation is interpolated; all four vertices have d*d+1.125.
+    const int expected=int(255.f/(1+36*(distance*distance+1.125f)/(radius*radius))+.5f);
+    const auto& pixel=image[64][64];std::printf("native cached point: distance=%.1f radius=%.1f rgb=%u,%u,%u expected=%d\n",
+      distance,radius,pixel.r,pixel.g,pixel.b,expected);std::fflush(stdout);
+    if(abs(int(pixel.r)-expected)>6 || abs(int(pixel.g)-expected)>6 || abs(int(pixel.b)-expected)>6)return 282;
+  }
+  const auto back=capture(CVec3(0,0,-.5f),6,CVec3(1,1,1));
+  if(!Color(back,64,64,0,0,0))return 283;
   return 0;
 }
 
@@ -1499,6 +1559,7 @@ int main(int argc,char** argv) {
              argc>1 && std::string(argv[1])=="--graphics" ? RunGraphicsOptions() :
              argc>1 && std::string(argv[1])=="--shadow-pcf" ? RunShadowPcf() :
              argc>1 && std::string(argv[1])=="--specular-projection" ? RunSpecularProjection() :
+             argc>1 && std::string(argv[1])=="--cached-point-lighting" ? RunCachedPointLighting() :
              argc>1 && std::string(argv[1])=="--lit-surface-alpha" ? RunLitSurfaceAlpha() :
              argc>1 && std::string(argv[1])=="--ambient-decal-texture" ? RunAmbientDecalTexture() :
              argc>1 && std::string(argv[1])=="--cube-filtering" ? RunCubeTextureFiltering() :
