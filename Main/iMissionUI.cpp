@@ -7,6 +7,7 @@
 #include "wInterface.h"
 #include "wMisc.h"			// NWorld::GetDMeshUnit -- clue ("ear") markers over heard-not-seen units
 #include "RPGItemInfo.h"
+#include "RPGGlobal.h"
 #include "..\Misc\StrProc.h"
 #include "..\Input\Bind.h"
 #include "..\MiscDll\Commands.h"	// NGlobal::GetVar -- the "ui_showhints" gate of the hint-icon pass (retail @0x2130c0)
@@ -1216,6 +1217,19 @@ bool CMissionUI::ProcessMessage( const SEvent &sEvent )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMissionUI::Update( const STime &sTime, NGScene::I2DGameView *pView )
 {
+	// LAN missions expose one local tracker; only local hotseat needs a handoff.
+	vector< CPtr<NGame::IPlayerTracker> > players;
+	pMission->GetPlayers( &players );
+	if ( players.size() > 1 )
+	{
+		NGame::IPlayerTracker *pActive = pMission->GetActivePlayer();
+		NRPG::CGlobalPlayer *pGlobal = IsValid( pActive ) ? pActive->GetGlobalPlayer() : 0;
+		if ( IsValid( pGlobal ) && !pGlobal->bAIPlayer && pLastActivePlayer != pActive )
+		{
+			pPlayerSwitchUI->Show();
+			pLastActivePlayer = pActive;
+		}
+	}
 	// Side panels span the mission viewport, including when restored from a save.
 	CWindow* panels[]={pPerksPanel,pStorePanel,pInventoryPanel,pCharacterPanel,pMedalsPanel,pBiographyPanel};
 	for(CWindow* panel:panels) if(IsValid(panel)) {

@@ -5420,3 +5420,51 @@ HD/facial/fonts/баланс не менялись. CPUbase385 и счётчик
 последний полный391 обеих платформ относится к2c44f24f, новый full не заявлен.
 Automatic Show из46b3ace0 остаётся отдельным будущим RED. Все281/final actual
 HEAD Actions ещё не завершены.
+
+
+## Автоматический показ окна передачи хода — часть46b3ace0
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b
+
+Сначала compiled native RED2/2: настоящий HUD.Update в CICBeginMission с двумя
+human trackers не показывает окно (visible0/paused0). Свежий вариант уже имеет
+правильную разметку root1/1024x768; второй восстанавливает полный legacy graph
+с прежним0x0 HUD child и тоже не вызывает Show. Фикс695 constructor/de7 legacy
+проверен отдельно, поэтому здесь подтверждено отсутствие именно Update trigger.
+
+Перенос адаптирован к существующим API: GetPlayers.size>1, валидный active/
+GetGlobalPlayer и !bAIPlayer, изменившийся сохранённый pLastActivePlayer(tag26).
+Затем Show и запись latch. У нас отсутствуют upstream IsSetupMode/IsAIPlayer;
+новые virtual APIs не вводятся. Старый собственный setup-интерфейс не создаёт
+CMissionUI, а LAN Initialize создаёт ровно один локальный tracker. Это проверка
+кода LAN-граничного условия; native тест действительно проверяет однопользовательский
+HUD с одним tracker, четыре общих сетевых регрессии не выдаются за end-to-end
+проверку popup в реальном LAN-клиенте. Данные bAI соответствуют существующей
+UI readiness policy; сам AI commander/алгоритм передачи ходов этим тестом не
+восстанавливается. Другие части46 разбираются отдельно.
+
+GREEN4/46.06с: свежая/полностью восстановленная старая миссии, реальный HUD.Update
+вызывает named pause dialog, EVENT_NOTIFY ok закрывает/сохраняет prior pause,
+тот же active не открывает снова; четыре чередующихся human смены с pausefalse/true.
+UI AI flag пропускается без подтверждения latch, возврат к human вызывает Show.
+Native запись tag26 содержит active; полный acknowledged mission graph записан/
+восстановлен и следующий HUD.Update не открывает/не ставит паузу. Далее настоящая
+новая одиночная миссия с одним игроком проходит три UI updates без handoff.
+Legacy auto case не вызывает ручной Show перед первым Update: новый trigger
+действительно задействует de7 repair. Это проверка обновления UI, а не input
+through physical keyboard; клавиатурный путь будет проверен отдельно.
+
+FULL Windows396/396336.44с, Linux396/396329.23с = CPUbase385+7GPU extras+
+четыре NativeHotseat cases. На каждой платформе17native-audio/12FONT-COMPAT;
+raw396 полные/noNUL и сохранены перед последующим CTest. Both Game/Win ALL_BUILD.
+4Network Serializer/ClientUI/ObjectStages/StopResume6.94с;CI-like280/28023.97с,
+raw280/fonts12/noNUL. Evidence hotseat-handoff-{red,green,green-save,full,network,
+ci} build/test logs, windows/linux-full-native-test.log, windows-network-native-
+test.log, ci-native-test.log. Прежние build folders/HD OFF, свои facial/fonts/
+SDL/bgfx/LAN системы сохранены.
+
+46 теперь partially-imported: voice condition ранее проверен без функционального
+переноса, recruitment facial-idle/group-route/AI merc initialization ещё в разборе.
+Счётчики281:100pending/108imported/23partial/38already/3docs/5excluded-balance/
+2excluded-own, по1historical/review;124 исходных коммита ещё не закрыты.
+All281/final actual HEAD GitHub Actions ещё не завершены.

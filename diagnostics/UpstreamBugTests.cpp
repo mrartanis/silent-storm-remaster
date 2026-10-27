@@ -3098,7 +3098,7 @@ static void AudioOptionCheckboxes(const char* databasePath,const char* resourceP
 #endif
 }
 
-static void HotseatDialogTemplate(const char* databasePath,const char* resourcePath,bool legacy = false)
+static void HotseatDialogTemplate(const char* databasePath,const char* resourcePath,bool legacy = false,bool automatic = false)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"hotseat dialog fixture requires isolated user data");
     NativeDisplayContext cleanup;
@@ -3147,12 +3147,87 @@ static void HotseatDialogTemplate(const char* databasePath,const char* resourceP
         Require(players.size() == 2 && dialog->GetParent() == hud && dialog->GetSize() == NUI::SPoint(0,0),
             "legacy save control did not retain the prior zero-sized HUD dialog");
         std::printf("native restored legacy dialog: root=0 size=0x0 players=%zu\n",players.size());
+        if (!automatic) {
         mission->PauseGame(false);
         dialog->Show();
         Require(dialog->GetParent() == mission->GetInterface() && dialog->GetSize().x > 0 && dialog->GetSize().y > 0,
             "showing the restored legacy hotseat dialog paused the mission with a zero-sized HUD child");
         dialog->OnOK();
         Require(!mission->IsGamePaused(),"repairing a legacy hotseat dialog changed its prior pause state");
+        }
+    }
+    if (automatic) {
+        STime time = 1000;
+        auto frame = [&]() { hud->Update(++time,mission->GetInterface()->GetView()); };
+        auto visible = [&]() { return dialog->GetStyle(NUI::STYLE_VISIBLE); };
+        auto nameCorrect = [&]() {
+            auto* text = dynamic_cast<NUI::CText*>(dialog->GetChildByID("text"));
+            return text && text->GetText() == NUI::GetDBString(0x51F3)+mission->GetActivePlayer()->GetPlayer()->GetPlayerName();
+        };
+        auto accept = [&]() { dialog->ProcessMessage(NUI::SEvent(NUI::EVENT_NOTIFY,string("ok"))); };
+        mission->PauseGame(false);
+        frame();
+        std::printf("native automatic handoff: legacy=%d visible=%d paused=%d root=%d size=%dx%d\n",
+            legacy,visible(),mission->IsGamePaused(),dialog->GetParent() == mission->GetInterface(),dialog->GetSize().x,dialog->GetSize().y);
+        Require(visible() && mission->IsGamePaused() && nameCorrect(),
+            "a new human hotseat player did not automatically receive the handoff dialog");
+        Require(dialog->GetParent() == mission->GetInterface() && dialog->GetSize().x > 0 && dialog->GetSize().y > 0,
+            "automatic handoff retained an unusable legacy dialog layout");
+        accept(); frame();
+        Require(!visible() && !mission->IsGamePaused(),"the same active hotseat player reopened the accepted dialog");
+        for (int turn = 0; turn < 4; ++turn) {
+            const bool paused = turn >= 2;
+            mission->SetActivePlayer(players[(turn+1)%2]); mission->PauseGame(paused);
+            frame();
+            Require(visible() && mission->IsGamePaused() && nameCorrect(),
+                "a changed human hotseat player lost its automatic named handoff");
+            accept(); frame();
+            Require(!visible() && mission->IsGamePaused() == paused,
+                "accepting automatic handoff changed the prior pause or reopened on the next UI update");
+        }
+        // This is the UI's persisted AI-player flag, not a fabricated commander.
+        auto aiTurn = players[1];
+        aiTurn->GetGlobalPlayer()->bAIPlayer = true;
+        mission->SetActivePlayer(aiTurn); mission->PauseGame(false); frame();
+        Require(!visible() && !mission->IsGamePaused(),"an AI hotseat slot was interrupted by a human handoff dialog");
+        aiTurn->GetGlobalPlayer()->bAIPlayer = false;
+        frame();
+        Require(visible() && nameCorrect(),"skipping an AI slot incorrectly acknowledged its later human handoff");
+        accept();
+        CStructureNetworkContext latchReferences;
+        auto latchFields = BorrowedObjectFields(hud,&latchReferences);
+        CPtr<NGame::IPlayerTracker> acknowledged;
+        { CStructureSaver reader(latchFields,CStructureSaver::READ,&latchReferences); reader.Add(26,&acknowledged); }
+        Require(acknowledged == mission->GetActivePlayer(),"automatic hotseat handoff did not persist its existing player latch");
+        CMemoryStream acknowledgedSave;
+        { CStructureSaver writer(acknowledgedSave,CStructureSaver::WRITE_COMPRESSED); writer.Add(2,&mission); }
+        acknowledgedSave.Seek(0);
+        CObj<NGame::CMission> acknowledgedMission;
+        { CStructureSaver reader(acknowledgedSave,CStructureSaver::READ); reader.Add(2,&acknowledgedMission); }
+        Require(acknowledgedMission && acknowledgedMission.GetPtr() != mission.GetPtr(),
+            "acknowledged handoff failed to restore its complete native mission graph");
+        mission = acknowledgedMission;
+        hud = dynamic_cast<NUI::CMissionUI*>(mission->GetDesktop());
+        Require(hud,"acknowledged handoff lost its restored HUD");
+        dialog = readDialog(hud);
+        frame();
+        Require(!visible() && !mission->IsGamePaused(),"loading an acknowledged handoff reopened the dialog or paused the mission");
+        // An ordinary one-player campaign uses the same HUD without any handoff.
+        NMainLoop::DoneInterface();
+        while (NMainLoop::HaveInterfaceCommand()) { CObj<NMainLoop::CInterfaceCommand> command = NMainLoop::TakeInterfaceCommandForHarness(); }
+        game = NRPG::CreateGlobalGame(-1);
+        game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+        enter = new NGame::CICBeginMission(810,-1,vector<string>(),game); enter->Exec();
+        mission = dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());
+        Require(mission && mission->GetInterface(),"single-player handoff control did not create a native mission");
+        hud = dynamic_cast<NUI::CMissionUI*>(mission->GetDesktop());
+        Require(hud,"single-player handoff control lost its native HUD");
+        dialog = readDialog(hud); mission->GetPlayers(&players);
+        Require(players.size() == 1,"single-player handoff control has multiple trackers");
+        mission->PauseGame(false);
+        for (int update = 0; update < 3; ++update) frame();
+        Require(!visible() && !mission->IsGamePaused(),"automatic hotseat handoff interrupted an ordinary one-player campaign");
+        return;
     }
     auto* label = dynamic_cast<NUI::CText*>(dialog->GetChildByID("text"));
     auto* ok = dynamic_cast<NUI::CHoverButton*>(dialog->GetChildByID("ok"));
@@ -17679,6 +17754,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-authored-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-script-cadence") && argc == 4) { MainMenuMapScript(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "hotseat-handoff") && argc==4) { HotseatDialogTemplate(argv[2],argv[3],false,true); return true; }
+    if (!std::strcmp(mode, "hotseat-handoff-legacy") && argc==4) { HotseatDialogTemplate(argv[2],argv[3],true,true); return true; }
     if (!std::strcmp(mode, "hotseat-dialog-legacy") && argc==4) { HotseatDialogTemplate(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "hotseat-dialog-template") && argc==4) { HotseatDialogTemplate(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
