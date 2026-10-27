@@ -5898,3 +5898,29 @@ Tracker281:101pending/112imported/24partial/32already/3docs/5excluded-balance/
 2excluded-own/1historical/1review;126 незавершённых source entries плюс остаток
 сверки old PRESENT. Оригинальный баланс не менялся. Общая цель, расследования
 сетевого interrupt/heading и финальные actual-HEAD Actions не завершены.
+
+## Корректный момент EndTurn в сетевом integration test
+
+Это самостоятельное исправление нашего тестового сценария после расширенных
+проверок d8a7f2e166c54b438f3e2c58de6d81dc3edf9686 и 3f78b519;
+новая игровая логика из upstream здесь не переносится. Связанный исходный коммит:
+https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d8a7f2e166c54b438f3e2c58de6d81dc3edf9686
+
+Native RED interrupt-idle-red: перед отправкой EndTurn мир занят (busy=1),
+сервер закономерно возвращает UCR_UNAVAILABLE=1. Прежний тест игнорировал ответ
+и ожидал смену хода. Новый assert проверяет принятие команды и воспроизводит
+ошибку непосредственно в её причине. Предыдущий probe дополнительно показал
+ровно две записи interrupt stack: основной ход и единственное прерывание.
+
+Тест теперь продолжает настоящую симуляцию/репликацию до native idle, максимум
+400 шагов; при превышении лимита падает. Проверяет, что владелец прерывания
+сохранился, затем отправляет EndTurn, требует UCR_OK и сохраняет исходные
+проверки возврата управления, replica, победы/ничьей. В первом GREEN потребовалось
+35 дополнительных шагов, busy=0/result=0, полный сценарий прошёл за18.27с.
+Ни action counters, ни серверный запрет EndTurn во время действий не менялись.
+
+Сетевой набор6/6 прошёл за52.28с, включая ещё один полный match (15.37с),
+preparation, client UI, partial movement, object stages и stop/resume.
+Evidence: interrupt-idle-{red,green,related}-native-test.log. Это тестовая
+адаптация своего LAN harness, без изменения баланса, AP, RNG и игровой механики.
+CI-like281/28123.74с; raw281 полный без NUL,12font controls. Linux network match target в нынешней LinuxGame конфигурации отсутствует; Linux полный404 подтверждён для предыдущего production fix, для этой Windows test-only правки не заявляется. Tracker source counts не меняются.

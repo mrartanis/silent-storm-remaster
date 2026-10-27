@@ -830,7 +830,22 @@ int main(int argc,char** argv) {
     host.Match().world->AddInterrupt(interruptUnits);pump(5);
     Require(host.Match().world->IsInterrupt() && host.Match().world->GetCurrentPlayer()==host.Match().players[1].GetPtr(),"native interrupt did not transfer control");
     Require(mirror->GetCurrentPlayer()==client.Match().players[1].GetPtr() && mirror->IsInterrupt(),"interrupt not replicated");
-    host.Handle(1,client.EncodeCommand(new NWorld::CCmdEndOfTurn),false);pump(10);
+    // Perception and turn-start work can still be executing after the interrupt
+    // is replicated. EndTurn is only legal once the native world is idle.
+    int interruptSettleTicks=0;
+    while(interruptSettleTicks<400 && host.Match().world->IsExecuting()) {
+      pump(1);++interruptSettleTicks;
+    }
+    Require(!host.Match().world->IsExecuting(),"native interrupt actions did not settle before end-turn");
+    Require(host.Match().world->IsInterrupt() && host.Match().world->GetCurrentPlayer()==host.Match().players[1].GetPtr(),
+      "interrupt owner changed while waiting for native actions");
+    const bool executingAtEndTurn = host.Match().world->IsExecuting();
+    auto interruptReply=host.Handle(1,client.EncodeCommand(new NWorld::CCmdEndOfTurn),false);
+    size_t interruptReplyOffset=8;
+    const auto interruptResult=S2Net::Get32(interruptReply,interruptReplyOffset);
+    std::printf("interrupt end-turn: settleTicks=%d busy=%d result=%u\n",interruptSettleTicks,executingAtEndTurn,unsigned(interruptResult));std::fflush(stdout);
+    Require(interruptResult==NWorld::UCR_OK,"interrupt end-turn was rejected by the authoritative server");
+    pump(10);
     Require(host.Match().world->GetCurrentPlayer()==host.Match().players[0].GetPtr() && !host.Match().world->IsInterrupt(),"interrupt failed to return control");
     for(auto unit:host.Match().players[1]->GetPlayerUnits()){unit->GetUnitRPG()->Kill();unit->KillUnit(CVec3(0,0,1));}pump(100);
     for(int ticks=0;ticks<400 && host.Match().world->IsExecuting();++ticks)pump(1);
