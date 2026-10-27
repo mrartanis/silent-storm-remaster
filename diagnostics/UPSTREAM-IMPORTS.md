@@ -7077,3 +7077,45 @@ native-test}.log and corresponding build logs. Tracker281 now90pending/
 CI-like284/284 24.14s, FONT-COMPAT12. Raw25/25/284 are complete with no NUL,
 failed or missing executable; actual runner exits0. This is local validation;
 final actual-HEAD hosted GitHub Actions remains separately open.
+
+
+## b4505fb0 — keep the last walking step when rerouting to a pose/turn
+
+Source b4505fb0b183854ea69f680ff770759c5245cebb, independent movement
+transition hunk. An actual native mover reaches its pending next step, then
+native FindPath(PF_USE_POSEDIR) requests crouch on that destination. Compiled
+RED1.19s (case1.12): the callback moves tile2,1 ->3,1 and spends AP49->45,
+but a newly queued null-EndMove is interpreted as EndRotate. Only stand687
+is added (distance0/time0), duration300ms, no final movement trajectory.
+
+Keep the interrupted CCmdMove in the ender for both pose and turn branches.
+A strong hold before a waiting queue can clear pCurCmd prevents introducing a
+dangling reference when constructing that owning ender. The test does not
+claim a separate UAF reproduction; it holds snapshots for trajectory inspection.
+Native GREEN1.17s (case1.13): actual new clip686 distance1.514869/time710,
+combined step+stand573ms, same tile/AP49->45, followed by real completed crouch.
+The comparison retains old clip objects and excludes them from its new-clip
+assertion, so earlier walking animation cannot produce a false positive.
+This is native planner/executor/skeleton-graph proof, not a GPU/full game-turn
+capture. Actual callbacks and state completion are checked; no mock path or
+replacement animator is used. Two initial fixture failures were fixed first:
+normalize the transient moving bit, and request PF_USE_POSEDIR instead of
+PF_DEFAULT, which legitimately ignores the desired final pose. They are not RED.
+
+Independent original: Gold SetNewPath7ae8e0/754 uniquely maps to Steam7bb0c0
+with first32/EH3:7. Actual native move descriptor98523c and rotate98525c verified.
+Old-move branch7bb27e passes that move to ctor7bbb80 at7bb293, then inserts
+it at7bb2b6; turn-start branch calls the same ctor at7bb236. Ctor7bbb80 reads
+the move's unit, AddRefs the move at7bbbae and stores it atender+0x10 at7bbbb8.
+Its vtable8cdc04 resolves to CCmdEndMove RTTI9852bc. Current-command hold is
+also present at7bb0ed. Evidence move-reroute-{retail-lookup,retail-disassembly,
+ender-retail-disassembly}.txt. No balance formulas, animation code, own heads,
+renderer, audio, fonts or HD assets changed. Shared builds reused.
+
+Source remains partial: waiting reseat/extra ender, direct movement continuation
+and new EndRotate producers require separate native TDD. Counts unchanged:
+281 entries,115 unfinished. Windows related26/26 31.88s and Game build passed.
+
+Linux related26/26 31.12s with Game built; CI-like284/284 24.38s. Raw26/26/284
+complete, no NUL/missing/Failed, actual runner exits0. Evidence movement-reroute-
+final-step-{confirmed-red,green,related,linux,ci} logs in shared evidence folder.

@@ -981,6 +981,8 @@ void CExecMove::FullCancel()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecMove::SetNewPath( NAI::CPath *pPath, NAI::EFindPathParams _eParams, ENeedActiveItem eActive )
 {
+	// A waiting reroute can release pCurCmd before its ender is constructed.
+	CObj<CCommand> pHoldCur( pCurCmd );
 	CDynamicCast<CCmdMove> pWasMove( pCurCmd );
 	CDynamicCast<CCmdRotate> pWasRotate( pCurCmd );
 	if ( IsWaitingForPath() )
@@ -1022,12 +1024,12 @@ void CExecMove::SetNewPath( NAI::CPath *pPath, NAI::EFindPathParams _eParams, EN
 			if (pStartRotate)
 			{
 				if (pWasMove)
-					commandsQueue.push_front(new CCmdEndMove(pUS));
+					commandsQueue.push_front(new CCmdEndMove(pUS, pWasMove.GetPtr()));
 			}
 			else
 			{
 				if (pWasMove || pWasRotate)
-					commandsQueue.push_front(new CCmdEndMove(pUS));
+					commandsQueue.push_front(new CCmdEndMove(pUS, pWasMove.GetPtr()));
 			}
 		}
 	}

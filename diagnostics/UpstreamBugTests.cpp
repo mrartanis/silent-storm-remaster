@@ -12104,6 +12104,54 @@ static vector<NAnimation::CAnimation*> NativeCannonAnimationClips(NAnimation::CS
     return result;
 }
 
+static void MovementRerouteFinalStep(const char* databasePath,const char* resourcePath)
+{
+    auto fixture=MakeNativeMovementFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* world=fixture.world.GetPtr();
+    world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer()));world->GetTime()->Set(1000);
+    actor->animator.AlignTime();actor->animator.PlaceUnit(actor->GetPosition());
+    CObj<NWorld::CCommandExecute> move=NWorld::CreateSimpleMoveExecutor(actor,fixture.path,NAI::PF_DEFAULT);
+    Require(move,"reroute final-step fixture could not create its native mover");
+    auto walking=[](CObjectBase* command){return command && pSSClasses->GetObjectTypeID(command)==int(0x02731142);};
+    move->Run();
+    for(int edge=0;edge<32 && !walking(ReadMovementCommands(move).current.GetPtr()) && move->GetState()==NWorld::CCommandExecute::RUNNING;++edge) {
+        world->GetTime()->Set(actor->animator.GetTimeEnd());move->AnimationFinished();
+    }
+    auto commands=ReadMovementCommands(move);Require(walking(commands.current),"reroute final-step fixture did not reach an actual pending walk");
+    auto* moving=dynamic_cast<NWorld::IExecMove*>(move.GetPtr());NAI::SPathPlace search;moving->GetSearchFromPosition(&search);
+    Require(!(search==actor->GetPosition().pos.p) && !move->IsWaitingForPath(),"reroute final-step fixture lacks a pending unblocked step");
+    auto samePlace=[](NAI::SPathPlace a,NAI::SPathPlace b){a.SetMoving(0);b.SetMoving(0);return a==b;};
+    search.SetMoving(0);auto target=search;target.SetPose(NAI::CM_CROUCH);
+    CObj<NAI::CPath> path=NWorld::FindPath(world->GetPathNetwork(),actor,search,vector<NAI::SPathPlace>{target},nullptr,true,NAI::PF_USE_POSEDIR);
+    std::printf("native reroute path: search=%08x target=%08x points=%u first=%08x last=%08x\n",unsigned(search.GetData()),unsigned(target.GetData()),path?unsigned(path->points.size()):0,
+        path && !path->points.empty()?unsigned(path->points.front().GetData()):0,path && !path->points.empty()?unsigned(path->points.back().GetData()):0);std::fflush(stdout);
+    Require(path && path->points.size()>=2 && samePlace(path->points.front(),search) && samePlace(path->points.back(),target),
+        "reroute final-step fixture could not find a native same-cell crouch path from the pending destination");
+    moving->SetNewPath(path,NAI::PF_USE_POSEDIR);
+    auto replaced=ReadMovementCommands(move);
+    Require(!replaced.queued.empty() && pSSClasses->GetObjectTypeID(replaced.queued.front())==int(0x12541120),
+        "reroute final-step fixture lacks the actual movement ender before its pose change");
+    auto* skeleton=actor->animator.GetSkeletonAnimator();const auto before=NativeCannonAnimationClips(skeleton);
+    vector<CObj<NAnimation::CAnimation>> retained;for(auto* clip:before)retained.push_back(clip);
+    const auto position=actor->GetPosition();const int ap=actor->GetAP();const STime start=actor->animator.GetTimeEnd();
+    world->GetTime()->Set(start);move->AnimationFinished();
+    const auto after=NativeCannonAnimationClips(skeleton);bool hasFinalStep=false;
+    for(auto* clip:after)if(std::find(before.begin(),before.end(),clip)==before.end()) {
+        std::printf("native reroute final clip: id=%d distance=%.6f time=%u\n",clip->GetRecordID(),double(clip->GetDistance()),unsigned(clip->GetTime()));
+        if(clip->GetDistance()>0.01f && clip->GetTime()>0)hasFinalStep=true;
+    }
+    std::printf("native reroute final step: before=%u,%u pending=%u,%u actual=%u,%u duration=%u AP=%d->%d trajectory=%d\n",
+        position.pos.p.GetX(),position.pos.p.GetY(),search.GetX(),search.GetY(),actor->GetPosition().pos.p.GetX(),actor->GetPosition().pos.p.GetY(),
+        unsigned(actor->animator.GetTimeEnd()-start),ap,actor->GetAP(),int(hasFinalStep));std::fflush(stdout);
+    Require(samePlace(actor->GetPosition().pos.p,search) && actor->GetAP()<ap,"reroute did not commit its real pending step through DoGameMove");
+    Require(hasFinalStep,"rerouting a walking step to a pose change lost its final native movement trajectory");
+    for(int edge=0;edge<32 && move->GetState()==NWorld::CCommandExecute::RUNNING;++edge) {
+        world->GetTime()->Set(actor->animator.GetTimeEnd());move->AnimationFinished();
+    }
+    Require(move->GetState()==NWorld::CCommandExecute::FINISHED && samePlace(actor->GetPosition().pos.p,target),
+        "rerouted walking step did not finish its actual native crouch transition");
+    moving->FullCancel();move=nullptr;Require(!world->IsAction(),"reroute final-step fixture retained its native world action");
+}
+
 static void CannonEntryAnimation(const char* databasePath,const char* resourcePath)
 {
     auto fixture=MakeNativeCannonFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* cannon=fixture.cannon.GetPtr();
@@ -19648,6 +19696,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-collision-hidden-other")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "movement-collision-hidden-own")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],true,true); return true; }
     if (!std::strcmp(mode, "movement-collision-visible-other")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],false,false); return true; }
+    if (!std::strcmp(mode, "movement-reroute-final-step")) { Require(argc==4,"reroute final step requires db and res"); MovementRerouteFinalStep(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "movement-end-rotate-wire")) { Require(argc==4,"end rotate requires db and res"); MovementEndRotateWire(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "movement-legacy-end-rotate-wire")) { Require(argc==4,"legacy end rotate requires db and res"); MovementEndRotateWire(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "movement-blocked-walking")) { Require(argc == 4, "blocked movement requires db and res"); MovementBlockedWalkingTrajectory(argv[2],argv[3]); return true; }
