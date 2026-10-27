@@ -34,6 +34,7 @@ static void OutputDebugString( const char *message ) { std::fputs( message, stde
 
 const float WALL_HEIGHT = 2.5f;  // floor height
 const int CLUE_SLOT_ID = 188;
+const int HINT_SLOT_ID = 438;
 const int EXPLOSION_ID = 189;
 
 namespace NGScene
@@ -574,6 +575,14 @@ void CMapBuilder::AddSimpleElements( SMapInfo *pDst, SMapBuilding *pB, NDb::CTem
 							cs.ptAlignTo = CVec2( cs.pos.ptPos.x, cs.pos.ptPos.y );
 						pDst->slots.push_back( cs );
 					}
+					else if ( HINT_SLOT_ID == pFin->pObject->pRPGItem->GetRecordID() )
+					{
+						NWorld::SHintSlot hs;
+						CalcPosition( &hs.pos, pFin, parent );
+						hs.pos.ptPos.z += pFin->fDZ;
+						hs.ptAlignTo = !bTerrAlign ? ptAlignTo : CVec2( hs.pos.ptPos.x, hs.pos.ptPos.y );
+						pDst->hintSlots.push_back( hs );
+					}
 					else if ( EXPLOSION_ID == pFin->pObject->pRPGItem->GetRecordID() )
 					{
 						SExplosion me;
@@ -775,6 +784,8 @@ static void SetOnLayer( SMapInfo *pInfo, SMapInfo *pFree, int nMaxFloor )
 		pInfo->rpgitems.push_back( *i );
 	for ( vector<SClueSlot>::const_iterator i = pFree->slots.begin(); i != pFree->slots.end(); ++i )
 		pInfo->slots.push_back( *i );
+	pInfo->hintSlots.insert( pInfo->hintSlots.end(), pFree->hintSlots.begin(), pFree->hintSlots.end() );
+	pFree->hintSlots.clear();
 	for (unordered_map<int, SUnitGroup>::const_iterator i = pFree->groups.begin(); i != pFree->groups.end(); ++i )
 	{
 		SUnitGroup &g = pInfo->groups[i->first];
@@ -799,6 +810,7 @@ static void Transfer( SMapInfo *pDst, SMapInfo *pSrc )
 	pDst->rpgitems.insert( pDst->rpgitems.end(), pSrc->rpgitems.begin(), pSrc->rpgitems.end() );
 	pDst->scripts.insert( pDst->scripts.end(), pSrc->scripts.begin(), pSrc->scripts.end() );
 	pDst->slots.insert( pDst->slots.end(), pSrc->slots.begin(), pSrc->slots.end() );
+	pDst->hintSlots.insert( pDst->hintSlots.end(), pSrc->hintSlots.begin(), pSrc->hintSlots.end() );
 	for (unordered_map<int, SUnitGroup>::const_iterator i = pSrc->groups.begin(); i != pSrc->groups.end(); ++i )
 	{
 		SUnitGroup &g = pDst->groups[i->first];
@@ -1396,6 +1408,7 @@ bool CMapBuilder::BuildMap( int nPlacementID )
 		FixHeights( info.terrain, &info.deploySpots );
 		FixHeights( info.terrain, &info.rpgitems );
 		FixHeights( info.terrain, &info.slots );
+		FixHeights( info.terrain, &info.hintSlots );
 		FixHeights( info.terrain, &info.units );
 		FixHeightsPtr( info.terrain, &info.waypoints );
 	}

@@ -9045,6 +9045,72 @@ static void ExhaustedHintPickups(const char* databasePath,const char* resourcePa
     Require(!world->IsAction(), "hint exhaustion started a gameplay action");
 }
 
+static void AuthoredHintPlacement(const char* databasePath,const char* resourcePath)
+{
+    CFileStream database; database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ); NGScene::AddResourceDir(resourcePath);
+    auto* book = NDb::GetRPGItem(438);
+    Require(book && IsValid(book->pModel), "hint map fixture has no authored book record/model");
+    auto* variant = NDb::GetTemplVariant(810);
+    Require(variant && IsValid(variant->pTemplate), "hint map fixture has no authored root template");
+    // Add a marker in the loaded database using initialized authored placement
+    // fields and the real book record. Nothing is written back to game assets.
+    CDBIterator<NDb::CFinalElement> placements(*NDatabase::GetTable<NDb::CFinalElement>());
+    Require(placements.MoveNext(), "hint map fixture has no authored placement fields");
+    CObj<NDb::CFinalElement> element = new NDb::CFinalElement;
+    CStructureNetworkContext references; auto fields = BorrowedObjectFields(placements.Get(),&references);
+    { CStructureSaver reader(fields,CStructureSaver::READ,&references); element->operator&(reader); }
+    CObj<NDb::CPlacableObject> marker = new NDb::CPlacableObject; marker->pRPGItem = book;
+    element->pObject = marker; element->pVariant = variant;
+    element->ptPos = CVec2(variant->pTemplate->nWidth*0.5f,variant->pTemplate->nHeight*0.5f);
+    element->nFloor = 0; element->fDZ = 0.15f; element->fRotation = 37.f; element->ptScale = CVec3(1,1,1);
+    element->szName = "UpstreamHintPlacement"; element->pChest = nullptr; element->pGrenade = nullptr;
+    element->bIsLocked = element->bArmed = false; element->fPower = element->fRadius = 0;
+    variant->pFinalElements.push_back(element.GetPtr());
+    const int replaced = 1;
+    auto create = [&](NRPG::CGlobalGame* game,bool arena) {
+        CObj<NWorld::CWorld> world = new NWorld::CWorld(game);
+        world->bNetworkArena = arena;
+        CObj<NWorld::CPostWorldCreateInfo> post;
+        world->CreateRandom(810,{},true,{},0,&post,SRandomSeed(123));
+        Require(post && world->GetPathNetwork(), "hint map fixture failed native world creation");
+        return world;
+    };
+    auto count = [](NWorld::CWorld* world) {
+        vector<CPtr<NRPG::IInventoryItem>> items; world->GetGroundItemsForDiagnostics(&items);
+        std::pair<int,int> counts{0,0};
+        for (const auto& item: items) if (item && item->GetDBItem()->GetRecordID() == 438) {
+            ++counts.first;
+            if (dynamic_cast<NRPG::IHintItem*>(item.GetPtr())) ++counts.second;
+        }
+        return counts;
+    };
+    CObj<NRPG::CGlobalGame> arenaGame = NRPG::CreateGlobalGame(1);
+    { auto arena = create(arenaGame,true); const auto counts = count(arena);
+      Require(counts.second == 0 && !arenaGame->bNoMoreHints,
+          "campaign hint pickups leaked into our multiplayer arena"); }
+    CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(1);
+    CObj<NWorld::CWorld> world = create(game,false);
+    const auto counts = count(world);
+    std::printf("native hint markers: converted=%d map-book-records=%d interactive-hints=%d\n",
+        replaced,counts.first,counts.second);
+    Require(counts.first > 0, "hint map fixture did not reach its authored marker placements");
+    Require(counts.second == counts.first,
+        "authored hint placements became inert ordinary items instead of interactive hint pickups");
+    const auto initialCursor = game->nHintSequenceID;
+    Require(!game->bNoMoreHints && game->hintsSet.empty(), "placing hint books advanced their sequence");
+    int hints = 0; CDBIterator<NDb::CUIHint> records(*NDatabase::GetTable<NDb::CUIHint>());
+    while (records.MoveNext()) ++hints;
+    for (int step=0;step<=hints && !game->bNoMoreHints;++step) world->AddNextUIHint(true);
+    Require(game->bNoMoreHints && game->nHintSequenceID > initialCursor && count(world).first == 0,
+        "actual hint exhaustion did not clean up the generated pickups");
+    world = nullptr;
+    const auto cursor = game->nHintSequenceID; const auto shown = game->hintsSet.size();
+    world = create(game,false);
+    Require(count(world).first == 0 && game->bNoMoreHints && game->nHintSequenceID == cursor &&
+        game->hintsSet.size() == shown, "an exhausted campaign respawned books or changed hint progression");
+}
+
 class AICollectionCallbackException: public std::runtime_error
 {
 public:
@@ -15803,6 +15869,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "group-hide-shortcut") && argc == 4) { GroupHideShortcut(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "script-hide-state") && argc == 4) { ScriptHideState(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "exhausted-hint-pickups") && argc == 4) { ExhaustedHintPickups(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "authored-hint-placement") && argc == 4) { AuthoredHintPlacement(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-idle") && argc == 4) { IdleAI(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "mixed-hide-button") && argc == 4) { MixedActionButton(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "mixed-strafe-button") && argc == 4) { MixedActionButton(argv[2], argv[3], false); return true; }

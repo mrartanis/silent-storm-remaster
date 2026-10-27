@@ -1846,8 +1846,12 @@ void CWorld::CreateRandom( int nVariantID, const vector<string> &params,
 	if ( !bLeanAndMean )
 	{
 		ClueToSlot personClueToSlot, itemClueToSlot;
+		pAIMap->Sync();
 		DistributeClues( mapInfo, clues, &personClueToSlot, &itemClueToSlot );
 		PlaceItemSlotsToMap( itemClueToSlot );
+		// Campaign hint books have no role in our multiplayer arena.
+		if ( !bNetworkArena && ( !IsValid( pGlobalGame ) || !pGlobalGame->bNoMoreHints ) )
+			PlaceHintsToMap( this, pAIMap, mapInfo.hintSlots );
 		//CreateFakeTerrainInfo( &terrain );
 		//
 		// after this point do not place objects that affect passability

@@ -3958,3 +3958,54 @@ linux-{configure,build,test}.log, {windows,linux}-native-test.log,
 network-{test,native-test}.log. Source8da остаётся частичным:
 hintSlots/MapBuild transport и вызов PlaceHintsToMap ещё проверяются.
 All281/final actual Actions не завершены.
+
+## Появление интерактивных книг из map markers — завершение 8da24a09
+
+UpstreamAuthoredHintPlacement проходит настоящий CWorld::CreateRandom/
+MapBuild на варианте 810. Fixture добавляет один marker DB438 только в
+загруженную БД: CFinalElement получает инициализированные поля authored
+placement через serializer, новый CPlacableObject с настоящим book record
+и контролируемый transform в root template. Файлы/данные поставки не
+переписываются. Это контролируемый marker fixture, не утверждение о наличии
+такого marker в неизменённой поставке карты 810. Первый вариант с подменой
+clue marker не попадал в выбранную карту: fixture precondition fail сохранён,
+до содержательного RED подготовка исправлена.
+
+Compiled native RED: map-book-records=1, interactive-hints=0 — маркер
+становился обычным инертным предметом. Arena control перед ним проходил.
+После RED добавлены SMapInfo.hintSlots, выделение DB438 в AddSimpleElements,
+перенос при SetOnLayer/Transfer, terrain FixHeights и вызов существующего
+PlaceHintsToMap после Sync геометрии. Векторы SMapInfo transient, save/wire
+поля мира не заменяются. Комментарии о неиспользуемом helper обновлены.
+
+Сохранена наша специфика LAN: PlaceHintsToMap вызывается только вне
+bNetworkArena и пока кампания не exhausted. Native arena с новым marker и
+неисчерпанной game sequence проверяется отдельно: campaign hint pickups
+в нём отсутствуют. GREEN также подтверждает настоящий IHintItem в кампании,
+отсутствие продвижения hint sequence от размещения, реальное исчерпание
+последовательности/удаление сгенерированных книг и создание следующего мира
+с тем же exhausted game без новых книг/смены cursor/hintsSet.
+Отдельные nested floors, все shipped карты и pixel output не заявляются.
+
+Из-за изменения создания мира выполнен полный текущий набор 362:
+CPU base 357 + три native medal + Bgfx/DisplayRuntime.
+Windows 362/362 (294.35 с), Linux 362/362 (325.96 с), обе Game и Windows
+ALL_BUILD собраны. По 14 native-audio и 12 FONT-COMPAT; raw362 полные без NUL.
+Windows NetworkSerializer/Match/ClientUI/StopResume 4/4 (24.36 с).
+Windows CI-like 276/276 (24.08 с), raw276 полный без NUL. Это локальные
+проверки; финальный actual GitHub Actions всего переноса ещё не завершён.
+
+Свидетельства authored-hint-placement: fixture-marker-test.log,
+red-{build,test}.log, red-native-test.log, green-{build,test}.log,
+green-native-test.log, all-build.log, full-test.log,
+linux-{configure,build,test}.log, {windows,linux}-native-test.log,
+network-{test,native-test}.log, ci-{test,native-test}.log.
+
+Все применимые части source8da теперь учтены: безопасный UnitGetRoute —
+9290a0a3, exhaustion cleanup — c3f52234, marker pipeline — этот перенос.
+Route slots/ожидание ранее восстановлены собственным bc7e00aa; наш
+CAIRouteLogic::IsRouteComplete сохранён вместо generic IsFinished и
+подтверждён native route controls. Остальные aiUnit hunks — устаревшие
+комментарии, соответствующая реализация уже существует. Source переведён
+в imported с этой адаптацией. Число незавершённых источников 142,
+не число будущих fix commits; весь аудит 281 ещё продолжается.
