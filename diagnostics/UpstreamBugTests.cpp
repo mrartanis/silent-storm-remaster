@@ -14703,6 +14703,63 @@ public:
     bool GetWindowPos(CObjectBase*,CVec3*,CVec3*) override {Unused();return false;}
 };
 
+class PeriodicClockStateProbe: public NWorld::CUnitStateNormal
+{
+    OBJECT_NOCOPY_METHODS(PeriodicClockStateProbe);
+public:
+    vector<STime> callbacks;
+    explicit PeriodicClockStateProbe(NWorld::CUnitServer* unit=nullptr): CUnitStateNormal(unit) {}
+    void OnFinishTimeOrTurn(bool realTime) override {
+        Require(realTime,"periodic state probe received a turn callback in its realtime test");
+        callbacks.push_back(pUS->GetWorld()->GetTime()->GetValue());
+    }
+};
+
+static void PeriodicUnitClocks(const char* databasePath,const char* resourcePath,bool staggered)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
+    Require(world->IsRealTime(),"periodic clock fixture did not start in native realtime");
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(const auto& unit:units)if(IsValid(unit) && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK() && !unit->IsPerformingAction()){actor=unit.GetPtr();break;}
+    Require(actor,"periodic clock fixture has no idle healthy non-PK native actor");
+    CObj<PeriodicClockStateProbe> observer=new PeriodicClockStateProbe(actor);actor->SetState(observer);
+    const STime now=world->GetTime()->GetValue();
+    auto clocks=[&] {
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(actor,&refs);std::pair<STime,STime> value{};
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(20,&value.first);reader.Add(21,&value.second);}
+        return value;
+    };
+    auto before=clocks();
+    Require(before.first==before.second,"fresh native unit clocks have different construction epochs");
+    // Post-init already advances the world by50ms; thresholds use the unit's actual birth epoch.
+    const STime base=staggered?now:before.first;
+    std::printf("native periodic initial clocks: world=%u base=%u critical=%u state=%u\n",now,base,before.first,before.second);std::fflush(stdout);
+    const int ap=actor->GetAP(),vp=actor->GetUnitRPG()->GetTotalVP();const auto position=actor->GetPosition();
+    auto step=[&](STime delta,int callbacks,STime stateAt,STime criticalAt) {
+        world->GetTime()->Set(base+delta);world->GetAimTime()->Set(base+delta);actor->Segment();
+        const auto stamps=clocks();
+        std::printf("native periodic clocks: staggered=%d elapsed=%u callbacks=%zu expected=%d state=%u expectedState=%u critical=%u expectedCritical=%u\n",
+            int(staggered),delta,observer->callbacks.size(),callbacks,stamps.second,stateAt,stamps.first,criticalAt);std::fflush(stdout);
+        Require(observer->callbacks.size()==std::size_t(callbacks) && stamps.second==stateAt && stamps.first==criticalAt,
+            "native realtime state/critical schedules fired early or changed each other's clock");
+        Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==vp && actor->GetPosition()==position,
+            "periodic scheduling changed an idle non-PK actor's AP/VP/position");
+    };
+    if(staggered) {
+        STime critical=base-28000,state=base-1000;CMemoryStream saved;
+        {CStructureSaver writer(saved,CStructureSaver::WRITE);writer.Add(20,&critical);writer.Add(21,&state);}saved.Seek(0);
+        {CStructureSaver reader(saved,CStructureSaver::READ);static_cast<CObjectBase*>(actor)->operator&(reader);}
+        step(0,0,state,critical);step(1999,0,state,critical);step(2000,0,state,base+2000);
+        step(4999,0,state,base+2000);step(5000,1,base+5000,base+2000);
+    } else {
+        step(5999,0,base,base);step(6000,1,base+6000,base);step(11999,1,base+6000,base);
+        step(12000,2,base+12000,base);step(18000,3,base+18000,base);step(24000,4,base+24000,base);
+        step(29999,4,base+24000,base);step(30000,5,base+30000,base+30000);
+        step(36000,6,base+36000,base+30000);step(59999,7,base+59999,base+30000);
+        step(60000,7,base+59999,base+60000);
+    }
+}
+
 static void PeriodicBleedingAttack(const char* databasePath,const char* resourcePath,bool fractional)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
@@ -20716,6 +20773,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "equal-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "mixed-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "missing-attack-target-caption") && argc == 4) { AttackCaptionWithoutHitChance(argv[2], false, true); return true; }
+    if (!std::strcmp(mode, "periodic-clock-thresholds") && argc==4) { PeriodicUnitClocks(argv[2],argv[3],false); return true; }
+    if (!std::strcmp(mode, "periodic-clock-independence") && argc==4) { PeriodicUnitClocks(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "fractional-bleeding-no-hit") && argc==4) { PeriodicBleedingAttack(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "integer-bleeding-hit") && argc==4) { PeriodicBleedingAttack(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "loose-ray-ricochet") && argc==4) { LooseRayRicochet(argv[2],argv[3],0); return true; }

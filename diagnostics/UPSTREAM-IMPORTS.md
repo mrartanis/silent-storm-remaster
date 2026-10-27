@@ -8591,3 +8591,47 @@ builds reused, no HD generation or per-bug copies. No new balance tuning,
 positive damage-rate/formula, production RNG, AP/VP rules, face/font, HD or
 save-format changes. Source becomes PARTIAL; pending84/partial22/imported132,
 106unfinished total. ALL281 and final actual-HEAD hosted CI remain open.
+
+
+## 2de89e04, part2 — independent periodic state and regeneration clocks
+
+Restore the original real-time scheduler in CUnitServer::Segment: state callback
+at elapsed6000ms and regeneration at30000ms, each updating only its own saved
+clock. State dispatch precedes regeneration when both expire. Preserve the
+current DoRegenerations body, dead/real-time guards and serialization. This
+imports scheduling only; the original full critical/bleeding pipeline, lifetime
+placement and arithmetic remain pending their own native TDD/original audit.
+
+Native RED2/2 2.26s: actual FixtureWorld actor Segment dispatches a state callback
+at5999ms and overwrites both clocks; staggered clocks likewise dispatch too
+early and lose their independent phases. A native CUnitStateNormal observer
+records actual callbacks, while the actual serializer reads tags20/21. World
+clock nodes advance directly; no sleeps, replacement scheduler or fake result.
+A setup compile/cast and legitimate50ms difference between actor birth and world
+post-initialization were corrected before the retained true RED.
+
+GREEN2/2 2.27s covers threshold neighbors, simultaneous expiry, independent
+phases including unsigned clock wrap, a late tick with one callback rather than
+catch-up, and critical-only expiry at60000ms. Actual AP/VP/position stay unchanged.
+The observer proves dispatch and native persisted clocks, not health regeneration
+amounts or complete critical-effect processing.
+
+Original proof: Gold PDB Segment7b71b0/655; exact51byte block Gold7b73d1 maps
+uniquely to Steam7c3b51 with NO masks. Steam state comparison7c3b59 is6000;
+critical comparison7c3b7b is30000, with separate stores7c3b6d/7c3b89 and original
+helper call7c3b84->7c31a0. Use this independently verified site rather than the
+source annotation. Evidence periodic-clocks-{gold,retail}-disassembly.txt and
+periodic-clocks-retail-oracle.json.
+
+Final fresh Windows/Linux Game/helpers: related67/67 (74.14s/73.01s), including
+both clock and both bleeding regressions; native-display57/57 (83.04s/68.30s);
+asset-free local CI-like290/290 (24.39s). Exact raw passed counts67/57/67/57/290,
+no NUL/Failed/NotRun/missing executable. The earlier PowerShell selection preview
+count82 was case-insensitive; actual CTest selection is67 on both platforms.
+Windows runner finished; its session result was consumed in truncated output,
+so final stdout/raw logs and guarded runner are retained as completion evidence.
+Linux display runner explicitly returned0. No current hosted GitHub result is
+claimed. Evidence periodic-unit-clocks-{red,green,final-related,final-display,
+final-linux,linux-display,final-ci}. Owned test games exited; shared build reused,
+no HD generation or old per-bug copies. Source remains partial:132 imported,
+22 partial,84 pending (106 unfinished). ALL281 and final hosted CI remain open.

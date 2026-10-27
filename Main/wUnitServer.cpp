@@ -1102,13 +1102,17 @@ void CUnitServer::Segment()
 	CDumbUnitServer::Segment();
 	if ( GetWorld()->IsRealTime() )
 	{
-		if ( tCur - tCriticalPrev >= 3000 )   // retail keeps two throttles (tCriticalPrev/tStatePrev); dev's merged pass rides the criticals one
+		// Original Steam 0x7c3b51: state and critical/regeneration clocks advance independently.
+		if ( tCur - tStatePrev >= 6000 )
+		{
+			pState->OnFinishTimeOrTurn( true );
+			tStatePrev = tCur;
+		}
+		if ( tCur - tCriticalPrev >= 30000 )
 		{
 			if ( !IsDead() )
 				GetUnitRPG()->DoRegenerations();
-			pState->OnFinishTimeOrTurn( true );
 			tCriticalPrev = tCur;
-			tStatePrev = tCur;
 		}
 	}
 	pState->Segment();
