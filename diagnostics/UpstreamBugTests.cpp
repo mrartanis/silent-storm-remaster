@@ -14919,6 +14919,100 @@ static void DoorApproachHeading(const char* databasePath,const char* resourcePat
     Require(cases >= 5,"door approach fixture did not cover its authored aligned, near-door and wrap headings");
 }
 
+static void DoorPathStop(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,true,&game);
+    auto* network = world->GetPathNetwork(); world->GetAIMap()->Sync();
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto unit: units) {
+        auto* candidate = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if (candidate && !candidate->IsAIUnit() && candidate->CanFight() && !candidate->IsWearingPK() &&
+            candidate->GetUnitRPG()->CanMove()) { actor = candidate; break; }
+    }
+    Require(actor != nullptr,"door-stop fixture has no native movable human");
+    NWorld::CWindowDoor* selected = nullptr;
+    NAI::SUnitPosition start = actor->GetPosition();
+    CObj<NAI::CPath> approachPath;
+    int candidates[6] = {};
+    for (const auto& entry: world->GetObjectsForHarness()) {
+        auto* door = dynamic_cast<NWorld::CWindowDoor*>(entry.GetPtr());
+        if (!door || door->IsBroken() || door->IsOpen()) continue;
+        ++candidates[0];
+        door->LockDoor(false,0,1); world->GetAIMap()->Sync();
+        ++candidates[1];
+        vector<NAI::SPathPlace> approaches; door->GetApproaches(&approaches,network);
+        for (auto target: approaches) {
+            if (target.GetDirection() != 4 || !network->IsPassable(target) || network->IsLocked(target,true)) continue;
+            ++candidates[2];
+            NAI::SPosition at(target,network);
+            const auto swing = door->GetChangeStateDirection(true);
+            if (swing.x*cos(at.GetDirection())+swing.y*sin(at.GetDirection()) > 0) continue;
+            ++candidates[3];
+            vector<NAI::SPathPlace> nearbyPlaces; network->GetNearPlaces(SSphere(at.GetCP(),3.f),&nearbyPlaces);
+            for (auto source: nearbyPlaces) {
+                source.SetPose(target.GetPose()); source.SetDirection(4);
+                if (source.GetLayer() != target.GetLayer() || !network->IsPassable(source) ||
+                    network->IsLocked(source,false) || source.GetX() <= target.GetX() || source.GetY() != target.GetY()) continue;
+                ++candidates[4];
+                start.pos.p = source; actor->SetPosition(start);
+                CObj<NAI::CPath> path = NWorld::FindPath(network,actor,source,vector<NAI::SPathPlace>{target},nullptr,true);
+                if (!path || path->points.size() < 2 || !path->actions.empty()) continue;
+                ++candidates[5];
+                const auto before = path->points[path->points.size()-2];
+                if (before.GetX() == target.GetX() && before.GetY() == target.GetY()) continue;
+                selected = door; approachPath = path; break;
+            }
+            if (selected) break;
+        }
+        if (selected) break;
+    }
+    std::printf("native door-stop candidates: %d %d %d %d %d %d\n",candidates[0],candidates[1],candidates[2],candidates[3],candidates[4],candidates[5]);
+    Require(selected && approachPath,"door-stop fixture has no authored unlocked door with a native walking approach");
+    world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer()));
+    Require(!world->IsRealTime() && !world->IsSequence(),"door-stop fixture did not enter a native player turn");
+    for (int scenario: {0,1,2}) {
+        actor->SetPosition(start); actor->SetWalkWithoutWeapon(true);
+        CObj<NAI::CPath> path = new NAI::CPath;
+        path->pNet = network; path->points = approachPath->points;
+        // An intermediate path point keeps its walking flag until split for the door.
+        path->points.back().SetMoving(scenario != 1);
+        if (scenario != 0) {
+            NAI::CPath::SPathAction action;
+            action.where = path->points.back(); action.action = NAI::PA_OPEN; action.pObject = selected;
+            path->actions.push_back(action);
+        }
+        const int initialAP = actor->GetAP();
+        CObj<NWorld::CExecQueue> queue = new NWorld::CExecQueue(actor);
+        queue->AddPath(path,NAI::PF_DEFAULT,NWorld::ITEM_NO_MATTER);
+        auto* front = queue->GetFrontExecutor();
+        CObj<NAI::CPath> prepared = front ? front->GetCurrentPath() : nullptr;
+        Require(prepared && prepared->points.back().GetDirection() == 4,
+            "door-stop fixture lost its real walking segment or added an unexpected turn");
+        const int moveCost = front->GetActionAP();
+        Require(actor->GetAP() == initialAP && !selected->IsOpen(),
+            "preparing a door approach executed a game action");
+        front->Run();
+        for (int callback=0;callback<32 && front->GetState() == NWorld::CCommandExecute::RUNNING;++callback) {
+            front->TimeLabelReached(); front->AnimationFinished();
+        }
+        Require(front->GetState() == NWorld::CCommandExecute::FINISHED &&
+            actor->GetPosition().pos.p.GetX() == path->points.back().GetX() &&
+            actor->GetPosition().pos.p.GetY() == path->points.back().GetY(),
+            "native door approach did not finish at its authored interaction tile");
+        std::printf("native door path: scenario=%d points=%d moving=%d AP=%d expected-cost=%d\n",
+            scenario,int(prepared->points.size()),int(actor->GetPosition().pos.p.IsMoving()),
+            initialAP-actor->GetAP(),moveCost);
+        Require(initialAP-actor->GetAP() == moveCost && !selected->IsOpen(),
+            "native approach changed the movement AP formula or prematurely opened the door");
+        Require(actor->GetPosition().pos.p.IsMoving() == (scenario == 0),
+            "native door approach ended in a moving state before the separate opening action");
+        queue = nullptr;
+        Require(!world->IsAction(),"door approach retained its native action counter");
+    }
+}
+
 static void DoorCollision()
 {
     CObj<RenderFixture> first = new RenderFixture, second = new RenderFixture;
@@ -16121,6 +16215,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "door-collision")) { DoorCollision(); return true; }
     if (!std::strcmp(mode, "door-swing-direction") && argc == 4) { DoorSwingDirection(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "door-approach-heading") && argc == 4) { DoorApproachHeading(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "door-path-stop") && argc == 4) { DoorPathStop(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-animation-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "deferred-direction-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::Direction); return true; }
     if (!std::strcmp(mode, "deferred-pose-command") && argc == 4) { DeferredUnitScriptCommand(argv[2],argv[3],DeferredScriptProducer::Pose); return true; }

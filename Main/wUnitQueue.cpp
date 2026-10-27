@@ -359,6 +359,7 @@ void CExecQueue::AddPath( NAI::CPath *pPath, NAI::EFindPathParams _eParams, ENee
 				continue;
 			}
 
+			pSimplePath->points.back().SetMoving( false );
 			// add an extra turn point so the character opens the door from the correct side
 			if ( nBestDir != p.GetDirection() )
 			{

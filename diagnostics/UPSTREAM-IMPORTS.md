@@ -4158,3 +4158,36 @@ red-native-test.log, green-{build,test}.log, green-native-test.log,
 all-build.log, related-test.log, linux-{configure,build,test}.log,
 {windows,linux}-native-test.log и network-{test,native-test}.log.
 Sourcefcc остаётся частичным; all281/final actual Actions не завершены.
+
+## Остановка пути перед отдельным открыванием двери — часть fcc994bc
+
+UpstreamDoorPathStop на настоящей карте находит authored door/approach,
+реальный свободный соседний tile и подход через FindPath. Единственная
+fixture door оказалась locked; она отпирается штатным LockDoor(false), без
+изменения DB/assets. В path добавляется PA_OPEN в точке взаимодействия,
+как при разделении более длинного пути. Проверка выполняет настоящий
+front mover из CExecQueue.Run/TimeLabelReached/AnimationFinished в player turn,
+останавливаясь до запуска отдельного OpenClose executor.
+
+Первая fixture compile ошибка с Windows macro near и неуспешные поиски
+unlocked подхода исправлены до runtime RED; их логи сохранены.
+Настоящий RED: ordinary moving-endpoint control сохраняет moving=1,
+explicit-stopped door control даёт moving=0, а moving door endpoint
+оставляет actor moving=1 перед отдельным открыванием. Во всех случаях
+реальный расход 4 AP совпадает с native GetActionAP, дверь ещё закрыта.
+После RED добавлена одна SetMoving(false) для конца разделённого сегмента.
+GREEN даёт moving=0 для третьего случая, сохраняя оба контроля и те же 4 AP.
+
+Проверяется конкретный подход с уже верным heading; дополнительный поворот,
+INACTIVE/ladder, полное открывание двери и natural animation clock не заявлены.
+Не меняются AP tables, ключи/взлом, flipper geometry и wire fields.
+Target5/5; связанные38/38 Windows (30.77 с), Linux (29.33 с),
+обе Game и Windows ALL_BUILD, по12 FONT-COMPAT/raw38 полные без NUL.
+NetworkSerializer/ObjectStages/StopResume3/3 (5.73 с).
+CPU base362; полный checkpoint d33ec7da base359+5=364/CI-like277.
+Свидетельства door-path-stop: fixture-name-build.log,
+fixture-{approach,pose,lock}-{test,native-test}.log,
+red-{build,test}.log, red-native-test.log, green-{build,test}.log,
+green-native-test.log, all-build.log, related-test.log,
+linux-{configure,build,test}.log, {windows,linux}-native-test.log,
+network-{test,native-test}.log. Sourcefcc частичный; all281/final Actions pending.
