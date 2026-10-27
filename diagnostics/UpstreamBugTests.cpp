@@ -3098,6 +3098,49 @@ static void AudioOptionCheckboxes(const char* databasePath,const char* resourceP
 #endif
 }
 
+static void HotseatDialogTemplate(const char* databasePath,const char* resourcePath)
+{
+    Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"hotseat dialog fixture requires isolated user data");
+    NativeDisplayContext cleanup;
+    cleanup.Initialize(databasePath,resourcePath,"Silent Storm hotseat dialog regression");
+    NGame::InitLoadingScreen();
+    CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(-1);
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{103}));
+    CObj<NGame::CICBeginMission> enter = new NGame::CICBeginMission(810,-1,vector<string>(),game); enter->Exec();
+    CObj<NGame::CMission> mission = dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(mission && mission->GetWorld(),"hotseat dialog fixture did not open its actual tactical mission");
+    auto* hud = dynamic_cast<NUI::CMissionUI*>(mission->GetDesktop());
+    Require(hud && mission->GetInterface(),"hotseat dialog fixture lacks its actual HUD and interface");
+    vector<CPtr<NGame::IPlayerTracker>> players; mission->GetPlayers(&players);
+    Require(players.size() == 2 && !players[0]->GetGlobalPlayer()->bAIPlayer && !players[1]->GetGlobalPlayer()->bAIPlayer,
+        "hotseat dialog fixture did not create two real human player trackers");
+    CStructureNetworkContext references;
+    auto fields = BorrowedObjectFields(hud,&references);
+    CObj<NUI::CPlayerSwitchUI> dialog;
+    { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(25,&dialog); }
+    Require(dialog,"hotseat dialog was not retained in the HUD's existing save field");
+    auto* label = dynamic_cast<NUI::CText*>(dialog->GetChildByID("text"));
+    auto* ok = dynamic_cast<NUI::CHoverButton*>(dialog->GetChildByID("ok"));
+    std::printf("native hotseat dialog: root=%d text=%d ok=%d size=%dx%d\n",
+        dialog->GetParent() == mission->GetInterface(),label != nullptr,ok != nullptr,dialog->GetSize().x,dialog->GetSize().y);
+    Require(dialog->GetParent() == mission->GetInterface() && label && ok,
+        "the native mission constructed the hotseat dialog from a missing HUD child instead of its own template");
+    Require(!dialog->GetStyle(NUI::STYLE_VISIBLE) && dialog->GetStyle(NUI::STYLE_ENABLED) &&
+        dialog->GetStyle(NUI::STYLE_TOPMOST) && dialog->GetSize().x > 0 && dialog->GetSize().y > 0,
+        "the loaded hotseat dialog did not start hidden with a usable topmost layout");
+    for (auto player: players) for (bool paused: {false,true}) {
+        mission->SetActivePlayer(player); mission->PauseGame(paused);
+        dialog->Show();
+        Require(dialog->GetStyle(NUI::STYLE_VISIBLE) && mission->IsGamePaused() &&
+            label->GetText() == NUI::GetDBString(0x51F3)+player->GetPlayer()->GetPlayerName(),
+            "the loaded native hotseat dialog failed to show the active player's name and pause the mission");
+        Require(dialog->ProcessMessage(NUI::SEvent(NUI::EVENT_NOTIFY,string("ok"))) &&
+            !dialog->GetStyle(NUI::STYLE_VISIBLE) && mission->IsGamePaused() == paused,
+            "accepting the native hotseat dialog did not hide it and restore the prior pause state");
+    }
+}
+
 static void MissionSaveMenu(const char* databasePath,const char* resourcePath,bool quickSave = false)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"mission save-menu fixture requires isolated user data");
@@ -17597,6 +17640,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-authored-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-script-cadence") && argc == 4) { MainMenuMapScript(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "hotseat-dialog-template") && argc==4) { HotseatDialogTemplate(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "audio-option-checkboxes") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3]); return true; }

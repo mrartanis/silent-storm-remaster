@@ -89,7 +89,7 @@ private:
 	CObj<CBiographyPanel> pBiographyPanel;
 	list<CObj<CHitTracker> > hitsList;
 	// retail tail members @0x218dc0 tags 25-26:
-	CObj<CPlayerSwitchUI> pPlayerSwitchUI;			// the auto player-switch banner ("playerswitch" control)
+	CObj<CPlayerSwitchUI> pPlayerSwitchUI;			// the separate root-level player-switch dialog
 	CPtr<NGame::IPlayerTracker> pLastActivePlayer;	// the last player the switch banner was shown for (retail Update @0x211d60)
 	// retail NUI::CMissionUI::operator& @0x218dc0 -- 1=CDesktopWindow base, 2=pMission,
 	// 3=sCameraScrollUpdate, 4=hitTextsList (dev hitsList; CHitTracker == retail CHitText, same

@@ -5346,3 +5346,45 @@ HEAD GitHub Actions ещё не завершены. Проверка voice46 в�
 документационным коммитом: при подготовке bb776ca1 проверка индекса столбца
 tracker остановила только обновление метаданных; production и тест уже прошли
 нужные проверки и были отправлены. Переписывания опубликованного коммита нет.
+
+
+## Отдельный шаблон окна передачи хода — завершение695465bc
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/695465bc189bfe93a657a3f48ff51bc664c5b7ef
+
+Первый compiled native RED1.52с: NativeDisplayContext, настоящая CICBeginMission810,
+два реально развёрнутых игрока54/103 и их IPlayerTracker. Из настоящей CMissionUI
+через штатный сохранённый tag25 прочитан созданный CPlayerSwitchUI. Наблюдение:
+root0, size0x0, хотя text/ok dummy существуют. Причина: GetControl(playerswitch)
+в HUD template не создаёт самостоятельную нужную разметку. Предварительная
+ошибка probe (у нашего tracker отсутствует upstream IsAIPlayer) исправлена
+на собственный GetGlobalPlayer()->bAIPlayer до runtime RED; лог сохранён.
+
+Меняется только создание: отдельный initially hidden enabled/topmost root
+на CInterface и LoadTemplate авторского UIContainer453. Native GREEN1.44с:
+root1, text/ok настоящие, size1024x768, начальный hidden/enabled/topmost.
+Далее public Show на обоих игроках при исходной pausefalse/true показывает
+локализованное имя активного игрока и ставит паузу; EVENT_NOTIFY ok скрывает
+окно и восстанавливает именно прежнюю паузу. Это проверка созданного окна,
+реальной разметки и существующих API, а не pixel screenshot или доказательство
+автоматического handoff. Последний требует отдельного отсутствующего Update
+trigger из46b3ace0 и будет проверяться отдельным RED. Игровая механика,
+собственные high-res fonts/adaptive layout/LAN и schema tag25 не менялись.
+
+Both Game/Windows ALL_BUILD; related11/11 Windows10.66с/Linux8.80с: шесть
+native display cases (этот dialog, MissionSaveMenu/QuickSave/LoadingInput,
+MedalPanelCaption/PreviewCamera), дипломатию/регистрацию/12FONT-COMPAT.
+4Network Serializer/ClientUI/ObjectStages/StopResume7.29с. CI-like280/28024.06с,
+raw280/fonts12. Все raw полные/noNUL, сохранены до последующего CTest.
+Evidence hotseat-dialog-template-{red,green,related,network,ci} build/test,
+windows/linux-related-native-test.log, windows-network-native-test.log,
+ci-native-test.log. Новый тест NativeHotseatDialogTemplate помечен
+extended/native-display и использует собственный isolated user directory.
+CPUbase385 не изменился; нового полного прогона здесь не заявляем.
+Прежние build folders использованы повторно, HD OFF, тестовые процессы закрыты.
+
+Все695hunks учтены тремя отдельными fixes: owned-menu1c98ce64, unit-diplomacy2c44f24f,
+этот template. Source теперь imported. Счётчики281:101pending/108imported/
+22partial/38already/3docs/5excluded-balance/2excluded-own, по1historical/review;
+124 исходных коммита ещё в разборе. All281/final actual HEAD GitHub Actions
+ещё не завершены. Автоматический показ относится к46, не приписывается695.
