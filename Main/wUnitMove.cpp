@@ -1015,14 +1015,8 @@ void CExecMove::SetNewPath( NAI::CPath *pPath, NAI::EFindPathParams _eParams, EN
 	else if ( !bWasWaiting )
 	{
 		CDynamicCast<CCmdMove> pStartMove(commandsQueue.front());
-		if (pStartMove)
+		if ( !pStartMove )
 		{
-			if ( pWasRotate )
-				commandsQueue.push_front( new CCmdEndMove( pUS ) );
-			if ( pWasMove && (pWasMove->bStrafe || pStartMove->bStrafe) )
-				commandsQueue.push_front( new CCmdEndMove( pUS ) );
-		}
-		else {
 			CDynamicCast<CCmdRotate> pStartRotate(commandsQueue.front());
 			if (pStartRotate)
 			{

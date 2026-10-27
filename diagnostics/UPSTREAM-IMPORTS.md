@@ -7156,3 +7156,37 @@ format still under review. Tracker281/115unfinished unchanged.
 Linux related27/27 32.94s, Game built; CI-like284/284 24.21s. Raw27/27/284
 complete/no NUL/missing/Failed, actual exits0. Evidence movement-waiting-reroute-
 {red,green,related,linux,ci} logs in shared evidence directory.
+
+
+## b4505fb0 — continue directly when the replacement route starts moving
+
+Source b4505fb0b183854ea69f680ff770759c5245cebb. Independent continuation
+hunk, tested with actual native rotation and actual native strafe path. Both
+new routes come from FindPath and begin with movement; neither is waiting.
+The test retains/excludes old animation clips, verifies a newly scheduled
+nonzero movement trajectory, commits the appropriate next logical step and
+then reaches the actual new path destination through native callbacks.
+
+Compiled confirmed RED2/2 failed2.29s: rotate case1.13s only adds stand300ms,
+AP53->53 and tile1,1 unchanged; strafe case1.12s commits its pending tile2,1
+->3,1/AP49->45 but also adds stand300ms without a continuing trajectory.
+An earlier rotation fixture faced out of the map and could not find a direct
+route; choose a valid initial native turn instead. That setup failure is not RED.
+Minimal production fix removes old ender insertion when pStartMove exists;
+all previously fixed nonmovement/waiting branches and saved IDs remain intact.
+Original Steam SetNewPath7bb0c0 checks CCmdMove RTTI98523c at7bb1d9..1ee and
+branches directly past ender insertion at7bb1f0 when that cast succeeds. This
+is original behavior restoration, not a new timing rule or AP-price change.
+
+Native GREEN2/2 2.23s: rotate begins its next real diagonal step1,1->2,2,
+AP53->47, trajectory420ms; strafe continues2,1->3,1, AP49->45, trajectory545ms.
+Both actual routes then finish at their new destinations. Windows related29/29
+35.15s and Game built. No native animation implementation, balance formulas,
+renderer, facial animation, fonts, audio or HD asset pipeline modifications.
+No GPU/input/full-turn claim. Shared builds reused. Source remains partial only
+for original EndRotate producer wire format; tracker281/115unfinished unchanged.
+Evidence movement-continuation-{confirmed-red,green,related,linux,ci} logs and
+move-reroute-retail-disassembly.txt in the shared evidence directory.
+
+Linux related29/29 34.90s, Game built; CI-like284/284 24.13s. Raw29/29/284
+complete/no NUL/missing/Failed, actual runner exits0.

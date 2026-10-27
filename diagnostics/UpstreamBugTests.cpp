@@ -12127,6 +12127,53 @@ static vector<NAnimation::CAnimation*> NativeCannonAnimationClips(NAnimation::CS
     return result;
 }
 
+static void MovementRerouteContinuation(const char* databasePath,const char* resourcePath,bool strafe)
+{
+    auto fixture=MakeNativeMovementFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* world=fixture.world.GetPtr();auto* network=world->GetPathNetwork();
+    world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer()));world->GetTime()->Set(1000);
+    auto facing=actor->GetPosition();facing.pos.p.SetDirection((facing.pos.p.GetDirection()+(strafe?4:2))&7);actor->SetPosition(facing);
+    actor->animator.AlignTime();actor->animator.PlaceUnit(facing);actor->SetStrafe(strafe);
+    fixture.path=NWorld::FindPath(network,actor,facing.pos.p,vector<NAI::SPathPlace>{fixture.path->points.back()},nullptr,true,NAI::PF_DEFAULT,strafe);
+    Require(fixture.path && fixture.path->points.size()>=5 && fixture.path->bStrafePath==strafe,"continuation fixture lacks its actual native walking/strafe route");
+    CObj<NWorld::CCommandExecute> move=NWorld::CreateSimpleMoveExecutor(actor,fixture.path,NAI::PF_DEFAULT);
+    Require(move,"continuation fixture could not create its native mover");
+    const int wanted=strafe?int(0x02731142):int(0x02731143);
+    auto matches=[&](CObjectBase* command){return command && pSSClasses->GetObjectTypeID(command)==wanted;};
+    move->Run();
+    for(int edge=0;edge<32 && !matches(ReadMovementCommands(move).current.GetPtr()) && move->GetState()==NWorld::CCommandExecute::RUNNING;++edge) {
+        world->GetTime()->Set(actor->animator.GetTimeEnd());move->AnimationFinished();
+    }
+    Require(matches(ReadMovementCommands(move).current),"continuation fixture did not reach its actual interrupted rotation/strafe command");
+    auto* moving=dynamic_cast<NWorld::IExecMove*>(move.GetPtr());NAI::SPathPlace search;moving->GetSearchFromPosition(&search);search.SetMoving(0);
+    auto samePlace=[](NAI::SPathPlace a,NAI::SPathPlace b){a.SetMoving(0);b.SetMoving(0);return a==b;};
+    vector<NAI::SPathPlace> destinations;network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),5.f),&destinations);CObj<NAI::CPath> route;
+    for(auto destination:destinations) {
+        destination.SetPose(NAI::CM_STAND);destination.SetDirection(search.GetDirection());
+        auto target=actor->GetPosition().pos;target.p=destination;
+        if(fabs2(target.GetCP()-actor->GetPosition().GetCP())<4.f || !network->IsPassable(destination) || network->IsLocked(destination))continue;
+        auto candidate=CObj<NAI::CPath>(NWorld::FindPath(network,actor,search,vector<NAI::SPathPlace>{destination},nullptr,true,NAI::PF_DEFAULT,strafe));
+        if(candidate && candidate->points.size()>=3 && samePlace(candidate->points.front(),search) && candidate->bStrafePath==strafe &&
+           (candidate->points[1].GetX()!=search.GetX() || candidate->points[1].GetY()!=search.GetY()) && candidate->points[1].GetPose()==search.GetPose()) {route=candidate;break;}
+    }
+    Require(route && !move->IsWaitingForPath(),"continuation fixture could not find its unblocked native route beginning with a movement");
+    const auto position=actor->GetPosition();const int ap=actor->GetAP();moving->SetNewPath(route,NAI::PF_DEFAULT);
+    Require(actor->GetAP()==ap && actor->GetPosition()==position,"preparing a continuation committed its step or AP too early");
+    auto* skeleton=actor->animator.GetSkeletonAnimator();const auto before=NativeCannonAnimationClips(skeleton);
+    vector<CObj<NAnimation::CAnimation>> retained;for(auto* clip:before)retained.push_back(clip);
+    const STime start=actor->animator.GetTimeEnd();world->GetTime()->Set(start);move->AnimationFinished();
+    bool trajectory=false;const auto after=NativeCannonAnimationClips(skeleton);
+    for(auto* clip:after)if(std::find(before.begin(),before.end(),clip)==before.end() && clip->GetDistance()>0.01f && clip->GetTime()>0)trajectory=true;
+    std::printf("native movement continuation: strafe=%d AP=%d->%d duration=%u newTrajectory=%d position=%u,%u->%u,%u\n",int(strafe),ap,actor->GetAP(),
+        unsigned(actor->animator.GetTimeEnd()-start),int(trajectory),position.pos.p.GetX(),position.pos.p.GetY(),actor->GetPosition().pos.p.GetX(),actor->GetPosition().pos.p.GetY());std::fflush(stdout);
+    Require(trajectory,"rerouting to another movement inserted a stand instead of continuing the native trajectory");
+    Require(actor->GetAP()<ap && samePlace(actor->GetPosition().pos.p,strafe?search:route->points[1]),"native continuation did not commit exactly its next logical step");
+    for(int edge=0;edge<64 && move->GetState()==NWorld::CCommandExecute::RUNNING;++edge) {
+        world->GetTime()->Set(actor->animator.GetTimeEnd());move->AnimationFinished();
+    }
+    Require(move->GetState()==NWorld::CCommandExecute::FINISHED && samePlace(actor->GetPosition().pos.p,route->points.back()),"native continuation did not reach its real path destination");
+    moving->FullCancel();move=nullptr;Require(!world->IsAction(),"continuation fixture retained its native world action");
+}
+
 static void MovementRerouteFinalStep(const char* databasePath,const char* resourcePath)
 {
     auto fixture=MakeNativeMovementFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* world=fixture.world.GetPtr();
@@ -19719,6 +19766,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-collision-hidden-other")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "movement-collision-hidden-own")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],true,true); return true; }
     if (!std::strcmp(mode, "movement-collision-visible-other")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],false,false); return true; }
+    if (!std::strcmp(mode, "movement-rotate-continuation")) { Require(argc==4,"rotate continuation requires db and res"); MovementRerouteContinuation(argv[2],argv[3],false); return true; }
+    if (!std::strcmp(mode, "movement-strafe-continuation")) { Require(argc==4,"strafe continuation requires db and res"); MovementRerouteContinuation(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "movement-waiting-reroute")) { Require(argc==4,"waiting reroute requires db and res"); MovementBlockedWalkingTrajectory(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "movement-reroute-final-step")) { Require(argc==4,"reroute final step requires db and res"); MovementRerouteFinalStep(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "movement-end-rotate-wire")) { Require(argc==4,"end rotate requires db and res"); MovementEndRotateWire(argv[2],argv[3],false); return true; }
