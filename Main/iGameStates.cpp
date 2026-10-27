@@ -782,14 +782,10 @@ bool CStateAttack::Initialize( IMission *pMission )
 	UpdateCursorInfo();
 	UpdateCursor();
 
-	// retail CStateAttack::Initialize @0x1dd240: the "enemyToolTip" CTextFrame over the aimed enemy
-	// (only the non-FORCED aim-at-unit state has a real unit target).
-	if ( GetType() != FORCED )
-	{
-		pEnemyToolTip = new NUI::CTextFrame( NUI::SWindowInfo( GetMission()->GetDesktop()->GetClientWindow(),
-			NUI::SPoint( 0, 0 ), NUI::SPoint( 0, 0 ), "enemyToolTip", NUI::STYLE_ENABLED | NUI::STYLE_VISIBLE | NUI::STYLE_TRANSPARENT | NUI::STYLE_TOPMOST ) );
-		UpdateEnemyStateInfo();
-	}
+	// Hover and forced attack share the unit caption; show it only for a projected unit.
+	pEnemyToolTip = new NUI::CTextFrame( NUI::SWindowInfo( GetMission()->GetDesktop()->GetClientWindow(),
+		NUI::SPoint( 0, 0 ), NUI::SPoint( 0, 0 ), "enemyToolTip", NUI::STYLE_ENABLED | NUI::STYLE_TRANSPARENT | NUI::STYLE_TOPMOST ) );
+	UpdateEnemyStateInfo();
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

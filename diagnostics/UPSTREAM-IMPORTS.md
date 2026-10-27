@@ -5504,3 +5504,52 @@ Raw полные/noNUL, CI raw280/fonts12; evidence hotseat-keyboard-*.
 CPUbase385, новых двух NativeHotseatKeyboard cases нет в прежнем full396;
 полный398 здесь не заявлен. Последний полный обеих платформ —0690176e396/396.
 Все281/final actual HEAD Actions ещё не завершены; счётчики источников прежние.
+
+
+## Подсказка юнита в принудительной атаке — часть4430374b
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4430374be9ea6be47346d06be41b68005dd7e835
+
+Native воспроизведение использует настоящую CICBeginMission с явным authored
+variant810 и его родительским template, выбранного бойца54, штатные GivePlayerTurn,
+player.Update/Select/RefreshPointerTarget и paused mission.Step. Проверены три
+настоящих юнита, screen320x240 и TestRayInFrustrum для цели. Обычный не-свой
+hover создаёт рамку; затем принудительный CStateAttack.Initialize даёт tag7=null
+(RED1.63с), хотя general action eligibility и камера уже подтверждены.
+
+Первые fixture assumptions были исправлены до production: после загрузки cache
+UA_ATTACK ещё содержал empty-selection result; штатный RefreshPointerTarget
+его обновил. Рандомный template810 имел только одного своего юнита, поэтому для
+контроля чужого hover задан конкретный variant810. Проекция собственного юнита
+была корректной; прежнее имя camera-cache log обозначает предварительную гипотезу,
+не подтверждённую причину. После уточнения parent template RED повторён. Все
+fixture/runtime logs forced-attack-tooltip-* сохранены; эти первые отказы не
+выдаются за воспроизведение бага production.
+
+Изменено только создание caption frame: для обоих режимов, initially hidden,
+затем существующий UpdateEnemyStateInfo. Собственный порядок trace/info/cursor
+сохранён: UpdateCursor уже повторно обновляет info/caption при смене hit location,
+поэтому перестановка upstream не копировалась. GREEN1.65с: реальное имя из
+GetEnemyUnitInfo текущего игрока, visible caption над проецируемым юнитом,
+правильный client parent, Terminate инвалидирует рамку, новый forced state без
+unit target оставляет её hidden. AP/VP/position бойца неизменны. Это native
+контроллер/геометрия/caption proof; выполненный выстрел или пиксельная картинка
+не утверждаются. Расчёт попадания, fog policy и свои шрифты не менялись.
+
+Both Game/Windows ALL_BUILD; related56/56 Windows52.12с/Linux48.07с включают
+attack/hit/target/cursor/reload/acknowledgment cases,10native-display/12FONT-COMPAT.
+4Network7.00с;CI-like280/28024.01с. Raw полные/noNUL,CI raw280/fonts12.
+Evidence forced-attack-tooltip-{red,green,related,network,ci} и native logs.
+CPUbase385 неизменён (новый Native extended case), свежего FULL399 не заявляем;
+последний полный0690176e396 обеих платформ. HD OFF/старые build folders повторно.
+
+443 теперь partial: body/emptyPK hover остаётся отдельным пунктом. Три первых
+hunks только уточняют комментарии; MakeUnitStateToolTip уже не имел death guard.
+При проверке зависимости найден неверный старый PRESENT у5394f920: в текущем
+newrepo GetEnemyUnitInfo по-прежнему отбрасывает мёртвых юнитов. Этот source
+переоткрыт в pending, без изменения production; нужны original oracle и native
+TDD. Остальные PRESENT также требуют сверки с текущим форком до завершения.
+Счётчики281 теперь100pending/108imported/24partial/37already/3docs/5excluded-balance/
+2excluded-own, по1historical/review.125 незакрытых source entries по tracker;
+число выросло из-за исправленного статуса, а не новой upstream истории.
+All281/final actual HEAD Actions ещё не завершены.

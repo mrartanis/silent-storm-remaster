@@ -3098,6 +3098,92 @@ static void AudioOptionCheckboxes(const char* databasePath,const char* resourceP
 #endif
 }
 
+static void ForcedAttackTooltip(const char* databasePath,const char* resourcePath)
+{
+    Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"forced-attack tooltip fixture needs isolated user data");
+    NativeDisplayContext cleanup;
+    cleanup.Initialize(databasePath,resourcePath,"Silent Storm forced-attack tooltip regression");
+    NGame::InitLoadingScreen();
+    CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(-1);
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    auto* variant = NDb::GetTemplVariant(810);
+    Require(variant,"forced-attack tooltip fixture has no authored variant");
+    const int templateID = IsValid(variant->pTemplate) ? variant->pTemplate->GetRecordID() : -1;
+    CObj<NGame::CICBeginMission> enter = new NGame::CICBeginMission(templateID,810,vector<string>(),game); enter->Exec();
+    CObj<NGame::CMission> mission = dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(mission && mission->GetWorld() && mission->GetDesktop(),"forced-attack tooltip fixture did not open its actual tactical mission");
+    auto* world = dynamic_cast<NWorld::CWorld*>(mission->GetWorld());
+    auto* player = mission->GetActivePlayer();
+    world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(player->GetPlayer()));
+    player->Update(true);
+    vector<CPtr<NGame::IUnitTracker>> party; player->GetUnits(&party);
+    Require(!party.empty(),"forced-attack tooltip fixture has no real party tracker");
+    auto* actor = dynamic_cast<NWorld::CUnitServer*>(party.front()->GetUnit());
+    Require(actor && actor->CanFight(),"forced-attack tooltip fixture has no live native actor");
+    mission->Select(actor);
+    Require(mission->IsReady(),"forced-attack tooltip fixture is not in an interactive player turn");
+    mission->RefreshPointerTarget();
+    while (NMainLoop::HaveInterfaceCommand()) { CObj<NMainLoop::CInterfaceCommand> pending = NMainLoop::TakeInterfaceCommandForHarness(); }
+    mission->PauseGame(true);
+    mission->GetCamera()->FocusOnPlace(actor->GetPosition().GetCP(),actor->GetPosition().pos.GetFloor());
+    struct ClockRestore { STime previous; ~ClockRestore() { NMainLoop::SetTimeForHarness(previous); } } clock{NMainLoop::SetTimeForHarness(100000)};
+    mission->Step();
+    NGame::SActionInfo general; mission->GetActionInfo(NGame::UA_ATTACK,&general);
+    std::printf("native attack-mode control: selected=%d result=%d ok=%d enoughAP=%d\n",
+        mission->CountSelected(),int(general.eResult),general.bOk,general.bEnoughAP);
+    Require(mission->CountSelected() == 1 && (general.eResult == NWorld::UCR_PENDING || (general.bOk && general.bEnoughAP)),
+        "forced-attack tooltip fixture could not enter a native attack mode");
+    auto tooltip = [](NGame::CStateAttack* state) {
+        CStructureNetworkContext references;
+        auto fields = BorrowedObjectFields(state,&references);
+        CPtr<NUI::CTextFrame> result;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&references); reader.Add(7,&result); }
+        return result;
+    };
+    vector<CPtr<NWorld::CUnit>> units; world->GetAllUnits(&units);
+    NWorld::CUnit* other = nullptr;
+    NWorld::CUnit* visible = nullptr;
+    for (auto unit: units) {
+        if (!other && unit->GetPlayer() && unit->GetPlayer() != player->GetPlayer()) other = unit;
+        auto transform = mission->GetCameraTransform(); CVec2 screen;
+        if (TestRayInFrustrum(unit->GetPosition().GetCP()+CVec3(0,0,3.6f),&transform,mission->GetScene()->GetScreenRect(),&screen)) {
+            if (!visible || unit.GetPtr() == actor) visible = unit;
+        }
+    }
+    std::printf("native tooltip targets: units=%zu other=%d visible=%d screen=%.0fx%.0f\n",units.size(),other != nullptr,visible != nullptr,mission->GetScene()->GetScreenRect().x,mission->GetScene()->GetScreenRect().y);
+    Require(other && visible,"forced-attack tooltip fixture needs a non-owned hover target and a genuinely projected unit");
+    mission->SetStateTarget(other);
+    CObj<NGame::CStateAttack> hover = new NGame::CStateAttack(false);
+    Require(hover->Initialize(mission) && IsValid(tooltip(hover)),"ordinary enemy hover failed its native tooltip allocation control");
+    hover->Terminate();
+    NWorld::SEnemyInfo expected; player->GetPlayer()->GetEnemyUnitInfo(visible,&expected);
+    Require(!expected.wsName.empty(),"forced-attack tooltip fixture has no native fog-of-war display name");
+    const int ap = actor->GetAP(), vp = actor->GetUnitRPG()->GetTotalVP();
+    const auto position = actor->GetPosition();
+    mission->SetStateTarget(visible);
+    CObj<NGame::CStateAttack> forced = new NGame::CStateAttack(true);
+    Require(forced->Initialize(mission),"forced-attack tooltip fixture did not initialize its native forced state");
+    auto frame = tooltip(forced);
+    std::printf("native forced attack tooltip: frame=%d projectedUnit=1\n",IsValid(frame));
+    Require(IsValid(frame),"forced attack omitted the native unit tooltip frame");
+    Require(frame->GetParent() == mission->GetDesktop()->GetClientWindow() && frame->GetStyle(NUI::STYLE_VISIBLE),
+        "forced attack failed to show the tooltip above a genuinely projected unit");
+    list<CPtr<NUI::CWindow>> children; frame->GetChildrenList(&children);
+    NUI::CText* label = nullptr;
+    for (auto child: children) if (auto* text = dynamic_cast<NUI::CText*>(child.GetPtr())) { label = text; break; }
+    Require(label && label->GetText().find(expected.wsName) != wstring::npos,
+        "forced attack lost the active player's fog-of-war unit caption");
+    forced->Terminate();
+    Require(!IsValid(frame),"terminating forced attack retained its tooltip");
+    mission->SetStateTarget(nullptr);
+    CObj<NGame::CStateAttack> empty = new NGame::CStateAttack(true);
+    Require(empty->Initialize(mission) && IsValid(tooltip(empty)) && !tooltip(empty)->GetStyle(NUI::STYLE_VISIBLE),
+        "forced attack without a hovered unit failed to retain an initially hidden tooltip");
+    empty->Terminate();
+    Require(actor->GetAP() == ap && actor->GetUnitRPG()->GetTotalVP() == vp && actor->GetPosition() == position,
+        "initializing attack tooltips spent AP, changed health or moved the selected actor");
+}
+
 static void HotseatDialogTemplate(const char* databasePath,const char* resourcePath,bool legacy = false,bool automatic = false,bool keyboard = false)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"hotseat dialog fixture requires isolated user data");
@@ -17775,6 +17861,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-authored-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-script-cadence") && argc == 4) { MainMenuMapScript(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "forced-attack-tooltip") && argc==4) { ForcedAttackTooltip(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "hotseat-keyboard") && argc==4) { HotseatDialogTemplate(argv[2],argv[3],false,true,true); return true; }
     if (!std::strcmp(mode, "hotseat-keyboard-legacy") && argc==4) { HotseatDialogTemplate(argv[2],argv[3],true,true,true); return true; }
     if (!std::strcmp(mode, "hotseat-handoff") && argc==4) { HotseatDialogTemplate(argv[2],argv[3],false,true); return true; }
