@@ -7014,6 +7014,62 @@ public:
     void Rebuild() { CPerPolyDecal::Recalc(); }
 };
 
+static void DecalSurfaceOffset(bool impact)
+{
+    NGScene::CObjectInfo::SData data;
+    for(auto point:{CVec3(-0.3f,-0.3f,0),CVec3(0.3f,-0.3f,0),CVec3(0,0.3f,0)}) {
+        NGScene::SVertex vertex{};vertex.pos=point;
+        NGfx::CalcCompactVector(&vertex.normal,CVec3(0,0,1));
+        NGfx::CalcCompactVector(&vertex.texU,CVec3(1,0,0));
+        NGfx::CalcCompactVector(&vertex.texV,CVec3(0,1,0));data.verts.push_back(vertex);
+    }
+    data.geometry.SetTriangles({STriangle(0,1,2)});
+    CObj<NGScene::CObjectInfo> source=new NGScene::CObjectInfo;source->Assign(data);
+    CObj<MeshNode> node=new MeshNode(source);
+    auto project=[&](int shift) {
+        CDGPtr<NGScene::CDecalGeometry> decal=new NGScene::CDecalGeometry(node,SDiscretePos(nullptr,VNULL3,0),
+            VNULL3,CVec3(0,0,1),CVec2(2,2),0.f,CVec2(0.5f,0.5f));
+        decal->nShift=shift;MarkNewDGFrame();decal.Refresh();auto* mesh=decal->GetValue();
+        Require(mesh && mesh->GetTrisCount()==1 && mesh->GetPositions().size()==3,
+            "native decal clipping control did not produce the source triangle");
+        SBound bound;mesh->CalcBound(&bound);
+        Require(std::fabs(bound.s.ptCenter.x)<1e-6f && std::fabs(bound.s.ptCenter.y)<1e-6f &&
+            std::fabs(bound.ptHalfBox.x-0.3f)<1e-6f && std::fabs(bound.ptHalfBox.y-0.3f)<1e-6f && bound.ptHalfBox.z<1e-6f,
+            "native decal clipping changed the source triangle footprint");
+        for(const auto& point:mesh->GetPositions())Require(std::fabs(point.z-bound.s.ptCenter.z)<1e-6f,
+            "native decal clipping did not produce a planar projected surface");
+        return bound.s.ptCenter.z;
+    };
+    const float authored=project(0);
+    if(impact) {
+        const float bullet=project(1);
+        std::printf("native projected decal: authoredZ=%.6f impactZ=%.6f expectedSeparateSurfaces=1\n",double(authored),double(bullet));std::fflush(stdout);
+        Require(bullet>authored+1e-5f && std::fabs(bullet-2*authored)<1e-6f,
+            "projected bullet impact remained coplanar with authored surface spots");
+        // Real serializable producer and the constructor path used by opaque
+        // scene impacts: tag11 must retain its layer through native save/load.
+        vector<CVec3> points;for(const auto& vertex:data.verts)points.push_back(vertex.pos);
+        CObj<NGScene::CMemObjectInfo> memory=new NGScene::CMemObjectInfo({STriangle(0,1,2)},points,vector<CVec3>(3,CVec3(0,0,1)));
+        CObj<NGScene::CDecalGeometry> stored=new NGScene::CDecalGeometry(memory,SDiscretePos(nullptr,VNULL3,0),
+            VNULL3,CVec3(0,0,1),CVec2(2,2),0.f,CVec2(0.5f,0.5f),-0.01f,1e10f,1);
+        Require(stored->nShift==1,"native opaque-impact constructor lost its requested layer");
+        CMemoryStream bytes;{CStructureSaver saver(bytes,CStructureSaver::WRITE);saver.Add(1,&stored);}
+        stored=nullptr;bytes.SetRMode();bytes.Seek(0);
+        {CStructureSaver saver(bytes,CStructureSaver::READ);saver.Add(1,&stored);}
+        Require(stored && stored->nShift==1,"native decal layer tag11 did not survive save/load");
+        CDGPtr<NGScene::CDecalGeometry> loaded=stored.GetPtr();MarkNewDGFrame();loaded.Refresh();auto* loadedMesh=loaded->GetValue();
+        Require(loadedMesh && loadedMesh->GetTrisCount()==1,"round-tripped native impact did not regenerate its clipped mesh");
+        SBound loadedBound;loadedMesh->CalcBound(&loadedBound);
+        Require(std::fabs(loadedBound.s.ptCenter.z-bullet)<1e-6f,
+            "round-tripped native impact lost its separate projected surface");
+        std::printf("native impact constructor/save-load tag11=1: regenerated centerZ=%.6f\n",double(loadedBound.s.ptCenter.z));
+    } else {
+        std::printf("native projected decal: authoredZ=%.6f originalZ=0.008000\n",double(authored));std::fflush(stdout);
+        Require(std::fabs(authored-0.008f)<1e-6f,
+            "projected authored decal uses half the original surface separation");
+    }
+}
+
 class MemoryProjectionPart: public NGScene::IPart
 {
     OBJECT_BASIC_METHODS(MemoryProjectionPart);
@@ -20017,6 +20073,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "geometry-unused-vertices")) { GeometryUnusedVertices(false); return true; }
     if (!std::strcmp(mode, "geometry-unused-vertices-weighted")) { GeometryUnusedVertices(true); return true; }
     if (!std::strcmp(mode, "decal-rebuild")) { DecalRebuild(); return true; }
+    if (!std::strcmp(mode, "decal-authored-offset")) { DecalSurfaceOffset(false); return true; }
+    if (!std::strcmp(mode, "decal-impact-layer")) { DecalSurfaceOffset(true); return true; }
     if (!std::strcmp(mode, "memory-mesh-decal-projection")) { MemoryMeshDecalProjection(); return true; }
     if (!std::strcmp(mode, "decal-projection")) { DecalProjection(); return true; }
     if (!std::strcmp(mode, "empty-model-fallback") && argc==3) { EmptyModelFallback(argv[2]); return true; }

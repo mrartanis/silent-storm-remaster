@@ -7442,3 +7442,58 @@ Tracker281:88pending/126imported/23partial/32already/3docs/5excluded-balance/
 Final CI-like287/28724.67s/fonts12, actual exit0/raw287 complete/noNUL/Failed/missing.
 Evidence memory-mesh-decal-{red,green,controls,full,final-linux,ci} test/native-test
 logs plus Windows ALL_BUILD/Linux build logs in the shared evidence directory.
+
+
+## a3f330bb, part 1 — separate projected impacts from authored surface spots
+
+Sourcea3f330bbd76d67d34c5ed897d253c52cc51692b6. The native projection ignored
+its existing serialized nShift field: authored spots and bullet impacts both
+produced geometry at Z0.004, leaving those surfaces coplanar. Compiled native
+RED2/2 0.09s: authored0.004 differs from original0.008, and impact0.004 equals
+authored0.004. Both fixtures first require actual native clipped3point/1triangle
+geometry with unchanged XY footprint and a planar output; this is geometric
+coplanarity evidence, not a GPU-pixel z-fighting reproduction.
+
+Restore original0.008*(nShift+1) along normalized projection direction. Thread
+the existing tag11 field into CShadowBuilder::Setup. Authored building spots
+retain default0; actual CGScene::CreateDecal opaque-impact branch passes1.
+Audit found those two GBuilding producers and one scene impact constructor.
+For this fork, append the new optional constructor argument AFTER existing
+UV/normal/depth arguments instead of upstream's insertion before UV. Existing
+call semantics are preserved. Stored layer tag11 and all other wire tags stay
+unchanged. Dynamic/animated exact decals and our own facial/font/HD paths are
+unchanged; no gameplay balance, collision, AP/damage or original-rule edits.
+
+GREEN2/2 0.08s: authoredZ0.008/impactZ0.016, same footprint. Added native
+constructor plus save/load control uses actual registered CMemObjectInfo and
+CDecalGeometry; tag11=1 survives serialization and regenerates Z0.016. This
+control also passed2/2 0.08s. Linux then caught an explicit-pointer conversion
+needed only in the new fixture (CObj->CDGPtr uses GetPtr). That compile failure
+is neither runtime RED nor GREEN. It was repaired and both final native related
+suites/Windows CI rerun. Production code was unchanged by the fixture repair.
+
+Independent original: GoldPDB CShadowBuilder::Setup506d60/153 uniquely maps
+Steam508780 with first32bytes EXACT. Steam5087aa/5087ca multiply the project
+direction by float at8b7f2c, independently decoded0.00800000037997961;
+5087b7 increments the shift argument;5087d4 onward converts/multiplies it into
+the three output vShift components. Source-comment addresses are not used as
+proof. Disassembly decal-surface-offset-retail-disassembly.txt in shared evidence;
+original Steam SHA2564F417593A9F73E2BFDE12D83CDBD694AE47EECB92812140D67B8B343E4A95705.
+
+Windows and Linux Game built. Final related Windows27/27 12.37s and Linux22/22
+10.77s; full native-display label45/45 Windows73.26s/Linux60.52s (10audio cases
+included). Windows display run preceded only the fixture's explicit-pointer
+spelling repair, with identical production code. Final CI-like289/28924.89s,
+fonts12. Raw27/22/45/45/289 complete/noNUL/Failed/missing executable; actual
+runners exit0, our test games exited. Shared builds reused, no HD generation
+or per-bug binaries. Prior source485 full470/470 results document that source;
+they are not represented as full coverage of this later offset change.
+Evidence decal-surface-offset-{red,green,roundtrip,final-related,verified-linux,
+display,linux-display,final-ci} test/native-test logs plus Game build logs.
+
+Source remains partially imported: lightmapped-decal filtering/alpha paths,
+operation sorting, temporary save lifecycle, cube cache/filtering and legacy
+shadow/shader adaptations require their own audit and TDD. In particular do
+not blindly halve our cache or replace our bgfx shaders with original D3D code.
+Tracker281:87pending/126imported/24partial/32already/3docs/5excluded-balance/
+2excluded-own/1historical/1review,112unfinished. ALL281/final hosted CI remain open.

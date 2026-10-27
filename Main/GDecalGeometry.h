@@ -24,7 +24,7 @@ class CDecalGeometry: public CPtrFuncBase<CObjectInfo>
 	CVec2 vShift;
 	float fNormalEdge, fDepthMargin;
 public:
-		int nShift = 0;
+	int nShift = 0;
 	ZEND int operator&( CStructureSaver &f ) { f.Add(2,&pSource); f.Add(3,&vOrigin); f.Add(4,&vNormal); f.Add(5,&vSize); f.Add(6,&fRotation); f.Add(7,&srcPos); f.Add(8,&vShift); f.Add(9,&fNormalEdge); f.Add(10,&fDepthMargin); f.Add(11,&nShift); return 0; }
 protected:
 	virtual bool NeedUpdate() { return pSource.Refresh(); }
@@ -35,7 +35,7 @@ public:
 	// rotation is in radians
 	CDecalGeometry( CPtrFuncBase<CObjectInfo> *p, const SDiscretePos &_srcPos, 
 		const CVec3 &_vOrigin, const CVec3 &_vNormal, const CVec2 &_vSize, float _fRotation, const CVec2 &_vShift = VNULL2,
-		float fNormalEdge = -0.01f, float fDepthMargin = 1e10f );
+		float fNormalEdge = -0.01f, float fDepthMargin = 1e10f, int nShift = 0 );
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class IPart;
