@@ -10060,6 +10060,38 @@ static void ForcedMoveItemEligibility(const char* databasePath,const char* resou
     }
 }
 
+static void MovementFullCancelAction(const char* databasePath,const char* resourcePath)
+{
+    auto fixture = MakeNativeMovementFixture(databasePath,resourcePath);
+    Require(!fixture.world->IsAction(),"full-cancel fixture did not begin with an idle world");
+    CObj<NWorld::CActionCounter> unrelated = fixture.world->GetActiveCounter();
+    Require(fixture.world->IsAction(),"full-cancel fixture failed to retain its unrelated native action");
+    CObj<NWorld::CCommandExecute> move = NWorld::CreateSimpleMoveExecutor(fixture.actor,fixture.path,NAI::PF_DEFAULT);
+    Require(IsValid(move),"full-cancel fixture could not create its real movement executor");
+    move->Run();
+    Require(move->GetState() == NWorld::CCommandExecute::RUNNING && move->IsExecuting(),
+        "full-cancel control did not start a live native movement action");
+    const int ap = fixture.actor->GetAP(), vp = fixture.actor->GetUnitRPG()->GetTotalVP();
+    const auto position = fixture.actor->GetPosition();
+    auto* mover = dynamic_cast<NWorld::IExecMove*>(move.GetPtr());
+    Require(mover,"full-cancel fixture lost its native movement interface");
+    mover->FullCancel();
+    Require(move->GetState() == NWorld::CCommandExecute::FINISHED,
+        "full cancellation did not retain the native finished-state contract");
+    std::printf("native full cancellation: retainedMover=1 finished=1 executing=%d unrelatedAction=%d\n",
+        move->IsExecuting(),fixture.world->IsAction());
+    Require(!move->IsExecuting(),"a fully cancelled retained mover kept its native action token");
+    Require(fixture.world->IsAction(),"cancelling a mover released another live world's action");
+    unrelated = nullptr;
+    Require(!fixture.world->IsAction() && IsValid(move),
+        "a retained fully cancelled mover kept the world busy after the unrelated action ended");
+    mover->FullCancel();
+    Require(move->GetState() == NWorld::CCommandExecute::FINISHED && !move->IsExecuting() && !fixture.world->IsAction(),
+        "repeated full cancellation restarted or retained a world action");
+    Require(fixture.actor->GetAP() == ap && fixture.actor->GetUnitRPG()->GetTotalVP() == vp && fixture.actor->GetPosition() == position,
+        "releasing a cancelled movement action spent additional AP, changed health or moved the actor");
+}
+
 static void MovementCallbackCancellation(const char* databasePath, const char* resourcePath, int cancelOnStep, bool releaseOwner = false)
 {
     auto fixture = MakeNativeMovementFixture(databasePath, resourcePath);
@@ -18062,6 +18094,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "markup-dialogue-progress") && argc == 4) { OversizedDialogueLine(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "dialogue-normal-pagination") && argc == 4) { OversizedDialogueLine(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "forced-move-item-eligibility") && argc==4) { ForcedMoveItemEligibility(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "movement-full-cancel-action") && argc==4) { MovementFullCancelAction(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "movement-first-step-cancel") && argc == 4) { MovementCallbackCancellation(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "movement-next-step-cancel") && argc == 4) { MovementCallbackCancellation(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "movement-first-step-release") && argc == 4) { MovementCallbackCancellation(argv[2], argv[3], 1, true); return true; }
