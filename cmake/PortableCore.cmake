@@ -1280,7 +1280,8 @@ add_library(s2_game_lua STATIC
   "${root}/Script/Script.cpp"
   "${root}/Main/scriptRandom.cpp")
 target_include_directories(s2_game_lua PRIVATE "${CMAKE_BINARY_DIR}/lua_include")
-target_link_libraries(s2_game_lua PUBLIC s2_game_structure s2_game_misc_runtime)
+# Missing-global diagnostics in the VM use the shared engine log runtime.
+target_link_libraries(s2_game_lua PUBLIC s2_game_structure s2_game_misc_runtime s2_game_ai_log)
 target_compile_features(s2_game_lua PUBLIC cxx_std_17)
 add_executable(NativeLuaRuntimeTests "${root}/diagnostics/NativeLuaRuntimeTests.cpp")
 target_link_libraries(NativeLuaRuntimeTests PRIVATE s2_game_lua)

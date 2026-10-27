@@ -6376,3 +6376,31 @@ Tracker281:96pending/117imported/24partially-imported/32already/3docs/
 HD, facial engine и HiRes fonts не менялись. Общая цель и final actual-HEAD
 Actions остаются открыты; следующие шаги — отдельный ремонт portable probes
 и оставшиеся difficulty mapping/save-policy hunks02d85e5b.
+
+
+## Portable Lua: зависимость от журнала послеcc9fbeab
+
+Это отдельный build-integration follow-up к уже перенесённому
+[cc9fbeab94c206c59606fb91902c800c5690f0c9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc9fbeab94c206c59606fb91902c800c5690f0c9)
+(наш исходный warning commit a4cba8ad). Lua VM пишет missing-global diagnostic
+через настоящий csSystem/CLogStream. У standalone s2_game_lua не было link
+зависимости от уже имеющегося s2_game_ai_log, хотя full Game эту реализацию имел.
+
+До изменения реальные команды сборки NativeLuaRuntimeTests и
+NativeMissionScriptCorpusTests завершились undefined references из lvm.cpp
+к csSystem/CLogStream. CTest тех же двух целей вернул exit8/2NotRun. Это
+воспроизведение build defect; ошибка линковки не выдана за compiled gameplay RED.
+В PortableCore.cmake добавлена только transitive dependency на существующий
+logger. Подмен, заглушек журнала и изменений Lua return/dispatch не добавлено.
+
+Обе цели затем реально слинкованы, CTest2/2 GREEN0.95с. LuaRuntime выполняет VM,
+ScriptCorpus обрабатывает113 DB scripts (один empty),355575bytes,
+digestC2462A66D562BAF6; это не полный запуск миссий. Registration/readonly
+inventory2/2 0.18с. Evidence portable-lua-logger-{baseline-build,baseline-test,
+green-build,green-test,green-native-test,registration-test}. Ошибка сборки
+NativeMissionMapProbe/IsLockerUnit — независимая и остаётся в следующем fix;
+данный коммит не объявляет все436 Linux cases завершёнными.
+
+Игровой код, оригинальный баланс, HD/textures/fonts и сохранения не менялись.
+Статус cc9fbeab остаётся imported, общий tracker121 незавершённая запись.
+Остальные source entries и final actual-HEAD GitHub Actions ещё открыты.
