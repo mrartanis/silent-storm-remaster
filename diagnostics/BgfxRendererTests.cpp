@@ -445,6 +445,47 @@ int RunRenderParameterOrder() {
   return 0;
 }
 
+int RunRenderParameterAlias() {
+  using namespace NGScene;
+  FixedRenderColors colors;
+  if(!colors.Allocate(0x10000000u,0x10000000u,true))return 240;
+  std::printf("native x64 distinct constants: left=%p right=%p sameLowWord=1\n",
+    static_cast<const void*>(colors.Get(0)),static_cast<const void*>(colors.Get(1)));
+  NGfx::SRenderTargetsInfo targets;
+  if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 241;
+  RenderParameterQuad quads[2];quads[0].Initialize(-.75f,-.1f,CVec3(1,0,0));quads[1].Initialize(.1f,.75f,CVec3(0,1,0));
+  CSceneFragments scene;CPartFlags parts;parts.Clear();parts.Set(0);
+  for(int i=0;i<2;++i) {
+    SBound bound;quads[i].mesh->CalcBound(&bound);
+    const int index=scene.AddGeometry(nullptr,&quads[i].geometry,bound);
+    scene.AddElement(index,parts,quads[i].material,nullptr,nullptr);
+  }
+  if(scene.GetFragments().size()!=3)return 242;
+  CTransformStack identity;identity.Init();NGfx::CRenderContext context;
+  context.SetCulling(NGfx::CULL_NONE);context.SetScreenRT();
+  auto operation=[&](int color) {return CRenderCmdList::SOperation(scene.GetFragments()[color+1],
+    RO_SOLID_COLOR,10,DPM_NONE,0,colors.Get(color));};
+  auto capture=[&](const CRenderCmdList& commands,CArray2D<NGfx::SPixel8888>* image) {
+    context.SetScreenRT();context.ClearBuffers(0xff000000);
+    Execute(nullptr,&context,identity,commands,scene,SLightInfo());NGfx::MakeScreenShot(image,false);
+  };
+  CArray2D<NGfx::SPixel8888> image;
+  for(int color=0;color<2;++color) {
+    CRenderCmdList control;control.ops.push_back(operation(color));capture(control,&image);
+    if(!Color(image,color==0?32:96,64,color==0?255:0,color==1?255:0,0))return 243;
+  }
+  for(bool reversed:{false,true}) {
+    CRenderCmdList commands;commands.ops={operation(reversed?1:0),operation(reversed?0:1)};capture(commands,&image);
+    const auto& left=image[64][32];const auto& right=image[64][96];
+    std::printf("native x64 batching: reversed=%d left=%u,%u,%u right=%u,%u,%u expected=red/green\n",
+      int(reversed),unsigned(left.r),unsigned(left.g),unsigned(left.b),unsigned(right.r),unsigned(right.g),unsigned(right.b));std::fflush(stdout);
+    if(!Color(image,32,64,255,0,0) || !Color(image,96,64,0,255,0)) {
+      std::fprintf(stderr,"native batch merged distinct x64 color pointers sharing their low word\n");return 244;
+    }
+  }
+  return 0;
+}
+
 int RunLowRamCombiner() {
   NGfx::SRenderTargetsInfo targets;
   if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 200;
@@ -1255,6 +1296,7 @@ int main(int argc,char** argv) {
              argc>1 && std::string(argv[1])=="--graphics" ? RunGraphicsOptions() :
              argc>1 && std::string(argv[1])=="--shadow-pcf" ? RunShadowPcf() :
              argc>1 && std::string(argv[1])=="--specular-projection" ? RunSpecularProjection() :
+             argc>1 && std::string(argv[1])=="--render-param-alias" ? RunRenderParameterAlias() :
              argc>1 && std::string(argv[1])=="--render-param-order" ? RunRenderParameterOrder() :
              argc>1 && std::string(argv[1])=="--low-ram-combiner" ? RunLowRamCombiner() :
              argc>1 && std::string(argv[1])=="--stationary-fog" ? RunStationaryFog() :

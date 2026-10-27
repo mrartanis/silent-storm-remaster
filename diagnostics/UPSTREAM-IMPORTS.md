@@ -7608,3 +7608,44 @@ Sourcea3f still partial: batch equality on our64bit fork, temporary save
 lifecycle, decal alpha/lightmap shader consumers and cube cache/filter/shadow
 adaptations still require separate evidence. Tracker remains281/112unfinished;
 ALL281/final actual-HEAD hosted CI are still open.
+
+
+## a3f330bb, own x64 adaptation — distinguish full pointer values when batching
+
+Contextsourcea3f330bbd76d67d34c5ed897d253c52cc51692b6, raw-key import74fcb547.
+The source corrects ordering; its original32bit IsSame uses float equality,
+as independently proved by the exact94byte Steam54a1b0 body. Copying that
+comparison unchanged to our64bit parameters loses the upper half of pointers.
+This section is an OWN-FORK64bit adaptation of those raw parameter keys, not a
+claim that upstream or original IsSame already contains this implementation.
+
+Native GPU RED1/1 0.35s: real distinct CVec4 constants at0x110000000 and
+0x2110000000 share finite low word0x10000000. Separate left-red/right-green
+quads each render correctly alone; actual Execute batching submits them together
+with RED on BOTH sides (failure244, right pixel255,0,0 instead of0,255,0).
+Same real native CVB/CIB/scene/shader/readback path and safely owned virtual
+color pages as the preceding ordering test. No fake pointers, sort emulation,
+GPU mocks or per-bug disk fixtures. This reproduces wrong actual pixels.
+
+Compare all3full GetBits keys when parameters are wider than float. Retain the
+original float branch for32bit builds; replace the invalid64bit float-size
+assertion with a pointer-word-size assertion. Other op/pass/register/stencil
+checks and the shared key initialization are unchanged. No material/shader/
+lighting formula, balance, own facial engine, fonts, HD pipeline or wire edits.
+The32bit branch is retained by inspection; no32bit runtime result is claimed.
+
+GREEN2/2 0.60s includes this alias case and previous NaN-shaped pointer ordering.
+Both input orders now yield left-red/right-green and retain the prior ordering/
+pass-priority/scalar initialization controls. Current Windows ALL_BUILD/Game
+and Linux Game/helpers built. Related Windows30/30 12.47s/Linux25/25 10.77s;
+native-display47/47 Windows73.73s/Linux60.55s (actual D3D11/Vulkan GPU readbacks,
+own fog/stencil/low-RAM and decal scenes). CI-like290/29024.70s/fonts12.
+Raw30/25/47/47/290 complete/noNUL/Failed/missing executable, actual runnersexit0.
+Shared builds reused, our test games exited, no HD generation or old game copies.
+Evidence render-parameter-alias-{red,green,related,final-linux,display,linux-
+display,ci} logs and build logs. Original lookup/disassembly is recorded in the
+preceding ordering section; its94byte IsSame float proof remains unchanged.
+
+Sourcea3f stays partial: temporary save lifecycle, decal alpha/lightmap shader
+consumers and cube cache/filter/shadow adaptations remain to audit with our
+SDL/bgfx pipeline. Tracker281/112unfinished and ALL281/final hosted CI stay open.

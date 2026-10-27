@@ -600,9 +600,12 @@ public:
 			p1(_p1), p2(_p2), p3(_p3) {}
 		bool IsSame( const SOperation &a ) const
 		{
-			ASSERT( sizeof(p1.f) == sizeof(p1) );
+			ASSERT( sizeof(p1) == sizeof(std::uintptr_t) );
 			return op == a.op && nPass == a.nPass && nStencilBlendMode == a.nStencilBlendMode && 
-				nDestRegister == a.nDestRegister && p1.f == a.p1.f && p2.f == a.p2.f && p3.f == a.p3.f;
+				nDestRegister == a.nDestRegister &&
+				( sizeof(p1) == sizeof(p1.f)
+					? p1.f == a.p1.f && p2.f == a.p2.f && p3.f == a.p3.f
+					: p1.GetBits() == a.p1.GetBits() && p2.GetBits() == a.p2.GetBits() && p3.GetBits() == a.p3.GetBits() );
 		}
 	};
 	vector<SOperation> ops;
