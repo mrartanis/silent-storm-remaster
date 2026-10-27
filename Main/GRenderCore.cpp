@@ -159,6 +159,11 @@ inline bool DoesIntersect( const SSphere &a, const SSphere &b )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Filter ops
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+bool SLightmappedFilter::operator()( SRenderFragmentInfo *pF ) const
+{
+	return pF->pLightmap == 0 || pF->pMaterial->GetMaterialInfo().IsDecal();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 EFragmentsSplit SBoundIntersectFilter::operator()( SRenderStaticInfo *pStatic, SRenderGeometryInfo *pGeom, CPartFlags *pRes ) const
 {
 	EFragmentsSplit res = GetIntersectLevel( bv, pStatic->bv );

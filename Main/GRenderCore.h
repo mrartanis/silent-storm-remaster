@@ -513,7 +513,7 @@ public:
 typedef unordered_map<CPtr<CObjectBase>,CPartFlags,SPtrHash> CFilterPartsHash;
 struct SLightmappedFilter
 {
-	bool operator()( SRenderFragmentInfo *pF ) const { return pF->pLightmap == 0; }
+	bool operator()( SRenderFragmentInfo *pF ) const;
 };
 struct SNonLightmappedFilter
 {

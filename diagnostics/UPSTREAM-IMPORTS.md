@@ -7497,3 +7497,57 @@ shadow/shader adaptations require their own audit and TDD. In particular do
 not blindly halve our cache or replace our bgfx shaders with original D3D code.
 Tracker281:87pending/126imported/24partial/32already/3docs/5excluded-balance/
 2excluded-own/1historical/1review,112unfinished. ALL281/final hosted CI remain open.
+
+
+## a3f330bb, part 2 — exclude decals from lightmapped update selection
+
+Sourcea3f330bbd76d67d34c5ed897d253c52cc51692b6. The lightmapped selector accepted
+both ordinary overlay and exact decal fragments with a lightmap. Native RED1/1
+0.07s: real CSceneFragments + CSelectFragments + MakeSingleOp(RO_DIR_DEPTH)
+submitted3commands including2decal surfaces instead of the one lightmapped
+opaque surface. Genuine CreateMaterial opaque/overlay/GetExactDecal materials
+are used. Four unfiltered source surfaces, including non-lightmapped opaque,
+pass the positive control before the intended failure. A genuine unallocated
+CTexture object represents ownership metadata only; the test reads no lightmap
+pixels and performs no GPU execution. This proves native selection/command-list
+eligibility, not an entire RenderCL update or a pixel-level shadow artifact.
+
+Move SLightmappedFilter out of line so it can consult the completed native
+material interface: reject missing lightmap OR MaterialInfo.IsDecal. Keep our
+SNonLightmappedFilter and material/depth command generation unchanged. Native
+GREEN1/1 0.07s submits only the opaque lightmapped fragment, restores all4
+surfaces after the scoped selector, and preserves the separate non-lightmapped
+path with1ordinary surface. No shader, light formula, cache sizing, own fog/
+selection policy, facial engine, font, HD or gameplay balance changes.
+
+The fixture now instantiates the native texture type. Windows test support
+matches Main/BgfxRendererTests with _HAS_STD_BYTE=0 and removes Windows SDK
+interface/small token macros after the graphics header. Earlier incomplete-type,
+SDK std::byte/RPC conflicts and macro compile failures are retained setup logs;
+none is counted as RED. Attempted early SDK includes were removed; forced CMake
+precompiled headers made that ordering workaround ineffective. Only the final
+fixture support remains, scoped to the test target; Linux needs no SDK flag.
+
+Independent original: GoldPDB SLightmappedFilter::operator()546650/40 uniquely
+maps Steam5485b0 with ALL40bytes EXACT, no masked bytes. It rejects null lightmap
+(fragment+10), otherwise obtains material info through vtable+2c and rejects
+kinds1/2 (DECAL/EXACT_DECAL); other kinds remain eligible. Current genuine native
+factory controls independently verify those material kinds. Evidence lightmapped-
+decal-retail-lookup.txt and decal-lightmap-filter-retail-disassembly.txt; the
+source-comment address is not used as evidence.
+
+Current Windows Game/Bgfx/three geometry helpers and Linux Game/helpers built.
+Related Windows28/28 11.81s, Linux23/23 10.46s; native-display45/45 Windows73.08s,
+Linux60.39s, including own StationaryFogRuntimeTests/SelectionStencilRuntimeTests
+and actual bullet decal scene. CI-like290/29024.13s/fonts12. Raw28/23/45/45/290
+complete/noNUL/Failed/missing executable, actual exits0. Our test games exited.
+Shared builds reused, no per-bug game copies or HD generation. Evidence
+lightmapped-decal-{red,green,related,final-linux,display,linux-display,ci} test/
+native-test logs plus Game/helpers build logs. Prior full470/470 pertains to
+source485 and is not claimed as a full rerun of this later filter change.
+
+Sourcea3f remains partial: render-op sorting, temporary save lifecycle, decal
+alpha/lightmap shader consumers and cube cache/filter adaptations remain to
+audit. Offset fix98e8aeea was separately committed and immediately pushed.
+Tracker remains281:87pending/126imported/24partial/32already/3docs/5excluded-
+balance/2excluded-own/1historical/1review;112unfinished, ALL281/final hosted CI open.

@@ -12,6 +12,11 @@
 #include "../Main/wDecal.h"
 #include "../Main/GDecal.h"
 #include "../Main/GMemFormat.h"
+#include "../Main/GfxBuffers.h"
+#if defined(_WIN32)
+#undef interface
+#undef small
+#endif
 #include "../Main/GSceneInternal.h"
 #include "../Main/wUnitGroup.h"
 #include "../Main/iCommonUI.h"
@@ -6764,6 +6769,50 @@ protected:
 public:
     EmptyFogTextureNode() { this->pValue = nullptr; }
 };
+
+static void LightmappedDecalEligibility()
+{
+    using namespace NGScene;
+    CObj<EmptyFogTextureNode<NGfx::CTexture>> texture=new EmptyFogTextureNode<NGfx::CTexture>;
+    auto make=[&](int mode) { return CreateMaterial(CVec3(1,1,1),texture,nullptr,0,CVec3(0,0,0),
+        nullptr,nullptr,nullptr,0,0,mode); };
+    CObj<IMaterial> opaque=make(MA_OPAQUE),overlay=make(MA_OVERLAY),exact=overlay->GetExactDecal();
+    Require(opaque->IsSolid() && overlay->GetMaterialInfo().mt==SMaterialInfo::DECAL &&
+        exact && exact->GetMaterialInfo().mt==SMaterialInfo::EXACT_DECAL,
+        "lightmapped fixture did not create genuine opaque/overlay/exact native materials");
+    // The selector and command builder use only lightmap ownership metadata;
+    // no pixels from this genuine, unallocated texture object are accessed.
+    CObj<NGfx::CTexture> lightmap=new NGfx::CTexture;
+    CSceneFragments scene;SRenderGeometryInfo geometry;SBound bound;bound.BoxInit(VNULL3,CVec3(1,1,1));
+    const int index=scene.AddGeometry(nullptr,&geometry,bound);CPartFlags parts;parts.Clear();parts.Set(0);
+    scene.AddElement(index,parts,opaque,lightmap,nullptr);
+    scene.AddElement(index,parts,overlay,lightmap,nullptr);
+    scene.AddElement(index,parts,exact,lightmap,nullptr);
+    scene.AddElement(index,parts,opaque,nullptr,nullptr);
+    Require(scene.GetFragments().size()==5,"lightmapped fixture merged distinct native material/lightmap fragments");
+    CRenderCmdList visible;MakeSingleOp(&visible,scene,false,RO_DIR_DEPTH);
+    Require(visible.ops.size()==4,"native unfiltered scene lost a source surface");
+    {
+        CSelectFragments lightmapped(&scene,SLightmappedFilter());
+        CRenderCmdList commands;MakeSingleOp(&commands,scene,false,RO_DIR_DEPTH);
+        int decals=0;
+        for(const auto& command:commands.ops)if(command.pFrag->pMaterial->IsDecal())++decals;
+        std::printf("native lightmapped draw list: commands=%u decalSurfaces=%d expectedOnlyOpaqueLightmapped=1\n",
+            unsigned(commands.ops.size()),decals);std::fflush(stdout);
+        Require(commands.ops.size()==1 && decals==0 && commands.ops.front().pFrag->pMaterial==opaque.GetPtr() &&
+            commands.ops.front().pFrag->pLightmap==lightmap.GetPtr(),
+            "native lightmap selection submitted overlay/exact decal surfaces into its depth draw list");
+    }
+    CRenderCmdList restored;MakeSingleOp(&restored,scene,false,RO_DIR_DEPTH);
+    Require(restored.ops.size()==4,"native lightmap selection permanently hid decals from later surface passes");
+    {
+        CSelectFragments ordinary(&scene,SNonLightmappedFilter());
+        CRenderCmdList commands;MakeSingleOp(&commands,scene,false,RO_DIR_DEPTH);
+        Require(commands.ops.size()==1 && commands.ops.front().pFrag->pMaterial==opaque.GetPtr() &&
+            commands.ops.front().pFrag->pLightmap==nullptr,
+            "native decal exclusion changed the separate non-lightmapped surface path");
+    }
+}
 
 static void FogSurfaceEligibility()
 {
@@ -20073,6 +20122,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "geometry-unused-vertices")) { GeometryUnusedVertices(false); return true; }
     if (!std::strcmp(mode, "geometry-unused-vertices-weighted")) { GeometryUnusedVertices(true); return true; }
     if (!std::strcmp(mode, "decal-rebuild")) { DecalRebuild(); return true; }
+    if (!std::strcmp(mode, "lightmapped-decal-eligibility")) { LightmappedDecalEligibility(); return true; }
     if (!std::strcmp(mode, "decal-authored-offset")) { DecalSurfaceOffset(false); return true; }
     if (!std::strcmp(mode, "decal-impact-layer")) { DecalSurfaceOffset(true); return true; }
     if (!std::strcmp(mode, "memory-mesh-decal-projection")) { MemoryMeshDecalProjection(); return true; }

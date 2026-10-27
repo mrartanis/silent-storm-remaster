@@ -137,6 +137,7 @@ add_test(NAME NativeBindInitialization COMMAND UpstreamBugTests bind-initializat
 add_test(NAME UpstreamLuaUnusedStackInitialization COMMAND UpstreamBugTests lua-unused-stack-init)
 add_test(NAME UpstreamFlyingRestoration COMMAND UpstreamBugTests flying-restoration)
 add_test(NAME UpstreamSnipingAim COMMAND UpstreamBugTests sniping-aim)
+add_test(NAME UpstreamLightmappedDecalEligibility COMMAND UpstreamBugTests lightmapped-decal-eligibility)
 add_test(NAME UpstreamDecalAuthoredOffset COMMAND UpstreamBugTests decal-authored-offset)
 add_test(NAME UpstreamDecalImpactLayer COMMAND UpstreamBugTests decal-impact-layer)
 add_test(NAME UpstreamMemoryMeshDecalProjection COMMAND UpstreamBugTests memory-mesh-decal-projection)
