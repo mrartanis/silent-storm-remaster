@@ -1313,8 +1313,12 @@ void NextFrameBuffes( bool bOnThrashing )
 		transparentCache.DrawRU();
 
 	++nCurrentFrame;
-	EraseInvalidRefs( &lostable );
-	EraseInvalidRefs( &managed );
+	// Original Steam 0x51002b: scan ownership tombstones once per 128 cache steps.
+	if ( ( nCurrentFrame & 0x7f ) == 0x35 )
+	{
+		EraseInvalidRefs( &lostable );
+		EraseInvalidRefs( &managed );
+	}
 	for ( CRTCache::iterator i = rtCache.begin(); i != rtCache.end(); ++i )
 		i->second.Walk();
 	for ( CCMCache::iterator i = cmCache.begin(); i != cmCache.end(); ++i )

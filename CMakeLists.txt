@@ -650,6 +650,8 @@ add_test(NAME UpstreamLitSurfaceAlpha COMMAND BgfxRendererTests --lit-surface-al
 set_tests_properties(UpstreamLitSurfaceAlpha PROPERTIES LABELS "extended;native-display")
 add_test(NAME UpstreamAmbientDecalTexture COMMAND BgfxRendererTests --ambient-decal-texture)
 set_tests_properties(UpstreamAmbientDecalTexture PROPERTIES LABELS "extended;native-display")
+add_test(NAME UpstreamResourceCleanup COMMAND BgfxRendererTests --resource-cleanup)
+set_tests_properties(UpstreamResourceCleanup PROPERTIES LABELS "extended;native-display")
 add_test(NAME UpstreamCubeTextureFiltering COMMAND BgfxRendererTests --cube-filtering)
 set_tests_properties(UpstreamCubeTextureFiltering PROPERTIES LABELS "extended;native-display")
 add_test(NAME UpstreamRenderParameterAlias COMMAND BgfxRendererTests --render-param-alias)

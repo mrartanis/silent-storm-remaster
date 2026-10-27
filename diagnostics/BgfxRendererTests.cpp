@@ -738,6 +738,46 @@ int RunCachedPointLighting(bool bumped = false,bool fastShadow = false) {
   return 0;
 }
 
+int RunResourceCleanup() {
+  NGfx::SRenderTargetsInfo targets;
+  if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 290;
+  CObj<NGfx::CTexture> live=NGfx::MakeTexture(1,1,1,NGfx::SPixel8888::ID,NGfx::REGULAR,NGfx::CLAMP);
+  if(!IsValid(live) || !live->HasMissionOwners())return 291;
+  {NGfx::CTextureLock<NGfx::SPixel8888> lock(live,0,NGfx::INPLACE);lock[0][0]=NGfx::SPixel8888(73,147,221,255);}
+  // Advance the real cache clock to a cleanup boundary, without changing MRU state by hand.
+  while((NGfx::nCurrentFrame & 0x7f)!=0x35)NGfx::NextFrameBuffes();
+  for(int cycle=0;cycle<2;++cycle) {
+    CObj<NGfx::CTexture> retiring=NGfx::MakeTexture(1,1,1,NGfx::SPixel8888::ID,NGfx::REGULAR,NGfx::CLAMP);
+    CObj<NGfx::CCubeTexture> retiringCube=NGfx::MakeCubeTexture(1,1,NGfx::SPixel8888::ID,NGfx::REGULAR);
+    if(!IsValid(retiring) || !IsValid(retiringCube))return 292;
+    CPtr<NGfx::CTexture> cleared=retiring.GetPtr();
+    CPtr<CObjectBase> expired[]={retiring.GetBarePtr(),retiringCube.GetBarePtr()};
+    retiring=nullptr;retiringCube=nullptr;
+    // Resource contents clear immediately; only invalid ownership-list headers remain.
+    if(IsValid(cleared) || cleared->pTB.GetPtr()!=nullptr)return 293;
+    for(const auto& item:expired)if(IsValid(item) || !item->HasMissionOwners())return 294;
+    for(int step=1;step<=128;++step) {
+      NGfx::NextFrameBuffes((step & 1)!=0);
+      const bool deferred=step<128;
+      for(const auto& item:expired)if(item->HasMissionOwners()!=deferred) {
+        std::fprintf(stderr,"native resource cleanup: cycle=%d step=%d frame=%d retained=%d expected=%d\n",
+          cycle,step,NGfx::nCurrentFrame,int(item->HasMissionOwners()),int(deferred));return 295;
+      }
+      if(!IsValid(live) || !live->HasMissionOwners())return 296;
+    }
+    std::printf("native resource cleanup: cycle=%d kept invalid headers for127 steps, removed on128; live texture retained\n",cycle);
+    std::fflush(stdout);
+  }
+  NGfx::CRenderContext context;CTransformStack identity;identity.Init();context.SetTransform(identity.Get());
+  context.SetScreenRT();context.ClearBuffers(0xff000000);context.SetCulling(NGfx::CULL_NONE);
+  context.SetDepth(NGfx::DEPTH_NONE);context.SetStencil(NGfx::STENCIL_NONE);context.SetColorWrite(NGfx::COLORWRITE_ALL);
+  context.SetAlphaCombine(NGfx::COMBINE_NONE);context.SetVertexShader(vsTexture);context.SetPixelShader(psTextureCopyAlpha);
+  context.SetTexture(0,live);Draw(context,Quad(-1,1,1,-1,.5f));
+  CArray2D<NGfx::SPixel8888> image;NGfx::MakeScreenShot(&image,false);
+  if(!Color(image,64,64,73,147,221))return 297;
+  return 0;
+}
+
 int RunCubeTextureFiltering() {
   NGlobal::SetVar("gfx_anisotropic_filter",1);
   NGfx::SRenderTargetsInfo targets;
@@ -1618,6 +1658,7 @@ int main(int argc,char** argv) {
              argc>1 && std::string(argv[1])=="--cached-point-lighting" ? RunCachedPointLighting() :
              argc>1 && std::string(argv[1])=="--lit-surface-alpha" ? RunLitSurfaceAlpha() :
              argc>1 && std::string(argv[1])=="--ambient-decal-texture" ? RunAmbientDecalTexture() :
+             argc>1 && std::string(argv[1])=="--resource-cleanup" ? RunResourceCleanup() :
              argc>1 && std::string(argv[1])=="--cube-filtering" ? RunCubeTextureFiltering() :
              argc>1 && std::string(argv[1])=="--render-param-alias" ? RunRenderParameterAlias() :
              argc>1 && std::string(argv[1])=="--render-param-order" ? RunRenderParameterOrder() :

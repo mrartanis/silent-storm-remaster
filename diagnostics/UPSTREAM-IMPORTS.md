@@ -8218,3 +8218,55 @@ cached-point-lighting-linux-display-failure-native-test.log. This stabilizes the
 observed fixture only; it does not claim all GitHub workflow issues are resolved.
 Shared builds reused; no HD generation or per-bug copies. Tracker remains
 281/109unfinished; ALL281 and final actual-HEAD hosted CI remain open.
+
+
+## 0be9635a — amortize invalid renderer ownership-list scans
+
+Source0be9635a96eebe9a8608e6fdd4ba9abd6e1bc979 guards the lostable/managed
+ownership-list sweeps with(currentCacheFrame&127)==53 after incrementing the
+real cache clock. The fork still registers regular2D/cube textures in managed,
+so the former every-step linear scan is applicable. AddLostable has no current
+active call site; retain the same guard for that empty legacy list without
+inventing a new registration path. Leave bgfx deferred destruction, resource
+payload clearing, render/cube caches, geometry queues, thrashing bank behavior
+and every-step MRU aging intact. No memory-heavy texture data is intentionally
+kept until the sweep: invalid entries retain only cleared object headers.
+
+Native RED1/1 .31s: real managed2D/cube factories and ownership lifetimes,
+CObj releases with observer CPtrs, genuine NextFrameBuffes and real MRU clock.
+At frame54, the first step after phase53, invalid-list mission ownership has
+already disappeared instead of remaining deferred (failure295). A preliminary
+fixture compile failure used an incomplete cube type as a direct base pointer;
+use the existing smart pointer GetBarePtr API before the actual native RED.
+No source-text matcher or timing threshold is used.
+
+GREEN1/1 .33s: two complete128step cycles retain invalid headers for127steps,
+remove both managed2D/cube entries exactly on128, and retain a live texture at
+every step. Alternate normal/thrashing cache calls. The invalid2D texture's pTB
+is already cleared before its deferred header is inspected. The surviving live
+texture still renders73/147/221 through the actual GPU/readback after both
+cycles. This proves deferred header cleanup and functional resource lifetime;
+it is not a wall-clock FPS benchmark or a claim about physical GPU destruction
+completion. Those destruction queues remain owned by bgfx.
+
+Independent original proof: Gold PDB NextFrameBuffes50e580/506; Gold20byte
+increment/mask/branch anchor50e5ae matches Steam51001e uniquely, masking only
+the verified read/write frame-global operands1:5 and9:13. Gold944cb0 and
+Steam955d20 each supply both load/store operands. Full original disassemblies
+show mask127, phase53 and the two ownership-list calls under the branch:
+Gold50e5bb..50e5d6 and Steam51002b..510046. The upstream comment5101cb points
+elsewhere in this executable; the imported comment uses the verified51002b.
+Evidence resource-cleanup-{gold,retail}-disassembly.txt and
+resource-cleanup-phase-oracle.json; the earlier mismatched anchor dump is kept
+as exploratory evidence and is not used as proof.
+
+Final Windows/Linux Game and helpers built; related14/14 Windows4.09s/Linux2.53s;
+native-display55/55 Windows76.97s/Linux63.56s; CI-like290/29024.17s. All five raw
+logs complete with exact14/55/14/55/290 passed records, no NUL/Failed/NotRun or
+missing executable, actual runners exit0. The final test comment clarifies
+logical contents versus physical GPU lifetime; executable assertions are
+unchanged. Evidence resource-cleanup-{red,green,final-related,final-display,
+final-linux,linux-display,final-ci}. Shared builds reused, no per-bug copies or
+HD generation. No gameplay balance, production RNG, face/font, asset or wire
+change. Source fully imported; tracker281/130imported/23partial/85pending,
+108unfinished. ALL281 and final actual-HEAD hosted CI remain open.
