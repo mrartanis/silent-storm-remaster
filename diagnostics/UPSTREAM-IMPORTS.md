@@ -4339,3 +4339,19 @@ damage ProcessAttack — этот фикс. Прямой pRPGUnit->UseSkill ос
 Статус281:119 pending/96 imported/21 partial/38 already/3 docs,
 по1 historical/review/excluded-balance/excluded-own.141 исходный коммит
 ещё требует разбора; это не число будущих fix commits.
+
+## Разбор четырёх balance-only источников после checkpoint371
+
+Полностью прочитаны diff eb45f18a/2e15a102/24a00fd1/aa724eca и
+сопоставлены действующие Upgrade/RegisterAction/GetWeaponBurstAP/
+ProcessCriticalsAndRegenerations. Независимых engine/UI-only частей в них
+не осталось: меняются пороги обучения, начисление Stealth, AP дополнительных
+пуль/минимум/sentinel и награда за смерть от bleeding соответственно.
+Эффекты и ограничения retail attribution подробно дописаны в
+UPSTREAM-BALANCE-CHANGES.md. Они исключены из текущего no-balance pass
+для пользовательского рассмотрения; production не изменён, новые тесты
+для документационного решения не требуются.
+Новые статусы281:115 pending/96 imported/21 partial/38 already/3 docs,
+по1 historical/review/excluded-own и5 excluded-balance.137 исходников ещё
+разбираются, не137 заранее определённых fix commits. Последний полный
+checkpoint остаётся4da43aaf:371/371 обе платформы/CI-like277.
