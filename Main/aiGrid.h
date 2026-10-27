@@ -532,7 +532,7 @@ public:
 	virtual void ChangeDynamicLocks( CObjectBase *pUnit, const vector<SPathPlace> &points );
 	virtual bool IsValidDestination( const SPathPlace &p );
 	virtual bool IsPassable( const SPathPlace &p );
-	virtual EPassable GetPassability( const SPathPlace &p );   // @0x42e30 granular sibling; IsPassable == (GetPassability==AIP_YES)
+	virtual EPassable GetPassability( const SPathPlace &p );   // anchor classification; IsPassable additionally checks the full footprint
 	bool IsBlockedByFlipper( int nFlipper, const SPathPlace &from, const SPathPlace &to, CPtr<CObjectBase> *ppFlipper,
 		bool *bIsNowOpen, bool *bBlocksInOpenState, bool *bBlocksInClosedState );
 	virtual bool IsNativePassable( const SPathPlace &p );

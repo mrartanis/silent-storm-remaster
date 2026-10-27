@@ -14268,6 +14268,51 @@ static void PlacementCursor(const char* databasePath,bool mine = false)
         mission->commands == 0, "unavailable placement retained an action cursor or cursor updates issued gameplay commands");
 }
 
+static void AnchorPassability()
+{
+    auto network = SimplePathNetwork(2);
+    const NAI::SPathPlace prone(4,4,0,3,NAI::CM_LAY,0);
+    auto standing = prone; standing.SetPose(NAI::CM_STAND);
+    auto findPosePath = [&]() {
+        return CObj<NAI::CPath>(NAI::FindSimplePath(standing,{prone},NAI::PF_USE_POSEDIR,network,false,false,false));
+    };
+    Require(network->GetPassability(prone) == NAI::AIP_YES && network->IsPassable(prone) && IsValid(findPosePath()),
+        "anchor passability fixture failed its unlocked native pose-path control");
+    vector<NAI::SPathPlace> footprint; network->GetLockArea(&footprint,prone,false);
+    auto neighbour = std::find_if(footprint.begin(),footprint.end(),[&](const NAI::SPathPlace& point) {
+        return point.GetLayer() == prone.GetLayer() && (point.GetX() != prone.GetX() || point.GetY() != prone.GetY());
+    });
+    Require(neighbour != footprint.end(),"anchor passability fixture has no real expanded prone footprint");
+    auto occupied = *neighbour; occupied.SetPose(NAI::CM_STAND);
+    CObj<LockerActor> first = new LockerActor, second = new LockerActor;
+    network->Lock(first,occupied); network->Lock(second,occupied);
+    const auto* layer = network->GetLayer(prone.GetLayer());
+    Require(layer->tiles[prone.GetY()][prone.GetX()].nLocks == 0 &&
+        layer->tiles[occupied.GetY()][occupied.GetX()].nLocks != 0 && network->IsLocked(occupied,true),
+        "anchor passability fixture did not isolate an unlocked anchor from an occupied neighbour");
+    for (int pose: {NAI::CM_STAND,NAI::CM_CROUCH}) {
+        auto point = prone; point.SetPose(pose);
+        Require(network->GetPassability(point) == NAI::AIP_YES && network->IsPassable(point),
+            "an occupied neighbouring cell blocked the native standing/crouching anchor control");
+    }
+    const auto verdict = network->GetPassability(prone);
+    std::printf("native anchor passability: anchorLocks=%d neighbourLocks=%d verdict=%d strictPassable=%d\n",
+        int(layer->tiles[prone.GetY()][prone.GetX()].nLocks),int(layer->tiles[occupied.GetY()][occupied.GetX()].nLocks),int(verdict),network->IsPassable(prone));
+    Require(verdict == NAI::AIP_YES,"the native anchor verdict incorrectly expanded the unit's neighbouring footprint");
+    Require(!network->IsPassable(prone) && NAI::BigLockerPassableState(network,prone) == NAI::AIP_LOCKED &&
+        !NAI::IsBigLockerPlacePassable(network,prone) && !IsValid(findPosePath()),
+        "restoring anchor classification allowed an occupied prone/PK footprint or simple pose path");
+    Require(network->GetPassability(occupied) == NAI::AIP_LOCKED,
+        "an actually occupied anchor lost its native locked verdict");
+    network->Unlock(first);
+    Require(network->GetPassability(prone) == NAI::AIP_YES && network->IsLocked(occupied,true) && !network->IsPassable(prone),
+        "releasing one overlapping owner cleared another owner's lock or changed anchor classification");
+    network->Unlock(second);
+    Require(!network->IsLocked(occupied,true) && network->GetPassability(prone) == NAI::AIP_YES &&
+        network->IsPassable(prone) && NAI::BigLockerPassableState(network,prone) == NAI::AIP_YES && IsValid(findPosePath()),
+        "releasing the final neighbour lock did not restore native full-footprint movement");
+}
+
 static void SimpleCrossLayerPoseEntry()
 {
     auto network = SimplePathNetwork(2);
@@ -14284,9 +14329,9 @@ static void SimpleCrossLayerPoseEntry()
     Require(other != footprint.end(), "prone footprint control has no neighbouring occupied cell");
     auto& blocked = network->GetLayer(other->GetLayer())->tiles[other->GetY()][other->GetX()];
     blocked.nLocks = 1;
-    Require(network->GetPassability(prone) == NAI::AIP_LOCKED && !network->IsPassable(prone) &&
+    Require(network->GetPassability(prone) == NAI::AIP_YES && !network->IsPassable(prone) &&
         NAI::BigLockerPassableState(network,prone) == NAI::AIP_LOCKED && !IsValid(find(standing,prone)),
-        "existing native passability did not enforce the full prone footprint on a simple pose path");
+        "native anchor classification and explicit full-footprint pose checks no longer have distinct contracts");
     blocked.nLocks = 0;
     Require(IsValid(find(standing,prone)), "unlocking the prone footprint did not restore the simple pose path");
     for (int startPose: {NAI::CM_STAND,NAI::CM_LAY}) {
@@ -18224,6 +18269,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "prone-pose-change-facing")) { PronePoseChangeFacing(); return true; }
     if (!std::strcmp(mode, "simple-prone-pose-path")) { SimplePronePosePath(); return true; }
     if (!std::strcmp(mode, "simple-pose-facing-preference")) { SimplePoseFacingPreference(); return true; }
+    if (!std::strcmp(mode, "anchor-passability")) { AnchorPassability(); return true; }
     if (!std::strcmp(mode, "simple-cross-layer-pose-entry")) { SimpleCrossLayerPoseEntry(); return true; }
     if (!std::strcmp(mode, "isolated-transition-link-match")) { IsolatedTransitionLinkMatch(); return true; }
     if (!std::strcmp(mode, "isolated-transition-shortcut")) { IsolatedTransitionShortcut(); return true; }

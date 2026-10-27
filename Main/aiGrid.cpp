@@ -2192,18 +2192,9 @@ bool CPathNetwork::IsNotOnDoor( const SPathPlace &p ) const
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// @0x42e30 CPathNetwork::GetPassability( const SPathPlace & ) -> EPassable. This is bool IsPassable
-// (below) un-collapsed: every branch that made IsPassable return `false` now returns the SPECIFIC
-// verdict (AIP_LOCKED / AIP_DOOR / AIP_NOT_PASSABLE / AIP_CANNOT_LAY) that CDumbUnitServer::CheckPassable
-// maps to CMR_LOCKED / CMR_DOOR / CMR_NOT_PASSABLE. By construction GetPassability(p)==AIP_YES exactly
-// when IsPassable(p) is true, so IsPassable is left byte-identical below and its ~18 callers are unchanged.
-// Two deliberate divergences from the retail @0x42e30 decode, kept to preserve the dev IsPassable
-// behaviour those callers depend on: (1) dev's branch order (area-locks -> door -> tile) rather than
-// retail's tile-first order, so a locked-AND-pose-blocked tile reports AIP_LOCKED (retail: AIP_NOT_PASSABLE)
-// -- a rare edge that only delays a reroute by one wait cycle; (2) the ladder branch keeps dev's
-// pass/lock test without retail's facing-direction check. AIP_CANNOT_LAY is the one added granular
-// distinction (a CM_LAY place blocked in its direction on a tile that still allows lying, CP_LAY set);
-// it maps to CMR_NOT_PASSABLE like AIP_NOT_PASSABLE, so it changes no movement verdict.
+// Steam 0x443560 classifies the anchor cell. Full prone/PK footprints are
+// checked by IsPassable and the explicit big-locker helpers. Their callers
+// retain the existing stricter movement and placement policy.
 EPassable CPathNetwork::GetPassability( const SPathPlace &p )
 {
 	// Flying places encode altitude in the layer field, not a ground tile.
@@ -2231,18 +2222,9 @@ EPassable CPathNetwork::GetPassability( const SPathPlace &p )
 	if ( p.GetX() >= pPLayer->tiles.GetXSize() || p.GetY() >= pPLayer->tiles.GetYSize() )
 		return AIP_NOT_PASSABLE;
 
-	static vector<SPathPlace> locked( 20 );
-	locked.resize(0);
-	GetLockArea( &locked, p, false );
-	for ( unsigned int i = 0; i < locked.size(); ++i )
-	{
-		SPathPlace pLock( locked[i] );
-		CNodesLayer *pLayer = layers[pLock.GetLayer()];
-		pLayer->pGroup->RefreshSpot( pLock, pMap, 1 );
-		const CNodesLayer::STile &t = pLayer->tiles[pLock.GetY()][pLock.GetX()];
-		if ( t.nLocks != 0 )
-			return AIP_LOCKED;
-	}
+	// The granular query classifies this anchor, not an expanded unit footprint.
+	if ( pPLayer->tiles[p.GetY()][p.GetX()].nLocks != 0 )
+		return AIP_LOCKED;
 
 	if ( !IsNotOnDoor( p ) )
 		return AIP_DOOR;

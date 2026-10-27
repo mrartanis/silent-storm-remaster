@@ -5830,3 +5830,71 @@ nLocks по4436ae, затем door query4436c2→443410. Цикла GetLockArea 
 изменённую механику исправленной и не заменяет TDD. Количество завершённых
 исходных коммитов не меняется. Полная цель281 и финальные hosted Actions
 по-прежнему не завершены.
+
+## Классификация опорной клетки отдельно от footprint — часть3f78b519
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3f78b5198af04658670c9abeaf444fc5006f334d
+
+В оригинальном Steam443560 GetPassability проверяет конкретную опорную клетку,
+а полная область лежащего бойца/PK проверяется отдельными путями. В нынешнем
+коде этот granular query ошибочно вызывал GetLockArea и возвращал LOCKED,
+если занята соседняя клетка или иной элемент расширенной области.
+Независимая статическая сверка Steam/Gold и точные адреса записаны выше;
+без неё перенос мог бы закрепить старое неверное ожидание теста.
+
+Новый resource-free native RED: настоящий CPathNetwork с двумя слоями,
+штатные Lock для двух перекрывающихся владельцев на соседней клетке.
+Standing/crouch и незаблокированный pose path проходят положительные контроли;
+у опоры nLocks0, у соседа1, но prone anchor даёт LOCKED3 вместо YES0.
+Старый SimpleCrossLayerPoseEntry тоже упал после исправления одного неверного
+ожидания: он считал GetPassability эквивалентом IsPassable. При этом все его
+проверки запрета полного занятого footprint и пути оставлены строгими.
+Ошибки сборки или настройки здесь за RED не выдаются: оба теста собраны и
+падают на ошибочном anchor verdict до изменения production.
+
+Минимальный фикс заменяет только цикл GetLockArea на чтение nLocks самой
+опоры. Старые относительные проверки door/pose и ladder пока не менялись:
+это следующие независимые части источника и им нужны свои RED/GREEN.
+Исправлены комментарии, утверждавшие равенство granular и bool запросов.
+
+GREEN подтверждает: строгие IsPassable, BigLockerPassableState, PK placement
+и настоящий FindSimplePath всё ещё запрещают занятую область тела; реально
+занятая опора даёт LOCKED. Снятие первого владельца сохраняет блокировку
+второго, снятие последнего возвращает доступность пути. В CDumbUnitServer
+CheckPassable после anchorYES по-прежнему выполняет BigLockerPassableState
+для PK или назначения LAY. Свои overlap locks, bool запросы, размеры footprint,
+flying guard и упаковка координат не менялись. Это native unit-level контракт
+сетки; полный melee-бой/атака на PK в игровом мире здесь не заявляется.
+
+Windows ALL_BUILD/Game и Linux Game; FULL404/404 Windows346.98с и
+Linux344.93с: CPU388 плюс прежние GPU/native-display extras,17audio/12fonts
+на каждой платформе, raw404 полные без NUL.5Network включая PartialMovement
+8.93с. После изменения361/361 encounter variants снова прошли deployment и
+replica,128.56с при лимите600с. В том же расширенном наборе NetworkMatch
+повторил известный ранее сбой interrupt return: диагностический отдельный
+запуск показал busy=1 в момент EndTurn и отклонённый ответ. Весь сетевой набор
+не объявляется зелёным; причина и исправление проверяются отдельно от anchor.
+CI-like281/28124.24с включает новый resource-free UpstreamAnchorPassability,
+raw281/noNUL/12fonts. Временная failure-only диагностика ChapterClueHeading
+в полных прогонах не сработала и удалена; финальные3/3 (anchor, старый pose
+path, heading) повторно собраны/проверены Windows1.27с/Linux1.15с. Сама прежняя
+нестабильность heading этим не объявляется исправленной.
+Evidence anchor-passability-{red,green,full,linux-full,network-related,network-maps,ci,final},
+raw native logs и interrupt-return-probe-native-test.log. Сборки прежние, HD OFF.
+
+Дополнительно по актуальным файлам перепроверены восемь old PRESENT:
+f7426577 (clue template0), a0d6faf5 (пустой serializer CCmd), d5c745a2
+(обнуление удалённого render slot в двух местах),15248279 (реестр только
+map-defined групп),5a5c7218 (нулевые scroll axes),8bfee072 (refresh called-shot
+до caption),d6406b71 (stationary ChangePose),a4b37de5 (unlock pilot до
+восстановления shell). Все конкретные hunks остаются в нынешнем активном коде;
+повторный перенос не нужен. Это проверка существующих реализаций, не новые
+независимые исправления; сведения о доступных native controls указаны в TSV.
+Для c0c1914c исправлено прежнее описание GetPassability, сам pose path fix
+и его запрет занятого полного footprint сохранены.
+
+3f78 остаётся partially-imported: bounds/facing/precedence ещё открыты.
+Tracker281:101pending/112imported/24partial/32already/3docs/5excluded-balance/
+2excluded-own/1historical/1review;126 незавершённых source entries плюс остаток
+сверки old PRESENT. Оригинальный баланс не менялся. Общая цель, расследования
+сетевого interrupt/heading и финальные actual-HEAD Actions не завершены.
