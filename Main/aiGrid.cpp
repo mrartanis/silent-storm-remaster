@@ -2210,7 +2210,7 @@ EPassable CPathNetwork::GetPassability( const SPathPlace &p )
 			return AIP_NOT_PASSABLE;
 		if ( ladder.nLocks[ p.GetLadderStep() ] != 0 )
 			return AIP_LOCKED;
-		return AIP_YES;
+		return p.GetDirection() == ( ( ladder.eDir * 2 + 4 ) & 7 ) ? AIP_YES : AIP_NOT_PASSABLE;
 	}
 
 	// Bounds-check the layer, build the spot, then bounds-check p against the layer's tiles BEFORE any

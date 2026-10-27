@@ -14268,6 +14268,57 @@ static void PlacementCursor(const char* databasePath,bool mine = false)
         mission->commands == 0, "unavailable placement retained an action cursor or cursor updates issued gameplay commands");
 }
 
+static void LadderPassabilityFacing()
+{
+    auto network = SimplePathNetwork();
+    auto* layer = network->GetLayer(0);
+    const NAI::ELadderDirection directions[] = {NAI::LD_RIGHT,NAI::LD_FRONT,NAI::LD_LEFT,NAI::LD_BACK};
+    // Independent values from the original executable: left, down, right, up.
+    const int expectedFacing[] = {4,6,0,2};
+    for (auto direction: directions) {
+        NAI::CNodesLayer::SLadder ladder{};
+        ladder.eDir = direction;
+        ladder.pointPassable.assign(8,1);
+        ladder.pointOnUpperHalf.assign(8,0);
+        ladder.nLocks.assign(8,0);
+        ladder.bNeedRecalc = false;
+        ladder.bConsistent = true;
+        layer->ladders.push_back(ladder);
+    }
+    auto place = [](int ladder,int step,int facing) {
+        NAI::SPathPlace result(ladder,step,0,facing,NAI::CM_STAND,0);
+        result.SetIntegral(0);result.SetFinal(0);return result;
+    };
+    for (int index=0;index<4;++index) {
+        auto& ladder = layer->ladders[index];
+        for (int step=0;step<8;++step) {
+            const auto correct = place(index,step,expectedFacing[index]);
+            Require(network->GetPassability(correct)==NAI::AIP_YES && network->IsPassable(correct),
+                "native ladder fixture rejected a passable, unlocked rung facing the ladder");
+        }
+        ladder.pointPassable[3]=0;ladder.nLocks[3]=1;
+        Require(network->GetPassability(place(index,3,expectedFacing[index]))==NAI::AIP_NOT_PASSABLE &&
+            !network->IsPassable(place(index,3,expectedFacing[index])),"a broken ladder rung lost precedence over its lock");
+        ladder.pointPassable[3]=1;
+        for(int facing=0;facing<8;++facing)
+            Require(network->GetPassability(place(index,3,facing))==NAI::AIP_LOCKED && !network->IsPassable(place(index,3,facing)),
+                "native ladder locks lost precedence or legacy bool occupancy checks changed");
+        ladder.nLocks[3]=0;
+    }
+    for(int index=0;index<4;++index) for(int step=0;step<8;++step) for(int facing=0;facing<8;++facing) {
+        const auto point = place(index,step,facing);
+        const auto expected = facing==expectedFacing[index] ? NAI::AIP_YES : NAI::AIP_NOT_PASSABLE;
+        const auto actual = network->GetPassability(point);
+        if(actual!=expected)std::printf("native ladder facing: ladder=%d step=%d facing=%d expectedFacing=%d verdict=%d\n",
+            index,step,facing,expectedFacing[index],int(actual));
+        Require(actual==expected,"granular ladder passability accepted a unit facing away from the ladder");
+        Require(network->IsPassable(point),"granular ladder direction checking changed the legacy bool occupancy query");
+    }
+    for(const auto& ladder: layer->ladders)
+        Require(!ladder.bNeedRecalc && ladder.bConsistent && ladder.pointPassable==vector<char>(8,1) && ladder.nLocks==vector<char>(8,0),
+            "querying ladder facing mutated its native geometry or occupancy");
+}
+
 static void AnchorPassability()
 {
     auto network = SimplePathNetwork(2);
@@ -18269,6 +18320,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "prone-pose-change-facing")) { PronePoseChangeFacing(); return true; }
     if (!std::strcmp(mode, "simple-prone-pose-path")) { SimplePronePosePath(); return true; }
     if (!std::strcmp(mode, "simple-pose-facing-preference")) { SimplePoseFacingPreference(); return true; }
+    if (!std::strcmp(mode, "ladder-passability-facing")) { LadderPassabilityFacing(); return true; }
     if (!std::strcmp(mode, "anchor-passability")) { AnchorPassability(); return true; }
     if (!std::strcmp(mode, "simple-cross-layer-pose-entry")) { SimpleCrossLayerPoseEntry(); return true; }
     if (!std::strcmp(mode, "isolated-transition-link-match")) { IsolatedTransitionLinkMatch(); return true; }

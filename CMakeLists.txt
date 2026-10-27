@@ -934,6 +934,7 @@ add_test(NAME UpstreamPrecalcSweepBounds COMMAND UpstreamBugTests precalc-sweep-
 add_test(NAME UpstreamPronePoseChangeFacing COMMAND UpstreamBugTests prone-pose-change-facing)
 add_test(NAME UpstreamSimplePronePosePath COMMAND UpstreamBugTests simple-prone-pose-path)
 add_test(NAME UpstreamSimplePoseFacingPreference COMMAND UpstreamBugTests simple-pose-facing-preference)
+add_test(NAME UpstreamLadderPassabilityFacing COMMAND UpstreamBugTests ladder-passability-facing)
 add_test(NAME UpstreamAnchorPassability COMMAND UpstreamBugTests anchor-passability)
 add_test(NAME UpstreamSimpleCrossLayerPoseEntry COMMAND UpstreamBugTests simple-cross-layer-pose-entry)
 add_test(NAME UpstreamSoundMixerClockCatchUp COMMAND UpstreamBugTests sound-mixer-clock-catchup)

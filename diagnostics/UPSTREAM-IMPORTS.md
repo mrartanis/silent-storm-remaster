@@ -5924,3 +5924,37 @@ preparation, client UI, partial movement, object stages и stop/resume.
 Evidence: interrupt-idle-{red,green,related}-native-test.log. Это тестовая
 адаптация своего LAN harness, без изменения баланса, AP, RNG и игровой механики.
 CI-like281/28123.74с; raw281 полный без NUL,12font controls. Linux network match target в нынешней LinuxGame конфигурации отсутствует; Linux полный404 подтверждён для предыдущего production fix, для этой Windows test-only правки не заявляется. Tracker source counts не меняются.
+
+## Направление персонажа на лестнице — отдельная часть 3f78b519
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3f78b5198af04658670c9abeaf444fc5006f334d
+
+UpstreamLadderPassabilityFacing использует настоящий CPathNetwork, слой и четыре
+native SLadder с восемью ступенями. Ничего не подменяет в запросах проходимости.
+Все корректные направления, разрушенная ступень и блокировки проверяются до
+RED assert. Первое собранное RED0.08с: LD_RIGHT, step0, facing0 принят как YES,
+хотя требуется facing4. Независимый retail oracle уже найден по уникальным
+байтам Gold PDB в Steam Game.exe: 4435ee..443609 проверяет (2*eDir-4)&7.
+Таблица теста задана отдельными значениями 4/6/0/2 для RIGHT/FRONT/LEFT/BACK.
+
+Production fix — одна строка после прежних проверок геометрии и блокировки
+ступени: сравнение направления с (2*eDir+4)&7. GREEN3/3 подтверждён; основной
+тест проверяет все4 ориентации x8 ступеней x8 направлений. Занятая ступень
+сохраняет LOCKED раньше facing, разрушенная NOT_PASSABLE раньше lock. Старый
+bool IsPassable по-прежнему проверяет occupancy без этого facing-контракта.
+Native геометрия/блокировки не изменяются запросом. Полный подъём по реальной
+лестнице игрового уровня этим unit-level тестом не заявляется.
+
+Windows ALL_BUILD/Game и Linux Game собраны. Связанные21/21 Windows7.61с,
+Linux6.93с, сетевые6/6 57.21с (полный match20.24с, с исправленным ожиданием
+native idle). Evidence ladder-facing-{red,green,related,linux,network}-native-test.log.
+Новые исходники/сборки не копировались, HD не пересобирались, оригинальное
+направление на лестнице восстановлено без изменения оригинального баланса.
+
+Повторно проверены все hunks ещё пяти old PRESENT:28c73ff5 (flying guards),
+de185dac и2d238a8b (ограниченный stationary inactive AI yield),3eed22d7
+(ручное снятие fixed PK weapon),e0eb2a14 (точечное снятие immediate notification).
+Их реализации уже есть в активных файлах; сведения внесены в TSV, повторного
+переноса нет. Это сверка кода, отдельные новые runtime RED для них не заявляются.
+3f78 остаётся partial: bounds-before-ladder и ground verdict precedence открыты.
+CI-like282/28224.00с, raw282 полный/noNUL/12FONT-COMPAT. Новый asset-free test одинаково зарегистрирован Windows/Linux; CPU389, полный набор405 ожидается, новый FULL405 в этой проверке не запускался. Tracker101pending/112imported/24partial/32already/3docs/5excluded-balance/2excluded-own/1historical/1review, всего281,126 незавершённых.
