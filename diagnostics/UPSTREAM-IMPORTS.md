@@ -7025,3 +7025,55 @@ necessary adaptation; an unused local removal in the source carries no
 behavioral change. Tracker281:91pending/123imported/23partial/32already/3docs/
 5excluded-balance/2excluded-own/1historical/1review,115 unfinished entries.
 The overall ALL281 goal and final actual-HEAD hosted CI remain open.
+
+
+## b4505fb0 — original EndRotate save command (consumer)
+
+Source b4505fb0b183854ea69f680ff770759c5245cebb, independent first hunk.
+The original EndRotate type72312170 was unregistered; loading an actual file
+CStructureSaver game/world graph lost that command. Compiled native confirmed
+RED: original wire failed1.18s; the old fork null-EndMove control passed1.17s
+(total2.35s). The test rewrites only the selected native Cancel descriptor and
+wraps its identical CCmdUnit payload in original tag1. It retains every native
+wire ID and the full strong game/world/actor/mover roots, and subsequently
+executes the loaded command in the actual mover, rather than checking only a
+factory/type registration. The legacy control writes its actual null tag2.
+
+Add the original class, tag1 base serializer, registration and animator dispatch.
+Keep the previous fork's null-EndMove branch and saved ID12541120. Neither
+producer queues nor SetNewPath transition logic is changed by this commit;
+those independent hunks still require their own failing behavioral tests.
+Native GREEN: both files load with the actor reference intact, schedule300ms
+stand, finish, preserve AP53 and position, and release the action when retired.
+This exercises native graph loading and executor callbacks, not the save-slot
+UI or a complete scheduled game turn. No balance, action price, font, face,
+renderer, audio or HD changes; no per-bug game/build copies or new binary fixture.
+
+Independent original evidence: GoldPDB initCCmdEndRotate0x72312170 @9b7bbc;
+Steam registration literals8ac7d2/8ac7e5. Original RTTI9853e8/vtable8cdc1c
+slot3 is serializer7bd420: only tag1 CCmdUnit. Gold DoCommand7ac9c0/1244
+maps uniquely to Steam7b91b0 with only EH operand3:7 masked. Its call7b945e
+to cast7bb530 uses the EndRotate descriptor9853e8; successful branch7b9463
+calls animator73dcf0 at7b9473. Gold EndRotate732fb0/44 maps uniquely to
+73dcf0 with only first call operand13:17 masked (other40bytes identical).
+The initially mistaken EH mask9:13 found no match and is not proof.
+Evidence move-end-rotate-{retail-lookup,type-retail-disassembly,
+wire-retail-disassembly,cast-retail-disassembly,dispatch-retail-disassembly,
+animation-retail-disassembly}.txt under the shared evidence directory.
+
+Fresh related native Windows25/25 31.19s and Linux25/25 30.74s; both Game
+builds. Both original and legacy format execute successfully on both platforms.
+An early test-only queue replacement omitted its saved FINISHED result (the
+saver zeroes missing primitives), so the legacy control reported FAILED despite
+correct300ms animation. That fixture was corrected before the confirmed RED.
+The first related run also caught missing Linux CMake registrations; both new
+cases now match across platforms and the registration check passes. No engine
+change was made to conceal either test setup issue. Evidence movement-end-rotate-
+confirmed-red-{test,native-test}.log, final-raw-native-test.log, linux-{test,
+native-test}.log and corresponding build logs. Tracker281 now90pending/
+123imported/24partial/32already/3docs/5excluded-balance/2excluded-own/
+1historical/1review;115 unfinished entries. Whole ALL281 goal remains active.
+
+CI-like284/284 24.14s, FONT-COMPAT12. Raw25/25/284 are complete with no NUL,
+failed or missing executable; actual runner exits0. This is local validation;
+final actual-HEAD hosted GitHub Actions remains separately open.

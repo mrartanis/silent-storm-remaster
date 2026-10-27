@@ -30,6 +30,18 @@ public:
 	CCmdTravel( CUnit *_pUnit, const NAI::SUnitPosition &_pos ): CCmdUnit(_pUnit), pos(_pos) {}
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Original saved command 0x72312170; keep decoding the older fork's null
+// CCmdEndMove as well, since existing saves use it to finish a rotation.
+class CCmdEndRotate: public CCmdUnit
+{
+	OBJECT_BASIC_METHODS(CCmdEndRotate);
+public:
+	ZDATA_(CCmdUnit)
+	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CCmdUnit*)this); return 0; }
+	CCmdEndRotate() {}
+	explicit CCmdEndRotate( CUnit *_pUnit ): CCmdUnit(_pUnit) {}
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCmdChangePose: public CCmdTravel
 {
 	OBJECT_BASIC_METHODS(CCmdChangePose);
@@ -108,8 +120,8 @@ public:
 	ZDATA_(CCmdUnit)
 	// @0x12541120 tag 2 -- retail replaced the (write-only) Jan03 bool bFreeze with the CCmdMove this
 	// ender terminates, so DoCommand can EndMove( pWhatToEnd->pos ) even after a path-conflict reroute
-	// nulled pCurCmd. A null pWhatToEnd means an end-ROTATE (dev still reuses CCmdEndMove for both;
-	// retail's separate CCmdEndRotate is a later structural step).
+	// nulled pCurCmd. A null pWhatToEnd remains an end-ROTATE for compatibility
+	// with existing saves of this fork; retail also has the separate CCmdEndRotate.
 	CObj<CCmdMove> pWhatToEnd;
 	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CCmdUnit*)this); f.Add(2,&pWhatToEnd); return 0; }
 
@@ -548,7 +560,10 @@ void CExecMove::DoCommand()
 	//pUS->GetWorld()->AddUICommand( new CUICmdUnit( pUS ) );
 	// process it
 	CDynamicCast<CCmdMove> pMove(pCmd);
-	if (pMove)
+	CDynamicCast<CCmdEndRotate> pEndRotate(pCmd);
+	if (pEndRotate)
+		animator.EndRotate(position);
+	else if (pMove)
 	{
 		CDynamicCast<CCmdMove> pTestPrevMove( pCurCmd );
 		if ( pTestPrevMove == 0 || bAfterWaiting )
@@ -1398,6 +1413,7 @@ REGISTER_SAVELOAD_CLASS( 0x02731143, CCmdRotate )
 REGISTER_SAVELOAD_CLASS( 0x12681160, CCmdClimb )
 REGISTER_SAVELOAD_CLASS( 0x12681161, CCmdJump )
 REGISTER_SAVELOAD_CLASS( 0x12541120, CCmdEndMove )
+REGISTER_SAVELOAD_CLASS( 0x72312170, CCmdEndRotate )
 REGISTER_SAVELOAD_CLASS( 0x13151130, CCmdChangePose )
 REGISTER_SAVELOAD_CLASS( 0x113B1130, CCmdActivateItem )
 REGISTER_SAVELOAD_CLASS( 0x114B1130, CCmdDeactivateItem )

@@ -11013,6 +11013,105 @@ static MovementCommandSnapshot ReadMovementCommands(NWorld::CCommandExecute* mov
     return snapshot;
 }
 
+// Build the original wire schema from a native CCmdCancel's identical CCmdUnit
+// payload. Only the selected command descriptor/body is changed; the complete
+// game/world graph and every reference ID remain native CStructureSaver output.
+static void MovementEndRotateWire(const char* databasePath,const char* resourcePath,bool legacy)
+{
+    auto fixture=MakeNativeMovementFixture(databasePath,resourcePath);
+    CObj<CObjectBase> command=new NWorld::CCmdCancel(fixture.actor);
+    CObj<NWorld::CCommandExecute> mover=NWorld::CreateSimpleMoveExecutor(fixture.actor,fixture.path,NAI::PF_DEFAULT);
+    Require(mover!=nullptr,"end-rotate fixture could not create its native mover");
+    CMemoryStream saved;
+    {CStructureSaver writer(saved,CStructureSaver::WRITE);writer.Add(1,&fixture.game);writer.Add(2,&fixture.world);
+     writer.Add(3,&fixture.actor);writer.Add(4,&command);writer.Add(5,&mover);}
+    vector<unsigned char> bytes(saved.GetSize());saved.Seek(0);saved.Read(bytes.data(),unsigned(bytes.size()));
+    auto chunk=[](vector<unsigned char>& output,unsigned char id,const unsigned char* data,std::size_t size) {
+        std::uint8_t length[4];std::size_t count=0;
+        Require(size<=UINT32_MAX && S2FileIO::EncodeStructureLength(std::uint32_t(size),length,&count),"end-rotate fixture length encoding failed");
+        output.push_back(id);output.insert(output.end(),length,length+count);output.insert(output.end(),data,data+size);
+    };
+    S2FileIO::StructureChunk table{},bodies{};
+    for(std::size_t at=0;at<bytes.size();) {
+        S2FileIO::StructureChunk field;
+        Require(S2FileIO::DecodeStructureChunkAt(bytes.data(),bytes.size(),at,&field),"end-rotate fixture invalid native top-level chunk");
+        Require(field.id!=3,"end-rotate fixture unexpectedly received packed output");
+        if(field.id==0)table=field;if(field.id==2)bodies=field;
+        at=std::size_t(field.payloadOffset)+field.length;
+    }
+    std::vector<S2FileIO::StructureObjectRecord> records;
+    Require(table.length && bodies.length && S2FileIO::DecodeStructureObjectTable(bytes.data()+table.payloadOffset,table.length,&records),
+        "end-rotate fixture cannot decode its native object table");
+    unsigned wireID=0;int replaced=0;
+    for(std::size_t i=0;i<records.size();++i)if(records[i].typeId==0x004c1140) {
+        wireID=records[i].wireId;records[i].typeId=legacy?0x12541120:0x72312170;++replaced;
+        Require(S2FileIO::EncodeStructureObjectRecord(records[i],bytes.data()+table.payloadOffset+i*9,9),"end-rotate descriptor encoding failed");
+    }
+    Require(replaced==1 && wireID,"end-rotate fixture did not identify exactly one native source command");
+    vector<unsigned char> rewrittenBodies;
+    for(std::size_t at=0;at<bodies.length;) {
+        const auto* data=bytes.data()+bodies.payloadOffset;S2FileIO::StructureChunk record;
+        Require(S2FileIO::DecodeStructureChunkAt(data,bodies.length,at,&record) && record.id==1,"end-rotate object record is invalid");
+        const auto* object=data+record.payloadOffset;unsigned id=0;vector<unsigned char> replacement;
+        for(std::size_t child=0;child<record.length;) {
+            S2FileIO::StructureChunk field;
+            Require(S2FileIO::DecodeStructureChunkAt(object,record.length,child,&field),"end-rotate object field is invalid");
+            if(field.id==0)Require(S2FileIO::DecodeStructureScalar(object+field.payloadOffset,field.length,&id),"end-rotate object ID is invalid");
+            child=std::size_t(field.payloadOffset)+field.length;
+        }
+        if(id==wireID) {
+            for(std::size_t child=0;child<record.length;) {
+                S2FileIO::StructureChunk field;S2FileIO::DecodeStructureChunkAt(object,record.length,child,&field);
+                if(field.id==1) {
+                    vector<unsigned char> base;chunk(base,1,object+field.payloadOffset,field.length);
+                    // Original CCmdEndRotate has tag 1 (CCmdUnit) only. The old
+                    // fork's rotation ender also writes tag 2: a null move ID.
+                    if(legacy) {const unsigned char nullID[4]={0,0,0,0};chunk(base,2,nullID,4);}
+                    chunk(replacement,1,base.data(),base.size());
+                } else chunk(replacement,field.id,object+field.payloadOffset,field.length);
+                child=std::size_t(field.payloadOffset)+field.length;
+            }
+            chunk(rewrittenBodies,record.id,replacement.data(),replacement.size());
+        } else chunk(rewrittenBodies,record.id,object,record.length);
+        at=std::size_t(record.payloadOffset)+record.length;
+    }
+    vector<unsigned char> rewritten;
+    for(std::size_t at=0;at<bytes.size();) {
+        S2FileIO::StructureChunk field;S2FileIO::DecodeStructureChunkAt(bytes.data(),bytes.size(),at,&field);
+        if(field.id==2)chunk(rewritten,2,rewrittenBodies.data(),rewrittenBodies.size());
+        else chunk(rewritten,field.id,bytes.data()+field.payloadOffset,field.length);
+        at=std::size_t(field.payloadOffset)+field.length;
+    }
+    CMemoryStream wire;wire.Write(rewritten.data(),unsigned(rewritten.size()));wire.Seek(0);
+    NativeMovementFixture restored;CObj<CObjectBase> loaded;CObj<NWorld::CCommandExecute> executor;
+    std::printf("native end-rotate wire: legacy=%d type=%08x bytes=%u\n",int(legacy),legacy?0x12541120:0x72312170,unsigned(rewritten.size()));std::fflush(stdout);
+    {CStructureSaver reader(wire,CStructureSaver::READ);reader.Add(1,&restored.game);reader.Add(2,&restored.world);
+     reader.Add(3,&restored.actor);reader.Add(4,&loaded);reader.Add(5,&executor);}
+    auto* unitCommand=dynamic_cast<NWorld::CCmdUnit*>(loaded.GetPtr());
+    Require(restored.game && restored.world && restored.actor && executor && unitCommand && unitCommand->pUnit==restored.actor.GetPtr(),
+        "original end-rotate command did not load with its native unit reference");
+    restored.world->RestoreRuntimeCaches(restored.game);
+    Require(executor->GetUnitServer()==restored.actor.GetPtr(),"end-rotate restored mover lost its owning actor");
+    CStructureNetworkContext refs;refs.externalReferences=true;refs.include=[](CObjectBase*){return false;};refs.ids[loaded]=1;refs.refs[1]=loaded;refs.nextID=100;
+    list<CObj<CObjectBase>> queue;queue.push_back(loaded);CObj<CObjectBase> current;
+    CMemoryStream fields;
+    // Replacing a queue must retain its successful completion policy: missing
+    // primitive saver fields are zeroed on READ (RUNNING is not FINISHED).
+    auto result=NWorld::CCommandExecute::FINISHED;
+    {CStructureSaver writer(fields,CStructureSaver::WRITE,&refs);writer.Add(2,&queue);writer.Add(3,&current);writer.Add(5,&result);}
+    fields.Seek(0);{CStructureSaver reader(fields,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(executor.GetPtr())->operator&(reader);}
+    auto* actor=restored.actor.GetPtr();const auto position=actor->GetPosition();const int ap=actor->GetAP();
+    actor->animator.AlignTime();const STime start=actor->animator.GetTimeEnd();executor->Run();const STime end=actor->animator.GetTimeEnd();
+    std::printf("native end-rotate execution: legacy=%d duration=%u AP=%d->%d\n",int(legacy),unsigned(end-start),ap,actor->GetAP());std::fflush(stdout);
+    Require(end>start,"loaded end-rotate command did not execute its native stand animation");
+    executor->AnimationFinished();
+    std::printf("native end-rotate completion: state=%d expected=%d AP=%d/%d samePosition=%d queue=%u current=%d\n",int(executor->GetState()),int(NWorld::CCommandExecute::FINISHED),actor->GetAP(),ap,int(actor->GetPosition()==position),unsigned(ReadMovementCommands(executor).queued.size()),int(ReadMovementCommands(executor).current!=nullptr));std::fflush(stdout);
+    Require(executor->GetState()==NWorld::CCommandExecute::FINISHED && actor->GetAP()==ap && actor->GetPosition()==position,
+        "end-rotate completion changed AP/location or did not finish");
+    dynamic_cast<NWorld::IExecMove*>(executor.GetPtr())->FullCancel();executor=nullptr;
+    Require(!restored.world->IsAction(),"retiring the end-rotate executor retained its native world action");
+}
+
 struct MovementTravelPosition
 {
     NAI::SUnitPosition position;
@@ -19549,6 +19648,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-collision-hidden-other")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "movement-collision-hidden-own")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],true,true); return true; }
     if (!std::strcmp(mode, "movement-collision-visible-other")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],false,false); return true; }
+    if (!std::strcmp(mode, "movement-end-rotate-wire")) { Require(argc==4,"end rotate requires db and res"); MovementEndRotateWire(argv[2],argv[3],false); return true; }
+    if (!std::strcmp(mode, "movement-legacy-end-rotate-wire")) { Require(argc==4,"legacy end rotate requires db and res"); MovementEndRotateWire(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "movement-blocked-walking")) { Require(argc == 4, "blocked movement requires db and res"); MovementBlockedWalkingTrajectory(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "movement-terminal-finished")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "movement-terminal-failed")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], true); return true; }
