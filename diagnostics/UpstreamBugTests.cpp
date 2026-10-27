@@ -13559,7 +13559,7 @@ static void EquippedMeleeAttackCursor(const char* databasePath,const char* resou
         "refreshing native equipped-melee cursors spent AP/VP, consumed the weapon or installed an order");
 }
 
-static void EquippedToolActionAvailability(const char* databasePath,const char* resourcePath)
+static void EquippedToolActionAvailability(const char* databasePath,const char* resourcePath,bool tileAttack = false)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath,resourcePath,false,&game);
@@ -13580,6 +13580,35 @@ static void EquippedToolActionAvailability(const char* databasePath,const char* 
     CObj<NGame::CUnitTracker> tracker = new NGame::CUnitTracker(mission,actor);
     mission->selection.push_back(tracker.GetPtr());
     const int ap = actor->GetAP();
+    const int vp = actor->GetUnitRPG()->GetTotalVP();
+    const auto position = actor->GetPosition();
+    CObj<NRPG::IInventoryItem> key;
+    if(tileAttack) {
+        Require(world->IsAttackAllowed(),"non-attack tile fixture is masked by the world's no-attack gate");
+        CDBIterator<NDb::CRPGItem> records(*NDatabase::GetTable<NDb::CRPGItem>());
+        while(records.MoveNext()) {
+            auto* descriptor=dynamic_cast<NDb::CRPGKey*>(records.Get()->pSuccessor.GetPtr());
+            if(IsValid(descriptor) && IsValid(descriptor->pItem)) { key=NRPG::CreateItem(descriptor);break; }
+        }
+        Require(IsValid(key) && inventory->Equip(NDb::SLOT_1,key) && NWorld::GetActionType(actor)==NWorld::AT_KEY,
+            "non-attack tile fixture has no equippable authored native key");
+        CObj<NRPG::IInventoryItem> removedKey=inventory->TakeOff(NDb::SLOT_1);
+        Require(removedKey==key,"non-attack tile fixture removed a different key");
+    }
+    auto checkTileAttack = [&](NWorld::EActionType type) {
+        Require(NWorld::GetActionType(actor)==type,"non-attack tile fixture has the wrong native action type");
+        CObj<NWorld::CCmdShootTile> request=new NWorld::CCmdShootTile(actor->GetPosition().GetCP()+CVec3(1,0,0));
+        NWorld::EUnitCommandResult result=NWorld::UCR_OK;
+        CObj<NWorld::CCommandExecute> executor=NWorld::CreateActionExecutor(actor,request,&result);
+        NGame::SActionInfo info;mission->CanDoCommand(request,true,&info);
+        std::printf("native non-attack tile: type=%d item=%d result=%d executor=%d available=%d uiResult=%d\n",int(type),
+            inventory->GetActive()->GetDBItem()->GetRecordID(),int(result),int(executor!=nullptr),int(info.bAvailable),int(info.eResult));
+        Require(!executor && result==NWorld::UCR_UNAVAILABLE,"a native non-attack item reported an available tile attack failure");
+        Require(info.bValid && !info.bAvailable && !info.bOk && info.eResult==NWorld::UCR_UNAVAILABLE,
+            "the mission still advertised a tile attack for an equipped non-attack item");
+        Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==vp && !actor->HasCommand() &&
+            actor->GetPosition().pos.p.GetBits()==position.pos.p.GetBits(),"non-attack tile previews changed native AP, health, position or orders");
+    };
     auto check = [&](bool available) {
         NGame::SActionInfo direct, cached;
         mission->CanDoCommand(new NWorld::CCmdUntrapObject(nullptr),true,&direct);
@@ -13603,8 +13632,16 @@ static void EquippedToolActionAvailability(const char* databasePath,const char* 
     Require(inventory->Equip(NDb::SLOT_1,tool), "tool-availability fixture could not equip its authored tool");
     const int quantity = tool->GetQuantity();
     check(true);
+    if(tileAttack)checkTileAttack(NWorld::AT_TOOL);
     Require(tool->GetQuantity() == quantity, "checking tool availability consumed a charge");
     CObj<NRPG::IInventoryItem> removed = inventory->TakeOff(NDb::SLOT_1);
+    if(tileAttack) {
+        Require(inventory->Equip(NDb::SLOT_1,key),"non-attack tile fixture could not restore its native key");
+        const int keyQuantity=key->GetQuantity();
+        checkTileAttack(NWorld::AT_KEY);
+        Require(key->GetQuantity()==keyQuantity,"non-attack tile preview consumed a key");
+        removed=inventory->TakeOff(NDb::SLOT_1);
+    }
     check(false);
 }
 
@@ -18184,6 +18221,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "unavailable-attack-shortcut")) { UnavailableAttackShortcut(); return true; }
     if (!std::strcmp(mode, "shared-action-shortcut-priority")) { SharedActionShortcutPriority(); return true; }
     if (!std::strcmp(mode, "hide-shortcut-eligibility")) { HideShortcutEligibility(); return true; }
+    if (!std::strcmp(mode, "nonattack-tile-orders")) { Require(argc == 4, "non-attack tile orders require db and res"); EquippedToolActionAvailability(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "equipped-tool-action-availability")) { Require(argc == 4, "tool availability requires db and res"); EquippedToolActionAvailability(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "assigned-level-experience")) { Require(argc == 3, "assigned level experience requires db"); AssignedLevelExperience(argv[2]); return true; }
     if (!std::strcmp(mode, "action-skill-acknowledgment") && argc == 3) { ActionSkillAcknowledgment(argv[2]); return true; }

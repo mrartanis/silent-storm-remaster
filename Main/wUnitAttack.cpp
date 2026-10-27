@@ -584,8 +584,7 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 				*pError = UCR_INVALID_COMMAND;
 				return 0;
 			default:
-				*pError = UCR_GENERAL_FAILURE;
-				ASSERT(0);
+				*pError = UCR_UNAVAILABLE;
 				return 0;
 			}
 		}

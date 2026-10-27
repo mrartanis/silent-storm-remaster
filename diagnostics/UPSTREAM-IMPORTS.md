@@ -6036,3 +6036,61 @@ CPU391, полный набор407 актуален. Tracker281:101pending/113im
 ещё не завершены. В TSV дополнена read-only подготовка e5443130 с независимым
 retail oracle: реальные TOOL/KEY достижимы в default tile-attack ветке;
 для этого источника production fix/нативный RED пока не заявляются.
+
+## Скрытие атаки по клетке для инструмента и ключа — e5443130
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e54431300ecc6da00dfea9991724bd2fd4b3a9c1
+
+UpstreamNonAttackTileOrders расширяет существующий native tool fixture новым
+отдельным режимом, не меняя прежний сценарий EquippedToolActionAvailability.
+Настоящий FixtureWorld, CUnitServer, native inventory, CToolItem из authored
+CRPGTool и ключ через authored CRPGItem successor используются с реальными
+CreateActionExecutor и CMission::CanDoCommand. Key Equip/AT_KEY, разрешение
+атак в мире и реальная доступность use-tool проверяются до RED assert.
+
+Первый собранный RED1.17с: инструмент item387/AT_TOOL9, executor0,
+UCR_GENERAL_FAILURE2. Перед production edit тест дополнен наблюдением native
+UI-result и снова RED1.19с: тот же результат2, available1/uiResult2. Эти два
+лога сохранены; fixture compile errors или подмена GetActionType не требовались.
+Настоящий ключ item389 уже прошёл положительный Equip/AT_KEY control.
+
+Независимый Steam oracle: GoldPDB CreateActionExecutor792190/5657bytes,
+первые57bytes с маской только EH/двух RTTI pointers уникально совпадают с
+Steam79ddd0. RTTI951490 подтверждает CCmdShootTile branch79de5a. Native
+GetActionType793a40 распознаёт IToolItem через RTTI97c648 и даёт10, IKeyItem
+через97c6ac и даёт11. Оба индекса jump table79f3d8 идут на79deb1, result5
+(retail UNAVAILABLE). Исходный комментарий79d821 не соответствует адресу
+нашего проверенного Steam exe. Наши UCR номера и LAN wire отличаются:
+использован символ UCR_UNAVAILABLE, числовые enum/wire не менялись.
+Evidence nonattack-item-retail-{lookup,disassembly,actiontype,jumptable}.
+
+Minimal fix в default ветке tile attack — UCR_UNAVAILABLE вместо
+UCR_GENERAL_FAILURE и удаление ASSERT для штатных неатакующих предметов. NoAttack world
+и отдельный запрет мин сохранены. GREEN2/2 2.28с: tool387/type9 и key389/type10
+теперь result1/executor0/available0/uiResult1; настоящий use-tool остаётся
+доступен. Проверки не расходуют AP/VP/заряды/ключ, не меняют packed position
+и не создают приказа. Боевые формулы, стоимость действий, inventory transfer,
+HiRes fonts, facial engine и renderer не менялись.
+
+Windows ALL_BUILD и обе Game собраны. Связанные63/63 Windows61.66с,
+Linux56.87с, включая12native-display и12FONT-COMPAT на каждой платформе.
+Raw63/noNUL.6/6Network52.60с. Evidence nonattack-tile-orders-{red,first-red,
+green,related,linux,network}-native-test.log. Сборки прежние, HD OFF.
+
+В текущих активных файлах дополнительно сверены все hunks трёх old PRESENT:
+796f6b2d (проверка выполняемого/доступного действия до выдачи path remover,
+readiness для скрытого портрета),90479594 (выбранный получатель store, владелец
+перетаскиваемого предмета, ручная клетка и fallback),d441feb8 (called-shot через
+snipe executor/state, raw CVec3 save positions, HL_ANY и строгий angle guard).
+Свой facial PlayAckEvent уже сам выставляет readiness; существующий hidden
+fallback не заменялся upstream-аниматором. Это сверка существующего кода,
+не новые production fixes или новые runtime RED для этих трёх источников.
+
+CI-like284/28424.27с, raw284/noNUL/12FONT-COMPAT. Новый asset-backed test
+исключается из resource-free CI по прежней baseline policy; зарегистрирован
+на обеих платформах и реально прошёл в63/63. CPU392, ожидаемый FULL408
+здесь не запускался; последний фактический FULL407/407 обеих платформ был
+на предыдущем1cfe7cc7. e5443130 теперь imported. Tracker281:100pending/
+114imported/23partial/32already/3docs/5excluded-balance/2excluded-own/
+1historical/1review —124 незавершённых source entries. Оригинальный баланс
+не менялся. Общий перенос и финальные actual-HEAD GitHub Actions не завершены.
