@@ -311,6 +311,91 @@ bool Color(const CArray2D<NGfx::SPixel8888>& image,int x,int y,int r,int g,int b
   if(abs(int(pixel.r)-r)<=3 && abs(int(pixel.g)-g)<=3 && abs(int(pixel.b)-b)<=3)return true;
   fprintf(stderr,"Pixel %d,%d expected %d,%d,%d got %d,%d,%d\n",x,y,r,g,b,pixel.r,pixel.g,pixel.b);return false;
 }
+class LowRamCombinerProbe: public NGScene::CVBCombiner {
+public:
+  LowRamCombinerProbe(CFuncBase<std::vector<CPtr<NGScene::IPart>>>* parts,
+                      NGScene::ELightmapType lighting,NGScene::ECombinerType usage):
+    CVBCombiner(parts,lighting,usage,nullptr) {}
+  void Prepare() { XFormPosition();Recalc(); }
+  NGfx::CGeometry* Rebuild() { Recalc();return pValue; }
+  NGfx::CGeometry* Geometry() const { return pValue; }
+};
+int RunLowRamCombiner() {
+  NGfx::SRenderTargetsInfo targets;
+  if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 200;
+  NGlobal::SetVar("gfx_antialiasing",0);
+  struct ResetLowRam { ~ResetLowRam() { NGlobal::SetVar("gfx_low_ram",0); } } reset;
+  for(auto lighting:{NGScene::LT_NONE,NGScene::LT_POSITION})
+    for(auto usage:{NGScene::CT_STATIC,NGScene::CT_DYNAMIC}) {
+      NGlobal::SetVar("gfx_low_ram",0);
+      NGScene::CObjectInfo::SData data;
+      for(auto position:{CVec3(-.5f,.5f,.5f),CVec3(.5f,.5f,.5f),
+                         CVec3(.5f,-.5f,.5f),CVec3(-.5f,-.5f,.5f)}) {
+        NGScene::SVertex vertex{};vertex.pos=position;data.verts.push_back(vertex);
+      }
+      data.geometry.SetTriangles({STriangle(0,1,2),STriangle(0,2,3)});
+      CObj<NGScene::CObjectInfo> mesh=new NGScene::CObjectInfo;mesh->AssignFast(data);
+      CObj<SelectionMeshNode> node=new SelectionMeshNode(mesh);
+      CObj<NGScene::IMaterial> material=NGScene::CreateMaterial(CVec3(1,1,1));
+      CObj<NGScene::CNonePart> part=new NGScene::CNonePart(node,material,NGScene::SFullGroupInfo());
+      CObj<NGScene::CAutomaticCombiner> parts=new NGScene::CAutomaticCombiner;parts->AddPart(part);
+      CObj<LowRamCombinerProbe> combiner=new LowRamCombinerProbe(parts,lighting,usage);
+      combiner->Prepare();
+      if(part->xformedPositions.size()!=4 ||
+         (lighting==NGScene::LT_NONE && part->gfxData.empty()))return 201;
+      const CVec3 minimum=part->vBVMin,maximum=part->vBVMax;
+      CTransformStack identity;identity.Init();
+      NGfx::CRenderContext context;
+      context.SetTransform(identity.Get());context.SetCulling(NGfx::CULL_NONE);
+      context.SetDepth(NGfx::DEPTH_NONE);context.SetAlphaCombine(NGfx::COMBINE_NONE);
+      context.SetVertexShader(vsConstLight);context.SetPixelShader(psDiffuse);
+      context.SetVSConst(16,CVec4(.25f,.5f,.75f,1));
+      auto capture=[&](CArray2D<NGfx::SPixel8888>* image) {
+        context.ClearBuffers(0xff000000);Draw(context,combiner->Rebuild());
+        NGfx::MakeScreenShot(image,false);
+      };
+      CArray2D<NGfx::SPixel8888> reference,image;capture(&reference);
+      if(!Color(reference,64,64,64,128,191) || !Color(reference,8,8,0,0,0))return 202;
+      std::printf("combiner control lighting=%d usage=%d: real uploaded quad, CPU capacities=%zu/%zu\n",
+                  int(lighting),int(usage),part->xformedPositions.capacity(),part->gfxData.capacity());
+      std::fflush(stdout);
+      NGlobal::SetVar("gfx_low_ram",1);
+      for(int rebuild=0;rebuild<3;++rebuild) {
+        capture(&image);
+        if(part->xformedPositions.capacity()!=0 || part->gfxData.capacity()!=0) {
+          std::fprintf(stderr,"low-RAM retains CPU capacity after upload: positions=%zu graphics=%zu\n",
+                       part->xformedPositions.capacity(),part->gfxData.capacity());return 203;
+        }
+        for(int y=0;y<128;++y)for(int x=0;x<128;++x)
+          if(reference[y][x].color!=image[y][x].color)return 204;
+        if(part->vBVMin!=minimum || part->vBVMax!=maximum)return 205;
+      }
+      // No geometry/provider update or explicit position transform here:
+      // dropped CPU data must be restored by the native Recalc itself.
+      NGlobal::SetVar("gfx_low_ram",0);capture(&image);
+      if(part->xformedPositions.size()!=4 ||
+         (lighting==NGScene::LT_NONE && part->gfxData.empty()))return 206;
+      for(int y=0;y<128;++y)for(int x=0;x<128;++x)
+        if(reference[y][x].color!=image[y][x].color)return 207;
+      NGfx::CGeometry* uploaded=combiner->Geometry();
+      combiner->FreeMemory();combiner->FreeMemory();
+      if(part->xformedPositions.capacity() || part->gfxData.capacity() ||
+         combiner->Geometry()!=uploaded)return 208;
+      capture(&image);
+      for(int y=0;y<128;++y)for(int x=0;x<128;++x)
+        if(reference[y][x].color!=image[y][x].color)return 209;
+      // Empty geometry takes an early return before any GPU buffer lock.
+      NGlobal::SetVar("gfx_low_ram",1);
+      NGScene::CObjectInfo::SData empty;mesh->AssignFast(empty);combiner->Prepare();
+      if(combiner->Geometry() || part->xformedPositions.capacity() || part->gfxData.capacity())return 210;
+      mesh->AssignFast(data);combiner->Prepare();capture(&image);
+      if(part->xformedPositions.capacity() || part->gfxData.capacity())return 211;
+      for(int y=0;y<128;++y)for(int x=0;x<128;++x)
+        if(reference[y][x].color!=image[y][x].color)return 212;
+    }
+  std::puts("low-RAM native combiner: static/dynamic mesh/position upload, cache release, repeated rebuild and exact pixels restored");
+  return 0;
+}
 int RunSelectionStencil() {
   NGfx::SRenderTargetsInfo targets;
   if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 190;
@@ -988,6 +1073,7 @@ int main(int argc,char** argv) {
              argc>1 && std::string(argv[1])=="--graphics" ? RunGraphicsOptions() :
              argc>1 && std::string(argv[1])=="--shadow-pcf" ? RunShadowPcf() :
              argc>1 && std::string(argv[1])=="--specular-projection" ? RunSpecularProjection() :
+             argc>1 && std::string(argv[1])=="--low-ram-combiner" ? RunLowRamCombiner() :
              argc>1 && std::string(argv[1])=="--selection-stencil" ? RunSelectionStencil() : Run();
   NGfx::Done3D();S2Platform::Done();
   if(result)fprintf(stderr,"bgfx regression failure code=%d\n",result);

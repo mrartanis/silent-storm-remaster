@@ -920,6 +920,7 @@ void CVBCombiner::XFormPosition()
 	bcAll.Make( &bound );
 	bNeedXForm = false;
 	bNeedRecalc = true;
+	bDroppedXForm = false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static void CopyVertex( SGfxVertex *pDst, const NGfx::SGeomVecFull &src, const CVec2 &tex )
@@ -959,7 +960,32 @@ void CVBCombiner::Recalc()
 	S2Perf::Scope perf(S2Perf::CPUVertexCombine);
 	S2Perf::Scope typePerf(lt==LT_NONE?S2Perf::CPUMeshCombine:
 		lt==LT_NORMAL?S2Perf::CPULightmapCombine:S2Perf::CPUOtherCombine);
-	if ( bNeedXForm )
+	// Finish the upload and release its buffer locks before dropping CPU data.
+	DoRecalc();
+	if ( bLowRAM )
+		FreeMemory();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CVBCombiner::FreeMemory()
+{
+	if ( bDroppedXForm )
+		return;
+	const vector< CPtr<IPart> > &parts = pCombiner->GetValue();
+	for ( int i = 0; i < parts.size(); ++i )
+	{
+		IPart *pPart = parts[i];
+		if ( pPart )
+		{
+			vector<CVec3>().swap( pPart->xformedPositions );
+			vector<char>().swap( pPart->gfxData );
+		}
+	}
+	bDroppedXForm = true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CVBCombiner::DoRecalc()
+{
+	if ( bNeedXForm || bDroppedXForm )
 		XFormPosition();
 	bNeedRecalc = false;
 	ASSERT( NGfx::N_VEC_FULL_TEX_SIZE == N_VERTEX_TEX_SIZE );

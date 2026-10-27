@@ -4525,3 +4525,52 @@ SetMode создаёт D24S8 depth/stencil. Windows CMake исключает Gfx
 Статус281:111 pending/98 imported/22 partial/38 already/3 docs/5 excluded-balance,
 2 excluded-own, по1 historical/review.134 исходных коммитов остаются в разборе.
 Последний полный checkpoint4da43aaf:371/371 обе платформы/CI-like277.
+
+## Освобождение CPU-кэша геометрии в low-RAM — 82d44558
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/82d44558cb94a3ae3356efc42efc4b0c657a39e9
+
+LowRamCombinerRuntimeTests запускает наш настоящий SDL/bgfx backend, создаёт
+CObjectInfo/CNonePart/CAutomaticCombiner и native CVBCombiner. В обычном режиме
+реальная загруженная геометрия даёт контрольное изображение квадрата.
+Compiled native RED до production изменений: контроль пройден, после переключения
+gfx_low_ram=1 сохраняются capacity4 у xformedPositions и128 у gfxData (код203).
+Первый ошибочный запуск с null material в fixture сохранён отдельно под
+fixture-*: это не свидетельство бага движка; после исправления стенда RED повторён.
+
+Recalc теперь вызывает DoRecalc, а затем освобождает оба CPU-массива через
+swap с пустыми vector. Это выполняется после выхода всех buffer-lock объектов,
+включая ранние return. Флаг bDroppedXForm заставляет следующий пересчёт заново
+получить позиции даже без изменения mesh/provider. Флаги инициализированы.
+FreeMemory идемпотентен и сохраняет GPU geometry; serialized tags не менялись.
+Сохранены наши SGfxCacheTransformer/partial upload и S2Perf scopes.
+
+Native GREEN проверяет LT_NONE/LT_POSITION × CT_STATIC/CT_DYNAMIC: три
+последовательных low-RAM пересчёта освобождают capacity обоих массивов до0;
+каждый полученный кадр128×128 точно совпадает с обычным режимом. Возврат в
+обычный режим восстанавливает кэш без явного XFormPosition/изменения provider.
+Дополнительно проверены повторный явный FreeMemory при сохранении GPU geometry,
+его восстановление, пустая геометрия/ранний return и повторное появление mesh.
+Границы проверки: это real bgfx upload/readback и два типа combiner; отдельного
+pixel fixture для LT_TNL/LT_TNL_SELECTION/lightmap ветвей здесь нет. Их общая
+обёртка освобождения проверена по коду; обычные регрессии рендера выполняются
+отдельно. Баланс, HD pack и шрифты не изменялись.
+
+Проверки после переноса: полный набор376/376 на Windows (323.38 с) и
+Linux (338.51 с), включая новый native-display тест,14 native-audio и
+12 FONT-COMPAT. Оба сырых LastTest содержат все376 записей, без NUL.
+Переиспользованы прежние build directories; собраны обе Game и Windows
+ALL_BUILD. Дополнительно11/11 renderer/geometry/network проверок на Windows
+(9.17 с) и2/2 native GPU на Linux (0.43 с). CPU base остаётся370:
+новая проверка геометрии — дополнительный GPU case, полный набор base370+6.
+Свидетельства low-ram-combiner: fixture-{build,test,native-test}.log,
+red-{build,test,native-test}.log, green-{build,test,native-test}.log,
+all-build.log, full-test.log, {windows,linux}-native-test.log,
+related-{test,native-test}.log, linux-renderer-{test,native-test}.log.
+Linux full console log при отдельном GPU запуске заменён его2-test выводом;
+полный Linux raw376 сохранён заранее в linux-native-test.log.
+
+CI-like277/277 (23.90 с), raw277 полный без NUL. Статус281:
+110 pending/99 imported/22 partial/38 already/3 docs/5 excluded-balance,
+2 excluded-own, по1 historical/review.133 исходных коммита ещё в разборе;
+итоговая проверка актуального HEAD в GitHub Actions остаётся обязательной.

@@ -640,6 +640,8 @@ add_test(NAME SpecularProjectionRuntimeTests COMMAND BgfxRendererTests --specula
 add_test(NAME PartialGeometryRuntimeTests COMMAND BgfxRendererTests --partial)
 add_test(NAME IndexRingRuntimeTests COMMAND BgfxRendererTests --index-ring)
 add_test(NAME SelectionStencilRuntimeTests COMMAND BgfxRendererTests --selection-stencil)
+add_test(NAME LowRamCombinerRuntimeTests COMMAND BgfxRendererTests --low-ram-combiner)
+set_tests_properties(LowRamCombinerRuntimeTests PROPERTIES LABELS "extended;native-display")
 set_tests_properties(SelectionStencilRuntimeTests PROPERTIES LABELS "extended;native-display")
 s2_copy_fonts(BgfxRendererTests)
 add_executable(VertexPackingBench "${root}/diagnostics/VertexPackingBench.cpp")
