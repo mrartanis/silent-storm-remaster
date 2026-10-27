@@ -372,6 +372,15 @@ CUnit::CUnit( NDb::CRPGPers *_pPers, NDb::CComplexHead *_pHead, bool _bHero, NDb
 
 	for ( int i = 0; i < NDb::ST_STR; ++i )
 		skills[i] = new CDynamicSkill( baseValues.skills.skills[i], GetSkillBaseStatValue( NDb::ESkillType(i) ) );
+	// Static skills follow their modified cap; only VP/AP have expendable values.
+	for ( int i = 0; i < NDb::SKILL_TYPE_NUMBERS; ++i )
+	{
+		if ( i != NDb::ST_VP && i != NDb::ST_AP )
+		{
+			Skills(i).FreezeToMax( true );
+			Skills(i).Update();
+		}
+	}
 	if ( pClass )
 	{
 		for ( int i = NDb::ST_MELEE; i < NDb::ST_STR; ++i )

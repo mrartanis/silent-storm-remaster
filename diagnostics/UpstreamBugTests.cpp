@@ -16099,6 +16099,72 @@ static void PKPlacement()
     Require(position.IsFinal() && CanPlacePK(network.GetPtr(), position, 0), "flying PK restoration was rejected");
 }
 
+static void FreshSkillModifierValues(const char* databasePath)
+{
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
+    auto* persona=NDb::GetPers(103);
+    Require(IsValid(persona) && IsValid(persona->pClass) && !IsValid(persona->pPanzerklein),
+        "fresh-skill fixture has no authored ordinary persona");
+    CObj<NRPG::CUnit> unit=new NRPG::CUnit(persona);
+    auto* tree=unit->GetPerksTree();tree->AddPerkPoints(1);tree->TakePerk(8);
+    Require(unit->HasPerk(8),"fresh-skill fixture has no acquired authored survival perk");
+    for(auto skill:{NDb::ST_VP,NDb::ST_AP}) {
+        auto& value=unit->Skills(skill);const int cap=value.GetMaxValue();
+        Require(cap>10,"fresh-skill fixture needs expendable VP/AP greater than ten");
+        value.SetValue(cap/2);const int spent=value;
+        { CObj<NRPG::CSkillModifier> bonus=new NRPG::CSkillModifier(&value,NRPG::SSkillModifyInfo(1.5f,0));
+          Require(value.GetMaxValue()>cap && int(value)==spent,
+              "native expendable VP/AP control refilled points when only the cap increased"); }
+        Require(value.GetMaxValue()==cap && int(value)==spent,
+            "removing an expendable-stat bonus refilled VP/AP");
+    }
+    std::puts("native fresh-skill control: VP/AP retain expended current values across cap modifiers");std::fflush(stdout);
+    const int originalIC=unit->Skills(NDb::ST_IC);
+    unit->Skills(NDb::ST_VP).SetValue(unit->Skills(NDb::ST_VP).GetTheoreticalMax()/5);
+    CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(unit);
+    mission->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_VP));
+    const int cap=unit->Skills(NDb::ST_IC).GetMaxValue();
+    Require(mission->HasCritical(NDb::C_VP) && cap>originalIC,
+        "native survival perk control did not attach its real IC modifier");
+    std::printf("native fresh survival modifier: effectiveIC=%d cap=%d original=%d\n",mission->GetIC(),cap,originalIC);
+    std::fflush(stdout);
+    Require(mission->GetIC()==cap,"fresh static skill retains a stale current value instead of its modified cap");
+    mission->RemoveCritical(NDb::C_VP);
+    Require(mission->GetIC()==originalIC,"removing the survival modifier did not restore effective IC");
+    const float xp=unit->fXP;
+    auto roundTrip=[](NRPG::CDynamicSkill* cell) {
+        CMemoryStream fields;
+        { CStructureSaver writer(fields,CStructureSaver::WRITE);static_cast<CObjectBase*>(cell)->operator&(writer); }
+        fields.Seek(0);CObj<NRPG::CDynamicSkill> restored=new NRPG::CDynamicSkill;
+        { CStructureSaver reader(fields,CStructureSaver::READ);static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader); }
+        return restored;
+    };
+    int staticSkills=0;
+    for(int skill=0;skill<NDb::SKILL_TYPE_NUMBERS;++skill) {
+        if(skill==NDb::ST_VP || skill==NDb::ST_AP)continue;
+        auto& value=unit->Skills(skill);
+        const int original=value.GetMaxValue(),earned=value.GetXPPart();const float progress=value.GetProgress();
+        for(float factor:{1.5f,0.5f}) {
+            { CObj<NRPG::CSkillModifier> modifier=new NRPG::CSkillModifier(&value,NRPG::SSkillModifyInfo(factor,0));
+              Require(int(value)==value.GetMaxValue(),"fresh static skill did not follow a positive/negative modifier"); }
+            Require(int(value)==original && value.GetMaxValue()==original && value.GetXPPart()==earned &&
+                value.GetProgress()==progress && unit->fXP==xp,
+                "removing a static-skill modifier lost its effective value or changed training");
+        }
+        auto restored=roundTrip(&value);
+        CObj<NRPG::CSkillModifier> bonus=new NRPG::CSkillModifier(restored,NRPG::SSkillModifyInfo(1.5f,0));
+        Require(int(*restored)==restored->GetMaxValue(),"saved fresh skill lost its existing freeze flag");
+        ++staticSkills;
+    }
+    Require(staticSkills==15,"fresh skill fixture did not exercise every non-expendable skill");
+    CObj<NRPG::CDynamicSkill> legacy=new NRPG::CDynamicSkill(20,20);legacy->SetValue(7);
+    auto restored=roundTrip(legacy);
+    CObj<NRPG::CSkillModifier> legacyBonus=new NRPG::CSkillModifier(restored,NRPG::SSkillModifyInfo(1.5f,0));
+    Require(restored->GetMaxValue()==30 && int(*restored)==7,
+        "fresh-unit initialization retroactively changed an existing saved unfrozen skill");
+    std::puts("native fresh-skill GREEN: 15 static skills follow modifiers and restore; saved old unfrozen cell stays expendable");
+}
+
 static void HealthSurvivalThreshold(const char* databasePath)
 {
     CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
@@ -17333,6 +17399,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "conclusions") && argc == 4) { ConclusionRouting(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "pk-placement")) { PKPlacement(); return true; }
     if (!std::strcmp(mode, "critical-ids") && argc == 3) { CriticalIDs(argv[2]); return true; }
+    if (!std::strcmp(mode, "fresh-skill-modifier-values") && argc==3) { FreshSkillModifierValues(argv[2]); return true; }
     if (!std::strcmp(mode, "health-survival-threshold") && argc==3) { HealthSurvivalThreshold(argv[2]); return true; }
     if (!std::strcmp(mode, "empty-critical-application") && argc == 3) { EmptyCriticalApplication(argv[2]); return true; }
     if (!std::strcmp(mode, "idle-blocker") && argc == 4) { IdlePathBlocker(argv[2], argv[3]); return true; }

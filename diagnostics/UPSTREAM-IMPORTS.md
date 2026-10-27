@@ -4979,3 +4979,51 @@ Source7368 остаётся partial. Девять явно помеченных 
 2excluded-own, по1historical/review.129 исходных коммитов ещё разбираются.
 CPUbase378; свежий full385 не заявляется. Последний полный парный384 —1c98ce64,
 CI-like280 —aef3b6be; all281/final actual HEAD Actions ещё не завершены.
+
+
+## Действующие значения новых навыков следуют модификаторам — завершение0ffb568d
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0ffb568d67bc6ca389d7ca63a9da4f3978c801a7
+
+Оригинальный Steam EXE проверенного SHA256
+4F417593A9F73E2BFDE12D83CDBD694AE47EECB92812140D67B8B343E4A95705
+в InitSkills0x6bc7d0 перебирает17 cells. Смещения24/28 (=индексы9/10 VP/AP)
+пропускаются6bc858/85d; для остальных Skill+2c=1 по6bc868 и Update по6bc86c.
+Oracle fresh-skill-flags-retail-disassembly.txt сохранён от начала функции;
+EXE только читался. Поэтому source flags восстанавливают исходную механику.
+
+Compiled native RED UpstreamFreshSkillModifierValues: настоящий новый persona103,
+public TakePerk8 и IUnitMission.ApplyCritical(C_VP) при20%VP. Native bonus
+существует (ICcap9), но mission.GetIC остаётся8. Сначала проходят positive
+контроли: увеличение cap VP/AP не пополняет уже потраченные значения. Production
+до этого runtime RED не менялся.
+
+Перенесён только9-line loop в конструкторе CUnit с persona:15 статических skills
+FreezeToMax+Update, VP/AP остаются расходуемыми. Default load ctor, saved tags,
+формулы навыков/XP/perks не менялись. GREEN: effectiveIC9,15 skills следуют
+положительным и отрицательным modifiers и восстанавливают прежний effective cap
+после снятия; XP/progress неизменны. Native saver сохраняет flags каждой cell.
+Старый unfrozen cell value7/cap20 после roundtrip и bonus cap30 остаётся value7.
+Это cell compatibility proof, не запуск произвольного старого пользовательского
+save. Автомиграция старых сохранённых false flags не добавлена. Первоначальный
+GREEN compile private serializer access исправлен вызовом публичного virtual
+CObjectBase interface, private-serializer-build.log сохранён; это не runtime RED.
+
+Глобальная инициализация влияет на все навыки, поэтому повторён FULL:
+Windows386/386314.33с, Linux386/386317.64с (CPUbase379+7renderer extras).
+Все17audio/12FONT-COMPAT на каждой платформе, raw386 полные без NUL. Обе Game
+и Windows ALL_BUILD собраны. Дополнительно Win6/6wire/network5.41с (3network+
+critical/perk wire), Linux2/2wire0.02с; raw сохранены отдельно. CI-like280/280
+24.00с, raw280 полон без NUL/12FONT-COMPAT. Полные raw сохранены ДО следующего
+CTest. Свидетельства fresh-skill-modifier-values: red/green-{build,test,native-test}.log,
+private-serializer-build.log, all-build.log, full-test.log,
+linux-{configure,build,test}.log, {windows,linux}-full-native-test.log,
+wire-network-test.log, windows-wire-network-native-test.log,
+linux-wire-{test,native-test}.log, ci-{test,native-test}.log, ci-tests.txt.
+Сборки прежние, HD pack не генерировался, после проверок тестовые процессы завершились.
+
+0ffb568d теперь imported: totalXP исправлен ранее независимо, fresh flags теперь
+сверены с оригиналом и проверены отдельно. Статус281:102pending/104imported/
+25partial/38already/3docs/5excluded-balance/2excluded-own, по1historical/review.
+128 исходных коммитов ещё разбираются. Все281 и итоговый actual HEAD GitHub
+Actions ещё не завершены; локальный CI-like не выдаётся за hosted CI.
