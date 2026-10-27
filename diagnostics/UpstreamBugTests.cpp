@@ -3173,6 +3173,18 @@ static void ForcedAttackTooltip(const char* databasePath,const char* resourcePat
     for (auto child: children) if (auto* text = dynamic_cast<NUI::CText*>(child.GetPtr())) { label = text; break; }
     Require(label && label->GetText().find(expected.wsName) != wstring::npos,
         "forced attack lost the active player's fog-of-war unit caption");
+    mission->SetStateTarget(nullptr);
+    forced->Step();
+    std::printf("native forced attack caption after leaving unit: visible=%d\n",frame->GetStyle(NUI::STYLE_VISIBLE));
+    Require(!frame->GetStyle(NUI::STYLE_VISIBLE),"forced attack kept a stale unit caption after the pointer left its target");
+    mission->SetStateTarget(visible);
+    forced->Step();
+    Require(frame->GetStyle(NUI::STYLE_VISIBLE) && label->GetText().find(expected.wsName) != wstring::npos,
+        "forced attack failed to restore the native caption after returning to a unit");
+    CObj<NWorld::CWindowDoor> nonUnit = new NWorld::CWindowDoor;
+    mission->SetStateTarget(nonUnit);
+    forced->Step();
+    Require(!frame->GetStyle(NUI::STYLE_VISIBLE),"forced attack kept a stale unit caption over a non-unit object");
     forced->Terminate();
     Require(!IsValid(frame),"terminating forced attack retained its tooltip");
     mission->SetStateTarget(nullptr);

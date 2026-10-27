@@ -794,7 +794,7 @@ bool CStateAttack::Initialize( IMission *pMission )
 void CStateAttack::UpdateEnemyStateInfo()
 {
 	CDynamicCast<NWorld::CUnit> pUnit( GetMission()->GetStateTarget() );
-	if ( IsValid( pUnit ) && IsValid( pEnemyToolTip ) )
+	if ( IsValid( pEnemyToolTip ) )
 		MakeUnitStateToolTip( GetMission(), pUnit, pEnemyToolTip );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

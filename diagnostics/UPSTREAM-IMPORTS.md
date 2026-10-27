@@ -5653,3 +5653,31 @@ Tracker281:103pending/110imported/24partial/32already/3docs/5excluded-balance/
 2excluded-own/1historical/1review.128 незавершённых исходных entries, включая
 четыре вновь открытых; это не число будущих коммитов. Оставшиеся PRESENT ещё
 проходят проверку нынешнего репозитория. All281 и финальные Actions не завершены.
+
+## Исчезновение подписи при уходе с юнита — адаптация4430374b
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4430374be9ea6be47346d06be41b68005dd7e835
+
+После разрешения подсказки в forced attack её окно теперь живёт дольше одной
+цели. Дополнительный native RED в настоящем CICBeginMission: после успешно
+показанного имени SetStateTarget(null) и CStateAttack::Step оставляют visible=1.
+Раньше такой переход не проверялся: существовал только контроль создания
+нового forced state сразу над пустым местом.
+
+В UpdateEnemyStateInfo убран только IsValid(pUnit) перед вызовом существующего
+MakeUnitStateToolTip. Сам helper уже умеет скрывать окно при отсутствии юнита.
+GREEN проверяет переходы юнит→null→тот же юнит→не-юнит CWindowDoor, сохранение
+одного окна/имени, освобождение в Terminate и неизменность AP/VP/позиции.
+Это отдельная адаптация времени жизни окна к нашему интерфейсу, необходимая
+для корректного переноса443; не буквальный новый hunk оригинального коммита.
+Формулы стрельбы, выбор целей, физический ввод и шрифты не менялись; тест
+не заявляет проверку пикселей или движения аппаратной мыши.
+
+Windows ALL_BUILD/Game и Linux Game, связанные58/58 Windows53.78с и
+Linux55.77с,10native-display/12FONT-COMPAT, raw полные без NUL. Целевые
+NativeForcedAttackTooltip и CorpseTargetInformation2/2 после фикса.
+4Network6.94с и CI-like280/28026.98с, raw280/noNUL/12fonts. Evidence:
+forced-attack-caption-transition-{red,green,related,linux,network-related,ci}.
+CPU387/FULL401 inventory прежние, новый полный прогон не заявляется.
+443 остаётся partial: CStateUse body/emptyPK проверяются независимо с учётом
+нашего Panzerklein-кода. Tracker и общая работа281 остаются незавершёнными.
