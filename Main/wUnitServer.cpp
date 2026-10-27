@@ -1557,6 +1557,12 @@ const CObjectBase* CUnitServer::GetAttackIgnore() const
 	return this;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Bullet impacts on a wearer must use the same surface owner as its PK mesh.
+CObjectBase* CUnitServer::GetDecalsRef()
+{
+	return pWearingPK ? pWearingPK.GetPtr() : this;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitServer::UpdateCriticalsState()
 { 
 	pState->FilterCriticals(); 

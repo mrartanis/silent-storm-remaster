@@ -9,6 +9,9 @@
 #include "../Main/wBuilding.h"
 #include "../Main/wObject.h"
 #include "../Main/wMine.h"
+#include "../Main/wDecal.h"
+#include "../Main/GDecal.h"
+#include "../Main/GSceneInternal.h"
 #include "../Main/wUnitGroup.h"
 #include "../Main/iCommonUI.h"
 #include "../Main/PerkToolTip.h"
@@ -8021,6 +8024,150 @@ static void RemovedPlayerFootprints(const char* databasePath, const char* resour
     for (const auto& place: surviving)
         Require(network->IsLocked(place, true), "removing one player released another player's footprint");
     std::printf("Player teardown: %zu vacated and %zu surviving footprints\n", vacated.size(), surviving.size());
+}
+
+class BulletDecalPresentation: public NWorld::IRenderVisitor
+{
+public:
+    vector<CObjectBase*> targets;
+    int created=0,submitted=0;
+    NGScene::CDecalTarget* CreateDecalTarget(const vector<CObjectBase*>& values,const NGScene::SDecalMappingInfo& info) override {
+        targets=values;++created;return new NGScene::CDecalTarget(info);
+    }
+    void AddDecal(NGScene::CDecalTarget* target,NDb::CMaterial* material) override {Require(target && material,"native bullet decal lost its target or authored material");++submitted;}
+};
+
+static void BulletDecalEquipmentTarget(const char* databasePath,const char* resourcePath,bool equipped,bool sceneMode = false)
+{
+    NativeDisplayContext display;
+    if(sceneMode)display.Initialize(databasePath,resourcePath,"Silent Storm native PK decal surface regression");
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(auto unit:units) {
+        auto* candidate=dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if(candidate && !candidate->IsAIUnit() && candidate->CanFight() && !candidate->IsWearingPK() && !candidate->IsEmptyPK()) {actor=candidate;break;}
+    }
+    Require(actor,"bullet decal fixture has no ordinary native human actor");
+    CObj<NWorld::CUnitServer> shell;
+    if(equipped) {
+        NDb::CRPGPers* record=nullptr;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+        while(people.MoveNext())if(people.Get()->pPanzerklein && !people.Get()->pPanzerklein->bHasNoHead && people.Get()->pModel) {record=people.Get();break;}
+        Require(record,"bullet decal fixture lacks an authored ordinary PK persona");
+        vector<NAI::SPathPlace> places;auto* network=world->GetPathNetwork();network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),20.f),&places);
+        NAI::SPathPlace anchor;bool found=false;
+        for(auto place:places) {place.SetPose(NAI::CM_STAND);place.SetDirection(0);if(NAI::IsBigLockerPlacePassable(network,place)) {anchor=place;found=true;break;}}
+        Require(found,"bullet decal fixture lacks an actual free PK footprint");
+        shell=world->AddUnitInGame(anchor,NRPG::CreateUnit(record),nullptr);
+        Require(shell && shell->IsEmptyPK() && shell->WearAsPK(true),"bullet decal fixture could not prepare its native PK shell");
+        actor->SetPosition(shell->GetPosition());actor->FlipPanzerklein(shell,false,false);
+        Require(actor->IsWearingPK(),"bullet decal fixture did not equip its pilot through the native API");
+    }
+    auto* armor=(equipped?shell.GetPtr():actor)->GetUnitRPG()->GetRPGArmor();
+    Require(armor && armor->pShotMaterial,"bullet decal fixture's authored armor has no impact material");
+    CObj<NGScene::IGameView> view;CObj<NRender::IRenderGame> renderer;NGScene::SDecalMappingInfo sceneProbe;unsigned liveParts=0;
+    if(sceneMode) {
+        view=NGScene::CreateNewView();renderer=NRender::CreateRenderGame(world,view,nullptr);
+        Require(view && renderer,"native decal scene could not create its actual game renderer");
+        renderer->UpdateViewWorld(false,world->GetTime()->GetValue(),nullptr,true);
+        sceneProbe.vCenter=actor->GetPosition().GetCP()+CVec3(0,0,1.f);sceneProbe.vNormal=VNULL3;sceneProbe.fRadius=3.5f;sceneProbe.fRotation=0;
+        for(int poll=0;poll<2000 && !liveParts;++poll) {
+            MarkNewDGFrame();CObj<NGScene::CDecalTarget> control=view->CreateDecalTarget(vector<CObjectBase*>{actor,shell.GetPtr()},sceneProbe);
+            liveParts=unsigned(control->targetParts.size());if(!liveParts)Sleep(1);
+        }
+        std::printf("native decal scene control: live actor/shell mesh parts=%u\n",liveParts);std::fflush(stdout);
+        Require(liveParts>0,"native decal scene has no loaded rendered body for its positive ownership control");
+    }
+    auto decals=[&]() {
+        vector<CObj<NWorld::CDecal>> result;CStructureNetworkContext refs;auto fields=BorrowedObjectFields(world->GetActive(),&refs);
+        for(auto& ref:refs.refs)if(auto* decal=dynamic_cast<NWorld::CDecal*>(ref.second.GetPtr()))result.push_back(decal);
+        return result;
+    };
+    const auto before=decals();const int ap=actor->GetAP(),vp=actor->GetUnitRPG()->GetTotalVP();const auto position=actor->GetPosition();const bool action=world->IsAction();
+    NRPG::CAttackPortion attack(0,2,0.f,0,0,0,0,nullptr,actor->GetUnitRPG(),1.f,-1,false);
+    CVec3 direction(1,0,0),normal(-1,0,0),impact=position.GetCP()+CVec3(0,0,1.f);
+    if(sceneMode) {
+        CObj<NGScene::CDecalTarget> surface=view->CreateDecalTarget(vector<CObjectBase*>{actor,shell.GetPtr()},sceneProbe);bool found=false;
+        for(const auto& part:surface->parts) {
+            vector<CVec3> positions;vector<STriangle> triangles;NGScene::TransformPart(part,&positions,&triangles);
+            for(const auto& triangle:triangles) {
+                const CVec3& a=positions[triangle.i1];const CVec3& b=positions[triangle.i2];const CVec3& c=positions[triangle.i3];
+                normal=(b-a)^(c-a);if(fabs2(normal)<0.000001f)continue;
+                Normalize(&normal);impact=(a+b+c)/3.f;direction=-normal;found=true;break;
+            }
+            if(found)break;
+        }
+        Require(found,"native bullet decal fixture lacks a real nondegenerate rendered surface triangle");
+    }
+    attack.rTtrajectory.ptOrigin=impact-direction;attack.rTtrajectory.ptDir=direction;
+    vector<NRPG::STrailPoint> trail;
+    trail.emplace_back(-1,direction,impact-direction,attack,nullptr,nullptr,nullptr,normal,0);
+    trail.emplace_back(NAI::HL_BODY,direction,impact,attack,actor,actor,armor,normal,0);
+    CObj<NWorld::IDynamicObject> bullet=NWorld::CreateBulletServer(world,trail,world->GetTime()->GetValue(),nullptr,100.f);
+    Require(bullet && bullet->Segment(),"native cached armor-stopped impact did not process and retire its bullet");bullet=nullptr;
+    const auto after=decals();CObj<NWorld::CDecal> added;unsigned count=0;
+    for(const auto& decal:after)if(std::none_of(before.begin(),before.end(),[&](const CObj<NWorld::CDecal>& old){return old.GetPtr()==decal.GetPtr();})) {added=decal;++count;}
+    Require(count==1 && added,"native bullet impact did not create exactly one new world decal");
+    auto* expected=equipped?static_cast<CObjectBase*>(shell.GetPtr()):static_cast<CObjectBase*>(actor);
+    if(sceneMode) {
+        renderer->UpdateViewWorld(false,world->GetTime()->GetValue(),nullptr,true);
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(added,&refs);CObj<NGScene::CDecalTarget> attached;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(4,&attached);}
+        std::printf("native actual bullet decal scene: liveParts=%u attachedParts=%u\n",liveParts,attached?unsigned(attached->targetParts.size()):0);std::fflush(stdout);
+        Require(attached && !attached->targetParts.empty(),"equipment-targeted bullet decal did not bind to the actual rendered Panzerklein mesh");
+        for(const auto& part:attached->targetParts)Require(part.pUser==expected,"actual bullet decal bound its persistent surface to the pilot instead of the PK");
+        auto query=[&](CObjectBase* owner) {
+            CObj<NGScene::CDecalTarget> result;
+            for(int poll=0;poll<2000;++poll) {
+                MarkNewDGFrame();result=view->CreateDecalTarget(vector<CObjectBase*>{owner},sceneProbe);
+                if(!result->parts.empty())break;Sleep(1);
+            }
+            Require(result && !result->parts.empty(),"native decal lifecycle lost its loaded body surface");return result;
+        };
+        auto bindings=[](NGScene::CDecalTarget* target,CObjectBase* selectable) {
+            unsigned count=0,triangles=0;
+            for(const auto& part:target->parts) {
+                Require(part && part->GetFullGroupInfo().pUser==selectable,"decal ownership changed the mesh's selectable gameplay owner");
+                for(const auto& decal:part->decals)if(decal) {
+                    ++count;auto* geometry=dynamic_cast<NGScene::CNonePart*>(decal.GetPtr());
+                    Require(geometry && geometry->HasLoadedObjectInfo(),"native bullet decal has no real loaded geometry node");
+                    triangles+=unsigned(geometry->GetObjectInfo()->GetTrisCount());
+                }
+            }
+            return std::make_pair(count,triangles);
+        };
+        auto worn=query(shell.GetPtr());const auto wornBindings=bindings(worn,actor);
+        std::printf("native worn decal geometry: nodes=%u triangles=%u\n",wornBindings.first,wornBindings.second);std::fflush(stdout);
+        Require(wornBindings.first>0 && wornBindings.second>0,"native worn PK surface has no actual attached decal geometry node");
+        Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==vp && actor->GetPosition()==position && actor->IsWearingPK() && world->IsAction()==action,
+            "native rendered armor-stopped impact changed gameplay state or retained its bullet action");
+        // Actual pre-extension scene fields have no optional tag 5. Loading
+        // them must fall back to their original selectable owner, even if a
+        // reused destination still held an equipment alias before READ.
+        CStructureNetworkContext oldRefs;oldRefs.externalReferences=true;oldRefs.include=[](CObjectBase*){return false;};
+        oldRefs.ids[actor]=1;oldRefs.refs[1]=actor;oldRefs.nextID=100;
+        auto oldGroup=worn->parts.front()->GetFullGroupInfo();CMemoryStream legacy;
+        {CStructureSaver writer(legacy,CStructureSaver::WRITE,&oldRefs);writer.Add(2,&oldGroup.groupInfo);writer.Add(3,&oldGroup.pUser);writer.Add(4,&oldGroup.nUserID);}
+        legacy.Seek(0);{CStructureSaver reader(legacy,CStructureSaver::READ,&oldRefs);oldGroup.operator&(reader);}
+        Require(oldGroup.pUser==actor && !oldGroup.pDecalUser && oldGroup.GetDecalUser()==actor,"old scene-group fields retained a stale equipment alias instead of their original owner");
+        NGScene::SFullRoomInfo oldRoom;oldRoom.pUser=actor;oldRoom.pDecalUser=shell.GetPtr();oldRoom.nUserID=7;CMemoryStream legacyRoom;
+        {CStructureSaver writer(legacyRoom,CStructureSaver::WRITE,&oldRefs);writer.Add(2,&oldRoom.room);writer.Add(3,&oldRoom.pUser);writer.Add(4,&oldRoom.nUserID);}
+        legacyRoom.Seek(0);{CStructureSaver reader(legacyRoom,CStructureSaver::READ,&oldRefs);oldRoom.operator&(reader);}
+        Require(oldRoom.pUser==actor && !oldRoom.pDecalUser && oldRoom.nUserID==7,"old scene-room fields lost their owner/ID or retained an equipment alias");
+        actor->FlipPanzerklein(nullptr,false,false);Require(shell->WearAsPK(false),"native decal lifecycle could not detach its empty PK shell");
+        renderer->UpdateViewWorld(false,world->GetTime()->GetValue(),nullptr,true);
+        auto detached=query(shell.GetPtr());auto human=query(actor);
+        const auto shellBindings=bindings(detached,shell.GetPtr()),humanBindings=bindings(human,actor);
+        std::printf("native decal ownership lifecycle: worn=%u/%u detachedShell=%u/%u human=%u/%u nodes/triangles oldGroup/room=compatible\n",wornBindings.first,wornBindings.second,shellBindings.first,shellBindings.second,humanBindings.first,humanBindings.second);std::fflush(stdout);
+        Require(shellBindings.first>0 && shellBindings.second>0 && humanBindings.first==0 && !actor->IsWearingPK(),"PK bullet decal followed the unmounted pilot instead of remaining on the actual suit mesh");
+        return;
+    }
+    BulletDecalPresentation presentation;added->Visit(&presentation);
+    std::printf("native bullet decal: equipped=%d newDecals=%u targets=%u pilot=%d shell=%d AP=%d->%d VP=%d->%d\n",int(equipped),count,unsigned(presentation.targets.size()),
+        int(presentation.targets.size()==1 && presentation.targets[0]==actor),int(presentation.targets.size()==1 && presentation.targets[0]==shell.GetPtr()),ap,actor->GetAP(),vp,actor->GetUnitRPG()->GetTotalVP());std::fflush(stdout);
+    Require(presentation.created==1 && presentation.submitted==1 && presentation.targets.size()==1 && presentation.targets[0]==expected,
+        "native bullet decal was sent to the hidden pilot instead of the worn Panzerklein surface");
+    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==vp && actor->GetPosition()==position && actor->IsWearingPK()==equipped && world->IsAction()==action,
+        "armor-stopped impact changed AP, vitality, position, equipment or retained its bullet action");
 }
 
 static void EmptyBulletConstruction(const char* databasePath, const char* resourcePath, bool checkRetirement = false)
@@ -19822,6 +19969,9 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-collision-hidden-other")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "movement-collision-hidden-own")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],true,true); return true; }
     if (!std::strcmp(mode, "movement-collision-visible-other")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],false,false); return true; }
+    if (!std::strcmp(mode, "bullet-decal-scene")) { Require(argc==4,"bullet decal scene requires db and res"); BulletDecalEquipmentTarget(argv[2],argv[3],true,true); return true; }
+    if (!std::strcmp(mode, "bullet-decal-human")) { Require(argc==4,"bullet decal requires db and res"); BulletDecalEquipmentTarget(argv[2],argv[3],false); return true; }
+    if (!std::strcmp(mode, "bullet-decal-panzerklein")) { Require(argc==4,"bullet decal requires db and res"); BulletDecalEquipmentTarget(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "movement-rotation-create-wire")) { Require(argc==4,"rotation queue requires db and res"); MovementRotationQueueWire(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "movement-rotation-cancel-wire")) { Require(argc==4,"rotation queue requires db and res"); MovementRotationQueueWire(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "movement-rotation-reroute-wire")) { Require(argc==4,"rotation queue requires db and res"); MovementRotationQueueWire(argv[2],argv[3],2); return true; }

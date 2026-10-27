@@ -65,9 +65,12 @@ struct SFullGroupInfo
 	SGroupInfo groupInfo;
 	CPtr<CObjectBase> pUser;
 	int nUserID;
-	ZEND int operator&( CStructureSaver &f ) { f.Add(2,&groupInfo); f.Add(3,&pUser); f.Add(4,&nUserID); return 0; }
+	// A worn equipment surface may outlive its current selectable pilot.
+	CPtr<CObjectBase> pDecalUser;
+	ZEND int operator&( CStructureSaver &f ) { f.Add(2,&groupInfo); f.Add(3,&pUser); f.Add(4,&nUserID); if ( f.IsReading() ) pDecalUser = 0; f.Add(5,&pDecalUser); return 0; }
+	CObjectBase* GetDecalUser() const { return pDecalUser ? pDecalUser.GetPtr() : pUser.GetPtr(); }
 	SFullGroupInfo() : nUserID(0) {}
-	SFullGroupInfo( const SGroupInfo &_g, CObjectBase *_p, int _nUserID ) : groupInfo(_g), pUser(_p), nUserID(_nUserID) {}
+	SFullGroupInfo( const SGroupInfo &_g, CObjectBase *_p, int _nUserID, CObjectBase *_pDecalUser = 0 ) : groupInfo(_g), pUser(_p), nUserID(_nUserID), pDecalUser(_pDecalUser) {}
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAnimLight: public CObjectBase

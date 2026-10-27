@@ -80,7 +80,8 @@ struct SFullRoomInfo
 	SRoomInfo room;
 	CPtr<CObjectBase> pUser;
 	int nUserID;
-	ZEND int operator&( CStructureSaver &f ) { f.Add(2,&room); f.Add(3,&pUser); f.Add(4,&nUserID); return 0; }
+	CPtr<CObjectBase> pDecalUser;
+	ZEND int operator&( CStructureSaver &f ) { f.Add(2,&room); f.Add(3,&pUser); f.Add(4,&nUserID); if ( f.IsReading() ) pDecalUser = 0; f.Add(5,&pDecalUser); return 0; }
 	//
 	SFullRoomInfo() : nUserID(0) {}
 	SFullRoomInfo( int _nFloor ) : room(_nFloor), nUserID(0) {}

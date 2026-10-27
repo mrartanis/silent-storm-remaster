@@ -7258,3 +7258,88 @@ commit's work, not the ALL281 goal or final actual-HEAD hosted GitHub CI.
 Evidence movement-rotation-wire-{full,full-linux,network,ci}-{test,native-test}
 logs plus build logs. Four previous source-b450 fixes were separately committed
 and immediately pushed: c84f582b,79ca19fa,fa61c31d,a3dbd228.
+
+
+## 57e1cfa3 — bullet decals belong to the worn suit, with our scene adapted
+
+Source57e1cfa3ea996e33fbbceb01fd94cb49507b7911. A stopped bullet impact on
+a wearer created its decal for the pilot rather than the Panzerklein surface.
+Compiled native RED2.31s: ordinary human control passed, equipped case failed
+1.11s with newDecals1/targetPilot1/targetShell0, AP53 and VP137 unchanged.
+Tests use actual CreateBulletServer->Segment->new NWorld::CDecal->render visitor,
+a fully initialized zero-penetration cached impact and authored armor/material.
+This exercises the impact presentation stage; it does not claim a complete
+firing command or that shooting should cost no AP. Damage/AP formulas stay intact.
+
+A direct source port passed the two boundary tests2/2 2.30s, but was insufficient
+for this fork. CSetRender owns the visible worn mesh under the selectable pilot.
+A new actual-scene RED2.54s/case2.50 proved loaded live meshParts2 but attached
+parts0 after that partial port. The test uses our healthy native SDL/bgfx view,
+CreateRenderGame/UpdateViewWorld and actual CreateDecalTarget; no fake scene or
+handwritten replacement geometry. This prevented shipping an invisible decal.
+
+Adapt the renderer with a separate decal owner. Keep pUser/nUserID unchanged
+for selection/gameplay; set the skinned body's optional pDecalUser to the unit's
+GetDecalsRef. Forward it through SFullRoomInfo -> SFullGroupInfo; part discovery,
+projection cache and decal registration use its fallback GetDecalUser. The
+pilot/head/bound-item paths, shaders, audio and selection identity stay intact.
+The original GetDecalsRef logic returns the worn PK or this. Existing building
+and terrain decal paths and the material/random-selection call are unchanged.
+
+The two render metadata records add optional reference tag5. Reading clears
+that alias before Add: missing object chunks retain their previous value in
+CStructureSaver, unlike scalar fields. A native compatibility control initially
+caught that stale alias2.49s and drove this coupled load adaptation. Old native
+fields2/3/4 loaded into reused alias-filled group/room objects retain their
+original user/ID and clear the absent alias. This is native borrowed-field
+schema compatibility, not a claim about an entire historical save-slot file.
+The original group wire schema was independently checked not to use tag5.
+
+The final scene fixture chooses a real nondegenerate rendered body triangle
+via native TransformPart for its cached impact. It requires actual nonempty
+clipped decal geometry, verifies that the worn mesh remains selectable as the
+pilot, then performs native FlipPanzerklein/WearAsPK detachment and renderer
+refresh. The decal remains on the actual empty suit, not the human body.
+Focused GREEN3/3 4.68s: worn2nodes/12triangles ->emptySuit2/12, human0/0;
+old group/room controls pass. Fresh full Windows sampled13 and Linux39 clipped
+triangles, each preserved on its same suit after detachment, human0. Selection
+of the native sample triangle can differ with part ordering; no cross-platform
+triangle-count equality is presumed. These are native scene/geometry/lifetime
+assertions, not GPU-pixel comparison, hardware clicks, full firing, or an entire
+CExecPanzerklein exit-order claim. No replacement facial animation, fonts or
+HD pipeline. No new binary fixture/game copies; shared builds reused.
+
+Independent original: GoldPDB GetDecalsRef7bab90/97 uniquely maps Steam7c7460
+(first32 exact; full97 with only final Release-call operand88:92 masked, other
+93bytes equal). It selects the stored reference atthis+1cc or this. Gold
+FlipPanzerklein7b5d40/1405 uniquely maps Steam7c24c0 first32/EH3:7; its store
+at7c257c independently identifies that field as the equipped shell. Steam
+CUnitServer RTTI950570/COL8faf84/primaryvtable8ce204 slot14 points7c7460.
+Source-comment address7c6e90 is not treated as proof. Gold group serializer
+568e80/68 uniquely maps Steam56acd0 with only three Add-call operands18:22,
+37:41,57:61 masked (other56bytes equal): tags2(group),3(user),4(ID), no tag5.
+Gold BulletSegment73beb0/2358 maps Steam746ba0 first32/EH9:13, but the whole
+call-site interpretation is not claimed: several unrelated interfaces use
+slot0x38. Evidence bullet-decal-retail-lookup.txt and target/pk-owner/dispatch/
+group-wire original disassemblies in the shared evidence folder.
+
+Related native Windows26/26 22.55s and Linux26/26 21.76s passed before the final
+triangle-strengthening assertions (production code unchanged). Final current
+code: Windows ALL_BUILD/Game and Linux Game/helpers built; fresh full467/467
+Windows425.67s and Linux418.43s, each39native-display/24native-audio/12FONT-COMPAT.
+Raw467/467 complete, no NUL/Failed/missing executable; actual runner exits0.
+Separate CI/network results follow below. Overall ALL281/final hosted CI remain
+unfinished; this is not completion of the larger import goal.
+
+
+Final CI-like284/284 24.42s/fonts12; own Network7/7 190.05s, including361/361
+maps131.04s authored deployment/replica (not complete battles). Raw467/467/7/284
+complete/no NUL/Failed/missing executable, actual runner exits0. Shared Windows
+test game processes have exited. Full native reruns include old cannon/save
+fixtures, movement queues, current actual clipped geometry and own selection/
+heads/fonts regressions. Source57e1cfa3 status pending->imported with its coupled
+scene adaptation. Tracker281 now89pending/125imported/23partial/32already/3docs/
+5excluded-balance/2excluded-own/1historical/1review,113 unfinished entries.
+The ALL281 goal and final actual-HEAD hosted CI remain open. Evidence bullet-
+decal-equipment-{red,green-boundary,scene-red,scene-green,lifecycle,legacy-alias,
+triangles,related,full,full-linux,network,ci} logs in the shared evidence folder.

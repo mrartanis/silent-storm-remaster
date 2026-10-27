@@ -17,7 +17,7 @@ CDecal::CDecal( CDecalsManager *_pOwner, CDecalTarget *_pTarget, IMaterial *_pMa
 		{
 			CNonePart *pPart = targetParts[k];
 			const SFullGroupInfo &fg = pPart->GetFullGroupInfo();
-			SDecalTargetPart tp( fg.pUser, fg.nUserID );
+			SDecalTargetPart tp( fg.GetDecalUser(), fg.nUserID );
 			SSrcPosInfo srcPos( tp.pUser, tp.nUserID, pPart->GetObjectInfoNode() );
 			OnCreate( pOwner->GetScene(), pPart, srcPos );
 		}
@@ -74,7 +74,7 @@ void CDecal::Walk()
 void CDecalsManager::OnCreate( CNonePart *pNew )
 {
 	const SFullGroupInfo &fg = pNew->GetFullGroupInfo();
-	SDecalTargetPart tp( fg.pUser, fg.nUserID );
+	SDecalTargetPart tp( fg.GetDecalUser(), fg.nUserID );
 	SSrcPosInfo srcPos( tp.pUser, tp.nUserID, pNew->GetObjectInfoNode() );
 	CPerUserHash::iterator i = decalsPerUser.find( tp );
 	if ( i != decalsPerUser.end() )
@@ -103,7 +103,7 @@ CDecalTarget* CDecalsManager::CreateDecalTarget( const vector<CObjectBase*> &_ta
 		ASSERT( IsValid(pPart) );
 		if ( IsValid(pPart) )
 		{
-			SDecalTargetPart tp( pPart->GetFullGroupInfo().pUser, pPart->GetFullGroupInfo().nUserID );
+			SDecalTargetPart tp( pPart->GetFullGroupInfo().GetDecalUser(), pPart->GetFullGroupInfo().nUserID );
 			pRes->targetParts.push_back( tp );
 			// calc source position
 			if ( pPart->HasLoadedObjectInfo() )

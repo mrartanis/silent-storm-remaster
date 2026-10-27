@@ -1880,7 +1880,7 @@ void CGScene::GetPartsList( const SDecalMappingInfo &_info, const CObjectBaseSet
 			if ( !pPart )
 				continue;
 			const SFullGroupInfo &fg = pPart->GetFullGroupInfo();
-			CObjectBaseSet::const_iterator i = targets.find( fg.pUser );
+			CObjectBaseSet::const_iterator i = targets.find( fg.GetDecalUser() );
 			if ( i == targets.end() )
 				continue;
 			if ( pPart->GetFullGroupInfo().nUserID == -1 )

@@ -435,7 +435,11 @@ void CSetRender::AddMesh( NDb::CModel *pModel, CFuncBase<NAnimation::SSkeletonPo
 	// @0x2ccf60 calls ChooseBodyColor when a head info is passed). pHead is the unit -> its CHeadInfo's race.
 	if ( pHead )
 		ChooseBodyColor( pModel, pHead->GetHeadInfo() );
-	Register( pScene->CreateSkin( pModel, pAnimator, NGScene::SFullRoomInfo( room, GetCurrentSrcObject(), nUserID ) ) );
+	NGScene::SFullRoomInfo skinRoom( room, GetCurrentSrcObject(), nUserID );
+	CDynamicCast<NWorld::CUnitServer> pSurfaceUnit( GetCurrentSrcObject() );
+	if ( pSurfaceUnit )
+		skinRoom.pDecalUser = pSurfaceUnit->GetDecalsRef();
+	Register( pScene->CreateSkin( pModel, pAnimator, skinRoom ) );
 
 	for ( int k = 0; k < boundMeshes.size(); ++k )
 	{

@@ -198,7 +198,7 @@ bool CBulletServer::Segment()
 						if (pBuilding)
 							new CDecal( pWorld, vPlace, vNormal, pArmor->fShotRadius, pArmor->pShotMaterial->GetMaterial(&rnd), pBuilding->GetSceneHandle() );
 						else
-							new CDecal( pWorld, vPlace, vNormal, pArmor->fShotRadius, pArmor->pShotMaterial->GetMaterial(&rnd), pCatcher );
+							new CDecal( pWorld, vPlace, vNormal, pArmor->fShotRadius, pArmor->pShotMaterial->GetMaterial(&rnd), pUS ? pUS->GetDecalsRef() : pCatcher );
 					}
 				}
 			}

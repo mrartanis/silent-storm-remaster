@@ -251,7 +251,7 @@ static SGroupInfo GetGroupInfo( const SRoomInfo &r, bool bCastShadows = true, bo
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static SFullGroupInfo GetGroupInfo( const SFullRoomInfo &r, bool bCastShadows = true, bool bParticles = false )
 {
-	return SFullGroupInfo( GetGroupInfo( r.room, bCastShadows, bParticles ), r.pUser, r.nUserID );
+	return SFullGroupInfo( GetGroupInfo( r.room, bCastShadows, bParticles ), r.pUser, r.nUserID, r.pDecalUser );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // IGameView
