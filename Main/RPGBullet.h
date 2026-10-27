@@ -9,8 +9,8 @@
 // (SAttackRayInfo, SCoverInterval).
 //
 // PerformRangedAttack is wired into shooting; loose rays honor the original
-// clear-distance and range bounds. Each completed segment owns its remaining-energy
-// endpoint. Reflection remains a follow-up; the CGame helpers also remain.
+// clear-distance/range bounds and reflection, carrying remaining energy between
+// segments. Each completed segment owns its endpoint; CGame helpers also remain.
 //
 // DEFERRED (genuine gaps -- see RPGBullet.cpp notes):
 //   * Incidental unit damage in TraceLooseRaySegment needs NRPG::CheckBulletToHit, a
@@ -120,7 +120,7 @@ void CalcCoverIntervals( NAI::CFastRenderer::SResult *pList, const SAttackRayInf
 // @0x292830 -- build loose fly-past tracer trail for missed shots
 void TraceLooseRay( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, vector<STrailPoint> *pTrail );
 // @0x292010 -- trace segment of loose ray through obstacles
-void TraceLooseRaySegment( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, vector<STrailPoint> *pTrail, const CVec3 &vOrigin, const CVec3 &vDir, float fRange, float fMinClearDistance );
+void TraceLooseRaySegment( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, vector<STrailPoint> *pTrail, const CVec3 &vOrigin, const CVec3 &vDir, float fRange, const CAttackPortion &attack, float fMinClearDistance );
 // @0x2929e0 -- retail ranged attack entry point
 CObjectBase * PerformRangedAttack( NWorld::IWorld *pWorld, const SAttackRayInfo &rayInfo, STime sCast, NDb::CModel *pTrailModel, float fTrailSpeed, NDb::CRPGGrenade *pGrenade = 0, int nEffectType = 0 );
 ////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -14752,6 +14752,63 @@ static void LooseRayTermination(const char* databasePath,const char* resourcePat
         "terminal ownership truncated or weakened an unobstructed native ray");
 }
 
+static void LooseRayRicochet(const char* databasePath,const char* resourcePath,int kind)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
+    auto* original=NDb::GetArmor(NDb::N_DEFAULT_ARMOR);Require(IsValid(original) && IsValid(original->pMaterial),"ricochet fixture lacks native default armor");
+    CObj<NDb::CRPGMaterial> material=new NDb::CRPGMaterial;material->nDR=original->pMaterial->nDR;material->fDensity=2;
+    CObj<NDb::CRPGArmor> passing=new NDb::CRPGArmor;passing->pMaterial=material;passing->fRicochetMaxCos=0;passing->fRicochetProbability=0;
+    CObj<NDb::CRPGArmor> reflecting=new NDb::CRPGArmor;reflecting->pMaterial=material;reflecting->fRicochetMaxCos=kind==2?1.f:.5f;
+    const unsigned int seed=0x52a1;
+    CRandomGenerator reference;reference.SeedForHarness(seed);const float roll=reference.GetFloat(0,1);
+    Require(roll>0 && roll<1,"ricochet fixture seed produced a probability endpoint");
+    reflecting->fRicochetProbability=kind==1?0.f:kind==3?roll:1.f;
+    const bool bounce=kind==0 || kind==4;
+    const int draws=kind==2?0:1;
+    reference.SeedForHarness(seed);if(draws)reference.GetFloat(0,1);const unsigned int expectedNext=reference.Get();
+    CObj<LooseRayWallToken> token=new LooseRayWallToken;CObj<LooseRayTraceMap> map=new LooseRayTraceMap;
+    NAI::SSourceInfo passSource(token,passing,3,NWorld::TS_FRAGMENTED),bounceSource(token,reflecting,3,NWorld::TS_FRAGMENTED);
+    map->slabs={{.2f,.3f,passSource,11},{1,1.02f,bounceSource,12}};
+    NRPG::SAttackRayInfo ray;ray.vOrigin=VNULL3;ray.vDir=kind==2?CVec3(1,0,0):CVec3(.2f,1,0);Normalize(&ray.vDir);
+    ray.fMaxRange=8;ray.atk.nDmgType=1;ray.atk.nK=10;
+    if(kind==4) {
+        // The original keeps a straddling interval even when its entry precedes
+        // clear distance. After reflection, one surface is fully clear and the
+        // other straddles the correctly shifted remaining clear distance.
+        ray.fMinClearDistance=6;
+        map->slabs={{.2f,.3f,passSource,11},{.8f,.9f,passSource,13},{.92f,.96f,passSource,14},{1,1.5f,bounceSource,12}};
+    }
+    GlobalGameRandom().SeedForHarness(seed);
+    vector<NRPG::STrailPoint> trail;NRPG::TraceLooseRay(map,ray,&trail);
+    Require(!trail.empty(),"ricochet fixture produced no native trajectory");
+    const float impactDistance=1.f/ray.vDir.x;
+    const CVec3 impact=ray.vDir*impactDistance,reflected(-ray.vDir.x,ray.vDir.y,ray.vDir.z);
+    const CVec3 expectedEnd=bounce?impact+reflected*(ray.fMaxRange-impactDistance):ray.vDir*ray.fMaxRange;
+    const int expectedKinetic=bounce?8:kind==2?8:7;
+    std::printf("native loose-ray ricochet: kind=%d rays=%zu expectedRays=%d end=%g,%g expectedEnd=%g,%g kinetic=%d expectedKinetic=%d expectedDraws=%d\n",
+        kind,map->rays.size(),bounce?2:1,trail.back().vPosition.x,trail.back().vPosition.y,expectedEnd.x,expectedEnd.y,trail.back().sAttack.nK,expectedKinetic,draws);std::fflush(stdout);
+    Require(map->rays.size()==std::size_t(bounce?2:1) && fabs(trail.back().vPosition-expectedEnd)<1e-4f,
+        "native loose ray did not follow the original reflected direction and remaining range");
+    Require(trail.back().sAttack.nK==expectedKinetic,"native reflected ray lost its carried energy or shifted clear distance");
+    if(bounce) {
+        Require(fabs(map->rays[1].ptOrigin-impact)<1e-5f && fabs(map->rays[1].ptDir-reflected)<1e-5f,
+            "native recursive trace did not start at the actual impact with the reflected direction");
+        int reflectedRecords=0,clearedRecords=0;
+        for(const auto& point:trail) {
+            if(point.nUserID==12) {
+                ++reflectedRecords;
+                Require(fabs(point.vPosition-impact)<1e-5f && fabs(point.vDir-reflected)<1e-5f && point.sAttack.nK==(kind==4?10:8) &&
+                    point.pObject.GetPtr()==token.GetPtr() && !IsValid(point.pAttackTarget),"native reflection record lost pre-impact energy or object identity");
+            }
+            if(point.nUserID==14)++clearedRecords;
+        }
+        Require(reflectedRecords==1 && clearedRecords==0,"reflected ray re-hit its departing surface or a fully cleared interval");
+    }
+    const unsigned int actualNext=GlobalGameRandom().Get();
+    std::printf("native loose-ray RNG: kind=%d expectedDraws=%d actualNext=%u expectedNext=%u\n",kind,draws,actualNext,expectedNext);std::fflush(stdout);
+    Require(actualNext==expectedNext,"native loose ray consumed a different number of original ISAAC draws");
+}
+
 static void ProjectiveRayUnprojection()
 {
     float worst = 0;
@@ -20628,6 +20685,11 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "equal-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "mixed-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "missing-attack-target-caption") && argc == 4) { AttackCaptionWithoutHitChance(argv[2], false, true); return true; }
+    if (!std::strcmp(mode, "loose-ray-ricochet") && argc==4) { LooseRayRicochet(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "loose-ray-probability-zero") && argc==4) { LooseRayRicochet(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "loose-ray-normal-incidence") && argc==4) { LooseRayRicochet(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "loose-ray-probability-equality") && argc==4) { LooseRayRicochet(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "loose-ray-reflected-clear") && argc==4) { LooseRayRicochet(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "loose-ray-stop") && argc==4) { LooseRayTermination(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "loose-ray-terminal-energy") && argc==4) { LooseRayTermination(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "loose-ray-bounds") && argc==4) { LooseRayBounds(argv[2],argv[3]); return true; }

@@ -8452,3 +8452,83 @@ HD or save-format changes. Source remains partial for reflection and carried
 energy/RNG verification; tracker281/107unfinished, ALL281 and final actual-HEAD
 hosted CI remain open. Update the balance review to distinguish the imported
 original terminal behavior from remaining unverified ricochet logic.
+
+
+## 0726a489, combat part3 — original ricochet, carried energy and ISAAC draws
+
+Source0726a489c66ef5131dc5f336d8539c316ca31573 is now complete across its
+independent imports. Restore the original pre-penetration incidence test and
+strict random<armorProbability comparison, reflect about the impact normal,
+record the actual impact and recurse with remaining range, the mutated attack
+and Max(0,remainingClearDistance). Use the fork's existing GlobalGameRandom
+accessor for the same ISAAC generator on Windows/Linux. No damage-type gate,
+probability shortcut, new angle limit or recursion cap is invented. Existing
+ignored-object selection and penetration/intended-target guards remain; the
+original reflection record has a null attack target and its actual source
+object. Incidental unit-hit rolling belongs to source2de89e04 and is not
+implicitly claimed imported by closing source0726.
+
+Native RED4failures/5cases5.58s. The real native bullet algorithm with analytic
+slab inputs and real DB armor data never reflected: endpoint(1.56893,7.84465)
+instead of(0.431071,7.84465). Zero-probability and probability-equal-to-roll cases
+already transmitted correctly but consumed no required random draw: next ISAAC
+word2766239133 instead of2863674246. The normal-incidence equality control
+already passed unchanged production: one ray, kinetic8, no draw. These separate
+positive controls distinguish missing behavior from an invalid fixture.
+
+Focused GREEN8/8 8.86s includes the prior bounds/stopped/terminal-energy cases.
+New ballistic cases use normalized direction(.2,1), kinetic10/range8, a passing
+slab.2..3 followed by a reflecting slab1..1.02. The passing wall consumes2;
+reflection carries8 into the child and ends at(.431071,7.84465), using exactly
+the original remaining distance. Inspect the actual second native map call,
+impact record, reflected direction, object identity and carried energy. A
+separate case starts at clear6 with a straddling reflector1..1.5: the child
+retains a.8..9 straddler, skips.92..96 below its shifted clear boundary and ends
+with8. This catches both resetting and retaining the wrong clear distance.
+
+For each case seed the real game ISAAC generator and an independent reference
+CRandomGenerator with52a1. Compare the next actual word after tracing against
+reference state after the expected0/1 GetFloat calls. Angle equality rejects
+before any draw; zero probability and probability equality still consume one
+and do not reflect; a successful ricochet also consumes one. The freshly left
+surface is skipped before another draw. No RNG callback, fake roll or expected
+trail is supplied by the analytic map. This is native trajectory/armor/RNG
+coverage with controlled geometry, not a full authored level BSP trace or
+complete firing/target-damage simulation. It verifies draw count against our
+existing generator, not a new claim of all cross-architecture floating-point
+bit patterns matching the original executable.
+
+Independent original proof extends the same complete Gold/Steam disassemblies
+and unique verified25byte probability-block mapping from part1. Steam691e81
+compares incidence with armor+38 before penetration;691e89 rejects unsuitable
+angles. Only the suitable path calls GetFloat at691e97 (arguments0,1), then
+691e9c compares with armor+3c; strict success branches to6922ca. The reflection
+block subtracts impact distance from clear distance and clamps with0 at
+6923ab..6923bf, passes the LOCAL mutated attack at6923c3, subtracts it from
+remaining range6923ca..6923d5, and recurses at6923eb. No new probability or
+material coefficient is chosen. Saved loose-ray-retail-oracle.json records
+these verified control-flow sites. The original regular/terminal behavior from
+f51cd416/34153eb0 remains; no extra endpoint follows recursive completion.
+
+Source remainder audit: all five source files accounted for. RPGBullet.cpp/h
+are covered by the three native combat fixes. RWGame.cpp/h and iMission.cpp's
+independent additive unit-flash/filter lifecycle/diplomacy dispatch were
+already imported; the current interfaces, flash cleanup and registered class
+remain present. NativeAIUnitFlash runs again in both current full57 display
+suites. Preserve the fork's renderer, ordinary selection, own heads/audio and
+HD assets. No AI-commander choice or complete AI-turn firing claim is added.
+
+Final Windows/Linux Game/helpers/NativeAttackRules built; related21/21
+Windows22.41s/Linux22.14s; native-display57/57 Windows82.30s/Linux67.20s;
+asset-free CI-like290/29024.34s. All five raw logs have exact21/57/21/57/290
+passed records, no NUL/Failed/NotRun/missing executables, actual runners exit0.
+The asset-dependent native cases are covered by related21 rather than the
+asset-free290 manifest. Actual current-HEAD hosted GitHub success remains to
+verify at ALL completion. Evidence loose-ray-ricochet-{red,green,final-related,
+final-display,final-linux,linux-display,final-ci} and shared original oracles.
+Owned games closed, shared builds reused, no HD generation or per-bug copies.
+The extra RNG draws restore the original rule; existing RNG algorithm/state
+format and armor/skill/weapon data are unchanged. No new balance tuning, AP/VP,
+face/font, HD or save-format change. Source becomes imported; tracker281 now
+132imported/21partial/85pending,106unfinished. Update balance Markdown from
+pending review to verified original restoration. ALL281 remains active.

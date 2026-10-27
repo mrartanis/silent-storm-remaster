@@ -15,6 +15,7 @@
 #include "wTSFlags.h"			// NWorld::TS_*
 #include "RPGUnitMission.h"		// NRPG::IUnitMissionInfo (complete -- for CAttackPortion's CPtr members)
 #include "rpgCheatConstants.h"	// CHEAT_GODMODE
+#include "..\Misc\RandomGen.h"
 
 namespace NRPG
 {
@@ -216,13 +217,13 @@ void CalcCoverIntervals( NAI::CFastRenderer::SResult *pList, const SAttackRayInf
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // NRPG::TraceLooseRaySegment @0x292010
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void TraceLooseRaySegment( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, vector<STrailPoint> *pTrail, const CVec3 &vOrigin, const CVec3 &vDir, float fRange, float fMinClearDistance )
+void TraceLooseRaySegment( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, vector<STrailPoint> *pTrail, const CVec3 &vOrigin, const CVec3 &vDir, float fRange, const CAttackPortion &attack, float fMinClearDistance )
 {
 	if ( !pAIMap || !pTrail )
 		return;
 
 	CRay ray; ray.ptOrigin = vOrigin; ray.ptDir = vDir;
-	CAttackPortion tmpAttackPortion( rayInfo.atk );
+	CAttackPortion tmpAttackPortion( attack );
 	tmpAttackPortion.rTtrajectory = ray;
 
 	vector<NAI::SInterval> intersect;
@@ -253,6 +254,20 @@ void TraceLooseRaySegment( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, v
 			NDb::CRPGArmor *pArmor = i->pSrc->pArmor;
 			if ( !pArmor )
 				pArmor = NDb::GetArmor( NDb::N_DEFAULT_ARMOR );
+
+			// Original Steam 0x691e81: test incidence before penetration, with one
+			// ISAAC draw only when the angle allows a ricochet (including probability zero).
+			float fCos = -vDir * i->enter.ptNormal;
+			if ( fCos < pArmor->fRicochetMaxCos && GlobalGameRandom().GetFloat( 0, 1 ) < pArmor->fRicochetProbability )
+			{
+				CVec3 vImpact = ray.Get( i->enter.fT );
+				CVec3 vReflected = vDir + i->enter.ptNormal * ( 2 * fCos );
+				pTrail->push_back( STrailPoint( i->nUserID, vReflected, vImpact, tmpAttackPortion,
+					0, pUD, pArmor, -i->enter.ptNormal, i->pSrc->nFloor ) );
+				TraceLooseRaySegment( pAIMap, rayInfo, pTrail, vImpact, vReflected,
+					fRange - i->enter.fT, tmpAttackPortion, Max( 0.0f, fMinClearDistance - i->enter.fT ) );
+				return;
+			}
 
 			bool bDrawExit = false;
 			if ( !tmpAttackPortion.IsArmorIgnored( pArmor ) )
@@ -291,7 +306,7 @@ void TraceLooseRay( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, vector<S
 	pTrail->push_back( STrailPoint( 0, ray.ptDir, ray.Get( rayInfo.fMinClearDistance ), tmpAttackPortion, 0, 0, 0, CVec3(0,0,1), 100 ) );
 
 	// Trace loose ray through geometry
-	TraceLooseRaySegment( pAIMap, rayInfo, pTrail, rayInfo.vOrigin, rayInfo.vDir, fRange, rayInfo.fMinClearDistance );
+	TraceLooseRaySegment( pAIMap, rayInfo, pTrail, rayInfo.vOrigin, rayInfo.vDir, fRange, rayInfo.atk, rayInfo.fMinClearDistance );
 
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
