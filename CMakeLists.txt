@@ -830,6 +830,7 @@ add_test(NAME UpstreamNegativeMeshBounds COMMAND UpstreamBugTests negative-mesh-
 add_test(NAME UpstreamRagdollRestoration COMMAND UpstreamBugTests ragdoll-restoration)
 add_test(NAME UpstreamNearestEmpty COMMAND UpstreamBugTests nearest-empty)
 add_test(NAME UpstreamFreshNavigationColouring COMMAND UpstreamBugTests fresh-navigation-colouring)
+add_test(NAME UpstreamInvalidRegionColouring COMMAND UpstreamBugTests invalid-region-colouring)
 add_test(NAME UpstreamFreshNavigationTransitions COMMAND UpstreamBugTests fresh-navigation-transitions)
 add_test(NAME UpstreamNavigationColouringOccupancy COMMAND UpstreamBugTests navigation-colouring-occupancy)
 add_test(NAME UpstreamMissingNavigationColourer COMMAND UpstreamBugTests missing-navigation-colourer)

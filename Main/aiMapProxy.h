@@ -103,6 +103,9 @@ public:
 			cNewX = cX + cTranslations[direction][0],
 			cNewY = cY + cTranslations[direction][1];
 		CNodesLayer::STile &t2 = pLayer->tiles[ cNewY ][ cNewX ];
+		// Colour invalid regions internally without joining them to valid tiles.
+		if ( !IsValidPoint( t ) )
+			return IsValidPoint( t2 ) ? 0 : modifier;
 		/*if ( !IsValidPoint( cX, cY ) )
 		{
 			if ( !IsValidPoint( cNewX, cNewY ) )

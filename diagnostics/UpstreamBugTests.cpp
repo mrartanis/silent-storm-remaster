@@ -888,6 +888,75 @@ static void FreshNavigationTransitions()
     }
 }
 
+// Keep the native call boundary out of MSVC's test-loop inliner.
+#if defined(_MSC_VER)
+__declspec(noinline)
+#else
+__attribute__((noinline))
+#endif
+static unsigned char ColouringMoveCost(const NAI::CNodesLayerProxy* proxy,
+    unsigned char x,unsigned char y,NAI::EDirection direction)
+{
+    return proxy->GetOneMoveCost(x,y,direction);
+}
+
+static void InvalidRegionColouring()
+{
+    auto layer = []() {
+        CObj<NAI::CNodesLayer> result = new NAI::CNodesLayer;
+        result->nLayer = result->nFloor = 0; result->tiles.SetSizes(3,3);
+        for (int y=0;y<3;++y) for (int x=0;x<3;++x) result->tiles[y][x] = NAI::STile{};
+        return result;
+    };
+    // Preserve existing valid-edge weights: cardinal/diagonal and all four
+    // supported movement types, with the stand-only restriction unchanged.
+    const int poses[] = {2,1,0,3}, weights[] = {1,2,3,5};
+    for (auto direction: {NAI::RIGHT,NAI::UPRIGHT})
+        for (int kind=0;kind<4;++kind) {
+            auto grid = layer(); const int opposite = (int(direction)+4)&7;
+            auto& source = grid->tiles[1][1];
+            auto& target = grid->tiles[1+NAI::cTranslations[direction][1]][1+NAI::cTranslations[direction][0]];
+            source.nPassable = target.nPassable = 7;
+            source.nFlags = target.nFlags = NAI::TF_STAND_PASSABLE;
+            source.nMove[poses[kind]] = static_cast<char>(1<<direction);
+            target.nMove[poses[kind]] = static_cast<char>(1<<opposite);
+            CObj<NAI::CNodesLayerProxy> proxy = new NAI::CNodesLayerProxy(grid);
+            const int step = direction == NAI::RIGHT ? 2 : 3;
+            proxy->SetPathfinderMode(NAI::PM_ANY_MOVE);
+            Require(ColouringMoveCost(proxy.GetPtr(),1,1,direction) == step*weights[kind],
+                "valid navigation edge changed its existing movement cost");
+            proxy->SetPathfinderMode(NAI::PM_STAND_ONLY);
+            Require(ColouringMoveCost(proxy.GetPtr(),1,1,direction) == (kind == 0 ? step : 0),
+                "stand-only navigation changed its original pose restriction");
+            proxy->SetPathfinderMode(NAI::PM_ANY_MOVE); target.nLocks = 1;
+            Require(ColouringMoveCost(proxy.GetPtr(),1,1,direction) == 0, "valid source entered a locked target");
+        }
+    auto grid = layer();
+    auto& blocked = grid->tiles[1][1]; auto& walkable = grid->tiles[1][0];
+    blocked.nMoveStand = static_cast<char>(1<<NAI::LEFT);
+    walkable.nMoveStand = static_cast<char>(1<<NAI::RIGHT);
+    walkable.nPassable = 7; walkable.nFlags = NAI::TF_STAND_PASSABLE;
+    CObj<NAI::CNodesLayerProxy> proxy = new NAI::CNodesLayerProxy(grid);
+    Require(!proxy->IsValidPoint(1,1) && proxy->IsValidPoint(0,1),
+        "navigation region fixture did not retain one invalid source and one valid neighbour");
+    CObj<NAI::CMapColourer> colourer = new NAI::CMapColourer;
+    colourer->SetLayer(grid,nullptr,0); colourer->ConstructColouring(nullptr);
+    std::printf("native recolouring: invalid=%u valid=%u internal-invalid=%u edge-cost=%d\n",
+        unsigned(colourer->GetPointColor(1,1)),unsigned(colourer->GetPointColor(0,1)),
+        unsigned(colourer->GetPointColor(0,0)),int(ColouringMoveCost(proxy.GetPtr(),1,1,NAI::LEFT)));
+    Require(colourer->GetPointColor(1,1) != colourer->GetPointColor(0,1),
+        "native colouring joined an invalid tile to a walkable region through a stale movement flag");
+    Require(colourer->GetPointColor(1,1) == colourer->GetPointColor(0,0),
+        "native colouring failed to connect the internal invalid region");
+    for (auto mode: {NAI::PM_STAND_ONLY,NAI::PM_ANY_MOVE}) {
+        proxy->SetPathfinderMode(mode);
+        Require(ColouringMoveCost(proxy.GetPtr(),1,1,NAI::LEFT) == 0,
+            "invalid source still connects to a valid neighbour");
+        Require(ColouringMoveCost(proxy.GetPtr(),1,1,NAI::UP) == 2 && ColouringMoveCost(proxy.GetPtr(),1,1,NAI::UPRIGHT) == 3,
+            "internal invalid-region colouring changed cardinal/diagonal weights");
+    }
+}
+
 static void FreshNavigationColouring()
 {
     CObj<NAI::CNodesLayer> layer = new NAI::CNodesLayer;
@@ -895,11 +964,15 @@ static void FreshNavigationColouring()
     layer->tiles.SetSizes(8, 8);
     for (int y = 0; y < 8; ++y)
         for (int x = 0; x < 8; ++x) layer->tiles[y][x] = NAI::STile{};
+    // Two genuine walkable islands; blocked-cell label identities are not
+    // part of this cache-initialization regression's contract.
+    layer->tiles[0][0].nFlags = layer->tiles[7][7].nFlags = NAI::TF_STAND_PASSABLE;
+    layer->tiles[0][0].nPassable = layer->tiles[7][7].nPassable = 7;
     CObj<NAI::CMapColourer> full = new NAI::CMapColourer;
     full->SetLayer(layer, nullptr, 0);
     full->ConstructColouring(nullptr);
     Require(full->IsReady() && full->GetPointColor(0, 0) != full->GetPointColor(7, 7),
-        "fresh-colouring fixture did not build separate blocked regions");
+        "fresh-colouring fixture did not build separate walkable islands");
     CObj<NAI::CMapColourer> incremental = new NAI::CMapColourer;
     incremental->SetLayer(layer, nullptr, 0);
     incremental->RecalcColouring(nullptr, 0);
@@ -15771,6 +15844,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "smart-aimer-boundary")) { SmartAimerBoundary(); return true; }
     if (!std::strcmp(mode, "nearest-empty")) { EmptyNearestPosition(); return true; }
     if (!std::strcmp(mode, "fresh-navigation-colouring")) { FreshNavigationColouring(); return true; }
+    if (!std::strcmp(mode, "invalid-region-colouring")) { InvalidRegionColouring(); return true; }
     if (!std::strcmp(mode, "fresh-navigation-transitions")) { FreshNavigationTransitions(); return true; }
     if (!std::strcmp(mode, "lazy-navigation-colourer")) { LazyNavigationColourer(); return true; }
     if (!std::strcmp(mode, "restored-portrait-selection")) { RestoredPortraitPanel(false); return true; }

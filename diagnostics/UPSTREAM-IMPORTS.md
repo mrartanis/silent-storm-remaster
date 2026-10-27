@@ -4048,3 +4048,54 @@ related-test.log, linux-{configure,build,test}.log,
 Sourcefcc теперь partially-imported; независимые melee hull, coloring,
 attack pose, equipment и door-path hunks ещё проверяются. All281/final actual
 Actions не завершены.
+
+## Разделение invalid/valid областей при пересчёте связности — часть fcc994bc
+
+Новый resource-free UpstreamInvalidRegionColouring использует настоящие
+CNodesLayer, CNodesLayerProxy и CMapColourer::ConstructColouring.
+Сначала проходят valid-edge controls: cardinal/diagonal, stand/crouch/lay/HC
+с прежними weights 1/2/3/5, stand-only restrictions и locked destination.
+Затем контролируемая сетка моделирует invalid source с оставшейся movement
+mask и valid neighbour. Compiled native RED: invalid=1, valid=1,
+internal-invalid=0, edge-cost=2 — реально построенная область сливается с valid.
+Это воспроизведение на grid/cache API, не replay такого состояния shipped карты.
+
+Перед production изменением старый FreshNavigationColouring fixture получил
+два настоящих walkable islands вместо требования разных ID у всех blocked
+клеток. Он по-прежнему сравнивает full/first incremental cache и отсутствие
+перестройки без dirty region. Обновлённый старый тест прошёл на исходном коде
+в том же RED наборе; основной новый тест упал после valid-cost controls.
+
+После RED добавлена только ветка invalid source в GetOneMoveCost:
+не соединять его с valid target, но соединять внутренние invalid клетки.
+GREEN проверяет native region separation/internal coalescing, оба режима,
+прежние cardinal/diagonal invalid-region weights и valid-edge controls.
+Valid-node cost formulas, RPG AP, поля/serialization и layout не заменяются.
+
+В Windows MSVC 19.44 трижды падал при компиляции нового test loop, код
+-529706956/InvokeCompilerPassW/CloseTypeServerPDB. Удаление /MP и пересоздание
+только task-private vc143.pdb/cmake_pch.pch не помогли; исходные логи сохранены.
+После выделения test-only ColouringMoveCost с noinline штатная MaxSpeed/Ob1
+сборка прошла. Это связь с test-loop inlining по наблюдению, не установленная
+внутренняя причина MSVC. Native proxy по-прежнему исполняется; исходное
+ConstructColouring assertion не заменено helper. Оптимизация игры не меняется.
+
+Windows final target 3/3, ALL_BUILD и обе Game собраны. Полный набор
+364/364 Windows (300.07 с), 364/364 Linux (294.85 с), CPU base359+5,
+по 14 native-audio и 12 FONT-COMPAT, raw364 полные без NUL.
+Linux полный прогон предшествовал только test-call outlining; финальный
+fixture пересобран и отдельно прошёл 3/3 (0.05 с). Production при этом
+не менялся, поэтому полный Linux повторно не запускался.
+NetworkSerializer/Match/StopResume 3/3 (21.74 с), CI-like277/277
+(23.80 с), raw277 полный без NUL. Actual GitHub Actions всего переноса
+ещё не объявляется успешным.
+
+Свидетельства invalid-region-colouring: red-{build,test}.log,
+red-native-test.log, green-{build,test}.log, green-native-test.log,
+green-{compiler-crash,serial-compiler-crash,rebuilt-cache-compiler-crash}-build.log,
+all-build.log, full-test.log, windows-native-test.log,
+linux-{configure,initial-build,build,initial-test,test}.log,
+linux-{initial-,final-,}native-test.log,
+network-{test,native-test}.log и ci-{test,native-test}.log.
+Sourcefcc остаётся частичным: остальные независимые hunks проверяются.
+All281 и финальный actual Actions не завершены.
