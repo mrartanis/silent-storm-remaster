@@ -949,6 +949,8 @@ add_test(NAME UpstreamLateLoopingSoundOffset COMMAND UpstreamBugTests late-loopi
 set_tests_properties(UpstreamLateLoopingSoundOffset PROPERTIES LABELS "native-audio" ENVIRONMENT "S2_AUDIO_HEADLESS=1")
 add_test(NAME UpstreamFailedSoundChannelLifetime COMMAND UpstreamBugTests failed-sound-channel-lifetime)
 set_tests_properties(UpstreamFailedSoundChannelLifetime PROPERTIES LABELS "native-audio" ENVIRONMENT "S2_AUDIO_HEADLESS=1")
+add_test(NAME UpstreamReleasedSoundChannelCleanup COMMAND UpstreamBugTests released-sound-channel-cleanup)
+set_tests_properties(UpstreamReleasedSoundChannelCleanup PROPERTIES LABELS "native-audio" ENVIRONMENT "S2_AUDIO_HEADLESS=1")
 add_test(NAME UpstreamHeadlessMusicStream COMMAND UpstreamBugTests headless-music-stream)
 set_tests_properties(UpstreamHeadlessMusicStream PROPERTIES LABELS "native-audio" ENVIRONMENT "S2_AUDIO_HEADLESS=1;S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/upstream-headless-music-user")
 add_test(NAME UpstreamTracklessSceneMusic COMMAND UpstreamBugTests trackless-scene-music)

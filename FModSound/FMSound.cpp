@@ -971,9 +971,7 @@ void Update( const SListener &listener )
 	vector<int> aToDel;
 	for ( CChannels::iterator i = hashChannel.begin(); i != hashChannel.end(); ++i )
 	{
-		if ( !IsValid( i->second ) )
-			FSOUND_StopSound( i->first );
-		else if ( !FSOUND_IsPlaying( i->first ) )
+		if ( !IsValid( i->second ) || !FSOUND_IsPlaying( i->first ) )
 		{
 			FSOUND_StopSound( i->first );
 			aToDel.push_back( i->first );

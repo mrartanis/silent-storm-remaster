@@ -2026,6 +2026,55 @@ static void LateLoopingSoundOffset()
         "an expired non-looping event restarted while correcting looping offsets");
 }
 
+namespace NFMSound {
+class CChannel;
+extern std::unordered_map<int,CMObj<CChannel>> hashChannel;
+}
+
+static void ReleasedSoundChannelCleanup()
+{
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+    Require(std::getenv("S2_AUDIO_HEADLESS")!=nullptr,"released-channel fixture requires headless native audio");
+    NFMSound::SStartInfo info;info.nMaxChannels=2;
+    Require(NFMSound::Init(info),"released-channel fixture could not initialize our native mixer");
+    struct Cleanup { ~Cleanup() { NFMSound::Done(); } } cleanup;
+    Require(NFMSound::hashChannel.empty(),"released-channel fixture did not start with an empty owner table");
+    const auto wave=SilentPCMFixture();
+    CObj<NFMSound::CSample2D> sample=NFMSound::LoadSample2D(wave.data(),int(wave.size()));
+    Require(IsValid(sample),"released-channel fixture could not decode its actual PCM sample");
+    CTransformStack transform;transform.Init();
+    NFMSound::SListener listener;listener.vPosition=CVec3(0,0,0);listener.toProjective=transform.Get().forward;
+    std::vector<float> pcm(4096);
+    CObj<NFMSound::CSound2D> finished=NFMSound::PlaySound(sample);
+    Require(IsValid(finished) && NFMSound::IsPlaying(finished),"completed-channel control did not start");
+    Require(S2FmodRenderForTest(pcm.data(),2048)!=0 && !NFMSound::IsPlaying(finished),
+        "completed-channel control did not finish through the actual mixer");
+    NFMSound::Update(listener);
+    Require(NFMSound::hashChannel.empty(),"normal completed-channel cleanup control failed");
+    CObj<NFMSound::CSound2D> live=NFMSound::PlaySound(sample,0,0,0,true);
+    Require(IsValid(live) && NFMSound::IsPlaying(live) && NFMSound::hashChannel.size()==1,
+        "released-channel fixture did not retain its unrelated looping control");
+    std::puts("native channel cleanup controls: completed voice removed, unrelated live loop retained");
+    std::fflush(stdout);
+    for(int cycle=0;cycle<16;++cycle) {
+        CObj<NFMSound::CSound2D> released=NFMSound::PlaySound(sample,0,0,0,true);
+        Require(IsValid(released) && NFMSound::IsPlaying(released),"released-channel fixture could not start its temporary voice");
+        CPtr<NFMSound::CSound2D> observed=released.GetPtr();released=nullptr;
+        Require(!IsValid(observed),"temporary sound retained a scene owner after its handle was released");
+        NFMSound::Update(listener);
+        std::printf("native released-channel cleanup cycle=%d table=%zu expected=1 live=%d\n",
+            cycle,NFMSound::hashChannel.size(),int(NFMSound::IsPlaying(live)));std::fflush(stdout);
+        Require(NFMSound::hashChannel.size()==1,"released sound entries accumulate in the native channel owner table");
+        Require(NFMSound::IsPlaying(live) && IsValid(sample),
+            "released-channel cleanup stopped the unrelated loop or freed its decoded sample");
+    }
+    live=nullptr;NFMSound::Update(listener);
+    Require(NFMSound::hashChannel.empty(),"final released voice remains in the native owner table");
+#else
+    throw std::runtime_error("released-channel regression requires the native audio backend");
+#endif
+}
+
 static void FailedSoundChannelLifetime()
 {
     Require(std::getenv("S2_AUDIO_HEADLESS") != nullptr, "failed-channel fixture requires headless native audio");
@@ -16719,6 +16768,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "delayed-sound-effect-age") && argc == 3) { DelayedSoundEffectAge(argv[2]); return true; }
     if (!std::strcmp(mode, "infinite-sound-effect-loop") && argc == 3) { DelayedSoundEffectAge(argv[2],true); return true; }
     if (!std::strcmp(mode, "late-looping-sound-offset")) { LateLoopingSoundOffset(); return true; }
+    if (!std::strcmp(mode, "released-sound-channel-cleanup")) { ReleasedSoundChannelCleanup(); return true; }
     if (!std::strcmp(mode, "failed-sound-channel-lifetime")) { FailedSoundChannelLifetime(); return true; }
     if (!std::strcmp(mode, "headless-music-stream")) { HeadlessMusicStream(); return true; }
     if (!std::strcmp(mode, "trackless-scene-music")) { TracklessSceneMusicContinuity(); return true; }

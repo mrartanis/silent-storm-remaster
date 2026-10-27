@@ -4699,3 +4699,55 @@ CI-like278/278 (23.79 с), raw278 полный без NUL. Статус281:
 107 pending/102 imported/22 partial/38 already/3 docs/5 excluded-balance,
 2 excluded-own, по1 historical/review.130 исходных коммитов ещё разбираются;
 все281/final actual HEAD Actions пока не завершены.
+
+## Удаление освобождённых звуковых каналов — отдельная часть c8b908f2
+
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c8b908f27c4c8ecb595225715730fb58b32fe63b
+
+UpstreamReleasedSoundChannelCleanup использует наши настоящие LoadSample2D,
+PlaySound, headless PCM mixer и Update. Test-only extern существующей
+hashChannel позволяет проверить удержание записей; production diagnostic API
+не добавлен. Положительные контроли: обычный звук заканчивается через mixer
+и удаляется, отдельный loop остаётся живым. Compiled native RED: после
+освобождения временного loop и Update таблица содержит2 записи вместо1,
+несмотря на инвалидированный scene handle; контрольный loop продолжает играть.
+
+Исправлен только cleanup hunk: invalid owner и неиграющий channel проходят
+через общую ветку StopSound + отложенное удаление записи из таблицы.
+Native GREEN повторяет16 циклов create/release/update, каждый раз остаётся
+ровно1 живая запись; финальное освобождение очищает таблицу до0. Удерживаемый
+декодированный sample и независимый loop остаются живыми во всех циклах.
+Первый неудачный fixture-* запуск ошибочно проверял boolean return PCM hook
+как число кадров; он сохранён отдельно и не считается RED движка.
+После исправления стенда RED повторён до изменения production.
+
+Source остаётся partial: продолжение 2D-звука после loop при освобождении
+scene owner — другой дефект, здесь не переносился. Для него требуется
+адаптация к нашему NativeFmod: Sample_Free удаляет все каналы данного sample,
+поэтому ending holder должен владеть decoded sample; прямой исходный
+raw-pointer holder этого не гарантирует. Никаких новых FMOD exports, loop
+policy или изменений исходного баланса этот cleanup-коммит не добавляет.
+
+Проверки cleanup:21/21 Windows (21.36 с), включая ВСЕ15 Upstream native-audio,
+3 network, registration/bind и rejected-caption cases. На Linux прошли
+373/373 CPU cases (306.77 с), включая все15 native-audio. Этот расширенный
+Linux набор был выбран из-за сбоя формирования узкого selector; это полный
+CPU прогон, GPU extras в него не входили. Windows первоначальный пустой
+selector дал No tests; сохранён как selection-*, затем повторён правильный
+21-test набор. Оба финальных raw полные, без NUL; Linux и CI имеют по12
+FONT-COMPAT. Собраны обе Game/Windows ALL_BUILD. CI-like279/279 (23.89 с),
+raw279 полный без NUL. Новая проверка resource-free, помечена native-audio
+и отключается при сборке без native mixer, как соседние.
+
+Свидетельства released-sound-channel-cleanup: fixture-{build,test,native-test}.log,
+red-{build,test,native-test}.log, green-{build,test,native-test}.log,
+all-build.log, selection-{test,native-test}.log, related-test.log,
+linux-{configure,build,test}.log, {windows,linux}-native-test.log,
+ci-{test,native-test}.log. Сборки переиспользованы, старые копии не создавались.
+CPU base373; последний full с GPU extras остаётся e356d2db376/376 обе платформы,
+свежий полный380 здесь не заявляется.
+
+Статус281:106 pending/102 imported/23 partial/38 already/3 docs/
+5 excluded-balance/2 excluded-own, по1 historical/review.130 исходных
+коммитов ещё в разборе: перенос одного hunk pending→partial не завершает source.
+All281/final actual HEAD Actions остаются незавершёнными.
