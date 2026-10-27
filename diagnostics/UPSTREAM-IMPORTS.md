@@ -5468,3 +5468,39 @@ SDL/bgfx/LAN системы сохранены.
 Счётчики281:100pending/108imported/23partial/38already/3docs/5excluded-balance/
 2excluded-own, по1historical/review;124 исходных коммита ещё не закрыты.
 All281/final actual HEAD GitHub Actions ещё не завершены.
+
+
+## Фокус окна передачи хода — адаптация46b3ace0 к нашему вводу
+
+Источник включения окна: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b
+
+Отдельный первый compiled native RED2/2 (3.00с) подтвердил интеграционный дефект:
+свежее и восстановленное legacy окно уже visible1/paused1/root1, но focused0.
+Контроль GetKeyForMessage успешно переводит CT_KEY ENTER в VK_RETURN; настоящий
+CInterface.ProcessEvent возвращает consumed0 и оставляет окно видимым. До этого
+тесты проверяли обработчик OK напрямую, поэтому клавиатурный путь выделен отдельно.
+
+Show использует существующий ShowWindow(SWTYPE_SHOW), чтобы отправить штатный
+запрос активации родителю. Константа key event теперь ссылается на EVENT_CHAR,
+её числовое значение0x02000022 сохранено; прежний комментарий про base0x20 не
+соответствовал нашему UIEvents.h. Native GREEN6/69.27с: обычный и цифровой Enter
+чередуются при шести подтверждениях каждого fresh/legacy сценария; focused1,
+consumed1, окно закрывается, исходная пауза сохраняется. A потребляется без
+закрытия; repeat suppression/AI gate/одиночная миссия/полный acknowledged save
+контроли предыдущего теста сохранены. CT_KEY сообщения переданы через реальный
+input API/mapper/CInterface; OS keyboard или SDL event queue здесь не эмулируются.
+
+Original Steam Show независимо найден через Gold PDB opcode signature:
+62e3c0 вызывает SetStyle7278f0 с visible/true, helper только меняет биты.
+Read-only proof hotseat-show-retail-disassembly.txt и -style.txt. Изменение
+активации — явная адаптация включённого upstream окна к фокусу нашего UI,
+не заявляется идентичным телом Show оригинала. Боевые правила/AP/RNG/баланс
+не меняются; собственные SDL key contracts и facial/fonts сохранены.
+
+Both Game/Windows ALL_BUILD; related20/20 Windows19.07с/Linux15.25с,
+11native-display cases, SDLPlatformInputTests, edit-keyboard/escape/cursor,
+дипломатия/регистрация/12FONT-COMPAT.4Network7.16с;CI-like280/28023.90с.
+Raw полные/noNUL, CI raw280/fonts12; evidence hotseat-keyboard-*.
+CPUbase385, новых двух NativeHotseatKeyboard cases нет в прежнем full396;
+полный398 здесь не заявлен. Последний полный обеих платформ —0690176e396/396.
+Все281/final actual HEAD Actions ещё не завершены; счётчики источников прежние.

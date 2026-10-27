@@ -3098,7 +3098,7 @@ static void AudioOptionCheckboxes(const char* databasePath,const char* resourceP
 #endif
 }
 
-static void HotseatDialogTemplate(const char* databasePath,const char* resourcePath,bool legacy = false,bool automatic = false)
+static void HotseatDialogTemplate(const char* databasePath,const char* resourcePath,bool legacy = false,bool automatic = false,bool keyboard = false)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"hotseat dialog fixture requires isolated user data");
     NativeDisplayContext cleanup;
@@ -3164,7 +3164,28 @@ static void HotseatDialogTemplate(const char* databasePath,const char* resourceP
             auto* text = dynamic_cast<NUI::CText*>(dialog->GetChildByID("text"));
             return text && text->GetText() == NUI::GetDBString(0x51F3)+mission->GetActivePlayer()->GetPlayer()->GetPlayerName();
         };
-        auto accept = [&]() { dialog->ProcessMessage(NUI::SEvent(NUI::EVENT_NOTIFY,string("ok"))); };
+        int acceptedKeys = 0;
+        auto accept = [&]() {
+            if (!keyboard) { dialog->ProcessMessage(NUI::SEvent(NUI::EVENT_NOTIFY,string("ok"))); return; }
+            NInput::SEvent other{};
+            other.mMessage.cType = NInput::CT_KEY;
+            other.mMessage.nAction = NInput::GetControlID("A");
+            other.mMessage.bState = true;
+            Require(mission->GetInterface()->ProcessEvent(other) && visible() && mission->IsGamePaused(),
+                "a non-Enter key escaped the shown handoff dialog or accepted it");
+            const char* keyName = acceptedKeys++ % 2 ? "NUM_ENTER" : "ENTER";
+            NInput::SEvent enter{};
+            enter.mMessage.cType = NInput::CT_KEY;
+            enter.mMessage.nAction = NInput::GetControlID(keyName);
+            enter.mMessage.bState = true;
+            int virtualKey = 0;
+            Require(NInput::GetKeyForMessage(enter.mMessage,&virtualKey) && virtualKey == VK_RETURN,
+                "hotseat keyboard control did not map the native physical Enter message");
+            const bool focused = dialog->IsActive();
+            const bool consumed = mission->GetInterface()->ProcessEvent(enter);
+            std::printf("native hotseat %s: legacy=%d focused=%d consumed=%d stillVisible=%d\n",keyName,legacy,focused,consumed,visible());
+            Require(consumed && !visible(),"the shown hotseat dialog did not receive Enter through its native interface");
+        };
         mission->PauseGame(false);
         frame();
         std::printf("native automatic handoff: legacy=%d visible=%d paused=%d root=%d size=%dx%d\n",
@@ -17754,6 +17775,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "main-menu-authored-script") && argc == 4) { MainMenuMapScript(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "main-menu-script-cadence") && argc == 4) { MainMenuMapScript(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "hotseat-keyboard") && argc==4) { HotseatDialogTemplate(argv[2],argv[3],false,true,true); return true; }
+    if (!std::strcmp(mode, "hotseat-keyboard-legacy") && argc==4) { HotseatDialogTemplate(argv[2],argv[3],true,true,true); return true; }
     if (!std::strcmp(mode, "hotseat-handoff") && argc==4) { HotseatDialogTemplate(argv[2],argv[3],false,true); return true; }
     if (!std::strcmp(mode, "hotseat-handoff-legacy") && argc==4) { HotseatDialogTemplate(argv[2],argv[3],true,true); return true; }
     if (!std::strcmp(mode, "hotseat-dialog-legacy") && argc==4) { HotseatDialogTemplate(argv[2],argv[3],true); return true; }

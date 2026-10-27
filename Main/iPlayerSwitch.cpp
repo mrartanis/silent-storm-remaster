@@ -8,10 +8,8 @@
 namespace NUI
 {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// Release key-press event id. UIEvents.h names only EVENT_CHAR (base 0x20 | EVENT_FLAG_ACTIVE); the
-// release build delivers the key-down this dialog reacts to as base id 0x22. ProcessMessage @0x22e5b0
-// tests this exact value (0x02000022), so it is reproduced verbatim, tied to the real dev flag.
-const int EVENT_PS_KEYPRESS = 0x00000022 | EVENT_FLAG_ACTIVE;
+// Physical key edges use the same event contract as the SDL-backed interface.
+const int EVENT_PS_KEYPRESS = EVENT_CHAR;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CPlayerSwitchUI::CPlayerSwitchUI( const SWindowInfo &sInfo, NGame::IMission *pMission ):
 	CWindow( sInfo ), bPause( false ), pMission( pMission )
@@ -40,7 +38,7 @@ void CPlayerSwitchUI::Show()
 		LoadTemplate( this, NDb::GetUIContainer( 453 ) );
 		SetStyle( STYLE_ENABLED | STYLE_TOPMOST, true );
 	}
-	SetStyle( STYLE_VISIBLE, true );
+	ShowWindow( SWTYPE_SHOW );
 	// Title = localized prefix (DB string 0x51F3) + the active player's name.
 	pText->SetText( GetDBString( 0x51F3 ) + pMission->GetActivePlayer()->GetPlayer()->GetPlayerName() );
 	// Remember the current pause state, then freeze the game while the banner is up.
