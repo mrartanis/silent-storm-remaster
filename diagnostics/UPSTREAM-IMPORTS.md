@@ -7343,3 +7343,48 @@ scene adaptation. Tracker281 now89pending/125imported/23partial/32already/3docs/
 The ALL281 goal and final actual-HEAD hosted CI remain open. Evidence bullet-
 decal-equipment-{red,green-boundary,scene-red,scene-green,lifecycle,legacy-alias,
 triangles,related,full,full-linux,network,ci} logs in the shared evidence folder.
+
+
+## 48540d9d, part 1 — discard unreferenced vertices before merging positions
+
+Source48540d9de58b2dadbf0c1095ee7f2b462f2ea6f0. Native compiled tests first
+reproduced actual incorrect CObjectInfo::CalcBound, both ordinary and skinned:
+input6, vertices6, positions5/6, center(-46,-41,-37) instead of(11,21,30).
+RED2/2 failed0.11s for the intended runtime reason, after a compact3vertex
+positive control passed. A prior fixture compile error is not counted as RED.
+
+Report the used prefix from OptimizeVertexOrder before numbering unused map
+entries; number those remaining entries uniquely. Assign copies only that
+prefix of vertices and corresponding weights, and iterates the mapping length
+rather than the input length (trailing unused input has no mapping entries).
+Keep our Linux pre-device cache-size10 and Windows renderer setting unchanged.
+No changes to AssignFast, own facial engine, high-resolution fonts, HD pack,
+RNG or original rules/balance. This part does not yet import the source's
+separate no-opt decal/memory assignment path: own AssignFast is not equivalent
+because it omits position merging/reference setup and lightmap clearing.
+
+Native GREEN2/2 0.08s covers ordinary/skinned,1/16triangles (both optimizer
+branches), interior holes and0/3trailing unused vertices. Each checks actual
+bounds and radius,3retained positions/vertices, triangle count/winding/index
+mapping, exact UV/packed tangent bytes and bone-index/weight preservation.
+Independent original: Gold OptimizeVertexOrder521a40/203 uniquely maps Steam
+523740 with only allocation-call operand14:18 masked. Steam5237db/de stores
+the used count before unused scan5237f0;5237f7/fa writes and increments the
+unused index. Gold Assign5205a0/899 maps Steam5221b0 first32/EH3:7; Steam
+522308 calls optimizer523cd0;522331 resizes from returned used count;522358/5c
+skips map entries outside it and522365..36d copies the32byte source vertex.
+Gold Optimize521fd0/368 maps Steam523cd0 first32/EH9:13. Evidence original
+geometry-used-vertices-{order,assign}-retail-disassembly.txt, immutable Steam
+SHA2564F417593A9F73E2BFDE12D83CDBD694AE47EECB92812140D67B8B343E4A95705.
+
+Current Windows Game and geometry helpers built; fresh related24/24 11.69s,
+Linux Game/helpers and related19/19 10.40s; both include actual bullet decal
+scene plus geometry/display regressions. CI-like286/286 24.12s, fonts12.
+Raw24/19/286 complete, runner exits0. Initial Linux missing helper executables
+and Windows missing UCRT environment are retained setup failures, not RED or
+GREEN. Missing helpers rebuilt and final suites rerun. Shared builds reused,
+no per-bug binary copies. Evidence geometry-used-vertices-{native-baseline,
+green,related-final,verified-linux,ci} test/native-test logs and build logs.
+Source status pending->partially-imported; no-opt assignment still pending.
+Tracker281:88pending/125imported/24partial/32already/3docs/5excluded-balance/
+2excluded-own/1historical/1review,113unfinished. ALL281/final hosted CI remain open.

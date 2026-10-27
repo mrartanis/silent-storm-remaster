@@ -6678,6 +6678,60 @@ public:
     }
 };
 
+static void GeometryUnusedVertices(bool weighted)
+{
+    auto vertex=[](const CVec3& position,int marker) {
+        NGScene::SVertex result{};result.pos=position;result.tex=CVec2(marker*0.125f,(marker+1)*0.0625f);
+        CVec3 normal(marker*0.1f,0,1);Normalize(&normal);
+        NGfx::CalcCompactVector(&result.normal,normal);NGfx::CalcCompactVector(&result.texU,CVec3(1,0,0));NGfx::CalcCompactVector(&result.texV,CVec3(0,1,0));return result;
+    };
+    auto weight=[](int marker) {
+        NGScene::SVertexWeight result{};result.fWeights[0]=0.75f;result.fWeights[1]=0.25f;
+        result.cBoneIndices[0]=BYTE(marker);result.cBoneIndices[1]=BYTE(marker+1);return result;
+    };
+    for(int triangleCount:{1,16}) {
+        NGScene::CObjectInfo::SData compact;
+        compact.verts={vertex(CVec3(10,20,30),1),vertex(CVec3(12,20,30),2),vertex(CVec3(10,22,30),3)};
+        if(weighted)compact.weights={weight(1),weight(2),weight(3)};
+        compact.geometry.SetTriangles(vector<STriangle>(triangleCount,STriangle(0,1,2)));
+        CObj<NGScene::CObjectInfo> reference=new NGScene::CObjectInfo;reference->Assign(compact);SBound expected;reference->CalcBound(&expected);
+        Require(reference->GetVertices().size()==3 && reference->GetPositions().size()==3 && reference->GetTrisCount()==triangleCount &&
+            fabs2(expected.s.ptCenter-CVec3(11,21,30))<1e-10f && fabs2(expected.ptHalfBox-CVec3(1,1,0))<1e-10f,
+            "native compact geometry control lost its actual triangle or bounds");
+        // Interior holes fail deterministically before the old implementation
+        // can reach the trailing-unused case, whose reorder vector is shorter.
+        for(int trailing:{0,3}) {
+            NGScene::CObjectInfo::SData data;
+            for(int i=0;i<6+trailing;++i) {
+                data.verts.push_back(vertex(CVec3(-100-i,-100-i,-100-i),i+4));
+                if(weighted)data.weights.push_back(weight(i+4));
+            }
+            for(int i=0;i<3;++i) {data.verts[i*2+1]=compact.verts[i];if(weighted)data.weights[i*2+1]=compact.weights[i];}
+            data.geometry.SetTriangles(vector<STriangle>(triangleCount,STriangle(1,3,5)));
+            CObj<NGScene::CObjectInfo> mesh=new NGScene::CObjectInfo;mesh->Assign(data);SBound actual;mesh->CalcBound(&actual);
+            std::printf("native unused geometry: weighted=%d triangles=%d trailing=%d input=%u vertices=%u positions=%u boundCenter=%.3f,%.3f,%.3f expected=11,21,30\n",
+                int(weighted),triangleCount,trailing,unsigned(data.verts.size()),unsigned(mesh->GetVertices().size()),unsigned(mesh->GetPositions().size()),
+                double(actual.s.ptCenter.x),double(actual.s.ptCenter.y),double(actual.s.ptCenter.z));std::fflush(stdout);
+            Require(fabs2(actual.s.ptCenter-expected.s.ptCenter)<1e-10f && fabs2(actual.ptHalfBox-expected.ptHalfBox)<1e-10f && std::fabs(actual.s.fRadius-expected.s.fRadius)<1e-6f,
+                "unreferenced mesh vertices expanded the actual native render bounds beyond its triangles");
+            Require(mesh->GetVertices().size()==3 && mesh->GetPositions().size()==3 && mesh->GetTrisCount()==triangleCount &&
+                mesh->GetWeights().size()==reference->GetWeights().size(),"native geometry compaction retained unused vertex/weight slots or changed its triangle count");
+            for(int i=0;i<3;++i) {
+                Require(mesh->GetPositions()[i]==reference->GetPositions()[i] &&
+                    std::memcmp(&mesh->GetVertices()[i],&reference->GetVertices()[i],sizeof(NGScene::SUVInfo))==0,
+                    "native geometry compaction changed referenced positions, UVs or packed tangent data");
+                if(weighted)Require(std::memcmp(&mesh->GetWeights()[i],&reference->GetWeights()[i],sizeof(NGScene::SRealVertexWeight))==0,
+                    "native geometry compaction changed referenced bone indices or weights");
+            }
+            vector<STriangle> actualTriangles,expectedTriangles;mesh->GetPosTriangles(&actualTriangles);reference->GetPosTriangles(&expectedTriangles);
+            Require(actualTriangles.size()==expectedTriangles.size(),"native compaction lost a triangle");
+            for(std::size_t i=0;i<actualTriangles.size();++i)Require(actualTriangles[i].i1==expectedTriangles[i].i1 &&
+                actualTriangles[i].i2==expectedTriangles[i].i2 && actualTriangles[i].i3==expectedTriangles[i].i3,
+                "native compaction changed triangle winding or position references");
+        }
+    }
+}
+
 static void DecalRebuild()
 {
     NGScene::CObjectInfo::SData data;
@@ -19898,6 +19952,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "bind-initialization")) { BindInitialization(); return true; }
     if (!std::strcmp(mode, "flying-restoration")) { FlyingRestoration(); return true; }
     if (!std::strcmp(mode, "sniping-aim")) { SnipingAim(); return true; }
+    if (!std::strcmp(mode, "geometry-unused-vertices")) { GeometryUnusedVertices(false); return true; }
+    if (!std::strcmp(mode, "geometry-unused-vertices-weighted")) { GeometryUnusedVertices(true); return true; }
     if (!std::strcmp(mode, "decal-rebuild")) { DecalRebuild(); return true; }
     if (!std::strcmp(mode, "decal-projection")) { DecalProjection(); return true; }
     if (!std::strcmp(mode, "empty-model-fallback") && argc==3) { EmptyModelFallback(argv[2]); return true; }

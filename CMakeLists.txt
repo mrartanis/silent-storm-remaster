@@ -828,6 +828,8 @@ add_test(NAME NativeBindInitialization COMMAND UpstreamBugTests bind-initializat
 add_test(NAME UpstreamLuaUnusedStackInitialization COMMAND UpstreamBugTests lua-unused-stack-init)
 add_test(NAME UpstreamFlyingRestoration COMMAND UpstreamBugTests flying-restoration)
 add_test(NAME UpstreamSnipingAim COMMAND UpstreamBugTests sniping-aim)
+add_test(NAME UpstreamGeometryUnusedVertices COMMAND UpstreamBugTests geometry-unused-vertices)
+add_test(NAME UpstreamGeometryUnusedVerticesWeighted COMMAND UpstreamBugTests geometry-unused-vertices-weighted)
 add_test(NAME UpstreamDecalRebuild COMMAND UpstreamBugTests decal-rebuild)
 add_test(NAME UpstreamDecalProjection COMMAND UpstreamBugTests decal-projection)
 add_test(NAME UpstreamNegativeMeshBounds COMMAND UpstreamBugTests negative-mesh-bounds)

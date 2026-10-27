@@ -314,23 +314,26 @@ void CObjectInfo::Assign( const SData &data )
 		data.geometry.GetTriangles( &tris );
 		CTriVertexCacheOptimizer vxOptimize;
 		vector<WORD> vxReorder;
+		int nUsedVertices = 0;
 #if defined(_WIN32)
-		vxOptimize.Optimize( &tris, &vxReorder, NGfx::nVCacheSize );
+		vxOptimize.Optimize( &tris, &vxReorder, &nUsedVertices, NGfx::nVCacheSize );
 #else
 		// The headless core uses the renderer's original pre-device default.
-		vxOptimize.Optimize( &tris, &vxReorder, 10 );
+		vxOptimize.Optimize( &tris, &vxReorder, &nUsedVertices, 10 );
 #endif
 		FilterTrinagles( &tris, vxReorder );
 		optimizedData.geometry.SetTriangles( tris );
-		optimizedData.verts.resize( data.verts.size() );
-		for ( int k = 0; k < data.verts.size(); ++k )
-			optimizedData.verts[ vxReorder[k] ] = data.verts[k];
+		optimizedData.verts.resize( nUsedVertices );
+		for ( int k = 0; k < vxReorder.size(); ++k )
+			if ( vxReorder[k] < nUsedVertices )
+				optimizedData.verts[ vxReorder[k] ] = data.verts[k];
 		if ( !data.weights.empty() )
 		{
 			ASSERT( data.weights.size() == data.verts.size() );
-			optimizedData.weights.resize( data.weights.size() );
-			for ( int k = 0; k < data.weights.size(); ++k )
-				optimizedData.weights[ vxReorder[k] ] = data.weights[k];
+			optimizedData.weights.resize( nUsedVertices );
+			for ( int k = 0; k < vxReorder.size(); ++k )
+				if ( vxReorder[k] < nUsedVertices )
+					optimizedData.weights[ vxReorder[k] ] = data.weights[k];
 		}
 	}
 	lmaps.clear();
