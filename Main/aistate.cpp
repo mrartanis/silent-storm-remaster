@@ -77,6 +77,27 @@ bool SAIState::IsAITurn()
 	return IsValid( pAICommander ) && pAICommander->IsAITurn();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Native SAIState.GetUnits: non-enemy/enemy world units in their current order.
+// Keep the fork's defensive unbound-world guard and dynamic AI-control predicate.
+void SAIState::GetUnits( vector< CPtr<IAIUnit> > *pUnits, bool bAllies, bool bIncludeNonAI ) const
+{
+	pUnits->clear();
+	if ( !IsValid( pWorld ) )
+		return;
+	list< CPtr<NWorld::CUnitServer> > units;
+	pWorld->GetAllUnits( &units );
+	for ( list< CPtr<NWorld::CUnitServer> >::const_iterator i = units.begin(); i != units.end(); ++i )
+	{
+		if ( !IsValid( *i ) || !(*i)->CanFight() )
+			continue;
+		if ( (pWorld->GetDiplomacyState( pPlayer, (*i)->GetPlayer() ) != NDb::DS_ENEMY) != bAllies )
+			continue;
+		IAIUnit *pAI = NAI::GetAIUnit( *i );
+		if ( IsValid( pAI ) && (pAI->IsUnderAIControl() || bIncludeNonAI) )
+			pUnits->push_back( pAI );
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // Commander ownership and tactical visibility are separate: enumerate the world
 // for the legacy ally/enemy adapters without retaining foreign units as owners.
 ////////////////////////////////////////////////////////////////////////////////////////////////////

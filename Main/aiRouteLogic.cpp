@@ -107,7 +107,7 @@ int CTaskCommandHide::operator&( CStructureSaver &f )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Alarm delivery matches the named original Do (Steam 0x499c90): use live
 // fightability, and deliver through the immediate AI event gate, not reaction Notify.
-// Recipient enumeration still uses the legacy adapter pending the world-query port.
+// Recipient enumeration queries the current non-enemy world units, including self.
 void CTaskCommandAlarm::Do()
 {
 	IAIUnit *pU = IsValid( pUnitServer ) ? GetAIUnit( pUnitServer ) : 0;   // base CTaskCommand::pUnitServer = alarming unit
@@ -119,12 +119,10 @@ void CTaskCommandAlarm::Do()
 	SAIState *pSt = pU->GetAIState();
 	if ( pSt == 0 )
 		return;
-	IAIPlayer *pAllyPlayer = pSt->GetAllyAIPlayer();
-	if ( pAllyPlayer == 0 )
-		return;
 	CVec3 pos = pU->GetPosition().GetCP();
-	// release GetUnitsAtRange(pos, 5, allies, exclude=NULL): the ally AI-player roster IS the garrison; self included.
-	vector< CPtr<IAIUnit> > &units = *pAllyPlayer->GetUnits();
+	// Native range query admits all non-enemy world units; the event gate filters humans.
+	vector< CPtr<IAIUnit> > units;
+	pSt->GetUnits( &units, true, true );
 	for ( int i = 0; i < (int)units.size(); ++i )
 	{
 		IAIUnit *a = units[i].GetPtr();

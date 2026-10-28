@@ -9983,3 +9983,106 @@ All14 native alarm diagnostic records match across Windows and Linux exactly.
 Both shared HD build caches remain OFF; owned tests exited. Counts remain
 138imported/19partial/81pending (100unfinished). All useful-source imports and
 actual final-HEAD hosted Actions verification/repair remain required.
+
+## 2eee1b62, alarm world-query stage - enumerate current non-enemy recipients
+
+Source: [2eee1b6280f55129eb2cca681fbbbeb1c27f1e18](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2eee1b6280f55129eb2cca681fbbbeb1c27f1e18).
+The preceding independent delivery fix is898cba52. Alarm still read its legacy
+cached ally adapter, missing newly eligible or reowned units and retaining
+units that had become enemies. Add the original nonvirtual SAIState.GetUnits
+query and use GetUnits(true,true) for the alarm's existing strict5m loop. Query
+live world order, real CanFight, global player diplomacy relative to the state's
+SAVED pPlayer and the fork's dynamic AI-control predicate. Allies means any
+non-enemy, including neutral; the third flag admits human wrappers before the
+already-restored delivery gate rejects non-AI recipients. Do not substitute
+unit-individual diplomacy or the commander's current owning player.
+
+The helper clears its output before applying the upstream/own defensive
+unbound-world guard. It needs no runtime commander back-reference and invents
+no fallback for a null/different saved player. Native player diplomacy treats
+an invalid player as neutral. Keep legacy adapters unchanged here: alarm reads
+a new local vector, leaving their membership and owned commander rosters alone.
+Add only a nonvirtual query method; no object fields, layout, virtual slots,
+save/network schema, radius, action price or authored data change.
+
+Fourteen new actual CTaskCommandAlarm.Do cases cover missing/correct own cache,
+foreign neutral/allied/hostile AI, far/KO/human controls, a neutral->enemy switch
+between two alarms without cache refresh, null/different saved player, missing
+runtime commander back-reference, unbound world and real ChangeUnitPlayer
+reownership with a stale previous wrapper. They inspect EVERY world wrapper's
+notification, exact possible-contact membership/full LIVE pose, collection
+marks/locks, help/scared/selected-contact state, native and planning AP/HP,
+positions and existing command state. The old cache, owned roster and all
+saved/runtime state references must stay unchanged, with zero native RNG draws.
+A same total count with the wrong recipient still fails the per-wrapper checks.
+
+Foreign recipients are real game actors: CreateGlobalPlayer({54}), AddPlayer
+with a genuine CAICommander, SetPlayer, then the native transfer API for the
+reowned case. The base commander class makes them dynamically AI-controlled;
+no frozen construction flag or mocked eligibility method. Original global
+NEUTRAL/ALLY and individual ENEMY can coexist: diplomacy updates pass an empty
+unit vector, preserving the caller's individual mask. Distinct player objects
+sharing scenario0 remain enemies to each other, so the real foreign AI can
+accept the human contact while qualifying as non-enemy in the caller's global
+world query. Each distinction is verified before exercising the command.
+
+Deliberately upgrade the previous HumanRecipient delivery fixture BEFORE the
+new production change: make its human globally neutral while preserving the
+caller's individual enemy override. That human now genuinely qualifies for the
+world query, so the existing delivery gate continues to be regression-tested
+once the manually supplied adapter is no longer consulted. All14 prior delivery
+cases still pass on the unfixed query implementation. A C++ mixed-auto type
+declaration build error was corrected before runtime RED and is not bug RED.
+
+Authoritative runtime RED10/28 in31.09s, actual exit8: only the intended new
+world-query cases fail;18 controls, including all14 prior delivery cases, pass.
+Missing own cache has0/2 memberships, new neutral/allied cache has1/3, stale
+hostile membership leaks, the second transition pass remains stale, saved-player
+and missing-backref cases diverge, unbound-world cache sends2 instead of0, and
+reownership sends1 instead of3. A correct cached world snapshot is a positive
+control. The initial transition pass passes before the failing second pass.
+After the minimal helper/caller fix, GREEN28/28 in30.95s, actual exit0. Additional
+regression controls added with the new API cover all four flag combinations,
+pre-seeded output clearing and exact world order across every native fixture;
+they are not claimed as separate pre-existing-API runtime RED cases.
+
+Original proof: named Gold PDB SAIState.GetUnits4a82a0/505 ->Steam4a9a20..4a9c19;
+an unmasked40-byte block atGold+7/Steam+7 is unique in each binary, and both
+complete505-byte methods end ret12/padding. Independently named CWorld primary
+RTTI GoldCOL8e8a10/vtable8bc74c slota4=PDBGetAllUnits758af0/213 and slotbc=
+PDBGetDiplomacyState757020/124 map to SteamCOL8f81e0/vtable8cbc8c slota4=764360,
+bc=7628b0. Native4a9aac enumerates the world;4a9b0c reads state.player this+4;
+4a9b1e calls global player/player diplomacy, then its nonzero result is compared
+to arg2 at4a9b24..31. DS_ENEMY=0, hence the non-enemy condition.
+
+Named CUnitServer primary slot44=PDBCanFight7ba9b0/34 ->Steam7c7280 is used at
+4a9af5. Its named secondary offset14c slot34=PDBGetPlayer7b3930/4 ->Steam7c00b0
+is used at4a9b17. NativeGetAIUnit Gold473690/145 ->Steam4741b0 at4a9b36 resolves
+the current wrapper; Unit1c GoldPDBIsAIUnit4ac050/35 ->Steam4ad830 then checks
+arg3, the include-non-AI flag. Current IsUnderAIControl supplies that existing
+runtime rule. The40-byte frame maps esp30/34 to original args2/3, without
+invented flag meanings or ABI copying.
+
+The independently identified native Alarm Do calls GetUnitsAtRange4a9c20
+(Gold4a84a0/402); its4a9ca3 calls GetUnits4a9a20 with includeNonAI=true and its
+allies argument. Both402-byte wrappers end ret20/padding. Native
+fsqrt/fcomp/fnstsw/testAH05/jp4a9d13 admits finite distance strictly below the
+range, matching the existing5m filter. The fork retains that equivalent local
+range filter rather than adding an unused range API. The defensive null-world
+guard is the provided upstream/own adaptation; native505 itself dereferences
+its world without that guard. Original assertions/disassemblies are retained
+in shared `ai-world-roster-*`; runtime/build evidence is `ai-alarm-world-*`.
+
+Final fresh Windows ALL_BUILD: focused89/89 100.64s, related141/141 151.51s;
+Linux Game/helpers139/139 148.24s plus context4/4 1.15s. Local asset-free
+CI290/290 24.51s. Actual Windows/Linux/context runners exited0; all five raw
+logs have exact89/141/139/4/290 pass counts, no Failed/NotRun/NUL. All15 new
+world-query diagnostic records (two transition passes) and14 prior delivery
+records match across platforms. Both HD caches remain OFF and owned tests exit.
+
+Source2eee stays partial for nearest-world helper/alarm destination, Normal's
+garrison count, legacy view synchronization/nonfighter backrefs and final
+mixed-hunk accounting. Counts281 remain138imported/19partial/81pending plus
+already-present/excluded/documentary/historical decisions:100 unfinished source
+commits. All useful imports and actual final-HEAD hosted Actions verification/
+repair remain open. HiRes fonts, facial animation and frozen HD are untouched.

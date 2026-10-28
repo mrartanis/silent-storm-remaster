@@ -8258,7 +8258,17 @@ static void AIAlarmDelivery(const char* databasePath, const char* resourcePath, 
         if (!enemy && actor->GetDiplomacyState(unit) == NDb::DS_ENEMY) enemy = unit.GetPtr();
         if (!recipient && unit.GetPtr() != actor && unit->GetPlayer() == actor->GetPlayer()) recipient = unit.GetPtr();
     }
-    if (mode == 7) recipient = enemy; // A stale legacy adapter can still retain a now-hostile human.
+    if (mode == 7) {
+        recipient = enemy;
+        // Qualify the human for the original global non-enemy query, while
+        // retaining the caller's authored individual hostility to the contact.
+        const vector<CPtr<NRPG::IUnitMission>> noUnits;
+        world->GetDiplomacy()->SetDiplomacyState(actor->GetPlayer()->GetScenarioPlayerID(),noUnits,
+            enemy->GetPlayer()->GetScenarioPlayerID(),NDb::DS_NEUTRAL);
+        Require(world->GetDiplomacyState(actor->GetPlayer(),enemy->GetPlayer()) == NDb::DS_NEUTRAL
+                && actor->GetDiplomacyState(enemy) == NDb::DS_ENEMY,
+            "alarm human control lost the native global/individual diplomacy distinction");
+    }
     if (humanOwner) recipient = actor;
     Require(enemy && recipient, "alarm delivery fixture lacks native hostile/recipient controls");
     auto* owner = NAI::GetAIUnit(actor); auto* contact = NAI::GetAIUnit(enemy); auto* receiver = NAI::GetAIUnit(recipient);
@@ -8358,6 +8368,178 @@ static void AIAlarmDelivery(const char* databasePath, const char* resourcePath, 
                 && server->GetUnitRPG()->GetTotalVP() == before[i].hp && server->HasCommand() == before[i].command
                 && wrappers[i]->GetAP() == before[i].planAP && wrappers[i]->GetHP() == before[i].planHP,
             "alarm event delivery changed world/planning AP/HP, position or issued a world command");
+    }
+}
+
+static void AIAlarmWorldQuery(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> initial; world->GetAllUnits(&initial);
+    NWorld::CUnitServer *actor=nullptr,*enemy=nullptr,*buddy=nullptr;
+    for (const auto& unit: initial)
+        if (IsValid(unit) && unit->CanFight() && unit->IsAIUnit() && !unit->HasCommand()
+                && IsValid(NAI::GetAIUnit(unit))) { actor=unit.GetPtr(); break; }
+    Require(actor,"alarm world fixture has no native AI caller");
+    for (const auto& unit: initial) {
+        if (!IsValid(unit) || !unit->CanFight() || !IsValid(NAI::GetAIUnit(unit))) continue;
+        if (!enemy && actor->GetDiplomacyState(unit)==NDb::DS_ENEMY) enemy=unit.GetPtr();
+        if (!buddy && unit.GetPtr()!=actor && unit->GetPlayer()==actor->GetPlayer()) buddy=unit.GetPtr();
+    }
+    Require(enemy && buddy && !enemy->IsAIUnit(),"alarm world fixture lacks a native human contact and owned AI control");
+    auto* owner=NAI::GetAIUnit(actor); auto* contact=NAI::GetAIUnit(enemy);
+    auto* commander=dynamic_cast<NAI::CAICommander*>(actor->GetPlayer()->GetCommander());
+    Require(owner && contact && commander,"alarm world fixture lacks its genuine commander/wrappers");
+    auto* shared=commander->GetAIState(); shared->Synchronize(); owner->SetAIState(shared);
+    Require(shared->pPlayer.GetPtr()==actor->GetPlayer(),"alarm world fixture did not retain its constructor's saved player");
+    buddy->SetPosition(actor->GetPosition());
+    const vector<CPtr<NRPG::IUnitMission>> noUnits;
+    const int callerSide=actor->GetPlayer()->GetScenarioPlayerID(), enemySide=enemy->GetPlayer()->GetScenarioPlayerID();
+    NWorld::CUnitServer* recipient=buddy;
+    NWorld::CPlayer* foreign=nullptr;
+    CObj<NAI::CAICommander> foreignCommander;
+    if ((mode>=2 && mode<=6) || (mode>=8 && mode<=10) || mode==13) {
+        game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+        foreignCommander=new NAI::CAICommander(world,nullptr);
+        foreign=dynamic_cast<NWorld::CPlayer*>(world->AddPlayer(L"Native alarm query party",game->players.back(),foreignCommander));
+        Require(foreign && foreign!=actor->GetPlayer(),"alarm world fixture did not create a distinct native AI party");
+        foreignCommander->SetPlayer(foreign);
+        list<CPtr<NWorld::CUnitServer>> deployed; world->GetAllUnits(&deployed);
+        recipient=nullptr;
+        for (const auto& unit: deployed)
+            if (IsValid(unit) && unit->GetPlayer()==foreign && unit->CanFight()) { recipient=unit.GetPtr(); break; }
+        Require(recipient && recipient->IsAIUnit() && IsValid(NAI::GetAIUnit(recipient))
+                && NAI::GetAIUnit(recipient)->IsUnderAIControl(),"alarm world fixture did not deploy a dynamically AI-controlled native recipient");
+        Require(foreign->GetScenarioPlayerID()==enemySide && callerSide!=enemySide,
+            "alarm world fixture lost its distinct-player/same-scenario identity control");
+        const auto relation=(mode==4 || mode==9 || mode==10) ? NDb::DS_ENEMY : mode==3 ? NDb::DS_ALLY : NDb::DS_NEUTRAL;
+        world->GetDiplomacy()->SetDiplomacyState(callerSide,noUnits,foreign->GetScenarioPlayerID(),relation);
+        Require(world->GetDiplomacyState(actor->GetPlayer(),foreign)==relation
+                && actor->GetDiplomacyState(enemy)==NDb::DS_ENEMY && recipient->GetDiplomacyState(enemy)==NDb::DS_ENEMY,
+            "alarm query fixture confused global diplomacy with individual hostility/player identity");
+        recipient->SetPosition(actor->GetPosition());
+    }
+    if (mode==7) {
+        recipient=enemy; recipient->SetPosition(actor->GetPosition());
+        world->GetDiplomacy()->SetDiplomacyState(callerSide,noUnits,enemySide,NDb::DS_NEUTRAL);
+        Require(world->GetDiplomacyState(actor->GetPlayer(),enemy->GetPlayer())==NDb::DS_NEUTRAL
+                && actor->GetDiplomacyState(enemy)==NDb::DS_ENEMY,"alarm world human fixture changed the authored individual enemy override");
+    }
+    CPtr<NAI::IAIUnit> oldBuddy;
+    if (mode==13) {
+        oldBuddy=NAI::GetAIUnit(buddy);
+        world->ChangeUnitPlayer(buddy,foreign); recipient=buddy;
+        Require(buddy->GetPlayer()==foreign && IsValid(NAI::GetAIUnit(buddy)) && NAI::GetAIUnit(buddy)!=oldBuddy.GetPtr(),
+            "alarm reownership fixture did not replace the old native wrapper through the real transfer API");
+        buddy->SetPosition(actor->GetPosition());
+    }
+    if (mode==5) {
+        vector<NAI::SPathPlace> places; world->GetPathNetwork()->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),12.f),&places);
+        bool placed=false;
+        for (auto place: places) {
+            place.SetPose(NAI::CM_STAND); place.SetDirection(0); NAI::SPosition point(place,world->GetPathNetwork());
+            if (world->GetPathNetwork()->IsPassable(place) && fabs(point.GetCP()-actor->GetPosition().GetCP())>6.f) {
+                auto pose=recipient->GetPosition(); pose.pos=point; recipient->SetPosition(pose); placed=true; break;
+            }
+        }
+        Require(placed,"alarm world fixture lacks its actual distant native control");
+    }
+    if (mode==6) { recipient->MakeUnconscious(VNULL3,true,false); Require(!recipient->CanFight(),"alarm world KO control remained fightable"); }
+    if (mode==9) shared->pPlayer=nullptr;
+    if (mode==10) {
+        shared->pPlayer=foreign;
+        world->GetDiplomacy()->SetDiplomacyState(foreign->GetScenarioPlayerID(),noUnits,callerSide,NDb::DS_ENEMY);
+    }
+    if (mode==11) shared->pAICommander=nullptr;
+    if (mode==12) shared->pWorld=nullptr;
+    list<CPtr<NWorld::CUnitServer>> all; world->GetAllUnits(&all);
+    vector<NAI::IAIUnit*> wrappers;
+    for (const auto& unit: all) if (IsValid(unit) && IsValid(NAI::GetAIUnit(unit))) wrappers.push_back(NAI::GetAIUnit(unit));
+    auto* cached=shared->GetAllyAIPlayer()->GetUnits(); cached->clear();
+    if (mode==2 || mode==3 || mode==9 || mode==10) cached->push_back(owner);
+    else if (mode==13) { cached->push_back(owner); cached->push_back(oldBuddy); }
+    else if (mode!=0 && mode!=11) {
+        for (auto* wrapper: wrappers) {
+            if (mode==1 || mode==8) {
+                if (world->GetDiplomacyState(shared->pPlayer,wrapper->GetUnitServer()->GetPlayer())==NDb::DS_ENEMY) continue;
+            }
+            cached->push_back(wrapper);
+        }
+    }
+    const auto cachedBefore=*cached; const auto roster=commander->GetUnitsList();
+    const auto savedPlayer=shared->pPlayer; auto* savedWorld=shared->GetWorld(); const auto backRef=shared->pAICommander;
+    auto planner=enemy->GetPosition().pos; planner.p.SetDirection((planner.p.GetDirection()+3)&7); contact->SetPosition(planner);
+    struct Live { NAI::SUnitPosition pose; int ap,hp; bool command; };
+    vector<Live> before;
+    for (size_t i=0; i<wrappers.size(); ++i) {
+        auto* server=wrappers[i]->GetUnitServer(); wrappers[i]->SetAP(17+int(i),71+int(i)); wrappers[i]->SetHP(37,99);
+        before.push_back({server->GetPosition(),server->GetAP(),server->GetUnitRPG()->GetTotalVP(),server->HasCommand()});
+    }
+    const int passes=mode==8 ? 2 : 1;
+    for (int pass=0; pass<passes; ++pass) {
+        if (pass) world->GetDiplomacy()->SetDiplomacyState(callerSide,noUnits,foreign->GetScenarioPlayerID(),NDb::DS_ENEMY);
+        for (auto* wrapper: wrappers) {
+            auto* state=wrapper->GetAIUnitState(); Require(state,"alarm world fixture lost a native threat owner");
+            state->enemies.data.units.clear(); state->enemies.data.positions.clear();
+            state->possibleEnemies.data.units.clear(); state->possibleEnemies.data.positions.clear();
+            state->allies.data.units.clear(); state->allies.data.positions.clear();
+            state->pEnemy=state->pPossibleEnemy=state->pAlly=nullptr;
+            state->enemies.nLock=state->possibleEnemies.nLock=state->allies.nLock=0;
+            state->enemies.bModified=state->possibleEnemies.bModified=state->allies.bModified=false;
+            state->selfModified.data=state->selfModified.bModified=false;
+            state->bHelpCalled=false; state->bScared=wrapper==owner;
+        }
+        // Consumer runtime RED was established before adding this new API.
+        // Exercise the complete original flag contract, output clearing and world order.
+        for (bool allies: {false,true}) for (bool humans: {false,true}) {
+            vector<CPtr<NAI::IAIUnit>> queried{contact}, expected;
+            for (auto* wrapper: wrappers) {
+                auto* server=wrapper->GetUnitServer();
+                if (IsValid(savedWorld) && server->CanFight()
+                        && ((world->GetDiplomacyState(savedPlayer,server->GetPlayer())!=NDb::DS_ENEMY)==allies)
+                        && (humans || wrapper->IsUnderAIControl())) expected.push_back(wrapper);
+            }
+            shared->GetUnits(&queried,allies,humans);
+            Require(queried==expected,"native world query lost output clearing, world order or its diplomacy/human/fightability flags");
+        }
+        vector<bool> received,membership;
+        int expectedMembers=0;
+        for (auto* wrapper: wrappers) {
+            auto* server=wrapper->GetUnitServer();
+            const bool eligible=IsValid(savedWorld) && server->CanFight() && wrapper->IsUnderAIControl()
+                && world->GetDiplomacyState(savedPlayer,server->GetPlayer())!=NDb::DS_ENEMY
+                && fabs(server->GetPosition().GetCP()-actor->GetPosition().GetCP())<5.f;
+            received.push_back(eligible); membership.push_back(eligible && server->GetDiplomacyState(enemy)==NDb::DS_ENEMY);
+            expectedMembers+=membership.back();
+        }
+        GlobalGameRandom().SeedForHarness(47); auto reference=GlobalGameRandom(); const unsigned next=reference.Get();
+        CObj<NAI::CTaskCommandAlarm> command=new NAI::CTaskCommandAlarm(enemy); command->SetUnitServer(actor); command->Do();
+        int actualMembers=0;
+        for (auto* wrapper: wrappers) actualMembers+=int(wrapper->GetAIUnitState()->possibleEnemies.data.units.size());
+        std::printf("alarm world mode=%d pass=%d units=%zu cached=%zu memberships=%d/%d savedOwner=%d\n",mode,pass,wrappers.size(),cachedBefore.size(),
+            actualMembers,expectedMembers,savedPlayer ? savedPlayer->GetScenarioPlayerID() : -1);
+        for (size_t i=0; i<wrappers.size(); ++i) {
+            auto* wrapper=wrappers[i]; auto* state=wrapper->GetAIUnitState(); const bool help=wrapper==owner;
+            Require(state->possibleEnemies.data.units.size()==size_t(membership[i]) && state->possibleEnemies.data.positions.size()==size_t(membership[i])
+                    && state->selfModified.data==(received[i] || help) && state->selfModified.bModified==(received[i] || help),
+                "alarm used a cached/own-player roster instead of the current non-enemy world recipients and saved tactical player");
+            if (membership[i]) {
+                const auto found=state->possibleEnemies.data.positions.find(contact);
+                Require(state->possibleEnemies.data.units.front().GetPtr()==contact && found!=state->possibleEnemies.data.positions.end()
+                        && found->second==enemy->GetPosition(),"alarm world query delivered another contact or a speculative pose");
+            }
+            Require(state->possibleEnemies.bModified==membership[i] && !state->enemies.bModified && !state->allies.bModified
+                    && state->bHelpCalled==help && !state->bScared && !IsValid(state->pPossibleEnemy)
+                    && state->enemies.nLock==0 && state->possibleEnemies.nLock==0 && state->allies.nLock==0,
+                "alarm world query lost immediate marks/help eligibility or added reaction locks/selected contacts");
+            auto* server=wrapper->GetUnitServer();
+            Require(server->GetPosition()==before[i].pose && server->GetAP()==before[i].ap && server->GetUnitRPG()->GetTotalVP()==before[i].hp
+                    && server->HasCommand()==before[i].command && wrapper->GetAP()==17+int(i) && wrapper->GetHP()==37,
+                "alarm world query synchronized planning skills, spent AP/HP, moved a unit or issued a world command");
+        }
+        Require(*cached==cachedBefore && commander->GetUnitsList()==roster && shared->pPlayer==savedPlayer
+                && shared->GetWorld()==savedWorld && shared->pAICommander==backRef && GlobalGameRandom().Get()==next,
+            "alarm world query rebuilt the legacy adapter, changed ownership/backrefs or consumed native RNG");
     }
 }
 
@@ -22202,6 +22384,20 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-pass-control-human") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "ai-pass-control-foreign") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "ai-pass-control-repeat") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 3); return true; }
+    if (!std::strcmp(mode, "ai-alarm-world-own-missing") && argc == 4) { AIAlarmWorldQuery(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ai-alarm-world-cached") && argc == 4) { AIAlarmWorldQuery(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ai-alarm-world-neutral") && argc == 4) { AIAlarmWorldQuery(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ai-alarm-world-allied") && argc == 4) { AIAlarmWorldQuery(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "ai-alarm-world-hostile") && argc == 4) { AIAlarmWorldQuery(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "ai-alarm-world-far") && argc == 4) { AIAlarmWorldQuery(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "ai-alarm-world-ko") && argc == 4) { AIAlarmWorldQuery(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "ai-alarm-world-human") && argc == 4) { AIAlarmWorldQuery(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "ai-alarm-world-transition") && argc == 4) { AIAlarmWorldQuery(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "ai-alarm-world-no-saved-owner") && argc == 4) { AIAlarmWorldQuery(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "ai-alarm-world-other-saved-owner") && argc == 4) { AIAlarmWorldQuery(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "ai-alarm-world-no-commander") && argc == 4) { AIAlarmWorldQuery(argv[2],argv[3],11); return true; }
+    if (!std::strcmp(mode, "ai-alarm-world-no-world") && argc == 4) { AIAlarmWorldQuery(argv[2],argv[3],12); return true; }
+    if (!std::strcmp(mode, "ai-alarm-world-reowned") && argc == 4) { AIAlarmWorldQuery(argv[2],argv[3],13); return true; }
     if (!std::strcmp(mode, "ai-alarm-delivery-live") && argc == 4) { AIAlarmDelivery(argv[2], argv[3], 0); return true; }
     if (!std::strcmp(mode, "ai-alarm-delivery-caller-plan-hp") && argc == 4) { AIAlarmDelivery(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "ai-alarm-delivery-enemy-plan-hp") && argc == 4) { AIAlarmDelivery(argv[2], argv[3], 2); return true; }
