@@ -14952,6 +14952,26 @@ static void NoManufacturedBleeding(const char* databasePath,const char* resource
     Require(!manufactured,"ordinary low-health damage manufactured a permanent bleeding critical, including on a blocked hit");
 }
 
+static void BleedingReadout(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(const auto& unit:units)if(IsValid(unit) && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK()){actor=unit.GetPtr();break;}
+    Require(actor,"bleeding readout fixture has no native human actor");
+    const NWorld::CUnit* unit=actor;
+    Require(unit->GetBleeding()==0,"fresh native unit has an unexpected bleeding readout");
+    for(int value:{7,-7,0}) {
+        CMemoryStream saved;{CStructureSaver writer(saved,CStructureSaver::WRITE);writer.Add(32,&value);}saved.Seek(0);
+        {CStructureSaver reader(saved,CStructureSaver::READ);static_cast<CObjectBase*>(actor)->operator&(reader);}
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(actor,&refs);int restored=-999;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(32,&restored);}
+        const int actual=unit->GetBleeding();
+        std::printf("native bleeding readout: saved=%d restored=%d virtual=%d\n",value,restored,actual);std::fflush(stdout);
+        Require(restored==value,"native bleeding readout fixture did not restore its real saved field");
+        Require(actual==restored,"native CUnit bleeding readout ignored the server's saved periodic amount");
+    }
+}
+
 static void PeriodicBleedingPipeline(const char* databasePath,const char* resourcePath,int kind)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
@@ -14988,6 +15008,9 @@ static void PeriodicBleedingPipeline(const char* databasePath,const char* resour
         std::printf("native periodic pipeline: kind=%d phase=%s strength=%g VP=%d->%d hit=%d value=%d savedBleed=%d expected=%d\n",kind,phase,strength,before,rpg->GetTotalVP(),int(IsValid(hit)),hit?hit->nHitValue:0,amount,expected);std::fflush(stdout);
         Require(rpg->GetTotalVP()==before-expected && (expected?hit && hit->pUnit.GetPtr()==actor && hit->nHitValue==expected:!hit) && amount==expected,
             "native periodic bleeding used the old event, omitted whole damage or changed the original health/stop/zero rule");
+        const int readout=static_cast<const NWorld::CUnit*>(actor)->GetBleeding();
+        std::printf("native periodic readout: kind=%d phase=%s saved=%d virtual=%d\n",kind,phase,amount,readout);std::fflush(stdout);
+        Require(readout==amount,"native periodic damage was recorded but its CUnit readout returned a different amount");
         Require(!world->GetHitEvent(),"one periodic pass emitted duplicate native hit events");
     };
     SeedPeriodicBleedNoDodge(rpg);
@@ -21046,6 +21069,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "pk-damage-human-godmode") && argc==3) { PKDamageRouting(argv[2],11); return true; }
     if (!std::strcmp(mode, "no-manufactured-bleed-blocked") && argc==4) { NoManufacturedBleeding(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "no-manufactured-bleed-hit") && argc==4) { NoManufacturedBleeding(argv[2],argv[3],false); return true; }
+    if (!std::strcmp(mode, "bleeding-readout") && argc==4) { BleedingReadout(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "periodic-bleed-fractional") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "periodic-bleed-whole") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "periodic-bleed-low-nine") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],2); return true; }

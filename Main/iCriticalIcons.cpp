@@ -107,8 +107,7 @@ void UpdateCriticalIcons( NGame::IUnitTracker *pUnit, const vector<CObj<CInfoPan
 	list<CPtr<NRPG::ICriticalInfo> > criticalsList;
 	pUnit->GetUnit()->GetRPG()->GetCriticalsList( &criticalsList );
 
-	// mission-scripted bleeding (release CUnitServer::GetBleeding @0x3c68d0) draws as a
-	// permanent fake bleeding icon on top of the real criticals
+	// Display the unit's cached periodic bleeding amount alongside real criticals.
 	const int nBleeding = pUnit->GetUnit()->GetBleeding();
 	if ( nBleeding > 0 )
 		criticalsList.push_back( new CMissionCriticalBleedingFake( nBleeding ) );

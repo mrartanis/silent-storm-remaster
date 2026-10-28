@@ -8949,3 +8949,53 @@ manufactured-bleeding-red, periodic-bleed-pipeline-{final-focused,final-related,
 final-network,final-display,final-linux,linux-display,final-ci} and oracle files.
 Source remains partial,132imported/22partial/84pending (106unfinished). ALL281,
 remaining readout/projectile/night work and final actual-HEAD hosted CI remain open.
+
+
+## 2de89e04, part6 - expose the cached periodic bleeding amount
+
+Source: 2de89e04ae2713bd7fbd267b5b3a96b60feb810d
+https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2de89e04ae2713bd7fbd267b5b3a96b60feb810d
+
+After part5 restores the native producer, CUnitServer still inherits the CUnit
+fallback GetBleeding()==0. The existing icon consumer therefore receives zero
+when actual periodic damage and saved tag32 already contain1 or3. Add only the
+concrete server getter returning its existing nBleed. Keep the base zero fallback
+for our other unit implementations and correct the old comments claiming this
+field had no native writer. No icon/font metrics, facial engine, HD resources,
+damage formulas, serialization or network fields change.
+
+Native tests first: after a real own-turn finish/30second Segment, compare the
+actual CUnit virtual getter with native saved tag32 while retaining VP/hit-event
+checks. A separate FixtureWorld actor restores real tag32 values7,-7,0 through
+its actual serializer, verifies them via the native saved fields, and calls the
+getter through const CUnit*. Fresh zero is a control; negative is preserved
+rather than silently clamped, matching the original getter.
+RED7fail/12 13.32s: restored7 reads0; six positive periodic cases save1/3 but read0.
+Five zero/protected/not-due cases already pass. Corrected focused16/16 17.88s;
+positive, negative and zero saved values all read back exactly.
+
+Original proof: named CUnitServer RTTI with secondary CUnit offset14c identifies
+Gold COL8eb634/vtable8beb74 slot80 -> PDB GetBleeding7baa30/7, and Steam
+COL8fae50/vtable8ce15c same slot ->7c7300. All7 bytes8b81b0000000c3 match and read
+CUnit+b0=primary server+1fc, the existing nBleed/tag32. The tiny byte pattern has
+another Steam match7138f0; named class/subobject/slot metadata disambiguates it.
+Evidence bleeding-readout-retail-oracle.json. No arbitrary opcode masks.
+
+Final fresh Windows ALL_BUILD/Linux Game+helpers: focused16/16 17.88s;
+related113/113 Windows111.76s/Linux111.67s; Windows network7/7 55.50s;
+display57/57 Windows82.30s/Linux68.09s; local asset-free CI290/290 24.72s.
+All7 raw logs have exact16/113/7/57/113/57/290 passed records, no NUL,
+Failed/NotRun/missing executable, and actual final runners exited0. The initial
+Linux related invocation lacked Xvfb:112 cases passed, BulletDecalScene failed
+to create its SDL window (No available video device). Preserve those raw logs;
+rerun the whole113 under Xvfb/x11, all pass without source changes. No hosted
+Actions success is claimed. Evidence bleeding-readout-{red,final-focused,
+final-related,final-network,final-display,final-linux,linux-display,final-ci},
+bleeding-readout-linux-no-display and original oracle.
+
+This fixes the real provider consumed by UpdateCriticalIcons; it does not claim
+a new pixel-level icon test. Keep earlier native icon/font/display behavior.
+Source2de remains partial for incidental/projectile/first-turn/night consumers;
+original boost expiry/CheckOverdose is not newly claimed. ALL281 and final actual
+HEAD hosted GitHub Actions remain open; shared builds reused, no old per-bug
+builds or HD generation. Removed the now-committed16KB pending fixture patch.

@@ -209,6 +209,7 @@ public:
 	// events
 	void OnNewPlayerTurnOrTime( const CEventOnNewPlayerTurnOrTime &event );
 	void ProcessCriticalsAndRegenerations();
+	virtual int GetBleeding() const { return nBleed; }
 	void OnNewPlayerFastTurnOrTime( const CEventOnNewPlayerFastTurnOrTime &event );   // @0x3c0300: re-arm hiding
 	//
 	// CDumdUnit callbacks

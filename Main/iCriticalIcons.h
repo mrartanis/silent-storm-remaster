@@ -10,7 +10,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // release compiland iCriticalIcons.obj: the per-critical status icon (CInfoPanelCritical), the
-// mission-scripted-bleeding stand-in (CMissionCriticalBleedingFake) and the shared icon-vector
+// periodic-bleeding stand-in (CMissionCriticalBleedingFake) and the shared icon-vector
 // refresher (UpdateCriticalIcons) used by BOTH the single-unit info panel (6 icons) and the
 // character panel (12 icons). Extracted from iUnitPanel.cpp so iCharacterPanel.cpp can share it.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -46,7 +46,7 @@ public:
 // CMissionCriticalBleedingFake
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // A transient stand-in NRPG::ICriticalInfo the panels use to draw a permanent "bleeding" critical
-// icon (a mission-scripted wound not backed by a real NRPG::CCritical). Every accessor is a
+// icon for the cached periodic amount, independent of an explicit NRPG::CCritical. Every accessor is a
 // hard-coded constant except the displayed value, carried as nValue.
 // (release iCriticalIcons.obj; nValue@+12, sizeof 16). GetDifficultyClass returns -1 -- in the
 // release it was COMDAT-folded with GetRemainingTime (both `return -1`), hence no distinct RVA.
@@ -72,7 +72,7 @@ public:
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // release @0x1cda90: rebind the panel's icon vector from the unit's live criticals list. Appends
-// the mission-scripted bleeding fake (unit GetBleeding > 0), skips PK statuses (no icon slot),
+// the periodic bleeding stand-in (unit GetBleeding > 0), skips PK statuses (no icon slot),
 // hides the unused tail icons.
 void UpdateCriticalIcons( NGame::IUnitTracker *pUnit, const vector<CObj<CInfoPanelCritical> > &criticalIconsSet );
 ////////////////////////////////////////////////////////////////////////////////////////////////////
