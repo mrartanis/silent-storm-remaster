@@ -14,7 +14,7 @@
 // CheckScared/Update) follow the release (reconstruction/exports/aiunitstate_*.txt). The release maintains
 // the lists incrementally through the AI event system (Notify/OnAIEvent -> AddEnemy/AddAlly) and a
 // begin-turn visibility sweep (PrepareEnemies). The
-// Position-cache maintenance remains partial. Notify holds collection locks so
+// Contact membership caches complete live poses. Notify holds collection locks so
 // Update retains dirty flags until nested event delivery completes.
 // State is serialized by value in CAIUnit tag 9.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -43,9 +43,11 @@ struct SUnitsAndPositions
 {
 	vector< CPtr<IAIUnit> > units;
 	// retail SUnitsAndPositions second member: the per-unit position cache (serialized @0xb01d0
-	// tag 3 as DoHashMap<CPtr<IAIUnit>,SUnitPosition,SPtrHash>). Serialized for format parity;
-	// the retail cache-refresh writers are a behaviour follow-up.
+	// tag 3 as DoHashMap<CPtr<IAIUnit>,SUnitPosition,SPtrHash>).
 	unordered_map< CPtr<IAIUnit>, SUnitPosition, SPtrHash > positions;
+	bool IsContain( IAIUnit *pUnit, bool bCheckPosition ) const;
+	void Add( IAIUnit *pUnit );
+	void Remove( IAIUnit *pUnit );
 	// retail @0xb01d0: units chunk (2) + positions hash (3).
 	int operator&( CStructureSaver &f ) { f.Add( 2, &units ); f.Add( 3, &positions ); return 0; }
 };

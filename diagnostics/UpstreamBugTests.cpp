@@ -12600,6 +12600,159 @@ static void AIContactEventDispatch(const char* databasePath, const char* resourc
         "contact event delivery changed native AP, health or position");
 }
 
+static void AIContactMembership(const char* databasePath, const char* resourcePath, int kind, int check)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer *actor = nullptr, *hostile = nullptr, *friendly = nullptr;
+    NAI::IAIUnit* owner = nullptr;
+    for (const auto& unit: units) {
+        auto* ai = NAI::GetAIUnit(unit);
+        if (IsValid(unit) && unit->CanFight() && unit->IsAIUnit() && IsValid(ai)) {
+            actor = unit.GetPtr(); owner = ai; break;
+        }
+    }
+    Require(actor && owner, "contact membership fixture has no native AI owner");
+    for (const auto& unit: units) {
+        if (!IsValid(unit) || unit.GetPtr() == actor || !unit->CanFight() || !IsValid(NAI::GetAIUnit(unit))) continue;
+        if (actor->GetDiplomacyState(unit) == NDb::DS_ENEMY) hostile = unit.GetPtr();
+        else friendly = unit.GetPtr();
+    }
+    Require(hostile && friendly, "contact membership fixture needs native hostile and friendly units");
+    // SetPosition legitimately publishes world visibility events, promoting suspects
+    // in the owner's actual state. Isolate only the pose-refresh consumer so that
+    // those separate, working callbacks cannot replace the cache under test.
+    NAI::SAIUnitState refreshState;
+    auto* state = check == 1 ? &refreshState : owner->GetAIUnitState();
+    if (check == 1) state->SetUnit(owner);
+    Require(state != nullptr, "contact membership fixture has no threat state");
+    state->enemies.data.units.clear(); state->enemies.data.positions.clear();
+    state->possibleEnemies.data.units.clear(); state->possibleEnemies.data.positions.clear();
+    state->allies.data.units.clear(); state->allies.data.positions.clear();
+    auto* list = kind == 0 ? &state->enemies : kind == 1 ? &state->possibleEnemies : &state->allies;
+    auto* selected = kind == 0 ? &state->pEnemy : kind == 1 ? &state->pPossibleEnemy : &state->pAlly;
+    auto* target = kind == 2 ? friendly : hostile;
+    auto* contact = NAI::GetAIUnit(target);
+    auto* other = NAI::GetAIUnit(kind == 2 ? hostile : friendly);
+    const auto original = target->GetPosition(), actorPosition = actor->GetPosition();
+    const int ap = actor->GetRPG()->GetAP(), hp = actor->GetUnitRPG()->GetTotalVP();
+    auto add = [&](NAI::IAIUnit* unit) {
+        if (kind == 0) state->AddEnemy(unit);
+        else if (kind == 1) state->AddPossibleEnemy(unit);
+        else state->AddAlly(unit);
+    };
+    auto remove = [&](NAI::IAIUnit* unit) {
+        if (kind == 0) state->RemoveEnemy(unit);
+        else if (kind == 1) state->RemovePossibleEnemy(unit);
+        else state->RemoveAlly(unit);
+    };
+    auto cached = [&]() {
+        auto it = list->data.positions.find(contact);
+        return it != list->data.positions.end() && it->second == target->GetPosition();
+    };
+    list->nLock = 0; list->bModified = false;
+    state->selfModified.data = state->selfModified.bModified = false;
+    if (check == 0) {
+        add(contact);
+        std::printf("contact kind=%d members=%zu poses=%zu\n", kind, list->data.units.size(), list->data.positions.size());
+        Require(list->data.units.size() == 1 && cached() && list->bModified,
+            "adding native AI contact failed to record its complete current pose");
+        CStructureNetworkContext references;
+        references.externalReferences = true; references.include = [](CObjectBase*) { return false; };
+        references.ids[contact] = 1; references.refs[1] = contact;
+        auto* network = original.pos.pNet.GetPtr();
+        Require(network != nullptr, "contact pose has no native navigation network");
+        references.ids[network] = 2; references.refs[2] = network; references.nextID = 100;
+        CMemoryStream saved;
+        { CStructureSaver writer(saved, CStructureSaver::WRITE, &references); writer.Add(2, &list->data); }
+        NAI::SUnitsAndPositions restored;
+        saved.Seek(0);
+        { CStructureSaver reader(saved, CStructureSaver::READ, &references); reader.Add(2, &restored); }
+        Require(restored.units.size() == 1 && restored.units.front().GetPtr() == contact
+                && restored.positions.size() == 1 && restored.positions.find(contact)->second == original,
+            "native contact cache round trip lost unit identity, network, pose or run flag");
+        // Old saves can contain the member list but no populated pose map.
+        restored.positions.clear(); list->data = restored; list->bModified = false;
+        add(contact);
+        Require(list->bModified && cached() && list->data.units.size() == 1,
+            "refreshing a legacy member-only contact failed to rebuild its missing pose cache");
+    } else if (check == 1) {
+        list->data.units.push_back(contact); list->data.positions[contact] = original;
+        auto noChange = [&]() {
+            list->bModified = false; add(contact);
+            Require(!list->bModified && list->data.units.size() == 1 && cached(),
+                "unchanged AI contact dirtied its collection or duplicated its membership");
+        };
+        noChange();
+        auto plan = original.pos; plan.p.SetDirection((plan.p.GetDirection()+3)&7);
+        contact->SetPosition(plan);
+        Require(target->GetPosition() == original, "planning control moved the native server");
+        noChange();
+        for (int change = 0; change != 4; ++change) {
+            auto moved = target->GetPosition();
+            if (change == 0) moved.pos.p.SetDirection((moved.pos.p.GetDirection()+1)&7);
+            if (change == 1) moved.SetPose(moved.GetPose() == NAI::CRAWL ? NAI::CROUCH : NAI::CRAWL);
+            if (change == 2) moved.bRun = !moved.bRun;
+            if (change == 3) list->data.positions[contact].pos.pNet = nullptr;
+            if (change != 3) target->SetPosition(moved);
+            list->bModified = false; add(contact);
+            Require(list->bModified && cached() && list->data.units.size() == 1,
+                "AI contact refresh missed live direction/pose/run/network changes");
+            noChange();
+        }
+        list->nLock = 2;
+        auto moved = target->GetPosition(); moved.bRun = !moved.bRun; target->SetPosition(moved);
+        list->bModified = false; add(contact);
+        Require(!list->bModified && cached() && list->nLock == 2,
+            "locked contact refresh lost the new pose or synthesized a dirty mark");
+        list->bModified = true; add(contact);
+        Require(list->bModified && list->nLock == 2, "unchanged contact erased a pre-existing locked dirty mark");
+        list->nLock = 0;
+        target->SetPosition(original);
+    } else if (check == 2) {
+        list->data.units = {contact, other};
+        list->data.positions[contact] = original; list->data.positions[other] = other->GetUnitPosition();
+        *selected = other; remove(contact);
+        Require(list->data.units.size() == 1 && list->data.positions.size() == 1
+                && list->data.positions.find(contact) == list->data.positions.end()
+                && list->data.positions.find(other) != list->data.positions.end()
+                && selected->GetPtr() == other && list->bModified && !state->IsModified(),
+            "removing AI contact retained its pose cache or changed the unrelated selected contact");
+        list->bModified = false; *selected = contact; remove(contact);
+        Require(!list->bModified && !IsValid(*selected) && !state->IsModified(),
+            "removing an absent AI contact dirtied the collection or retained a consumed selection");
+        *selected = other; list->bModified = false; remove(other);
+        Require(list->data.units.empty() && list->data.positions.empty() && !IsValid(*selected) && list->bModified,
+            "removing the last AI contact retained membership, pose or selection");
+    } else {
+        add(other);
+        Require(list->data.units.empty() && list->data.positions.empty() && !list->bModified,
+            "AI contact membership accepted a unit with incompatible diplomacy");
+        add(nullptr); add(owner);
+        Require(list->data.units.empty() && !list->bModified, "AI contact membership accepted null or itself");
+        state->SetUnit(nullptr); add(contact); state->SetUnit(owner);
+        Require(list->data.units.empty() && !list->bModified, "ownerless threat state accepted a contact");
+        CObj<NAI::AIUnitFixture> missingServer = new NAI::AIUnitFixture;
+        add(missingServer);
+        Require(list->data.units.empty() && !list->bModified, "contact membership accepted a missing native server");
+        if (kind == 1) {
+            state->enemies.data.units.push_back(contact);
+            add(contact);
+            Require(list->data.units.empty() && !list->bModified, "confirmed hostile was also accepted as a possible enemy");
+            state->enemies.data.units.clear();
+        }
+        target->MakeUnconscious(VNULL3, true, false);
+        Require(!target->CanFight(), "inactive contact control remained fight-capable");
+        add(contact);
+        Require(list->data.units.empty() && list->data.positions.empty() && !list->bModified,
+            "AI contact membership accepted an incapacitated unit");
+    }
+    Require(actor->GetRPG()->GetAP() == ap && actor->GetUnitRPG()->GetTotalVP() == hp
+            && actor->GetPosition() == actorPosition, "contact bookkeeping changed owner AP, HP or position");
+}
+
 static void AIReactionResetContacts()
 {
     CObj<NAI::AIUnitFixture> contact = new NAI::AIUnitFixture;
@@ -17761,17 +17914,12 @@ static void RemovedSelectedAIContact(int kind)
     state.SetUnit(owner);
     auto* selected = kind == 0 ? &state.pEnemy : kind == 1 ? &state.pPossibleEnemy : &state.pAlly;
     auto* collection = kind == 0 ? &state.enemies : kind == 1 ? &state.possibleEnemies : &state.allies;
-    auto add = [&](NAI::IAIUnit* unit) {
-        if (kind == 0) state.AddEnemy(unit);
-        else if (kind == 1) state.AddPossibleEnemy(unit);
-        else state.AddAlly(unit);
-    };
     auto remove = [&](NAI::IAIUnit* unit) {
         if (kind == 0) state.RemoveEnemy(unit);
         else if (kind == 1) state.RemovePossibleEnemy(unit);
         else state.RemoveAlly(unit);
     };
-    add(first); add(second); *selected = first.GetPtr();
+    collection->data.units = {first.GetPtr(), second.GetPtr()}; *selected = first.GetPtr();
     state.selfModified.data = false;
     collection->bModified = false;
     remove(second);
@@ -21235,6 +21383,18 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-reaction-contact-edits") && argc == 4) { AIContactEventDispatch(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "ai-world-sighting-dispatch") && argc == 4) { AIContactEventDispatch(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "ai-immediate-event-guards") && argc == 4) { AIContactEventDispatch(argv[2], argv[3], 3); return true; }
+    if (!std::strcmp(mode, "ai-contact-cache-enemy") && argc == 4) { AIContactMembership(argv[2], argv[3], 0, 0); return true; }
+    if (!std::strcmp(mode, "ai-contact-cache-possible") && argc == 4) { AIContactMembership(argv[2], argv[3], 1, 0); return true; }
+    if (!std::strcmp(mode, "ai-contact-cache-ally") && argc == 4) { AIContactMembership(argv[2], argv[3], 2, 0); return true; }
+    if (!std::strcmp(mode, "ai-contact-refresh-enemy") && argc == 4) { AIContactMembership(argv[2], argv[3], 0, 1); return true; }
+    if (!std::strcmp(mode, "ai-contact-refresh-possible") && argc == 4) { AIContactMembership(argv[2], argv[3], 1, 1); return true; }
+    if (!std::strcmp(mode, "ai-contact-refresh-ally") && argc == 4) { AIContactMembership(argv[2], argv[3], 2, 1); return true; }
+    if (!std::strcmp(mode, "ai-contact-remove-enemy") && argc == 4) { AIContactMembership(argv[2], argv[3], 0, 2); return true; }
+    if (!std::strcmp(mode, "ai-contact-remove-possible") && argc == 4) { AIContactMembership(argv[2], argv[3], 1, 2); return true; }
+    if (!std::strcmp(mode, "ai-contact-remove-ally") && argc == 4) { AIContactMembership(argv[2], argv[3], 2, 2); return true; }
+    if (!std::strcmp(mode, "ai-contact-eligibility-enemy") && argc == 4) { AIContactMembership(argv[2], argv[3], 0, 3); return true; }
+    if (!std::strcmp(mode, "ai-contact-eligibility-possible") && argc == 4) { AIContactMembership(argv[2], argv[3], 1, 3); return true; }
+    if (!std::strcmp(mode, "ai-contact-eligibility-ally") && argc == 4) { AIContactMembership(argv[2], argv[3], 2, 3); return true; }
     if (!std::strcmp(mode, "mission-overlay-readiness")) { MissionOverlayReadiness(); return true; }
     if (!std::strcmp(mode, "ai-player-mission-readiness")) { AIPlayerMissionReadiness(); return true; }
     if (!std::strcmp(mode, "sound-icon-visibility")) { OverlayIconVisibility(false); return true; }

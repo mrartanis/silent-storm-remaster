@@ -9388,3 +9388,90 @@ eligibility and duplicate membership refresh are separate follow-ups. Source2eee
 retains pending snapshot/roster/alarm consumers. Current281 counts:136imported/
 20partial/82pending (102unfinished); ALL281 and final actual-HEAD hosted Actions
 verification/repair remain open.
+
+
+## 81d0e839, final part - keep contact membership and complete poses consistent
+
+The existing serialized contact pose map had no writers. Adds always dirtied
+collections, including unchanged sightings; removal left saved poses behind and
+marked absent members changed. The mutators also accepted contacts regardless
+of native fightability/diplomacy. Restore the original membership protocol for
+confirmed enemies, possible enemies and allies. Cache complete current poses,
+skip unchanged duplicates, refresh changed/missing poses and erase vector/map
+together. Dirty only actual changes, respecting inherited locks. Preserve the
+independent immediate clearing of a selected contact even if already absent.
+Possible enemies exclude already-confirmed contacts; confirmed/possible require
+fightable hostile servers; allies exclude self and hostile servers. Nonhostile
+neutral allies remain permitted as in the original, not restricted to DS_ALLY.
+
+Use a private GetContactDiplomacy helper with the source's valid-server checks
+and neutral fallback. Its only new consumers are the three contact mutators;
+adding a new IAIUnit virtual solely for these consumers is unnecessary in this
+fork. This accounts for the source aiUnit.cpp/aiUnit.h helper logic by adaptation,
+preserving the existing interface and every other implementation. Own live
+GetPosition/GetUnitPosition accessors remain live; the separate serialized
+planning position remains separate. No added fields, layout, wire/save tags,
+numeric coefficients or authored data. Vector2/map3 format is unchanged.
+
+Before production,12 real native tests all fail13.39s: each contact class has
+missing complete pose map, dirty unchanged duplicate, retained removed pose,
+and wrong diplomacy acceptance. Three existing selected-removal CPU fixtures
+now seed their initial member vector directly: they test removal, not validity
+of bare AIUnitFixture objects without servers/poses. All3 pass0.11s against OLD
+production before the cache fix; no removal assertion is relaxed. The new
+tests use a live deployed party, native owner/hostile/friendly wrappers and
+actual server CanFight/diplomacy/positions. Cover native pose-map round trip
+with external unit/network identities; member-only legacy cache repair; unchanged
+and planning-only updates; real direction/stance/run changes and stale network
+identity; locked refresh preserving old dirty flags; unrelated/last/absent
+removal and selected-reference clearing; null/self/missing owner/server,
+confirmed-as-possible and incapacitated exclusions. Actor AP/HP/full position
+remain unchanged by bookkeeping.
+
+Initial GREEN22/23 exposes a fixture interaction: SetPosition legitimately calls
+UpdateVisible and promotes a possible enemy to confirmed in the owner's actual
+state. The original exclusion then correctly prevents adding it as a suspect.
+Isolate only the refresh consumer in another native SAIUnitState with the same
+real owner and live targets, leaving world events active. Its unchanged-contact
+RED occurs before any SetPosition call and remains the independently established
+cause. No production guard is weakened. The separate real global sighting tests
+from07adab85 remain in every related run. Preserve that failed fixture log.
+The first cloned Linux runner had CRLF and did not launch its build/tests; fix
+only the lab script line endings and rerun. Neither issue is counted as new RED.
+
+Original proof: named Gold SUnitsAndPositions.IsContain4af3b0/189 has unique
+unmasked58-byte complete-instruction prefix ->Steam4b0c00 and71-byte suffix
+4af426->4b0c76, comparing packed position, network identity and run byte after
+GetUnitPosition. Named State.AddEnemy4b0140/151 maps unique20-byte prefix to
+Steam4b1990; AddPossible4b01e0->4b1a30 and AddAlly4b0290->4b1ae0 likewise.
+Their CanFight/diplomacy/confirmed-membership gates match the source. Exact
+direct call4b1a1d ->SUnits.Add4b17c0 agrees with named Gold Add4aff70/264.
+Its first Remove call4b17fe ->4b1580 maps named Gold Remove4afd30/225; vector
+erase is followed by map erase4b162c. Add obtains the complete pose4b1885,
+inserts the map4b1891 and copies the pose4b1898. Named CAIUnit RTTI primary
+vtables8a6984/8b5a6c slot34 map Gold GetDiplomacyState4abfd0/116 ->Steam4ad7b0,
+with invalid-participant DS_NEUTRAL1 fallback. Named RemoveEnemy4afe50/93 maps
+unique17-byte prefix toSteam4b16a0, checks membership before marking/removing
+and clears selected references separately. No arbitrary masks or ABI copying.
+Evidence ai-contact-cache-retail-oracle.json and full relevant disassembly.
+
+Fresh Windows ALL_BUILD and Linux Game/helpers pass. Final focused23/23 22.30s;
+related Windows76/76 73.62s and Linux74/74 69.22s; Linux selected-removal3/3
+0.08s also covers the two CPU fixtures outside the related regex. Windows
+related includes serializer/stop-resume; local asset-free CI290/29024.93s
+includes registration parity and selected-contact CPU cases. All5 raw logs
+have exact23/76/74/3/290 passed records, no NUL/Failed/NotRun/missing executable,
+actual runner exits0. Evidence ai-contact-cache-{red,selected-baseline,
+refresh-visibility-fixture,final-focused,final-related,final-linux,linux-selected,
+final-ci}. Owned tests exited, shared builds reused, HD generation OFF. No
+hosted Actions success or full mission-playthrough is claimed.
+
+All4 source files are accounted, including prior07adab85 lock-aware marking;
+source81 is imported. Counts281:137imported/19partial/82pending (101unfinished).
+Source2eee still needs independently tested combat snapshot/synchronization and
+remaining roster/alarm/reaction consumers. Its current no-arg Synchronize resets
+turn-start HP, hurt/max-hit/expediency counters every snapshot; OnTurnStarted is
+currently empty. Audit original ownership of those counters before changing the
+reset locations, so removing snapshot resets cannot discard their needed turn
+initialization. Final actual-HEAD hosted GitHub Actions verification/repair remains
+due after ALL281; fonts/facial engine and ready HD packs remain untouched.
