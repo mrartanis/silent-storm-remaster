@@ -1450,3 +1450,13 @@ This restores original quest bookkeeping using our existing merged sight;
 no sight range, AP, damage, XP, task DB values, animation, fonts or HD changes.
 Initial hiding in source9ef8ae86 is a separate pending fix, not silently bundled.
 Other mixed360344ca hunks, including destruction hooks, remain under review.
+
+
+## 2026-10-28 — original carrier-task discovery lifecycle restored
+
+Source [9ef8ae8645e1b4c53e4c5f83b1f87add815a7dc5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9ef8ae8645e1b4c53e4c5f83b1f87add815a7dc5).
+Hide new carrier tasks until actual carrier discovery, matching the constructor
+in both original releases. The existing discovery seam (7f245b09) reveals them
+later, including loaded hidden tasks. Other8 task tags retain their defaults;
+no task DB data, completion rules, rewards, AP, combat or other tuning changes.
+This resolves the separate initial-hiding item noted in the preceding entry.

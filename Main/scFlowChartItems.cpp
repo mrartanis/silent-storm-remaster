@@ -524,7 +524,12 @@ CScenarioGoal::CScenarioGoal( NDb::CScenarioGoal *_pGoal, CScenarioClue *pParent
 	{
 		const vector< CPtr<NDb::CScenarioTask> > &dbTasks = _pGoal->tasks;
 		for ( int i = 0; i < dbTasks.size(); ++i )
+		{
 			tasks.push_back( new CScenarioTask( dbTasks[ i ], pParentClue ) );
+			// Gold6d9e90 / Steam6e0d70: discovery reveals a carrier task later.
+			if ( IsValid( dbTasks[ i ] ) && dbTasks[ i ]->eTag == NDb::TT_DESTROY_ITEM_CARRIER )
+				tasks.back()->SetVisible( false );
+		}
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

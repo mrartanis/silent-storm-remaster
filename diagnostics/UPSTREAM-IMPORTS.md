@@ -11523,3 +11523,48 @@ Source360344ca remains partially imported: destruction hooks and other mixed
 hunks still pending. Source9ef8ae86 initial hiding remains independent/pending.
 Ledger143 imported/18partial/77pending =95 unfinished source reviews/imports.
 Final actual-HEAD hosted Actions verification remains due after all imports.
+
+
+## 2026-10-28 — hide new carrier tasks until actual discovery
+
+Source [9ef8ae8645e1b4c53e4c5f83b1f87add815a7dc5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9ef8ae8645e1b4c53e4c5f83b1f87add815a7dc5).
+New goals previously exposed carrier tasks immediately. Hide only tag1 when
+the real goal constructor clones the DB tasks. Discovery later reveals them
+through the independently restored visibility seam from360344ca (7f245b09).
+This fixes the full lifecycle instead of hiding objectives without a reveal
+consumer. Preserve task state/detection/parent, null DB handling and all fields
+and serialized tags. No standalone task default or copy constructor change.
+
+Typed Gold PDB runtime-goal constructor6d9e90/372 (DB goal + runtime parent
+clue, not DB/copy overload) maps Steam6e0d70 using13 unique24byte anchors.
+Both binaries initialize a new task with detected0/state0/visible1, append it,
+compare DB tag1 and write last task visible1c=BL0. The zero register and exact
+flag blocks are checked. Upstream address comments differ from actual mapped
+builds; use the measured typed mapping. audit-scenario-initial-visibility.py0.
+
+Extend the existing actual-world discovery fixture without changing earlier
+modes0..5. New constructor test does not seed loaded visibility: assert new
+carrier hidden/unknown/undetected with the actual parent, then real native
+world.UpdateVisible reveals it and objective-description rows0->1. Separate
+control constructs each of the other8 tags and checks visible1, detected0,
+unknown state and parent. Metadata is temporary typed input; actual authored
+world, item, player and sight consumers remain real, shipping DB untouched.
+Native RED1/8 Windows9.05s, Linux9.82s: carrier visible1 instead0 immediately
+after construction; other8-tag control and old6 discovery modes pass. No
+fixture/compiler failure preceded this intended RED.
+
+GREEN95/95 Windows153.73s, Linux137.86s. Seven final raw logs95/95/45/43/37/36/290
+exact passes, no Failed/NotRun/NUL, runners exit0. Fresh Windows ALL_BUILD and
+45/45 scenario/clue/objective/script/first-visit consumers60.96s; Linux Game/
+helpers43/43 57.36s. Combat/context37/37 Windows43.35s,36/36 Linux39.25s retain
+PK/unconscious/animation/bleeding/critical behavior; Windows adds4522 party
+save. Local asset-free CI290/290 26.13s. Prior6 discovery outputs and90 measured
+hit/cover/first-hit records exact perplatform; constructor then actual reveal
+works, all8 other tag defaults unchanged. verify-scenario-initial.py records
+exact registered related-test names and final-verification.json. Broader
+339/337 world-refresh checks passed immediately before this constructor-only
+change in7f245b09. Shared builds reused, HD generation OFF, no per-bug copies;
+owned tests exit. Final actual-HEAD hosted Actions remains due after all imports.
+
+Source9ef8ae86 complete, ledger144 imported/18partial/76pending =94 unfinished
+source reviews/imports. Other mixed360344ca hunks remain partial.

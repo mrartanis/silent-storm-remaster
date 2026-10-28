@@ -8837,7 +8837,7 @@ static void ScenarioDiscovery(const char* databasePath,const char* resourcePath,
     NDb::CString* description=nullptr;CDBIterator<NDb::CScenarioTask> authored(*NDatabase::GetTable<NDb::CScenarioTask>());
     while(authored.MoveNext())if(IsValid(authored.Get()->pDescription)){description=authored.Get()->pDescription;break;}
     Require(description,"scenario discovery fixture has no actual authored task description");
-    const bool unmatched=mode==3 || mode==4,latched=mode==4,carrierTask=mode==0 || unmatched;
+    const bool unmatched=mode==3 || mode==4,latched=mode==4,carrierTask=mode==0 || unmatched || mode==6;
     int itemID=item->GetDBItem()->GetRecordID();
     if(unmatched) {
         std::set<int> present;
@@ -8861,7 +8861,25 @@ static void ScenarioDiscovery(const char* databasePath,const char* resourcePath,
     CObj<NScenario::CScenarioClue> clue=new NScenario::CScenarioClue(clueDB,91001);clue->SetPlaced();clue->SetDetected(latched);
     auto* goal=clue->GetGoal();Require(goal && goal->GetTasks().size()==1,"typed scenario fixture did not create its real goal/task");
     auto* task=goal->GetTasks().front().GetPtr();const bool initialVisible=!carrierTask || latched;
-    {CMemoryStream fields;{CStructureSaver writer(fields,CStructureSaver::WRITE);bool value=initialVisible;writer.Add(6,&value);}
+    if(mode==6) {
+        std::printf("native scenario initial visibility: mode=%d tag=%d visible=%d expected=0 detected=%d state=%d parent=%d\n",mode,int(taskDB->eTag),int(task->IsVisible()),int(task->IsDetected()),int(task->GetState()),int(task->GetParentClue()==clue.GetPtr()));std::fflush(stdout);
+        Require(!task->IsVisible() && !task->IsDetected() && task->GetState()==NScenario::TS_UNKNOWN && task->GetParentClue()==clue.GetPtr(),
+            "new carrier task exposes its clue objective before actual carrier discovery");
+    }
+    if(mode==7) {
+        int controls=0;
+        for(int tag=0;tag<=int(NDb::TT_COMPLETE_BY_SCRIPT);++tag)if(tag!=int(NDb::TT_DESTROY_ITEM_CARRIER)) {
+            CObj<NDb::CScenarioTask> controlDB=new NDb::CScenarioTask;controlDB->eTag=NDb::ETaskTag(tag);controlDB->pDescription=description;
+            CObj<NDb::CScenarioGoal> controlGoalDB=new NDb::CScenarioGoal;controlGoalDB->tasks.push_back(controlDB.GetPtr());
+            CObj<NScenario::CScenarioGoal> control=new NScenario::CScenarioGoal(controlGoalDB,clue);
+            auto* entry=control->GetTasks().front().GetPtr();
+            Require(entry->IsVisible() && !entry->IsDetected() && entry->GetState()==NScenario::TS_UNKNOWN && entry->GetParentClue()==clue.GetPtr(),
+                "carrier initialization changed another task tag's visibility/state/parent");++controls;
+        }
+        std::printf("native scenario initial visibility controls: tags=%d visible=1 detected=0 state=0 parent=1\n",controls);std::fflush(stdout);
+        Require(controls==8,"initial visibility control did not cover every other task tag");
+    }
+    if(mode!=6) {CMemoryStream fields;{CStructureSaver writer(fields,CStructureSaver::WRITE);bool value=initialVisible;writer.Add(6,&value);}
      fields.Seek(0);CStructureSaver reader(fields,CStructureSaver::READ);static_cast<CObjectBase*>(task)->operator&(reader);}
     CObj<NScenario::CScenarioZone> zone=campaign->pCurrentZone.GetPtr();
     if(!zone) {
@@ -8885,7 +8903,7 @@ static void ScenarioDiscovery(const char* databasePath,const char* resourcePath,
     Require(task->IsDetected()==expectedDetected && (!expectedDetected || (clue->IsDetected() && after.tasks.front().state==NScenario::STS_COMPLETED)),
         "scenario visibility refresh did not complete discovery through the native objective description");
     if(unmatched)Require(clue->IsDetected()==latched,"scenario discovery exposed an unseen item or forgot a previously detected clue");
-    if(mode==5)Require(after.tasks.front().state==NScenario::STS_UNKNOWN,"visibility incorrectly completed an unrelated scripted task");
+    if(mode==5 || mode==7)Require(after.tasks.front().state==NScenario::STS_UNKNOWN,"visibility incorrectly completed an unrelated scripted task");
 }
 
 static void AICoverRange(const char* databasePath,const char* resourcePath,int mode)
@@ -24560,6 +24578,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "scenario-discovery-unseen") && argc == 4) { ScenarioDiscovery(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "scenario-discovery-latched") && argc == 4) { ScenarioDiscovery(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "scenario-discovery-script-control") && argc == 4) { ScenarioDiscovery(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "scenario-initial-carrier") && argc == 4) { ScenarioDiscovery(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "scenario-initial-other-tags") && argc == 4) { ScenarioDiscovery(argv[2],argv[3],7); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-near-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-cover-range-human-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],2); return true; }
