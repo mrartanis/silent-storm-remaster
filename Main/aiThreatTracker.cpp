@@ -355,8 +355,8 @@ void CAIEventTrackerImpl::OnStartGame( const CEventOnStartGame & )
 // that can no longer fight, is not already a known corpse, is NOT an enemy (enemy corpses ignored),
 // and passes the geometric IsCorpseVisible @0x298da0 probe (range/FOV-gated rays at the body's
 // corpseHLpos points -- NOT the TBS visible-list, which excludes corpses) raises CAICorpseEvent.
-// NOTE: in retail the event only records the corpse (SAIUnitState::knownCorpses); the killer ->
-// possibleEnemy arm is inert because CUnitServer::pKiller is never written (byte-scan proven).
+// A discovered corpse also promotes its recorded first incapacitating attacker
+// through the existing killer -> possibleEnemy event path.
 void CAIEventTrackerImpl::CheckForVisibleCorpses()
 {
 	CUnitServer *pUS = pUnit;

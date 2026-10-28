@@ -8710,6 +8710,67 @@ static void AICoverPrecision(const char* databasePath,const char* resourcePath,i
     Require(false,"fractional cover fixture found no native geometry/weapon case separating the original floating calculation from early truncation");
 }
 
+static void AIFirstIncapacitation(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> campaign;auto world=SnipeFixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);
+    CObj<NWorld::CUnitServer> target,attacker,observer;CObj<NAI::IAIUnit> targetAI,attackerAI,observerAI;
+    auto eligible=[](NWorld::CUnitServer* unit){return IsValid(unit) && unit->CanFight() && !unit->HasCommand()
+        && !unit->IsEmptyPK() && !unit->IsWearingPK() && !unit->animator.GetCannon() && unit->GetUnitRPG()->GetTotalVP()>16 && IsValid(NAI::GetAIUnit(unit));};
+    for(const auto& victim:units) {
+        if(!eligible(victim))continue;
+        for(const auto& shooter:units) {
+            if(!eligible(shooter) || shooter==victim || victim->GetDiplomacyState(shooter)!=NDb::DS_ENEMY)continue;
+            for(const auto& watcher:units)if(eligible(watcher) && watcher!=victim && watcher!=shooter
+                && watcher->GetDiplomacyState(shooter)==NDb::DS_ENEMY){target=victim.GetPtr();attacker=shooter.GetPtr();observer=watcher.GetPtr();break;}
+            if(target)break;
+        }
+        if(target)break;
+    }
+    Require(target && attacker && observer,"incapacitation fixture has no actual enemy attacker and allied observer");
+    targetAI=NAI::GetAIUnit(target);attackerAI=NAI::GetAIUnit(attacker);observerAI=NAI::GetAIUnit(observer);
+    Require(!target->pKiller && target->GetDeathTime()==0 && target->CanFight(),"fresh native target already has corpse metadata or cannot fight");
+    const bool knockout=mode==1 || mode==6,repeat=mode==5 || mode==6,blocked=mode==3,nonlethal=mode==2,anonymous=mode==4;
+    const STime firstTime=1234,laterTime=2345;world->GetTime()->Set(firstTime);target->animator.AlignTime();
+    auto hit=[&](NWorld::CUnitServer* source,bool ko,bool lethal,bool stop) {
+        NRPG::CAttackPortion attack(stop?0:100000,0,0.f,lethal?100000:ko?8:1,lethal?100000:ko?8:1,0,0,
+            source?source->GetUnitRPG():nullptr,target->GetUnitRPG(),1.f,ko?100:-1);
+        attack.rTtrajectory.ptOrigin=source?source->GetPosition().GetCP():target->GetPosition().GetCP()+CVec3(0,0,1);
+        attack.rTtrajectory.ptDir=CVec3(0,1,0);GlobalGameRandom().SeedForHarness(0x7bda);
+        return target->ProcessAttack(world,NAI::HL_BODY,&attack,CVec3(0,1,0),target->GetUnitRPG()->GetRPGArmor());
+    };
+    const int hp=target->GetUnitRPG()->GetTotalVP(),attackerHP=attacker->GetUnitRPG()->GetTotalVP(),observerHP=observer->GetUnitRPG()->GetTotalVP();
+    const int damage=hit(anonymous?nullptr:attacker.GetPtr(),knockout,!knockout && !blocked && !nonlethal,blocked);
+    if(blocked || nonlethal)Require(target->CanFight() && !target->GetUnitRPG()->IsDead() && !target->GetUnitRPG()->IsUnconscious()
+        && (blocked?damage==0:damage>0),"incapacitation control accidentally downed the target or missed its intended native damage branch");
+    else Require(IsValid(target) && (knockout?target->IsUnconscious() && !target->IsDead():target->IsDead())
+        && damage>0,"native attack did not produce the intended death or unconscious transition");
+    if(repeat) {
+        // A loaded old corpse already has recorded metadata. This is setup for
+        // the repeat-hit control, not evidence that the first-hit writer ran.
+        target->pKiller=attacker.GetPtr();target->tDeathTime=firstTime;
+        world->GetTime()->Set(laterTime);target->animator.AlignTime();hit(observer,false,knockout,false);
+        Require(target->IsDead(),"repeat-hit control did not remain dead or finish its real unconscious target");
+    }
+    Require(attacker->GetUnitRPG()->GetTotalVP()==attackerHP && observer->GetUnitRPG()->GetTotalVP()==observerHP,
+        "native single-target attack changed another unit's health");
+    if(mode==7) {
+        Require(IsValid(targetAI) && IsValid(attackerAI) && IsValid(observerAI),"real death invalidated the retained native AI contact fixture");
+        NAI::SAIUnitState state;state.SetUnit(observerAI);CObj<NAI::IAIEvent> event=NAI::CreateAICorpseEvent(targetAI);
+        Require(event,"native corpse event factory rejected the actual retained corpse contact");event->Modify(&state);
+        const bool possible=state.possibleEnemies.data.IsContain(attackerAI,false);
+        std::printf("native corpse killer event: known=%d possible=%d killer=%d deathTime=%u\n",int(state.IsKnownCorpse(targetAI)),int(possible),int(target->pKiller==attacker.GetPtr()),unsigned(target->GetDeathTime()));std::fflush(stdout);
+        Require(state.IsKnownCorpse(targetAI),"actual corpse event did not record its contact");
+        Require(possible,"actual corpse event could not promote the real attacker because the first hit did not record its killer");return;
+    }
+    const auto* expectedKiller=(blocked || nonlethal || anonymous)?nullptr:attacker.GetPtr();
+    const STime expectedTime=(blocked || nonlethal)?0:firstTime;
+    std::printf("native first incapacitation: mode=%d damage=%d HP=%d->%d dead=%d unconscious=%d killerMatches=%d expectedKiller=%d deathTime=%u expectedTime=%u repeat=%d\n",
+        mode,damage,hp,target->GetUnitRPG()->GetTotalVP(),int(target->IsDead()),int(target->IsUnconscious()),int(target->pKiller.GetPtr()==expectedKiller),int(expectedKiller!=nullptr),unsigned(target->GetDeathTime()),unsigned(expectedTime),int(repeat));std::fflush(stdout);
+    Require(target->pKiller.GetPtr()==expectedKiller && target->GetDeathTime()==expectedTime,
+        "first native incapacitating hit lost its attacker/time or a later corpse hit replaced the original metadata");
+}
+
 static void AICoverRange(const char* databasePath,const char* resourcePath,int mode)
 {
     const bool human=mode==2 || mode==4 || mode==6 || mode==7;
@@ -24366,6 +24427,14 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-cover-precision-constructor-zero") && argc == 4) { AICoverPrecision(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "ai-cover-precision-prediction") && argc == 4) { AICoverPrecision(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "ai-cover-precision-constructor-open") && argc == 4) { AICoverPrecision(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "ai-first-incapacitation-death") && argc == 4) { AIFirstIncapacitation(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ai-first-incapacitation-unconscious") && argc == 4) { AIFirstIncapacitation(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ai-first-incapacitation-nonlethal") && argc == 4) { AIFirstIncapacitation(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ai-first-incapacitation-blocked") && argc == 4) { AIFirstIncapacitation(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "ai-first-incapacitation-anonymous") && argc == 4) { AIFirstIncapacitation(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "ai-first-incapacitation-repeat-dead") && argc == 4) { AIFirstIncapacitation(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "ai-first-incapacitation-finish-unconscious") && argc == 4) { AIFirstIncapacitation(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "ai-first-incapacitation-corpse-event") && argc == 4) { AIFirstIncapacitation(argv[2],argv[3],7); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-near-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-cover-range-human-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],2); return true; }

@@ -11319,3 +11319,94 @@ default firearm policy, own weapon origin and animation stay in place.
 Ledger142 imported/18partial/78pending =96 unfinished source reviews/imports.
 The independent escape-facing source90293ca remains pending.
 Final hosted Actions must still be checked after all remaining source imports.
+
+
+## 2026-10-28 — record first incapacitating attacker and time (90293ca8, partial)
+
+Source: [90293ca892e26576a90c8e6937a886c5c249010b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/90293ca892e26576a90c8e6937a886c5c249010b).
+Our corpse event already promotes the corpse's recorded killer to a possible
+enemy, but ProcessAttack never populated pKiller/tDeathTime. Capture the live
+attacker and old death/KO state before the existing damage path; after the
+first conscious->dead/unconscious transition, record the attacker (possibly
+null for environmental damage) and current world tick. Further hits on an
+already downed unit preserve the original attribution/time. Correct stale
+comments claiming no original writer. Keep the fork's five-argument int damage
+API, existing base/provider, damage/XP rules, PK pilot/shell gates, death/face
+animation, and serialized fields30/35. Existing tDeathTime remains STime32,
+avoiding the Linux64 unsigned-long mismatch. The attacker is held as a CPtr
+across the native base call. No gameplay coefficient, DB or asset changes.
+
+Original proof: typed Gold CUnitServer.ProcessAttack7b7650/2058 maps to actual
+Steam7c3dd0 through named RTTI IAttackable secondary offset8 slot0 plus eight
+unique24byte initial anchors in BOTH images. Later bodies/offsets differ;
+do not assume equal size or a constant body offset. Adjusted receiverESI is
+complete UnitServer+8. Entry reads mission98 IsDead into stack12 and primary
+unit40 IsUnconscious into stack13; both getter identities are corroborated by
+Gold PDB and matching typed-interface vtables. The actual attack's pAttacker18
+is resolved through world140 ->typed GoldGetUnitServer756990(IUnitMissionInfo*)/
+Steam762220 and retained in stack18. Later oldUnconscious is restored intoBL;
+oldDead or oldUnconscious skips the writer. Newdead enters, else newKO must be
+true. Both versions push resolved attacker and address adjustedESI1f0 for the
+pointer assignment. Gold PDB pKiller offset1f8 plus exact RTTI adjustment8
+identifies the field. This disproves our old scan/comment that missed adjusted
+this references. Steam additionally calls worldf4 and writes clock toESI220
+(complete228). Typed GoldGetTime76bcd0/10 mapsSteam777a80: same loadworld[e4],
+load32bit tick[14], return. IMPORTANT version distinction: the Gold PDB lacks
+the later timestamp member and its body lacks Steam's clock write. Both record
+the killer; only the inspected Steam release records the time. Adopt Steam
+timestamp semantics using our already reconstructed field. The source patch's
+Steam address comments are stale for this image; checked writer is7c450c..4527.
+audit-ai-first-incapacitation.py ->shared retail-oracle.json.
+
+Eight profiles load actual campaign3791 with native attacker, enemy target and
+allied observer. Actual CUnitServer.ProcessAttack drives RPG damage, world
+death/KO, existing animations/notifications and current gameplay state. A
+controlled attack portion is supplied to that public entry, with the real
+target mission preventing accidental dodge and unchanged DB armor/skills.
+No fabricated death flag, damage result, victim wrapper or corpse event result.
+First death, firstKO, nonlethal, armor-blocked, anonymous death, already-dead
+repeat, finishing an unconscious target, and actual corpse-event integration.
+For repeat controls ONLY, existing metadata is seeded after a real native
+first attack, representing a loaded corpse; this is not claimed as proof that
+the first-hit writer ran before the fix. These controls test preserving known
+metadata on a later attack. The separate first-hit profiles prove that writer.
+The event profile feeds the real resulting corpse into the native event and
+normal contact/diplomacy rules with a fresh real observer state, then checks
+knownCorpse and possibleEnemy. Other units' HP stays intact. Attacks intentionally
+consume RNG/deal damage and may grant native XP; no false state-invariance claim.
+
+Authoritative pre-production RED: Windows4 intended failures/8 in10.23s,
+Linux4/8 in11.30s, with four controls passing. First death damage133000 changes
+HP80->-132920, actualdead1 but killer/time absent. KO damage11 changes80->69,
+actualunconscious1 but killer/time absent. Anonymous death correctly has no
+killer but misses tick1234. Corpse event records known1/possible0 because the
+actual first attacker was never stored. Nonlethal1 damage, blocked0, seeded
+repeat-dead and seeded finish-KO controls pass. Original red report's `killer`
+means pointer matches expected, including null controls; rename this report
+field to `killerMatches` after RED, without changing setup/predicates.
+
+GREEN80/80 Windows94.70s, Linux103.35s. First death/KO now record real attacker
+and1234; anonymous death records null/1234. Nonlethal/blocked keep null/0;
+repeat-dead and finish-KO preserve first attacker/1234 despite later tick2345.
+Actual event now known1/possible1/killer1/time1234. Damage and world death/KO
+classification stay as before. Whole source remains partial: escape-facing
+hunk still needs independent relevance/parity review for this fork.
+
+Final fresh Windows ALL_BUILD300/300 related327.73s; Linux Game/helpers298/298
+related330.25s. Windows37/37 context/combat39.70s; Linux36/36 36.30s. These include
+existing PKWorld Stopped/Bypass/Rejected/Penetrating/Zero, unconscious head-idle
+and pain voice, pain-voice owner, no-manufactured-bleeding, periodic bleeding,
+critical lifetime and earlier context/decal/snipe checks. Windows additionally
+passes existing mission4522 party-save; no false Linux4522 claim. Full local
+asset-free CI290/290 24.13s. Seven raw logs80/80/300/298/37/36/290 exact passes,
+no Failed/NotRun/NUL, all runners exit0. verify-ai-first-incapacitation.py
+checks four intended REDs, native damage/death/KO outputs unchanged apart from
+metadata/report-key rename, actual event consequence, earlier rifle/float/4AP
+semantics and82 prior measured hit/cover records exact within each platform.
+Shared builds only, HD caches OFF, no per-fix source/game/build copies; owned
+tests exited. This is local CI, not final hosted Actions verification.
+
+Ledger marks90293ca8 partially-imported: useful first-incapacitation writer
+complete; separate target-escape-facing hunk still under relevance review.
+Counts142 imported/19partial/77pending =96 unfinished source reviews/imports. Final actual-HEAD hosted
+Actions remains due after all useful source imports.

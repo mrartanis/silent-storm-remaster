@@ -1679,6 +1679,9 @@ int CUnitServer::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, NRPG::CAtta
 	if ( bIsPKWhichIsWeared )
 		return 0;
 	bool isDead = GetUnitRPG()->IsDead();
+	const bool wasUnconscious = IsUnconscious();
+	CPtr<CUnitServer> pAttacker = IsValid( pAttack->pAttacker ) ?
+		GetWorld()->GetUnitServer( pAttack->pAttacker ) : nullptr;
 	int nRet = CDumbUnitServer::ProcessAttack( pWorld, nUserID, pAttack, vDir, pArmor );
 	if ( !IsValid( this ) )
 		return nRet;
@@ -1730,6 +1733,13 @@ int CUnitServer::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, NRPG::CAtta
 			for ( list< CPtr<CUnitServer> >::iterator i = units.begin(); i != units.end(); ++i )
 				(*i)->GetUnitRPG()->GetRPGUnit()->AddXP(fXP);
 		}
+	}
+	// Original first incapacitation: preserve attribution on later corpse hits.
+	// Steam7c450c..7c4527; Gold also writes pKiller, without the later timestamp.
+	if ( !isDead && !wasUnconscious && ( GetUnitRPG()->IsDead() || IsUnconscious() ) )
+	{
+		pKiller = pAttacker;
+		tDeathTime = GetWorld()->GetTime()->GetValue();
 	}
 	return nRet;
 }

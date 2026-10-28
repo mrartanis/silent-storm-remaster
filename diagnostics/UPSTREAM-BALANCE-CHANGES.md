@@ -1411,3 +1411,18 @@ empty/zero-penetration/zeroK/nonfinite return0 and bounded integer conversion.
 This is an explicit adaptation to the fork's existing correction, not an
 unreviewed balance coefficient. It does not justify discarding useful floating
 precision. The separate escape-facing source90293ca remains pending.
+
+
+## 2026-10-28 — first-incapacitation attribution restores original corpse alerts
+
+Source [90293ca892e26576a90c8e6937a886c5c249010b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/90293ca892e26576a90c8e6937a886c5c249010b), independent metadata writer hunk.
+Restore pKiller on the first conscious->dead/KO attack (both original builds),
+and tDeathTime from the world clock (inspected Steam release; absent in the
+older Gold body/PDB). Corpse events can now promote the actual recorded
+attacker, and existing corpse-age cleanup can use the correct first tick.
+This can change AI alerts after finding an allied body, matching original
+behavior. Later corpse hits preserve the first attribution and time.
+No damage, XP, critical, AP or difficulty coefficients are tuned. Preserve our
+damage interface, PK pilot/shell handling, rewritten death/face animation and
+existing32bit serialized fields. Separate escape-facing hunk remains pending;
+do not mechanically replace current movement/visibility code for it.

@@ -94,11 +94,9 @@ void CAILostAllyEvent::Modify( SAIUnitState *pState )
 	pState->RemoveAlly( pAlly.GetPtr() );
 }
 
-// @0x3c470: a NEW corpse goes on record; then retail reads the corpse server's pKiller (+0x1f8) and
-// promotes THE KILLER to possibleEnemy. ⚠ pKiller is never written anywhere in retail (byte-scan
-// proven: only ctor-null + the serializer), so the promotion arm is retail-inert -- a noticed corpse
-// only lands in knownCorpses. The dev predecessor promoted the CORPSE itself (more aggressive than
-// retail) -- removed.
+// A newly discovered corpse promotes its recorded killer, not the corpse.
+// ProcessAttack records the first incapacitating attacker (Gold/Steam); the
+// native IAttackable receiver is adjusted by +8, so its writer uses +0x1f0.
 void CAICorpseEvent::Modify( SAIUnitState *pState )
 {
 	IAIUnit *p = pCorpse.GetPtr();
