@@ -11160,3 +11160,72 @@ owned tests/debuggers exited. This local CI is not hosted Actions verification.
 Source66fc9e9a remains partial: fractional cover/NaN and four-AP escape scan
 are separate pending hunks. Counts141 imported/19 partial/78 pending=97unfinished
 among281. Full transfer and final actual-HEAD hosted Actions verification remain.
+
+
+## 2026-10-28 — original four-AP snipe escape scan (66fc9e9a, partial)
+
+Source: [66fc9e9ad26497bf41f96a1a8c51c8a03e951718](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/66fc9e9ad26497bf41f96a1a8c51c8a03e951718).
+BeginSnipe incorrectly flooded escape positions using the target's entire
+GetMaxAP turn. Restore the original integer maxCost4 at RUN. The only production
+behavior change is this argument. Keep the explicit selected rifle, native
+visibility/range/FOV, own animation/map synchronization and all guards/data.
+The separate upstream escape-facing hunk90293ca remains pending.
+
+Original proof is independently checked in Gold PDB and Steam executable:
+typed BeginSnipe.GetInfoInner Gold4a32a0/1006 maps to Steam4a4ac0, with two
+unmasked24byte anchors unique in BOTH images and matched ret8CC. Actual caller
+Gold4a3501/Steam4a4d21 resolves to typed GetNearestPlaces Gold49f530/549,
+Steam4a0990. Its six parameters are server, position, int, EPose, output vector,
+optional move table. Caller pushes table/vector/RUN3/cost4; the native PDB enum
+independently confirms RUN3. Five unique24byte callee anchors in BOTH images,
+frame and complete ret16CC identify that method. Its SEH12+locals56+savedregs16
+frame loads original first stack argument at esp58, then forwards the integer
+as PrepareAllPaths argument6. Actual Gold49f650->typed NWorld.PrepareAllPaths
+771f10; Steam4a0ab0->77dc30. PDB nine-parameter signature confirms int at6.
+audit-ai-snipe-escape.py ->shared ai-snipe-escape-retail-oracle.json. Absolute
+EH/direct-call addresses differ; no false whole-body byte identity. The source
+patch's address comment is stale; checked budget sites are Gold4a34ed/Steam4a4d0d.
+
+Two native runtime profiles extend the existing isolated campaign3791 sniper
+fixture. Positive: nonempty actual four-AP path flood entirely visible, while
+the full-turn flood contains invisible places. Negative control: at least one
+four-AP place is invisible. Use actual path network, game visibility, authored
+enemy/Rifle and independent native HEAD prediction; no supplied hit/visibility
+results or DB coefficient edits. To find the positive case, search real free
+passable positions in the target's native flood and eight shooter facings,
+then place the actual target/shooter through SetPosition/animator.PlaceUnit,
+refresh the dependency frame and AI map, and recheck the actual native floods
+and HEAD-choice stage. This is test setup; the measured query must preserve
+equipment/ammo/AP/HP/positions/command/planning state/RNG. Failed candidates
+restore target position; failed pairs also restore the original shooter facing.
+Existing selected-rifle modes0/1/2 retain their setup and assertions.
+
+Initial authored-position and eight-facing-only attempts failed positive
+calibration on both platforms: nearby points stayed hidden. These setup
+failures are retained separately and are NOT bug RED. With real relocation,
+authoritative RED is exactly1 intended failure/2 on each platform: Windows
+13.01s, Linux22.23s. Only eligibility fails (can0, expected1); blocked control
+passes with can0, HEAD1 and nonempty four-AP set. Windows RED positive is
+distance11.06/four1/full1551 with724 invisible only in full flood; Linux positive
+distance9.56/four5/full935 with446 invisible only in full flood. The original
+outer calibration print retained pre-relocation distance; the explicit native
+placement print is authoritative, and the test report now recomputes distance
+after placement. This reporting correction changes no predicate or setup.
+Native calibration can select different eligible geometry/weapon per run and
+platform; compare eligibility and independently checked predicates, not false
+full-record count/coordinate bit parity.
+
+GREEN66/66 Windows77.55s, Linux93.88s: four-AP visible case now can1,
+genuinely blocked control stays can0. Final fresh Windows ALL_BUILD286/286
+related315.66s; Linux Game/helpers284/284 related314.74s. Each platform10/10
+context/decal/legacy-snipe checks (7.67s/7.66s), including SkillAcknowledgment,
+HeldAim, TileRestriction and TargetlessProbe. Full local asset-free CI290/290
+24.29s. Seven raw logs66/66/286/284/10/10/290 exact passes, no Failed/NotRun/NUL;
+all runners exit0. verify-ai-snipe-escape.py checks both intended RED predicates,
+GREEN decisions and all previous61 measured owner/validity/cover records within
+each platform; three prior selected-rifle profiles retain semantic results.
+Native positive placement/visibility counts and clip quantities vary; no false
+full-record bit parity. Shared builds only, HD caches OFF, no per-fix copies;
+owned tests exited. This is local CI; final hosted Actions remains outstanding. Fractional cover/NaN policy
+from this source is still unfinished; the source remains partially-imported.
+Final actual-HEAD hosted Actions verification is due after the entire import.

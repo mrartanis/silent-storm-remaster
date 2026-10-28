@@ -77,7 +77,7 @@ static IAIUnit *SnipeGetAIUnit( NWorld::CUnitServer *pServer )
 // CAIBeginSnipeAction::GetInfoInner @0x4a4810: decide to start sniping. Not already sniping; the best snipe
 // weapon must exist + be live; CanSnipe; the to-hit against the state's enemy at HL_ANY must be positive (aim
 // HL_HEAD when that also connects); and the KILL-ZONE SCAN must confirm the sniper can still SEE every place
-// the target could flee to next turn (otherwise the target would just step out of view). The inline scan was
+// the target could flee to within 4 AP (otherwise it could step out of view). The inline scan was
 // hand-disassembled (the decode left it a hook): pWorld->GetGame()->CheckPositionVisibility from the sniper
 // to each place NAI::GetNearestPlaces floods around the target.
 //
@@ -113,7 +113,7 @@ void CAIBeginSnipeAction::GetInfoInner( const SPlaceWithAP &, SInfo *pInfo ) con
 		return;
 	if ( pU->GetToHitWithWeapon( pEnemy, selfPos, HL_HEAD, pInfo->pWeapon ) > 0 )
 		pInfo->hitLocation = HL_HEAD;
-	// kill-zone scan: the sniper must still SEE every place the target could flee to next turn.
+	// Kill-zone scan: the sniper must see every escape place reachable within 4 AP.
 	NWorld::CWorld *pWorld = pUS->GetWorld();
 	if ( !IsValid( pWorld ) )
 		return;
@@ -127,7 +127,8 @@ void CAIBeginSnipeAction::GetInfoInner( const SPlaceWithAP &, SInfo *pInfo ) con
 	float fRange = pGame->GetUnitSightDistance( pRPG );
 	float fFOV = IsValid( pRPG ) ? pRPG->GetSightFOV() : FP_2PI;
 	vector<SPathPlace> places;
-	GetNearestPlaces( pEnemy->GetUnitServer(), pEnemy->GetPosition().p, pEnemy->GetMaxAP(), NAI::RUN, &places );
+	// Gold4a34ed / Steam4a4d0d: original GetNearestPlaces maxCost is 4 AP.
+	GetNearestPlaces( pEnemy->GetUnitServer(), pEnemy->GetPosition().p, 4, NAI::RUN, &places );
 	for ( vector<SPathPlace>::const_iterator i = places.begin(); i != places.end(); ++i )
 		if ( !pGame->CheckPositionVisibility( selfPos, SPosition( *i, pNet ), fRange, fFOV ) )
 			return;                                      // a place the target could reach unseen -> cannot snipe

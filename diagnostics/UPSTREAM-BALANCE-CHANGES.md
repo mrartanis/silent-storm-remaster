@@ -1377,3 +1377,17 @@ AI выбирал винтовку, но оценивал шанс по теку
 снайперской подготовки и прицеливания проходят. Прежние61 сценарий сохраняют
 измеренные результаты; новые сравниваются с собственным эталоном запуска.
 Общий перенос и финальная проверка GitHub Actions продолжаются.
+
+
+## 2026-10-28 — four-AP snipe escape budget restores original behavior
+
+Source [66fc9e9ad26497bf41f96a1a8c51c8a03e951718](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/66fc9e9ad26497bf41f96a1a8c51c8a03e951718), independent escape-budget hunk.
+Imported: BeginSnipe scans target escape positions within4 AP, matching the
+actual Gold and Steam callers, rather than the reconstructed full GetMaxAP
+turn. This can enable an original snipe decision that our full-turn scan wrongly
+rejected. It does not alter the target's AP, movement prices, weapon stats,
+sight/FOV or gameplay data. Native positive and blocked controls distinguish
+the cases. Own animation/map handling stays in place. The separate upstream
+escape-facing change90293ca is still pending; this does not silently import it.
+Fractional cover precision remains separately unfinished. Existing finite and
+zero-penetration guards must be retained; do not restore upstream NaN behavior.
