@@ -12138,3 +12138,59 @@ that would change original gameplay. Preserve this fork's rewritten face,
 animation and PK ownership paths. Final hosted actual-HEAD GitHub Actions
 verification remains due after all useful imports. Ledger149 imported,
 19 partially imported,70 pending:89 unfinished sources.
+
+
+## 2026-10-29 — restore temporary blood-suppression medical effect (531f3b7d)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9), independent FAE_TEMP_STOP_BLEEDING hunk.
+Replace the empty effect branch with the original patient-targeted rounded
+authored power handoff. Add IUnitMission::AddBleedingStopper and the original
+additive implementation on the EXISTING nBleedingStopAmount/tag35. Existing
+regeneration and serialization consumers are reused. No fields, save tags,
+kit values or invented duration/clamps are introduced; do not remove the
+bleeding critical or replace additive doses with assignment/max.
+
+Actual original Gold effect4 jump table7bd11c ->7bcfb3, patient RPG loaded
+at7bcc60/63, rounded float power+28 passed via slot17c at7bcfcb. Gold mission
+vtable8b63cc slot17c ->6bf630. Actual Steam table7ca49c ->7ca334, patient
+load7c9fd0/33, call7ca34c, vtable8c54e4 slot17c ->6c5dc0. Both original
+helpers have identical mov argument/add-to-counter/ret4 instructions, with
+no duration argument or critical removal. audit-temporary-bleeding-retail.py
+checks each actual effect table, patient dataflow, conversion, call and add.
+
+Native TDD BEFORE production: RED6/9 on Windows10.09s/Linux10.00s. Authored
+one-charge kit15/power5 on Windows and kit16/power10 on Linux (native DB
+iteration order), real medicine15 medic and same-owner patient use
+public CExecHeal.Run then explicit public AnimationFinished. Both bleeding,
+patient-only, self, separate nonbleeding critical, repeat and restored RPG
+mission scenarios all show zero suppression despite spending the item.
+Three controls already pass: missing kit, hostile patient and active weapon.
+This drives the actual action/state callback without claiming a played
+animation clock, rendered medical animation or full-world save UI test.
+
+GREEN32/32 each includes9 temporary cases and the previous23 medical cases.
+Patient saved suppression becomes5 on Windows/10 on Linux; real
+DoRegenerations bleeding output
+3->0 while the bleeding critical remains. Another actor's bleeding remains2;
+self-use output2->0. Two separately equipped authored single-dose kits yield
+suppression10 on Windows/20 on Linux, with both native action costs and
+charges paid. Factory-created
+IUnitMission field deserialization, using borrowed external graph references,
+preserves the authored suppression counter and regeneration behavior. Raw health, dressing, unrelated
+criticals, patient-marker cleanup and action/order ownership are retained.
+Rejected uses preserve RNG/AP/charges/criticals. Existing spent-medkit pose
+cleanup and permanent blood-stop recipient cases continue to pass.
+
+Final Windows ALL_BUILD100 related/115.41s, Linux Game98/108.61s and local
+asset-free CI290/33.28s. Five raw logs32/32/100/98/290, exact registered names,
+no Failed/NotRun/NUL and final runner exits0 verified by
+verify-temporary-bleeding.py. Shared builds reused, HD generation OFF,
+no per-bug build/source copies; owned harnesses exit.
+
+Source531f remains PARTIAL. Pending parts include temporary penalty treatment
+(patient recipient, perk-scaled duration and postponed VP modifier), float
+healing returns/medical practice, original timed critical/AP progress and
+state persistence, patient/healer perks and repair capacity. Preserve our
+rewritten face/animation/PK paths. Counts remain149 imported/19partial/70
+pending =89 unfinished sources. Hosted actual-HEAD Actions remains due after
+all useful imports; this local CI run is not a hosted workflow result.

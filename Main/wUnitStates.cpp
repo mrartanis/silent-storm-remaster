@@ -584,7 +584,7 @@ void CUnitStateHealer::OnStateStarted()
 			break;
 		}
 		case NDb::FAE_TEMP_STOP_BLEEDING:
-			//xz;
+			pTarget->GetUnitRPG()->AddBleedingStopper( Float2Int(pFirstAid->fPower) );
 			break;
 		case NDb::FAE_REMOVE_BLEEDING:
 			pTarget->GetUnitRPG()->HealCriticals( -100, true );

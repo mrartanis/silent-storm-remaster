@@ -23639,7 +23639,7 @@ static void FreshSkillModifierValues(const char* databasePath)
     std::puts("native fresh-skill GREEN: 15 static skills follow modifiers and restore; saved old unfrozen cell stays expendable");
 }
 
-static void BleedingTreatmentRecipient(const char* databasePath,const char* resourcePath,int mode)
+static void BleedingTreatmentRecipient(const char* databasePath,const char* resourcePath,int mode,bool temporary=false)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
     list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);
@@ -23672,7 +23672,7 @@ static void BleedingTreatmentRecipient(const char* databasePath,const char* reso
         Require(placed,"bleeding recipient fixture has no native reachable free patient placement");
     }
     NDb::CRPGFirstAid* record=nullptr;CDBIterator<NDb::CRPGFirstAid> kits(*NDatabase::GetTable<NDb::CRPGFirstAid>());
-    while(kits.MoveNext()) { auto* candidate=kits.Get();if(IsValid(candidate->pItem) && candidate->effect==NDb::FAE_REMOVE_BLEEDING && candidate->nQuantity>0) {record=candidate;break;} }
+    while(kits.MoveNext()) { auto* candidate=kits.Get();if(IsValid(candidate->pItem) && candidate->effect==(temporary?NDb::FAE_TEMP_STOP_BLEEDING:NDb::FAE_REMOVE_BLEEDING) && candidate->nQuantity>0) {record=candidate;break;} }
     Require(record!=nullptr,"bleeding recipient fixture lacks an authored blood-stop item");
     CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);auto* inventory=actor->GetUnitRPG()->GetInventory();
     CObj<NRPG::IInventoryItem> previous;
@@ -23689,12 +23689,18 @@ static void BleedingTreatmentRecipient(const char* databasePath,const char* reso
     if(mode==3) {healer->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_WEAPONSKILL_REDUCTION,-1,2.f,1));target->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_WEAPONSKILL_REDUCTION,-1,2.f,1));}
     const bool healerBefore=healer->HasCritical(NDb::C_BLEEDING),patientBefore=target->HasCritical(NDb::C_BLEEDING);
     Require(patientBefore && healerBefore==(mode!=1),"bleeding recipient fixture did not install its real independent criticals");
+    auto stopped=[](NRPG::IUnitMission* mission) {
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(mission,&refs);int value=-999;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(35,&value);}return value;
+    };
+    const int beforeHealerStop=stopped(healer),beforePatientStop=stopped(target);
+    Require(beforeHealerStop==0 && beforePatientStop==0,"native blood-stop fixture unexpectedly starts with saved suppression");
     const int ap=actor->GetAP(),quantity=kit->GetIncQuantity(),healerVP=healer->GetTotalVP(),patientVP=target->GetTotalVP();
     const int healerBandage=healer->GetRPGUnit()->nHealedVP,patientBandage=target->GetRPGUnit()->nHealedVP;
     CObj<NWorld::CExecHeal> executor=new NWorld::CExecHeal(actor,patient);auto random=GlobalGameRandom();
     const auto result=executor->CanDoIt(actor->GetPosition());const int cost=executor->GetStartAP();
     std::printf("native bleeding recipient query: mode=%d kit=%d charges=%d medicine=%d result=%d AP=%d cost=%d realtime=%d distance=%g\n",mode,record->GetRecordID(),quantity,int(healer->GetRPGUnit()->Skills(NDb::ST_MEDICINE)),int(result),ap,cost,int(world->IsRealTime()),fabs(actor->GetPosition().GetCP()-patient->GetPosition().GetCP()));std::fflush(stdout);
-    if(mode>=4) {
+    if(mode>=4 && mode<=6) {
         const auto expected=mode==5?NWorld::UCR_GENERAL_FAILURE:NWorld::UCR_UNAVAILABLE;
         Require(result==expected && healer->HasCritical(NDb::C_BLEEDING)==healerBefore && target->HasCritical(NDb::C_BLEEDING)==patientBefore && actor->GetAP()==ap && kit->GetIncQuantity()==quantity && random.Get()==GlobalGameRandom().Get(),"rejected medical use changed bleeding, AP, charges or RNG");return;
     }
@@ -23707,6 +23713,36 @@ static void BleedingTreatmentRecipient(const char* databasePath,const char* reso
     Require(actor->GetAP()==afterRun && (world->IsRealTime() || afterRun==ap-cost) && kit->GetIncQuantity()==quantity-1 && !target->HasCritical(NDb::C_PATIENT) && !actor->HasCommand() && !patient->HasCommand() && !actor->IsPerformingAction(),"instant blood-stop completion changed AP cost, charge use, patient marker or native action lifecycle");
     Require(healer->GetTotalVP()==healerVP && target->GetTotalVP()==patientVP && healer->GetRPGUnit()->nHealedVP==healerBandage && target->GetRPGUnit()->nHealedVP==patientBandage,"blood-stop effect changed raw health or wound dressing");
     if(mode==3)Require(healer->HasCritical(NDb::C_WEAPONSKILL_REDUCTION) && target->HasCritical(NDb::C_WEAPONSKILL_REDUCTION),"blood-stop item removed a separate nonbleeding critical");
+    if(temporary) {
+        Require(healerAfter==healerBefore && patientAfter==patientBefore,"temporary blood suppression erased its bleeding critical");
+        const int power=Float2Int(record->fPower);Require(power>0,"native authored temporary blood-stop item has no positive power");
+        int uses=1;
+        if(mode==7) {
+            CObj<NRPG::CFirstAidItem> second=new NRPG::CFirstAidItem(record);
+            if(inventory->Get(NDb::SLOT_1))inventory->TakeOff(NDb::SLOT_1);
+            Require(inventory->Equip(NDb::SLOT_1,second) && inventory->Activate(NDb::SLOT_1),"repeat suppression could not activate a second authored dose");
+            actor->animator.SetActiveItem(true);actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
+            CObj<NWorld::CExecHeal> again=new NWorld::CExecHeal(actor,patient);
+            const int nextAP=actor->GetAP(),nextCost=again->GetStartAP(),nextQuantity=second->GetIncQuantity();
+            Require(again->CanDoIt(actor->GetPosition())==NWorld::UCR_OK && nextAP>=nextCost,"second temporary blood-stop use is not available");
+            again->Run();again->AnimationFinished();uses=2;
+            Require(actor->GetAP()==nextAP-nextCost && second->GetIncQuantity()==nextQuantity-1 && !actor->IsPerformingAction() && !target->HasCritical(NDb::C_PATIENT),"repeated temporary blood suppression changed its cost, charge or completion lifecycle");
+        }
+        CObj<NRPG::IUnitMission> restored;auto* measured=target;
+        if(mode==8) {
+            CStructureNetworkContext refs;auto fields=BorrowedObjectFields(target,&refs);
+            restored=dynamic_cast<NRPG::IUnitMission*>(pSSClasses->CreateObject(pSSClasses->GetObjectTypeID(target)));
+            Require(restored,"temporary blood-stop saved mission factory failed");
+            {CStructureSaver reader(fields,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader);}measured=restored;
+        }
+        const int healerStop=stopped(healer),patientStop=stopped(measured);
+        int healerBleed=-999,patientBleed=-999;healer->DoRegenerations(world,&healerBleed);measured->DoRegenerations(world,&patientBleed);
+        const int expectedHealer=mode==2?power:0,expectedPatient=power*uses;
+        const int expectedDamage=(std::max)(0,(mode==2?2:3)-expectedPatient);
+        std::printf("native temporary bleeding effect: mode=%d kit=%d power=%d uses=%d healerStop=%d patientStop=%d expectedHealer=%d expectedPatient=%d healerBleed=%d patientBleed=%d expectedDamage=%d restored=%d\n",mode,record->GetRecordID(),power,uses,healerStop,patientStop,expectedHealer,expectedPatient,healerBleed,patientBleed,expectedDamage,int(bool(restored)));std::fflush(stdout);
+        Require(healer->GetTotalVP()==healerVP && measured->GetTotalVP()==patientVP && measured->HasCritical(NDb::C_BLEEDING) && !actor->HasCommand() && !patient->HasCommand(),"temporary bleeding regeneration changed health, removed the wound or issued an order");
+        Require(healerStop==expectedHealer && patientStop==expectedPatient && patientBleed==expectedDamage && healerBleed==(mode==2?expectedDamage:mode==1?0:2),"temporary blood-stop item did not add its original suppression to the selected patient");return;
+    }
     Require(!patientAfter && healerAfter==(mode==2?false:healerBefore),"blood-stop item cured the medic instead of its selected patient");
 }
 
@@ -25421,6 +25457,15 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "attacker-level-critical-rolls") && argc==3) { AttackerLevelCriticalRolls(argv[2]); return true; }
     if (!std::strcmp(mode, "head-body-damage") && argc==3) { HeadBodyDamage(argv[2]); return true; }
     if (!std::strcmp(mode, "fresh-skill-modifier-values") && argc==3) { FreshSkillModifierValues(argv[2]); return true; }
+    if (!std::strcmp(mode, "temporary-bleeding-both") && argc==4) { BleedingTreatmentRecipient(argv[2],argv[3],0,true); return true; }
+    if (!std::strcmp(mode, "temporary-bleeding-patient-only") && argc==4) { BleedingTreatmentRecipient(argv[2],argv[3],1,true); return true; }
+    if (!std::strcmp(mode, "temporary-bleeding-self") && argc==4) { BleedingTreatmentRecipient(argv[2],argv[3],2,true); return true; }
+    if (!std::strcmp(mode, "temporary-bleeding-other-critical") && argc==4) { BleedingTreatmentRecipient(argv[2],argv[3],3,true); return true; }
+    if (!std::strcmp(mode, "temporary-bleeding-missing-kit") && argc==4) { BleedingTreatmentRecipient(argv[2],argv[3],4,true); return true; }
+    if (!std::strcmp(mode, "temporary-bleeding-hostile") && argc==4) { BleedingTreatmentRecipient(argv[2],argv[3],5,true); return true; }
+    if (!std::strcmp(mode, "temporary-bleeding-weapon") && argc==4) { BleedingTreatmentRecipient(argv[2],argv[3],6,true); return true; }
+    if (!std::strcmp(mode, "temporary-bleeding-repeat") && argc==4) { BleedingTreatmentRecipient(argv[2],argv[3],7,true); return true; }
+    if (!std::strcmp(mode, "temporary-bleeding-saved") && argc==4) { BleedingTreatmentRecipient(argv[2],argv[3],8,true); return true; }
     if (!std::strcmp(mode, "bleeding-recipient-both") && argc==4) { BleedingTreatmentRecipient(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "bleeding-recipient-patient-only") && argc==4) { BleedingTreatmentRecipient(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "bleeding-recipient-self") && argc==4) { BleedingTreatmentRecipient(argv[2],argv[3],2); return true; }

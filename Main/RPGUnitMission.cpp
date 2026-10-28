@@ -242,6 +242,7 @@ public:
 	virtual int  GetBulletsQuantityInShot() const;
 	virtual void HealVP( const SFirstAid &fa );
 	virtual void HealCriticals( int nDC, bool bStopBleeding = true );
+	virtual void AddBleedingStopper( int nAmount ) { nBleedingStopAmount += nAmount; }
 	virtual int  GetIC() const;
 	virtual bool CheckIC();
 	virtual int CheckInterrupt( const IUnitMission *pEnemy, bool bIsMutual, bool bWasShot );
