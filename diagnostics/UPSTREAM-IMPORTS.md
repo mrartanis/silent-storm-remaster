@@ -10682,3 +10682,84 @@ trace flags/human-path adaptation are still pending. Counts281=140 imported/
 19 partial/79 pending plus explicit other decisions:98 unfinished source
 reviews/imports. Entire transfer and final actual-HEAD hosted Actions repair/
 verification remain open; local CI is not claimed as hosted verification.
+
+
+## 2026-10-28 — unit cover uses radial range; tiles retain projection (cc0fd988, partial)
+
+Change only AddGridToCovers.fTestDistance: nonnull unit targets use fDistance,
+null tile targets keep fDistance/fRayProjection. The old expression extended
+unit range off the aim axis. Retain the fork's own Game interface/layout/schema,
+geometry/model/animation/face/fonts/HD, target/part/armor/ally/muzzle logic,
+AI30 limit, integer cover guards and PK pilot/surface-owner relationship.
+No balance coefficient or weapon/armor data changes. Trace-flag/human-path
+adaptation remains separate unfinished work in this source.
+
+Eight FixtureWorld profiles keep native actors/targets/allies, weapon portion,
+materials, Game and CFastRenderer. A controlled map supplies CLOSED box vertices
+and native edges, rasterized by actual TraceEntity/SortIntervals. It does not
+supply collision intervals or cover/hit results. Source-info/vertices/edges/
+transform stay alive after TraceGrid; native intervals reference them during
+the Game traversal. Other map operations, including actual target hull/locator,
+delegate to the real world map. Temporary distance1/2 measurement cells only
+recover the native origin and are restored before rasterization. This is a
+controlled collision-geometry regression, not an unmodified actual-model replay;
+actual world models/PK/decal/range behavior remain covered separately.
+
+Two unit slivers isolate the error. AI: cutoff30, eight off-axis native entries
+all outside direct30 but inside30/projection. Non-AI: cutoff9 from distance8+1,
+a wide low-resolution grid has one such entry and the high-resolution grid
+none. Old code returns100 in both instead of rejecting them. Nearby AI/non-AI
+boxes are inside both cutoffs and remain positive. A real equipped PK pilot
+supplies the near ownership control; GetDecalsRef still points to its separate
+actual shell. Tile tests use actual ally ownership/material. At pulled-back
+cutoff30, a thin ally surface has16 native entries outside direct30 yet inside
+30/projection: it MUST stay blocked. A farther ally surface past both cutoffs
+MUST leave tile aiming open; a nearer one stays blocked. These controls prevent
+applying the unit's radial cutoff to tile aiming by mistake. AP/HP/ammo/poses/
+commands, ally HP, PK/shell relation/HP and RNG remain unchanged by queries.
+
+Authoritative runtime RED: Windows2/8 in8.89s; Linux2/8 in8.65s. Only the two
+unit-sliver value assertions fail; six controls pass, including the projected
+tile ally block and native PK ownership. Geometric counts are8/8/1/1/16/16/16/8
+for the eight modes. Both incorrect unit scores are100; near unit/PK and open
+tile scores100, blocked ally tile scores-1. No compile or fixture-precondition
+failure is counted as RED. The production fix is one conditional expression
+and a comment; it does not replace the renderer or hull/locator implementation.
+
+Original proof: audit-ai-cover-projection-final.py and shared evidence
+ai-cover-projection-retail-oracle.json. Named Gold PDB AddGridToCovers68d670/717
+maps to Steam6935d0/717; unique unmasked24 blocks+40/+64 in BOTH binaries,
+complete ret48/CC tails and actual CanHitTarget callsGold68d855/Steam6937b5
+corroborate. Each branch/load/divide block is checked in both mapped functions.
+Frame76locals+16regs loads targetesp78 intoEDI6936c4. Nulltest6936cc/je6936d2
+goes tile693732. Unit paths load raw distanceargesp80 at693712/69371f into
+local14, while tile divides distance by projection69374c/693753 into local14.
+After two stagedpushes, reloadlocal14 atesp1c693785 and pushdistance as actual
+CanHitTarget stackarg6 at69379d; directcall6937b5. Named callee frame12SEH+
+20locals+16regs puts maxarg6 atesp48: intervalentry6908b2 is compared to it at
+6908b5, with exit when entry>=max. This verifies the consumed range, not an
+unused temporary. No stale source address or original ABI transplant is used.
+
+
+GREEN32/32 on each native platform, Windows35.01s/Linux34.52s, includes prior24
+origin/target-reach/range cases. Unit scores100 become0 (AI) /blocked-1 (non-AI);
+all six controlled geometry cases and all geometric/ownership counters remain
+unchanged. All eight controlled profiles match exactly between platforms.
+Existing actual-world8 range records and16 target-reach records remain exactly
+unchanged within EACH platform, including the prior real PK geometry baselines.
+
+Final fresh Windows ALL_BUILD:252/252 related268.25s plus6/6 context/decal3.34s;
+Linux Game/helpers250/250 related265.12s plus6/6 context/decal3.37s. Full local
+asset-free CI290/29024.21s including registration checks. Seven raw logs have
+exact32/32/252/250/6/6/290 passes, no Failed/NotRun/NUL; all runners exit0.
+ai-cover-projection-final-verification.json validates the native RED2/8 on
+both, controlled profile equality and previous real-world per-platform baselines.
+Both HD caches OFF, shared builds only, about23.58GB free; owned tests/debuggers
+have exited. No per-fix game/source/build copies or HD regeneration.
+
+cc0fd988 stays partial: origin, required-target reach, AI30 cap and unit/tile
+range projection are imported independently; trace flags/human-path adaptation
+remain. Counts281=140 imported/19 partial/79 pending plus explicit other
+decisions:98 unfinished source reviews/imports. Entire transfer and final
+actual-HEAD hosted Actions verification/repair remain open; these local CI
+results are not described as hosted verification.

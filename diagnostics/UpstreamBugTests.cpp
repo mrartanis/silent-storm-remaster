@@ -8023,6 +8023,131 @@ public:
         }
     }
 };
+// Controlled closed-box collision geometry is rasterized by the native renderer.
+// No interval, cover score or hit decision is supplied by this map fixture.
+class CoverProjectionMapProbe: public CoverOriginMapProbe
+{
+    OBJECT_NOCOPY_METHODS(CoverProjectionMapProbe);
+public:
+    vector<CVec3> points;
+    NAI::CEdgesInfo edges;
+    SFBTransform transform;
+    NAI::SSourceInfo surface;
+    CVec3 source;
+    float cutoff=30.f;
+    int intersections=0,directInside=0,projectedInside=0,primaryHits=0,secondaryHits=0;
+    explicit CoverProjectionMapProbe(NAI::IAIMap* map=nullptr): CoverOriginMapProbe(map) {
+        Identity(&transform.forward);Identity(&transform.backward);
+    }
+    void Box(NWorld::CUnitServer* owner,const CVec3& a,const CVec3& z) {
+        surface=NAI::SSourceInfo(owner,owner->GetUnitRPG()->GetRPGArmor(),owner->GetFloor(),NWorld::TS_COVER|NWorld::TS_UNITS);
+        points={CVec3(a.x,a.y,a.z),CVec3(z.x,a.y,a.z),CVec3(z.x,z.y,a.z),CVec3(a.x,z.y,a.z),
+            CVec3(a.x,a.y,z.z),CVec3(z.x,a.y,z.z),CVec3(z.x,z.y,z.z),CVec3(a.x,z.y,z.z)};
+        const vector<STriangle> triangles={STriangle(0,2,1),STriangle(0,3,2),STriangle(4,5,6),STriangle(4,6,7),
+            STriangle(0,1,5),STriangle(0,5,4),STriangle(3,7,6),STriangle(3,6,2),
+            STriangle(0,4,7),STriangle(0,7,3),STriangle(1,2,6),STriangle(1,6,5)};
+        edges.GenerateEdgeList(triangles,points);
+        Require(edges.IsClosed(),"projection fixture box is not closed native collision geometry");
+    }
+    void TraceGrid(NAI::CFastRenderer* grid,int mask,ESort sort,const NAI::CFloorsSet&,ESplitTerrainHGroups,bool) override {
+        Require((mask&NWorld::TS_COVER) && sort==STH_SORT_INTERVALS,"projection fixture lost native sorted cover tracing");
+        NAI::CFastRenderer::SResult measurement{};measurement.fEnter=1;measurement.fExit=2;
+        auto* saved=grid->resGrid[0][0];grid->resGrid[0][0]=&measurement;
+        vector<CVec3> enters,exits;grid->GetPoints(&enters,&exits,0,0);grid->resGrid[0][0]=saved;
+        Require(enters.size()==1 && exits.size()==1,"projection fixture could not inspect the native projection origin");
+        traces.push_back({enters.front()*2.f-exits.front(),mask,grid->resGrid.GetXSize(),grid->resGrid.GetYSize()});
+        NAI::SConvexHull hull(points,edges,transform,surface,NAI::HL_BODY,vector<CPtr<NAI::CPrecalcSpheres>>{});
+        grid->TraceEntity(hull,false);grid->SortIntervals(); // Actual native rasterization and distance conversion.
+        for(int y=0;y<grid->resGrid.GetYSize();++y)for(int x=0;x<grid->resGrid.GetXSize();++x) {
+            CVec3 direction;grid->GetDir(&direction,x,y);const float projection=direction.y;
+            Require(projection>0,"projection fixture has a backward native ray");
+            for(auto* hit=grid->resGrid[y][x];hit;hit=hit->pNext) {
+                Require(hit->GetInfo().pUserData==surface.pUserData && hit->fExit>=hit->fEnter,"native box rasterization lost surface ownership or ordered intervals");
+                ++intersections;if(traces.size()==1)++primaryHits;else ++secondaryHits;
+                if(hit->fEnter<cutoff)++directInside;
+                if(hit->fEnter<cutoff/projection)++projectedInside;
+            }
+        }
+    }
+};
+static void AICoverProjection(const char* databasePath,const char* resourcePath,int mode)
+{
+    const bool human=mode==2 || mode==3,tile=mode>=4 && mode<=6,sliver=mode==0 || mode==2 || mode==4,pk=mode==7;
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> all;world->GetAllUnits(&all);
+    NWorld::CUnitServer *actor=nullptr,*target=nullptr,*ally=nullptr;NRPG::IWeaponItem* firearm=nullptr;
+    for(const auto& candidate:all) {
+        if(!IsValid(candidate) || !candidate->CanFight() || candidate->HasCommand() || candidate->IsEmptyPK() || candidate->IsWearingPK() || candidate->animator.GetCannon())continue;
+        auto* weapon=dynamic_cast<NRPG::IWeaponItem*>(candidate->GetUnitRPG()->GetInventory()->GetActive());
+        if(weapon && weapon->GetAmmoQuantity()>0 && weapon->SetShootMode(NDb::SM_Snap)){actor=candidate.GetPtr();firearm=weapon;break;}
+    }
+    Require(actor && firearm,"projection fixture has no armed native actor");
+    for(const auto& unit:all)if(IsValid(unit) && unit.GetPtr()!=actor && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()) {
+        if(!target && actor->GetDiplomacyState(unit)==NDb::DS_ENEMY)target=unit.GetPtr();
+        if(!ally && actor->GetDiplomacyState(unit)==NDb::DS_ALLY)ally=unit.GetPtr();
+    }
+    Require(target && ally,"projection fixture has no native enemy/ally ownership controls");
+    CObj<NWorld::CUnitServer> shell;
+    if(pk) {
+        NDb::CRPGPers* persona=nullptr;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+        while(people.MoveNext())if(people.Get()->pPanzerklein && !people.Get()->pPanzerklein->bHasNoHead && people.Get()->pModel){persona=people.Get();break;}
+        Require(persona,"projection fixture has no regular native PK persona");
+        auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(target->GetPosition().GetCP(),20.f),&places);
+        NAI::SPathPlace anchor;bool found=false;
+        for(auto place:places){place.SetPose(NAI::CM_STAND);place.SetDirection(0);if(NAI::IsBigLockerPlacePassable(network,place)){anchor=place;found=true;break;}}
+        Require(found,"projection fixture has no free native PK footprint");
+        shell=world->AddUnitInGame(anchor,NRPG::CreateUnit(persona),nullptr);
+        Require(shell && shell->IsEmptyPK() && shell->WearAsPK(true),"projection fixture could not prepare its real PK shell");
+        target->SetPosition(shell->GetPosition());target->FlipPanzerklein(shell,false,false);world->GetAIMap()->Sync();
+        Require(target->IsWearingPK() && target->GetDecalsRef()==shell.GetPtr(),"projection fixture lost the fork's native pilot/surface-owner relation");
+    }
+    NRPG::IGame* game=world->GetGame();CPtr<NAI::IAIMap> original;
+    {CStructureNetworkContext refs;auto fields=BorrowedObjectFields(game,&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&original);}
+    CVec3 aim;Require(original.GetPtr()==world->GetAIMap() && original->GetUnitHLPos(&aim,original->GetHull(target),NAI::HL_ANY),"projection fixture has no actual native target locator");
+    const float distance=human?8.f:pk?6.f:30.f;
+    const CVec3 source=tile?VNULL3:aim-CVec3(0,distance,0),tileTarget(0,30.25f,0);
+    CObj<CoverProjectionMapProbe> probe=new CoverProjectionMapProbe(original);probe->source=source;probe->cutoff=tile?30.f:Min(distance+1.f,30.f);
+    CVec3 lo,hi;
+    if(tile) {
+        const float plane=mode==4?29.99995f:mode==5?30.001f:29.99f;
+        lo=CVec3(-.25f,plane,-.25f);hi=CVec3(.25f,plane+.01f,.25f);
+    } else if(human) {
+        const float plane=sliver?7.999f:7.8f;
+        lo=source+CVec3(2.8f,plane,2.8f);hi=source+CVec3(3.2f,plane+.01f,3.2f);
+    } else {
+        const float plane=sliver?29.999f:pk?5.5f:29.f;
+        lo=source+CVec3(.5f,plane,-.125f);hi=source+CVec3(1.f,plane+.01f,.125f);
+    }
+    probe->Box(tile?ally:target,lo,hi);
+    vector<NRPG::CAttackPortion> attacks;actor->GetUnitRPG()->CreateAttack(&attacks,false);
+    Require(!attacks.empty() && attacks.front().nK>0 && !attacks.front().IsArmorIgnored(probe->surface.pArmor),"projection fixture has no eligible native attack/surface material");
+    if(tile)Require(attacks.front().CanDealDmg(probe->surface.pArmor) && actor->GetDiplomacyState(ally)==NDb::DS_ALLY,"projected tile control lacks its native ally blocker");
+    struct Restore{NRPG::IGame* game;CPtr<NAI::IAIMap> map;~Restore(){SetCoverProbeMap(game,map);}}restore{game,original};SetCoverProbeMap(game,probe);
+    const auto actorPosition=actor->GetPosition(),targetPosition=target->GetPosition(),allyPosition=ally->GetPosition();
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),targetHP=target->GetUnitRPG()->GetTotalVP(),allyHP=ally->GetUnitRPG()->GetTotalVP(),ammo=firearm->GetAmmoQuantity();
+    const int shellHP=shell?shell->GetUnitRPG()->GetTotalVP():0;const bool command=actor->HasCommand();GlobalGameRandom().SeedForHarness(0x73da);auto beforeRandom=GlobalGameRandom();
+    int score;
+    if(tile || human) {
+        CObj<NRPG::CCoverInfo> cover=tile?game->CalcCoversForTile(source,attacks.front(),actor,tileTarget,0.f):
+            game->CalcCovers(source,attacks.front(),actor,target,NAI::HL_ANY,1.f,false);
+        score=NRPG::GetHitCover(actor,cover);
+    } else score=game->GetCoverForAIUnit(source,actor,target,attacks.front(),NAI::HL_ANY);
+    std::printf("native cover projection: mode=%d human=%d tile=%d pk=%d score=%d intersections=%d direct=%d projected=%d primary=%d secondary=%d grids=%zu cutoff=%.2f\n",
+        mode,int(human),int(tile),int(pk),score,probe->intersections,probe->directInside,probe->projectedInside,probe->primaryHits,probe->secondaryHits,probe->traces.size(),probe->cutoff);std::fflush(stdout);
+    Require(probe->intersections>0 && probe->traces.size()==(human?2u:1u),"projection fixture did not rasterize actual box intersections in the expected native grids");
+    for(const auto& trace:probe->traces)Require(fabs(trace.origin-source)<2e-4f,"projection fixture changed the native source or projection");
+    if(human)Require(probe->primaryHits==0 && probe->secondaryHits>0,"non-AI projection fixture did not exercise the native low-resolution grid");
+    if(sliver)Require(probe->directInside==0 && probe->projectedInside==probe->intersections,"projection fixture did not separate radial and projected ray cutoffs");
+    else if(mode==5)Require(probe->directInside==0 && probe->projectedInside==0,"far tile control did not put its actual ally surface beyond both cutoffs");
+    else Require(probe->directInside==probe->intersections && probe->projectedInside==probe->intersections,"near projection control is not actually within both ray cutoffs");
+    const bool blocked=sliver || mode==6;
+    Require(blocked?score<=0:score>0,"unit ray used a projected cutoff or tile aiming lost its projected ally/default-open behavior");
+    Require(GlobalGameRandom().Get()==beforeRandom.Get(),"projection queries consumed native RNG");
+    Require(actor->GetPosition()==actorPosition && target->GetPosition()==targetPosition && ally->GetPosition()==allyPosition && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp
+        && target->GetUnitRPG()->GetTotalVP()==targetHP && ally->GetUnitRPG()->GetTotalVP()==allyHP && firearm->GetAmmoQuantity()==ammo && actor->HasCommand()==command
+        && (!pk || (target->IsWearingPK() && target->GetDecalsRef()==shell.GetPtr() && shell->GetUnitRPG()->GetTotalVP()==shellHP)),"projection queries changed gameplay state or the fork's PK ownership");
+}
+
 static void AICoverRange(const char* databasePath,const char* resourcePath,int mode)
 {
     const bool human=mode==2 || mode==4 || mode==6 || mode==7;
@@ -23631,6 +23756,14 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "empty-bullet-construction") && argc == 4) { EmptyBulletConstruction(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hidden-unit-tint") && argc == 4) { HiddenUnitTint(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "living-unit-floor-refresh") && argc == 4) { LivingUnitFloorRefresh(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "ai-cover-projection-ai-unit-sliver") && argc == 4) { AICoverProjection(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ai-cover-projection-ai-unit-near") && argc == 4) { AICoverProjection(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ai-cover-projection-human-unit-sliver") && argc == 4) { AICoverProjection(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ai-cover-projection-human-unit-near") && argc == 4) { AICoverProjection(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "ai-cover-projection-tile-sliver-ally") && argc == 4) { AICoverProjection(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "ai-cover-projection-tile-far-ally") && argc == 4) { AICoverProjection(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "ai-cover-projection-tile-near-ally") && argc == 4) { AICoverProjection(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "ai-cover-projection-pk-unit-near") && argc == 4) { AICoverProjection(argv[2],argv[3],7); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-near-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-cover-range-human-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],2); return true; }

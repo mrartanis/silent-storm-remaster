@@ -244,7 +244,8 @@ static void AddGridToCovers( CCoverInfo *pRes, const NAI::CFastRenderer &res, co
 				continue;
 			}
 			float fTempPiercing = _fArmorPiercingAbility;
-			float fTestDistance = fDistance / fRayProjection;
+			// Retail: unit range is radial; only tile aiming projects the target plane.
+			float fTestDistance = pTarget ? fDistance : fDistance / fRayProjection;
 			bool bBlocked = false, bTargetReached = false;
 			vector<const CObjectBase*> ignore;
 			ignore.push_back( pIgnore );

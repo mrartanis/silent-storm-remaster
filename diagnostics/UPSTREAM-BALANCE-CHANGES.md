@@ -80,7 +80,7 @@ native controls проверяют оба SLOT, active/inactive и нетрон�
 | [5780c0be](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027) Restore retail throwing knife targeting, flight and facing | Метательные ножи: штатная дальность, скорость, попадания, направление. Это восстановление формул, не готовый безопасный cherry-pick. |
 | [c1ab9336](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c) Restore retail melee damage dispatch and armed attack cursor | Native UI-различение кулака/экипированного оружия адаптировано в GetState; action dispatch и critical bans сохранены. Target-filter/damage dispatch остаётся для проверки реальных попаданий и original damage. |
 | [7f4f0ea8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7f4f0ea872937e4dcb4a887ff6a136d7dce1fcd5) Match retail nearest AI contact selection | Nearest-contact selection использует другие позиции/фильтры; отдельно сверять поведение AI. |
-| [cc0fd988](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc0fd9888357c7a9f5d47fec2c22f3073eb5e7cf) Match retail AI firing range and target reach checks | Частично перенесены точка выстрела, обязательное достижение юнита и оригинальный предел AI30; проекция и маски трассировки ещё проверяются отдельно. |
+| [cc0fd988](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc0fd9888357c7a9f5d47fec2c22f3073eb5e7cf) Match retail AI firing range and target reach checks | Перенесены точка выстрела, достижение юнита, предел AI30 и проекция дальности; маски трассировки и связанный обычный путь ещё проверяются отдельно. |
 | [66fc9e9a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/66fc9e9ad26497bf41f96a1a8c51c8a03e951718) Match retail AI snipe weapon and cover evaluation | AI snipe должен считать выбранным оружием и не терять дробную cover precision. |
 | [0ffb568d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0ffb568d67bc6ca389d7ca63a9da4f3978c801a7) Restore retail level XP persistence and fresh skill maximum flags | Повторная native-проверка нового репозитория выявила потерю общего XP в SetXPLevel; сохранение существующего расчёта исправляется отдельно. FreezeToMax для новых skills независимо сверён с original Steam EXE и перенесён: см. fresh-skill-modifier-values в UPSTREAM-IMPORTS.md. |
 | [08c4bb5a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/08c4bb5a6b9a94337d88bd8241a2e51b6984cfce) Restore retail weapon preparation AP costs | AP подготовки оружия из weapon type/перков вместо stub; сверять original, не считать автоматически ребалансом. |
@@ -1195,3 +1195,33 @@ AI становится0, близкая сохраняется; обычный 
 расчёта совпали с состоянием до фикса. Шестнадцать прежних результатов проверки
 достижения цели на каждой платформе также сохранились. Общий перенос и итоговая
 проверка GitHub Actions продолжаются.
+
+
+## Проверено: дальность луча по юниту и проекция по местности — часть cc0fd988
+
+[Исходный коммит](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc0fd9888357c7a9f5d47fec2c22f3073eb5e7cf).
+Для юнита код растягивал допустимую дальность луча при отклонении от центра
+прицеливания. Оригинал использует расстояние вдоль самого луча; проекция нужна
+для точки на местности. Восстановлен этот выбор одной формулой. Параметры
+оружия/брони, предел AI30, наша геометрия и анимация, лицевая система, шрифты,
+HiRes/HD и сохранения сохраняются. Проверка масок трассировки остаётся отдельно.
+
+На Windows и Linux сначала падают ровно два из8 тестов: лучи по юниту получают
+100 за пределом радиальной дальности. Остальные шесть контролей проходят.
+Тест подаёт замкнутые геометрические объёмы в настоящий растеризатор; он сам
+вычисляет пересечения, а игра — итог. Это управляемая проверка геометрической
+границы, а не повтор неизменённой модели в обычном игровом вводе. Отдельный
+сценарий подтверждает, что союзник на местности по-прежнему блокирует луч при
+проекции; применение радиального ограничения к этому случаю было бы ошибкой.
+Проверены ближние случаи, штатная связка пилота с отдельным корпусом PK,
+неизменность AP/HP, патронов, команд и RNG. Оба разных расчёта подтверждены по
+фактическим веткам и аргументам в Gold/Steam.
+
+
+После фикса проходят32/32 на каждой платформе. Изменились только два ошибочных
+результата100→0/-1; шесть контролей и их настоящие геометрические счётчики
+сохранились. Восемь результатов предыдущей проверки дальности и16 результатов
+достижения цели на каждой платформе также сохранились, включая реальные PK.
+Итог: Windows252/252, Linux250/250 связанных, по6/6 контекстных/декалей и
+локальный CI290/290. Общий перенос и окончательная проверка GitHub Actions
+ещё продолжаются.
