@@ -11902,3 +11902,49 @@ Five exact raw logs7/7/214/212/290, no failed/not-run/NUL, runners0 and exact
 registered names verified. Shared builds reused, HD generation OFF, owned
 test processes exit. Final hosted actual-HEAD Actions remains due after all
 useful imports. Ledger147 imported/18partial/73pending =91 unfinished sources.
+
+
+## 2026-10-28 — prepare real object attacks through the native facing queue (bba81b7c)
+
+Source [bba81b7c1d874a2bbcfce6a29d55696f05d1cc08](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/bba81b7c1d874a2bbcfce6a29d55696f05d1cc08).
+After restoring the object executor in362e794b, the approach helper still cast
+the actual door to CUnitServer. It returned NoTarget4 and the queue fell back
+to the actor's current pose/direction. Keep the actual CObjectBase reference
+instead: normal directed-place selection, facing and active-item preparation
+now run for the real object, leaving OK0 on the valid queue. One production
+line only. No manual animator/state/AP writes, new numeric values, changes to
+path planning or object/weapon data. This closes the separate preparation
+dependency explicitly left open by the preceding90f import.
+
+Original typed GetActionValidPlaces(CUnitServer*,CCmdShootObject*,vector*)
+Gold788570/297 maps Steam794170 with111 unique24byte windows (overlap).
+The first80 bytes match exactly and adopt the command's target directly from
+its field, with validity testing, before hull/placement work. No unit RTTI
+conversion. The cached upstream source comment793ae0 is not the actual mapped
+entry; do not copy that stale address. Original disassemblies/signature/oracle
+are recorded by audit-object-preparation-retail.py.
+
+Native TDD extends the actual public door/actor/weapon fixture with strict
+status and holstered-facing cases and removes the prior source-isolation
+tolerance from the four object-executor cases. Actual actor starts facing away
+(direction5) with weapon holstered; no DB or RPG skill edits. Unchanged Main
+RED6/9 Windows9.96s/Linux10.11s: all six real-object cases leave NoTarget4;
+point, missing-target and opted-in reload controls pass. Then the one-line fix.
+GREEN9/9 Windows10.09s/Linux10.09s: all valid object statusesOK0; native
+IExecMove desired destination stays on the same cell, turns5->1 toward target1
+and requires ITEM_ACTIVE1. The query leaves the actual actor holstered, position,
+AP46, HP, ammo32, orders and RNG unchanged until execution. Existing extra-AP
+preview17, object class01142170, native Start AP46->34/ammo32->31, actual door
+save/reference/factory roundtrip and target-free NoTarget4 semantics remain.
+This proves the real preparation plan, not a fully executed draw/shot animation,
+bullet impact, missing-hull lifecycle, rendered UI or whole-world save.
+
+Fresh Windows ALL_BUILD136/136 related143.33s; Linux Game/helpers134/134 142.50s,
+covering object/unit/point shots, cannon, sniping, reload, facing, doors, melee,
+inventory/actions/commands and attack paths. Local asset-free CI290/290 24.25s.
+Five exact raw logs9/9/136/134/290, no failed/not-run/NUL, runners0 and exact
+registered names verified. The preceding90f broad214/212 cover/bullet checks
+are fresh predecessor evidence, not falsely claimed rerun for this one line.
+Shared builds reused, HD generation OFF, no per-bug source/build copies and
+owned tests exit. Final actual-HEAD hosted Actions remains due after all
+useful imports. Ledger148 imported/18partial/72pending =90 unfinished sources.

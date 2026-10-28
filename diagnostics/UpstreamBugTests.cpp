@@ -17276,6 +17276,11 @@ static void NativeObjectShot(const char* databasePath,const char* resourcePath,i
         if(door || attempts>=80)break;
     }
     Require(door && executor,"object shot fixture has no real authored door with an available native firearm approach");
+    if(mode==8) {
+        auto away=actor->GetPosition();away.pos.p.SetDirection((away.pos.p.GetDirection()+4)&7);
+        world->GetTime()->Set(world->GetTime()->GetValue()+1);actor->SetPosition(away);actor->animator.AlignTime();actor->animator.PlaceUnit(away);
+        actor->animator.SetActiveItem(false);actor->SetUndrawItem(true);actor->SetWalkWithoutWeapon(true);MarkNewDGFrame();map->Sync();
+    }
     const int ap=actor->GetAP(),vp=actor->GetUnitRPG()->GetTotalVP(),ammo=weapon->GetAmmoQuantity();const auto position=actor->GetPosition();auto random=GlobalGameRandom();
     const int extra=mode==1?5:0;CObj<NWorld::CCmd> command;
     if(mode==3)command=new NWorld::CCmdShootTile(targetPoint);
@@ -17287,9 +17292,21 @@ static void NativeObjectShot(const char* databasePath,const char* resourcePath,i
     std::printf("native object shot factory: mode=%d attempts=%d type=%08x result=%d extra=%d AP=%d ammo=%d\n",mode,attempts,type,int(result),extra,actor->GetAP(),weapon->GetAmmoQuantity());std::fflush(stdout);
     Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==vp && actor->GetPosition()==position && weapon->GetAmmoQuantity()==expectedAmmo && !actor->HasCommand(),"object shot preview changed native AP/health/position/ammo/orders");
     if(mode!=6)Require(random.Get()==GlobalGameRandom().Get(),"object shot preview consumed native gameplay RNG");
+    if(mode==7 || mode==8) {
+        std::printf("native object preparation status: mode=%d result=%d expected=%d\n",mode,int(result),int(NWorld::UCR_OK));std::fflush(stdout);
+        Require(executor && shot && result==NWorld::UCR_OK,"native object approach preparation retained a missing-target status for a real object");
+        if(mode==8) {
+            auto* move=dynamic_cast<NWorld::IExecMove*>(executor.GetPtr());Require(move,"holstered object attack has no native preparation queue");
+            NAI::SPathPlace destination;NAI::EFindPathParams params;NWorld::ENeedActiveItem active;move->GetDesiredPlace(&destination,&params,&active);
+            const auto aimed=NRPG::GetShootDirection(network,position.pos.p,targetPoint);
+            std::printf("native object preparation destination: beforeDir=%d desiredDir=%d targetDir=%d active=%d sameCell=%d\n",int(position.pos.p.GetDirection()),int(destination.GetDirection()),int(aimed),int(active),int(destination.GetX()==position.pos.p.GetX() && destination.GetY()==position.pos.p.GetY() && destination.GetLayer()==position.pos.p.GetLayer()));std::fflush(stdout);
+            Require(destination.GetX()==position.pos.p.GetX() && destination.GetY()==position.pos.p.GetY() && destination.GetLayer()==position.pos.p.GetLayer() && destination.GetDirection()!=position.pos.p.GetDirection() && active==NWorld::ITEM_ACTIVE,"native object preparation lost its facing/draw constraint or walked away from the firing cell");
+            Require(!actor->animator.IsActiveItem() && actor->GetUndrawItem() && actor->IsWalkingWithoutWeapon(),"object preparation query executed its weapon activation early");
+        }
+        return;
+    }
     if(mode==6){Require(executor && result==NWorld::UCR_OK_RELOAD && !shot,"object shot lost the native empty-clip reload fallback");return;}
-    // The separately tracked bba81b7c preparation bug can leave NO_TARGET on an existing object queue.
-    Require(executor && shot && (mode==4?result==NWorld::UCR_NO_TARGET:mode==3?result==NWorld::UCR_OK:(result==NWorld::UCR_OK || result==NWorld::UCR_NO_TARGET)),"object shot factory changed a native availability control");
+    Require(executor && shot && result==(mode==4?NWorld::UCR_NO_TARGET:NWorld::UCR_OK),"object shot factory changed a native availability control");
     if(mode==3 || mode==4){Require(type==int(mode==3?0x00122173:0x00422170),"point/missing-target attack lost its existing executor kind");return;}
     if(mode==0){Require(type==int(0x01142170),"world object attack discarded its native object identity by becoming a point shot");return;}
     if(mode==1) {
@@ -24463,6 +24480,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "cancelled-equipment-hidden-item-pose")) { Require(argc == 4, "equipment cancellation requires db and res"); CancelledInventoryHiddenItemPose(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "spent-medkit-pose-cleanup")) { Require(argc == 4, "spent medkit requires db and res"); SpentMedkitPoseCleanup(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "spent-picklock-pose-cleanup")) { Require(argc == 4, "spent picklock requires db and res"); SpentPicklockPoseCleanup(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "object-preparation-status") && argc == 4) { NativeObjectShot(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "object-preparation-holstered") && argc == 4) { NativeObjectShot(argv[2],argv[3],8); return true; }
     if (!std::strcmp(mode, "object-shot-identity") && argc == 4) { NativeObjectShot(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "object-shot-extra-ap") && argc == 4) { NativeObjectShot(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "object-shot-saved-target") && argc == 4) { NativeObjectShot(argv[2],argv[3],2); return true; }

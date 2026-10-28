@@ -199,7 +199,7 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdShootTile 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdShootObject *pCmd, vector<NAI::SPathPlace> *pRes )
 {
-	CDynamicCast<CUnitServer> pTarget( pCmd->pTarget );
+	CPtr<CObjectBase> pTarget = pCmd->pTarget;
 	if ( !IsValid( pTarget ) )
 		return UCR_NO_TARGET;
 
