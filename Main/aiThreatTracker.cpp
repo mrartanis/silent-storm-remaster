@@ -123,7 +123,7 @@ void CAIEventTrackerImpl::ThrowAIEvent( IAIEvent *pEvent )
 	{
 		SAIUnitState *pState = pIface->GetAIUnitState();
 		if ( pState != 0 )
-			pState->Notify( pEvent );
+			pState->OnAIEvent( pEvent );
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

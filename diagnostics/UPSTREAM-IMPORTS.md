@@ -9324,3 +9324,67 @@ are deliberately retained. Source2de can be marked imported; counts134imported/
 legacy to-hit environment entry points are outside this source's new claims.
 ALL281 and final actual-HEAD hosted GitHub Actions remain open; owned test processes
 must exit, shared builds reused with HD generation OFF, no old per-bug copies.
+
+
+## 53c51af4 / 2eee1b62 / 81d0e839 - distinguish immediate world events from reaction contact edits
+
+The current tracker delivered world AI events through SAIUnitState.Notify, which
+holds all three contact collection locks. Meanwhile SetModified ignored those
+locks. The second mismatch masked the first: world sightings appeared to update,
+but reaction-side edits incorrectly armed new dirty flags and further reactions.
+Restore the original pair together: nonvirtual OnAIEvent delivers immediately
+without adding or clearing locks; SetModified records a new mark only at nLock<1.
+Existing Notify retains the fork's active standalone adapter, strong event/unit
+ownership, RAII nested/exception cleanup and preservation of pre-existing marks.
+No IAIUnit virtual API/layout, serializers, AI coefficients or authored data change.
+
+New native tests use a real deployed party and live hostile/allied server units,
+the actual inline serialized tracker and concrete AI contact events. Initial
+fixture compilation used unavailable cout/GetVP; correct to printf/GetTotalVP.
+The first world setup lacked a hostile party; deploy the standard fixture party
+before taking behavioral RED. Neither setup failure counts as bug evidence.
+Authoritative RED2/4: immediate callback depth1 instead of0; reaction contact
+dirty flags111 instead of000. Global sighting and invalid-owner controls pass.
+Apply only lock-aware marking temporarily: reaction control passes, but actual
+NGlobal CEventOnSeeNewEnemy no longer arms its contact update (RED2/4 including
+the still-wrong callback depth). This independently demonstrates why the route
+and marking must be one coherent fix. Add immediate delivery: final GREEN8/8
+9.05s, including four new cases, nested/throwing Notify and fresh/restored/legacy
+owner serialization. Immediate nested events inherit depth0; an incoming depth2
+is preserved rather than reset. Guards reject null/invalid events, absent state
+owner/server/state and invalid bound owner. Real reaction edits modify membership
+without arming new flags, retain existing flags, then derive real hostile/ally
+targets when Update consumes those marks. Real global sighting selects its hostile
+and arms the reaction. Native actor AP/HP/full position remain unchanged.
+
+Original proof: PDB Gold ThrowAIEvent4a9540/184 calls bound-owner slot0 at4a95d0.
+Unique CAIUnit RTTI secondary offset8 COL8d2740/vtable8a697c points to thunk4adb20
+->named OnAIEvent4ac610 ->named state4af5f0 at4ac674. Same named Steam RTTI offset8
+COL8e1dd8/vtable8b5a60 ->thunk4af2e0 ->4ade00 ->state4b0e40 at4ade64. Verified
+direct relative operands and exact thunk bytes, no guessed address offsets.
+State Modify4b0ebd has no collection lock changes. Notify4b0ef0 (owner call4addd4)
+increments0c/34/5c at4b0f73/76/7b around Modify4b0f81 and restores4b0f87/8a/8d.
+Named Gold AddEnemy4b0140/151 contains compare lock0/jg/dirty-write4b01bf..c5;
+the exact14-byte unmasked instruction block occurs once in each image, Steam
+4b1a0f. Membership still updates after the guarded dirty write. Upstream source
+address4b0dd0 was stale for this Steam binary; do not copy that annotation.
+Evidence ai-contact-dispatch-retail-oracle.json and matching original disassembly.
+
+Fresh Windows ALL_BUILD and Linux Game/native helper builds pass. Final related
+Windows64/64 60.37s and Linux62/62 55.59s include contact/owner/reaction/commander/
+perception/position/save/turn cases; Windows also serializer+stop-resume. Local
+asset-free CI290/290 24.47s passes; the new asset-dependent cases are explicitly in the
+related set. All4 raw logs have exact8/64/62/290 passed records, no NUL/Failed/
+NotRun/missing executable; actual runner exits0. Evidence ai-contact-dispatch-
+{red-native,lock-only,final-focused,final-related,final-linux,final-ci}. No full
+mission-playthrough or hosted Actions success is claimed. Shared builds reused,
+HD generation OFF; owned test processes exited. Fonts/facial engine untouched.
+
+Source53 complete. All d247 source files are accounted: earlier independent
+identity/save, selected-contact, death/KillEmAll and live-position stages plus
+this immediate route. Its standalone no-op is deliberately adapted to retain
+the fork's supported Notify behavior. Source81 remains partial: pose caches,
+eligibility and duplicate membership refresh are separate follow-ups. Source2eee
+retains pending snapshot/roster/alarm consumers. Current281 counts:136imported/
+20partial/82pending (102unfinished); ALL281 and final actual-HEAD hosted Actions
+verification/repair remain open.

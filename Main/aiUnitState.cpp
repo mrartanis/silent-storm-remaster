@@ -62,6 +62,17 @@ IAIUnit *FindNearestUnit( IAIUnit *pSelf, vector< CPtr<IAIUnit> > &units )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 SAIUnitState::SAIUnitState(): bHelpCalled( false ), bScared( false ) {}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void SAIUnitState::OnAIEvent( IAIEvent *pEvent )
+{
+	// Original immediate world delivery: no reaction-side collection locks.
+	if ( !IsValid( pEvent ) )
+		return;
+	CObj<IAIEvent> event = pEvent;
+	CObj<IAIUnit> unit = pUnit.GetPtr();
+	if ( IsValid( unit ) && IsValid( unit->GetUnitServer() ) && unit->GetUnitServer()->CanFight() )
+		event->Modify( this );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void SAIUnitState::Notify( IAIEvent *pEvent )
 {
 	// Retail v1.2 0x4b0e80: defer consuming contact dirty flags during delivery.

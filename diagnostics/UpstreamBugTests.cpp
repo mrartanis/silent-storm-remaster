@@ -12466,6 +12466,140 @@ static void AIEventCollectionLocks(const char* databasePath, const char* resourc
         "throwing AI callback leaked contact collection locks");
 }
 
+class AIImmediateEventProbe: public NAI::IAIEvent
+{
+    OBJECT_NOCOPY_METHODS(AIImmediateEventProbe);
+public:
+    CPtr<NAI::CAIEventTrackerImpl> tracker;
+    CObj<NAI::IAIEvent> nested;
+    int expectedDepth = 0, calls = 0;
+    bool throwAfterDelivery = false;
+    void Modify(NAI::SAIUnitState* state) override {
+        ++calls;
+        std::printf("world AI callback depth=%d expected=%d\n", state->enemies.nLock, expectedDepth);
+        Require(state->enemies.nLock == expectedDepth && state->possibleEnemies.nLock == expectedDepth
+                && state->allies.nLock == expectedDepth,
+            "world AI event incorrectly acquired reaction-side contact collection locks");
+        state->enemies.SetModified(); state->possibleEnemies.SetModified(); state->allies.SetModified();
+        Require(state->enemies.bModified == (expectedDepth < 1)
+                && state->possibleEnemies.bModified == (expectedDepth < 1)
+                && state->allies.bModified == (expectedDepth < 1),
+            "world AI event did not respect its inherited contact lock depth");
+        if (IsValid(nested)) tracker->ThrowAIEvent(nested);
+        Require(state->enemies.nLock == expectedDepth && state->possibleEnemies.nLock == expectedDepth
+                && state->allies.nLock == expectedDepth, "nested world AI event changed caller lock depths");
+        if (throwAfterDelivery) throw AICollectionCallbackException();
+    }
+};
+
+static void AIContactEventDispatch(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer *actor = nullptr, *enemy = nullptr, *ally = nullptr;
+    NAI::IAIUnit* owner = nullptr;
+    for (const auto& unit: units) {
+        auto* ai = NAI::GetAIUnit(unit);
+        if (IsValid(unit) && unit->CanFight() && unit->IsAIUnit() && IsValid(ai)) {
+            actor = unit.GetPtr(); owner = ai; break;
+        }
+    }
+    Require(actor && owner && owner->GetAIUnitState(), "contact event fixture has no native AI actor");
+    for (const auto& unit: units) {
+        if (!IsValid(unit) || unit.GetPtr() == actor || !unit->CanFight() || !IsValid(NAI::GetAIUnit(unit))) continue;
+        if (actor->GetDiplomacyState(unit) == NDb::DS_ENEMY) enemy = unit.GetPtr();
+        else ally = unit.GetPtr();
+    }
+    Require(enemy && ally, "contact event fixture needs native hostile and allied contacts");
+    auto* state = owner->GetAIUnitState();
+    CObj<NAI::CAIEventTrackerImpl> impl = ReadNativeAITracker(owner).GetPtr();
+    CObj<NAI::CAIEventTracker> reactionTracker = new NAI::CAIEventTracker(actor);
+    auto clear = [&]() {
+        state->enemies.data.units.clear(); state->possibleEnemies.data.units.clear(); state->allies.data.units.clear();
+        state->enemies.data.positions.clear(); state->possibleEnemies.data.positions.clear(); state->allies.data.positions.clear();
+        state->enemies.bModified = state->possibleEnemies.bModified = state->allies.bModified = false;
+        state->enemies.nLock = state->possibleEnemies.nLock = state->allies.nLock = 0;
+        state->pEnemy = state->pPossibleEnemy = state->pAlly = nullptr;
+        state->selfModified.data = state->selfModified.bModified = false;
+    };
+    const int ap = actor->GetRPG()->GetAP(), hp = actor->GetUnitRPG()->GetTotalVP();
+    const auto position = actor->GetPosition();
+    clear();
+    if (mode == 0) {
+        CObj<AIImmediateEventProbe> outer = new AIImmediateEventProbe, inner = new AIImmediateEventProbe;
+        outer->tracker = inner->tracker = impl.GetPtr(); outer->nested = inner.GetPtr();
+        impl->ThrowAIEvent(outer);
+        Require(outer->calls == 1 && inner->calls == 1, "nested immediate event was lost or duplicated");
+        state->Update();
+        Require(!state->enemies.bModified && !state->possibleEnemies.bModified && !state->allies.bModified,
+            "immediate event left dirty contact flags unconsumed after Update");
+        clear(); outer->nested = nullptr; outer->throwAfterDelivery = true;
+        bool caught = false;
+        try { impl->ThrowAIEvent(outer); } catch (const AICollectionCallbackException&) { caught = true; }
+        Require(caught && state->enemies.nLock == 0 && state->possibleEnemies.nLock == 0 && state->allies.nLock == 0,
+            "throwing immediate event corrupted collection locks");
+        clear(); outer->throwAfterDelivery = false; outer->expectedDepth = 2;
+        state->enemies.nLock = state->possibleEnemies.nLock = state->allies.nLock = 2;
+        impl->ThrowAIEvent(outer);
+        Require(state->enemies.nLock == 2 && state->possibleEnemies.nLock == 2 && state->allies.nLock == 2,
+            "immediate delivery erased inherited locks");
+        state->enemies.nLock = state->possibleEnemies.nLock = state->allies.nLock = 0;
+    } else if (mode == 1) {
+        CObj<NAI::IAIEvent> confirmed = NAI::CreateAIEnemyEvent(NAI::GetAIUnit(enemy));
+        CObj<NAI::IAIEvent> allied = NAI::CreateAIAllyNeedHelpEvent(NAI::GetAIUnit(ally));
+        reactionTracker->Notify(confirmed); reactionTracker->Notify(allied);
+        std::printf("reaction contact flags=%d,%d,%d\n", state->enemies.bModified,
+            state->possibleEnemies.bModified, state->allies.bModified);
+        Require(state->enemies.data.units.size() == 1 && state->allies.data.units.size() == 1,
+            "reaction notification failed to edit actual native contact membership");
+        Require(!state->enemies.bModified && !state->possibleEnemies.bModified && !state->allies.bModified,
+            "reaction-side contact edits incorrectly armed new collection dirty flags");
+        state->Update();
+        Require(!IsValid(state->pEnemy) && !IsValid(state->pAlly) && !state->IsModified(),
+            "reaction-side edits unexpectedly triggered threat selection or another reaction");
+        state->enemies.bModified = state->possibleEnemies.bModified = state->allies.bModified = true;
+        reactionTracker->Notify(confirmed);
+        Require(state->enemies.bModified && state->possibleEnemies.bModified && state->allies.bModified,
+            "reaction-side notification discarded pre-existing contact dirty flags");
+        state->Update();
+        Require(state->pEnemy.GetPtr() == NAI::GetAIUnit(enemy) && state->pAlly.GetPtr() == NAI::GetAIUnit(ally)
+                && !state->enemies.bModified && !state->possibleEnemies.bModified && !state->allies.bModified,
+            "pre-existing contact updates failed to derive native targets after notification");
+    } else if (mode == 2) {
+        // Use the actual globally registered world producer/consumer path, not a probe event.
+        NGlobal::ThrowEvent(NWorld::CEventOnSeeNewEnemy(actor, enemy, world->IsRealTime()));
+        Require(state->enemies.data.units.size() == 1 && state->enemies.bModified,
+            "new world sighting failed to arm its actual contact update");
+        state->Update();
+        Require(state->pEnemy.GetPtr() == NAI::GetAIUnit(enemy) && state->IsModified() && !state->enemies.bModified,
+            "world sighting failed to select the native hostile and arm its reaction");
+        std::printf("global sighting: contact selected, reaction armed, locks=%d\n", state->enemies.nLock);
+    } else {
+        CObj<ThreatOwnerFixture> bound = new ThreatOwnerFixture;
+        bound->server = actor; bound->threat.SetUnit(bound);
+        CObj<NAI::CAIEventTrackerImpl> guarded = new NAI::CAIEventTrackerImpl(bound, actor);
+        CObj<AIOwnerEventProbe> event = new AIOwnerEventProbe;
+        guarded->ThrowAIEvent(event);
+        Require(event->calls == 1 && event->received == &bound->threat, "valid bound state did not receive event");
+        guarded->ThrowAIEvent(nullptr);
+        bound->threat.SetUnit(nullptr); guarded->ThrowAIEvent(event);
+        bound->threat.SetUnit(bound); bound->server = nullptr; guarded->ThrowAIEvent(event);
+        bound->server = actor; bound->exposeThreat = false; guarded->ThrowAIEvent(event);
+        bound->exposeThreat = true;
+        CObj<AIOwnerEventProbe> invalid = new AIOwnerEventProbe; invalid->Invalidate();
+        guarded->ThrowAIEvent(invalid);
+        Require(event->calls == 1 && invalid->calls == 0, "invalid event or state owner passed immediate delivery guard");
+        bound->Invalidate(); guarded->ThrowAIEvent(event);
+        Require(event->calls == 1, "invalid bound owner was replaced during immediate event delivery");
+    }
+    Require(state->enemies.nLock == 0 && state->possibleEnemies.nLock == 0 && state->allies.nLock == 0,
+        "contact delivery retained locks after returning");
+    Require(actor->GetRPG()->GetAP() == ap && actor->GetUnitRPG()->GetTotalVP() == hp && actor->GetPosition() == position,
+        "contact event delivery changed native AP, health or position");
+}
+
 static void AIReactionResetContacts()
 {
     CObj<NAI::AIUnitFixture> contact = new NAI::AIUnitFixture;
@@ -21097,6 +21231,10 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) { AIReactionValueLatch(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "script-ai-activation") && argc == 4) { ScriptAIActivation(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-event-collection-locks") && argc == 4) { AIEventCollectionLocks(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "ai-immediate-event-dispatch") && argc == 4) { AIContactEventDispatch(argv[2], argv[3], 0); return true; }
+    if (!std::strcmp(mode, "ai-reaction-contact-edits") && argc == 4) { AIContactEventDispatch(argv[2], argv[3], 1); return true; }
+    if (!std::strcmp(mode, "ai-world-sighting-dispatch") && argc == 4) { AIContactEventDispatch(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "ai-immediate-event-guards") && argc == 4) { AIContactEventDispatch(argv[2], argv[3], 3); return true; }
     if (!std::strcmp(mode, "mission-overlay-readiness")) { MissionOverlayReadiness(); return true; }
     if (!std::strcmp(mode, "ai-player-mission-readiness")) { AIPlayerMissionReadiness(); return true; }
     if (!std::strcmp(mode, "sound-icon-visibility")) { OverlayIconVisibility(false); return true; }

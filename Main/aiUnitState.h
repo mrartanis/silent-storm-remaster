@@ -25,7 +25,7 @@ class IAIUnit;
 class IAIEvent;
 struct SAIState;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// SModifiable<T> - a value with a dirty flag + a lock that defers clearing the flag during iteration.
+// SModifiable<T> - locks suppress new dirty marks and defer consuming existing marks.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 struct SModifiable
@@ -34,7 +34,7 @@ struct SModifiable
 	bool bModified;
 	T    data;
 	SModifiable(): nLock( 0 ), bModified( false ), data() {}
-	void SetModified() { bModified = true; }
+	void SetModified() { if ( nLock < 1 ) bModified = true; }
 	// retail @0xb00e0 (bool) / @0xb0150 (SUnitsAndPositions): nLock + flag + payload.
 	int operator&( CStructureSaver &f ) { f.Add( 2, &nLock ); f.Add( 3, &bModified ); f.Add( 4, &data ); return 0; }
 };
@@ -69,6 +69,7 @@ struct SAIUnitState
 	SAIUnitState();
 	void SetUnit( IAIUnit *_pUnit ) { pUnit = _pUnit; }
 	void Notify( IAIEvent *pEvent );
+	void OnAIEvent( IAIEvent *pEvent ); // World delivery preserves the caller's collection lock depths.
 	//
 	void AddEnemy( IAIUnit *p );           void RemoveEnemy( IAIUnit *p );
 	void AddPossibleEnemy( IAIUnit *p );   void RemovePossibleEnemy( IAIUnit *p );

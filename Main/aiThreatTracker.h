@@ -79,7 +79,7 @@ public:
 	void OnAttack   ( const NWorld::CEventOnAttackAtUnit &e );
 	void OnUnhide   ( const NWorld::CEventOnUnitUnhide &e );
 
-	void ThrowAIEvent( IAIEvent *pEvent );   // gate on a live, fight-capable, AI-driven unit -> Notify
+	void ThrowAIEvent( IAIEvent *pEvent );   // gate on a live, fight-capable, AI-driven unit -> immediate OnAIEvent
 	void CheckForVisibleCorpses();
 	void ProcessAISegment();
 };
