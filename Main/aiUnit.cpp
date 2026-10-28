@@ -780,6 +780,8 @@ void CAIUnit::SpendAP( int _nAP )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CAIUnit::GetToHit( IAIUnit *pTarget, const NAI::SUnitPosition &pos, NAI::EHitLocation hl )
 {
+	if ( !IsValid( pTarget ) )
+		return 0;
 	int nToHit = 100;
 	// The default firearm belongs to the shooter, not the target.
 	CPtr<CAIFireArmsWeapon> pWeapon = GetAIInventory()->GetCurrentFireArms();

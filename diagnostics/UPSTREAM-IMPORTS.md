@@ -10951,3 +10951,68 @@ tests exit; final hosted Actions verification is still due after all imports.
 Source becomes partial only;
 counts141 imported/19 partial/78 pending=97unfinished among281 decisions.
 Full transfer and final actual-HEAD hosted Actions verification remain open.
+
+
+## 2026-10-28 — reject missing/invalid AI hit-prediction targets (66fc9e9a, partial)
+
+Source: [66fc9e9ad26497bf41f96a1a8c51c8a03e951718](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/66fc9e9ad26497bf41f96a1a8c51c8a03e951718).
+Separate from the preceding shooter's-weapon fix9b4b5602: an armed AI hit
+query dereferenced null pTarget, or used a ref-invalid native wrapper whose
+server fields had already been cleared. Add only IsValid(pTarget) return0
+at entry, before reading equipment, cover or accuracy. Preserve own API,
+weapon-owner fix, int cover/nonfinite guards, rocket policy and all game data.
+This rejects missing/ref-invalid managed references, not arbitrary freed pointers.
+
+Five real FixtureWorld profiles select actual native AI wrappers with a
+positive valid-target baseline100. Keep an owning reference to the wrapper;
+for invalid cases call its existing CObjectBase.Invalidate(), which marks it
+invalid and clears its fields without freeing the held object. The native
+server remains owned by the real world. Cases: null+armed, invalid+armed,
+null+empty-planning-hand, valid target, invalid+empty hand. Three controls
+pass before the fix (including invalid-target teardown), isolating the crash
+to the armed prediction call. No fake cover/calculator or collision data.
+Only the separate planning hand changes in the two empty controls; restore
+it via RAII. Check positions/AP/HP/equipment/commands/RNG after each query.
+
+First native builds/run have no compiler or fixture failures. Authoritative
+RED Windows2SEGFAULT/5 in5.48s, Linux2SEGFAULT/5 in5.49s. Both armed cases log
+their valid100 baseline and expected missing/invalid input, then crash before
+return; the three controls return0/100/0. Linux core dumps disabled, no copies
+of games/builds or crash dumps retained. Production remained unchanged until
+both REDs and native debugger confirmation completed.
+
+CDB confirms two separate reads in the intended query path: null pTarget
+read address0 in NAI::CAIUnit::GetToHit+8d; held ref-invalid wrapper proceeds
+to NRPG::CAIUnitToHitCalcer then NAI::CAIUnit::GetPosition+14, reading228 from
+its cleared server. Both stacks include AIToHitTargetValidity+732. Debuggers
+quit their own test processes after recording exception c0000005 and stacks;
+debugger exit0 is NOT treated as a passing runtime test. Text evidence
+ai-tohit-target-null-cdb.log /ai-tohit-target-invalid-cdb.log.
+
+Original guard proof: same typed Gold GetToHit4ac1e0/230 ->Steam4ad9c0/230,
+unmasked24/32/40 unique in both and ret16/CC. After pushEBX, [esp8] loads
+original arg1 target intoEBX. testEBX +je at+0b reaches+21 returnEAX0. Nonnull
+target resolves its virtual CObjectBase and tests ref-invalid highbit80000000;
+invalid falls into the same+21 return, valid branches+29. Guard precedes
+own-inventory fallback and every target server/position/calculator access.
+Instruction blocks checked in BOTH mapped originals, not stale source VAs.
+lab/audit-ai-tohit-target.py ->ai-tohit-target-retail-oracle.json exits0.
+
+Production adds one two-line guard. GREEN56/56 Windows62.29s/Linux62.58s;
+the two crashing queries return0, valid control100 and both empty-hand
+controls0 remain. All five entry/result profiles match between platforms;
+all previous51 measured owner/cover profiles remain unchanged per platform.
+
+Final fresh Windows ALL_BUILD276/276 related296.93s plus6/6 context/decal3.37s;
+Linux Game/helpers274/274 related295.15s plus6/6 context/decal3.41s; full local
+asset-free CI290/29024.28s. Seven raw logs56/56/276/274/6/6/290 have exact
+pass counts, no Failed/NotRun/NUL; all runners exit0. Both CDB exception paths
+and both native SEGFAULT REDs are separately verified, not confused with
+successful debugger exit. verify-ai-tohit-target.py ->shared evidence
+ai-tohit-target-final-verification.json. HD caches OFF, shared builds only;
+owned tests/debuggers exited, Linux cores disabled, no heavy per-bug copies.
+
+Source66fc9e9a remains partial; own-server
+validity, optional chosen snipe weapon, float-cover/NaN and four-AP flee-budget
+hunks remain independent. Counts141 imported/19 partial/78 pending=97unfinished
+among281. Full transfer and final actual-HEAD hosted Actions verification remain.

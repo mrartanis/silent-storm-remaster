@@ -8386,6 +8386,46 @@ static void AIToHitWeaponOwner(const char* databasePath,const char* resourcePath
     Require(actual==expected,"AI hit prediction used the target's current firearm instead of the shooter's own planning hand");
 }
 
+static void AIToHitTargetValidity(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);
+    for(const auto& server:units)if(IsValid(server) && server->CanFight() && IsValid(NAI::GetAIUnit(server)))NAI::GetAIUnit(server)->Synchronize(false);
+    CObj<NAI::IAIUnit> actor,target;int baseline=0;
+    for(const auto& server:units) {
+        if(!IsValid(server) || !server->CanFight() || server->HasCommand() || !server->IsAIUnit() || server->IsWearingPK() || server->IsEmptyPK() || server->animator.GetCannon())continue;
+        auto* shooter=NAI::GetAIUnit(server);
+        if(!IsValid(shooter) || !IsValid(shooter->GetAIInventory()) || !IsValid(shooter->GetAIInventory()->GetCurrentFireArms()))continue;
+        for(const auto& other:units) {
+            if(!IsValid(other) || other.GetPtr()==server.GetPtr() || !other->CanFight() || other->IsEmptyPK() || other->IsWearingPK())continue;
+            auto* victim=NAI::GetAIUnit(other);if(!IsValid(victim))continue;
+            const int score=shooter->GetToHit(victim,shooter->GetUnitPosition(),NAI::HL_ANY);
+            if(score>0){actor=shooter;target=victim;baseline=score;break;}
+        }
+        if(actor)break;
+    }
+    Require(actor && target && baseline>0,"target-validity fixture has no independently positive native armed hit prediction");
+    CPtr<NWorld::CUnitServer> actorServer=actor->GetUnitServer(),targetServer=target->GetUnitServer();
+    auto* inventory=actor->GetAIInventory();CObj<NAI::IAIInventoryItem> held=inventory->GetCurrentItem();
+    struct Restore{NAI::CAIInventory* inventory;CObj<NAI::IAIInventoryItem> held;~Restore(){inventory->SetCurrentItem(held);}}restore{inventory,held};
+    const bool empty=mode==2 || mode==4,invalid=mode==1 || mode==4,valid=mode==3;
+    if(empty)inventory->SetCurrentItem(nullptr);
+    if(invalid){target->Invalidate();Require(!IsValid(target) && target.GetPtr()!=nullptr,"target-validity fixture did not retain an actually invalid native AI wrapper");}
+    NAI::IAIUnit* argument=invalid || valid?target.GetPtr():nullptr;
+    const auto actorPosition=actorServer->GetPosition(),targetPosition=targetServer->GetPosition();
+    const int ap=actorServer->GetAP(),hp=actorServer->GetUnitRPG()->GetTotalVP(),targetHP=targetServer->GetUnitRPG()->GetTotalVP();
+    auto* equipped=actorServer->GetUnitRPG()->GetInventory()->GetActive();const bool command=actorServer->HasCommand();
+    GlobalGameRandom().SeedForHarness(0x77da);auto rng=GlobalGameRandom();
+    std::printf("native AI target validity entry: mode=%d empty=%d invalid=%d valid=%d baseline=%d\n",mode,int(empty),int(invalid),int(valid),baseline);std::fflush(stdout);
+    const int actual=actor->GetToHit(argument,actor->GetUnitPosition(),NAI::HL_ANY),expected=valid?baseline:0;
+    std::printf("native AI target validity result: mode=%d actual=%d expected=%d\n",mode,actual,expected);std::fflush(stdout);
+    Require(actorServer->GetPosition()==actorPosition && targetServer->GetPosition()==targetPosition && actorServer->GetAP()==ap
+        && actorServer->GetUnitRPG()->GetTotalVP()==hp && targetServer->GetUnitRPG()->GetTotalVP()==targetHP
+        && actorServer->GetUnitRPG()->GetInventory()->GetActive()==equipped && actorServer->HasCommand()==command
+        && rng.Get()==GlobalGameRandom().Get(),"AI target prediction changed native gameplay, equipment or RNG");
+    Require(actual==expected,"AI hit prediction evaluated a missing or invalid target instead of returning zero");
+}
+
 static void AICoverRange(const char* databasePath,const char* resourcePath,int mode)
 {
     const bool human=mode==2 || mode==4 || mode==6 || mode==7;
@@ -24021,6 +24061,11 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-tohit-weapon-empty-armed") && argc == 4) { AIToHitWeaponOwner(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-tohit-weapon-both-armed") && argc == 4) { AIToHitWeaponOwner(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "ai-tohit-weapon-both-empty") && argc == 4) { AIToHitWeaponOwner(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "ai-tohit-target-null-armed") && argc == 4) { AIToHitTargetValidity(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ai-tohit-target-invalid-armed") && argc == 4) { AIToHitTargetValidity(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ai-tohit-target-null-empty") && argc == 4) { AIToHitTargetValidity(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ai-tohit-target-valid-control") && argc == 4) { AIToHitTargetValidity(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "ai-tohit-target-invalid-empty") && argc == 4) { AIToHitTargetValidity(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-near-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-cover-range-human-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],2); return true; }
