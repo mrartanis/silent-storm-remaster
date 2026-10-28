@@ -8148,6 +8148,100 @@ static void AICoverProjection(const char* databasePath,const char* resourcePath,
         && (!pk || (target->IsWearingPK() && target->GetDecalsRef()==shell.GetPtr() && shell->GetUnitRPG()->GetTotalVP()==shellHP)),"projection queries changed gameplay state or the fork's PK ownership");
 }
 
+namespace NWorld
+{
+    int GetMask(NDb::CAIGeometry* geometry,NDb::CRPGArmor* armor);
+}
+class CoverMaskObstacle: public CObjectBase
+{
+    OBJECT_NOCOPY_METHODS(CoverMaskObstacle);
+};
+// Both boxes use the actual native rasterizer; the real world supplies the
+// units, weapon, armor, target locator and projection. No hit result is injected.
+class CoverMaskMapProbe: public CoverProjectionMapProbe
+{
+    OBJECT_NOCOPY_METHODS(CoverMaskMapProbe);
+public:
+    CObj<CoverProjectionMapProbe> obstacle;
+    CObj<CoverMaskObstacle> owner;
+    bool enabled=false;
+    int obstacleHits=0,nearHits=0,selectedGrids=0;
+    explicit CoverMaskMapProbe(NAI::IAIMap* map=nullptr): CoverProjectionMapProbe(map) {
+        obstacle=new CoverProjectionMapProbe(map);owner=new CoverMaskObstacle;
+    }
+    void TraceGrid(NAI::CFastRenderer* grid,int mask,ESort sort,const NAI::CFloorsSet& floors,ESplitTerrainHGroups split,bool doors) override {
+        CoverProjectionMapProbe::TraceGrid(grid,mask,sort,floors,split,doors);
+        if(!enabled || !(mask&obstacle->surface.nTSFlags))return;
+        ++selectedGrids;
+        NAI::SConvexHull hull(obstacle->points,obstacle->edges,obstacle->transform,obstacle->surface,NAI::HL_BODY,vector<CPtr<NAI::CPrecalcSpheres>>{});
+        grid->TraceEntity(hull,false);grid->SortIntervals();
+        for(int y=0;y<grid->resGrid.GetYSize();++y)for(int x=0;x<grid->resGrid.GetXSize();++x)
+            for(auto* hit=grid->resGrid[y][x];hit;hit=hit->pNext)if(&hit->GetInfo()==&obstacle->surface) {
+                ++obstacleHits;if(hit->fEnter<1.f)++nearHits;
+            }
+    }
+    void Reset(){traces.clear();intersections=directInside=projectedInside=primaryHits=secondaryHits=obstacleHits=nearHits=selectedGrids=0;}
+};
+static void AICoverMask(const char* databasePath,const char* resourcePath,int mode)
+{
+    const int role=mode<12?mode/4:mode==12?0:2,kind=mode<12?mode%4:0;
+    const bool human=role!=0,low=role==2,ignored=mode==12,farObstacle=mode==13;
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> all;world->GetAllUnits(&all);
+    NWorld::CUnitServer *actor=nullptr,*target=nullptr;NRPG::IWeaponItem* firearm=nullptr;
+    for(const auto& unit:all) {
+        if(!IsValid(unit) || !unit->CanFight() || unit->HasCommand() || unit->IsEmptyPK() || unit->IsWearingPK() || unit->animator.GetCannon())continue;
+        auto* weapon=dynamic_cast<NRPG::IWeaponItem*>(unit->GetUnitRPG()->GetInventory()->GetActive());
+        if(weapon && weapon->GetAmmoQuantity()>0 && weapon->SetShootMode(NDb::SM_Snap)){actor=unit.GetPtr();firearm=weapon;break;}
+    }
+    Require(actor && firearm,"mask fixture has no armed native actor");
+    for(const auto& unit:all)if(IsValid(unit) && unit.GetPtr()!=actor && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()
+        && actor->GetDiplomacyState(unit)==NDb::DS_ENEMY){target=unit.GetPtr();break;}
+    Require(target,"mask fixture has no native enemy target");
+    NRPG::IGame* game=world->GetGame();CPtr<NAI::IAIMap> original;
+    {CStructureNetworkContext refs;auto fields=BorrowedObjectFields(game,&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&original);}
+    CVec3 aim;Require(original.GetPtr()==world->GetAIMap() && original->GetUnitHLPos(&aim,original->GetHull(target),NAI::HL_ANY),"mask fixture has no native target locator");
+    const CVec3 source=aim-CVec3(0,8.f,0);
+    CObj<CoverMaskMapProbe> probe=new CoverMaskMapProbe(original);probe->source=source;probe->cutoff=9.f;
+    probe->Box(target,source+(low?CVec3(2.8f,7.8f,2.8f):CVec3(-.4f,7.8f,-.4f)),
+        source+(low?CVec3(3.2f,7.81f,3.2f):CVec3(.4f,7.81f,.4f)));
+    const float plane=farObstacle?2.f:.3f;
+    probe->obstacle->Box(target,source+CVec3(-.25f,plane-.2f,-.25f),source+CVec3(.25f,plane+.2f,.25f));
+    auto& surface=probe->obstacle->surface;
+    CObj<NDb::CAIGeometry> geometry=new NDb::CAIGeometry;
+    geometry->traficability=static_cast<NDb::ETrafic>(kind==1?NDb::TR_PASS:kind==2?NDb::TR_ITEM_BLOCKER:NDb::TR_PASS|NDb::TR_ITEM_BLOCKER);
+    surface.nTSFlags=NWorld::GetMask(geometry,surface.pArmor);
+    if(kind==3)surface.nTSFlags=NWorld::TS_FRAGMENTED|NWorld::TS_WEAPON_BLOCKER;
+    surface.pUserData=ignored?static_cast<CObjectBase*>(actor):probe->owner.GetPtr();
+    Require(surface.nTSFlags==(kind==0?0x8508:kind==1?0x508:kind==2?0x8008:0x410),"native geometry classification changed the original item/pass/cover categories");
+    vector<NRPG::CAttackPortion> attacks;actor->GetUnitRPG()->CreateAttack(&attacks,false);
+    Require(!attacks.empty() && attacks.front().nK>0 && !attacks.front().IsArmorIgnored(probe->surface.pArmor),"mask fixture has no native attack/target material");
+    struct Restore{NRPG::IGame* game;CPtr<NAI::IAIMap> map;~Restore(){SetCoverProbeMap(game,map);}}restore{game,original};SetCoverProbeMap(game,probe);
+    const auto actorPosition=actor->GetPosition(),targetPosition=target->GetPosition();
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),targetHP=target->GetUnitRPG()->GetTotalVP(),ammo=firearm->GetAmmoQuantity();
+    const bool command=actor->HasCommand();GlobalGameRandom().SeedForHarness(0x74da);auto beforeRandom=GlobalGameRandom();
+    auto query=[&]() {
+        if(!human)return game->GetCoverForAIUnit(source,actor,target,attacks.front(),NAI::HL_ANY);
+        CObj<NRPG::CCoverInfo> cover=game->CalcCovers(source,attacks.front(),actor,target,NAI::HL_ANY,1.f,false);
+        return NRPG::GetHitCover(actor,cover);
+    };
+    const int baseline=query();
+    Require(baseline>0 && probe->intersections>0,"mask fixture has no positive native target baseline");
+    if(low)Require(probe->primaryHits==0 && probe->secondaryHits>0,"mask fixture did not isolate the low-resolution target grid");
+    probe->Reset();probe->enabled=true;const int actual=query();
+    std::printf("native cover mask: mode=%d role=%d flags=%x baseline=%d score=%d target=%d primary=%d secondary=%d obstacle=%d near=%d selected=%d grids=%zu ignored=%d farObstacle=%d\n",
+        mode,role,surface.nTSFlags,baseline,actual,probe->intersections,probe->primaryHits,probe->secondaryHits,probe->obstacleHits,probe->nearHits,probe->selectedGrids,probe->traces.size(),int(ignored),int(farObstacle));std::fflush(stdout);
+    Require(probe->traces.size()==(human?2u:1u) && probe->intersections>0,"mask query lost native target intersections or projection grids");
+    for(const auto& trace:probe->traces)Require(fabs(trace.origin-source)<2e-4f,"mask query changed the native projection origin");
+    if(low)Require(probe->primaryHits==0 && probe->secondaryHits>0,"mask query no longer exercises the low-resolution target grid");
+    if(kind==1 || kind==3)Require(probe->selectedGrids==0 && probe->obstacleHits==0,"preview/AI selected an original-excluded pass-only or fragmented-only obstacle");
+    if(probe->selectedGrids)Require(probe->obstacleHits>0 && (farObstacle?probe->nearHits==0:probe->nearHits==probe->obstacleHits),"native obstacle rasterization missed the intended muzzle-clearance interval");
+    Require(GlobalGameRandom().Get()==beforeRandom.Get() && actor->GetPosition()==actorPosition && target->GetPosition()==targetPosition
+        && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && target->GetUnitRPG()->GetTotalVP()==targetHP
+        && firearm->GetAmmoQuantity()==ammo && actor->HasCommand()==command,"mask queries changed native gameplay state or RNG");
+    Require(kind==0 && !ignored && !farObstacle?actual<=0:actual==baseline,"unit cover sampling missed an item-blocking muzzle obstacle or changed an original category/ignore/distance control");
+}
+
 static void AICoverRange(const char* databasePath,const char* resourcePath,int mode)
 {
     const bool human=mode==2 || mode==4 || mode==6 || mode==7;
@@ -23764,6 +23858,20 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-cover-projection-tile-far-ally") && argc == 4) { AICoverProjection(argv[2],argv[3],5); return true; }
     if (!std::strcmp(mode, "ai-cover-projection-tile-near-ally") && argc == 4) { AICoverProjection(argv[2],argv[3],6); return true; }
     if (!std::strcmp(mode, "ai-cover-projection-pk-unit-near") && argc == 4) { AICoverProjection(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "ai-cover-mask-ai-itemmuzzle") && argc == 4) { AICoverMask(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ai-cover-mask-ai-passonly") && argc == 4) { AICoverMask(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ai-cover-mask-ai-itemonly") && argc == 4) { AICoverMask(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ai-cover-mask-ai-fragmentonly") && argc == 4) { AICoverMask(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "ai-cover-mask-previewhigh-itemmuzzle") && argc == 4) { AICoverMask(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "ai-cover-mask-previewhigh-passonly") && argc == 4) { AICoverMask(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "ai-cover-mask-previewhigh-itemonly") && argc == 4) { AICoverMask(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "ai-cover-mask-previewhigh-fragmentonly") && argc == 4) { AICoverMask(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "ai-cover-mask-previewlow-itemmuzzle") && argc == 4) { AICoverMask(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "ai-cover-mask-previewlow-passonly") && argc == 4) { AICoverMask(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "ai-cover-mask-previewlow-itemonly") && argc == 4) { AICoverMask(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "ai-cover-mask-previewlow-fragmentonly") && argc == 4) { AICoverMask(argv[2],argv[3],11); return true; }
+    if (!std::strcmp(mode, "ai-cover-mask-ai-ignored") && argc == 4) { AICoverMask(argv[2],argv[3],12); return true; }
+    if (!std::strcmp(mode, "ai-cover-mask-preview-low-far") && argc == 4) { AICoverMask(argv[2],argv[3],13); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-near-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-cover-range-human-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],2); return true; }

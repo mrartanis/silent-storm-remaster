@@ -380,9 +380,11 @@ CCoverInfo* CGame::CalcCovers( const CVec3 &src, const CAttackPortion &attack, N
 	CVec2 viewSquare;
 	viewSquare.x = Min( F_VIEW_BOUND * 0.5f, fSquareLimit );
 	viewSquare.y = F_VIEW_BOUND * 0.5f;
+	// Retail AI and hit previews sample cover plus item blockers (0x8200).
+	const int nTraceFlags = NWorld::TS_COVER | NWorld::TS_ITEM_BLOCKER;
 	NAI::CFastRenderer res, resLow;
 	res.InitProjective( src, ptTarget, viewSquare, N_HALF_GRID );
-	pAIMap->TraceGrid( &res, NWorld::TS_COVER, NAI::IAIMap::STH_SORT_INTERVALS );
+	pAIMap->TraceGrid( &res, nTraceFlags, NAI::IAIMap::STH_SORT_INTERVALS );
 	AddGridToCovers( pRes, res, vTargetDir, pIgnore->GetAttackIgnore(), CastToObjectBase(pDest), nTargetUserID, fDistance, attack, fMinClearDistance );
 	// add low res grid
 	if ( !bAIMode )
@@ -390,7 +392,7 @@ CCoverInfo* CGame::CalcCovers( const CVec3 &src, const CAttackPortion &attack, N
 		viewSquare.x = fSquareLimit;
 		viewSquare.y = Max( F_VIEW_BOUND * 0.5f, fSquareLimit );
 		resLow.InitProjective( src, ptTarget, viewSquare, N_LOW_HALF_GRID );
-		pAIMap->TraceGrid( &resLow, NWorld::TS_COVER, NAI::IAIMap::STH_SORT_INTERVALS );
+		pAIMap->TraceGrid( &resLow, nTraceFlags, NAI::IAIMap::STH_SORT_INTERVALS );
 		AddGridToCovers( pRes, resLow, vTargetDir, pIgnore->GetAttackIgnore(), CastToObjectBase(pDest), nTargetUserID, fDistance, attack, fMinClearDistance );
 	}
 	pRes->src = src;

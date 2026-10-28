@@ -10763,3 +10763,80 @@ remain. Counts281=140 imported/19 partial/79 pending plus explicit other
 decisions:98 unfinished source reviews/imports. Entire transfer and final
 actual-HEAD hosted Actions verification/repair remain open; these local CI
 results are not described as hosted verification.
+
+
+## 2026-10-28 — restore item-blocker sampling for unit covers (cc0fd988, partial)
+
+Source: [cc0fd9888357c7a9f5d47fec2c22f3073eb5e7cf](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc0fd9888357c7a9f5d47fec2c22f3073eb5e7cf).
+Independent bug: both unit-cover grids selected only Cover200, missing geometry
+classified Item8000+Weapon400 without Cover. The existing weapon-clearance
+preflight consequently could not see an obstacle directly at the muzzle.
+Use Cover|Item8200 for BOTH high and low unit grids. Keep tile sampling, native
+400 muzzle predicate, range logic, own IGame signature/layout/serialization,
+weapon/armor data, animation/face/fonts/HD and PK ownership unchanged.
+
+Adapt the source by actual ORIGINAL category values, not its misleading comment:
+Gold PDB enum Cover200, Weapon400, Item8000, Fragment10. Original free AI caller
+pushes8200. Typed original CanShoot AND GetToHit also pass8200 to RealCalcCovers;
+their !AI high and low grids forward this mask unchanged. AttackObjectRanged
+is a DISTINCT physical-shot caller passing8210. Our current !bAIMode serves
+previews and execution, so it cannot safely mean 'include fragmented geometry'.
+Literal upstream600/610 would newly count native PASS-only508; 610 would also
+count Fragment+Weapon410 in previews. Both would incorrectly block protected
+positive controls. Exclude that literal proposal, record its behavioral effect
+in the balance document, and retain separate pending caller-purpose adaptation.
+Do not reset the global trace enum or import an original free-function ABI.
+
+Original evidence: lab/audit-ai-cover-mask.py -> shared evidence
+ai-cover-mask-retail-oracle.json, plus actual disassemblies and typed enclosing
+symbols. GetMask Gold778b30/155 ->Steam7846b0/155: unmasked first16/24/32 unique
+in both images, ret/CC and PASS500 / ITEM8000 branches checked in BOTH. Muzzle
+helper exact49 bytes unique in both, actual AddGrid calls Gold68d74c/Steam6936ac;
+it checks flags400, independently of the sampling mask. AI pushes Gold68df41/
+Steam693ea1; CanShoot Gold6af9f8/Steam6b5ad8; GetToHit Gold6affbf/Steam6b60a7.
+All actual callees checked. Gold/Steam RealCalcCovers have DIFFERENT lengths and
+frames; separately checked arg5 loads9c/a8 forward to corearg7 with AI=false.
+Normal-path actual core calls Gold6ae5af/Steam6b46d3 are checked. Core high
+Steam693a68/693a8a and low693b7a/693b9c load the SAME incoming maskesp90 and
+call TraceGrid slot1c; identical instruction blocks checked in Gold mapping.
+Physical caller Steam6b65d0/6b65f4 passing8210 is explicitly NOT preview proof.
+
+Fourteen native FixtureWorld profiles keep actual units/weapon/attack/armor,
+delegated target hull/locator and Game. Controlled closed target/obstacle boxes
+feed actual CFastRenderer.TraceEntity/SortIntervals, not fabricated intervals
+or cover results. All referenced surfaces/vertices/edges/transforms stay alive
+through traversal. This is controlled collision geometry, not an unmodified
+world-model replay; previous real-world/PK/decal regressions remain separate.
+Actual NWorld.GetMask classifies TR_PASS|TR_ITEM_BLOCKER8508, PASS-only508 and
+ITEM-only8008; Fragment+Weapon410 is an explicitly controlled source category.
+Three roles: AI, preview high-grid target, preview LOW-ONLY target (high0/low1).
+All14 independent positive baselines are100. Controls protect PASS-only and
+Fragment-only exclusions, ITEM-only without the weapon predicate, ignore-self
+and a real obstacle outside clearance1. AP/HP/ammo/commands/positions/RNG stay.
+
+Authoritative runtime RED before production: Windows3/14 in15.52s, Linux3/14
+in15.60s, exactly the three intended item-muzzle score assertions100 instead0;
+all11 controls pass. No obstacle intervals were selected. Initial fixture
+compiler errors (Windows far macro / protected DB destructor) were corrected
+before runtime; their small log is retained and is NOT counted as bug RED.
+Minimal production delta: shared8200 constant and two TraceGrid arguments.
+GREEN46/46 Windows50.03s/Linux50.39s. Each intended score100->0; low-only fixture
+really reaches target through the low grid. Native obstacle counts256 AI and
+1700 preview; ignore-self stays100, far obstacle1616 intervals all beyond1 stays100,
+ITEM-only is sampled but stays100; excluded categories have no sampled interval.
+The fourteen controlled records match exactly across native platforms.
+
+Final fresh Windows ALL_BUILD:266/266 related282.56s plus6/6 context/decal3.34s;
+Linux Game/helpers264/264 related282.95s plus6/6 context/decal3.41s. Local
+asset-free CI290/29024.41s. Seven raw pass logs46/46/266/264/6/6/290 have exact
+counts, no Failed/NotRun/NUL; runners exit0. Verification also compares the
+previous32 cover profiles' measured origin/projection/range/reach records
+within each platform and all14 controlled mask records across platforms.
+Shared evidence ai-cover-mask-final-verification.json; verify-ai-cover-mask.py.
+Both HD caches OFF; shared builds only,23.59GB free, no owned test/game/debugger
+processes left. No per-bug source/game/build copies or HD regeneration.
+
+Source cc0fd988
+stays partial pending related human/physical-purpose adaptation. Overall281
+decisions still140 imported/19 partial/79 pending =98 unfinished. Entire transfer
+and final actual-HEAD hosted Actions verification/repair remain open.
