@@ -11982,3 +11982,58 @@ invented failing-test claim. Main and shipped game code remain unchanged from
 12f93c8a; prior136/134 and preceding214/212 game checks are not claimed rerun.
 No extra source/build copies, HD generation OFF, owned tests exit. Ledger
 remains148 imported/18partial/72pending =90 unfinished source reviews.
+
+
+## 2026-10-29 — refresh original wound tiers after healing (32f730ac)
+
+Source [32f730acfe6015bd712e897c4bd076a6f6503642](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/32f730acfe6015bd712e897c4bd076a6f6503642), independent post-refresh hunks.
+HealVP updated native bandaged health without updating the already installed
+CVPCritical modifiers. Full treatment left old penalties and partial treatment
+left the old tier. HealCriticals could erase the wound critical entirely under
+the existing cure predicate even though the patient was still wounded. Reapply
+the native C_VP after each method; two production calls only. Use existing
+critical merge/removal and the fork's current public void API, serialized data,
+critical formulas, healing amounts, training and expendable-AP semantics.
+The remaining cure/suspension/bleeding predicate hunks are separate work.
+
+The original releases differ here. Typed Gold HealVP6b8970/20 just forwards to
+CUnit.Heal6b4ca0; Gold HealCriticals6bc690/153 also lacks the post-refresh.
+The corresponding actual IUnitMission vtables Gold8b63cc/Steam8c54e4 map
+slots14c/150 to Steam HealVP6bed20/90 and HealCriticals6c1c50/207, not an
+assumed byte-identical wrapper. Both Steam1.2 bodies explicitly invoke virtual
+ApplyCritical(SCritical) slotfc (Steam6c3450, typed Gold counterpart6bcf20).
+HealVP has the exact20byte payload nDC300,duration-1,value0,C_VP4,CL_ANY4;
+HealCriticals has the same refresh. Both preserve their native float return
+around the refresh. The fork's float practice-return API remains a separate
+531f hunk; do not widen this independent fix. audit-heal-wound-refresh-retail.py
+verifies actual table entries, call opcodes and payload, including the version
+difference. This restores shipped Steam1.2 behavior, without new coefficients.
+
+Six native cases use authored persona103, real CUnit/IUnitMission/SFirstAid/
+CVPCritical and a reference with the same health/bandage normalized through
+the native modifier calculation. Check all six affected caps (AP, interrupt,
+melee, shooting, throwing, IC), not copied arithmetic. Reference wound refresh
+is an oracle for the correct current-health tier, not a mock game provider.
+RED3/6 Windows5.80s/Linux5.60s: full treatment leaves wound/APcap41 instead
+no wound/APcap51; partial leaves41 instead46; after-critical treatment loses
+the wound and gives51 instead46. Three zero/healthy controls pass. No fixture
+calibration or build failure is counted as this RED.
+
+GREEN9/9 Windows8.82s/Linux8.52s including existing fresh-skill/survival/empty-
+critical controls. Raw health stays29 (max147); full bandage118 and partial36
+are unchanged. Full shooting cap17->34, partial17->26, correct wound presence;
+current AP stays41 after treatment (healthy controls51), so raising a cap does
+not refill spent/clamped AP. XP, inventory and gameplay RNG remain unchanged.
+The criticals case uses native unit.Heal before mission.HealCriticals to isolate
+its missing refresh from the other method's fix. No item charge, medic practice,
+world treatment/animation, rendered UI or whole-world save claim.
+
+Fresh Windows ALL_BUILD75/75 related77.51s; Linux Game/helpers73/73 73.94s,
+covering medical/kit/health/critical/wound/bleeding/regeneration/repair/PK,
+survival/perk/skill/damage/AP paths. Local asset-free CI290/290 24.43s.
+Five raw logs9/9/75/73/290, no failed/not-run/NUL, runners0 and exact registered
+names verified. Shared builds reused, HD generation OFF, no old per-bug copies
+and owned tests exit. Final actual-HEAD hosted Actions remains due after all
+useful imports. Source32f becomes partially-imported: two refresh hooks done,
+cure eligibility/explicit bleeding flag still pending. Ledger148 imported/
+19partial/71pending =90 unfinished source reviews/imports.

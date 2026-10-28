@@ -1867,6 +1867,7 @@ void CUnitMission::SaveAP( const SSnipeAP &ap )
 void CUnitMission::HealVP( const SFirstAid &fa )
 {
 	GetRPGUnit()->Heal( fa );
+	ApplyCritical( SCritical( NDb::CL_ANY, NDb::C_VP ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitMission::HealCriticals( int nDC )
@@ -1883,6 +1884,7 @@ void CUnitMission::HealCriticals( int nDC )
 		else
 			++i;
 	}
+	ApplyCritical( SCritical( NDb::CL_ANY, NDb::C_VP ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitMission::Reload()

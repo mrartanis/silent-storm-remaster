@@ -23639,6 +23639,32 @@ static void FreshSkillModifierValues(const char* databasePath)
     std::puts("native fresh-skill GREEN: 15 static skills follow modifiers and restore; saved old unfrozen cell stays expendable");
 }
 
+static void HealWoundRefresh(const char* databasePath,int mode)
+{
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
+    auto* persona=NDb::GetPers(103);Require(IsValid(persona) && IsValid(persona->pClass) && IsValid(persona->pBaseValue) && !IsValid(persona->pPanzerklein),"healing refresh fixture has no authored ordinary native persona");
+    CObj<NRPG::CUnit> unit=new NRPG::CUnit(persona),reference=new NRPG::CUnit(persona);
+    CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(unit),referenceMission=NRPG::CreateUnit(reference);
+    const int maximum=unit->Skills(NDb::ST_VP).GetTheoreticalMax();Require(maximum>40 && maximum==reference->Skills(NDb::ST_VP).GetTheoreticalMax(),"native healing refresh fixture lacks a consistent health range");
+    const int health=mode>=4?maximum:maximum/5;unit->Skills(NDb::ST_VP).SetValue(health);reference->Skills(NDb::ST_VP).SetValue(health);
+    const vector<NDb::ESkillType> skills={NDb::ST_AP,NDb::ST_INTERRUPT,NDb::ST_MELEE,NDb::ST_SHOOTING,NDb::ST_THROWING,NDb::ST_IC};
+    auto caps=[&](NRPG::CUnit* subject){vector<int> values;for(auto skill:skills)values.push_back(subject->Skills(skill).GetMaxValue());return values;};
+    const auto healthy=caps(unit);Require(healthy==caps(reference),"native reference skill caps differ before applying actual wounds");
+    mission->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_VP));referenceMission->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_VP));
+    const auto wounded=caps(unit);Require(mode>=4 || (mission->HasCritical(NDb::C_VP) && wounded!=healthy),"native low-health fixture did not acquire actual wound modifiers");
+    NRPG::SFirstAid aid;aid.fdVP=mode==0?float(maximum):(mode==1 || mode==2)?float(maximum/4):0.f;aid.nMaxVP=mode<=2?maximum:0;
+    reference->Heal(aid);referenceMission->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_VP));const auto expected=caps(reference);const bool expectedCritical=referenceMission->HasCritical(NDb::C_VP);
+    Require(mode>2 || expected!=wounded,"healing refresh fixture did not cross a native wound tier");
+    const int ap=unit->Skills(NDb::ST_AP);const float xp=unit->fXP;auto* inventory=unit->GetInventory();auto random=GlobalGameRandom();
+    if(mode==2){unit->Heal(aid);mission->HealCriticals(NRPG::N_MAX_DC);}
+    else if(mode==5)mission->HealCriticals(NRPG::N_MAX_DC);
+    else mission->HealVP(aid);
+    const auto actual=caps(unit);const bool critical=mission->HasCritical(NDb::C_VP);
+    std::printf("native healing wound refresh: mode=%d health=%d maximum=%d healed=%d expectedHealed=%d critical=%d expectedCritical=%d woundedAP=%d actualAP=%d expectedAP=%d woundedShoot=%d actualShoot=%d expectedShoot=%d currentAP=%d\n",mode,int(unit->Skills(NDb::ST_VP)),maximum,unit->nHealedVP,reference->nHealedVP,int(critical),int(expectedCritical),wounded[0],actual[0],expected[0],wounded[3],actual[3],expected[3],int(unit->Skills(NDb::ST_AP)));std::fflush(stdout);
+    Require(int(unit->Skills(NDb::ST_VP))==health && unit->nHealedVP==reference->nHealedVP && int(unit->Skills(NDb::ST_AP))==ap && unit->fXP==xp && unit->GetInventory()==inventory && random.Get()==GlobalGameRandom().Get(),"native healing refresh refilled current AP, changed raw health/training/inventory/RNG or changed the bandage amount");
+    Require(actual==expected && critical==expectedCritical,"native healing left stale or missing wound penalties instead of the healed-health tier");
+}
+
 static void HealthSurvivalThreshold(const char* databasePath)
 {
     CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
@@ -25303,6 +25329,12 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "attacker-level-critical-rolls") && argc==3) { AttackerLevelCriticalRolls(argv[2]); return true; }
     if (!std::strcmp(mode, "head-body-damage") && argc==3) { HeadBodyDamage(argv[2]); return true; }
     if (!std::strcmp(mode, "fresh-skill-modifier-values") && argc==3) { FreshSkillModifierValues(argv[2]); return true; }
+    if (!std::strcmp(mode, "heal-wound-refresh-full") && argc==3) { HealWoundRefresh(argv[2],0); return true; }
+    if (!std::strcmp(mode, "heal-wound-refresh-partial") && argc==3) { HealWoundRefresh(argv[2],1); return true; }
+    if (!std::strcmp(mode, "heal-wound-refresh-after-criticals") && argc==3) { HealWoundRefresh(argv[2],2); return true; }
+    if (!std::strcmp(mode, "heal-wound-refresh-zero") && argc==3) { HealWoundRefresh(argv[2],3); return true; }
+    if (!std::strcmp(mode, "heal-wound-refresh-healthy") && argc==3) { HealWoundRefresh(argv[2],4); return true; }
+    if (!std::strcmp(mode, "heal-wound-refresh-healthy-criticals") && argc==3) { HealWoundRefresh(argv[2],5); return true; }
     if (!std::strcmp(mode, "health-survival-threshold") && argc==3) { HealthSurvivalThreshold(argv[2]); return true; }
     if (!std::strcmp(mode, "empty-critical-application") && argc == 3) { EmptyCriticalApplication(argv[2]); return true; }
     if (!std::strcmp(mode, "idle-blocker") && argc == 4) { IdlePathBlocker(argv[2], argv[3]); return true; }
