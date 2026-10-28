@@ -1426,3 +1426,15 @@ No damage, XP, critical, AP or difficulty coefficients are tuned. Preserve our
 damage interface, PK pilot/shell handling, rewritten death/face animation and
 existing32bit serialized fields. Separate escape-facing hunk remains pending;
 do not mechanically replace current movement/visibility code for it.
+
+
+## 2026-10-28 — escape-facing hunk already equivalent in this fork
+
+Source [90293ca892e26576a90c8e6937a886c5c249010b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/90293ca892e26576a90c8e6937a886c5c249010b).
+Its useful first-incapacitation metadata writer is imported in f2ee974d. The
+remaining target escape-facing assignment is not added to production: actual
+returned poses1/2 have direction-independent coordinates and occupied cubes,
+and native all-eight-direction positive/blocked audits preserve visibility
+and snipe eligibility on both platforms. Actor facing/FOV remains unchanged.
+This is a verified equivalent case, not a balance exclusion or a manufactured
+RED/fix. Revisit if allowed poses/cube geometry become direction-sensitive.

@@ -11410,3 +11410,57 @@ Ledger marks90293ca8 partially-imported: useful first-incapacitation writer
 complete; separate target-escape-facing hunk still under relevance review.
 Counts142 imported/19partial/77pending =96 unfinished source reviews/imports. Final actual-HEAD hosted
 Actions remains due after all useful source imports.
+
+
+## 2026-10-28 — escape-facing equivalence audit closes90293ca8
+
+Source: [90293ca892e26576a90c8e6937a886c5c249010b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/90293ca892e26576a90c8e6937a886c5c249010b).
+The useful first-incapacitation writer was independently imported in f2ee974d.
+The remaining hunk sets each target escape position's direction to the closest
+direction from shooter to target. This is equivalent in this fork's current
+reachable domain, so do not add a production no-op or claim a new bug fix.
+
+Original matched BeginSnipe Gold4a32a0/Steam4a4ac0 calls network20, stores the
+closest direction, masks7/shifts11, clearsC7FF in the copied position's second
+word and inserts direction bits. Both exact instruction blocks are checked.
+Named native CPathNetwork primary vtable20 maps typed Gold43e560/273 to
+Steam43f280. Matched GetNearestPlaces Gold49f530/Steam4a0990 filters raw poses
+0 and3, leaving1/2. Own direction is bits27..29; current GetOccupiedCubes reads
+direction only for excluded CRAWL0. CROUCH1/STAND2 use vertical cubes.
+Reviewed GetCP and lazy RefreshSpot use XY/layer/height and ladder index,
+without direction. Actual range/FOV visibility receives those same cubes.
+audit-ai-snipe-facing-parity.py ->shared retail-oracle.json records this proof.
+
+Two audits reuse real campaign3791 selected-rifle/HEAD calibration and actual
+positive/blocked four-AP eligibility. Compare every actual four-AP point and
+full-flood position at all8 directions: coordinates and occupied cube vectors
+must match; every four-AP variant runs native visibility, preserving its result.
+Both poses are exercised (poseMask6); position/HP/AP/RNG remain unchanged.
+Windows positive/blocked comparisons12416/5792, native visibility8/24;
+Linux7520/5792, visibility40/24. Original closest-direction replacement would
+change1552/724 positions on Windows and0/724 on Linux; actual alternative
+direction comparisons still exercise10864/5068 and6580/5068 changed directions.
+The positive gate remains can1, the genuinely hidden four-AP control can0.
+
+Initial Linux positive audit failed ONLY an overly strict coverage requirement
+that closest-direction bits must differ in every profile; in that positive
+fixture they already matched. Coordinate/cube/visibility comparisons all
+passed. Retained initial log:81/82, one coverage failure, NOT bug RED. Replace
+that restriction with nonempty all-eight-direction alternatives; blocked
+control independently witnesses actual upstream-direction changes. No
+production behavior was changed to force an audit or construct a fake RED.
+
+Final Windows82/82 102.45s, Linux82/82 107.90s; local asset-free CI290/290 23.70s.
+Three raw logs82/82/290 exact passes, no Failed/NotRun/NUL, all runners0.
+verify/finish-ai-snipe-facing-parity.py records final-verification.json and
+checks prior82 measured hit/cover records plus8 first-incapacitation outputs
+exact within each platform. Existing float/rifle/four-AP assertions pass.
+Only tests/CMake/docs change; all Main production files remain unchanged.
+Existing modes0..4 preserve their predicates; new modes5/6 run the audit.
+Shared builds only, HD caches OFF, no per-fix copies; owned tests exited.
+
+Source90293ca8 is complete: writer imported, facing hunk audited equivalent.
+Ledger143 imported/18partial/77pending =95 unfinished source reviews/imports.
+Revisit the assignment if future movement allows direction-sensitive crawl
+poses or target-cube geometry changes; these audits detect that loss of
+equivalence. Final actual-HEAD hosted Actions remains due after all imports.

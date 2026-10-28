@@ -8555,6 +8555,45 @@ static bool PlaceNativeVisibleEscapeFixture(NAI::IAIUnit* actor,NAI::IAIUnit* ta
     }
     place(victim,targetOriginal);place(server,original);return false;
 }
+// Audit an upstream assignment against the fork's actual reachable poses.
+// This is an equivalence check, not a manufactured RED for unchanged behavior.
+static void NativeSnipeFacingParity(NAI::IAIUnit* actor,NAI::IAIUnit* target,bool canSnipe)
+{
+    auto* world=actor->GetUnitServer()->GetWorld();auto* network=world->GetPathNetwork();auto* game=world->GetGame();
+    const auto source=actor->GetUnitPosition(),destination=target->GetUnitPosition();
+    const int ap=actor->GetAP(),targetAP=target->GetAP(),hp=actor->GetRPGUnit()->Skills(NDb::ST_VP),targetHP=target->GetRPGUnit()->Skills(NDb::ST_VP);
+    auto rng=GlobalGameRandom();const float range=game->GetUnitSightDistance(actor->GetRPGUnit()),fov=actor->GetRPGUnit()->GetSightFOV();
+    const auto closest=network->GetClosestDir(source.pos.p,destination.pos.p);
+    int total=0,poseMask=0,changed=0,alternatives=0,visibility=0,hidden=0,fourCount=0;
+    for(int budget:{4,target->GetMaxAP()}) {
+        vector<NAI::SPathPlace> places;NAI::GetNearestPlaces(target->GetUnitServer(),destination.pos.p,budget,NAI::RUN,&places);
+        Require(!places.empty(),"facing audit lost its nonempty actual native escape flood");
+        if(budget==4)fourCount=int(places.size());
+        for(auto point:places) {
+            const auto pose=point.GetPose();Require(pose==NAI::CM_CROUCH || pose==NAI::CM_STAND,"native escape flood gained a direction-sensitive or inactive pose");
+            poseMask|=1<<pose;NAI::SPosition baseline(point,network);vector<CVec3> cubes;NRPG::GetOccupiedCubes(&cubes,baseline);
+            Require(!cubes.empty(),"facing audit has no actual occupied target cubes");
+            const bool seen=budget==4?game->CheckPositionVisibility(source,baseline,range,fov):false;
+            if(budget==4 && !seen)++hidden;
+            if(point.GetDirection()!=closest)++changed;
+            for(int direction=0;direction<8;++direction) {
+                if(direction!=point.GetDirection())++alternatives;
+                auto candidate=baseline;candidate.p.SetDirection(direction);vector<CVec3> actual;NRPG::GetOccupiedCubes(&actual,candidate);
+                Require(candidate.GetCP()==baseline.GetCP() && actual==cubes,"target escape facing changed native coordinates or occupied cubes");
+                if(budget==4) {
+                    Require(game->CheckPositionVisibility(source,candidate,range,fov)==seen,"target escape facing changed the native snipe visibility decision");++visibility;
+                }
+                ++total;
+            }
+        }
+    }
+    std::printf("native snipe facing parity: can=%d four=%d hidden=%d directions=8 poseMask=%d comparisons=%d visibility=%d alternateDirections=%d originalDirectionChanges=%d\n",
+        int(canSnipe),fourCount,hidden,poseMask,total,visibility,alternatives,changed);std::fflush(stdout);
+    Require(total>8 && alternatives>0 && visibility==fourCount*8 && canSnipe==(hidden==0),"native facing audit did not exercise real changed direction bits and the expected positive/blocked decision");
+    Require(actor->GetUnitPosition()==source && target->GetUnitPosition()==destination && actor->GetAP()==ap && target->GetAP()==targetAP
+        && int(actor->GetRPGUnit()->Skills(NDb::ST_VP))==hp && int(target->GetRPGUnit()->Skills(NDb::ST_VP))==targetHP
+        && rng.Get()==GlobalGameRandom().Get(),"native facing equivalence queries changed position, health, AP or RNG");
+}
 static void AISnipeSelectedWeapon(const char* databasePath,const char* resourcePath,int mode)
 {
     CObj<NRPG::CGlobalGame> campaign;auto world=SnipeFixtureWorld(databasePath,resourcePath,true,&campaign);
@@ -8568,6 +8607,7 @@ static void AISnipeSelectedWeapon(const char* databasePath,const char* resourceP
     Require(rifle,"selected-snipe fixture has no authored loaded sniper rifle");
     CObj<NAI::IAIUnit> actor,target;CPtr<NAI::CAIFireArmsWeapon> selected;NAI::CAIBeginSnipeAction::SInfo baseline;
     int selectedHead=0;float distance=0;
+    const bool visibleEscape=mode==3 || mode==5;
     for(const auto& server:units) {
         if(!IsValid(server) || !server->CanFight() || server->HasCommand() || server->IsSniping() || !server->IsAIUnit()
             || server->IsEmptyPK() || server->IsWearingPK() || server->animator.GetCannon())continue;
@@ -8587,7 +8627,7 @@ static void AISnipeSelectedWeapon(const char* databasePath,const char* resourceP
             float range=fabs(server->GetPosition().GetCP()-other->GetPosition().GetCP());
             if(range*1.6f<15.f)continue;
             state->pEnemy=victim;state->pPossibleEnemy=nullptr;
-            if(mode==3 && !PlaceNativeVisibleEscapeFixture(shooter,victim,choice,action))continue;
+            if(visibleEscape && !PlaceNativeVisibleEscapeFixture(shooter,victim,choice,action))continue;
             range=fabs(server->GetPosition().GetCP()-other->GetPosition().GetCP());
             const auto pose=shooter->GetUnitPosition();
             const int cover=shooter->GetCoverForFixedUnit(pose,other,choice->GetItem(),NAI::HL_HEAD);
@@ -8599,7 +8639,7 @@ static void AISnipeSelectedWeapon(const char* databasePath,const char* resourceP
                 const auto four=NativeSnipeEscapeVisibility(shooter,victim,4),full=NativeSnipeEscapeVisibility(shooter,victim,victim->GetMaxAP());
                 std::printf("native escape calibration: mode=%d distance=%.2f four=%d blocked4=%d full=%d blockedFull=%d maxAP=%d\n",
                     mode,range,four.first,four.second,full.first,full.second,victim->GetMaxAP());std::fflush(stdout);
-                if(four.first==0 || (mode==3?four.second!=0 || full.second==0:four.second==0))continue;
+                if(four.first==0 || (visibleEscape?four.second!=0 || full.second==0:four.second==0))continue;
             }
             if(expectedHead>0 && info.hitLocation==NAI::HL_HEAD && info.pWeapon==choice) {
                 actor=shooter;target=victim;selected=choice;baseline=info;selectedHead=expectedHead;distance=range;break;
@@ -8640,8 +8680,9 @@ static void AISnipeSelectedWeapon(const char* databasePath,const char* resourceP
         std::printf("native snipe escape: mode=%d four=%d blocked4=%d full=%d blockedFull=%d maxAP=%d can=%d expected=%d location=%d\n",
             mode,four.first,four.second,full.first,full.second,target->GetMaxAP(),int(info.bCanDo),int(four.second==0),int(info.hitLocation));std::fflush(stdout);
         Require(four.first>0 && info.pWeapon==selected && info.hitLocation==NAI::HL_HEAD,"escape fixture did not reach its native visibility decision with a positive selected rifle");
-        Require(mode==3?four.second==0 && full.second>0:four.second>0,"escape fixture did not separate four-AP visibility from a genuinely blocked control");
+        Require(visibleEscape?four.second==0 && full.second>0:four.second>0,"escape fixture did not separate four-AP visibility from a genuinely blocked control");
         Require(info.bCanDo==(four.second==0),"AI snipe eligibility scanned beyond the original four-AP escape budget");
+        if(mode>=5)NativeSnipeFacingParity(actor,target,info.bCanDo);
         return;
     }
     if(mode==2)Require(!info.bCanDo && !IsValid(info.pWeapon) && info.hitLocation==NAI::HL_ANY,"snipe selection ignored empty native planning magazines");
@@ -24435,6 +24476,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-first-incapacitation-repeat-dead") && argc == 4) { AIFirstIncapacitation(argv[2],argv[3],5); return true; }
     if (!std::strcmp(mode, "ai-first-incapacitation-finish-unconscious") && argc == 4) { AIFirstIncapacitation(argv[2],argv[3],6); return true; }
     if (!std::strcmp(mode, "ai-first-incapacitation-corpse-event") && argc == 4) { AIFirstIncapacitation(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "ai-snipe-facing-parity-visible") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "ai-snipe-facing-parity-blocked") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],6); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-near-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-cover-range-human-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],2); return true; }
