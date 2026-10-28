@@ -680,9 +680,9 @@ int CAIUnit::GetCoverForFixedUnit( const NAI::SUnitPosition &pos,
 	ASSERT( !atts.empty() );
 	if ( !atts.empty() )
 	{
-		CVec3 ptEye = pos.GetEyePosition();
+		CVec3 ptOrigin = GetUnitServer()->GetAttackOrigin( pos, false );
 		CPtr<NRPG::IGame> pGame = GetUnitServer()->GetWorld()->GetGame();
-		return pGame->GetCoverForAIUnit( ptEye, GetUnitServer(), pTarget, atts.front(), HitLocation );
+		return pGame->GetCoverForAIUnit( ptOrigin, GetUnitServer(), pTarget, atts.front(), HitLocation );
 	}
 	return 0;
 }

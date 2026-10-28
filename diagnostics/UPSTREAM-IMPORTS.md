@@ -10436,3 +10436,74 @@ entire one-file scope accounted. Counts281=140 imported/18 partial/80 pending,
 plus prior explicit decisions:98 unfinished source reviews/imports. All useful
 imports and actual final-HEAD hosted Actions verification/repair remain open;
 local CI does not establish hosted completion.
+
+
+## 2026-10-28 — AI cover starts at the existing weapon origin (cc0fd988, partial)
+
+Replace only pos.GetEyePosition in CAIUnit.GetCoverForFixedUnit with existing
+server.GetAttackOrigin(pos,false). Keep the fork's own cannon/DBAnimWeapon pose
+and direction implementation, int-cover/zero-division guards, attack portions,
+map geometry, range/trace flags, target handling and all other consumers.
+No model/animation/face/HD or data changes. Forward the supplied hypothetical
+pose; neither the server's live pose nor the wrapper's planning copy replaces
+it. This imports aiUnit.cpp; RPGGame.cpp range/projection/target-reach/trace-flag
+hunks remain separate unported work in this source.
+
+Eight real FixtureWorld profiles: stand, crouch, crawl, turned direction,
+another passable hypothetical position, null weapon argument with the existing
+fallback portion, null target control and an armed unit genuinely transferred
+to a human player. Current mission weapon data and existing GetAttackOrigin
+supply the expected point. Real CGame/CFastRenderer/collision geometry and native
+attack portions stay active. A delegating map probe temporarily reads public
+point conversion at distances1/2 to recover the true origin, restores that
+cell, then forwards TraceGrid to the actual map. No hit/cover result is faked.
+Direct native Game queries from muzzle and eyes independently calibrate the
+observer and establish the reference score. The AI caller must use muzzle and
+match native score. Saved Game map tag2 is restored by a scoped guard. AP/HP,
+ammo, commands, backrefs, separate serialized planning pose and input pose stay
+unchanged; RNG remains unchanged.
+
+Correct the test macro's required default constructor before runtime; that
+compile error is not RED. Initial runtime has a Human fixture failure because
+the loaded human party has no suitable armed actor. Preserve its raw log and
+establish Human through real ChangeUnitPlayer of the armed native unit BEFORE
+production. Successful rebuild then authoritative RED7/8 in8.63s, exit8: all
+seven fail solely the wrong-origin/score assertion; null-target control passes.
+Ray origin differs about0.11756 from weapon point standing,0.12519 crouched,
+0.17270 crawling. Scores really differ: stand90vs87, crouch93vs92, crawl95vs93,
+turn90vs93, hypothetical position96vs93. The transferred human has score100
+either way but still the wrong physical source. Initial fixture/compile
+failures are not bug RED. Three-line fix gives54/54 new-origin/nearest/contact/
+reaction/event checks in65.13s, exit0.
+
+Original proof in audit-ai-cover-origin.py / ai-cover-origin-* shared evidence:
+named Gold PDB CAIUnit.GetCover4acdf0/385 primaryRTTI vtable8a6984 slot30 maps
+to named Steam primary8b5a6c slot30=4ae5b0/390. Both end ret16/CC; sizes differ
+by5, so no equal-relative-offset guess or stale4ae4d0 address is used. Named
+Unit.GetUnitServer Gold7bede0/4 ->Steam4af260 reads this+14 (all4bytes8b4114c3),
+exactly the server loaded4ae69e. Named Server PRIMARY vtablesGold8bec1c/Steam
+8ce204 slot48=PDBGetAttackOrigin7b3b80/624 ->Steam7c0300; unique unmasked24
+atGold+16/Steam+16 corroborates. Secondary14c slot48 is another method.
+
+Actual Gold4acf03/Steam4ae6c8 call primary48. SteamEBX zero4ae5d5 remains
+callee-saved;4ae6c1 pushes false. Pose pointer isesp+b0 at4ae6b5, then4ae6c2;
+12SEH+144locals+16savedregs=172 proves original first argument. HiddenCV3output
+is pushed4ae6c3/c7 and vector copied4ae6d8..eb into actual cover call. Gold4acf2d
+andSteam4ae6f2 call named FREE NRPG.GetCoverForAIUnit68df10/252 ->693e70,
+corroborated by unique unmasked24-prefix/ret24CC. Own existing Game wrapper
+preserves the behavior; original free-function ABI is not copied. This audit
+establishes origin only; other RPGGame range/geometry rules remain unimported.
+
+Final fresh Windows ALL_BUILD:162/162 focused179.46s,228/228 related241.96s;
+Linux Game/helpers226/226 related240.98s plus4/4 context1.21s. Local asset-free
+CI290/29024.32s. All main Windows/Linux/context runners exit0; Windows persists
+exit0. Five raw logs have exact162/228/226/4/290 passes, no Failed/NotRun/NUL.
+All eight origin modes/call counts/native scores/eye deltas match platforms;
+three projection-recovery residuals differ in floating-point last digits but
+are below1.8e-6, within the same2e-4 bound. Prior20nearest+20removal and
+6TBS/14view/13support/14target/15world/14delivery records match exactly.
+Both HD caches stay OFF; owned tests exit, shared builds only. Sourcecc0fd988
+is partially imported: aiUnit.cpp origin complete, RPGGame.cpp other behavior
+still open. Counts281=140 imported/19 partial/79 pending plus prior explicit
+decisions:98 unfinished source reviews/imports. The entire goal and actual
+final-HEAD hosted Actions verification/repair remain open after useful imports.

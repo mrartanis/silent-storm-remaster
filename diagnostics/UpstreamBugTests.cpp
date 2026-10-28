@@ -7905,6 +7905,133 @@ namespace NAI
     // Existing external implementation; no new production API is needed for this probe.
     IAIUnit* FindNearestUnit(IAIUnit* self, vector<CPtr<IAIUnit>>& units);
 }
+class CoverOriginMapProbe: public NAI::IAIMap
+{
+    OBJECT_NOCOPY_METHODS(CoverOriginMapProbe);
+public:
+    CPtr<NAI::IAIMap> native;
+    struct TraceRecord { CVec3 origin; int mask,width,height; };
+    vector<TraceRecord> traces;
+    explicit CoverOriginMapProbe(NAI::IAIMap* map=nullptr): native(map) {}
+    void TraceGrid(NAI::CFastRenderer* grid,int mask,ESort sort,const NAI::CFloorsSet& floors,ESplitTerrainHGroups split,bool doors) override {
+        Require(grid->resGrid.GetXSize()>0 && grid->resGrid.GetYSize()>0,"cover origin probe received no native projection grid");
+        NAI::CFastRenderer::SResult interval{}; interval.fEnter=1; interval.fExit=2;
+        auto* saved=grid->resGrid[0][0]; grid->resGrid[0][0]=&interval;
+        vector<CVec3> entries,exits; grid->GetPoints(&entries,&exits,0,0); grid->resGrid[0][0]=saved;
+        Require(entries.size()==1 && exits.size()==1,"cover origin probe could not read the native projective conversion");
+        traces.push_back({entries.front()*2.f-exits.front(),mask,grid->resGrid.GetXSize(),grid->resGrid.GetYSize()});
+        native->TraceGrid(grid,mask,sort,floors,split,doors); // Keep actual native geometry and intersections.
+    }
+    void Sync(ESyncType type) override {native->Sync(type);}
+    void GetEntities(list<NAI::SObjectInfo>* out,int mask,const NAI::CFloorsSet& floors) override {native->GetEntities(out,mask,floors);}
+    void Trace(const CRay& ray,vector<NAI::SInterval>* out,int mask,const NAI::CFloorsSet& floors,ESplitTerrainHGroups split) override {native->Trace(ray,out,mask,floors,split);}
+    void TraceVoxelGrid(NAI::CExplVoxelRenderer* grid,int mask,const NAI::CFloorsSet& floors,bool doors) override {native->TraceVoxelGrid(grid,mask,floors,doors);}
+    void TraceVisionGrid(NAI::CVisionVoxelRenderer* grid,int mask,const NAI::CFloorsSet& floors,bool doors) override {native->TraceVisionGrid(grid,mask,floors,doors);}
+    bool GetUnitHLPos(CVec3* out,CObjectBase* hull,int id) override {return native->GetUnitHLPos(out,hull,id);}
+    void GetAccessibleUnitHL(vector<int>* out,const CVec3& from,CObjectBase* hull,float distance) override {native->GetAccessibleUnitHL(out,from,hull,distance);}
+    CObjectBase* GetHull(CObjectBase* object) override {return native->GetHull(object);}
+    bool GetObjectBound(SBound* out,CObjectBase* object) override {return native->GetObjectBound(out,object);}
+    bool CalcIntersection(const CVec3& centre,float radius,int flags,CObjectBase* ignore) override {return native->CalcIntersection(centre,radius,flags,ignore);}
+    void PrepareCollider(NAI::IPrepareCollider* out,const SBound& bound,float size,int mask,bool doors) override {native->PrepareCollider(out,bound,size,mask,doors);}
+    void AddTracker(NAI::IAIMapTracker* tracker,const SBound& bound,int mask,bool doors) override {native->AddTracker(tracker,bound,mask,doors);}
+    void FlipDoorWindow(CObjectBase* object,bool open) override {native->FlipDoorWindow(object,open);}
+    NAI::IStabilityTrackers* GetStabilityTrackers() override {return native->GetStabilityTrackers();}
+    void SelectHullPointers(vector<CPtr<CObjectBase>>* out,const SBound& bound,int include,int exclude) override {native->SelectHullPointers(out,bound,include,exclude);}
+    bool GetWindowPos(CObjectBase* object,CVec3* closed,CVec3* open) override {return native->GetWindowPos(object,closed,open);}
+};
+static void SetCoverProbeMap(NRPG::IGame* game,NAI::IAIMap* map)
+{
+    CStructureNetworkContext refs; auto traversal=BorrowedObjectFields(game,&refs);
+    if (!refs.ids.count(map)) { const auto id=refs.nextID++; refs.ids[map]=id; refs.refs[id]=map; }
+    CPtr<NAI::IAIMap> restored=map; CMemoryStream fields;
+    {CStructureSaver writer(fields,CStructureSaver::WRITE,&refs); writer.Add(2,&restored);}
+    fields.Seek(0); {CStructureSaver reader(fields,CStructureSaver::READ,&refs); game->operator&(reader);}
+}
+static void AICoverWeaponOrigin(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> campaign; auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> all; world->GetAllUnits(&all);
+    NWorld::CUnitServer *actor=nullptr,*target=nullptr; NRPG::CWeaponItem* weapon=nullptr; NRPG::IWeaponItem* firearm=nullptr;
+    for (const auto& unit: all) {
+        if (!IsValid(unit) || !unit->CanFight() || unit->HasCommand() || unit->IsEmptyPK() || unit->IsWearingPK()
+                || unit->animator.GetCannon() || !unit->IsAIUnit() || !IsValid(NAI::GetAIUnit(unit))) continue;
+        auto* candidate=dynamic_cast<NRPG::IWeaponItem*>(unit->GetUnitRPG()->GetInventory()->GetActive());
+        auto* item=dynamic_cast<NRPG::CWeaponItem*>(candidate);
+        if (!candidate || !item || candidate->GetAmmoQuantity()<1 || !candidate->SetShootMode(NDb::SM_Snap)
+                || !unit->GetUnitRPG()->GetDBAnimWeapon()) continue;
+        actor=unit.GetPtr(); firearm=candidate; weapon=item; break;
+    }
+    Require(actor && weapon && firearm,"AI cover origin fixture has no native armed actor of its requested control type");
+    if (mode==7) {
+        NWorld::CPlayer* human=nullptr;
+        for (const auto& other: all) if (IsValid(other) && !other->IsAIUnit() && IsValid(other->GetPlayer())) {
+            human=dynamic_cast<NWorld::CPlayer*>(other->GetPlayer()); break;
+        }
+        Require(human,"AI cover origin fixture has no actual human player");
+        world->ChangeUnitPlayer(actor,human);
+        Require(actor->GetPlayer()==human && !actor->IsAIUnit() && IsValid(NAI::GetAIUnit(actor)),
+            "AI cover origin fixture failed to transfer the real armed actor to human control");
+    }
+    for (const auto& unit: all) if (IsValid(unit) && unit->CanFight() && unit.GetPtr()!=actor
+            && actor->GetDiplomacyState(unit)==NDb::DS_ENEMY) {target=unit.GetPtr();break;}
+    Require(target,"AI cover origin fixture has no native opposing target");
+    auto* unit=NAI::GetAIUnit(actor); auto input=actor->GetPosition();
+    if (mode==1) input.pos.p.SetPose(NAI::CM_CROUCH);
+    if (mode==2) input.pos.p.SetPose(NAI::CM_LAY);
+    if (mode==3) input.pos.p.SetDirection((input.pos.p.GetDirection()+3)&7);
+    if (mode==4) {
+        auto* network=world->GetPathNetwork(); vector<NAI::SPathPlace> points;
+        network->GetNearPlaces(SSphere(input.GetCP(),6.f),&points); bool found=false;
+        for (auto point: points) {
+            point.SetPose(NAI::CM_STAND); point.SetDirection((input.pos.p.GetDirection()+2)&7);
+            if (network->IsPassable(point) && !network->IsLocked(point,true)
+                    && fabs(NAI::SPosition(point,network).GetCP()-actor->GetPosition().GetCP())>2.f) {
+                input.pos=NAI::SPosition(point,network); found=true;break;
+            }
+        }
+        Require(found,"AI cover origin fixture has no native hypothetical firing position");
+    }
+    const auto requested=input; const auto position=actor->GetPosition(),targetPosition=target->GetPosition();
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),ammo=firearm->GetAmmoQuantity();
+    const bool command=actor->HasCommand(); auto* shared=unit->GetAIState();
+    auto planned=input.pos; planned.p.SetDirection((planned.p.GetDirection()+1)&7); unit->SetPosition(planned); unit->SetHP(-11,99); unit->SetAP(-21,101);
+    auto plannedPose=[&]() { CStructureNetworkContext refs;auto fields=BorrowedObjectFields(unit,&refs);NAI::SUnitPosition result;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(4,&result);}return result; };
+    const auto planBefore=plannedPose(); const CVec3 muzzle=actor->GetAttackOrigin(input,false),eye=input.GetEyePosition();
+    Require(fabs(muzzle-eye)>.01f,"AI cover origin fixture did not separate native weapon and eye geometry");
+    NRPG::IGame* game=world->GetGame(); CPtr<NAI::IAIMap> original;
+    {CStructureNetworkContext refs;auto fields=BorrowedObjectFields(game,&refs);
+        CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&original);}
+    Require(original.GetPtr()==world->GetAIMap(),"AI cover origin fixture does not own the expected native geometry map");
+    CObj<CoverOriginMapProbe> probe=new CoverOriginMapProbe(original);
+    struct Restore {NRPG::IGame* game;CPtr<NAI::IAIMap> map;~Restore(){SetCoverProbeMap(game,map);}} restore{game,original};
+    SetCoverProbeMap(game,probe);
+    auto checkTrace=[&](const CVec3& expected) {
+        Require(probe->traces.size()==1 && fabs(probe->traces[0].origin-expected)<2e-4f,
+            "AI cover projection was not built from the requested native source point");
+    };
+    GlobalGameRandom().SeedForHarness(0x713b); auto randomBefore=GlobalGameRandom();
+    auto* argument=mode==5 ? nullptr : weapon; int expected=0;
+    if (mode!=6) {
+        vector<NRPG::CAttackPortion> attacks; if (argument) argument->CreateNewAttackPortion(&attacks,false);
+        if (attacks.empty()) attacks.push_back(NRPG::CAttackPortion(1,0,0.f,0,0,0));
+        expected=game->GetCoverForAIUnit(muzzle,actor,target,attacks.front(),NAI::HL_ANY); checkTrace(muzzle);
+        probe->traces.clear();
+        game->GetCoverForAIUnit(eye,actor,target,attacks.front(),NAI::HL_ANY); checkTrace(eye);
+        probe->traces.clear();
+    }
+    const int actual=unit->GetCoverForFixedUnit(input,mode==6 ? nullptr : target,argument,NAI::HL_ANY);
+    const float error=probe->traces.empty() ? 0.f : fabs(probe->traces[0].origin-muzzle);
+    std::printf("AI cover origin mode=%d calls=%zu error=%g eyeDelta=%g score=%d/%d\n",mode,probe->traces.size(),error,fabs(muzzle-eye),actual,expected);
+    Require(mode==6 ? probe->traces.empty() && actual==0 : probe->traces.size()==1 && error<2e-4f && actual==expected,
+        "fixed-unit AI cover used the eyes instead of the native weapon origin for the supplied position");
+    Require(GlobalGameRandom().Get()==randomBefore.Get(),"cover-origin queries consumed native RNG");
+    Require(actor->GetPosition()==position && target->GetPosition()==targetPosition && actor->GetAP()==ap
+            && actor->GetUnitRPG()->GetTotalVP()==hp && firearm->GetAmmoQuantity()==ammo && actor->HasCommand()==command
+            && unit->GetAIState()==shared && unit->GetAP()==-21 && unit->GetHP()==-11 && plannedPose()==planBefore && input==requested,
+        "AI cover-origin queries changed native/planning state, ammunition, commands or the hypothetical input");
+}
+
 static void AINearestContact(const char* databasePath, const char* resourcePath, int kind, int profile)
 {
     CObj<NRPG::CGlobalGame> game; auto world=FixtureWorld(databasePath,resourcePath,true,&game);
@@ -23270,6 +23397,14 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "empty-bullet-construction") && argc == 4) { EmptyBulletConstruction(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hidden-unit-tint") && argc == 4) { HiddenUnitTint(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "living-unit-floor-refresh") && argc == 4) { LivingUnitFloorRefresh(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "ai-cover-origin-stand") && argc == 4) { AICoverWeaponOrigin(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ai-cover-origin-crouch") && argc == 4) { AICoverWeaponOrigin(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ai-cover-origin-crawl") && argc == 4) { AICoverWeaponOrigin(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ai-cover-origin-turn") && argc == 4) { AICoverWeaponOrigin(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "ai-cover-origin-position") && argc == 4) { AICoverWeaponOrigin(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "ai-cover-origin-no-weapon-argument") && argc == 4) { AICoverWeaponOrigin(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "ai-cover-origin-no-target") && argc == 4) { AICoverWeaponOrigin(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "ai-cover-origin-human") && argc == 4) { AICoverWeaponOrigin(argv[2],argv[3],7); return true; }
     if (!std::strcmp(mode, "ai-nearest-contact-ally-live") && argc == 4) { AINearestContact(argv[2],argv[3],0,0); return true; }
     if (!std::strcmp(mode, "ai-nearest-contact-ally-zero-hp") && argc == 4) { AINearestContact(argv[2],argv[3],0,1); return true; }
     if (!std::strcmp(mode, "ai-nearest-contact-ally-negative-hp") && argc == 4) { AINearestContact(argv[2],argv[3],0,2); return true; }
