@@ -125,7 +125,7 @@ private:
 		IUnitMissionInfo *pTarget, int nBaseProbability ) const;
 	// retail @0x2bf9c0 (PDB: private CReceivedDmg ProcessAttackForPK(IWorld*,int,CAttackPortion*,
 	// CRPGArmor*,bool)) -- pWorld added for CalcStructDmg's difficulty multipliers.
-	int ProcessAttackForPK( NWorld::IWorld *pWorld, int nUserID, CAttackPortion *pAttack,
+	CReceivedDmg ProcessAttackForPK( NWorld::IWorld *pWorld, int nUserID, CAttackPortion *pAttack,
 		NDb::CRPGArmor *pArmor, bool bApplyToVP );
 
 	float GetPanzerkleinAddCoverIgnore() { if ( pPanzerklein ) return pPanzerklein->fAddCoverIgnore; return 0; }
@@ -231,7 +231,7 @@ public:
 
 	virtual bool CreateAttack( vector<CAttackPortion> *pRes, bool bSpendAmmo,
 		bool bAnonymous, IUnitMissionInfo *pTarget, bool bBackStab, bool bAdaptWeapon );
-	virtual int ProcessAttack( NWorld::IWorld *pWorld, int nUserID, CAttackPortion *pAttack,
+	virtual CReceivedDmg ProcessAttack( NWorld::IWorld *pWorld, int nUserID, CAttackPortion *pAttack,
 		NDb::CRPGArmor *pArmor );
 
 	// GetToHit/GetTileToHit/GetObjectToHit/GetGrenadeToHit/GetRLauncherToHit moved to free fns
@@ -1007,54 +1007,46 @@ float CUnitMission::GetXP( int nHowManyPerson ) const
 	return ( fXPDiff / float(nHowManyPerson) ) / 8.1f;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-int CUnitMission::ProcessAttackForPK( NWorld::IWorld *pWorld, int nUserID, CAttackPortion *pAttack,
+CReceivedDmg CUnitMission::ProcessAttackForPK( NWorld::IWorld *pWorld, int nUserID, CAttackPortion *pAttack,
 	NDb::CRPGArmor *pArmor, bool bApplyToVP )
 {
+	// Original Steam 0x6bfb20: preserve suit, pilot and rejected outcomes separately.
+	if ( pRPGUnit->IsCheatEnabled( CHEAT_GODMODE ) )
+		return CReceivedDmg();
+	if ( pAttack->bBypassPK )
+		return CReceivedDmg( -1, RD_HUMAN );
 	if ( pAttack->CanRicochet() && MissionRandom().Check( pPanzerklein->nRicochetProb ) )
 	{
-		pAttack->nK = 0; // CRAP for now
-			return -1;
+		pAttack->nK = 0;
+		return CReceivedDmg();
 	}
-	
-	CDynamicSkill *pVP = 0;
-	if ( bApplyToVP )
-		pVP = &pRPGUnit->Skills(NDb::ST_VP);
-	else 
-		pVP = pPanzerkleinVP;
-	CDynamicSkill &panzerkleinVP = *pVP;
+	CDynamicSkill &panzerkleinVP = bApplyToVP ? pRPGUnit->Skills(NDb::ST_VP) : *pPanzerkleinVP;
 	bool bWasAlive = panzerkleinVP > 0;
-
-	int nDmg = 0;
-	if ( MissionRandom().Check( int( pPanzerklein->fCriticalResist * float(pAttack->nCrtical) ) ) )
+	const float fPilotFraction = 1.0f - pPanzerklein->fCriticalResist;
+	const int nPilotCritical = int( fPilotFraction * pAttack->nCrtical );
+	if ( MissionRandom().Check( nPilotCritical ) )
 	{
-		// we damage only the pilot
 		csRPG << CC_RED << " \tCritical, PK Ignored!" << endl;
-		pAttack->nCrtical = 2000;
+		pAttack->nCrtical = nPilotCritical;
+		pAttack->nDmgMax *= fPilotFraction;
+		pAttack->nDmgMin *= fPilotFraction;
+		return CReceivedDmg( -1, RD_HUMAN );
 	}
-	else
-	{
-		if ( !pAttack->CanDealDmg(pArmor) )
-			return -1;
-/*		pAttack->nK = nDmg = Max( pAttack->nK - 1000, 0 );
-		nDmg *= pAttack->fDamageCoeff;*/
-		nDmg = pAttack->CalcStructDmg( pWorld, pArmor, 0 );
-		if ( nDmg <= 0 )
-			return -1;
-		pAttack->nK -= pArmor->pMaterial->nThreshold * 10;
-		pAttack->nCrtical = 0;
-		pAttack->nDmgMax *= pPanzerklein->fCriticalResist;
-		pAttack->nDmgMin *= pPanzerklein->fCriticalResist;
-
-		if ( pAttack->atkType == AT_CLICK_OF_DEATH )
-			nDmg = 100000;
-	}
-
+	if ( !pAttack->CanDealDmg(pArmor) )
+		return CReceivedDmg();
+	int nDmg = pAttack->CalcStructDmg( pWorld, pArmor, 0 );
+	if ( pAttack->atkType == AT_CLICK_OF_DEATH )
+		nDmg = 100000;
 	panzerkleinVP -= nDmg;
+	if ( panzerkleinVP < 0 )
+		panzerkleinVP.SetValue( 0 );
 	csRPG << " \t" << CC_YELLOW << GetName() << CC_WHITE << " PK damaged on " << nDmg << "VP, remain " << panzerkleinVP << " PK VP" << endl;
 	bool bAlive = panzerkleinVP > 0;
 	if ( bWasAlive && !bAlive )
 		WearBrokenPK();
-	return nDmg;
+	// Original Steam 0x6bfead: a fixed cost, independent of surface threshold.
+	pAttack->nK = Max( pAttack->nK - 1590, 0 );
+	return CReceivedDmg( nDmg, pAttack->nK > 0 ? RD_HUMAN : RD_PK );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitMission::WearBrokenPK()
@@ -1063,12 +1055,12 @@ void CUnitMission::WearBrokenPK()
 	ApplyCritical( cr );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// retail @0x2c3d00. On the int return see the IAttackable banner in RPGAttackMech.h: retail keeps
-// this exact int (including the -1 "rejected" sentinel) as CReceivedDmg::nDmg and adds a `type`
-// alongside it (RD_UNKNOW on the reject paths, RD_HUMAN otherwise, RD_PK from ProcessAttackForPK).
-int CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, CAttackPortion *pAttack,
+// Original Steam 0x6c3e20: only an actual pilot outcome continues into human damage.
+CReceivedDmg CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, CAttackPortion *pAttack,
 	NDb::CRPGArmor *pRealArmor )
 {
+	if ( pRPGUnit->IsCheatEnabled( CHEAT_GODMODE ) )
+		return CReceivedDmg();
 	if ( GetRPGPers()->pPanzerklein ) // this is a PK on the zone and not on the pers, i.e. this pers is itself a PK
 	{
 		if ( !pPanzerklein )
@@ -1077,9 +1069,12 @@ int CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, CAttackPor
 	}
 	NDb::CRPGArmor *pArmor = NDb::GetArmor( NDb::N_HUMAN_BODY_ARMOR );
 
-	if ( GetPanzerklein() ) 
-		if ( ProcessAttackForPK( pWorld, nUserID, pAttack, pRealArmor, false ) == -1 )
-			return -1;
+	if ( GetPanzerklein() && *pPanzerkleinVP > 0 )
+	{
+		CReceivedDmg damage = ProcessAttackForPK( pWorld, nUserID, pAttack, pRealArmor, false );
+		if ( damage.type != RD_HUMAN )
+			return damage;
+	}
 
 	int nTotalDmg = 0;
 	bool bAlive = !IsDead();
@@ -1090,7 +1085,7 @@ int CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, CAttackPor
 		if ( this != pAttack->pTarget && !GetPanzerklein() && CheckIC() && pAttack->atkType != NRPG::AT_CLICK_OF_DEATH )
 		{
 			csRPG << CC_RED << " damage avoided!" << endl;
-			return -1;
+			return CReceivedDmg();
 		}
 		int nDmg = pAttack->CalcStructDmg( pWorld, pArmor, 0 );
 		//	Get
@@ -1175,7 +1170,7 @@ int CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, CAttackPor
 		csRPG << "<color=blue>" << " Bullet can`t penetrate target armor, BulletAPA = " << pAttack->nK << endl;
 	}
 	ApplyCritical( SCritical( NDb::CL_ANY, NDb::C_VP ) );
-	return nTotalDmg;
+	return CReceivedDmg( nTotalDmg, RD_HUMAN );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 inline CVec3 Projection( const CVec3 &pt, const SPlane &plane )

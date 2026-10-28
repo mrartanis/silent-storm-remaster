@@ -8769,3 +8769,94 @@ full57display or hosted GitHub success claimed for this local fixture change.
 Owned processes exited; shared builds reused, no HD generation/old builds.
 Source remains partial,132imported/22partial/84pending (106unfinished); ALL281,
 the432PK prerequisite, remaining2de changes and final hosted CI remain open.
+
+
+## 432b64c8 — original Panzerklein damage routing and receiver result
+
+Restore the native CReceivedDmg result (amount plus unknown/human/PK receiver)
+from CUnitMission::ProcessAttack and its PK helper. The world IAttackable entry
+still returns int, but its actual CHitLocator uses the returned receiver rather
+than guessing from worn equipment or a negative amount. Preserve the fork's
+SetGame binding, damage coefficients, RNG adapter, LAN state, existing fields,
+world callbacks and remaining independent legacy low-health bleeding hook.
+Six older diagnostic callers now read nDmg from the restored runtime result.
+No new serialized field, attack field, object ID or save/network schema.
+
+Restore the original PK flow: GodMode and bypass guards; pilot chance and
+integer min/max scaling use1-resistance; suit damage0 is a real result; clamp
+negative suit VP to0 and mark a newly broken suit; subtract exactly1590 from
+remaining penetration, clamp0, and continue into human damage only for a human
+result. Already broken worn suits skip the PK damage pass. The original human
+entry also checks GodMode before choosing its receiver; this adapter guard is
+necessary beyond the source's private-PK guard. Original dodge rules remain
+unchanged. Authored resistance/material/weapon data are not modified.
+
+Native RED10fail/12 RPG cases11.73s: actual DB CUnit/CUnitMission objects,
+ordinary persona103 and an actual PK persona/VP cell/inventory. Controlled
+intersection material threshold0 and detached fixture suit resistance0.5
+isolate the original algorithm without changing DB records or substituting a
+result. Stopped1590, penetrating1591 and bypass hits wrongly lose8 suit VP plus4
+human VP; zero damage returns-1; overkill5 becomes-3; broken0 becomes-8;
+GodMode still takes damage; pilot critical80 forces2000 and leaves full8 damage
+bounds. Ordinary human and rejection controls already pass. An initial missing
+NRPG namespace in the fixture was corrected before this true RED.
+
+Independent native-world RED5fail/5 cases5.77s: real FixtureWorld, authored shell,
+actual AddUnitInGame/WearAsPK/FlipPanzerklein relation, native suit/pilot VP and
+real CWorld hit-event queue. No hit spy or fake receiver. Stopped/bypass hits
+incorrectly apply human5 plus suit8 and report hit5; a rejection is labelled PK;
+a zero suit hit becomes-1. These are actual damage and CHitLocator observations,
+not a full rendered floater/pixel or real level-BSP penetration claim.
+
+Initial focused GREEN17/17 17.22s, now using actual typed result fields rather
+than the old int-compatible pre-fix fixture access. Further controls distinguish
+asymmetric resistance0.75: seed2 roll61 misses the original25% pilot gate but
+would enter the old75% gate. Penetrating armor retains original critical100 and
+min/max8, and a selected pilot critical80 becomes20 with min/max2. Exact native
+RNG continuation is checked for deterministic branches, including probability0
+rolls, bypass, broken suit, zero damage and GodMode. Production RNG is unchanged.
+
+Independent original oracle: previously identified mission vtables
+Gold8b63cc/Steam8c54e4, slot a4 points Gold ProcessAttack6bd7e0/1992 to Steam6c3e20;
+exact14bytes Gold6bd816 uniquely at Steam6c3e56 corroborate it. Its direct calls
+6c3eb3/6c3f81 identify PK helper6bfb20. Gold PDB PK helper6b9910/964 has exact,
+unique Steam blocks31/28/37/30/34bytes at6bfb23/6bfb47/6bfb63/6bfbf8/6bfeab:
+unknown result, GodMode, bypass, VP selection and penetration/type return.
+Steam6bfc31 subtracts resistance from constant1.0,6bfd30/6bfd4b scale/truncate
+max/min,6bfdcb..6bfdd3 clamps negative VP,6bfead subtracts1590. Full18byte Gold
+IsCheatEnabled6b41d0 uniquely maps to Steam6ba370, called with flag1 at both
+original entries. NO masks. The named Gold world wrapper compares returned
+type2 at746181 and passes amount/type to CHitLocator at746197. Its stack-dependent
+raw block is not an exact Steam match; no arbitrary masks or unique Steam-world
+identity is claimed. Original provider plus native-world tests verify our consumer.
+Evidence pk-combat-retail-oracle.json and Gold/Steam disassemblies.
+
+Final Windows ALL_BUILD and Linux Game/helpers rebuilt with HD generation OFF.
+Focused19/19 Windows19.11s; related97/97 Windows94.73s/Linux94.42s;7 native
+Windows network/serialization cases57.65s; native-display57/57 Windows82.12s/
+Linux68.15s; local asset-free CI290/29024.46s. All7 raw logs have exact passed
+counts19/97/7/57/97/57/290, no NUL/Failed/NotRun/missing executable, actual runners
+exit0. Both platforms include the19 PK cases, earlier bleeding/clocks/lifetimes
+and existing head/critical/body attack regressions. The asset-dependent cases
+are covered by97 rather than the290 manifest. No complete361-map sweep or
+current hosted GitHub success is claimed.
+
+The first final-run attempt had a test-only duplicate RNG check: the first
+GodMode check already consumed4 reference words before the new generic check
+reused that reference. Keep the initial19/97 logs showing those2 failures;
+remove ONLY the duplicate assertion and retain the generic0-draw check for both
+GodMode cases. The gameplay result/HP/receiver checks already passed then; no
+production fix was needed for this fixture error. Corrected complete reruns
+above cover the final source.
+
+Evidence pk-combat-routing-{red,green,final-focused,final-related,final-network,
+final-display,final-linux,linux-display,final-ci}, pk-combat-world-red and original
+oracle files. Owned tests exited; shared builds reused, no old per-bug build
+copies, HD regeneration, facial/font/HD implementation changes. Source432 remains
+partial only for its independent colour/fade review; previous inventory,
+retreat lifetime and group Hide parts remain complete. Tracker stays132imported/
+22partial/84pending (106unfinished). ALL281 and final actual-HEAD hosted CI remain
+open. The PK result/bypass prerequisite for the separately retained2de periodic
+bleeding fixture is now implemented; reapply/adapt that fixture preserving its
+deterministic seed2 and rerun native RED against this new provider before the
+remaining periodic producer change.

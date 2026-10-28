@@ -12917,7 +12917,7 @@ static void CannonExitIncapacitated(const char* databasePath,const char* resourc
     for(int hit=0;hit<mode;++hit) {
         CRay ray;ray.ptOrigin=actor->GetPosition().GetCP();ray.ptDir=CVec3(0,1,0);
         NRPG::CAttackPortion attack(0,0,0.f,0,0,0);attack.MakeClickOfDeath(ray);
-        const int damage=actor->GetUnitRPG()->ProcessAttack(fixture.world.GetPtr(),NAI::HL_BODY,&attack,actor->GetUnitRPG()->GetRPGArmor());
+        const int damage=actor->GetUnitRPG()->ProcessAttack(fixture.world.GetPtr(),NAI::HL_BODY,&attack,actor->GetUnitRPG()->GetRPGArmor()).nDmg;
         Require(damage>=0,"native RPG cannon incapacitation control did not penetrate its actual actor armor");
     }
     const bool dead=actor->GetUnitRPG()->IsDead(),unconscious=actor->GetUnitRPG()->IsUnconscious();
@@ -14760,6 +14760,104 @@ static void PeriodicUnitClocks(const char* databasePath,const char* resourcePath
     }
 }
 
+static void PKWorldDamageRouting(const char* databasePath,const char* resourcePath,int kind)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* pilot=nullptr;
+    for(const auto& unit:units)if(IsValid(unit) && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK()){pilot=unit.GetPtr();break;}
+    Require(pilot,"PK world fixture lacks a healthy native pilot");
+    NDb::CRPGPers* shellPersona=nullptr;auto* table=NDatabase::GetTable<NDb::CRPGPers>();CDBIterator<NDb::CRPGPers> it(*table);
+    while(it.MoveNext()){auto* p=it.Get();if(p->pPanzerklein && !p->pPanzerklein->bHasNoHead && p->pModel){shellPersona=p;break;}}
+    Require(shellPersona,"PK world fixture lacks an authored regular shell");
+    auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(pilot->GetPosition().GetCP(),20.f),&places);
+    NAI::SPathPlace anchor;bool found=false;
+    for(auto place:places){place.SetPose(NAI::CM_STAND);place.SetDirection(0);if(NAI::IsBigLockerPlacePassable(network,place)){anchor=place;found=true;break;}}
+    Require(found,"PK world fixture lacks an unoccupied native suit footprint");
+    CObj<NWorld::CUnitServer> shell=world->AddUnitInGame(anchor,NRPG::CreateUnit(shellPersona),nullptr);
+    Require(shell && shell->IsEmptyPK() && shell->WearAsPK(true),"PK world fixture could not prepare the real shell");
+    pilot->SetPosition(shell->GetPosition());pilot->FlipPanzerklein(shell,false,false);
+    Require(pilot->IsWearingPK() && pilot->GetUnitRPG()->GetPanzerklein()==shellPersona->pPanzerklein.GetPtr(),"PK world fixture did not establish its real suit/pilot relation");
+    auto& shellVP=shell->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP);shellVP.SetValue(20);Require(int(shellVP)==20,"PK world fixture could not set its native shell VP");
+    auto* flesh=NDb::GetArmor(NDb::N_HUMAN_BODY_ARMOR);Require(IsValid(flesh) && IsValid(flesh->pMaterial) && flesh->pMaterial->nThreshold==0,"PK world flesh control lacks zero armor threshold");
+    CObj<NDb::CRPGMaterial> material=new NDb::CRPGMaterial;material->nDR=flesh->pMaterial->nDR;material->nThreshold=0;material->fDensity=1;
+    CObj<NDb::CRPGArmor> armor=new NDb::CRPGArmor;armor->pMaterial=material;armor->fRicochetMaxCos=0;armor->fRicochetProbability=0;
+    const int kinetic=kind==1?1600:kind==3?1591:1590,base=kind==4?0:8;
+    NRPG::CAttackPortion attack(kinetic,kind==2?-1:0,0.f,base,base,0,0,nullptr,pilot->GetUnitRPG(),1.f,-1);attack.bBypassPK=kind==1;
+    for(;;){CObj<NWorld::CHitLocator> pending=world->GetHitEvent();if(!pending)break;}
+    const int humanBefore=pilot->GetUnitRPG()->GetTotalVP();GlobalGameRandom().SeedForHarness(1);
+    const int amount=pilot->ProcessAttack(world,NAI::HL_BODY,&attack,CVec3(0,0,-1),armor);
+    CObj<NWorld::CHitLocator> hit=world->GetHitEvent();
+    const int expectedAmount=kind==2?-1:kind==4?0:8,expectedHuman=(kind==1 || kind==3)?8:0,expectedShell=(kind==0 || kind==3)?8:0;
+    const bool expectedPK=kind==0 || kind==4;
+    std::printf("native PK world hit: kind=%d amount=%d hit=%d value=%d bPK=%d human=%d->%d shell=20->%d K=%d expectedValue=%d expectedPK=%d\n",kind,amount,int(IsValid(hit)),hit?hit->nHitValue:0,hit?int(hit->bPK):-1,humanBefore,pilot->GetUnitRPG()->GetTotalVP(),int(shellVP),attack.nK,expectedAmount,int(expectedPK));std::fflush(stdout);
+    Require(amount==expectedAmount && humanBefore-pilot->GetUnitRPG()->GetTotalVP()==expectedHuman && 20-int(shellVP)==expectedShell && hit && hit->pUnit.GetPtr()==pilot && hit->nHitValue==expectedAmount && hit->bPK==expectedPK,
+        "native world PK hit lost damage or labelled the pilot, suit or rejected impact as the wrong receiver");
+    Require(!world->GetHitEvent(),"one native PK hit emitted duplicate hit locators");
+}
+
+static void PKDamageRouting(const char* databasePath,int kind)
+{
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
+    auto* persona=NDb::GetPers(103);Require(IsValid(persona) && !persona->pPanzerklein,"PK damage fixture lacks an ordinary native persona");
+    NDb::CRPGPers* shellPersona=nullptr;auto* table=NDatabase::GetTable<NDb::CRPGPers>();CDBIterator<NDb::CRPGPers> it(*table);
+    while(it.MoveNext()){auto* p=it.Get();if(p->pPanzerklein){shellPersona=p;break;}}
+    Require(shellPersona,"PK damage fixture lacks an authored native shell persona");
+    CObj<NRPG::CUnit> human=new NRPG::CUnit(persona),shell=new NRPG::CUnit(shellPersona);
+    CObj<NRPG::IUnitMission> humanMission=NRPG::CreateUnit(human),shellMission=NRPG::CreateUnit(shell);
+    auto& shellVP=shell->Skills(NDb::ST_VP);Require(shellVP.GetMaxValue()>=20,"native PK shell lacks twenty expendable VP");
+    shellVP.SetValue(kind==5?5:kind==7?0:20);
+    auto* flesh=NDb::GetArmor(NDb::N_HUMAN_BODY_ARMOR);Require(IsValid(flesh) && IsValid(flesh->pMaterial) && flesh->pMaterial->nThreshold==0,"PK damage fixture requires the authored zero-threshold flesh control");
+    CObj<NDb::CRPGMaterial> material=new NDb::CRPGMaterial;material->nDR=flesh->pMaterial->nDR;material->nThreshold=0;material->fDensity=1;
+    CObj<NDb::CRPGArmor> armor=new NDb::CRPGArmor;armor->pMaterial=material;armor->fRicochetMaxCos=0;armor->fRicochetProbability=0;
+    CObj<NDb::CPanzerklein> suit=new NDb::CPanzerklein;
+    suit->pPers=shellPersona;suit->nRicochetProb=0;suit->nMaxVP=shellVP.GetMaxValue();suit->nAddMoveAP=0;suit->fAddCoverIgnore=0;
+    suit->fSensorRange=0;suit->fRegenerationValue=0;suit->fCriticalResist=(kind==3 || kind==12 || kind==13)?.75f:.5f;suit->pArmor=armor;suit->fEncumbranceKoeff=1;
+    suit->nGrenadeStrength=0;suit->bHasNoHead=false;for(auto& allowed:suit->bAllowWeaponType)allowed=true;
+    if(kind!=8 && kind!=10 && kind!=11)humanMission->SetPanzerklein(suit,&shellVP,shellMission->GetInventory());
+    CObj<NRPG::IUnitMission> target=humanMission;CObj<NRPG::CUnit> targetUnit=human;
+    if(kind==8){target=shellMission;targetUnit=shell;}
+    Require(target->GetTotalVP()>16 && !target->IsDead() && !target->IsUnconscious(),"PK damage fixture target is not healthy/conscious");
+    const int kinetic=(kind==1 || kind==13)?1591:kind==2?1600:1590,base=kind==4?0:8;
+    NRPG::CAttackPortion attack(kinetic,kind==9?-1:0,0.f,base,base,kind==3?80:(kind==12 || kind==13)?100:0,0,nullptr,target.GetPtr(),1.f,-1);
+    attack.bBypassPK=kind==2;
+    if(kind==6 || kind==11)targetUnit->nCheats|=NRPG::CHEAT_GODMODE;
+    Require(kind==9 || (attack.CanDealDmg(armor) && attack.CalcStructDmg(nullptr,armor,0)==base),"PK controlled armor did not retain native damage input");
+    const int humanBefore=humanMission->GetTotalVP(),shellBefore=shellVP;
+    GlobalGameRandom().SeedForHarness((kind==12 || kind==13)?2:1);auto beforeRandom=GlobalGameRandom(),probe=beforeRandom;const auto firstRoll=probe.Get(100);
+    if(kind==3)Require(firstRoll<20,"PK pilot-critical fixture seed does not select its native probability branch");
+    if(kind==12 || kind==13)Require(firstRoll>=25 && firstRoll<75,"PK asymmetric resistance control does not distinguish the two pilot probability formulas");
+    const auto received=target->ProcessAttack(nullptr,NAI::HL_BODY,&attack,armor);
+    const int amount=received.nDmg,receiver=int(received.type);
+    const int humanLoss=humanBefore-humanMission->GetTotalVP(),shellLoss=shellBefore-int(shellVP);
+    std::printf("native PK routing: kind=%d amount=%d receiver=%d human=%d->%d shell=%d->%d K=%d->%d critical=%d min=%d max=%d firstRoll=%u\n",kind,amount,receiver,humanBefore,humanMission->GetTotalVP(),shellBefore,int(shellVP),kinetic,attack.nK,attack.nCrtical,attack.nDmgMin,attack.nDmgMax,firstRoll);std::fflush(stdout);
+    int expectedReceiver=1;
+    if(kind==0 || kind==4 || kind==5 || kind==8 || kind==12)expectedReceiver=2;
+    if(kind==6 || kind==9 || kind==11)expectedReceiver=0;
+    if(kind==0 || kind==1 || kind==2 || kind==4 || kind==5 || kind==7 || kind==8 || kind==10) {
+        const int expectedAmount=kind==4?0:8;
+        const int expectedHuman=(kind==1 || kind==2 || kind==7 || kind==10)?8:0;
+        const int expectedShell=(kind==0 || kind==1 || kind==8)?8:kind==5?5:0;
+        const int expectedK=(kind==0 || kind==4 || kind==5 || kind==8)?0:kind==1?1:kinetic;
+        Require(amount==expectedAmount && humanLoss==expectedHuman && shellLoss==expectedShell && attack.nK==expectedK,
+            "native PK routing mixed suit/pilot damage, lost zero damage, or changed the original 1590 penetration boundary");
+        if(kind==5)Require(int(shellVP)==0 && target->HasCritical(NDb::C_PANZERKLEIN_BROKEN),"native PK overkill did not clamp VP and mark the broken suit");
+    } else if(kind==3) {
+        Require(shellLoss==0 && humanLoss>0 && amount==humanLoss && attack.nCrtical==20 && attack.nDmgMin==2 && attack.nDmgMax==2 && attack.nK==kinetic,
+            "native pilot critical used resistance rather than its complement, scaled suit damage, or forced critical2000");
+    } else if(kind==12 || kind==13) {
+        Require(shellLoss==8 && (kind==12?humanLoss==0 && amount==8:humanLoss>0 && amount==humanLoss) && attack.nK==(kind==12?0:1) && attack.nCrtical==100 && attack.nDmgMin==8 && attack.nDmgMax==8,
+            "native asymmetric resistance picked the wrong pilot branch or armor passage rewrote the human attack's critical/damage values");
+    } else {
+        Require(amount==-1 && humanLoss==0 && shellLoss==0 && attack.nK==kinetic,"native rejected/GodMode PK attack damaged its receiver or changed penetration");
+    }
+    Require(receiver==expectedReceiver,"native received-damage classification does not match suit/pilot/rejection route");
+    if(kind!=3 && kind!=13) {
+        const int draws=(kind==6 || kind==11)?0:(kind==1 || kind==9)?2:1;
+        auto expectedRandom=beforeRandom,afterRandom=GlobalGameRandom();for(int i=0;i<draws;++i)expectedRandom.Get();
+        for(int i=0;i<4;++i)Require(afterRandom.Get()==expectedRandom.Get(),"native PK damage changed the original combat RNG draw sequence");
+    }
+}
+
 static void RayShooterFirstTurn(const char* databasePath,const char* resourcePath,int kind)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
@@ -15497,7 +15595,7 @@ static void VitalitySkillAcknowledgment(const char* databasePath)
             anonymous ? nullptr : attackerMission.GetPtr(),mission,1.f,-1);
         int ack = -1; NRPG::IUnitMissionInfo* ackAttacker = nullptr;
         auto blocked = portion; blocked.nK = 0;
-        Require(mission->ProcessAttack(nullptr,NAI::HL_BODY,&blocked,nullptr) == 0,
+        Require(mission->ProcessAttack(nullptr,NAI::HL_BODY,&blocked,nullptr).nDmg == 0,
             "vitality control did not reject an attack with zero penetration");
         unchangedTraining();
         Require(!mission->GetAck(&ack,&ackAttacker),"blocked damage trained or acknowledged vitality");
@@ -15513,7 +15611,7 @@ static void VitalitySkillAcknowledgment(const char* databasePath)
                 for (int level=0;level<attackerMission->GetSkillValue(NDb::ST_LEVEL);++level)
                     expectedRandom.Get(1,20);
             expectedRandom.Get(100);
-            const int damage = mission->ProcessAttack(nullptr,NAI::HL_BODY,&portion,nullptr);
+            const int damage = mission->ProcessAttack(nullptr,NAI::HL_BODY,&portion,nullptr).nDmg;
             auto afterRandom = GlobalGameRandom();
             for (int next=0;next<4;++next)
                 Require(afterRandom.Get() == expectedRandom.Get(),
@@ -19506,7 +19604,7 @@ static void AttackerLevelCriticalRolls(const char* databasePath)
         log->line.clear();
         const float victimXP=victim->fXP;
         auto blocked=portion;blocked.nK=0;auto idle=GlobalGameRandom();
-        Require(target->ProcessAttack(nullptr,NAI::HL_BODY,&blocked,nullptr)==0 &&
+        Require(target->ProcessAttack(nullptr,NAI::HL_BODY,&blocked,nullptr).nDmg==0 &&
             int(victim->Skills(NDb::ST_VP))==before && victim->fXP==victimXP && log->line.empty(),
             "blocked attack entered severity processing or trained/damaged the target");
         auto afterBlocked=GlobalGameRandom();
@@ -19516,7 +19614,7 @@ static void AttackerLevelCriticalRolls(const char* databasePath)
         if(critical)expectedRandom.Get(100); // Existing RollCritical draw, separate from the level prefix.
         expectedRandom.Get(100); // Existing unconsciousness gate.
         const auto expectedNext=expectedRandom;
-        const int damage=target->ProcessAttack(nullptr,NAI::HL_BODY,&portion,nullptr);
+        const int damage=target->ProcessAttack(nullptr,NAI::HL_BODY,&portion,nullptr).nDmg;
         auto actual=GlobalGameRandom(),expected=expectedNext;
         bool randomMatches=true;
         for(int i=0;i<4;++i)randomMatches&=actual.Get()==expected.Get();
@@ -19561,7 +19659,7 @@ static void HeadBodyDamage(const char* databasePath)
         Require(portion.CanDealDmg(armor) && portion.CalcStructDmg(nullptr,armor,0)==base,
             "head damage control did not retain its exact native base flesh damage");
         auto expectedRandom=GlobalGameRandom();expectedRandom.Get(100);
-        const int damage=mission->ProcessAttack(nullptr,location,&portion,nullptr);
+        const int damage=mission->ProcessAttack(nullptr,location,&portion,nullptr).nDmg;
         auto actualRandom=GlobalGameRandom();
         for(int next=0;next<4;++next)Require(actualRandom.Get()==expectedRandom.Get(),
             "head damage multiplier changed native noncritical damage random draws");
@@ -20842,6 +20940,25 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "equal-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "mixed-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "missing-attack-target-caption") && argc == 4) { AttackCaptionWithoutHitChance(argv[2], false, true); return true; }
+    if (!std::strcmp(mode, "pk-damage-resistance-gate") && argc==3) { PKDamageRouting(argv[2],12); return true; }
+    if (!std::strcmp(mode, "pk-damage-penetrating-critical") && argc==3) { PKDamageRouting(argv[2],13); return true; }
+    if (!std::strcmp(mode, "pk-world-stopped") && argc==4) { PKWorldDamageRouting(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "pk-world-bypass") && argc==4) { PKWorldDamageRouting(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "pk-world-rejected") && argc==4) { PKWorldDamageRouting(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "pk-world-penetrating") && argc==4) { PKWorldDamageRouting(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "pk-world-zero") && argc==4) { PKWorldDamageRouting(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "pk-damage-stopped") && argc==3) { PKDamageRouting(argv[2],0); return true; }
+    if (!std::strcmp(mode, "pk-damage-penetrating") && argc==3) { PKDamageRouting(argv[2],1); return true; }
+    if (!std::strcmp(mode, "pk-damage-bypass") && argc==3) { PKDamageRouting(argv[2],2); return true; }
+    if (!std::strcmp(mode, "pk-damage-critical") && argc==3) { PKDamageRouting(argv[2],3); return true; }
+    if (!std::strcmp(mode, "pk-damage-zero") && argc==3) { PKDamageRouting(argv[2],4); return true; }
+    if (!std::strcmp(mode, "pk-damage-overkill") && argc==3) { PKDamageRouting(argv[2],5); return true; }
+    if (!std::strcmp(mode, "pk-damage-godmode") && argc==3) { PKDamageRouting(argv[2],6); return true; }
+    if (!std::strcmp(mode, "pk-damage-broken") && argc==3) { PKDamageRouting(argv[2],7); return true; }
+    if (!std::strcmp(mode, "pk-damage-empty") && argc==3) { PKDamageRouting(argv[2],8); return true; }
+    if (!std::strcmp(mode, "pk-damage-rejected") && argc==3) { PKDamageRouting(argv[2],9); return true; }
+    if (!std::strcmp(mode, "pk-damage-human") && argc==3) { PKDamageRouting(argv[2],10); return true; }
+    if (!std::strcmp(mode, "pk-damage-human-godmode") && argc==3) { PKDamageRouting(argv[2],11); return true; }
     if (!std::strcmp(mode, "ray-first-turn-zero") && argc==4) { RayShooterFirstTurn(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ray-first-turn-one") && argc==4) { RayShooterFirstTurn(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ray-first-turn-later") && argc==4) { RayShooterFirstTurn(argv[2],argv[3],2); return true; }
