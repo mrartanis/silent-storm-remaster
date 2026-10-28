@@ -8729,3 +8729,43 @@ copies. Source remains partial (132imported/22partial/84pending,106unfinished;
 43other sources already present/documented/excluded). Full critical formula/
 bleeding pipeline and incidental-hit/night consumers remain pending. ALL281 and
 final actual-HEAD hosted GitHub verification remain open.
+
+
+## 2de89e04, test follow-up — deterministic positive bleeding control
+
+The existing positive bleeding fixture was flaky independently of the pending
+pipeline work: rebuild unchanged HEAD and repeat UpstreamIntegerBleedingHit.
+Native RED runner exits8 after one PASS and then FAIL (2.28s total): strength3.5
+emits a rejected hit-1, VP80->80. The real original dodge check remains possible
+for this attack, so an uncontrolled RNG input invalidates the fixture's assumed
+positive-damage precondition. Retain this unmodified-test failure as evidence;
+no production rule is changed to make the test pass.
+
+Change ONLY PeriodicBleedingAttack test input: seed native GlobalGameRandom
+with2, independently check that its first native roll61 is at least the real
+actor's IC5, then execute the existing actual callback/attack/event queue.
+Focused GREEN2/2 2.25s. Fractional0.5 still emits no hit; positive3.5 actually
+loses3VP. The native dodge rule still executes. This imports no production RNG,
+new damage formula, PK bypass consumer or new bleeding hook.
+
+The larger periodic-bleeding fixture has separately reproduced8fail/13 native
+cases and is retained only as a16KB text patch outside the repository until the
+independent source432b64c8 PK damage/outcome prerequisite is audited/imported.
+It is not committed as a passing implementation. That dependency already has a
+saved bBypassPK flag but no current consumer. Do not enable all-unit periodic
+bleeding with incorrect suit/pilot handling, or disable the original dodge rule
+to satisfy the fixture. The pending end-tick import must carry this deterministic
+control to its correct native entry and remove the old event location.
+
+Final20 repeats of EACH case per platform:40/40 Windows44.84s, Linux44.73s;
+every raw record has actual firstroll61/IC5, fractional0.5 no hit/VP80->80,
+whole3.5 hit3/VP80->77. Related15/15 Windows15.37s/Linux15.20s includes earlier
+lifetime/clock/critical cases; asset-free local CI290/29024.31s. All five raw
+logs have exact40/40/15/15/290 passed records, no NUL/Failed/NotRun/missing
+executable, actual runners exit0. Evidence bleeding-fixture-rng-{red,green,
+final-repeat,linux-repeat,final-related,final-linux,final-ci}. Rebuild only test
+helpers; production Game still matches the preceding tested commit. No extra
+full57display or hosted GitHub success claimed for this local fixture change.
+Owned processes exited; shared builds reused, no HD generation/old builds.
+Source remains partial,132imported/22partial/84pending (106unfinished); ALL281,
+the432PK prerequisite, remaining2de changes and final hosted CI remain open.

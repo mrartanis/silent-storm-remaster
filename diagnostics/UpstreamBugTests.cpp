@@ -14844,6 +14844,11 @@ static void PeriodicBleedingAttack(const char* databasePath,const char* resource
     for(;;){CObj<NWorld::CHitLocator> pending=world->GetHitEvent();if(!pending)break;}
     const int vp=rpg->GetTotalVP(),ap=actor->GetAP();const STime time=world->GetAimTime()->GetValue();const auto position=actor->GetPosition();
     auto* player=dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer());Require(player,"bleeding fixture has no concrete native player");
+    // Reproduce the positive attack path deterministically; the original dodge rule still runs.
+    CRandomGenerator reference;reference.SeedForHarness(2);const auto dodgeRoll=reference.Get(100);
+    Require(int(dodgeRoll)>=rpg->GetIC(),"periodic bleeding fixture seed no longer selects the native no-dodge control");
+    GlobalGameRandom().SeedForHarness(2);
+    std::printf("native bleeding fixture RNG: seed=2 firstRoll=%u IC=%d\n",dodgeRoll,rpg->GetIC());std::fflush(stdout);
     actor->OnNewPlayerTurnOrTime(NWorld::CEventOnNewPlayerTurnOrTime(player));
     CObj<NWorld::CHitLocator> hit=world->GetHitEvent();
     std::printf("native periodic bleeding: strength=%g whole=%d hit=%d value=%d VP=%d->%d\n",strength,int(strength),int(IsValid(hit)),hit?hit->nHitValue:0,vp,rpg->GetTotalVP());std::fflush(stdout);
