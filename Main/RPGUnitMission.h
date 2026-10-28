@@ -213,13 +213,13 @@ EToHitType GetToHitType( const NWorld::CUnit *pAttacker );
 // To-hit dispatch (release migration, session 25): free fns that replace the dev virtual
 // IUnitMissionInfo::Get*ToHit interface. Each RTTI-casts the firing unit to its CUnitServer, picks the
 // EToHitType from the held weapon and builds the matching ToHitCalcer (defined in RPGUnitMission.cpp;
-// friends of CUnitMission). bNight is wired false here (CWorld::IsNight absent -- documented elision).
+// friends of CUnitMission). Incidental bullets supply bNight; other callers keep the day default.
 // retail RPGUnitGetToHit @0x2b4ae0 takes the bullet index as a PARAMETER (the mission-side
 // Jan03 nBullet cursor does not exist in retail); callers pass their burst-loop index.
 int GetToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int nDistance, const CVec3 &ptAttacker,
 	const NAI::SPosition &posTarget, NAI::EHitLocation eHL, int nExtraAP, const NWorld::CUnit *pTarget,
 	const vector<int> &accessibleHLs, int nHitCover, bool bFirstRound,
-	const CVec3 &ptIllumination = CVec3(1,1,1), bool bBackstab = false, int nBullet = 0 );
+	const CVec3 &ptIllumination = CVec3(1,1,1), bool bBackstab = false, int nBullet = 0, bool bNight = false );
 int GetTileToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int nDistance, const CVec3 &ptAttacker,
 	CVec3 ptTilePos, NAI::ETileHitLocation eHitLocation, int nExtraAP, int nHitCover, bool bFirstRound,
 	const CVec3 &ptIllumination = CVec3(1,1,1), int nBullet = 0 );

@@ -13,9 +13,6 @@
 // segments. Each completed segment owns its endpoint; CGame helpers also remain.
 //
 // DEFERRED (genuine gaps -- see RPGBullet.cpp notes):
-//   * Incidental unit damage in TraceLooseRaySegment needs NRPG::CheckBulletToHit, a
-//     per-bullet hit roll (RPGToHit module) that does NOT exist as a free function in
-//     the dev tree (the dev implements to-hit via the CToHitCalcer hierarchy).
 //   * CanHitTarget (needs the shooter diplomacy/relation -> ally mapping) and the
 //     per-ray GetHitIntersections (reads a finished CCoverInfo) are deferred.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -117,6 +114,9 @@ void PerformMeleeAttackPortion( NWorld::IWorld *pWorld, NAI::IAIMap *pAIMap, con
 // @0x290d80 -- build the cumulative AP-left profile across the cover chain.
 void CalcCoverIntervals( NAI::CFastRenderer::SResult *pList, const SAttackRayInfo &ray,
 	NDb::CRPGArmor *pFallbackArmor, vector<SCoverInterval> *pOut );
+// Original incidental-unit hit chance/roll, independent of the intended shot result.
+int GetBulletToHit( const SAttackRayInfo &rayInfo, CObjectBase *pTarget, NAI::EHitLocation hl );
+bool CheckBulletToHit( const SAttackRayInfo &rayInfo, CObjectBase *pTarget, NAI::EHitLocation hl );
 // @0x292830 -- build loose fly-past tracer trail for missed shots
 void TraceLooseRay( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, vector<STrailPoint> *pTrail );
 // @0x292010 -- trace segment of loose ray through obstacles

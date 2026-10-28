@@ -244,11 +244,6 @@ void TraceLooseRaySegment( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, v
 			CDynamicCast<NWorld::CUnit> pUnit( pUD );
 			if ( pUnit )
 				seen.push_back( pUD );
-			// Retail 1.2 @0x691f60..0x692070: a loose ray cannot hit its intended
-			// unit. Suppress both entry and exit effects, but retain armor traversal.
-			// Coarse cover rays and the final fragmented mesh trace can disagree;
-			// this gate prevents a rolled miss from producing a blood impact.
-			bool bMissedTarget = pUnit && pUD == rayInfo.pTarget.GetPtr();
 
 			NDb::CRPGArmor *pArmor = i->pSrc->pArmor;
 			if ( !pArmor )
@@ -268,13 +263,17 @@ void TraceLooseRaySegment( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, v
 				return;
 			}
 
+			// Original Steam 0x691eaa..0x691efa: never hit the missed intended unit.
+			// Other units get one independent roll per leg before armor traversal.
+			bool bHit = pUD != rayInfo.pTarget.GetPtr();
+			if ( bHit && IsValid( pUnit ) )
+				bHit = CheckBulletToHit( rayInfo, pUD, (NAI::EHitLocation)i->nUserID );
 			bool bDrawExit = false;
 			if ( !tmpAttackPortion.IsArmorIgnored( pArmor ) )
 			{
-				bDrawExit = !bMissedTarget;
-				// pAttackTarget is NULL so no intended target damage is resolved for loose ray
-				if ( !bMissedTarget )
-					pTrail->push_back( STrailPoint( i->nUserID, ray.ptDir, ray.Get( i->enter.fT ), tmpAttackPortion, 0, pUD, pArmor, -i->enter.ptNormal, i->pSrc->nFloor ) );
+				bDrawExit = bHit || !pUnit;
+				if ( bDrawExit )
+					pTrail->push_back( STrailPoint( i->nUserID, ray.ptDir, ray.Get( i->enter.fT ), tmpAttackPortion, bHit ? pUD : 0, pUD, pArmor, -i->enter.ptNormal, i->pSrc->nFloor ) );
 				if ( !tmpAttackPortion.CanDealDmg( pArmor ) )
 					return;
 			}

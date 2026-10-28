@@ -124,6 +124,7 @@ public:
 		float fRange, float fFOVAngle );   // retail @0x298fa0 (4-arg)
 	virtual void SetVisionMultiplier( float fMultiplier ) { pVision->SetVisionMultiplier( fMultiplier ); }   // retail @0x298740
 	virtual void SetNight( bool bIsNight ) { bNight = bIsNight; }   // retail @0x299550
+	virtual bool IsNight() const { return bNight; } // Original CGame vtable slot0x30.
 	virtual float GetUnitSightDistance( NRPG::CUnit *pRPGUnit );   // retail @0x2984d0
 	virtual float GetMaxUnitSightDistance( NRPG::CUnit *pRPGUnit );   // retail @0x298520 (vtbl+0x38)
 	virtual void GetVisibilityArea( vector<SVisibilitySpot> *pRes, const NWorld::CUnit *pObserver );

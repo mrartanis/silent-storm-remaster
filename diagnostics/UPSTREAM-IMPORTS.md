@@ -9122,3 +9122,105 @@ incidental hit roll/night propagation or impact-effect handling. Source remains
 partial,133imported/21partial/84pending (105unfinished); ALL281 and final actual
 HEAD hosted GitHub Actions remain open. Own facial/font/HD systems preserved,
 shared builds reused with HD generation OFF, no per-bug old builds.
+
+
+## 2de89e04, part8 - native incidental-unit hit roll and mission night input
+
+Source: 2de89e04ae2713bd7fbd267b5b3a96b60feb810d
+https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2de89e04ae2713bd7fbd267b5b3a96b60feb810d
+
+TraceLooseRay crossed other units without assigning any attack receiver or
+rolling their hit chance, and emitted their entry/exit visuals even on an
+independent miss. Restore the original per-leg incidental roll after ricochet
+and before armor traversal. An original intended unit stays suppressed; another
+valid unit gets one roll, duplicated mesh intervals share the existing seen set,
+and a reflected leg starts its own set. A hit assigns only the entry receiver;
+exit records remain visual-only. A miss still traverses armor/energy but emits
+no unit entry/exit. Non-unit surfaces retain their entry/exit and object receiver
+where applicable. Keep our bounds/terminal/reflection fixes and global ISAAC
+platform adapter.
+
+GetBulletToHit supplies original inputs to the existing to-hit dispatch: no
+shooter/non-unit fallback100; native target distance *inverse-grid1.6 truncated;
+carried pose/extraAP/burst index/first-turn; target visibility for backstab,
+cover75, light1/1/1 and the cached mission night flag. Add the original IsNight
+getter over existing CGame bNight/tag5 and a defaulted bNight argument to the
+unit GetToHit entry/friend. Other callers keep their existing default day input;
+Tile/other environment entry points are not changed or claimed audited here.
+No new coefficients, authored balance edits, schema fields, RNG algorithm or
+world damage implementation. The original roll is signed Get(100)<=chance:
+zero chance accepts a zero roll, including its one ISAAC draw; do not replace
+that with a conventional strict comparison.
+
+Runtime tests first, compiled against the unchanged provider (no missing-API
+compile failure counted as RED). Real FixtureWorld armed snap shooter without
+perk15, two other humans, actual CUnitToHitCalcer and native TraceLooseRay; the
+analytic map supplies intersections only. Fifteen cases cover fragment/no shooter,
+100,0 miss,0 equality,37 equality/38 miss, intended, ignored shooter, repeated
+intervals, reflected revisit, ordinary and intended non-unit surfaces, real
+CreateBulletServer damage, day and night. Reference ISAAC checks exact next words
+after0/1/3 original draws; fixed simple slab density gives retained K99998, or
+99996 on a return through the unit, ignored geometry retains100000.
+RED12/15 16.75s: units have no receiver/draw, misses retain visuals, non-unit
+entry lacks receiver; intended/ignored/intended-obstacle controls already pass.
+Then the minimal provider fix above.
+
+Initial GREEN14/15 16.72s: only the real damage assertion assumed base3 meant3HP.
+The unmodified authored human armor/difficulty pipeline produces4HP instead
+(VP80->76), and the new route already delivered it. Correct ONLY the test control
+using existing CalcStructDmg against authored human armor, require positive damage,
+one real hit and exact VP delta; do not alter gameplay damage. Add exact new
+GetBulletToHit equality to the independent existing CUnitToHitCalcer for natural
+day79/night71, beyond just selecting a roll between them. Precise GREEN15/15
+16.51s, actual world hit4/expected4. The earlier fixture-only energy expectation
+was corrected to the existing density2*thickness1 cost before the first RED run.
+
+Original identity/behavior proof: prior independently verified TraceLooseRay
+Gold68bcd0 ->Steam691ca0; non-intended valid-unit branch691eaa..691efa calls
+CheckBulletToHit6b59f0 at691ef1; direct call6b59fa ->GetBulletToHit6b5830. The old
+upstream6b5880/6b5aeb annotations are not used. Check6b5a03..6b5a38 consumes one
+original ISAAC9ca918 word modulo100;6b5a9a..6b5a9d signed setle. Fallbacks
+6b583e..6b58af, night virtualslot30 at6b58c2, distance1.6@8b2fdc/trunc6b594a,
+visibility-only virtual84 at6b5967, carried inputs/75/light1 and final unit
+GetToHit6b4ae0 call6b59d4 are decoded directly. Gold has an extra audibility88
+probe; Steam uses visibility alone, matching this source.
+
+Named CGame RTTI: Gold COL8e0260/vtable8b403c slot30 ->PDB IsNight693250;
+Steam COL8ef99c/vtable8c315c same class/offset0/slot ->7b03f0. All4 getter bytes
+8a4118c3 match uniquely and read existing byte18. SetNight slot2c maps to Steam
+6992c0. Existing UpdateVisible already sets that mission field from time of day.
+Independently named CUnitToHitCalcer RTTI Gold COL8e27b8/vtable8b5ad4 slot2c
+->PDB GetLight6b0d70/198; Steam COL8f1ef0/vtable8c4bec same slot ->6b6eb0.
+Original perk15 check6b6f55..6b6f57 and multiply6b6f63 use0.9f@8b8688. This
+existing light formula is not retuned. No arbitrary opcode masks. Full Gold/Steam
+trace/hit/check/light disassemblies and incidental-hit-retail-oracle.json retained.
+
+The first broad related run reached119 cases per platform:117 pass, two older
+terminal fixtures still assert that a non-unit entry has no receiver. Original
+691fca..69203a carries the obstacle at entry, exactly the newly restored behavior;
+its exit remains visual-only. Update only that obsolete fixture assumption to
+assert the actual object receiver, retain all endpoint/energy expectations, and
+add explicit empty-receiver controls for exit and terminal. No second production
+change. Initial119-case Windows110.38s/Linux108.71s failure logs are retained as
+incidental-hit-initial-{related,linux}; final reruns below cover corrected controls.
+
+Final fresh Windows ALL_BUILD and Linux Game/helpers: focused15/15 16.59s;
+related119/119 Windows109.02s/Linux108.51s; network serializer/stop-resume2/2 4.00s;
+display57/57 Windows82.29s/Linux68.14s; local asset-free CI290/29024.70s. All7
+raw logs have exact15/119/2/57/119/57/290 passed records, no NUL/Failed/NotRun/
+missing executable, and actual runners exit0. All15 per-case ISAAC next words
+match on both platforms, exact natural79/71 and native VP80->76/hit4 controls
+match. Asset-dependent cases are explicitly in119, not claimed part of290.
+Evidence incidental-hit-{red,green,precise-controls,initial-related,initial-linux,
+final-focused,final-related,final-network,final-display,final-linux,linux-display,
+final-ci} plus original oracle/disassemblies. Owned tests exited, shared builds
+reused with both HD caches OFF. No hosted Actions success/full map sweep claimed.
+
+The first-turn carrier and nearest impacted receiver were imported separately;
+their existing controls remain. Source2de still needs impact-effect/surface
+handling review, with our equipment decal ownership preserved; do not blindly
+replace GetDecalsRef or treat an older fixture's zero-damage input as a new
+user-level requirement. Any intentional restoration of effect conditions needs
+its own native RED and appropriate positive decal/geometry controls. No font,
+facial engine or HD changes. Counts133imported/21partial/84pending (105unfinished),
+source2de remains partial. ALL281 and final actual-HEAD hosted Actions remain open.

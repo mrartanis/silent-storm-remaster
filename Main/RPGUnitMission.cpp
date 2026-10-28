@@ -89,7 +89,7 @@ class CUnitMission: public IUnitMission
 	friend class CRLauncherToHitCalcer;
 	// release migration: the free-fn to-hit dispatch reaches GetToHitWeaponType / GetSnipeAP /
 	// GetMeleeToHit / bLogActive (all private) -- befriend it (no visibility change to the class).
-	friend int GetToHit( const NWorld::CUnit*, NAI::EPose, int, const CVec3&, const NAI::SPosition&, NAI::EHitLocation, int, const NWorld::CUnit*, const vector<int>&, int, bool, const CVec3&, bool, int );
+	friend int GetToHit( const NWorld::CUnit*, NAI::EPose, int, const CVec3&, const NAI::SPosition&, NAI::EHitLocation, int, const NWorld::CUnit*, const vector<int>&, int, bool, const CVec3&, bool, int, bool );
 	friend int GetTileToHit( const NWorld::CUnit*, NAI::EPose, int, const CVec3&, CVec3, NAI::ETileHitLocation, int, int, bool, const CVec3&, int );
 	friend int GetGrenadeToHit( const NWorld::CUnit*, NAI::EPose, int, const CVec3&, bool, CVec3, const CVec3& );
 	friend int GetRLauncherToHit( const NWorld::CUnit*, NAI::EPose, int, const CVec3&, CVec3, NAI::ETileHitLocation, int, bool, const CVec3& );
@@ -1286,11 +1286,11 @@ EToHitType GetToHitType( const NWorld::CUnit *pAttacker )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // To-hit dispatch (release migration). Each free fn RTTI-casts the firing unit to its CUnitServer,
 // picks the EToHitType from the held weapon and builds the matching ToHitCalcer (which now takes the
-// CUnitServer*). bNight is wired false (CWorld::IsNight absent in this tree -- documented elision).
+// CUnitServer*). Incidental bullets supply the night flag explicitly.
 int GetToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int nDistance, const CVec3 &ptAttacker,
 	const NAI::SPosition &posTarget, NAI::EHitLocation hl, int nExtraAP, const NWorld::CUnit *pTarget,
 	const vector<int> &accessibleHLs, int nHitCover, bool bFirstRound, const CVec3 &ptIllumination, bool bBackstab,
-	int nBullet )   // retail @0x2b4ae0 param: the burst bullet index (Jan03 read the mission's cursor)
+	int nBullet, bool bNight )   // Original unit to-hit: carried burst index and night flag.
 {
 	CDynamicCast<NWorld::CUnitServer> pUS( const_cast<NWorld::CUnit*>( pAttacker ) );
 	// retail RPGUnitGetToHit @0x2b4ae0 head gate: a script-forced to-hit (UnitSetToHit, -1 = off)
@@ -1302,7 +1302,6 @@ int GetToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int nDistance,
 	CDynamicCast<NWorld::CUnitServer> pUSTarget( const_cast<NWorld::CUnit*>( pTarget ) );
 	CUnitMission *pMission = CDynamicCast<CUnitMission>( pUS->GetUnitRPG() );
 	IUnitMissionInfo *pTargetRPG = pTarget ? pTarget->GetRPG() : 0;
-	const bool bNight = false;
 	CPtr<IToHitCalcer> pToHitCalcer;
 	switch ( pMission->GetToHitWeaponType() )
 	{

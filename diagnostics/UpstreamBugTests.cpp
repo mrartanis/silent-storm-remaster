@@ -15152,6 +15152,96 @@ static void PeriodicBleedingAttack(const char* databasePath,const char* resource
     Require(!world->GetHitEvent(),"one periodic bleeding callback emitted duplicate hit events");
 }
 
+static void LooseRayIncidental(const char* databasePath,const char* resourcePath,int kind)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> all;world->GetAllUnits(&all);NWorld::CUnitServer* shooter=nullptr;
+    for(const auto& unit:all) {
+        if(!IsValid(unit) || !unit->CanFight() || unit->IsWearingPK() || unit->IsEmptyPK() || unit->GetUnitRPG()->HasPerk(0x15))continue;
+        auto* weapon=unit->GetUnitRPG()->GetWeaponItem();
+        if(weapon && weapon->SetShootMode(NDb::SM_Snap) && NRPG::GetToHitType(unit)==NRPG::TH_SHOOT){shooter=unit.GetPtr();break;}
+    }
+    Require(shooter,"incidental ray fixture has no native firearm shooter without night vision");
+    NWorld::CUnitServer* target=nullptr;NWorld::CUnitServer* intended=nullptr;
+    for(const auto& unit:all)if(IsValid(unit) && unit.GetPtr()!=shooter && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK()) {
+        if(!target)target=unit.GetPtr();else {intended=unit.GetPtr();break;}
+    }
+    Require(target && intended,"incidental ray fixture lacks two native non-PK targets");
+    auto* original=NDb::GetArmor(NDb::N_DEFAULT_ARMOR);Require(original && original->pMaterial,"incidental ray fixture lacks authored armor material");
+    CObj<NDb::CRPGMaterial> material=new NDb::CRPGMaterial;material->nDR=original->pMaterial->nDR;material->fDensity=2;
+    CObj<NDb::CRPGArmor> armor=new NDb::CRPGArmor;armor->pMaterial=material;armor->fRicochetMaxCos=0;armor->fRicochetProbability=0;
+    CObj<NDb::CRPGArmor> mirror=new NDb::CRPGArmor;mirror->pMaterial=material;mirror->fRicochetMaxCos=2;mirror->fRicochetProbability=1;
+    CObj<LooseRayWallToken> token=new LooseRayWallToken;CObj<LooseRayTraceMap> map=new LooseRayTraceMap;
+    NRPG::CAttackPortion attack(100000,1,0.f,3,3,0,0,shooter->GetUnitRPG(),intended->GetUnitRPG(),1.f,-1,false);
+    NRPG::SAttackRayInfo ray(attack,shooter->GetPosition().GetCP(),CVec3(1,0,0),shooter,shooter->GetPosition(),0,0,false,0,12,intended);
+    ray.pIgnore=shooter;
+    const int forced=kind==2 || kind==3?0:kind==4 || kind==5?37:100;shooter->SetScriptToHit(forced);
+    if(kind==0)ray.pUS=nullptr;
+    int desiredRoll=kind==3?0:kind==4?37:kind==5?38:50;
+    int chance=kind==0?100:forced,dayChance=-1,nightChance=-1;
+    if(kind>=13) {
+        shooter->SetScriptToHit(-1);ray.bFirstTurn=true;
+        auto nativeChance=[&](bool night) {
+            const int distance=int(fabs(ray.vOrigin-target->GetPosition().GetCP())*FP_INV_GRID_STEP);
+            CObj<NRPG::CUnitToHitCalcer> calc=new NRPG::CUnitToHitCalcer(shooter,ray.from.GetPose(),distance,ray.vOrigin,target->GetPosition().pos,
+                ray.nExtraAP,0,75.f,ray.bFirstTurn,night,CVec3(1,1,1),NAI::HL_BODY,target,ray.nBullet,!target->IsUnitVisible(shooter));
+            return calc->GetToHit();
+        };
+        for(int distance=3;distance<=80;++distance) {
+            ray.vOrigin=target->GetPosition().GetCP()-CVec3(float(distance),0,0);
+            dayChance=nativeChance(false);nightChance=nativeChance(true);
+            if(dayChance>nightChance && nightChance>=0 && dayChance<100)break;
+        }
+        Require(dayChance>nightChance && nightChance>=0 && dayChance<100,"native incidental night fixture has no observable day/night accuracy boundary");
+        chance=kind==14?nightChance:dayChance;desiredRoll=dayChance;
+    }
+    world->GetGame()->SetNight(kind==14);
+    const float x=ray.vOrigin.x;
+    CObjectBase* surface=kind==7?static_cast<CObjectBase*>(shooter):kind==10 || kind==11?static_cast<CObjectBase*>(token.GetPtr()):static_cast<CObjectBase*>(target);
+    if(kind==6)ray.pTarget=target;
+    if(kind==11)ray.pTarget=token.GetPtr();
+    NAI::SSourceInfo source(surface,armor,3,NWorld::TS_FRAGMENTED);map->slabs={{x+2,x+3,source,NAI::HL_BODY}};
+    if(kind==8)map->slabs.push_back({x+4,x+5,source,NAI::HL_BODY});
+    if(kind==9)map->slabs.push_back({x+6,x+6.02f,NAI::SSourceInfo(token,mirror,3,NWorld::TS_FRAGMENTED),77});
+    CRandomGenerator reference;unsigned seed=0;
+    for(unsigned candidate=1;candidate<100000;++candidate){reference.SeedForHarness(candidate);if(int(reference.Get(100))==desiredRoll){seed=candidate;break;}}
+    Require(seed,"incidental ray fixture could not select its exact native roll");reference.SeedForHarness(seed);
+    int draws=kind==6 || kind==7 || kind==10 || kind==11?0:1;
+    if(draws)reference.Get(100);
+    if(kind==9){reference.GetFloat(0,1);reference.Get(100);draws=3;}
+    const unsigned expectedNext=reference.Get();GlobalGameRandom().SeedForHarness(seed);
+    vector<NRPG::STrailPoint> trail;NRPG::TraceLooseRay(map,ray,&trail);const unsigned actualNext=GlobalGameRandom().Get();
+    int records=0,receivers=0;
+    for(const auto& point:trail)if(point.pObject.GetPtr()==surface) {
+        ++records;if(IsValid(point.pAttackTarget)){Require(point.pAttackTarget.GetPtr()==surface,"incidental ray selected a different damage receiver");++receivers;}
+    }
+    const bool hit=desiredRoll<=chance;const int expectedReceivers=kind==6 || kind==7 || kind==11?0:kind==10?1:hit?(kind==9?2:1):0;
+    const int expectedRecords=kind==7?0:kind==10 || kind==11?2:kind==6 || !hit?0:kind==9?4:2;
+    std::printf("native incidental ray: kind=%d chance=%d day=%d night=%d roll=%d records=%d/%d receivers=%d/%d rays=%zu draws=%d next=%u/%u kinetic=%d\n",
+        kind,chance,dayChance,nightChance,desiredRoll,records,expectedRecords,receivers,expectedReceivers,map->rays.size(),draws,actualNext,expectedNext,trail.back().sAttack.nK);std::fflush(stdout);
+    Require(records==expectedRecords && receivers==expectedReceivers,"native loose ray omitted incidental damage routing or emitted a missed unit's entry/exit");
+    Require(actualNext==expectedNext,"native incidental ray used the wrong original ISAAC draw count or inclusive hit boundary");
+    Require(map->rays.size()==std::size_t(kind==9?2:1) && trail.back().sAttack.nK==(kind==7?100000:kind==9?99996:99998),
+        "incidental hit/miss changed original geometry traversal or carried armor energy");
+    if(kind>=13) {
+        const int actualChance=NRPG::GetBulletToHit(ray,target,NAI::HL_BODY);
+        std::printf("native incidental exact chance: kind=%d actual=%d expected=%d\n",kind,actualChance,chance);std::fflush(stdout);
+        Require(actualChance==chance,"incidental helper changed the exact existing native day/night accuracy inputs");
+    }
+    if(kind==12) {
+        const int expectedDamage=attack.CalcStructDmg(world,NDb::GetArmor(NDb::N_HUMAN_BODY_ARMOR),0);
+        Require(expectedDamage>0,"incidental damage fixture has no positive native damage control");
+        const int before=target->GetUnitRPG()->GetTotalVP();for(;;){CObj<NWorld::CHitLocator> hit=world->GetHitEvent();if(!hit)break;}
+        GlobalGameRandom().SeedForHarness(2); // Isolate the existing world dodge control after the traced-hit RNG assertion.
+        CObj<NWorld::IDynamicObject> bullet=NWorld::CreateBulletServer(world,trail,world->GetTime()->GetValue(),nullptr,100.f);
+        Require(bullet && bullet->Segment(),"incidental damage fixture did not process its actual native bullet");bullet=nullptr;
+        CObj<NWorld::CHitLocator> event=world->GetHitEvent();
+        std::printf("native incidental world damage: VP=%d->%d hit=%d expected=%d\n",before,target->GetUnitRPG()->GetTotalVP(),event?event->nHitValue:-999,expectedDamage);std::fflush(stdout);
+        Require(event && event->pUnit.GetPtr()==target && event->nHitValue==expectedDamage && target->GetUnitRPG()->GetTotalVP()==before-expectedDamage && !world->GetHitEvent(),
+            "incidental traced entry did not deliver its actual native damage exactly once");
+    }
+}
+
 static void LooseRayBounds(const char* databasePath,const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
@@ -15188,7 +15278,7 @@ static void LooseRayTermination(const char* databasePath,const char* resourcePat
     NAI::SSourceInfo source(token,armor,3,NWorld::TS_FRAGMENTED);map->slabs={{2,3,source,7}};
     NRPG::SAttackRayInfo ray;ray.vOrigin=VNULL3;ray.vDir=CVec3(1,0,0);ray.fMaxRange=8;ray.atk.nDmgType=1;ray.atk.nK=stopped?1:10;
     vector<NRPG::STrailPoint> trail;NRPG::TraceLooseRay(map,ray,&trail);
-    Require(trail.size()>=2 && trail[1].nUserID==7 && trail[1].pObject.GetPtr()==token.GetPtr() && !IsValid(trail[1].pAttackTarget),
+    Require(trail.size()>=2 && trail[1].nUserID==7 && trail[1].pObject.GetPtr()==token.GetPtr() && trail[1].pAttackTarget.GetPtr()==token.GetPtr(),
         "terminal fixture did not traverse its native nonunit armor entry");
     const auto& end=trail.back();
     std::printf("native loose-ray terminal: stopped=%d points=%zu end=%g kinetic=%d expectedEnd=%d expectedKinetic=%d\n",
@@ -15197,6 +15287,8 @@ static void LooseRayTermination(const char* databasePath,const char* resourcePat
         "stopped native loose bullet appended an endpoint beyond its blocking surface");
     else Require(trail.size()==4 && fabs(end.vPosition.x-8)<1e-5f && end.sAttack.nK==8 && !IsValid(end.pObject),
         "penetrating native loose bullet restored its initial energy at the terminal point");
+    if(!stopped)Require(trail[2].pObject.GetPtr()==token.GetPtr() && !IsValid(trail[2].pAttackTarget) && !IsValid(end.pAttackTarget),
+        "nonunit exit or terminal endpoint acquired an entry-only damage receiver");
     map->slabs.clear();NRPG::TraceLooseRay(map,ray,&trail);
     Require(trail.size()==2 && fabs(trail.back().vPosition.x-8)<1e-5f && trail.back().sAttack.nK==ray.atk.nK,
         "terminal ownership truncated or weakened an unobstructed native ray");
@@ -21195,6 +21287,21 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "loose-ray-reflected-clear") && argc==4) { LooseRayRicochet(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "loose-ray-stop") && argc==4) { LooseRayTermination(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "loose-ray-terminal-energy") && argc==4) { LooseRayTermination(argv[2],argv[3],false); return true; }
+    if (!std::strcmp(mode, "loose-ray-incidental-fragment") && argc==4) { LooseRayIncidental(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "loose-ray-incidental-certain") && argc==4) { LooseRayIncidental(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "loose-ray-incidental-zero-miss") && argc==4) { LooseRayIncidental(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "loose-ray-incidental-zero-equality") && argc==4) { LooseRayIncidental(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "loose-ray-incidental-threshold-equality") && argc==4) { LooseRayIncidental(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "loose-ray-incidental-threshold-miss") && argc==4) { LooseRayIncidental(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "loose-ray-incidental-intended") && argc==4) { LooseRayIncidental(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "loose-ray-incidental-ignored") && argc==4) { LooseRayIncidental(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "loose-ray-incidental-repeated") && argc==4) { LooseRayIncidental(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "loose-ray-incidental-reflected") && argc==4) { LooseRayIncidental(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "loose-ray-incidental-obstacle") && argc==4) { LooseRayIncidental(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "loose-ray-incidental-intended-obstacle") && argc==4) { LooseRayIncidental(argv[2],argv[3],11); return true; }
+    if (!std::strcmp(mode, "loose-ray-incidental-world-damage") && argc==4) { LooseRayIncidental(argv[2],argv[3],12); return true; }
+    if (!std::strcmp(mode, "loose-ray-incidental-day") && argc==4) { LooseRayIncidental(argv[2],argv[3],13); return true; }
+    if (!std::strcmp(mode, "loose-ray-incidental-night") && argc==4) { LooseRayIncidental(argv[2],argv[3],14); return true; }
     if (!std::strcmp(mode, "loose-ray-bounds") && argc==4) { LooseRayBounds(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "restore-action-state") && argc == 4) { RestoreActionState(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "zone-reentry-action-state") && argc == 4) { RestoreActionState(argv[2], argv[3], true); return true; }
