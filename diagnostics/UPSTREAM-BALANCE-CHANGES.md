@@ -80,7 +80,7 @@ native controls проверяют оба SLOT, active/inactive и нетрон�
 | [5780c0be](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027) Restore retail throwing knife targeting, flight and facing | Метательные ножи: штатная дальность, скорость, попадания, направление. Это восстановление формул, не готовый безопасный cherry-pick. |
 | [c1ab9336](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c) Restore retail melee damage dispatch and armed attack cursor | Native UI-различение кулака/экипированного оружия адаптировано в GetState; action dispatch и critical bans сохранены. Target-filter/damage dispatch остаётся для проверки реальных попаданий и original damage. |
 | [7f4f0ea8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7f4f0ea872937e4dcb4a887ff6a136d7dce1fcd5) Match retail nearest AI contact selection | Nearest-contact selection использует другие позиции/фильтры; отдельно сверять поведение AI. |
-| [cc0fd988](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc0fd9888357c7a9f5d47fec2c22f3073eb5e7cf) Match retail AI firing range and target reach checks | Частично перенесены точка выстрела и обязательное достижение юнита; дальность, проекция и маски трассировки ещё проверяются отдельно. |
+| [cc0fd988](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc0fd9888357c7a9f5d47fec2c22f3073eb5e7cf) Match retail AI firing range and target reach checks | Частично перенесены точка выстрела, обязательное достижение юнита и оригинальный предел AI30; проекция и маски трассировки ещё проверяются отдельно. |
 | [66fc9e9a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/66fc9e9ad26497bf41f96a1a8c51c8a03e951718) Match retail AI snipe weapon and cover evaluation | AI snipe должен считать выбранным оружием и не терять дробную cover precision. |
 | [0ffb568d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0ffb568d67bc6ca389d7ca63a9da4f3978c801a7) Restore retail level XP persistence and fresh skill maximum flags | Повторная native-проверка нового репозитория выявила потерю общего XP в SetXPLevel; сохранение существующего расчёта исправляется отдельно. FreezeToMax для новых skills независимо сверён с original Steam EXE и перенесён: см. fresh-skill-modifier-values в UPSTREAM-IMPORTS.md. |
 | [08c4bb5a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/08c4bb5a6b9a94337d88bd8241a2e51b6984cfce) Restore retail weapon preparation AP costs | AP подготовки оружия из weapon type/перков вместо stub; сверять original, не считать автоматически ребалансом. |
@@ -1165,3 +1165,33 @@ Linux-сборке подтверждает77 и до переноса. Испр
 условия на Linux воспроизводит ровно3 ошибки из8; после точного восстановления
 исходника и сборки те же сценарии проходят. Общий перенос и окончательная
 проверка GitHub Actions остаются незавершёнными.
+
+
+## Проверено: оригинальный предел дальности оценки AI — часть cc0fd988
+
+[Исходный коммит](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc0fd9888357c7a9f5d47fec2c22f3073eb5e7cf).
+AI мог положительно оценивать выстрел по цели за пределом оригинальных30
+игровых единиц. Восстановлен минимум из расстояния до цели по трём координатам
+плюс один и существующего предела30. Это исходное ограничение AI, подтверждённое
+по фактическим аргументам и расчёту в Gold/Steam. Новое значение баланса не
+вводится. Данные оружия/брони, видимость, обычный расчёт стрельбы и наша геометрия
+сохраняются. Другие части исходного коммита ещё проверяются отдельно.
+
+Сначала на обеих платформах падает ровно один из8 тестов: до цели33, по
+горизонтали19,8, все47 пересечений дальше предела, но AI возвращает40/37.
+Семь контролей проходят. После фикса —24/24 на Windows и Linux: дальняя оценка
+AI становится0, близкая сохраняется; обычный расчёт сохраняет прежние39/38 и
+36/32, заблокированные горизонтальные лучи остаются заблокированными. Различия
+исходных оценок между платформами сохраняются; перенос их не нормализует.
+Настоящие оружие, модель, карта и пересечения работают без подмены результата.
+Начальные ошибки подготовки теста сохранены отдельно и не считаются RED.
+Финальный тест не перемещает юнитов и не меняет анимацию, лицо, шрифты, HiRes/HD
+или сохранения. Проверки не расходуют AP/HP, патроны и RNG.
+
+
+Расширенные проверки: Windows244/244 и Linux242/242 связанных, по6/6 контекстных
+и декалей на каждой платформе, локальный CI290/290. В каждой платформе изменилась
+только дальняя оценка AI; семь остальных результатов и все оценки обычного
+расчёта совпали с состоянием до фикса. Шестнадцать прежних результатов проверки
+достижения цели на каждой платформе также сохранились. Общий перенос и итоговая
+проверка GitHub Actions продолжаются.

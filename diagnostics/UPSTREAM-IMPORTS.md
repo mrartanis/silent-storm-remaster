@@ -10601,3 +10601,84 @@ and these limits. Both HD caches OFF, shared builds only, about23.64GB free;
 owned tests/debuggers have exited. Counts stay281=140 imported/19 partial/79
 pending plus explicit other decisions:98 unfinished source reviews/imports.
 cc0fd988 remains partially imported (origin and required-target gate done).
+
+
+## 2026-10-28 — restore the original AI cover ray range (cc0fd988, partial)
+
+In CGame.CalcCovers, clip distance+1 to the existing30-unit weapon-trail limit
+only when bAIMode is true. Keep the own Game interface, natural nearer distance,
+non-AI cover path, projection/frustum, native geometry, target-reach guard,
+trace flags, weapon/armor data, integer-cover guards and serialization. This
+restores the original AI probe's maximum; it introduces no new balance value.
+Origin and required-target fixes were imported separately in be9de53b/68b84aa0.
+Unit-vs-tile projection and trace-flag/human-path adaptations remain separate.
+
+Eight actual FixtureWorld profiles use the real armed AI actor, existing enemy,
+unchanged native weapon portion, native Game/CFastRenderer/collision map and
+hypothetical source points29/33 units from the actual target locator. Elevated
+sources have horizontal distances17.4/19.8, separating3D range from XY range.
+The native non-AI path supplies a positive penetration reference for elevated
+profiles and its existing blocked sentinel for level-ray negative controls;
+fixture selection never uses the AI result being tested. A read-only map
+delegate preserves the requested projection and actual intersections, recovers
+its true source, and counts all target entries inside/outside30/projection and
+the natural distance+1. Far entries all lie outside30, near entries all inside;
+targets remain genuinely present in the full native projection. No geometry,
+intersection, aim locator or hit/cover result is manufactured. The final fixture
+moves/creates no units and preserves AP/HP/ammo/poses/commands/RNG by queries.
+
+Initial fixture compile adjustments (Windows far macro and default-only CRay),
+centre-line/first-target assumptions and attempted target-placement setup are
+not bug RED. Those logs remain in shared evidence. Actual level-ray native
+references are fully blocked; retain them as four explicit negative controls
+instead of pretending they are clear positive lines. Remove all unrelated
+placement/new-unit scaffolding from the final test. That does not narrow the
+AI range implementation: the same original cap applies to every AI cover query.
+
+Authoritative runtime RED on BOTH native builds: Windows1/8 fails in8.71s,
+Linux1/8 in8.88s; seven controls pass. Only AIFarElevated fails the range
+assertion: at real33 and XY19.8,47 target intervals are beyond30, none inside,
+yet old AI returns40 on Windows /37 on Linux. Non-AI far remains39/38 and near
+36/32; AI near40/37 remains positive. Level-ray AI0/non-AI-1 controls remain
+blocked. The two-line range guard and comment give GREEN24/24 (new8 + prior8
+origin + prior8 target-reach), Windows26.10s/Linux26.31s, runner exits0. Far AI
+now0 on both; all other per-platform range records/reference scores unchanged.
+Scores differ between existing native platforms; do not claim equal scores or
+normalize those unrelated baselines.
+
+Original proof: audit-ai-cover-range.py / ai-cover-range-retail-oracle.json.
+Named Gold PDB GetCoverForAIUnit68df10/252 ->Steam693e70/252 calls named
+CalcCovers68d940/933 ->6938a0/933 at Gold68df61/Steam693ec1. Unique unmasked24
+core blocks+16/+24/+40 and full ret40/CC tail corroborate. Gold68df3c andSteam
+693e9c push float30 as CalcCovers arg8. Later arguments are hoisted around the
+no-argument GetAttackIgnore secondary-slot58 call693eaf; its named getter is
+Gold7b3980/46 ->Steam7c0100, plainret. Thus30 is not a getter or TraceGrid arg.
+CalcCovers frame12SEH+88locals+16regs puts arg8 atbase94; after two stagedpushes
+it loadsesp9c at693abe. Horizontal sqrt69397f feeds view width, whereas adding
+the remaining squared component693985..98d and second sqrt693991 produces3D
+length inesp78 at693993. Add literal1 at693ab1 (Gold68db51 also verified1.0),
+storelength+1 throughesp80, reload693acc, pushboth693ad4/d5 and call Min at
+693ad6 (Gold68db76). Named Min<float>413bb0/41 ->414690 is byte-identical and
+unique in BOTH binaries, all41 bytes. Therefore use Min(length3D+1,30), not
+fixed30 for near targets or XY distance. Keep the fork's own wrapper/ABI/layout.
+
+
+Final fresh Windows ALL_BUILD:244/244 related checks259.46s plus6/6 context/
+human+PK decal checks3.35s. Linux Game/helpers242/242 related257.22s plus6/6
+context/decal checks3.29s. Full local asset-free CI290/29024.03s, including
+Windows/Linux/configured registration checks. All runners exit0; seven final
+raw logs have exact24/24/244/242/6/6/290 passes, no Failed/NotRun/NUL. Native
+RED raw logs each have1 intended failure and7 passes. Within each platform,
+only mode0 score changes to0; the other seven full records and all reference/
+geometry/role fields stay unchanged. All geometric/role records match between
+platforms; scores preserve existing per-platform baselines. The16 records of
+previous target-reach controls on EACH platform also remain unchanged.
+ai-cover-range-final-verification.json records these assertions and limits.
+
+Both shared builds keep HD OFF; no per-fix build/game/source copies, about
+23.61GB free and no owned test/debugger processes left. cc0fd988 remains partial:
+origin, required-unit reach and AI30 cap are done, projected unit range and
+trace flags/human-path adaptation are still pending. Counts281=140 imported/
+19 partial/79 pending plus explicit other decisions:98 unfinished source
+reviews/imports. Entire transfer and final actual-HEAD hosted Actions repair/
+verification remain open; local CI is not claimed as hosted verification.

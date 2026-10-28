@@ -370,6 +370,9 @@ CCoverInfo* CGame::CalcCovers( const CVec3 &src, const CAttackPortion &attack, N
 	CVec3 vTargetDir = ptTarget - ptFrom;
 	float fXYDistance = fabs( vTargetDir.x, vTargetDir.y );
 	float fDistance = fabs( vTargetDir ) + 1; // +1 to make sure whole target is considered
+	// Retail AI queries pass a 30-unit limit; nearer targets keep their natural distance.
+	if ( bAIMode )
+		fDistance = Min( fDistance, float(N_WEAPONTRAIL_MAXDISTANCE) );
 	Normalize( &vTargetDir );
 
 	float fSquareLimit = fXYDistance * FP_TAN_PI8;
