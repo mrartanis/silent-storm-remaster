@@ -185,6 +185,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../DBFormat/DataMap.h"
 #include "../DBFormat/DataCamera.h"
 #include "../Main/scFlowChartItems.h"
+#include "../Main/iShowObjectives.h"
 #include "../Main/scFlowChart.h"
 #include "../Main/scScenarioTracker.h"
 #include "../Main/RPGGame.h"
@@ -8810,6 +8811,81 @@ static void AIFirstIncapacitation(const char* databasePath,const char* resourceP
         mode,damage,hp,target->GetUnitRPG()->GetTotalVP(),int(target->IsDead()),int(target->IsUnconscious()),int(target->pKiller.GetPtr()==expectedKiller),int(expectedKiller!=nullptr),unsigned(target->GetDeathTime()),unsigned(expectedTime),int(repeat));std::fflush(stdout);
     Require(target->pKiller.GetPtr()==expectedKiller && target->GetDeathTime()==expectedTime,
         "first native incapacitating hit lost its attacker/time or a later corpse hit replaced the original metadata");
+}
+
+static void ScenarioDiscovery(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    vector<CPtr<NWorld::CPlayer>> players;world->GetPlayersList(&players);NWorld::CPlayer* human=nullptr;
+    for(const auto& player:players)if(IsValid(player) && !NAI::IsAIPlayer(player)){human=player;break;}
+    Require(human && IsValid(campaign->pScenarioTracker),"scenario discovery fixture has no real human player/tracker");
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* hero=nullptr;
+    for(const auto& unit:units)if(IsValid(unit) && unit->GetPlayer()==human && unit->CanFight()){hero=unit.GetPtr();break;}
+    Require(hero,"scenario discovery fixture has no actual deployed party unit");
+    NWorld::CUnitServer* carrier=nullptr;NRPG::IInventoryItem* item=nullptr;list<CPtr<NWorld::CUnit>> visible;
+    for(int direction=0;direction<8 && !carrier;++direction) {
+        auto position=hero->GetPosition();position.pos.p.SetDirection(direction);hero->SetPosition(position);hero->animator.AlignTime();hero->animator.PlaceUnit(position);
+        MarkNewDGFrame();world->GetAIMap()->Sync();world->UpdateVisible(true);human->GetVisible(&visible);
+        for(const auto& candidate:visible) {
+            auto* unit=dynamic_cast<NWorld::CUnitServer*>(candidate.GetPtr());
+            if(!unit || unit->GetPlayer()==human || !unit->CanFight() || unit->IsEmptyPK() || unit->IsWearingPK())continue;
+            auto* active=unit->GetUnitRPG()->GetInventory()->GetActive();
+            if(IsValid(active) && IsValid(active->GetDBItem())){carrier=unit;item=active;break;}
+        }
+    }
+    Require(carrier && item,"scenario discovery fixture has no naturally visible NPC carrying a real authored item");
+    NDb::CString* description=nullptr;CDBIterator<NDb::CScenarioTask> authored(*NDatabase::GetTable<NDb::CScenarioTask>());
+    while(authored.MoveNext())if(IsValid(authored.Get()->pDescription)){description=authored.Get()->pDescription;break;}
+    Require(description,"scenario discovery fixture has no actual authored task description");
+    const bool unmatched=mode==3 || mode==4,latched=mode==4,carrierTask=mode==0 || unmatched;
+    int itemID=item->GetDBItem()->GetRecordID();
+    if(unmatched) {
+        std::set<int> present;
+        auto inspect=[&](NRPG::IInventoryItem* entry){if(IsValid(entry) && IsValid(entry->GetDBItem()))present.insert(entry->GetDBItem()->GetRecordID());};
+        for(const auto& unit:visible)if(IsValid(unit) && IsValid(unit->GetRPG())) {
+            auto* inventory=unit->GetRPG()->GetRPGUnit()->pInventory.GetPtr();
+            for(int slot=0;slot<NDb::N_SLOTS;++slot)inspect(inventory->Get(NDb::ESlot(slot)));
+            for(const auto& entry:inventory->GetItems())inspect(entry.pItem);
+        }
+        list<CPtr<CObjectBase>> objects;human->GetVisibleObjects(&objects);
+        for(const auto& object:objects){CDynamicCast<NWorld::IItem> ground(object.GetPtr());if(IsValid(ground))inspect(ground->GetInvItem());}
+        itemID=0;CDBIterator<NDb::CRPGItem> records(*NDatabase::GetTable<NDb::CRPGItem>());
+        while(records.MoveNext())if(records.Get()->GetRecordID()>0 && !present.count(records.Get()->GetRecordID())){itemID=records.Get()->GetRecordID();break;}
+        Require(itemID>0,"scenario discovery fixture has no authored item absent from merged visibility");
+    }
+    CObj<NDb::CScenarioTask> taskDB=new NDb::CScenarioTask;taskDB->pDescription=description;
+    taskDB->eTag=carrierTask?NDb::TT_DESTROY_ITEM_CARRIER:mode==1?NDb::TT_FIND_ITEM:mode==2?NDb::TT_FIND_PERSON:NDb::TT_COMPLETE_BY_SCRIPT;
+    CObj<NDb::CScenarioGoal> goalDB=new NDb::CScenarioGoal;goalDB->tasks.push_back(taskDB.GetPtr());
+    CObj<NDb::CDBScenarioClue> clueDB=new NDb::CDBScenarioClue;clueDB->clueType=mode==2?NDb::CT_PERSON:NDb::CT_ITEM;
+    clueDB->nItemID=mode==2?0:itemID;clueDB->nPersID=mode==2?carrier->GetUnitRPG()->GetRPGPersID():0;clueDB->pGoal=goalDB.GetPtr();
+    CObj<NScenario::CScenarioClue> clue=new NScenario::CScenarioClue(clueDB,91001);clue->SetPlaced();clue->SetDetected(latched);
+    auto* goal=clue->GetGoal();Require(goal && goal->GetTasks().size()==1,"typed scenario fixture did not create its real goal/task");
+    auto* task=goal->GetTasks().front().GetPtr();const bool initialVisible=!carrierTask || latched;
+    {CMemoryStream fields;{CStructureSaver writer(fields,CStructureSaver::WRITE);bool value=initialVisible;writer.Add(6,&value);}
+     fields.Seek(0);CStructureSaver reader(fields,CStructureSaver::READ);static_cast<CObjectBase*>(task)->operator&(reader);}
+    CObj<NScenario::CScenarioZone> zone=campaign->pCurrentZone.GetPtr();
+    if(!zone) {
+        CDBIterator<NDb::CDBScenarioZone> zones(*NDatabase::GetTable<NDb::CDBScenarioZone>());Require(zones.MoveNext(),"scenario fixture has no real zone record");
+        zone=NScenario::CreateScenarioZone(zones.Get(),91002);campaign->pCurrentZone=zone.GetPtr();
+    }
+    {vector<CPtr<NScenario::CScenarioClue>> clues{clue.GetPtr()};CStructureNetworkContext refs;refs.externalReferences=true;
+     refs.ids[clue.GetPtr()]=100;refs.refs[100]=clue.GetPtr();refs.include=[](CObjectBase*){return false;};CMemoryStream fields;
+     {CStructureSaver writer(fields,CStructureSaver::WRITE,&refs);writer.Add(11,&clues);}fields.Seek(0);CStructureSaver reader(fields,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(zone.GetPtr())->operator&(reader);}
+    Require(zone->GetClues().size()==1 && zone->GetClues().front()==clue.GetPtr() && task->IsVisible()==initialVisible
+        && task->GetDBTask()==taskDB.GetPtr(),"loaded-state scenario fixture changed its typed references or visibility input");
+    vector<CPtr<NWorld::CUnit>> party;for(const auto& unit:units)if(unit->GetPlayer()==human)party.push_back(unit.GetPtr());
+    NScenario::SGoalDescription before;campaign->pScenarioTracker->GetGoalDescription(&before,party,goal);
+    world->UpdateVisible(true);human->GetVisible(&visible);
+    Require(std::find(visible.begin(),visible.end(),CPtr<NWorld::CUnit>(carrier))!=visible.end(),"native carrier left merged visibility during scenario refresh");
+    NScenario::SGoalDescription after;campaign->pScenarioTracker->GetGoalDescription(&after,party,goal);
+    const bool expectedVisible=!unmatched || latched,expectedDetected=mode==1 || mode==2;
+    std::printf("native scenario discovery: mode=%d visibleUnits=%zu item=%d person=%d tag=%d beforeRows=%zu afterRows=%zu visible=%d expectedVisible=%d taskDetected=%d expectedDetected=%d clueDetected=%d state=%d\n",
+        mode,visible.size(),clueDB->nItemID,clueDB->nPersID,int(taskDB->eTag),before.tasks.size(),after.tasks.size(),int(task->IsVisible()),int(expectedVisible),int(task->IsDetected()),int(expectedDetected),int(clue->IsDetected()),after.tasks.empty()?-1:int(after.tasks.front().state));std::fflush(stdout);
+    Require(task->IsVisible()==expectedVisible && after.tasks.size()==size_t(expectedVisible),"scenario visibility refresh did not reveal a loaded carrier task from the real merged visible inventory");
+    Require(task->IsDetected()==expectedDetected && (!expectedDetected || (clue->IsDetected() && after.tasks.front().state==NScenario::STS_COMPLETED)),
+        "scenario visibility refresh did not complete discovery through the native objective description");
+    if(unmatched)Require(clue->IsDetected()==latched,"scenario discovery exposed an unseen item or forgot a previously detected clue");
+    if(mode==5)Require(after.tasks.front().state==NScenario::STS_UNKNOWN,"visibility incorrectly completed an unrelated scripted task");
 }
 
 static void AICoverRange(const char* databasePath,const char* resourcePath,int mode)
@@ -24478,6 +24554,12 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-first-incapacitation-corpse-event") && argc == 4) { AIFirstIncapacitation(argv[2],argv[3],7); return true; }
     if (!std::strcmp(mode, "ai-snipe-facing-parity-visible") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],5); return true; }
     if (!std::strcmp(mode, "ai-snipe-facing-parity-blocked") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "scenario-discovery-carrier") && argc == 4) { ScenarioDiscovery(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "scenario-discovery-item") && argc == 4) { ScenarioDiscovery(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "scenario-discovery-person") && argc == 4) { ScenarioDiscovery(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "scenario-discovery-unseen") && argc == 4) { ScenarioDiscovery(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "scenario-discovery-latched") && argc == 4) { ScenarioDiscovery(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "scenario-discovery-script-control") && argc == 4) { ScenarioDiscovery(argv[2],argv[3],5); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-near-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-cover-range-human-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],2); return true; }

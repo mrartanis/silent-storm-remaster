@@ -11464,3 +11464,62 @@ Ledger143 imported/18partial/77pending =95 unfinished source reviews/imports.
 Revisit the assignment if future movement allows direction-sensitive crawl
 poses or target-cube geometry changes; these audits detect that loss of
 equivalence. Final actual-HEAD hosted Actions remains due after all imports.
+
+
+## 2026-10-28 — scenario discovery follows merged human visibility
+
+Source [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387), independent OnUpdateVisible/world-refresh seam.
+Previously the world refreshed actual player visibility without notifying the
+scenario tracker. Loaded hidden carrier tasks stayed hidden; actual visible
+item/person discovery did not mark find tasks detected/completed in the native
+objective description. Restore that missing seam after friendly visibility is
+merged and interrupts checked, selecting the first actual human player.
+Retain the fork's existing deferred refresh, sight/FOV and provider behavior.
+
+Original Gold PDB typed tracker6f9050/663 maps Steam7031e0 with29 unique24byte
+anchors; typed World.UpdateVisible75bb50/578 maps767420 with11. Actual call at
+world+1bc targets each tracker, passing human and current zone from global.
+Native inventory/person/ground helpers map6f8d20->702eb0,6f8b20->702cb0 and
+6f8e90->703020 with9/10/10 anchors. Both releases verify carrier tag1 visibility
+write1c, item0/person4 detection setter14 and leave-zone cache invalidation60;
+first-visible unconscious person completes stun5. PDB task enum/layout agree.
+Gold clue setter6d8bb0 writes detected50 and logs the Detect clue diagnostic;
+it does not add a gameplay event or mutate first-visit flags. Use our existing
+clue setter and carrying/inventory interfaces, append only nonvirtual task
+setters, preserve fields/serialization and handle missing DB/providers safely.
+Person discovery compares the visible unit's own person ID, as original, not
+the carried person's ID. audit-scenario-discovery.py validates both releases.
+
+Six native scenarios use actual authored world/player/party/NPC/item/person,
+real world.UpdateVisible(true), merged visibility, runtime clue/goal/task and
+CScenarioTracker.GetGoalDescription. Only task/clue metadata is temporary typed
+input; hidden/known state is seeded through existing native serialization,
+and zone references through its real serialized clue vector. No shipping DB
+or manufactured visibility/RPG values. Initial direct access to private derived
+serializer failed compilation; corrected to its public CObjectBase interface
+before runtime RED. That compile error is not counted as the reproduced bug.
+
+True RED Windows3 failures/6 in6.81s, Linux3/6 in6.68s: carrier remains hidden
+with0 rows; found item and person keep taskDetected0 and unknown state. Unseen,
+previously-known and unrelated script-task controls pass. GREEN93/93 Windows
+144.88s and Linux132.34s: visible carrier0->1 row, found item/person detected1
+and completed1. Unseen stays hidden/undetected; known clue stays known; script
+task stays undetected/unknown even though its visible item's clue is detected.
+Control item IDs differ by platform (Windows1/Linux489); positive item30 and
+person838 are actual native records. This checks objective-description values,
+not rendered journal pixels or the separately rewritten face/font systems.
+
+Fresh Windows ALL_BUILD339/339 related438.62s; Linux Game/helpers337/337
+related440.41s. Windows37/37 combat/context44.24s and Linux36/36 42.68s preserve
+PK ownership, unconscious/death/face/pain-voice paths, bleeding/critical and
+earlier snipe/decal/context checks; Windows additionally checks mission4522
+party save. Local asset-free CI290/290 26.32s. Seven raw logs
+93/93/339/337/37/36/290 exact passes, no Failed/NotRun/NUL, runners exit0.
+verify-scenario-discovery.py checks three intended REDs and all six outcomes,
+90 previous measured hit/cover/first-hit outputs exact within each platform,
+and earlier fractional-cover/four-AP decisions. Original binary audit passes.
+Shared builds reused, HD generation OFF, no per-bug copies; owned tests exit.
+Source360344ca remains partially imported: destruction hooks and other mixed
+hunks still pending. Source9ef8ae86 initial hiding remains independent/pending.
+Ledger143 imported/18partial/77pending =95 unfinished source reviews/imports.
+Final actual-HEAD hosted Actions verification remains due after all imports.

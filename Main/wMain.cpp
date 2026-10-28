@@ -1216,6 +1216,19 @@ void CWorld::UpdateVisible( bool bForce )
 		players[k]->UpdateVisible();
 	MergeFriendlyPlayersVisibleSets();
 	CheckInterrupt( &info );
+	// Original world refresh then updates scenario discovery from merged human sight.
+	NRPG::CGlobalGame *global = GetGlobalGame();
+	if ( IsValid( global ) && IsValid( global->pScenarioTracker ) )
+	{
+		CPlayer *human = nullptr;
+		for ( const auto &player : players )
+			if ( IsValid( player ) && !NAI::IsAIPlayer( player ) )
+			{
+				human = player;
+				break;
+			}
+		global->pScenarioTracker->OnUpdateVisible( human, global->pCurrentZone );
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorld::OnUnitAdded( CUnitServer *pUnit )

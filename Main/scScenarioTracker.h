@@ -16,6 +16,7 @@ namespace NRPG
 }
 namespace NWorld
 {
+	class CPlayer;
 	class CUnit;
 	class CUnitServer;
 }
@@ -123,6 +124,7 @@ public:
 	void CheatDestroyClue( CScenarioClue *pClue, bool bImmediately = false );
 	bool OnScenarioClueTaken( int nID, bool bUnit );
 	void OnScenarioClueDestroyed( int nID, bool bUnit );
+	void OnUpdateVisible( NWorld::CPlayer *player, CScenarioZone *zone );
 	void OnItemTaken( NWorld::CUnitServer *pUS, NRPG::IInventoryItem *pItem, NDb::ESlot slot, bool bTaken );
 	void ProcessScenario( const vector< CPtr<NRPG::CUnit> > &units );
 	// retail @0x3030b0: may the squad leave pZone without making the scenario unwinnable? Writes the

@@ -1438,3 +1438,15 @@ and native all-eight-direction positive/blocked audits preserve visibility
 and snipe eligibility on both platforms. Actor facing/FOV remains unchanged.
 This is a verified equivalent case, not a balance exclusion or a manufactured
 RED/fix. Revisit if allowed poses/cube geometry become direction-sensitive.
+
+
+## 2026-10-28 — restore original scenario discovery, no new tuning
+
+Source [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387), independent visibility hook.
+Actual human discovery now reveals a loaded carrier task and completes find
+item/person descriptions, matching both inspected original releases. Unseen
+clues remain hidden and script-task completion remains script controlled.
+This restores original quest bookkeeping using our existing merged sight;
+no sight range, AP, damage, XP, task DB values, animation, fonts or HD changes.
+Initial hiding in source9ef8ae86 is a separate pending fix, not silently bundled.
+Other mixed360344ca hunks, including destruction hooks, remain under review.
