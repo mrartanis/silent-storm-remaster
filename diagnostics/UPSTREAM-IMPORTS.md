@@ -11016,3 +11016,66 @@ Source66fc9e9a remains partial; own-server
 validity, optional chosen snipe weapon, float-cover/NaN and four-AP flee-budget
 hunks remain independent. Counts141 imported/19 partial/78 pending=97unfinished
 among281. Full transfer and final actual-HEAD hosted Actions verification remain.
+
+
+## 2026-10-28 — reject missing/invalid shooter servers in AI hit prediction (66fc9e9a, partial)
+
+Source: [66fc9e9ad26497bf41f96a1a8c51c8a03e951718](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/66fc9e9ad26497bf41f96a1a8c51c8a03e951718).
+Independent from weapon-owner9b4b5602 and target validity9103adfb. A valid AI
+wrapper with an armed planning hand could query through a missing/ref-invalid
+own server. Extend the existing entry guard with IsValid(GetUnitServer()).
+No other production delta: retain own interfaces/serialization, integer cover,
+nonfinite protection, non-rocket helper, target guard, original combat data
+and the fork's existing weapon-origin/model/animation/face/fonts/HD code.
+
+Native FixtureWorld gives actual actor/target, weapon, inventory, geometry and
+positive100 baseline. Test ONLY the server reference using existing native
+CAIUnit save field3 and external-reference reader (field2 is the event tracker).
+The actual world server/equipment/target stay intact. For a ref-invalid server,
+point at a held default native CUnitServer, then Invalidate it; this preserves
+an allocated tombstone, not a freed-pointer injection. Keep the actor wrapper
+and AI inventory valid and assert all controlled references before querying.
+Capture the supplied planning pose BEFORE the controlled read, so argument
+evaluation cannot create the failure. Restore original server and planning
+hand by RAII; positive/empty controls verify restoration and world teardown.
+This is a controlled missing-reference/restore boundary, not an ordinary
+live-unit replay or a change to production save/network handling.
+
+First native builds/run have no compiler/fixture failures. RED Windows2SEGFAULT
+/5 in5.54s, Linux2SEGFAULT/5 in5.72s: armed null/ref-invalid-server queries crash
+after entry, whereas valid-server100 and empty-hand missing/invalid0/0 pass.
+CDB confirms null-server read228 in CAIUnit.GetUnitPosition+18 through
+GetToHit+a1; invalid-server read0 in CUnitServer.GetAttackOrigin+7b through
+CAIUnit.GetCoverForFixedUnit+183 /GetToHit+ce. Both include the intended
+AIToHitServerValidity+87c query. Text logs ai-tohit-server-null-cdb.log and
+ai-tohit-server-invalid-cdb.log; debugger quit/exit0 is not a runtime pass.
+Both native REDs and debugger confirmations complete BEFORE production edit.
+Linux core dumps disabled; no heavy crash snapshots or per-bug build copies.
+
+Original proof: typed Gold GetToHit4ac1e0/230 ->Steam4ad9c0/230, unique24/32/40
+and ret16/CC. CAIUnit primary RTTI slot0 is typed GetUnitServer getter
+Gold7bede0/4 ->Steam4af260/4; both load this14. At GetToHit+63 ESI retains this,
+load[ESI14] and nulltest branch to+dd returnEAX0. Nonnull resolves the server's
+virtual CObjectBase, tests ref-invalid bit80000000 retained inEBP, branches to
+the SAME return. Both mapped instruction blocks checked. No stale source VAs
+or original vtable/ABI transplant. audit-ai-tohit-server.py exits0 ->evidence
+ai-tohit-server-retail-oracle.json.
+
+One guard-condition change GREEN61/61 Windows67.95s/Linux68.11s. Two crashing
+queries return0; valid100 and empty0/0 remain. Five native profiles match
+between platforms. All previous56 measured owner/target/cover profiles remain
+unchanged within each platform.
+
+Final fresh Windows ALL_BUILD281/281 related304.80s plus6/6 context/decal3.42s;
+Linux Game/helpers279/279 related301.25s plus6/6 context/decal3.33s. Full local
+asset-free CI290/29024.37s. Seven raw logs61/61/281/279/6/6/290 have exact
+pass counts, no Failed/NotRun/NUL; all runners exit0. Both native SEGFAULT REDs
+and CDB paths separately verified; debugger exit0 is not counted as runtime
+GREEN. Five server records match platforms; all prior56 measured owner/target/
+cover records unchanged within each platform. verify-ai-tohit-server.py ->
+shared evidence ai-tohit-server-final-verification.json. Both HD caches OFF;
+shared builds only, owned tests/debuggers exited, no heavy per-bug copies.
+Source66fc9e9a stays partial: explicit chosen snipe weapon, fractional cover
+and its NaN behavior, four-AP escape scan remain independent pending work.
+Counts141 imported/19 partial/78 pending=97unfinished among281. Entire transfer
+and final actual-HEAD hosted Actions verification remain open.

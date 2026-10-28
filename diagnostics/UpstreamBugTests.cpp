@@ -8426,6 +8426,64 @@ static void AIToHitTargetValidity(const char* databasePath,const char* resourceP
     Require(actual==expected,"AI hit prediction evaluated a missing or invalid target instead of returning zero");
 }
 
+static void SetToHitProbeServer(NAI::IAIUnit* unit,NWorld::CUnitServer* server)
+{
+    CStructureNetworkContext refs;auto original=BorrowedObjectFields(unit,&refs);
+    if(server && !refs.ids.count(server)){const auto id=refs.nextID++;refs.ids[server]=id;refs.refs[id]=server;}
+    CPtr<NWorld::CUnitServer> value=server;CMemoryStream fields;
+    {CStructureSaver writer(fields,CStructureSaver::WRITE,&refs);writer.Add(3,&value);}
+    fields.Seek(0);{CStructureSaver reader(fields,CStructureSaver::READ,&refs);unit->operator&(reader);}
+}
+static void AIToHitServerValidity(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);
+    for(const auto& server:units)if(IsValid(server) && server->CanFight() && IsValid(NAI::GetAIUnit(server)))NAI::GetAIUnit(server)->Synchronize(false);
+    CObj<NAI::IAIUnit> actor,target;int baseline=0;
+    for(const auto& server:units) {
+        if(!IsValid(server) || !server->CanFight() || server->HasCommand() || !server->IsAIUnit() || server->IsWearingPK() || server->IsEmptyPK() || server->animator.GetCannon())continue;
+        auto* shooter=NAI::GetAIUnit(server);
+        if(!IsValid(shooter) || !IsValid(shooter->GetAIInventory()) || !IsValid(shooter->GetAIInventory()->GetCurrentFireArms()))continue;
+        for(const auto& other:units) {
+            if(!IsValid(other) || other.GetPtr()==server.GetPtr() || !other->CanFight() || other->IsEmptyPK() || other->IsWearingPK())continue;
+            auto* victim=NAI::GetAIUnit(other);if(!IsValid(victim))continue;
+            const int score=shooter->GetToHit(victim,shooter->GetUnitPosition(),NAI::HL_ANY);
+            if(score>0){actor=shooter;target=victim;baseline=score;break;}
+        }
+        if(actor)break;
+    }
+    Require(actor && target && baseline>0,"server-validity fixture has no independently positive native hit prediction");
+    CPtr<NWorld::CUnitServer> originalServer=actor->GetUnitServer(),targetServer=target->GetUnitServer();
+    auto* inventory=actor->GetAIInventory();CObj<NAI::IAIInventoryItem> held=inventory->GetCurrentItem();
+    const auto position=actor->GetUnitPosition(),targetPosition=targetServer->GetPosition();
+    struct Restore{NAI::IAIUnit* unit;CPtr<NWorld::CUnitServer> server;NAI::CAIInventory* inventory;CObj<NAI::IAIInventoryItem> held;
+        ~Restore(){SetToHitProbeServer(unit,server);inventory->SetCurrentItem(held);}}restore{actor,originalServer,inventory,held};
+    const bool empty=mode>=3,invalid=mode==1 || mode==4,valid=mode==2;
+    if(empty)inventory->SetCurrentItem(nullptr);
+    CObj<NWorld::CUnitServer> tombstone;
+    if(invalid){tombstone=new NWorld::CUnitServer;SetToHitProbeServer(actor,tombstone);tombstone->Invalidate();}
+    else if(!valid)SetToHitProbeServer(actor,nullptr);
+    Require(IsValid(actor) && IsValid(target) && actor->GetAIInventory()==inventory
+        && actor->GetUnitServer()==(invalid?tombstone.GetPtr():valid?originalServer.GetPtr():nullptr)
+        && IsValid(actor->GetUnitServer())==valid && (empty?!IsValid(inventory->GetCurrentFireArms()):IsValid(inventory->GetCurrentFireArms())),
+        "server-validity fixture changed another field or failed to create its controlled missing/ref-invalid server reference");
+    const int ap=originalServer->GetAP(),hp=originalServer->GetUnitRPG()->GetTotalVP(),targetHP=targetServer->GetUnitRPG()->GetTotalVP();
+    auto* equipped=originalServer->GetUnitRPG()->GetInventory()->GetActive();const bool command=originalServer->HasCommand();
+    GlobalGameRandom().SeedForHarness(0x78da);auto rng=GlobalGameRandom();
+    std::printf("native AI server validity entry: mode=%d empty=%d invalid=%d valid=%d baseline=%d\n",mode,int(empty),int(invalid),int(valid),baseline);std::fflush(stdout);
+    // The supplied planning pose is captured before the controlled reference
+    // restore. Any failure must come from the query, not argument evaluation.
+    const int actual=actor->GetToHit(target,position,NAI::HL_ANY),expected=valid?baseline:0;
+    std::printf("native AI server validity result: mode=%d actual=%d expected=%d\n",mode,actual,expected);std::fflush(stdout);
+    Require(originalServer->GetPosition()==position && targetServer->GetPosition()==targetPosition && originalServer->GetAP()==ap
+        && originalServer->GetUnitRPG()->GetTotalVP()==hp && targetServer->GetUnitRPG()->GetTotalVP()==targetHP
+        && originalServer->GetUnitRPG()->GetInventory()->GetActive()==equipped && originalServer->HasCommand()==command
+        && rng.Get()==GlobalGameRandom().Get(),"AI server-validity query changed native gameplay, equipment or RNG");
+    Require(actual==expected,"AI hit prediction used a missing or ref-invalid shooter server instead of returning zero");
+    SetToHitProbeServer(actor,originalServer);
+    Require(actor->GetUnitServer()==originalServer.GetPtr() && actor->GetAIInventory()==inventory,"server-validity fixture did not restore native wrapper ownership");
+}
+
 static void AICoverRange(const char* databasePath,const char* resourcePath,int mode)
 {
     const bool human=mode==2 || mode==4 || mode==6 || mode==7;
@@ -24066,6 +24124,11 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-tohit-target-null-empty") && argc == 4) { AIToHitTargetValidity(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "ai-tohit-target-valid-control") && argc == 4) { AIToHitTargetValidity(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "ai-tohit-target-invalid-empty") && argc == 4) { AIToHitTargetValidity(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "ai-tohit-server-null-armed") && argc == 4) { AIToHitServerValidity(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ai-tohit-server-invalid-armed") && argc == 4) { AIToHitServerValidity(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ai-tohit-server-valid-control") && argc == 4) { AIToHitServerValidity(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ai-tohit-server-null-empty") && argc == 4) { AIToHitServerValidity(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "ai-tohit-server-invalid-empty") && argc == 4) { AIToHitServerValidity(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-near-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-cover-range-human-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],2); return true; }
