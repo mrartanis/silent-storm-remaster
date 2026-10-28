@@ -8543,6 +8543,215 @@ static void AIAlarmWorldQuery(const char* databasePath, const char* resourcePath
     }
 }
 
+static void AIAlarmNearestTarget(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> all; world->GetAllUnits(&all);
+    NWorld::CUnitServer *actor=nullptr,*enemy=nullptr,*buddy=nullptr;
+    for (const auto& unit: all)
+        if (IsValid(unit) && unit->CanFight() && unit->IsAIUnit() && unit->GetUnitRPG()->CanMove()
+                && !unit->HasCommand() && IsValid(NAI::GetAIUnit(unit))) { actor=unit.GetPtr(); break; }
+    Require(actor,"alarm target fixture has no mobile native AI caller");
+    for (const auto& unit: all) {
+        if (!IsValid(unit) || !unit->CanFight() || !IsValid(NAI::GetAIUnit(unit))) continue;
+        if (!enemy && actor->GetDiplomacyState(unit)==NDb::DS_ENEMY) enemy=unit.GetPtr();
+        if (!buddy && unit.GetPtr()!=actor && unit->GetPlayer()==actor->GetPlayer()) buddy=unit.GetPtr();
+    }
+    Require(enemy && buddy && !enemy->IsAIUnit(),"alarm target fixture lacks native human/enemy and own AI controls");
+    auto* owner=NAI::GetAIUnit(actor); auto* contact=NAI::GetAIUnit(enemy);
+    auto* commander=dynamic_cast<NAI::CAICommander*>(actor->GetPlayer()->GetCommander());
+    Require(owner && contact && commander,"alarm target fixture lost its native commander/wrappers");
+    auto* shared=commander->GetAIState(); shared->Synchronize(); owner->SetAIState(shared);
+    auto* network=world->GetPathNetwork();
+    vector<NAI::SPathPlace> points; network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),12.f),&points);
+    NAI::SPosition nearPoint,farPoint; bool found=false;
+    for (auto n: points) {
+        n.SetPose(NAI::CM_STAND); n.SetDirection(0); NAI::SPosition np(n,network);
+        const float distance=fabs(np.GetCP()-actor->GetPosition().GetCP());
+        if (distance<2.f || distance>3.5f || !network->IsPassable(n) || network->IsLocked(n,true)) continue;
+        for (auto f: points) {
+            f.SetPose(NAI::CM_STAND); f.SetDirection(0); NAI::SPosition fp(f,network);
+            if (fabs(fp.GetCP()-np.GetCP())>5.f && fabs(fp.GetCP()-actor->GetPosition().GetCP())>6.f
+                    && network->IsPassable(f) && !network->IsLocked(f,true)) {
+                nearPoint=np; farPoint=fp; found=true; break;
+            }
+        }
+        if (found) break;
+    }
+    Require(found,"alarm target fixture lacks disjoint native destination neighborhoods");
+    auto place=[&](NWorld::CUnitServer* server,const NAI::SPosition& point) {
+        auto pose=server->GetPosition(); pose.pos=point; server->SetPosition(pose);
+    };
+    const bool foreignCase=mode==2 || mode==4 || mode==5 || mode==7 || mode==10 || mode==11 || mode==12;
+    CObj<NAI::CAICommander> foreignCommander; NWorld::CPlayer* foreignPlayer=nullptr; NWorld::CUnitServer* foreign=nullptr;
+    const vector<CPtr<NRPG::IUnitMission>> noUnits;
+    const int callerSide=actor->GetPlayer()->GetScenarioPlayerID(),enemySide=enemy->GetPlayer()->GetScenarioPlayerID();
+    if (foreignCase) {
+        game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+        foreignCommander=new NAI::CAICommander(world,nullptr);
+        foreignPlayer=dynamic_cast<NWorld::CPlayer*>(world->AddPlayer(L"Native alarm target party",game->players.back(),foreignCommander));
+        Require(foreignPlayer,"alarm target fixture failed to create a native foreign party"); foreignCommander->SetPlayer(foreignPlayer);
+        world->GetAllUnits(&all);
+        for (const auto& unit: all) if (IsValid(unit) && unit->GetPlayer()==foreignPlayer && unit->CanFight()) { foreign=unit.GetPtr(); break; }
+        Require(foreign && foreign->IsAIUnit() && IsValid(NAI::GetAIUnit(foreign)),"alarm target foreign recipient lacks native AI control");
+        const auto relation=(mode==5 || mode==7) ? NDb::DS_ENEMY : NDb::DS_NEUTRAL;
+        world->GetDiplomacy()->SetDiplomacyState(callerSide,noUnits,foreignPlayer->GetScenarioPlayerID(),relation);
+    }
+    const bool farBuddy=mode==2 || mode==3 || mode==4 || mode==5 || mode==7 || mode==12;
+    place(buddy,farBuddy ? farPoint : nearPoint);
+    if (foreign) place(foreign,mode==11 ? farPoint : nearPoint);
+    if (mode==3 || mode==6) {
+        place(enemy,nearPoint);
+        world->GetDiplomacy()->SetDiplomacyState(callerSide,noUnits,enemySide,NDb::DS_NEUTRAL);
+        Require(actor->GetDiplomacyState(enemy)==NDb::DS_ENEMY,"alarm target human fixture erased individual hostility");
+    }
+    if (mode==4) { foreign->MakeUnconscious(VNULL3,true,false); Require(!foreign->CanFight(),"alarm target KO control remained fightable"); }
+    if (mode==6) {
+        world->GetAllUnits(&all);
+        for (const auto& unit: all)
+            if (IsValid(unit) && unit.GetPtr()!=actor && unit->IsAIUnit() && unit->CanFight()) unit->MakeUnconscious(VNULL3,true,false);
+    }
+    if (mode==11) {
+        world->ChangeUnitPlayer(buddy,foreignPlayer);
+        Require(buddy->GetPlayer()==foreignPlayer && IsValid(NAI::GetAIUnit(buddy)),"alarm target fixture did not re-register a transferred unit");
+    }
+    if (mode==7) shared->pPlayer=nullptr;
+    if (mode==8) shared->pWorld=nullptr;
+    if (mode==9) shared->pAICommander=nullptr;
+    world->GetAIMap()->Sync(); actor->SetWishPose(NAI::WALK); owner->Synchronize(false);
+    owner->SetLogic(nullptr);
+    CObj<NAI::CAIRouteLogic> incumbent=new NAI::CAIRouteLogic(owner); incumbent->AddCommand(new NAI::CTaskCommandWait(3)); incumbent->SetCircled(true);
+    owner->SetRouteLogic(incumbent);
+    Require(owner->GetLogic()==incumbent.GetPtr(),"alarm target fixture failed to retain its actual native route");
+    auto* cache=shared->GetAllyAIPlayer()->GetUnits(); cache->clear(); cache->push_back(owner);
+    if (mode==0 || mode==9 || mode==11) cache->clear();
+    else if (mode==3 || mode==6) cache->push_back(contact);
+    else if (mode==4 || mode==5) cache->push_back(NAI::GetAIUnit(foreign));
+    else if (mode==10) { cache->push_back(NAI::GetAIUnit(foreign)); cache->push_back(NAI::GetAIUnit(buddy)); }
+    else { cache->push_back(NAI::GetAIUnit(buddy)); if (mode==12) cache->push_back(NAI::GetAIUnit(foreign)); }
+    const auto staleCache=*cache; const auto ownedRoster=commander->GetUnitsList();
+    world->GetAllUnits(&all);
+    struct Snapshot { NAI::IAIUnit* wrapper; NAI::SUnitPosition pose; int ap,hp,planAP,planHP; bool command; NAI::SAIState* state; };
+    vector<Snapshot> before;
+    for (const auto& unit: all) {
+        auto* wrapper=NAI::GetAIUnit(unit); if (!IsValid(unit) || !IsValid(wrapper)) continue;
+        wrapper->SetHP(37,99); // KO control deliberately retains positive planning HP.
+        auto projected=unit->GetPosition().pos; projected.p.SetDirection((projected.p.GetDirection()+3)&7); wrapper->SetPosition(projected);
+        before.push_back({wrapper,unit->GetPosition(),unit->GetAP(),unit->GetUnitRPG()->GetTotalVP(),wrapper->GetAP(),wrapper->GetHP(),unit->HasCommand(),wrapper->GetAIState()});
+    }
+    struct Plan { NAI::SPosition go; NAI::SPathPlace look; int pose=-1; STime wait=0; bool strafe=true; };
+    auto inspect=[&](NAI::IAILogic* logic) {
+        auto* route=dynamic_cast<NAI::CAIRouteLogic*>(logic); Require(route && !route->IsCircled(),"alarm target factory changed the native route type/circular flag");
+        CStructureNetworkContext refs; auto fields=BorrowedObjectFields(route,&refs); vector<CObj<NAI::CTaskCommand>> commands;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&refs); reader.Add(4,&commands); }
+        Require(commands.size()==5 && dynamic_cast<NAI::CTaskCommandChangePose*>(commands[0].GetPtr())
+                && dynamic_cast<NAI::CTaskCommandGoto*>(commands[1].GetPtr()) && dynamic_cast<NAI::CTaskCommandLookToPosition*>(commands[2].GetPtr())
+                && dynamic_cast<NAI::CTaskCommandWait*>(commands[3].GetPtr()) && dynamic_cast<NAI::CTaskCommandAlarm*>(commands[4].GetPtr()),
+            "alarm target factory changed its actual five-command sequence");
+        Plan result;
+        for (const auto& command: commands) Require(command->pUnitServer.GetPtr()==actor && command->Commands.empty(),"alarm target factory rewired or executed a native route step");
+        auto poseFields=BorrowedObjectFields(commands[0],&refs);
+        { CStructureSaver reader(poseFields,CStructureSaver::READ,&refs); reader.Add(3,&result.pose); }
+        auto goFields=BorrowedObjectFields(commands[1],&refs);
+        { CStructureSaver reader(goFields,CStructureSaver::READ,&refs); reader.Add(3,&result.go); reader.Add(4,&result.strafe); }
+        auto lookFields=BorrowedObjectFields(commands[2],&refs);
+        { CStructureSaver reader(lookFields,CStructureSaver::READ,&refs); reader.Add(3,&result.look); }
+        auto waitFields=BorrowedObjectFields(commands[3],&refs);
+        { CStructureSaver reader(waitFields,CStructureSaver::READ,&refs); reader.Add(3,&result.wait); }
+        auto alarmFields=BorrowedObjectFields(commands[4],&refs); CPtr<NWorld::CUnitServer> target;
+        { CStructureSaver reader(alarmFields,CStructureSaver::READ,&refs); reader.Add(3,&target); }
+        Require(result.pose==NAI::RUN && !result.strafe && result.wait==STime(1) && target.GetPtr()==enemy && result.look==result.go.p,
+            "alarm target selection changed pose, strafe, wait duration, look point or the actual enemy");
+        return result;
+    };
+    const int passes=mode==12 ? 2 : 1;
+    for (int pass=0; pass<passes; ++pass) {
+        if (pass) world->GetDiplomacy()->SetDiplomacyState(callerSide,noUnits,foreignPlayer->GetScenarioPlayerID(),NDb::DS_ENEMY);
+        vector<CPtr<NAI::IAIUnit>> eligible; shared->GetUnits(&eligible,true,false);
+        eligible.erase(std::remove(eligible.begin(),eligible.end(),owner),eligible.end());
+        const CVec3 origin=actor->GetPosition().GetCP();
+        auto nearest=std::min_element(eligible.begin(),eligible.end(),[&](const auto& a,const auto& b) {
+            return fabs2(a->GetPosition().GetCP()-origin)<fabs2(b->GetPosition().GetCP()-origin);
+        });
+        auto* desired=nearest==eligible.end() ? nullptr : nearest->GetPtr();
+        if (mode==2 || mode==7 || (mode==12 && pass==0))
+            Require(desired==NAI::GetAIUnit(foreign),"alarm fixture did not make its foreign world recipient genuinely closest");
+        if ((mode==12 && pass==1) || mode==11)
+            Require(desired==NAI::GetAIUnit(buddy),"alarm fixture failed to select its current owned/transferred recipient");
+        unsigned seed=47,expectedNext=0; CObj<NAI::IAILogic> referencePlan; Plan expected;
+        cache->clear(); if (desired) cache->push_back(desired);
+        if (desired) {
+            vector<NAI::SPathPlace> neighborhood; network->GetNearPlaces(SSphere(desired->GetPosition().GetCP(),2.f),&neighborhood);
+            for (seed=1; seed!=513; ++seed) {
+                GlobalGameRandom().SeedForHarness(seed); auto reference=GlobalGameRandom(); reference.Get(int(neighborhood.size())); expectedNext=reference.Get();
+                referencePlan=NAI::CreateAIAlarmLogic(owner,contact);
+                const unsigned actualNext=GlobalGameRandom().Get();
+                if (!IsValid(referencePlan)) continue;
+                Require(actualNext==expectedNext,"native alarm factory consumed more than its original one destination draw");
+                expected=inspect(referencePlan);
+                Require(std::find(neighborhood.begin(),neighborhood.end(),expected.go.p)!=neighborhood.end(),
+                    "alarm reference route was not beside the independently selected native world recipient");
+                break;
+            }
+            Require(seed!=513 && IsValid(referencePlan),"alarm target fixture found no reachable actual reference route");
+        } else {
+            GlobalGameRandom().SeedForHarness(seed); auto reference=GlobalGameRandom(); expectedNext=reference.Get();
+            referencePlan=NAI::CreateAIAlarmLogic(owner,contact);
+            Require(!IsValid(referencePlan) && GlobalGameRandom().Get()==expectedNext,"empty eligible-world reference unexpectedly planned or consumed RNG");
+        }
+        *cache=staleCache; GlobalGameRandom().SeedForHarness(seed);
+        CObj<NAI::IAILogic> actual=NAI::CreateAIAlarmLogic(owner,contact); const unsigned next=GlobalGameRandom().Get();
+        std::printf("alarm target mode=%d pass=%d candidates=%zu cached=%zu selected=%d actual=%d seed=%u rng=%u/%u\n",mode,pass,eligible.size(),staleCache.size(),
+            int(desired!=nullptr),int(IsValid(actual)),seed,next,expectedNext);
+        Require(IsValid(actual)==bool(desired) && next==expectedNext,
+            "alarm destination used the cached garrison or an ineligible recipient instead of the nearest current AI ally");
+        if (desired) {
+            const auto result=inspect(actual);
+            Require(result.go==expected.go && result.look==expected.look,
+                "alarm route approached the cached/human/unfightable target instead of the nearest eligible world recipient");
+        }
+        // After factory runtime RED, also check the complete new query's contract.
+        auto untouched=GlobalGameRandom();
+        Require(shared->GetNearestUnit(origin,true,false,owner)==desired,
+            "native nearest query disagreed with the actual current world recipient");
+        if (IsValid(shared->GetWorld())) {
+            Require(shared->GetNearestUnit(origin,true,false,nullptr)==owner,
+                "nearest query always excluded the caller instead of honoring the explicit exclusion argument");
+        }
+        if (mode==3) {
+            Require(shared->GetNearestUnit(enemy->GetPosition().GetCP(),true,true,owner)==contact
+                    && shared->GetNearestUnit(enemy->GetPosition().GetCP(),true,false,owner)==NAI::GetAIUnit(buddy),
+                "nearest query lost the human inclusion flag or used individual hostility for global eligibility");
+        }
+        if (mode==5) {
+            Require(shared->GetNearestUnit(foreign->GetPosition().GetCP(),false,false,owner)==NAI::GetAIUnit(foreign)
+                    && shared->GetNearestUnit(foreign->GetPosition().GetCP(),false,true,NAI::GetAIUnit(foreign))==contact,
+                "nearest enemy query lost its diplomacy flag or arbitrary exclusion pointer");
+        }
+        if (mode==10) {
+            Require(shared->GetNearestUnit(nearPoint.GetCP(),true,false,owner)==NAI::GetAIUnit(buddy)
+                    && shared->GetNearestUnit(nearPoint.GetCP(),true,false,NAI::GetAIUnit(buddy))==NAI::GetAIUnit(foreign),
+                "nearest exact zero-distance tie lost world order or exclusion handling");
+        }
+        if (mode==1) {
+            Require(shared->GetNearestUnit(origin+CVec3(500,0,0),true,false,owner)==NAI::GetAIUnit(buddy)
+                    && shared->GetNearestUnit(origin+CVec3(100000,0,0),true,false,owner)==nullptr,
+                "nearest query reused the cached squared-distance cap instead of the native linear65535 limit");
+        }
+        Require(GlobalGameRandom().Get()==untouched.Get(),"nearest world query consumed native RNG");
+        Require(*cache==staleCache && commander->GetUnitsList()==ownedRoster && owner->GetLogic()==incumbent.GetPtr() && incumbent->IsCircled(),
+            "alarm nearest query changed the cached/owned rosters or installed its speculative route");
+        for (const auto& saved: before) {
+            auto* server=saved.wrapper->GetUnitServer();
+            Require(server->GetPosition()==saved.pose && server->GetAP()==saved.ap && server->GetUnitRPG()->GetTotalVP()==saved.hp
+                    && server->HasCommand()==saved.command && saved.wrapper->GetAP()==saved.planAP && saved.wrapper->GetHP()==saved.planHP
+                    && saved.wrapper->GetAIState()==saved.state,
+                "alarm target search changed native/planning AP/HP, world positions/commands or tactical ownership");
+        }
+    }
+}
+
 static void AIFearRouteRetention(const char* databasePath, const char* resourcePath, int mode)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -22384,6 +22593,19 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-pass-control-human") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "ai-pass-control-foreign") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "ai-pass-control-repeat") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 3); return true; }
+    if (!std::strcmp(mode, "ai-alarm-target-own-empty") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ai-alarm-target-cached") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ai-alarm-target-neutral") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ai-alarm-target-human") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "ai-alarm-target-ko") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "ai-alarm-target-hostile") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "ai-alarm-target-none") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "ai-alarm-target-no-saved-owner") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "ai-alarm-target-no-world") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "ai-alarm-target-no-commander") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "ai-alarm-target-tie") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "ai-alarm-target-reowned") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],11); return true; }
+    if (!std::strcmp(mode, "ai-alarm-target-transition") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],12); return true; }
     if (!std::strcmp(mode, "ai-alarm-world-own-missing") && argc == 4) { AIAlarmWorldQuery(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-alarm-world-cached") && argc == 4) { AIAlarmWorldQuery(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-alarm-world-neutral") && argc == 4) { AIAlarmWorldQuery(argv[2],argv[3],2); return true; }

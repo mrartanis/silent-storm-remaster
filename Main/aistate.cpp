@@ -98,6 +98,26 @@ void SAIState::GetUnits( vector< CPtr<IAIUnit> > *pUnits, bool bAllies, bool bIn
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Native nearest query: strict linear-distance improvement preserves world-order ties.
+IAIUnit *SAIState::GetNearestUnit( const CVec3 &pos, bool bAllies, bool bIncludeNonAI, IAIUnit *pExclude ) const
+{
+	vector< CPtr<IAIUnit> > units;
+	GetUnits( &units, bAllies, bIncludeNonAI );
+	IAIUnit *pBest = 0;
+	float fBest = 65535.0f;
+	for ( int i = 0; i < (int)units.size(); ++i )
+		if ( units[i] != pExclude )
+		{
+			float fDistance = fabs( pos - units[i]->GetPosition().GetCP() );
+			if ( fDistance < fBest )
+			{
+				fBest = fDistance;
+				pBest = units[i];
+			}
+		}
+	return pBest;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // Commander ownership and tactical visibility are separate: enumerate the world
 // for the legacy ally/enemy adapters without retaining foreign units as owners.
 ////////////////////////////////////////////////////////////////////////////////////////////////////

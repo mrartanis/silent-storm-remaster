@@ -10086,3 +10086,65 @@ mixed-hunk accounting. Counts281 remain138imported/19partial/81pending plus
 already-present/excluded/documentary/historical decisions:100 unfinished source
 commits. All useful imports and actual final-HEAD hosted Actions verification/
 repair remain open. HiRes fonts, facial animation and frozen HD are untouched.
+
+
+## 2026-10-28 — Alarm approaches the nearest current AI recipient (`2eee1b62`, partial)
+
+Add the nonvirtual const `SAIState::GetNearestUnit(pos,allies,includeNonAI,exclude)`
+helper and replace only the legacy cached-player lookup in `CreateAIAlarmLogic`.
+It uses the already imported live world query, excludes the supplied wrapper,
+compares linear 3D distance against the original65535.0f bound, and keeps world
+order for exact ties. Alarm calls it with allies=true, includeNonAI=false and
+exclude=self. No fields, virtual slots or serialized IDs change. The existing
+2m destination neighborhood, one bounded destination RNG draw, actual RUN path
+check and five native commands (RUN/Goto/Look/Wait1/Alarm) remain unchanged.
+
+Thirteen native FixtureWorld cases cover an empty own cache, a correct cached
+control, a nearer foreign neutral, a cached human, KO with positive planning HP,
+a now-hostile AI, no eligible recipient, no saved tactical player, unbound world,
+missing commander backref, an exact world-order tie, genuine ChangeUnitPlayer
+with a fresh wrapper, and neutral->enemy without cache refresh. Reference plans
+use the actual native factory/pathfinder and independently verified recipient
+neighborhoods. Every step's type, actor, destination/look, RUN/strafe/wait/target
+is inspected through actual serialized fields. Factory creation leaves the real
+incumbent route, owned/cache rosters, all live/planning AP/HP/positions/commands
+and AI ownership backrefs untouched. No gameplay orders are executed.
+
+Before production, correct a mixed-auto declaration compile error (not RED),
+then tighten fixture geometry: the far point must be far from both caller and
+near recipient, with explicit expected recipient identity assertions. Retain
+initial geometry evidence separately. Authoritative runtime RED is11/13 in
+14.73s, exit8: only wrong/missing eligible-world destination or wrong presence/
+RNG fails. Cached and exact-tie positive controls pass; the diplomacy-transition
+first pass passes before its second fails. Minimal fix gives42/42 targeted and
+previous Alarm/Normal controls in47.83s, exit0. New helper regression checks
+added with the API after consumer RED additionally verify both diplomacy/human
+flags, arbitrary exclusion, include-self, exact tie order, no query RNG, and a
+500m query vs a100000m query proving the native linear65535 cap. They are not
+claimed as missing-API runtime RED.
+
+Original proof is retained in shared `ai-alarm-target-*`/`ai-nearest-*` evidence.
+Named Gold NormalReaction primary RTTI Update slot10=47e350 maps to Steam47eee0;
+actual direct factory calls47e42f/47efc3 identify Gold49a350/980 and
+Steam49b6a0..49ba74. Unique unmasked40-byte blocks and complete method tails
+confirm both factory and Gold nearest4a8640/279 ->Steam4a9dc0..4a9ed7. Do not
+assume equal relative Normal offsets: the actual callsite delta differs by4.
+Factory49b6f7..49b70c passes self, false, true, current CP and Unit.GetAIState78.
+Nearest4a9e09 calls the verified GetUnits4a9a20; frame arguments/exclusion at
+4a9e22, best float0x477fff00, fsqrt/fcom/testAH05/jp at4a9e63..6e and strict
+updates4a9e72/76 prove linear distance, finite strict improvement and stable
+ties. The old cached player's helper uses squared distance with the same
+numeric bound; it remains untouched for its other consumers.
+
+Final fresh Windows ALL_BUILD:102/102 focused115.17s and154/154 related164.98s;
+Linux Game/helpers152/152 related160.08s plus4/4 context1.22s. Local asset-free
+CI290/29024.07s. All five terminal raw logs have exact102/154/152/4/290 passes,
+no Failed/NotRun/NUL. All14 nearest records,15 prior world records and14 delivery
+records match Windows/Linux. Linux main/context sessions report exit0; Windows
+parent exited after all five logs were produced (a later observer could not
+recover its numeric exit code, so none is claimed). Both HD caches stay OFF;
+owned test processes have exited and shared builds are reused without copies.
+Source2eee remains partial for Normal's support count, legacy synchronization/
+nonfighter backrefs and final mixed15-file accounting. Counts remain138 imported,
+19 partial,81 pending:100 unfinished sources across281. Actual final-HEAD hosted
+Actions verification/repair is still due after all useful imports.

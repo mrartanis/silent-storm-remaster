@@ -95,6 +95,7 @@ public:
 	void Synchronize();
 	// Live world query uses the saved tactical player, independently of commander ownership.
 	void GetUnits( vector< CPtr<IAIUnit> > *pUnits, bool bAllies, bool bIncludeNonAI ) const;
+	IAIUnit *GetNearestUnit( const CVec3 &pos, bool bAllies, bool bIncludeNonAI, IAIUnit *pExclude ) const;
 	IAIUnit* GetDangerousAttackableEnemy( IAIUnit *pAIUnit );
 	const vector<SAIUnitGroup>& GetEnemyGroups() const { return enemyGroups; }
 };

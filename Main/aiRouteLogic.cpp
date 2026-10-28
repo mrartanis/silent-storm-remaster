@@ -374,9 +374,9 @@ IAILogic* CreateAIMoveToPositionLogic( IAIUnit *pUnit, const SPathPlace &place, 
 	return CreateAIRouteLogic( pUnit, cmds, false );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// CreateAIAlarmLogic @0x9b3d0 -- a scared, supported unit RUNs to a place beside its nearest ally, then the
+// CreateAIAlarmLogic (matched Steam 0x49b6a0) -- a scared, supported unit RUNs to a place beside its nearest ally, then the
 // CTaskCommandAlarm step raises the garrison. Gated on a runnable path to that place; else 0 (caller falls back to
-// the normal retreat/guard). The ally-roster + 5 m filter substitutes the absent SAIState::GetNearestUnit/GetUnitsAtRange.
+// the normal retreat/guard). Query the current non-enemy AI units and exclude the caller.
 IAILogic* CreateAIAlarmLogic( IAIUnit *pUnit, IAIUnit *pEnemy )
 {
 	if ( !RouteUnitAndServerAlive( pUnit ) || !IsValid( pEnemy ) )
@@ -384,11 +384,7 @@ IAILogic* CreateAIAlarmLogic( IAIUnit *pUnit, IAIUnit *pEnemy )
 	SAIState *pSt = pUnit->GetAIState();
 	if ( pSt == 0 )
 		return 0;
-	IAIPlayer *pAllyPlayer = pSt->GetAllyAIPlayer();
-	if ( pAllyPlayer == 0 )
-		return 0;
-	float fDist = 0.f;
-	IAIUnit *pAlly = pAllyPlayer->GetNearestUnit( pUnit, &fDist );   // release GetNearestUnit(pos,allies,active,exclude=self)
+	IAIUnit *pAlly = pSt->GetNearestUnit( pUnit->GetPosition().GetCP(), true, false, pUnit );
 	if ( !IsValid( pAlly ) || !IsValid( pAlly->GetUnitServer() ) || !IsValid( pAlly->GetUnitServer()->GetWorld() ) )
 		return 0;
 	IPathNetwork *pNet = pAlly->GetUnitServer()->GetWorld()->GetPathNetwork();
