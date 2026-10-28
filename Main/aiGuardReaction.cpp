@@ -124,10 +124,8 @@ void CAIGuardReaction::Update()
 		if ( IsValid( pLogic ) )
 		{
 			SetLogic( pLogic );
-			pState->RemovePossibleEnemy( pPossible );   // RE-ENABLED (retail raised CreateAILostPossibleEnemyEvent here):
-			// consume the suspect once we commit to investigating its position. This bounds the now-preserved
-			// possibleEnemies (aiUnitState.cpp Populate no longer wipes them) -- each suspect triggers ONE investigation
-			// then is dropped, so a shot-from-concealment is checked once and not chased forever.
+			// Consume through the reaction-side lock bracket, preserving existing dirty marks.
+			pState->Notify( CreateAILostPossibleEnemyEvent( pPossible ) );
 			bHandled = true;
 		}
 	}
@@ -150,7 +148,7 @@ void CAIGuardReaction::Update()
 				// triggers ONE glance instead of being stared at forever.
 				CObj<IAIEvent> e = CreateAILostAllyEvent( pAlly );
 				if ( IsValid( e ) )
-					e->Modify( pState );
+					pState->Notify( e );
 			}
 		}
 		else if ( bWasCombat )

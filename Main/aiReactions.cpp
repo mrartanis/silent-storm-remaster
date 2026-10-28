@@ -147,7 +147,7 @@ void CAINormalReaction::Update()
 				SetLogic( pAlarm );
 				CObj<IAIEvent> e = CreateAIEnemyDiedEvent( pEnemy );
 				if ( IsValid( e ) )
-					e->Modify( us );   // drop own enemy -> disengage and run the alarm route
+					us->Notify( e );   // drop own enemy without arming another contact update
 				return;
 			}
 		}
@@ -268,7 +268,7 @@ void CAINormalReaction::Update()
 			SetLogic( pAssist.GetPtr() );
 			CObj<IAIEvent> e = CreateAILostAllyEvent( pAlly );   // consume: RemoveAlly + clear pAlly
 			if ( IsValid( e ) )
-				e->Modify( us );
+				us->Notify( e );
 			return;
 		}
 	}
@@ -351,10 +351,7 @@ void CAIRetreatReaction::Update()
 				SPathPlace p = pPossible->GetUnitPosition().pos.p;
 				if ( SetLogic( CreateAILookToPositionLogic( u, p ) ) )
 				{
-					us->RemovePossibleEnemy( pPossible );   // RE-ENABLED (retail raised CreateAILostPossibleEnemyEvent here):
-						// consume the suspect once we glance at its place, so a retreating unit resumes its fall-back instead of
-						// freezing to stare at a hidden shooter forever (the now-preserved possibleEnemies must be consumed by
-						// every suspect-acting reaction -- Guard/Fear/Retreat -- to stay bounded).
+					us->Notify( CreateAILostPossibleEnemyEvent( pPossible ) );
 				}
 			}
 		}

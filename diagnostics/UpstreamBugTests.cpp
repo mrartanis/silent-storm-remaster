@@ -164,6 +164,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/aiCombatLogic.h"
 #include "../Main/aiReactions.h"
 #include "../Main/aiGuardReaction.h"
+#include "../Main/aiFearReaction.h"
 #include "../Main/aiUnitState.h"
 #include "../Main/aiEvent.h"
 #include "../Main/aiThreatTracker.h"
@@ -8103,6 +8104,140 @@ static void ArrivedRetreatReactionLifetime(const char* databasePath,const char* 
             "a completed retreat used its cleared reaction to install another movement logic after switching to guard");
         Require(actor->GetPosition() == position && actor->GetAP() == ap && actor->GetUnitRPG()->GetTotalVP() == vp &&
             !actor->HasCommand(), "updating a retreat reaction moved the actor, spent AP/VP or issued a gameplay order");
+    }
+}
+
+static void AIReactionContactDelivery(const char* databasePath, const char* resourcePath, int mode)
+{
+    // Exercise pre-existing dirty marks before the failing clean-collection case.
+    for (bool dirty: {true, false}) {
+        CObj<NRPG::CGlobalGame> game;
+        auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+        list<CPtr<NWorld::CUnitServer>> units; world->GetAllUnits(&units);
+        NWorld::CUnitServer *actor = nullptr, *enemy = nullptr, *ally = nullptr;
+        NAI::IAIUnit* owner = nullptr;
+        for (const auto& unit: units) {
+            auto* wrapper = NAI::GetAIUnit(unit);
+            if (IsValid(unit) && unit->CanFight() && unit->IsAIUnit() && !unit->HasCommand()
+                    && unit->GetUnitRPG()->CanMove() && IsValid(wrapper)) {
+                actor = unit.GetPtr(); owner = wrapper; break;
+            }
+        }
+        Require(actor && owner, "reaction contact fixture has no mobile idle native AI actor");
+        for (const auto& unit: units) {
+            if (!IsValid(unit) || unit.GetPtr() == actor || !unit->CanFight() || !IsValid(NAI::GetAIUnit(unit))) continue;
+            if (actor->GetDiplomacyState(unit) == NDb::DS_ENEMY) enemy = unit.GetPtr();
+            else ally = unit.GetPtr();
+        }
+        Require(enemy && ally, "reaction contact fixture needs native hostile and allied contacts");
+        auto* commander = dynamic_cast<NAI::CAICommander*>(actor->GetPlayer()->GetCommander());
+        Require(commander != nullptr, "reaction contact fixture has no native commander");
+        commander->GetAIState()->Synchronize();
+        owner->SetLogic(nullptr); owner->SetRouteLogic(nullptr);
+        owner->Synchronize();
+        auto* state = owner->GetAIUnitState();
+        Require(state != nullptr, "reaction contact fixture has no native threat state");
+        state->enemies.data.units.clear(); state->enemies.data.positions.clear();
+        state->possibleEnemies.data.units.clear(); state->possibleEnemies.data.positions.clear();
+        state->allies.data.units.clear(); state->allies.data.positions.clear();
+        state->pEnemy = state->pPossibleEnemy = state->pAlly = nullptr;
+        state->bScared = mode == 5;
+        auto* target = (mode == 1 || mode == 4) ? ally : enemy;
+        auto* contact = NAI::GetAIUnit(target);
+        const auto targetPosition = target->GetPosition();
+        auto plan = targetPosition.pos; plan.p.SetDirection((plan.p.GetDirection()+3)&7);
+        contact->SetPosition(plan);
+        Require(contact->GetUnitPosition() == targetPosition && target->GetPosition() == targetPosition,
+            "reaction contact control replaced live position with the separate planning copy");
+        if (mode == 1 || mode == 4) { state->AddAlly(contact); state->pAlly = contact; }
+        else if (mode == 5) { state->AddEnemy(contact); state->pEnemy = contact; }
+        else { state->AddPossibleEnemy(contact); state->pPossibleEnemy = contact; }
+        state->enemies.nLock = state->possibleEnemies.nLock = state->allies.nLock = 0;
+        state->enemies.bModified = state->possibleEnemies.bModified = state->allies.bModified = dirty;
+        state->selfModified.data = state->selfModified.bModified = false;
+        CObj<NAI::CAIReaction> reaction;
+        NAI::SPathPlace fallback = ally->GetPosition().pos.p;
+        if (mode == 0 || mode == 1) reaction = NAI::CreateAIGuardReaction(owner, nullptr, 12);
+        else if (mode == 2) {
+            Require(fabs(ally->GetPosition().GetCP()-actor->GetPosition().GetCP()) >= .5f,
+                "retreat contact fixture already reached its fallback");
+            reaction = NAI::CreateAIRetreatReaction(owner, fallback);
+        } else if (mode == 3) reaction = NAI::CreateAIFearReaction(owner, false, false, 0);
+        else reaction = NAI::CreateAINormalReaction(owner);
+        Require(IsValid(reaction), "reaction contact fixture could not construct its native reaction");
+        owner->SetReaction(reaction);
+        Require(owner->GetReactionForUpdate() == reaction.GetPtr(),
+            "native reaction selection did not consume its initial installation notification");
+        unsigned seed = 2, expectedNext = 0;
+        CObj<NAI::IAILogic> referencePlan;
+        if (mode == 5) {
+            auto* allies = owner->GetAIState()->GetAllyAIPlayer();
+            Require(allies && allies->GetUnits()->size() > 1, "alarm contact fixture lacks native garrison support");
+            for (seed = 1; seed != 513; ++seed) {
+                GlobalGameRandom().SeedForHarness(seed);
+                if (GlobalGameRandom().Get(100) >= 40) continue;
+                referencePlan = NAI::CreateAIAlarmLogic(owner, contact);
+                if (IsValid(referencePlan)) break;
+            }
+            Require(seed != 513 && IsValid(referencePlan), "alarm contact fixture found no actual reachable seeded alarm plan");
+            expectedNext = GlobalGameRandom().Get();
+        } else {
+            GlobalGameRandom().SeedForHarness(seed);
+            if (mode <= 1) {
+                CObj<NAI::CUnitArea> area = new NAI::CUnitArea(actor, actor->GetPosition().pos.p, 12, NAI::WALK);
+                Require(area->Prepare(), "guard contact fixture failed to prepare its native area");
+                referencePlan = NAI::CreateAICheckPositionLogic(owner, area, targetPosition.pos, NAI::CROUCH);
+            } else if (mode == 4)
+                referencePlan = NAI::CreateAICheckForEnemyLogic(owner, targetPosition, NAI::RUN, nullptr);
+            else referencePlan = NAI::CreateAILookToPositionLogic(owner, targetPosition.pos.p);
+            Require(IsValid(referencePlan), "reaction contact fixture could not build the native reference plan");
+            expectedNext = GlobalGameRandom().Get();
+        }
+        const int ap = actor->GetAP(), hp = actor->GetUnitRPG()->GetTotalVP(); const auto position = actor->GetPosition();
+        GlobalGameRandom().SeedForHarness(seed);
+        NAI::SAIUpdateTracker tracker; tracker.Add(reaction);
+        Require(!tracker.CanGetCommand() && reaction->CanUpdate(), "native reaction pump did not queue an eligible contact reaction");
+        tracker.Update();
+        const unsigned next = GlobalGameRandom().Get();
+        Require(tracker.CanGetCommand() && owner->GetReaction() == reaction.GetPtr() && IsValid(owner->GetLogic()),
+            "native reaction did not handle its controlled contact through the reaction pump");
+        auto commands = [](NAI::IAILogic* logic) {
+            Require(dynamic_cast<NAI::CAIRouteLogic*>(logic) != nullptr, "reaction installed a non-route plan");
+            CStructureNetworkContext refs; auto saved = BorrowedObjectFields(logic, &refs);
+            vector<CObj<NAI::CTaskCommand>> result;
+            { CStructureSaver reader(saved, CStructureSaver::READ, &refs); reader.Add(4, &result); }
+            return result;
+        };
+        const auto actualCommands = commands(owner->GetLogic()), expectedCommands = commands(referencePlan);
+        Require(!actualCommands.empty() && actualCommands.size() == expectedCommands.size(), "contact delivery changed its native plan command count");
+        int looks = 0, alarms = 0;
+        for (std::size_t i = 0; i != actualCommands.size(); ++i) {
+            Require(typeid(*actualCommands[i]) == typeid(*expectedCommands[i]), "contact delivery changed its native plan command sequence");
+            if (dynamic_cast<NAI::CTaskCommandLookToPosition*>(actualCommands[i].GetPtr())) {
+                CStructureNetworkContext refs; auto saved = BorrowedObjectFields(actualCommands[i], &refs);
+                NAI::SPathPlace looked;
+                { CStructureSaver reader(saved, CStructureSaver::READ, &refs); reader.Add(3, &looked); }
+                if (mode != 5) Require(looked == targetPosition.pos.p, "reaction looked at a speculative or unrelated target place");
+                ++looks;
+            }
+            if (dynamic_cast<NAI::CTaskCommandAlarm*>(actualCommands[i].GetPtr())) ++alarms;
+        }
+        Require(looks > 0 && alarms == (mode == 5 ? 1 : 0) && next == expectedNext,
+            "contact delivery changed the native plan role or consumed different random words");
+        Require(!IsValid(state->pEnemy) && !IsValid(state->pPossibleEnemy) && !IsValid(state->pAlly)
+                && state->enemies.data.units.empty() && state->possibleEnemies.data.units.empty() && state->allies.data.units.empty()
+                && state->enemies.data.positions.empty() && state->possibleEnemies.data.positions.empty() && state->allies.data.positions.empty(),
+            "reaction failed to consume its actual contact membership, pose and selected reference");
+        std::printf("reaction mode=%d oldDirty=%d flags=%d,%d,%d commands=%zu looks=%d alarms=%d seed=%u rng=%u\n",
+            mode, int(dirty), int(state->enemies.bModified), int(state->possibleEnemies.bModified), int(state->allies.bModified),
+            actualCommands.size(), looks, alarms, seed, next);
+        Require(state->enemies.bModified == dirty && state->possibleEnemies.bModified == dirty && state->allies.bModified == dirty,
+            "reaction contact consumption armed new dirty flags or discarded existing marks");
+        Require(state->enemies.nLock == 0 && state->possibleEnemies.nLock == 0 && state->allies.nLock == 0 && !state->IsModified(),
+            "reaction contact consumption retained collection locks or synthesized another threat notification");
+        Require(actor->GetAP() == ap && actor->GetUnitRPG()->GetTotalVP() == hp && actor->GetPosition() == position
+                && target->GetPosition() == targetPosition && !actor->HasCommand(),
+            "reaction contact delivery spent world AP/HP, moved a unit or issued a gameplay order");
     }
 }
 
@@ -21521,6 +21656,12 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-snapshot-counters") && argc == 4) { AICombatSnapshot(argv[2], argv[3], 3); return true; }
     if (!std::strcmp(mode, "ai-snapshot-contacts") && argc == 4) { AICombatSnapshot(argv[2], argv[3], 4); return true; }
     if (!std::strcmp(mode, "ai-snapshot-human") && argc == 4) { AICombatSnapshot(argv[2], argv[3], 5); return true; }
+    if (!std::strcmp(mode, "ai-reaction-guard-suspect") && argc == 4) { AIReactionContactDelivery(argv[2], argv[3], 0); return true; }
+    if (!std::strcmp(mode, "ai-reaction-guard-ally") && argc == 4) { AIReactionContactDelivery(argv[2], argv[3], 1); return true; }
+    if (!std::strcmp(mode, "ai-reaction-retreat-suspect") && argc == 4) { AIReactionContactDelivery(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "ai-reaction-fear-suspect") && argc == 4) { AIReactionContactDelivery(argv[2], argv[3], 3); return true; }
+    if (!std::strcmp(mode, "ai-reaction-normal-ally") && argc == 4) { AIReactionContactDelivery(argv[2], argv[3], 4); return true; }
+    if (!std::strcmp(mode, "ai-reaction-normal-alarm") && argc == 4) { AIReactionContactDelivery(argv[2], argv[3], 5); return true; }
     if (!std::strcmp(mode, "mission-overlay-readiness")) { MissionOverlayReadiness(); return true; }
     if (!std::strcmp(mode, "ai-player-mission-readiness")) { AIPlayerMissionReadiness(); return true; }
     if (!std::strcmp(mode, "sound-icon-visibility")) { OverlayIconVisibility(false); return true; }

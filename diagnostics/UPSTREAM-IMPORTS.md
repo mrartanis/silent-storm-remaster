@@ -9555,3 +9555,78 @@ hunks still need independent native TDD/original audit. Source abbe4777 overlaps
 reaction delivery but also changes fear route/AP behavior; do not bulk-copy it.
 Counts281 remain137imported/19partial/82pending (101unfinished source commits).
 Final actual-HEAD hosted GitHub Actions verification/repair remains due after ALL.
+
+
+## abbe4777 / 2eee1b62, contact consumption stage - use reaction Notify at all six consumers
+
+Guard suspect/ally, Retreat suspect, Fear suspect, and Normal ally-assist/alarm
+enemy-drop consumed their contact through direct Remove or event.Modify. That
+bypassed the existing reaction-side collection-lock bracket and dirtied the
+collection again despite the contact already being consumed. Route these six
+sites through SAIUnitState.Notify, preserving its strong callback ownership and
+nested/exception cleanup from earlier stages. Retain local CObj event holds at
+existing ally/alarm sites. No new interface/field/tag/coefficient or plan factory
+change; own live position accessors already supply the upstream server-position
+behavior, so do not replace them redundantly. Fear route clearing/AP reservation
+and roster/alarm recipient selection remain distinct follow-ups.
+
+Six new cases each use two actual native worlds: existing111 dirty marks first,
+then clean000. Real party/hostile/ally, native commander state and reaction
+instances go through GetReactionForUpdate and SAIUpdateTracker.Update. Initially
+the fixture bypassed GetReactionForUpdate, so its own SetReaction installation
+notification remained true: that is fixture setup, not RED. Preserve that log,
+then consume the installation latch through the real native selection API before
+the queued Update. Authoritative RED6/6 12.39s: all111 controls pass, then Guard
+suspect/Retreat/Fear yield010, Guard/Normal ally001, Normal alarm100 instead of000.
+Contact membership, cached pose and selected pointer were already consumed;
+only the new collection marks are wrong. No compile/setup failure counts as RED.
+
+Each native reference plan uses the existing factory before the queued reaction
+with the same seeded generator. Check actual installed route command types/count,
+serialized LookTo target against live position despite a different planning copy,
+one actual alarm command where appropriate, and exact next ISAAC word. Alarm
+uses a native reachable seed selected through the actual garrison/factory gates;
+no mock eligibility or forced production branch. Every reaction retains its own
+identity, returns collection locks to0 and leaves no new self-notification.
+Actor/target positions, world AP/HP and absence of gameplay command remain
+unchanged. Plans are inspected before execution; no complete route-playthrough
+claim is made. GREEN6/6 12.61s. Native Win/Linux records for both flags variants
+match exactly: Guard5commands/seed2/next2458770803; Retreat and Fear2/seed2/
+3818093661; Normal ally14/seed2/1668886703; Normal alarm5/seed1/2579009949.
+Pre-existing111 remains111; clean000 stays000. No extra RNG draw is introduced.
+
+Original proof: named PDB reaction Update plus unique named RTTI primary offset0
+vtable slot10 maps Guard Gold450ab0/1608 ->Steam4515e0, Fear43c900/614 ->43d540,
+Retreat494c20/576 ->495ed0, Normal47e350/1440 ->47eee0. Independently named event
+RTTI and factory vtable-store operands map Gold LostPossibleEnemy43b810/82 ->
+Steam43c450; EnemyDied43b870/82 ->43c4b0; LostAlly43b930/82 ->43c570. Constructors
+write the actual named vtable at+43 and target unit at+49, not a guessed offset
+mapping. Actual factory calls / owner Notify48 calls are Guard451950/451958 and
+451a39/451a41; Fear43d6c2/43d6ca; Retreat49608a/496096; Normal47efd9/47efe1 and
+47f40f/47f417. Named CAIUnit primary vtable slot48 maps to original Notify4add70
+and its direct State.Notify4b0ef0 call4addd4; that path brackets the three contact
+locks as independently established in07adab85. No arbitrary masks or ABI copying.
+Evidence ai-reaction-contact-retail-oracle.json/full reaction/factory disassembly.
+
+Fresh Windows ALL_BUILD and Linux Game/helpers pass. Final focused36/36 42.48s;
+related Windows88/88 92.65s and Linux86/86 88.35s; additional Linux context/
+selected4/4 1.17s; local asset-free CI290/29024.72s including registration parity.
+Windows related also includes serializer/stop-resume. All5 raw logs have exact
+36/88/86/4/290 passed records, no NUL/Failed/NotRun/missing executable; actual
+runners exit0. All12 paired native records agree across platforms. Evidence
+ai-reaction-contact-{red-selected,green,final-focused,final-related,final-linux,
+linux-context,final-ci}; initial install-latch fixture failure is retained apart.
+Owned tests exited; shared builds reused with HD generation OFF. No hosted Actions
+success or complete mission-playthrough is claimed; fonts/facial engine untouched.
+
+Source abbe is partial: Fear no-early-route-clear/AP reservation and Assassin's
+comment-only correction remain. Initial read-only original Fear43d540 body has no
+early route-clear and has live AP subtraction/SpendAP43d722..43d727 after contact
+consumption. Verify original GetActionAP delegation and insufficient-AP behavior
+before porting that separate rule; do not bulk-copy. Existing Fear contact test's
+AP-unchanged control belongs to THIS notification-only stage and must be updated
+deliberately with a native original-AP regression when that follow-up lands.
+Source2eee Normal contact consumers are now accounted; OnPassControl scheduling
+and live roster/neutral/alarm consumers remain pending. Counts281:137imported/
+20partial/81pending (101unfinished sources); final actual-HEAD hosted GitHub Actions
+verification/repair remains due after ALL.

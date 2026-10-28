@@ -7,6 +7,7 @@
 #endif
 //
 #include "aiUnit.h"          // NAI::IAIUnit (GetUnitServer / GetUnitPosition / GetLogic)
+#include "aiEvent.h"
 #include "aiUnitState.h"     // NAI::SAIUnitState (pEnemy / pPossibleEnemy / GetKnownEnemies)
 #include "aiPosition.h"      // NAI::SPathPlace / SUnitPosition / EPose
 #include "aiRouteLogic.h"    // NAI::CreateAILookRoundLogic / MoveToPositionLogic / LookToPositionLogic / RoamingLogic
@@ -87,9 +88,8 @@ void CAIFearReaction::Update()
 		{
 			SPathPlace p = pPossible->GetUnitPosition().pos.p;
 			SetLogic( CreateAILookToPositionLogic( pU, p ) );
-			us->RemovePossibleEnemy( pPossible );   // RE-ENABLED (retail raised CreateAILostPossibleEnemyEvent here) --
-			// consume the suspect once we glance at its place, so the now-preserved possibleEnemies stay bounded
-			// (one glance per suspect, then forget). The release's look-AP refund is still omitted.
+			us->Notify( CreateAILostPossibleEnemyEvent( pPossible ) );
+			// Original rotation AP handling remains a separate restoration.
 		}
 		return;
 	}
