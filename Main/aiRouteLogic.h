@@ -97,8 +97,8 @@ public:
 // CTaskCommandAlarm (release CRouteCommandAlarm @0x99990, id 0x23062480) -- the route step that RAISES THE GARRISON.
 // On arrival beside an ally it re-resolves its stored enemy server to an IAIUnit, tells every ally within 5 m about it
 // (each ally AddPossibleEnemy(enemy) via CreateAIPossibleEnemyEvent), and raises the alarming unit's own help flag
-// (CreateAIHelpCalledEvent). IAIUnit exposes no Notify slot, so the per-unit events are delivered by event->Modify(state)
-// synchronously -- the identical SAIUnitState mutation (the dev's own idiom, cf. aiReactions.cpp RemovePossibleEnemy).
+// (CreateAIHelpCalledEvent). The original Unit.OnAIEvent checks live fightability and AI control.
+// Use the existing immediate state helper with those gates; do not add the reaction Notify lock bracket.
 class CTaskCommandAlarm: public CTaskCommand
 {
 	OBJECT_BASIC_METHODS( CTaskCommandAlarm );

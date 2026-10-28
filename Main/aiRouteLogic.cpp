@@ -105,18 +105,16 @@ int CTaskCommandHide::operator&( CStructureSaver &f )
 	return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// CTaskCommandAlarm::Do @0x99990 -- raise the garrison: every ALLY within 5 m of the alarming unit learns of the
-// enemy (AddPossibleEnemy via CreateAIPossibleEnemyEvent), and the alarming unit raises its own help flag
-// (CreateAIHelpCalledEvent). IAIUnit has no Notify slot, so each per-unit event is delivered by event->Modify(state)
-// synchronously -- the identical SAIUnitState mutation. With the active Populate-preserve the injected possibleEnemy
-// survives the next think, so the alert sticks across the garrison.
+// Alarm delivery matches the named original Do (Steam 0x499c90): use live
+// fightability, and deliver through the immediate AI event gate, not reaction Notify.
+// Recipient enumeration still uses the legacy adapter pending the world-query port.
 void CTaskCommandAlarm::Do()
 {
 	IAIUnit *pU = IsValid( pUnitServer ) ? GetAIUnit( pUnitServer ) : 0;   // base CTaskCommand::pUnitServer = alarming unit
-	if ( !IsValid( pU ) || pU->IsDead() )
+	if ( !IsValid( pU ) || !pUnitServer->CanFight() )
 		return;
 	IAIUnit *pEnemyAI = IsValid( pEnemy ) ? GetAIUnit( pEnemy ) : 0;
-	if ( !IsValid( pEnemyAI ) || pEnemyAI->IsDead() )
+	if ( !IsValid( pEnemyAI ) || !pEnemy->CanFight() )
 		return;
 	SAIState *pSt = pU->GetAIState();
 	if ( pSt == 0 )
@@ -130,7 +128,7 @@ void CTaskCommandAlarm::Do()
 	for ( int i = 0; i < (int)units.size(); ++i )
 	{
 		IAIUnit *a = units[i].GetPtr();
-		if ( !IsValid( a ) || a->IsDead() || !IsValid( a->GetUnitServer() ) )
+		if ( !IsValid( a ) || !a->IsUnderAIControl() || !IsValid( a->GetUnitServer() ) || !a->GetUnitServer()->CanFight() )
 			continue;
 		if ( fabs( a->GetPosition().GetCP() - pos ) >= 5.0f )   // within 5 m
 			continue;
@@ -139,13 +137,13 @@ void CTaskCommandAlarm::Do()
 			continue;
 		CObj<IAIEvent> e = CreateAIPossibleEnemyEvent( pEnemyAI );   // == ally AddPossibleEnemy(enemy)
 		if ( IsValid( e ) )
-			e->Modify( as );
+			as->OnAIEvent( e );
 	}
-	// the alarming unit itself raises the help flag (release: pU->Notify(CreateAIHelpCalledEvent()))
+	// Original Unit.OnAIEvent also rejects a human caller for its own help flag.
 	SAIUnitState *my = pU->GetAIUnitState();
 	CObj<IAIEvent> h = CreateAIHelpCalledEvent();
-	if ( my != 0 && IsValid( h ) )
-		h->Modify( my );
+	if ( my != 0 && pU->IsUnderAIControl() && IsValid( h ) )
+		my->OnAIEvent( h );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CTaskCommandAlarm::operator&( CStructureSaver &f )

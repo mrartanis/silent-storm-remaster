@@ -9896,3 +9896,90 @@ Failed/NotRun/NUL. Four native memo diagnostic records exactly match Windows
 and Linux. Both shared HD build caches remain OFF and owned tests exited.
 Counts remain138imported/19partial/81pending (100unfinished). Final actual-HEAD
 hosted Actions verification/repair remains required after all useful imports.
+
+## 2eee1b62, alarm delivery stage - native live eligibility and immediate events
+
+Source: [2eee1b6280f55129eb2cca681fbbbeb1c27f1e18](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2eee1b6280f55129eb2cca681fbbbeb1c27f1e18).
+Before broadening the legacy ally adapters, restore the command's original
+event boundary. CTaskCommandAlarm used speculative wrapper IsDead for caller,
+enemy and recipient, and invoked event.Modify directly. A live unit with
+speculative HP0 therefore lost its alarm, while an unconscious unit with
+positive planning HP still participated. A stale human adapter entry received
+AI events and a human caller acquired an AI help flag.
+
+Use native CUnitServer.CanFight for caller/enemy/recipient, require the existing
+dynamic IsUnderAIControl predicate for recipients and the caller's own help
+event, and deliver through existing State.OnAIEvent. The native Unit.OnAIEvent
+performs those eligibility checks before its immediate state helper. Our unit
+interface expresses that path differently, so adapt to its existing helper and
+explicit control checks. Preserve the fork's runtime player/commander-derived
+AI control; do not use the retained historical bUnderAIControl field or add a
+new virtual API. Immediate delivery adds no reaction Notify lock bracket.
+
+Fourteen native command cases exercise the actual CTaskCommandAlarm.Do with
+real world actors, commanders and threat states: live baseline; zero planning
+HP on caller/enemy/recipient while all remain fightable; native unconscious
+caller/enemy/recipient with planning HP37; stale human recipient; human caller;
+inherited lock2; pre-existing dirty flags; far recipient; absent enemy/caller.
+Both real default and CSequenceCommander actors are used as appropriate. This
+stage deliberately supplies real wrappers to the existing legacy adapter to
+isolate delivery from the still-unported world-query behavior. The human entry
+models a stale adapter; it is not a claim that current native query selection
+is already correct. No mocked CanFight, IsAIUnit, event or recipient method.
+
+Runtime RED8/14 in15.70s, actual exit8, all intended eligibility failures.
+Live caller/target planningHP0 suppresses help and recipients; zero recipient
+planningHP suppresses its event; unconscious caller/target wrongly produces
+help; unconscious/human recipient wrongly changes its state; human caller
+wrongly gets help. Six live/lock/dirty/far/null controls already pass. The
+planning/live divergence is intentional and preserved by the fix. After the
+minimal gate/helper change, GREEN19/19 in21.95s, actual exit0, including the14
+new cases plus5 existing Normal-alarm/immediate-event/collection checks.
+
+Assertions check caller help/scared transitions, immediate notification and
+contact dirty flags, inherited locks/marks, exact possible-enemy membership and
+cached full LIVE pose despite a different planning pose, no premature selected
+contact, unchanged owning roster, exact next ISAAC word, and unchanged live and
+planning AP/HP, positions and existing world command state. Clean collections
+must become dirty, so replacing OnAIEvent with reaction Notify would fail.
+Existing lock2 still suppresses its collection mark without dropping membership;
+pre-existing marks are retained. The five-meter range and all numeric rules are
+unchanged; the far case is an actual passable native place beyond6m.
+
+Independent original identity: Gold PDB CRouteCommandAlarm.Do498930/427, named
+primary offset0 RTTI COL8d1f54/vtable8a6590 slot8 ->Steam COL8e15ec/vtable8b5668
+slot8=499c90..499e3b; both full methods end ret then padding. CTaskCommandAlarm
+is this fork's renamed command, retaining save id23062480. Native caller/target
+CanFight calls are499cd7/499d06, virtual44. Named CUnitServer primary RTTI
+GoldCOL8eb768/vtable8bec1c slot44=PDB7ba9b0/34 maps to SteamCOL8faf84/vtable
+8ce204 slot44=7c7280. These are live server checks, not planning HP.
+
+Native possible-event factory call499dbc ->43c3f0 precedes Unit44 delivery499dc8;
+help factory499ddc ->43c0c0 precedes Unit44 delivery499de4. Named typed event
+RTTI confirms Possible factory Gold43b7b0/82 ->Steam43c3f0/82 with its vtable
+operand at+69 (8a476c/8b3804); Help Gold43b480/32 ->Steam43c0c0/32 with vtable
+operand+24 (8a470c/8b37a4). Offsets are measured for these factories; do not
+copy an offset from another event factory. Unit primary44=PDBOnAIEvent4ac610/143
+maps to Steam4ade00, where serverCanFight44 at4ade4e and IsAIUnit1c at4ade59
+precede State.OnAIEvent4b0e40 at4ade64. Native primary1c GoldPDBIsAIUnit4ac050/35
+maps to Steam4ad830; our existing IsUnderAIControl supplies that runtime rule.
+No Notify48 dispatch occurs at either alarm delivery site. The unrelated
+Gold41b010 / Steam457820 call is a shared CPtr constructor, not an eligibility
+helper. Original427-byte command, unit-event body, RTTI/gates/factory assertions
+and oracle generator are retained as shared `ai-alarm-delivery-*` evidence.
+
+Native499d87 calls GetUnitsAtRange4a9c20 (GoldPDB4a84a0/402), with radius5,
+allies=true and exclude=NULL. That live-world/neutral selection and nearest
+alarm destination remain separate work, along with Normal's garrison count and
+legacy roster adapters. Source2eee stays partially imported; do not mark it
+complete based on this delivery stage. No authored balance data, cost/formula,
+public/save/network API, fonts, facial animation or HD pipeline change.
+
+Final fresh Windows ALL_BUILD: focused75/75 85.66s, related127/127 135.39s;
+Linux Game/helpers125/125 132.99s and additional context4/4 1.23s. Local
+asset-free CI290/290 24.63s. Actual Windows/Linux/context runners exited0;
+five raw logs contain exact75/127/125/4/290 pass counts, no Failed/NotRun/NUL.
+All14 native alarm diagnostic records match across Windows and Linux exactly.
+Both shared HD build caches remain OFF; owned tests exited. Counts remain
+138imported/19partial/81pending (100unfinished). All useful-source imports and
+actual final-HEAD hosted Actions verification/repair remain required.

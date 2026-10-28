@@ -8242,6 +8242,125 @@ static void AIReactionContactDelivery(const char* databasePath, const char* reso
     }
 }
 
+static void AIAlarmDelivery(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer *actor = nullptr, *enemy = nullptr, *recipient = nullptr;
+    const bool humanOwner = mode == 8;
+    for (const auto& unit: units)
+        if (IsValid(unit) && unit->CanFight() && !unit->HasCommand() && unit->IsAIUnit() != humanOwner
+                && IsValid(NAI::GetAIUnit(unit))) { actor = unit.GetPtr(); break; }
+    Require(actor != nullptr, "alarm delivery fixture has no native idle caller");
+    for (const auto& unit: units) {
+        if (!IsValid(unit) || !unit->CanFight() || !IsValid(NAI::GetAIUnit(unit))) continue;
+        if (!enemy && actor->GetDiplomacyState(unit) == NDb::DS_ENEMY) enemy = unit.GetPtr();
+        if (!recipient && unit.GetPtr() != actor && unit->GetPlayer() == actor->GetPlayer()) recipient = unit.GetPtr();
+    }
+    if (mode == 7) recipient = enemy; // A stale legacy adapter can still retain a now-hostile human.
+    if (humanOwner) recipient = actor;
+    Require(enemy && recipient, "alarm delivery fixture lacks native hostile/recipient controls");
+    auto* owner = NAI::GetAIUnit(actor); auto* contact = NAI::GetAIUnit(enemy); auto* receiver = NAI::GetAIUnit(recipient);
+    auto* commander = dynamic_cast<NAI::CAICommander*>(actor->GetPlayer()->GetCommander());
+    Require(owner && contact && receiver && commander, "alarm delivery fixture has no native wrappers/commander");
+    auto* shared = commander->GetAIState(); shared->Synchronize(); owner->SetAIState(shared);
+    if (recipient != actor) recipient->SetPosition(actor->GetPosition());
+    if (mode == 11) {
+        vector<NAI::SPathPlace> places;
+        world->GetPathNetwork()->GetNearPlaces(SSphere(actor->GetPosition().GetCP(), 12.f), &places);
+        bool placed = false;
+        for (auto place: places) {
+            place.SetPose(NAI::CM_STAND); place.SetDirection(0);
+            NAI::SPosition candidate(place,world->GetPathNetwork());
+            if (world->GetPathNetwork()->IsPassable(place) && fabs(candidate.GetCP()-actor->GetPosition().GetCP()) > 6.f) {
+                auto position = recipient->GetPosition(); position.pos = candidate; recipient->SetPosition(position); placed = true; break;
+            }
+        }
+        Require(placed, "alarm delivery fixture found no native far-recipient control");
+    }
+    if (mode == 4) actor->MakeUnconscious(VNULL3,true,false);
+    if (mode == 5) enemy->MakeUnconscious(VNULL3,true,false);
+    if (mode == 6) recipient->MakeUnconscious(VNULL3,true,false);
+    Require(actor->CanFight() == (mode != 4) && enemy->CanFight() == (mode != 5)
+            && recipient->CanFight() == (mode != 6), "alarm fixture has incorrect native unconsciousness controls");
+    owner->SetHP(mode == 1 ? 0 : 37, 99); contact->SetHP(mode == 2 ? 0 : 37, 99);
+    if (receiver != owner && receiver != contact) receiver->SetHP(mode == 3 ? 0 : 37, 99);
+    vector<NAI::IAIUnit*> wrappers{owner};
+    if (contact != owner) wrappers.push_back(contact);
+    if (receiver != owner && receiver != contact) wrappers.push_back(receiver);
+    for (size_t i=0; i<wrappers.size(); ++i) {
+        wrappers[i]->SetAP(17+int(i),71+int(i));
+        auto* state = wrappers[i]->GetAIUnitState();
+        Require(state != nullptr, "alarm delivery fixture lost its genuine threat owner");
+        state->enemies.data.units.clear(); state->enemies.data.positions.clear();
+        state->possibleEnemies.data.units.clear(); state->possibleEnemies.data.positions.clear();
+        state->allies.data.units.clear(); state->allies.data.positions.clear();
+        state->pEnemy = state->pPossibleEnemy = state->pAlly = nullptr;
+        state->enemies.nLock = state->possibleEnemies.nLock = state->allies.nLock = 0;
+        state->enemies.bModified = state->possibleEnemies.bModified = state->allies.bModified = false;
+        state->selfModified.data = state->selfModified.bModified = false;
+        state->bHelpCalled = false; state->bScared = wrappers[i] == owner;
+    }
+    auto* mine = owner->GetAIUnitState(); auto* theirs = receiver->GetAIUnitState();
+    const int lock = mode == 9 ? 2 : 0; const bool dirty = mode == 10;
+    theirs->possibleEnemies.nLock = lock;
+    theirs->enemies.bModified = theirs->possibleEnemies.bModified = theirs->allies.bModified = dirty;
+    // Isolate delivery from the separate world-query restoration: feed the
+    // existing adapter actual wrappers, including its possible stale human entry.
+    auto* roster = shared->GetAllyAIPlayer()->GetUnits(); roster->clear(); roster->push_back(owner);
+    if (receiver != owner) roster->push_back(receiver);
+    auto plan = enemy->GetPosition().pos; plan.p.SetDirection((plan.p.GetDirection()+3)&7); contact->SetPosition(plan);
+    const auto liveEnemyPose = enemy->GetPosition();
+    struct Live { NWorld::CUnitServer* server; NAI::SUnitPosition pose; int ap,hp,planAP,planHP; bool command; };
+    vector<Live> before;
+    for (auto* wrapper: wrappers) {
+        auto* server = wrapper->GetUnitServer(); before.push_back({server,server->GetPosition(),server->GetAP(),
+            server->GetUnitRPG()->GetTotalVP(),wrapper->GetAP(),wrapper->GetHP(),server->HasCommand()});
+    }
+    const auto ownedRoster = commander->GetUnitsList();
+    GlobalGameRandom().SeedForHarness(43); auto reference = GlobalGameRandom(); const unsigned next = reference.Get();
+    CObj<NAI::CTaskCommandAlarm> command = new NAI::CTaskCommandAlarm(mode == 12 ? nullptr : enemy);
+    command->SetUnitServer(mode == 13 ? nullptr : actor);
+    command->Do();
+    const bool validCall = mode != 4 && mode != 5 && mode != 12 && mode != 13;
+    const bool selfDelivered = validCall && owner->IsUnderAIControl();
+    const bool delivered = validCall && receiver->IsUnderAIControl() && recipient->CanFight()
+        && fabs(recipient->GetPosition().GetCP()-actor->GetPosition().GetCP()) < 5.f;
+    std::printf("alarm delivery mode=%d live=%d,%d,%d planHP=%d,%d,%d help=%d/%d recipient=%d/%d lock=%d dirty=%d\n", mode,
+        int(actor->CanFight()),int(enemy->CanFight()),int(recipient->CanFight()),owner->GetHP(),contact->GetHP(),receiver->GetHP(),
+        int(mine->bHelpCalled),int(selfDelivered),int(theirs->selfModified.data),int(delivered),theirs->possibleEnemies.nLock,int(theirs->possibleEnemies.bModified));
+    Require(mine->bHelpCalled == selfDelivered && mine->bScared == !selfDelivered,
+        "alarm caller/target eligibility used speculative HP or bypassed the native AI-owner event gate");
+    auto verify = [&](NAI::SAIUnitState* state, bool received, int inheritedLock, bool inheritedDirty) {
+        Require(state->selfModified.data == received && state->selfModified.bModified == received,
+            "alarm delivered an AI event to a human/non-fighting recipient or skipped a live recipient with speculative zero HP");
+        Require(state->possibleEnemies.data.units.size() == size_t(received) && state->possibleEnemies.data.positions.size() == size_t(received),
+            "alarm delivery lost its native suspected-contact membership/pose");
+        if (received) {
+            const auto found = state->possibleEnemies.data.positions.find(contact);
+            Require(state->possibleEnemies.data.units.front().GetPtr() == contact && found != state->possibleEnemies.data.positions.end()
+                    && found->second == liveEnemyPose, "alarm used the planning pose or another native contact");
+        }
+        Require(state->possibleEnemies.nLock == inheritedLock
+                && state->possibleEnemies.bModified == (inheritedDirty || (received && inheritedLock == 0))
+                && state->enemies.bModified == inheritedDirty && state->allies.bModified == inheritedDirty,
+            "alarm changed inherited locks/marks or incorrectly used the reaction Notify bracket");
+    };
+    verify(mine,selfDelivered,receiver == owner ? lock : 0,receiver == owner ? dirty : false);
+    if (receiver != owner) verify(theirs,delivered,lock,dirty);
+    Require(!IsValid(mine->pPossibleEnemy) && !IsValid(theirs->pPossibleEnemy)
+            && commander->GetUnitsList() == ownedRoster && GlobalGameRandom().Get() == next,
+        "alarm prematurely selected a contact, changed commander ownership or consumed native RNG");
+    for (size_t i=0; i<wrappers.size(); ++i) {
+        auto* server = before[i].server;
+        Require(server->GetPosition() == before[i].pose && server->GetAP() == before[i].ap
+                && server->GetUnitRPG()->GetTotalVP() == before[i].hp && server->HasCommand() == before[i].command
+                && wrappers[i]->GetAP() == before[i].planAP && wrappers[i]->GetHP() == before[i].planHP,
+            "alarm event delivery changed world/planning AP/HP, position or issued a world command");
+    }
+}
+
 static void AIFearRouteRetention(const char* databasePath, const char* resourcePath, int mode)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -22083,6 +22202,20 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-pass-control-human") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "ai-pass-control-foreign") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "ai-pass-control-repeat") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 3); return true; }
+    if (!std::strcmp(mode, "ai-alarm-delivery-live") && argc == 4) { AIAlarmDelivery(argv[2], argv[3], 0); return true; }
+    if (!std::strcmp(mode, "ai-alarm-delivery-caller-plan-hp") && argc == 4) { AIAlarmDelivery(argv[2], argv[3], 1); return true; }
+    if (!std::strcmp(mode, "ai-alarm-delivery-enemy-plan-hp") && argc == 4) { AIAlarmDelivery(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "ai-alarm-delivery-recipient-plan-hp") && argc == 4) { AIAlarmDelivery(argv[2], argv[3], 3); return true; }
+    if (!std::strcmp(mode, "ai-alarm-delivery-caller-ko") && argc == 4) { AIAlarmDelivery(argv[2], argv[3], 4); return true; }
+    if (!std::strcmp(mode, "ai-alarm-delivery-enemy-ko") && argc == 4) { AIAlarmDelivery(argv[2], argv[3], 5); return true; }
+    if (!std::strcmp(mode, "ai-alarm-delivery-recipient-ko") && argc == 4) { AIAlarmDelivery(argv[2], argv[3], 6); return true; }
+    if (!std::strcmp(mode, "ai-alarm-delivery-human-recipient") && argc == 4) { AIAlarmDelivery(argv[2], argv[3], 7); return true; }
+    if (!std::strcmp(mode, "ai-alarm-delivery-human-caller") && argc == 4) { AIAlarmDelivery(argv[2], argv[3], 8); return true; }
+    if (!std::strcmp(mode, "ai-alarm-delivery-locked") && argc == 4) { AIAlarmDelivery(argv[2], argv[3], 9); return true; }
+    if (!std::strcmp(mode, "ai-alarm-delivery-dirty") && argc == 4) { AIAlarmDelivery(argv[2], argv[3], 10); return true; }
+    if (!std::strcmp(mode, "ai-alarm-delivery-far") && argc == 4) { AIAlarmDelivery(argv[2], argv[3], 11); return true; }
+    if (!std::strcmp(mode, "ai-alarm-delivery-no-enemy") && argc == 4) { AIAlarmDelivery(argv[2], argv[3], 12); return true; }
+    if (!std::strcmp(mode, "ai-alarm-delivery-no-caller") && argc == 4) { AIAlarmDelivery(argv[2], argv[3], 13); return true; }
     if (!std::strcmp(mode, "ai-fear-ap-stand") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 0); return true; }
     if (!std::strcmp(mode, "ai-fear-ap-crouch") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "ai-fear-ap-prone") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 2); return true; }
