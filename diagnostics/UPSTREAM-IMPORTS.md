@@ -11604,3 +11604,62 @@ hunks or change the ledger (144 imported/18partial/76pending =94 unfinished).
 The independent five-case AP TDD retains its three intended native REDs; restore
 that small pending production diff only after this fixture correction commits.
 Final actual-HEAD hosted Actions remains due after all useful imports.
+
+
+## 2026-10-28 — preserve original undock planning AP and next decision
+
+Source [8c6c27b55e74d5fe3c410372f9193c26a90ae174](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8c6c27b55e74d5fe3c410372f9193c26a90ae174), independent Undock.Do hunk.
+The fork had omitted the original live RPG mission SpendAP(1), incorrectly
+documenting it as an inert flag. Restore that call after the existing exit-log
+record, guarding missing/ref-invalid owner server before logging or accessing
+its mission. This changes the actual AP snapshot observed by combat logic;
+normal physical exit remains free and uses our existing command/executor/
+animation/ownership path. The AI's cached planning AP is not substituted for
+the live server AP and is not changed by this call. No fields, API or save tags.
+
+Original typed Gold Undock.Do451d10/298 maps Steam452840 with6 unique24byte
+anchors. Actual exit-log create45a910 and log append45abe0 precede IAIUnit
+primary slot4, typed GetUnitMission4ac0c0 returning NRPG::IUnitMission* (Steam
+4ad8a0). Then mission slot7c is called with1. Actual CUnitMission RTTI secondary
+offset4c tables8b63cc/8c54e4 have slot7c -> typed SpendAP6b9760/44 /6bf970/44;
+entire44byte bodies are exact and unique in both releases. The body loads AP,
+subtracts its int argument, stores with max bound. This is one original numeric
+AP spend, not a flag, AP setter, or a newly chosen coefficient. Upstream address
+comments differ from these measured builds. audit-ai-undock-planning.py0.
+
+Five native modes mount an authored gun with actual CExecCannon and finish its
+entry before testing. Genuine AI wrapper over the real actor, actual AttackLogic
+StopThinking snapshot/IsNeedToThink predicate, real exit log and exact actor/gun
+command; positive command is consumed through native CreateExecutor and full
+exit animation completion. Controlled missing/null/ref-invalid owner references
+use the existing serialized AI field3, keeping the actual world actor intact.
+RPG health, physical mount and animator state/endpoint, position, ammunition,
+cached AP and RNG stay unchanged during planning; actual exit detaches normally
+and adds no further AP cost. The test checks the real scheduling predicate,
+not a claim that an entire autonomous combat turn was driven by this fixture.
+
+True RED3/5 Windows6.27s/Linux6.16s: live AP42->42 instead41 and rethink0 instead1;
+null/ref-invalid owner server emits an exit instead of no command. Missing-log
+and missing-cannon controls pass. GREEN18/18 Windows20.26s/Linux19.71s, including
+other cannon/entry/save/legacy/downed/weapon/UI checks: live AP42->41,
+rethink0->1, exact exit command, actual free executor exits with41; other4
+controls keep42 and emit nothing. No fixture/compiler failure preceded the
+five-case intended RED. Existing MountedGunEligibility setup separately failed
+before/after the production change and was corrected in9220370e on unchanged
+game code; its calibration attempts and optional diagnostic compile error are
+not additional upstream REDs. See the preceding test-only entry and raw logs.
+
+Fresh Windows ALL_BUILD346/346 related432.15s; Linux Game/helpers344/344 related
+417.71s. Windows37/37 combat/context43.34s (including4522 party save), Linux36/36
+39.91s. Local asset-free CI290/290 25.54s. Seven raw final logs
+18/18/346/344/37/36/290 exact passes, no Failed/NotRun/NUL, all runners0;
+independent pre-production calibrated fixture1/1 each also retained. Previous
+90 measured hit/cover/first-hit records and8 discovery outputs exact perplatform;
+earlier fractional-cover/four-AP assertions pass. verify-ai-undock-planning.py
+records native outcomes, original proof, fixture baseline and final verification.
+Shared builds reused, HD generation OFF, no per-bug source/game/build copies;
+owned tests exit. Final actual-HEAD hosted Actions remains due after all imports.
+
+Source8c6c27b5 partially imported: independent mounted investigation route
+sequencing remains pending and must respect our normal dismount executor.
+Ledger144 imported/19partial/75pending =94 unfinished source reviews/imports.

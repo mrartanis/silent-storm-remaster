@@ -33,9 +33,7 @@
 // (oracle: decomp/src/s2_aiheavygunaction.h: @0x52760/@0x529e0/@0x52c00 + the helpers @0x51f20..
 // @0x525b0). Every decode hook resolves to a real in-tree call (the cannon subsystem -- CCannon/ICannon,
 // IAIUnit::GetCannon, CanAttackWithCannon, the AI-map aim query, the cannon-approach path-AP -- already
-// exists; only the world cannon enumeration was added, CWorld::GetCannons). One documented faithfulness
-// gap: the release's RPG-side mark in Undock::Do (IUnitMission vtbl+0x7c) is elided -- the ExitCannon
-// record clears the docked cannon so the action cannot re-fire, making the mark observationally inert.
+// exists; only the world cannon enumeration was added, CWorld::GetCannons).
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NAI
 {
@@ -222,19 +220,22 @@ void CAIUndockFromHGAction::GetInfoInner( const SPlaceWithAP &place, SInfo *pInf
 	}
 	pInfo->bCanDo = true;
 }
-void CAIUndockFromHGAction::Do( CAILog *pLog ) const                     // @0x52340
+void CAIUndockFromHGAction::Do( CAILog *pLog ) const // Gold451d10 / Steam452840
 {
 	if ( !IsValid( pLog ) )
 		return;
 	IAIUnit *pU = GetUnit();
-	if ( !IsValid( pU ) )
+	if ( !IsValid( pU ) || !IsValid( pU->GetUnitServer() ) )
 		return;
 	NWorld::CCannon *pC = pU->GetCannon();   // reads the DOCKED cannon directly (not the cached info)
 	if ( !IsValid( pC ) )
 		return;
 	*pLog << new CAILogExitCannon( pU, pC );
-	// (release also marks the RPG side here via IUnitMission vtbl+0x7c(1); elided -- the ExitCannon record
-	// clears the docked cannon, so GetInfoInner cannot re-fire, making the mark observationally inert.)
+	// Original mission slot7c is SpendAP(1), not a flag. This live AP change
+	// re-arms the next combat decision; the normal exit executor remains free.
+	NRPG::IUnitMission *pRPG = pU->GetUnitMission();
+	if ( IsValid( pRPG ) )
+		pRPG->SpendAP( 1 );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CAIShootFromHGAction::GetInfoInner @0x52c00: manning a live, working gun usable from here that can hit

@@ -1460,3 +1460,16 @@ in both original releases. The existing discovery seam (7f245b09) reveals them
 later, including loaded hidden tasks. Other8 task tags retain their defaults;
 no task DB data, completion rules, rewards, AP, combat or other tuning changes.
 This resolves the separate initial-hiding item noted in the preceding entry.
+
+
+## 2026-10-28 — original one-AP undock planning bookkeeping
+
+Source [8c6c27b55e74d5fe3c410372f9193c26a90ae174](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8c6c27b55e74d5fe3c410372f9193c26a90ae174), independent Undock.Do hunk.
+AI planning to leave a stationary gun spends1 live RPG AP, as verified in both
+original releases, enabling the next combat decision after the AP snapshot.
+Previously the call was omitted as an allegedly inert flag. Native TDD shows
+42->41 and IsNeedToThink0->1; physical exit spends no additional AP. Human/manual
+exit executor, docking costs, cached AI AP, animation, PK/face and other tuning
+are unchanged. This restores the original numeric behavior rather than choosing
+a new balance value. Missing/retired owner references emit no command or cost.
+The separate mounted-investigation route fix remains pending.

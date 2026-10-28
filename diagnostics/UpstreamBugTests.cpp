@@ -15892,6 +15892,56 @@ static NativeCannonFixture MakeNativeCannonFixture(const char* databasePath,cons
     return fixture;
 }
 
+static void AICannonUndockPlan(const char* databasePath,const char* resourcePath,int mode)
+{
+    auto fixture=MakeNativeCannonFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* cannon=fixture.cannon.GetPtr();auto* world=fixture.world.GetPtr();
+    world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer()));
+    CObj<NWorld::CCmdCannon> mount=new NWorld::CCmdCannon(cannon);
+    CObj<NWorld::CExecCannon> enter=new NWorld::CExecCannon(actor,cannon,true,mount);
+    Require(enter->CanDoIt(actor->GetPosition())==NWorld::UCR_OK,"undock planning fixture cannot enter its actual authored cannon");
+    enter->Run();world->GetTime()->Set(actor->animator.GetTimeEnd());enter->AnimationFinished();enter=nullptr;
+    Require(!world->IsAction() && actor->GetState()==NWorld::CUnit::ST_MACHINE_GUN && cannon->GetCurrentUnit()==actor && actor->animator.GetCannon()==cannon,
+        "undock planning fixture did not finish native cannon entry before planning");
+    CObj<NAI::IAIUnit> gunner=NAI::CreateAIUnit(actor,true);gunner->Synchronize(false);
+    Require(gunner->GetCannon()==cannon && gunner->GetUnitMission()==actor->GetUnitRPG(),"undock planning wrapper lost its live cannon or actual RPG mission");
+    const int ap=actor->GetAP(),shadowAP=gunner->GetAP(),vp=actor->GetUnitRPG()->GetTotalVP(),ammo=cannon->GetItem()->GetAmmoQuantity();
+    const auto position=actor->GetPosition();const STime animationEnd=actor->animator.GetTimeEnd();
+    Require(ap>7 && world->IsTurnBased() && !world->IsRealTime() && !actor->HasCommand(),"undock fixture has no idle affordable native turn-based planning state");
+    CObj<NAI::IAILogic> logic=NAI::CreateAIAttackLogic(gunner);logic->StopThinking();const bool needBefore=logic->IsNeedToThink();
+    Require(!needBefore,"native combat logic did not snapshot unchanged server AP before undock planning");
+    CObj<NAI::CAILog> log=NAI::CreateAILog();CObj<NAI::CAIUndockFromHGAction> action=new NAI::CAIUndockFromHGAction(gunner);
+    CObj<NWorld::CUnitServer> tombstone;
+    struct Restore{NAI::IAIUnit* unit;NWorld::CUnitServer* actor;~Restore(){SetToHitProbeServer(unit,actor);}}restore{gunner,actor};
+    if(mode==2)gunner->SetCannon(nullptr);
+    if(mode==3)SetToHitProbeServer(gunner,nullptr);
+    if(mode==4){tombstone=new NWorld::CUnitServer;SetToHitProbeServer(gunner,tombstone);tombstone->Invalidate();}
+    GlobalGameRandom().SeedForHarness(0x98ca);auto random=GlobalGameRandom();
+    action->Do(mode==1?nullptr:log.GetPtr());const int after=actor->GetAP();const bool empty=log->IsEmpty();
+    list<CPtr<NWorld::CCommand>> commands;log->GetWorldCommands(&commands);
+    SetToHitProbeServer(gunner,actor);const bool needAfter=logic->IsNeedToThink();
+    Require(actor->GetState()==NWorld::CUnit::ST_MACHINE_GUN && cannon->GetCurrentUnit()==actor && actor->animator.GetCannon()==cannon
+        && actor->animator.GetTimeEnd()==animationEnd && actor->GetPosition()==position && actor->GetUnitRPG()->GetTotalVP()==vp
+        && cannon->GetItem()->GetAmmoQuantity()==ammo && gunner->GetAP()==shadowAP && random.Get()==GlobalGameRandom().Get(),
+        "planning cannon exit changed physical mount, animation, location, health, ammunition, cached AP or RNG");
+    NWorld::EUnitCommandResult result=NWorld::UCR_OK;CObj<NWorld::CCommandExecute> leave;
+    if(mode==0) {
+        auto* order=commands.size()==1?dynamic_cast<NWorld::CCmdSetCommand*>(commands.front().GetPtr()):nullptr;
+        auto* exit=order?dynamic_cast<NWorld::CCmdExitCannon*>(order->GetCmd()):nullptr;
+        Require(exit && order->pUnit==actor && exit->pCannon.GetPtr()==static_cast<NWorld::IObject*>(cannon),
+            "undock planning lost the exact actor/cannon in its actual exit-log command");
+        leave=NWorld::CreateExecutor(actor,exit,&result);Require(leave && result==NWorld::UCR_OK,"native mounted executor rejected the planned exit command");
+    }else leave=new NWorld::CExecCannon(actor,cannon,false);
+    leave->Run();world->GetTime()->Set(actor->animator.GetTimeEnd());leave->AnimationFinished();leave=nullptr;
+    Require(!world->IsAction() && !cannon->IsOccupied() && !actor->GetUnitRPG()->GetCannonItem() && actor->GetState()!=NWorld::CUnit::ST_MACHINE_GUN
+        && actor->GetAP()==after && actor->GetUnitRPG()->GetTotalVP()==vp && actor->GetPosition()==position,
+        "normal native cannon exit added another AP cost or lost actual detachment/animation cleanup");
+    const int expected=ap-(mode==0?1:0);
+    std::printf("native cannon undock planning: mode=%d AP=%d after=%d expected=%d shadowAP=%d needBefore=%d needAfter=%d commands=%zu empty=%d exitAP=%d\n",
+        mode,ap,after,expected,shadowAP,int(needBefore),int(needAfter),commands.size(),int(empty),actor->GetAP());std::fflush(stdout);
+    Require(after==expected && needAfter==(mode==0),"native cannon undock planning omitted original live mission AP spend and failed to re-arm the next combat decision");
+    Require(commands.size()==size_t(mode==0) && empty==(mode!=0),"cannon undock planning queued an exit for a missing or ref-invalid owner server");
+}
+
 static vector<NAnimation::CAnimation*> NativeCannonAnimationClips(NAnimation::CSkeletonAnimator* animator)
 {
     vector<NAnimation::CAnimation*> result;vector<CObjectBase*> pending{animator},visited;
@@ -24355,6 +24405,11 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "cannon-entry-legacy-write") && argc==5) { WriteLegacyCannonEntryFixture(argv[2],argv[3],argv[4]); return true; }
     if (!std::strcmp(mode, "cannon-entry-legacy") && argc==5) { LegacyCannonEntryCompletion(argv[2],argv[3],argv[4]); return true; }
     if (!std::strcmp(mode, "cannon-entry-completion")) { Require(argc==4, "cannon completion requires db and res"); CannonEntryCompletion(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "ai-cannon-undock-plan-live") && argc == 4) { AICannonUndockPlan(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ai-cannon-undock-plan-null-log") && argc == 4) { AICannonUndockPlan(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ai-cannon-undock-plan-no-cannon") && argc == 4) { AICannonUndockPlan(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ai-cannon-undock-plan-null-server") && argc == 4) { AICannonUndockPlan(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "ai-cannon-undock-plan-invalid-server") && argc == 4) { AICannonUndockPlan(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "cannon-entry-animation")) { Require(argc == 4, "cannon animation requires db and res"); CannonEntryAnimation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mounted-reload-weapon")) { Require(argc == 4, "mounted reload requires db and res"); MountedReloadWeapon(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "holstered-reload-preparation")) { Require(argc == 4, "reload preparation requires db and res"); HolsteredReloadPreparation(argv[2], argv[3]); return true; }
