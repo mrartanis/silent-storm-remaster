@@ -9842,3 +9842,57 @@ all five final raw logs contain exact57/109/107/4/290 pass counts with no
 Failed/NotRun/NUL records. Five AP/group diagnostic records (repeat runs twice)
 match across platforms exactly. Both shared HD build caches remain OFF; owned
 tests exited. Counts remain138imported/19partial/81pending (100unfinished).
+
+## 2eee1b62, pass-control memo stage - clear only for a valid owning player
+
+Source: [2eee1b6280f55129eb2cca681fbbbeb1c27f1e18](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2eee1b6280f55129eb2cca681fbbbeb1c27f1e18).
+The preceding independent snapshot fix is d4f55835. In this stage move
+`eotLogics.clear()` inside the existing IsValid(pPlayer) branch, immediately
+before OnStartTurn. A commander without an assigned player can receive a null
+current-player handoff (including construction/restoration). Pointer equality
+then selects its own-pass path, but the original valid-player guard preserves
+its saved end-of-turn memo. Keep group synchronization before this guard,
+command-queue clearing and the fork's existing bAITurn behavior.
+
+Four native cases use a deployed AI commander for valid own/foreign handoffs,
+a real default CAICommander for the unbound state, and the native
+CAICommander(world,null) constructor for a world-connected unbound commander.
+Restore two genuine native wait-route keys and values1/23 through existing
+memo save tag10, and a real queued CCmdSetCommand through tracker tag9.
+Own valid handoff must clear the complete memo; foreign or absent owner must
+retain exact keys/values. Every case must clear queued commands while retaining
+the given-command latch/non-freeze counter19. The world-connected null-owner
+case starts with a stale marker group and still refreshes it before the owner
+guard; moving the guard around the whole branch would fail this control.
+The actual Lua hook runs once only for the valid own player, none for the other
+three. Native roster, turn state, live AP/HP/position, no issued command and
+exact RNG are preserved.
+
+Compiled runtime RED2/4 in4.54s, actual exit8: both unbound/restoring cases lose
+all memo entries (0 instead of2); valid-own clear and foreign preservation
+already pass. No fixture failures in this stage. Apply the minimal brace/clear
+move only. GREEN8/8 in9.04s includes all four previous snapshot handoff cases,
+with actual runner exit0. Original identity/call proof is reused from the
+preceding stage's independently mapped complete175-byte native method.
+Steam43598d..435998 checks the owning player for null/ref-invalid before
+43599d->6d0a90 clears the map and4359cb invokes the Lua hook. Gold434d4d calls
+436260/93, independently named in PDB as
+hashtable<pair<CPtr<NAI::IAILogic> const,int>,CPtr<NAI::IAILogic>,SPtrHash>::clear.
+Its original native body clears buckets/count. Named helper symbols and both
+helper disassemblies are retained with the `ai-pass-control-*` oracle; stage
+RED/GREEN and final builds/tests are `ai-pass-memo-*`. The oracle generator now
+also reproduces its bounded call list/helper metadata.
+
+No AP formula, balance data, public/save/network API, human commander schema,
+font, facial engine or frozen HD change. Source2eee remains partial for live
+world-roster/neutral/alarm query consumers and final mixed-hunk accounting;
+OnPassControl's two corrections are now independently imported.
+
+Final fresh Windows ALL_BUILD: focused61/61 70.06s, related113/113 119.91s;
+Linux Game/helpers111/111 115.17s and additional context4/4 1.13s. Local
+asset-free CI290/290 24.86s. Actual Windows/Linux/context runners exited0;
+five final raw logs contain exactly61/113/111/4/290 passing records, no
+Failed/NotRun/NUL. Four native memo diagnostic records exactly match Windows
+and Linux. Both shared HD build caches remain OFF and owned tests exited.
+Counts remain138imported/19partial/81pending (100unfinished). Final actual-HEAD
+hosted Actions verification/repair remains required after all useful imports.

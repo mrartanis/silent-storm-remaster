@@ -696,11 +696,13 @@ void CAICommander::OnPassControl( NWorld::CPlayer *_pPlayer )
 	{
 		// Control transfer refreshes groups; each combat logic owns its snapshot refresh.
 		SyncAIState();
-		eotLogics.clear();
 		// retail CAICommander::OnPassControl (aiCommander.c:1612): fire the per-turn lua hook OnStartTurn(
 		// scenarioPlayerID ) for the player now taking the turn.
 		if ( IsValid( pPlayer ) )
+		{
+			eotLogics.clear();
 			NScript::luaCallFunction( "OnStartTurn", "i", pPlayer->GetScenarioPlayerID() );
+		}
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

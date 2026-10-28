@@ -8724,6 +8724,87 @@ static void AIPassControlSnapshots(const char* databasePath, const char* resourc
         "pass-control changed live AP/HP, position, inventory, commands or the native random sequence");
 }
 
+static void AIPassControlEndMemo(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer *actor = nullptr, *enemy = nullptr;
+    for (const auto& unit: units)
+        if (IsValid(unit) && unit->CanFight() && unit->IsAIUnit() && !unit->HasCommand()
+                && IsValid(NAI::GetAIUnit(unit))) { actor = unit.GetPtr(); break; }
+    Require(actor != nullptr, "pass-control memo fixture has no native idle AI actor");
+    for (const auto& unit: units)
+        if (IsValid(unit) && unit->CanFight() && actor->GetDiplomacyState(unit) == NDb::DS_ENEMY) { enemy = unit.GetPtr(); break; }
+    auto* player = dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer());
+    auto* foreign = enemy ? dynamic_cast<NWorld::CPlayer*>(enemy->GetPlayer()) : nullptr;
+    auto* owner = NAI::GetAIUnit(actor);
+    CObj<NAI::CAICommander> restoring;
+    if (mode == 2) restoring = new NAI::CAICommander;
+    if (mode == 3) restoring = new NAI::CAICommander(world, nullptr);
+    auto* commander = mode >= 2 ? restoring.GetPtr() : dynamic_cast<NAI::CAICommander*>(player->GetCommander());
+    Require(commander && owner && foreign, "pass-control memo fixture lacks real commanders/opposing player");
+    Require((mode >= 2) == !IsValid(commander->GetPlayer()), "pass-control memo fixture has the wrong owner binding");
+    CObj<NAI::CAIRouteLogic> first = new NAI::CAIRouteLogic(owner), second = new NAI::CAIRouteLogic(owner);
+    first->AddCommand(new NAI::CTaskCommandWait(3)); second->AddCommand(new NAI::CTaskCommandWait(7));
+    using Memo = unordered_map<CPtr<NAI::IAILogic>, int, SPtrHash>;
+    Memo expected; expected[first.GetPtr()] = 1; expected[second.GetPtr()] = 23;
+    CObj<NWorld::CCommand> pending = new NWorld::CCmdSetCommand(actor, new NWorld::CCmdContinue);
+    auto fields = [&](CStructureNetworkContext* refs) {
+        auto traversal = BorrowedObjectFields(commander, refs);
+        CMemoryStream saved;
+        { CStructureSaver writer(saved, CStructureSaver::WRITE, refs); commander->NAI::CAICommander::operator&(writer); }
+        saved.Seek(0); return saved;
+    };
+    {
+        CStructureNetworkContext refs; auto original = fields(&refs);
+        for (CObjectBase* object: {static_cast<CObjectBase*>(first.GetPtr()), static_cast<CObjectBase*>(second.GetPtr()),
+                                  static_cast<CObjectBase*>(pending.GetPtr())}) {
+            const auto id = refs.nextID++; refs.ids[object] = id; refs.refs[id] = object;
+        }
+        NAI::SAICommandTracker tracker; tracker.commands.push_back(pending); tracker.bCommandGiven = true; tracker.nNonFreezeCounter = 19;
+        CMemoryStream saved;
+        { CStructureSaver writer(saved, CStructureSaver::WRITE, &refs); writer.Add(9, &tracker); writer.Add(10, &expected); }
+        saved.Seek(0);
+        { CStructureSaver reader(saved, CStructureSaver::READ, &refs); commander->NAI::CAICommander::operator&(reader); }
+    }
+    auto read = [&](Memo* memo, NAI::SAICommandTracker* tracker) {
+        CStructureNetworkContext refs; auto saved = fields(&refs);
+        CStructureSaver reader(saved, CStructureSaver::READ, &refs); reader.Add(9, tracker); reader.Add(10, memo);
+    };
+    Memo before; NAI::SAICommandTracker beforeTracker; read(&before, &beforeTracker);
+    Require(before == expected && beforeTracker.commands.size() == 1, "pass-control memo fixture failed to restore its genuine native logic memo/command queue");
+    auto* shared = commander->GetAIState(); shared->enemyGroups.clear();
+    NAI::SAIUnitGroup marker; marker.ptCenter = CVec3(1234,5678,9012); marker.enemies.push_back(owner);
+    shared->enemyGroups.push_back(marker);
+    auto* script = world->GetOwnScript();
+    Require(IsValid(script) && script->DoString("UpstreamMemoCalls=0; function OnStartTurn(player) UpstreamMemoCalls=UpstreamMemoCalls+1 end") == 0,
+        "pass-control memo fixture failed to define the real Lua hook");
+    world->ExecuteOwnScript();
+    struct ScriptContext { ~ScriptContext() { pScript = nullptr; } } scriptContext;
+    const auto position = actor->GetPosition(); const int ap = actor->GetAP(), hp = actor->GetUnitRPG()->GetTotalVP();
+    const auto roster = commander->GetUnitsList();
+    GlobalGameRandom().SeedForHarness(41); auto reference = GlobalGameRandom(); const unsigned next = reference.Get();
+    commander->OnPassControl(mode >= 2 ? nullptr : mode == 1 ? foreign : player);
+    Memo after; NAI::SAICommandTracker tracker; read(&after, &tracker);
+    const bool ownPlayer = mode == 0;
+    std::printf("pass-control memo mode=%d validOwner=%d turn=%d entries=%zu expected=%zu\n", mode,
+        int(IsValid(commander->GetPlayer())), int(commander->IsAITurn()), after.size(), ownPlayer ? size_t(0) : expected.size());
+    Require(ownPlayer ? after.empty() : after == expected,
+        "a pass without a valid owning player erased the saved end-of-turn logic memo");
+    Require(tracker.commands.empty() && tracker.bCommandGiven && tracker.nNonFreezeCounter == 19
+            && commander->IsAITurn() == (mode != 1), "memo guard skipped native queue clearing or changed the existing turn/tracker state");
+    if (mode == 3) Require(shared->enemyGroups.empty(), "unbound world-connected commander skipped the group refresh before its owner guard");
+    if (mode == 1) Require(shared->enemyGroups.size() == 1 && fabs2(shared->enemyGroups[0].ptCenter-marker.ptCenter) == 0,
+        "foreign pass changed the memo owner's tactical groups");
+    world->ExecuteOwnScript();
+    Require(script->GetGlobal("UpstreamMemoCalls").GetNumber() == (ownPlayer ? 1 : 0),
+        "memo guard suppressed the owning Lua hook or invoked it without a valid owner");
+    Require(commander->GetUnitsList() == roster && actor->GetPosition() == position && actor->GetAP() == ap
+            && actor->GetUnitRPG()->GetTotalVP() == hp && !actor->HasCommand() && GlobalGameRandom().Get() == next,
+        "memo guard changed native roster, world AP/HP, position, commands or RNG");
+}
+
 static void CombatChooserContext(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -21994,6 +22075,10 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-fear-route-suspect") && argc == 4) { AIFearRouteRetention(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "ai-fear-route-enemy") && argc == 4) { AIFearRouteRetention(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "ai-fear-route-empty") && argc == 4) { AIFearRouteRetention(argv[2], argv[3], 3); return true; }
+    if (!std::strcmp(mode, "ai-pass-control-memo-own") && argc == 4) { AIPassControlEndMemo(argv[2], argv[3], 0); return true; }
+    if (!std::strcmp(mode, "ai-pass-control-memo-foreign") && argc == 4) { AIPassControlEndMemo(argv[2], argv[3], 1); return true; }
+    if (!std::strcmp(mode, "ai-pass-control-memo-unbound") && argc == 4) { AIPassControlEndMemo(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "ai-pass-control-memo-restoring") && argc == 4) { AIPassControlEndMemo(argv[2], argv[3], 3); return true; }
     if (!std::strcmp(mode, "ai-pass-control-ai") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 0); return true; }
     if (!std::strcmp(mode, "ai-pass-control-human") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "ai-pass-control-foreign") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 2); return true; }
