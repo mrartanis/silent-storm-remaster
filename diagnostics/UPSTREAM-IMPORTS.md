@@ -9224,3 +9224,103 @@ user-level requirement. Any intentional restoration of effect conditions needs
 its own native RED and appropriate positive decal/geometry controls. No font,
 facial engine or HD changes. Counts133imported/21partial/84pending (105unfinished),
 source2de remains partial. ALL281 and final actual-HEAD hosted Actions remain open.
+
+
+## 2de89e04, final part - resolve damage before impact effects and bind surface decals
+
+Source: 2de89e04ae2713bd7fbd267b5b3a96b60feb810d
+https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2de89e04ae2713bd7fbd267b5b3a96b60feb810d
+
+The remaining Segment block spawned particles/sound before ProcessAttack,
+including stopped/rejected unit hits, visual-only unit exits, mismatched unit
+surfaces and blood-disabled flesh. It omitted non-unit exit decals, left a decal
+on the floor100 terminal sentinel, and played a sound for a disabled non-unit
+effect type. Resolve the real attack first, then determine impact presentation
+from its amount and actual surface. Keep existing nearest-receiver/BulletHit/
+acknowledgment logic, explosive bullet scheduling/retirement and our int world
+attack API.
+
+Restore the original predicates: initial effectType>=0; a valid unit receiver
+replaces that flag with damage>0; a unit surface must equal the attack receiver;
+false flag/null armor/floor>=100 skips the impact. Human-body material plus blood
+OFF suppresses particles/sound. Decals use the actual surface rather than the
+receiver, with building scene handles and null-surface terrain retained. Preserve
+our pObjectUnit->GetDecalsRef mapping so worn PK decals target the actual suit.
+Keep the original edge where a positive unit hit with effectType=-1 still plays
+its allowed sound/decal but has no unsupported particle effect. No blanket early
+return before damage or acknowledgment, and no new weapon/HP/AP formulas.
+
+Native TDD observes actual constructed world objects: registered CDParticles
+01512120 with real CDBPtr effect/tag2, C3DSound01512121 with sound/tag3, and real
+CDecal bindings through the native visitor. Runtime one-variant templates select
+existing authored records without editing the DB; materials have real record IDs.
+Cover positive/stopped/GodMode-rejected hits, unit visual exit, different receiver
+and surface, blood OFF/body and non-body, non-unit exit, floor100, negative effect
+for non-unit and positive unit, and null armor. Keep actual damage/VP, one hit,
+other unit HP, actor AP/position and action-release controls. RED9/12 13.49s:
+phantom1particle/1sound on zero/rejected/exit/mismatch, body ignores blood OFF,
+non-unit exits lack decals, floor100 gets1decal, negative non-unit type plays
+1sound. Positive, positive-unit negative-type and null-armor controls already pass.
+The initial test compilation put CSound into CTSound's CSoundVariant vector;
+correct that fixture type before runtime RED (compile failure is not counted).
+
+Add an independent real dodge-order case BEFORE production: seed55 selects a
+first roll0 and next roll>=90, with native IC between0 and90. Old particle
+orientation consumes the first ISAAC word, so CheckIC sees the second and the
+unit loses3HP (VP137->134) despite the original dodge control. Strengthened
+RED10/13: this case reports actual3/expected-1, alongside the earlier9. Moving
+particle RNG after damage yields native rejected hit-1, unchanged VP137, and no
+particles/sound/decal. This restoration affects combat RNG ordering; it is not
+claimed to be a cosmetic-only change. Original attack/orientation order below
+independently verifies it. No coefficient or RNG algorithm is changed.
+
+The existing human/PK/real-scene decal fixtures had a synthetic stopped0HP input
+to isolate ownership. That input intentionally no longer creates an impact.
+Upgrade these positive ownership controls to a small native positive attack,
+using an authored non-ricochet damage type and the actual armor/damage provider.
+Assert exact pilot and suit HP deltas, survival, AP/position/equipment/action,
+then keep all rendered mesh/actual decal geometry, detach-to-suit lifecycle,
+selectable-owner, old scene/group/room field and persistent alias checks.
+Before production, the upgraded3 ownership cases already pass4.64s against the
+old provider. After production, all16 focused cases pass19.14s, including the
+actual rendered PK scene. This preserves the fork's feature without freezing
+an obsolete zero-damage fixture assumption. New effect tests prove constructed
+objects/bindings, not pixel-perfect particle artwork.
+
+Original proof reuses named CBulletServer RTTI: Gold Segment73beb0 at unique
+vtable8bb6ec slot0/COL8e7448 offset0 ->Steam COL8f6bcc/vtable8caba4 slot0 Segment
+746ba0. effectType>=0 comparison746d60/setge746d9f; ProcessAttack746df0 and result
+746df6; damage>0 setg746e42; unit-surface/receiver compare746ef8 and flag clear
+746f03. Human material id1 at746f19 and blood byte983cd8 at746f1f gate effects;
+the same byte is read by the independently identified world damage method751641/
+751974, with Gold PDB NWorld::bShowBlood972a68. Shared impact/floor gates746f25..
+746f3d precede orientation ISAAC call746f8f; blood OFF jumps to decal handling
+747113. Decal surface74711e..74712c, building conversion747145, material747174
+and terrain path747276..7472a9 corroborate placement. No arbitrary masks or ABI
+transplants. Keep our world API, RNG adapter and PK equipment surface alias.
+Evidence bullet-impact-effects-retail-oracle.json and original full disassembly.
+
+Final fresh Windows ALL_BUILD and Linux Game/helpers: focused16/16 19.14s;
+related132/132 Windows122.66s/Linux123.40s; network serializer/stop-resume2/2 4.02s;
+display57/57 Windows81.78s/Linux67.97s; local asset-free CI290/29024.88s. All7
+raw logs have exact16/132/2/57/132/57/290 passed records, no NUL/Failed/NotRun/
+missing executable, and actual runners exit0. All13 native particle/sound/decal
+predicate cases match expected object counts on both platforms; seed55 rejects
+with unchanged VP137; positive worn PK targets shell and retains real rendered
+geometry/lifecycle controls. Asset-dependent cases are explicitly covered by132,
+not claimed part of290. Evidence bullet-impact-effects-{red,order-red,
+positive-fixture,green,final-focused,final-related,final-network,final-display,
+final-linux,linux-display,final-ci} and original oracle/disassembly. Owned tests
+exited; shared builds reused, both HD caches OFF. No hosted Actions success or
+full map/particle screenshot equivalence claimed.
+
+All13 source files are now accounted across independent stages: shooter first
+turn; per-leg incidental roll/night/to-hit inputs; periodic clocks/lifetimes/
+integer bleeding and duplicate critical removal; real bleeding readout; first
+impacted receiver; and this final impact/effect/surface flow. Base GetBleeding0
+fallback for other fork unit implementations, replica guard and existing fields
+are deliberately retained. Source2de can be marked imported; counts134imported/
+20partial/84pending (104unfinished). Original boost expiry/CheckOverdose and other
+legacy to-hit environment entry points are outside this source's new claims.
+ALL281 and final actual-HEAD hosted GitHub Actions remain open; owned test processes
+must exit, shared builds reused with HD generation OFF, no old per-bug copies.

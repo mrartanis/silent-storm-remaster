@@ -8332,6 +8332,96 @@ public:
     void AddDecal(NGScene::CDecalTarget* target,NDb::CMaterial* material) override {Require(target && material,"native bullet decal lost its target or authored material");++submitted;}
 };
 
+class BulletImpactSurface: public CObjectBase
+{
+    OBJECT_NOCOPY_METHODS(BulletImpactSurface);
+};
+
+static void BulletImpactEffects(const char* databasePath,const char* resourcePath,int kind)
+{
+    struct BloodRestore {NGlobal::CValue saved;~BloodRestore(){NGlobal::SetVar("cheat_blood",saved);}} blood{NGlobal::GetVar("cheat_blood",1)};
+    NGlobal::SetVar("cheat_blood",kind==5 || kind==6?0:1);
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;NWorld::CUnitServer* other=nullptr;
+    for(const auto& unit:units)if(IsValid(unit) && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK()) {
+        if(!actor && !unit->IsAIUnit())actor=unit.GetPtr();else if(!other)other=unit.GetPtr();
+    }
+    Require(actor && other && actor!=other,"impact fixture lacks two real native human objects");
+    NDb::CEffect* effect=nullptr;CDBIterator<NDb::CEffect> effects(*NDatabase::GetTable<NDb::CEffect>());if(effects.MoveNext())effect=effects.Get();
+    NDb::CSound* sound=nullptr;CDBIterator<NDb::CSound> sounds(*NDatabase::GetTable<NDb::CSound>());if(sounds.MoveNext())sound=sounds.Get();
+    NDb::CMaterial* decalMaterial=nullptr;CDBIterator<NDb::CMaterial> materials(*NDatabase::GetTable<NDb::CMaterial>());
+    while(materials.MoveNext())if(materials.Get()->GetRecordID()!=3411){decalMaterial=materials.Get();break;}
+    NDb::CRPGMaterial* stone=nullptr;CDBIterator<NDb::CRPGMaterial> surfaces(*NDatabase::GetTable<NDb::CRPGMaterial>());
+    while(surfaces.MoveNext())if(surfaces.Get()->GetRecordID()!=NDb::CRPGMaterial::HUMAN_BODY){stone=surfaces.Get();break;}
+    auto* flesh=NDb::GetArmor(NDb::N_HUMAN_BODY_ARMOR);
+    Require(effect && sound && decalMaterial && stone && flesh && flesh->pMaterial,"impact fixture lacks its authored effect/sound/material records");
+    CObj<NDb::CTEffect> effectTemplate=new NDb::CTEffect;effectTemplate->variants.push_back(effect);effectTemplate->roulette.AddSector(1.f);
+    CObj<NDb::CSoundVariant> soundVariant=new NDb::CSoundVariant;soundVariant->pSound=sound;
+    CObj<NDb::CTSound> soundTemplate=new NDb::CTSound;soundTemplate->variants.push_back(soundVariant.GetPtr());soundTemplate->roulette.AddSector(1.f);
+    CObj<NDb::CTMaterial> materialTemplate=new NDb::CTMaterial;materialTemplate->variants.push_back(decalMaterial);materialTemplate->roulette.AddSector(1.f);
+    CObj<NDb::CRPGArmor> armor=new NDb::CRPGArmor;armor->pMaterial=kind==6 || kind==7 || kind==9 || kind==11?stone:flesh->pMaterial.GetPtr();
+    armor->pShotEffect=effectTemplate;armor->pSoundShot=soundTemplate;armor->pShotMaterial=materialTemplate;armor->fShotRadius=.2f;
+    CObj<BulletImpactSurface> surfaceToken=new BulletImpactSurface;
+    auto counts=[&] {
+        std::pair<int,int> result{};
+        for(const auto& object:*world->GetMiscObjects())if(IsValid(object)) {
+            const int id=pSSClasses->GetObjectTypeID(object);
+            if(id!=int(0x01512120) && id!=int(0x01512121))continue;
+            CStructureNetworkContext refs;auto fields=BorrowedObjectFields(object,&refs);
+            if(id==int(0x01512120)) {CDBPtr<NDb::CEffect> record;{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&record);}if(record.GetPtr()==effect)++result.first;}
+            else {CDBPtr<NDb::CSound> record;{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(3,&record);}if(record.GetPtr()==sound)++result.second;}
+        }
+        return result;
+    };
+    auto decals=[&] {
+        vector<CObj<NWorld::CDecal>> result;CStructureNetworkContext refs;auto fields=BorrowedObjectFields(world->GetActive(),&refs);
+        for(auto& ref:refs.refs)if(auto* decal=dynamic_cast<NWorld::CDecal*>(ref.second.GetPtr()))result.push_back(decal);
+        return result;
+    };
+    const auto beforeEffects=counts();const auto beforeDecals=decals();
+    const int beforeVP=actor->GetUnitRPG()->GetTotalVP(),beforeOtherVP=other->GetUnitRPG()->GetTotalVP(),ap=actor->GetAP();
+    const auto position=actor->GetPosition();const bool action=world->IsAction();
+    const bool nonunit=kind==6 || kind==7 || kind==9 || kind==11;
+    CObjectBase* object=nonunit?static_cast<CObjectBase*>(surfaceToken.GetPtr()):kind==4?static_cast<CObjectBase*>(other):static_cast<CObjectBase*>(actor);
+    CObjectBase* receiver=nonunit || kind==3?nullptr:static_cast<CObjectBase*>(actor);
+    NRPG::CAttackPortion attack(kind==1?0:100000,2,0.f,3,3,0,0,nullptr,kind==2 || kind==12?nullptr:actor->GetUnitRPG(),1.f,-1,false);
+    const int damage=!receiver || kind==1?0:kind==2 || kind==12?-1:attack.CalcStructDmg(world,flesh,0);
+    const CVec3 point=position.GetCP()+CVec3(0,0,1),direction(1,0,0),normal(-1,0,0);
+    attack.rTtrajectory.ptOrigin=point-direction;attack.rTtrajectory.ptDir=direction;
+    vector<NRPG::STrailPoint> trail;trail.emplace_back(-1,direction,point-direction,attack,nullptr,nullptr,nullptr,normal,100);
+    trail.emplace_back(NAI::HL_BODY,direction,point,attack,receiver,object,kind==11?nullptr:armor.GetPtr(),normal,kind==8?100:0);
+    for(;;){CObj<NWorld::CHitLocator> event=world->GetHitEvent();if(!event)break;}
+    unsigned seed=2;
+    if(kind==12) {
+        const int ic=actor->GetUnitRPG()->GetIC();Require(ic>0 && ic<90,"impact order fixture has no bounded native dodge chance");
+        CRandomGenerator reference;
+        for(seed=1;seed<200000;++seed){reference.SeedForHarness(seed);if(reference.Get(100)==0 && int(reference.Get(100))>=90)break;}
+        Require(seed<200000,"impact order fixture could not select distinct original dodge/visual rolls");
+    }
+    if(kind==2)actor->GetUnitRPG()->GetRPGUnit()->SetCheat(NRPG::CHEAT_GODMODE,true);
+    GlobalGameRandom().SeedForHarness(seed);
+    CObj<NWorld::IDynamicObject> bullet=NWorld::CreateBulletServer(world,trail,world->GetTime()->GetValue(),nullptr,100.f,nullptr,kind==9 || kind==10?-1:0);
+    Require(bullet && bullet->Segment(),"impact effects fixture did not process and retire its actual native bullet");bullet=nullptr;
+    CObj<NWorld::CHitLocator> event=world->GetHitEvent();
+    std::printf("native impact damage control: kind=%d actual=%d expected=%d VP=%d->%d seed=%u\n",kind,event?event->nHitValue:-999,damage,beforeVP,actor->GetUnitRPG()->GetTotalVP(),seed);std::fflush(stdout);
+    Require((receiver?event && event->pUnit.GetPtr()==actor && event->nHitValue==damage:!event) && !world->GetHitEvent() &&
+        actor->GetUnitRPG()->GetTotalVP()==beforeVP-Max(0,damage) && other->GetUnitRPG()->GetTotalVP()==beforeOtherVP &&
+        actor->GetAP()==ap && actor->GetPosition()==position && world->IsAction()==action,"impact effects fixture changed its native damage/HP/AP/action control");
+    const auto afterEffects=counts();const auto afterDecals=decals();vector<CObj<NWorld::CDecal>> added;
+    for(const auto& decal:afterDecals)if(std::none_of(beforeDecals.begin(),beforeDecals.end(),[&](const CObj<NWorld::CDecal>& old){return old.GetPtr()==decal.GetPtr();}))added.push_back(decal);
+    const bool show=kind!=1 && kind!=2 && kind!=3 && kind!=4 && kind!=8 && kind!=9 && kind!=11 && kind!=12;
+    const int expectedParticles=show && kind!=5 && kind!=10?1:0,expectedSounds=show && kind!=5?1:0,expectedDecals=show?1:0;
+    std::printf("native impact effects: kind=%d damage=%d particles=%d/%d sounds=%d/%d decals=%zu/%d blood=%g\n",kind,damage,
+        afterEffects.first-beforeEffects.first,expectedParticles,afterEffects.second-beforeEffects.second,expectedSounds,added.size(),expectedDecals,NGlobal::GetVar("cheat_blood",1).GetFloat());std::fflush(stdout);
+    Require(afterEffects.first-beforeEffects.first==expectedParticles && afterEffects.second-beforeEffects.second==expectedSounds && int(added.size())==expectedDecals,
+        "native bullet emitted phantom/disabled flesh effects or lost its actual surface decal");
+    for(const auto& decal:added) {
+        BulletDecalPresentation presentation;decal->Visit(&presentation);
+        Require(presentation.created==1 && presentation.submitted==1 && presentation.targets.size()==1 && presentation.targets.front()==object,
+            "native impact decal follows the damage receiver instead of the actual surface");
+    }
+}
+
 static void BulletDecalEquipmentTarget(const char* databasePath,const char* resourcePath,bool equipped,bool sceneMode = false)
 {
     NativeDisplayContext display;
@@ -8378,7 +8468,17 @@ static void BulletDecalEquipmentTarget(const char* databasePath,const char* reso
         return result;
     };
     const auto before=decals();const int ap=actor->GetAP(),vp=actor->GetUnitRPG()->GetTotalVP();const auto position=actor->GetPosition();const bool action=world->IsAction();
-    NRPG::CAttackPortion attack(0,2,0.f,0,0,0,0,nullptr,actor->GetUnitRPG(),1.f,-1,false);
+    NRPG::CAttackPortion attack(100000,0,0.f,3,3,0,0,nullptr,actor->GetUnitRPG(),1.f,-1,false);
+    auto* humanArmor=NDb::GetArmor(NDb::N_HUMAN_BODY_ARMOR);int damageType=-1;
+    CDBIterator<NDb::CRPGDmgToArmor> damageTypes(*NDatabase::GetTable<NDb::CRPGDmgToArmor>());
+    while(damageTypes.MoveNext()) {
+        attack.nDmgType=damageTypes.Get()->GetRecordID();
+        if(!attack.CanRicochet() && attack.CanDealDmg(armor) && attack.CanDealDmg(humanArmor) && attack.CalcStructDmg(world,armor,0)>0){damageType=attack.nDmgType;break;}
+    }
+    Require(damageType>=0,"bullet decal fixture lacks a native non-ricochet positive impact control");
+    const int expectedDamage=attack.CalcStructDmg(world,humanArmor,0),suitBefore=equipped?shell->GetUnitRPG()->GetTotalVP():0;
+    const int suitDamage=equipped?attack.CalcStructDmg(world,armor,0):0;
+    Require(expectedDamage>0 && expectedDamage<=5 && (!equipped || suitBefore>suitDamage),"positive decal fixture would destroy its controlled body surface");
     CVec3 direction(1,0,0),normal(-1,0,0),impact=position.GetCP()+CVec3(0,0,1.f);
     if(sceneMode) {
         CObj<NGScene::CDecalTarget> surface=view->CreateDecalTarget(vector<CObjectBase*>{actor,shell.GetPtr()},sceneProbe);bool found=false;
@@ -8398,7 +8498,9 @@ static void BulletDecalEquipmentTarget(const char* databasePath,const char* reso
     trail.emplace_back(-1,direction,impact-direction,attack,nullptr,nullptr,nullptr,normal,0);
     trail.emplace_back(NAI::HL_BODY,direction,impact,attack,actor,actor,armor,normal,0);
     CObj<NWorld::IDynamicObject> bullet=NWorld::CreateBulletServer(world,trail,world->GetTime()->GetValue(),nullptr,100.f);
-    Require(bullet && bullet->Segment(),"native cached armor-stopped impact did not process and retire its bullet");bullet=nullptr;
+    GlobalGameRandom().SeedForHarness(2);
+    Require(bullet && bullet->Segment(),"native cached positive impact did not process and retire its bullet");bullet=nullptr;
+    Require(!equipped || shell->GetUnitRPG()->GetTotalVP()==suitBefore-suitDamage,"positive decal fixture lost its native suit damage control");
     const auto after=decals();CObj<NWorld::CDecal> added;unsigned count=0;
     for(const auto& decal:after)if(std::none_of(before.begin(),before.end(),[&](const CObj<NWorld::CDecal>& old){return old.GetPtr()==decal.GetPtr();})) {added=decal;++count;}
     Require(count==1 && added,"native bullet impact did not create exactly one new world decal");
@@ -8433,8 +8535,8 @@ static void BulletDecalEquipmentTarget(const char* databasePath,const char* reso
         auto worn=query(shell.GetPtr());const auto wornBindings=bindings(worn,actor);
         std::printf("native worn decal geometry: nodes=%u triangles=%u\n",wornBindings.first,wornBindings.second);std::fflush(stdout);
         Require(wornBindings.first>0 && wornBindings.second>0,"native worn PK surface has no actual attached decal geometry node");
-        Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==vp && actor->GetPosition()==position && actor->IsWearingPK() && world->IsAction()==action,
-            "native rendered armor-stopped impact changed gameplay state or retained its bullet action");
+        Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==vp-expectedDamage && actor->GetPosition()==position && actor->IsWearingPK() && world->IsAction()==action,
+            "native rendered positive impact changed AP/position/equipment or lost its exact damage/action control");
         // Actual pre-extension scene fields have no optional tag 5. Loading
         // them must fall back to their original selectable owner, even if a
         // reused destination still held an equipment alias before READ.
@@ -8461,8 +8563,8 @@ static void BulletDecalEquipmentTarget(const char* databasePath,const char* reso
         int(presentation.targets.size()==1 && presentation.targets[0]==actor),int(presentation.targets.size()==1 && presentation.targets[0]==shell.GetPtr()),ap,actor->GetAP(),vp,actor->GetUnitRPG()->GetTotalVP());std::fflush(stdout);
     Require(presentation.created==1 && presentation.submitted==1 && presentation.targets.size()==1 && presentation.targets[0]==expected,
         "native bullet decal was sent to the hidden pilot instead of the worn Panzerklein surface");
-    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==vp && actor->GetPosition()==position && actor->IsWearingPK()==equipped && world->IsAction()==action,
-        "armor-stopped impact changed AP, vitality, position, equipment or retained its bullet action");
+    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==vp-expectedDamage && actor->GetPosition()==position && actor->IsWearingPK()==equipped && world->IsAction()==action,
+        "positive impact changed AP/position/equipment or lost its exact native damage/action control");
 }
 
 class BulletPerceptionProbe: public CObjectBase
@@ -21017,6 +21119,19 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-collision-hidden-own")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],true,true); return true; }
     if (!std::strcmp(mode, "movement-collision-visible-other")) { Require(argc == 4, "collision reveal requires db and res"); MovementCollisionReveal(argv[2],argv[3],false,false); return true; }
     if (!std::strcmp(mode, "bullet-decal-scene")) { Require(argc==4,"bullet decal scene requires db and res"); BulletDecalEquipmentTarget(argv[2],argv[3],true,true); return true; }
+    if (!std::strcmp(mode, "bullet-impact-positive") && argc==4) { BulletImpactEffects(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "bullet-impact-stopped") && argc==4) { BulletImpactEffects(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "bullet-impact-rejected") && argc==4) { BulletImpactEffects(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "bullet-impact-visual-exit") && argc==4) { BulletImpactEffects(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "bullet-impact-other-receiver") && argc==4) { BulletImpactEffects(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "bullet-impact-blood-off") && argc==4) { BulletImpactEffects(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "bullet-impact-nonblood-off") && argc==4) { BulletImpactEffects(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "bullet-impact-surface-exit") && argc==4) { BulletImpactEffects(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "bullet-impact-floor") && argc==4) { BulletImpactEffects(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "bullet-impact-disabled") && argc==4) { BulletImpactEffects(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "bullet-impact-unit-disabled") && argc==4) { BulletImpactEffects(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "bullet-impact-null-armor") && argc==4) { BulletImpactEffects(argv[2],argv[3],11); return true; }
+    if (!std::strcmp(mode, "bullet-impact-dodge-order") && argc==4) { BulletImpactEffects(argv[2],argv[3],12); return true; }
     if (!std::strcmp(mode, "bullet-decal-human")) { Require(argc==4,"bullet decal requires db and res"); BulletDecalEquipmentTarget(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "bullet-decal-panzerklein")) { Require(argc==4,"bullet decal requires db and res"); BulletDecalEquipmentTarget(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "movement-rotation-create-wire")) { Require(argc==4,"rotation queue requires db and res"); MovementRotationQueueWire(argv[2],argv[3],0); return true; }
