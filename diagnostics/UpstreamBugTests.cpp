@@ -8235,9 +8235,10 @@ static void AIReactionContactDelivery(const char* databasePath, const char* reso
             "reaction contact consumption armed new dirty flags or discarded existing marks");
         Require(state->enemies.nLock == 0 && state->possibleEnemies.nLock == 0 && state->allies.nLock == 0 && !state->IsModified(),
             "reaction contact consumption retained collection locks or synthesized another threat notification");
-        Require(actor->GetAP() == ap && actor->GetUnitRPG()->GetTotalVP() == hp && actor->GetPosition() == position
+        const int expectedAP = mode == 3 ? actor->GetUnitRPG()->GetActionAP(owner->GetUnitPosition().GetPose(), NRPG::AC_ROTATE) : ap;
+        Require(actor->GetAP() == expectedAP && actor->GetUnitRPG()->GetTotalVP() == hp && actor->GetPosition() == position
                 && target->GetPosition() == targetPosition && !actor->HasCommand(),
-            "reaction contact delivery spent world AP/HP, moved a unit or issued a gameplay order");
+            "reaction contact delivery violated its original AP rule, changed HP/position or issued a gameplay order");
     }
 }
 
@@ -8326,8 +8327,121 @@ static void AIFearRouteRetention(const char* databasePath, const char* resourceP
     { CStructureSaver reader(routeFields, CStructureSaver::READ, &routeRefs); reader.Add(4, &commands); }
     Require(commands.size() == 1 && commands.front().GetPtr() == wait.GetPtr() && normal->IsCircled(),
         "fear discarded the original patrol's actual command or looping state");
-    Require(actor->GetAP() == ap && actor->GetUnitRPG()->GetTotalVP() == hp && actor->GetPosition() == position
-            && !actor->HasCommand(), "fear route suspension spent AP/HP, moved the actor or issued a gameplay order");
+    const int expectedAP = mode == 1 ? actor->GetUnitRPG()->GetActionAP(owner->GetUnitPosition().GetPose(), NRPG::AC_ROTATE) : ap;
+    Require(actor->GetAP() == expectedAP && actor->GetUnitRPG()->GetTotalVP() == hp && actor->GetPosition() == position
+            && !actor->HasCommand(), "fear route suspension violated its original AP rule, changed HP/position or issued a gameplay order");
+}
+
+static void AIFearAPReservation(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer *actor = nullptr, *enemy = nullptr;
+    NAI::IAIUnit* owner = nullptr;
+    for (const auto& unit: units) {
+        auto* wrapper = NAI::GetAIUnit(unit);
+        if (IsValid(unit) && unit->CanFight() && unit->IsAIUnit() && !unit->HasCommand()
+                && unit->GetUnitRPG()->CanMove() && IsValid(wrapper)) {
+            actor = unit.GetPtr(); owner = wrapper; break;
+        }
+    }
+    Require(actor && owner, "fear AP fixture has no mobile idle native AI actor");
+    for (const auto& unit: units)
+        if (IsValid(unit) && unit->CanFight() && actor->GetDiplomacyState(unit) == NDb::DS_ENEMY
+                && IsValid(NAI::GetAIUnit(unit))) { enemy = unit.GetPtr(); break; }
+    Require(enemy != nullptr, "fear AP fixture has no native hostile contact");
+    auto* mission = actor->GetUnitRPG(); auto* rpg = mission->GetRPGUnit();
+    rpg->SetCheat(NRPG::CHEAT_AP, false); rpg->SetCheat(NRPG::CHEAT_SCRIPTSEQUENCE, false);
+    const NAI::EPose pose = mode == 1 ? NAI::CROUCH : mode == 2 ? NAI::CRAWL : mode == 12 ? NAI::RUN : NAI::WALK;
+    auto placed = actor->GetPosition(); placed.SetPose(pose); actor->SetPosition(placed);
+    owner->SetLogic(nullptr); owner->SetRouteLogic(nullptr); owner->Synchronize();
+    world->GetAIMap()->Sync();
+    const bool perkCase = mode == 10 || mode == 11;
+    constexpr int rotatePerk = 4; // The authored cheap-rotation perk used by the original AC_ROTATE branch.
+    Require(!mission->HasPerk(rotatePerk), "default fear AP actor unexpectedly already owns cheap rotation");
+    if (perkCase) {
+        auto* definition = NDb::GetDBPerk(rotatePerk);
+        auto* tree = rpg->GetPerksTree();
+        Require(IsValid(definition) && !definition->params.empty() && IsValid(tree), "fear AP fixture lacks its authored rotation perk/tree");
+        CObj<NRPG::CPerk> perk = new NRPG::CPerk(definition); perk->Take();
+        // Add a genuine authored perk to this owned test actor through the existing
+        // tree save fields; do not override HasPerk or the native action-cost provider.
+        CStructureNetworkContext refs; auto fields = BorrowedObjectFields(tree, &refs);
+        unordered_map<int, CObj<NRPG::CPerk>> perks;
+        { CStructureSaver reader(fields, CStructureSaver::READ, &refs); reader.Add(2, &perks); }
+        const auto id = refs.nextID++; refs.ids[perk.GetPtr()] = id; refs.refs[id] = perk.GetPtr();
+        perks[rotatePerk] = perk.GetPtr();
+        CMemoryStream saved;
+        { CStructureSaver writer(saved, CStructureSaver::WRITE, &refs); writer.Add(2, &perks); }
+        saved.Seek(0);
+        { CStructureSaver reader(saved, CStructureSaver::READ, &refs); static_cast<CObjectBase*>(tree)->operator&(reader); }
+        float parameter = -1;
+        Require(mission->HasPerk(rotatePerk, &parameter) && parameter == definition->params[0],
+            "fear AP fixture did not install the actual authored rotation perk");
+    }
+    const int cost = mission->GetActionAP(owner->GetUnitPosition().GetPose(), NRPG::AC_ROTATE);
+    const int maxAP = rpg->Skills(NDb::ST_AP).GetCurrentMaxValue();
+    Require(cost >= 0 && maxAP > cost + 20 && owner->GetUnitPosition().GetPose() == pose,
+        "fear AP fixture has no valid native rotation cost/pose/AP capacity");
+    auto* authoredRotation = NDb::GetRPGAP(pose == NAI::CRAWL ? 24 : 25);
+    Require(IsValid(authoredRotation) && authoredRotation->nAP == (pose == NAI::CRAWL ? 4 : 2),
+        "native fixture rotation data differs from the original rotation cost");
+    if (!perkCase) Require(cost == authoredRotation->nAP, "native baseline rotation cost changed before the caller fix");
+    int initialAP = cost + 7;
+    if (mode == 3) initialAP = cost;
+    if (mode == 4) initialAP = (std::max)(0, cost-1);
+    if (mode == 5 || mode == 11) initialAP = 0;
+    Require(mission->GetAP() >= initialAP, "fear AP actor lacks the initial AP control budget");
+    mission->SpendAP(mission->GetAP()-initialAP);
+    const bool unlimitedAP = mode == 6, scriptAP = mode == 7;
+    rpg->SetCheat(NRPG::CHEAT_AP, unlimitedAP); rpg->SetCheat(NRPG::CHEAT_SCRIPTSEQUENCE, scriptAP);
+    const int plannerAP = initialAP == 17 ? 16 : 17;
+    owner->SetAP(plannerAP, maxAP);
+    Require(actor->GetAP() == initialAP && owner->GetAP() == plannerAP && plannerAP != initialAP,
+        "fear AP fixture failed to separate native live AP from the planning snapshot");
+    auto* state = owner->GetAIUnitState(); Require(state != nullptr, "fear AP fixture has no native threat state");
+    state->enemies.data.units.clear(); state->enemies.data.positions.clear();
+    state->possibleEnemies.data.units.clear(); state->possibleEnemies.data.positions.clear();
+    state->allies.data.units.clear(); state->allies.data.positions.clear();
+    state->pEnemy = state->pPossibleEnemy = state->pAlly = nullptr; state->bScared = false;
+    const bool suspect = mode != 8 && mode != 9;
+    if (suspect) { state->AddPossibleEnemy(NAI::GetAIUnit(enemy)); state->pPossibleEnemy = NAI::GetAIUnit(enemy); }
+    if (mode == 9) { state->AddEnemy(NAI::GetAIUnit(enemy)); state->pEnemy = NAI::GetAIUnit(enemy); }
+    state->enemies.bModified = state->possibleEnemies.bModified = state->allies.bModified = false;
+    CObj<NAI::CAIReaction> fear = NAI::CreateAIFearReaction(owner, false, false, 0);
+    owner->SetReaction(fear);
+    Require(owner->GetReactionForUpdate() == fear.GetPtr(), "fear AP fixture failed to select its native reaction");
+    const auto position = actor->GetPosition(), enemyPosition = enemy->GetPosition();
+    const int hp = mission->GetTotalVP(); auto* inventory = mission->GetInventory();
+    GlobalGameRandom().SeedForHarness(2); auto reference = GlobalGameRandom(); const unsigned expectedNext = reference.Get();
+    NAI::SAIUpdateTracker tracker; tracker.Add(fear);
+    Require(fear->CanUpdate(), "fear AP fixture was excluded by native eligibility at its controlled AP");
+    tracker.Update(); const unsigned next = GlobalGameRandom().Get();
+    Require(tracker.CanGetCommand() && owner->GetReaction() == fear.GetPtr() && IsValid(owner->GetLogic()),
+        "fear AP fixture did not run its native reaction and install a genuine plan");
+    const int expected = suspect && !unlimitedAP && !scriptAP ? (std::min)(cost, maxAP) : initialAP;
+    std::printf("fear AP mode=%d pose=%d perk=%d liveBefore=%d planAP=%d rotate=%d liveAfter=%d expected=%d rng=%u\n",
+        mode, int(pose), int(perkCase), initialAP, plannerAP, cost, actor->GetAP(), expected, next);
+    Require(actor->GetAP() == expected && int(rpg->Skills(NDb::ST_AP)) == expected && owner->GetAP() == plannerAP,
+        "fear glance did not reserve the original native rotation cost while preserving planning AP");
+    if (suspect) {
+        Require(!IsValid(state->pPossibleEnemy) && state->possibleEnemies.data.units.empty() && state->possibleEnemies.data.positions.empty()
+                && !state->possibleEnemies.bModified && next == expectedNext,
+            "fear AP reservation lost locked contact consumption or changed the glance RNG sequence");
+        auto* route = dynamic_cast<NAI::CAIRouteLogic*>(owner->GetLogic());
+        Require(route != nullptr, "fear AP reservation replaced the glance route type");
+        CStructureNetworkContext refs; auto fields = BorrowedObjectFields(route, &refs);
+        vector<CObj<NAI::CTaskCommand>> commands;
+        { CStructureSaver reader(fields, CStructureSaver::READ, &refs); reader.Add(4, &commands); }
+        Require(commands.size() == 2 && dynamic_cast<NAI::CTaskCommandLookToPosition*>(commands.front().GetPtr())
+                && dynamic_cast<NAI::CTaskCommandWait*>(commands.back().GetPtr()), "fear AP reservation changed its look/wait command sequence");
+    }
+    Require(mission->GetTotalVP() == hp && actor->GetPosition() == position && enemy->GetPosition() == enemyPosition
+            && mission->GetInventory() == inventory && !actor->HasCommand()
+            && rpg->IsCheatEnabled(NRPG::CHEAT_AP) == unlimitedAP
+            && rpg->IsCheatEnabled(NRPG::CHEAT_SCRIPTSEQUENCE) == scriptAP,
+        "fear AP reservation changed HP, positions, inventory, cheat policy or issued a world command");
 }
 
 static void ArrivedRetreatCompletion(const char* databasePath, const char* resourcePath)
@@ -21755,6 +21869,19 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-fear-route-suspect") && argc == 4) { AIFearRouteRetention(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "ai-fear-route-enemy") && argc == 4) { AIFearRouteRetention(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "ai-fear-route-empty") && argc == 4) { AIFearRouteRetention(argv[2], argv[3], 3); return true; }
+    if (!std::strcmp(mode, "ai-fear-ap-stand") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 0); return true; }
+    if (!std::strcmp(mode, "ai-fear-ap-crouch") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 1); return true; }
+    if (!std::strcmp(mode, "ai-fear-ap-prone") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "ai-fear-ap-equal") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 3); return true; }
+    if (!std::strcmp(mode, "ai-fear-ap-below") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 4); return true; }
+    if (!std::strcmp(mode, "ai-fear-ap-zero") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 5); return true; }
+    if (!std::strcmp(mode, "ai-fear-ap-ap-cheat") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 6); return true; }
+    if (!std::strcmp(mode, "ai-fear-ap-sequence-cheat") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 7); return true; }
+    if (!std::strcmp(mode, "ai-fear-ap-calm") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 8); return true; }
+    if (!std::strcmp(mode, "ai-fear-ap-enemy") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 9); return true; }
+    if (!std::strcmp(mode, "ai-fear-ap-perk") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 10); return true; }
+    if (!std::strcmp(mode, "ai-fear-ap-perk-zero") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 11); return true; }
+    if (!std::strcmp(mode, "ai-fear-ap-run") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 12); return true; }
     if (!std::strcmp(mode, "mission-overlay-readiness")) { MissionOverlayReadiness(); return true; }
     if (!std::strcmp(mode, "ai-player-mission-readiness")) { AIPlayerMissionReadiness(); return true; }
     if (!std::strcmp(mode, "sound-icon-visibility")) { OverlayIconVisibility(false); return true; }

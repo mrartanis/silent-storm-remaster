@@ -9688,8 +9688,87 @@ guard. Thus insufficient AP can rise to rotation cost after subtracting a
 negative reservation amount. Preserve original caller behavior rather than
 guessing a clamp; test it explicitly before implementing AP. CAIUnit.GetActionAP
 Gold4abd20/11 ->Steam4ad500 delegates GetUnitMission slot4 then mission slot0;
-the original Fear call passes action5=AC_ROTATE, current pose and false option.
+the original Fear call passes action5=AC_ROTATE, current pose and a NULL optional
+item pointer (confirmed by the native cost provider; it is not a boolean option).
 Current fork SpendAP additionally preserves its AP/script-sequence cheats, which
 must remain active. No AP code changes in this stage. Counts281 remain137imported/
 20partial/81pending (101unfinished); ALL and final actual-HEAD hosted Actions
 verification/repair remain open.
+
+## abbe4777, Fear AP stage - reserve the original live rotation cost
+
+Source: [abbe477726bba9b4bc50913b2d0d7a3f7cce720d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/abbe477726bba9b4bc50913b2d0d7a3f7cce720d).
+The suspected-contact branch installed its look/wait plan but retained all live AP.
+After consuming the contact, restore the original `SpendAP(liveAP - rotationCost)`.
+Use the existing mission action-cost provider and SpendAP, retaining our AP and
+script-sequence cheats. Keep the separate planner AP snapshot unchanged. No
+numeric cost, authored DB record, inventory, route/command, RNG or API change.
+
+Native TDD adds thirteen actual-reaction cases: stand/crouch/prone/run, equal,
+below and zero AP, both own no-spend modes, calm and known-enemy controls, and
+the genuine authored cheap-rotation perk with positive/zero AP. A serialized
+perk-tree insertion modifies only the owned test actor; neither HasPerk nor
+action costs are mocked. All fixtures first verify real DB RPGAP24/25 values
+(prone4, other2), native provider agreement and divergent live/planner AP.
+An initial Windows min/max macro compile error was corrected before runtime
+RED; it is not counted as a reproduced bug.
+
+Upgrade the two earlier Fear-consumer/route AP assertions deliberately before
+production: they now require the audited original rotation reservation; other
+reaction/route controls retain their existing AP expectations. Runtime RED23
+has nine failures solely at these AP assertions, fourteen passing controls,
+30.38s with actual runner exit8. For example stand9 remains9 instead of2,
+prone11 remains11 instead of4, AP1/0 stays1/0 instead of2, and authored perk0
+leaves7 instead of0. Equal AP, zero-AP/zero-cost perk, both own cheats and the
+other branches already pass. After the minimal caller fix, GREEN23/23 31.11s
+with actual exit0. Real SAIUpdateTracker delivery, look/wait command types,
+locked contact removal, native live Skills(AP), unchanged planner AP, exact
+next ISAAC word (suspect seed2 ->3818093661), HP, positions, inventory and no
+world command are all asserted.
+
+Independent original audit: named Gold Fear.Update43c900/614 maps to Steam
+43d540. Native43d6cd reads LIVE RPG AP,43d6fc pushes NULL optional item then
+AC_ROTATE5,43d709 calls GetPose4913d0,43d711 dispatches Unit.GetActionAP14;
+43d722 subtracts cost and43d727 dispatches mission.SpendAP7c. Unit primary
+GetActionAP Gold4abd20/11 and Steam4ad500 are byte-identical, delegating
+GetUnitMission4 then mission0. The named CUnitMission RTTI interface has
+subobject offset76 (not primary): GoldCOL8e2ca8/vtable8b63cc maps to Steam
+COL8f23e0/vtable8c54e4, slot0 cost6bac90/6c0d30 and slot7c SpendAP6b9760/6bf970.
+All44 SpendAP bytes uniquely match without masks. Its signed subtraction
+means AP below cost, including zero, can increase to cost; this original
+behavior is preserved explicitly, with our existing cheat policy still active.
+
+Gold rotate switch[5]6bb553 checks perk4 then prone4/other2. Steam switch[5]
+6c1535 checks the same perk, then RPGAP24/25 via GetRPGAP7db220; our native
+fixture verifies those exact records and costs. Gold cost-provider third
+argument is an optional object/weapon pointer: stack+12, non-null object
+handling and weapon RTTI cast, NULL uses active inventory. Correct the earlier
+"false option" description; no bool parameter or new API is needed here.
+
+Account for the same source's remaining Assassin hunk as a comment correction.
+Named Gold PDB Assassin.Update41b2b0/781 independently maps via primary RTTI
+slot10 to Steam41bcc0..41bfcd (COL8ddba0/vtable8b2fc0). Both bounded methods
+end in ret followed by padding. All28 calls in the complete Steam method lack
+Notify48 and typed AI-event factory calls. Remove the inaccurate event-bracket
+backlog claim without changing Assassin behavior or manufacturing a behavior
+test for a comment. Source's Guard/Retreat/contact and Fear-route hunks were
+imported separately; its live-server-position substitutions are already
+provided centrally by our live accessors. All source hunks are accounted for.
+
+Read-only oracle and raw RED/GREEN evidence are retained under
+`G:\SS\lab\evidence\upstream-remaster-20261024\ai-fear-ap-*`, with the
+bounded Assassin disassembly and named RTTI identity under `ai-assassin-comment-*`.
+Shared build directories are reused; both HD build switches remain OFF.
+
+Final fresh Windows ALL_BUILD: focused53/53 61.19s, related105/105 111.48s;
+Linux Game/helpers related103/103 108.03s and additional chooser/selected
+context4/4 1.16s. The13 native AP records match across platforms exactly.
+Local asset-free CI290/290 24.73s passed. All five final raw logs contain the
+exact expected53/105/103/4/290 passing records, no failure/not-run/NUL records;
+Windows final runner, Linux related and context runners all exited0. Owned
+native test processes exited. Both cached HD build settings remain OFF.
+Source abbe is now imported: counts281 are138imported/19partial/81pending/
+32already-present/5excluded-balance/3documentation/2excluded-own/1historical.
+There are100 unfinished source commits, including remaining2eee roster/alarm/
+OnPassControl hunks. All useful sources and actual final-HEAD hosted GitHub
+Actions verification/repair remain the completion criteria.

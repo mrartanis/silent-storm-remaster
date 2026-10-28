@@ -120,8 +120,8 @@ CAIAssassinReaction::CAIAssassinReaction( IAIUnit *pUnit )
 // MoveToPosition logic when closer; < 5 hand back to Normal to strike. Any failure gives up to Normal.
 // bJustStarted clears at the end of every live pass.
 //
-// ELIDED (build-validation scope): the per-unit AI event raises the release brackets the plan with remain
-// unported; now that the event layer is active these are tracked follow-up divergences. DEFENSIVE: a
+// The complete original Update (Steam 0x41bcc0..0x41bfcd, matched by named RTTI/PDB)
+// has no AI-event brackets around this plan; the old backlog claim was incorrect. DEFENSIVE: a
 // degenerate server-gone case hands back to Normal up
 // front (the decode dereferences the server unguarded, trusting the live unit; equivalent give-up outcome).
 ////////////////////////////////////////////////////////////////////////////////////////////////////

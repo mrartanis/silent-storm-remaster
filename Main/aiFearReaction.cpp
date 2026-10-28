@@ -8,6 +8,9 @@
 //
 #include "aiUnit.h"          // NAI::IAIUnit (GetUnitServer / GetUnitPosition / GetLogic)
 #include "aiEvent.h"
+#include "RPGUnitMission.h"
+#include "RPGUnit.h"
+#include "../DBFormat/DataRPG.h"
 #include "aiUnitState.h"     // NAI::SAIUnitState (pEnemy / pPossibleEnemy / GetKnownEnemies)
 #include "aiPosition.h"      // NAI::SPathPlace / SUnitPosition / EPose
 #include "aiRouteLogic.h"    // NAI::CreateAILookRoundLogic / MoveToPositionLogic / LookToPositionLogic / RoamingLogic
@@ -25,7 +28,7 @@
 // Guard/Retreat reactions use.
 //
 // Contact consumption and preservation of the suspended route follow the original.
-// The suspected-contact rotation AP rule remains a separate restoration.
+// Suspected-contact AP reservation uses the live RPG state and native rotation cost.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NAI
 {
@@ -84,7 +87,12 @@ void CAIFearReaction::Update()
 			SPathPlace p = pPossible->GetUnitPosition().pos.p;
 			SetLogic( CreateAILookToPositionLogic( pU, p ) );
 			us->Notify( CreateAILostPossibleEnemyEvent( pPossible ) );
-			// Original rotation AP handling remains a separate restoration.
+			// Original Fear.Update: reserve only the current pose's rotation cost.
+			// Use the live RPG AP and preserve the fork's existing SpendAP cheat policy.
+			NRPG::IUnitMission *pRPG = pU->GetUnitMission();
+			int nAP = pU->GetRPGUnit()->Skills( NDb::ST_AP );
+			int nLookAP = pRPG->GetActionAP( pU->GetUnitPosition().GetPose(), NRPG::AC_ROTATE );
+			pRPG->SpendAP( nAP - nLookAP );
 		}
 		return;
 	}
