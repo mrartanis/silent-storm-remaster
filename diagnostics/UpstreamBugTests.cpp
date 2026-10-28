@@ -7885,26 +7885,113 @@ static void OwnedAICommanderRosters(const char* databasePath, const char* resour
         state->Synchronize();
         const auto& allies = *state->GetAllyAIPlayer()->GetUnits();
         const auto& enemies = *state->GetEnemyAIPlayer()->GetUnits();
-        int expectedAllies = 0, expectedEnemies = 0;
+        vector<CPtr<NAI::IAIUnit>> expectedAllies,expectedEnemies;
+        state->GetUnits(&expectedAllies,true,true); state->GetUnits(&expectedEnemies,false,true);
+        Require(allies==expectedAllies && enemies==expectedEnemies,
+            "AI tactical views mixed ownership with current global non-enemy/enemy diplomacy");
         for (const auto& server: allUnits) {
-            if (!IsValid(server) || !server->CanFight()) continue;
-            auto* wrapper = NAI::GetAIUnit(server);
-            if (!IsValid(wrapper)) continue;
-            if (server->GetPlayer() == player.GetPtr()) {
-                ++expectedAllies;
-                Require(std::count(allies.begin(), allies.end(), wrapper) == 1 && wrapper->GetAIState() == state,
-                    "commander world view lost an owned fighter or attached another commander's state");
-            } else if (world->GetDiplomacyState(player.GetPtr(), server->GetPlayer()) == NDb::DS_ENEMY) {
-                ++expectedEnemies;
-                Require(std::count(enemies.begin(), enemies.end(), wrapper) == 1,
-                    "removing foreign ownership also removed a live hostile from the tactical world view");
-            }
+            if (!IsValid(server)) continue;
+            auto* wrapper=NAI::GetAIUnit(server);
+            if (IsValid(wrapper) && server->GetPlayer()==player.GetPtr())
+                Require(wrapper->GetAIState()==state,"commander failed to reconnect its owned unit's tactical state");
         }
-        Require(allies.size() == expectedAllies && enemies.size() == expectedEnemies,
-            "AI tactical views duplicated contacts or mixed ownership with diplomacy");
-        if (expectedEnemies) ++hostileViews;
+        if (!expectedEnemies.empty()) ++hostileViews;
     }
     Require(checked > 1 && hostileViews > 0, "AI roster fixture did not verify multiple commanders and a hostile view");
+}
+
+static void AITacticalWorldViews(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game; auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> all; world->GetAllUnits(&all);
+    NWorld::CUnitServer *actor=nullptr,*buddy=nullptr,*human=nullptr;
+    for (const auto& unit: all) if (IsValid(unit) && unit->CanFight() && unit->IsAIUnit() && IsValid(NAI::GetAIUnit(unit))) { actor=unit.GetPtr(); break; }
+    Require(actor,"tactical view fixture has no native AI owner");
+    for (const auto& unit: all) {
+        if (!IsValid(unit) || !unit->CanFight() || !IsValid(NAI::GetAIUnit(unit))) continue;
+        if (!buddy && unit.GetPtr()!=actor && unit->GetPlayer()==actor->GetPlayer()) buddy=unit.GetPtr();
+        if (!human && !unit->IsAIUnit() && actor->GetDiplomacyState(unit)==NDb::DS_ENEMY) human=unit.GetPtr();
+    }
+    auto* commander=dynamic_cast<NAI::CAICommander*>(actor->GetPlayer()->GetCommander());
+    Require(commander && buddy && human,"tactical view fixture lacks native commander/own/human controls");
+    auto* state=commander->GetAIState(); state->pPlayer=actor->GetPlayer(); state->Synchronize();
+    const vector<CPtr<NRPG::IUnitMission>> noUnits; const int callerSide=actor->GetPlayer()->GetScenarioPlayerID();
+    CObj<NAI::CAICommander> foreignCommander; NWorld::CPlayer* foreignPlayer=nullptr;
+    if (mode==1 || mode==2 || mode==4 || mode==10 || mode==11) {
+        game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54})); foreignCommander=new NAI::CAICommander(world,nullptr);
+        foreignPlayer=dynamic_cast<NWorld::CPlayer*>(world->AddPlayer(L"Native tactical view party",game->players.back(),foreignCommander));
+        Require(foreignPlayer,"tactical view fixture failed to create an actual foreign AI party"); foreignCommander->SetPlayer(foreignPlayer);
+        world->GetDiplomacy()->SetDiplomacyState(callerSide,noUnits,foreignPlayer->GetScenarioPlayerID(),
+            mode==2 ? NDb::DS_ALLY : (mode==4 || mode==10) ? NDb::DS_ENEMY : NDb::DS_NEUTRAL);
+    }
+    if (mode==3) {
+        world->GetDiplomacy()->SetDiplomacyState(callerSide,noUnits,human->GetPlayer()->GetScenarioPlayerID(),NDb::DS_NEUTRAL);
+        Require(actor->GetDiplomacyState(human)==NDb::DS_ENEMY,"tactical view fixture erased its distinct individual hostility");
+    }
+    if (mode==5) state->pPlayer=human->GetPlayer();
+    if (mode==6) state->pPlayer=nullptr;
+    if (mode==7) state->pAICommander=nullptr;
+    if (mode==8) state->pWorld=nullptr;
+    if (mode==9) { buddy->MakeUnconscious(VNULL3,true,false); Require(!buddy->CanFight(),"tactical own-KO control remained fightable"); }
+    if (mode==11) {
+        world->ChangeUnitPlayer(buddy,foreignPlayer);
+        Require(buddy->GetPlayer()==foreignPlayer && IsValid(NAI::GetAIUnit(buddy)),"tactical view reownership failed to replace the native wrapper");
+    }
+    world->GetAllUnits(&all);
+    if (mode==12) for (const auto& unit: all) if (IsValid(unit) && unit->CanFight()) unit->MakeUnconscious(VNULL3,true,false);
+    vector<CPtr<NWorld::CPlayer>> players; world->GetPlayersList(&players);
+    struct Roster { NAI::CAICommander* commander; vector<CObj<NAI::IAIUnit>> units; };
+    vector<Roster> rosters;
+    for (const auto& player: players) if (auto* current=dynamic_cast<NAI::CAICommander*>(player->GetCommander())) rosters.push_back({current,current->GetUnitsList()});
+    struct Snapshot { NAI::IAIUnit* unit; NAI::SAIState* expectedState; NAI::SUnitPosition pose; int ap,hp,planAP,planHP; bool command; };
+    vector<Snapshot> before;
+    for (const auto& server: all) {
+        auto* unit=NAI::GetAIUnit(server); if (!IsValid(server) || !IsValid(unit)) continue;
+        const bool owned=server->GetPlayer()==actor->GetPlayer();
+        if (owned) unit->SetAIState(nullptr); // Real restore seam: raw state backref is not serialized.
+        unit->SetHP(37,99); auto projected=server->GetPosition().pos; projected.p.SetDirection((projected.p.GetDirection()+3)&7); unit->SetPosition(projected);
+        before.push_back({unit,owned && mode!=7 ? state : unit->GetAIState(),server->GetPosition(),server->GetAP(),server->GetUnitRPG()->GetTotalVP(),unit->GetAP(),unit->GetHP(),server->HasCommand()});
+    }
+    const int passes=mode==4 ? 2 : 1;
+    for (int pass=0; pass<passes; ++pass) {
+        if (pass) world->GetDiplomacy()->SetDiplomacyState(callerSide,noUnits,foreignPlayer->GetScenarioPlayerID(),NDb::DS_NEUTRAL);
+        vector<CPtr<NAI::IAIUnit>> expectedAllies,expectedEnemies;
+        state->GetUnits(&expectedAllies,true,true); state->GetUnits(&expectedEnemies,false,true);
+        // Separately check every expected identity against native global diplomacy and fightability.
+        for (const auto& saved: before) {
+            auto* server=saved.unit->GetUnitServer(); const bool fighter=IsValid(state->GetWorld()) && server->CanFight();
+            const bool nonEnemy=world->GetDiplomacyState(state->pPlayer,server->GetPlayer())!=NDb::DS_ENEMY;
+            Require(std::count(expectedAllies.begin(),expectedAllies.end(),saved.unit)==int(fighter && nonEnemy)
+                    && std::count(expectedEnemies.begin(),expectedEnemies.end(),saved.unit)==int(fighter && !nonEnemy),
+                "tactical expected views disagree with native global diplomacy or live fightability");
+        }
+        auto* allies=state->GetAllyAIPlayer()->GetUnits(); auto* enemies=state->GetEnemyAIPlayer()->GetUnits();
+        allies->assign(2,NAI::GetAIUnit(human)); enemies->assign(2,NAI::GetAIUnit(actor));
+        GlobalGameRandom().SeedForHarness(0x51aa); auto randomBefore=GlobalGameRandom();
+        state->Synchronize(); const unsigned next=GlobalGameRandom().Get();
+        std::printf("tactical views mode=%d pass=%d allies=%zu/%zu enemies=%zu/%zu owned=%zu rng=%u\n",mode,pass,
+            allies->size(),expectedAllies.size(),enemies->size(),expectedEnemies.size(),commander->GetUnitsList().size(),next);
+        Require(*allies==expectedAllies && *enemies==expectedEnemies,
+            "legacy tactical views used commander ownership instead of saved-player non-enemy/enemy world sets");
+        Require(next==randomBefore.Get(),"tactical view rebuild consumed native RNG");
+        for (const auto& saved: before) {
+            auto* server=saved.unit->GetUnitServer();
+            Require(saved.unit->GetAIState()==saved.expectedState,
+                "tactical view synchronization skipped an owned nonfighter backref or rebound a foreign unit");
+            Require(server->GetPosition()==saved.pose && server->GetAP()==saved.ap && server->GetUnitRPG()->GetTotalVP()==saved.hp
+                    && server->HasCommand()==saved.command && saved.unit->GetAP()==saved.planAP && saved.unit->GetHP()==saved.planHP,
+                "tactical view rebuild synchronized planning data or changed native AP/HP/positions/commands");
+        }
+        for (const auto& roster: rosters) Require(roster.commander->GetUnitsList()==roster.units,
+            "building tactical world views changed a commander's strongly owned roster");
+        if (mode!=7) {
+            const auto& groups=state->GetEnemyGroups(); Require(groups.size()==expectedEnemies.size(),"legacy groups were not refreshed from the current enemy view");
+            for (const auto& group: groups) {
+                for (const auto& enemy: group.enemies) Require(std::find(expectedEnemies.begin(),expectedEnemies.end(),enemy)!=expectedEnemies.end(),"legacy group retained an ineligible enemy");
+                for (const auto& ally: group.allies) Require(std::find(expectedAllies.begin(),expectedAllies.end(),ally)!=expectedAllies.end(),"legacy group retained an ineligible non-enemy");
+            }
+        }
+    }
 }
 
 static void UnsupportedNavigationBake(const char* databasePath, const char* resourcePath)
@@ -9217,7 +9304,9 @@ static void AIPassControlSnapshots(const char* databasePath, const char* resourc
     auto* commander = player ? dynamic_cast<NAI::CAICommander*>(player->GetCommander()) : nullptr;
     auto* owner = NAI::GetAIUnit(actor); auto* contact = NAI::GetAIUnit(enemy);
     Require(commander && foreign && owner && contact, "pass-control fixture lacks opposing native commanders/wrappers");
-    auto* shared = commander->GetAIState(); shared->Synchronize();
+    auto* shared = commander->GetAIState();
+    shared->pPlayer = player; // Explicit saved tactical player: the human commander may be constructed unbound.
+    shared->Synchronize();
     const auto expectedGroups = shared->GetEnemyGroups();
     Require(!expectedGroups.empty(), "pass-control fixture has no native hostile groups to refresh");
     auto* script = world->GetOwnScript();
@@ -22980,6 +23069,19 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "empty-bullet-construction") && argc == 4) { EmptyBulletConstruction(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hidden-unit-tint") && argc == 4) { HiddenUnitTint(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "living-unit-floor-refresh") && argc == 4) { LivingUnitFloorRefresh(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "ai-tactical-views-cached") && argc == 4) { AITacticalWorldViews(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ai-tactical-views-neutral") && argc == 4) { AITacticalWorldViews(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ai-tactical-views-allied") && argc == 4) { AITacticalWorldViews(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ai-tactical-views-human") && argc == 4) { AITacticalWorldViews(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "ai-tactical-views-transition") && argc == 4) { AITacticalWorldViews(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "ai-tactical-views-saved-player") && argc == 4) { AITacticalWorldViews(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "ai-tactical-views-no-saved-player") && argc == 4) { AITacticalWorldViews(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "ai-tactical-views-no-commander") && argc == 4) { AITacticalWorldViews(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "ai-tactical-views-no-world") && argc == 4) { AITacticalWorldViews(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "ai-tactical-views-own-ko") && argc == 4) { AITacticalWorldViews(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "ai-tactical-views-foreign-backref") && argc == 4) { AITacticalWorldViews(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "ai-tactical-views-reowned") && argc == 4) { AITacticalWorldViews(argv[2],argv[3],11); return true; }
+    if (!std::strcmp(mode, "ai-tactical-views-no-fighters") && argc == 4) { AITacticalWorldViews(argv[2],argv[3],12); return true; }
     if (!std::strcmp(mode, "owned-ai-commander-rosters") && argc == 4) { OwnedAICommanderRosters(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "navigation-colouring-occupancy")) { NavigationColouringOccupancy(); return true; }
     if (!std::strcmp(mode, "missing-navigation-colourer")) { NavigationColouringOccupancy(1); return true; }

@@ -247,9 +247,9 @@ void CAICommander::OnUnitAdded( NWorld::CUnitServer *pUnitServer )
 	worldToAIUnit[ pUnitServer ] = pAIUnit.GetPtr();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// SyncAIState -- retail SAIState::Synchronize @0xa9ff0 analog: rebuild the state's ally/enemy rosters +
-// enemy groups from the commander's unit list (and thread the state into the own units). Called every AI
-// segment + on pass-control + turn-start.
+// Retain the fork's legacy tactical adapters using the current world query, then rebuild groups.
+// Raw state backrefs belong only to this commander's owned units, including nonfighters.
+// Original Synchronize itself only jumps to group refresh (matched Steam 0x4aa3a0).
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAICommander::SyncAIState()
 {

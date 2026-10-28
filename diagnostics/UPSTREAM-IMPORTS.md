@@ -10207,3 +10207,76 @@ legacy tactical adapter synchronization/nonfighter backrefs. The wMain owner
 registration/update guards and header comments are already supplied. Source2eee
 stays partial;100 unfinished sources remain across281. Final hosted Actions
 verification/repair remains due after all useful imports.
+
+
+## 2026-10-28 — Legacy tactical views and owned restore backrefs (`2eee1b62`, partial)
+
+Retain the fork's legacy ally/enemy adapters, but rebuild them with the proven
+GetUnits(true,true)/GetUnits(false,true) world queries. Fill views before testing
+the optional commander backref. Reconnect raw unit-state backrefs from the actual
+commander-owned roster, with the existing current-owner guard, including owned
+nonfighters. A missing world yields empty views; owned restore reconnection does
+not require a bound world. A missing commander still permits world views and
+leaves unit backrefs unchanged. Foreign viewed units never acquire this state.
+Keep existing MakeEnemyGroups and all its algorithm/constants unchanged.
+
+This is explicitly the fork's compatibility adapter. Original named Gold
+SAIState.Synchronize4a8c20/5 ->Steam4aa3a0 is a jump to group refresh, previously
+proved independently through OnPassControl; it does not contain this legacy
+adapter or a purported native backref loop. Native world selection is established
+by GetUnitsGold4a82a0/505 ->Steam4a9a20, including saved tactical player/global
+non-enemy diplomacy/live fightability/include-human flag and world order. Own
+raw-state reconnection is required because these backrefs are not serialized;
+ReconnectWorld already uses the same ownership rule. No new retail ABI/layout,
+virtual method, schema or commander ownership domain is introduced.
+
+Add13 real FixtureWorld profiles: correct cache control, foreign neutral/allied
+AI, globally neutral but individually hostile human, enemy->neutral without a
+refresh, another saved tactical player, null saved player, missing commander,
+unbound world, own KO, hostile foreign backref control, genuine ChangeUnitPlayer
+and all units KO. Populate old adapters with duplicate wrong entries first.
+Expected vectors come from the already verified query, additionally checked for
+every world identity against native global diplomacy and CanFight. Clear only
+owned raw backrefs to reproduce the actual save seam; retain foreign backrefs.
+Check exact view order, own/nonfighter and foreign bindings, all commanders'
+strong rosters, group membership, unchanged live/planning AP/HP/position/commands
+and exact zero-draw RNG continuation. Upgrade the previous OwnedAICommanderRosters
+test BEFORE production to expect current non-enemy/enemy world views separately
+from owner-only roster/backref checks, rather than perpetuating its old own-only
+ally-view assumption.
+
+After a successful build, native runtime RED12/14 in15.50s, exit8: eight new
+world-view mismatches plus the upgraded old test, and three owned restore-backref
+failures. Correct-cache and hostile-foreign-backref controls pass. Transition's
+first enemy view passes before neutral becomes omitted. Failures are solely the
+intended view/backref assertions, with no fixture/compile failure counted as RED.
+
+First broader GREEN attempt is83/84 in90.81s, exit8: all14 new/upgraded view
+checks pass; prior AIPassControlHuman fails during its fixture setup before
+calling OnPassControl, because its human sequence commander was constructed
+with null saved tactical player. That fixture assumed commander-owner diplomacy
+would supply enemy groups. Do not change production SetPlayer or invent a saved
+player fallback. Set an explicit saved tactical player only in that prior test,
+retaining the new null-saved-player profile as its separate original-rule
+control. Reverse only the minimal production fix in place (no source/build
+copies), rebuild and repeat RED with all8 PassControl controls before reapplying
+the fix. A small fix patch is retained in the shared lab for that TDD replay.
+
+Authoritative explicit-player replay: successful baseline build, RED12/22 in
+24.43s, exit8; all8 prior PassControl cases plus the two new positive controls
+pass, and only the same12 intended view/backref checks fail. Reapply the same
+minimal production patch: GREEN84/84 in92.34s, exit0. The13 new profiles produce
+14 diagnostic records because the diplomacy transition runs twice. Null saved
+player behavior, other saved player behavior and foreign ownership remain
+covered independently; the old fixture change does not weaken those rules.
+
+Final fresh Windows ALL_BUILD:128/128 focused142.07s,179/179 related191.45s;
+Linux Game/helpers177/177 related187.41s plus4/4 context1.18s; local asset-free
+CI290/29024.12s. Main Windows/Linux/context runners exit0; Windows also persists
+exit0. All five raw logs have exact128/179/177/4/290 passes, no Failed/NotRun/NUL.
+All14 tactical-view,13 support,14 target,15 world and14 delivery records match
+Windows/Linux. Both HD caches remain OFF; owned tests exit, shared builds only.
+Source2eee remains partial for wTurnBased unit-event commander routing/validity
+and final mixed15-file accounting. Counts remain138 imported/19 partial/81
+pending,100 unfinished across281. Actual final-HEAD hosted Actions verification/
+repair remains open after all useful imports; this is local CI evidence.

@@ -123,28 +123,18 @@ IAIUnit *SAIState::GetNearestUnit( const CVec3 &pos, bool bAllies, bool bInclude
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void SAIState::Synchronize()
 {
-	pAlly->GetUnits()->clear();
-	pEnemy->GetUnits()->clear();
-	if ( !IsValid( pAICommander ) || !IsValid( pWorld ) )
+	GetUnits( pAlly->GetUnits(), true, true );
+	GetUnits( pEnemy->GetUnits(), false, true );
+	if ( !IsValid( pAICommander ) )
 		return;
 	NWorld::CPlayer *pMyPlayer = pAICommander->GetPlayer();
-	list< CPtr<NWorld::CUnitServer> > units;
-	pWorld->GetAllUnits( &units );
-	for ( list< CPtr<NWorld::CUnitServer> >::const_iterator i = units.begin(); i != units.end(); ++i )
+	const vector< CObj<IAIUnit> > &units = pAICommander->GetUnitsList();
+	for ( vector< CObj<IAIUnit> >::const_iterator i = units.begin(); i != units.end(); ++i )
 	{
-		if ( !IsValid( *i ) || !(*i)->CanFight() )
+		if ( !IsValid( *i ) || !IsValid( (*i)->GetUnitServer() ) )
 			continue;
-		IAIUnit *pAI = NAI::GetAIUnit( *i );
-		if ( !IsValid( pAI ) )
-			continue;
-		NWorld::IPlayer *pUP = (*i)->GetPlayer();
-		if ( pUP == (NWorld::IPlayer*)pMyPlayer )
-		{
-			pAlly->AddUnit( pAI );
-			pAI->SetAIState( this );
-		}
-		else if ( pWorld->GetDiplomacyState( pMyPlayer, pUP ) == NDb::DS_ENEMY )
-			pEnemy->AddUnit( pAI );
+		if ( (*i)->GetUnitServer()->GetPlayer() == (NWorld::IPlayer*)pMyPlayer )
+			(*i)->SetAIState( this );
 	}
 	MakeEnemyGroups();
 }
