@@ -81,13 +81,8 @@ static IAIUnit *SnipeGetAIUnit( NWorld::CUnitServer *pServer )
 // hand-disassembled (the decode left it a hook): pWorld->GetGame()->CheckPositionVisibility from the sniper
 // to each place NAI::GetNearestPlaces floods around the target.
 //
-// Two documented dev<->release elisions (build-validation scope): (1) the release GetToHit takes the chosen
-// snipe weapon; the dev 3-arg GetToHit uses the unit's current weapon. (2) the release passes explicit
-// sight-distance (IGame::GetUnitSightDistance) + FOV (CUnit::GetSightFOV) to a 4-arg CheckPositionVisibility;
-// the dev CheckPositionVisibility is 2-arg (observer, target) and applies sight range/FOV internally, so the
-// range/FOV computation is dropped. The enemy-flood budget (obscured in the decomp -- built from the enemy's
-// move-table machinery) is taken as the enemy's full AP (GetMaxAP) at RUN pose -- "everywhere the target
-// could run this turn".
+// Both prediction calls use the chosen rifle, independently of the current
+// planning hand. The existing visibility and escape scan remain separate.
 void CAIBeginSnipeAction::GetInfoInner( const SPlaceWithAP &, SInfo *pInfo ) const
 {
 	pInfo->bCanDo = false;
@@ -114,9 +109,9 @@ void CAIBeginSnipeAction::GetInfoInner( const SPlaceWithAP &, SInfo *pInfo ) con
 	// to-hit gate: must connect at HL_ANY; aim the head when that also connects.
 	SUnitPosition selfPos = pU->GetUnitPosition();
 	pInfo->hitLocation = HL_ANY;
-	if ( pU->GetToHit( pEnemy, selfPos, HL_ANY ) <= 0 )
+	if ( pU->GetToHitWithWeapon( pEnemy, selfPos, HL_ANY, pInfo->pWeapon ) <= 0 )
 		return;
-	if ( pU->GetToHit( pEnemy, selfPos, HL_HEAD ) > 0 )
+	if ( pU->GetToHitWithWeapon( pEnemy, selfPos, HL_HEAD, pInfo->pWeapon ) > 0 )
 		pInfo->hitLocation = HL_HEAD;
 	// kill-zone scan: the sniper must still SEE every place the target could flee to next turn.
 	NWorld::CWorld *pWorld = pUS->GetWorld();

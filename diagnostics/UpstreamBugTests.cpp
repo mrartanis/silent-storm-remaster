@@ -8484,6 +8484,107 @@ static void AIToHitServerValidity(const char* databasePath,const char* resourceP
     Require(actor->GetUnitServer()==originalServer.GetPtr() && actor->GetAIInventory()==inventory,"server-validity fixture did not restore native wrapper ownership");
 }
 
+static CObj<NWorld::CWorld> SnipeFixtureWorld(const char* databasePath, const char* resourcePath,
+    bool deployParty = false, CObj<NRPG::CGlobalGame>* retainedGame = nullptr)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database, CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(1);
+    if (retainedGame) *retainedGame = game;
+    if (deployParty) game->players.push_back(NRPG::CreateGlobalPlayer(std::vector<int>{54}));
+    CObj<NWorld::CWorld> world = new NWorld::CWorld(game);
+    CObj<NWorld::CPostWorldCreateInfo> post;
+    world->CreateRandom(3791, {}, true, {}, 0, &post, SRandomSeed(123));
+    Require(post && world->GetPathNetwork(), "mission fixture construction failed");
+    if (deployParty) {
+        CObj<NAI::CSequenceCommander> commander = new NAI::CSequenceCommander(world);
+        auto* player = dynamic_cast<NWorld::CPlayer*>(world->AddPlayer(L"Clue fixture", game->players.front(), commander));
+        Require(player != nullptr, "human party deployment failed");
+        commander->SetPlayer(player);
+    }
+    // Deliberately exclude mission scripts: this fixture isolates AI scheduling.
+    world->RunPostInit(nullptr);
+    return world;
+}
+
+static void AISnipeSelectedWeapon(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> campaign;auto world=SnipeFixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);
+    NDb::CRPGWeapon* rifle=nullptr;CDBIterator<NDb::CRPGWeapon> weapons(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while(weapons.MoveNext()) {
+        auto* record=weapons.Get();
+        if(record->eWeaponType==NDb::WT_RIFLE && record->shootModes[NDb::SM_Snipe] && record->shootModes[NDb::SM_Snap]
+            && !record->bBazookaLogic && record->pItem && record->pInnerClip && record->pInnerClip->nQuantity>0){rifle=record;break;}
+    }
+    Require(rifle,"selected-snipe fixture has no authored loaded sniper rifle");
+    CObj<NAI::IAIUnit> actor,target;CPtr<NAI::CAIFireArmsWeapon> selected;NAI::CAIBeginSnipeAction::SInfo baseline;
+    int selectedHead=0;float distance=0;
+    for(const auto& server:units) {
+        if(!IsValid(server) || !server->CanFight() || server->HasCommand() || server->IsSniping() || !server->IsAIUnit()
+            || server->IsEmptyPK() || server->IsWearingPK() || server->animator.GetCannon())continue;
+        auto* shooter=NAI::GetAIUnit(server);if(!IsValid(shooter))continue;
+        CObj<NRPG::CWeaponItem> item=new NRPG::CWeaponItem(rifle);auto* equipment=server->GetUnitRPG()->GetInventory();
+        if(!equipment->Equip(NDb::SLOT_1,item) || !equipment->Activate(NDb::SLOT_1) || !item->SetShootMode(NDb::SM_Snap))continue;
+        shooter->Synchronize(false);auto* inventory=shooter->GetAIInventory();auto* choice=inventory->GetBestWeaponForSnipe();
+        if(!IsValid(choice) || !IsValid(choice->GetCurrentClip()) || choice->GetCurrentClip()->IsEmpty())continue;
+        auto* state=shooter->GetAIUnitState();if(!state)continue;
+        CPtr<NAI::IAIUnit> oldEnemy=state->pEnemy,oldPossible=state->pPossibleEnemy;
+        struct RestoreState{NAI::SAIUnitState* state;CPtr<NAI::IAIUnit> enemy,possible;~RestoreState(){state->pEnemy=enemy;state->pPossibleEnemy=possible;}}restore{state,oldEnemy,oldPossible};
+        CObj<NAI::CAIBeginSnipeAction> action=new NAI::CAIBeginSnipeAction(shooter);
+        for(const auto& other:units) {
+            if(!IsValid(other) || other.GetPtr()==server.GetPtr() || !other->CanFight() || other->IsEmptyPK() || other->IsWearingPK()
+                || server->GetDiplomacyState(other)!=NDb::DS_ENEMY)continue;
+            auto* victim=NAI::GetAIUnit(other);if(!IsValid(victim))continue;
+            const float range=fabs(server->GetPosition().GetCP()-other->GetPosition().GetCP());
+            if(range*1.6f<15.f)continue;
+            state->pEnemy=victim;state->pPossibleEnemy=nullptr;const auto pose=shooter->GetUnitPosition();
+            const int cover=shooter->GetCoverForFixedUnit(pose,other,choice->GetItem(),NAI::HL_HEAD);
+            CObj<NRPG::CAIUnitToHitCalcer> reference=new NRPG::CAIUnitToHitCalcer(shooter,pose,victim,cover,NAI::HL_HEAD,0,choice->GetItem(),0);
+            const int expectedHead=reference->GetToHit();NAI::CAIBeginSnipeAction::SInfo info;
+            action->GetInfoInner(NAI::SPlaceWithAP(server->GetPosition(),shooter->GetAP()),&info);
+            std::printf("native snipe calibration: distance=%.2f selectedHead=%d location=%d can=%d\n",range,expectedHead,int(info.hitLocation),int(info.bCanDo));std::fflush(stdout);
+            if(expectedHead>0 && info.hitLocation==NAI::HL_HEAD && info.pWeapon==choice) {
+                actor=shooter;target=victim;selected=choice;baseline=info;selectedHead=expectedHead;distance=range;break;
+            }
+        }
+        if(actor)break;
+    }
+    Require(actor && target && selected && selectedHead>0 && baseline.hitLocation==NAI::HL_HEAD,
+        "selected-snipe fixture has no native distant enemy with independently positive selected-rifle head prediction and reached head-choice stage");
+    auto* inventory=actor->GetAIInventory();auto* state=actor->GetAIUnitState();CObj<NAI::IAIInventoryItem> current=inventory->GetCurrentItem();
+    struct Restore{NAI::CAIInventory* inventory;CObj<NAI::IAIInventoryItem> current;NAI::SAIUnitState* state;CPtr<NAI::IAIUnit> enemy,possible;
+        vector<std::pair<CPtr<NAI::CAIFireArmsWeaponClip>,int>> clips;
+        ~Restore(){for(auto& entry:clips)entry.first->SetAmmoCount(entry.second);inventory->SetCurrentItem(current);state->pEnemy=enemy;state->pPossibleEnemy=possible;}
+    }restore{inventory,current,state,state->pEnemy,state->pPossibleEnemy,{}};
+    state->pEnemy=target;state->pPossibleEnemy=nullptr;
+    if(mode!=1)inventory->SetCurrentItem(nullptr);
+    if(mode==2) {
+        while(auto* weapon=inventory->GetBestWeaponForSnipe()) {
+            auto* clip=weapon->GetCurrentClip();Require(clip && clip->GetAmmoCount()>0 && restore.clips.size()<128,"snipe ammo control did not advance through native planning clips");
+            restore.clips.push_back({clip,clip->GetAmmoCount()});clip->SetAmmoCount(0);
+        }
+    } else Require(inventory->GetBestWeaponForSnipe()==selected.GetPtr(),"empty planning hand removed the actual selected sniper rifle");
+    auto* server=actor->GetUnitServer();auto* victim=target->GetUnitServer();const auto position=server->GetPosition(),targetPosition=victim->GetPosition();
+    auto* equipped=server->GetUnitRPG()->GetInventory()->GetActive();const int ap=server->GetAP(),hp=server->GetUnitRPG()->GetTotalVP(),targetHP=victim->GetUnitRPG()->GetTotalVP();
+    const int ammo=selected->GetItem()->GetAmmoQuantity(),planningAmmo=selected->GetCurrentClip()->GetAmmoCount();const bool command=server->HasCommand();
+    auto* planningHand=inventory->GetCurrentItem();GlobalGameRandom().SeedForHarness(0x79da);auto rng=GlobalGameRandom();
+    CObj<NAI::CAIBeginSnipeAction> action=new NAI::CAIBeginSnipeAction(actor);NAI::CAIBeginSnipeAction::SInfo info;
+    action->GetInfoInner(NAI::SPlaceWithAP(position,actor->GetAP()),&info);
+    std::printf("native selected snipe: mode=%d emptyHand=%d noAmmo=%d distance=%.2f selectedHead=%d location=%d baselineLocation=%d can=%d baselineCan=%d selected=%d planningAmmo=%d\n",
+        mode,int(mode!=1),int(mode==2),distance,selectedHead,int(info.hitLocation),int(baseline.hitLocation),int(info.bCanDo),int(baseline.bCanDo),int(info.pWeapon==selected),planningAmmo);std::fflush(stdout);
+    Require(server->GetPosition()==position && victim->GetPosition()==targetPosition && server->GetAP()==ap && server->GetUnitRPG()->GetTotalVP()==hp
+        && victim->GetUnitRPG()->GetTotalVP()==targetHP && server->GetUnitRPG()->GetInventory()->GetActive()==equipped
+        && selected->GetItem()->GetAmmoQuantity()==ammo && selected->GetCurrentClip()->GetAmmoCount()==planningAmmo
+        && inventory->GetCurrentItem()==planningHand && server->HasCommand()==command && rng.Get()==GlobalGameRandom().Get(),
+        "snipe prediction changed native equipment/ammo/AP/HP/positions/commands, planning hand/clip or RNG");
+    if(mode==2)Require(!info.bCanDo && !IsValid(info.pWeapon) && info.hitLocation==NAI::HL_ANY,"snipe selection ignored empty native planning magazines");
+    else Require(info.pWeapon==selected && info.hitLocation==NAI::HL_HEAD && info.bCanDo==baseline.bCanDo && info.pTarget==baseline.pTarget,
+        "AI snipe prediction ignored the selected loaded rifle when its current planning hand was empty");
+}
+
 static void AICoverRange(const char* databasePath,const char* resourcePath,int mode)
 {
     const bool human=mode==2 || mode==4 || mode==6 || mode==7;
@@ -24129,6 +24230,9 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-tohit-server-valid-control") && argc == 4) { AIToHitServerValidity(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "ai-tohit-server-null-empty") && argc == 4) { AIToHitServerValidity(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "ai-tohit-server-invalid-empty") && argc == 4) { AIToHitServerValidity(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "ai-snipe-selected-empty-hand") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ai-snipe-selected-current-hand") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ai-snipe-selected-no-ammo") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-near-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-cover-range-human-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],2); return true; }

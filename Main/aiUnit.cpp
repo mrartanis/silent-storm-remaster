@@ -184,6 +184,7 @@ public:
 	virtual bool IsDead() { return skills[1].nValue <= 0; }
 	virtual int GetRemainAP() { return Max( 0, skills[0].nMaxValue - skills[0].nValue ); }
 	virtual int GetToHit( IAIUnit *pTarget, const NAI::SUnitPosition &pos, NAI::EHitLocation hl = NAI::HL_ANY );
+	virtual int GetToHitWithWeapon( IAIUnit *pTarget, const NAI::SUnitPosition &pos, NAI::EHitLocation hl, CAIFireArmsWeapon *pSelectedWeapon );
 	virtual void SetPose( int pose );
 	virtual bool IsPerformingAction() { return pUnitServer->IsPerformingAction(); }
 	virtual bool IsUsingCannon() { return ( pCannon != 0 ); }
@@ -780,11 +781,16 @@ void CAIUnit::SpendAP( int _nAP )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CAIUnit::GetToHit( IAIUnit *pTarget, const NAI::SUnitPosition &pos, NAI::EHitLocation hl )
 {
+	return GetToHitWithWeapon( pTarget, pos, hl, 0 );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+int CAIUnit::GetToHitWithWeapon( IAIUnit *pTarget, const NAI::SUnitPosition &pos, NAI::EHitLocation hl, CAIFireArmsWeapon *pSelectedWeapon )
+{
 	if ( !IsValid( pTarget ) || !IsValid( GetUnitServer() ) )
 		return 0;
 	int nToHit = 100;
-	// The default firearm belongs to the shooter, not the target.
-	CPtr<CAIFireArmsWeapon> pWeapon = GetAIInventory()->GetCurrentFireArms();
+	// A planner may select a rifle while another item is in its current hand.
+	CPtr<CAIFireArmsWeapon> pWeapon = IsValid( pSelectedWeapon ) ? pSelectedWeapon : GetAIInventory()->GetCurrentFireArms();
 	if ( IsValid( pWeapon ) )
 	{
 		nToHit = GetCoverForFixedUnit( GetUnitPosition(), pTarget->GetUnitServer(), pWeapon->GetItem(), hl );

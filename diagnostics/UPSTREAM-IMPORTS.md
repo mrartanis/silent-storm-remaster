@@ -11079,3 +11079,84 @@ Source66fc9e9a stays partial: explicit chosen snipe weapon, fractional cover
 and its NaN behavior, four-AP escape scan remain independent pending work.
 Counts141 imported/19 partial/78 pending=97unfinished among281. Entire transfer
 and final actual-HEAD hosted Actions verification remain open.
+
+
+## 2026-10-28 — snipe prediction uses its selected rifle (66fc9e9a, partial)
+
+Source: [66fc9e9ad26497bf41f96a1a8c51c8a03e951718](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/66fc9e9ad26497bf41f96a1a8c51c8a03e951718).
+BeginSnipe chose a loaded rifle from inventory, then called default-hand
+GetToHit for ANY and HEAD. When the planning hand was empty, both queries
+ignored the eligible rifle. Pass that choice explicitly to both predictions.
+Adapt to this fork: keep existing 3arg GetToHit unchanged as a public entry;
+append non-pure GetToHitWithWeapon at the END of IAIUnit. Legacy implementations
+default to their old prediction. Native CAIUnit implements the explicit path;
+its 3arg entry delegates with no selected weapon, retaining default-owner
+behavior. Old method slots and all saved fields stay in place. No fixture
+interface boilerplate or gameplay data changes. Keep target/server guards,
+int cover/nonfinite protection, default non-rocket helper and own weapon origin.
+The later visibility/escape-budget scan is separate unfinished source work.
+
+Native scenario uses authored campaign root3791, found by the existing
+NativeMapDatabaseTests --roots against the actual DB. A separate test helper
+loads that map with the same native party/commander setup and no mission Lua;
+the existing shared810 fixture remains unchanged. No injected geometry/hit
+results, no movement of existing units, no numerical DB edits or fake visibility.
+Equip an authored sniper-capable rifle, synchronize its native AI inventory,
+select an actual enemy at18.25world units with an independently positive
+selected-rifle HEAD prediction. The actual BeginSnipe baseline reaches HEAD.
+Only then vary its separate planning hand or cached magazine counts, keeping
+physical equipment/ammo intact; scoped references restore AI enemy/possible,
+hand and clip counts. Check AP/HP/positions/equipment/commands/ammo/RNG.
+
+Three profiles: empty planning hand with loaded selected rifle; current-hand
+control; all sniper planning clips empty. Target/head choice is observed BEFORE
+the later escape scan, so the test does not need to fake that scan or claim the
+whole snipe action starts. In current runs can/baselineCan both0; baseline HEAD1
+and independently positive selectedHead distinguish the routing defect.
+
+Fixture history retained honestly: initial810 had no enemy far enough for the
+unchanged CanSnipe distance threshold, giving0/3 setup failures on both platforms.
+Intermediate far-nav setup also found no suitable tile in that tiny map; one
+CObj-to-CPtr list conversion compile error was corrected during preparation.
+NONE is counted as bug RED. Native campaign3791 current-hand calibration1/1
+passed BEFORE production; final trimmed scenario then produced authoritative
+RED Windows1/3 in3.88s, Linux1/3 in4.22s. Only empty-hand HEAD-choice assertion
+fails (ANY-1 instead HEAD1 despite selected loaded rifle and positive native
+reference). Current-hand and no-ammo controls pass. Production unchanged until
+both authoritative REDs and original caller proof completed.
+
+Original proof: typed Gold PDB BeginSnipe.GetInfoInner4a32a0/1006 maps to
+Steam4a4ac0/1006. Two unmasked24 body blocks+180/+1d0 unique in BOTH, matched
+prolog/frame/Info arg2 load and complete ret8/CC; EH pointers/direct-call
+relocations differ, so no false exact-prefix claim. Actual Gold4a3317 calls
+typed GetBestWeaponForSnipe455e50/251, Steam corresponding call ->4569b0.
+Its result is stored Info[EBP4]. ANY atGold4a33eb..fd and HEAD4a341b..2d
+both load that SAME selected weapon and push it as stackarg4 before HL(-1/1),
+pose and target. Calls use AIUnit PRIMARYRTTI slot2c, verified typed GetToHit
+Gold4ac1e0/Steam4ad9c0; its frame loads the explicit weapon atesp20. Positive
+HEAD stores Info+c=1 atGold4a3434. All listed blocks checked in BOTH versions.
+audit-ai-snipe-selected.py exits0 ->ai-snipe-selected-retail-oracle.json.
+
+GREEN64/64 Windows70.64s/Linux71.51s. Empty-hand now chooses HEAD1; controls
+retain HEAD1/current and ANY-1/no-ammo. All supplied choices use a positive
+native reference per run. Calibration may select different eligible native
+rifles/targets across processes/platforms: cached clip counts10 Windows vs5
+Linux and positive reference values10/15 are recorded, not claimed bit-identical.
+This is semantic parity with each run's native baseline; no balancing numbers
+were adjusted. Prior61 measured owner/target/server/cover records are compared
+within each platform.
+
+Final fresh Windows ALL_BUILD284/284 related302.92s; Linux Game/helpers282/282
+related299.35s. Each platform passes10/10 context/decal/legacy-snipe tests
+(7.64s/7.68s), including existing SnipeSkillAcknowledgment, SniperHeldAim,
+SnipeTileRestriction and SniperTargetlessProbe. Full local asset-free CI290/290
+24.59s. Seven raw logs64/64/284/282/10/10/290 exact passes, no Failed/NotRun/NUL;
+all runners exit0. verify-ai-snipe-selected.py ->shared evidence
+ai-snipe-selected-final-verification.json checks semantic new results without
+false weapon/calibration bit-parity and all previous61 measured records
+within each platform. HD caches OFF, shared builds only, no per-fix copies;
+owned tests/debuggers exited. This local CI is not hosted Actions verification.
+
+Source66fc9e9a remains partial: fractional cover/NaN and four-AP escape scan
+are separate pending hunks. Counts141 imported/19 partial/78 pending=97unfinished
+among281. Full transfer and final actual-HEAD hosted Actions verification remain.

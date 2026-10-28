@@ -28,6 +28,7 @@ namespace NAI
 {
 struct SAIState;
 class CAIInventory;
+class CAIFireArmsWeapon;
 class IAILogRecord;
 class	IAICriterionData;
 class IAIControl;
@@ -172,6 +173,9 @@ public:
 	virtual bool IsShootModeDisabled( NDb::EShootMode ) const { return false; }
 	virtual void DisableShootMode( NDb::EShootMode ) {}
 	virtual void EnableShootMode( NDb::EShootMode ) {}
+	// Append explicit-weapon prediction; keep existing calls and vtable slots.
+	virtual int GetToHitWithWeapon( IAIUnit *pTarget, const SUnitPosition &pos, EHitLocation hl, CAIFireArmsWeapon * )
+	{ return GetToHit( pTarget, pos, hl ); }
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 IAIUnit *CreateAIUnit( NWorld::CUnitServer *pUnitServer, bool bUnderAIControl );
