@@ -11948,3 +11948,37 @@ are fresh predecessor evidence, not falsely claimed rerun for this one line.
 Shared builds reused, HD generation OFF, no per-bug source/build copies and
 owned tests exit. Final actual-HEAD hosted Actions remains due after all
 useful imports. Ledger148 imported/18partial/72pending =90 unfinished sources.
+
+
+## 2026-10-28 — object-shot missing-hull lifecycle audit (90f210dd parity)
+
+Source [90f210dd03eb665fb5c9ff1ace8056e279709c58](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/90f210dd03eb665fb5c9ff1ace8056e279709c58), additional native regression coverage.
+The follow-up audit suspected an uninitialized target point in CanDo when a
+still-valid object loses its hull. This fork's GetUnitHLPos explicitly writes
+zero on failure, so that suspected memory bug does not exist here. Original
+CalcCovers Gold68d9c8 also continues without branching on the position helper's
+bool; do not invent a new eligibility policy. Original AttackObjectRanged
+instead explicitly falls back to its remembered point when selecting a shot
+and the target hull is absent (actual calls verified in the prior oracle).
+
+Two new native cases use the same actual authored door/actor/weapon and the
+real World.PlaceObjectInPocket/RestoreObjectFromPocket APIs. The pocket keeps
+the exact object alive while normal visitor unbinding removes its physical
+hull. The position helper demonstrably returns false+zero. Native Start keeps
+the original target point; SelectRay remains directed to that remembered point
+after the hull disappears, both directly and after the actual native executor
+factory/external-reference serializer roundtrip. World restore recovers the
+same hull and normal eligibility. Remembered-distance error0, aim alignment
+>0.99, AP34 (only the initial12 spent), ammo30 (two real ray preparations),
+health/position/orders preserved. Missing-hull CanDo0 is an observation of our
+native fixture; no claim that a retail binary was run in that scenario.
+
+Both cases and the nine existing object/preparation controls pass unchanged
+production: Windows11/11 12.21s, Linux11/11 12.33s. Local asset-free CI290/290.
+Three exact raw logs11/11/290, no failed/not-run/NUL and native registered-name
+sets verified. An initial const-RNG snapshot compile error was fixture
+calibration, not bug RED. There is no gameplay fix in this commit and no
+invented failing-test claim. Main and shipped game code remain unchanged from
+12f93c8a; prior136/134 and preceding214/212 game checks are not claimed rerun.
+No extra source/build copies, HD generation OFF, owned tests exit. Ledger
+remains148 imported/18partial/72pending =90 unfinished source reviews.

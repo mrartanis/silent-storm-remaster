@@ -17305,6 +17305,37 @@ static void NativeObjectShot(const char* databasePath,const char* resourcePath,i
         }
         return;
     }
+    if(mode==9 || mode==10) {
+        Require(executor && shot && result==NWorld::UCR_OK,"object lifetime fixture lost its ordinary native attack");
+        struct State {
+            NRPG::SAttackRayInfo ray;CVec3 remembered;
+            int operator&(CStructureSaver& saver){saver.Add(8,&ray);saver.Add(9,&remembered);return 0;}
+        };
+        auto read=[](NWorld::CExecShoot* action) {
+            CStructureNetworkContext refs;auto fields=BorrowedObjectFields(action,&refs);State result;
+            {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(1,&result);}return result;
+        };
+        shot->Start();const auto started=read(shot);const int startedAP=actor->GetAP(),startedAmmo=weapon->GetAmmoQuantity();
+        Require(fabs2(started.remembered-targetPoint)<.0001f,"native object shot did not remember its original real hull center");
+        CObj<NWorld::CWindowDoor> retained=door;world->PlaceObjectInPocket(door);MarkNewDGFrame();map->Sync();CVec3 absent(7,8,9);
+        Require(IsValid(retained) && world->GetPocket()->IsObjectInPocket(door) && !map->GetUnitHLPos(&absent,map->GetHull(door),-1) && fabs2(absent)==0,"native pocket lifecycle did not leave a valid actual object without a physical hull");
+        auto queryRandom=GlobalGameRandom();const int missing=int(shot->CanDoIt(actor->GetPosition()));
+        Require(actor->GetAP()==startedAP && weapon->GetAmmoQuantity()==startedAmmo && actor->GetPosition()==position && queryRandom.Get()==GlobalGameRandom().Get(),"missing-hull native eligibility query changed gameplay or RNG");
+        CObj<NWorld::CExecShoot> restored;NWorld::CExecShoot* selected=shot;
+        if(mode==10) {
+            CStructureNetworkContext refs;auto fields=BorrowedObjectFields(shot,&refs);
+            restored=dynamic_cast<NWorld::CExecShoot*>(pSSClasses->CreateObject(type));Require(restored,"native missing-hull shot factory failed");
+            {CStructureSaver reader(fields,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader);}selected=restored.GetPtr();
+        }
+        selected->SelectRay();const auto fallback=read(selected);CVec3 aim=started.remembered-fallback.ray.vOrigin;Normalize(&aim);
+        const float alignment=aim*fallback.ray.vDir;
+        Require(fabs2(fallback.remembered-started.remembered)<.0001f && std::isfinite(alignment) && alignment>.8f && fallback.ray.pIgnore.GetPtr()==actor,"missing-hull object shot did not fall back toward its remembered native point");
+        Require(actor->GetAP()==startedAP && weapon->GetAmmoQuantity()==startedAmmo-1 && actor->GetUnitRPG()->GetTotalVP()==vp && actor->GetPosition()==position && !actor->HasCommand(),"native remembered-point fallback changed AP/health/position/orders or spent an unexpected number of rounds");
+        world->RestoreObjectFromPocket(door);MarkNewDGFrame();map->Sync();CVec3 returned;const bool hasHull=map->GetUnitHLPos(&returned,map->GetHull(door),-1);
+        const int available=int(selected->CanDoIt(actor->GetPosition()));
+        std::printf("native object shot lifetime: mode=%d missingQuery=%d rememberedDistance=%g alignment=%g restoredHull=%d restoredQuery=%d AP=%d ammo=%d\n",mode,missing,double(std::sqrt(fabs2(started.remembered-targetPoint))),double(alignment),int(hasHull),available,actor->GetAP(),weapon->GetAmmoQuantity());std::fflush(stdout);
+        Require(!world->GetPocket()->IsObjectInPocket(door) && hasHull && fabs2(returned-targetPoint)<.0001f && available==NWorld::UCR_OK,"native object restore did not recover its original hull and shot eligibility");return;
+    }
     if(mode==6){Require(executor && result==NWorld::UCR_OK_RELOAD && !shot,"object shot lost the native empty-clip reload fallback");return;}
     Require(executor && shot && result==(mode==4?NWorld::UCR_NO_TARGET:NWorld::UCR_OK),"object shot factory changed a native availability control");
     if(mode==3 || mode==4){Require(type==int(mode==3?0x00122173:0x00422170),"point/missing-target attack lost its existing executor kind");return;}
@@ -24480,6 +24511,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "cancelled-equipment-hidden-item-pose")) { Require(argc == 4, "equipment cancellation requires db and res"); CancelledInventoryHiddenItemPose(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "spent-medkit-pose-cleanup")) { Require(argc == 4, "spent medkit requires db and res"); SpentMedkitPoseCleanup(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "spent-picklock-pose-cleanup")) { Require(argc == 4, "spent picklock requires db and res"); SpentPicklockPoseCleanup(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "object-shot-lifetime-pocket") && argc == 4) { NativeObjectShot(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "object-shot-lifetime-restored-pocket") && argc == 4) { NativeObjectShot(argv[2],argv[3],10); return true; }
     if (!std::strcmp(mode, "object-preparation-status") && argc == 4) { NativeObjectShot(argv[2],argv[3],7); return true; }
     if (!std::strcmp(mode, "object-preparation-holstered") && argc == 4) { NativeObjectShot(argv[2],argv[3],8); return true; }
     if (!std::strcmp(mode, "object-shot-identity") && argc == 4) { NativeObjectShot(argv[2],argv[3],0); return true; }
