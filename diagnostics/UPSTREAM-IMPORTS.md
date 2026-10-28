@@ -9630,3 +9630,66 @@ Source2eee Normal contact consumers are now accounted; OnPassControl scheduling
 and live roster/neutral/alarm consumers remain pending. Counts281:137imported/
 20partial/81pending (101unfinished sources); final actual-HEAD hosted GitHub Actions
 verification/repair remains due after ALL.
+
+
+## abbe4777, Fear route stage - retain the suspended normal route
+
+Fear Update unconditionally SetRouteLogic(0) before choosing its fear logic.
+That deleted the normal patrol/script route, so clearing fear logic could never
+resume it. Original Fear has no early route deletion; the existing fork SetLogic
+already adds a route pause and CancelCurrentLogic resumes it. Remove the invented
+clear and correct the local elision comment. Reuse those established helpers;
+do not change dual route slots, control-stack/sequence handling or plan factories.
+
+Native RED3/4 4.52s: calm, suspected and known-enemy branches retain sequence1 but
+normal0, pauses0/2/0 instead of1/3/1 after installing genuine fear logic. Empty
+normal-route control passes. Tests install an actual circular normal route with
+a wired CTaskCommandWait and an independently retained sequence route through
+the existing field7 serializer. Suspect starts with two inherited pauses. Real
+SetReaction/GetReactionForUpdate and SAIUpdateTracker.Update select/run Fear.
+After the fix4/4 pass4.53s: both saved identities retained; exactly one extra
+normal suspension; clearing fear logic exposes the original route as GetLogic
+and restores pause depth0/2/0, preserving inherited pauses. The original actual
+wait-command identity and circular flag survive. Empty normal slot stays empty;
+the sequence slot remains independent. Actor AP/HP/full position and absence
+of gameplay command stay unchanged. This proves slot/latch/command retention,
+not an executed complete patrol traversal.
+
+Original proof: named Gold PDB Fear.Update43c900/614, primary named RTTI offset0
+COL8cf488/vtable8a480c slot10 ->Steam COL8deb20/vtable8b38a4 slot10=43d540. Full
+method ends43d7a6 with matching16-byte epilog/ret and following padding. Bounded
+body has no Unit.SetRoute slot5c or direct4adf00 call. First helper43d582 ->
+GetAIUnitState491b20 uniquely matches all35 bytes of named Gold490a20. Three
+fear plan installs43d635/43d6ad/43d78e ->SetLogic491b80 uniquely match all47
+bytes of named Gold490a80; that helper delegates Unit.SetLogic58. Named CAIUnit
+primary slot58 GoldSetLogic4ac920/246 ->Steam4ae130; cancel4ae1b7->4ae040,
+route selection54 at4ae1cf and Pause1c at4ae1f7. Cancel selects route54 at4ae0b9
+and Resume20 at4ae101. Existing own helpers implement this same suspension and
+resumption behavior. No arbitrary masks/ABI copying. Evidence
+ai-fear-route-retail-oracle.json, original full Fear/SetLogic/Cancel bodies.
+
+Fresh Windows ALL_BUILD and Linux Game/helpers pass. Final focused40/40 46.64s;
+related Windows92/92 96.66s and Linux90/90 92.23s; additional Linux selected/
+chooser4/4 1.18s; local asset-free CI290/29024.60s with registration parity.
+Windows related includes serializer/stop-resume; existing six contact consumers
+and primitive lock/owner tests remain green. All5 raw logs have exact40/92/90/
+4/290 passed records, no NUL/Failed/NotRun/missing executable; actual runners
+exit0. All4 route identity/depth records match between platforms. Evidence
+ai-fear-route-{red,green,final-focused,final-related,final-linux,linux-context,
+final-ci}. Owned processes exited, shared builds reused and HD generation OFF.
+No hosted Actions success or complete mission-playthrough claim. No authored
+balance coefficient, save/network field, font, facial engine or HD change.
+
+Source abbe remains partial for Fear rotation-AP reservation and Assassin's
+comment-only correction. Read-only AP follow-up audit established Gold PDB
+CUnitMission.SpendAP6b9760/44 exactly/uniquely matches Steam6bf970 in all44
+bytes: subtract from clamped current AP and cap to max, no invented zero-spend
+guard. Thus insufficient AP can rise to rotation cost after subtracting a
+negative reservation amount. Preserve original caller behavior rather than
+guessing a clamp; test it explicitly before implementing AP. CAIUnit.GetActionAP
+Gold4abd20/11 ->Steam4ad500 delegates GetUnitMission slot4 then mission slot0;
+the original Fear call passes action5=AC_ROTATE, current pose and false option.
+Current fork SpendAP additionally preserves its AP/script-sequence cheats, which
+must remain active. No AP code changes in this stage. Counts281 remain137imported/
+20partial/81pending (101unfinished); ALL and final actual-HEAD hosted Actions
+verification/repair remain open.

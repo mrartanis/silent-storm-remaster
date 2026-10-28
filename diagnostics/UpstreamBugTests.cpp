@@ -8241,6 +8241,95 @@ static void AIReactionContactDelivery(const char* databasePath, const char* reso
     }
 }
 
+static void AIFearRouteRetention(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer *actor = nullptr, *enemy = nullptr;
+    NAI::IAIUnit* owner = nullptr;
+    for (const auto& unit: units) {
+        auto* wrapper = NAI::GetAIUnit(unit);
+        if (IsValid(unit) && unit->CanFight() && unit->IsAIUnit() && !unit->HasCommand()
+                && unit->GetUnitRPG()->CanMove() && IsValid(wrapper)) {
+            actor = unit.GetPtr(); owner = wrapper; break;
+        }
+    }
+    Require(actor && owner, "fear route fixture has no mobile idle native AI actor");
+    for (const auto& unit: units)
+        if (IsValid(unit) && unit->CanFight() && actor->GetDiplomacyState(unit) == NDb::DS_ENEMY
+                && IsValid(NAI::GetAIUnit(unit))) { enemy = unit.GetPtr(); break; }
+    Require(enemy != nullptr, "fear route fixture has no native hostile contact");
+    owner->SetLogic(nullptr); owner->SetRouteLogic(nullptr); owner->Synchronize();
+    world->GetAIMap()->Sync();
+    auto* state = owner->GetAIUnitState();
+    Require(state != nullptr, "fear route fixture has no native threat state");
+    state->enemies.data.units.clear(); state->enemies.data.positions.clear();
+    state->possibleEnemies.data.units.clear(); state->possibleEnemies.data.positions.clear();
+    state->allies.data.units.clear(); state->allies.data.positions.clear();
+    state->pEnemy = state->pPossibleEnemy = state->pAlly = nullptr; state->bScared = false;
+    if (mode == 1) { state->AddPossibleEnemy(NAI::GetAIUnit(enemy)); state->pPossibleEnemy = NAI::GetAIUnit(enemy); }
+    if (mode == 2) { state->AddEnemy(NAI::GetAIUnit(enemy)); state->pEnemy = NAI::GetAIUnit(enemy); }
+    state->enemies.bModified = state->possibleEnemies.bModified = state->allies.bModified = false;
+    CObj<NAI::CTaskCommandWait> wait = new NAI::CTaskCommandWait(3);
+    CObj<NAI::CAIRouteLogic> normal = NAI::CreateAIRouteLogic(owner, vector<CPtr<NAI::CTaskCommand>>{wait.GetPtr()}, true);
+    CObj<NAI::CAIRouteLogic> sequence = new NAI::CAIRouteLogic(owner);
+    Require(IsValid(normal) && normal->IsActive(), "fear route fixture could not build its actual normal route");
+    if (mode != 3) owner->SetRouteLogic(normal);
+    const int priorPauses = mode == 1 ? 2 : 0;
+    for (int i = 0; i != priorPauses; ++i) normal->Pause();
+    // Keep the fork's independent sequence slot populated while in normal mode.
+    // Fear must not remove or repurpose either saved route identity.
+    CStructureNetworkContext refs; auto initial = BorrowedObjectFields(owner, &refs);
+    const auto id = refs.nextID++; refs.ids[sequence.GetPtr()] = id; refs.refs[id] = sequence.GetPtr();
+    vector<CObj<NAI::IAILogic>> slots = {mode == 3 ? nullptr : normal.GetPtr(), sequence.GetPtr()};
+    CMemoryStream saved;
+    { CStructureSaver writer(saved, CStructureSaver::WRITE, &refs); writer.Add(7, &slots); }
+    saved.Seek(0);
+    { CStructureSaver reader(saved, CStructureSaver::READ, &refs); static_cast<CObjectBase*>(owner)->operator&(reader); }
+    auto readSlots = [&]() {
+        CStructureNetworkContext references; auto fields = BorrowedObjectFields(owner, &references);
+        vector<CObj<NAI::IAILogic>> result;
+        { CStructureSaver reader(fields, CStructureSaver::READ, &references); reader.Add(7, &result); }
+        return result;
+    };
+    const auto before = readSlots();
+    Require(before.size() == 2 && before[0].GetPtr() == (mode == 3 ? nullptr : normal.GetPtr())
+            && before[1].GetPtr() == sequence.GetPtr() && owner->GetRouteLogic() == before[0].GetPtr(),
+        "fear route fixture did not retain its two serialized route slots in normal mode");
+    CObj<NAI::CAIReaction> reaction = NAI::CreateAIFearReaction(owner, false, false, 0);
+    owner->SetReaction(reaction);
+    Require(owner->GetReactionForUpdate() == reaction.GetPtr(), "fear route fixture did not consume reaction installation");
+    const int ap = actor->GetAP(), hp = actor->GetUnitRPG()->GetTotalVP(); const auto position = actor->GetPosition();
+    GlobalGameRandom().SeedForHarness(2);
+    NAI::SAIUpdateTracker tracker; tracker.Add(reaction); tracker.Update();
+    Require(tracker.CanGetCommand() && owner->GetReaction() == reaction.GetPtr() && IsValid(owner->GetLogic())
+            && owner->GetLogic() != normal.GetPtr(), "fear route fixture failed to install its separate native fear logic");
+    const auto after = readSlots();
+    std::printf("fear route mode=%d normal=%d sequence=%d pauses=%d expected=%d fearLogic=%d\n", mode,
+        int(after.size() == 2 && after[0].GetPtr() == normal.GetPtr()),
+        int(after.size() == 2 && after[1].GetPtr() == sequence.GetPtr()), normal->nPause,
+        priorPauses + (mode == 3 ? 0 : 1), int(IsValid(owner->GetLogic())));
+    Require(after.size() == 2 && after[1].GetPtr() == sequence.GetPtr()
+            && after[0].GetPtr() == (mode == 3 ? nullptr : normal.GetPtr()),
+        "fear reaction deleted or replaced a saved route instead of retaining it");
+    Require(normal->nPause == priorPauses + (mode == 3 ? 0 : 1),
+        "fear logic did not add exactly one suspension to the retained normal route");
+    owner->SetLogic(nullptr);
+    const auto resumed = readSlots();
+    Require(owner->GetLogic() == before[0].GetPtr() && resumed.size() == 2 && resumed[0].GetPtr() == before[0].GetPtr()
+            && resumed[1].GetPtr() == sequence.GetPtr() && normal->nPause == priorPauses
+            && normal->IsActive() == (priorPauses == 0),
+        "finishing fear logic failed to resume the original route or corrupted an inherited pause");
+    CStructureNetworkContext routeRefs; auto routeFields = BorrowedObjectFields(normal, &routeRefs);
+    vector<CObj<NAI::CTaskCommand>> commands;
+    { CStructureSaver reader(routeFields, CStructureSaver::READ, &routeRefs); reader.Add(4, &commands); }
+    Require(commands.size() == 1 && commands.front().GetPtr() == wait.GetPtr() && normal->IsCircled(),
+        "fear discarded the original patrol's actual command or looping state");
+    Require(actor->GetAP() == ap && actor->GetUnitRPG()->GetTotalVP() == hp && actor->GetPosition() == position
+            && !actor->HasCommand(), "fear route suspension spent AP/HP, moved the actor or issued a gameplay order");
+}
+
 static void ArrivedRetreatCompletion(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -21662,6 +21751,10 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-reaction-fear-suspect") && argc == 4) { AIReactionContactDelivery(argv[2], argv[3], 3); return true; }
     if (!std::strcmp(mode, "ai-reaction-normal-ally") && argc == 4) { AIReactionContactDelivery(argv[2], argv[3], 4); return true; }
     if (!std::strcmp(mode, "ai-reaction-normal-alarm") && argc == 4) { AIReactionContactDelivery(argv[2], argv[3], 5); return true; }
+    if (!std::strcmp(mode, "ai-fear-route-calm") && argc == 4) { AIFearRouteRetention(argv[2], argv[3], 0); return true; }
+    if (!std::strcmp(mode, "ai-fear-route-suspect") && argc == 4) { AIFearRouteRetention(argv[2], argv[3], 1); return true; }
+    if (!std::strcmp(mode, "ai-fear-route-enemy") && argc == 4) { AIFearRouteRetention(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "ai-fear-route-empty") && argc == 4) { AIFearRouteRetention(argv[2], argv[3], 3); return true; }
     if (!std::strcmp(mode, "mission-overlay-readiness")) { MissionOverlayReadiness(); return true; }
     if (!std::strcmp(mode, "ai-player-mission-readiness")) { AIPlayerMissionReadiness(); return true; }
     if (!std::strcmp(mode, "sound-icon-visibility")) { OverlayIconVisibility(false); return true; }

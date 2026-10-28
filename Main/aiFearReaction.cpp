@@ -24,11 +24,8 @@
 // unit's known-enemy set, and the installed behaviours are the same CreateAI*Logic route factories the
 // Guard/Retreat reactions use.
 //
-// ELIDED (build-validation scope, exactly as CAIGuardReaction / CAIRetreatReaction):
-//  * the early pU->SetRoute(NULL) route-clear (release IAIUnit vtbl+0x5c). IAIUnit declares no SetRoute slot
-//    and SetLogic replaces the unit's logic in place, so the landed reactions drop it consistently.
-//  * the suspected-enemy AddEvent(CreateAILostPossibleEnemyEvent) + the glance look-AP refund. The
-//    event layer is now active, so this omitted cleanup is a tracked follow-up divergence.
+// Contact consumption and preservation of the suspended route follow the original.
+// The suspected-contact rotation AP rule remains a separate restoration.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NAI
 {
@@ -48,9 +45,7 @@ void CAIFearReaction::Update()
 	IAIUnit *pU = GetUnit();
 	if ( !IsValid( pU ) )
 		return;
-	// retail SetRoute(NULL) RESTORED (release IAIUnit vtbl+0x5c @0xadb90 -- possible now that the route
-	// slot exists): the panicking unit abandons its route for good.
-	pU->SetRouteLogic( 0 );
+	// Preserve the route; installing fear logic suspends it until that logic clears.
 	// the per-unit threat state (populated by the commander each think).
 	SAIUnitState *us = GetAIUnitState();   // plain struct ptr -- not a CObjectBase, so no IsValid()
 	if ( us == 0 )
