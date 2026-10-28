@@ -8860,3 +8860,92 @@ open. The PK result/bypass prerequisite for the separately retained2de periodic
 bleeding fixture is now implemented; reapply/adapt that fixture preserving its
 deterministic seed2 and rerun native RED against this new provider before the
 remaining periodic producer change.
+
+
+## 2de89e04, part5 — periodic integer bleeding and removal of the duplicate wound rule
+
+After the separately imported PK result/bypass prerequisite, move the native
+bleeding producer into the unit's own-turn finish and30second regeneration pass.
+Keep the existing single critical-lifetime advance, calculate whole bleeding,
+refresh the original C_VP wound modifier, then retain current PK regeneration.
+The server stores the result in existing tag32, suppresses it for an unconscious
+clue carrier, dispatches only positive damage with the original bypass-PK flag,
+emits the original blood/ack and reconciles consciousness. Preserve our network
+replica early return. The old player-turn/time callback becomes empty while its
+registration/fields remain compatible. Existing fractional/integer regressions
+now enter the correct native end tick and keep their deterministic seed2.
+
+Original arithmetic: positive effective VP plus nonnegative healed VP, half the
+theoretical maximum using the existing FPU rounding helper, truncate critical
+strength first, then below half add10% of the missing-to-half VP and truncate
+again, subtract stopped amount and clamp0. No authored balance data or new
+coefficients. The original Steam addition refreshes C_VP after the calculation;
+Gold lacks that addition, so its body alone is insufficient evidence.
+
+Current-provider native RED8fail/13 14.42s: real FixtureWorld/RPG critical, native
+own-turn/Segment callbacks, actual VP and real hit queue plus saved tag32.
+Whole3.5 is ignored at finish/30seconds, low30/80 lacks its1 damage, fractional
+critical3.9 at31VP lacks its3, stop2 lacks its1, unconscious non-clue unit does
+not bleed, while the old player event still attacks. Fractional/zero controls,
+low9 deficit, replica and protected unconscious clue controls already pass.
+Initial relocated producer GREEN13/13 14.48s before the coupled rule below.
+
+Additional native RED4/4 4.48s proves why the old world damage-derived critical
+must be removed in the same flow: a blocked hit at31VP emits hit0 yet creates a
+permanent bleeding critical0; a real4VP hit31->27 creates permanent0.4; implicit
+periodic damage30->29 creates an explicit permanent critical; finite strength3.9
+with duration3 becomes permanent after its first periodic hit. Remove only that
+old automatic half-health critical block and its now-unused previous-VP local.
+Keep current VP for the fork's later head/gore code. Coherent GREEN15/15 16.62s:
+implicit bleeding remains implicit, and the explicit finite critical retains2
+remaining turns after one native end tick. Actual attack/event paths run; no
+mock damage producer or replacement duration calculation.
+
+Original proof: mission vtable144 points Gold DoRegenerations6be2c0/418 to
+Steam6c49a0, corroborated by exact unique37byte Gold6be311->Steam6c49f1. All16bytes
+of Gold CUnit::GetHealedVP6b4300 map uniquely to Steam6ba4a0 and clamp negative
+values. Steam half constant8b29fc=0.5, tenth8b5360=0.10000000149; critical truncation
+6c4a50..6c4a6f, whole-critical add6c4ac3, final truncation6c4acf, suppression/positive
+output6c4adb..6c4ae9. C_VP call6c4b1a uses previously identified slotfc ApplyCritical
+Gold6bcf20/Steam6c3450, arguments300/-1/0/location4/type4. The earlier exact97byte
+world helper proof establishes regeneration, clue/KO, positive guard and attack
+arguments; earlier clock proof establishes6/30second scheduling. NO masks.
+
+A new independent world-method identity also resolves the earlier stack-block
+mismatch: named CDumbUnitServer MSVC RTTI in Gold has COL8e79e4, subobject offset8,
+type descriptor96ef4c, vtable8bbb6c -> PDB method745f80. Same unique class name/
+locator signature/offset in Steam gives COL8f7168, descriptor98008c, vtable8cb054
+-> world ProcessAttack751570. Its native RPG call is75162e/slota4, receiver-type2
+comparison75178a and hit-locator constructor call7517a0->7537d0. The complete
+751570..751cee method has no damage-derived C_BLEEDING14 creation. Its0.5 operations
+near751be7/751bfa are elsewhere, not half-VP bleeding. No stack-byte masks were
+invented. Preserve the fork's world API rather than copying a retail ABI.
+Evidence periodic-bleed-pipeline-retail-oracle.json, world-damage-rtti-oracle.json,
+full Gold/Steam disassemblies and earlier zero/clock oracle files.
+
+Scope is core bleeding, lifetime placement and native periodic dispatch. Original
+VP-boost expiry/CheckOverdose portions are not newly implemented or claimed here.
+The concrete GetBleeding HUD readout still needs its separate native test/import;
+projectile/incidental-hit/night parts of this mixed source remain separate.
+No face/font/HD implementation, current PK regeneration amount, AP formula,
+serialized field/object ID or network schema changes.
+
+Existing saved critical effects continue to load as authored in that save. This
+fix prevents new manufactured/permanent conversions; it does not infer a lost
+original duration or delete existing permanent bleeding, whose provenance is
+not encoded separately from legitimate scripted effects.
+
+Final Windows ALL_BUILD and Linux Game/helpers rebuilt: focused15/15 16.57s;
+related112/112 Windows111.34s/Linux111.34s (distinct native command paths/logs
+verified), including earlier19PK cases and healing/survival/critical controls;
+7 Windows network/serializer cases55.10s; display57/57 Windows81.93s/Linux67.48s;
+local asset-free CI290/29024.61s. All7 raw logs have exact15/112/7/57/112/57/290
+passed records, no NUL/Failed/NotRun/missing executable, actual runners exit0.
+Asset-dependent cases are covered by112 rather than the290 manifest. No current
+hosted GitHub success, full original drug pipeline or complete mixed-source2de
+completion is claimed. Owned tests exited; shared builds reused, no old builds
+or HD generation. Evidence periodic-bleed-pipeline-current-{red,green,coherent},
+manufactured-bleeding-red, periodic-bleed-pipeline-{final-focused,final-related,
+final-network,final-display,final-linux,linux-display,final-ci} and oracle files.
+Source remains partial,132imported/22partial/84pending (106unfinished). ALL281,
+remaining readout/projectile/night work and final actual-HEAD hosted CI remain open.

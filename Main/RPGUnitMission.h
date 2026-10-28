@@ -147,7 +147,7 @@ public:
 	virtual int GetFallDamage( float fHDiff ) = 0;
 	virtual NDb::CPanzerklein *GetPanzerklein() = 0;
 	virtual void SetPanzerklein( NDb::CPanzerklein *pPK, CDynamicSkill *_pPanzerkleinVP, IInventory *_pPKInventory ) = 0; 
-	virtual void DoRegenerations() = 0;
+	virtual void DoRegenerations( NWorld::IWorld *pWorld, int *pnBleed ) = 0;
 	virtual void SetHiding( bool _bHiding ) = 0;
 	virtual void HealVP( const SFirstAid &fa ) = 0;
 	virtual void HealCriticals( int nDC ) = 0;

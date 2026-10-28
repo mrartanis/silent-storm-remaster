@@ -839,8 +839,7 @@ void CUnitServer::OnTBSEvent( ETBSEvent event )
 			animator.CalculateAnimFlags();
 			break;			
 		case TBS_FINISH_OWN_TURN:
-			if ( !IsDead() )
-				GetUnitRPG()->DoRegenerations();
+			ProcessCriticalsAndRegenerations();
 			pState->OnFinishOwnTurn();
 			pState->OnFinishTimeOrTurn( false );
 			break;			
@@ -1110,8 +1109,7 @@ void CUnitServer::Segment()
 		}
 		if ( tCur - tCriticalPrev >= 30000 )
 		{
-			if ( !IsDead() )
-				GetUnitRPG()->DoRegenerations();
+			ProcessCriticalsAndRegenerations();
 			tCriticalPrev = tCur;
 		}
 	}
@@ -1961,22 +1959,30 @@ void CUnitServer::OnNewPlayerFastTurnOrTime( const CEventOnNewPlayerFastTurnOrTi
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitServer::OnNewPlayerTurnOrTime( const CEventOnNewPlayerTurnOrTime &event )
 {
-	if (GetWorld()->bNetworkReplica) return;
-	if ( CanFight() && ( !IsValid( event.pPlayer ) || event.pPlayer == GetPlayer() ) )
+	// Original bleeding belongs to the unit's periodic end pass, not this player event.
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CUnitServer::ProcessCriticalsAndRegenerations()
+{
+	// Retain the fork's authoritative-world gate when moving its damage producer.
+	if ( GetWorld()->bNetworkReplica )
+		return;
+	if ( !IsDead() )
 	{
-		// Bleeding
-		NRPG::CCritical *pCritical;
-		if ( GetUnitRPG()->HasCritical( NDb::C_BLEEDING, &pCritical ) )
+		GetUnitRPG()->DoRegenerations( GetWorld(), &nBleed );
+		if ( IsClueUnit() && IsUnconscious() )
+			nBleed = 0;
+		// Original Steam 0x7c3209: never dispatch a nonpositive whole amount.
+		if ( nBleed > 0 )
 		{
-			int nDamage = pCritical->GetCritical().fValue;
-			// Original Steam 0x7c3209: do not dispatch a nonpositive whole-number bleed.
-			if ( nDamage > 0 )
-			{
-				NRPG::CAttackPortion att( 1, 0, 0.0f, nDamage, -1, 0 );   // fPushCoeff=0
-				ProcessAttack( GetWorld(), NAI::HL_BODY, &att, CVec3( 0, 0, -1 ), GetUnitRPG()->GetRPGArmor() );
-			}
+			NRPG::CAttackPortion attack( 1, 0, 0.0f, nBleed, -1, 0 );
+			attack.bBypassPK = true;
+			ProcessAttack( GetWorld(), NAI::HL_BODY, &attack, CVec3(0,0,-1), GetUnitRPG()->GetRPGArmor() );
+			GetWorld()->CreateBloodyMess( GetPosition().GetCP() + CVec3(0,0,1), CVec3(0,0,-1.5f), this, 1 );
+			GetWorld()->GetGlobalAck()->OnSuffersLightDamage( this );
 		}
 	}
+	SyncConscious();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 NDb::EDiplomacyState CUnitServer::GetDiplomacyState( CUnitServer *pTarget ) const

@@ -304,7 +304,7 @@ public:
 	virtual NDb::CPanzerklein *GetPanzerklein() { return pPanzerklein; }
 	virtual void SetPanzerklein( NDb::CPanzerklein *pPK, CDynamicSkill *_pPanzerkleinVP, IInventory *_pPKInventory );
 	void InitAsPanzerklein( NDb::CPanzerklein *pPK );   // retail @0x2c4f50 tail (CreateUnit PK-pers VP init)
-	virtual void DoRegenerations();
+	virtual void DoRegenerations( NWorld::IWorld *pWorld, int *pnBleed );
 	virtual bool IsHero() const;
 	virtual bool IsHiding() const { return bHiding; }
 	virtual void SetHiding( bool _bHiding );
@@ -2079,10 +2079,28 @@ void CUnitMission::AddVPBoost( float fStrength, int nDuration )
 	vpBoostDurations.push_back( nDuration );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CUnitMission::DoRegenerations()
+// Original Steam 0x6c4a25: whole bleeding strength, low-health contribution and suppression.
+static int CalcBleedingDamage( int nVP, int nMaxVP, float fCritical, int nStopped )
+{
+	if ( nVP <= 0 )
+		return 0;
+	int nDamage = int( fCritical );
+	int nHalfVP = Float2Int( nMaxVP * 0.5f );
+	if ( nVP < nHalfVP )
+		nDamage = int( float(nDamage) + ( nHalfVP - nVP ) * 0.1f );
+	return Max( 0, nDamage - nStopped );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CUnitMission::DoRegenerations( NWorld::IWorld *pWorld, int *pnBleed )
 {
 	// Original Steam 0x6c49ec: advance critical lifetimes at the periodic end tick.
 	ProcessCriticalsOnNewTurnFor();
+	CCritical *pBleeding = 0;
+	HasCritical( NDb::C_BLEEDING, &pBleeding );
+	CDynamicSkill &vp = pRPGUnit->Skills(NDb::ST_VP);
+	*pnBleed = CalcBleedingDamage( int(vp) + Max( 0, GetHealedVP() ), vp.GetTheoreticalMax(),
+		pBleeding ? pBleeding->GetValue() : 0, nBleedingStopAmount );
+	ApplyCritical( SCritical( NDb::CL_ANY, NDb::C_VP ) );
 	if ( !pPanzerklein )
 		return;
 	if ( !pPanzerklein->fRegenerationValue )

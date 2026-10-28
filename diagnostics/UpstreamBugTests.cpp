@@ -14922,6 +14922,91 @@ static void PeriodicCriticalLifetime(const char* databasePath,const char* resour
     }
 }
 
+static void SeedPeriodicBleedNoDodge(NRPG::IUnitMission* rpg)
+{
+    // Select a deterministic native RNG input for the existing dodge rule, not a replacement damage path.
+    const int ic=rpg->GetIC();Require(ic<100,"periodic fixture requires a native shooter with a non-certain dodge chance");
+    CRandomGenerator reference;unsigned int seed=1,roll=0;
+    for(;seed<256;++seed){reference.SeedForHarness(seed);roll=reference.Get(100);if(int(roll)>=ic)break;}
+    Require(seed<256,"periodic fixture could not select a native no-dodge RNG input");
+    GlobalGameRandom().SeedForHarness(seed);
+    std::printf("native periodic RNG: seed=%u firstDodgeRoll=%u IC=%d\n",seed,roll,ic);std::fflush(stdout);
+}
+
+static void NoManufacturedBleeding(const char* databasePath,const char* resourcePath,bool blocked)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(const auto& unit:units)if(IsValid(unit) && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK() && unit->GetUnitRPG()->GetHealedVP()==0 && unit->GetUnitRPG()->GetTotalVP()>30){actor=unit.GetPtr();break;}
+    Require(actor,"implicit bleeding fixture lacks a healthy native human actor");
+    auto* rpg=actor->GetUnitRPG();rpg->RemoveCritical(NDb::C_BLEEDING);auto& vp=rpg->GetRPGUnit()->Skills(NDb::ST_VP);
+    const int desired=Float2Int(vp.GetTheoreticalMax()*.5f)-9;Require(desired>8,"implicit bleeding fixture lacks enough low-health VP");vp.SetValue(desired);
+    Require(!rpg->HasCritical(NDb::C_BLEEDING),"implicit bleeding fixture already has an explicit critical");
+    for(;;){CObj<NWorld::CHitLocator> pending=world->GetHitEvent();if(!pending)break;}
+    NRPG::CAttackPortion attack(blocked?0:100000,0,0.f,4,4,0,0,nullptr,rpg,1.f,-1);GlobalGameRandom().SeedForHarness(2);
+    const int before=rpg->GetTotalVP(),amount=actor->ProcessAttack(world,NAI::HL_BODY,&attack,CVec3(0,0,-1),rpg->GetRPGArmor());
+    CObj<NWorld::CHitLocator> hit=world->GetHitEvent();NRPG::CCritical* critical=nullptr;const bool manufactured=rpg->HasCritical(NDb::C_BLEEDING,&critical);
+    std::printf("native manufactured bleeding: blocked=%d amount=%d VP=%d->%d hit=%d critical=%d strength=%g\n",int(blocked),amount,before,rpg->GetTotalVP(),hit?hit->nHitValue:-999,int(manufactured),critical?critical->GetValue():0.f);std::fflush(stdout);
+    const int expected=blocked?0:4;
+    Require(amount==expected && rpg->GetTotalVP()==before-expected && hit && hit->nHitValue==expected && !world->GetHitEvent(),"implicit bleeding fixture did not execute its real blocked/landed attack control");
+    Require(!manufactured,"ordinary low-health damage manufactured a permanent bleeding critical, including on a blocked hit");
+}
+
+static void PeriodicBleedingPipeline(const char* databasePath,const char* resourcePath,int kind)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(const auto& unit:units) {
+        if(!IsValid(unit) || !unit->CanFight() || unit->IsWearingPK() || unit->IsEmptyPK() || unit->IsPerformingAction())continue;
+        auto* rpg=unit->GetUnitRPG();const auto& vp=rpg->GetRPGUnit()->Skills(NDb::ST_VP);
+        if(vp.GetTheoreticalMax()>=40 && int(vp)>=Float2Int(vp.GetTheoreticalMax()*.5f) && rpg->GetHealedVP()==0){actor=unit.GetPtr();break;}
+    }
+    Require(actor,"periodic pipeline fixture has no healthy idle native non-PK actor");
+    auto* rpg=actor->GetUnitRPG();rpg->RemoveCritical(NDb::C_BLEEDING);
+    float strength=kind==0?.5f:(kind==2 || kind==3)?0.f:(kind==4 || kind==5)?3.9f:3.5f;
+    if(kind==2 || kind==3 || kind==4) {
+        auto& vp=rpg->GetRPGUnit()->Skills(NDb::ST_VP);
+        const int desired=Float2Int(vp.GetTheoreticalMax()*.5f)-(kind==3?10:9);vp-=int(vp)-desired;
+        Require(int(vp)==desired && desired>0,"periodic low-health fixture did not install its native VP");
+    }
+    if(strength>0)rpg->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_BLEEDING,3,strength));
+    if(kind==5) {
+        int stopped=2;CMemoryStream saved;{CStructureSaver writer(saved,CStructureSaver::WRITE);writer.Add(35,&stopped);}saved.Seek(0);
+        {CStructureSaver reader(saved,CStructureSaver::READ);static_cast<CObjectBase*>(rpg)->operator&(reader);}
+    }
+    if(kind==9 || kind==10) {
+        actor->nClueCount=kind==9?1:0;actor->SetState(new NWorld::CUnitStateUnconscious(actor));
+        Require(actor->IsUnconscious() && !actor->IsDead() && actor->IsClueUnit()==(kind==9),"periodic unconscious/clue fixture did not enter its actual native state");
+    }
+    if(kind==7)world->bNetworkReplica=true;
+    for(;;){CObj<NWorld::CHitLocator> pending=world->GetHitEvent();if(!pending)break;}
+    const int before=rpg->GetTotalVP();
+    auto inspect=[&](int expected,const char* phase) {
+        CObj<NWorld::CHitLocator> hit=world->GetHitEvent();
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(actor,&refs);int amount=-999;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(32,&amount);}
+        std::printf("native periodic pipeline: kind=%d phase=%s strength=%g VP=%d->%d hit=%d value=%d savedBleed=%d expected=%d\n",kind,phase,strength,before,rpg->GetTotalVP(),int(IsValid(hit)),hit?hit->nHitValue:0,amount,expected);std::fflush(stdout);
+        Require(rpg->GetTotalVP()==before-expected && (expected?hit && hit->pUnit.GetPtr()==actor && hit->nHitValue==expected:!hit) && amount==expected,
+            "native periodic bleeding used the old event, omitted whole damage or changed the original health/stop/zero rule");
+        Require(!world->GetHitEvent(),"one periodic pass emitted duplicate native hit events");
+    };
+    SeedPeriodicBleedNoDodge(rpg);
+    const int expected=(kind==0 || kind==2 || kind==6 || kind==7 || kind==9)?0:(kind==3 || kind==5)?1:3;
+    if(kind==6) {
+        auto* player=dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer());Require(player,"periodic old-event fixture lacks native player");
+        actor->OnNewPlayerTurnOrTime(NWorld::CEventOnNewPlayerTurnOrTime(player));inspect(0,"old player event");
+    } else if(kind==8) {
+        Require(world->IsRealTime(),"periodic bleeding fixture is not in real time");const STime base=world->GetTime()->GetValue();
+        auto step=[&](STime delta){world->GetTime()->Set(base+delta);world->GetAimTime()->Set(base+delta);actor->Segment();};
+        step(6000);inspect(0,"state-only tick");step(29900);inspect(0,"before regeneration");step(30000);inspect(expected,"regeneration tick");
+    } else {actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);inspect(expected,"own-turn finish");}
+    if(kind==3)Require(!rpg->HasCritical(NDb::C_BLEEDING),"implicit low-health periodic damage manufactured an explicit permanent bleeding critical");
+    if(kind==4) {
+        NRPG::CCritical* critical=nullptr;Require(rpg->HasCritical(NDb::C_BLEEDING,&critical) && critical && critical->IsTemporarily() && critical->GetRemainingTime()==2,
+            "periodic damage turned its finite bleeding critical into a permanent effect");
+    }
+}
+
 static void PeriodicBleedingAttack(const char* databasePath,const char* resourcePath,bool fractional)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
@@ -14947,7 +15032,7 @@ static void PeriodicBleedingAttack(const char* databasePath,const char* resource
     Require(int(dodgeRoll)>=rpg->GetIC(),"periodic bleeding fixture seed no longer selects the native no-dodge control");
     GlobalGameRandom().SeedForHarness(2);
     std::printf("native bleeding fixture RNG: seed=2 firstRoll=%u IC=%d\n",dodgeRoll,rpg->GetIC());std::fflush(stdout);
-    actor->OnNewPlayerTurnOrTime(NWorld::CEventOnNewPlayerTurnOrTime(player));
+    actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);
     CObj<NWorld::CHitLocator> hit=world->GetHitEvent();
     std::printf("native periodic bleeding: strength=%g whole=%d hit=%d value=%d VP=%d->%d\n",strength,int(strength),int(IsValid(hit)),hit?hit->nHitValue:0,vp,rpg->GetTotalVP());std::fflush(stdout);
     if(fractional)Require(!hit && rpg->GetTotalVP()==vp && actor->GetAP()==ap && actor->GetPosition()==position && world->GetAimTime()->GetValue()==time,
@@ -20959,6 +21044,19 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "pk-damage-rejected") && argc==3) { PKDamageRouting(argv[2],9); return true; }
     if (!std::strcmp(mode, "pk-damage-human") && argc==3) { PKDamageRouting(argv[2],10); return true; }
     if (!std::strcmp(mode, "pk-damage-human-godmode") && argc==3) { PKDamageRouting(argv[2],11); return true; }
+    if (!std::strcmp(mode, "no-manufactured-bleed-blocked") && argc==4) { NoManufacturedBleeding(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "no-manufactured-bleed-hit") && argc==4) { NoManufacturedBleeding(argv[2],argv[3],false); return true; }
+    if (!std::strcmp(mode, "periodic-bleed-fractional") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "periodic-bleed-whole") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "periodic-bleed-low-nine") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "periodic-bleed-low-ten") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "periodic-bleed-truncation") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "periodic-bleed-stopped") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "periodic-bleed-old-event") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "periodic-bleed-replica") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "periodic-bleed-realtime") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "periodic-bleed-clue") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "periodic-bleed-unconscious") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],10); return true; }
     if (!std::strcmp(mode, "ray-first-turn-zero") && argc==4) { RayShooterFirstTurn(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ray-first-turn-one") && argc==4) { RayShooterFirstTurn(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ray-first-turn-later") && argc==4) { RayShooterFirstTurn(argv[2],argv[3],2); return true; }

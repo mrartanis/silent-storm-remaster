@@ -674,11 +674,8 @@ void CDumbUnitServer::BlowUp()
 	RemoveFromWorld();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// retail @0x350e20 -- the seam between the two ProcessAttack contracts: this is IAttackable's
-// 5-arg form, and it forwards to IUnitMission's 4-arg form (which has no CVec3) on pRPG.
-// retail @0x350e20 calls AddHitLocator/CreateBloodyMess on this->pWorld (member 44, disasm
-// `mov ecx,[esi+0x24]`) but forwards the INCOMING world to pRPG -- hence _pWorld, which must not
-// shadow the pWorld member the body below uses.
+// Keep the fork's five-argument world entry and forward its world to the typed RPG provider.
+// Original Steam world damage is identified by CDumbUnitServer RTTI at 0x751570.
 int CDumbUnitServer::ProcessAttack( NWorld::IWorld *_pWorld, int nUserID, NRPG::CAttackPortion *pAttack,
 	const CVec3 &vDir, NDb::CRPGArmor *pArmor )
 {
@@ -690,7 +687,6 @@ int CDumbUnitServer::ProcessAttack( NWorld::IWorld *_pWorld, int nUserID, NRPG::
 		return 0;
 	}
 	SRand rnd;
-	int nWasVP = pRPG->GetTotalVP();
 	// push the per-mission RPG game down to the target's mission so the combat critical clamp can honor
 	// CGame::nMaxCriticalSeverity (luaSetMaxCriticalSeverity). Retail cached the game in the mission ctor;
 	// this dev fork dropped that ctor arg, so we (re)bind it here at the attack entry.
@@ -710,15 +706,9 @@ int CDumbUnitServer::ProcessAttack( NWorld::IWorld *_pWorld, int nUserID, NRPG::
 		return 0;
 	}
 
-	NRPG::CUnit *pRPGUnit = pRPG->GetRPGUnit();
-	int nHalfVP = Float2Int( 0.5f * pRPGUnit->Skills( NDb::ST_VP ).GetMaxValue() );
+	// Original Steam 0x751570 has no damage-derived low-health bleeding critical.
+	// The periodic RPG pass computes the whole low-health amount independently.
 	int nCurrentVP = pRPG->GetTotalVP();
-	if ( nCurrentVP < nHalfVP )
-	{
-		float fStrength = ( Min( nWasVP, nHalfVP ) - nCurrentVP ) / 10.0f;
-		NRPG::SCritical suffer( NDb::CL_ANY, NDb::C_BLEEDING, -1, fStrength );
-		pRPG->ApplyCritical( suffer );
-	}
 
 	// Retail v1.2 0x7512e6: use the world state before death/KO reconciliation.
 	if ( CanFight() )
