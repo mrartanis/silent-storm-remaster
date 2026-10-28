@@ -11663,3 +11663,65 @@ owned tests exit. Final actual-HEAD hosted Actions remains due after all imports
 Source8c6c27b5 partially imported: independent mounted investigation route
 sequencing remains pending and must respect our normal dismount executor.
 Ledger144 imported/19partial/75pending =94 unfinished source reviews/imports.
+
+
+## 2026-10-28 — queue normal dismount before blocked mounted route commands
+
+Source [8c6c27b55e74d5fe3c410372f9193c26a90ae174](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8c6c27b55e74d5fe3c410372f9193c26a90ae174), independent route hunk.
+A route can remain/arrive while its actor is mounted. Our native mounted state
+rejects movement, look, wish-pose, strafe and hide; directly queuing those
+requests leaves the investigation unable to proceed. Prefix only these request
+types with normal CCmdExitCannon, retaining the original CCmdSetCommand behind
+it in the existing base queue. Check the actual live server state, including
+when the transient AI cannon cache is empty after route restore. Let the mounted
+state bind the actual cannon; preserve ordinary CUnitServer/Continue execution,
+animation, dismount ownership and the base logic's busy/queue/retirement gates.
+No direct state/animator edits, no AP call or new fields/API/save tags.
+
+This is an upstream bug fix adapted to the current fork's command lifecycle;
+it is not a claim that the added queue insertion occurs byte-for-byte in an
+inspected retail binary. It adds no movement, sight, cost, damage, XP or AI
+scoring coefficient and does not change the route's investigation trigger.
+The original combat-undock planning SpendAP(1) imported separately incae47350
+is preserved; this route uses the already-free normal dismount executor.
+
+Nine native modes use actual authored actor/gun/world, complete real entry,
+real AI wrapper and native route/task factory, mounted CanDo rejection,
+CUnitServer.Do + Continue + Segment. Real Look and Goto complete their requested
+direction/destination after normal dismount, and the route yields nothing while
+the living exit animation runs yet retains its original payload. Pending
+Strafe/Hide inputs use the existing public task-command queue (representative
+loaded metadata, no mock gameplay provider). Restored Look uses actual route
+serialization with external references to this same world, not a claimed full
+saved-world round trip, and explicitly clears only transient AI cannon cache.
+Unmounted Look, mounted shoot-mode and wait are controls with no exit prefix.
+
+True RED6/9 Windows10.86s/Linux10.95s: native mounted requests report
+UCR_UNAVAILABLE1, firstExit0 instead1, original queue already drained; controls
+pass. No preceding fixture/compiler failure. Initial post-fix26/27 each failed
+only a test expectation that native Goto immediately yields Path: a WALK actor
+legitimately emits Strafe then Path. Preserve and execute that actual prelude
+instead of changing the actor's real pose/behavior. Retain these calibration
+logs; not an extra production bug RED, no second production change made for it.
+
+Final GREEN27/27 Windows29.90s/Linux29.72s. Six formerly blocked modes lead
+with native exit/CanDo0 and retain the payload. Exit stays at42 AP; then Look
+costs the same2 AP as the already-unmounted control (final40), Goto actually
+reaches its nearby destination for native4 AP (final38), with its free Strafe
+prelude preserved. Wish/queued Strafe/Hide retain42 after exit. Restored-cache
+case also finishes real Look40; shoot mode and wait stay mounted until cleanup.
+These costs are observed native outcomes, not new constants in production.
+
+Fresh Windows ALL_BUILD355/355 related438.79s; Linux Game/helpers353/353 437.83s.
+Windows37/37 combat/context39.87s (including4522 party save), Linux36/36 36.72s.
+Local asset-free CI290/290 26.19s. Seven raw final logs27/27/355/353/37/36/290
+exact passes, no Failed/NotRun/NUL, runners exit0. Prior90 measured hit/cover/
+first-hit records,8 discovery modes and5 independent undock-planning outputs
+exact within each platform. verify-ai-mounted-route.py checks runtime outcomes,
+calibration limits and source live-state gate/normal-queue order, with no direct
+AP/state/animator changes. Shared builds reused, HD generation OFF, no per-bug
+copies; owned tests exit. Final actual-HEAD hosted Actions due after all imports.
+
+Source8c6c27b5 complete: planning hunkcae47350 plus this independent route fix;
+test preparation separately9220370e. Ledger145 imported/18partial/75pending
+=93 unfinished source reviews/imports, not a count of future commits.

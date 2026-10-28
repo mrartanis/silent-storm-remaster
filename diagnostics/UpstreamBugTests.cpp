@@ -15942,6 +15942,111 @@ static void AICannonUndockPlan(const char* databasePath,const char* resourcePath
     Require(commands.size()==size_t(mode==0) && empty==(mode!=0),"cannon undock planning queued an exit for a missing or ref-invalid owner server");
 }
 
+static void AIMountedRoute(const char* databasePath,const char* resourcePath,int mode)
+{
+    auto fixture=MakeNativeCannonFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* cannon=fixture.cannon.GetPtr();auto* world=fixture.world.GetPtr();
+    world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer()));
+    CObj<NWorld::CCmdCannon> mount=new NWorld::CCmdCannon(cannon);CObj<NWorld::CExecCannon> enter=new NWorld::CExecCannon(actor,cannon,true,mount);
+    Require(enter->CanDoIt(actor->GetPosition())==NWorld::UCR_OK,"mounted-route fixture cannot enter its actual authored gun");
+    enter->Run();world->GetTime()->Set(actor->animator.GetTimeEnd());enter->AnimationFinished();enter=nullptr;
+    auto leaveNormally=[&]() {
+        CObj<NWorld::CExecCannon> leave=new NWorld::CExecCannon(actor,cannon,false);leave->Run();world->GetTime()->Set(actor->animator.GetTimeEnd());leave->AnimationFinished();leave=nullptr;
+        Require(!world->IsAction() && !cannon->IsOccupied() && !actor->GetUnitRPG()->GetCannonItem(),"mounted-route fixture did not finish normal native cannon exit");
+    };
+    Require(!world->IsAction() && actor->GetState()==NWorld::CUnit::ST_MACHINE_GUN && cannon->GetCurrentUnit()==actor,"mounted-route fixture did not finish its real entry");
+    if(mode==5)leaveNormally();
+    CObj<NAI::IAIUnit> unit=NAI::CreateAIUnit(actor,true);unit->Synchronize(false);
+    const auto initial=actor->GetPosition();auto destination=initial;destination.pos.p.SetDirection((initial.pos.p.GetDirection()+2)&7);
+    CObj<NAI::CTaskCommand> step;CObj<NWorld::CCmd> queued;
+    if(mode==1) {
+        vector<NAI::SPathPlace> places;NAI::GetNearestPlaces(actor,initial.pos.p,4,NAI::RUN,&places);bool found=false;
+        for(auto point:places) {
+            if(point.GetPose()!=NAI::CM_STAND || (point.GetX()==initial.pos.p.GetX() && point.GetY()==initial.pos.p.GetY() && point.GetLayer()==initial.pos.p.GetLayer()))continue;
+            CObj<NAI::CPath> path=NWorld::FindPath(world->GetPathNetwork(),actor,initial.pos.p,vector<NAI::SPathPlace>{point},actor);
+            if(path && path->points.size()>1){destination=initial;destination.pos.p=point;found=true;break;}
+        }
+        Require(found,"mounted-route fixture has no real reachable nearby movement destination");step=new NAI::CTaskCommandGoto(destination.pos);
+    }else if(mode==2)step=new NAI::CTaskCommandChangeWishPose(NAI::WALK);
+    else if(mode==7)step=new NAI::CTaskCommandWait(3);
+    else step=new NAI::CTaskCommandChangeDirection(destination.pos.p.GetDirection());
+    // Pending native command-list inputs also occur when a route is restored
+    // after the unit mounted a gun. They use the existing public queue.
+    if(mode==3)queued=new NWorld::CCmdStrafe(true);
+    if(mode==4)queued=new NWorld::CCmdHide();
+    if(mode==6)queued=new NWorld::CCmdShootMode(NDb::EShootMode(4));
+    if(queued)step->Commands.push_back(queued.GetPtr());
+    CObj<NAI::CAIRouteLogic> route=NAI::CreateAIRouteLogic(unit,vector<CPtr<NAI::CTaskCommand>>{step.GetPtr()},false);
+    Require(route,"mounted-route native factory rejected its actual unit and task");
+    if(mode==8) {
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(route,&refs);CObj<NAI::CAIRouteLogic> restored=new NAI::CAIRouteLogic;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader);}
+        route=restored;unit->SetCannon(nullptr);
+        Require(actor->GetState()==NWorld::CUnit::ST_MACHINE_GUN && !unit->GetCannon(),"restored-route control did not retain live mount independently of transient AI cannon cache");
+    }
+    const int ap=actor->GetAP(),vp=actor->GetUnitRPG()->GetTotalVP(),ammo=cannon->GetItem()->GetAmmoQuantity();
+    const STime animationEnd=actor->animator.GetTimeEnd();auto random=GlobalGameRandom();
+    CObj<NWorld::CCommand> first=route->GetCommand();
+    if(mode==7) {
+        std::printf("native mounted route wait: mode=7 first=%d queued=%d mounted=%d AP=%d\n",int(IsValid(first)),int(route->HasCommands()),int(actor->GetState()==NWorld::CUnit::ST_MACHINE_GUN),actor->GetAP());std::fflush(stdout);
+        Require(!first && !route->HasCommands() && !route->IsRouteComplete() && actor->GetState()==NWorld::CUnit::ST_MACHINE_GUN && actor->GetAP()==ap,"native mounted wait unexpectedly queued an exit or completed its route");leaveNormally();return;
+    }
+    auto* order=dynamic_cast<NWorld::CCmdSetCommand*>(first.GetPtr());Require(order && order->pUnit==actor,"native route did not preserve its actual command owner");
+    const bool needsExit=mode<5 || mode==8;auto* exit=dynamic_cast<NWorld::CCmdExitCannon*>(order->GetCmd());const int firstResult=int(actor->CanDo(order->GetCmd()));
+    std::printf("native mounted route prefix: mode=%d mounted=%d firstExit=%d expectedExit=%d firstResult=%d queued=%d AP=%d cache=%d\n",mode,int(actor->GetState()==NWorld::CUnit::ST_MACHINE_GUN),int(exit!=nullptr),int(needsExit),firstResult,int(route->HasCommands()),ap,int(IsValid(unit->GetCannon())));std::fflush(stdout);
+    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==vp && actor->GetPosition()==initial && actor->animator.GetTimeEnd()==animationEnd && cannon->GetItem()->GetAmmoQuantity()==ammo && random.Get()==GlobalGameRandom().Get(),"generating a native route altered physical state, AP, animation, health, ammunition or RNG");
+    if(needsExit && !exit){leaveNormally();Require(false,"mounted native route dispatches a state-rejected command without first queuing normal cannon exit");}
+    Require(bool(exit)==needsExit && firstResult==int(NWorld::UCR_OK),"native route added an unnecessary exit or produced an unavailable leading command");
+    if(mode==6) {
+        Require(order->GetCmd()==queued.GetPtr() && !route->HasCommands() && actor->GetState()==NWorld::CUnit::ST_MACHINE_GUN,"mounted shoot-mode control was replaced by exit");leaveNormally();return;
+    }
+    CObj<NWorld::CCommand> original=first;int resumes=0;
+    if(needsExit) {
+        Require(route->HasCommands() && exit->pCannon.GetPtr()==static_cast<NWorld::IObject*>(cannon),"normal mounted state did not bind the route exit to the actual cannon or retain its payload");
+        actor->Do(first);actor->Do(new NWorld::CCmdSetCommand(actor,new NWorld::CCmdContinue));
+        Require(actor->IsPerformingAction(),"route exit did not start the actual living dismount animation");
+        Require(!route->GetCommand() && route->HasCommands(),"native route consumed its original command during dismount animation");
+        for(int edge=0;edge<8 && actor->IsPerformingAction();++edge){world->GetTime()->Set(actor->animator.GetTimeEnd());actor->Segment();}
+        Require(!actor->IsPerformingAction() && actor->GetState()!=NWorld::CUnit::ST_MACHINE_GUN && !cannon->IsOccupied() && !actor->GetUnitRPG()->GetCannonItem() && actor->GetAP()==ap,"route dismount failed to finish native detachment or added an AP charge");
+        original=route->GetCommand();
+        while(resumes<4) {
+            auto* resume=dynamic_cast<NWorld::CCmdSetCommand*>(original.GetPtr());if(!resume || !dynamic_cast<NWorld::CCmdContinue*>(resume->GetCmd()))break;
+            actor->Do(original);world->GetTime()->Set(actor->animator.GetTimeEnd());actor->Segment();++resumes;original=route->GetCommand();
+        }
+    }
+    auto* payload=dynamic_cast<NWorld::CCmdSetCommand*>(original.GetPtr());Require(payload && payload->pUnit==actor && !dynamic_cast<NWorld::CCmdExitCannon*>(payload->GetCmd()),"native route lost or repeated its original command after normal dismount");
+    if(mode==1 && dynamic_cast<NWorld::CCmdStrafe*>(payload->GetCmd())) {
+        // Native Goto for a WALK actor emits Strafe then Path. Preserve and
+        // execute that existing prelude, rather than changing the real pose.
+        Require(actor->CanDo(payload->GetCmd())==NWorld::UCR_OK,"normal Goto strafe prelude remained blocked after dismount");
+        actor->Do(original);actor->Do(new NWorld::CCmdSetCommand(actor,new NWorld::CCmdContinue));
+        for(int edge=0;edge<8 && actor->IsPerformingAction();++edge){world->GetTime()->Set(actor->animator.GetTimeEnd());actor->Segment();}
+        actor->Segment();original=route->GetCommand();
+        while(resumes<4) {
+            auto* resume=dynamic_cast<NWorld::CCmdSetCommand*>(original.GetPtr());if(!resume || !dynamic_cast<NWorld::CCmdContinue*>(resume->GetCmd()))break;
+            actor->Do(original);world->GetTime()->Set(actor->animator.GetTimeEnd());actor->Segment();++resumes;original=route->GetCommand();
+        }
+        payload=dynamic_cast<NWorld::CCmdSetCommand*>(original.GetPtr());
+        Require(payload && payload->pUnit==actor && actor->GetAP()==ap && actor->GetState()!=NWorld::CUnit::ST_MACHINE_GUN,
+            "native Goto prelude changed AP or lost the queued Path after dismount");
+        std::printf("native mounted route Goto prelude: mode=1 AP=%d mounted=0\n",actor->GetAP());std::fflush(stdout);
+    }
+    const bool correct=mode==1?dynamic_cast<NWorld::CCmdPath*>(payload->GetCmd())!=nullptr:mode==2?dynamic_cast<NWorld::CCmdWishPose*>(payload->GetCmd())!=nullptr:queued?payload->GetCmd()==queued.GetPtr():dynamic_cast<NWorld::CCmdLook*>(payload->GetCmd())!=nullptr;
+    Require(correct && !route->HasCommands(),"native route changed its original payload kind/reference or added commands");
+    const int afterExit=actor->GetAP(),payloadResult=int(actor->CanDo(payload->GetCmd()));
+    if(mode==0 || mode==1 || mode==5 || mode==8) {
+        Require(payloadResult==int(NWorld::UCR_OK),"native dismount did not make its genuine movement/turn request executable");
+        actor->Do(original);actor->Do(new NWorld::CCmdSetCommand(actor,new NWorld::CCmdContinue));
+        for(int edge=0;edge<32 && actor->IsPerformingAction();++edge){world->GetTime()->Set(actor->animator.GetTimeEnd());actor->Segment();}
+        Require(!actor->IsPerformingAction() && actor->GetAP()<=afterExit,"native route movement/turn did not finish normally");
+        const auto actual=actor->GetPosition().pos.p;
+        if(mode==1)Require(actual.GetX()==destination.pos.p.GetX() && actual.GetY()==destination.pos.p.GetY() && actual.GetLayer()==destination.pos.p.GetLayer(),"native route failed to reach its genuine nearby destination after dismount");
+        else Require(actual.GetDirection()==destination.pos.p.GetDirection(),"native route failed to turn to its requested direction after dismount");
+    }
+    if(actor->HasCommand())actor->Do(new NWorld::CCmdCancel(actor));
+    Require(!world->IsAction() && !actor->HasCommand() && !actor->IsPerformingAction() && actor->GetUnitRPG()->GetTotalVP()==vp && cannon->GetItem()->GetAmmoQuantity()==ammo,"native mounted route retained an action or changed health/ammunition");
+    std::printf("native mounted route result: mode=%d afterExitAP=%d finalAP=%d resumes=%d payloadResult=%d mounted=%d\n",mode,afterExit,actor->GetAP(),resumes,payloadResult,int(actor->GetState()==NWorld::CUnit::ST_MACHINE_GUN));std::fflush(stdout);
+}
+
 static vector<NAnimation::CAnimation*> NativeCannonAnimationClips(NAnimation::CSkeletonAnimator* animator)
 {
     vector<NAnimation::CAnimation*> result;vector<CObjectBase*> pending{animator},visited;
@@ -24405,6 +24510,15 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "cannon-entry-legacy-write") && argc==5) { WriteLegacyCannonEntryFixture(argv[2],argv[3],argv[4]); return true; }
     if (!std::strcmp(mode, "cannon-entry-legacy") && argc==5) { LegacyCannonEntryCompletion(argv[2],argv[3],argv[4]); return true; }
     if (!std::strcmp(mode, "cannon-entry-completion")) { Require(argc==4, "cannon completion requires db and res"); CannonEntryCompletion(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "ai-mounted-route-look") && argc == 4) { AIMountedRoute(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ai-mounted-route-path") && argc == 4) { AIMountedRoute(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ai-mounted-route-wish") && argc == 4) { AIMountedRoute(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ai-mounted-route-strafe") && argc == 4) { AIMountedRoute(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "ai-mounted-route-hide") && argc == 4) { AIMountedRoute(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "ai-mounted-route-unmounted") && argc == 4) { AIMountedRoute(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "ai-mounted-route-shoot-mode") && argc == 4) { AIMountedRoute(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "ai-mounted-route-wait") && argc == 4) { AIMountedRoute(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "ai-mounted-route-restored") && argc == 4) { AIMountedRoute(argv[2],argv[3],8); return true; }
     if (!std::strcmp(mode, "ai-cannon-undock-plan-live") && argc == 4) { AICannonUndockPlan(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-cannon-undock-plan-null-log") && argc == 4) { AICannonUndockPlan(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-cannon-undock-plan-no-cannon") && argc == 4) { AICannonUndockPlan(argv[2],argv[3],2); return true; }

@@ -1473,3 +1473,16 @@ exit executor, docking costs, cached AI AP, animation, PK/face and other tuning
 are unchanged. This restores the original numeric behavior rather than choosing
 a new balance value. Missing/retired owner references emit no command or cost.
 The separate mounted-investigation route fix remains pending.
+
+
+## 2026-10-28 — mounted investigation routes use normal dismount
+
+Source [8c6c27b55e74d5fe3c410372f9193c26a90ae174](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8c6c27b55e74d5fe3c410372f9193c26a90ae174), independent route bug fix.
+AI routes now queue ordinary dismount before a movement/turn/stance request
+that the mounted state would reject. Preserve payload, animation wait and live
+gun ownership, including restored routes with no transient AI cannon cache.
+No new investigation trigger, priority, AP amount, path rule, vision range,
+damage or reward coefficient. Native exit remains free; ordinary Look/Goto
+keep their measured costs, and the separate original planning SpendAP(1) is
+unchanged. Mounted shoot-mode/wait and already-unmounted routes keep behavior.
+This resolves the separate route item noted in the preceding entry.

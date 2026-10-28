@@ -238,7 +238,21 @@ void CAIRouteLogic::GenerateCommand()
 		{
 			NWorld::CCmd *pCmd = routeCommands[nCurrentCommand]->GetCommand();
 			if ( pCmd )
-				DoCommand( new NWorld::CCmdSetCommand( GetUnitServer(), pCmd ) );
+			{
+				NWorld::CUnitServer *pUS = GetUnitServer();
+				// An investigation route may survive mounting or a save/load. Use
+				// the live state, since the AI cannon cache can be absent on restore.
+				if ( IsValid( pUS ) && pUS->GetState() == NWorld::CUnit::ST_MACHINE_GUN &&
+					( CDynamicCast<NWorld::CCmdPath>( pCmd ) || CDynamicCast<NWorld::CCmdLook>( pCmd ) ||
+						CDynamicCast<NWorld::CCmdWishPose>( pCmd ) || CDynamicCast<NWorld::CCmdStrafe>( pCmd ) ||
+						CDynamicCast<NWorld::CCmdHide>( pCmd ) ) )
+				{
+					// The mounted state binds the actual gun. Existing base logic
+					// waits for the normal exit animation before draining the payload.
+					DoCommand( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdExitCannon() ) );
+				}
+				DoCommand( new NWorld::CCmdSetCommand( pUS, pCmd ) );
+			}
 		}
 	}
 	if ( !bCircled && nCurrentCommand >= n )
