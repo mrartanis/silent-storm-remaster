@@ -12037,3 +12037,51 @@ and owned tests exit. Final actual-HEAD hosted Actions remains due after all
 useful imports. Source32f becomes partially-imported: two refresh hooks done,
 cure eligibility/explicit bleeding flag still pending. Ledger148 imported/
 19partial/71pending =90 unfinished source reviews/imports.
+
+
+## 2026-10-29 — preserve original critical cure and suspension eligibility (32f730ac)
+
+Source [32f730acfe6015bd712e897c4bd076a6f6503642](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/32f730acfe6015bd712e897c4bd076a6f6503642), remaining eligibility/bleeding hunks.
+Use the existing critical eligibility predicate when curing, rather than an
+enum cutoff. Wound/VP criticals must return false, as must patient markers;
+ordinary eligible criticals retain DC checks. Default bleeding-stop can cure
+bleeding independently of DC. Expose the original bool bStopBleeding=true:
+false disables that bypass while adequate DC can still cure eligible bleeding.
+Keep this fork's shared method name CanBeSuspended and void healing API; the
+float practice-return restoration belongs separately to531f. Preserve the
+post-refresh hooks already shipped inc2cfc900, all fields and coefficients.
+
+The gameplay effect is original: temporary penalty-suppression treatment no
+longer removes the ordinary health-based wound penalty. It still suspends
+eligible critical effects. Treatment no longer deletes the patient marker and
+does stop bleeding under the native default flag. These restore both original
+releases, rather than introducing new drug/healing values. Actual Gold and
+Steam primary critical vtables slot30 (typed CanBeCured) return false for VP
+and patient and true for bleeding and AP. Gold VP table8b3c78 ->533340 and
+Steam8c2d98 ->696440 both contain xorAL/ret. Both original SuspendCriticals
+use the same slot (Gold6be028, Steam function6c4690). Original HealCriticals
+Gold6bc690/Steam6c1c50 use DC&&slot30 and an independent bool+bleeding14
+bypass; actual opcode/dataflow audited by audit-critical-cure-gate-retail.py.
+
+Seven native public one-argument cases use authored persona103 and real
+CUnit/IUnitMission/critical objects. Before Main changes, RED3/7 Windows6.82s/
+Linux6.63s: VP incorrectly suspended (cap41->51), patient incorrectly cured,
+bleeding200DC not stopped at treatmentDC0. Four eligible/highDC/suspend/empty
+controls pass. Only after implementing the previously missing explicit flag,
+add two false-flag controls: lowDC preserves bleeding; sufficientDC still cures
+it. They are not claimed as pre-fix RED. GREEN18/18 Windows17.77s/Linux17.68s
+includes9cure,6prior healing-tier and3existing RPG controls. Native raw health,
+bandaged VP, current AP, XP, inventory and RNG stay unchanged; wounded APcap41
+now stays41 through suppression, patient marker persists, default bleed clears.
+The correct eligible AP effect can still be cured/suspended and its spent AP
+is not refilled. No database edits, modifier numbers or save-field changes.
+
+Fresh Windows ALL_BUILD84/84 related86.74s; Linux Game/helpers82/82 92.77s,
+covering health/healing/kit/critical/bleeding/regeneration/repair/PK,
+survival/perk/skill/damage/AP paths. Local asset-free CI290/290 24.40s.
+Five raw logs18/18/84/82/290, no failed/not-run/NUL, runners0, exact registered
+names verified. Shared builds reused, HD generation OFF, no per-bug copies,
+owned tests exit. No full medic-world animation, practice XP, rendered UI or
+whole-world save claim. Final hosted actual-HEAD Actions remains due after
+all useful imports. All useful32f hunks complete across two separate fixes;
+ledger149 imported/18partial/71pending =89 unfinished sources.

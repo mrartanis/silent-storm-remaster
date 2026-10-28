@@ -24,7 +24,7 @@ public:
 	CVPCritical( const SCritical &crit ): CCritical( crit ) {}
 
 	virtual bool SetModifiers( CUnit *pRPGUnit, IUnitMission *pRPGMission );
-	virtual bool CanBeSuspended() { return true; }
+	virtual bool CanBeSuspended() { return false; }
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAPCritical: public CCritical

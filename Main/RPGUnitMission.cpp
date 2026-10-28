@@ -241,7 +241,7 @@ public:
 
 	virtual int  GetBulletsQuantityInShot() const;
 	virtual void HealVP( const SFirstAid &fa );
-	virtual void HealCriticals( int nDC );
+	virtual void HealCriticals( int nDC, bool bStopBleeding = true );
 	virtual int  GetIC() const;
 	virtual bool CheckIC();
 	virtual int CheckInterrupt( const IUnitMission *pEnemy, bool bIsMutual, bool bWasShot );
@@ -1870,12 +1870,13 @@ void CUnitMission::HealVP( const SFirstAid &fa )
 	ApplyCritical( SCritical( NDb::CL_ANY, NDb::C_VP ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CUnitMission::HealCriticals( int nDC )
+void CUnitMission::HealCriticals( int nDC, bool bStopBleeding )
 {
 	for ( vector<CObj<CCritical> >::iterator i = criticals.begin(); i != criticals.end(); )
 	{
 		const SCritical &c = (*i)->GetCritical();
-		if ( c.nDC <= nDC && c.eCritical <	NDb::C_PANZERKLEIN_AXIS )
+		if ( ( c.nDC <= nDC && (*i)->CanBeSuspended() ) ||
+			( bStopBleeding && c.eCritical == NDb::C_BLEEDING ) )
 		{
 			csRPG << "\tCured: \t";
 			DumpCritical( *i );

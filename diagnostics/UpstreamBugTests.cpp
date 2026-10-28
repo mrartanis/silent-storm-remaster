@@ -23639,6 +23639,27 @@ static void FreshSkillModifierValues(const char* databasePath)
     std::puts("native fresh-skill GREEN: 15 static skills follow modifiers and restore; saved old unfrozen cell stays expendable");
 }
 
+static void CriticalCureGate(const char* databasePath,int mode)
+{
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
+    auto* persona=NDb::GetPers(103);Require(IsValid(persona) && IsValid(persona->pClass) && !IsValid(persona->pPanzerklein),"critical cure fixture has no authored ordinary persona");
+    CObj<NRPG::CUnit> unit=new NRPG::CUnit(persona);CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(unit);
+    const int maximum=unit->Skills(NDb::ST_VP).GetTheoreticalMax();NDb::ECritical type=NDb::C_AP_REDUCTION;
+    if(mode==0){unit->Skills(NDb::ST_VP).SetValue(maximum/5);type=NDb::C_VP;}
+    else if(mode==1)type=NDb::C_PATIENT;
+    else if(mode==2 || mode>=7)type=NDb::C_BLEEDING;
+    if(mode!=6)mission->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,type,-1,2.f,(mode==2 || mode==4 || mode>=7)?200:10));
+    const bool before=mission->HasCritical(type);Require(mode==6 || before,"critical cure fixture did not install its real native critical");
+    const int vp=unit->Skills(NDb::ST_VP),healed=unit->nHealedVP,ap=unit->Skills(NDb::ST_AP),cap=unit->Skills(NDb::ST_AP).GetMaxValue();const float xp=unit->fXP;auto* inventory=unit->GetInventory();auto random=GlobalGameRandom();
+    if(mode>=7)mission->HealCriticals(mode==7?0:NRPG::N_MAX_DC,false);
+    else if(mode==0 || mode==5)mission->SuspendCriticals(3);
+    else mission->HealCriticals(mode==2?0:mode==4?10:NRPG::N_MAX_DC);
+    const bool after=mission->HasCritical(type);const bool expected=mode==0 || mode==1 || mode==4 || mode==7;
+    std::printf("native critical cure gate: mode=%d type=%d before=%d after=%d expected=%d health=%d currentAP=%d beforeCap=%d afterCap=%d\n",mode,int(type),int(before),int(after),int(expected),int(unit->Skills(NDb::ST_VP)),int(unit->Skills(NDb::ST_AP)),cap,unit->Skills(NDb::ST_AP).GetMaxValue());std::fflush(stdout);
+    Require(int(unit->Skills(NDb::ST_VP))==vp && unit->nHealedVP==healed && int(unit->Skills(NDb::ST_AP))==ap && unit->fXP==xp && unit->GetInventory()==inventory && random.Get()==GlobalGameRandom().Get(),"critical cure/suspension changed raw health, bandage, spent AP, XP, inventory or RNG");
+    Require(after==expected && (mode!=0 || unit->Skills(NDb::ST_AP).GetMaxValue()==cap),"native critical cure/suspension ignored original eligibility or the default bleeding-stop gate");
+}
+
 static void HealWoundRefresh(const char* databasePath,int mode)
 {
     CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
@@ -25329,6 +25350,15 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "attacker-level-critical-rolls") && argc==3) { AttackerLevelCriticalRolls(argv[2]); return true; }
     if (!std::strcmp(mode, "head-body-damage") && argc==3) { HeadBodyDamage(argv[2]); return true; }
     if (!std::strcmp(mode, "fresh-skill-modifier-values") && argc==3) { FreshSkillModifierValues(argv[2]); return true; }
+    if (!std::strcmp(mode, "critical-cure-gate-no-bleeding-bypass") && argc==3) { CriticalCureGate(argv[2],7); return true; }
+    if (!std::strcmp(mode, "critical-cure-gate-no-bypass-high-dc") && argc==3) { CriticalCureGate(argv[2],8); return true; }
+    if (!std::strcmp(mode, "critical-cure-gate-wound-suspension") && argc==3) { CriticalCureGate(argv[2],0); return true; }
+    if (!std::strcmp(mode, "critical-cure-gate-patient") && argc==3) { CriticalCureGate(argv[2],1); return true; }
+    if (!std::strcmp(mode, "critical-cure-gate-bleeding") && argc==3) { CriticalCureGate(argv[2],2); return true; }
+    if (!std::strcmp(mode, "critical-cure-gate-eligible") && argc==3) { CriticalCureGate(argv[2],3); return true; }
+    if (!std::strcmp(mode, "critical-cure-gate-high-dc") && argc==3) { CriticalCureGate(argv[2],4); return true; }
+    if (!std::strcmp(mode, "critical-cure-gate-suspend-eligible") && argc==3) { CriticalCureGate(argv[2],5); return true; }
+    if (!std::strcmp(mode, "critical-cure-gate-empty") && argc==3) { CriticalCureGate(argv[2],6); return true; }
     if (!std::strcmp(mode, "heal-wound-refresh-full") && argc==3) { HealWoundRefresh(argv[2],0); return true; }
     if (!std::strcmp(mode, "heal-wound-refresh-partial") && argc==3) { HealWoundRefresh(argv[2],1); return true; }
     if (!std::strcmp(mode, "heal-wound-refresh-after-criticals") && argc==3) { HealWoundRefresh(argv[2],2); return true; }
