@@ -7375,14 +7375,23 @@ static void MountedGunEligibility(const char* databasePath,const char* resourceP
     for (auto unit: units) {
         auto* server = dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
         if (!server || !server->CanFight() || server->IsWearingPK() || !NAI::GetAIUnit(server)) continue;
-        if (!actor) actor = server; else { target = server; break; }
+        actor = server; break;
     }
-    Require(actor && target,"mounted-gun fixture needs two actual native AI units");
+    Require(actor,"mounted-gun fixture has no native AI gunner");
+    for(auto candidate:units) {
+        auto* server=dynamic_cast<NWorld::CUnitServer*>(candidate.GetPtr());
+        if(server && server->CanFight() && !server->IsWearingPK() && !server->IsEmptyPK() && actor->GetDiplomacyState(server)==NDb::DS_ENEMY){target=server;break;}
+    }
+    Require(target,"mounted-gun fixture has no actual hostile target under authored diplomacy");
     auto* gunner = NAI::GetAIUnit(actor);
-    auto* enemy = NAI::GetAIUnit(target);
+    CObj<NAI::IAIUnit> enemyOwner=NAI::GetAIUnit(target);
+    if(!enemyOwner)enemyOwner=NAI::CreateAIUnit(target,false);
+    enemyOwner->Synchronize(false);auto* enemy=enemyOwner.GetPtr();
     auto* threat = gunner->GetAIUnitState();
     Require(threat != nullptr,"mounted-gun fixture has no native threat state");
     threat->AddEnemy(enemy); threat->pEnemy = enemy; threat->pPossibleEnemy = nullptr;
+    const auto& known=threat->GetKnownEnemies();
+    Require(std::find(known.begin(),known.end(),CPtr<NAI::IAIUnit>(enemy))!=known.end(),"native threat tracker rejected the fixture target as non-hostile");
     CObj<NAI::CAIShootFromHGAction> shoot = new NAI::CAIShootFromHGAction(gunner);
     CObj<NAI::CAIDockWithHGAction> dock = new NAI::CAIDockWithHGAction(gunner);
     CObj<NAI::CAIUndockFromHGAction> undock = new NAI::CAIUndockFromHGAction(gunner);
@@ -7397,15 +7406,23 @@ static void MountedGunEligibility(const char* databasePath,const char* resourceP
         for (auto approach: approaches) {
             if (!net->IsPassable(approach) || net->IsLocked(approach,false)) continue;
             auto position = actor->GetPosition(); position.pos.p = approach; actor->SetPosition(position);
+            world->GetTime()->Set(world->GetTime()->GetValue()+1);actor->animator.AlignTime();actor->animator.PlaceUnit(position);
             gunner->Synchronize();
             for (auto place: targets) {
+                place.SetPose(NAI::CM_STAND);
                 if (!net->IsPassable(place) || net->IsLocked(place,false)) continue;
                 NAI::SPosition at(place,net);
                 if (fabs(at.GetCP()-cannon->GetPosition()) <= 6.f ||
                     NWorld::CanAttackWithCannon(cannon,at.GetCP()+CVec3(0,0,1)) != NWorld::UCR_OK) continue;
                 auto targetPosition = target->GetPosition(); targetPosition.pos.p = place; target->SetPosition(targetPosition);
-                enemy->Synchronize(); world->GetAIMap()->Sync(); ++examined;
-                CVec3 aim; world->GetAIMap()->GetUnitHLPos(&aim,world->GetAIMap()->GetHull(target),NAI::HL_BODY);
+                world->GetTime()->Set(world->GetTime()->GetValue()+1);target->animator.AlignTime();target->animator.PlaceUnit(targetPosition);
+                enemy->Synchronize(); MarkNewDGFrame();world->GetAIMap()->Sync(); ++examined;
+                CVec3 aim;auto* hull=world->GetAIMap()->GetHull(target);const bool hasAim=world->GetAIMap()->GetUnitHLPos(&aim,hull,NAI::HL_BODY);
+                if(examined<=3) {
+                    const auto cp=target->GetPosition().GetCP(),gp=cannon->GetPosition();
+                    std::printf("mounted native aim: person=%d pose=%d hull=%d aimValid=%d CP=(%g,%g,%g) aim=(%g,%g,%g) gun=(%g,%g,%g) result=%d\n",
+                        target->GetUnitRPG()->GetRPGPersID(),int(target->GetPosition().GetPose()),int(hull!=nullptr),int(hasAim),double(cp.x),double(cp.y),double(cp.z),double(aim.x),double(aim.y),double(aim.z),double(gp.x),double(gp.y),double(gp.z),int(NWorld::CanAttackWithCannon(cannon,aim)));std::fflush(stdout);
+                }
                 if (NWorld::CanAttackWithCannon(cannon,aim) != NWorld::UCR_OK) continue;
                 ++attackable;
                 gunner->SetCannon(cannon);

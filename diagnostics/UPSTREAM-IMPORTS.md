@@ -11568,3 +11568,39 @@ owned tests exit. Final actual-HEAD hosted Actions remains due after all imports
 
 Source9ef8ae86 complete, ledger144 imported/18partial/76pending =94 unfinished
 source reviews/imports. Other mixed360344ca hunks remain partial.
+
+
+## 2026-10-28 — repair the mounted-gun native test fixture
+
+While validating source [8c6c27b55e74d5fe3c410372f9193c26a90ae174](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8c6c27b55e74d5fe3c410372f9193c26a90ae174),
+the existing MountedGunEligibility test failed before reaching any undock Do.
+Retain the initial17/18 related logs and independently rebuild with our pending
+Undock.Do production patch removed: same fixture failure Windows1.31s/Linux
+1.25s. This is not the new AP bug or a regression caused by its correction.
+
+The fixture chose the first two AI units, which are same-side in this authored
+world; native AddEnemy correctly rejects a non-hostile target. Choose an actual
+authored hostile unit instead and assert accepted native known-enemy membership.
+Use its genuine existing AI wrapper, or a native wrapper over the actual human
+unit when it has no commander wrapper; no fake unit/weapon/diplomacy provider.
+Generic near cells are pose0 crawl placeholders, so explicitly select standing
+target cells. Update each real animator placement and AI map on a fresh world
+tick: repeatedly queuing every pose at initial tick0 left the collision aim at
+the old location. Recorded CP(9.375,.2083,3.30734) vs stale aim(.531961,4.98706,
+4.57068); fresh-tick native aim(9.31379,.235434,4.49302) is actually engageable.
+Keep bounded actual aim/hull diagnostics for future fork geometry changes.
+
+Intermediate hostility-only and placement/stance attempts are retained as
+fixture calibration failures, not additional upstream bug REDs. Optional
+diagnostic compile initially referenced an undeclared move-cost helper; removed
+that unnecessary diagnostic before runtime. No production behavior was altered
+to make this test pass. Final native test Windows1/1 1.17s and Linux
+1/1 1.18s on unchanged HEAD game code. One authored cannon, examined1,
+attackable1, selected1, occupied fire1/target1/ammo100; docking/occupied/empty
+ammunition and nonmutating AP/position/ammo controls pass. Owned tests exit.
+
+This separate test-only commit does not import the pending undock AP/route
+hunks or change the ledger (144 imported/18partial/76pending =94 unfinished).
+The independent five-case AP TDD retains its three intended native REDs; restore
+that small pending production diff only after this fixture correction commits.
+Final actual-HEAD hosted Actions remains due after all useful imports.
