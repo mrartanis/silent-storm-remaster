@@ -11725,3 +11725,60 @@ copies; owned tests exit. Final actual-HEAD hosted Actions due after all imports
 Source8c6c27b5 complete: planning hunkcae47350 plus this independent route fix;
 test preparation separately9220370e. Ledger145 imported/18partial/75pending
 =93 unfinished source reviews/imports, not a count of future commits.
+
+
+## 2026-10-28 — report no path for a mine with no original-radius approaches
+
+Source [c8c4e225df115072ce176598c1324aaf7bd7a7c0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c8c4e225df115072ce176598c1324aaf7bd7a7c0), independent empty-approach status hunk.
+The internal mine action factory returned no executor yet UCR_OK0 when its
+approach list was empty. CUnitServer.CanDo already defensively normalized that
+to GeneralFailure2; it did not falsely execute the action or report public
+success. Return the actual PathNotFound6 from the mine-specific helper instead.
+One production line changes; no generic action-error policy, path selection,
+equipment, AP, skill, disarm roll, mine data, animation, API or fields change.
+
+Keep original0.8 reach and0.5 exclusion box. Gold typed GetMinePlaces788b30/373
+maps Steam794730 with10 unique24byte anchors; both actual bodies push float0.8
+bits3f4ccccd at+f4 and call original reach helper at+ff. Both half-box comparisons
+resolve to0.5 data. Untrap helper788cb0/210->7948b0 has5 anchors; actual reach
+795110/91->7a0e10 has one unique24byte anchor plus direct matched caller, not a
+claim of whole-function byte equality. Disarm CanDo79b710/416->7a7bb0 has11.
+Typed signatures and audit-mine-approach-radius.py verify the relevant mapping.
+The upstream0.8->1.0 extension is beyond original and excluded for user review;
+late CanDo range validation remains an independent pending hunk.
+
+Four native modes construct an authored CMine in the actual world/tracker and
+use real nav cells, actual armed actor without active clearing tool, internal
+CreateActionExecutor and public CanDo. Select a real cell center whose closest
+point outside the mine exclusion box is0.859001: no original0.8 approach, but4
+passable candidates within excluded1.0. This is an active preservation boundary:
+enlarging reach would lose the expected no-path result. The reachable control
+has an explicit0.6 approach and retains its actual missing-tool/general error;
+missing-target and unsupported-target controls retain1 and3. No shipping DB or
+skill/vision/RPG values changed. Mine stays in its real tracker; actor position,
+AP46, health, weapon/ammo, command/action latches and RNG stay unchanged.
+
+Initial Windows fixture compile hit platform min/max macros, fixed by existing
+portable call syntax; not bug RED. Initial Linux input had one genuine status
+failure plus an invalid assumption that every on-grid mine has a0.8 approach.
+Use a deliberately reachable0.6 control, retain calibration logs, and count only
+the final actual runtime RED1/4 Windows5.02s/Linux5.00s: direct0/public2 instead6.
+All3 controls pass. GREEN18/18 Windows28.84s/Linux30.28s: direct6/public6 for
+unreachable mine, all3 control outputs unchanged. This checks status/query
+behavior, not a live disarm success roll or rendered cursor pixels.
+
+Fresh Windows ALL_BUILD99/99 related144.48s; Linux Game/helpers97/97 related146.28s.
+These cover mine/trap/tool/engineering, explosives/grenades, inventory,
+actions/commands, cursor/shortcut, consumable/picklock/reload paths. Exact
+registered names verified from CTest files. Local asset-free CI290/290 25.97s.
+Five raw final logs18/18/99/97/290 exact passes, no Failed/NotRun/NUL, all runners0.
+verify-mine-approach-status.py checks native before/after, original-radius
+boundary, unchanged controls and one-line Main diff; original header/executor
+remain untouched. Earlier broad AI355/353 and combat37/36 passed in818bcaea;
+they are not falsely claimed as rerun for this mine-error-only change. Shared
+builds reused, HD generation OFF, no per-bug copies; owned tests exit. Final
+actual-HEAD hosted Actions remains due after all useful imports.
+
+Sourcec8c4e225 becomes SPLIT/partially-imported: status fix done, radius extension
+excluded for balance review, separate late validation pending. Ledger145
+imported/19partial/74pending =93 unfinished source reviews/imports.

@@ -300,7 +300,7 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdUntrapObje
 	if (pMine)
 	{
 		GetMinePlaces(pMine->GetMinePos(), pUS->GetWorld()->GetPathNetwork(), pRes );
-		return UCR_OK;
+		return pRes->empty() ? UCR_PATH_NOT_FOUND : UCR_OK;
 	}
 	ASSERT(0);
 	return UCR_GENERAL_FAILURE;

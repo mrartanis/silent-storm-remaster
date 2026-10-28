@@ -17231,6 +17231,58 @@ static void SpentPicklockPoseCleanup(const char* databasePath,const char* resour
         "picklock pose cleanup changed the failed lock result, AP or gameplay orders");
 }
 
+static void MineApproachStatus(const char* databasePath,const char* resourcePath,int mode)
+{
+    auto world=FixtureWorld(databasePath,resourcePath,true);auto* network=world->GetPathNetwork();
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;NRPG::CWeaponItem* weapon=nullptr;
+    for(const auto& unit:units) {
+        if(!IsValid(unit) || !unit->CanFight() || unit->IsWearingPK() || unit->IsEmptyPK() || unit->HasCommand() || unit->IsPerformingAction() || unit->GetState()==NWorld::CUnit::ST_MACHINE_GUN)continue;
+        auto* active=dynamic_cast<NRPG::CWeaponItem*>(unit->GetUnitRPG()->GetInventory()->GetActive());
+        if(active && unit->GetPosition().pos.p.IsIntegral()){actor=unit.GetPtr();weapon=active;break;}
+    }
+    Require(actor && weapon,"mine approach fixture has no ordinary armed native actor without an active clearing tool");
+    NDb::CRPGMine* record=nullptr;CDBIterator<NDb::CRPGMine> records(*NDatabase::GetTable<NDb::CRPGMine>());
+    while(records.MoveNext())if(IsValid(records.Get()->pItem) && IsValid(records.Get()->pItem->pModel) && IsValid(records.Get()->pExplosion)){record=records.Get();break;}
+    Require(record,"mine approach fixture has no authored mine model/explosion record");
+    vector<NAI::SPathPlace> nearby;network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),8.f),&nearby);
+    std::map<unsigned,NAI::SPathPlace> cells;
+    for(auto point:nearby)if(point.IsIntegral())cells[(unsigned(point.GetLayer())<<16)|(unsigned(point.GetY())<<8)|point.GetX()]=point;
+    NAI::SPathPlace anchor;CVec3 center;float minimumOutside=0;int extendedCandidates=0;bool found=false;
+    auto measure=[&](const CVec3& target,int* extended) {
+        vector<NAI::SPathPlace> points;network->GetNearPlaces(SSphere(target,5.f),&points);float minimum=1e9f;*extended=0;
+        for(auto point:points) {
+            const auto cp=NAI::SPosition(point,network).GetCP();const float dx=cp.x-target.x,dy=cp.y-target.y;
+            if(std::fabs(dx)<=.5f && std::fabs(dy)<=.5f)continue;
+            minimum=(std::min)(minimum,std::sqrt(dx*dx+dy*dy));
+            if(network->IsNativePassable(point) && NWorld::IsWithinHumanReach(cp,target,1.f))++*extended;
+        }
+        return minimum;
+    };
+    for(const auto& entry:cells) {
+        const auto point=entry.second;if(point.GetX()>=254 || point.GetY()>=254)continue;
+        auto x=cells.find(entry.first+1),y=cells.find(entry.first+256),xy=cells.find(entry.first+257);
+        if(x==cells.end() || y==cells.end() || xy==cells.end() || !network->IsNativePassable(point) || !network->IsNativePassable(x->second) || !network->IsNativePassable(y->second) || !network->IsNativePassable(xy->second))continue;
+        const auto p0=NAI::SPosition(point,network).GetCP(),p1=NAI::SPosition(x->second,network).GetCP(),p2=NAI::SPosition(y->second,network).GetCP(),p3=NAI::SPosition(xy->second,network).GetCP();
+        const float minZ=(std::min)((std::min)(p0.z,p1.z),(std::min)(p2.z,p3.z)),maxZ=(std::max)((std::max)(p0.z,p1.z),(std::max)(p2.z,p3.z));
+        if(maxZ-minZ>.2f)continue;
+        const auto midpoint=(p0+p1+p2+p3)*.25f;int extended=0;const float minimum=measure(midpoint,&extended);
+        if(minimum>.8001f && minimum<.9999f && extended>0){anchor=point;center=midpoint;minimumOutside=minimum;extendedCandidates=extended;found=true;break;}
+    }
+    Require(found,"native mine fixture has no real off-grid cell center whose safe approach distance lies strictly between original0.8 and upstream1.0");
+    if(mode==1){center=NAI::SPosition(anchor,network).GetCP()+CVec3(.6f,0,0);minimumOutside=measure(center,&extendedCandidates);Require(minimumOutside<.8f,"reachable control has no original-radius grid approach");}
+    CObj<NWorld::CMine> mine=new NWorld::CMine(world,center,record,actor->GetUnitRPG()->GetMineDC(record),NAI::SPosition(anchor,network).GetFloor(),actor,0);
+    CObj<NWorld::CCmdUntrapObject> command=new NWorld::CCmdUntrapObject(mode==2?nullptr:mode==3?static_cast<CObjectBase*>(actor):static_cast<CObjectBase*>(mine.GetPtr()));
+    const auto position=actor->GetPosition();const int ap=actor->GetAP(),vp=actor->GetUnitRPG()->GetTotalVP(),ammo=weapon->GetAmmoQuantity();
+    const bool hadCommand=actor->HasCommand(),hadAction=world->IsAction();auto random=GlobalGameRandom();NWorld::EUnitCommandResult direct=NWorld::UCR_OK;
+    CObj<NWorld::CCommandExecute> executor=NWorld::CreateActionExecutor(actor,command,&direct);const int publicResult=int(actor->CanDo(command));
+    const int expected=int(mode==0?NWorld::UCR_PATH_NOT_FOUND:mode==1?NWorld::UCR_GENERAL_FAILURE:mode==2?NWorld::UCR_UNAVAILABLE:NWorld::UCR_INVALID_COMMAND);
+    vector<CVec3> positions(1,center);vector<CPtr<NWorld::CMine>> tracked;
+    Require(world->GetMineTracker()->GetMines(positions,&tracked) && std::find(tracked.begin(),tracked.end(),CPtr<NWorld::CMine>(mine.GetPtr()))!=tracked.end(),"mine approach query disarmed or removed the native mine");
+    std::printf("native mine approach status: mode=%d minimumOutside=%g extendedCandidates=%d originalReach=%g executor=%d direct=%d public=%d expected=%d AP=%d\n",mode,double(minimumOutside),extendedCandidates,double(NWorld::F_HEAL_DISTANCE),int(IsValid(executor)),int(direct),publicResult,expected,actor->GetAP());std::fflush(stdout);
+    Require(actor->GetPosition()==position && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==vp && weapon->GetAmmoQuantity()==ammo && actor->GetUnitRPG()->GetInventory()->GetActive()==weapon && actor->HasCommand()==hadCommand && world->IsAction()==hadAction && random.Get()==GlobalGameRandom().Get(),"mine approach query changed native gameplay, equipment, orders or RNG");
+    Require(!executor && int(direct)==expected && publicResult==expected,"native mine approach returned success/general failure instead of the actual no-path reason, or changed a control result");
+}
+
 static void MinePlacementSuccessorHandoff(const char* databasePath,const char* resourcePath)
 {
     for (int variant: {1,0,2,3}) {
@@ -24248,6 +24300,10 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "cancelled-equipment-hidden-item-pose")) { Require(argc == 4, "equipment cancellation requires db and res"); CancelledInventoryHiddenItemPose(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "spent-medkit-pose-cleanup")) { Require(argc == 4, "spent medkit requires db and res"); SpentMedkitPoseCleanup(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "spent-picklock-pose-cleanup")) { Require(argc == 4, "spent picklock requires db and res"); SpentPicklockPoseCleanup(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "mine-approach-status-off-grid") && argc == 4) { MineApproachStatus(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "mine-approach-status-reachable") && argc == 4) { MineApproachStatus(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "mine-approach-status-missing-target") && argc == 4) { MineApproachStatus(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "mine-approach-status-unsupported") && argc == 4) { MineApproachStatus(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "mine-placement-successor-handoff")) { Require(argc == 4, "mine handoff requires db and res"); MinePlacementSuccessorHandoff(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "trap-placement-successor-handoff")) { Require(argc == 4, "trap handoff requires db and res"); TrapPlacementSuccessorHandoff(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "engineer-trap-placement-successor-handoff")) { Require(argc == 4, "engineer trap handoff requires db and res"); TrapPlacementSuccessorHandoff(argv[2],argv[3],true); return true; }

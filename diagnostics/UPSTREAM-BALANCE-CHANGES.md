@@ -1486,3 +1486,23 @@ damage or reward coefficient. Native exit remains free; ordinary Look/Goto
 keep their measured costs, and the separate original planning SpendAP(1) is
 unchanged. Mounted shoot-mode/wait and already-unmounted routes keep behavior.
 This resolves the separate route item noted in the preceding entry.
+
+
+## 2026-10-28 — excluded: disarm radius0.8 ->1.0 (c8c4e225)
+
+Source [c8c4e225df115072ce176598c1324aaf7bd7a7c0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c8c4e225df115072ce176598c1324aaf7bd7a7c0).
+Do not import the new F_DISARM_MINE_DISTANCE1.0 or the approach-helper distance
+parameter added to use it. Both original binaries pass0.8 to the reach check
+and retain the0.5 exclusion box; original-radius audit records typed mappings
+and actual immediate values. The proposed1.0 is a25% horizontal radius increase
+for disarming, leaving placement at0.8. It permits extra approach positions:
+our real off-grid fixture has closest safe distance0.859001, with4 candidates
+under1.0 and none under original0.8. This can make previously inaccessible mines
+disarmable. Keep this reach change for the user's review; do not silently tune it.
+
+The useful error-status fix is imported independently with unchanged0.8: an
+empty approach list reports PathNotFound rather than internal success/public
+general failure. Some off-grid mines therefore remain unreachable under the
+original radius. No AP, charges, difficulty or explosive damage changes.
+The separate late executor reach-validation hunk is still under review and
+must not silently introduce the excluded1.0 value.
