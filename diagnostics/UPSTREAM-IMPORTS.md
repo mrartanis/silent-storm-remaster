@@ -9475,3 +9475,83 @@ currently empty. Audit original ownership of those counters before changing the
 reset locations, so removing snapshot resets cannot discard their needed turn
 initialization. Final actual-HEAD hosted GitHub Actions verification/repair remains
 due after ALL281; fonts/facial engine and ready HD packs remain untouched.
+
+
+## 2eee1b62, combat snapshot stage - retire inactive plans and refresh direct known enemies
+
+Current Synchronize refreshed an inactive actor's planning data but retained
+its combat logic and both route slots. Active refresh also overwrote four old
+wrapper values and never refreshed known enemies. Restore the original active/
+inactive split. Invalid/nonfightable server: StopThinking on valid outgoing
+logic, clear current logic and both route slots, return. Active: refresh native
+AP/HP, complete live pose, cannon and inventory; for AI-controlled units only,
+optionally refresh direct known enemies with Synchronize(false). Suspects/allies
+and the enemies' own contacts are not recursively refreshed. Default true keeps
+existing call sites working; combat PS_INIT explicitly requests true. Update
+the sole AIUnitFixture override signature without changing its throwing behavior.
+No new virtual slot/field, serialized format, authored data or coefficient.
+
+Do not blindly delete resets assuming OnTurnStarted initializes them: that hook
+is currently empty. Source/consumer audit shows the old GetTurnStartHP/GetHurtHP/
+GetMaxToHit/GetAdditionalExpediency APIs have no active production getter consumers
+(one commented criterion reference remains). Retain their fields/defaults/APIs
+and assigned values, while removing the invented snapshot-time overwrites.
+Original complete Synchronize/GetUnitSkillValues bodies do not contain those
+resets. No new turn initialization or new effect of those legacy fields is added.
+
+Another source adaptation matters: upstream uses SetCurrentLogicInner(0), whose
+fork implementation increments nNonFreezeCounter for an actual change. Original
+Synchronize retires logic directly without that planning-change counter update.
+Use the original direct StopThinking/clear and retain a native unchanged-counter
+control. Keep the fork's separate saved planning snapshot and live accessors.
+
+Six native cases use real deployed party/AI units. The small map lacked four AI
+actors for a direct-contact/cycle/exclusion control, so deploy additional native
+actors with AddUnitInGame under the same actual AI commander. Initial missing
+probe default constructor, IPlayer-versus-CPlayer argument and undersized fixture
+failures are setup evidence, not RED. Correct setup before authoritative runtime
+RED4/6 6.76s: unconscious/dead retain logic1/routes1,1/stop0; ordinary snapshot
+turnHP80/hurt0/maxHit0/extra0 instead of retained prior values/11/37/29; direct
+known-contact AP remains stale. Active-route and human-no-recursion controls pass.
+
+After the fix all6 pass6.72s. Outgoing StopThinking callback observed once,
+current logic/two routes cleared for KO/dead, active identities retained; slot
+count2 and plan-change counter preserved. Native world AP/HP/full position do
+not change. Active planning AP/HP, full saved pose and inventory refresh from
+native sources despite divergent planning values. Known contact with planning
+HP0 but fightable native server refreshes correctly; null contact skipped.
+The known contact's own list includes a cycle plus a third unit: only one level
+refreshes; third/suspect/ally sentinel AP values stay unchanged. These seeded
+valid native identities also model old saved contact rosters; no diplomacy check
+is inserted into the original snapshot loop. Human snapshots update only self.
+
+Original proof: Gold PDB CAIUnit.Synchronize4accb0/307 is primary named CAIUnit
+RTTI COL8d27ac/vtable8a6984 slot24; Steam same primary offset0 COL8e1e44/vtable
+8b5a6c slot24=4ae460. Unique exact26-byte complete-instruction prefix agrees.
+CanFight4ae489; invalid/false branch4ae4fd calls StopThinking4ae527, zeros
+logic4ae52f and route1/route0 at4ae559/4ae57e without incrementing the planning
+churn field. Active GetUnitSkillValues4ae492->4ae370, spatial snapshot4ae4ae,
+inventory factory4ae4b3, bool4ae4d6 and AI-control4ae4e5 precede state call
+4ae4f3->4b0a10. Gold PDB SAIUnitState.Synchronize4af1c0/36 matches Steam4b0a10
+in all36 bytes exactly, uniquely: known vector14..18, false argument4b0a24,
+IAIUnit Synchronize slot24 at4b0a26. No suspect/ally walk. No arbitrary masks or
+ABI copying. Evidence ai-combat-sync-retail-oracle.json/full original bodies.
+
+Fresh Windows ALL_BUILD and Linux Game/helpers pass. Final focused30/30 30.06s
+includes existing native staged CombatChooserContext using PS_INIT; related
+Windows82/82 80.95s and Linux80/80 75.61s; additional Linux selected/context4/4
+1.16s covers real staged chooser plus the CPU contact-removal modes outside the
+related regex. Windows related includes serializer/stop-resume; local asset-free
+CI290/29024.61s passes registration parity and available CPU/route tests. All5
+raw logs have exact30/82/80/4/290 passed records, no NUL/Failed/NotRun/missing
+executable; actual runners exit0. Evidence ai-combat-sync-{red-native,green,
+final-focused,final-related,final-linux,linux-context,final-ci}. Owned processes
+exited, shared builds reused and HD generation OFF. No hosted Actions success
+or complete mission-playthrough is claimed; fonts/facial engine untouched.
+
+Source2eee remains partial: OnPassControl snapshot scheduling, live roster/
+neutral/alarm query consumers, reaction contact delivery and remaining mixed
+hunks still need independent native TDD/original audit. Source abbe4777 overlaps
+reaction delivery but also changes fear route/AP behavior; do not bulk-copy it.
+Counts281 remain137imported/19partial/82pending (101unfinished source commits).
+Final actual-HEAD hosted GitHub Actions verification/repair remains due after ALL.

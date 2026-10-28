@@ -17,7 +17,7 @@ public:
     NWorld::CUnitServer* GetUnitServer() const override { return server; }
     NRPG::IUnitMission* GetUnitMission() const override { throw std::runtime_error("unexpected AI fixture operation"); }
     NRPG::CUnit* GetRPGUnit() const override { throw std::runtime_error("unexpected AI fixture operation"); }
-    void Synchronize() override { throw std::runtime_error("unexpected AI fixture operation"); }
+    void Synchronize(bool = true) override { throw std::runtime_error("unexpected AI fixture operation"); }
     SPosition GetPosition() override { throw std::runtime_error("unexpected AI fixture operation"); }
     SUnitPosition GetUnitPosition() override { throw std::runtime_error("unexpected AI fixture operation"); }
     void SetPosition( SPosition _pPosition ) override { throw std::runtime_error("unexpected AI fixture operation"); }

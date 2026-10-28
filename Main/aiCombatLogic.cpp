@@ -110,9 +110,9 @@ void CAICombatLogic::DoJob()
 	switch ( prepareState )
 	{
 	case PS_INIT:
-		// sync the unit (retail Synchronize(1); the a5dll IAIUnit::Synchronize is no-arg), then advance
+		// Sync this unit and its direct known enemies, then advance
 		// while the logic object is still live (retail: a plain IsValid(this), NOT IsLogicValid)
-		GetUnit()->Synchronize();
+		GetUnit()->Synchronize( true );
 		if ( IsValid( this ) )
 			prepareState = PS_PLACESOURCE;
 		break;

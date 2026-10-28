@@ -92,6 +92,13 @@ void SUnitsAndPositions::Add( IAIUnit *pUnit )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 SAIUnitState::SAIUnitState(): bHelpCalled( false ), bScared( false ) {}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void SAIUnitState::Synchronize()
+{
+	for ( vector< CPtr<IAIUnit> >::iterator i = enemies.data.units.begin(); i != enemies.data.units.end(); ++i )
+		if ( IsValid( *i ) )
+			(*i)->Synchronize( false );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void SAIUnitState::OnAIEvent( IAIEvent *pEvent )
 {
 	// Original immediate world delivery: no reaction-side collection locks.

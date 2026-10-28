@@ -8141,6 +8141,126 @@ public:
     bool CanSkip() const override { return false; }
 };
 
+class AISyncLogicProbe: public NAI::CAILogic
+{
+    OBJECT_NOCOPY_METHODS(AISyncLogicProbe);
+public:
+    int stops = 0;
+    AISyncLogicProbe() = default;
+    explicit AISyncLogicProbe(NAI::IAIUnit* owner): CAILogic(owner) {}
+    void StopThinking() override { ++stops; CAILogic::StopThinking(); }
+};
+
+static void AICombatSnapshot(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    vector<NAI::IAIUnit*> ai;
+    NAI::IAIUnit* human = nullptr;
+    for (const auto& server: units) {
+        auto* wrapper = NAI::GetAIUnit(server);
+        if (!IsValid(server) || !server->CanFight() || !IsValid(wrapper)) continue;
+        if (server->IsAIUnit()) ai.push_back(wrapper); else human = wrapper;
+    }
+    Require(!ai.empty() && human, "combat snapshot fixture needs native AI and human players");
+    while (ai.size() < 4) {
+        auto* anchor = ai.front()->GetUnitServer();
+        auto* added = world->AddUnitInGame(anchor->GetPosition().pos.p,
+            NRPG::CreateUnit(anchor->GetUnitRPG()->GetRPGUnit()->GetPers()), anchor->GetTBSPlayer());
+        auto* wrapper = NAI::GetAIUnit(added);
+        Require(IsValid(added) && added->CanFight() && added->IsAIUnit() && IsValid(wrapper),
+            "combat snapshot fixture failed to deploy its additional native AI actor");
+        ai.push_back(wrapper);
+    }
+    auto* owner = mode == 5 ? human : ai[0];
+    auto* server = owner->GetUnitServer();
+    auto readFields = [&](vector<CObj<NAI::IAILogic>>* routes, CObj<NAI::IAILogic>* logic,
+                          NAI::SUnitPosition* pose, CObj<NAI::CAIInventory>* inventory) {
+        CStructureNetworkContext references;
+        auto saved = BorrowedObjectFields(owner, &references);
+        CStructureSaver reader(saved, CStructureSaver::READ, &references);
+        reader.Add(4, pose); reader.Add(6, inventory); reader.Add(7, routes); reader.Add(8, logic);
+    };
+    auto plannedPose = [&]() {
+        vector<CObj<NAI::IAILogic>> routes; CObj<NAI::IAILogic> logic;
+        NAI::SUnitPosition pose; CObj<NAI::CAIInventory> inventory;
+        readFields(&routes, &logic, &pose, &inventory); return pose;
+    };
+    if (mode <= 2) {
+        if (mode == 1) server->MakeUnconscious(VNULL3, true, false);
+        if (mode == 2) { server->GetUnitRPG()->Kill(); server->KillUnit(VNULL3); }
+        Require(server->CanFight() == (mode == 0), "snapshot retirement control has wrong native fightability");
+        CObj<AISyncLogicProbe> combat = new AISyncLogicProbe(owner);
+        CObj<NAI::CAIRouteLogic> normal = new NAI::CAIRouteLogic(owner), sequence = new NAI::CAIRouteLogic(owner);
+        vector<CObj<NAI::IAILogic>> seeded = {normal.GetPtr(), sequence.GetPtr()};
+        CObj<NAI::IAILogic> current = combat.GetPtr();
+        CStructureNetworkContext references;
+        auto originalFields = BorrowedObjectFields(owner, &references);
+        for (CObjectBase* object: {static_cast<CObjectBase*>(combat.GetPtr()),
+                                  static_cast<CObjectBase*>(normal.GetPtr()), static_cast<CObjectBase*>(sequence.GetPtr())}) {
+            const auto id = references.nextID++; references.ids[object] = id; references.refs[id] = object;
+        }
+        CMemoryStream saved;
+        { CStructureSaver writer(saved, CStructureSaver::WRITE, &references); writer.Add(7, &seeded); writer.Add(8, &current); }
+        saved.Seek(0);
+        { CStructureSaver reader(saved, CStructureSaver::READ, &references); static_cast<CObjectBase*>(owner)->operator&(reader); }
+        const auto position = server->GetPosition(); const int ap = server->GetAP(), hp = server->GetUnitRPG()->GetTotalVP();
+        const int churn = owner->GetNonFreezeCounter();
+        owner->Synchronize();
+        vector<CObj<NAI::IAILogic>> routes; CObj<NAI::IAILogic> logic;
+        NAI::SUnitPosition pose; CObj<NAI::CAIInventory> inventory;
+        readFields(&routes, &logic, &pose, &inventory);
+        Require(routes.size() == 2, "snapshot retirement changed the serialized route slot count");
+        std::printf("snapshot mode=%d logic=%d routes=%d,%d stops=%d\n", mode,
+            int(IsValid(logic)), int(IsValid(routes[0])), int(IsValid(routes[1])), combat->stops);
+        if (mode == 0)
+            Require(logic.GetPtr() == combat.GetPtr() && routes[0].GetPtr() == normal.GetPtr()
+                    && routes[1].GetPtr() == sequence.GetPtr() && combat->stops == 0,
+                "active snapshot unexpectedly retired its current logic or either route");
+        else
+            Require(!IsValid(logic) && !IsValid(routes[0]) && !IsValid(routes[1]) && combat->stops == 1,
+                "inactive snapshot retained combat logic/routes or failed to stop outgoing thinking");
+        Require(server->GetPosition() == position && server->GetAP() == ap && server->GetUnitRPG()->GetTotalVP() == hp,
+            "snapshot retirement changed world AP, HP or position");
+        Require(owner->GetNonFreezeCounter() == churn, "snapshot retirement counted as a new AI planning change");
+    } else {
+        const auto position = server->GetPosition(); const int ap = server->GetAP(), hp = server->GetUnitRPG()->GetTotalVP();
+        auto plan = position.pos; plan.p.SetDirection((plan.p.GetDirection()+3)&7); owner->SetPosition(plan);
+        owner->SetAP(1, 2); owner->SetHP(1, 2);
+        owner->SetHurtHP(11); owner->SetMaxToHit(37); owner->SetAdditionalExpediency(29);
+        const int turnHP = owner->GetTurnStartHP();
+        auto* state = owner->GetAIUnitState();
+        state->enemies.data.units = {ai[1], nullptr};
+        state->possibleEnemies.data.units = {ai[2]}; state->allies.data.units = {ai[3]};
+        // A valid existing contact can itself know other units. Snapshot delivery
+        // is one level deep, regardless of cycles or old saved diplomacy rosters.
+        ai[1]->GetAIUnitState()->enemies.data.units = {owner, ai[2]};
+        for (int i = 1; i != 4; ++i) { ai[i]->SetAP(-10-i, 50); ai[i]->SetHP(0, 50); }
+        const int knownAP = ai[1]->GetUnitServer()->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP);
+        owner->Synchronize();
+        if (mode == 3) {
+            std::printf("snapshot legacy counters: turnHP=%d hurt=%d maxHit=%d extra=%d\n", owner->GetTurnStartHP(),
+                owner->GetHurtHP(), owner->GetMaxToHit(), owner->GetAdditionalExpediency());
+            Require(owner->GetTurnStartHP() == turnHP && owner->GetHurtHP() == 11
+                    && owner->GetMaxToHit() == 37 && owner->GetAdditionalExpediency() == 29,
+                "ordinary snapshot refresh reset unrelated legacy planning counters");
+        } else if (mode == 4)
+            Require(ai[1]->GetAP() == knownAP && ai[1]->GetHP() > 0 && ai[2]->GetAP() == -12 && ai[3]->GetAP() == -13,
+                "default AI snapshot failed to refresh only direct known contacts without recursive/suspect/ally updates");
+        else
+            Require(ai[1]->GetAP() == -11 && ai[2]->GetAP() == -12 && ai[3]->GetAP() == -13,
+                "human snapshot recursively refreshed tactical contacts despite lacking AI control");
+        Require(owner->GetAP() == server->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_AP)
+                && owner->GetHP() == server->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP)
+                && plannedPose() == position && IsValid(owner->GetAIInventory()),
+            "live snapshot failed to refresh native skills, full pose or inventory");
+        Require(server->GetPosition() == position && server->GetAP() == ap && server->GetUnitRPG()->GetTotalVP() == hp,
+            "snapshot refresh spent world AP/HP or replaced the live position");
+    }
+}
+
 static void CombatChooserContext(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -21395,6 +21515,12 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-contact-eligibility-enemy") && argc == 4) { AIContactMembership(argv[2], argv[3], 0, 3); return true; }
     if (!std::strcmp(mode, "ai-contact-eligibility-possible") && argc == 4) { AIContactMembership(argv[2], argv[3], 1, 3); return true; }
     if (!std::strcmp(mode, "ai-contact-eligibility-ally") && argc == 4) { AIContactMembership(argv[2], argv[3], 2, 3); return true; }
+    if (!std::strcmp(mode, "ai-snapshot-active") && argc == 4) { AICombatSnapshot(argv[2], argv[3], 0); return true; }
+    if (!std::strcmp(mode, "ai-snapshot-unconscious") && argc == 4) { AICombatSnapshot(argv[2], argv[3], 1); return true; }
+    if (!std::strcmp(mode, "ai-snapshot-dead") && argc == 4) { AICombatSnapshot(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "ai-snapshot-counters") && argc == 4) { AICombatSnapshot(argv[2], argv[3], 3); return true; }
+    if (!std::strcmp(mode, "ai-snapshot-contacts") && argc == 4) { AICombatSnapshot(argv[2], argv[3], 4); return true; }
+    if (!std::strcmp(mode, "ai-snapshot-human") && argc == 4) { AICombatSnapshot(argv[2], argv[3], 5); return true; }
     if (!std::strcmp(mode, "mission-overlay-readiness")) { MissionOverlayReadiness(); return true; }
     if (!std::strcmp(mode, "ai-player-mission-readiness")) { AIPlayerMissionReadiness(); return true; }
     if (!std::strcmp(mode, "sound-icon-visibility")) { OverlayIconVisibility(false); return true; }

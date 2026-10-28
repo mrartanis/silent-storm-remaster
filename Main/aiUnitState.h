@@ -72,6 +72,7 @@ struct SAIUnitState
 	void SetUnit( IAIUnit *_pUnit ) { pUnit = _pUnit; }
 	void Notify( IAIEvent *pEvent );
 	void OnAIEvent( IAIEvent *pEvent ); // World delivery preserves the caller's collection lock depths.
+	void Synchronize(); // Refresh direct known enemies without recursively refreshing their contacts.
 	//
 	void AddEnemy( IAIUnit *p );           void RemoveEnemy( IAIUnit *p );
 	void AddPossibleEnemy( IAIUnit *p );   void RemovePossibleEnemy( IAIUnit *p );
