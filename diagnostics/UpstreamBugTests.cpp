@@ -7947,6 +7947,142 @@ static void SetCoverProbeMap(NRPG::IGame* game,NAI::IAIMap* map)
     {CStructureSaver writer(fields,CStructureSaver::WRITE,&refs); writer.Add(2,&restored);}
     fields.Seek(0); {CStructureSaver reader(fields,CStructureSaver::READ,&refs); game->operator&(reader);}
 }
+namespace NRPG
+{
+    // Existing native implementation, kept out of the public gameplay interface.
+    int GetHitCover(const NWorld::CUnit* attacker,CCoverInfo* cover);
+}
+class CoverReachMapProbe: public CoverOriginMapProbe
+{
+    OBJECT_NOCOPY_METHODS(CoverReachMapProbe);
+public:
+    CVec3 source,aim,fullAim;
+    CPtr<NWorld::CUnitServer> target;
+    bool shortenAim=false,inspectTarget=true;
+    int targetIntervals=0,reachableIntervals=0,beyondIntervals=0;
+    explicit CoverReachMapProbe(NAI::IAIMap* map=nullptr): CoverOriginMapProbe(map) {}
+    bool GetUnitHLPos(CVec3* out,CObjectBase* hull,int id) override {
+        if(!native->GetUnitHLPos(out,hull,id))return false;
+        fullAim=*out;
+        if(shortenAim) {
+            CVec3 direction=*out-source;
+            Require(fabs(direction)>4.f,"cover reach fixture has no separated aim point and target geometry");
+            Normalize(&direction);*out=source+direction;
+        }
+        aim=*out;return true;
+    }
+    void TraceGrid(NAI::CFastRenderer* grid,int mask,ESort sort,const NAI::CFloorsSet& floors,ESplitTerrainHGroups split,bool doors) override {
+        if(shortenAim) {
+            // Retain the real target frustum while independently exercising a
+            // shorter penetration cutoff. A near frustum would cull the target
+            // before the native cover walk can examine its actual intervals.
+            const CVec3 direction=fullAim-source;
+            const float square=fabs(direction.x,direction.y)*tan(FP_PI8);
+            const int half=grid->resGrid.GetXSize()/2;
+            const CVec2 view=half==5 ? CVec2(square,Max(1.f,square)) : CVec2(Min(1.f,square),1.f);
+            grid->InitProjective(source,fullAim,view,half);
+        }
+        CoverOriginMapProbe::TraceGrid(grid,mask,sort,floors,split,doors);
+        if(!inspectTarget)return;
+        CVec3 direction=aim-source;const float distance=fabs(direction)+1.f;Normalize(&direction);
+        for(int y=0;y<grid->resGrid.GetYSize();++y)for(int x=0;x<grid->resGrid.GetXSize();++x) {
+            CVec3 ray;grid->GetDir(&ray,x,y);const float projection=direction*ray;
+            Require(projection>0,"native cover projection contains a backward ray");
+            for(auto* hit=grid->resGrid[y][x];hit;hit=hit->pNext)if(hit->GetInfo().pUserData==target.GetPtr()) {
+                ++targetIntervals;
+                if(hit->fEnter>=distance/projection)++beyondIntervals;
+                else if(hit->fExit>=1.f && (hit->GetInfo().nTSFlags&NWorld::TS_COVER))++reachableIntervals;
+            }
+        }
+    }
+    void Reset(){traces.clear();targetIntervals=reachableIntervals=beyondIntervals=0;}
+};
+static void AICoverTargetReach(const char* databasePath,const char* resourcePath,int mode)
+{
+    const bool human=mode==1 || mode==3,pk=mode==5 || mode==6;
+    const bool shortened=mode==0 || mode==1 || mode==5;
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> all;world->GetAllUnits(&all);
+    NWorld::CUnitServer *actor=nullptr,*target=nullptr;NRPG::IWeaponItem* firearm=nullptr;
+    for(const auto& candidate:all) {
+        if(!IsValid(candidate) || !candidate->CanFight() || candidate->HasCommand() || candidate->IsEmptyPK() || candidate->IsWearingPK())continue;
+        auto* weapon=dynamic_cast<NRPG::IWeaponItem*>(candidate->GetUnitRPG()->GetInventory()->GetActive());
+        if(weapon && weapon->GetAmmoQuantity()>0 && weapon->SetShootMode(NDb::SM_Snap)){actor=candidate.GetPtr();firearm=weapon;break;}
+    }
+    Require(actor && firearm,"cover reach fixture has no actual armed actor");
+    for(const auto& candidate:all)if(IsValid(candidate) && candidate.GetPtr()!=actor && candidate->CanFight()
+        && !candidate->IsEmptyPK() && !candidate->IsWearingPK() && actor->GetDiplomacyState(candidate)==NDb::DS_ENEMY){target=candidate.GetPtr();break;}
+    Require(target,"cover reach fixture has no actual opposing target");
+    CObj<NWorld::CUnitServer> shell;
+    if(pk) {
+        NDb::CRPGPers* persona=nullptr;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+        while(people.MoveNext())if(people.Get()->pPanzerklein && !people.Get()->pPanzerklein->bHasNoHead && people.Get()->pModel){persona=people.Get();break;}
+        Require(persona,"cover reach fixture has no authored regular PK shell");
+        auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;
+        network->GetNearPlaces(SSphere(target->GetPosition().GetCP(),20.f),&places);NAI::SPathPlace anchor;bool found=false;
+        for(auto place:places){place.SetPose(NAI::CM_STAND);place.SetDirection(0);if(NAI::IsBigLockerPlacePassable(network,place)){anchor=place;found=true;break;}}
+        Require(found,"cover reach fixture has no free native PK footprint");
+        shell=world->AddUnitInGame(anchor,NRPG::CreateUnit(persona),nullptr);
+        Require(shell && shell->IsEmptyPK() && shell->WearAsPK(true),"cover reach fixture could not prepare its real PK shell");
+        target->SetPosition(shell->GetPosition());target->FlipPanzerklein(shell,false,false);
+        Require(target->IsWearingPK() && target->GetDecalsRef()==shell.GetPtr(),"cover reach fixture lost the fork's real pilot/surface-owner relation");
+        world->GetAIMap()->Sync();
+    }
+    NRPG::IGame* game=world->GetGame();CPtr<NAI::IAIMap> original;
+    {CStructureNetworkContext refs;auto fields=BorrowedObjectFields(game,&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&original);}
+    Require(original.GetPtr()==world->GetAIMap() && original->GetHull(target),"cover reach fixture has no native gameplay target hull");
+    CObj<CoverReachMapProbe> probe=new CoverReachMapProbe(original);probe->target=target;
+    struct Restore{NRPG::IGame* game;CPtr<NAI::IAIMap> map;~Restore(){SetCoverProbeMap(game,map);}}restore{game,original};SetCoverProbeMap(game,probe);
+    vector<NRPG::CAttackPortion> attacks;actor->GetUnitRPG()->CreateAttack(&attacks,false);
+    Require(!attacks.empty() && attacks.front().nK>0,"cover reach fixture has no native penetrating attack portion");
+    CVec3 source=actor->GetAttackOrigin(actor->GetPosition(),false);
+    if(pk)source=target->GetPosition().GetCP()+CVec3(6.f,0,1.f);
+    probe->source=source;
+    bool ignoreTarget=false;
+    auto query=[&]() {
+        if(!human)return game->GetCoverForAIUnit(source,ignoreTarget?target:actor,target,attacks.front(),NAI::HL_ANY);
+        CObj<NRPG::CCoverInfo> cover=game->CalcCovers(source,attacks.front(),actor,target,NAI::HL_ANY,1.f,false);
+        return NRPG::GetHitCover(actor,cover);
+    };
+    const auto actorPosition=actor->GetPosition(),targetPosition=target->GetPosition();
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),targetHP=target->GetUnitRPG()->GetTotalVP(),ammo=firearm->GetAmmoQuantity();
+    const int shellHP=shell?shell->GetUnitRPG()->GetTotalVP():0;const bool command=actor->HasCommand();
+    GlobalGameRandom().SeedForHarness(0x72b9);auto beforeRandom=GlobalGameRandom();
+    const int clear=query();
+    std::printf("native cover reach control: mode=%d score=%d target=%d reachable=%d grids=%zu pk=%d\n",mode,clear,probe->targetIntervals,probe->reachableIntervals,probe->traces.size(),int(pk));std::fflush(stdout);
+    Require(clear>0 && probe->targetIntervals>0 && probe->reachableIntervals>0,"cover reach fixture lacks its actually reached positive native target control");
+    probe->Reset();
+    if(mode==4) {
+        // An actual open point above the same native world keeps tile traversal default-open.
+        probe->inspectTarget=false;
+        CVec3 tileDirection=probe->aim-source;Normalize(&tileDirection);
+        const CVec3 tile=source+tileDirection*2.f;
+        CObj<NRPG::CCoverInfo> cover=game->CalcCoversForTile(source,attacks.front(),actor,tile,0.f);
+        const int score=NRPG::GetHitCover(actor,cover);
+        std::printf("native cover reach tile: score=%d grids=%zu\n",score,probe->traces.size());std::fflush(stdout);
+        Require(score>0 && probe->traces.size()==1,"requiring a unit target also blocked the native open tile control");
+    } else {
+        // A controlled shorter aim distance exercises the native finite walk;
+        // the delegating map retains the full native target projection/geometry.
+        probe->shortenAim=shortened;ignoreTarget=mode==7;const int actual=query();
+        std::printf("native cover reach result: mode=%d score=%d target=%d reachable=%d beyond=%d grids=%zu shortened=%d\n",mode,actual,
+            probe->targetIntervals,probe->reachableIntervals,probe->beyondIntervals,probe->traces.size(),int(shortened));std::fflush(stdout);
+        Require(probe->traces.size()==(human?2u:1u) && probe->targetIntervals>0,"cover reach query lost its native target intersections/projection grids");
+        if(shortened) {
+            Require(probe->reachableIntervals==0 && probe->beyondIntervals==probe->targetIntervals,"cover reach fixture did not put all actual target intersections beyond the finite traversal");
+            Require(actual<=0,"a native unit cover ray succeeded although traversal never reached the target");
+        } else if(mode==7) {
+            Require(probe->reachableIntervals>0 && probe->beyondIntervals==0,"ignored-target control lost its genuinely in-range native geometry");
+            Require(actual==0,"a native cover query counted an ignored target as reached");
+        } else Require(actual==clear && actual>0 && probe->reachableIntervals>0,"requiring the unit target changed an actually reached native target");
+    }
+    Require(GlobalGameRandom().Get()==beforeRandom.Get(),"cover reach queries consumed native RNG");
+    Require(actor->GetPosition()==actorPosition && target->GetPosition()==targetPosition && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp
+        && target->GetUnitRPG()->GetTotalVP()==targetHP && firearm->GetAmmoQuantity()==ammo && actor->HasCommand()==command
+        && (!pk || (target->IsWearingPK() && target->GetDecalsRef()==shell.GetPtr() && shell->GetUnitRPG()->GetTotalVP()==shellHP)),
+        "cover reach queries changed AP/HP/ammo/commands/positions or the fork's PK pilot/surface-owner relation");
+}
+
 static void AICoverWeaponOrigin(const char* databasePath,const char* resourcePath,int mode)
 {
     CObj<NRPG::CGlobalGame> campaign; auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
@@ -23397,6 +23533,14 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "empty-bullet-construction") && argc == 4) { EmptyBulletConstruction(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hidden-unit-tint") && argc == 4) { HiddenUnitTint(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "living-unit-floor-refresh") && argc == 4) { LivingUnitFloorRefresh(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "ai-cover-target-ignored") && argc == 4) { AICoverTargetReach(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "ai-cover-target-ai-beyond") && argc == 4) { AICoverTargetReach(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ai-cover-target-human-beyond") && argc == 4) { AICoverTargetReach(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ai-cover-target-ai-reached") && argc == 4) { AICoverTargetReach(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ai-cover-target-human-reached") && argc == 4) { AICoverTargetReach(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "ai-cover-target-tile") && argc == 4) { AICoverTargetReach(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "ai-cover-target-pk-beyond") && argc == 4) { AICoverTargetReach(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "ai-cover-target-pk-reached") && argc == 4) { AICoverTargetReach(argv[2],argv[3],6); return true; }
     if (!std::strcmp(mode, "ai-cover-origin-stand") && argc == 4) { AICoverWeaponOrigin(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-cover-origin-crouch") && argc == 4) { AICoverWeaponOrigin(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-cover-origin-crawl") && argc == 4) { AICoverWeaponOrigin(argv[2],argv[3],2); return true; }

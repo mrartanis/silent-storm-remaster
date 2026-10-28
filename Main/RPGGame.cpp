@@ -233,16 +233,9 @@ static void AddGridToCovers( CCoverInfo *pRes, const NAI::CFastRenderer &res, co
 				continue;
 			}
 
-			// retail NRPG::CanHitTarget @0x290b70, inlined: the walk is penetrate-by-DEFAULT — it breaks
-			// UNCONDITIONALLY once fEnter reaches the target range (`if (!(fEnter < fMaxRange)) break;`
-			// — tiles too; CalcCoversForTile's fDistance pullback keeps the target tile's own ground
-			// surface past fTestDistance so it can never count as its own cover), and only an explicit
-			// block clears the penetrate: CanDealDmg-false cover, an ALLY of the shooter in the line,
-			// or armour-piercing exhaustion. The previous dev walk (a) gated hulls on TS_UNITS where
-			// retail tests 0x200 == TS_COVER, so terrain/wall nodes were skipped before the tile-
-			// penetrate branch could run — every bare-ground ray ended not-penetrating -> GetHitCover's
-			// -1 blocked sentinel -> 0% for all ground aiming; and (b) required an in-loop condition to
-			// MARK tile penetration instead of retail's default-open shape.
+			// Retail CanHitTarget (Steam 0x6909d2): exhausted traversal succeeds
+			// only for a tile. A unit target must actually be reached. Tile range
+			// pullback keeps the target ground surface beyond the traversal.
 			// Retail 1.2 @0x693795..0x693898: a different body part is a blocked
 			// hit ray, NOT a loose ray. A rolled miss must not select that flesh hit.
 			if ( pTarget && !bHitTargetPart )
@@ -308,7 +301,7 @@ static void AddGridToCovers( CCoverInfo *pRes, const NAI::CFastRenderer &res, co
 					break;
 				}
 			}
-			if ( bTargetReached || !bBlocked )		// retail: CanHitTarget true && bCanHit
+			if ( bTargetReached || ( !pTarget && !bBlocked ) )
 			{
 				pRes->fSummAPA += fTempPiercing;
 				ray.isPenetrate = true;

@@ -80,7 +80,7 @@ native controls проверяют оба SLOT, active/inactive и нетрон�
 | [5780c0be](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027) Restore retail throwing knife targeting, flight and facing | Метательные ножи: штатная дальность, скорость, попадания, направление. Это восстановление формул, не готовый безопасный cherry-pick. |
 | [c1ab9336](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c) Restore retail melee damage dispatch and armed attack cursor | Native UI-различение кулака/экипированного оружия адаптировано в GetState; action dispatch и critical bans сохранены. Target-filter/damage dispatch остаётся для проверки реальных попаданий и original damage. |
 | [7f4f0ea8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/7f4f0ea872937e4dcb4a887ff6a136d7dce1fcd5) Match retail nearest AI contact selection | Nearest-contact selection использует другие позиции/фильтры; отдельно сверять поведение AI. |
-| [cc0fd988](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc0fd9888357c7a9f5d47fec2c22f3073eb5e7cf) Match retail AI firing range and target reach checks | AI range/target-reached/attack-origin — восстановление retail боевого trace, нужны сравнительные тесты. |
+| [cc0fd988](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc0fd9888357c7a9f5d47fec2c22f3073eb5e7cf) Match retail AI firing range and target reach checks | Частично перенесены точка выстрела и обязательное достижение юнита; дальность, проекция и маски трассировки ещё проверяются отдельно. |
 | [66fc9e9a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/66fc9e9ad26497bf41f96a1a8c51c8a03e951718) Match retail AI snipe weapon and cover evaluation | AI snipe должен считать выбранным оружием и не терять дробную cover precision. |
 | [0ffb568d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0ffb568d67bc6ca389d7ca63a9da4f3978c801a7) Restore retail level XP persistence and fresh skill maximum flags | Повторная native-проверка нового репозитория выявила потерю общего XP в SetXPLevel; сохранение существующего расчёта исправляется отдельно. FreezeToMax для новых skills независимо сверён с original Steam EXE и перенесён: см. fresh-skill-modifier-values в UPSTREAM-IMPORTS.md. |
 | [08c4bb5a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/08c4bb5a6b9a94337d88bd8241a2e51b6984cfce) Restore retail weapon preparation AP costs | AP подготовки оружия из weapon type/перков вместо stub; сверять original, не считать автоматически ребалансом. |
@@ -1131,3 +1131,37 @@ CI290/290 также проходит. Все8 сценариев дают од�
 малый остаток восстановления точки из проекции укладывается в одинаковый допуск.
 Это закрывает только исправление точки выстрела; остальная часть cc0fd988
 продолжает проверяться отдельно.
+
+
+## Проверено: луч должен дойти до выбранного юнита — часть cc0fd988
+
+[Исходный коммит](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc0fd9888357c7a9f5d47fec2c22f3073eb5e7cf).
+При исчерпании обхода луча код засчитывал успех для юнита даже без достижения
+его геометрии. Оригинал разрешает такой результат только при стрельбе по
+местности; для юнита требуется фактическое достижение цели. Перенесено это
+условие. Дальность оружия, коэффициенты, параметры брони и данные не меняются.
+Остальные части исходного коммита ещё проверяются отдельно.
+
+Три падающих сценария с настоящими пересечениями геометрии показывают100 при
+нуле достижимых пересечений: AI, обычное разрешение и пилот в панцеркляйне.
+Тест управляет границей обхода отдельно от дальней плоскости проекции, поэтому
+это изолированная проверка игрового обхода, а не воспроизведение неизменённого
+игрового ввода. Начальные ошибки подготовки такого сценария сохранены и не
+считаются подтверждением бага. После исправления проходят16/16 проверок;
+оценки обычных доступных целей87/90 сохраняются, местность даёт100. Для пилота
+исходная оценка74 на Windows и77 на Linux; возврат старого условия на той же
+Linux-сборке подтверждает77 и до переноса. Исправление сохраняет эти оценки
+внутри каждой платформы, а недостигнутую цель отвергает на обеих.
+Игровая геометрия цели по-прежнему принадлежит пилоту, декали — его реальному
+отдельному корпусу. Наши связи PK/пилота, анимация, лицо, шрифты, HiRes/HD и
+сохранения не затронуты; AP/HP/патроны и RNG при проверке не расходуются.
+Оригинальное условие подтверждено по именованным методам и фактическому
+вызову в Gold/Steam, включая отдельную успешную ветку для местности.
+
+
+Итог: Windows236/236 связанных и2/2 прежних теста декалей; Linux226/226 прежних
+связанных плюс14/14 новых/контекстных/декалей. После синхронизации отдельного
+списка Linux локальный CI290/290 проходит. Дополнительная проверка старого
+условия на Linux воспроизводит ровно3 ошибки из8; после точного восстановления
+исходника и сборки те же сценарии проходят. Общий перенос и окончательная
+проверка GitHub Actions остаются незавершёнными.

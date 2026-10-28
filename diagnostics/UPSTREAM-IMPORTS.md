@@ -10507,3 +10507,97 @@ is partially imported: aiUnit.cpp origin complete, RPGGame.cpp other behavior
 still open. Counts281=140 imported/19 partial/79 pending plus prior explicit
 decisions:98 unfinished source reviews/imports. The entire goal and actual
 final-HEAD hosted Actions verification/repair remain open after useful imports.
+
+
+## 2026-10-28 — cover traversal must reach the unit target (cc0fd988, partial)
+
+Import only the required-unit-reach predicate in AddGridToCovers. Once traversal
+exhausts its intervals or reaches its finite cutoff, an unblocked ray succeeds
+only for tile aiming. A unit ray succeeds only after reaching that unit. Keep
+existing wrong-body-part classification, cover/material/armor/ally handling,
+integer cover guards, range/projection/trace masks and the fork's Game wrapper.
+No weapon data, balance coefficients, API/layout/schema, animation/face, fonts,
+HD, PK mesh/decal owner or pilot damage receiver changes.
+
+Eight real FixtureWorld profiles cover AI and non-AI-resolution finite walks,
+their reached-target controls, an open tile, PK pilot targets with/without
+finite traversal reach, and the existing ignored-target negative control.
+Use real native CGame, attack portions, CFastRenderer and collision map. A
+map delegate controls a shorter aim distance while retaining the full native
+target projection: native geometry and intervals remain real; hit results and
+cover scores are never supplied by the probe. This deliberately isolates the
+penetration cutoff from the renderer's independent far-plane culling. Count
+all target intervals and independently verify that every one is beyond the
+actual projected cutoff and none is reachable. Do not describe this as an
+unmodified end-to-end gameplay reproduction or an already imported AI30 cap.
+Positive ordinary AI/non-AI scores are87/90 before and after; Windows PK is74
+and the tile score remains100. Linux PK baseline is77, verified separately
+against the prior guard as recorded below. Actual PK equip/Sync gives a gameplay hull registered to the
+pilot, with GetDecalsRef still returning its separate real shell. Scoped map
+replacement restores saved Game map tag2. AP/HP/ammo/positions/commands, suit
+HP/pilot relation and RNG stay unchanged by the cover queries.
+
+Initial fixture failures are not bug RED: merely shortening the aim locator
+also shortens the renderer far plane and culls all target intersections; an
+unrelated lateral tile direction points into blocked cover. Preserve both
+initial raw logs. Correct both before production: retain full native target
+projection for the shorter-walk profiles, and use the actually clear target
+axis for the tile. Then authoritative RED3/8,8.63s,exit8: only AI/non-AI/PK
+unreached-target assertions fail. Real target interval counts53/337/92 all lie
+beyond traversal, zero are reachable, yet old code reports100 in all three.
+Other five controls pass. One-condition fix gives GREEN16/16,17.87s,exit0,
+including previous eight origin scenarios. New rejected AI/PK scores are0;
+non-AI retains existing blocked sentinel-1, consumed as zero chance.
+
+Original proof: audit-ai-cover-target.py and ai-cover-target-retail-oracle.json
+in shared lab evidence. Gold PDB NRPG.AddGridToCovers68d670/717 maps to Steam
+6935d0/717; NRPG.CanHitTarget68a830/523 maps to690830/523. Unique unmasked24
+blocks (AddGrid+40/+64; CanHitTarget+7/+16/+24/+40/+96), actual direct calls
+Gold68d855/Steam6937b5 and full ret48/ret40 tails with padding corroborate.
+AddGrid frame76locals+16regs=92 loads target fromesp78 intoEDI at6936c4,
+then pushesEDI at6937b4 (intervalESI at6937b3). Callee fastcall ECX World /
+EDX shooter plus ten stack arguments; its12SEH+20locals+16regs frame puts
+that target atesp34. Interval exit/min-clear, entry/max-range, TS_COVER and
+ignore gates precede target match690950..95e -> success690a00/690a2b(AL1).
+Exhaustion/cutoff reaches6909d2: nonnull target returns false6909ec(AL0),
+null tile reaches690a17..2b(AL1). Caller ANDs return with bCanHit6937be;
+only true marks the ray and accumulates APA6937c0..d4. No stale source
+address or blind original ABI/vtable/layout transplant is used.
+
+Remaining cc0fd988 hunks are separate: AI max-range cap, unit-vs-tile range
+projection and trace flags, including the related human path adaptation.
+The entire source and all useful imports remain open; final actual-HEAD
+hosted GitHub Actions verification/repair is still due after useful imports.
+
+
+Final verification: fresh Windows ALL_BUILD,236/236 related checks in249.12s,
+plus2/2 actual human/PK decal checks in2.24s. Linux Game/helpers226/226 existing
+related checks in236.84s; its separate test list initially omitted the new8.
+The asset-free CI registration guard correctly fails that omission (289/290),
+not a gameplay test. Retain its initial raw failure, register all8 on Linux,
+then run8 new +4 context +2 actual decal checks:14/14. The full local asset-free
+CI rerun passes290/290 in23.73s. Do not claim these are hosted Actions results.
+
+Cross-platform result inspection finds an existing PK baseline difference:
+Windows has92 target intervals/cover74; Linux has93/cover77. All12 non-PK
+control/result/tile records match exactly. Verify the PK difference rather
+than asserting all16 records match: on the SAME shared Linux build, temporarily
+restore only the old predicate. Native RED3/8 in8.89s reproduces exactly the
+three intended failures while keeping the Linux positive PK score77 and93
+intervals. Original Windows RED likewise keeps74/92. Restore production source
+byte-exactly (SHA256 checked), rebuild Linux Game/helpers, rerun14/14 in12.05s,
+exit0. All reached-target results remain unchanged within each platform;
+unreached AI/PK100 becomes0 and non-AI100 becomes blocked-1 on BOTH. This fixes
+target-reach semantics; it does not normalize preexisting platform rasterization
+results. A first Linux comparison wrapper used CRLF and returned2 after native
+CTest correctly returned8; source finally-restoration succeeded. Preserve that
+raw wrapper failure, fix the runner to LF, and use the verified repeat's8/0
+exits. It is not another game failure or an additional imported fix.
+
+All six final raw logs have exact16/236/226/14/2/290 passes, no Failed/NotRun/NUL.
+Windows final rerunner, Linux related and restored Linux new/context/decals
+runners all exit0. ai-cover-target-final-verification.json records comparisons
+and these limits. Both HD caches OFF, shared builds only, about23.64GB free;
+owned tests/debuggers have exited. Counts stay281=140 imported/19 partial/79
+pending plus explicit other decisions:98 unfinished source reviews/imports.
+cc0fd988 remains partially imported (origin and required-target gate done).
