@@ -8465,6 +8465,63 @@ static void BulletDecalEquipmentTarget(const char* databasePath,const char* reso
         "armor-stopped impact changed AP, vitality, position, equipment or retained its bullet action");
 }
 
+class BulletPerceptionProbe: public CObjectBase
+{
+    OBJECT_NOCOPY_METHODS(BulletPerceptionProbe);
+    NGlobal::CEventRegister<BulletPerceptionProbe,NWorld::CEventOnBullet> registration;
+public:
+    CPtr<NWorld::CUnitServer> shooter;
+    vector<NWorld::CEventOnBullet> events;
+    BulletPerceptionProbe():registration(this,&BulletPerceptionProbe::OnBullet) {}
+    void OnBullet(const NWorld::CEventOnBullet& event){if(event.pShooter==shooter)events.push_back(event);}
+};
+
+static void BulletNearestTarget(const char* databasePath,const char* resourcePath,int kind)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> all;world->GetAllUnits(&all);vector<CPtr<NWorld::CUnitServer>> units;
+    for(const auto& unit:all)if(IsValid(unit) && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK())units.push_back(unit);
+    Require(units.size()>=3,"bullet nearest-target fixture requires three live native humans");
+    auto* shooter=units[0].GetPtr();auto* first=units[1].GetPtr();auto* second=units[2].GetPtr();
+    CObj<BulletPerceptionProbe> listener=new BulletPerceptionProbe;listener->shooter=shooter;
+    const int firstVP=first->GetUnitRPG()->GetTotalVP(),secondVP=second->GetUnitRPG()->GetTotalVP();
+    const int shooterAP=shooter->GetAP();const auto shooterPosition=shooter->GetPosition();const bool action=world->IsAction();
+    NRPG::CAttackPortion attack(0,2,0.f,0,0,0,0,shooter->GetUnitRPG(),first->GetUnitRPG(),1.f,-1,false);
+    const CVec3 origin=shooterPosition.GetCP()+CVec3(0,0,1),direction(1,0,0),normal(-1,0,0);
+    attack.rTtrajectory.ptOrigin=origin;attack.rTtrajectory.ptDir=direction;
+    vector<NRPG::STrailPoint> trail;trail.emplace_back(-1,direction,origin,attack,nullptr,nullptr,nullptr,normal,100);
+    if(kind==2 || kind==4)trail.emplace_back(NAI::HL_BODY,direction,origin+direction,attack,nullptr,first,first->GetUnitRPG()->GetRPGArmor(),normal,100);
+    auto* firstHit=kind==2?second:first;
+    if(kind!=4)trail.emplace_back(NAI::HL_BODY,direction,origin+direction*2,attack,firstHit,firstHit,firstHit->GetUnitRPG()->GetRPGArmor(),normal,100);
+    if(kind==1)trail.emplace_back(NAI::HL_BODY,direction,origin+direction*3,attack,second,second,second->GetUnitRPG()->GetRPGArmor(),normal,100);
+    CObj<NWorld::IDynamicObject> bullet=NWorld::CreateBulletServer(world,trail,world->GetTime()->GetValue(),nullptr,100.f);
+    Require(bullet,"nearest-target fixture could not create its real native bullet");
+    if(kind==3) {
+        CPtr<NWorld::CUnitServer> savedTarget=second;CMemoryStream saved;
+        CStructureNetworkContext refs;refs.externalReferences=true;refs.include=[](CObjectBase*){return false;};refs.ids[second]=1;refs.refs[1]=second;refs.nextID=100;
+        {CStructureSaver writer(saved,CStructureSaver::WRITE,&refs);writer.Add(16,&savedTarget);}saved.Seek(0);
+        {CStructureSaver reader(saved,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(bullet.GetPtr())->operator&(reader);}
+    }
+    for(;;){CObj<NWorld::CHitLocator> hit=world->GetHitEvent();if(!hit)break;}
+    GlobalGameRandom().SeedForHarness(2);
+    Require(bullet->Segment(),"nearest-target native bullet did not process its trail and retire");
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(bullet,&refs);CPtr<NWorld::CUnitServer> cached;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(16,&cached);}
+    bullet=nullptr;
+    const int expectedHits=kind==4?0:kind==1?2:1;
+    int hits=0;for(;;){CObj<NWorld::CHitLocator> hit=world->GetHitEvent();if(!hit)break;
+        Require(hit->pUnit.GetPtr()==(hits==0?firstHit:second) && hit->nHitValue<=0,"nearest-target fixture lost its actual stopped/rejected native impact control");++hits;}
+    Require(hits==expectedHits && listener->events.size()==1 && listener->events.front().pShooter.GetPtr()==shooter,
+        "nearest-target fixture did not execute real impacts and exactly one native bullet event");
+    auto* expected=kind==4?nullptr:kind==3?second:firstHit;const auto& event=listener->events.front();
+    std::printf("native bullet nearest target: kind=%d impacts=%d cached=%p event=%p expected=%p distance=%g\n",kind,hits,static_cast<void*>(cached.GetPtr()),static_cast<void*>(event.pTarget.GetPtr()),static_cast<void*>(expected),event.fDistance);std::fflush(stdout);
+    Require(first->GetUnitRPG()->GetTotalVP()==firstVP && second->GetUnitRPG()->GetTotalVP()==secondVP && shooter->GetAP()==shooterAP && shooter->GetPosition()==shooterPosition && world->IsAction()==action,
+        "zero-damage bullet metadata fixture changed HP, shooter AP/position or retained an action");
+    Require(cached.GetPtr()==expected && event.pTarget.GetPtr()==expected,"native bullet perception omitted its first impacted unit or replaced a retained nearest target");
+    Require(fabs2(event.ray.ptDir-direction)<0.00001f && fabs2(event.ray.ptOrigin-origin)<0.00001f && fabs(event.fDistance-(kind==1?3.f:kind==4?1.f:2.f))<0.00001f,
+        "nearest-target update changed the existing native bullet ray or distance");
+}
+
 static void EmptyBulletConstruction(const char* databasePath, const char* resourcePath, bool checkRetirement = false)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -21057,6 +21114,11 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "removed-player-acks") && argc == 4) { RemovedPlayerFootprints(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "removed-player-footprints") && argc == 4) { RemovedPlayerFootprints(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "empty-bullet-retirement") && argc == 4) { EmptyBulletConstruction(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "bullet-nearest-single") && argc==4) { BulletNearestTarget(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "bullet-nearest-multiple") && argc==4) { BulletNearestTarget(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "bullet-nearest-visual-before-hit") && argc==4) { BulletNearestTarget(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "bullet-nearest-retained") && argc==4) { BulletNearestTarget(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "bullet-nearest-visual-only") && argc==4) { BulletNearestTarget(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "empty-bullet-construction") && argc == 4) { EmptyBulletConstruction(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hidden-unit-tint") && argc == 4) { HiddenUnitTint(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "living-unit-floor-refresh") && argc == 4) { LivingUnitFloorRefresh(argv[2], argv[3]); return true; }

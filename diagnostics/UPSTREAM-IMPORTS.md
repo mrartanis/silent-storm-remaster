@@ -9066,3 +9066,59 @@ and validation remain above. Counts133imported/21partial/84pending (105unfinishe
 Source2de projectile/night work and ALL281/final actual-HEAD hosted Actions remain
 open. Owned test processes exit; shared builds reused, no HD generation or old
 per-bug game/build copies.
+
+
+## 2de89e04, part7 - preserve the first impacted unit in bullet perception
+
+Source: 2de89e04ae2713bd7fbd267b5b3a96b60feb810d
+https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2de89e04ae2713bd7fbd267b5b3a96b60feb810d
+
+CBulletServer already serializes pNearestTarget/tag16 and sends it through the
+actual CEventOnBullet, but no impact writes it. After a native attack leaves a
+live CUnitServer receiver, fill the field only if its current pointer is invalid.
+Keep the first receiver even across later impacts, including stopped/rejected
+zero-damage contacts as in the original. A visual-only surface is not a receiver.
+Do not change damage, hit rolls, ricochet, trail/ray/distance, shot effects,
+blood policy, our equipment GetDecalsRef mapping, AP or save/network schema.
+
+Five native tests use FixtureWorld with three live humans and actual
+CreateBulletServer/Segment. The real stopped/rejected impact path emits real
+world hit locators; an event subscriber observes the original global
+CEventOnBullet rather than a replacement emitter. Read cached tag16 through the
+actual object serializer. Single impact, multiple impacts, a visual-only point
+before a receiver, a real tag16 reference restored before Segment, and a pure
+visual-only trail are separate cases. Explicitly preserve HP, shooter AP/position,
+world action release and existing event ray/origin/distance. No full AI reaction,
+LAN playback or historical whole-save claim. Native RED3/5 5.56s: actual1/2/1
+impacts and one event each, yet cache/event target null; retained target and pure
+visual controls already pass. Minimal assignment then GREEN5/5 5.51s. Strengthen
+the visual-before-hit case to use a different surface and receiver before final
+verification, so selecting the surface cannot satisfy it. No second production
+change for that stronger control.
+
+Original proof: named CBulletServer RTTI/PDB Gold Segment73beb0 appears uniquely
+at vtable8bb6ec slot0/COL8e7448 offset0. Steam same named class/COL8f6bcc offset0
+and vtable8caba4 slot0 -> Segment746ba0. The upstream746a40 annotation is not used.
+After attack746df0 and the live-object gate, dynamic cast746e02..746e1b uses the
+actual CUnitServer type descriptor950570. At746e23 CPtr validity is tested on
+this+60 via414400;746e2d skips assignment when valid; otherwise746e2f..746e33 stores
+the current receiver via770670. Event tail747470 reads the same+60, pushes it at
+74747c alongside shooter+54. No opcode masks. Evidence
+bullet-nearest-target-rtti-oracle.json and full original disassembly.
+
+Final Windows ALL_BUILD/Linux Game+helpers rebuilt: focused5/5 5.53s;
+related83/83 Windows77.70s/Linux77.52s, including actual equipment-decals/PK,
+attack/ricochet/perception controls; network serializer/stop-resume2/2 4.01s;
+display57/57 Windows81.84s/Linux67.98s; local asset-free CI290/29024.63s.
+All7 raw logs have exact5/83/2/57/83/57/290 passed records with no NUL,
+Failed/NotRun/missing executable; actual runners exit0. All5 cached/event
+references match on both platforms, including the strengthened different-surface
+case. Owned native test processes exited. Evidence bullet-nearest-target-{red,
+green,final-focused,final-related,final-network,final-display,final-linux,
+linux-display,final-ci} and oracle files. No hosted Actions success is claimed.
+
+This completes the independent perception field within2de, not the remaining
+incidental hit roll/night propagation or impact-effect handling. Source remains
+partial,133imported/21partial/84pending (105unfinished); ALL281 and final actual
+HEAD hosted GitHub Actions remain open. Own facial/font/HD systems preserved,
+shared builds reused with HD generation OFF, no per-bug old builds.

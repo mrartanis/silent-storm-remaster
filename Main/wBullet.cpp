@@ -182,6 +182,9 @@ bool CBulletServer::Segment()
 					CDynamicCast<NWorld::CUnitServer> pUS(pCatcher);
 					if (pUS)
 					{
+						// Original Segment 0x746e23: retain the first live impact receiver.
+						if ( !IsValid( pNearestTarget ) )
+							pNearestTarget = pUS;
 						pUS->GetUnitRPG()->BulletHit();
 						CPtr<NWorld::CUnitServer> pTarget = pWorld->GetUnitServer( trailpointsSet[nTemp].sAttack.pTarget );
 						if ( IsValid( pShooter ) )
