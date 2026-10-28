@@ -10892,3 +10892,62 @@ preview/physical-cache/range adaptations stay in their respective source
 reviews (including f638aca9); they are not silently declared complete by this
 closure. Full transfer and final actual-HEAD hosted Actions verification/repair
 continue. This local CI run is not a hosted verification.
+
+
+## 2026-10-28 — AI hit prediction uses the shooter's firearm (66fc9e9a, partial)
+
+Source: [66fc9e9ad26497bf41f96a1a8c51c8a03e951718](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/66fc9e9ad26497bf41f96a1a8c51c8a03e951718).
+Independent bug: CAIUnit.GetToHit took the DEFAULT firearm from pTarget's AI
+inventory, then used it for both this shooter's native cover and accuracy.
+A shooter with a loaded real weapon could get0 when the target's planning
+hand was empty; a shooter whose own planning hand was empty could get100 using
+the target's firearm. Change only the inventory receiver to GetAIInventory().
+Retain own optional-weapon-free API, integer cover/finite guards, firearm helper
+(including rocket exclusion), native geometry and weapon/armor/range/AP data.
+Null/invalid-target handling, explicitly chosen snipe weapon, fractional cover
+and flee-budget hunks remain separate pending source work.
+
+Four native FixtureWorld tests synchronize actual AI wrappers/inventories;
+native current RPG weapons stay equipped and ammunition stays unchanged.
+Find a genuine actor/target pair for which independent native cover plus
+CAIUnitToHitCalcer returns a positive result using either real weapon. Alter
+only AI planning pCurrent through its existing setter, not physical equipment
+or collision, then restore both hands with scoped owning references. Cases:
+armed shooter/empty target, empty shooter/armed target, both armed, both empty.
+No fake cover result or hit calculator; actual native weapon/actor/target/map.
+Compare against the explicit SHOOTER weapon calculator and check AP/HP/ammo,
+equipment/positions/commands/RNG. Both references100 in this fixture, controls
+100/0; the two empty-hand cases expose wrong inventory ownership independently.
+
+Runtime RED before production, first build/run without fixture failures:
+Windows2/4 in4.53s, Linux2/4 in4.68s. Armed shooter gets0 instead100, empty
+shooter gets100 instead0. Both ordinary controls pass. One receiver plus a
+comment fixed; GREEN51/51 Windows55.65s/Linux55.70s includes prior47 cover
+regressions. Four new native records exactly match across platforms.
+
+Original proof: typed Gold PDB CAIUnit.GetToHit4ac1e0/230 ->Steam4ad9c0/230,
+unique unmasked24/32/40 prefix in BOTH images plus fullret16/CC. Primary RTTI
+vtables Gold8a6984 /Steam8b5a6c slot18 point to typed Gold GetAIInventory773fc0/4
+and Steam4af290/4, both load this+30. Native CAIInventory type members queried
+directly from Gold PDB confirm pCurrent1c (pOwner0c, items10). Incoming thisECX
+is savedESI; fallback reloads ECX=ESI, calls its own primary18 and loads1c from
+that inventory. ResultEDI supplies the same RPG weapon item+0c to cover and
+accuracy. Receiver/dataflow blocks checked in both mapped methods. Original
+RTTI cast is CAIFireArmsWeaponBase; this fix preserves our existing non-rocket
+helper and does not transplant the original typing or broaden launcher policy.
+lab/audit-ai-tohit-owner.py and query-ai-inventory-layout.py exit0; evidence
+ai-tohit-owner-retail-oracle.json and ai-inventory-gold-layout.json.
+
+Final fresh Windows ALL_BUILD:271/271 related288.93s plus6/6 context/decal3.38s;
+Linux Game/helpers269/269 related288.29s plus6/6 context/decal3.32s. Local
+asset-free CI290/29024.12s. Seven raw logs51/51/271/269/6/6/290 have exact
+pass counts, no Failed/NotRun/NUL; all runners exit0. Four new owner records
+exact between platforms; all prior47 measured cover profiles unchanged within
+each platform. verify-ai-tohit-owner.py -> shared evidence
+ai-tohit-owner-final-verification.json. Both HD caches OFF, shared builds
+only; no per-fix source/game/build copies or HD regeneration. Owned native
+tests exit; final hosted Actions verification is still due after all imports.
+
+Source becomes partial only;
+counts141 imported/19 partial/78 pending=97unfinished among281 decisions.
+Full transfer and final actual-HEAD hosted Actions verification remain open.

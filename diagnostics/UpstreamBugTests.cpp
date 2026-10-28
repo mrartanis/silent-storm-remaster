@@ -8332,6 +8332,60 @@ static void AICoverNativeFragmentParity(const char* databasePath,const char* res
         && actor->HasCommand()==command && rng.Get()==GlobalGameRandom().Get(),"fragment parity queries changed native gameplay or RNG");
 }
 
+static void AIToHitWeaponOwner(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);
+    for(const auto& server:units)if(IsValid(server) && server->CanFight() && IsValid(NAI::GetAIUnit(server)))NAI::GetAIUnit(server)->Synchronize(false);
+    NAI::IAIUnit *actor=nullptr,*target=nullptr;NAI::CAIFireArmsWeapon *ownWeapon=nullptr,*enemyWeapon=nullptr;
+    int ownReference=0,enemyReference=0;
+    auto reference=[](NAI::IAIUnit* shooter,NAI::IAIUnit* victim,NAI::CAIFireArmsWeapon* weapon) {
+        const auto pos=shooter->GetUnitPosition();
+        const int cover=shooter->GetCoverForFixedUnit(pos,victim->GetUnitServer(),weapon->GetItem(),NAI::HL_ANY);
+        CObj<NRPG::CAIUnitToHitCalcer> calc=new NRPG::CAIUnitToHitCalcer(shooter,pos,victim,cover,NAI::HL_ANY,0,weapon->GetItem(),0);
+        return calc->GetToHit();
+    };
+    for(const auto& server:units) {
+        if(!IsValid(server) || !server->CanFight() || server->HasCommand() || !server->IsAIUnit() || server->IsWearingPK() || server->IsEmptyPK() || server->animator.GetCannon())continue;
+        auto* shooter=NAI::GetAIUnit(server);if(!IsValid(shooter) || !IsValid(shooter->GetAIInventory()))continue;
+        auto* weapon=shooter->GetAIInventory()->GetCurrentFireArms();if(!IsValid(weapon) || !IsValid(weapon->GetItem()))continue;
+        for(const auto& other:units) {
+            if(!IsValid(other) || other.GetPtr()==server.GetPtr() || !other->CanFight() || other->IsEmptyPK() || other->IsWearingPK())continue;
+            auto* victim=NAI::GetAIUnit(other);if(!IsValid(victim) || !IsValid(victim->GetAIInventory()))continue;
+            auto* victimWeapon=victim->GetAIInventory()->GetCurrentFireArms();if(!IsValid(victimWeapon) || !IsValid(victimWeapon->GetItem()))continue;
+            const int own=reference(shooter,victim,weapon),enemy=reference(shooter,victim,victimWeapon);
+            if(own<=0 || enemy<=0)continue;
+            actor=shooter;target=victim;ownWeapon=weapon;enemyWeapon=victimWeapon;ownReference=own;enemyReference=enemy;break;
+        }
+        if(actor)break;
+    }
+    Require(actor && target && ownWeapon && enemyWeapon,"weapon-owner fixture has no pair with independently positive native shooter/target weapon calculations");
+    auto* actorInventory=actor->GetAIInventory();auto* targetInventory=target->GetAIInventory();
+    CObj<NAI::IAIInventoryItem> ownCurrent=actorInventory->GetCurrentItem(),targetCurrent=targetInventory->GetCurrentItem();
+    struct Restore{NAI::CAIInventory *own,*target;CObj<NAI::IAIInventoryItem> a,b;~Restore(){own->SetCurrentItem(a);target->SetCurrentItem(b);}}restore{actorInventory,targetInventory,ownCurrent,targetCurrent};
+    // Speculative AI hands are separate from the real native equipment. Empty
+    // one planning hand without replacing weapons, combat data or collision.
+    const bool emptyOwn=mode==1 || mode==3,emptyTarget=mode==0 || mode==3;
+    if(emptyOwn)actorInventory->SetCurrentItem(nullptr);
+    if(emptyTarget)targetInventory->SetCurrentItem(nullptr);
+    auto* actorServer=actor->GetUnitServer();auto* targetServer=target->GetUnitServer();
+    const auto actorPosition=actorServer->GetPosition(),targetPosition=targetServer->GetPosition();
+    const int ap=actorServer->GetAP(),hp=actorServer->GetUnitRPG()->GetTotalVP(),targetHP=targetServer->GetUnitRPG()->GetTotalVP();
+    const int ownAmmo=ownWeapon->GetItem()->GetAmmoQuantity(),targetAmmo=enemyWeapon->GetItem()->GetAmmoQuantity();
+    auto* equipped=actorServer->GetUnitRPG()->GetInventory()->GetActive();auto* targetEquipped=targetServer->GetUnitRPG()->GetInventory()->GetActive();
+    const bool command=actorServer->HasCommand();GlobalGameRandom().SeedForHarness(0x76da);auto rng=GlobalGameRandom();
+    const int expected=emptyOwn?0:ownReference;
+    const int actual=actor->GetToHit(target,actor->GetUnitPosition(),NAI::HL_ANY);
+    std::printf("native AI to-hit owner: mode=%d ownEmpty=%d targetEmpty=%d ownReference=%d targetWeaponReference=%d actual=%d expected=%d\n",
+        mode,int(emptyOwn),int(emptyTarget),ownReference,enemyReference,actual,expected);std::fflush(stdout);
+    Require(actorServer->GetPosition()==actorPosition && targetServer->GetPosition()==targetPosition && actorServer->GetAP()==ap
+        && actorServer->GetUnitRPG()->GetTotalVP()==hp && targetServer->GetUnitRPG()->GetTotalVP()==targetHP
+        && ownWeapon->GetItem()->GetAmmoQuantity()==ownAmmo && enemyWeapon->GetItem()->GetAmmoQuantity()==targetAmmo
+        && actorServer->GetUnitRPG()->GetInventory()->GetActive()==equipped && targetServer->GetUnitRPG()->GetInventory()->GetActive()==targetEquipped
+        && actorServer->HasCommand()==command && rng.Get()==GlobalGameRandom().Get(),"AI hit prediction changed native equipment, ammo, gameplay state or RNG");
+    Require(actual==expected,"AI hit prediction used the target's current firearm instead of the shooter's own planning hand");
+}
+
 static void AICoverRange(const char* databasePath,const char* resourcePath,int mode)
 {
     const bool human=mode==2 || mode==4 || mode==6 || mode==7;
@@ -23963,6 +24017,10 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-cover-mask-ai-ignored") && argc == 4) { AICoverMask(argv[2],argv[3],12); return true; }
     if (!std::strcmp(mode, "ai-cover-mask-preview-low-far") && argc == 4) { AICoverMask(argv[2],argv[3],13); return true; }
     if (!std::strcmp(mode, "ai-cover-native-fragment-parity") && argc == 4) { AICoverNativeFragmentParity(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "ai-tohit-weapon-armed-empty") && argc == 4) { AIToHitWeaponOwner(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ai-tohit-weapon-empty-armed") && argc == 4) { AIToHitWeaponOwner(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ai-tohit-weapon-both-armed") && argc == 4) { AIToHitWeaponOwner(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ai-tohit-weapon-both-empty") && argc == 4) { AIToHitWeaponOwner(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-near-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-cover-range-human-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],2); return true; }

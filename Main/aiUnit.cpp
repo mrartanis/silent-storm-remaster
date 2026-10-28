@@ -781,7 +781,8 @@ void CAIUnit::SpendAP( int _nAP )
 int CAIUnit::GetToHit( IAIUnit *pTarget, const NAI::SUnitPosition &pos, NAI::EHitLocation hl )
 {
 	int nToHit = 100;
-	CPtr<CAIFireArmsWeapon> pWeapon = pTarget->GetAIInventory()->GetCurrentFireArms();
+	// The default firearm belongs to the shooter, not the target.
+	CPtr<CAIFireArmsWeapon> pWeapon = GetAIInventory()->GetCurrentFireArms();
 	if ( IsValid( pWeapon ) )
 	{
 		nToHit = GetCoverForFixedUnit( GetUnitPosition(), pTarget->GetUnitServer(), pWeapon->GetItem(), hl );
