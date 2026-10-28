@@ -587,8 +587,7 @@ void CUnitStateHealer::OnStateStarted()
 			//xz;
 			break;
 		case NDb::FAE_REMOVE_BLEEDING:
-			while ( pRPG->RemoveCritical( NDb::C_BLEEDING ) )
-				;
+			pTarget->GetUnitRPG()->HealCriticals( -100, true );
 			break;
 		default:
 			ASSERT(0);
