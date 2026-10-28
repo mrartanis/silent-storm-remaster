@@ -11834,3 +11834,71 @@ due after all useful imports.
 Sourcec8c4e225 useful nonbalance hunks are complete: earlier empty-approach
 status, this original-distance revalidation, and explicit exclusion of1.0.
 Ledger146 imported/18partial/74pending =92 unfinished source reviews/imports.
+
+
+## 2026-10-28 — retain actual world-object shooting targets (90f210dd)
+
+Source [90f210dd03eb665fb5c9ff1ace8056e279709c58](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/90f210dd03eb665fb5c9ff1ace8056e279709c58).
+The public CCmdShootObject firearm branch converted a real non-unit target into
+CCmdShootTile. It lost the target identity/reference and requested extra AP,
+used point cover, and ignored the object executor's target-free validation.
+Restore the dedicated CExecShootObject, native factory ID0x01142170, base extra
+AP and target fields1/2. Generalize the existing CalcCovers target pointer to
+CObjectBase without changing its algorithms. Dispatch firearms through the
+existing preparation queue/reload policy, mounted guns through the existing
+simple action/reload policy. Unit, point, missing-target and explosive branches
+retain their existing paths. Original object hull cover, tile accuracy for
+non-units, remembered-point fallback after missing hull, shot acknowledgments
+and snipe cancellation follow the source. Reuse this fork's ray helpers/carrier:
+PeekRay, native attack portion, first-turn state and actual GetAttackIgnore.
+No upstream PrepareAttackRay helper exists here; no unrelated helper/schema
+rewrite is introduced. Existing numeric coefficients, masks and point-shot
+body remain unchanged. Shared combat-helper parity is tracked separately.
+
+Original typed Gold constructor79d8e0/239->Steam7a9eb0 has28 unique24byte
+anchors; SelectRay7993f0/254->7a5850 has17, acknowledgments795fa0/151->7a1dc0
+has23, save operator7a5430/56->7b1c70 has4. Actual constructor vtables
+Gold8bde4c/Steam8cd434 map slot38 CanDo7992c0->7a5720 and slots50/54 to
+the above SelectRay/result methods. CanDo frame/target offsets differ; there
+are no exact24byte anchors for that whole function, so do not claim one.
+Typed AttackObjectRanged6b0430/818->6b6510 has76 exact unique24byte windows
+(some overlap). Actual SelectRay->object solver and missing-hull->point solver
+calls verified in both. Actual solver+e4 calls RealCalcCovers6ae3a0->6b44f0;
+the naive anchor-base estimate6b44c4 is not a verified entry. Original typed
+cover/CanShoot helpers take CObjectBase targets. audit-object-shot-retail.py
+records these selected mappings/dataflow, not whole-combat formula equality.
+
+Seven native modes use the actual public action factory, real authored door/
+hull/nav, ordinary loaded firearm with actual spare ammo, native animator
+placement and retained campaign. No synthetic map/game provider or DB edits.
+Final unchanged-Main RED4/7 Windows7.92s/Linux8.01s: class00122173 instead
+01142170, extra-AP preview12 instead17 (base12+requested5), no target after
+native Start, ignored target-free request0 insteadNoTarget4. Point, missing-
+target (existing unit executor00422170), explicit reload fallback19 controls
+pass. Initial incorrect null-target class/reload-opt-in assumptions were test
+calibration, not additional bug RED.
+
+An initial integrated129 run exposed the separate bba81b7c preparation hunk:
+the object queue exists, but the still-unit-only approach helper leaves
+NoTarget4 insteadOK0. Native original object availability is not a blocker-mask
+problem; masks were not edited. Isolate target/executor tests from that
+independent status bug, rerun final RED4/7 with unchanged Main, then restore
+the same small production patch. No per-bug source/build copies were made.
+The bba cast remains pending for its own TDD and immediate subsequent commit;
+this source does not claim the complete public object-preparation fix.
+
+GREEN7/7 Windows7.93s/Linux8.25s. Actual class01142170 and requested AP17 now
+retained; native Start exercises object cover/accuracy ray selection and
+preserves existing AP12/ammo1 spend (46->34,32->31). Native serializer/factory
+roundtrip with external real-world references keeps the actual door and normal/
+target-free CanDo semantics. Query AP46/HP/position/ammo/orders/RNG unchanged;
+point/null/reload controls unchanged. No bullet impact, full queued animation,
+rendered pixels or whole-world save claim.
+
+Fresh Windows ALL_BUILD214/214 related266.20s; Linux Game/helpers212/212 285.65s,
+covering object/door actions, shot/unit/point/cannon/bullet/ray, cover/AI precision,
+sniping/weapon/reload, melee and explosives. Local asset-free CI290/290 24.37s.
+Five exact raw logs7/7/214/212/290, no failed/not-run/NUL, runners0 and exact
+registered names verified. Shared builds reused, HD generation OFF, owned
+test processes exit. Final hosted actual-HEAD Actions remains due after all
+useful imports. Ledger147 imported/18partial/73pending =91 unfinished sources.

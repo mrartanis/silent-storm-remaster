@@ -17231,6 +17231,85 @@ static void SpentPicklockPoseCleanup(const char* databasePath,const char* resour
         "picklock pose cleanup changed the failed lock result, AP or gameplay orders");
 }
 
+static NWorld::CExecShoot* FindNativeObjectOrPointShot(NWorld::CCommandExecute* executor)
+{
+    if(auto* shot=dynamic_cast<NWorld::CExecShoot*>(executor))return shot;
+    auto* queue=dynamic_cast<NWorld::CSimpleExecQueue*>(executor);if(!queue)return nullptr;
+    vector<CObjectBase*> objects;CStructureNetworkContext graph;graph.include=[&](CObjectBase* child){objects.push_back(child);return false;};
+    CMemoryStream traversal;{CStructureSaver writer(traversal,CStructureSaver::WRITE,&graph);queue->NWorld::CSimpleExecQueue::operator&(writer);}
+    CStructureNetworkContext references;references.externalReferences=true;references.nextID=100;references.include=[](CObjectBase*){return false;};
+    for(auto* child:objects)if(!references.ids.count(child)){const auto id=references.nextID++;references.ids[child]=id;references.refs[id]=child;}
+    CMemoryStream fields;{CStructureSaver writer(fields,CStructureSaver::WRITE,&references);queue->NWorld::CSimpleExecQueue::operator&(writer);}fields.Seek(0);
+    list<CObj<NWorld::CCommandExecute>> children;{CStructureSaver reader(fields,CStructureSaver::READ,&references);reader.Add(2,&children);}
+    for(const auto& child:children)if(auto* shot=FindNativeObjectOrPointShot(child))return shot;
+    return nullptr;
+}
+
+static void NativeObjectShot(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);auto* map=world->GetAIMap();auto* network=world->GetPathNetwork();
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor=nullptr;NRPG::CWeaponItem* weapon=nullptr;
+    for(const auto& unit:units) {
+        if(!IsValid(unit) || !unit->CanFight() || unit->IsWearingPK() || unit->IsEmptyPK() || unit->HasCommand() || unit->IsPerformingAction() || unit->GetState()==NWorld::CUnit::ST_MACHINE_GUN || !unit->GetUnitRPG()->CanMove())continue;
+        auto* candidate=dynamic_cast<NRPG::CWeaponItem*>(unit->GetUnitRPG()->GetInventory()->GetActive());
+        if(candidate && candidate->GetAmmoQuantity()>1 && candidate->CanReload(unit->GetUnitRPG()->GetInventory()) && candidate->SetShootMode(NDb::SM_Snap)){actor=unit.GetPtr();weapon=candidate;break;}
+    }
+    Require(actor && weapon,"object shot fixture has no ordinary authored loaded firearm with native reload supply");
+    CObj<NWorld::CCommandExecute> executor;NWorld::CWindowDoor* door=nullptr;CVec3 targetPoint;NWorld::EUnitCommandResult result=NWorld::UCR_OK;
+    int attempts=0;
+    for(const auto& object:world->GetObjectsForHarness()) {
+        auto* candidate=dynamic_cast<NWorld::CWindowDoor*>(object.GetPtr());CVec3 point;
+        if(!candidate || candidate->IsBroken() || !map->GetUnitHLPos(&point,map->GetHull(candidate),-1))continue;
+        vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(point,4.f),&places);
+        for(auto place:places) {
+            place.SetPose(NAI::CM_STAND);place.SetDirection(NRPG::GetShootDirection(network,place,point));
+            if(!network->IsPassable(place) || network->IsLocked(place,false))continue;
+            auto at=actor->GetPosition();at.pos=NAI::SPosition(place,network);const float distance=fabs(at.GetCP()-point);
+            if(distance<1.5f || distance>4.f)continue;
+            world->GetTime()->Set(world->GetTime()->GetValue()+1);actor->SetPosition(at);actor->animator.AlignTime();actor->animator.PlaceUnit(at);
+            actor->animator.SetActiveItem(true);actor->SetUndrawItem(false);actor->SetWalkWithoutWeapon(false);MarkNewDGFrame();map->Sync();
+            ++attempts;executor=NWorld::CreateActionExecutor(actor,new NWorld::CCmdShootObject(candidate,0),&result);
+            if(executor && (result==NWorld::UCR_OK || result==NWorld::UCR_NO_TARGET) && FindNativeObjectOrPointShot(executor)){door=candidate;targetPoint=point;break;}
+            if(attempts>=80)break;
+        }
+        if(door || attempts>=80)break;
+    }
+    Require(door && executor,"object shot fixture has no real authored door with an available native firearm approach");
+    const int ap=actor->GetAP(),vp=actor->GetUnitRPG()->GetTotalVP(),ammo=weapon->GetAmmoQuantity();const auto position=actor->GetPosition();auto random=GlobalGameRandom();
+    const int extra=mode==1?5:0;CObj<NWorld::CCmd> command;
+    if(mode==3)command=new NWorld::CCmdShootTile(targetPoint);
+    else command=new NWorld::CCmdShootObject(mode==4?nullptr:static_cast<CObjectBase*>(door),extra);
+    if(mode==6){dynamic_cast<NWorld::CCmdShootObject*>(command.GetPtr())->bCanBeReplacedByReload=true;weapon->DiscardAmmo();}
+    const int expectedAmmo=mode==6?0:ammo;
+    executor=NWorld::CreateActionExecutor(actor,command,&result);auto* shot=FindNativeObjectOrPointShot(executor);
+    const int type=shot?pSSClasses->GetObjectTypeID(shot):0;
+    std::printf("native object shot factory: mode=%d attempts=%d type=%08x result=%d extra=%d AP=%d ammo=%d\n",mode,attempts,type,int(result),extra,actor->GetAP(),weapon->GetAmmoQuantity());std::fflush(stdout);
+    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==vp && actor->GetPosition()==position && weapon->GetAmmoQuantity()==expectedAmmo && !actor->HasCommand(),"object shot preview changed native AP/health/position/ammo/orders");
+    if(mode!=6)Require(random.Get()==GlobalGameRandom().Get(),"object shot preview consumed native gameplay RNG");
+    if(mode==6){Require(executor && result==NWorld::UCR_OK_RELOAD && !shot,"object shot lost the native empty-clip reload fallback");return;}
+    // The separately tracked bba81b7c preparation bug can leave NO_TARGET on an existing object queue.
+    Require(executor && shot && (mode==4?result==NWorld::UCR_NO_TARGET:mode==3?result==NWorld::UCR_OK:(result==NWorld::UCR_OK || result==NWorld::UCR_NO_TARGET)),"object shot factory changed a native availability control");
+    if(mode==3 || mode==4){Require(type==int(mode==3?0x00122173:0x00422170),"point/missing-target attack lost its existing executor kind");return;}
+    if(mode==0){Require(type==int(0x01142170),"world object attack discarded its native object identity by becoming a point shot");return;}
+    if(mode==1) {
+        const int base=actor->GetActionAP(actor->animator.IsAiming()?NRPG::AC_SHOOT:NRPG::AC_PREPARE_AND_SHOOT);
+        std::printf("native object shot extra AP: start=%d base=%d expectedExtra=%d\n",shot->GetStartAP(),base,extra);std::fflush(stdout);
+        Require(shot->GetStartAP()==base+extra,"world object attack discarded requested extra AP in its point conversion");return;
+    }
+    if(mode==5){const int ignored=int(shot->CanDoIt(actor->GetPosition(),true));std::printf("native object shot ignore: result=%d expected=%d\n",ignored,int(NWorld::UCR_NO_TARGET));std::fflush(stdout);Require(ignored==NWorld::UCR_NO_TARGET,"world object attack ignored the native target-free validation request");return;}
+    shot->Start();
+    CStructureNetworkContext references;auto fields=BorrowedObjectFields(shot,&references);CPtr<CObjectBase> retained;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&references);reader.Add(2,&retained);}
+    std::printf("native object shot retained target: matches=%d type=%08x AP=%d ammo=%d\n",int(retained.GetPtr()==door),type,actor->GetAP(),weapon->GetAmmoQuantity());std::fflush(stdout);
+    Require(retained.GetPtr()==door,"started object shot failed to retain its real door target in the native save fields");
+    CObj<NWorld::CExecShoot> restored=dynamic_cast<NWorld::CExecShoot*>(pSSClasses->CreateObject(type));Require(restored,"object shot native factory could not restore its executor");fields.Seek(0);
+    {CStructureSaver reader(fields,CStructureSaver::READ,&references);static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader);}
+    CStructureNetworkContext roundRefs;auto round=BorrowedObjectFields(restored,&roundRefs);CPtr<CObjectBase> roundTarget;
+    {CStructureSaver reader(round,CStructureSaver::READ,&roundRefs);reader.Add(2,&roundTarget);}
+    Require(roundTarget==retained && restored->CanDoIt(actor->GetPosition())==NWorld::UCR_OK && restored->CanDoIt(actor->GetPosition(),true)==NWorld::UCR_NO_TARGET,"native object executor roundtrip lost target or validation semantics");
+}
+
 static void MineLateReach(const char* databasePath,const char* resourcePath,int mode)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);auto* network=world->GetPathNetwork();
@@ -24384,6 +24463,13 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "cancelled-equipment-hidden-item-pose")) { Require(argc == 4, "equipment cancellation requires db and res"); CancelledInventoryHiddenItemPose(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "spent-medkit-pose-cleanup")) { Require(argc == 4, "spent medkit requires db and res"); SpentMedkitPoseCleanup(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "spent-picklock-pose-cleanup")) { Require(argc == 4, "spent picklock requires db and res"); SpentPicklockPoseCleanup(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "object-shot-identity") && argc == 4) { NativeObjectShot(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "object-shot-extra-ap") && argc == 4) { NativeObjectShot(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "object-shot-saved-target") && argc == 4) { NativeObjectShot(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "object-shot-point-control") && argc == 4) { NativeObjectShot(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "object-shot-missing-target") && argc == 4) { NativeObjectShot(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "object-shot-ignore-target") && argc == 4) { NativeObjectShot(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "object-shot-reload") && argc == 4) { NativeObjectShot(argv[2],argv[3],6); return true; }
     if (!std::strcmp(mode, "mine-late-reach-near") && argc == 4) { MineLateReach(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "mine-late-reach-boundary") && argc == 4) { MineLateReach(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "mine-late-reach-far") && argc == 4) { MineLateReach(argv[2],argv[3],2); return true; }
