@@ -8543,7 +8543,7 @@ static void AIAlarmWorldQuery(const char* databasePath, const char* resourcePath
     }
 }
 
-static void AIAlarmNearestTarget(const char* databasePath, const char* resourcePath, int mode)
+static void AIAlarmNearestTarget(const char* databasePath, const char* resourcePath, int mode, bool supportCount=false)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world=FixtureWorld(databasePath,resourcePath,true,&game);
@@ -8612,6 +8612,10 @@ static void AIAlarmNearestTarget(const char* databasePath, const char* resourceP
         for (const auto& unit: all)
             if (IsValid(unit) && unit.GetPtr()!=actor && unit->IsAIUnit() && unit->CanFight()) unit->MakeUnconscious(VNULL3,true,false);
     }
+    if (supportCount && (mode==2 || mode==3 || mode==4 || mode==5 || mode==12)) {
+        buddy->MakeUnconscious(VNULL3,true,false);
+        Require(!buddy->CanFight(),"alarm support fixture retained its own fightable second AI");
+    }
     if (mode==11) {
         world->ChangeUnitPlayer(buddy,foreignPlayer);
         Require(buddy->GetPlayer()==foreignPlayer && IsValid(NAI::GetAIUnit(buddy)),"alarm target fixture did not re-register a transferred unit");
@@ -8630,6 +8634,8 @@ static void AIAlarmNearestTarget(const char* databasePath, const char* resourceP
     else if (mode==4 || mode==5) cache->push_back(NAI::GetAIUnit(foreign));
     else if (mode==10) { cache->push_back(NAI::GetAIUnit(foreign)); cache->push_back(NAI::GetAIUnit(buddy)); }
     else { cache->push_back(NAI::GetAIUnit(buddy)); if (mode==12) cache->push_back(NAI::GetAIUnit(foreign)); }
+    if (supportCount && (mode==2 || mode==7)) { cache->clear(); cache->push_back(owner); }
+    if (supportCount && mode==12) { cache->clear(); cache->push_back(owner); cache->push_back(NAI::GetAIUnit(foreign)); }
     const auto staleCache=*cache; const auto ownedRoster=commander->GetUnitsList();
     world->GetAllUnits(&all);
     struct Snapshot { NAI::IAIUnit* wrapper; NAI::SUnitPosition pose; int ap,hp,planAP,planHP; bool command; NAI::SAIState* state; };
@@ -8665,6 +8671,89 @@ static void AIAlarmNearestTarget(const char* databasePath, const char* resourceP
             "alarm target selection changed pose, strafe, wait duration, look point or the actual enemy");
         return result;
     };
+    if (supportCount) {
+        struct Outcome { bool alarm=false; unsigned next=0; vector<string> types; vector<NAI::SPathPlace> points; string reaction; };
+        auto* state=owner->GetAIUnitState(); Require(state,"alarm support fixture lacks native unit threat state");
+        const int passes=mode==12 ? 2 : 1;
+        for (int pass=0; pass<passes; ++pass) {
+            if (pass) world->GetDiplomacy()->SetDiplomacyState(callerSide,noUnits,foreignPlayer->GetScenarioPlayerID(),NDb::DS_ENEMY);
+            vector<CPtr<NAI::IAIUnit>> eligible; shared->GetUnits(&eligible,true,false);
+            const int expectedCount=mode==8 ? 0 : (mode==3 || mode==4 || mode==5 || (mode==12 && pass)) ? 1 : (mode==7 || mode==11) ? 3 : 2;
+            Require(int(eligible.size())==expectedCount,"alarm support fixture did not straddle its intended native support threshold");
+            const bool shouldAlarm=expectedCount>1 && mode!=13;
+            unsigned seed=0,expectedNext=0; CObj<NAI::IAILogic> referencePlan; Plan expected;
+            for (seed=1; seed!=513; ++seed) {
+                GlobalGameRandom().SeedForHarness(seed); auto untouched=GlobalGameRandom();
+                const unsigned roll=GlobalGameRandom().Get(100);
+                if (mode==13 ? roll<40 : roll>=40) continue;
+                if (shouldAlarm) {
+                    referencePlan=NAI::CreateAIAlarmLogic(owner,contact);
+                    if (!IsValid(referencePlan)) continue;
+                    expected=inspect(referencePlan); expectedNext=GlobalGameRandom().Get();
+                } else expectedNext=mode==13 ? GlobalGameRandom().Get() : untouched.Get();
+                break;
+            }
+            Require(seed!=513 && (shouldAlarm==IsValid(referencePlan)),"alarm support fixture could not realize its native seeded branch");
+            auto run=[&](const vector<CPtr<NAI::IAIUnit>>& roster) {
+                *cache=roster; owner->SetReaction(nullptr); owner->SetLogic(nullptr); owner->SetRouteLogic(incumbent);
+                *state=NAI::SAIUnitState(); state->SetUnit(owner); state->AddEnemy(contact); state->pEnemy=contact; state->bScared=true;
+                state->enemies.bModified=state->possibleEnemies.bModified=state->allies.bModified=false;
+                CObj<NAI::CAIReaction> reaction=NAI::CreateAINormalReaction(owner); owner->SetReaction(reaction);
+                Require(owner->GetReactionForUpdate()==reaction.GetPtr(),"alarm support fixture could not consume native reaction installation");
+                GlobalGameRandom().SeedForHarness(seed); NAI::SAIUpdateTracker tracker; tracker.Add(reaction); tracker.Update();
+                Outcome result; result.next=GlobalGameRandom().Get();
+                Require(tracker.CanGetCommand() && IsValid(owner->GetReaction()),"alarm support native pump failed to finish its reaction");
+                result.reaction=typeid(*owner->GetReaction()).name();
+                auto* route=dynamic_cast<NAI::CAIRouteLogic*>(owner->GetLogic());
+                if (route) {
+                    CStructureNetworkContext refs; auto fields=BorrowedObjectFields(route,&refs); vector<CObj<NAI::CTaskCommand>> commands;
+                    { CStructureSaver reader(fields,CStructureSaver::READ,&refs); reader.Add(4,&commands); }
+                    for (const auto& command: commands) {
+                        result.types.push_back(typeid(*command).name());
+                        if (dynamic_cast<NAI::CTaskCommandAlarm*>(command.GetPtr())) result.alarm=true;
+                        if (dynamic_cast<NAI::CTaskCommandGoto*>(command.GetPtr())) {
+                            auto saved=BorrowedObjectFields(command,&refs); NAI::SPosition point;
+                            { CStructureSaver reader(saved,CStructureSaver::READ,&refs); reader.Add(3,&point); }
+                            result.points.push_back(point.p);
+                        } else if (dynamic_cast<NAI::CTaskCommandLookToPosition*>(command.GetPtr())) {
+                            auto saved=BorrowedObjectFields(command,&refs); NAI::SPathPlace point;
+                            { CStructureSaver reader(saved,CStructureSaver::READ,&refs); reader.Add(3,&point); }
+                            result.points.push_back(point);
+                        }
+                    }
+                }
+                if (result.alarm) {
+                    const auto actual=inspect(route);
+                    Require(actual.go==expected.go && actual.look==expected.look,
+                        "native support branch changed the separately verified alarm destination");
+                    Require(owner->GetReaction()==reaction.GetPtr() && !IsValid(state->pEnemy) && state->enemies.data.units.empty()
+                            && state->enemies.data.positions.empty() && !state->enemies.bModified && !state->IsModified(),
+                        "native alarm branch failed to consume its contact through the existing locked event path");
+                } else Require(state->pEnemy.GetPtr()==contact && state->enemies.data.IsContain(contact,false),
+                    "native fallback unexpectedly dropped its live enemy contact");
+                return result;
+            };
+            const auto reference=run(eligible);
+            Require(reference.alarm==shouldAlarm && reference.next==expectedNext,
+                "native support reference changed the original threshold/40-percent roll or fallback RNG");
+            const auto actual=run(staleCache);
+            std::printf("alarm support mode=%d pass=%d world=%zu cached=%zu alarm=%d/%d seed=%u rng=%u/%u\n",
+                mode,pass,eligible.size(),staleCache.size(),int(actual.alarm),int(shouldAlarm),seed,actual.next,expectedNext);
+            Require(actual.alarm==reference.alarm && actual.next==reference.next && actual.types==reference.types
+                    && actual.points==reference.points && actual.reaction==reference.reaction,
+                "normal reaction counted stale/human/unfightable support instead of the current non-enemy AI world set");
+            Require(*cache==staleCache && commander->GetUnitsList()==ownedRoster,
+                "support counting changed cached or owned commander rosters");
+            for (const auto& saved: before) {
+                auto* server=saved.wrapper->GetUnitServer();
+                Require(server->GetPosition()==saved.pose && server->GetAP()==saved.ap && server->GetUnitRPG()->GetTotalVP()==saved.hp
+                        && server->HasCommand()==saved.command && saved.wrapper->GetAP()==saved.planAP && saved.wrapper->GetHP()==saved.planHP
+                        && saved.wrapper->GetAIState()==saved.state,
+                    "support counting changed native/planning AP/HP, world positions/commands or tactical ownership");
+            }
+        }
+        return;
+    }
     const int passes=mode==12 ? 2 : 1;
     for (int pass=0; pass<passes; ++pass) {
         if (pass) world->GetDiplomacy()->SetDiplomacyState(callerSide,noUnits,foreignPlayer->GetScenarioPlayerID(),NDb::DS_ENEMY);
@@ -22593,6 +22682,18 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-pass-control-human") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "ai-pass-control-foreign") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "ai-pass-control-repeat") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 3); return true; }
+    if (!std::strcmp(mode, "ai-alarm-support-own-empty") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],0,true); return true; }
+    if (!std::strcmp(mode, "ai-alarm-support-cached") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],1,true); return true; }
+    if (!std::strcmp(mode, "ai-alarm-support-neutral") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],2,true); return true; }
+    if (!std::strcmp(mode, "ai-alarm-support-human") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],3,true); return true; }
+    if (!std::strcmp(mode, "ai-alarm-support-ko") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],4,true); return true; }
+    if (!std::strcmp(mode, "ai-alarm-support-hostile") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],5,true); return true; }
+    if (!std::strcmp(mode, "ai-alarm-support-no-saved-owner") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],7,true); return true; }
+    if (!std::strcmp(mode, "ai-alarm-support-no-world") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],8,true); return true; }
+    if (!std::strcmp(mode, "ai-alarm-support-no-commander") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],9,true); return true; }
+    if (!std::strcmp(mode, "ai-alarm-support-reowned") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],11,true); return true; }
+    if (!std::strcmp(mode, "ai-alarm-support-transition") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],12,true); return true; }
+    if (!std::strcmp(mode, "ai-alarm-support-roll-decline") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],13,true); return true; }
     if (!std::strcmp(mode, "ai-alarm-target-own-empty") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-alarm-target-cached") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-alarm-target-neutral") && argc == 4) { AIAlarmNearestTarget(argv[2],argv[3],2); return true; }

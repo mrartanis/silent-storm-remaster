@@ -93,8 +93,7 @@ static bool GetFearPosition( IAIUnit *pUnit, IAIUnit *pEnemy, SPathPlace *pOut )
 // the present CAIRetreatReaction but that is a separate behaviour reconciliation. See
 // docs/CONVERGENCE_PROGRESS.md session 19.)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// CountActiveAllies (release GetUnits(allies, active).size()): the alarming unit's garrison size -- how many fightable
-// side-units it could rally. The ally AI-player roster substitutes the absent SAIState::GetUnits.
+// Count the current non-enemy AI world set, including the caller (matched retail GetUnits(true,false)).
 static int CountActiveAllies( IAIUnit *u )
 {
 	if ( !IsValid( u ) )
@@ -102,18 +101,9 @@ static int CountActiveAllies( IAIUnit *u )
 	SAIState *pSt = u->GetAIState();
 	if ( pSt == 0 )
 		return 0;
-	IAIPlayer *p = pSt->GetAllyAIPlayer();
-	if ( p == 0 )
-		return 0;
-	vector< CPtr<IAIUnit> > &units = *p->GetUnits();
-	int n = 0;
-	for ( int i = 0; i < (int)units.size(); ++i )
-	{
-		IAIUnit *a = units[i].GetPtr();
-		if ( IsValid( a ) && !a->IsDead() && IsValid( a->GetUnitServer() ) )
-			++n;
-	}
-	return n;
+	vector< CPtr<IAIUnit> > units;
+	pSt->GetUnits( &units, true, false );
+	return units.size();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAINormalReaction::Update()

@@ -10148,3 +10148,62 @@ Source2eee remains partial for Normal's support count, legacy synchronization/
 nonfighter backrefs and final mixed15-file accounting. Counts remain138 imported,
 19 partial,81 pending:100 unfinished sources across281. Actual final-HEAD hosted
 Actions verification/repair is still due after all useful imports.
+
+
+## 2026-10-28 — Normal counts current AI support before the alarm roll (`2eee1b62`, partial)
+
+Replace only CountActiveAllies' cached-player/positive-planning-HP count with
+GetUnits(true,false).size(). The caller counts itself, so the original threshold
+remains >1; the existing Get(100)<40 roll, native Alarm destination/path/commands,
+contact consumption and own retreat/guard fallback remain unchanged. No data,
+costs, chance, radius, public methods, fields or serialization are changed here.
+
+Reuse the real Alarm target fixture with a separate support-count mode and12
+native NormalReaction-pump scenarios: empty own cache, correct cached control,
+neutral support after own buddy becomes KO, cached human, KO with positive
+planning HP, hostile AI, missing saved player, unbound world, missing commander
+backref, genuine reownership, neutral->enemy across two updates, and a rejected
+40-percent roll control. Expected world counts are independently asserted per
+fixture (0/1/2/3). Construct the real factory reference only after the original
+roll; search for a genuine reachable route without replacing native pathfinding.
+Zero support consumes no RNG; a rejected roll consumes one; accepted support
+retains its existing roll plus destination draw. A correct-cache reference runs
+the actual same Normal pump and must independently match the expected branch,
+exact RNG continuation and verified five-command alarm destination. The stale
+cache run must match its reaction type, route command types and actual Goto/
+Look points. Contact cleanup is checked through the existing event path; all
+owned/cache rosters, world/planning AP/HP/positions/commands and backrefs stay
+unchanged. The helper explicitly resets the fixture threat/route/reaction
+between reference and actual calls without executing a gameplay order.
+
+Authoritative native runtime RED10/12 in13.16s, exit8, after a successful build:
+only the stale support/branch/RNG assertions fail. Correct cache and rejected
+roll controls pass; transition first passes, then fails after diplomacy changes.
+Missing support suppresses the alarm; false human/KO/hostile/unbound support
+consumes an extra alarm roll before falling back. Minimal production fix gives
+54/54 new and previous Alarm/Normal checks in59.83s, exit0. No compile errors or
+fixture corrections were needed for this runtime RED.
+
+Original `ai-alarm-support-retail-oracle.json` establishes named Normal primary
+RTTI Update10 through the earlier oracle. Gold PDB CAIReaction.GetAIState490a50/35
+matches Steam491b50 all35 bytes, but equivalent base getters have three exact
+matches in each binary; actual Normal directcalls47e3f1/47ef85 establish context,
+not a false unique-signature claim. Gold47e3f8/Steam47ef8c call the independently
+verified world GetUnits4a82a0/4a9a20 after pushfalse/pushtrue47e3e2/47ef76.
+Vector end-begin with low bits masked is compared to4 at47e40b/47ef9f; jle
+skips RNG unless there are >1 pointers. Native47e41a/47efae then zeroEDX,
+loads100, divides, compares remainder40 and jae skips alarm. This restores the
+original support source and RNG gate rather than changing the original chance.
+
+Final fresh Windows ALL_BUILD:114/114 focused127.95s,166/166 related175.20s;
+Linux Game/helpers164/164 related174.31s plus4/4 context1.22s; local asset-free
+CI290/29023.99s. All three runner sessions exit0; Windows also persists exit0.
+Five raw logs have exact114/166/164/4/290 passes and no Failed/NotRun/NUL.
+All13 support (including two transition passes),14 target,15 world and14
+delivery records match Windows/Linux. Both HD caches remain OFF; owned tests
+exit and shared builds are reused. Full source audit identifies a still-active
+wTurnBased commander callback and missing unit-validity gate, in addition to
+legacy tactical adapter synchronization/nonfighter backrefs. The wMain owner
+registration/update guards and header comments are already supplied. Source2eee
+stays partial;100 unfinished sources remain across281. Final hosted Actions
+verification/repair remains due after all useful imports.
