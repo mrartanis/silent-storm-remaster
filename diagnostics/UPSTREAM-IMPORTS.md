@@ -9772,3 +9772,73 @@ Source abbe is now imported: counts281 are138imported/19partial/81pending/
 There are100 unfinished source commits, including remaining2eee roster/alarm/
 OnPassControl hunks. All useful sources and actual final-HEAD hosted GitHub
 Actions verification/repair remain the completion criteria.
+
+## 2eee1b62, pass-control snapshot stage - leave refresh to the unit's logic
+
+Source: [2eee1b6280f55129eb2cca681fbbbeb1c27f1e18](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2eee1b6280f55129eb2cca681fbbbeb1c27f1e18).
+On an own-player control handoff the fork called commander.Synchronize before
+refreshing tactical groups. That overwrote speculative AP/HP maxima and values,
+planning pose and known-contact snapshots, including during an interrupt/resume.
+Remove that extra call. Keep SyncAIState and each unit/combat logic's existing
+explicit snapshot refresh, native command-queue clearing and Lua OnStartTurn.
+The separate valid-owner end-of-turn-map clear remains a later TDD stage.
+
+Four native cases cover AI/human own handoffs, foreign-player control and two
+successive own handoffs. They use the actual deployed commanders, shared unit
+wrappers, real circular wait route (AI only), existing serializer fields,
+divergent live/planner full pose and AP/HP values/maxima for every owned fighter
+plus a known foreign contact. Empty tactical rosters/groups must rebuild on own
+handoffs with exact native membership and live-position centers; a foreign pass
+must retain the empty groups. Current planner unit/enemy/action and saved start
+HP counters, owned identities, live AP/HP/positions/inventory, no issued world
+command and exact next native RNG word are checked. Seed and inspect the actual
+outgoing command tracker: clear pending commands on every handoff, preserving
+its given-command latch and non-freeze counter. Define/execute a real Lua
+OnStartTurn function and verify exactly one callback per own pass with the
+actual scenario-player ID, none on foreign pass.
+
+Two initial fixture assumptions were corrected BEFORE production: human units
+correctly refuse a normal AI route, and CSequenceCommander serializes its base
+inside tag2. Preserve both fork rules. The test now verifies the human route
+refusal and explicitly reads/writes the CAICommander base's existing fields;
+it does not flatten or change human saves. Those setup failures are retained
+as fixture evidence and are not counted as bug RED. Authoritative runtime RED
+is3/4 in4.44s, exit8, all three fail solely at speculative AP/HP overwrite;
+foreign control passes. Actual AI ownerAP46/contactAP53 replace markers-100/-102.
+Human own handoff reproduces the same problem through CSequenceCommander.
+After the one-call removal, GREEN4/4 in4.53s, actual exit0, including both
+successive callbacks and all preservation controls.
+
+Original identity is independent of upstream's stale address comment435010.
+Gold PDB CAICommander.OnPassControl434cf0/175 maps to Steam435940..4359ef.
+Named CEventRegister<CAICommander,CEventOnPassControl> RTTI primary vtable
+Gold8a44ec/Call4aa810 maps to Steam8b357c/Call4abf90; all33 Call bytes match,
+including tail dispatch through stored callback+4. Two native constructor
+registration sequences store this named event vtable and the callback address:
+Gold435625/435725 ->434cf0, Steam436275/436385 ->435940. Both full175-byte
+methods end ret4 then padding. A12-byte unmasked signature uniquely matches
+Gold434d2d ->Steam43597d. This establishes method identity without a guessed
+global offset or arbitrary masks.
+
+All eight bounded native calls are accounted for. On own-player equality,
+Steam435988 calls SAIState.Synchronize4aa3a0 on this+4c, matching named
+Gold4a8c20/5; both are the same five-byte jump to MakeEnemyGroups. There is no
+commander-wide unit synchronization in this method. The subsequent player
+validity guard precedes end-of-turn-map clearing and the Lua hook. Native
+4359bd uses player.GetScenarioPlayerID slot4c; strings are OnStartTurn8b3630
+and format i8b362c, with the Lua call at4359cb. Original audit and complete
+Gold/Steam disassembly are in shared evidence `ai-pass-control-*`.
+
+The caller scheduling rule changes no AP cost, authored balance data, action
+formula, public/save/network API, fonts, facial animation or HD pipeline.
+Source2eee remains partially imported for the conditional map clear and the
+remaining live-roster/neutral/alarm consumers. All100 unfinished sources and
+actual final-HEAD hosted GitHub Actions verification/repair remain open.
+
+Final fresh Windows ALL_BUILD: focused57/57 66.06s, related109/109 116.25s;
+Linux Game/helpers107/107 114.09s plus chooser/selected context4/4 1.15s.
+Local asset-free CI290/290 24.64s. Actual Windows/Linux/context runners exited0;
+all five final raw logs contain exact57/109/107/4/290 pass counts with no
+Failed/NotRun/NUL records. Five AP/group diagnostic records (repeat runs twice)
+match across platforms exactly. Both shared HD build caches remain OFF; owned
+tests exited. Counts remain138imported/19partial/81pending (100unfinished).

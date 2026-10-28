@@ -694,7 +694,7 @@ void CAICommander::OnPassControl( NWorld::CPlayer *_pPlayer )
 	//
 	if ( bAITurn )
 	{
-		Synchronize();
+		// Control transfer refreshes groups; each combat logic owns its snapshot refresh.
 		SyncAIState();
 		eotLogics.clear();
 		// retail CAICommander::OnPassControl (aiCommander.c:1612): fire the per-turn lua hook OnStartTurn(

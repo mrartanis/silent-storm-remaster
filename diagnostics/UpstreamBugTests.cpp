@@ -8599,6 +8599,131 @@ static void AICombatSnapshot(const char* databasePath, const char* resourcePath,
     }
 }
 
+static void AIPassControlSnapshots(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units; world->GetAllUnits(&units);
+    NWorld::CUnitServer *actor = nullptr, *enemy = nullptr;
+    const bool human = mode == 1;
+    for (const auto& unit: units)
+        if (IsValid(unit) && unit->CanFight() && !unit->HasCommand() && unit->IsAIUnit() != human
+                && IsValid(NAI::GetAIUnit(unit))) { actor = unit.GetPtr(); break; }
+    Require(actor != nullptr, "pass-control fixture has no idle native actor of its requested control type");
+    for (const auto& unit: units)
+        if (IsValid(unit) && unit->CanFight() && actor->GetDiplomacyState(unit) == NDb::DS_ENEMY
+                && IsValid(NAI::GetAIUnit(unit))) { enemy = unit.GetPtr(); break; }
+    auto* player = dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer());
+    auto* foreign = enemy ? dynamic_cast<NWorld::CPlayer*>(enemy->GetPlayer()) : nullptr;
+    auto* commander = player ? dynamic_cast<NAI::CAICommander*>(player->GetCommander()) : nullptr;
+    auto* owner = NAI::GetAIUnit(actor); auto* contact = NAI::GetAIUnit(enemy);
+    Require(commander && foreign && owner && contact, "pass-control fixture lacks opposing native commanders/wrappers");
+    auto* shared = commander->GetAIState(); shared->Synchronize();
+    const auto expectedGroups = shared->GetEnemyGroups();
+    Require(!expectedGroups.empty(), "pass-control fixture has no native hostile groups to refresh");
+    auto* script = world->GetOwnScript();
+    Require(IsValid(script) && script->DoString("UpstreamPassCalls=0; UpstreamPassPlayer=-1; function OnStartTurn(player) UpstreamPassCalls=UpstreamPassCalls+1; UpstreamPassPlayer=player end") == 0,
+        "pass-control fixture could not define its real Lua turn hook");
+    world->ExecuteOwnScript();
+    struct ScriptContext { ~ScriptContext() { pScript = nullptr; } } scriptContext;
+    owner->SetLogic(nullptr);
+    CObj<NAI::CAIRouteLogic> route = new NAI::CAIRouteLogic(owner);
+    route->AddCommand(new NAI::CTaskCommandWait(3)); route->SetCircled(true);
+    owner->SetRouteLogic(route);
+    CObj<NAI::IAILogic> behavior = owner->GetLogic(); // Human normal-route installation is intentionally refused.
+    auto planningPosition = actor->GetPosition();
+    planningPosition.pos.p.SetDirection((planningPosition.pos.p.GetDirection()+3)&7);
+    owner->SetPosition(planningPosition.pos);
+    auto savedPose = [&]() {
+        CStructureNetworkContext refs; auto fields = BorrowedObjectFields(owner, &refs);
+        NAI::SUnitPosition pose;
+        { CStructureSaver reader(fields, CStructureSaver::READ, &refs); reader.Add(4, &pose); }
+        return pose;
+    };
+    planningPosition = savedPose();
+    Require(!(planningPosition == actor->GetPosition()) && (human ? behavior.GetPtr() != route.GetPtr() : behavior.GetPtr() == route.GetPtr()),
+        "pass-control fixture failed to separate the actual planner pose/route from the live server");
+    owner->GetAIUnitState()->AddEnemy(contact); owner->GetAIUnitState()->pEnemy = contact;
+    const auto ownedRoster = commander->GetUnitsList();
+    vector<NAI::IAIUnit*> snapshots;
+    for (const auto& unit: ownedRoster)
+        if (IsValid(unit) && IsValid(unit->GetUnitServer()) && unit->GetUnitServer()->CanFight()) snapshots.push_back(unit.GetPtr());
+    snapshots.push_back(contact);
+    for (size_t i=0; i<snapshots.size(); ++i) {
+        snapshots[i]->SetAP(-100-int(i), 300+int(i)); snapshots[i]->SetHP(-200-int(i), 400+int(i));
+    }
+    shared->pCurrentUnit = contact; shared->pCurrentEnemy = owner;
+    shared->nCurrentAction = 73; shared->nTurnStartAllyHP = 311; shared->nTurnStartEnemyHP = 411;
+    shared->pAlly->GetUnits()->clear(); shared->pEnemy->GetUnits()->clear(); shared->enemyGroups.clear();
+    CObj<NWorld::CCommand> pending = new NWorld::CCmdSetCommand(actor, new NWorld::CCmdContinue);
+    auto commanderFields = [&](CStructureNetworkContext* refs) {
+        auto traversal = BorrowedObjectFields(commander, refs);
+        // The human CSequenceCommander nests this base in tag2. Inspect the
+        // actual CAICommander fields explicitly instead of flattening that save.
+        CMemoryStream fields;
+        { CStructureSaver writer(fields, CStructureSaver::WRITE, refs); commander->NAI::CAICommander::operator&(writer); }
+        fields.Seek(0); return fields;
+    };
+    auto readTracker = [&]() {
+        CStructureNetworkContext refs; auto fields = commanderFields(&refs);
+        NAI::SAICommandTracker tracker;
+        { CStructureSaver reader(fields, CStructureSaver::READ, &refs); reader.Add(9, &tracker); }
+        return tracker;
+    };
+    auto seedTracker = [&]() {
+        CStructureNetworkContext refs; auto fields = commanderFields(&refs);
+        const auto id = refs.nextID++; refs.ids[pending.GetPtr()] = id; refs.refs[id] = pending.GetPtr();
+        NAI::SAICommandTracker tracker; tracker.commands.push_back(pending); tracker.bCommandGiven = true; tracker.nNonFreezeCounter = 11;
+        CMemoryStream saved;
+        { CStructureSaver writer(saved, CStructureSaver::WRITE, &refs); writer.Add(9, &tracker); }
+        saved.Seek(0);
+        { CStructureSaver reader(saved, CStructureSaver::READ, &refs); commander->NAI::CAICommander::operator&(reader); }
+        Require(readTracker().commands.size() == 1, "pass-control fixture did not seed its native outgoing command queue");
+    };
+    const auto position = actor->GetPosition(), enemyPosition = enemy->GetPosition();
+    const int ap = actor->GetAP(), enemyAP = enemy->GetAP(), hp = actor->GetUnitRPG()->GetTotalVP();
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    const bool ownPass = mode != 2; const int repeats = mode == 3 ? 2 : 1;
+    GlobalGameRandom().SeedForHarness(37); auto reference = GlobalGameRandom(); const unsigned expectedNext = reference.Get();
+    for (int pass=0; pass<repeats; ++pass) {
+        seedTracker(); pScript = script;
+        commander->OnPassControl(ownPass ? player : foreign);
+        const auto tracker = readTracker();
+        Require(commander->IsAITurn() == ownPass && tracker.commands.empty()
+                && tracker.bCommandGiven && tracker.nNonFreezeCounter == 11,
+            "pass-control lost turn ownership, failed to clear queued commands or changed unrelated tracker state");
+        std::printf("pass-control mode=%d pass=%d nativeAI=%d ownerAP=%d contactAP=%d groups=%zu\n",
+            mode, pass, int(actor->IsAIUnit()), owner->GetAP(), contact->GetAP(), shared->enemyGroups.size());
+        for (size_t i=0; i<snapshots.size(); ++i)
+            Require(snapshots[i]->GetAP() == -100-int(i) && snapshots[i]->GetMaxAP() == 300+int(i)
+                    && snapshots[i]->GetHP() == -200-int(i) && snapshots[i]->GetMaxHP() == 400+int(i),
+                "passing control refreshed a unit's speculative AP/HP snapshot before its own combat logic requested synchronization");
+        Require(savedPose() == planningPosition && owner->GetLogic() == behavior.GetPtr() && route->IsCircled(),
+            "passing control overwrote the speculative pose or replaced the patrol route");
+        if (ownPass) {
+            Require(shared->enemyGroups.size() == expectedGroups.size() && !shared->pAlly->GetUnits()->empty()
+                    && !shared->pEnemy->GetUnits()->empty(), "own pass failed to refresh actual tactical rosters/groups");
+            for (size_t i=0; i<expectedGroups.size(); ++i)
+                Require(fabs2(shared->enemyGroups[i].ptCenter-expectedGroups[i].ptCenter) < 1e-8f
+                        && shared->enemyGroups[i].enemies == expectedGroups[i].enemies
+                        && shared->enemyGroups[i].allies == expectedGroups[i].allies,
+                    "own pass changed the native group membership or live-position center");
+        } else Require(shared->enemyGroups.empty() && shared->pAlly->GetUnits()->empty() && shared->pEnemy->GetUnits()->empty(),
+            "foreign pass rebuilt another player's tactical groups");
+        world->ExecuteOwnScript();
+        Require(script->GetGlobal("UpstreamPassCalls").GetNumber() == (ownPass ? pass+1 : 0)
+                && script->GetGlobal("UpstreamPassPlayer").GetNumber() == (ownPass ? player->GetScenarioPlayerID() : -1),
+            "pass-control did not deliver exactly one real Lua OnStartTurn hook to the owning scenario player");
+    }
+    Require(commander->GetUnitsList() == ownedRoster && shared->pCurrentUnit.GetPtr() == contact && shared->pCurrentEnemy.GetPtr() == owner
+            && shared->nCurrentAction == 73 && shared->nTurnStartAllyHP == 311 && shared->nTurnStartEnemyHP == 411,
+        "pass-control changed owned identities, planning context or start-of-turn HP counters");
+    Require(actor->GetPosition() == position && enemy->GetPosition() == enemyPosition && actor->GetAP() == ap && enemy->GetAP() == enemyAP
+            && actor->GetUnitRPG()->GetTotalVP() == hp && actor->GetUnitRPG()->GetInventory() == inventory && !actor->HasCommand()
+            && GlobalGameRandom().Get() == expectedNext,
+        "pass-control changed live AP/HP, position, inventory, commands or the native random sequence");
+}
+
 static void CombatChooserContext(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -21869,6 +21994,10 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-fear-route-suspect") && argc == 4) { AIFearRouteRetention(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "ai-fear-route-enemy") && argc == 4) { AIFearRouteRetention(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "ai-fear-route-empty") && argc == 4) { AIFearRouteRetention(argv[2], argv[3], 3); return true; }
+    if (!std::strcmp(mode, "ai-pass-control-ai") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 0); return true; }
+    if (!std::strcmp(mode, "ai-pass-control-human") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 1); return true; }
+    if (!std::strcmp(mode, "ai-pass-control-foreign") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 2); return true; }
+    if (!std::strcmp(mode, "ai-pass-control-repeat") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 3); return true; }
     if (!std::strcmp(mode, "ai-fear-ap-stand") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 0); return true; }
     if (!std::strcmp(mode, "ai-fear-ap-crouch") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "ai-fear-ap-prone") && argc == 4) { AIFearAPReservation(argv[2], argv[3], 2); return true; }
