@@ -227,6 +227,7 @@ public:
 	virtual void SaveAP( const SSnipeAP &ap );
 	virtual float GetSightDistance( NAI::EPose pose ) const;
 	virtual void StartNewTurn( const CVec3 &ptCP );
+	virtual bool IsFirstTurn() const { return nTurnCounter < 2; } // Original Steam 0x6c5dd0
 
 	virtual bool CreateAttack( vector<CAttackPortion> *pRes, bool bSpendAmmo,
 		bool bAnonymous, IUnitMissionInfo *pTarget, bool bBackStab, bool bAdaptWeapon );

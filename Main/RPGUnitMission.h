@@ -82,6 +82,7 @@ public:
 	virtual const SSnipeAP& GetSavedAP() const = 0;
 	virtual void SaveAP( const SSnipeAP &ap ) = 0;
 	virtual void StartNewTurn( const CVec3 &ptCP ) = 0;
+	virtual bool IsFirstTurn() const = 0;
 	virtual bool CheckIC() = 0;	// Return true if he managed to dodge
 	virtual void Kill() = 0;
 	virtual bool IsDead() const = 0;

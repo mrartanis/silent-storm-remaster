@@ -38,10 +38,9 @@ SAttackRayInfo::SAttackRayInfo( const CAttackPortion &_atk, const CVec3 &_vOrigi
 	  vOrigin( _vOrigin ), vDir( _vDir ), bTargetIsHit( _bTargetIsHit ),
 	  fMinClearDistance( _fMinClearDistance ), fMaxRange( _fMaxRange ), atk( _atk ), pTarget( _pTarget )
 {
-	// The release sets bFirstTurn from the shooter's "is it the first turn" status. The dev tree
-	// has no direct CUnit/CUnitServer first-turn accessor (IsFirstTurn lives on NWorld::IWorld /
-	// CTBSWorld, which this ctor does not have), so bFirstTurn is left false here. Behaviour-neutral:
-	// SAttackRayInfo is not wired into any call path yet.
+	// Original Steam 0x6910da: preserve the shooter mission's first-turn flag.
+	if ( pUS )
+		bFirstTurn = pUS->GetUnitRPG()->IsFirstTurn();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // 8-arg ctor @0x291450 (no shooter / no from-position)

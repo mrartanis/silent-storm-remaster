@@ -14760,6 +14760,31 @@ static void PeriodicUnitClocks(const char* databasePath,const char* resourcePath
     }
 }
 
+static void RayShooterFirstTurn(const char* databasePath,const char* resourcePath,int kind)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(const auto& unit:units)if(IsValid(unit) && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK()){actor=unit.GetPtr();break;}
+    Require(actor,"ray first-turn fixture has no native non-PK shooter");
+    auto* rpg=actor->GetUnitRPG();int counter=kind==3?1:kind;
+    CMemoryStream restored;
+    {CStructureSaver writer(restored,CStructureSaver::WRITE);writer.Add(39,&counter);}restored.Seek(0);
+    {CStructureSaver reader(restored,CStructureSaver::READ);static_cast<CObjectBase*>(rpg)->operator&(reader);}
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(rpg,&refs);int actualCounter=-999;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(39,&actualCounter);}
+    Require(actualCounter==counter,"ray fixture did not restore the actual mission turn counter");
+    auto* shooter=kind==3?nullptr:actor;const bool expected=kind<2;
+    const int ap=actor->GetAP(),vp=rpg->GetTotalVP();const auto position=actor->GetPosition();
+    NRPG::CAttackPortion attack;const CVec3 origin=position.GetCP(),direction(1,0,0);
+    NRPG::SAttackRayInfo direct(attack,origin,direction,shooter,position,0,0,false,0,30,nullptr);
+    NRPG::SAttackRayInfo accidental;NRPG::MakeAccidentalShot(&accidental,shooter,position,attack,origin,direction,30);
+    std::printf("native ray first-turn: counter=%d shooter=%d worldFirst=%d direct=%d accidental=%d expected=%d\n",actualCounter,int(shooter!=nullptr),int(world->IsFirstTurn()),int(direct.bFirstTurn),int(accidental.bFirstTurn),int(expected));std::fflush(stdout);
+    Require(direct.bFirstTurn==expected && accidental.bFirstTurn==expected,"native ray constructor/accidental shot lost the shooter's own first-turn flag");
+    Require(direct.pUS.GetPtr()==shooter && accidental.pUS.GetPtr()==shooter && !accidental.bTargetIsHit,
+        "first-turn propagation changed the shooter or accidental-shot miss metadata");
+    Require(actor->GetAP()==ap && rpg->GetTotalVP()==vp && actor->GetPosition()==position,"ray metadata construction changed native AP/VP/position");
+}
+
 static void PeriodicCriticalLifetime(const char* databasePath,const char* resourcePath,int kind)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
@@ -20812,6 +20837,10 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "equal-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "mixed-group-attack-caption") && argc == 4) { GroupAttackPreview(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "missing-attack-target-caption") && argc == 4) { AttackCaptionWithoutHitChance(argv[2], false, true); return true; }
+    if (!std::strcmp(mode, "ray-first-turn-zero") && argc==4) { RayShooterFirstTurn(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ray-first-turn-one") && argc==4) { RayShooterFirstTurn(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ray-first-turn-later") && argc==4) { RayShooterFirstTurn(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ray-first-turn-no-shooter") && argc==4) { RayShooterFirstTurn(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "critical-lifetime-refresh") && argc==4) { PeriodicCriticalLifetime(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "critical-lifetime-finish") && argc==4) { PeriodicCriticalLifetime(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "critical-lifetime-realtime") && argc==4) { PeriodicCriticalLifetime(argv[2],argv[3],2); return true; }

@@ -8683,3 +8683,49 @@ Evidence critical-lifetime-{red,green,final-related,final-display,final-linux,
 linux-display,final-ci}. Source remains partial, tracker132imported/22partial/
 84pending (106unfinished); full periodic bleeding/formula and projectile/night
 parts remain pending. ALL281 and final actual-HEAD hosted CI remain open.
+
+
+## 2de89e04, part4 — shooter first-turn metadata in accidental rays
+
+Restore IUnitMission::IsFirstTurn from the existing saved mission turn counter
+(nTurnCounter<2), then let the12argument SAttackRayInfo constructor copy it from
+its shooter. This fixes the same carrier created by current MakeAccidentalShot.
+The prior comment claiming the carrier was unused is obsolete: our shoot execs
+and accidental-shot helper now call this constructor. Normal shoot execs also
+set their own world-first-turn flag afterwards; retain those fork-specific
+assignments in this isolated import. The incidental-hit consumer/night formulas
+are still pending; this change does not claim changed hit probabilities or a
+completed incidental-damage path.
+
+Native RED2fail/4 4.55s: real FixtureWorld actor/mission, restore and read back its
+actual saved turn counter tag39, then call the actual constructor and
+MakeAccidentalShot. Counter0 and1 incorrectly yield false in both carriers;
+counter2 and no-shooter controls already pass. World first-turn stays true even
+for counter2, so the later-turn control distinguishes unit and world counters.
+Focused GREEN4/4 4.56s restores true only for counters0/1 with a shooter. Actual
+shooter/missed-shot metadata and native actor AP/VP/position remain unchanged.
+No fake mission, replacement constructor or new RNG draw.
+
+Original proof: ALL13bytes Gold PDB IsFirstTurn6bf640 match uniquely at
+Steam6c5dd0 (signed counter field170<2). Exact28bytes Gold shooter-ray constructor
+68b0d1 match uniquely at Steam6910d1, including mission virtual slot18c, flag10
+store and null-shooter false branch. Independently identify mission vtables
+Gold8b63cc/Steam8c54e4: slot18c points to those IsFirstTurn functions, and slot144
+to independently known regeneration6be2c0/6c49a0. NO masks. Actual constructor
+mission access6910da differs from the source annotation69118a. Evidence
+ray-first-turn-retail-oracle.json and original constructor/accessor disassemblies.
+Existing counter/tag39 and ray flag/tag4 are reused; no saved field or wire rule
+change, AP/VP tuning, facial/font/HD change or replacement of own shoot logic.
+
+Final fresh Windows/Linux Game/helpers/NativeAttackRules builds: related36/36
+(40.93s/40.64s), native-display57/57 (82.85s/68.38s), asset-free local CI290/290
+(24.12s). Exact raw passed counts36/57/36/57/290, no NUL/Failed/NotRun/missing
+executable, actual runners exit0. Both related suites include all4 new metadata
+cases and previous5 lifetime/2clock regressions; the36 include one display
+bullet-decal case. Asset-dependent cases are not in the290 manifest. Evidence
+ray-first-turn-{red,green,final-related,final-display,final-linux,linux-display,
+final-ci}. Owned games exited; shared builds reused, no HD generation or per-bug
+copies. Source remains partial (132imported/22partial/84pending,106unfinished;
+43other sources already present/documented/excluded). Full critical formula/
+bleeding pipeline and incidental-hit/night consumers remain pending. ALL281 and
+final actual-HEAD hosted GitHub verification remain open.
