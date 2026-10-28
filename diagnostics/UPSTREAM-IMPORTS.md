@@ -8999,3 +8999,70 @@ Source2de remains partial for incidental/projectile/first-turn/night consumers;
 original boost expiry/CheckOverdose is not newly claimed. ALL281 and final actual
 HEAD hosted GitHub Actions remain open; shared builds reused, no old per-bug
 builds or HD generation. Removed the now-committed16KB pending fixture patch.
+
+
+## 432b64c8, final part - original hit glyph colour and fade
+
+Source: 432b64c8bbe97a9f347a6c9468e7c69173d68394
+https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/432b64c8bbe97a9f347a6c9468e7c69173d68394
+
+The remaining two colour strings in CHitTracker::Draw produce orange PK damage
+and leave ordinary red at255 while alpha fades. Change only these channel
+strings: PK ARGB ff00bff3 ->7f005f79 at half TTL; human ffff0000 ->7f7f0000.
+Keep our font families/sizes/HiRes/vector assets, UI scale, movement, TTL,
+localized rejected-hit text and typed receiver choice. No gameplay balance,
+authored DB, facial engine, HD pipeline or save/network format changes.
+
+Native TDD: extend the real world-hit -> CMissionUI::RefreshHits -> registered
+CHitTracker/Draw fixture with two dedicated modes. Instead of stopping before
+layout, execute the actual UIML and capture every submitted glyph quad colour.
+Both real bitmap and vector texture types are explicitly verified, with native
+font mode restored afterwards. Cover human/PK, localized rejected(-1),0,42,
+initial/half/expired TTL. RED2/3 3.47s: human half actual7fff0000 vs7f7f0000;
+PK initialfff3bf00 vsff00bff3. Strengthened controls RED2/3 3.54s records all24
+native colour samples across both verified font types; original localized-text
+regression passes. Only then change production strings. Its existing colour
+control now intentionally expects the verified original colour/fade; localized
+content and expired text checks remain. Initial GREEN3/3 3.49s.
+
+Original proof uses named CHitText RTTI, not the source's inaccurate611f09/
+6117c0 annotation: Gold COL8dcfa4/vtable8b0bf4 slot30 -> PDB Draw60bf20/707;
+Steam COL8ec6f0/vtable8bfd44 same slot -> Draw611f80. Original normal colour
+61214c..612164 duplicates truncated((1-weight)*255) into alpha/red. PK
+612166..6121a0 puts191.0@8bfd3c in G,243.0@8bfd38 in B,255.0@8b66f8 in A.
+The native format8bfcc0 confirms ARGB order; its old font choice is not imported.
+Named unique class/locator/table metadata establishes identity, no opcode masks.
+Evidence hit-colour-rtti-oracle.json and full hit-colour-retail-disassembly.txt.
+
+Fork-specific review: CCOLORHandler/StringToColor preserves raw ARGB;
+CMLTextObject::Generate stores it directly in normal glyph quads; GRects sends
+unchanged vertex colour to C2DScene's COMBINE_SMART_ALPHA ONE/INVSRCALPHA blend.
+The image-only UIWrap::MakeColor does not run on this text path. Native vector
+coverage remains as implemented; no extra premultiplication is introduced.
+The new checks prove actual submitted glyph colours and real texture selection,
+not a pixel-by-pixel match to an original screenshot.
+
+Final Windows ALL_BUILD/Linux Game+helpers rebuilt with HD generation OFF:
+focused3/3 Windows3.49s; UI/text/markup/portrait/icon/PK-world and font regressions
+30/30 Windows21.85s,29/29 Linux21.41s (the additional NativeFontWire test is Windows
+only; PortableFontWire runs on both); display57/57 Windows82.43s/Linux67.40s;
+local asset-free CI290/29024.63s. All6 raw logs have exact3/30/57/29/57/290 passed
+records, no NUL/Failed/NotRun/missing executable, actual runners exit0. The24
+unique human/PK x bitmap/vector x rejected/0/42 x initial/half native glyph samples
+match on both platforms. The earlier related filter was overly restrictive and
+selected only5 Windows/4 Linux cases; corrected the suffix and reran the intended
+full30/29 group before committing. No production change was needed for that
+runner correction. Evidence hit-label-colour-{red,font-controls-red,final-focused,
+final-related,final-display,final-linux,linux-display,final-ci} and oracle files.
+No hosted Actions success or original screenshot pixel equality is claimed.
+
+All12 source files are now accounted: typed damage/RPG PK routing and world
+receiver propagation; inventory installation/PK transfer already implemented;
+retreat reaction lifetime already imported; group Hide/eligibility/stateful
+commands/executors adapted to our legacy serialization and static mission helper;
+aiRouteLogic hunk is explanatory commentary only; hit localization plus this
+remaining colour/fade. Source432 can be marked imported. Previous stage details
+and validation remain above. Counts133imported/21partial/84pending (105unfinished).
+Source2de projectile/night work and ALL281/final actual-HEAD hosted Actions remain
+open. Owned test processes exit; shared builds reused, no HD generation or old
+per-bug game/build copies.

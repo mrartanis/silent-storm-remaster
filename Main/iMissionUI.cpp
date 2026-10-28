@@ -933,8 +933,7 @@ private:
 	CPtr<NGame::IMission> pMission;
 	////
 	int nHitValue;
-	// retail NUI::CHitText member (same saveload id 0xB0241949): PK hits draw ORANGE
-	// (R=243,G=191,B=0 -- CHitText draw colour packing @0x6117c0) instead of the normal colour.
+	// Original CHitText (same saveload id 0xB0241949) uses cyan for PK damage.
 	bool bPK;
 	CVec3 vBegPoint;
 	STime sBegTime;
@@ -990,12 +989,12 @@ void CHitTracker::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 
 	WCHAR wsText[256];
 	int nAlpha = ( 1 - fWeight ) * 0xFF;
-	// retail CHitText colour packing @0x6117c0: a PK hit fades the ORANGE R=243(f3),G=191(bf),B=0
-	// channels; a normal hit keeps the dev damage colour.
+	// Original Draw (Steam RTTI/vtable: 0x611f80): fade premultiplied RGB with alpha.
+	// Keep the fork's font settings; only the colour channels differ.
 	if ( bPK )
-		swprintf( wsText, sizeof(wsText) / sizeof(wsText[0]), L"<color=%.2x%.2x%.2x00>", nAlpha, int( ( 1 - fWeight ) * 243 ), int( ( 1 - fWeight ) * 191 ) );
+		swprintf( wsText, sizeof(wsText) / sizeof(wsText[0]), L"<color=%.2x00%.2x%.2x>", nAlpha, int( ( 1 - fWeight ) * 191 ), int( ( 1 - fWeight ) * 243 ) );
 	else
-		swprintf( wsText, sizeof(wsText) / sizeof(wsText[0]), L"<color=%.2xff0000>", nAlpha );
+		swprintf( wsText, sizeof(wsText) / sizeof(wsText[0]), L"<color=%.2x%.2x0000>", nAlpha, nAlpha );
 
 	wstring wsHitText = wsText;
 	if ( nHitValue < 0 )

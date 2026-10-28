@@ -61,6 +61,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/iMissionUI.h"
 #include "../Main/iMissionMovieUI.h"
 #include "../Main/G2DView.h"
+#include "../Main/VectorFonts.h"
 #include "../Main/UIML.h"
 #include "../DBFormat/DataAck.h"
 #include "../Main/wUnitCommands.h"
@@ -10701,8 +10702,14 @@ static void CheckChapterClueHeading(NGame::CMissionBase* mission,NUI::CWindow* c
     }
 }
 
-static void RejectedHitLabelText(const char* databasePath,const char* resourcePath)
+static void RejectedHitLabelText(const char* databasePath,const char* resourcePath,int colourKind=-1)
 {
+    struct FontModeRestore { NGlobal::CValue previous;~FontModeRestore(){NGlobal::SetVar("ui_vector_fonts",previous);} } mode{NGlobal::GetVar("ui_vector_fonts",1)};
+    struct PlatformCleanup { bool started=false;~PlatformCleanup(){if(started)S2Platform::Done();} } platform;
+    if(colourKind>=0) {
+        S2Platform::SetErrorDialogs(false);
+        Require(S2Platform::Init("native hit glyph colours",1024,768,true),"hit colour fixture could not initialize SDL");platform.started=true;
+    }
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath,resourcePath,false,&game);
     auto* rejected = NDb::GetString(21060);
@@ -10711,10 +10718,23 @@ static void RejectedHitLabelText(const char* databasePath,const char* resourcePa
     class HitView: public DialogueLayoutView {
         OBJECT_NOCOPY_METHODS(HitView);
     public:
-        const CVec2& GetViewportSize() override { throw HitLayoutReached(); }
+        bool layout=false;
+        vector<DWORD> colours;
+        int vectorGlyphs=0,bitmapGlyphs=0;
+        const CVec2& GetViewportSize() override { if(!layout)throw HitLayoutReached();return DialogueLayoutView::GetViewportSize(); }
+        void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>* texture,const CRectLayout& glyphs,const CTPoint<int>&,const CTRect<int>&) override {
+            for(const auto& glyph:glyphs.rects) {
+                colours.push_back(glyph.sColor.color);
+                if(NGScene::IsVectorTexture(texture))++vectorGlyphs;else ++bitmapGlyphs;
+            }
+        }
     };
-    CObj<HitView> view = new HitView;
-    for (bool pk: {false,true}) for (int value: {-1,0,42}) {
+    CObj<HitView> view = new HitView;view->layout=colourKind>=0;
+    bool correctColours=true;
+    for (bool pk: {false,true}) for (int value: {-1,0,42}) for(bool vectorFonts:{false,true}) {
+        if(colourKind<0 && !vectorFonts)continue;
+        if(colourKind>=0 && int(pk)!=colourKind)continue;
+        if(colourKind>=0)NGlobal::SetVar("ui_vector_fonts",vectorFonts?1:0);
         CObj<EnemyIconMission> mission = new EnemyIconMission;
         mission->view = new NGScene::GameViewFixture;
         CObj<MissionIconProbe> desktop = new MissionIconProbe;
@@ -10743,9 +10763,10 @@ static void RejectedHitLabelText(const char* databasePath,const char* resourcePa
         Require(label && pSSClasses->GetObjectTypeID(label) == int(0xB0241949),
             "native HUD did not create its actual hit-text tracker from a world hit event");
         for (STime time: {STime(0),STime(1000)}) {
+            view->colours.clear();view->vectorGlyphs=view->bitmapGlyphs=0;
             bool reached = false;
             try { label->Draw(time,view); } catch (const HitLayoutReached&) { reached = true; }
-            Require(reached, "native hit text did not reach layout after updating its position and source");
+            Require(reached || colourKind>=0, "native hit text did not reach layout after updating its position and source");
             const auto& text = label->GetText();
             const auto prefixEnd = text.find(L'>');
             Require(prefixEnd != wstring::npos && text.substr(0,7) == L"<color=",
@@ -10753,15 +10774,24 @@ static void RejectedHitLabelText(const char* databasePath,const char* resourcePa
             const wstring expected = value < 0 ? rejected->szStr : std::to_wstring(value);
             Require(text.substr(prefixEnd+1) == expected,
                 "a rejected native HUD hit displayed the negative damage sentinel instead of its localized label");
-            const wstring oldColour = pk ? (time == 0 ? L"<color=fff3bf00>" : L"<color=7f795f00>") :
-                (time == 0 ? L"<color=ffff0000>" : L"<color=7fff0000>");
-            Require(text.substr(0,prefixEnd+1) == oldColour,
-                "localizing a rejected hit changed the independent existing colour or fade rules");
+            const wstring expectedMarkup = pk ? (time == 0 ? L"<color=ff00bff3>" : L"<color=7f005f79>") :
+                (time == 0 ? L"<color=ffff0000>" : L"<color=7f7f0000>");
+            if(colourKind<0)Require(text.substr(0,prefixEnd+1) == expectedMarkup,
+                "native rejected hit text changed its verified original colour or fade rules");
+            else {
+                const DWORD expectedColour=pk?(time==0?0xff00bff3u:0x7f005f79u):(time==0?0xffff0000u:0x7f7f0000u);
+                Require(!view->colours.empty(),"native hit label did not submit actual glyph quads");
+                Require((vectorFonts?view->vectorGlyphs:view->bitmapGlyphs)==int(view->colours.size()) && (vectorFonts?view->bitmapGlyphs:view->vectorGlyphs)==0,
+                    "native hit colour fixture did not use the requested real bitmap/vector font texture");
+                std::printf("native hit glyph colour: pk=%d vector=%d value=%d time=%u glyphs=%zu actual=%08x expected=%08x\n",int(pk),int(vectorFonts),value,unsigned(time),view->colours.size(),unsigned(view->colours.front()),unsigned(expectedColour));std::fflush(stdout);
+                for(DWORD colour:view->colours)correctColours=correctColours && colour==expectedColour;
+            }
         }
         const auto lastText = label->GetText();
         label->Draw(2001,view);
         Require(label->GetText() == lastText, "an expired native hit label regenerated or changed its text");
     }
+    Require(correctColours,"native hit glyphs use the wrong armor colour or fail to fade RGB with alpha");
 }
 
 static void ScaledEditTextLayout()
@@ -20955,6 +20985,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
     if (!std::strcmp(mode, "hotseat-opponent-visibility")) { HotseatOpponentVisibility(); return true; }
     if (!std::strcmp(mode, "restored-clue-close-notification")) { RestoredClueCloseNotification(); return true; }
+    if (!std::strcmp(mode, "hit-label-colour-human") && argc==4) { RejectedHitLabelText(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "hit-label-colour-pk") && argc==4) { RejectedHitLabelText(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "rejected-hit-label-text")) { Require(argc == 4, "hit label text requires db and res"); RejectedHitLabelText(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "oversized-tooltip-position") && argc==4) { OversizedTooltipPosition(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "scaled-edit-text-layout")) { ScaledEditTextLayout(); return true; }
