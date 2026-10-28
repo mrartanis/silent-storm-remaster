@@ -8242,6 +8242,96 @@ static void AICoverMask(const char* databasePath,const char* resourcePath,int mo
     Require(kind==0 && !ignored && !farObstacle?actual<=0:actual==baseline,"unit cover sampling missed an item-blocking muzzle obstacle or changed an original category/ignore/distance control");
 }
 
+class CoverFragmentParityMapProbe: public CoverOriginMapProbe
+{
+    OBJECT_NOCOPY_METHODS(CoverFragmentParityMapProbe);
+public:
+    bool includeFragments=false;
+    int extraIntervals=0;
+    CPtr<NWorld::CUnitServer> target;
+    explicit CoverFragmentParityMapProbe(NAI::IAIMap* map=nullptr): CoverOriginMapProbe(map) {}
+    void TraceGrid(NAI::CFastRenderer* grid,int mask,ESort sort,const NAI::CFloorsSet& floors,ESplitTerrainHGroups split,bool doors) override {
+        CoverOriginMapProbe::TraceGrid(grid,mask|(includeFragments?NWorld::TS_FRAGMENTED:0),sort,floors,split,doors);
+        for(int y=0;y<grid->resGrid.GetYSize();++y)for(int x=0;x<grid->resGrid.GetXSize();++x)
+            for(auto* hit=grid->resGrid[y][x];hit;hit=hit->pNext) {
+                const auto& surface=hit->GetInfo();
+                if(surface.nTSFlags&(NWorld::TS_COVER|NWorld::TS_ITEM_BLOCKER))continue;
+                ++extraIntervals;
+                Require(includeFragments && (surface.nTSFlags&NWorld::TS_FRAGMENTED)
+                    && !(surface.nTSFlags&NWorld::TS_WEAPON_BLOCKER) && surface.pUserData!=target.GetPtr()
+                    && !CDynamicCast<NWorld::CUnit>(surface.pUserData),
+                    "actual fragment-only provider can affect muzzle clearance or unit-target classification");
+            }
+    }
+};
+// Read the existing saved cover fields through their native serializer. Compare
+// named ray values, not padding bytes or a new production cover representation.
+struct CoverParitySnapshot
+{
+    struct Ray {CVec3 direction;bool penetrate;float deviation;};
+    vector<Ray> hits,loose,obstacles;
+    CVec3 source;
+    float piercing=0;
+};
+static CoverParitySnapshot CoverSnapshot(const CObj<NRPG::CCoverInfo>& cover)
+{
+    CMemoryStream fields;{CStructureSaver writer(fields,CStructureSaver::WRITE);cover.GetBarePtr()->operator&(writer);}
+    fields.Seek(0);CoverParitySnapshot snapshot;
+    {CStructureSaver reader(fields,CStructureSaver::READ);reader.Add(2,&snapshot.hits);reader.Add(3,&snapshot.source);
+     reader.Add(4,&snapshot.loose);reader.Add(5,&snapshot.obstacles);reader.Add(6,&snapshot.piercing);}
+    return snapshot;
+}
+static bool SameCoverRays(const vector<CoverParitySnapshot::Ray>& a,const vector<CoverParitySnapshot::Ray>& b)
+{
+    if(a.size()!=b.size())return false;
+    for(size_t i=0;i<a.size();++i)if(a[i].direction!=b[i].direction || a[i].penetrate!=b[i].penetrate || a[i].deviation!=b[i].deviation)return false;
+    return true;
+}
+static void AICoverNativeFragmentParity(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor=nullptr;NRPG::IWeaponItem* firearm=nullptr;
+    for(const auto& unit:units) {
+        if(!IsValid(unit) || !unit->CanFight() || unit->HasCommand() || unit->IsEmptyPK() || unit->IsWearingPK() || unit->animator.GetCannon())continue;
+        auto* weapon=dynamic_cast<NRPG::IWeaponItem*>(unit->GetUnitRPG()->GetInventory()->GetActive());
+        if(weapon && weapon->GetAmmoQuantity()>0 && weapon->SetShootMode(NDb::SM_Snap)){actor=unit.GetPtr();firearm=weapon;break;}
+    }
+    Require(actor && firearm,"fragment parity fixture has no armed native actor");
+    NRPG::IGame* game=world->GetGame();CPtr<NAI::IAIMap> original;
+    {CStructureNetworkContext refs;auto fields=BorrowedObjectFields(game,&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&original);}
+    Require(original.GetPtr()==world->GetAIMap(),"fragment parity fixture lost the actual collision map");
+    CObj<CoverFragmentParityMapProbe> probe=new CoverFragmentParityMapProbe(original);
+    struct Restore{NRPG::IGame* game;CPtr<NAI::IAIMap> map;~Restore(){SetCoverProbeMap(game,map);}}restore{game,original};SetCoverProbeMap(game,probe);
+    vector<NRPG::CAttackPortion> attacks;actor->GetUnitRPG()->CreateAttack(&attacks,false);
+    Require(!attacks.empty(),"fragment parity fixture has no native attack portion");
+    const auto position=actor->GetPosition();const CVec3 source=actor->GetAttackOrigin(position);
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),ammo=firearm->GetAmmoQuantity();const bool command=actor->HasCommand();
+    GlobalGameRandom().SeedForHarness(0x75da);auto rng=GlobalGameRandom();
+    int compared=0,positive=0,fragments=0;
+    for(const auto& target:units)if(IsValid(target) && target.GetPtr()!=actor && target->CanFight() && !target->IsEmptyPK()) {
+        probe->target=target;
+        for(const auto location:{NAI::HL_ANY,NAI::HL_BODY}) {
+            const auto targetPosition=target->GetPosition();const int targetHP=target->GetUnitRPG()->GetTotalVP();
+            auto query=[&](bool include){probe->includeFragments=include;probe->extraIntervals=0;probe->traces.clear();
+                return CObj<NRPG::CCoverInfo>(game->CalcCovers(source,attacks.front(),actor,target,location,actor->GetMinClearDistance(),false));};
+            auto current=query(false);const auto a=CoverSnapshot(current);const int score=NRPG::GetHitCover(actor,current);
+            Require(probe->extraIntervals==0 && probe->traces.size()==2,"current native unit query lost its high/low grids or selected fragment-only geometry");
+            auto reference=query(true);const auto z=CoverSnapshot(reference);const int expected=NRPG::GetHitCover(actor,reference);
+            Require(probe->traces.size()==2 && a.source==z.source && a.piercing==z.piercing && SameCoverRays(a.hits,z.hits)
+                && SameCoverRays(a.loose,z.loose) && SameCoverRays(a.obstacles,z.obstacles) && score==expected,
+                "native fragment-only sampling changes a unit ray, classification or armor-piercing result");
+            ++compared;if(score>0)++positive;fragments+=probe->extraIntervals;
+            std::printf("native cover fragment parity: profile=%d location=%d score=%d fragments=%d hits=%zu loose=%zu obstacles=%zu\n",
+                compared,int(location),score,probe->extraIntervals,a.hits.size(),a.loose.size(),a.obstacles.size());std::fflush(stdout);
+            Require(target->GetPosition()==targetPosition && target->GetUnitRPG()->GetTotalVP()==targetHP,"fragment parity queries changed the native target");
+        }
+    }
+    Require(compared>1 && positive>0 && fragments>0,"native parity fixture did not encounter both real fragment-only geometry and a positive unit shot");
+    Require(actor->GetPosition()==position && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && firearm->GetAmmoQuantity()==ammo
+        && actor->HasCommand()==command && rng.Get()==GlobalGameRandom().Get(),"fragment parity queries changed native gameplay or RNG");
+}
+
 static void AICoverRange(const char* databasePath,const char* resourcePath,int mode)
 {
     const bool human=mode==2 || mode==4 || mode==6 || mode==7;
@@ -23872,6 +23962,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-cover-mask-previewlow-fragmentonly") && argc == 4) { AICoverMask(argv[2],argv[3],11); return true; }
     if (!std::strcmp(mode, "ai-cover-mask-ai-ignored") && argc == 4) { AICoverMask(argv[2],argv[3],12); return true; }
     if (!std::strcmp(mode, "ai-cover-mask-preview-low-far") && argc == 4) { AICoverMask(argv[2],argv[3],13); return true; }
+    if (!std::strcmp(mode, "ai-cover-native-fragment-parity") && argc == 4) { AICoverNativeFragmentParity(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-near-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-cover-range-human-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],2); return true; }

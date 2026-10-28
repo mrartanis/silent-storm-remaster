@@ -10840,3 +10840,55 @@ Source cc0fd988
 stays partial pending related human/physical-purpose adaptation. Overall281
 decisions still140 imported/19 partial/79 pending =98 unfinished. Entire transfer
 and final actual-HEAD hosted Actions verification/repair remain open.
+
+
+## 2026-10-28 — close cc0fd988 after checking our native fragment consumers
+
+The five independent fixes are committed/pushed: weapon origin be9de53b,
+required-unit reach68b84aa0, AI30 cap03799fac, unit/tile projectionccaf688c,
+and original8200 samplingcb16ffea. The literal upstream600/610 mask proposal
+is excluded/adapted as recorded above. The remaining physical8210 vs8200
+difference was reviewed against OUR providers and consumer before adding API.
+
+Current providers: GetMask maps damage geometry to Fragment|Cover; native unit
+Visit always supplies Cover (including the fork's pilot/shell hull handling),
+and terrain includes Cover|Item. The only extra fragment-only sources are
+building's separately split pieces (wBuilding.cpp), with no Weapon blocker
+flag. Our CalcCovers is unit-targeted; current CUnit implementation is the
+native unit server, not a building piece. Consequently these extra intervals
+cannot change the400 muzzle predicate or target/body-part classification,
+and the Cover200 penetration predicate skips them. Our narrow serialized
+CCoverInfo stores rays, not the original rasterizer grids; physical contact
+has its existing separate trace path. The additive transient CCoverGridInfo
+helpers are not called by these consumers. Copying the original cached-grid
+pipeline or widening IGame is a separate reconstruction, not needed by cc0f.
+This conclusion does not claim all original attack/preview code is complete.
+
+New UpstreamAICoverNativeFragmentParity verifies this with UNMODIFIED native
+world collision geometry: a delegating map compares current8200 with extra
+Fragment8210 at the actual TraceGrid boundary. No analytic boxes or supplied
+intervals/results. Four actual unit ANY/BODY profiles encounter889/813/0/0
+extra intervals; every extra source must have Fragment, no Cover/Item/Weapon,
+and must not be the target or another CUnit. Native cover serialization exposes
+the saved field values without changing production layouts. Compare EACH ray's
+direction, penetration and deviation across hit/loose/obstacle sets, source,
+summed remaining APA and final cover score. Compare named values, not padding.
+Scores100/38/90/25 and all values match; AP/HP/ammo/positions/commands/RNG stay.
+
+Audit only: no production fix and no bug RED claimed. Initial build/run passes
+on both platforms,47/47 Windows51.28s/Linux51.65s, including all prior46 cover
+cases. Both platforms' four measured profiles match exactly;1702 additional
+native fragment intervals make the comparison non-vacuous. Previous measured
+cover records remain unchanged within each platform. Fresh local asset-free
+CI290/29023.84s includes registration checks. Shared evidence
+ai-cover-fragment-parity-verification.json. Both HD caches OFF, shared builds,
+23.57GB free, no owned game/test/debugger left.
+
+Source cc0fd988 is now accounted for: mark imported, with explicit adaptations
+and excluded literal behavior, not a whole-source cherry-pick. Current281
+decisions:141 imported /18 partial /79 pending /32 already present /5 balance
+/3 documentation /2 own behavior /1 historical;97 unfinished. Other composite
+preview/physical-cache/range adaptations stay in their respective source
+reviews (including f638aca9); they are not silently declared complete by this
+closure. Full transfer and final actual-HEAD hosted Actions verification/repair
+continue. This local CI run is not a hosted verification.
