@@ -10364,3 +10364,75 @@ explicit above. Counts281=139 imported,18 partial,81 pending,32 already-present,
 import:99 unfinished source reviews/imports. The entire goal remains active;
 actual final-HEAD hosted GitHub Actions verification/repair is due after all
 useful imports. This local CI result is not a hosted-run completion claim.
+
+
+## 2026-10-28 — Nearest contact uses reference validity, not planning HP (`7f4f0ea8`)
+
+The fork's current GetPosition already returns the live server position, exactly
+as this source requires. Preserve that accessor instead of copying redundant
+direct server dereferences. Change only the shared FindNearestUnit candidate
+gate from IsAlive(planning HP) to IsValid, and delegate nearest ally/suspect
+selection to that existing helper. Preserve current Modified()/selected-contact
+bookkeeping, caller guard, contact protocol, enemy-fightability and morale rules.
+The shared helper's original linear65535 bound and strict contact-vector first
+winner replace the two old duplicated4095 scans; no new range tuning is authored.
+No production public declaration, virtual slot, field or save/network ID changes.
+
+Twenty native FixtureWorld profiles exercise actual State.Update ally/suspect
+consumers and the pre-existing shared helper (test-only forward declaration, no
+missing-API compile RED). Native diplomacy/fightability AddAlly/AddPossibleEnemy
+establish memberships; a genuine second candidate is added to the same native
+player. Both actual native positions are independently checked. Profiles cover
+live control, zero/negative planning HP while the real unit can fight, zero-HP
+exact tie, an actual native corpse with a still-valid wrapper, a deliberately
+separate planning pose, unconscious/live-reference control and a positive exact
+tie. Ties reverse candidate insertion relative to world creation order, proving
+contact-vector order. Native removal events then discard the winner and its
+cached pose and the query must select the remaining member. Stable selection
+must not notify again; changed selection preserves existing notification flags.
+All live/planning AP/HP/positions, commands, backrefs, ownership and exact RNG
+continuation are checked. Corpse/KO contacts are held in an isolated real native
+state value populated while alive, allowing the pending/restored membership
+window to be tested without the global event subscriber pruning that snapshot.
+This is not a claim that a globally delivered death event leaves the owner's
+normal contact list unchanged.
+
+Initial runtime includes fixture failures: AddUnitInGame's native placement
+relocates a newly created overlapping unit. Retain that raw log separately and
+set the exact tie position after native deployment BEFORE production. Successful
+baseline rebuild then authoritative RED10/20 in21.69s, exit8: every failure is
+only the intended valid-reference/planning-HP winner assertion. All10 positive
+controls pass, including live getters, unconscious positive-planning HP and
+exact ties. The initial placement failures are not bug RED. No compile failure
+is counted as RED. The minimal fix gives46/46 native nearest/contact/reaction/
+event controls in56.16s, exit0; all20 new profiles complete real removal events.
+RNG remains2191600266 after all queries/removals in every profile.
+
+Original proof in shared audit-contact-nearest.py and contact-nearest-* evidence:
+Gold PDB freeFindNearestUnit4af220/188 ->Steam4b0a70..4b0b2c has a unique unmasked
+24-byte prefix; named nearestAlly4af470/188 ->Steam4b0cc0 and nearestPossible
+4af530/188 ->Steam4b0d80 each have their own unique24-byte blocks at+16 and full
+ret/CC tails. Direct callsGold4af490/4af550 andSteam4b0ce0/4b0da0 target the
+shared helper. Supplied4b0a00 and previous4b05c0 comments are stale. Named CAIUnit
+primary RTTI vtablesGold8a6984/Steam8b5a6c slot0=PDBGetUnitServer7bede0/4 ->
+Steam4af260. Named Server secondary14c COL/vtGold8eb634/8beb74 ->Steam8fae50/
+8ce15c slot44=PDBGetPosition7baa00/7 ->Steam7c72d0. SPosition.GetCP GoldPDB
+4903c0/23 equalsSteam4914c0 all23 bytes and both helper callsites are verified.
+Native null4b0aa7/invalidobjectflag80 at4b0ab1 is the entire eligibility gate;
+full188 has no health/death/CanFight call. Float65535 immediate477fff00 at4b0a79,
+3Dfsqrt4b0aff and strictfcom/testAH05/jp4b0b07..10 prove metric/bound/ties.
+Original normal contact removal remains event-driven; action eligibility has
+its separate existing gates. GitHub fetch_commit independently confirms this
+source contains only Main/aiUnitState.cpp; all its behavior is accounted above.
+
+Final fresh Windows ALL_BUILD:154/154 focused176.17s,205/205 related219.95s;
+Linux Game/helpers203/203 related228.05s plus4/4 context1.13s; local asset-free
+CI290/29024.15s. All main Windows/Linux/context runners exit0; Windows persists
+exit0. Five raw logs have exact154/205/203/4/290 passes, no Failed/NotRun/NUL.
+Twenty selection and20 completed/removal records match across platforms, as do
+6TBS/14view/13support/14target/15world/14delivery records. Both HD caches remain
+OFF; owned tests exit, shared builds only. Source7f4f0ea8 is now imported with its
+entire one-file scope accounted. Counts281=140 imported/18 partial/80 pending,
+plus prior explicit decisions:98 unfinished source reviews/imports. All useful
+imports and actual final-HEAD hosted Actions verification/repair remain open;
+local CI does not establish hosted completion.

@@ -7900,6 +7900,128 @@ static void OwnedAICommanderRosters(const char* databasePath, const char* resour
     Require(checked > 1 && hostileViews > 0, "AI roster fixture did not verify multiple commanders and a hostile view");
 }
 
+namespace NAI
+{
+    // Existing external implementation; no new production API is needed for this probe.
+    IAIUnit* FindNearestUnit(IAIUnit* self, vector<CPtr<IAIUnit>>& units);
+}
+static void AINearestContact(const char* databasePath, const char* resourcePath, int kind, int profile)
+{
+    CObj<NRPG::CGlobalGame> game; auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> all; world->GetAllUnits(&all);
+    NWorld::CUnitServer *actor=nullptr,*nearServer=nullptr;
+    for (const auto& unit: all)
+        if (IsValid(unit) && unit->CanFight() && unit->IsAIUnit() && !unit->HasCommand() && IsValid(NAI::GetAIUnit(unit))) { actor=unit.GetPtr(); break; }
+    Require(actor,"nearest contact fixture has no native AI owner");
+    for (const auto& unit: all)
+        if (IsValid(unit) && unit.GetPtr()!=actor && unit->CanFight() && IsValid(NAI::GetAIUnit(unit))
+                && ((actor->GetDiplomacyState(unit)==NDb::DS_ENEMY)==(kind==1))) { nearServer=unit.GetPtr(); break; }
+    Require(nearServer,"nearest contact fixture has no eligible native ally/suspect");
+    auto* network=world->GetPathNetwork(); vector<NAI::SPathPlace> points;
+    network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),12.f),&points);
+    NAI::SPosition nearPoint,farPoint; bool found=false;
+    for (auto n: points) {
+        n.SetPose(NAI::CM_STAND); n.SetDirection(0); NAI::SPosition np(n,network);
+        const float distance=fabs(np.GetCP()-actor->GetPosition().GetCP());
+        if (distance<2.f || distance>3.5f || !network->IsPassable(n) || network->IsLocked(n,true)) continue;
+        for (auto f: points) {
+            f.SetPose(NAI::CM_STAND); f.SetDirection(0); NAI::SPosition fp(f,network);
+            if (fabs(fp.GetCP()-actor->GetPosition().GetCP())>6.f && network->IsPassable(f) && !network->IsLocked(f,true)) {
+                nearPoint=np; farPoint=fp; found=true; break;
+            }
+        }
+        if (found) break;
+    }
+    Require(found,"nearest contact fixture has no genuine separated native positions");
+    auto pose=nearServer->GetPosition(); pose.pos=nearPoint; nearServer->SetPosition(pose);
+    const bool tie=profile==3 || profile==7;
+    auto* farServer=world->AddUnitInGame((tie ? nearPoint : farPoint).p,
+        NRPG::CreateUnit(nearServer->GetUnitRPG()->GetRPGUnit()->GetPers()),nearServer->GetTBSPlayer());
+    // Native deployment can relocate a new unit; establish the explicit exact-tie pose afterwards.
+    if (tie && IsValid(farServer)) { auto tied=farServer->GetPosition(); tied.pos=nearServer->GetPosition().pos; farServer->SetPosition(tied); }
+    auto* owner=NAI::GetAIUnit(actor); auto* nearUnit=NAI::GetAIUnit(nearServer); auto* farUnit=NAI::GetAIUnit(farServer);
+    Require(IsValid(farServer) && farServer->CanFight() && owner && nearUnit && farUnit,"nearest contact fixture could not create its native second candidate");
+    owner->Synchronize(false); nearUnit->Synchronize(false); farUnit->Synchronize(false);
+    NAI::SAIUnitState state; state.SetUnit(owner);
+    auto add=[&](NAI::IAIUnit* unit) { if (kind==1) state.AddPossibleEnemy(unit); else state.AddAlly(unit); };
+    if (tie) { add(farUnit); add(nearUnit); } else { add(nearUnit); add(farUnit); }
+    auto& collection=kind==1 ? state.possibleEnemies : state.allies;
+    Require(collection.data.units.size()==2 && collection.data.positions.size()==2,
+        "nearest contact fixture failed to add genuine contacts through the native diplomacy/fightability protocol");
+    auto* expected=tie ? farUnit : nearUnit; auto* remaining=tie ? nearUnit : farUnit;
+    if (profile==4) {
+        nearServer->GetUnitRPG()->Kill(); nearServer->KillUnit(VNULL3);
+        Require(IsValid(nearUnit) && nearServer->IsDead() && !nearServer->CanFight(),
+            "nearest contact corpse fixture did not retain a valid native corpse wrapper");
+    }
+    if (profile==6) {
+        nearServer->MakeUnconscious(VNULL3,true,false);
+        Require(!nearServer->CanFight() && !nearServer->IsDead(),"nearest contact KO control has the wrong native life state");
+    }
+    for (auto* unit: {owner,nearUnit,farUnit}) { unit->SetHP(37,99); unit->SetAP(-43,101); }
+    if (profile==1 || profile==3 || profile==4) expected->SetHP(0,99);
+    if (profile==2) expected->SetHP(-37,99);
+    if (profile==5) {
+        owner->SetPosition(farPoint); nearUnit->SetPosition(farPoint); farUnit->SetPosition(actor->GetPosition().pos);
+        Require(nearUnit->GetPosition()==nearServer->GetPosition().pos && farUnit->GetPosition()==farServer->GetPosition().pos,
+            "nearest contact control replaced the existing live getter with its planning copy");
+    }
+    const float chosenDistance=fabs(expected->GetPosition().GetCP()-owner->GetPosition().GetCP());
+    const float otherDistance=fabs(remaining->GetPosition().GetCP()-owner->GetPosition().GetCP());
+    Require(tie ? chosenDistance==otherDistance : chosenDistance<otherDistance,
+        "nearest contact fixture did not establish its actual expected closest/tied contact");
+    auto plannedPose=[](NAI::IAIUnit* unit) {
+        CStructureNetworkContext refs; auto fields=BorrowedObjectFields(unit,&refs); NAI::SUnitPosition result;
+        { CStructureSaver reader(fields,CStructureSaver::READ,&refs); reader.Add(4,&result); } return result;
+    };
+    struct Snapshot { NAI::IAIUnit* unit; NAI::SUnitPosition live,plan; int ap,hp,planAP,planHP; bool command; NAI::SAIState* state; };
+    vector<Snapshot> snapshots;
+    for (auto* unit: {owner,nearUnit,farUnit}) {
+        auto* server=unit->GetUnitServer();
+        snapshots.push_back({unit,server->GetPosition(),plannedPose(unit),server->GetAP(),server->GetUnitRPG()->GetTotalVP(),
+            unit->GetAP(),unit->GetHP(),server->HasCommand(),unit->GetAIState()});
+    }
+    auto* commander=dynamic_cast<NAI::CAICommander*>(actor->GetPlayer()->GetCommander());
+    Require(commander,"nearest contact fixture lost its native owner commander");
+    const auto roster=commander->GetUnitsList(); const auto contacts=collection.data.units; const auto positions=collection.data.positions;
+    GlobalGameRandom().SeedForHarness(0x61aa); auto reference=GlobalGameRandom();
+    auto selected=[&]() -> NAI::IAIUnit* {
+        if (kind==2) return NAI::FindNearestUnit(owner,collection.data.units);
+        state.Update(); return kind==1 ? state.pPossibleEnemy.GetPtr() : state.pAlly.GetPtr();
+    };
+    auto* actual=selected();
+    std::printf("nearest contact kind=%d profile=%d planHP=%d liveDead=%d fightable=%d selected=%d distance=%g/%g\n",
+        kind,profile,expected->GetHP(),int(expected->GetUnitServer()->IsDead()),int(expected->GetUnitServer()->CanFight()),int(actual==expected),chosenDistance,otherDistance);
+    Require(actual==expected,"nearest contact selection filtered a valid world contact using planning HP or chose another list-order tie");
+    Require(collection.data.units==contacts && collection.data.positions==positions,
+        "nearest selection changed actual cached contact membership or positions");
+    if (kind!=2) {
+        Require(state.IsModified() && state.selfModified.bModified && !collection.bModified,
+            "changed nearest contact did not preserve the existing threat-notification/collection-consumption protocol");
+        state.selfModified.data=state.selfModified.bModified=false; collection.SetModified();
+        Require(selected()==expected && !state.IsModified() && !state.selfModified.bModified && !collection.bModified,
+            "a stable nearest contact synthesized another threat notification");
+    } else Require(!state.IsModified() && !state.selfModified.bModified && collection.bModified,
+        "shared nearest query mutated its caller's native notification/collection state");
+    CObj<NAI::IAIEvent> removal=kind==1 ? NAI::CreateAILostPossibleEnemyEvent(expected) : NAI::CreateAILostAllyEvent(expected);
+    state.OnAIEvent(removal);
+    Require(std::find(collection.data.units.begin(),collection.data.units.end(),expected)==collection.data.units.end()
+            && collection.data.positions.find(expected)==collection.data.positions.end(),"actual removal event retained the old nearest contact");
+    Require(selected()==remaining && collection.data.units.size()==1 && collection.data.positions.size()==1,
+        "nearest selection did not honor an actual contact-removal event");
+    const unsigned next=GlobalGameRandom().Get();
+    Require(next==reference.Get(),"nearest contact queries or removal consumed native RNG");
+    Require(commander->GetUnitsList()==roster,"nearest contact selection changed commander ownership");
+    for (const auto& saved: snapshots) {
+        auto* server=saved.unit->GetUnitServer();
+        Require(server->GetPosition()==saved.live && plannedPose(saved.unit)==saved.plan && server->GetAP()==saved.ap
+                && server->GetUnitRPG()->GetTotalVP()==saved.hp && saved.unit->GetAP()==saved.planAP && saved.unit->GetHP()==saved.planHP
+                && server->HasCommand()==saved.command && saved.unit->GetAIState()==saved.state,
+            "nearest contact queries changed world/planning AP/HP/positions/commands or tactical ownership");
+    }
+    std::printf("nearest contact completed kind=%d profile=%d rng=%u\n",kind,profile,next);
+}
+
 static void AITacticalWorldViews(const char* databasePath, const char* resourcePath, int mode)
 {
     CObj<NRPG::CGlobalGame> game; auto world=FixtureWorld(databasePath,resourcePath,true,&game);
@@ -23148,6 +23270,26 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "empty-bullet-construction") && argc == 4) { EmptyBulletConstruction(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hidden-unit-tint") && argc == 4) { HiddenUnitTint(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "living-unit-floor-refresh") && argc == 4) { LivingUnitFloorRefresh(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-ally-live") && argc == 4) { AINearestContact(argv[2],argv[3],0,0); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-ally-zero-hp") && argc == 4) { AINearestContact(argv[2],argv[3],0,1); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-ally-negative-hp") && argc == 4) { AINearestContact(argv[2],argv[3],0,2); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-ally-tie-zero-hp") && argc == 4) { AINearestContact(argv[2],argv[3],0,3); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-ally-corpse") && argc == 4) { AINearestContact(argv[2],argv[3],0,4); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-ally-live-position") && argc == 4) { AINearestContact(argv[2],argv[3],0,5); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-ally-ko") && argc == 4) { AINearestContact(argv[2],argv[3],0,6); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-ally-tie") && argc == 4) { AINearestContact(argv[2],argv[3],0,7); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-suspect-live") && argc == 4) { AINearestContact(argv[2],argv[3],1,0); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-suspect-zero-hp") && argc == 4) { AINearestContact(argv[2],argv[3],1,1); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-suspect-negative-hp") && argc == 4) { AINearestContact(argv[2],argv[3],1,2); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-suspect-tie-zero-hp") && argc == 4) { AINearestContact(argv[2],argv[3],1,3); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-suspect-corpse") && argc == 4) { AINearestContact(argv[2],argv[3],1,4); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-suspect-live-position") && argc == 4) { AINearestContact(argv[2],argv[3],1,5); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-suspect-ko") && argc == 4) { AINearestContact(argv[2],argv[3],1,6); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-suspect-tie") && argc == 4) { AINearestContact(argv[2],argv[3],1,7); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-shared-live") && argc == 4) { AINearestContact(argv[2],argv[3],2,0); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-shared-zero-hp") && argc == 4) { AINearestContact(argv[2],argv[3],2,1); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-shared-corpse") && argc == 4) { AINearestContact(argv[2],argv[3],2,4); return true; }
+    if (!std::strcmp(mode, "ai-nearest-contact-shared-tie") && argc == 4) { AINearestContact(argv[2],argv[3],2,7); return true; }
     if (!std::strcmp(mode, "ai-tactical-views-cached") && argc == 4) { AITacticalWorldViews(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-tactical-views-neutral") && argc == 4) { AITacticalWorldViews(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-tactical-views-allied") && argc == 4) { AITacticalWorldViews(argv[2],argv[3],2); return true; }
