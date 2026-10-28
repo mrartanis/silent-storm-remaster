@@ -9412,6 +9412,79 @@ static void AIPassControlSnapshots(const char* databasePath, const char* resourc
         "pass-control changed live AP/HP, position, inventory, commands or the native random sequence");
 }
 
+static void PlayerTBSTurnOwnership(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game; auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> all; world->GetAllUnits(&all);
+    NWorld::CUnitServer *actor=nullptr,*enemy=nullptr;
+    for (const auto& unit: all)
+        if (IsValid(unit) && unit->CanFight() && unit->IsAIUnit() && !unit->HasCommand() && IsValid(NAI::GetAIUnit(unit))) { actor=unit.GetPtr(); break; }
+    Require(actor,"player TBS fixture has no idle native AI actor");
+    for (const auto& unit: all)
+        if (IsValid(unit) && unit->CanFight() && actor->GetDiplomacyState(unit)==NDb::DS_ENEMY) { enemy=unit.GetPtr(); break; }
+    auto* player=dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer());
+    auto* foreign=enemy ? dynamic_cast<NWorld::CPlayer*>(enemy->GetPlayer()) : nullptr;
+    auto* commander=player ? dynamic_cast<NAI::CAICommander*>(player->GetCommander()) : nullptr;
+    auto* owner=NAI::GetAIUnit(actor); Require(player && foreign && commander && owner,"player TBS fixture lacks native parties/commander");
+    auto* script=world->GetOwnScript();
+    Require(IsValid(script) && script->DoString("function OnStartTurn(player) end")==0,"player TBS fixture could not define its native Lua hook");
+    world->ExecuteOwnScript(); struct ScriptContext { ~ScriptContext(){pScript=nullptr;} } context;
+    commander->GetAIState()->pPlayer=player;
+    const bool expectedTurn=mode!=0; commander->OnPassControl(expectedTurn ? player : foreign);
+    Require(commander->IsAITurn()==expectedTurn,"player TBS fixture failed to establish actual pass-control ownership");
+    CObj<NAI::CAIRouteLogic> logic=new NAI::CAIRouteLogic(owner); logic->AddCommand(new NAI::CTaskCommandWait(3));
+    using Memo=unordered_map<CPtr<NAI::IAILogic>,int,SPtrHash>; Memo expected; expected[logic.GetPtr()]=23;
+    auto fields=[&](CStructureNetworkContext* refs) {
+        auto traversal=BorrowedObjectFields(commander,refs); CMemoryStream saved;
+        { CStructureSaver writer(saved,CStructureSaver::WRITE,refs); commander->NAI::CAICommander::operator&(writer); }
+        saved.Seek(0); return saved;
+    };
+    {
+        CStructureNetworkContext refs; auto original=fields(&refs);
+        auto id=refs.nextID++; refs.ids[logic.GetPtr()]=id; refs.refs[id]=logic.GetPtr();
+        CMemoryStream saved; { CStructureSaver writer(saved,CStructureSaver::WRITE,&refs); writer.Add(10,&expected); }
+        saved.Seek(0); { CStructureSaver reader(saved,CStructureSaver::READ,&refs); commander->NAI::CAICommander::operator&(reader); }
+    }
+    auto memo=[&]() {
+        CStructureNetworkContext refs; auto saved=fields(&refs); Memo result;
+        { CStructureSaver reader(saved,CStructureSaver::READ,&refs); reader.Add(10,&result); } return result;
+    };
+    Require(memo()==expected,"player TBS fixture failed to restore the actual logic memo");
+    const auto roster=commander->GetUnitsList(); auto* shared=commander->GetAIState();
+    shared->nTurnStartAllyHP=311; shared->nTurnStartEnemyHP=411;
+    if (mode==0 || mode>=4) {
+        Require(actor->GetAP()>1,"player TBS new-turn fixture lacks native AP");
+        actor->GetUnitRPG()->SpendAP(actor->GetAP()-1);
+        Require(actor->GetAP()==1,"player TBS new-turn fixture did not spend actual mission AP");
+    }
+    const NWorld::ETBSEvent event=(mode==0 || mode>=4) ? NWorld::TBS_START_NEW_TURN : mode==1 ? NWorld::TBS_FINISH_OWN_TURN : mode==2 ? NWorld::TBS_START_REAL_TIME : NWorld::TBS_CANCEL_ACTION;
+    const auto position=actor->GetPosition();
+    const auto originalUnits=player->GetPlayerUnits();
+    auto setUnits=[&](const vector<CMObj<NWorld::CUnitServer>>& units) {
+        CStructureNetworkContext refs; auto traversal=BorrowedObjectFields(player,&refs);
+        auto restored=units; CMemoryStream saved;
+        { CStructureSaver writer(saved,CStructureSaver::WRITE,&refs); writer.Add(5,&restored); }
+        saved.Seek(0); { CStructureSaver reader(saved,CStructureSaver::READ,&refs);
+            player->NWorld::CPlayerBase<NWorld::CUnitServer,NWorld::CCommander>::operator&(reader); }
+    };
+    if (mode>=4) {
+        auto incomplete=originalUnits; Require(!incomplete.empty(),"player TBS null-reference fixture has no valid native units");
+        incomplete.insert(incomplete.begin()+(mode==4 ? 0 : 1),nullptr); setUnits(incomplete);
+        Require(player->GetPlayerUnits().size()==originalUnits.size()+1,"player TBS fixture did not restore its incomplete native player roster");
+        std::printf("player TBS before native event mode=%d nullIndex=%d roster=%zu\n",mode,mode==4 ? 0 : 1,player->GetPlayerUnits().size()); std::fflush(stdout);
+    }
+    player->OnTBSEvent(event);
+    if (mode>=4) setUnits(originalUnits);
+    const auto after=memo();
+    std::printf("player TBS mode=%d turn=%d/%d memo=%zu/%zu AP=%d\n",mode,int(commander->IsAITurn()),int(expectedTurn),after.size(),expected.size(),actor->GetAP());
+    Require(commander->IsAITurn()==expectedTurn && after==expected && shared->nTurnStartAllyHP==311 && shared->nTurnStartEnemyHP==411,
+        "player unit event incorrectly ran commander turn-start/finish work instead of preserving pass-control ownership");
+    Require(commander->GetUnitsList()==roster && actor->GetPosition()==position,"player TBS delivery changed commander ownership or moved the native actor");
+    if (mode==0 || mode>=4) Require(actor->GetAP()>1,"unit-only new-turn dispatch failed to refresh actual mission AP");
+    if (mode==1) Require(player->IsTurnDone(),"unit-only finish dispatch lost the native player's completed-turn latch");
+    if (mode==2) Require(!player->IsTurnDone(),"unit-only realtime dispatch failed to reopen the native player's turn latch");
+}
+
 static void AIPassControlEndMemo(const char* databasePath, const char* resourcePath, int mode)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -22768,6 +22841,12 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-pass-control-memo-unbound") && argc == 4) { AIPassControlEndMemo(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "ai-pass-control-memo-restoring") && argc == 4) { AIPassControlEndMemo(argv[2], argv[3], 3); return true; }
     if (!std::strcmp(mode, "ai-pass-control-ai") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 0); return true; }
+    if (!std::strcmp(mode, "player-tbs-dispatch-start") && argc == 4) { PlayerTBSTurnOwnership(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "player-tbs-dispatch-finish") && argc == 4) { PlayerTBSTurnOwnership(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "player-tbs-dispatch-realtime") && argc == 4) { PlayerTBSTurnOwnership(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "player-tbs-dispatch-cancel") && argc == 4) { PlayerTBSTurnOwnership(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "player-tbs-dispatch-null-front") && argc == 4) { PlayerTBSTurnOwnership(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "player-tbs-dispatch-null-middle") && argc == 4) { PlayerTBSTurnOwnership(argv[2],argv[3],5); return true; }
     if (!std::strcmp(mode, "ai-pass-control-human") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "ai-pass-control-foreign") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "ai-pass-control-repeat") && argc == 4) { AIPassControlSnapshots(argv[2], argv[3], 3); return true; }

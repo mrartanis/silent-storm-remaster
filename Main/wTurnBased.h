@@ -96,11 +96,10 @@ public:
 		else if ( event == TBS_START_REAL_TIME )
 			bTurnDone = false;
 		//
-		GetCommander()->OnTBSEvent( event );
-		//
+		// Original player events go to units; commander turn work is driven by OnPassControl.
 		for ( unsigned int k = 0; k < units.size(); ++k )
 		{
-			if ( !units[k]->IsDead() )
+			if ( IsValid( units[k] ) && !units[k]->IsDead() )
 				units[k]->OnTBSEvent( event );
 		}
 	}

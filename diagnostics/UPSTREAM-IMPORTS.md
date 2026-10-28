@@ -10280,3 +10280,87 @@ Source2eee remains partial for wTurnBased unit-event commander routing/validity
 and final mixed15-file accounting. Counts remain138 imported/19 partial/81
 pending,100 unfinished across281. Actual final-HEAD hosted Actions verification/
 repair remains open after all useful imports; this is local CI evidence.
+
+
+## 2026-10-28 — Player events dispatch to valid units (`2eee1b62`, final hunk pending checks)
+
+Remove the legacy commander OnTBSEvent callback from CPlayerBase.OnTBSEvent and
+check IsValid(unit) before the existing IsDead gate. Keep unit event bodies,
+player completed-turn/realtime latches, OnPassControl scheduling, virtual
+interfaces and serialized fields unchanged. Commander callbacks remain available
+for explicit own consumers; only this non-original forwarding seam is removed.
+
+Six actual FixtureWorld/CPlayer/CAICommander cases use the real serialized logic
+memo, pass-control AI-turn flag and tactical HP snapshot markers. Start/finish
+unit events must retain commander pass ownership and memo. Realtime/cancel are
+controls. Spend actual mission AP down to1 before new turn and require its native
+unit handler to restore AP; verify native finish/realtime player latches. Two
+cases restore an actual native player-base tag5 roster with a null entry at
+front/middle, then restore the original roster after delivery. Valid units must
+still receive their event. No unit event, path, RPG calculation or return value
+is mocked and no new gameplay command is issued.
+
+After successful native build, runtime RED4/6 in6.67s, exit8: Start wrongly changes
+turnfalse->true and erases1 memo entry; Finish wrongly changes turntrue->false.
+Realtime and cancel controls pass. NullFront/NullMiddle cause actual SegFaults
+after printing their restored3-entry roster. A separate owned CDB run confirms
+access violation in CPlayerBase.OnTBSEvent+0x5c, mov rax,[rcx] immediately before
+its IsDead virtual call, reached from PlayerTBSTurnOwnership. First-chance
+.ecxr reports unavailable; the debugger nevertheless captures this stack and
+instruction stream, not a claimed recovered exception context. Debugger/q and
+native processes exit; no dump/build/source copies are created.
+
+Original proof: named Gold PDB CPlayerBase<CUnitServer,CCommander>.OnTBSEvent
+764460/133 matches Steam7700d0..770155 ALL133 bytes, uniquely in both binaries,
+with ret4+CC. Native null770106/invalidobjectflag770113 checks precede IsDead
+primaryslot3c at770122; valid live unit event is secondary154 slot10 at77013c.
+Named CUnitServer primary COL/vtGold8eb768/8bec1c ->Steam8faf84/8ce204 maps3c
+GoldPDBIsDead7b4580/35 ->Steam7c0d00. Named secondary154 COL/vtGold8eb620/8beb50
+->Steam8fae3c/8ce138 maps10 GoldPDBOnTBSEvent7b6d40/1136 ->Steam7c34c0. The entire
+133-byte player method has only these two virtual calls, no commander field or
+callback. Supplied upstream comment76fa70 is stale; use actual matched identity.
+Evidence `player-tbs-events-*`, `player-tbs-dispatch-*` stays in shared lab.
+
+Accounting correction: the supplied source patch has14 files, independently
+confirmed by GitHub fetch_commit's actual file list. Previous progress notes
+saying15 were a count error, not another unseen hunk. The final14-file mapping
+is recorded below once this last behavior passes its checks.
+
+Minimal fix GREEN56/56 in60.73s, exit0, including all six dispatch cases, eight
+PassControl controls, tactical views/ownership and existing bleeding/critical
+lifetime checks. New-turn AP restoration and native player latches pass without
+the commander callback; both incomplete rosters deliver valid unit events.
+
+Full source-file accounting (14, not the earlier mistaken15):
+
+| Source file(s) | Supplied behavior / own adaptation |
+| --- | --- |
+| Main/aiCombatLogic.cpp | Combat Sync(true) supplied by1c6e69e8. |
+| Main/aiCommander.cpp | OnPass schedulingd4f55835 and owner memo guardbbfa85d1; accurate legacy adapter commentabdd5115. |
+| Main/aiCommander.h | Owner-only roster/current-owner guard comment already supplied; retain restore compatibility guards. |
+| Main/aiReactions.cpp | Locked Normal contact consumption02101c41, current support5ae1e5fc. Retreat route-clear/contact cleanup body already present; the source's obsolete-comment removal adds no new behavior. |
+| Main/aiRouteLogic.cpp / .h | Live eligibility/immediate Alarm898cba52, live recipients e58ee4e4, nearest destination1d955803; own runtime gates/strict5m/local range filter retained. |
+| Main/aiUnit.cpp / .h | Bool synchronization, active/inactive snapshots and direct-known-enemy refresh1c6e69e8; own StopThinking/route slots and save schema retained. |
+| Main/aiUnitState.cpp / .h | Immediate unlocked delivery07adab85 plus direct known-enemy refresh1c6e69e8; own RAII reaction Notify locks retained. |
+| Main/aistate.cpp / .h | Native world/nearest queries e58ee4e4/1d955803; own legacy views and owned nonfighter restore bindingabdd5115, existing group algorithm retained. |
+| Main/wMain.cpp | Both owner-only OnUnitAdded and UpdateAICommander guards supplied byaf3c8875e; current-owner/transfer ordering retained. |
+| Main/wTurnBased.h | Current native unit-only dispatch and validity gate; unit IsDead filter and handler/player latches retained. |
+
+The paired header rows cover exactly14 distinct files. Binary identities were
+checked against named PDB/RTTI/calls or unique complete-method matches, rather
+than copying stale source addresses. Final classification waits for the current
+fresh Game/helper and cross-platform related/CI checks below.
+
+Final fresh Windows ALL_BUILD:134/134 focused148.33s,213/213 related228.17s;
+Linux Game/helpers211/211 related225.25s plus4/4 context1.14s; local asset-free
+CI290/29024.07s. All main Windows/Linux/context runners exit0 and Windows
+persists exit0. Five raw logs have exact134/213/211/4/290 passes, no Failed/
+NotRun/NUL. Six final dispatch records/two null-roster pre-event records and
+14 view/13 support/14 target/15 world/14 delivery records match across platforms.
+Both HD caches stay OFF; all owned tests/debugger exit and shared builds only.
+Source2eee is now imported with all14 files accounted and own adaptations
+explicit above. Counts281=139 imported,18 partial,81 pending,32 already-present,
+5 excluded-balance,3 documentation-only,2 excluded-own-behavior,1 historical-own-
+import:99 unfinished source reviews/imports. The entire goal remains active;
+actual final-HEAD hosted GitHub Actions verification/repair is due after all
+useful imports. This local CI result is not a hosted-run completion claim.
