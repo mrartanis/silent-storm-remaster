@@ -11782,3 +11782,55 @@ actual-HEAD hosted Actions remains due after all useful imports.
 Sourcec8c4e225 becomes SPLIT/partially-imported: status fix done, radius extension
 excluded for balance review, separate late validation pending. Ledger145
 imported/19partial/74pending =93 unfinished source reviews/imports.
+
+
+## 2026-10-28 — late mine-disarm reach validation (c8c4e225)
+
+Source [c8c4e225df115072ce176598c1324aaf7bd7a7c0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c8c4e225df115072ce176598c1324aaf7bd7a7c0), independent late-validation hunk.
+CExecDisarmMine.CanDoIt checked target knowledge and active tool/skill but never
+checked its supplied position. It returned OK at real nav endpoints0.866386 and
+1.96866 from the mine, including an actor actually repositioned to the latter.
+Revalidate against the existing F_HEAL_DISTANCE0.8 after all earlier gates;
+return TargetOutOfRange11. Preserve our bIgnoreTarget early exit and error
+priority. Two production lines only; no new distance constant or helper API.
+This is a defensive validation of the original approach constraint, not a claim
+that the original retail executor already contained this extra check. The
+upstream1.0 reach extension stays excluded in the balance report. Mine placement,
+0.5 exclusion box, no-path status, AP, charges, skill/perk gates and roll remain.
+
+Native TDD has8 modes, actual CMine/model/explosion/tracker/world and qualified
+authored sapper/tool. Native DB iteration selects persona106, engineering23,
+AP55 on Windows; persona980, engineering24, AP52 on Linux. Both use authored
+tool1, required20,3charges. No skill, perk, charge or shipping DB values edited.
+Native AddUnitInGame placement, retained campaign owner and actual
+AddToVisibleTraps/world.UpdateVisible provide normal known-object/trap state.
+Actual passable same-layer nav positions cover near0.6, outer0.866386 (<excluded
+1.0), far1.96866, missing active tool, unknown mine, null target, our ignore-target
+behavior, and the actual relocated actor input. No synthetic vision/RPG provider.
+
+Initial fixture Windows near/far macro/API compile mistakes, no qualified actor
+in the starting map, and campaign lifetime during native placement were
+calibration, not bug RED. GDB located the placement failure in CAIUnit reading
+the unretained campaign difficulty; retain the real campaign like other native
+fixtures. Filter class/base/model/name/default-PK records for a normal sapper.
+Final unchanged-production RED3/8: Windows8.90s/Linux9.11s; three out-of-range
+cases incorrectly return0 instead11, five controls pass. Then two-line fix.
+GREEN26/26 Windows34.69s/Linux35.15s; all8 native cases and existing mine/trap/
+tool/picklock controls pass. Before/after geometry, near availability, other
+gate results, AP55/52, health,3charges, equipment, orders/action state, RNG and
+native mine tracking preserved. Query/executor eligibility evidence only:
+no live disarm roll/animation, full queued-path handoff, rendered pixels or
+whole-world save claimed.
+
+Fresh Windows ALL_BUILD107/107 related131.10s; Linux Game/helpers105/105 130.42s,
+covering actions/commands, inventory, mine/trap/engineering, grenade/explosives,
+cursor/shortcut, consumable/picklock/reload and native attack rules. Local
+asset-free CI290/290 24.29s. Five exact raw logs26/26/107/105/290, no failed/
+not-run/NUL, runners0, exact registered-name sets verified. Shared builds reused,
+HD generation OFF, no per-bug source/build copies, owned tests exit. This does
+not claim a hosted GitHub Actions run; final actual-HEAD hosted check remains
+due after all useful imports.
+
+Sourcec8c4e225 useful nonbalance hunks are complete: earlier empty-approach
+status, this original-distance revalidation, and explicit exclusion of1.0.
+Ledger146 imported/18partial/74pending =92 unfinished source reviews/imports.

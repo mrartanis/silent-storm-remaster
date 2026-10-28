@@ -1504,5 +1504,7 @@ The useful error-status fix is imported independently with unchanged0.8: an
 empty approach list reports PathNotFound rather than internal success/public
 general failure. Some off-grid mines therefore remain unreachable under the
 original radius. No AP, charges, difficulty or explosive damage changes.
-The separate late executor reach-validation hunk is still under review and
-must not silently introduce the excluded1.0 value.
+The separate late executor reach-validation hunk is now imported using the
+existing original0.8 value. Native RED/GREEN verifies the boundary0.866386 is
+rejected; the excluded1.0 radius is not introduced. AP, charges and the roll
+remain unchanged. See the 2026-10-28 late-validation entry in UPSTREAM-IMPORTS.md.

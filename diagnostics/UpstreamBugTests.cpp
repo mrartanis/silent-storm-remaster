@@ -17231,6 +17231,90 @@ static void SpentPicklockPoseCleanup(const char* databasePath,const char* resour
         "picklock pose cleanup changed the failed lock result, AP or gameplay orders");
 }
 
+static void MineLateReach(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);auto* network=world->GetPathNetwork();
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor=nullptr;CObj<NRPG::CToolItem> tool;
+    for(const auto& unit:units) {
+        if(!IsValid(unit) || !unit->CanFight() || unit->IsWearingPK() || unit->IsEmptyPK() || unit->HasCommand() || unit->IsPerformingAction() || unit->GetState()==NWorld::CUnit::ST_MACHINE_GUN || !unit->GetPosition().pos.p.IsIntegral())continue;
+        CDBIterator<NDb::CRPGTool> tools(*NDatabase::GetTable<NDb::CRPGTool>());
+        while(tools.MoveNext()) {
+            if(!IsValid(tools.Get()->pItem) || !tools.Get()->bCanUseForMineCleaning)continue;
+            CObj<NRPG::CToolItem> candidate=new NRPG::CToolItem(tools.Get());
+            if(candidate->CanBeUsed(unit->GetUnitRPG()->GetRPGUnit())){actor=unit.GetPtr();tool=candidate;break;}
+        }
+        if(actor)break;
+    }
+    CObj<NWorld::CUnitServer> spawned;
+    if(!actor) {
+        NWorld::CUnitServer* anchor=nullptr;
+        for(const auto& unit:units)if(IsValid(unit) && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK() && !unit->IsAIUnit()){anchor=unit.GetPtr();break;}
+        Require(anchor,"late mine fixture has no human player for its authored sapper");
+        CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+        while(people.MoveNext() && !actor) {
+            auto* persona=people.Get();if(!IsValid(persona->pModel) || !IsValid(persona->pClass) || !IsValid(persona->pBaseValue) || !IsValid(persona->pName) || persona->pClass->skills[NDb::ST_LEVEL]<=0 || IsValid(persona->pPanzerklein) || IsValid(persona->pDefaultWearsPanzerklein))continue;
+            CObj<NRPG::IUnitMission> rpg=NRPG::CreateUnit(persona);
+            CDBIterator<NDb::CRPGTool> tools(*NDatabase::GetTable<NDb::CRPGTool>());
+            while(tools.MoveNext()) {
+                if(!IsValid(tools.Get()->pItem) || !tools.Get()->bCanUseForMineCleaning)continue;
+                CObj<NRPG::CToolItem> candidate=new NRPG::CToolItem(tools.Get());
+                if(!candidate->CanBeUsed(rpg->GetRPGUnit()))continue;
+                spawned=world->AddUnitInGame(anchor->GetPosition().pos.p,rpg,anchor->GetTBSPlayer());
+                Require(spawned && spawned->CanFight() && !spawned->IsWearingPK() && !spawned->IsEmptyPK(),"authored sapper native placement failed");
+                actor=spawned.GetPtr();tool=candidate;break;
+            }
+        }
+    }
+    Require(actor && IsValid(tool),"late mine fixture has no authored actor/tool pair satisfying native skill, perk and charge gates");
+    std::printf("native late mine actor: persona=%d engineering=%d tool=%d needed=%d charges=%d spawned=%d\n",actor->GetUnitRPG()->GetRPGUnit()->GetPers()->GetRecordID(),int(actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_ENGINEERING)),tool->GetDBItemInfo()->GetRecordID(),tool->GetDBItemInfo()->nNeededEngSkill,tool->GetIncQuantity(),int(IsValid(spawned)));std::fflush(stdout);
+    auto* inventory=actor->GetUnitRPG()->GetInventory();
+    CObj<NRPG::IInventoryItem> original=inventory->Get(NDb::SLOT_1)?inventory->TakeOff(NDb::SLOT_1):nullptr;
+    Require(inventory->Equip(NDb::SLOT_1,tool) && inventory->Activate(NDb::SLOT_1),"late mine fixture cannot equip/activate its usable native clearing tool");
+    NDb::CRPGMine* record=nullptr;CDBIterator<NDb::CRPGMine> mines(*NDatabase::GetTable<NDb::CRPGMine>());
+    while(mines.MoveNext())if(IsValid(mines.Get()->pItem) && IsValid(mines.Get()->pItem->pModel) && IsValid(mines.Get()->pExplosion)){record=mines.Get();break;}
+    Require(record,"late mine fixture has no authored mine model/explosion");
+    const auto nearPosition=actor->GetPosition();const auto center=nearPosition.GetCP()+CVec3(.6f,0,0);
+    CObj<NWorld::CMine> mine=new NWorld::CMine(world,center,record,actor->GetUnitRPG()->GetMineDC(record),nearPosition.pos.GetFloor(),actor,0);
+    actor->AddToVisibleTraps(mine);world->UpdateVisible(true);
+    Require(actor->GetTBSPlayer()->CanSeeObject(mine) && actor->GetTBSPlayer()->CanSeeTrap(mine),"late mine fixture did not discover the real mine through native unit/player visibility");
+    CObj<NWorld::CExecDisarmMine> executor=new NWorld::CExecDisarmMine(actor,mine);
+    const int nearResult=int(executor->CanDoIt(nearPosition,false));
+    Require(nearResult==NWorld::UCR_OK,"late mine nearPosition control is blocked before the reach check");
+    vector<NAI::SPathPlace> points;network->GetNearPlaces(SSphere(center,3.f),&points);
+    auto outer=nearPosition,farPosition=nearPosition;bool haveOuter=false,haveFar=false;
+    for(const auto& point:points) {
+        if(!point.IsIntegral() || point.GetLayer()!=nearPosition.pos.p.GetLayer() || !network->IsNativePassable(point))continue;
+        auto candidate=nearPosition;candidate.pos=NAI::SPosition(point,network);const auto cp=candidate.GetCP();
+        if(std::fabs(cp.z-center.z)>.2f)continue;
+        const float dx=cp.x-center.x,dy=cp.y-center.y,dist=std::sqrt(dx*dx+dy*dy);
+        if(std::fabs(dx)<=.5f && std::fabs(dy)<=.5f)continue;
+        if(!haveOuter && !NWorld::IsWithinHumanReach(cp,center,NWorld::F_HEAL_DISTANCE) && NWorld::IsWithinHumanReach(cp,center,1.f)){outer=candidate;haveOuter=true;}
+        if(!haveFar && dist>1.2f && dist<2.5f){farPosition=candidate;haveFar=true;}
+    }
+    Require(haveOuter && haveFar,"late mine fixture has no native passable original-radius boundary and distant control positions");
+    auto from=mode==0?nearPosition:mode==1?outer:farPosition;
+    CObj<NRPG::IInventoryItem> removed;
+    CObj<NWorld::CMine> unknown;
+    if(mode==3)removed=inventory->TakeOff(NDb::SLOT_1);
+    if(mode==4) {
+        unknown=new NWorld::CMine(world,center,record,actor->GetUnitRPG()->GetMineDC(record),nearPosition.pos.GetFloor(),actor,0);
+        Require(!actor->GetTBSPlayer()->CanSeeTrap(unknown),"late mine unknown-target control was already discovered");
+        executor=new NWorld::CExecDisarmMine(actor,unknown);
+    }
+    if(mode==5)executor=new NWorld::CExecDisarmMine(actor,nullptr);
+    if(mode==7){actor->SetPosition(farPosition);from=actor->GetPosition();}
+    const auto position=actor->GetPosition();const int ap=actor->GetAP(),vp=actor->GetUnitRPG()->GetTotalVP(),charges=tool->GetIncQuantity();
+    const auto active=inventory->GetActive();const bool command=actor->HasCommand(),action=world->IsAction();auto random=GlobalGameRandom();
+    const int expected=mode==0?NWorld::UCR_OK:(mode==3 || mode==4)?NWorld::UCR_GENERAL_FAILURE:(mode==5 || mode==6)?NWorld::UCR_NO_TARGET:NWorld::UCR_TARGET_OUT_OF_RANGE;
+    const int result=int(executor->CanDoIt(from,mode==6));const auto cp=from.GetCP();const float dx=cp.x-center.x,dy=cp.y-center.y;
+    vector<CVec3> locations(1,center);vector<CPtr<NWorld::CMine>> tracked;
+    Require(world->GetMineTracker()->GetMines(locations,&tracked) && std::find(tracked.begin(),tracked.end(),CPtr<NWorld::CMine>(mine.GetPtr()))!=tracked.end(),"late mine eligibility query removed or disarmed the real mine");
+    std::printf("native late mine reach: mode=%d nearPosition=%d distance=%g originalReach=%g actorDistance=%g result=%d expected=%d AP=%d charges=%d\n",mode,nearResult,double(std::sqrt(dx*dx+dy*dy)),double(NWorld::F_HEAL_DISTANCE),double(std::sqrt(std::pow(position.GetCP().x-center.x,2.f)+std::pow(position.GetCP().y-center.y,2.f))),result,expected,actor->GetAP(),tool->GetIncQuantity());std::fflush(stdout);
+    Require(actor->GetPosition()==position && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==vp && tool->GetIncQuantity()==charges && inventory->GetActive()==active && actor->HasCommand()==command && world->IsAction()==action && random.Get()==GlobalGameRandom().Get(),"late mine eligibility query changed native gameplay, equipment, orders or RNG");
+    Require(result==expected,"late disarm validation accepted an out-of-original-range mine or changed an earlier gate");
+}
+
 static void MineApproachStatus(const char* databasePath,const char* resourcePath,int mode)
 {
     auto world=FixtureWorld(databasePath,resourcePath,true);auto* network=world->GetPathNetwork();
@@ -24300,6 +24384,14 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "cancelled-equipment-hidden-item-pose")) { Require(argc == 4, "equipment cancellation requires db and res"); CancelledInventoryHiddenItemPose(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "spent-medkit-pose-cleanup")) { Require(argc == 4, "spent medkit requires db and res"); SpentMedkitPoseCleanup(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "spent-picklock-pose-cleanup")) { Require(argc == 4, "spent picklock requires db and res"); SpentPicklockPoseCleanup(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "mine-late-reach-near") && argc == 4) { MineLateReach(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "mine-late-reach-boundary") && argc == 4) { MineLateReach(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "mine-late-reach-far") && argc == 4) { MineLateReach(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "mine-late-reach-missing-tool") && argc == 4) { MineLateReach(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "mine-late-reach-unknown") && argc == 4) { MineLateReach(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "mine-late-reach-missing-target") && argc == 4) { MineLateReach(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "mine-late-reach-ignore-target") && argc == 4) { MineLateReach(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "mine-late-reach-relocated") && argc == 4) { MineLateReach(argv[2],argv[3],7); return true; }
     if (!std::strcmp(mode, "mine-approach-status-off-grid") && argc == 4) { MineApproachStatus(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "mine-approach-status-reachable") && argc == 4) { MineApproachStatus(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "mine-approach-status-missing-target") && argc == 4) { MineApproachStatus(argv[2],argv[3],2); return true; }

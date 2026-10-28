@@ -3023,6 +3023,8 @@ EUnitCommandResult CExecDisarmMine::CanDoIt( const NAI::SUnitPosition &from, boo
 		// Decomp: tool->CanBeUsed( pUS->GetUnitRPG()->GetRPGUnit() ); false -> NEED_HIGHER_SKILL.
 		if ( !pTool->CanBeUsed( pUS->GetUnitRPG()->GetRPGUnit() ) )
 			return UCR_NEED_HIGHER_SKILL;
+		if ( !IsWithinHumanReach( from.GetCP(), pMine->GetMinePos(), F_HEAL_DISTANCE ) )
+			return UCR_TARGET_OUT_OF_RANGE;
 	}
 	else
 		return UCR_GENERAL_FAILURE;
