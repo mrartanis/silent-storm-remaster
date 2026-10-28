@@ -11229,3 +11229,93 @@ full-record bit parity. Shared builds only, HD caches OFF, no per-fix copies;
 owned tests exited. This is local CI; final hosted Actions remains outstanding. Fractional cover/NaN policy
 from this source is still unfinished; the source remains partially-imported.
 Final actual-HEAD hosted Actions verification is due after the entire import.
+
+
+## 2026-10-28 — preserve original fractional AI cover (66fc9e9a)
+
+Source: [66fc9e9ad26497bf41f96a1a8c51c8a03e951718](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/66fc9e9ad26497bf41f96a1a8c51c8a03e951718).
+The reconstructed AI cover query truncated the penetrating-ray percentage
+before multiplying by remaining armor piercing, then truncated again. Native
+GetToHit also passed integer cover to an integer-only AI calculator constructor.
+Restore the floating ratio and preserve the float through native hit prediction.
+Existing integer query methods remain, converting once at their caller boundary
+with finite/int-range protection. Append non-pure IGame.GetCoverForAIUnitPrecise
+at the END; legacy implementations fall back to their old integer method.
+Native CGame overrides the precise calculation. CAIUnit uses a class-local
+nonvirtual precise-cover helper; keep IAIUnit methods/slots unchanged. Retain
+the old integer constructor symbol through delegation and add a float overload.
+No saved fields/schema/object state changes: base fHitCover was already float.
+Keep own actual GetAttackOrigin, selected/default firearm policy, target/server
+guards, animation/face/HD pipelines and all gameplay data.
+
+Original proof: actual Gold PDB free NRPG.GetCoverForAIUnit68df10/252 and
+CAIUnit.GetCover4acdf0/385 both returnfloat. AI calculator ctor6b2ee0/530 takes
+float argument4. Five24byte unmasked anchors unique in BOTH images map the
+free helper to Steam693e70, with identical ret24CC and arithmetic block.
+Native loop counts penetrating rays; FILD nPen, FLD relocated100.0 (checked
+Gold8a48ec/Steam8b3984), FMUL, ray COUNT derived from vector bytes/36 then x87
+FIDIV by that count, sumAPA/nPen/attackK, FMUL and float return. There is no
+integer percentage conversion. The /36 integer operation computes ray count,
+not a rounded percentage. Primary CAIUnit.slot30 and the actual freehelper
+calls were independently mapped. GetToHit4ac1e0/Steam4ad9c0 calls slot30 and
+stores ST0 asfloat at+99; reloads those bits at+b2 and pushes cover argument4
+at+c5. Actual helper call+d1 ->Gold6ae7e0/Steam6b4910. A unique39byte forwarding
+block and ret24CC identify it in BOTH images; stack/frame dataflow forwards
+the float bits unchanged to the actual ctor call+75 ->typed Gold6b2ee0 /
+Steam6b9060. PDB confirms ctor float4; no conversion instruction in transport.
+audit-ai-cover-precision.py ->shared ai-cover-precision-retail-oracle.json.
+
+Six native profiles use actual campaign3791 units/skills/equipment/world and
+collision sampling. QueryRatio selects a real partial-cover sample where the
+legacy early truncation differs from final caller conversion. Prediction
+selects a real shot where the native calculator with original float cover
+differs from the old integer path. Reference hit calculations use the real
+native calculator/formula with only its input cover set to the independently
+computed floating ratio; no hit result is supplied. ConstructorFractional
+passes0.5f directly, while the native reference receives the same positive
+float. Integer37, zero0 and open100 controls preserve integer/blocked behavior.
+Each measured query preserves real AP/HP/positions/ammo/equipment/command/RNG.
+
+Authoritative pre-production RED: Windows3 intended failures/6 in7.69s;
+Linux3/6 in8.52s. QueryRatio BODY at12.56m has24 rays/5penetrating and original
+12.3002548 cover: actual11, expected12. Prediction ANY at18.17m has45rays/
+8penetrating and original16.1747780 Windows /16.1768589 Linux: actual6,
+expected7. Direct constructor0.5 loses its positive value to integer0 and
+reports0 instead of its positive native reference100. Three controls pass
+(100/0/100). No setup/compile failure is counted as bug RED.
+
+GREEN72/72 Windows84.48s, Linux90.00s. Query12/12; prediction7/7; fractional
+constructor matches its positive native per-run reference (95Windows/100Linux
+in these runs); controls100/0/100. Native calibration can select different
+eligible weapons/units between runs, so do not claim fixed positive hit scores
+or complete cross-platform bit parity. Existing cover reach PK positive scores
+can increase by the restored fraction (e.g. Windows74->75) while blocked,
+target-reached and own pilot/surface-owner checks still hold. All previous
+targeted scenario assertions pass. Empty/zero-penetration/zeroK/nonfinite
+guards remain; bounded conversion stays at integer boundaries. Explicitly
+exclude upstream's NaN restoration: it would revive the previously diagnosed
+mission4522 divide-by-zero-to-int UB (see RAW-TYPE-AUDIT.md).
+
+Final fresh Windows ALL_BUILD292/292 related323.11s; Linux Game/helpers290/290
+related315.97s. Windows11/11 context/decal/legacy-snipe plus existing
+NativeWorldMission4522PartySave NaN-UB regression (10.85s); Linux10/10 context
+(7.75s). That mission test is not registered in this normal Linux shared game
+build, so no false Linux4522 claim. Full local asset-free CI290/290 24.12s.
+Seven raw logs72/72/292/290/11/10/290 exact passes, no Failed/NotRun/NUL;
+all runners exit0. verify-ai-cover-precision.py checks all six native profiles,
+three intended REDs, GREEN72 and earlier rifle/escape decisions. Previous82
+measured records: Windows79 exact plus3 expected PK score74->75 with remaining
+geometry/ownership fields unchanged; Linux82 exact. Semantic per-run native
+references are used for positive fractional hits; no false full-record parity.
+Shared builds only, HD caches OFF, no per-fix source/game/build copies; owned
+tests exited. This is local CI, not final hosted Actions verification.
+
+Source66fc9e9a is now complete with explicit adaptations: six independent fixes
+for own weapon fallback, target guard, own server guard, selected sniper rifle,
+original four-AP escape scan and floating cover precision. All had intended
+native RED before production and suitable native GREEN. Literal NaN restoration
+is excluded to retain our prior UB correction; old interfaces/slots/fields,
+default firearm policy, own weapon origin and animation stay in place.
+Ledger142 imported/18partial/78pending =96 unfinished source reviews/imports.
+The independent escape-facing source90293ca remains pending.
+Final hosted Actions must still be checked after all remaining source imports.

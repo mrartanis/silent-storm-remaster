@@ -8649,6 +8649,67 @@ static void AISnipeSelectedWeapon(const char* databasePath,const char* resourceP
         "AI snipe prediction ignored the selected loaded rifle when its current planning hand was empty");
 }
 
+// Native calculator references differ only in the supplied cover input.
+// Geometry, equipment, skills and the hit formula all remain the real game's.
+static void AICoverPrecision(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> campaign;auto world=SnipeFixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);auto* game=world->GetGame();
+    for(const auto& server:units) {
+        if(!IsValid(server) || !server->CanFight() || server->HasCommand() || !server->IsAIUnit()
+            || server->IsEmptyPK() || server->IsWearingPK() || server->animator.GetCannon())continue;
+        auto* actor=NAI::GetAIUnit(server);if(!IsValid(actor))continue;actor->Synchronize(false);
+        auto* inventory=actor->GetAIInventory();auto* weapon=inventory?inventory->GetCurrentFireArms():nullptr;
+        if(!IsValid(weapon) || !IsValid(weapon->GetItem()) || weapon->GetItem()->GetAmmoQuantity()<=0
+            || !weapon->GetItem()->SetShootMode(NDb::SM_Snap))continue;
+        vector<NRPG::CAttackPortion> attacks;weapon->GetItem()->CreateNewAttackPortion(&attacks,false);
+        if(attacks.empty() || attacks.front().nK<=0)continue;
+        for(const auto& other:units) {
+            if(!IsValid(other) || other.GetPtr()==server.GetPtr() || !other->CanFight() || other->IsEmptyPK() || other->IsWearingPK())continue;
+            auto* target=NAI::GetAIUnit(other);if(!IsValid(target))continue;
+            for(auto location:{NAI::HL_ANY,NAI::HL_BODY,NAI::HL_HEAD}) {
+                const auto position=server->GetPosition(),targetPosition=other->GetPosition();
+                float precise=mode==1?0.5f:mode==2?37.f:mode==3?0.f:100.f;int legacy=int(precise),rays=0,penetrating=0;
+                if(mode==0 || mode==4) {
+                    CObj<NRPG::CCoverInfo> cover=game->CalcCovers(server->GetAttackOrigin(position,false),attacks.front(),server,other,location,1.f,true);
+                    const auto snapshot=CoverSnapshot(cover);rays=int(snapshot.hits.size());
+                    for(const auto& ray:snapshot.hits)if(ray.penetrate)++penetrating;
+                    if(rays==0 || penetrating==0)continue;
+                    // Original floating ratio: no integer conversion before the caller's boundary.
+                    const float average=(snapshot.piercing/float(penetrating))/attacks.front().nK;
+                    precise=(100.f*penetrating/float(rays))*average;
+                    if(!std::isfinite(precise) || precise<=0 || precise>=100.f)continue;
+                    legacy=int(int(100*penetrating/rays)*average);
+                    if(mode==0 && int(precise)==legacy)continue;
+                }
+                auto calculator=[&](int cover){return CObj<NRPG::CAIUnitToHitCalcer>(new NRPG::CAIUnitToHitCalcer(actor,position,target,cover,location,0,weapon->GetItem(),0));};
+                auto reference=calculator(0);reference->fHitCover=precise;const int expectedHit=reference->GetToHit();
+                auto old=calculator(legacy);const int legacyHit=old->GetToHit();
+                if(mode!=0 && mode!=3 && expectedHit<=0)continue;
+                if(mode==4 && expectedHit==legacyHit)continue;
+                const int ap=server->GetAP(),hp=server->GetUnitRPG()->GetTotalVP(),targetHP=other->GetUnitRPG()->GetTotalVP();
+                const int ammo=weapon->GetItem()->GetAmmoQuantity();auto* equipped=server->GetUnitRPG()->GetInventory()->GetActive();
+                const bool command=server->HasCommand();GlobalGameRandom().SeedForHarness(0x7ada);auto rng=GlobalGameRandom();
+                int actual=0,expected=mode==0?int(precise):expectedHit;
+                if(mode==0)actual=game->GetCoverForAIUnit(server->GetAttackOrigin(position,false),server,other,attacks.front(),location);
+                else if(mode==4)actual=actor->GetToHitWithWeapon(target,position,location,weapon);
+                else {
+                    CObj<NRPG::CAIUnitToHitCalcer> query=new NRPG::CAIUnitToHitCalcer(actor,position,target,precise,location,0,weapon->GetItem(),0);
+                    actual=query->GetToHit();
+                }
+                std::printf("native AI cover precision: mode=%d location=%d distance=%.2f rays=%d penetrating=%d precise=%.7f legacy=%d legacyHit=%d actual=%d expected=%d\n",
+                    mode,int(location),fabs(position.GetCP()-targetPosition.GetCP()),rays,penetrating,precise,legacy,legacyHit,actual,expected);std::fflush(stdout);
+                Require(server->GetPosition()==position && other->GetPosition()==targetPosition && server->GetAP()==ap && server->GetUnitRPG()->GetTotalVP()==hp
+                    && other->GetUnitRPG()->GetTotalVP()==targetHP && weapon->GetItem()->GetAmmoQuantity()==ammo
+                    && server->GetUnitRPG()->GetInventory()->GetActive()==equipped && server->HasCommand()==command && rng.Get()==GlobalGameRandom().Get(),
+                    "fractional cover query changed native gameplay, equipment or RNG");
+                Require(actual==expected,"AI cover lost fractional precision before the original hit calculation or caller conversion");return;
+            }
+        }
+    }
+    Require(false,"fractional cover fixture found no native geometry/weapon case separating the original floating calculation from early truncation");
+}
+
 static void AICoverRange(const char* databasePath,const char* resourcePath,int mode)
 {
     const bool human=mode==2 || mode==4 || mode==6 || mode==7;
@@ -24299,6 +24360,12 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-snipe-selected-no-ammo") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "ai-snipe-escape-four-visible") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "ai-snipe-escape-four-blocked") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "ai-cover-precision-query-ratio") && argc == 4) { AICoverPrecision(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ai-cover-precision-constructor-fractional") && argc == 4) { AICoverPrecision(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ai-cover-precision-constructor-integer") && argc == 4) { AICoverPrecision(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ai-cover-precision-constructor-zero") && argc == 4) { AICoverPrecision(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "ai-cover-precision-prediction") && argc == 4) { AICoverPrecision(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "ai-cover-precision-constructor-open") && argc == 4) { AICoverPrecision(argv[2],argv[3],5); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-cover-range-ai-near-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-cover-range-human-far-elevated") && argc == 4) { AICoverRange(argv[2],argv[3],2); return true; }

@@ -163,6 +163,10 @@ public:
 	// the combat critical clamp (retail vtbl+0x44). The severity (DC) of a rolled critical is capped to it.
 	virtual int GetMaxCriticalSeverity() const = 0;
 	virtual void SetMaxCriticalSeverity( int n ) = 0;
+	// Appended precision entry preserves existing slots and legacy providers.
+	virtual float GetCoverForAIUnitPrecise( CVec3 ptFrom, NWorld::CUnit *pIgnore,
+		NWorld::CUnit *pTarget, const NRPG::CAttackPortion &AttackPortion, NAI::EHitLocation HitLocation )
+	{ return static_cast<float>( GetCoverForAIUnit( ptFrom, pIgnore, pTarget, AttackPortion, HitLocation ) ); }
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 IUnitMission* CreateUnit( CUnit *pSrc );

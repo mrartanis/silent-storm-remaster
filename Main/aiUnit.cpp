@@ -42,6 +42,8 @@
 #include "aiLogic.h"          // IAILogic (phase-7 supersede: was aiCompoundAction.h CAILogic)
 
 #include "aiUnit.h"
+#include <cmath>
+#include <limits>
 #include <cstdio>
 
 #if defined(_WIN32)
@@ -199,6 +201,8 @@ public:
 	virtual int GetHurtHP() { return nHurtHP; }
 	virtual void SetHurtHP( int _nHurtHP ) { nHurtHP = _nHurtHP; }
 	virtual int GetCoverForFixedUnit( const NAI::SUnitPosition &pos,
+		NWorld::CUnitServer *pTarget, NRPG::CWeaponItem *pWeaponItem, NAI::EHitLocation HitLocation );
+	float GetCoverForFixedUnitPrecise( const NAI::SUnitPosition &pos,
 		NWorld::CUnitServer *pTarget, NRPG::CWeaponItem *pWeaponItem, NAI::EHitLocation HitLocation );
 	virtual bool HasInactivePose();
 	virtual void AssignControl( IAIControl *pAIControl );
@@ -668,6 +672,19 @@ void CAIUnit::ContinueRoute()
 int CAIUnit::GetCoverForFixedUnit( const NAI::SUnitPosition &pos, 
 	NWorld::CUnitServer *pTarget, NRPG::CWeaponItem *pWeaponItem, NAI::EHitLocation HitLocation )
 {
+	const float fCover = GetCoverForFixedUnitPrecise( pos, pTarget, pWeaponItem, HitLocation );
+	if ( !std::isfinite( fCover ) )
+		return 0;
+	if ( fCover >= static_cast<float>((std::numeric_limits<int>::max)()) )
+		return (std::numeric_limits<int>::max)();
+	if ( fCover <= static_cast<float>((std::numeric_limits<int>::min)()) )
+		return (std::numeric_limits<int>::min)();
+	return static_cast<int>( fCover );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+float CAIUnit::GetCoverForFixedUnitPrecise( const NAI::SUnitPosition &pos,
+	NWorld::CUnitServer *pTarget, NRPG::CWeaponItem *pWeaponItem, NAI::EHitLocation HitLocation )
+{
 	ASSERT( IsValid( pTarget ) );
 	if ( !IsValid( pTarget ) )
 		return 0;
@@ -683,7 +700,7 @@ int CAIUnit::GetCoverForFixedUnit( const NAI::SUnitPosition &pos,
 	{
 		CVec3 ptOrigin = GetUnitServer()->GetAttackOrigin( pos, false );
 		CPtr<NRPG::IGame> pGame = GetUnitServer()->GetWorld()->GetGame();
-		return pGame->GetCoverForAIUnit( ptOrigin, GetUnitServer(), pTarget, atts.front(), HitLocation );
+		return pGame->GetCoverForAIUnitPrecise( ptOrigin, GetUnitServer(), pTarget, atts.front(), HitLocation );
 	}
 	return 0;
 }
@@ -788,13 +805,12 @@ int CAIUnit::GetToHitWithWeapon( IAIUnit *pTarget, const NAI::SUnitPosition &pos
 {
 	if ( !IsValid( pTarget ) || !IsValid( GetUnitServer() ) )
 		return 0;
-	int nToHit = 100;
 	// A planner may select a rifle while another item is in its current hand.
 	CPtr<CAIFireArmsWeapon> pWeapon = IsValid( pSelectedWeapon ) ? pSelectedWeapon : GetAIInventory()->GetCurrentFireArms();
 	if ( IsValid( pWeapon ) )
 	{
-		nToHit = GetCoverForFixedUnit( GetUnitPosition(), pTarget->GetUnitServer(), pWeapon->GetItem(), hl );
-		CPtr<NRPG::CAIUnitToHitCalcer> pCalcer = new NRPG::CAIUnitToHitCalcer( this, pos, pTarget, nToHit, hl, 0, pWeapon->GetItem(), 0 );
+		const float fHitCover = GetCoverForFixedUnitPrecise( GetUnitPosition(), pTarget->GetUnitServer(), pWeapon->GetItem(), hl );
+		CPtr<NRPG::CAIUnitToHitCalcer> pCalcer = new NRPG::CAIUnitToHitCalcer( this, pos, pTarget, fHitCover, hl, 0, pWeapon->GetItem(), 0 );
 		return pCalcer->GetToHit();
 	}
 	return 0;

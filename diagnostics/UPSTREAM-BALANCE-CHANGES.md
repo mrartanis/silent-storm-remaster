@@ -1391,3 +1391,23 @@ the cases. Own animation/map handling stays in place. The separate upstream
 escape-facing change90293ca is still pending; this does not silently import it.
 Fractional cover precision remains separately unfinished. Existing finite and
 zero-penetration guards must be retained; do not restore upstream NaN behavior.
+
+
+## 2026-10-28 — fractional AI cover restored; NaN restoration excluded
+
+Source [66fc9e9ad26497bf41f96a1a8c51c8a03e951718](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/66fc9e9ad26497bf41f96a1a8c51c8a03e951718).
+Imported: native cover percentage and remaining-penetration factor retain
+floating precision through the AI hit calculator, matching typed Gold/Steam
+math and parameter dataflow. This fixes real sample11->12 and hit prediction
+6%->7%; it can change AI evaluations and choices to match the original, without
+tuning skills, equipment, armor, AP, vision or data. Existing integer APIs/slots
+and constructor are preserved through compatible additions; saved fields and
+our weapon origin/animation/PK pilot-shell ownership stay in place.
+
+Excluded literal hunk: upstream deliberately returns NaN for a nonempty ray
+set with zero penetrating rays. Our fork previously fixed the resulting UB
+when ranking weapons / converting that value to int in mission4522. Retain
+empty/zero-penetration/zeroK/nonfinite return0 and bounded integer conversion.
+This is an explicit adaptation to the fork's existing correction, not an
+unreviewed balance coefficient. It does not justify discarding useful floating
+precision. The separate escape-facing source90293ca remains pending.

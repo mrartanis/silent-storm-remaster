@@ -131,6 +131,8 @@ public:
 	virtual void GetVisibleFromArea( vector<SVisibilitySpot> *pRes, const NWorld::CUnit *pTarget, CVec3 &vNear, float fRadius, int nPoses );
 	virtual int GetCoverForAIUnit( CVec3 ptFrom, NWorld::CUnit *pIgnore, 
 		NWorld::CUnit *pTarget, const NRPG::CAttackPortion &AttackPortion, NAI::EHitLocation HitLocation );
+	virtual float GetCoverForAIUnitPrecise( CVec3 ptFrom, NWorld::CUnit *pIgnore,
+		NWorld::CUnit *pTarget, const NRPG::CAttackPortion &AttackPortion, NAI::EHitLocation HitLocation );
 
 	virtual CVec3 GetIllumination( const vector<CVec3> &unit ) { return CVec3(1,1,1); }
 	virtual IVisionTracker* GetVisionTracker() { return pVision; }
@@ -327,7 +329,19 @@ static void AddGridToCovers( CCoverInfo *pRes, const NAI::CFastRenderer &res, co
 int CGame::GetCoverForAIUnit( CVec3 ptFrom, NWorld::CUnit *pIgnore, 
 	NWorld::CUnit *pTarget, const NRPG::CAttackPortion &AttackPortion, NAI::EHitLocation HitLocation )
 {
-	int nHitCover = 0;
+	const float fCover = GetCoverForAIUnitPrecise( ptFrom, pIgnore, pTarget, AttackPortion, HitLocation );
+	if ( !std::isfinite( fCover ) )
+		return 0;
+	if ( fCover >= static_cast<float>((std::numeric_limits<int>::max)()) )
+		return (std::numeric_limits<int>::max)();
+	if ( fCover <= static_cast<float>((std::numeric_limits<int>::min)()) )
+		return (std::numeric_limits<int>::min)();
+	return static_cast<int>( fCover );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+float CGame::GetCoverForAIUnitPrecise( CVec3 ptFrom, NWorld::CUnit *pIgnore,
+	NWorld::CUnit *pTarget, const NRPG::CAttackPortion &AttackPortion, NAI::EHitLocation HitLocation )
+{
 	CObj<NRPG::CCoverInfo> pCover = CalcCovers( ptFrom, 
 		AttackPortion, pIgnore, pTarget, HitLocation, 1.f, true );
 	//
@@ -340,15 +354,11 @@ int CGame::GetCoverForAIUnit( CVec3 ptFrom, NWorld::CUnit *pIgnore,
 	if ( pCover->hitRays.empty() || nPenetrateCount == 0 || AttackPortion.nK == 0 )
 		return 0;
 	float fAverageAPA = ( pCover->fSummAPA / float(nPenetrateCount) ) / AttackPortion.nK;
-	nHitCover = (100 * nPenetrateCount) / pCover->hitRays.size();
-	float fCover = nHitCover * fAverageAPA;
+	const float fHitCover = (100.f * nPenetrateCount) / float( pCover->hitRays.size() );
+	const float fCover = fHitCover * fAverageAPA;
 	if ( !std::isfinite( fCover ) )
 		return 0;
-	if ( fCover >= static_cast<float>((std::numeric_limits<int>::max)()) )
-		return (std::numeric_limits<int>::max)();
-	if ( fCover <= static_cast<float>((std::numeric_limits<int>::min)()) )
-		return (std::numeric_limits<int>::min)();
-	return static_cast<int>( fCover );
+	return fCover;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // nTargetUserID == -1 means without hit location targeting

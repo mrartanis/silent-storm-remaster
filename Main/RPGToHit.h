@@ -222,6 +222,8 @@ public:
 	CAIUnitToHitCalcer() {}
 	CAIUnitToHitCalcer(	NAI::IAIUnit *pShooter, const NAI::SUnitPosition &shooterPos,
 		NAI::IAIUnit *pTarget, int nHitCover,	NAI::EHitLocation _eHitLocation, int _nBullet, IInventoryItem *_pWeapon, int _nExtraAP );
+	CAIUnitToHitCalcer(	NAI::IAIUnit *pShooter, const NAI::SUnitPosition &shooterPos,
+		NAI::IAIUnit *pTarget, float fHitCover,	NAI::EHitLocation _eHitLocation, int _nBullet, IInventoryItem *_pWeapon, int _nExtraAP );
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CThrowKnifeToHitCalcer
