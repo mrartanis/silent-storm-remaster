@@ -15878,3 +15878,66 @@ RED/GREEN/final raw logs. Tactical SetAmbient immediate/default/flags is now
 complete; source still PARTIAL for shared world/camera dispatch and non-tactical
 consumers. Ledger166/19/58 =77 unfinished; whole goal remains active. Prior
 chapter9 fixture instability remains separately tracked.
+
+## 2026-10-29 — shared lighting/effect dispatch for chapter and backdrop worlds (part of cb954e2e)
+
+Source: [cb954e2e455b632c0174b88b2d051ac74e780ce0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cb954e2e455b632c0174b88b2d051ac74e780ce0).
+
+Chapter and backdrop pumps consumed Lua ambient/effect commands without applying
+them. Move the already-tested tactical PlayEffect/SetAmbient/SetAmbientEffect
+branches verbatim into CMissionBase::ExecWorldCommonCommand, with the existing
+sound handler as fallback. Wire tactical, chapter and backdrop pumps to it.
+Backdrop respects an available desktop's command policy, permitting the own
+main menu's actual null desktop. Keep own chapter BeginZone(false,PWLImage),
+tactical BeginZone(true), existing load/store/roster/travel/clock bookkeeping.
+The own 2D global map has no world and is unchanged. Shared camera/hint/video
+routing is still pending; do not declare the complete source imported.
+
+Native TDD on unchanged6af44059: real CICBeginChapter/CICMainMenu, real Lua ->
+world queue -> native interface frame -> real renderer/view/CGScene. Definitive
+RED10/12 BOTH: five valid command cases are discarded in each actual interface;
+two invalid-ID controls pass. GREEN12/12 BOTH: explicit palette/native mean,
+SetTimeOfDay (chapter no-default developer fallback vs menu default), ambient
+binding/native instance+clock identity, clear, ordinary Lua handle with one
+actual point light, no extra ambient particles/geometry, and invalid controls.
+Chapter's actual non-null desktop and main menu's null desktop are checked.
+Use natural renderer clocks (0 in these fixtures); the earlier tactical tests
+still cover1375. Ambient clear verifies the graph edge; it does not invent a
+new cache invalidation rule. No particle pixel or whole-save roundtrip claim.
+
+Setup failures are retained separately: initial main-menu geometry snapshots
+preceded the first frame's authored2-light/13-particle materialization, so warm
+one native frame first. A subsequent setup forced1375 ahead of native frame
+clocks and read a not-yet-loaded/inactive animation color. Remove forced clock
+and prime the real shared loader via public view/animator, wait for bActive,
+then clear/rebind as appropriate. Actual stock curves are not replaced. Repeat
+definitive RED on unchanged Main after both controls pass; no setup failure is
+counted. Registered palettes/quiet scripts are test-process DB records only.
+
+Original proof: independently named ChapterMap/MainMenu RTTI vtables bind both
+Step slot14 to Gold5a1d00/Steam5a4690. Matched21-byte Step->InternalStep and18-byte
+InternalStep->ProcessWorldCommands call blocks. Matched80-byte queue/desktop/
+dispatch block with only one reference-release rel32 and named virtual-slot
+shifts masked (desktop100->108, Exec104->10c). Main menu binds directly to the
+common Exec; chapter binds its own override with matched29-byte fallback tail
+Gold5a490e->Steam5a73df and decoded null-cast gates. Typed Gold chapter override
+is635 bytes, actual Steam override700 (extra version1.2 arm), not asserted fully
+equivalent. Native world queue slot8 and desktop policy slot50 remain unmasked.
+Prior verifiers independently prove the three command arguments. No full
+Step/pump/chapter/renderer equivalence or foreign ABI replacement claim.
+
+Final Windows ALL_BUILD/Linux Game/helpers+actual serializer; related108/108
+BOTH, own body16/16 BOTH, fresh Windows network4/4, local CI305/305. Exact raw
+names/rows/exits/manifests checked. Five Main files only: extracted tactical
+branches match byte-for-byte after indentation/first-if normalization; original
+sound handler, base remainder, tactical remainder and all schema calls unchanged.
+Nonvirtual helper only, no fields/save tags. CP1251/CRLF preserved. Two existing
+builds reused; no per-bug backups or HD/PNG/font/facial/backend changes. Hosted
+Actions is separate and is not claimed green. Earlier chapter9 fixture
+instability remains tracked; this change does not claim to resolve it.
+
+Evidence: world-lighting-verification.json, world-lighting-retail-verification.json,
+original snippets, native definitiveRED/GREEN/final logs and separate setup logs.
+Source still PARTIAL: common camera/hint/tutorial/clue/floor/flash/video routing
+and camera-executor updates remain for independent native TDD. Ledger166/19/58
+=77 unfinished sources; whole goal remains active.

@@ -296,7 +296,7 @@ void CChapterMap::ProcessWorldCommands()
 			continue;
 		// Chapter entry already completed leave-zone bookkeeping. Preserve the
 		// remaster's manual map-entry path and its chapter loading background.
-		if ( ExecWorldBeginZoneCommand( pCmd, false, pChapterMap->pPWLImage ) || ExecWorldSoundCommand( pCmd ) )
+		if ( ExecWorldBeginZoneCommand( pCmd, false, pChapterMap->pPWLImage ) || ExecWorldCommonCommand( pCmd ) )
 			continue;
 		if ( CDynamicCast<NWorld::CUICmdLoadTemplate> pLoad = pCmd )
 			NMainLoop::CommandWithAutoSave( NStr::ToAscii( NUI::GetDBString( 20243 ).c_str() ),

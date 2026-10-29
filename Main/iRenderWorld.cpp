@@ -16,6 +16,7 @@
 #include "iMain.h"
 #include "iRenderWorld.h"
 #include "iCommonUI.h"
+#include "iDesktopWindow.h"
 #include "..\Misc\StrProc.h"
 #include "..\MiscDll\Commands.h"
 #include "..\DBFormat\DataMap.h"
@@ -125,10 +126,10 @@ void CRenderBaseInterface::Step()
 {
 	if ( CanRender() )
 	{
-		// Backdrop scripts use the same scene-owned sound commands as missions.
+		// World-backed menus share lighting/effect and scene-owned sound commands.
 		while ( CPtr<NWorld::CUICmd> pCmd = pWorld->GetUICommand() )
-			if ( IsValid( pCmd ) )
-				ExecWorldSoundCommand( pCmd );
+			if ( IsValid( pCmd ) && ( !GetDesktop() || GetDesktop()->IsValidCommand( pCmd ) ) )
+				ExecWorldCommonCommand( pCmd );
 		EraseInvalidRefs( &soundsList );
 		pCamera->Update( GetTime() );
 

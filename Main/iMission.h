@@ -598,6 +598,7 @@ protected:
 	// Retail base tag 38 owns script sound channels; commands hold weak handles.
 	list<CObj<CObjectBase> > soundsList;
 	bool ExecWorldSoundCommand( NWorld::CUICmd *pCmd );
+	bool ExecWorldCommonCommand( NWorld::CUICmd *pCmd );
 	bool ExecWorldBeginZoneCommand( NWorld::CUICmd *pCmd, bool bEmulateChapter, NDb::CUITexture *pPWLImage = 0 );
 public:
 	// retail NGame::CMissionBase::operator& @0x19f3f0 -- 34 tags, gaps at 6/17/27 preserved

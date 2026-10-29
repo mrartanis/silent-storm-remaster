@@ -7837,6 +7837,99 @@ static void ScriptAmbientVariants(const char* databasePath,const char* resourceP
     }
 }
 
+
+static void WorldScriptLighting(const char* databasePath,const char* resourcePath,int context,int mode)
+{
+    Require(context>=0 && context<=1 && mode>=0 && mode<=5,"unknown shared-world lighting case");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"world lighting fixture started with an interface");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm shared world lighting regression");
+    struct ClockRestore {STime previous;~ClockRestore(){NMainLoop::SetTimeForHarness(previous);}} frameClock{NMainLoop::SetTimeForHarness(1000)};
+    CObj<NDb::CScript> quiet=new NDb::CScript;quiet->strCode="function OnEnterZone() end";
+    struct RestoreScripts {vector<std::pair<CPtr<NDb::CTemplVariant>,CPtr<NDb::CScript>>> variants;CPtr<NDb::CChapterMap> chapter;CPtr<NDb::CScript> entry;
+        ~RestoreScripts(){for(auto& p:variants)if(IsValid(p.first))p.first->pScript=p.second;if(IsValid(chapter))chapter->pScript=entry;}} restore;
+    CObj<NRPG::CGlobalGame> game;
+    if(context==0){
+        CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());while(maps.MoveNext())if(IsValid(maps.Get()->pBackground)){restore.chapter=maps.Get();break;}
+        Require(IsValid(restore.chapter),"world lighting fixture has no authored chapter");restore.entry=restore.chapter->pScript;restore.chapter->pScript=quiet.GetPtr();
+        game=NRPG::CreateGlobalGame(1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+        list<CPtr<NScenario::CScenarioClue>> clues;game->pScenarioTracker->GetAvailableClues(&clues);for(auto clue:clues)if(IsValid(clue))clue->SetJustFound(false);
+        for(auto merc:game->players.front()->mercs){vector<CDBPtr<NDb::CMedal>> medals;merc->GetJustFoundMedals(&medals);}
+        CObj<NGame::CICBeginChapter> enter=new NGame::CICBeginChapter(restore.chapter->GetRecordID(),game);enter->Exec();
+    }else{
+        CDBIterator<NDb::CTemplVariant> variants(*NDatabase::GetTable<NDb::CTemplVariant>());
+        while(variants.MoveNext())if(IsValid(variants.Get()->pTemplate) && variants.Get()->pTemplate->GetRecordID()==2425){restore.variants.push_back({variants.Get(),variants.Get()->pScript});variants.Get()->pScript=quiet.GetPtr();}
+        Require(!restore.variants.empty(),"world lighting fixture has no authored menu variants");CObj<NGame::CICMainMenu> open=new NGame::CICMainMenu;open->Exec();
+    }
+    CObj<NGame::CMissionBase> owner=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    auto* world=owner?dynamic_cast<NWorld::CWorld*>(owner->GetWorld()):nullptr;auto* view=owner?owner->GetScene():nullptr;auto* renderer=owner?owner->GetRenderGame():nullptr;
+    Require(world && view && renderer && world->GetOwnScript(),"world lighting fixture lacks actual chapter/menu world, view, renderer or Lua");
+    Require(context==0?owner->GetDesktop()!=nullptr:owner->GetDesktop()==nullptr,"world lighting fixture lost its real chapter/null-menu desktop distinction");
+    // Materialize authored static world effects before taking geometry baselines.
+    NMainLoop::SetTimeForHarness(1050);Require(NMainLoop::StepApp(true,false,false),"world lighting warm-up frame exited");
+    Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand(),"world lighting warm-up opened an unrelated interface");
+    while(auto* pending=world->GetUICommand()){CObj<NWorld::CUICmd> release=pending;}
+    world->SetTimeOfDay(NWorld::TOD_DAY);
+    vector<CDBPtr<NDb::CAmbientLight>> records;CDBIterator<NDb::CAmbientLight> ambients(*NDatabase::GetTable<NDb::CAmbientLight>());
+    while(ambients.MoveNext() && records.size()<3)records.push_back(ambients.Get());Require(records.size()==3,"world lighting fixture lacks registered ambient records");
+    for(int i=0;i<3;++i){auto* light=records[i].GetPtr();const float k=0.1f*(i+1);
+        light->vAmbientColor=CVec3(k,k+0.01f,k+0.02f);light->vGroundAmbientColor=CVec3(k+0.03f,k+0.04f,k+0.05f);
+        light->vLightColor=CVec3(k+0.06f,k+0.07f,k+0.08f);light->vGlossColor=CVec3(k,k,k);
+        light->vFogColor=CVec3(k+0.09f,k+0.10f,k+0.11f);light->vVapourColor=CVec3(k,k,k);
+        light->vShadowColor=CVec3(k,k,k);light->vBackColor=CVec3(k+0.12f,k+0.13f,k+0.14f);
+        light->fPitch=30+i;light->fYaw=45+i;light->fFogDistance=100+10*i;light->fVapourHeight=2+i;
+        light->fVapourDensity=0.1f;light->fVapourNoiseParam=1;light->fVapourSpeed=1;light->fVapourSwitchTime=1;
+        light->fFogStartDistance=10+i;light->fVapourStartHeight=1;light->fBlurStrength=0;
+        light->pSky=0;light->pGF2Light=0;light->bInGameUse=(i==0);light->flags.clear();
+    }
+    vector<CDBPtr<NDb::CTAmbientLight>> pools;CDBIterator<NDb::CTAmbientLight> ambientPools(*NDatabase::GetTable<NDb::CTAmbientLight>());
+    while(ambientPools.MoveNext()){auto* p=ambientPools.Get();p->variants.clear();p->variants.push_back(records[0].GetPtr());p->roulette=CRoulette();p->roulette.AddSector(1);pools.push_back(p);}
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(world,&refs);CDBPtr<NDb::CTAmbientLight> zonePool;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(18,&zonePool);}
+    NDb::CTAmbientLight* baselinePool=nullptr;for(const auto& p:pools)if(p.GetPtr()!=zonePool.GetPtr()){baselinePool=p;break;}Require(baselinePool,"world lighting fixture lacks a baseline template");
+    baselinePool->variants[0]=records[2].GetPtr();
+    NDb::CTAmbientLight* explicitPool=nullptr;for(const auto& p:pools)if(p.GetPtr()!=zonePool.GetPtr() && p.GetPtr()!=baselinePool){explicitPool=p;break;}Require(explicitPool,"world lighting fixture lacks a separate explicit template");
+    if(IsValid(zonePool))zonePool->variants[0]=records[1].GetPtr();
+    Require(context==0?!IsValid(zonePool):IsValid(zonePool),"chapter/menu default-light distinction changed");
+    SRand paletteRandom(SRandomSeed(123));CPtr<NDb::CAmbientLightReal> baseline=baselinePool->GetLight(&paletteRandom);view->SetAmbient(baseline);
+    auto* scene=view->GetGScene();CStructureNetworkContext sceneRefs;auto sceneFields=BorrowedObjectFields(scene,&sceneRefs);CPtr<CFuncBase<CVec3>> mean,animated;
+    {CStructureSaver reader(sceneFields,CStructureSaver::READ,&sceneRefs);reader.Add(18,&mean);reader.Add(33,&animated);}Require(IsValid(mean) && IsValid(animated),"world lighting fixture lacks native ambient graph");
+    auto binding=[&](){CStructureNetworkContext context;auto saved=BorrowedObjectFields(animated,&context);CPtr<NGScene::CLightAnimator> animator;
+        {CStructureSaver reader(saved,CStructureSaver::READ,&context);reader.Add(3,&animator);}return animator;};
+    auto geometry=[&](){CStructureNetworkContext context;auto saved=BorrowedObjectFields(scene,&context);list<CPtr<CObjectBase>> lights,particles;
+        {CStructureSaver reader(saved,CStructureSaver::READ,&context);reader.Add(7,&lights);reader.Add(10,&particles);}return std::make_pair(std::count_if(lights.begin(),lights.end(),[](const CPtr<CObjectBase>& p){return IsValid(p);}),std::count_if(particles.begin(),particles.end(),[](const CPtr<CObjectBase>& p){return IsValid(p);}));};
+    const auto originalGeometry=geometry();auto stock=NativeAuthoredEffectLights();
+    CDBIterator<NDb::CEffect> effects(*NDatabase::GetTable<NDb::CEffect>());Require(effects.MoveNext(),"world lighting fixture lacks a registered effect");CDBPtr<NDb::CEffect> effect=effects.Get();effect->instances.clear();effect->lights.clear();effect->flags.clear();effect->lights.push_back(stock[0].instance.GetPtr());
+    CDBIterator<NDb::CTEffect> effectPools(*NDatabase::GetTable<NDb::CTEffect>());Require(effectPools.MoveNext(),"world lighting fixture lacks a registered effect pool");CDBPtr<NDb::CTEffect> effectPool=effectPools.Get();effectPool->variants.clear();effectPool->variants.push_back(effect.GetPtr());effectPool->roulette=CRoulette();effectPool->roulette.AddSector(1);
+    CObj<NGScene::CLightAnimator> loadedSeed;
+    if(mode>=2 && mode<=4){
+        Require(stock[0].info->fTStart==0,"world lighting fixture needs an authored light active at its launch time");
+        view->SetAmbientEffect(effect,renderer->GetTime()->GetValue(),renderer->GetTime());loadedSeed=binding().GetPtr();Require(IsValid(loadedSeed),"world lighting fixture could not prime its actual cached light resource");
+        CDGPtr<NGScene::CLightAnimator> ready=loadedSeed.GetPtr();bool active=false;const auto deadline=SDL_GetTicks()+10000;
+        do {MarkNewDGFrame();ready.Refresh();active=ready->GetValue()->bActive;if(active)break;SDL_Delay(1);}while(SDL_GetTicks()<deadline);
+        Require(active,"world lighting fixture's real cached light resource did not become active");
+        if(mode!=3){view->SetAmbientEffect(nullptr,renderer->GetTime()->GetValue(),renderer->GetTime());view->SetAmbient(baseline);Require(!IsValid(binding()),"resource priming left a scene animation bound");}
+    }
+    auto* script=world->GetOwnScript();CObj<NScript::CLUAObjectPosition> point=new NScript::CLUAObjectPosition(CVec3(2,3,4));NScript::luaPushCObj(script->GetState(),point);script->SetGlobal("WorldLightingPosition");
+    const string command=mode==0?"SetupAmbientLight("+std::to_string(explicitPool->GetRecordID())+")":mode==1?"SetTimeOfDay(5)":mode==2?"SetAmbientEffect("+std::to_string(effectPool->GetRecordID())+")":mode==3?"SetAmbientEffect(-1)":mode==4?"WorldLightingHandle = PlayEffect("+std::to_string(effectPool->GetRecordID())+",WorldLightingPosition)":"SetupAmbientLight(-1); WorldLightingHandle = PlayEffect(-1,WorldLightingPosition)";
+    Require(script->DoString((command+"; WorldLightingExecuted = 1").c_str())==0,"world lighting fixture could not execute its real Lua producer");world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);
+    const int top=script->GetTop();auto executed=script->GetGlobal("WorldLightingExecuted");const bool produced=executed.IsNumber() && executed.GetNumber()==1;script->SetTop(top);Require(produced,"world lighting Lua producer did not run");
+    auto* clock=renderer->GetTime();CDGPtr<CFuncBase<STime>> clockRead=clock;clockRead.Refresh();const STime beforeFrame=clockRead->GetValue();
+    NMainLoop::SetTimeForHarness(1100);Require(NMainLoop::StepApp(true,false,false),"world lighting native interface frame exited");
+    Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand(),"world lighting fixture was covered by an unrelated interface command");
+    clockRead.Refresh();const STime begin=context==0?clockRead->GetValue():beforeFrame;
+    const auto shape=geometry();auto current=binding();auto* actual=view->GetPrevLight();CDGPtr<CFuncBase<CVec3>> sample=mean.GetPtr();sample.Refresh();const CVec3 color=sample->GetValue();
+    std::printf("native world lighting context=%d mode=%d owner=%s ambient=%.3f mean=%.3f animation=%d extraLights=%lld extraParticles=%lld renderer=%u\n",context,mode,typeid(*owner.GetPtr()).name(),actual?actual->vAmbientColor.x:-1.f,color.x,int(IsValid(current)),static_cast<long long>(shape.first-originalGeometry.first),static_cast<long long>(shape.second-originalGeometry.second),unsigned(begin));std::fflush(stdout);
+    if(mode<=1){const int expected=mode==1 && context==1?1:0;auto* wanted=records[expected].GetPtr();Require(actual && fabs2(actual->vAmbientColor-wanted->vAmbientColor)<1e-10f && fabs2(color-(wanted->vAmbientColor+wanted->vGroundAmbientColor)*0.5f)<1e-10f,"non-tactical world discarded its ambient-light command");}
+    else if(mode==2){Require(IsValid(current),"non-tactical world discarded its ambient-animation command");CStructureNetworkContext contextRefs;auto saved=BorrowedObjectFields(current,&contextRefs);CDBPtr<NDb::CLightInstance> instance;STime actualBegin=0;CDGPtr<CFuncBase<STime>> actualClock;
+        {CStructureSaver reader(saved,CStructureSaver::READ,&contextRefs);reader.Add(3,&actualBegin);reader.Add(4,&instance);reader.Add(5,&actualClock);}Require(instance.GetPtr()==stock[0].instance.GetPtr() && actualBegin==begin && actualClock.GetPtr()==clock,"shared ambient routing lost native instance/current clock identity");}
+    else if(mode==3)Require(!IsValid(current),"non-tactical world discarded its ambient-clear command");
+    else if(mode==4){const int savedTop=script->GetTop();auto handle=script->GetGlobal("WorldLightingHandle");auto* play=handle.IsUserData()?dynamic_cast<NWorld::CUICmdPlayEffect*>(handle.GetUserData()):nullptr;const bool played=play && IsValid(play->pHandle);script->SetTop(savedTop);
+        Require(played && shape.first==originalGeometry.first+1 && shape.second==originalGeometry.second,"non-tactical world discarded its ordinary effect command");}
+    else Require(actual==baseline.GetPtr() && !IsValid(current),"invalid ambient/effect ID changed existing world lighting");
+    if(mode!=4)Require(shape==originalGeometry,"shared ambient command created ordinary effect geometry");
+    Require(!world->GetUICommand(),"world lighting command pump left a queued command");
+}
+
 static void ScriptPlayEffect(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=4,"unknown ordinary-effect case");
@@ -28122,6 +28215,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "world-script-lighting")) { Require(argc == 6, "world lighting requires db, resources, context and mode"); WorldScriptLighting(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "script-ambient-variants")) { Require(argc == 5, "script ambient variants requires db, resources and mode"); ScriptAmbientVariants(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "script-immediate-ambient")) { Require(argc == 5, "script immediate ambient requires db, resources and mode"); ScriptImmediateAmbient(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "script-play-effect")) { Require(argc == 5, "script play effect requires db, resources and mode"); ScriptPlayEffect(argv[2],argv[3],std::atoi(argv[4])); return true; }

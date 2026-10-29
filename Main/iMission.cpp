@@ -2570,51 +2570,8 @@ void CMission::ExecWorldCommands()
 					pRender->FlashUnit( pWillMove->pUnit, CVec4( 0, 77.0f / 255, 78.0f / 255, 0 ) );
 			}
 		}
-		else if ( ExecWorldSoundCommand( pCmd ) )
+		else if ( ExecWorldCommonCommand( pCmd ) )
 		{
-		}
-		// LUA convergence PART B: PlayEffect spawns a particle effect at the command's position and parks the
-		// live handle (retail CMissionBase::ExecWorldCommand @0x1a30c0: GetEffect + MakeTransform + render).
-		// Mirrors CMission::ShowWeatherEffect; StopEffect later releases pHandle to remove it.
-		else if ( CDynamicCast<NWorld::CUICmdPlayEffect>( pCmd ) )
-		{
-			NWorld::CUICmdPlayEffect *pPlayEffect = CDynamicCast<NWorld::CUICmdPlayEffect>( pCmd );
-			if ( IsValid( pPlayEffect->pEffect ) )
-			{
-				SFBTransform place;
-				MakeMatrix( &place, CVec3( 1, 1, 1 ), pPlayEffect->vPos, 0 );
-				static SRand rnd;
-				NDb::CEffect *pEffect = pPlayEffect->pEffect->GetEffect( &rnd, pWorld->GetCreateFlags() );
-				// A filtered pool can be empty; the render factory requires a real effect.
-				pPlayEffect->pHandle = pEffect ? GetScene()->CreateParticles( pEffect,
-					pRender->GetTime()->GetValue(), pRender->GetTime(), place ) : 0;
-			}
-		}
-		// Immediate time-of-day changes use the current zone light before explicit/debug modes.
-		else if ( CDynamicCast<NWorld::CUICmdSetAmbient>( pCmd ) )
-		{
-			NWorld::CUICmdSetAmbient *pSetAmbient = CDynamicCast<NWorld::CUICmdSetAmbient>( pCmd );
-			CPtr<NDb::CAmbientLightReal> pDefault = pWorld->GetDefaultLight();
-			if ( pSetAmbient->bImmediate && IsValid( pDefault ) )
-				GetScene()->SetAmbient( pDefault );
-			else if ( IsValid( pSetAmbient->pLight ) )
-			{
-				static SRand rnd;
-				CPtr<NDb::CAmbientLightReal> pLight = pSetAmbient->pLight->GetLight( &rnd, pWorld->GetCreateFlags() );
-				if ( IsValid( pLight ) )
-					GetScene()->SetAmbient( pLight );
-			}
-			else
-				SetLightMode( nLightMode );
-		}
-		// Original ambient-only command: preserve world variants and the renderer timeline.
-		else if ( CDynamicCast<NWorld::CUICmdSetAmbientEffect>( pCmd ) )
-		{
-			NWorld::CUICmdSetAmbientEffect *pSetAmbientEffect = CDynamicCast<NWorld::CUICmdSetAmbientEffect>( pCmd );
-			static SRand rnd;
-			NDb::CEffect *pEffect = IsValid( pSetAmbientEffect->pEffect ) ?
-				pSetAmbientEffect->pEffect->GetEffect( &rnd, pWorld->GetCreateFlags() ) : 0;
-			GetScene()->SetAmbientEffect( pEffect, pRender->GetTime()->GetValue(), pRender->GetTime() );
 		}
 		// LUA convergence PART B: BeginZone(zoneName) begins the named scenario zone
 		// (retail CMissionBase::ExecWorldCommand @0x1a30c0: GetZoneByName -> CICBeginMission).
