@@ -12754,3 +12754,51 @@ fullCI/hosted Actions claim. Source531f remains PARTIAL: healer57, speed63,
 engineering repair, acknowledgments and relevant animation adaptation still
 need independent TDD/review. Ledger149 imported/19partial/70pending=
 89 unfinished sources; full goal and final hosted Actions remain open.
+
+
+## 2026-10-29 — connect authored critical-first items to restored treatment (531f3b7d)
+
+Integration prerequisite for source
+[531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9).
+The source restores FAE_CRITICAL_FIRST7 state logic, but this fork's importer
+silently left the authored NormalCriticalFirst string as NORMAL0. Restore
+the actual retail string-to7 branch. This is a necessary own integration
+adaptation, not a literal hunk of the cached upstream patch. Both original
+Gold81bef7/string8c551c and Steam80aa5d/string8d2980 compare the exact string
+and write7 to record+18. No new data values, formula or balancing policy.
+
+### Correction to earlier medical item provenance
+
+The earlier conclusion that stock contains no effect7 items was based only
+on the faulty IMPORTED records. Independent portable decoding of the actual
+game.db strings shows items3/4/5 are NormalCriticalFirst (capacity50/70/100),
+and26/27 are RepairPK (capacity1000). Thus earlier runtime NORMAL-kit27
+results describe what this fork actually executed, but do not establish
+that kit27 is authored NORMAL or that effect7 is unused in the original.
+The prior normal-capacity1000 fixture must be replaced with a real normal
+kit before repairing the separate RepairPK6 import. Its original capacity
+allocation fix remains valid code, but the item-type provenance claim is
+withdrawn. No stock CriticalOnly1 item appears in the raw nineteen rows.
+Raw evidence: medical-raw-effect-fields.txt and independent read-only
+probe-medical-effect-fields using the validated PortableGameDatabase reader.
+
+Native TDD before production: RED2/4 Windows4.42s/Linux4.36s. The type test
+shows all3 special records loaded0 rather than7, with five normal controls
+unchanged. Actual qualified physician Medicine32 uses stock kit3 (required25,
+modifier10): with a3HP wound and DC20 critical, old NORMAL incorrectly spends
+4AP on dressing, leaves the critical, ends at37AP. Correct original priority
+spends31AP on the selected critical, ends at10AP and leaves the wound
+undressed. The no-critical fallback (4AP/3HP) and normal kit1 wound-first
+control (5AP/3HP, critical retained) already pass and remain unchanged.
+No DB/stat/AP/state fabrication; tests use public Run/AnimationFinished.
+
+GREEN54/54 Windows59.24s/Linux60.10s includes prior50 plus four new
+tests. All3 imported kinds are7, normal controls0, actual priority cures the
+critical and keeps raw wound health/dressing unchanged, dose10->9, marker
+cleared. Fallback/normal controls match RED exactly. Raw logs, kinds, actual
+AP/priority/control values, exact registered sets, exits and only two added
+production lines in DBFormat/DataRPG.cpp verified. Windows ALL_BUILD and
+Linux Game pass; shared builds/HD generation off, no new build copies.
+No fresh fullCI/hosted claim. RepairPK string import, genuine repair action,
+remaining healer57/speed63/acknowledgment/animation work still open.
+Source531f PARTIAL; ledger149 imported/19partial/70pending=89 unfinished.
