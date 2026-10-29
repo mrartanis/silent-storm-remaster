@@ -82,7 +82,7 @@ void CExecReload::FindReloadClip()
 int CExecReload::GetStartAP() const
 { return pUS->GetActionAP( NRPG::AC_RELOAD ); }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-int CExecReload::GetActionAP() const
+int CExecReload::GetActionAP( int nAlreadyReservedAP ) const
 { return pUS->GetActionAP( NRPG::AC_RELOAD ); }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecReload::Run()
@@ -531,7 +531,7 @@ CExecLoadWeapon::CExecLoadWeapon( CUnitServer *_pUS, NRPG::IWeaponItemInfo *_pWe
 int CExecLoadWeapon::GetStartAP() const
 { return pUS->GetActionAP( NRPG::AC_RELOAD ); }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-int CExecLoadWeapon::GetActionAP() const
+int CExecLoadWeapon::GetActionAP( int nAlreadyReservedAP ) const
 { return pUS->GetActionAP( NRPG::AC_RELOAD ); }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecLoadWeapon::Run()
@@ -648,7 +648,7 @@ class CExecSetWishPose: public CCommandExecute
 public:
 	CExecSetWishPose() {}
 	CExecSetWishPose( CUnitServer *_pUS, NAI::EPose _pose ): CCommandExecute(_pUS), pose(_pose) {}
-	int GetActionAP() const
+	int GetActionAP( int nAlreadyReservedAP = 0 ) const
 	{
 		switch( pose )
 		{
@@ -762,7 +762,7 @@ public:
 		CCommandExecute(_pUS), bState(_bState), bExplicitState(_bExplicitState) {}
 	//
 	virtual int GetStartAP() const;
-	virtual int GetActionAP() const;
+	virtual int GetActionAP( int nAlreadyReservedAP = 0 ) const;
 	EUnitCommandResult CanDoIt();
 	virtual void Run();
 };
@@ -775,7 +775,7 @@ int CExecHide::GetStartAP() const
 	return pUS->GetActionAP( NRPG::AC_HIDE );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-int CExecHide::GetActionAP() const
+int CExecHide::GetActionAP( int nAlreadyReservedAP ) const
 {
 	return GetStartAP();
 }

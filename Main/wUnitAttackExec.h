@@ -61,7 +61,7 @@ public:
 	CExecLoadWeapon();
 	CExecLoadWeapon( CUnitServer *_pUS, NRPG::IWeaponItemInfo *_pWeapon, const SItem &_sClip );
 	int GetStartAP() const override;
-	int GetActionAP() const override;
+	int GetActionAP( int nAlreadyReservedAP = 0 ) const override;
 	void Run() override;
 	bool TimeLabelReached() override;
 	EUnitCommandResult CanDoIt();
@@ -80,7 +80,7 @@ public:
 	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CExecLoadWeapon*)this); f.Add(2,&nSlot); f.Add(3,&bSameColor); return 0; }
 	CExecReload( CUnitServer *_pUS = 0, int _nSlot = -1 );
 	int GetStartAP() const override;
-	int GetActionAP() const override;
+	int GetActionAP( int nAlreadyReservedAP = 0 ) const override;
 	void Run() override;
 	bool TimeLabelReached() override;
 	EUnitCommandResult CanDoIt();
@@ -183,7 +183,7 @@ public:
 
 	virtual EUnitCommandResult CanDoIt( const NAI::SUnitPosition &from, bool bIgnoreTarget = false ) const;
 	virtual int GetStartAP() const;
-	virtual int GetActionAP() const;
+	virtual int GetActionAP( int nAlreadyReservedAP = 0 ) const;
 	virtual void Start();
 	virtual void Segment();                      // @0x3a8d20 -- per-tick timed-bullet driver (overrides CCommandExecute::Segment)
 	virtual bool CheckBurst( int nFired, bool bDoAction );   // @0x3a1fa0 -- may the burst keep firing (+ optionally spend burst AP)

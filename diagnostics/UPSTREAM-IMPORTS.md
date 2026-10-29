@@ -15136,3 +15136,66 @@ All hunks of the source's sole file are now accounted across close pickup
 Mark source70 IMPORTED. Ledger286:161 imported/18 partial/64 pending =82
 unfinished sources. Whole goal and final actual hosted Actions repair/check
 remain active. These original search rules introduce no new balance policy.
+
+### Forward reserved AP through native action queues (cad50790, complete)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cad50790ee66055c8b4d4d66cf16d3f4ae1dfc83
+
+Queued reload/move followed by Careful or LongBurst incorrectly counted the
+actor's whole AP again, inflating the total forecast beyond the actual budget.
+Add the original optional signed reserved-AP argument to GetActionAP and all
+overrides, forwarding parent reservation plus accumulated child prices through
+CSimpleExecQueue. Only Careful/LongBurst return max(current AP-reserved,start).
+All fixed-price actions ignore reservation. Keep accidental zero, minimum
+start price, the existing temporary-position propagation/restoration, and own
+public CExecReload/CExecLoadWeapon hierarchy. No DB/price/perk/save/wire field
+change. The virtual call signature DOES change; all game/helpers rebuilt.
+
+Original PDB calls this method GetTotalActionAP, with a signed-int argument;
+the fork's GetActionAP name is retained. Entire Gold shoot796a90/91 maps
+uniquely to Steam7a29d0 with only two decoded E8 operands masked. Actual AP
+getter743ef0/8 ->74f490/8 is identical. The unmasked29-byte queue block at
+Gold7b1cb4 maps uniquely to Steam7be4a4 and loads parent reservation, adds
+running prefix, passes it to the same virtual total-cost method and adds the
+returned price. No whole525-byte queue body or ABI identity is claimed.
+
+Baseline before tests/Main: Windows42/42, Linux40/40. Definitive compiled
+RED7/18 BOTH before production, each with the budget-double-count assertion;
+eleven independent controls already pass. GREEN18/18 BOTH. Native authored
+weapons/real human ownership, real compatible ammunition, partial magazine
+via CreateNewAttackPortion, actual reload executor, real FindPath/move factory
+and actual CExecShootTile are used, not dummy priced executors. Careful has
+reload14/start29/AP53: old67 ->53. LongBurst17/12/AP46: old63 ->46. Low-budget
+cases still require43 with42 available and29 with28. Actual movement prefix8
+before Careful gives old61 ->53; nested queues forward the same reservation.
+Snap/Aimed/ShortBurst, reload-only, direct shots and direct start floors stay
+identical. Both actual holstered public CreateActionExecutor/CanDo previews
+already pass baseline and remain unchanged, including the existing movement
+preparation node0 (not the RPG AC_PREPARE price).
+Future move position is used for native start cost and restored after query.
+Repeated/base-virtual queries give the same total and preserve measured actor
+AP/HP/position/ammo/mode/active item+slot/inventory count/wishes/mobility/time
+and next RNG word. No full RNG-state, action execution or damage claim.
+
+Fixture setup corrections are archived separately: default map human lacked
+required shoot modes; select real supported authored weapons, with capacity2+
+and affordable authored reload/start prices. Create real spare clips through
+the actual schema/factory; initialize the native move result to OK because
+the success factory does not overwrite it. These are setup corrections, not
+bug RED. No authored data/stats or production prices were changed to fit tests.
+
+Final Windows ALL_BUILD/Linux Game+helpers+actual serializer built. Related
+60/60 Windows and58/58 Linux exactly equal saved baseline plus18. Own body
+animation-reseat/legacy-walk/ladder/turn/cannon16/16 BOTH, fresh Windows actual
+network serializer/match/partial/stop4/4 and local CI299/299 pass. Exact saved
+raw manifests, zero exits and cross-platform rows/deltas verified. New18
+asset-backed cases remain outside asset-free CI299. Two shared builds reused;
+no per-bug build/source copies, HD/PNG work or own facial/font/backend rewrites.
+Evidence: reserved-ap-verification.json, retail oracle and baseline/RED/GREEN/
+final raw logs in the external lab. General verifier/finisher tied to parent
+1cad60b9; safe original verifier/pure transform retain their stated scope.
+
+All seven upstream files/hunks accounted, with own reload declarations adapted.
+Mark source IMPORTED. Ledger286:162 imported/18 partial/63 pending =81
+unfinished sources. Preparation pricing08c4 remains independent and pending.
+Whole goal and final actual hosted Actions repair/check remain unfinished.
