@@ -133,6 +133,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/GAnimParticles.h"
 #include "../Main/GParticleInfo.h"
 #include "../Main/GAnimation.h"
+#include "../Main/GAnimPath.h"
 #include "../Main/GDecalGeometry.h"
 #include "../Main/GCombiner.h"
 #include "../Main/GSceneUtils.h"
@@ -16578,6 +16579,47 @@ static void CannonPersonalPose(const char* databasePath,const char* resourcePath
     if(downed)actor->SyncConscious();
 }
 
+static void CannonDismountClip(const char* databasePath,const char* resourcePath,int mode)
+{
+    auto fixture=MakeNativeCannonFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* cannon=fixture.cannon.GetPtr();
+    fixture.world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer()));
+    NWorld::EUnitCommandResult result=NWorld::UCR_GENERAL_FAILURE;CObj<NWorld::CCmdCannon> request=new NWorld::CCmdCannon(cannon);
+    CObj<NWorld::CCommandExecute> entry=NWorld::CreateExecutor(actor,request,&result);Require(entry && result==NWorld::UCR_OK,"dismount clip fixture cannot prepare its real authored cannon entry");
+    entry->Run();CompleteCannonPoseQueue(entry,fixture);entry=nullptr;request=nullptr;
+    Require(actor->GetUnitRPG()->GetCannonItem()==cannon->GetItem() && cannon->GetCurrentUnit()==actor && actor->animator.GetCannon()==cannon && !fixture.world->IsAction(),"dismount clip fixture did not finish real native entry");
+    CObj<NWorld::CExecCannon> exit=new NWorld::CExecCannon(actor,cannon,false);
+    if(mode==3) {const int ap=actor->GetAP();CMemoryStream snapshot;SaveNativeCannonGraph(snapshot,fixture,exit,ap,0);snapshot.Seek(0);int savedAP=-1,cost=-1;
+        LoadNativeCannonGraph(snapshot,&fixture,&exit,&savedAP,&cost);actor=fixture.actor.GetPtr();cannon=fixture.cannon.GetPtr();Require(actor->GetAP()==ap && savedAP==ap && cost==0 && actor->animator.GetCannon()==cannon,"dismount clip graph roundtrip lost mount/AP identity");}
+    auto* rpg=actor->GetUnitRPG();for(int hit=0;hit<(mode==1?1:mode==2?2:0);++hit) {CRay ray;ray.ptOrigin=actor->GetPosition().GetCP();ray.ptDir=CVec3(0,1,0);NRPG::CAttackPortion attack(0,0,0.f,0,0,0);attack.MakeClickOfDeath(ray);Require(rpg->ProcessAttack(fixture.world.GetPtr(),NAI::HL_BODY,&attack,rpg->GetRPGArmor()).nDmg>=0,"dismount clip native incapacitation failed");}
+    const bool downed=mode==1 || mode==2;Require(rpg->IsUnconscious()==(mode==1) && rpg->IsDead()==(mode==2),"dismount clip fixture has the wrong actual RPG damage result");
+    CMemoryStream fields;CStructureNetworkContext refs;refs.include=[](CObjectBase*){return false;};CDBPtr<NDb::CSkeleton> skeleton;CDBPtr<NDb::CSide> side;string weapon;
+    {CStructureSaver writer(fields,CStructureSaver::WRITE,&refs);actor->animator.operator&(writer);}fields.Seek(0);{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(6,&weapon);reader.Add(31,&skeleton);reader.Add(40,&side);}
+    Require(skeleton && !weapon.empty(),"dismount clip fixture lost its actual body skeleton or mounted animation name");
+    vector<int> allowed;for(const auto& clip:skeleton->pAnimations[NDb::CAnimation::DEACTIVATE].anims)
+        if(clip->szParams==weapon && (!clip->pSide || clip->pSide==side) && !(clip->nClassSexFlags&NDb::CAnimation::BOSS) && clip->fRndWeight>0)allowed.push_back(clip->GetRecordID());
+    auto* expected=skeleton->GetAnimation(NDb::CAnimation::DEACTIVATE,0,weapon.c_str(),0,side);const STime start=actor->animator.GetTimeEnd();
+    auto* body=actor->animator.GetSkeletonAnimator();CObj<NAnimation::CAnimation> control=body->CreateAnimation(expected,start);
+    Require(control && control->GetTime()>0 && !allowed.empty(),"actual authored cannon has no real timed dismount clip for its body/name/side");
+    const auto before=NativeCannonAnimationClips(body);const int ap=actor->GetAP(),hp=rpg->GetTotalVP(),ammo=cannon->GetItem()->GetAmmoQuantity();auto* personal=dynamic_cast<NRPG::CWeaponItem*>(rpg->GetInventory()->GetActive());Require(personal,"dismount clip fixture lacks its actual personal firearm");const int personalAmmo=personal->GetAmmoQuantity();const auto position=actor->GetPosition();auto random=GlobalGameRandom();
+    Require(exit->CanDoIt(position)==NWorld::UCR_OK,"native mounted actor cannot run its queued dismount");exit->Run();const auto after=NativeCannonAnimationClips(body);
+    NAnimation::CAnimation* played=nullptr;int count=0;STime poseStart=0;
+    for(auto* clip:after)if(std::find(before.begin(),before.end(),clip)==before.end()) {
+        if(std::find(allowed.begin(),allowed.end(),clip->GetRecordID())!=allowed.end()){played=clip;++count;}
+        auto* record=NDb::GetAnimation(clip->GetRecordID());if(record && record->nType==NDb::CAnimation::POSE){CStructureNetworkContext clipRefs;auto clipFields=BorrowedObjectFields(clip,&clipRefs);CStructureSaver reader(clipFields,CStructureSaver::READ,&clipRefs);reader.Add(7,&poseStart);}
+    }
+    STime actualStart=0;bool placement=false,frameFinite=false;
+    if(played) {CStructureNetworkContext clipRefs;auto clipFields=BorrowedObjectFields(played,&clipRefs);CPtr<NAnimation::CAnimator> placementOwner;
+        {CStructureSaver reader(clipFields,CStructureSaver::READ,&clipRefs);reader.Add(3,&placementOwner);reader.Add(7,&actualStart);}auto* stand=dynamic_cast<NAnimation::CStandAnimator*>(placementOwner.GetPtr());Require(stand,"native dismount clip lost its real cannon-position standing owner");
+        CStructureNetworkContext standRefs;auto standFields=BorrowedObjectFields(stand,&standRefs);CVec3 point;float angle=0;{CStructureSaver reader(standFields,CStructureSaver::READ,&standRefs);reader.Add(2,&point);reader.Add(3,&angle);}
+        auto expectedPoint=cannon->GetPosition();expectedPoint.z=0;placement=fabs(point-expectedPoint)<.0001f && fabs(angle-cannon->GetDirection())<.0001f;
+        fixture.world->GetTime()->Set(start+played->GetTime()/2);CVec3 hip;frameFinite=actor->animator.GetHipPos(&hip) && std::isfinite(hip.x) && std::isfinite(hip.y) && std::isfinite(hip.z);}
+    auto afterRandom=GlobalGameRandom();std::printf("native cannon dismount clip: mode=%d downed=%d weapon=%s control=%d controlLength=%u played=%d count=%d length=%u start=%u actualStart=%u poseStart=%u end=%u placement=%d finiteFrame=%d AP=%d->%d HP=%d->%d ammo=%d->%d\n",mode,int(downed),weapon.c_str(),expected?expected->GetRecordID():0,unsigned(control->GetTime()),played?played->GetRecordID():0,count,played?unsigned(played->GetTime()):0,unsigned(start),unsigned(actualStart),unsigned(poseStart),unsigned(actor->animator.GetTimeEnd()),int(placement),int(frameFinite),ap,actor->GetAP(),hp,rpg->GetTotalVP(),ammo,cannon->GetItem()->GetAmmoQuantity());std::fflush(stdout);
+    Require(!rpg->GetCannonItem() && !cannon->IsOccupied() && actor->GetState()!=NWorld::CUnit::ST_MACHINE_GUN && actor->GetAP()==ap && rpg->GetTotalVP()==hp && actor->GetPosition()==position && rpg->GetInventory()->GetActive()==personal && (personal?personal->GetAmmoQuantity():0)==personalAmmo && cannon->GetItem()->GetAmmoQuantity()==ammo && random.Get()==afterRandom.Get(),"native dismount clip changed logical exit, unit/item identity, AP/HP/position, ammo or game RNG");
+    if(downed)Require(!played && count==0 && actor->animator.GetTimeEnd()==start && actor->animator.GetCannon()==cannon,"downed cannon exit inserted a live dismount clip or lost its death-animation context");
+    else Require(played && count==1 && played->GetTime()>0 && actualStart==start && poseStart==start+played->GetTime() && actor->animator.GetTimeEnd()>poseStart && placement && frameFinite && !actor->animator.GetCannon(),"native cannon exit omitted or misplaced the authored dismount clip before its standing pose");
+    fixture.world->GetTime()->Set(actor->animator.GetTimeEnd());exit->AnimationFinished();exit=nullptr;Require(!fixture.world->IsAction(),"native dismount clip leaked its finished world action");if(downed)actor->SyncConscious();
+}
+
 static void CannonExitIncapacitated(const char* databasePath,const char* resourcePath,int mode)
 {
     auto fixture=MakeNativeCannonFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* cannon=fixture.cannon.GetPtr();
@@ -26322,6 +26364,10 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "cannon-personal-pose-dead") && argc==4) { CannonPersonalPose(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "cannon-personal-pose-cancel") && argc==4) { CannonPersonalPose(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "cannon-personal-pose-restored") && argc==4) { CannonPersonalPose(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "cannon-dismount-live") && argc==4) { CannonDismountClip(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "cannon-dismount-unconscious") && argc==4) { CannonDismountClip(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "cannon-dismount-dead") && argc==4) { CannonDismountClip(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "cannon-dismount-restored") && argc==4) { CannonDismountClip(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "cannon-exit-alive")) { Require(argc==4, "cannon exit requires db and res"); CannonExitIncapacitated(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "cannon-exit-unconscious")) { Require(argc==4, "cannon exit requires db and res"); CannonExitIncapacitated(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "cannon-exit-dead")) { Require(argc==4, "cannon exit requires db and res"); CannonExitIncapacitated(argv[2],argv[3],2); return true; }

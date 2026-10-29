@@ -2172,6 +2172,18 @@ void CUnitAnimator::EnterCannon( const NAI::SUnitPosition &cmdPos, CCannon *_pCa
 void CUnitAnimator::LeaveCannon( const NAI::SUnitPosition &cmdPos )
 {
 	ReturnCannonToDefault();
+	// Original Steam @0x73ffe0: finish the mounted clip before returning to the personal pose.
+	CPtr<NAnimation::CAnimation> pAnim = pAnimator->CreateAnimation(
+		pSkeleton->GetAnimation( NDb::CAnimation::DEACTIVATE, 0,
+			szWeaponName.c_str(), 0, pSide ), tEnd );
+	if ( pAnim )
+	{
+		CVec3 cannonPos = pCannon->GetPosition();
+		cannonPos.z = 0;
+		pAnim->SetStand( tEnd, cannonPos, pCannon->GetDirection() );
+		pAnimator->AddAnimator( tEnd, PutOnTerrain( pAnim ) );
+		tEnd += pAnim->GetTime();
+	}
 	pCannon = 0;
 	bWalking = true;
 	Stand( cmdPos );

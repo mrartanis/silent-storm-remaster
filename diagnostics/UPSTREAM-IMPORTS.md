@@ -14239,3 +14239,68 @@ imported/19partial/69pending=88 unfinished sources. Whole goal remains active,
 including final actual GitHub Actions repair/check. Evidence: cannon-personal-
 pose RED/GREEN logs/exits, baseline manifests, native verification JSON,
 setup archives, Linux network supplement and Windows ALL_BUILD logs.
+
+### Original cannon dismount clip before standing (51a184b8, independent hunk)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/51a184b846d7db76df461ae50e58d8b19b25339c
+
+Our LeaveCannon immediately clears the cannon and transitions to standing,
+skipping the original authored DEACTIVATE clip. Add only that independent
+animation block: request the mounted weapon name with zero stance/class flags
+and actual side, place the clip at cannon XY/zero local Z/direction through
+our existing terrain helper, schedule it at tEnd and add its actual length
+before clearing the cannon and selecting the personal standing pose. Retain
+our facial/body/terrain engine, earlier59 weapon-cache fix, downed guard,
+deferred entry/AP/legacy-save handling and all other source51 hunks unchanged.
+
+Native reference: named Gold LeaveCannon7352a0/291 uniquely maps its ENTIRE
+instruction body to actual Steam73ffe0 except one SEH address and11 decoded
+direct-call operands. Independently match original selection107, cannon
+position30/direction4, sequence scheduling23 and typed CVec3/float SetStand102
+methods. The latter's single vtable relocation independently identifies the
+same actual CStandAnimator by both binaries' RTTI. Native type28/zero flags,
+weapon-name/side, null-clip branch, zero local Z and add-length-before-stand
+order are verified. Broader factory/terrain/stand/default helper bodies have
+additional globals and are not independently fully audited in this stage;
+reuse the fork's existing implementations. Cached source73fca2..73fd44 is
+wrong for this actual Steam oracle: method73ffe0, selector740027, SetStand
+740080, AddAnimator74009c, length7400a1 and standing call7400d7.
+
+Four new native cases use the actual authored actor/cannon and full real
+holster/entry queue: living exit, unconscious/dead RPG damage controls, and
+full game/world/actor/cannon/exit save/load roundtrip. Actual resources contain
+two legal authored DShK dismount variants4450/4451, both833ms; tests allow both
+and do not depend on the local animation-choice RNG selecting one fixed ID.
+Read real animation graphs/save fields, verify newly bound clip and its start,
+native CStandAnimator cannon placement, finite real hip frame mid-clip and
+following POSE start. No animator fields/DB animation records are fabricated.
+Logical position/AP/HP, selected inventory item, personal/mounted ammunition,
+game RNG and exit cleanup are checked. Existing downed tests retain actual
+clipless ragdoll/owner coverage. No screenshot/full-motion/face-pixel claim.
+
+A test-only IInventoryItem-versus-CWeaponItem compile mistake was fixed and
+both compiler failures archived before runtime tests. Final genuine RED2/4
+on BOTH platforms BEFORE Main: living/restored exits have played0 and start
+standing at2499, despite their real control clips having length833. Both
+downed controls pass. GREEN inserts exactly one legal dismount at2499, native
+cannon placement and finite mid-frame; standing now starts3332 and transition
+ends3632. Downed outputs remain unchanged. Prior six source59 cases also pass:
+only living exit durations gain the original833ms; types/pose/clip selection,
+AP/HP/ammo/RNG and downed behavior stay intact. Legal clip IDs may differ
+across platforms; all normalized semantic observations agree.
+
+Windows62/62 related tests pass70.78s and ALL_BUILD succeeds; Linux Game,
+helpers and actual NetworkSerializerTests build,61/61 pass67.70s. This includes
+all58/57 previous selected cases plus4 new, verified against idle-captured
+baseline manifests and nonempty actual test commands. Exact production diff
+reconstructed: only this12-line block in Main/wAnimation.cpp. Original clip
+timing is restored; numerical AP/combat/item rules and DB/save/wire schema
+remain unchanged. Shared two builds only, no per-bug source/build copies.
+No fresh fullCI/hosted Actions claim; final actual Actions check remains due.
+
+Source51 remains PARTIAL: its other animator/recalc/stop flag changes require
+separate native TDD and own lifecycle adaptation. This stage closes only the
+dismount hunk. Ledger286 remains155 imported/19partial/69pending=88 unfinished
+sources; whole goal stays active. Evidence: cannon-dismount original-symbols/
+types/mapping/key-callee/oracle JSON and small asm, RED4/GREEN62/61 raw logs,
+verification JSON, compile-setup archives, baseline manifests and final build.
