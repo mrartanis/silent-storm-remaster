@@ -947,7 +947,14 @@ void CInfoPanelSlot::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 	}
 	else
 	{
-		pAmmo->SetStyle( STYLE_VISIBLE, false );
+		CDynamicCast<NRPG::IItemContainerInfo> pContainer(pItem);
+		if ( pContainer )
+		{
+			WCHAR wsBuffer[256];
+			swprintf( wsBuffer, sizeof(wsBuffer) / sizeof(wsBuffer[0]), L"<color=FFB4997C><font face=Impact size=36pt outlinesize=2 outlinecolor=FF513E2B><left>%d/%d", pContainer->GetIncQuantity(), pContainer->GetMaxIncQuantity() );
+			pAmmo->SetText( wsBuffer );
+		}
+		pAmmo->SetStyle( STYLE_VISIBLE, pContainer != 0 );
 		pReload->SetStyle( STYLE_VISIBLE, false );
 	}
 

@@ -13462,6 +13462,66 @@ static void ChapterMedalScreenshot(const char* databasePath,const char* resource
     }
 }
 
+static void HandContainerCharges(const char* databasePath,const char* resourcePath,bool right)
+{
+    Require(std::getenv("S2_USER_DATA_DIR"),"hand charges fixture requires isolated user data");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"hand charges started with a live interface");
+    NativeDisplayContext display;display.Initialize(databasePath,resourcePath,"Silent Storm native hand charges regression");
+    NMainLoop::CreateProfile("UpstreamHandCharges");NMainLoop::SetActiveProfile("UpstreamHandCharges");NGame::InitLoadingScreen();
+    CObj<NRPG::CGlobalGame> game=NRPG::CreateGlobalGame(-1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    CObj<NGame::CICBeginMission> enter=new NGame::CICBeginMission(810,-1,vector<string>(),game);enter->Exec();
+    CObj<NGame::CMission> mission=dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(mission && mission->GetWorld() && mission->GetDesktop() && mission->GetInterface(),"hand charges did not open the actual tactical interface");
+    CObj<NMainLoop::CInterfaceCommand> startup=NMainLoop::TakeInterfaceCommandForHarness();Require(dynamic_cast<NMainLoop::CICSaveFile*>(startup.GetPtr()) && !NMainLoop::HaveInterfaceCommand(),"hand charges did not isolate its unrelated startup save");
+    NWorld::IPlayer::CUnitSet party;mission->GetActivePlayer()->GetPlayer()->GetUnits(&party);Require(party.size()==1,"hand charges lacks its actual single party unit");
+    auto* actor=dynamic_cast<NWorld::CUnitServer*>(party.begin()->GetPtr());Require(actor && actor->CanFight(),"hand charges lacks its actual native party server");
+    auto* inventory=actor->GetUnitRPG()->GetInventory();auto* gun=dynamic_cast<NRPG::IWeaponItemInfo*>(inventory->Get(NDb::SLOT_1));
+    Require(gun && gun->GetInnerClip(),"hand charges lacks its loaded native weapon formatting control");
+    mission->GetActivePlayer()->Update(true);mission->Select(actor);Require(mission->CountSelected()==1,"hand charges did not synchronize its real selection");
+    auto find=[](auto&& self,NUI::CWindow* window,const char* id)->NUI::CWindow*{if(window->GetWindowID()==id)return window;list<CPtr<NUI::CWindow>> children;window->GetChildrenList(&children);for(auto child:children)if(auto* result=self(self,child,id))return result;return nullptr;};
+    auto* left=find(find,mission->GetDesktop(),"slot_left");auto* slot=find(find,mission->GetDesktop(),right?"slot_right":"slot_left");
+    Require(left && slot && pSSClasses->GetObjectTypeID(slot)==int(0xB0521155),"hand charges did not locate the real template-built hand slot");
+    auto read=[](NUI::CWindow* window,NUI::CText** text,NUI::CWindow** reload,NUI::CWindow** fade){CStructureNetworkContext refs;auto fields=BorrowedObjectFields(window,&refs);CPtr<NUI::CText> caption;CPtr<NUI::CWindow> button,cover;{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(5,&cover);reader.Add(6,&caption);reader.Add(7,&button);}*text=caption;*reload=button;*fade=cover;Require(*text && *reload && *fade,"hand charges lost its native caption/button/fade children");};
+    STime time=1000;auto draw=[&](){mission->GetInterface()->Draw(time);NGScene::Flip();MarkNewDGFrame();time+=10;};draw();
+    NUI::CText* baseline=nullptr;NUI::CWindow* ignoredReload=nullptr;NUI::CWindow* ignoredFade=nullptr;read(left,&baseline,&ignoredReload,&ignoredFade);
+    const wstring original=baseline->GetText();const auto last=original.rfind(L'>');Require(last!=wstring::npos && baseline->GetStyle(NUI::STYLE_VISIBLE) && ignoredReload->GetStyle(NUI::STYLE_VISIBLE),"hand charges did not paint its actual weapon counter");
+    const wstring prefix=original.substr(0,last+1);Require(prefix.find(L"face=Impact size=36pt")!=wstring::npos,"hand charges lost the fork's existing weapon text style");
+    std::printf("native hand charge baseline: side=%d text=%ls DBprefixSame=%d\n",int(right),original.c_str(),int(NUI::GetDBString(18759)==prefix));std::fflush(stdout);
+    CObj<NRPG::IInventoryItem> weapon=inventory->TakeOff(NDb::SLOT_1),oldRight;
+    if(inventory->Get(NDb::SLOT_2))oldRight=inventory->TakeOff(NDb::SLOT_2);
+    const auto target=right?NDb::SLOT_2:NDb::SLOT_1,other=right?NDb::SLOT_1:NDb::SLOT_2;
+    NUI::CText* caption=nullptr;NUI::CWindow* reload=nullptr;NUI::CWindow* fade=nullptr;read(slot,&caption,&reload,&fade);
+    int checks=0,failures=0;CObj<NRPG::IInventoryItem> previous;
+    auto put=[&](NRPG::IInventoryItem* item){if(inventory->Get(target))previous=inventory->TakeOff(target);if(item)Require(inventory->Equip(target,item) && inventory->Activate(target),"hand charges cannot equip/activate its actual item");};
+    auto observe=[&](const char* stage,int quantity,int maximum,bool counter,bool reloadButton,bool inactive=false){
+        auto* item=inventory->Get(target);auto* container=dynamic_cast<NRPG::IItemContainerInfo*>(item);const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),dose=container?container->GetIncQuantity():-1;
+        const int active=inventory->GetActiveSlot();draw();NUI::SPoint extent;caption->GetRealSize(&extent);
+        const wstring expected=prefix+std::to_wstring(quantity)+L"/"+std::to_wstring(maximum);const bool textOK=!counter || caption->GetText()==expected;
+        const bool good=slot->GetStyle(NUI::STYLE_VISIBLE) && caption->GetStyle(NUI::STYLE_VISIBLE)==counter && reload->GetStyle(NUI::STYLE_VISIBLE)==reloadButton && textOK && fade->GetStyle(NUI::STYLE_VISIBLE)==inactive;
+        std::printf("native hand charges: side=%d stage=%s visible=%d reload=%d expectedVisible=%d expectedReload=%d quantity=%d maximum=%d textOK=%d fade=%d inactive=%d slotVisible=%d width=%d height=%d AP=%d dose=%d good=%d\n",int(right),stage,int(caption->GetStyle(NUI::STYLE_VISIBLE)),int(reload->GetStyle(NUI::STYLE_VISIBLE)),int(counter),int(reloadButton),quantity,maximum,int(textOK),int(fade->GetStyle(NUI::STYLE_VISIBLE)),int(inactive),int(slot->GetStyle(NUI::STYLE_VISIBLE)),extent.x,extent.y,ap,dose,int(good));
+        std::printf("native hand charge text: side=%d stage=%s text=%ls\n",int(right),stage,caption->GetText().c_str());std::fflush(stdout);
+        Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && inventory->Get(target)==item && inventory->GetActiveSlot()==active && (!container || container->GetIncQuantity()==dose),"drawing hand charges spent AP/health/charges or changed inventory/active hand");
+        if(counter && good)Require(extent.x>0 && extent.y>0,"visible hand charges produced empty native text layout");++checks;if(!good)++failures;
+    };
+    auto* ordinary=NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(1);auto* repair=NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(26);Require(ordinary && repair && ordinary->nQuantity>1 && repair->nQuantity>1,"hand charges lost its authored medical/repair records");
+    CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(ordinary);put(kit);observe("medical-full",ordinary->nQuantity,ordinary->nQuantity,true,false);
+    kit->SpendPotion();observe("medical-spent",ordinary->nQuantity-1,ordinary->nQuantity,true,false);
+    while(!kit->IsEmpty())kit->SpendPotion();observe("medical-empty",0,ordinary->nQuantity,true,false);
+    CObj<NRPG::CFirstAidItem> repairKit=new NRPG::CFirstAidItem(repair);put(repairKit);observe("repair",repair->nQuantity,repair->nQuantity,true,false);
+    NDb::CRPGTool* toolRecord=nullptr;CDBIterator<NDb::CRPGTool> tools(*NDatabase::GetTable<NDb::CRPGTool>());while(tools.MoveNext()){auto* record=tools.Get();if(record->pItem && record->nCharges>1 && (!toolRecord || record->GetRecordID()<toolRecord->GetRecordID()))toolRecord=record;}Require(toolRecord,"hand charges lacks a real multi-charge tool");
+    CObj<NRPG::CToolItem> tool=new NRPG::CToolItem(toolRecord);put(tool);observe("tool-full",toolRecord->nCharges,toolRecord->nCharges,true,false);tool->SpendOneCharge();observe("tool-spent",toolRecord->nCharges-1,toolRecord->nCharges,true,false);
+    NDb::CRPGPicklock* pickRecord=nullptr;CDBIterator<NDb::CRPGPicklock> picks(*NDatabase::GetTable<NDb::CRPGPicklock>());while(picks.MoveNext()){auto* record=picks.Get();if(record->pItem && record->nQuantity>1 && (!pickRecord || record->GetRecordID()<pickRecord->GetRecordID()))pickRecord=record;}Require(pickRecord,"hand charges lacks a real multi-charge picklock");
+    CObj<NRPG::CPicklockItem> pick=new NRPG::CPicklockItem(pickRecord);put(pick);observe("picklock-full",pickRecord->nQuantity,pickRecord->nQuantity,true,false);pick->SpendCharge();observe("picklock-spent",pickRecord->nQuantity-1,pickRecord->nQuantity,true,false);
+    NDb::CRPGGrenade* grenadeRecord=nullptr;CDBIterator<NDb::CRPGGrenade> grenades(*NDatabase::GetTable<NDb::CRPGGrenade>());while(grenades.MoveNext()){auto* record=grenades.Get();if(record->pItem && (!grenadeRecord || record->GetRecordID()<grenadeRecord->GetRecordID()))grenadeRecord=record;}Require(grenadeRecord,"hand charges lacks a real ordinary grenade control");
+    CObj<NRPG::CGrenadeItem> grenade=new NRPG::CGrenadeItem(grenadeRecord);Require(!dynamic_cast<NRPG::IItemContainerInfo*>(grenade.GetPtr()),"ordinary grenade unexpectedly exposes a charge container");put(grenade);observe("grenade",0,0,false,false);
+    put(nullptr);observe("empty-hand",0,0,false,false);
+    CObj<NRPG::CFirstAidItem> again=new NRPG::CFirstAidItem(ordinary),otherKit=new NRPG::CFirstAidItem(ordinary);put(again);Require(inventory->Equip(other,otherKit) && inventory->Activate(other),"hand charges cannot prepare its actual inactive-hand control");observe("medical-inactive",ordinary->nQuantity,ordinary->nQuantity,true,false,true);
+    CObj<NRPG::IInventoryItem> removedOther=inventory->TakeOff(other);put(weapon);observe("weapon",gun->GetInnerClip()->GetIncQuantity(),gun->GetInnerClip()->GetMaxIncQuantity(),true,true);
+    put(nullptr);observe("removed",0,0,false,false);
+    std::printf("native hand charges summary: side=%d checks=%d failures=%d tool=%d picklock=%d grenade=%d\n",int(right),checks,failures,toolRecord->GetRecordID(),pickRecord->GetRecordID(),grenadeRecord->GetRecordID());std::fflush(stdout);
+    Require(checks==13 && failures==0,"actual tactical hand slot hides charge counters for authored medical/tool containers");
+}
+
 static void MedalPanelCaption(const char* databasePath,const char* resourcePath,bool camera = false)
 {
     Require(std::getenv("S2_USER_DATA_DIR") != nullptr,"medal panel fixture requires isolated user data");
@@ -25613,6 +25673,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "chapter-clue-heading") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "medal-cursor-visible") && argc == 4) { MedalCursorVisible(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-medal-screenshot") && argc == 4) { ChapterMedalScreenshot(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "hand-charges-left") && argc==4) { HandContainerCharges(argv[2],argv[3],false); return true; }
+    if (!std::strcmp(mode, "hand-charges-right") && argc==4) { HandContainerCharges(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "medal-panel-caption") && argc == 4) { MedalPanelCaption(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "medal-preview-camera") && argc == 4) { MedalPanelCaption(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "window-nested-wakeup")) { WindowNestedWakeup(); return true; }

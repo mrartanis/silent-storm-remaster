@@ -13351,3 +13351,66 @@ Sourcebbeb remains PARTIAL only for its independent hand-slot charge/UI hunk.
 Ledger:150 imported/20partial/68pending =88 unfinished source commits.
 The whole goal remains active; final hosted Actions verification/fix after
 all applicable imports is still outstanding.
+
+### Hand-slot medical/tool charge counters (bbeb35c8, independent UI stage)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/bbeb35c8fe27e923b52decd93c1850dcb80f8ba0
+
+CInfoPanelSlot hides the counter for every nonweapon item, including medical
+and repair kits, tools and picklocks that already expose a native charge
+container. Show current/max from IItemContainerInfo for those items. Keep the
+reload button hidden; ordinary grenades and empty hands still hide both.
+Only the nonweapon branch changes. Native expenditure and removal remain
+owned by existing inventory/gameplay code; Draw does not consume anything.
+
+Original proof: named Gold CInfoPanelSlot.Draw64fb90/844 maps to Steam655b60.
+Entry40 matches uniquely with only the SEH-handler and named derived-unit
+member operands masked; the known weapon branch22-byte anchor maps64fc6e ->
+655c3e. Actual container branch is64fdae ->655d7e,225 bytes. Entire225 matches
+uniquely except11 named direct-call operands, two verified RTTI descriptors,
+the verified wide format pointer and five individually checked derived fields
+(base class grows32 bytes between versions). RTTI names are CObjectBase ->
+NRPG.IItemContainerInfo; vslot4 fetches maximum, vslot0 current. The true path
+formats current/max, shows the counter and hides reload; false hides both.
+Source's cached655c3e is inside the correct Draw, not the container entry.
+
+Own-font adaptation: the original branch uses DB prefix18759; the actual
+loaded DB prefix is not byte-identical to our existing weapon markup. Retain
+our existing Impact36/color/outline/left markup exactly for new counters.
+Weapon text code is byte-for-byte unchanged. No font asset, point size,
+renderer/HD pipeline or text-sizing change is imported.
+
+Two new native-display tests open the actual tactical mission and template-
+built left/right slots with the real renderer and CText layout. Both execute
+13 states: medical5/5 ->4/5 ->0/5, repair10/10, tool3/3 ->2/3, picklock5/5 ->
+4/5, grenade, empty, inactive medical hand, loaded weapon64/64 and removal.
+Use actual authored records1/26/tool1/picklock1/grenade1 and native spend
+methods; no fake inventory/world or production test seam. The initial weapon
+frame supplies the expected existing markup. Native CText state is read via
+existing borrowed-reference field serialization; full real UI Draw runs for
+every frame. Assert unchanged AP/health/charges/item/active-hand ownership.
+
+RED2/2 on Windows/Linux BEFORE production:9 charge states fail per hand;
+four weapon/grenade/empty/removal controls already match on each side.
+The left caption retains hidden stale weapon text; right initially has no
+text. Setup compilation needed std::to_wstring instead of an unavailable
+NStr declaration, and picklock's native SpendCharge instead of the tool-only
+SpendOneCharge; corrected before the valid runtime RED.
+
+GREEN4/4 Windows6.13s/Linux4.74s includes both new hand tests plus
+native medal caption/model-camera controls. All26 hand observations match;
+the9 charge states per side now show exact current/max, including inactive
+and zero charges. Reload stays hidden for containers. The loaded-weapon row
+is IDENTICAL before/after, including its90x38 layout; all new charge captions
+have the same actual38-pixel text height and unchanged markup. Width follows
+the digits (51 for5/5,80 for10/10). Both platforms produce identical records.
+Windows ALL_BUILD/Linux Game pass. Exact raw sets, TDD timing, count/style/
+layout/purity data, original branch and sole Main/iUnitPanel.cpp diff verified.
+No screenshot/pixel-comparison claim; this verifies actual UI Draw and native
+caption/layout state. No numeric balance/save/HD/fullCI/hosted Actions change.
+
+bbeb stays PARTIAL for the independent null-inner-clip weapon guard. That
+case still needs a genuine reproduction and its own TDD/commit. Do not claim
+the entire UI hunk finished. Ledger150 imported/20partial/68pending=88 unfinished
+source commits. Whole goal remains active, final hosted Actions after all
+applicable imports still outstanding. Shared builds/no per-bug source copies.
