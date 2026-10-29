@@ -271,18 +271,23 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdHeal *pCmd
 	return UCR_OK;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdTalk *pCmd, vector<NAI::SPathPlace> *pRes )
+static EUnitCommandResult GetTalkValidPlaces( CUnitServer *pUS, CCmdTalk *pCmd, vector<NAI::SPathPlace> *pRes, float fPlaneDist )
 {
 	CDynamicCast<CUnitServer> pTarget( pCmd->pTarget );
 	if ( !IsValid( pTarget ) || pUS == pTarget.GetPtr() )
 		return UCR_NO_TARGET;
 	// Original dialogue approaches require a standing actor.
 	vector<NAI::SPathPlace> places;
-	GetHumanReachPlaces( pUS, pTarget->GetPosition().GetEyePosition(), &places );
+	GetHumanReachPlaces( pUS, pTarget->GetPosition().GetEyePosition(), &places, fPlaneDist );
 	for ( int k = 0; k < places.size(); ++k )
 		if ( places[k].GetPose() == NAI::CM_STAND )
 			pRes->push_back( places[k] );
 	return UCR_OK;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdTalk *pCmd, vector<NAI::SPathPlace> *pRes )
+{
+	return GetTalkValidPlaces( pUS, pCmd, pRes, 0.8f );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdSetGrenadeOnObject *pCmd, vector<NAI::SPathPlace> *pRes )
@@ -447,6 +452,20 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdMoveInvent
 	return GetMoveIItemValidPlaces( pUS, pCmd, pRes, pHint ? 1.3f : 0.625f );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+template<class TCommand>
+static EUnitCommandResult GetValidPlacesInDoubleRadius( CUnitServer *, TCommand *, vector<NAI::SPathPlace> * )
+{
+	return UCR_OK;
+}
+static EUnitCommandResult GetValidPlacesInDoubleRadius( CUnitServer *pUS, CCmdTalk *pCmd, vector<NAI::SPathPlace> *pRes )
+{
+	return GetTalkValidPlaces( pUS, pCmd, pRes, 1.6f );
+}
+static EUnitCommandResult GetValidPlacesInDoubleRadius( CUnitServer *pUS, CCmdMoveInventoryItem *pCmd, vector<NAI::SPathPlace> *pRes )
+{
+	return GetMoveIItemValidPlaces( pUS, pCmd, pRes, 1.6f );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // Execute creators
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class TExec>
@@ -486,8 +505,35 @@ static CCommandExecute* CreateActionExecMove( CUnitServer *pUS, const vector<NAI
 	return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+template<class TExecAction>
+static CCommandExecute* CreateActionMoveTo( CUnitServer *pUS, TExecAction *pAction, ENeedActiveItem eActive, EUnitCommandResult *pError, vector<NAI::SPathPlace> &dst )
+{
+	if ( *pError == UCR_NO_TARGET )
+		dst.push_back( pUS->GetPosition().pos.p );
+	else if ( dst.empty() )
+		return 0;
+
+	NAI::SUnitPosition from = pUS->GetPosition();
+	EUnitCommandResult eResult = UCR_GENERAL_FAILURE;
+	vector<NAI::SPathPlace> spots;
+	for ( unsigned int k = 0; k < dst.size(); ++k )
+	{
+		from.pos.p = dst[k];
+		eResult = pAction->CanDoIt( from );
+		if ( ( eResult == UCR_OK ) || ( eResult == UCR_NO_TARGET ) )
+			spots.push_back( dst[k] );
+	}
+	if ( spots.empty() )
+	{
+		*pError = eResult;
+		return 0;
+	}
+
+	return CreateActionExecMove( pUS, spots, eActive, pError );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class TCommand, class TExecAction>
-static CCommandExecute* CreateActionQueue( CUnitServer *pUS, TCommand *pCmd, TExecAction *pAction, ENeedActiveItem eActive, EUnitCommandResult *pError )
+static CCommandExecute* CreateActionQueue( CUnitServer *pUS, TCommand *pCmd, TExecAction *pAction, ENeedActiveItem eActive, EUnitCommandResult *pError, bool bTryDoubleRadius = false )
 {
 	CObj<CCommandExecute> pHold( pAction );
 	CPtr<CCmd> pCmdHolder( pCmd );
@@ -512,28 +558,13 @@ static CCommandExecute* CreateActionQueue( CUnitServer *pUS, TCommand *pCmd, TEx
 		return pRes;
 	}
 
-	if ( *pError == UCR_NO_TARGET )
-		dst.push_back( pUS->GetPosition().pos.p );
-	else if ( dst.empty() )
-		return 0;
-
-	NAI::SUnitPosition from = pUS->GetPosition();
-	EUnitCommandResult eResult = UCR_GENERAL_FAILURE;
-	vector<NAI::SPathPlace> spots;
-	for ( unsigned int k = 0; k < dst.size(); ++k )
+	CCommandExecute *pMove = CreateActionMoveTo( pUS, pAction, eActive, pError, dst );
+	if ( !pMove && bTryDoubleRadius )
 	{
-		from.pos.p = dst[k];
-		eResult = pAction->CanDoIt( from );
-		if ( ( eResult == UCR_OK ) || ( eResult == UCR_NO_TARGET ) )
-			spots.push_back( dst[k] );
+		vector<NAI::SPathPlace>().swap( dst );
+		*pError = GetValidPlacesInDoubleRadius( pUS, pCmd, &dst );
+		pMove = CreateActionMoveTo( pUS, pAction, eActive, pError, dst );
 	}
-	if ( spots.empty() )
-	{
-		*pError = eResult;
-		return 0;
-	}
-
-	CCommandExecute *pMove = CreateActionExecMove( pUS, spots, eActive, pError );
 	if ( !pMove )
 		return 0;
 
@@ -860,7 +891,7 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 													if (pMoveItem)
 													{
 														if (pMoveItem->GetSource().eType == SItem::GROUND)
-															return CreateActionQueue(pUS, pMoveItem.GetPtr(), new CExecMoveInventoryItem(pUS, pMoveItem), ITEM_NO_MATTER, pError);
+															return CreateActionQueue(pUS, pMoveItem.GetPtr(), new CExecMoveInventoryItem(pUS, pMoveItem), ITEM_NO_MATTER, pError, true);
 														else if ((pMoveItem->GetSource().eType == SItem::STORAGE) || (pMoveItem->GetTarget().eType == SItem::STORAGE))
 															return CreateSimpleAction(pUS, new CExecMoveInventoryItem(pUS, pMoveItem), pError);
 														else if (IsValid(pMoveItem->GetSource().pUnit) && IsValid(pMoveItem->GetTarget().pUnit) &&
@@ -868,7 +899,7 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 														{
 															CDynamicCast<CUnitServer> pUSSource(pMoveItem->GetSource().pUnit);
 															return CreateActionQueue(pUSSource, pMoveItem.GetPtr(), new CExecMoveInventoryItem(pUSSource, pMoveItem),
-																ITEM_NO_MATTER, pError);
+																ITEM_NO_MATTER, pError, true);
 														}
 
 														return CreateSimpleAction(pUS, new CExecMoveInventoryItem(pUS, pMoveItem), pError);
@@ -907,7 +938,7 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 																			if (pTalk)
 																			{
 																				CDynamicCast<CUnitServer> pTarget(pTalk->pTarget);
-																				return CreateActionQueue(pUS, pTalk.GetPtr(), new CExecTalk(pUS, pTarget), ITEM_NO_MATTER, pError);
+																				return CreateActionQueue(pUS, pTalk.GetPtr(), new CExecTalk(pUS, pTarget), ITEM_NO_MATTER, pError, true);
 																			}
 																		}
 																	}

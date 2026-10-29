@@ -15047,3 +15047,92 @@ talk and initial item-type/other-unit radii are now accounted. Ledger286 stays
 160 imported/19 partial/64 pending =83 unfinished sources. Whole objective and
 final actual hosted GitHub Actions repair/check remain active. These exact
 original constants are a reconstruction correction, not a new balance policy.
+
+### Retry failed movement preparation at the original wider reach (70cf40f3, complete)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70cf40f33e68f95da25e8db4865dc86aefb05070
+
+Initial pickup/talk destinations can be absent or unusable by the actor's
+native footprint although a wider valid approach exists. Factor the existing
+movement-preparation block verbatim, keeping its validation/filter/error and
+move factory. Only after it returns no mover, and only for explicit ground
+pickup, other-unit transfer and talk callers, discard old candidates and
+recompute at original1.6. Other-unit+0.1 remains in its existing helper.
+Use the same movement preparation again. Preserve the prior direct-ready
+branch, which bypasses this retry entirely, and default all other commands
+to opt-out. Parameterize the existing standing-talk helper with an unchanged
+0.8 initial wrapper; both passes retain standing-only candidates. Initial
+ordinary0.625/hint1.3 and close-ground1.25 full-place rules remain intact.
+No class layout, virtual slots, save/wire fields, AP formula, DB or own
+body/facial/font/bgfx/LAN/HD implementation changes. The historical name
+DoubleRadius denotes an absolute1.6, not multiplication of every first radius.
+
+Original: typed Gold pickup queue7903b0/871 and talk790a40/820 plus movement
+helpers78c3c0/692 and78cc00/692. Entire97-byte inventory retry block7904ee maps
+uniquely to actual Steam79c12e with only four decoded E8 operands masked:
+movement helper798000, named delete[]7d63c0, proven pickup helper794b80, then
+the same movement helper. Exact opt-in/null branches skip retry when disabled
+or successful; all three old vector fields are cleared before querying1.6.
+Talk uses different generated registers/reset order, so verify its actual
+79c787/79c7cd/79c7e1 calls and explicit branch/clear/literal/error-store flow
+instead of pretending98-byte identity. Actual talk helper7945b0 was already
+independently proven. Direct-ready jumps on BOTH templates bypass the whole
+retry region. No entire820/871/692 body or ABI-identity claim is made.
+
+Baseline before test/Main changes: Windows65/65(68.04s), Linux63/63(62.08s).
+Eight native cases use actual map810 geometry, authored doors closed/locked
+through public APIs, registered world ammunition and genuine inventories.
+Talk/transfer actors are real heroes wearing an authored PK through native
+WearAsPK/FlipPanzerklein ownership, not fake body/path providers. A test-only
+candidate enumeration selects scene preconditions from actual native geometry
+and the already-proven reach rules; actual NWorld::FindPath independently
+demonstrates that the first destinations fail and the wider destinations work.
+It supplies no path/results to the production planner. Ground scene has0
+initial/24 wider candidates; PK talk5/15 and transfer15/54 have blocked initial
+paths but actual wider paths. The real public CreateActionExecutor then fails.
+
+Final compiled RED3/8 BOTH on exact committed parent before the final Main
+application: ground, PK talk and PK transfer fail; three real RPG-motionless
+rejections, no-wide-position and already-ready pickup controls pass. All8 rows
+preserve measured state. GREEN8/8 BOTH gives each successful case an actual
+mover/path and exactly one correctly typed queued action, observed through the
+existing native serializer graph. The actual selected destination is standing,
+within1.6 (transfer1.7), and revalidated by the real owner-aware pathfinder.
+Ground reach0.988212 and both PK reaches1.25 are measured. Motionless cases
+remain rejected; their error becomes the real movement denial2 instead of the
+old empty0/path6 result. The last two control rows are identical. Planning
+preserves both actors' AP/HP/positions, active slot/item and held64 rounds,
+backpack counts, source32-round item, PK ownership/classification, wishes,
+mobility, world time/hints and next RNG word. No arbitrary route-cost or full
+RNG-state claim. These tests do not walk the full route, execute dialogue,
+simulate support physics or round-trip a complete save. A controlled registered
+item point is used without advancing physics; no authored shelf claim.
+
+Setup evidence is separate: integer-only scene search found no usable case;
+half-grid ground positions establish the genuine geometry failure. Ordinary
+human talk search had no suitable footprint case; actual hero/PK does. The
+test initially called a derived validator through a base lacking that member;
+compile errors are not bug RED. IsEmptyPK is this fork's persistent shell-kind
+tag, not occupancy; correct that fixture assumption using native source. The
+first fixed planner succeeded but a free-space PK query saw the new mover's
+OWN route reservations as obstacles. Replace it with actual owner-aware
+FindPath destination revalidation, not weakened success assertions. Restore
+only our Main edit to exact parent, repeat final fresh RED3/8 BOTH, then
+reapply the same minimal change and obtain final GREEN. All setup logs kept.
+
+Final Windows ALL_BUILD and Linux Game/helpers/actual NetworkSerializer build.
+Related73/73 Windows and71/71 Linux exactly match saved65/63 plus8. All16 own
+animation-reseat/ladder/turn/cannon/legacy-walk controls pass on BOTH; fresh
+Windows serializer/match/partial/stop4/4 and localCI299/299 pass. Exact raw
+manifests/results/zero exits verified. New8 asset-backed cases remain outside
+CI299. Two shared builds reused, no per-bug build/source copies or HD/PNG work.
+Evidence: approach-retry-verification.json, original oracle and native
+baseline/RED/GREEN/final logs in the external lab. General verifier/finisher
+are tied to precommit a4bae577; do not rerun after this commit. Read-only
+original verifier and pure transform remain usable for their stated scope.
+
+All hunks of the source's sole file are now accounted across close pickup
+6e0b1ab0, standing talk96865e80, initial radiia4bae577 and this final retry.
+Mark source70 IMPORTED. Ledger286:161 imported/18 partial/64 pending =82
+unfinished sources. Whole goal and final actual hosted Actions repair/check
+remain active. These original search rules introduce no new balance policy.
