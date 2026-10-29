@@ -14914,3 +14914,66 @@ independent work. Ledger286:160 imported/19 partial/64 pending =83 unfinished
 sources, not83 future commits. General nearby-pickup verifier is tied to
 precommit parent dbf7dfcd and must not be rerun after this commit; the read-only
 original verifier remains reusable.
+
+### Require a standing actor when planning a conversation (70cf40f3, partial)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70cf40f33e68f95da25e8db4865dc86aefb05070
+
+The talk planner accepted crouched/prone candidates. The direct action
+validator checks CanTalk and IsHero, not pose; combined with direct-ready
+execution this allowed an RPG-motionless crouched/prone actor to talk without
+being able to stand. A mobile actor also skipped standing preparation.
+Filter the existing reach candidates to named CM_STAND, retaining each full
+place. Keep the actual target eye point, default0.8 radius, target/self guards,
+validator, result values, prices and own queue/movement/animation engines.
+This changes gameplay approach planning, not the facial-animation renderer.
+
+Original verification: typed Gold GetTalkValidPlaces7889d0/319; its14-byte
+upper-word pose mask/compare is an exact unique match at Steam794680 inside
+the actual7945b0 helper. Decode both conditional skip/append/advance loops,
+prove named original ECheckMove CM_STAND2 and actual RTTI descriptor names,
+the Steam0.8 wrapper call and the already-audited human-reach callee793ef0.
+Gold inlines the append while Steam calls7706d0, and register allocation
+differs. Therefore no entire319-byte identity, SEH, eye224-body or append-body
+claim is made; the initial37-byte identity attempt correctly failed and was
+replaced by the semantic proof. No production change was made during that
+read-only audit. Original code is corroborated by native current runtime TDD.
+
+Before test/production changes, related Windows66/66(72.97s) and Linux64/64
+(66.45s) pass. Ten new real-world cases call public CreateActionExecutor:
+actual hero/nonhero, scripted CanTalk flag, native passable/unlocked actor and
+target positions, tactical turn, crouched/prone actor and RPG motionless
+counter. No fake action/path provider, DB edits or private-field injection.
+Final compiled RED4/10 BOTH before Main: mobile crouched/prone wrongly skips
+the mover, and immobile crouched/prone wrongly accepts direct execution.
+Six controls pass: standing/mobile, standing/motionless, disabled target,
+nonhero, real turning, and a crouched target with standing actor.
+GREEN10/10 BOTH(11.21s Windows/10.96s Linux) changes exactly the four intended
+rows; all six controls remain identical. The new mover's actual desired
+position is standing and inside unchanged0.8 eye reach. Planning preserves
+both actors' AP/HP/positions, inventory/ammunition, wishes, mobility, world
+time and next RNG word. This verifies planning and real native destinations,
+not executed dialogue/Lua callbacks or natural animation timing.
+
+Fixture setup: an extra prone-target control had no established unlocked
+nearby footprint, even after expanding its foot-position search. Archive both
+setup attempts; replace that unestablished control with a valid crouched
+target. Native prone-ACTOR cases remain, and final fresh RED4/10 on the exact
+committed Main precedes the minimal filter. Those setup failures are not
+counted as bug RED and do not establish a prone-target gameplay bug.
+
+Final Windows ALL_BUILD and Linux Game/helpers/actual NetworkSerializer build.
+Related76/76 Windows and74/74 Linux are exactly the saved66/64 plus10. All16
+own animation-reseat/legacy-walk/ladder/turn/cannon controls pass on BOTH;
+fresh Windows serializer/match/partial/stop4/4 and localCI299/299 pass. Exact
+manifests, raw results and zero exits verified. Ten new asset-backed cases
+remain outside CI299. Two shared builds reused; no per-bug build/source copies
+or HD generation. Own body/facial/font/bgfx/LAN/save implementation retained.
+
+Source70 remains PARTIAL: close pickup and standing talk are now imported;
+ordinary/hint/other-unit fallback radii and wider retries after movement-
+preparation failure remain. Ledger286 stays160 imported/19 partial/64 pending,
+83 unfinished sources. Whole goal and final actual hosted Actions remain.
+Evidence: standing-talk-verification.json, native baseline/RED/GREEN/final
+raw logs and standing-talk-retail-oracle.json in the external lab. General
+verifier is tied to precommit parent6e0b1ab0; do not rerun after this commit.

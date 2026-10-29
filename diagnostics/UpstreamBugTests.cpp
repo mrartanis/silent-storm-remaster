@@ -20456,6 +20456,53 @@ static void EmptyClipAttackEntry(const char* databasePath,const char* resourcePa
 
 
 
+
+static void StandingTalk(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer *hero=nullptr,*npc=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK() && unit->GetUnitRPG()->CanMove() && !unit->HasCommand() && !unit->IsPerformingAction()) {
+        if(!unit->IsAIUnit() && unit->GetUnitRPG()->GetRPGUnit()->IsHero())hero=unit;
+        else if(!unit->GetUnitRPG()->GetRPGUnit()->IsHero() && !npc)npc=unit;
+    }
+    Require(hero && npc,"standing talk lacks an actual hero and nonhero human target");
+    auto* owner=dynamic_cast<NWorld::CPlayer*>(hero->GetPlayer());Require(owner,"standing talk has no human owner");world->GivePlayerTurn(owner);
+    Require(world->IsTurnBased() && world->GetCurrentPlayer()==owner,"standing talk did not enter its native tactical turn");
+    auto* actor=mode==7?npc:hero;auto* target=mode==7?hero:npc;auto* network=world->GetPathNetwork();
+    vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),2.f),&places);bool placed=false;
+    for(auto place:places) {
+        place.SetPose(mode==9?NAI::CM_CROUCH:NAI::CM_STAND);place.SetMoving(false);
+        if(!network->IsPassable(place) || network->IsLocked(place,true))continue;
+        auto to=target->GetPosition();to.pos.p=place;
+        const auto delta=to.GetCPNoHeight()-actor->GetPosition().GetCPNoHeight();const float distance=fabs(delta);
+        if(distance<.2f || distance>.75f || !NWorld::IsWithinHumanReach(actor->GetPosition().GetCP(),to.GetEyePosition(),.8f))continue;
+        target->SetPosition(to);target->animator.PlaceUnit(to);target->Update();placed=true;break;
+    }
+    Require(placed,"standing talk cannot place its real target in an unlocked native nearby cell");target->SetCanTalk(mode!=6);
+    auto pose=actor->GetPosition();pose.pos.p.SetPose(mode==1 || mode==3?NAI::CM_CROUCH:mode==2 || mode==4?NAI::CM_LAY:NAI::CM_STAND);
+    const auto direction=NRPG::GetShootDirection(network,pose.pos.p,target->GetPosition().GetEyePosition());pose.pos.p.SetDirection(mode==8?NAI::EDirection((int(direction)+4)%8):direction);
+    Require(network->IsNativePassable(pose.pos.p),"standing talk has no native passable actor posture");actor->SetPosition(pose);actor->animator.PlaceUnit(pose);actor->Update();
+    actor->animator.SetActiveItem(true);actor->SetUndrawItem(false);actor->SetWalkWithoutWeapon(false);
+    auto* rpg=actor->GetUnitRPG();const bool motionless=mode==3 || mode==4 || mode==5;
+    struct ReleaseMotionless {NRPG::IUnitMission* unit=nullptr;~ReleaseMotionless(){if(unit)unit->ReleaseMotionless();}} release;
+    if(motionless){rpg->ApplyMotionless();release.unit=rpg;}Require(rpg->CanMove()!=motionless,"standing talk has the wrong real native motionless counter");
+    const auto from=actor->GetPosition(),targetPosition=target->GetPosition();const int ap=actor->GetAP(),hp=rpg->GetTotalVP(),targetAP=target->GetAP(),targetHP=target->GetUnitRPG()->GetTotalVP();
+    auto* inventory=rpg->GetInventory();CPtr<NRPG::IInventoryItem> held=inventory->GetActive();auto* gun=dynamic_cast<NRPG::IWeaponItem*>(held.GetPtr());const int ammo=gun?gun->GetAmmoQuantity():-1;const auto count=inventory->GetItems().size();const auto slot=inventory->GetActiveSlot();const auto time=world->GetTime()->GetValue();auto random=GlobalGameRandom();
+    CObj<NWorld::CExecTalk> action=new NWorld::CExecTalk(actor,target);const auto direct=action->CanDoIt(from);
+    Require(direct==(mode==6?NWorld::UCR_GENERAL_FAILURE:mode==7?NWorld::UCR_NOT_HERO:NWorld::UCR_OK),"standing talk direct validator violates its existing target/hero contract");
+    CObj<NWorld::CCmdTalk> command=new NWorld::CCmdTalk(target);NWorld::EUnitCommandResult result=NWorld::UCR_GENERAL_FAILURE;
+    CObj<NWorld::CCommandExecute> executor=NWorld::CreateActionExecutor(actor,command,&result);auto* queue=dynamic_cast<NWorld::CSimpleExecQueue*>(executor.GetPtr());auto* front=queue?queue->GetFrontExecutor():nullptr;auto* mover=dynamic_cast<NWorld::IExecMove*>(front);
+    CObj<NAI::CPath> path=executor?executor->GetCurrentPath():nullptr;int desiredPose=-1,desiredDirection=-1;bool desiredReach=false;
+    if(mover){NAI::SPathPlace desired;NAI::EFindPathParams parameters;NWorld::ENeedActiveItem active;mover->GetDesiredPlace(&desired,&parameters,&active);desiredPose=desired.GetPose();desiredDirection=desired.GetDirection();auto destination=from;destination.pos.p=desired;desiredReach=NWorld::IsWithinHumanReach(destination.GetCP(),targetPosition.GetEyePosition(),.8f);}
+    const bool expected=mode!=3 && mode!=4 && mode!=6 && mode!=7;const bool preparation=mode==1 || mode==2 || mode==8;
+    auto afterRandom=GlobalGameRandom();const bool unchanged=actor->GetPosition()==from && target->GetPosition()==targetPosition && actor->GetAP()==ap && rpg->GetTotalVP()==hp && target->GetAP()==targetAP && target->GetUnitRPG()->GetTotalVP()==targetHP && inventory->GetActive()==held.GetPtr() && inventory->GetActiveSlot()==slot && inventory->GetItems().size()==count && (!gun || gun->GetAmmoQuantity()==ammo) && actor->animator.IsActiveItem() && !actor->GetUndrawItem() && !actor->IsWalkingWithoutWeapon() && rpg->CanMove()!=motionless && target->CanTalk()==(mode!=6) && !actor->HasCommand() && !target->HasCommand() && world->GetTime()->GetValue()==time && random.Get()==afterRandom.Get();
+    std::printf("native standing talk: mode=%d hero=%d canTalk=%d motionless=%d pose=%d targetPose=%d direction=%d aligned=%d direct=%d result=%d executor=%d move=%d path=%d desiredPose=%d desiredDirection=%d desiredReach=%d expected=%d preparation=%d AP=%d ammo=%d unchanged=%d\n",mode,int(rpg->GetRPGUnit()->IsHero()),int(target->CanTalk()),int(motionless),int(from.pos.p.GetPose()),int(targetPosition.pos.p.GetPose()),int(from.pos.p.GetDirection()),int(from.pos.p.GetDirection()==direction),int(direct),int(result),int(bool(executor)),int(bool(mover)),int(bool(path)),desiredPose,desiredDirection,int(desiredReach),int(expected),int(preparation),ap,ammo,int(unchanged));std::fflush(stdout);
+    Require(unchanged,"standing talk planning changed native actors/inventory/health/AP/mobility/time or next RNG word");
+    Require(bool(executor)==expected && result==(mode==7?NWorld::UCR_NOT_HERO:expected?NWorld::UCR_OK:NWorld::UCR_GENERAL_FAILURE),"talk must require a standing actor and preserve existing hero/target/mobility gates");
+    if(!expected)return;
+    Require(bool(mover)==preparation && (!preparation?(dynamic_cast<NWorld::CExecTalk*>(front) && !path):(path && desiredPose==NAI::CM_STAND && desiredReach)),"talk from crouched/prone pose skipped native standing preparation or changed a direct/turning control");
+}
+
 static void NearbyPickup(const char* databasePath,const char* resourcePath,int mode)
 {
     const bool mobile=mode==7 || mode==8,within=mode!=4 && mode!=5 && mode!=6;
@@ -26899,6 +26946,16 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-cannon-undock-plan-invalid-server") && argc == 4) { AICannonUndockPlan(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "cannon-entry-animation")) { Require(argc == 4, "cannon animation requires db and res"); CannonEntryAnimation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mounted-reload-weapon")) { Require(argc == 4, "mounted reload requires db and res"); MountedReloadWeapon(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "standing-talk-0") && argc==4) { StandingTalk(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "standing-talk-1") && argc==4) { StandingTalk(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "standing-talk-2") && argc==4) { StandingTalk(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "standing-talk-3") && argc==4) { StandingTalk(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "standing-talk-4") && argc==4) { StandingTalk(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "standing-talk-5") && argc==4) { StandingTalk(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "standing-talk-6") && argc==4) { StandingTalk(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "standing-talk-7") && argc==4) { StandingTalk(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "standing-talk-8") && argc==4) { StandingTalk(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "standing-talk-9") && argc==4) { StandingTalk(argv[2],argv[3],9); return true; }
     if (!std::strcmp(mode, "nearby-pickup-0") && argc==4) { NearbyPickup(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "nearby-pickup-1") && argc==4) { NearbyPickup(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "nearby-pickup-2") && argc==4) { NearbyPickup(argv[2],argv[3],2); return true; }

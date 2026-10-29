@@ -276,8 +276,12 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdTalk *pCmd
 	CDynamicCast<CUnitServer> pTarget( pCmd->pTarget );
 	if ( !IsValid( pTarget ) || pUS == pTarget.GetPtr() )
 		return UCR_NO_TARGET;
-	//
-	GetHumanReachPlaces( pUS, pTarget->GetPosition().GetEyePosition(), pRes );
+	// Original dialogue approaches require a standing actor.
+	vector<NAI::SPathPlace> places;
+	GetHumanReachPlaces( pUS, pTarget->GetPosition().GetEyePosition(), &places );
+	for ( int k = 0; k < places.size(); ++k )
+		if ( places[k].GetPose() == NAI::CM_STAND )
+			pRes->push_back( places[k] );
 	return UCR_OK;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
