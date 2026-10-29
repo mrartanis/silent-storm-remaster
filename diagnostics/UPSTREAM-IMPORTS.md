@@ -13841,3 +13841,32 @@ including final actual GitHub Actions repair/check after applicable imports.
 Newer upstream commits discovered after that snapshot are tracked separately.
 Evidence: ai-medical-planned RED9/GREEN243 raw logs, exit files, verification
 JSON, original AI426 oracle and Windows ALL_BUILD log. Shared builds only.
+
+### Upstream refresh 2026-10-29: five commits after the original report
+
+Read-only fetch confirms upstream/develop b709a7dcb54aec463f2ba85e1cc7b697cc46b27f.
+The original281-source report ended at6facee6d. Five further commits, authored
+October25-26, now have individual pending rows in the ledger. All five diffs
+and current matching functions were read; none has been blindly imported:
+
+- ad118e4a: waking map-item floor overlap (own physics adaptation/TDD needed).
+- 8138c77f: held/heavy attachment without uniform (native attachment proof).
+- 5d3fe7df: random encounter spawning, marker consumption and template reset
+  (distance8->32 and probability inversion require original v1.2 proof).
+- 59f00b27: restore personal weapon animation after mounted reload/exit
+  (preserve own animator/dead-actor/save lifecycle).
+- b709a7dc: only active encounters enter missions, excluding new/expired
+  marker windows. Author explicitly identifies an original retail bug fix;
+  inspect changed entry behavior under the user's balance constraint.
+
+Keep our chapter-map coordinate/centered-layout HitTestMap, which only
+offsets coordinates and does not already supply the active-marker guard.
+Random-encounter rule/entry review is recorded in UPSTREAM-BALANCE-CHANGES.md.
+This is source triage, not native failing-test evidence or a balance verdict.
+
+Updated census286:152 imported,18 partially imported,73 pending =91 unfinished
+source commits;32 already present,5 excluded-balance,2 excluded-own-behavior,
+3 documentation and1 historical own import. Whole goal remains active; each
+independent applicable fix still needs native RED/GREEN, own adaptation,
+separate original-SHA commit and immediate push. Final GitHub Actions work
+is still due. No source/build copies or new builds in this read-only audit.
