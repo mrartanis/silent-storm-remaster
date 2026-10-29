@@ -12194,3 +12194,70 @@ state persistence, patient/healer perks and repair capacity. Preserve our
 rewritten face/animation/PK paths. Counts remain149 imported/19partial/70
 pending =89 unfinished sources. Hosted actual-HEAD Actions remains due after
 all useful imports; this local CI run is not a hosted workflow result.
+
+
+## 2026-10-29 — restore complete temporary penalty-drug effect (531f3b7d)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9), independent complete FAE_TEMP_REMOVE_PENALTIES hunk.
+The old effect suspended the healer's criticals and never scheduled the
+original delayed health modifier. Suspend the patient's eligible criticals
+for trunc(authored duration * healer perk64 parameter), default multiplier1,
+and postpone SSkillModifyInfo(1-power*.01,0) on the patient's VP skill for
+that same duration. Restore typed AddPostponedModifier and append its holder
+to the EXISTING saved list36. Existing lists34/36/37, skill modifier ownership,
+countdown and serialization consumers are reused; no new saved fields, kit
+values, artificial timers or balance tuning are introduced.
+
+This includes the original delayed health cost, not just its beneficial
+effect. It modifies the maximum VP skill and clamps current VP normally;
+it does not directly subtract a percentage of the patient's current health.
+Native wounded patient40 keeps current40 when cap80->68; a healthy patient
+80 is clamped to68. The original non-suspendable wound/VP critical remains.
+Both temporary relief and this delayed modifier are original game behavior.
+
+Original Gold effect2 table7bd11c ->7bceb7, SuspendCriticals call7bcee3 and
+AddPostponedModifier call7bcf4a. Typed Gold helper6bcb00/84 returnsvoid with
+CDynamicSkill*,SSkillModifyInfo*,int; Steam corresponding actual mission
+slot180 ->6c2f40. Steam effect2 table7ca49c ->7ca238, calls7ca264/7ca2cb.
+Both helpers write the target, two-float info and integer countdown to a
+new list holder. Actual percent/one constants and the target-RPG dataflow
+are checked. Perk64 lookup Gold7bcd40 ->typed CUnit::HasPerk6b44a0, Steam
+7ca0c1 ->6ba640, default1/conditional parameter and x87 truncation before
+both original duration calls are checked by audit-penalty-treatment-retail.py.
+Original PDB signatures and penalty-treatment-retail-audit.json retain proof.
+
+Native TDD before Main changes: RED7/10 Windows11.17s/Linux11.16s. Actual
+authored kit9/power15/duration2/quantity5, real idle friendly actors and a
+separately native-deployed authored medic class with perk64 acquired through
+its actual tree. Public CExecHeal.Run then explicit AnimationFinished calls
+the real state; no played animation clock/rendering claim. Two wrong-recipient
+failures, two missing duration/deferred-holder failures and three native
+expiry-health failures are demonstrated; missing-kit/hostile/weapon rejection
+controls already pass. Ordinary wound penalty and an unaffected medic are
+independent controls. No database parameters or actor skill constants are
+fabricated to make the test pass.
+
+GREEN42/42 each (previous32 +10 new), Windows44.69s/Linux46.13s. Real action
+AP46->39 (perk physician51->44), charge5->4, immediate health and cap remain
+unchanged, patient marker/action ownership/orders finish. At exactly tick2
+criticals return and the postponed VP modifier becomes one owned active
+modifier; perk64 correctly extends both effects to tick4. Before expiry
+neither health nor critical state changes. Same native behavior survives
+factory-created mission field deserialization using borrowed external graph
+references (not a complete-world save or save-menu claim). No-critical use
+still pays the original delayed health cost. Rejected uses preserve RNG,
+criticals, AP, charges and deferred effects.
+
+Final Windows ALL_BUILD110 related/129.49s, Linux Game108/113.95s and local
+asset-free CI290/24.37s. Five raw logs42/42/110/108/290, exact registered names,
+no Failed/NotRun/NUL and final exits0 checked by verify-penalty-treatment.py.
+The related suite now explicitly includes UpstreamPenaltyTreatment so that
+the six names without older medical keywords are not accidentally omitted.
+Shared builds reused, HD generation OFF, no per-bug build/source copies;
+owned harnesses exit. Source531f remains PARTIAL: float healing return and
+medical practice, original timed critical treatment/AP progress/state save,
+other patient/healer perks, ordinary healing/repair capacity and acknowledgments
+still require original-backed independent imports. Preserve our rewritten
+face/animation/PK behavior. Ledger149 imported/19partial/70pending =89
+unfinished sources. Hosted actual-HEAD Actions remains due after all imports;
+the local CI result does not claim that a hosted workflow has been fixed.

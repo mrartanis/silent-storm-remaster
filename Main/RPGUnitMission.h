@@ -53,6 +53,7 @@ class CCritical;
 struct SCritical;
 struct SDiplomacy;
 struct SFirstAid;
+struct SSkillModifyInfo;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 enum ECriticalState
 {
@@ -152,6 +153,7 @@ public:
 	virtual void HealVP( const SFirstAid &fa ) = 0;
 	virtual void HealCriticals( int nDC, bool bStopBleeding = true ) = 0;
 	virtual void AddBleedingStopper( int nAmount ) = 0;
+	virtual void AddPostponedModifier( CDynamicSkill *pSkill, const SSkillModifyInfo &info, int nTurns ) = 0;
 	virtual bool HasPerk( int nPerkID, 
 		float *pParam1 = 0, float *pParam2 = 0, float *pParam3 = 0 ) const = 0;
 	virtual int GetGrenadeTrapDC( NDb::CRPGGrenade *pGrenade ) = 0;

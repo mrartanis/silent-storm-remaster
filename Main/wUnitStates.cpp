@@ -569,9 +569,17 @@ void CUnitStateHealer::OnStateStarted()
 			fKitCapacity = 0;
 			break;
 		case NDb::FAE_TEMP_REMOVE_PENALTIES:
-			pRPG->SuspendCriticals( pFirstAid->nDuration );
-			//xz;
+		{
+			float fDurationMult = 1.f, fPerk;
+			if ( pRPG->GetRPGUnit()->HasPerk( 64, &fPerk ) )
+				fDurationMult = fPerk;
+			const int nDuration = int( pFirstAid->nDuration * fDurationMult );
+			NRPG::IUnitMission *pPatient = pTarget->GetUnitRPG();
+			pPatient->SuspendCriticals( nDuration );
+			pPatient->AddPostponedModifier( &pPatient->GetRPGUnit()->Skills(NDb::ST_VP),
+				NRPG::SSkillModifyInfo( 1.f - pFirstAid->fPower * .01f, 0 ), nDuration );
 			break;
+		}
 		case NDb::FAE_BOOST_VP:
 		{
 			float fMult = 1.0f, fPerk;

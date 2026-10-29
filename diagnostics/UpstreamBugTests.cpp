@@ -23639,6 +23639,105 @@ static void FreshSkillModifierValues(const char* databasePath)
     std::puts("native fresh-skill GREEN: 15 static skills follow modifiers and restore; saved old unfrozen cell stays expendable");
 }
 
+static void PenaltyTreatment(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor=nullptr;NWorld::CUnitServer* patient=nullptr;
+    auto ordinary=[](NWorld::CUnitServer* unit) {return unit && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK() && !unit->HasCommand() && !unit->IsPerformingAction() && unit->GetState()!=NWorld::CUnit::ST_MACHINE_GUN;};
+    for(auto first:units) {
+        if(!ordinary(first) || int(first->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_MEDICINE))<=0 || !dynamic_cast<NRPG::CWeaponItem*>(first->GetUnitRPG()->GetInventory()->GetActive()))continue;
+        for(auto second:units)if(ordinary(second) && first!=second && first->GetPlayer()==second->GetPlayer()) {actor=first;patient=second;break;}
+        if(actor)break;
+    }
+    Require(actor && patient,"penalty treatment lacks two idle authored friendly actors and a medic");
+    CObj<NWorld::CUnitServer> spawned;
+    if(mode==7) {
+        NDb::CRPGPers* persona=nullptr;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+        while(people.MoveNext()) {
+            auto* candidate=people.Get();if(!IsValid(candidate->pClass) || !IsValid(candidate->pBaseValue) || !IsValid(candidate->pModel) || !IsValid(candidate->pName) || candidate->pClass->skills[NDb::ST_LEVEL]<=0 || IsValid(candidate->pPanzerklein) || IsValid(candidate->pDefaultWearsPanzerklein))continue;
+            CObj<NRPG::CPerksTree> tree=NRPG::CreatePerksTree(candidate->pClass->nPerkTreeID);vector<CPtr<NRPG::CPerk>> entries;tree->GetAllPerks(&entries);
+            for(auto entry:entries)if(entry->GetDBPerk()->GetRecordID()==64) {persona=candidate;break;}
+            if(persona)break;
+        }
+        Require(persona,"penalty duration fixture lacks an actual ordinary class containing perk64");
+        CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(persona);
+        spawned=world->AddUnitInGame(actor->GetPosition().pos.p,mission,actor->GetTBSPlayer());actor=spawned;
+        Require(ordinary(actor),"penalty duration fixture could not deploy its authored medic");
+        auto* unit=mission->GetRPGUnit();Require(!unit->HasPerk(64),"penalty duration control already owns perk64");
+        unit->GetPerksTree()->AddPerkPoints(1);unit->GetPerksTree()->TakePerk(64);
+        float parameter=0;Require(unit->HasPerk(64,&parameter) && parameter>1,"penalty duration fixture could not acquire its authored duration ability");
+    }
+    const bool self=mode==2 || mode==3 || mode>=7;
+    if(self)patient=actor;
+    if(mode==5) {
+        patient=nullptr;
+        for(auto candidate:units)if(ordinary(candidate) && candidate!=actor && candidate->GetDiplomacyState(actor)==NDb::DS_ENEMY) {patient=candidate;break;}
+        Require(patient,"penalty treatment lacks a real hostile rejection target");
+    }
+    if(patient!=actor && mode!=5) {
+        auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),1.5f),&places);bool placed=false;
+        for(auto place:places) {
+            place.SetPose(NAI::CM_STAND);if(!network->IsPassable(place) || network->IsLocked(place,false))continue;
+            auto position=patient->GetPosition();position.pos=NAI::SPosition(place,network);const float distance=fabs(position.GetCP()-actor->GetPosition().GetCP());
+            if(distance<.3f || !NWorld::IsWithinHumanReach(actor->GetPosition().GetCP(),position.GetCP(),.8f))continue;
+            world->GetTime()->Set(world->GetTime()->GetValue()+1);patient->SetPosition(position);patient->animator.AlignTime();patient->animator.PlaceUnit(position);placed=true;break;
+        }
+        Require(placed,"penalty treatment has no native reachable free patient position");
+    }
+    NDb::CRPGFirstAid* record=nullptr;CDBIterator<NDb::CRPGFirstAid> kits(*NDatabase::GetTable<NDb::CRPGFirstAid>());
+    while(kits.MoveNext()) {auto* candidate=kits.Get();if(IsValid(candidate->pItem) && candidate->effect==NDb::FAE_TEMP_REMOVE_PENALTIES && candidate->nQuantity>0 && candidate->nDuration>1 && candidate->fPower>0 && candidate->fPower<100) {record=candidate;break;}}
+    Require(record,"penalty treatment lacks an actual authored timed penalty drug");
+    CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> previous;
+    if(mode!=6) {
+        if(inventory->Get(NDb::SLOT_1))previous=inventory->TakeOff(NDb::SLOT_1);
+        if(mode!=4)Require(inventory->Equip(NDb::SLOT_1,kit) && inventory->Activate(NDb::SLOT_1),"penalty treatment could not equip its actual drug");else inventory->Activate(NDb::SLOT_1);
+        actor->animator.SetActiveItem(mode!=4);actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
+    }
+    MarkNewDGFrame();world->GetAIMap()->Sync();auto* healer=actor->GetUnitRPG();auto* target=patient->GetUnitRPG();
+    if(mode!=1 && mode!=9)healer->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_WEAPONSKILL_REDUCTION,-1,2.f,20));
+    if(patient!=actor)target->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_WEAPONSKILL_REDUCTION,-1,3.f,40));
+    if(mode==0) {auto& vp=target->GetRPGUnit()->Skills(NDb::ST_VP);vp.SetValue(vp.GetTheoreticalMax()/2);target->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_VP));Require(target->HasCritical(NDb::C_VP),"penalty treatment did not install its native wound penalty control");}
+    const bool healerBefore=healer->HasCritical(NDb::C_WEAPONSKILL_REDUCTION),patientBefore=target->HasCritical(NDb::C_WEAPONSKILL_REDUCTION),woundBefore=target->HasCritical(NDb::C_VP);
+    const int ap=actor->GetAP(),quantity=kit->GetIncQuantity(),healerVP=healer->GetTotalVP(),patientVP=target->GetTotalVP(),healerCap=healer->GetRPGUnit()->Skills(NDb::ST_VP).GetMaxValue(),patientCap=target->GetRPGUnit()->Skills(NDb::ST_VP).GetMaxValue();
+    const int patientBandage=target->GetRPGUnit()->nHealedVP;float multiplier=1,parameter=0;if(healer->GetRPGUnit()->HasPerk(64,&parameter))multiplier=parameter;const int duration=int(record->nDuration*multiplier);
+    Require(duration>1 && duration<100,"penalty treatment actual duration is outside its finite test bound");
+    struct Suspended {vector<CObj<NRPG::CCritical>> criticals;int left=0;int operator&(CStructureSaver& f){f.Add(2,&criticals);f.Add(3,&left);return 0;}};
+    struct Postponed {CPtr<NRPG::CDynamicSkill> target;NRPG::SSkillModifyInfo info;int left=0;int operator&(CStructureSaver& f){f.Add(2,&target);f.Add(3,&info);f.Add(4,&left);return 0;}};
+    struct State {list<Suspended> suspended;list<Postponed> postponed;vector<CObj<NRPG::CSkillModifier>> active;int operator&(CStructureSaver& f){f.Add(34,&suspended);f.Add(36,&postponed);f.Add(37,&active);return 0;}};
+    auto state=[](NRPG::IUnitMission* mission) {CStructureNetworkContext refs;auto fields=BorrowedObjectFields(mission,&refs);State result;{CStructureSaver reader(fields,CStructureSaver::READ,&refs);result.operator&(reader);}return result;};
+    Require(state(target).suspended.empty() && state(target).postponed.empty() && state(healer).suspended.empty(),"penalty treatment fixture already has a pending drug");
+    CObj<NWorld::CExecHeal> executor=new NWorld::CExecHeal(actor,patient);auto random=GlobalGameRandom();const auto result=executor->CanDoIt(actor->GetPosition());const int cost=executor->GetStartAP();
+    std::printf("native penalty drug query: mode=%d kit=%d power=%g duration=%d multiplier=%g expectedDuration=%d result=%d AP=%d cost=%d self=%d\n",mode,record->GetRecordID(),record->fPower,record->nDuration,multiplier,duration,int(result),ap,cost,int(self));std::fflush(stdout);
+    if(mode>=4 && mode<=6) {
+        Require(result==(mode==5?NWorld::UCR_GENERAL_FAILURE:NWorld::UCR_UNAVAILABLE) && actor->GetAP()==ap && kit->GetIncQuantity()==quantity && healer->HasCritical(NDb::C_WEAPONSKILL_REDUCTION)==healerBefore && target->HasCritical(NDb::C_WEAPONSKILL_REDUCTION)==patientBefore && state(target).postponed.empty() && random.Get()==GlobalGameRandom().Get(),"rejected penalty drug changed criticals, AP, charges, deferred effects or RNG");return;
+    }
+    Require(result==NWorld::UCR_OK && cost>=0 && ap>=cost,"penalty drug failed its real availability/AP gate");
+    executor->Run();const int afterRun=actor->GetAP();executor->AnimationFinished();
+    const bool healerAfter=healer->HasCritical(NDb::C_WEAPONSKILL_REDUCTION),patientAfter=target->HasCritical(NDb::C_WEAPONSKILL_REDUCTION);auto initial=state(target);
+    std::printf("native penalty drug initial: mode=%d healer=%d->%d patient=%d->%d suspended=%d left=%d postponed=%d AP=%d->%d->%d charges=%d->%d wound=%d\n",mode,int(healerBefore),int(healerAfter),int(patientBefore),int(patientAfter),int(initial.suspended.size()),initial.suspended.empty()?-1:initial.suspended.front().left,int(initial.postponed.size()),ap,afterRun,actor->GetAP(),quantity,kit->GetIncQuantity(),int(target->HasCritical(NDb::C_VP)));std::fflush(stdout);
+    Require(actor->GetAP()==afterRun && (world->IsRealTime() || afterRun==ap-cost) && kit->GetIncQuantity()==quantity-1 && healer->GetTotalVP()==healerVP && target->GetTotalVP()==patientVP && healer->GetRPGUnit()->Skills(NDb::ST_VP).GetMaxValue()==healerCap && target->GetRPGUnit()->Skills(NDb::ST_VP).GetMaxValue()==patientCap && target->GetRPGUnit()->nHealedVP==patientBandage && !target->HasCritical(NDb::C_PATIENT) && !actor->IsPerformingAction() && !actor->HasCommand() && !patient->HasCommand(),"penalty drug changed immediate health, cost, charge or native completion ownership");
+    Require(!patientAfter && healerAfter==(self?false:healerBefore) && target->HasCritical(NDb::C_VP)==woundBefore,"penalty drug suspended the healer instead of its patient or erased the wound control");
+    const float expectedMul=1-record->fPower*.01f;
+    if(mode!=3 && mode!=8 && mode!=9)Require(initial.suspended.size()==1 && initial.suspended.front().left==duration && initial.postponed.size()==1 && initial.postponed.front().left==duration && initial.postponed.front().target.GetPtr()==&target->GetRPGUnit()->Skills(NDb::ST_VP) && std::abs(initial.postponed.front().info.fMul-expectedMul)<1e-6f && initial.postponed.front().info.fAdd==0,"penalty drug omitted its original patient duration or postponed health modifier");
+    CObj<NRPG::IUnitMission> restored;auto* measured=target;
+    if(mode==8) {
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(target,&refs);restored=dynamic_cast<NRPG::IUnitMission*>(pSSClasses->CreateObject(pSSClasses->GetObjectTypeID(target)));Require(restored,"penalty drug mission restore factory failed");
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader);}measured=restored;
+    }
+    const int expectedCap=Float2Int(measured->GetRPGUnit()->Skills(NDb::ST_VP).GetTheoreticalMax()*expectedMul),expectedVP=(std::min)(patientVP,expectedCap);
+    for(int tick=1;tick<=duration;++tick) {
+        int bleed=-999;measured->DoRegenerations(world,&bleed);const int cap=measured->GetRPGUnit()->Skills(NDb::ST_VP).GetMaxValue(),vp=measured->GetTotalVP();const bool critical=measured->HasCritical(NDb::C_WEAPONSKILL_REDUCTION);
+        if(tick<duration)Require(!critical && cap==patientCap && vp==patientVP,"penalty drug expired or changed health before its original duration");
+        else {
+            auto final=state(measured);
+            std::printf("native penalty drug expiry: mode=%d tick=%d critical=%d expectedCritical=%d cap=%d expectedCap=%d VP=%d expectedVP=%d postponed=%d active=%d restored=%d\n",mode,tick,int(critical),int(patientBefore),cap,expectedCap,vp,expectedVP,int(final.postponed.size()),int(final.active.size()),int(bool(restored)));std::fflush(stdout);
+            Require(critical==patientBefore && cap==expectedCap && vp==expectedVP && final.postponed.empty() && final.active.size()==initial.active.size()+1,"penalty drug did not apply its original delayed health cost when criticals returned");
+        }
+    }
+    if(!self)Require(healer->GetTotalVP()==healerVP && healer->GetRPGUnit()->Skills(NDb::ST_VP).GetMaxValue()==healerCap && healer->HasCritical(NDb::C_WEAPONSKILL_REDUCTION)==healerBefore,"patient penalty drug changed the independent medic after expiry");
+}
+
 static void BleedingTreatmentRecipient(const char* databasePath,const char* resourcePath,int mode,bool temporary=false)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
@@ -25457,6 +25556,16 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "attacker-level-critical-rolls") && argc==3) { AttackerLevelCriticalRolls(argv[2]); return true; }
     if (!std::strcmp(mode, "head-body-damage") && argc==3) { HeadBodyDamage(argv[2]); return true; }
     if (!std::strcmp(mode, "fresh-skill-modifier-values") && argc==3) { FreshSkillModifierValues(argv[2]); return true; }
+    if (!std::strcmp(mode, "penalty-treatment-recipient") && argc==4) { PenaltyTreatment(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "penalty-treatment-patient-only") && argc==4) { PenaltyTreatment(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "penalty-treatment-self") && argc==4) { PenaltyTreatment(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "penalty-treatment-expiry") && argc==4) { PenaltyTreatment(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "penalty-treatment-missing-kit") && argc==4) { PenaltyTreatment(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "penalty-treatment-hostile") && argc==4) { PenaltyTreatment(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "penalty-treatment-weapon") && argc==4) { PenaltyTreatment(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "penalty-treatment-duration-perk") && argc==4) { PenaltyTreatment(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "penalty-treatment-saved") && argc==4) { PenaltyTreatment(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "penalty-treatment-no-critical") && argc==4) { PenaltyTreatment(argv[2],argv[3],9); return true; }
     if (!std::strcmp(mode, "temporary-bleeding-both") && argc==4) { BleedingTreatmentRecipient(argv[2],argv[3],0,true); return true; }
     if (!std::strcmp(mode, "temporary-bleeding-patient-only") && argc==4) { BleedingTreatmentRecipient(argv[2],argv[3],1,true); return true; }
     if (!std::strcmp(mode, "temporary-bleeding-self") && argc==4) { BleedingTreatmentRecipient(argv[2],argv[3],2,true); return true; }

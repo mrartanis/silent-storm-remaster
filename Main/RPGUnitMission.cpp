@@ -243,6 +243,7 @@ public:
 	virtual void HealVP( const SFirstAid &fa );
 	virtual void HealCriticals( int nDC, bool bStopBleeding = true );
 	virtual void AddBleedingStopper( int nAmount ) { nBleedingStopAmount += nAmount; }
+	virtual void AddPostponedModifier( CDynamicSkill *pSkill, const SSkillModifyInfo &info, int nTurns );
 	virtual int  GetIC() const;
 	virtual bool CheckIC();
 	virtual int CheckInterrupt( const IUnitMission *pEnemy, bool bIsMutual, bool bWasShot );
@@ -1887,6 +1888,15 @@ void CUnitMission::HealCriticals( int nDC, bool bStopBleeding )
 			++i;
 	}
 	ApplyCritical( SCritical( NDb::CL_ANY, NDb::C_VP ) );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CUnitMission::AddPostponedModifier( CDynamicSkill *pSkill, const SSkillModifyInfo &info, int nTurns )
+{
+	SModifierHolder h;
+	h.pTarget = pSkill;
+	h.info = info;
+	h.nTimeLeft = nTurns;
+	postponedModifiers.push_back( h );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitMission::Reload()
