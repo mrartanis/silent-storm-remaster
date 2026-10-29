@@ -12261,3 +12261,67 @@ still require original-backed independent imports. Preserve our rewritten
 face/animation/PK behavior. Ledger149 imported/19partial/70pending =89
 unfinished sources. Hosted actual-HEAD Actions remains due after all imports;
 the local CI result does not claim that a hosted workflow has been fixed.
+
+
+## 2026-10-29 — credit original wound-treatment medal progress (531f3b7d)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9), independent ordinary wound-treatment medal hunk.
+Restore float CUnit::Heal and IUnitMission::HealVP results carrying the actual
+effective integer dressing amount. Preserve the existing unconditional native
+wound refresh in HealVP, then return that amount to CUnitStateHealer::DoHealing.
+For a positive result, send the same amount to the medic's existing
+AddMedalPoints(MPC_HEALED_WOUND) sink. No healing, capacity, AP, inventory,
+medal-score formulas or saved fields change. HealCriticals remains void for
+its separate critical-treatment medal import. This is medal progress, not
+Medicine skill training/XP; the latter belongs to separate source hunks.
+
+Original Gold CUnit::Heal6b4ca0 and mission HealVP6b8970 are typed float by
+the PDB. Gold integer-effective-result fild/return6b4e1c and actual Steam
+unit6bae40/return6bafbc match. Gold mission slot14c ->6b8970 forwards unit;
+Steam slot14c ->6bed20 forwards unit and retains its post-wound-refresh hook.
+Actual original healer DoHealing Gold7bc850 calls patient HealVP at7bca4c,
+keeps the float, checks strictly positive, passes it with event14 to the
+medic's gainer at7bca85 ->6a6600. Actual Steam7c9bc0 calls7c9dbc and awards
+at7c9df5 ->6ac6d0. Patient field10, medic field0c, same-result dataflow and
+zero gate are checked by audit-healing-wound-award-retail.py; original typed
+returns and both branch maps are in healing-wound-award-retail-oracle.json.
+
+Native TDD BEFORE Main edits: RED4/8 Windows9.01s/Linux8.64s. Actual roster
+hero54/Medicine17 has three eligible collecting authored medal chains.
+No medal points, collection flags or DB values are fabricated. Each actual
+chain is below its next probability threshold, so the tested small treatment
+does not trigger a medal RNG check. Real same-owner patient103 is deployed
+through World.AddUnitInGame; self-use and an actual existing NPC with medals
+disabled are also covered. Native CExecHeal.Run and explicit AnimationFinished
+drive real state healing; no played animation clock or rendered UI claim.
+
+One HP, three HP, self and clamped-one-out-of-three scenarios actually dress
+the patient but previously award zero. Four controls already pass: zero
+effective dressing, missing active kit, hostile target and disabled NPC.
+For zero/clamped cases a real HealVP dressing of1/2 is applied between Run
+and completion, representing another finished dressing. The current planner
+still requests1/3, while the actual heal adds0/1. This proves that awards use
+effective healing rather than planned or already-dressed HP. Legacy planning
+over-request/AP behavior is separate pending source work, not silently fixed.
+
+GREEN50/50 each (previous42 +8), Windows52.07s/Linux52.06s. One effective HP
+earns1.1 per eligible chain (3.3 total), three earn3.3 each (9.9 total).
+Zero/NPC/patient controls gain none. Native DB iteration selects authored
+kit1/5charges/preparation0AP on Windows and kit27/10charges/preparation10AP
+on Linux; parameters are not replaced to force parity. The same observed
+kit and costs hold through each platform's RED/GREEN/final runs. Actual
+dressing costs3 or10 AP and one charge remain unchanged; raw HP does not
+change. Legacy healer state may remain active after the small dressing:
+native SetState(Normal) cancellation performs cleanup, with no automatic
+treatment-completion claim or duplicate medal credit.
+
+Final Windows ALL_BUILD118 related/140.51s, Linux Game116/141.06s and local
+asset-free CI290/24.15s. Five raw logs50/50/118/116/290, exact registered names,
+no Failed/NotRun/NUL and final exits0 checked by verify-healing-wound-award.py.
+Shared builds reused, HD generation OFF, no per-bug source/build copies;
+owned harnesses exit. Source531f remains PARTIAL: critical-heal return/medal
+awards, original timed critical/AP progress/state save, patient/healer perks,
+ordinary healing/planning/repair capacity and acknowledgments remain open.
+Preserve our face/animation/PK ownership. Ledger149 imported/19partial/70
+pending =89 unfinished sources. Hosted actual-HEAD Actions remains due after
+all useful imports; local CI is not a hosted workflow result.

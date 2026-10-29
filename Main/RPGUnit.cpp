@@ -765,7 +765,7 @@ int CUnit::GetFirstAidDC( IFirstAidItem *pItem )
 	return fDCScale * nSkill;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CUnit::Heal( const SFirstAid &fa )
+float CUnit::Heal( const SFirstAid &fa )
 {
 	int nTotalVP = Skills( NDb::ST_VP ) + nHealedVP;
 	const int nMaxVP = Min( Skills( NDb::ST_VP ).GetMaxValue(), Skills( NDb::ST_VP ) + fa.nMaxVP );
@@ -777,6 +777,7 @@ void CUnit::Heal( const SFirstAid &fa )
 	csRPG << "\tMaxVP=" << fa.nMaxVP << " \t dVP=" << Float2Int( fa.fdVP ) << endl;
 	csRPG << "<font size=16pt>";
 	csRPG << "\t" << GetName() << ": \tVP += " << ndVP << endl;
+	return ndVP;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnit::RegenerateVP( const SFirstAid &fa )

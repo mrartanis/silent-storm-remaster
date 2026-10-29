@@ -150,7 +150,7 @@ public:
 	virtual void SetPanzerklein( NDb::CPanzerklein *pPK, CDynamicSkill *_pPanzerkleinVP, IInventory *_pPKInventory ) = 0; 
 	virtual void DoRegenerations( NWorld::IWorld *pWorld, int *pnBleed ) = 0;
 	virtual void SetHiding( bool _bHiding ) = 0;
-	virtual void HealVP( const SFirstAid &fa ) = 0;
+	virtual float HealVP( const SFirstAid &fa ) = 0;
 	virtual void HealCriticals( int nDC, bool bStopBleeding = true ) = 0;
 	virtual void AddBleedingStopper( int nAmount ) = 0;
 	virtual void AddPostponedModifier( CDynamicSkill *pSkill, const SSkillModifyInfo &info, int nTurns ) = 0;

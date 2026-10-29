@@ -346,7 +346,7 @@ public:
 		IFirstAidItem *pItem, CUnit *pTarget, int *pRequiredAP );
 	int GetFirstAidDC( IFirstAidItem *pItem );
 
-	void Heal( const SFirstAid &fa );
+	float Heal( const SFirstAid &fa );
 	void RegenerateVP( const SFirstAid &fa );
 	bool CanHeal( CUnit *pTarget ) const;
 	const bool IsUnconscious() const { return bUnconscious; }

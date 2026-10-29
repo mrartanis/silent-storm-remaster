@@ -240,7 +240,7 @@ public:
 	// reach via friendship.
 
 	virtual int  GetBulletsQuantityInShot() const;
-	virtual void HealVP( const SFirstAid &fa );
+	virtual float HealVP( const SFirstAid &fa );
 	virtual void HealCriticals( int nDC, bool bStopBleeding = true );
 	virtual void AddBleedingStopper( int nAmount ) { nBleedingStopAmount += nAmount; }
 	virtual void AddPostponedModifier( CDynamicSkill *pSkill, const SSkillModifyInfo &info, int nTurns );
@@ -1866,10 +1866,11 @@ void CUnitMission::SaveAP( const SSnipeAP &ap )
 	savedSnipeAP.nAP = ap.nAP;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CUnitMission::HealVP( const SFirstAid &fa )
+float CUnitMission::HealVP( const SFirstAid &fa )
 {
-	GetRPGUnit()->Heal( fa );
+	const float fHealed = GetRPGUnit()->Heal( fa );
 	ApplyCritical( SCritical( NDb::CL_ANY, NDb::C_VP ) );
+	return fHealed;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitMission::HealCriticals( int nDC, bool bStopBleeding )
