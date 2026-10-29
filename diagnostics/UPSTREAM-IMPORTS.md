@@ -14017,3 +14017,86 @@ goal stays active; final actual GitHub Actions fix/check remains due.
 Evidence: prone-medical-approach original-types/oracle/verification JSON,
 complete final RED9/GREEN260 logs, setup archives, exits and ALL_BUILD.
 Shared builds only; no per-bug source/build copies.
+
+### Native directional PK repair approaches (144c7b84, final stage)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/144c7b84dc51b2ef80784df6d40ae40dac1889e9
+
+The command factory still uses the ordinary0.8 human approach search for
+PK targets. Those destinations then fail the existing original repair
+inner-ring exclusion, so a qualified engineer cannot queue a repair even
+when a damaged empty or worn suit has valid reachable repair positions.
+Restore the separate original directional branch. For cardinal facing,
+append the single point two grid tiles behind the suit if native-passable,
+retaining its packed direction/pose/flags. For diagonal facing, try four
+axis offsets of two tiles and obtain standing directed points facing the
+actual suit CP. Keep native passability, existing FindPath/queue construction
+and the already imported item/engineering/perk/health/range gates. Do not
+use a generic1.8 circle, change repair prices or modify PK ownership.
+
+Native proof continues from the PDB-typed Gold CCmdHeal overload7886a0/811
+and actual Steam medical entry7942a0. There is no whole811 byte-identity
+claim because register allocation differs. The entire16-int direction
+table Gold941788/Steam9527e8 agrees with own aiPosition.cpp. Actual7943b4/
+7943bb loads dx/dy; zero-component branches7943c6/7943ce both select794554.
+The ENTIRE50-byte packed-coordinate/cardinal two-step/passability block
+Gold78897a matches uniquely and exactly Steam794554, with no masked bytes.
+The successful point is appended via794593->7706d0.
+
+Diagonal arithmetic is checked in actual original instructions:7943da
+doubles/subtracts dx,79443c adds it,794490 shifts dy by9 for packed two-step
+y/subtraction,7944fa adds it. Each of the four branches checks native
+passability virtualb0, obtains actual target CP through4914c0, pushes
+PM_STAND4 and calls GetDirectedPoints793bf0. Cached upstream793cf4 is not
+the actual medical/PK branch in this oracle. Existing own directed-point
+fly-bit handling, target-pose representation and PK body semantics stay.
+
+Twenty new tests create REAL native world/player/engineer persona3, with
+native class progression to Engineering105/level11 and public perk79,
+authored repair kit26, ordinary chassis93 and pilot103 when worn. Select
+genuine native big-footprint/free-start/legal repair layouts before spawning
+the suit, using existing terrain, passability/locks and native vertical/
+outer1.8/inner0.8 rules. Place the actual engineer four tiles behind, with
+the original two-tile/side approach locations available. Real pilot entry
+uses WearAsPK/FlipPanzerklein; do not invent an IsWearingPK alias or fake
+DB/stat/AP values. Injure actual chassis by100VP, giving600/700HP, or retain
+full health for controls. Engineer has actual57AP; worn pilot147VP stays.
+
+For each of8 directions test both empty and genuinely worn PK. Each fixture
+independently confirms actual repair eligibility at the intended original
+spots before invoking public CreateActionExecutor(CCmdHeal). Four rejection
+controls are full empty suit, full worn suit, normal medical kit and empty
+repair kit. FIRST compiled native RED is genuine on both platforms:
+16fail/20, every positive case has1 cardinal or4 diagonal legal spots but
+the command rejects OUT_OF_RANGE; four controls pass. No setup failure or
+changed fixture was counted. Both final REDs terminate before Main edits.
+
+Fix ONLY the existing PK branch in Main/wUnitAttack.cpp, replacing its
+ordinary search with the original destinations. GREEN280/280 Windows
+302.43s/Linux304.64s = previous260+20. Each positive case has a real native
+movement/heal queue, owned path and public desired place matching its path
+endpoint. That endpoint actually passes CExecHeal.CanDoIt. Assert cardinal
+behind-two-tile pose/facing or one of four standing side points facing the
+suit; all8 facings of both ownership kinds pass. Four unavailable controls
+remain unavailable (a more specific rejection code may now be reached).
+All20 native input/purity rows match across platforms. AP, health, kit
+charges, held item, actual positions, Engineering, pilot/suit ownership,
+orders and gameplay RNG stay unchanged while planning. Normal native route
+reservations are allowed; actual movement/repair playback is not claimed.
+
+Prior9 human-approach/context,8 AI-cost/2spend/9AIprobe/9reach/10pose/11skill
+traces are identical. Windows ALL_BUILD and Linux Game/helpers pass. Exact
+one-file branch-only production diff reconstructed. No new DB/price/perk/
+balance, save/network, own face/body/font/HD changes. No fresh fullCI or
+hosted Actions claim. Shared builds only, no per-bug source/build copies.
+
+Source144 reconciliation: BOTH aiActions cost hunks were independently
+imported byb5519c2f; the human target-pose reach call and local radius-helper
+prerequisite by73e8ac63; the complete PK directional block by this stage.
+All behavioral hunks in the source's two files are now accounted for.
+Mark144 imported: ledger286 now153 imported/19partial/71pending =90 unfinished
+sources. Sourceafee stays partial for its other public/AI/loot/command/
+hotseat hunks. Whole goal remains active, including final actual GitHub
+Actions repair/check after applicable imports.
+Evidence: pk-repair-approach-retail-oracle.json, verification.json, complete
+RED20/GREEN280 raw logs/exit files and Windows ALL_BUILD log.

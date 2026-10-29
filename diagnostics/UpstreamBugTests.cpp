@@ -24486,6 +24486,47 @@ static void WoundHealerPerk(const char* databasePath,const char* resourcePath,in
     actor->SetState(new NWorld::CUnitStateNormal(actor));Require(kit->GetIncQuantity()==quantity-1 && !target->HasCritical(NDb::C_PATIENT) && !actor->IsPerformingAction(),"wound healer perk lost native charge/patient ownership cleanup");
 }
 
+static void PKRepairApproach(const char* databasePath,const char* resourcePath,int mode)
+{
+    const bool worn=mode>=8 && mode<16 || mode==17 || mode==19;const int direction=mode<16?mode%8:mode-16;
+    const bool full=mode==16 || mode==17,wrong=mode==18,empty=mode==19,expected=!full && !wrong && !empty;
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* anchor=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->IsAIUnit() && !unit->IsWearingPK() && !unit->IsEmptyPK()){anchor=unit;break;}
+    Require(anchor,"PK repair approach has no real player anchor");CObj<NWorld::CUnitServer> actor=world->AddUnitInGame(anchor->GetPosition().pos.p,NRPG::CreateUnit(NDb::GetPers(3)),anchor->GetTBSPlayer());Require(actor && actor->CanFight(),"PK repair approach cannot deploy its real engineer");
+    auto* rpg=actor->GetUnitRPG()->GetRPGUnit();for(int level=1;int(rpg->Skills(NDb::ST_ENGINEERING))<100 && level<=20;++level)rpg->SetXPLevel(level);rpg->GetPerksTree()->TakePerk(79);Require(int(rpg->Skills(NDb::ST_ENGINEERING))>=100 && rpg->HasPerk(79),"PK repair approach lacks native engineering/perk qualification");
+    NDb::CRPGPers* shellPersona=nullptr;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());while(people.MoveNext()){auto* p=people.Get();if(p->pPanzerklein && !p->pPanzerklein->bHasNoHead && p->pModel && (!shellPersona || p->GetRecordID()<shellPersona->GetRecordID()))shellPersona=p;}Require(shellPersona,"PK repair approach has no real ordinary chassis");
+    const int dx=NAI::nMoveShift[direction][0],dy=NAI::nMoveShift[direction][1];const bool cardinal=dx==0 || dy==0;auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(anchor->GetPosition().GetCP(),20.f),&places);NAI::SPathPlace shellPlace,startPlace;bool found=false;int candidates=0;
+    for(auto place:places){
+        const int x=int(place.GetX()),y=int(place.GetY());if(x<5 || y<5 || x>250 || y>250 || !place.IsIntegral() || place.IsFinal())continue;place.SetPose(NAI::CM_STAND);place.SetDirection(direction);
+        if(!NAI::IsBigLockerPlacePassable(network,place))continue;++candidates;auto start=place;start.SetXY(x-4*dx,y-4*dy);if(!network->IsPassable(start) || network->IsLocked(start,false))continue;
+        const auto center=NAI::SPosition(place,network).GetCP();vector<CTPoint<int>> offsets=cardinal?vector<CTPoint<int>>{CTPoint<int>(-2*dx,-2*dy)}:vector<CTPoint<int>>{CTPoint<int>(-2*dx,0),CTPoint<int>(2*dx,0),CTPoint<int>(0,-2*dy),CTPoint<int>(0,2*dy)};bool clear=true;
+        for(auto offset:offsets){auto point=place;point.SetXY(x+offset.x,y+offset.y);if(!cardinal)point.SetDirection(NRPG::GetShootDirection(network,point,center));const auto cp=NAI::SPosition(point,network).GetCP();if(!network->IsPassable(point) || network->IsLocked(point,false) || !NWorld::IsWithinHumanReach(cp,center,1.8f) || NWorld::IsWithinHumanReach(cp,center,.8f))clear=false;}
+        if(!clear || NWorld::IsWithinHumanReach(NAI::SPosition(start,network).GetCP(),center,1.8f))continue;shellPlace=place;startPlace=start;found=true;break;
+    }
+    std::printf("native PK repair approach setup: mode=%d worn=%d direction=%d candidates=%d found=%d\n",mode,int(worn),direction,candidates,int(found));std::fflush(stdout);Require(found,"PK repair approach has no genuine free big-footprint/approach/start layout");
+    CObj<NWorld::CUnitServer> shell=world->AddUnitInGame(shellPlace,NRPG::CreateUnit(shellPersona),actor->GetTBSPlayer());Require(shell && shell->IsEmptyPK(),"PK repair approach cannot deploy its actual empty suit");
+    auto shellPosition=shell->GetPosition();shellPosition.pos=NAI::SPosition(shellPlace,network);world->GetTime()->Set(world->GetTime()->GetValue()+1);shell->SetPosition(shellPosition);shell->animator.AlignTime();shell->animator.PlaceUnit(shellPosition);
+    CObj<NWorld::CUnitServer> pilot;NWorld::CUnitServer* target=shell;
+    if(worn){pilot=world->AddUnitInGame(anchor->GetPosition().pos.p,NRPG::CreateUnit(NDb::GetPers(103)),actor->GetTBSPlayer());Require(pilot && pilot->CanFight() && shell->WearAsPK(true),"PK repair approach cannot prepare actual pilot and suit");pilot->SetPosition(shell->GetPosition());pilot->FlipPanzerklein(shell,false,false);Require(pilot->IsWearingPK() && pilot->GetWearingPK()==shell.GetPtr(),"PK repair approach lost actual pilot/suit ownership");target=pilot;}
+    auto targetPosition=target->GetPosition();targetPosition.pos=NAI::SPosition(shellPlace,network);world->GetTime()->Set(world->GetTime()->GetValue()+1);target->SetPosition(targetPosition);target->animator.AlignTime();target->animator.PlaceUnit(targetPosition);
+    Require(target->GetPosition().pos.p.GetDirection()==direction && target->IsEmptyPK()!=worn,"PK repair approach changed its actual target facing/kind");auto& shellHP=shell->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP);Require(shellHP.GetMaxValue()>100,"PK repair approach has insufficient native chassis health");shellHP.SetValue(shellHP.GetMaxValue()-(full?0:100));
+    auto actorPosition=actor->GetPosition();actorPosition.pos=NAI::SPosition(startPlace,network);world->GetTime()->Set(world->GetTime()->GetValue()+1);actor->SetPosition(actorPosition);actor->animator.AlignTime();actor->animator.PlaceUnit(actorPosition);
+    auto* record=NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(wrong?1:26);Require(record && record->effect==(wrong?NDb::FAE_NORMAL:NDb::FAE_REPAIR_PK),"PK repair approach lost its authored kit");CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> previous;if(inventory->Get(NDb::SLOT_1))previous=inventory->TakeOff(NDb::SLOT_1);Require(inventory->Equip(NDb::SLOT_1,kit) && inventory->Activate(NDb::SLOT_1),"PK repair approach cannot equip its real kit");if(empty)while(!kit->IsEmpty())kit->SpendPotion();
+    MarkNewDGFrame();world->GetAIMap()->Sync();CObj<NWorld::CExecHeal> direct=new NWorld::CExecHeal(actor,target);int legal=0;
+    const auto center=target->GetPosition().pos.p;vector<CTPoint<int>> offsets=cardinal?vector<CTPoint<int>>{CTPoint<int>(-2*dx,-2*dy)}:vector<CTPoint<int>>{CTPoint<int>(-2*dx,0),CTPoint<int>(2*dx,0),CTPoint<int>(0,-2*dy),CTPoint<int>(0,2*dy)};
+    for(auto offset:offsets){auto point=center;point.SetXY(int(center.GetX())+offset.x,int(center.GetY())+offset.y);if(!cardinal){point.SetPose(NAI::CM_STAND);point.SetDirection(NRPG::GetShootDirection(network,point,target->GetPosition().GetCP()));}auto pos=actor->GetPosition();pos.pos=NAI::SPosition(point,network);if(network->IsPassable(point) && !network->IsLocked(point,false) && direct->CanDoIt(pos)==NWorld::UCR_OK)++legal;}
+    Require(expected?legal>0:legal==0,"PK repair approach lacks its genuine usable/rejected destination precondition");
+    const int ap=actor->GetAP(),dose=kit->GetIncQuantity(),rawHP=shellHP,pilotHP=pilot?pilot->GetUnitRPG()->GetTotalVP():-1,engineering=rpg->Skills(NDb::ST_ENGINEERING);const auto from=actor->GetPosition(),to=target->GetPosition(),shellFrom=shell->GetPosition();auto random=GlobalGameRandom();
+    NWorld::EUnitCommandResult result=NWorld::UCR_GENERAL_FAILURE;CObj<NWorld::CCmdHeal> command=new NWorld::CCmdHeal(target);CObj<NWorld::CCommandExecute> executor=NWorld::CreateActionExecutor(actor,command,&result);auto* mover=dynamic_cast<NWorld::IExecMove*>(executor.GetPtr());NAI::SPathPlace destination=from.pos.p;NAI::EFindPathParams params=NAI::PF_DEFAULT;NWorld::ENeedActiveItem active=NWorld::ITEM_NO_MATTER;if(mover)mover->GetDesiredPlace(&destination,&params,&active);CObj<NAI::CPath> path=executor?executor->GetCurrentPath():nullptr;auto afterRandom=GlobalGameRandom();
+    std::printf("native PK repair approach: mode=%d worn=%d direction=%d cardinal=%d full=%d wrongKit=%d emptyKit=%d legal=%d executor=%d result=%d mover=%d points=%d sourceX=%d sourceY=%d targetX=%d targetY=%d goalX=%d goalY=%d goalPose=%d goalDirection=%d expected=%d AP=%d dose=%d shellHP=%d pilotHP=%d engineering=%d\n",mode,int(worn),direction,int(cardinal),int(full),int(wrong),int(empty),legal,int(bool(executor)),int(result),int(bool(mover)),path?int(path->points.size()):0,int(from.pos.p.GetX()),int(from.pos.p.GetY()),int(center.GetX()),int(center.GetY()),int(destination.GetX()),int(destination.GetY()),int(destination.GetPose()),int(destination.GetDirection()),int(expected),ap,dose,rawHP,pilotHP,engineering);std::fflush(stdout);
+    Require(actor->GetAP()==ap && kit->GetIncQuantity()==dose && inventory->GetActive()==kit.GetPtr() && int(shellHP)==rawHP && (pilot?pilot->GetUnitRPG()->GetTotalVP():-1)==pilotHP && actor->GetPosition()==from && target->GetPosition()==to && shell->GetPosition()==shellFrom && int(rpg->Skills(NDb::ST_ENGINEERING))==engineering && rpg->HasPerk(79) && !actor->HasCommand() && random.Get()==afterRandom.Get() && (!worn || pilot->GetWearingPK()==shell.GetPtr()),"PK repair approach planning changed physical state, skill, items, ownership or RNG");
+    Require(bool(executor)==expected,"PK repair command cannot plan a reachable original directional approach despite a qualified engineer and damaged real suit");if(!expected)return;
+    Require(mover && path && !path->points.empty() && result==NWorld::UCR_OK,"PK repair approach lost its actual native movement/heal queue");Require(destination.GetX()==path->points.back().GetX() && destination.GetY()==path->points.back().GetY() && destination.GetLayer()==path->points.back().GetLayer(),"PK repair approach differs from its native path endpoint");
+    auto end=from;end.pos=NAI::SPosition(destination,network);Require(direct->CanDoIt(end)==NWorld::UCR_OK,"PK repair approach queues an invalid actual repair position");
+    const int gx=int(destination.GetX())-int(center.GetX()),gy=int(destination.GetY())-int(center.GetY());if(cardinal)Require(gx==-2*dx && gy==-2*dy && destination.GetDirection()==direction && destination.GetPose()==center.GetPose(),"cardinal PK repair does not approach two tiles behind the suit with its original pose/facing");
+    else Require((std::abs(gx)==2 && gy==0 || gx==0 && std::abs(gy)==2) && destination.GetPose()==NAI::CM_STAND && destination.GetDirection()==NRPG::GetShootDirection(network,destination,target->GetPosition().GetCP()),"diagonal PK repair does not use one of four standing side approaches facing the suit");
+}
+
 static void RepairPlanner(const char* databasePath,const char* resourcePath,int mode)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
@@ -26731,6 +26772,26 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "treatment-ack-repair-below-half") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,2); return true; }
     if (!std::strcmp(mode, "treatment-ack-repair-spent-pilot-ap") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,3); return true; }
     if (!std::strcmp(mode, "treatment-ack-repair-empty-silent") && argc==4) { RepairOrderGate(argv[2],argv[3],0,0,-1,4); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-empty-0") && argc==4) { PKRepairApproach(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-empty-1") && argc==4) { PKRepairApproach(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-empty-2") && argc==4) { PKRepairApproach(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-empty-3") && argc==4) { PKRepairApproach(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-empty-4") && argc==4) { PKRepairApproach(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-empty-5") && argc==4) { PKRepairApproach(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-empty-6") && argc==4) { PKRepairApproach(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-empty-7") && argc==4) { PKRepairApproach(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-worn-0") && argc==4) { PKRepairApproach(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-worn-1") && argc==4) { PKRepairApproach(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-worn-2") && argc==4) { PKRepairApproach(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-worn-3") && argc==4) { PKRepairApproach(argv[2],argv[3],11); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-worn-4") && argc==4) { PKRepairApproach(argv[2],argv[3],12); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-worn-5") && argc==4) { PKRepairApproach(argv[2],argv[3],13); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-worn-6") && argc==4) { PKRepairApproach(argv[2],argv[3],14); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-worn-7") && argc==4) { PKRepairApproach(argv[2],argv[3],15); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-full-empty") && argc==4) { PKRepairApproach(argv[2],argv[3],16); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-full-worn") && argc==4) { PKRepairApproach(argv[2],argv[3],17); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-wrong-kit") && argc==4) { PKRepairApproach(argv[2],argv[3],18); return true; }
+    if (!std::strcmp(mode, "pk-repair-approach-empty-kit") && argc==4) { PKRepairApproach(argv[2],argv[3],19); return true; }
     if (!std::strcmp(mode, "prone-medical-approach-standing-near") && argc==4) { ProneMedicalApproach(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "prone-medical-approach-standing-wide") && argc==4) { ProneMedicalApproach(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "prone-medical-approach-prone-near") && argc==4) { ProneMedicalApproach(argv[2],argv[3],2); return true; }
