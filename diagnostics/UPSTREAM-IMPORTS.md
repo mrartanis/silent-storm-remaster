@@ -12523,3 +12523,40 @@ still require independent tests/imports. The new tests explicitly use the
 existing native cancellation for still-active healing; they prove correct
 AP accounting, not automatic completion. Ledger149 imported/19partial/
 70pending=89 unfinished sources; full goal and final hosted CI remain open.
+
+
+## 2026-10-29 — finish wound treatment after its last dressing (531f3b7d)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9), independent post-dressing completion recheck.
+After actual HealVP and AP payment, rerun CreateFirstAid on the updated
+patient with remaining capacity and the same segment AP budget. If it cannot
+plan another dressing, clear capacity and enter the existing normal-state
+finish path immediately. Previously a completed small dressing left the
+patient marked as being treated and delayed dose consumption until another
+segment or explicit cancellation. Existing FinishHealing/face/PK ownership
+is reused, with no animation rewrite or AP/skill/capacity/perk changes.
+
+Both original DoHealing bodies verified: Gold first planner7bca28 then
+patient HealVP7bca4c, AP payment7bca92 and second planner7bcabc; Steam
+7c9d98/7c9dbc/7c9e02/7c9e2c. Both second calls resolve to their original
+CreateFirstAid, consume updated target/current capacity and original budget,
+and false clears capacity (7bcac5/7c9e35) before the normal-state transition.
+
+Native RED4/6 Windows6.62s/Linux6.64s before Main changes: actual stock
+one-HP/three-HP/self/partly-dressed actions heal correctly but leave marker
+and dose pending. Already-dressed and genuinely unfinished controls pass.
+GREEN84/84 Windows89.06s/Linux88.94s includes all prior78 plus six completion
+tests. Completed actions now remove C_PATIENT and spend exactly one dose
+at the public AnimationFinished callback; another native own-turn finish
+cannot repeat AP or dose spending. Incomplete large-wound treatment retains
+marker/dose (initial dressing15HP Windows,12HP Linux), then the fixture
+explicitly cancels it. Raw HP, effective dressing, AP and medal results
+are unchanged; no fabricated AP or database changes.
+
+Exact84 registered sets/raw logs, intended RED reasons, marker/dose/AP
+values, exits and exactly two added production lines verified by
+verify-wound-complete.py. Windows ALL_BUILD and Linux Game build pass;
+shared builds reused with HD generation disabled. No fresh fullCI/hosted
+Actions claim. Source531f remains PARTIAL: authored capacity/clamping,
+medical skill/DC perks, repair and acknowledgments remain pending. Ledger
+149 imported/19partial/70pending=89 unfinished sources; whole goal active.

@@ -537,6 +537,8 @@ void CUnitStateHealer::DoHealing( int nUnitAP )
 		if ( fHealed > 0 )
 			pRPGUnit->AddMedalPoints( pUS->GetWorld()->GetGlobalGame(), NRPG::MPC_HEALED_WOUND, fHealed );
 		pUS->SpendAP( nRequiredAP );
+		if ( !pRPGUnit->CreateFirstAid( &fa, nUnitAP, fKitCapacity, pItem, pTarget->GetUnitRPG()->GetRPGUnit(), &nRequiredAP ) )
+			fKitCapacity = 0;
 	}
 	else
 		fKitCapacity = 0;
