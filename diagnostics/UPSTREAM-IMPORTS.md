@@ -12494,7 +12494,7 @@ even though native HealVP correctly clamped actual dressing. Change only
 that subtraction; no skill, AP coefficient, capacity, perk or repair changes.
 
 Original Gold PDB identifies CUnit::CreateFirstAid at6b4a10/648. Its exact
-28-byte deficit/min block6b4b67 maps uniquely to Steam6bad07 in function
+30-byte deficit/min block6b4b67 maps uniquely to Steam6bad07 in function
 6babb0. Both subtract alreadyDressed then rawVP from maxVP and return false
 before AP calculation for zero remaining dressing. The cost coefficient60
 is also verified in both binaries. No new AP minimum is introduced.
@@ -12560,3 +12560,38 @@ shared builds reused with HD generation disabled. No fresh fullCI/hosted
 Actions claim. Source531f remains PARTIAL: authored capacity/clamping,
 medical skill/DC perks, repair and acknowledgments remain pending. Ledger
 149 imported/19partial/70pending=89 unfinished sources; whole goal active.
+
+
+## 2026-10-29 — respect remaining kit capacity in wound plans (531f3b7d)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9), independent final planner capacity clamp.
+CreateFirstAid accepted remaining capacity but ignored it. Clamp the final
+dressing to Float2Int(capacity), preserving the original order: AP is
+quoted before this clamp. A3HP wound at Medicine17 still quotes10AP when
+remaining capacity limits dressing to1HP; even the zero-capacity planner
+query returns true with0HP and that quote. Do not invent a cheaper quote,
+new minimum or different zero policy. The action's existing capacity gate
+handles exhausted kits; the planner query itself spends no AP or dose.
+
+Gold original6b4c45 and unique matching Steam6bade5 contain the same26-byte
+AP-output/float-capacity-round/min block; both later emit the clamped HP.
+Their original function mapping is independently established by the wound
+deficit oracle (Gold PDB6b4a10, Steam6babb0).
+
+Native TDD invokes the public actual RPG planner with hero54 Medicine17,
+unmodified stock medkit and patient103 wounded3HP. It evaluates all five
+remaining-capacity inputs before asserting. RED Windows1.22s/Linux1.09s:
+0/1/2 capacity all incorrectly plan3HP, while3/100 capacity controls match.
+After the one-line fix, plans are0/1/2/3/3, all retain quota30 and quote10AP.
+AP, dose, raw patient health and existing dressing remain unchanged by every
+query. This proves planner limits, not authored-capacity action allocation.
+
+GREEN33/33 Windows36.13s/Linux35.96s includes this boundary test plus native
+wound-budget/completion, timed critical and wound-medal action regressions.
+Raw logs, exact registered names, RED reason/values, exits and exactly one
+changed production line verified by verify-wound-capacity.py. Windows
+ALL_BUILD and Linux Game pass. Shared builds reused; HD generation off.
+No fresh hosted/fullCI claim. Source531f remains PARTIAL: replace the
+temporary NORMAL state budget100 with authored capacity under separate
+native action TDD, then remaining medical perks/repair/acknowledgments.
+Ledger149 imported/19partial/70pending=89 unfinished sources; goal active.

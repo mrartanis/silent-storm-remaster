@@ -753,7 +753,7 @@ bool CUnit::CreateFirstAid( SFirstAid *pRes, int nMaxSpentAP, float fKitCapacity
 		nVPToHeal = Float2Int( nRequiredAP * nSkill / 60.0f );
 	}
 	*pRequiredAP = nRequiredAP;
-	CreateFirstAid( pRes, nVPToHeal, nSkill );
+	CreateFirstAid( pRes, Min(nVPToHeal, Float2Int(fKitCapacity)), nSkill );
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

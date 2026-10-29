@@ -23745,6 +23745,30 @@ static void TimedCriticalTreatment(const char* databasePath,const char* resource
     std::printf("native timed critical complete: mode=%d total=%d selected=%d remaining=%d patient=%d charge=%d->%d\n",mode,total,int(selected),expectedRemaining,int(hasSelected()),quantity,kit->GetIncQuantity());std::fflush(stdout);
 }
 
+static void WoundCapacityPlan(const char* databasePath,const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(auto unit:units)if(unit->GetUnitRPG()->GetRPGUnit()->GetPers()->GetRecordID()==54 && !unit->IsAIUnit() && !unit->IsWearingPK()){actor=unit;break;}
+    Require(actor,"capacity planner fixture has no actual roster hero54");auto* healer=actor->GetUnitRPG()->GetRPGUnit();
+    Require(int(healer->Skills(NDb::ST_MEDICINE))==17,"capacity planner fixture requires its actual Medicine17");
+    NDb::CRPGFirstAid* record=nullptr;CDBIterator<NDb::CRPGFirstAid> kits(*NDatabase::GetTable<NDb::CRPGFirstAid>());
+    while(kits.MoveNext()){auto* candidate=kits.Get();if(IsValid(candidate->pItem) && candidate->effect==NDb::FAE_NORMAL && candidate->nQuantity>0 && candidate->nSkillModifier==0){record=candidate;break;}}
+    Require(record,"capacity planner fixture has no actual unmodified normal kit");CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);
+    CObj<NRPG::IUnitMission> target=NRPG::CreateUnit(NDb::GetPers(103));auto* patient=target->GetRPGUnit();auto& hp=patient->Skills(NDb::ST_VP);hp.SetValue(hp.GetMaxValue()-3);
+    Require(patient->nHealedVP==0,"capacity planner fixture patient already has dressing");
+    const int ap=actor->GetAP(),quantity=kit->GetIncQuantity(),rawHP=hp;Require(ap>=10,"capacity planner fixture cannot cover its native full quote");
+    struct Case {int capacity,expected;};const Case cases[]={{0,0},{1,1},{2,2},{3,3},{100,3}};bool correct=true;
+    for(const auto& test:cases) {
+        NRPG::SFirstAid plan;int quoted=-999;const bool result=healer->CreateFirstAid(&plan,ap,float(test.capacity),kit,patient,&quoted);
+        std::printf("native wound capacity plan: capacity=%d result=%d planned=%g expected=%d quotedAP=%d maxVP=%d actorAP=%d dose=%d rawHP=%d dressed=%d\n",test.capacity,int(result),result?plan.fdVP:-1,test.expected,quoted,result?plan.nMaxVP:-1,actor->GetAP(),kit->GetIncQuantity(),int(hp),patient->nHealedVP);std::fflush(stdout);
+        // Original quotes AP before clamping to remaining capacity, including the zero-capacity query.
+        correct=correct && result && plan.fdVP==test.expected && plan.nMaxVP==30 && quoted==10;
+        Require(actor->GetAP()==ap && kit->GetIncQuantity()==quantity && int(hp)==rawHP && patient->nHealedVP==0,"pure wound planning changed AP, dose or patient health");
+    }
+    Require(correct,"wound planner ignored remaining kit capacity or changed the original pre-clamp AP quote");
+}
+
 static void HealingMedalAwards(const char* databasePath,const char* resourcePath,int mode,bool critical=false,bool woundBudget=false,bool woundFinish=false)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
@@ -25809,6 +25833,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "critical-heal-award-both-actors") && argc==4) { HealingMedalAwards(argv[2],argv[3],7,true); return true; }
     if (!std::strcmp(mode, "critical-heal-award-zero-dc") && argc==4) { HealingMedalAwards(argv[2],argv[3],8,true); return true; }
     if (!std::strcmp(mode, "critical-heal-award-other-critical") && argc==4) { HealingMedalAwards(argv[2],argv[3],9,true); return true; }
+    if (!std::strcmp(mode, "wound-capacity-plan") && argc==4) { WoundCapacityPlan(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "wound-complete-one") && argc==4) { HealingMedalAwards(argv[2],argv[3],0,false,false,true); return true; }
     if (!std::strcmp(mode, "wound-complete-several") && argc==4) { HealingMedalAwards(argv[2],argv[3],1,false,false,true); return true; }
     if (!std::strcmp(mode, "wound-complete-self") && argc==4) { HealingMedalAwards(argv[2],argv[3],2,false,false,true); return true; }
