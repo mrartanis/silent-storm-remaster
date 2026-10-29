@@ -23943,6 +23943,63 @@ static CObj<TreatmentAckObserver> ObserveTreatmentAck(NWorld::CWorld* world)
     return observer;
 }
 
+// Build a genuine medic of the same player, earning perk58 through its native prerequisites.
+static CObj<NWorld::CUnitServer> QualifiedMedicalActor(NWorld::CWorld* world,NWorld::CUnitServer* anchor)
+{
+    auto* oldRPG=anchor->GetUnitRPG()->GetRPGUnit();NDb::CRPGPers* persona=nullptr;
+    CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while(people.MoveNext()){
+        auto* p=people.Get();if(!p->pClass || !p->pModel || !p->pBaseValue || !p->pName || p->pClass->skills[NDb::ST_LEVEL]<=0 || p->pPanzerklein || p->pDefaultWearsPanzerklein || (!oldRPG->bDisabled && p->pSide!=oldRPG->GetPers()->pSide))continue;
+        CObj<NRPG::CPerksTree> tree=NRPG::CreatePerksTree(p->pClass->nPerkTreeID);vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);bool found=false;for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==58)found=true;
+        if(found && (!persona || p->GetRecordID()<persona->GetRecordID()))persona=p;
+    }
+    Require(persona,"medical requirements lack an authored medic class with perk58");
+    CObj<NRPG::CUnit> rpg=new NRPG::CUnit(persona,0,false,0,0,0,oldRPG->bDisabled);CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(rpg);
+    auto* tree=rpg->GetPerksTree();vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);NRPG::CPerk* required=nullptr;for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==58)required=perk;
+    Require(required && !required->IsTaken(),"medical requirements lost its untaken native ability");vector<CPtr<NRPG::CPerk>> path;
+    auto collect=[&](auto&& self,NRPG::CPerk* perk)->void{for(int i=0;i<perk->GetParents().GetSize();++i)self(self,perk->GetParents()[i]);for(auto known:path)if(known.GetPtr()==perk)return;path.push_back(perk);};collect(collect,required);
+    for(int level=1;tree->GetPerkPoints()<int(path.size()) && level<=20;++level)rpg->SetXPLevel(level);
+    for(auto perk:path){if(perk->IsTaken())continue;Require(perk->CanTake(),"medical requirements could not satisfy a native prerequisite");tree->TakePerk(perk->GetDBPerk()->GetRecordID());}
+    Require(rpg->HasPerk(58) && rpg->bDisabled==oldRPG->bDisabled,"medical requirements did not earn perk58 or changed medal eligibility");
+    auto result=world->AddUnitInGame(anchor->GetPosition().pos.p,mission,anchor->GetTBSPlayer());Require(result && result->CanFight() && result->GetPlayer()==anchor->GetPlayer(),"medical requirements could not deploy its actual qualified medic under the same player");
+    // Preserve a real held weapon for the existing wrong-item rejection controls.
+    auto* source=anchor->GetUnitRPG()->GetInventory();if(dynamic_cast<NRPG::CWeaponItem*>(source->GetActive())){
+        CObj<NRPG::IInventoryItem> held=source->TakeOff(static_cast<NDb::ESlot>(source->GetActiveSlot()));auto* target=mission->GetInventory();CObj<NRPG::IInventoryItem> previous;
+        if(target->Get(NDb::SLOT_1))previous=target->TakeOff(NDb::SLOT_1);Require(target->Equip(NDb::SLOT_1,held) && target->Activate(NDb::SLOT_1),"qualified medic could not retain the real rejection-control weapon");
+    }
+    std::printf("native qualified medical actor: persona=%d medicine=%d engineering=%d level=%d path=%d remainingPoints=%d perk58=%d medalsDisabled=%d\n",persona->GetRecordID(),int(rpg->Skills(NDb::ST_MEDICINE)),int(rpg->Skills(NDb::ST_ENGINEERING)),int(rpg->Skills(NDb::ST_LEVEL)),int(path.size()),tree->GetPerkPoints(),int(rpg->HasPerk(58)),int(rpg->bDisabled));std::fflush(stdout);
+    return result;
+}
+
+static void MedicalRequirements(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->IsAIUnit() && !unit->IsWearingPK() && !unit->IsEmptyPK() && !unit->HasCommand() && !unit->IsPerformingAction()){actor=unit;break;}
+    Require(actor && int(actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_MEDICINE))==17,"medical requirements lack the native unmodified Medicine17 roster actor");
+    CObj<NWorld::CUnitServer> qualified;if(mode==5 || mode==6){qualified=QualifiedMedicalActor(world,actor);actor=qualified;}
+    auto* healer=actor->GetUnitRPG()->GetRPGUnit();const int ids[]={10,10,7,6,8,14,26,10,10,1,7};const int id=ids[mode];auto* record=NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(id);
+    Require(record && record->pItem,"medical requirements lost its authored kit");
+    if(mode==1 || mode==2 || mode==4)for(int level=1;int(healer->Skills(NDb::ST_MEDICINE))+record->nSkillModifier<record->nRequiedSkill && level<=20;++level)healer->SetXPLevel(level);
+    const int medicine=healer->Skills(NDb::ST_MEDICINE),engineering=healer->Skills(NDb::ST_ENGINEERING);const bool bypass=healer->HasPerk(58);
+    if(mode==1 || mode==2 || mode==3)Require(medicine+record->nSkillModifier==record->nRequiedSkill,"medical requirements missed its actual skill/modifier equality boundary");
+    if(mode==4)Require(medicine+record->nSkillModifier>=record->nRequiedSkill && record->nRequiredPerkID==58 && !bypass,"medical requirements missing-perk control still fails the skill precondition");
+    if(mode==5)Require(bypass && medicine+record->nSkillModifier<record->nRequiedSkill,"medical requirements perk58 bypass control already meets the high native skill requirement");
+    if(mode==6)Require(bypass && engineering+record->nSkillModifier<record->nRequiedSkill && record->effect==NDb::FAE_REPAIR_PK,"medical requirements repair control does not separate engineering from perk58");
+    if(mode==0 || mode==10)Require(!bypass && medicine+record->nSkillModifier<record->nRequiedSkill,"medical requirements low-skill control already qualifies");
+    CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);auto* inventory=actor->GetUnitRPG()->GetInventory();vector<CObj<NRPG::IInventoryItem>> previous;
+    for(auto slot:{NDb::SLOT_1,NDb::SLOT_2})if(inventory->Get(slot))previous.push_back(inventory->TakeOff(slot));
+    if(mode!=8)Require(inventory->Equip(NDb::SLOT_1,kit) && inventory->Activate(NDb::SLOT_1),"medical requirements cannot equip its actual kit");else inventory->Activate(NDb::SLOT_1);
+    if(mode==7)while(!kit->IsEmpty())kit->SpendPotion();
+    auto* patient=actor->GetUnitRPG();patient->ApplyCritical(NRPG::SCritical(NDb::CL_HEAD,NDb::C_WEAPONSKILL_REDUCTION,-1,2.f,20));Require(patient->HasCurableCriticals(),"medical requirements lacks its actual curable self-target condition");
+    MarkNewDGFrame();world->GetAIMap()->Sync();const auto position=actor->GetPosition();const int ap=actor->GetAP(),hp=patient->GetTotalVP(),quantity=kit->GetIncQuantity(),points=healer->GetPerksTree()->GetPerkPoints();const float xp=healer->fXP;auto random=GlobalGameRandom();
+    const auto expected=mode==0 || mode==6 || mode==10?NWorld::UCR_NEED_HIGHER_SKILL:mode==4 || mode==7?NWorld::UCR_NO_EQUIPMENT:mode==8?NWorld::UCR_UNAVAILABLE:NWorld::UCR_OK;
+    CObj<NWorld::CExecHeal> executor=new NWorld::CExecHeal(actor,actor);const auto result=executor->CanDoIt(position),repeat=executor->CanDoIt(position);auto afterRandom=GlobalGameRandom();
+    std::printf("native medical requirements: mode=%d kit=%d effect=%d medicine=%d engineering=%d modifier=%d required=%d requiredPerk=%d has58=%d level=%d result=%d repeat=%d expected=%d AP=%d dose=%d rawHP=%d points=%d\n",mode,id,int(record->effect),medicine,engineering,record->nSkillModifier,record->nRequiedSkill,record->nRequiredPerkID,int(bypass),int(healer->Skills(NDb::ST_LEVEL)),int(result),int(repeat),int(expected),ap,quantity,hp,points);std::fflush(stdout);
+    Require(actor->GetAP()==ap && patient->GetTotalVP()==hp && kit->GetIncQuantity()==quantity && int(healer->Skills(NDb::ST_MEDICINE))==medicine && int(healer->Skills(NDb::ST_ENGINEERING))==engineering && healer->HasPerk(58)==bypass && healer->GetPerksTree()->GetPerkPoints()==points && healer->fXP==xp && actor->GetPosition()==position && random.Get()==afterRandom.Get() && patient->HasCurableCriticals(),"medical requirements query changed native AP/HP/item/skills/perks/points/XP/position/RNG/critical state");
+    Require(result==expected && repeat==expected,"medical order ignores skill/modifier/item-perk requirements or perk58 rules");
+}
+
 static void MedicalEffectEligibility(const char* databasePath,const char* resourcePath,int mode)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
@@ -24346,6 +24403,7 @@ static void HealingMedalAwards(const char* databasePath,const char* resourcePath
         for(auto unit:units)if(ordinary(unit) && unit->GetUnitRPG()->GetRPGUnit()->bDisabled && int(unit->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_MEDICINE))>0) {actor=unit;break;}
         Require(actor,"wound award fixture has no actual NPC with medal collection disabled");
     }
+    CObj<NWorld::CUnitServer> qualified;if(critical){qualified=QualifiedMedicalActor(world,actor);actor=qualified;}
     NDb::CRPGPers* patientPersona=NDb::GetPers(103);
     if(patientWound) {
         patientPersona=nullptr;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
@@ -24609,6 +24667,7 @@ static void BleedingTreatmentRecipient(const char* databasePath,const char* reso
         if(actor)break;
     }
     Require(actor && patient,"bleeding recipient fixture lacks two idle native friendly actors and an armed medic");
+    CObj<NWorld::CUnitServer> qualified;if(!temporary){qualified=QualifiedMedicalActor(world,actor);actor=qualified;}
     if(mode==2)patient=actor;
     if(mode==5) {
         patient=nullptr;
@@ -24629,7 +24688,7 @@ static void BleedingTreatmentRecipient(const char* databasePath,const char* reso
         Require(placed,"bleeding recipient fixture has no native reachable free patient placement");
     }
     NDb::CRPGFirstAid* record=nullptr;CDBIterator<NDb::CRPGFirstAid> kits(*NDatabase::GetTable<NDb::CRPGFirstAid>());
-    while(kits.MoveNext()) { auto* candidate=kits.Get();if(IsValid(candidate->pItem) && candidate->effect==(temporary?NDb::FAE_TEMP_STOP_BLEEDING:NDb::FAE_REMOVE_BLEEDING) && candidate->nQuantity>0) {record=candidate;break;} }
+    while(kits.MoveNext()) { auto* candidate=kits.Get();if(IsValid(candidate->pItem) && candidate->effect==(temporary?NDb::FAE_TEMP_STOP_BLEEDING:NDb::FAE_REMOVE_BLEEDING) && candidate->nQuantity>0 && (!temporary || candidate->GetRecordID()==15)) {record=candidate;break;} }
     Require(record!=nullptr,"bleeding recipient fixture lacks an authored blood-stop item");
     CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);auto* inventory=actor->GetUnitRPG()->GetInventory();
     CObj<NRPG::IInventoryItem> previous;
@@ -26483,6 +26542,17 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "treatment-ack-repair-below-half") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,2); return true; }
     if (!std::strcmp(mode, "treatment-ack-repair-spent-pilot-ap") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,3); return true; }
     if (!std::strcmp(mode, "treatment-ack-repair-empty-silent") && argc==4) { RepairOrderGate(argv[2],argv[3],0,0,-1,4); return true; }
+    if (!std::strcmp(mode, "medical-requirements-low-skill") && argc==4) { MedicalRequirements(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "medical-requirements-skill-equality") && argc==4) { MedicalRequirements(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "medical-requirements-modifier-equality") && argc==4) { MedicalRequirements(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "medical-requirements-bandage-equality") && argc==4) { MedicalRequirements(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "medical-requirements-required-perk") && argc==4) { MedicalRequirements(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "medical-requirements-perk58-bypass") && argc==4) { MedicalRequirements(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "medical-requirements-perk58-repair") && argc==4) { MedicalRequirements(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "medical-requirements-empty-precedence") && argc==4) { MedicalRequirements(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "medical-requirements-missing-kit") && argc==4) { MedicalRequirements(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "medical-requirements-unrestricted-kit") && argc==4) { MedicalRequirements(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "medical-requirements-low-with-modifier") && argc==4) { MedicalRequirements(argv[2],argv[3],10); return true; }
     if (!std::strcmp(mode, "medical-eligibility-normal-healthy") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "medical-eligibility-normal-curable") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "medical-eligibility-normal-noncurable") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],2); return true; }

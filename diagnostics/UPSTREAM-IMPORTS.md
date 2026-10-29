@@ -13491,3 +13491,80 @@ Source bbeb is now imported/adapted; ledger151 imported/19partial/68pending =
 final hosted GitHub Actions after remaining imports is still outstanding.
 Evidence: legacy-weapon-clip-oracle.json, legacy-weapon-clip-verification.json,
 complete final RED/GREEN/CI raw logs. Shared builds only; no source/build copies.
+
+### Medical skill and required-perk eligibility (760cd924, independent stage)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/760cd9240671c8c83063496044e03bde4421444d
+
+CanDoFirstAid checked only engineering repair requirements; normal medical
+items were accepted without their authored skill or required ability. Restore
+the original Medicine+item.SkillModifier >= RequiredSkill check and then a
+positive RequiredPerkID check. Equality succeeds. Original perk58 skips BOTH
+medical requirements, but never engineering repair requirements. Empty/missing
+items still reject first. Keep existing repair-only packed-position check
+separate: expanding that check to medicine is another independent fix.
+
+Native proof: named Gold CanDoFirstAid797640/1138 maps to actual Steam7a3810.
+Entire239-byte requirement dispatcher797750 ->7a3920 matches uniquely except
+two direct-call operands on teardown paths. Effect6 selects Engineering8;
+other effects Medicine7. Steam7a3945 sends repair directly to requirements;
+7a394c calls typed HasPerk58 and jumps over BOTH gates when present. The typed
+Gold mission vtable8b63cc/78 points to named HasPerk6b8ab0; Steam8c54e4/78 ->
+6beea0, identical11-byte wrapper except its verified tailcall to CUnit.HasPerk.
+The named CUnit method20 matches with only that tailcall operand. Typed
+GetRPGUnit58 returns member118 in both versions. DB offsets20/1c are modifier/
+required skill,34 required perk; native equality and both failure paths match.
+Source's cached7a3180 is not this actual gate. Raw actual DB19-kit read-only
+probe confirms existing values; no DB/stat/formula changes are introduced.
+
+Eleven new real public CExecHeal.CanDoIt queries use the unmodified roster
+Medicine17, actual native level progression and authored kits. Cases: weak
+kit10 rejects17<30; kit10 M30 equality; kit7 M30+5=35 equality; bandage6 M17
+equality; kit8 M45+15=60 still rejects missing58; actual medic with58 M77 uses
+kit14 requiring110; same medic Engineering39 still cannot use repair26
+requiring100; empty and missing-item precedence; unrestricted kit1; low
+M17+5 cannot use kit7 requiring35. Query twice; assert unchanged AP/HP/item/
+medicine/engineering/perks/points/XP/position/RNG and active curable critical.
+
+Before production, adapt17 old permanent blood-stop/critical-medal actions
+to genuine qualified medic34. Use the native mercenary constructor and
+CreateUnit(CUnit*) to preserve roster medal collection; map-created/NPC
+controls retain disabled medal collection. Preserve owning world player;
+roster medics also retain DB side. NPC templates can have no same-side medic
+record, so use the actual medic class under the original player with medals
+disabled. Preserve an actual held weapon for wrong-item controls. Acquire58
+only after native SetXPLevel7 earns its six prerequisite points, CanTake
+checks and each parent acquisition; no direct skill/perk-point writes. All19
+qualified setup traces show M77/Engineering39/level7/path6/remaining0;8 preserve
+the existing NPC medal exclusion. New tests and adapted old actions all run
+before changing Main.
+
+Initial setup failures were a typed slot cast and an overstrict same-DB-side
+constraint for disabled NPCs; corrected before valid RED. Initial runtime
+RED3/28 each identified only modes0/4/10, all17 adapted old actions passed.
+First GREEN213/213 Windows,207/213 Linux exposed a further old fixture issue:
+unordered DB iteration selected temporary blood-stop16 (requires25) for the
+existing Medicine15 NPC only on Linux; Windows already selected15 (requires10).
+Keep that old actor unchanged and consistently use authored temporary kit15.
+Preserve initial raw evidence; restore only our Main file to HEAD; extend
+RED with all9 temporary cases. Final RED3fail/37 each now has34 passing
+controls:8 new +17 qualified old +9 temporary. Both terminal before applying
+the identical minimal production change. This final complete cycle is the
+commit evidence; do not count setup errors as game regressions.
+
+Final GREEN213/213 Windows228.92s/Linux231.02s: all11 new query records are
+identical across platforms; only the intended result/repeat fields change in
+modes0/4/10. All26 adapted old-action native traces match before/after exactly.
+Permanent critical treatment, medal enabled/disabled paths, temporary repeat/
+saved suppression, existing effect/critical/wound/perk/AP/PK repair regressions
+all pass. Windows ALL_BUILD and Linux Game/helpers pass. Production changes
+only this one requirement block in wUnitAttackExec.cpp; original repair pose,
+animation/body/face behavior, costs, DB values, save/network schema, fonts and
+HD pipeline remain. No fresh resource-free fullCI or hosted Actions claim.
+
+Source760 stays PARTIAL for generic medical pose rejection, prone-patient
+reach and explicit AI kit/planned-target API. Ledger151 imported/19partial/
+68pending =87 unfinished source commits. Whole goal remains active; final
+GitHub Actions repair/check after applicable imports still outstanding.
+Evidence: medical-requirements-retail-oracle.json, authored-fields.txt,
+verification.json and complete final RED/GREEN raw logs. Shared builds only.

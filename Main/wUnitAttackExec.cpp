@@ -196,14 +196,17 @@ EUnitCommandResult CanDoFirstAid( CUnitServer *pUS, const NAI::SUnitPosition &fr
 	CDynamicCast<NRPG::CFirstAidItem> pItem( pUS->GetUnitRPG()->GetInventory()->GetActive() );
 	NDb::CRPGFirstAid *pDB = pItem->GetDBFirstAid();
 	const bool bRepair = pDB->effect == NDb::FAE_REPAIR_PK;
-	if ( bRepair )
+	// Gold 797750 / Steam 7a3920: perk58 bypasses medical requirements, never repair.
+	if ( bRepair || !pUS->GetUnitRPG()->HasPerk( 58 ) )
 	{
-		// Gold 79775c / Steam 7a392c: repair requirements use Engineering, never Medicine.
-		const int nSkill = pUS->GetUnitRPG()->GetRPGUnit()->Skills( NDb::ST_ENGINEERING );
+		const int nSkill = pUS->GetUnitRPG()->GetRPGUnit()->Skills( bRepair ? NDb::ST_ENGINEERING : NDb::ST_MEDICINE );
 		if ( nSkill + pDB->nSkillModifier < pDB->nRequiedSkill )
 			return UCR_NEED_HIGHER_SKILL;
 		if ( pDB->nRequiredPerkID > 0 && !pUS->GetUnitRPG()->HasPerk( pDB->nRequiredPerkID ) )
 			return UCR_NO_EQUIPMENT;
+	}
+	if ( bRepair )
+	{
 		if ( from.pos.p.IsFinal() || !from.pos.p.IsIntegral() || from.pos.p.GetPose() == NAI::CM_INACTIVE )
 			return UCR_GENERAL_FAILURE;
 	}
