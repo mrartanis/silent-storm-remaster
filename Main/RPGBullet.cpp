@@ -15,7 +15,7 @@
 #include "wTSFlags.h"			// NWorld::TS_*
 #include "RPGUnitMission.h"		// NRPG::IUnitMissionInfo (complete -- for CAttackPortion's CPtr members)
 #include "rpgCheatConstants.h"	// CHEAT_GODMODE
-#include "..\Misc\RandomGen.h"
+#include "../Misc/RandomGen.h"
 
 namespace NRPG
 {

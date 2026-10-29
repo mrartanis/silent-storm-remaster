@@ -12,7 +12,7 @@ brew install cmake ninja pkg-config libgsf libpng
 ctest --test-dir build-mac --output-on-failure --timeout 300 --parallel 4
 ```
 
-Final result: **132/132 tests passed**, including all five renderer/input/
+Initial bring-up result: **132/132 tests passed**, including all five renderer/input/
 display/focus/graphics tests, in 91.51 seconds. Network session and package
 path tests additionally passed five consecutive runs each. The existing
 `diagnostics/EnginePackageTests.py` suite passed all three tests.

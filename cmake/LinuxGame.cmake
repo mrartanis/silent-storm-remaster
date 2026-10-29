@@ -1908,11 +1908,22 @@ set_tests_properties(SelectionStencilRuntimeTests PROPERTIES LABELS "extended;na
 if(APPLE)
   # Retina backings make drawable pixels differ from the window-pixel
   # coordinates these regression tests encode; run them at 1:1 scale.
-  foreach(displayTest IN ITEMS BgfxRendererTests SDLPlatformInputTests
+  set(_s2_display_tests BgfxRendererTests SDLPlatformInputTests
       SDLInputConfiguration DisplayRuntimeTests FocusRestoreRuntimeTests
       GraphicsOptionsRuntimeTests)
+  # Include newly added display regressions without maintaining a second
+  # platform-specific copy of their names.
+  get_property(_s2_tests DIRECTORY PROPERTY TESTS)
+  foreach(_s2_test IN LISTS _s2_tests)
+    get_property(_s2_labels TEST ${_s2_test} PROPERTY LABELS)
+    if("native-display" IN_LIST _s2_labels)
+      list(APPEND _s2_display_tests ${_s2_test})
+    endif()
+  endforeach()
+  list(REMOVE_DUPLICATES _s2_display_tests)
+  foreach(displayTest IN LISTS _s2_display_tests)
     if(TEST ${displayTest})
-      set_tests_properties(${displayTest} PROPERTIES ENVIRONMENT "S2_NO_HIGHDPI=1")
+      set_property(TEST ${displayTest} APPEND PROPERTY ENVIRONMENT "S2_NO_HIGHDPI=1")
       # Real Cocoa windows share desktop focus/fullscreen spaces. Do not run
       # these tests concurrently even when ctest is invoked with --parallel.
       set_tests_properties(${displayTest} PROPERTIES RUN_SERIAL TRUE)
