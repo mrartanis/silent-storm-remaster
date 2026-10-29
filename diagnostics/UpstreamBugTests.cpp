@@ -20454,6 +20454,60 @@ static void EmptyClipAttackEntry(const char* databasePath,const char* resourcePa
         "probing native attack-mode entry spent ammunition or AP or installed a command");
 }
 
+
+static void ReadyAction(const char* databasePath,const char* resourcePath,int mode)
+{
+    const bool shot=mode>=8,motionless=mode==1 || mode==3 || mode==5 || mode==10;
+    const bool holstered=mode==2 || mode==3,undraw=mode==4 || mode==5,invalid=mode==6;
+    const bool preparation=holstered || undraw || mode==9;
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;CPtr<NRPG::CWeaponItem> weapon;
+    for(auto unit:units) {
+        if(!unit || !unit->CanFight() || unit->IsWearingPK() || unit->IsEmptyPK() || !unit->GetUnitRPG()->CanMove() || unit->HasCommand() || unit->IsPerformingAction() || unit->GetPosition().pos.p.GetPose()==NAI::CM_INACTIVE)continue;
+        auto* item=dynamic_cast<NRPG::CWeaponItem*>(unit->GetUnitRPG()->GetInventory()->GetActive());
+        if(!item || item->GetAmmoQuantity()<=0 || !unit->CanSpendAP(unit->GetActionAP(NRPG::AC_RELOAD)))continue;
+        if(shot){if(!item->SetShootMode(NDb::SM_Snap) || NWorld::GetActionType(unit)!=NWorld::AT_SHOOT)continue;}
+        else {item->DiscardAmmo();if(!item->CanReload(unit->GetUnitRPG()->GetInventory()))continue;}
+        actor=unit;weapon=item;break;
+    }
+    Require(actor && weapon,"ready-action fixture lacks an actual healthy firearm user with authored ammunition");
+    const bool wasRealTime=world->IsRealTime();auto* owner=dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer());Require(owner,"ready action has no native owning player");
+    world->GivePlayerTurn(owner);Require(world->IsTurnBased() && world->GetCurrentPlayer()==owner,"ready action could not enter its actual native tactical turn");
+    std::printf("native ready action turn: mode=%d realtime=%d->%d owner=%d\n",mode,int(wasRealTime),int(world->IsRealTime()),owner->GetScenarioPlayerID());std::fflush(stdout);
+    if(mode==7){auto crouch=actor->GetPosition();crouch.pos.p.SetPose(NAI::CM_CROUCH);actor->SetPosition(crouch);actor->animator.PlaceUnit(crouch);actor->Update();}
+    actor->animator.SetActiveItem(!holstered);actor->SetUndrawItem(undraw);actor->SetWalkWithoutWeapon(undraw);
+    auto* rpg=actor->GetUnitRPG();auto* inventory=rpg->GetInventory();
+    struct ReleaseMotionless {NRPG::IUnitMission* unit=nullptr;~ReleaseMotionless(){if(unit)unit->ReleaseMotionless();}} release;
+    if(motionless){rpg->ApplyMotionless();release.unit=rpg;}Require(rpg->CanMove()!=motionless,"ready-action fixture did not set the actual native motionless counter");
+    const auto from=actor->GetPosition();CObj<NRPG::IInventoryItem> removed;int slot=-1;
+    if(invalid){slot=inventory->GetActiveSlot()==NDb::SLOT_1?int(NDb::SLOT_2):int(NDb::SLOT_1);if(inventory->Get(NDb::ESlot(slot)))removed=inventory->TakeOff(NDb::ESlot(slot));}
+    CVec3 target;int desired=from.pos.p.GetDirection();CObj<NWorld::CCmd> command;NWorld::EUnitCommandResult direct;
+    if(shot) {
+        bool found=false;
+        for(int i=0;i<8;++i){const float angle=i*FP_PI*.25f;const CVec3 p=from.GetCP()+CVec3(20*cos(angle),20*sin(angle),1);const auto dir=NRPG::GetShootDirection(world->GetPathNetwork(),from.pos.p,p);if((dir==from.pos.p.GetDirection())!=(mode==9)){target=p;desired=dir;found=true;break;}}
+        Require(found,"ready-action fixture could not select an actual native aligned/turning shot");
+        command=new NWorld::CCmdShootTile(target);CObj<NWorld::CExecShootTile> action=new NWorld::CExecShootTile(actor,target);direct=action->CanDoIt(from);
+    } else {command=new NWorld::CCmdReload(slot);CObj<NWorld::CExecReload> action=new NWorld::CExecReload(actor,slot);direct=action->CanDoIt(from);}
+    Require(invalid?direct==NWorld::UCR_NO_EQUIPMENT:direct==NWorld::UCR_OK,"ready-action direct native action has unexpected availability before its queue is constructed");
+    const int ap=actor->GetAP(),hp=rpg->GetTotalVP(),ammo=weapon->GetAmmoQuantity(),price=actor->GetActionAP(NRPG::AC_RELOAD);const bool active=actor->animator.IsActiveItem(),walk=actor->IsWalkingWithoutWeapon();const auto time=world->GetTime()->GetValue();auto random=GlobalGameRandom();
+    NWorld::EUnitCommandResult result=NWorld::UCR_GENERAL_FAILURE;CObj<NWorld::CCommandExecute> executor=NWorld::CreateActionExecutor(actor,command,&result);
+    auto* queue=dynamic_cast<NWorld::CSimpleExecQueue*>(executor.GetPtr());auto* front=queue?queue->GetFrontExecutor():nullptr;
+    const bool move=front && dynamic_cast<NWorld::IExecMove*>(front);CObj<NAI::CPath> path=executor?executor->GetCurrentPath():nullptr;
+    const bool expectedAvailable=!invalid && !(motionless && preparation);
+    auto afterRandom=GlobalGameRandom();const bool unchanged=actor->GetPosition()==from && actor->GetAP()==ap && rpg->GetTotalVP()==hp && weapon->GetAmmoQuantity()==ammo && actor->animator.IsActiveItem()==active && actor->GetUndrawItem()==undraw && actor->IsWalkingWithoutWeapon()==walk && rpg->CanMove()!=motionless && world->GetTime()->GetValue()==time && !actor->HasCommand() && random.Get()==afterRandom.Get();
+    std::printf("native ready action: mode=%d shot=%d motionless=%d active=%d undraw=%d preparation=%d pose=%d direction=%d desired=%d direct=%d result=%d executor=%d move=%d path=%d expected=%d AP=%d ammo=%d unchanged=%d\n",mode,int(shot),int(motionless),int(active),int(undraw),int(preparation),int(from.pos.p.GetPose()),int(from.pos.p.GetDirection()),int(desired),int(direct),int(result),int(bool(executor)),int(move),int(bool(path)),int(expectedAvailable),ap,ammo,int(unchanged));std::fflush(stdout);
+    Require(unchanged,"constructing a ready native action changed AP/ammo/health/pose/item wishes/time/RNG or mobility");
+    Require(bool(executor)==expectedAvailable && result==(invalid?direct:expectedAvailable?NWorld::UCR_OK:NWorld::UCR_GENERAL_FAILURE) && (!executor || (move==preparation && (!path || preparation) && (mode!=9 || bool(path)))),"already-ready native action unnecessarily requires movement or ignores required item/facing preparation");
+    if(!expectedAvailable || preparation || shot)return;
+    Require(front && pSSClasses->GetObjectTypeID(front)==int(0x00122170) && front==FindNativeReload(executor),"ready reload is not the next actual native action");
+    // Execute the actual native action, including the ammunition label and cost;
+    // this is not a fake queue or a planner-only substitute for reloading.
+    executor->Run();Require(front->IsExecuting() && actor->GetAP()==ap-price && weapon->GetAmmoQuantity()==0,"ready native reload did not start immediately and spend exactly its existing AP cost");
+    executor->TimeLabelReached();Require(weapon->GetAmmoQuantity()>0 && actor->GetAP()==ap-price && rpg->GetTotalVP()==hp && actor->GetPosition()==from && rpg->CanMove()!=motionless,"ready native reload failed at its real ammunition label or changed position/health/mobility");
+    executor->AnimationFinished();
+    std::printf("native ready reload performed: mode=%d price=%d AP=%d->%d ammo=%d->%d motionless=%d\n",mode,price,ap,actor->GetAP(),ammo,weapon->GetAmmoQuantity(),int(!rpg->CanMove()));std::fflush(stdout);
+}
+
 static void HolsteredReloadPreparation(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -26799,6 +26853,17 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-cannon-undock-plan-invalid-server") && argc == 4) { AICannonUndockPlan(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "cannon-entry-animation")) { Require(argc == 4, "cannon animation requires db and res"); CannonEntryAnimation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mounted-reload-weapon")) { Require(argc == 4, "mounted reload requires db and res"); MountedReloadWeapon(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "ready-action-0") && argc==4) { ReadyAction(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ready-action-1") && argc==4) { ReadyAction(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ready-action-2") && argc==4) { ReadyAction(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ready-action-3") && argc==4) { ReadyAction(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "ready-action-4") && argc==4) { ReadyAction(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "ready-action-5") && argc==4) { ReadyAction(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "ready-action-6") && argc==4) { ReadyAction(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "ready-action-7") && argc==4) { ReadyAction(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "ready-action-8") && argc==4) { ReadyAction(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "ready-action-9") && argc==4) { ReadyAction(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "ready-action-10") && argc==4) { ReadyAction(argv[2],argv[3],10); return true; }
     if (!std::strcmp(mode, "holstered-reload-preparation")) { Require(argc == 4, "reload preparation requires db and res"); HolsteredReloadPreparation(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "empty-clip-attack-entry") && argc == 4) { EmptyClipAttackEntry(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "invalid-action-cache-query") && argc == 4) { EmptyClipAttackEntry(argv[2],argv[3],true); return true; }

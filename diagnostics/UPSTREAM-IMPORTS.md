@@ -14763,3 +14763,92 @@ Together with terrain274db3f47fbfb7c9bc0d7af2daf8cb2697e3571a, all hunks in
 all9 original source files are accounted. Mark5ab fully imported. Ledger286:
 159imported/18partial/66pending =84unfinished sources. No original balance or
 authored data change; goal and final actual GitHub Actions repair/check remain.
+
+### Execute an already-ready action without movement preparation (dcba0202)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/dcba0202d249b3e67c9ce726805457c2e6a54064
+
+CreateActionQueue always calls the movement factory, even when the actor is
+already at an action place with appropriate item state. The factory correctly
+rejects an RPG-motionless actor; consequently an otherwise valid reload or
+aligned shot cannot be queued. A mobile actor also receives an unnecessary
+movement-preparation executor, even when it exposes no positional path.
+
+Restore only the original ready-action branch. Compare candidates under
+0xf9feffff: ignore integral/final/moving bits, preserve tile/layer/pose/facing.
+NO_TARGET can enter direct validation too. ITEM_ACTIVE/ITEM_INACTIVE mismatches
+and the own GetUndrawItem flag still force existing preparation. When ready,
+call the actual action validator at the actual position; accept only named
+OK/NO_TARGET, then put that action alone into the existing native CExecQueue.
+All existing path, pose, weapon-draw/undraw, walk-without-weapon, forced movement
+and body-animation code remains intact. Only Main/wUnitAttack.cpp18 additions;
+no public API, class layout, save/wire field, error ordinal or AP formula change.
+
+Independent original: unique128-byte reload readiness gate Gold7900a7 maps to
+actual Steam79bce7, masking ONLY the verified IsSamePlace E8 operand. Entire
+22-byte helper4731a0 exactly and uniquely maps473c90. The generic heal142-byte
+gate has8 identical template matches; resolve the actual79acae through its
+preceding call to independently verified medical helper7942a0, not by choosing
+an arbitrary signature occurrence. Gold78f06e is typed as the actual heal
+template. Both gates use original mask and active/undraw fields. Typed
+CDumbUnitServer.animator58 + CUnitAnimator.bActiveItem64 =bc; undraw38. Named
+original active enums0/1/2 match the semantics; original OK1/NO_TARGET3 translate
+to OWN named OK0/NO_TARGET4 without changing our ordinals. Actual direct
+availability72-byte block790266 uniquely maps79bea6 with only its verified E8
+operand. Follow accepted branches to queue allocation; three vtable operands
+independently match actual RTTI/COL offsets on both PEs, and zero mover state
+skips the optional movement child before appending the real action once.
+Common allocation bytes are resolved by control-flow context, not declared
+globally unique. No whole template/helper/validator/AP-formula audit claim.
+
+Before tests/production changes, related baseline Windows90/90(103.38s) and
+Linux88/88(98.49s) pass. Eleven new resource-backed cases call the PUBLIC actual
+CreateActionExecutor on real authored map810 units/ammo. Use actual RPG
+ApplyMotionless/ReleaseMotionless counting, existing animator/item APIs and
+native direction selection; no fake action/movement/path provider, private
+access or DB edits. Six controls cover holstered/undraw preparation, both
+immobile preparation rejections, missing reload weapon, and real facing change;
+ready cases cover standing/crouched reloads and aligned/mobile/immobile shots.
+
+Final compiled tactical RED5/11 BOTH platforms before Main: mobile ready
+reload/crouched reload/aligned shot wrongly prepend a mover, and motionless
+reload/aligned shot return GENERAL_FAILURE despite direct validator OK. All
+six controls pass. GOLD/Steam gating proof corroborates the native cause.
+GREEN11/11 each, with EXACT semantic row changes: ready movers1->0, motionless
+results GENERAL_FAILURE->OK and executor0->1; every control row unchanged.
+Planning preserves AP/ammo/HP/place/item wishes/mobility/time, command absence
+and next RNG word. Do not claim a whole-RNG-state byte comparison.
+
+Actual native reload Run/TimeLabelReached/AnimationFinished are directly
+dispatched in three ready cases after entering the native tactical turn via
+GivePlayerTurn. Each spends its existing17 AP(46->29), loads0->32 rounds,
+retains posture/HP and, for the motionless case, remains immobile. This is
+native action/label evidence, not a complete UI/animation-timing test. Fresh
+full server/replica network tests separately exercise real queued execution.
+The earlier fixture used real time, where AP is correctly not spent: its
+runtime-expectation failures are archived as SETUP. Only our18-line Main block
+was restored to the exact committed parent, then the final tactical fixture
+produced fresh RED5/11 on both platforms before the same minimal fix was
+reapplied. Also archive the direction compile setup and two incorrect
+positional-path expectations for item-only preparation; neither counts as bug
+RED. Item-only preparation legitimately has a mover but no positional path.
+
+Final related Windows101/101(115.79s)/Linux99/99(110.69s) are exact saved90/88
+baselines plus11. Existing reload wire, mounted/holstered/cannon reload,
+medical reach/pose/PK repair, object shots, interrupted routes, ladder/door and
+all own body-animation interruption/reseat checks pass without adapting their
+assertions. Windows ALL_BUILD and Linux Game/helpers/actual NetworkSerializer
+build. Fresh Windows actual serializer/match/partial/stop4/4(24.87s) and local
+CI-like299/299(24.57s) pass; exact manifests/raw records/exits verified. Eleven
+asset-backed additions correctly remain outside CI299. No final hosted Actions
+or full-suite claim. Two shared builds reused; no per-bug build/source copies.
+
+All hunks of this single-file source are accounted: markdcba imported. Pickup/
+talk radii/retry source70cf and reserved AP sourcecad507 remain separate pending
+work. No original balance, authored DB, own body/facial/font/bgfx/HD change.
+Ledger286 now160imported/18partial/65pending =83unfinished sources. Whole goal
+and final actual GitHub Actions repair/check remain active. Evidence: ready-
+action native baseline/RED/GREEN, exact11 row comparisons and3 action labels,
+typed original enum/member/RTTI/control-flow oracle, full build/final raw gates,
+manifest/exits and ready-action-verification.json. General verifier is tied to
+precommit parente7a086d3; do not rerun it after committing this change.
