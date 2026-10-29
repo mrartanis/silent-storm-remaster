@@ -13462,7 +13462,49 @@ static void ChapterMedalScreenshot(const char* databasePath,const char* resource
     }
 }
 
-static void HandContainerCharges(const char* databasePath,const char* resourcePath,bool right)
+// a7b644e9 DiscardAmmo cleared the owned clip; its serialized tag2 can legitimately be null.
+static void ReadHistoricalMissingClip(NRPG::CWeaponItem* weapon)
+{
+    CStructureNetworkContext refs;auto original=BorrowedObjectFields(weapon,&refs);
+    CMemoryStream legacy;CObj<NRPG::CClipItem> missing;
+    CDBPtr<NDb::CRPGWeapon> record=weapon->GetDBWeapon();auto mode=weapon->GetShootMode();bool working=weapon->IsWorking();
+    // Keep all five historical fields: an omitted bool is read as false, not left unchanged.
+    {CStructureSaver writer(legacy,CStructureSaver::WRITE,&refs);writer.Add(1,static_cast<NRPG::CInventoryItem*>(weapon));writer.Add(2,&missing);writer.Add(3,&mode);writer.Add(4,&record);writer.Add(5,&working);}legacy.Seek(0);
+    {CStructureSaver reader(legacy,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(weapon)->operator&(reader);}
+    Require(weapon->GetShootMode()==mode && weapon->IsWorking()==working,"historical full weapon archive changed unrelated saved fields");
+}
+
+static void WeaponClipArchive(const char* databasePath,bool missing)
+{
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
+    CDBIterator<NDb::CRPGWeapon> weapons(*NDatabase::GetTable<NDb::CRPGWeapon>());int count=0,states=0,overrides=0,alternate=0,skipped=0;
+    while(weapons.MoveNext()){
+        auto* record=weapons.Get();bool shootable=false;for(int i=0;i<NDb::SM_MAXVALUE;++i)if(record->shootModes[i])shootable=true;
+        if(!record->pItem || !record->pInnerClip || !record->pWeaponType || !shootable){++skipped;continue;}
+        ++count;if(record->nInnerClipAmmoQuantity>0 && record->nInnerClipAmmoQuantity!=record->pInnerClip->nQuantity)++overrides;
+        for(int state=0;state<3;++state){
+            CObj<NRPG::CWeaponItem> source=new NRPG::CWeaponItem(record);auto* clip=source->GetInnerClip();Require(clip && IsValid(clip),"authored weapon constructor did not create its mandatory real clip");
+            if(state==1)source->Damage();if(state==2)source->DiscardAmmo();
+            // Exercise a valid nondefault ammo color too, without editing any DB record.
+            if(state==2 && !missing){CDBIterator<NDb::CRPGAmmo> ammo(*NDatabase::GetTable<NDb::CRPGAmmo>());while(ammo.MoveNext()){auto* a=ammo.Get();if(a->nAmmoGroup!=record->pInnerClip->nAmmoGroup || a->color==clip->GetDBAmmo()->color)continue;CObj<NRPG::IInventoryItem> spare=NRPG::CreateClipItem(record->pInnerClip,a,1);Require(source->Load(dynamic_cast<NRPG::IClipItem*>(spare.GetPtr())),"archive control could not load actual compatible alternate ammunition");++alternate;break;}}
+            const int before=clip->GetIncQuantity(),maximum=clip->GetMaxIncQuantity(),ammoID=clip->GetDBAmmo()->GetRecordID();const auto mode=source->GetShootMode();const bool working=source->IsWorking();
+            CStructureNetworkContext refs;auto saved=BorrowedObjectFields(source,&refs);CObj<NRPG::CWeaponItem> restored=dynamic_cast<NRPG::CWeaponItem*>(pSSClasses->CreateObject(pSSClasses->GetObjectTypeID(source)));
+            Require(restored,"weapon clip archive has no native factory class");{CStructureSaver reader(saved,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader);}
+            Require(restored->GetInnerClip()==clip && clip->GetIncQuantity()==before && clip->GetMaxIncQuantity()==maximum && clip->GetDBAmmo()->GetRecordID()==ammoID,"valid weapon archive replaced its existing clip/ammo or capacity");
+            if(missing)ReadHistoricalMissingClip(restored);
+            auto* after=restored->GetInnerClip();
+            std::printf("native weapon clip archive: missing=%d weapon=%d state=%d present=%d quantity=%d maximum=%d expectedMaximum=%d before=%d ammo=%d expectedAmmo=%d working=%d expectedWorking=%d override=%d\n",int(missing),record->GetRecordID(),state,int(IsValid(after)),after?after->GetIncQuantity():-1,after?after->GetMaxIncQuantity():-1,maximum,before,after?after->GetDBAmmo()->GetRecordID():-1,ammoID,int(restored->IsWorking()),int(working),record->nInnerClipAmmoQuantity);std::fflush(stdout);
+            Require(after && IsValid(after),"historical weapon archive retains a null inner clip after loading");
+            Require(after->GetIncQuantity()==(missing?0:before) && after->GetMaxIncQuantity()==maximum && restored->GetDBWeapon()==record && restored->GetDBItem()==record->pItem && restored->GetShootMode()==mode && restored->IsWorking()==working,"weapon clip restoration grants ammunition or changes valid weapon state/capacity");
+            if(!missing)Require(after->GetDBAmmo()->GetRecordID()==ammoID,"valid alternate-ammo weapon archive changed ammo type");
+            NRPG::SWeaponInfo info;restored->GetInfo(&info);Require(info.nMinRange==record->nMinRange && info.nMaxRange==record->nMaxRange,"restored weapon cannot supply its real tooltip/combat information");++states;
+        }
+    }
+    std::printf("native weapon clip archive summary: missing=%d weapons=%d states=%d overrides=%d alternate=%d skipped=%d\n",int(missing),count,states,overrides,alternate,skipped);std::fflush(stdout);
+    Require(count>90 && states==count*3 && overrides>0 && (missing || alternate>0),"weapon clip archive did not cover its authored valid/empty/damaged/override/ammo corpus");
+}
+
+static void HandContainerCharges(const char* databasePath,const char* resourcePath,bool right,bool legacyClip=false)
 {
     Require(std::getenv("S2_USER_DATA_DIR"),"hand charges fixture requires isolated user data");
     Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"hand charges started with a live interface");
@@ -13503,6 +13545,21 @@ static void HandContainerCharges(const char* databasePath,const char* resourcePa
         Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && inventory->Get(target)==item && inventory->GetActiveSlot()==active && (!container || container->GetIncQuantity()==dose),"drawing hand charges spent AP/health/charges or changed inventory/active hand");
         if(counter && good)Require(extent.x>0 && extent.y>0,"visible hand charges produced empty native text layout");++checks;if(!good)++failures;
     };
+    if(legacyClip){
+        CObj<NRPG::CWeaponItem> restored=new NRPG::CWeaponItem(gun->GetDBWeapon());const int maximum=restored->GetInnerClip()->GetMaxIncQuantity(),oldQuantity=restored->GetInnerClip()->GetIncQuantity();
+        ReadHistoricalMissingClip(restored);auto* inner=restored->GetInnerClip();
+        std::printf("native legacy hand clip after read: side=%d weapon=%d present=%d quantity=%d maximum=%d expectedMaximum=%d oldQuantity=%d\n",int(right),restored->GetDBWeapon()->GetRecordID(),int(IsValid(inner)),inner?inner->GetIncQuantity():-1,inner?inner->GetMaxIncQuantity():-1,maximum,oldQuantity);std::fflush(stdout);
+        Require(inner && IsValid(inner),"historical weapon archive retains a null inner clip after loading");Require(inner->GetIncQuantity()==0 && inner->GetMaxIncQuantity()==maximum,"legacy hand clip restoration granted free ammunition or lost authored capacity");
+        NRPG::SWeaponInfo info;restored->GetInfo(&info);put(restored);observe("legacy-empty-weapon",0,maximum,true,true);
+        // A real compatible spare is unloaded from the retained original weapon, never fabricated.
+        auto* originalWeapon=dynamic_cast<NRPG::CWeaponItem*>(weapon.GetPtr());Require(originalWeapon && originalWeapon->Unload(inventory) && restored->CanReload(inventory),"legacy hand clip has no actual unloaded compatible spare");
+        const int ap=actor->GetAP();Require(restored->Reload(inventory),"restored legacy weapon cannot reload through the native inventory API");const int loaded=restored->GetAmmoQuantity();
+        Require(loaded>0 && loaded<=maximum && actor->GetAP()==ap,"native low-level reload changed AP or overfilled the restored clip");observe("legacy-reloaded",loaded,maximum,true,true);
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(restored,&refs);CObj<NRPG::CWeaponItem> again=dynamic_cast<NRPG::CWeaponItem*>(pSSClasses->CreateObject(pSSClasses->GetObjectTypeID(restored)));
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(again.GetPtr())->operator&(reader);}Require(again && again->GetInnerClip()==restored->GetInnerClip() && again->GetAmmoQuantity()==loaded,"saving/restoring a repaired legacy weapon reset its loaded clip");
+        std::printf("native legacy hand clip summary: side=%d checks=%d failures=%d loaded=%d maximum=%d AP=%d\n",int(right),checks,failures,loaded,maximum,ap);std::fflush(stdout);
+        Require(checks==2 && failures==0,"restored legacy weapon cannot draw its actual full hand UI");return;
+    }
     auto* ordinary=NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(1);auto* repair=NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(26);Require(ordinary && repair && ordinary->nQuantity>1 && repair->nQuantity>1,"hand charges lost its authored medical/repair records");
     CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(ordinary);put(kit);observe("medical-full",ordinary->nQuantity,ordinary->nQuantity,true,false);
     kit->SpendPotion();observe("medical-spent",ordinary->nQuantity-1,ordinary->nQuantity,true,false);
@@ -25673,6 +25730,10 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "chapter-clue-heading") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "medal-cursor-visible") && argc == 4) { MedalCursorVisible(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-medal-screenshot") && argc == 4) { ChapterMedalScreenshot(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "weapon-clip-archive-valid") && argc==3) { WeaponClipArchive(argv[2],false); return true; }
+    if (!std::strcmp(mode, "weapon-clip-archive-legacy") && argc==3) { WeaponClipArchive(argv[2],true); return true; }
+    if (!std::strcmp(mode, "legacy-hand-clip-left") && argc==4) { HandContainerCharges(argv[2],argv[3],false,true); return true; }
+    if (!std::strcmp(mode, "legacy-hand-clip-right") && argc==4) { HandContainerCharges(argv[2],argv[3],true,true); return true; }
     if (!std::strcmp(mode, "hand-charges-left") && argc==4) { HandContainerCharges(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "hand-charges-right") && argc==4) { HandContainerCharges(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "medal-panel-caption") && argc == 4) { MedalPanelCaption(argv[2],argv[3]); return true; }

@@ -193,13 +193,14 @@ class CWeaponItem: public CInventoryItem, public IWeaponItem
 {
 	OBJECT_BASIC_METHODS(CWeaponItem);
 private:
+	void RestoreMissingClipOnLoad();
 	ZDATA_(CInventoryItem)
 	CObj<CClipItem> pInnerClip;
 	NDb::EShootMode eShootMode;
 	CDBPtr<NDb::CRPGWeapon> pDBWeapon;
 	bool bWorking;
 public:
-	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CInventoryItem*)this); f.Add(2,&pInnerClip); f.Add(3,&eShootMode); f.Add(4,&pDBWeapon); f.Add(5,&bWorking); return 0; }
+	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CInventoryItem*)this); f.Add(2,&pInnerClip); f.Add(3,&eShootMode); f.Add(4,&pDBWeapon); f.Add(5,&bWorking); if ( f.IsReading() ) RestoreMissingClipOnLoad(); return 0; }
 	
 public:
 	bool FindProperClip( IInventoryInfo *pInventory, SFindClipResult *pResult, bool bCheckSameColor ) const;

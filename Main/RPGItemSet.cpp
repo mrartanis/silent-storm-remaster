@@ -146,6 +146,22 @@ CWeaponItem::CWeaponItem( NDb::CRPGWeapon *_pWeapon )
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void CWeaponItem::RestoreMissingClipOnLoad()
+{
+	// Early fork saves can contain a null tag2 after the old DiscardAmmo implementation.
+	if ( pInnerClip || !IsValid(pDBWeapon) || !IsValid(pDBWeapon->pInnerClip) )
+		return;
+	int nCapacity = pDBWeapon->pInnerClip->nQuantity;
+	if ( pDBWeapon->nInnerClipAmmoQuantity > 0 )
+		nCapacity = pDBWeapon->nInnerClipAmmoQuantity;
+	CDynamicCast<CClipItem> pClip(CreateClipItem(pDBWeapon->pInnerClip, 0, 0));
+	if ( pClip )
+	{
+		pInnerClip = pClip;
+		pInnerClip->SetMaxIncQuantity( nCapacity );
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CWeaponItem::SetShootMode( NDb::EShootMode _eShootMode )
 {
 	if ( !IsShootModeSupported( _eShootMode ) )

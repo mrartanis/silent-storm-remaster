@@ -13414,3 +13414,80 @@ case still needs a genuine reproduction and its own TDD/commit. Do not claim
 the entire UI hunk finished. Ledger150 imported/20partial/68pending=88 unfinished
 source commits. Whole goal remains active, final hosted Actions after all
 applicable imports still outstanding. Shared builds/no per-bug source copies.
+
+### Historical missing weapon clips: repair at the load boundary (bbeb35c8, own-fork adaptation)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/bbeb35c8fe27e923b52decd93c1850dcb80f8ba0
+
+Our historical a7b644e9 DiscardAmmo cleared the owned inner clip and serialized
+that null in existing field2. a8c50bf2 already corrected new discards to split
+rounds while retaining the clip; existing saved nulls were not repaired.
+Upstream's slot guard alone is insufficient for us: actual CSlot model/tooltip
+and CWeaponItem.GetInfo also dereference the mandatory clip. Normalize this
+known historical state in CWeaponItem's read path after all five existing
+fields. Reuse CreateClipItem with ZERO rounds and the original constructor's
+capacity rule, including a positive per-weapon override. Keep existing clips
+and write paths unchanged. No fields/tags, AP formulas, ammo grants, UI/fonts,
+HD resources, face animation or renderer changes.
+
+Original proof: named Gold DB constructor69c250/692 calls CreateClipItem69b9a0;
+the full39-byte capacity/factory block69c465 maps uniquely to Steam6a2515,
+masking only the direct-call operand. Named Gold DiscardAmmo69ab20/76 maps
+uniquely to Steam6a0bd0 except one release call; it splits rounds and retains
+the owned clip. Actual Steam UI655c65/655c78 null/invalid checks go655d4c,
+which hides reload then still calls base Slot.Draw. See the native oracle.
+
+Tests use all five actual historical fields, real serialization/factories and
+borrowed object references; this is not a full-world save-file test. All105
+authored weapons, three states each (loaded/damaged/discarded), cover315 valid
+controls and315 missing-clip restores, eight distinct capacity overrides and
+five alternate-ammo controls. Both actual tactical hand slots additionally
+draw the reconstructed empty weapon, reload from an actual spare unloaded
+from the retained original weapon, draw64/64 and round-trip the repaired
+loaded body. The low-level native inventory Reload does not spend AP; this
+test does not claim to execute the AP-charging world reload action.
+
+Fixture correction: an initial tag2-only archive omitted bWorking, which
+the real reader defaults to false. The initial UI/reload checks passed but
+the corpus correctly rejected the changed flag. Preserve that evidence;
+rewrite the fixture with all five fields, restore only our two Main files
+to HEAD, rerun both complete native REDs to terminal, then reapply the same
+minimal fix. Final RED3fail/4 each: both UI sides and missing archive fail;
+all315 valid controls already pass and the loaded working flag stays true.
+Final GREEN12/12 Windows14.00s/Linux12.26s covers the four new cases, existing
+hand-charge and medal UI, reload wire/mounted/caption and music controls.
+All315 valid records are identical before/after on each platform; all315
+missing restores have quantity0, correct capacity and unchanged working/mode/
+DB identities. All30 hand observations match across platforms, exact own
+markup/height38 retained. Windows ALL_BUILD and Linux Game/helpers pass;
+Windows resource-free CI selection290/290 passes30.75s. This is local CI,
+not a hosted Actions result or the final all-imports CI audit.
+
+Historical nulls have already lost their ammo type: the empty reconstructed
+clip uses the existing factory default and accepts normal compatible rounds.
+It never grants ammunition. The existing unordered DB factory differs across
+platforms for weapon65/67/98/104/105 (ammo22/38 or33/35). Exact pre-fix valid315
+controls prove that difference predates this change. Keep existing behavior;
+all existing valid alternate-ammo clips remain identical on their platform.
+
+Source bbeb completion matrix (all four source files/hunks accounted):
+- RPGUnitMission.cpp declaration/curable-critical body and RPGUnitMission.h
+  default interface: d3ba6129, original typed proof and native effect gates.
+- wUnitAttackExec.cpp effect dispatch and active-kit caller: d3ba6129.
+- iUnitPanel.cpp nonweapon charges: ccf82c8e, actual native UI and original225
+  byte branch; preserve our font prefix rather than upstream DB18759.
+- iUnitPanel.cpp null/invalid clip guard: this independent own-load adaptation
+  fixes the genuine historical producer for all105 weapon types, including
+  actual tooltips and reload that a slot-only guard cannot repair. CWeaponItem
+  is the sole concrete IWeaponItem implementation; the clip is a CObj owner,
+  and constructor/Load/Reload/Unload/DiscardAmmo retain it. We do not claim
+  support for deliberately invalidated clips or malformed replica tombstone
+  graphs; a UI guard alone would still leave GetInfo unsafe for those states.
+  No artificial invalid-only fixture is counted as a demonstrated game bug.
+
+Source bbeb is now imported/adapted; ledger151 imported/19partial/68pending =
+87 unfinished source commits. Further medical order gates (760cd924), practice
+(156ccd17) and VP/overdose (bf54ea44) remain independent. Whole goal active;
+final hosted GitHub Actions after remaining imports is still outstanding.
+Evidence: legacy-weapon-clip-oracle.json, legacy-weapon-clip-verification.json,
+complete final RED/GREEN/CI raw logs. Shared builds only; no source/build copies.
