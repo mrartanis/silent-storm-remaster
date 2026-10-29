@@ -423,7 +423,13 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdMoveInvent
 			return UCR_NO_TARGET;
 
 		CVec3 ptTo = pCmd->GetSource().pWorldItem->GetPos();
-		GetHumanReachPlaces( pUS, ptTo, pRes );
+		// Original close pickup keeps the current pose and heading.
+		CVec2 delta = pUS->GetPosition().GetCPNoHeight() - CVec2( ptTo.x, ptTo.y );
+		float fHeight = pUS->GetPosition().GetCP().z - ptTo.z;
+		if ( fabs( delta ) * 1.6f <= 2.0f && fHeight < 0.5f && fHeight > -2.0f )
+			pRes->push_back( pUS->GetPosition().pos.p );
+		else
+			GetHumanReachPlaces( pUS, ptTo, pRes );
 		return UCR_OK;
 	}
 

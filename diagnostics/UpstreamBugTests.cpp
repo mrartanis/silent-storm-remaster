@@ -20455,6 +20455,52 @@ static void EmptyClipAttackEntry(const char* databasePath,const char* resourcePa
 }
 
 
+
+static void NearbyPickup(const char* databasePath,const char* resourcePath,int mode)
+{
+    const bool mobile=mode==7 || mode==8,within=mode!=4 && mode!=5 && mode!=6;
+    float distance=mode==3?1.25f:mode==4?1.2505f:mobile?.25f:1.f;
+    float height=mode==1?1.f:mode==2?-.25f:mode==5?-.5f:mode==6?2.f:mode==7?.25f:mode==9?.5f:mode==11?-.499f:mode==12?1.999f:0.f;
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;CPtr<NRPG::CWeaponItem> held;
+    for(auto unit:units)if(unit && !unit->IsAIUnit() && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK() && unit->GetUnitRPG()->CanMove() && !unit->HasCommand() && !unit->IsPerformingAction()) {
+        auto* gun=dynamic_cast<NRPG::CWeaponItem*>(unit->GetUnitRPG()->GetInventory()->GetActive());
+        if(gun && IsValid(gun->GetDBWeapon()->pInnerClip) && IsValid(gun->GetDBWeapon()->pInnerClip->pItem)){actor=unit;held=gun;break;}
+    }
+    Require(actor && held,"nearby pickup fixture lacks its real human firearm user and authored clip");
+    auto* owner=dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer());Require(owner,"nearby pickup has no actual owning player");world->GivePlayerTurn(owner);Require(world->IsTurnBased() && world->GetCurrentPlayer()==owner,"nearby pickup did not enter a native tactical turn");
+    auto* network=world->GetPathNetwork();
+    if(mode==9 || mode==10){auto pose=actor->GetPosition();pose.pos.p.SetPose(mode==9?NAI::CM_CROUCH:NAI::CM_LAY);Require(network->IsNativePassable(pose.pos.p),"nearby pickup has no native passable posture control");actor->SetPosition(pose);actor->animator.PlaceUnit(pose);actor->Update();}
+    actor->animator.SetActiveItem(true);actor->SetUndrawItem(false);actor->SetWalkWithoutWeapon(false);
+    auto* rpg=actor->GetUnitRPG();auto* inventory=rpg->GetInventory();
+    struct ReleaseMotionless {NRPG::IUnitMission* unit=nullptr;~ReleaseMotionless(){if(unit)unit->ReleaseMotionless();}} release;
+    if(!mobile){rpg->ApplyMotionless();release.unit=rpg;}Require(rpg->CanMove()==mobile,"nearby pickup has the wrong real native motionless counter");
+    CObj<NRPG::IInventoryItem> item=NRPG::CreateClipItem(held->GetDBWeapon()->pInnerClip);auto* clip=dynamic_cast<NRPG::IClipItem*>(item.GetPtr());CTPoint<int> destination;
+    Require(clip && inventory->FindPlace(item,&destination),"nearby pickup has no authored clip or genuine backpack space");
+    const auto from=actor->GetPosition();CVec3 requested;bool found=false;
+    for(int i=0;i<8;++i){const float angle=i*FP_PI*.25f;const CVec3 p=from.GetCP()+CVec3(distance*cos(angle),distance*sin(angle),height);const auto dir=NRPG::GetShootDirection(network,from.pos.p,p);if((dir==from.pos.p.GetDirection())==(mode==8)){requested=p;found=true;break;}}
+    Require(found,"nearby pickup cannot choose a native aligned/other-heading item point");
+    CPtr<NWorld::CDFrozenItem> body=world->AddFrozenItem(world->GetAIMap(),requested,QNULL,item);
+    Require(IsValid(body) && body->GetInvItem()==item.GetPtr() && world->GetFrozenItem(item)==body,"nearby pickup failed to register its actual native world body and item identity");
+    const auto point=body->GetPos();const auto planar=from.GetCPNoHeight()-CVec2(point.x,point.y);const float actualDistance=fabs(planar),actualHeight=point.z-from.GetCP().z;
+    Require(fabs(actualDistance-distance)<.0001f && fabs(actualHeight-height)<.0001f,"nearby pickup native body position does not match its boundary input");
+    NWorld::SItem source(nullptr,NWorld::SItem::GROUND,item);source.pWorldItem=body.GetPtr();NWorld::SItem target(actor,NWorld::SItem::BACKPACK,destination);
+    CObj<NWorld::CCmdMoveInventoryItem> command=new NWorld::CCmdMoveInventoryItem(source,target);CObj<NWorld::CExecMoveInventoryItem> action=new NWorld::CExecMoveInventoryItem(actor,command);
+    const auto direct=action->CanDoIt(from);Require(direct==NWorld::UCR_OK,"nearby pickup inventory validation rejects its actual free destination");
+    const int price=action->GetStartAP(),ap=actor->GetAP(),hp=rpg->GetTotalVP(),ammo=held->GetAmmoQuantity(),quantity=item->GetQuantity(),rounds=clip->GetIncQuantity();const auto count=inventory->GetItems().size();const auto time=world->GetTime()->GetValue();const auto slot=inventory->GetActiveSlot();auto random=GlobalGameRandom();
+    NWorld::EUnitCommandResult result=NWorld::UCR_GENERAL_FAILURE;CObj<NWorld::CCommandExecute> executor=NWorld::CreateActionExecutor(actor,command,&result);
+    auto* queue=dynamic_cast<NWorld::CSimpleExecQueue*>(executor.GetPtr());auto* front=queue?queue->GetFrontExecutor():nullptr;const bool move=front && dynamic_cast<NWorld::IExecMove*>(front);CObj<NAI::CPath> path=executor?executor->GetCurrentPath():nullptr;
+    auto afterRandom=GlobalGameRandom();const bool unchanged=actor->GetPosition()==from && actor->GetAP()==ap && rpg->GetTotalVP()==hp && held->GetAmmoQuantity()==ammo && inventory->GetActive()==held.GetPtr() && inventory->GetActiveSlot()==slot && inventory->GetItems().size()==count && rpg->CanMove()==mobile && actor->animator.IsActiveItem() && !actor->GetUndrawItem() && !actor->IsWalkingWithoutWeapon() && !actor->HasCommand() && IsValid(body) && body->GetInvItem()==item.GetPtr() && body->GetPos()==point && item->GetQuantity()==quantity && clip->GetIncQuantity()==rounds && world->GetTime()->GetValue()==time && random.Get()==afterRandom.Get();
+    std::printf("native nearby pickup: mode=%d mobile=%d pose=%d direction=%d distance=%.6f height=%.6f direct=%d result=%d executor=%d move=%d path=%d near=%d price=%d AP=%d quantity=%d rounds=%d unchanged=%d\n",mode,int(mobile),int(from.pos.p.GetPose()),int(from.pos.p.GetDirection()),double(actualDistance),double(actualHeight),int(direct),int(result),int(bool(executor)),int(move),int(bool(path)),int(within),price,ap,quantity,rounds,int(unchanged));std::fflush(stdout);
+    Require(unchanged,"nearby pickup planning changed native item/owner/inventory/actor state or next RNG word");
+    Require(within?(executor && result==NWorld::UCR_OK && !move && !path):!executor,"nearby ground item requires a turn/move despite the original reach bounds or escaped the original near boundary");
+    if(!within)return;
+    Require(front && dynamic_cast<NWorld::CExecMoveInventoryItem*>(front),"nearby pickup did not queue its real inventory action first");executor->Run();unsigned occurrences=0;for(const auto& entry:inventory->GetItems())if(entry.pItem==item)++occurrences;
+    Require(occurrences==1 && !IsValid(world->GetFrozenItem(item)) && (!IsValid(body) || body->GetInvItem()!=item.GetPtr()) && item->GetQuantity()==quantity && clip->GetIncQuantity()==rounds,"actual nearby pickup did not transfer exactly one intact native item out of its world body");
+    Require(actor->GetAP()==ap-price && rpg->GetTotalVP()==hp && actor->GetPosition()==from && held->GetAmmoQuantity()==ammo && inventory->GetActive()==held.GetPtr() && rpg->CanMove()==mobile,"actual nearby pickup changed its existing AP price, held weapon, health, position or mobility");
+    std::printf("native nearby pickup performed: mode=%d AP=%d->%d price=%d quantity=%d rounds=%d occurrences=%u motionless=%d\n",mode,ap,actor->GetAP(),price,item->GetQuantity(),clip->GetIncQuantity(),occurrences,int(!rpg->CanMove()));std::fflush(stdout);
+}
+
 static void ReadyAction(const char* databasePath,const char* resourcePath,int mode)
 {
     const bool shot=mode>=8,motionless=mode==1 || mode==3 || mode==5 || mode==10;
@@ -26853,6 +26899,19 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-cannon-undock-plan-invalid-server") && argc == 4) { AICannonUndockPlan(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "cannon-entry-animation")) { Require(argc == 4, "cannon animation requires db and res"); CannonEntryAnimation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mounted-reload-weapon")) { Require(argc == 4, "mounted reload requires db and res"); MountedReloadWeapon(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "nearby-pickup-0") && argc==4) { NearbyPickup(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "nearby-pickup-1") && argc==4) { NearbyPickup(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "nearby-pickup-2") && argc==4) { NearbyPickup(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "nearby-pickup-3") && argc==4) { NearbyPickup(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "nearby-pickup-4") && argc==4) { NearbyPickup(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "nearby-pickup-5") && argc==4) { NearbyPickup(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "nearby-pickup-6") && argc==4) { NearbyPickup(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "nearby-pickup-7") && argc==4) { NearbyPickup(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "nearby-pickup-8") && argc==4) { NearbyPickup(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "nearby-pickup-9") && argc==4) { NearbyPickup(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "nearby-pickup-10") && argc==4) { NearbyPickup(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "nearby-pickup-11") && argc==4) { NearbyPickup(argv[2],argv[3],11); return true; }
+    if (!std::strcmp(mode, "nearby-pickup-12") && argc==4) { NearbyPickup(argv[2],argv[3],12); return true; }
     if (!std::strcmp(mode, "ready-action-0") && argc==4) { ReadyAction(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ready-action-1") && argc==4) { ReadyAction(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ready-action-2") && argc==4) { ReadyAction(argv[2],argv[3],2); return true; }

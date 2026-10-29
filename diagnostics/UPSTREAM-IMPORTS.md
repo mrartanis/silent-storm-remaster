@@ -14852,3 +14852,65 @@ action native baseline/RED/GREEN, exact11 row comparisons and3 action labels,
 typed original enum/member/RTTI/control-flow oracle, full build/final raw gates,
 manifest/exits and ready-action-verification.json. General verifier is tied to
 precommit parente7a086d3; do not rerun it after committing this change.
+
+### Pick up nearby ground items without changing pose or facing (70cf40f3, partial)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70cf40f33e68f95da25e8db4865dc86aefb05070
+
+The ground-item planner always enumerated approach positions, even when the
+actor could pick up the item from its current place. This rejected valid
+pickups by an RPG-motionless actor and made a mobile actor turn unnecessarily.
+Restore only the original nearby-ground branch: planar distance * 1.6 <= 2,
+with strict actorZ-itemZ < 0.5 and > -2. Append the actual current full place,
+preserving posture and facing. Keep the existing world-item validity guard
+and ordinary approach fallback. No other-unit radii, dialogue, retry logic,
+AP formula, DB, save/wire layout or own body/facial/font/bgfx/HD code changes.
+
+Original proof: the entire 344-byte Gold pickup helper at 788f80 maps uniquely
+to actual Steam 794b80, masking only six decoded E8 operands and five verified
+float addresses. Both PEs contain the same exact float bits and comparison
+directions. The actual current-place append is verified. Typed SPosition
+GetCP maps as an exact 23-byte body; GetCPNoHeight maps as a 21-byte body with
+only its verified network-call operand differing. Existing independent
+GetHumanReachPlaces proof resolves both call sites. The container append and
+network getter callees are not wholly audited here. This is static original
+code evidence, not a claim to have run the original game at each boundary.
+
+Before changes, related Windows30/30 and Linux28/28 pass. Thirteen new native
+cases use public CreateActionExecutor, real map810 actors, actual RPG
+motionless counting, registered frozen items, authored compatible ammunition,
+native backpack placement and the real tactical turn. Compiled RED9/13 on
+BOTH platforms precedes the Main edit: eight valid immobile pickups fail,
+and one mobile pickup unnecessarily adds a movement-preparation executor.
+Four controls already pass, including aligned direct pickup and the three
+exclusive-boundary/outside motionless rejections. GREEN13/13 on both platforms
+changes only the expected planner fields; all four control rows are unchanged.
+Standing, crouched and prone places are exercised, including exact inclusive
+planar and strict vertical boundaries and just-inside/outside cases.
+
+Ten actual native Run transfers put the intact 32-round item in the backpack
+exactly once and remove the ground body. Preserve HP, current full place,
+held weapon, mobility and native price. That fixture's price is zero, including
+the already-passing pre-fix aligned control; no minimum AP cost is introduced.
+Planning preserves inventory, wishes, time and the next RNG word. The inventory
+validator ignores its from argument and does not itself prove physical reach.
+Controlled item heights without physics advancement do not simulate authored
+shelf/support physics. No full UI, animation timing or whole RNG-state claim.
+The initial near-macro/type compilation corrections are archived as SETUP,
+not counted as the subsequent genuine runtime RED.
+
+Final Windows ALL_BUILD and Linux Game/helpers/actual NetworkSerializer build.
+Related Windows43/43(44.16s) and Linux41/41(38.90s) are exactly the saved30/28
+plus13. Fresh Windows serializer/match/partial/stop4/4(21.85s) and local CI-like
+299/299(24.65s) pass with exact manifests, raw records and zero exits verified.
+New asset-backed cases correctly remain outside CI299. Two shared builds are
+reused without per-bug backups. Final hosted Actions and the whole goal remain
+unfinished. Evidence: nearby-pickup-verification.json and nearby-pickup native
+baseline/RED/GREEN/final logs plus original oracle in the external lab.
+
+Mark source70 PARTIAL: standing-only dialogue approaches, initial pickup/hint/
+other-unit radii and wider retry after movement-preparation failure remain
+independent work. Ledger286:160 imported/19 partial/64 pending =83 unfinished
+sources, not83 future commits. General nearby-pickup verifier is tied to
+precommit parent dbf7dfcd and must not be rerun after this commit; the read-only
+original verifier remains reusable.
