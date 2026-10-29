@@ -1354,6 +1354,17 @@ void CExecShoot::Start()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CExecShoot::GetStartAP() const
 {
+	// Retail reserves the complete short burst; execution still pays per round.
+	return GetShootMode() == NDb::SM_ShortBurst ? GetShortBurstAP() : GetFirstShotAP();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+int CExecShoot::GetShortBurstAP() const
+{
+	return GetFirstShotAP() + max( 0, GetShortBurstLength() - 1 ) * pUS->GetActionAP( NRPG::AC_BURST );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+int CExecShoot::GetFirstShotAP() const
+{
 	if ( IsAccidental() )
 		return 0;
 	if ( pUS->animator.IsAiming() )

@@ -15269,3 +15269,68 @@ original verifier and pure transform retain their stated reusable scope.
 
 All source08c4's sole-file hunks are imported. Ledger286:163 imported/18 partial/
 62 pending =80 unfinished sources. Whole goal/final actual hosted Actions remain.
+
+### Reserve the complete original short burst (8cfff49d, partial)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8cfff49d3a409f8514b3b1b78ee9b005ffd311d2
+
+Short-burst preview/start eligibility counted only the first shot, so a native
+four-round burst priced21AP appeared as15 and was accepted with only20AP.
+GetStartAP now selects full short-burst cost for mode3: first-shot price plus
+max(0,native length-1)*native AC_BURST. Factor the old first-shot body verbatim
+into GetFirstShotAP; add the original GetShortBurstAP helper. Actual SpendAP,
+CheckBurst, first/per-round prices, weapon/perk data, length formula and save/
+wire layout are unchanged. These two protected helpers are nonvirtual. This
+stage leaves the separate temporary-aim predicate and queue restore untouched.
+
+Independent original proof maps full named Gold methods to actual Steam with
+only decoded E8/E9 operands masked: GetStartAP796af0/26 ->7a2a30 selects mode3
+to GetShortBurstAP7967a0/112 ->7a25f0, otherwise GetFirstShotAP795f00/70 ->7a1d20.
+SpendAP795f50/73 ->7a1d70 retains actual first action6/7 plus extraAP. Both shot
+price helpers call the same actual CDumbUnitServer action getter. Its32-byte
+wrapper maps with one decoded call operand, whose named SUnitPosition::GetPose
+callee43 bytes is identical. Original length helper795270/107 maps with one
+decoded call and its actual float1/6 reference masked; both constants equal
+1/6, perk16 and typed DB nRoF+2c loads are verified. The original first-shot
+body also checks temporary aim; that independent source portion remains pending
+and is not claimed restored by this commit. Newer own v1.2 CheckBurst mode/
+multi-pellet dispatch remains; no whole older132-byte CheckBurst identity claim.
+
+Baseline before tests/Main: Windows72/72, Linux70/70. Compiled native RED9/18
+BOTH -> GREEN18/18 BOTH, without fixture/compile corrections. Actual authored
+persona/firearm26, real native human world owner and free passable map cell,
+native aiming graph (Snipe), actual acquired perk16, native compatible reload
+prefix and real public CanDo are used. A test subclass only exposes protected
+native SpendAP and GetShortBurstLength, overriding no prices/providers. Full
+forecast15->21 cold,11->17 aimed; longer-burst perk1 changes4 rounds to5 and
+forecasts15->23/11->19. Exact21 budget remains accepted;20 now yields native
+NOT_ENOUGH_AP5. Nested queue forwards the same full price; reload21+burst21
+changes36->42. A real1-round magazine still reserves the original full21,
+without introducing an ammo cap absent from original. Zero/one-length controls
+use complete native in-memory weapon copies with RoF3/6 (never zero), no DB edit.
+Snap/Aimed/Long controls remain identical. Repeated/base-virtual/public queries
+preserve measured AP/HP/ammo/position/aim/active item+slot/bag count/XP/perk
+points/world time/next RNG word; this is not a full world/RNG-state claim.
+
+Four real native payment controls already pass RED and remain byte-for-byte
+identical GREEN: cold budget21 spends first15 then3x2; aimed17 spends11 then3x2;
+perk23 spends15 then4x2. Dry budget16 spends15, then both preview/execute gates
+reject the next2AP round with1 left. Native CheckBurst(0) does not pay extra;
+length boundary rejects more rounds. HP/ammo/position/equipment/aim/orders stay
+unchanged in these AP-only charge/gate checks. They do not run full timed shot
+animation, consume projectile ammunition, simulate damage or inspect pixels.
+
+Final Windows ALL_BUILD and Linux Game/helpers/actual serializer built. Exact
+related90/90 Windows and88/88 Linux equal saved baselines+18. Own animation-
+reseat/legacy-walk/ladder/turn/cannon16/16 BOTH, fresh actual Windows network4/4
+and local CI299/299 pass. Raw manifests/exits/state rows/source scope verified.
+New18 asset-backed cases stay outside asset-free CI299. Existing two builds
+only, no per-bug build/source copies or frozen HD/PNG work. Evidence: burst-
+preview-verification.json, original oracle and baseline/RED/GREEN/final raw.
+General verifier/finisher tied to parent698aa17c, not reusable after commit;
+original verifier/pure transform retain their stated scope.
+
+Source PARTIAL: short-burst routing/cost helper and header declarations done;
+temporary-position aim invalidation/reset and the first-shot aim predicate
+remain for a separate independent TDD commit. Ledger286:163 imported/19 partial/
+61 pending =80 unfinished sources. Whole goal/final hosted Actions remain.

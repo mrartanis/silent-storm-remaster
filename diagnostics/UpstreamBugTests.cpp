@@ -20460,6 +20460,69 @@ static void EmptyClipAttackEntry(const char* databasePath,const char* resourcePa
 
 
 
+class NativeBurstExecutionAccess: public NWorld::CExecShootTile
+{
+public:
+    NativeBurstExecutionAccess(NWorld::CUnitServer* actor,const CVec3& point):CExecShootTile(actor,point){}
+    void PayFirstShot() { SpendAP(); } // Expose the actual protected charge; no price/provider overrides.
+    int NativeLength() const { return GetShortBurstLength(); }
+};
+
+static void BurstPreview(const char* databasePath,const char* resourcePath,int mode)
+{
+    const bool aimed=mode==1 || mode==7 || mode==12,perkCase=mode==6 || mode==7 || mode==13,execute=mode>=11 && mode<=14;
+    const auto shootMode=mode==8?NDb::SM_Snap:mode==9?NDb::SM_Aimed:mode==10?NDb::SM_LongBurst:NDb::SM_ShortBurst;
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    NDb::CRPGPers* persona=nullptr;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while(people.MoveNext()){auto* p=people.Get();if(!p->pClass || !p->pBaseValue || !p->pModel || p->pPanzerklein || p->pDefaultWearsPanzerklein)continue;CObj<NRPG::CPerksTree> tree=NRPG::CreatePerksTree(p->pClass->nPerkTreeID);vector<CPtr<NRPG::CPerk>> entries;tree->GetAllPerks(&entries);for(auto entry:entries)if(entry->GetDBPerk()->GetRecordID()==16 && (!persona || p->GetRecordID()<persona->GetRecordID()))persona=p;}
+    Require(persona,"burst fixture lacks a real persona with perk16 in its tree");
+    CObj<NRPG::CUnit> unit=new NRPG::CUnit(persona);CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(unit);auto* inventory=unit->GetInventory();
+    for(auto slot:{NDb::SLOT_1,NDb::SLOT_2})if(inventory->Get(slot)){CObj<NRPG::IInventoryItem> removed=inventory->TakeOff(slot);}inventory->Activate(NDb::SLOT_1);unit->SetCannonItem(nullptr);
+    Require(!mission->HasPerk(16),"burst fixture unexpectedly starts with longer-burst perk");
+    if(perkCase){auto* definition=NDb::GetDBPerk(16);Require(definition && !definition->params.empty(),"burst fixture lacks authored perk16");unit->GetPerksTree()->AddPerkPoints(1);unit->GetPerksTree()->TakePerk(16);float actual=-999;Require(mission->HasPerk(16,&actual) && actual==definition->params[0],"burst fixture did not acquire its actual authored perk16");}
+    float bonus=0;mission->HasPerk(16,&bonus);vector<NDb::CRPGWeapon*> records;CDBIterator<NDb::CRPGWeapon> weapons(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while(weapons.MoveNext()){auto* p=weapons.Get();if(p->pItem && p->pWeaponType && p->pWeaponType->nPrepareCost>0 && p->pInnerClip && p->pInnerClip->pItem && !p->bBazookaLogic && p->nShotsInOne<=1 && p->nRoF>=12 && p->shootModes[NDb::SM_ShortBurst] && p->shootModes[NDb::SM_Snap] && p->shootModes[NDb::SM_Aimed] && p->shootModes[NDb::SM_LongBurst])records.push_back(p);}
+    std::sort(records.begin(),records.end(),[](const NDb::CRPGWeapon* a,const NDb::CRPGWeapon* b){return a->GetRecordID()<b->GetRecordID();});
+    CObj<NRPG::CWeaponItem> gun;NDb::CRPGWeapon* record=nullptr;
+    for(auto p:records){CObj<NRPG::CWeaponItem> candidate=new NRPG::CWeaponItem(p);inventory->Equip(NDb::SLOT_1,candidate);candidate->SetShootMode(NDb::SM_ShortBurst);const int length=int(p->nRoF/6.f+bonus),extra=mission->GetActionAP(NAI::WALK,NRPG::AC_BURST),price=mission->GetActionAP(NAI::WALK,NRPG::AC_PREPARE_AND_SHOOT)+Max(0,length-1)*extra;if(length>=2 && extra>0 && price+8<mission->GetAP() && candidate->GetAmmoQuantity()>length){gun=candidate;record=p;break;}}
+    Require(gun && record,"burst fixture lacks an affordable actual multi-round authored firearm");
+    CObj<NDb::CRPGWeapon> boundary;
+    if(mode==16 || mode==17){boundary=new NDb::CRPGWeapon;CMemoryStream fields;{CStructureSaver w(fields,CStructureSaver::WRITE);record->operator&(w);}fields.Seek(0);{CStructureSaver r(fields,CStructureSaver::READ);boundary->operator&(r);}boundary->nRoF=mode==16?3:6;gun=new NRPG::CWeaponItem(boundary);Require(inventory->Equip(NDb::SLOT_1,gun),"burst fixture cannot equip its native copied boundary record");record=boundary;}
+    Require(gun->SetShootMode(shootMode) && unit->GetWeaponItem()==gun.GetPtr(),"burst fixture lost its real effective firearm/mode");
+    list<CPtr<NWorld::CUnitServer>> actors;world->GetAllUnits(&actors);NWorld::CUnitServer* anchor=nullptr;for(auto actor:actors)if(actor && !actor->IsAIUnit() && actor->CanFight()){anchor=actor;break;}Require(anchor,"burst fixture lacks a real native human owner");auto* owner=dynamic_cast<NWorld::CPlayer*>(anchor->GetPlayer());Require(owner,"burst fixture lacks concrete native player");
+    auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(anchor->GetPosition().GetCP(),5.f),&places);NAI::SPathPlace spawn;bool found=false;for(auto p:places){p.SetPose(NAI::CM_STAND);if(p.IsIntegral() && !p.IsFinal() && network->IsPassable(p) && !network->IsLocked(p,true)){spawn=p;found=true;break;}}Require(found,"burst fixture lacks native free standing spawn");
+    CObj<NWorld::CUnitServer> actor=world->AddUnitInGame(spawn,mission,owner);Require(actor && actor->GetUnitRPG()==mission.GetPtr(),"burst fixture cannot spawn its actual authored actor");world->GivePlayerTurn(owner);Require(world->IsTurnBased() && !actor->IsAIUnit() && !actor->HasCommand(),"burst fixture has no real native tactical turn");
+    actor->animator.SetActiveItem(true);actor->SetUndrawItem(false);actor->SetWalkWithoutWeapon(false);actor->animator.SetWeaponAnimation(mission->GetWeaponType());actor->animator.SetWeaponName(gun->GetDBWeapon()->szAnimName.c_str());
+    if(mode==5 || mode==15){do{vector<NRPG::CAttackPortion> portion;gun->CreateNewAttackPortion(&portion,true);Require(!portion.empty(),"burst fixture cannot spend its actual loaded round");}while(mode==15 && gun->GetAmmoQuantity()>1);Require(gun->GetAmmoQuantity()>0,"burst fixture unexpectedly emptied its authored weapon");}
+    if(mode==5 && !gun->CanReload(inventory)){CObj<NRPG::IInventoryItem> spare=NRPG::CreateClipItem(record->pInnerClip,gun->GetInnerClip()->GetDBAmmo());CTPoint<int> cell;Require(spare && inventory->FindPlace(spare,&cell) && inventory->Place(cell,spare),"burst fixture cannot place real compatible reload ammunition");}
+    const auto position=actor->GetPosition();const float angle=position.GetDirection();CVec3 point=position.GetCP()+CVec3(20*cos(angle),20*sin(angle),1);Require(NRPG::GetShootDirection(network,position.pos.p,point)==position.pos.p.GetDirection(),"burst fixture cannot select native aligned target");
+    if(aimed){CRay ray;ray.ptOrigin=position.GetEyePosition();ray.ptDir=point-ray.ptOrigin;Normalize(&ray.ptDir);actor->animator.Snipe(position,ray);Require(actor->animator.IsAiming(),"burst fixture did not enter real native aiming graph");}else Require(!actor->animator.IsAiming(),"cold burst fixture unexpectedly starts aimed");
+    CObj<NativeBurstExecutionAccess> shot=new NativeBurstExecutionAccess(actor,point);Require(shot->CanDoIt(position)==NWorld::UCR_OK,"burst fixture real native shot validation failed");
+    const int length=int(record->nRoF/6.f+bonus),nativeLength=shot->NativeLength(),first=actor->GetActionAP(aimed?NRPG::AC_SHOOT:NRPG::AC_PREPARE_AND_SHOOT),burst=actor->GetActionAP(NRPG::AC_BURST),full=first+Max(0,length-1)*burst;
+    Require(length==nativeLength && first>0 && burst>0 && (mode<16?length>=2:length==(mode==16?0:1)),"burst fixture native authored length/first/per-round cost is invalid");
+    if(execute){
+        const int target=mode==14?first+burst-1:full;Require(target<=actor->GetAP(),"burst charge fixture lacks actual AP capacity");actor->SpendAP(actor->GetAP()-target);const int hp=mission->GetTotalVP(),ammo=gun->GetAmmoQuantity();shot->PayFirstShot();const int afterFirst=actor->GetAP();bool valid=afterFirst==target-first;int paid=0;
+        if(mode==14){const int before=actor->GetAP();valid=valid && !shot->CheckBurst(1,false) && !shot->CheckBurst(1,true) && actor->GetAP()==before;}
+        else{const int before=actor->GetAP();valid=valid && shot->CheckBurst(0,false) && shot->CheckBurst(0,true) && actor->GetAP()==before;for(int fired=1;fired<length;++fired){const int beforeRound=actor->GetAP();valid=valid && shot->CheckBurst(fired,false) && actor->GetAP()==beforeRound && shot->CheckBurst(fired,true) && actor->GetAP()==beforeRound-burst;++paid;}const int end=actor->GetAP();valid=valid && !shot->CheckBurst(length,true) && actor->GetAP()==end && end==0;}
+        const bool unchanged=gun->GetAmmoQuantity()==ammo && mission->GetTotalVP()==hp && actor->GetPosition()==position && inventory->GetActive()==gun.GetPtr() && actor->animator.IsAiming()==aimed && !actor->HasCommand();
+        std::printf("native burst payment: mode=%d weapon=%d aimed=%d perk=%d length=%d first=%d burst=%d full=%d before=%d afterFirst=%d paid=%d after=%d valid=%d unchanged=%d\n",mode,record->GetRecordID(),int(aimed),int(perkCase),length,first,burst,full,target,afterFirst,paid,actor->GetAP(),int(valid),int(unchanged));std::fflush(stdout);
+        Require(valid && unchanged,"native burst first-shot/per-round charging changed or exceeded its actual AP budget");return;
+    }
+    CObj<NWorld::CCommandExecute> rootQueue=shot.GetPtr();int prefix=0;
+    if(mode==4){for(int depth=0;depth<3;++depth){CObj<NWorld::CSimpleExecQueue> queue=new NWorld::CSimpleExecQueue(actor);queue->AddExecutor(rootQueue);rootQueue=queue.GetPtr();}}
+    if(mode==5){NWorld::EUnitCommandResult result=NWorld::UCR_GENERAL_FAILURE;CObj<NWorld::CCmdReload> reload=new NWorld::CCmdReload;CObj<NWorld::CCommandExecute> prepare=NWorld::CreateActionExecutor(actor,reload,&result);Require(prepare && result==NWorld::UCR_OK && FindNativeReload(prepare),"burst fixture lacks real native reload prefix");prefix=prepare->GetActionAP();Require(prefix>0,"burst fixture reload prefix is not a genuine priced action");CObj<NWorld::CSimpleExecQueue> queue=new NWorld::CSimpleExecQueue(actor);queue->AddExecutor(prepare);queue->AddExecutor(shot);rootQueue=queue.GetPtr();}
+    const int expectedStart=shootMode==NDb::SM_ShortBurst?full:first;
+    if(mode==2 || mode==3){const int target=expectedStart-(mode==3?1:0);Require(target<actor->GetAP(),"burst fixture cannot spend to native AP boundary");actor->SpendAP(actor->GetAP()-target);}
+    const int ap=actor->GetAP(),hp=mission->GetTotalVP(),ammo=gun->GetAmmoQuantity(),points=unit->GetPerksTree()->GetPerkPoints();const auto count=inventory->GetItems().size();const auto slot=inventory->GetActiveSlot();const auto time=world->GetTime()->GetValue();const float xp=unit->fXP;auto rng=GlobalGameRandom();
+    const int expected=prefix+(shootMode==NDb::SM_LongBurst?Max(ap-prefix,first):expectedStart);const int start=shot->GetStartAP(),total=rootQueue->GetActionAP(),repeat=rootQueue->GetActionAP();NWorld::CCommandExecute* base=rootQueue;const int viaBase=base->GetActionAP();
+    int previewStart=-1,previewTotal=-1;NWorld::EUnitCommandResult preview=NWorld::UCR_OK;if(mode!=5){CObj<NWorld::CCmdShootTile> command=new NWorld::CCmdShootTile(point);preview=actor->CanDo(command,&previewStart,&previewTotal);}
+    auto after=GlobalGameRandom();const bool unchanged=actor->GetAP()==ap && mission->GetTotalVP()==hp && gun->GetAmmoQuantity()==ammo && actor->GetPosition()==position && actor->animator.IsAiming()==aimed && inventory->GetActive()==gun.GetPtr() && inventory->GetActiveSlot()==slot && inventory->GetItems().size()==count && world->GetTime()->GetValue()==time && unit->GetPerksTree()->GetPerkPoints()==points && unit->fXP==xp && rng.Get()==after.Get() && !actor->HasCommand();
+    std::printf("native burst preview: mode=%d weapon=%d shootMode=%d aimed=%d perk=%d bonus=%g length=%d ammo=%d first=%d burst=%d prefix=%d AP=%d start=%d expectedStart=%d actual=%d repeat=%d base=%d expected=%d preview=%d previewStart=%d previewTotal=%d unchanged=%d\n",mode,record->GetRecordID(),int(shootMode),int(aimed),int(perkCase),bonus,length,ammo,first,burst,prefix,ap,start,expectedStart,total,repeat,viaBase,expected,int(preview),previewStart,previewTotal,int(unchanged));std::fflush(stdout);
+    Require(unchanged,"native burst preview spends AP/ammo or changes health/position/aim/equipment/XP/perks/time/next RNG word");
+    Require(start==expectedStart && total==expected && repeat==expected && viaBase==expected,"native short-burst forecast reserves only the first shot instead of the complete original burst");
+    if(mode!=5)Require(previewTotal==expected && preview==(actor->CanSpendAP(expected)?NWorld::UCR_OK:NWorld::UCR_NOT_ENOUGH_AP),"public native short-burst preview admits or misprices an incomplete AP budget");
+}
+
 static NDb::CRPGPers* PreparationPersona()
 {
     NDb::CRPGPers* result=nullptr;
@@ -27158,6 +27221,24 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-cannon-undock-plan-invalid-server") && argc == 4) { AICannonUndockPlan(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "cannon-entry-animation")) { Require(argc == 4, "cannon animation requires db and res"); CannonEntryAnimation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mounted-reload-weapon")) { Require(argc == 4, "mounted reload requires db and res"); MountedReloadWeapon(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "burst-preview-0") && argc==4) { BurstPreview(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "burst-preview-1") && argc==4) { BurstPreview(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "burst-preview-2") && argc==4) { BurstPreview(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "burst-preview-3") && argc==4) { BurstPreview(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "burst-preview-4") && argc==4) { BurstPreview(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "burst-preview-5") && argc==4) { BurstPreview(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "burst-preview-6") && argc==4) { BurstPreview(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "burst-preview-7") && argc==4) { BurstPreview(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "burst-preview-8") && argc==4) { BurstPreview(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "burst-preview-9") && argc==4) { BurstPreview(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "burst-preview-10") && argc==4) { BurstPreview(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "burst-preview-11") && argc==4) { BurstPreview(argv[2],argv[3],11); return true; }
+    if (!std::strcmp(mode, "burst-preview-12") && argc==4) { BurstPreview(argv[2],argv[3],12); return true; }
+    if (!std::strcmp(mode, "burst-preview-13") && argc==4) { BurstPreview(argv[2],argv[3],13); return true; }
+    if (!std::strcmp(mode, "burst-preview-14") && argc==4) { BurstPreview(argv[2],argv[3],14); return true; }
+    if (!std::strcmp(mode, "burst-preview-15") && argc==4) { BurstPreview(argv[2],argv[3],15); return true; }
+    if (!std::strcmp(mode, "burst-preview-16") && argc==4) { BurstPreview(argv[2],argv[3],16); return true; }
+    if (!std::strcmp(mode, "burst-preview-17") && argc==4) { BurstPreview(argv[2],argv[3],17); return true; }
     if (!std::strcmp(mode, "preparation-ap-0") && argc==4) { WeaponPreparation(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "preparation-ap-1") && argc==4) { WeaponPreparation(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "preparation-ap-2") && argc==4) { WeaponPreparation(argv[2],argv[3],2); return true; }
