@@ -7778,6 +7778,65 @@ static void ScriptImmediateAmbient(const char* databasePath,const char* resource
     Require(!NMainLoop::HaveInterfaceCommand(),"ambient command changed the active interface");
 }
 
+
+static void ScriptAmbientVariants(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=5,"unknown scripted ambient variant case");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm native scripted ambient variants");
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
+    while(auto* pending=world->GetUICommand()){CObj<NWorld::CUICmd> release=pending;}
+    world->SetTimeOfDay(NWorld::TOD_DAY);const auto dayFlags=world->GetCreateFlags();
+    world->SetTimeOfDay(NWorld::TOD_NIGHT);const auto nightFlags=world->GetCreateFlags();world->SetTimeOfDay(NWorld::TOD_DAY);
+    CObj<NGScene::IGameView> view=NGScene::CreateNewView();CObj<NRender::IRenderGame> renderer=NRender::CreateRenderGame(world,view,nullptr);
+    CObj<NativeAmbientEffectMission> mission=new NativeAmbientEffectMission;mission->Attach(world,game,view,renderer);
+    vector<CDBPtr<NDb::CAmbientLight>> records;CDBIterator<NDb::CAmbientLight> lights(*NDatabase::GetTable<NDb::CAmbientLight>());
+    while(lights.MoveNext() && records.size()<3)records.push_back(lights.Get());Require(records.size()==3,"ambient variant fixture lacks registered light records");
+    for(int i=0;i<3;++i){auto* light=records[i].GetPtr();const float k=0.1f*(i+1);
+        light->vAmbientColor=CVec3(k,k+0.01f,k+0.02f);light->vGroundAmbientColor=CVec3(k+0.03f,k+0.04f,k+0.05f);
+        light->vLightColor=CVec3(k+0.06f,k+0.07f,k+0.08f);light->vGlossColor=CVec3(k,k,k);
+        light->vFogColor=CVec3(k+0.09f,k+0.10f,k+0.11f);light->vVapourColor=CVec3(k,k,k);
+        light->vShadowColor=CVec3(k,k,k);light->vBackColor=CVec3(k+0.12f,k+0.13f,k+0.14f);
+        light->fPitch=30+i;light->fYaw=45+i;light->fFogDistance=100+10*i;light->fVapourHeight=2+i;
+        light->fVapourDensity=0.1f;light->fVapourNoiseParam=1;light->fVapourSpeed=1;light->fVapourSwitchTime=1;
+        light->fFogStartDistance=10+i;light->fVapourStartHeight=1;light->fBlurStrength=0;
+        light->pSky=0;light->pGF2Light=0;light->bInGameUse=(i==0);light->flags.clear();
+        if(i<2){NDb::SVariantFlags flags;flags.flags=i==0?dayFlags:nightFlags;light->flags.push_back(flags);}
+    }
+    CStructureNetworkContext worldRefs;auto worldFields=BorrowedObjectFields(world,&worldRefs);CDBPtr<NDb::CTAmbientLight> defaultPool;
+    {CStructureSaver reader(worldFields,CStructureSaver::READ,&worldRefs);reader.Add(18,&defaultPool);}Require(IsValid(defaultPool),"ambient variant fixture lacks authored world default");
+    vector<CDBPtr<NDb::CTAmbientLight>> otherPools;CDBIterator<NDb::CTAmbientLight> templates(*NDatabase::GetTable<NDb::CTAmbientLight>());
+    while(templates.MoveNext())if(templates.Get()!=defaultPool.GetPtr())otherPools.push_back(templates.Get());Require(otherPools.size()>=2,"ambient variant fixture lacks explicit/fallback templates");
+    auto setPool=[](NDb::CTAmbientLight* pool,NDb::CAmbientLight* light){pool->variants.clear();pool->variants.push_back(light);pool->roulette=CRoulette();pool->roulette.AddSector(3);};
+    auto* pool=otherPools[0].GetPtr();auto* fallbackPool=otherPools[1].GetPtr();setPool(defaultPool,records[2]);setPool(pool,records[mode==0?1:0]);
+    if(mode==1){setPool(fallbackPool,records[1]);records[0]->pGF2Light=fallbackPool;}
+    if(mode==2 || mode==5){pool->variants.push_back(records[1].GetPtr());pool->roulette.AddSector(7);}
+    if(mode==3)records[0]->flags.clear();
+    if(mode==5)records[1]->flags[0].flags=dayFlags;
+    CPtr<NDb::CAmbientLightReal> baseline=world->GetDefaultLight();Require(IsValid(baseline),"ambient variant fixture could not create baseline light");view->SetAmbient(baseline);
+    CStructureNetworkContext sceneRefs;auto sceneFields=BorrowedObjectFields(view->GetGScene(),&sceneRefs);CPtr<CFuncBase<CVec3>> mean;
+    {CStructureSaver reader(sceneFields,CStructureSaver::READ,&sceneRefs);reader.Add(18,&mean);}Require(IsValid(mean),"ambient variant fixture has no actual ambient graph");
+    GlobalGameRandom().SeedForHarness(0x73da);SRand reference;vector<int> sequence;
+    if(mode==5){for(int i=0;i<16;++i)sequence.push_back(reference.GetFloat(0,10)<3?0:1);Require(std::count(sequence.begin(),sequence.end(),0)>0 && std::count(sequence.begin(),sequence.end(),1)>0,"ambient stream control seed does not distinguish repeated initialization");}
+    const int count=mode==5?16:mode==2?3:1;
+    for(int step=0;step<count;++step){
+        if(mode==2)world->SetTimeOfDay(step==1?NWorld::TOD_NIGHT:NWorld::TOD_DAY);
+        const int expected=mode==0 || mode==4?2:mode==2?(step==1?1:0):mode==5?sequence[step]:0;
+        const string lua="NativeAmbientApplied = 0; SetupAmbientLight("+std::to_string(mode==4?-1:pool->GetRecordID())+"); NativeAmbientApplied = 1";
+        auto* script=world->GetOwnScript();Require(script->DoString(lua.c_str())==0,"ambient variants could not execute actual Lua producer");world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);
+        const int top=script->GetTop();auto value=script->GetGlobal("NativeAmbientApplied");const bool executed=value.IsNumber() && value.GetNumber()==1;script->SetTop(top);Require(executed,"ambient variant Lua chunk did not reach its command producer");
+        CObj<NWorld::CUICmd> command=world->GetUICommand();auto* ambient=dynamic_cast<NWorld::CUICmdSetAmbient*>(command.GetPtr());
+        Require(mode==4?!IsValid(command):(ambient && !ambient->bImmediate && ambient->pLight.GetPtr()==pool),"SetupAmbientLight changed its valid/invalid native command contract");
+        if(command)world->AddUICommand(command);auto expectedGameRandom=GlobalGameRandom();mission->Drain();auto actualGameRandom=GlobalGameRandom();Require(actualGameRandom.Get()==expectedGameRandom.Get(),"ambient variant dispatch consumed gameplay ISAAC RNG");
+        auto* actual=view->GetPrevLight();CDGPtr<CFuncBase<CVec3>> graph=mean.GetPtr();graph.Refresh();const CVec3 color=graph->GetValue();auto* wanted=records[expected].GetPtr();
+        std::printf("native scripted ambient mode=%d step=%d tod=%d command=%d retained=%d alternate=%d actual=%.3f expected=%.3f mean=%.3f\n",mode,step,int(world->GetTimeOfDay()),int(IsValid(command)),int(actual==baseline.GetPtr()),int(actual && IsValid(actual->pGF2Light)),actual?actual->vAmbientColor.x:-1.f,wanted->vAmbientColor.x,color.x);std::fflush(stdout);
+        if(mode==0 || mode==4)Require(actual==baseline.GetPtr(),"absent or invalid ambient variant replaced the current light");
+        Require(actual && !IsValid(actual->pGF2Light),"world flags did not suppress an incompatible alternate light");
+        Require(fabs2(actual->vAmbientColor-wanted->vAmbientColor)<1e-10f && actual->fFogDistance==wanted->fFogDistance,"ambient command ignored world flags or restarted its random stream");
+        Require(fabs2(color-(wanted->vAmbientColor+wanted->vGroundAmbientColor)*0.5f)<1e-10f,"scripted ambient selection did not reach the native scene graph");
+        Require(!world->GetUICommand() && !NMainLoop::HaveInterfaceCommand(),"ambient variants left an unexpected command or interface transition");
+    }
+}
+
 static void ScriptPlayEffect(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=4,"unknown ordinary-effect case");
@@ -28063,6 +28122,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "script-ambient-variants")) { Require(argc == 5, "script ambient variants requires db, resources and mode"); ScriptAmbientVariants(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "script-immediate-ambient")) { Require(argc == 5, "script immediate ambient requires db, resources and mode"); ScriptImmediateAmbient(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "script-play-effect")) { Require(argc == 5, "script play effect requires db, resources and mode"); ScriptPlayEffect(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "script-ambient-effect")) { Require(argc == 5, "script ambient effect requires db, resources and mode"); ScriptAmbientEffect(argv[2],argv[3],std::atoi(argv[4])); return true; }

@@ -15828,3 +15828,53 @@ explicit-template command static SRand/world flags/null result, shared world/
 camera dispatch and non-tactical consumers remain. Ledger166/19/58 =77 unfinished;
 whole goal remains active. Earlier independent chapter9 fixture instability is
 still tracked, not declared resolved by this change.
+
+## 2026-10-29 — world-compatible scripted ambient variants and persistent draws (part of cb954e2e)
+
+Source: [cb954e2e455b632c0174b88b2d051ac74e780ce0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cb954e2e455b632c0174b88b2d051ac74e780ce0).
+
+Restore the explicit ambient command's static SRand, world creation flags and
+valid-result guard. Ordinary SetupAmbientLight previously selected without
+world flags, restarted its random stream on every call and always replaced
+the scene light. A missing compatible result now leaves the current light
+unchanged. The separately committed filtered-factory null adapter prevents
+primary/optional-alternate dereferences; no factory change is bundled here.
+
+Native TDD on unchanged1b07025a: actual Lua SetupAmbientLight -> world queue/
+CMission -> native CGameView/CGScene. RED4/6 BOTH: a night-only template replaces
+day-world lighting; incompatible GF2 exists and actually drives the scene mean;
+a day/night pool selects night in a day world; repeated local SRand returns
+night until a mismatch with the persistent reference on call15. Two controls
+(flagless light and invalid DB ID) pass. GREEN6/6 BOTH/23 rows each: no match
+retains baseline identity and actual ambient mean, incompatible GF2 is omitted,
+day->night->day is correct, both controls retained, and16 sequential weighted
+choices follow the independent SRand reference over authored weights3/7.
+The harness seed is set after real world/view setup; no private state or fake
+factory/dispatcher used. Actual Lua completion and queued command identity/
+immediate=false are checked. The next gameplay ISAAC word is unchanged around
+each native mission drain; this does not claim unchanged RNG over world ticks
+or equivalence of entire RNG state. Registered light records are controlled
+only inside each test process, with no authored DB/resource writes.
+
+Original proof: Gold62-byte filtered command5a17e7 -> actual Steam5a4177;
+only decoded SRand operand and two rel32 callees masked. World flags slot100,
+valid-result branch and view ambient slot7c stay unmasked. Gold48-byte static
+guard5a17b7 -> Steam5a4147: decoded guard references are atseed+4 and constructor/
+selection share the same seed address. Both original IsValid<CAmbientLightReal>
+helper19-byte bodies agree unmasked. Exact named command/getter/view linkage
+and factory contracts are independently recorded by the prior two verifiers.
+No full shared dispatcher or renderer equivalence claim.
+
+Final Windows ALL_BUILD/Linux Game/helpers+actual serializer, related96/96 BOTH,
+own body16/16 BOTH, fresh Windows network4/4 and local CI305/305. Exact raw
+names, rows, exits/manifests verified. Production change is exactly the explicit
+branch's three lines replaced with four: DBFormat, earlier immediate/default
+priority, remaining Main bytes and schema calls unchanged; CP1251/CRLF kept.
+Two existing builds reused, no per-bug backups or HD/PNG/font/facial/backend edits.
+Actual hosted Actions remains separate and is not claimed green here.
+
+Evidence: script-ambient-variants-verification.json, script-ambient-variants-retail-verification.json,
+RED/GREEN/final raw logs. Tactical SetAmbient immediate/default/flags is now
+complete; source still PARTIAL for shared world/camera dispatch and non-tactical
+consumers. Ledger166/19/58 =77 unfinished; whole goal remains active. Prior
+chapter9 fixture instability remains separately tracked.

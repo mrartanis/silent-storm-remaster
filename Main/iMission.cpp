@@ -2599,9 +2599,10 @@ void CMission::ExecWorldCommands()
 				GetScene()->SetAmbient( pDefault );
 			else if ( IsValid( pSetAmbient->pLight ) )
 			{
-				SRand rnd;
-				CPtr<NDb::CAmbientLightReal> pLight = pSetAmbient->pLight->GetLight( &rnd );
-				GetScene()->SetAmbient( pLight );
+				static SRand rnd;
+				CPtr<NDb::CAmbientLightReal> pLight = pSetAmbient->pLight->GetLight( &rnd, pWorld->GetCreateFlags() );
+				if ( IsValid( pLight ) )
+					GetScene()->SetAmbient( pLight );
 			}
 			else
 				SetLightMode( nLightMode );
