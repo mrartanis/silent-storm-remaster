@@ -2619,12 +2619,6 @@ void CMission::ExecWorldCommands()
 			pScreenshot->Generate();
 			NMainLoop::Command( new NGame::CICLeaveZoneMenu( this, NDb::GetString( pDlg->nRecordID ), false, pScreenshot ) );
 		}
-		// LUA convergence (hint machinery): SetTutorialMode(b) stores the flag on the mission (retail
-		// CMissionBase::ExecWorldCommand @0x1a30c0). Its sole consumer is the ShowHint gate just below.
-		else if ( CDynamicCast<NWorld::CUICmdTutorialMode>( pCmd ) )
-		{
-			bTutorialMode = CDynamicCast<NWorld::CUICmdTutorialMode>( pCmd )->bTutorial;
-		}
 		// LUA convergence: SetFirstMissionMode(b) -- close the medals/biography panels now + latch the flag
 		// (retail CMission::ExecWorldCommand @0x1fd8c0: SetPanelState(0x14,0) -- retail bits MEDALS|BIOGRAPHY --
 		// then bSpecialFirstMissionMode=b).
@@ -2659,19 +2653,6 @@ void CMission::ExecWorldCommands()
 		{
 			NWorld::CUICmdPlayVideo *pVideo = CDynamicCast<NWorld::CUICmdPlayVideo>( pCmd );
 			NGame::PlayVideoSequence( this, pVideo->GetID(), pVideo->szFileName, false );
-		}
-		// LUA convergence (hint machinery): ShowHint(id) shows the hint modal (NGame::CICShowHint, which awards
-		// the hint's XP), BUT only when the "ui_showhints" game option is on OR we're in tutorial mode (retail
-		// CMissionBase::ExecWorldCommand @0x1a30c0 gate). When hints are suppressed it still releases the lua
-		// WaitForUI(id) immediately by posting the interface event itself (the screen would otherwise do that).
-		else if ( CDynamicCast<NWorld::CUICmdShowHint>( pCmd ) )
-		{
-			NWorld::CUICmdShowHint *pShowHint = CDynamicCast<NWorld::CUICmdShowHint>( pCmd );
-			bool bShow = ( NGlobal::GetVar( "ui_showhints" ).GetFloat() == 1.0f ) || bTutorialMode;
-			if ( bShow )
-				NMainLoop::Command( new NGame::CICShowHint( this, pShowHint->GetID(), pShowHint->pHint, pGlobalGame ) );
-			else
-				DoEvent( new NWorld::CCmdInterfaceEvent( pShowHint->GetID() ) );
 		}
 		// LUA convergence: campaign OnRealExit() -> ExitToChapter() (scriptScenario.cpp:96) queues a
 		// CUICmdContinueChapter. retail CMission::ExecWorldCommand @0x1fd8c0 posts a CICRealEndMission and

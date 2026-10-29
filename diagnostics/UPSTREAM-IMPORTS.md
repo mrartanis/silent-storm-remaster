@@ -15941,3 +15941,59 @@ original snippets, native definitiveRED/GREEN/final logs and separate setup logs
 Source still PARTIAL: common camera/hint/tutorial/clue/floor/flash/video routing
 and camera-executor updates remain for independent native TDD. Ledger166/19/58
 =77 unfinished sources; whole goal remains active.
+
+## 2026-10-30 — shared tutorial flags and native hint lifecycle (part of cb954e2e)
+
+Source: [cb954e2e455b632c0174b88b2d051ac74e780ce0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cb954e2e455b632c0174b88b2d051ac74e780ce0).
+
+Chapter dropped SetTutorialMode, so disabled hints stayed hidden during a tutorial.
+Backdrop menus dropped both commands, including the suppressed hint's UI event,
+leaving Lua waiting. Move the existing tactical hint/tutorial branches verbatim
+into the shared base and remove the duplicate chapter hint branch. Keep the
+existing UI, reward, de-duplication and virtual DoEvent paths. A campaignless
+menu keeps the existing CICShowHint valid-game XP guard; no campaign is invented.
+
+Native RED5/8 BOTH before Main edits: chapter tutorial flag ignored and four
+menu visibility/wait failures; three chapter controls pass. GREEN8/8 BOTH tests
+real Lua/world queues, actual chapter/main-menu interfaces, readonly saved base
+flag31, native hint modal origin/event ID, pause while covered, cancel/restore,
+shown and suppressed wait release, and one-shot replay. Positive authored reward1
+adds native1.2 XP once to the chapter unit; suppression and campaignless menu
+add none. Restoring tutorial display also restores its existing reward, so this
+is not claimed cosmetic-only. Lua4 false is nil; numeric0 remains true. Setup
+producer/Boolean errors were corrected before definitive RED and archived;
+explicit native world consumers advance the owner only, never a covered modal.
+This is routing/wait proof, not whole interface-clock equivalence or pixel QA.
+
+Original proof: typed/RTTI-named ShowHint31 and Tutorial39 command blocks,
+Gold5a13c5/5a14f7 mapped to Steam. Named command boolean+10 (bMode) stores into
+base bTutorialMode+e5. Matched34-byte policy block with independently checked
+float0 constant and27-byte suppressed CCmdInterfaceEvent/ID/DoEvent path. The
+original option is nonzero OR tutorial; preserve this fork's existing exact1
+consumer for normal boolean0/1 here, not a claim about arbitrary nonboolean
+configuration. Prior named world-route verifier binds chapter and menu callers.
+No full hint-interface/XP-body/renderer equivalence claim; existing own null-game
+reward guard and Lua bridge are unchanged.
+
+Final Win ALL_BUILD/Linux Game/helpers+serializer, related122/122 BOTH (includes
+all six legacy chapter script/command cases), own body16/16 BOTH, fresh Win
+network4/4, local CI305/305. Exact raw names/rows/manifests/exits checked. Only
+three Main files change; extracted branches/base+tactical remainder and schema
+calls match parent, CP1251/CRLF preserved. Hint UI/XP/Boolean bridge and actual
+encounter gameplay source bytes unchanged. Existing two builds reused; no old
+build copies or HD/PNG/font/facial changes. Hosted Actions is separate.
+
+An initial Linux related run failed old NativeChapterScriptSound8 at1250 with
+unexpected CICContainer, matching the prior9 instability. Native transition-only
+backtrace caught CommandWithAutoSave <- CRandomSector::UpdateSector <- chapter
+UI draw, independently bounded to actual ELF symbols; the test entered an
+unrelated random encounter. GDB pauses hid it; native repeated8/9 reproduced it.
+Position/visibility was not captured, so no origin/inactive-marker claim. All
+temporary production tracing was removed and iMain hash restored before the
+final clean122 run. Initial/raw/trace proof retained. A separate test-fixture
+isolation fix remains next; no encounter rule change is bundled here.
+
+Evidence: world-hints-verification.json, world-hints-retail-verification.json,
+chapter-command-random-encounter-cause.json, native RED/GREEN/final/raw traces.
+Source still PARTIAL for camera/clue/floor/flash/video and camera-executor routing.
+Ledger166/19/58 =77 unfinished; whole goal remains active.

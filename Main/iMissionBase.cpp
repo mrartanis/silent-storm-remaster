@@ -20,6 +20,7 @@
 #include "iMissionExec.h"
 #include "iCommonUI.h"
 #include "iDesktopWindow.h"
+#include "iShowHint.h"
 #include "..\MiscDll\Commands.h"
 #include "..\MiscDll\LogStream.h"
 #include "..\DBFormat\DataFormat.h"
@@ -86,7 +87,20 @@ bool CMissionBase::ExecWorldSoundCommand( NWorld::CUICmd *pCmd )
 // Commands shared by tactical, chapter and backdrop worlds.
 bool CMissionBase::ExecWorldCommonCommand( NWorld::CUICmd *pCmd )
 {
-	if ( CDynamicCast<NWorld::CUICmdPlayEffect>( pCmd ) )
+	if ( CDynamicCast<NWorld::CUICmdShowHint>( pCmd ) )
+	{
+		NWorld::CUICmdShowHint *pShowHint = CDynamicCast<NWorld::CUICmdShowHint>( pCmd );
+		bool bShow = ( NGlobal::GetVar( "ui_showhints" ).GetFloat() == 1.0f ) || bTutorialMode;
+		if ( bShow )
+			NMainLoop::Command( new NGame::CICShowHint( this, pShowHint->GetID(), pShowHint->pHint, pGlobalGame ) );
+		else
+			DoEvent( new NWorld::CCmdInterfaceEvent( pShowHint->GetID() ) );
+	}
+	else if ( CDynamicCast<NWorld::CUICmdTutorialMode>( pCmd ) )
+	{
+		bTutorialMode = CDynamicCast<NWorld::CUICmdTutorialMode>( pCmd )->bTutorial;
+	}
+	else if ( CDynamicCast<NWorld::CUICmdPlayEffect>( pCmd ) )
 	{
 		NWorld::CUICmdPlayEffect *pPlayEffect = CDynamicCast<NWorld::CUICmdPlayEffect>( pCmd );
 		if ( IsValid( pPlayEffect->pEffect ) )

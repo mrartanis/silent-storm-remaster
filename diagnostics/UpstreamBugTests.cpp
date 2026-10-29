@@ -7838,6 +7838,80 @@ static void ScriptAmbientVariants(const char* databasePath,const char* resourceP
 }
 
 
+static void WorldScriptHints(const char* databasePath,const char* resourcePath,int context,int mode)
+{
+    Require(context>=0 && context<=1 && mode>=0 && mode<=3,"unknown shared-world hint case");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"world hint fixture started with an interface");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm shared world hint regression");
+    struct ClockRestore {STime previous;~ClockRestore(){NMainLoop::SetTimeForHarness(previous);}} frameClock{NMainLoop::SetTimeForHarness(1000)};
+    CObj<NDb::CScript> quiet=new NDb::CScript;quiet->strCode="function OnEnterZone() end";
+    struct RestoreScripts {vector<std::pair<CPtr<NDb::CTemplVariant>,CPtr<NDb::CScript>>> variants;CPtr<NDb::CChapterMap> chapter;CPtr<NDb::CScript> entry;
+        ~RestoreScripts(){for(auto& p:variants)if(IsValid(p.first))p.first->pScript=p.second;if(IsValid(chapter))chapter->pScript=entry;}} restore;
+    CObj<NRPG::CGlobalGame> game;
+    if(context==0){
+        CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());while(maps.MoveNext())if(IsValid(maps.Get()->pBackground)){restore.chapter=maps.Get();break;}
+        Require(IsValid(restore.chapter),"world hint fixture has no authored chapter");restore.entry=restore.chapter->pScript;restore.chapter->pScript=quiet.GetPtr();
+        game=NRPG::CreateGlobalGame(1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+        list<CPtr<NScenario::CScenarioClue>> clues;game->pScenarioTracker->GetAvailableClues(&clues);for(auto clue:clues)if(IsValid(clue))clue->SetJustFound(false);
+        for(auto merc:game->players.front()->mercs){vector<CDBPtr<NDb::CMedal>> medals;merc->GetJustFoundMedals(&medals);}
+        CObj<NGame::CICBeginChapter> enter=new NGame::CICBeginChapter(restore.chapter->GetRecordID(),game);enter->Exec();
+    }else{
+        CDBIterator<NDb::CTemplVariant> variants(*NDatabase::GetTable<NDb::CTemplVariant>());
+        while(variants.MoveNext())if(IsValid(variants.Get()->pTemplate) && variants.Get()->pTemplate->GetRecordID()==2425){restore.variants.push_back({variants.Get(),variants.Get()->pScript});variants.Get()->pScript=quiet.GetPtr();}
+        Require(!restore.variants.empty(),"world hint fixture has no authored menu variants");CObj<NGame::CICMainMenu> open=new NGame::CICMainMenu;open->Exec();
+    }
+    CObj<NGame::CMissionBase> owner=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    auto* world=owner?dynamic_cast<NWorld::CWorld*>(owner->GetWorld()):nullptr;auto* view=owner?owner->GetScene():nullptr;auto* renderer=owner?owner->GetRenderGame():nullptr;
+    Require(world && view && renderer && world->GetOwnScript(),"world hint fixture lacks actual chapter/menu world, view, renderer or Lua");
+    Require(context==0?owner->GetDesktop()!=nullptr:owner->GetDesktop()==nullptr,"world hint fixture lost its real chapter/null-menu desktop distinction");
+    // Materialize authored static world effects before taking geometry baselines.
+    NMainLoop::SetTimeForHarness(1050);Require(NMainLoop::StepApp(true,false,false),"world hint warm-up frame exited");
+    Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand(),"world hint warm-up opened an unrelated interface");
+    while(auto* pending=world->GetUICommand()){CObj<NWorld::CUICmd> release=pending;}
+
+    struct HintOptionRestore {NGlobal::CValue previous;~HintOptionRestore(){NGlobal::SetVar("ui_showhints",previous);}} option{NGlobal::GetVar("ui_showhints",1)};
+    NGlobal::SetVar("ui_showhints",mode==2?1:0);
+    auto* script=world->GetOwnScript();auto* scriptGame=script->GetGlobalGame();Require(scriptGame,"world hint fixture has no script global game");scriptGame->hintsSet.clear();
+    Require(context==0?owner->GetRPGGame()==scriptGame:owner->GetRPGGame()==nullptr,"world hint fixture lost its chapter/campaignless-menu distinction");
+    CDBIterator<NDb::CUIHint> hints(*NDatabase::GetTable<NDb::CUIHint>());CDBPtr<NDb::CUIHint> hint;
+    while(hints.MoveNext())if(IsValid(hints.Get()->pString) && hints.Get()->nSequenceID>0 && (!IsValid(hint) || hints.Get()->nSequenceID<hint->nSequenceID))hint=hints.Get();
+    Require(IsValid(hint),"world hint fixture lacks an authored positive-reward hint");
+    auto xp=[](NRPG::CGlobalGame* current){float result=0;if(current)for(auto player:current->players)for(auto merc:player->mercs)if(IsValid(merc))result+=merc->fXP;return result;};
+    const float originalXP=xp(scriptGame);const bool show=mode==0 || mode==2;const bool tutorial=mode==0;
+    auto flag=[&](){struct Flag {bool enabled=false;int operator&(CStructureSaver& f){f.Add(31,&enabled);return 0;}} value;
+        struct RenderBase {Flag* value;int operator&(CStructureSaver& f){f.Add(1,value);return 0;}} render{&value};
+        CStructureNetworkContext references;auto fields=BorrowedObjectFields(owner,&references);
+        {CStructureSaver reader(fields,CStructureSaver::READ,&references);if(context==0)reader.Add(1,&value);else reader.Add(1,&render);}return value.enabled;};
+    auto number=[&](const char* name,int expected){const int top=script->GetTop();auto value=script->GetGlobal(name);const bool matches=value.IsNumber() && value.GetNumber()==expected;script->SetTop(top);return matches;};
+    auto absent=[&](const char* name){const int top=script->GetTop();const bool nil=script->GetGlobal(name).IsNil();script->SetTop(top);return nil;};
+    auto frame=[&](STime tick,bool active=true){if(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand())world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);NMainLoop::SetTimeForHarness(tick);Require(NMainLoop::StepApp(active,false,false),"world hint native frame exited");};
+    const string toggle=mode==0?"SetTutorialMode(1); ":mode==3?"SetTutorialMode(1); SetTutorialMode(nil); ":"SetTutorialMode(nil); ";
+    const string lua=toggle+"WorldHintID = ShowHint("+std::to_string(hint->GetRecordID())+"); WorldHintProduced = 1; while IsUIActionIDPresent(WorldHintID) do Sleep(1) end; WorldHintReleased = 1";
+    Require(script->DoString(lua.c_str())==0,"world hint fixture could not execute actual Lua tutorial/hint producers");
+    world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);Require(number("WorldHintProduced",1),"world hint fixture did not execute its native producers");
+    const int top=script->GetTop();auto id=script->GetGlobal("WorldHintID");Require(id.IsNumber(),"native ShowHint returned no wait ID");const int eventID=int(id.GetNumber());script->SetTop(top);
+    Require(script->IsUIActionIDPresent(eventID) && absent("WorldHintReleased"),"world hint wait completed before the native show/suppress consumer");
+    frame(1100);Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr(),"world hint consumer changed the interface before executing its queued modal");
+    std::printf("native world hints context=%d mode=%d stage=dispatch tutorial=%d expected=%d queued=%d show=%d event=%d hint=%d reward=%d xp=%.3f\n",context,mode,int(flag()),int(tutorial),int(NMainLoop::HaveInterfaceCommand()),int(show),eventID,hint->GetRecordID(),hint->nSequenceID,xp(scriptGame));std::fflush(stdout);
+    Require(flag()==tutorial,"non-tactical world discarded its tutorial-mode command");
+    Require(NMainLoop::HaveInterfaceCommand()==show,"non-tactical world ignored the hint visibility policy");
+    if(show){frame(1150);auto* modal=NMainLoop::GetCurrentInterfaceForHarness();Require(modal && pSSClasses->GetObjectTypeID(modal)==int(0x1423130) && NMainLoop::GetInterfaceStackDepth()==2,"world hint did not open the actual native modal");
+        CStructureNetworkContext references;auto fields=BorrowedObjectFields(modal,&references);CPtr<NGame::IMission> origin;int modalEvent=-1;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&references);reader.Add(2,&origin);reader.Add(3,&modalEvent);}Require(origin.GetPtr()==owner.GetPtr() && modalEvent==eventID,"world hint lost its origin or native pending event");
+        const STime coveredTime=world->GetAimTime()->GetValue();frame(1200);Require(world->GetAimTime()->GetValue()==coveredTime && script->IsUIActionIDPresent(eventID) && absent("WorldHintReleased"),"covered hint owner advanced its world or released its Lua wait");
+        Require(context==0?xp(scriptGame)>originalXP:xp(scriptGame)==originalXP,"world hint changed its existing campaign/null-campaign XP contract");
+        NInput::SEvent input;while(NInput::GetEvent(&input)){}NInput::PostEvent("cancel");Require(NInput::GetEvent(&input) && modal->ProcessEvent(input),"native hint modal did not accept its close event");frame(1250,false);
+        Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && NMainLoop::GetInterfaceStackDepth()==1,"hint close did not restore its actual owner");
+    }else Require(xp(scriptGame)==originalXP,"suppressed hint awarded experience");
+    for(int tick=0;tick<12 && (!number("WorldHintReleased",1) || script->IsUIActionIDPresent(eventID));++tick)frame(1300+tick*50);
+    Require(!script->IsUIActionIDPresent(eventID) && number("WorldHintReleased",1),"world hint command never released its native Lua UI wait");
+    const float afterXP=xp(scriptGame);Require(scriptGame->hintsSet.size()==1 && scriptGame->hintsSet[0].GetPtr()==hint.GetPtr(),"world hint changed native one-shot registration");
+    Require(script->DoString(("WorldHintReplay = ShowHint("+std::to_string(hint->GetRecordID())+"); WorldHintReplayDone = 1").c_str())==0,"world hint could not execute its one-shot replay control");
+    for(int tick=0;tick<8 && !number("WorldHintReplayDone",1);++tick)frame(2000+tick*50);
+    Require(number("WorldHintReplayDone",1) && absent("WorldHintReplay") && !NMainLoop::HaveInterfaceCommand() && NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && scriptGame->hintsSet.size()==1 && xp(scriptGame)==afterXP,"replayed hint reopened a modal or awarded experience twice");
+    std::printf("native world hints context=%d mode=%d stage=complete tutorial=%d modal=%d released=%d xpBefore=%.3f xpAfter=%.3f replay=1\n",context,mode,int(flag()),int(show),int(!script->IsUIActionIDPresent(eventID)),originalXP,afterXP);std::fflush(stdout);
+}
+
 static void WorldScriptLighting(const char* databasePath,const char* resourcePath,int context,int mode)
 {
     Require(context>=0 && context<=1 && mode>=0 && mode<=5,"unknown shared-world lighting case");
@@ -28215,6 +28289,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "world-script-hints")) { Require(argc == 6, "world hints require db, resources, context and mode"); WorldScriptHints(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-lighting")) { Require(argc == 6, "world lighting requires db, resources, context and mode"); WorldScriptLighting(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "script-ambient-variants")) { Require(argc == 5, "script ambient variants requires db, resources and mode"); ScriptAmbientVariants(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "script-immediate-ambient")) { Require(argc == 5, "script immediate ambient requires db, resources and mode"); ScriptImmediateAmbient(argv[2],argv[3],std::atoi(argv[4])); return true; }
