@@ -2590,19 +2590,21 @@ void CMission::ExecWorldCommands()
 					pRender->GetTime()->GetValue(), pRender->GetTime(), place ) : 0;
 			}
 		}
-		// LUA convergence PART B: SetupAmbientLight sets the scene's ambient light from the record
-		// (retail CMissionBase::ExecWorldCommand @0x1a30c0: GetLight + scene->SetAmbient; mirrors SetLightMode).
+		// Immediate time-of-day changes use the current zone light before explicit/debug modes.
 		else if ( CDynamicCast<NWorld::CUICmdSetAmbient>( pCmd ) )
 		{
 			NWorld::CUICmdSetAmbient *pSetAmbient = CDynamicCast<NWorld::CUICmdSetAmbient>( pCmd );
-			if ( IsValid( pSetAmbient->pLight ) )
+			CPtr<NDb::CAmbientLightReal> pDefault = pWorld->GetDefaultLight();
+			if ( pSetAmbient->bImmediate && IsValid( pDefault ) )
+				GetScene()->SetAmbient( pDefault );
+			else if ( IsValid( pSetAmbient->pLight ) )
 			{
 				SRand rnd;
 				CPtr<NDb::CAmbientLightReal> pLight = pSetAmbient->pLight->GetLight( &rnd );
 				GetScene()->SetAmbient( pLight );
 			}
 			else
-				SetLightMode( nLightMode );   // SetTimeOfDay queues a null-light cmd -> recompute the current ambient (retail: not a no-op)
+				SetLightMode( nLightMode );
 		}
 		// Original ambient-only command: preserve world variants and the renderer timeline.
 		else if ( CDynamicCast<NWorld::CUICmdSetAmbientEffect>( pCmd ) )

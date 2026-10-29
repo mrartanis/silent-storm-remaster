@@ -15723,3 +15723,59 @@ Source remains PARTIAL: shared world/camera dispatch, non-tactical consumers
 and SetAmbient immediate/default/flag handling remain. Ledger unchanged:
 166 imported/19 partial/58 pending =77 unfinished sources. Whole goal and
 final actual hosted Actions remain.
+
+## 2026-10-29 — immediate time-of-day changes use the zone light (part of cb954e2e)
+
+Source: [cb954e2e455b632c0174b88b2d051ac74e780ce0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cb954e2e455b632c0174b88b2d051ac74e780ce0).
+
+Lua SetTimeOfDay already changes world flags and queues an immediate null-template
+ambient command. The mission ignored that flag and selected a global developer
+light instead of the zone template. Restore original default-light acquisition
+and immediate/default priority, including priority over an explicit template.
+Keep existing ordinary explicit-template and developer fallback branches. Hold
+the freshly created default in CPtr: release an unused result while a selected
+result remains held by the native view. This ownership adaptation preserves
+selection calls and does not reroll templates.
+
+Native TDD: freshcompiled29/29 existing controls BOTH. Definitive RED2/5 BOTH:
+actual Lua night selects debug0.1 instead of zone0.3; immediate explicit command
+selects debug0.1 instead of zone-day0.2. Three controls pass. GREEN5/5 BOTH:
+actual Lua night->day, unchanged Lua return, actual queued immediate/null-template
+flags, real scene mean graph, retained ambient/ground/fog/background values,
+explicit immediate priority, ordinary Lua SetupAmbientLight, ordinary null-template
+fallback, and bare native world without a default. Registered DB records are
+controlled only in the test process, using the actual authored world default;
+no game.db writes, private flag injection or replacement dispatch/view/clock.
+No rendered fog/pixels or whole-save roundtrip claim.
+
+Setup logs are archived separately: private saver access compile error fixed
+through CObjectBase before baseline. Partial-field world READ zeros missing
+scalar state, and the initial Lua controls did not execute. Remove world writes
+entirely and inspect its authored default; a bare world supplies the no-default
+control. Definitive RED repeated on unchanged Main with all controls passing;
+no compile/setup failure counted.
+
+Original: Gold branch5a1784/41 -> actual Steam5a4114. Only GetWorld virtual
+displacement differs130->138; named CMission RTTI tables and exact four-byte
+GetWorld accessors verify it. Immediate flag14, default slot34, null guard and
+ambient slot7c agree; named CWorld/CGameView tables independently bind targets.
+Exact22-byte caller prefix links the named CUICmdSetAmbient RTTI helper and both
+command/CObjectBase descriptors;14 unmasked fallback bytes preserve light-mode
+routing. This proves the specific branch/linkage, not whole renderer/getter identity.
+
+Final Windows ALL_BUILD/Linux Game/helpers+actual serializer; related84/84 BOTH,
+own body16/16 BOTH, fresh Windows network4/4, local CI299/299. Exact raw names,
+rows, exits/manifests, unchanged Main saver calls and CP1251/CRLF verified.
+Existing two builds reused, no per-bug backups or HD/PNG/font/facial/backend edits.
+One initial Linux related run failed only NativeChapterScriptSound9: chapter
+queued CICContainer at1250 (unexpected mission-transition command). Its unchanged
+test passed three immediate repeats; initial failure and repeat raw logs are
+retained separately. The complete Linux related group was rerun; the final gate
+counts below require all84 pass. This known fixture instability needs separate
+investigation; no unrelated test or production change is bundled here.
+Actual hosted Actions remains separate and is not claimed green here.
+Evidence: immediate-ambient-verification.json, immediate-ambient-retail-verification.json
+and native baseline/definitiveRED/GREEN/final raw logs.
+Source PARTIAL: explicit-template world flags/no-match contract, shared world/
+camera dispatch and non-tactical consumers remain. Ledger166/19/58 =77 unfinished;
+whole goal remains active.
