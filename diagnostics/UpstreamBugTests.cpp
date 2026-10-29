@@ -17131,7 +17131,7 @@ static void SpentMedkitPoseCleanup(const char* databasePath,const char* resource
     CDBIterator<NDb::CRPGFirstAid> kits(*NDatabase::GetTable<NDb::CRPGFirstAid>());
     while (kits.MoveNext()) {
         auto* kit = kits.Get();
-        if (IsValid(kit->pItem) && kit->effect == NDb::FAE_NORMAL && kit->nQuantity >= 2) { record = kit; break; }
+        if (IsValid(kit->pItem) && kit->effect == NDb::FAE_NORMAL && kit->GetRecordID()==1 && kit->nQuantity >= 2) { record = kit; break; }
     }
     Require(record != nullptr, "spent-medkit fixture has no authored ordinary kit with at least two charges");
     CObj<NRPG::CFirstAidItem> kit = new NRPG::CFirstAidItem(record);
@@ -23688,7 +23688,7 @@ static void TimedCriticalTreatment(const char* databasePath,const char* resource
     Require(placed,"timed critical fixture has no reachable native patient placement");
     const int effect=criticalFirst && mode!=27?int(NDb::FAE_CRITICAL_FIRST):int(NDb::FAE_NORMAL);
     NDb::CRPGFirstAid* record=nullptr;CDBIterator<NDb::CRPGFirstAid> kits(*NDatabase::GetTable<NDb::CRPGFirstAid>());
-    while(kits.MoveNext()){auto* candidate=kits.Get();if(IsValid(candidate->pItem) && (criticalFirst?candidate->GetRecordID()==(mode==27?1:3):int(candidate->effect)==effect) && candidate->nQuantity>0){record=candidate;break;}}
+    while(kits.MoveNext()){auto* candidate=kits.Get();if(IsValid(candidate->pItem) && (criticalFirst?candidate->GetRecordID()==(mode==27?1:3):int(candidate->effect)==effect && candidate->GetRecordID()==1) && candidate->nQuantity>0){record=candidate;break;}}
     Require(record,"timed critical fixture lacks its authored critical-only/critical-first/normal item");
     if(criticalFirst){std::printf("native critical-first item: mode=%d kit=%d actualKind=%d expectedKind=%d capacity=%d required=%d modifier=%d\n",mode,record->GetRecordID(),int(record->effect),effect,record->nTotalHealVP,record->nRequiedSkill,record->nSkillModifier);std::fflush(stdout);}
     CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);auto* healer=actor->GetUnitRPG()->GetRPGUnit();auto* target=patient->GetUnitRPG();auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> previous;
@@ -23778,6 +23778,24 @@ static void TimedCriticalTreatment(const char* databasePath,const char* resource
     std::printf("native timed critical complete: mode=%d total=%d selected=%d remaining=%d patient=%d charge=%d->%d\n",mode,total,int(selected),expectedRemaining,int(hasSelected()),quantity,kit->GetIncQuantity());std::fflush(stdout);
 }
 
+static void RepairKindImport(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    auto* table=NDatabase::GetTable<NDb::CRPGFirstAid>();Require(table,"repair import has no actual first-aid table");
+    if(mode<2) {
+        const int id=26+mode;auto* record=table->GetRecord(id);Require(record && IsValid(record->pItem),"repair import lost an authored repair item");
+        std::printf("native repair kind import: kit=%d actual=%d expected=6 capacity=%d required=%d perk=%d quantity=%d\n",id,int(record->effect),record->nTotalHealVP,record->nRequiedSkill,record->nRequiredPerkID,record->nQuantity);std::fflush(stdout);
+        Require(int(record->effect)==6 && record->nTotalHealVP==1000 && record->nRequiedSkill==100 && record->nRequiredPerkID==79 && record->nQuantity==10,"first-aid importer ignored the authored RepairPK type");
+    } else {
+        for(int id=1;id<=17;++id) {
+            const int expected=id>=3 && id<=5?7:id<=8?0:id<=11?2:id<=14?3:id<=16?4:5;
+            auto* record=table->GetRecord(id);Require(record && IsValid(record->pItem),"repair import control lost a stock medical item");
+            std::printf("native repair kind control: kit=%d actual=%d expected=%d\n",id,int(record->effect),expected);std::fflush(stdout);
+            Require(int(record->effect)==expected,"repair type import changed another authored medical effect");
+        }
+    }
+}
+
 static void CriticalFirstImport(const char* databasePath,const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
@@ -23800,7 +23818,7 @@ static void WoundCapacityPlan(const char* databasePath,const char* resourcePath)
     Require(actor,"capacity planner fixture has no actual roster hero54");auto* healer=actor->GetUnitRPG()->GetRPGUnit();
     Require(int(healer->Skills(NDb::ST_MEDICINE))==17,"capacity planner fixture requires its actual Medicine17");
     NDb::CRPGFirstAid* record=nullptr;CDBIterator<NDb::CRPGFirstAid> kits(*NDatabase::GetTable<NDb::CRPGFirstAid>());
-    while(kits.MoveNext()){auto* candidate=kits.Get();if(IsValid(candidate->pItem) && candidate->effect==NDb::FAE_NORMAL && candidate->nQuantity>0 && candidate->nSkillModifier==0){record=candidate;break;}}
+    while(kits.MoveNext()){auto* candidate=kits.Get();if(IsValid(candidate->pItem) && candidate->effect==NDb::FAE_NORMAL && candidate->GetRecordID()==1 && candidate->nQuantity>0 && candidate->nSkillModifier==0){record=candidate;break;}}
     Require(record,"capacity planner fixture has no actual unmodified normal kit");CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);
     CObj<NRPG::IUnitMission> target=NRPG::CreateUnit(NDb::GetPers(103));auto* patient=target->GetRPGUnit();auto& hp=patient->Skills(NDb::ST_VP);hp.SetValue(hp.GetMaxValue()-3);
     Require(patient->nHealedVP==0,"capacity planner fixture patient already has dressing");
@@ -23864,7 +23882,7 @@ static void HealingMedalAwards(const char* databasePath,const char* resourcePath
         if(acquired)Require(unit->HasPerk(24,&patientWoundMultiplier) && patientWoundMultiplier==1.5f,"wound patient fixture needs its authored1.5 multiplier");
     }
     NDb::CRPGFirstAid* record=nullptr;CDBIterator<NDb::CRPGFirstAid> kits(*NDatabase::GetTable<NDb::CRPGFirstAid>());
-    while(kits.MoveNext()){auto* candidate=kits.Get();if(IsValid(candidate->pItem) && candidate->effect==(critical?NDb::FAE_REMOVE_BLEEDING:NDb::FAE_NORMAL) && candidate->nQuantity>0 && (critical || candidate->nSkillModifier>=0) && (!authoredKit || candidate->GetRecordID()==authoredKit)) {record=candidate;break;}}
+    while(kits.MoveNext()){auto* candidate=kits.Get();if(IsValid(candidate->pItem) && candidate->effect==(critical?NDb::FAE_REMOVE_BLEEDING:NDb::FAE_NORMAL) && candidate->nQuantity>0 && (critical || candidate->nSkillModifier>=0) && (authoredKit?candidate->GetRecordID()==authoredKit:critical || candidate->GetRecordID()==1)) {record=candidate;break;}}
     Require(record,"wound award fixture has no authored ordinary first-aid kit");
     CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);auto* healer=actor->GetUnitRPG()->GetRPGUnit();auto* target=patient->GetUnitRPG();auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> previous;
     if(inventory->Get(NDb::SLOT_1))previous=inventory->TakeOff(NDb::SLOT_1);
@@ -23921,7 +23939,7 @@ static void HealingMedalAwards(const char* databasePath,const char* resourcePath
     const int dressedBefore=target->GetRPGUnit()->nHealedVP;NRPG::SFirstAid plan;int requiredAP=0;
     const bool planned=healer->CreateFirstAid(&plan,afterRun,100,kit,target->GetRPGUnit(),&requiredAP);
     executor->AnimationFinished();const int dressedAfter=target->GetRPGUnit()->nHealedVP,effective=dressedAfter-dressedBefore;
-    const int expectedAmount=patientWound?(mode==10?(afterRun==53?22:18):mode==12?(afterRun==53?15:12):mode==13?1:3):mode==8?(afterRun==53?15:12):mode==3?0:mode==1?3:1;
+    const int expectedAmount=patientWound?(mode==10?(afterRun==53?22:18):mode==12?(afterRun==53?15:12):mode==13?1:3):mode==8?(authoredKit==6?14:afterRun==53?15:12):mode==3?0:mode==1?3:1;
     if(patientWound) {
         Require(int(healer->Skills(NDb::ST_MEDICINE))==17 && record->nSkillModifier==0 && (afterRun==53 || afterRun==43),"patient wound fixture needs its actual stock kit/Medicine17/AP budget");
         const int expectedQuota=patientWoundMultiplier==1.5f?44:30;
@@ -25893,6 +25911,9 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "attacker-level-critical-rolls") && argc==3) { AttackerLevelCriticalRolls(argv[2]); return true; }
     if (!std::strcmp(mode, "head-body-damage") && argc==3) { HeadBodyDamage(argv[2]); return true; }
     if (!std::strcmp(mode, "fresh-skill-modifier-values") && argc==3) { FreshSkillModifierValues(argv[2]); return true; }
+    if (!std::strcmp(mode, "repair-kind-small") && argc==4) { RepairKindImport(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "repair-kind-large") && argc==4) { RepairKindImport(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "repair-kind-controls") && argc==4) { RepairKindImport(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "critical-first-import") && argc==4) { CriticalFirstImport(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "critical-first-priority") && argc==4) { TimedCriticalTreatment(argv[2],argv[3],25); return true; }
     if (!std::strcmp(mode, "critical-first-fallback") && argc==4) { TimedCriticalTreatment(argv[2],argv[3],26); return true; }
@@ -25936,7 +25957,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "wound-patient-perk-without-large") && argc==4) { HealingMedalAwards(argv[2],argv[3],12); return true; }
     if (!std::strcmp(mode, "wound-patient-perk-partly-dressed") && argc==4) { HealingMedalAwards(argv[2],argv[3],13); return true; }
     if (!std::strcmp(mode, "authored-capacity-small") && argc==4) { HealingMedalAwards(argv[2],argv[3],8,false,false,false,1); return true; }
-    if (!std::strcmp(mode, "authored-capacity-large") && argc==4) { HealingMedalAwards(argv[2],argv[3],8,false,false,false,27); return true; }
+    if (!std::strcmp(mode, "authored-capacity-bandage") && argc==4) { HealingMedalAwards(argv[2],argv[3],8,false,false,false,6); return true; }
     if (!std::strcmp(mode, "wound-capacity-plan") && argc==4) { WoundCapacityPlan(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "wound-complete-one") && argc==4) { HealingMedalAwards(argv[2],argv[3],0,false,false,true); return true; }
     if (!std::strcmp(mode, "wound-complete-several") && argc==4) { HealingMedalAwards(argv[2],argv[3],1,false,false,true); return true; }

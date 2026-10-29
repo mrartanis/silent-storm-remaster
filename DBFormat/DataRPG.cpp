@@ -662,6 +662,8 @@ void CRPGFirstAid::Import()
 		effect = FAE_TEMP_STOP_BLEEDING;
 	else if ( szEffect == "RemoveBleeding" )
 		effect = FAE_REMOVE_BLEEDING;
+	else if ( szEffect == "RepairPK" )
+		effect = FAE_REPAIR_PK;
 	else if ( szEffect == "NormalCriticalFirst" )
 		effect = FAE_CRITICAL_FIRST;
 	NDatabase::ImportField( "RequiredSkill", &nRequiedSkill );

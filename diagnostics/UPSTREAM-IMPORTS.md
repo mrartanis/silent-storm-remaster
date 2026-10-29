@@ -12802,3 +12802,50 @@ Linux Game pass; shared builds/HD generation off, no new build copies.
 No fresh fullCI/hosted claim. RepairPK string import, genuine repair action,
 remaining healer57/speed63/acknowledgment/animation work still open.
 Source531f PARTIAL; ledger149 imported/19partial/70pending=89 unfinished.
+
+
+## 2026-10-29 — import repair-kit types and use genuine medical fixtures (531f3b7d)
+
+Integration prerequisite for source
+[531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9).
+Restore the missing RepairPK string-to6 branch. Actual repair records26/27
+were silently loaded as NORMAL0 despite raw game.db declaring RepairPK.
+Both original Gold81bedc/string8c5530 and Steam80aa42/string8d2994 compare
+RepairPK and store6; exact branch bytes verified. This own integration
+adaptation enables correct item classification; it does not complete the
+still-missing engineering repair planner/action or effect-specific gates.
+No authored data, skill/AP values, save formats, renderer or HD changes.
+
+### Corrected medical test inputs
+
+Following the independently decoded raw fields, ordinary medical fixtures
+now explicitly use normal kit1 (required0, modifier0, capacity100, AP0).
+The non100 capacity case uses normal bandage6 (required17, modifier0,
+capacity60, AP4), genuinely usable by hero54 Medicine17. The test is renamed
+UpstreamAuthoredCapacityBandage; its first49AP dressing is14HP and remaining
+capacity46. Normal kit1 retains85 after15HP. This replaces the invalid
+"normal1000" kit27 provenance: that record is a repair item with required100,
+perk79 and quantity10. Previous actual runtime measurements are historical
+evidence of the broken import path, not proof of authored normal semantics.
+Canonical kit selection also removes platform-dependent unordered iteration.
+
+All fixture changes are calibrated BEFORE production. RED58 cases on each
+platform (Windows63.99s/Linux64.10s): all55 existing related cases, including
+native spent-medkit pose cleanup, pass on genuine normal items; the new
+17-effect control passes; only two new repair-kind assertions fail. They
+show26/27 actual0 vs expected6, with capacity1000/required100/perk79/qty10
+otherwise intact. Thus parser TDD is not confused with changed test setup.
+
+GREEN58/58 Windows63.14s/Linux63.73s: both repair kinds now6 and all
+other seventeen kinds remain correct. Every logged actual medical input,
+plan, AP, dressing, critical, dose, quota and progression trace is identical
+between the calibrated RED and GREEN; only the two repair type values
+change. The new genuine capacity60 action and100 control both pass, and
+normal actions no longer use either repair record. Exact sets, raw values,
+action trace identity, exits and exactly two added DBFormat lines verified.
+Windows ALL_BUILD and Linux Game pass; shared builds/HD generation disabled,
+no new build copies or fresh fullCI/hosted claim.
+
+Engineering repair action/gates, healer57/speed63 and acknowledgments/own
+animation adaptation remain open. Source531f PARTIAL;149 imported/
+19partial/70pending=89 unfinished sources. Full goal and final Actions open.
