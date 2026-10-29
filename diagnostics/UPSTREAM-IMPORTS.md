@@ -12632,3 +12632,44 @@ builds reused, HD generation disabled, no per-bug copies or fresh fullCI/
 hosted Actions claim. Source531f remains PARTIAL: DC/healing perks, repair,
 acknowledgments and relevant own-animation adaptation remain to audit/import.
 Ledger149 imported/19partial/70pending=89 unfinished sources; goal active.
+
+
+## 2026-10-29 — restore physician critical-treatment DC perk56 (531f3b7d)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9), independent missing healer DC bonus.
+GetFirstAidDC omitted the original physician perk56. Add its real parameter
+to effective medicine and truncate before adding the item modifier and
+applying the original DC scale. This changes only critical eligibility;
+actual medicine, AP/time, item power/capacity, animation and DB stay intact.
+Patient perk24 is a separate missing stage and remains pending here.
+
+Original named Gold GetFirstAidDC6b5130/255 and Steam6bb2d0 both request
+perk56 at+3a, add its float parameter and truncate at+45, then add the item
+modifier at+c8 and apply the original float300/140 scale at+dc. The actual
+arithmetic bytes and scale checked by audit-critical-dc-perk-retail.py.
+
+Native TDD extends the real timed-treatment fixture with five actual
+physician-class actions. Its authored Medicine32/perk56 parameter15 gives
+baselineDC68 and improvedDC100. The actual perk tree acquires or withholds
+56; there are no changed DB records, fake skill/AP fields or selected DC
+derived from the changing implementation. Negative controls start with an
+eligible critical before Run, then replace it before AnimationFinished,
+leaving future stricter medical preflight compatible.
+
+RED2/5 Windows5.55s/Linux5.44s: actual DC69 and exactly100 incorrectly end
+without treating the patient, leaving51AP Windows/41AP Linux and consuming
+the dose. Without-perk69, above-limit101 and baseline68 controls pass.
+GREEN40/40 Windows44.06s/Linux43.45s restores100 threshold and treatment
+selection for69/100. Native pending progress and later turns pay108/156AP
+before curing; baseline68 costs106AP as before. The positive actions keep
+their dose and patient marker pending, spend only remaining AP on later
+native turns, then cure and consume one dose. Controls preserve their
+previous results and all prior35 wound/timed-critical tests remain green.
+
+Exact registered sets, raw RED/GREEN logs, numeric limits, input identity,
+native progress/turn/cure values, exits and exactly three added production
+lines verified. Windows ALL_BUILD and Linux Game pass. Shared builds reused
+with HD generation disabled; no fresh fullCI/hosted Actions claim.
+Source531f remains PARTIAL: patientDC24, wound perks24/57/63, repair,
+acknowledgments and relevant animation adaptation remain to audit/import.
+Ledger149 imported/19partial/70pending=89 unfinished sources; goal active.

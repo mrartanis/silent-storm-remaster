@@ -23645,9 +23645,10 @@ static void TimedCriticalTreatment(const char* databasePath,const char* resource
     NWorld::CUnitServer* actor=nullptr;
     for(auto unit:units)if(IsValid(unit) && !unit->IsAIUnit() && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK() && !unit->HasCommand() && !unit->IsPerformingAction()) {actor=unit;break;}
     Require(actor,"timed critical fixture lacks a real ordinary roster actor");
+    const bool medicDC = mode>=15 && mode<=19;
     CObj<NWorld::CUnitServer> physician;
-    if(mode==5 || mode==12) {
-        const int perk=mode==5?62:59;NDb::CRPGPers* persona=nullptr;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    if(mode==5 || mode==12 || medicDC) {
+        const int perk=mode==5?62:mode==12?59:56;NDb::CRPGPers* persona=nullptr;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
         while(people.MoveNext()) {
             auto* candidate=people.Get();if(!IsValid(candidate->pClass) || !IsValid(candidate->pModel) || !IsValid(candidate->pBaseValue) || !IsValid(candidate->pName) || candidate->pClass->skills[NDb::ST_LEVEL]<=0 || IsValid(candidate->pPanzerklein) || IsValid(candidate->pDefaultWearsPanzerklein))continue;
             CObj<NRPG::CPerksTree> tree=NRPG::CreatePerksTree(candidate->pClass->nPerkTreeID);vector<CPtr<NRPG::CPerk>> entries;tree->GetAllPerks(&entries);
@@ -23656,7 +23657,7 @@ static void TimedCriticalTreatment(const char* databasePath,const char* resource
         Require(persona,"timed critical fixture lacks its authored healing-perk class");
         physician=world->AddUnitInGame(actor->GetPosition().pos.p,NRPG::CreateUnit(persona),actor->GetTBSPlayer());actor=physician;
         Require(actor && actor->CanFight(),"timed critical fixture could not deploy its authored physician");
-        auto* unit=actor->GetUnitRPG()->GetRPGUnit();unit->GetPerksTree()->AddPerkPoints(1);unit->GetPerksTree()->TakePerk(perk);Require(unit->HasPerk(perk),"timed critical fixture did not acquire its real healing ability");
+        auto* unit=actor->GetUnitRPG()->GetRPGUnit();if(mode!=16){unit->GetPerksTree()->AddPerkPoints(1);unit->GetPerksTree()->TakePerk(perk);}Require(unit->HasPerk(perk)==(mode!=16),"timed critical fixture did not acquire or withhold its real healing ability");
     }
     CObj<NWorld::CUnitServer> retained=world->AddUnitInGame(actor->GetPosition().pos.p,NRPG::CreateUnit(NDb::GetPers(103)),actor->GetTBSPlayer());NWorld::CUnitServer* patient=retained;
     Require(patient && patient->CanFight() && patient->GetPlayer()==actor->GetPlayer(),"timed critical fixture could not deploy a real friendly patient");
@@ -23681,14 +23682,22 @@ static void TimedCriticalTreatment(const char* databasePath,const char* resource
     auto hasSelected=[&](){for(const auto& entry:readCriticals(target))if(entry.eCritical==type && entry.eCl==NDb::CL_HEAD)return true;return false;};
     const bool medicCritical=mode==0 || mode==1 || mode==7 || mode==9 || mode==10 || mode==14;
     if(medicCritical)actor->GetUnitRPG()->ApplyCritical(NRPG::SCritical(NDb::CL_LEGS,NDb::C_WEAPONSKILL_REDUCTION,-1,2.f,1));
-    const int dcLimit=healer->GetFirstAidDC(kit);const int dc=(mode==3 || mode==11 || mode==12 || mode==13)?dcLimit+1:mode==2?1:20;
+    const int dcLimit=healer->GetFirstAidDC(kit);
+    const float dcScale=float(NRPG::N_MAX_DC)/NRPG::N_MAX_SKILL;float dcBonus=0;
+    const int medicine=healer->Skills(NDb::ST_MEDICINE);
+    const int baseLimit=int(dcScale*(medicine+record->nSkillModifier));
+    if(medicDC && mode!=16)Require(healer->HasPerk(56,&dcBonus) && dcBonus>0,"critical DC fixture lacks its real positive physician perk56");
+    const int improvedLimit=int(dcScale*(int(medicine+dcBonus)+record->nSkillModifier));
+    if(medicDC && mode!=16)Require(improvedLimit>baseLimit,"physician DC perk does not extend the native critical threshold");
+    const int dc=medicDC?(mode==17?improvedLimit+1:mode==18?baseLimit:mode==19?improvedLimit:baseLimit+1):(mode==3 || mode==11 || mode==12 || mode==13)?dcLimit+1:mode==2?1:20;
+    if(medicDC){std::printf("native physician DC threshold: mode=%d medicine=%d bonus=%g base=%d improved=%d actual=%d critical=%d\n",mode,medicine,dcBonus,baseLimit,improvedLimit,dcLimit,dc);std::fflush(stdout);}
     Require(dcLimit>=20,"timed critical fixture's actual medicine/kit cannot select its baseline critical");
-    const int initialDC=(mode==3 || mode==4 || mode==13)?20:dc;
+    const int initialDC=(mode==16 || mode==17)?1:(mode==3 || mode==4 || mode==13)?20:dc;
     target->ApplyCritical(NRPG::SCritical(NDb::CL_HEAD,type,-1,2.f,initialDC));
     if(mode==14)target->ApplyCritical(NRPG::SCritical(NDb::CL_TORSO,type,-1,3.f,1));
     if(mode==9 || mode==11){auto& vp=target->GetRPGUnit()->Skills(NDb::ST_VP);vp.SetValue(vp.GetMaxValue()-3);target->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_VP));}
     const int rawVP=target->GetRPGUnit()->Skills(NDb::ST_VP),bandage=target->GetRPGUnit()->nHealedVP,ap=actor->GetAP(),quantity=kit->GetIncQuantity();
-    const bool selected=mode!=3 && mode!=4 && mode!=9 && mode!=11 && mode!=13;
+    const bool selected=mode!=3 && mode!=4 && mode!=9 && mode!=11 && mode!=13 && mode!=16 && mode!=17;
     float speed=1,parameter=0;if(healer->HasPerk(62,&parameter) && parameter>0)speed=parameter;
     const int total=selected?(std::max)(1,Float2Int(dc*50.f/(std::max)(1,int(healer->Skills(NDb::ST_MEDICINE)))/speed)):(effect==int(NDb::FAE_CRITICAL_ONLY)?1:0);
     struct Selection {NDb::ECritical type=NDb::C_NONE;NDb::ECriticalLocation location=NDb::CL_ANY;int dc=0;};
@@ -23701,13 +23710,13 @@ static void TimedCriticalTreatment(const char* databasePath,const char* resource
     if(mode==6){Require(result==NWorld::UCR_UNAVAILABLE && actor->GetAP()==ap && kit->GetIncQuantity()==quantity && hasSelected() && random.Get()==GlobalGameRandom().Get(),"missing timed-treatment item changed the patient/AP/charge/RNG");return;}
     Require(result==NWorld::UCR_OK && ap>=cost && !world->IsRealTime(),"timed critical fixture cannot afford its actual native turn-based medical action");
     executor->Run();
-    if(mode==3 || mode==4 || mode==13) {Require(target->RemoveCritical(type),"in-flight critical control did not remove its initial eligible effect");if(mode!=4)target->ApplyCritical(NRPG::SCritical(NDb::CL_HEAD,type,-1,2.f,dc));}
+    if(mode==3 || mode==4 || mode==13 || mode==16 || mode==17) {Require(target->RemoveCritical(type),"in-flight critical control did not remove its initial eligible effect");if(mode!=4)target->ApplyCritical(NRPG::SCritical(NDb::CL_HEAD,type,-1,2.f,dc));}
     const int available=actor->GetAP();int expectedRemaining=(std::max)(0,total-available);NRPG::SFirstAid woundPlan;int woundAP=0;
     if(mode==9 || mode==11)Require(healer->CreateFirstAid(&woundPlan,available,record->nTotalHealVP,kit,target->GetRPGUnit(),&woundAP),"wound-priority/fallback fixture cannot plan its real small dressing");
     executor->AnimationFinished();
     const int expectedAP=available-((mode==9 || mode==11)?woundAP:(std::min)(total,available));
     std::printf("native timed critical started: mode=%d AP=%d expectedAP=%d patient=%d marker=%d medic=%d expectedRemaining=%d charge=%d\n",mode,actor->GetAP(),expectedAP,int(hasSelected()),int(target->HasCritical(NDb::C_PATIENT)),int(actor->GetUnitRPG()->HasCritical(NDb::C_WEAPONSKILL_REDUCTION)),expectedRemaining,kit->GetIncQuantity());std::fflush(stdout);
-    Require(actor->GetAP()==expectedAP && actor->GetUnitRPG()->HasCritical(NDb::C_WEAPONSKILL_REDUCTION)==medicCritical,"timed critical treatment omitted original AP progress or cured its medic");
+    Require(actor->GetAP()==expectedAP && actor->GetUnitRPG()->HasCritical(NDb::C_WEAPONSKILL_REDUCTION)==medicCritical,medicDC?"critical treatment ignored the original physician DC perk56":"timed critical treatment omitted original AP progress or cured its medic");
     Require(int(target->GetRPGUnit()->Skills(NDb::ST_VP))==rawVP,"timed critical treatment changed raw patient health");
     if(mode==9 || mode==11) {
         Require(hasSelected() && target->GetRPGUnit()->nHealedVP==bandage+3,"normal wound-first or critical-first wound fallback lost its native dressing/critical priority");
@@ -25821,6 +25830,11 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "attacker-level-critical-rolls") && argc==3) { AttackerLevelCriticalRolls(argv[2]); return true; }
     if (!std::strcmp(mode, "head-body-damage") && argc==3) { HeadBodyDamage(argv[2]); return true; }
     if (!std::strcmp(mode, "fresh-skill-modifier-values") && argc==3) { FreshSkillModifierValues(argv[2]); return true; }
+    if (!std::strcmp(mode, "critical-dc-perk-extended") && argc==4) { TimedCriticalTreatment(argv[2],argv[3],15); return true; }
+    if (!std::strcmp(mode, "critical-dc-perk-without-perk") && argc==4) { TimedCriticalTreatment(argv[2],argv[3],16); return true; }
+    if (!std::strcmp(mode, "critical-dc-perk-too-hard") && argc==4) { TimedCriticalTreatment(argv[2],argv[3],17); return true; }
+    if (!std::strcmp(mode, "critical-dc-perk-legacy-limit") && argc==4) { TimedCriticalTreatment(argv[2],argv[3],18); return true; }
+    if (!std::strcmp(mode, "critical-dc-perk-exact-limit") && argc==4) { TimedCriticalTreatment(argv[2],argv[3],19); return true; }
     if (!std::strcmp(mode, "timed-critical-long") && argc==4) { TimedCriticalTreatment(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "timed-critical-saved") && argc==4) { TimedCriticalTreatment(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "timed-critical-short") && argc==4) { TimedCriticalTreatment(argv[2],argv[3],2); return true; }
