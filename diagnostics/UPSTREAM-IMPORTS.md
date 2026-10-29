@@ -15542,3 +15542,48 @@ typed PDB records, baseline/definitiveRED/GREEN/final raw logs in the laboratory
 The independent iRenderWorld ownership hunk remains unported pending its own
 native reproduction/audit. Mark source PARTIAL:165 imported/19 partial/
 59 pending =78 unfinished sources. Whole goal and final hosted Actions remain.
+
+## 2026-10-29 — backdrop UI audio has independent ownership (completes 1c67b8ab)
+
+Source: [1c67b8ab988769072e8b287a615751e950bde6db](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1c67b8ab988769072e8b287a615751e950bde6db).
+
+This independent hunk overlaps an old menu-audio workaround: it shared the
+world sound scene with the backdrop UI. CInterface already creates and pumps
+an owned scene, so sharing is unnecessary and makes native OnLostFocus pause
+UI clicks/previews along with world effects. Instantiate the existing owned
+pool-less UI scene; keep the renderer/world scene, scripts and pumps intact.
+
+Native TDD on unchanged cb1b990b: compiled RED1/1 BOTH. Open the actual main
+menu with its real world/render/UI graph, start a native world loop and an
+actual CWindow::PlaySound one-shot plus an independent mixer control. Decode
+non-silent PCM and verify all three initially advance. Open real options via
+the native binding/command/focus path: world512->512 (correct), UI512->512
+(bug), independent512->1024 (mixer control). The single constructor-argument
+fix produces GREEN1/1 BOTH: world512->512, UI512->1024, control512->1024.
+Verify actual non-silent mixer output, owned tag23, separate clocks, no UI
+music pools, original stack return and world/UI playback after closing options.
+No mocked scenes or duplicate focus logic; no fixture/setup failures for this
+test. This proves playback position/lifetime, not subjective audio quality.
+
+Original named Gold CRenderBaseInterface::Initialize62a550 contains the15-byte
+UI constructor call block62ab3a. Unique actual Steam match62f44a has the same
+cursor+6c and TWO null scene arguments; only the checked rel32 constructor
+operand moves714210->71e3c0. Its independently mapped owned/fallback branch
+71e773 and serialized ownership tag23 establish the constructor semantics.
+Upstream's older62f30d address is not reused as proof. No foreign ABI/layout
+or audio/renderer backend replacement.
+
+Final Windows ALL_BUILD/Linux Game/helpers+actual serializer build. Expanded
+related51/51 BOTH includes world-backed authored/main-menu scripts, native
+backdrop2D/3D, all five contextual-menu music cases, actual save/shortcut/
+restart/LAN-menu policies, native audio options and earlier sound/music controls.
+Own body animation16/16 BOTH; fresh Windows serializer/match/partial/stop4/4;
+local CI299/299. All exact raw manifests/exits/source verified. Only Main
+iRenderWorld.cpp changes; saver calls/CP1251/CRLF retained. The two existing
+builds reused, no new per-bug old builds/source copies or HD/font/facial changes.
+Evidence: backdrop-ui-verification.json, backdrop-ui-retail-verification.json,
+native RED/GREEN/final raw logs. Previous menu-pools evidence remains separate.
+
+All13 original source files/hunks are now accounted across two independently
+tested fixes; mark source IMPORTED. Ledger286:166 imported/18 partial/
+59 pending =77 unfinished sources. Whole goal/final hosted Actions remain.

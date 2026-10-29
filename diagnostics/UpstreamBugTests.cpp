@@ -3229,6 +3229,72 @@ static void MenuMusicPools(const char* databasePath,const char* resourcePath,int
 #endif
 }
 
+
+static void BackdropUIAudioOwnership(const char* databasePath,const char* resourcePath)
+{
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+    Require(std::getenv("S2_AUDIO_HEADLESS"),"backdrop UI ownership fixture requires headless native audio");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"backdrop UI fixture started with an existing interface");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm backdrop UI audio ownership regression");
+    Require(NFMSound::Init(NFMSound::SStartInfo()),"backdrop UI fixture could not initialize native audio");cleanup.audio=true;
+    NFMSound::SetMusicMasterVolume(0);
+    CDBIterator<NDb::CSound> records(*NDatabase::GetTable<NDb::CSound>());
+    Require(records.MoveNext(),"backdrop UI fixture has no world sound");CDBPtr<NDb::CSound> worldRecord=records.Get();
+    Require(records.MoveNext(),"backdrop UI fixture has no UI sound");CDBPtr<NDb::CSound> uiRecord=records.Get();
+    worldRecord->bLoop=true;uiRecord->bLoop=false;
+    worldRecord->nStartSamples=worldRecord->nEndingSamples=uiRecord->nStartSamples=uiRecord->nEndingSamples=0;
+    auto wave=SilentPCMFixture(44100);
+    for(std::size_t i=44;i<wave.size();i+=2){wave[i]=0xa0;wave[i+1]=0x0f;}
+    CObj<NFMSound::CSample2D> sample=NFMSound::LoadSample2D(wave.data(),int(wave.size()));
+    Require(IsValid(sample),"backdrop UI fixture could not decode its non-silent PCM");
+    CObj<NSound::CFileSample2D> worldLoader=NSound::share2DSamples.Get(worldRecord->GetRecordID());
+    CObj<NSound::CFileSample2D> uiLoader=NSound::share2DSamples.Get(uiRecord->GetRecordID());
+    (worldLoader.GetPtr()->*CachedChapterSampleAccess::ValueMember())=sample.GetPtr();
+    (uiLoader.GetPtr()->*CachedChapterSampleAccess::ValueMember())=sample.GetPtr();
+    CObj<NGame::CICMainMenu> open=new NGame::CICMainMenu;open->Exec();
+    CObj<NGame::CMissionBase> menu=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(IsValid(menu) && menu->GetWorld() && menu->GetRenderGame() && menu->GetInterface() && menu->GetSoundScene(),"backdrop UI fixture did not open the actual world-backed main menu");
+    auto* ui=menu->GetInterface();auto* scene=menu->GetSoundScene();
+    CTransformStack transform;transform.Init();
+    auto channelExcept=[&](int except,int other=-1){int result=-1;
+        for(int i=0;i<128;++i)if(i!=except && i!=other && FSOUND_IsPlaying(i)) {Require(result==-1,"backdrop UI fixture has an unexpected additional channel");result=i;}
+        return result;};
+    CObj<NSound::ISound2D> world=scene->Add2DSound(worldRecord);
+    MarkNewDGFrame();scene->Draw(&transform);
+    const int worldChannel=channelExcept(-1);Require(worldChannel>=0 && world->IsPlaying(),"world audio positive control never started");
+    // Use the actual CWindow path, not a substitute UI sound dispatcher.
+    ui->PlaySound(uiRecord);
+    MarkNewDGFrame();scene->Draw(&transform);ui->Draw(1000);
+    const int uiChannel=channelExcept(worldChannel);Require(uiChannel>=0,"real main-menu CWindow::PlaySound never started its UI channel");
+    CObj<NFMSound::CSound2D> independent=NFMSound::PlaySound(sample);
+    const int control=channelExcept(worldChannel,uiChannel);Require(IsValid(independent) && control>=0,"backdrop UI fixture has no independent native mixer control");
+    vector<float> output(512*2);
+    auto render=[&](){Require(S2FmodRenderForTest(output.data(),512)!=0 && std::any_of(output.begin(),output.end(),[](float v){return std::abs(v)>0.01f;}),"backdrop UI fixture did not render actual non-silent PCM");};
+    render();
+    const auto worldBefore=FSOUND_GetCurrentPosition(worldChannel),uiBefore=FSOUND_GetCurrentPosition(uiChannel),controlBefore=FSOUND_GetCurrentPosition(control);
+    Require(worldBefore>0 && uiBefore>0 && controlBefore>0,"backdrop UI baseline channels did not advance");
+    auto event=[&](const char* name){NInput::SEvent input;while(NInput::GetEvent(&input)){}NInput::PostEvent(name);
+        Require(NInput::GetEvent(&input),"backdrop UI fixture lost its native binding");
+        NMainLoop::GetCurrentInterfaceForHarness()->ProcessEvent(input);
+        CObj<NMainLoop::CInterfaceCommand> command=NMainLoop::TakeInterfaceCommandForHarness();
+        Require(IsValid(command) && !NMainLoop::HaveInterfaceCommand(),"backdrop UI binding did not queue exactly one native interface command");command->Exec();};
+    event("options");Require(NMainLoop::GetInterfaceStackDepth()==2 && NMainLoop::GetCurrentInterfaceForHarness()!=menu.GetPtr(),"main menu did not open its real modal options");
+    render();
+    const auto worldCovered=FSOUND_GetCurrentPosition(worldChannel),uiCovered=FSOUND_GetCurrentPosition(uiChannel),controlCovered=FSOUND_GetCurrentPosition(control);
+    Require(FSOUND_IsPlaying(worldChannel) && worldCovered==worldBefore && controlCovered>controlBefore,"native focus failed to pause only the backdrop world or the independent mixer stopped");
+    std::printf("native backdrop UI covered: sharedScene=%d world=%u->%u UI=%u->%u control=%u->%u\n",int(ui->GetSound()==scene),worldBefore,worldCovered,uiBefore,uiCovered,controlBefore,controlCovered);std::fflush(stdout);
+    Require(FSOUND_IsPlaying(uiChannel) && uiCovered>uiBefore,"opening options froze an already-playing UI sound with the backdrop world");
+    CStructureNetworkContext references;auto fields=BorrowedObjectFields(ui,&references);bool owns=false;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&references);reader.Add(23,&owns);}
+    const auto uiState=MenuMusicState(ui->GetSound()),worldState=MenuMusicState(scene);
+    Require(owns && ui->GetSound()!=scene && uiState.clock.GetPtr()!=worldState.clock.GetPtr() && !uiState.ambient && !uiState.combat,"backdrop UI does not own a separate pool-less clock-backed scene");
+    event("cancel");Require(NMainLoop::GetCurrentInterfaceForHarness()==menu.GetPtr() && NMainLoop::GetInterfaceStackDepth()==1,"closing options lost the original main menu");
+    render();Require(FSOUND_GetCurrentPosition(worldChannel)>worldCovered && FSOUND_GetCurrentPosition(uiChannel)>uiCovered,"returning to the menu did not resume world audio and preserve UI playback");
+#else
+    Require(false,"backdrop UI ownership fixture requires native audio");
+#endif
+}
+
 static void AudioOptionCheckboxes(const char* databasePath,const char* resourcePath,bool notificationOnly = false,bool resetDefaults = false)
 {
 #if defined(S2_UPSTREAM_NATIVE_SFX)
@@ -27669,6 +27735,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "backdrop-ui-audio-ownership")) { Require(argc == 4, "backdrop UI ownership requires db and resources"); BackdropUIAudioOwnership(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "menu-music-pools")) { Require(argc == 5, "menu music requires db, resources and origin"); MenuMusicPools(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "audio-option-checkboxes") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "audio-option-checkbox-notify") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3],true); return true; }
