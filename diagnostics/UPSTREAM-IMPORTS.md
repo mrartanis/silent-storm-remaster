@@ -13192,3 +13192,69 @@ Main/RPGUnit.cpp change verified. Shared builds/HD disabled/no per-bug copies;
 no fresh fullCI/hosted Actions claim. Acknowledgments and remaining source
 stages still need independent work;531f staysPARTIAL, whole goal active.
 Ledger149 imported/21partial/68pending=89 unfinished source commits.
+
+### Treatment result acknowledgments (531f3b7d, independent stage22)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9
+
+The old AP comparison announces success for an insufficient treatment on a
+fresh patient and failure for successful self-treatment or a patient who has
+spent AP. Use the v1.2 result predicates: twice the remaining untreated wound
+deficit must be strictly below the initial deficit; repair compares chassis
+HP instead of pilot HP/AP. Initial dressing is deducted on both sides.
+Pass the already captured pre-dose repair flag to SayAck. Preserve the
+existing CanFight caller gate and all AP/health/dose/animation behavior.
+
+Original-version distinction: named Gold SayAck0x7bbcc0/130 really is AP-based;
+it does NOT prove the new formula. Actual Steam v1.2 caller0x7cae7a targets
+0x7c85e0/225 and pushes repair bool at0x7cae77. Its exact branches confirm
+the strict half boundary, both PK-info flags and result event slots54/58.
+Remaining critical AP !=0 checks whether the selected critical still exists.
+Fully paid0 instead falls through the ordinary deficit comparison: with no
+initial wounds,0<0 is false even after a successful cure. Preserve that
+original v1.2 quirk; do not silently change the condition to selection!=NONE.
+
+Fork adaptation: mission GetInfo does not fill expanded PK metadata. Use the
+existing server GetInfo, which reads actual worn/empty chassis HP, matching
+the initial snapshot. No new fields, protocol/40-byte snapshot or face/HD
+changes. The missing-PK-info early return is preserved by native/code audit;
+runtime tests cover valid worn PK and the caller's silent empty-PK gate.
+
+Fourteen new native cases use public CExecHeal Run/AnimationFinished, actual
+cancel/TBS transitions, ordinary kit1 and repair26, real medic17/53AP and
+engineer105/57AP with authored perk79/native class progression. A diagnostic
+IAck observer is added via existing borrowed-reference serialization to the
+real CGlobalAck, alongside all original DB listeners. Tests verify the actual
+event and exact healer/patient pointers, not source text or a mock world.
+Patient/pilot AP is spent by native rotation; self-healing spends its own
+treatment AP. Prior dressing2 is applied by native HealVP.
+
+RED11/14 on both platforms BEFORE production; three positive/silent controls
+pass. First dressing15HP: deficits29/30/31 leave14/15/16, so only29 succeeds.
+Initial32 with prior dressing2 is exactly half after another15 and must fail.
+Repair's first247HP: deficits493/494/495 leave246/247/248, so only493 succeeds.
+Spent patient/pilot AP and successful self-heal no longer select failure.
+Pending/removed/fully-paid critical cases preserve the exact v1.2 branches.
+Initial fixture compilation needed public CObjectBase virtual serialization
+access; this was corrected before the valid RED runs. Initial prior-dressing8
+case passed for an unrelated wound AP penalty, so it was strengthened to2
+BEFORE production and RED11/14 was reconfirmed on both platforms.
+
+The strict final TDD sequence was repeated after a timing audit found that
+an earlier Linux run was still finishing when production was first edited.
+Only these two owned Main changes were reverted, both full RED runs were
+allowed to terminate, and the identical fix was then reapplied before the
+final GREEN runs. Final evidence verifies both RED log times precede the fix.
+
+GREEN126/126 Windows137.79s/Linux139.14s: previous112 plus14 new cases.
+All recorded AP, actual dressing/repair, raw HP, critical state and one-dose
+cleanup are identical before/after; only the dispatched acknowledgment changes.
+Windows ALL_BUILD and Linux Game pass. Exact registered sets/raw logs,
+matching platform inputs/results, TDD order, native oracle and precise two
+Main files verified. Shared builds/HD off, no per-bug copies. No rendered
+speech/audio/full-world-save/fullCI/hosted Actions claim.
+
+531f remains PARTIAL: generic medical preflight API/eligibility and the final
+cross-source hunk reconciliation still need work. Ledger149 imported/21partial/
+68pending=89 unfinished source commits; full goal and final hosted Actions
+verification after all applicable imports remain outstanding.

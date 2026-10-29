@@ -23801,7 +23801,74 @@ static SRepairFinishSnapshot RepairFinishSnapshot(NWorld::CUnitServer* actor)
     return result;
 }
 
-static void RepairOrderGate(const char* databasePath,const char* resourcePath,int mode,int repairAction=-1,int repairFinish=-1)
+// Observe the real global dispatcher without replacing its existing DB-backed listeners.
+class TreatmentAckObserver: public NWorld::IAck
+{
+    OBJECT_NOCOPY_METHODS(TreatmentAckObserver);
+public:
+    int good=0,bad=0;
+    NWorld::CUnitServer* healer=nullptr;
+    NWorld::CUnitServer* patient=nullptr;
+    void OnCannotFinishHeal(NWorld::CUnitServer* who,NWorld::CUnitServer* target) override {++bad;healer=who;patient=target;}
+    void OnHealFinished(NWorld::CUnitServer* who,NWorld::CUnitServer* target) override {++good;healer=who;patient=target;}
+};
+
+static CObj<TreatmentAckObserver> ObserveTreatmentAck(NWorld::CWorld* world)
+{
+    auto* dispatcher=world->GetGlobalAck();CStructureNetworkContext refs;auto fields=BorrowedObjectFields(dispatcher,&refs);
+    vector<CObj<NWorld::IAck>> listeners;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&listeners);}
+    Require(!listeners.empty(),"treatment ack fixture lost the actual native listeners");
+    CObj<TreatmentAckObserver> observer=new TreatmentAckObserver;
+    const int id=refs.nextID++;refs.ids[observer.GetPtr()]=id;refs.refs[id]=observer.GetPtr();listeners.push_back(observer.GetPtr());
+    CMemoryStream patch;{CStructureSaver writer(patch,CStructureSaver::WRITE,&refs);writer.Add(2,&listeners);}patch.Seek(0);
+    {CStructureSaver reader(patch,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(dispatcher)->operator&(reader);}
+    return observer;
+}
+
+static void TreatmentResultAck(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->IsAIUnit() && !unit->IsWearingPK() && !unit->IsEmptyPK() && !unit->HasCommand() && !unit->IsPerformingAction()){actor=unit;break;}
+    Require(actor && int(actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_MEDICINE))==17,"treatment ack lacks its native unmodified roster medic");
+    CObj<NWorld::CUnitServer> retained;NWorld::CUnitServer* patient=actor;
+    if(mode!=4){
+        retained=world->AddUnitInGame(actor->GetPosition().pos.p,NRPG::CreateUnit(NDb::GetPers(103)),actor->GetTBSPlayer());patient=retained;
+        Require(patient && patient->CanFight(),"treatment ack lacks its native friendly patient");
+        auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),1.5f),&places);bool placed=false;
+        for(auto place:places){place.SetPose(NAI::CM_STAND);if(!network->IsPassable(place) || network->IsLocked(place,false))continue;auto pos=patient->GetPosition();pos.pos=NAI::SPosition(place,network);if(fabs(pos.GetCP()-actor->GetPosition().GetCP())<.3f || !NWorld::IsWithinHumanReach(actor->GetPosition().GetCP(),pos.GetCP(),.8f))continue;world->GetTime()->Set(world->GetTime()->GetValue()+1);patient->SetPosition(pos);patient->animator.AlignTime();patient->animator.PlaceUnit(pos);placed=true;break;}
+        Require(placed,"treatment ack has no free native patient approach");
+    }
+    auto* record=NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(1);Require(record && record->effect==NDb::FAE_NORMAL && record->nAPToUse==0,"treatment ack lost the authored normal kit");
+    CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> previous;
+    if(inventory->Get(NDb::SLOT_1))previous=inventory->TakeOff(NDb::SLOT_1);Require(inventory->Equip(NDb::SLOT_1,kit) && inventory->Activate(NDb::SLOT_1),"treatment ack cannot activate its actual kit");
+    actor->animator.SetActiveItem(true);actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
+    auto* target=patient->GetUnitRPG();auto* unit=target->GetRPGUnit();auto& hp=unit->Skills(NDb::ST_VP);
+    const bool critical=mode>=6;const int wound=critical?0:mode==1?30:mode==2?31:mode==4?4:mode==5?32:29;
+    hp.SetValue(hp.GetMaxValue()-wound);
+    if(wound)target->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_VP));
+    if(mode==5){NRPG::SFirstAid prior;prior.fdVP=2;prior.nMaxVP=999;target->HealVP(prior);}
+    if(critical)target->ApplyCritical(NRPG::SCritical(NDb::CL_HEAD,NDb::C_WEAPONSKILL_REDUCTION,-1,2.f,20));
+    if(mode==3 || mode==7){const int before=patient->GetAP(),cost=patient->GetActionAP(NRPG::AC_ROTATE);patient->DoAction(NRPG::AC_ROTATE);Require(cost>0 && patient->GetAP()==before-cost,"treatment ack did not spend real patient rotation AP");}
+    MarkNewDGFrame();world->GetAIMap()->Sync();auto observer=ObserveTreatmentAck(world);
+    const int ap=actor->GetAP(),quantity=kit->GetIncQuantity(),rawHP=hp,already=unit->nHealedVP,initialDeficit=wound-already;
+    CObj<NWorld::CExecHeal> executor=new NWorld::CExecHeal(actor,patient);Require(executor->CanDoIt(actor->GetPosition())==NWorld::UCR_OK && !world->IsRealTime(),"treatment ack actual native order is unavailable");
+    executor->Run();executor->AnimationFinished();
+    const int firstDressed=unit->nHealedVP;
+    if(critical){
+        Require(target->HasCritical(NDb::C_WEAPONSKILL_REDUCTION) && actor->GetAP()==0 && target->HasCritical(NDb::C_PATIENT),"critical ack fixture did not enter its actual multi-turn treatment");
+        if(mode==7)target->RemoveCritical(NDb::C_WEAPONSKILL_REDUCTION);
+        if(mode==8){int turns=0;while(target->HasCritical(NDb::C_PATIENT) && turns++<3){actor->OnTBSEvent(NWorld::TBS_START_NEW_TURN);actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);}Require(!target->HasCritical(NDb::C_WEAPONSKILL_REDUCTION) && !target->HasCritical(NDb::C_PATIENT),"critical ack fixture failed to pay/cure across actual turns");}
+    } else Require(firstDressed==already+(mode==4?4:15),"wound ack fixture did not apply its native first dressing segment");
+    actor->SetState(new NWorld::CUnitStateNormal(actor));
+    const bool good=mode==0 || mode==3 || mode==4 || mode==7;
+    std::printf("native treatment ack: mode=%d initialDeficit=%d dressedBefore=%d dressedFirst=%d remaining=%d AP=%d->%d patientAP=%d good=%d bad=%d expectedGood=%d expectedBad=%d critical=%d dose=%d->%d\n",mode,initialDeficit,already,firstDressed,wound-unit->nHealedVP,ap,actor->GetAP(),patient->GetAP(),observer->good,observer->bad,int(good),int(!good),int(target->HasCritical(NDb::C_WEAPONSKILL_REDUCTION)),quantity,kit->GetIncQuantity());std::fflush(stdout);
+    Require(int(hp)==rawHP && kit->GetIncQuantity()==quantity-1 && !target->HasCritical(NDb::C_PATIENT) && !actor->IsPerformingAction(),"treatment ack changed paid health/dose/patient/action ownership");
+    Require(observer->good==int(good) && observer->bad==int(!good) && observer->healer==actor && observer->patient==patient,"treatment result acknowledgment depends on patient AP instead of original healing progress");
+}
+
+static void RepairOrderGate(const char* databasePath,const char* resourcePath,int mode,int repairAction=-1,int repairFinish=-1,int repairAck=-1)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
     list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* anchor=nullptr;
@@ -23830,6 +23897,7 @@ static void RepairOrderGate(const char* databasePath,const char* resourcePath,in
     auto& shellHP=shell->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP);Require(shellHP.GetMaxValue()>100,"repair order chassis has insufficient VP");
     shellHP.SetValue(shellHP.GetMaxValue()-((mode==2 || mode==10)?0:100));
     if(repairAction>=0)shellHP.SetValue(shellHP.GetMaxValue()-((repairAction==2 || repairAction==3)?3:(repairAction==4 || repairAction==5)?650:100));
+    if(repairAck>=0)shellHP.SetValue(shellHP.GetMaxValue()-(repairAck==1?494:repairAck==2?495:493));
     if(pilot){auto& hp=pilot->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP);hp.SetValue(hp.GetMaxValue()-7);pilot->GetUnitRPG()->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_VP));}
     // Put the actual engineer on a free repair ring. Inner invalid previews never relocate him into the suit footprint.
     places.clear();network->GetNearPlaces(SSphere(shell->GetPosition().GetCP(),5.f),&places);NAI::SUnitPosition ring=actor->GetPosition(),farPosition=ring,innerPosition=ring;bool gotRing=false,gotFar=false,gotInner=false;
@@ -23858,6 +23926,7 @@ static void RepairOrderGate(const char* databasePath,const char* resourcePath,in
     MarkNewDGFrame();world->GetAIMap()->Sync();
     const int ap=actor->GetAP(),quantity=kit->GetIncQuantity(),rawShellHP=shellHP,pilotHP=pilot?int(pilot->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP)):-1;const auto position=actor->GetPosition();auto random=GlobalGameRandom();
     if(repairAction>=0) {
+        CObj<TreatmentAckObserver> ack;if(repairAck>=0)ack=ObserveTreatmentAck(world);
         actor->animator.SetActiveItem(true);actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
         CObj<NWorld::CExecHeal> executor=new NWorld::CExecHeal(actor,target);
         Require(executor->CanDoIt(actor->GetPosition())==NWorld::UCR_OK && !world->IsRealTime(),"repair action lacks its actual valid TBS order");
@@ -23876,6 +23945,16 @@ static void RepairOrderGate(const char* databasePath,const char* resourcePath,in
         std::printf("native repair action first: mode=%d shellHP=%d expectedHP=%d AP=%d expectedAP=%d marker=%d expectedActive=%d dose=%d expectedDose=%d state=%d\n",repairAction,int(shellHP),expectedHP,actor->GetAP(),available-spent,int(target->GetUnitRPG()->HasCritical(NDb::C_PATIENT)),int(active),kit->GetIncQuantity(),quantity-(repairAction==7?1:0),int(actor->GetState()));std::fflush(stdout);
         Require(int(shellHP)==expectedHP && actor->GetAP()==available-spent,"repair state did not apply the original engineering repair to the actual chassis");
         Require(target->GetUnitRPG()->HasCritical(NDb::C_PATIENT)==active && kit->GetIncQuantity()==quantity-(repairAction==7?1:0) && (actor->GetState()==NWorld::CUnit::ST_HEALER)==active,"repair state lost its native pending capacity, patient marker or dose ownership");
+        if(repairAck>=0){
+            Require(expectedHP-initialHP==247,"repair ack fixture did not apply its native engineering budget");
+            if(repairAck==3){const int before=target->GetAP(),cost=target->GetActionAP(NRPG::AC_ROTATE);target->DoAction(NRPG::AC_ROTATE);Require(cost>0 && target->GetAP()==before-cost,"repair ack did not spend actual pilot AP");}
+            NRPG::SUnitInfo info={};target->GetInfo(&info);Require(info.bPKInfo && info.nPKHP==int(shellHP) && info.nMaxPKHP==shellHP.GetMaxValue(),"repair ack lost the fork server shell-health adapter");
+            actor->SetState(new NWorld::CUnitStateNormal(actor));const bool silent=repairAck==4,good=repairAck==0 || repairAck==3;
+            std::printf("native repair ack: mode=%d worn=%d deficit=%d repaired=%d remaining=%d AP=%d->%d patientAP=%d canFight=%d good=%d bad=%d expectedGood=%d expectedBad=%d dose=%d->%d pilotHP=%d\n",repairAck,int(bool(pilot)),deficit,int(shellHP)-initialHP,shellHP.GetMaxValue()-int(shellHP),ap,actor->GetAP(),target->GetAP(),int(target->CanFight()),ack->good,ack->bad,int(good && !silent),int(!good && !silent),quantity,kit->GetIncQuantity(),pilot?int(pilot->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP)):-1);std::fflush(stdout);
+            Require(kit->GetIncQuantity()==quantity-1 && !target->GetUnitRPG()->HasCritical(NDb::C_PATIENT) && actor->GetAP()==available-spent && int(shellHP)==expectedHP,"repair ack changed paid shell/AP/dose ownership");
+            Require(!pilot || int(pilot->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP))==pilotHP,"repair ack changed pilot health");
+            Require(ack->good==int(good && !silent) && ack->bad==int(!good && !silent) && (silent || (ack->healer==actor && ack->patient==target)),"repair result acknowledgment depends on pilot AP instead of original shell progress");return;
+        }
         auto verifyPilot=[&](){if(pilot)Require(int(pilot->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP))==pilotHP && pilot->GetUnitRPG()->GetRPGUnit()->nHealedVP==pilotBandage && pilot->GetUnitRPG()->HasCritical(NDb::C_VP)==pilotWound,"PK repair healed or bandaged its wounded pilot");};
         auto capacity=[&](){CStructureNetworkContext refs;auto fields=BorrowedObjectFields(actor,&refs);CObj<NWorld::CUnitState> state;{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(10,&state);}Require(dynamic_cast<NWorld::CUnitStateHealer*>(state.GetPtr()),"repair action lost its actual healer state");CStructureNetworkContext values;auto saved=BorrowedObjectFields(state,&values);float result=-999;{CStructureSaver reader(saved,CStructureSaver::READ,&values);reader.Add(4,&result);}return result;};
         SRepairFinishSnapshot finishBefore;
@@ -26195,6 +26274,20 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "wound-speed-perk-critical-first-control") && argc==4) { WoundHealerPerk(argv[2],argv[3],5,true); return true; }
     if (!std::strcmp(mode, "wound-speed-perk-combined-strength") && argc==4) { WoundHealerPerk(argv[2],argv[3],6,true); return true; }
     if (!std::strcmp(mode, "wound-speed-perk-free-small-control") && argc==4) { WoundHealerPerk(argv[2],argv[3],7,true); return true; }
+    if (!std::strcmp(mode, "treatment-ack-above-half") && argc==4) { TreatmentResultAck(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "treatment-ack-exact-half") && argc==4) { TreatmentResultAck(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "treatment-ack-below-half") && argc==4) { TreatmentResultAck(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "treatment-ack-spent-patient-ap") && argc==4) { TreatmentResultAck(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "treatment-ack-self") && argc==4) { TreatmentResultAck(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "treatment-ack-prior-dressing") && argc==4) { TreatmentResultAck(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "treatment-ack-critical-pending") && argc==4) { TreatmentResultAck(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "treatment-ack-critical-removed") && argc==4) { TreatmentResultAck(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "treatment-ack-critical-complete") && argc==4) { TreatmentResultAck(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "treatment-ack-repair-above-half") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,0); return true; }
+    if (!std::strcmp(mode, "treatment-ack-repair-exact-half") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,1); return true; }
+    if (!std::strcmp(mode, "treatment-ack-repair-below-half") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,2); return true; }
+    if (!std::strcmp(mode, "treatment-ack-repair-spent-pilot-ap") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,3); return true; }
+    if (!std::strcmp(mode, "treatment-ack-repair-empty-silent") && argc==4) { RepairOrderGate(argv[2],argv[3],0,0,-1,4); return true; }
     if (!std::strcmp(mode, "repair-planner-small") && argc==4) { RepairPlanner(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "repair-planner-full") && argc==4) { RepairPlanner(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "repair-planner-limited-ap") && argc==4) { RepairPlanner(argv[2],argv[3],2); return true; }

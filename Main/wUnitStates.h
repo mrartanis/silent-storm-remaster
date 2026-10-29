@@ -155,7 +155,7 @@ class CUnitStateHealer: public CUnitState
 	STreatmentInfo sTargetInfo;
 	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CUnitState*)this); f.Add(2,&pTarget); f.Add(3,&bNewSegment); f.Add(4,&fKitCapacity); f.Add(5,&nCriticalHealAPRequired); f.Add(6,&healCriticalInfo); f.Add(7,&sTargetInfo); return 0; }
 	//
-	void SayAck();
+	void SayAck( bool bRepair );
 	void DoHealing( int nUnitAP );
 	void SetCriticalHealAPRequired();
 	//

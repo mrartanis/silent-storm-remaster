@@ -572,11 +572,22 @@ void CUnitStateHealer::SetCriticalHealAPRequired()
 	nCriticalHealAPRequired = Max( 1, Float2Int(fAP) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CUnitStateHealer::SayAck()
+void CUnitStateHealer::SayAck( bool bRepair )
 {
-	NRPG::SUnitInfo Info;
-	pTarget->GetUnitRPG()->GetInfo( NAI::WALK, &Info );
-	if ( Info.nAP < Info.nMaxAP )
+	NRPG::SUnitInfo Info = {};
+	pTarget->GetInfo( &Info );
+	bool bGood;
+	if ( nCriticalHealAPRequired != 0 )
+		bGood = !pTarget->GetUnitRPG()->HasCritical( healCriticalInfo.eCritical );
+	else if ( bRepair )
+	{
+		if ( !Info.bPKInfo || !sTargetInfo.bPKInfo )
+			return;
+		bGood = (Info.nMaxPKHP - Info.nPKHP) * 2 < sTargetInfo.nMaxPKHP - sTargetInfo.nPKHP;
+	}
+	else
+		bGood = (Info.nMaxHP - Info.nHP - Info.nHealedHP) * 2 < sTargetInfo.nMaxHP - sTargetInfo.nHP - sTargetInfo.nHealedHP;
+	if ( !bGood )
 		pUS->GetWorld()->GetGlobalAck()->OnCannotFinishHeal( pUS, pTarget );
 	else
 		pUS->GetWorld()->GetGlobalAck()->OnHealFinished( pUS, pTarget );
@@ -730,7 +741,7 @@ void CUnitStateHealer::OnStateFinished()
 		IsValid(pFA) && pFA->GetDBFirstAid()->GetRecordID() == 26 ? 0x1185 : 0x1184 );
 	pTarget->GetUnitRPG()->RemoveCritical( NDb::C_PATIENT );
 	if ( pTarget->CanFight() )
-		SayAck();
+		SayAck( bRepair );
 	//
 	pTarget->animator.SetBreathOnlyIdle( pTarget->IsCheatEnabled( NRPG::CHEAT_SCRIPTSEQUENCE ) );
 }
