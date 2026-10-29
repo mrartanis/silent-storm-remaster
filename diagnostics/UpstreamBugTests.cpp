@@ -24073,6 +24073,51 @@ static void ProneMedicalReach(const char* databasePath,const char* resourcePath,
     Require(result==expected && repeat==expected,"medical reach ignores the actual prone patient pose or changes standing/crouched/outer-range controls");
 }
 
+static void ProneMedicalApproach(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->IsAIUnit() && !unit->IsWearingPK() && !unit->IsEmptyPK() && !unit->HasCommand() && !unit->IsPerformingAction()){actor=unit;break;}
+    Require(actor,"prone medical approach lacks its actual ordinary medic");CObj<NWorld::CUnitServer> qualified;if(mode==6){qualified=QualifiedMedicalActor(world,actor);actor=qualified;}
+    const bool healerProne=mode>=7,prone=mode==2 || mode==3 || mode==4 || mode==6 || mode==8;
+    if(healerProne){auto pos=actor->GetPosition();pos.pos.p.SetPose(NAI::CM_LAY);world->GetTime()->Set(world->GetTime()->GetValue()+1);actor->SetPosition(pos);actor->animator.AlignTime();actor->animator.PlaceUnit(pos);}
+    CObj<NWorld::CUnitServer> patient;
+    const int zone=mode==0 || mode==2?0:mode==4?2:1;const float desired=zone==0?.625f:zone==1?.9f:1.25f;
+    auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),2.f),&places);bool found=false;float best=1e30f;unsigned bestBits=0xffffffffu;NAI::SUnitPosition targetPosition;int ground=0,standing=0,all=0,flat=0;
+    for(auto point:places){
+        if(!point.IsIntegral() || point.IsFinal())continue;++ground;point.SetPose(NAI::CM_STAND);
+        if(!network->IsPassable(point) || network->IsLocked(point,false))continue;++standing;bool allPoses=false;
+        for(int direction=0;direction<8 && !allPoses;++direction){point.SetDirection(direction);bool clear=true;for(auto pose:{NAI::CM_STAND,NAI::CM_LAY,NAI::CM_CROUCH}){auto candidate=point;candidate.SetPose(pose);if(!network->IsPassable(candidate) || network->IsLocked(candidate,false))clear=false;}if(clear)allPoses=true;}if(!allPoses)continue;++all;
+        auto position=actor->GetPosition();position.pos=NAI::SPosition(point,network);const auto delta=position.GetCP()-actor->GetPosition().GetCP();const float distance=std::sqrt(delta.x*delta.x+delta.y*delta.y);
+        if(!NWorld::IsWithinHumanReach(actor->GetPosition().GetCP(),position.GetCP(),2.f))continue;++flat;if(zone==0?distance<=.3f || distance>.8f:zone==1?distance<=.8f || distance>1.2f:distance<=1.2f || distance>1.5f)continue;
+        const float error=std::fabs(distance-desired);if(error>best || error==best && point.GetBits()>=bestBits)continue;
+        position.pos.p.SetPose(prone?NAI::CM_LAY:mode==5?NAI::CM_CROUCH:NAI::CM_STAND);targetPosition=position;best=error;bestBits=point.GetBits();found=true;
+    }
+    std::printf("native prone medical approach setup: mode=%d actorLayer=%d places=%d ground=%d standing=%d allPoses=%d verticalAllowed=%d found=%d\n",mode,int(actor->GetPosition().pos.p.GetLayer()),int(places.size()),ground,standing,all,flat,int(found));std::fflush(stdout);
+    Require(found,"prone medical approach has no actual free all-pose-passable point in the required distance band");patient=world->AddUnitInGame(targetPosition.pos.p,NRPG::CreateUnit(NDb::GetPers(103)),actor->GetTBSPlayer());Require(patient && patient->CanFight(),"prone medical approach cannot deploy its real friendly patient at the selected free point");world->GetTime()->Set(world->GetTime()->GetValue()+1);patient->SetPosition(targetPosition);patient->animator.AlignTime();patient->animator.PlaceUnit(targetPosition);
+    Require(!patient->IsDead() && !patient->IsUnconscious() && patient->GetPosition().pos.p.GetPose()==(prone?NAI::CM_LAY:mode==5?NAI::CM_CROUCH:NAI::CM_STAND),"prone medical patient is not in its actual conscious authored pose");
+    auto* record=NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(1);Require(record && record->nRequiedSkill==0 && record->nRequiredPerkID==0,"prone medical approach lost its unrestricted authored normal kit");CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);
+    auto* inventory=actor->GetUnitRPG()->GetInventory();vector<CObj<NRPG::IInventoryItem>> previous;for(auto slot:{NDb::SLOT_1,NDb::SLOT_2})if(inventory->Get(slot))previous.push_back(inventory->TakeOff(slot));Require(inventory->Equip(NDb::SLOT_1,kit) && inventory->Activate(NDb::SLOT_1),"prone medical approach cannot activate its actual kit");
+    auto* target=patient->GetUnitRPG();target->ApplyCritical(NRPG::SCritical(NDb::CL_HEAD,NDb::C_WEAPONSKILL_REDUCTION,-1,2.f,20));Require(target->HasCurableCriticals(),"prone medical approach lacks its actual curable patient condition");
+    MarkNewDGFrame();world->GetAIMap()->Sync();auto* healer=actor->GetUnitRPG()->GetRPGUnit();const auto from=actor->GetPosition(),to=patient->GetPosition();const auto delta=to.GetCP()-from.GetCP();const float distance=std::sqrt(delta.x*delta.x+delta.y*delta.y);const int ap=actor->GetAP(),patientAP=patient->GetAP(),hp=target->GetTotalVP(),healerHP=actor->GetUnitRPG()->GetTotalVP(),dose=kit->GetIncQuantity(),medicine=healer->Skills(NDb::ST_MEDICINE),points=healer->GetPerksTree()->GetPerkPoints();const float xp=healer->fXP;auto random=GlobalGameRandom();
+    const bool close=NWorld::IsWithinHumanReach(from.GetCP(),to.GetCP(),.8f),wide=NWorld::IsWithinHumanReach(from.GetCP(),to.GetCP(),1.2f);Require((zone==0?close:zone==1?!close && wide:!wide),"prone medical approach changed its real geometry before the order probe");
+
+    CObj<NWorld::CExecHeal> direct=new NWorld::CExecHeal(actor,patient);const auto current=direct->CanDoIt(from);
+    const bool atGoal=current==NWorld::UCR_OK && NWorld::IsWithinHumanReach(from.GetCP(),to.GetEyePosition(),prone?1.2f:.8f);
+    NWorld::EUnitCommandResult result=NWorld::UCR_GENERAL_FAILURE;CObj<NWorld::CCmdHeal> command=new NWorld::CCmdHeal(patient);
+    CObj<NWorld::CCommandExecute> executor=NWorld::CreateActionExecutor(actor,command,&result);auto* mover=dynamic_cast<NWorld::IExecMove*>(executor.GetPtr());
+    NAI::SPathPlace destination=from.pos.p;NAI::EFindPathParams params=NAI::PF_DEFAULT;NWorld::ENeedActiveItem active=NWorld::ITEM_NO_MATTER;
+    if(mover)mover->GetDesiredPlace(&destination,&params,&active);CObj<NAI::CPath> path=executor?executor->GetCurrentPath():nullptr;
+    std::printf("native prone medical approach: mode=%d actorPose=%d targetPose=%d has58=%d distance=%g current=%d executor=%d result=%d mover=%d path=%d points=%d sourceX=%d sourceY=%d targetX=%d targetY=%d goalX=%d goalY=%d atGoal=%d expectedAtGoal=%d AP=%d patientAP=%d dose=%d medicine=%d\n",mode,int(from.pos.p.GetPose()),int(to.pos.p.GetPose()),int(healer->HasPerk(58)),distance,int(current),int(bool(executor)),int(result),int(bool(mover)),int(bool(path)),path?int(path->points.size()):0,int(from.pos.p.GetX()),int(from.pos.p.GetY()),int(to.pos.p.GetX()),int(to.pos.p.GetY()),int(destination.GetX()),int(destination.GetY()),int(mover && destination.GetX()==from.pos.p.GetX() && destination.GetY()==from.pos.p.GetY()),int(atGoal),ap,patientAP,dose,medicine);std::fflush(stdout);
+    std::printf("native prone medical approach context: mode=%d eyeDistance=%g eyeClose=%d eyeWide=%d params=%d active=%d goalBits=%u pathBits=%u\n",mode,fabs(to.GetEyePosition()-from.GetCP()),int(NWorld::IsWithinHumanReach(from.GetCP(),to.GetEyePosition(),.8f)),int(NWorld::IsWithinHumanReach(from.GetCP(),to.GetEyePosition(),1.2f)),int(params),int(active),destination.GetBits(),path && !path->points.empty()?path->points.back().GetBits():0);std::fflush(stdout);
+    Require(executor && mover && path && !path->points.empty() && result==NWorld::UCR_OK,"prone medical approach cannot create a real native heal queue/path on its legal geometry");
+    Require(destination.GetX()==path->points.back().GetX() && destination.GetY()==path->points.back().GetY() && destination.GetLayer()==path->points.back().GetLayer(),"prone medical approach lost its actual native path endpoint");
+    auto endpoint=from;endpoint.pos=NAI::SPosition(destination,network);Require(direct->CanDoIt(endpoint)==NWorld::UCR_OK,"prone medical approach queues a destination where actual healing is unavailable");
+    auto afterRandom=GlobalGameRandom();Require(actor->GetAP()==ap && patient->GetAP()==patientAP && target->GetTotalVP()==hp && actor->GetUnitRPG()->GetTotalVP()==healerHP && kit->GetIncQuantity()==dose && inventory->GetActive()==kit.GetPtr() && actor->GetPosition()==from && patient->GetPosition()==to && int(healer->Skills(NDb::ST_MEDICINE))==medicine && healer->GetPerksTree()->GetPerkPoints()==points && healer->fXP==xp && random.Get()==afterRandom.Get() && target->HasCurableCriticals() && !actor->HasCommand(),"prone medical approach planning changed actual world/AP/HP/item/positions/skills/XP/RNG/orders");
+    const bool same=destination.GetX()==from.pos.p.GetX() && destination.GetY()==from.pos.p.GetY() && destination.GetLayer()==from.pos.p.GetLayer();
+    Require(same==atGoal,"heal command unnecessarily moves an already-in-reach medic instead of using the original prone-patient approach radius");
+}
+
 static void MedicalOrderPose(const char* databasePath,const char* resourcePath,int mode)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game,mode==5 || mode==8?4517:810);
@@ -26686,6 +26731,15 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "treatment-ack-repair-below-half") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,2); return true; }
     if (!std::strcmp(mode, "treatment-ack-repair-spent-pilot-ap") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,3); return true; }
     if (!std::strcmp(mode, "treatment-ack-repair-empty-silent") && argc==4) { RepairOrderGate(argv[2],argv[3],0,0,-1,4); return true; }
+    if (!std::strcmp(mode, "prone-medical-approach-standing-near") && argc==4) { ProneMedicalApproach(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "prone-medical-approach-standing-wide") && argc==4) { ProneMedicalApproach(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "prone-medical-approach-prone-near") && argc==4) { ProneMedicalApproach(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "prone-medical-approach-prone-wide") && argc==4) { ProneMedicalApproach(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "prone-medical-approach-prone-far") && argc==4) { ProneMedicalApproach(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "prone-medical-approach-crouch-wide") && argc==4) { ProneMedicalApproach(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "prone-medical-approach-qualified-prone-wide") && argc==4) { ProneMedicalApproach(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "prone-medical-approach-prone-medic-standing") && argc==4) { ProneMedicalApproach(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "prone-medical-approach-both-prone") && argc==4) { ProneMedicalApproach(argv[2],argv[3],8); return true; }
     if (!std::strcmp(mode, "ai-medical-cost-backpack-below") && argc==4) { AISelectedMedicalCost(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-medical-cost-backpack-exact") && argc==4) { AISelectedMedicalCost(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-medical-cost-backpack-above") && argc==4) { AISelectedMedicalCost(argv[2],argv[3],2); return true; }

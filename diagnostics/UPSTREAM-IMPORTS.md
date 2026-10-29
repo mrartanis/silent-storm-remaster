@@ -13939,3 +13939,81 @@ still need independent original proof/native TDD. Ledger286 now152 imported,
 final actual GitHub Actions fix/check remains due after applicable imports.
 Evidence: ai-medical-cost-retail-oracle.json, final RED8/GREEN251 raw logs,
 verification.json, setup logs, exit files and Windows ALL_BUILD log.
+
+### Heal queues use the prone patient's approach radius (144c7b84, human stage)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/144c7b84dc51b2ef80784df6d40ae40dac1889e9
+Helper prerequisite: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/afee0c2eb6ee5cc6927eb48d9a273ef2622b6d72
+
+The direct world medical gate already uses original patient-pose reach,
+but the native heal-command factory still searches only0.8 around every
+human patient. For an actually prone patient, the original1.2 approach
+radius can include the medic's current tile; the old search omits it and
+queues an unnecessary move before treatment. Generalize the existing local
+GetHumanReachPlaces with a float radius defaulting to0.8, pass that radius
+to its existing reach predicate, and supply GetHealOrRepairPKDistance for
+human medical targets. Keep the existing eye-point calculation,5m broad
+phase, native passability and directed pose/flag generation. Existing other
+three-argument consumers retain exactly0.8. Self treatment stays as before.
+PK explicitly retains its previous approach branch for an independent
+directional-geometry TDD/commit; no generic1.8 PK-radius fallback is added.
+
+The original prerequisite sourceafee exports a four-argument helper and
+keeps a three-argument wrapper. Here the native radius behavior is adapted
+as a local optional argument; there is no new public API or testing seam.
+Only this helper prerequisite is accounted as a partial afee import; its
+public/AI consumers, loot/command/hotseat changes remain pending.
+
+Original proof: PDB function argument types identify Gold7886a0/811 as the
+CCmdHeal overload (not exploratory7916e0/1123, which is CCmdTakeCorpse).
+Actual Steam medical entry7942a0 has different register allocation; no
+whole811 byte-identity claim. Both native human branches use the verified
+patient-dependent reach helper Gold796880/Steam7a26d0, the patient eye point
+Gold4905f0/Steam4916f0, then radius-taking GetHumanReachPlaces Gold7882f0/
+Steam793ef0. Actual Steam794348 pushes0 for optional inner-exclusion false,
+79434c obtains radius,794357 stores its float argument,794368 obtains eye
+point and794371 dispatches the helper. RTTI CUnitServer/CObjectBase casts
+agree. The ENTIRE427 helper uniquely matches across original EXEs except
+9 individually verified call operands, SEH address and one verified1.0
+float address. Incoming radius goes unchanged to IsWithinHumanReach,
+all-pose mask7 and original filters retained. Independent full76 proof
+supplies prone1.2/other human0.8. Cached upstream793cf4 is inside directed
+point generation in this oracle, not the actual medical branch.
+
+Nine new native cases reuse the prior legal patient103/kit1 world setup,
+including standing/crouched/prone patients, near/wide/far points, legal58
+and prone medic controls. Call REAL CreateActionExecutor(CCmdHeal), which
+builds the native filtered destinations, FindPath, mover queue and healing
+executor. Inspect public GetDesiredPlace and owned native GetCurrentPath;
+verify its destination can actually heal. Do not expose the static helper,
+inject a path or execute the planned action. Normal native path reservations
+may be built; physical AP/HP/item/positions/Medicine/points/XP/RNG/orders
+remain unchanged. Actual movement/treatment playback is not claimed.
+
+Initial setup failures are archived, not counted as bug RED: the fixture
+compared full packed desired/path endpoints, whose moving flags normally
+differ after path conversion, and assumed body reach alone implies eye
+approach reach. Correct the fixture to compare XY/layer and actual original
+eye-point eligibility; retain returned path with CObj. Production remains
+unchanged until BOTH final REDs terminate. FINAL RED1fail/9 each: mode2
+prone patient, body distance0.625, original eye reach0.8 fails/1.2 succeeds,
+direct CanDoIt already OK; queue wrongly moves medic(2,9)->(3,9). Eight
+controls pass. Other prone cases whose head is farther away still need
+approach movement, retaining that original distinction.
+
+Fix ONLY Main/wUnitAttack.cpp local radius parameter/predicate and human
+medical dispatch. GREEN260/260 Windows281.39s/Linux286.00s = previous251+9.
+All9 native input/context rows agree across platforms; current-cell goal is
+restored for the failing case. Four non-prone patient control rows are
+identical; prior8 AI-cost/2spend/9AIprobe/9reach/10pose/11skill traces are
+unchanged. Windows ALL_BUILD and Linux Game/helpers pass. Exact one-file
+production diff reconstructed; own path flags, fonts/face/body/HD/save/wire,
+DB, action prices and balance remain. No fresh fullCI/hosted Actions claim.
+
+Source144 stays PARTIAL ONLY for PK cardinal/diagonal approach geometry.
+Sourceafee now PARTIAL solely for the local radius-helper prerequisite.
+Ledger286:152 imported/20partial/71pending =91 unfinished sources. Whole
+goal stays active; final actual GitHub Actions fix/check remains due.
+Evidence: prone-medical-approach original-types/oracle/verification JSON,
+complete final RED9/GREEN260 logs, setup archives, exits and ALL_BUILD.
+Shared builds only; no per-bug source/build copies.

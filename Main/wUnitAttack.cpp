@@ -155,7 +155,8 @@ static void GetSnipeAttackPlaces( CUnitServer *pUS, CUnitServer *pTarget, vector
 	pRes->push_back( p );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-static void GetHumanReachPlaces( CUnitServer *pUS, const CVec3 &ptTarget, vector<NAI::SPathPlace> *pRes )
+static void GetHumanReachPlaces( CUnitServer *pUS, const CVec3 &ptTarget, vector<NAI::SPathPlace> *pRes,
+	float fPlaneDist = F_HEAL_DISTANCE )
 {
 	NAI::IPathNetwork *pNet = pUS->GetWorld()->GetPathNetwork();
 	SSphere s;
@@ -169,7 +170,7 @@ static void GetHumanReachPlaces( CUnitServer *pUS, const CVec3 &ptTarget, vector
 		if ( !pNet->IsNativePassable( res[k] ) )
 			continue;
 		from.pos.p = res[k];
-		if ( IsWithinHumanReach( from.GetCP(), ptTarget, F_HEAL_DISTANCE ) )
+		if ( IsWithinHumanReach( from.GetCP(), ptTarget, fPlaneDist ) )
 			GetDirectedPoints( pNet, from.pos.p, ptTarget, pRes );
 	}	
 }
@@ -239,8 +240,11 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdHeal *pCmd
 
 	if ( pTarget == pUS )
 		pRes->push_back( pUS->GetPosition().pos.p );
-	else
+	else if ( IsValid( pTarget->GetWearingPK() ) || pTarget->IsEmptyPK() )
 		GetHumanReachPlaces( pUS, pTarget->GetPosition().GetEyePosition(), pRes );
+	else
+		// Gold 78877b / Steam 79434c: use the actual patient-pose reach.
+		GetHumanReachPlaces( pUS, pTarget->GetPosition().GetEyePosition(), pRes, GetHealOrRepairPKDistance( pTarget ) );
 	return UCR_OK;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
