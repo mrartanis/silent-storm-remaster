@@ -12714,3 +12714,43 @@ generation disabled; no fresh fullCI/hosted Actions claim. Source531f stays
 PARTIAL: wound perks24/57/63, engineering repair, acknowledgments and relevant
 animation adaptation remain. Ledger149 imported/19partial/70pending=
 89 unfinished sources; full goal and final hosted Actions still open.
+
+
+## 2026-10-29 — restore patient perk24 wound treatment strength (531f3b7d)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9), independent wound-planning patient multiplier.
+Apply actual patient perk24 to effective medicine before the item modifier
+and integer truncation in CreateFirstAid. The resulting local skill controls
+both the dressing quota and AP quote; the medic's actual skill is unchanged.
+This completes the wound effect separately from the earlier critical-DC fix.
+Healer57 and speed63 remain independent missing planner stages.
+
+Both original planners read the actual patient tree, request24 and perform
+the same49-byte medicine-multiply/item-add/truncate block: Gold6b4ab0 and
+Steam6bac50. Patient-tree loads6b4a55/6babf5 and perk24 pushes6b4a70/6bac10
+also checked. No new coefficients, AP minima or database changes.
+
+Native TDD uses real roster hero54 Medicine17, actual friendly patient class
+with acquired/withheld perk24 parameter1.5 and stock normal kits. Medicine17
+becomes local treatment skill25 (truncated), quota44 instead of30. RED3/5
+Windows5.64s/Linux5.74s before Main edits:3HP costs10AP instead of7; a3HP
+wound already dressed2HP costs3AP instead of2 for its last1HP; AP-limited
+large dressing is15 instead of22HP on Windows,12 instead of18 on Linux.
+Two small/large without-perk controls pass. Native prior HealVP applies the
+partial dressing between Run and AnimationFinished; no fake skill/AP/DB.
+
+GREEN50/50 Windows54.82s/Linux54.92s includes all previous45 tests.
+Quotes/actual spentAP are now7/2, large treatment uses the same53/43AP for
+22/18HP, and all positive quotas are44. Without-perk controls stay identical
+(quota30, small10AP, large15/12HP). Raw health is unchanged by dressing;
+the existing effective-healing medal checks cover the new real amounts and
+retain recipient/probability rules. Small/partial treatments finish with one
+dose; large ones retain pending dose until native fixture cancellation.
+
+Exact registered sets, raw RED/GREEN reasons/values, AP/HP/quotas/doses,
+exits and exact single-file production diff verified. Windows ALL_BUILD and
+Linux Game pass. Shared builds reused, HD generation disabled; no fresh
+fullCI/hosted Actions claim. Source531f remains PARTIAL: healer57, speed63,
+engineering repair, acknowledgments and relevant animation adaptation still
+need independent TDD/review. Ledger149 imported/19partial/70pending=
+89 unfinished sources; full goal and final hosted Actions remain open.

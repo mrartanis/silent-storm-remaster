@@ -23802,6 +23802,7 @@ static void WoundCapacityPlan(const char* databasePath,const char* resourcePath)
 
 static void HealingMedalAwards(const char* databasePath,const char* resourcePath,int mode,bool critical=false,bool woundBudget=false,bool woundFinish=false,int authoredKit=0)
 {
+    const bool patientWound = !critical && mode>=9 && mode<=13;
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
     list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
     auto ordinary=[](NWorld::CUnitServer* unit){return unit && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK() && !unit->HasCommand() && !unit->IsPerformingAction() && unit->GetState()!=NWorld::CUnit::ST_MACHINE_GUN;};
@@ -23812,13 +23813,23 @@ static void HealingMedalAwards(const char* databasePath,const char* resourcePath
         for(auto unit:units)if(ordinary(unit) && unit->GetUnitRPG()->GetRPGUnit()->bDisabled && int(unit->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_MEDICINE))>0) {actor=unit;break;}
         Require(actor,"wound award fixture has no actual NPC with medal collection disabled");
     }
+    NDb::CRPGPers* patientPersona=NDb::GetPers(103);
+    if(patientWound) {
+        patientPersona=nullptr;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+        while(people.MoveNext()) {
+            auto* candidate=people.Get();if(!IsValid(candidate->pClass) || !IsValid(candidate->pModel) || !IsValid(candidate->pBaseValue) || !IsValid(candidate->pName) || candidate->pClass->skills[NDb::ST_LEVEL]<=0 || IsValid(candidate->pPanzerklein) || IsValid(candidate->pDefaultWearsPanzerklein))continue;
+            CObj<NRPG::CPerksTree> tree=NRPG::CreatePerksTree(candidate->pClass->nPerkTreeID);vector<CPtr<NRPG::CPerk>> entries;tree->GetAllPerks(&entries);
+            for(auto entry:entries)if(entry->GetDBPerk()->GetRecordID()==24){patientPersona=candidate;break;}if(patientPersona)break;
+        }
+        Require(patientPersona,"wound patient fixture lacks its real perk24 class");
+    }
     CObj<NWorld::CUnitServer> retained;NWorld::CUnitServer* patient=actor;
     if(mode==5) {
         patient=nullptr;
         for(auto unit:units)if(ordinary(unit) && unit->GetDiplomacyState(actor)==NDb::DS_ENEMY) {patient=unit;break;}
         Require(patient,"wound award fixture has no real enemy rejection target");
     } else if(mode!=2) {
-        retained=world->AddUnitInGame(actor->GetPosition().pos.p,NRPG::CreateUnit(NDb::GetPers(103)),actor->GetTBSPlayer());patient=retained;
+        retained=world->AddUnitInGame(actor->GetPosition().pos.p,NRPG::CreateUnit(patientPersona),actor->GetTBSPlayer());patient=retained;
         Require(ordinary(patient) && patient->GetPlayer()==actor->GetPlayer(),"wound award fixture could not deploy its actual friendly patient");
         auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),1.5f),&places);bool placed=false;
         for(auto place:places) {
@@ -23829,6 +23840,13 @@ static void HealingMedalAwards(const char* databasePath,const char* resourcePath
         }
         Require(placed,"wound award fixture has no reachable native patient position");
     }
+    float patientWoundMultiplier=1;
+    if(patientWound) {
+        auto* unit=patient->GetUnitRPG()->GetRPGUnit();const bool acquired=mode!=11 && mode!=12;
+        if(acquired){unit->GetPerksTree()->AddPerkPoints(1);unit->GetPerksTree()->TakePerk(24);}
+        Require(unit->HasPerk(24)==acquired,"wound patient fixture failed real perk acquisition/without-perk control");
+        if(acquired)Require(unit->HasPerk(24,&patientWoundMultiplier) && patientWoundMultiplier==1.5f,"wound patient fixture needs its authored1.5 multiplier");
+    }
     NDb::CRPGFirstAid* record=nullptr;CDBIterator<NDb::CRPGFirstAid> kits(*NDatabase::GetTable<NDb::CRPGFirstAid>());
     while(kits.MoveNext()){auto* candidate=kits.Get();if(IsValid(candidate->pItem) && candidate->effect==(critical?NDb::FAE_REMOVE_BLEEDING:NDb::FAE_NORMAL) && candidate->nQuantity>0 && (critical || candidate->nSkillModifier>=0) && (!authoredKit || candidate->GetRecordID()==authoredKit)) {record=candidate;break;}}
     Require(record,"wound award fixture has no authored ordinary first-aid kit");
@@ -23836,7 +23854,7 @@ static void HealingMedalAwards(const char* databasePath,const char* resourcePath
     if(inventory->Get(NDb::SLOT_1))previous=inventory->TakeOff(NDb::SLOT_1);
     if(mode!=4)Require(inventory->Equip(NDb::SLOT_1,kit) && inventory->Activate(NDb::SLOT_1),"wound award fixture could not activate its real medical item");else inventory->Activate(NDb::SLOT_1);
     actor->animator.SetActiveItem(mode!=4);actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());MarkNewDGFrame();world->GetAIMap()->Sync();
-    auto& vp=target->GetRPGUnit()->Skills(NDb::ST_VP);const int wound=critical?(mode==9?vp.GetMaxValue()/2:0):mode==8?vp.GetMaxValue()/2:(mode==1 || mode==7)?3:1;vp.SetValue(vp.GetMaxValue()-wound);target->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_VP));
+    auto& vp=target->GetRPGUnit()->Skills(NDb::ST_VP);const int wound=critical?(mode==9?vp.GetMaxValue()/2:0):patientWound?((mode==10 || mode==12)?vp.GetMaxValue()/2:3):mode==8?vp.GetMaxValue()/2:(mode==1 || mode==7)?3:1;vp.SetValue(vp.GetMaxValue()-wound);target->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_VP));
     auto bleeds=[](NRPG::IUnitMission* mission) {
         CStructureNetworkContext refs;auto fields=BorrowedObjectFields(mission,&refs);vector<CObj<NRPG::CCritical>> stored;
         {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(5,&stored);}vector<NRPG::SCritical> result;
@@ -23856,7 +23874,7 @@ static void HealingMedalAwards(const char* databasePath,const char* resourcePath
     for(int i=0;i<int(before.size());++i) {
         const auto& info=before[i];if(!info.bIsCollectingPoints || info.bIsGained || info.bWillBeGiven || !IsValid(info.pMedal) || (info.pMedal->bIsRussianOnly && !game->IsActiveZoneRussian()))continue;
         const float threshold=info.nProbability==0?info.pMedal->nPointsToStart:info.pMedal->nPointsToAddProbability;
-        Require(info.fPoints+NRPG::GetMedalPoints(critical?NRPG::MPC_HEALED_CRITICAL:NRPG::MPC_HEALED_WOUND,mode==8?15:3)<threshold,"wound award fixture would cross an unrelated medal RNG threshold");eligible[i]=true;++collecting;
+        Require(info.fPoints+NRPG::GetMedalPoints(critical?NRPG::MPC_HEALED_CRITICAL:NRPG::MPC_HEALED_WOUND,patientWound?22:mode==8?15:3)<threshold,"wound award fixture would cross an unrelated medal RNG threshold");eligible[i]=true;++collecting;
     }
     Require(mode==6?healer->bDisabled:!healer->bDisabled && collecting>0,"wound award fixture has no eligible actual medal chain");
     CObj<NWorld::CExecHeal> executor=new NWorld::CExecHeal(actor,patient);auto random=GlobalGameRandom();const auto result=executor->CanDoIt(actor->GetPosition());const int cost=executor->GetStartAP();
@@ -23883,11 +23901,18 @@ static void HealingMedalAwards(const char* databasePath,const char* resourcePath
         Require(correct,"native critical blood-stop treatment omitted original medal progress for its cured critical DC");return;
     }
     // Another completed dressing can precede the current animation-completion callback.
-    if(mode==3 || mode==7) {NRPG::SFirstAid prior;prior.fdVP=mode==3?1:2;prior.nMaxVP=999;target->HealVP(prior);}
+    if(mode==3 || mode==7 || (!critical && mode==13)) {NRPG::SFirstAid prior;prior.fdVP=mode==3?1:2;prior.nMaxVP=999;target->HealVP(prior);}
     const int dressedBefore=target->GetRPGUnit()->nHealedVP;NRPG::SFirstAid plan;int requiredAP=0;
     const bool planned=healer->CreateFirstAid(&plan,afterRun,100,kit,target->GetRPGUnit(),&requiredAP);
     executor->AnimationFinished();const int dressedAfter=target->GetRPGUnit()->nHealedVP,effective=dressedAfter-dressedBefore;
-    const int expectedAmount=mode==8?(afterRun==53?15:12):mode==3?0:mode==1?3:1;
+    const int expectedAmount=patientWound?(mode==10?(afterRun==53?22:18):mode==12?(afterRun==53?15:12):mode==13?1:3):mode==8?(afterRun==53?15:12):mode==3?0:mode==1?3:1;
+    if(patientWound) {
+        Require(int(healer->Skills(NDb::ST_MEDICINE))==17 && record->nSkillModifier==0 && (afterRun==53 || afterRun==43),"patient wound fixture needs its actual stock kit/Medicine17/AP budget");
+        const int expectedQuota=patientWoundMultiplier==1.5f?44:30;
+        const int expectedAP=(mode==10 || mode==12)?afterRun:mode==13?2:mode==9?7:10;
+        std::printf("native patient wound perk: mode=%d multiplier=%g wound=%d dressedBefore=%d planned=%g quota=%d quotedAP=%d effective=%d expectedHP=%d expectedQuota=%d expectedAP=%d AP=%d->%d dose=%d->%d\n",mode,patientWoundMultiplier,wound,dressedBefore,planned?plan.fdVP:-1,planned?plan.nMaxVP:-1,requiredAP,effective,expectedAmount,expectedQuota,expectedAP,afterRun,actor->GetAP(),quantity,kit->GetIncQuantity());std::fflush(stdout);
+        Require(planned && plan.fdVP==expectedAmount && plan.nMaxVP==expectedQuota && requiredAP==expectedAP && effective==expectedAmount && actor->GetAP()==afterRun-expectedAP,"wound treatment ignored the original patient healing multiplier24");
+    }
     Require(effective==expectedAmount && int(vp)==rawVP && actor->GetAP()==afterRun-(planned?requiredAP:0) && afterRun==ap-cost,"wound award fixture did not perform its actual small native dressing with unchanged AP accounting/raw health");
     if(woundFinish) {
         if(mode==8)Require(afterRun==53 || afterRun==43,"unfinished wound fixture needs its native stock-kit AP budget");
@@ -25885,6 +25910,11 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "critical-heal-award-both-actors") && argc==4) { HealingMedalAwards(argv[2],argv[3],7,true); return true; }
     if (!std::strcmp(mode, "critical-heal-award-zero-dc") && argc==4) { HealingMedalAwards(argv[2],argv[3],8,true); return true; }
     if (!std::strcmp(mode, "critical-heal-award-other-critical") && argc==4) { HealingMedalAwards(argv[2],argv[3],9,true); return true; }
+    if (!std::strcmp(mode, "wound-patient-perk-small") && argc==4) { HealingMedalAwards(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "wound-patient-perk-large") && argc==4) { HealingMedalAwards(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "wound-patient-perk-without-small") && argc==4) { HealingMedalAwards(argv[2],argv[3],11); return true; }
+    if (!std::strcmp(mode, "wound-patient-perk-without-large") && argc==4) { HealingMedalAwards(argv[2],argv[3],12); return true; }
+    if (!std::strcmp(mode, "wound-patient-perk-partly-dressed") && argc==4) { HealingMedalAwards(argv[2],argv[3],13); return true; }
     if (!std::strcmp(mode, "authored-capacity-small") && argc==4) { HealingMedalAwards(argv[2],argv[3],8,false,false,false,1); return true; }
     if (!std::strcmp(mode, "authored-capacity-large") && argc==4) { HealingMedalAwards(argv[2],argv[3],8,false,false,false,27); return true; }
     if (!std::strcmp(mode, "wound-capacity-plan") && argc==4) { WoundCapacityPlan(argv[2],argv[3]); return true; }
