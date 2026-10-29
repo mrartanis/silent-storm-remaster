@@ -349,6 +349,7 @@ public:
 	float Heal( const SFirstAid &fa );
 	void RegenerateVP( const SFirstAid &fa );
 	bool CanHeal( CUnit *pTarget ) const;
+	bool CanHealWounds( CUnit *pTarget, IFirstAidItem *pItem ) const;
 	const bool IsUnconscious() const { return bUnconscious; }
 	void SetUnconscious( bool _bUnconscious ) { bUnconscious = _bUnconscious; }
 	CPerksTree* GetPerksTree() const { return pPerksTree; }

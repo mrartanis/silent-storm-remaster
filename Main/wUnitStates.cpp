@@ -488,9 +488,14 @@ void CUnitStateCorpseCarrier::ProcessCritical( NDb::ECritical eCA )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CUnitStateHealer
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-CUnitStateHealer::CUnitStateHealer( CUnitServer *_pUS, CUnitServer *_pTarget ): 
-	CUnitState( _pUS ), pTarget( _pTarget ), bNewSegment( false ) 
+CUnitStateHealer::CUnitStateHealer(): bNewSegment(false), fKitCapacity(0), nCriticalHealAPRequired(0),
+	healCriticalInfo{ NDb::C_NONE, NDb::CL_ANY, 0 }, sTargetInfo()
 {
+}
+CUnitStateHealer::CUnitStateHealer( CUnitServer *_pUS, CUnitServer *_pTarget ): CUnitStateHealer()
+{
+	pUS = _pUS;
+	pTarget = _pTarget;
 	ASSERT( IsValid( pUS ) );
 	ASSERT( IsValid( pTarget ) );
 }
@@ -498,8 +503,7 @@ CUnitStateHealer::CUnitStateHealer( CUnitServer *_pUS, CUnitServer *_pTarget ):
 void CUnitStateHealer::DoHealing( int nUnitAP )
 {
 	ASSERT( IsValid( pTarget ) );
-	ASSERT( fKitCapacity > 0 );
-	if ( !IsValid( pTarget ) || fKitCapacity <= 0 )
+	if ( !IsValid( pTarget ) || ( fKitCapacity <= 0 && nCriticalHealAPRequired <= 0 ) )
 	{
 		pUS->SetState( new CUnitStateNormal( pUS ) );
 		return;
@@ -507,9 +511,26 @@ void CUnitStateHealer::DoHealing( int nUnitAP )
 
 	NRPG::IUnitMission *pRPG = pUS->GetUnitRPG();
 	NRPG::CUnit *pRPGUnit = pRPG->GetRPGUnit();
+	NRPG::IFirstAidItem *pItem = pRPGUnit->GetFirstAidItem();
+	if ( !pItem )
+	{
+		pUS->SetState( new CUnitStateNormal( pUS ) );
+		return;
+	}
 	int nRequiredAP;
 	NRPG::SFirstAid fa;
-	if ( pRPGUnit->CreateFirstAid( &fa, nUnitAP, fKitCapacity, pRPGUnit->GetFirstAidItem(), pTarget->GetUnitRPG()->GetRPGUnit(), &nRequiredAP ) )
+	if ( nCriticalHealAPRequired > 0 )
+	{
+		nRequiredAP = Min( nCriticalHealAPRequired, nUnitAP );
+		nCriticalHealAPRequired -= nRequiredAP;
+		pUS->SpendAP( nRequiredAP );
+		if ( nCriticalHealAPRequired <= 0 )
+		{
+			const float fHealed = pTarget->GetUnitRPG()->HealCritical( healCriticalInfo );
+			pRPGUnit->AddMedalPoints( pUS->GetWorld()->GetGlobalGame(), NRPG::MPC_HEALED_CRITICAL, fHealed );
+		}
+	}
+	else if ( pRPGUnit->CreateFirstAid( &fa, nUnitAP, fKitCapacity, pRPGUnit->GetFirstAidItem(), pTarget->GetUnitRPG()->GetRPGUnit(), &nRequiredAP ) )
 	{
 		fKitCapacity -= fa.fdVP;
 		const float fHealed = pTarget->GetUnitRPG()->HealVP( fa );
@@ -520,8 +541,18 @@ void CUnitStateHealer::DoHealing( int nUnitAP )
 	else
 		fKitCapacity = 0;
 
-	if ( fKitCapacity <= 0 )
+	if ( fKitCapacity <= 0 && nCriticalHealAPRequired <= 0 )
 		pUS->SetState( new CUnitStateNormal( pUS ) );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CUnitStateHealer::SetCriticalHealAPRequired()
+{
+	NRPG::CUnit *pHealer = pUS->GetUnitRPG()->GetRPGUnit();
+	float fAP = healCriticalInfo.nDC * 50.f / Max( 1, int(pHealer->Skills(NDb::ST_MEDICINE)) );
+	float fPerk;
+	if ( pHealer->HasPerk( 62, &fPerk ) && fPerk > 0 )
+		fAP /= fPerk;
+	nCriticalHealAPRequired = Max( 1, Float2Int(fAP) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitStateHealer::SayAck()
@@ -559,16 +590,48 @@ void CUnitStateHealer::OnStateStarted()
 		return;
 	}
 	fKitCapacity = 0;
+	nCriticalHealAPRequired = 0;
+	healCriticalInfo = NRPG::SHealCriticalInfo{ NDb::C_NONE, NDb::CL_ANY, 0 };
+	NRPG::IUnitMission *pPatient = pTarget->GetUnitRPG();
+	NRPG::CUnit *pHealer = pRPG->GetRPGUnit();
+	NRPG::SUnitInfo info = {};
+	pTarget->GetInfo( &info );
+	sTargetInfo.bPKInfo = info.bPKInfo;
+	sTargetInfo.nHP = info.nHP;
+	sTargetInfo.nHealedHP = info.nHealedHP;
+	sTargetInfo.nMaxHP = info.nMaxHP;
+	sTargetInfo.nPKHP = info.nPKHP;
+	sTargetInfo.nMaxPKHP = info.nMaxPKHP;
+	sTargetInfo.nAP = info.nAP;
+	sTargetInfo.nMaxAP = info.nMaxAP;
+	sTargetInfo.nSightDistance = info.nSightDistance;
+	sTargetInfo.bUnitInfo = info.bUnitInfo;
+	const bool bStopBleeding = pHealer->HasPerk( 59 );
 	NDb::CRPGFirstAid *pFirstAid = pItem->GetDBFirstAid();
 	switch ( pFirstAid->effect )
 	{
 		case NDb::FAE_NORMAL:
-			fKitCapacity = 100;//pFirstAid->nTotalHealVP;
-			pRPG->HealCriticals( pRPG->GetRPGUnit()->GetFirstAidDC( pItem ) );
+			if ( pHealer->CanHealWounds( pPatient->GetRPGUnit(), pItem ) )
+				fKitCapacity = 100; // Wound planning and authored capacity are imported together separately.
+			else
+			{
+				healCriticalInfo = pPatient->TryHealCritical( pHealer->GetFirstAidDC(pItem), bStopBleeding );
+				if ( healCriticalInfo.eCritical != NDb::C_NONE )
+					SetCriticalHealAPRequired();
+			}
 			break;
 		case NDb::FAE_CRITICAL_ONLY:
-			pRPG->HealCriticals( pRPG->GetRPGUnit()->GetFirstAidDC( pItem ) );
-			fKitCapacity = 0;
+			healCriticalInfo = pPatient->TryHealCritical( pHealer->GetFirstAidDC(pItem), bStopBleeding );
+			// The original compares the location field here, including its empty-selection quirk.
+			if ( int(healCriticalInfo.eCl) != int(NDb::C_NONE) )
+				SetCriticalHealAPRequired();
+			break;
+		case NDb::FAE_CRITICAL_FIRST:
+			healCriticalInfo = pPatient->TryHealCritical( pHealer->GetFirstAidDC(pItem), bStopBleeding );
+			if ( healCriticalInfo.eCritical != NDb::C_NONE )
+				SetCriticalHealAPRequired();
+			else
+				fKitCapacity = pFirstAid->nTotalHealVP;
 			break;
 		case NDb::FAE_TEMP_REMOVE_PENALTIES:
 		{
@@ -607,7 +670,7 @@ void CUnitStateHealer::OnStateStarted()
 			ASSERT(0);
 			break;
 	}
-	if ( fKitCapacity <= 0 )
+	if ( fKitCapacity <= 0 && nCriticalHealAPRequired <= 0 )
 	{
 		pUS->SetState( new CUnitStateNormal( pUS ) );
 		return;

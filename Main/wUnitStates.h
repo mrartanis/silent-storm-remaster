@@ -1,5 +1,6 @@
 #ifndef __wUnitStates_H_
 #define __wUnitStates_H_
+#include "RPGUnitMission.h"
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
@@ -137,19 +138,29 @@ public:
 class CUnitStateHealer: public CUnitState
 {
 	OBJECT_BASIC_METHODS(CUnitStateHealer);
+	// Steam tag7 stores the original raw40 layout, not the fork's expanded UI record.
+	struct STreatmentInfo
+	{
+		bool bPKInfo;
+		int nHP, nHealedHP, nMaxHP, nPKHP, nMaxPKHP, nAP, nMaxAP, nSightDistance;
+		bool bUnitInfo;
+	};
+	static_assert( sizeof(STreatmentInfo) == 40, "Original treatment snapshot is 40 bytes" );
 	ZDATA_(CUnitState)
 	CPtr<CUnitServer> pTarget;
-	//int nRequiredAP;
 	bool bNewSegment;
-	//float fdVPFraction;
 	float fKitCapacity;
-	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CUnitState*)this); f.Add(2,&pTarget); f.Add(3,&bNewSegment); f.Add(4,&fKitCapacity); return 0; }
+	int nCriticalHealAPRequired;
+	NRPG::SHealCriticalInfo healCriticalInfo;
+	STreatmentInfo sTargetInfo;
+	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CUnitState*)this); f.Add(2,&pTarget); f.Add(3,&bNewSegment); f.Add(4,&fKitCapacity); f.Add(5,&nCriticalHealAPRequired); f.Add(6,&healCriticalInfo); f.Add(7,&sTargetInfo); return 0; }
 	//
 	void SayAck();
 	void DoHealing( int nUnitAP );
+	void SetCriticalHealAPRequired();
 	//
 public:
-	CUnitStateHealer() {}
+	CUnitStateHealer();
 	CUnitStateHealer( CUnitServer *_pUS, CUnitServer *_pTarget );
 	//
 	virtual CCommandExecute* CreateExecutor( CCmd *pCmd, EUnitCommandResult *pResult );

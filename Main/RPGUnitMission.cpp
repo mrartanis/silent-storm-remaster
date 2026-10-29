@@ -242,6 +242,8 @@ public:
 	virtual int  GetBulletsQuantityInShot() const;
 	virtual float HealVP( const SFirstAid &fa );
 	virtual float HealCriticals( int nDC, bool bStopBleeding = true );
+	virtual SHealCriticalInfo TryHealCritical( int nDC, bool bStopBleeding ) const;
+	virtual float HealCritical( const SHealCriticalInfo &info );
 	virtual void AddBleedingStopper( int nAmount ) { nBleedingStopAmount += nAmount; }
 	virtual void AddPostponedModifier( CDynamicSkill *pSkill, const SSkillModifyInfo &info, int nTurns );
 	virtual int  GetIC() const;
@@ -1884,6 +1886,37 @@ float CUnitMission::HealCriticals( int nDC, bool bStopBleeding )
 		{
 			csRPG << "\tCured: \t";
 			DumpCritical( *i );
+			fHealed += c.nDC;
+			i = criticals.erase( i );
+		}
+		else
+			++i;
+	}
+	ApplyCritical( SCritical( NDb::CL_ANY, NDb::C_VP ) );
+	return fHealed;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+SHealCriticalInfo CUnitMission::TryHealCritical( int nDC, bool bStopBleeding ) const
+{
+	for ( int i = 0; i < criticals.size(); ++i )
+	{
+		const SCritical &c = criticals[i]->GetCritical();
+		if ( ( c.nDC <= nDC && criticals[i]->CanBeSuspended() ) ||
+			( bStopBleeding && c.eCritical == NDb::C_BLEEDING ) )
+			return SHealCriticalInfo{ c.eCritical, c.eCl, c.nDC };
+	}
+	return SHealCriticalInfo{ NDb::C_NONE, NDb::CL_ANY, 0 };
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+float CUnitMission::HealCritical( const SHealCriticalInfo &info )
+{
+	float fHealed = 0;
+	for ( vector<CObj<CCritical> >::iterator i = criticals.begin(); i != criticals.end(); )
+	{
+		const SCritical &c = (*i)->GetCritical();
+		if ( c.eCritical == info.eCritical && c.eCl == info.eCl &&
+			( (*i)->CanBeSuspended() || c.eCritical == NDb::C_BLEEDING ) )
+		{
 			fHealed += c.nDC;
 			i = criticals.erase( i );
 		}

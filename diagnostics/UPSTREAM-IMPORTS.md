@@ -12391,3 +12391,95 @@ Ordinary criticals must not become instantaneous treatment as a shortcut.
 Ledger149 imported/19partial/70pending =89 unfinished sources. Hosted
 actual-HEAD Actions remains due after all useful imports; local CI does not
 claim that the final hosted workflow has been checked or fixed.
+
+
+## 2026-10-29 — restore timed patient critical treatment and saved AP progress (531f3b7d)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9), original timed critical-treatment foundation.
+Ordinary medkits previously called immediate HealCriticals on their medic,
+then either dressed wounds or ended without treating the patient's critical.
+Allocate eligible wound dressing first; otherwise select the first eligible
+PATIENT critical, remember its type/location/DC and spend the original AP
+budget over native healer turns. Cure that selected type/location only after
+the entire budget is paid. Preserve cancellation, finish-dose ownership and
+the original critical-medal sink. Bleeding perk59 permits the original DC
+bypass; positive perk62 divides treatment time. Budget is
+max(1,round(DC*50/max(1,effectiveMedicine)/positivePerk62)).
+
+New original-shaped TryHealCritical and HealCritical helpers reuse the
+existing eligibility predicate, bleeding policy and native wound refresh.
+CanHealWounds implements original treatment ALLOCATION (medicine plus actual
+item modifier, dressing quota, raw health deficit) while retaining this
+fork's existing generic CanHeal command gate. That gate needs the separate
+per-effect medical-eligibility import; changing it globally here would break
+full-health drug/critical use. DC perks56/24 remain separate pending work.
+Ordinary wound budget100 is deliberately retained until the original wound
+planner and authored capacity are imported together: importing capacity1000
+alone would lengthen the old repeated zero-effective dressing bug. No wound
+AP/planning/score formulas or generic medical preflight are changed here.
+
+Healer factory constructor initializes remainingAP0, selection(C_NONE,
+CL_ANY,0) and zero target snapshot. Saved field5 is remainingAP/int4, field6
+is selection/raw12, field7 is the ORIGINAL target-info raw40. A separate
+STreatmentInfo stores the exact bool/int layout instead of serializing this
+fork's expanded UI SUnitInfo. Populate through this fork's server GetInfo
+adapter and copy named values. Live SUnitInfo, face engine, animation and
+Panzerklein ownership remain unchanged. Default missing fields stay safe;
+the native restore test does not call OnStateStarted and reset progress.
+
+Original Gold TryHealCritical6b9370/116 and actual Steam mission slot154
+->6bf640 have identical116 bytes: first eligible entry, DC&&CanBeCured or
+bleeding bypass, none=(26,4,0), type/location/DC return12. Typed Gold
+HealCritical6bc730 returnsfloat; actual Steam slot158 ->6c1d20 matches type
+and location, preserves eligibility/bleeding and refresh, returns actualDC.
+Original Steam StartCriticalHealing7c87d0 proves50, medicine minimum1,
+positive perk62 divisor, native rounding/minimum1; DoHealing7c9d0b spends
+min(remaining,providedAP), calls patient slot158 only at completion7c9d39.
+Original Steam CanHeal6bb3d0 proves item-modified wound quota and raw HP
+condition. Gold serializer7bfda0 has fields1..6; actual Steam mapped vtable
+slot0c ->7cc880 adds raw40 field7. This genuine version difference is checked,
+not inferred from a source comment. audit-timed-critical-retail.py and
+timed-critical-retail-oracle.json retain exact native proofs.
+
+Baseline data calibration found actual first-aid effects0/2/3/4/5, with no
+stock effect1 (critical-only) or7 (critical-first) item. Initial missing-item
+setup failures and one fixture compile typo are NOT counted as bug RED.
+The final13 integration cases use actual NORMAL stock kits, exercising the
+real wound-first/critical-fallback route. Native original engine branches1/7
+are retained from the proven switch table, including the critical-only
+location-vs-C_NONE empty-selection/minimum1AP quirk; no stock action coverage
+is claimed for those unshipped item kinds or realtime clock execution.
+
+Actual native RED9/13 Windows14.49s/Linux14.37s BEFORE Main edits: wrong
+medic or missing AP progress in long, restored, short, speed-perk, cancel,
+wound-priority, normal critical fallback, bleeding-perk and body-location
+cases. Four eligibility/missing-kit controls already pass. Three negative
+controls were later improved to start with an eligible patient and change
+or remove that effect after Run/before completion, avoiding an assertion of
+permission for a useless initial treatment once stricter preflight lands.
+The nine positive RED scenarios are unchanged. No DB/stat/AP fabrication.
+
+GREEN73/73 each (previous60 +13), Windows76.95s/Linux84.79s. Real hero54,
+Medicine17, authored kit1/preparation0AP on Windows and kit27/preparation10AP
+on Linux. DC20 requires59 AP: first53/43 leave6/16; native START_NEW_TURN
+and FINISH_OWN_TURN consume only that remainder and cure the patient.
+Short DC1 costs3 AP; real authored perk62 factor1.5 on Medicine32 costs21.
+Bleeding perk59 bypasses DC eligibility but still pays its full timed cost;
+without it an ineligible bleed remains. Same-turn finish cannot spend twice.
+Pending treatment retains the patient marker and dose; completion/cancel
+spends exactly one dose. Cancellation does not cure. The medic's independent
+critical and another patient body location remain. Native state factory
+field round-trip plus owner-field10 restore preserves selection, remaining
+AP and raw40 snapshot, then CONTINUES actual native turn healing. No manual
+AP injection, played animation, rendered UI or full-world save-menu claim.
+
+Final Windows ALL_BUILD141 related/148.06s, Linux Game139/144.56s and local
+asset-free CI290/24.44s. Five raw logs73/73/141/139/290, exact registered names,
+no Failed/NotRun/NUL and final exits0 checked by verify-timed-critical.py.
+Shared builds reused, HD generation OFF, no per-bug build/source copies;
+owned harnesses exit. Source531f stays PARTIAL: DC perks56/24, original wound
+planning/speed/amount limits and authored capacity, engineering repair,
+success acknowledgments and careful adaptation of any relevant animation
+hunks still need independent TDD. Ledger149 imported/19partial/70pending
+=89 unfinished sources. Final hosted actual-HEAD Actions remains due after
+all useful imports; this local CI result does not claim hosted completion.

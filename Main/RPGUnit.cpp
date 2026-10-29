@@ -800,6 +800,18 @@ bool CUnit::CanHeal( CUnit *pTarget ) const
 	return int( fVPScale * *skills[ NDb::ST_MEDICINE ] ) > pTarget->nHealedVP;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Wound-treatment allocation; the legacy generic command gate is kept separately.
+bool CUnit::CanHealWounds( CUnit *pTarget, IFirstAidItem *pItem ) const
+{
+	if ( !IsValid( pTarget ) )
+		return false;
+	int nSkill = *skills[NDb::ST_MEDICINE];
+	if ( IsValid( pItem ) )
+		nSkill += pItem->GetDBFirstAid()->nSkillModifier;
+	return int( fVPScale * nSkill ) > pTarget->nHealedVP &&
+		pTarget->Skills(NDb::ST_VP) < pTarget->Skills(NDb::ST_VP).GetMaxValue();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnit::HasPerk( int nPerkID, float *pParam1, float *pParam2, float *pParam3 ) const
 {
 	return GetPerksTree()->HasPerk( nPerkID, pParam1, pParam2, pParam3 );
