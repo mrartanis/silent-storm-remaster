@@ -18840,6 +18840,104 @@ static NAI::SSourceInfo NativeHullSource(CObjectBase* hull)
     return source;
 }
 
+
+class DoorFlagsColliderProbe: public NAI::IPrepareCollider
+{
+    CObjectBase* owner;
+public:
+    unsigned hulls=0,points=0;int flags=0;
+    explicit DoorFlagsColliderProbe(CObjectBase* object):owner(object) {}
+    void SetBoundAndResolution(const SBound&,float) override {}
+    void AddConvexHull(const NAI::SConvexHull& hull) override {
+        if(hull.src.pUserData!=owner)return;
+        ++hulls;points+=unsigned(hull.points.size());flags|=hull.src.nTSFlags;
+    }
+};
+static std::pair<bool,bool> SavedDoorFlags(NWorld::CWindowDoor* door)
+{
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(door,&refs);bool chest=false,transparent=false;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(8,&chest);reader.Add(9,&transparent);}
+    return {chest,transparent};
+}
+static bool MissingDoorFlagsDefault()
+{
+    // Only the absent optional-field class default is under test here. A full
+    // native world graph is independently round-tripped in the main fixture.
+    // Do not clone a live world's intrusive visitor links via borrowed refs.
+    CMemoryStream legacy;
+    {CStructureSaver writer(legacy,CStructureSaver::WRITE);bool open=false;writer.Add(2,&open);}
+    legacy.Seek(0);CObj<NWorld::CWindowDoor> loaded=new NWorld::CWindowDoor;
+    {CStructureSaver reader(legacy,CStructureSaver::READ);static_cast<CObjectBase*>(loaded.GetPtr())->operator&(reader);}
+    return SavedDoorFlags(loaded)==std::make_pair(false,false);
+}
+static void DoorCreationFlags(const char* databasePath,const char* resourcePath,int mode)
+{
+    const bool wantChest=mode==2;const int variant=mode==0?810:4517;
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game,variant);
+    // Read the actual native authoring pipeline with the SAME seed/relative level
+    // into an independent network, then inspect objects born through CreateRandom.
+    // No private AddObject access, new test API, fabricated flags or DB edits.
+    CObj<NAI::CPathNetwork> reference=new NAI::CPathNetwork;SMapInfo info;
+    Require(BuildMap(variant,{},reference,&info,-1,SRandomSeed(123),0),"door flags could not rebuild the native authored input map");
+    auto* map=world->GetAIMap();map->Sync();CObj<NWorld::CWindowDoor> door;
+    std::pair<bool,bool> expected;bool initialOpen=false;
+    unsigned authoredChest=0,authoredOrdinary=0,sameRecord=0,samePosition=0,hasHull=0;
+    for(const auto& element:info.items) {
+        if(!IsValid(element.pObject) || !IsValid(element.pObject->pDoor))continue;
+        if(element.bIsChest)++authoredChest;else ++authoredOrdinary;
+        if(element.bIsChest!=wantChest || door)continue;
+        for(auto object:world->GetObjectsForHarness()) {
+            auto* candidate=dynamic_cast<NWorld::CWindowDoor*>(object.GetPtr());
+            if(!candidate || candidate->IsBroken() || candidate->IsMineSet() || candidate->GetDBObjectID()!=element.pObject->nParentID)continue;
+            ++sameRecord;const float distance=fabs(candidate->GetPosition().ptPos-element.pos.ptPos);
+            if(distance>.001f)continue;++samePosition;
+            auto* hull=map->GetHull(candidate);if(!hull)continue;++hasHull;
+            if(hasHull<7)std::printf("native door matching: record=%d distance=%g flags=%x expected=%d,%d\n",candidate->GetDBObjectID(),double(distance),NativeHullSource(hull).nTSFlags,int(element.bIsChest),int(element.bIsTransparentIfOpen));
+            const int mask=NWorld::TS_VISION|NWorld::TS_PICK|NWorld::TS_PASS_BLOCKER;
+            if((NativeHullSource(hull).nTSFlags&mask)!=mask)continue;
+            door=candidate;expected={element.bIsChest,element.bIsTransparentIfOpen};initialOpen=element.bOpen;break;
+        }
+    }
+    std::printf("native authored door inventory: variant=%d chest=%u ordinary=%u selected=%d records=%u positions=%u hulls=%u\n",variant,authoredChest,authoredOrdinary,int(bool(door)),sameRecord,samePosition,hasHull);std::fflush(stdout);
+    Require(door && expected.first==wantChest && expected.second==wantChest && door->IsOpen()==initialOpen,"native authored map has no matching real ordinary/chest door and creation pose control");
+    const int recordID=door->GetDBObjectID();const bool chest=expected.first,transparent=expected.second;
+    const auto created=SavedDoorFlags(door);bool valid=created==expected;
+    // Pose/vision checks need an unlocked native fixture; preserve lock rules.
+    door->LockDoor(false,0,0);
+    const bool legacy=MissingDoorFlagsDefault();Require(legacy,"missing old-save door tags no longer default to false");
+    auto unitState=[](NWorld::CWorld* w){list<CPtr<NWorld::CUnitServer>> units;w->GetAllUnits(&units);vector<std::tuple<int,int,unsigned>> result;for(auto unit:units)result.emplace_back(unit->GetUnitRPG()->GetTotalVP(),unit->GetAP(),unit->GetPosition().pos.p.GetBits());std::sort(result.begin(),result.end());return result;};
+    const auto stats=unitState(world);const auto time=world->GetTime()->GetValue();
+    auto check=[&](NWorld::CWorld* w,NWorld::CWindowDoor* d,bool restored){
+        auto* ai=w->GetAIMap();ai->Sync();bool ok=SavedDoorFlags(d)==expected;
+        for(bool open:{initialOpen,!initialOpen,initialOpen}) {
+            d->OpenClose(open,true);ai->Sync();SBound bound;
+            Require(d->IsOpen()==open && ai->GetObjectBound(&bound,d),"native door fixture lost its actual pose or geometry bound");
+            auto* hull=ai->GetHull(d);Require(hull,"native door fixture has no active-pose hull");const auto source=NativeHullSource(hull);
+            DoorFlagsColliderProbe vision(d),pick(d),movement(d);
+            ai->PrepareCollider(&vision,bound,.5f,NWorld::TS_VISION,false);
+            ai->PrepareCollider(&pick,bound,.5f,NWorld::TS_PICK,false);
+            ai->PrepareCollider(&movement,bound,.5f,NWorld::TS_PASS_BLOCKER,false);
+            const bool wantVision=!(open && transparent);
+            const int state=open?NWorld::TS_STATE_OPEN:NWorld::TS_STATE_CLOSED;
+            const bool masks=source.pUserData==d && (source.nTSFlags&(NWorld::TS_STATE_OPEN|NWorld::TS_STATE_CLOSED))==state && (source.nTSFlags&NWorld::TS_DOOR_HULL_VALID) && bool(source.nTSFlags&NWorld::TS_VISION)==wantVision;
+            const bool queries=(vision.hulls>0)==wantVision && pick.hulls>0 && pick.points>0 && movement.hulls>0 && movement.points>0;
+            std::printf("native door creation: mode=%d restored=%d open=%d chest=%d transparent=%d flags=%x vision=%u pick=%u move=%u matched=%d\n",mode,int(restored),int(open),int(SavedDoorFlags(d).first),int(SavedDoorFlags(d).second),source.nTSFlags,vision.hulls,pick.hulls,movement.hulls,int(masks && queries));
+            ok&=masks && queries;
+        }
+        Require(unitState(w)==stats && w->GetTime()->GetValue()==time,"door pose/query/save checks changed native actor HP/AP/positions or time");return ok;
+    };
+    valid=check(world,door,false) && valid;
+    CMemoryStream snapshot;
+    {CStructureSaver writer(snapshot,CStructureSaver::WRITE);writer.Add(1,&game);writer.Add(2,&world);writer.Add(3,&door);}
+    snapshot.Seek(0);CObj<NRPG::CGlobalGame> loadedGame;CObj<NWorld::CWorld> loadedWorld;CObj<NWorld::CWindowDoor> loadedDoor;
+    {CStructureSaver reader(snapshot,CStructureSaver::READ);reader.Add(1,&loadedGame);reader.Add(2,&loadedWorld);reader.Add(3,&loadedDoor);}
+    Require(loadedGame && loadedWorld && loadedDoor && loadedWorld.GetPtr()!=world.GetPtr() && loadedDoor.GetPtr()!=door.GetPtr(),"door flags did not restore an independent complete native world/object graph");
+    loadedWorld->RestoreRuntimeCaches(loadedGame);const auto restored=SavedDoorFlags(loadedDoor);
+    valid=check(loadedWorld,loadedDoor,true) && valid;
+    std::printf("native door flags: mode=%d record=%d expected=%d,%d created=%d,%d restored=%d,%d initialOpen=%d legacy=%d bytes=%d valid=%d\n",mode,recordID,int(chest),int(transparent),int(created.first),int(created.second),int(restored.first),int(restored.second),int(initialOpen),int(legacy),snapshot.GetSize(),int(valid));std::fflush(stdout);
+    Require(valid,"native world door creation lost map flags or open-door vision filtering, including a complete world save round trip");
+}
+
 static void ActiveDoorHullLookup(const char* databasePath,const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -26857,6 +26955,9 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "nearby-connected-destination")) { NearbyConnectedDestination(); return true; }
     if (!std::strcmp(mode, "isolated-source-alias-vector")) { NavigationAliasDestinations(false,true); return true; }
     if (!std::strcmp(mode, "isolated-source-alias-array")) { NavigationAliasDestinations(true,true); return true; }
+    if (!std::strcmp(mode, "door-creation-flags-0") && argc==4) { DoorCreationFlags(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "door-creation-flags-1") && argc==4) { DoorCreationFlags(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "door-creation-flags-2") && argc==4) { DoorCreationFlags(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "terrain-reduction-passability") && argc==4) { TerrainReduction(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "terrain-reduction-normal-sort") && argc==4) { TerrainReduction(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "terrain-reduction-no-sort") && argc==4) { TerrainReduction(argv[2],argv[3],2); return true; }

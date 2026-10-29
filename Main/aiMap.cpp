@@ -445,7 +445,7 @@ class CAIMap: public IAIMap, public COrdinarySyncDst<NWorld::IVisObj,CAIMap>, pu
 		NDb::CRPGArmor *pArmor, int nFloor, int nMask );
 	CObjectBase* AddFlippingHull( NDb::CAIGeometry *pAIGeom, NDb::CSkeleton *pSkeleton, const SFBTransform &pos,
 		CFuncBase<NAnimation::SSkeletonPose> *pAn1, CFuncBase<NAnimation::SSkeletonPose> *pAn2, 
-		NDb::CRPGArmor *pArmor, int nFloor, int nMask, bool bOpen, int nDoorID, int nDestroyStage );
+		NDb::CRPGArmor *pArmor, int nFloor, int nMask, bool bOpen, int nDoorID, int nDestroyStage, bool bTransparentIfOpen );
 	void AddPieces( NDb::CAIGeometry *pAIGeom, const vector<SPieceMap> &parts,
 		const SFBTransform &pos, 
 		NDb::CRPGArmor *pArmor, int nFloor, int nMask );
@@ -986,7 +986,7 @@ CObjectBase* CAIMap::AddAnimatedHull( NDb::CAIGeometry *pAIGeom, NDb::CSkeleton 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CObjectBase* CAIMap::AddFlippingHull( NDb::CAIGeometry *pAIGeom, NDb::CSkeleton *pSkeleton, const SFBTransform &pos,
 		CFuncBase<NAnimation::SSkeletonPose> *pAn1, CFuncBase<NAnimation::SSkeletonPose> *pAn2, 
-		NDb::CRPGArmor *pArmor, int nFloor, int nMask, bool bOpen, int nDoorID, int _nDestroyStage )
+		NDb::CRPGArmor *pArmor, int nFloor, int nMask, bool bOpen, int nDoorID, int _nDestroyStage, bool bTransparentIfOpen )
 {
 	if ( !IsValid( pAIGeom ) )
 		return 0;
@@ -1049,6 +1049,9 @@ CObjectBase* CAIMap::AddFlippingHull( NDb::CAIGeometry *pAIGeom, NDb::CSkeleton 
 	nMaskCur = nMask | NWorld::TS_STATE_OPEN;
 	if ( bOpen )
 		nMaskCur |= NWorld::TS_DOOR_HULL_VALID;
+	// Original open-hull flag: preserve collision/picking and clear only vision.
+	if ( bTransparentIfOpen )
+		nMaskCur &= ~NWorld::TS_VISION;
 	pRes = new CStaticConvexHull( pUserHullsTracker, pSkin2, pos,	pArmor, GetCurrentSrcObject(), nMaskCur, nFloor ); 
 	InsertHull( pRes );
 	Register( pRes );

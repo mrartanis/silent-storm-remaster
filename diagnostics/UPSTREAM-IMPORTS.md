@@ -14688,3 +14688,78 @@ GitHub Actions repair/check stay active. Shared two builds reused; only a small
 temporary five-file diff was retained to isolate the network test repair.
 Evidence: terrain-reduction native RED/GREEN/original oracle/typed asm,
 verification JSON, exact manifests, ALL_BUILD/fresh network/localCI raw/exits.
+
+### Preserve authored door flags and original open-hull vision (5abdeaa6, door half)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5abdeaa6f1178d4d10361d3abfa5e3238036eba7
+
+The map builder already creates bIsChest/bIsTransparentIfOpen. CWorld::AddObject
+does not forward them, and the native door constructor hardcodes both existing
+saved members false. Forward both independently, assign the constructor body
+from those arguments (an initializer alone would be overwritten), and pass
+the transparency flag through the native AI visitor. For the open-pose hull
+only, clear TS_VISION. Retain all other masks, closed-pose vision, active-hull
+selection, door collision restrictions and own save/network/runtime behavior.
+Default constructor and old-call defaults remain false; existing tags8/9 and
+class layout are unchanged. No chest inventory/loot duplication: map builder
+already places the items. No renderer, body/facial/font or HD pipeline changes.
+
+Independent original: typed Gold members chest0xe4/transparent0xe5 and nested
+SMapElement.doorParams0x6c/SMapDoorParams flags0x10/11. THREE zero-mask unique
+blocks match actual Steam: constructor37 bytes777479->782fe9, visitor31 bytes
+776b7e->7826ee, open-hull mask31 bytes467f19->468d59. Original world constructor
+argument/call56 bytes75af5f uniquely maps with only the verified E8 constructor
+operand masked; actual Steam constructor782ea0 reaches the exact flag store.
+Actual visitor94-byte argument block uniquely maps with only GetDestroyStage
+E8 operand masked; both getters'8 bytes agree, and typed original CAIMap visitor
+vtable8a5a64 slot0xc targets AddFlippingHull467bb0. That flag input controls only
+AND~0x20 in the open hull. This is block/call/type evidence, not a claim to
+have audited every byte of constructor/Visit/AddObject/AddFlippingHull bodies.
+
+Three native tests use PUBLIC CreateRandom on real authored maps810/4517 with
+seed123/relative level0. Independently repeat actual BuildMap into a separate
+native path network to observe its authored inputs, then match born native
+doors by published DB record ID AND actual position. CDBPtr wrapper addresses
+are transient and unsuitable identities. Real inputs: map810 ordinary1/chest0;
+map4517 ordinary81/chest5. Select ordinary record439 on both maps and chest2425
+on4517. No private factory access, new testing API, fake hull/flags or DB edits.
+These authored fixtures cover the actual false/false and true/true pairs;
+they do not claim all four independently authored boolean combinations or an
+initially open authoring record. Both runtime poses are checked repeatedly.
+
+Genuine compiled RED1/3 BOTH platforms BEFORE Main: two ordinary controls pass;
+actual map chest flags1,1 become created0,0 and restored0,0, and the real open
+hull retains vision. All18 native pose/query rows per platform are recorded.
+The full original world/game/door graph is saved and independently restored,
+runtime caches rebuilt, then both poses queried again. Actual PrepareCollider
+selection is owner-filtered, so overlapping unrelated geometry cannot fake a
+pass. Check actual active-hull ownership/state/validity, vision inclusion,
+nonempty picking and movement hull geometry, and unchanged actor HP/AP/position
+and time. GREEN all3 on EACH platform: chest created/restored1,1; only its open
+flags lose0x20 and vision count1->0, while picking/movement and ordinary/closed
+rows remain unchanged. No full save byte-equality claim.
+
+Separate isolated class-read control omits optional tags8/9 and verifies false
+defaults. It is NOT a full legacy-world migration test, and existing old saves
+which already contain false flags are NOT migrated. Early private-API compile,
+transient-record matching, legacy-root/binding and locked-door fixture failures
+are archived as SETUP, never counted as bug RED. The final fixture explicitly
+unlocks the door through native LockDoor before pose checks, preserving all
+production lock/key rules. A borrowed live-world clone was removed from the
+default-control setup; actual full-world round trips use independent graphs.
+
+Final Windows ALL_BUILD, Linux Game/helpers/actual NetworkSerializer succeed;
+related Windows50/50/Linux48/48 equal saved47/45 baselines plus3 cases. Fresh
+actual Windows serializer/match/partial-movement/stop-resume4/4 pass after the
+build. Local CI-like299/299 passes with exact manifest/raw records; these three
+asset-backed tests remain outside that gate. Final hosted Actions and whole
+goal are not complete. Five Main production files exactly reconstructed from
+the attributed edit script against parent274db3f4; all other local changes are
+the tests/registration and this documentation/ledger. Native oracle, RED/GREEN,
+all18 rows, full-world snapshots in memory only, builds/exits, final gates and
+verification JSON are in door-flags-* evidence. Two shared builds reused.
+
+Together with terrain274db3f47fbfb7c9bc0d7af2daf8cb2697e3571a, all hunks in
+all9 original source files are accounted. Mark5ab fully imported. Ledger286:
+159imported/18partial/66pending =84unfinished sources. No original balance or
+authored data change; goal and final actual GitHub Actions repair/check remain.
