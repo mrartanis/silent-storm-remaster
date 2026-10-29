@@ -16620,6 +16620,28 @@ static void CannonDismountClip(const char* databasePath,const char* resourcePath
     fixture.world->GetTime()->Set(actor->animator.GetTimeEnd());exit->AnimationFinished();exit=nullptr;Require(!fixture.world->IsAction(),"native dismount clip leaked its finished world action");if(downed)actor->SyncConscious();
 }
 
+static void LadderDoorPath(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game,4517);auto* network=dynamic_cast<NAI::CPathNetwork*>(world->GetPathNetwork());Require(network,"ladder door path lacks its actual map network");
+    NAI::SPathPlace bottom,rung;bool found=false;int ladderLayer=-1,ladderIndex=-1;
+    for(int layer=0;layer<network->GetNumLayers() && !found;++layer){auto* nodes=network->GetLayer(layer);for(int index=0;index<int(nodes->ladders.size());++index){const auto& ladder=nodes->ladders[index];auto landing=ladder.placeOnBottom;landing.SetPose(NAI::CM_STAND);
+        if(ladder.pointPassable.size()<5 || !landing.IsIntegral() || landing.IsFinal() || !network->IsPassable(landing) || network->IsLocked(landing,false) || network->GetFlippersAt(landing).empty())continue;
+        NAI::SPathPlace point(index,0,layer,(4+2*int(ladder.eDir))&7,NAI::CM_STAND,0);point.SetIntegral(0);if(network->GetPassability(point)!=NAI::AIP_YES)continue;auto above=point;above.SetY(1);if(network->GetPassability(above)!=NAI::AIP_YES)continue;
+        auto aligned=landing;aligned.SetDirection(point.GetDirection());if(!network->IsPassable(aligned))continue;bottom=landing;rung=point;found=true;ladderLayer=layer;ladderIndex=index;break;}}
+    Require(found,"ladder door path lacks an actual free authored ladder bottom overlapping a real door footprint");
+    auto from=bottom,to=rung;if(mode==1)from.SetDirection(rung.GetDirection());if(mode==2){from=rung;to=rung;to.SetY(1);}if(mode==3){to=bottom;to.SetDirection(rung.GetDirection());}
+    const auto transition=NAI::GetTransitionType(network,from,to);Require(transition==(mode==2?NAI::TT_LADDER_MOVE:mode==3?NAI::TT_TURN:NAI::TT_LADDER_DOWN),"ladder door path lost its actual native transition type");
+    Require(network->GetPassability(from)==NAI::AIP_YES && network->GetPassability(to)==NAI::AIP_YES && !network->IsLocked(from) && !network->IsLocked(to),"ladder door path does not have real free valid endpoints");
+    const auto sourceDoors=network->GetFlippersAt(from),targetDoors=network->GetFlippersAt(to);Require((mode==2?sourceDoors.empty():!sourceDoors.empty()) && (mode==3?!targetDoors.empty():targetDoors.empty()),"ladder door path does not distinguish actual tile door footprints from native rung coordinates");
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);vector<std::pair<int,int>> stats;vector<NAI::SUnitPosition> positions;for(auto unit:units){stats.push_back({unit->GetAP(),unit->GetUnitRPG()->GetTotalVP()});positions.push_back(unit->GetPosition());}const bool action=world->IsAction();auto random=GlobalGameRandom();
+    CObj<NAI::CPath> path=new NAI::CPath;path->pNet=network;Require(path->AddNewPoint(from),"ladder door path cannot add its actual starting point");const bool added=path->AddNewPoint(to);auto expectedEnd=to;if(mode==3)expectedEnd.SetMoving(1);bool endpoint=added && path->points.back()==expectedEnd;
+    const int expectedPoints=mode==3 || (mode==0 && from.GetDirection()!=to.GetDirection())?3:2;
+    auto afterRandom=GlobalGameRandom();bool unchanged=world->IsAction()==action && random.Get()==afterRandom.Get();int index=0;for(auto unit:units){unchanged&=stats[index].first==unit->GetAP() && stats[index].second==unit->GetUnitRPG()->GetTotalVP() && positions[index]==unit->GetPosition();++index;}
+    std::printf("native ladder door path: mode=%d layer=%d ladder=%d from=%08X to=%08X transition=%d sourceDoors=%u targetDoors=%u fromPass=%d toPass=%d added=%d points=%u expectedPoints=%d actions=%u endpoint=%d units=%u unchanged=%d\n",mode,ladderLayer,ladderIndex,unsigned(from.GetBits()),unsigned(to.GetBits()),int(transition),unsigned(sourceDoors.size()),unsigned(targetDoors.size()),int(network->GetPassability(from)),int(network->GetPassability(to)),int(added),unsigned(path->points.size()),expectedPoints,unsigned(path->actions.size()),int(endpoint),unsigned(stats.size()),int(unchanged));std::fflush(stdout);
+    Require(unchanged,"native ladder path query changed actual unit AP/HP/position, world actions or game RNG");
+    Require(added && endpoint && path->points.size()==size_t(expectedPoints) && path->actions.empty() && NAI::IsValidPath(*path),"from-door candidates interpreted native ladder coordinates as a tile and rejected a valid authored transition");
+}
+
 static void CannonExitIncapacitated(const char* databasePath,const char* resourcePath,int mode)
 {
     auto fixture=MakeNativeCannonFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* cannon=fixture.cannon.GetPtr();
@@ -26368,6 +26390,10 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "cannon-dismount-unconscious") && argc==4) { CannonDismountClip(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "cannon-dismount-dead") && argc==4) { CannonDismountClip(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "cannon-dismount-restored") && argc==4) { CannonDismountClip(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "ladder-door-path-entry") && argc==4) { LadderDoorPath(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ladder-door-path-aligned") && argc==4) { LadderDoorPath(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ladder-door-path-move") && argc==4) { LadderDoorPath(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ladder-door-path-turn") && argc==4) { LadderDoorPath(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "cannon-exit-alive")) { Require(argc==4, "cannon exit requires db and res"); CannonExitIncapacitated(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "cannon-exit-unconscious")) { Require(argc==4, "cannon exit requires db and res"); CannonExitIncapacitated(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "cannon-exit-dead")) { Require(argc==4, "cannon exit requires db and res"); CannonExitIncapacitated(argv[2],argv[3],2); return true; }

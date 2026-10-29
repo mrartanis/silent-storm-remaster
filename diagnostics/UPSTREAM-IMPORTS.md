@@ -14304,3 +14304,50 @@ dismount hunk. Ledger286 remains155 imported/19partial/69pending=88 unfinished
 sources; whole goal stays active. Evidence: cannon-dismount original-symbols/
 types/mapping/key-callee/oracle JSON and small asm, RED4/GREEN62/61 raw logs,
 verification JSON, compile-setup archives, baseline manifests and final build.
+
+### Ladder transitions beside a door (6ba672eb, corrective adaptation)
+
+Source of the inherited overlapping-door logic:
+https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6ba672eb16fa6db8f03f33ae4f5eca1b2f43c425
+Previously imported in a02b7ddf84fa99bb85a64985bcfef320e45cff70.
+
+Its from-door candidate expansion also runs when the target is a native
+nonintegral ladder point. GetFlippersAt explicitly excludes those points,
+but the source tile adds its door back into the candidate list. The selected
+door predicate then interprets ladder-index/step as ordinary tile XY and
+rejects a passable, unlocked transition. Keep from-door expansion only for
+ordinary target tiles. Destination landing checks and ordinary two-tile door
+restrictions remain intact. The upstream branch has the same faulty union;
+this guard is our follow-up correction, not a claim of an existing upstream
+guard or byte-for-byte original-game method equivalence.
+
+Four native tests use actual authored campaign4517 ladder0/layer0 and real
+door footprints, without changing DB/grid records. The free bottom8001293A
+and first rungB0000000 both have AIP_YES and are unlocked. Final compiled
+RED2/4 on BOTH platforms BEFORE Main: entry with rotation appends only its
+rotation, and aligned entry cannot append the rung. Movement rung0-to-rung1
+and ordinary integral turning controls pass. The first setup run expected
+the wrong ordinary-turn point count/moving flag; it is archived separately
+and corrected before final RED, with production unchanged.
+
+GREEN verifies exact native transition types, expected appended points,
+destination, no spurious door actions, native IsValidPath, and unchanged
+all15 real units' AP/HP/positions, world-action state and game RNG. Windows
+91/91 related tests and Linux90/90 pass, covering every idle-captured
+baseline case plus all4 new cases; actual nonempty commands and native trace
+rows are verified, and both platforms' semantic rows agree. Windows
+ALL_BUILD and Linux Game/helpers/real NetworkSerializerTests builds succeed.
+This proves native path construction, not full actor/ladder animation
+playback or screenshots. No fullCI/hosted Actions claim.
+
+Exact production diff is only the candidate-domain guard in Main/aiPath.cpp;
+no door predicate, tile passability, movement/AP formula, DB, save/wire schema,
+own facial/body renderer, fonts or HD pipeline changes. Source6ba remains
+already-present; this does not assert a fresh whole-source audit. Ledger286
+remains155 imported/19partial/69pending=88 unfinished sources. Source51
+animation interruption tests were parked in a small text patch while this
+independent prerequisite is fixed; their runtime RED is not yet established.
+Two shared builds reused, no per-bug source/build copies. Evidence under
+ladder-door-path includes baseline inventories, setup archives, final RED,
+GREEN raw logs/exits, ALL_BUILD and verification JSON. Whole goal remains
+active, including final actual GitHub Actions repair/check.

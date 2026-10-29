@@ -92,10 +92,14 @@ bool CPath::AddWithPossibleAction( const SPathPlace& point )
 	// A doorway can overlap another door's swing. Keep actions for both owners,
 	// including the states established by earlier actions on this same route.
 	vector<int> doors = pRealNet->GetFlippersAt( point );
-	const vector<int> &fromDoors = pRealNet->GetFlippersAt( last );
-	for ( int door : fromDoors )
-		if ( find(doors.begin(), doors.end(), door) == doors.end() )
-			doors.push_back(door);
+	// Nonintegral coordinates identify a ladder and rung, not a map tile.
+	if ( point.IsIntegral() && !point.IsFinal() )
+	{
+		const vector<int> &fromDoors = pRealNet->GetFlippersAt( last );
+		for ( int door : fromDoors )
+			if ( find(doors.begin(), doors.end(), door) == doors.end() )
+				doors.push_back(door);
+	}
 	for ( int door : doors )
 	if ( pRealNet->IsBlockedByFlipper( door, last, point, &pFlipper, &bIsNowOpen, &bBlocksInOpenState, &bBlocksInClosedState ) )
 	{
