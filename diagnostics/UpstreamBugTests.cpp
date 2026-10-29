@@ -72,8 +72,10 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/aiPath.h"
 #include "../Main/PrecalcCollider.h"
 #include "../Main/aiColourer.h"
+#include <tuple>
 #include "../Main/aiMap.h"
 #include "../Main/aiMovesCalcer.h"
+#include "../Main/aiPassCalcer.h"
 #include "../Main/aiCollider.h"
 #include "../Main/aiRender.h"
 #include "../Main/aiStability.h"
@@ -8025,6 +8027,48 @@ namespace NRPG
     // Existing native implementation, kept out of the public gameplay interface.
     int GetHitCover(const NWorld::CUnit* attacker,CCoverInfo* cover);
 }
+using TerrainTraceRow=std::tuple<int,int,std::uintptr_t,int,int,int,float,float>;
+static vector<TerrainTraceRow> TerrainTraceRows(NAI::CFastRenderer& renderer,bool cap)
+{
+    vector<TerrainTraceRow> rows;
+    for(int y=0;y<renderer.resGrid.GetYSize();++y)for(int x=0;x<renderer.resGrid.GetXSize();++x)for(auto* p=renderer.resGrid[y][x];p;p=p->pNext){Require(p->pSrc && p->pSrc->pSrc,"terrain trace lost its native source ownership");const auto& info=p->GetInfo();const bool terrain=info.pUserData==nullptr;rows.emplace_back(y,x,reinterpret_cast<std::uintptr_t>(info.pUserData.GetPtr()),p->pSrc->nUserID,info.nFloor,info.nTSFlags,cap && terrain?p->fExit-0.01f:p->fEnter,p->fExit);}
+    std::sort(rows.begin(),rows.end());return rows;
+}
+static void InitTerrainPassGrid(NAI::CFastRenderer& renderer,NAI::CLayersGroup* group,const CTRect<int>& region)
+{
+    CTRect<int> expanded(region);expanded.x1=expanded.x1*3-1;expanded.y1=expanded.y1*3-1;expanded.x2=expanded.x2*3+1;expanded.y2=expanded.y2*3+1;
+    renderer.InitParallel(group->ptOrigin,atan2(group->ptXDir.y,group->ptXDir.x),FP_GRID_STEP/3,expanded);
+}
+class TerrainReductionProbe: public CoverOriginMapProbe
+{
+    OBJECT_NOCOPY_METHODS(TerrainReductionProbe);
+public:
+    NAI::CLayersGroup* group=nullptr;CTRect<int> region;bool reduce=true,matched=false,ordered=false;int calls=0,observed=-1,terrain=0,objects=0,changed=0,capped=0;
+    explicit TerrainReductionProbe(NAI::IAIMap* map=nullptr): CoverOriginMapProbe(map) {}
+    void TraceGrid(NAI::CFastRenderer* grid,int mask,ESort sort,const NAI::CFloorsSet& floors,ESplitTerrainHGroups split,bool doors) override {
+        ++calls;observed=int(sort);NAI::CFastRenderer control;InitTerrainPassGrid(control,group,region);Require(control.resGrid.GetXSize()==grid->resGrid.GetXSize() && control.resGrid.GetYSize()==grid->resGrid.GetYSize(),"terrain probe did not clone the actual native supersampled projection");
+        native->TraceGrid(&control,mask,STH_SORT_INTERVALS,floors,split,doors);const auto baseline=TerrainTraceRows(control,false),expected=TerrainTraceRows(control,reduce);
+        for(const auto& row:baseline)if(std::get<2>(row)==0){++terrain;if(std::get<6>(row)!=std::get<7>(row)-0.01f)++changed;}else ++objects;
+        native->TraceGrid(grid,mask,sort,floors,split,doors);matched=TerrainTraceRows(*grid,false)==expected;ordered=true;
+        for(int y=0;y<grid->resGrid.GetYSize();++y)for(int x=0;x<grid->resGrid.GetXSize();++x){bool first=true;float last=0;for(auto* p=grid->resGrid[y][x];p;p=p->pNext){if(!first && p->fEnter<last)ordered=false;first=false;last=p->fEnter;if(p->GetInfo().pUserData==nullptr && p->fEnter==p->fExit-0.01f)++capped;}}
+    }
+};
+static void TerrainReduction(const char* databasePath,const char* resourcePath,int mode)
+{
+    const int variant=mode==3?4517:810;CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game,variant);auto* network=dynamic_cast<NAI::CPathNetwork*>(world->GetPathNetwork());Require(network && network->GetNumLayers()>0,"terrain reduction lacks its actual authored navigation network");auto* layer=network->GetLayer(0);auto* group=layer->pGroup.GetPtr();auto* map=world->GetAIMap();Require(map,"terrain reduction lacks its actual native map");map->Sync(NAI::IAIMap::ST_NORMAL);
+    CTRect<int> region;bool found=false;
+    for(const auto& object:world->GetObjectsForHarness()){CVec2 cell;const auto& pos=object->GetPosition();group->GetExactPoint(&cell,CVec2(pos.ptPos.x,pos.ptPos.y));int x=Float2Int(cell.x),y=Float2Int(cell.y);if(x<3 || y<3 || x>=layer->tiles.GetXSize()-3 || y>=layer->tiles.GetYSize()-3)continue;CTRect<int> candidate(x-2,y-2,x+3,y+3);NAI::CFastRenderer sample;InitTerrainPassGrid(sample,group,candidate);map->TraceGrid(&sample,NWorld::TS_PASS_BLOCKER,NAI::IAIMap::STH_SORT_INTERVALS,NAI::CFloorsSet(),NAI::IAIMap::STH_SPLIT_TERR_HG,true);int terrain=0,objects=0;for(const auto& row:TerrainTraceRows(sample,false))if(std::get<2>(row)==0)++terrain;else ++objects;if(terrain && objects){region=candidate;found=true;break;}}
+    Require(found,"terrain reduction lacks real authored terrain and object intervals in a common projection");
+    CObj<TerrainReductionProbe> probe=new TerrainReductionProbe(map);probe->group=group;probe->region=region;probe->reduce=mode==0 || mode==3;
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);vector<std::pair<int,int>> stats;vector<NAI::SUnitPosition> positions;for(auto unit:units){stats.push_back({unit->GetAP(),unit->GetUnitRPG()->GetTotalVP()});positions.push_back(unit->GetPosition());}const bool action=world->IsAction();const auto time=world->GetTime()->GetValue();auto random=GlobalGameRandom();
+    if(probe->reduce){NAI::STempArrayGroup<NAI::STile> buffers;buffers.region=region;NAI::CPassCalcer calcer(network,group,probe,buffers,region);calcer.Calc();}
+    else{NAI::CFastRenderer renderer;InitTerrainPassGrid(renderer,group,region);probe->TraceGrid(&renderer,NWorld::TS_PASS_BLOCKER,mode==1?NAI::IAIMap::STH_SORT_INTERVALS:NAI::IAIMap::STH_NOSORT,NAI::CFloorsSet(),NAI::IAIMap::STH_SPLIT_TERR_HG,true);}
+    auto afterRandom=GlobalGameRandom();bool unchanged=action==world->IsAction() && time==world->GetTime()->GetValue() && random.Get()==afterRandom.Get();int i=0;for(auto unit:units){unchanged&=stats[i].first==unit->GetAP() && stats[i].second==unit->GetUnitRPG()->GetTotalVP() && positions[i]==unit->GetPosition();++i;}
+    std::printf("native terrain reduction: mode=%d variant=%d region=%d,%d,%d,%d sort=%d calls=%d terrain=%d objects=%d changed=%d capped=%d matched=%d ordered=%d units=%u unchanged=%d\n",mode,variant,region.minx,region.miny,region.maxx,region.maxy,probe->observed,probe->calls,probe->terrain,probe->objects,probe->changed,probe->capped,int(probe->matched),int(probe->ordered),unsigned(stats.size()),int(unchanged));std::fflush(stdout);
+    Require(probe->calls==1 && probe->terrain>0 && probe->objects>0 && probe->changed>0 && unchanged,"terrain reduction lost its real mixed geometry, query-only state or call boundary");
+    Require(probe->observed==(probe->reduce?2:mode==1?1:0) && probe->matched && (mode==2 || probe->ordered) && probe->capped==(probe->reduce?probe->terrain:0),"native passability tracing retained terrain volume or changed object/default trace intervals instead of reducing only terrain before sorting");
+}
+
 class CoverReachMapProbe: public CoverOriginMapProbe
 {
     OBJECT_NOCOPY_METHODS(CoverReachMapProbe);
@@ -26813,6 +26857,10 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "nearby-connected-destination")) { NearbyConnectedDestination(); return true; }
     if (!std::strcmp(mode, "isolated-source-alias-vector")) { NavigationAliasDestinations(false,true); return true; }
     if (!std::strcmp(mode, "isolated-source-alias-array")) { NavigationAliasDestinations(true,true); return true; }
+    if (!std::strcmp(mode, "terrain-reduction-passability") && argc==4) { TerrainReduction(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "terrain-reduction-normal-sort") && argc==4) { TerrainReduction(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "terrain-reduction-no-sort") && argc==4) { TerrainReduction(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "terrain-reduction-ladder-map") && argc==4) { TerrainReduction(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "layer-merge-empty-other")) { MovementLayerMerge(0); return true; }
     if (!std::strcmp(mode, "layer-merge-disconnected-current")) { MovementLayerMerge(1); return true; }
     if (!std::strcmp(mode, "layer-merge-disconnected-other")) { MovementLayerMerge(2); return true; }

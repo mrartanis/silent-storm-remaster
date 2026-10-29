@@ -1225,7 +1225,10 @@ void CAIMap::TraceGrid( CFastRenderer *pRes, int nMask, ESort sort, const CFloor
 		sort( res.
 	}*/
 	TraceEntities( res, pRes, shg );
-	if ( sort == STH_SORT_INTERVALS )
+	// Original Steam @0x466a20: changing terrain starts precedes interval sorting.
+	if ( sort == STH_SORT_AND_REDUCE_TERRAIN )
+		pRes->ReduceTerrain();
+	if ( sort == STH_SORT_INTERVALS || sort == STH_SORT_AND_REDUCE_TERRAIN )
 		pRes->SortIntervals();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

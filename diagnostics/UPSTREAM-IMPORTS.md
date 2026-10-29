@@ -14625,3 +14625,66 @@ exit records verified in network-burst-isolation-verification.json and related
 evidence. Small terrain patch retained outside source; two shared build trees
 reused, no old build/source copies. Ledger and final hosted Actions status
 unchanged. Terrain fix will be checked and committed separately.
+
+### Reduce native terrain intervals before passability sorting (5abdeaa6, terrain half)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5abdeaa6f1178d4d10361d3abfa5e3238036eba7
+
+The reconstruction's passability projection retains the full native terrain
+volume. Restore the original terrain-only cap: intervals whose actual source
+owner is null get fEnter=fExit-0.01f BEFORE sorting. Object intervals and every
+exit/source record remain unchanged. Append tracing mode2 while preserving
+old modes0/1; CPassCalcer requests mode2. Default sorting and unsorted callers
+retain their behavior. Only five Main files,18 insertions/3 removals.
+
+Independent original oracle: Gold PDB ReduceTerrain490f40/89 uniquely maps to
+actual Steam492030, masking only its four-byte float address; both actual
+literals are identical float0.01 bits0ad7233c. Typed SResult/SSource/SSourceInfo
+prove the actual null-owner chain. Entire TraceGrid193 Gold465b90 uniquely
+maps to Steam466a20 with only its SEH thunk operand and decoded E8 operands
+masked. Both actual SEH thunks/FuncInfo signatures checked. Original mode2
+calls reducer then sort; mode1 sort only/mode0 neither. Entire SortIntervals157
+uniquely maps490ea0->491f90 with decoded-call masks. EXACT zero-mask35-byte
+CPassCalcer caller4866ac->4876fc selects mode2 and TS_PASS_BLOCKER100, with
+typed map/render offsets and virtual call slot. No full2838-byte Calc/EH/helper
+audit claim; cached upstream addresses differ from the actual Steam oracle.
+
+Four native tests use real authored map810/4517 geometry and actual CAIMap
+and CPassCalcer.Calc, with real mixed terrain/object intervals. No fabricated
+intervals, DB edits, private-member access or casts to an unknown enum before
+the fix. The probe compares all normalized interval/source-record tuples to
+an unchanged native sorted projection and observes the actual public Calc
+mode; the complete Calc continues. Map810 region10,9..15,14 has324 terrain/
+78 object intervals/3 actors; ladder map4517 region49,54..54,59 has156 terrain/
+1234 object intervals/15 actors. All actor HP/AP/positions, time/action/RNG
+remain unchanged. Tests prove native projection/calculation, not a rendered
+cursor or a complete authored below-ground walking route.
+
+Genuine compiled RED2/4 on BOTH platforms before Main: both public Calc cases
+request old mode1 and cap zero terrain intervals; normal-sort and no-sort
+controls pass unchanged. GREEN changes only mode1->2, capped0->324/156 and
+matched0->1 in the two failing rows. All source/object/exit tuples and control
+rows remain exact, with actual linked-list order checked after reduction.
+Final related Windows47/47/Linux45/45, exact saved baselines43/41 plus4.
+Linux Game/helpers/actual NetworkSerializer and Windows ALL_BUILD succeed.
+Fresh Windows serializer/match/partial-movement/stop-resume4/4 pass after
+ALL_BUILD. All299 selected local CI-like asset-free cases pass, with exact
+manifest/raw records; the four asset-backed additions are correctly outside
+that gate. No hosted/full-suite completion claim.
+
+The first fresh network run exposed an independent test-fixture defect:
+its low burst injured later actors. That was reproduced on committed pre-
+terrain Main and fixed/committed/pushed separately in75b55cd7, after a separate
+portable include repair34b48a0c. The final terrain checks use both repairs;
+the failed original run and diagnostic repetitions remain archived. Do not
+claim the initial network failure was scoped aiming or terrain regression.
+
+No original numerical balance change: the1cm rule is independently original.
+No authored DB, door flags, save/wire, body/face, renderer backend, fonts or HD
+pipeline change. The other half of this nine-file source, door creation flags
+and open-door vision, remains unported; mark5ab PARTIAL. Ledger286 remains
+158imported, now19partial/66pending =85unfinished sources. Goal and final actual
+GitHub Actions repair/check stay active. Shared two builds reused; only a small
+temporary five-file diff was retained to isolate the network test repair.
+Evidence: terrain-reduction native RED/GREEN/original oracle/typed asm,
+verification JSON, exact manifests, ALL_BUILD/fresh network/localCI raw/exits.
