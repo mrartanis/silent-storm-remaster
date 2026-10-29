@@ -86,6 +86,8 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/iMain.h"
 #include "../Main/iGlobalMap.h"
 #include "../Main/iChapterMap.h"
+#include "../Misc/BasicShare.h"
+extern CBasicShare<int,CChapterInfoLoader> shareChapterInfo;
 #include "../Main/iRenderWorld.h"
 #include "../Main/iMainMenu.h"
 #include "../Main/iLoading.h"
@@ -4740,10 +4742,30 @@ static void ChapterActiveScript(const char* databasePath,const char* resourcePat
     list<CPtr<NScenario::CScenarioClue>> clues; game->pScenarioTracker->GetAvailableClues(&clues);
     for (auto clue: clues) if (IsValid(clue)) clue->SetJustFound(false);
     for (auto merc: game->players.front()->mercs) { vector<CDBPtr<NDb::CMedal>> medals; merc->GetJustFoundMedals(&medals); }
+    // This fixture tests command/audio lifetimes; random encounters can cover
+    // the chapter while its UI is first drawn after closing a native hint.
+    struct SectorRestore {
+        CObj<CChapterInfo> info;
+        vector<SChapterSector> original;
+        ~SectorRestore() { if (IsValid(info)) info->sectorsSet.swap(original); }
+    } sectors;
+    CDGPtr<CPtrFuncBase<CChapterInfo>> info = shareChapterInfo.Get(map->GetRecordID());
+    info.Refresh();
+    sectors.info = info->GetValue();
+    Require(IsValid(sectors.info),"chapter command fixture lacks its actual cached map info");
+    sectors.original = sectors.info->sectorsSet;
+    auto& isolated = sectors.info->sectorsSet;
+    isolated.erase(std::remove_if(isolated.begin(),isolated.end(),
+        [](const SChapterSector& sector) { return sector.eType == RANDOM; }),isolated.end());
+    Require(!isolated.empty(),"chapter command isolation removed every authored zone and exit");
+    std::printf("chapter command isolation mode=%d randomRemoved=%zu retained=%zu\n",
+        commandMode,sectors.original.size()-isolated.size(),isolated.size());
     CObj<NGame::CICBeginChapter> enter = new NGame::CICBeginChapter(map->GetRecordID(),game); enter->Exec();
     CObj<NGame::CMissionBase> chapter = dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
     auto* world = chapter ? dynamic_cast<NWorld::CWorld*>(chapter->GetWorld()) : nullptr;
     Require(world && IsValid(world->GetOwnScript()),"active chapter fixture did not create its native world/script");
+    auto* commandUI=dynamic_cast<NUI::CChapterMapUI*>(chapter->GetInterface()->GetChildByID("chaptermapUI"));
+    Require(commandUI && commandUI->GetTravelForDiagnostics().find(" type=1 template=")==string::npos,"chapter command fixture UI retained a random encounter");
     if (commandMode == 3) {
         bool tutorial = true; CMemoryStream base;
         { CStructureSaver writer(base,CStructureSaver::WRITE); writer.Add(31,&tutorial); }
@@ -4771,6 +4793,7 @@ static void ChapterActiveScript(const char* databasePath,const char* resourcePat
             auto* current = NMainLoop::GetCurrentInterfaceForHarness();
             std::printf("chapter fixture mode=%d time=%u active=%s depth=%d queued=%d\n",commandMode,unsigned(time),
                 current ? typeid(*current).name() : "null",NMainLoop::GetInterfaceStackDepth(),int(NMainLoop::HaveInterfaceCommand()));
+            if(commandUI)std::printf("%s",commandUI->GetTravelForDiagnostics().c_str());
             if (NMainLoop::HaveInterfaceCommand()) {
                 CObj<NMainLoop::CInterfaceCommand> command = NMainLoop::TakeInterfaceCommandForHarness();
                 std::printf("chapter fixture unexpected command=%s\n",typeid(*command.GetPtr()).name());

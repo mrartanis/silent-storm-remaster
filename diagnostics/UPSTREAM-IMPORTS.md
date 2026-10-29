@@ -15997,3 +15997,32 @@ Evidence: world-hints-verification.json, world-hints-retail-verification.json,
 chapter-command-random-encounter-cause.json, native RED/GREEN/final/raw traces.
 Source still PARTIAL for camera/clue/floor/flash/video and camera-executor routing.
 Ledger166/19/58 =77 unfinished; whole goal remains active.
+
+### chapter-command-isolation — keep native command/audio tests out of unrelated encounters
+
+Test-only follow-up to shared world dispatch source cb954e2e455b632c0174b88b2d051ac74e780ce0
+and own parent 8445b339cb598f8774f304ec87165c0c88f3acc3. This is our fixture
+adaptation, not a literal upstream test hunk or an import of encounter rules.
+Existing compiled NativeChapterScriptSound8 failed after its real hint closed:
+bounded native backtrace proves CommandWithAutoSave <- CRandomSector::UpdateSector
+<- chapter UI Draw. GDB timing hid the failure; native repeated execution
+reproduced it. Marker position/visibility was not captured.
+
+Before actual CICBeginChapter, retain the real cached CChapterInfo and remove
+only RANDOM sectors in this test process; preserve authored zones/exits in
+order and restore the original cached vector with RAII. Actual baseline has
+13 random sectors removed and 6 ordinary sectors retained. Native UI assertion
+checks that no random sector was instantiated. All previous test source lines
+and positive Lua/audio/hint/modal/pause/resume/stop/restart assertions remain.
+No production Main/CMake/DB/resource/save/balance changes. Original encounter
+behavior and its separate pending audit remain unchanged.
+
+Fresh build + focused30/30 on Windows and Linux. Previously unstable sound8/9:
+Windows20/20 actual repetitions (10 each), Linux100/100 (50 each). Local Windows
+CI305/305 with exact native raws/exit codes and manifest verified. Parent's
+production/body/network gates are retained evidence; no new hosted Actions
+claim. Two existing builds reused; no HD/PNG regeneration or old build copies.
+
+Evidence: chapter-command-isolation-verification.json and linked native
+RED/cause/focused/stress/CI raws. Ledger remains166 imported/19 partial/58
+pending =77 unfinished sources; whole goal and final hosted Actions remain.
