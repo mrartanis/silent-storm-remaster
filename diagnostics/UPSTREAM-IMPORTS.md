@@ -12325,3 +12325,69 @@ ordinary healing/planning/repair capacity and acknowledgments remain open.
 Preserve our face/animation/PK ownership. Ledger149 imported/19partial/70
 pending =89 unfinished sources. Hosted actual-HEAD Actions remains due after
 all useful imports; local CI is not a hosted workflow result.
+
+
+## 2026-10-29 — credit original immediate critical-heal medal progress (531f3b7d)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9), independent immediate FAE_REMOVE_BLEEDING critical-medal hunk.
+Restore float IUnitMission::HealCriticals and return the sum of nDC for only
+the criticals actually erased. Preserve the existing native DC/eligibility
+predicate, independent optional bleeding bypass and post-healing wound
+refresh. The blood-stop effect sends a positive patient's result to the
+medic's existing MPC_HEALED_CRITICAL sink. No cure policy, score formula,
+AP, kit charge or serialized field changes. Other callers may continue to
+ignore the return. This is medal progress, not Medicine skill training.
+
+Original typed Gold CUnitMission::HealCriticals6bc690 returnsfloat(int,bool),
+actual Steam primary mission slot150 ->6c1c50. Both initialize a zero float,
+add cured critical.nDC through fild/fadd/fstp (Gold6bc705/Steam6c1cc5),
+then return the float (Gold6bc71f/Steam6c1d13). The restored sum is read before
+erasing its object, avoiding reliance on its released lifetime. Existing
+Steam post-wound-refresh behavior is preserved independently. Gold patient
+load7bcc60 and effect branch7bcfd6 pass -100,true; positive returned sum is
+event13 to the medic's gainer at7bd018 ->6a6600. Actual Steam load7c9fd0,
+branch7ca357 and call7ca399 ->6ac6d0 match. Exact DC sum, return, arguments,
+positive gate and same-magnitude/event13 handoff are checked by
+audit-critical-heal-award-retail.py and its original-binary evidence JSON.
+
+Native TDD BEFORE Main edits: RED5/10 Windows10.99s/Linux10.92s. Actual roster
+hero54/Medicine17, three collecting authored medal chains, actual kit17 with
+one dose/15AP, same-owner native-deployed patient103, self and existing
+disabled NPC. Medal thresholds are not crossed, so this small test does not
+perform a medal-probability RNG check. Two actual bleeding criticals in
+head/torso locations retain DC1+2 independently; the fixture reads native
+stored criticals rather than assuming identical effects stack. No DB or
+medal-state values are fabricated.
+
+Five cases cure the patient but lose medal credit: one critical, two
+locations, self, bleeding in both actors and additional independent wound/
+weapon-skill criticals. Five controls already pass: finite bleeding expires
+through native regeneration after Run/before completion, missing kit,
+hostile target, disabled NPC and a cured zero-DC critical. The expiry case
+starts with a valid bleeding target, so it does not assert permission to
+start a useless no-bleeding treatment. Public Run/explicit AnimationFinished
+execute the real instant state and native completion; no manual cancel,
+played animation clock or rendered medical UI claim.
+
+GREEN60/60 each (previous50 +10), Windows64.08s/Linux65.26s. DC1 earns1.1
+per eligible chain (3.3 total), DC1+2 earn3.3 each (9.9 total). Finite-expired,
+zero-DC, NPC and patient controls gain none. Independent medic bleeding
+remains; self bleeding clears. Nonbleeding weapon-skill and ordinary wound
+controls remain and are excluded from the returned amount. Actual AP53->38,
+charge1->0, raw health/dressing and native patient/action ownership are
+unchanged. The wound-award fixture now shares the generic HealingMedalAwards
+setup, while its eight names and native result labels remain unchanged;
+all prior ordinary-wound medal cases continue to pass.
+
+Final Windows ALL_BUILD128 related/184.55s, Linux Game126/153.98s and local
+asset-free CI290/24.22s. Five raw logs60/60/128/126/290, exact registered names,
+no Failed/NotRun/NUL and final exits0 checked by verify-critical-heal-award.py.
+Shared builds reused, HD generation OFF, no per-bug source/build copies;
+owned harnesses exit. Source531f remains PARTIAL. Original timed critical
+treatment/AP progress/state save, patient/healer perks, ordinary healing
+planning/capacity, repair and acknowledgment behavior still require separate
+original-backed imports, with our face/animation/PK ownership preserved.
+Ordinary criticals must not become instantaneous treatment as a shortcut.
+Ledger149 imported/19partial/70pending =89 unfinished sources. Hosted
+actual-HEAD Actions remains due after all useful imports; local CI does not
+claim that the final hosted workflow has been checked or fixed.

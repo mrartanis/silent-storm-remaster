@@ -241,7 +241,7 @@ public:
 
 	virtual int  GetBulletsQuantityInShot() const;
 	virtual float HealVP( const SFirstAid &fa );
-	virtual void HealCriticals( int nDC, bool bStopBleeding = true );
+	virtual float HealCriticals( int nDC, bool bStopBleeding = true );
 	virtual void AddBleedingStopper( int nAmount ) { nBleedingStopAmount += nAmount; }
 	virtual void AddPostponedModifier( CDynamicSkill *pSkill, const SSkillModifyInfo &info, int nTurns );
 	virtual int  GetIC() const;
@@ -1873,8 +1873,9 @@ float CUnitMission::HealVP( const SFirstAid &fa )
 	return fHealed;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CUnitMission::HealCriticals( int nDC, bool bStopBleeding )
+float CUnitMission::HealCriticals( int nDC, bool bStopBleeding )
 {
+	float fHealed = 0;
 	for ( vector<CObj<CCritical> >::iterator i = criticals.begin(); i != criticals.end(); )
 	{
 		const SCritical &c = (*i)->GetCritical();
@@ -1883,12 +1884,14 @@ void CUnitMission::HealCriticals( int nDC, bool bStopBleeding )
 		{
 			csRPG << "\tCured: \t";
 			DumpCritical( *i );
+			fHealed += c.nDC;
 			i = criticals.erase( i );
 		}
 		else
 			++i;
 	}
 	ApplyCritical( SCritical( NDb::CL_ANY, NDb::C_VP ) );
+	return fHealed;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitMission::AddPostponedModifier( CDynamicSkill *pSkill, const SSkillModifyInfo &info, int nTurns )

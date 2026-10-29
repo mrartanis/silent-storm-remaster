@@ -597,8 +597,12 @@ void CUnitStateHealer::OnStateStarted()
 			pTarget->GetUnitRPG()->AddBleedingStopper( Float2Int(pFirstAid->fPower) );
 			break;
 		case NDb::FAE_REMOVE_BLEEDING:
-			pTarget->GetUnitRPG()->HealCriticals( -100, true );
+		{
+			const float fHealed = pTarget->GetUnitRPG()->HealCriticals( -100, true );
+			if ( fHealed > 0 )
+				pRPG->GetRPGUnit()->AddMedalPoints( pUS->GetWorld()->GetGlobalGame(), NRPG::MPC_HEALED_CRITICAL, fHealed );
 			break;
+		}
 		default:
 			ASSERT(0);
 			break;
