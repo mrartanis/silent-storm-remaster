@@ -13703,3 +13703,78 @@ Ledger151 imported/19partial/68pending =87 unfinished source commits. Whole
 goal active; final GitHub Actions fix/check after applicable imports due.
 Evidence: prone-medical-reach-retail-oracle.json, verification.json and
 complete final RED/GREEN raw logs, including setup band/passability traces.
+
+### AI selected medical kit probe (760cd924, independent item stage)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/760cd9240671c8c83063496044e03bde4421444d
+
+CAIHealAction selects an actual CAIFirstAid from its inventory, then the
+shared world probe ignores it and reads the active item. An injured AI
+holding a gun therefore cannot plan to use its bagged kit. Add an explicit
+kit parameter to CanDoFirstAid; only a null argument falls back to the
+existing active-item lookup for world command callers. Validate the chosen
+kit's liveness/emptiness, then use it through all existing effect/skill/perk/
+kind gates. AI passes its selected wrapper's real RPG item. Use the shared
+header after existing world/RPG definitions, removing the obsolete local
+three-argument declaration. No equip, consumption or AP spending occurs
+during a query. Existing actual-world target position is still used.
+
+Native proof: named Gold CAIHealAction.GetInfoInner4514b0/426 maps uniquely
+to actual Steam451fe0 ENTIRE426, except15 individually checked direct-call
+operands and two actual float addresses(.3 HP/4 enemy-distance). Map each
+callee: GetUnit413690->414170, GetBestFirstAid4560e0->456c40, ReleaseRef
+7c6120->7cd4d0, GetEnemy413710->4141f0, position CP4903c0->4914c0,
+pose4902d0->4913d0, shared medical probe797640->7a3810. Actual452158 loads
+SInfo.pFirstAid then its RPG item, pushes it and the supplied planned place,
+obtains the own server for both actor and target, and calls7a3810 at452174.
+The original probe7a382a reads the explicit stack item and falls back to
+active only when null. Native OK ordinal1 maps to our named UCR_OK, not a
+copied integer. Source's cached451ae0/451c90 are incorrect for this oracle.
+
+Nine initial native tests demonstrate TWO independent defects: bagged item
+at current position, active kit at future position, and their combination
+all fail. Preserve those complete raw results. Follow one independent fix
+per commit: positive planned-position cases2/3 are deferred to their own
+subsequent TDD, not converted into expectations for broken behavior. This
+commit registers seven selected-kit and unchanged-gate cases; the shared
+API is temporarily four arguments. The final planned-position argument and
+those two scenarios follow independently. Source760 remains incomplete.
+
+Tests use a real native AI player, actual server actor, AI wrapper, RPG
+inventory and CAIHealAction.GetInfoInner plus repeated and memoized CanDo.
+Actual medic persona34 has native Medicine32; actual wounded23/94 HP and
+AP41, or healthy94/94 AP51. Use authored kit1 with zero preparation cost to
+isolate this defect from the separate144c7b84 AI selected-kit pricing issue.
+Equip an actual gun65 and place the kit in the real backpack, or use a held
+kit control. Missing/empty kit and healthy controls remain rejected; actual
+native fly/inactive planned positions also reject. The fresh AI wrapper has
+no selected enemy and is synchronized through its native API; no fake
+IAIUnit/world or production test seam is used. Queries preserve physical
+and planning AP/HP, doses, held item, actual/preview positions, Medicine,
+selected wrapper, enemy state and RNG.
+
+Final RED1fail/7 Windows/Linux before Main: bagged-kit/held-gun case0 fails
+direct, repeated and cache probes; six controls already pass. The initial
+nine-case evidence remains separately archived for planned-position work.
+After both final REDs terminate, add the explicit selected-kit path. An
+initial compile exposed legacy header prerequisites when included too early;
+move the shared header after existing world/RPG definitions before final
+GREEN. No test or behavior change was needed for that include-order repair.
+
+GREEN241/241 Windows261.62s/Linux262.21s = previous232 medical/PK cases,
+new7 and two selected-weapon AI reload regressions. Only the three intended
+bool result fields change for mode0; all seven native input/purity rows
+match across platforms. Previous9 prone-reach,10 pose and11 skill traces
+remain identical. Windows ALL_BUILD and Linux Game/helpers pass. Exact
+three Main-file diff verified: optional kit/public declaration, AI dispatch
+and removal of the now-unused active-only helper. Medical gates, HP/enemy
+filters, prices, balance/DB values, save formats, own face/HD and UI stay
+intact. No fullCI/hosted Actions or actual world treatment-playback claim.
+
+Source760 remains PARTIAL for the independent planned-target position API;
+144c7b84 selected-kit AP pricing and approach geometry remain independent.
+Ledger151 imported/19partial/68pending =87 unfinished source commits.
+Whole goal active; final GitHub Actions fix/check after all imports due.
+Evidence: ai-medical-probe-retail-oracle.json, two-defects RED raw logs,
+final RED7/GREEN241 raws and ai-selected-medical-kit-verification.json.
+Shared builds only, no per-bug source/build copies.

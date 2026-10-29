@@ -121,17 +121,6 @@ static bool HasBazookaAndRockets( CUnitServer *pUS )
 	return false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-static EUnitCommandResult HasActiveUsableFirstAid( CUnitServer *pUS )
-{
-	CDynamicCast<NRPG::CFirstAidItem> pFA( pUS->GetUnitRPG()->GetInventory()->GetActive() );
-	if ( !IsValid( pFA ) )
-		return UCR_UNAVAILABLE;
-	if ( pFA->IsEmpty() )
-		return UCR_NO_EQUIPMENT;
-
-	return UCR_OK;
-}
-////////////////////////////////////////////////////////////////////////////////////////////////////
 EUnitCommandResult CanAttackWithCannon( CCannon *pCannon, const CVec3 &ptTarget )
 {
 	ASSERT(pCannon);
@@ -195,13 +184,16 @@ float GetHealOrRepairPKDistance( CUnitServer *pTarget )
 	return pTarget->GetPosition().pos.p.GetPose() == NAI::CM_LAY ? 1.2f : F_HEAL_DISTANCE;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-EUnitCommandResult CanDoFirstAid( CUnitServer *pUS, const NAI::SUnitPosition &from, CUnitServer *pTarget )
+EUnitCommandResult CanDoFirstAid( CUnitServer *pUS, const NAI::SUnitPosition &from,
+	CUnitServer *pTarget, NRPG::CFirstAidItem *_pItem )
 {
-	EUnitCommandResult eResult = HasActiveUsableFirstAid( pUS );
-	if ( eResult != UCR_OK )
-		return eResult;
-
-	CDynamicCast<NRPG::CFirstAidItem> pItem( pUS->GetUnitRPG()->GetInventory()->GetActive() );
+	CPtr<NRPG::CFirstAidItem> pItem = _pItem;
+	if ( !pItem )
+		pItem = CDynamicCast<NRPG::CFirstAidItem>( pUS->GetUnitRPG()->GetInventory()->GetActive() );
+	if ( !IsValid( pItem ) )
+		return UCR_UNAVAILABLE;
+	if ( pItem->IsEmpty() )
+		return UCR_NO_EQUIPMENT;
 	NDb::CRPGFirstAid *pDB = pItem->GetDBFirstAid();
 	const bool bRepair = pDB->effect == NDb::FAE_REPAIR_PK;
 	// Gold 797750 / Steam 7a3920: perk58 bypasses medical requirements, never repair.

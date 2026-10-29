@@ -25,6 +25,7 @@
 #include "RPGUnitMission.h"
 #include "RPGUnitInfo.h"
 #include "RPGUnit.h"          // NRPG::CUnit::Skills (suit HP via ST_VP), CDynamicSkill
+#include "wUnitAttackExec.h" // shared medical probe, including the selected kit
 //
 #include "aiActions.h"
 //
@@ -41,7 +42,6 @@ namespace NWorld
 	EUnitCommandResult CanUnitLaunchRocket( CUnitServer *pUS, const NAI::SUnitPosition &from, const CVec3 &ptTarget, int nExtraAP, NRPG::IWeaponItem *pBazooka );
 	EUnitCommandResult CanUnitThrowKnife( CUnitServer *pUS, const NAI::SUnitPosition &from, const CVec3 &ptTarget, NRPG::IMeleeWeaponItem *pMelee );
 	bool IsWithinHumanReach( const CVec3 &ptFrom, const CVec3 &ptTarget, float fPlaneDist );
-	EUnitCommandResult CanDoFirstAid( CUnitServer *pUS, const NAI::SUnitPosition &from, CUnitServer *pTarget );
 }
 //
 namespace NAI
@@ -458,7 +458,7 @@ void CAIHealAction::GetInfoInner( const SPlaceWithAP &place, SInfo *pInfo ) cons
 	if ( IsValid( pMission ) && pMission->GetActionAP( place.place.GetPose(), NRPG::AC_FIRSTAID ) > place.nUnitAP )
 		return;
 	// world allows first-aid here (self target)?
-	if ( NWorld::CanDoFirstAid( pUnit->GetUnitServer(), place.place, pUnit->GetUnitServer() ) == NWorld::UCR_OK )
+	if ( NWorld::CanDoFirstAid( pUnit->GetUnitServer(), place.place, pUnit->GetUnitServer(), pInfo->pFirstAid->GetItem() ) == NWorld::UCR_OK )
 		pInfo->bCanDo = true;
 }
 void CAIHealAction::Do( CAILog *pLog ) const   // @0x00451c90
