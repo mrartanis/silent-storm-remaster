@@ -12483,3 +12483,43 @@ success acknowledgments and careful adaptation of any relevant animation
 hunks still need independent TDD. Ledger149 imported/19partial/70pending
 =89 unfinished sources. Final hosted actual-HEAD Actions remains due after
 all useful imports; this local CI result does not claim hosted completion.
+
+
+## 2026-10-29 — exclude existing dressing from wound treatment AP (531f3b7d)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9), independent wound-planning deficit fix.
+The remaining wound deficit must subtract existing nHealedVP as well as raw
+health. Previously the action planned already dressed wounds and charged AP
+even though native HealVP correctly clamped actual dressing. Change only
+that subtraction; no skill, AP coefficient, capacity, perk or repair changes.
+
+Original Gold PDB identifies CUnit::CreateFirstAid at6b4a10/648. Its exact
+28-byte deficit/min block6b4b67 maps uniquely to Steam6bad07 in function
+6babb0. Both subtract alreadyDressed then rawVP from maxVP and return false
+before AP calculation for zero remaining dressing. The cost coefficient60
+is also verified in both binaries. No new AP minimum is introduced.
+
+Native TDD extends the existing real-world wound-medal fixture, using actual
+hero54 Medicine17, authored unmodified kits (Windows1, Linux27), public
+CExecHeal.Run and AnimationFinished. Another native dressing between those
+callbacks leaves either0 of1HP or1 of3HP to dress. RED2/5 on both platforms
+(Windows5.53s/Linux5.52s) records wasted3AP for zero effect and10AP for1HP;
+three untreated1HP/3HP and self-treatment controls pass. Main was unchanged
+for RED, with no fake AP or database/stat changes. After the one-line fix,
+those actions cost0/3AP respectively, with the same actual0/1HP dressing,
+raw health, dose and effective-healing medal award. All five cases pass.
+
+GREEN78/78 related medical tests on Windows82.84s and Linux83.93s, including
+the existing73 and the five new AP cases. Exact registered test sets, raw
+logs, both RED reasons, values, exits and one-line-only production diff
+verified by verify-wound-budget.py. Windows ALL_BUILD and Linux Game build
+pass. Shared builds reused, HD generation disabled; no per-bug copies.
+This step does not rerun or claim hosted GitHub Actions or the asset-free
+CI suite. The last localCI290 belongs to76a4b9d3, before this fix.
+
+Source531f remains PARTIAL. Wound-state completion recheck, authored kit
+capacity/clamping, DC/healing perks, engineering repair and acknowledgments
+still require independent tests/imports. The new tests explicitly use the
+existing native cancellation for still-active healing; they prove correct
+AP accounting, not automatic completion. Ledger149 imported/19partial/
+70pending=89 unfinished sources; full goal and final hosted CI remain open.

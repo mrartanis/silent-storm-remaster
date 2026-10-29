@@ -741,7 +741,7 @@ bool CUnit::CreateFirstAid( SFirstAid *pRes, int nMaxSpentAP, float fKitCapacity
 	SFirstAid tmp;
 	int nSkill = *skills[ NDb::ST_MEDICINE ] + pItem->GetDBFirstAid()->nSkillModifier;
 	CreateFirstAid( &tmp, 0, nSkill );
-	int nMaxHealed = pTarget->Skills(NDb::ST_VP).GetMaxValue() - pTarget->Skills(NDb::ST_VP);
+	int nMaxHealed = pTarget->Skills(NDb::ST_VP).GetMaxValue() - pTarget->Skills(NDb::ST_VP) - pTarget->nHealedVP;
 	int nVPToHeal = Max( 0, tmp.nMaxVP - pTarget->nHealedVP );
 	nVPToHeal = Min( nVPToHeal, nMaxHealed );
 	if ( nVPToHeal == 0 )

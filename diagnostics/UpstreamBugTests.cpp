@@ -23745,7 +23745,7 @@ static void TimedCriticalTreatment(const char* databasePath,const char* resource
     std::printf("native timed critical complete: mode=%d total=%d selected=%d remaining=%d patient=%d charge=%d->%d\n",mode,total,int(selected),expectedRemaining,int(hasSelected()),quantity,kit->GetIncQuantity());std::fflush(stdout);
 }
 
-static void HealingMedalAwards(const char* databasePath,const char* resourcePath,int mode,bool critical=false)
+static void HealingMedalAwards(const char* databasePath,const char* resourcePath,int mode,bool critical=false,bool woundBudget=false)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
     list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
@@ -23849,6 +23849,13 @@ static void HealingMedalAwards(const char* databasePath,const char* resourcePath
     }
     std::printf("native wound award result: mode=%d planned=%g effective=%d alreadyDressed=%d requiredAP=%d collecting=%d actualTotal=%g expectedEach=%g expectedTotal=%g charges=%d->%d\n",mode,planned?plan.fdVP:0,effective,dressedBefore,planned?requiredAP:0,collecting,total,expectedPoints,expectedPoints*collecting,quantity,kit->GetIncQuantity());std::fflush(stdout);
     Require(correct,"native wound treatment omitted the original medal progress for its actual effective healing");
+    if(woundBudget) {
+        Require(int(healer->Skills(NDb::ST_MEDICINE))==17 && record->nSkillModifier==0,"wound budget fixture requires its actual Medicine17, unmodified stock kit");
+        const int expectedAP=mode==1?10:mode==3?0:3;
+        const bool expectedPlan=expectedAmount>0;
+        std::printf("native wound budget result: mode=%d wound=%d dressed=%d planned=%g effective=%d AP=%d->%d spent=%d expectedAP=%d charges=%d->%d\n",mode,wound,dressedBefore,planned?plan.fdVP:0,effective,afterRun,actor->GetAP(),afterRun-actor->GetAP(),expectedAP,quantity,kit->GetIncQuantity());std::fflush(stdout);
+        Require(planned==expectedPlan && (!planned || (plan.fdVP==expectedAmount && requiredAP==expectedAP)) && actor->GetAP()==afterRun-expectedAP,"wound treatment charged AP for wounds already dressed before completion");
+    }
 }
 
 static void PenaltyTreatment(const char* databasePath,const char* resourcePath,int mode)
@@ -25791,6 +25798,11 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "critical-heal-award-both-actors") && argc==4) { HealingMedalAwards(argv[2],argv[3],7,true); return true; }
     if (!std::strcmp(mode, "critical-heal-award-zero-dc") && argc==4) { HealingMedalAwards(argv[2],argv[3],8,true); return true; }
     if (!std::strcmp(mode, "critical-heal-award-other-critical") && argc==4) { HealingMedalAwards(argv[2],argv[3],9,true); return true; }
+    if (!std::strcmp(mode, "wound-budget-one") && argc==4) { HealingMedalAwards(argv[2],argv[3],0,false,true); return true; }
+    if (!std::strcmp(mode, "wound-budget-several") && argc==4) { HealingMedalAwards(argv[2],argv[3],1,false,true); return true; }
+    if (!std::strcmp(mode, "wound-budget-self") && argc==4) { HealingMedalAwards(argv[2],argv[3],2,false,true); return true; }
+    if (!std::strcmp(mode, "wound-budget-already-dressed") && argc==4) { HealingMedalAwards(argv[2],argv[3],3,false,true); return true; }
+    if (!std::strcmp(mode, "wound-budget-partly-dressed") && argc==4) { HealingMedalAwards(argv[2],argv[3],7,false,true); return true; }
     if (!std::strcmp(mode, "healing-wound-award-one") && argc==4) { HealingMedalAwards(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "healing-wound-award-several") && argc==4) { HealingMedalAwards(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "healing-wound-award-self") && argc==4) { HealingMedalAwards(argv[2],argv[3],2); return true; }
