@@ -14568,3 +14568,23 @@ remain active. Two shared builds reused, no source/build backup copies.
 Evidence: layer-merge original typed symbols/asm/oracle, baseline manifests,
 RED9/GREEN50/48 raw logs/exits, exact verifier, fresh network, ALL_BUILD and
 CI299 manifest/raw/exits. Final balance-review artifact remains unchanged.
+
+### Portable bullet RNG include follow-up (0726a489 / own 41682818)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0726a489c66ef5131dc5f336d8539c316ca31573
+
+The own-fork ISAAC adaptation in416828184718bb4bc3e6e5820b766ca34f5dab35
+introduced a Windows-only backslash include in RPGBullet.cpp. The full Linux
+game uses normalized build sources, so its successful build did not cover
+the separate portable combat library compiled directly from repository sources.
+
+Actual native clang RED while building NetworkMatchTests: s2_game_rpg_combat's
+RPGBullet.cpp cannot find ..\Misc\RandomGen.h. Change only that include to
+../Misc/RandomGen.h. GREEN: actual portable s2_game_rpg_combat archive compiles
+and links; Windows Main also builds successfully. No behavior, RNG draw,
+coefficient, balance, schema, rendering or HD pipeline change. No additional
+runtime behavior is claimed by these compiler checks. Recorded failed native
+command/log and successful compiler logs/exits: portable-bullet-include-* in
+the shared upstream-remaster-20261024 evidence directory. The independent
+network burst-fixture and source5ab terrain work remain uncommitted separately.
+Ledger counts and whole-goal/final hosted Actions status are unchanged.
