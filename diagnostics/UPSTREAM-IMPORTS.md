@@ -13568,3 +13568,69 @@ reach and explicit AI kit/planned-target API. Ledger151 imported/19partial/
 GitHub Actions repair/check after applicable imports still outstanding.
 Evidence: medical-requirements-retail-oracle.json, authored-fields.txt,
 verification.json and complete final RED/GREEN raw logs. Shared builds only.
+
+### Ordinary medical position eligibility (760cd924, independent pose stage)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/760cd9240671c8c83063496044e03bde4421444d
+
+CanDoFirstAid rejected fly, ladder and inactive packed positions only for
+repair kits. Apply the existing predicate to ordinary medical orders as
+well, after item/skill/perk checks and before target/reach checks. Perk58
+skips medical requirements but still goes through this position predicate.
+Standing, crouched and prone medics remain allowed. No movement/healing/AP
+formulas, DB requirements, pose costs, save tags or animation changes.
+
+Native proof: entire46-byte Gold79783f uniquely equals Steam7a3a0f. Three
+branches test final bit25, missing integral bit16 and inactive pose3 in bits
+30/31 and target the same generic failure7a3c51. Actual perk58 success at
+7a3959 jumps directly to7a3a0f, before these checks. Our PortablePathPlace
+masks match exactly; retain own portable packed-position implementation.
+This is the original gate, not a new policy based on perk descriptions.
+
+Ten actual public CExecHeal.CanDoIt queries use unrestricted normal kit1
+and a real curable self-target critical. Four controls are stand/crouch/
+prone and qualified-perk58 standing. Six invalid cases are fly, inactive
+and nonintegral ladder places, both without and with native-earned58.
+Use actual MakeFlyPos for fly coordinates; keep all previews at zero
+distance to the real target so a distance rejection cannot mask the gate.
+Query twice and assert AP/HP/dose/active-item/actual-position/preview bits/
+Medicine/perk points/XP/RNG/critical state remain unchanged.
+
+Genuine ladder fixture: nonintegral places encode ladder index and rung,
+not ground x/y; merely clearing the integral bit is an invalid fixture.
+Initial worlds810 and3791 contain no ladders, so their two ladder setup
+failures are not counted as runtime bug evidence. A temporary read-only
+NativeBuildingTerrainResourceTests probe decodes the985 reachable campaign
+variants and finds31 positive-ID ladder assets; scenario ancestry identifies
+zone3/template2631/root4517. Restore that temporary diagnostic source from
+HEAD after the probe. Extend existing FixtureWorld with a variant argument
+defaulting to810; only two new ladder cases use4517, all existing callers
+keep810. Actual4517 supplies passable ladder layer0/index0/rung0 and a free
+bottom landing. Move the actual actor to that landing with native placement,
+then query the genuine rung as the planned from-position. Native CPs match
+exactly and ordinary reach is satisfied. No synthetic ladder/vector entries,
+map geometry or DB data are added. No climbing-animation playback claim.
+The initial setup compile needed concrete CPathNetwork access through its
+actual implementation; fixed before the final runtime RED.
+
+Final RED6fail/10 Windows/Linux before Main: all six incorrect states return
+OK instead of generic failure; four allowed stance controls already pass.
+All10 input rows are present; both real ladder searches succeed, delta0.
+Only after both RED processes terminate, remove the repair-only wrapper
+around the same original predicate. Final GREEN223/223 Windows240.55s/Linux
+244.67s includes previous213 medical/critical/wound/kit/perk/repair actions
+and all10 new cases. Only intended result/repeat values change in the six
+invalid cases; valid controls are identical. All10 rows match across platforms
+and all11 previous medical-requirement traces remain identical. Windows
+ALL_BUILD and Linux Game/helpers pass; temporary probe source is restored
+and rebuilt normally. Main diff is only this one predicate wrapper/comment.
+No fullCI, hosted Actions, UI screenshots or live climbing animation claim.
+
+Source760 remains PARTIAL for prone-patient reach and the explicit AI kit/
+planned-target API. The generic pose guard is now complete. Ledger remains
+151 imported/19partial/68pending =87 unfinished source commits. Whole goal
+active; final GitHub Actions repair/check after all applicable imports due.
+Own face/body implementation, HD pipeline, fonts and save/network schemas
+remain intact. Shared builds only; no per-bug source/build snapshots.
+Evidence: medical-pose-retail-oracle.json, medical-ladder-source-probe.log,
+medical-pose-verification.json and complete final RED/GREEN raw logs.

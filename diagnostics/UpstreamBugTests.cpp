@@ -6077,7 +6077,7 @@ public:
 };
 
 static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath,const char* resourcePath,
-    bool deployParty,CObj<NRPG::CGlobalGame>* retainedGame);
+    bool deployParty,CObj<NRPG::CGlobalGame>* retainedGame,int variantID=810);
 
 static void FreshClueWaitRelease(const char* databasePath,const char* resourcePath)
 {
@@ -7280,7 +7280,7 @@ static void DecalProjection()
 }
 
 static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* resourcePath,
-    bool deployParty = false, CObj<NRPG::CGlobalGame>* retainedGame = nullptr)
+    bool deployParty = false, CObj<NRPG::CGlobalGame>* retainedGame = nullptr,int variantID)
 {
     CFileStream database;
     database.OpenRead(databasePath);
@@ -7291,7 +7291,7 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     if (deployParty) game->players.push_back(NRPG::CreateGlobalPlayer(std::vector<int>{54}));
     CObj<NWorld::CWorld> world = new NWorld::CWorld(game);
     CObj<NWorld::CPostWorldCreateInfo> post;
-    world->CreateRandom(810, {}, true, {}, 0, &post, SRandomSeed(123));
+    world->CreateRandom(variantID, {}, true, {}, 0, &post, SRandomSeed(123));
     Require(post && world->GetPathNetwork(), "mission fixture construction failed");
     if (deployParty) {
         CObj<NAI::CSequenceCommander> commander = new NAI::CSequenceCommander(world);
@@ -23971,6 +23971,48 @@ static CObj<NWorld::CUnitServer> QualifiedMedicalActor(NWorld::CWorld* world,NWo
     return result;
 }
 
+static void MedicalOrderPose(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game,mode==5 || mode==8?4517:810);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->IsAIUnit() && !unit->IsWearingPK() && !unit->IsEmptyPK() && !unit->HasCommand() && !unit->IsPerformingAction()){actor=unit;break;}
+    Require(actor,"medical pose lacks its actual ordinary actor");CObj<NWorld::CUnitServer> qualified;
+    if(mode>=6){qualified=QualifiedMedicalActor(world,actor);actor=qualified;}
+    auto* network=dynamic_cast<NAI::CPathNetwork*>(world->GetPathNetwork());Require(network,"medical pose lacks the actual native path network");auto from=actor->GetPosition();int ladderLayer=-1,ladderIndex=-1,ladderCount=0;
+    const bool ladderCase=mode==5 || mode==8;
+    if(ladderCase){
+        for(int layer=0;layer<network->GetNumLayers() && ladderLayer<0;++layer){
+            auto* nodes=network->GetLayer(layer);ladderCount+=int(nodes->ladders.size());
+            for(int index=0;index<int(nodes->ladders.size());++index){
+                const auto& ladder=nodes->ladders[index];auto bottom=ladder.placeOnBottom;bottom.SetPose(NAI::CM_STAND);
+                if(ladder.pointPassable.size()<2 || !bottom.IsIntegral() || bottom.IsFinal() || !network->IsPassable(bottom) || network->IsLocked(bottom,false))continue;
+                NAI::SPathPlace rung(index,0,layer,(4+2*int(ladder.eDir))&7,NAI::CM_STAND,0);rung.SetIntegral(0);
+                if(network->GetPassability(rung)!=NAI::AIP_YES)continue;
+                NAI::SPosition rungPosition(rung,network),bottomPosition(bottom,network);if(fabs(rungPosition.GetCP()-bottomPosition.GetCP())>1e-4f)continue;
+                auto placed=actor->GetPosition();placed.pos=bottomPosition;world->GetTime()->Set(world->GetTime()->GetValue()+1);actor->SetPosition(placed);actor->animator.AlignTime();actor->animator.PlaceUnit(placed);
+                from=placed;from.pos=rungPosition;ladderLayer=layer;ladderIndex=index;break;
+            }
+        }
+        std::printf("native medical ladder setup: mode=%d seen=%d layer=%d index=%d\n",mode,ladderCount,ladderLayer,ladderIndex);std::fflush(stdout);
+        Require(ladderLayer>=0,"medical pose fixture has no actual passable map ladder with a free bottom landing");
+    }
+    if(mode==1)from.pos.p.SetPose(NAI::CM_CROUCH);
+    if(mode==2)from.pos.p.SetPose(NAI::CM_LAY);
+    if(mode==3 || mode==6){auto fly=actor->GetPosition().pos;Require(NAI::MakeFlyPos(actor->GetPosition().GetCP(),network,&fly),"medical pose could not encode an actual fly preview");from.pos=fly;}
+    if(mode==4 || mode==7)from.pos.p.SetPose(NAI::CM_INACTIVE);
+    Require(NWorld::IsWithinHumanReach(from.GetCP(),actor->GetPosition().GetCP(),.8f),"medical pose preview is outside actual self-treatment reach");
+    Require(from.pos.p.IsFinal()==(mode==3 || mode==6) && from.pos.p.IsIntegral()!=ladderCase,"medical pose lost its actual ground/fly/ladder precondition");
+    auto* record=NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(1);Require(record && record->nRequiedSkill==0 && record->nRequiredPerkID==0,"medical pose lost the unrestricted authored normal kit");
+    CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);auto* patient=actor->GetUnitRPG();auto* rpg=patient->GetRPGUnit();auto* inventory=patient->GetInventory();vector<CObj<NRPG::IInventoryItem>> previous;
+    for(auto slot:{NDb::SLOT_1,NDb::SLOT_2})if(inventory->Get(slot))previous.push_back(inventory->TakeOff(slot));Require(inventory->Equip(NDb::SLOT_1,kit) && inventory->Activate(NDb::SLOT_1),"medical pose could not activate the actual kit");
+    patient->ApplyCritical(NRPG::SCritical(NDb::CL_HEAD,NDb::C_WEAPONSKILL_REDUCTION,-1,2.f,20));Require(patient->HasCurableCriticals(),"medical pose has no actual curable self-target critical");
+    MarkNewDGFrame();world->GetAIMap()->Sync();const auto original=actor->GetPosition();const auto bits=from.pos.p.GetBits();const int ap=actor->GetAP(),hp=patient->GetTotalVP(),dose=kit->GetIncQuantity(),medicine=rpg->Skills(NDb::ST_MEDICINE),points=rpg->GetPerksTree()->GetPerkPoints();const float xp=rpg->fXP;auto random=GlobalGameRandom();
+    const auto expected=mode>=3 && mode<=8?NWorld::UCR_GENERAL_FAILURE:NWorld::UCR_OK;CObj<NWorld::CExecHeal> executor=new NWorld::CExecHeal(actor,actor);const auto result=executor->CanDoIt(from),repeat=executor->CanDoIt(from);auto afterRandom=GlobalGameRandom();
+    std::printf("native medical pose: mode=%d final=%d integral=%d pose=%d has58=%d layer=%d ladder=%d delta=%g result=%d repeat=%d expected=%d AP=%d dose=%d rawHP=%d medicine=%d points=%d\n",mode,int(from.pos.p.IsFinal()),int(from.pos.p.IsIntegral()),int(from.pos.p.GetPose()),int(rpg->HasPerk(58)),ladderLayer,ladderIndex,fabs(from.GetCP()-actor->GetPosition().GetCP()),int(result),int(repeat),int(expected),ap,dose,hp,medicine,points);std::fflush(stdout);
+    Require(actor->GetAP()==ap && patient->GetTotalVP()==hp && kit->GetIncQuantity()==dose && inventory->GetActive()==kit.GetPtr() && actor->GetPosition()==original && from.pos.p.GetBits()==bits && int(rpg->Skills(NDb::ST_MEDICINE))==medicine && rpg->GetPerksTree()->GetPerkPoints()==points && rpg->fXP==xp && random.Get()==afterRandom.Get() && patient->HasCurableCriticals(),"medical pose query spent AP/dose or changed health/item/position/preview/skills/perks/XP/RNG/critical state");
+    Require(result==expected && repeat==expected,"medical order accepts a fly, ladder or inactive pose, or perk58 bypasses the position gate");
+}
+
 static void MedicalRequirements(const char* databasePath,const char* resourcePath,int mode)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
@@ -26542,6 +26584,16 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "treatment-ack-repair-below-half") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,2); return true; }
     if (!std::strcmp(mode, "treatment-ack-repair-spent-pilot-ap") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,3); return true; }
     if (!std::strcmp(mode, "treatment-ack-repair-empty-silent") && argc==4) { RepairOrderGate(argv[2],argv[3],0,0,-1,4); return true; }
+    if (!std::strcmp(mode, "medical-pose-stand") && argc==4) { MedicalOrderPose(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "medical-pose-crouch") && argc==4) { MedicalOrderPose(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "medical-pose-prone") && argc==4) { MedicalOrderPose(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "medical-pose-fly") && argc==4) { MedicalOrderPose(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "medical-pose-inactive") && argc==4) { MedicalOrderPose(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "medical-pose-ladder") && argc==4) { MedicalOrderPose(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "medical-pose-perk58-fly") && argc==4) { MedicalOrderPose(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "medical-pose-perk58-inactive") && argc==4) { MedicalOrderPose(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "medical-pose-perk58-ladder") && argc==4) { MedicalOrderPose(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "medical-pose-perk58-stand") && argc==4) { MedicalOrderPose(argv[2],argv[3],9); return true; }
     if (!std::strcmp(mode, "medical-requirements-low-skill") && argc==4) { MedicalRequirements(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "medical-requirements-skill-equality") && argc==4) { MedicalRequirements(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "medical-requirements-modifier-equality") && argc==4) { MedicalRequirements(argv[2],argv[3],2); return true; }

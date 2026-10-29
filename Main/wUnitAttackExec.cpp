@@ -205,11 +205,9 @@ EUnitCommandResult CanDoFirstAid( CUnitServer *pUS, const NAI::SUnitPosition &fr
 		if ( pDB->nRequiredPerkID > 0 && !pUS->GetUnitRPG()->HasPerk( pDB->nRequiredPerkID ) )
 			return UCR_NO_EQUIPMENT;
 	}
-	if ( bRepair )
-	{
-		if ( from.pos.p.IsFinal() || !from.pos.p.IsIntegral() || from.pos.p.GetPose() == NAI::CM_INACTIVE )
-			return UCR_GENERAL_FAILURE;
-	}
+	// Gold 79783f / Steam 7a3a0f: every medical order needs an ordinary active place.
+	if ( from.pos.p.IsFinal() || !from.pos.p.IsIntegral() || from.pos.p.GetPose() == NAI::CM_INACTIVE )
+		return UCR_GENERAL_FAILURE;
 
 	if ( IsValid( pTarget ) )
 	{
