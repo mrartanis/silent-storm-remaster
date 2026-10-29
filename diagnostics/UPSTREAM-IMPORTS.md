@@ -14174,3 +14174,68 @@ goal remains active, including final actual GitHub Actions repair/check.
 Evidence: nonuniform-attachment original-types/oracle/verification JSON,
 final RED16/GREEN45 logs/exits, baseline29 manifest, preliminary setup
 archives and Windows ALL_BUILD. Shared builds only, no old source/build copies.
+
+### Personal weapon pose after leaving a cannon (59f00b27)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/59f00b27987ea40082105fc913e7129579a2dbdd
+
+Actual cannon entry first holsters the actor's personal weapon. A subsequent
+reload action queue activates the item through CExecMove using the effective
+mounted weapon type. That type remains cached after the RPG cannon item is
+cleared, so LeaveCannon/Stand selects a machine-gun body pose for a pistol.
+Refresh the animation type from the now-personal RPG weapon inside the
+existing alive/conscious exit branch. Preserve the downed exit guard, deferred
+entry/payment/legacy-save adaptation, cannon ownership and action lifecycle.
+This changes body pose selection, not our own facial-animation engine.
+
+Six new real-engine cases use actual persona838/cannon65, equip an authored
+pistol through the normal other-hand equipment executor, then run complete
+native entry and reload preparation/animation callbacks. The existing base
+actor's gun30 has the SAME type as the cannon, so that preliminary fixture
+could not expose this bug; both setup runs are archived and not called RED.
+The chosen personal type1 differs from mounted type3. No saved animator flags
+or mounted type are fabricated. Reload uses ammunition actually unloaded
+from the authored cannon into the real inventory. Test regular reload, no
+reload, unconscious/dead RPG damage, cancelled reload before ammunition
+transfer, and full actual game/world/actor/cannon/exit save/load roundtrip.
+The original reload Cancel is a no-op; cancellation drops its owning queue.
+An initial wrong expectation of FINISHED was corrected and both platforms
+rerun before production. That provisional cancellation failure is archived.
+
+Final genuine RED3fail/6 on Windows and Linux: regular reload, cancellation
+and loaded-game exit retain type3/flags0x1001, omit actual pistol POSE clip403
+and expect flags0x401. No-reload and both downed controls pass. Both complete
+RED runs terminate BEFORE the one production setter is added. GREEN verifies
+actual new native body clip, stored type and pose flags, exact exit AP/HP,
+logical position, personal/mounted ammunition and game RNG, normal detachment
+and action cleanup. Existing downed tests additionally verify the actual
+clipless ragdoll and owner. All six native trace rows match across platforms.
+Only the intended type/flag/clip observations change; downed rows are identical
+and no-reload retains its inactive pose while refreshing its cached type.
+
+Windows related58/58 pass66.32s, then ALL_BUILD succeeds. Linux Game/helpers
+build succeeds and56 related executions pass62.95s, but NetworkSerializerTests
+initially cannot start because its separate executable was not built. CTest's
+raw LastTest.log misleadingly labels that empty-command entry Test Passed;
+the verifier explicitly rejects empty commands. Build the actual target and
+run it separately:1/1 pass0.02s. The union proves all57 distinct Linux selected
+tests, including six new cases, against the saved51-test baseline. Windows
+includes its additional network-stop/resume case. No fresh fullCI/hosted
+Actions, screenshots, full shooting playback or face-animation claim.
+
+Original-game read-only observations are retained in small Gold Run79a4e0,
+LeaveCannon7352a0 and GetWeaponType6b5060 binaries/disassemblies. Do not claim
+that the added setter itself appears in the original Run: it does not in
+that studied Gold method. This is the upstream animation-cache correction;
+no original numerical balance rule is replaced. The independently missing
+original dismount clip belongs to partial source51a184b8 and remains separate.
+
+Exact production diff reconstructed against the previous HEAD: ONLY the
+guarded animation-type setter in Main/wUnitAttackExec.cpp. No RPG formulas,
+DB values, prices, physics, save/wire schema, renderer, facial/HD/fonts or
+AP/ammunition rules change. Shared two builds only; no source/build copies.
+All single-file source59 hunks accounted, mark imported. Ledger286 now155
+imported/19partial/69pending=88 unfinished sources. Whole goal remains active,
+including final actual GitHub Actions repair/check. Evidence: cannon-personal-
+pose RED/GREEN logs/exits, baseline manifests, native verification JSON,
+setup archives, Linux network supplement and Windows ALL_BUILD logs.

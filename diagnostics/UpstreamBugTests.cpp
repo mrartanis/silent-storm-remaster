@@ -16485,6 +16485,99 @@ static void CannonEntryCompletion(const char* databasePath,const char* resourceP
     std::printf("native in-flight cannon full graph restored: bytes=%d\n",snapshot.GetSize());finish(restored,restoredExecutor);finish(fixture,executor);
 }
 
+// Complete actual queue callbacks at their native animation deadlines; no animator
+// weapon/active flags are injected after the authored fixture is constructed.
+static void CompleteCannonPoseQueue(NWorld::CCommandExecute* executor,NativeCannonFixture& fixture)
+{
+    for(int step=0;step<32 && executor->GetState()==NWorld::CCommandExecute::RUNNING;++step) {
+        fixture.world->GetTime()->Set(fixture.actor->animator.GetTimeLabel1());executor->TimeLabelReached();
+        fixture.world->GetTime()->Set(fixture.actor->animator.GetTimeEnd());executor->AnimationFinished();
+    }
+    Require(executor->GetState()==NWorld::CCommandExecute::FINISHED,"personal cannon pose fixture failed to complete its actual native queue");
+}
+
+static void CannonPersonalPose(const char* databasePath,const char* resourcePath,int mode)
+{
+    auto fixture=MakeNativeCannonFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* cannon=fixture.cannon.GetPtr();
+    auto* rpg=actor->GetUnitRPG();auto* inventory=rpg->GetInventory();
+    auto* personal=dynamic_cast<NRPG::CWeaponItem*>(inventory->GetActive());auto* mounted=dynamic_cast<NRPG::CWeaponItem*>(cannon->GetItem());
+    Require(personal && mounted,"personal cannon pose fixture lacks actual personal/mounted weapons");
+    fixture.world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer()));
+    // The base actor carries the same weapon type as this cannon. Equip a real
+    // authored pistol in the other hand and switch through the normal executor.
+    CObj<NRPG::CWeaponItem> selected;CDBIterator<NDb::CRPGWeapon> records(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while(records.MoveNext()) {auto* record=records.Get();if(!record->pItem || !record->pItem->bPlaceInHand || !record->pItem->pModel || !record->pAnimWeaponType)continue;
+        CObj<NRPG::CWeaponItem> candidate=new NRPG::CWeaponItem(record);if(candidate->GetWeaponType()==NDb::WT_PISTOL && candidate->GetWeaponType()!=mounted->GetWeaponType() && (!selected || record->GetRecordID()<selected->GetDBWeapon()->GetRecordID()))selected=candidate;}
+    Require(selected,"personal cannon pose fixture lacks a distinct authored pistol");const auto slot=inventory->GetActiveSlot()==NDb::SLOT_1?NDb::SLOT_2:NDb::SLOT_1;
+    CObj<NRPG::IInventoryItem> previous=inventory->Get(slot)?inventory->TakeOff(slot):nullptr;Require(inventory->Equip(slot,selected),"personal cannon pose fixture cannot equip its actual distinct pistol");
+    NWorld::EUnitCommandResult switchResult=NWorld::UCR_GENERAL_FAILURE;CObj<NWorld::CCmdSetActiveItem> switchRequest=new NWorld::CCmdSetActiveItem(slot);
+    CObj<NWorld::CCommandExecute> switchItem=NWorld::CreateExecutor(actor,switchRequest,&switchResult);Require(switchItem && switchResult==NWorld::UCR_OK,"personal cannon pose fixture cannot switch its real active hand");
+    switchItem->Run();CompleteCannonPoseQueue(switchItem,fixture);switchItem=nullptr;personal=selected.GetPtr();
+    Require(inventory->GetActive()==personal && actor->animator.IsActiveItem() && !fixture.world->IsAction(),"personal cannon pose fixture did not finish its actual personal weapon switch");
+    const auto personalType=personal->GetWeaponType(),mountedType=mounted->GetWeaponType();const int personalAmmo=personal->GetAmmoQuantity();
+    NWorld::EUnitCommandResult result=NWorld::UCR_GENERAL_FAILURE;CObj<NWorld::CCmdCannon> request=new NWorld::CCmdCannon(cannon);
+    CObj<NWorld::CCommandExecute> entry=NWorld::CreateExecutor(actor,request,&result);
+    Require(entry && result==NWorld::UCR_OK,"personal cannon pose fixture cannot create the real entry preparation queue");
+    entry->Run();CompleteCannonPoseQueue(entry,fixture);entry=nullptr;
+    Require(rpg->GetCannonItem()==mounted && cannon->GetCurrentUnit()==actor && actor->GetState()==NWorld::CUnit::ST_MACHINE_GUN && !actor->animator.IsActiveItem() && !fixture.world->IsAction(),
+        "personal cannon pose fixture did not holster its personal weapon and finish real native entry");
+    if(mode!=1) {
+        while(mounted->GetAmmoQuantity()>0)Require(mounted->Unload(inventory),"personal cannon pose fixture cannot unload its actual cannon ammunition to the native inventory");
+        Require(mounted->CanReload(inventory),"personal cannon pose fixture lacks actual compatible cannon ammunition");
+        CObj<NWorld::CCmdReload> request=new NWorld::CCmdReload;
+        CObj<NWorld::CCommandExecute> reload=NWorld::CreateExecutor(actor,request,&result);
+        Require(reload && result==NWorld::UCR_OK,"personal cannon pose fixture cannot create its actual mounted reload queue");
+        CObj<NWorld::CCommandExecute> actual=FindNativeReload(reload);reload->Run();
+        if(mode==4) {
+            for(int step=0;step<32 && !actual->IsExecuting();++step) {
+                fixture.world->GetTime()->Set(actor->animator.GetTimeLabel1());reload->TimeLabelReached();
+                fixture.world->GetTime()->Set(actor->animator.GetTimeEnd());reload->AnimationFinished();
+            }
+            Require(actual->IsExecuting() && mounted->GetAmmoQuantity()==0,"cannon reload cancellation control missed the native pre-transfer phase");
+            // CExecReload inherits the original no-op Cancel. Dropping its owning
+            // queue releases the skippable action without transferring ammunition.
+            reload->Cancel();Require(mounted->GetAmmoQuantity()==0,"cancelled native reload unexpectedly transferred ammunition");
+        }else CompleteCannonPoseQueue(reload,fixture);
+        actual=nullptr;reload=nullptr;
+        Require(!fixture.world->IsAction() && actor->animator.IsActiveItem() && personal->GetAmmoQuantity()==personalAmmo && (mode==4?mounted->GetAmmoQuantity()==0:mounted->GetAmmoQuantity()>0),
+            "native reload/activation lost its completed mount, transferred personal ammunition or failed the intended reload/cancel outcome");
+    }
+    CObj<NWorld::CExecCannon> exit=new NWorld::CExecCannon(actor,cannon,false);
+    if(mode==5) {
+        const int paidAP=actor->GetAP();CMemoryStream snapshot;SaveNativeCannonGraph(snapshot,fixture,exit,paidAP,0);snapshot.Seek(0);
+        int restoredAP=-1,cost=-1;LoadNativeCannonGraph(snapshot,&fixture,&exit,&restoredAP,&cost);
+        actor=fixture.actor.GetPtr();cannon=fixture.cannon.GetPtr();rpg=actor->GetUnitRPG();inventory=rpg->GetInventory();
+        personal=dynamic_cast<NRPG::CWeaponItem*>(inventory->GetActive());mounted=dynamic_cast<NRPG::CWeaponItem*>(cannon->GetItem());
+        Require(actor->GetAP()==paidAP && restoredAP==paidAP && cost==0 && rpg->GetCannonItem()==mounted && cannon->GetCurrentUnit()==actor && actor->animator.GetCannon()==cannon,
+            "personal cannon pose roundtrip lost its actual mounted graph, AP or weapon identities");
+    }
+    for(int hit=0;hit<(mode==2?1:mode==3?2:0);++hit) {
+        CRay ray;ray.ptOrigin=actor->GetPosition().GetCP();ray.ptDir=CVec3(0,1,0);NRPG::CAttackPortion attack(0,0,0.f,0,0,0);attack.MakeClickOfDeath(ray);
+        Require(rpg->ProcessAttack(fixture.world.GetPtr(),NAI::HL_BODY,&attack,rpg->GetRPGArmor()).nDmg>=0,"cannon pose native damage control failed");
+    }
+    struct State {NDb::EWeaponType type=NDb::WT_DEFAULT;int flags=0,classFlags=0;CDBPtr<NDb::CSkeleton> skeleton;CDBPtr<NDb::CSide> side;};
+    auto read=[&]() {State state;CMemoryStream fields;CStructureNetworkContext refs;refs.include=[](CObjectBase*){return false;};
+        {CStructureSaver writer(fields,CStructureSaver::WRITE,&refs);actor->animator.operator&(writer);}fields.Seek(0);
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(4,&state.flags);reader.Add(5,&state.classFlags);reader.Add(29,&state.type);reader.Add(31,&state.skeleton);reader.Add(40,&state.side);}return state;};
+    const auto before=read();const auto position=actor->GetPosition();const int ap=actor->GetAP(),hp=rpg->GetTotalVP(),ammo=mounted->GetAmmoQuantity();
+    const bool dead=rpg->IsDead(),unconscious=rpg->IsUnconscious(),downed=dead || unconscious;const STime beforeEnd=actor->animator.GetTimeEnd();
+    Require(dead==(mode==3) && unconscious==(mode==2) && (mode==1 || before.type==mountedType),"real mounted reload did not naturally populate its mounted animation type or expected RPG damage result");
+    const auto priorClips=NativeCannonAnimationClips(actor->animator.GetSkeletonAnimator());auto random=GlobalGameRandom();
+    Require(exit->CanDoIt(position)==NWorld::UCR_OK,"cannon pose native queued exit became unavailable");exit->Run();const auto after=read();
+    const auto clips=NativeCannonAnimationClips(actor->animator.GetSkeletonAnimator());
+    const int expectedFlags=NDb::CAnimation::POSE_STAND|NDb::WeaponTypeToAnimFlags(personalType,actor->animator.IsActiveItem(),false);
+    auto* expected=after.skeleton?after.skeleton->GetAnimation(NDb::CAnimation::POSE,expectedFlags,nullptr,after.classFlags,after.side):nullptr;
+    bool personalPose=false;for(auto* clip:clips)if(expected && clip->GetRecordID()==expected->GetRecordID() && std::find(priorClips.begin(),priorClips.end(),clip)==priorClips.end())personalPose=true;
+    auto afterRandom=GlobalGameRandom();
+    std::printf("native cannon personal pose: mode=%d personalType=%d mountedType=%d beforeType=%d afterType=%d beforeFlags=0x%X afterFlags=0x%X expectedFlags=0x%X expectedClip=%d personalPose=%d active=%d dead=%d unconscious=%d AP=%d->%d HP=%d->%d ammo=%d->%d delay=%u\n",mode,int(personalType),int(mountedType),int(before.type),int(after.type),unsigned(before.flags),unsigned(after.flags),unsigned(expectedFlags),expected?expected->GetRecordID():0,int(personalPose),int(actor->animator.IsActiveItem()),int(dead),int(unconscious),ap,actor->GetAP(),hp,rpg->GetTotalVP(),ammo,mounted->GetAmmoQuantity(),unsigned(actor->animator.GetTimeEnd()-beforeEnd));std::fflush(stdout);
+    Require(!rpg->GetCannonItem() && !cannon->IsOccupied() && actor->GetState()!=NWorld::CUnit::ST_MACHINE_GUN && actor->GetAP()==ap && rpg->GetTotalVP()==hp && actor->GetPosition()==position && personal->GetAmmoQuantity()==personalAmmo && mounted->GetAmmoQuantity()==ammo && rpg->IsDead()==dead && rpg->IsUnconscious()==unconscious && random.Get()==afterRandom.Get(),
+        "cannon pose correction changed physical detachment, AP/HP/position, equipment ammunition, consciousness or game RNG");
+    if(downed)Require(after.type==before.type && after.flags==before.flags && actor->animator.GetTimeEnd()==beforeEnd && actor->animator.GetCannon()==cannon,"downed cannon exit changed its mounted animation context");
+    else Require((mode==1 || after.type==personalType) && after.flags==expectedFlags && personalPose && !actor->animator.GetCannon(),"native cannon exit retained the mounted weapon type or selected the wrong personal standing animation");
+    exit->AnimationFinished();exit=nullptr;Require(!fixture.world->IsAction(),"native cannon pose exit leaked its finished world action");
+    if(downed)actor->SyncConscious();
+}
+
 static void CannonExitIncapacitated(const char* databasePath,const char* resourcePath,int mode)
 {
     auto fixture=MakeNativeCannonFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* cannon=fixture.cannon.GetPtr();
@@ -26223,6 +26316,12 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "movement-terminal-finished")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "movement-terminal-failed")) { Require(argc == 4, "terminal movement requires db and res"); MovementTerminalCompletion(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "movement-action-camera")) { Require(argc == 4, "movement camera requires db and res"); MovementActionCamera(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "cannon-personal-pose-reload") && argc==4) { CannonPersonalPose(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "cannon-personal-pose-no-reload") && argc==4) { CannonPersonalPose(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "cannon-personal-pose-unconscious") && argc==4) { CannonPersonalPose(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "cannon-personal-pose-dead") && argc==4) { CannonPersonalPose(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "cannon-personal-pose-cancel") && argc==4) { CannonPersonalPose(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "cannon-personal-pose-restored") && argc==4) { CannonPersonalPose(argv[2],argv[3],5); return true; }
     if (!std::strcmp(mode, "cannon-exit-alive")) { Require(argc==4, "cannon exit requires db and res"); CannonExitIncapacitated(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "cannon-exit-unconscious")) { Require(argc==4, "cannon exit requires db and res"); CannonExitIncapacitated(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "cannon-exit-dead")) { Require(argc==4, "cannon exit requires db and res"); CannonExitIncapacitated(argv[2],argv[3],2); return true; }

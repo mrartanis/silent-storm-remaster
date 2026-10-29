@@ -2496,7 +2496,11 @@ void CExecCannon::Run()
 		pUS->GetUnitRPG()->SetCannonItem(0);
 		// Original Steam @0x7a6a44..0x7a6a76: downed actors must keep their death-animation context.
 		if ( !pUS->GetUnitRPG()->IsUnconscious() && !pUS->GetUnitRPG()->IsDead() )
+		{
+			// Item preparation during a mounted reload can cache the cannon weapon type.
+			pUS->animator.SetWeaponAnimation( pUS->GetUnitRPG()->GetWeaponType() );
 			pUS->animator.LeaveCannon( pUS->GetPosition() );
+		}
 		pOS->SetCurrentUnit(0);
 		pUS->SetState( new CUnitStateNormal( pUS ) );
 	}
