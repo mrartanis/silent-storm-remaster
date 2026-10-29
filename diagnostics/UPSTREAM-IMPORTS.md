@@ -15779,3 +15779,52 @@ and native baseline/definitiveRED/GREEN/final raw logs.
 Source PARTIAL: explicit-template world flags/no-match contract, shared world/
 camera dispatch and non-tactical consumers remain. Ledger166/19/58 =77 unfinished;
 whole goal remains active.
+
+## 2026-10-29 — tolerate absent filtered ambient variants (adaptation for cb954e2e)
+
+Source: [cb954e2e455b632c0174b88b2d051ac74e780ce0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cb954e2e455b632c0174b88b2d051ac74e780ce0).
+
+Before enabling the source command's world-flag selection, adapt the filtered
+CTAmbientLight::GetLight factory's non-null copy contract. Its picker can return
+null for no eligible primary or optional GF2 variant. Both own and original
+factory immediately dereference that result. Return null when the primary is
+absent; retain the primary without an optional alternate when only GF2 is
+absent. Select each at most once, and allocate only after a valid selection.
+Do not change the picker, weights, copied properties, unfiltered overload or
+invent an incompatible fallback. The source caller already skips a null result;
+this is necessary crash protection for our integration, not a literal upstream
+factory hunk or a claim of restoring the original null crash.
+
+Native TDD before production edits: six resource-free cases call the actual
+factory, real record/template types and SRand. RED2/6 BOTH are native access
+violations for missing primary and missing GF2; four controls pass. Linux GDB
+independently stops in the actual filtered factory with RAX0 at both copy
+instructions (+76/+375), confirming the cause. GREEN6/6 BOTH: all18 result rows
+per platform over seeds1/123/90210 confirm exact0/1/2 draws, primary null,
+missing-alternate retention, matched primary/alternate, empty-filter and
+unfiltered behavior. Colors/properties and weights3/7 retained. No resource,
+GPU, authored file or game.db writes; no fake factory implementation.
+
+Original proof: typed Gold filtered factory7ea690/202 -> Steam7d8b20; all
+non-address instructions/control agree, only decoded rel32 callees and two
+independently RTTI-named real-light vtable operands masked. Both copy calls
+link Gold7ea440 -> Steam7d88d0; first32 unmasked copy bytes load selected+10
+without a null guard. Separately decoded empty-picker gates and zero-return
+tails prove null selection (Gold7f48b0/466, Steam7e2f30/430); no whole picker or
+copy-body equivalence claim. Explicitly adapt the original crash contract.
+
+Final Windows ALL_BUILD/Linux Game/helpers+actual serializer, related90/90 BOTH,
+own body16/16 BOTH, fresh Windows network4/4 and local CI305/305. Six new
+resource-free cases participate in the local CI manifest. Exact raw names,
+rows, exits/manifests verified. Only filtered DataFormat.cpp overload changes;
+copy helper/unfiltered overload/rest of file byte-equivalent after newline
+normalization, schema calls and all Main unchanged; CP1251/CRLF retained.
+Two existing builds reused, no per-bug backups or HD/PNG/font/facial changes.
+Actual hosted Actions remains separate from local CI and is not claimed green.
+
+Evidence: ambient-variant-verification.json, ambient-variant-retail-verification.json,
+RED/GREEN/final raw logs and both native GDB traces. Source remains PARTIAL:
+explicit-template command static SRand/world flags/null result, shared world/
+camera dispatch and non-tactical consumers remain. Ledger166/19/58 =77 unfinished;
+whole goal remains active. Earlier independent chapter9 fixture instability is
+still tracked, not declared resolved by this change.

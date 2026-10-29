@@ -6611,6 +6611,45 @@ static void PerkTooltipParameters()
     Require(text && text->GetText() == L"Fallback perk", "perk tooltip lost its name fallback");
 }
 
+
+static void AmbientVariantEmpty(int mode)
+{
+    Require(mode>=0 && mode<=5,"unknown ambient variant case");
+    CObj<NDb::CAmbientLight> primary=new NDb::CAmbientLight,fallback=new NDb::CAmbientLight;
+    CObj<NDb::CTAmbientLight> pool=new NDb::CTAmbientLight,alternate=new NDb::CTAmbientLight;
+    for(int i=0;i<2;++i){auto* p=i?fallback.GetPtr():primary.GetPtr();const float k=0.1f*(i+1);
+        p->vAmbientColor=CVec3(k,k+0.01f,k+0.02f);p->vGroundAmbientColor=CVec3(k+0.03f,k+0.04f,k+0.05f);
+        p->vLightColor=CVec3(k+0.06f,k+0.07f,k+0.08f);p->vGlossColor=CVec3(k,k,k);p->vFogColor=CVec3(k,k,k);
+        p->vVapourColor=CVec3(k,k,k);p->vShadowColor=CVec3(k,k,k);p->vBackColor=CVec3(k,k,k);
+        p->fPitch=30+i;p->fYaw=45+i;p->fFogDistance=100+i;p->fVapourHeight=2+i;p->fVapourDensity=k;
+        p->fVapourNoiseParam=1+i;p->fVapourSpeed=2+i;p->fVapourSwitchTime=3+i;
+        p->fFogStartDistance=10+i;p->fVapourStartHeight=1+i;p->fBlurStrength=k;p->bInGameUse=true;p->pSky=0;p->pGF2Light=0;
+        NDb::SVariantFlags flags;flags.flags={int(NWorld::TOD_DAY)};p->flags.push_back(flags);
+    }
+    pool->variants.push_back(primary.GetPtr());pool->roulette.AddSector(3);
+    alternate->variants.push_back(fallback.GetPtr());alternate->roulette.AddSector(7);
+    if(mode!=2)primary->pGF2Light=alternate.GetPtr();
+    if(mode==0 || mode>=4)primary->flags[0].flags={int(NWorld::TOD_NIGHT)};
+    if(mode==1 || mode>=4)fallback->flags[0].flags={int(NWorld::TOD_NIGHT)};
+    const vector<int> params=mode==4?vector<int>():vector<int>{int(NWorld::TOD_DAY)};
+    auto copied=[](NDb::CAmbientLightReal* actual,NDb::CAmbientLight* expected){
+        Require(actual && fabs2(actual->vAmbientColor-expected->vAmbientColor)<1e-10f && fabs2(actual->vGroundAmbientColor-expected->vGroundAmbientColor)<1e-10f && fabs2(actual->vLightColor-expected->vLightColor)<1e-10f,"ambient factory lost primary/fallback colors");
+        Require(actual->fFogDistance==expected->fFogDistance && actual->fFogStartDistance==expected->fFogStartDistance && actual->fPitch==expected->fPitch && actual->fYaw==expected->fYaw && actual->fVapourDensity==expected->fVapourDensity && actual->fBlurStrength==expected->fBlurStrength && actual->bInGameUse==expected->bInGameUse,"ambient factory lost copied light properties");};
+    for(int seed: {1,123,90210}){
+        SRand random{SRandomSeed(seed)},reference{SRandomSeed(seed)};const int draws=mode==0?0:mode<=2?1:2;
+        for(int i=0;i<draws;++i)reference.GetFloat(0,1);
+        std::printf("native ambient variant mode=%d seed=%d entering draws=%d\n",mode,seed,draws);std::fflush(stdout);
+        CPtr<NDb::CAmbientLightReal> result=mode==5?pool->GetLight(&random):pool->GetLight(&random,params);
+        std::printf("native ambient variant mode=%d seed=%d result=%d fallback=%d state=%d expected=%d\n",mode,seed,int(IsValid(result)),int(IsValid(result) && IsValid(result->pGF2Light)),random.seed.nSeed,reference.seed.nSeed);std::fflush(stdout);
+        Require(random.seed.nSeed==reference.seed.nSeed,"empty ambient selection rerolled or consumed unexpected random draws");
+        if(mode==0)Require(!IsValid(result),"no matching ambient variant did not return null");
+        else {copied(result,primary);const bool hasFallback=mode>=3;
+            Require(IsValid(result->pGF2Light)==hasFallback,"missing optional ambient fallback did not preserve only the primary light");
+            if(hasFallback)copied(result->pGF2Light,fallback);}
+    }
+    Require(pool->variants.size()==1 && alternate->variants.size()==1 && pool->roulette.GetSectorValue(0)==3 && alternate->roulette.GetSectorValue(0)==7,"ambient selection changed authored variant weights");
+}
+
 static void MechanicalStepSound()
 {
     CObj<NDb::CRPGArmor> armor = new NDb::CRPGArmor;
@@ -27972,6 +28011,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "fade-camera-filter")) { CinematicCameraCommands(2); return true; }
     if (!std::strcmp(mode, "completed-zone-recommendation")) { CompletedZoneRecommendation(); return true; }
     if (!std::strcmp(mode, "perk-tooltip-parameters")) { PerkTooltipParameters(); return true; }
+    if (!std::strcmp(mode, "ambient-variant-empty")) { Require(argc == 3, "ambient variant requires mode"); AmbientVariantEmpty(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "mechanical-step-sound")) { MechanicalStepSound(); return true; }
     if (!std::strcmp(mode, "nearest-invalid")) { InvalidNearestPosition(); return true; }
     if (!std::strcmp(mode, "lua-empty-default")) { EmptyLuaDefault(); return true; }

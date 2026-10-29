@@ -155,15 +155,21 @@ CAmbientLightReal* CTAmbientLight::GetLight( SRand *pRand ) const
 	return pRes;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-CAmbientLightReal* CTAmbientLight::GetLight( SRand *pRand, const vector<int> &params ) const 
-{ 
-	CAmbientLightReal *pRes = new CAmbientLightReal;
+CAmbientLightReal* CTAmbientLight::GetLight( SRand *pRand, const vector<int> &params ) const
+{
 	CAmbientLight *p = GetRnd( pRand, params );
+	if ( !IsValid( p ) )
+		return 0;
+	CAmbientLightReal *pRes = new CAmbientLightReal;
 	CopyAmbientLight( pRes, p );
 	if ( p->pGF2Light )
 	{
-		pRes->pGF2Light = new CAmbientLightReal;
-		CopyAmbientLight( pRes->pGF2Light, p->pGF2Light->GetRnd( pRand, params ) );
+		CAmbientLight *pGF2Light = p->pGF2Light->GetRnd( pRand, params );
+		if ( IsValid( pGF2Light ) )
+		{
+			pRes->pGF2Light = new CAmbientLightReal;
+			CopyAmbientLight( pRes->pGF2Light, pGF2Light );
+		}
 	}
 	return pRes;
 }
