@@ -2404,19 +2404,14 @@ CExecUsePassage::CExecUsePassage( CUnitServer *_pUS, CCmdUsePassage *_pCmd ):
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 EUnitCommandResult CExecUsePassage::CanDoIt( const NAI::SUnitPosition &from, bool bIgnoreTarget ) const
 {
-	// @0x3a22b0 -- retail grew real validity gates + a reach test; the Jan03/dev version was a bare
-	// `return UCR_OK`. `from` and `bIgnoreTarget` are accepted but UNUSED (faithful: the disasm reads
-	// neither).
+	// Original Steam @0x7a2d80 asks the world about the entire passage zone.
+	// Keep our actor's party and enum/wire values, rather than hardcoding player zero.
 	if ( !IsValid( pUS ) )
 		return UCR_GENERAL_FAILURE;
 	if ( !IsValid( pCmd->pPassageObject ) )
 		return UCR_GENERAL_FAILURE;
-	// Reach test: retail reads the passage zone id (IPassageObject vtbl+0x14 == GetPassageZoneID) and
-	// asks a unit-side component (pUS+0x2c vtbl+0x1e8) "is the unit in that passage zone", returning
-	// UCR_OK when near else UCR_NOT_ALL_UNITS_NEAR_PASSAGE. That component virtual is opaque/unnameable
-	// in this tree; CanPass is the in-tree equivalent reach predicate -- the same gate
-	// CWorld::UsePassageObject applies before actually using the passage (wMain.cpp:2325).
-	return pCmd->pPassageObject->CanPass( pUS ) ? UCR_OK : UCR_NOT_ALL_UNITS_NEAR_PASSAGE;
+	return pUS->GetWorld()->CanUsePassageZone( pUS, pCmd->pPassageObject->GetPassageZoneID() ) ?
+		UCR_OK : UCR_NOT_ALL_UNITS_NEAR_PASSAGE;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CExecUsePassage::GetStartAP() const

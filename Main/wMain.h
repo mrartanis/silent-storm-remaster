@@ -690,6 +690,9 @@ public:
 	// retail @0x376f40 fills IWorld slot 59.
 	virtual NRPG::CGlobalGame *GetGlobalGame() const { return pGlobalGame; }
 	bool UsePassageObject( CUnitServer *pUS, int nPassageZoneID, bool bForced = false );
+	// Share preview and execution gates while retaining the acting unit's owning party.
+	bool CanUsePassageZone( CUnitServer *pUS, int nPassageZoneID, bool bForced = false,
+		unordered_map< CPtr<CUnitServer>, CPtr<IPassageObject>, SPtrHash > *pPassagesForUnits = 0 );
 	void GetScenarioPlayerUnits( int nScenarioPlayer, vector< CPtr<CUnitServer> > *pUnits );
 	void GetScenarioPlayerUnits( int nScenarioPlayer, vector< CPtr<NRPG::IUnitMission> > *pUnits );
 	CPlayer *GetPlayerByID( int nScenarioPlayerID, int nIndex = 0 );  // retail @0x365530: the nIndex-th player with that scenario id

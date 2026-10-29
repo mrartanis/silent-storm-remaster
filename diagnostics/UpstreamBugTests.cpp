@@ -108,6 +108,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include <chrono>
 #include "../Main/aiLocker.h"
 #include "../Main/wUnitServer.h"
+#include "../Main/NetworkMatch.h"
 #include "../Main/RPGItem.h"
 #include "../Main/RPGItemSet.h"
 #include "../Main/RPGCritical.h"
@@ -7747,6 +7748,56 @@ public:
     int GetPassageZoneID() const override { return 0; }
     int GetPassageObjectID() const override { return 123; }
 };
+
+// Only the per-unit reach provider is controlled: the actual world party,
+// native command preview and real transition gate remain production code.
+class PartyPassageProbe: public NWorld::CObjectServerBase, public NWorld::IPassageObject
+{
+    OBJECT_NOCOPY_METHODS(PartyPassageProbe);
+public:
+    std::set<NWorld::CUnitServer*> eligible;
+    int checks=0,id=1001;
+    bool IsBroken() const override { return false; }
+    bool CanPass(NWorld::CUnitServer* unit) override { ++checks;return eligible.count(unit)!=0; }
+    bool UsePassageObject(NWorld::CUnitServer*) override { return false; }
+    void GetObjectApproaches(vector<NAI::SPathPlace>*) override {}
+    int GetAPRadius() const override { return 4; }
+    int GetPassageZoneID() const override { return 0; }
+    int GetPassageObjectID() const override { return id; }
+};
+
+static void PassagePreview(const char* databasePath,const char* resourcePath,int mode)
+{
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    auto match=S2Net::CreateNetworkMatch(S2Net::NetworkMatchPreset());auto* world=match.world.GetPtr();const int side=mode==8?1:0;
+    auto* player=match.players[side].GetPtr();vector<NWorld::CUnitServer*> party;for(auto unit:player->GetPlayerUnits())party.push_back(unit.GetPtr());Require(party.size()==6 && player->GetScenarioPlayerID()==side,"passage preview lacks its actual native six-unit owning party");
+    auto* actor=party[0];auto* partner=party[1];Require(actor->CanFight() && partner->CanFight(),"passage preview has no real conscious actor and companion");
+    CObj<NDb::CDBScenarioZone> zoneRecord=new NDb::CDBScenarioZone;CObj<NScenario::CScenarioZone> zone=new NScenario::CScenarioZone(zoneRecord,1);match.game->pCurrentZone=mode==9?nullptr:zone.GetPtr();
+    CObj<PartyPassageProbe> clicked=new PartyPassageProbe,alternate=new PartyPassageProbe;alternate->id=1002;
+    for(auto* unit:party)clicked->eligible.insert(unit);
+    if(mode==0 || mode==5 || mode==6 || mode==7)clicked->eligible.erase(partner);
+    if(mode==2)clicked->eligible.erase(actor);
+    if(mode==3){clicked->eligible.erase(partner);alternate->eligible.insert(partner);}
+    if(mode==4){clicked->eligible.clear();for(auto* unit:party)alternate->eligible.insert(unit);}
+    if(mode==5){partner->MakeUnconscious(VNULL3,true,false);Require(partner->IsUnconscious() && !partner->GetUnitRPG()->IsDead(),"passage preview could not incapacitate its actual companion");}
+    if(mode==6){partner->GetUnitRPG()->Kill();partner->SetState(new NWorld::CUnitStateDeath(partner));Require(partner->IsDead() && partner->GetUnitRPG()->IsDead(),"passage preview could not enter its native companion death state");}
+    auto objects=world->GetObjectsForHarness();if(mode!=10)objects.push_back(clicked.GetPtr());if(mode==3 || mode==4)objects.push_back(alternate.GetPtr());
+    CStructureNetworkContext refs;auto native=BorrowedObjectFields(world,&refs);for(auto* object:{clicked.GetPtr(),alternate.GetPtr()}){const int id=refs.nextID++;refs.ids[object]=id;refs.refs[id]=object;}
+    CMemoryStream replacement;{CStructureSaver writer(replacement,CStructureSaver::WRITE,&refs);writer.Add(20,&objects);}replacement.Seek(0);{CStructureSaver reader(replacement,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(world)->operator&(reader);}
+    Require(std::count(world->GetObjectsForHarness().begin(),world->GetObjectsForHarness().end(),clicked.GetPtr())==int(mode!=10),"passage preview did not arrange its actual world object list");
+    auto drain=[&](){int count=0;vector<CObj<CObjectBase>> events;world->DrainNetworkEvents(&events);for(auto event:events)if(dynamic_cast<NWorld::CUICmdContinueChapter*>(event.GetPtr()))++count;return count;};drain();
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);vector<std::pair<int,int>> stats;vector<NAI::SUnitPosition> positions;for(auto unit:units){stats.push_back({unit->GetAP(),unit->GetUnitRPG()->GetTotalVP()});positions.push_back(unit->GetPosition());}
+    const bool action=world->IsAction();auto random=GlobalGameRandom();const bool deploy=player->GetGlobalPlayer()->deployData.bPassage;const int deployZone=player->GetGlobalPlayer()->deployData.nPassageZoneID;const auto deployCount=player->GetGlobalPlayer()->deployData.unitsDeployData.size();
+    CObj<NWorld::CCmdUsePassage> command=new NWorld::CCmdUsePassage(mode==11?nullptr:clicked.GetPtr());CObj<NWorld::CExecUsePassage> executor=new NWorld::CExecUsePassage(actor,command);
+    const auto result=executor->CanDoIt(actor->GetPosition(),false),ignored=executor->CanDoIt(actor->GetPosition(),true);const int previewTransitions=drain();
+    auto afterRandom=GlobalGameRandom();bool unchanged=action==world->IsAction() && random.Get()==afterRandom.Get() && deploy==player->GetGlobalPlayer()->deployData.bPassage && deployZone==player->GetGlobalPlayer()->deployData.nPassageZoneID && deployCount==player->GetGlobalPlayer()->deployData.unitsDeployData.size();int index=0;for(auto unit:units){unchanged&=stats[index].first==unit->GetAP() && stats[index].second==unit->GetUnitRPG()->GetTotalVP() && positions[index]==unit->GetPosition();++index;}
+    const bool expected=mode==1 || mode==3 || mode==4 || mode==5 || mode==6 || mode==8;const auto expectedResult=mode==11?NWorld::UCR_GENERAL_FAILURE:expected?NWorld::UCR_OK:NWorld::UCR_NOT_ALL_UNITS_NEAR_PASSAGE;
+    int actual=-1,transitions=0,forced=-1;if(mode!=11){actual=int(world->UsePassageObject(actor,0));transitions=drain();Require(actual==int(expected) && transitions==int(expected),"actual native passage transition did not enforce the existing owning-party rule");}
+    if(mode==7){const int checks=clicked->checks+alternate->checks;forced=int(world->UsePassageObject(actor,0,true));Require(forced==1 && drain()==1 && checks==clicked->checks+alternate->checks,"scripted forced passage lost its existing no-proximity bypass");}
+    std::printf("native passage preview: mode=%d owner=%d party=%u units=%u result=%d ignored=%d expected=%d actual=%d transitions=%d forced=%d previewTransitions=%d unchanged=%d checks=%d\n",mode,side,unsigned(party.size()),unsigned(stats.size()),int(result),int(ignored),int(expectedResult),actual,transitions,forced,previewTransitions,int(unchanged),clicked->checks+alternate->checks);std::fflush(stdout);
+    Require(unchanged && previewTransitions==0,"passage preview changed actual unit AP/HP/position, deployment, actions, RNG or queued a transition");
+    Require(result==expectedResult && ignored==expectedResult,"passage command preview disagreed with the real owning-party transition gate");
+}
 
 static void ScriptedPassageTransition(const char* databasePath,const char* resourcePath, bool emptyPassage = false)
 {
@@ -26694,6 +26745,18 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "scripted-unconscious-enemy") && argc == 4) { ScriptedEnemyDeath(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "scripted-enemy-death") && argc == 4) { ScriptedEnemyDeath(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "empty-passage-exit") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "passage-preview-party-far") && argc==4) { PassagePreview(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "passage-preview-party-near") && argc==4) { PassagePreview(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "passage-preview-actor-far") && argc==4) { PassagePreview(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "passage-preview-split-exits") && argc==4) { PassagePreview(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "passage-preview-alternate-exit") && argc==4) { PassagePreview(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "passage-preview-unconscious") && argc==4) { PassagePreview(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "passage-preview-dead") && argc==4) { PassagePreview(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "passage-preview-forced") && argc==4) { PassagePreview(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "passage-preview-other-owner") && argc==4) { PassagePreview(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "passage-preview-no-zone") && argc==4) { PassagePreview(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "passage-preview-unregistered") && argc==4) { PassagePreview(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "passage-preview-no-target") && argc==4) { PassagePreview(argv[2],argv[3],11); return true; }
     if (!std::strcmp(mode, "scripted-passage-transition") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "flying-attack-queue") && argc == 4) { FlyingAttackQueue(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "connected-alias-moves")) { ConnectedAliasMoves(); return true; }

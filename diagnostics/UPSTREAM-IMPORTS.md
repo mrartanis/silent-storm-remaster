@@ -14437,3 +14437,71 @@ graph is retained, with provenance beside it. Evidence: animation-reseat
 original mapping, baseline inventories, setup archives, final RED16/GREEN,
 fresh-network/source supplements, exact native verification JSON and builds.
 Whole goal, including final actual GitHub Actions repair/check, stays active.
+
+### Owning-party passage preview matches execution (284125ed)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/284125edc4087ab15196903095eaf7d8551b5e7c
+
+CExecUsePassage preview checks only the actor against the clicked exit, while
+the actual world requires every conscious/nondead member of that actor's
+party to reach SOME registered exit in the same zone. Extract the existing
+execution gate into CanUsePassageZone and use it for both. Retain the exact
+existing actor/player selection, eligibility, nonempty/current-zone guards,
+forced scripted-exit bypass and per-unit exit mapping. Unlike upstream,
+do not hardcode player0 or replace our eligibility test with CanFight. This
+is the own multiplayer/PK integration adaptation; no distance/AP rule changes.
+No new virtual slots, serialization fields or command-result wire numbers.
+
+Native original: named Gold CExecUsePassage::CanDoIt796d10/110 matches the
+ENTIRE actual Steam7a2d80 body uniquely, with ZERO relocation masks. Gold PDB
+identifies unit pWorld+2c. The method obtains the passage zone through virtual14
+then calls world virtual1e8 with zone,false,null. Independently locate both
+actual CWorld vtables via named Gold symbols and matching RTTI/base offset:
+Gold8bc74c slot1e8->named CanUsePassageZone75cb30, Steam8cbc8c slot1e8->768280.
+The world863-byte body has not been fully matched/audited; do not claim it.
+Cached upstream7a22b0 is not this actual Steam method. Keep own enum constants.
+
+Twelve tests use actual native two six-unit LAN parties, real
+CExecUsePassage::CanDoIt and actual CWorld::UsePassageObject. ONLY the per-unit
+IPassageObject reach provider is controlled, to isolate aggregation from
+geometry/AP pathfinding. Register these providers through existing world
+object SAVEtag20; use a controlled nonnull scenario-zone context. The exact
+party and state machines remain native. Cases cover one distant companion,
+all near, distant actor, distributed/alternate exits, real unconscious/dead
+companion states, forced bypass, actual owner1 with unrelated owner0 far,
+absent current zone, unregistered exit and null target. Actual native authored
+maps810/4517 inventory probes found no passages, so no authored-proximity/
+radius/campaign UI/full subzone-load/rendered-cursor claim is made.
+
+Initial setup used the client's presentation queue to observe authoritative
+network events. This hid successful transition events and failed controls;
+archive that run and correct the fixture to DrainNetworkEvents BEFORE final
+RED, with Main unchanged. Final compiled RED5/12 on BOTH platforms: actor-only
+preview wrongly accepts a distant companion (ordinary and forced-control
+case), missing zone and unregistered exit, and wrongly rejects a valid
+alternate exit. The other7 controls pass. The unchanged actual execution gate
+independently establishes each expected result, including its real chapter
+transition event. GREEN changes ONLY those preview results (and expected
+reach-query counts). All actual execution/transition/forced outputs agree
+with the pre-fix run; query AP/HP/positions for all12units, deployment state,
+action/RNG and no premature transition are retained. Both bIgnoreTarget values
+give the same original result. All12 semantic rows match across platforms.
+
+Windows37/37 related tests41.65s and Linux35/35 38.29s cover every saved baseline
+case plus12 new, verified against nonempty raw CTest commands. Includes prior
+scripted/empty passage, deployment and all16 animation-interruption controls.
+Windows ALL_BUILD and Linux Game/helpers/real NetworkSerializer build succeed.
+After ALL_BUILD, actual fresh network serializer/match/partial-movement/stop-
+resume4/4 pass23.04s. No fullCI/hosted Actions success claim.
+
+Verifier reconstructs the ENTIRE previous execution gate from the new helper
+and checks every post-gate transition statement remains byte-identical;
+only optional output-map writes are adapted. Actual per-unit assignment,
+iteration, forced bypass, positive-zone loading/deployment suffix and all
+other source code are retained. All three source files accounted with own
+party/filter adaptation. Mark284 imported; ledger286 now157imported/18partial/
+68pending=86unfinished sources. No balance formulas, DB, save/wire, body/face
+renderer, fonts or HD changes. Two shared builds reused; no source/build
+backup copies. Evidence: passage-preview inventory/setup archives/final RED/
+GREEN/fresh network/build logs, original oracle and verification JSON. Whole
+goal remains active, including final actual GitHub Actions repair/check.

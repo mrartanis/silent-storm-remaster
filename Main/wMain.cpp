@@ -3311,7 +3311,8 @@ CUnitServer *CWorld::GetUnitServerByPersID( int nPersID ) const
 	return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-bool CWorld::UsePassageObject( CUnitServer *pUS, int nPassageZoneID, bool bForced )
+bool CWorld::CanUsePassageZone( CUnitServer *pUS, int nPassageZoneID, bool bForced,
+	unordered_map< CPtr<CUnitServer>, CPtr<IPassageObject>, SPtrHash > *pPassagesForUnits )
 {
 	ASSERT( IsValid( pUS ) );
 	if ( !IsValid( pUS ) )
@@ -3331,7 +3332,6 @@ bool CWorld::UsePassageObject( CUnitServer *pUS, int nPassageZoneID, bool bForce
 		return false;
 	// Scripted cutscene exits bypass proximity; ordinary party exits still require it.
 	bool bCanPass = true;
-	unordered_map< CPtr<CUnitServer>, CPtr<IPassageObject>, SPtrHash > passagesForUnits;
 	for ( list< CObj<CUnitServer> >::iterator i = units.begin(); i != units.end(); ++i )
 	{
 		if ( !(*i)->IsUnconscious() && 
@@ -3342,7 +3342,8 @@ bool CWorld::UsePassageObject( CUnitServer *pUS, int nPassageZoneID, bool bForce
 				if ( bForced || (*j)->CanPass( *i ) )
 				{
 					bCanUnitPass = true;
-					passagesForUnits[ (*i).GetPtr() ] = *j;
+					if ( pPassagesForUnits )
+						(*pPassagesForUnits)[ (*i).GetPtr() ] = *j;
 					break;
 				}	
 			//
@@ -3350,8 +3351,16 @@ bool CWorld::UsePassageObject( CUnitServer *pUS, int nPassageZoneID, bool bForce
 		}
 	}
 	//
-	if ( !bCanPass )
+	return bCanPass;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CWorld::UsePassageObject( CUnitServer *pUS, int nPassageZoneID, bool bForced )
+{
+	unordered_map< CPtr<CUnitServer>, CPtr<IPassageObject>, SPtrHash > passagesForUnits;
+	if ( !CanUsePassageZone( pUS, nPassageZoneID, bForced, &passagesForUnits ) )
 		return false;
+	CPtr<NScenario::CScenarioZone> pZone = GetGlobalGame()->pCurrentZone;
+	CPtr<NRPG::CGlobalPlayer> pGlobalPlayer = pUS->GetPlayer()->GetGlobalPlayer();
 	//
 	if ( nPassageZoneID <= 0 )
 	{
