@@ -614,7 +614,7 @@ void CUnitStateHealer::OnStateStarted()
 	{
 		case NDb::FAE_NORMAL:
 			if ( pHealer->CanHealWounds( pPatient->GetRPGUnit(), pItem ) )
-				fKitCapacity = 100; // Wound planning and authored capacity are imported together separately.
+				fKitCapacity = pFirstAid->nTotalHealVP;
 			else
 			{
 				healCriticalInfo = pPatient->TryHealCritical( pHealer->GetFirstAidDC(pItem), bStopBleeding );

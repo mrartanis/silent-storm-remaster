@@ -23769,7 +23769,7 @@ static void WoundCapacityPlan(const char* databasePath,const char* resourcePath)
     Require(correct,"wound planner ignored remaining kit capacity or changed the original pre-clamp AP quote");
 }
 
-static void HealingMedalAwards(const char* databasePath,const char* resourcePath,int mode,bool critical=false,bool woundBudget=false,bool woundFinish=false)
+static void HealingMedalAwards(const char* databasePath,const char* resourcePath,int mode,bool critical=false,bool woundBudget=false,bool woundFinish=false,int authoredKit=0)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
     list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
@@ -23799,7 +23799,7 @@ static void HealingMedalAwards(const char* databasePath,const char* resourcePath
         Require(placed,"wound award fixture has no reachable native patient position");
     }
     NDb::CRPGFirstAid* record=nullptr;CDBIterator<NDb::CRPGFirstAid> kits(*NDatabase::GetTable<NDb::CRPGFirstAid>());
-    while(kits.MoveNext()){auto* candidate=kits.Get();if(IsValid(candidate->pItem) && candidate->effect==(critical?NDb::FAE_REMOVE_BLEEDING:NDb::FAE_NORMAL) && candidate->nQuantity>0 && (critical || candidate->nSkillModifier>=0)) {record=candidate;break;}}
+    while(kits.MoveNext()){auto* candidate=kits.Get();if(IsValid(candidate->pItem) && candidate->effect==(critical?NDb::FAE_REMOVE_BLEEDING:NDb::FAE_NORMAL) && candidate->nQuantity>0 && (critical || candidate->nSkillModifier>=0) && (!authoredKit || candidate->GetRecordID()==authoredKit)) {record=candidate;break;}}
     Require(record,"wound award fixture has no authored ordinary first-aid kit");
     CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);auto* healer=actor->GetUnitRPG()->GetRPGUnit();auto* target=patient->GetUnitRPG();auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> previous;
     if(inventory->Get(NDb::SLOT_1))previous=inventory->TakeOff(NDb::SLOT_1);
@@ -23868,6 +23868,17 @@ static void HealingMedalAwards(const char* databasePath,const char* resourcePath
             const int finishedAP=actor->GetAP();actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);
             Require(actor->GetAP()==finishedAP && kit->GetIncQuantity()==quantity-1 && !target->HasCritical(NDb::C_PATIENT),"completed wound treatment was repeated at own-turn finish");
         }
+    }
+    if(authoredKit) {
+        Require(mode==8 && int(healer->Skills(NDb::ST_MEDICINE))==17 && record->nSkillModifier==0,"authored capacity fixture needs its real pending Medicine17 dressing");
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(actor,&refs);CObj<NWorld::CUnitState> active;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(10,&active);}
+        Require(dynamic_cast<NWorld::CUnitStateHealer*>(active.GetPtr()),"authored capacity treatment did not retain its native pending healer state");
+        CStructureNetworkContext stateRefs;auto saved=BorrowedObjectFields(active,&stateRefs);float remaining=-999;
+        {CStructureSaver reader(saved,CStructureSaver::READ,&stateRefs);reader.Add(4,&remaining);}
+        const float expected=record->nTotalHealVP-effective;
+        std::printf("native authored wound capacity: kit=%d total=%d effective=%d remaining=%g expected=%g AP=%d->%d dose=%d->%d marker=%d\n",record->GetRecordID(),record->nTotalHealVP,effective,remaining,expected,ap,actor->GetAP(),quantity,kit->GetIncQuantity(),int(target->HasCritical(NDb::C_PATIENT)));std::fflush(stdout);
+        Require(remaining==expected && kit->GetIncQuantity()==quantity && target->HasCritical(NDb::C_PATIENT),"normal wound treatment replaced its authored kit capacity with a fixed budget");
     }
     // Native cancellation finishes a still-active legacy healer state and spends its dose.
     actor->SetState(new NWorld::CUnitStateNormal(actor));
@@ -25833,6 +25844,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "critical-heal-award-both-actors") && argc==4) { HealingMedalAwards(argv[2],argv[3],7,true); return true; }
     if (!std::strcmp(mode, "critical-heal-award-zero-dc") && argc==4) { HealingMedalAwards(argv[2],argv[3],8,true); return true; }
     if (!std::strcmp(mode, "critical-heal-award-other-critical") && argc==4) { HealingMedalAwards(argv[2],argv[3],9,true); return true; }
+    if (!std::strcmp(mode, "authored-capacity-small") && argc==4) { HealingMedalAwards(argv[2],argv[3],8,false,false,false,1); return true; }
+    if (!std::strcmp(mode, "authored-capacity-large") && argc==4) { HealingMedalAwards(argv[2],argv[3],8,false,false,false,27); return true; }
     if (!std::strcmp(mode, "wound-capacity-plan") && argc==4) { WoundCapacityPlan(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "wound-complete-one") && argc==4) { HealingMedalAwards(argv[2],argv[3],0,false,false,true); return true; }
     if (!std::strcmp(mode, "wound-complete-several") && argc==4) { HealingMedalAwards(argv[2],argv[3],1,false,false,true); return true; }

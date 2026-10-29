@@ -12595,3 +12595,40 @@ No fresh hosted/fullCI claim. Source531f remains PARTIAL: replace the
 temporary NORMAL state budget100 with authored capacity under separate
 native action TDD, then remaining medical perks/repair/acknowledgments.
 Ledger149 imported/19partial/70pending=89 unfinished sources; goal active.
+
+
+## 2026-10-29 — allocate normal treatment from authored kit capacity (531f3b7d)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9), independent original normal-kit allocation.
+Replace the temporary fixed100 wound budget with the actual first-aid
+record nTotalHealVP. The missing wound deficit, capacity clamp and completion
+recheck were each imported under separate native TDD before enabling this.
+No database values, AP/healing formulas, animation, face, PK or HD changes.
+
+Original PDB names nTotalHealVP at CRPGFirstAid offset2c. Steam NORMAL
+table7ca49c targets7ca0fa, tests native wound allocation at7ca10d->6bb3d0,
+then FILD record+2c and stores float state capacity+18. The unique allocation
+block maps to Gold7bcd91; Gold store7bd05b uses EDI, Steam7ca3dc uses ESI.
+Both load the authored value; neither substitutes100. Named layout and
+actual branch/store bytes verified by audit-authored-capacity-retail.py.
+
+Native TDD: actual hero54 Medicine17, real friendly patient103 wounded73HP,
+public CExecHeal.Run/AnimationFinished, explicitly selected stock kits1/27.
+Read the actual pending healer state through native unit save field10 and
+its existing capacity field4 without modifying state or AP. RED1/2 on each
+platform (Windows2.43s/Linux2.18s): kit27 authored1000/12HP dressing leaves
+88 instead of988. Kit1 authored100/15HP dressing correctly leaves85.
+After the one-line fix, remaining capacity is988/85 respectively. Actual
+AP53->0, raw patient health, dressing and pending dose/marker are unchanged;
+native cancellation then consumes exactly one dose and clears the marker,
+with the same effective-healing medal result. This reads saved state fields;
+it does not claim a full-world save/menu roundtrip or rendered animation.
+
+GREEN35/35 Windows38.52s/Linux38.37s, including both new stock-kit actions
+and the prior33 wound/timed-critical regressions. Raw logs, exact registered
+sets, RED reason, capacity/HP/AP/dose values, exits and exactly one changed
+production line verified. Windows ALL_BUILD and Linux Game pass. Shared
+builds reused, HD generation disabled, no per-bug copies or fresh fullCI/
+hosted Actions claim. Source531f remains PARTIAL: DC/healing perks, repair,
+acknowledgments and relevant own-animation adaptation remain to audit/import.
+Ledger149 imported/19partial/70pending=89 unfinished sources; goal active.
