@@ -15488,3 +15488,57 @@ verifiers and pure transform retain their stated reusable scopes.
 
 Mark source IMPORTED with adaptations. Ledger286:165 imported/18 partial/
 60 pending =78 unfinished sources. Whole goal/final hosted Actions remain.
+
+## 2026-10-29 — contextual menus inherit music pools (part of 1c67b8ab)
+
+Source: [1c67b8ab988769072e8b287a615751e950bde6db](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1c67b8ab988769072e8b287a615751e950bde6db).
+
+Real menu commands discarded their source mission, so pause/options screens
+created pool-less scenes. Our prior stream-continuity fix preserves a playing
+file; it does not supply a menu's next ambient/combat selection. Forward the
+source IMission from tactical/chapter/global/main menus and across all five
+options tabs. The existing serialized context fields are now populated. Clone
+only both CTMusic pools into a fresh UI-owned scene using its own counter;
+retain explicit shared-scene constructor behavior and the native audio backend.
+
+TDD on unchanged fc01d44b: Windows/Linux baseline33/33; definitive compiled
+RED4/5 BOTH. Actual main-menu, tactical, chapter and global interfaces traverse
+27 real pause/options pages:108 pool/context/music-selection predicates fail.
+The six-page no-origin control passes. Source positive control plays an actual
+decoded combat WAV through the native stream backend. GREEN5/5 BOTH verifies
+all33 pages, both registered DB pools, actual ambient/combat music objects,
+fresh playback state/clock/ownership, unchanged source pools/music object/
+deadlines/type/RNG state, and return to the original interface stack. PCM files
+replace only database payloads in isolated test processes; no mocked menus or
+music pricing/results. This is selection/stream-start evidence, not a claim
+about audible output quality or a complete timed playlist cycle.
+
+Initial test setup incorrectly required a true ProcessEvent return while
+options intentionally queues commands and returns false; corrected to inspect
+the actual command queue. LinuxGame has its own registration list, also added.
+Those setup failures/no-tests runs were archived separately, before definitive
+RED; neither production nor expected music predicates changed to manufacture RED.
+
+Independent original proof: typed Gold clone6fc590 maps to actual Steam706320,
+with its complete113-byte post-cast success/fallback branches and both decoded
+constructor calls to7060a0. The46-byte owned-UI branch maps7145ba->71e773;
+serialized tags21/22/23 independently account for Steam UI field offsets
+124/128/130 vs Gold108/10c/114. The67-byte fresh-clock/pools/music/type/RNG
+constructor block is mapped. RNG target has a unique unchanged17-byte seed
+calculation tail; Steam's entry protection trampoline is explicitly recorded,
+not claimed byte-identical to Gold's GetTickCount call prologue. Gold typed
+menu/options initialization confirms passing the source scene as the third UI
+argument; no full cross-build menu-body identity or ABI transplant is claimed.
+
+Final Windows ALL_BUILD/Linux Game/helpers and actual serializer built.
+Related native audio/menu/options40/40 BOTH, own body animation16/16 BOTH,
+fresh Windows serializer/match/partial/stop4/4 and local CI299/299 pass; exact
+raw manifests/exits verified. Existing saver-call lists unchanged in all12
+changed Main files; CP1251/CRLF preserved. Existing two builds reused; no HD/
+PNG/font/facial/renderer changes or per-bug build/source backups.
+
+Evidence: menu-pools-verification.json, menu-pools-retail-verification.json,
+typed PDB records, baseline/definitiveRED/GREEN/final raw logs in the laboratory.
+The independent iRenderWorld ownership hunk remains unported pending its own
+native reproduction/audit. Mark source PARTIAL:165 imported/19 partial/
+59 pending =78 unfinished sources. Whole goal and final hosted Actions remain.

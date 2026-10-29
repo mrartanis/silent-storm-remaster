@@ -3065,6 +3065,170 @@ static void LuaUnusedStackInitialization()
     std::printf("existing native Lua nil constructor and %zu serialized spare slots verified\n",restored->stack.size()-restored->top);
 }
 
+
+// Exercise the real interface commands and native scene/music state machine.
+// Only the database audio payloads are replaced with deterministic PCM fixtures.
+struct NativeMenuMusicState
+{
+    CDGPtr<CFuncBase<STime>> clock;
+    CPtr<CObjectBase> music;
+    CDBPtr<NDb::CTMusic> ambient,combat;
+    NDb::EMusicType current=NDb::MT_PRECOMBAT,next=NDb::MT_PRECOMBAT;
+    __int64 start=-1,stop=-1;
+    int random=0;
+};
+
+static NativeMenuMusicState MenuMusicState(NSound::ISoundScene* scene)
+{
+    Require(scene!=nullptr,"menu music observer has no real sound scene");
+    CStructureNetworkContext references;auto fields=BorrowedObjectFields(scene,&references);
+    NativeMenuMusicState state;
+    { CStructureSaver reader(fields,CStructureSaver::READ,&references);
+      reader.Add(2,&state.start);reader.Add(4,&state.clock);reader.Add(5,&state.music);
+      reader.Add(6,&state.ambient);reader.Add(7,&state.combat);reader.Add(8,&state.current);
+      reader.Add(9,&state.next);reader.Add(10,&state.stop);reader.Add(11,&state.random); }
+    return state;
+}
+
+static NDb::CMusic* MenuMusicRecord(const NativeMenuMusicState& state)
+{
+    if(!IsValid(state.music))return nullptr;
+    CStructureNetworkContext references;auto fields=BorrowedObjectFields(state.music,&references);
+    CDBPtr<NDb::CMusic> record;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&references);reader.Add(2,&record);}
+    return record;
+}
+
+static void MenuMusicPools(const char* databasePath,const char* resourcePath,int origin)
+{
+#if defined(S2_UPSTREAM_NATIVE_SFX)
+    Require(std::getenv("S2_AUDIO_HEADLESS") && std::getenv("S2_USER_DATA_DIR"),"menu music fixture needs isolated headless native audio");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"menu music fixture started with an existing interface");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm contextual menu music regression");
+    Require(NFMSound::Init(NFMSound::SStartInfo()),"menu music fixture could not initialize native audio");cleanup.audio=true;
+    TemporaryAudioFile ambientFile("menu-pool-ambient.wav"),combatFile("menu-pool-combat.wav");
+    CDBIterator<NDb::CMusic> records(*NDatabase::GetTable<NDb::CMusic>());
+    Require(records.MoveNext(),"menu music fixture has no ambient record");CDBPtr<NDb::CMusic> ambient=records.Get();
+    Require(records.MoveNext(),"menu music fixture has no distinct combat record");CDBPtr<NDb::CMusic> combat=records.Get();
+    ambient->szFileName=ambientFile.path.string();combat->szFileName=combatFile.path.string();
+    for(auto record:{ambient.GetPtr(),combat.GetPtr()}) {
+        record->nFadeIn=0;record->nFadeOut=0;record->nPlayTime=60000;record->nRndPlayTime=0;
+        record->nSilence=0;record->nRndSilence=0;
+    }
+    CDBIterator<NDb::CTMusic> pools(*NDatabase::GetTable<NDb::CTMusic>());
+    Require(pools.MoveNext(),"menu music fixture has no registered ambient pool");CDBPtr<NDb::CTMusic> ambientPool=pools.Get();
+    Require(pools.MoveNext(),"menu music fixture has no registered combat pool");CDBPtr<NDb::CTMusic> combatPool=pools.Get();
+    ambientPool->variants.clear();ambientPool->variants.push_back(ambient.GetPtr());ambientPool->roulette=CRoulette();ambientPool->roulette.AddSector(1);
+    combatPool->variants.clear();combatPool->variants.push_back(combat.GetPtr());combatPool->roulette=CRoulette();combatPool->roulette.AddSector(1);
+    CObj<NRPG::CGlobalGame> game;
+    if(origin==0) {CObj<NGame::CICMainMenu> open=new NGame::CICMainMenu;open->Exec();}
+    else if(origin==1) {
+        game=NRPG::CreateGlobalGame(-1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+        CObj<NGame::CICBeginMission> open=new NGame::CICBeginMission(810,-1,vector<string>(),game);open->Exec();
+        CObj<NMainLoop::CInterfaceCommand> snapshot=NMainLoop::TakeInterfaceCommandForHarness();
+        Require(dynamic_cast<NMainLoop::CICSaveFile*>(snapshot.GetPtr()) && !NMainLoop::HaveInterfaceCommand(),"menu music fixture lost its mission-start snapshot command");
+        // This test covers menu audio, not disk saves; consume the unrelated command.
+    } else if(origin==2) {
+        CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());NDb::CChapterMap* map=nullptr;
+        while(maps.MoveNext())if(IsValid(maps.Get()->pBackground)){map=maps.Get();break;}
+        Require(map!=nullptr,"menu music fixture has no authored chapter");
+        game=NRPG::CreateGlobalGame(1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+        CObj<NGame::CICBeginChapter> open=new NGame::CICBeginChapter(map->GetRecordID(),game);open->Exec();
+    } else if(origin==3) {
+        CDBIterator<NDb::CGlobalMap> maps(*NDatabase::GetTable<NDb::CGlobalMap>());NDb::CGlobalMap* map=nullptr;
+        while(maps.MoveNext())if(IsValid(maps.Get()->pScenario)){map=maps.Get();break;}
+        Require(map!=nullptr,"menu music fixture has no authored global map");
+        game=NRPG::CreateGlobalGame(map->pScenario->GetRecordID());game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+        game->bGlobalMapSet=true;game->nGlobalMapID=map->GetRecordID();
+        CObj<NGame::CICContinueGlobal> open=new NGame::CICContinueGlobal(game);open->Exec();
+    } else {
+        Require(origin==4,"unknown menu music fixture origin");
+        CObj<NGame::CICOptions> open=new NGame::CICOptions;open->Exec();
+    }
+    CObj<NGame::CMissionBase> mission=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    CObj<NSound::ISoundScene> source=mission?mission->GetSoundScene():nullptr;
+    NativeMenuMusicState before;
+    CObj<NFMSound::CStream> sourceStream;
+    if(origin!=4) {
+        Require(IsValid(mission) && IsValid(source) && !NMainLoop::HaveInterfaceCommand(),"menu music fixture did not create its actual origin/scene");
+        CMemoryStream fields;
+        {CStructureSaver writer(fields,CStructureSaver::WRITE);writer.Add(6,&ambientPool);writer.Add(7,&combatPool);}
+        fields.Seek(0);{CStructureSaver reader(fields,CStructureSaver::READ);static_cast<CObjectBase*>(source.GetPtr())->operator&(reader);}
+        source->SetMusic(NDb::MT_COMBAT);
+        before=MenuMusicState(source);
+        Require(before.ambient.GetPtr()==ambientPool.GetPtr() && before.combat.GetPtr()==combatPool.GetPtr() &&
+            before.current==NDb::MT_COMBAT && before.next==NDb::MT_COMBAT && MenuMusicRecord(before)==combat.GetPtr(),
+            "source positive control did not start actual combat music with registered pools");
+        sourceStream=NFMSound::PlayStream(combat->szFileName.c_str(),true,0,true,0);
+        Require(IsValid(sourceStream) && NFMSound::IsPlaying(sourceStream),"source combat music never reached the native stream backend");
+    }
+    auto event=[&](const char* name) {
+        NInput::SEvent input;while(NInput::GetEvent(&input)){}
+        NInput::PostEvent(name);
+        Require(NInput::GetEvent(&input),"menu music fixture did not receive its posted native binding");
+        // Options queues its two commands and returns false; inspect the queue itself.
+        NMainLoop::GetCurrentInterfaceForHarness()->ProcessEvent(input);
+        int count=0;
+        while(NMainLoop::HaveInterfaceCommand()) {
+            Require(++count<=2,"menu binding queued extra commands");
+            CObj<NMainLoop::CInterfaceCommand> command=NMainLoop::TakeInterfaceCommandForHarness();command->Exec();
+        }
+        Require(count>0,"menu binding did not queue its actual interface command");
+    };
+    int errors=0,observed=0;
+    CObj<NUI::CInterface> previousUI;
+    auto inspect=[&](bool options,const char* label) {
+        auto* active=NMainLoop::GetCurrentInterfaceForHarness();
+        Require(active && (!mission || active!=mission.GetPtr()),"menu command did not cover the actual origin");
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(active,&refs);
+        CPtr<NUI::CInterface> ui;CPtr<NGame::IMission> context;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(options?4:7,&ui);reader.Add(options?2:4,&context);}
+        Require(IsValid(ui) && IsValid(ui->GetSound()) && (!previousUI || previousUI.GetPtr()!=ui.GetPtr()),"menu reused its previous UI instead of constructing the actual page");
+        previousUI=ui.GetPtr();
+        CStructureNetworkContext uiRefs;auto uiFields=BorrowedObjectFields(ui,&uiRefs);bool owns=false;
+        {CStructureSaver reader(uiFields,CStructureSaver::READ,&uiRefs);reader.Add(23,&owns);}
+        const auto initial=MenuMusicState(ui->GetSound());
+        Require(owns && IsValid(initial.clock) && ui->GetSound()!=source.GetPtr() &&
+            (!source || initial.clock.GetPtr()!=before.clock.GetPtr()) && !IsValid(initial.music) &&
+            initial.current==NDb::MT_AMBIENT && initial.next==NDb::MT_AMBIENT && initial.stop==0,
+            "menu copied a live source scene/clock/playback state instead of owning a fresh scene");
+        const bool inherited=initial.ambient.GetPtr()==(source?ambientPool.GetPtr():nullptr) && initial.combat.GetPtr()==(source?combatPool.GetPtr():nullptr);
+        const bool contextual=context.GetPtr()==mission.GetPtr();
+        MarkNewDGFrame();ui->Draw(1000+observed*100);
+        const auto playing=MenuMusicState(ui->GetSound());
+        const bool started=MenuMusicRecord(playing)==(source?ambient.GetPtr():nullptr);
+        bool combatStarted=true;
+        if(source) {
+            ui->GetSound()->SetMusic(NDb::MT_COMBAT);
+            combatStarted=MenuMusicRecord(MenuMusicState(ui->GetSound()))==combat.GetPtr();
+        }
+        std::printf("native menu music origin=%d page=%s ambient=%d combat=%d context=%d inherited=%d started=%d combatStarted=%d own=%d\n",
+            origin,label,initial.ambient?initial.ambient->GetRecordID():0,initial.combat?initial.combat->GetRecordID():0,
+            int(contextual),int(inherited),int(started),int(combatStarted),int(owns));std::fflush(stdout);
+        errors+=!inherited+!contextual+!started+!combatStarted;++observed;
+        if(source) {
+            const auto after=MenuMusicState(source);
+            Require(after.clock.GetPtr()==before.clock.GetPtr() && after.music.GetPtr()==before.music.GetPtr() &&
+                after.ambient.GetPtr()==before.ambient.GetPtr() && after.combat.GetPtr()==before.combat.GetPtr() &&
+                after.current==before.current && after.next==before.next && after.start==before.start && after.stop==before.stop && after.random==before.random,
+                "menu changed source scene pools, deadlines, random state or live music ownership");
+        }
+    };
+    if(origin!=4) {
+        event(origin==0?"options":"gamemenu");inspect(origin==0,origin==0?"profiles":"pause");
+        if(origin!=0){event("options");inspect(true,"profiles");}
+    } else inspect(true,"profiles");
+    for(const char* page:{"video","audio","profiles","gameplay","controls"}) {event(page);inspect(true,page);}
+    event("cancel");
+    if(origin>0 && origin<4)event("cancel");
+    Require(NMainLoop::GetCurrentInterfaceForHarness()==mission.GetPtr() && !NMainLoop::HaveInterfaceCommand(),"closing menus did not restore the original interface stack");
+    std::printf("native menu music origin=%d checked=%d failures=%d\n",origin,observed,errors);std::fflush(stdout);
+    Require(errors==0,"contextual menus lost source music pools/context and could not start their own ambient/combat tracks");
+#else
+    Require(false,"menu music fixture requires native audio");
+#endif
+}
+
 static void AudioOptionCheckboxes(const char* databasePath,const char* resourcePath,bool notificationOnly = false,bool resetDefaults = false)
 {
 #if defined(S2_UPSTREAM_NATIVE_SFX)
@@ -27505,6 +27669,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "menu-music-pools")) { Require(argc == 5, "menu music requires db, resources and origin"); MenuMusicPools(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "audio-option-checkboxes") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "audio-option-checkbox-notify") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "audio-option-defaults") && argc == 4) { AudioOptionCheckboxes(argv[2],argv[3],false,true); return true; }
