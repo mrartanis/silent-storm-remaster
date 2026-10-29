@@ -14588,3 +14588,40 @@ command/log and successful compiler logs/exits: portable-bullet-include-* in
 the shared upstream-remaster-20261024 evidence directory. The independent
 network burst-fixture and source5ab terrain work remain uncommitted separately.
 Ledger counts and whole-goal/final hosted Actions status are unchanged.
+
+### Prevent the network ammunition fixture from shooting its later actors
+
+Original own test: https://github.com/mrartanis/silent-storm-remaster/commit/782eb719e1325f3a6ad3f2feeeab01d898a4d415
+Discovered while validating source5abdeaa6f1178d4d10361d3abfa5e3238036eba7;
+the fixture adaptation is ours, not logic copied from that upstream commit.
+
+NetworkMatchTests shoots at actor position+(3,0,1) before medical, engineer
+and scoped-aim phases. Actual bullets can injure or kill those required actors;
+later equip/disarm commands then legitimately fail. Do not weaken production
+damage, AP, interrupts, inventory or server validation to accommodate the test.
+
+Reproduced BEFORE the terrain production fix (all five terrain Main files
+restored to committed parent): add only a health snapshot/assertion around
+the existing real burst/reload. Genuine native RED3/3 on Windows and3/3 on
+Linux, all at the new assertion, with12 real actors per run. Windows engineer
+HP104->-8/28/21 demonstrates death/AP-loss contamination directly. The earlier
+diagnostic failures alone were ambiguous: later disarm returned5 (not enough
+AP), and a previous equip returned1. The new immediate assertion identifies
+the earlier fixture injury; it does not claim all possible network rejections
+have this cause.
+
+Minimal fix: aim at actor position+(3,0,30), above the squad. Retain the real
+command queue, live bullets, AP/ammo spending and reload checks, and keep the
+new health invariant. No heal/revive, damage disabling or numerical gameplay
+change. GREEN3/3 complete scenarios on EACH platform, all12 actor HP unchanged
+after burst/reload. Full subsequent medical/mine/door/aim/grenade/interrupt/
+victory assertions remain enabled. Additional Windows4/4 CTest22.15s; Linux
+actual serializer CTest1/1 plus direct --partial-move/--stop-resume both pass.
+The existing Linux cache does not register asset-backed network cases; do not
+call the Linux CTest result4/4. Six complete direct scenarios cover the repair.
+
+Exact test-only production scope, native RED/GREEN rows, complete logs and
+exit records verified in network-burst-isolation-verification.json and related
+evidence. Small terrain patch retained outside source; two shared build trees
+reused, no old build/source copies. Ledger and final hosted Actions status
+unchanged. Terrain fix will be checked and committed separately.

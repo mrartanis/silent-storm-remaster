@@ -673,11 +673,25 @@ int main(int argc,char** argv) {
     host.Handle(1,client.EncodeCommand(new NWorld::CCmdEndOfTurn),false);pump(5);
     host.Handle(0,host.EncodeCommand(new NWorld::CCmdEndOfTurn),false);pump(5);
     auto* weapon=actor->GetUnitRPG()->GetWeaponItem();int ammo=weapon->GetAmmoQuantity();ap=actor->GetAP();
-    action(new NWorld::CCmdShootTile(replica->GetPosition().GetCP()+CVec3(3,0,1)));
+    // Later phases require these native fighters; this ammunition fixture must
+    // not accidentally injure them with its real bullets.
+    vector<pair<CPtr<NWorld::CUnitServer>, int>> shootingFixtureHealth;
+    for(unsigned team=0;team<2;++team)
+      for(auto unit:host.Match().players[team]->GetPlayerUnits())
+        shootingFixtureHealth.push_back(make_pair(CPtr<NWorld::CUnitServer>(unit.GetPtr()),unit->GetUnitRPG()->GetTotalVP()));
+    // Aim above the squad: a low shot can hit the engineer used below.
+    action(new NWorld::CCmdShootTile(replica->GetPosition().GetCP()+CVec3(3,0,30)));
     Require(weapon->GetAmmoQuantity()<ammo && actor->GetAP()<ap,"remote shot did not spend ammunition/AP");
     Require(replica->GetUnitRPG()->GetWeaponItem()->GetAmmoQuantity()==weapon->GetAmmoQuantity(),"replicated ammunition differs");
     action(new NWorld::CCmdReload);
     Require(weapon->GetAmmoQuantity()==ammo,"remote reload did not restore magazine");
+    bool untouchedShootingFixture=true;
+    for(const auto& saved:shootingFixtureHealth) {
+      const int actual=saved.first->GetUnitRPG()->GetTotalVP();
+      std::printf("network burst fixture: HP=%d->%d\n",saved.second,actual);
+      untouchedShootingFixture=untouchedShootingFixture && actual==saved.second;
+    }
+    Require(untouchedShootingFixture,"ammunition fixture injured a fighter required by later network phases");
     auto resetAP=[&]{host.Match().world->GivePlayerTurn(host.Match().players[side]);pump(2);};
     auto equip=[&](NRPG::IInventoryItem* item,const CTPoint<int>& position) {
       NWorld::SItem source(replica,NWorld::SItem::BACKPACK,position,item);
