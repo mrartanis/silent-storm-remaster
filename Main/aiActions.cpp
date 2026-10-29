@@ -458,7 +458,8 @@ void CAIHealAction::GetInfoInner( const SPlaceWithAP &place, SInfo *pInfo ) cons
 	if ( IsValid( pMission ) && pMission->GetActionAP( place.place.GetPose(), NRPG::AC_FIRSTAID ) > place.nUnitAP )
 		return;
 	// world allows first-aid here (self target)?
-	if ( NWorld::CanDoFirstAid( pUnit->GetUnitServer(), place.place, pUnit->GetUnitServer(), pInfo->pFirstAid->GetItem() ) == NWorld::UCR_OK )
+	if ( NWorld::CanDoFirstAid( pUnit->GetUnitServer(), place.place, pUnit->GetUnitServer(),
+		place.place, pInfo->pFirstAid->GetItem() ) == NWorld::UCR_OK )
 		pInfo->bCanDo = true;
 }
 void CAIHealAction::Do( CAILog *pLog ) const   // @0x00451c90

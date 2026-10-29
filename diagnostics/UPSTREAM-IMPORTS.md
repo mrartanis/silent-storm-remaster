@@ -13778,3 +13778,66 @@ Whole goal active; final GitHub Actions fix/check after all imports due.
 Evidence: ai-medical-probe-retail-oracle.json, two-defects RED raw logs,
 final RED7/GREEN241 raws and ai-selected-medical-kit-verification.json.
 Shared builds only, no per-bug source/build copies.
+
+### AI medical probe uses the planned patient position (760cd924, final stage)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/760cd9240671c8c83063496044e03bde4421444d
+
+After the separately committed selected-kit fix aa02a958, AI still compares
+its future treatment location against the physical position of its own
+server actor. It rejects self-treatment when the future location is outside
+the current actor's reach. Pass an explicit targetPosition to CanDoFirstAid
+and use its CP for the existing reach test. CAIHealAction passes the same
+planned place as healer and patient positions, plus the selected actual kit.
+CExecHeal passes the actual target position, or from when no valid target
+exists. Existing missing-target validation remains. Do not change our AI
+position accessors: their actual-server semantics and separately serialized
+planning snapshot are deliberate fork behavior.
+
+Native proof reuses the complete Gold4514b0/426 -> Steam451fe0 mapping,
+15 individually verified direct-call operands and two actual .3HP/4enemy
+float-address operands. The native AI call at452174 passes EBX, the supplied
+SPlaceWithAP first position member, both as source and explicit target
+position, with the selected kit. This is a coordinate-context restoration;
+no new distance, AP, HP, inventory or medical-effect rules are introduced.
+
+Extend the previous real AI fixture with two positive cases: held kit and
+bagged kit/held gun at a genuine native free planned point 2.2667m from the
+unchanged physical actor. Existing seven current/gate cases remain. Real
+world, AI player/wrapper/inventory, direct and repeated GetInfoInner plus
+memoized CanDo are exercised. No fake interface, production test seam,
+DB/stat/AP injection or actual movement is used. Authored kit1 has zero
+preparation cost, isolating the separate source144 pricing defect.
+
+Both final REDs terminate before Main edits:2fail/9, ONLY modes2/3 wrongly
+reject; seven previous controls pass. Both complete raw logs/exits archived.
+Minimal exact3 Main files change: public signature, one target CP read,
+world command caller and AI caller. Source encoding/line endings retained.
+GREEN243/243 Windows262.86s/Linux265.31s, previous241 plus2 new cases.
+Only modes2/3 direct/repeat/cache boolean outcomes change. All nine input/
+purity rows match across platforms; previous seven AI rows and9 prone-reach,
+10 pose and11 skill traces are identical. Physical/planning AP, HP, doses,
+actual/preview positions, active item, selected wrapper, enemy and RNG stay
+unchanged. Windows ALL_BUILD and Linux Game/helpers pass. No fresh fullCI,
+hosted Actions or actual treatment/face/body animation playback claim.
+
+Source760 reconciliation: aiActions includes/shared declaration and selected
+kit dispatch are covered by aa02a958 plus this planned-coordinate stage;
+wUnitAttackExec selected-item helper removal/fallback by aa02a958, repair
+kind/death/Engineering/perk/outer-inner gates by5749def2, generic medical
+requirements bybb18d5f9, all medical position gates by6b91c53e, patient-pose
+reach helper by31ab2901, explicit target CP/world caller by this stage.
+wUnitAttackExec.h forward declaration/public APIs are complete. Upstream's
+extra Grid.h include is unnecessary with our existing headers. Our bRepair
+inner-ring predicate is equivalent after the preceding target-kind match;
+retain it. Preserve existing CanHealWithItem adaptation, own PK semantics,
+enum values, guards, save/network, fonts, face/body and frozen HD pipeline.
+All behavioral hunks of the source's three files are now accounted for.
+
+Mark760 imported: historical281-source ledger152 imported/18partial/68pending
+=86 unfinished. Separate144c7b84 approach geometry/selected-kit price and
+156ccd17 practice/bf54ea44 boost remain independent. Whole goal stays active,
+including final actual GitHub Actions repair/check after applicable imports.
+Newer upstream commits discovered after that snapshot are tracked separately.
+Evidence: ai-medical-planned RED9/GREEN243 raw logs, exit files, verification
+JSON, original AI426 oracle and Windows ALL_BUILD log. Shared builds only.

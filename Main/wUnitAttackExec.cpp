@@ -185,7 +185,7 @@ float GetHealOrRepairPKDistance( CUnitServer *pTarget )
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 EUnitCommandResult CanDoFirstAid( CUnitServer *pUS, const NAI::SUnitPosition &from,
-	CUnitServer *pTarget, NRPG::CFirstAidItem *_pItem )
+	CUnitServer *pTarget, const NAI::SUnitPosition &targetPosition, NRPG::CFirstAidItem *_pItem )
 {
 	CPtr<NRPG::CFirstAidItem> pItem = _pItem;
 	if ( !pItem )
@@ -218,7 +218,7 @@ EUnitCommandResult CanDoFirstAid( CUnitServer *pUS, const NAI::SUnitPosition &fr
 			return UCR_INVALID_COMMAND;
 
 		// Gold 797920 / Steam 7a3af0: repair must approach outside the inner 0.8 ring.
-		CVec3 ptTarget = pTarget->GetPosition().GetCP();
+		const CVec3 ptTarget = targetPosition.GetCP();
 		if ( !IsWithinHumanReach( from.GetCP(), ptTarget, GetHealOrRepairPKDistance( pTarget ) ) ||
 			( bRepair && IsWithinHumanReach( from.GetCP(), ptTarget, F_HEAL_DISTANCE ) ) )
 			return UCR_TARGET_OUT_OF_RANGE;
@@ -2741,7 +2741,7 @@ EUnitCommandResult CExecHeal::CanDoIt( const NAI::SUnitPosition &from, bool bIgn
 	     pTarget->GetDiplomacyState( pUS ) == NDb::DS_ENEMY )
 		return UCR_GENERAL_FAILURE;
 
-	return CanDoFirstAid( pUS, from, pTarget );
+	return CanDoFirstAid( pUS, from, pTarget, IsValid( pTarget ) ? pTarget->GetPosition() : from );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CExecHeal::GetStartAP() const
