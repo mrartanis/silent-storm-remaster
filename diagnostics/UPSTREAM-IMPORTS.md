@@ -15408,3 +15408,83 @@ All four source files/hunks now accounted with prior931969fb short-burst half,
 including existing helper declarations in wUnitAttackExec.h. Mark source
 IMPORTED. Ledger286:164 imported/18 partial/61 pending =79 unfinished sources.
 Whole goal and final actual hosted Actions repair/check remain unfinished.
+
+### Keep full-inventory rejection visible to the mission UI (4953e977, adapted complete)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4953e977b39ac18b873baf2fd944771a903b6d3e
+
+Native inventory validation correctly returns NO_PLACE, but CMission's action-
+info classifier omitted that result and left bAvailable false. Add only its
+case label to the existing blocked-but-available branch. bOk remains false,
+the result/AP outputs and all actual placement/drag/AP/ownership rules remain
+unchanged. This is an action-info contract fix, not rendered button evidence.
+
+Original: typed Gold CMission::CanDoCommand(CCmd*,bool,SActionInfo*)5f7a30/193
+maps uniquely to actual Steam5fbfb0/193. Only decoded internal switch-data
+operands/table pointers and a verified virtual delegate displacement differ.
+All internal pointers retain identical function-relative targets and the
+compact21-byte case map is unmasked. The delegate slot shifts a8->ac; actual
+RTTI-named CMission vtables8ab2a4/8ba394 independently identify both delegates
+and classifier slots, not an arbitrary mask or ABI identity assumption. PDB
+enum NO_PLACE18 selects compact case5 ->Gold5f7aa1/Steam5fc021, which sets
+enoughAP/available true and leaves ok false. Typed SActionInfo offsets prove
+the flags. No reliance on stale source comments' Steam addresses.
+
+Baseline17/17 Windows and15/15 Linux. Definitive compiled native RED2/6 BOTH
+before Main -> GREEN6/6 BOTH. Real human/map810, authored clip1 with8 actual
+rounds, native inventory Place/Take -> actual unit-owned drag hand,75 actual
+filler items/count81 exhaust backpack space without DB/size/grid injection.
+Both BACKPACK auto-placement and UNIT_ANYPLACE fail through native executor,
+public unit CanDo, actual CUnitTracker and native CMission classification.
+The test mission controls selection only, not command results or prices.
+Four controls: room, one real filler removed/count80, actual clip equip denial
+and genuinely absent drag item. Only availability0->1 changes in two rows;
+result remains own legacy12 (not retail18), four controls are identical.
+Repeated UI queries preserve AP53/HP/ammo8/item quantity/active slot and item/
+bag count/position/drag ownership/time/next RNG word/orders. Actual own20-byte
+SActionInfo encode/decode preserves every computed field and result byte12;
+the availability flag changes as intended, not an all-bytes-identical claim.
+No full drag execution, rendering, entire save round-trip or full RNG proof.
+
+Setup corrections are archived separately: native interface is IClipItem,
+not guessed IClipItemInfo (compiler errors are not RED). An ownerless empty
+player descriptor does not clear this fork's UNIT-owned drag hand. Use the
+actual public actor/VACUUM descriptor and verify GetInHandItem becomes false;
+do not change production hand ownership. Repeat definitive RED on unchanged
+Main after correction. Runner-generation switch replacement guard corrected
+externally before final gates; no failed builds treated as test evidence.
+
+All other source hunks were individually audited against the remaster:
+* Keep own22 legacy numeric values including asynchronous UCR_PENDING, own
+  portable20-byte codec and invalid-cache UNAVAILABLE constructor sentinel.
+  Renumbering to retail/adding NULL would reinterpret existing save/LAN values.
+* Keep UCRRetailOrdinal: all21 original computed results map exactly to PDB
+  ordinals; own pending maps22 and retains its existing separate override.
+  The actual structural comparison rule matches all441 static mapped pairs.
+  This is a finite source/translation audit, not441 native runtime scenarios.
+* Keep explicit bHaveRes instead of a new numeric NULL sentinel: it represents
+  no first result separately from legacy OK0. Current empty-selection guard,
+  own pending handling and native cache/group-caption regressions remain.
+* After the one case label, all22 known own enum values have explicit UI
+  branches. The removed-upstream default assert applies only to unknown raw
+  values/absent NULL in this fork, not a demonstrated supported native bug;
+  keep current hardening. No fabricated invalid-enum RED is used.
+Thus every source hunk is accounted through the small import and necessary
+own-protocol adaptations; iMission.h/wUnitCommands.h are byte-identical to
+parent. This is not a wholesale cherry-pick or a balance exclusion.
+
+Final Windows ALL_BUILD/Linux Game/helpers/actual serializer built. Related
+23/23 Windows and21/21 Linux exactly match baselines+6, including existing
+native inventory/invalid-cache/tool/group-caption controls. Own body animation
+16/16 BOTH, fresh Windows network serializer/match/partial/stop4/4 and local
+CI299/299 pass. Exact saved raw manifests/exits/source/rows verified. Six new
+asset-backed cases stay outside asset-free CI299; registration-inventory test
+is not included in the live related run. Existing two builds only; no per-bug
+source/build copies, frozen HD/PNG/font/renderer/facial changes.
+Evidence: inventory-ui-verification.json, original oracle and compatibility
+before/after audit, baseline/definitiveRED/GREEN/final raw logs. General verifier/
+finisher tied to397bafc2 parent, not reusable after commit; original/compatibility
+verifiers and pure transform retain their stated reusable scopes.
+
+Mark source IMPORTED with adaptations. Ledger286:165 imported/18 partial/
+60 pending =78 unfinished sources. Whole goal/final hosted Actions remain.

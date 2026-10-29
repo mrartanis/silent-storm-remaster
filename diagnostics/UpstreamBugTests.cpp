@@ -20301,6 +20301,41 @@ static void EquippedMeleeAttackCursor(const char* databasePath,const char* resou
         "refreshing native equipped-melee cursors spent AP/VP, consumed the weapon or installed an order");
 }
 
+static void InventoryNoPlaceUI(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);list<CPtr<NWorld::CUnitServer>> actors;world->GetAllUnits(&actors);NWorld::CUnitServer* actor=nullptr;
+    for(auto p:actors)if(p && !p->IsAIUnit() && p->CanFight() && !p->IsWearingPK() && !p->IsEmptyPK() && !p->HasCommand()){actor=p;break;}Require(actor,"inventory UI fixture lacks actual human actor");auto* owner=dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer());Require(owner,"inventory UI fixture lacks native owner");world->GivePlayerTurn(owner);
+    auto* inventory=actor->GetUnitRPG()->GetInventory();vector<NDb::CRPGClip*> clips;CDBIterator<NDb::CRPGClip> records(*NDatabase::GetTable<NDb::CRPGClip>());
+    while(records.MoveNext()){auto* p=records.Get();if(p->pItem && p->pItem->sSize.x>0 && p->pItem->sSize.y>0 && p->nQuantity>0)clips.push_back(p);}
+    std::sort(clips.begin(),clips.end(),[](const NDb::CRPGClip* a,const NDb::CRPGClip* b){const int aa=a->pItem->sSize.x*a->pItem->sSize.y,bb=b->pItem->sSize.x*b->pItem->sSize.y;return aa<bb || (aa==bb && a->GetRecordID()<b->GetRecordID());});
+    CObj<NRPG::IInventoryItem> item;NDb::CRPGClip* clip=nullptr;CTPoint<int> sourceCell;
+    for(auto p:clips){CObj<NRPG::IInventoryItem> candidate=NRPG::CreateClipItem(p);if(candidate && inventory->FindPlace(candidate,&sourceCell)){clip=p;item=candidate;break;}}
+    Require(item && clip && dynamic_cast<NRPG::IClipItem*>(item.GetPtr()) && dynamic_cast<NRPG::IClipItem*>(item.GetPtr())->GetIncQuantity()>0,"inventory UI fixture lacks a real authored clip fitting its backpack");
+    // Establish genuine inventory -> player drag-hand provenance through native APIs.
+    Require(inventory->Place(sourceCell,item),"inventory UI fixture cannot place original drag item");inventory->Take(item);actor->GetTBSPlayer()->SetInHandItem(NWorld::SItem(actor,NWorld::SItem::HAND,item));
+    vector<CObj<NRPG::IInventoryItem>> fillers;const bool fill=mode==0 || mode==1 || mode==3;
+    if(fill){for(int n=0;n<300;++n){CObj<NRPG::IInventoryItem> next=NRPG::CreateClipItem(clip);CTPoint<int> cell;if(!inventory->FindPlace(next,&cell))break;Require(inventory->Place(cell,next),"inventory UI fixture cannot fill native free backpack cell");fillers.push_back(next);}CTPoint<int> cell;Require(!fillers.empty() && !inventory->FindPlace(item,&cell),"inventory UI fixture did not exhaust actual item placement space");}
+    if(mode==3){inventory->Take(fillers.back());CTPoint<int> cell;Require(inventory->FindPlace(item,&cell),"inventory UI fixture did not recover actual space after removing one filler");}
+    if(mode==1)for(int n=0;n<NDb::N_SLOTS;++n)Require(!inventory->CanEquip(NDb::ESlot(n),item),"inventory UI clip unexpectedly fits a hand/equipment slot");
+    if(mode==5){actor->GetTBSPlayer()->SetInHandItem(NWorld::SItem(actor,NWorld::SItem::VACUUM));NWorld::SItem empty;Require(!actor->GetTBSPlayer()->GetInHandItem(&empty),"inventory UI fixture did not clear actual unit-owned drag hand");}
+    const NWorld::SItem target=mode==1?NWorld::SItem(actor,NWorld::SItem::UNIT_ANYPLACE):mode==4?NWorld::SItem(actor,NWorld::SItem::SLOT,int(NDb::SLOT_1)):NWorld::SItem(actor,NWorld::SItem::BACKPACK,CTPoint<int>(-1,-1));
+    CObj<NWorld::CCmdMoveInventoryItem> command=new NWorld::CCmdMoveInventoryItem(NWorld::SItem(actor,NWorld::SItem::HAND,item),target);
+    CObj<NWorld::CExecMoveInventoryItem> executor=new NWorld::CExecMoveInventoryItem(actor,command);
+    const auto expected=mode==0 || mode==1?NWorld::UCR_INVENTORY_NO_PLACE:mode==4?NWorld::UCR_GENERAL_FAILURE:mode==5?NWorld::UCR_INVALID_COMMAND:NWorld::UCR_OK;
+    Require(executor->CanDoIt(actor->GetPosition())==expected,"inventory UI fixture native real-item executor has unexpected eligibility");
+    CObj<NativeActionInfoMission> mission=new NativeActionInfoMission;mission->Attach(world,game);CObj<NGame::CUnitTracker> tracker=new NGame::CUnitTracker(mission,actor);mission->selection.push_back(tracker.GetPtr());
+    const int ammunition=dynamic_cast<NRPG::IClipItem*>(item.GetPtr())->GetIncQuantity();const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),quantity=item->GetQuantity(),count=int(inventory->GetItems().size());const auto active=inventory->GetActive();const auto activeSlot=inventory->GetActiveSlot();const auto position=actor->GetPosition();const auto time=world->GetTime()->GetValue();NWorld::SItem handBefore;const bool hasHand=actor->GetTBSPlayer()->GetInHandItem(&handBefore);auto random=GlobalGameRandom();
+    int directMin=-1,directMax=-1;const auto direct=actor->CanDo(command,&directMin,&directMax);Require(direct==expected,"inventory UI fixture public native unit probe differs from actual executor result");
+    NGame::SActionInfo info;mission->CanDoCommand(command,false,&info);NGame::SActionInfo again;mission->CanDoCommand(command,false,&again);
+    std::uint8_t wire[20]={};NGame::SActionInfo restored;const bool encoded=S2FileIO::StructureFieldCodec<NGame::SActionInfo>::Encode(info,wire,sizeof(wire)) && S2FileIO::StructureFieldCodec<NGame::SActionInfo>::Decode(wire,sizeof(wire),&restored);
+    const bool roundtrip=encoded && restored.bValid==info.bValid && restored.bOk==info.bOk && restored.bAvailable==info.bAvailable && restored.bEnoughAP==info.bEnoughAP && restored.bEnoughAPToStart==info.bEnoughAPToStart && restored.nMinAP==info.nMinAP && restored.nMaxAP==info.nMaxAP && restored.eResult==info.eResult && wire[16]==unsigned(expected) && wire[17]==0 && wire[18]==0 && wire[19]==0;
+    NWorld::SItem handAfter;const bool hasHandAfter=actor->GetTBSPlayer()->GetInHandItem(&handAfter);auto afterRandom=GlobalGameRandom();const bool unchanged=dynamic_cast<NRPG::IClipItem*>(item.GetPtr())->GetIncQuantity()==ammunition && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && item->GetQuantity()==quantity && int(inventory->GetItems().size())==count && inventory->GetActive()==active && inventory->GetActiveSlot()==activeSlot && actor->GetPosition()==position && !actor->HasCommand() && hasHandAfter==hasHand && (!hasHand || handAfter.pItem==handBefore.pItem) && world->GetTime()->GetValue()==time && random.Get()==afterRandom.Get();
+    const bool repeat=again.bValid==info.bValid && again.bOk==info.bOk && again.bAvailable==info.bAvailable && again.bEnoughAP==info.bEnoughAP && again.bEnoughAPToStart==info.bEnoughAPToStart && again.nMinAP==info.nMinAP && again.nMaxAP==info.nMaxAP && again.eResult==info.eResult;
+    std::printf("native inventory UI: mode=%d clip=%d fill=%u count=%d target=%d native=%d expected=%d ui=%d valid=%d ok=%d enough=%d startEnough=%d available=%d min=%d max=%d repeat=%d wire=%d rawResult=%u AP=%d quantity=%d ammo=%d hand=%d unchanged=%d\n",mode,clip->GetRecordID(),unsigned(fillers.size()),count,int(target.eType),int(direct),int(expected),int(info.eResult),int(info.bValid),int(info.bOk),int(info.bEnoughAP),int(info.bEnoughAPToStart),int(info.bAvailable),info.nMinAP,info.nMaxAP,int(repeat),int(roundtrip),unsigned(wire[16]),ap,quantity,ammunition,int(hasHand),int(unchanged));std::fflush(stdout);
+    Require(unchanged && repeat && roundtrip && info.bValid && info.eResult==expected && info.bEnoughAP,"native inventory UI query changes gameplay/drag ownership/legacy wire or loses native result");
+    Require(info.bAvailable==(mode!=5) && info.bOk==(expected==NWorld::UCR_OK),"native full-inventory rejection hides the action instead of remaining blocked but available");
+}
+
 static void EquippedToolActionAvailability(const char* databasePath,const char* resourcePath,bool tileAttack = false)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -27821,6 +27856,12 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "restore-building-hulls") && argc == 4) { RestoreBuildingHulls(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "carried-corpse-stability") && argc == 4) { CarriedCorpseStability(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "replacement-person-inventory-clue") && argc == 4) { PersonClueCreation(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "inventory-ui-0") && argc==4) { InventoryNoPlaceUI(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "inventory-ui-1") && argc==4) { InventoryNoPlaceUI(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "inventory-ui-2") && argc==4) { InventoryNoPlaceUI(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "inventory-ui-3") && argc==4) { InventoryNoPlaceUI(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "inventory-ui-4") && argc==4) { InventoryNoPlaceUI(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "inventory-ui-5") && argc==4) { InventoryNoPlaceUI(argv[2],argv[3],5); return true; }
     if (!std::strcmp(mode, "inventory-clue-creation") && argc == 4) { InventoryClueCreation(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "inventory-clue-count") && argc == 4) { InventoryClueCreation(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "inventory-clue-capacity") && argc == 4) { InventoryClueCreation(argv[2], argv[3], true, true); return true; }

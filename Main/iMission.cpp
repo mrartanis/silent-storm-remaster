@@ -840,6 +840,7 @@ void CMission::CanDoCommand( NWorld::CCmd *pCmd, bool bNoTarget, SActionInfo *pI
 	case NWorld::UCR_CRITICALS_BAN:
 	case NWorld::UCR_TARGET_OUT_OF_RANGE:
 	case NWorld::UCR_CANT_SEE_TARGET:
+	case NWorld::UCR_INVENTORY_NO_PLACE:
 	case NWorld::UCR_CANT_HEAL:                    // heal target's CanHeal() failed -- blocked but available (retail @0x1fb680 groups it here)
 	case NWorld::UCR_NEED_HIGHER_SKILL:           // skill too low to use the tool -- blocked but available
 	case NWorld::UCR_NOT_ALL_UNITS_NEAR_PASSAGE:  // not every selected unit is at the passage -- blocked but available
