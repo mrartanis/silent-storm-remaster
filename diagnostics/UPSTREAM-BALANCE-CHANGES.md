@@ -1508,3 +1508,24 @@ The separate late executor reach-validation hunk is now imported using the
 existing original0.8 value. Native RED/GREEN verifies the boundary0.866386 is
 rejected; the excluded1.0 radius is not introduced. AP, charges and the roll
 remain unchanged. See the 2026-10-28 late-validation entry in UPSTREAM-IMPORTS.md.
+
+
+### `531f3b7d` — защитный минимум Engineering в знаменателе ремонта
+
+[Исходный коммит](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9)
+считает стоимость ремонта как `int(deficit / Max(1, Engineering) * 20)`.
+В оригинальных Gold `6b4940` и Steam `6baae0` деление выполняется прямо
+на Engineering, без этого минимума. Защита меняет обработку запросов с
+нулевым или отрицательным навыком; штатные наборы26/27 требуют Engineering100
+и перк79, поэтому допустимый игровой ремонт использует положительный навык.
+
+**Решение:** восстановить инженерную формулу, ограничение AP и округление,
+но не переносить дополнительный минимум знаменателя. Также не добавлять
+минимальную итоговую цену1AP: при реальном Engineering105 ремонт3HP в
+оригинале имеет цену0AP. Не добавлять медицинский лимит оставшейся ёмкости
+в ремонтный расчёт: исходный repair helper его не применяет.
+
+Подтверждение: два нативных тела203 байта совпадают, кроме адресов двух
+констант; тесты настоящего инженера, набора26 и корпуса93 воспроизводят
+цены0/19AP,5HP за1AP и поведение при остатке ёмкости1. Это восстановление
+оригинала; дополнительная защитная политика upstream исключена.

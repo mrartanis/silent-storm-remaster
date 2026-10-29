@@ -12849,3 +12849,50 @@ no new build copies or fresh fullCI/hosted claim.
 Engineering repair action/gates, healer57/speed63 and acknowledgments/own
 animation adaptation remain open. Source531f PARTIAL;149 imported/
 19partial/70pending=89 unfinished sources. Full goal and final Actions open.
+
+
+## 2026-10-29 — restore the original engineering repair planner (531f3b7d)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9), independent effect6 planning stage.
+CreateFirstAid previously used medical bandaging for genuine repair kits.
+Dispatch repair6 before medical perks: use raw chassis missingVP and actual
+Engineering, truncate(deficit/Engineering*20). If that exceeds providedAP,
+quote providedAP and round(providedAP*Engineering*.05) repairHP. A healthy
+chassis returns false without writing outputs. Preserve original free small
+repairs, absence of final capacity clamp, and direct engineering division.
+The source's extra Max(1,Engineering) denominator guard is excluded and
+documented in UPSTREAM-BALANCE-CHANGES.md. The unused medical quota output
+is initialized0 for our portable result; original native repair writes only
+fdVP and never consumes that quota. No new AP minimum, DB or skill tuning.
+
+Original Gold PDB CUnit::CreateRepairPK6b4940/203 and Steam6baae0 have the
+same entire203-byte body except two float constant addresses. Both actual
+CreateFirstAid effect6 dispatches call these helpers; engineering cell,
+deficit/early exit, direct division, cost20, inverse.05, AP limit and native
+rounding verified by audit-repair-planner-retail.py.
+
+Fixture calibration is not counted as bug RED: an initial broad template
+search crashed on an unsuitable inventory; repair-class filtering removed
+that setup issue. Starting authored engineer classes only reached32, below
+the real kit's required100. Use actual engineer persona3, native SetXPLevel
+progression to level11 and naturally granted perk points to acquire79:
+Engineering105, Medicine66. No individual skill/DB/AP injection. Real repair
+kit26 and authored chassis93; public planner only, without a world repair
+action or invented repaired-HP mutation.
+
+Actual RED4/5 Windows5.52s/Linux5.43s BEFORE production:3HP quote2 instead
+of0AP,100HP quote90 instead of19AP,1AP budget plans1 instead of5HP, and
+remaining capacity1 incorrectly clamps100HP to1. Healthy-control false and
+untouched output sentinels pass. GREEN63/63 Windows69.09s/Linux68.70s
+includes previous58 plus the five planner cases. Quotes are0/19/1 and
+plans3/100/5; capacity1 still plans100 exactly like original repair. Every
+query preserves actual unit AP, kit charges, raw shell HP and dressing.
+Actual actor progression/inputs remain identical RED/GREEN.
+
+Exact sets/raw values/RED reasons/exit codes, source diff and both original
+bodies verified. Windows ALL_BUILD and Linux Game pass; shared builds/HD
+generation disabled, no copied builds or fresh fullCI/hosted Actions claim.
+This completes only planning. Actual empty/worn PK action, repair range and
+effect-specific gates, proper finish/acknowledgment/own animation adaptation
+remain pending, along with healer57 and speed63. Source531f staysPARTIAL;
+ledger149 imported/19partial/70pending=89 unfinished sources; goal active.

@@ -739,6 +739,23 @@ bool CUnit::CreateFirstAid( SFirstAid *pRes, int nMaxSpentAP, float fKitCapacity
 	IFirstAidItem *pItem, CUnit *pTarget, int *pRequiredAP )
 {
 	SFirstAid tmp;
+	if ( pItem->GetDBFirstAid()->effect == NDb::FAE_REPAIR_PK )
+	{
+		int nVPToHeal = pTarget->Skills(NDb::ST_VP).GetMaxValue() - pTarget->Skills(NDb::ST_VP);
+		if ( nVPToHeal <= 0 )
+			return false;
+		int nSkill = Skills( NDb::ST_ENGINEERING );
+		int nRequiredAP = int( float(nVPToHeal) / nSkill * 20.f );
+		if ( nRequiredAP > nMaxSpentAP )
+		{
+			nRequiredAP = nMaxSpentAP;
+			nVPToHeal = Float2Int( nRequiredAP * nSkill * 0.05f );
+		}
+		*pRequiredAP = nRequiredAP;
+		pRes->fdVP = nVPToHeal;
+		pRes->nMaxVP = 0;
+		return true;
+	}
 	float fPatientMult = 1.f, fPerk;
 	if ( pTarget->HasPerk( 24, &fPerk ) )
 		fPatientMult = fPerk;

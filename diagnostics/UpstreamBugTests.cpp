@@ -23778,6 +23778,43 @@ static void TimedCriticalTreatment(const char* databasePath,const char* resource
     std::printf("native timed critical complete: mode=%d total=%d selected=%d remaining=%d patient=%d charge=%d->%d\n",mode,total,int(selected),expectedRemaining,int(hasSelected()),quantity,kit->GetIncQuantity());std::fflush(stdout);
 }
 
+static void RepairPlanner(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    auto* record=NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(26);
+    Require(record && record->effect==NDb::FAE_REPAIR_PK && record->nRequiedSkill==100 && record->nRequiredPerkID==79,"repair planner needs its genuine qualified repair-kit definition");
+    NDb::CRPGPers* engineerPersona=nullptr;
+    CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while(people.MoveNext()) {
+        auto* persona=people.Get();if(!IsValid(persona->pClass) || !IsValid(persona->pModel) || !IsValid(persona->pBaseValue) || !IsValid(persona->pName) || persona->pClass->skills[NDb::ST_LEVEL]<=0 || IsValid(persona->pPanzerklein) || IsValid(persona->pDefaultWearsPanzerklein))continue;
+        CObj<NRPG::CPerksTree> tree=NRPG::CreatePerksTree(persona->pClass->nPerkTreeID);vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);bool hasRepairAbility=false;
+        for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==79){hasRepairAbility=true;break;}
+        if(hasRepairAbility && (!engineerPersona || persona->GetRecordID()<engineerPersona->GetRecordID()))engineerPersona=persona;
+    }
+    Require(engineerPersona,"repair planner has no real engineer class with perk79");
+    CObj<NRPG::IUnitMission> engineer=NRPG::CreateUnit(engineerPersona);auto* unit=engineer->GetRPGUnit();
+    const int initialEngineering=unit->Skills(NDb::ST_ENGINEERING);
+    for(int level=1;int(unit->Skills(NDb::ST_ENGINEERING))<record->nRequiedSkill && level<=20;++level)unit->SetXPLevel(level);
+    unit->GetPerksTree()->TakePerk(79);
+    const int bestID=engineerPersona->GetRecordID();
+    std::printf("native repair planner selection: mode=%d persona=%d initialEngineering=%d level=%d engineering=%d medicine=%d perk79=%d\n",mode,bestID,initialEngineering,int(unit->Skills(NDb::ST_LEVEL)),int(unit->Skills(NDb::ST_ENGINEERING)),int(unit->Skills(NDb::ST_MEDICINE)),int(unit->HasPerk(79)));std::fflush(stdout);
+    Require(unit->HasPerk(79) && int(unit->Skills(NDb::ST_ENGINEERING))>=100,"repair planner native class progression did not reach actual item requirements");
+    NDb::CRPGPers* shellPersona=nullptr;CDBIterator<NDb::CRPGPers> shells(*NDatabase::GetTable<NDb::CRPGPers>());
+    while(shells.MoveNext()){auto* persona=shells.Get();if(IsValid(persona->pPanzerklein) && IsValid(persona->pModel) && (!shellPersona || persona->GetRecordID()<shellPersona->GetRecordID()))shellPersona=persona;}
+    Require(shellPersona,"repair planner lacks a real authored PK chassis");CObj<NRPG::IUnitMission> shell=NRPG::CreateUnit(shellPersona);
+    auto* target=shell->GetRPGUnit();auto& hp=target->Skills(NDb::ST_VP);Require(hp.GetMaxValue()>100 && target->nHealedVP==0,"repair planner chassis has insufficient real VP or preexisting dressing");
+    const int deficit=mode==0?3:mode==3?0:100;hp.SetValue(hp.GetMaxValue()-deficit);
+    CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);const int skill=unit->Skills(NDb::ST_ENGINEERING),medicine=unit->Skills(NDb::ST_MEDICINE);
+    const int budget=mode==2?1:1000;const float capacity=mode==4?1.f:1000.f;
+    const int ap=unit->Skills(NDb::ST_AP),rawHP=hp,quantity=kit->GetIncQuantity();NRPG::SFirstAid plan;plan.fdVP=-999;plan.nMaxVP=-999;int required=-777;
+    const bool result=unit->CreateFirstAid(&plan,budget,capacity,kit,target,&required);
+    const int expectedHP=mode==2?Float2Int(skill*.05f):deficit;
+    const int expectedAP=mode==2?1:mode==3?-777:mode==0?0:int(float(deficit)/skill*20.f);
+    std::printf("native repair planner: mode=%d actor=%d engineering=%d medicine=%d perk79=%d kit=%d kind=%d shell=%d deficit=%d budget=%d capacity=%g result=%d planned=%g quota=%d quotedAP=%d expectedHP=%d expectedAP=%d\n",mode,bestID,skill,medicine,int(unit->HasPerk(79)),record->GetRecordID(),int(record->effect),shellPersona->GetRecordID(),deficit,budget,capacity,int(result),plan.fdVP,plan.nMaxVP,required,expectedHP,expectedAP);std::fflush(stdout);
+    Require(int(unit->Skills(NDb::ST_AP))==ap && int(hp)==rawHP && kit->GetIncQuantity()==quantity && target->nHealedVP==0,"pure repair planning spent AP/dose or changed shell HP/dressing");
+    Require(result==(deficit>0) && (deficit==0?(required==-777 && plan.fdVP==-999):(plan.fdVP==expectedHP && required==expectedAP)),"repair planner used medical bandaging instead of original engineering repair costs");
+}
+
 static void RepairKindImport(const char* databasePath,const char* resourcePath,int mode)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
@@ -25911,6 +25948,11 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "attacker-level-critical-rolls") && argc==3) { AttackerLevelCriticalRolls(argv[2]); return true; }
     if (!std::strcmp(mode, "head-body-damage") && argc==3) { HeadBodyDamage(argv[2]); return true; }
     if (!std::strcmp(mode, "fresh-skill-modifier-values") && argc==3) { FreshSkillModifierValues(argv[2]); return true; }
+    if (!std::strcmp(mode, "repair-planner-small") && argc==4) { RepairPlanner(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "repair-planner-full") && argc==4) { RepairPlanner(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "repair-planner-limited-ap") && argc==4) { RepairPlanner(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "repair-planner-healthy") && argc==4) { RepairPlanner(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "repair-planner-capacity") && argc==4) { RepairPlanner(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "repair-kind-small") && argc==4) { RepairKindImport(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "repair-kind-large") && argc==4) { RepairKindImport(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "repair-kind-controls") && argc==4) { RepairKindImport(argv[2],argv[3],2); return true; }
