@@ -84,3 +84,27 @@ This does not claim a completed campaign, physical audio-device/listening
 coverage, macOS-to-Windows multiplayer gameplay, x86 macOS, or distribution
 packaging. Existing resource/schema/UI diagnostics from the supplied original
 data are not silently suppressed by this port.
+
+## Develop rebase, 2026-10-29
+
+Rebased onto `9693f9c8` (`origin/develop`). The existing build directory and
+dependency installation were reused. Both CMake conflict resolutions preserve
+the new develop tests and the Lua VM's additional shared-log dependency.
+
+Compatibility adjustments for the expanded regression suite:
+
+- Apply the Retina test environment and Cocoa serialization to tests labelled
+  `native-display`, preserving their existing environment entries.
+- Use a POSIX include spelling in `RPGBullet.cpp` for its portable target.
+- Reserve alias-test color pages 4 GiB apart on Darwin, rather than requesting
+  a second address above 128 GiB. The two real pointers still share their low
+  32 bits, so the regression condition is unchanged; mmap remains hint-only.
+
+Rebase build/test logs are in `build-mac/evidence/rebase/`.
+
+The final native build succeeds. CTest: **287/288 passed** (78.61 seconds),
+including the new renderer regressions and focus/restore test. The remaining
+failure is `SDLPlatformInputTests`: Cocoa leaves the window at 800x600 after
+a successful borderless request instead of setting the fullscreen flag and
+desktop dimensions. Its assertions remain enabled; this run is not claimed
+as fully green. The packaging Python suite also passes (3/3).
