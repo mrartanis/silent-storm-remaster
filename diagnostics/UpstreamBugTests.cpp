@@ -23158,6 +23158,42 @@ static void AISelectedMedicalProbe(const char* databasePath,const char* resource
     Require(info.bCanDo==expected && repeat.bCanDo==expected && cached==expected && (mode==5 || info.pFirstAid==selected && repeat.pFirstAid==selected),"AI medical probe ignores its actual selected backpack kit or future self-target position");
 }
 
+static void AISelectedMedicalCost(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);NWorld::CUnitServer* anchor=nullptr;
+    for(auto entry:units){auto* unit=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());if(unit && unit->IsAIUnit() && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()){anchor=unit;break;}}
+    Require(anchor,"AI medical cost lacks a real native AI player/anchor");auto* player=dynamic_cast<NWorld::CPlayer*>(anchor->GetPlayer());Require(player,"AI medical cost lacks its actual player");auto* network=world->GetPathNetwork();
+    auto point=anchor->GetPosition().pos.p;bool placed=false;
+    for(auto offset:{CTPoint<int>(2,0),CTPoint<int>(-2,0),CTPoint<int>(0,2),CTPoint<int>(0,-2)}){const int x=int(point.GetX())+offset.x,y=int(point.GetY())+offset.y;if(x<0 || y<0 || x>255 || y>255)continue;auto candidate=point;candidate.SetXY(x,y);candidate.SetPose(NAI::CM_STAND);candidate.SetMoving(0);if(network->IsPassable(candidate) && !network->IsLocked(candidate)){point=candidate;placed=true;break;}}
+    Require(placed,"AI medical cost has no actual free deployment point");auto* persona=NDb::GetPers(34);auto* weaponDB=NDb::GetWeapon(65);auto* kitDB=NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(mode==7?1:3);Require(persona && weaponDB && kitDB && kitDB->nAPToUse==(mode==7?0:10) && kitDB->nRequiredPerkID==0,"AI medical cost lacks the actual authored critical-first/zero-preparation kit, medic and weapon");
+    CObj<NRPG::CUnit> rpg=new NRPG::CUnit(persona,0,false,0,0,0,true);CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(rpg);auto* inventory=mission->GetInventory();vector<CObj<NRPG::IInventoryItem>> previous;
+    for(auto slot:{NDb::SLOT_1,NDb::SLOT_2})if(auto* item=inventory->TakeOff(slot))previous.push_back(item);const auto bag=inventory->GetItems();for(const auto& item:bag){previous.push_back(item.pItem.GetPtr());inventory->Take(item.pItem);}
+    CObj<NRPG::CWeaponItem> gun=new NRPG::CWeaponItem(weaponDB);CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(kitDB);const bool active=mode==3 || mode==4 || mode==6;
+    Require(inventory->Equip(NDb::SLOT_1,active?static_cast<NRPG::IInventoryItem*>(kit.GetPtr()):static_cast<NRPG::IInventoryItem*>(gun.GetPtr())) && inventory->Activate(NDb::SLOT_1),"AI medical cost cannot equip its actual active item");
+    if(!active){CTPoint<int> location;Require(inventory->FindPlace(kit,&location) && inventory->Place(location,kit),"AI medical cost cannot put its selected kit in the real backpack");}
+    auto placement=anchor->GetPosition();placement.pos.p=point;CObj<NWorld::CUnitServer> actor=new NWorld::CUnitServer(world,mission,rpg->pModel,player,placement);world->AddUnit(actor);Require(actor && actor->CanFight() && actor->IsAIUnit(),"AI medical cost failed native actor registration");
+    {auto& hp=rpg->Skills(NDb::ST_VP);hp.SetValue(hp.GetCurrentMaxValue()/4);mission->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_VP));mission->ApplyCritical(NRPG::SCritical(NDb::CL_HEAD,NDb::C_WEAPONSKILL_REDUCTION,-1,2.f,1));}
+    auto* ai=NAI::GetAIUnit(actor);Require(ai && ai->IsUnderAIControl() && ai->GetUnitServer()==actor.GetPtr(),"AI medical cost has no actual owned AI wrapper");ai->Synchronize(false);auto* planning=ai->GetAIInventory();Require(planning && !ai->GetAIUnitState()->pEnemy,"AI medical cost unexpectedly has a selected enemy or missing native inventory");auto* selected=planning->GetBestFirstAid();
+
+    Require(selected && selected->GetItem()==kit.GetPtr() && planning->IsCurrentItem(selected)==active,"AI medical cost did not select its actual held/backpack kit");
+    const int price=kitDB->nAPToUse,heldPrice=mission->GetActionAP(NAI::WALK,NRPG::AC_FIRSTAID),medicine=rpg->Skills(NDb::ST_MEDICINE);
+    Require(medicine+kitDB->nSkillModifier>=kitDB->nRequiedSkill && ai->GetHP()>0 && ai->GetHP()<=.3f*ai->GetMaxHP(),"AI medical cost lacks its native qualified injured actor");
+    Require(heldPrice==(active?price:15),"AI medical cost does not distinguish selected and held-item prices");
+    const bool spend=mode==5 || mode==6,expected=mode!=0 && mode!=3;
+    const int budget=spend?ai->GetAP():mode==7?0:mode==0 || mode==3?price-1:mode==2?price+1:price;
+    NAI::SPlaceWithAP query(ai->GetUnitPosition(),budget);const auto position=actor->GetPosition(),preview=query.place;
+    const int ap=actor->GetAP(),aiAP=ai->GetAP(),hp=ai->GetHP(),maxHP=ai->GetMaxHP(),rawHP=rpg->Skills(NDb::ST_VP),dose=kit->GetIncQuantity();auto* held=inventory->GetActive();auto random=GlobalGameRandom();
+    CObj<NAI::CAIHealAction> action=new NAI::CAIHealAction(ai);NAI::CAIHealAction::SInfo info,repeat;action->GetInfoInner(query,&info);action->GetInfoInner(query,&repeat);const bool cached=action->CanDo(query);auto afterRandom=GlobalGameRandom();
+    std::printf("native AI medical cost: mode=%d kit=%d activeKit=%d selectedPrice=%d heldPrice=%d budget=%d physicalAP=%d planningAP=%d HP=%d maxHP=%d medicine=%d required=%d modifier=%d dose=%d canDo=%d repeat=%d cached=%d expected=%d\n",mode,kitDB->GetRecordID(),int(active),price,heldPrice,budget,ap,aiAP,hp,maxHP,medicine,kitDB->nRequiedSkill,kitDB->nSkillModifier,dose,int(info.bCanDo),int(repeat.bCanDo),int(cached),int(expected));std::fflush(stdout);
+    Require(actor->GetAP()==ap && ai->GetAP()==aiAP && ai->GetHP()==hp && ai->GetMaxHP()==maxHP && int(rpg->Skills(NDb::ST_VP))==rawHP && int(rpg->Skills(NDb::ST_MEDICINE))==medicine && kit->GetIncQuantity()==dose && inventory->GetActive()==held && actor->GetPosition()==position && query.place==preview && planning->GetBestFirstAid()==selected && !ai->GetAIUnitState()->pEnemy && random.Get()==afterRandom.Get(),"AI medical cost query changed world/planning state");
+    Require(info.bCanDo==expected && repeat.bCanDo==expected && cached==expected && info.pFirstAid==selected && repeat.pFirstAid==selected,"AI medical affordability uses the held item instead of the selected kit price");
+    if(!spend)return;
+    auto planRandom=GlobalGameRandom();CObj<NAI::CAILog> log=NAI::CreateAILog();action->Do(log);afterRandom=GlobalGameRandom();
+    std::printf("native AI medical cost spend: mode=%d before=%d after=%d expected=%d physicalBefore=%d physicalAfter=%d selectedCurrent=%d\n",mode,aiAP,ai->GetAP(),aiAP-price,ap,actor->GetAP(),int(planning->IsCurrentItem(selected)));std::fflush(stdout);
+    Require(!log->IsEmpty() && planning->IsCurrentItem(selected) && actor->GetAP()==ap && ai->GetHP()==hp && ai->GetMaxHP()==maxHP && int(rpg->Skills(NDb::ST_VP))==rawHP && int(rpg->Skills(NDb::ST_MEDICINE))==medicine && kit->GetIncQuantity()==dose && inventory->GetActive()==held && actor->GetPosition()==position && planRandom.Get()==afterRandom.Get(),"AI medical plan changed actual world/HP/doses/held item/pose/skill/RNG or failed to select its kit");
+    Require(ai->GetAP()==aiAP-price,"AI medical plan spends the held item price instead of the selected kit preparation AP");
+}
+
 static void AISelectedReloadActionCost(const char* databasePath,const char* resourcePath,bool spend)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
@@ -26650,6 +26686,14 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "treatment-ack-repair-below-half") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,2); return true; }
     if (!std::strcmp(mode, "treatment-ack-repair-spent-pilot-ap") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,3); return true; }
     if (!std::strcmp(mode, "treatment-ack-repair-empty-silent") && argc==4) { RepairOrderGate(argv[2],argv[3],0,0,-1,4); return true; }
+    if (!std::strcmp(mode, "ai-medical-cost-backpack-below") && argc==4) { AISelectedMedicalCost(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "ai-medical-cost-backpack-exact") && argc==4) { AISelectedMedicalCost(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "ai-medical-cost-backpack-above") && argc==4) { AISelectedMedicalCost(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "ai-medical-cost-held-below") && argc==4) { AISelectedMedicalCost(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "ai-medical-cost-held-exact") && argc==4) { AISelectedMedicalCost(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "ai-medical-cost-backpack-spend") && argc==4) { AISelectedMedicalCost(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "ai-medical-cost-held-spend") && argc==4) { AISelectedMedicalCost(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "ai-medical-cost-free-zero-budget") && argc==4) { AISelectedMedicalCost(argv[2],argv[3],7); return true; }
     if (!std::strcmp(mode, "ai-medical-probe-backpack-current") && argc==4) { AISelectedMedicalProbe(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-medical-probe-active-current") && argc==4) { AISelectedMedicalProbe(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-medical-probe-active-planned") && argc==4) { AISelectedMedicalProbe(argv[2],argv[3],2); return true; }

@@ -13870,3 +13870,72 @@ source commits;32 already present,5 excluded-balance,2 excluded-own-behavior,
 independent applicable fix still needs native RED/GREEN, own adaptation,
 separate original-SHA commit and immediate push. Final GitHub Actions work
 is still due. No source/build copies or new builds in this read-only audit.
+
+### AI prices the selected medical kit (144c7b84, independent cost stage)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/144c7b84dc51b2ef80784df6d40ae40dac1889e9
+
+CAIHealAction selects a real kit but asks our two-argument GetActionAP for
+the held item's first-aid price. With a gun held, the old fallback is15AP.
+An authored critical-first kit3 costs10AP: affordable budgets10/11 are
+rejected, and a successful speculative plan consumes15 instead of10.
+An authored free kit1 is also rejected when the supplied budget is zero.
+Read the selected kit's nAPToUse in both GetInfoInner and Do. This adapts
+the original explicit-item price calculation to our existing two-argument
+API without changing general GetActionAP, DB prices, perks or minimum AP.
+Medical effect, patient/pose/skill/item/enemy/health gates remain intact.
+
+Original proof: named Gold GetInfo4514b0/426 uniquely maps Steam451fe0.
+At45212a the selected CAIFirstAid.GetInventoryItem virtual10 returns the
+actual kit, pushed with action19 and planned pose into GetActionAP virtual14
+before the budget comparison452143. Named CAIFirstAid getter Gold4b4410/41
+maps Steam4b5be0: instructions match except two verified equal RTTI type-name
+addresses and dynamic-cast call relocation. Multiple identical getters are
+disambiguated through the actual CAIFirstAid virtual table and RTTI.
+AI AP forwarding Gold4abd20/11 exactly matches Steam4ad500.
+
+Named Gold Do451660/311 uniquely maps Steam452190 with identical instructions
+except19 decoded direct-call operands and its SEH address. At45224b it uses
+the same selected-item/action19/pose price, then creates SpendAP via verified
+factory45b310 -> named constructor45bfe0 and actual CAILogSpendAP RTTI.
+Original mission action19 table Gold6bba68->6bb15d / Steam6c1a48->6c1203
+reads DB cost+30 and returns it unchanged, as independently verified during
+repair preparation. Cached upstream452206/6c1253 comments are not the actual
+affordability/cost addresses in this oracle; actual price load is6c121c.
+No inferred discount or new minimum is applied.
+
+Eight new cases use the same genuine AI-world/persona34 setup as the previous
+medical probe, with no changes to that existing fixture. Real Medicine32,
+HP23/94 and physical/planning AP41, actual gun65 and backpack/held kit3
+(cost10, required25, modifier10, dose10), or free kit1(cost0). Budgets9/10/11
+test selected-kit boundaries; held9/10 and held-spend are controls. Real
+CAIHealAction direct/repeated/memoized queries stay pure. Real Do/CAILog
+commits update only speculative AP and the AI current-item mirror; physical
+AP/HP/doses/held item/position/Medicine/RNG remain unchanged. This does not
+claim actual treatment playback or world-action AP timing.
+
+Initial fixture runs are archived as setup, not bug evidence: the fixture
+incorrectly assumed gun-held fallback0; actual fallback is15. Its planning
+RNG comparison also reused an already advanced local snapshot. Correct
+both before final RED; production stays unchanged. Final RED4fail/8 on
+BOTH platforms before Main: budgets10/11 and free0 wrongly rejected, and
+bagged-kit Do changes planning41->26 rather than31. Four controls pass,
+including actual held-kit Do41->31. Source edit is ONLY one Main file,
+two cost expressions and their explanatory comment.
+
+GREEN251/251 Windows271.01s/Linux274.86s = previous243 plus8. Exact8query/
+2spend input/purity rows match across platforms. Only three direct/repeat/
+cache outcomes and one bagged-kit speculative AP result change; held-spend
+row remains identical. Previous9 AI-kit/planned-position,9 prone-reach,
+10 pose and11 skill traces are unchanged. Windows ALL_BUILD and Linux Game/
+helpers pass. No fresh fullCI/hosted Actions or own animation playback claim.
+Save/network formats, actual world rules, fonts, face/body and frozen HD
+pipeline remain unchanged; shared builds only.
+
+Mark source144 partially imported: selected-kit AI cost hunks are complete,
+while human/prone and PK directional approach geometry in wUnitAttack.cpp
+still need independent original proof/native TDD. Ledger286 now152 imported,
+19partial,72pending =91 unfinished sources. Whole goal stays active and
+final actual GitHub Actions fix/check remains due after applicable imports.
+Evidence: ai-medical-cost-retail-oracle.json, final RED8/GREEN251 raw logs,
+verification.json, setup logs, exit files and Windows ALL_BUILD log.
