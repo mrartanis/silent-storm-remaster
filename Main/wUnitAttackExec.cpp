@@ -1367,7 +1367,7 @@ int CExecShoot::GetFirstShotAP() const
 {
 	if ( IsAccidental() )
 		return 0;
-	if ( pUS->animator.IsAiming() )
+	if ( pUS->animator.IsAiming() && pUS->IsTemporaryAimed() )
 		return pUS->GetActionAP( NRPG::AC_SHOOT ) + nExtraAP;
 	else
 		return pUS->GetActionAP( NRPG::AC_PREPARE_AND_SHOOT ) + nExtraAP;

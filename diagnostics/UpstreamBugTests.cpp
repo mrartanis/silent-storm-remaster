@@ -20460,6 +20460,65 @@ static void EmptyClipAttackEntry(const char* databasePath,const char* resourcePa
 
 
 
+static bool NativeSavedTemporaryAim(NWorld::CDumbUnitServer* actor)
+{
+    // Observe the existing native save field; never inject an aim flag/provider.
+    CStructureNetworkContext refs;refs.include=[](CObjectBase*){return false;};CMemoryStream fields;
+    {CStructureSaver writer(fields,CStructureSaver::WRITE,&refs);actor->NWorld::CDumbUnitServer::operator&(writer);}
+    fields.Seek(0);bool value=false;{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(23,&value);}return value;
+}
+
+static void QueuedAim(const char* databasePath,const char* resourcePath,int mode)
+{
+    const bool aimed=mode!=6 && mode!=7 && mode!=8 && mode!=17 && mode!=18 && mode!=19;
+    const bool shortBurst=mode>=3 && mode<=5,bounce=mode>=13 && mode<=15,empty=mode==10 || mode==18;
+    const int kind=mode==1 || mode==4 || mode==7 || mode==12 || mode==14?1:mode==2 || mode==5 || mode==8 || mode==15?2:0;
+    const bool hasPrefix=mode<=8 || mode==11 || mode==12 || bounce || mode==19;
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(auto p:units)if(p && !p->IsAIUnit() && p->CanFight() && !p->IsWearingPK() && !p->IsEmptyPK() && p->GetUnitRPG()->CanMove() && !p->HasCommand()){actor=p;break;}
+    Require(actor,"queued aim fixture lacks actual native human actor");auto* owner=dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer());Require(owner,"queued aim fixture lacks native owner");world->GivePlayerTurn(owner);Require(world->IsTurnBased(),"queued aim fixture lacks real tactical turn");
+    auto* record=NDatabase::GetTable<NDb::CRPGWeapon>()->GetRecord(26);Require(record && record->pWeaponType && record->pWeaponType->nPrepareCost>0 && record->shootModes[NDb::SM_Snap] && record->shootModes[NDb::SM_ShortBurst],"queued aim fixture lacks its actual authored firearm26");
+    auto* rpg=actor->GetUnitRPG();auto* inventory=rpg->GetInventory();const auto slot=NDb::ESlot(inventory->GetActiveSlot());CObj<NRPG::IInventoryItem> old=inventory->Get(slot)?inventory->TakeOff(slot):nullptr;CObj<NRPG::CWeaponItem> gun=new NRPG::CWeaponItem(record);
+    Require(inventory->Equip(slot,gun) && inventory->Activate(slot) && gun->SetShootMode(shortBurst?NDb::SM_ShortBurst:NDb::SM_Snap) && rpg->GetWeaponItem()==gun.GetPtr(),"queued aim fixture cannot equip its actual supported firearm");
+    auto* network=world->GetPathNetwork();auto from=actor->GetPosition();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(from.GetCP(),5.f),&places);bool placed=false;
+    for(auto place:places){place.SetPose(NAI::CM_STAND);place.SetDirection(from.pos.p.GetDirection());if(!place.IsIntegral() || place.IsFinal() || !network->IsPassable(place) || network->IsLocked(place,true))continue;from.pos.p=place;actor->SetPosition(from);actor->animator.PlaceUnit(from);actor->Update();placed=true;break;}
+    Require(placed,"queued aim fixture lacks genuine free integral standing cell");from=actor->GetPosition();actor->animator.SetActiveItem(true);actor->SetUndrawItem(false);actor->SetWalkWithoutWeapon(false);actor->animator.SetWeaponAnimation(rpg->GetWeaponType());actor->animator.SetWeaponName(record->szAnimName.c_str());
+    CObj<NWorld::CCommandExecute> prefix;CObj<NAI::CPath> path;auto future=from;int prefixCost=0;
+    if(hasPrefix){
+        vector<NAI::SPathPlace> destinations;
+        if(kind){auto end=from.pos.p;if(kind==1)end.SetDirection((end.GetDirection()+1)%8);else end.SetPose(NAI::CM_CROUCH);destinations.push_back(end);}
+        else {network->GetNearPlaces(SSphere(from.GetCP(),4.f),&destinations);}
+        for(auto end:destinations){if(!end.IsIntegral() || end.IsFinal())continue;if(!kind){end.SetPose(from.pos.p.GetPose());end.SetDirection(from.pos.p.GetDirection());auto to=from;to.pos.p=end;if(fabs(to.GetCP()-from.GetCP())<.6f)continue;}if(kind){std::printf("native queued aim path probe: mode=%d kind=%d passable=%d locked=%d from=%u end=%u\n",mode,kind,int(network->IsPassable(end)),int(network->IsLocked(end,true)),from.pos.p.GetBits(),end.GetBits());std::fflush(stdout);}if(!kind && (!network->IsPassable(end) || network->IsLocked(end,true)))continue;
+            CObj<NAI::CPath> candidate=NWorld::FindPath(network,actor,from.pos.p,vector<NAI::SPathPlace>{end},nullptr,false,NAI::PF_USE_POSEDIR);if(kind){std::printf("native queued aim path result: mode=%d points=%u end=%u\n",mode,candidate?unsigned(candidate->points.size()):0,candidate && !candidate->points.empty()?candidate->points.back().GetBits():0);std::fflush(stdout);}if(!candidate || candidate->points.size()<2 || candidate->points.back()==from.pos.p)continue;
+            NWorld::EUnitCommandResult result=NWorld::UCR_OK;prefix=NWorld::CreateMoveExecutor(actor,candidate,NAI::PF_USE_POSEDIR,NWorld::ITEM_NO_MATTER,&result);if(!prefix || result!=NWorld::UCR_OK)continue;path=prefix->GetCurrentPath();if(path && path->points.size()>1 && !(path->points.back()==from.pos.p)){future.pos.p=path->points.back();break;}prefix=nullptr;path=nullptr;
+        }
+        Require(prefix && path && path->points.size()>1 && !(future.pos.p==from.pos.p),"queued aim fixture cannot build actual native movement/turn/pose preparation");prefixCost=prefix->GetActionAP();Require(prefixCost>=0 && (kind==1 || prefixCost>0),"queued aim fixture native movement/pose price is invalid");
+        if(kind==1)Require(future.pos.p.GetX()==from.pos.p.GetX() && future.pos.p.GetY()==from.pos.p.GetY() && future.pos.p.GetPose()==from.pos.p.GetPose() && future.pos.p.GetDirection()!=from.pos.p.GetDirection(),"queued aim turn fixture did not retain actual turn-only endpoint");
+        if(kind==2)Require(future.pos.p.GetX()==from.pos.p.GetX() && future.pos.p.GetY()==from.pos.p.GetY() && future.pos.p.GetPose()!=from.pos.p.GetPose(),"queued aim pose fixture did not retain actual pose-only endpoint");
+    }
+    const float angle=from.GetDirection();const CVec3 point=from.GetCP()+CVec3(20*cos(angle),20*sin(angle),1);Require(NRPG::GetShootDirection(network,from.pos.p,point)==from.pos.p.GetDirection(),"queued aim fixture lacks actual aligned tile target");
+    if(aimed){CRay ray;ray.ptOrigin=from.GetEyePosition();ray.ptDir=point-ray.ptOrigin;Normalize(&ray.ptDir);actor->animator.Snipe(from,ray);Require(actor->animator.IsAiming(),"queued aim fixture cannot enter its real native aiming graph");}else Require(!actor->animator.IsAiming(),"queued aim cold fixture unexpectedly aims");
+    Require(NativeSavedTemporaryAim(actor),"queued aim fixture starts with a stale temporary aim field");CObj<NWorld::CExecShootTile> shot=new NWorld::CExecShootTile(actor,point);Require(shot->CanDoIt(from)==NWorld::UCR_OK,"queued aim fixture actual native shot validator rejects its loaded actor");
+    float bonus=0;rpg->HasPerk(16,&bonus);const int length=int(record->nRoF/6.f+bonus),extra=shortBurst?Max(0,length-1)*rpg->GetActionAP(future.GetPose(),NRPG::AC_BURST):0;
+    const int direct=rpg->GetActionAP(from.GetPose(),aimed?NRPG::AC_SHOOT:NRPG::AC_PREPARE_AND_SHOOT)+extra;
+    const int first=rpg->GetActionAP(future.GetPose(),hasPrefix?NRPG::AC_PREPARE_AND_SHOOT:aimed?NRPG::AC_SHOOT:NRPG::AC_PREPARE_AND_SHOOT),tail=first+extra;
+    const int ap=actor->GetAP(),hp=rpg->GetTotalVP(),ammo=gun->GetAmmoQuantity();const auto count=inventory->GetItems().size();const auto time=world->GetTime()->GetValue();auto rng=GlobalGameRandom();
+    if(bounce || mode==16){
+        actor->SetTemporaryPosition(bounce?future:from);const bool at=NativeSavedTemporaryAim(actor);actor->SetTemporaryPosition(from);const bool back=NativeSavedTemporaryAim(actor);const int price=shot->GetStartAP();CObj<NWorld::CSimpleExecQueue> reset=new NWorld::CSimpleExecQueue(actor);const int resetPrice=reset->GetActionAP();const bool restored=NativeSavedTemporaryAim(actor);const int afterPrice=shot->GetStartAP();auto after=GlobalGameRandom();
+        const int expected=bounce?rpg->GetActionAP(from.GetPose(),NRPG::AC_PREPARE_AND_SHOOT):direct;const bool unchanged=actor->GetAP()==ap && rpg->GetTotalVP()==hp && gun->GetAmmoQuantity()==ammo && actor->GetPosition()==from && actor->animator.IsAiming()==aimed && inventory->GetActive()==gun.GetPtr() && inventory->GetItems().size()==count && world->GetTime()->GetValue()==time && rng.Get()==after.Get() && !actor->HasCommand();
+        std::printf("native queued aim transition: mode=%d kind=%d at=%d back=%d price=%d expected=%d reset=%d restored=%d after=%d direct=%d unchanged=%d\n",mode,kind,int(at),int(back),price,expected,resetPrice,int(restored),afterPrice,direct,int(unchanged));std::fflush(stdout);
+        Require(unchanged && restored && resetPrice==0 && afterPrice==direct,"temporary aim reset changes physical state or leaves subsequent direct shots unprepared");
+        Require(at==!bounce && back==!bounce && price==expected,"native temporary position does not latch aim loss until the original queue reset");return;
+    }
+    CObj<NWorld::CSimpleExecQueue> queue=new NWorld::CSimpleExecQueue(actor);if(prefix)queue->AddExecutor(prefix);
+    if(!empty){CObj<NWorld::CCommandExecute> tailExec=shot.GetPtr();if(mode==11 || mode==12 || mode==19)for(int depth=0;depth<2;++depth){CObj<NWorld::CSimpleExecQueue> nested=new NWorld::CSimpleExecQueue(actor);nested->AddExecutor(tailExec);tailExec=nested.GetPtr();}queue->AddExecutor(tailExec);}
+    const int expected=empty?0:prefixCost+tail;const int total=queue->GetActionAP(),repeat=queue->GetActionAP();NWorld::CCommandExecute* base=queue.GetPtr();const int viaBase=base->GetActionAP();const bool restored=NativeSavedTemporaryAim(actor);const int afterPrice=shot->GetStartAP();auto after=GlobalGameRandom();
+    const bool unchanged=actor->GetAP()==ap && rpg->GetTotalVP()==hp && gun->GetAmmoQuantity()==ammo && actor->GetPosition()==from && actor->animator.IsAiming()==aimed && inventory->GetActive()==gun.GetPtr() && inventory->GetActiveSlot()==slot && inventory->GetItems().size()==count && world->GetTime()->GetValue()==time && rng.Get()==after.Get() && !actor->HasCommand();
+    std::printf("native queued aim: mode=%d kind=%d aimed=%d short=%d prefix=%d path=%d changed=%d first=%d extra=%d direct=%d actual=%d repeat=%d base=%d expected=%d restored=%d after=%d AP=%d ammo=%d unchanged=%d\n",mode,kind,int(aimed),int(shortBurst),prefixCost,path?int(path->points.size()):0,int(!(future.pos.p==from.pos.p)),first,extra,direct,total,repeat,viaBase,expected,int(restored),afterPrice,ap,ammo,int(unchanged));std::fflush(stdout);
+    Require(unchanged && restored && afterPrice==direct,"forecasting queued aim changes physical state or fails to restore original position/temporary aim");
+    Require(total==expected && repeat==expected && viaBase==expected,"native queued shot keeps the old aimed discount after actual planned movement/turn/pose");
+}
+
 class NativeBurstExecutionAccess: public NWorld::CExecShootTile
 {
 public:
@@ -27221,6 +27280,26 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-cannon-undock-plan-invalid-server") && argc == 4) { AICannonUndockPlan(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "cannon-entry-animation")) { Require(argc == 4, "cannon animation requires db and res"); CannonEntryAnimation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mounted-reload-weapon")) { Require(argc == 4, "mounted reload requires db and res"); MountedReloadWeapon(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "queued-aim-0") && argc==4) { QueuedAim(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "queued-aim-1") && argc==4) { QueuedAim(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "queued-aim-2") && argc==4) { QueuedAim(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "queued-aim-3") && argc==4) { QueuedAim(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "queued-aim-4") && argc==4) { QueuedAim(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "queued-aim-5") && argc==4) { QueuedAim(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "queued-aim-6") && argc==4) { QueuedAim(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "queued-aim-7") && argc==4) { QueuedAim(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "queued-aim-8") && argc==4) { QueuedAim(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "queued-aim-9") && argc==4) { QueuedAim(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "queued-aim-10") && argc==4) { QueuedAim(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "queued-aim-11") && argc==4) { QueuedAim(argv[2],argv[3],11); return true; }
+    if (!std::strcmp(mode, "queued-aim-12") && argc==4) { QueuedAim(argv[2],argv[3],12); return true; }
+    if (!std::strcmp(mode, "queued-aim-13") && argc==4) { QueuedAim(argv[2],argv[3],13); return true; }
+    if (!std::strcmp(mode, "queued-aim-14") && argc==4) { QueuedAim(argv[2],argv[3],14); return true; }
+    if (!std::strcmp(mode, "queued-aim-15") && argc==4) { QueuedAim(argv[2],argv[3],15); return true; }
+    if (!std::strcmp(mode, "queued-aim-16") && argc==4) { QueuedAim(argv[2],argv[3],16); return true; }
+    if (!std::strcmp(mode, "queued-aim-17") && argc==4) { QueuedAim(argv[2],argv[3],17); return true; }
+    if (!std::strcmp(mode, "queued-aim-18") && argc==4) { QueuedAim(argv[2],argv[3],18); return true; }
+    if (!std::strcmp(mode, "queued-aim-19") && argc==4) { QueuedAim(argv[2],argv[3],19); return true; }
     if (!std::strcmp(mode, "burst-preview-0") && argc==4) { BurstPreview(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "burst-preview-1") && argc==4) { BurstPreview(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "burst-preview-2") && argc==4) { BurstPreview(argv[2],argv[3],2); return true; }

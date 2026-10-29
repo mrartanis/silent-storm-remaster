@@ -57,7 +57,7 @@ int CSimpleExecQueue::GetActionAP( int nAlreadyReservedAP ) const
 			dst.pos.p = pPath->points.back();
 		pUS->SetTemporaryPosition( dst );
 	}
-	pUS->SetTemporaryPosition( pos );
+	pUS->ResetTemporaryPosition( pos );
 	return nTemp;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

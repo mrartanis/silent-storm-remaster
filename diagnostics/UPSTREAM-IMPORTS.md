@@ -15334,3 +15334,77 @@ Source PARTIAL: short-burst routing/cost helper and header declarations done;
 temporary-position aim invalidation/reset and the first-shot aim predicate
 remain for a separate independent TDD commit. Ledger286:163 imported/19 partial/
 61 pending =80 unfinished sources. Whole goal/final hosted Actions remain.
+
+### Restore temporary aim during action-queue forecasts (8cfff49d, complete)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8cfff49d3a409f8514b3b1b78ee9b005ffd311d2
+
+An aimed actor's queued shot retained its old preparation discount even after
+planned movement, turn or pose change. Use the already existing temporary-aim
+field/tag23: SetTemporaryPosition keeps it only while the previous full native
+SPathPlace equals the next one. The first-shot query now requires both the
+own animator's IsAiming and that temporary flag. At queue completion restore
+the original SUnitPosition and set temporary aim true, as in original. Add
+named nonvirtual read/reset helpers; retain class fields, save tags and wire
+schema. Actual animation/SpendAP/CheckBurst, prices and body/facial/bgfx/HD/font
+implementations are unchanged. No previous-false restore policy is invented
+for nested queues; the original completion rule is explicitly reset=true.
+
+Original proof: named GetTotalActionAP525's inlined invalidation28 bytes at
+Gold7b1cf9 uniquely match actual Steam7be4e9 unmasked; computed-flag store17
+at7b1d49 ->7be539 and reset10 at7b1dc9 ->7be5b9 likewise uniquely match without
+masks. PDB CDumb position18, temporary aim11e and animator58 with bAimed54/
+bAimedStrafe45 prove the compared/stored fields. The whole original70-byte
+GetFirstShotAP maps independently through the prior burst oracle; its actual
+29-byte aim/temporary predicate and shot7 vs prepare-and-shot6 branches are
+checked. Main uses our named fields/portable SPathPlace equality, not original
+ABI offsets. No whole525-byte body identity or retail-process execution claim.
+
+Baseline90/90 Windows,88/88 Linux; separate fresh sniper/AI-snipe12/12 BOTH
+before production. Definitive compiled native RED11/20 BOTH -> GREEN20/20
+BOTH. Eight real aimed queued-shot forecasts fail plus three direct temporary-
+position bounce/latch contracts. Nine controls already pass. Actual map810,
+human actor, authored firearm26, native Snipe aiming graph, owner-aware
+FindPath and CreateMoveExecutor provide move/turn/pose endpoints and prices.
+Native path movement has3 points/8AP, same-cell turn2 points/0AP, crouch2
+points/4AP. Existing native zero-price turn is preserved, no1AP minimum.
+Nested real queues preserve the same forecast. Snap after movement19->23,
+turn11->15, crouch15->19; short burst25->29/17->21/21->25. Cold paths and direct,
+empty/same-position controls stay identical. Repeated/base calls agree.
+
+Temporary flag observation is read-only via qualified native CDumb serializer
+tag23, with borrowed pointer references; no private flag injection or fake cost/
+path provider. Direct actual temporary-position transitions to native path
+endpoints and back retain false until a real empty-queue query resets true.
+The direct-shot price temporarily11->15, then returns11 after completion;
+same-place update stays aimed. Queue forecasts restore full original position,
+temporary flagtrue and direct-shot price. Measured AP/HP/ammo/physical aim/
+active item+slot/bag count/time/next RNG word/orders stay unchanged. These are
+planning and native state checks, not walked routes, rendered facial/body
+pixels, complete timed shots/damage or full save/load round-trip evidence.
+
+Fixture setup is archived separately. A raw owner-unaware cell occupancy and
+passability check rejected the actor's own cell for turn/pose. Removing only
+the lock check was insufficient: actual probe shows raw passable0/locked1;
+native owner-aware FindPath correctly produces2-point turn/pose paths. Those
+paths/typed endpoint invariants remain required, with normal movement target
+filters intact. A further fixture assumption incorrectly demanded positive
+turn AP; actual native turn is0 and must stay0. Correct those preconditions
+and repeat definitive RED on unchanged Main before applying this same small
+fix. Setup assertions are never counted as behavioral RED.
+
+Final Windows ALL_BUILD/Linux Game/helpers/actual serializer built. Exact
+related110/110 Windows and108/108 Linux equal baseline+20. Own animation-
+reseat/legacy-walk/ladder/turn/cannon16/16 BOTH and fresh sniper/AI-snipe12/12
+BOTH pass. Fresh actual Windows network4/4 and local CI299/299 pass. Raw
+manifests/exits/state/source scope verified;20 new asset-backed cases stay
+outside asset-free CI299. Two shared builds only, no per-bug build/source
+copies or HD/PNG work. Evidence: queued-aim-verification.json, original oracle
+and native baseline/definitiveRED/GREEN/final raw logs in external lab.
+General verifier/finisher tied to931969fb parent, not reusable after commit;
+original verifier/pure transform retain their stated scope.
+
+All four source files/hunks now accounted with prior931969fb short-burst half,
+including existing helper declarations in wUnitAttackExec.h. Mark source
+IMPORTED. Ledger286:164 imported/18 partial/61 pending =79 unfinished sources.
+Whole goal and final actual hosted Actions repair/check remain unfinished.
