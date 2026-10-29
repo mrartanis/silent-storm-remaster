@@ -249,8 +249,9 @@ HD preparation is disabled by default; no textures are generated.
 
 Metal shaders are compiled by the pinned shaderc. The game enables Retina
 backing pixels; CTest uses `S2_NO_HIGHDPI=1` for pixel-exact renderer/input
-regressions. Cocoa display tests run serially because they share desktop focus
-and fullscreen spaces. User data defaults to
+regressions; a separate native Retina test keeps HiDPI enabled. Cocoa display
+tests run serially because they share desktop focus. Borderless uses a desktop-sized
+window, not an animated macOS fullscreen Space. User data defaults to
 `~/Library/Application Support/Silent Storm Reconstruction`; `S2_USER_DATA_DIR`
 can select an isolated absolute directory for testing.
 

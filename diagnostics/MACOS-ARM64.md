@@ -73,10 +73,10 @@ logs, and `build-mac/runtime/_saveload.log`.
 - Case-insensitive APFS tests compare file identity, not spelling, and do not
   attempt to create two files differing only in case. TCP-close tests allow
   asynchronous FIN delivery instead of assuming one poll is sufficient.
-- Pixel-exact GUI regressions request `S2_NO_HIGHDPI=1`; the actual game keeps
-  Retina enabled. Cocoa GUI tests are serial and fullscreen/focus transitions
-  have a longer deadline. A shell-launched fullscreen window can retain a
-  menu-bar strip; the input test accepts full-display or rounded usable bounds.
+- Pixel-exact GUI regressions request `S2_NO_HIGHDPI=1`; the actual game and
+  `SDLPlatformRetinaModeTests` keep Retina enabled. Cocoa GUI tests are serial
+  and minimize/restore transitions have a longer deadline. Borderless tests
+  require the entire display, not rounded usable bounds or a menu-bar strip.
 - Default user data uses `~/Library/Application Support/Silent Storm Reconstruction`;
   the existing absolute `S2_USER_DATA_DIR` override is preserved.
 
@@ -108,3 +108,35 @@ failure is `SDLPlatformInputTests`: Cocoa leaves the window at 800x600 after
 a successful borderless request instead of setting the fullscreen flag and
 desktop dimensions. Its assertions remain enabled; this run is not claimed
 as fully green. The packaging Python suite also passes (3/3).
+
+## Borderless fix, 2026-10-29
+
+The remaining Cocoa failure above is resolved. SDL's default native Spaces
+path uses an asynchronous `toggleFullScreen:` request; its blocking helper can
+report acceptance even when the window never entered the requested Space.
+The game now sets the public `SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES` hint to
+`0` before video initialization, selecting SDL's synchronous desktop-sized
+borderless window instead. This intentionally does not create a separate
+animated macOS fullscreen Space. Exclusive display mode selection remains
+available. `SetMode` also rejects a mismatched actual Cocoa fullscreen flag.
+
+The former usable-bounds tolerance and 10-second polling workaround were
+removed from the input regression. It now immediately requires the fullscreen
+flag, a non-exclusive mode and exact desktop dimensions, followed by a correctly
+restored window size.
+
+Verification:
+
+- **289/289 CTest passed** (95.30 seconds), including renderer display modes,
+  18 minimize/restore cycles and the new `SDLPlatformRetinaModeTests`.
+- Input and native Retina mode tests each passed five consecutive runs.
+- With HiDPI enabled, the Retina test checks three window sizes and repeated
+  borderless/return transitions: logical desktop 1728x1117, backing pixels
+  3456x2234, density 2.0, including engine display metrics.
+- Actual Game/Metal main menu: `-borderless` produced a 3456x2234 screenshot;
+  `setvar gfx_fullscreen = 0` + `gfx_update` restored an 800x600 window with
+  1600x1200 backing pixels; mode 2 restored 3456x2234. Captures contain the
+  rendered game scene. Harness `quit` returned exit code 0.
+
+Logs, the reusable smoke driver and all three game screenshots are under
+`build-mac/evidence/borderless/`; no test game was left running.

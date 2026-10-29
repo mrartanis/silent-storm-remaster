@@ -1874,8 +1874,8 @@ endif()
 add_test(NAME DisplayRuntimeTests COMMAND BgfxRendererTests --display)
 add_test(NAME FocusRestoreRuntimeTests COMMAND BgfxRendererTests --focus-restore)
 if(APPLE)
-  # Every macOS minimize/restore round trip waits for the Cocoa fullscreen
-  # space transition, so the 60-second Linux ceiling is not enough here.
+  # Cocoa minimize/restore can wait for native window operations, so the
+  # 60-second Linux ceiling is not enough for all 18 cycles here.
   set_tests_properties(FocusRestoreRuntimeTests PROPERTIES TIMEOUT 300)
 else()
   set_tests_properties(FocusRestoreRuntimeTests PROPERTIES TIMEOUT 60)
@@ -1906,6 +1906,9 @@ add_test(NAME LowRamCombinerRuntimeTests COMMAND BgfxRendererTests --low-ram-com
 set_tests_properties(LowRamCombinerRuntimeTests PROPERTIES LABELS "extended;native-display")
 set_tests_properties(SelectionStencilRuntimeTests PROPERTIES LABELS "extended;native-display")
 if(APPLE)
+  add_test(NAME SDLPlatformRetinaModeTests COMMAND SDLPlatformInputTests --native-window-modes)
+  # Unlike the pixel-exact tests below, exercise actual Retina backing pixels.
+  set_tests_properties(SDLPlatformRetinaModeTests PROPERTIES RUN_SERIAL TRUE TIMEOUT 60 LABELS "native-hidpi")
   # Retina backings make drawable pixels differ from the window-pixel
   # coordinates these regression tests encode; run them at 1:1 scale.
   set(_s2_display_tests BgfxRendererTests SDLPlatformInputTests
@@ -1924,7 +1927,7 @@ if(APPLE)
   foreach(displayTest IN LISTS _s2_display_tests)
     if(TEST ${displayTest})
       set_property(TEST ${displayTest} APPEND PROPERTY ENVIRONMENT "S2_NO_HIGHDPI=1")
-      # Real Cocoa windows share desktop focus/fullscreen spaces. Do not run
+      # Real Cocoa windows share desktop focus. Do not run
       # these tests concurrently even when ctest is invoked with --parallel.
       set_tests_properties(${displayTest} PROPERTIES RUN_SERIAL TRUE)
     endif()

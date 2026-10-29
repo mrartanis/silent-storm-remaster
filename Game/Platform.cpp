@@ -82,6 +82,13 @@ bool S2Platform::Init(const char* title, int width, int height, bool hidden)
   SDL_SetHint(SDL_HINT_MOUSE_AUTO_CAPTURE, "0");
   // Cursor images are already sized to drawable/UI pixels; avoid a second DPI scale.
   SDL_SetHint(SDL_HINT_MOUSE_DPI_SCALE_CURSORS, "0");
+#if defined(__APPLE__)
+  // Borderless is a desktop-sized window, not a separate animated macOS
+  // fullscreen Space. Cocoa's toggleFullScreen path can accept the request
+  // without entering fullscreen, or queue it behind minimize/restore.
+  // Use SDL's synchronous desktop-fullscreen path for the game instead.
+  SDL_SetHint(SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES, "0");
+#endif
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
     InitError("SDL_Init");
     SDL_Quit();
@@ -287,6 +294,13 @@ bool S2Platform::SetMode(int width, int height, WindowMode requested)
     std::fprintf(stderr,"DISPLAY: SDL mode change failed: %s\n",SDL_GetError());
     return false;
   }
+#if defined(__APPLE__)
+  if (bool(SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) == windowed) {
+    std::fprintf(stderr,"DISPLAY: Cocoa did not enter the requested %s mode\n",
+        windowed ? "windowed" : (fullscreen ? "fullscreen" : "borderless"));
+    return false;
+  }
+#endif
   UpdateDisplay();
   return true;
 }
