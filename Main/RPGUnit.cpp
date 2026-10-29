@@ -757,12 +757,14 @@ bool CUnit::CreateFirstAid( SFirstAid *pRes, int nMaxSpentAP, float fKitCapacity
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-int CUnit::GetFirstAidDC( IFirstAidItem *pItem )
+int CUnit::GetFirstAidDC( IFirstAidItem *pItem, CUnit *pTarget )
 {
 	int nSkill = *skills[ NDb::ST_MEDICINE ];
 	float fPerk;
 	if ( HasPerk( 56, &fPerk ) )
 		nSkill = int( nSkill + fPerk );
+	if ( pTarget && pTarget->HasPerk( 24, &fPerk ) )
+		nSkill = int( nSkill * fPerk );
 	if ( IsValid(pItem) ) 
 		nSkill += pItem->GetDBFirstAid()->nSkillModifier;
 	return fDCScale * nSkill;

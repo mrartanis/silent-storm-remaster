@@ -617,19 +617,19 @@ void CUnitStateHealer::OnStateStarted()
 				fKitCapacity = pFirstAid->nTotalHealVP;
 			else
 			{
-				healCriticalInfo = pPatient->TryHealCritical( pHealer->GetFirstAidDC(pItem), bStopBleeding );
+				healCriticalInfo = pPatient->TryHealCritical( pHealer->GetFirstAidDC(pItem, pPatient->GetRPGUnit()), bStopBleeding );
 				if ( healCriticalInfo.eCritical != NDb::C_NONE )
 					SetCriticalHealAPRequired();
 			}
 			break;
 		case NDb::FAE_CRITICAL_ONLY:
-			healCriticalInfo = pPatient->TryHealCritical( pHealer->GetFirstAidDC(pItem), bStopBleeding );
+			healCriticalInfo = pPatient->TryHealCritical( pHealer->GetFirstAidDC(pItem, pPatient->GetRPGUnit()), bStopBleeding );
 			// The original compares the location field here, including its empty-selection quirk.
 			if ( int(healCriticalInfo.eCl) != int(NDb::C_NONE) )
 				SetCriticalHealAPRequired();
 			break;
 		case NDb::FAE_CRITICAL_FIRST:
-			healCriticalInfo = pPatient->TryHealCritical( pHealer->GetFirstAidDC(pItem), bStopBleeding );
+			healCriticalInfo = pPatient->TryHealCritical( pHealer->GetFirstAidDC(pItem, pPatient->GetRPGUnit()), bStopBleeding );
 			if ( healCriticalInfo.eCritical != NDb::C_NONE )
 				SetCriticalHealAPRequired();
 			else

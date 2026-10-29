@@ -344,7 +344,7 @@ public:
 	void CreateFirstAid( SFirstAid *pRes, int nHealVP, int nSkill ) const;
 	bool CreateFirstAid( SFirstAid *pRes, int nMaxSpentAP, float fKitCapacity,
 		IFirstAidItem *pItem, CUnit *pTarget, int *pRequiredAP );
-	int GetFirstAidDC( IFirstAidItem *pItem );
+	int GetFirstAidDC( IFirstAidItem *pItem, CUnit *pTarget = 0 );
 
 	float Heal( const SFirstAid &fa );
 	void RegenerateVP( const SFirstAid &fa );

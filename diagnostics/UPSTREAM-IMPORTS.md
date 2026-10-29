@@ -12673,3 +12673,44 @@ with HD generation disabled; no fresh fullCI/hosted Actions claim.
 Source531f remains PARTIAL: patientDC24, wound perks24/57/63, repair,
 acknowledgments and relevant animation adaptation remain to audit/import.
 Ledger149 imported/19partial/70pending=89 unfinished sources; goal active.
+
+
+## 2026-10-29 — use patient perk24 for critical treatment eligibility (531f3b7d)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9), independent patient DC multiplier.
+Pass the actual patient into GetFirstAidDC at all three healer-state call
+sites. After the physician56 addition, apply patient perk24's parameter and
+truncate before adding the kit modifier and scaling DC. Keep default null
+for existing one-argument callers. Actual medicine, healing AP/time, stock
+records, save fields, own animation and HD remain unchanged. Perk24's wound
+strength effect remains a separate pending planner fix.
+
+Both original Gold6b5130 and Steam6bb2d0 read the actual patient perk tree
+at+65, request24 at+7c, multiply/truncate at+87, then add the item modifier
+at+c8. Exact original bytes verified by audit-patient-dc-perk-retail.py.
+
+Native TDD uses the real roster medic Medicine17 and a deployed friendly
+patient with an authored perk24 class and native perk acquisition. Its
+parameter1.5 changes treatment DC36 to53:17*1.5 truncates25 before scaling.
+No fake skill, AP, state or DB values. New tests invoke the existing public
+medical action, not a nonexistent API. Negative controls begin eligible
+before Run and change their critical in flight before AnimationFinished.
+RED2/5 Windows5.54s/Linux5.41s: DC37 and exact53 end without treatment;
+without-perk37, above54 and old36 controls pass.
+
+GREEN45/45 Windows49.15s/Linux50.82s includes all prior40 plus five
+patient cases. DC37/exact53 now retain pending marker/dose and spend109/
+156AP across actual native turns before cure; old36 still costs106AP.
+Without-perk and above-threshold criticals remain; own-turn finish cannot
+double-spend the first segment. All threshold inputs and old one-argument
+genericDC36 remain identical RED/GREEN, proving the action now receives
+patient context without changing the old null-context query. Quota/rawHP,
+target selection and one final dose are checked by the shared native fixture.
+
+Raw logs, exact registered sets, RED reasons, thresholds, turn progress,
+cure/control values, exits and exact three-file production diff verified.
+Windows ALL_BUILD and Linux Game pass. Shared builds reused with HD
+generation disabled; no fresh fullCI/hosted Actions claim. Source531f stays
+PARTIAL: wound perks24/57/63, engineering repair, acknowledgments and relevant
+animation adaptation remain. Ledger149 imported/19partial/70pending=
+89 unfinished sources; full goal and final hosted Actions still open.
