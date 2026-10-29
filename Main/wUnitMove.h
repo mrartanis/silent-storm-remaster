@@ -16,6 +16,8 @@ namespace NWorld
 {
 class CCommandExecute;
 bool CanPauseMoveForNetwork( CCommandExecute *pExec );
+// Resolve the real mover, retaining active walking from older saves with an unset animation marker.
+bool ShouldReseatMoveAnimation( CCommandExecute *pExec, bool bMarked );
 class CUnitServer;
 class CPathConflictsRemover;
 enum ENeedActiveItem : int;

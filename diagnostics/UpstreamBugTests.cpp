@@ -16642,6 +16642,144 @@ static void LadderDoorPath(const char* databasePath,const char* resourcePath,int
     Require(added && endpoint && path->points.size()==size_t(expectedPoints) && path->actions.empty() && NAI::IsValidPath(*path),"from-door candidates interpreted native ladder coordinates as a tile and rejected a valid authored transition");
 }
 
+struct AnimationReseatFixture
+{
+    CObj<NRPG::CGlobalGame> game;CObj<NWorld::CWorld> world;CObj<NWorld::CUnitServer> actor;CObj<NAI::CPath> path;
+};
+
+static std::pair<CObj<NWorld::CCommandExecute>,CObj<NWorld::CCmd>> AnimationReseatOrder(NWorld::CUnitServer* actor)
+{
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(actor,&refs);CObj<NWorld::CCommandExecute> executor;CObj<NWorld::CCmd> command;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(7,&executor);reader.Add(9,&command);}return {executor,command};
+}
+
+static CPtr<NWorld::CCommandExecute> AnimationReseatMover(NWorld::CCommandExecute* executor)
+{
+    if(executor && pSSClasses->GetObjectTypeID(executor)==int(0x03112170))return executor;CPtr<NWorld::CCommandExecute> mover;CStructureNetworkContext refs;
+    refs.include=[&](CObjectBase* object){if(pSSClasses->GetObjectTypeID(object)==int(0x03112170)){mover=dynamic_cast<NWorld::CCommandExecute*>(object);return false;}return dynamic_cast<NWorld::CCommandExecute*>(object)!=nullptr;};
+    CMemoryStream fields;{CStructureSaver writer(fields,CStructureSaver::WRITE,&refs);static_cast<CObjectBase*>(executor)->operator&(writer);}return mover;
+}
+
+// Restore a real, unstarted CExecMove and its order through native actor save
+// fields. This isolates interruption from the unrelated high-level path solver.
+// All other actor fields are retained; animation flags come from real execution.
+static void RestoreAnimationReseatExecutor(NWorld::CUnitServer* actor,NWorld::CCommandExecute* executor,NWorld::CCmd* command)
+{
+    CStructureNetworkContext refs;auto saved=BorrowedObjectFields(actor,&refs);
+    for(CObjectBase* object:{static_cast<CObjectBase*>(executor),static_cast<CObjectBase*>(command)}){const int id=refs.nextID++;refs.ids[object]=id;refs.refs[id]=object;}
+    CObj<NWorld::CCommandExecute> owned=executor;CObj<NWorld::CCmd> order=command;CMemoryStream replacement;
+    {CStructureSaver writer(replacement,CStructureSaver::WRITE,&refs);writer.Add(7,&owned);writer.Add(9,&order);}
+    auto original=OuterSaveChunks(saved),patch=OuterSaveChunks(replacement);Require(original.count(1) && patch.count(1),"native actor interruption setup lost its root chunk");
+    CMemoryStream originalRoot,patchRoot;originalRoot.Write(original[1].data(),unsigned(original[1].size()));patchRoot.Write(patch[1].data(),unsigned(patch[1].size()));auto fields=OuterSaveChunks(originalRoot),changes=OuterSaveChunks(patchRoot);
+    Require(changes.size()==2 && changes.count(7) && changes.count(9) && fields.count(7) && fields.count(9),"native actor interruption setup did not identify exactly its existing executor/order save tags");
+    for(const auto& change:changes)fields[change.first]=change.second;
+    auto encode=[](CMemoryStream& output,const std::map<unsigned char,vector<unsigned char>>& chunks){for(const auto& chunk:chunks){std::uint8_t length[4]={};std::size_t count=0;Require(S2FileIO::EncodeStructureLength(unsigned(chunk.second.size()),length,&count),"native actor interruption setup length encoding failed");output.Write(&chunk.first,1);output.Write(length,unsigned(count));if(!chunk.second.empty())output.Write(chunk.second.data(),unsigned(chunk.second.size()));}};
+    CMemoryStream root;encode(root,fields);original[1].assign(static_cast<const unsigned char*>(root.GetBuffer()),static_cast<const unsigned char*>(root.GetBuffer())+root.GetSize());CMemoryStream loaded;encode(loaded,original);loaded.Seek(0);
+    {CStructureSaver reader(loaded,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(actor)->operator&(reader);}
+    Require(AnimationReseatOrder(actor).first==executor && AnimationReseatOrder(actor).second==command && executor->GetUnitServer()==actor,"native saved interruption setup lost real actor/executor/order reference identities");
+}
+
+static AnimationReseatFixture MakeAnimationReseatFixture(const char* databasePath,const char* resourcePath,int kind)
+{
+    AnimationReseatFixture fixture;fixture.world=FixtureWorld(databasePath,resourcePath,true,&fixture.game,kind==0?4517:810);auto* world=fixture.world.GetPtr();auto* network=world->GetPathNetwork();
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);for(auto entry:units){auto* actor=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());if(actor && !actor->IsAIUnit() && actor->CanFight() && !actor->IsWearingPK() && !actor->IsEmptyPK() && !actor->HasCommand()){fixture.actor=actor;break;}}
+    Require(fixture.actor,"animation reseat fixture has no real ordinary idle party actor");auto* actor=fixture.actor.GetPtr();
+    const auto original=actor->GetPosition();auto selected=original;int ladderCount=0;
+    if(kind==0) {
+        auto* nodes=dynamic_cast<NAI::CPathNetwork*>(network);Require(nodes,"animation reseat fixture has no actual nodes network");
+        for(int layer=0;layer<network->GetNumLayers() && !fixture.path;++layer) {auto* nodeLayer=nodes->GetLayer(layer);ladderCount+=int(nodeLayer->ladders.size());
+            for(int index=0;index<int(nodeLayer->ladders.size());++index) {const auto& ladder=nodeLayer->ladders[index];auto bottom=ladder.placeOnBottom;bottom.SetPose(NAI::CM_STAND);
+                if(ladder.pointPassable.size()<2 || !bottom.IsIntegral() || bottom.IsFinal() || !network->IsPassable(bottom) || network->IsLocked(bottom,false))continue;
+                NAI::SPathPlace rung(index,0,layer,(4+2*int(ladder.eDir))&7,NAI::CM_STAND,0);rung.SetIntegral(0);if(network->GetPassability(rung)!=NAI::AIP_YES)continue;
+                CObj<NAI::CPath> path=new NAI::CPath;path->pNet=network;const bool first=path->AddNewPoint(bottom),second=first && path->AddNewPoint(rung),valid=second && NAI::IsValidPath(*path);
+                std::printf("native ladder edge detail: add=%d/%d valid=%d poseLocked=%d actor=%08X bottom=%08X rung=%08X transition=%d points=%u\n",int(first),int(second),int(valid),int(actor->CannotFreelyChangePoses()),unsigned(actor->GetPosition().pos.p.GetBits()),unsigned(bottom.GetBits()),unsigned(rung.GetBits()),int(NAI::GetTransitionType(network,bottom,rung)),unsigned(path->points.size()));
+                for(const auto& point:path->points)std::printf("native ladder path point: bits=%08X passability=%d locked=%d doors=%u\n",unsigned(point.GetBits()),int(network->GetPassability(point)),int(network->IsLocked(point)),unsigned(nodes->GetFlippersAt(point).size()));std::fflush(stdout);
+                Require(valid,"native authored ladder edge did not build a valid actual movement path");
+                std::printf("native animation ladder route candidate: layer=%d index=%d bottom=%08X rung=%08X path=%d points=%u freeze=%d jobs=%d\n",layer,index,unsigned(bottom.GetBits()),unsigned(rung.GetBits()),int(path!=nullptr),path?unsigned(path->points.size()):0,int(nodeLayer->pGroup->bFreeze),int(nodeLayer->pGroup->bHasRecolourJob));std::fflush(stdout);
+                if(path && path->points.size()>=2 && std::any_of(path->points.begin(),path->points.end(),[](const NAI::SPathPlace& point){return !point.IsIntegral();})){fixture.path=path;selected.pos=NAI::SPosition(bottom,network);break;}
+            }
+        }
+        std::printf("native animation reseat ladder search: authoredLadders=%d found=%d\n",ladderCount,int(fixture.path!=nullptr));std::fflush(stdout);
+        Require(fixture.path,"animation reseat fixture lacks a real intact authored ladder and affordable native route");
+    }else if(kind==1) {
+        vector<NAI::SPathPlace> starts;network->GetNearPlaces(SSphere(original.GetCP(),8.f),&starts);starts.insert(starts.begin(),original.pos.p);auto* nodes=dynamic_cast<NAI::CPathNetwork*>(network);Require(nodes,"walking control lacks actual nodes");int clearLines=0,validLines=0;
+        for(auto start:starts){start.SetPose(NAI::CM_STAND);if(!start.IsIntegral() || !network->IsPassable(start) || network->IsLocked(start) && network->GetWhoLocksThisPlace(start)!=actor)continue;
+            for(int direction=0;direction<8 && !fixture.path;++direction){const int dx=NAI::nMoveShift[direction][0],dy=NAI::nMoveShift[direction][1],steps=3;const int x=int(start.GetX())+dx*steps,y=int(start.GetY())+dy*steps;auto* layer=nodes->GetLayer(start.GetLayer());if(x<0 || y<0 || x>=layer->tiles.GetXSize() || y>=layer->tiles.GetYSize())continue;
+                bool clear=true;for(int k=1;k<=steps;++k){NAI::SPathPlace cell(int(start.GetX())+k*dx,int(start.GetY())+k*dy,start.GetLayer(),direction,NAI::CM_STAND,0);if(!network->IsPassable(cell) || network->IsLocked(cell))clear=false;}if(!clear)continue;++clearLines;
+                start.SetDirection(direction);auto facing=original;facing.pos=NAI::SPosition(start,network);NAI::SPathPlace destination(x,y,start.GetLayer(),direction,NAI::CM_STAND,0);CObj<NAI::CPath> path=new NAI::CPath;path->pNet=network;bool valid=path->AddNewPoint(start);for(int k=1;k<=steps && valid;++k){NAI::SPathPlace cell(int(start.GetX())+k*dx,int(start.GetY())+k*dy,start.GetLayer(),direction,NAI::CM_STAND,0);valid=path->AddNewPoint(cell);}if(!valid || !NAI::IsValidPath(*path)){if(clearLines<=3){std::printf("native straight edge detail: origin=%08X destination=%08X add=%d points=%u poseLocked=%d\n",unsigned(start.GetBits()),unsigned(destination.GetBits()),int(valid),unsigned(path->points.size()),int(actor->CannotFreelyChangePoses()));std::fflush(stdout);}continue;}++validLines;
+                if(!path || path->points.size()<3 || !path->actions.empty())continue;bool straight=true;for(const auto& point:path->points)if(!point.IsIntegral() || point.GetLayer()!=start.GetLayer() || (point.GetX()!=start.GetX() || point.GetY()!=start.GetY()) && network->GetClosestDir(start,point)!=direction)straight=false;
+                if(straight){fixture.path=path;selected=facing;std::printf("native straight animation route: layer=%u origin=%u,%u destination=%d,%d direction=%d points=%u\n",unsigned(start.GetLayer()),unsigned(start.GetX()),unsigned(start.GetY()),x,y,direction,unsigned(path->points.size()));std::fflush(stdout);}}
+            if(fixture.path)break;}
+        std::printf("native straight route selection: candidates=%u clear=%d valid=%d found=%d\n",unsigned(starts.size()),clearLines,validLines,int(fixture.path!=nullptr));std::fflush(stdout);
+        Require(fixture.path,"animation reseat fixture lacks an actual clear native straight walking route");
+    }
+    if(kind==2){
+        vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(original.GetCP(),8.f),&places);
+        for(auto from:places){from.SetPose(NAI::CM_STAND);from.SetDirection(original.GetDir());auto to=from;to.SetDirection((from.GetDirection()+2)&7);
+            if(!from.IsIntegral() || from.IsFinal() || !network->IsPassable(from) || !network->IsPassable(to) || network->IsLocked(from) || network->IsLocked(to))continue;
+            CObj<NAI::CPath> path=new NAI::CPath;path->pNet=network;if(path->AddNewPoint(from) && path->AddNewPoint(to) && NAI::IsValidPath(*path)){fixture.path=path;selected.pos=NAI::SPosition(from,network);break;}}
+        Require(fixture.path,"native turn control has no actual free standing rotation footprint");
+    }
+    // Preview the actual route before turn/sequence notifications can freeze
+    // lazy grid jobs; move the real actor only after all needed spots exist.
+    actor->SetPosition(selected);actor->animator.AlignTime();actor->animator.PlaceUnit(selected);
+    CObj<NWorld::CCmdPath> command=new NWorld::CCmdPath(NAI::SPosition(fixture.path->points.back(),network));
+    world->StartSequence();Require(world->IsSequence(),"animation reseat fixture failed to enter the native ownerless scripted sequence");world->GetTime()->Set(1000);actor->animator.AlignTime();actor->animator.PlaceUnit(actor->GetPosition());
+    CObj<NWorld::CCommandExecute> executor=NWorld::CreateSimpleMoveExecutor(actor,fixture.path,NAI::PF_USE_POSEDIR);Require(executor,"native interruption setup could not create its actual mover");RestoreAnimationReseatExecutor(actor,executor,command);
+    const auto routeStart=actor->GetPosition();actor->Do(new NWorld::CCmdSetCommand(actor,new NWorld::CCmdContinue));
+    {auto order=AnimationReseatOrder(actor);std::printf("native animation route start: kind=%d points=%u exec=%08X state=%d active=%d pending=%d TB=%d AP=%d from=%u,%u to=%u,%u end=%u now=%u\n",kind,fixture.path?unsigned(fixture.path->points.size()):0,order.first?unsigned(pSSClasses->GetObjectTypeID(order.first)):0,order.first?int(order.first->GetState()):-1,int(actor->IsPerformingAction()),int(order.second!=nullptr),int(world->IsTurnBased()),actor->GetAP(),routeStart.pos.p.GetX(),routeStart.pos.p.GetY(),actor->GetPosition().pos.p.GetX(),actor->GetPosition().pos.p.GetY(),unsigned(actor->animator.GetTimeEnd()),unsigned(world->GetTime()->GetValue()));std::fflush(stdout);}
+    const int expected=kind==0?0x12352171:kind==1?0x02731142:0x02731143;bool found=false;int turns=0;
+    for(int edge=0;edge<96;++edge){auto order=AnimationReseatOrder(actor);if(!order.first || !actor->IsPerformingAction())break;auto mover=AnimationReseatMover(order.first);Require(mover,"animation reseat real route lost its native mover");auto current=ReadMovementCommands(mover).current;
+        const int type=current?pSSClasses->GetObjectTypeID(current):0;if(edge<10){std::printf("native animation route edge: edge=%d mover=%08X current=%08X queued=%u state=%d end=%u now=%u\n",edge,unsigned(pSSClasses->GetObjectTypeID(mover)),unsigned(type),unsigned(ReadMovementCommands(mover).queued.size()),int(order.first->GetState()),unsigned(actor->animator.GetTimeEnd()),unsigned(world->GetTime()->GetValue()));std::fflush(stdout);}if(type==0x02731143)++turns;if(type==expected){found=true;break;}world->GetTime()->Set(actor->animator.GetTimeEnd());actor->Segment();}
+    std::printf("native animation reseat path setup: kind=%d expected=%08X found=%d turns=%d marker=%d AP=%d\n",kind,unsigned(expected),int(found),turns,int(actor->animator.bStandIfRecalcCommand),actor->GetAP());std::fflush(stdout);
+    Require(found && (kind!=1 || turns==0),"animation reseat fixture did not reach its actual ladder/walk/turn command without a fabricated animator flag");return fixture;
+}
+
+static void SaveAnimationReseatGraph(CDataStream& stream,AnimationReseatFixture& fixture,const char* producerID="runtime-animation-reseat")
+{
+    auto executor=AnimationReseatOrder(fixture.actor).first;string producer=producerID;CStructureSaver writer(stream,CStructureSaver::WRITE);
+    writer.Add(1,&fixture.game);writer.Add(2,&fixture.world);writer.Add(3,&fixture.actor);writer.Add(4,&fixture.path);writer.Add(5,&executor);writer.Add(6,&producer);
+}
+
+static AnimationReseatFixture LoadAnimationReseatGraph(CDataStream& stream,const char* expectedProducer="runtime-animation-reseat")
+{
+    AnimationReseatFixture fixture;CObj<NWorld::CCommandExecute> executor;string producer;{CStructureSaver reader(stream,CStructureSaver::READ);reader.Add(1,&fixture.game);reader.Add(2,&fixture.world);reader.Add(3,&fixture.actor);reader.Add(4,&fixture.path);reader.Add(5,&executor);reader.Add(6,&producer);}
+    Require(fixture.game && fixture.world && fixture.actor && fixture.path && executor && producer==expectedProducer && AnimationReseatOrder(fixture.actor).first==executor,"animation reseat save lost the actual world/actor/path/executor graph or producer");fixture.world->RestoreRuntimeCaches(fixture.game);return fixture;
+}
+
+static void WriteLegacyAnimationWalk(const char* databasePath,const char* resourcePath,const char* output)
+{
+    auto fixture=MakeAnimationReseatFixture(databasePath,resourcePath,1);Require(!fixture.actor->animator.bStandIfRecalcCommand,"historical animation walk fixture must be generated by the actual old straight-walk implementation");
+    CFileStream stream;stream.OpenWrite(output);SaveAnimationReseatGraph(stream,fixture,"8a5e6cdff2402cc9e6a40cd9d12807df617b21dd");std::printf("native legacy animation walk: bytes=%d producer=8a5e6cdf marker=0 actualWalking=1\n",stream.GetSize());std::fflush(stdout);
+    auto order=AnimationReseatOrder(fixture.actor);auto mover=AnimationReseatMover(order.first);dynamic_cast<NWorld::IExecMove*>(mover.GetPtr())->FullCancel();fixture.actor->Do(new NWorld::CCmdCancel(fixture.actor));
+}
+
+static void AnimationReseat(const char* databasePath,const char* resourcePath,int mode,const char* legacyPath=nullptr)
+{
+    const bool bodyPolicy=mode>=8 && mode<14,legacy=mode>=14,stop=mode%2!=0,ladder=mode<4,moveMode=!bodyPolicy;
+    AnimationReseatFixture fixture;NativeCannonFixture cannonFixture;
+    if(bodyPolicy){cannonFixture=MakeNativeCannonFixture(databasePath,resourcePath);fixture.game=cannonFixture.game;fixture.world=cannonFixture.world;fixture.actor=cannonFixture.actor.GetPtr();auto* actor=fixture.actor.GetPtr();auto position=actor->GetPosition(),turned=position;turned.pos.p.SetDirection((position.pos.p.GetDirection()+1)&7);
+        actor->animator.Rotate(position,turned,true);actor->animator.EndRotate(turned);actor->SetPosition(turned);
+        if(mode==10 || mode==11){CRay ray;ray.ptOrigin=turned.GetEyePosition();ray.ptDir=CVec3(cos(turned.GetDirection()),sin(turned.GetDirection()),0);actor->animator.Snipe(turned,ray);Require(actor->animator.IsAiming(),"native body aim control did not enter its real aiming graph");}
+        if(mode==12 || mode==13){NWorld::EUnitCommandResult result=NWorld::UCR_GENERAL_FAILURE;CObj<NWorld::CCmdCannon> request=new NWorld::CCmdCannon(cannonFixture.cannon);CObj<NWorld::CCommandExecute> enter=NWorld::CreateExecutor(actor,request,&result);Require(enter && result==NWorld::UCR_OK,"body policy control cannot enter its actual cannon");enter->Run();CompleteCannonPoseQueue(enter,cannonFixture);enter=nullptr;Require(actor->animator.GetCannon()==cannonFixture.cannon,"body policy control did not finish native mount");}
+    }else if(legacy){Require(legacyPath,"legacy animation walk requires its actual historical save");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);CFileStream snapshot;snapshot.OpenRead(legacyPath);fixture=LoadAnimationReseatGraph(snapshot,"8a5e6cdff2402cc9e6a40cd9d12807df617b21dd");Require(!fixture.actor->animator.bStandIfRecalcCommand,"actual historical straight-walk save no longer contains the original false marker");}
+    else{fixture=MakeAnimationReseatFixture(databasePath,resourcePath,ladder?0:mode<6?1:2);if(mode==2 || mode==3){CMemoryStream snapshot;SaveAnimationReseatGraph(snapshot,fixture);snapshot.Seek(0);fixture=LoadAnimationReseatGraph(snapshot);}}
+    auto* actor=fixture.actor.GetPtr();auto* world=fixture.world.GetPtr();auto before=AnimationReseatOrder(actor);CObj<NWorld::CCommandExecute> mover;if(moveMode)mover=AnimationReseatMover(before.first).GetPtr();
+    if(moveMode)Require(before.first && mover && before.first->IsExecuting(),"native animation reseat event lacks its actual installed live movement executor");
+    auto* body=actor->animator.GetSkeletonAnimator();const auto clips=NativeCannonAnimationClips(body);vector<CObj<NAnimation::CAnimation>> witnesses;for(auto* clip:clips)witnesses.push_back(clip);
+    const STime end=actor->animator.GetTimeEnd();const bool marker=actor->animator.bStandIfRecalcCommand,aimed=actor->animator.IsAiming();auto* cannon=actor->animator.GetCannon();
+    const auto position=actor->GetPosition();const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();auto* item=actor->GetUnitRPG()->GetInventory()->GetActive();auto* weapon=dynamic_cast<NRPG::CWeaponItem*>(item);const int ammo=weapon?weapon->GetAmmoQuantity():0;auto random=GlobalGameRandom();
+    actor->OnTBSEvent(stop?NWorld::TBS_STOP_MOVE_AND_CANCEL_ACTION:NWorld::TBS_RECALC_COMMAND);auto after=AnimationReseatOrder(actor);const auto current=NativeCannonAnimationClips(body);int added=0;for(auto* clip:current)if(std::find(clips.begin(),clips.end(),clip)==clips.end())++added;
+    auto afterRandom=GlobalGameRandom();std::printf("native animation reseat: mode=%d ladder=%d legacy=%d stop=%d beforeMarker=%d afterMarker=%d newClips=%d beforeEnd=%u afterEnd=%u retainedExec=%d pendingCommand=%d aimed=%d->%d cannon=%d->%d AP=%d->%d HP=%d->%d ammo=%d->%d\n",mode,int(ladder),int(legacy),int(stop),int(marker),int(actor->animator.bStandIfRecalcCommand),added,unsigned(end),unsigned(actor->animator.GetTimeEnd()),int(after.first==before.first),int(after.second!=nullptr),int(aimed),int(actor->animator.IsAiming()),int(cannon!=nullptr),int(actor->animator.GetCannon()!=nullptr),ap,actor->GetAP(),hp,actor->GetUnitRPG()->GetTotalVP(),ammo,weapon?weapon->GetAmmoQuantity():0);std::fflush(stdout);
+    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetPosition()==position && actor->GetUnitRPG()->GetInventory()->GetActive()==item && (weapon?weapon->GetAmmoQuantity():0)==ammo && random.Get()==afterRandom.Get(),"native interruption animation policy changed AP/HP/position, equipment/ammunition or game RNG");
+    if(moveMode){Require(stop?after.first==before.first && !after.second:!after.first && after.second==before.second,"animation reseat changed our safe stop ownership or pending-order recalc policy");}
+    if(ladder || bodyPolicy)Require(added==0 && actor->animator.GetTimeEnd()==end && actor->animator.IsAiming()==aimed && actor->animator.GetCannon()==cannon,"command interruption reseated a native ladder/settled/aiming/mounted animation that must retain its own clip");
+    else Require(added>0 && !actor->animator.IsAiming(),"command interruption did not reseat a real walking/turning actor, including an actual old-fork save");
+    if(moveMode){dynamic_cast<NWorld::IExecMove*>(mover.GetPtr())->FullCancel();actor->Do(new NWorld::CCmdCancel(actor));mover=nullptr;before.first=nullptr;after.first=nullptr;}
+    if(cannon){CObj<NWorld::CExecCannon> exit=new NWorld::CExecCannon(actor,cannon,false);exit->Run();world->GetTime()->Set(actor->animator.GetTimeEnd());exit->AnimationFinished();exit=nullptr;}
+    Require(!world->IsAction(),"native animation reseat fixture retained a finished movement/cannon action");
+}
+
 static void CannonExitIncapacitated(const char* databasePath,const char* resourcePath,int mode)
 {
     auto fixture=MakeNativeCannonFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* cannon=fixture.cannon.GetPtr();
@@ -26394,6 +26532,23 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ladder-door-path-aligned") && argc==4) { LadderDoorPath(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ladder-door-path-move") && argc==4) { LadderDoorPath(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "ladder-door-path-turn") && argc==4) { LadderDoorPath(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "animation-reseat-write-legacy") && argc==5) { WriteLegacyAnimationWalk(argv[2],argv[3],argv[4]); return true; }
+    if (!std::strcmp(mode, "animation-reseat-ladder-recalc") && argc==4) { AnimationReseat(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "animation-reseat-ladder-stop") && argc==4) { AnimationReseat(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "animation-reseat-restored-ladder-recalc") && argc==4) { AnimationReseat(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "animation-reseat-restored-ladder-stop") && argc==4) { AnimationReseat(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "animation-reseat-walk-recalc") && argc==4) { AnimationReseat(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "animation-reseat-walk-stop") && argc==4) { AnimationReseat(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "animation-reseat-turn-recalc") && argc==4) { AnimationReseat(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "animation-reseat-turn-stop") && argc==4) { AnimationReseat(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "animation-reseat-end-turn-recalc") && argc==4) { AnimationReseat(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "animation-reseat-end-turn-stop") && argc==4) { AnimationReseat(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "animation-reseat-aim-recalc") && argc==4) { AnimationReseat(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "animation-reseat-aim-stop") && argc==4) { AnimationReseat(argv[2],argv[3],11); return true; }
+    if (!std::strcmp(mode, "animation-reseat-cannon-recalc") && argc==4) { AnimationReseat(argv[2],argv[3],12); return true; }
+    if (!std::strcmp(mode, "animation-reseat-cannon-stop") && argc==4) { AnimationReseat(argv[2],argv[3],13); return true; }
+    if (!std::strcmp(mode, "animation-reseat-legacy-walk-recalc") && argc==5) { AnimationReseat(argv[2],argv[3],14,argv[4]); return true; }
+    if (!std::strcmp(mode, "animation-reseat-legacy-walk-stop") && argc==5) { AnimationReseat(argv[2],argv[3],15,argv[4]); return true; }
     if (!std::strcmp(mode, "cannon-exit-alive")) { Require(argc==4, "cannon exit requires db and res"); CannonExitIncapacitated(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "cannon-exit-unconscious")) { Require(argc==4, "cannon exit requires db and res"); CannonExitIncapacitated(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "cannon-exit-dead")) { Require(argc==4, "cannon exit requires db and res"); CannonExitIncapacitated(argv[2],argv[3],2); return true; }

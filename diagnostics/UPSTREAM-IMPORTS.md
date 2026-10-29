@@ -14351,3 +14351,89 @@ Two shared builds reused, no per-bug source/build copies. Evidence under
 ladder-door-path includes baseline inventories, setup archives, final RED,
 GREEN raw logs/exits, ALL_BUILD and verification JSON. Whole goal remains
 active, including final actual GitHub Actions repair/check.
+
+### Phase-aware animation interruption and old walking saves (51a184b8, completed)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/51a184b846d7db76df461ae50e58d8b19b25339c
+
+Complete the remaining animation-flag protocol. StartMove sets the existing
+saved marker; ordinary Attack, EndRotate, a successful EnterCannon approach
+and EnterLadder clear it. Recalc/stop use the animation marker and actual mover
+phase instead of visitor membership. Keep our forced-action gate, mounted
+protection, synchronous-event hold-aim protection, reentrant-safe CancelAction,
+pending-order cleanup and LAN pause policy. Resolve CExecMove through the
+existing GetPathConflictsRemover queue delegate; do not treat every IExecMove
+queue as the concrete mover. Old saves can have a false marker during real
+walking, or a stale true marker on a ladder. Retain active CCmdMove fallback,
+but exclude waiting/last-command freezes and nonrunning/special phases; real
+rotation requires its marker. No serialized field/type/wire changes.
+
+Read-only original reference: actual Gold PDB types identify animator+6a,
+unit animator+58, forced-action+1b4 and visitor exclusion+12c. OnTBSEvent's
+incoming this adjusts by154: -92 is the animation marker, not visitor -28.
+Seven unique actual Steam mappings: StartMove7300c0/18->73ae20 (whole exact),
+EndRotate732fb0/44->73dcf0 and EnterLadder735f00/93->740c40 (whole small
+methods except decoded call operands); Attack73668e/22->7413ce and cannon
+entry731e61/22->73cba1 bounded writer blocks; recalc7b7090/97->7c3810 and
+stop7b7105/100->7c3885 bounded predicates. Both original predicates guard
+PlaceUnit732ad0->73d810. No arbitrary global/virtual-slot masks or whole-large-
+method audit claim. Cached upstream7c319f/7c3234 do not match this actual
+Steam oracle. Source890e4474 deferred event delivery remains separately pending.
+
+Sixteen new native cases cover real ladder entry after actual rotation and
+item holstering, both events, real whole game/world/actor/path/executor
+save/load, actual active walking/rotation, settled rotation, aiming, mounted
+body controls, and an immutable actual pre-fix walking graph. Actual native
+CPath/CreateSimpleMoveExecutor and actor save fields7/9 arrange the installed
+unstarted executor/order; normal Continue and Segment callbacks then reach
+the real command. No animation flags, clip records, AP or RNG are fabricated.
+The scene is an actual native ownerless scripted sequence. This isolates the
+interruption boundary, not high-level UI pathfinding or full TBS delivery.
+The prerequisite ladder/door integration bug was fixed separately8a5e6cdf.
+
+Two rotation-fixture setup failures are archived before the final RED:
+IsValidPath rejects the actor's own lock, and the original actor footprint
+was not a free standing rotation tile. The final fixture selects a free
+authored standing footprint BEFORE placement/path construction. Earlier
+exploratory setup logs are not accepted as runtime bug REDs. A far-direction
+fixture mistake was also corrected before final tests: GetDir is adjacent-
+only, while GetClosestDir supports the tested distant straight-route check.
+
+Final compiled RED4/16 on BOTH platforms BEFORE Main: all four actual/restored
+ladder recalc/stop cases append a standing clip and extend2468->2768 despite
+remaining on a ladder; the other12 controls pass. GREEN adds no ladder clip
+and retains2468. New walking markers become true; settled/aiming/mounted
+markers become false. Existing walking/rotation clips and both immutable old
+walking-save results retain exactly their previous successful behavior.
+All16 normalized semantic rows match Windows/Linux. Retain actual clip
+witnesses against allocator-address reuse, actual order/executor identities,
+AP/HP/position/inventory/ammunition/game RNG and completed-action cleanup.
+Existing movement wait regressions also pass; new event fixtures specifically
+cover the listed phases, not a new waiting/zero-AP event scenario. No face
+pixels/rendered animation/UI slot-file playback claim.
+
+Validation: Linux112/112 broader tests126.76s. Windows113/114 pass140.73s;
+NetworkMatch reports no scoped weapon with the executable last linked13:41:33
+before the changed Main.lib13:51:20 (observed prior to ALL_BUILD). Preserve
+that failure. After successful ALL_BUILD, fresh actual NetworkSerializer,
+NetworkMatch, NetworkPartialMovement and NetworkStopResume all4 pass22.72s,
+without test-source changes. Do not claim a diagnosed/fixed equipment bug.
+Both earlier source51 producer/forced-action cases pass again2/2 per platform
+(3.27s Windows/3.38s Linux). Exact inventory unions prove116 distinct passing
+Windows cases and113 Linux, including all broader baseline cases plus16new,
+one extra Windows partial-movement case and the deferred-animation supplement.
+No single116-case run, fullCI or hosted Actions success is claimed. Windows
+ALL_BUILD and Linux Game/helpers/real NetworkSerializer builds succeed.
+
+All five upstream source files are now accounted: deferred shared command
+helper/script producer486dab7d, forced-action guard26292f2e, original dismount
+170becdd, and this remaining marker/predicate adaptation. Own command helper
+keeps stronger ownership/null guards; own animation/face/terrain renderer,
+queue lifetime and network protections remain. Mark source51 imported;
+ledger286 now156 imported/18partial/69pending=87 unfinished sources.
+No AP/combat/item formulas, authored DB values, save/wire schema, fonts or HD
+pipeline changes. Only two shared builds are reused; one1.17MB regression
+graph is retained, with provenance beside it. Evidence: animation-reseat
+original mapping, baseline inventories, setup archives, final RED16/GREEN,
+fresh-network/source supplements, exact native verification JSON and builds.
+Whole goal, including final actual GitHub Actions repair/check, stays active.

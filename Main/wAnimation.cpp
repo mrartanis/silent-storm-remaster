@@ -598,6 +598,7 @@ void CUnitAnimator::StartMove( bool bWalkStrafe )
 {
 	bStart = true;
 	bStrafing = bWalkStrafe;
+	bStandIfRecalcCommand = true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static NDb::CAnimation::EType GetStartStrafeAnimationType( int nWalkAnim, bool bAimedStrafe )
@@ -1026,6 +1027,7 @@ void CUnitAnimator::Attack( const NAI::SUnitPosition &cmdPos, const CRay &ray, b
 		return;
 	}
 	CVec3 shootDir = ray.ptDir;
+	bStandIfRecalcCommand = false;
 /*
 	//
 	shootDir.x = cos(cmdPos.GetDirection());
@@ -1293,6 +1295,7 @@ void CUnitAnimator::EndRotate( const NAI::SUnitPosition &cmdPos )
 {
 	pAnimator->AddMemorizer( tEnd );
 	bWalking = true;
+	bStandIfRecalcCommand = false;
 	Stand( cmdPos );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2163,6 +2166,7 @@ void CUnitAnimator::EnterCannon( const NAI::SUnitPosition &cmdPos, CCannon *_pCa
 		pUnitAnim->SetStand( tEnd, cannonPosHoNeight, fCannonDir );
 		pAnimator->AddAnimator( tEnd, PutOnTerrain(pUnitAnim) );
 		tEnd += pUnitAnim->GetTime();
+		bStandIfRecalcCommand = false;
 		AttachHandsToCannon();
 	}
 	pAnimator->AddMemorizer( tEnd );
@@ -2414,6 +2418,7 @@ void CUnitAnimator::EnterLadder( const NAI::SUnitPosition &prevPos, const NAI::S
 	if ( !PlayLadderAnimation( prevPos, type ) )
 		DefaultAction( cmdPos );
 	IdleOff();
+	bStandIfRecalcCommand = false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitAnimator::LeaveLadder( const NAI::SUnitPosition &prevPos, const NAI::SUnitPosition &cmdPos, bool bUp )

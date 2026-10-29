@@ -228,6 +228,15 @@ class CExecMove: public CPathConflictsRemover
 	OBJECT_BASIC_METHODS(CExecMove);
 public:
 	bool IsJumpInProgress() const { return dynamic_cast<CCmdJump*>(pCurCmd.GetPtr()) != 0; }
+	bool ShouldReseatAnimation( bool bMarked ) const
+	{
+		if ( GetState() != RUNNING || bWaiting || bLastCommand )
+			return false;
+		// Older saves can lack the walking marker or retain it on a special clip.
+		// A parked/frozen move must retain EndMove's pose; a completed turn clears its marker.
+		return dynamic_cast<CCmdMove*>(pCurCmd.GetPtr()) != 0 ||
+			(bMarked && dynamic_cast<CCmdRotate*>(pCurCmd.GetPtr()) != 0);
+	}
 private:
 	ZDATA_(CPathConflictsRemover)
 	list<CObj<CCommand> > commandsQueue;
@@ -941,6 +950,12 @@ void CExecMove::AnimationFinished()
 		Finished();
 	else
 		Failed();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool ShouldReseatMoveAnimation( CCommandExecute *pExec, bool bMarked )
+{
+	auto* move = pExec ? dynamic_cast<CExecMove*>( pExec->GetPathConflictsRemover() ) : 0;
+	return move && move->ShouldReseatAnimation( bMarked );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CanPauseMoveForNetwork( CCommandExecute *pExec )
