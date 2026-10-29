@@ -381,6 +381,7 @@ Binary/
 *.idb
 
 build/
+build-mac/
 
 # Texture coverage is an asset manifest, not a code-coverage test output.
 !assets/terrain-hd/expanded/coverage.json

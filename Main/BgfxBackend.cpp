@@ -674,6 +674,9 @@ bool BgfxDevice::Init(HWND window,unsigned w,unsigned h) {
   // changes. Keep D3D11 on that thread: waiting for bgfx's render worker
   // otherwise prevents dispatch of the very window messages it needs.
   bgfx::renderFrame();
+#elif defined(__APPLE__)
+  // The pinned bgfx no longer offers OpenGL on macOS; Metal is the backend.
+  init.type=bgfx::RendererType::Metal;
 #else
   init.type=bgfx::RendererType::Vulkan;
   init.swapChain.ndt=S2Platform::NativeDisplay();

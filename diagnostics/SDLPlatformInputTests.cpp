@@ -53,11 +53,49 @@ int Count(const std::vector<NInput::SMessage>& messages, NInput::EControlType ty
     if (message.cType == type && message.nAction == action && message.bState == down) ++result;
   return result;
 }
+int NativeWindowModes()
+{
+  if (!S2Platform::Init("Silent Storm Retina window-mode tests", 640, 480)) return 1;
+  auto* window = S2Platform::Window();
+  Check((SDL_GetWindowFlags(window) & SDL_WINDOW_HIGH_PIXEL_DENSITY) != 0,
+        "native window-mode test keeps HiDPI enabled");
+  auto dimensions = [&](int expectedWidth, int expectedHeight) {
+    int w=0,h=0,pw=0,ph=0;
+    SDL_GetWindowSize(window,&w,&h); SDL_GetWindowSizeInPixels(window,&pw,&ph);
+    const float density=SDL_GetWindowPixelDensity(window);
+    Check(w==expectedWidth && h==expectedHeight,"native mode logical dimensions");
+    Check(density>0 && pw==int(std::lround(w*density)) && ph==int(std::lround(h*density)),
+          "native mode preserves Retina backing dimensions");
+    const auto& display=S2Platform::Display();
+    Check(display.windowWidth==w && display.windowHeight==h &&
+          display.pixelWidth==pw && display.pixelHeight==ph,"native mode updates engine metrics");
+    std::printf("Native window mode: logical=%dx%d pixels=%dx%d density=%.2f\n",w,h,pw,ph,density);
+  };
+  for (int cycle=0;cycle<3;++cycle) {
+    const int width=640+cycle*80,height=480+cycle*40;
+    Check(S2Platform::SetMode(width,height,S2Platform::WindowMode::Windowed),"native window resize");
+    dimensions(width,height);
+    const auto* mode=SDL_GetDesktopDisplayMode(SDL_GetDisplayForWindow(window));
+    // Copy the dimensions: SDL may refresh its display-mode list on transition.
+    const int desktopWidth=mode?mode->w:0,desktopHeight=mode?mode->h:0;
+    Check(mode && S2Platform::SetMode(width,height,S2Platform::WindowMode::Borderless),
+          "native borderless mode succeeds");
+    Check((SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) && !SDL_GetWindowFullscreenMode(window),
+          "native borderless fills the desktop without an exclusive mode");
+    dimensions(desktopWidth,desktopHeight);
+    Check(S2Platform::SetMode(width,height,S2Platform::WindowMode::Windowed),"native window mode restored");
+    Check(!(SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN),"native fullscreen flag cleared");
+    dimensions(width,height);
+  }
+  S2Platform::Done();
+  return failures?1:0;
+}
 }
 
 int main(int argc, char** argv)
 {
   S2Platform::SetErrorDialogs(false);
+  if (argc == 2 && std::string(argv[1]) == "--native-window-modes") return NativeWindowModes();
   if (argc == 2 && std::string(argv[1]) == "--invalid-driver") {
     SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "s2-invalid-driver");
     if (S2Platform::Init("invalid driver")) return 1;

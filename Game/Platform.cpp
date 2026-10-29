@@ -1,6 +1,7 @@
 #include "Platform.h"
 #include <SDL3/SDL.h>
 #include <cstdio>
+#include <cstdlib>
 #include <clocale>
 #include <deque>
 #include <map>
@@ -81,13 +82,23 @@ bool S2Platform::Init(const char* title, int width, int height, bool hidden)
   SDL_SetHint(SDL_HINT_MOUSE_AUTO_CAPTURE, "0");
   // Cursor images are already sized to drawable/UI pixels; avoid a second DPI scale.
   SDL_SetHint(SDL_HINT_MOUSE_DPI_SCALE_CURSORS, "0");
+#if defined(__APPLE__)
+  // Borderless is a desktop-sized window, not a separate animated macOS
+  // fullscreen Space. Cocoa's toggleFullScreen path can accept the request
+  // without entering fullscreen, or queue it behind minimize/restore.
+  // Use SDL's synchronous desktop-fullscreen path for the game instead.
+  SDL_SetHint(SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES, "0");
+#endif
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
     InitError("SDL_Init");
     SDL_Quit();
     return false;
   }
-  window = SDL_CreateWindow(title, width, height,
-      SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | (hidden ? SDL_WINDOW_HIDDEN : 0));
+  // The renderer regression tests compare screenshots against window-pixel
+  // coordinates; on Retina displays they request this deterministic 1:1 mode.
+  Uint32 windowFlags = SDL_WINDOW_RESIZABLE | (hidden ? SDL_WINDOW_HIDDEN : 0);
+  if (!std::getenv("S2_NO_HIGHDPI")) windowFlags |= SDL_WINDOW_HIGH_PIXEL_DENSITY;
+  window = SDL_CreateWindow(title, width, height, windowFlags);
   if (!window) {
     InitError("SDL_CreateWindow");
     SDL_Quit();
@@ -128,6 +139,12 @@ void* S2Platform::NativeWindow()
 #if defined(_WIN32)
   return window ? SDL_GetPointerProperty(SDL_GetWindowProperties(window),
       SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr) : nullptr;
+#elif defined(__APPLE__)
+  // bgfx Metal takes the NSWindow* and installs its own CAMetalLayer.
+  // SDL_PLATFORM_MACOS is the public spelling; COCOA names the video backend
+  // toggle that only exists inside the SDL build itself.
+  return window ? SDL_GetPointerProperty(SDL_GetWindowProperties(window),
+      SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr) : nullptr;
 #else
   if (!window) return nullptr;
   const auto properties = SDL_GetWindowProperties(window);
@@ -277,6 +294,13 @@ bool S2Platform::SetMode(int width, int height, WindowMode requested)
     std::fprintf(stderr,"DISPLAY: SDL mode change failed: %s\n",SDL_GetError());
     return false;
   }
+#if defined(__APPLE__)
+  if (bool(SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) == windowed) {
+    std::fprintf(stderr,"DISPLAY: Cocoa did not enter the requested %s mode\n",
+        windowed ? "windowed" : (fullscreen ? "fullscreen" : "borderless"));
+    return false;
+  }
+#endif
   UpdateDisplay();
   return true;
 }

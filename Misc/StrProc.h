@@ -61,8 +61,8 @@ namespace NStr
 	// MSVCMustDie_* are required to keep compiler happy when default calling conversion is __fastcall
 	inline int MSVCMustDie_tolower( int a ) { return tolower(a); } 
 	inline int MSVCMustDie_toupper( int a ) { return toupper(a); }
-	inline void ToLower( std::string &szString ) { std::transform( szString.begin(), szString.end(), szString.begin(), std::ptr_fun(MSVCMustDie_tolower) ); }
-	inline void ToUpper( std::string &szString ) { std::transform( szString.begin(), szString.end(), szString.begin(), std::ptr_fun(MSVCMustDie_toupper) ); }
+	inline void ToLower( std::string &szString ) { std::transform( szString.begin(), szString.end(), szString.begin(), []( unsigned char c ) { return MSVCMustDie_tolower( c ); } ); }
+	inline void ToUpper( std::string &szString ) { std::transform( szString.begin(), szString.end(), szString.begin(), []( unsigned char c ) { return MSVCMustDie_toupper( c ); } ); }
   // преобразовать целое в строку, разделяя каждые три знака (три порядка) специальным разделителем (default = '.')
 	void ToDotString( std::wstring *pDst, int nVal, const wchar_t cSeparator = L'.' );
 	// является ли строка представлением числа

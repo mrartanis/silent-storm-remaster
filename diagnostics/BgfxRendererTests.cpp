@@ -355,7 +355,14 @@ public:
   bool Allocate(std::uint32_t first,std::uint32_t second,bool separateHigh=false) {
     if(sizeof(void*)!=8)return false;
     for(std::uintptr_t high=1;high<16;++high) {
-      pages[0]=Map((high<<32)|first);pages[1]=Map(((high+(separateHigh?32:0))<<32)|second);
+      // Darwin may reject hints above its user VM range. A 4 GiB gap is
+      // sufficient to keep distinct pointers with the same low 32 bits.
+#if defined(__APPLE__)
+      constexpr std::uintptr_t highGap=1;
+#else
+      constexpr std::uintptr_t highGap=32;
+#endif
+      pages[0]=Map((high<<32)|first);pages[1]=Map(((high+(separateHigh?highGap:0))<<32)|second);
       if(pages[0] && pages[1]) {
         new(pages[0]) CVec4(1,0,0,1);new(pages[1]) CVec4(0,1,0,1);return true;
       }

@@ -7,7 +7,9 @@
 
 
 #include <stdlib.h>
-#include <malloc.h>
+#if !defined(__APPLE__)
+#include <malloc.h>  // Linux glibc extension header; absent in the macOS SDK.
+#endif
 
 #include "lua.h"
 

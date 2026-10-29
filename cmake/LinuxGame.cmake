@@ -20,26 +20,26 @@ include("${root}/sources.cmake")
 include("${root}/cmake/Bgfx.cmake")
 
 add_library(s2_platform STATIC "${root}/Game/Platform.cpp")
-target_link_libraries(s2_platform PUBLIC SDL3::SDL3)
+s2_target_link_libraries(s2_platform PUBLIC SDL3::SDL3)
 target_compile_features(s2_platform PUBLIC cxx_std_17)
 if(NOT TARGET s2_native_music)
   message(FATAL_ERROR "The Linux game requires S2_BUILD_MEDIA_PROBE and S2_BUILD_MINIAUDIO_MUSIC_PROBE")
 endif()
-target_link_libraries(s2_native_music PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
+s2_target_link_libraries(s2_native_music PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
 add_library(s2_native_fmod STATIC "${root}/Media/NativeFmodCompat.cpp")
 target_include_directories(s2_native_fmod PRIVATE "${root}/third_party/fmod/include" "${S2_MINIAUDIO_INCLUDE_DIR}")
 target_compile_options(s2_native_fmod PRIVATE -include "${_s2_game_root}/Misc/GamePlatform.h")
-target_link_libraries(s2_native_fmod PUBLIC s2_native_music)
+s2_target_link_libraries(s2_native_fmod PUBLIC s2_native_music)
 add_library(s2_bink_compat STATIC "${root}/Media/BinkCompat.cpp")
 target_include_directories(s2_bink_compat PUBLIC "${root}/third_party/bink/include")
 target_compile_options(s2_bink_compat PRIVATE -include "${_s2_game_root}/Misc/GamePlatform.h")
-target_link_libraries(s2_bink_compat PUBLIC s2_native_music)
+s2_target_link_libraries(s2_bink_compat PUBLIC s2_native_music)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GSF REQUIRED IMPORTED_TARGET libgsf-1)
 target_sources(s2_native_lifestudio PRIVATE
   "${root}/third_party/lifestudio/src/NativeGDP.cpp"
   "${root}/third_party/lifestudio/src/lsglue.cpp")
-target_link_libraries(s2_native_lifestudio PUBLIC PkgConfig::GSF)
+s2_target_link_libraries(s2_native_lifestudio PUBLIC PkgConfig::GSF)
 
 list(REMOVE_ITEM Main_SRC Gfx.cpp)
 # The SDL application no longer calls the historical GDI startup splash.
@@ -87,24 +87,26 @@ foreach(module IN ITEMS Misc FileIO MiscDll Image ADOImport DBFormat Input Scrip
     "${_s2_game_root}/third_party/fmod/include" "${_s2_game_root}/third_party/bink/include"
     "${_s2_game_root}/third_party/lifestudio/include" "${_s2_game_root}/third_party/lifestudio/src"
     "${_s2_game_root}/third_party/squish" "${CMAKE_BINARY_DIR}/bgfx-generated")
-  target_link_libraries(${target} PRIVATE s2_platform bgfx)
+  s2_target_link_libraries(${target} PRIVATE s2_platform bgfx)
 endforeach()
-target_link_libraries(s2_full_FileIO PUBLIC s2_portable_package s2_portable_structure s2_portable_user_paths)
-target_link_libraries(s2_full_Main PUBLIC s2_portable_effects s2_vector_fonts s2_network_graph)
+s2_target_link_libraries(s2_full_FileIO PUBLIC s2_portable_package s2_portable_structure s2_portable_user_paths)
+s2_target_link_libraries(s2_full_Main PUBLIC s2_portable_effects s2_vector_fonts s2_network_graph)
 s2_copy_fonts(Game)
 include("${root}/cmake/HDTextures.cmake")
 s2_build_hd_textures(Game)
 include("${root}/cmake/NetworkIdentity.cmake")
 s2_build_network_identity(Game)
-target_link_libraries(s2_full_ADOImport PUBLIC s2_portable_database)
+s2_target_link_libraries(s2_full_ADOImport PUBLIC s2_portable_database)
 add_dependencies(s2_full_Main S2BgfxShaders)
 find_package(ZLIB REQUIRED)
 find_package(PNG REQUIRED)
 file(GLOB _s2_squish_sources "${root}/third_party/squish/squish/*.cpp")
 add_library(s2_squish STATIC ${_s2_squish_sources})
 target_include_directories(s2_squish PUBLIC "${root}/third_party/squish")
-target_link_libraries(s2_full_Image PUBLIC PNG::PNG ZLIB::ZLIB s2_squish)
-target_link_libraries(Game PRIVATE -Wl,--start-group
+s2_target_link_libraries(s2_full_Image PUBLIC PNG::PNG ZLIB::ZLIB s2_squish)
+# GNU ld needs explicit groups for the historical inter-module reference
+# cycles; S2Link.cmake rewrites the same flags for Apple's ld64.
+s2_target_link_libraries(Game PRIVATE -Wl,--start-group
   -Wl,--whole-archive s2_full_Main s2_full_DBFormat -Wl,--no-whole-archive
   s2_full_ADOImport s2_full_FileIO s2_full_MiscDll s2_full_Misc s2_full_Input
   s2_full_Image s2_full_Script s2_full_FModSound
@@ -122,7 +124,7 @@ foreach(test IN ITEMS BgfxRendererTests SDLPlatformInputTests UpstreamBugTests)
   target_include_directories(${test} PRIVATE "${_s2_game_root}/Main"
     "${_s2_game_root}/Misc" "${_s2_game_root}/FileIO"
     "${_s2_game_root}/third_party/lifestudio/include")
-  target_link_libraries(${test} PRIVATE -Wl,--start-group
+  s2_target_link_libraries(${test} PRIVATE -Wl,--start-group
     -Wl,--whole-archive s2_full_Main s2_full_DBFormat -Wl,--no-whole-archive
     s2_full_ADOImport s2_full_FileIO s2_full_MiscDll s2_full_Misc s2_full_Input
     s2_full_Image s2_full_Script s2_full_FModSound
@@ -1871,7 +1873,13 @@ endif()
 
 add_test(NAME DisplayRuntimeTests COMMAND BgfxRendererTests --display)
 add_test(NAME FocusRestoreRuntimeTests COMMAND BgfxRendererTests --focus-restore)
-set_tests_properties(FocusRestoreRuntimeTests PROPERTIES TIMEOUT 60)
+if(APPLE)
+  # Cocoa minimize/restore can wait for native window operations, so the
+  # 60-second Linux ceiling is not enough for all 18 cycles here.
+  set_tests_properties(FocusRestoreRuntimeTests PROPERTIES TIMEOUT 300)
+else()
+  set_tests_properties(FocusRestoreRuntimeTests PROPERTIES TIMEOUT 60)
+endif()
 add_test(NAME GraphicsOptionsRuntimeTests COMMAND BgfxRendererTests --graphics)
 add_test(NAME SelectionStencilRuntimeTests COMMAND BgfxRendererTests --selection-stencil)
 add_test(NAME UpstreamCachedPointShadowed COMMAND BgfxRendererTests --cached-point-shadow)
@@ -1897,5 +1905,33 @@ set_tests_properties(StationaryFogRuntimeTests PROPERTIES LABELS "extended;nativ
 add_test(NAME LowRamCombinerRuntimeTests COMMAND BgfxRendererTests --low-ram-combiner)
 set_tests_properties(LowRamCombinerRuntimeTests PROPERTIES LABELS "extended;native-display")
 set_tests_properties(SelectionStencilRuntimeTests PROPERTIES LABELS "extended;native-display")
+if(APPLE)
+  add_test(NAME SDLPlatformRetinaModeTests COMMAND SDLPlatformInputTests --native-window-modes)
+  # Unlike the pixel-exact tests below, exercise actual Retina backing pixels.
+  set_tests_properties(SDLPlatformRetinaModeTests PROPERTIES RUN_SERIAL TRUE TIMEOUT 60 LABELS "native-hidpi")
+  # Retina backings make drawable pixels differ from the window-pixel
+  # coordinates these regression tests encode; run them at 1:1 scale.
+  set(_s2_display_tests BgfxRendererTests SDLPlatformInputTests
+      SDLInputConfiguration DisplayRuntimeTests FocusRestoreRuntimeTests
+      GraphicsOptionsRuntimeTests)
+  # Include newly added display regressions without maintaining a second
+  # platform-specific copy of their names.
+  get_property(_s2_tests DIRECTORY PROPERTY TESTS)
+  foreach(_s2_test IN LISTS _s2_tests)
+    get_property(_s2_labels TEST ${_s2_test} PROPERTY LABELS)
+    if("native-display" IN_LIST _s2_labels)
+      list(APPEND _s2_display_tests ${_s2_test})
+    endif()
+  endforeach()
+  list(REMOVE_DUPLICATES _s2_display_tests)
+  foreach(displayTest IN LISTS _s2_display_tests)
+    if(TEST ${displayTest})
+      set_property(TEST ${displayTest} APPEND PROPERTY ENVIRONMENT "S2_NO_HIGHDPI=1")
+      # Real Cocoa windows share desktop focus. Do not run
+      # these tests concurrently even when ctest is invoked with --parallel.
+      set_tests_properties(${displayTest} PROPERTIES RUN_SERIAL TRUE)
+    endif()
+  endforeach()
+endif()
 s2_copy_fonts(BgfxRendererTests)
 s2_copy_fonts(UpstreamBugTests)
