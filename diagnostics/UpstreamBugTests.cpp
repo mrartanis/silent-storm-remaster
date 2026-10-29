@@ -20460,6 +20460,86 @@ static void EmptyClipAttackEntry(const char* databasePath,const char* resourcePa
 
 
 
+static NDb::CRPGPers* PreparationPersona()
+{
+    NDb::CRPGPers* result=nullptr;
+    CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while(people.MoveNext()) {
+        auto* p=people.Get();
+        if(!p->pClass || !p->pBaseValue || !p->pModel || p->pPanzerklein || p->pDefaultWearsPanzerklein)continue;
+        CObj<NRPG::CPerksTree> tree=NRPG::CreatePerksTree(p->pClass->nPerkTreeID);
+        vector<CPtr<NRPG::CPerk>> entries;tree->GetAllPerks(&entries);
+        for(auto entry:entries)if(entry->GetDBPerk()->GetRecordID()==22 && (!result || p->GetRecordID()<result->GetRecordID()))result=p;
+    }
+    return result;
+}
+
+static void WeaponPreparation(const char* databasePath,const char* resourcePath,int mode)
+{
+    const bool perkCase=mode==2 || mode==4 || mode==5 || mode==7 || mode==9 || mode==11;
+    const bool mounted=mode==3 || mode==4,bounds=mode==6 || mode==7,empty=mode==0 || mode==5,melee=mode==8 || mode==9,spend=mode>=10;
+    CObj<NRPG::CGlobalGame> game;CObj<NWorld::CWorld> world;
+    if(spend)world=FixtureWorld(databasePath,resourcePath,true,&game);
+    else {CFileStream db;db.OpenRead(databasePath);NDatabase::Serialize(db,CStructureSaver::READ);}
+    auto* persona=PreparationPersona();auto* definition=NDb::GetDBPerk(22);
+    Require(persona && definition && !definition->params.empty() && std::isfinite(definition->params[0]),"preparation fixture lacks real persona/perk22 data");
+    CObj<NRPG::CUnit> unit=new NRPG::CUnit(persona);CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(unit);
+    auto* inventory=unit->GetInventory();
+    for(auto slot:{NDb::SLOT_1,NDb::SLOT_2})if(inventory->Get(slot)){CObj<NRPG::IInventoryItem> removed=inventory->TakeOff(slot);}
+    inventory->Activate(NDb::SLOT_1);unit->SetCannonItem(nullptr);
+    Require(!unit->GetWeaponItem() && !mission->HasPerk(22),"preparation fixture starts armed or already owns perk22");
+    if(perkCase){unit->GetPerksTree()->AddPerkPoints(1);unit->GetPerksTree()->TakePerk(22);float actual=-999;Require(mission->HasPerk(22,&actual) && actual==definition->params[0],"preparation fixture did not acquire its actual authored perk22");}
+    const float parameter=perkCase?definition->params[0]:0.f;
+    vector<NDb::CRPGWeapon*> records;CDBIterator<NDb::CRPGWeapon> weapons(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while(weapons.MoveNext()){auto* p=weapons.Get();if(p->pItem && p->pWeaponType && p->pInnerClip && p->pInnerClip->pItem)records.push_back(p);}
+    Require(!records.empty(),"preparation fixture lacks actual authored firearms");
+    std::sort(records.begin(),records.end(),[](const NDb::CRPGWeapon* a,const NDb::CRPGWeapon* b){return a->GetRecordID()<b->GetRecordID();});
+    int checked=0,mismatches=0,unchangedRows=0,zeroRows=0,capRows=0,matchingRows=0;
+    auto check=[&](NDb::CRPGWeapon* record,int raw,int ordinal){
+        auto* effective=unit->GetWeaponItem();auto* active=inventory->GetActive();const int ap=mission->GetAP(),hp=mission->GetTotalVP(),ammo=effective?effective->GetAmmoQuantity():-1,points=unit->GetPerksTree()->GetPerkPoints();
+        const auto slot=inventory->GetActiveSlot();const auto count=inventory->GetItems().size();const float xp=unit->fXP;auto rng=GlobalGameRandom();
+        const int expected=Min(8,Max(0,int(float(raw)-parameter)));
+        for(auto pose:{NAI::WALK,NAI::CROUCH,NAI::CRAWL,NAI::RUN}) {
+            const int actual=mission->GetActionAP(pose,NRPG::AC_PREPARE),repeat=mission->GetActionAP(pose,NRPG::AC_PREPARE);
+            const int shoot=mission->GetActionAP(pose,NRPG::AC_SHOOT),combined=mission->GetActionAP(pose,NRPG::AC_PREPARE_AND_SHOOT);
+            auto after=GlobalGameRandom();auto before=rng;
+            const bool unchanged=mission->GetAP()==ap && mission->GetTotalVP()==hp && (!effective || effective->GetAmmoQuantity()==ammo) && unit->GetWeaponItem()==effective && inventory->GetActive()==active && inventory->GetActiveSlot()==slot && inventory->GetItems().size()==count && unit->GetPerksTree()->GetPerkPoints()==points && unit->fXP==xp && before.Get()==after.Get();
+            std::printf("native preparation AP: mode=%d row=%d weapon=%d pose=%d mounted=%d perk=%d param=%g raw=%d actual=%d repeat=%d expected=%d shoot=%d combined=%d AP=%d ammo=%d unchanged=%d\n",mode,ordinal,record?record->GetRecordID():-1,int(pose),int(mounted),int(perkCase),parameter,raw,actual,repeat,expected,shoot,combined,ap,ammo,int(unchanged));
+            ++checked;unchangedRows+=unchanged;zeroRows+=expected==0;capRows+=expected==8;matchingRows+=actual==expected;
+            mismatches+=actual!=expected || repeat!=expected || combined!=expected+shoot;
+            Require(unchanged,"preparation price query changes AP/HP/ammo/equipment/XP/perks/inventory or next RNG word");
+        }
+    };
+    if(empty)check(nullptr,0,0);
+    else if(melee){NDb::CRPGMeleeWeapon* record=nullptr;CDBIterator<NDb::CRPGMeleeWeapon> all(*NDatabase::GetTable<NDb::CRPGMeleeWeapon>());while(all.MoveNext())if(all.Get()->pItem){record=all.Get();break;}Require(record,"preparation fixture lacks authored melee item");CObj<NRPG::IInventoryItem> item=NRPG::CreateMeleeWeaponItem(record);Require(item && inventory->Equip(NDb::SLOT_1,item) && !unit->GetWeaponItem(),"preparation fixture cannot equip an actual non-firearm");check(nullptr,0,0);}
+    else if(bounds){
+        CObj<NDb::CRPGWeapon> copy=new NDb::CRPGWeapon;CObj<NDb::CRPGWeaponType> type=new NDb::CRPGWeaponType;
+        CMemoryStream weaponFields,typeFields;{CStructureSaver w(weaponFields,CStructureSaver::WRITE);records.front()->operator&(w);}{CStructureSaver w(typeFields,CStructureSaver::WRITE);records.front()->pWeaponType->operator&(w);}
+        weaponFields.Seek(0);{CStructureSaver r(weaponFields,CStructureSaver::READ);copy->operator&(r);}typeFields.Seek(0);{CStructureSaver r(typeFields,CStructureSaver::READ);type->operator&(r);}copy->pWeaponType=type;
+        int i=0;for(int raw:{-1,0,1,2,7,8,9,20}){type->nPrepareCost=raw;CObj<NRPG::CWeaponItem> gun=new NRPG::CWeaponItem(copy);unit->SetCannonItem(gun);Require(unit->GetWeaponItem()==gun.GetPtr(),"boundary fixture lost its native effective firearm");check(copy,raw,i++);}
+    }
+    else if(spend){
+        NDb::CRPGWeapon* record=nullptr;for(auto p:records)if(p->pWeaponType->nPrepareCost>0 && p->pWeaponType->nPrepareCost!=2){record=p;break;}
+        Require(record,"preparation spend fixture lacks an authored firearm distinguishing the old2AP stub");
+        CObj<NRPG::CWeaponItem> gun=new NRPG::CWeaponItem(record);Require(inventory->Equip(NDb::SLOT_1,gun),"preparation spend fixture cannot equip its actual firearm");
+        list<CPtr<NWorld::CUnitServer>> actors;world->GetAllUnits(&actors);NWorld::CUnitServer* anchor=nullptr;for(auto actor:actors)if(actor && !actor->IsAIUnit() && actor->CanFight()){anchor=actor;break;}Require(anchor,"preparation spend fixture has no native human map anchor");
+        auto* owner=dynamic_cast<NWorld::CPlayer*>(anchor->GetPlayer());Require(owner,"preparation spend fixture lacks its actual owner");vector<NAI::SPathPlace> nearby;auto* network=world->GetPathNetwork();network->GetNearPlaces(SSphere(anchor->GetPosition().GetCP(),5.f),&nearby);NAI::SPathPlace spawn;bool found=false;for(auto place:nearby){place.SetPose(NAI::CM_STAND);if(place.IsIntegral() && !place.IsFinal() && network->IsPassable(place) && !network->IsLocked(place,true)){spawn=place;found=true;break;}}Require(found,"preparation spend fixture lacks a native free spawn cell");CObj<NWorld::CUnitServer> actor=world->AddUnitInGame(spawn,mission,owner);Require(actor && actor->GetUnitRPG()==mission.GetPtr(),"preparation spend fixture cannot add its real actor to the world");
+        world->GivePlayerTurn(owner);const int raw=record->pWeaponType->nPrepareCost,expected=Min(8,Max(0,int(float(raw)-parameter))),before=actor->GetAP(),ammo=gun->GetAmmoQuantity(),hp=mission->GetTotalVP();const auto position=actor->GetPosition();
+        Require(world->IsTurnBased() && before>=8 && !actor->HasCommand(),"preparation spend fixture has no genuine tactical AP budget");
+        actor->DoAction(NRPG::AC_PREPARE);const int after=actor->GetAP();
+        std::printf("native preparation spend: mode=%d weapon=%d raw=%d param=%g before=%d after=%d expected=%d ammo=%d unchanged=%d\n",mode,record->GetRecordID(),raw,parameter,before,after,before-expected,ammo,int(gun->GetAmmoQuantity()==ammo && mission->GetTotalVP()==hp && actor->GetPosition()==position && !actor->HasCommand()));std::fflush(stdout);
+        Require(gun->GetAmmoQuantity()==ammo && mission->GetTotalVP()==hp && actor->GetPosition()==position && !actor->HasCommand(),"preparation spend changes ammo/health/position or installs a command");
+        Require(after==before-expected,"native preparation action spends the2AP stub or perk parameter instead of the original weapon cost");return;
+    }
+    else {
+        CObj<NRPG::CWeaponItem> held=new NRPG::CWeaponItem(records.front());if(mounted)Require(inventory->Equip(NDb::SLOT_1,held),"mounted preparation fixture cannot retain its real personal firearm");
+        int row=0;for(auto record:records){CObj<NRPG::CWeaponItem> gun=new NRPG::CWeaponItem(record);if(mounted)unit->SetCannonItem(gun);else {if(inventory->Get(NDb::SLOT_1)){CObj<NRPG::IInventoryItem> previous=inventory->TakeOff(NDb::SLOT_1);}Require(inventory->Equip(NDb::SLOT_1,gun),"preparation fixture cannot equip an authored firearm");}Require(unit->GetWeaponItem()==gun.GetPtr() && (!mounted || inventory->GetActive()==held.GetPtr()),"preparation fixture lost effective/held weapon precedence");check(record,record->pWeaponType->nPrepareCost,row++);}
+    }
+    std::printf("native preparation summary: mode=%d checked=%d mismatches=%d matching=%d zero=%d cap=%d unchanged=%d\n",mode,checked,mismatches,matchingRows,zeroRows,capRows,unchangedRows);std::fflush(stdout);
+    Require(checked>0 && checked==unchangedRows,"preparation fixture did not measure native unchanged price queries");
+    Require(mismatches==0,"native preparation AP ignores authored weapon type or subtractive perk22/clamp boundaries");
+}
+
 static void ReservedAP(const char* databasePath,const char* resourcePath,int mode)
 {
     const bool longBurst=mode==2 || mode==3 || mode==5 || mode==10 || mode==13 || mode==15;
@@ -27078,6 +27158,18 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-cannon-undock-plan-invalid-server") && argc == 4) { AICannonUndockPlan(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "cannon-entry-animation")) { Require(argc == 4, "cannon animation requires db and res"); CannonEntryAnimation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mounted-reload-weapon")) { Require(argc == 4, "mounted reload requires db and res"); MountedReloadWeapon(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "preparation-ap-0") && argc==4) { WeaponPreparation(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "preparation-ap-1") && argc==4) { WeaponPreparation(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "preparation-ap-2") && argc==4) { WeaponPreparation(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "preparation-ap-3") && argc==4) { WeaponPreparation(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "preparation-ap-4") && argc==4) { WeaponPreparation(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "preparation-ap-5") && argc==4) { WeaponPreparation(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "preparation-ap-6") && argc==4) { WeaponPreparation(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "preparation-ap-7") && argc==4) { WeaponPreparation(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "preparation-ap-8") && argc==4) { WeaponPreparation(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "preparation-ap-9") && argc==4) { WeaponPreparation(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "preparation-ap-10") && argc==4) { WeaponPreparation(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "preparation-ap-11") && argc==4) { WeaponPreparation(argv[2],argv[3],11); return true; }
     if (!std::strcmp(mode, "reserved-ap-0") && argc==4) { ReservedAP(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "reserved-ap-1") && argc==4) { ReservedAP(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "reserved-ap-2") && argc==4) { ReservedAP(argv[2],argv[3],2); return true; }

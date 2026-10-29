@@ -83,7 +83,7 @@ native controls проверяют оба SLOT, active/inactive и нетрон�
 | [cc0fd988](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cc0fd9888357c7a9f5d47fec2c22f3073eb5e7cf) Match retail AI firing range and target reach checks | Перенесены точка выстрела, достижение юнита, предел AI30 и проекция дальности; маски трассировки и связанный обычный путь ещё проверяются отдельно. |
 | [66fc9e9a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/66fc9e9ad26497bf41f96a1a8c51c8a03e951718) Match retail AI snipe weapon and cover evaluation | AI snipe должен считать выбранным оружием и не терять дробную cover precision. |
 | [0ffb568d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0ffb568d67bc6ca389d7ca63a9da4f3978c801a7) Restore retail level XP persistence and fresh skill maximum flags | Повторная native-проверка нового репозитория выявила потерю общего XP в SetXPLevel; сохранение существующего расчёта исправляется отдельно. FreezeToMax для новых skills независимо сверён с original Steam EXE и перенесён: см. fresh-skill-modifier-values в UPSTREAM-IMPORTS.md. |
-| [08c4bb5a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/08c4bb5a6b9a94337d88bd8241a2e51b6984cfce) Restore retail weapon preparation AP costs | AP подготовки оружия из weapon type/перков вместо stub; сверять original, не считать автоматически ребалансом. |
+| [08c4bb5a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/08c4bb5a6b9a94337d88bd8241a2e51b6984cfce) Restore retail weapon preparation AP costs | Подтверждено Gold/Steam и native TDD: исходная цена типа оружия, вычитание перка22, усечение и0..8. Перенесено; см. проверенный раздел08c4bb5a ниже. |
 | [98871d0f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98871d0f0def4f966e097b984c18e57a8f437d7b) Restore wounded AI fear and reachable retreat selection | Раненый AI, fear и достижимое retreat место — требуют retail-сверки, не переносить изменения difficulty вслепую. |
 | [069451e7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/069451e7e61dc0c720812b2f939339f7732fdaf3) Restore retail explosive target groups and friendly clearance | Explosive target groups и safe distance allies — сверять original AI, без новых порогов от себя. |
 | [bf54ea44](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/bf54ea44a50f7e9ab7095a05491ec289105c84d0) Restore VP boost duration and overdose processing | VP boost duration/overdose — медицинские формулы original, отдельные oracle-тесты. |
@@ -1679,3 +1679,19 @@ RED7/18 -> GREEN18/18 на обеих платформах. Цены reload/move
 сохранена; это не цена RPG-действия AC_PREPARE. Его формула не меняется,
 источник08c4 проверяется отдельно. Перенос исправляет прогноз до оригинала,
 без нового правила баланса. Проверки не исполняют целую очередь выстрелов.
+
+## Проверено: стоимость подготовки оружия — 08c4bb5a
+
+[Источник](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/08c4bb5a6b9a94337d88bd8241a2e51b6984cfce).
+Оригинал берёт PrepareCost из типа действующего оружия, либо0 без огнестрельного
+оружия. Перк22 вычитает параметр из цены; дробная часть усекается, итог ограничен
+0..8. Это подтверждено независимыми Gold/Steam dispatch/DB/vtable/x87 ветками.
+Заглушка реконструкции2AP/сам параметр перка заменена исходной формулой.
+Настоящее оружие с ценой6 теперь расходует6, а не2; при штатном параметре
+перка22=0 также6, а не0. Это восстановление retail, не новая настройка баланса.
+Умножение цены на параметр, исключённое из7368b4b1, по-прежнему не переносится.
+Цены/параметры DB не редактировались; своё преимущество установленного оружия
+над оружием в руках сохраняется. Native RED10/12 -> GREEN12/12 обе платформы,
+105 настоящих оружий/четыре позы/held+mounted/перк,1760 запросов и реальное
+списание AP подтверждают перенос. Полная анимация подготовки/попадание не
+заявляются; дробное усечение отдельно подтверждено исходной x87 реализацией.

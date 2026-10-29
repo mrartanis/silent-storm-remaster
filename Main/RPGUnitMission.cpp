@@ -587,11 +587,15 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 		case AC_HIDE: return 14;
 		case AC_PREPARE: 
 		{
+			// Retail Steam 0x6c0f31: weapon-type price, subtract perk22, clamp to 0..8.
+			int nAP = 0;
+			CWeaponItem *pWeapon = pRPGUnit->GetWeaponItem();
+			if ( IsValid( pWeapon ) )
+				nAP = pWeapon->GetDBWeapon()->pWeaponType->nPrepareCost;
 			float fParam;
 			if ( HasPerk( N_PERK_CHEAP_SHOOT_PREPARE, &fParam ) )
-				return fParam;
-			else
-				return 2;
+				nAP = int( nAP - fParam );
+			return Min( 8, Max( 0, nAP ) );
 		}
 		case AC_SHOOT:   return pRPGUnit->GetWeaponAP();
 		case AC_PREPARE_AND_SHOOT:	return GetActionAP( curPose, AC_PREPARE ) + GetActionAP( curPose, AC_SHOOT );

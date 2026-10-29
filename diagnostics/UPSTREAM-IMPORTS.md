@@ -15199,3 +15199,73 @@ All seven upstream files/hunks accounted, with own reload declarations adapted.
 Mark source IMPORTED. Ledger286:162 imported/18 partial/63 pending =81
 unfinished sources. Preparation pricing08c4 remains independent and pending.
 Whole goal and final actual hosted Actions repair/check remain unfinished.
+
+### Restore original effective-weapon preparation AP (08c4bb5a, complete)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/08c4bb5a6b9a94337d88bd8241a2e51b6984cfce
+
+AC_PREPARE still returned a fixed2, or the perk22 parameter itself. Replace
+only that branch with the original effective firearm's weapon-type PrepareCost,
+zero for no firearm, subtract perk22 parameter with integer truncation, then
+clamp signed result to0..8. Use the existing pRPGUnit->GetWeaponItem, retaining
+own installed-cannon precedence over the personal weapon. The original item
+override argument is not introduced into our public API. No authored DB/perk
+values, other action prices, save/wire layout or own rewritten engine change.
+This restores original pricing; it does affect the broken reconstruction's
+actual spend and is not described as a cosmetic-only change.
+
+Independent original proof: typed Gold CUnitMission::GetActionAP6bac90/3724
+has EPose/EAction/optional item. Original EAction AC_PREPARE30 dispatches through
+Gold6bba68 to6bae7a; actual Steam table6c1a48 has the same action30 entry6c0f31
+and an independently located indirect dispatcher. Unique unmasked27-byte field
+chain maps Gold6bae8d to Steam6c0f44. PDB confirms CRPGWeapon.pWeaponType34 and
+CRPGWeaponType.nPrepareCost38; original item vtable8b4938+1c reaches the named
+GetDBWeapon adjustment thunk69d860/getter69d870. Named original HasPerk is at
+mission vtable8b63cc+78. Both actual builds contain the exact perk22 probe, x87
+integer-load/subtract/round-toward-zero conversion and signed0..8 clamp.
+Frame-local offsets differ and are checked explicitly, without arbitrary masks
+or a whole3724-byte identity claim. No retail process was executed for this.
+
+Baseline before tests/Main: Windows60/60, Linux58/58. Compiled native RED10/12
+BOTH -> GREEN12/12 BOTH. All105 authored firearm records with valid item/type/
+clip data are queried in all4 poses through native CUnitMission, held or mounted,
+with/without the actual authored acquired perk22. Unarmed/melee controls and
+complete native in-memory weapon/type record copies for raw -1,0,1,2,7,8,9,20
+cover zero/cap boundaries without editing game.db. Of1760 repeated/combined
+query rows,1556 correct the former price; all other rows stay identical.
+AP/HP/ammo/effective and active item/slot/bag count/XP/perk points/next RNG
+word remain unchanged during queries. AC_SHOOT prices are identical; the real
+AC_PREPARE_AND_SHOOT result includes the corrected preparation. Authored perk22
+parameter is0, which in original subtraction preserves the weapon's price,
+rather than making preparation free as in the separately excluded multiplier.
+
+Two actual world actors with the same authored6AP weapon prove native
+CUnitServer::DoAction(AC_PREPARE) spends6: before55 ->49 instead of53 without
+perk or55 with perk. HP/ammo/position/orders remain unchanged. This exercises
+the native AP action path, not full preparation animation/shot/hit/damage.
+The full authored sweep supplies real-data failures, separate from controlled
+boundary copies. Fractional-parameter truncation is proven in original x87;
+the actual authored runtime perk is0, not a fabricated fractional definition.
+
+Setup evidence retained separately: initial fixture used IWorld instead of
+actual FixtureWorld CWorld and wrong spawn/player argument types; compiler
+errors are not RED. Real free native map place and concrete owner correct the
+fixture. Database hash iteration initially selected different valid records
+on each platform; choose lowest-ID real persona and sort firearms, then repeat
+definitive RED on unchanged Main. A guard initially expected one platform's
+record/AP constants and blocked production; its unfixed reruns are archived as
+unapplied-guard, never claimed GREEN. General guard now checks actual native
+price deltas. Final before/after rows match exactly across both platforms.
+
+Final Windows ALL_BUILD and Linux Game/helpers/actual serializer built; exact
+related72/72 Windows and70/70 Linux are baseline+12. Own animation-reseat/
+legacy-walk/ladder/turn/cannon16/16 BOTH, fresh Windows actual network4/4 and
+local CI299/299 pass. Exact saved manifests/raw/zero exits/source scope checked.
+New12 asset-backed cases remain outside asset-free CI299. Only the existing
+two builds used, no per-bug build/source copies or HD/PNG generation.
+Evidence: preparation-ap-verification.json, retail oracle, baseline/definitive
+RED/GREEN/final raw logs. General verifier/finisher tied to e7a7e7a3 parent;
+original verifier and pure transform retain their stated reusable scope.
+
+All source08c4's sole-file hunks are imported. Ledger286:163 imported/18 partial/
+62 pending =80 unfinished sources. Whole goal/final actual hosted Actions remain.
