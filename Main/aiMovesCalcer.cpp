@@ -428,6 +428,13 @@ void CMovesCalcer::MarkSame( CArray2D<STile> *pRes )
 					int nDiff = t1.nHeight - t2.nHeight;
 					if ( nDiff > GetIHeight( 0.05f ) || nDiff < -GetIHeight( 0.05f ) )
 						continue;
+					// Original Steam @0x47aedc (Gold @0x47a3ac): only merge passable, connected cells.
+					// Both originals reuse the FIRST cell's HC byte in the second test too.
+					if ( !t1.nPassable || !t2.nPassable )
+						continue;
+					if ( !( t1.nMoveCrouch || t1.nMoveLay || t1.nMoveHC ) ||
+						!( t2.nMoveCrouch || t2.nMoveLay || t1.nMoveHC ) )
+						continue;
 					if ( t1.nDisplacement == t2.nDisplacement ) // match found
 					{
 						t1.nFlags |= TF_HAS_SAME;

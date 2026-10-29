@@ -73,6 +73,8 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/PrecalcCollider.h"
 #include "../Main/aiColourer.h"
 #include "../Main/aiMap.h"
+#include "../Main/aiMovesCalcer.h"
+#include "../Main/aiCollider.h"
 #include "../Main/aiRender.h"
 #include "../Main/aiStability.h"
 #include "../Main/aiNearestPosition.h"
@@ -20738,6 +20740,39 @@ public:
     bool IsEmptyPK() const override { return shell; }
 };
 
+class LayerMergeMapProbe: public CoverOriginMapProbe
+{
+    OBJECT_NOCOPY_METHODS(LayerMergeMapProbe);
+public:
+    void PrepareCollider(NAI::IPrepareCollider*,const SBound&,float,int,bool) override { Require(false,"layer merge unexpectedly requested geometry instead of its supplied native collider"); }
+};
+
+static void MovementLayerMerge(int mode)
+{
+    CObj<NAI::CPathNetwork> network=new NAI::CPathNetwork;network->CreateLayer(8,8,VNULL2,0.f,0);auto* first=network->GetLayer(0);network->CreateLayer(8,8,VNULL2,0.f,1,first->pGroup);network->Freeze(true);auto* current=network->GetLayer(1);
+    Require(first->pGroup==current->pGroup && first->pGroup->layers[0]==first && first->pGroup->layers[NAI::N_MAX_LAYERS_PER_FLOOR]==current,"native layer merge has no two ordered surfaces in its actual group");
+    // A single boundary cell retains previously calculated connections outside
+    // this buffer. Public Calc still executes its real private merge stage;
+    // no collision traces or access to private members are needed.
+    const CTRect<int> region(3,3,4,4);NAI::STempArrayGroup<NAI::STile> buffers;buffers.region=region;auto* lower=buffers.GetArray(0,0);auto* upper=buffers.GetArray(1,0);auto& a=(*upper)[0][0];auto& b=(*lower)[0][0];
+    a=NAI::STile{};b=NAI::STile{};a.nPassable=b.nPassable=NAI::CP_STAND|NAI::CP_CROUCH;a.nMoveCrouch=b.nMoveCrouch=1;a.nMoveStand=b.nMoveStand=1;a.nHeight=1;b.nHeight=0;a.nLocks=2;a.nDynLocks=3;b.nLocks=4;b.nDynLocks=5;
+    if(mode==0){b.nPassable=0;b.nMoveCrouch=0;}
+    if(mode==1)a.nMoveCrouch=0;
+    if(mode==2)b.nMoveCrouch=0;
+    if(mode==4){a.nMoveCrouch=b.nMoveCrouch=0;a.nMoveHC=1;}
+    if(mode==5){b.nMoveCrouch=0;b.nMoveHC=1;}
+    if(mode==6)b.nHeight=1+NAI::GetIHeight(0.05f)+1;
+    if(mode==7)b.nDisplacement=1;
+    if(mode==8)a.nPassable=0;
+    const auto beforeA=a,beforeB=b;auto random=GlobalGameRandom();CObj<LayerMergeMapProbe> map=new LayerMergeMapProbe;CObj<NAI::CCollider> collider=new NAI::CCollider;SBound bound;bound.BoxInit(CVec3(-8,-8,-8),CVec3(8,8,8));collider->SetBoundAndResolution(bound,2.f);
+    NAI::CMovesCalcer calcer(current,map,region,buffers,0,1,collider);calcer.Calc();auto afterRandom=GlobalGameRandom();
+    const bool mergedA=(a.nFlags&NAI::TF_HAS_SAME)!=0,mergedB=(b.nFlags&NAI::TF_HAS_SAME)!=0,expected=mode==3 || mode==4;
+    auto expectedA=beforeA,expectedB=beforeB;if(expected){expectedA.nFlags|=NAI::TF_HAS_SAME|NAI::TF_STAND_PASSABLE;expectedB.nFlags|=NAI::TF_HAS_SAME|NAI::TF_STAND_PASSABLE;expectedB.nHeight=expectedA.nHeight;}
+    bool unchanged=std::memcmp(&a,&expectedA,sizeof(a))==0 && std::memcmp(&b,&expectedB,sizeof(b))==0 && random.Get()==afterRandom.Get() && first->transitions.empty() && current->transitions.empty() && map->traces.empty();
+    std::printf("native layer merge: mode=%d currentPass=%d otherPass=%d currentCrouch=%d otherCrouch=%d currentHC=%d otherHC=%d currentHeight=%d otherHeight=%d->%d flags=%d/%d merged=%d/%d expected=%d exact=%d locks=%d,%d/%d,%d\n",mode,int(beforeA.nPassable),int(beforeB.nPassable),int(beforeA.nMoveCrouch),int(beforeB.nMoveCrouch),int(beforeA.nMoveHC),int(beforeB.nMoveHC),int(a.nHeight),int(beforeB.nHeight),int(b.nHeight),int(a.nFlags),int(b.nFlags),int(mergedA),int(mergedB),int(expected),int(unchanged),int(a.nLocks),int(a.nDynLocks),int(b.nLocks),int(b.nDynLocks));std::fflush(stdout);
+    Require(mergedA==expected && mergedB==expected && unchanged,"native movement calculation merged an ineligible surface or changed the original merge eligibility/metadata");
+}
+
 static void NavigationAliasDestinations(bool arrayOutput, bool isolatedSource = false)
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
@@ -26778,6 +26813,15 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "nearby-connected-destination")) { NearbyConnectedDestination(); return true; }
     if (!std::strcmp(mode, "isolated-source-alias-vector")) { NavigationAliasDestinations(false,true); return true; }
     if (!std::strcmp(mode, "isolated-source-alias-array")) { NavigationAliasDestinations(true,true); return true; }
+    if (!std::strcmp(mode, "layer-merge-empty-other")) { MovementLayerMerge(0); return true; }
+    if (!std::strcmp(mode, "layer-merge-disconnected-current")) { MovementLayerMerge(1); return true; }
+    if (!std::strcmp(mode, "layer-merge-disconnected-other")) { MovementLayerMerge(2); return true; }
+    if (!std::strcmp(mode, "layer-merge-connected")) { MovementLayerMerge(3); return true; }
+    if (!std::strcmp(mode, "layer-merge-first-h-c")) { MovementLayerMerge(4); return true; }
+    if (!std::strcmp(mode, "layer-merge-other-h-c")) { MovementLayerMerge(5); return true; }
+    if (!std::strcmp(mode, "layer-merge-height")) { MovementLayerMerge(6); return true; }
+    if (!std::strcmp(mode, "layer-merge-displacement")) { MovementLayerMerge(7); return true; }
+    if (!std::strcmp(mode, "layer-merge-empty-current")) { MovementLayerMerge(8); return true; }
     if (!std::strcmp(mode, "navigation-alias-vector")) { NavigationAliasDestinations(false); return true; }
     if (!std::strcmp(mode, "navigation-alias-array")) { NavigationAliasDestinations(true); return true; }
     if (!std::strcmp(mode, "flying-shoot-direction")) { FlyingShootDirection(); return true; }

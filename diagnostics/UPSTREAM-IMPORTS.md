@@ -14505,3 +14505,66 @@ renderer, fonts or HD changes. Two shared builds reused; no source/build
 backup copies. Evidence: passage-preview inventory/setup archives/final RED/
 GREEN/fresh network/build logs, original oracle and verification JSON. Whole
 goal remains active, including final actual GitHub Actions repair/check.
+
+### Movement-layer merge eligibility, preserving original HC reuse (80e9da69)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/80e9da693fa683f0ab9db5cd7ece040f1039be16
+
+CMovesCalcer::MarkSame compares height/displacement but omits both original
+passability/connectivity guards. An empty or insufficiently connected surface
+acquires TF_HAS_SAME/TF_STAND_PASSABLE and the other cell's height. Restore only
+those two guards. Preserve the original second check's reuse of FIRST-cell
+nMoveHC; replacing it with second-cell HC would change original behavior.
+The later6d313faa alias-enumeration fixes remain intact; they did not supply
+this missing merge-stage validation. No5cm tolerance, displacement, height
+conversion, floor, transition or numerical movement/AP formula changes.
+
+Independent original: Gold PDB names MarkSame47a260/509. Its ENTIRE body uniquely
+matches actual Steam47ad90 except the operand of one decoded direct call
+(Gold47a327->449080). Do not claim that helper's whole body was audited here.
+Gold PDB NAI::STile confirms lay0/crouch1/stand2/HC3/height4/passabilitya/
+displacementb/flagsc. The33-byte guard block Gold47a3ac->Steam47aedc is exact:
+check both passability bytes, OR first crouch/lay/HC into nonzero, then OR
+second crouch/lay with the SAME first HC register dl. Displacement/alias/height
+updates follow. No guessed absolute/virtual masks. Cached upstream47b05c does
+not identify this actual Steam block. A typedef-name lookup was corrected to
+the actual NAI::STile name during the read-only audit; no runtime setup failure.
+
+Nine resource-free tests call PUBLIC native CMovesCalcer::Calc, which reaches
+its actual private merge stage. Use two actual grouped8x8 navigation layers
+and controlled single-boundary-cell temp buffers at global3,3; precomputed
+connections can extend outside this one-cell buffer. Supply an initialized
+empty native collider and a concrete map probe; no map/collision trace or
+private-member access/testing API is used. This isolates the merge stage,
+not authored basement geometry, cursor pixels or full map/pathfinding.
+
+Genuine compiled RED4/9 on BOTH platforms before Main: empty other cell,
+disconnected current/other and second-HC-only inputs incorrectly merge,
+set both flags5 and overwrite other height0->1. Five controls pass: normal
+connection, first-HC reuse, height beyond the unchanged5cm tolerance,
+different displacement and empty current's existing early exit. GREEN rejects
+exactly those4, keeping flags0 and height0; all controls are byte-identical.
+Check the ENTIRE16-byte output of both tiles against the expected native
+result, including locks2/3 and4/5, plus empty transitions and unchanged game
+RNG. All9 semantic rows agree between Windows/Linux. Existing height133
+boundary control is unchanged (current1 plus native tolerance131 plus1).
+
+Windows50/50 related tests31.62s, Linux48/48 26.05s, exact saved baselines41/39
+plus9 new and nonempty raw commands verified. Covers existing navigation
+aliases, colourer/collision/footprints, scripted and owning-party passage
+controls, and the ladder/door prerequisite. Windows ALL_BUILD and Linux Game/
+helpers/real NetworkSerializer builds succeed. After ALL_BUILD, fresh actual
+network serializer/match/partial-movement/stop-resume4/4 pass22.45s. All299
+selected local CI-like asset-free tests pass25.28s, including ALL9 new cases;
+manifest and complete raw pass records agree. This is a local gate, not a
+claim of final full-suite/hosted GitHub Actions completion.
+
+Exact production diff: only the7-line original guard/comment block in
+Main/aiMovesCalcer.cpp. No other Main/DBFormat file, save/wire, authored DB,
+renderer/body/face/fonts/HD pipeline changes. All single-file source hunks
+accounted; mark80 imported. Ledger286 now158imported/18partial/67pending=
+85unfinished sources. Whole goal and final actual GitHub Actions repair/check
+remain active. Two shared builds reused, no source/build backup copies.
+Evidence: layer-merge original typed symbols/asm/oracle, baseline manifests,
+RED9/GREEN50/48 raw logs/exits, exact verifier, fresh network, ALL_BUILD and
+CI299 manifest/raw/exits. Final balance-review artifact remains unchanged.
