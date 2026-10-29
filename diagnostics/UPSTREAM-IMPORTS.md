@@ -12981,3 +12981,61 @@ no fresh fullCI/hosted Actions claim or old per-bug build copies.
 Actual repair state application, finish/acknowledgment/own animation, healer
 perks57/63 and practice XP remain separate work. Source531f staysPARTIAL;
 ledger149 imported/21partial/68pending=89 unfinished sources, whole goal active.
+
+
+## 2026-10-29 — apply engineering repair to the actual PK chassis (531f3b7d)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9),
+independent repair state allocation/application stage. Repair6 had no start
+case and no application branch: after animation its charge was spent without
+repairing the chassis. Initialize authored kit capacity for an actual worn
+or empty PK; resolve that real chassis, invoke the restored engineering
+planner, subtract repaired HP from capacity, Modify its raw VP and spend the
+quoted AP. Preserve existing pending/turn/cancel state and dose ownership.
+Repair does not bandage the pilot or award human wound-treatment medals.
+No generic medical changes, AP minimum, authored balance, fields or wire
+changes; own PK ownership/model APIs and body/facial engines preserved.
+
+Original Gold PDB DoHealing7bc850/805 repair dispatch7bc8b3 maps uniquely to
+Steam7c9bc0/7c9c23 via the entire123-byte ownership/planner argument block,
+masking only a known GetFirstAidItem rel32 operand. Actual planner calls,
+capacity subtraction, raw VP cell24, original36-byte CDynamicSkill::Modify,
+native AP payment and direct jump to the common capacity check verified.
+Both original effect6 start tables resolve wearing-PK/empty-self and FILD
+authored nTotalHealVP+2c into state capacity+18 (Gold7bd01f/Steam7ca3a0).
+Unlike NORMAL wounds, repair has no immediate second planning call: a fully
+repaired chassis stays pending until the next native segment observes the
+healthy false plan and finishes. This original behavior is retained.
+
+Nine native cases share the genuine repair fixture: engineer3/nativelevel11,
+Engineering105/Medicine66/perk79, kits26/27, chassis93, actual pilot103.
+Public CExecHeal::Run then explicit AnimationFinished callback and actual
+TBS new-turn/finish events; no individual stat/DB/AP injection. RED7/9 each
+before production, with healthy-in-flight and removed-kit-in-flight controls
+passing. Test calibration: an initial assertion mistakenly required a wound
+penalty on pilot HP140/147; original CVPCritical correctly has none above75%.
+Preserve actual initial raw pilot HP/dressing/penalty instead. Revert only
+our uncommitted production edits, rerun fresh RED7/9 both, then reapply the
+same minimal repair implementation. Initial diagnostic logs are saved as
+calibration evidence, not represented as successful GREEN or build copies.
+
+GREEN92/92 Windows101.28s/Linux101.50s includes previous83 plus all9 action cases.
+100HP repairs600->700 cost19AP after10AP preparation;3HP repairs697->700
+cost0 additionalAP. Large650HP repair begins50->297 with47AP, continues
+297->596 with57AP, then596->700 with19AP; the next healthy recheck spends0
+and consumes exactly one dose. Capacity1000 becomes753/454/350; smaller
+repairs retain900/997 until the healthy recheck. Same-turn finish does not
+repeat the first segment. Actual raw pilot HP140/dressing0 and initial
+absent wound penalty stay unchanged; engineer/chassis receive no bandage
+and no human wound medal points. Both in-flight controls retain the same
+results. Queries/start/capacity/charges/marker/action ownership and repeat
+finish behavior checked, exact native input/outcome/turn traces match both
+platforms. Both Game builds and verify-repair-action.py pass.
+
+This verifies actual TBS state effects through explicit executor callbacks,
+not automatic rendered-animation timing, real-time clock progression or a
+full-world save. Finish animation/welder/custom-idle cleanup, acknowledgment,
+healer57/speed63 and practice XP remain separate work. Source531f PARTIAL;
+ledger149 imported/21partial/68pending=89 unfinished source commits, whole
+goal active. Shared builds/HD disabled, no per-bug build copies, no fresh
+fullCI/hosted GitHub Actions claim; final hosted checks remain due after ALL.

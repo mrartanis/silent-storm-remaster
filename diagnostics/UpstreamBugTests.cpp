@@ -23778,7 +23778,7 @@ static void TimedCriticalTreatment(const char* databasePath,const char* resource
     std::printf("native timed critical complete: mode=%d total=%d selected=%d remaining=%d patient=%d charge=%d->%d\n",mode,total,int(selected),expectedRemaining,int(hasSelected()),quantity,kit->GetIncQuantity());std::fflush(stdout);
 }
 
-static void RepairOrderGate(const char* databasePath,const char* resourcePath,int mode)
+static void RepairOrderGate(const char* databasePath,const char* resourcePath,int mode,int repairAction=-1)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
     list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* anchor=nullptr;
@@ -23806,6 +23806,7 @@ static void RepairOrderGate(const char* databasePath,const char* resourcePath,in
     }
     auto& shellHP=shell->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP);Require(shellHP.GetMaxValue()>100,"repair order chassis has insufficient VP");
     shellHP.SetValue(shellHP.GetMaxValue()-((mode==2 || mode==10)?0:100));
+    if(repairAction>=0)shellHP.SetValue(shellHP.GetMaxValue()-((repairAction==2 || repairAction==3)?3:(repairAction==4 || repairAction==5)?650:100));
     if(pilot){auto& hp=pilot->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP);hp.SetValue(hp.GetMaxValue()-7);pilot->GetUnitRPG()->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_VP));}
     // Put the actual engineer on a free repair ring. Inner invalid previews never relocate him into the suit footprint.
     places.clear();network->GetNearPlaces(SSphere(shell->GetPosition().GetCP(),5.f),&places);NAI::SUnitPosition ring=actor->GetPosition(),farPosition=ring,innerPosition=ring;bool gotRing=false,gotFar=false,gotInner=false;
@@ -23825,13 +23826,53 @@ static void RepairOrderGate(const char* databasePath,const char* resourcePath,in
     if(mode==15)queryFrom.pos.p.SetIntegral(0);
     if(mode==16)queryFrom.pos.p.SetPose(NAI::CM_INACTIVE);
     if(mode==11){target=nullptr;for(auto unit:units)if(unit && unit->CanFight() && unit->GetDiplomacyState(actor)==NDb::DS_ENEMY){target=unit;break;}Require(target,"repair order lacks a real hostile rejection control");}
-    auto* record=NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(mode==13 || mode==19?1:mode==18?27:26);Require(record && record->effect==(mode==13 || mode==19?NDb::FAE_NORMAL:NDb::FAE_REPAIR_PK),"repair order lost its actual kit type");
+    auto* record=NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(mode==13 || mode==19?1:mode==18 || repairAction==6?27:26);Require(record && record->effect==(mode==13 || mode==19?NDb::FAE_NORMAL:NDb::FAE_REPAIR_PK),"repair order lost its actual kit type");
     CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> previous;
     if(inventory->Get(NDb::SLOT_1))previous=inventory->TakeOff(NDb::SLOT_1);
     if(mode!=7)Require(inventory->Equip(NDb::SLOT_1,kit) && inventory->Activate(NDb::SLOT_1),"repair order cannot equip its real kit");else inventory->Activate(NDb::SLOT_1);
     if(mode==12)while(!kit->IsEmpty())kit->SpendPotion();
     MarkNewDGFrame();world->GetAIMap()->Sync();
     const int ap=actor->GetAP(),quantity=kit->GetIncQuantity(),rawShellHP=shellHP,pilotHP=pilot?int(pilot->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP)):-1;const auto position=actor->GetPosition();auto random=GlobalGameRandom();
+    if(repairAction>=0) {
+        actor->animator.SetActiveItem(true);actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
+        CObj<NWorld::CExecHeal> executor=new NWorld::CExecHeal(actor,target);
+        Require(executor->CanDoIt(actor->GetPosition())==NWorld::UCR_OK && !world->IsRealTime(),"repair action lacks its actual valid TBS order");
+        const int prep=record->nAPToUse;executor->Run();const int available=actor->GetAP();
+        Require(available==ap-prep && int(shellHP)==rawShellHP && kit->GetIncQuantity()==quantity,"repair animation start changed shell HP/dose or charged the wrong preparation AP");
+        CObj<NRPG::IInventoryItem> removed;
+        if(repairAction==7)shellHP.SetValue(shellHP.GetMaxValue());
+        if(repairAction==8)removed=inventory->TakeOff(NDb::SLOT_1);
+        const int initialHP=shellHP,deficit=shellHP.GetMaxValue()-initialHP,engineering=rpg->Skills(NDb::ST_ENGINEERING);
+        auto quote=[&](int missing,int budget,int* spent){int hp=missing;*spent=int(float(missing)/engineering*20.f);if(*spent>budget){*spent=budget;hp=Float2Int(budget*engineering*.05f);}return hp;};
+        int spent=0;const int expectedHP=repairAction==8?initialHP:initialHP+quote(deficit,available,&spent);
+        std::printf("native repair action before: mode=%d kit=%d shell=%d worn=%d engineering=%d medicine=%d deficit=%d AP=%d prep=%d budget=%d pilotHP=%d\n",repairAction,record->GetRecordID(),shellPersona->GetRecordID(),int(bool(pilot)),engineering,int(rpg->Skills(NDb::ST_MEDICINE)),deficit,ap,prep,available,pilotHP);std::fflush(stdout);
+        const auto medals=rpg->medalInfos;const bool pilotWound=pilot && pilot->GetUnitRPG()->HasCritical(NDb::C_VP);const int pilotBandage=pilot?pilot->GetUnitRPG()->GetRPGUnit()->nHealedVP:0;
+        std::printf("native repair pilot before: mode=%d rawHP=%d bandage=%d penalty=%d\n",repairAction,pilotHP,pilotBandage,int(pilotWound));std::fflush(stdout);executor->AnimationFinished();
+        const bool active=repairAction<7;
+        std::printf("native repair action first: mode=%d shellHP=%d expectedHP=%d AP=%d expectedAP=%d marker=%d expectedActive=%d dose=%d expectedDose=%d state=%d\n",repairAction,int(shellHP),expectedHP,actor->GetAP(),available-spent,int(target->GetUnitRPG()->HasCritical(NDb::C_PATIENT)),int(active),kit->GetIncQuantity(),quantity-(repairAction==7?1:0),int(actor->GetState()));std::fflush(stdout);
+        Require(int(shellHP)==expectedHP && actor->GetAP()==available-spent,"repair state did not apply the original engineering repair to the actual chassis");
+        Require(target->GetUnitRPG()->HasCritical(NDb::C_PATIENT)==active && kit->GetIncQuantity()==quantity-(repairAction==7?1:0) && (actor->GetState()==NWorld::CUnit::ST_HEALER)==active,"repair state lost its native pending capacity, patient marker or dose ownership");
+        auto verifyPilot=[&](){if(pilot)Require(int(pilot->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP))==pilotHP && pilot->GetUnitRPG()->GetRPGUnit()->nHealedVP==pilotBandage && pilot->GetUnitRPG()->HasCritical(NDb::C_VP)==pilotWound,"PK repair healed or bandaged its wounded pilot");};
+        auto capacity=[&](){CStructureNetworkContext refs;auto fields=BorrowedObjectFields(actor,&refs);CObj<NWorld::CUnitState> state;{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(10,&state);}Require(dynamic_cast<NWorld::CUnitStateHealer*>(state.GetPtr()),"repair action lost its actual healer state");CStructureNetworkContext values;auto saved=BorrowedObjectFields(state,&values);float result=-999;{CStructureSaver reader(saved,CStructureSaver::READ,&values);reader.Add(4,&result);}return result;};
+        verifyPilot();Require(rpg->nHealedVP==0 && shell->GetUnitRPG()->GetRPGUnit()->nHealedVP==0,"repair applied human wound dressing to engineer or chassis");
+        float remaining=record->nTotalHealVP-(expectedHP-initialHP);
+        if(active){Require(capacity()==remaining,"repair did not initialize/subtract its authored kit capacity");const int hp=shellHP,currentAP=actor->GetAP();actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);Require(int(shellHP)==hp && actor->GetAP()==currentAP && capacity()==remaining && kit->GetIncQuantity()==quantity,"same-turn repair finish spent its engineering budget twice");}
+        int turns=0;
+        while(target->GetUnitRPG()->HasCritical(NDb::C_PATIENT) && turns<6){
+            actor->OnTBSEvent(NWorld::TBS_START_NEW_TURN);const int budget=actor->GetAP(),before=shellHP,missing=shellHP.GetMaxValue()-before;int used=0;const int healed=quote(missing,budget,&used);
+            actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);remaining-=healed;++turns;
+            const bool pending=missing>0;
+            std::printf("native repair action turn: mode=%d turn=%d budget=%d spent=%d repaired=%d shellHP=%d expectedHP=%d AP=%d remaining=%g pending=%d dose=%d\n",repairAction,turns,budget,used,healed,int(shellHP),before+healed,actor->GetAP(),remaining,int(pending),kit->GetIncQuantity());std::fflush(stdout);
+            Require(int(shellHP)==before+healed && actor->GetAP()==budget-used && target->GetUnitRPG()->HasCritical(NDb::C_PATIENT)==pending && kit->GetIncQuantity()==quantity-(pending?0:1),"repair turn did not apply/pay the original engineering segment or finish only after the native healthy recheck");
+            if(pending)Require(capacity()==remaining,"repair progress lost its actual remaining capacity");verifyPilot();
+        }
+        Require(!target->GetUnitRPG()->HasCritical(NDb::C_PATIENT) && kit->GetIncQuantity()==quantity-(repairAction==8?0:1) && !actor->IsPerformingAction() && !actor->HasCommand(),"repair action did not finish its native patient/action/dose ownership");
+        if(repairAction!=8)Require(int(shellHP)==shellHP.GetMaxValue(),"repair action stopped before the actual chassis was repaired");
+        Require(rpg->medalInfos.size()==medals.size(),"repair changed the engineer medal chain");for(int i=0;i<int(medals.size());++i)Require(rpg->medalInfos[i].fPoints==medals[i].fPoints,"repair awarded human wound-treatment medal progress");
+        const int finalAP=actor->GetAP(),finalHP=shellHP,finalDose=kit->GetIncQuantity();actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);
+        Require(actor->GetAP()==finalAP && int(shellHP)==finalHP && kit->GetIncQuantity()==finalDose,"finished repair consumed another dose or AP");
+        std::printf("native repair action complete: mode=%d turns=%d shellHP=%d pilotHP=%d AP=%d dose=%d\n",repairAction,turns,int(shellHP),pilot?int(pilot->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP)):-1,actor->GetAP(),kit->GetIncQuantity());std::fflush(stdout);return;
+    }
     if(mode>=17) {
         const auto action=mode==19?NRPG::AC_FIRSTAID:NRPG::AC_REPAIR_PK;
         const int quoted=actor->GetActionAP(action),medical=actor->GetActionAP(NRPG::AC_FIRSTAID),expected=record->nAPToUse;
@@ -26037,6 +26078,15 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "repair-preparation-dedicated") && argc==4) { RepairOrderGate(argv[2],argv[3],17); return true; }
     if (!std::strcmp(mode, "repair-preparation-ordinary") && argc==4) { RepairOrderGate(argv[2],argv[3],18); return true; }
     if (!std::strcmp(mode, "repair-preparation-medical-control") && argc==4) { RepairOrderGate(argv[2],argv[3],19); return true; }
+    if (!std::strcmp(mode, "repair-action-empty") && argc==4) { RepairOrderGate(argv[2],argv[3],0,0); return true; }
+    if (!std::strcmp(mode, "repair-action-worn") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1); return true; }
+    if (!std::strcmp(mode, "repair-action-small-empty") && argc==4) { RepairOrderGate(argv[2],argv[3],0,2); return true; }
+    if (!std::strcmp(mode, "repair-action-small-worn") && argc==4) { RepairOrderGate(argv[2],argv[3],1,3); return true; }
+    if (!std::strcmp(mode, "repair-action-budget-empty") && argc==4) { RepairOrderGate(argv[2],argv[3],0,4); return true; }
+    if (!std::strcmp(mode, "repair-action-budget-worn") && argc==4) { RepairOrderGate(argv[2],argv[3],1,5); return true; }
+    if (!std::strcmp(mode, "repair-action-ordinary-kit") && argc==4) { RepairOrderGate(argv[2],argv[3],0,6); return true; }
+    if (!std::strcmp(mode, "repair-action-healthy-in-flight") && argc==4) { RepairOrderGate(argv[2],argv[3],0,7); return true; }
+    if (!std::strcmp(mode, "repair-action-missing-in-flight") && argc==4) { RepairOrderGate(argv[2],argv[3],0,8); return true; }
     if (!std::strcmp(mode, "repair-planner-small") && argc==4) { RepairPlanner(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "repair-planner-full") && argc==4) { RepairPlanner(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "repair-planner-limited-ap") && argc==4) { RepairPlanner(argv[2],argv[3],2); return true; }

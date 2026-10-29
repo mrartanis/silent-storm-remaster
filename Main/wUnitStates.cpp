@@ -519,7 +519,22 @@ void CUnitStateHealer::DoHealing( int nUnitAP )
 	}
 	int nRequiredAP;
 	NRPG::SFirstAid fa;
-	if ( nCriticalHealAPRequired > 0 )
+	if ( pItem->GetDBFirstAid()->effect == NDb::FAE_REPAIR_PK )
+	{
+		CUnitServer *pPK = pTarget->GetWearingPK();
+		if ( !IsValid(pPK) && pTarget->IsEmptyPK() )
+			pPK = pTarget;
+		if ( IsValid(pPK) && pRPGUnit->CreateFirstAid( &fa, nUnitAP, fKitCapacity, pItem,
+			pPK->GetUnitRPG()->GetRPGUnit(), &nRequiredAP ) )
+		{
+			fKitCapacity -= fa.fdVP;
+			pPK->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP).Modify( int(fa.fdVP) );
+			pUS->SpendAP( nRequiredAP );
+		}
+		else
+			fKitCapacity = 0;
+	}
+	else if ( nCriticalHealAPRequired > 0 )
 	{
 		nRequiredAP = Min( nCriticalHealAPRequired, nUnitAP );
 		nCriticalHealAPRequired -= nRequiredAP;
@@ -668,6 +683,10 @@ void CUnitStateHealer::OnStateStarted()
 				pRPG->GetRPGUnit()->AddMedalPoints( pUS->GetWorld()->GetGlobalGame(), NRPG::MPC_HEALED_CRITICAL, fHealed );
 			break;
 		}
+		case NDb::FAE_REPAIR_PK:
+			if ( IsValid(pTarget->GetWearingPK()) || pTarget->IsEmptyPK() )
+				fKitCapacity = pFirstAid->nTotalHealVP;
+			break;
 		default:
 			ASSERT(0);
 			break;
