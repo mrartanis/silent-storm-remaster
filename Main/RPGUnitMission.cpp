@@ -616,6 +616,7 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 		case AC_DISARM_MINE:
 			return 30;
 
+		case AC_REPAIR_PK:
 		case AC_FIRSTAID: 
 			{
 				NRPG::IFirstAidItem *pItem = pRPGUnit->GetFirstAidItem();

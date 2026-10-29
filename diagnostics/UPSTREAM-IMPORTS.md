@@ -12950,3 +12950,34 @@ state execution, finish/acknowledgment and adaptation to our animation engine
 remain separate531f work. Ledger149 imported/21partial/68pending=89 unfinished
 source commits; this is not a count of future independent fixes. Goal active;
 final actual GitHub Actions work remains due after useful imports.
+
+
+## 2026-10-29 — repair preparation uses the original active-kit AP cost (531f3b7d integration)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9),
+required own-fork integration prerequisite for the reconstructed repair action;
+this one-line fix is not a literal hunk of the cached source patch. Our enum
+and CExecHeal::Run already dispatched action40, but CUnitMission::GetActionAP
+had no repair case, reached its unknown-action fallback and charged0AP.
+Share the existing first-aid branch so actual active kit nAPToUse is charged.
+No extra cost/minimum, DB data, skill formula or practice XP changes.
+
+Original named Gold CUnitMission::GetActionAP6bac90 and matching mission
+vtable slot0 in Steam6c0d30: jump tables6bba68/6c1a48 point actions19 and40
+to the exact SAME handler6bb15d/6c1203. Both read active-kit DB+30 and return
+the value unchanged through the common reference-release tail. Verified
+by audit-repair-preparation-retail.py, with saved native disassemblies.
+
+Native public GetActionAP and actual CDumbUnitServer::DoAction use genuine
+qualified engineer3/level11 and actual authored kits26/27, both nAPToUse10.
+RED2/3 each: repair query0 and AP57->57 versus native10 and57->47; normal1
+control retains authored0AP and57->57. Query and action preserve kit charges
+and raw chassis HP. GREEN83/83 Windows91.63s/Linux92.17s, exact previous80
+plus all3 cases. Both platforms have identical inputs and payment results.
+Windows ALL_BUILD/Linux Game pass; exact case sets/raw logs/exit codes/TDD
+order and the single production line verified. Shared builds/HD disabled;
+no fresh fullCI/hosted Actions claim or old per-bug build copies.
+
+Actual repair state application, finish/acknowledgment/own animation, healer
+perks57/63 and practice XP remain separate work. Source531f staysPARTIAL;
+ledger149 imported/21partial/68pending=89 unfinished sources, whole goal active.
