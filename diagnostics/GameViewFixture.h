@@ -49,6 +49,7 @@ public:
     CDecalTarget* CreateDecalTarget( const vector<CObjectBase*> &targets, const SDecalMappingInfo &_info ) override { throw std::runtime_error("unexpected icon fixture render operation"); }
     CObjectBase* AddDecal( NGScene::CDecalTarget *pTarget, NDb::CMaterial *pMaterial ) override { throw std::runtime_error("unexpected icon fixture render operation"); }
     void SetAmbient( NDb::CAmbientLightReal *pLight, ELightMode lm = LT_ZONE ) override { throw std::runtime_error("unexpected icon fixture render operation"); }
+    void SetAmbientEffect( NDb::CEffect*, STime, CFuncBase<STime>*) override { throw std::runtime_error("unexpected icon fixture render operation"); }
     ESceneRenderMode GetRenderMode() const override { throw std::runtime_error("unexpected icon fixture render operation"); }
     void SetRenderMode( ESceneRenderMode mode ) override { throw std::runtime_error("unexpected icon fixture render operation"); }
     EFogMode GetFogMode() const override { throw std::runtime_error("unexpected icon fixture render operation"); }

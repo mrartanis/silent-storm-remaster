@@ -2601,22 +2601,14 @@ void CMission::ExecWorldCommands()
 			else
 				SetLightMode( nLightMode );   // SetTimeOfDay queues a null-light cmd -> recompute the current ambient (retail: not a no-op)
 		}
-		// LUA convergence: SetAmbientEffect(id) sets a single, replaceable scene-wide ambient effect from the
-		// record (retail CMissionBase::ExecWorldCommand @0x1a30c0 -> CGameView::SetAmbientEffect @0x1895f0). The
-		// retail keeps it in a scene slot + builds a CLightAnimator from the effect's first light; the dev parks
-		// the live render handle on the mission and creates the full effect at the scene origin via the proven
-		// CreateParticles path (same call as PlayEffect). A null/invalid record clears it (SetAmbientEffect(-1)).
+		// Original ambient-only command: preserve world variants and the renderer timeline.
 		else if ( CDynamicCast<NWorld::CUICmdSetAmbientEffect>( pCmd ) )
 		{
 			NWorld::CUICmdSetAmbientEffect *pSetAmbientEffect = CDynamicCast<NWorld::CUICmdSetAmbientEffect>( pCmd );
-			pAmbientEffect = 0;		// release the previous ambient effect -> removes it from the scene
-			if ( IsValid( pSetAmbientEffect->pEffect ) )
-			{
-				SFBTransform place;
-				MakeMatrix( &place, CVec3( 1, 1, 1 ), CVec3( 0, 0, 0 ), 0 );
-				SRand rnd;
-				pAmbientEffect = GetScene()->CreateParticles( pSetAmbientEffect->pEffect->GetEffect( &rnd ), 0, pRender->GetTime(), place );
-			}
+			static SRand rnd;
+			NDb::CEffect *pEffect = IsValid( pSetAmbientEffect->pEffect ) ?
+				pSetAmbientEffect->pEffect->GetEffect( &rnd, pWorld->GetCreateFlags() ) : 0;
+			GetScene()->SetAmbientEffect( pEffect, pRender->GetTime()->GetValue(), pRender->GetTime() );
 		}
 		// LUA convergence PART B: BeginZone(zoneName) begins the named scenario zone
 		// (retail CMissionBase::ExecWorldCommand @0x1a30c0: GetZoneByName -> CICBeginMission).

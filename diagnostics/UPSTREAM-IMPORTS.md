@@ -15587,3 +15587,74 @@ native RED/GREEN/final raw logs. Previous menu-pools evidence remains separate.
 All13 original source files/hunks are now accounted across two independently
 tested fixes; mark source IMPORTED. Ledger286:166 imported/18 partial/
 59 pending =77 unfinished sources. Whole goal/final hosted Actions remain.
+
+## 2026-10-29 — native scripted ambient animation (part of cb954e2e)
+
+Source: [cb954e2e455b632c0174b88b2d051ac74e780ce0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cb954e2e455b632c0174b88b2d051ac74e780ce0).
+
+SetAmbientEffect incorrectly spawned a complete effect at the origin, including
+ordinary point lights and particles, while leaving scene ambient unchanged.
+Restore this command's original path: choose a world-flag-compatible effect,
+bind only its FIRST light through the real native CLightAnimator onto the
+already-existing top-ambient node, and use the renderer clock/current begin time.
+Reuse own CGScene/native bgfx graph and its directional/mean edges; do not
+replace any renderer or facial/HD machinery. Add the two scene/view API slots
+and expose the existing CWorld GetCreateFlags through IWorld. Existing strict
+scene/view test doubles implement the new slots by throwing on unexpected use;
+the new feature tests use the real view/scene/world/renderer, never those doubles.
+Remove only the obsolete unsaved mission-owned full-effect handle. Other
+commands and shared dispatch are intentionally outside this independent fix.
+
+Native TDD on unchanged339b4e7c: baseline lighting14/14 BOTH; definitive
+compiled RED8/10 BOTH, two controls pass. Actual Lua SetAmbientEffect -> native
+world queue -> CMission drain -> real game renderer/view/scene, actual registered
+DB records and real Lights.res curves. Timelines on instance records are
+controlled in-process; resource curves, placement and scale remain authored.
+Before: no ambient edge, one ordinary point light (mixed case two+one particle),
+clear leaves an existing restored edge, and a night-only effect is not filtered
+out of a day world. GREEN10/10 BOTH verifies first-instance/scale/renderer-clock/
+nonzero1375ms begin identity, real curve reaching ambient mean, mixed-effect
+geometry exclusion, replacement, null/empty clearing, unsuitable world-flag
+clearing, natural end fallback, and retained-invalid-FIRST-light behavior.
+No selecting a later valid light in place of retail's invalid first entry.
+Two controls: clear when already unanimated; invalid first with no extra light
+preserves the existing real animation. No extra UI commands/geometry remain.
+This is native graph/color/state evidence, not rendered-pixel or whole-save-
+roundtrip evidence. Existing native directional-edge fixture also passes.
+
+Initial fixture pointer conversions were corrected before execution. A second
+fixture setup error used a fresh serializer context instead of the existing
+borrowed/external-reference context for seeding an animation edge. GDB traced
+the setup exception to CStructureSaver::Start; corrected to the same borrowed
+field mechanism as the already-passing FreshAmbientGraph test. Compile/setup
+logs are archived separately. Definitive RED was repeated on unchanged Main,
+with ordinary test failures and both controls passing; no setup abort counted.
+
+Independent original evidence: typed Gold CGameView::SetAmbientEffect5879c0/276
+maps to actual Steam589fd0. Matched all non-address instructions/control flow,
+recorded relocation call pairs (not independent full identity of every generic
+math/ref helper); typed effect lights+2c, first instance/pLight+14/scale+34.
+RTTI-named game-view slot+a4 and scene slot+30 independently bind that method
+and CGScene::SetAmbientAnimation559800->55b680/full54. Full112 NeedUpdate and82
+Recalc maps preserve original cache behavior. The76-byte command suffix
+5a188d->5a421d verifies world GetCreateFlags slot100, filtered effect thunk,
+renderer clock/value and view ambient slot; named CWorld vtable/getter checked.
+The existing own CAmbientAnimator class remains byte-identical: clearing an edge
+does not force a cached color update until the normal top-light refresh; tests
+preserve that original detail rather than adding global DG invalidation.
+
+Final Windows ALL_BUILD/Linux Game/helpers+actual serializer build. Related
+74/74 BOTH include lighting/ambient14, ten new cases, native main-menu/authored
+scripts/backdrop2D/3D, contextual-menu music, options/save/restart/LAN-menu and
+earlier sound/music controls. Own body animation16/16 BOTH; fresh Windows
+network serializer/match/partial/stop4/4 and local CI299/299 pass. Exact raw
+manifests/exits/source/ten rows verified. Existing saver-call lists unchanged
+in all8 Main files; CAmbientAnimator unchanged; CP1251/CRLF preserved. Two
+existing builds reused, no per-bug source/build backups or HD/PNG/font changes.
+
+Evidence: ambient-effect-verification.json, ambient-effect-retail-verification.json,
+typed records/excerpts, baseline/definitiveRED/GREEN/final raw logs and setup GDB.
+Source remains PARTIAL: common world/camera dispatch, non-tactical consumers,
+ordinary PlayEffect flags/timing and SetAmbient immediate/flags still require
+independent native TDD. Ledger286:166 imported/19 partial/58 pending =77
+unfinished sources. Whole goal and final actual hosted Actions remain.
