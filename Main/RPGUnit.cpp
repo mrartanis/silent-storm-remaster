@@ -768,11 +768,14 @@ bool CUnit::CreateFirstAid( SFirstAid *pRes, int nMaxSpentAP, float fKitCapacity
 	nVPToHeal = Min( nVPToHeal, nMaxHealed );
 	if ( nVPToHeal == 0 )
 		return false;
-	int nRequiredAP = 60.f / nSkill * nVPToHeal;
+	float fSpeed = 1.f;
+	if ( pItem->GetDBFirstAid()->effect == NDb::FAE_NORMAL && HasPerk( 63, &fPerk ) )
+		fSpeed = fPerk;
+	int nRequiredAP = int( nVPToHeal / (nSkill * fSpeed) * 60.f );
 	if ( nRequiredAP > nMaxSpentAP )
 	{
 		nRequiredAP = nMaxSpentAP;
-		nVPToHeal = Float2Int( nRequiredAP * nSkill / 60.0f );
+		nVPToHeal = Float2Int( nRequiredAP * nSkill * fSpeed / 60.0f );
 	}
 	*pRequiredAP = nRequiredAP;
 	CreateFirstAid( pRes, Min(nVPToHeal, Float2Int(fKitCapacity)), nSkill );

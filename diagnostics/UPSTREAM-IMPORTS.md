@@ -13147,3 +13147,48 @@ builds/HD generation disabled, no per-bug build copies or new balance tuning.
 No fresh fullCI/hosted GitHub Actions claim. Normal-only speed63, acknowledgments
 and other source remainder remain separate;531f stillPARTIAL, whole goal
 active. Ledger149 imported/21partial/68pending=89 unfinished source commits.
+
+
+## 2026-10-29 — restore normal-only wound treatment speed63 (531f3b7d)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9),
+independent speed/cost/budget stage. NORMAL0 uses physician63's actual speed
+parameter; other medical effects keep speed1, and repair dispatch stays
+earlier. Restore original operation order: truncate(HP/(localSkill*speed)*60),
+then if over AP budget quote that budget and round(AP*skill*speed/60).
+Keep existing final capacity clamp without repricing, local strength57 and
+patient24 stages, actual Medicine, DB values and zero-cost treatments.
+Do not import upstream's Max(1.f,skill*speed) denominator guard: it is not
+present in the original. Document the excluded policy in the balance file.
+
+Gold6b4ba0 and Steam6bad40 entire165-byte speed/cost/inverse-budget blocks
+match except one HasPerk call operand and two named float addresses. Native
+NORMAL0 gate, default1, query63/actual parameter, direct division by skill*
+speed, multiplication60, truncation, AP cap and inverse1/60 rounding verified.
+There is no denominator lower bound or minimum AP in that complete block.
+
+Extend the genuine physician fixture with8 speed cases and retain all5 prior
+57 cases as RED controls. Native persona34/level2 earns the root63 point:
+Medicine39/AP52, authored parameter1.5, acquired or withheld; legal level5
+57+63 composite has Medicine60/local skill75. Use actual normal1 and critical-
+first3 records, actual patient103, native prior HealVP8 for partial wound and
+public CExecHeal::Run/AnimationFinished. Queries preserve AP/dose/rawHP/
+dressing/Medicine/RNG. No arbitrary points, skill/AP or DB injection.
+
+RED4/13 Windows14.18s/Linux14.34s BEFORE production: small4HP and remaining4HP
+cost6 instead of4AP;52AP dresses34 instead of51HP; combined57+63 costs3
+instead of2AP. Both without63 controls, critical-first with63, free1HP/0AP
+and every prior57 case pass. GREEN112/112 Windows120.90s/Linux122.02s includes
+previous104 plus8 new cases. Actual normal small/partial AP48 instead of46,
+large51HP instead34 at0AP remaining, combinedAP53 instead52. Critical-first
+retains4AP treatment after10AP preparation, and free small treatment stays0AP.
+Skill/quota and raw patient HP remain unchanged by speed. All prior57 numeric
+query/action traces are identical before/after the new production change.
+Native cleanup still consumes one dose and removes the patient marker.
+
+Windows ALL_BUILD/Linux Game pass. Exact registered sets/raw logs, matching
+platform inputs/results, TDD order, original complete block and precise sole
+Main/RPGUnit.cpp change verified. Shared builds/HD disabled/no per-bug copies;
+no fresh fullCI/hosted Actions claim. Acknowledgments and remaining source
+stages still need independent work;531f staysPARTIAL, whole goal active.
+Ledger149 imported/21partial/68pending=89 unfinished source commits.
