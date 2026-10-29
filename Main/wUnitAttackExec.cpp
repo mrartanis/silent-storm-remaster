@@ -161,17 +161,47 @@ EUnitCommandResult CanDoFirstAid( CUnitServer *pUS, const NAI::SUnitPosition &fr
 	if ( eResult != UCR_OK )
 		return eResult;
 
+	CDynamicCast<NRPG::CFirstAidItem> pItem( pUS->GetUnitRPG()->GetInventory()->GetActive() );
+	NDb::CRPGFirstAid *pDB = pItem->GetDBFirstAid();
+	const bool bRepair = pDB->effect == NDb::FAE_REPAIR_PK;
+	if ( bRepair )
+	{
+		// Gold 79775c / Steam 7a392c: repair requirements use Engineering, never Medicine.
+		const int nSkill = pUS->GetUnitRPG()->GetRPGUnit()->Skills( NDb::ST_ENGINEERING );
+		if ( nSkill + pDB->nSkillModifier < pDB->nRequiedSkill )
+			return UCR_NEED_HIGHER_SKILL;
+		if ( pDB->nRequiredPerkID > 0 && !pUS->GetUnitRPG()->HasPerk( pDB->nRequiredPerkID ) )
+			return UCR_NO_EQUIPMENT;
+		if ( from.pos.p.IsFinal() || !from.pos.p.IsIntegral() || from.pos.p.GetPose() == NAI::CM_INACTIVE )
+			return UCR_GENERAL_FAILURE;
+	}
+
 	if ( IsValid( pTarget ) )
 	{
-		if ( pTarget->IsDead() || pTarget->IsUnconscious() )
+		if ( !pTarget->IsEmptyPK() && ( pTarget->IsDead() || pTarget->IsUnconscious() ) )
+			return UCR_INVALID_COMMAND;
+		const bool bTargetPK = pTarget->IsWearingPK() || pTarget->IsEmptyPK();
+		if ( bTargetPK != bRepair )
 			return UCR_INVALID_COMMAND;
 
+		// Gold 797920 / Steam 7a3af0: repair must approach outside the inner 0.8 ring.
 		CVec3 ptTarget = pTarget->GetPosition().GetCP();
-		if ( !IsWithinHumanReach( from.GetCP(), ptTarget, F_HEAL_DISTANCE ) )
+		if ( !IsWithinHumanReach( from.GetCP(), ptTarget, bRepair ? 1.8f : F_HEAL_DISTANCE ) ||
+			( bRepair && IsWithinHumanReach( from.GetCP(), ptTarget, F_HEAL_DISTANCE ) ) )
 			return UCR_TARGET_OUT_OF_RANGE;
 
-		if ( !pUS->GetUnitRPG()->GetRPGUnit()->CanHeal( pTarget->GetRPG()->GetRPGUnit() ) )
-			return UCR_CANT_HEAL;   // retail CanDoFirstAid @0x3a2d40 returns UCR_CANT_HEAL on the CanHeal-fail path
+		if ( bRepair )
+		{
+			// Gold 7bc0f3 / Steam 7c8aa3: test the chassis's raw HP, not pilot wounds.
+			CUnitServer *pPK = pTarget->GetWearingPK();
+			if ( !IsValid( pPK ) )
+				pPK = pTarget;
+			NRPG::CDynamicSkill &vp = pPK->GetUnitRPG()->GetRPGUnit()->Skills( NDb::ST_VP );
+			if ( vp >= vp.GetMaxValue() )
+				return UCR_CANT_HEAL;
+		}
+		else if ( !pUS->GetUnitRPG()->GetRPGUnit()->CanHeal( pTarget->GetRPG()->GetRPGUnit() ) )
+			return UCR_CANT_HEAL;
 	}
 
 	if ( !IsValid( pTarget ) )

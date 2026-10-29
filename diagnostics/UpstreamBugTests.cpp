@@ -23778,6 +23778,67 @@ static void TimedCriticalTreatment(const char* databasePath,const char* resource
     std::printf("native timed critical complete: mode=%d total=%d selected=%d remaining=%d patient=%d charge=%d->%d\n",mode,total,int(selected),expectedRemaining,int(hasSelected()),quantity,kit->GetIncQuantity());std::fflush(stdout);
 }
 
+static void RepairOrderGate(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* anchor=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->IsAIUnit() && !unit->IsWearingPK() && !unit->IsEmptyPK()){anchor=unit;break;}
+    Require(anchor,"repair order has no actual player anchor");
+    CObj<NWorld::CUnitServer> actor=world->AddUnitInGame(anchor->GetPosition().pos.p,NRPG::CreateUnit(NDb::GetPers(3)),anchor->GetTBSPlayer());
+    Require(actor && actor->CanFight() && !actor->IsWearingPK(),"repair order could not deploy its real engineer");auto* rpg=actor->GetUnitRPG()->GetRPGUnit();
+    if(mode!=5)for(int level=1;int(rpg->Skills(NDb::ST_ENGINEERING))<100 && level<=20;++level)rpg->SetXPLevel(level);
+    if(mode!=5 && mode!=6)rpg->GetPerksTree()->TakePerk(79);
+    Require(mode==5?int(rpg->Skills(NDb::ST_ENGINEERING))<100:int(rpg->Skills(NDb::ST_ENGINEERING))>=100,"repair order native class progression failed");
+    Require(rpg->HasPerk(79)==(mode!=5 && mode!=6),"repair order acquired the wrong native ability");
+    NDb::CRPGPers* shellPersona=nullptr;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while(people.MoveNext()){auto* p=people.Get();if(p->pPanzerklein && !p->pPanzerklein->bHasNoHead && p->pModel && (!shellPersona || p->GetRecordID()<shellPersona->GetRecordID()))shellPersona=p;}
+    Require(shellPersona,"repair order has no real ordinary chassis");
+    auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(anchor->GetPosition().GetCP(),20.f),&places);NAI::SPathPlace shellPlace;bool found=false;
+    for(auto place:places){place.SetPose(NAI::CM_STAND);place.SetDirection(0);if(NAI::IsBigLockerPlacePassable(network,place)){shellPlace=place;found=true;break;}}
+    Require(found,"repair order has no free big native footprint");
+    CObj<NWorld::CUnitServer> shell=world->AddUnitInGame(shellPlace,NRPG::CreateUnit(shellPersona),actor->GetTBSPlayer());
+    Require(shell && shell->IsEmptyPK(),"repair order could not deploy the actual empty PK");
+    CObj<NWorld::CUnitServer> pilot;NWorld::CUnitServer* target=shell;
+    if(mode==1 || mode==3 || mode==4 || mode==10 || mode==13 || mode==8) {
+        pilot=world->AddUnitInGame(anchor->GetPosition().pos.p,NRPG::CreateUnit(NDb::GetPers(103)),actor->GetTBSPlayer());Require(pilot && pilot->CanFight(),"repair order has no friendly pilot");
+        if(mode!=8){Require(shell->WearAsPK(true),"repair order could not prepare the real suit");pilot->SetPosition(shell->GetPosition());pilot->FlipPanzerklein(shell,false,false);Require(pilot->IsWearingPK() && pilot->GetWearingPK()==shell.GetPtr(),"repair order lost its actual pilot/suit ownership");}
+        target=pilot;
+    }
+    auto& shellHP=shell->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP);Require(shellHP.GetMaxValue()>100,"repair order chassis has insufficient VP");
+    shellHP.SetValue(shellHP.GetMaxValue()-((mode==2 || mode==10)?0:100));
+    if(pilot){auto& hp=pilot->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP);hp.SetValue(hp.GetMaxValue()-7);pilot->GetUnitRPG()->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_VP));}
+    // Put the actual engineer on a free repair ring. Inner invalid previews never relocate him into the suit footprint.
+    places.clear();network->GetNearPlaces(SSphere(shell->GetPosition().GetCP(),5.f),&places);NAI::SUnitPosition ring=actor->GetPosition(),farPosition=ring,innerPosition=ring;bool gotRing=false,gotFar=false,gotInner=false;
+    for(auto place:places) {
+        place.SetPose(NAI::CM_STAND);if(!place.IsIntegral() || place.IsFinal() || !network->IsPassable(place))continue;
+        auto position=actor->GetPosition();position.pos=NAI::SPosition(place,network);const float distance=fabs(position.GetCP()-shell->GetPosition().GetCP());
+        if(!gotInner && distance>.3f && NWorld::IsWithinHumanReach(position.GetCP(),shell->GetPosition().GetCP(),.8f)){innerPosition=position;gotInner=true;}
+        if(network->IsLocked(place,false))continue;
+        if(!gotRing && NWorld::IsWithinHumanReach(position.GetCP(),shell->GetPosition().GetCP(),1.8f) && !NWorld::IsWithinHumanReach(position.GetCP(),shell->GetPosition().GetCP(),.8f)){ring=position;gotRing=true;}
+        if(!gotFar && distance<3.f && !NWorld::IsWithinHumanReach(position.GetCP(),shell->GetPosition().GetCP(),1.8f)){farPosition=position;gotFar=true;}
+    }
+    Require(gotRing && gotFar && gotInner,"repair order lacks native outer/innerPosition/farPosition preview positions");
+    world->GetTime()->Set(world->GetTime()->GetValue()+1);actor->SetPosition(mode==3?farPosition:ring);actor->animator.AlignTime();actor->animator.PlaceUnit(actor->GetPosition());
+    auto queryFrom=mode==4?innerPosition:actor->GetPosition();
+    if(mode==9 || mode>=14)target=nullptr;
+    if(mode==14)queryFrom.pos.p.SetFinal(1);
+    if(mode==15)queryFrom.pos.p.SetIntegral(0);
+    if(mode==16)queryFrom.pos.p.SetPose(NAI::CM_INACTIVE);
+    if(mode==11){target=nullptr;for(auto unit:units)if(unit && unit->CanFight() && unit->GetDiplomacyState(actor)==NDb::DS_ENEMY){target=unit;break;}Require(target,"repair order lacks a real hostile rejection control");}
+    auto* record=NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(mode==13?1:26);Require(record && record->effect==(mode==13?NDb::FAE_NORMAL:NDb::FAE_REPAIR_PK),"repair order lost its actual kit type");
+    CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> previous;
+    if(inventory->Get(NDb::SLOT_1))previous=inventory->TakeOff(NDb::SLOT_1);
+    if(mode!=7)Require(inventory->Equip(NDb::SLOT_1,kit) && inventory->Activate(NDb::SLOT_1),"repair order cannot equip its real kit");else inventory->Activate(NDb::SLOT_1);
+    if(mode==12)while(!kit->IsEmpty())kit->SpendPotion();
+    MarkNewDGFrame();world->GetAIMap()->Sync();
+    const int ap=actor->GetAP(),quantity=kit->GetIncQuantity(),rawShellHP=shellHP,pilotHP=pilot?int(pilot->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP)):-1;const auto position=actor->GetPosition();auto random=GlobalGameRandom();
+    const auto expected=mode>=14?NWorld::UCR_GENERAL_FAILURE:mode==2 || mode==10?NWorld::UCR_CANT_HEAL:mode==3 || mode==4?NWorld::UCR_TARGET_OUT_OF_RANGE:mode==5?NWorld::UCR_NEED_HIGHER_SKILL:mode==6 || mode==12?NWorld::UCR_NO_EQUIPMENT:mode==7?NWorld::UCR_UNAVAILABLE:mode==8 || mode==13?NWorld::UCR_INVALID_COMMAND:mode==9?NWorld::UCR_NO_TARGET:mode==11?NWorld::UCR_GENERAL_FAILURE:NWorld::UCR_OK;
+    CObj<NWorld::CExecHeal> executor=new NWorld::CExecHeal(actor,target);const auto result=executor->CanDoIt(queryFrom);const auto repeat=executor->CanDoIt(queryFrom);
+    std::printf("native repair order gate: mode=%d engineering=%d medicine=%d perk79=%d kit=%d kind=%d targetPK=%d targetEmpty=%d result=%d repeat=%d expected=%d distance=%g queryPreview=%d actorAP=%d dose=%d shellHP=%d pilotHP=%d\n",mode,int(rpg->Skills(NDb::ST_ENGINEERING)),int(rpg->Skills(NDb::ST_MEDICINE)),int(rpg->HasPerk(79)),record->GetRecordID(),int(record->effect),target?int(target->IsWearingPK()):-1,target?int(target->IsEmptyPK()):-1,int(result),int(repeat),int(expected),target?fabs(queryFrom.GetCP()-target->GetPosition().GetCP()):-1,int(mode==4),actor->GetAP(),kit->GetIncQuantity(),int(shellHP),pilotHP);std::fflush(stdout);
+    Require(actor->GetAP()==ap && kit->GetIncQuantity()==quantity && int(shellHP)==rawShellHP && (!pilot || int(pilot->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP))==pilotHP) && fabs(actor->GetPosition().GetCP()-position.GetCP())<1e-6f && random.Get()==GlobalGameRandom().Get(),"repair availability query changed AP, item, suit/pilot health, position or RNG");
+    Require(result==expected && repeat==expected,"repair order used medical reach or ignored original repair target/engineer gates");
+}
+
 static void RepairPlanner(const char* databasePath,const char* resourcePath,int mode)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
@@ -25948,6 +26009,23 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "attacker-level-critical-rolls") && argc==3) { AttackerLevelCriticalRolls(argv[2]); return true; }
     if (!std::strcmp(mode, "head-body-damage") && argc==3) { HeadBodyDamage(argv[2]); return true; }
     if (!std::strcmp(mode, "fresh-skill-modifier-values") && argc==3) { FreshSkillModifierValues(argv[2]); return true; }
+    if (!std::strcmp(mode, "repair-order-empty") && argc==4) { RepairOrderGate(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "repair-order-worn") && argc==4) { RepairOrderGate(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "repair-order-healthy") && argc==4) { RepairOrderGate(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "repair-order-far") && argc==4) { RepairOrderGate(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "repair-order-inner") && argc==4) { RepairOrderGate(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "repair-order-low-skill") && argc==4) { RepairOrderGate(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "repair-order-missing-perk") && argc==4) { RepairOrderGate(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "repair-order-missing-kit") && argc==4) { RepairOrderGate(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "repair-order-wrong-target") && argc==4) { RepairOrderGate(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "repair-order-no-target") && argc==4) { RepairOrderGate(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "repair-order-healthy-worn") && argc==4) { RepairOrderGate(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "repair-order-hostile") && argc==4) { RepairOrderGate(argv[2],argv[3],11); return true; }
+    if (!std::strcmp(mode, "repair-order-exhausted") && argc==4) { RepairOrderGate(argv[2],argv[3],12); return true; }
+    if (!std::strcmp(mode, "repair-order-medicine-on-pk") && argc==4) { RepairOrderGate(argv[2],argv[3],13); return true; }
+    if (!std::strcmp(mode, "repair-order-final") && argc==4) { RepairOrderGate(argv[2],argv[3],14); return true; }
+    if (!std::strcmp(mode, "repair-order-non-integral") && argc==4) { RepairOrderGate(argv[2],argv[3],15); return true; }
+    if (!std::strcmp(mode, "repair-order-inactive") && argc==4) { RepairOrderGate(argv[2],argv[3],16); return true; }
     if (!std::strcmp(mode, "repair-planner-small") && argc==4) { RepairPlanner(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "repair-planner-full") && argc==4) { RepairPlanner(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "repair-planner-limited-ap") && argc==4) { RepairPlanner(argv[2],argv[3],2); return true; }

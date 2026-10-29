@@ -12896,3 +12896,57 @@ This completes only planning. Actual empty/worn PK action, repair range and
 effect-specific gates, proper finish/acknowledgment/own animation adaptation
 remain pending, along with healer57 and speed63. Source531f staysPARTIAL;
 ledger149 imported/19partial/70pending=89 unfinished sources; goal active.
+
+
+## 2026-10-29 — restore original PK repair order eligibility (760cd924 / bbeb35c8)
+
+Sources [760cd9240671c8c83063496044e03bde4421444d](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/760cd9240671c8c83063496044e03bde4421444d)
+and [bbeb35c8fe27e923b52decd93c1850dcb80f8ba0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/bbeb35c8fe27e923b52decd93c1850dcb80f8ba0).
+Independent repair-order availability stage: genuine effect6 repair kits use
+Engineering plus the authored modifier/required skill, then required perk;
+final, nonintegral and inactive planned actor positions reject the order.
+Empty PK bypasses human dead/unconscious predicates. Target PK kind must
+match repair effect, rejecting repair-on-human and medicine-on-PK. Repair
+requires outer1.8 reach and exclusion of inner0.8 reach. Its health predicate
+reads actual worn/empty chassis raw VP, independent of pilot wounds or dressing.
+Preserve the fork's own PK ownership APIs and semantic command-result enum.
+No general medical requirements/prone reach/AI API changes, numeric data,
+new AP minimum, authored balance change, or face/body animation replacement.
+
+Original named Gold PDB CanDoFirstAid797640/1138 and distance796880/76 map
+to actual Steam7a3810 and7a26d0 using unique exact native signatures.
+Cached upstream comments7a3180/7a2040 are incorrect for this actual oracle;
+the saved disassemblies and audit now use verified addresses. Requirement
+order/stat/DB accesses, pose bits, empty-target exception, kind comparison
+and both distance boundaries match. Gold CanHeal7bc060 repair branch7bc0f3
+maps to Steam7c8a10/7c8aa3 by its entire88-byte ownership/VP block, masking
+only IsValid's rel32 operand; effect6 jump-table entries/callers verified.
+
+Native public CExecHeal::CanDoIt tests use actual engineer persona3, native
+level11/Engineering105/Medicine66 and naturally acquired79 (untrained32 and
+missing79 negative cases), real repair26/normal1, chassis93 and pilot103.
+No individual skill, AP or DB injection. Query each scenario twice and check
+unchanged AP/dose/raw shell and pilot HP/actor position/RNG. Actual free ring
+1.27275, far1.8788 and inner preview0.589303; the invalid inner preview never
+relocates the engineer into the occupied chassis. Initial Windows `far`
+macro compiler failure is fixture calibration, not bug RED.
+
+RED12/17 on unchanged production on BOTH platforms; five controls (far,
+missing kit, no target, hostile target, exhausted kit) pass before the fix.
+RED covers empty/worn valid targets, healthy empty/worn chassis despite a
+wounded pilot, inner approach, low engineering, missing perk, both wrong
+item/target kinds and three invalid planned poses. GREEN80/80 Windows
+87.96s/Linux89.03s includes previous63 cases and all17
+new cases, with identical actual actor/kit/geometry/health/AP inputs across
+RED/GREEN and platforms. Raw logs, exact registered case sets, native
+results, both game builds and TDD ordering verified by verify-repair-order.py.
+Windows ALL_BUILD and Linux Game pass. Shared builds, no HD generation or
+per-bug build copies; no fresh fullCI/hosted GitHub Actions claim.
+
+Both source commits remain PARTIAL: generic medical effect eligibility and
+hand-slot charges (bbeb), medical skill/perk/pose/prone gates and explicit
+AI kit/planned target probes (760) still need separate TDD. Actual PK repair
+state execution, finish/acknowledgment and adaptation to our animation engine
+remain separate531f work. Ledger149 imported/21partial/68pending=89 unfinished
+source commits; this is not a count of future independent fixes. Goal active;
+final actual GitHub Actions work remains due after useful imports.
