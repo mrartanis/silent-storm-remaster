@@ -187,6 +187,14 @@ static bool CanHealWithItem( CUnitServer *pUS, CUnitServer *pTarget, NRPG::CFirs
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Gold 796880 / Steam 7a26d0: reach depends on the patient pose or actual PK.
+float GetHealOrRepairPKDistance( CUnitServer *pTarget )
+{
+	if ( IsValid( pTarget->GetWearingPK() ) || pTarget->IsEmptyPK() )
+		return 1.8f;
+	return pTarget->GetPosition().pos.p.GetPose() == NAI::CM_LAY ? 1.2f : F_HEAL_DISTANCE;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 EUnitCommandResult CanDoFirstAid( CUnitServer *pUS, const NAI::SUnitPosition &from, CUnitServer *pTarget )
 {
 	EUnitCommandResult eResult = HasActiveUsableFirstAid( pUS );
@@ -219,7 +227,7 @@ EUnitCommandResult CanDoFirstAid( CUnitServer *pUS, const NAI::SUnitPosition &fr
 
 		// Gold 797920 / Steam 7a3af0: repair must approach outside the inner 0.8 ring.
 		CVec3 ptTarget = pTarget->GetPosition().GetCP();
-		if ( !IsWithinHumanReach( from.GetCP(), ptTarget, bRepair ? 1.8f : F_HEAL_DISTANCE ) ||
+		if ( !IsWithinHumanReach( from.GetCP(), ptTarget, GetHealOrRepairPKDistance( pTarget ) ) ||
 			( bRepair && IsWithinHumanReach( from.GetCP(), ptTarget, F_HEAL_DISTANCE ) ) )
 			return UCR_TARGET_OUT_OF_RANGE;
 

@@ -13634,3 +13634,72 @@ Own face/body implementation, HD pipeline, fonts and save/network schemas
 remain intact. Shared builds only; no per-bug source/build snapshots.
 Evidence: medical-pose-retail-oracle.json, medical-ladder-source-probe.log,
 medical-pose-verification.json and complete final RED/GREEN raw logs.
+
+### Prone-patient medical reach (760cd924, independent distance stage)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/760cd9240671c8c83063496044e03bde4421444d
+
+CanDoFirstAid used0.8 for every human target, losing the original1.2 radius
+for a prone patient. Restore GetHealOrRepairPKDistance and its public source
+declaration: actual worn/empty PK1.8 first, otherwise patient packed pose
+CM_LAY ->1.2, other human poses ->existing F_HEAL_DISTANCE0.8. The healer's
+pose does not choose this radius. Use actual server GetWearingPK ownership,
+already used by our repair implementation; keep inner repair exclusion0.8,
+medical effect/skill/perk/position/diplomacy gates and original vertical
+reach bounds unchanged. No DB numbers, AP costs, healing strength or other
+gameplay formulas are edited. The new radius restores the original game.
+
+Native proof: named Gold GetHealOrRepairPKDistance796880/76 uniquely maps
+to actual Steam7a26d0. All76 bytes match except three float-address operands;
+both executables' actual values are independently read as1.2/0.8/1.8.
+The native target-position byte3 maskc0 selects prone pose0; PK checks take
+precedence. Source's cached7a2040 is incorrect for this oracle. Existing own
+GetWearingDBPK derives metadata from the same valid GetWearingPK server;
+no old mission-info alias or rewritten face/body implementation is copied.
+
+Nine actual public CExecHeal.CanDoIt queries place a real friendly patient103
+on free native map tiles beside roster medic54, with authored normal kit1
+and a real curable critical. Cases: standing near/outer band; prone near/
+outer band/far; crouched outer band; legally qualified58 medic with prone
+patient; prone medic with standing patient; both prone in the outer band.
+Use native placement and passability, selecting a direction where stand,
+crouch and prone footprints all fit. Matched standing/crouched/prone patient
+controls use identical planar distance and height. Query twice and assert
+both actors' AP/HP, doses/active item, actual positions, skill/perk points/XP,
+RNG and critical condition unchanged. This tests public order availability,
+not live treatment-animation playback or the later approach planner.
+
+Fixture calibration happened before production. An overstrict same-layer/
+perfectly-flat assumption excluded real neighbouring terrain. Keep genuine
+original vertical reach instead (actual dz0.0312805/0.109482, qualified case
+0.0366211). Avoid temporarily placing the patient over the medic, which adds
+locks while searching for its eventual landing. Choose a free point and
+valid body direction first, then create/place the patient there. These setup
+failures are not counted as runtime bug evidence; no fabricated geometry,
+direct skills/AP/perk-point writes or edited DB records are used.
+
+Final RED3fail/9 Windows/Linux BEFORE Main: modes3/6/8 reject original-legal
+prone patients; six controls already pass. Native distances: near0.625,
+matched outer band0.883883, qualified58 outer band1.0417, far1.25. All heights
+satisfy unchanged vertical reach. Standing and crouched outer cases return
+OUT_OF_RANGE; near and distant controls are correct. A prone medic alone
+does not extend reach to a standing patient. Both RED processes terminate
+before adding the original helper/call/public declaration.
+
+GREEN232/232 Windows254.50s/Linux256.28s includes all previous223 medical,
+critical/wound/AP/perk/position and PK repair gate/action/finish regressions.
+Only result/repeat fields change for the three intended cases; all9 native
+input/purity/geometry rows match across platforms. Previous10 medical-pose
+and11 medical-requirement traces remain identical. Windows ALL_BUILD and
+Linux Game/helpers pass. Exact Main diff: helper definition, its declaration
+and one reach-call replacement; other predicates/vertical helper untouched.
+No fresh fullCI or hosted Actions claim. Own save/network formats, fonts,
+face/body and frozen HD pipeline remain intact. Shared builds only.
+
+Source760 remains PARTIAL only for explicit AI kit and planned-target API;
+prone reach, generic pose and skill/perk requirements are complete. The
+separate144c7b84 approach/selected-kit cost changes are still independent.
+Ledger151 imported/19partial/68pending =87 unfinished source commits. Whole
+goal active; final GitHub Actions fix/check after applicable imports due.
+Evidence: prone-medical-reach-retail-oracle.json, verification.json and
+complete final RED/GREEN raw logs, including setup band/passability traces.

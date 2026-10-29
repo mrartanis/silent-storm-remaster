@@ -37,6 +37,7 @@ struct SGrenadeParams
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool IsWithinHumanReach( const CVec3 &ptFrom, const CVec3 &ptTarget, float fPlaneDist );
+float GetHealOrRepairPKDistance( CUnitServer *pTarget );
 // NWorld::CanMeleeAttack @0x3a1db0: pure reach gate for a melee swing from `from` at ptTarget --
 // F_MELEE_DISTANCE, doubled when the unit carries a reach extender (docked PK cannon). No pose/AP
 // checks here (CExecMelee::CanDoIt @0x3a2180 layers those); the composite tile to-hit (@0x2b54a0)
