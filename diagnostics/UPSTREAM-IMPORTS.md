@@ -16026,3 +16026,46 @@ claim. Two existing builds reused; no HD/PNG regeneration or old build copies.
 Evidence: chapter-command-isolation-verification.json and linked native
 RED/cause/focused/stress/CI raws. Ledger remains166 imported/19 partial/58
 pending =77 unfinished sources; whole goal and final hosted Actions remain.
+
+### world-camera-clipping — forward native Lua camera planes to chapter/menu worlds
+
+Source cb954e2e455b632c0174b88b2d051ac74e780ce0 remains PARTIAL. Own parent
+42ccc5352e32f65b8ec9260e99e980d8efcad418. Actual compiled native RED4/6 on
+Windows and Linux: CameraSetClipping executes in real chapter/menu Lua but
+the selected native camera remains at default near0.1/far100; unchanged-camera
+controls pass. Existing tactical-only command branch was absent from the
+common dispatcher, so chapter and backdrop consumers discarded the command.
+
+Move only the existing CUICmdSetCameraClipDistance branch into
+CMissionBase::ExecWorldCommonCommand. Preserve its exact GetCamera selector
+and near/far arguments. Tactical dispatch reaches the same branch; no camera
+algorithm, projection/aspect policy, tracker, clock, lock, floor, animation,
+database, combat, RNG or save-schema changes. Own chapter has a real active
+player; own menu has none and uses its existing sequence-camera selection.
+Do not import a foreign player dependency or replace the remaster renderer.
+
+Native GREEN6/6 both,8 exact camera snapshots each: untouched defaults,
+near0.75/far45, and two successive updates near0.25/far80 then1.25/70.
+Assert actual selected-camera identity and native projection: near depth0,
+far depth1, before-near and beyond-far points outside clipping bounds.
+Real Lua/world/interface/bgfx path, no direct test calls to the dispatcher or
+clip setter. All previous tests/assertions remain.
+
+Original proof: Gold5a15e4 -> Steam5a3f74 shared dispatch49 bytes, decoded
+typed cast38 with independently named CUICmdSetCameraClipDistance/base RTTI;
+named command min/max fields10/14 and camera SetClip slot34. Exact unmasked
+native setter17/getter21, fields3c/40, plus named chapter/menu camera vtable
+slots and prior independently verified common world route. No full selector,
+renderer or world-clock equivalence claim.
+
+Fresh Win ALL_BUILD and Linux Game/helpers+serializer. Related135/135 and own
+body16/16 on each; fresh Win network4/4 and local CI305/305. Exact raw names,
+rows, exit codes and CI manifest checked. Two Main files only, tactical/base
+remainder and save calls match parent; CP1251/CRLF preserved. Existing two
+builds reused, no HD/PNG/font/facial changes or old build copies. Hosted
+Actions remains a separate final requirement.
+
+Evidence: world-camera-clipping-verification.json, RED/GREEN and original
+verification JSONs, exact native raw logs. Source remains PARTIAL for
+camera locator/lock/floor/AI flash/clue/video and camera-executor updates.
+Ledger166 imported/19 partial/58 pending =77 unfinished; whole goal active.

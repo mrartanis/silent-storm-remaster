@@ -7861,6 +7861,80 @@ static void ScriptAmbientVariants(const char* databasePath,const char* resourceP
 }
 
 
+static void WorldScriptCameraClipping(const char* databasePath,const char* resourcePath,int context,int mode)
+{
+    Require(context>=0 && context<=1 && mode>=0 && mode<=2,"unknown shared-world camera clipping case");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"world camera clipping fixture started with an interface");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm shared world camera clipping regression");
+    struct ClockRestore {STime previous;~ClockRestore(){NMainLoop::SetTimeForHarness(previous);}} frameClock{NMainLoop::SetTimeForHarness(1000)};
+    CObj<NDb::CScript> quiet=new NDb::CScript;quiet->strCode="function OnEnterZone() end";
+    struct RestoreScripts {vector<std::pair<CPtr<NDb::CTemplVariant>,CPtr<NDb::CScript>>> variants;CPtr<NDb::CChapterMap> chapter;CPtr<NDb::CScript> entry;
+        ~RestoreScripts(){for(auto& p:variants)if(IsValid(p.first))p.first->pScript=p.second;if(IsValid(chapter))chapter->pScript=entry;}} restore;
+    CObj<NRPG::CGlobalGame> game;
+    if(context==0){
+        CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());while(maps.MoveNext())if(IsValid(maps.Get()->pBackground)){restore.chapter=maps.Get();break;}
+        Require(IsValid(restore.chapter),"world camera clipping fixture has no authored chapter");restore.entry=restore.chapter->pScript;restore.chapter->pScript=quiet.GetPtr();
+        game=NRPG::CreateGlobalGame(1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+        list<CPtr<NScenario::CScenarioClue>> clues;game->pScenarioTracker->GetAvailableClues(&clues);for(auto clue:clues)if(IsValid(clue))clue->SetJustFound(false);
+        for(auto merc:game->players.front()->mercs){vector<CDBPtr<NDb::CMedal>> medals;merc->GetJustFoundMedals(&medals);}
+        CObj<NGame::CICBeginChapter> enter=new NGame::CICBeginChapter(restore.chapter->GetRecordID(),game);enter->Exec();
+    }else{
+        CDBIterator<NDb::CTemplVariant> variants(*NDatabase::GetTable<NDb::CTemplVariant>());
+        while(variants.MoveNext())if(IsValid(variants.Get()->pTemplate) && variants.Get()->pTemplate->GetRecordID()==2425){restore.variants.push_back({variants.Get(),variants.Get()->pScript});variants.Get()->pScript=quiet.GetPtr();}
+        Require(!restore.variants.empty(),"world camera clipping fixture has no authored menu variants");CObj<NGame::CICMainMenu> open=new NGame::CICMainMenu;open->Exec();
+    }
+    CObj<NGame::CMissionBase> owner=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    auto* world=owner?dynamic_cast<NWorld::CWorld*>(owner->GetWorld()):nullptr;auto* view=owner?owner->GetScene():nullptr;auto* renderer=owner?owner->GetRenderGame():nullptr;
+    Require(world && view && renderer && world->GetOwnScript(),"world camera clipping fixture lacks actual chapter/menu world, view, renderer or Lua");
+    Require(context==0?owner->GetDesktop()!=nullptr:owner->GetDesktop()==nullptr,"world camera clipping fixture lost its real chapter/null-menu desktop distinction");
+    // Materialize authored static world effects before taking geometry baselines.
+    NMainLoop::SetTimeForHarness(1050);Require(NMainLoop::StepApp(true,false,false),"world camera clipping warm-up frame exited");
+    Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand(),"world camera clipping warm-up opened an unrelated interface");
+    while(auto* pending=world->GetUICommand()){CObj<NWorld::CUICmd> release=pending;}
+
+    auto* camera = owner->GetCamera();
+    Require(camera && (context==0 ? owner->GetActivePlayer()!=nullptr : owner->GetActivePlayer()==nullptr),
+        "world camera clipping fixture lost its actual player/null-player distinction");
+    float initialNear=-1, initialFar=-1;
+    camera->GetClipDistance(&initialNear,&initialFar);
+    Require(std::fabs(initialNear-0.1f)<1e-6f && std::fabs(initialFar-100.f)<1e-6f,
+        "quiet chapter/menu camera has unexpected default clipping planes");
+    auto* script = world->GetOwnScript();
+    const int rounds = mode==2 ? 2 : 1;
+    for(int round=0;round<rounds;++round) {
+        const float wantedNear = mode==0 ? initialNear : mode==1 ? 0.75f : round==0 ? 0.25f : 1.25f;
+        const float wantedFar = mode==0 ? initialFar : mode==1 ? 45.f : round==0 ? 80.f : 70.f;
+        const string command = mode==0 ? "WorldClippingProduced = 1" :
+            "CameraSetClipping("+std::to_string(wantedNear)+","+std::to_string(wantedFar)+"); WorldClippingProduced = 1";
+        Require(script->DoString(command.c_str())==0,"camera clipping fixture could not execute its real Lua producer");
+        world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);
+        const int top=script->GetTop();auto produced=script->GetGlobal("WorldClippingProduced");
+        const bool ran=produced.IsNumber() && produced.GetNumber()==1;script->SetTop(top);
+        Require(ran,"camera clipping Lua producer never ran");
+        NMainLoop::SetTimeForHarness(1100+round*50);
+        Require(NMainLoop::StepApp(true,false,false),"camera clipping native interface frame exited");
+        Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand(),
+            "camera clipping fixture opened an unrelated interface");
+        auto* selected=owner->GetCamera();float actualNear=-1,actualFar=-1;
+        selected->GetClipDistance(&actualNear,&actualFar);
+        std::printf("native world camera clipping context=%d mode=%d round=%d selected=%d near=%.6f far=%.6f wantedNear=%.6f wantedFar=%.6f\n",
+            context,mode,round,int(selected==camera),actualNear,actualFar,wantedNear,wantedFar);std::fflush(stdout);
+        Require(selected==camera && std::fabs(actualNear-wantedNear)<1e-6f && std::fabs(actualFar-wantedFar)<1e-6f,
+            "non-tactical world discarded its camera clipping command");
+        CTransformStack transform;selected->GetTransform(&transform,CVec2(320,240));
+        const auto& projection=transform.GetProjection().forward;
+        CVec4 nearPoint,farPoint,beforeNear,beyondFar;
+        projection.RotateHVector(&nearPoint,CVec4(0,0,wantedNear,1));
+        projection.RotateHVector(&farPoint,CVec4(0,0,wantedFar,1));
+        projection.RotateHVector(&beforeNear,CVec4(0,0,wantedNear*0.5f,1));
+        projection.RotateHVector(&beyondFar,CVec4(0,0,wantedFar*2,1));
+        Require(nearPoint.w>0 && farPoint.w>0 && std::fabs(nearPoint.z/nearPoint.w)<1e-5f &&
+            std::fabs(farPoint.z/farPoint.w-1)<1e-5f && beforeNear.z<0 && beyondFar.z>beyondFar.w,
+            "camera clipping did not reach the actual near/far projection boundaries");
+        Require(!world->GetUICommand(),"camera clipping command pump left a queued command");
+    }
+}
+
 static void WorldScriptHints(const char* databasePath,const char* resourcePath,int context,int mode)
 {
     Require(context>=0 && context<=1 && mode>=0 && mode<=3,"unknown shared-world hint case");
@@ -28312,6 +28386,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "world-script-camera-clipping")) { Require(argc == 6, "world camera clipping requires db, resources, context and mode"); WorldScriptCameraClipping(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-hints")) { Require(argc == 6, "world hints require db, resources, context and mode"); WorldScriptHints(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-lighting")) { Require(argc == 6, "world lighting requires db, resources, context and mode"); WorldScriptLighting(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "script-ambient-variants")) { Require(argc == 5, "script ambient variants requires db, resources and mode"); ScriptAmbientVariants(argv[2],argv[3],std::atoi(argv[4])); return true; }

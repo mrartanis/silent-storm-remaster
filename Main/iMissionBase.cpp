@@ -100,6 +100,13 @@ bool CMissionBase::ExecWorldCommonCommand( NWorld::CUICmd *pCmd )
 	{
 		bTutorialMode = CDynamicCast<NWorld::CUICmdTutorialMode>( pCmd )->bTutorial;
 	}
+	// Shared native CameraSetClipping dispatch (Gold5a15e4; Steam5a3f74).
+	else if ( CDynamicCast<NWorld::CUICmdSetCameraClipDistance>( pCmd ) )
+	{
+		NWorld::CUICmdSetCameraClipDistance *pClip =
+			CDynamicCast<NWorld::CUICmdSetCameraClipDistance>( pCmd );
+		GetCamera()->SetClipDistance( pClip->fMinDistance, pClip->fMaxDistance );
+	}
 	else if ( CDynamicCast<NWorld::CUICmdPlayEffect>( pCmd ) )
 	{
 		NWorld::CUICmdPlayEffect *pPlayEffect = CDynamicCast<NWorld::CUICmdPlayEffect>( pCmd );
