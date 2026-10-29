@@ -23826,6 +23826,74 @@ static CObj<TreatmentAckObserver> ObserveTreatmentAck(NWorld::CWorld* world)
     return observer;
 }
 
+static void MedicalEffectEligibility(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->IsAIUnit() && !unit->IsWearingPK() && !unit->IsEmptyPK() && !unit->HasCommand() && !unit->IsPerformingAction()){actor=unit;break;}
+    Require(actor,"medical eligibility lacks its real ordinary medic");
+    const int kitID=mode>=4 && mode<=6?3:mode>=7 && mode<=9 || mode==20 || mode==22?9:mode>=10 && mode<=12?17:mode==13?12:mode==14?15:mode==15 || mode==19?7:1;
+    auto* record=NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(kitID);Require(record && IsValid(record->pItem),"medical eligibility lost its actual authored kit");
+    CObj<NWorld::CUnitServer> physician;
+    if(record->nRequiredPerkID>0){
+        NDb::CRPGPers* persona=nullptr;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+        while(people.MoveNext()){
+            auto* p=people.Get();if(!p->pClass || !p->pModel || !p->pBaseValue || !p->pName || p->pClass->skills[NDb::ST_LEVEL]<=0 || p->pPanzerklein || p->pDefaultWearsPanzerklein)continue;
+            CObj<NRPG::CPerksTree> tree=NRPG::CreatePerksTree(p->pClass->nPerkTreeID);vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);bool found=false;for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==record->nRequiredPerkID)found=true;
+            if(found && (!persona || p->GetRecordID()<persona->GetRecordID()))persona=p;
+        }
+        Require(persona,"medical eligibility has no real class with the actual kit ability");physician=world->AddUnitInGame(actor->GetPosition().pos.p,NRPG::CreateUnit(persona),actor->GetTBSPlayer());actor=physician;Require(actor && actor->CanFight(),"medical eligibility cannot deploy its native qualified physician");
+        auto* rpg=actor->GetUnitRPG()->GetRPGUnit();auto* tree=rpg->GetPerksTree();vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);NRPG::CPerk* required=nullptr;for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==record->nRequiredPerkID)required=perk;
+        Require(required,"medical eligibility lost the real class ability");vector<CPtr<NRPG::CPerk>> path;
+        auto collect=[&](auto&& self,NRPG::CPerk* perk)->void{for(int i=0;i<perk->GetParents().GetSize();++i)self(self,perk->GetParents()[i]);for(auto known:path)if(known.GetPtr()==perk)return;path.push_back(perk);};collect(collect,required);
+        for(int level=1;tree->GetPerkPoints()<int(path.size()) && level<=20;++level)rpg->SetXPLevel(level);
+        for(auto perk:path){if(perk->IsTaken())continue;Require(perk->CanTake(),"medical eligibility cannot satisfy a native prerequisite");tree->TakePerk(perk->GetDBPerk()->GetRecordID());}
+        Require(rpg->HasPerk(record->nRequiredPerkID),"medical eligibility did not acquire its actual item ability");
+    }
+    CObj<NWorld::CUnitServer> retained;NWorld::CUnitServer* patient=nullptr;
+    if(mode==18){for(auto unit:units)if(unit && unit->CanFight() && unit->GetDiplomacyState(actor)==NDb::DS_ENEMY){patient=unit;break;}}
+    else {retained=world->AddUnitInGame(actor->GetPosition().pos.p,NRPG::CreateUnit(NDb::GetPers(103)),actor->GetTBSPlayer());patient=retained;}
+    Require(patient && patient->CanFight(),"medical eligibility lacks its real patient/rejection target");
+    if(mode!=18){
+        auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),1.5f),&places);bool placed=false;
+        for(auto place:places){place.SetPose(NAI::CM_STAND);if(!network->IsPassable(place) || network->IsLocked(place,false))continue;auto pos=patient->GetPosition();pos.pos=NAI::SPosition(place,network);if(fabs(pos.GetCP()-actor->GetPosition().GetCP())<.3f || !NWorld::IsWithinHumanReach(actor->GetPosition().GetCP(),pos.GetCP(),.8f))continue;world->GetTime()->Set(world->GetTime()->GetValue()+1);patient->SetPosition(pos);patient->animator.AlignTime();patient->animator.PlaceUnit(pos);placed=true;break;}
+        Require(placed,"medical eligibility has no free native patient approach");
+    }
+    auto* healer=actor->GetUnitRPG()->GetRPGUnit();
+    for(int level=1;int(healer->Skills(NDb::ST_MEDICINE))+record->nSkillModifier<record->nRequiedSkill && level<=20;++level)healer->SetXPLevel(level);
+    const int medicine=healer->Skills(NDb::ST_MEDICINE);
+    Require(medicine+record->nSkillModifier>=record->nRequiedSkill,"medical eligibility native class progression did not qualify for the actual kit");
+    CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> previous;
+    if(inventory->Get(NDb::SLOT_1))previous=inventory->TakeOff(NDb::SLOT_1);
+    if(mode!=17)Require(inventory->Equip(NDb::SLOT_1,kit) && inventory->Activate(NDb::SLOT_1),"medical eligibility cannot equip its actual kit");else inventory->Activate(NDb::SLOT_1);
+    if(mode==16)while(!kit->IsEmpty())kit->SpendPotion();
+    auto* target=patient->GetUnitRPG();auto* unit=target->GetRPGUnit();auto& hp=unit->Skills(NDb::ST_VP);
+    const int baseQuota=int(float(NRPG::N_MAX_VP)/NRPG::N_MAX_SKILL*medicine),itemQuota=int(float(NRPG::N_MAX_VP)/NRPG::N_MAX_SKILL*(medicine+record->nSkillModifier));
+    const int wound=mode==15 || mode==19?itemQuota+10:mode==3 || mode==20?hp.GetMaxValue()/2:mode==24?3:0;
+    Require(wound<hp.GetMaxValue(),"medical eligibility wound exceeds its actual patient health");hp.SetValue(hp.GetMaxValue()-wound);
+    if(wound)target->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_VP));
+    if(mode==15 || mode==19 || mode==24){NRPG::SFirstAid prior;prior.fdVP=mode==15?baseQuota:mode==19?itemQuota:3;prior.nMaxVP=999;target->HealVP(prior);}
+    const bool noncurable=mode==2 || mode==6 || mode==8 || mode==23;
+    const bool curable=mode==1 || mode==5 || mode==9 || mode==11 || mode==21 || mode==22 || mode==23;
+    if(noncurable)target->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_PATIENT));
+    if(curable)target->ApplyCritical(NRPG::SCritical(NDb::CL_HEAD,NDb::C_WEAPONSKILL_REDUCTION,-1,2.f,mode==21?999:20));
+    if(mode==12)target->ApplyCritical(NRPG::SCritical(NDb::CL_TORSO,NDb::C_BLEEDING,-1,1.f,1));
+    if(mode==22)target->SuspendCriticals(2);
+    auto criticals=[&](){CStructureNetworkContext refs;auto fields=BorrowedObjectFields(target,&refs);vector<CObj<NRPG::CCritical>> result;{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(5,&result);}return result;};
+    const auto before=criticals();int suspendable=0;for(auto entry:before)if(entry->CanBeSuspended())++suspendable;
+    Require((suspendable>0)==(curable && mode!=22 || mode==12),"medical eligibility lacks its actual suspendable/non-suspendable critical precondition");
+    Require(!noncurable || target->HasCritical(NDb::C_PATIENT),"medical eligibility lost its noncurable patient status control");
+    MarkNewDGFrame();world->GetAIMap()->Sync();const auto position=actor->GetPosition(),targetPosition=patient->GetPosition();
+    const int ap=actor->GetAP(),patientAP=patient->GetAP(),rawHP=hp,dressed=unit->nHealedVP,quantity=kit->GetIncQuantity();const float xp=healer->fXP;auto random=GlobalGameRandom();
+    const bool cannot=mode==0 || mode==2 || mode==4 || mode==6 || mode==7 || mode==8 || mode==10 || mode==11 || mode==19 || mode==20 || mode==22;
+    const auto expected=mode==16?NWorld::UCR_NO_EQUIPMENT:mode==17?NWorld::UCR_UNAVAILABLE:mode==18?NWorld::UCR_GENERAL_FAILURE:cannot?NWorld::UCR_CANT_HEAL:NWorld::UCR_OK;
+    CObj<NWorld::CExecHeal> executor=new NWorld::CExecHeal(actor,patient);const auto result=executor->CanDoIt(position),repeat=executor->CanDoIt(position);auto afterRandom=GlobalGameRandom();const auto after=criticals();
+    std::printf("native medical eligibility: mode=%d kit=%d effect=%d medicine=%d modifier=%d required=%d requiredPerk=%d hasRequiredPerk=%d level=%d wound=%d dressed=%d baseQuota=%d itemQuota=%d suspendable=%d bleeding=%d patientStatus=%d result=%d repeat=%d expected=%d AP=%d patientAP=%d dose=%d rawHP=%d criticals=%d\n",mode,kitID,int(record->effect),medicine,record->nSkillModifier,record->nRequiedSkill,record->nRequiredPerkID,int(record->nRequiredPerkID==0 || healer->HasPerk(record->nRequiredPerkID)),int(healer->Skills(NDb::ST_LEVEL)),wound,dressed,baseQuota,itemQuota,suspendable,int(target->HasCritical(NDb::C_BLEEDING)),int(target->HasCritical(NDb::C_PATIENT)),int(result),int(repeat),int(expected),ap,patientAP,quantity,rawHP,int(before.size()));std::fflush(stdout);
+    Require(actor->GetAP()==ap && patient->GetAP()==patientAP && int(hp)==rawHP && unit->nHealedVP==dressed && kit->GetIncQuantity()==quantity && int(healer->Skills(NDb::ST_MEDICINE))==medicine && healer->fXP==xp && actor->GetPosition()==position && patient->GetPosition()==targetPosition && random.Get()==afterRandom.Get() && before.size()==after.size(),"medical eligibility query changed native AP/HP/dressing/item/skill/XP/position/RNG/criticals");
+    for(int i=0;i<int(before.size());++i)Require(before[i].GetPtr()==after[i].GetPtr(),"medical eligibility query replaced an actual critical");
+    Require(result==expected && repeat==expected,"medical eligibility ignores the authored effect or kit-adjusted wound capacity");
+}
+
 static void TreatmentResultAck(const char* databasePath,const char* resourcePath,int mode)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
@@ -24376,13 +24444,17 @@ static void PenaltyTreatment(const char* databasePath,const char* resourcePath,i
     struct State {list<Suspended> suspended;list<Postponed> postponed;vector<CObj<NRPG::CSkillModifier>> active;int operator&(CStructureSaver& f){f.Add(34,&suspended);f.Add(36,&postponed);f.Add(37,&active);return 0;}};
     auto state=[](NRPG::IUnitMission* mission) {CStructureNetworkContext refs;auto fields=BorrowedObjectFields(mission,&refs);State result;{CStructureSaver reader(fields,CStructureSaver::READ,&refs);result.operator&(reader);}return result;};
     Require(state(target).suspended.empty() && state(target).postponed.empty() && state(healer).suspended.empty(),"penalty treatment fixture already has a pending drug");
+    // The no-critical completion control starts valid, then loses its injury during preparation.
+    if(mode==9)target->ApplyCritical(NRPG::SCritical(NDb::CL_HEAD,NDb::C_WEAPONSKILL_REDUCTION,-1,2.f,1));
     CObj<NWorld::CExecHeal> executor=new NWorld::CExecHeal(actor,patient);auto random=GlobalGameRandom();const auto result=executor->CanDoIt(actor->GetPosition());const int cost=executor->GetStartAP();
     std::printf("native penalty drug query: mode=%d kit=%d power=%g duration=%d multiplier=%g expectedDuration=%d result=%d AP=%d cost=%d self=%d\n",mode,record->GetRecordID(),record->fPower,record->nDuration,multiplier,duration,int(result),ap,cost,int(self));std::fflush(stdout);
     if(mode>=4 && mode<=6) {
         Require(result==(mode==5?NWorld::UCR_GENERAL_FAILURE:NWorld::UCR_UNAVAILABLE) && actor->GetAP()==ap && kit->GetIncQuantity()==quantity && healer->HasCritical(NDb::C_WEAPONSKILL_REDUCTION)==healerBefore && target->HasCritical(NDb::C_WEAPONSKILL_REDUCTION)==patientBefore && state(target).postponed.empty() && random.Get()==GlobalGameRandom().Get(),"rejected penalty drug changed criticals, AP, charges, deferred effects or RNG");return;
     }
     Require(result==NWorld::UCR_OK && cost>=0 && ap>=cost,"penalty drug failed its real availability/AP gate");
-    executor->Run();const int afterRun=actor->GetAP();executor->AnimationFinished();
+    executor->Run();const int afterRun=actor->GetAP();
+    if(mode==9)target->RemoveCritical(NDb::C_WEAPONSKILL_REDUCTION);
+    executor->AnimationFinished();
     const bool healerAfter=healer->HasCritical(NDb::C_WEAPONSKILL_REDUCTION),patientAfter=target->HasCritical(NDb::C_WEAPONSKILL_REDUCTION);auto initial=state(target);
     std::printf("native penalty drug initial: mode=%d healer=%d->%d patient=%d->%d suspended=%d left=%d postponed=%d AP=%d->%d->%d charges=%d->%d wound=%d\n",mode,int(healerBefore),int(healerAfter),int(patientBefore),int(patientAfter),int(initial.suspended.size()),initial.suspended.empty()?-1:initial.suspended.front().left,int(initial.postponed.size()),ap,afterRun,actor->GetAP(),quantity,kit->GetIncQuantity(),int(target->HasCritical(NDb::C_VP)));std::fflush(stdout);
     Require(actor->GetAP()==afterRun && (world->IsRealTime() || afterRun==ap-cost) && kit->GetIncQuantity()==quantity-1 && healer->GetTotalVP()==healerVP && target->GetTotalVP()==patientVP && healer->GetRPGUnit()->Skills(NDb::ST_VP).GetMaxValue()==healerCap && target->GetRPGUnit()->Skills(NDb::ST_VP).GetMaxValue()==patientCap && target->GetRPGUnit()->nHealedVP==patientBandage && !target->HasCritical(NDb::C_PATIENT) && !actor->IsPerformingAction() && !actor->HasCommand() && !patient->HasCommand(),"penalty drug changed immediate health, cost, charge or native completion ownership");
@@ -26288,6 +26360,31 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "treatment-ack-repair-below-half") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,2); return true; }
     if (!std::strcmp(mode, "treatment-ack-repair-spent-pilot-ap") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,3); return true; }
     if (!std::strcmp(mode, "treatment-ack-repair-empty-silent") && argc==4) { RepairOrderGate(argv[2],argv[3],0,0,-1,4); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-normal-healthy") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-normal-curable") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-normal-noncurable") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-normal-wound") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-critical-first-healthy") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-critical-first-curable") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-critical-first-noncurable") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-penalty-healthy") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-penalty-noncurable") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-penalty-curable") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-blood-stop-healthy") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-blood-stop-other-critical") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],11); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-blood-stop-bleeding") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],12); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-boost-preventive") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],13); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-temp-stop-preventive") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],14); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-wound-kit-modifier") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],15); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-empty-kit") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],16); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-missing-kit") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],17); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-hostile") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],18); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-wound-quota-equality") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],19); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-penalty-wound-only") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],20); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-normal-hard-critical") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],21); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-penalty-suspended") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],22); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-normal-mixed-criticals") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],23); return true; }
+    if (!std::strcmp(mode, "medical-eligibility-normal-fully-dressed") && argc==4) { MedicalEffectEligibility(argv[2],argv[3],24); return true; }
     if (!std::strcmp(mode, "repair-planner-small") && argc==4) { RepairPlanner(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "repair-planner-full") && argc==4) { RepairPlanner(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "repair-planner-limited-ap") && argc==4) { RepairPlanner(argv[2],argv[3],2); return true; }

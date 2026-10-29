@@ -13258,3 +13258,96 @@ speech/audio/full-world-save/fullCI/hosted Actions claim.
 cross-source hunk reconciliation still need work. Ledger149 imported/21partial/
 68pending=89 unfinished source commits; full goal and final hosted Actions
 verification after all applicable imports remain outstanding.
+
+### Medical effect eligibility (bbeb35c8, completing531f3b7d)
+
+Sources:
+- https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/bbeb35c8fe27e923b52decd93c1850dcb80f8ba0
+- https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9
+
+The generic preflight accepts healthy patients and noncurable status flags,
+permits blood-stop treatment without bleeding and ignores a normal kit's
+extra wound capacity. Restore the original per-effect predicate: normal0/
+critical-first7 require a curable active critical OR wound allocation;
+critical-only1/temporary penalty removal2 require a curable active critical;
+permanent blood-stop5 requires bleeding; boost3/temporary stopper4 and default
+remain preventive. Reuse existing corrected CanHealWounds with the actual
+item. Existing repair6 chassis predicate is moved into the same dispatcher,
+with all own PK/order/result-code behavior retained. No skill/perk58/pose/
+prone-reach/explicit AI-kit API change in this stage:760 still needs those.
+
+Native proof: named Gold HasCurableCriticals6b93f0/45 uniquely matches Steam
+6bf6c0 ENTIRE45. Typed Gold mission vtable8b63cc/c0 and Steam8c54e4/c0 point
+to those functions; active critical vector14..18 calls critical slot30,
+without DC filtering. Named Gold weapon-skill critical slot30 returns true,
+VP critical false. Cached source6bf710 is INSIDE HasCritical, not this entry.
+Named Gold wound predicate6b5230/161 matches Steam6bb3d0 except one verified
+float250/140 address: add actual item modifier, truncate quota, require
+quota>dressing AND rawHP<maxHP. Named Gold world predicate7bc060/284 matches
+Steam7c8a10 except two direct call operands, table address and all eight
+individually checked table entries. Cached source7c8440 is also incorrect.
+No speculative native address or broad byte masks used as proof.
+
+Twenty-five new real CExecHeal.CanDoIt scenarios query twice and preserve
+AP, raw HP, dressing, charges, Medicine/XP, positions, RNG and actual critical
+identities. Use unmodified authored kits1/3/7/9/12/15/17 and native factory
+criticals. Required58 for12/17 is earned through an actual physician class,
+legal parents and native levels (Medicine77/level7), without fabricated perk
+points/individual skills/DB records. Kit7 reaches Medicine30/level8 naturally:
+raw quota53 vs item-adjusted62, existing dressing53 is accepted; equality62
+is still rejected. Preserve original quirks: hard DC999 critical still
+permits an order, and rawHP144+fully dressed3 still passes availability.
+The stock DB has no critical-only1 item; that branch is native/code audited,
+not claimed as a real authored-item action test.
+
+Initial test calibration incorrectly assumed every selected kit had no
+required perk; four setup failures were NOT counted as legitimate RED.
+Corrected the actual class/ability prerequisites before any production edit.
+The previous no-critical drug completion control now starts with a real
+curable injury and removes it between Run and AnimationFinished; its actual
+effect/expiry is unchanged. New dedicated tests separately reject a healthy
+patient before the action starts. Final RED11/26 on both platforms includes
+25 new cases and that passing prior completion control. Fourteen new positive,
+capacity/critical/preventive/rejection controls also pass before production.
+
+Evidence repair: a concurrent ctest --show-only inventory read corrupted the
+first Windows RED raw LastTest.log, while its stdout and Linux raw correctly
+showed11/26 failures. Preserve the corrupt artifact, revert only these three
+owned Main changes, and repeat Windows RED to terminal before reapplying the
+IDENTICAL fix. Final Windows RED has complete raw26 and all11 numeric failure
+rows. Previously valid Linux202+9 results remain tied to byte-identical Main
+contents by recorded SHA256 identities; no alternate build/source copies.
+No test inventories are queried while CTest is running.
+
+Final GREEN202/202 Windows215.80s/Linux221.78s includes treatment,
+repair, acknowledgment, wound/critical medal, blood-stop/drug, cure and wound
+refresh regressions. Nine own animation/head/PK cases also pass on each
+platform. Windows ALL_BUILD/Linux Game pass. Exact sets/raw logs, all25 actual
+inputs/results, platform identity, query purity, prior in-flight drug trace,
+native complete functions, TDD order and precise three Main files verified.
+No numeric DB/balance, save fields, own face engine or HD generation changes.
+No rendered speech/full-world-save/fullCI/hosted Actions claim.
+
+### Source531f3b7d final hunk reconciliation
+
+All29 hunks across9 source files are accounted; mark the source imported
+with the following explicit adaptations/exclusions. Earlier PARTIAL notes
+remain historical; this reconciliation closes their source-specific remainder.
+
+| Source file | Hunks | Final disposition and evidence |
+|---|---:|---|
+| DBFormat/DataRPG.h |1| Critical-first7 enum, actual authored3/4/5 import and repair6 import:76a4b9d3,0fd19ae3,61cb216b; current authored-kind/action tests. |
+| Main/RPGUnit.cpp |5| Original repair/wound/DC/perk/capacity/effective-float logic imported in independent stages. Corrected CanHealWounds now serves both state allocation and command eligibility. Old one-argument compatibility method has no game callers. Both non-native denominator minimums excluded in UPSTREAM-BALANCE-CHANGES.md. |
+| Main/RPGUnit.h |1| Float return, target-aware DC and equivalent typed wound API declarations; compatibility name retained. |
+| Main/RPGUnitMission.cpp |5| Float wound/critical results, selected-critical cure, stopper/postponed APIs imported. PK metadata supplied by OWN server GetInfo reading actual chassis, used by initial snapshot/ACK and wMain server -> SEnemyInfo -> UI. Do not copy stale mission PK-life alias fields. |
+| Main/RPGUnitMission.h |2| Typed selection and effective-heal interfaces imported; own expanded live info remains separate from saved40-byte state snapshot. |
+| Main/wAnimation.cpp |2| Optional stand-first and original kit-specific repair finish imported in cdc10fc5; current repair-finish and nine own head/animation regressions pass. |
+| Main/wAnimation.h |2| Matching default-preserving signatures imported. |
+| Main/wUnitStates.cpp |9| Initialization, patient effects, timed AP, capacity/medals, pre-dose repair flag, hand/item cleanup and result ACK imported. Own reentrant hold/SCRIPTSEQUENCE breath policy retained in rewritten animation engine; source IsRealTime breath replacement not adopted. Boost code is unchanged context in531f; broader bf54 duration/overdose remains separately pending. |
+| Main/wUnitStates.h |2| Correct helpers/constructor/dependency and original saved fields5AP/6selection12/7snapshot40 imported; factory field-restore resumes actual treatment. |
+
+Sourcebbeb remains PARTIAL only for its independent hand-slot charge/UI hunk.
+760/156/bf54 and all other outstanding sources remain separate work.
+Ledger:150 imported/20partial/68pending =88 unfinished source commits.
+The whole goal remains active; final hosted Actions verification/fix after
+all applicable imports is still outstanding.

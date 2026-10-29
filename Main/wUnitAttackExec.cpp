@@ -155,6 +155,38 @@ EUnitCommandResult CanAttackWithCannon( CCannon *pCannon, const CVec3 &ptTarget 
 	return UCR_OK;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Gold 7bc060 / Steam 7c8a10: use the medical item's actual effect.
+static bool CanHealWithItem( CUnitServer *pUS, CUnitServer *pTarget, NRPG::CFirstAidItem *pItem )
+{
+	NRPG::IUnitMission *pPatient = pTarget->GetUnitRPG();
+	switch ( pItem->GetDBFirstAid()->effect )
+	{
+	case NDb::FAE_NORMAL:
+	case NDb::FAE_CRITICAL_FIRST:
+		return pPatient->HasCurableCriticals() ||
+			pUS->GetUnitRPG()->GetRPGUnit()->CanHealWounds( pPatient->GetRPGUnit(), pItem );
+	case NDb::FAE_CRITICAL_ONLY:
+	case NDb::FAE_TEMP_REMOVE_PENALTIES:
+		return pPatient->HasCurableCriticals();
+	case NDb::FAE_REMOVE_BLEEDING:
+		return pPatient->HasCritical( NDb::C_BLEEDING );
+	case NDb::FAE_REPAIR_PK:
+	{
+		CUnitServer *pPK = pTarget->GetWearingPK();
+		if ( !IsValid( pPK ) )
+		{
+			if ( !pTarget->IsEmptyPK() )
+				return false;
+			pPK = pTarget;
+		}
+		NRPG::CDynamicSkill &vp = pPK->GetUnitRPG()->GetRPGUnit()->Skills( NDb::ST_VP );
+		return vp < vp.GetMaxValue();
+	}
+	default:
+		return true;
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 EUnitCommandResult CanDoFirstAid( CUnitServer *pUS, const NAI::SUnitPosition &from, CUnitServer *pTarget )
 {
 	EUnitCommandResult eResult = HasActiveUsableFirstAid( pUS );
@@ -190,17 +222,7 @@ EUnitCommandResult CanDoFirstAid( CUnitServer *pUS, const NAI::SUnitPosition &fr
 			( bRepair && IsWithinHumanReach( from.GetCP(), ptTarget, F_HEAL_DISTANCE ) ) )
 			return UCR_TARGET_OUT_OF_RANGE;
 
-		if ( bRepair )
-		{
-			// Gold 7bc0f3 / Steam 7c8aa3: test the chassis's raw HP, not pilot wounds.
-			CUnitServer *pPK = pTarget->GetWearingPK();
-			if ( !IsValid( pPK ) )
-				pPK = pTarget;
-			NRPG::CDynamicSkill &vp = pPK->GetUnitRPG()->GetRPGUnit()->Skills( NDb::ST_VP );
-			if ( vp >= vp.GetMaxValue() )
-				return UCR_CANT_HEAL;
-		}
-		else if ( !pUS->GetUnitRPG()->GetRPGUnit()->CanHeal( pTarget->GetRPG()->GetRPGUnit() ) )
+		if ( !CanHealWithItem( pUS, pTarget, pItem ) )
 			return UCR_CANT_HEAL;
 	}
 

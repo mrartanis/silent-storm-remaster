@@ -288,6 +288,7 @@ public:
 	virtual NDb::SAISoundConstants *GetAISoundConstants() { return &sAISoundConstants; }
 	virtual NDb::SInterruptsConstants *GetInterruptsConstants() { return &SInterruptsConstants; }
 	virtual bool HasCritical( NDb::ECritical eCritical, CCritical** ppCritical = 0 ) const;
+	virtual bool HasCurableCriticals() const;
 	virtual void ApplyCritical( const SCritical &critical );
 	virtual bool RemoveCritical( NDb::ECritical eCritical );
 	virtual void SuspendCriticals( int nTurns );
@@ -2047,6 +2048,15 @@ NDb::CComplexHead* CUnitMission::GetRPGPersHead() const
 		return 0;
 
 	return pRPGUnit->GetHead();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CUnitMission::HasCurableCriticals() const
+{
+	// Gold 6b93f0 / Steam 6bf6c0: only active, suspendable criticals qualify.
+	for ( vector<CObj<CCritical> >::const_iterator i = criticals.begin(); i != criticals.end(); ++i )
+		if ( (*i)->CanBeSuspended() )
+			return true;
+	return false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnitMission::HasCritical( NDb::ECritical eCritical, CCritical** ppCritical ) const
