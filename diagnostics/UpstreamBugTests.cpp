@@ -7541,6 +7541,27 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
 }
 
 
+struct NativeAuthoredEffectLight {CDBPtr<NDb::CLightInstance> instance;CObj<NGScene::CAnimLightInfo> info;};
+
+static vector<NativeAuthoredEffectLight> NativeAuthoredEffectLights()
+{
+    vector<NativeAuthoredEffectLight> lights;
+    CDBIterator<NDb::CLightInstance> candidates(*NDatabase::GetTable<NDb::CLightInstance>());
+    while(candidates.MoveNext() && lights.size()<2) {
+        auto* instance=candidates.Get();if(!IsValid(instance->pLight))continue;
+        CObj<NGScene::CFileRequest> request=new NGScene::CFileRequest("Lights",instance->pLight->GetRecordID());request->Read();
+        if(request->GetStream()->GetSize()==0)continue;
+        CObj<NGScene::CAnimLightInfo> info=new NGScene::CAnimLightInfo;info->fFrameRate=info->fTStart=info->fTEnd=0;
+        try {CStructureSaver reader(*request->GetStream(),CStructureSaver::READ);reader.Add(1,&info->fFrameRate);reader.Add(2,&info->fTStart);reader.Add(3,&info->fTEnd);reader.Add(4,&info->pos);reader.Add(5,&info->color);reader.Add(6,&info->radius);}catch(...){continue;}
+        if(!(info->fFrameRate>0 && info->fTStart>=0 && info->fTEnd>info->fTStart+0.05f && info->fTEnd<600) || info->pos.keys.empty() || info->color.keys.empty() || info->radius.keys.empty())continue;
+        // Keep real resource curves/placement/scale; control only the instance timeline.
+        instance->fSpeed=1;instance->fOffset=0;instance->fEndCycle=0;instance->nCycleCount=1;
+        lights.push_back({instance,info});
+    }
+    Require(lights.size()==2,"ambient fixture lacks two actual authored light resources");
+    return lights;
+}
+
 class NativeAmbientEffectMission: public NGame::CMission
 {
     OBJECT_NOCOPY_METHODS(NativeAmbientEffectMission);
@@ -7578,21 +7599,7 @@ static void ScriptAmbientEffect(const char* databasePath,const char* resourcePat
         return std::make_pair(std::count_if(lights.begin(),lights.end(),[](const CPtr<CObjectBase>& p){return IsValid(p);}),
             std::count_if(particles.begin(),particles.end(),[](const CPtr<CObjectBase>& p){return IsValid(p);}));};
     const auto originalGeometry=geometry();
-    struct AuthoredLight {CDBPtr<NDb::CLightInstance> instance;CObj<NGScene::CAnimLightInfo> info;};
-    vector<AuthoredLight> lights;
-    CDBIterator<NDb::CLightInstance> candidates(*NDatabase::GetTable<NDb::CLightInstance>());
-    while(candidates.MoveNext() && lights.size()<2) {
-        auto* instance=candidates.Get();if(!IsValid(instance->pLight))continue;
-        CObj<NGScene::CFileRequest> request=new NGScene::CFileRequest("Lights",instance->pLight->GetRecordID());request->Read();
-        if(request->GetStream()->GetSize()==0)continue;
-        CObj<NGScene::CAnimLightInfo> info=new NGScene::CAnimLightInfo;info->fFrameRate=info->fTStart=info->fTEnd=0;
-        try {CStructureSaver reader(*request->GetStream(),CStructureSaver::READ);reader.Add(1,&info->fFrameRate);reader.Add(2,&info->fTStart);reader.Add(3,&info->fTEnd);reader.Add(4,&info->pos);reader.Add(5,&info->color);reader.Add(6,&info->radius);}catch(...){continue;}
-        if(!(info->fFrameRate>0 && info->fTStart>=0 && info->fTEnd>info->fTStart+0.05f && info->fTEnd<600) || info->pos.keys.empty() || info->color.keys.empty() || info->radius.keys.empty())continue;
-        // Keep real resource curves/placement/scale; control only the instance timeline.
-        instance->fSpeed=1;instance->fOffset=0;instance->fEndCycle=0;instance->nCycleCount=1;
-        lights.push_back({instance,info});
-    }
-    Require(lights.size()==2,"ambient fixture lacks two actual authored light resources");
+    auto lights=NativeAuthoredEffectLights();
     CDBIterator<NDb::CEffect> effects(*NDatabase::GetTable<NDb::CEffect>());
     Require(effects.MoveNext(),"ambient fixture has no registered effect");CDBPtr<NDb::CEffect> effect=effects.Get();
     Require(effects.MoveNext(),"ambient fixture has no replacement effect");CDBPtr<NDb::CEffect> replacement=effects.Get();
@@ -7669,6 +7676,96 @@ static void ScriptAmbientEffect(const char* databasePath,const char* resourcePat
     }
     Require(geometry()==originalGeometry,"ambient replacement or clear leaked ordinary effect geometry");
     Require(!NMainLoop::HaveInterfaceCommand(),"ambient command unexpectedly changed the game interface");
+}
+
+
+static void ScriptPlayEffect(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=4,"unknown ordinary-effect case");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm native ordinary effect regression");
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
+    while(auto* pending=world->GetUICommand()){CObj<NWorld::CUICmd> release=pending;}
+    world->SetTimeOfDay(NWorld::TOD_DAY);
+    CObj<NGScene::IGameView> view=NGScene::CreateNewView();
+    CObj<NRender::IRenderGame> renderer=NRender::CreateRenderGame(world,view,nullptr);
+    CObj<NativeAmbientEffectMission> mission=new NativeAmbientEffectMission;mission->Attach(world,game,view,renderer);
+    Require(view && renderer && world->GetOwnScript(),"ordinary-effect fixture lacks its real world/Lua/view/renderer");
+    const CVec3 top(0.17f,0.31f,0.53f),bottom(0.07f,0.13f,0.23f),position(12,34,5);
+    view->SetAmbient(bottom,top);auto* scene=view->GetGScene();
+    CStructureNetworkContext meanRefs;auto sceneFields=BorrowedObjectFields(scene,&meanRefs);CPtr<CFuncBase<CVec3>> mean,ambient;
+    {CStructureSaver reader(sceneFields,CStructureSaver::READ,&meanRefs);reader.Add(18,&mean);reader.Add(33,&ambient);}
+    Require(IsValid(mean) && IsValid(ambient),"ordinary-effect fixture lost the existing ambient graph");
+    auto geometry=[&](){CStructureNetworkContext refs;auto saved=BorrowedObjectFields(scene,&refs);list<CPtr<CObjectBase>> lights,particles;
+        {CStructureSaver reader(saved,CStructureSaver::READ,&refs);reader.Add(7,&lights);reader.Add(10,&particles);}
+        vector<CPtr<CObjectBase>> liveLights,liveParticles;
+        for(auto p:lights)if(IsValid(p))liveLights.push_back(p);
+        for(auto p:particles)if(IsValid(p))liveParticles.push_back(p);
+        return std::make_pair(liveLights,liveParticles);};
+    const auto initial=geometry();Require(initial.first.empty() && initial.second.empty(),"ordinary-effect fixture started with unrelated effect geometry");
+    auto lights=NativeAuthoredEffectLights();
+    CDBIterator<NDb::CEffect> effects(*NDatabase::GetTable<NDb::CEffect>());
+    Require(effects.MoveNext(),"ordinary-effect fixture has no registered effect");CDBPtr<NDb::CEffect> effect=effects.Get();
+    effect->instances.clear();effect->lights.clear();effect->flags.clear();effect->lights.push_back(lights[0].instance.GetPtr());
+    NDb::SVariantFlags allowed;allowed.flags=world->GetCreateFlags();effect->flags.push_back(allowed);
+    if(mode==1){effect->flags[0].flags={NWorld::TOD_NIGHT};Require(!IsSuitableVariant(world->GetCreateFlags(),effect->flags),"night-only ordinary effect matched a day world");}
+    if(mode==2) {
+        effect->lights.push_back(lights[1].instance.GetPtr());
+        CDBIterator<NDb::CParticleInstance> particles(*NDatabase::GetTable<NDb::CParticleInstance>());NDb::CParticleInstance* particle=nullptr;
+        while(particles.MoveNext())if(IsValid(particles.Get()->pParticle)){particle=particles.Get();break;}
+        Require(particle!=nullptr,"ordinary mixed effect lacks a native particle instance");effect->instances.push_back(particle);
+    }
+    CDBIterator<NDb::CTEffect> templates(*NDatabase::GetTable<NDb::CTEffect>());
+    Require(templates.MoveNext(),"ordinary-effect fixture has no registered effect template");CDBPtr<NDb::CTEffect> pool=templates.Get();
+    pool->variants.clear();pool->variants.push_back(effect.GetPtr());pool->roulette=CRoulette();pool->roulette.AddSector(1);
+    auto* script=world->GetOwnScript();CObj<NScript::CLUAObjectPosition> point=new NScript::CLUAObjectPosition(position);
+    NScript::luaPushCObj(script->GetState(),point);script->SetGlobal("NativeEffectPosition");
+    auto* clock=renderer->GetTime();const STime begin=mode>=3?0:1375;clock->Set(begin);
+    const string lua="NativeEffectHandle = PlayEffect("+std::to_string(mode==4?-1:pool->GetRecordID())+",NativeEffectPosition)";
+    Require(script->DoString(lua.c_str())==0,"ordinary-effect fixture could not execute its actual Lua producer");
+    world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);CDGPtr<CFuncBase<STime>> clockEdge=clock;clockEdge.Refresh();mission->Drain();
+    const int stackTop=script->GetTop();auto value=script->GetGlobal("NativeEffectHandle");
+    CObj<NWorld::CUICmdPlayEffect> command=value.IsUserData()?dynamic_cast<NWorld::CUICmdPlayEffect*>(value.GetUserData()):nullptr;
+    const bool nil=value.IsNil();script->SetTop(stackTop);
+    const auto shape=geometry();
+    std::printf("native ordinary effect mode=%d rendererBegin=%u worldTime=%u command=%d handle=%d lights=%zu particles=%zu\n",mode,unsigned(begin),unsigned(world->GetAimTime()->GetValue()),int(IsValid(command)),int(command && IsValid(command->pHandle)),shape.first.size(),shape.second.size());std::fflush(stdout);
+    if(mode==4) {Require(nil && !command && shape.first.empty() && shape.second.empty(),"invalid effect token changed its native nil/no-geometry behavior");return;}
+    Require(command && !nil && command->pEffect.GetPtr()==pool.GetPtr() && fabs2(command->vPos-position)<1e-10f,"ordinary effect lost its native command/position/template identity");
+    if(mode==1) {
+        Require(!IsValid(command->pHandle) && shape.first.empty() && shape.second.empty(),"ordinary effect ignored world variant flags and rendered an unsuitable effect");
+    } else {
+        Require(IsValid(command->pHandle) && shape.first.size()==(mode==2?2u:1u) && shape.second.size()==(mode==2?1u:0u),"ordinary effect no longer creates its complete authored light/particle set");
+        CPtr<NGScene::CLightAnimator> first;STime observedBegin=0;bool correctTimes=true;
+        for(auto node:shape.first) {
+            Require(dynamic_cast<NGScene::CDynamicPointLight*>(node.GetPtr())!=nullptr,"ordinary effect created an unexpected light kind");
+            CStructureNetworkContext refs;auto saved=BorrowedObjectFields(node,&refs);CPtr<NGScene::CLightAnimator> animation;
+            {CStructureSaver reader(saved,CStructureSaver::READ,&refs);reader.Add(2,&animation);}
+            Require(IsValid(animation),"ordinary point light has no real native light animator");
+            CStructureNetworkContext animationRefs;auto animationFields=BorrowedObjectFields(animation,&animationRefs);
+            CDBPtr<NDb::CLightInstance> instance;STime start=0;CDGPtr<CFuncBase<STime>> time;
+            {CStructureSaver reader(animationFields,CStructureSaver::READ,&animationRefs);reader.Add(3,&start);reader.Add(4,&instance);reader.Add(5,&time);}
+            Require(time.GetPtr()==clock,"ordinary light animation is not driven by the actual renderer clock");correctTimes=correctTimes && start==begin;
+            if(instance.GetPtr()==lights[0].instance.GetPtr()){first=animation.GetPtr();observedBegin=start;}
+        }
+        Require(IsValid(first),"ordinary effect lost its authored first light instance");
+        const float phase=lights[0].info->fTStart+(lights[0].info->fTEnd-lights[0].info->fTStart)*0.25f;
+        clock->Set(begin+STime(phase*1000));CDGPtr<NGScene::CLightAnimator> actual=first.GetPtr();bool active=false,ended=false;CVec3 color=VNULL3;
+        const auto deadline=SDL_GetTicks()+10000;
+        do {MarkNewDGFrame();actual.Refresh();auto* state=actual->GetValue();active=state->bActive;ended=state->bEnd;if(active)color=state->color;if(active || ended)break;SDL_Delay(1);}while(SDL_GetTicks()<deadline);
+        CVec3 expected;lights[0].info->color.GetValue((clock->GetValue()-begin)*lights[0].info->fFrameRate/1000.f,&expected);
+        std::printf("native ordinary light mode=%d expectedBegin=%u actualBegin=%u active=%d ended=%d allTimes=%d\n",mode,unsigned(begin),unsigned(observedBegin),int(active),int(ended),int(correctTimes));std::fflush(stdout);
+        Require(correctTimes && active && !ended && fabs2(color-expected)<1e-7f,"ordinary effect used elapsed renderer time instead of its current launch time");
+        Require(script->DoString("StopEffect(NativeEffectHandle); NativeEffectStopped = 1")==0,"ordinary-effect fixture could not execute native StopEffect");
+        world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);mission->Drain();
+        const int stopTop=script->GetTop();auto stop=script->GetGlobal("NativeEffectStopped");const bool stoppedLua=stop.IsNumber() && stop.GetNumber()==1;script->SetTop(stopTop);
+        Require(stoppedLua,"ordinary-effect fixture did not execute its queued Lua stop body");
+        Require(!IsValid(command->pHandle),"native StopEffect retained the command's live render handle");
+        const auto stopped=geometry();Require(stopped.first.empty() && stopped.second.empty(),"ordinary StopEffect left its light or particle nodes alive");
+    }
+    CDGPtr<CFuncBase<CVec3>> meanEdge=mean.GetPtr();MarkNewDGFrame();meanEdge.Refresh();
+    Require(fabs2(meanEdge->GetValue()-(top+bottom)*0.5f)<1e-10f,"ordinary effect was incorrectly routed into scene-wide ambient animation");
+    CStructureNetworkContext ambientRefs;auto ambientFields=BorrowedObjectFields(ambient,&ambientRefs);CPtr<CObjectBase> ambientAnimation;
+    {CStructureSaver reader(ambientFields,CStructureSaver::READ,&ambientRefs);reader.Add(3,&ambientAnimation);}
+    Require(!IsValid(ambientAnimation) && !NMainLoop::HaveInterfaceCommand(),"ordinary effect changed ambient ownership or opened a new interface");
 }
 
 static void CorpseTargetInformation(const char* databasePath,const char* resourcePath)
@@ -27866,6 +27963,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "script-play-effect")) { Require(argc == 5, "script play effect requires db, resources and mode"); ScriptPlayEffect(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "script-ambient-effect")) { Require(argc == 5, "script ambient effect requires db, resources and mode"); ScriptAmbientEffect(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "backdrop-ui-audio-ownership")) { Require(argc == 4, "backdrop UI ownership requires db and resources"); BackdropUIAudioOwnership(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "menu-music-pools")) { Require(argc == 5, "menu music requires db, resources and origin"); MenuMusicPools(argv[2],argv[3],std::atoi(argv[4])); return true; }

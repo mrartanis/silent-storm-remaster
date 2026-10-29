@@ -2583,8 +2583,11 @@ void CMission::ExecWorldCommands()
 			{
 				SFBTransform place;
 				MakeMatrix( &place, CVec3( 1, 1, 1 ), pPlayEffect->vPos, 0 );
-				SRand rnd;
-				pPlayEffect->pHandle = GetScene()->CreateParticles( pPlayEffect->pEffect->GetEffect( &rnd ), 0, pRender->GetTime(), place );
+				static SRand rnd;
+				NDb::CEffect *pEffect = pPlayEffect->pEffect->GetEffect( &rnd, pWorld->GetCreateFlags() );
+				// A filtered pool can be empty; the render factory requires a real effect.
+				pPlayEffect->pHandle = pEffect ? GetScene()->CreateParticles( pEffect,
+					pRender->GetTime()->GetValue(), pRender->GetTime(), place ) : 0;
 			}
 		}
 		// LUA convergence PART B: SetupAmbientLight sets the scene's ambient light from the record

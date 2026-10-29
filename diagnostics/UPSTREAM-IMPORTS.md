@@ -15658,3 +15658,68 @@ Source remains PARTIAL: common world/camera dispatch, non-tactical consumers,
 ordinary PlayEffect flags/timing and SetAmbient immediate/flags still require
 independent native TDD. Ledger286:166 imported/19 partial/58 pending =77
 unfinished sources. Whole goal and final actual hosted Actions remain.
+
+## 2026-10-29 — ordinary scripted effect launch and variants (part of cb954e2e)
+
+Source: [cb954e2e455b632c0174b88b2d051ac74e780ce0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cb954e2e455b632c0174b88b2d051ac74e780ce0).
+
+PlayEffect always passed begin0 into the real particle/light factory, so a
+short effect launched after the render clock advanced could already be ended.
+It also selected variants without world creation flags. Restore this ordinary
+command's static SRand, world-compatible selection and current renderer begin
+value, retaining the renderer clock, position, complete effect bundle and handle.
+Adapt the no-match result at the caller: the filtered picker returns null and
+the render factory requires a real effect. Leave/clear the handle to null and
+skip that call, rather than reproduce a null dereference. This is technical
+crash prevention; no variant weights, gameplay rules or authored data change.
+The ordinary render factory itself and the ambient command are unchanged.
+
+Native TDD on unchanged0d2a87dd: extract the unchanged stock-light resource
+loader into a shared fixture and freshly compile/pass24/24 existing lighting/
+ambient controls BOTH. Add actual Lua PlayEffect/StopEffect -> native world
+queue/CMission -> real view/CGScene/CLightAnimator/stock Lights.res cases.
+Definitive compiled RED3/5 BOTH: two renderer1375/world50 cases store begin0,
+native light active0/ended1 (including the complete2-light/1-particle effect);
+the day world renders a night-only variant. Two controls pass: renderer0 has
+correct active animation and native StopEffect removes its nodes; invalid DB
+token preserves nil/no geometry. GREEN5/5 BOTH:1375 begin/allTimes, active1/
+ended0 and the actual authored curve; incompatible variant yields no handle/
+geometry; full ordinary mixed bundle retained; native StopEffect/world consumer
+removes both lights and particles; position/template identities and unchanged
+ambient graph verified. Particle-node counts are verified, not particle pixels.
+The shared fixture keeps resource curves/placement/scale and controls only
+instance timelines in isolated test-process DB records; no game.db writes.
+
+Initial stop control inspected the handle before the second Lua chunk reached
+the native world consumer. GDB confirmed luaStopEffect was not called in that
+run. Add the same world/mission consumer boundary as the play producer and an
+explicit Lua completion marker; control then passes on unchanged Main. Also
+avoid reading uninitialized inactive-light color. These setup logs are archived
+separately; definitive RED3/5 repeated before production, no setup failure counted.
+
+Original proof: unique Gold31-byte flags block5a1937 and unmasked75-byte renderer
+clock/value/argument block5a199a map to Steam; RTTI-named game-view slot44 binds
+the typed ordinary CreateParticles overload. A unique22-byte command prefix
+links the decoded CUICmdPlayEffect RTTI helper and both named base descriptors.
+The filtered picker returns null for no suitable variant: Gold/Steam cleanup/
+zero-return paths are separately decoded, not asserted byte-identical (register
+allocation and epilogue order differ). Both original and own factory have a
+non-null effect contract, independently confirmed; the caller guard is the
+explicit adaptation, not a false claim of identical original crash behavior.
+No whole renderer/picker/helper identity or foreign ABI transplant is claimed.
+
+Final Windows ALL_BUILD/Linux Game/helpers+actual serializer build. Related
+79/79 BOTH cover lighting, ten ambient cases, five ordinary-effect cases,
+native main-menu/authored scripts/backdrop2D/3D, contextual music, options/
+save/restart/LAN-menu and previous audio controls. Own body16/16 BOTH; fresh
+Windows serializer/match/partial/stop4/4; local CI299/299. Exact raw manifests/
+exits/rows/source verified. Only Main iMission.cpp PlayEffect branch changes;
+existing saver calls and CP1251/CRLF retained. Two existing builds reused;
+no per-bug old sources/builds or HD/PNG/font/facial/backend changes.
+
+Evidence: play-effect-verification.json, play-effect-retail-verification.json,
+original snippets/types and native baseline/definitiveRED/GREEN/final raw logs.
+Source remains PARTIAL: shared world/camera dispatch, non-tactical consumers
+and SetAmbient immediate/default/flag handling remain. Ledger unchanged:
+166 imported/19 partial/58 pending =77 unfinished sources. Whole goal and
+final actual hosted Actions remain.
