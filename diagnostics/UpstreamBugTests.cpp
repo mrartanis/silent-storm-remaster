@@ -23929,6 +23929,49 @@ static void RepairOrderGate(const char* databasePath,const char* resourcePath,in
     Require(result==expected && repeat==expected,"repair order used medical reach or ignored original repair target/engineer gates");
 }
 
+static void WoundHealerPerk(const char* databasePath,const char* resourcePath,int mode)
+{
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* anchor=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->IsAIUnit() && !unit->IsWearingPK() && !unit->IsEmptyPK()){anchor=unit;break;}Require(anchor,"wound healer perk has no actual player anchor");
+    NDb::CRPGPers* persona=nullptr;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while(people.MoveNext()) {
+        auto* p=people.Get();if(!p->pClass || !p->pModel || !p->pBaseValue || !p->pName || p->pClass->skills[NDb::ST_LEVEL]<=0 || p->pPanzerklein || p->pDefaultWearsPanzerklein)continue;
+        CObj<NRPG::CPerksTree> tree=NRPG::CreatePerksTree(p->pClass->nPerkTreeID);vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);bool found=false;for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==57)found=true;
+        if(found && (!persona || p->GetRecordID()<persona->GetRecordID()))persona=p;
+    }
+    Require(persona,"wound healer perk has no authored ordinary physician class");
+    CObj<NWorld::CUnitServer> actor=world->AddUnitInGame(anchor->GetPosition().pos.p,NRPG::CreateUnit(persona),anchor->GetTBSPlayer());Require(actor && actor->CanFight(),"wound healer perk could not deploy its actual physician");
+    auto* healer=actor->GetUnitRPG()->GetRPGUnit();auto* tree=healer->GetPerksTree();vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);NRPG::CPerk* bonus=nullptr;
+    for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==57)bonus=perk;Require(bonus && !bonus->IsTaken(),"wound healer perk fixture lacks an unacquired real ability");
+    vector<CPtr<NRPG::CPerk>> path;
+    auto collect=[&](auto&& self,NRPG::CPerk* perk)->void{for(int i=0;i<perk->GetParents().GetSize();++i)self(self,perk->GetParents()[i]);for(auto known:path)if(known.GetPtr()==perk)return;path.push_back(perk);};collect(collect,bonus);
+    for(int level=1;tree->GetPerkPoints()<int(path.size()) && level<=20;++level)healer->SetXPLevel(level);
+    Require(tree->GetPerkPoints()>=int(path.size()),"wound healer perk native progression did not earn its actual prerequisite points");
+    const bool acquired=mode!=2 && mode!=3;
+    for(auto perk:path){if(perk.GetPtr()==bonus && !acquired)continue;Require(perk->CanTake(),"wound healer perk tried to bypass a real prerequisite");tree->TakePerk(perk->GetDBPerk()->GetRecordID());}
+    float parameter=0;Require(healer->HasPerk(57,&parameter)==acquired && (!acquired || parameter>0),"wound healer perk did not acquire/withhold its actual positive bonus");
+    CObj<NWorld::CUnitServer> patient=world->AddUnitInGame(anchor->GetPosition().pos.p,NRPG::CreateUnit(NDb::GetPers(103)),actor->GetTBSPlayer());Require(patient && patient->CanFight() && !patient->GetUnitRPG()->HasPerk(24),"wound healer perk lacks its ordinary unmodified patient");
+    auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),1.5f),&places);bool placed=false;
+    for(auto place:places){place.SetPose(NAI::CM_STAND);if(!network->IsPassable(place) || network->IsLocked(place,false))continue;auto pos=patient->GetPosition();pos.pos=NAI::SPosition(place,network);if(fabs(pos.GetCP()-actor->GetPosition().GetCP())<.3f || !NWorld::IsWithinHumanReach(actor->GetPosition().GetCP(),pos.GetCP(),.8f))continue;world->GetTime()->Set(world->GetTime()->GetValue()+1);patient->SetPosition(pos);patient->animator.AlignTime();patient->animator.PlaceUnit(pos);placed=true;break;}Require(placed,"wound healer perk has no free real patient approach");
+    auto* record=NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(mode==1 || mode==3?4:3);Require(record && record->effect==NDb::FAE_CRITICAL_FIRST && record->nSkillModifier==(mode==1 || mode==3?20:10) && record->nAPToUse==10,"wound healer perk lost its actual critical-first kit3/4, unaffected by normal-only speed63");
+    CObj<NRPG::CFirstAidItem> kit=new NRPG::CFirstAidItem(record);auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> previous;if(inventory->Get(NDb::SLOT_1))previous=inventory->TakeOff(NDb::SLOT_1);Require(inventory->Equip(NDb::SLOT_1,kit) && inventory->Activate(NDb::SLOT_1),"wound healer perk cannot equip its actual kit");
+    actor->animator.SetActiveItem(true);actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());MarkNewDGFrame();world->GetAIMap()->Sync();
+    auto* target=patient->GetUnitRPG();auto* unit=target->GetRPGUnit();auto& hp=unit->Skills(NDb::ST_VP);const int wound=mode==1 || mode==3?hp.GetMaxValue()/2:mode==4?12:4;hp.SetValue(hp.GetMaxValue()-wound);target->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_VP));
+    if(mode==4){NRPG::SFirstAid prior;prior.fdVP=8;prior.nMaxVP=999;target->HealVP(prior);}
+    const int raw=hp,already=unit->nHealedVP,ap=actor->GetAP(),quantity=kit->GetIncQuantity(),medicine=healer->Skills(NDb::ST_MEDICINE),skill=int(medicine+record->nSkillModifier+parameter);
+    const int budget=ap-record->nAPToUse;Require(budget>0,"wound healer perk has insufficient native AP after its authored preparation");
+    const int quota=int(float(NRPG::N_MAX_VP)/NRPG::N_MAX_SKILL*skill);int expectedHP=(std::min)((std::max)(0,quota-already),wound-already),expectedAP=int(60.f/skill*expectedHP);
+    if(expectedAP>budget){expectedAP=budget;expectedHP=Float2Int(budget*skill/60.f);}expectedHP=(std::min)(expectedHP,record->nTotalHealVP);
+    NRPG::SFirstAid plan;int required=-999;auto random=GlobalGameRandom();const bool planned=healer->CreateFirstAid(&plan,budget,record->nTotalHealVP,kit,unit,&required);
+    Require(actor->GetAP()==ap && kit->GetIncQuantity()==quantity && int(hp)==raw && unit->nHealedVP==already && int(healer->Skills(NDb::ST_MEDICINE))==medicine && random.Get()==GlobalGameRandom().Get(),"wound healer perk planning mutated actual AP/item/health/medicine/RNG");
+    std::printf("native wound healer perk query: mode=%d persona=%d level=%d parents=%d acquired=%d parameter=%g medicine=%d skill=%d quota=%d planned=%d actualQuota=%d required=%d expectedAP=%d plannedHP=%g expectedHP=%d wound=%d dressed=%d AP=%d budget=%d speed63=%d kit=%d\n",mode,persona->GetRecordID(),int(healer->Skills(NDb::ST_LEVEL)),int(path.size())-1,int(acquired),parameter,medicine,skill,quota,int(planned),planned?plan.nMaxVP:-1,required,expectedAP,planned?plan.fdVP:-1,expectedHP,wound,already,ap,budget,int(healer->HasPerk(63)),record->GetRecordID());std::fflush(stdout);
+    CObj<NWorld::CExecHeal> executor=new NWorld::CExecHeal(actor,patient);Require(executor->CanDoIt(actor->GetPosition())==NWorld::UCR_OK && !world->IsRealTime(),"wound healer perk actual order is unavailable");executor->Run();Require(actor->GetAP()==budget && unit->nHealedVP==already && kit->GetIncQuantity()==quantity,"wound healer perk start changed its authored10AP preparation");executor->AnimationFinished();
+    std::printf("native wound healer perk action: mode=%d dressed=%d expectedDressed=%d AP=%d expectedAP=%d rawHP=%d medicine=%d dose=%d\n",mode,unit->nHealedVP,already+expectedHP,actor->GetAP(),budget-expectedAP,int(hp),int(healer->Skills(NDb::ST_MEDICINE)),kit->GetIncQuantity());std::fflush(stdout);
+    Require(planned && plan.nMaxVP==quota && required==expectedAP && int(plan.fdVP)==expectedHP && unit->nHealedVP==already+expectedHP && actor->GetAP()==budget-expectedAP,"wound treatment ignored the original healer skill perk57");
+    Require(int(hp)==raw && int(healer->Skills(NDb::ST_MEDICINE))==medicine,"local wound bonus changed raw health or the physician medicine statistic");
+    actor->SetState(new NWorld::CUnitStateNormal(actor));Require(kit->GetIncQuantity()==quantity-1 && !target->HasCritical(NDb::C_PATIENT) && !actor->IsPerformingAction(),"wound healer perk lost native charge/patient ownership cleanup");
+}
+
 static void RepairPlanner(const char* databasePath,const char* resourcePath,int mode)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
@@ -26135,6 +26178,11 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "repair-finish-cancel-ordinary") && argc==4) { RepairOrderGate(argv[2],argv[3],0,6,4); return true; }
     if (!std::strcmp(mode, "repair-finish-last-dedicated") && argc==4) { RepairOrderGate(argv[2],argv[3],0,0,5); return true; }
     if (!std::strcmp(mode, "repair-finish-last-ordinary") && argc==4) { RepairOrderGate(argv[2],argv[3],0,6,6); return true; }
+    if (!std::strcmp(mode, "wound-healer-perk-small") && argc==4) { WoundHealerPerk(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "wound-healer-perk-budget") && argc==4) { WoundHealerPerk(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "wound-healer-perk-without-small") && argc==4) { WoundHealerPerk(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "wound-healer-perk-without-budget") && argc==4) { WoundHealerPerk(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "wound-healer-perk-partly-dressed") && argc==4) { WoundHealerPerk(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "repair-planner-small") && argc==4) { RepairPlanner(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "repair-planner-full") && argc==4) { RepairPlanner(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "repair-planner-limited-ap") && argc==4) { RepairPlanner(argv[2],argv[3],2); return true; }

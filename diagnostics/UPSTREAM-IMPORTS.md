@@ -13101,3 +13101,49 @@ Source531f remains PARTIAL: acknowledgments, healer57/speed63 and other
 source remainder/practice checks remain separate. All-source ledger149
 imported/21partial/68pending=89 unfinished source commits; whole goal active.
 No fresh fullCI or hosted Actions claim; final actual hosted tests remain due.
+
+
+## 2026-10-29 — restore physician57 wound-treatment skill bonus (531f3b7d)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9),
+independent healer57 strength stage. Add the actual physician perk parameter
+to the local treatment skill and truncate, after the existing patient24 and
+item modifier stage. Only two production lines; the real Medicine statistic,
+authored data, repair branch, AP minima and other formulas are unchanged.
+Native Gold6b4ae1/Steam6bac81 entire58-byte blocks match except a single
+HasPerk call operand. The function header proves the physician this pointer;
+actual physician tree+84, perk57 query, local integer FILD/float addition/
+integer truncation and following wound quota input verified. Original speed63
+is gated on NORMAL0, so critical-first7 is unaffected by that distinct perk.
+
+Use actual ordinary physician persona34; collect the real57 prerequisite
+path, gain enough perk points through native SetXPLevel tolevel5 and take
+all three parents in CanTake order. Withhold57 in both controls. All cases
+have actual Medicine60/AP55; with57 param15. This avoids arbitrary point,
+medicine or AP injection. Initial setup tried to exclude speed63, but it is
+a required parent: that setup failure is not RED. Use actual critical-first
+kits3/4 wound fallback, where original63 does not apply; capacity/modifier/
+10AP preparation remain authored. A first capacity50 choice masked action
+amounts despite a genuine quota failure, so strengthen to4HP/partly-dressed
+4HP AP boundaries and kit4 capacity70. Final RED is repeated BEFORE any
+production edit and proves actual action effects rather than quota alone.
+
+Native RED3/5 Windows5.47s/Linux5.54s: with57, small4HP and remaining4HP
+still cost3 instead of2AP; the45AP large-wound segment dresses60 instead
+of70HP. Both without57 controls pass. Public planner queries are pure, then
+actual CExecHeal::Run/AnimationFinished exercise treatment and native dose/
+patient cleanup. With57 local skill85/95 and quota151/169 replace70/80 and
+125/142; actor Medicine remains60. Small/partial AP55->45 prep->43 versus
+old42; large kit4 now exhausts authored70 capacity and finishes its dose,
+where old60 dressing left10 capacity pending. Actual raw patient HP is
+unchanged; prior dressing8 comes from native HealVP, not a direct counter.
+
+GREEN104/104 Windows112.13s/Linux113.10s, exact previous99 plus all5 cases,
+identical real qualification/inputs/results across platforms, pure planning,
+unchanged Medicine and both without57 controls verified. Windows ALL_BUILD
+and Linux Game pass; verifier checks raw logs, exact registrations, TDD order,
+both original blocks and precisely the two-line production diff. Shared
+builds/HD generation disabled, no per-bug build copies or new balance tuning.
+No fresh fullCI/hosted GitHub Actions claim. Normal-only speed63, acknowledgments
+and other source remainder remain separate;531f stillPARTIAL, whole goal
+active. Ledger149 imported/21partial/68pending=89 unfinished source commits.

@@ -760,6 +760,8 @@ bool CUnit::CreateFirstAid( SFirstAid *pRes, int nMaxSpentAP, float fKitCapacity
 	if ( pTarget->HasPerk( 24, &fPerk ) )
 		fPatientMult = fPerk;
 	int nSkill = int( int(*skills[ NDb::ST_MEDICINE ]) * fPatientMult + pItem->GetDBFirstAid()->nSkillModifier );
+	if ( HasPerk( 57, &fPerk ) )
+		nSkill = int( nSkill + fPerk );
 	CreateFirstAid( &tmp, 0, nSkill );
 	int nMaxHealed = pTarget->Skills(NDb::ST_VP).GetMaxValue() - pTarget->Skills(NDb::ST_VP) - pTarget->nHealedVP;
 	int nVPToHeal = Max( 0, tmp.nMaxVP - pTarget->nHealedVP );
