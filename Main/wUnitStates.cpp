@@ -711,6 +711,7 @@ void CUnitStateHealer::OnStateFinished()
 	NRPG::IUnitMission *pRPG = pUS->GetUnitRPG();
 	NRPG::IInventory *pInventory = pRPG->GetInventory();
 	CDynamicCast<NRPG::CFirstAidItem> pFA(pRPG->GetInventory()->GetActive());
+	const bool bRepair = pFA && pFA->GetDBFirstAid()->effect == NDb::FAE_REPAIR_PK;
 	if (pFA)
 	{
 		pFA->SpendPotion();
@@ -723,7 +724,10 @@ void CUnitStateHealer::OnStateFinished()
 			pUS->Update();
 		}
 	}
-	pUS->animator.FinishHealing( pUS->GetPosition() );
+	if ( bRepair )
+		pUS->SetHandEffect( 0, 0 );
+	pUS->animator.FinishHealing( pUS->GetPosition(), bRepair,
+		IsValid(pFA) && pFA->GetDBFirstAid()->GetRecordID() == 26 ? 0x1185 : 0x1184 );
 	pTarget->GetUnitRPG()->RemoveCritical( NDb::C_PATIENT );
 	if ( pTarget->CanFight() )
 		SayAck();

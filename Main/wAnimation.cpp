@@ -1970,9 +1970,10 @@ void CUnitAnimator::Wound()
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitAnimator::PlayAnimation( const NAI::SUnitPosition &cmdPos, 
-	NAnimation::CAnimation *pAnimation, bool bInstantly )
+	NAnimation::CAnimation *pAnimation, bool bInstantly, bool bStandFirst )
 {
-	Stand( cmdPos );
+	if ( bStandFirst )
+		Stand( cmdPos );
 	if ( !IsValid( pAnimation ) )
 	{
 		DefaultAction( cmdPos );
@@ -2361,11 +2362,20 @@ void CUnitAnimator::StartHealing( const NAI::SUnitPosition &cmdPos, NAI::EBlowHe
 	HealOn( cmdPos, pszParams );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CUnitAnimator::FinishHealing( const NAI::SUnitPosition &cmdPos )
+void CUnitAnimator::FinishHealing( const NAI::SUnitPosition &cmdPos, bool bRepair, int nAnimationID )
 {
 	bHealing = false;
 	bWalking = true;
-	Stand( cmdPos );
+	tEnd = pTime->GetValue();
+	if ( bRepair )
+	{
+		int nFlags = nAnimFlagsPoseWeapon;
+		nAnimFlagsPoseWeapon = 0;
+		CPtr<NAnimation::CAnimation> pAnim = pAnimator->CreateAnimation( NDb::GetDBAnimation(nAnimationID), tEnd );
+		PlayAnimation( cmdPos, pAnim, false, false );
+		SetCustomIdleAnimation( 0 );
+		nAnimFlagsPoseWeapon = nFlags;
+	}
 	IdleOn( cmdPos );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

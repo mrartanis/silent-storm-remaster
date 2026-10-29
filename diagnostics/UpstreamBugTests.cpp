@@ -23778,7 +23778,30 @@ static void TimedCriticalTreatment(const char* databasePath,const char* resource
     std::printf("native timed critical complete: mode=%d total=%d selected=%d remaining=%d patient=%d charge=%d->%d\n",mode,total,int(selected),expectedRemaining,int(hasSelected()),quantity,kit->GetIncQuantity());std::fflush(stdout);
 }
 
-static void RepairOrderGate(const char* databasePath,const char* resourcePath,int mode,int repairAction=-1)
+struct SRepairFinishSnapshot
+{
+    int idle=0,flags=0,weaponFlags=0,welder=0;
+    bool healing=false,walking=false,activeItem=false;
+    STime end=0;
+    vector<CObj<NAnimation::CAnimation>> clips;
+};
+
+static SRepairFinishSnapshot RepairFinishSnapshot(NWorld::CUnitServer* actor)
+{
+    SRepairFinishSnapshot result;
+    auto* state=dynamic_cast<NAnimation::CSkeletonState*>(actor->animator.GetSkeletonState());Require(state,"repair finish has no actual skeleton state");
+    result.idle=state->state.pIdleAnimation?state->state.pIdleAnimation->GetRecordID():0;result.flags=state->state.cIdleBannedFlags;
+    PainSoundVisitor sound;actor->NWorld::CDumbUnitServer::Visit(&sound);
+    for(auto* entry:sound.sounds)if(entry && entry->GetRecordID()==0x4057)++result.welder;
+    CStructureNetworkContext refs;refs.include=[](CObjectBase*){return false;};CMemoryStream fields;
+    {CStructureSaver writer(fields,CStructureSaver::WRITE,&refs);actor->animator.operator&(writer);}fields.Seek(0);
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(3,&result.end);reader.Add(4,&result.weaponFlags);reader.Add(9,&result.walking);reader.Add(22,&result.activeItem);reader.Add(25,&result.healing);}
+    CStructureNetworkContext graph;graph.include=[&](CObjectBase* object){if(auto* clip=dynamic_cast<NAnimation::CAnimation*>(object))result.clips.push_back(clip);return dynamic_cast<NAnimation::CAnimator*>(object)!=nullptr || dynamic_cast<NAnimation::CSkeletonAnimator*>(object)!=nullptr;};
+    CMemoryStream traversal;{CStructureSaver writer(traversal,CStructureSaver::WRITE,&graph);static_cast<CObjectBase*>(actor->animator.GetSkeletonAnimator())->operator&(writer);}
+    return result;
+}
+
+static void RepairOrderGate(const char* databasePath,const char* resourcePath,int mode,int repairAction=-1,int repairFinish=-1)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
     list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* anchor=nullptr;
@@ -23831,6 +23854,7 @@ static void RepairOrderGate(const char* databasePath,const char* resourcePath,in
     if(inventory->Get(NDb::SLOT_1))previous=inventory->TakeOff(NDb::SLOT_1);
     if(mode!=7)Require(inventory->Equip(NDb::SLOT_1,kit) && inventory->Activate(NDb::SLOT_1),"repair order cannot equip its real kit");else inventory->Activate(NDb::SLOT_1);
     if(mode==12)while(!kit->IsEmpty())kit->SpendPotion();
+    if(repairFinish>=5)while(kit->GetIncQuantity()>1)kit->SpendPotion();
     MarkNewDGFrame();world->GetAIMap()->Sync();
     const int ap=actor->GetAP(),quantity=kit->GetIncQuantity(),rawShellHP=shellHP,pilotHP=pilot?int(pilot->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP)):-1;const auto position=actor->GetPosition();auto random=GlobalGameRandom();
     if(repairAction>=0) {
@@ -23854,6 +23878,22 @@ static void RepairOrderGate(const char* databasePath,const char* resourcePath,in
         Require(target->GetUnitRPG()->HasCritical(NDb::C_PATIENT)==active && kit->GetIncQuantity()==quantity-(repairAction==7?1:0) && (actor->GetState()==NWorld::CUnit::ST_HEALER)==active,"repair state lost its native pending capacity, patient marker or dose ownership");
         auto verifyPilot=[&](){if(pilot)Require(int(pilot->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP))==pilotHP && pilot->GetUnitRPG()->GetRPGUnit()->nHealedVP==pilotBandage && pilot->GetUnitRPG()->HasCritical(NDb::C_VP)==pilotWound,"PK repair healed or bandaged its wounded pilot");};
         auto capacity=[&](){CStructureNetworkContext refs;auto fields=BorrowedObjectFields(actor,&refs);CObj<NWorld::CUnitState> state;{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(10,&state);}Require(dynamic_cast<NWorld::CUnitStateHealer*>(state.GetPtr()),"repair action lost its actual healer state");CStructureNetworkContext values;auto saved=BorrowedObjectFields(state,&values);float result=-999;{CStructureSaver reader(saved,CStructureSaver::READ,&values);reader.Add(4,&result);}return result;};
+        SRepairFinishSnapshot finishBefore;
+        if(repairFinish>=0) {
+            finishBefore=RepairFinishSnapshot(actor);
+            std::printf("native repair finish before: mode=%d action=%d kit=%d idle=%d flags=%d welder=%d healing=%d activeItem=%d clips=%d dose=%d end=%lld now=%lld\n",repairFinish,repairAction,record->GetRecordID(),finishBefore.idle,finishBefore.flags,finishBefore.welder,int(finishBefore.healing),int(finishBefore.activeItem),int(finishBefore.clips.size()),kit->GetIncQuantity(),(long long)finishBefore.end,(long long)world->GetTime()->GetValue());std::fflush(stdout);
+            Require(finishBefore.idle==(record->GetRecordID()==26?0x1183:0x1181) && (finishBefore.flags&NAnimation::E_CUSTOM_ANIMATION_IDLE)!=0 && finishBefore.welder==(record->GetRecordID()==26?1:0) && finishBefore.healing,"repair finish fixture never entered its actual custom repair idle and dedicated welder state");
+        }
+        auto verifyFinish=[&](){
+            const auto after=RepairFinishSnapshot(actor);const int wanted=record->GetRecordID()==26?0x1185:0x1184;int clips=0;STime length=0;
+            for(auto clip:after.clips){bool old=false;for(auto previous:finishBefore.clips)if(previous.GetPtr()==clip.GetPtr())old=true;if(!old && clip->GetRecordID()==wanted){++clips;length=clip->GetTime();}}
+            const bool removed=repairFinish>=5;
+            std::printf("native repair finish after: mode=%d kit=%d idle=%d flags=%d welder=%d healing=%d walking=%d activeItem=%d slotEmpty=%d wanted=%d newFinishClips=%d length=%lld end=%lld now=%lld dose=%d\n",repairFinish,record->GetRecordID(),after.idle,after.flags,after.welder,int(after.healing),int(after.walking),int(after.activeItem),int(inventory->Get(NDb::SLOT_1)==nullptr),wanted,clips,(long long)length,(long long)after.end,(long long)world->GetTime()->GetValue(),kit->GetIncQuantity());std::fflush(stdout);
+            Require(after.idle==0 && !(after.flags&NAnimation::E_CUSTOM_ANIMATION_IDLE) && after.welder==0 && !after.healing && after.walking,"repair completion retained its custom idle or live welding effect");
+            Require(clips==1 && length>0 && after.end==world->GetTime()->GetValue()+length,"repair completion omitted or mis-timed the original kit-specific finish clip");
+            Require((inventory->Get(NDb::SLOT_1)==nullptr)==removed && after.activeItem!=removed,"repair finish lost the fork active-item cleanup for the last kit charge");
+        };
+        if(repairFinish==3 || repairFinish==4){const int hp=shellHP,ap=actor->GetAP();actor->SetState(new NWorld::CUnitStateNormal(actor));Require(int(shellHP)==hp && actor->GetAP()==ap && kit->GetIncQuantity()==quantity-1 && !target->GetUnitRPG()->HasCritical(NDb::C_PATIENT),"cancelling repair changed paid HP/AP or lost its single dose/marker cleanup");verifyPilot();verifyFinish();return;}
         verifyPilot();Require(rpg->nHealedVP==0 && shell->GetUnitRPG()->GetRPGUnit()->nHealedVP==0,"repair applied human wound dressing to engineer or chassis");
         float remaining=record->nTotalHealVP-(expectedHP-initialHP);
         if(active){Require(capacity()==remaining,"repair did not initialize/subtract its authored kit capacity");const int hp=shellHP,currentAP=actor->GetAP();actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);Require(int(shellHP)==hp && actor->GetAP()==currentAP && capacity()==remaining && kit->GetIncQuantity()==quantity,"same-turn repair finish spent its engineering budget twice");}
@@ -23871,6 +23911,7 @@ static void RepairOrderGate(const char* databasePath,const char* resourcePath,in
         Require(rpg->medalInfos.size()==medals.size(),"repair changed the engineer medal chain");for(int i=0;i<int(medals.size());++i)Require(rpg->medalInfos[i].fPoints==medals[i].fPoints,"repair awarded human wound-treatment medal progress");
         const int finalAP=actor->GetAP(),finalHP=shellHP,finalDose=kit->GetIncQuantity();actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);
         Require(actor->GetAP()==finalAP && int(shellHP)==finalHP && kit->GetIncQuantity()==finalDose,"finished repair consumed another dose or AP");
+        if(repairFinish>=0)verifyFinish();
         std::printf("native repair action complete: mode=%d turns=%d shellHP=%d pilotHP=%d AP=%d dose=%d\n",repairAction,turns,int(shellHP),pilot?int(pilot->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP)):-1,actor->GetAP(),kit->GetIncQuantity());std::fflush(stdout);return;
     }
     if(mode>=17) {
@@ -26087,6 +26128,13 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "repair-action-ordinary-kit") && argc==4) { RepairOrderGate(argv[2],argv[3],0,6); return true; }
     if (!std::strcmp(mode, "repair-action-healthy-in-flight") && argc==4) { RepairOrderGate(argv[2],argv[3],0,7); return true; }
     if (!std::strcmp(mode, "repair-action-missing-in-flight") && argc==4) { RepairOrderGate(argv[2],argv[3],0,8); return true; }
+    if (!std::strcmp(mode, "repair-finish-dedicated-empty") && argc==4) { RepairOrderGate(argv[2],argv[3],0,0,0); return true; }
+    if (!std::strcmp(mode, "repair-finish-dedicated-worn") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,1); return true; }
+    if (!std::strcmp(mode, "repair-finish-ordinary") && argc==4) { RepairOrderGate(argv[2],argv[3],0,6,2); return true; }
+    if (!std::strcmp(mode, "repair-finish-cancel-dedicated") && argc==4) { RepairOrderGate(argv[2],argv[3],0,4,3); return true; }
+    if (!std::strcmp(mode, "repair-finish-cancel-ordinary") && argc==4) { RepairOrderGate(argv[2],argv[3],0,6,4); return true; }
+    if (!std::strcmp(mode, "repair-finish-last-dedicated") && argc==4) { RepairOrderGate(argv[2],argv[3],0,0,5); return true; }
+    if (!std::strcmp(mode, "repair-finish-last-ordinary") && argc==4) { RepairOrderGate(argv[2],argv[3],0,6,6); return true; }
     if (!std::strcmp(mode, "repair-planner-small") && argc==4) { RepairPlanner(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "repair-planner-full") && argc==4) { RepairPlanner(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "repair-planner-limited-ap") && argc==4) { RepairPlanner(argv[2],argv[3],2); return true; }

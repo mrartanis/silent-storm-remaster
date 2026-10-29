@@ -13039,3 +13039,65 @@ healer57/speed63 and practice XP remain separate work. Source531f PARTIAL;
 ledger149 imported/21partial/68pending=89 unfinished source commits, whole
 goal active. Shared builds/HD disabled, no per-bug build copies, no fresh
 fullCI/hosted GitHub Actions claim; final hosted checks remain due after ALL.
+
+
+## 2026-10-29 — finish PK repair body animation and stop welding (531f3b7d)
+
+Source [531f3b7dcfcda4e16c523e3b9a40b636eed52dd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/531f3b7dcfcda4e16c523e3b9a40b636eed52dd9),
+independent repair finish/effect stage. Completed or cancelled repair left
+the real welding loop and repair custom idle active, never played its finish
+clip and extended the old stand timeline. Capture repair effect before kit
+charge/removal, clear the hand effect, and call the original body finish.
+Reset end time to current time, temporarily clear pose/weapon flags, play
+the kit-specific clip without a preceding Stand, clear custom idle and
+restore flags/idle. Other private PlayAnimation calls retain Stand by default.
+Normal FinishHealing also resets its end time and enables idle without Stand,
+as verified in the original. Keep our existing last-charge active-item and
+WT_DEFAULT cleanup, PK ownership, script-sequence breath policy and rewritten
+facial engine. No HD assets, authored balance, AP or save fields changed.
+
+Gold PDB FinishHealing735e70/141 maps uniquely to Steam740bb0: the entire141
+bytes match except five external call operands. Both have time/flags/idle
+clear/flag restoration and final IdleOn; their PlayAnimation734e90/73fbd0
+conditionally skips Stand. Native OnStateFinished7be1f0/7cace0 captures
+effect6 before SpendPotion, clears SetHandEffect(0,0), then selects1185 for
+a surviving valid kit26 or1184 otherwise. Steam lays out the final branches
+differently, but the explicit kit/null/validity gates, constants, arguments
+and actual mapped finish call match. Preserve that post-removal validity
+fallback rather than introducing an unconditional last-charge clip choice.
+
+Seven actual repair finish cases: completed dedicated empty/worn PK,
+ordinary kit27, cancelled dedicated/ordinary, and last dedicated/ordinary
+charge. Shared genuine native engineer/chassis/kit fixture and actual state
+completion/cancellation; no synthetic item/DB/AP/skill changes. Last-charge
+state is produced with native SpendPotion. Inspect actual skeleton custom
+idle, attached welding loop4057 through CDumbUnitServer::Visit, and the real
+current body animator graph. Retain prior clip objects while identifying
+the newly created CAnimation, rather than inferring playback from source.
+The last-charge observer retains a CObj kit reference, so that tested branch
+has a surviving valid object; the production's original invalid-item fallback
+is preserved by code/native audit and is not claimed as a runtime branch test.
+
+Native RED7/8 Windows8.80s/Linux8.65s BEFORE production; ordinary spent-medkit
+pose cleanup passes. Every repair case retains custom idle4483/4481 and
+flag16; dedicated welding sound remains, bWalking0, no finish clip, old
+end10651 for now10051. GREEN99/99 Windows107.73s/Linux110.61s includes previous
+92 plus seven finish cases. Actual after values: idle0/flag0/welder0,
+healing0/walking1; exactly one NEW kit26 finish4485 length733/end10784 or
+kit27 finish4484 length1366/end11417, both rebased to now10051. Last dose
+removes inventory slot/active-item flag, other cases retain them. Costs,
+raw HP/dressing, pilot, native turn/cancel lifecycle and dose remain covered.
+
+Additional exact9/9 animation regressions each: smart-aimer endpoints,
+queue lifetime, deferred animation commands, grenade throw refresh, dead/
+unconscious head idle, own head render topology, cannon entry and PK new-turn
+animation (Windows7.51s/Linux8.18s). Windows ALL_BUILD/Linux Game pass. Raw
+logs, exact registered sets, identical native before/after traces across
+platforms, TDD order and original body/caller audit verified. Shared builds,
+HD generation disabled, no per-bug build copies. This checks native animation
+graphs and loop dispatch, not rendered screenshots or whole-game/RT timing.
+
+Source531f remains PARTIAL: acknowledgments, healer57/speed63 and other
+source remainder/practice checks remain separate. All-source ledger149
+imported/21partial/68pending=89 unfinished source commits; whole goal active.
+No fresh fullCI or hosted Actions claim; final actual hosted tests remain due.
