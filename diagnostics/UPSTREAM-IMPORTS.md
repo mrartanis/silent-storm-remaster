@@ -14100,3 +14100,77 @@ hotseat hunks. Whole goal remains active, including final actual GitHub
 Actions repair/check after applicable imports.
 Evidence: pk-repair-approach-retail-oracle.json, verification.json, complete
 RED20/GREEN280 raw logs/exit files and Windows ALL_BUILD log.
+
+### Held item bones without a uniform (8138c77f)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8138c77fbf891f70d4d4bc0efa6ca01bd8392adc
+
+The slot-based GetBoneName returns empty whenever the actor lacks a uniform,
+before considering a held item or a heavy weapon. Existing body render
+bindings already support these items without a uniform, so lookup disagrees
+with the actual attachment. The real CDumbUnitServer.TearOffItem caller then
+removes the item but skips its model and bone transform; this path is used
+by thrown/dropped items. Move ONLY the existing no-uniform guard after heavy
+and active-hand cases. Empty slots and ordinary hidden/inactive items still
+have no uniformless belt placement. Keep preferred-subtype holster matching,
+visibility policy, bone names, GetItemsBindPlaces, GetBonePos/TearOffItem and
+our own body/face engine unchanged. This fixes actual detached-item output;
+do not describe it as a purely cosmetic effect or claim full throw playback.
+
+Native proof: PDB typed Gold GetBoneName(ESlot,IUnitMissionInfo*,bool)
+6193c0/300 uniquely maps ENTIRE300 to actual Steam61e120. All instructions
+match except4 individually verified direct-call operands, SEH address,
+Item/empty string pointers,9-int visual-place table pointer and ONE virtual
+GetUniform slot operand. That slot difference is independently explained:
+named Gold CInventory.GetUniform697670/23 uniquely EXACT Steam69d7a0/23;
+Gold CInventory vft8b414c+34 and actual Steam8c326c+30 point to those methods,
+with actual CInventory RTTI verified. Table bytes and actual strings agree.
+Heavy selection atGold61941f/Steam61e17f and active-hand/undraw selection
+precede the uniform test Gold619460/Steam61e1c0. Cached source61d953..61d9a2
+are constructor code in this actual Steam oracle, not these guards.
+
+Sixteen new native cases use ACTUAL authored persona195 with no uniform and
+persona2 with one. No uniform/model DB record or saved field is fabricated.
+Create actual world/player/unit/inventory and equip modelled grenade item122,
+ordinary gun item1 or heavy rifle item12. The grenade has one live runtime
+stack item, following native inventory setup; gun ammunition is8/5. Real
+AP57/HP115 are preserved. Compare direct/repeated slot lookup with unchanged
+actual GetItemsBindPlaces: the six failing rows already have the correct
+body attachment. Controls cover hidden/inactive/empty slots, carried heavy
+weapons and uniformed counterparts. The existing GetItemsBindPlaces output
+and related inventory policy are not replaced.
+
+Five cases additionally exercise REAL TearOffItem. For the actual held
+grenade/pistol, obtain their own body animator's real non-root Item bone58
+and native GetBonePos transform, then require the detached model to exist
+at that transform, retaining the actual item identity. The intended slot
+removal remains. Empty detachments and uniformed grenade detachment are
+controls. Physical AP/HP/position/uniform/ammo/quantity/RNG stay unchanged.
+This is actual native model/bone-transform output, not a fake interface,
+production testing seam, pixel comparison or full projectile/animation test.
+
+An initial test-only compile mistake confused CTRndModel template with
+rolled CModel; fix it before native runs. Preliminary zero-count grenade
+constructor observations are archived separately; correct to a single live
+grenade and repeat BOTH final REDs before Main. Final genuine RED6fail/16
+on Windows/Linux:4 lookup failures plus2 real detachment failures;10 controls
+pass. The failing detachments return item identity/empty slot but success0,
+model0/positioned0. Both final REDs terminate before the guard move.
+
+GREEN45/45 Windows77.27s/Linux79.43s =29 previous inventory/grenade/knife/
+visibility/detachment regressions plus16 new. All16 attachment/5detachment
+native rows match across platforms. Only the six intended bone/repeat names
+and the two model/position/success sets change; all10 control observations
+remain identical. Detached grenade/pistol now have model1/success1 and
+correct real hand transform, without spending ammo or the grenade. Windows
+ALL_BUILD and Linux Game/helpers pass. Exact ONE Main-file diff reconstructed:
+the guard moves; no other production code changes. Existing head/face/body,
+HD/fonts, DB, AP/HP/ammo, physics rules, save/network and API stay intact.
+No fresh fullCI/hosted Actions or full throwing/pixel claim.
+
+All hunks of this single-file source are accounted for; mark8138 imported.
+Ledger286 now154 imported/19partial/70pending =89 unfinished sources. Whole
+goal remains active, including final actual GitHub Actions repair/check.
+Evidence: nonuniform-attachment original-types/oracle/verification JSON,
+final RED16/GREEN45 logs/exits, baseline29 manifest, preliminary setup
+archives and Windows ALL_BUILD. Shared builds only, no old source/build copies.

@@ -125,12 +125,15 @@ const char* GetBoneName( NDb::ESlot slot, NRPG::IUnitMissionInfo *pRPG, bool bUn
 	NDb::CRPGUniform *pDBUniform = pInventory->GetUniform();
 	NRPG::IInventoryItem *pItem = pInventory->Get( slot );
 	NRPG::IInventoryItem *pActiveItem = pInventory->GetActive();
-	if ( !pItem || !pDBUniform )
+	if ( !pItem )
 		return "";
 	if ( pItem->GetDBItem()->subType == NDb::SUBTYPE_HEAVY )
 		return GetBoneName( UIT_WEAPON_HEAVY, pItem );
 	if ( pItem == pActiveItem && !bUndrawWeapon )
 		return GetBoneName( UIT_HAND, pItem );
+	// Gold 619460 / Steam 61e1c0: only holstered placement needs a uniform.
+	if ( !pDBUniform )
+		return "";
 	for ( int i = 0; i < NDb::N_ITEM_PLACES; ++i )
 	{
 		// Retail GetBoneName uses the preferred subtype of each visual place.

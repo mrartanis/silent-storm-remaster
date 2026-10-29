@@ -12201,6 +12201,33 @@ static void ExplicitItemActivationVisibility(const char* databasePath,const char
         }
 }
 
+static void NonUniformAttachment(const char* databasePath,const char* resourcePath,int mode)
+{
+    const bool uniform=mode>=7 && mode<=10 || mode==12 || mode==15,heavy=mode==2 || mode==3 || mode==9,gun=mode==1 || mode==8 || mode==13;
+    const bool inactive=mode==3 || mode==5 || mode==9,hidden=mode==4 || mode==10,empty=mode==6 || mode==14 || mode==15,detach=mode>=11;
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);NWorld::CUnitServer* anchor=nullptr;for(auto entry:units){auto* unit=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());if(unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()){anchor=unit;break;}}Require(anchor,"nonuniform attachment has no real native owner anchor");
+    NDb::CRPGPers* persona=nullptr;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while(people.MoveNext()){auto* p=people.Get();if(!p->pClass || !p->pBaseValue || !p->pModel || p->pClass->skills[NDb::ST_LEVEL]<=0 || p->pPanzerklein || p->pDefaultWearsPanzerklein || bool(p->pUniform)!=uniform)continue;if(!persona || p->GetRecordID()<persona->GetRecordID())persona=p;}
+    Require(persona,"nonuniform attachment lacks an actual authored persona with the required uniform state");CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(persona);CObj<NWorld::CUnitServer> actor=world->AddUnitInGame(anchor->GetPosition().pos.p,mission,anchor->GetTBSPlayer());Require(actor && actor->CanFight() && !actor->IsWearingPK() && !actor->IsEmptyPK(),"nonuniform attachment cannot deploy its real ordinary authored actor");
+    auto* inventory=mission->GetInventory();vector<CObj<NRPG::IInventoryItem>> previous;for(auto slot:{NDb::SLOT_1,NDb::SLOT_2})if(auto* item=inventory->TakeOff(slot))previous.push_back(item);const auto bag=inventory->GetItems();for(const auto& item:bag){previous.push_back(item.pItem.GetPtr());inventory->Take(item.pItem);}Require(bool(inventory->GetUniform())==uniform,"nonuniform attachment changed the authored saved uniform");
+    NDb::CRPGWeapon* weaponRecord=nullptr;CDBIterator<NDb::CRPGWeapon> weapons(*NDatabase::GetTable<NDb::CRPGWeapon>());while(weapons.MoveNext()){auto* w=weapons.Get();if(!w->pItem || !w->pItem->pModel || !w->pItem->bPlaceInHand || !w->pAnimWeaponType || bool(w->pItem->subType==NDb::SUBTYPE_HEAVY)!=heavy)continue;const auto type=w->pAnimWeaponType->type;if(heavy && type!=NDb::WT_RIFLE && type!=NDb::WT_SUB_MACHINE_GUN && type!=NDb::WT_MACHINE_GUN && type!=NDb::WT_RLAUNCHER && type!=NDb::WT_PLAZMAGUN)continue;if(!weaponRecord || w->GetRecordID()<weaponRecord->GetRecordID())weaponRecord=w;}
+    NDb::CRPGGrenade* grenadeRecord=nullptr;CDBIterator<NDb::CRPGGrenade> grenades(*NDatabase::GetTable<NDb::CRPGGrenade>());while(grenades.MoveNext()){auto* g=grenades.Get();if(g->pItem && g->pItem->pModel && g->pItem->bPlaceInHand && (g->pItem->subType==NDb::SUBTYPE_GRENADE_SMALL || g->pItem->subType==NDb::SUBTYPE_GRENADE_LARGE) && (!grenadeRecord || g->GetRecordID()<grenadeRecord->GetRecordID()))grenadeRecord=g;}
+    Require(weaponRecord && grenadeRecord,"nonuniform attachment lacks modelled authored ordinary/heavy weapons and grenade");CObj<NRPG::CWeaponItem> weapon;CObj<NRPG::CGrenadeItem> grenade;CObj<NRPG::IInventoryItem> item;
+    if(!empty){if(heavy || gun){weapon=new NRPG::CWeaponItem(weaponRecord);item=weapon;}else{grenade=new NRPG::CGrenadeItem(grenadeRecord);grenade->nQuantity=1;item=grenade;}Require(inventory->Equip(NDb::SLOT_1,item),"nonuniform attachment cannot equip its real item");}Require(inventory->Activate(inactive?NDb::SLOT_2:NDb::SLOT_1),"nonuniform attachment cannot set its actual selected hand");
+    actor->SetUndrawItem(false);actor->animator.SetActiveItem(true);actor->animator.SetWeaponAnimation(mission->GetWeaponType());MarkNewDGFrame();world->GetAIMap()->Sync();
+    std::string expected;
+    if(!empty){if(heavy)expected=NWorld::GetBoneName(NWorld::UIT_WEAPON_HEAVY,item);else if(!inactive && !hidden)expected="Item";else if(uniform){const int place=inventory->GetPlaceBySubType(item->GetDBItem()->subType);if(place>=0)expected=NWorld::GetBoneName(static_cast<NWorld::EUnitItemType>(NWorld::UIT_BELT_L1+place),item);}}
+    const auto position=actor->GetPosition();const int ap=actor->GetAP(),hp=mission->GetTotalVP(),ammo=weapon?weapon->GetAmmoQuantity():0,quantity=grenade?grenade->nQuantity:0;auto* actualUniform=inventory->GetUniform();auto random=GlobalGameRandom();const std::string bone=NWorld::GetBoneName(NDb::SLOT_1,mission,hidden),repeat=NWorld::GetBoneName(NDb::SLOT_1,mission,hidden);
+    vector<NWorld::IRenderVisitor::SBoundMesh> meshes;NWorld::GetItemsBindPlaces(&meshes,mission,hidden,nullptr);int matching=0;for(const auto& mesh:meshes)if(mesh.pszBindBone && !expected.empty() && expected==mesh.pszBindBone)++matching;
+    std::printf("native nonuniform attachment: mode=%d uniform=%d persona=%d item=%d heavy=%d inactive=%d hidden=%d empty=%d detach=%d bone=%s repeat=%s expected=%s matchingMeshes=%d AP=%d HP=%d ammo=%d quantity=%d\n",mode,int(uniform),persona->GetRecordID(),item?item->GetDBItem()->GetRecordID():0,int(heavy),int(inactive),int(hidden),int(empty),int(detach),bone.empty()?"<empty>":bone.c_str(),repeat.empty()?"<empty>":repeat.c_str(),expected.empty()?"<empty>":expected.c_str(),matching,ap,hp,ammo,quantity);std::fflush(stdout);
+    if(!detach){auto afterRandom=GlobalGameRandom();Require(actor->GetAP()==ap && mission->GetTotalVP()==hp && actor->GetPosition()==position && inventory->GetUniform()==actualUniform && inventory->Get(NDb::SLOT_1)==item.GetPtr() && inventory->GetActiveSlot()==(inactive?NDb::SLOT_2:NDb::SLOT_1) && (weapon?weapon->GetAmmoQuantity():0)==ammo && (grenade?grenade->nQuantity:0)==quantity && random.Get()==afterRandom.Get(),"nonuniform attachment query changed actual unit/item/uniform/AP/HP/RNG");if(!expected.empty() && !hidden)Require(matching==1,"native body binding control does not contain the authored selected item bone");Require(bone==expected && repeat==expected,"slot attachment wrongly requires a uniform for a held or heavy item");return;}
+    CVec3 expectedPosition=VNULL3;CQuat expectedRotation;int index=-1;if(!empty){auto* skeleton=actor->animator.GetSkeletonAnimator();Require(skeleton,"nonuniform attachment has no actual body animator");index=skeleton->GetBoneIndex("Item");Require(index>0,"nonuniform attachment actor lacks the real non-root hand bone");actor->GetBonePos(&expectedPosition,&expectedRotation,"Item");}
+    NWorld::CUnitServer::SResItem removed;const bool detached=actor->TearOffItem(&removed,NDb::SLOT_1);auto afterRandom=GlobalGameRandom();const bool positioned=detached && std::isfinite(removed.ptCenter.x) && std::isfinite(removed.ptCenter.y) && std::isfinite(removed.ptCenter.z) && fabs(removed.ptCenter-expectedPosition)<.001f;
+    std::printf("native nonuniform detachment: mode=%d success=%d expected=%d model=%d itemIdentity=%d emptySlot=%d handBone=%d positioned=%d AP=%d HP=%d\n",mode,int(detached),int(!empty),int(IsValid(removed.pModel)),int(removed.pItem.GetPtr()==item.GetPtr()),int(inventory->Get(NDb::SLOT_1)==nullptr),index,int(positioned),actor->GetAP(),mission->GetTotalVP());std::fflush(stdout);
+    Require(!inventory->Get(NDb::SLOT_1) && removed.pItem.GetPtr()==item.GetPtr() && actor->GetAP()==ap && mission->GetTotalVP()==hp && actor->GetPosition()==position && inventory->GetUniform()==actualUniform && (weapon?weapon->GetAmmoQuantity():0)==ammo && (grenade?grenade->nQuantity:0)==quantity && random.Get()==afterRandom.Get(),"native detachment changed more than the intended equipment slot or lost the real item");
+    Require(detached==!empty && IsValid(removed.pModel)==!empty && (empty || positioned),"uniformless held item detaches without its real model and hand-bone transform");
+}
+
 static void HolsteredHeavyWeaponMesh(const char* databasePath, const char* resourcePath,int visibility = 0)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -26772,6 +26799,22 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "treatment-ack-repair-below-half") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,2); return true; }
     if (!std::strcmp(mode, "treatment-ack-repair-spent-pilot-ap") && argc==4) { RepairOrderGate(argv[2],argv[3],1,1,-1,3); return true; }
     if (!std::strcmp(mode, "treatment-ack-repair-empty-silent") && argc==4) { RepairOrderGate(argv[2],argv[3],0,0,-1,4); return true; }
+    if (!std::strcmp(mode, "nonuniform-attachment-grenade") && argc==4) { NonUniformAttachment(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "nonuniform-attachment-gun") && argc==4) { NonUniformAttachment(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "nonuniform-attachment-heavy") && argc==4) { NonUniformAttachment(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "nonuniform-attachment-carried-heavy") && argc==4) { NonUniformAttachment(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "nonuniform-attachment-hidden") && argc==4) { NonUniformAttachment(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "nonuniform-attachment-inactive") && argc==4) { NonUniformAttachment(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "nonuniform-attachment-empty") && argc==4) { NonUniformAttachment(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "nonuniform-attachment-uniform-grenade") && argc==4) { NonUniformAttachment(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "nonuniform-attachment-uniform-gun") && argc==4) { NonUniformAttachment(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "nonuniform-attachment-uniform-carried-heavy") && argc==4) { NonUniformAttachment(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "nonuniform-attachment-uniform-hidden") && argc==4) { NonUniformAttachment(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "nonuniform-attachment-detach-grenade") && argc==4) { NonUniformAttachment(argv[2],argv[3],11); return true; }
+    if (!std::strcmp(mode, "nonuniform-attachment-uniform-detach-grenade") && argc==4) { NonUniformAttachment(argv[2],argv[3],12); return true; }
+    if (!std::strcmp(mode, "nonuniform-attachment-detach-gun") && argc==4) { NonUniformAttachment(argv[2],argv[3],13); return true; }
+    if (!std::strcmp(mode, "nonuniform-attachment-detach-empty") && argc==4) { NonUniformAttachment(argv[2],argv[3],14); return true; }
+    if (!std::strcmp(mode, "nonuniform-attachment-uniform-empty") && argc==4) { NonUniformAttachment(argv[2],argv[3],15); return true; }
     if (!std::strcmp(mode, "pk-repair-approach-empty-0") && argc==4) { PKRepairApproach(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "pk-repair-approach-empty-1") && argc==4) { PKRepairApproach(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "pk-repair-approach-empty-2") && argc==4) { PKRepairApproach(argv[2],argv[3],2); return true; }
