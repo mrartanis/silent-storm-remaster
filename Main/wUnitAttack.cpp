@@ -419,7 +419,7 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdReload *, 
 	return UCR_OK;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdMoveInventoryItem *pCmd, vector<NAI::SPathPlace> *pRes )
+static EUnitCommandResult GetMoveIItemValidPlaces( CUnitServer *pUS, CCmdMoveInventoryItem *pCmd, vector<NAI::SPathPlace> *pRes, float fPlaneDist )
 {
 	if ( pCmd->GetSource().eType == SItem::GROUND )
 	{
@@ -433,12 +433,18 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdMoveInvent
 		if ( fabs( delta ) * 1.6f <= 2.0f && fHeight < 0.5f && fHeight > -2.0f )
 			pRes->push_back( pUS->GetPosition().pos.p );
 		else
-			GetHumanReachPlaces( pUS, ptTo, pRes );
+			GetHumanReachPlaces( pUS, ptTo, pRes, fPlaneDist );
 		return UCR_OK;
 	}
 
-	GetHumanReachPlaces( pUS, pCmd->GetTarget().pUnit->GetPosition().GetCP(), pRes );
+	GetHumanReachPlaces( pUS, pCmd->GetTarget().pUnit->GetPosition().GetCP(), pRes, fPlaneDist + 0.1f );
 	return UCR_OK;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdMoveInventoryItem *pCmd, vector<NAI::SPathPlace> *pRes )
+{
+	CDynamicCast<NRPG::IHintItem> pHint( pCmd->GetSource().pItem );
+	return GetMoveIItemValidPlaces( pUS, pCmd, pRes, pHint ? 1.3f : 0.625f );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Execute creators

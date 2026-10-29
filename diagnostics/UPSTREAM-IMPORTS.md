@@ -14977,3 +14977,73 @@ preparation failure remain. Ledger286 stays160 imported/19 partial/64 pending,
 Evidence: standing-talk-verification.json, native baseline/RED/GREEN/final
 raw logs and standing-talk-retail-oracle.json in the external lab. General
 verifier is tied to precommit parent6e0b1ab0; do not rerun after this commit.
+
+### Restore original item-type approach radii (70cf40f3, partial)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70cf40f33e68f95da25e8db4865dc86aefb05070
+
+All pickup/transfer approaches used the generic0.8 radius. Restore the original
+source-item RTTI selection: ordinary0.625, IHintItem1.3, and base+0.1 for the
+other-unit branch. Parameterize the existing pickup helper and add its typed
+initial-radius wrapper. Retain the already-imported close-ground1.25 branch
+with full current pose/facing, all world-item guards, current target points,
+standing talk, inventory validators and own queue/animation implementations.
+The source command's pItem selects the type, as in the original; do not use
+the DB item identity as a substitute for the marker interface. No wider retry
+is added in this step. No authored data, price formula or save/wire changes.
+
+Original proof: the entire72-byte typed Gold wrapper7890e0 matches uniquely
+at actual Steam794ce0, masking only two verified RTTI PUSH operands and two
+decoded E8 operands. Both actual descriptors name IHintItem/CObjectBase; exact
+float bits initialize0.625 and conditionally assign1.3 after the cast. The
+wrapper calls the independently proven whole344-byte pickup helper794b80.
+That helper's exact x87 load/add/pass sequence adds the same0.1 to the base
+radius for another unit. Reuse the independent original human-reach proof.
+No copied ABI offsets, changed common F_HEAL_DISTANCE or arbitrary new radius.
+
+Before any test/Main changes, related Windows53/53(55.34s) and Linux51/51
+(49.48s) pass. Twelve new native cases use the public real planner, authored
+hint marker and an ordinary dummy sharing its exact DB record, real frozen
+world bodies, intact32-round clips, actual backpacks/recipient units, native
+passable/unlocked cells, tactical turns and native RPG motionless counting.
+No fake action/path provider, private fields or DB edits. Native grid0.625
+matters: the other-unit hint control is at sqrt(5)*0.625=1.397542, inside
+original1.3+0.1 but outside1.3; the same-DB dummy there remains rejected.
+
+Genuine compiled RED6/12 BOTH before Main: four motionless hint cases are
+rejected (standing/crouched/prone ground and other-unit margin); a mobile hint
+gets an unnecessary mover; an ordinary item at1.35 gets a path ending0.725
+away, outside original0.625. Six controls pass: same-DB ground/transfer dummy,
+close ordinary pickup, hint beyond1.3, transfer beyond1.4 and adjacent ordinary
+transfer. GREEN12/12 BOTH(13.24s Windows/13.09s Linux) changes exactly those
+six semantic rows, with every control row identical. The actual ordinary path
+endpoint is now0.1 away. This is actual native path planning, not a claim to
+have walked that full route or simulated ground-support physics.
+
+Seven actual native Run outcomes verify five hints consumed exactly once
+(hintsSet0->1, no source/destination inventory occurrence, no retained ground
+body) and two unchanged pre-fix ordinary controls transferred once with32
+rounds intact. Planning retains both actors' AP/HP/positions, inventory counts,
+item quantity/rounds, held ammunition/slot, actor wishes/mobility, hint state,
+world time and next RNG word. Native direct fixture costs remain0, as already
+proved by both pre-fix ordinary controls. A corrected longer approach can
+naturally have a different movement cost; no cost formula or minimum is tuned.
+No full UI/animation-timing/physics or whole RNG-state claim.
+
+Final Windows ALL_BUILD and Linux Game/helpers/actual NetworkSerializer build.
+Related65/65 Windows(67.61s) and63/63 Linux(62.32s) are exactly saved53/51 plus12.
+All16 own animation-reseat/legacy-walk/ladder/turn/cannon controls pass on BOTH;
+fresh Windows serializer/match/partial/stop4/4 and localCI299/299 pass, exact
+manifests/raw records/zero exits verified. New12 asset-backed cases remain
+outside CI299. Two existing builds reused without per-bug copies or PNG work.
+Own body/facial/font/bgfx/LAN/save code retained. Evidence: pickup-radii native
+baseline/RED/GREEN/final logs, pickup-radii-verification.json and original oracle
+in the external lab. General verifier/finisher require precommit96865e80 and
+must not be rerun after committing this change; original verifier is reusable.
+
+Source70 remains PARTIAL only for the wider1.6 retry after movement preparation
+fails, its opt-in dispatch and clearing stale candidates. Close pickup, standing
+talk and initial item-type/other-unit radii are now accounted. Ledger286 stays
+160 imported/19 partial/64 pending =83 unfinished sources. Whole objective and
+final actual hosted GitHub Actions repair/check remain active. These exact
+original constants are a reconstruction correction, not a new balance policy.

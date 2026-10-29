@@ -20457,6 +20457,55 @@ static void EmptyClipAttackEntry(const char* databasePath,const char* resourcePa
 
 
 
+
+static void PickupRadii(const char* databasePath,const char* resourcePath,int mode)
+{
+    const bool transfer=mode>=8,hint=mode==0 || mode==1 || mode==5 || mode==6 || mode==7 || mode==8 || mode==10,dummy=mode==2 || mode==9;
+    const bool motionless=mode!=1 && mode!=3 && mode!=4,expected=mode!=2 && mode!=5 && mode!=9 && mode!=10,preparation=mode==3;
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);
+    NWorld::CUnitServer *actor=nullptr,*recipient=nullptr;CPtr<NRPG::CWeaponItem> held;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK() && unit->GetUnitRPG()->CanMove() && !unit->HasCommand() && !unit->IsPerformingAction()) {
+        auto* gun=dynamic_cast<NRPG::CWeaponItem*>(unit->GetUnitRPG()->GetInventory()->GetActive());
+        if(!unit->IsAIUnit() && gun && IsValid(gun->GetDBWeapon()->pInnerClip) && !actor){actor=unit;held=gun;}
+        else if(unit->IsAIUnit() && !recipient)recipient=unit;
+    }
+    Require(actor && held && (!transfer || recipient),"pickup radii has no real human gun user/ordinary recipient");
+    auto* owner=dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer());Require(owner,"pickup radii has no human owner");world->GivePlayerTurn(owner);Require(world->IsTurnBased() && world->GetCurrentPlayer()==owner,"pickup radii did not enter its native tactical turn");
+    auto* network=world->GetPathNetwork();auto pose=actor->GetPosition();pose.pos.p.SetPose(mode==6?NAI::CM_CROUCH:mode==7?NAI::CM_LAY:NAI::CM_STAND);Require(network->IsNativePassable(pose.pos.p),"pickup radii has no native passable actor pose");actor->SetPosition(pose);actor->animator.PlaceUnit(pose);actor->Update();
+    CObj<NRPG::IInventoryItem> marker=NRPG::CreateHintItem();Require(marker && dynamic_cast<NRPG::IHintItem*>(marker.GetPtr()),"pickup radii did not create the real authored hint marker");
+    CObj<NRPG::IInventoryItem> item=hint?marker.GetPtr():dummy?NRPG::CreateDummyItem(marker->GetDBItem()):NRPG::CreateClipItem(held->GetDBWeapon()->pInnerClip);
+    auto* clip=dynamic_cast<NRPG::IClipItem*>(item.GetPtr());Require(item && bool(dynamic_cast<NRPG::IHintItem*>(item.GetPtr()))==hint && (!dummy || item->GetDBItem()==marker->GetDBItem()),"pickup radii lost its real type-vs-same-DB marker control");
+    NWorld::SItem source,target;CPtr<NWorld::CDFrozenItem> body;CVec3 point;bool placed=false;
+    auto* inventory=actor->GetUnitRPG()->GetInventory();auto* destinationInventory=transfer?recipient->GetUnitRPG()->GetInventory():inventory;CTPoint<int> destination;
+    Require(destinationInventory->FindPlace(item,&destination),"pickup radii has no actual destination backpack space");
+    if(transfer) {
+        const int dx=mode==11?1:2,dy=mode==10?2:mode==11?0:1;const int offsets[4][2]={{dx,dy},{-dy,dx},{-dx,-dy},{dy,-dx}};
+        for(const auto& offset:offsets){auto to=recipient->GetPosition();to.pos.p=pose.pos.p;to.pos.p.SetPose(NAI::CM_STAND);to.pos.p.SetXY(pose.pos.p.GetX()+offset[0],pose.pos.p.GetY()+offset[1]);if(!network->IsPassable(to.pos.p) || network->IsLocked(to.pos.p,true))continue;recipient->SetPosition(to);recipient->animator.PlaceUnit(to);recipient->Update();placed=true;break;}
+        Require(placed,"pickup radii cannot place its real recipient on an unlocked native cell");point=recipient->GetPosition().GetCP();CTPoint<int> origin;Require(inventory->FindPlace(item,&origin) && inventory->Place(origin,item),"pickup radii cannot place its source item in the actor backpack");source=NWorld::SItem(actor,NWorld::SItem::BACKPACK,item);target=NWorld::SItem(recipient,NWorld::SItem::BACKPACK,destination);
+    } else {
+        const float distance=mode==3?1.35f:mode==4?1.f:mode==5?1.32f:1.28f;
+        for(int dir:{0,2,4,6}){auto one=pose,two=pose;const int dx=NAI::nMoveShift[dir][0],dy=NAI::nMoveShift[dir][1];one.pos.p.SetXY(pose.pos.p.GetX()+dx,pose.pos.p.GetY()+dy);two.pos.p.SetXY(pose.pos.p.GetX()+2*dx,pose.pos.p.GetY()+2*dy);one.pos.p.SetPose(NAI::CM_STAND);two.pos.p.SetPose(NAI::CM_STAND);if(!network->IsPassable(one.pos.p) || network->IsLocked(one.pos.p,true) || !network->IsPassable(two.pos.p) || network->IsLocked(two.pos.p,true))continue;CVec3 axis=two.GetCP()-pose.GetCP();axis.z=0;Normalize(&axis);point=pose.GetCP()+axis*distance;placed=true;break;}
+        Require(placed,"pickup radii has no genuine clear native two-cell approach control");body=world->AddFrozenItem(world->GetAIMap(),point,QNULL,item);Require(body && body->GetInvItem()==item.GetPtr() && world->GetFrozenItem(item)==body.GetPtr(),"pickup radii cannot register its actual world body");point=body->GetPos();source=NWorld::SItem(nullptr,NWorld::SItem::GROUND,item);source.pWorldItem=body.GetPtr();target=NWorld::SItem(actor,NWorld::SItem::BACKPACK,destination);
+    }
+    pose=actor->GetPosition();pose.pos.p.SetDirection(NRPG::GetShootDirection(network,pose.pos.p,point));actor->SetPosition(pose);actor->animator.PlaceUnit(pose);actor->Update();actor->animator.SetActiveItem(true);actor->SetUndrawItem(false);actor->SetWalkWithoutWeapon(false);
+    auto* rpg=actor->GetUnitRPG();struct ReleaseMotionless{NRPG::IUnitMission* unit=nullptr;~ReleaseMotionless(){if(unit)unit->ReleaseMotionless();}} release;if(motionless){rpg->ApplyMotionless();release.unit=rpg;}Require(rpg->CanMove()!=motionless,"pickup radii has the wrong actual motionless counter");
+    const auto from=actor->GetPosition();const auto recipientPosition=transfer?recipient->GetPosition():from;const int ap=actor->GetAP(),hp=rpg->GetTotalVP(),ammo=held->GetAmmoQuantity(),quantity=item->GetQuantity(),rounds=clip?clip->GetIncQuantity():-1;const int targetAP=transfer?recipient->GetAP():ap,targetHP=transfer?recipient->GetUnitRPG()->GetTotalVP():hp;const auto count=inventory->GetItems().size();const auto destinationCount=destinationInventory->GetItems().size();const auto slot=inventory->GetActiveSlot();const auto hintCount=game->hintsSet.size();const bool exhausted=game->bNoMoreHints;const auto time=world->GetTime()->GetValue();auto random=GlobalGameRandom();
+    CObj<NWorld::CCmdMoveInventoryItem> command=new NWorld::CCmdMoveInventoryItem(source,target);CObj<NWorld::CExecMoveInventoryItem> action=new NWorld::CExecMoveInventoryItem(actor,command);const auto direct=action->CanDoIt(from);Require(direct==NWorld::UCR_OK,"pickup radii native source/destination validation failed before planning");const int price=action->GetStartAP();
+    NWorld::EUnitCommandResult result=NWorld::UCR_GENERAL_FAILURE;CObj<NWorld::CCommandExecute> executor=NWorld::CreateActionExecutor(actor,command,&result);auto* queue=dynamic_cast<NWorld::CSimpleExecQueue*>(executor.GetPtr());auto* front=queue?queue->GetFrontExecutor():nullptr;auto* mover=dynamic_cast<NWorld::IExecMove*>(front);CObj<NAI::CPath> path=executor?executor->GetCurrentPath():nullptr;
+    float reach=-1;int desiredPose=-1;if(mover){NAI::SPathPlace desired;NAI::EFindPathParams parameters;NWorld::ENeedActiveItem active;mover->GetDesiredPlace(&desired,&parameters,&active);auto end=from;end.pos.p=desired;reach=fabs(end.GetCPNoHeight()-CVec2(point.x,point.y));desiredPose=desired.GetPose();}
+    auto afterRandom=GlobalGameRandom();const bool unchanged=actor->GetPosition()==from && actor->GetAP()==ap && rpg->GetTotalVP()==hp && held->GetAmmoQuantity()==ammo && inventory->GetActive()==held.GetPtr() && inventory->GetActiveSlot()==slot && inventory->GetItems().size()==count && destinationInventory->GetItems().size()==destinationCount && rpg->CanMove()!=motionless && actor->animator.IsActiveItem() && !actor->GetUndrawItem() && !actor->IsWalkingWithoutWeapon() && !actor->HasCommand() && (!transfer?(body && body->GetInvItem()==item.GetPtr() && body->GetPos()==point):(recipient->GetPosition()==recipientPosition && recipient->GetAP()==targetAP && recipient->GetUnitRPG()->GetTotalVP()==targetHP && !recipient->HasCommand())) && item->GetQuantity()==quantity && (!clip || clip->GetIncQuantity()==rounds) && game->hintsSet.size()==hintCount && game->bNoMoreHints==exhausted && world->GetTime()->GetValue()==time && random.Get()==afterRandom.Get();
+    std::printf("native pickup radii: mode=%d hint=%d dummy=%d transfer=%d motionless=%d pose=%d distance=%.6f direct=%d result=%d executor=%d move=%d path=%d reach=%.6f desiredPose=%d expected=%d preparation=%d price=%d AP=%d quantity=%d rounds=%d unchanged=%d\n",mode,int(hint),int(dummy),int(transfer),int(motionless),int(from.pos.p.GetPose()),double(fabs(from.GetCPNoHeight()-CVec2(point.x,point.y))),int(direct),int(result),int(bool(executor)),int(bool(mover)),int(bool(path)),double(reach),desiredPose,int(expected),int(preparation),price,ap,quantity,rounds,int(unchanged));std::fflush(stdout);
+    Require(unchanged,"pickup radii planning changed native item/inventory/actor/recipient/hint/AP/time or next RNG word");
+    Require(bool(executor)==expected && result==(expected?NWorld::UCR_OK:NWorld::UCR_GENERAL_FAILURE),"initial pickup radius ignores real hint type or original other-unit margin");
+    if(!expected)return;
+    Require(bool(mover)==preparation && (preparation?(path && reach<=.625f):!path),"pickup planning does not use original ordinary/hint radius or changed an existing direct pickup");
+    if(preparation)return;
+    Require(front && dynamic_cast<NWorld::CExecMoveInventoryItem*>(front),"pickup radii did not queue its actual native inventory executor first");executor->Run();unsigned inSource=0,inDestination=0;for(const auto& entry:inventory->GetItems())if(entry.pItem==item)++inSource;for(const auto& entry:destinationInventory->GetItems())if(entry.pItem==item)++inDestination;
+    Require(hint?(inSource==0 && inDestination==0 && game->hintsSet.size()==hintCount+1):(inDestination==1 && (!transfer || inSource==0) && (!clip || clip->GetIncQuantity()==rounds)),"native pickup did not consume exactly one hint or transfer exactly one intact ordinary item");
+    Require(transfer || !IsValid(world->GetFrozenItem(item)),"native pickup retained its old ground body");Require(actor->GetAP()==ap-price && rpg->GetTotalVP()==hp && held->GetAmmoQuantity()==ammo && actor->GetPosition()==from && rpg->CanMove()!=motionless && (!transfer || (recipient->GetPosition()==recipientPosition && recipient->GetAP()==targetAP && recipient->GetUnitRPG()->GetTotalVP()==targetHP)),"native pickup changed its price, actors, held ammunition or mobility");
+    std::printf("native pickup radii performed: mode=%d hint=%d transfer=%d source=%u destination=%u hints=%u->%u price=%d AP=%d->%d rounds=%d\n",mode,int(hint),int(transfer),inSource,inDestination,unsigned(hintCount),unsigned(game->hintsSet.size()),price,ap,actor->GetAP(),clip?clip->GetIncQuantity():-1);std::fflush(stdout);
+}
+
 static void StandingTalk(const char* databasePath,const char* resourcePath,int mode)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
@@ -26946,6 +26995,18 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-cannon-undock-plan-invalid-server") && argc == 4) { AICannonUndockPlan(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "cannon-entry-animation")) { Require(argc == 4, "cannon animation requires db and res"); CannonEntryAnimation(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mounted-reload-weapon")) { Require(argc == 4, "mounted reload requires db and res"); MountedReloadWeapon(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "pickup-radii-0") && argc==4) { PickupRadii(argv[2],argv[3],0); return true; }
+    if (!std::strcmp(mode, "pickup-radii-1") && argc==4) { PickupRadii(argv[2],argv[3],1); return true; }
+    if (!std::strcmp(mode, "pickup-radii-2") && argc==4) { PickupRadii(argv[2],argv[3],2); return true; }
+    if (!std::strcmp(mode, "pickup-radii-3") && argc==4) { PickupRadii(argv[2],argv[3],3); return true; }
+    if (!std::strcmp(mode, "pickup-radii-4") && argc==4) { PickupRadii(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "pickup-radii-5") && argc==4) { PickupRadii(argv[2],argv[3],5); return true; }
+    if (!std::strcmp(mode, "pickup-radii-6") && argc==4) { PickupRadii(argv[2],argv[3],6); return true; }
+    if (!std::strcmp(mode, "pickup-radii-7") && argc==4) { PickupRadii(argv[2],argv[3],7); return true; }
+    if (!std::strcmp(mode, "pickup-radii-8") && argc==4) { PickupRadii(argv[2],argv[3],8); return true; }
+    if (!std::strcmp(mode, "pickup-radii-9") && argc==4) { PickupRadii(argv[2],argv[3],9); return true; }
+    if (!std::strcmp(mode, "pickup-radii-10") && argc==4) { PickupRadii(argv[2],argv[3],10); return true; }
+    if (!std::strcmp(mode, "pickup-radii-11") && argc==4) { PickupRadii(argv[2],argv[3],11); return true; }
     if (!std::strcmp(mode, "standing-talk-0") && argc==4) { StandingTalk(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "standing-talk-1") && argc==4) { StandingTalk(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "standing-talk-2") && argc==4) { StandingTalk(argv[2],argv[3],2); return true; }
