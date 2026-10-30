@@ -93,7 +93,6 @@ private:
 	}
 
 	void UpdateChapterDifficulty();
-	void InitializeWorld();
 	void ProcessWorldCommands();
 
 protected:
@@ -160,29 +159,6 @@ void CChapterMap::UpdateChapterDifficulty()
 			nDifficulty = Float2Int( float( nDifficulty ) / nZoneCount );
 	}
 	pGlobalGame->nCurrentChapterDifficulty = nDifficulty;
-}
-////////////////////////////////////////////////////////////////////////////////////////////////////
-void CChapterMap::InitializeWorld()
-{
-	pWorld = NWorld::CreateWorld( pGlobalGame );
-	pWorld->CreateDefault();
-	playersSet.resize( pGlobalGame->players.size() );
-	for ( int nPlayer = 0; nPlayer < pGlobalGame->players.size(); ++nPlayer )
-	{
-		WCHAR wsName[32];
-		swprintf( wsName, sizeof(wsName) / sizeof(wsName[0]), L"Player %d", nPlayer );
-		playersSet[nPlayer] = new CPlayerTracker( this, pGlobalGame->players[nPlayer], wsName );
-	}
-	pActivePlayer = playersSet.front();
-	CommandState( new CStateEmpty );
-	pScene = NGScene::CreateNewView();
-	pSoundScene = NSound::CreateSoundScene( NDb::GetTMusic( 15 ), 0, pWorld->GetAimTime() );
-	pRender = NRender::CreateRenderGame( pWorld, pScene, pSoundScene );
-	pCamera = CreateCamera( CAMERA_PC );
-	ICamera::SCameraLimits limits;
-	limits.bMovie = true;
-	pCamera->SetLimits( limits );
-	pCamera->SetLock( true );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CChapterMap::Initialize( NRPG::CGlobalGame *_pGame )

@@ -7861,6 +7861,145 @@ static void ScriptAmbientVariants(const char* databasePath,const char* resourceP
 }
 
 
+static void GlobalMapScriptLifecycle(const char* databasePath,const char* resourcePath,int context,int mode)
+{
+    Require(context>=0 && context<=1 && mode>=0 && mode<=6,"unknown global-map script lifecycle case");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"global-map script fixture began with an interface");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm global map script lifecycle");
+    struct ClockRestore {STime previous;~ClockRestore(){NMainLoop::SetTimeForHarness(previous);}} clock{NMainLoop::SetTimeForHarness(1000)};
+    // Select the authored Axis map explicitly; database iteration order differs by platform.
+    CDBPtr<NDb::CGlobalMap> map=NDb::GetGlobalMap(3);
+    Require(IsValid(map),"global-map script fixture has no authored map/scenario/script record");
+    const string authored=map->pScript->strCode;const int authoredScript=map->pScript->GetRecordID();
+    Require(authored.find("gmapgfirstenter")!=string::npos && authored.find("ShowHint( 47 )")!=string::npos,"global-map fixture no longer selects its actual known first-country script");
+    auto* authoredHint=NDb::GetUIHint(47);Require(authoredHint && authoredHint->pString,"global-map script lacks its actual authored hint47");
+    std::printf("native global-map hint47 reward=%d\n",authoredHint->nSequenceID);
+    std::printf("native global-map script context=%d mode=%d map=%d authoredScript=%d bytes=%zu\n",context,mode,map->GetRecordID(),authoredScript,authored.size());
+    if(context==0 && mode==2)std::printf("native global-map authored script begin\n%s\nnative global-map authored script end\n",authored.c_str());std::fflush(stdout);
+    CObj<NRPG::CGlobalGame> game=NRPG::CreateGlobalGame(map->pScenario->GetRecordID());game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    game->bGlobalMapSet=true;game->nGlobalMapID=map->GetRecordID();if(mode==3)game->SetGlobalVar("gmapgfirstenter","1");
+    list<CPtr<NScenario::CScenarioClue>> clues;game->pScenarioTracker->GetAvailableClues(&clues);for(auto clue:clues)if(IsValid(clue))clue->SetJustFound(false);
+    for(auto merc:game->players.front()->mercs){vector<CDBPtr<NDb::CMedal>> medals;merc->GetJustFoundMedals(&medals);}
+    struct OptionRestore {NGlobal::CValue previous;~OptionRestore(){NGlobal::SetVar("ui_showhints",previous);}} hints{NGlobal::GetVar("ui_showhints",1)};NGlobal::SetVar("ui_showhints",mode>=3?1:0);
+    CObj<NDb::CScript> probe=new NDb::CScript;probe->strCode=(mode==1 || mode>=5)?
+        "GlobalMapRuns = (GlobalMapRuns or 0) + 1; function OnEnterZone() GlobalMapEnters = (GlobalMapEnters or 0) + 1; Sleep(1); GlobalMapWake = 1 end":
+        "GlobalMapRuns = (GlobalMapRuns or 0) + 1; "+authored;
+    struct ScriptRestore {CPtr<NDb::CGlobalMap> map;CPtr<NDb::CScript> script;CPtr<NDb::CChapterMap> chapter;CPtr<NDb::CScript> chapterScript;
+        ~ScriptRestore(){if(IsValid(map))map->pScript=script;if(IsValid(chapter))chapter->pScript=chapterScript;}} restore{map.GetPtr(),map->pScript,nullptr,nullptr};
+    map->pScript=mode==0?nullptr:probe.GetPtr();
+    struct SectorRestore {CObj<CChapterInfo> info;vector<SChapterSector> original;~SectorRestore(){if(IsValid(info))info->sectorsSet.swap(original);}} sectors;
+    CObj<NDb::CScript> quiet=new NDb::CScript;quiet->strCode="function OnEnterZone() end";
+    CObj<NGame::CMissionBase> underlying;
+    if(context==1){
+        CDBIterator<NDb::CChapterMap> chapters(*NDatabase::GetTable<NDb::CChapterMap>());while(chapters.MoveNext())if(IsValid(chapters.Get()->pBackground)){restore.chapter=chapters.Get();break;}
+        Require(IsValid(restore.chapter),"global overview fixture lacks an actual underlying chapter");restore.chapterScript=restore.chapter->pScript;restore.chapter->pScript=quiet.GetPtr();
+        CDGPtr<CPtrFuncBase<CChapterInfo>> info=shareChapterInfo.Get(restore.chapter->GetRecordID());info.Refresh();sectors.info=info->GetValue();Require(sectors.info,"global overview fixture has no native chapter info");
+        sectors.original=sectors.info->sectorsSet;auto& live=sectors.info->sectorsSet;live.erase(std::remove_if(live.begin(),live.end(),[](const SChapterSector& s){return s.eType==RANDOM;}),live.end());
+        CObj<NGame::CICBeginChapter> open=new NGame::CICBeginChapter(restore.chapter->GetRecordID(),game);open->Exec();underlying=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+        Require(underlying && underlying->GetWorld(),"global overview fixture did not open its real chapter");
+        CObj<NGame::CICShowGlobal> show=new NGame::CICShowGlobal(game);show->Exec();
+    }else {CObj<NGame::CICContinueGlobal> open=new NGame::CICContinueGlobal(game);open->Exec();}
+    CObj<NGame::CMissionBase> owner=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(owner && owner.GetPtr()!=underlying.GetPtr() && pSSClasses->GetObjectTypeID(owner)==int(0xb1808180) && owner->GetRPGGame()==game.GetPtr() && owner->IsGlobalMapShowMode()==(context==1),"native global-map entry lost its real UI/game/show mode");
+    Require(owner->GetInterface() && owner->GetInterface()->GetChildByID("globalmapUI") && owner->GetDesktop()==nullptr && owner->GetSoundScene()==owner->GetInterface()->GetSound(),"global-map fixture lost its own 2D plain-window/shared-audio contract");
+    const bool chapterFlag=game->bChapterMapSet;const float initialXP=game->players.front()->mercs.front()->fXP;
+    STime time=1050;auto frame=[&](bool expectOwner=true){time+=50;NMainLoop::SetTimeForHarness(time);Require(NMainLoop::StepApp(true,false,false),"global-map native frame exited");if(expectOwner)Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr(),"global-map native frame opened an unrelated interface");};
+    auto* world=dynamic_cast<NWorld::CWorld*>(owner->GetWorld());
+    auto number=[&](const char* name,int expected){if(!world || !world->GetOwnScript())return false;auto* script=world->GetOwnScript();const int top=script->GetTop();auto value=script->GetGlobal(name);const bool result=value.IsNumber() && value.GetNumber()==expected;script->SetTop(top);return result;};
+    std::printf("native global-map script context=%d mode=%d stage=context world=%d active=%d render=%d stack=%d\n",context,mode,int(world!=nullptr),int(owner->GetActivePlayer()!=nullptr),int(owner->GetRenderGame()!=nullptr),NMainLoop::GetInterfaceStackDepth());std::fflush(stdout);
+    if(mode>=5){
+        if(mode==6){
+            Require(world && world->GetOwnScript(),"native global map has no logical world/player/renderer to execute its map script");
+            for(int i=0;i<32 && !number("GlobalMapWake",1);++i)frame();
+            Require(number("GlobalMapRuns",1) && number("GlobalMapEnters",1) && number("GlobalMapWake",1),"global-map snapshot source never completed its real probe");
+        }
+        // Use the native save graph, not a network replica: network snapshots
+        // deliberately omit AI commanders and UI-only state needed for local resume.
+        list<CObj<NMainLoop::IInterfaceBase>> original;if(context==1)original.push_back(underlying.GetPtr());original.push_back(owner.GetPtr());
+        CMemoryStream saved;
+        {CStructureSaver writer(saved,CStructureSaver::WRITE);writer.Add(2,&original);}
+        vector<unsigned char> bytes(saved.GetSize());saved.Seek(0);saved.Read(bytes.data(),unsigned(bytes.size()));
+        if(mode==5){
+            // Clear only the global map's serialized logical-context references.
+            // Keep every tag and the complete UI/campaign graph; never partially READ
+            // into a live engine object and never retain an old executable/build.
+            S2FileIO::StructureChunk table{},bodies{};
+            for(size_t at=0;at<bytes.size();){S2FileIO::StructureChunk field;
+                Require(S2FileIO::DecodeStructureChunkAt(bytes.data(),bytes.size(),at,&field),"invalid native global-map save chunk");
+                Require(field.id!=3,"global-map fixture unexpectedly received compressed chunks");
+                if(field.id==0)table=field;if(field.id==2)bodies=field;at=size_t(field.payloadOffset)+field.length;}
+            std::vector<S2FileIO::StructureObjectRecord> records;
+            std::vector<S2FileIO::StructureObjectBody> objects;
+            Require(S2FileIO::DecodeStructureObjectTable(bytes.data()+table.payloadOffset,table.length,&records) &&
+                S2FileIO::IndexStructureObjectBodies(bytes.data()+bodies.payloadOffset,bodies.length,&objects),"invalid global-map native object graph");
+            unsigned id=0;int maps=0,cleared=0;
+            for(auto record:records)if(record.typeId==0xb1808180u){id=record.wireId;++maps;}
+            Require(maps==1 && id,"legacy-style save did not identify exactly one global map");
+            for(auto object:objects)if(object.wireId==id){
+                auto* root=bytes.data()+bodies.payloadOffset+object.bodyOffset;
+                for(size_t at=0;at<object.bodyLength;){S2FileIO::StructureChunk outer;
+                    Require(S2FileIO::DecodeStructureChunkAt(root,object.bodyLength,at,&outer),"invalid global-map native root field");
+                    if(outer.id==1){auto* base=root+outer.payloadOffset;
+                        for(size_t offset=0;offset<outer.length;){S2FileIO::StructureChunk field;
+                            Require(S2FileIO::DecodeStructureChunkAt(base,outer.length,offset,&field),"invalid global-map native base field");
+                            if(field.id==3 || field.id==5 || field.id==10 || field.id==11 || field.id==18){
+                                Require(field.length==4,"logical context ref is not a native wire ID");std::memset(base+field.payloadOffset,0,4);++cleared;}
+                            if(field.id==12){auto* players=base+field.payloadOffset;
+                                for(size_t entry=0;entry<field.length;){S2FileIO::StructureChunk player;
+                                    Require(S2FileIO::DecodeStructureChunkAt(players,field.length,entry,&player) && player.id==1 && player.length==4,"invalid native player tracker vector");
+                                    std::memset(players+player.payloadOffset,0,4);entry=size_t(player.payloadOffset)+player.length;}}
+                            offset=size_t(field.payloadOffset)+field.length;}}
+                    at=size_t(outer.payloadOffset)+outer.length;}}
+            Require(cleared==5,"legacy-style save did not clear all five logical context refs");
+        }
+        CMemoryStream snapshot;snapshot.Write(bytes.data(),unsigned(bytes.size()));snapshot.Seek(0);
+        list<CObj<NMainLoop::IInterfaceBase>> restored;
+        {CStructureSaver reader(snapshot,CStructureSaver::READ);reader.Add(2,&restored);}
+        Require(restored.size()==size_t(context+1),"native global-map snapshot lost its actual interface stack");
+        CObj<NGame::CMissionBase> restoredMap=dynamic_cast<NGame::CMissionBase*>(restored.back().GetPtr());
+        Require(restoredMap && restoredMap.GetPtr()!=owner.GetPtr() && pSSClasses->GetObjectTypeID(restoredMap)==int(0xb1808180),"snapshot did not construct an actual fresh global-map interface");
+        CObj<NRPG::CGlobalGame> restoredGame=restoredMap->GetRPGGame();Require(restoredGame && restoredGame.GetPtr()!=game.GetPtr(),"native global-map snapshot lost its new campaign graph");
+        Require(mode==5?restoredMap->GetWorld()==nullptr:restoredMap->GetWorld()!=nullptr,"legacy/current snapshot did not preserve its intended context presence");
+        class RestoreStack:public NMainLoop::CInterfaceCommand {OBJECT_NOCOPY_METHODS(RestoreStack);
+        public:list<CObj<NMainLoop::IInterfaceBase>> stack;
+            void Exec() override {for(auto entry:stack)entry->OnSnapshotRestored();auto i=stack.begin();SetInterface(*i++);for(;i!=stack.end();++i)PushInterface(*i);}};
+        CObj<RestoreStack> load=new RestoreStack;load->stack=restored;load->Exec();
+        owner=restoredMap;game=restoredGame;underlying=context==1?dynamic_cast<NGame::CMissionBase*>(restored.front().GetPtr()):nullptr;
+        world=dynamic_cast<NWorld::CWorld*>(owner->GetWorld());
+        Require(owner->GetInterface()->GetChildByID("globalmapUI") && owner->IsGlobalMapShowMode()==(context==1) && owner->GetSoundScene()==owner->GetInterface()->GetSound(),"restored map lost 2D UI/show-mode/shared-audio identity");
+        if(context==1)Require(underlying && underlying->GetRPGGame()==game.GetPtr(),"overview snapshot split the chapter/global-map campaign alias");
+        std::printf("native global-map script context=%d mode=%d stage=snapshot legacy=%d world=%d bytes=%u\n",context,mode,int(mode==5),int(world!=nullptr),unsigned(snapshot.GetSize()));std::fflush(stdout);
+    }
+    if(mode==0){for(int i=0;i<3;++i)frame();Require(!number("GlobalMapRuns",1) && !NMainLoop::HaveInterfaceCommand(),"null global-map script unexpectedly ran a callback");}
+    else {
+        Require(world && world->GetOwnScript() && owner->GetActivePlayer() && owner->GetRenderGame() && owner->GetScene(),"native global map has no logical world/player/renderer to execute its map script");
+        Require(world->GetGlobalGame()==game.GetPtr() && owner->GetActivePlayer()->GetGlobalPlayer()==game->players.front().GetPtr(),"global-map logical context lost actual campaign/player identity");
+        if(mode==4){
+            for(int i=0;i<32 && !NMainLoop::HaveInterfaceCommand();++i)frame();
+            Require(number("GlobalMapRuns",1) && NMainLoop::HaveInterfaceCommand() && game->GetGlobalVar("gmapgfirstenter").empty(),"first country script did not queue its authored hint before setting its visit flag");
+            frame(false);auto* modal=NMainLoop::GetCurrentInterfaceForHarness();Require(modal && pSSClasses->GetObjectTypeID(modal)==int(0x1423130) && NMainLoop::GetInterfaceStackDepth()==context+2,"global first-visit script did not open its actual hint modal");
+            CStructureNetworkContext refs;auto saved=BorrowedObjectFields(modal,&refs);CPtr<NGame::IMission> origin;int event=-1;
+            {CStructureSaver reader(saved,CStructureSaver::READ,&refs);reader.Add(2,&origin);reader.Add(3,&event);}
+            Require(origin.GetPtr()==owner.GetPtr() && event>=0 && world->GetOwnScript()->IsUIActionIDPresent(event),"global first-visit hint lost actual map origin/native Lua wait");
+            const auto held=world->GetAimTime()->GetValue();frame(false);Require(world->GetAimTime()->GetValue()==held && game->GetGlobalVar("gmapgfirstenter").empty(),"covered global-map world advanced or marked a still-waiting hint visited");
+            const float awarded=game->players.front()->mercs.front()->fXP;Require(authoredHint->nSequenceID>0?awarded>initialXP:awarded==initialXP,"global hint changed its actual reward/no-reward contract");
+            NInput::SEvent input;while(NInput::GetEvent(&input)){}NInput::PostEvent("cancel");Require(NInput::GetEvent(&input) && modal->ProcessEvent(input),"global first-visit hint did not accept native cancel");frame();
+            for(int i=0;i<32 && game->GetGlobalVar("gmapgfirstenter")!="1";++i)frame();
+            Require(!world->GetOwnScript()->IsUIActionIDPresent(event) && game->GetGlobalVar("gmapgfirstenter")=="1" && game->players.front()->mercs.front()->fXP==awarded,"native hint close did not release its Lua wait/visit flag or awarded XP twice");
+            std::printf("native global-map script context=%d mode=4 stage=hint closed=1 wait=0 flag=1 xpBefore=%.3f xpAfter=%.3f reward=%d\n",context,initialXP,awarded,authoredHint->nSequenceID);
+        }else{
+            for(int i=0;i<32 && (!number("GlobalMapRuns",1) || ((mode==1 || mode>=5) && !number("GlobalMapWake",1)) || (mode==2 && game->GetGlobalVar("gmapgfirstenter")!="1"));++i)frame();
+            Require(number("GlobalMapRuns",1),"native global-map postinit never executed its registered map script");
+            if(mode==1 || mode>=5)Require(number("GlobalMapEnters",1) && number("GlobalMapWake",1),"native global-map world did not enter its script once and resume Sleep");
+        }
+        if(mode>=2 && mode<=4){Require(game->GetGlobalVar("gmapgfirstenter")=="1","actual first-country script never latched its persistent visited flag");
+            Require(game->hintsSet.size()==(mode==3?0u:1u) && (mode==3 || game->hintsSet.front().GetPtr()==authoredHint),"global map lost authored hint one-shot registration or replayed an already-visited script");}
+        for(int i=0;i<3;++i)frame();Require(number("GlobalMapRuns",1) && ((mode!=1 && mode<5) || number("GlobalMapEnters",1)),"global-map frame pump reran map postinit or enter callback");
+    }
+    Require(game->bChapterMapSet==chapterFlag && (mode==4 || game->players.front()->mercs.front()->fXP==initialXP) && NMainLoop::GetInterfaceStackDepth()==(context==1?2:1) && !NMainLoop::HaveInterfaceCommand(),"global-map lifecycle changed return destination, XP or native stack");
+    std::printf("native global-map script context=%d mode=%d stage=complete runs=%d enter=%d wake=%d return=1 xp=1 stack=%d flag=%s hints=%zu\n",context,mode,int(number("GlobalMapRuns",1)),int(number("GlobalMapEnters",1)),int(number("GlobalMapWake",1)),NMainLoop::GetInterfaceStackDepth(),game->GetGlobalVar("gmapgfirstenter").c_str(),game->hintsSet.size());std::fflush(stdout);
+}
+
 static void WorldAIFlash(const char* databasePath,const char* resourcePath,int context,int mode)
 {
     Require(context>=0 && context<=1 && mode>=0 && mode<=4,"unknown shared-world AI flash case");
@@ -29047,6 +29186,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "global-map-script-lifecycle")) { Require(argc == 6, "global map lifecycle requires db, resources, context and mode"); GlobalMapScriptLifecycle(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-ai-flash")) { Require(argc == 6, "world AI flash requires db, resources, context and mode"); WorldAIFlash(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-clue")) { Require(argc == 6, "world clue requires db, resources, context and mode"); WorldScriptClue(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-video")) { Require(argc == 6, "world video requires db, resources, context and mode"); WorldScriptVideo(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }

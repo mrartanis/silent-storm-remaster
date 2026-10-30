@@ -597,6 +597,7 @@ protected:
 	STime sFPSLimitLastTime;
 	// Retail base tag 38 owns script sound channels; commands hold weak handles.
 	list<CObj<CObjectBase> > soundsList;
+	void InitializeWorld();
 	bool ExecWorldSoundCommand( NWorld::CUICmd *pCmd );
 	bool ExecWorldCommonCommand( NWorld::CUICmd *pCmd );
 	void UpdateWorldCameraCommand( const STime &sTime );

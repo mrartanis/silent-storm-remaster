@@ -16515,3 +16515,73 @@ was already imported; its global-map part remains open. Do not repeat that
 argument-default work. Prior all13-file hashes remain useful inventory, not
 proof of full semantic completion. Ledger166 imported/19 partial/58 pending
 =77 unfinished sources. Whole goal/final hosted CI/balance-MD delivery active.
+
+
+## Global map: native script lifecycle and save restore (5f9977b7 / cb954e2e)
+
+Sources: [5f9977b7be4204857caa9f2a54f1391393e0da0c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5f9977b7be4204857caa9f2a54f1391393e0da0c),
+[cb954e2e455b632c0174b88b2d051ac74e780ce0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cb954e2e455b632c0174b88b2d051ac74e780ce0).
+Parent: 77a13fd759dfb000adb619ff4670e8e0495303fb.
+
+The remaster global map built only its 2D UI and never ran its DB script.
+Both normal entry and chapter overview therefore skipped the authored first-
+country hint, its wait/visited flag and original reward. Restore the logical
+world/player/render/camera context using the unchanged existing chapter
+initializer, moved to a protected base helper. Run the DB postinit once and
+pump the world, trackers, common commands, camera and script sound on active
+frames. Keep own plain CWindow (nullable desktop), 2D drawing, UI/travel clock
+and shared audio ownership. BeginZone keeps the own map transition arguments.
+
+OnSnapshotRestored bootstraps context only when absent in a legacy map;
+complete saves retain their world/Lua state and rebind runtime caches/cameras.
+No new serialized fields, facial/body/HD/font pipeline changes or authored
+balance values. Existing chapter initializer body is unchanged.
+
+Compiled native RED before runtime edits: twelve missing-context failures and
+two no-script controls on each platform. Definitive RED uses explicit authored
+map3; an earlier Linux test selected another record because DB iteration is
+unordered, and those setup failures do not count as RED.
+
+Native GREEN14/14 per platform covers both actual entry commands, no-script,
+OnEnterZone/Sleep continuation, real script91 on map3, suppressed hint47,
+already-visited flag, actual hint modal origin/wait/pause/close/one-shot XP,
+and legacy-style/current full local-save graph roundtrips. Native StepApp
+frames drive the test; no direct world update hides a missing map pump.
+Legacy mode clears only known context wire references in a complete native
+save before reading fresh objects; it retains all tags/UI/campaign fields.
+Snapshot coverage is native graph/restore-hook/stack behavior, not on-disk
+SaveManager/header/compression or network compatibility.
+
+Two snapshot-fixture calibration attempts used network graph serialization.
+GDB exposed missing image state and then a null commander in CTBSWorld::Segment:
+network writes intentionally skip CPlayerBase commander tag6 and UI-only state.
+The final fixture uses the normal local-save writer AND reader. No production
+GUI/AI workaround was added for those test setup errors. Initial entry/script
+RED failures and their production cause remain unchanged.
+
+Original proof: named Gold global-map Initialize0x5df600/1784, unique45-byte
+world bootstrap mapped to Steam0x5e3228 (only two decoded rel32 operands
+masked), exact28-byte map-script/frame5 tail mapped to Steam0x5e37e7;
+named CWorld vtables bind CreateDefault and RunPostInit. Global-map vtable
+inherits common Step (Gold0x5a1d00 -> Steam0x5a4690, slot14).
+Gold CICShowHint::Exec0x635630 loads the hint integer at+10, calls the
+mission game getter and named AddXPToAllUnits0x693780. Actual authored reward
+is34; unchanged native intelligence bonus gives merc54 exactly50->90.8 once.
+Suppressed and already-visited cases leave XP unchanged. This restores original
+behavior; no new reward, coefficient or tuning is introduced.
+
+Fresh final gates: Win ALL_BUILD and Linux Game/helpers/serializer;
+related220/220 and body16/16 each, Windows network4/4, local asset-free CI305/305.
+Evidence: global-map-script-red-verification.json,
+global-map-script-native-green-verification.json,
+global-map-script-retail-verification.json and global-map-script-verification.json
+under G:/SS/lab/evidence/upstream-remaster-20261024. Raw native logs/exits retained.
+
+Source5f997 is now complete: independent Lua empty-default native69-test import
+was already done; this closes its global-map portion. Sourcecb954's global-map
+consumer/camera dependency is now closed; all13 source files are accounted for
+with prior command/ambient native evidence plus this actual global-map route.
+This supersedes the temporary PARTIAL audit at77a13fd7, not its warning against
+excluding useful functionality solely because the dev predecessor lacked it.
+Ledger168 imported/17 partial/58 pending =75 unfinished source commits.
+Whole-goal scope and final hosted CI/balance-review delivery remain active.

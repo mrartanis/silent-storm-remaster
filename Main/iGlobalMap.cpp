@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 #include "iMain.h"
 #include "GView.h"
+#include "Transform.h"
 #include "G2DView.h"
 #include "RPGGlobal.h"
 #include "Sound.h"
@@ -10,6 +11,11 @@
 #include "iGlobalMap.h"
 #include "iCluesMenu.h"
 #include "iMission.h"
+#include "wInterface.h"
+#include "wUICommands.h"
+#include "RWGame.h"
+#include "PlayerTracker.h"
+#include "iDesktopWindow.h"
 #include "iInGameMenu.h"
 #include "Interface.h"
 #include "iGlobalMapUI.h"
@@ -59,6 +65,7 @@ private:
 
 protected:
 	void RenderFrame( const STime &sTime );
+	void ProcessWorldCommands();
 
 public:
 	CGlobalMap();
@@ -69,6 +76,7 @@ public:
 	NDb::CGlobalMap* GetGlobalMap() const;
 	CPtrFuncBase<CGlobalInfo>* GetGlobalInfo() const;
 
+	void OnSnapshotRestored();
 	void OnGetFocus();
 	bool ProcessEvent( const NInput::SEvent &sEvent );
 	void Step();
@@ -93,19 +101,21 @@ bool CGlobalMap::Initialize( NRPG::CGlobalGame *_pGame, bool _bShowMode )
 	if ( !IsValid( pGlobalMap ) || !IsValid( pGlobalInfo ) )
 		return false;
 
+	InitializeWorld();
+
 #ifdef _MAPEDIT
 	pCursor = NUI::ICursor::CreateEditorCursor();
 #else
 	pCursor = NUI::ICursor::Create( true );
 #endif
 
-	pInterface = new NUI::CInterface( pCursor );
-	// This dev 2D map has no world clock; share the interface's clock-backed sound scene.
-	pSoundScene = pInterface->GetSound();
+	pInterface = new NUI::CInterface( pCursor, pSoundScene );
 
 	pGlobalMapUI = new NUI::CGlobalMapUI( NUI::SWindowInfo( pInterface, NUI::SPoint( 0, 0 ), NUI::SPoint( 1024, 768 ), "globalmapUI" ), this );
 	NUI::LoadTemplate( pGlobalMapUI, NDb::GetUIContainer( 175 ) );
 	pGlobalMapUI->ShowWindow( NUI::SWTYPE_SHOW );
+	pWorld->RunPostInitScript( pGlobalMap->pScript );
+	sMinFrameTime = 5;
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -124,8 +134,35 @@ CPtrFuncBase<CGlobalInfo>* CGlobalMap::GetGlobalInfo() const
 	return pGlobalInfo;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void CGlobalMap::OnSnapshotRestored()
+{
+	if ( sMinFrameTime == 0 )
+		sMinFrameTime = 5;
+	// Old remaster saves have a complete 2D map but no logical world.
+	// Bootstrap only that missing context; saved Lua state must not run postinit twice.
+	if ( !IsValid( pWorld ) )
+	{
+		InitializeWorld();
+		pInterface->SetSharedSoundScene( pSoundScene );
+		pWorld->RunPostInitScript( pGlobalMap->pScript );
+	}
+	else
+		pWorld->RestoreRuntimeCaches( pGlobalGame );
+	pCamera->SetWorld( pWorld );
+	pCamera->SetView( pScene );
+	pCamera->SetUI( pInterface );
+	for ( int nPlayer = 0; nPlayer < playersSet.size(); ++nPlayer )
+	{
+		ICamera *pPlayerCamera = playersSet[nPlayer]->GetCamera();
+		pPlayerCamera->SetWorld( pWorld );
+		pPlayerCamera->SetView( pScene );
+		pPlayerCamera->SetUI( pInterface );
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalMap::OnGetFocus()
 {
+	CMissionBase::OnGetFocus();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGlobalMap::ProcessEvent( const NInput::SEvent &sEvent )
@@ -167,14 +204,49 @@ bool CGlobalMap::ProcessEvent( const NInput::SEvent &sEvent )
 	return false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void CGlobalMap::ProcessWorldCommands()
+{
+	while ( true )
+	{
+		CPtr<NWorld::CUICmd> pCmd = pWorld->GetUICommand();
+		if ( !IsValid( pCmd ) )
+			return;
+		// The remaster global map uses a plain CWindow, so its desktop is optional.
+		if ( GetDesktop() && !GetDesktop()->IsValidCommand( pCmd ) )
+			continue;
+		if ( ExecWorldBeginZoneCommand( pCmd, false ) )
+			continue;
+		ExecWorldCommonCommand( pCmd );
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalMap::Step()
 {
+	if ( GetTime() - sFPSLimitLastTime < sMinFrameTime )
+		return;
+	sFPSLimitLastTime = GetTime();
+	sTimeCounter.Advance( !bPause, GetTime() );
+	sUITimeCounter.Advance( true, GetTime() );
+	EraseInvalidRefs( &soundsList );
 	if ( CanRender() )
 	{
+		pRender->UpdateViewWorld( !bPause, GetGameTime(), pActivePlayer->GetPlayer(), bCheatVisibility );
+		for ( int nPlayer = 0; nPlayer < playersSet.size(); ++nPlayer )
+			playersSet[nPlayer]->Update( IsRealTime() );
+		ProcessWorldCommands();
+		UpdateWorldCameraCommand( GetGameTime() );
+		CTransformStack soundTransform;
+		GetCamera()->GetTransform( &soundTransform, pScene->GetScreenRect() );
+		pSoundScene->Draw( &soundTransform );
+		if ( NMainLoop::HaveInterfaceCommand() )
+			return;
 		pInterface->UpdateCursor();
+		// Preserve the remaster's 2D UI/travel clock and renderer.
 		pInterface->Step( GetTime() );
 		RenderFrame( GetTime() );
 	}
+	else
+		pRender->ResetTiming();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalMap::RenderFrame( const STime &sTime )

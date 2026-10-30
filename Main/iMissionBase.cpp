@@ -17,6 +17,8 @@
 #include "Interface.h"
 #include "iMain.h"
 #include "iMission.h"
+#include "PlayerTracker.h"
+#include "iGameStates.h"
 #include "iMissionExec.h"
 #include "iCommonUI.h"
 #include "iDesktopWindow.h"
@@ -39,6 +41,29 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NGame
 {
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CMissionBase::InitializeWorld()
+{
+	pWorld = NWorld::CreateWorld( pGlobalGame );
+	pWorld->CreateDefault();
+	playersSet.resize( pGlobalGame->players.size() );
+	for ( int nPlayer = 0; nPlayer < pGlobalGame->players.size(); ++nPlayer )
+	{
+		WCHAR wsName[32];
+		swprintf( wsName, sizeof(wsName) / sizeof(wsName[0]), L"Player %d", nPlayer );
+		playersSet[nPlayer] = new CPlayerTracker( this, pGlobalGame->players[nPlayer], wsName );
+	}
+	pActivePlayer = playersSet.front();
+	CommandState( new CStateEmpty );
+	pScene = NGScene::CreateNewView();
+	pSoundScene = NSound::CreateSoundScene( NDb::GetTMusic( 15 ), 0, pWorld->GetAimTime() );
+	pRender = NRender::CreateRenderGame( pWorld, pScene, pSoundScene );
+	pCamera = CreateCamera( CAMERA_PC );
+	ICamera::SCameraLimits limits;
+	limits.bMovie = true;
+	pCamera->SetLimits( limits );
+	pCamera->SetLock( true );
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Both mission and chapter scripts enter zones through the native transition.
 // Only a direct tactical jump still needs leave-zone bookkeeping.
