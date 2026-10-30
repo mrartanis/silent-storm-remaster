@@ -1566,6 +1566,47 @@ static void WindowInterfacePropagation()
         "clearing a window's interface left stale descendant contexts");
 }
 
+static void WindowActivationFlags(int mode)
+{
+    Require(mode>=0 && mode<=5,"unknown native window activation case");
+    CObj<NUI::CWindow> root=new NUI::CWindow(NUI::SWindowInfo());
+    if(mode<=1) {
+        if(mode==1)root->ProcessMessage(NUI::SEvent(NUI::EVENT_ACTIVATE,NUI::EAF_ACTIVATE));
+        Require(root->IsActive()==(mode==1),"notification control did not prepare its native initial activity");
+        const int flags=mode==0?NUI::EAF_ACTIVATENOTIFY:NUI::EAF_DEACTIVATENOTIFY;
+        const bool handled=root->ProcessMessage(NUI::SEvent(NUI::EVENT_ACTIVATE,flags));
+        std::printf("native window activation mode=%d flags=%x handled=%d active=%d\n",mode,flags,int(handled),int(root->IsActive()));std::fflush(stdout);
+        Require(handled && root->IsActive()==(mode==0),"native activation notification flags did not update window activity");
+        return;
+    }
+    if(mode==4) {
+        root->SetStyle(NUI::STYLE_NOACTIVATE,true);
+        Require(root->ProcessMessage(NUI::SEvent(NUI::EVENT_ACTIVATE,NUI::EAF_ACTIVATENOTIFY)) && !root->IsActive(),
+            "NOACTIVATE window accepted a native activation notification");
+        return;
+    }
+    if(mode==5) {
+        for(int flags:{NUI::EAF_ACTIVATE,NUI::EAF_DEACTIVATE}) {
+            Require(root->ProcessMessage(NUI::SEvent(NUI::EVENT_ACTIVATE,flags)) && root->IsActive()==(flags==NUI::EAF_ACTIVATE),
+                "plain native activation/deactivation stopped updating window activity");
+        }
+        return;
+    }
+    CObj<NUI::CWindow> child=new NUI::CWindow(NUI::SWindowInfo(root,NUI::SPoint(0,0),NUI::SPoint(20,20),"activation-child"));
+    CObj<NUI::CWindow> grandchild=new NUI::CWindow(NUI::SWindowInfo(child,NUI::SPoint(0,0),NUI::SPoint(10,10),"activation-grandchild"));
+    const bool activating=mode==2;
+    const int initial=activating?NUI::EAF_DEACTIVATE:NUI::EAF_ACTIVATE;
+    for(auto* window:{root.GetPtr(),child.GetPtr(),grandchild.GetPtr()})window->ProcessMessage(NUI::SEvent(NUI::EVENT_ACTIVATE,initial));
+    Require(root->IsActive()==!activating && child->IsActive()==!activating && grandchild->IsActive()==!activating,
+        "native activation tree did not prepare three ordinary initial window states");
+    const int flags=activating?NUI::EAF_ACTIVATE:NUI::EAF_DEACTIVATE;
+    const bool handled=root->ProcessMessage(NUI::SEvent(NUI::EVENT_ACTIVATE,flags));
+    std::printf("native window activation mode=%d root=%d child=%d grandchild=%d\n",mode,int(root->IsActive()),int(child->IsActive()),int(grandchild->IsActive()));std::fflush(stdout);
+    Require(handled && root->IsActive()==activating && child->IsActive()==activating && grandchild->IsActive()==activating,
+        "native activation notification did not propagate through the real child window tree");
+    Require(child->GetParent()==root.GetPtr() && grandchild->GetParent()==child.GetPtr(),"activation changed the real window parent links");
+}
+
 static void WindowChildRegistration()
 {
     CObj<NUI::CInterface> context = new NUI::CInterface;
@@ -29071,6 +29112,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "encoded-load-command") && argc == 4) { LoadSuccessFeedback(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "zone-snapshot-excludes-hud") && argc == 4) { ZoneSnapshotExcludesHUD(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "window-interface-propagation")) { WindowInterfacePropagation(); return true; }
+    if (!std::strcmp(mode, "window-activation-flags")) { Require(argc==3,"window activation requires mode"); WindowActivationFlags(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "window-child-registration")) { WindowChildRegistration(); return true; }
     if (!std::strcmp(mode, "lua-argument-state")) { LuaArgumentState(); return true; }
     if (!std::strcmp(mode, "worldless-ui-script")) { WorldlessUIScript(); return true; }

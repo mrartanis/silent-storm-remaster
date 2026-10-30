@@ -886,6 +886,10 @@ add_test(NAME UpstreamTinyAnimatedLight COMMAND UpstreamBugTests tiny-animated-l
 add_test(NAME UpstreamFreshAmbientGraph COMMAND UpstreamBugTests fresh-ambient-graph)
 add_test(NAME UpstreamWindowInterfacePropagation COMMAND UpstreamBugTests window-interface-propagation)
 add_test(NAME UpstreamWindowChildRegistration COMMAND UpstreamBugTests window-child-registration)
+foreach(_activation_case RANGE 0 5)
+  add_test(NAME UpstreamWindowActivationFlags${_activation_case} COMMAND UpstreamBugTests window-activation-flags ${_activation_case})
+endforeach()
+
 add_test(NAME UpstreamLuaArgumentState COMMAND UpstreamBugTests lua-argument-state)
 add_test(NAME UpstreamWorldlessUIScript COMMAND UpstreamBugTests worldless-ui-script)
 add_test(NAME UpstreamLuaWindowUserdata COMMAND UpstreamBugTests lua-window-userdata)

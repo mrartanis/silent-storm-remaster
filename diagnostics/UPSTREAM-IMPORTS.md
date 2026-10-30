@@ -16852,3 +16852,36 @@ corpse-cancel-verification.json и corpse-cancel-retail-oracle.json в
 G:/SS/lab/evidence/upstream-remaster-20261024. Ledger171 imported/18partial/
 54pending:72 незакрытых исходных коммита. Все остальные части4949, полная
 задача и окончательная проверка hosted CI остаются незавершёнными.
+
+
+## `4949f285`: уведомления активности дочерних окон
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+Отдельная часть UIWindow.cpp; смешанный источник остаётся partial.
+
+Сначала compiled native RED4/6 на Windows и Linux. Настоящие CWindow,
+ProcessMessage и SendMessage воспроизводят EAF_ACTIVATENOTIFY/DEACTIVATENOTIFY
+с дополнительным битом10000000. Равенство всего значения не меняло bActive;
+при активации родителя его child/grandchild оставались выключенными, при
+деактивации оставались активными. NOACTIVATE и обычные прямые события проходили.
+Приватные поля и виртуальный рендер для воспроизведения не подменялись.
+
+Два сравнения заменены побитовыми проверками существующих констант. Named Gold
+ProcessMessage71e760/1762 и Steam728ac0 через CWindow RTTI/vtable slot10
+подтверждают фактический EVENT_ACTIVATE01000001, проверку NOACTIVATE,
+bit1/bit2 и запись bActive, плюс notify-значения при отправке потомкам.
+Steam содержит большую Lua-прелюдию; проверен нужный обработчик события,
+идентичность всего тела функции не заявляется. Typed Gold nVal+0c/bActive+10
+и оба декодированных24/25-byte блока проверены отдельно.
+
+GREEN6/6 на каждой платформе. Свежие Win ALL_BUILD/Linux Game+helpers,
+8 проверок реальных меню/диалогов/скриптов/сериализации на каждой платформе,
+локальный asset-free CI311/311. Все шесть новых тестов включены в CI-манифест
+без зависимости от game.db/res. Собственные layout, масштабирование, шрифты,
+рендеринг, поля сохранений и данные побайтно сохранены вне двух операторов.
+Свидетельства: window-activation-verification.json и
+window-activation-retail-oracle.json в G:/SS/lab/evidence/upstream-remaster-20261024.
+
+После независимых Cancel и UIWindow исправлений остальные части4949 требуют
+дальнейшей проверки. Ledger171 imported/18partial/54pending:72 исходных коммита
+ещё не закрыты. Полная задача и окончательный hosted CI остаются активными.
