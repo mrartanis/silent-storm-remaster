@@ -7861,6 +7861,92 @@ static void ScriptAmbientVariants(const char* databasePath,const char* resourceP
 }
 
 
+static void WorldScriptClue(const char* databasePath,const char* resourcePath,int context,int mode)
+{
+    Require(context>=0 && context<=1 && mode>=0 && mode<=2,"unknown shared-world clue case");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"world clue fixture started with an interface");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm shared world clue regression");
+    struct ClockRestore {STime previous;~ClockRestore(){NMainLoop::SetTimeForHarness(previous);}} frameClock{NMainLoop::SetTimeForHarness(1000)};
+    CObj<NDb::CScript> quiet=new NDb::CScript;quiet->strCode="function OnEnterZone() end";
+    struct RestoreScripts {vector<std::pair<CPtr<NDb::CTemplVariant>,CPtr<NDb::CScript>>> variants;CPtr<NDb::CChapterMap> chapter;CPtr<NDb::CScript> entry;
+        ~RestoreScripts(){for(auto& p:variants)if(IsValid(p.first))p.first->pScript=p.second;if(IsValid(chapter))chapter->pScript=entry;}} restore;
+    struct SectorRestore {CObj<CChapterInfo> info;vector<SChapterSector> original;
+        ~SectorRestore(){if(IsValid(info))info->sectorsSet.swap(original);}} sectors;
+    CObj<NRPG::CGlobalGame> game;
+    if(context==0){
+        CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());while(maps.MoveNext())if(IsValid(maps.Get()->pBackground)){restore.chapter=maps.Get();break;}
+        Require(IsValid(restore.chapter),"world clue fixture has no authored chapter");restore.entry=restore.chapter->pScript;restore.chapter->pScript=quiet.GetPtr();
+        game=NRPG::CreateGlobalGame(1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+        list<CPtr<NScenario::CScenarioClue>> clues;game->pScenarioTracker->GetAvailableClues(&clues);for(auto clue:clues)if(IsValid(clue))clue->SetJustFound(false);
+        for(auto merc:game->players.front()->mercs){vector<CDBPtr<NDb::CMedal>> medals;merc->GetJustFoundMedals(&medals);}
+        CDGPtr<CPtrFuncBase<CChapterInfo>> info=shareChapterInfo.Get(restore.chapter->GetRecordID());info.Refresh();
+        sectors.info=info->GetValue();Require(IsValid(sectors.info),"clue fixture has no cached native map info");
+        sectors.original=sectors.info->sectorsSet;auto& isolated=sectors.info->sectorsSet;
+        isolated.erase(std::remove_if(isolated.begin(),isolated.end(),[](const SChapterSector& sector){return sector.eType==RANDOM;}),isolated.end());
+        Require(!isolated.empty(),"clue isolation removed every authored zone and exit");
+        CObj<NGame::CICBeginChapter> enter=new NGame::CICBeginChapter(restore.chapter->GetRecordID(),game);enter->Exec();
+    }else{
+        CDBIterator<NDb::CTemplVariant> variants(*NDatabase::GetTable<NDb::CTemplVariant>());
+        while(variants.MoveNext())if(IsValid(variants.Get()->pTemplate) && variants.Get()->pTemplate->GetRecordID()==2425){restore.variants.push_back({variants.Get(),variants.Get()->pScript});variants.Get()->pScript=quiet.GetPtr();}
+        Require(!restore.variants.empty(),"world clue fixture has no authored menu variants");CObj<NGame::CICMainMenu> open=new NGame::CICMainMenu;open->Exec();
+    }
+    CObj<NGame::CMissionBase> owner=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    auto* world=owner?dynamic_cast<NWorld::CWorld*>(owner->GetWorld()):nullptr;auto* view=owner?owner->GetScene():nullptr;auto* renderer=owner?owner->GetRenderGame():nullptr;
+    Require(world && view && renderer && world->GetOwnScript(),"world clue fixture lacks actual chapter/menu world, view, renderer or Lua");
+    Require(context==0?owner->GetDesktop()!=nullptr:owner->GetDesktop()==nullptr,"world clue fixture lost its real chapter/null-menu desktop distinction");
+    // Materialize authored static world effects before taking geometry baselines.
+    NMainLoop::SetTimeForHarness(1050);Require(NMainLoop::StepApp(true,false,false),"world clue warm-up frame exited");
+    Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand(),"world clue warm-up opened an unrelated interface");
+    while(auto* pending=world->GetUICommand()){CObj<NWorld::CUICmd> release=pending;}
+
+
+
+    auto* script=world->GetOwnScript();auto* scriptGame=script->GetGlobalGame();auto* tracker=script->GetScenarioTracker();
+    Require(scriptGame && tracker && tracker==scriptGame->pScenarioTracker.GetPtr(),"world clue fixture lost its actual script game/tracker identity");
+    Require(context==0?owner->GetRPGGame()==scriptGame:owner->GetRPGGame()==nullptr,"world clue fixture lost its chapter/campaignless-menu distinction");
+    Require(tracker->IsScenarioAvailable()==(context==0),"world clue fixture lost its actual scenario/no-scenario distinction");
+    auto* clue=tracker->GetClueByName("Find_Cipher_key");
+    NDb::CString* description=nullptr;
+    if(context==0){Require(clue,"chapter clue fixture lacks its authored cipher-key clue");tracker->CheatTakeClue(clue,true);
+        description=tracker->GetClueDescriptionFromObjective(clue);Require(description && !NUI::GetDBString(description).empty(),"chapter clue fixture did not finish its real capture objective");
+        list<CPtr<NScenario::CScenarioClue>> available;tracker->GetAvailableClues(&available);for(auto current:available)if(IsValid(current))current->SetJustFound(false);
+    }else Require(!clue,"native scenario-less menu unexpectedly exposed a campaign clue");
+    const bool found=clue && tracker->IsClueFound(clue);const bool justFound=clue && clue->IsJustFound();
+    auto xp=[](NRPG::CGlobalGame* game){float value=0;for(auto player:game->players)for(auto merc:player->mercs)if(IsValid(merc))value+=merc->fXP;return value;};
+    const float initialXP=xp(scriptGame);
+    auto number=[&](const char* name,int expected){const int top=script->GetTop();auto value=script->GetGlobal(name);const bool result=value.IsNumber() && value.GetNumber()==expected;script->SetTop(top);return result;};
+    auto nil=[&](const char* name){const int top=script->GetTop();const bool result=script->GetGlobal(name).IsNil();script->SetTop(top);return result;};
+    auto frame=[&](STime tick){if(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand())world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);
+        NMainLoop::SetTimeForHarness(tick);Require(NMainLoop::StepApp(true,false,false),"world clue native frame exited");};
+    const string lua=mode==0?"WorldClueProduced = 1":string("WorldClueResult = ClueShow('")+(mode==1?"__absent_world_clue__":"Find_Cipher_key")+"'); WorldClueProduced = 1";
+    Require(script->DoString(lua.c_str())==0,"world clue fixture could not execute actual Lua ClueShow");world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);
+    Require(number("WorldClueProduced",1) && nil("WorldClueResult"),"native ClueShow did not preserve its no-return-value Lua API");
+    frame(1100);const bool show=context==0 && mode==2;
+    std::printf("native world clue context=%d mode=%d stage=dispatch scenario=%d queued=%d expected=%d found=%d xp=%.3f\n",context,mode,int(tracker->IsScenarioAvailable()),int(NMainLoop::HaveInterfaceCommand()),int(show),int(found),xp(scriptGame));std::fflush(stdout);
+    Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && NMainLoop::HaveInterfaceCommand()==show,"chapter discarded its real Lua ClueShow command or a control opened a modal");
+    if(show){frame(1150);auto* modal=NMainLoop::GetCurrentInterfaceForHarness();
+        Require(modal && pSSClasses->GetObjectTypeID(modal)==int(0xb1001180) && NMainLoop::GetInterfaceStackDepth()==2,"world clue did not open the actual native clue modal");
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(modal,&refs);int event=-2;CPtr<NGame::IMission> origin;CPtr<NRPG::CGlobalGame> modalGame;CPtr<NScenario::CScenarioClue> modalClue;CPtr<NUI::CWindow> ui;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&event);reader.Add(3,&origin);reader.Add(4,&modalGame);reader.Add(6,&modalClue);reader.Add(9,&ui);}
+        Require(event>=0 && !script->IsUIActionIDPresent(event) && origin.GetPtr()==owner.GetPtr() && modalGame.GetPtr()==scriptGame && modalClue.GetPtr()==clue && ui,"native clue modal lost its unregistered native event, origin, game or selected clue");
+        CPtr<NUI::CWindow> viewWindow;{auto saved=BorrowedObjectFields(ui,&refs);CStructureSaver reader(saved,CStructureSaver::READ,&refs);reader.Add(5,&viewWindow);}
+        Require(viewWindow,"native clue UI did not construct its real description view");
+        CPtr<NUI::CText> text;{auto saved=BorrowedObjectFields(viewWindow,&refs);CStructureSaver reader(saved,CStructureSaver::READ,&refs);reader.Add(5,&text);}
+        Require(text,"native clue description has no actual text control");
+        wstring expected;const auto authored=NUI::GetDBString(description);for(size_t i=0;i<authored.size();++i){const auto c=authored[i];if(c==L'\r' || c==L'\n'){expected+=L"<br>";if(c==L'\r' && i+1<authored.size() && authored[i+1]==L'\n')++i;}else if(c==133)expected+=L"...";else expected+=c;}
+        Require(text->GetText()==NUI::GetDBString(0x4f22)+expected,"native clue modal displayed a different objective description or lost its existing markup");
+        NUI::SPoint size;text->GetRealSize(&size);Require(size.x>0 && size.y>0,"native clue description has empty text layout");
+        const STime held=world->GetAimTime()->GetValue();frame(1200);Require(world->GetAimTime()->GetValue()==held,"covered clue owner advanced its world");
+        NInput::SEvent input;while(NInput::GetEvent(&input)){}NInput::PostEvent("cancel");Require(NInput::GetEvent(&input) && modal->ProcessEvent(input),"native clue modal rejected its close event");frame(1250);
+        Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && NMainLoop::GetInterfaceStackDepth()==1,"native clue close did not restore its actual chapter owner");
+        std::printf("native world clue context=0 mode=2 stage=modal event=%d noWait=1 origin=1 clue=1 game=1 text=1 owner=1 stack=1\n",event);
+    }
+    frame(1300);frame(1350);
+    Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && NMainLoop::GetInterfaceStackDepth()==1 && !NMainLoop::HaveInterfaceCommand() && !world->GetUICommand(),"world clue left an unrelated modal or pending command");
+    Require(xp(scriptGame)==initialXP && (!clue || (tracker->IsClueFound(clue)==found && clue->IsJustFound()==justFound)),"displaying a clue changed its scenario state or experience");
+    std::printf("native world clue context=%d mode=%d stage=complete modal=%d apiNil=1 state=1 xp=1\n",context,mode,int(show));std::fflush(stdout);
+}
+
 static void WorldScriptVideo(const char* databasePath,const char* resourcePath,int context,int mode)
 {
     Require(context>=0 && context<=1 && mode>=0 && mode<=4,"unknown shared-world video sequence case");
@@ -28845,6 +28931,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "world-script-clue")) { Require(argc == 6, "world clue requires db, resources, context and mode"); WorldScriptClue(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-video")) { Require(argc == 6, "world video requires db, resources, context and mode"); WorldScriptVideo(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-camera-locator")) { Require(argc == 6, "world camera locator requires db, resources, context and mode"); WorldScriptCameraLocator(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-floor")) { Require(argc == 6, "world floor requires db, resources, context and mode"); WorldScriptFloor(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }

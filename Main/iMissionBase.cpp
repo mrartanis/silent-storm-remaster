@@ -21,6 +21,7 @@
 #include "iCommonUI.h"
 #include "iDesktopWindow.h"
 #include "iShowHint.h"
+#include "iShowClue.h"
 #include "iIntroScreen.h"
 #include "..\MiscDll\Commands.h"
 #include "..\MiscDll\LogStream.h"
@@ -185,6 +186,13 @@ bool CMissionBase::ExecWorldCommonCommand( NWorld::CUICmd *pCmd )
 	{
 		NWorld::CUICmdPlayVideo *pVideo = CDynamicCast<NWorld::CUICmdPlayVideo>( pCmd );
 		NGame::PlayVideoSequence( this, pVideo->GetID(), pVideo->szFileName, false );
+	}
+	else if ( CDynamicCast<NWorld::CUICmdShowClue>( pCmd ) )
+	{
+		NWorld::CUICmdShowClue *pClue = CDynamicCast<NWorld::CUICmdShowClue>( pCmd );
+		// The clue modal needs a campaign; our backdrop worlds have no scenario.
+		if ( IsValid( pGlobalGame ) && IsValid( pClue->pClue ) )
+			NMainLoop::Command( new NGame::CICShowClue( this, pClue->GetID(), pGlobalGame, pClue->pClue ) );
 	}
 	else
 		return ExecWorldSoundCommand( pCmd );

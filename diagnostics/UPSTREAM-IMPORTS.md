@@ -16363,3 +16363,54 @@ changes. Temporary sequence files removed by fixture cleanup.
 Evidence: world-video-verification.json, RED/original JSONs and focused/final
 native logs. Source remains PARTIAL for clue/AI flash; ledger166 imported/
 19 partial/58 pending. Whole goal/final hosted CI/balance-MD delivery active.
+
+### world-clue — show scenario clues through the common chapter consumer
+
+Source cb954e2e455b632c0174b88b2d051ac74e780ce0, parent
+be26d8764a1d36bace7e61217edc1b94c72facef. Actual chapter Lua ClueShow found
+the authored captured cipher-key clue but its world command was discarded.
+Definitive native RED1/6 each on Windows/Linux: chapter valid clue fails with
+queued0/expected1; five quiet/unknown-name/no-scenario-menu controls pass.
+Production was exact parent before RED, including after fixture calibration.
+
+Move existing own four-argument CICShowClue(this, ID, pGlobalGame, clue)
+consumer into shared handler, preserving valid-clue guard and requiring actual
+campaign for this campaign modal. Keep our API: no upstream global-player arg
+or dereference of own menu's null active-player. Actual menu script world has
+global game but scenario is unavailable; ClueShow returns0 and queues nothing.
+No synthetic scenario/world-game fallback needed. Old deep clue wrapper is
+removed and its retained load/store/team body deindented once; exact rest of
+Main bytes, headers except include, fields/save/network/clock unchanged.
+
+Native GREEN6/6 each. Actual Lua producer, native command queue and real clue
+modal verified; saved origin/game/clue identity, unique unregistered native ID,
+authored completed objective description with existing markup and positive text
+layout, underlying-world pause, native cancel and exact chapter owner/stack1
+restoration. Lua ClueShow result remains nil, no invented wait API. Showing the
+clue leaves XP50 and prepared scenario/found/just-found state unchanged; all
+three real menu controls preserve scenario unavailable/no modal/XP0.
+
+Fixture correction: first GREEN reached real modal but test expected ID=-1.
+Own CUICmd constructors assign a unique ID to every command; ClueShow's
+AddUICommand simply does not register that ID in Lua's wait set. Corrected
+assertion to nonnegative ID with no active wait; retained all origin/context/
+text/close/state assertions. Restored parent Main and repeated definitive RED
+before identical fix. Production hashes before/after calibration match; raw
+initial evidence preserved. No production change made to satisfy wrong ID test.
+
+Original proof: mapped common ShowClue dispatch121 Gold5a151e -> Steam5a3eae
+with independently named RTTI/constructor, constructor163 Gold633da0 ->639070,
+named chapter GetActivePlayer5c exact getter4/PDB field58 and base game3c.
+Prior chapter/menu common route reused. Preserve our established clue UI API,
+renderer/fonts and event/close policy; no copied original ABI offsets in C++.
+
+Fresh Windows ALL_BUILD/Linux Game+helpers+serializer; related187/187 and
+body16/16 each, Windows network4/4 and local CI305/305 pass. Exact native raws,
+test names/manifests/exits and prior camera replacement/modal cases verified.
+Actual hosted Actions remains separate. Two builds reused, no HD/PNG or old
+build copies. No balance/RNG/DB/font/facial changes.
+
+Evidence: world-clue-verification.json, RED/original/calibration JSONs and
+native focused/final logs. Source remains PARTIAL for shared AI flash only;
+ledger166 imported/19 partial/58 pending. Whole goal/final hosted CI/balance-MD
+delivery remain active.
