@@ -2021,3 +2021,12 @@ placement, matching both original binaries. This removes an extra camera-anchor
 translation of the test cloud. The normal mission weather system, particle
 wrapping algorithm, authored effect data and all gameplay/balance values are
 unchanged. Effect replacement still owns one handle and releases the old one first.
+
+### `974d8543`: existing mission Panzerklein restriction
+
+The chapter marker now enforces the zone's existing bAllowPK flag against living
+fielded mercs wearing a suit, matching the original Gold/Steam policy. Such a
+party receives the existing localized denial and stays on the chapter map;
+it must remove the suit or enter a zone permitting PK. Dead and reserve wearers
+do not block entry. This restores authored mission access rules without changing
+data, combat coefficients, inventory, costs or script-driven transition paths.

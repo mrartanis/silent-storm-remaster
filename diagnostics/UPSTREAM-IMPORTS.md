@@ -17611,3 +17611,42 @@ helper; it is archived as unbuilt-helper and the rerun includes that helper.
 New4 resource extended cases are outside323. Modern renderer/font/audio/LAN APIs,
 particle algorithms, game data and balance coefficients are unchanged.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9235a832ed5de3a80b8d3f68639cc5dab8212be0.
+
+## 2026-10-30: chapter mission Panzerklein gate (`974d8543`, complete)
+
+The native chapter action handler checks a sector CanDeploy predicate before
+constructing its existing autosave/mission container. For a valid zone disallowing
+PK, a living fielded wearer blocks entry and emits localized20995 exactly once.
+The action is handled, preventing fallback camp entry. Other sector types keep
+the default allowed predicate. CGlobalPlayer::IsAnybodyInPK scans mercs, excluding
+dead people and checking the existing stored pPanzerklein field. Own null-merc
+and empty-player guards adapt this safely to the current APIs. No save fields,
+inventory mutation, new deployment coefficient or script transition rule was added.
+
+NativeChapterPanzerkleinGate0..6 build the real chapter world/UI with one authored
+zone/inside team position and actual hired mercs/suit persona. They invoke the
+native action handler directly, inspecting and retiring queued native containers
+without executing save/loading/transition. RED2/7 each: living PK and a list with
+a null merc still queue a transition without warning. Five existing controls
+pass: no PK, dead wearer, allowed zone, hired reserve wearer outside mercs, empty
+player list. GREEN7/7 each: blocked cases queue nothing and warn once; controls
+retain one native autosave/transition container and no denial. Money, current
+interface, travel position, world clock and gameplay RNG stay intact. This
+does not claim an actual mission load or a rendered mouse-click screenshot.
+
+Gold named IsAnybodyInPK693ab0/81 maps uniquely to Steam699ae0, with only its
+decoded IsDead call operand masked (Gold6b48a0,Steam6baa40). Typed mercs+30 and
+bAllowPK+50, plus31byte policy5a7488->Steam5a9eb8, prove the flag/fielded scan.
+Independent CZoneSector RTTI vtable slot38 points to Gold5a7440/Steam5a9e70.
+Gold named ProcessMessage5a9cf0/3742 calls that slot5aa827, then denial20995 at
+5aa82e and GetDBString712200. No whole UI-function or ABI equivalence claim.
+Evidence: chapter-pk-gate-{red-verification,retail-oracle,verification}.json and
+raw logs in the laboratory. Initial fixture type/zone-center/container-expectation
+failures are archived separately and not counted as RED evidence.
+
+Full Windows/Linux Game builds, related10/10 each (seven new cases, chapter clue
+heading/exit marker and network serializer) and asset-free CI323/323 pass. New7
+resource/display extended cases are outside323; Linux ran under Xvfb/Openbox.
+All changes selected from this source are complete; neighbouring chapter CanEnter
+and other mixed-source work remain independent.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/974d85437e9cb6c69403dbdc76ffeea8c3a2b905.

@@ -367,3 +367,13 @@ camera fixture, identity forward/inverse, replacement/final handle retirement,
 world time/action/RNG controls. RED3/4 ->GREEN4/4 each; no GPU screenshot claim.
 Related8Win/7Linux,Game builds,CI323. New4 outside asset-free323; initial fixture
 camera-selector crash and unbuilt Linux helper run are excluded from pass evidence.
+
+## Chapter Panzerklein deployment gate
+
+NativeChapterPanzerkleinGate0..6: resource/display extended Windows/Linux,
+timeout120; Linux Xvfb/Openbox. Native chapter action/queue/log behavior with
+authored zone flags, real hired mercs and suit persona; dry transition only.
+RED2/7 ->GREEN7/7 each, five valid/dead/reserve/empty-player controls retained.
+No camp fallback/duplicate warning; money/interface/travel/time/RNG checks.
+Full Game builds,related10/10 each,CI323. New7 outside asset-free323.
+Initial fixture type/center/container assumptions are excluded from RED evidence.

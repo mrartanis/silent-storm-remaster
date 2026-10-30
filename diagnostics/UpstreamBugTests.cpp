@@ -29489,6 +29489,64 @@ static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonA
     return sequence;
 }
 
+static void ChapterPanzerkleinGate(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=6,"unknown chapter PK gate mode");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm native chapter deployment gate regression");
+    NGame::InitLoadingScreen();
+    struct InfoRestore {CObj<CChapterInfo> info;vector<SChapterSector> original;CVec2 deploy;~InfoRestore(){if(info){info->sectorsSet.swap(original);info->vDeployPos=deploy;}}} restore;
+    NDb::CChapterMap* map=nullptr;NDb::CDBScenarioZone* zoneRecord=nullptr;SChapterSector selected;
+    CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());
+    while(maps.MoveNext()) {
+        auto* candidate=maps.Get();if(!IsValid(candidate->pBackground))continue;
+        CDGPtr<CPtrFuncBase<CChapterInfo>> loader=shareChapterInfo.Get(candidate->GetRecordID());loader.Refresh();auto* info=loader->GetValue();if(!info)continue;
+        for(const auto& sector:info->sectorsSet) {
+            if(sector.eType!=ZONE || sector.pointsSet.size()<2)continue;
+            auto* zone=NDb::GetDBScenarioZone(sector.nTemplate);if(!zone || !IsValid(zone->pScenario))continue;
+            if(zone->bAllowPK!=(mode==3))continue;
+            selected=sector;map=candidate;zoneRecord=zone;restore.info=info;break;
+        }
+        if(map)break;
+    }
+    Require(map && zoneRecord && restore.info,"chapter PK gate lacks an authored chapter zone with the requested deployment flag");
+    restore.original=restore.info->sectorsSet;restore.deploy=restore.info->vDeployPos;
+    restore.info->sectorsSet=vector<SChapterSector>{selected};
+    restore.info->vDeployPos=selected.pointsSet.front()+CVec2(10,10);
+    CObj<NRPG::CGlobalGame> game=NRPG::CreateGlobalGame(zoneRecord->pScenario->GetRecordID());
+    CObj<NRPG::CGlobalPlayer> player=NRPG::CreateGlobalPlayer(vector<int>{54,103});game->players.push_back(player);
+    Require(player->mercs.size()==2,"chapter PK gate lacks its two actual hired/fielded mercs");
+    CObj<NGame::CICBeginChapter> enter=new NGame::CICBeginChapter(map->GetRecordID(),game);enter->Exec();
+    CObj<NGame::CMissionBase> chapter=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    auto* ui=chapter?dynamic_cast<NUI::CChapterMapUI*>(chapter->GetInterface()->GetChildByID("chaptermapUI")):nullptr;
+    auto* activeWorld=chapter?dynamic_cast<NWorld::CWorld*>(chapter->GetWorld()):nullptr;
+    Require(ui && activeWorld && !NMainLoop::HaveInterfaceCommand(),"chapter PK fixture did not create its actual chapter UI/world");
+    const string travel=ui->GetTravelForDiagnostics();std::printf("%s",travel.c_str());std::fflush(stdout);
+    Require(travel.find(" type=0 template="+std::to_string(selected.nTemplate)+" visible=")!=string::npos && travel.find(" hit=1 ")!=string::npos,"chapter PK fixture did not place its real team marker inside its one authored zone");
+    auto zone=game->pScenarioTracker->GetZoneByDBZone(zoneRecord);Require(IsValid(zone),"chapter PK fixture has no actual scenario-zone instance");
+    NDb::CRPGPers* suit=nullptr;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while(people.MoveNext())if(IsValid(people.Get()->pPanzerklein)){suit=people.Get();break;}
+    Require(suit,"chapter PK fixture lacks an actual authored suit persona");
+    auto* wearer=player->mercs.back().GetPtr();
+    if(mode!=1)wearer->pPanzerklein=suit;
+    if(mode==2)wearer->Kill();
+    if(mode==4){player->mercs.pop_back();Require(std::find(player->totalMercs.begin(),player->totalMercs.end(),wearer)!=player->totalMercs.end(),"reserve-suit fixture lost its hired reserve");}
+    if(mode==5)player->mercs.insert(player->mercs.begin(),nullptr);
+    if(mode==6)game->players.clear();
+    const bool blocked=mode==0 || mode==5;
+    const auto warning=NUI::GetDBString(20995);Require(!warning.empty(),"chapter PK gate has no localized denial message");
+    auto warnings=[&](){return std::count_if(consoleLines.begin(),consoleLines.end(),[&](const SConsoleLine& line){return line.eType==STREAM_GAME && line.szText.find(warning)!=wstring::npos;});};
+    const int beforeWarnings=int(warnings()),money=player->nMoney;const auto position=game->vChapterPos;const auto time=activeWorld->GetTime()->GetValue();auto rng=GlobalGameRandom();
+    Require(ui->ProcessMessage(NUI::SEvent(NUI::EVENT_NOTIFY,string("action"))),"chapter PK gate did not consume the native marker action");
+    int commands=0,containers=0;
+    while(NMainLoop::HaveInterfaceCommand()){CObj<NMainLoop::CInterfaceCommand> command=NMainLoop::TakeInterfaceCommandForHarness();++commands;if(dynamic_cast<NMainLoop::CICContainer*>(command.GetPtr()))++containers;}
+    const int newWarnings=int(warnings())-beforeWarnings;
+    std::printf("native chapter PK gate mode=%d map=%d zone=%d allowPK=%d dead=%d fielded=%zu players=%zu commands=%d containers=%d warnings=%d blocked=%d\n",
+        mode,map->GetRecordID(),zoneRecord->GetRecordID(),int(zoneRecord->bAllowPK),int(wearer->IsDead()),player->mercs.size(),game->players.size(),commands,containers,newWarnings,int(blocked));std::fflush(stdout);
+    Require(blocked?(commands==0 && newWarnings==1):(commands==1 && containers==1 && newWarnings==0),"chapter marker ignored the authored PK deployment ban or blocked a valid living/dead/reserve/allowed-zone control");
+    Require(NMainLoop::GetCurrentInterfaceForHarness()==chapter.GetPtr() && player->nMoney==money && game->vChapterPos==position && activeWorld->GetTime()->GetValue()==time && rng.Get()==GlobalGameRandom().Get(),"dry chapter deployment click changed the current mission, money, travel position, world time or gameplay RNG");
+    NMainLoop::DoneInterface();
+}
+
 class WeatherEffectLifetime: public CObjectBase
 {
     OBJECT_NOCOPY_METHODS(WeatherEffectLifetime);
@@ -30778,6 +30836,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "chapter-pk-gate")) { Require(argc==5,"chapter PK gate requires db/resources/mode"); ChapterPanzerkleinGate(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "weather-world-placement")) { Require(argc==5,"weather placement requires db/resources/mode"); WeatherWorldPlacement(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "unit-preview-shot-origin")) { Require(argc==5,"shot origin preview requires db/resources/mode"); UnitPreviewShotOrigin(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "knife-unit-preview")) { Require(argc==5,"native knife preview requires db/resources/mode"); KnifeUnitPreview(argv[2],argv[3],std::atoi(argv[4])); return true; }
