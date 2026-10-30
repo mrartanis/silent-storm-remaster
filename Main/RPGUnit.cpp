@@ -844,6 +844,8 @@ bool CUnit::CanHealWounds( CUnit *pTarget, IFirstAidItem *pItem ) const
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnit::HasPerk( int nPerkID, float *pParam1, float *pParam2, float *pParam3 ) const
 {
+	if ( !GetPerksTree() )
+		return false;
 	return GetPerksTree()->HasPerk( nPerkID, pParam1, pParam2, pParam3 );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

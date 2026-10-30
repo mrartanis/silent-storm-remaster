@@ -504,3 +504,11 @@ persona/grant49, mine/grenade difficulty APIs, authored/zero/fractional/negative
 and no-perk/null-argument cases. RED10/16 -> GREEN16/16 each; skill/AP/HP/XP/
 points/RNG stable. Query scope; no placed trap/disarm claim. Related89Win/89Linux,
 Game builds, CI323. New16 outside323.
+
+## Classless perk lookup
+
+NativeClasslessPerk0..6: resource extended Win/Linux,timeout120. Actual authored
+personas887/888 with no class/tree, flag and optional-output lookups; classed
+native untaken49/acquired49/acquired50 controls. RED4 crashes/7 -> GREEN7/7
+each; AP/HP/XP/RNG and point budget stable, false retains output sentinels.
+Related96Win/96Linux, Game builds, CI323. New7 outside323.

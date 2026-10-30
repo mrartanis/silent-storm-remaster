@@ -2179,3 +2179,10 @@ of mines and grenade traps: int((1 + Param1) * engineering). Retains truncation
 toward zero, no lower clamp and ordinary no-ability behavior. Native tests
 cover both difficulty APIs. Actual trap placement, spotting and disarm actions
 are separate paths and are not claimed by this change.
+
+### `037c41d9`: missing perk-tree lookup
+
+Restores the original false result for classless units with no perk tree.
+Prevents null dereference without granting abilities or writing optional
+parameters. Actual classed acquired/untaken behavior and authored parameters
+are retained. No balance constants or facial/head implementation changes.

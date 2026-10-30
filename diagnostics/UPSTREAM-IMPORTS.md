@@ -18142,3 +18142,30 @@ retail-oracle.json, trap-difficulty-verification.json/raw logs.
 Game builds, related89Win/89Linux, CI323 pass; new16 cases outside323.
 Other independent037c41d9 hunks remain pending.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: classless unit perk query (`037c41d9`, partial)
+
+CUnit::HasPerk returns false before forwarding when its actual perk tree is
+absent. Classless authored gender-preview personas887/888 already intentionally
+construct without a tree. Missing-tree queries retain all optional outputs;
+classed units continue through the existing native tree implementation.
+
+NativeClasslessPerk0..6 construct both actual authored classless personas and
+query flag/three optional parameters. Three classed native-tree controls cover
+untaken49, acquired49 with authored outputs and acquired50 flag. RED: four
+classless queries reach their printed before-query boundary and crash before
+returning; all three classed controls pass. GREEN7/7 each; AP/HP/XP/RNG and
+native perk point budget remain stable. Initial accessor compile mistakes are
+archived separately and are not behavioral RED. No facial/head, tree creation,
+DB record, perk parameter or save-layout changes.
+
+Gold named CUnit::HasPerk6b44a0/20 maps uniquely to Steam6ba640 with only its
+decoded tail-jump operand masked. Typed CUnit::pPerksTree+84 is tested for null
+before false return and before forwarding; outputs are untouched. The tail
+targets Gold CPerksTree::HasPerk6a8640 / Steam6ae5d0; their91byte wrappers match
+with the single decoded map-lookup call operand masked. No lower-level hash-
+map helper equivalence claim. Evidence: classless-perk-retail-oracle.json,
+verification/raw logs and Linux crash debugger log.
+Game builds, related96Win/96Linux, CI323 pass; new7 cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

@@ -29523,6 +29523,20 @@ static CObj<NRPG::IUnitMission> NativeMissionWithUntakenPerk(int id)
     for(auto* person:candidates){CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(person);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();if(!tree || unit->HasPerk(id) || mission->GetTotalVP()<=0)continue;vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==id)return mission;}
     Require(false,"native RPG fixture lacks an actual untaken authored perk node");return nullptr;
 }
+static void ClasslessPerkQuery(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=6,"unknown native classless-perk mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    CObj<NRPG::IUnitMission> mission;CObj<NRPG::CUnit> unit;const int id=mode==0?12:mode==1?85:mode==3?51:mode==6?50:49;
+    if(mode<4){auto* person=NDb::GetPers(mode%2?888:887);Require(person && !person->pClass && person->pModel && person->pBaseValue,"classless fixture lacks authored gender-preview persona");unit=new NRPG::CUnit(person);Require(!unit->GetPerksTree(),"classless native persona unexpectedly received a perk tree");}
+    else {mission=NativeMissionWithUntakenPerk(id);unit=mission->GetRPGUnit();if(mode>=5){auto* tree=unit->GetPerksTree();const int points=tree->GetPerkPoints();tree->AddPerkPoints(1);tree->TakePerk(id);Require(tree->GetPerkPoints()==points,"classed native grant changed its point budget");}}
+    const int ap=unit->Skills(NDb::ST_AP),hp=unit->Skills(NDb::ST_VP);const float xp=unit->fXP;auto random=GlobalGameRandom();float a=11,b=22,c=33;const bool outputs=mode==2 || mode==3 || mode==4 || mode==5,expected=mode>=5;
+    std::printf("native classless-perk mode=%d persona=%d tree=%d id=%d before-query\n",mode,unit->pPers->GetRecordID(),int(unit->GetPerksTree()!=nullptr),id);std::fflush(stdout);
+    const bool actual=outputs?unit->HasPerk(id,&a,&b,&c):unit->HasPerk(id);
+    std::printf("native classless-perk result mode=%d has=%d expected=%d out=%.6g,%.6g,%.6g\n",mode,int(actual),int(expected),a,b,c);std::fflush(stdout);Require(actual==expected,"native perk lookup changed missing/classed ability semantics");
+    if(outputs){if(expected){auto* record=NDb::GetDBPerk(id);Require(record && record->params.size()>=3 && a==record->params[0] && b==record->params[1] && c==record->params[2],"classed acquired perk lost its authored output parameters");}else Require(a==11 && b==22 && c==33,"missing perk query wrote output parameters");}
+    Require(int(unit->Skills(NDb::ST_AP))==ap && int(unit->Skills(NDb::ST_VP))==hp && unit->fXP==xp && random.Get()==GlobalGameRandom().Get(),"perk query changed AP/HP/XP/RNG");
+}
+
 static void DifficultTrapsPerk(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=15,"unknown native trap-difficulty mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
@@ -31291,6 +31305,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "classless-perk")) { Require(argc==5,"classless perk requires db/resources/mode"); ClasslessPerkQuery(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "difficult-traps")) { Require(argc==5,"trap difficulty requires db/resources/mode"); DifficultTrapsPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "zeroing-bonus")) { Require(argc==5,"zeroing bonus requires db/resources/mode"); ZeroingBonusPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "best-shooting-pose")) { Require(argc==5,"best pose requires db/resources/mode"); BestShootingPosePerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
