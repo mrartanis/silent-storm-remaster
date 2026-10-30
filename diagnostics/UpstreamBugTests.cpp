@@ -29377,6 +29377,48 @@ static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonA
     return sequence;
 }
 
+static void CorpseNullTaker(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=3,"unknown corpse null-taker mode");
+    S2Platform::SetErrorDialogs(false);
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);
+    vector<NWorld::CUnitServer*> humans;
+    for(const auto& unit:units) {
+        auto* actor=dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if(actor && actor->CanFight() && !actor->IsEmptyPK() && !actor->IsWearingPK())humans.push_back(actor);
+        if(humans.size()==2)break;
+    }
+    Require(humans.size()==2,"null-taker fixture needs a real body and carrier");
+    auto* body=humans[0];auto* carrier=humans[1];
+    body->GetUnitRPG()->GetRPGUnit()->Kill();body->SetState(new NWorld::CUnitStateDeath(body));
+    Require(!body->animator.bIsCarried,"new corpse unexpectedly starts carried");
+    if(mode==3)body->animator.BeTaken(carrier,&carrier->animator,body);
+    auto* skeleton=body->animator.GetSkeletonAnimator();Require(skeleton,"null-taker fixture has no actual body skeleton animator");
+    skeleton->pTime.Refresh();const STime now=skeleton->pTime->GetValue();
+    auto sequence=ReadAnimationSequence(skeleton);
+    CPtr<NAnimation::CAnimator> active=sequence->GetAnimator(now);Require(IsValid(active),"null-taker fixture has no current native animation");
+    const bool carried=body->animator.bIsCarried;
+    auto* bodyHead=body->GetUnitRPG()->GetRPGUnit()->GetHeadInfo();auto* carrierHead=carrier->GetUnitRPG()->GetRPGUnit()->GetHeadInfo();
+    const int ap=carrier->GetAP(),health=carrier->GetUnitRPG()->GetTotalVP();
+    const auto bodyPlace=body->GetPosition().GetCP(),carrierPlace=carrier->GetPosition().GetCP();
+    NWorld::CUnit* wanted=(mode==1 || mode==3)?nullptr:carrier;
+    std::printf("native corpse BeTaken mode=%d taker=%s previousCarried=%d carrierRef=%s\n",mode,mode==2?"actual":"NULL",int(carried),wanted?"actual":"NULL");std::fflush(stdout);
+    body->animator.BeTaken(wanted,mode==2?&carrier->animator:nullptr,body);
+    Require(body->animator.GetCorpseCarrier()==wanted,"BeTaken lost the supplied carrier reference");
+    Require(body->animator.GetSkeletonAnimator()==skeleton && ReadAnimationSequence(skeleton).GetPtr()==sequence.GetPtr(),
+        "BeTaken replaced the body's native skeleton or animation sequence object");
+    auto* after=sequence->GetAnimator(now);
+    if(mode==2)Require(body->animator.bIsCarried && after!=active.GetPtr(),"normal corpse pickup lost its native dynamics transition");
+    else Require(body->animator.bIsCarried==carried && after==active.GetPtr(),"null taker changed the carried flag or native dynamics animation");
+    Require(body->GetUnitRPG()->GetRPGUnit()->GetHeadInfo()==bodyHead && carrier->GetUnitRPG()->GetRPGUnit()->GetHeadInfo()==carrierHead,
+        "body attachment changed either unit's separate facial-head object");
+    Require(carrier->GetAP()==ap && carrier->GetUnitRPG()->GetTotalVP()==health && body->GetUnitRPG()->IsDead() &&
+        fabs2(body->GetPosition().GetCP()-bodyPlace)<1e-10f && fabs2(carrier->GetPosition().GetCP()-carrierPlace)<1e-10f,
+        "body animator attachment changed gameplay health/AP/death/positions");
+    std::printf("native corpse BeTaken mode=%d carrierOK=1 carried=%d sameAnimation=%d head/AP/health/positions=unchanged\n",mode,int(body->animator.bIsCarried),int(after==active.GetPtr()));std::fflush(stdout);
+}
+
 static void PKShellWorld(const char* databasePath, const char* resourcePath, bool extractPilot, bool checkModel = false, int checkFeedback = 0)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -30132,6 +30174,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "corpse-null-taker")) { Require(argc==5,"corpse null taker requires db/resources/mode"); CorpseNullTaker(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "corpse-cancel-state")) { Require(argc == 5, "corpse cancellation requires db, resources and mode"); CorpseCancelState(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "backpack-bone")) { Require(argc==5,"backpack binding requires db, resources and mode"); BackpackBoneBinding(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "bind-places-seed")) { Require(argc==5,"bind seed requires db, resources and mode"); BindPlacesSeed(argv[2],argv[3],std::atoi(argv[4])); return true; }

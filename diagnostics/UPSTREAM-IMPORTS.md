@@ -17241,3 +17241,44 @@ follow-camera-policy-verification.json и raw logs в
 G:/SS/lab/evidence/upstream-remaster-20261024. Части источника в iMissionUI.cpp/.h
 завершены; ещё пять файлов смешанного19-file source и общая задача остаются
 в работе. Окончательный hosted CI необходим отдельно на финальном HEAD.
+
+## `4949f285`: отсутствующий аниматор носильщика
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+
+CUnitAnimator::BeTaken без проверки разыменовывал pTaker и заранее выставлял
+bIsCarried. Это защитное восстановление nullable контракта низкоуровневого API:
+все три текущих штатных вызова передают аниматор, поэтому воспроизведение вылета
+через обычную пользовательскую операцию здесь не заявляется. Это анимация тела
+при переносе, без изменений собственного движка лицевой анимации.
+
+До production compiled native RED3/4 Windows/Linux: настоящие мёртвое тело,
+носильщик и CUnitAnimator падают при null taker с carrier/без carrier и при уже
+переносимом теле. Контроль обычного переноса с настоящим аниматором проходит
+до исправления. Теперь carrier reference обновляется перед ранним выходом,
+но флаг carried и активный native dynamics clip сохраняются. В nonnull контроле
+по-прежнему выставляется carried=true и добавляется dynamics transition.
+Read-only graph observer находит настоящую CASequence; нет частичного READ
+в живые объекты. Дополнительно проверены прежние head object identities обеих
+единиц, здоровье/AP, состояние смерти и позиции; полный facial render не заявлен.
+
+Original Gold PDB BeTaken731ac0/257: typed pCarrier98/pTime88/pAnimator8c/
+bIsCarried67. Unique86-byte prefix -> Steam73c800 с единственным mask decoded
+ReleaseRef rel32 operand; независимый25-byte time/null block совпадает точно
+в Steam73c83d. В обеих версиях null branch ведёт к общему epilogue до первого
+разыменования taker и записи carried=true. Это не whole257-byte proof и не
+проверка эквивалентности Steam ReleaseRef body. Source comment73c4e7 в нашем
+Steam image не указывает на этот метод; адреса/ABI в production не копировались.
+
+GREEN4/4 each, свежие Win ALL_BUILD/Linux Game+UpstreamBugTests, связанные
+40 Windows/39 Linux и asset-free CI323/323 успешны. Related включает предыдущие
+Cancel guards, реальные deferred take/drop, carried stability/backpack,
+head/body damage, ragdoll/animation reseat, native animation path и serializer.
+Четыре новых ресурсных случая extended исполнялись локально, в323 не входят.
+Баланс, стоимость команд, RNG, fields/tags, facial/font/HD код не менялись.
+Два прежних дерева сборки, без старых Game copies и генерации HD.
+Свидетельства corpse-null-taker-red-verification.json,
+corpse-null-taker-retail-oracle.json, corpse-null-taker-verification.json и raw
+logs: G:/SS/lab/evidence/upstream-remaster-20261024.
+Все source hunks wAnimation.cpp завершены. Смешанный source ещё PARTIAL:
+iLogPanel.cpp, wMain.cpp, wOSBase.cpp, wUnitStates.cpp. Общая задача не завершена.

@@ -2064,8 +2064,11 @@ void CUnitAnimator::DropCorpse( const NAI::SUnitPosition &cmdPos )
 void CUnitAnimator::BeTaken( CUnit *_pCarrier, CUnitAnimator *pTaker, CUnitServer *pServer )
 {
 	pCarrier = _pCarrier;
-	bIsCarried = true;   // retail @0x33bea0 (read by the ProcessAttack corpse-push gate @0x350e20)
 	STime t = pTime->GetValue();
+	// A null taker only updates the carrier reference; keep the current body animation.
+	if ( !pTaker )
+		return;
+	bIsCarried = true;
 	int nIndex;
 
 	nIndex = pTaker->pAnimator->GetBoneIndex( "Corpse" );

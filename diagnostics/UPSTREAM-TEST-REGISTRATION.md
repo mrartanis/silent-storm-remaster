@@ -266,3 +266,18 @@ UpstreamFollowCameraCommandPolicy0..4 зарегистрированы без р
 RED2/5 -> GREEN5/5 each. Related34/34 each включает24 существующих native-display
 world-camera cases и прочие фильтры/producer/serializer. Локальный CI323/323
 включает все пять новых CPU случаев; hosted результат подтверждается отдельно.
+
+## Отсутствующий аниматор носильщика
+
+NativeCorpseNullTaker0..3 зарегистрированы в Windows/Linux ресурсных группах,
+extended, timeout120. Настоящие world/body/skeleton/animation sequence: null
+с carrier/без carrier/уже carried и контроль обычного nonnull attachment.
+RED3/4 -> GREEN4/4 на каждой системе, с сохранением текущего native clip и
+head identities/AP/health/death/positions. Это defensive public API regression;
+в текущих штатных caller paths taker nonnull. Related40 Win/39 Linux и локальный
+CI323/323 проходят; новые четыре ресурсных случая не входят в asset-free323.
+
+Последний подтверждённый hosted checkpoint: head093320b11d8b2dfb0a07d702750f359c4ca9f2ba,
+[run41063705086](https://github.com/mrartanis/silent-storm-remaster/actions/runs/41063705086),
+actual Configure/Build/Test success. Это предыдущий HEAD, без утверждения, что
+текущий null-taker фикс или окончательный HEAD уже прошёл hosted CI.
