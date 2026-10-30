@@ -7861,6 +7861,91 @@ static void ScriptAmbientVariants(const char* databasePath,const char* resourceP
 }
 
 
+static void WorldScriptCameraLock(const char* databasePath,const char* resourcePath,int context,int mode)
+{
+    Require(context>=0 && context<=1 && mode>=0 && mode<=3,"unknown shared-world camera lock case");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"world camera lock fixture started with an interface");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm shared world camera lock regression");
+    struct ClockRestore {STime previous;~ClockRestore(){NMainLoop::SetTimeForHarness(previous);}} frameClock{NMainLoop::SetTimeForHarness(1000)};
+    CObj<NDb::CScript> quiet=new NDb::CScript;quiet->strCode="function OnEnterZone() end";
+    struct RestoreScripts {vector<std::pair<CPtr<NDb::CTemplVariant>,CPtr<NDb::CScript>>> variants;CPtr<NDb::CChapterMap> chapter;CPtr<NDb::CScript> entry;
+        ~RestoreScripts(){for(auto& p:variants)if(IsValid(p.first))p.first->pScript=p.second;if(IsValid(chapter))chapter->pScript=entry;}} restore;
+    struct SectorRestore {CObj<CChapterInfo> info;vector<SChapterSector> original;
+        ~SectorRestore(){if(IsValid(info))info->sectorsSet.swap(original);}} sectors;
+    CObj<NRPG::CGlobalGame> game;
+    if(context==0){
+        CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());while(maps.MoveNext())if(IsValid(maps.Get()->pBackground)){restore.chapter=maps.Get();break;}
+        Require(IsValid(restore.chapter),"world camera lock fixture has no authored chapter");restore.entry=restore.chapter->pScript;restore.chapter->pScript=quiet.GetPtr();
+        game=NRPG::CreateGlobalGame(1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+        list<CPtr<NScenario::CScenarioClue>> clues;game->pScenarioTracker->GetAvailableClues(&clues);for(auto clue:clues)if(IsValid(clue))clue->SetJustFound(false);
+        for(auto merc:game->players.front()->mercs){vector<CDBPtr<NDb::CMedal>> medals;merc->GetJustFoundMedals(&medals);}
+        CDGPtr<CPtrFuncBase<CChapterInfo>> info=shareChapterInfo.Get(restore.chapter->GetRecordID());info.Refresh();
+        sectors.info=info->GetValue();Require(IsValid(sectors.info),"camera lock fixture has no cached native map info");
+        sectors.original=sectors.info->sectorsSet;auto& isolated=sectors.info->sectorsSet;
+        isolated.erase(std::remove_if(isolated.begin(),isolated.end(),[](const SChapterSector& sector){return sector.eType==RANDOM;}),isolated.end());
+        Require(!isolated.empty(),"camera lock isolation removed every authored zone and exit");
+        CObj<NGame::CICBeginChapter> enter=new NGame::CICBeginChapter(restore.chapter->GetRecordID(),game);enter->Exec();
+    }else{
+        CDBIterator<NDb::CTemplVariant> variants(*NDatabase::GetTable<NDb::CTemplVariant>());
+        while(variants.MoveNext())if(IsValid(variants.Get()->pTemplate) && variants.Get()->pTemplate->GetRecordID()==2425){restore.variants.push_back({variants.Get(),variants.Get()->pScript});variants.Get()->pScript=quiet.GetPtr();}
+        Require(!restore.variants.empty(),"world camera lock fixture has no authored menu variants");CObj<NGame::CICMainMenu> open=new NGame::CICMainMenu;open->Exec();
+    }
+    CObj<NGame::CMissionBase> owner=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    auto* world=owner?dynamic_cast<NWorld::CWorld*>(owner->GetWorld()):nullptr;auto* view=owner?owner->GetScene():nullptr;auto* renderer=owner?owner->GetRenderGame():nullptr;
+    Require(world && view && renderer && world->GetOwnScript(),"world camera lock fixture lacks actual chapter/menu world, view, renderer or Lua");
+    Require(context==0?owner->GetDesktop()!=nullptr:owner->GetDesktop()==nullptr,"world camera lock fixture lost its real chapter/null-menu desktop distinction");
+    // Materialize authored static world effects before taking geometry baselines.
+    NMainLoop::SetTimeForHarness(1050);Require(NMainLoop::StepApp(true,false,false),"world camera lock warm-up frame exited");
+    Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand(),"world camera lock warm-up opened an unrelated interface");
+    while(auto* pending=world->GetUICommand()){CObj<NWorld::CUICmd> release=pending;}
+
+    auto* selected=owner->GetCamera();auto* tracker=owner->GetActivePlayer();
+    auto* playerCamera=tracker?tracker->GetCamera():nullptr;
+    Require(selected && (context==0?tracker!=nullptr:tracker==nullptr),"camera lock fixture lost its player/null-player distinction");
+    if(context==0){auto* ui=dynamic_cast<NUI::CChapterMapUI*>(owner->GetInterface()->GetChildByID("chaptermapUI"));
+        Require(ui && ui->GetTravelForDiagnostics().find(" type=1 template=")==string::npos,"camera lock fixture retained a random encounter");}
+    struct LockState {int scroll=-1000,frozen=-1000;
+        int operator&(CStructureSaver& f){f.Add(2,&scroll);f.Add(14,&frozen);return 0;}};
+    auto state=[](ICamera* camera){LockState value;CStructureNetworkContext refs;auto fields=BorrowedObjectFields(camera,&refs);
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(1,&value);}return value;};
+    const auto initial=state(selected);Require(initial.frozen==0,"quiet camera lock fixture started frozen");
+    const auto playerInitial=playerCamera?state(playerCamera):LockState{};
+    selected->SetCutFloorRange(-1,2);view->SetCutFloorRange(-1,2);
+    const bool tutorial=mode==2,alias=selected==playerCamera;
+    vector<string> commands;
+    if(mode==0)commands={"SetTutorialMode(nil)"};
+    else if(mode==3)commands={"SetTutorialMode(nil); CameraLock(nil)","CameraLock()","CameraLock()","CameraLock(nil)"};
+    else commands={tutorial?"SetTutorialMode(1); CameraLock()":"SetTutorialMode(nil); CameraLock()","CameraLock()","CameraLock(nil)","CameraLock(nil)"};
+    int net=0;auto* script=world->GetOwnScript();
+    for(int round=0;round<commands.size();++round){
+        if(mode!=0)net+=mode==3?(round==0 || round==3?-1:1):(round<2?1:-1);
+        Require(script->DoString((commands[round]+"; WorldLockProduced = "+std::to_string(round+1)).c_str())==0,
+            "camera lock fixture could not execute its real Lua producer");
+        world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);
+        const int top=script->GetTop();auto produced=script->GetGlobal("WorldLockProduced");
+        const bool ran=produced.IsNumber() && produced.GetNumber()==round+1;script->SetTop(top);Require(ran,"camera lock Lua producer never ran");
+        NMainLoop::SetTimeForHarness(1100+round*50);Require(NMainLoop::StepApp(true,false,false),"camera lock native interface frame exited");
+        Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand(),"camera lock fixture opened an unrelated interface");
+        Require(owner->GetCamera()==selected,"camera lock changed selected-camera ownership");
+        const auto actual=state(selected);const auto player=playerCamera?state(playerCamera):LockState{};
+        const int wanted=initial.frozen+net*(tutorial && alias?2:1);
+        const int wantedScroll=initial.scroll+net*(tutorial && alias?2:1);
+        const int wantedPlayer=playerCamera?playerInitial.frozen+net*(alias?(tutorial?2:1):(tutorial?1:0)):-1000;
+        std::printf("native world camera lock context=%d mode=%d round=%d net=%d tutorial=%d alias=%d frozen=%d scroll=%d wanted=%d player=%d wantedPlayer=%d\n",
+            context,mode,round,net,int(tutorial),int(alias),actual.frozen,actual.scroll,wanted,player.frozen,wantedPlayer);std::fflush(stdout);
+        Require(actual.frozen==wanted && actual.scroll==wantedScroll && player.frozen==wantedPlayer,
+            "non-tactical world discarded its camera lock command or tutorial tracker freeze");
+        const int cameraBefore=selected->GetCutFloor(),cameraTarget=cameraBefore==0?1:0;
+        const int sceneBefore=view->GetCutFloor(),sceneTarget=sceneBefore==0?1:0;
+        selected->SetCutFloor(cameraTarget);view->SetCutFloor(sceneTarget);
+        Require(selected->GetCutFloor()==(wanted>0?cameraBefore:cameraTarget),"camera freeze did not gate the actual selected camera floor");
+        Require(view->GetCutFloor()==(net>0?sceneBefore:sceneTarget),"camera lock lost the remaster scene floor-lock mirror");
+        std::printf("native world camera lock floors context=%d mode=%d round=%d cameraBlocked=%d sceneBlocked=%d\n",
+            context,mode,round,int(selected->GetCutFloor()==cameraBefore),int(view->GetCutFloor()==sceneBefore));
+        Require(!world->GetUICommand(),"camera lock command pump left a queued command");
+    }
+}
+
 static void WorldScriptCameraClipping(const char* databasePath,const char* resourcePath,int context,int mode)
 {
     Require(context>=0 && context<=1 && mode>=0 && mode<=2,"unknown shared-world camera clipping case");
@@ -28413,6 +28498,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "world-script-camera-lock")) { Require(argc == 6, "world camera lock requires db, resources, context and mode"); WorldScriptCameraLock(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-camera-clipping")) { Require(argc == 6, "world camera clipping requires db, resources, context and mode"); WorldScriptCameraClipping(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-hints")) { Require(argc == 6, "world hints require db, resources, context and mode"); WorldScriptHints(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-lighting")) { Require(argc == 6, "world lighting requires db, resources, context and mode"); WorldScriptLighting(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }

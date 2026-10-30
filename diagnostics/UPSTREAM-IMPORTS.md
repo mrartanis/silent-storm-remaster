@@ -16105,3 +16105,54 @@ camera-clip-fixture-transition-cause.json, original initial extended failure,
 independent parent trace and fresh native fixture/stress/CI raw logs.
 This is our fixture adaptation, not a literal upstream test hunk. Ledger
 166/19/58 =77 unfinished sources; whole goal/final hosted Actions remain.
+
+### world-camera-lock — share native script locks with chapter and backdrop worlds
+
+Source cb954e2e455b632c0174b88b2d051ac74e780ce0 remains PARTIAL. Own parent
+c7fa988c9176e931ae380ae628ddbdc3eeb18262. Compiled native RED6/8 on Windows
+and Linux: actual Lua CameraLock/CameraLock(nil) executes but selected camera
+freeze counters stay0 in chapter/menu. Both no-command controls pass. Chapter
+selected camera aliases the actual player tracker camera; menu has no tracker.
+
+Move existing tactical lock branch into ExecWorldCommonCommand. Preserve
+selected-camera FreezeCamera, the second tutorial tracker call even on alias,
+and the remaster's scene cut-floor mirror once per command. Only necessary
+adapter: skip the extra tracker call when the frontend has no active player.
+Do not clamp negative counts or replace our camera/view/renderer ownership.
+
+Native GREEN8/8 both,26 camera and26 floor snapshots each: ordinary nested
+counts1/2/1/0; chapter tutorial alias2/4/2/0; frontend tutorial1/2/1/0 without
+a tracker; unmatched unlock-1/0/1/0 preserved. Actual camera and scene floors
+remain blocked while their counters are positive and become writable on
+release. Read actual full saved camera fields (base tags2/14) without mutating
+engine state. Native Lua/world/interface/renderer path; no direct test calls
+to the dispatcher or FreezeCamera. Keep the real map's ordinary zones/exits,
+isolate random sectors only in this new command fixture, restore cached data
+with RAII. No production encounter changes. All prior test lines retained.
+
+Original proof: Gold5a1597 -> Steam5a3f27 dispatch77/cast38, independently named
+lock/base RTTI, bLock+10/tutorial+e5/active tracker+58, named camera Freeze74 and
+tracker GetCamera18 slots. Gold freeze33 and Steam freeze47 independently
+decoded: both signed/unclamped counts then tail-call Lock70; Steam additionally
+clears unlock-intent bytes. Existing own Steam intent behavior retained; no
+whole-body cross-version identity claim. Exact scroll-counter21 and frozen
+floor-gate43 bodies, prior shared chapter/menu route. Our scene mirror stays
+an explicit existing adapter; no full selector/renderer/clock equivalence claim.
+
+Initial Linux extended gate exposed a separate clipping-fixture encounter;
+independently reproduced without this production draft and repaired in
+c7fa988c9176e931ae380ae628ddbdc3eeb18262. Main bytes between the original
+RED parent and this parent are identical. Fresh final gates below use the
+repaired fixture and restored lock draft; no temporary tracing remains.
+
+Fresh Win ALL_BUILD/Linux Game+helpers+serializer. Related143/143 and own
+body16/16 each, fresh Windows network4/4 and local CI305/305. Exact raw names,
+rows, exits and CI manifest checked. Only two Main files: moved operations
+plus null-tracker guard; base/tactical remainder and save calls match parent,
+CP1251/CRLF retained. No combat/RNG/balance/DB/schema/HD/font/facial changes.
+Existing two builds reused, no old builds or PNG regeneration. Actual final
+hosted Actions remains separate.
+
+Evidence: world-camera-lock-verification.json, original and RED/GREEN JSONs,
+all native raw logs. Source still PARTIAL for locator/floor/AI flash/clue/video
+and camera-executor updates. Ledger166/19/58 =77 unfinished; whole goal active.

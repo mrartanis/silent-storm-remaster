@@ -100,6 +100,18 @@ bool CMissionBase::ExecWorldCommonCommand( NWorld::CUICmd *pCmd )
 	{
 		bTutorialMode = CDynamicCast<NWorld::CUICmdTutorialMode>( pCmd )->bTutorial;
 	}
+	// Native shared lock dispatch (Gold5a1597; Steam5a3f27).
+	else if ( CDynamicCast<NWorld::CUICmdLockCamera>( pCmd ) )
+	{
+		bool bLock = CDynamicCast<NWorld::CUICmdLockCamera>( pCmd )->bLock;
+		GetCamera()->FreezeCamera( bLock );
+		// Tutorial also freezes the tracker camera, even when both cameras alias.
+		// The remaster frontend has no active player tracker.
+		if ( bTutorialMode && IsValid( pActivePlayer ) )
+			pActivePlayer->GetCamera()->FreezeCamera( bLock );
+		// Preserve the remaster's floor lock mirror once per script command.
+		pScene->SetCutFloorLock( bLock );
+	}
 	// Shared native CameraSetClipping dispatch (Gold5a15e4; Steam5a3f74).
 	else if ( CDynamicCast<NWorld::CUICmdSetCameraClipDistance>( pCmd ) )
 	{

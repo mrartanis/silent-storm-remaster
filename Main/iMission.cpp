@@ -2505,32 +2505,6 @@ void CMission::ExecWorldCommands()
 		{
 			PauseGame( !IsGamePaused() );
 		}
-		// CameraLock(bLock) -> retail ICamera vtbl+0x74 = CBaseCamera::FreezeCamera @0xcffc0 (vftable
-		// dump @0x4b529c; +0x70 is the separate scroll-lock Lock @0xcffa0 -- the round-4 SetLock
-		// routing was ONE SLOT OFF). FreezeCamera is a bare refcount, NO pose pin: CCamera::Update
-		// bails before the movement/approach tail while frozen (SetPlacement stays ungated, so the
-		// HQ per-room CameraSet still lands and HOLDS), and retail's SetCutFloor no-ops while frozen
-		// -- mirrored onto the scene: THAT is the base's one-floor lock (EBase OnEnterZone calls
-		// CameraLock() once and never unlocks; EFirst doesn't, so its two floors switch freely).
-		else if ( CDynamicCast<NWorld::CUICmdLockCamera>( pCmd ) )
-		{
-			bool bLock = CDynamicCast<NWorld::CUICmdLockCamera>( pCmd )->bLock;
-			// retail CMissionBase::ExecWorldCommand @0x1a30c0, CUICmdLockCamera branch @0x5a3367
-			// (RTTI descriptor @0x97aaa4): the freeze targets the SELECTED camera (GetCamera vtbl+0xb8
-			// @0x5a337e -> FreezeCamera vtbl+0x74 @0x5a338c) -- during a sequence the cinematic camera,
-			// during normal play the active player's.
-			GetCamera()->FreezeCamera( bLock );
-			// ...and in TUTORIAL mode retail freezes the ACTIVE TRACKER's camera as well -- a SECOND
-			// freeze the dev tree never had. @0x5a338f tests [this+0xe5] = bTutorialMode (PDB offset
-			// 229, between bCanSave@228 and bCanRestart@230); @0x5a33a1 is IPlayerTracker vtbl+0x18 =
-			// GetCamera, @0x5a33ac the FreezeCamera on it. Both calls push the same pCmd->bLock
-			// (CUICmdLockCamera+0x10). Targeting the tracker EXPLICITLY is what makes a tutorial
-			// CameraLock/Unlock pair balance even when the selector returns a different camera for the
-			// lock than for the unlock.
-			if ( bTutorialMode )
-				pActivePlayer->GetCamera()->FreezeCamera( bLock );
-			pScene->SetCutFloorLock( bLock );
-		}
 		// release CMissionBase::ExecWorldCommand @0x1a30c0: a camera-locator command (CUICmdUnitCamera
 		// auto-focus) goes to the dedicated pExecLocator slot, NOT the general pCmdExec -- so it never stalls
 		// the UI-command drain and is preempted by priority (MustReplaceCameraExecutor: higher wins; equal
