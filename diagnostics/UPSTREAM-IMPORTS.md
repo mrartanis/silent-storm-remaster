@@ -16261,3 +16261,53 @@ Evidence: world-camera-locator-verification.json, RED/GREEN/original JSONs,
 native raw logs and camera-locator-preemption-followup.json. Source remains
 PARTIAL for preemption/clue/video/AI flash. Ledger166/19/58 =77 unfinished;
 whole goal active; final actual hosted Actions and balance-MD link remain.
+
+### camera-locator-preemption — finish replaced moves before creating the next one
+
+Own retail-conformance correction for related shared-dispatch source
+cb954e2e455b632c0174b88b2d051ac74e780ce0, parent
+8123e96b8933cfc3919525ff3dd970ff05695f35. This is not a literal upstream
+Finished hunk: upstream/own handler called Cancel, but original calls Finished
+and clears the saved slot before factory. The routing import documented this
+gap rather than claiming full original replacement parity.
+
+Native RED4/4 each platform, four actual Lua immediate/timed replacements:
+the second move finishes/new coroutine resumes, old ID stays pending and old
+coroutine sleeps in three cases. Timed chapter case fails earlier: constructor
+samples outgoing cinematic0.75 instead of selected player0.625 because old
+slot remains set. Menu correctly samples its cinematic, but old wait still hangs.
+All prior fixture assertions retained; mode bound expanded to7. Release the
+diagnostic first.exec strong ref before replacement; no test-held old executor
+lifetime or direct calls to its completion/factory/dispatcher.
+
+Minimal production fix in one Main file: Finished once, slot0, then existing
+CreateCameraExecutor. Preserve priority rejection/tie rules, constructor,
+interpolation, normal completion/clock/selector/follow policies and wire.
+Move Finished posts its native ID event; own unit/explosion Finished and
+Cancel have identical single locked-camera cleanup bodies, unchanged here.
+Do not call both and double-unlock. No header/new fields or renderer changes.
+
+Native GREEN4/4 both: all four old/new wait pairs clear and both Lua coroutines
+resume; replacement slot clears and target lands. Timed constructor uses fresh
+native owner clock and selected player pose in chapter, current cinematic pose
+in menu. Actual saved constructor pose/tag6 read without mutating private state.
+
+Original proof: exact mapped replacement48 Gold5a1368 -> Steam5a3cf8. Only
+decoded release/factory rel32 masked. Named move-executor vtable14 binds to
+Finished6487b0/64e460, then verified-zero register clears saved slot+bc BEFORE
+named factory6491c0/64ef20. Prior full mapped dispatch173 and priority7/19
+independently bound. Finished-event64 maps command ID to native interface event
+and owning DoEvent2c. C++ calls use our ABI; no copied offsets in production.
+
+Fresh Win ALL_BUILD/Linux Game+helpers+serializer, related169/169 and own
+body16/16 each, fresh Windows network4/4 and local CI305/305. Exact native raws,
+constructor samples, wait pairs, old normal10 completions/2 modal pauses,
+exit codes and CI manifest checked. One Main hunk only; all other Main bytes,
+fields/schema/CP1251CRLF preserved. No combat/RNG/balance/DB/time/header/HD/font/
+facial changes. Two builds reused, no old builds/PNG regeneration. Actual
+hosted Actions remains separate.
+
+Evidence: camera-locator-preemption-verification.json, RED/GREEN/original
+JSONs and native raw logs. The previously documented replacement gap is fixed;
+cb954 remains PARTIAL for clue/video/AI flash. Ledger166/19/58 =77 unfinished;
+whole goal/final actual hosted Actions/balance-MD delivery remain active.

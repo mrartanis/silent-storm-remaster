@@ -93,7 +93,11 @@ bool CMissionBase::ExecWorldCommonCommand( NWorld::CUICmd *pCmd )
 		if ( IsValid( pExecLocator ) && !NGame::MustReplaceCameraExecutor( pExecLocator->GetPriority(), pLoc->GetPriority() ) )
 			return true;
 		if ( IsValid( pExecLocator ) )
-			pExecLocator->Cancel();
+		{
+			// Finish its wait and clear camera selection before the next constructor.
+			pExecLocator->Finished();
+			pExecLocator = 0;
+		}
 		pExecLocator = NGame::CreateCameraExecutor( pLoc, this );
 	}
 	else if ( CDynamicCast<NWorld::CUICmdShowHint>( pCmd ) )

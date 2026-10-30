@@ -7863,7 +7863,7 @@ static void ScriptAmbientVariants(const char* databasePath,const char* resourceP
 
 static void WorldScriptCameraLocator(const char* databasePath,const char* resourcePath,int context,int mode)
 {
-    Require(context>=0 && context<=1 && mode>=0 && mode<=5,"unknown shared-world camera locator case");
+    Require(context>=0 && context<=1 && mode>=0 && mode<=7,"unknown shared-world camera locator case");
     Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"world camera locator fixture started with an interface");
     NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm shared world camera locator regression");
     struct ClockRestore {STime previous;~ClockRestore(){NMainLoop::SetTimeForHarness(previous);}} frameClock{NMainLoop::SetTimeForHarness(1000)};
@@ -7974,6 +7974,49 @@ static void WorldScriptCameraLocator(const char* databasePath,const char* resour
             std::printf("native world camera locator context=%d mode=%d stage=move clock=%u begin=%u segment=%d x=%.6f\n",context,mode,unsigned(usedClock),unsigned(start),segment,actual.ptAnchor.x);
         }return IsValid(current.exec);};
     if(duration!=0)inspect();
+    if(mode>=6){
+        // Do not retain a diagnostic strong reference to the outgoing executor.
+        // Its lifetime during replacement must be owned only by the real slot.
+        frame(1150);Require(inspect() && script->IsUIActionIDPresent(eventID),"replacement fixture lost its running first camera move");
+        const auto outgoing=pose(destination);
+        Require(!sameAnchor(outgoing.ptAnchor,liveStart.ptAnchor) && !sameAnchor(outgoing.ptAnchor,targets[0].ptAnchor),
+            "replacement fixture did not reach an intermediate first-move pose");
+        const auto wantedStart=context==0?pose(player):outgoing;
+        first.exec=nullptr;
+        const int replacementDuration=mode==6?0:200;
+        const string replacement="ReplacementID = CameraMove(GetCamera("+std::to_string(records[1]->GetRecordID())+"),"+
+            std::to_string(replacementDuration)+"); ReplacementProduced = 1; while IsUIActionIDPresent(ReplacementID) do Sleep(1) end; ReplacementResumed = 1";
+        Require(script->DoString(replacement.c_str())==0,"replacement fixture could not queue its second real Lua producer");
+        world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);
+        Require(number("ReplacementProduced",1),"replacement Lua producer never ran beside the first waiting coroutine");
+        const int top=script->GetTop();auto id=script->GetGlobal("ReplacementID");Require(id.IsNumber(),"replacement camera returned no native wait ID");
+        const int replacementID=int(id.GetNumber());script->SetTop(top);
+        Require(replacementID!=eventID && script->IsUIActionIDPresent(eventID) && script->IsUIActionIDPresent(replacementID),
+            "replacement fixture lost its two distinct pending native waits before dispatch");
+        frame(1200);Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand(),"replacement camera changed its native owner");
+        {auto replacementState=state();
+            if(replacementDuration==0)Require(!IsValid(replacementState.exec) && sameAnchor(pose(destination).ptAnchor,targets[1].ptAnchor),
+                "immediate replacement camera did not land its own target");
+            else {Require(IsValid(replacementState.exec) && replacementState.exec->GetPriority()==6,"timed replacement did not create its real equal-priority executor");
+                CStructureNetworkContext refs;auto fields=BorrowedObjectFields(replacementState.exec,&refs);
+                ICamera::SCameraPos sampled;STime start=0,transition=0;CPtr<NGame::IMission> origin;
+                {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&origin);reader.Add(4,&start);reader.Add(5,&transition);reader.Add(6,&sampled);}
+                std::printf("native camera replacement context=%d mode=%d stage=start sampled=%.6f wanted=%.6f outgoing=%.6f clock=%u begin=%u\n",
+                    context,mode,sampled.ptAnchor.x,wantedStart.ptAnchor.x,outgoing.ptAnchor.x,unsigned(usedClock),unsigned(start));std::fflush(stdout);
+                Require(origin.GetPtr()==owner.GetPtr() && start==usedClock && transition==200,"replacement executor lost its native owner or fresh clock");
+                Require(sameAnchor(sampled.ptAnchor,wantedStart.ptAnchor) && sameAnchor(pose(destination).ptAnchor,wantedStart.ptAnchor),
+                    "replacement camera sampled the outgoing locator instead of the native selected camera");}}
+        for(int step=0;step<12 && (IsValid(state().exec) || script->IsUIActionIDPresent(eventID) || script->IsUIActionIDPresent(replacementID) ||
+            !number("LocatorResumed",1) || !number("ReplacementResumed",1));++step)frame(1250+step*50);
+        std::printf("native camera replacement context=%d mode=%d stage=complete oldWait=%d newWait=%d oldResumed=%d newResumed=%d exec=%d x=%.6f\n",
+            context,mode,int(script->IsUIActionIDPresent(eventID)),int(script->IsUIActionIDPresent(replacementID)),int(number("LocatorResumed",1)),
+            int(number("ReplacementResumed",1)),int(IsValid(state().exec)),pose(destination).ptAnchor.x);std::fflush(stdout);
+        Require(!script->IsUIActionIDPresent(replacementID) && number("ReplacementResumed",1) && !IsValid(state().exec) && sameAnchor(pose(destination).ptAnchor,targets[1].ptAnchor),
+            "replacement camera never completed its own native move and wait");
+        Require(!script->IsUIActionIDPresent(eventID) && number("LocatorResumed",1),"replaced camera move kept its original Lua wait alive");
+        if(context==0)Require(owner->GetCamera()==player.GetPtr() && sameAnchor(pose(player).ptAnchor,playerStart.ptAnchor),"replacement changed the chapter player camera ownership or pose");
+        Require(!world->GetUICommand(),"replacement camera command pump left a queued command");return;
+    }
     STime nextTick=1150;
     if(mode==4){const auto held=pose(destination);auto heldExec=first.exec;frame(1150);auto* modal=NMainLoop::GetCurrentInterfaceForHarness();
         Require(modal && pSSClasses->GetObjectTypeID(modal)==int(0x1423130) && NMainLoop::GetInterfaceStackDepth()==2,"camera locator did not open its real hint modal");
