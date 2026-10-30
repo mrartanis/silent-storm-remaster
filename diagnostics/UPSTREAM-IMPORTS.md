@@ -16620,3 +16620,40 @@ guard and were not repeated. Raw logs/exits and original/native/source proof:
 inactive-encounter-verification.json under G:/SS/lab/evidence/upstream-remaster-20261024.
 Sourceb709 complete. Ledger169 imported/17partial/57pending=74 unfinished.
 Whole upstream goal and final hosted CI/balance-review link remain active.
+
+
+## Consume random marker before autosave and stop entry update (5d3fe7df, partial)
+
+Source: [5d3fe7df8e9a3f15f57353d2451df63d85b0306b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5d3fe7df8e9a3f15f57353d2451df63d85b0306b).
+Parent: 7adc7c8e37f21dc6752cf7e4b185e57e960111ab. Entering an active encounter
+queued its mission/autosave with the logical marker still active. When the
+spawn deadline was due, the same update then advanced the timer and drew spawn
+rolls despite the pending transition. Clear logical activity before the native
+queue call and return after it. Own b709 guard, centered HitTestMap, queue args,
+UI fade and save fields remain unchanged.
+
+Native RED4/16 each -> GREEN16/16 each. Twelve existing inactive/active/outside
+controls remain. Four new normal/wide active-entry cases verify markerfalse
+before processing the actual queued autosave/mission container, preserving
+future deadline100000 and due deadline1000. Real native chapter/save graph/
+StepApp/Draw/queue; no save/mission command is executed or live partial READ.
+These assertions establish entry-state/timer behavior, not an exact RNG-stream
+comparison. Returning early removes the unwanted post-entry update/rolls.
+
+Original named Gold/Steam CRandomSector vtables bind Update and Draw. Draw
+independently identifies logical activity fields90/A8 (different original UI
+layouts); fourteen-byte clear blocks match after only bound field displacement
+and decoded allocator-rel32 masks. Gold native queue is named
+CommandWithAutoSave. The exact20-byte epilogue matches both versions and
+returns before their respective deadline-load branches. Initial direct byte
+signatures failed on genuine layout/cleanup differences; these were decoded
+and bound, not arbitrarily masked. No ABI offsets copied to production.
+
+Fresh Win ALL_BUILD/Linux Game+helpers/serializer, campaign54/54 each and local
+asset-free CI305/305. Exact production diff, original and raw native evidence:
+random-entry-consumption-verification.json in G:/SS/lab/evidence/upstream-remaster-20261024.
+Only this independent hunk is imported. Source5d3 remains PARTIAL for matching
+last-template reset and original chance/minimum-range restoration, pending
+native TDD and original-balance verification. No new tuning/coefficients.
+Ledger169 imported/18partial/56pending=74 unfinished source commits.
+Whole goal/final hosted CI/balance-review delivery remain active.

@@ -604,7 +604,11 @@ void CRandomSector::UpdateSector( const STime &sTime, const CVec2 &vTeamPos )
 	// A fading or not-yet-spawned window can still draw and hit-test.
 	// Only a logically active random encounter may queue mission entry.
 	if ( IsVisible() && HitTestMap( vTeamPos ) )
+	{
+		SetVisible( false );
 		NMainLoop::CommandWithAutoSave( NStr::ToAscii( GetDBString( 20243 ) ), new NGame::CICBeginMission( GetSector().nTemplate, -1, templParams, pChapter->GetRPGGame(), pChapter->GetChapterMap()->pPWLImage ) );
+		return;
+	}
 
 	if ( sUpdateTime > sTime )
 		return;

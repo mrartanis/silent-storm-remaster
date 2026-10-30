@@ -7863,7 +7863,7 @@ static void ScriptAmbientVariants(const char* databasePath,const char* resourceP
 
 static void InactiveRandomEncounter(const char* databasePath,const char* resourcePath,int wide,int mode)
 {
-    Require(wide>=0 && wide<=1 && mode>=0 && mode<=5,"unknown inactive random encounter case");
+    Require(wide>=0 && wide<=1 && mode>=0 && mode<=7,"unknown inactive random encounter case");
     Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"random encounter fixture began with an interface or command");
     NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm inactive random encounter regression");
     if(wide){NGfx::SRenderTargetsInfo targets;Require(NGfx::SetMode(NGfx::SVideoMode(640,360,32,NGfx::WINDOWED),targets),"random encounter fixture could not select its wide viewport");}
@@ -7899,7 +7899,7 @@ static void InactiveRandomEncounter(const char* databasePath,const char* resourc
         auto* window=dynamic_cast<NUI::CWindow*>(sectors.front().GetPtr());Require(window,"native random sector is not a window");return window;};
     auto* marker=sectorWindow(ui);marker->SetPosition(NUI::SPoint(mode>=4?200:0,mode>=4?200:0));marker->SetStyle(NUI::STYLE_VISIBLE,true);
     NUI::SPoint screen;NUI::SRect rectangle;Require(marker->ClientToScreen(&screen,&rectangle),"random encounter fixture has no native marker rectangle");
-    const bool active=mode==2 || mode==3,overlap=mode==0 || mode==1 || mode==2 || mode==4;
+    const bool active=mode==2 || mode==3 || mode>=6,overlap=mode==0 || mode==1 || mode==2 || mode==4 || mode>=6;
     CVec2 team(float((rectangle.x1+rectangle.x2)/2-S2UI::MapOffsetX()),float((rectangle.y1+rectangle.y2)/2-S2UI::MapOffsetY()));
     if(!overlap)team+=CVec2(100,100);game->vChapterPos=team;
     const int uiType=pSSClasses->GetObjectTypeID(ui);
@@ -7923,7 +7923,7 @@ static void InactiveRandomEncounter(const char* databasePath,const char* resourc
     for(unsigned id:{8u,9u}){auto point=field(mapBody.first,mapBody.second,id);Require(point.length==sizeof(team),"chapter position save shape changed");std::memcpy(mapBody.first+point.payloadOffset,&team,sizeof(team));}
     auto randomBody=body(0xb2606154u);auto base=field(randomBody.first,randomBody.second,1);auto visible=field(randomBody.first+base.payloadOffset,base.length,3);
     Require(S2FileIO::EncodeStructureScalar(active,randomBody.first+base.payloadOffset+visible.payloadOffset,visible.length),"could not encode logical encounter activity");
-    const STime deadline=100000,morph=1100;const float coefficient=mode==0?0.f:1.f;
+    const STime deadline=mode==7?1000:100000,morph=1100;const float coefficient=mode==0?0.f:1.f;
     for(auto entry:{std::make_pair(3u,deadline),std::make_pair(6u,morph)}){auto item=field(randomBody.first,randomBody.second,entry.first);
         Require(S2FileIO::EncodeStructureScalar(entry.second,randomBody.first+item.payloadOffset,item.length),"could not encode native encounter fixture clock");}
     auto fade=field(randomBody.first,randomBody.second,5);Require(S2FileIO::EncodeStructureScalar(coefficient,randomBody.first+fade.payloadOffset,fade.length),"could not encode native encounter fade");
@@ -7948,6 +7948,8 @@ static void InactiveRandomEncounter(const char* databasePath,const char* resourc
     std::printf("native random encounter wide=%d mode=%d stage=after queued=%d expected=%d logical=%d deadline=%u\n",wide,mode,int(queued),int(active && overlap),int(state().first),unsigned(state().second));std::fflush(stdout);
     Require(queued==(active && overlap),"inactive random encounter marker queued a phantom mission entry");
     Require(!queued || dynamic_cast<NMainLoop::CICContainer*>(command.GetPtr()),"active encounter did not queue its native autosave/mission container");
+    if(mode==7)Require(state().second==deadline,"entering an active encounter continued its spawn timer after queueing the mission");
+    if(mode>=6)Require(!state().first,"entering an active encounter left its marker active for the queued autosave");
     Require(!NMainLoop::HaveInterfaceCommand() && NMainLoop::GetCurrentInterfaceForHarness()==chapter.GetPtr() && state().second==deadline && game->nCurrentTemplateID==currentTemplate && game->players.front()->mercs.front()->fXP==xp,
         "encounter activity gate changed its native queue, timer, campaign or XP");
 }
