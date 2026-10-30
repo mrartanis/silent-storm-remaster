@@ -2123,3 +2123,14 @@ the existing original light rule when deciding scatter. Previously it used day
 accuracy at night. No scatter/velocity/fuse/skill constants or item values are
 changed. The independent world-versus-unit first-turn input remains pending;
 night tests hold that input constant to isolate this correction.
+
+### `9da280e9`, completed: grenade actor's first turn
+
+Grenade accuracy uses the actor's own first-turn state, as in Gold/Steam.
+The existing first-round multiplier and movement suppression therefore receive
+the correct input even while world first-turn is true in real time. Authored
+coefficients, movement/skill/velocity/fuse formulas and turn counter/save fields
+are unchanged. The native98-versus89/roll92 example restores a hit without
+erroneous scatter; this is not a blanket decrease in accuracy. All functional
+hunks selected from9da280e9 are now complete; this supersedes its prior pending
+notes. The own-loader prerequisite f0103180 remains separately identified.

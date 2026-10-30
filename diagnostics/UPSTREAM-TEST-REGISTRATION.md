@@ -456,3 +456,11 @@ NativeGrenadeThrowNight0..2: resource extended Win/Linux,timeout120. Native
 factory/day control plus real Run trajectory/seeded CheckToHitAndDelay consumer
 through a diagnostic subclass, read-only grenadeParams. RED2/3->GREEN3/3 each.
 No complete flight/damage claim. Related31Win/31Linux, Game builds,CI323; new3 outside323.
+
+## Per-unit first-turn grenade input
+
+NativeGrenadeUnitFirstTurn0..3: resource extended Win/Linux,timeout120. Native
+world/unit state mismatch, public movement counter, day/night input cases and
+real Run/seeded scatter consumer. Query-side-effect control passes; RED3/4 ->
+GREEN4/4 each. Related35Win/35Linux,Game builds,CI323; new4 outside323.
+Earlier night-only regression references the current per-unit input and is retained.

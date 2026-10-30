@@ -29546,8 +29546,8 @@ static void GrenadeThrowNightInput(const char* databasePath,const char* resource
         const auto point=actor->GetPosition().GetCP()+CVec3(float(distance)*FP_GRID_STEP,0,.1f);
         CObj<NativeGrenadeInputProbe> candidate=new NativeGrenadeInputProbe(actor,point);
         if(candidate->CanDoIt(actor->GetPosition())!=NWorld::UCR_OK || !actor->CanSpendAP(candidate->GetStartAP()))continue;
-        CObj<NRPG::CGrenadeToHitCalcer> correct=new NRPG::CGrenadeToHitCalcer(actor,actor->GetPose(),distance,actor->GetPosition().GetCP(),world->IsFirstTurn(),true,CVec3(1,1,1),point,fixture.grenade);
-        CObj<NRPG::CGrenadeToHitCalcer> old=new NRPG::CGrenadeToHitCalcer(actor,actor->GetPose(),distance,actor->GetPosition().GetCP(),world->IsFirstTurn(),false,CVec3(1,1,1),point,fixture.grenade);
+        CObj<NRPG::CGrenadeToHitCalcer> correct=new NRPG::CGrenadeToHitCalcer(actor,actor->GetPose(),distance,actor->GetPosition().GetCP(),mission->IsFirstTurn(),true,CVec3(1,1,1),point,fixture.grenade);
+        CObj<NRPG::CGrenadeToHitCalcer> old=new NRPG::CGrenadeToHitCalcer(actor,actor->GetPose(),distance,actor->GetPosition().GetCP(),mission->IsFirstTurn(),false,CVec3(1,1,1),point,fixture.grenade);
         const int a=correct->GetToHit(),b=old->GetToHit();if(a>=b || a<=2 || b>=100)continue;
         probe=candidate;target=point;expectedChance=a;legacyChance=b;break;
     }
@@ -29562,6 +29562,40 @@ static void GrenadeThrowNightInput(const char* databasePath,const char* resource
     std::printf("native throw night scatter expectedChance=%d legacyChance=%d seed=%d roll=%d velocityError=%.7g difference=%.7g\n",expectedChance,legacyChance,seed,roll,error,fabs2(after.vel-before.vel));std::fflush(stdout);
     Require(error<1e-6f,"actual grenade scatter consumer used daytime chance in a night mission");
     Require(actor->GetAP()==ap && mission->GetTotalVP()==hp && fixture.grenade->GetQuantity()==quantity && after.ptStart==before.ptStart,"night scatter consumed additional AP/HP/inventory or changed the native launch origin");probe->Cancel();
+}
+
+static void GrenadeUnitFirstTurnInput(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=3,"unknown native grenade unit-turn mode");NativeGrenadeThrowFixture fixture(databasePath,resourcePath,false,true);
+    auto& world=fixture.world;auto* actor=fixture.actor;auto* mission=actor->GetUnitRPG();
+    for(int refresh=0;refresh<3 && mission->IsFirstTurn();++refresh)mission->StartNewTurn(actor->GetPosition().GetCP());
+    Require(!mission->IsFirstTurn() && world->IsFirstTurn(),"unit-turn fixture lacks real differing mission/world turn states");
+    if(mode!=0)mission->AddMoveInLastTurn(4);const bool night=mode==2;world->GetGame()->SetNight(night);
+    CVec3 target;{CStructureNetworkContext refs;auto fields=BorrowedObjectFields(fixture.executor,&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&target);}
+    CObj<NativeGrenadeInputProbe> probe=new NativeGrenadeInputProbe(actor,target);
+    if(mode<3) {
+        const int ap=actor->GetAP(),hp=mission->GetTotalVP(),quantity=fixture.grenade->GetQuantity();const auto position=actor->GetPosition();const auto time=world->GetTime()->GetValue();auto random=GlobalGameRandom();
+        auto calcer=probe->CreateToHitCalcer(fixture.grenade);const int chance=calcer->GetToHit();const float move=calcer->GetSMove();const float firstMultiplier=calcer->GetFRMult();
+        std::printf("native grenade unit-turn mode=%d unitFirst=%d worldFirst=%d calcerFirst=%d night=%d moved=%d penalty=%.6g firstMultiplier=%.6g chance=%d\n",mode,int(mission->IsFirstTurn()),int(world->IsFirstTurn()),int(calcer->bFirstRound),int(calcer->bNight),mission->GetMoveInLastTurn(),move,firstMultiplier,chance);std::fflush(stdout);
+        if(mode!=0)Require(calcer->bFirstRound==mission->IsFirstTurn() && std::fabs(firstMultiplier-1.f)<1e-6f,"grenade executor used the world first-turn state and wrong first-round multiplier");
+        Require(calcer->bNight==night && actor->GetAP()==ap && mission->GetTotalVP()==hp && fixture.grenade->GetQuantity()==quantity && actor->GetPosition()==position && world->GetTime()->GetValue()==time && random.Get()==GlobalGameRandom().Get(),"per-unit turn accuracy query changed night/AP/HP/quantity/position/time/RNG");return;
+    }
+    int expectedChance=-1,legacyChance=-1;
+    for(int distance=1;distance<=30;++distance) {
+        const auto point=actor->GetPosition().GetCP()+CVec3(float(distance)*FP_GRID_STEP,0,.1f);CObj<NativeGrenadeInputProbe> candidate=new NativeGrenadeInputProbe(actor,point);
+        if(candidate->CanDoIt(actor->GetPosition())!=NWorld::UCR_OK || !actor->CanSpendAP(candidate->GetStartAP()))continue;
+        CObj<NRPG::CGrenadeToHitCalcer> correct=new NRPG::CGrenadeToHitCalcer(actor,actor->GetPose(),distance,actor->GetPosition().GetCP(),mission->IsFirstTurn(),night,CVec3(1,1,1),point,fixture.grenade);
+        CObj<NRPG::CGrenadeToHitCalcer> old=new NRPG::CGrenadeToHitCalcer(actor,actor->GetPose(),distance,actor->GetPosition().GetCP(),world->IsFirstTurn(),night,CVec3(1,1,1),point,fixture.grenade);
+        int a=correct->GetToHit(),b=old->GetToHit();if(a==b || Min(a,b)<=2 || Max(a,b)>=100)continue;probe=candidate;target=point;expectedChance=a;legacyChance=b;break;
+    }
+    Require(expectedChance>=0,"unit-turn scatter fixture lacks an observable valid native trajectory");probe->Run();Require(probe->IsExecuting(),"unit-turn throw did not start its actual executor");
+    const auto before=NativeThrowParameters(probe);const int ap=actor->GetAP(),hp=mission->GetTotalVP(),quantity=fixture.grenade->GetQuantity();int seed=0,roll=0;CRandomGenerator reference;
+    for(seed=1;seed<1000;++seed){reference.SeedForHarness(seed);roll=reference.Get(100);if(roll>Min(expectedChance,legacyChance) && roll<=Max(expectedChance,legacyChance))break;}
+    Require(seed<1000,"unit-turn fixture cannot distinguish scatter thresholds");CVec3 expected=before.vel;if(roll>expectedChance){const float spread=.2f*fabs(expected);expected.x+=reference.GetFloat(-spread,spread);expected.y+=reference.GetFloat(-spread,spread);expected.z+=reference.GetFloat(-spread,spread);}
+    GlobalGameRandom().SeedForHarness(seed);probe->CheckToHitAndDelay(fixture.grenade);const auto after=NativeThrowParameters(probe);const float error=fabs2(after.vel-expected);
+    std::printf("native grenade unit-turn scatter expectedChance=%d legacyChance=%d seed=%d roll=%d velocityError=%.7g difference=%.7g\n",expectedChance,legacyChance,seed,roll,error,fabs2(after.vel-before.vel));std::fflush(stdout);
+    Require(error<1e-6f,"actual grenade scatter consumer used world-turn accuracy instead of the actor's turn state");
+    Require(actor->GetAP()==ap && mission->GetTotalVP()==hp && fixture.grenade->GetQuantity()==quantity && after.ptStart==before.ptStart,"unit-turn scatter consumed extra AP/HP/inventory or changed launch origin");probe->Cancel();
 }
 
 static void NightAIConstructorInputs(const char* databasePath,const char* resourcePath,int mode)
@@ -31140,6 +31174,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "grenade-unit-first-turn")) { Require(argc==5,"grenade unit-turn requires db/resources/mode"); GrenadeUnitFirstTurnInput(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "grenade-throw-night")) { Require(argc==5,"grenade night requires db/resources/mode"); GrenadeThrowNightInput(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "night-ai-inputs")) { Require(argc==5,"AI night requires db/resources/mode"); NightAIConstructorInputs(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "night-preview-inputs")) { Require(argc==5,"night preview requires db/resources/mode"); NightPreviewInputs(argv[2],argv[3],std::atoi(argv[4])); return true; }

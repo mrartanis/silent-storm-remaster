@@ -17956,3 +17956,42 @@ Evidence: grenade-throw-inputs-retail-oracle.json and grenade-throw-night-
 verification.json/raw logs. Game builds, related31Win/31Linux,CI323/323 pass; new3
 resource tests are outside323. Only selected per-unit-first-turn hunk remains.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.
+
+## 2026-10-30: per-unit first-turn input for grenade throws (`9da280e9`, complete)
+
+CExecThrowGrenade::CreateToHitCalcer uses GetUnitRPG()->IsFirstTurn rather than
+World::IsFirstTurn. World first-turn remains true during real time even after
+this actor has advanced beyond its own first turn. The per-unit input controls
+the existing first-round multiplier and movement-penalty suppression; neither
+formula nor its data values change. Night input from e40044e5 is retained.
+
+NativeGrenadeUnitFirstTurn0..3 use the actual differing native world/unit states,
+public StartNewTurn if needed to advance the actor and AddMoveInLastTurn(4) to
+prime the existing movement consumer, without private flag/counter injection.
+Mode0 is a no-side-effect/night-input query control and does not assert a
+matching first-turn flag. Day/night input cases plus actual Run/seeded scatter
+consumer fail (RED3/4 each). GREEN4/4: per-unit flag0, correct existing first-round
+multiplier, retained night/AP/HP/quantity/position/time/RNG query controls. Windows
+native scatter example: correct98 versus old89, roll92; old code adds erroneous
+scatter, corrected consumer preserves initial native velocity. The result can
+reflect both existing first-round and movement terms; no assertion that the
+corrected chance must always decrease. This proves input/consumer behavior,
+not complete projectile flight/damage or natural movement traversal. The
+tested authored grenade retains its existing zero movement factor; this does
+not claim a restored nonzero movement penalty.
+
+The earlier night-only scatter test now gives both day/night references the
+current per-unit first-turn input, keeping that regression independent of this
+separate correction; it is rerun in the related gate.
+Gold GetToHit6af370/938 calls the mission's slot18c at6af3db; exact22byte block
+6af3cb maps uniquely to Steam6b54db with no masks. Secondary-interface tables
+Gold8b63cc/Steam8c54e4 identify IsFirstTurn6bf640/6c5dd0, identical13bytes
+reading nTurnCounter<2 (interface+170, complete-object+1bc). This is the original
+callee used by CheckToHitAndDelay796170/Steam7a1fb0, independently mapped earlier.
+Evidence: grenade-throw-inputs-retail-oracle.json, grenade-unit-first-turn-
+verification.json/raw logs. Game builds, related35Win/35Linux,CI323/323 pass; new4
+resource tests outside323. Script chance, tile/launcher/grenade previews, AI
+construction and live throw night/per-unit inputs are all complete. The source
+calcer-removal refactor is adapted by retaining our required velocity/skill API;
+no unrelated throw-velocity formulas are imported under this source.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.

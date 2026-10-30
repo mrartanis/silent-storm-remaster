@@ -2022,7 +2022,7 @@ CPtr<NRPG::CGrenadeToHitCalcer> CExecThrowGrenade::CreateToHitCalcer( NRPG::IGre
 	const NAI::SUnitPosition &position = pUS->GetPosition();
 	int nDistance = fabs( ptTarget - position.GetCP() ) / FP_GRID_STEP;
 	return new NRPG::CGrenadeToHitCalcer( pUS, position.GetPose(), nDistance, position.GetCP(),
-		pUS->GetWorld()->IsFirstTurn(), pUS->GetWorld()->GetGame()->IsNight(), CVec3(1,1,1), ptTarget, pItem );
+		pUS->GetUnitRPG()->IsFirstTurn(), pUS->GetWorld()->GetGame()->IsNight(), CVec3(1,1,1), ptTarget, pItem );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 EUnitCommandResult CExecThrowGrenade::CanDoIt( const NAI::SUnitPosition &from, bool bIgnoreTarget ) const
