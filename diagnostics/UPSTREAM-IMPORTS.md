@@ -18117,3 +18117,28 @@ overflow claim. Evidence: zeroing-{retail-oracle,verification}.json/raw logs.
 Game builds, related73Win/73Linux, CI323 pass; new15 cases outside323.
 Other independent037c41d9 hunks remain pending.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: difficult-traps ability49 (`037c41d9`, partial)
+
+Both GetGrenadeTrapDC and GetMineDC now honor acquired49: engineering skill
+times (1 + Param1), truncated toward zero. Ordinary engineering remains the
+result without49. No lower clamp, authored data or actual trap placement changes.
+
+NativeDifficultTraps0..15 use actual authored RPG persona/grant49 and actual
+mine/grenade records. Cover both APIs with skill21, skill0, temporary fractional
+and negative parameters, no-ability controls and unused/null item arguments.
+Temporary parameters are restored; no DB files change. RED10/16 each -> GREEN
+16/16; six controls pass before the fix. Skill, AP/HP/XP, perk budget and gameplay
+RNG remain stable. Scope is the native difficulty query, not trap placement,
+spotting or disarm execution.
+
+Gold named grenade6ba2e0/132 and mine6ba370/132 match Steam6c0380/132 and
+6c0410/132 with only the independently verified 1.f pointer operand masked.
+The two functions have identical instruction bodies, so the two candidate
+matches are disambiguated by their corresponding mission secondary-vtable
+slots. Literal49, engineering skill, multiplier and truncation are preserved;
+both originals ignore the item argument. Evidence: {grenade-trap-dc,mine-dc}-
+retail-oracle.json, trap-difficulty-verification.json/raw logs.
+Game builds, related89Win/89Linux, CI323 pass; new16 cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

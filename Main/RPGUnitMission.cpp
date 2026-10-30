@@ -2228,12 +2228,20 @@ void CUnitMission::SetHiding( bool _bHiding )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitMission::GetGrenadeTrapDC( NDb::CRPGGrenade *pGrenade )
 {
-	return GetRPGUnit()->Skills( NDb::ST_ENGINEERING );
+	int nEngineering = GetRPGUnit()->Skills( NDb::ST_ENGINEERING );
+	float fParam;
+	if ( HasPerk( N_PERK_DIFFICULT_TRAPS, &fParam ) )
+		nEngineering = int( ( 1.0 + double( fParam ) ) * nEngineering );
+	return nEngineering;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitMission::GetMineDC( NDb::CRPGMine *pMine )
 {
-	return GetRPGUnit()->Skills( NDb::ST_ENGINEERING );
+	int nEngineering = GetRPGUnit()->Skills( NDb::ST_ENGINEERING );
+	float fParam;
+	if ( HasPerk( N_PERK_DIFFICULT_TRAPS, &fParam ) )
+		nEngineering = int( ( 1.0 + double( fParam ) ) * nEngineering );
+	return nEngineering;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail CUnitMission::GetMineSpotRange @0x2c0340 (disasm-verified): the Jan03 CanSeeMine formula

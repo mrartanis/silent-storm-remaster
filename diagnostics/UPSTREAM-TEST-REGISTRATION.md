@@ -496,3 +496,11 @@ persona/grant85, native completed-shot counters and tile-calcer GetRS. Authored
 bonus2/cap5, cap/above-cap and fractional/negative/zero parameter controls.
 RED6/15 -> GREEN15/15 each; no repeat/AP/HP/XP/RNG/point mutations. Related
 73Win/73Linux, Game builds, CI323. New15 cases outside323; no whole-shot claim.
+
+## Difficult traps49
+
+NativeDifficultTraps0..15: resource extended Win/Linux,timeout120. Actual RPG
+persona/grant49, mine/grenade difficulty APIs, authored/zero/fractional/negative
+and no-perk/null-argument cases. RED10/16 -> GREEN16/16 each; skill/AP/HP/XP/
+points/RNG stable. Query scope; no placed trap/disarm claim. Related89Win/89Linux,
+Game builds, CI323. New16 outside323.

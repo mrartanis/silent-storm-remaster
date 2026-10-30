@@ -29523,6 +29523,23 @@ static CObj<NRPG::IUnitMission> NativeMissionWithUntakenPerk(int id)
     for(auto* person:candidates){CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(person);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();if(!tree || unit->HasPerk(id) || mission->GetTotalVP()<=0)continue;vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==id)return mission;}
     Require(false,"native RPG fixture lacks an actual untaken authored perk node");return nullptr;
 }
+static void DifficultTrapsPerk(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=15,"unknown native trap-difficulty mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    auto mission=NativeMissionWithUntakenPerk(49);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();auto* perk=NDb::GetDBPerk(49);Require(perk && !perk->params.empty(),"trap fixture lacks authored Param1");
+    const float authored=perk->params[0];Require(authored>0,"trap fixture lacks positive original bonus");struct Restore {NDb::CDBPerk* perk;float value;~Restore(){perk->params[0]=value;}}restore{perk,authored};
+    const bool mine=mode%2!=0,acquired=mode!=0 && mode!=1 && mode!=12 && mode!=13;const int skill=mode==4 || mode==5?0:mode>=6?7:21;unit->Skills(NDb::ST_ENGINEERING).SetConst(skill);
+    if(mode==6 || mode==7)perk->params[0]=.25f;if(mode==8 || mode==9)perk->params[0]=-.25f;if(mode==10 || mode==11)perk->params[0]=-1.5f;if(mode==12 || mode==13)perk->params[0]=1.75f;
+    NDb::CRPGGrenade* grenade=nullptr;NDb::CRPGMine* mineRecord=nullptr;CDBIterator<NDb::CRPGGrenade> grenades(*NDatabase::GetTable<NDb::CRPGGrenade>());while(grenades.MoveNext())if(!grenade || grenades.Get()->GetRecordID()<grenade->GetRecordID())grenade=grenades.Get();
+    CDBIterator<NDb::CRPGMine> mines(*NDatabase::GetTable<NDb::CRPGMine>());while(mines.MoveNext())if(!mineRecord || mines.Get()->GetRecordID()<mineRecord->GetRecordID())mineRecord=mines.Get();Require(grenade && mineRecord,"trap fixture lacks authored mine/grenade records");
+    const int ap=mission->GetAP(),hp=mission->GetTotalVP(),points=tree->GetPerkPoints();const float xp=unit->fXP;auto random=GlobalGameRandom();
+    if(acquired){tree->AddPerkPoints(1);tree->TakePerk(49);}Require(mission->HasPerk(49)==acquired && tree->GetPerkPoints()==points,"trap-difficulty native grant failed or changed points");
+    const int expected=acquired?int((1.0+double(perk->params[0]))*skill):skill,actual=mine?mission->GetMineDC(mode==15?nullptr:mineRecord):mission->GetGrenadeTrapDC(mode==14?nullptr:grenade);
+    std::printf("native trap-difficulty mode=%d mine=%d acquired=%d skill=%d param=%.6g difficulty=%d expected=%d\n",mode,int(mine),int(acquired),skill,perk->params[0],actual,expected);std::fflush(stdout);
+    Require(actual==expected,"native trap difficulty ignored perk49 or changed original truncation/no-clamp rule");
+    Require(int(unit->Skills(NDb::ST_ENGINEERING))==skill && mission->GetAP()==ap && mission->GetTotalVP()==hp && unit->fXP==xp && random.Get()==GlobalGameRandom().Get(),"trap-difficulty query changed skill/AP/HP/XP/RNG");
+}
+
 static void ZeroingBonusPerk(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=14,"unknown native zeroing mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
@@ -31274,6 +31291,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "difficult-traps")) { Require(argc==5,"trap difficulty requires db/resources/mode"); DifficultTrapsPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "zeroing-bonus")) { Require(argc==5,"zeroing bonus requires db/resources/mode"); ZeroingBonusPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "best-shooting-pose")) { Require(argc==5,"best pose requires db/resources/mode"); BestShootingPosePerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "perfect-engineering-tool")) { Require(argc==5,"perfect engineering requires db/resources/mode"); PerfectEngineeringToolEligibility(argv[2],argv[3],std::atoi(argv[4])); return true; }

@@ -2171,3 +2171,11 @@ zero, caps it by nMaxShotsRepeat, then doubles it. Keeps the original signed
 behavior without adding a lower clamp. Authored bonus2/cap5 and ordinary
 no-ability behavior remain unchanged. Native tests isolate this consumer;
 exceptional floating values, overflow and whole-shot parity are unclaimed.
+
+### `037c41d9`: difficult-traps ability49
+
+Restores the original acquired49 multiplier for engineering-based difficulty
+of mines and grenade traps: int((1 + Param1) * engineering). Retains truncation
+toward zero, no lower clamp and ordinary no-ability behavior. Native tests
+cover both difficulty APIs. Actual trap placement, spotting and disarm actions
+are separate paths and are not claimed by this change.
