@@ -1980,3 +1980,15 @@ aim-clock в обоих случаях продвигается на50ms. Каж
 и monotonic timer сохранены. LAN host/replica scheduler закрыт прежним guard;
 оба контроля проходят. Gold/Steam float0.03 подтверждён в обоих бинарниках.
 Доказательства: hidden-skip-budget-verification.json и retail-oracle в лаборатории.
+
+### `5780c0be`: сохранение цели и части тела команды броска
+
+Команда броска в бойца сохраняет native unit target/eHL, а не превращается
+в бросок в tile point с eHL=ANY. ANY использует hull center, head/body — свои
+native точки; очередь подготавливает поворот. Это восстановление исходного
+unit-target dispatch, подтверждённого Gold/Steam. Коэффициенты, стоимость AP,
+диапазоны, формулы вероятности и генератор не редактировались. Native unit-cover
+validation теперь получает unit metadata вместо прежнего tile запроса.
+Фактическая генерация броска/полёт и другие формулы5780c0be ещё требуют отдельного
+разбора, поэтому полная эквивалентность итоговых попаданий не заявляется.
+Свидетельства: knife-unit-dispatch-verification.json и retail-oracle.

@@ -29489,6 +29489,85 @@ static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonA
     return sequence;
 }
 
+static void KnifeUnitDispatch(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=4,"unknown game knife dispatch mode");
+    auto world=FixtureWorld(databasePath,resourcePath);
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);
+    vector<NWorld::CUnitServer*> people;
+    for(auto unit:units) {
+        auto* actor=dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());
+        if(actor && actor->CanFight() && !actor->IsEmptyPK() && !actor->IsWearingPK() && actor->GetPosition().pos.p.GetPose()==NAI::CM_STAND)people.push_back(actor);
+    }
+    NWorld::CUnitServer *actor=nullptr,*target=nullptr;float nearest=1e20f;
+    for(auto* a:people)for(auto* b:people)if(a!=b) {
+        const float distance=fabs2(a->GetPosition().GetCP()-b->GetPosition().GetCP());
+        if(distance>0.25f && distance<nearest){nearest=distance;actor=a;target=b;}
+    }
+    Require(actor && target && nearest<64.f,"unit dispatch fixture lacks two nearby standing native actors");
+    NDb::CRPGMeleeWeapon* record=nullptr;CDBIterator<NDb::CRPGMeleeWeapon> records(*NDatabase::GetTable<NDb::CRPGMeleeWeapon>());
+    while(records.MoveNext())if(records.Get()->bThrowing && IsValid(records.Get()->pItem) && IsValid(records.Get()->pItem->pModel)){record=records.Get();break;}
+    Require(record,"unit dispatch fixture has no authored game blade");
+    CObj<NRPG::CMeleeWeaponItem> blade=new NRPG::CMeleeWeaponItem(record);blade->nQuantity=1;
+    auto* inventory=actor->GetUnitRPG()->GetInventory();
+    CObj<NRPG::IInventoryItem> previous=inventory->Get(NDb::SLOT_1)?inventory->TakeOff(NDb::SLOT_1):nullptr;
+    Require(inventory->Equip(NDb::SLOT_1,blade) && inventory->Activate(NDb::SLOT_1) && NWorld::GetActionType(actor)==NWorld::AT_THROW,
+        "unit dispatch fixture could not equip its native game item");
+    auto from=actor->GetPosition();const auto delta=target->GetPosition().GetCP()-from.GetCP();
+    bool away=false;
+    for(int direction=0;direction<8;++direction) {
+        auto candidate=from;candidate.pos.p.SetDirection(direction);const float angle=candidate.pos.GetDirection();
+        if(delta.x*cos(angle)+delta.y*sin(angle)<-0.5f*std::sqrt(delta.x*delta.x+delta.y*delta.y)){from=candidate;away=true;break;}
+    }
+    Require(away,"unit dispatch fixture could not select an opposing heading");
+    actor->animator.PlaceUnit(from);actor->SetPosition(from);
+    actor->animator.SetActiveItem(true);actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
+    const NAI::EHitLocation location=mode==1?NAI::HL_HEAD:mode==2?NAI::HL_BODY:NAI::HL_ANY;
+    CVec3 expectedPoint;world->GetAIMap()->GetUnitHLPos(&expectedPoint,world->GetAIMap()->GetHull(target),location);
+    if(mode<3) {
+        CObj<NWorld::CExecThrowKnife> direct=new NWorld::CExecThrowKnife(actor,location,target);
+        Require(direct->CanDoIt(from)==NWorld::UCR_OK,"unit dispatch fixture target fails the existing native eligibility check");
+    }
+    CObj<NWorld::CCmd> command;
+    if(mode==3) {
+        bool found=false;
+        for(const auto& offset:{CVec3(1,0,0),CVec3(-1,0,0),CVec3(0,1,0),CVec3(0,-1,0)}) {
+            const auto point=from.GetCP()+offset;
+            CObj<NWorld::CExecThrowKnife> probe=new NWorld::CExecThrowKnife(actor,point+CVec3(0,0,0.5f));
+            if(probe->CanDoIt(from)==NWorld::UCR_OK){expectedPoint=point+CVec3(0,0,0.5f);command=new NWorld::CCmdShootTile(point);found=true;break;}
+        }
+        Require(found,"point control has no valid nearby native throw");
+    } else {command=new NWorld::CCmdShootObject(mode==4?nullptr:target,0,location);if(mode==4)expectedPoint=from.GetCP()+CVec3(0,0,0.5f);}
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();const auto targetPlace=target->GetPosition();
+    NWorld::EUnitCommandResult result=NWorld::UCR_UNAVAILABLE;
+    CObj<NWorld::CCommandExecute> executor=NWorld::CreateExecutor(actor,command,&result);
+    Require(executor && result==(mode==4?NWorld::UCR_NO_TARGET:NWorld::UCR_OK),"dispatch fixture command is not eligible for native preview");
+    CPtr<NWorld::CExecThrowKnife> action=dynamic_cast<NWorld::CExecThrowKnife*>(executor.GetPtr());
+    CStructureNetworkContext graph;graph.include=[&](CObjectBase* object){if(auto* found=dynamic_cast<NWorld::CExecThrowKnife*>(object))action=found;return dynamic_cast<NWorld::CSimpleExecQueue*>(object)!=nullptr;};
+    CMemoryStream traversal;{CStructureSaver writer(traversal,CStructureSaver::WRITE,&graph);static_cast<CObjectBase*>(executor.GetPtr())->operator&(writer);}
+    Require(IsValid(action),"game command queue contains no native throw executor");
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(action,&refs);
+    CVec3 point;CPtr<NWorld::CUnitServer> savedTarget;NAI::EHitLocation savedLocation=NAI::HL_BODY;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&point);reader.Add(3,&savedTarget);reader.Add(5,&savedLocation);}
+    std::printf("game knife dispatch mode=%d result=%d unitTarget=%d hitLocation=%d pointError=%.6g\n",mode,int(result),int(savedTarget.GetPtr()==target),int(savedLocation),fabs2(point-expectedPoint));std::fflush(stdout);
+    Require(savedTarget.GetPtr()==(mode<3?target:nullptr) && savedLocation==location && fabs2(point-expectedPoint)<1e-8f,
+        "unit throw command lost its target, hit location or native aim point by becoming a tile throw");
+    if(mode<3) {
+        CObj<NAI::CPath> path=executor->GetCurrentPath();Require(path && path->points.size()>=2,"unit throw did not queue a facing adjustment");
+        NAI::SPosition destination(path->points.back(),world->GetPathNetwork());const float angle=destination.GetDirection();
+        Require(path->points.back().GetX()==from.pos.p.GetX() && path->points.back().GetY()==from.pos.p.GetY() &&
+            path->points.back().GetLayer()==from.pos.p.GetLayer() && delta.x*cos(angle)+delta.y*sin(angle)>0,
+            "unit throw facing queue moved away from its tile or turned away from the native target");
+    }
+    fields.Seek(0);CObj<NWorld::CExecThrowKnife> restored=new NWorld::CExecThrowKnife;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader);}
+    CStructureNetworkContext newRefs;auto restoredFields=BorrowedObjectFields(restored,&newRefs);CPtr<NWorld::CUnitServer> loadedTarget;CVec3 loadedPoint;NAI::EHitLocation loadedLocation=NAI::HL_BODY;
+    {CStructureSaver reader(restoredFields,CStructureSaver::READ,&newRefs);reader.Add(2,&loadedPoint);reader.Add(3,&loadedTarget);reader.Add(5,&loadedLocation);}
+    Require(loadedTarget.GetPtr()==savedTarget.GetPtr() && loadedLocation==savedLocation && fabs2(loadedPoint-point)<1e-10f,"fresh executor restore lost its native target or aim point");
+    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetPosition()==from && target->GetPosition()==targetPlace && inventory->GetActive()==blade.GetPtr() && blade->GetQuantity()==1,
+        "command preview spent AP/health, moved an actor or consumed the equipped game item");
+}
+
 static void KnifeTimeRebase(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=3,"unknown knife clock mode");
@@ -30510,6 +30589,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "knife-unit-dispatch")) { Require(argc==5,"game knife dispatch requires db/resources/mode"); KnifeUnitDispatch(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "knife-time-rebase")) { Require(argc==5,"knife clock requires db/resources/mode"); KnifeTimeRebase(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "hidden-skip-budget")) { Require(argc==5,"hidden skip requires db/resources/mode"); HiddenSkipBudget(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "localized-log-style")) { Require(argc==5,"log style requires db/resources/mode"); LocalizedLogStyle(argv[2],argv[3],std::atoi(argv[4])); return true; }

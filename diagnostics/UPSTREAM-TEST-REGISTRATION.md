@@ -335,3 +335,10 @@ NativeKnifeTimeRebase0..3: resource extended Windows/Linux,timeout120.
 Actual published native animator: future-start firstsample/rollback/normalforward/
 exactstart. RED2/4 ->GREEN4/4 each, fullsave->newanimator/motion/rotation/wire
 controls and action release; related11Win/10Linux,CI323. Новые4 внеasset-free323.
+
+## Unit-target команда метательного ножа
+
+NativeKnifeUnitDispatch0..4: resource extended Windows/Linux,timeout120.
+ANY/head/body и point/targetless controls; actual native eligibility/factory/
+queue metadata/native aim/facing path/fresh executor restore/AP/HP/item checks.
+RED3/5 ->GREEN5/5 each,related16Win/15Linux,CI323. Сам полёт/попадание не проверялось.

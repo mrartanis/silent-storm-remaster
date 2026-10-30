@@ -17480,3 +17480,37 @@ new epoch. Без масок/wholemethod claim. Полные Game builds, relate
 knife-time-rebase-retail-oracle.json,knife-time-rebase-verification.json и raw logs.
 Source5780c0be остаётся PARTIAL: остальные hunks wKnife и10 файлов не завершены.
 Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027.
+
+## `5780c0be`: команда броска в бойца и выбранная часть тела
+
+Unit-target AT_THROW теперь создаёт CExecThrowKnife(actor,eHL,target) через
+существующий CreateActionQueue/ITEM_ACTIVE. В GetActionValidPlaces добавлено
+то же GetDirectedPoints, которым пользуется наша очередь поворота. HL_ANY
+в конструкторе передаётся native hull query без замены на BODY. Бросок в точку
+и targetless order-bar запрос сохраняют прежние tile paths.
+
+Native RED3/5 each: ANY/head/body команды теряют unit target/eHL и имеют неверный
+aim point. Все три цели сначала проходят существующую native eligibility;
+point/targetless контроли проходят до фикса. GREEN5/5 each: реальные nearby
+standing actors, экипированный authored item, native factory/queue. Сохранены
+target/HL/точная native aim point; facing path остаётся на том же XY/layer и
+поворачивается к цели. Полный READ в новый executor сохраняет fields2/3/5,
+AP/HP/позиции/количество предметов dry preview не меняет. Read-only graph
+наблюдатель обходит только очереди; нет partial READ в живые объекты.
+
+Original Gold PDB unit constructor79ba90/201 ->Steam7a7f40: unique175byte body
+mask только2 decoded vtable operands, проверенные COL/RTTI CCommandExecute и
+CExecThrowKnife. Named factory792190/5657 вызывает его в792705, передавая
+typed command eHL10 и target;17byte caller block сопоставлен с независимо
+определённым Steam ctor. Stored eHL30 идёт в native aim query без ANY remap.
+Числовые ABI/enum значения не копировались. Свидетельства knife-unit-dispatch-red-verification.json,
+knife-unit-dispatch-retail-oracle.json,knife-unit-dispatch-verification.json.
+
+Полные Game builds,related16Win/15Linux и CI323/323 успешны; новые5 resource
+extended случаев вне323. Неудачная первая guarded patch попытка отличалась
+пробелами и ничего не записала; unapplied-fix логи сохранены отдельно.
+Все hunks wUnitAttack.cpp из этого source учтены, targeted ctor также завершён.
+Сам ThrowKnife label/flight/velocity/range/skill/night/backstab ещё pending;
+полная корректность итогового попадания этим этапом не заявлена. Формулы и
+параметры баланса не менялись; эффект восстановления цели записан в balanceMD.
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027.

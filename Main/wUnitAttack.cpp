@@ -216,6 +216,7 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdShootObjec
 		case AT_SNIPE:
 		case AT_SHOOT:
 		case AT_BAZOOKA:
+		case AT_THROW:
 			GetDirectedPoints( pNet, pUS->GetPosition().pos.p, ptTo, pRes );
 			break;
 		default:
@@ -747,6 +748,11 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 					case AT_CANNON:
 						return CreateSimpleActionOrReload(pUS, pAttackObject.GetPtr(), new CExecShootUnit(pUS, pUnitTarget,
 							pAttackObject->eHL, pAttackObject->nExtraAttackAP, pAttackObject->bOnlyPrepareToShoot), pError);
+					case AT_THROW:
+						// Keep actual unit targeting; targetless previews retain their tile fallback.
+						if ( IsValid( pUnitTarget ) )
+							return CreateActionQueue( pUS, pAttackObject.GetPtr(), new CExecThrowKnife(pUS, pAttackObject->eHL, pUnitTarget), ITEM_ACTIVE, pError );
+						break;
 					}
 				}
 

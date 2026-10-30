@@ -3364,17 +3364,15 @@ CExecThrowKnife::CExecThrowKnife( CUnitServer *_pUS, const CVec3 &_ptTarget, CUn
 {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// @0x3a7470 -- targeted-unit ctor (RETAIL ADDITION; Jan03 had only the point ctor). Records eHL and
-// derives the aim point from the target unit's hit location instead of taking an explicit ptTarget.
-// The exact retail aim helper (pUS->GetWorld()->...->vtbl[0x28](&ptTarget, pTarget->ObjBase, eHL)) is
-// not mapped in-tree; reproduced with the proven AIMap hit-location idiom (cf. CExecShootUnit ctor).
+// Unit-target constructor: retain the selected actor and requested hit location.
+// Use this fork's existing native AI-map aim query, including HL_ANY.
 CExecThrowKnife::CExecThrowKnife( CUnitServer *_pUS, NAI::EHitLocation _eHL, CUnitServer *_pTarget ):
 	CExecAttack(_pUS), pTarget(_pTarget), eHL(_eHL)
 {
 	if ( IsValid( pTarget ) )
 	{
-		NAI::EHitLocation eHitLoc = ( eHL == NAI::HL_ANY ) ? NAI::HL_BODY : eHL;
-		pUS->GetWorld()->GetAIMap()->GetUnitHLPos( &ptTarget, pUS->GetWorld()->GetAIMap()->GetHull( pTarget ), eHitLoc );
+		// HL_ANY is the native hull center, not an implicit body shot.
+		pUS->GetWorld()->GetAIMap()->GetUnitHLPos( &ptTarget, pUS->GetWorld()->GetAIMap()->GetHull( pTarget ), eHL );
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
