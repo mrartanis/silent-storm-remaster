@@ -18522,3 +18522,28 @@ grenade-table-verification JSON/raw logs. Full Game builds, related51Win/51Linux
 and CI323 pass; new9 extended/outside323. Null-record fallback is defensive
 and not presented as an original null-record parity result.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.
+
+## 2026-10-30: cheap-throw43 grenade AP (`aa031e2e` partial)
+
+AC_THROW_GRENADE now applies int((1-double(Param1))*integerTable5Price) with
+acquired43 after the restored table lookup. NativeCheapGrenadeAP0..13 use actual
+person2/native Take43, authored Param1=.25 and RPGAP5=20, plus actual item5 for
+melee/knife scope controls. RED7/14 each -> GREEN14/14; seven controls pass
+before the fix. Authored20 ->15; temporary Param.375 gives12 (truncates12.5),
+Param1 gives0,1.25 gives-5 and-.25 gives25. Temporary table7/.25 gives5,
+table0 gives0 and table-3 gives-2. No43 table24 remains24, melee/open retain
+their prices, and the already restored knife43 still gives12 ->9. Parameters
+and table price are restored; AP/HP/XP/points/skills, active-item/quantity and
+RNG stay stable. Native cost-query scope, without a new actual AP-spend claim.
+
+Original action13 maps to Gold6baf9d/Steam6c10a8. Both query Has43slot78 and
+use verified1.f-Param1 before x87 RC11 truncation, without a floor. Gold uses
+verifiedfloat20, Steam integer table5 (the prior commit records the version
+distinction). This hook follows each version's multiplier; no claim that Gold
+uses the Steam table. Evidence grenade-ap-retail-oracle and cheap-grenade-ap-
+verification JSON/raw logs. Full Game builds, related65Win/65Linux including prior
+melee/knife/table queries and grenade execution/handoff/trajectory, and CI323
+pass; new14 extended/outside323. Allaa throw-AP hunks are now accounted for;
+explosive rounding/fragments/trace, grass, scenario knockout and melee-miss
+dispatch hunks remain pending for individual audit.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.

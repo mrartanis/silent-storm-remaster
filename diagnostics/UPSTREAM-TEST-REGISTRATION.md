@@ -613,3 +613,12 @@ non-grenade controls. RED4/9 -> GREEN9/9 each; state/RNG stable. Full Game
 builds, related51Win/51Linux with previous knife/melee AP and existing grenade
 execution/handoff/trajectory, and CI323 pass; new9 outside323. Steam table-driven
 query scope; Gold's fixed20 distinction is recorded, no actual AP-spend claim.
+
+## Cheap-throw43 grenade AP
+
+NativeCheapGrenadeAP0..13: resource extended Win/Linux,timeout120. Native
+person2/Take43, authored.25/table20 ->15, fractional/free/negative parameters,
+table7/0/-3, no43/table24, melee/open and already fixed knife43 controls.
+RED7/14 -> GREEN14/14 each, state/RNG stable, runtime values restored. Full
+Game builds, related65Win/65Linux and CI323 pass; new14 outside323. Cost-query scope;
+existing grenade execution/handoff/trajectory checks included.

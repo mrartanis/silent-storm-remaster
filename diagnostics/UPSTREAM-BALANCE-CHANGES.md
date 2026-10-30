@@ -2306,3 +2306,13 @@ ownership parity is claimed across these versions. Temporary24/7/0/-3 test
 values are restored and never written to DB assets. Native query state/RNG
 remain stable. Cheap-throw43 is still pending for grenades; actual AP spending
 and projectile execution are outside this table lookup change.
+
+### `aa031e2e`: cheap-throw43 grenade AP
+
+Restores acquired43's int((1-Param1)*integerBaseAP) for grenades. Authored.25
+reduces the unchanged table5 price20 to15 AP. Products truncate, with no
+invented floor: temporary.375 gives12 from20,1 yields0 and1.25 yields-5.
+Temporary table7/.25 gives5 and table-3/.25 gives-2. Gold has fixed20 while
+Steam uses table5; both have this multiplier. Runtime test values are restored,
+DB assets and query state/RNG remain unchanged. Knife43 and melee32 retain
+their independent rules. Actual AP spending/flight are outside this hook.

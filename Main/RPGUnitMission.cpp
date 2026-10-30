@@ -611,7 +611,11 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 		case AC_THROW_GRENADE:
 		{
 			NDb::CRPGAP *pAP = NDb::GetRPGAP( 5 );
-			return pAP ? pAP->nAP : 0;
+			int nAP = pAP ? pAP->nAP : 0;
+			float fParam;
+			if ( HasPerk( N_PERK_CHEAP_THROW, &fParam ) )
+				nAP = int( ( 1.0 - double( fParam ) ) * nAP );
+			return nAP;
 		}
 		case AC_CLIMB_1: return 10;
 		case AC_CLIMB_2: return 12;
