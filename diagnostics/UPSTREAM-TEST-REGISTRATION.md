@@ -640,3 +640,13 @@ fractional/zero/neutral/negative and safe large-integer cases, structure/critica
 controls, unrelated attack-field and RNG preservation. RED10/15 -> GREEN15/15
 each. Full Game builds, related24Win/23Linux and CI323 pass; new15 outside323. No
 authored owner/perk fixture or new full explosion/trace/application claim.
+
+## Live current-item familiarity contribution
+
+NativeLiveFamiliarity0..9: resource extended Win/Linux,timeout120. Native
+person2, authored firearm1/melee5 and actual unarmed fallback; actual UseWeapon
+with declared rate/cap/multiplier stimuli and real equipped item instances.
+RED6/10 -> GREEN10/10 each, four item-identity/untrained controls; AP/HP/XP/
+points/equipment/live-counter/RNG stable during query. Full Game builds,
+related44Win/44Linux and CI323 pass; new10 outside323. Query input isolates the
+missing familiarity term; no actual firing or full sum-order/targeting claim.

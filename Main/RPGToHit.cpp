@@ -366,6 +366,7 @@ float CToHitCalcer::GetAllAdd()
 {
 	float fRes = sWeaponInfo.nQuality + GetD2() +
 		GetStance() + GetSMove() + GetRS();
+	fRes += pUnitMission->GetWeaponAdaptation();
 	//
 	if ( IsValid( pWeaponItem ) )
 	{

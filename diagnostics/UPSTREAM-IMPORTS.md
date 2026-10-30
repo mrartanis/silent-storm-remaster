@@ -18602,3 +18602,41 @@ and explosive-modifier-verification JSON/raw logs. Full Game builds,
 related24Win/23Linux with existing grenade execution/handoff/trajectory (and Windows
 explosion-perk wire) plus CI323 pass. New15 asset-free extended/outside323.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.
+
+## 2026-10-30: live current-item familiarity consumer (`037c41d9` partial)
+
+Adds the missing live familiarity term to shared GetAllAdd. The mission getter
+delegates to the existing CUnit counter for its actual firearm first, otherwise
+its actual melee/unarmed item; it never reads the mission's serialized mirror.
+The interface adds a compatible default0 getter at its tail for other mission
+implementors. Existing CUnit::UseWeapon, learning rates/caps and own6/71 rules
+are unchanged. Existing base sum order/precision and targeting73 remain separate
+pending hunks; this change claims the missing familiarity contribution only.
+
+NativeLiveFamiliarity0..9 use actual person2, authored firearm1 and melee5,
+native unarmed fallback, real equipped item instances and actual UseWeapon.
+RED6/10 each -> GREEN10/10; four controls pass before the fix. Isolated range
+input makes D2=0, WALK/first-round/repeat0 and SNAP leave just authored quality
+(firearm1 or melee/unarmed0) before training. API inputs rate3/cap20/multiplier
+1.25 produce live3.75; firearm total1 ->4.75, melee/unarmed0 ->3.75. Cap and
+fraction/negative API controls produce totals26/1.125/.25. These are explicit
+native API stimuli, not new authored perk-rate values. Untrained, trained-other
+item, inactive firearm and same-DB/different-instance controls retain totals;
+the tracked item remains alive. AP/HP/XP/points, active item/quantity, live
+counter and RNG stay stable during the query. No DB mutations, actual firing,
+preview/AI choice or full accuracy-formula parity claim.
+
+Gold PDB mission getter6bac00/143 uniquely matches Steam6c0ca0/143 with only
+four independently decoded call operands and verified0.f pointer masked.
+Gold CUnit getter6b52e0/51 uniquely matches Steam6bb480 with only verified0.f
+pointer masked; typed live pAdaptatedWeapon98/fCurrentAdaptationa0 prove item
+identity and live value. Named firearm/melee getter call targets and RTTI item
+names are verified. Both original GetAllAdd bodies call mission slot70
+(Gold6b2284/Steam6b8404), independently mapped to those getters. Their scratch
+offsets differ and are decoded independently; no whole-prefix/method/ABI claim.
+Evidence mission-familiarity-retail-oracle and live-familiarity-verification
+JSON/raw logs. Full Game builds, related44Win/44Linux including own existing weapon
+familiarity, zeroing/stance, loader ordering/reload/network and CI323 pass.
+New10 resource extended/outside323. Broader037c order/targeting/evasion/aura
+consumers remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

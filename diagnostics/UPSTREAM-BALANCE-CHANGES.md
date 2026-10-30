@@ -2337,3 +2337,16 @@ retain results; structure and human-critical rules remain unchanged. Native
 typed-function fixtures also cover safe large/negative API inputs, with no
 authored-data mutation. No actual explosion trace, damage application or perk
 ownership integration claim is added by this arithmetic correction.
+
+### `037c41d9`: live weapon familiarity reaches accuracy
+
+Restores the current item's existing live familiarity bonus to the shared
+additive accuracy term. No learning rates/caps or own6/71 rules change. Native
+UseWeapon API stimuli creating3.75 live familiarity change isolated firearm
+quality1 total to4.75 and melee/unarmed0 to3.75. Another item, even a separate
+instance of the same DB weapon, contributes0. The mission's serialized mirror
+is not the source of the bonus. Other accuracy factors still transform this
+additive term; these figures are not direct final hit-chance percentages.
+Native queries preserve state/RNG and do not mutate DB assets. Base sum-order/
+precision and targeting73 remain separately pending; no full firing/AI-choice
+or complete accuracy-formula equivalence claim is added here.

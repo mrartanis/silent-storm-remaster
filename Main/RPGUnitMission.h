@@ -200,6 +200,7 @@ public:
 	// (wUnitStates.cpp) dispatches through IUnitMission. Appended NON-PURE at the vtable tail like the
 	// two above; CUnitMission overrides it.
 	virtual void AddVPBoost( float fStrength, int nDuration ) {}
+	virtual float GetWeaponAdaptation() const { return 0; }
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float GetCubesArea( const CVec3 &ptPos, vector<CVec3> *pCubes );

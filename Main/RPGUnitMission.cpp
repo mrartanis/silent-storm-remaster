@@ -248,6 +248,7 @@ public:
 	virtual void AddBleedingStopper( int nAmount ) { nBleedingStopAmount += nAmount; }
 	virtual void AddPostponedModifier( CDynamicSkill *pSkill, const SSkillModifyInfo &info, int nTurns );
 	virtual int  GetIC() const;
+	virtual float GetWeaponAdaptation() const;
 	virtual bool CheckIC();
 	virtual int CheckInterrupt( const IUnitMission *pEnemy, bool bIsMutual, bool bWasShot );
 	virtual int  GetInterrupt() const { return pRPGUnit->Skills(NDb::ST_INTERRUPT); }
@@ -1576,6 +1577,17 @@ int CUnitMission::GetMeleeToHit( const CVec3 &ptAttacker, const NAI::SPosition &
 		csRPG << CC_GREEN << " \tToHit=" << CC_GREY << fToHit << endl;
 	}
 	return fToHit;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+float CUnitMission::GetWeaponAdaptation() const
+{
+	IWeaponItem *pWeapon = pRPGUnit->GetWeaponItem();
+	IMeleeWeaponItem *pMelee = pRPGUnit->GetMeleeWeaponItem();
+	if ( IsValid( pWeapon ) )
+		return pRPGUnit->GetWeaponAdaptation( pWeapon );
+	if ( IsValid( pMelee ) )
+		return pRPGUnit->GetWeaponAdaptation( pMelee );
+	return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitMission::GetIC() const
