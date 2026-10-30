@@ -16415,7 +16415,7 @@ native focused/final logs. Source remains PARTIAL for shared AI flash only;
 ledger166 imported/19 partial/58 pending. Whole goal/final hosted CI/balance-MD
 delivery remain active.
 
-### world-ai-flash — finish shared command dispatch; cb954 fully accounted
+### world-ai-flash — shared dispatch in current worlds; global-map dependency open
 
 Source cb954e2e455b632c0174b88b2d051ac74e780ce0, parent
 5b161147ca62dbe7304565df52b55ae7608472fc. Actual chapter native UI queue
@@ -16469,7 +16469,7 @@ cb954-source-coverage-verification.json):
 | GScene.h, GSceneInternal.h, GSceneInternal.cpp | Animated ambient API/setter/existing DG node; native ambient proof. |
 | GView.h, GView.cpp | Original first-light-only ambient animator/clock/clear behavior; native graph tests. |
 | iChapterMap.cpp | Common fallback/camera drive; own chapter background/BeginZone args retained. |
-| iGlobalMap.cpp | Own 2D global map has no world; preserve UI-only draw, no upstream synthetic world drive. |
+| iGlobalMap.cpp | Current 2D UI has no logical world/script drive; common-consumer hunk remains dependent on5f997 lifecycle review. Do not classify absent world as sufficient proof of inapplicability. |
 | iMission.cpp, iMission.h | Shared helpers and routing; duplicate arms removed, own tactical BeginZone args retained. |
 | iMissionBase.cpp | Sound/light/FX/hints/tutorial/clue/camera/floor/video/AI consumers, own context/clock/API adapters. |
 | iMissionInternal.h | Obsolete mission ambient handle removed; scene owns ambient animation. |
@@ -16477,10 +16477,41 @@ cb954-source-coverage-verification.json):
 | wInterface.h | Const existing world-variant flags getter; real filtered ambient/FX cases. |
 
 Camera preemption correction, native floor-view adapter and all other earlier
-source stages retain their own RED/GREEN/original evidence. All useful cb954
-hunks now accounted; source marked imported, not literal unadapted cherry-pick.
-Ledger167 imported/18 partial/58 pending =76 unfinished sources. Whole goal,
+source stages retain their own RED/GREEN/original evidence. Shared AI fix is complete, but the global-map hunk remains open under the
+5f997 logical-world/script dependency. Earlier full-source classification was
+premature and is corrected below. Ledger166 imported/19 partial/58 pending
+=77 unfinished sources. Whole goal,
 final actual hosted CI and balance Markdown delivery remain active.
 
 Evidence: world-ai-flash-verification.json, RED/original/calibration/cause JSONs,
 native focused/final logs and all13-file coverage proof.
+
+
+### follow-up audit — keep the global-map script dependency open
+
+The valid AI fix1b196a28 remains unchanged with its native RED/GREEN/gates.
+Its claim that all useful cb954 hunks were finished was premature: source
+5f9977b7be4204857caa9f2a54f1391393e0da0c adds a logical world/player/script
+context to the 2D global map and runs pGlobalMap->pScript. Current own
+iGlobalMap::Initialize only builds UI/interface-owned audio; it never runs
+that script, and iGlobalMapUI provides no alternative script implementation.
+The existing comment describes a dev predecessor without a world clock; this
+alone does not prove an intentional replacement of the upstream functionality.
+
+Consequently restore cb954 status PARTIAL until the dependent native global-map
+lifecycle/script behavior is audited and implemented/adapted as appropriate.
+Preserve the actual 2D drawing and own audio/save/HD/body/facial behavior while
+restoring useful script functionality; do not exclude it just to preserve an
+incomplete current implementation. First inspect real authored global-map
+scripts, original Initialize/Step/save behavior and both normal/show-mode entry.
+Then compiled native RED, cause proof, minimal own-adapted fix, independent
+commits/full original SHA+URL/immediate push as usual. If script rewards affect
+balance, verify original values and document any excluded changes.
+
+Global-map common dispatch/camera drive in cb954 remains coupled to that
+earlier context dependency; chapter/backdrop/tactical consumers and all their
+verified fixes are complete. Source5f997's independent empty-Lua-default fix
+was already imported; its global-map part remains open. Do not repeat that
+argument-default work. Prior all13-file hashes remain useful inventory, not
+proof of full semantic completion. Ledger166 imported/19 partial/58 pending
+=77 unfinished sources. Whole goal/final hosted CI/balance-MD delivery active.
