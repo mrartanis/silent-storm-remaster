@@ -386,3 +386,12 @@ repeat completion, localized wide text/date, camera/world/queue controls.
 RED1->GREEN1 each. Intermediate Microsoft wide-format truncation on Linux is
 archived; final adapter preserves Unicode. Full Game builds,related8Win/7Linux,
 CI323. New1 outside asset-free323; no compile-date equality across translation units.
+
+## Person-clue death reserve
+
+NativeClueDeathReserve0..3: resource extended Windows/Linux,timeout120. Established
+real slot-distribution/spawn fixture with in-memory slot flags, current authored
+difficulty, raised level, zero coefficient and ordinary non-slot controls.
+Initial RED2/3 each ->GREEN4/4 after adding the non-slot control. Full RPG-unit
+save/fresh load and inclusive IsDead boundary checks; no asset edits.
+Game builds,related10/10 each,CI323; new4 outside asset-free323.

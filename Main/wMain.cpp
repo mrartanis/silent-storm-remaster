@@ -1598,6 +1598,9 @@ void CWorld::CreateAIUnits( const SMapInfo &mapInfo, const ClueToSlot &personClu
 		// Retail v1.2 0x76bb3b: occupied person-clue slots mark their spawned unit.
 		CPtr<CUnitServer> pUnitServer = AddUnit( pos.p, pRPG, pPlayer, i->szName, i->bSlot );
 		(*pIDToUnit)[ i->nUnitID ] = pUnitServer;
+		// Person-clue slots use the existing difficulty reserve after level/VP setup.
+		if ( i->bSlot )
+			pRPG->GetRPGUnit()->CalcDeathVP( pGlobalGame->pDifficulty->fClueDeathCoeff );
 
 		ASSERT( IsValid( pUnitServer ) );
 		// create routes

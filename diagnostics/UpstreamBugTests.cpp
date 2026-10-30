@@ -15618,13 +15618,17 @@ static void SniperHeldAim(const char* databasePath, const char* resourcePath, bo
     Require(snapshot.target.GetPtr() == target, "sniper Fire changed its held target");
 }
 
-static void PersonClueCreation(const char* databasePath, const char* resourcePath, bool withInventoryClue = false)
+static void PersonClueCreation(const char* databasePath, const char* resourcePath, bool withInventoryClue = false, int reserveMode = -1)
 {
     CFileStream database;
     database.OpenRead(databasePath);
     NDatabase::Serialize(database, CStructureSaver::READ);
     NGScene::AddResourceDir(resourcePath);
     CObj<NRPG::CGlobalGame> game = NRPG::CreateGlobalGame(1);
+    if(reserveMode>=0) {
+        Require(reserveMode<=3 && game->pDifficulty && game->pDifficulty->fClueDeathCoeff>0,"clue reserve fixture lacks its positive authored difficulty coefficient");
+        if(reserveMode==1)game->pDifficulty->fClueDeathCoeff=0;
+    }
     NScenario::CScenarioClue* clue = nullptr;
     CDBIterator<NDb::CDBScenarioClue> clues(*NDatabase::GetTable<NDb::CDBScenarioClue>());
     while (clues.MoveNext()) {
@@ -15645,7 +15649,7 @@ static void PersonClueCreation(const char* databasePath, const char* resourcePat
     CDBIterator<NDb::CUnit> records(*NDatabase::GetTable<NDb::CUnit>());
     while (records.MoveNext()) {
         auto* unit = records.Get();
-        unit->bClueSlot = IsValid(unit->pMonster) && !IsValid(unit->pMonster->pPanzerklein);
+        unit->bClueSlot = reserveMode!=3 && IsValid(unit->pMonster) && !IsValid(unit->pMonster->pPanzerklein);
         unit->bClueInventorySlot = withInventoryClue;
     }
     CDBIterator<NDb::CPlacableObject> objects(*NDatabase::GetTable<NDb::CPlacableObject>());
@@ -15658,14 +15662,29 @@ static void PersonClueCreation(const char* databasePath, const char* resourcePat
     CObj<NWorld::CPostWorldCreateInfo> post;
     std::list<CPtr<NScenario::CScenarioClue>> requested{clue};
     if (withInventoryClue) requested.push_back(itemClue);
-    world->CreateRandom(810, {}, true, requested, 0, &post, SRandomSeed(123));
+    if(reserveMode==3)requested.clear();
+    world->CreateRandom(810, {}, true, requested, reserveMode==2?10:0, &post, SRandomSeed(123));
     vector<CPtr<NWorld::CUnit>> actors;
     world->GetAllUnits(&actors);
-    int found = 0;
+    int found = 0, ordinary = 0;
     for (auto& actor : actors) {
         auto* server = dynamic_cast<NWorld::CUnitServer*>(actor.GetPtr());
-        if (actor->GetRPG()->GetRPGUnit()->GetPers()->GetRecordID() == clue->GetDBClue()->nPersID) {
+        if (reserveMode!=3 && actor->GetRPG()->GetRPGUnit()->GetPers()->GetRecordID() == clue->GetDBClue()->nPersID) {
             ++found;
+            if(reserveMode>=0) {
+                auto* unit=actor->GetRPG()->GetRPGUnit();const int maximum=unit->Skills(NDb::ST_VP).GetMaxValue();
+                const float coefficient=game->pDifficulty->fClueDeathCoeff;const int expected=int(-coefficient*maximum);
+                std::printf("native clue death reserve mode=%d pers=%d level=%d VP=%d coefficient=%.6g reserve=%d/%d\n",reserveMode,unit->GetPers()->GetRecordID(),int(unit->Skills(NDb::ST_LEVEL)),maximum,coefficient,unit->GetDeathVP(),expected);std::fflush(stdout);
+                Require(expected==(reserveMode==1?0:expected) && (reserveMode==1 || expected<0),"native clue reserve fixture has no nonzero death threshold control");
+                Require(unit->GetDeathVP()==expected,"spawned person clue did not receive the authored death reserve after final level/VP initialization");
+                CObj<NRPG::CUnit> original=unit;CMemoryStream saved;
+                {CStructureSaver writer(saved,CStructureSaver::WRITE);writer.Add(2,&original);}saved.Seek(0);
+                CObj<NRPG::CUnit> restored;{CStructureSaver reader(saved,CStructureSaver::READ);reader.Add(2,&restored);}
+                Require(restored && restored.GetPtr()!=unit && restored->GetDeathVP()==expected && restored->Skills(NDb::ST_VP).GetMaxValue()==maximum,"fresh full RPG-unit save/load lost the clue death reserve or final VP cap");
+                restored->Skills(NDb::ST_VP).SetValue(expected+1);Require(!restored->IsDead(),"clue reserve ended above its native death boundary");
+                restored->Skills(NDb::ST_VP).SetValue(expected);Require(restored->IsDead(),"clue reserve survived its inclusive native death boundary");
+                Require(unit->GetDeathVP()==expected && !unit->IsDead() && unit->Skills(NDb::ST_VP)>0 && server->IsClueUnit() && server->nClueCount==1,"boundary/save checks changed the real clue's health or marker");
+            }
             if (withInventoryClue) {
                 int carried = 0;
                 for (const auto& entry : actor->GetRPG()->GetInventoryInfo()->GetItems())
@@ -15678,10 +15697,14 @@ static void PersonClueCreation(const char* databasePath, const char* resourcePat
                     "spawned scenario person lost its clue marker and corpse-cleanup protection");
             }
         } else {
+            ++ordinary;
             Require(!server->IsClueUnit(), "ordinary actor was marked as a scenario person");
+            if(reserveMode>=0)Require(actor->GetRPG()->GetRPGUnit()->GetDeathVP()==0,"ordinary non-slot actor acquired a person-clue death reserve");
         }
     }
-    Require(found == 1, "fixture did not spawn exactly one scenario person");
+    if(reserveMode>=0){std::printf("native clue reserve population mode=%d clues=%d ordinary=%d\n",reserveMode,found,ordinary);std::fflush(stdout);}
+    Require(found == (reserveMode==3?0:1), "fixture did not spawn the requested number of scenario people");
+    if(reserveMode==3)Require(ordinary>0,"normal non-slot control has no actual native ordinary actors");
 }
 
 static void InventoryClueCreation(const char* databasePath, const char* resourcePath, bool checkCount = false, bool noSpace = false)
@@ -30869,6 +30892,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "clue-death-reserve")) { Require(argc==5,"clue reserve requires db/resources/mode"); PersonClueCreation(argv[2],argv[3],false,std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "main-menu-version-caption")) { Require(argc==4,"menu version requires db/resources"); MainMenuVersionCaption(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-pk-gate")) { Require(argc==5,"chapter PK gate requires db/resources/mode"); ChapterPanzerkleinGate(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "weather-world-placement")) { Require(argc==5,"weather placement requires db/resources/mode"); WeatherWorldPlacement(argv[2],argv[3],std::atoi(argv[4])); return true; }

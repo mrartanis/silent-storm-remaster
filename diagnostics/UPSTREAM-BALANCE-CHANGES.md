@@ -2038,3 +2038,13 @@ styling and the current build date. This only changes the footer; no gameplay
 data or coefficients are changed. Existing remaster/protocol metadata, menu
 controls and font backend remain intact. Wide-string concatenation preserves
 the full localized text on Windows and Linux.
+
+### `e6a660f7`: authored reserve for person clues
+
+Newly spawned occupied person-clue slots now receive their existing difficulty
+death reserve after final level/VP initialization. With the authored coefficient3,
+the Windows fixture's VP130/154 yields death thresholds-390/-462 instead of0.
+This restores the original survival policy for story targets; it does not add
+or change a coefficient or threshold formula. The zero-coefficient and ordinary
+non-slot controls retain threshold0. Existing save fields persist the resulting
+reserve; this change does not rewrite units already stored in an old save.

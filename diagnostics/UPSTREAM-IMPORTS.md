@@ -17685,3 +17685,39 @@ Full Windows/Linux Game builds, related8Win/7Linux (menu cadence/map/authored
 script, load/save tab, font wire and network serializer) and CI323/323 pass.
 New1 resource/display extended case is outside323. Source898 is fully accounted.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/898ccb8a5977c5b9fd9843b92b56d17893f5094d.
+
+## 2026-10-30: person-clue death reserve (`e6a660f7`, complete)
+
+CreateAIUnits calls the existing CalcDeathVP with the existing difficulty
+fClueDeathCoeff for an occupied person-clue slot, after final level/VP setup and
+native spawning. Ordinary non-slot actors keep their current zero reserve.
+The coefficient, threshold formula and serialization fields are unchanged.
+
+NativeClueDeathReserve0..3 reuse the established native PersonClueCreation
+fixture: real authored human spawn records temporarily offer clue slots in the
+loaded DB; the real scenario tracker supplies the person clue and CreateRandom
+performs distribution/spawning. No game assets are written. Initial RED2/3 each:
+authored coefficient3 leaves reserve0 instead of negative max-VP times3, at both
+base and raised level. Zero-coefficient control already passes. GREEN4/4 each
+includes an added normal non-slot/no-clue control with two actual ordinary actors
+and zero reserve (that extra control was added after the original RED).
+
+Windows native examples: VP130/154 at levels0/9 ->reserve-390/-462; Linux's
+fixture selects a different person and yields VP80/104 ->-240/-312. Per-platform
+DB iteration is not asserted as cross-platform identity. A full save/read into a
+fresh RPG unit keeps the reserve/final VP cap; native IsDead is false at threshold+1
+and true at the threshold. The real clue retains positive health, its marker and
+one clue count. This tests creation/RPG death boundary, not a full rescue mission
+or retroactive migration of already-created units in old saves.
+
+Gold named CreateAIUnits760100/2198 branches on typed bSlot+34 (iterator+6c,
+guard[esi-38]), reads pDifficulty+48/fClueDeathCoeff+4c and calls named
+CalcDeathVP6b4910/45. Unique35byte guard/call block7607f0->Steam76c1d0 masks
+only decoded relative call; its Steam callee6baab0 has the exact same45byte body.
+No whole creation-function or ABI equivalence claim. Evidence:
+clue-death-reserve-{red-verification,retail-oracle,verification}.json and raw logs.
+
+Full Windows/Linux Game builds, related10/10 each (person/inventory/replacement
+clue creation/capacity/count, new4 and serializer) and CI323/323 pass. New4
+resource extended cases are outside323. All selected source hunks are complete.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e6a660f7b69c986528b8d04c86f8bdd4ba6b763e.
