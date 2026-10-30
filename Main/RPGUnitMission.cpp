@@ -423,10 +423,14 @@ bool CUnitMission::GetAck( int *pAckID, IUnitMissionInfo **ppAttacker )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitMission::GetUnhideProbability( IUnitMission *pTarget, float fDistance ) const
 {
+	int nSpot = GetRPGUnit()->Skills( NDb::ST_SPOT );
+	float fParam;
+	if ( HasPerk( N_PERK_BETTER_SPOTTING, &fParam ) )
+		nSpot = int( ( 1.0 + double( fParam ) ) * nSpot );
 	// Gold 0x6b9540 / Steam 0x6bf750 retain precision until the base truncation.
 	int nBase = int( 45.0 - double( 44.f / 30.f ) * fDistance );
 	int nProbability = 
-		GetRPGUnit()->Skills( NDb::ST_SPOT ) -	pTarget->GetRPGUnit()->Skills( NDb::ST_STEALTH ) + nBase;
+		nSpot - pTarget->GetRPGUnit()->Skills( NDb::ST_STEALTH ) + nBase;
 	return Clamp( nProbability, 0, 100 );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

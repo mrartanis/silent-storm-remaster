@@ -2204,3 +2204,12 @@ detection probability by one point: equal spot/stealth at distance15 was23
 instead of22, and at30 was1 instead of0. Native tests confirm both boundaries
 and clamp controls. This changes rounding to the original behavior; coefficients,
 skills and 0..100 clamp are unchanged. Ability25/75 branches remain separate.
+
+### `037c41d9`: better-spotting ability25
+
+Restores acquired25's original local multiplier of the observer's spotting
+term: int((1 + Param1) * spot). The authored .25 turns spot21 into26 inside
+the detection query; spot21/target stealth30 at distance0 therefore gives41%
+instead of36%. The actual skill is unchanged. Target-only25 does not influence
+the result. Native tests cover ownership, truncation and clamp controls; mine
+spotting and complete AI visibility are separate consumers.

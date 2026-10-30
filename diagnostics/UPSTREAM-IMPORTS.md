@@ -18224,3 +18224,29 @@ base-verification.json/raw logs.
 Game builds, related120Win/120Linux, CI323 pass; new8 cases outside323.
 Other independent037c41d9 hunks remain pending.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: observer better-spotting ability25 (`037c41d9`, partial)
+
+GetUnhideProbability scales the observer's local spot term by (1 + acquired25
+Param1), truncating before the existing base-minus-stealth sum and final clamp.
+Actual ST_SPOT is unchanged; this restores a query-local ability effect.
+
+NativeBetterSpotting0..13 use real authored observer/target RPG units and native
+TakePerk25. Authored Param1=.25: spot21/stealth30 at distance0 gives41 rather
+than36, and at15 gives18 rather than13. Include zero spot, clamp controls,
+temporary fractional/negative/zero parameters, target-only and both-units25.
+RED6/14 each -> GREEN14/14; eight controls pass before the fix. Target-only25
+retains36, proving ownership. Both units' actual skills/AP/HP/XP, perk point
+budgets and gameplay RNG stay fixed; temporary parameters are restored and no
+DB files change. Scope is the native detection probability API, not a full
+visibility/AI turn or other ST_SPOT consumers such as mine spotting.
+
+The independently audited Gold6b9540/317 -> Steam6bf750 mapping (only four
+verified constant-pointer operands masked) includes literal25 on the observer
+before the distance calculation, (1 + Param1) multiplication and truncation.
+The original75 branch remains a separate pending fix; no complete function
+behavioral equivalence or exceptional-float claim yet. Evidence: spotting-
+retail-oracle.json and better-spotting-verification.json/raw logs.
+Game builds, related134Win/134Linux, CI323 pass; new14 cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

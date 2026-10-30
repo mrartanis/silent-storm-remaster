@@ -527,3 +527,11 @@ NativeUnhideBasePrecision0..7: resource extended Win/Linux,timeout120. Actual
 RPG observer/target, no active25/75, distance0/5/15/30/40 and skill/clamp cases.
 RED3/8 -> GREEN8/8 each; both units' skill/AP/HP/XP and RNG stable. Related
 120Win/120Linux, Game builds, CI323. New8 outside323; direct probability-query scope.
+
+## Better spotting25 ownership and rounding
+
+NativeBetterSpotting0..13: resource extended Win/Linux,timeout120. Actual RPG
+observer/target native grants, authored.25, fractional/negative/zero parameters,
+zero skill/clamps and target-only/both ownership. RED6/14 -> GREEN14/14 each;
+both units' skill/AP/HP/XP, points and RNG stable. Related134Win/134Linux, Game builds,
+CI323. New14 outside323; direct detection-query scope.

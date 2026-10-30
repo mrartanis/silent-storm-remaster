@@ -29524,6 +29524,21 @@ static CObj<NRPG::IUnitMission> NativeMissionWithUntakenPerk(int id)
     for(auto* person:candidates){CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(person);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();if(!tree || unit->HasPerk(id) || mission->GetTotalVP()<=0)continue;vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==id)return mission;}
     Require(false,"native RPG fixture lacks an actual untaken authored perk node");return nullptr;
 }
+static void BetterSpottingPerk(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=13,"unknown native better-spotting mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    auto observer=NativeMissionWithUntakenPerk(25),target=NativeMissionWithUntakenPerk(25);auto* unit=observer->GetRPGUnit();auto* victim=target->GetRPGUnit();auto* perk=NDb::GetDBPerk(25);Require(perk && !perk->params.empty() && !unit->HasPerk(75),"spotting fixture lacks its authored node/parameter or has75");
+    const float authored=perk->params[0];Require(authored>0 && authored<2,"spotting fixture lacks an ordinary positive authored bonus");struct Restore {NDb::CDBPerk* perk;float value;~Restore(){perk->params[0]=value;}}restore{perk,authored};
+    const bool acquired=mode!=0 && mode!=3 && mode!=7 && mode!=12,targetAcquired=mode==12 || mode==13;const int spot=mode==2?0:mode==3 || mode==4?100:mode>=5 && mode<=8?7:21,stealth=mode==3 || mode==4?0:30;const float distance=mode==9?15.f:mode==10?100.f:0.f;
+    unit->Skills(NDb::ST_SPOT).SetConst(spot);victim->Skills(NDb::ST_STEALTH).SetConst(stealth);if(mode==5)perk->params[0]=.25f;if(mode==6)perk->params[0]=-.25f;if(mode==7)perk->params[0]=1.75f;if(mode==8)perk->params[0]=-1.5f;if(mode==11)perk->params[0]=0;
+    auto grant=[](NRPG::CUnit* value){auto* tree=value->GetPerksTree();const int points=tree->GetPerkPoints();tree->AddPerkPoints(1);tree->TakePerk(25);Require(value->HasPerk(25) && tree->GetPerkPoints()==points,"native spotting grant failed or changed point budget");};if(acquired)grant(unit);if(targetAcquired)grant(victim);Require(unit->HasPerk(25)==acquired && victim->HasPerk(25)==targetAcquired,"spotting fixture ability ownership is wrong");
+    const int ap=observer->GetAP(),hp=observer->GetTotalVP(),targetAP=target->GetAP(),targetHP=target->GetTotalVP();const float xp=unit->fXP,targetXP=victim->fXP;auto random=GlobalGameRandom();
+    const int adjusted=acquired?int((1.0+double(perk->params[0]))*spot):spot,raw=int(45.0-double(44.f/30.f)*distance)+adjusted-stealth,expected=(std::max)(0,(std::min)(100,raw)),actual=observer->GetUnhideProbability(target,distance);
+    std::printf("native better-spotting mode=%d acquired=%d targetAcquired=%d distance=%.6g spot=%d stealth=%d param=%.6g probability=%d expected=%d\n",mode,int(acquired),int(targetAcquired),distance,spot,stealth,perk->params[0],actual,expected);std::fflush(stdout);
+    Require(actual==expected,"native detection query ignored observer perk25 or changed ownership/truncation/clamp");
+    Require(int(unit->Skills(NDb::ST_SPOT))==spot && int(victim->Skills(NDb::ST_STEALTH))==stealth && observer->GetAP()==ap && observer->GetTotalVP()==hp && target->GetAP()==targetAP && target->GetTotalVP()==targetHP && unit->fXP==xp && victim->fXP==targetXP && random.Get()==GlobalGameRandom().Get(),"spotting query changed skills/AP/HP/XP/RNG");
+}
+
 static void UnhideBasePrecision(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=7,"unknown native unhide-base mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
@@ -31337,6 +31352,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "better-spotting")) { Require(argc==5,"spotting requires db/resources/mode"); BetterSpottingPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "unhide-base")) { Require(argc==5,"unhide base requires db/resources/mode"); UnhideBasePrecision(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "disarm-traps")) { Require(argc==5,"disarm requires db/resources/mode"); DisarmTrapsPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "classless-perk")) { Require(argc==5,"classless perk requires db/resources/mode"); ClasslessPerkQuery(argv[2],argv[3],std::atoi(argv[4])); return true; }
