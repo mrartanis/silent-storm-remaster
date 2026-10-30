@@ -2098,3 +2098,12 @@ launcher flag stayed false. Windows behavior is retained. No weapon values,
 type IDs, rules or serialized fields are changed. This is an own-loader fix
 required to verify the selected upstream night/launcher behavior, not a copied
 upstream hunk. The night inputs remain pending separately.
+
+### `9da280e9`, next part: night preview inputs
+
+Tile, launcher and grenade previews receive the owning mission's actual night
+flag, activating the existing original0.9 light multiplier unless perk0x15
+bypasses it. The formula and authored values are unchanged; daytime results
+and explicit script chance remain intact. This fixes previously optimistic
+night chances in the legacy preview APIs. AI constructor and live grenade
+executor night/per-unit-first-turn inputs remain pending separately.

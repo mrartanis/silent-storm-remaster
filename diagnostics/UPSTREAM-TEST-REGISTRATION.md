@@ -434,3 +434,11 @@ NativeWeaponImportOrder1/92/93/98/99: standalone native DB loader, resource
 extended Win/Linux,timeout120. Actual type/launcher classification after load.
 Linux RED4/5, Windows5/5 baseline controls -> GREEN5/5 each. Related10Win/9Linux,
 Game builds,CI323; new5 outside323. No invented pre-fix Windows failures.
+
+## Night inputs in retained preview dispatchers
+
+NativeNightPreviewInputs0..4: resource extended Win/Linux, timeout120.
+Actual firearm/launcher tile and dedicated launcher/grenade dispatchers;
+day controls, night chances and script override37. RED4/5->GREEN5/5 each after
+the separate loader prerequisite; AP/HP/time/position/RNG unchanged. Related
+50Win/50Linux, Game builds, CI323. New5 outside323. No rendered-pixel claim.

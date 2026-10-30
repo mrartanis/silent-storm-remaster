@@ -17868,3 +17868,36 @@ Evidence: weapon-import-order-{retail-oracle,verification}.json/raw logs.
 Full Game builds, related10Win/9Linux, asset-free CI323/323 pass; five resource
 extended tests are outside323. The effect is recorded in balanceMD.
 Related source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.
+
+## 2026-10-30: night inputs for tile/launcher/grenade previews (`9da280e9`, partial)
+
+The retained GetTileToHit, GetRLauncherToHit and GetGrenadeToHit APIs now pass
+their attacker's owning CWorld::GetGame()->IsNight into existing calculators.
+This covers ordinary/knife/launcher tile branches and the dedicated legacy
+launcher/grenade helpers. The original light formula, perk0x15 exception,
+rounding, cover, first-round input and script override are unchanged.
+
+NativeNightPreviewInputs0..4 use a deployed actor and authored equipment, the
+actual dispatchers and corresponding native calculator. They select observable
+non-clamped day/night inputs. RED4/5 each after loader prerequisite f0103180:
+firearm tile, launcher tile, dedicated launcher and grenade all retain day
+chance at night. Day checks and script-forced37 control pass before the fix.
+GREEN5/5 each includes exact native chances and AP/HP/position/time/RNG controls.
+Initial fixture enum compilation and Linux launcher-selection failures are
+archived separately and are not counted as night RED. The latter exposed the
+own loader dependency fixed independently; these final tests were then rerun
+against the corrected loader before applying the night change. No fixture
+weapon flag or authored value is overridden.
+
+Gold/Steam CWorld RTTI tables8bc74c/8cbc8c slot1c identify GetGame76bc50/777a00;
+CGame tables8b403c/8c315c slot30 identify IsNight693250/7b03f0, identical
+getter bytes for typed bNight+18. Unique exact owner-night blocks map tile
+6afe07/17 ->6b5ee7 and grenade6af3b9/25 ->6b54c9. Existing GetLight tail
+6b0e0a/35 ->6b6f4a masks only its verified0.9 constant pointer and preserves
+the perk0x15 bypass. This adapts our retained legacy APIs to the original
+owner input; it does not claim complete numerical/ABI equivalence of previews.
+Evidence: night-preview-{retail-oracle,verification}.json and raw logs.
+Game builds, related50Win/50Linux, asset-free CI323/323 pass. Five new resource
+extended cases are outside323. AI constructor and live grenade executor's
+night/per-unit-first-turn inputs remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.

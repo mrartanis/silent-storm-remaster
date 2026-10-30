@@ -29513,6 +29513,47 @@ static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonA
     return sequence;
 }
 
+static void NightPreviewInputs(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=4,"unknown native night preview mode");
+    NativeGrenadeThrowFixture fixture(databasePath,resourcePath,false,true);auto& world=fixture.world;auto* actor=fixture.actor;
+    Require(!actor->GetUnitRPG()->HasPerk(0x15),"night preview fixture already has night vision");
+    CObj<NRPG::CWeaponItem> weapon;
+    if(mode!=3) {
+        NDb::CRPGWeapon* record=nullptr;const bool rocket=mode==1 || mode==2;
+        CDBIterator<NDb::CRPGWeapon> rows(*NDatabase::GetTable<NDb::CRPGWeapon>());
+        while(rows.MoveNext()){auto* candidate=rows.Get();if(candidate->pItem && candidate->pAnimWeaponType && candidate->bBazookaLogic==rocket && (!record || candidate->GetRecordID()<record->GetRecordID()))record=candidate;}
+        Require(record,"night preview lacks authored firearm/launcher");weapon=new NRPG::CWeaponItem(record);
+        auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> previous=inventory->TakeOff(NDb::SLOT_1);
+        Require(inventory->Equip(NDb::SLOT_1,weapon) && inventory->Activate(NDb::SLOT_1),"night preview cannot equip its authored weapon");
+        if(!rocket)Require(weapon->SetShootMode(NDb::SM_Snap),"night preview firearm has no native snap mode");
+        Require(NRPG::GetToHitType(actor)==(rocket?NRPG::TH_RLAUNCHER:NRPG::TH_SHOOT),"night preview did not select the actual weapon action");
+    }
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();const auto position=actor->GetPosition();const auto time=world->GetTime()->GetValue();auto random=GlobalGameRandom();
+    const CVec3 origin=position.GetCP(),illumination(1,1,1);const bool first=false;
+    int distance=0,day=0,night=0;CVec3 target;
+    auto reference=[&](int dist,bool dark,const CVec3& point) {
+        CObj<NRPG::CToHitCalcer> calcer;
+        if(mode==3)calcer=new NRPG::CGrenadeToHitCalcer(actor,position.GetPose(),dist,origin,first,dark,illumination,point);
+        else if(mode==1 || mode==2)calcer=new NRPG::CRLauncherToHitCalcer(actor,position.GetPose(),dist,origin,100.f,0,first,dark,illumination,point);
+        else calcer=new NRPG::CTileToHitCalcer(actor,position.GetPose(),dist,origin,0,100.f,first,dark,illumination,point,0);
+        return calcer->GetToHit();
+    };
+    for(int d=1;d<=150;++d){auto point=origin+CVec3(float(d)*FP_GRID_STEP,0,0);int a=reference(d,false,point),b=reference(d,true,point);if(a>b && b>2 && a<100){distance=d;target=point;day=a;night=b;break;}}
+    Require(distance>0,"night preview lacks an observable non-clamped native chance");
+    auto query=[&]() {
+        if(mode==3)return NRPG::GetGrenadeToHit(actor,position.GetPose(),distance,origin,first,target,illumination);
+        if(mode==2)return NRPG::GetRLauncherToHit(actor,position.GetPose(),distance,origin,target,NAI::THL_MIDDLE,0,first,illumination);
+        return NRPG::GetTileToHit(actor,position.GetPose(),distance,origin,target,NAI::THL_MIDDLE,0,100,first,illumination,0);
+    };
+    if(mode==4){actor->SetScriptToHit(37);day=night=37;}
+    world->GetGame()->SetNight(false);const int actualDay=query();Require(actualDay==day,"day preview control changed before the night boundary");
+    world->GetGame()->SetNight(true);const int actualNight=query();
+    std::printf("native night preview mode=%d distance=%d day=%d/%d night=%d/%d\n",mode,distance,actualDay,day,actualNight,night);std::fflush(stdout);
+    Require(actualNight==night,"native accuracy dispatcher did not forward its owning mission's night flag");
+    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetPosition()==position && world->GetTime()->GetValue()==time && random.Get()==GlobalGameRandom().Get(),"night preview query changed AP/HP/position/time/RNG");
+}
+
 static void ScriptGrenadeExplicitChance(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=6,"unknown scripted grenade chance mode");
@@ -31029,6 +31070,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "night-preview-inputs")) { Require(argc==5,"night preview requires db/resources/mode"); NightPreviewInputs(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "script-grenade-chance")) { Require(argc==5,"script grenade chance requires db/resources/mode"); ScriptGrenadeExplicitChance(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "vp-duration-countdown")) { Require(argc==5,"VP countdown requires db/resources/mode"); VPBoostDurationCountdown(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "vp-immediate-overdose")) { Require(argc==5,"VP overdose requires db/resources/mode"); VPBoostImmediateOverdose(argv[2],argv[3],std::atoi(argv[4])); return true; }
