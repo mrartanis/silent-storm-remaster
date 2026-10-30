@@ -87,7 +87,16 @@ bool CMissionBase::ExecWorldSoundCommand( NWorld::CUICmd *pCmd )
 // Commands shared by tactical, chapter and backdrop worlds.
 bool CMissionBase::ExecWorldCommonCommand( NWorld::CUICmd *pCmd )
 {
-	if ( CDynamicCast<NWorld::CUICmdShowHint>( pCmd ) )
+	if ( CDynamicCast<NWorld::CUICmdCameraLocator>( pCmd ) )
+	{
+		NWorld::CUICmdCameraLocator *pLoc = CDynamicCast<NWorld::CUICmdCameraLocator>( pCmd );
+		if ( IsValid( pExecLocator ) && !NGame::MustReplaceCameraExecutor( pExecLocator->GetPriority(), pLoc->GetPriority() ) )
+			return true;
+		if ( IsValid( pExecLocator ) )
+			pExecLocator->Cancel();
+		pExecLocator = NGame::CreateCameraExecutor( pLoc, this );
+	}
+	else if ( CDynamicCast<NWorld::CUICmdShowHint>( pCmd ) )
 	{
 		NWorld::CUICmdShowHint *pShowHint = CDynamicCast<NWorld::CUICmdShowHint>( pCmd );
 		bool bShow = ( NGlobal::GetVar( "ui_showhints" ).GetFloat() == 1.0f ) || bTutorialMode;
@@ -168,6 +177,18 @@ bool CMissionBase::ExecWorldCommonCommand( NWorld::CUICmd *pCmd )
 	else
 		return ExecWorldSoundCommand( pCmd );
 	return true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CMissionBase::UpdateWorldCameraCommand( const STime &sTime )
+{
+	if ( IsValid( pExecLocator ) )
+	{
+		if ( pExecLocator->Update( sTime ) )
+		{
+			pExecLocator->Finished();
+			pExecLocator = 0;
+		}
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail NGame::iBaseInit::iBaseInit @0x1a4610 (iBase.obj): registers the "ui_followcamera" cvar

@@ -328,6 +328,7 @@ void CChapterMap::Step()
 		for ( int nPlayer = 0; nPlayer < playersSet.size(); ++nPlayer )
 			playersSet[nPlayer]->Update( IsRealTime() );
 		ProcessWorldCommands();
+		UpdateWorldCameraCommand( GetGameTime() );
 		// Script channels start lazily in the native scene. Pump it before a
 		// queued modal can cover this chapter, without syncing hidden world SFX.
 		CTransformStack soundTransform;

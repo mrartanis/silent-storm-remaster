@@ -1413,14 +1413,7 @@ void CMission::InternalStep()
 	}
 	// release: drive the dedicated camera-locator executor (auto-focus) each frame in its OWN slot, in
 	// parallel with pCmdExec (so a shot/death focus never blocks the general UI-command drain).
-	if ( IsValid( pExecLocator ) )
-	{
-		if ( pExecLocator->Update( GetGameTime() ) )
-		{
-			pExecLocator->Finished();
-			pExecLocator = 0;
-		}
-	}
+	UpdateWorldCameraCommand( GetGameTime() );
 
 	// retail CMissionBase::ProcessCameraCommands @0x1a25a0 (called from InternalStep after the
 	// world-command drain, BEFORE the camera Update): drain the world earthquake queue into the
@@ -2504,20 +2497,6 @@ void CMission::ExecWorldCommands()
 		else if ( CDynamicCast<NWorld::CUICmdPause>( pCmd ) )
 		{
 			PauseGame( !IsGamePaused() );
-		}
-		// release CMissionBase::ExecWorldCommand @0x1a30c0: a camera-locator command (CUICmdUnitCamera
-		// auto-focus) goes to the dedicated pExecLocator slot, NOT the general pCmdExec -- so it never stalls
-		// the UI-command drain and is preempted by priority (MustReplaceCameraExecutor: higher wins; equal
-		// wins unless the newcomer is priority 2). Keep the running exec unless the newcomer must replace it.
-		else if ( CDynamicCast<NWorld::CUICmdCameraLocator>( pCmd ) )
-		{
-			NWorld::CUICmdCameraLocator *pLoc = CDynamicCast<NWorld::CUICmdCameraLocator>( pCmd );
-			if ( IsValid( pExecLocator ) && !NGame::MustReplaceCameraExecutor( pExecLocator->GetPriority(), pLoc->GetPriority() ) )
-				continue;                                   // keep the current focus, drop the newcomer
-			if ( IsValid( pExecLocator ) )
-				pExecLocator->Cancel();
-			pExecLocator = NGame::CreateCameraExecutor( pLoc, this );
-			// does NOT stall pCmdExec: continue draining the queue (the focus runs in its own slot)
 		}
 		// The AI-turn hint is an additive model flash with its own lifetime.
 		else if ( CDynamicCast<NWorld::CUICmdAIUnitWillMove>( pCmd ) )

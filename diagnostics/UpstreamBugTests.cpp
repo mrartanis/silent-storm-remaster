@@ -7861,6 +7861,140 @@ static void ScriptAmbientVariants(const char* databasePath,const char* resourceP
 }
 
 
+static void WorldScriptCameraLocator(const char* databasePath,const char* resourcePath,int context,int mode)
+{
+    Require(context>=0 && context<=1 && mode>=0 && mode<=5,"unknown shared-world camera locator case");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"world camera locator fixture started with an interface");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm shared world camera locator regression");
+    struct ClockRestore {STime previous;~ClockRestore(){NMainLoop::SetTimeForHarness(previous);}} frameClock{NMainLoop::SetTimeForHarness(1000)};
+    CObj<NDb::CScript> quiet=new NDb::CScript;quiet->strCode="function OnEnterZone() end";
+    struct RestoreScripts {vector<std::pair<CPtr<NDb::CTemplVariant>,CPtr<NDb::CScript>>> variants;CPtr<NDb::CChapterMap> chapter;CPtr<NDb::CScript> entry;
+        ~RestoreScripts(){for(auto& p:variants)if(IsValid(p.first))p.first->pScript=p.second;if(IsValid(chapter))chapter->pScript=entry;}} restore;
+    struct SectorRestore {CObj<CChapterInfo> info;vector<SChapterSector> original;
+        ~SectorRestore(){if(IsValid(info))info->sectorsSet.swap(original);}} sectors;
+    CObj<NRPG::CGlobalGame> game;
+    if(context==0){
+        CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());while(maps.MoveNext())if(IsValid(maps.Get()->pBackground)){restore.chapter=maps.Get();break;}
+        Require(IsValid(restore.chapter),"world camera locator fixture has no authored chapter");restore.entry=restore.chapter->pScript;restore.chapter->pScript=quiet.GetPtr();
+        game=NRPG::CreateGlobalGame(1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+        list<CPtr<NScenario::CScenarioClue>> clues;game->pScenarioTracker->GetAvailableClues(&clues);for(auto clue:clues)if(IsValid(clue))clue->SetJustFound(false);
+        for(auto merc:game->players.front()->mercs){vector<CDBPtr<NDb::CMedal>> medals;merc->GetJustFoundMedals(&medals);}
+        CDGPtr<CPtrFuncBase<CChapterInfo>> info=shareChapterInfo.Get(restore.chapter->GetRecordID());info.Refresh();
+        sectors.info=info->GetValue();Require(IsValid(sectors.info),"camera locator fixture has no cached native map info");
+        sectors.original=sectors.info->sectorsSet;auto& isolated=sectors.info->sectorsSet;
+        isolated.erase(std::remove_if(isolated.begin(),isolated.end(),[](const SChapterSector& sector){return sector.eType==RANDOM;}),isolated.end());
+        Require(!isolated.empty(),"floor isolation removed every authored zone and exit");
+        CObj<NGame::CICBeginChapter> enter=new NGame::CICBeginChapter(restore.chapter->GetRecordID(),game);enter->Exec();
+    }else{
+        CDBIterator<NDb::CTemplVariant> variants(*NDatabase::GetTable<NDb::CTemplVariant>());
+        while(variants.MoveNext())if(IsValid(variants.Get()->pTemplate) && variants.Get()->pTemplate->GetRecordID()==2425){restore.variants.push_back({variants.Get(),variants.Get()->pScript});variants.Get()->pScript=quiet.GetPtr();}
+        Require(!restore.variants.empty(),"world camera locator fixture has no authored menu variants");CObj<NGame::CICMainMenu> open=new NGame::CICMainMenu;open->Exec();
+    }
+    CObj<NGame::CMissionBase> owner=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    auto* world=owner?dynamic_cast<NWorld::CWorld*>(owner->GetWorld()):nullptr;auto* view=owner?owner->GetScene():nullptr;auto* renderer=owner?owner->GetRenderGame():nullptr;
+    Require(world && view && renderer && world->GetOwnScript(),"world camera locator fixture lacks actual chapter/menu world, view, renderer or Lua");
+    Require(context==0?owner->GetDesktop()!=nullptr:owner->GetDesktop()==nullptr,"world camera locator fixture lost its real chapter/null-menu desktop distinction");
+    // Materialize authored static world effects before taking geometry baselines.
+    NMainLoop::SetTimeForHarness(1050);Require(NMainLoop::StepApp(true,false,false),"world camera locator warm-up frame exited");
+    Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand(),"world camera locator warm-up opened an unrelated interface");
+    while(auto* pending=world->GetUICommand()){CObj<NWorld::CUICmd> release=pending;}
+
+    struct OptionRestore {NGlobal::CValue follow,hints;~OptionRestore(){NGlobal::SetVar("ui_followcamera",follow);NGlobal::SetVar("ui_showhints",hints);}}
+        options{NGlobal::GetVar("ui_followcamera",1),NGlobal::GetVar("ui_showhints",1)};
+    NGlobal::SetVar("ui_followcamera",mode==5?0:1);NGlobal::SetVar("ui_showhints",1);
+    Require(owner->GetFollowCameraState()==(mode!=5),"camera locator fixture lost its native follow option binding");
+    Require(context==0?owner->GetActivePlayer()!=nullptr:owner->GetActivePlayer()==nullptr,"camera locator fixture lost its player/null-player distinction");
+    Require(!world->IsBase(),"camera locator fixture unexpectedly selected a base world");
+    if(context==0){auto* ui=dynamic_cast<NUI::CChapterMapUI*>(owner->GetInterface()->GetChildByID("chaptermapUI"));
+        Require(ui && ui->GetTravelForDiagnostics().find(" type=1 template=")==string::npos,"camera locator fixture retained a random encounter");}
+    struct BaseState {CObj<ICamera> camera;CObj<NGame::CUICmdLocatorExec> exec;
+        int operator&(CStructureSaver& f){f.Add(18,&camera);f.Add(21,&exec);return 0;}};
+    auto state=[&](){BaseState value;struct RenderState {BaseState* value;int operator&(CStructureSaver& f){f.Add(1,value);return 0;}} render{&value};
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(owner,&refs);
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);if(context==0)reader.Add(1,&value);else reader.Add(1,&render);}return value;};
+    auto initialState=state();Require(initialState.camera && !IsValid(initialState.exec),"quiet camera locator fixture has no cinematic camera or has an executor");
+    CObj<ICamera> cinematic=initialState.camera;CObj<ICamera> player=context==0?owner->GetActivePlayer()->GetCamera():nullptr;
+    CObj<ICamera> destination=context==0 && mode==5?player.GetPtr():cinematic.GetPtr();
+    auto pose=[](ICamera* camera){ICamera::SCameraPos value;camera->GetPlacement(&value);return value;};
+    const auto liveStart=pose(owner->GetCamera()),cinematicStart=pose(cinematic),playerStart=player?pose(player):liveStart;
+    Require(std::isfinite(liveStart.ptAnchor.x) && liveStart.fRod>0,"camera locator fixture has an invalid live starting pose");
+    struct CameraRestore {CDBPtr<NDb::CDBCamera> record;ICamera::SCameraPos original;
+        ~CameraRestore(){if(IsValid(record)){record->vAnchor=original.ptAnchor;record->fDistance=original.fRod;record->fPitch=original.fPitch;record->fYaw=original.fYaw;record->fRoll=original.fRoll;record->fFOV=original.fFOV;}}};
+    vector<CDBPtr<NDb::CDBCamera>> records;CDBIterator<NDb::CDBCamera> cameras(*NDatabase::GetTable<NDb::CDBCamera>());
+    while(cameras.MoveNext() && records.size()<2)records.push_back(cameras.Get());Require(records.size()==2,"camera locator fixture lacks real DB camera records");
+    auto dbPose=[](NDb::CDBCamera* camera){return ICamera::SCameraPos(camera->vAnchor,camera->fDistance,camera->fPitch,camera->fYaw,camera->fRoll,camera->fFOV);};
+    CameraRestore restore0{records[0],dbPose(records[0])},restore1{records[1],dbPose(records[1])};
+    ICamera::SCameraPos targets[2]={liveStart,liveStart};
+    for(int i=0;i<2;++i){targets[i].ptAnchor+=CVec3(0.5f*(i+1),0.25f*(i+1),0);
+        auto* record=records[i].GetPtr();record->vAnchor=targets[i].ptAnchor;record->fDistance=targets[i].fRod;record->fPitch=targets[i].fPitch;
+        record->fYaw=targets[i].fYaw;record->fRoll=targets[i].fRoll;record->fFOV=targets[i].fFOV;}
+    auto* script=world->GetOwnScript();
+    auto number=[&](const char* name,int wanted){const int top=script->GetTop();auto value=script->GetGlobal(name);const bool yes=value.IsNumber() && value.GetNumber()==wanted;script->SetTop(top);return yes;};
+    CDBPtr<NDb::CUIHint> hint;
+    if(mode==4){CDBIterator<NDb::CUIHint> hints(*NDatabase::GetTable<NDb::CUIHint>());while(hints.MoveNext())if(IsValid(hints.Get()->pString) && hints.Get()->nSequenceID==0){hint=hints.Get();break;}
+        Require(IsValid(hint) && script->GetGlobalGame(),"camera locator modal fixture lacks a zero-reward native hint");script->GetGlobalGame()->hintsSet.clear();}
+    // A modal gap can advance the chapter game counter by its existing150ms cap on return.
+    // Use a one-second move so both native clock domains still expose interpolation.
+    const int duration=mode==1 || mode==5?0:mode==4?1000:200;
+    const string move=mode==3?"CameraSequence({"+std::to_string(records[0]->GetRecordID())+","+std::to_string(records[1]->GetRecordID())+"},200)":
+        "CameraMove(GetCamera("+std::to_string(records[0]->GetRecordID())+"),"+std::to_string(duration)+")";
+    const string code=mode==0?"LocatorProduced = 1":
+        "LocatorID = "+move+"; LocatorProduced = 1; "+(mode==4?"LocatorHint = ShowHint("+std::to_string(hint->GetRecordID())+"); ":"")+
+        "while IsUIActionIDPresent(LocatorID) do Sleep(1) end; LocatorResumed = 1";
+    Require(script->DoString(code.c_str())==0,"camera locator fixture could not queue its real Lua producer");
+    world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);Require(number("LocatorProduced",1),"camera locator Lua producer never ran");
+    int eventID=-1;
+    if(mode!=0){const int top=script->GetTop();auto id=script->GetGlobal("LocatorID");Require(id.IsNumber(),"native camera producer returned no wait ID");eventID=int(id.GetNumber());script->SetTop(top);
+        Require(script->IsUIActionIDPresent(eventID) && !number("LocatorResumed",1),"camera locator wait completed before its native consumer");}
+    STime usedClock=0;
+    auto frame=[&](STime tick,bool active=true){if(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand())world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);
+        if(context==1)usedClock=world->GetAimTime()->GetValue();NMainLoop::SetTimeForHarness(tick);Require(NMainLoop::StepApp(active,false,false),"camera locator native frame exited");
+        if(context==0)usedClock=owner->GetGameTime();};
+    auto sameAnchor=[](const CVec3& a,const CVec3& b){return fabs2(a-b)<1e-6f;};
+    frame(1100);Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr(),"camera locator changed owner before its native modal");
+    if(mode==0){Require(!IsValid(state().exec) && sameAnchor(pose(cinematic).ptAnchor,cinematicStart.ptAnchor),"camera locator control created an executor or moved the cinematic camera");
+        std::printf("native world camera locator context=%d mode=0 stage=control\n",context);return;}
+    auto first=state();
+    std::printf("native world camera locator context=%d mode=%d stage=dispatch exec=%d wait=%d clock=%u\n",context,mode,int(IsValid(first.exec)),int(script->IsUIActionIDPresent(eventID)),unsigned(usedClock));std::fflush(stdout);
+    if(duration==0)Require(!IsValid(first.exec) && sameAnchor(pose(destination).ptAnchor,targets[0].ptAnchor),"non-tactical world discarded its camera locator command");
+    else Require(IsValid(first.exec),"non-tactical world discarded its camera locator command");
+    Require(mode==4?NMainLoop::HaveInterfaceCommand():!NMainLoop::HaveInterfaceCommand(),"camera locator fixture queued an unexpected interface command");
+    STime begin=0;bool sawMiddle=false,sawSecond=false;
+    auto inspect=[&](){auto current=state();const auto actual=pose(destination);
+        if(IsValid(current.exec)){Require(pSSClasses->GetObjectTypeID(current.exec.GetPtr())==int(0x50412162) && current.exec->GetPriority()==6,"camera locator lost its real move executor/priority");
+            CStructureNetworkContext refs;auto fields=BorrowedObjectFields(current.exec,&refs);STime start=0,transition=0;int segment=-1;CPtr<NGame::IMission> origin;
+            {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&origin);reader.Add(4,&start);reader.Add(5,&transition);reader.Add(8,&segment);}
+            Require(origin.GetPtr()==owner.GetPtr() && start!=0 && transition==STime(duration),"camera locator lost its native owner, start time or per-waypoint duration");
+            if(!begin)begin=start;Require(start==begin && usedClock>=start,"camera locator start clock changed during native execution");
+            const STime elapsed=usedClock-start;
+            if(mode!=3 && elapsed>0 && elapsed<STime(duration)){const float fraction=float(elapsed)/float(duration);
+                Require(sameAnchor(actual.ptAnchor,liveStart.ptAnchor+(targets[0].ptAnchor-liveStart.ptAnchor)*fraction),"camera locator did not interpolate against its native owner clock");sawMiddle=true;}
+            if(mode==3 && segment==1)sawSecond=true;
+            Require(owner->GetCamera()==destination.GetPtr(),"active camera locator selected the wrong native camera");
+            std::printf("native world camera locator context=%d mode=%d stage=move clock=%u begin=%u segment=%d x=%.6f\n",context,mode,unsigned(usedClock),unsigned(start),segment,actual.ptAnchor.x);
+        }return IsValid(current.exec);};
+    if(duration!=0)inspect();
+    STime nextTick=1150;
+    if(mode==4){const auto held=pose(destination);auto heldExec=first.exec;frame(1150);auto* modal=NMainLoop::GetCurrentInterfaceForHarness();
+        Require(modal && pSSClasses->GetObjectTypeID(modal)==int(0x1423130) && NMainLoop::GetInterfaceStackDepth()==2,"camera locator did not open its real hint modal");
+        const STime covered=world->GetAimTime()->GetValue();frame(1300);frame(1500);
+        Require(world->GetAimTime()->GetValue()==covered && state().exec.GetPtr()==heldExec.GetPtr() && sameAnchor(pose(destination).ptAnchor,held.ptAnchor) && script->IsUIActionIDPresent(eventID),"covered camera locator advanced or released its native wait");
+        NInput::SEvent input;while(NInput::GetEvent(&input)){}NInput::PostEvent("cancel");Require(NInput::GetEvent(&input) && modal->ProcessEvent(input),"camera locator hint did not accept cancel");frame(1550,false);
+        Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && NMainLoop::GetInterfaceStackDepth()==1,"camera locator modal did not restore its native owner");
+        std::printf("native world camera locator context=%d mode=4 stage=modal-paused clock=%u gameAfterClose=%u worldAfterClose=%u\n",context,unsigned(covered),unsigned(owner->GetGameTime()),unsigned(world->GetAimTime()->GetValue()));nextTick=1600;}
+    for(int step=0;step<32 && (IsValid(state().exec) || script->IsUIActionIDPresent(eventID) || !number("LocatorResumed",1));++step){frame(nextTick);nextTick+=50;
+        Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand(),"camera locator was covered by an unrelated interface");if(duration!=0)inspect();}
+    const auto final=pose(destination);const auto& wanted=targets[mode==3?1:0];
+    Require(!IsValid(state().exec) && !script->IsUIActionIDPresent(eventID) && number("LocatorResumed",1) && sameAnchor(final.ptAnchor,wanted.ptAnchor),"camera locator never landed or released its native Lua wait");
+    if(mode==2 || mode==4)Require(sawMiddle,"timed camera locator skipped every intermediate frame");
+    if(mode==3)Require(sawSecond,"camera sequence never entered its second native waypoint segment");
+    if(context==0){Require(owner->GetCamera()==player.GetPtr(),"finished chapter locator did not return selection to its actual player camera");
+        if(mode==5)Require(sameAnchor(pose(cinematic).ptAnchor,cinematicStart.ptAnchor),"disabled-follow script move changed the unrelated cinematic camera");
+        else Require(sameAnchor(pose(player).ptAnchor,playerStart.ptAnchor),"followed script move changed the chapter player camera");}
+    std::printf("native world camera locator context=%d mode=%d stage=complete released=1 middle=%d second=%d x=%.6f\n",context,mode,int(sawMiddle),int(sawSecond),final.ptAnchor.x);
+    Require(!world->GetUICommand(),"camera locator command pump left a queued command");
+}
+
 static void WorldScriptFloor(const char* databasePath,const char* resourcePath,int context,int mode)
 {
     Require(context>=0 && context<=1 && mode>=0 && mode<=4,"unknown shared-world floor case");
@@ -28568,6 +28702,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "world-script-camera-locator")) { Require(argc == 6, "world camera locator requires db, resources, context and mode"); WorldScriptCameraLocator(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-floor")) { Require(argc == 6, "world floor requires db, resources, context and mode"); WorldScriptFloor(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-camera-lock")) { Require(argc == 6, "world camera lock requires db, resources, context and mode"); WorldScriptCameraLock(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-camera-clipping")) { Require(argc == 6, "world camera clipping requires db, resources, context and mode"); WorldScriptCameraClipping(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }

@@ -16201,3 +16201,63 @@ Actual hosted Actions remains a separate final requirement.
 Evidence: world-floor-verification.json, original and RED/GREEN JSONs, native
 raw logs. Source still PARTIAL for camera locator/AI flash/clue/video and
 camera-executor updates. Ledger166/19/58 =77 unfinished; whole goal active.
+
+### world-camera-locator — execute scripted moves in chapter and backdrop worlds
+
+Source cb954e2e455b632c0174b88b2d051ac74e780ce0 remains PARTIAL. Own parent
+43d581da08797c78fb47b87c415e3dacab531a90. Compiled native RED10/12 on both
+platforms: real Lua GetCamera/CameraMove/CameraSequence produces a pending ID
+but common consumers create no executor, leave camera unchanged and never
+release the wait. Both no-command controls pass. Windows helper name collided
+with SDK near macro; renamed before definitive RED, no production changes.
+
+Move existing tactical locator priority/cancel/factory branch and normal
+Update/Finished/reset drive into base helper. Existing tactical ordering stays;
+chapter calls after its command drain with GetGameTime, backdrop with actual
+owned-world aim clock before camera/render update. New method is nonvirtual;
+saved slot21/fields/schema unchanged. Keep own factory/interpolation, selected
+player/cinematic cameras, follow option, nullable frontend desktop/player,
+2D no-world global map, BeginZone args, roster/audio and renderer unchanged.
+
+Native GREEN12/12 both:2 controls,10 real Lua completions per platform.
+Actual DB-camera userdata and two-waypoint table, zero/timed moves, exact
+intermediate interpolation against owner clock, final target, native executor
+type/owner/priority6 and cleared saved slot. Followed chapter moves update
+cinematic camera and return selection to player; follow-off updates player
+and preserves unrelated cinematic camera; menu always retains its cinematic.
+Real hint modal freezes pose/world/pending wait while covered, restores owner
+and permits timed completion. DB record changes are in-memory/RAII restored;
+no direct test calls to factory/dispatcher/executor Update or private time writes.
+
+Initial green11/12 exposed an invalid modal-fixture expectation: a200ms move
+can finish on chapter return because its existing game counter catches up by
+the original150ms cap. Use1000ms for modal case, keep exact interpolation,
+covered-pose/wait/clock/selection/completion checks, bound32 frames. Original
+counter64 and game/UI Step61 instruction blocks independently verified;
+Time/OnGetFocus unchanged. Initial raw retained; not reported as production RED.
+
+Original mapping: shared locator dispatch173 with named RTTI and decoded
+priority/factory calls; normal completion pump90 inside original command-drain
+tail, actual GetGameTime -> Update10 -> Finished14 -> clear saved slot. Exact
+priority getter7/tie-rule19, Finished64 native command-ID event/DoEvent2c,
+named move-executor vtables and prior independently verified world callers.
+No full factory/interpolation/renderer/clock equivalence claim.
+
+IMPORTANT independent follow-up: original REPLACEMENT also calls Finished14
+and clears the old slot BEFORE factory, while current own tactical/upstream
+helper uses Cancel and assignment (move Cancel is empty). Preserve prior own
+replacement behavior in this routing-only commit; reproduce and repair this
+separate defect next, with both old/new Lua IDs and replacement starting pose.
+Do not declare original preemption parity or the entire source imported.
+
+Fresh Win ALL_BUILD/Linux Game+helpers+serializer, related165/165 and own
+body16/16 each, fresh Windows network4/4 and local CI305/305. Exact raw names,
+completions/pauses/rows/exits/manifest verified. Five Main files including one
+nonvirtual declaration; extracted operations, remainder and save calls match
+parent. CP1251/CRLF retained. No combat/RNG/balance/DB/wire/HD/font/facial work.
+Two builds reused, no old builds/PNG regeneration. Actual hosted CI separate.
+
+Evidence: world-camera-locator-verification.json, RED/GREEN/original JSONs,
+native raw logs and camera-locator-preemption-followup.json. Source remains
+PARTIAL for preemption/clue/video/AI flash. Ledger166/19/58 =77 unfinished;
+whole goal active; final actual hosted Actions and balance-MD link remain.

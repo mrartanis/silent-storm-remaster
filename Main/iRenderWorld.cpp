@@ -130,6 +130,7 @@ void CRenderBaseInterface::Step()
 		while ( CPtr<NWorld::CUICmd> pCmd = pWorld->GetUICommand() )
 			if ( IsValid( pCmd ) && ( !GetDesktop() || GetDesktop()->IsValidCommand( pCmd ) ) )
 				ExecWorldCommonCommand( pCmd );
+		UpdateWorldCameraCommand( pWorld->GetAimTime()->GetValue() );
 		EraseInvalidRefs( &soundsList );
 		pCamera->Update( GetTime() );
 
