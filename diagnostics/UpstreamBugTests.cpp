@@ -29489,6 +29489,51 @@ static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonA
     return sequence;
 }
 
+static void UnitPreviewShotOrigin(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=2,"unknown unit preview shot origin mode");
+    auto world=FixtureWorld(databasePath,resourcePath,true);
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);
+    const NAI::EHitLocation location=mode==1?NAI::HL_HEAD:mode==2?NAI::HL_BODY:NAI::HL_ANY;
+    int samples=0;
+    for(auto entry:units) {
+        auto* actor=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if(!actor || !actor->CanFight() || actor->IsEmptyPK() || actor->IsWearingPK())continue;
+        auto* firearm=actor->GetUnitRPG()->GetWeaponItem();
+        if(!firearm || !firearm->SetShootMode(NDb::SM_Snap) || NRPG::GetToHitType(actor)!=NRPG::TH_SHOOT)continue;
+        vector<NRPG::CAttackPortion> attacks;actor->GetUnitRPG()->CreateAttack(&attacks,false);if(attacks.empty())continue;
+        const auto original=actor->GetPosition();
+        struct Restore {NWorld::CUnitServer* actor;NAI::SUnitPosition position;~Restore(){actor->SetTemporaryPosition(position);}}restore{actor,original};
+        for(auto stance:{NAI::CM_STAND,NAI::CM_CROUCH,NAI::CM_LAY}) {
+            auto position=original;position.pos.p.SetPose(stance);actor->SetTemporaryPosition(position);
+            for(auto other:units) {
+                auto* target=dynamic_cast<NWorld::CUnitServer*>(other.GetPtr());
+                if(!target || target==actor || !target->CanFight() || target->IsEmptyPK() || target->IsWearingPK())continue;
+                auto aimed=position;aimed.pos.p.SetDirection(NRPG::GetShootDirection(aimed.pos.pNet,aimed.pos.p,target->GetPosition().GetCP()));
+                CObj<NRPG::CCoverInfo> cover=world->GetGame()->CalcCovers(actor->GetAttackOrigin(aimed),attacks.front(),actor,target,location,actor->GetMinClearDistance());
+                const auto captured=CoverSnapshot(cover);const int hitCover=NRPG::GetHitCover(actor,cover);if(hitCover<=0)continue;
+                const int distance=int(fabs(captured.source-target->GetPosition().GetCP())*FP_INV_GRID_STEP);
+                const int legacyDistance=int(fabs(position.GetCP()-target->GetPosition().GetCP())/FP_GRID_STEP);
+                vector<int> accessible;const bool backstab=!target->IsUnitAudible(actor) && !target->IsUnitVisible(actor);
+                auto chance=[&](int d,const CVec3& origin){return NRPG::GetToHit(actor,position.GetPose(),d,origin,target->GetPosition().pos,location,
+                    actor->GetCarefulShotExtraAP(),target,accessible,hitCover,world->IsFirstTurn(),CVec3(1,1,1),backstab,0);};
+                const int expected=chance(distance,captured.source),legacy=chance(legacyDistance,position.GetCenter());++samples;
+                if(expected==legacy || expected<=2 || expected>=100)continue;
+                const int ap=actor->GetAP(),hp=target->GetUnitRPG()->GetTotalVP(),ammo=firearm->GetAmmoQuantity();auto rng=GlobalGameRandom();
+                const int actual=world->GetGame()->GetCompositeToHit(actor,target,location,world->IsFirstTurn());
+                std::printf("native shot origin mode=%d stance=%d samples=%d distance=%d/%d originDelta=%.6g cover=%d chance=%d expected=%d legacy=%d originOnly=%d distanceOnly=%d\n",
+                    mode,int(stance),samples,distance,legacyDistance,fabs(captured.source-position.GetCenter()),hitCover,actual,expected,legacy,
+                    chance(legacyDistance,captured.source),chance(distance,position.GetCenter()));std::fflush(stdout);
+                Require(actual==expected,"unit preview calculated distance or target area from the actor tile/center instead of its actual cover-ray origin");
+                Require(actor->GetPosition()==position && actor->GetAP()==ap && target->GetUnitRPG()->GetTotalVP()==hp && firearm->GetAmmoQuantity()==ammo && !actor->HasCommand() && rng.Get()==GlobalGameRandom().Get(),
+                    "unit preview changed native temporary stance, AP, health, ammunition, action queue or gameplay RNG");return;
+            }
+        }
+    }
+    std::printf("native shot origin examined samples=%d\n",samples);std::fflush(stdout);
+    Require(false,"native origin fixture has no observable unclamped chance difference");
+}
+
 class UnitPreviewMapProbe: public CoverOriginMapProbe
 {
     OBJECT_NOCOPY_METHODS(UnitPreviewMapProbe);
@@ -29552,7 +29597,9 @@ static void KnifeUnitPreview(const char* databasePath,const char* resourcePath,i
         hitCover=NRPG::GetHitCover(actor,cover);if(hitCover<=0)continue;
         vector<int> noMeleeLocations;
         expected=0;const int rounds=actor->GetUnitRPG()->GetBulletsQuantityInShot();
-        for(int i=0;i<rounds;++i)expected+=NRPG::GetToHit(actor,actor->GetPose(),int(distance/FP_GRID_STEP),actor->GetPosition().GetCenter(),
+        const CVec3 rayOrigin=CoverSnapshot(cover).source;
+        const int rayDistance=int(fabs(rayOrigin-person->GetPosition().GetCP())*FP_INV_GRID_STEP);
+        for(int i=0;i<rounds;++i)expected+=NRPG::GetToHit(actor,actor->GetPose(),rayDistance,rayOrigin,
             person->GetPosition().pos,location,actor->GetCarefulShotExtraAP(),person,noMeleeLocations,hitCover,world->IsFirstTurn(),CVec3(1,1,1),
             !person->IsUnitAudible(actor) && !person->IsUnitVisible(actor),i);
         expected/=rounds;if(expected>0){target=person;break;}
@@ -30676,6 +30723,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "unit-preview-shot-origin")) { Require(argc==5,"shot origin preview requires db/resources/mode"); UnitPreviewShotOrigin(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "knife-unit-preview")) { Require(argc==5,"native knife preview requires db/resources/mode"); KnifeUnitPreview(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "knife-unit-dispatch")) { Require(argc==5,"game knife dispatch requires db/resources/mode"); KnifeUnitDispatch(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "knife-time-rebase")) { Require(argc==5,"knife clock requires db/resources/mode"); KnifeTimeRebase(argv[2],argv[3],std::atoi(argv[4])); return true; }

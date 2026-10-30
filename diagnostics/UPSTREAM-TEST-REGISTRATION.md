@@ -350,3 +350,11 @@ Authored equipped knife ANY/head/body use actual native high/low geometry and
 forwarding map observations; true melee, firearm and LAN replica controls.
 RED3/6 each ->GREEN6/6 each. Chance clamp2% alone is not used as proof of failure.
 Related22Win/21Linux, full Game builds, CI323; new6 outside asset-free323.
+
+## Unit preview physical origin
+
+NativeUnitPreviewShotOrigin0..2: resource extended Windows/Linux,timeout120.
+Actual snap weapon/actors/cover queries and unclamped ANY/head/body probabilities.
+RED3/3 ->GREEN3/3 each; AP/HP/ammo/pose/action/RNG controls. Extra standalone
+area-only attempts without observable differences are excluded from RED evidence.
+Full Game builds,related25Win/24Linux,CI323; new3 outside asset-free323.

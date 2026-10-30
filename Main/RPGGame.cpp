@@ -702,9 +702,9 @@ int GetAttackerToHit( const NWorld::CUnit *pAttacker, NWorld::CUnit *pTarget, in
 		return 0;
 	//
 	int nHitCover = GetHitCover( pAttacker, pCover );
-	int nDistance = fabs(pAttacker->GetPosition().GetCP() - pTarget->GetPosition().GetCP()) / FP_GRID_STEP;
-	// CRAP: this parameter is no longer used anywhere
-	CVec3 ptAttacker = pAttacker->GetPosition().GetCenter();
+	// Use the same physical origin as the cover rays for distance and target area.
+	int nDistance = fabs(pCover->src - pTarget->GetPosition().GetCP()) * FP_INV_GRID_STEP;
+	CVec3 ptAttacker = pCover->src;
 	//
 	bool bBackStab = !pTarget->IsUnitAudible( pAttacker ) && !pTarget->IsUnitVisible( pAttacker );
 	return NRPG::GetToHit( pAttacker, pAttacker->GetPose(), nDistance, ptAttacker,

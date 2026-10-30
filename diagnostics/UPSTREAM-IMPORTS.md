@@ -17548,3 +17548,32 @@ These six resource extended tests are outside323. Source5780 remains partial:
 origin/distance/night/backstab inputs, final throw generation/flight and numerical
 throw formulas are still pending. No new balance coefficient or data change.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027.
+
+## 2026-10-30: unit hit chance uses its cover-ray origin (`5780c0be`, partial)
+
+GetAttackerToHit now takes both physical origin and grid distance from
+CCoverInfo::src, which the native cover solver has already resolved. The old
+tile/center pair could use a shorter grid distance and a different target-area
+viewpoint. No coefficient, range, AP cost or chance formula is edited.
+
+NativeUnitPreviewShotOrigin0..2: real deployed actor, authored snap firearm,
+native standing/crouching/prone temporary-pose preview and real cover geometry.
+Each selects a positive unclamped difference between the unchanged native calcer
+with the actual cover origin and legacy tile/center inputs. RED3/3 each:
+Windows ANY/head/body92/88/89 versus expected87/80/83, grid distance2 instead3.
+GREEN3/3 each. AP/HP/ammo/pose/action/RNG remain intact. Extra attempted standalone
+area-only cases had no observable unclamped difference on this scene; those logs
+are archived and are not counted as RED. The retained regression observes the
+combined physical-origin contract, with independently observable distance effect.
+Prior knife-preview references now use that same native ray-origin contract.
+
+Gold named GetAttackerToHit6aef60/389 and typed CCoverInfo::src+b00 prove the
+copy/subtract/sqrt/grid conversion. Its110byte block6aefc3 maps uniquely to
+Steam6b50f3 with only the decoded float-address operand masked; both operands
+contain the original grid inverse1.6. No whole-function equivalence is claimed;
+the neighbouring night/backstab behavior is still a separate audit.
+Evidence: unit-preview-origin-{red-verification,retail-oracle,verification}.json
+and raw logs in the laboratory evidence directory. Full Game builds, related
+25Win/24Linux and asset-free CI323/323 pass. New3 resource extended cases are
+outside323. Source5780 remains partial.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027.

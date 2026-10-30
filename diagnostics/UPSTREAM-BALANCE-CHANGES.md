@@ -2002,3 +2002,14 @@ chance formula remain unchanged. On other geometry the displayed chance can
 change because the cover query is now the correct ranged query. In the native
 regression both numeric results are clamped to2%, while the wrong origins differ
 by up to0.20m. The actual final flight/impact path remains a separate pending audit.
+
+### `5780c0be`: probability from the actual shot origin
+
+The unit preview/helper uses the cover solver's physical shot origin for its
+distance and target-area inputs, as both original binaries do. This can correct
+the displayed probability at grid-distance boundaries: the native Windows
+ANY/head/body fixture changes92/88/89% to87/80/83%. No accuracy coefficient,
+weapon range, AP, skill, item data or random rule was changed. The chance calcer
+itself is unchanged. This also affects execution callers that reuse the helper.
+The numerical example proves the distance correction; the same scene does not
+provide an independently observable area-only difference.
