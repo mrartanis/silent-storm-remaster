@@ -520,3 +520,10 @@ RPG grant and CanClear, fixed RNG boundary rolls, fractional/negative/zero
 parameters, cap95/probability0 and ignored modifier controls. RED7/16 -> GREEN
 16/16 each; skill/AP/HP/XP/points stable, exactly one RNG draw. Related112Win/112Linux,
 Game builds, CI323. New16 outside323; success-query scope only.
+
+## Detection baseline precision
+
+NativeUnhideBasePrecision0..7: resource extended Win/Linux,timeout120. Actual
+RPG observer/target, no active25/75, distance0/5/15/30/40 and skill/clamp cases.
+RED3/8 -> GREEN8/8 each; both units' skill/AP/HP/XP and RNG stable. Related
+120Win/120Linux, Game builds, CI323. New8 outside323; direct probability-query scope.

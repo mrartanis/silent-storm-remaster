@@ -18196,3 +18196,31 @@ oracle.json, disarm-verification.json and raw logs.
 Game builds, related112Win/112Linux, CI323 pass; new16 cases outside323.
 Other independent037c41d9 hunks remain pending.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: detection distance baseline precision (`037c41d9`, partial)
+
+GetUnhideProbability retains the stored-float 44/30 coefficient but keeps the
+distance product/subtraction in double precision until truncating the base.
+The former float intermediate could round across an integer boundary. The
+existing spot/stealth terms and 0..100 clamp remain unchanged; ability25/75
+hooks are separate pending fixes. No coefficient or authored skill changes.
+
+NativeUnhideBasePrecision0..7 use actual authored observer/target RPG units with
+25/75 untaken, native SetConst spot/stealth and direct detection queries. RED
+3/8 each: at distance15, equal skills return23 rather than22; at30,1 rather
+than0; spot70/stealth30 at15 returns63 rather than62. Five origin/ordinary-
+distance/low/high-clamp controls pass before the fix. GREEN8/8 each. Queries
+preserve both units' skills/AP/HP/XP and gameplay RNG. Scope is this actual
+probability API, not a complete visibility/AI-turn calculation.
+
+Gold named GetUnhideProbability6b9540/317 maps uniquely to Steam6bf750 with
+only four decoded constant-pointer operands masked, all independently checked:
+1.f, storedfloat44/30,45.f,1.f. Both originals keep the product/subtraction in
+x87 until the truncating integer store. Double reproduces the tested finite
+distance/skill cases; exceptional floats/overflow are unclaimed. This evidence
+also exposes the still-pending25/75 branches, so no complete317byte behavioral
+equivalence is claimed yet. Evidence: spotting-retail-oracle.json and unhide-
+base-verification.json/raw logs.
+Game builds, related120Win/120Linux, CI323 pass; new8 cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

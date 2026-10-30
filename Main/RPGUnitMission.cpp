@@ -423,9 +423,8 @@ bool CUnitMission::GetAck( int *pAckID, IUnitMissionInfo **ppAttacker )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitMission::GetUnhideProbability( IUnitMission *pTarget, float fDistance ) const
 {
-	int n0 = 45; // probability at distance 0 tiles
-	int n30 = 1; // probability at distance 30 tiles
-	int nBase = ( int )( ( n30 - n0 ) / 30.f * fDistance + n0 );
+	// Gold 0x6b9540 / Steam 0x6bf750 retain precision until the base truncation.
+	int nBase = int( 45.0 - double( 44.f / 30.f ) * fDistance );
 	int nProbability = 
 		GetRPGUnit()->Skills( NDb::ST_SPOT ) -	pTarget->GetRPGUnit()->Skills( NDb::ST_STEALTH ) + nBase;
 	return Clamp( nProbability, 0, 100 );

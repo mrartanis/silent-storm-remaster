@@ -2195,3 +2195,12 @@ Preserves strict success comparison, one random draw, ordinary no-perk behavior
 and the original unused second modifier. Native tests isolate the query with
 fixed boundary rolls; actual trap removal, practice and AP/item spending are
 separate paths. Authored data and current skill are unchanged.
+
+### `037c41d9`: detection distance rounding
+
+Restores Gold/Steam intermediate precision while retaining the existing stored
+float coefficient44/30 and intercept45. Early float rounding could raise the
+detection probability by one point: equal spot/stealth at distance15 was23
+instead of22, and at30 was1 instead of0. Native tests confirm both boundaries
+and clamp controls. This changes rounding to the original behavior; coefficients,
+skills and 0..100 clamp are unchanged. Ability25/75 branches remain separate.

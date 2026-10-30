@@ -29524,6 +29524,18 @@ static CObj<NRPG::IUnitMission> NativeMissionWithUntakenPerk(int id)
     for(auto* person:candidates){CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(person);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();if(!tree || unit->HasPerk(id) || mission->GetTotalVP()<=0)continue;vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==id)return mission;}
     Require(false,"native RPG fixture lacks an actual untaken authored perk node");return nullptr;
 }
+static void UnhideBasePrecision(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=7,"unknown native unhide-base mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    auto observer=NativeMissionWithUntakenPerk(25),target=NativeMissionWithUntakenPerk(25);auto* unit=observer->GetRPGUnit();auto* victim=target->GetRPGUnit();Require(!unit->HasPerk(25) && !unit->HasPerk(75),"unhide baseline fixture has an active perception perk");
+    const float distance=mode==0 || mode==7?0.f:mode==2?30.f:mode==3?5.f:mode==4?40.f:15.f;const int spot=mode==5?70:mode==6?0:mode==7?100:17,stealth=mode==5?30:mode==6?100:mode==7?0:17;
+    unit->Skills(NDb::ST_SPOT).SetConst(spot);victim->Skills(NDb::ST_STEALTH).SetConst(stealth);const int expected=mode==0?45:mode==1?22:mode==2?0:mode==3?37:mode==4?0:mode==5?62:mode==6?0:100;
+    const int ap=observer->GetAP(),hp=observer->GetTotalVP(),targetAP=target->GetAP(),targetHP=target->GetTotalVP();const float xp=unit->fXP,targetXP=victim->fXP;auto random=GlobalGameRandom();
+    const int actual=observer->GetUnhideProbability(target,distance);std::printf("native unhide-base mode=%d distance=%.9g spot=%d stealth=%d probability=%d expected=%d\n",mode,distance,spot,stealth,actual,expected);std::fflush(stdout);
+    Require(actual==expected,"native detection baseline rounded its distance product before original truncation");
+    Require(int(unit->Skills(NDb::ST_SPOT))==spot && int(victim->Skills(NDb::ST_STEALTH))==stealth && observer->GetAP()==ap && observer->GetTotalVP()==hp && target->GetAP()==targetAP && target->GetTotalVP()==targetHP && unit->fXP==xp && victim->fXP==targetXP && random.Get()==GlobalGameRandom().Get(),"detection query changed native skills/AP/HP/XP/RNG");
+}
+
 static void DisarmTrapsPerk(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=15,"unknown native disarm mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
@@ -31325,6 +31337,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "unhide-base")) { Require(argc==5,"unhide base requires db/resources/mode"); UnhideBasePrecision(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "disarm-traps")) { Require(argc==5,"disarm requires db/resources/mode"); DisarmTrapsPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "classless-perk")) { Require(argc==5,"classless perk requires db/resources/mode"); ClasslessPerkQuery(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "difficult-traps")) { Require(argc==5,"trap difficulty requires db/resources/mode"); DifficultTrapsPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
