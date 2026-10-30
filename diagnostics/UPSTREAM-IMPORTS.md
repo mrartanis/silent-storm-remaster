@@ -17420,3 +17420,37 @@ final script запросил Windows-only NativeFontWireTests; исправле
 весь related набор повторён. Новые3 resource extended случая вне323.
 Все iLogPanel source hunks учтены адаптацией; в4949f285 остаётся wMain.cpp.
 Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.
+
+## `4949f285`: бюджет пропуска невидимых действий
+
+SP CWorld::UpdateWorld вместо пяти дополнительных скрытых шагов использует
+сумму измеренной работы сегментов <0.03f. Сохранён собственный monotonic
+stdchrono NHPTimer и50ms simulation step. LAN arena/replica early return и
+AdvanceNetworkSegment не менялись. Это восстановление pacing policy оригинала,
+не перенос старой TSC calibration/ABI.
+
+Compiled native RED1/4 each: реальный world/owned turn/held skippable counter,
+наблюдатель без бойцов не видит/не слышит действие; CEventOnSegment откладывает
+один шаг на50ms. Старый код выполняет6 сегментов/world+300ms/aim+50ms вопреки
+бюджету. Owner-viewer/null-viewer и оба LAN flag guard контроля проходят.
+GREEN4/4 each: первый вызов1 сегмент/world+50/aim+50, следующий вызов ещё1,
+проверяя reset бюджета. Delay — только в тестовом subscriber, в production
+нет ни sleep, ни clock injection. Случай fast>5 отдельно runtime не заявлен.
+Original Gold PDB UpdateWorld7610e0/546: HPTimerGetTime7c7ae0/GetTimePassed7c7af0,
+unique21byte fadds/fsts/fcomps/branch block761217 ->Steam76cc47; mask только
+absolute адрес float constant, обе памяти0.03f. Полный ABI/wholemethod не заявлен.
+
+Полные Game builds,related13/13 each (turn/sequence/periodic clock/serialization),
+локальный CI323/323 успешны. Новые4 resource extended случая вне323.
+Начальная probe default-constructor build ошибка не считалась RED. Свидетельства
+hidden-skip-budget-red-verification.json,hidden-skip-budget-retail-oracle.json,
+hidden-skip-budget-verification.json и raw logs. Влияние pacing записано в
+UPSTREAM-BALANCE-CHANGES.md. Все wMain source hunks завершены.
+
+Все19 файлов mixed source4949f285 теперь учтены: независимые native-TDD переносы
+предыдущих checkpoint плюс текущие stage/audio/ownerworld/carrier/log/pacing.
+Собственные fonts/facial/audio/renderer/LAN реализации сохранены, log font часть
+адаптирована с прежним Impact20. Weather penalty sourcehunks ранее already-present
+в b8e4e254, без повторной правки. Закрытие этого source не завершает общий аудит:
+ещё54 pending и17 partially-imported исходных коммитов.
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.

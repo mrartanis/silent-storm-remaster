@@ -320,3 +320,11 @@ NativeLocalizedLogStyle0..2: extended resource Windows/Linux, SDL dummy,
 timeout120. Actual CTextDraw->CML quads проверяют цвет/outline и прежние texture/
 glyph dimensions Impact20 при scale1/2, newest-first9-of12 ring. RED3->GREEN3
 each,related6Win/5Linux и CI323. Набор новых3 внеasset-free323.
+
+## Бюджет скрытых шагов мира
+
+NativeHiddenSkipBudget0..3: resource extended Windows/Linux,timeout120.
+Actual world/event delay50ms, new30ms budget; owner/null viewers и LAN host/replica
+ранние guards. RED1/4 ->GREEN4/4 each; повторный вызов проверяет reset бюджета.
+Related13/13 each,CI323/323; новые4 внеasset-free323. Быстрое прохождение >5
+сегментов отдельно не измерялось, clock/hiddenTime/50ms формулы сохранены.

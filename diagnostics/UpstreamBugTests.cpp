@@ -6,6 +6,7 @@
 #include "../Misc/Geom.h"
 #endif
 #include "../Main/wMain.h"
+#include "../Main/eventWorld.h"
 #include "../Main/wBuilding.h"
 #include "../Main/wObject.h"
 #include "../Main/wMine.h"
@@ -7878,6 +7879,54 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
     return world;
 }
 
+
+class HiddenSegmentBudgetProbe:public CObjectBase
+{
+    OBJECT_NOCOPY_METHODS(HiddenSegmentBudgetProbe);
+    NWorld::CWorld* owner;
+    NGlobal::CEventRegister<HiddenSegmentBudgetProbe,NWorld::CEventOnSegment> registration;
+public:
+    int segments=0,delayMilliseconds=0;
+    explicit HiddenSegmentBudgetProbe(NWorld::CWorld* world=nullptr):owner(world),registration(this,&HiddenSegmentBudgetProbe::OnSegment){}
+    void OnSegment(const NWorld::CEventOnSegment&) {
+        if(NWorld::pCurrentWorld!=owner)return;
+        ++segments;
+        if(delayMilliseconds)std::this_thread::sleep_for(std::chrono::milliseconds(delayMilliseconds));
+    }
+};
+
+static void HiddenSkipBudget(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=3,"unknown hidden skip budget mode");
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    vector<CPtr<NWorld::CPlayer>> players;world->GetPlayersList(&players);
+    Require(!players.empty() && !world->IsSequence(),"hidden skip fixture has no owned turn candidate");
+    auto* owner=players.front().GetPtr();
+    struct RestoreContext {NWorld::CWorld* previous=NWorld::pCurrentWorld;~RestoreContext(){NWorld::pCurrentWorld=previous;}} restore;
+    NWorld::pCurrentWorld=world;
+    world->GivePlayerTurn(owner);
+    CObj<NWorld::CActionCounter> action=world->GetSkippableCounter();
+    CObj<NWorld::CPlayer> observer=new NWorld::CPlayer(L"Unseen observer",game,game->players.front(),999);
+    Require(world->GetTBSCurrentPlayer()==owner && world->CanSkip(observer),"hidden skip fixture did not establish an unseen skippable action");
+    CObj<HiddenSegmentBudgetProbe> probe=new HiddenSegmentBudgetProbe(world);probe->delayMilliseconds=mode==0?50:0;
+    const STime before=world->GetTime()->GetValue(),beforeAim=world->GetAimTime()->GetValue();
+    if(mode==3) {
+        world->bNetworkArena=true;world->UpdateWorld(beforeAim+1000,observer);
+        world->bNetworkArena=false;world->bNetworkReplica=true;world->UpdateWorld(beforeAim+1000,observer);
+        Require(probe->segments==0 && world->GetTime()->GetValue()==before && world->GetAimTime()->GetValue()==beforeAim,
+            "single-player skip timing entered the fork's LAN host or replica scheduler");
+        std::printf("hidden skip mode=3 networkHost/replica=untouched segments=0\n");return;
+    }
+    NWorld::IPlayer* viewer=mode==1?owner:mode==2?nullptr:observer.GetPtr();
+    world->UpdateWorld(beforeAim,viewer);
+    std::printf("hidden skip mode=%d firstSegments=%d worldDelta=%d aimDelta=%d delay=%dms\n",mode,probe->segments,int(world->GetTime()->GetValue()-before),int(world->GetAimTime()->GetValue()-beforeAim),probe->delayMilliseconds);std::fflush(stdout);
+    Require(probe->segments==1,"world continued hidden fast-forward after a segment exceeded the30ms work budget");
+    Require(world->GetTime()->GetValue()-before==50 && world->GetAimTime()->GetValue()-beforeAim==50,
+        "hidden skip timing changed the ordinary50ms segment clock");
+    world->UpdateWorld(world->GetAimTime()->GetValue(),viewer);
+    Require(probe->segments==2 && world->GetTime()->GetValue()-before==100 && world->GetAimTime()->GetValue()-beforeAim==100,
+        "hidden skip work budget did not reset on the next world update");
+}
 
 static CPtr<NWorld::CUnitState> ReadCorpseCancelUnitState(NWorld::CUnitServer* unit)
 {
@@ -30418,6 +30467,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "hidden-skip-budget")) { Require(argc==5,"hidden skip requires db/resources/mode"); HiddenSkipBudget(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "localized-log-style")) { Require(argc==5,"log style requires db/resources/mode"); LocalizedLogStyle(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "carrier-admission")) { Require(argc==5,"carrier admission requires db/resources/mode"); CorpseCarrierAdmission(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "object-sound-stage")) { Require(argc==5,"object sound stage requires db/resources/mode"); ObjectSoundStage(argv[2],argv[3],std::atoi(argv[4])); return true; }
