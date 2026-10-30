@@ -119,6 +119,12 @@ bool CMissionBase::ExecWorldCommonCommand( NWorld::CUICmd *pCmd )
 			CDynamicCast<NWorld::CUICmdSetCameraClipDistance>( pCmd );
 		GetCamera()->SetClipDistance( pClip->fMinDistance, pClip->fMaxDistance );
 	}
+	else if ( CDynamicCast<NWorld::CUICmdSetFloor>( pCmd ) )
+	{
+		NWorld::CUICmdSetFloor *pFloor = CDynamicCast<NWorld::CUICmdSetFloor>( pCmd );
+		// The remaster owns rendered floor, clamp and freeze state on the view.
+		pScene->SetCutFloor(pFloor->nFloor);
+	}
 	else if ( CDynamicCast<NWorld::CUICmdPlayEffect>( pCmd ) )
 	{
 		NWorld::CUICmdPlayEffect *pPlayEffect = CDynamicCast<NWorld::CUICmdPlayEffect>( pCmd );

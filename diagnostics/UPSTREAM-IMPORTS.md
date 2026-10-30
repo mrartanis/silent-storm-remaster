@@ -16156,3 +16156,48 @@ hosted Actions remains separate.
 Evidence: world-camera-lock-verification.json, original and RED/GREEN JSONs,
 all native raw logs. Source still PARTIAL for locator/floor/AI flash/clue/video
 and camera-executor updates. Ledger166/19/58 =77 unfinished; whole goal active.
+
+### world-floor — apply script floors in chapter and backdrop views
+
+Source cb954e2e455b632c0174b88b2d051ac74e780ce0 remains PARTIAL. Own parent
+9b398de2e51caed7a57dfd95b44380dc0938decf. Compiled native RED8/10 on Windows
+and Linux: real Lua Floor executes but rendered native view stays at0 for
+requested1/-99/99 and after unlocking. Both no-command controls pass; the
+locked first round correctly remains0. Range and camera ownership controls
+stay valid. The floor handler existed only in the tactical command chain.
+
+Move its existing pScene->SetCutFloor operation into ExecWorldCommonCommand.
+Remove the old floor-only wrapper, deindent its false branch once; every
+remaining clue/load/store/team/video operation is preserved. Own rendered
+floors already belong to CGameView: Draw consumes GetFloorMask(nCutFloor),
+CMission::SetCutFloor uses the view, and its range/freeze mirror is implemented
+there. Blindly calling the upstream helper's base SetCutFloor would no-op:
+our base virtual is empty. Keep the existing view owner, inclusive clamp and
+freeze semantics; no camera ABI or renderer replacement, no header changes.
+
+Native GREEN10/10 both,12 actual view snapshots each: baseline0, Floor(1),
+Floor(-99)->-1, Floor(99)->2 for fixture range[-1,2], and actual tutorial
+CameraLock/Floor remains0 then CameraLock(nil)/Floor becomes1. Preserve
+selected-camera identity and range. Real Lua/world/interface/renderer path,
+isolated chapter random sectors restored with RAII; no direct test calls to
+the dispatcher. All prior test source/assertions remain. Test range changes
+are in memory only; production/authored floor bounds are unchanged.
+
+Original proof: typed floor dispatch Gold5a1615 -> Steam5a3fa5,45 bytes;
+named CUICmdSetFloor/base RTTI cast38, payload nFloor+10, named selected-camera
+and SetCutFloor48/GetCutFloor44 slots. Exact original setter43 checks positive
+freeze count then inclusive min/max and stores floor; exact getter4. Prior
+shared chapter/menu route independently binds callers. Own view adaptation
+is explicit; no full camera-floor storage/renderer/clock equivalence claim.
+
+Fresh Win ALL_BUILD and Linux Game/helpers+serializer, related153/153 and own
+body16/16 each, fresh Windows network4/4 and local CI305/305. Exact raw names,
+rows, exits and CI manifest checked. Only two Main files; tactical false-branch
+indentation is the only unrelated text change, all operations/save calls and
+fields preserved, CP1251/CRLF retained. No combat/RNG/balance/DB/save/HD/font/
+facial changes. Two existing builds reused; no old builds or PNG regeneration.
+Actual hosted Actions remains a separate final requirement.
+
+Evidence: world-floor-verification.json, original and RED/GREEN JSONs, native
+raw logs. Source still PARTIAL for camera locator/AI flash/clue/video and
+camera-executor updates. Ledger166/19/58 =77 unfinished; whole goal active.

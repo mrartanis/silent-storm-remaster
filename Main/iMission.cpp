@@ -2732,45 +2732,40 @@ void CMission::ExecWorldCommands()
 						if (pAck)
 							GetDesktop()->PlayAck(pAck->phrases.front());
 						else {
-							CDynamicCast<NWorld::CUICmdSetFloor> pFloor(pCmd);
-							if (pFloor)
-								pScene->SetCutFloor(pFloor->nFloor);
+							CDynamicCast<NWorld::CUICmdShowClue> pClue(pCmd);
+							if (pClue)
+							{
+								if (IsValid(pClue->pClue))
+									NMainLoop::Command(new NGame::CICShowClue(this, pClue->GetID(), pGlobalGame, pClue->pClue));
+							}
+							// W5 serialization-convergence: the NGame UICmdExec wrappers are gone -- retail
+							// CMission::ExecWorldCommand @0x1fd8c0 executes these three INLINE:
+							// LoadTemplate -> NMainLoop::Command(new CICBeginMission(pZone, nTemplateID,
+							// vector<string>(), GetRPGGame())); ShowStore -> the immediate panel open
+							// (mission vtbl+0x68 == SetPanelState(PANEL_STORE|PANEL_INVENTORY, true));
+							// ShowTeamMng -> NMainLoop::Command(new CICTeamMngMenu(globalPlayer, this, nID))
+							// -- NB retail passes the command's wait id as the 3rd arg.
 							else {
-								CDynamicCast<NWorld::CUICmdShowClue> pClue(pCmd);
-								if (pClue)
-								{
-									if (IsValid(pClue->pClue))
-										NMainLoop::Command(new NGame::CICShowClue(this, pClue->GetID(), pGlobalGame, pClue->pClue));
-								}
-								// W5 serialization-convergence: the NGame UICmdExec wrappers are gone -- retail
-								// CMission::ExecWorldCommand @0x1fd8c0 executes these three INLINE:
-								// LoadTemplate -> NMainLoop::Command(new CICBeginMission(pZone, nTemplateID,
-								// vector<string>(), GetRPGGame())); ShowStore -> the immediate panel open
-								// (mission vtbl+0x68 == SetPanelState(PANEL_STORE|PANEL_INVENTORY, true));
-								// ShowTeamMng -> NMainLoop::Command(new CICTeamMngMenu(globalPlayer, this, nID))
-								// -- NB retail passes the command's wait id as the 3rd arg.
+								CDynamicCast<NWorld::CUICmdLoadTemplate> pLoadTemplate(pCmd);
+								if (pLoadTemplate)
+									NMainLoop::Command(new CICBeginMission(pLoadTemplate->pZone,
+										pLoadTemplate->nTemplateID, vector<string>(), GetRPGGame()));
 								else {
-									CDynamicCast<NWorld::CUICmdLoadTemplate> pLoadTemplate(pCmd);
-									if (pLoadTemplate)
-										NMainLoop::Command(new CICBeginMission(pLoadTemplate->pZone,
-											pLoadTemplate->nTemplateID, vector<string>(), GetRPGGame()));
+									CDynamicCast<NWorld::CUICmdShowStore> pShowStore(pCmd);
+									if (pShowStore)
+									{
+										NWorld::CPlayer *pPlayer = dynamic_cast<NWorld::CPlayer*>( GetActivePlayer()->GetPlayer() );
+										if ( pPlayer )
+											pPlayer->UpdateStore();
+										SetPanelState(PANEL_STORE | PANEL_INVENTORY, true);
+									}
 									else {
-										CDynamicCast<NWorld::CUICmdShowStore> pShowStore(pCmd);
-										if (pShowStore)
-										{
-											NWorld::CPlayer *pPlayer = dynamic_cast<NWorld::CPlayer*>( GetActivePlayer()->GetPlayer() );
-											if ( pPlayer )
-												pPlayer->UpdateStore();
-											SetPanelState(PANEL_STORE | PANEL_INVENTORY, true);
-										}
-										else {
-											CDynamicCast<NWorld::CUICmdShowTeamMng> pShowTeamMng(pCmd);
-											if (pShowTeamMng)
-												NMainLoop::Command(new CICTeamMngMenu(
-													GetActivePlayer()->GetGlobalPlayer(), this, pShowTeamMng->GetID()));
-											else
-												pCmdExec = GetDesktop()->CreateExecutor(pCmd);
-										}
+										CDynamicCast<NWorld::CUICmdShowTeamMng> pShowTeamMng(pCmd);
+										if (pShowTeamMng)
+											NMainLoop::Command(new CICTeamMngMenu(
+												GetActivePlayer()->GetGlobalPlayer(), this, pShowTeamMng->GetID()));
+										else
+											pCmdExec = GetDesktop()->CreateExecutor(pCmd);
 									}
 								}
 							}
