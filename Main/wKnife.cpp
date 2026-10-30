@@ -88,6 +88,12 @@ void CKnifeAnimator::GetFrame( STime t, NAnimation::SSkeletonPose *pPose )
 {
 	// for knife throwing
 	STime tShift = t - tStart;
+	// An earlier sample rebases the flight clock instead of wrapping its age.
+	if ( t < tStart )
+	{
+		tShift = 0;
+		tStart = t;
+	}
 	float fTShift = tShift / 1000.f;
 	(*pPose)[0].pos = start + vel * fTShift;
 	(*pPose)[0].rot = qRot;

@@ -17454,3 +17454,29 @@ UPSTREAM-BALANCE-CHANGES.md. Все wMain source hunks завершены.
 в b8e4e254, без повторной правки. Закрытие этого source не завершает общий аудит:
 ещё54 pending и17 partially-imported исходных коммитов.
 Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.
+
+## `5780c0be`: ранние кадры анимации метательного ножа
+
+CKnifeAnimator::GetFrame при t<tStart обнуляет возраст и переносит начало
+отсчёта на t. Unsigned underflow прежде уносил координаты на миллионы единиц.
+Это только projectile animator: параметры броска/попадания/дальности, constructor,
+quaternion, RNG и отдельный движок лиц не менялись.
+
+Compiled native RED2/4 Windows/Linux: настоящий authored knife/model/server,
+опубликованный skeleton и фактический registered animator0x10661181.
+Future-start firstsample и rollback100ms дают huge pose, обычный forward
+и exactstart контроли проходят. GREEN4/4 each: origin, новый persisted epoch,
+прежние origin/velocity/quaternion и дальнейшее250ms движение. Полное save/load
+в новый native animator воспроизводит движение; read-only tags2..5 observer,
+без partial READ в живые объекты. Projectile освобождает action counter.
+Проверяется публичный GetFrame опубликованной анимации; конкретный игровой
+сценарий rollback/future-start firstsample отдельно не заявлен.
+
+Original Gold PDB GetFrame754b90/164, typed tStart14/start18/vel24/qRot30:
+unique exact24byte prefix ->Steam760510 содержит unsigned guard/zero age/write
+new epoch. Без масок/wholemethod claim. Полные Game builds, related11Win/10Linux
+(knife handoff/feedback/orientation, animation paths/wire), CI323/323 успешны.
+Новые4 resource extended случая вне323. Свидетельства knife-time-rebase-red-verification.json,
+knife-time-rebase-retail-oracle.json,knife-time-rebase-verification.json и raw logs.
+Source5780c0be остаётся PARTIAL: остальные hunks wKnife и10 файлов не завершены.
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027.

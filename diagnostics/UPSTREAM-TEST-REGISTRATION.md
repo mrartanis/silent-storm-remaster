@@ -328,3 +328,10 @@ Actual world/event delay50ms, new30ms budget; owner/null viewers и LAN host/rep
 ранние guards. RED1/4 ->GREEN4/4 each; повторный вызов проверяет reset бюджета.
 Related13/13 each,CI323/323; новые4 внеasset-free323. Быстрое прохождение >5
 сегментов отдельно не измерялось, clock/hiddenTime/50ms формулы сохранены.
+
+## Начало отсчёта анимации ножа
+
+NativeKnifeTimeRebase0..3: resource extended Windows/Linux,timeout120.
+Actual published native animator: future-start firstsample/rollback/normalforward/
+exactstart. RED2/4 ->GREEN4/4 each, fullsave->newanimator/motion/rotation/wire
+controls and action release; related11Win/10Linux,CI323. Новые4 внеasset-free323.

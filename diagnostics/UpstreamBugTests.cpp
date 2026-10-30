@@ -29489,6 +29489,49 @@ static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonA
     return sequence;
 }
 
+static void KnifeTimeRebase(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=3,"unknown knife clock mode");
+    auto world=FixtureWorld(databasePath,resourcePath);
+    NDb::CRPGMeleeWeapon* record=nullptr;
+    CDBIterator<NDb::CRPGMeleeWeapon> records(*NDatabase::GetTable<NDb::CRPGMeleeWeapon>());
+    while(records.MoveNext())if(records.Get()->bThrowing && IsValid(records.Get()->pItem) && IsValid(records.Get()->pItem->pModel)){record=records.Get();break;}
+    Require(record,"knife clock fixture lacks an authored throwing knife");
+    SRand random;CObj<NDb::CModel> model=record->pItem->pModel->CreateModel(&random);
+    CObj<NRPG::CMeleeWeaponItem> item=new NRPG::CMeleeWeaponItem(record);
+    const CVec3 origin(11,12,13),velocity(3,4,5);
+    const STime now=world->GetTime()->GetValue(),throwTime=now+(mode==0?500:0);
+    const bool wasAction=world->IsAction();NRPG::CAttackPortion attack;
+    CObj<NWorld::IDynamicObject> knife=NWorld::CreateKnifeServer(world,origin,velocity,throwTime,100.f,model,attack,item,nullptr);
+    KnifePosePresentation visual;dynamic_cast<NWorld::IVisObj*>(knife.GetPtr())->Visit(&visual);
+    auto* skeleton=dynamic_cast<NAnimation::CSkeletonAnimator*>(visual.animation.GetPtr());Require(skeleton,"knife did not expose its actual skeleton animator");
+    auto sequence=ReadAnimationSequence(skeleton);
+    CObj<NAnimation::CAnimator> linear=sequence->GetAnimator(now);
+    Require(IsValid(linear) && pSSClasses->GetObjectTypeID(linear.GetPtr())==int(0x10661181),"knife fixture did not reach the actual registered linear animator");
+    NAnimation::SSkeletonPose pose(1);
+    if(mode==1)linear->GetFrame(now,&pose);
+    const STime sample=mode==1?now-100:mode==2?now+125:now;
+    const STime epoch=mode==0?now:mode==1?now-100:throwTime;
+    linear->GetFrame(sample,&pose);
+    const CVec3 expected=origin+velocity*(mode==2?0.125f:0.f);
+    std::printf("knife clock mode=%d throw=%d sample=%d pos=(%.3f,%.3f,%.3f) error=%.6g\n",mode,int(throwTime),int(sample),pose[0].pos.x,pose[0].pos.y,pose[0].pos.z,fabs2(pose[0].pos-expected));std::fflush(stdout);
+    Require(fabs2(pose[0].pos-expected)<1e-8f,"early knife pose underflowed its unsigned flight clock");
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(linear,&refs);
+    STime savedStart=0;CVec3 savedOrigin,savedVelocity;CQuat rotation;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&savedStart);reader.Add(3,&savedOrigin);reader.Add(4,&savedVelocity);reader.Add(5,&rotation);}
+    Require(savedStart==epoch && savedOrigin==origin && savedVelocity==velocity,"knife rebase changed saved origin/velocity or failed to persist its new epoch");
+    CMemoryStream saved;{CStructureSaver writer(saved,CStructureSaver::WRITE);writer.Add(2,&linear);}saved.Seek(0);
+    CObj<NAnimation::CAnimator> restored;{CStructureSaver reader(saved,CStructureSaver::READ);reader.Add(2,&restored);}
+    Require(IsValid(restored) && pSSClasses->GetObjectTypeID(restored.GetPtr())==int(0x10661181),"knife animation full save/load changed its native type");
+    NAnimation::SSkeletonPose loaded(1);linear->GetFrame(epoch+250,&pose);restored->GetFrame(epoch+250,&loaded);
+    const CVec3 future=origin+velocity*0.25f;
+    Require(fabs2(pose[0].pos-future)<1e-8f && fabs2(loaded[0].pos-future)<1e-8f &&
+        fabs2(pose[0].rot.Rotate(CVec3(0,0,-1))-rotation.Rotate(CVec3(0,0,-1)))<1e-10f &&
+        fabs2(loaded[0].rot.Rotate(CVec3(0,0,-1))-rotation.Rotate(CVec3(0,0,-1)))<1e-10f,
+        "knife clock rebase changed forward motion or the saved knife orientation");
+    knife=nullptr;Require(world->IsAction()==wasAction,"knife clock inspection leaked its native action counter");
+}
+
 static void CorpseNullTaker(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=3,"unknown corpse null-taker mode");
@@ -30467,6 +30510,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "knife-time-rebase")) { Require(argc==5,"knife clock requires db/resources/mode"); KnifeTimeRebase(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "hidden-skip-budget")) { Require(argc==5,"hidden skip requires db/resources/mode"); HiddenSkipBudget(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "localized-log-style")) { Require(argc==5,"log style requires db/resources/mode"); LocalizedLogStyle(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "carrier-admission")) { Require(argc==5,"carrier admission requires db/resources/mode"); CorpseCarrierAdmission(argv[2],argv[3],std::atoi(argv[4])); return true; }
