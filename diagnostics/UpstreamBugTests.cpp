@@ -29489,6 +29489,39 @@ static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonA
     return sequence;
 }
 
+static void MainMenuVersionCaption(const char* databasePath,const char* resourcePath)
+{
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm native main-menu version regression");
+    CObj<NGame::CICMainMenu> open=new NGame::CICMainMenu;open->Exec();
+    CObj<NGame::CMissionBase> menu=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    auto* page=menu?menu->GetInterface()->GetChildByID("mainmenuUI"):nullptr;
+    auto* version=page?dynamic_cast<NUI::CText*>(page->GetChildByID("version")):nullptr;
+    Require(menu && page && version && menu->GetWorld() && menu->GetRenderGame(),"main-menu version fixture lost its native world/menu/template caption");
+    const auto localized=NUI::GetDBString(0x4f17);Require(!localized.empty(),"main-menu version fixture has no localized version string");
+    const wstring prefix=L"<font size=14pt face=Courier><right><color=grey>"+localized+L" ";
+    auto verify=[&]() {
+        const auto text=version->GetText();
+        std::printf("native main-menu version: actual=");
+        for(auto ch:text)if(ch>=32 && ch<=126)std::putchar(int(ch));else std::printf("\\u%04x",unsigned(ch));
+        std::printf(" localizedLength=%zu\n",localized.size());std::fflush(stdout);
+        Require(text.find(prefix)==0,"main-menu version retained its template caption instead of localized original styling/version/date");
+        const auto date=text.substr(prefix.size());
+        const wstring months=L"Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec";
+        Require(date.size()==11 && date[3]==L' ' && date[6]==L' ' && months.find(date.substr(0,3))!=wstring::npos &&
+            std::wcstol(date.c_str()+3,nullptr,10)>=1 && std::wcstol(date.c_str()+3,nullptr,10)<=31 &&
+            std::wcstol(date.c_str()+7,nullptr,10)>=2000,"main-menu version omitted or duplicated its build date");
+        return text;
+    };
+    const auto first=verify();ICamera::SCameraPos camera;menu->GetCamera()->GetPlacement(&camera);
+    const auto currentWorld=menu->GetWorld();const auto depth=NMainLoop::GetInterfaceStackDepth();
+    version->SetText(L"stale template version",true);
+    page->ProcessMessage(NUI::SEvent(NUI::EVENT_TEMPLATELOADCOMPLETE));
+    Require(verify()==first,"repeated menu template completion appended a second version/date or retained stale text");
+    ICamera::SCameraPos after;menu->GetCamera()->GetPlacement(&after);
+    Require(menu->GetWorld()==currentWorld && after.ptAnchor==camera.ptAnchor && after.fRod==camera.fRod && NMainLoop::GetInterfaceStackDepth()==depth && !NMainLoop::HaveInterfaceCommand(),"updating the menu version moved its camera, recreated its world or queued an interface command");
+    NMainLoop::DoneInterface();
+}
+
 static void ChapterPanzerkleinGate(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=6,"unknown chapter PK gate mode");
@@ -30836,6 +30869,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "main-menu-version-caption")) { Require(argc==4,"menu version requires db/resources"); MainMenuVersionCaption(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-pk-gate")) { Require(argc==5,"chapter PK gate requires db/resources/mode"); ChapterPanzerkleinGate(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "weather-world-placement")) { Require(argc==5,"weather placement requires db/resources/mode"); WeatherWorldPlacement(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "unit-preview-shot-origin")) { Require(argc==5,"shot origin preview requires db/resources/mode"); UnitPreviewShotOrigin(argv[2],argv[3],std::atoi(argv[4])); return true; }

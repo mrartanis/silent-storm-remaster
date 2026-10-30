@@ -161,6 +161,14 @@ bool CMainMenuUI::ProcessMessage( const SEvent &sEvent )
 			pButtonsLine2->AddHoverButton("network",0,GetDBString(0x2b79)+networkCaption,GetDBString(0x2b7a)+networkCaption,GetDBString(0x43bb)+networkCaption);
 			break;
 		}
+        case EVENT_TEMPLATELOADCOMPLETE:
+        {
+            CPtr<CText> pVersion = GetUIWindow<CText>( this, "version" );
+            // Preserve the full localized wide string on both platforms.
+            pVersion->SetText( L"<font size=14pt face=Courier><right><color=grey>" +
+                GetDBString( 0x4f17 ) + L" " + NStr::ToUnicode( __DATE__ ), true );
+            break;
+        }
 	}
 
 	return CWindow::ProcessMessage( sEvent );

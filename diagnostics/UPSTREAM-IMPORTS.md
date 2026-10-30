@@ -17650,3 +17650,38 @@ resource/display extended cases are outside323; Linux ran under Xvfb/Openbox.
 All changes selected from this source are complete; neighbouring chapter CanEnter
 and other mixed-source work remain independent.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/974d85437e9cb6c69403dbdc76ffeea8c3a2b905.
+
+## 2026-10-30: main-menu version caption (`898ccb8a`, adapted/complete)
+
+CMainMenuUI handles template-load completion by assigning the localized20247
+version caption, original right-aligned grey Courier14 styling and this build's
+date. It keeps the existing font backend, remaster menu/network controls and
+separate protocol/build metadata. No hard-coded new product/version number is added.
+
+NativeMainMenuVersionCaption creates the actual native main-menu world and
+authored347 UI template. RED1/1 each: plain localized template text has no
+original styling/build date. GREEN1/1 each: full localized Cyrillic remains,
+one valid build date is appended; replacing the text with a stale caption and
+repeating template completion restores exactly the same text. Camera/world,
+interface depth and pending-command state stay intact. The date is structurally
+validated, not compared to the test translation unit's __DATE__, so builds
+spanning midnight/different compile dates do not create a false dependency.
+
+Direct use of the upstream Microsoft wide printf format truncated Linux's
+localized caption to S while Windows passed. That intermediate run is archived
+as unportable-format and is not final GREEN. The final adapter concatenates the
+wide localized string with the ASCII build date converted through existing
+NStr::ToUnicode; original visible formatting is preserved on both platforms.
+Initial fixture-only diagnostic-print compile errors are archived separately.
+
+Gold named ProcessMessage5f3ea0/3994 references the exact wide style literal at
+5f3f56, Steam at5f8386. Decoded49byte callers5f3f3d/5f836d load20247, then
+the original build date and formatter (Gold Aug11 2003 / Steam Nov21 2003).
+The exact formatting literal and decoded arguments are evidence, not a claim
+of whole-function equivalence or changing the existing rendering engine.
+Evidence: menu-version-{red-verification,retail-oracle,verification}.json and raw logs.
+
+Full Windows/Linux Game builds, related8Win/7Linux (menu cadence/map/authored
+script, load/save tab, font wire and network serializer) and CI323/323 pass.
+New1 resource/display extended case is outside323. Source898 is fully accounted.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/898ccb8a5977c5b9fd9843b92b56d17893f5094d.

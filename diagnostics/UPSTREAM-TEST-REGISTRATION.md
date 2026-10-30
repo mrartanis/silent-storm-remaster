@@ -377,3 +377,12 @@ RED2/7 ->GREEN7/7 each, five valid/dead/reserve/empty-player controls retained.
 No camp fallback/duplicate warning; money/interface/travel/time/RNG checks.
 Full Game builds,related10/10 each,CI323. New7 outside asset-free323.
 Initial fixture type/center/container assumptions are excluded from RED evidence.
+
+## Main-menu version/date lifecycle
+
+NativeMainMenuVersionCaption: resource/display extended Windows/Linux,timeout120,
+isolated user directory; Linux Xvfb/Openbox. Actual menu/template caption and
+repeat completion, localized wide text/date, camera/world/queue controls.
+RED1->GREEN1 each. Intermediate Microsoft wide-format truncation on Linux is
+archived; final adapter preserves Unicode. Full Game builds,related8Win/7Linux,
+CI323. New1 outside asset-free323; no compile-date equality across translation units.

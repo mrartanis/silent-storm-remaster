@@ -2030,3 +2030,11 @@ party receives the existing localized denial and stays on the chapter map;
 it must remove the suit or enter a zone permitting PK. Dead and reserve wearers
 do not block entry. This restores authored mission access rules without changing
 data, combat coefficients, inventory, costs or script-driven transition paths.
+
+### `898ccb8a`: version footer
+
+The main-menu footer receives the existing localized version text, original
+styling and the current build date. This only changes the footer; no gameplay
+data or coefficients are changed. Existing remaster/protocol metadata, menu
+controls and font backend remain intact. Wide-string concatenation preserves
+the full localized text on Windows and Linux.
