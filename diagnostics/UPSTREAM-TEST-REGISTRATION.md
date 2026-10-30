@@ -703,3 +703,14 @@ with IC21/24/-10/-21/0/140, plus real incidental base40 ->43 damage atIC-10.
 RED3/8 ->GREEN8/8 each, five pre-fix controls. One-check RNG/IC practice and
 unrelated state checked; damage case validates HUMAN/HP/RNG/death state.
 Full Game builds, related48Win/48Linux, CI323; new8 outside323. No39/aura0 scope.
+
+## Typed explosion evasion39
+
+NativeExplosionEvasion0..16: resource extended Win/Linux,timeout120. Actual
+person2/39/authored.1, native TakePerk and real ProcessAttack/body armor/flesh
+fixed40/100 with runtimeVP500. RED9/17 ->GREEN17/17 each, eight pre-fix
+controls. Separate chance-only/percentage-only rolls, blast/fragment/normal,
+nearest-even rounding1.5/34.5, restored zero/fractional/negative parameters,
+unsigned negativeIC, intended/wornPK scope, HP/receiver/RNG/practice/baseIC/
+points/inventory/shell/input checked. Full Game builds, related65Win/65Linux,
+CI323; new17 outside323. Aura0; no full world/critical pipeline claim.

@@ -2414,3 +2414,17 @@ zero clamp. Positive/zero/>100 controls, existing IC practice and exact own
 RNG advancement remain verified. The change applies only to CheckIC; the
 shared generator and global random comparison helper remain unchanged.
 Typed explosion39 and attack-scoped aura still await their separate checks.
+
+### `037c41d9`: explosion evasion39 affects chance and late reduction
+
+Blast and fragment evasion now uses perk39 in both the successful-roll chance
+and the late damage percentage. The original stored-float/current-rounding
+rule is preserved; normal attacks and the base GetIC query do not gain39.
+Actual authored.1 bonus with IC21/base40 yieldsIC23/damage31 (previously32).
+Param.5/IC21 givesIC32: a selected newly-successful roll restores40 ->28,
+and an already-successful roll restores32 ->28. Rounding examples are
+IC1*1.5 ->2 and IC23*1.5 ->34; a negative modifiedIC still follows the original
+unsigned chance and may amplify damage (IC-10/base40 ->43). Intended targets
+and wornPK continue to skip IC, including practice. Own RNG, existing public
+CheckIC, base40 perk, armor and DB remain unchanged. Nonzero aura ownership,
+addition and victim application/reset remain separately pending.

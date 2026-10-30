@@ -250,6 +250,8 @@ public:
 	virtual int  GetIC() const;
 	virtual float GetWeaponAdaptation() const;
 	virtual bool CheckIC();
+	int GetPerkModifiedIC( EAttackType attackType ) const;
+	bool CheckICForAttack( EAttackType attackType );
 	virtual int CheckInterrupt( const IUnitMission *pEnemy, bool bIsMutual, bool bWasShot );
 	virtual int  GetInterrupt() const { return pRPGUnit->Skills(NDb::ST_INTERRUPT); }
 	virtual NDb::CRPGArmor* GetRPGArmor() const;
@@ -1172,8 +1174,8 @@ CReceivedDmg CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, C
 		csRPG << CC_GREY << " \tDmgModifier=" << fDmgModifier;
 		int nDamage = fDmgModifier * nDmg;
 		if ( pAttack->atkType != AT_CLICK_OF_DEATH && this != pAttack->pTarget &&
-			!GetPanzerklein() && CheckIC() )
-			nDamage = Max( 0, nDamage - int( double( GetIC() ) * nDamage * double( 0.01f ) ) );
+			!GetPanzerklein() && CheckICForAttack( pAttack->atkType ) )
+			nDamage = Max( 0, nDamage - int( double( GetPerkModifiedIC( pAttack->atkType ) ) * nDamage * double( 0.01f ) ) );
 		int ndBVP = nDamage * (float)GetHealedVP() / GetTotalVP();
 		ASSERT( ndBVP >= 0 );
 		SetHealedVP( GetHealedVP() - ndBVP );
@@ -1596,11 +1598,25 @@ int CUnitMission::GetIC() const
 	return Float2Int( fIC );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+int CUnitMission::GetPerkModifiedIC( EAttackType attackType ) const
+{
+	float fIC = GetIC();
+	float fParam;
+	if ( ( attackType == AT_BLAST_WAVE || attackType == AT_FRAGMENT ) &&
+		HasPerk( N_PERK_EXPLOSION_EVASION, &fParam ) )
+		fIC = ( 1.0 + double( fParam ) ) * fIC;
+	return Float2Int( fIC );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnitMission::CheckIC()
 {
+	return CheckICForAttack( AT_NORMAL );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CUnitMission::CheckICForAttack( EAttackType attackType )
+{
 	UseSkill(NDb::ST_IC);
-	// Target movement???
-	bool isCheck = MissionRandom().Get( 100 ) < static_cast<unsigned int>( GetIC() );
+	bool isCheck = MissionRandom().Get( 100 ) < static_cast<unsigned int>( GetPerkModifiedIC( attackType ) );
 	csRPG << "\t" << GetName() << " Dodge:" << isCheck << endl;
 	return isCheck;
 }

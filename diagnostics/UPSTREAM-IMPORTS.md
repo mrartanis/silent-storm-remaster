@@ -18827,3 +18827,42 @@ Full Game builds, related48Win/48Linux and asset-freeCI323 pass; new8 extended
 outside323. Evidence unsigned-ic-retail-oracle/verification JSON, raw171byte
 original bodies, disassembly and per-platform RED/GREEN/gate logs.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-31: typed explosion evasion39 (`037c41d9` partial)
+
+Introduces internal GetPerkModifiedIC/CheckICForAttack, preserving the existing
+noarg public virtual CheckIC as an AT_NORMAL wrapper. ProcessAttack supplies
+its real attack type to both the chance and the late damage reduction.
+Only blast1/fragment3 use native perk39: float(GetIC)*(1+doubleParam), store
+float then Float2Int current rounding; normal0 does not use39. Own unsigned
+single-draw chance/training, base GetIC40, interfaces, serialized fields and
+RNG generator stay intact. The original helper's nonzero aura term remains
+separately pending with its victim ownership/scope, rather than being claimed
+by these aura0 tests.
+
+GoldPDB GetPerkModifiedIC6b88f0/118 uniquely maps to Steam6beca0: all118bytes
+match after masking only the independently verified1.f absolute operand.
+Decoded virtual GetIC14, type1/type3 branches, Has39/slot78, stored-float
+multiplication and current-mode FISTP agree. The typed CheckIC90 and actual
+late percentage calls were independently mapped in the preceding damage
+audit; source comments at6becf0 refer to a store inside the mapped helper.
+
+NativeExplosionEvasion0..16 execute real ProcessAttack/person2/authored39
+bonus.1/native TakePerk with runtime VP500, actual body armor/flesh damage,
+constant noncritical40 (100 in the IC1 rounding case), no attacker and no
+random knockout. RED9/17 each ->GREEN17/17, eight controls already passed.
+Authored bonus IC21 ->23 yields31 damage for both blast/fragment, rather
+than32. With Param.5, a selected roll21..31 isolates chance: old40 ->28;
+a selected roll below21 isolates percentage: old32 ->28. Current rounding
+is checked at IC1*1.5 ->2 (100 ->99 damage), and IC23*1.5 ->34 (40 ->27).
+Param1.25 givesIC47/damage22; Param-1 givesIC0/failed chance/full40; Param
+-1.5 givesIC-10/unsigned-success/damage43. Native base GetIC is unchanged,
+all shared RNG/HP/receiver/IC practice/points/inventory/input checks pass,
+and parameters restore. Normal, no39 blast/fragment, zero parameter, >100,
+intended and real wornPK-bypass controls retain their original behavior;
+intended/PK skip IC practice, actual shell HP is unchanged. No artificial
+joint39/40 perk tree, public typed-API break, DB modification or full world
+trace/FX/critical-pipeline parity claim. Full Game builds, related65Win/65Linux
+and CI323 pass; new17 resource extended/outside323.
+Evidence explosion-evasion-retail-oracle/verification JSON and native logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
