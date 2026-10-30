@@ -17779,3 +17779,34 @@ Evidence: vp-overdose-{retail-oracle,verification}.json and raw logs.
 Windows/Linux Game builds, related24 each and asset-free CI323/323 pass.
 Seven new resource extended tests are outside323.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/bf54ea44a50f7e9ab7095a05491ec289105c84d0.
+
+## 2026-10-30: periodic VP drug duration (`bf54ea44`, complete)
+
+DoRegenerations now decrements each existing boost duration and invokes the
+verified overdose helper before processing critical lifetimes/bleeding/PK
+regeneration. AP refresh does not consume duration. The existing authoritative
+world gate remains: replica callbacks do not independently decrement or overdose.
+Temporary skill modifiers and serialized fields remain unchanged.
+
+NativeVPDurationCountdown0..8 use a deployed native hero and real RPG consumer.
+Cases cover one decrement, safe/equal/overdose after multiple ticks, zero reached
+from1, empty list, mixed3+6, replica callback and actual TBS_FINISH_OWN_TURN
+with actor consciousness synchronization. Each case first exercises StartNewTurn
+and confirms duration is untouched there. RED7/9 each; empty and replica controls
+pass before the fix. GREEN9/9 each includes exact remaining durations, VP and
+unconsciousness, modifier retention, XP/position/time and existing C_VP wound/AP effects; direct RPG cases also
+preserve gameplay RNG. Callback cases do not claim unchanged transition RNG.
+Initial post-fix checks exposed the existing C_VP wound reduction of AP at VP0;
+that expectation was corrected, logs archived as expected-wound-AP-control,
+and the final tests rerun RED/GREEN on both platforms.
+
+Gold named DoRegenerations6be2c0/418 shares a unique exact55byte duration-loop
+block6be2c6 with Steam6c49a6, without masks. Separately decoded calls show
+Gold6be305 -> CheckOverdose6bab10 and Steam6c49e5 -> CheckOverdose6c0bb0,
+then critical processing6be30c ->6be0e0 and6c49ec ->6c47c0 respectively.
+Register allocation/prologue differ; no whole-function equivalence claim.
+Evidence: vp-countdown-{retail-oracle,verification}.json and raw logs.
+Game builds, related33 each and asset-free CI323/323 pass; new9 resource cases
+are outside323. Together with immediate-dose commit f312fa2f, all source hunks
+are now complete. Medical behavior is recorded in balanceMD.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/bf54ea44a50f7e9ab7095a05491ec289105c84d0.

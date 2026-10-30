@@ -2067,3 +2067,14 @@ modifiers, authored drug values and death reserve remain unchanged. Equality
 is safe. Already-dead units are not resurrected. Native tests cover small
 integer boundary combinations; arbitrary extreme-stack floating precision is
 not claimed. Periodic duration countdown/check remains pending separately.
+
+### `bf54ea44`, completed: periodic VP drug duration
+
+Restores the original one-step duration decrement at DoRegenerations and checks
+the same overdose rule before critical processing. Previously-safe combinations
+can therefore become an overdose as the original duration elapses, with living
+VP0/unconsciousness. Equality remains safe. No new strength/threshold/data values
+are introduced, modifiers remain installed, and AP refresh does not count down.
+The fork's authoritative-world gate prevents duplicate calculation on LAN replicas.
+Native tests cover real turn-callback synchronization as well as the RPG consumer.
+All source hunks are complete; this supersedes earlier pending notes for bf54ea44.

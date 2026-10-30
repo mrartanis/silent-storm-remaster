@@ -411,3 +411,11 @@ Native deployed hero, real AddVPBoost; zero/excess/exact/safe/dead boundaries,
 duration clearing, modifier retention, VP/consciousness, AP/XP/time/position/RNG.
 RED4/7->GREEN7/7 each. Related24 each; Game builds; asset-free CI323.
 Periodic duration countdown remains a separate pending hunk.
+
+## Periodic VP drug duration
+
+NativeVPDurationCountdown0..8: resource extended Win/Linux, timeout120.
+Actual deployed hero/native RPG periodic consumer; safe/exact/overdose/mixed/
+empty trajectories, AP-refresh non-consumption, replica gate and native turn
+callback consciousness synchronization. RED7/9->GREEN9/9 each, related33 each,
+Game builds and asset-free CI323; new9 outside323.

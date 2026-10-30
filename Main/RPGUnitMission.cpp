@@ -2182,6 +2182,9 @@ static int CalcBleedingDamage( int nVP, int nMaxVP, float fCritical, int nStoppe
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitMission::DoRegenerations( NWorld::IWorld *pWorld, int *pnBleed )
 {
+	for ( int i = 0; i < vpBoostDurations.size(); ++i )
+		--vpBoostDurations[i];
+	CheckOverdose();
 	// Original Steam 0x6c49ec: advance critical lifetimes at the periodic end tick.
 	ProcessCriticalsOnNewTurnFor();
 	CCritical *pBleeding = 0;
