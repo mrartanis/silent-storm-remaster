@@ -442,3 +442,10 @@ Actual firearm/launcher tile and dedicated launcher/grenade dispatchers;
 day controls, night chances and script override37. RED4/5->GREEN5/5 each after
 the separate loader prerequisite; AP/HP/time/position/RNG unchanged. Related
 50Win/50Linux, Game builds, CI323. New5 outside323. No rendered-pixel claim.
+
+## AI accuracy night construction
+
+NativeNightAIInputs0..2: resource extended Win/Linux,timeout120. Actual actor/AI
+wrappers, integer/float cover constructors and GetLight/GetToHit; day control.
+RED2/3->GREEN3/3 each, AP/HP/position/time/RNG retained. Related53Win/53Linux,
+Game builds,CI323; new3 outside323. No full planner/attack simulation claim.

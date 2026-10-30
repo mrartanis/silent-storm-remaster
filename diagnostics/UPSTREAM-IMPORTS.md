@@ -17901,3 +17901,26 @@ Game builds, related50Win/50Linux, asset-free CI323/323 pass. Five new resource
 extended cases are outside323. AI constructor and live grenade executor's
 night/per-unit-first-turn inputs remain pending.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.
+
+## 2026-10-30: AI accuracy night input (`9da280e9`, partial)
+
+The retained CAIUnitToHitCalcer API derives its night flag from the shooter's
+own world/game, matching the original GetAIShootToHit caller. The integer-cover
+overload still forwards to the float overload; selected weapon, precise cover,
+other accuracy inputs and the original light/perk formula are unchanged.
+
+NativeNightAIInputs0..2 use actual world actors and their native AI wrappers,
+an authored equipped firearm and live calculator construction/GetToHit. RED2/3
+each: both float/integer-cover constructors retain calcerNight0 and light1
+at ownerNight1; the day control passes. GREEN3/3 each: night flag1/light0.9
+for a unit without night vision; AP/HP/position/time/gameplay RNG retained.
+This proves constructor input and actual light-factor evaluation, not a full
+planner choice or simulated AI attack. No private AI/night field is injected.
+
+Gold named GetAIShootToHit6ae7e0/193 reads world.GetGame and game.IsNight.
+Its unique exact27byte block6ae7fb maps to Steam6b492b with no masks;
+the vtable getter meanings were independently verified by RTTI in the prior
+night-preview oracle. Evidence: night-ai-{retail-oracle,verification}.json/rawlogs.
+Game builds, related53Win/53Linux, CI323/323 pass; new3 resource tests are outside323.
+Only selected live-grenade executor night/per-unit-first-turn inputs remain.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.

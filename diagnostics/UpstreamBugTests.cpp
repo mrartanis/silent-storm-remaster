@@ -29513,6 +29513,25 @@ static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonA
     return sequence;
 }
 
+static void NightAIConstructorInputs(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=2,"unknown native AI night mode");auto world=FixtureWorld(databasePath,resourcePath,false);
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;NWorld::CUnitServer* target=nullptr;
+    for(auto entry:units){auto* candidate=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());if(candidate && candidate->CanFight() && !candidate->IsWearingPK() && !candidate->GetUnitRPG()->HasPerk(0x15) && NRPG::GetToHitType(candidate)==NRPG::TH_SHOOT && NAI::GetAIUnit(candidate)){actor=candidate;break;}}
+    Require(actor,"AI night fixture lacks a native firearm actor without night vision");
+    for(auto entry:units){auto* candidate=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());if(candidate && candidate!=actor && candidate->CanFight() && NAI::GetAIUnit(candidate)){target=candidate;break;}}
+    Require(target,"AI night fixture lacks a native target wrapper");auto* shooterAI=NAI::GetAIUnit(actor);auto* targetAI=NAI::GetAIUnit(target);
+    const bool night=mode!=0;world->GetGame()->SetNight(night);
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();const auto position=actor->GetPosition();const auto time=world->GetTime()->GetValue();auto random=GlobalGameRandom();
+    CObj<NRPG::CAIUnitToHitCalcer> calcer;
+    if(mode==2)calcer=new NRPG::CAIUnitToHitCalcer(shooterAI,position,targetAI,100,NAI::HL_BODY,0,actor->GetUnitRPG()->GetWeaponItem(),0);
+    else calcer=new NRPG::CAIUnitToHitCalcer(shooterAI,position,targetAI,100.f,NAI::HL_BODY,0,actor->GetUnitRPG()->GetWeaponItem(),0);
+    const float light=calcer->GetLight();const int chance=calcer->GetToHit();const float expected=night?.9f:1.f;
+    std::printf("native AI night mode=%d ownerNight=%d calcerNight=%d light=%.6g expected=%.6g chance=%d\n",mode,int(world->GetGame()->IsNight()),int(calcer->bNight),light,expected,chance);std::fflush(stdout);
+    Require(calcer->bNight==night && std::fabs(light-expected)<1e-6f,"AI accuracy constructor dropped the owning game's night input");
+    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetPosition()==position && world->GetTime()->GetValue()==time && random.Get()==GlobalGameRandom().Get(),"AI accuracy query changed AP/HP/position/time/RNG");
+}
+
 static void NightPreviewInputs(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=4,"unknown native night preview mode");
@@ -31070,6 +31089,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "night-ai-inputs")) { Require(argc==5,"AI night requires db/resources/mode"); NightAIConstructorInputs(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "night-preview-inputs")) { Require(argc==5,"night preview requires db/resources/mode"); NightPreviewInputs(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "script-grenade-chance")) { Require(argc==5,"script grenade chance requires db/resources/mode"); ScriptGrenadeExplicitChance(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "vp-duration-countdown")) { Require(argc==5,"VP countdown requires db/resources/mode"); VPBoostDurationCountdown(argv[2],argv[3],std::atoi(argv[4])); return true; }

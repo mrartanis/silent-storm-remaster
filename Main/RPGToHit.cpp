@@ -729,8 +729,8 @@ void CGrenadeToHitCalcer::Log()
 // CAIUnitToHitCalcer
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // The ctor keeps the dev IAIUnit* shape (an internal API, not serialized) and derives both
-// CUnitServer*s to chain the release CUnitToHitCalcer ctor. bNight derives false (CWorld::IsNight
-// absent in this tree -- documented elision).
+// CUnitServer*s to chain the release CUnitToHitCalcer ctor. The original AI caller
+// supplies its owning game night state (Gold 0x6ae7fb; Steam 0x6b492b).
 CAIUnitToHitCalcer::CAIUnitToHitCalcer(	NAI::IAIUnit *pShooter, const NAI::SUnitPosition &shooterPos,
 	NAI::IAIUnit *pTarget, int nHitCover, NAI::EHitLocation _eHitLocation, int _nBullet, IInventoryItem *_pWeapon, int _nExtraAP ):
 	CAIUnitToHitCalcer( pShooter, shooterPos, pTarget, static_cast<float>( nHitCover ), _eHitLocation, _nBullet, _pWeapon, _nExtraAP )
@@ -744,7 +744,7 @@ CAIUnitToHitCalcer::CAIUnitToHitCalcer(	NAI::IAIUnit *pShooter, const NAI::SUnit
 		fabs( shooterPos.GetCP() - pTarget->GetPosition().GetCP() ) / FP_GRID_STEP,
 		shooterPos.GetEyePosition(),
 		pTarget->GetPosition(),
-		_nExtraAP, 0, fHitCover, false, false, CVec3( 1, 1, 1 ),
+		_nExtraAP, 0, fHitCover, false, pShooter->GetUnitServer()->GetWorld()->GetGame()->IsNight(), CVec3( 1, 1, 1 ),
 		_eHitLocation,
 		pTarget->GetUnitServer(),
 		_nBullet, false )

@@ -2107,3 +2107,11 @@ bypasses it. The formula and authored values are unchanged; daytime results
 and explicit script chance remain intact. This fixes previously optimistic
 night chances in the legacy preview APIs. AI constructor and live grenade
 executor night/per-unit-first-turn inputs remain pending separately.
+
+### `9da280e9`, AI accuracy input
+
+AI accuracy constructors receive the owning game's night flag and activate the
+existing original light rule. Its0.9 multiplier, night-vision bypass, selected
+weapon and other accuracy formulas remain unchanged. Native tests exercise both
+cover overloads and light evaluation. Live-grenade executor night/per-unit-turn
+inputs remain pending separately.
