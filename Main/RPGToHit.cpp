@@ -151,12 +151,9 @@ inline float GetThrowToHitPenalty( NAI::EHitLocation hl )
 	return 0.0f;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// NRPG::GetBestPose  @0x2b6bd0 (RVA) -- release-new free helper, fully recovered (no hooks). Picks the
-// firing pose with the larger positive per-weapon bonus, defaulting to WALK when neither crouch nor
-// crawl is favoured. Reads NDb::CRPGWeaponType::fCrouchBonus (+0x1c) / fCrawlBonus (+0x18); confirmed
-// from Game.exe @0x6b6bd0 (fcomp 0.0 / test ah,0x41 strictly-greater guards). STANDALONE: it has no
-// caller in this tree, so landing it is a pure, behaviour-neutral parity addition. It is NOT
-// CToHitCalcer::GetStance (which reads the bonus by eCurPose -- different semantics).
+// Gold GetBestPose 0x6b0aa0 / Steam 0x6b6b90: strict positive winner of
+// crouch (+0x1c) and crawl (+0x18). Ties and nonpositive bonuses return WALK.
+// GetStance uses this helper for perk12, retaining the actual cached pose.
 NAI::EPose GetBestPose( const NDb::CRPGWeaponType &wt )
 {
 	if ( wt.fCrouchBonus > 0.f && wt.fCrawlBonus < wt.fCrouchBonus )
@@ -269,9 +266,12 @@ float CToHitCalcer::GetStance()
 	CPtr<CWeaponItem> pWeaponItem = pUnitMission->GetRPGUnit()->GetWeaponItem();
 	if ( IsValid( pWeaponItem ) )
 	{
-		if ( NAI::CROUCH == eCurPose )
+		NAI::EPose pose = eCurPose;
+		if ( pUnitMission->HasPerk( N_PERK_BEST_SHOOTING_POSE ) )
+			pose = GetBestPose( *pWeaponItem->GetDBWeapon()->pWeaponType );
+		if ( NAI::CROUCH == pose )
 			nStance = int( pWeaponItem->GetDBWeapon()->pWeaponType->fCrouchBonus );
-		else if ( NAI::CRAWL == eCurPose )
+		else if ( NAI::CRAWL == pose )
 			nStance = int( pWeaponItem->GetDBWeapon()->pWeaponType->fCrawlBonus );
 	}
 	return nStance;

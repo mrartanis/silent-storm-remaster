@@ -2153,3 +2153,12 @@ outer tool stack count cannot substitute for a charge. Ordinary eligibility,
 authored thresholds/charges/perk values, AP and actual charge-spending actions
 are unchanged. Native tests isolate the RPG eligibility query and prove skill
 bypass plus empty-container controls; no full engineering action is claimed.
+
+### `037c41d9`: always-best-shooting-pose ability12
+
+Acquired12 now applies the original best-pose choice to the active weapon's
+stance accuracy bonus without changing the unit's actual pose. Restores the
+Gold/Steam strict-comparison quirk: equal positive bonuses and two nonpositive
+bonuses both choose ordinary WALK and contribute zero. Ordinary stance bonuses,
+integer truncation, weapon data and AP remain unchanged. Native tests cover the
+stance calculation; no whole-shot or animation parity claim.

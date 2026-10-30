@@ -480,3 +480,11 @@ Actual RPG persona3/perk50 grant/tool1; skill0/required20 and qualification,
 native SpendOneCharge empties with outer stack1. RED1/6->GREEN6/6 each; point
 budget/AP/HP/XP/skill/RNG/charges retained. Direct RPG eligibility API scope,
 not world action/placement. Related28Win/28Linux,Game builds,CI323; new6 outside323.
+
+## Best shooting pose perk12
+
+NativeBestShootingPose0..10: resource extended Win/Linux,timeout120. Native
+authored persona/perk grant, active weapon1, concrete tile stance consumer.
+Actual three poses, tie/nonpositive variations, ordinary and unarmed controls.
+RED4/11 -> GREEN11/11 each; point/AP/HP/XP/RNG and cached pose stable. Isolated
+stance query scope. Related58Win/58Linux, full Game builds, CI323; new11 outside323.

@@ -18060,3 +18060,33 @@ Evidence: perfect-engineering-{retail-oracle,verification}.json/raw logs.
 Game builds, related28Win/28Linux,CI323/323 pass; new6 resource cases outside323.
 Other independent037c41d9 hunks remain pending.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: best shooting pose ability12 (`037c41d9`, partial)
+
+GetStance now routes acquired perk12 through the existing GetBestPose helper.
+Preserves the original active-inventory weapon lookup, integer truncation and
+cached actual pose. Strict positive comparisons are intentional: tied bonuses
+or two nonpositive bonuses choose WALK (zero stance bonus), not an intuitive
+maximum. The already recovered helper is reused; its stale standalone/address
+comment is corrected. No movement, animation, weapon records or AP changes.
+
+NativeBestShootingPose0..10 create an actual authored RPG unit with untaken12,
+equip and activate authored weapon1 (crouch1/crawl2), and grant12 through native
+perk APIs. Concrete tile-calcer GetStance is exercised with public mission/pose
+inputs. RED4/11 each: acquired12 standing/crouching fails to use the best bonus,
+and equal7/7 or negative-2/-3 controls fail the original zero-bonus rule. Seven
+ordinary/already-best/unarmed controls pass before the fix; GREEN11/11 each.
+Tie/negative variations temporarily alter the owned loaded type and restore it;
+no asset files change. Queries preserve AP/HP/XP/RNG/perk budget and actual pose.
+This isolates the stance API, not an entire shot/animation. Initial tests that
+failed to equip the active weapon are archived as fixture failures, not RED.
+
+Gold named GetStance6b2af0/295 calls CUnit::GetWeaponItem6b4320 after the mission
+GetRPGUnit virtual, confirming the active weapon routing. Helper6b0aa0/73 maps
+uniquely to Steam6b6b90 with only two independently verified zero-pointer
+operands masked. Perk12 gate32bytes6b2b79 -> Steam6b8cf9 masks only the decoded
+helper-call operand; literal12 precedes the local-pose override and truncating
+bonus selection. Evidence: best-shooting-pose-{retail-oracle,verification}.json
+and raw logs. Game builds, related58Win/58Linux, CI323 pass; new11 cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

@@ -29513,6 +29513,39 @@ static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonA
     return sequence;
 }
 
+static CObj<NRPG::IUnitMission> NativeMissionWithUntakenPerk(int id)
+{
+    vector<int> trees;CDBIterator<NDb::CDBPerkTreeNode> nodes(*NDatabase::GetTable<NDb::CDBPerkTreeNode>());
+    while(nodes.MoveNext()){auto* node=nodes.Get();bool match=node->pPerk && node->pPerk->GetRecordID()==id;for(auto parent:node->parentPerks)if(parent && parent->GetRecordID()==id)match=true;if(match)trees.push_back(node->nTreeID);}
+    vector<NDb::CRPGPers*> candidates;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while(people.MoveNext()){auto* person=people.Get();if(person->pModel && person->pClass && person->pBaseValue && person->pName && person->pClass->skills[NDb::ST_LEVEL]>0 && !person->pPanzerklein && !person->pDefaultWearsPanzerklein && std::find(trees.begin(),trees.end(),person->pClass->nPerkTreeID)!=trees.end())candidates.push_back(person);}
+    std::sort(candidates.begin(),candidates.end(),[](NDb::CRPGPers* a,NDb::CRPGPers* b){return a->GetRecordID()<b->GetRecordID();});
+    for(auto* person:candidates){CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(person);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();if(!tree || unit->HasPerk(id) || mission->GetTotalVP()<=0)continue;vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==id)return mission;}
+    Require(false,"native RPG fixture lacks an actual untaken authored perk node");return nullptr;
+}
+static void BestShootingPosePerk(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=10,"unknown native best-pose mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    auto mission=NativeMissionWithUntakenPerk(12);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();NDb::CRPGWeapon* record=nullptr;
+    CDBIterator<NDb::CRPGWeapon> rows(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while(rows.MoveNext()){auto* candidate=rows.Get();if(candidate->pItem && candidate->pWeaponType && candidate->pWeaponType->fCrouchBonus>0 && candidate->pWeaponType->fCrawlBonus>candidate->pWeaponType->fCrouchBonus && (!record || candidate->GetRecordID()<record->GetRecordID()))record=candidate;}
+    Require(record,"best-pose fixture lacks an authored weapon with distinct positive stance bonuses");CObj<NRPG::CWeaponItem> weapon=new NRPG::CWeaponItem(record);weapon->nQuantity=1;auto* inventory=unit->GetInventory();CObj<NRPG::IInventoryItem> previous=inventory->TakeOff(NDb::SLOT_1);
+    Require(inventory->Equip(NDb::SLOT_1,weapon) && inventory->Activate(NDb::SLOT_1) && unit->GetWeaponItem()==weapon.GetPtr(),"best-pose fixture could not activate its authored native weapon");
+    if(mode==10){CObj<NRPG::IInventoryItem> first=inventory->TakeOff(NDb::SLOT_1),second=inventory->TakeOff(NDb::SLOT_2);Require(!unit->GetWeaponItem(),"unarmed best-pose control retained an active firearm");}
+    auto* type=record->pWeaponType.GetPtr();
+    const float crouch=type->fCrouchBonus,crawl=type->fCrawlBonus;struct Restore {NDb::CRPGWeaponType* type;float crouch,crawl;~Restore(){type->fCrouchBonus=crouch;type->fCrawlBonus=crawl;}}restore{type,crouch,crawl};
+    const bool acquired=mode==3 || mode==4 || mode==5 || mode==6 || mode==7 || mode==10;NAI::EPose pose=mode<6?(mode%3==0?NAI::WALK:mode%3==1?NAI::CROUCH:NAI::CRAWL):NAI::CROUCH;
+    if(mode==6 || mode==9)type->fCrouchBonus=type->fCrawlBonus=7.f;if(mode==7 || mode==8){type->fCrouchBonus=-2.f;type->fCrawlBonus=-3.f;}
+    const int ap=mission->GetAP(),hp=mission->GetTotalVP(),points=tree->GetPerkPoints();const float xp=unit->fXP;auto random=GlobalGameRandom();
+    if(acquired){tree->AddPerkPoints(1);tree->TakePerk(12);}Require(mission->HasPerk(12)==acquired && tree->GetPerkPoints()==points,"best-pose native perk grant failed or changed its point budget");
+    CObj<NRPG::CTileToHitCalcer> calcer=new NRPG::CTileToHitCalcer;calcer->pUnitMission=mission;calcer->pWeaponItem=mode==10?nullptr:weapon.GetPtr();calcer->eCurPose=pose;
+    float expected=pose==NAI::CROUCH?int(type->fCrouchBonus):pose==NAI::CRAWL?int(type->fCrawlBonus):0;
+    if(acquired)expected=(mode==6 || mode==7 || mode==10)?0:int(crawl);
+    const float actual=calcer->GetStance();std::printf("native best-pose mode=%d acquired=%d weapon=%d pose=%d crouch=%.6g crawl=%.6g bonus=%.6g expected=%.6g\n",mode,int(acquired),record->GetRecordID(),int(pose),type->fCrouchBonus,type->fCrawlBonus,actual,expected);std::fflush(stdout);
+    Require(std::fabs(actual-expected)<1e-6f,"shared stance consumer ignored perk12 or changed the original tie/nonpositive rule");
+    Require(calcer->eCurPose==pose && mission->GetAP()==ap && mission->GetTotalVP()==hp && unit->fXP==xp && random.Get()==GlobalGameRandom().Get(),"best-pose query changed cached pose/AP/HP/XP/RNG");
+}
+
 static void PerfectEngineeringToolEligibility(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=5,"unknown native perfect-engineering mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
@@ -31223,6 +31256,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "best-shooting-pose")) { Require(argc==5,"best pose requires db/resources/mode"); BestShootingPosePerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "perfect-engineering-tool")) { Require(argc==5,"perfect engineering requires db/resources/mode"); PerfectEngineeringToolEligibility(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "first-turn-perk")) { Require(argc==5,"first-turn perk requires db/resources/mode"); FirstTurnPenaltyPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "grenade-unit-first-turn")) { Require(argc==5,"grenade unit-turn requires db/resources/mode"); GrenadeUnitFirstTurnInput(argv[2],argv[3],std::atoi(argv[4])); return true; }
