@@ -472,3 +472,11 @@ deployed actor, authored tree/node23 and native TakePerk; concrete tile calcer
 GetFRMult, first/later/no-perk and restored runtime coefficient1.2 boundary.
 RED2/6->GREEN6/6 each; point budget/AP/HP/XP/time/position/RNG controls.
 Related41Win/41Linux,Game builds,CI323; new6 outside323. No full attack/planner claim.
+
+## Perfect-engineering charged-tool eligibility
+
+NativePerfectEngineeringTool0..5: resource extended Win/Linux,timeout120.
+Actual RPG persona3/perk50 grant/tool1; skill0/required20 and qualification,
+native SpendOneCharge empties with outer stack1. RED1/6->GREEN6/6 each; point
+budget/AP/HP/XP/skill/RNG/charges retained. Direct RPG eligibility API scope,
+not world action/placement. Related28Win/28Linux,Game builds,CI323; new6 outside323.

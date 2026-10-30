@@ -18024,3 +18024,39 @@ perk path; exceptional floating values are not claimed.
 Evidence: first-turn-perk-{retail-oracle,verification}.json/raw logs.
 Game builds, related41Win/41Linux,CI323/323 pass; new6 resource cases outside323.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: perfect-engineering tool eligibility (`037c41d9`, partial)
+
+CToolItem::CanBeUsed honors perk50 for valid unit/tool records, returning true
+only with positive contained charge quantity. The existing ordinary required-
+perk/engineering/charge predicate remains intact. Our existing final charge
+gate already accounts for the source's separate empty-container hunk; the new
+early ability branch repeats that requirement instead of bypassing it.
+No skill threshold, authored tool/perk value, quantity or save tag changes.
+
+NativePerfectEngineeringTool0..5 load the actual DB, create an authored RPG
+persona with native untaken node50 (deterministically person3), and construct
+authored tool1 with its three real charges and a normal outer stack1. They
+grant50 through native perk APIs, vary the owned unit's engineering via SetConst,
+and exhaust empty controls through SpendOneCharge. RED1/6 each: acquired50 at
+skill0/required20 still rejects the charged tool. Five ordinary/qualified/empty
+controls pass before the fix. GREEN6/6: the ability bypass works; empty tools
+remain unusable even with50 and outer stack1; queries retain charges, stack,
+point budget, AP/HP/XP/skill and gameplay RNG. This directly exercises the RPG
+eligibility API, not actual world engineering/disarm action execution. Initial
+broader deployed/spawned fixtures failed initialization and are archived with
+their debugger evidence; none are counted as RED. The final fixture requires
+no AI/world placement and never edits DB records/files.
+
+Gold named CanBeUsed69ab70/400 first checks contained charges, then perk50
+before ordinary required-perk/skill tests. Unique exact28byte charge block
+69ab9d -> Steam6a0c4d has no masks; perk/early-success56byte block69ac0d ->
+6a0cbd masks only decoded HasPerk/object-release call operands. Steam HasPerk
+callee is independently identified via the mission's RTTI vtable slot78 and
+its forwarding thunk. This proves gate order/semantics, not whole400byte ABI
+or object-release implementation equivalence. Required-perk bypass is proved
+by original control flow; the native positive failure isolates the skill gate.
+Evidence: perfect-engineering-{retail-oracle,verification}.json/raw logs.
+Game builds, related28Win/28Linux,CI323/323 pass; new6 resource cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

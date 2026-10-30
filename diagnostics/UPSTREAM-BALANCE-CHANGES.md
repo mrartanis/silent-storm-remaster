@@ -2144,3 +2144,12 @@ fixture coefficient1.2 verifies the original rule preserves values above1 even
 on later turns. That value exists only in the owned test mission and is restored;
 no authored coefficient, skill, damage, perk data or save field is changed.
 Other independent perk/formula changes from037c41d9 remain pending.
+
+### `037c41d9`: perfect-engineering tool ability50
+
+Restores the Gold/Steam exception that lets acquired50 bypass a charged tool's
+ordinary engineering/required-perk gates. A charge is still mandatory; the
+outer tool stack count cannot substitute for a charge. Ordinary eligibility,
+authored thresholds/charges/perk values, AP and actual charge-spending actions
+are unchanged. Native tests isolate the RPG eligibility query and prove skill
+bypass plus empty-container controls; no full engineering action is claimed.

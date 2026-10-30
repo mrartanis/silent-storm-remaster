@@ -14,6 +14,7 @@
 #include "../DBFormat/DataMisc.h"   // NDb::CRPGPicklock (CPicklockItem ctor + the CreateItem cascade)
 #include "../DBFormat/DataPerk.h"
 #include "RPGUnit.h"
+#include "rpgPerkConstants.h"
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NRPG
 {
@@ -600,6 +601,8 @@ bool CToolItem::CanBeUsed( NRPG::CUnit *pUnit ) const
 	ASSERT( IsValid( pUnit ) );
 	if ( IsValid( pTool ) && IsValid( pUnit ) )
 	{
+		if ( pUnit->HasPerk( N_PERK_PERFECT_ENGINEERING ) )
+			return GetIncQuantity() > 0;
 		bool bHasPerk = true;
 		if ( IsValid( pTool->pNeededPerk ) && !pUnit->HasPerk( pTool->pNeededPerk->GetRecordID() ) )
 			bHasPerk = false;

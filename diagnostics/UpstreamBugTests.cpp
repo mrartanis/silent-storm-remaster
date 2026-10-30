@@ -29513,6 +29513,30 @@ static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonA
     return sequence;
 }
 
+static void PerfectEngineeringToolEligibility(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=5,"unknown native perfect-engineering mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    vector<int> trees;CDBIterator<NDb::CDBPerkTreeNode> nodes(*NDatabase::GetTable<NDb::CDBPerkTreeNode>());
+    while(nodes.MoveNext())if(nodes.Get()->pPerk && nodes.Get()->pPerk->GetRecordID()==50)trees.push_back(nodes.Get()->nTreeID);
+    vector<NDb::CRPGPers*> candidates;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while(people.MoveNext()){auto* person=people.Get();if(person->pModel && person->pClass && person->pBaseValue && person->pName && person->pClass->skills[NDb::ST_LEVEL]>0 && !person->pPanzerklein && !person->pDefaultWearsPanzerklein && std::find(trees.begin(),trees.end(),person->pClass->nPerkTreeID)!=trees.end())candidates.push_back(person);}
+    std::sort(candidates.begin(),candidates.end(),[](NDb::CRPGPers* a,NDb::CRPGPers* b){return a->GetRecordID()<b->GetRecordID();});
+    CObj<NRPG::IUnitMission> mission;
+    for(auto* person:candidates){CObj<NRPG::IUnitMission> candidate=NRPG::CreateUnit(person);auto* unit=candidate->GetRPGUnit();auto* tree=unit->GetPerksTree();if(!tree || unit->HasPerk(50) || candidate->GetTotalVP()<=0)continue;vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);bool found=false;for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==50){found=true;break;}if(found){mission=candidate;break;}}
+    Require(mission,"engineering fixture lacks an actual authored RPG unit with untaken perk50");auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();NDb::CRPGTool* record=nullptr;NDb::CRPGTool* fallback=nullptr;
+    CDBIterator<NDb::CRPGTool> rows(*NDatabase::GetTable<NDb::CRPGTool>());
+    while(rows.MoveNext()){auto* tool=rows.Get();if(!tool->pItem || tool->nCharges<=0 || tool->nNeededEngSkill<=0)continue;if(!fallback || tool->GetRecordID()<fallback->GetRecordID())fallback=tool;if((!tool->pNeededPerk || unit->HasPerk(tool->pNeededPerk->GetRecordID())) && (!record || tool->GetRecordID()<record->GetRecordID()))record=tool;}
+    if(!record)record=fallback;Require(record,"engineering fixture lacks a charged authored skill-gated tool");CObj<NRPG::CToolItem> tool=new NRPG::CToolItem(record);tool->nQuantity=1;
+    const bool acquired=mode==1 || mode==2 || mode==5,empty=mode==2 || mode==4,qualified=mode==0 || mode==4 || mode==5;unit->Skills(NDb::ST_ENGINEERING).SetConst(qualified?record->nNeededEngSkill:0);
+    if(empty){const int original=tool->GetIncQuantity();for(int i=0;i<original;++i)tool->SpendOneCharge();Require(tool->GetIncQuantity()==0 && tool->GetQuantity()==1,"empty-tool fixture lost its actual stack or retained charges");}
+    const int ap=mission->GetAP(),hp=mission->GetTotalVP(),points=tree->GetPerkPoints(),charges=tool->GetIncQuantity(),stack=tool->GetQuantity(),skill=unit->Skills(NDb::ST_ENGINEERING);const float xp=unit->fXP;auto random=GlobalGameRandom();
+    if(acquired){tree->AddPerkPoints(1);tree->TakePerk(50);}Require(mission->HasPerk(50)==acquired && tree->GetPerkPoints()==points,"native perfect-engineering grant failed or changed its point budget");
+    const bool ordinaryPerk=!record->pNeededPerk || unit->HasPerk(record->pNeededPerk->GetRecordID());const bool expected=!empty && (acquired || (qualified && ordinaryPerk)),actual=tool->CanBeUsed(unit);
+    std::printf("native perfect-engineering mode=%d acquired=%d person=%d record=%d skill=%d required=%d charges=%d stack=%d usable=%d expected=%d\n",mode,int(acquired),unit->GetPers()->GetRecordID(),record->GetRecordID(),skill,record->nNeededEngSkill,charges,stack,int(actual),int(expected));std::fflush(stdout);
+    Require(actual==expected,"perfect engineering did not bypass the tool skill gate or bypassed its charge gate");
+    Require(mission->GetAP()==ap && mission->GetTotalVP()==hp && unit->fXP==xp && int(unit->Skills(NDb::ST_ENGINEERING))==skill && tool->GetIncQuantity()==charges && tool->GetQuantity()==stack && random.Get()==GlobalGameRandom().Get(),"tool eligibility query spent charges/AP/HP/XP or changed skill/RNG");
+}
+
 static void FirstTurnPenaltyPerk(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=5,"unknown native first-turn perk mode");auto world=FixtureWorld(databasePath,resourcePath,true);
@@ -31199,6 +31223,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "perfect-engineering-tool")) { Require(argc==5,"perfect engineering requires db/resources/mode"); PerfectEngineeringToolEligibility(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "first-turn-perk")) { Require(argc==5,"first-turn perk requires db/resources/mode"); FirstTurnPenaltyPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "grenade-unit-first-turn")) { Require(argc==5,"grenade unit-turn requires db/resources/mode"); GrenadeUnitFirstTurnInput(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "grenade-throw-night")) { Require(argc==5,"grenade night requires db/resources/mode"); GrenadeThrowNightInput(argv[2],argv[3],std::atoi(argv[4])); return true; }
