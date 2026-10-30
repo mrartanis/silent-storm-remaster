@@ -2115,3 +2115,11 @@ existing original light rule. Its0.9 multiplier, night-vision bypass, selected
 weapon and other accuracy formulas remain unchanged. Native tests exercise both
 cover overloads and light evaluation. Live-grenade executor night/per-unit-turn
 inputs remain pending separately.
+
+### `9da280e9`: live grenade night input
+
+The native grenade executor receives the owning mission's night state and uses
+the existing original light rule when deciding scatter. Previously it used day
+accuracy at night. No scatter/velocity/fuse/skill constants or item values are
+changed. The independent world-versus-unit first-turn input remains pending;
+night tests hold that input constant to isolate this correction.

@@ -17924,3 +17924,35 @@ night-preview oracle. Evidence: night-ai-{retail-oracle,verification}.json/rawlo
 Game builds, related53Win/53Linux, CI323/323 pass; new3 resource tests are outside323.
 Only selected live-grenade executor night/per-unit-first-turn inputs remain.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.
+
+## 2026-10-30: actual grenade executor night input (`9da280e9`, partial)
+
+CExecThrowGrenade::CreateToHitCalcer supplies the owning game's night flag to
+the existing calculator used by Run, ThrowGrenade and CheckToHitAndDelay.
+Its world-first-turn argument is deliberately unchanged in this independent fix;
+the original per-unit input remains pending separately. Ballistic solver, skill,
+fuse/scatter formulas, item handling and serialized fields remain unchanged.
+
+NativeGrenadeThrowNight0..2 construct the real executor/calculator. Day control
+passes; night construction and actual scatter-consumer cases fail before the
+fix (RED2/3 each). The latter uses real Run to initialize a valid native trajectory,
+then seeds the gameplay RNG between the day/night thresholds and invokes the
+existing protected CheckToHitAndDelay through a diagnostic subclass. Native
+grenadeParams are observed read-only. Windows example: night81/day90, roll88;
+the old consumer retains its velocity instead of applying the existing scatter.
+GREEN3/3 each verifies night flag/light0.9 and exact expected scattered velocity,
+unchanged query AP/HP/quantity/position/time/RNG and no additional AP/HP/inventory
+cost at the scatter boundary. This is executor/consumer proof, not complete
+projectile flight or damage. The current first-turn input is held identical
+between reference/control to isolate night; unit/world flags may differ.
+Initial calcer-lifetime compilation and turn-alignment fixture failures are
+archived separately and are not counted as RED.
+
+Gold named CheckToHitAndDelay796170/70 maps uniquely to Steam7a1fb0/70 with
+only its two decoded relative calls masked: original GetToHit6af370/Steam6b5480,
+then scatter/fuse helper795950/Steam7a1770. The GetToHit owner-night read and
+RTTI getter meanings were independently verified in the earlier night oracle.
+Evidence: grenade-throw-inputs-retail-oracle.json and grenade-throw-night-
+verification.json/raw logs. Game builds, related31Win/31Linux,CI323/323 pass; new3
+resource tests are outside323. Only selected per-unit-first-turn hunk remains.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.

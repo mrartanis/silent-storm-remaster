@@ -29513,6 +29513,57 @@ static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonA
     return sequence;
 }
 
+class NativeGrenadeInputProbe: public NWorld::CExecThrowGrenade
+{
+public:
+    NativeGrenadeInputProbe(NWorld::CUnitServer* actor,const CVec3& target):NWorld::CExecThrowGrenade(actor,target){}
+    using NWorld::CExecThrowGrenade::CreateToHitCalcer;
+    using NWorld::CExecThrowGrenade::CheckToHitAndDelay;
+};
+static NWorld::SGrenadeParams NativeThrowParameters(NWorld::CExecThrowGrenade* executor)
+{
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(executor,&refs);NWorld::SGrenadeParams params;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(3,&params);}return params;
+}
+static void GrenadeThrowNightInput(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=2,"unknown native grenade throw night mode");NativeGrenadeThrowFixture fixture(databasePath,resourcePath,false,true);
+    auto& world=fixture.world;auto* actor=fixture.actor;auto* mission=actor->GetUnitRPG();const bool night=mode!=0;
+    std::printf("throw night fixture unitFirst=%d worldFirst=%d nightVision=%d\n",int(mission->IsFirstTurn()),int(world->IsFirstTurn()),int(mission->HasPerk(0x15)));
+    Require(!mission->HasPerk(0x15),"grenade night fixture already has night vision");
+    world->GetGame()->SetNight(night);CVec3 target;
+    {CStructureNetworkContext refs;auto fields=BorrowedObjectFields(fixture.executor,&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&target);}
+    CObj<NativeGrenadeInputProbe> probe=new NativeGrenadeInputProbe(actor,target);
+    if(mode<2) {
+        const int ap=actor->GetAP(),hp=mission->GetTotalVP(),quantity=fixture.grenade->GetQuantity();const auto position=actor->GetPosition();const auto time=world->GetTime()->GetValue();auto random=GlobalGameRandom();
+        auto calcer=probe->CreateToHitCalcer(fixture.grenade);const float light=calcer->GetLight();const int chance=calcer->GetToHit();
+        std::printf("native throw night mode=%d ownerNight=%d calcerNight=%d light=%.6g first=%d chance=%d\n",mode,int(night),int(calcer->bNight),light,int(calcer->bFirstRound),chance);std::fflush(stdout);
+        Require(calcer->bNight==night && std::fabs(light-(night?.9f:1.f))<1e-6f,"live grenade executor dropped its owning game's night input");
+        Require(actor->GetAP()==ap && mission->GetTotalVP()==hp && fixture.grenade->GetQuantity()==quantity && actor->GetPosition()==position && world->GetTime()->GetValue()==time && random.Get()==GlobalGameRandom().Get(),"throw accuracy construction changed AP/HP/quantity/position/time/RNG");return;
+    }
+    int expectedChance=-1,legacyChance=-1;
+    for(int distance=1;distance<=30;++distance) {
+        const auto point=actor->GetPosition().GetCP()+CVec3(float(distance)*FP_GRID_STEP,0,.1f);
+        CObj<NativeGrenadeInputProbe> candidate=new NativeGrenadeInputProbe(actor,point);
+        if(candidate->CanDoIt(actor->GetPosition())!=NWorld::UCR_OK || !actor->CanSpendAP(candidate->GetStartAP()))continue;
+        CObj<NRPG::CGrenadeToHitCalcer> correct=new NRPG::CGrenadeToHitCalcer(actor,actor->GetPose(),distance,actor->GetPosition().GetCP(),world->IsFirstTurn(),true,CVec3(1,1,1),point,fixture.grenade);
+        CObj<NRPG::CGrenadeToHitCalcer> old=new NRPG::CGrenadeToHitCalcer(actor,actor->GetPose(),distance,actor->GetPosition().GetCP(),world->IsFirstTurn(),false,CVec3(1,1,1),point,fixture.grenade);
+        const int a=correct->GetToHit(),b=old->GetToHit();if(a>=b || a<=2 || b>=100)continue;
+        probe=candidate;target=point;expectedChance=a;legacyChance=b;break;
+    }
+    Require(expectedChance>=0,"throw night fixture lacks an observable valid native trajectory");
+    probe->Run();Require(probe->IsExecuting(),"night throw did not enter the actual native executor");
+    const auto before=NativeThrowParameters(probe);const int ap=actor->GetAP(),hp=mission->GetTotalVP(),quantity=fixture.grenade->GetQuantity();
+    int seed=0,roll=0;CRandomGenerator reference;
+    for(seed=1;seed<1000;++seed){reference.SeedForHarness(seed);roll=reference.Get(100);if(roll>expectedChance && roll<=legacyChance)break;}
+    Require(seed<1000,"throw night fixture cannot distinguish scatter thresholds");CVec3 expected=before.vel;const float spread=.2f*fabs(expected);
+    expected.x+=reference.GetFloat(-spread,spread);expected.y+=reference.GetFloat(-spread,spread);expected.z+=reference.GetFloat(-spread,spread);
+    GlobalGameRandom().SeedForHarness(seed);probe->CheckToHitAndDelay(fixture.grenade);const auto after=NativeThrowParameters(probe);const float error=fabs2(after.vel-expected);
+    std::printf("native throw night scatter expectedChance=%d legacyChance=%d seed=%d roll=%d velocityError=%.7g difference=%.7g\n",expectedChance,legacyChance,seed,roll,error,fabs2(after.vel-before.vel));std::fflush(stdout);
+    Require(error<1e-6f,"actual grenade scatter consumer used daytime chance in a night mission");
+    Require(actor->GetAP()==ap && mission->GetTotalVP()==hp && fixture.grenade->GetQuantity()==quantity && after.ptStart==before.ptStart,"night scatter consumed additional AP/HP/inventory or changed the native launch origin");probe->Cancel();
+}
+
 static void NightAIConstructorInputs(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=2,"unknown native AI night mode");auto world=FixtureWorld(databasePath,resourcePath,false);
@@ -31089,6 +31140,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "grenade-throw-night")) { Require(argc==5,"grenade night requires db/resources/mode"); GrenadeThrowNightInput(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "night-ai-inputs")) { Require(argc==5,"AI night requires db/resources/mode"); NightAIConstructorInputs(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "night-preview-inputs")) { Require(argc==5,"night preview requires db/resources/mode"); NightPreviewInputs(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "script-grenade-chance")) { Require(argc==5,"script grenade chance requires db/resources/mode"); ScriptGrenadeExplicitChance(argv[2],argv[3],std::atoi(argv[4])); return true; }

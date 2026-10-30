@@ -449,3 +449,10 @@ NativeNightAIInputs0..2: resource extended Win/Linux,timeout120. Actual actor/AI
 wrappers, integer/float cover constructors and GetLight/GetToHit; day control.
 RED2/3->GREEN3/3 each, AP/HP/position/time/RNG retained. Related53Win/53Linux,
 Game builds,CI323; new3 outside323. No full planner/attack simulation claim.
+
+## Grenade executor night input and native scatter
+
+NativeGrenadeThrowNight0..2: resource extended Win/Linux,timeout120. Native
+factory/day control plus real Run trajectory/seeded CheckToHitAndDelay consumer
+through a diagnostic subclass, read-only grenadeParams. RED2/3->GREEN3/3 each.
+No complete flight/damage claim. Related31Win/31Linux, Game builds,CI323; new3 outside323.
