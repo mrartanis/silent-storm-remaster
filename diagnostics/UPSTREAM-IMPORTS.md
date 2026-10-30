@@ -17360,3 +17360,35 @@ object-attack-world-verification.json и raw logs. Первая попытка p
 применённому diff. Баланс/RNG/DB/HD/шрифты/мимика/wire сохранены.
 Все hunks wOSBase.cpp завершены; остаются iLogPanel.cpp,wMain.cpp,wUnitStates.cpp.
 Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.
+
+## `4949f285`: разрешённые команды носильщика
+
+Добавлены UsePassage,Teleport,PlayAnimation,Talk в allow-list состояния переноса
+тела. NotHeroWantsToTalk направляется в тот же существующий native factory
+(прежде отдельная ветка создавала эквивалентный executor). Сохраняются собственные
+валидация, очереди, коды результата и анимация тела/лиц, а не копируется ABI.
+Original Gold7bdf40/679 и Steam7c9630 найдены через RTTI primary table slot4.
+Exact240byte block содержит8typed RTTI casts и общий success join; маскированы
+только16 проверенных RTTI immediates и8 decoded cast rel32. Оригинал зовёт
+CUnitState::CreateExecutor wrapper7bd6d0; в нашем дереве base абстрактный,
+использован уже существующий NWorld::CreateExecutor.
+
+Native RED4/8 each: passage/talk получают UNAVAILABLE до штатной target validation;
+teleport/custom animation не получают executor. Path/Look/NotHero и Hide-ban
+контроли проходят до фикса. GREEN8/8 each: настоящий pickup/label handoff,
+совпадение executor type/result с native factory; teleport в ту же точку и
+script4437 выполняются/завершаются с сохранением carrying state и attachment.
+Проверены AP/HP/позиция/death и отдельные facial-head object identities обеих
+единиц; полноценный facial render не заявлен. Passage/Talk случаи проверяют
+именно forwarding до штатного отказа target validation, не успешный переход
+между зонами/полный диалог. Их существующие обработчики не менялись.
+
+Полные Game builds,related48 Windows/47 Linux и CI323/323 успешны. Новые8
+ресурсных extended случаев вне323. Два прежних дерева,без HD generation.
+Файл wUnitStates.cpp исходно LF/CP1251, сохранён; остальные изменённые sources
+CRLF. Первая guarded patch попытка предполагала CRLF и прервалась без записи;
+неприменённый Linux green запуск сохранён отдельно. Свидетельства
+carrier-admission-red-verification.json,carrier-admission-retail-oracle.json,
+carrier-admission-verification.json. Все hunks wUnitStates.cpp завершены;
+остаются iLogPanel.cpp,wMain.cpp.
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.

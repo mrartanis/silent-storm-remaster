@@ -305,3 +305,11 @@ NativeObjectAttackWorld8..11 — ресурсные extended случаи Window
 null/foreign/own context и no-stage-change. RED2/4 -> GREEN4/4 each;
 реальные RPG damage/clock/action tracker проверки. Related49/49 each и
 asset-free CI323/323 проходят;4 новых случая вне323.
+
+## Команды носильщика тела
+
+NativeCarrierAdmission0..7: extended resource tests Windows/Linux, timeout120.
+Четыре новых forwarding случая и4контроля; actual corpse handoff, nativefactory
+parity, positive teleport/custom body animation завершение, сохранность carried
+state/AP/HP/head identities. RED4/8 ->GREEN8/8 each,related48Win/47Linux,CI323.
+Passage/Talk проверяют прохождение к штатной ошибке цели; новые8 внеasset-free323.

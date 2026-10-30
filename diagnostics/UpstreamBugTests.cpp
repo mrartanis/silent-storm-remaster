@@ -29419,6 +29419,62 @@ static void CorpseNullTaker(const char* databasePath,const char* resourcePath,in
     std::printf("native corpse BeTaken mode=%d carrierOK=1 carried=%d sameAnimation=%d head/AP/health/positions=unchanged\n",mode,int(body->animator.bIsCarried),int(after==active.GetPtr()));std::fflush(stdout);
 }
 
+static void CorpseCarrierAdmission(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=7,"unknown carrier admission mode");
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);
+    vector<NWorld::CUnitServer*> ordinary;
+    for(auto entry:units) {
+        auto* unit=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if(unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK())ordinary.push_back(unit);
+        if(ordinary.size()==2)break;
+    }
+    Require(ordinary.size()==2,"carrier admission needs two ordinary native actors");
+    auto* actor=ordinary[0];auto* body=ordinary[1];
+    body->GetUnitRPG()->GetRPGUnit()->Kill();body->SetState(new NWorld::CUnitStateDeath(body));
+    CObj<NWorld::CExecCorpse> pickup=new NWorld::CExecCorpse(actor,body,true);
+    pickup->Run();pickup->TimeLabelReached();
+    auto state=ReadCorpseCancelUnitState(actor);
+    Require(dynamic_cast<NWorld::CUnitStateCorpseCarrier*>(state.GetPtr()) && actor->GetCorpse()==body && body->GetCorpseCarrier()==actor,
+        "carrier admission failed to establish actual reciprocal carrying");
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();
+    const auto place=actor->GetPosition();
+    auto* actorHead=actor->GetUnitRPG()->GetRPGUnit()->GetHeadInfo();auto* bodyHead=body->GetUnitRPG()->GetRPGUnit()->GetHeadInfo();
+    CObj<NWorld::CCmd> command;
+    switch(mode) {
+        case 0:command=new NWorld::CCmdUsePassage(nullptr);break;
+        case 1:{auto position=place;command=new NWorld::CCmdTeleport(position);break;}
+        case 2:command=new NWorld::CCmdPlayAnimation(4437,false);break;
+        case 3:command=new NWorld::CCmdTalk(body);break;
+        case 4:command=new NWorld::CCmdNotHeroWantsToTalk;break;
+        case 5:command=new NWorld::CCmdPath(place.pos);break;
+        case 6:command=new NWorld::CCmdLook(place.pos);break;
+        case 7:command=new NWorld::CCmdHide(true);break;
+    }
+    NWorld::EUnitCommandResult expectedResult=NWorld::UCR_OK,actualResult=NWorld::UCR_OK;
+    CObj<NWorld::CCommandExecute> expected;
+    if(mode!=7)expected=NWorld::CreateExecutor(actor,command,&expectedResult);
+    CObj<NWorld::CCommandExecute> actual=state->CreateExecutor(command,&actualResult);
+    std::printf("carrier admission mode=%d expected=%d/%d actual=%d/%d\n",mode,int(IsValid(expected)),int(expectedResult),int(IsValid(actual)),int(actualResult));std::fflush(stdout);
+    if(mode==7)Require(!actual && actualResult==NWorld::UCR_UNAVAILABLE,"carrier admitted an unrelated Hide order");
+    else {
+        Require(actualResult==expectedResult && IsValid(actual)==IsValid(expected),"carrier rejected a command before its normal dispatch validation");
+        if(actual)Require(typeid(*actual)==typeid(*expected),"carrier chose a different executor for an admitted command");
+    }
+    if(mode==1 || mode==2) {
+        Require(IsValid(actual),"scripted carrier command lacks its native executor");
+        actual->Run();
+        if(mode==2)actual->AnimationFinished();
+        Require(actual->GetState()==NWorld::CCommandExecute::FINISHED,"scripted carrier command did not finish");
+    }
+    Require(ReadCorpseCancelUnitState(actor).GetPtr()==state.GetPtr() && actor->GetCorpse()==body && body->GetCorpseCarrier()==actor && body->animator.bIsCarried,
+        "admitted carrier command detached the body or replaced its carrying state");
+    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetPosition()==place && body->IsDead() &&
+        actor->GetUnitRPG()->GetRPGUnit()->GetHeadInfo()==actorHead && body->GetUnitRPG()->GetRPGUnit()->GetHeadInfo()==bodyHead,
+        "carrier admission changed AP/health/position/death/facial-head identity");
+}
+
 struct ObjectStageAudio: NWorld::ISoundVisitor
 {
     vector<NDb::CSound*> sounds;
@@ -30299,6 +30355,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "carrier-admission")) { Require(argc==5,"carrier admission requires db/resources/mode"); CorpseCarrierAdmission(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "object-sound-stage")) { Require(argc==5,"object sound stage requires db/resources/mode"); ObjectSoundStage(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "corpse-null-taker")) { Require(argc==5,"corpse null taker requires db/resources/mode"); CorpseNullTaker(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "corpse-cancel-state")) { Require(argc == 5, "corpse cancellation requires db, resources and mode"); CorpseCancelState(argv[2],argv[3],std::atoi(argv[4])); return true; }
