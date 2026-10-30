@@ -18341,3 +18341,36 @@ costs-crouch-{retail-oracle,verification}.json/raw logs and complete original
 disassemblies. Game builds, related180Win/180Linux, CI323 pass; new16 outside323.
 Other independent037c41d9 hunks remain pending.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: crouch-costs-walk ability35 (`037c41d9`, partial)
+
+Acquired35 recursively queries WALK cost for pose-dependent CROUCH actions,
+after the34 hook and before the PK guard. Earlier pose-independent actions
+retain precedence. No actual pose or authored AP record changes.
+
+NativeCrouchCostsWalk0..15 use actual authored person2, native TakePerk35 and
+actual worn PK suit1/add4/positive shell health. RED6/16 each -> GREEN16/16:
+four body crouch movement/corpse costs6/9/9/13 become4/6/6/9; worn crouch side/
+corpse-diagonal become8/18 rather than the unsupported fallback1. Ten no35,
+prone/walk/run, early-action and PK controls pass before the fix. AP/HP/shell
+health, XP, points, equipment and RNG stay fixed. Direct cost-query scope.
+
+An initial joint34/35 fixture found no authored owner and was discarded as
+setup failure, not RED. Native DB inventory explains why: node121/perk35 is
+tree5 (classes1/11), whereas node141/perk34 is tree6. The final fixture uses
+the real tree5 owner and never merges/mutates trees. Optional companion-helper
+changes and debug instrumentation were removed. Both production hooks retain
+original recursive composition by code, but no vanilla combined-learning or
+native joint34/35 execution claim is made. Evidence includes authored-fixture-
+audit.json and archived setup/inventory logs.
+
+Gold Has35 block14bytes6bb6e2 -> Steam6c16d9 maps uniquely/exactly. Both check
+pose1 then HasPerk35/slot78. Gold6bb6f2 directly calls same mission AP/slot0
+with pose2/same action/null optional item; Steam6c16e9 pushes those inputs and
+branches to shared call tail6c1643. Registers/control sharing are decoded
+independently; no whole3724byte/ABI identity claim. The call precedes the PK
+guard, as the actual worn-PK positive cases prove. Evidence: crouch-costs-walk-
+{retail-oracle,verification}.json/raw logs. Game builds, related196Win/196Linux,
+CI323 pass; new16 outside323. Corpse42 and other037c hunks remain pending;
+2f5a3c75 remains partial until corpse42 ordering is accounted for.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

@@ -559,3 +559,12 @@ Take34, four movement costs, ordinary/other-pose/early-action and actual PK
 controls;35/42 untaken. RED4/16 -> GREEN16/16 each; AP/HP/shell/XP/points/
 equipment/RNG stable. Related180Win/180Linux, Game builds, CI323. New16 outside323;
 cost-query scope. Joint34/35 awaits35.
+
+## Crouch costs walk35
+
+NativeCrouchCostsWalk0..15: resource extended Win/Linux,timeout120. Actual
+person2/tree5 native Take35, four body movement costs, worn PK and early-action
+controls. RED6/16 -> GREEN16/16 each; AP/HP/shell/XP/points/equipment/RNG stable.
+Native inventory shows34/tree6 separate, so failed mixed-owner setup is archived
+and no synthetic joint tree is used. Related196Win/196Linux, Game builds, CI323.
+New16 outside323; direct AP-query scope, no native joint34/35 claim.

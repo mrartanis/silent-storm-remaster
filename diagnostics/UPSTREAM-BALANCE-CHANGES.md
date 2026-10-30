@@ -2242,3 +2242,14 @@ CRAWL queries. Ordinary side/diagonal/corpse-side/corpse-diagonal costs change
 costs. The recursion precedes the worn-PK unsupported-pose guard. Native tests
 preserve PK fallback1 and valid suit movement costs. Actual pose, AP spending,
 authored records and movement/animation execution are unchanged by the query.
+
+### `037c41d9`: crouch-costs-walk ability35
+
+Restores the acquired flag's original WALK cost for pose-dependent CROUCH
+queries: body side/diagonal/corpse-side/corpse-diagonal6/9/9/13 become4/6/6/9.
+Original recursion runs before the PK guard, so worn-PK crouch side/corpse-
+diagonal queries with authored suit1/add4 become8/18 rather than fallback1.
+Native tests confirm this order. Actual pose and AP spending are unchanged
+by the query. The original DB assigns34 and35 to different trees; their generic
+recursive composition is retained by code without claiming vanilla joint
+learning or a native combined-owner test.
