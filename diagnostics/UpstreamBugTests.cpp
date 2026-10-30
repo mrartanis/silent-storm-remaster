@@ -29523,6 +29523,24 @@ static CObj<NRPG::IUnitMission> NativeMissionWithUntakenPerk(int id)
     for(auto* person:candidates){CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(person);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();if(!tree || unit->HasPerk(id) || mission->GetTotalVP()<=0)continue;vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==id)return mission;}
     Require(false,"native RPG fixture lacks an actual untaken authored perk node");return nullptr;
 }
+static void ZeroingBonusPerk(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=14,"unknown native zeroing mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    auto mission=NativeMissionWithUntakenPerk(85);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();auto* record=NDb::GetDBPerk(85);Require(record && !record->params.empty(),"zeroing fixture lacks authored Param1");
+    const float authored=record->params[0];struct Restore {NDb::CDBPerk* record;float value;~Restore(){record->params[0]=value;}}restore{record,authored};
+    const int cap=mission->GetToHitConstants()->nMaxShotsRepeat;Require(cap>=3 && authored>0,"zeroing fixture lacks positive original repeat cap/bonus");
+    bool acquired=mode>=4 && mode!=11;int repeats=(mode==1 || mode==5 || mode==9 || mode==10 || mode==11 || mode==13 || mode==14)?2:(mode==2 || mode==6)?cap:(mode==3 || mode==7)?cap+2:0;
+    if(mode==8 || mode==9)record->params[0]=1.75f;if(mode==10 || mode==11 || mode==12)record->params[0]=-.75f;if(mode==13)record->params[0]=-3.5f;if(mode==14)record->params[0]=0;
+    mission->RegisterAction(NRPG::AC_OPEN_CLOSE);for(int i=0;i<repeats;++i)mission->RegisterAction(NRPG::AC_END_SHOOT);Require(mission->GetLastActionTimes()==repeats,"native repeat setup did not register completed shots");
+    const int ap=mission->GetAP(),hp=mission->GetTotalVP(),points=tree->GetPerkPoints();const float xp=unit->fXP;auto random=GlobalGameRandom();
+    if(acquired){tree->AddPerkPoints(1);tree->TakePerk(85);}Require(mission->HasPerk(85)==acquired && tree->GetPerkPoints()==points,"zeroing native grant failed or changed its point budget");
+    CObj<NRPG::CTileToHitCalcer> calcer=new NRPG::CTileToHitCalcer;calcer->pUnitMission=mission;
+    const int adjusted=acquired?int(double(repeats)+record->params[0]):repeats;const float expected=(std::min)(adjusted,cap)*2,actual=calcer->GetRS();
+    std::printf("native zeroing mode=%d acquired=%d repeats=%d cap=%d param=%.6g bonus=%.6g expected=%.6g\n",mode,int(acquired),repeats,cap,record->params[0],actual,expected);std::fflush(stdout);
+    Require(actual==expected,"shared repeated-shot consumer ignored perk85 or changed truncation/cap order");
+    Require(mission->GetLastActionTimes()==repeats && mission->GetAP()==ap && mission->GetTotalVP()==hp && unit->fXP==xp && random.Get()==GlobalGameRandom().Get(),"zeroing query changed repeat count/AP/HP/XP/RNG");
+}
+
 static void BestShootingPosePerk(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=10,"unknown native best-pose mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
@@ -31256,6 +31274,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "zeroing-bonus")) { Require(argc==5,"zeroing bonus requires db/resources/mode"); ZeroingBonusPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "best-shooting-pose")) { Require(argc==5,"best pose requires db/resources/mode"); BestShootingPosePerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "perfect-engineering-tool")) { Require(argc==5,"perfect engineering requires db/resources/mode"); PerfectEngineeringToolEligibility(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "first-turn-perk")) { Require(argc==5,"first-turn perk requires db/resources/mode"); FirstTurnPenaltyPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }

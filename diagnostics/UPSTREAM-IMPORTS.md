@@ -18090,3 +18090,30 @@ bonus selection. Evidence: best-shooting-pose-{retail-oracle,verification}.json
 and raw logs. Game builds, related58Win/58Linux, CI323 pass; new11 cases outside323.
 Other independent037c41d9 hunks remain pending.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: repeated-shot zeroing ability85 (`037c41d9`, partial)
+
+CToHitCalcer::GetRS now adds acquired85 Param1 to the native completed-shot
+repeat count, truncates the sum toward zero, then applies the existing signed
+repeat cap and doubles it. Without85 the previous behavior is retained. No
+repeat-state mutation, authored values, lower clamp or save-tag changes.
+
+NativeZeroingBonus0..14 use an actual authored RPG persona with untaken85,
+native TakePerk and RegisterAction(AC_END_SHOOT) counters plus concrete tile-
+calcer GetRS. Authored cap5/bonus2, no-perk/zero/two/cap/above-cap controls,
+temporary Param1=1.75,-.75,-3.5,0 isolate truncation before cap and absence of
+an invented lower clamp. Parameters are restored and no DB files change.
+RED6/15 each -> GREEN15/15; nine controls pass before the fix. Queries preserve
+native repeats, perk point budget, AP/HP/XP and gameplay RNG. Scope is the
+actual repeated-shot accuracy consumer, not a complete firing action.
+
+Gold named GetRS6b0c80/122 maps uniquely and byte-exactly, without masks, to
+Steam6b6dc0. It uses HasPerk literal85 and truncating x87 sum, then signed Min
+and double. Mission secondary-vtable slotsf0/dc independently map native
+GetLastActionTimes/GetToHitConstants: getter bytes are identical on both
+builds and typed mission offsets5c/94 minus interface4c match +10/+48.
+Typed SToHitConstants::nMaxShotsRepeat is offset0. No exceptional-float or
+overflow claim. Evidence: zeroing-{retail-oracle,verification}.json/raw logs.
+Game builds, related73Win/73Linux, CI323 pass; new15 cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

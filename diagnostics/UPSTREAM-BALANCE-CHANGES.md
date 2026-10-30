@@ -2162,3 +2162,12 @@ Gold/Steam strict-comparison quirk: equal positive bonuses and two nonpositive
 bonuses both choose ordinary WALK and contribute zero. Ordinary stance bonuses,
 integer truncation, weapon data and AP remain unchanged. Native tests cover the
 stance calculation; no whole-shot or animation parity claim.
+
+### `037c41d9`: zeroing bonus85
+
+Restores the acquired ability's Param1 addition to the number of completed
+repeated shots for accuracy. The original sequence truncates the sum toward
+zero, caps it by nMaxShotsRepeat, then doubles it. Keeps the original signed
+behavior without adding a lower clamp. Authored bonus2/cap5 and ordinary
+no-ability behavior remain unchanged. Native tests isolate this consumer;
+exceptional floating values, overflow and whole-shot parity are unclaimed.

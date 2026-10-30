@@ -294,7 +294,11 @@ float CToHitCalcer::GetD2()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float CToHitCalcer::GetRS()
 {
-	return Min( pUnitMission->GetLastActionTimes(), pUnitMission->GetToHitConstants()->nMaxShotsRepeat ) * 2;
+	int nRepeats = pUnitMission->GetLastActionTimes();
+	float fParam;
+	if ( pUnitMission->HasPerk( N_PERK_ZEROING_BONUS, &fParam ) )
+		nRepeats = int( nRepeats + double( fParam ) );
+	return Min( nRepeats, pUnitMission->GetToHitConstants()->nMaxShotsRepeat ) * 2;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float CToHitCalcer::GetSMove()

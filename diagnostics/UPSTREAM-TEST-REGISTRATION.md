@@ -488,3 +488,11 @@ authored persona/perk grant, active weapon1, concrete tile stance consumer.
 Actual three poses, tie/nonpositive variations, ordinary and unarmed controls.
 RED4/11 -> GREEN11/11 each; point/AP/HP/XP/RNG and cached pose stable. Isolated
 stance query scope. Related58Win/58Linux, full Game builds, CI323; new11 outside323.
+
+## Zeroing bonus85 repeated-shot consumer
+
+NativeZeroingBonus0..14: resource extended Win/Linux,timeout120. Actual RPG
+persona/grant85, native completed-shot counters and tile-calcer GetRS. Authored
+bonus2/cap5, cap/above-cap and fractional/negative/zero parameter controls.
+RED6/15 -> GREEN15/15 each; no repeat/AP/HP/XP/RNG/point mutations. Related
+73Win/73Linux, Game builds, CI323. New15 cases outside323; no whole-shot claim.
