@@ -74,8 +74,7 @@ class CVisionTracker : public IVisionTracker
 		CVisionHash visionCache;
 	CArray3D<CObj<CVisionCube> > grid;
 	CPtr<NAI::IAIMap> pAIMap;
-	// release save-format tags 5/6/7: grass-height grid + per-point vision cache + vision koef
-	// (dead-in-dev; behavior deferred). CVisionHash/CArray2D default-construct empty.
+	// Release save-format tags 5/6/7: grass-height grid, per-point cache and vision multiplier.
 	CArray2D<char> grassHeight;
 	CVisionHash pointVisionCache;
 	float fVisionKoef = 1.0f;
@@ -593,8 +592,7 @@ bool CVisionTracker::UpdateVision( float fTime )
 //    dot2d / (|dif2d||fwd2d|) >= cosHalfFOV, epsilon 1e-5 (@0x2c8040 const 0x3727c5ac).
 //  * range: effective = min( sqrt( h^2 + (2h + range)^2 ) * koef, 2 * koef * range ), h = |dz|
 //    (NRPG::GetSightDistance @0x2c7f50 -- looking up/down stretches the nominal range, capped at 2x).
-//  * the retail per-query pointVisionCache is omitted (this leaf only serves the AI cover planner;
-//    the hot per-segment visibility stays on IsCubeVisible's cache).
+//  * accepted queries use a separate point cache.
 bool CVisionTracker::IsPointVisible( const CVec3 &ptFrom, const CVec3 &ptTarget, const CVec3 &ptForward,
 	float fRange, float fCosHalfFOV )
 {
@@ -614,9 +612,21 @@ bool CVisionTracker::IsPointVisible( const CVec3 &ptFrom, const CVec3 &ptTarget,
 	float fEff = ( fEff2 <= fCap * fCap ) ? sqrtf( fEff2 ) : fCap;
 	if ( sqrtf( du * du + dv * dv + dq * dq ) >= fEff )
 		return false;
+	SVisionQuery q;
+	q.vFrom = ptFrom;
+	q.vWhat = ptTarget;
+	q.fRange = fEff;
+	q.fCosFOV = fCosHalfFOV;
+	CVisionHash::iterator i = pointVisionCache.find( q );
+	if ( i != pointVisionCache.end() )
+		return i->second;
 	// ONE voxel ray: distance = the ACTUAL point separation, budget denominator = the EFFECTIVE
 	// sight distance (retail @0x2c9440: IsVisible(from, to, |to-from|, query.fSightDistance)).
-	return IsVisible( ptFrom, ptTarget, sqrtf( du * du + dv * dv + dq * dq ), fEff );
+	bool bRes = IsVisible( ptFrom, ptTarget, sqrtf( du * du + dv * dv + dq * dq ), fEff );
+	if ( pointVisionCache.size() > 15000 )
+		pointVisionCache.clear();
+	pointVisionCache[q] = bRes;
+	return bRes;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 IVisionTracker* CreateVisionTracker( NAI::IAIMap *pAIMap, const STerrainInfo &terrainInfo )

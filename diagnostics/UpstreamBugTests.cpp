@@ -75,6 +75,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include <tuple>
 #include "../Main/aiMap.h"
 #include "../Main/RPGVision.h"
+#include "../Main/RPGVisionQuery.h"
 #include "../Main/TerrainInfo.h"
 #include "../Main/aiVoxelRender.h"
 #include "../Main/aiMovesCalcer.h"
@@ -14762,6 +14763,129 @@ static void RestoreBuildingHulls(const char* databasePath, const char* resourceP
     Require(!world->IsAction(), "cache-only building restoration started simulation");
 }
 
+using PointVisionCache = unordered_map<NRPG::SVisionQuery, bool, NRPG::SVisionQueryHash>;
+static PointVisionCache PointVisionEntries(NRPG::IVisionTracker* vision)
+{
+    CStructureNetworkContext refs;
+    auto fields = BorrowedObjectFields(vision, &refs);
+    PointVisionCache entries;
+    { CStructureSaver reader(fields, CStructureSaver::READ, &refs); reader.Add(6, &entries); }
+    return entries;
+}
+
+static void PointVisionCaching(int mode, const char* databasePath, const char* resourcePath)
+{
+    Require(mode >= 0 && mode <= 2, "unknown point vision cache mode");
+    if (mode < 2) {
+        CObj<NRPG::IVisionTracker> vision = dynamic_cast<NRPG::IVisionTracker*>(pSSClasses->CreateObject(0x00413190));
+        Require(vision, "native vision tracker class is not registered");
+        const CVec3 from(1,1,100), to(2,1,100), forward(1,0,0);
+        if (mode == 0) {
+            Require(vision->IsPointVisible(from,to,forward,10,.5f), "empty-grid point ray unexpectedly blocked");
+            auto entries = PointVisionEntries(vision);
+            std::printf("native point cache accepted ray: entries=%zu expected=1\n",entries.size()); std::fflush(stdout);
+            NRPG::SVisionQuery query; query.vFrom=from; query.vWhat=to; query.fRange=10; query.fCosFOV=.5f;
+            Require(entries.size()==1 && entries.count(query)==1 && entries.at(query), "accepted point ray was not retained with its full query key");
+            Require(vision->IsPointVisible(from,to,CVec3(2,0,0),10,.5f) && PointVisionEntries(vision).size()==1,
+                "an equivalent accepted direction changed the cached result or query identity");
+            Require(!vision->IsPointVisible(from,to,CVec3(-1,0,0),10,.5f) && PointVisionEntries(vision).size()==1,
+                "a cached visible point bypassed the caller's current FOV gate");
+            Require(!vision->IsPointVisible(from,to,forward,1,.5f) && PointVisionEntries(vision).size()==1,
+                "an equal-range rejected point changed the cache");
+            Require(vision->IsPointVisible(from,CVec3(3,1,100),forward,10,.5f), "second empty-grid point ray unexpectedly blocked");
+            Require(vision->IsPointVisible(from,to,forward,20,.5f), "changed-range point ray unexpectedly blocked");
+            Require(vision->IsPointVisible(from,to,forward,10,.75f), "changed-FOV point ray unexpectedly blocked");
+            Require(PointVisionEntries(vision).size()==4, "target, effective range or FOV was omitted from cache identity");
+            vision->SetVisionMultiplier(1.5f);
+            Require(PointVisionEntries(vision).size()==4, "unchanged capped vision multiplier discarded cached points");
+            vision->SetVisionMultiplier(.5f);
+            Require(PointVisionEntries(vision).empty(), "changed vision multiplier left stale point queries");
+            Require(vision->IsPointVisible(from,to,forward,10,.5f), "scaled empty-grid point ray unexpectedly blocked");
+            query.fRange=5;
+            entries=PointVisionEntries(vision);
+            Require(entries.size()==1 && entries.count(query)==1 && entries.at(query), "scaled query did not use the effective sight distance");
+            // Full ordinary graph -> a NEW tracker; never restore borrowed fields into a live object.
+            CMemoryStream snapshot;
+            { CStructureSaver writer(snapshot,CStructureSaver::WRITE); writer.Add(1,&vision); }
+            snapshot.Seek(0);
+            CObj<NRPG::IVisionTracker> loaded;
+            { CStructureSaver reader(snapshot,CStructureSaver::READ); reader.Add(1,&loaded); }
+            Require(loaded && loaded.GetPtr()!=vision.GetPtr(), "point cache save did not create an independent native tracker");
+            const auto restored=PointVisionEntries(loaded);
+            Require(restored.size()==1 && restored.count(query)==1 && restored.at(query), "ordinary save lost the populated point cache or effective range");
+            Require(loaded->IsPointVisible(from,to,forward,10,.5f) && PointVisionEntries(loaded).size()==1,
+                "restored point cache changed its visible result or query identity");
+            loaded->SetVisionMultiplier(.25f);
+            Require(PointVisionEntries(loaded).empty() && PointVisionEntries(vision).size()==1,
+                "restored tracker did not invalidate its own independent cache");
+        } else {
+            auto query=[&](int index) {return vision->IsPointVisible(from,CVec3(2.f+index*.00001f,1,100),forward,10,.5f);};
+            for (int i=0;i<15000;++i) Require(query(i), "bounded-cache empty-grid ray unexpectedly blocked");
+            auto entries=PointVisionEntries(vision);
+            std::printf("native point cache 15000 distinct rays: entries=%zu expected=15000\n",entries.size()); std::fflush(stdout);
+            Require(entries.size()==15000, "distinct accepted point queries were not retained");
+            Require(query(15000) && PointVisionEntries(vision).size()==15001, "point cache cleared before the original strict threshold");
+            Require(query(15001) && PointVisionEntries(vision).size()==1, "point cache did not clear and retain the new result after its size exceeded 15000");
+            Require(query(0) && PointVisionEntries(vision).size()==2, "a query discarded by the cache limit was not recomputed");
+        }
+        return;
+    }
+    Require(databasePath && resourcePath, "point cache geometry test requires assets");
+    auto world=FixtureWorld(databasePath,resourcePath,false,nullptr,4517);
+    auto* map=world->GetAIMap(); map->Sync();
+    auto* vision=world->GetGame()->GetVisionTracker();
+    struct Ray {CVec3 from,to,forward;};
+    NWorld::CWindowDoor* selected=nullptr; Ray selectedRay; bool originalOpen=false;
+    bool originalLocked=false; int originalKey=0,originalHardness=0,candidates=0;
+    for (const auto& object:world->GetObjectsForHarness()) {
+        auto* door=dynamic_cast<NWorld::CWindowDoor*>(object.GetPtr());
+        CVec3 closed,opened;
+        if (!door || door->IsBroken() || door->IsMineSet() || !map->GetWindowPos(door,&closed,&opened)) continue;
+        const bool initialOpen=door->IsOpen(),initialLocked=door->IsLockedDoor();
+        const int initialKey=door->GetKeyID(),initialHardness=door->GetLockHardness();
+        door->LockDoor(false,0,0); ++candidates;
+        vector<Ray> rays;
+        for (float height:{-.5f,0.f,.5f}) for (int angle=0;angle<16;++angle) {
+            const float radians=angle*6.28318530718f/16;
+            const CVec3 delta(std::cos(radians),std::sin(radians),0), center=closed+CVec3(0,0,height);
+            rays.push_back({center-delta*.8f,center+delta*.8f,delta});
+        }
+        door->OpenClose(false,true); map->Sync();
+        vector<bool> blocked;
+        for (const auto& ray:rays) blocked.push_back(!vision->IsPointVisible(ray.from,ray.to,ray.forward,10,-1));
+        door->OpenClose(true,true); map->Sync();
+        if(candidates<=4){std::printf("point cache door candidate=%d record=%d closedPos=%g,%g,%g blocked=%d/48\n",candidates,door->GetDBObjectID(),double(closed.x),double(closed.y),double(closed.z),int(std::count(blocked.begin(),blocked.end(),true)));std::fflush(stdout);}
+        for (std::size_t i=0;i<rays.size();++i) {
+            const auto& ray=rays[i];
+            if (blocked[i] && vision->IsPointVisible(ray.from,ray.to,ray.forward,10,-1)) {
+                selected=door;selectedRay=ray;originalOpen=initialOpen;originalLocked=initialLocked;originalKey=initialKey;originalHardness=initialHardness;break;
+            }
+        }
+        if (selected) break;
+        door->OpenClose(initialOpen,true); map->Sync();
+        door->LockDoor(initialLocked,initialKey,initialHardness);
+    }
+    std::printf("point cache door searched candidates=%d selected=%d\n",candidates,int(selected!=nullptr));std::fflush(stdout);
+    Require(selected, "native door fixture has no real point ray blocked closed and visible open");
+    selected->OpenClose(false,true); map->Sync();
+    Require(PointVisionEntries(vision).empty(), "closing the sampled door did not invalidate point queries");
+    auto query=[&](){return vision->IsPointVisible(selectedRay.from,selectedRay.to,selectedRay.forward,10,-1);};
+    Require(!query(), "selected native closed door did not block its point ray");
+    auto entries=PointVisionEntries(vision);
+    std::printf("native point cache door record=%d closed=0 open=1 cachedEntries=%zu expected=1\n",selected->GetDBObjectID(),entries.size());std::fflush(stdout);
+    Require(entries.size()==1 && !entries.begin()->second, "blocked point ray was not cached");
+    Require(!query() && PointVisionEntries(vision).size()==1, "repeated closed-door point query changed its result or identity");
+    selected->OpenClose(true,true); map->Sync();
+    Require(PointVisionEntries(vision).empty(), "opening the native door retained stale blocked point results");
+    Require(query(), "opening the native door did not recompute point visibility");
+    entries=PointVisionEntries(vision);
+    Require(entries.size()==1 && entries.begin()->second, "recomputed open-door point ray was not cached as visible");
+    selected->OpenClose(false,true); map->Sync();
+    Require(PointVisionEntries(vision).empty() && !query(), "closing the door retained a stale visible point result");
+    selected->OpenClose(originalOpen,true); map->Sync();
+    selected->LockDoor(originalLocked,originalKey,originalHardness);
+}
+
 static void VisionVoxelQuery(int mode, const char* databasePath, const char* resourcePath)
 {
     Require(mode == 0 || mode == 1, "unknown vision voxel query mode");
@@ -29413,6 +29537,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "encoded-load-command") && argc == 4) { LoadSuccessFeedback(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "zone-snapshot-excludes-hud") && argc == 4) { ZoneSnapshotExcludesHUD(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "window-interface-propagation")) { WindowInterfacePropagation(); return true; }
+    if (!std::strcmp(mode, "point-vision-cache")) { Require(argc==3 || argc==5,"point vision cache requires mode and optional db/resources"); PointVisionCaching(std::atoi(argv[2]),argc==5?argv[3]:nullptr,argc==5?argv[4]:nullptr); return true; }
     if (!std::strcmp(mode, "vision-voxel-query")) { Require(argc==3 || argc==5,"vision voxel query requires mode and optional db/resources"); VisionVoxelQuery(std::atoi(argv[2]),argc==5?argv[3]:nullptr,argc==5?argv[4]:nullptr); return true; }
     if (!std::strcmp(mode, "script-misc-weak-cleanup")) { Require(argc==3,"script miscellaneous cleanup requires mode"); ScriptMiscWeakCleanup(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "window-activation-flags")) { Require(argc==3,"window activation requires mode"); WindowActivationFlags(std::atoi(argv[2])); return true; }

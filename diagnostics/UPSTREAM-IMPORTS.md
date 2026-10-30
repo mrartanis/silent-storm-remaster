@@ -17046,3 +17046,59 @@ vision-voxel-retail-oracle.json, vision-voxel-verification.json и raw logs в
 G:/SS/lab/evidence/upstream-remaster-20261024. Это только GetVision hunk:
 остальные RPGVision hunks и весь смешанный19-file source остаются незавершёнными.
 Общая задача и окончательный hosted CI остаются в работе.
+
+
+## `4949f285`: кеш повторных точечных запросов видимости
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+
+До production compiled native RED3/3 на Windows/Linux. Настоящий tracker
+успешно проверяет видимость, но существующий pointVisionCache/tag6 остаётся
+пустым после1 и15000 различных принятых запросов. В реальном authored map4517
+door439 блокирует луч закрытой и пропускает открытой, однако blocked result
+тоже не сохраняется. Первая попытка выбрать такой луч на map810 не нашла
+подходящей двери; это отдельно сохранённый setup failure, не geometry RED.
+
+Добавлены lookup/early return, сохранение результата существующего IsVisible
+и оригинальная очистка при size>15000. Ключ использует from/target/effective
+range/cosFOV. Проверки FOV/range остаются перед lookup; сами формулы, лучи,
+трава, environment и настройки баланса не менялись. Поля, tag6 и32-byte
+portable SVisionQuery codec уже существовали. Исправлены два устаревших комментария.
+
+Initial GREEN3/3 на обеих платформах: повторные запросы и rejected FOV/range,
+разные ключи, предел15000/15001 с очисткой перед следующей вставкой, изменённый
+и неизменный capped multiplier. Реальная дверь closed/open/closed очищает кеш
+и даёт false/true/false; public open/lock state восстанавливается. Затем добавлен
+контроль полного ordinary save -> NEW native tracker с заполненным кешем и
+независимым сбросом; он повторно исполнен в финальных проверках на обеих системах.
+Кеш наблюдается read-only через существующий tag6 в новый observer, без READ
+в живой объект. Ускорение FPS и полная LAN-сессия этим тестом не измеряются.
+
+Original Gold: PDB IsPointVisible6c2e80/198 -> Steam6c97d0, unique198-byte match
+с масками только пяти decoded rel32 calls. Typed pointVisionCache+50/count+60,
+lookup early return до IsVisible и strict15000 clear/store branch подтверждены
+в обоих оригиналах. Это аудит кеша, не идентичности всей perception реализации.
+
+Свежие Win ALL_BUILD/Linux Game+UpstreamBugTests,16 связанных проверок Windows
+и14 Linux (новые случаи, предыдущие voxel/script регрессии, authored door flags,
+полный world save, AI sighting, Windows wire controls) успешны. Локальный
+asset-free CI318/318 включает оба новых CPU случая. Точный scope production:
+только кеш в RPGVision.cpp и два комментария; прежний public GetVision фикс,
+собственные save/network/render/facial/body/fonts/HD сохранены, game.db не менялся.
+Существующий сетевой путь сериализации и64MB transport limit просмотрены;
+новых полей, wire-формата и networking edits нет. Использованы два прежних
+дерева сборки, без старых Game copies и генерации HD.
+
+Свидетельства: point-vision-red-verification.json, point-vision-retail-oracle.json,
+point-vision-verification.json и raw logs в
+G:/SS/lab/evidence/upstream-remaster-20261024. В source RPGVision остаётся
+отдельный TraverseLine destination-voxel hunk, требующий аудита оригинальной
+видимости/баланса. Смешанный19-file source и общая задача остаются незавершёнными.
+
+Дополнительная сверка исходных hunks: RPGToHit.cpp/.h уже реализуют weather
+часть этого источника в нашем b8e4e254aeacd344ae7edc619a8b11a03dfcd5f2:
+SUNNY0 ->0, SNOW1/RAIN2 ->5.0, с собственным null-world guard. Header уже
+описывает восстановленные weather/aura и caller-supplied night. Повторного
+production-переноса этих двух файлов не требуется. Это статическая сверка
+исходных hunks, не новая runtime-проверка weather/aura/всех night callers;
+collateral-weather-already-present.json фиксирует scope и текущие хеши.

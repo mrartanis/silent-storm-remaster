@@ -222,3 +222,15 @@ UpstreamVisionVoxelBoundary зарегистрирован без игровых
 платформах RED2/2 timeout непосредственно в GetVision -> GREEN2/2.
 Локальный asset-free CI316/316 включает boundary case; native geometry остаётся
 extended. Это не подтверждение hosted workflow на окончательном HEAD.
+
+
+## Кеш точечных запросов видимости
+
+UpstreamPointVisionCache0/1 зарегистрированы без ресурсов в Windows/Linux:
+настоящий default tracker, FOV/range/key/multiplier, strict15000 limit и ordinary
+полный save -> NEW tracker. NativePointVisionCacheGeometry использует настоящий
+map4517/door439 и проверяет сброс stale false/true результатов при смене состояния.
+До production RED3/3 на каждой платформе; initial GREEN3/3, затем save control
+добавлен и успешно исполнен в финальных related наборах16Win/14Linux.
+Локальный asset-free CI318/318 включает оба новых CPU теста. Hosted результат
+для окончательного HEAD всей задачи по-прежнему требуется отдельно.
