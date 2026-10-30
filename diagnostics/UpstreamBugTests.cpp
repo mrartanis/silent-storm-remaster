@@ -7735,6 +7735,59 @@ static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* r
 }
 
 
+static CPtr<NWorld::CUnitState> ReadCorpseCancelUnitState(NWorld::CUnitServer* unit)
+{
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(unit,&refs);CPtr<NWorld::CUnitState> state;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(10,&state);}
+    return state;
+}
+
+static void CorpseCancelState(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=3,"unknown corpse cancellation phase");
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);
+    vector<NWorld::CUnitServer*> ordinary;
+    for(auto entry:units) {
+        auto* unit=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if(unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK() && !unit->animator.GetCannon())ordinary.push_back(unit);
+        if(ordinary.size()==2)break;
+    }
+    Require(ordinary.size()==2,"corpse cancellation needs two actual ordinary actors");
+    auto* actor=ordinary[0];auto* body=ordinary[1];
+    body->GetUnitRPG()->GetRPGUnit()->Kill();body->SetState(new NWorld::CUnitStateDeath(body));
+    Require(body->IsDead() && actor->CanFight() && !actor->HasCommand(),"corpse cancellation native actor/death preparation failed");
+    const bool take=mode<2,afterHandoff=(mode%2)!=0;
+    CObj<NWorld::CExecCorpse> setup;
+    if(!take) {
+        setup=new NWorld::CExecCorpse(actor,body,true);setup->Run();setup->TimeLabelReached();
+        Require(actor->GetState()==NWorld::CUnit::ST_CARRY_CORPSE && actor->GetCorpse()==body &&
+            body->GetCorpseCarrier()==actor,"drop cancellation did not prepare native reciprocal carrying");
+    }
+    CObj<NWorld::CExecCorpse> command=new NWorld::CExecCorpse(actor,body,take);
+    command->Run();if(afterHandoff)command->TimeLabelReached();
+    const bool beforeCarrying=take?afterHandoff:!afterHandoff;
+    Require((actor->GetState()==NWorld::CUnit::ST_CARRY_CORPSE)==beforeCarrying,
+        "corpse cancellation did not reach the expected native label phase");
+    CPtr<NWorld::CUnitState> previous=ReadCorpseCancelUnitState(actor);
+    const auto* identity=previous.GetPtr();Require(identity!=nullptr,"native corpse cancellation has no state to observe");
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();const auto position=actor->GetPosition();
+    command->Cancel();auto current=ReadCorpseCancelUnitState(actor);
+    const bool carryingState=actor->GetState()==NWorld::CUnit::ST_CARRY_CORPSE;
+    const bool reciprocal=actor->GetCorpse()==body && body->GetCorpseCarrier()==actor;
+    const bool preserved=current.GetPtr()==identity;
+    std::printf("native corpse cancel mode=%d take=%d after-label=%d old-carry=%d now-carry=%d reciprocal=%d same-state=%d AP=%d->%d\n",
+        mode,int(take),int(afterHandoff),int(beforeCarrying),int(carryingState),int(reciprocal),int(preserved),ap,actor->GetAP());std::fflush(stdout);
+    Require(command->GetState()==NWorld::CCommandExecute::FINISHED,"corpse cancellation did not finish its native executor");
+    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetPosition()==position && body->IsDead(),
+        "corpse cancellation changed AP, health, world position or death state");
+    Require(carryingState==!take && actor->IsCarryingCorpse()==!take,
+        "corpse cancellation did not restore the intended carrying mode");
+    Require(take ? !body->GetCorpseCarrier() : reciprocal,
+        "cancelling a corpse drop detached the body while the actor still carries it");
+    Require(preserved==!afterHandoff,"corpse cancellation replaced an unchanged native unit state");
+}
+
 struct NativeAuthoredEffectLight {CDBPtr<NDb::CLightInstance> instance;CObj<NGScene::CAnimLightInfo> info;};
 
 static vector<NativeAuthoredEffectLight> NativeAuthoredEffectLights()
@@ -29453,6 +29506,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "corpse-cancel-state")) { Require(argc == 5, "corpse cancellation requires db, resources and mode"); CorpseCancelState(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "item-initial-floor")) { Require(argc == 5, "item floor contact requires db, resources and mode"); ItemInitialFloorContact(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "inactive-random-encounter")) { Require(argc == 6, "inactive encounter requires db, resources, viewport and mode"); InactiveRandomEncounter(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "global-map-script-lifecycle")) { Require(argc == 6, "global map lifecycle requires db, resources, context and mode"); GlobalMapScriptLifecycle(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }

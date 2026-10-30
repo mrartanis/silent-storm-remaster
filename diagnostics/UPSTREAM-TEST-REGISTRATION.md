@@ -177,3 +177,15 @@ HeadlessMusicStream, TracklessSceneMusic и ReloadedMusicRecord. Это соот
 прежнего hosted audio-registration отказа на указанной контрольной точке.
 После завершения всех переносов всё ещё нужен успешный запуск на окончательном
 HEAD; более ранний зелёный workflow не подтверждает ещё не отправленные изменения.
+
+
+## Hosted checkpoint `07e24b81`
+
+[GitHub Actions41013866830](https://github.com/mrartanis/silent-storm-remaster/actions/runs/41013866830)
+на `07e24b816cf0fadb683cb9aee23e8c52a6f2d32f` завершился успешно.
+По фактическому job123925715523 шаги Configure CMake, Build и Test имеют
+conclusion success. Прямое свидетельство: github-41013866830-success.json
+в G:/SS/lab/evidence/upstream-remaster-20261024. Это подтверждение указанной
+контрольной точки; после следующих переносов нужен успешный workflow на
+окончательном HEAD. Локальный CI для текущего corpse-cancel фикса прошёл305/305;
+его будущий hosted запуск этим более ранним результатом не подменяется.
