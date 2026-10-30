@@ -14764,6 +14764,79 @@ class RetiredSupportFixture: public CObjectBase
     OBJECT_BASIC_METHODS(RetiredSupportFixture);
 };
 
+// Observe the existing serialized weak list; never deserialize into the live script.
+static vector<CObjectBase*> ScriptMiscEntries(NScript::CScript* script)
+{
+    CStructureNetworkContext refs;
+    auto fields = BorrowedObjectFields(script, &refs);
+    list<CPtr<CObjectBase>> entries;
+    { CStructureSaver reader(fields, CStructureSaver::READ, &refs); reader.Add(4, &entries); }
+    vector<CObjectBase*> result;
+    for (const auto& entry : entries) result.push_back(IsValid(entry) ? entry.GetPtr() : nullptr);
+    return result;
+}
+
+static void ScriptMiscWeakCleanup(int mode)
+{
+    Require(mode >= 0 && mode <= 3, "unknown script miscellaneous-reference mode");
+    CObj<NScript::CScript> script = NScript::CreateScript(nullptr);
+    Require(ScriptMiscEntries(script).empty(), "new script has miscellaneous entries");
+    if (mode == 0) {
+        CObj<RetiredSupportFixture> expired = new RetiredSupportFixture;
+        CPtr<CObjectBase> former = expired.GetPtr();
+        script->AddMiscObject(expired);
+        Require(ScriptMiscEntries(script) == vector<CObjectBase*>{expired.GetPtr()}, "live tracking failed before expiration");
+        expired = nullptr;
+        Require(!IsValid(former), "miscellaneous tracking gained strong ownership");
+        CObj<RetiredSupportFixture> live = new RetiredSupportFixture;
+        script->AddMiscObject(live);
+        const auto entries = ScriptMiscEntries(script);
+        std::printf("native script misc expired-then-live: entries=%zu expected=1\n", entries.size()); std::fflush(stdout);
+        Require(entries == vector<CObjectBase*>{live.GetPtr()}, "new script insertion retained an expired weak entry");
+    } else if (mode == 1) {
+        script->AddMiscObject(nullptr);
+        const auto empty = ScriptMiscEntries(script);
+        std::printf("native script misc null insertion: entries=%zu expected=0\n", empty.size()); std::fflush(stdout);
+        Require(empty.empty(), "script tracked a null miscellaneous handle");
+        CObj<RetiredSupportFixture> expired = new RetiredSupportFixture;
+        script->AddMiscObject(expired);
+        expired = nullptr;
+        script->AddMiscObject(nullptr);
+        Require(ScriptMiscEntries(script).empty(), "null insertion did not sweep earlier expired handles");
+    } else if (mode == 2) {
+        CObj<NWorld::CUICmdPlaySound> sound = new NWorld::CUICmdPlaySound;
+        CObj<NWorld::CUICmdPlayEffect> effect = new NWorld::CUICmdPlayEffect;
+        CObj<RetiredSupportFixture> particle = new RetiredSupportFixture;
+        CPtr<CObjectBase> observedParticle = particle.GetPtr();
+        effect->pHandle = particle.GetPtr();
+        particle = nullptr;
+        script->AddMiscObject(sound);
+        script->AddMiscObject(effect);
+        script->AddMiscObject(sound);
+        Require(ScriptMiscEntries(script) == vector<CObjectBase*>{sound.GetPtr(), effect.GetPtr(), sound.GetPtr()},
+            "sweeping changed live command identity, order, or duplicate entries");
+        Require(IsValid(observedParticle) && effect->pHandle.GetPtr() == observedParticle.GetPtr(),
+            "tracking released the effect command's own particle handle");
+        CPtr<CObjectBase> observedSound = sound.GetPtr(), observedEffect = effect.GetPtr();
+        sound = nullptr;
+        effect = nullptr;
+        Require(!IsValid(observedSound) && !IsValid(observedEffect) && !IsValid(observedParticle),
+            "miscellaneous tracking extended command or particle ownership");
+    } else {
+        for (int i = 0; i < 1024; ++i) {
+            CObj<RetiredSupportFixture> command = new RetiredSupportFixture;
+            script->AddMiscObject(command);
+        }
+        CObj<RetiredSupportFixture> current = new RetiredSupportFixture;
+        script->AddMiscObject(current);
+        const auto entries = ScriptMiscEntries(script);
+        std::printf("native script misc 1024 retired handles: entries=%zu expected=1\n", entries.size()); std::fflush(stdout);
+        Require(entries == vector<CObjectBase*>{current.GetPtr()}, "retired script handles accumulated over repeated insertion");
+        script = nullptr;
+        Require(IsValid(current), "destroying the script invalidated an independently owned object");
+    }
+}
+
 struct TrackedCorpseFixture
 {
     CPtr<NWorld::CUnitServer> unit;
@@ -29269,6 +29342,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "encoded-load-command") && argc == 4) { LoadSuccessFeedback(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "zone-snapshot-excludes-hud") && argc == 4) { ZoneSnapshotExcludesHUD(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "window-interface-propagation")) { WindowInterfacePropagation(); return true; }
+    if (!std::strcmp(mode, "script-misc-weak-cleanup")) { Require(argc==3,"script miscellaneous cleanup requires mode"); ScriptMiscWeakCleanup(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "window-activation-flags")) { Require(argc==3,"window activation requires mode"); WindowActivationFlags(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "window-child-registration")) { WindowChildRegistration(); return true; }
     if (!std::strcmp(mode, "lua-argument-state")) { LuaArgumentState(); return true; }

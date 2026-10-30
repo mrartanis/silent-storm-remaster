@@ -167,6 +167,7 @@ void CScript::AddUICommand( NWorld::CUICmd *pCmd )
 void CScript::AddMiscObject( CObjectBase *pObj )
 {
 	miscObjectsHolder.push_back( pObj );
+	EraseInvalidRefs( &miscObjectsHolder );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void ScriptWarning( const string &message )

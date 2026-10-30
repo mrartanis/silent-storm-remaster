@@ -16970,3 +16970,39 @@ PK/body/attachment/network, плюс локальный asset-free CI311/311 у�
 seed=f33b7198, backpack bone=текущий фикс. Весь19-file source4949 остаётся
 partial; общий ledger171imported/18partial/54pending=72 незакрытых источника.
 Полная задача и окончательный actual hosted CI остаются активными.
+
+
+## `4949f285`: очистка слабых ссылок скрипта
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+
+До изменения production-кода compiled native RED: 3/4 проверки падают на
+Windows и Linux. Настоящий CScript::AddMiscObject оставляет две записи после
+удаления первого объекта и вставки живого вместо одной, одну null-запись вместо
+нуля и 1025 записей после 1024 завершённых объектов вместо одной. Контроль
+живых CUICmdPlaySound/CUICmdPlayEffect проходит до исправления: порядок,
+дубликаты и particle handle сохранены, слабые ссылки не приобретают владение.
+Список наблюдается через существующий tag4, чтением в новый weak-list observer;
+живой CScript через serializer не изменяется.
+
+Добавлен EraseInvalidRefs после push_back и исправлен неверный комментарий
+о владении. Тип list<CPtr<CObjectBase>>, теги и реальные владельцы звука и
+эффектов не менялись. Финальный GREEN4/4 на обеих платформах, включая очистку
+при null-вставке и сохранение независимо принадлежащего объекта после удаления
+скрипта. Других изменений production-кода в этом исправлении нет.
+
+Original Gold: PDB named NScript::CScript::AddMiscObject413020/203 -> Steam4138f0,
+unique full203-byte signature с масками только decoded SEH address и четырёх
+rel32 call operands. Exact30-byte validity/unlink block Gold4130a0/Steam413970
+проверяет null/invalid bit; цикл освобождает слабые ссылки и узлы списка.
+Это проверка очистки контейнера, без переноса адресов или ABI в наш код.
+
+Свежие Win ALL_BUILD/Linux Game+helpers,37 связанных проверок на каждой
+платформе (Lua, serializer, реальные script sound/effect paths), локальный
+asset-free CI315/315, включая все четыре новые проверки, успешны.
+Свидетельства: script-misc-red-verification.json, script-misc-verification.json,
+script-misc-retail-oracle.json и raw logs в
+G:/SS/lab/evidence/upstream-remaster-20261024. Два существующих дерева сборки,
+без старых копий Game и генерации HD. Игровые данные и баланс не менялись.
+Обе части A5Script.cpp/.h этого источника завершены; весь смешанный19-file
+коммит остаётся partial. Полная задача и окончательный hosted CI ещё в работе.
