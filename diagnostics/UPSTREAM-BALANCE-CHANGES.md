@@ -2453,3 +2453,19 @@ and1.5+1.5 rounds3. Negative/zero sums keep original unsigned chance semantics;
 intended targets and wornPK continue to skip IC practice. This step verifies
 actual native stored state/RPG arithmetic; the real world's per-hit aura
 application/reset is still separately pending.
+
+### `037c41d9`: aura is scoped to the actual world damage recipient
+
+World damage now computes the victim's evasion aura, applies it only around
+the native RPG damage call and clears it immediately afterwards, including
+a blocked or intended hit. A stale modifier cannot leak into later damage.
+With actual authored66 +10, IC21/base7 restores5 HP damage instead of6; a
+selected newly-successful chance restores7 ->5. Native world HP loss and
+hit locator agree; unperked stale+10 restores base4 damage3 ->4. Tests also
+distinguish to-hit output10 from evasion output0 and verify negative,
+fractional/zero IC values, exact shared RNG and unchanged practice scope.
+The source's stale address comments are corrected to mapped Steam7515e6..
+751641. No field/schema is added; own world entry, audio/render/network and
+public noarg CheckIC remain compatible. This completes the useful037c hunks,
+including original-verified corrections to the source's float sum order.
+The earlier Linux narrow perk-label logging issue remains separately recorded.

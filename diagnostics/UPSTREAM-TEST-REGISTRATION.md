@@ -737,3 +737,16 @@ normal/blast/fragment, 21.5/22.5 nearest-even and39+aura before final rounding,
 negative/zero stored result, intended/wornPK scope, HP/receiver/RNG/baseIC/
 field/points/inventory/shell/practice checked. Full Game builds, related78Win/78Linux,
 CI323; new13 outside323. World application/reset remains pending.
+
+## World victim aura application/reset
+
+NativeWorldVictimAura0..11: resource extended Win/Linux,timeout120. Actual
+world810/person3/native66, actual world server damage/hit locator and complete
+native stored43 restoration, no fake world/API stub as RED. RED9/12 ->GREEN12/12
+each, three controls. Authored +10/base7 ->5, chance-only draw, stale overwrite
+and reset for normal/intended/blocked calls, absent/zero/distinct second-output/
+negative/fractional/IC0 controls; HP/hit/RNG/practice/baseIC/points/inventory/
+input/alive checked. GREEN damage<=5 avoids unrelated blood-particle RNG;
+its legitimate old >5 path explains extra RED draws. Full Game builds,
+related100Win/100Linux, CI323; new12 outside323. All037c functional hunks now accounted
+with original arithmetic corrections and compatible own API adaptations.

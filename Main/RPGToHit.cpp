@@ -399,7 +399,7 @@ static void CheckAuraPerk( IUnitMission *pUnit, int nPerkID, float *pToHit, floa
 // Retail GetAuraAdd @0x289f00. Allied units within 3.125 metres contribute perk 0x1c. The owner's
 // final aura perk depends on whether at least one nearby unit has the same player pointer:
 // 0x42 when it does, 0x5d otherwise. Both the attack and evasion terms are accumulated.
-static void GetAuraAdd( float *pToHit, float *pEvasion, CUnitServer *pUnit )
+void GetAuraAdd( float *pToHit, float *pEvasion, CUnitServer *pUnit )
 {
 	*pToHit = 0;
 	*pEvasion = 0;

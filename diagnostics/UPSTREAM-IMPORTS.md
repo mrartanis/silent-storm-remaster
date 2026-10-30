@@ -18946,3 +18946,63 @@ Full Game builds, related78Win/78Linux and CI323 pass; new13 resource extended
 outside323. No new world trace/FX/critical pipeline claim.
 Evidence stored-aura-retail-oracle/verification JSON and native logs.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-31: victim world aura scope; `037c41d9` complete with adaptations
+
+Exports the existing native GetAuraAdd, appends a compatible default no-op
+SetAuraPerkICModifier at the IUnitMission tail and overrides the existing
+CUnitMission setter. CDumbUnitServer::ProcessAttack computes its actual
+victim's evasion aura, sets it before the existing RPG call and resets it to0
+immediately afterwards. Existing field43/layout, world five-argument entry,
+SetGame binding, own renderer/audio/network and other fake implementors remain
+compatible. No typed public CheckIC replacement or source-wide rewrite.
+
+Original named CDumbUnitServer COL offset8 maps GoldPDB745f80/1884 to Steam
+751570 (prior world-damage-rtti-oracle). Victim fullthis EBP is pushed7515e6,
+GetAuraAdd7515ef calls independently mapped68fed0; second output is loaded
+7515f7 and passed to RPGsecondary198 setter7515fe. Actual RPGsecondaryA4
+attack is75162e; push0/same198 reset is751639..751641, before hit response.
+Setter Gold6bf650/Steam6c5de0 matches all13bytes. The source comments citing
+7511fe..75123b are stale; the adapted code cites the actual mapped range.
+
+NativeWorldVictimAura0..11 execute real world810/AddUnitInGame/person3/
+authored66/native TakePerk and actual CUnitServer->CDumbUnitServer->RPG damage,
+not a dummy world or newly-added setter as RED. Native preview checks the
+real victim neighborhood first. RuntimeVP500, actual body armor/flesh,
+fixed noncritical4/5/7, null attacker and explicit no-random-knockout isolate
+this scope. Existing stored43 stale values use the complete snapshot helper
+from the preceding fix; every other field/reference is verified unchanged.
+RED9/12 each ->GREEN12/12; three controls pass before editing production.
+Authored+10/IC21/base7 restores6 ->5 damage, matching HP loss and exactly
+one world hit locator. A selected roll21..30 isolates chance (old7 ->5).
+Stale-21 is overwritten with current+10, stale+10 on an unperked victim is
+overwritten with0 (old3 ->4 from base4). Both normal and intended/blocked
+calls leave stored aura0; intended/blocked skip IC practice. A blocked hit
+still clears stale4 without consuming game RNG. Distinct to-hit10/evasion0
+control proves use of the second output. Restored temporary negative aura
+-71 givesIC-50/base4 ->5 via original unsigned chance; aura1.5/IC20/base5 ->4;
+aura100/IC0/base4 ->1. Unperked and ordinary intended controls stay4.
+All final amounts are<=5, so unrelated bloody-particle RNG is not involved
+in GREEN: exact shared RNG advances by IC+unconscious draw, intended by only
+unconscious and blocked by none. Initial old wrong6/7 legitimately entered
+its existing >5 blood-effect path and therefore differed in RNG as well as
+damage. Native points/inventory/baseIC/practice/input/living state remain
+valid; parameters restore. No full projectile/FX/death/critical-pipeline claim.
+Full Game builds, related100Win/100Linux and CI323 pass; new12 extended/outside323.
+
+Final037c hunk reconciliation: charged perfect-tool50; stance12; zeroing85;
+first-turn23; live familiarity and original additive/targeting order; aura
+player-pointer/donor ownership; classless HasPerk; unhide base/observer25/75;
+knife base/32/43; reload33 already-own delegation; pose34/35/corpse42;
+late incidental IC/40/39/aura and original unsigned comparison; trap49 and
+disarm51 are all accounted for by the separate native RED/GREEN imports.
+The CToolItem registration hunk only adds a final newline: existing own
+0x024c2140 is unchanged since52c270952, not a missing registration. The
+source's swapped Stance/D2 sum was deliberately corrected to the independently
+verified original D2-then-Stance order; public noarg CheckIC is retained with
+internal typed dispatch. Helper/header/include/constant glue is complete.
+Status changes from partial to imported; this does not claim completion of
+the other unfinished sources or final-head hosted CI for the entire task.
+Evidence world-aura-retail-oracle/verification JSON, original disassembly and
+native per-platform RED/GREEN/full-build/related/CI logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

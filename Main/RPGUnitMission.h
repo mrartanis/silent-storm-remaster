@@ -201,6 +201,8 @@ public:
 	// two above; CUnitMission overrides it.
 	virtual void AddVPBoost( float fStrength, int nDuration ) {}
 	virtual float GetWeaponAdaptation() const { return 0; }
+	// Original Steam 0x7515e6: transient victim aura supplied by world damage.
+	virtual void SetAuraPerkICModifier( float f ) {}
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float GetCubesArea( const CVec3 &ptPos, vector<CVec3> *pCubes );

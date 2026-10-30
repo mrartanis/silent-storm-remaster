@@ -206,7 +206,7 @@ public:
 	// retail @0x2c5b40/@0x2c5b50/@0x2c5b90/@0x2c5ba0/@0x2c5bb0 -- plain setters/getters.
 	bool IsAIPlayer() const { return bIsAIUnit; }
 	void SetIsAIPlayer( bool b ) { bIsAIUnit = b; }
-	void SetAuraPerkICModifier( float f ) { fAuraPerkICModifier = f; }
+	virtual void SetAuraPerkICModifier( float f ) { fAuraPerkICModifier = f; }
 	void SetScenarioPlayerID( int n ) { nScenarioPlayerID = n; }
 	int GetScenarioPlayerID() const { return nScenarioPlayerID; }
 	// retail AddVPBoost @0x2c3400: install a temporary VP modifier (fAdd = 1% of the VP base per
