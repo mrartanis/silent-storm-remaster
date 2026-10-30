@@ -313,3 +313,10 @@ NativeCarrierAdmission0..7: extended resource tests Windows/Linux, timeout120.
 parity, positive teleport/custom body animation завершение, сохранность carried
 state/AP/HP/head identities. RED4/8 ->GREEN8/8 each,related48Win/47Linux,CI323.
 Passage/Talk проверяют прохождение к штатной ошибке цели; новые8 внеasset-free323.
+
+## Локализованные строки журнала
+
+NativeLocalizedLogStyle0..2: extended resource Windows/Linux, SDL dummy,
+timeout120. Actual CTextDraw->CML quads проверяют цвет/outline и прежние texture/
+glyph dimensions Impact20 при scale1/2, newest-first9-of12 ring. RED3->GREEN3
+each,related6Win/5Linux и CI323. Набор новых3 внеasset-free323.

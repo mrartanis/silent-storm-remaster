@@ -99,6 +99,7 @@ extern CBasicShare<int,CChapterInfoLoader> shareChapterInfo;
 #include "../Main/iShowMedal.h"
 #include "../Main/iMedalsPanel.h"
 #include "../Main/UIWrap.h"
+#include "../Main/iLogPanel.h"
 #include "../Main/PlayerTracker.h"
 #include "../Main/iOptionsMenu.h"
 #include "../Main/iSideMenu.h"
@@ -16622,6 +16623,68 @@ static void RejectedHitLabelText(const char* databasePath,const char* resourcePa
     Require(correctColours,"native hit glyphs use the wrong armor colour or fail to fade RGB with alpha");
 }
 
+static void LocalizedLogStyle(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=2,"unknown localized log mode");
+    S2Platform::SetErrorDialogs(false);
+    Require(S2Platform::Init("native localized log",2048,1536,true),"log fixture could not initialize dummy SDL");
+    struct Cleanup {~Cleanup(){S2Platform::Done();}} cleanup;
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    S2Platform::UpdateDisplay(mode==2?200:100);MarkNewDGFrame();
+    const float scale=S2UI::Scale();
+    const wstring ownFont=L"<font face=Impact size=20pt>";
+    const wstring authored=NUI::GetDBString(20952);
+    Require(authored.find(L"0xFFEAC78B")!=wstring::npos && authored.find(L"outlinecolor=0xFF513E2B")!=wstring::npos,
+        "log fixture lacks the actual localized authored colour and outline");
+    CObj<NUI::CLogPanel> panel=new NUI::CLogPanel(NUI::SWindowInfo(nullptr,NUI::SPoint(0,0),NUI::SPoint(1024,768),"log",NUI::STYLE_VISIBLE|NUI::STYLE_ENABLED),STREAM_GAME);
+    const int added=mode==1?12:1;
+    for(int i=0;i<added;++i)panel->AddLine(L"Native log "+std::to_wstring(i)+L" \u0416");
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(panel,&refs);
+    vector<NUI::STextLine> lines;{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(6,&lines);}
+    Require(lines.size()==10 && lines[0].bUsed,"log changed its original ten-slot ring");
+    int current=lines[0].nNext,count=0;std::set<int> visited;
+    class LogStyleView:public DialogueLayoutView {
+        OBJECT_NOCOPY_METHODS(LogStyleView);
+    public:
+        vector<DWORD> colours;
+        vector<CRectLayout::SRect> glyphs;
+        vector<CPtrFuncBase<NGfx::CTexture>*> textures;
+        void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>* texture,const CRectLayout& layout,const CTPoint<int>&,const CTRect<int>&) override {
+            for(const auto& quad:layout.rects){colours.push_back(quad.sColor.color);textures.push_back(texture);glyphs.push_back(quad);}
+        }
+    };
+    CObj<LogStyleView> view=new LogStyleView;
+    auto* existingFont=view->GetLocaleInfo()->GetFont(NGScene::SFont(Float2Int(20*scale),"Impact"));Require(IsValid(existingFont),"log fixture has no existing packaged font");
+    bool correctStyle=true;
+    while(current!=0) {
+        Require(current>0 && current<lines.size() && visited.insert(current).second,"log ring is not a valid finite linked list");
+        auto& line=lines[current];Require(line.bUsed && line.sTime==0 && IsValid(line.pText),"new log line lost its text or initial display age");
+        const auto payload=L"Native log "+std::to_wstring(added-1-count)+L" \u0416";
+        Require(line.pText->GetText().find(payload)!=wstring::npos,"log eviction lost newest-first event text");
+        view->colours.clear();view->textures.clear();view->glyphs.clear();
+        line.pText->Draw(nullptr,1000,view);
+        Require(!view->textures.empty(),"combat log's actual CML renderer produced no glyph quads");
+        Require(std::all_of(view->textures.begin(),view->textures.end(),[&](auto* texture){return texture==existingFont->GetTexture();}),
+            "localized log style changed the remaster's existing font family, point size or texture");
+        const bool foreground=std::find(view->colours.begin(),view->colours.end(),DWORD(0xFFEAC78B))!=view->colours.end();
+        const bool outline=std::find(view->colours.begin(),view->colours.end(),DWORD(0xFF513E2B))!=view->colours.end();
+        vector<CRectLayout::SRect> foregroundGlyphs;
+        for(const auto& quad:view->glyphs)if(quad.sColor.color!=0xFF513E2B)foregroundGlyphs.push_back(quad);
+        view->colours.clear();view->textures.clear();view->glyphs.clear();
+        CObj<NUI::CTextDraw> reference=new NUI::CTextDraw(NUI::SPoint(0,0),NUI::SPoint(-1,-1),ownFont+payload);
+        reference->Draw(nullptr,1000,view);
+        Require(foregroundGlyphs.size()==view->glyphs.size(),"localized log changed the original font's glyph count");
+        for(int i=0;i<foregroundGlyphs.size();++i)Require(std::fabs(foregroundGlyphs[i].fSizeX-view->glyphs[i].fSizeX)<0.001f &&
+            std::fabs(foregroundGlyphs[i].fSizeY-view->glyphs[i].fSizeY)<0.001f,
+            "localized log changed the original20pt glyph dimensions");
+        correctStyle=correctStyle && foreground && outline;
+        ++count;current=line.nNext;
+    }
+    Require(count==Min(added,9),"log ring has the wrong number of retained events");
+    std::printf("localized log mode=%d scale=%.1f lines=%d font=Impact20 sameTexture=1 vector=%d authoredStyle=%d\n",mode,scale,count,int(existingFont->IsVector()),int(correctStyle));std::fflush(stdout);
+    Require(correctStyle,"combat log omitted localized colour/outline while retaining the existing font");
+}
+
 static void ScaledEditTextLayout()
 {
     S2Platform::SetErrorDialogs(false);
@@ -30355,6 +30418,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "localized-log-style")) { Require(argc==5,"log style requires db/resources/mode"); LocalizedLogStyle(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "carrier-admission")) { Require(argc==5,"carrier admission requires db/resources/mode"); CorpseCarrierAdmission(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "object-sound-stage")) { Require(argc==5,"object sound stage requires db/resources/mode"); ObjectSoundStage(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "corpse-null-taker")) { Require(argc==5,"corpse null taker requires db/resources/mode"); CorpseNullTaker(argv[2],argv[3],std::atoi(argv[4])); return true; }

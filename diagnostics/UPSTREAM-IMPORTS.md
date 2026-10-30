@@ -17392,3 +17392,31 @@ carrier-admission-red-verification.json,carrier-admission-retail-oracle.json,
 carrier-admission-verification.json. Все hunks wUnitStates.cpp завершены;
 остаются iLogPanel.cpp,wMain.cpp.
 Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.
+
+## `4949f285`: локализованное оформление журнала без замены нашего шрифта
+
+В CLogPanel AddToHead восстановлены цвета и обводка из GetDBString20952.
+Upstream CourierBold17pt не переносится: сохраняем прежний Impact20pt нашего
+форка. Его face/size добавлены последними атрибутами в том же font tag: второй
+font tag в настоящем CML сбрасывает outline. При отсутствии font tag остаётся
+прежний font fallback. Font engine, atlas data и размеры glyphs не меняются.
+
+Compiled RED3/3 Windows/Linux на настоящем CTextDraw->CML: цвет/обводка отсутствуют,
+при этом прежняя font texture и размеры букв подтверждены. GREEN3/3 each:
+foregroundEAC78B/outline513E2B, одна строка, ротация9 из12 событий, масштаб100/200%.
+Все реальные texture pointers совпадают с прежним Impact20; размеры foreground
+quads равны native reference с прежней font markup. Текущий resolved packaged
+font имеет IsVector=false; проверка не заявляет новый vectorfont или GPU readback.
+Сохранены десять ring slots/новые строки age0/newest-first порядок/кириллица.
+Начальный тест через другой GText formatter и ошибка private constant отдельно
+архивированы; подтверждённый RED относится только к финальному CML test.
+
+Original Gold PDB AddToHead5eee60/167: ID20952 -> GetDBString712200 -> concat ->
+CTextDraw SetText71f8b0. Unique exact19byte format/flags block5eeea0 ->Steam5f2fb3,
+без масок/wholemethod claim. Свидетельства localized-log-red-verification.json,
+localized-log-retail-oracle.json,localized-log-verification.json и raw logs.
+Полные Game builds,related6Win/5Linux и CI323/323 успешны. Первоначальный Linux
+final script запросил Windows-only NativeFontWireTests; исправлен на PortableFontWireTests,
+весь related набор повторён. Новые3 resource extended случая вне323.
+Все iLogPanel source hunks учтены адаптацией; в4949f285 остаётся wMain.cpp.
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.
