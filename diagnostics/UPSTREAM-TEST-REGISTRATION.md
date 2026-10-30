@@ -244,3 +244,13 @@ start/interior/zero-length/FOV/range. Native RED6/7 -> GREEN7/7 на каждо�
 Финальные related23Win/21Linux проходят, включая предыдущие pointCache/save,
 voxel/script/door/AI проверки. Локальный asset-free набор остаётся318/318;
 новые семь ресурсных случаев не выдаются за исполняемые в hosted без game DB.
+
+
+## Подсказки меню стороны и сложности
+
+NativeSideMenuTooltip0..6 зарегистрированы в Windows/Linux ресурсных группах,
+extended;native-display, с отдельными S2_USER_DATA_DIR. Реальные menu/button/
+CToolTip/CText и native frame проверяют семь локализованных attachment/text
+сценариев; normal/hover markup и прежние SelectedStyle/DifficultyMapping controls
+сохранены. RED6/9 -> GREEN9/9 на каждой системе. Связанные21/21 each и локальный
+asset-free CI318/318 проходят; новые семь resource cases не считаются частью318.

@@ -17147,3 +17147,47 @@ tiny original bin/asm и raw logs в G:/SS/lab/evidence/upstream-remaster-202610
 point cache=db072e98, конечная клетка=текущий независимый фикс, связанные
 комментарии обновлены с кешем. Весь смешанный19-file source остаётся partial;
 остальные UI/world/animation/carrier части и общий final hosted CI ещё в работе.
+
+
+## `4949f285`: подсказки выбора стороны и сложности
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+
+До production compiled native RED6/9 на Windows/Linux. Настоящее CICSideMenu,
+нативный кадр и реальные кнопки показывают: у Axis/Allies/Next/Easy/Normal/Hard
+нет прикреплённого CToolTip, хотя соответствующие локализованные DB descriptions
+непусты. Существующая Back19250, собственные SelectedStyle17338/HiRes markup
+и передача фактического difficulty record в реальное hero menu проходят до фикса.
+Normal/hover подписи и font markup проверены также до assertion missing tooltip.
+
+В private AddScriptButton передаётся nToolTip; подключены Axis19254,Allies19253,
+Next19249,Easy19246,Normal19247,Hard19248 через существующий CButtonsLine.
+Back19250 сохранён. Реальный CToolTip/CText содержит ровно нужный GetDBString;
+текст наблюдается read-only через tag2 в новый observer, без READ в живую UI.
+GREEN9/9 на обеих платформах, включая прежние style/difficulty controls.
+Показ popup через GPU readback этим тестом не заявляется; проверены attachment,
+локализованный текст и настоящие кадры меню/переходы выбора сложности.
+
+В нашем форке уже исправлен selected style17338 перед скобками и используется
+собственный HiRes font path. Эти байты, normal/hover/disabled captions, размеры,
+layout, enum/difficulty mapping, коэффициенты, поля/теги и данные не менялись.
+Из исходного patch перенесены только metadata подсказок, без возврата старого
+caption style11129. Уровни сложности и игровой баланс сохраняются.
+
+Original Gold: PDB ProcessMessage637910/4750, семь decoded tooltip immediates
+перед typed AddScriptHoverButton5c3a10/230 или AddHoverButton5c37f0/283, затем
+assignment return value в PDB named member: Axis88,Allies8c,Next84,Easy90,
+Normal98,Hard94,Back80. Проверка оригинала ограничена этими Gold callsites;
+полный блок в Steam не сопоставлен, произвольные masks не добавлялись и
+эквивалентность Steam/всего4750-byte method/font policy не заявляется.
+
+Свежие Win ALL_BUILD/Linux Game+UpstreamBugTests,21 связанных проверок на
+каждой платформе (девять menu cases, window activation/tree, Lua/window bridge,
+serializer) и локальный asset-free CI318/318 успешны. Семь новых ресурсных
+native-display tests помечены extended и исполнялись локально Windows D3D11 /
+Linux Xvfb; в318 они не включены. Own NativeDisplayContext/Xvfb завершены,
+два прежних дерева сборки, без старых Game copies и генерации HD.
+Свидетельства: side-tooltips-red-verification.json, side-tooltips-verification.json,
+side-tooltips-retail-oracle.json и raw logs в
+G:/SS/lab/evidence/upstream-remaster-20261024. Все source hunks iSideMenu.cpp
+завершены. Смешанный19-file source и общая задача/final hosted CI ещё в работе.

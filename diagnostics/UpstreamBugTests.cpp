@@ -3523,6 +3523,41 @@ static void SideMenuSelectedStyle(const char* databasePath,const char* resourceP
     NMainLoop::DoneInterface();
 }
 
+static void SideMenuTooltips(const char* databasePath,const char* resourcePath,int mode)
+{
+    struct Button {int tag;const char* id;int caption,tooltip;};
+    const Button cases[]={{7,"axis",11131,19254},{8,"allies",11132,19253},{6,"next",16820,19249},
+        {9,"easy",17329,19246},{11,"normal",17330,19247},{10,"hard",17331,19248},{5,"cancel",11174,19250}};
+    Require(mode>=0 && mode<7,"unknown side-menu tooltip mode");
+    Require(std::getenv("S2_USER_DATA_DIR"),"side-menu tooltip fixture requires isolated user data");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm side menu tooltip regression");
+    const auto entry=cases[mode];const auto expected=NUI::GetDBString(entry.tooltip);
+    Require(!expected.empty(),"native side-menu tooltip fixture has no authored localized text");
+    CObj<NGame::CICSideMenu> open=new NGame::CICSideMenu;open->Exec();
+    auto* side=NMainLoop::GetCurrentInterfaceForHarness();
+    Require(side && NMainLoop::StepApp(true,false,false),"side-menu tooltip fixture did not initialize its actual menu and frame");
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(side,&refs);CPtr<NUI::CWindow> page;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&page);}
+    Require(page,"side-menu tooltip fixture has no native page");
+    CStructureNetworkContext pageRefs;auto pageFields=BorrowedObjectFields(page,&pageRefs);CPtr<NUI::CButton> button;
+    {CStructureSaver reader(pageFields,CStructureSaver::READ,&pageRefs);reader.Add(entry.tag,&button);}
+    Require(button && button->GetWindowID()==entry.id,"side-menu tooltip fixture resolved a different button");
+    for(int state:{0,1}) {
+        auto* window=button->GetState(state);auto* text=window?dynamic_cast<NUI::CText*>(window->GetChildByID("text")):nullptr;
+        Require(text && text->GetText()==NUI::GetDBString(state==0?11129:11130)+NUI::GetDBString(entry.caption),
+            "tooltip attachment changed the actual normal/hover caption or its font markup");
+    }
+    auto* tooltip=button->GetToolTip();
+    std::printf("native side tooltip button=%s expectedTextID=%d attached=%d chars=%zu\n",entry.id,entry.tooltip,int(tooltip!=nullptr),expected.size());std::fflush(stdout);
+    Require(tooltip,"native side-menu button has no tooltip attached");
+    CStructureNetworkContext tooltipRefs;auto tooltipFields=BorrowedObjectFields(tooltip,&tooltipRefs);CPtr<NUI::CText> text;
+    {CStructureSaver reader(tooltipFields,CStructureSaver::READ,&tooltipRefs);reader.Add(2,&text);}
+    Require(text && text->GetText()==expected,"native side-menu tooltip contains a different localized description");
+    Require(NMainLoop::GetCurrentInterfaceForHarness()==side && !NMainLoop::HaveInterfaceCommand(),
+        "reading side-menu tooltips changed selection or queued a menu transition");
+    NMainLoop::DoneInterface();
+}
+
 static void SideMenuDifficultyMapping(const char* databasePath,const char* resourcePath)
 {
     Require(std::getenv("S2_USER_DATA_DIR"),"side difficulty fixture requires isolated user data");
@@ -30015,6 +30050,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-save-policy") && argc==4) { MissionSavePolicy(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-network-save-policy") && argc==4) { MissionSavePolicy(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "side-menu-tooltips")) { Require(argc==5,"side-menu tooltips require db/resources/mode"); SideMenuTooltips(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "side-menu-selected-style") && argc==4) { SideMenuSelectedStyle(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "side-menu-difficulty-mapping") && argc==4) { SideMenuDifficultyMapping(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "options-pen-cursor") && argc==4) { OptionsPenCursor(argv[2],argv[3]); return true; }
