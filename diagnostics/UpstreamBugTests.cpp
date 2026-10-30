@@ -74,6 +74,9 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/aiColourer.h"
 #include <tuple>
 #include "../Main/aiMap.h"
+#include "../Main/RPGVision.h"
+#include "../Main/TerrainInfo.h"
+#include "../Main/aiVoxelRender.h"
 #include "../Main/aiMovesCalcer.h"
 #include "../Main/aiPassCalcer.h"
 #include "../Main/aiCollider.h"
@@ -14759,6 +14762,74 @@ static void RestoreBuildingHulls(const char* databasePath, const char* resourceP
     Require(!world->IsAction(), "cache-only building restoration started simulation");
 }
 
+static void VisionVoxelQuery(int mode, const char* databasePath, const char* resourcePath)
+{
+    Require(mode == 0 || mode == 1, "unknown vision voxel query mode");
+    if (mode == 0) {
+        // The registered default object has an empty grid, as before full save restoration.
+        CObj<NRPG::IVisionTracker> vision = dynamic_cast<NRPG::IVisionTracker*>(pSSClasses->CreateObject(0x00413190));
+        Require(vision, "native vision tracker class is not registered");
+        CTPoint3<int> position(7, 19, 31), roundTrip;
+        CVec3 center;
+        vision->GetCenter(position, &center);
+        vision->GetCoord(center, &roundTrip);
+        Require(roundTrip.x == 7 && roundTrip.y == 19 && roundTrip.z == 31,
+            "vision tracker coordinate fixture did not initialize");
+        const CTPoint3<int> outside[] = {{-1,0,0},{0,-1,0},{0,0,-1},{1024,0,0},{0,1024,0},{0,0,128}};
+        for (const auto& point : outside) {
+            std::printf("native public GetVision boundary query %d,%d,%d\n", point.x, point.y, point.z); std::fflush(stdout);
+            Require(vision->GetVision(point.x, point.y, point.z) == NRPG::VVS_NONE,
+                "out-of-grid vision voxel did not return empty");
+        }
+        return;
+    }
+    Require(databasePath && resourcePath, "native vision voxel query requires assets");
+    auto world = FixtureWorld(databasePath, resourcePath);
+    auto* map = world->GetAIMap();
+    map->Sync();
+    auto* vision = world->GetGame()->GetVisionTracker();
+    Require(vision, "world has no native vision tracker");
+    const float step = FP_GRID_STEP / 4.f, cubeWidth = step * 32.f;
+    CTPoint3<int> solid;
+    bool found = false;
+    NRPG::EVoxelVisionState expected = NRPG::VVS_NONE;
+    list<NAI::SObjectInfo> geometry;
+    map->GetEntities(&geometry, NWorld::TS_VISION);
+    Require(!geometry.empty(), "native map fixture has no vision geometry");
+    for (const auto& object : geometry) {
+        if (object.points.empty()) continue;
+        CVec3 center(0,0,0);
+        for (const auto& point : object.points) center += point;
+        center /= float(object.points.size());
+        const int gx = Clamp(int(std::floor(center.x / cubeWidth)), 0, 31);
+        const int gy = Clamp(int(std::floor(center.y / cubeWidth)), 0, 31);
+        for (int gz = 0; gz < 4 && !found; ++gz) {
+            // Independent native map rasterization, with the cache's one-voxel border.
+            NAI::CVisionVoxelRenderer renderer;
+            renderer.Init(CVec3((gx + .5f)*cubeWidth, (gy + .5f)*cubeWidth, (gz + .5f)*cubeWidth),
+                step * 34.f, 34, NWorld::TS_VISION_SOLID);
+            map->TraceVisionGrid(&renderer, NWorld::TS_VISION);
+            for (int x = 0; x < 32 && !found; ++x)
+                for (int y = 0; y < 32 && !found; ++y)
+                    for (int z = 0; z < 32; ++z)
+                        if (renderer.voxels[x+1][y+1][z+1] & 0xc0) {
+                            expected = (renderer.voxels[x+1][y+1][z+1] & 0x80) ? NRPG::VVS_SOLID : NRPG::VVS_TRANSPARENT;
+                            solid = CTPoint3<int>(gx*32+x, gy*32+y, gz*32+z);
+                            found = true; break;
+                        }
+        }
+        if (found) break;
+    }
+    Require(found, "native map fixture has no independently rasterized occupied voxel");
+    std::printf("native public GetVision occupied query %d,%d,%d; independent map rasterizer expects %d\n",
+        solid.x, solid.y, solid.z, int(expected)); std::fflush(stdout);
+    Require(vision->GetVision(solid.x, solid.y, solid.z) == expected,
+        "public vision query lost a solid voxel from actual map geometry");
+    Require(vision->GetVision(-1,0,0) == NRPG::VVS_NONE, "out-of-grid query did not clear the previous cube selection");
+    Require(vision->GetVision(solid.x, solid.y, solid.z) == expected,
+        "returning to a previously selected cube lost its solid voxel");
+}
+
 class RetiredSupportFixture: public CObjectBase
 {
     OBJECT_BASIC_METHODS(RetiredSupportFixture);
@@ -29342,6 +29413,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "encoded-load-command") && argc == 4) { LoadSuccessFeedback(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "zone-snapshot-excludes-hud") && argc == 4) { ZoneSnapshotExcludesHUD(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "window-interface-propagation")) { WindowInterfacePropagation(); return true; }
+    if (!std::strcmp(mode, "vision-voxel-query")) { Require(argc==3 || argc==5,"vision voxel query requires mode and optional db/resources"); VisionVoxelQuery(std::atoi(argv[2]),argc==5?argv[3]:nullptr,argc==5?argv[4]:nullptr); return true; }
     if (!std::strcmp(mode, "script-misc-weak-cleanup")) { Require(argc==3,"script miscellaneous cleanup requires mode"); ScriptMiscWeakCleanup(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "window-activation-flags")) { Require(argc==3,"window activation requires mode"); WindowActivationFlags(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "window-child-registration")) { WindowChildRegistration(); return true; }

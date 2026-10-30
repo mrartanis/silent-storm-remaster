@@ -17006,3 +17006,43 @@ G:/SS/lab/evidence/upstream-remaster-20261024. Два существующих �
 без старых копий Game и генерации HD. Игровые данные и баланс не менялись.
 Обе части A5Script.cpp/.h этого источника завершены; весь смешанный19-file
 коммит остаётся partial. Полная задача и окончательный hosted CI ещё в работе.
+
+
+## `4949f285`: зависание публичного запроса вокселя видимости
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+
+До production-изменения compiled native RED2/2 на Windows и Linux: оба теста
+дошли до публичного GetVision (есть flushed marker) и превысили15s timeout.
+Первый использует настоящий зарегистрированный default tracker с пустой сеткой,
+проверяет coordinate round-trip и запрашивает(-1,0,0). Второй создаёт настоящий
+FixtureWorld и независимо растеризует native AI geometry: voxel(32,32,20) SOLID2,
+после чего вызывает публичный getter штатного RPG tracker. Причина: GetVision
+после FlushCubeCache снова вызывает GetVision, образуя бесконечную рекурсию.
+
+Первые попытки подготовки тестов не считаются RED: недопустимый null-map ctor,
+неподходящий building-owner lookup и неверная Linux resource variable исправлены
+в тестах до подтверждённого падения. Их raw logs сохранены отдельно как
+vision-voxel-initial-setup-*; production-код в этот период не менялся.
+
+Исправлена только цель вызова: GetVisionCached. GREEN2/2 на обеих платформах:
+шесть граничных координат пустой сетки возвращают NONE, реальная геометрия
+возвращает SOLID, переход к отсутствующему кубу и обратно сохраняет результат.
+Наш CAIViewer::ShowVisionCache использует этот публичный accessor. Диапазон/FOV,
+правила лучей, трава, environment, кеширование perception и баланс не менялись.
+
+Original Gold: PDB named CVisionTracker::GetVision6c3cc0/169 -> Steam6ca510,
+unique169-byte match с масками только двух decoded rel32 calls. Actual FetchCube
+call связан с PDB Gold6c2630/166 и Steam6c8f80 по exact unique32-byte prefix.
+Оба оригинала сбрасывают выбор куба, читают куб по координатам и классифицируют
+NONE0/SOLID2/TRANSPARENT1; самовызова нет. Адреса/ABI в production не переносились.
+
+Свежие Windows ALL_BUILD/Linux Game+UpstreamBugTests успешны. Связанные проверки
+8/8 Windows (включая native vision/voxel wire controls),6/6 Linux; предыдущие
+четыре script misc проверки входят в оба набора. Локальный asset-free CI316/316
+включает новый boundary test. Данные game.db, save tags, HD и собственные движки
+не менялись. Свидетельства: vision-voxel-red-verification.json,
+vision-voxel-retail-oracle.json, vision-voxel-verification.json и raw logs в
+G:/SS/lab/evidence/upstream-remaster-20261024. Это только GetVision hunk:
+остальные RPGVision hunks и весь смешанный19-file source остаются незавершёнными.
+Общая задача и окончательный hosted CI остаются в работе.

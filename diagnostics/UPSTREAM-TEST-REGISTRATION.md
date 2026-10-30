@@ -211,3 +211,14 @@ GREEN4/4 после очистки; контроль живых ссылок/в�
 Текущий локальный CI-манифест содержит315 тестов, включая все четыре новых;
 315/315 успешны. Это локальный результат; окончательный hosted workflow
 необходимо проверить отдельно на финальном HEAD всей задачи.
+
+
+## Публичный запрос вокселя видимости
+
+UpstreamVisionVoxelBoundary зарегистрирован без игровых ресурсов в Windows/Linux:
+настоящий default tracker из native class factory, coordinate round-trip,
+шесть запросов вне сетки. NativeVisionVoxelGeometry в ресурсной группе проверяет
+реальный RPG tracker и независимо растеризованную геометрию карты. На обеих
+платформах RED2/2 timeout непосредственно в GetVision -> GREEN2/2.
+Локальный asset-free CI316/316 включает boundary case; native geometry остаётся
+extended. Это не подтверждение hosted workflow на окончательном HEAD.

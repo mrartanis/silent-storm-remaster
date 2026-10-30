@@ -108,7 +108,7 @@ public:
 	virtual EVoxelVisionState GetVision( int x, int y, int z )
 	{
 		FlushCubeCache();
-		return GetVision( x, y, z );
+		return GetVisionCached( x, y, z );
 	}
 	virtual void GetCoord( const CVec3 &vPoint, CTPoint3<int> *pRes );
 	virtual void GetCenter( const CTPoint3<int> &p, CVec3 *pRes );
