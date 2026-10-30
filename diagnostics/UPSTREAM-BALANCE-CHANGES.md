@@ -2048,3 +2048,12 @@ This restores the original survival policy for story targets; it does not add
 or change a coefficient or threshold formula. The zero-coefficient and ordinary
 non-slot controls retain threshold0. Existing save fields persist the resulting
 reserve; this change does not rewrite units already stored in an old save.
+
+### `67ac71a9`: debug explosion command
+
+The existing debug Explosion command uses original grenade record16 instead of21
+and has no arbitrary unit owner. Its blast therefore uses the existing neutral
+perk context and can be placed when the world's unit roster is empty. This
+changes the debug command's authored preset and ownership; normal grenade APIs,
+effect algorithms and data values are unchanged. Tests capture the producer's
+call boundary, without claiming a full damage/visual comparison.

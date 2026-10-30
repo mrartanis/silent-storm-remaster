@@ -3189,18 +3189,12 @@ bool CWorld::IsWinnerPlayer( IPlayer *pPlayer )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorld::MakeExplosion( const CRay &ray, int nMaxFloor )
 {
-	CPtr<CUnitServer> pThrower = 0;
-	if ( !units.empty() )
-		pThrower = units.front();
-	//
-	if ( IsValid( pThrower ) )
-	{
-		int nUserID;
-		CVec3 ptPoint;
-		CObjectBase *pUserData;
-		if ( TraceRay( this, ray, nMaxFloor, &pUserData, &nUserID, &ptPoint ) )
-			AddGrenadeExplosion( ptPoint, NDb::GetRPGGrenade( 21 ), pThrower );
-	}
+    int nUserID;
+    CVec3 ptPoint;
+    CObjectBase *pUserData;
+    // The debug blast uses the original preset with no arbitrary unit owner.
+    if ( TraceRay( this, ray, nMaxFloor, &pUserData, &nUserID, &ptPoint ) )
+        AddGrenadeExplosion( ptPoint, NDb::GetRPGGrenade( 16 ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorld::AddGrenadeExplosion( const CVec3 &vStartPosition, NDb::CRPGGrenade *pRPGGrenade,

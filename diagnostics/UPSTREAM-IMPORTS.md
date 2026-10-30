@@ -17721,3 +17721,32 @@ Full Windows/Linux Game builds, related10/10 each (person/inventory/replacement
 clue creation/capacity/count, new4 and serializer) and CI323/323 pass. New4
 resource extended cases are outside323. All selected source hunks are complete.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e6a660f7b69c986528b8d04c86f8bdd4ba6b763e.
+
+## 2026-10-30: debug explosion preset and ownership (`67ac71a9`, complete)
+
+CWorld::MakeExplosion traces the supplied ray regardless of the unit roster and
+passes the resulting point with original grenade preset16 and default null
+owner/ignition/modifier arguments. It no longer chooses units.front or preset21.
+The existing five-argument AddGrenadeExplosion API then retains its neutral
+SPerkMineModifiers defaults (1,1,false) when owner/modifier pointers are null.
+The active call graph reaches this method only from CMission::Explosion's
+existing debug action. Normal throw/placement/explosion algorithms are unchanged.
+
+NativeDebugExplosionRouting0..2 construct the real world/map, use actual native
+TraceRay and capture the virtual blast-call boundary. RED2/3 each: an empty
+roster yields no call; a populated roster yields preset21 and an arbitrary owner.
+The no-hit control passes. GREEN3/3: each real-hit case makes one preset16 call,
+null owner/ignition/modifiers and the exact native collision point; the no-hit
+case makes none. Time/action/gameplay RNG remain intact up to the captured call.
+Empty-roster setup uses native RemoveUnit. This proves producer routing, not
+actual blast damage/visuals; the callee is deliberately observed at its boundary.
+
+Gold named MakeExplosion756320/106 starts directly with tracing and initializes
+neutral modifiers/preset16. Unique entry41/preset40byte blocks map respectively
+to Steam761bb0/761bda; only decoded relative call operands are masked. Original
+getter is named NDb::GetRPGGrenade7ecbf0/7. No whole-function/ABI equivalence claim.
+Evidence: debug-explosion-{red-verification,retail-oracle,verification}.json/raw logs.
+Full Game builds, related7Win/6Linux (native voxel/perk wire/portable wire/serializer)
+and asset-free CI323/323 pass. New3 resource extended cases are outside323.
+All selected source hunks are complete; effect scope is recorded in balanceMD.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/67ac71a9831fea31095b52f2d74d0309414b8f44.

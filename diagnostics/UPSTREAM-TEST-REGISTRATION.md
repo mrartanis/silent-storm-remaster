@@ -395,3 +395,11 @@ difficulty, raised level, zero coefficient and ordinary non-slot controls.
 Initial RED2/3 each ->GREEN4/4 after adding the non-slot control. Full RPG-unit
 save/fresh load and inclusive IsDead boundary checks; no asset edits.
 Game builds,related10/10 each,CI323; new4 outside asset-free323.
+
+## Debug explosion producer routing
+
+NativeDebugExplosionRouting0..2: resource extended Windows/Linux,timeout120.
+Actual world/map TraceRay with empty/populated unit roster and no-hit control;
+capture existing virtual blast-call boundary, exact point/preset/null ownership,
+time/action/RNG. RED2/3->GREEN3/3 each. No actual blast-damage/visual claim.
+Game builds,related7Win/6Linux,CI323; new3 outside asset-free323.

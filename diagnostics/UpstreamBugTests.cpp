@@ -6,6 +6,7 @@
 #include "../Misc/Geom.h"
 #endif
 #include "../Main/wMain.h"
+#include "../Main/wMainTrace.h"
 #include "../Main/eventWorld.h"
 #include "../Main/wBuilding.h"
 #include "../Main/wObject.h"
@@ -29512,6 +29513,43 @@ static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonA
     return sequence;
 }
 
+class DebugExplosionWorld: public NWorld::CWorld
+{
+    OBJECT_NOCOPY_METHODS(DebugExplosionWorld);
+public:
+    using NWorld::CWorld::AddGrenadeExplosion;
+    explicit DebugExplosionWorld(NRPG::CGlobalGame* game=nullptr):NWorld::CWorld(game){}
+    int blasts=0;CVec3 point;CPtr<NDb::CRPGGrenade> record;CPtr<NWorld::CUnitServer> owner;CPtr<CObjectBase> ignition;
+    const NWorld::SPerkMineModifiers* modifiers=nullptr;
+    void AddGrenadeExplosion(const CVec3& where,NDb::CRPGGrenade* grenade,NWorld::CUnitServer* unit,CObjectBase* igniter,const NWorld::SPerkMineModifiers* mods) override {
+        ++blasts;point=where;record=grenade;owner=unit;ignition=igniter;modifiers=mods;
+    }
+};
+static void DebugExplosionRouting(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=2,"unknown native debug explosion routing mode");
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    CObj<NRPG::CGlobalGame> game=NRPG::CreateGlobalGame(1);CObj<DebugExplosionWorld> world=new DebugExplosionWorld(game);
+    CObj<NWorld::CPostWorldCreateInfo> post;world->CreateRandom(810,{},true,{},0,&post,SRandomSeed(123));world->RunPostInit(nullptr);
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);Require(!units.empty(),"debug explosion fixture has no actual initial roster");
+    if(mode==0){for(auto unit:units){auto* server=dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());Require(server,"debug explosion fixture contains a non-native actor");world->RemoveUnit(server);}units.clear();world->GetAllUnits(&units);Require(units.empty(),"empty-roster debug control retained a world unit");}
+    CRay ray;CVec3 expectedPoint;CObjectBase* hitObject=nullptr;int hitLocation=-1;bool hit=false;
+    const auto bounds=world->GetMapSafeZone();
+    vector<CVec3> candidates;
+    for(auto object:world->GetObjectsForHarness())candidates.push_back(object->GetPosition().ptPos);
+    for(int y=0;y<=4;++y)for(int x=0;x<=4;++x)candidates.emplace_back(bounds.minx+(bounds.maxx-bounds.minx)*float(x+1)/6.f,bounds.miny+(bounds.maxy-bounds.miny)*float(y+1)/6.f,0);
+    for(const auto& candidate:candidates){ray.ptOrigin=CVec3(candidate.x,candidate.y,1000);ray.ptDir=CVec3(0,0,-1);if(NWorld::TraceRay(world,ray,1000,&hitObject,&hitLocation,&expectedPoint)){hit=true;break;}}
+    Require(hit,"debug explosion fixture found no real native collision point");
+    if(mode==2){ray.ptOrigin=CVec3(100000,100000,1000);ray.ptDir=CVec3(0,0,1);Require(!NWorld::TraceRay(world,ray,1000,&hitObject,&hitLocation,&expectedPoint),"no-hit control still intersects native map geometry");}
+    Require(NDb::GetRPGGrenade(16) && NDb::GetRPGGrenade(21),"debug explosion fixture lacks original/legacy authored presets");
+    const auto time=world->GetTime()->GetValue();const bool action=world->IsAction();auto random=GlobalGameRandom();
+    world->MakeExplosion(ray,1000);
+    std::printf("native debug explosion mode=%d units=%zu calls=%d preset=%d owner=%d ignition=%d modifiers=%d pointError=%.6g\n",mode,units.size(),world->blasts,world->record?world->record->GetRecordID():-1,int(IsValid(world->owner)),int(IsValid(world->ignition)),int(world->modifiers!=nullptr),world->blasts?fabs2(world->point-expectedPoint):0);std::fflush(stdout);
+    Require(mode==2?world->blasts==0:world->blasts==1 && world->record.GetPtr()==NDb::GetRPGGrenade(16) && !world->owner && !world->ignition && !world->modifiers && fabs2(world->point-expectedPoint)<1e-8f,
+        "debug explosion required an arbitrary unit or forwarded the wrong authored preset/owner/perk context");
+    Require(world->GetTime()->GetValue()==time && world->IsAction()==action && random.Get()==GlobalGameRandom().Get(),"debug explosion producer advanced world time/action/RNG before the captured blast boundary");
+}
+
 static void MainMenuVersionCaption(const char* databasePath,const char* resourcePath)
 {
     NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm native main-menu version regression");
@@ -30892,6 +30930,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "debug-explosion-routing")) { Require(argc==5,"debug explosion requires db/resources/mode"); DebugExplosionRouting(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "clue-death-reserve")) { Require(argc==5,"clue reserve requires db/resources/mode"); PersonClueCreation(argv[2],argv[3],false,std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "main-menu-version-caption")) { Require(argc==4,"menu version requires db/resources"); MainMenuVersionCaption(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-pk-gate")) { Require(argc==5,"chapter PK gate requires db/resources/mode"); ChapterPanzerkleinGate(argv[2],argv[3],std::atoi(argv[4])); return true; }
