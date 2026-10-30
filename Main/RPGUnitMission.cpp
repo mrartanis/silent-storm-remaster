@@ -1125,12 +1125,6 @@ CReceivedDmg CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, C
 	if ( pAttack->CanDealDmg(pArmor) && pAttack->nK > 0 )
 	{
 		csRPG << "<font size=16pt>";
-		// Maybe I dodged?
-		if ( this != pAttack->pTarget && !GetPanzerklein() && CheckIC() && pAttack->atkType != NRPG::AT_CLICK_OF_DEATH )
-		{
-			csRPG << CC_RED << " damage avoided!" << endl;
-			return CReceivedDmg();
-		}
 		int nDmg = pAttack->CalcStructDmg( pWorld, pArmor, 0 );
 		//	Get
 		float fDmgModifier = 0;
@@ -1177,6 +1171,9 @@ CReceivedDmg CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, C
 		csRPG << CC_GREY << "\tHL=" << GetHLName( (NAI::EHitLocation)nUserID );
 		csRPG << CC_GREY << " \tDmgModifier=" << fDmgModifier;
 		int nDamage = fDmgModifier * nDmg;
+		if ( pAttack->atkType != AT_CLICK_OF_DEATH && this != pAttack->pTarget &&
+			!GetPanzerklein() && CheckIC() )
+			nDamage = Max( 0, nDamage - int( double( GetIC() ) * nDamage * double( 0.01f ) ) );
 		int ndBVP = nDamage * (float)GetHealedVP() / GetTotalVP();
 		ASSERT( ndBVP >= 0 );
 		SetHealedVP( GetHealedVP() - ndBVP );

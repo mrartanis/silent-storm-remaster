@@ -682,3 +682,15 @@ separate-truncation controls. RED6/14 -> GREEN14/14 each; eight pre-fix controls
 state/counters/equipment/ammo/skill/inputs/RNG stable, parameters restored.
 Game builds, related84Win/84Linux and CI323 pass; new14 outside323. Shared additive
 query only; no new Prepare, AP-spend, final-chance or actual shooting claim.
+
+## Late incidental damage evasion base
+
+NativeIncidentalDamage0..7: resource extended Win/Linux,timeout120. Real native
+RPG ProcessAttack/person103/authored body armor/constant40, intended/incidental/
+IC0/20/100/140/failed-roll/actualPK-bypass and actual MakeClickOfDeath pair.
+Corrected RED4/8 -> GREEN8/8 each, four pre-fix controls. Damage/HP/receiver/
+shared RNG and click practice checked; worn shell/inventory/input portions
+preserved. Initial overstrict AP fixture archived NOT final RED; existing
+wound-driven AP recomputation observed. Full Game builds, related40Win/40Linux and
+CI323 pass; new8 outside323. No39/aura0 noncritical native RPG application
+scope; no new full projectile/FX/AI/death-loot/critical-pipeline claim.

@@ -2387,3 +2387,18 @@ parameter/truncation/no-floor behavior is retained, including temporary zero/
 negative boundary tests restored afterward. No authored DB, learning rule or
 query state/RNG change. Prepare, actual AP spending, other accuracy factors
 and complete shooting outcomes remain outside these native query tests.
+
+### `037c41d9`: late incidental damage evasion and click scope
+
+Restores incidental evasion as late damage reduction after damage calculation,
+with max0, rather than rejecting the whole hit. Native base40/IC100 applies1
+HP damage, IC20 on a successful roll applies33, and IC140 clamps to0 while
+retaining the HUMAN receiver and normal RNG flow. These residual values follow
+the original storedfloat.01 (.009999999776482582) and truncation. Intended
+targets, worn PK and click-of-death skip the IC roll/practice. The real click
+comparison removes an extra shared draw and.1 IC practice for incidental
+victims. Existing wound-driven AP recomputation remains (40-damage control
+51 ->48 AP); the RNG generator, armor, training formulas and DB assets do not
+change. This step verifies native no39/aura0 noncritical RPG application;
+typed explosion39/aura/unsigned chance and broader critical/world-trace effects
+remain separately pending.

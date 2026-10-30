@@ -18751,3 +18751,49 @@ familiarity/stance/zeroing/own learning/loader/reload/network and CI323 pass;
 new14 resource extended/outside323. Native shared additive-query scope, without
 a new Prepare/skill/final-hit-chance/actual firing claim.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-31: late incidental damage evasion base (`037c41d9` partial)
+
+Removes the early CheckIC whole-hit rejection and applies max(0,damage-
+int(double(IC)*damage*double(.01f))) after damage conversion, before healed/
+life application. Click-of-death, intended targets and worn PK skip the IC
+roll/practice before it executes. Existing GetIC/CheckIC and own shared RNG
+are retained for this no39/aura0 specialization; typed39/aura and original
+unsigned chance semantics remain separately pending. No unrelated critical,
+training formula, armor, API or serialized-layout rewrite is included.
+
+NativeIncidentalDamage0..7 execute real ProcessAttack with actual person103,
+authored human armor/matched flesh damage type, exact base40, no attacker,
+noncritical BODY and explicit no-random-knockout input. RED4/8 each -> GREEN8/8;
+four controls pass before the fix. IC100 incidental old rejected(-1/NONE)/HP0
+now applies1 HUMAN damage; IC20 selected success applies33; IC140 clamps to0
+but continues through HUMAN receiver and normal RNG flow. IC0/failed roll,
+intended target and an actual worn suit/bypass-pilot control retain full40.
+HP loss agrees with every receipt, shell/inventory/input portion stay valid,
+no unexpected death/knockout occurs, and shared RNG progression matches.
+Two actual MakeClickOfDeath payloads compare intended vs incidental targets:
+both remain zero-damage knockouts, with equal shared RNG and no IC practice.
+Previously incidental click added a roll and.1 IC practice. No actual world
+trace/FX/AI/death-loot or full critical-pipeline equivalence claim.
+
+Fixture correction before production edit: the initial all-eight failure
+suite wrongly demanded invariant defender AP during real damage. Existing
+VP/wound modifiers legitimately change51 ->48 at40 damage. That assertion was
+removed while recording AP and retaining all other checks; initial logs are
+archived as incidental-damage-initial-state-fixture and explicitly NOT final
+RED evidence. The corrected compiled4/8 RED above preceded the production fix.
+Victim AP remains governed by the existing wound system.
+
+Original secondary mission slotA4 maps GoldPDB6bd7e0/1992 ->Steam6c3e20;
+late block6c4224..6c42be checks click2, target identity, worn-PK primary14,
+then actual attack-type CheckIC90 and modifier helper6beca0. The PK getter
+Gold76bd20/Steam777ad0 matches all7bytes (typed fullpPK188). Modifier helper
+Gold6b88f0/118 uniquely matches Steam6beca0 with only independently verified
+1.f pointer masked. No39/aura0 small integer IC is its GetIC specialization.
+Reduction uses verified storedfloat.01 at8b3bc0, x87 RC11 truncate/subtract/
+negative-to0 mask. Its actual value.009999999776482582 explains IC100/base40
+leaving1, and IC20 leaving33. Evidence incidental-damage-retail-oracle and
+incidental-damage-verification JSON/raw block/complete-entry disassembly/logs.
+Full Game builds, related40Win/40Linux (health/head-body/attacker-level/PK/IC/critical/
+network) and CI323 pass; new8 resource extended/outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
