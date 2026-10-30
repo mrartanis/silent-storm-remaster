@@ -29513,6 +29513,37 @@ static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonA
     return sequence;
 }
 
+static vector<int> NativeVPBoostDurations(NRPG::IUnitMission* mission,int* modifierCount=nullptr)
+{
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(mission,&refs);vector<int> durations;vector<CPtr<CObjectBase>> modifiers;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(38,&durations);reader.Add(37,&modifiers);}
+    if(modifierCount)*modifierCount=int(modifiers.size());return durations;
+}
+static void VPBoostImmediateOverdose(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=6,"unknown native immediate VP overdose mode");
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    auto* unit=game->players.front()->mercs.front().GetPtr();NWorld::CUnitServer* actor=nullptr;
+    vector<CPtr<NWorld::CUnit>> people;world->GetAllUnits(&people);
+    for(auto person:people)if(person->GetRPG()->GetRPGUnit()==unit){actor=dynamic_cast<NWorld::CUnitServer*>(person.GetPtr());break;}
+    Require(actor && actor->CanFight() && unit->GetDeathVP()<0,"VP overdose fixture lacks its actual living deployed hero/reserve");
+    auto* mission=actor->GetUnitRPG();int originalModifiers=0;
+    Require(NativeVPBoostDurations(mission,&originalModifiers).empty() && !mission->IsUnconscious(),"VP overdose fixture starts with existing drugs or unconsciousness");
+    const vector<vector<int>> scenarios={{0},{1,1},{2,2},{2,3,6},{2,3,5},{3},{0}};
+    const auto& durations=scenarios[mode];const bool dead=mode==6,overdose=mode==0 || mode==1 || mode==4;
+    if(dead){unit->Kill();Require(mission->IsDead(),"dead VP overdose control is not actually dead");}
+    const int hp=unit->Skills(NDb::ST_VP),ap=actor->GetAP();const float xp=unit->fXP;const auto position=actor->GetPosition();const auto time=world->GetTime()->GetValue();auto random=GlobalGameRandom();
+    for(int duration:durations)mission->AddVPBoost(dead?0.f:10.f,duration);
+    int modifierCount=0;const auto actual=NativeVPBoostDurations(mission,&modifierCount);
+    std::printf("native VP immediate mode=%d doses=%zu durations=%zu modifiers=%d HP=%d->%d unconscious=%d dead=%d expectedOverdose=%d\n",mode,durations.size(),actual.size(),modifierCount,hp,int(unit->Skills(NDb::ST_VP)),int(mission->IsUnconscious()),int(mission->IsDead()),int(overdose));std::fflush(stdout);
+    const bool cleared=overdose || dead;
+    Require(cleared?actual.empty():actual==durations,"native VP boost did not clear an overdose or changed a safe duration list");
+    Require(mission->IsUnconscious()==overdose && (dead?mission->IsDead() && int(unit->Skills(NDb::ST_VP))==hp:!mission->IsDead() && (overdose?int(unit->Skills(NDb::ST_VP))==0:int(unit->Skills(NDb::ST_VP))>hp && int(unit->Skills(NDb::ST_VP))<=unit->Skills(NDb::ST_VP).GetMaxValue())),
+        "native VP overdose missed unconsciousness/zero-health or changed the safe/dead control");
+    Require(modifierCount==originalModifiers+int(durations.size()),"overdose handling removed the existing skill modifiers instead of only the duration list");
+    Require(actor->GetAP()==ap && unit->fXP==xp && actor->GetPosition()==position && world->GetTime()->GetValue()==time && random.Get()==GlobalGameRandom().Get(),"VP overdose bookkeeping changed AP/XP/position/time or gameplay RNG");
+}
+
 class DebugExplosionWorld: public NWorld::CWorld
 {
     OBJECT_NOCOPY_METHODS(DebugExplosionWorld);
@@ -30930,6 +30961,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "vp-immediate-overdose")) { Require(argc==5,"VP overdose requires db/resources/mode"); VPBoostImmediateOverdose(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "debug-explosion-routing")) { Require(argc==5,"debug explosion requires db/resources/mode"); DebugExplosionRouting(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "clue-death-reserve")) { Require(argc==5,"clue reserve requires db/resources/mode"); PersonClueCreation(argv[2],argv[3],false,std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "main-menu-version-caption")) { Require(argc==4,"menu version requires db/resources"); MainMenuVersionCaption(argv[2],argv[3]); return true; }

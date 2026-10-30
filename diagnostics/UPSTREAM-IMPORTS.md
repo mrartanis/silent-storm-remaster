@@ -17750,3 +17750,32 @@ Full Game builds, related7Win/6Linux (native voxel/perk wire/portable wire/seria
 and asset-free CI323/323 pass. New3 resource extended cases are outside323.
 All selected source hunks are complete; effect scope is recorded in balanceMD.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/67ac71a9831fea31095b52f2d74d0309414b8f44.
+
+## 2026-10-30: immediate VP boost overdose (`bf54ea44`, partial)
+
+AddVPBoost now invokes the original CheckOverdose after installing its existing
+modifier and duration. The helper accumulates reciprocal durations without
+division, starting numerator0/denominator1. A strict excess or zero denominator
+clears durations; living units become unconscious with VP0, while dead units
+retain their state after the existing boost operation. Temporary skill modifiers
+remain installed, as in the original. No serialized fields or strength values
+change. Periodic duration decrement/check is still pending separately.
+
+NativeVPImmediateOverdose0..6 use the actual deployed hero and native RPG calls.
+Cases: zero; 1+1; exact boundaries 2+2 and 2+3+6; excess 2+3+5; safe single3;
+and already-dead zero-duration/zero-strength control. RED4/7 each; all three safe
+controls pass before the fix. GREEN7/7 each includes modifier retention, normal
+positive VP boosting, no resurrection, and AP/XP/position/time/RNG preservation.
+Read-only native serializer field observation inspects duration/modifier lists.
+An initial fixture incorrectly expected positive boosters to preserve HP; those
+logs are archived as fixture-health-control and are not counted as valid RED.
+
+Gold named CheckOverdose6bab10/232 maps uniquely to Steam6c0bb0/232. All decoded
+instructions match with only three verified constant pointers (0,1,0) and the
+deallocation-call operand masked. AddVPBoost tail6bd0a5 -> Steam6c35d5 calls those
+exact helpers. This proves the original rule, not arbitrary extreme-stack x87
+versus native-double precision or allocator implementation equivalence.
+Evidence: vp-overdose-{retail-oracle,verification}.json and raw logs.
+Windows/Linux Game builds, related24 each and asset-free CI323/323 pass.
+Seven new resource extended tests are outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/bf54ea44a50f7e9ab7095a05491ec289105c84d0.

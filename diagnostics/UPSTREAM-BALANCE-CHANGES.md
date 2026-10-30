@@ -2057,3 +2057,13 @@ perk context and can be placed when the world's unit roster is empty. This
 changes the debug command's authored preset and ownership; normal grenade APIs,
 effect algorithms and data values are unchanged. Tests capture the producer's
 call boundary, without claiming a full damage/visual comparison.
+
+### `bf54ea44`, first part: overdose on VP drug administration
+
+Restores the Gold/Steam overdose rule at the existing AddVPBoost call boundary:
+strict sum(1/duration)>1 or zero denominator causes living units to become
+unconscious at VP0 and clears duration tracking. Boost strength, temporary
+modifiers, authored drug values and death reserve remain unchanged. Equality
+is safe. Already-dead units are not resurrected. Native tests cover small
+integer boundary combinations; arbitrary extreme-stack floating precision is
+not claimed. Periodic duration countdown/check remains pending separately.

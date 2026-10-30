@@ -403,3 +403,11 @@ Actual world/map TraceRay with empty/populated unit roster and no-hit control;
 capture existing virtual blast-call boundary, exact point/preset/null ownership,
 time/action/RNG. RED2/3->GREEN3/3 each. No actual blast-damage/visual claim.
 Game builds,related7Win/6Linux,CI323; new3 outside asset-free323.
+
+## Immediate VP overdose
+
+NativeVPImmediateOverdose0..6: Windows/Linux resource extended, timeout120.
+Native deployed hero, real AddVPBoost; zero/excess/exact/safe/dead boundaries,
+duration clearing, modifier retention, VP/consciousness, AP/XP/time/position/RNG.
+RED4/7->GREEN7/7 each. Related24 each; Game builds; asset-free CI323.
+Periodic duration countdown remains a separate pending hunk.
