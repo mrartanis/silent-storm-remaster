@@ -16885,3 +16885,48 @@ window-activation-retail-oracle.json в G:/SS/lab/evidence/upstream-remaster-202
 После независимых Cancel и UIWindow исправлений остальные части4949 требуют
 дальнейшей проверки. Ledger171 imported/18partial/54pending:72 исходных коммита
 ещё не закрыты. Полная задача и окончательный hosted CI остаются активными.
+
+
+## `4949f285`: seed визуальных вариантов снаряжения
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+Перенесён связанный путь Unit -> Mission/Info -> GetItemsBindPlaces.
+Источник остаётся partial; PK backpack bone и другие части проверяются отдельно.
+
+После исправления начальной узкой fixture проверен настоящий authored cap
+(наблюдались персона1030 на Win и1031 на Linux). Native CreateModel независимо
+получает разные geometry/material signatures для существующего публичного
+bindSeed0/3703701. Четыре clock-seed заданы штатным harness-контролем SRand;
+исходная реализация давала7/8 неверных вариантов как для живого unit, так и
+после полного обычного save graph -> NEW CUnit -> CreateUnit. Поля живого
+объекта через partial READ не подменялись. Body-only/no-cap8 queries проходили.
+Первый поиск только backpack-шаблонов с узкими seed не нашёл различий: это
+архивированная ошибка подготовки теста, а не RED движка.
+
+Compiled native RED2/3each -> GREEN3/3each. Получено16/16 ожидаемых вариантов
+на каждой платформе, включая реальную загрузку, плюс8 body-only controls.
+В каждом запросе сохраняются gameplay ISAAC, существующий seed, head object,
+здоровье, uniform и inventory. SRand по умолчанию использует clock/harness
+и Get4 warmup; он не расходует gameplay ISAAC. Проблема касается визуального
+выбора, зависевшего от времени кадра. Сам генератор не менялся.
+
+Оригинал: named Gold Unit getter6b74a0/15 читает typed bindSeed+a8; exact
+unmasked unique Steam getter6bd810. Mission getter6bf6f0/23 -> exact unique
+Steam6c5e80; secondary Info tables8b63cc/8c54e4 slot6c указывают на эти getters.
+Render consumer Gold6195e0/1678 -> Steam61e340 через unique32-byte prologue
+с маской только SEH address; actual10-byte virtual seed call отдельно связан.
+Проверен путь seed, идентичность всей политики выбора моделей не заявляется.
+
+Поле bindSeed и tag27 уже были в нашем форке. Добавлены const getters и
+аргумент SRand(existingSeed). Info getter помещён в конец, чтобы сохранить
+существующие Info slots; производные интерфейсы и потребители пересобраны.
+Новых полей, инициализаций, тегов, коэффициентов или весов нет. Остальные
+production bytes четырёх файлов сверены с родителем; собственные head engine,
+мимика, renderer, API тела, шрифты и HD-данные сохранены.
+
+Свежие Win ALL_BUILD/Linux Game+helpers,100 связанных проверок на каждой
+платформе, включая UpstreamHeadRenderTopology, PK/body/attachment/serializer,
+и локальный asset-free CI311/311 успешны. Свидетельства:
+bind-seed-verification.json и bind-seed-retail-oracle.json в
+G:/SS/lab/evidence/upstream-remaster-20261024. Общая задача и final hosted CI
+остаются незавершёнными; ledger171 imported/18partial/54pending=72 источника.

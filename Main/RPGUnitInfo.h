@@ -4,6 +4,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+struct SRandomSeed;
 namespace NDb
 {
 	enum EWeaponType : int;
@@ -160,6 +161,8 @@ public:
 	virtual bool IsAIPlayer() const = 0;
 
 	virtual void GetCriticalsList( list<CPtr<ICriticalInfo> > *pListCriticals ) const = 0;
+	// Append the saved render seed getter to keep existing Info slots.
+	virtual SRandomSeed GetBindPlacesSeed() const = 0;
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 } // namespace

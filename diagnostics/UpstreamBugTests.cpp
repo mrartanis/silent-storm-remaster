@@ -14340,6 +14340,97 @@ static void ExplicitItemActivationVisibility(const char* databasePath,const char
         }
 }
 
+static vector<int> BindingModelSignature(NDb::CModel* model)
+{
+    vector<int> key;
+    if(!IsValid(model) || !IsValid(model->pGeometry))return key;
+    key.push_back(model->pGeometry->GetRecordID());
+    for(const auto& material:model->pMaterials)key.push_back(IsValid(material)?material->GetRecordID():-1);
+    return key;
+}
+
+static bool FindBindingModelVariants(NDb::CTRndModel* source,int* seeds,vector<int>* expected)
+{
+    vector<int> first;
+    for(int sample=0;sample<64;++sample) {
+        const int seed=sample*1234567;
+        SRand random{SRandomSeed(seed)};CObj<NDb::CModel> model=source->CreateModel(&random);
+        auto key=BindingModelSignature(model);if(key.empty())continue;
+        if(first.empty()){first=key;seeds[0]=seed;}
+        else if(first!=key){seeds[1]=seed;expected[0]=first;expected[1]=key;return true;}
+    }
+    return false;
+}
+
+static void BindPlacesSeed(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=2,"unknown bind-place seed case");
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    NDb::CRPGPers* persona=nullptr;int storedSeeds[2]={0,0};vector<int> expected[2];bool cap=false;
+    std::set<int> fixedBackpacks,fixedCaps;int candidates=0;CObj<NRPG::IUnitMission> source;
+    CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while(people.MoveNext() && !persona) {
+        auto* p=people.Get();
+        if(!p->pClass || !p->pBaseValue || !p->pModel || p->pClass->skills[NDb::ST_LEVEL]<=0 ||
+            p->pPanzerklein || p->pDefaultWearsPanzerklein || !p->pUniform)continue;
+        if(auto* backpack=p->pUniform->pBackpackModel.GetPtr())if(!fixedBackpacks.count(backpack->GetRecordID())) {
+            ++candidates;
+            if(FindBindingModelVariants(backpack,storedSeeds,expected)){persona=p;source=NRPG::CreateUnit(p);break;}
+            fixedBackpacks.insert(backpack->GetRecordID());
+        }
+        if(auto* hat=p->pUniform->pCapModel.GetPtr())if(!fixedCaps.count(hat->GetRecordID())) {
+            ++candidates;
+            if(!FindBindingModelVariants(hat,storedSeeds,expected)){fixedCaps.insert(hat->GetRecordID());continue;}
+            CObj<NRPG::IUnitMission> candidate=NRPG::CreateUnit(p);auto* head=candidate->GetRPGUnit()->GetHeadInfo();
+            if(head && IsValid(head->GetHair()))continue;
+            persona=p;source=candidate;cap=true;
+        }
+    }
+    std::printf("native bind seed mode=%d authored-templates=%d persona=%d cap=%d seeds=%d/%d\n",
+        mode,candidates,persona?persona->GetRecordID():-1,int(cap),storedSeeds[0],storedSeeds[1]);std::fflush(stdout);
+    Require(persona && source,"authored equipment catalogue has no visible distinct native material/model variants for the seed fixture");
+    Require(source->GetInventoryInfo()->GetUniform()==persona->pUniform.GetPtr(),"bind seed fixture lost its actual authored uniform");
+    const bool bodyOnly=mode==2;int mismatches=0,queries=0;
+    for(int i=0;i<2;++i) {
+        CObj<NRPG::IUnitMission> mission=source;
+        // Configure the existing public persisted seed for each independent unit/save input.
+        mission->GetRPGUnit()->bindSeed=SRandomSeed(storedSeeds[i]);
+        if(mode==1) {
+            CObj<NRPG::CUnit> unit=mission->GetRPGUnit();CMemoryStream saved;
+            {CStructureSaver writer(saved,CStructureSaver::WRITE);writer.Add(1,&unit);}
+            saved.Seek(0);CObj<NRPG::CUnit> restored;
+            {CStructureSaver reader(saved,CStructureSaver::READ);reader.Add(1,&restored);}
+            Require(restored && restored.GetPtr()!=unit.GetPtr() && restored->bindSeed.nSeed==storedSeeds[i],
+                "ordinary native save/load lost the existing per-unit bind seed");
+            mission=NRPG::CreateUnit(restored);
+        }
+        for(unsigned clockSeed:{11u,47u,180u,902u}) {
+            auto* unit=mission->GetRPGUnit();const int hp=mission->GetTotalVP();
+            auto* active=mission->GetInventoryInfo()->GetActive();const auto count=mission->GetInventoryInfo()->GetItems().size();auto* head=unit->GetHeadInfo();
+            GlobalGameRandom().SeedForHarness(clockSeed);auto before=GlobalGameRandom();
+            vector<NWorld::IRenderVisitor::SBoundMesh> meshes;
+            NWorld::GetItemsBindPlaces(&meshes,mission,false,nullptr,false,bodyOnly || !cap,bodyOnly);
+            auto after=GlobalGameRandom();
+            Require(before.Get()==after.Get() && unit->bindSeed.nSeed==storedSeeds[i] && unit->GetHeadInfo()==head &&
+                mission->GetTotalVP()==hp && mission->GetInventoryInfo()->GetActive()==active &&
+                mission->GetInventoryInfo()->GetUniform()==persona->pUniform.GetPtr() && mission->GetInventoryInfo()->GetItems().size()==count,
+                "render attachment selection changed gameplay ISAAC, saved seed, head, health or inventory");
+            if(bodyOnly)Require(meshes.empty(),"body-only no-cap pose emitted an equipment mesh");
+            else {
+                Require(!meshes.empty() && meshes.front().pszBindBone && std::string(meshes.front().pszBindBone)==(cap?"Cap":"BackPack"),
+                    "native bind fixture did not emit the actual authored equipment as its first attachment");
+                auto actual=BindingModelSignature(meshes.front().pModel);const bool matches=actual==expected[i];mismatches+=!matches;
+                std::printf("native bind seed mode=%d unit=%d stored=%d clock=%u geometry=%d expected=%d matches=%d\n",
+                    mode,i,storedSeeds[i],clockSeed,actual.empty()?-1:actual[0],expected[i][0],int(matches));
+            }
+            ++queries;
+        }
+    }
+    std::printf("native bind seed result mode=%d queries=%d mismatches=%d saved=%d\n",mode,queries,mismatches,int(mode==1));std::fflush(stdout);
+    Require(mismatches==0,"native rendered equipment ignores the unit's persisted bind seed and follows the frame clock seed");
+}
+
 static void NonUniformAttachment(const char* databasePath,const char* resourcePath,int mode)
 {
     const bool uniform=mode>=7 && mode<=10 || mode==12 || mode==15,heavy=mode==2 || mode==3 || mode==9,gun=mode==1 || mode==8 || mode==13;
@@ -29549,6 +29640,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "corpse-cancel-state")) { Require(argc == 5, "corpse cancellation requires db, resources and mode"); CorpseCancelState(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "bind-places-seed")) { Require(argc==5,"bind seed requires db, resources and mode"); BindPlacesSeed(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "item-initial-floor")) { Require(argc == 5, "item floor contact requires db, resources and mode"); ItemInitialFloorContact(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "inactive-random-encounter")) { Require(argc == 6, "inactive encounter requires db, resources, viewport and mode"); InactiveRandomEncounter(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "global-map-script-lifecycle")) { Require(argc == 6, "global map lifecycle requires db, resources, context and mode"); GlobalMapScriptLifecycle(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }

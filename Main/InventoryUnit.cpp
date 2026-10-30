@@ -150,7 +150,7 @@ void GetItemsBindPlaces( vector<IRenderVisitor::SBoundMesh> *pRes, NRPG::IUnitMi
 	bool bUndrawWeapon, NDb::CPanzerklein *pPanzerklein, bool bNoHeavyWeapon, bool bNoCap, bool bNoItems )
 {
 	pRes->clear();
-	SRand rnd;
+	SRand rnd( pRPG->GetBindPlacesSeed() );
 	bool bIsPK = IsValid( pPanzerklein );
 	CPtr<NRPG::IInventoryInfo> pInventory = pRPG->GetInventoryInfo();
 	NDb::CRPGUniform *pDBUniform = pInventory->GetUniform();
