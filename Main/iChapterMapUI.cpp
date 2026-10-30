@@ -619,7 +619,7 @@ void CRandomSector::UpdateSector( const STime &sTime, const CVec2 &vTeamPos )
 	sUpdateTime = sTime + N_RANDOMZONE_TTL * sRand.GetFloat( 0.5f, 1.0f );
 	if ( !IsVisible() )
 	{
-		if ( sRand.Get( 100 ) < GetSector().nProbability )
+		if ( sRand.Get( 100 ) > GetSector().nProbability )
 			return;
 
 		for ( int nTemp = 0; nTemp < N_RANDOMZONE_ROLLTRY_COUNT; nTemp++ )

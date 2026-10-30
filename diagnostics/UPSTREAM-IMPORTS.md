@@ -16696,3 +16696,39 @@ random-spawn-policy-original-audit.json. These original values are verified,
 but no chance/range code has been ported yet. Before that range change also
 check own chapter-info/HD coordinate units. Ledger169 imported/18partial/56pending
 =74 unfinished source commits; whole goal/final hosted CI/balance review active.
+
+
+## Restore original random encounter probability comparison (5d3fe7df, partial)
+
+Source: [5d3fe7df8e9a3f15f57353d2451df63d85b0306b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5d3fe7df8e9a3f15f57353d2451df63d85b0306b).
+Parent: cbd4ebca01ded73680edd324aace971f0d7fc1c2. The dev reversed the rejection
+comparison: probability100 never spawned, while rolls above probability0 did.
+Reject only roll>authored probability, retaining original equality acceptance.
+
+Native compiled RED10/38 each (28controls) -> GREEN38/38 each. Eight seeded
+probability/roll pairs0/0,0/1,50/49,50/50,50/51,99/98,99/99,100/99 across normal/
+wide layouts run actual native chapter/save/StepApp/Draw. Existing public seed
+harness seeds lazy SRand; its constructorGet4 plus timer/roll draws are checked
+with a reference SRand, and every native timer matches exactly. A legal fixed
+sampler point64 authored units away and its actual polygon avoid geometric
+randomness. Accepted native marker centers preserve the own MapOffset adapter.
+All previous22 gate/lifetime/template controls remain. No live partial READ or
+new production test seam; commands are observed/drained without executing saves.
+
+Original Gold/Steam both push bound100, load the typed sector probability and
+use CMP/JG rejection. Their SRand::Get is an exact unmasked43-byte match of the
+32-bit LCG; own generator code is untouched. Native equality cases, including
+probability0/roll0, preserve the original strict boundary. Only one source
+comparator changes. Authored values/weights, existing timer, hundred-attempt
+loop, radius8/256, expiry quarter-chance, save fields, fonts/HD/facial/body remain.
+This restores original behavior; accepted paths naturally consume placement
+draws, so no unchanged full RNG-trace claim is made.
+
+Fresh Win ALL_BUILD/Linux Game+helpers/serializer, campaign76/76 each and local
+asset-free CI305/305. Exact tested source and raw native/original/gate evidence:
+random-chance-verification.json in G:/SS/lab/evidence/upstream-remaster-20261024.
+Own HD audit confirms Chapters geometry bypasses the texture-only HD layer;
+distance uses authored coordinates. Original minimum32/max256 are verified in
+both EXE versions, but minimum-radius code remains unported pending its own TDD.
+Source5d3 stays PARTIAL only for that final radius hunk. Ledger169 imported/
+18partial/56pending=74unfinished; whole goal/final hostedCI/balance review active.
