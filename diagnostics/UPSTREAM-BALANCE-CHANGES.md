@@ -2213,3 +2213,13 @@ the detection query; spot21/target stealth30 at distance0 therefore gives41%
 instead of36%. The actual skill is unchanged. Target-only25 does not influence
 the result. Native tests cover ownership, truncation and clamp controls; mine
 spotting and complete AI visibility are separate consumers.
+
+### `037c41d9`: original ability75 ownership quirk
+
+Restores Gold/Steam behavior even though it is counterintuitive: the observer's
+acquired75 scales the target's local stealth term. With the authored positive
+.25 this can lower that observer's detection chance; equal spot/stealth100 at
+distance0 changes45% to20%. Having75 only on the target leaves45% unchanged.
+The audited original query has no night gate. Actual skills and authored data
+are unchanged. Native tests confirm ownership, truncation and clamp cases;
+full AI/day-night visibility scenarios are not claimed.

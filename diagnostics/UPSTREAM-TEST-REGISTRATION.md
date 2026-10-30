@@ -535,3 +535,11 @@ observer/target native grants, authored.25, fractional/negative/zero parameters,
 zero skill/clamps and target-only/both ownership. RED6/14 -> GREEN14/14 each;
 both units' skill/AP/HP/XP, points and RNG stable. Related134Win/134Linux, Game builds,
 CI323. New14 outside323; direct detection-query scope.
+
+## Observer75 scales target stealth
+
+NativeObserverStealth0..13: resource extended Win/Linux,timeout120. Actual RPG
+observer/target grants75, authored.25, target-only/both ownership, zero stealth,
+clamps and fractional/negative/zero controls. RED6/14 -> GREEN14/14 each; skills,
+AP/HP/XP/points/RNG stable. Related148Win/148Linux, Game builds, CI323. New14 outside323;
+query scope only, no complete visibility/world day-night scenario claim.

@@ -18250,3 +18250,34 @@ retail-oracle.json and better-spotting-verification.json/raw logs.
 Game builds, related134Win/134Linux, CI323 pass; new14 cases outside323.
 Other independent037c41d9 hunks remain pending.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: original observer75/target-stealth rule (`037c41d9`, partial)
+
+GetUnhideProbability now tests acquired75 on the OBSERVER, then scales the
+TARGET's local stealth term by (1 + Param1) and truncates. This counterintuitive
+ownership is present in both Gold and Steam; no night gate is introduced.
+Actual skills stay unchanged. Does not move75 to the target or convert it to
+a global skill modifier.
+
+NativeObserverStealth0..13 use actual authored RPG observer/target and native
+TakePerk75. With authored .25 and spot100/stealth100, distance0 restores20%
+rather than45%; distance15 restores the final clamp0 rather than22%. Target-
+only75 retains45%, both75 give20%. Zero stealth, high/low clamp, temporary
+fractional/negative/zero parameters and no-ability controls are included.
+RED6/14 each -> GREEN14/14; eight controls pass before the fix. Both units'
+skills/AP/HP/XP, point budgets and RNG remain stable. Temporary parameters are
+restored; no DB files change. Direct query scope, not a full AI/visibility or
+world day/night scenario claim.
+
+Gold GetUnhideProbability6b9540/317 -> Steam6bf750 mapping masks only four
+independently verified constant-pointer operands. At the75 gate, Gold6b961f
+restores ECX from ESI (the observer), while the preceding target skill read
+uses the argument. The scaled value is that target's stealth. The full audited
+original body has no night gate; its extra argument is unused. Along with the
+separate baseline/25 commits, the ordinary finite arithmetic/hooks of this
+query are now accounted for; no exceptional-float/overflow or ABI identity
+claim. Evidence: spotting-retail-oracle.json, original disassembly and observer-
+stealth-verification.json/raw logs.
+Game builds, related148Win/148Linux, CI323 pass; new14 cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
