@@ -2350,3 +2350,15 @@ additive term; these figures are not direct final hit-chance percentages.
 Native queries preserve state/RNG and do not mutate DB assets. Base sum-order/
 precision and targeting73 remain separately pending; no full firing/AI-choice
 or complete accuracy-formula equivalence claim is added here.
+
+### `037c41d9`: original additive float order; upstream D2/Stance correction
+
+Restores float stores after SMove+RS, then D2, then Stance; live familiarity
+and integer quality follow before the final float store. Both original method
+tables prove D2 precedes Stance; the upstream hunk reverses them and is corrected.
+Native actual terms show small rounding differences (for example raw float bits
+4106bc44 ->4106bc45). Four controls preserve results that the upstream order
+would change incorrectly. No term values, authored records, learning rules or
+query state/RNG change. These native tests verify the shared additive result;
+effects on final hit chances after other factors and actual shooting are not
+claimed here. The extra-AP/targeting73 formula remains separately pending.

@@ -650,3 +650,15 @@ RED6/10 -> GREEN10/10 each, four item-identity/untrained controls; AP/HP/XP/
 points/equipment/live-counter/RNG stable during query. Full Game builds,
 related44Win/44Linux and CI323 pass; new10 outside323. Query input isolates the
 missing familiarity term; no actual firing or full sum-order/targeting claim.
+
+## Original additive float order
+
+NativeAdditiveOrder0..11: resource extended Win/Linux,timeout120. Actual
+person2/firearm1/native terms and counters; fixed literal golden result/input
+bits from independently decoded original stores and Fraction crosscheck.
+RED8/12 -> GREEN12/12 each, four pre-fix controls reject upstream D2/Stance
+swap; no fixture prerequisite failures. State/counters/equipment/ammo/skill/
+query inputs/live familiarity/RNG stable. Full Game builds, related56Win/56Linux
+and CI323 pass; new12 outside323. Temporary discovery mode removed, discovery
+and provisional wrong-order scout explicitly are not RED evidence. Shared
+additive-query scope, not final chance or actual shooting.

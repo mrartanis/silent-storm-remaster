@@ -29536,6 +29536,25 @@ static CObj<NRPG::CWeaponItem> NativeEquipFamiliarityGun(NRPG::CUnit* unit)
 {
     NDb::CRPGWeapon* record=nullptr;CDBIterator<NDb::CRPGWeapon> rows(*NDatabase::GetTable<NDb::CRPGWeapon>());while(rows.MoveNext()){auto* candidate=rows.Get();if(candidate->pItem && candidate->pWeaponType && candidate->shootModes[NDb::SM_Snap] && (!record || candidate->GetRecordID()<record->GetRecordID()))record=candidate;}Require(record,"familiarity fixture lacks an authored snap firearm");CObj<NRPG::CWeaponItem> gun=new NRPG::CWeaponItem(record);gun->nQuantity=1;auto* inventory=unit->GetInventory();CObj<NRPG::IInventoryItem> previous=inventory->TakeOff(NDb::SLOT_1);Require(inventory->Equip(NDb::SLOT_1,gun) && inventory->Activate(NDb::SLOT_1) && unit->GetWeaponItem()==gun.GetPtr() && gun->SetShootMode(NDb::SM_Snap),"familiarity fixture could not activate its actual firearm");return gun;
 }
+static void AdditiveOrderRegression(const char* databasePath,const char* resourcePath,int mode)
+{
+    struct Sample {int distance,pose,moves,repeats;unsigned expected,d2,movement;int stance;};static const Sample samples[]={
+      {20,0,1,0,0x4106bc45u,0x40048aadu,0xbecccccdu,2},
+      {19,1,1,0,0x40f8f8fcu,0x401b8b91u,0xbecccccdu,1},
+      {11,0,6,0,0x421a8888u,0x42092221u,0xc019999au,2},
+      {17,0,2,2,0x416d477du,0x409c2893u,0xbf4ccccdu,2},
+      {17,2,2,1,0x412d477du,0x409c2893u,0xbf4ccccdu,0},
+      {17,3,2,1,0x412d477du,0x409c2893u,0xbf4ccccdu,0},
+      {20,1,12,0,0x40748aadu,0x40048aadu,0xc0800000u,1},
+      {21,1,12,0,0x407005cdu,0x400005cdu,0xc0800000u,1},
+      {18,0,7,3,0x41540713u,0x40534f7eu,0xc0333333u,2},
+      {17,1,7,3,0x415d477du,0x409c2893u,0xc0333333u,1},
+      {12,0,3,2,0x42125990u,0x41d84cbbu,0xbf99999au,2},
+      {8,0,4,3,0x428c72f2u,0x426c4c49u,0xbfcccccdu,2}};Require(mode>=0 && mode<12,"unknown native additive-order mode");const auto& sample=samples[mode];CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);auto mission=NativeMissionWithUntakenPerk(32);auto* unit=mission->GetRPGUnit();auto gun=NativeEquipFamiliarityGun(unit);unit->UseWeapon(gun,3,20,1.25f);unit->UseWeapon(gun,3,20,1.25f);for(int i=0;i<sample.moves;++i)mission->AddMoveInLastTurn(1);mission->RegisterAction(NRPG::AC_OPEN_CLOSE);for(int i=0;i<sample.repeats;++i)mission->RegisterAction(NRPG::AC_END_SHOOT);
+    CObj<NRPG::CTileToHitCalcer> calcer=new NRPG::CTileToHitCalcer;calcer->pUnitMission=mission;calcer->pWeaponItem=gun;gun->GetInfo(&calcer->sWeaponInfo);calcer->nSkill=unit->Skills(NDb::ST_SHOOTING);calcer->eCurPose=NAI::EPose(sample.pose);calcer->nDistance=sample.distance;calcer->bFirstRound=false;calcer->nExtraAP=0;calcer->nSnipeAP=0;calcer->nBullet=0;calcer->fMovePenalty=gun->GetDBWeapon()->pWeaponType->fMovePenalty;auto bits=[](float value){unsigned result;std::memcpy(&result,&value,4);return result;};Require(unit->pPers->GetRecordID()==2 && gun->GetDBWeapon()->GetRecordID()==1 && calcer->nSkill==35 && calcer->sWeaponInfo.nQuality==1 && calcer->GetD1()==13.5f && bits(calcer->GetD2())==sample.d2 && bits(calcer->GetSMove())==sample.movement && calcer->GetStance()==sample.stance && calcer->GetRS()==sample.repeats*2 && unit->GetWeaponAdaptation(gun)==3.75f,"native additive golden fixture terms changed; not an order RED");
+    const int ap=mission->GetAP(),hp=mission->GetTotalVP(),points=unit->GetPerksTree()->GetPerkPoints(),quantity=gun->GetQuantity(),ammo=gun->GetAmmoQuantity();const float xp=unit->fXP;auto random=GlobalGameRandom();const unsigned actual=bits(calcer->GetAllAdd());std::printf("native additive order mode=%d distance=%d pose=%d moves=%d repeats=%d D2=%08x movement=%08x actual=%08x expected=%08x\n",mode,sample.distance,sample.pose,sample.moves,sample.repeats,sample.d2,sample.movement,actual,sample.expected);std::fflush(stdout);Require(actual==sample.expected,"native shared additive sum changed original stored-float order or familiarity/quality tail");Require(mission->GetAP()==ap && mission->GetTotalVP()==hp && unit->GetPerksTree()->GetPerkPoints()==points && unit->fXP==xp && mission->GetMoveInLastTurn()==sample.moves && mission->GetLastActionTimes()==sample.repeats && unit->GetWeaponItem()==gun.GetPtr() && gun->GetQuantity()==quantity && gun->GetAmmoQuantity()==ammo && unit->GetWeaponAdaptation(gun)==3.75f && int(unit->Skills(NDb::ST_SHOOTING))==35 && calcer->nDistance==sample.distance && int(calcer->eCurPose)==sample.pose && random.Get()==GlobalGameRandom().Get(),"additive-order query changed AP/HP/XP/points/counters/equipment/skill/inputs/RNG");
+}
+
 static void LiveWeaponFamiliarity(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=9,"unknown live familiarity mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);auto mission=NativeMissionWithUntakenPerk(32);auto* unit=mission->GetRPGUnit();auto* inventory=unit->GetInventory();auto gun=NativeEquipFamiliarityGun(unit);CObj<NRPG::CWeaponItem> otherGun;CObj<NRPG::CMeleeWeaponItem> knife;CObj<NRPG::IInventoryItem> taken;NRPG::IInventoryItem* trained=gun.GetPtr();
@@ -31536,6 +31555,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "additive-order")) { Require(argc==5,"additive order requires db/resources/mode"); AdditiveOrderRegression(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "live-familiarity")) { Require(argc==5,"live familiarity requires db/resources/mode"); LiveWeaponFamiliarity(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "explosive-modifier-math")) { Require(argc==3,"explosion modifier requires mode"); ExplosiveModifierMath(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "cheap-grenade-ap")) { Require(argc==5,"grenade43 requires db/resources/mode"); CheapGrenadeAPPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }

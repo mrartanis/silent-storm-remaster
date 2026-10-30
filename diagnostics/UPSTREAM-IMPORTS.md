@@ -18640,3 +18640,48 @@ familiarity, zeroing/stance, loader ordering/reload/network and CI323 pass.
 New10 resource extended/outside323. Broader037c order/targeting/evasion/aura
 consumers remain pending.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: original additive float order, correcting upstream (`037c41d9` partial)
+
+GetAllAdd now stores float(SMove+RS), adds/stores D2, then Stance, and retains
+wide precision through live familiarity plus integer quality until the final
+float assignment. Other terms, live counter and targeting branch are unchanged.
+The upstream037c hunk reverses D2/Stance; that reconstruction error is corrected
+here using both originals. Faster-targeting73 and the extra-AP formula remain
+separate pending hunks.
+
+Gold PDB GetAllAdd6b2240/357 and independently identified Steam6b83c0 call
+slots28,24,20,18. PDB/RTTI primary tables Gold8b5b9c/Steam8c4cb4 resolve them to
+SMove,RS,D2,Stance respectively (slot20 is D2, not Stance). Then mission70
+is the live familiarity getter, followed by integer quality. Typed PDB
+sWeaponInfo18/nQuality4 ->quality1c and pUnitMission44 identify fields.
+Goldscratch0c/Steam10 differ; both are independently decoded, no forced prefix
+parity. Valid firearm SNAP returns reload the stored float. No whole-method,
+unarmed excess-precision ABI or full accuracy/targeting equivalence claim.
+
+Discovery, NOT RED evidence: a temporary native probe enumerated16848 actual
+term combinations per platform. A provisional upstream-order probe was
+corrected against those named vtables before fixed tests or production edits;
+its separate logs are retained as additive-order-discovery-upstream-order and
+provisional-scout-correction JSON. Corrected Win/Linux observations agree for
+all128 differences. Exact Fraction arithmetic on round-tripped native float32
+terms independently checks all128 original-order outputs. The temporary probe
+was removed; fixed native regressions contain literal golden result/input bits,
+without a copied calculation of the implementation in the test.
+
+NativeAdditiveOrder0..11 use actual person2/firearm1/SNAP/native shooting35,
+D1=13.5, actual distance/stance/weapon movement terms, native movement/repeat
+counters and existing UseWeapon live3.75. RED8/12 each -> GREEN12/12. Four
+pre-fix controls also reject upstream's wrong Stance-before-D2 order. All
+native term bit patterns are checked as fixture prerequisites; none failed
+setup. All four poses, repeats and movement saturation/cancellation are covered.
+Example raw additive bits4106bc44 ->4106bc45; these are small rounding steps,
+not evidence of a changed final hit chance. AP/HP/XP/points, counters, equipment/
+ammo, skill, query inputs, live familiarity and RNG remain stable. Scope is the
+shared additive query; no new actual firing/AI-choice/final-chance claim.
+
+Evidence additive-order-{retail-oracle,golden-samples,verification}.json,
+PDB-symbol output/raw prefixes and native RED/GREEN logs. Full Game builds,
+related56Win/56Linux (familiarity/zeroing/stance, own weapon learning, loader/reload/
+network) and CI323 pass; new12 resource extended/outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
