@@ -234,3 +234,13 @@ map4517/door439 и проверяет сброс stale false/true результ
 добавлен и успешно исполнен в финальных related наборах16Win/14Linux.
 Локальный asset-free CI318/318 включает оба новых CPU теста. Hosted результат
 для окончательного HEAD всей задачи по-прежнему требуется отдельно.
+
+
+## Конечная ячейка луча видимости
+
+NativeVisionDestination0..6 зарегистрированы в ресурсных Windows/Linux группах,
+LABEL extended: оба направления по трём осям для NONE->SOLID реальной карты и контроль
+start/interior/zero-length/FOV/range. Native RED6/7 -> GREEN7/7 на каждой системе.
+Финальные related23Win/21Linux проходят, включая предыдущие pointCache/save,
+voxel/script/door/AI проверки. Локальный asset-free набор остаётся318/318;
+новые семь ресурсных случаев не выдаются за исполняемые в hosted без game DB.

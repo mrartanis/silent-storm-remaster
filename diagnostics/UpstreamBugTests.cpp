@@ -14886,6 +14886,61 @@ static void PointVisionCaching(int mode, const char* databasePath, const char* r
     selected->LockDoor(originalLocked,originalKey,originalHardness);
 }
 
+static void VisionDestinationVoxel(const char* databasePath, const char* resourcePath, int mode)
+{
+    Require(mode>=0 && mode<=6, "unknown vision destination mode");
+    const int axis=mode==6?0:mode/2, sign=mode==6?1:(mode%2?1:-1);
+    auto world=FixtureWorld(databasePath,resourcePath);
+    auto* map=world->GetAIMap();map->Sync();
+    auto* vision=world->GetGame()->GetVisionTracker();
+    const float step=FP_GRID_STEP/4.f,cubeWidth=step*32.f;
+    CTPoint3<int> target,observer;
+    bool found=false;
+    list<NAI::SObjectInfo> geometry;map->GetEntities(&geometry,NWorld::TS_VISION);
+    Require(!geometry.empty(), "destination fixture has no native vision geometry");
+    for(const auto& object:geometry) {
+        if(object.points.empty())continue;
+        CVec3 center(0,0,0);for(const auto& point:object.points)center+=point;center/=float(object.points.size());
+        const int gx=Clamp(int(std::floor(center.x/cubeWidth)),0,31),gy=Clamp(int(std::floor(center.y/cubeWidth)),0,31);
+        for(int gz=0;gz<4 && !found;++gz) {
+            NAI::CVisionVoxelRenderer renderer;
+            renderer.Init(CVec3((gx+.5f)*cubeWidth,(gy+.5f)*cubeWidth,(gz+.5f)*cubeWidth),step*34.f,34,NWorld::TS_VISION_SOLID);
+            map->TraceVisionGrid(&renderer,NWorld::TS_VISION);
+            for(int x=1;x<31 && !found;++x)for(int y=1;y<31 && !found;++y)for(int z=1;z<31;++z) {
+                if(!(renderer.voxels[x+1][y+1][z+1]&0x80))continue;
+                CTPoint3<int> adjacent(x,y,z);adjacent.m[axis]+=sign;
+                if(renderer.voxels[adjacent.x+1][adjacent.y+1][adjacent.z+1]&0xc0)continue;
+                const CTPoint3<int> occupied(gx*32+x,gy*32+y,gz*32+z),empty(gx*32+adjacent.x,gy*32+adjacent.y,gz*32+adjacent.z);
+                if(vision->GetVision(occupied.x,occupied.y,occupied.z)!=NRPG::VVS_SOLID ||
+                   vision->GetVision(empty.x,empty.y,empty.z)!=NRPG::VVS_NONE)continue;
+                target=occupied;observer=empty;found=true;break;
+            }
+        }
+        if(found)break;
+    }
+    Require(found, "native destination fixture has no independently rasterized SOLID/NONE boundary for the requested axis and direction");
+    CVec3 from,to,beyond;
+    auto through=target;through.m[axis]-=sign;
+    vision->GetCenter(observer,&from);vision->GetCenter(target,&to);vision->GetCenter(through,&beyond);
+    CTPoint3<int> roundTrip;vision->GetCoord(to,&roundTrip);
+    Require(roundTrip.x==target.x && roundTrip.y==target.y && roundTrip.z==target.z,
+        "destination fixture did not preserve actual voxel centers");
+    const CVec3 forward=to-from;
+    Require(!vision->IsPointVisible(from,beyond,forward,20,-1), "solid geometry inside the ray stopped blocking visibility");
+    Require(!vision->IsPointVisible(to,from,-forward,20,-1), "solid observer voxel stopped blocking a nonzero ray");
+    Require(vision->IsPointVisible(to,to,forward,20,-1), "zero-length point query lost its existing visible result");
+    if(mode==6) {
+        Require(!vision->IsPointVisible(from,to,-forward,20,.5f), "destination handling bypassed the existing FOV gate");
+        Require(!vision->IsPointVisible(from,to,forward,step,-1), "equal-range horizontal point query bypassed its strict range gate");
+        std::printf("native destination controls axis=%d sign=%d interior=blocked observer=blocked zeroLength=visible FOV/range=rejected\n",axis,sign);std::fflush(stdout);
+        return;
+    }
+    const bool visible=vision->IsPointVisible(from,to,forward,20,-1);
+    std::printf("native vision destination axis=%d sign=%d from=%d,%d,%d NONE -> target=%d,%d,%d SOLID visible=%d expected=1; interior/start controls passed\n",
+        axis,sign,observer.x,observer.y,observer.z,target.x,target.y,target.z,int(visible));std::fflush(stdout);
+    Require(visible,"a solid destination voxel incorrectly hid its own boundary");
+}
+
 static void VisionVoxelQuery(int mode, const char* databasePath, const char* resourcePath)
 {
     Require(mode == 0 || mode == 1, "unknown vision voxel query mode");
@@ -29537,6 +29592,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "encoded-load-command") && argc == 4) { LoadSuccessFeedback(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "zone-snapshot-excludes-hud") && argc == 4) { ZoneSnapshotExcludesHUD(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "window-interface-propagation")) { WindowInterfacePropagation(); return true; }
+    if (!std::strcmp(mode, "vision-destination")) { Require(argc==5,"vision destination requires db/resources/mode"); VisionDestinationVoxel(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "point-vision-cache")) { Require(argc==3 || argc==5,"point vision cache requires mode and optional db/resources"); PointVisionCaching(std::atoi(argv[2]),argc==5?argv[3]:nullptr,argc==5?argv[4]:nullptr); return true; }
     if (!std::strcmp(mode, "vision-voxel-query")) { Require(argc==3 || argc==5,"vision voxel query requires mode and optional db/resources"); VisionVoxelQuery(std::atoi(argv[2]),argc==5?argv[3]:nullptr,argc==5?argv[4]:nullptr); return true; }
     if (!std::strcmp(mode, "script-misc-weak-cleanup")) { Require(argc==3,"script miscellaneous cleanup requires mode"); ScriptMiscWeakCleanup(std::atoi(argv[2])); return true; }

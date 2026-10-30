@@ -356,7 +356,8 @@ bool CVisionTracker::TraverseLine( const CTPoint3<int> &_p1, const CTPoint3<int>
 	int yd = ay - (ax >> 1);
 	int zd = az - (ax >> 1);
 	int n = 0;
-	for (;;)
+	// The original trace stops before the destination voxel.
+	while ( cur.m[nXIdx] != x2 )
 	{
 		EVoxelVisionState vs = GetVisionCached( cur.x, cur.y, cur.z );
 		if ( vs == VVS_SOLID )
@@ -367,9 +368,6 @@ bool CVisionTracker::TraverseLine( const CTPoint3<int> &_p1, const CTPoint3<int>
 			if ( nTranspLimit < 0 )
 				return false;
 		}
-
-		if ( cur.m[nXIdx] == x2 )
-			return true;
 
 		if (yd >= 0 )
 		{
@@ -392,6 +390,7 @@ bool CVisionTracker::TraverseLine( const CTPoint3<int> &_p1, const CTPoint3<int>
 		zd += az;
 		++n;
 	}
+	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CVisionTracker::IsVisible( const CTPoint3<int> p1, const CTPoint3<int> &p2, int nDistance, float fRange )

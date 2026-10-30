@@ -17102,3 +17102,48 @@ SUNNY0 ->0, SNOW1/RAIN2 ->5.0, с собственным null-world guard. Heade
 production-переноса этих двух файлов не требуется. Это статическая сверка
 исходных hunks, не новая runtime-проверка weather/aura/всех night callers;
 collateral-weather-already-present.json фиксирует scope и текущие хеши.
+
+
+## `4949f285`: исходное правило конечного вокселя видимости
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+
+До production compiled native RED6/7 на Windows и Linux. На настоящем map810
+отдельный native CVisionVoxelRenderer находит SOLID/NONE границы; публичные
+GetVision/GetCenter/GetCoord штатного RPG tracker подтверждают клетки и центры.
+Шесть соседних NONE->SOLID лучей по X/Y/Z в обоих направлениях возвращают false,
+хотя оригинал исключает конечную клетку из occlusion. Препятствие внутри луча,
+твёрдая начальная клетка и zero-length контроль проходят до исправления;
+седьмой case также сохраняет исходные FOV и strict equal-range gates.
+Искусственных voxels, записей в private fields и правок DB нет.
+
+В TraverseLine for(;;)/поздняя проверка конца заменены на while(cur[major]!=end)
+с return true после цикла. Остальные production bytes совпадают с родителем:
+формулы дистанции/FOV, transparency budget, rasterization, трава, environment,
+RNG, поля, теги, данные и предыдущие GetVision/pointCache фиксы сохранены.
+GREEN7/7 на обеих платформах: все шесть конечных точек видимы, start/interior
+по-прежнему блокируют, zero-length/FOV/range результаты неизменны.
+
+Original Gold PDB TraverseLine6c26e0/659 -> Steam6c9030: unique whole659-byte
+match с масками только четырёх decoded rel32 calls. Actual ReleaseRef и три
+FetchCube targets отдельно проверены. Gold initial cmp6c2792/equal branch6c2798
+возвращает true6c295b до voxel lookup6c27c0; tailcmp6c2953 повторяет цикл только
+при неравенстве endpoint. Аналогичные unmasked blocks/branches подтверждены
+в Steam. В production восстановлено правило обоих оригиналов; адреса/ABI
+и новые коэффициенты баланса не переносились. Практический эффект записан в
+UPSTREAM-BALANCE-CHANGES.md в разделе восстановлений оригинального поведения.
+
+Свежие Win ALL_BUILD/Linux Game+UpstreamBugTests,23 связанных проверки Windows
+и21 Linux (предыдущие pointCache/save, voxel/script, authored door flags/world
+save, active hull lookup, AI sighting и Windows wire controls) успешны.
+Локальный asset-free CI318/318 сохранён. Семь новых ресурсных тестов исполнялись
+локально на обеих платформах и помечены extended; в318 они не включаются.
+Два прежних дерева сборки, без старых копий Game и без генерации HD.
+Свидетельства: vision-destination-red-verification.json,
+vision-destination-retail-oracle.json, vision-destination-verification.json,
+tiny original bin/asm и raw logs в G:/SS/lab/evidence/upstream-remaster-20261024.
+
+Теперь все source hunks RPGVision.cpp учтены: public GetVision=1ad15e11,
+point cache=db072e98, конечная клетка=текущий независимый фикс, связанные
+комментарии обновлены с кешем. Весь смешанный19-file source остаётся partial;
+остальные UI/world/animation/carrier части и общий final hosted CI ещё в работе.
