@@ -2134,3 +2134,13 @@ are unchanged. The native98-versus89/roll92 example restores a hit without
 erroneous scatter; this is not a blanket decrease in accuracy. All functional
 hunks selected from9da280e9 are now complete; this supersedes its prior pending
 notes. The own-loader prerequisite f0103180 remains separately identified.
+
+### `037c41d9`, first part: no-first-turn-penalty ability23
+
+Restores the Gold/Steam ability hook: acquired23 returns
+Max(existing first-round coefficient,1) before checking the first-round flag.
+Default0.9 therefore becomes1; unperked behavior remains unchanged. A runtime
+fixture coefficient1.2 verifies the original rule preserves values above1 even
+on later turns. That value exists only in the owned test mission and is restored;
+no authored coefficient, skill, damage, perk data or save field is changed.
+Other independent perk/formula changes from037c41d9 remain pending.

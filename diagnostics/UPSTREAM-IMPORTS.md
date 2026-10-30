@@ -17995,3 +17995,32 @@ construction and live throw night/per-unit inputs are all complete. The source
 calcer-removal refactor is adapted by retaining our required velocity/skill API;
 no unrelated throw-velocity formulas are imported under this source.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.
+
+## 2026-10-30: first-turn penalty perk23 (`037c41d9`, partial)
+
+GetFRMult checks authored perk23 before bFirstRound, returning
+Max(fFirstRoundCoeff,1) when acquired. Its previous unperked first/later-turn
+behavior remains intact. The symbolic perk ID is added without changing any
+serialized enum or authored coefficient. Other independent037c41d9 hunks remain.
+
+NativeFirstTurnPenaltyPerk0..5 select an actual deployed actor whose native tree
+contains untaken authored23, grant it through AddPerkPoints/TakePerk, and use a
+concrete native tile calculator's shared first-round consumer. The point budget
+is unchanged after the grant. Cases cover no-perk first/later controls, acquired
+first/later with authored0.9, and first/later with a temporary owned-mission
+coefficient1.2. The latter is a runtime fixture input, restored by RAII; no DB
+record/file is modified. RED2/6 each: acquired first0.9 is still penalized; later
+1.2 is incorrectly reduced to1. Four controls pass before the fix. GREEN6/6
+includes exact factors and AP/HP/XP/position/time/RNG preservation. Initial
+abstract-calculator compilation is archived as fixture-concrete-calcer, not RED.
+This proves the shared perk consumer, not a full damaging attack/planner run.
+
+Gold named GetFRMult6b0e40/80 maps uniquely to Steam6b6f80/80, masking only
+the relative Max-helper call and verified1.0 constant address. HasPerk23 precedes
+the first-round test in both. The called Gold42a8c0/Steam42b530 Max helper is
+exact41bytes with no masks; decoded x87 C0 selection chooses the greater finite
+argument. This supports Max, including coefficients above1 and the later-turn
+perk path; exceptional floating values are not claimed.
+Evidence: first-turn-perk-{retail-oracle,verification}.json/raw logs.
+Game builds, related41Win/41Linux,CI323/323 pass; new6 resource cases outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

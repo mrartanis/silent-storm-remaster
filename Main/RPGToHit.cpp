@@ -26,6 +26,7 @@
 #include "wOSBase.h"
 #include "wUnitServer.h"
 #include "rpgGlobal.h"   // CGlobalGame::pDifficulty -- the called-shots gate (bHeadshotShouldKill)
+#include "rpgPerkConstants.h"
 #include "wMain.h"       // NWorld::CWorld::GetAIMap -- SelectTargetHLs @0x2b49e0
 #include "aiMap.h"       // NAI::IAIMap::GetAccessibleUnitHL / GetHull -- SelectTargetHLs @0x2b49e0
 #include "../Misc/RandomGen.h"   // SRand -- the SelectTargetHLs HL_ANY roll @0x2b4a7b
@@ -322,6 +323,8 @@ float CToHitCalcer::GetLight()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float CToHitCalcer::GetFRMult()
 {
+	if ( pUnitMission->HasPerk( N_PERK_NO_FIRST_TURN_PENALTY ) )
+		return Max( pUnitMission->GetToHitConstants()->fFirstRoundCoeff, 1.f );
 	return bFirstRound ? pUnitMission->GetToHitConstants()->fFirstRoundCoeff : 1;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

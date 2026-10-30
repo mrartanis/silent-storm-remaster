@@ -29513,6 +29513,31 @@ static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonA
     return sequence;
 }
 
+static void FirstTurnPenaltyPerk(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=5,"unknown native first-turn perk mode");auto world=FixtureWorld(databasePath,resourcePath,true);
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(auto entry:units) {
+        auto* candidate=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());if(!candidate || !candidate->CanFight() || candidate->IsWearingPK())continue;
+        auto* unit=candidate->GetUnitRPG()->GetRPGUnit();auto* tree=unit->GetPerksTree();if(!tree || unit->HasPerk(23))continue;
+        vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);bool found=false;
+        for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==23){found=true;break;}if(found){actor=candidate;break;}
+    }
+    Require(actor,"first-turn perk fixture has no actual actor with an untaken authored perk23");
+    auto* mission=actor->GetUnitRPG();auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();auto* constants=mission->GetToHitConstants();
+    const float originalCoefficient=constants->fFirstRoundCoeff;Require(originalCoefficient>0 && originalCoefficient<1,"first-turn perk fixture has no authored penalty coefficient");
+    struct RestoreCoefficient {float& value;float original;~RestoreCoefficient(){value=original;}}restore{constants->fFirstRoundCoeff,originalCoefficient};
+    const bool acquired=mode!=0 && mode!=5,first=mode==0 || mode==1 || mode==3;
+    if(mode==3 || mode==4)constants->fFirstRoundCoeff=1.2f;
+    const int ap=actor->GetAP(),hp=mission->GetTotalVP(),points=tree->GetPerkPoints();const float xp=unit->fXP;const auto position=actor->GetPosition();const auto time=world->GetTime()->GetValue();auto random=GlobalGameRandom();
+    if(acquired){tree->AddPerkPoints(1);tree->TakePerk(23);}Require(mission->HasPerk(23)==acquired && tree->GetPerkPoints()==points,"native first-turn perk grant changed the point budget or failed to take its authored node");
+    CObj<NRPG::CTileToHitCalcer> calcer=new NRPG::CTileToHitCalcer(actor,position.GetPose(),3,position.GetCP(),0,100.f,first,false,CVec3(1,1,1),position.GetCP()+CVec3(3*FP_GRID_STEP,0,0),0);
+    const float actual=calcer->GetFRMult(),expected=acquired?Max(constants->fFirstRoundCoeff,1.f):first?constants->fFirstRoundCoeff:1.f;
+    std::printf("native first-turn perk mode=%d acquired=%d first=%d coefficient=%.6g multiplier=%.6g expected=%.6g\n",mode,int(acquired),int(first),constants->fFirstRoundCoeff,actual,expected);std::fflush(stdout);
+    Require(std::fabs(actual-expected)<1e-6f,"native first-round multiplier ignored perk23 or capped its original coefficient bonus");
+    Require(actor->GetAP()==ap && mission->GetTotalVP()==hp && unit->fXP==xp && actor->GetPosition()==position && world->GetTime()->GetValue()==time && random.Get()==GlobalGameRandom().Get(),"first-round perk query changed AP/HP/XP/position/time/RNG");
+}
+
 class NativeGrenadeInputProbe: public NWorld::CExecThrowGrenade
 {
 public:
@@ -31174,6 +31199,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "first-turn-perk")) { Require(argc==5,"first-turn perk requires db/resources/mode"); FirstTurnPenaltyPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "grenade-unit-first-turn")) { Require(argc==5,"grenade unit-turn requires db/resources/mode"); GrenadeUnitFirstTurnInput(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "grenade-throw-night")) { Require(argc==5,"grenade night requires db/resources/mode"); GrenadeThrowNightInput(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "night-ai-inputs")) { Require(argc==5,"AI night requires db/resources/mode"); NightAIConstructorInputs(argv[2],argv[3],std::atoi(argv[4])); return true; }

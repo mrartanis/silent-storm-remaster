@@ -464,3 +464,11 @@ world/unit state mismatch, public movement counter, day/night input cases and
 real Run/seeded scatter consumer. Query-side-effect control passes; RED3/4 ->
 GREEN4/4 each. Related35Win/35Linux,Game builds,CI323; new4 outside323.
 Earlier night-only regression references the current per-unit input and is retained.
+
+## First-turn penalty ability
+
+NativeFirstTurnPenaltyPerk0..5: resource extended Win/Linux,timeout120. Actual
+deployed actor, authored tree/node23 and native TakePerk; concrete tile calcer
+GetFRMult, first/later/no-perk and restored runtime coefficient1.2 boundary.
+RED2/6->GREEN6/6 each; point budget/AP/HP/XP/time/position/RNG controls.
+Related41Win/41Linux,Game builds,CI323; new6 outside323. No full attack/planner claim.
