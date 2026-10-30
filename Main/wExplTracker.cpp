@@ -40,8 +40,8 @@ void FillAttackModifiers( NRPG::CAttackPortion *pAttack, const SPerkMineModifier
 {
 	pAttack->bAlwaysHumanCritical = mods.bAlwaysHumanCritical;
 	pAttack->fStructDmgModifier   = mods.fAEDmgModifier * mods.fStructureDmgModifier;
-	pAttack->nDmgMin = Float2Int( pAttack->nDmgMin * mods.fAEDmgModifier );
-	pAttack->nDmgMax = Float2Int( pAttack->nDmgMax * mods.fAEDmgModifier );
+	pAttack->nDmgMin = int( double( pAttack->nDmgMin ) * mods.fAEDmgModifier );
+	pAttack->nDmgMax = int( double( pAttack->nDmgMax ) * mods.fAEDmgModifier );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // release NWorld::nBreakCalcs -- the per-segment explosion work budget that paces the destruction

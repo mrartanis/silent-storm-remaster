@@ -2326,3 +2326,14 @@ temporary.5 gives21 ->32 and23 ->34; no floor or upper clamp is invented.
 The native query preserves effective skills and state/RNG. Attack-specific39,
 aura, CheckIC training/random consumption and incidental damage remain separate
 pending consumers; this change does not claim their full restoration.
+
+### `aa031e2e`: explosive modifier min/max truncation
+
+Restores original min/max damage multiplication with precision retained until
+integer truncation, replacing nearest rounding of a premature float product.
+For example9/11 damage with1.5 AE multiplier becomes13/16 instead of14/16;
+10/14 with1.25 becomes12/17 instead of12/18. Neutral, zero and exact products
+retain results; structure and human-critical rules remain unchanged. Native
+typed-function fixtures also cover safe large/negative API inputs, with no
+authored-data mutation. No actual explosion trace, damage application or perk
+ownership integration claim is added by this arithmetic correction.

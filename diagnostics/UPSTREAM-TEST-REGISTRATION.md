@@ -631,3 +631,12 @@ zero parameters and nearest-even tie cases. RED8/12 -> GREEN12/12 each; four
 pre-fix controls, stable AP/HP/XP/points/skill/RNG. Game builds, related31Win/31Linux
 and CI323 pass; new12 outside323. Native GetIC query only, no new attack roll,
 practice, explosion39/aura or damage-reduction claim.
+
+## Explosive modifier min/max precision
+
+NativeExplosiveModifierMath0..14: asset-free extended Win/Linux,timeout120.
+Direct actual FillAttackModifiers with typed native records; fixed expected
+fractional/zero/neutral/negative and safe large-integer cases, structure/critical
+controls, unrelated attack-field and RNG preservation. RED10/15 -> GREEN15/15
+each. Full Game builds, related24Win/23Linux and CI323 pass; new15 outside323. No
+authored owner/perk fixture or new full explosion/trace/application claim.

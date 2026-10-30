@@ -18572,3 +18572,33 @@ and better-evasion-verification JSON/raw logs. Full Game builds, related31Win/31
 (IC health-survival, PK damage/critical and existing portable critical checks)
 and CI323 pass; new12 extended/outside323.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: explosive modifier min/max precision (`aa031e2e` partial)
+
+The actual NWorld::FillAttackModifiers now uses int(double(integerDamage)*
+floatAEModifier) for min/max, preserving precision until final truncation.
+The existing structure-product float and always-human-critical assignment are
+unchanged. Own SPerkMineModifiers and attack layouts/serialized codecs remain.
+
+NativeExplosiveModifierMath0..14 call that real linked production function
+directly with typed native attack/modifier records; no copied formula/model or
+test-only production hook. RED10/15 each -> GREEN15/15; five controls pass
+before the fix. Fixed oracle examples:9/11*1.5 ->13/16,10/14*1.25 ->12/17,
+10/20*.875 ->8/17 and1/3*.5 ->0/1. Neutral/zero/exact products, negative API
+values, structure multipliers and both critical flags are covered. Safe large
+integer inputs33554435/33554439*.5 ->16777217/16777219 (and signed negatives)
+prove no premature float product/operand store. Unrelated attack fields,
+trajectory, owner/target and RNG remain stable. These are direct native math
+fixtures, not authored grenade/perk ownership or full explosion/trace/damage
+application claims; no DB/resource assets are needed or changed.
+
+Gold PDB FillAttackModifiers749bb0/87 uniquely matches Steam7551e0, all87bytes
+exact with no masks. Typed PDB attack min8/maxc/human-critical2d/structure30
+and modifier structure0/AE4/human8 identify fields. Both signed FILD/FMUL
+min/max paths set x87 RC11 before FISTP. Source comments754dfa/354b00 do not
+identify our Steam entry. No original ABI, exceptional-float/overflow or whole
+explosion pipeline parity claim. Evidence explosive-modifiers-retail-oracle
+and explosive-modifier-verification JSON/raw logs. Full Game builds,
+related24Win/23Linux with existing grenade execution/handoff/trajectory (and Windows
+explosion-perk wire) plus CI323 pass. New15 asset-free extended/outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.
