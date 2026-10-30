@@ -6598,6 +6598,69 @@ static void MissionOverlayReadiness()
     Require(mission->IsReady(), "sequence completion did not restore mission readiness");
 }
 
+class FollowCameraDrainMission: public CinematicDrainMission
+{
+    OBJECT_NOCOPY_METHODS(FollowCameraDrainMission);
+    CObj<ICamera> selectedCamera = ::CreateCamera(CAMERA_PC);
+public:
+    int completionEvents = 0;
+    ICamera* GetCamera() const override { return selectedCamera; }
+    bool HasLocator() const { return IsValid(pExecLocator); }
+    bool AdvanceLocator(STime time) { Require(IsValid(pExecLocator),"camera command fixture has no executor"); return pExecLocator->Update(time); }
+    void FinishLocator() { if(IsValid(pExecLocator)){pExecLocator->Finished();pExecLocator=nullptr;} }
+    void DoEvent(NWorld::CCommand* command) override {
+        CObj<NWorld::CCommand> release=command;
+        if(dynamic_cast<NWorld::CCmdInterfaceEvent*>(command))++completionEvents;
+    }
+};
+
+static void FollowCameraCommandPolicy(int mode)
+{
+    Require(mode>=0 && mode<=4,"unknown follow-camera policy mode");
+    struct OptionRestore {NGlobal::CValue value;~OptionRestore(){NGlobal::SetVar("ui_followcamera",value);}}
+        restore{NGlobal::GetVar("ui_followcamera",1)};
+    const bool follow=mode==2;
+    NGlobal::SetVar("ui_followcamera",follow?1:0);
+    CObj<QueuedCameraWorld> world=new QueuedCameraWorld;
+    CObj<FollowCameraDrainMission> mission=new FollowCameraDrainMission;
+    CObj<NUI::CMissionUI> desktop=new NUI::CMissionUI(NUI::SWindowInfo(),mission);
+    mission->Attach(world,desktop);
+    Require(mission->GetFollowCameraState()==follow,"native follow-camera option handler did not update its actual mission getter");
+    auto* camera=mission->GetCamera();Require(camera,"follow-camera fixture did not create a real native PC camera");
+    const ICamera::SCameraPos start(CVec3(10,20,5),20,.7f,0,0,.7f);
+    const CVec3 delta(1,2,0);camera->SetPlacement(start);
+    camera->ScrollAnchor(delta,true,false);ICamera::SCameraPos control;camera->GetPlacement(&control);
+    Require(fabs2(control.ptAnchor-start.ptAnchor-delta)<1e-10f,"native camera did not scroll before any command was queued");
+    camera->SetPlacement(start);
+    auto target=start;target.ptAnchor+=CVec3(2,1,0);
+    if(mode==0 || mode==2)world->commands.emplace_back(new NWorld::CUICmdUnitCamera(nullptr,1,false,0.f,nullptr));
+    else if(mode==1)world->commands.emplace_back(new NWorld::CUICmdPointCamera(VNULL3,2,false,0.f,false,1,0));
+    else if(mode==3)world->commands.emplace_back(new NWorld::CUICmdScriptMoveCamera(vector<ICamera::SCameraPos>{target},1000));
+    world->commands.emplace_back(new NWorld::CUICmdTutorialMode(true));
+    mission->Drain();
+    Require(mission->TutorialEnabled() && world->next==world->commands.size(),"camera filtering discarded an unrelated UI command or stalled the real queue drain");
+    if(mode==3) {
+        Require(mission->HasLocator(),"disabled automatic follow discarded a scripted camera move");
+        Require(!mission->AdvanceLocator(1000) && !mission->AdvanceLocator(1500),"script camera move ended before its native transition time");
+        ICamera::SCameraPos middle;camera->GetPlacement(&middle);
+        Require(fabs2(middle.ptAnchor-(start.ptAnchor+target.ptAnchor)*.5f)<1e-10f,"script camera move lost its native interpolation with follow disabled");
+        Require(mission->AdvanceLocator(2000),"script camera move did not finish at its native transition boundary");
+        ICamera::SCameraPos end;camera->GetPlacement(&end);mission->FinishLocator();
+        Require(fabs2(end.ptAnchor-target.ptAnchor)<1e-10f && mission->completionEvents==1 && !mission->HasLocator(),
+            "script camera move lost its final pose or single completion event");
+        std::printf("native follow-camera mode=3 follow=0 script=accepted interpolation/final/completion passed\n");std::fflush(stdout);
+        return;
+    }
+    const bool locator=mission->HasLocator();
+    camera->ScrollAnchor(delta,true,false);ICamera::SCameraPos after;camera->GetPlacement(&after);
+    const bool moved=fabs2(after.ptAnchor-start.ptAnchor-delta)<1e-10f;
+    std::printf("native follow-camera mode=%d follow=%d executor=%d scrollMoved=%d expectedExecutor=%d\n",mode,int(follow),int(locator),int(moved),int(follow));std::fflush(stdout);
+    mission->FinishLocator();
+    Require(locator==follow && moved!=follow,"automatic camera command locked the native camera despite follow being disabled");
+    camera->SetPlacement(start);camera->ScrollAnchor(delta,true,false);camera->GetPlacement(&after);
+    Require(fabs2(after.ptAnchor-start.ptAnchor-delta)<1e-10f,"finishing the native automatic camera command failed to release its scroll lock");
+}
+
 static void CinematicCameraCommands(int kind)
 {
     CObj<NUI::CDesktopWindow> desktop;
@@ -30010,6 +30073,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "pain-voice-owner")) { Require(argc == 4, "pain voice requires db and res"); PainVoiceOwner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "unconscious-pain-voice")) { Require(argc == 4, "pain eligibility requires db and res"); PainVoiceOwner(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "world-ui-refresh-latch")) { Require(argc == 4, "world UI refresh requires db and res"); WorldUIRefreshLatch(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "follow-camera-command-policy")) { Require(argc==3,"follow-camera command policy requires mode"); FollowCameraCommandPolicy(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "dialogue-camera-filter")) { CinematicCameraCommands(0); return true; }
     if (!std::strcmp(mode, "movie-camera-filter")) { CinematicCameraCommands(1); return true; }
     if (!std::strcmp(mode, "fade-camera-filter")) { CinematicCameraCommands(2); return true; }

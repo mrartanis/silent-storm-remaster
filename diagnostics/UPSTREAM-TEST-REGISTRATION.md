@@ -254,3 +254,15 @@ CToolTip/CText и native frame проверяют семь локализова�
 сценариев; normal/hover markup и прежние SelectedStyle/DifficultyMapping controls
 сохранены. RED6/9 -> GREEN9/9 на каждой системе. Связанные21/21 each и локальный
 asset-free CI318/318 проходят; новые семь resource cases не считаются частью318.
+
+
+## Выключенное автоматическое слежение камеры
+
+UpstreamFollowCameraCommandPolicy0..4 зарегистрированы без ресурсов в обоих
+наборах. Actual CMissionUI/CMission queue/native camera и реальные executors
+проверяют блокировку прокрутки follow-off unit/point commands, follow-on
+и scripted interpolation/completion/unrelated-command controls. Fixture getter
+предоставляет выбранную PC camera, без подмены её реализации или live READ.
+RED2/5 -> GREEN5/5 each. Related34/34 each включает24 существующих native-display
+world-camera cases и прочие фильтры/producer/serializer. Локальный CI323/323
+включает все пять новых CPU случаев; hosted результат подтверждается отдельно.

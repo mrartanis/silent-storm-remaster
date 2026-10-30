@@ -17191,3 +17191,53 @@ Linux Xvfb; в318 они не включены. Own NativeDisplayContext/Xvfb з
 side-tooltips-retail-oracle.json и raw logs в
 G:/SS/lab/evidence/upstream-remaster-20261024. Все source hunks iSideMenu.cpp
 завершены. Смешанный19-file source и общая задача/final hosted CI ещё в работе.
+
+
+## `4949f285`: выключенное слежение не блокирует камеру
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+
+Наш CMissionBase::GetCamera уже учитывает ui_followcamera при выборе активной
+камеры. Пропущен фильтр CMissionUI перед созданием обработчика: обычная очередь
+всё равно создаёт Unit/Explosion camera executor, который вызывает SetLock(true)
+на выбранной камере. Это может запрещать прокрутку при выключенном слежении.
+
+До production compiled native RED2/5 Windows/Linux. Настоящие CMissionUI,
+CMission::ExecWorldCommands/ExecWorldCommonCommand и исполнители создают
+обработчик при registered follow=false; реальный CCamera::ScrollAnchor не двигает
+anchor. В тестовой CMission выбранная камера предоставлена fixture getter;
+полный MissionBase selector этим CPU тестом не заменяется и не проверяется.
+Контроли до фикса проходят: follow=true блокирует прокрутку до Finished,
+script move при follow=false интерполирует1000/1500/2000, достигает final pose
+и выдаёт ровно один completion event; посторонний TutorialMode не теряется.
+Ни сцена, ни Game DB для этих пяти случаев не требуются.
+
+Добавлен override существующего CDesktopWindow::IsValidCommand: ScriptMoveCamera
+разрешён независимо от follow, остальные CameraLocator отклоняются при follow=0,
+прочие UI-команды проходят. Include wUICommands и declaration завершают coupled
+двухфайловый фикс. GREEN5/5 на обеих системах: disabled auto больше не создаёт
+executor и native immediate scroll работает. В собственные selector/motion/
+clock/priority/slow-motion параметры, fields/tags, facial/body/font/HD код и
+RPG коэффициенты изменения не вносились. Перенесена исходная admission policy.
+
+Original Gold PDB IsValidCommand60b2f0/94 -> Steam RTTI CMissionUI slot20=60fd90.
+Exact94-byte policy match маскирует только проверенные RTTI descriptors/rel32
+casts, mission-member operand (Goldcc/Steame4 из serializer tag2) и getter-vslot
+operand (Goldc8/Steamcc из CMissionBase vtable). Getter59fa70/5a2350 читает bool,
+связанный с ui_followcamera регистрацией; Gold named bool96a8ec. Все branches и
+true/false опкоды сохранены. Source comment60fb60 не является этим Steam filter:
+там identity-cast thunk. Адреса и ABI в C++ не переносились.
+
+Свежие Win ALL_BUILD/Linux Game+UpstreamBugTests,34 связанных проверки на
+каждой платформе успешны: пять новых CPU cases, три cinematic filters,
+24 настоящих world-camera locator/lock сценария (Lua wait/clock/priority,
+follow-off script paths, lock state), movement-camera producer и serializer.
+Локальный asset-free CI323/323 включает все пять новых случаев. Существующие
+ресурсные camera cases исполнены через hidden native context/Windows и Xvfb/Linux;
+own процессы завершены. Два прежних build trees, без старых Game copies/HD gen,
+постоянный game.db не менялся. Свидетельства:
+follow-camera-policy-red-verification.json, follow-camera-filter-retail-oracle.json,
+follow-camera-policy-verification.json и raw logs в
+G:/SS/lab/evidence/upstream-remaster-20261024. Части источника в iMissionUI.cpp/.h
+завершены; ещё пять файлов смешанного19-file source и общая задача остаются
+в работе. Окончательный hosted CI необходим отдельно на финальном HEAD.
