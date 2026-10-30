@@ -7861,6 +7861,106 @@ static void ScriptAmbientVariants(const char* databasePath,const char* resourceP
 }
 
 
+static void WorldScriptVideo(const char* databasePath,const char* resourcePath,int context,int mode)
+{
+    Require(context>=0 && context<=1 && mode>=0 && mode<=4,"unknown shared-world video sequence case");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"world video sequence fixture started with an interface");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm shared world video sequence regression");
+    struct ClockRestore {STime previous;~ClockRestore(){NMainLoop::SetTimeForHarness(previous);}} frameClock{NMainLoop::SetTimeForHarness(1000)};
+    CObj<NDb::CScript> quiet=new NDb::CScript;quiet->strCode="function OnEnterZone() end";
+    struct RestoreScripts {vector<std::pair<CPtr<NDb::CTemplVariant>,CPtr<NDb::CScript>>> variants;CPtr<NDb::CChapterMap> chapter;CPtr<NDb::CScript> entry;
+        ~RestoreScripts(){for(auto& p:variants)if(IsValid(p.first))p.first->pScript=p.second;if(IsValid(chapter))chapter->pScript=entry;}} restore;
+    struct SectorRestore {CObj<CChapterInfo> info;vector<SChapterSector> original;
+        ~SectorRestore(){if(IsValid(info))info->sectorsSet.swap(original);}} sectors;
+    CObj<NRPG::CGlobalGame> game;
+    if(context==0){
+        CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());while(maps.MoveNext())if(IsValid(maps.Get()->pBackground)){restore.chapter=maps.Get();break;}
+        Require(IsValid(restore.chapter),"world video sequence fixture has no authored chapter");restore.entry=restore.chapter->pScript;restore.chapter->pScript=quiet.GetPtr();
+        game=NRPG::CreateGlobalGame(1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+        list<CPtr<NScenario::CScenarioClue>> clues;game->pScenarioTracker->GetAvailableClues(&clues);for(auto clue:clues)if(IsValid(clue))clue->SetJustFound(false);
+        for(auto merc:game->players.front()->mercs){vector<CDBPtr<NDb::CMedal>> medals;merc->GetJustFoundMedals(&medals);}
+        CDGPtr<CPtrFuncBase<CChapterInfo>> info=shareChapterInfo.Get(restore.chapter->GetRecordID());info.Refresh();
+        sectors.info=info->GetValue();Require(IsValid(sectors.info),"video sequence fixture has no cached native map info");
+        sectors.original=sectors.info->sectorsSet;auto& isolated=sectors.info->sectorsSet;
+        isolated.erase(std::remove_if(isolated.begin(),isolated.end(),[](const SChapterSector& sector){return sector.eType==RANDOM;}),isolated.end());
+        Require(!isolated.empty(),"video isolation removed every authored zone and exit");
+        CObj<NGame::CICBeginChapter> enter=new NGame::CICBeginChapter(restore.chapter->GetRecordID(),game);enter->Exec();
+    }else{
+        CDBIterator<NDb::CTemplVariant> variants(*NDatabase::GetTable<NDb::CTemplVariant>());
+        while(variants.MoveNext())if(IsValid(variants.Get()->pTemplate) && variants.Get()->pTemplate->GetRecordID()==2425){restore.variants.push_back({variants.Get(),variants.Get()->pScript});variants.Get()->pScript=quiet.GetPtr();}
+        Require(!restore.variants.empty(),"world video sequence fixture has no authored menu variants");CObj<NGame::CICMainMenu> open=new NGame::CICMainMenu;open->Exec();
+    }
+    CObj<NGame::CMissionBase> owner=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    auto* world=owner?dynamic_cast<NWorld::CWorld*>(owner->GetWorld()):nullptr;auto* view=owner?owner->GetScene():nullptr;auto* renderer=owner?owner->GetRenderGame():nullptr;
+    Require(world && view && renderer && world->GetOwnScript(),"world video sequence fixture lacks actual chapter/menu world, view, renderer or Lua");
+    Require(context==0?owner->GetDesktop()!=nullptr:owner->GetDesktop()==nullptr,"world video sequence fixture lost its real chapter/null-menu desktop distinction");
+    // Materialize authored static world effects before taking geometry baselines.
+    NMainLoop::SetTimeForHarness(1050);Require(NMainLoop::StepApp(true,false,false),"world video sequence warm-up frame exited");
+    Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand(),"world video sequence warm-up opened an unrelated interface");
+    while(auto* pending=world->GetUICommand()){CObj<NWorld::CUICmd> release=pending;}
+
+
+    Require(std::getenv("S2_USER_DATA_DIR"),"world video fixture requires isolated user data");
+    Require(context==0?owner->GetRPGGame()!=nullptr:owner->GetRPGGame()==nullptr,"world video fixture lost its campaign/null-menu distinction");
+    struct SequenceFile {
+        std::filesystem::path path;
+        ~SequenceFile(){std::error_code error;std::filesystem::remove(path,error);}
+    } sequence{std::filesystem::path(std::getenv("S2_USER_DATA_DIR"))/"native world video.seq"};
+    std::filesystem::create_directories(sequence.path.parent_path());
+    {std::ofstream file(sequence.path,std::ios::binary|std::ios::trunc);
+        file<<"exec setvar native_world_video_first = 10\nexec setvar native_world_video_stage = 10\nexec setvar native_world_video_stage = 20\n";
+        if(mode>=3)file<<"exec mainmenu\n";
+        Require(file.good(),"world video fixture could not write its temporary native sequence");}
+    struct StageRestore {NGlobal::CValue previous,first;~StageRestore(){NGlobal::SetVar("native_world_video_stage",previous);NGlobal::SetVar("native_world_video_first",first);}} stage{NGlobal::GetVar("native_world_video_stage",0),NGlobal::GetVar("native_world_video_first",0)};
+    NGlobal::SetVar("native_world_video_stage",0);NGlobal::SetVar("native_world_video_first",0);
+    auto* script=world->GetOwnScript();
+    auto number=[&](const char* name,int expected){const int top=script->GetTop();auto value=script->GetGlobal(name);const bool matches=value.IsNumber() && value.GetNumber()==expected;script->SetTop(top);return matches;};
+    auto absent=[&](const char* name){const int top=script->GetTop();const bool result=script->GetGlobal(name).IsNil();script->SetTop(top);return result;};
+    auto frame=[&](STime tick){if(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand())world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);
+        NMainLoop::SetTimeForHarness(tick);Require(NMainLoop::StepApp(true,false,false),"world video native frame exited");};
+    if(mode==0){for(int step=0;step<3;++step)frame(1100+step*50);
+        Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand() && NMainLoop::GetInterfaceStackDepth()==1 && NGlobal::GetVar("native_world_video_stage").GetFloat()==0 && NGlobal::GetVar("native_world_video_first").GetFloat()==0 && absent("WorldVideoID"),
+            "quiet native video control created an interface, wait or sequence side effect");
+        std::printf("native world video context=%d mode=0 stage=control stack=1 marker=0\n",context);return;}
+    const string lua="WorldVideoID = PlayVideo('"+sequence.path.generic_string()+"'); WorldVideoProduced = 1; while IsUIActionIDPresent(WorldVideoID) do Sleep(1) end; WorldVideoResumed = 1";
+    Require(script->DoString(lua.c_str())==0,"world video fixture could not start its real Lua producer");
+    world->UpdateWorld(world->GetAimTime()->GetValue(),nullptr);
+    Require(number("WorldVideoProduced",1),"native Lua PlayVideo producer did not run");
+    const int top=script->GetTop();auto value=script->GetGlobal("WorldVideoID");Require(value.IsNumber(),"native PlayVideo returned no wait ID");const int eventID=int(value.GetNumber());script->SetTop(top);
+    Require(script->IsUIActionIDPresent(eventID) && absent("WorldVideoResumed"),"native video wait completed before its consumer");
+    frame(1100);
+    std::printf("native world video context=%d mode=%d stage=dispatch queued=%d wait=%d marker=%.0f\n",context,mode,int(NMainLoop::HaveInterfaceCommand()),int(script->IsUIActionIDPresent(eventID)),NGlobal::GetVar("native_world_video_stage").GetFloat());std::fflush(stdout);
+    Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && NMainLoop::HaveInterfaceCommand(),"non-tactical world discarded its PlayVideo command");
+    frame(1150);auto* modal=NMainLoop::GetCurrentInterfaceForHarness();
+    Require(modal && pSSClasses->GetObjectTypeID(modal)==int(0xb3320180) && NMainLoop::GetInterfaceStackDepth()==2,"world video did not push the actual native sequence interface");
+    // Initialize runs line0, then StepApp immediately Steps the new interface (line1).
+    Require(NGlobal::GetVar("native_world_video_first").GetFloat()==10 && NGlobal::GetVar("native_world_video_stage").GetFloat()==10 && script->IsUIActionIDPresent(eventID) && absent("WorldVideoResumed"),"native sequence did not run its first line while retaining its Lua wait");
+    const STime coveredTime=world->GetAimTime()->GetValue();
+    if(mode%2==0){NInput::SEvent input;while(NInput::GetEvent(&input)){}NInput::PostEvent("cancel");
+        Require(NInput::GetEvent(&input) && modal->ProcessEvent(input),"native sequence did not accept its cancel input");
+        Require(NGlobal::GetVar("native_world_video_stage").GetFloat()==20,"native sequence cancellation lost its remaining exec command");}
+    else {frame(1200);Require(NGlobal::GetVar("native_world_video_stage").GetFloat()==20,"native sequence Step did not run its second line");}
+    Require(world->GetAimTime()->GetValue()==coveredTime && script->IsUIActionIDPresent(eventID) && absent("WorldVideoResumed"),"covered sequence advanced its owner world or released its Lua wait early");
+
+    frame(1250);
+    Require(NMainLoop::GetCurrentInterfaceForHarness()==modal && NMainLoop::HaveInterfaceCommand(),"native sequence did not queue its original terminal action");
+    Require(world->GetAimTime()->GetValue()==coveredTime && NGlobal::GetVar("native_world_video_stage").GetFloat()==20 && NGlobal::GetVar("native_world_video_first").GetFloat()==10,"sequence terminal action lost its exec effects or advanced its covered owner");
+    if(mode>=3){
+        frame(1300);auto* next=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+        Require(next && next!=owner.GetPtr() && next->GetWorld() && next->GetDesktop()==nullptr && next->GetActivePlayer()==nullptr && next->GetRPGGame()==nullptr && NMainLoop::GetInterfaceStackDepth()==1,
+            "authored sequence mainmenu command did not install the real fresh menu");
+        Require(script->IsUIActionIDPresent(eventID) && absent("WorldVideoResumed") && world->GetAimTime()->GetValue()==coveredTime,
+            "explicit sequence transition unexpectedly resumed its abandoned Lua world");
+        std::printf("native world video context=%d mode=%d stage=complete terminal=mainmenu stack=1 marker=20 first=10 wait=%d\n",context,mode,int(script->IsUIActionIDPresent(eventID)));
+    }else{
+        // Original EOF queues Command(0): an application-exit sentinel, not modal pop.
+        NMainLoop::SetTimeForHarness(1300);Require(!NMainLoop::StepApp(true,false,false),"native EOF did not preserve its original application-exit sentinel");
+        Require(NMainLoop::GetCurrentInterfaceForHarness()==modal && NMainLoop::GetInterfaceStackDepth()==2 && !NMainLoop::HaveInterfaceCommand(),"EOF quit sentinel changed the interface stack or remained queued");
+        std::printf("native world video context=%d mode=%d stage=complete terminal=quit stack=2 marker=20 first=10 wait=%d\n",context,mode,int(script->IsUIActionIDPresent(eventID)));
+    }
+    std::fflush(stdout);
+}
+
 static void WorldScriptCameraLocator(const char* databasePath,const char* resourcePath,int context,int mode)
 {
     Require(context>=0 && context<=1 && mode>=0 && mode<=7,"unknown shared-world camera locator case");
@@ -28745,6 +28845,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "world-script-video")) { Require(argc == 6, "world video requires db, resources, context and mode"); WorldScriptVideo(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-camera-locator")) { Require(argc == 6, "world camera locator requires db, resources, context and mode"); WorldScriptCameraLocator(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-floor")) { Require(argc == 6, "world floor requires db, resources, context and mode"); WorldScriptFloor(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-camera-lock")) { Require(argc == 6, "world camera lock requires db, resources, context and mode"); WorldScriptCameraLock(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }

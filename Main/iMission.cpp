@@ -2590,13 +2590,6 @@ void CMission::ExecWorldCommands()
 			else
 				pBlockReason = 0;
 		}
-		// LUA convergence: PlayVideo -- play the named .seq cut-scene via the existing iIntroScreen sequence
-		// player (retail CMissionBase::ExecWorldCommand @0x1a30c0 -> new CICPlaySequence(this, nID, file, false)).
-		else if ( CDynamicCast<NWorld::CUICmdPlayVideo>( pCmd ) )
-		{
-			NWorld::CUICmdPlayVideo *pVideo = CDynamicCast<NWorld::CUICmdPlayVideo>( pCmd );
-			NGame::PlayVideoSequence( this, pVideo->GetID(), pVideo->szFileName, false );
-		}
 		// LUA convergence: campaign OnRealExit() -> ExitToChapter() (scriptScenario.cpp:96) queues a
 		// CUICmdContinueChapter. retail CMission::ExecWorldCommand @0x1fd8c0 posts a CICRealEndMission and
 		// returns -- teardown is DEFERRED to NMainLoop. (Calling Terminate() inline here is unsafe:

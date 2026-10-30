@@ -16311,3 +16311,55 @@ Evidence: camera-locator-preemption-verification.json, RED/GREEN/original
 JSONs and native raw logs. The previously documented replacement gap is fixed;
 cb954 remains PARTIAL for clue/video/AI flash. Ledger166/19/58 =77 unfinished;
 whole goal/final actual hosted Actions/balance-MD delivery remain active.
+
+### world-video — dispatch scripted sequences in chapter and backdrop worlds
+
+Source cb954e2e455b632c0174b88b2d051ac74e780ce0, parent
+ed5b200f5f68e11740f0a90eda5da146b3d98589. Lua PlayVideo already allocated
+a UI-action ID in both worlds, but only tactical mission had a consumer.
+The command disappeared and the requested sequence never opened.
+
+Definitive native RED8/10 each on Windows/Linux: both quiet controls pass;
+eight actual EOF/explicit-mainmenu natural/cancel cases show queued0/wait1/
+marker0 and fail at missing consumer. Production was exact parent during RED.
+Minimal fix: move existing seven-line PlayVideo arm, one indentation level,
+into CMissionBase::ExecWorldCommonCommand; add iIntroScreen.h there. Preserve
+PlayVideoSequence(this, ID, filename, false), own player/decoder, native event,
+stack mode and original EOF policy. No other Main bytes or fields changed.
+
+Native GREEN10/10 both: temporary .seq is opened through actual Lua/world/
+interface queue. Independent first-line marker10 plus Step-stage10 prove both
+Initialize and same-frame Step commands executed. Natural advancement and
+cancel both run stage20. Four actual EOF cases consume original application-
+exit sentinel (StepApp=false, modal stack2). Four explicit mainmenu cases
+install a fresh actual menu/stack1, preserve null player/campaign/desktop and
+abandon the previous script as the authored transition requires. Covered owner
+world stays paused. Two quiet controls retain stage0/no sequence/no wait.
+No automatic modal return/Lua-resume or codec-decoding claim: player untouched.
+
+Fixture corrections are explicit. First GREEN reached native modal but assumed
+one command per StepApp: actual loop initializes then immediately Steps it.
+Added independent first-line marker. Next GREEN reached EOF but assumed it
+would pop the modal. Original named EOF tail39 proves Command(0) requests exit;
+shipped intro.seq/loose.seq end in exec mainmenu, win.seq in exec credits final
+(baseline and Steam copies match). This is not evidence of a separate player
+bug; no completion behavior changed. Added both original termination policies,
+restored exact parent Main and reran definitive RED before identical fix.
+Initial raw logs retained; all preexisting fixture lines remain unchanged.
+
+Original proof: unique shared-dispatch87 Gold5a1c8b -> Steam5a461b, exact
+RTTI-bound video cast38, named CICPlaySequence constructor119/Exec145,
+nonexclusive PushInterface, native command-ID/filename/owner arguments and
+EOF-event/null-command tail39. Masks cover decoded external references only.
+Prior chapter/menu shared-route proof reused; no original offsets copied to C++.
+
+Fresh Windows ALL_BUILD/Linux Game+helpers+serializer; related179/179 and
+body16/16 each, Windows network4/4 and local CI305/305 all pass. Exact native
+raws/counts/manifests/exits verified, including previous camera replacement
+waits and modal pauses. Actual hosted Actions remains a separate gate.
+Two builds reused; no old builds/HD/PNG generation, balance/RNG/DB/font/facial
+changes. Temporary sequence files removed by fixture cleanup.
+
+Evidence: world-video-verification.json, RED/original JSONs and focused/final
+native logs. Source remains PARTIAL for clue/AI flash; ledger166 imported/
+19 partial/58 pending. Whole goal/final hosted CI/balance-MD delivery active.

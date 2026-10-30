@@ -21,6 +21,7 @@
 #include "iCommonUI.h"
 #include "iDesktopWindow.h"
 #include "iShowHint.h"
+#include "iIntroScreen.h"
 #include "..\MiscDll\Commands.h"
 #include "..\MiscDll\LogStream.h"
 #include "..\DBFormat\DataFormat.h"
@@ -177,6 +178,13 @@ bool CMissionBase::ExecWorldCommonCommand( NWorld::CUICmd *pCmd )
 		NDb::CEffect *pEffect = IsValid( pSetAmbientEffect->pEffect ) ?
 			pSetAmbientEffect->pEffect->GetEffect( &rnd, pWorld->GetCreateFlags() ) : 0;
 		GetScene()->SetAmbientEffect( pEffect, pRender->GetTime()->GetValue(), pRender->GetTime() );
+	}
+	// LUA convergence: PlayVideo -- play the named .seq cut-scene via the existing iIntroScreen sequence
+	// player (retail CMissionBase::ExecWorldCommand @0x1a30c0 -> new CICPlaySequence(this, nID, file, false)).
+	else if ( CDynamicCast<NWorld::CUICmdPlayVideo>( pCmd ) )
+	{
+		NWorld::CUICmdPlayVideo *pVideo = CDynamicCast<NWorld::CUICmdPlayVideo>( pCmd );
+		NGame::PlayVideoSequence( this, pVideo->GetID(), pVideo->szFileName, false );
 	}
 	else
 		return ExecWorldSoundCommand( pCmd );
