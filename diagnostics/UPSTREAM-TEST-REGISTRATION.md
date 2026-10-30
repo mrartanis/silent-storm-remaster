@@ -358,3 +358,12 @@ Actual snap weapon/actors/cover queries and unclamped ANY/head/body probabilitie
 RED3/3 ->GREEN3/3 each; AP/HP/ammo/pose/action/RNG controls. Extra standalone
 area-only attempts without observable differences are excluded from RED evidence.
 Full Game builds,related25Win/24Linux,CI323; new3 outside asset-free323.
+
+## Test weather world placement
+
+NativeWeatherWorldPlacement0..3: resource extended Windows/Linux,timeout120.
+Real mission rain/snow templates and renderer clock; CPU view observer/native
+camera fixture, identity forward/inverse, replacement/final handle retirement,
+world time/action/RNG controls. RED3/4 ->GREEN4/4 each; no GPU screenshot claim.
+Related8Win/7Linux,Game builds,CI323. New4 outside asset-free323; initial fixture
+camera-selector crash and unbuilt Linux helper run are excluded from pass evidence.

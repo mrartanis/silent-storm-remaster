@@ -17577,3 +17577,37 @@ and raw logs in the laboratory evidence directory. Full Game builds, related
 25Win/24Linux and asset-free CI323/323 pass. New3 resource extended cases are
 outside323. Source5780 remains partial.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027.
+
+## 2026-10-30: test weather world-space placement (`9235a832`, complete)
+
+CMission::ShowWeatherEffect clears its existing owned vector first and passes
+identity placement to CreateParticles. The current native particle path wraps
+positions around the camera before applying this placement (GParticleInfo.cpp);
+adding camera.ptAnchor again translates the already wrapped world-space cloud.
+The rain/snow debug binds keep the same templates817/732 and renderer time node.
+
+NativeWeatherWorldPlacement0..3 call the real mission method with actual authored
+wrapped weather records, real renderer clock and native camera. A fixture getter
+supplies that camera without requiring a player/UI selection; a view observer
+records particle creation, matrix and owned-handle lifetime. RED3/4 each:
+nonzero rain/snow/replacement cases pass anchor42,27,11 as extra translation;
+zero-anchor control passes. GREEN4/4 each: forward/inverse identity at four basis
+points, three alternating rain/snow creations after camera moves, only one live
+handle at a time, retirement before replacement and final mission release.
+World time/action/gameplay RNG unchanged. This is a CPU creation-contract test,
+not a screenshot or claim of GPU pixel equivalence. First fixture camera-selector
+SEGFAULTs (no active player) are archived separately with a native GDB trace and
+not counted as RED. The selected source's matrix and clear-order hunks are complete.
+
+Gold named ShowWeatherEffect5fde60/433 sets zero translation/unit scale/zero
+rotation. Unique69byte setup5fdedc maps to Steam6026ac; only decoded MakeMatrix
+call displacement masked (Gold named708bc0, Steam712940). No whole-function
+equivalence claim. Evidence: weather-world-placement-{red-verification,retail-oracle,
+verification}.json and raw logs in the laboratory evidence directory.
+
+Full Windows/Linux Game builds, related8Win/7Linux and asset-free CI323/323 pass.
+The first Linux related run omitted building its registered particle runtime
+helper; it is archived as unbuilt-helper and the rerun includes that helper.
+New4 resource extended cases are outside323. Modern renderer/font/audio/LAN APIs,
+particle algorithms, game data and balance coefficients are unchanged.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9235a832ed5de3a80b8d3f68639cc5dab8212be0.

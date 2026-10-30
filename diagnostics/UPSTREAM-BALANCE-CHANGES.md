@@ -2013,3 +2013,11 @@ weapon range, AP, skill, item data or random rule was changed. The chance calcer
 itself is unchanged. This also affects execution callers that reuse the helper.
 The numerical example proves the distance correction; the same scene does not
 provide an independently observable area-only difference.
+
+### `9235a832`: debug rain/snow placement
+
+The existing test-weather commands create wrapped particles with identity world
+placement, matching both original binaries. This removes an extra camera-anchor
+translation of the test cloud. The normal mission weather system, particle
+wrapping algorithm, authored effect data and all gameplay/balance values are
+unchanged. Effect replacement still owns one handle and releases the old one first.

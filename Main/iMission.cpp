@@ -2844,15 +2844,12 @@ void CMission::TestIntersection()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMission::ShowWeatherEffect( int nID )
 {
-	ICamera::SCameraPos cameraPos;
-	GetCamera()->GetPlacement( &cameraPos );
-	SFBTransform pos;
-	MakeMatrix( &pos, CVec3(1,1,1), cameraPos.ptAnchor, 0 );
+	testWeatherEffect.clear();
 	NDb::CTEffect *pTEffect = NDb::GetTEffect( nID );
 	SRand rnd;
-	// W4.2: retail ShowWeatherEffect @0x201c60 keeps a VECTOR (tag 26): clear the previous test
-	// effects, then push the one new handle.
-	testWeatherEffect.clear();
+	SFBTransform pos;
+	// Particles wrap around the camera in world space before this placement.
+	MakeMatrix( &pos, CVec3(1,1,1), CVec3(0,0,0), 0 );
 	testWeatherEffect.push_back( GetScene()->CreateParticles( pTEffect->GetEffect( &rnd ), 0, pRender->GetTime(), pos ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

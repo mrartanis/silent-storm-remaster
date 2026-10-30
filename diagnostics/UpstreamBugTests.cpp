@@ -29489,6 +29489,61 @@ static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonA
     return sequence;
 }
 
+class WeatherEffectLifetime: public CObjectBase
+{
+    OBJECT_NOCOPY_METHODS(WeatherEffectLifetime);
+    int* live=nullptr;
+public:
+    explicit WeatherEffectLifetime(int* count=nullptr):live(count){if(live)++*live;}
+    ~WeatherEffectLifetime(){if(live)--*live;}
+};
+class WeatherPlacementView: public HeadStateView
+{
+    OBJECT_NOCOPY_METHODS(WeatherPlacementView);
+public:
+    int live=0,calls=0,wrapped=0;bool previousReleased=true;
+    SFBTransform placement;CPtr<NDb::CEffect> effect;CPtr<CFuncBase<STime>> clock;
+    CObjectBase* CreateParticles(NDb::CEffect* value,STime start,CFuncBase<STime>* time,const SFBTransform& transform,const NGScene::SRoomInfo&,NGScene::IParticleFilter*) override {
+        Require(value && time && start==0,"weather placement lost its authored effect or render clock");
+        previousReleased&=live==0;++calls;effect=value;clock=time;placement=transform;wrapped=0;
+        for(auto entry:value->instances)if(IsValid(entry) && IsValid(entry->pParticle) && (entry->pParticle->vWrapSize.x>0 || entry->pParticle->vWrapSize.y>0))++wrapped;
+        return new WeatherEffectLifetime(&live);
+    }
+};
+class WeatherPlacementMission: public NGame::CMission
+{
+    OBJECT_NOCOPY_METHODS(WeatherPlacementMission);
+public:
+    using NGame::CMission::ShowWeatherEffect;
+    ICamera* GetCamera() const override {return pCamera;}
+    void Attach(NWorld::CWorld* world,WeatherPlacementView* view,NRender::IRenderGame* renderer){pWorld=world;pScene=view;pRender=renderer;pCamera=::CreateCamera(CAMERA_PC);}
+};
+static void WeatherWorldPlacement(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=3,"unknown native weather placement mode");
+    auto world=FixtureWorld(databasePath,resourcePath);CObj<WeatherPlacementView> view=new WeatherPlacementView;
+    CObj<NRender::IRenderGame> renderer=NRender::CreateRenderGame(world,view,nullptr);
+    CObj<WeatherPlacementMission> mission=new WeatherPlacementMission;mission->Attach(world,view,renderer);
+    const STime before=world->GetTime()->GetValue();const bool action=world->IsAction();auto random=GlobalGameRandom();
+    for(int iteration=0;iteration<(mode==3?3:1);++iteration) {
+        const CVec3 anchor=mode==2?VNULL3:iteration==1?CVec3(-71,35,9):CVec3(42,27,11);
+        ICamera::SCameraPos camera;mission->GetCamera()->GetPlacement(&camera);camera.ptAnchor=anchor;mission->GetCamera()->SetPlacement(camera);
+        const int id=mode==1 || iteration==1?732:817;mission->ShowWeatherEffect(id);
+        const auto offset=view->placement.forward.GetTranslation();
+        std::printf("native weather mode=%d iteration=%d template=%d anchor=%.1f,%.1f,%.1f offset=%.1f,%.1f,%.1f wrapped=%d live=%d calls=%d released=%d\n",
+            mode,iteration,id,anchor.x,anchor.y,anchor.z,offset.x,offset.y,offset.z,view->wrapped,view->live,view->calls,int(view->previousReleased));std::fflush(stdout);
+        Require(view->wrapped>0 && IsValid(view->effect) && view->clock.GetPtr()==renderer->GetTime(),"native weather fixture has no wrapped authored particle or lost its own render time node");
+        Require(offset==VNULL3,"wrapped world-space weather was translated by the camera anchor a second time");
+        for(const auto& point:{VNULL3,CVec3(1,0,0),CVec3(0,1,0),CVec3(0,0,1)}) {
+            CVec3 forward,backward;view->placement.forward.RotateHVector(&forward,point);view->placement.backward.RotateHVector(&backward,point);
+            Require(fabs2(forward-point)<1e-8f && fabs2(backward-point)<1e-8f,"weather placement changed native scale, rotation or inverse transform");
+        }
+        Require(view->live==1 && view->calls==iteration+1 && view->previousReleased,"weather replacement retained an older effect while creating the next one");
+    }
+    Require(world->GetTime()->GetValue()==before && world->IsAction()==action && random.Get()==GlobalGameRandom().Get(),"test weather changed world time, action count or gameplay RNG");
+    mission=nullptr;Require(view->live==0,"weather handle outlived its owning mission");
+}
+
 static void UnitPreviewShotOrigin(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=2,"unknown unit preview shot origin mode");
@@ -30723,6 +30778,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "weather-world-placement")) { Require(argc==5,"weather placement requires db/resources/mode"); WeatherWorldPlacement(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "unit-preview-shot-origin")) { Require(argc==5,"shot origin preview requires db/resources/mode"); UnitPreviewShotOrigin(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "knife-unit-preview")) { Require(argc==5,"native knife preview requires db/resources/mode"); KnifeUnitPreview(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "knife-unit-dispatch")) { Require(argc==5,"game knife dispatch requires db/resources/mode"); KnifeUnitDispatch(argv[2],argv[3],std::atoi(argv[4])); return true; }
