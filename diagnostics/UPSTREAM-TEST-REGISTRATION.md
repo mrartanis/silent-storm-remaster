@@ -427,3 +427,10 @@ Real projectile initial physics, seeded random52 versus chance0/51/52/100/-1/101
 plus null inputs. RED3/7->GREEN7/7 each; AP/HP/inventory/time/action controls.
 No complete flight/damage or actual Lua execution claim. Related17Win/17Linux,
 Game builds, CI323; new7 outside323.
+
+## Columnar launcher import dependency
+
+NativeWeaponImportOrder1/92/93/98/99: standalone native DB loader, resource
+extended Win/Linux,timeout120. Actual type/launcher classification after load.
+Linux RED4/5, Windows5/5 baseline controls -> GREEN5/5 each. Related10Win/9Linux,
+Game builds,CI323; new5 outside323. No invented pre-fix Windows failures.

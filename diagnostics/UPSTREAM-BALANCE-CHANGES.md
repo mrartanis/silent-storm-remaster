@@ -2088,3 +2088,13 @@ spread. Equal roll/chance is a hit; out-of-range arguments retain the original
 unclamped boundary behavior. Max velocity, skill/fuse, grenade data, inventory
 and ordinary player/AI throw calculations remain unchanged. Night-input
 forwarding and per-unit turn state are still pending separately.
+
+### Own prerequisite for `9da280e9`: launcher classification after DB load
+
+The portable columnar loader populates RPGWeaponTypes before dependent weapons,
+so the existing original type-ID5 rule classifies authored launchers correctly
+on Linux. Previously their precreated type shells were read too early and the
+launcher flag stayed false. Windows behavior is retained. No weapon values,
+type IDs, rules or serialized fields are changed. This is an own-loader fix
+required to verify the selected upstream night/launcher behavior, not a copied
+upstream hunk. The night inputs remain pending separately.

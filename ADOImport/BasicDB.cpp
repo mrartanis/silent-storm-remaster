@@ -1126,8 +1126,12 @@ static void ImportReleaseStorage( CStorageHash &storageTables,
     // textures first, independently of the host's unordered_map iteration order.
     std::vector<int> importOrder;
     if (storageTables.find(3) != storageTables.end()) importOrder.push_back(3);
+    // RPGWeapons::Import derives launcher logic from the referenced type ID.
+    // Its shells exist already, but their fields must be populated first.
+    const int weaponTypes = static_cast<int>(0xE0000001u);
+    if (storageTables.find(weaponTypes) != storageTables.end()) importOrder.push_back(weaponTypes);
     for (const auto& item : storageTables)
-        if (item.first != 3) importOrder.push_back(item.first);
+        if (item.first != 3 && item.first != weaponTypes) importOrder.push_back(item.first);
     for (const int tableId : importOrder)
 	{
 		CDBTableBase *pTable = NDatabase::GetTable( tableId );

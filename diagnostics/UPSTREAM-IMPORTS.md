@@ -17840,3 +17840,31 @@ equivalence claim. Evidence: script-grenade-chance-{retail-oracle,verification}.
 Game builds, related17Win/17Linux and asset-free CI323/323 pass. Seven resource
 extended cases are outside323. Source remains partial for the night/turn inputs.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.
+
+## 2026-10-30: own columnar weapon import prerequisite (`9da280e9` verification)
+
+ImportReleaseStorage loads RPGWeaponTypes before dependent records, alongside
+its existing texture-before-UI rule. CRPGWeapon::Import computes bBazookaLogic
+from pWeaponType->nWeaponTypeID==5; precreated shells resolve the reference but
+do not supply that field until its table is imported. Host unordered_map order
+previously made all four authored launchers lose their launcher classification
+on Linux, although their referenced type was5 after the complete load.
+The exact same original database loads correctly on Windows by incidental order.
+
+NativeWeaponImportOrder1/92/93/98/99 independently load the actual original DB.
+Linux RED4/5: launcher flag0 despite final referenced type5; ordinary record1
+passes. Windows5/5 controls pass before the fix. GREEN5/5 each preserves ordinary
+type2/flag0 and restores all four type5/flag1 records. No authored data, numerical
+formula, save tags or source SQL import changes are made. Partial overlays skip
+an absent type table and retain the existing records.
+
+Gold named NDb::CRPGWeapon::Import81b780/754 computes exactly this ID5 rule.
+Its15byte block81b973 maps uniquely and exactly to Steam80a4d3, without masks;
+PDB typed fields are CRPGWeaponType::nWeaponTypeID+30 and weapon flag+86.
+This is a fix to our portable columnar-loader dependency, discovered while
+verifying the pending launcher/night inputs of9da280e9. It is not a claim that
+the source commit contains this loader hunk. Those night inputs remain pending.
+Evidence: weapon-import-order-{retail-oracle,verification}.json/raw logs.
+Full Game builds, related10Win/9Linux, asset-free CI323/323 pass; five resource
+extended tests are outside323. The effect is recorded in balanceMD.
+Related source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.
