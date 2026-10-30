@@ -281,3 +281,12 @@ CI323/323 проходят; новые четыре ресурсных случ�
 [run41063705086](https://github.com/mrartanis/silent-storm-remaster/actions/runs/41063705086),
 actual Configure/Build/Test success. Это предыдущий HEAD, без утверждения, что
 текущий null-taker фикс или окончательный HEAD уже прошёл hosted CI.
+
+## Звук стадии разрушения
+
+NativeObjectSoundStage0..3 зарегистрированы на Windows/Linux, extended,
+timeout120: обе смены стадии без render, render-first, unchanged-stage.
+Compiled native RED2/4 -> GREEN4/4 each. Ресурсные случаи не входят в323
+asset-free теста. Итоговые related33/33 each включают16 native-display;
+Linux исполняется с Xvfb/openbox. Текущая стадия берётся из реального RPG
+объекта, записи stage audio — из authored CRndObject831.

@@ -17282,3 +17282,29 @@ corpse-null-taker-retail-oracle.json, corpse-null-taker-verification.json и raw
 logs: G:/SS/lab/evidence/upstream-remaster-20261024.
 Все source hunks wAnimation.cpp завершены. Смешанный source ещё PARTIAL:
 iLogPanel.cpp, wMain.cpp, wOSBase.cpp, wUnitStates.cpp. Общая задача не завершена.
+
+## `4949f285`: звук текущей стадии разрушения
+
+Звуковой обход CObjectServerBase теперь читает текущую RPG-стадию напрямую.
+Ранее он зависел от кэша, который обновляют render/AI visitors: между сменой
+стадии и следующим таким обходом звучала прежняя запись. Production diff —
+одна замена индекса; часы звука/effect и ProcessAttack — отдельные остатки.
+
+Compiled native RED2/4 на Windows/Linux: обе смены 0->1 и 1->0 выдают прежний
+эффект. Контроли render-first и неизменённой стадии проходят до исправления.
+GREEN4/4 each; настоящий authored CRndObject831 создан в FixtureWorld вместе
+с обычным NRPG::IObject. Здоровье, положение и RPG-стадия обходом не меняются.
+Начальные ошибки прежнего fixture (нет объекта на карте/несовместимый include)
+не считались RED. Оригинальный Gold PDB AddObject779690/385: вызов RPG virtual+4
+перед индексом модели; unique exact36byte block -> Steam785259. Отдельные
+exact16/24byte blocks обеих временных меток сохранены для следующего исправления.
+
+Свежие полные Windows/Linux Game builds,33 связанных теста на каждой системе
+(включая16 native-display), локальный asset-free CI323/323 проходят. Первый
+Linux related запуск без дисплея невалиден для графических проверок и сохранён
+отдельно; повторный Xvfb/openbox запуск успешен. Два прежних buildtrees;
+HD/шрифты/мимика/баланс/RNG/схема сохранений не менялись. Свидетельства:
+object-sound-stage-red-verification.json, object-sound-stage-retail-oracle.json,
+object-sound-stage-verification.json и raw logs в lab/evidence/upstream-remaster-20261024.
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.
+Общий перенос не завершён.

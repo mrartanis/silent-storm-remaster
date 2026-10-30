@@ -586,7 +586,7 @@ void CObjectServerBase::Visit( IAIVisitor *p )
 void CObjectServerBase::AddObject( ISoundVisitor *p, NDb::CObject *pO, const SFBTransform &rv )
 {
 	static SRand rnd;
-	NDb::CContainerModel *pCont = pO->pModels[nDestroyStage];
+	NDb::CContainerModel *pCont = pO->pModels[GetDestroyStage()];
 	if ( pCont && pCont->eSoundType == NDb::ST_PERMANENT && pCont->pSound )
 	{
 		CVec3 ptOrigin;

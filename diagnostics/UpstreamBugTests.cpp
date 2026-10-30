@@ -29419,6 +29419,79 @@ static void CorpseNullTaker(const char* databasePath,const char* resourcePath,in
     std::printf("native corpse BeTaken mode=%d carrierOK=1 carried=%d sameAnimation=%d head/AP/health/positions=unchanged\n",mode,int(body->animator.bIsCarried),int(after==active.GetPtr()));std::fflush(stdout);
 }
 
+struct ObjectStageAudio: NWorld::ISoundVisitor
+{
+    vector<NDb::CSound*> sounds;
+    vector<NDb::CSoundEffect*> effects;
+    void Add3DSound(STime,NDb::CSound* sound,CFuncBase<CVec3>*) override { sounds.push_back(sound); }
+    void AddEffect(STime,NDb::CSoundEffect* effect,CFuncBase<CVec3>*,const vector<int>&) override { effects.push_back(effect); }
+    void Add2DSound(STime,NDb::CSound*) override { throw std::runtime_error("object stage emitted a 2D sound"); }
+};
+
+struct AuthoredObjectStageAudio
+{
+    vector<vector<NDb::CSound*>> sounds;
+    vector<NDb::CSoundEffect*> effects;
+    AuthoredObjectStageAudio(NDb::CObject* record,int stage)
+    {
+        for(auto* node=record;IsValid(node);node=node->pChild) {
+            auto* model=node->pModels[stage].GetPtr();if(!model)continue;
+            if(model->eSoundType==NDb::ST_PERMANENT && IsValid(model->pSound)) {
+                vector<NDb::CSound*> choices;
+                for(auto variant:model->pSound->variants)if(IsValid(variant))choices.push_back(variant->pSound);
+                sounds.push_back(choices);
+            }
+            if(IsValid(model->pSoundEffect))effects.push_back(model->pSoundEffect);
+        }
+    }
+    bool Matches(const ObjectStageAudio& actual) const
+    {
+        if(actual.sounds.size()!=sounds.size() || actual.effects!=effects)return false;
+        for(int i=0;i<sounds.size();++i)if(std::find(sounds[i].begin(),sounds[i].end(),actual.sounds[i])==sounds[i].end())return false;
+        return true;
+    }
+};
+
+static void ObjectSoundStage(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=-1 && mode<=3,"unknown object sound stage mode");
+    auto world=FixtureWorld(databasePath,resourcePath);
+    // The default mission has no differing stage audio. Instantiate an authored
+    // staged record in the real world instead of treating missing fixture data as RED.
+    CObj<NDb::CObject> record;
+    CDBIterator<NDb::CRndObject> records(*NDatabase::GetTable<NDb::CRndObject>());
+    SRand random;
+    while(records.MoveNext()) {
+        auto* candidate=records.Get();
+        if(!IsValid(candidate->pTemplate))continue;
+        CObj<NDb::CObject> created=candidate->CreateObject(&random,{});
+        if(created->GetStagesQuantity()<2)continue;
+        AuthoredObjectStageAudio first(created,0),second(created,1);
+        if(first.sounds==second.sounds && first.effects==second.effects)continue;
+        record=created;break;
+    }
+    Require(IsValid(record),"database has no staged object with differing authored audio");
+    CObj<NRPG::IObject> rpg=NRPG::CreateObject(record);
+    Require(IsValid(rpg),"authored staged RPG object construction failed");
+    NWorld::SObjectPlace placement{};placement.ptScale=CVec3(1,1,1);
+    CObj<NWorld::CObjectServer> object=new NWorld::CObjectServer(world,placement,false,record,rpg,{},NWorld::TOD_ANYTIME);
+    const int previous=mode==1?1:0,target=mode==1 || mode==3?0:1;
+    object->SetDestroyStage(previous);
+    NWorld::IRenderVisitor render;
+    object->NWorld::CObjectServerBase::Visit(&render);
+    ObjectStageAudio primed;object->Visit(&primed);
+    Require(AuthoredObjectStageAudio(object->GetDBObjectForHarness(),previous).Matches(primed),"primed object sound does not match the authored previous stage");
+    object->SetDestroyStage(target);
+    if(mode==2)object->NWorld::CObjectServerBase::Visit(&render);
+    const int health=object->GetHP();const auto place=object->GetPosition();
+    ObjectStageAudio actual;object->Visit(&actual);
+    AuthoredObjectStageAudio wanted(object->GetDBObjectForHarness(),target);
+    std::printf("object sound stage mode=%d db=%d previous=%d actualRPG=%d sounds=%zu/%zu effects=%zu/%zu renderPrimed=%d\n",mode,object->GetDBObjectID(),previous,object->GetDestroyStage(),actual.sounds.size(),wanted.sounds.size(),actual.effects.size(),wanted.effects.size(),int(mode==2));std::fflush(stdout);
+    Require(wanted.Matches(actual),"sound visitor used a stale visual destroy stage instead of the current RPG stage");
+    Require(object->GetDestroyStage()==target && object->GetHP()==health && fabs2(object->GetPosition().ptPos-place.ptPos)<1e-10f,
+        "object sound visit changed gameplay stage/health/position");
+}
+
 static void PKShellWorld(const char* databasePath, const char* resourcePath, bool extractPilot, bool checkModel = false, int checkFeedback = 0)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -30174,6 +30247,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "object-sound-stage")) { Require(argc==5,"object sound stage requires db/resources/mode"); ObjectSoundStage(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "corpse-null-taker")) { Require(argc==5,"corpse null taker requires db/resources/mode"); CorpseNullTaker(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "corpse-cancel-state")) { Require(argc == 5, "corpse cancellation requires db, resources and mode"); CorpseCancelState(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "backpack-bone")) { Require(argc==5,"backpack binding requires db, resources and mode"); BackpackBoneBinding(argv[2],argv[3],std::atoi(argv[4])); return true; }
