@@ -7863,17 +7863,21 @@ static void ScriptAmbientVariants(const char* databasePath,const char* resourceP
 
 static void InactiveRandomEncounter(const char* databasePath,const char* resourcePath,int wide,int mode)
 {
-    Require(wide>=0 && wide<=1 && mode>=0 && mode<=18,"unknown inactive random encounter case");
+    Require(wide>=0 && wide<=1 && mode>=0 && mode<=22,"unknown inactive random encounter case");
     Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"random encounter fixture began with an interface or command");
     NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm inactive random encounter regression");
     if(wide){NGfx::SRenderTargetsInfo targets;Require(NGfx::SetMode(NGfx::SVideoMode(640,360,32,NGfx::WINDOWED),targets),"random encounter fixture could not select its wide viewport");}
     Require(!wide || S2UI::MapOffsetX()!=0,"wide encounter fixture did not activate centered map coordinates");
     struct ClockRestore {STime previous;~ClockRestore(){NMainLoop::SetTimeForHarness(previous);}} clock{NMainLoop::SetTimeForHarness(1000)};
-    const bool chanceCase=mode>=11;
+    const bool samplerCase=mode>=11,radiusCase=mode>=19;
+    const int policyIndex=radiusCase?7:(samplerCase?mode-11:0);
+    const int radii[4]={31,32,256,257};
+    const float radius=radiusCase?float(radii[mode-19]):64.f;
     const int probabilities[8]={0,0,50,50,50,99,99,100};
     const int wantedRolls[8]={0,1,49,50,51,98,99,99};
     const bool expectedSpawns[8]={true,false,true,true,false,true,true,true};
-    const CVec2 candidate(364,300);
+    const bool expectedSpawn=radiusCase?(mode==20 || mode==21):(samplerCase && expectedSpawns[policyIndex]);
+    const CVec2 candidate(300+radius,300);
     struct InfoRestore {CObj<CChapterInfo> info;vector<SChapterSector> original;~InfoRestore(){if(info)info->sectorsSet.swap(original);}} info;
     CDBPtr<NDb::CChapterMap> map;SChapterSector random;
     CDBIterator<NDb::CChapterMap> chapters(*NDatabase::GetTable<NDb::CChapterMap>());
@@ -7886,7 +7890,7 @@ static void InactiveRandomEncounter(const char* databasePath,const char* resourc
         if(map)break;
     }
     Require(map && info.info,"random encounter fixture lacks an actual authored chapter/random sector");
-    if(chanceCase){random.nProbability=probabilities[mode-11];
+    if(samplerCase){random.nProbability=probabilities[policyIndex];
         random.pointsSet={CVec2(candidate.x-1,candidate.y-1),CVec2(candidate.x+1,candidate.y-1),CVec2(candidate.x+1,candidate.y+1),CVec2(candidate.x-1,candidate.y+1)};}
     info.original=info.info->sectorsSet;info.info->sectorsSet=vector<SChapterSector>{random};
     CObj<NDb::CScript> quiet=new NDb::CScript;quiet->strCode="function OnEnterZone() end";
@@ -7908,7 +7912,7 @@ static void InactiveRandomEncounter(const char* databasePath,const char* resourc
     NUI::SPoint screen;NUI::SRect rectangle;Require(marker->ClientToScreen(&screen,&rectangle),"random encounter fixture has no native marker rectangle");
     const bool active=mode==2 || mode==3 || mode==6 || mode==7,overlap=mode==0 || mode==1 || mode==2 || mode==4 || mode==6 || mode==7;
     CVec2 team(float((rectangle.x1+rectangle.x2)/2-S2UI::MapOffsetX()),float((rectangle.y1+rectangle.y2)/2-S2UI::MapOffsetY()));
-    if(!overlap)team+=CVec2(100,100);if(chanceCase)team=CVec2(300,300);game->vChapterPos=team;
+    if(!overlap)team+=CVec2(100,100);if(samplerCase)team=CVec2(300,300);game->vChapterPos=team;
     if(mode==8 || mode==9)game->nCurrentTemplateID=random.nTemplate;
     if(mode==10)game->nCurrentTemplateID=random.nTemplate+1;
     const int uiType=pSSClasses->GetObjectTypeID(ui);
@@ -7932,10 +7936,10 @@ static void InactiveRandomEncounter(const char* databasePath,const char* resourc
     for(unsigned id:{8u,9u}){auto point=field(mapBody.first,mapBody.second,id);Require(point.length==sizeof(team),"chapter position save shape changed");std::memcpy(mapBody.first+point.payloadOffset,&team,sizeof(team));}
     auto randomBody=body(0xb2606154u);auto base=field(randomBody.first,randomBody.second,1);auto visible=field(randomBody.first+base.payloadOffset,base.length,3);
     Require(S2FileIO::EncodeStructureScalar(active,randomBody.first+base.payloadOffset+visible.payloadOffset,visible.length),"could not encode logical encounter activity");
-    const STime deadline=(mode==7 || mode==8 || mode==10 || chanceCase)?1000:100000,morph=1100;const float coefficient=mode==0?0.f:1.f;
+    const STime deadline=(mode==7 || mode==8 || mode==10 || samplerCase)?1000:100000,morph=1100;const float coefficient=mode==0?0.f:1.f;
     for(auto entry:{std::make_pair(3u,deadline),std::make_pair(6u,morph)}){auto item=field(randomBody.first,randomBody.second,entry.first);
         Require(S2FileIO::EncodeStructureScalar(entry.second,randomBody.first+item.payloadOffset,item.length),"could not encode native encounter fixture clock");}
-    if(chanceCase){const CTRect<float> fixed(candidate.x,candidate.y,candidate.x,candidate.y);auto zone=field(randomBody.first,randomBody.second,4);
+    if(samplerCase){const CTRect<float> fixed(candidate.x,candidate.y,candidate.x,candidate.y);auto zone=field(randomBody.first,randomBody.second,4);
         Require(zone.length==sizeof(fixed),"native random sampler bounds save shape changed");std::memcpy(randomBody.first+zone.payloadOffset,&fixed,sizeof(fixed));}
     auto fade=field(randomBody.first,randomBody.second,5);Require(S2FileIO::EncodeStructureScalar(coefficient,randomBody.first+fade.payloadOffset,fade.length),"could not encode native encounter fade");
     CMemoryStream wire;wire.Write(bytes.data(),unsigned(bytes.size()));wire.Seek(0);
@@ -7951,21 +7955,21 @@ static void InactiveRandomEncounter(const char* databasePath,const char* resourc
         struct Sector {bool* logical;int operator&(CStructureSaver& f){f.Add(3,logical);return 0;}} sector{&logical};
         {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(1,&sector);reader.Add(3,&actualDeadline);}return std::make_pair(logical,actualDeadline);};
     Require(state()==std::make_pair(active,deadline),"native random encounter fixture lost logical state/deadline");
-    if(chanceCase){CStructureNetworkContext refs;auto fields=BorrowedObjectFields(marker,&refs);CTRect<float> zone;SChapterSector actual;
+    if(samplerCase){CStructureNetworkContext refs;auto fields=BorrowedObjectFields(marker,&refs);CTRect<float> zone;SChapterSector actual;
         struct Base {SChapterSector* sector;int operator&(CStructureSaver& f){f.Add(2,sector);return 0;}} base{&actual};
         {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(1,&base);reader.Add(4,&zone);}
-        Require(actual.nProbability==probabilities[mode-11] && actual.eType==RANDOM && IsPointInPolygon(actual.pointsSet,candidate) &&
-            zone.x1==candidate.x && zone.x2==candidate.x && zone.y1==candidate.y && zone.y2==candidate.y && fabs(team-candidate)==64,
+        Require(actual.nProbability==probabilities[policyIndex] && actual.eType==RANDOM && IsPointInPolygon(actual.pointsSet,candidate) &&
+            zone.x1==candidate.x && zone.x2==candidate.x && zone.y1==candidate.y && zone.y2==candidate.y && fabs(team-candidate)==radius,
             "native chance fixture lost its actual probability/polygon/constant legal sampler input");}
     unsigned chosenSeed=0;STime expectedPolicyDeadline=0;int referenceRoll=-1;
-    if(chanceCase){for(;chosenSeed<100000;++chosenSeed){std::int32_t seed=std::int32_t(chosenSeed);S2Random::Next(&seed,4);S2Random::Next(&seed,0xffff);
-            if(S2Random::Next(&seed,100)==wantedRolls[mode-11])break;}
+    if(samplerCase){for(;chosenSeed<100000;++chosenSeed){std::int32_t seed=std::int32_t(chosenSeed);S2Random::Next(&seed,4);S2Random::Next(&seed,0xffff);
+            if(S2Random::Next(&seed,100)==wantedRolls[policyIndex])break;}
         Require(chosenSeed<100000,"native chance fixture could not choose a deterministic roll");
         // Existing harness API also seeds lazily constructed SRand instances.
         // Its constructor consumes Get(4), then the real update draws timer/roll.
         GlobalGameRandom().SeedForHarness(chosenSeed);SRand reference;
         expectedPolicyDeadline=STime(1100+10000*reference.GetFloat(.5f,1.f));referenceRoll=reference.Get(100);
-        Require(referenceRoll==wantedRolls[mode-11],"native chance fixture seed does not match its reference stream");}
+        Require(referenceRoll==wantedRolls[policyIndex],"native chance fixture seed does not match its reference stream");}
     const float xp=game->players.front()->mercs.front()->fXP;const int currentTemplate=game->nCurrentTemplateID;
     std::printf("native random encounter wide=%d mode=%d stage=before chapter=%d template=%d active=%d visible=1 hit=%d offset=%d,%d team=%.1f,%.1f deadline=%u\n",wide,mode,map->GetRecordID(),random.nTemplate,int(active),int(hit),S2UI::MapOffsetX(),S2UI::MapOffsetY(),team.x,team.y,unsigned(deadline));std::fflush(stdout);
     NMainLoop::SetTimeForHarness(1100);Require(NMainLoop::StepApp(true,false,false),"native chapter encounter frame exited");
@@ -7979,13 +7983,15 @@ static void InactiveRandomEncounter(const char* databasePath,const char* resourc
     const int expectedTemplate=mode==8?0:currentTemplate;
     if(mode>=8){std::printf("native random encounter wide=%d mode=%d stage=template before=%d after=%d expected=%d deadline=%u\n",wide,mode,currentTemplate,game->nCurrentTemplateID,expectedTemplate,unsigned(state().second));std::fflush(stdout);
         Require(game->nCurrentTemplateID==expectedTemplate,"finished random encounter template was not cleared on its due update");}
-    if(chanceCase){
-        std::printf("native random encounter wide=%d mode=%d stage=chance percent=%d referenceRoll=%d seed=%u active=%d expected=%d deadline=%u referenceDeadline=%u\n",wide,mode,probabilities[mode-11],referenceRoll,chosenSeed,int(state().first),int(expectedSpawns[mode-11]),unsigned(state().second),unsigned(expectedPolicyDeadline));std::fflush(stdout);
+    if(samplerCase){
+        std::printf("native random encounter wide=%d mode=%d stage=chance percent=%d referenceRoll=%d seed=%u active=%d expected=%d deadline=%u referenceDeadline=%u\n",wide,mode,probabilities[policyIndex],referenceRoll,chosenSeed,int(state().first),int(expectedSpawn),unsigned(state().second),unsigned(expectedPolicyDeadline));std::fflush(stdout);
         Require(state().second==expectedPolicyDeadline,"native random sampler did not align with its reference timer draw");
-        Require(state().first==expectedSpawns[mode-11],"native random encounter chance comparison reverses the authored probability");
-        if(expectedSpawns[mode-11]){NUI::SPoint point;NUI::SRect bounds;Require(marker->ClientToScreen(&point,&bounds),"spawned native encounter marker has no window rectangle");
+        if(radiusCase){std::printf("native random encounter wide=%d mode=%d stage=radius radius=%.1f active=%d expected=%d\n",wide,mode,radius,int(state().first),int(expectedSpawn));std::fflush(stdout);
+            Require(state().first==expectedSpawn,"native random encounter distance violates the original radius bounds");}
+        else Require(state().first==expectedSpawn,"native random encounter chance comparison reverses the authored probability");
+        if(expectedSpawn){NUI::SPoint point;NUI::SRect bounds;Require(marker->ClientToScreen(&point,&bounds),"spawned native encounter marker has no window rectangle");
             Require((bounds.x1+bounds.x2)/2-S2UI::MapOffsetX()==int(candidate.x) && (bounds.y1+bounds.y2)/2-S2UI::MapOffsetY()==int(candidate.y),"spawned encounter lost the own centered map coordinate adapter");}}
-    const bool validDeadline=chanceCase?state().second==expectedPolicyDeadline:(mode==8 || mode==10)?state().second>1100:state().second==deadline;
+    const bool validDeadline=samplerCase?state().second==expectedPolicyDeadline:(mode==8 || mode==10)?state().second>1100:state().second==deadline;
     Require(!NMainLoop::HaveInterfaceCommand() && NMainLoop::GetCurrentInterfaceForHarness()==chapter.GetPtr() && validDeadline && game->nCurrentTemplateID==expectedTemplate && game->players.front()->mercs.front()->fXP==xp,
         "encounter activity gate changed its native queue, timer, campaign or XP");
 }

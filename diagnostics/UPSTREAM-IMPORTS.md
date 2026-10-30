@@ -16732,3 +16732,40 @@ distance uses authored coordinates. Original minimum32/max256 are verified in
 both EXE versions, but minimum-radius code remains unported pending its own TDD.
 Source5d3 stays PARTIAL only for that final radius hunk. Ledger169 imported/
 18partial/56pending=74unfinished; whole goal/final hostedCI/balance review active.
+
+
+## Restore original minimum encounter radius and close source5d3fe7df
+
+Source: [5d3fe7df8e9a3f15f57353d2451df63d85b0306b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5d3fe7df8e9a3f15f57353d2451df63d85b0306b).
+Parent: 5c8b5e877c080f1f625e7d1d5f0561ff51dd0b6a. Only minimum8->32 changes; maximum256 and all data,
+attempts100, probability/generator/timer/entry logic remain unchanged.
+
+Native compiled RED2/46 each (44controls) -> GREEN46/46 each. New actual chapter/
+save/StepApp/Draw cases use legal fixed candidates at Euclidean radius31,32,256,
+257 with probability100/reference roll99. Radius31 was incorrectly accepted;
+32 and256 remain accepted,257 rejected. Both normal and wide layouts validate
+real marker centers, timers and own centered coordinates. Previous38 gate/
+lifecycle/template/chance cases remain controls. No production seam/live partial
+READ, and commands are not executed as saves/missions.
+
+Both original named random-sector methods use an identical unmasked16-byte
+squared-delta/FSQRT sequence, followed by17-byte min/max compare/status/branch
+blocks. Only independently read absolute float operands differ; values are
+32 and256 in both Gold/Steam. The status branches include both boundaries.
+Own ChapterInfoLoader reads serialized Chapters; resource resolution excludes
+that type from the texture-only HD layer. Distance is in authored map units,
+with MapOffset confined to drawing/hit testing. No HD regeneration/scaling.
+
+Fresh Win ALL_BUILD/Linux Game+helpers/serializer, campaign84/84 each and local
+asset-free CI305/305. Exact source bytes/encoding, original/native/raw gates:
+random-radius-verification.json under G:/SS/lab/evidence/upstream-remaster-20261024.
+
+All four applicable one-file source hunks are now complete in separate native
+TDD commits: marker consumption/return488ba953, matching-template resetcbd4ebca,
+strict chance comparison5c8b5e87, and this minimum-radius fix. The source inventory
+links each behavioral proof in random-spawn-source-coverage-verification.json;
+file hashes alone are not completion proof. Scope is the upstream diff's four
+hunks, not every possible random-encounter subsystem behavior. Own b709 guard,
+map adapters, UI/audio/font/HD/body/facial behavior and saved fields remain.
+Ledger170 imported/17partial/56pending=73unfinished source commits.
+Whole upstream goal/final actual hosted CI/balance-review delivery remain active.
