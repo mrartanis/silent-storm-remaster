@@ -16930,3 +16930,43 @@ production bytes четырёх файлов сверены с родителе�
 bind-seed-verification.json и bind-seed-retail-oracle.json в
 G:/SS/lab/evidence/upstream-remaster-20261024. Общая задача и final hosted CI
 остаются незавершёнными; ledger171 imported/18partial/54pending=72 источника.
+
+
+## `4949f285`: невидимый рюкзак панцеркляйна
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+
+До production-изменений compiled native RED1/4 на Windows/Linux. Настоящий
+GetItemsBindPlaces выдавал authored backpack model (проверен независимым
+CreateModel), но bone=BackPack не существует в PK skeleton55: index=-1.
+Slot1 существует, index49, default world-relative point приблизительно
+(0,-.0135035,1.10295). Наш действующий RWGame::AddMesh пропускает mesh при
+отрицательном GetBoneIndex: это ошибка привязки, GPU readback не заявляется.
+Наблюдались authored owners321 на Win/738 на Linux. Human BackPack, body-only
+no-items/no-cap и L_Weapon проходят до исправления.
+
+Из общего case выделен UIT_BACKPACK: для PK возвращается Slot1, для человека
+сохраняется прежний effectors[type]. Initial GREEN4/4 each; затем добавлен
+независимый каталоговый контроль данных, итог GREEN5/5 each. У всех2 применимых
+PK owners текущей базы один skeleton55 и нужный non-root Slot1. Проверка не
+отбирает их по наличию нужного узла и не подменяет скелеты/живые private fields.
+Human/weapon наблюдения идентичны RED; inventory/health/seed/ISAAC сохранены.
+
+Original typed enum UIT_BACKPACK12 -> обе dispatch tables -> boolPK block:
+Gold getter6192b0/268, Steam61e010. Unique31-byte prologue и24-byte conditional
+block маскируют только декодированные, отдельно проверенные pointer operands.
+True string=Slot1, false=effectors[12]=BackPack; unrelated left-hand13 остаётся
+L_Weapon. В production перенесены строки/условие, адреса и ABI не копировались.
+
+Свежие Win ALL_BUILD/Linux Game+helpers,103 связанных теста на каждой
+платформе, включая три предыдущих NativeBindPlacesSeed и наш head topology,
+PK/body/attachment/network, плюс локальный asset-free CI311/311 успешны.
+Остальные production bytes InventoryUnit.cpp, прежний seed fix, коэффициенты,
+поля сохранений, собственный renderer/body/head engine, шрифты и HD сохранены.
+Свидетельства: backpack-bone-verification.json/backpack-bone-retail-oracle.json
+в G:/SS/lab/evidence/upstream-remaster-20261024.
+
+Обе части source InventoryUnit.cpp теперь завершены отдельными TDD commits:
+seed=f33b7198, backpack bone=текущий фикс. Весь19-file source4949 остаётся
+partial; общий ledger171imported/18partial/54pending=72 незакрытых источника.
+Полная задача и окончательный actual hosted CI остаются активными.

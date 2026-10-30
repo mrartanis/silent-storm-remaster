@@ -14349,6 +14349,72 @@ static vector<int> BindingModelSignature(NDb::CModel* model)
     return key;
 }
 
+static void BackpackBoneBinding(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=4,"unknown backpack binding case");
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    if(mode==4) {
+        int count=0;std::set<int> skeletonIDs;
+        CDBIterator<NDb::CRPGPers> catalogue(*NDatabase::GetTable<NDb::CRPGPers>());
+        while(catalogue.MoveNext()) {
+            auto* p=catalogue.Get();auto* pk=p->pPanzerklein.GetPtr();
+            if(!pk || !p->pClass || !p->pBaseValue || !p->pModel || p->pDefaultWearsPanzerklein ||
+                !pk->pPers || !pk->pPers->pUniform || !pk->pPers->pUniform->pBackpackModel)continue;
+            CObj<NRPG::IUnitMission> unit=NRPG::CreateUnit(p);auto* model=unit->GetModel();
+            Require(model && model->pSkeleton,"authored PK backpack owner has no native skeletal model");
+            CObj<NAnimation::CSkeletonAnimator> skeleton=new NAnimation::CSkeletonAnimator(model->pSkeleton);
+            const int index=skeleton->GetBoneIndex("Slot1");
+            std::printf("native PK backpack catalogue persona=%d skeleton=%d Slot1=%d\n",p->GetRecordID(),model->pSkeleton->GetRecordID(),index);
+            Require(index>0,"authored PK backpack catalogue contains a skeleton without its non-root Slot1 node");
+            skeletonIDs.insert(model->pSkeleton->GetRecordID());++count;
+        }
+        std::printf("native PK backpack catalogue checked=%d distinct-skeletons=%zu\n",count,skeletonIDs.size());std::fflush(stdout);
+        Require(count>0 && !skeletonIDs.empty(),"PK backpack catalogue control found no applicable authored actors");
+        return;
+    }
+    const bool pk=mode!=1,bodyOnly=mode==2,leftHand=mode==3;
+    NDb::CPanzerklein* suit=nullptr;NDb::CRPGPers* persona=nullptr;
+    CObj<NRPG::IUnitMission> mission;CObj<NAnimation::CSkeletonAnimator> animator;
+    CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while(people.MoveNext() && !persona) {
+        auto* p=people.Get();auto* candidateSuit=p->pPanzerklein.GetPtr();
+        if(!p->pClass || !p->pBaseValue || !p->pModel || bool(candidateSuit)!=pk || p->pDefaultWearsPanzerklein)continue;
+        auto* uniform=pk && candidateSuit->pPers?candidateSuit->pPers->pUniform.GetPtr():p->pUniform.GetPtr();
+        if(!uniform || !uniform->pBackpackModel || (pk && (!candidateSuit->pLeftHandItem || !candidateSuit->pLeftHandItem->pModel)))continue;
+        CObj<NRPG::IUnitMission> current=NRPG::CreateUnit(p);auto* model=current->GetModel();
+        if(!model || !model->pSkeleton)continue;
+        CObj<NAnimation::CSkeletonAnimator> skeleton=new NAnimation::CSkeletonAnimator(model->pSkeleton);
+        if(skeleton->GetBoneIndex(pk?"Slot1":"BackPack")<=0 || (leftHand && skeleton->GetBoneIndex("L_Weapon")<=0))continue;
+        persona=p;suit=candidateSuit;mission=current;animator=skeleton;
+    }
+    Require(persona && mission && animator,"authored unit catalogue lacks a model/uniform with the required backpack skeleton node");
+    auto* unit=mission->GetRPGUnit();const int hp=mission->GetTotalVP(),seed=unit->bindSeed.nSeed;
+    auto* active=mission->GetInventoryInfo()->GetActive();auto* uniform=mission->GetInventoryInfo()->GetUniform();const auto itemCount=mission->GetInventoryInfo()->GetItems().size();
+    auto random=GlobalGameRandom();vector<NWorld::IRenderVisitor::SBoundMesh> meshes;
+    NWorld::GetItemsBindPlaces(&meshes,mission,false,suit,false,true,bodyOnly);auto afterRandom=GlobalGameRandom();
+    Require(hp==mission->GetTotalVP() && unit->bindSeed.nSeed==seed && active==mission->GetInventoryInfo()->GetActive() &&
+        uniform==mission->GetInventoryInfo()->GetUniform() && itemCount==mission->GetInventoryInfo()->GetItems().size() && random.Get()==afterRandom.Get(),
+        "backpack binding changed native inventory, health, visual seed or gameplay ISAAC");
+    if(bodyOnly){Require(meshes.empty(),"body-only no-cap pose emitted a backpack or weapon");return;}
+    const char* expected=leftHand?"L_Weapon":pk?"Slot1":"BackPack";const int expectedIndex=animator->GetBoneIndex(expected);
+    Require(expectedIndex>0,"authored backpack/weapon reference resolves only to the root or a missing node");
+    const NWorld::IRenderVisitor::SBoundMesh* bound=nullptr;
+    if(leftHand){for(const auto& mesh:meshes)if(mesh.pszBindBone && std::string(mesh.pszBindBone)==expected){bound=&mesh;break;}}
+    else if(!meshes.empty())bound=&meshes.front();
+    Require(bound && bound->pModel && bound->pszBindBone,"actual item renderer did not emit the authored backpack/weapon model");
+    auto* templateModel=leftHand?suit->pLeftHandItem->pModel.GetPtr():(pk?suit->pPers->pUniform->pBackpackModel.GetPtr():uniform->pBackpackModel.GetPtr());
+    SRand reference{mission->GetBindPlacesSeed()};
+    if(leftHand){CObj<NDb::CModel> first=suit->pPers->pUniform->pBackpackModel->CreateModel(&reference);}
+    CObj<NDb::CModel> expectedModel=templateModel->CreateModel(&reference);
+    Require(BindingModelSignature(bound->pModel)==BindingModelSignature(expectedModel),"backpack fixture selected another native model rather than its authored uniform attachment");
+    const int actualIndex=animator->GetBoneIndex(bound->pszBindBone);
+    NAnimation::SBonePose point;animator->GetDefaultBonePos(expectedIndex,&point);
+    std::printf("native backpack binding mode=%d PK=%d persona=%d skeleton=%d bone=%s index=%d expected=%s index=%d point=%.6g,%.6g,%.6g\n",
+        mode,int(pk),persona->GetRecordID(),mission->GetModel()->pSkeleton->GetRecordID(),bound->pszBindBone,actualIndex,expected,expectedIndex,point.pos.x,point.pos.y,point.pos.z);std::fflush(stdout);
+    Require(actualIndex==expectedIndex && std::string(bound->pszBindBone)==expected,
+        "native PK backpack uses a missing or wrong skeleton node, so the render visitor drops the mesh");
+}
+
 static bool FindBindingModelVariants(NDb::CTRndModel* source,int* seeds,vector<int>* expected)
 {
     vector<int> first;
@@ -29640,6 +29706,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "corpse-cancel-state")) { Require(argc == 5, "corpse cancellation requires db, resources and mode"); CorpseCancelState(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "backpack-bone")) { Require(argc==5,"backpack binding requires db, resources and mode"); BackpackBoneBinding(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "bind-places-seed")) { Require(argc==5,"bind seed requires db, resources and mode"); BindPlacesSeed(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "item-initial-floor")) { Require(argc == 5, "item floor contact requires db, resources and mode"); ItemInitialFloorContact(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "inactive-random-encounter")) { Require(argc == 6, "inactive encounter requires db, resources, viewport and mode"); InactiveRandomEncounter(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
