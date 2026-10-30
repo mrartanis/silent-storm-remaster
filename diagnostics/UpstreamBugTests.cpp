@@ -29489,6 +29489,93 @@ static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonA
     return sequence;
 }
 
+class UnitPreviewMapProbe: public CoverOriginMapProbe
+{
+    OBJECT_NOCOPY_METHODS(UnitPreviewMapProbe);
+public:
+    int meleeQueries=0;
+    explicit UnitPreviewMapProbe(NAI::IAIMap* map=nullptr):CoverOriginMapProbe(map){}
+    void GetAccessibleUnitHL(vector<int>* out,const CVec3& from,CObjectBase* hull,float distance) override {
+        ++meleeQueries;native->GetAccessibleUnitHL(out,from,hull,distance);
+    }
+};
+static void KnifeUnitPreview(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=5,"unknown knife preview mode");
+    if(mode==3){MeleeReachCaption(databasePath,resourcePath);return;}
+    auto world=FixtureWorld(databasePath,resourcePath,true);
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor=nullptr;
+    for(auto entry:units) {
+        auto* person=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if(!person || !person->CanFight() || person->IsEmptyPK() || person->IsWearingPK())continue;
+        if(mode==4){auto* weapon=person->GetUnitRPG()->GetWeaponItem();if(!weapon || !weapon->SetShootMode(NDb::SM_Snap) || NRPG::GetToHitType(person)!=NRPG::TH_SHOOT)continue;}
+        actor=person;break;
+    }
+    Require(actor,"knife preview fixture has no native ordinary attacker");
+    CObj<NRPG::IInventoryItem> previous;CObj<NRPG::CMeleeWeaponItem> blade;
+    auto* inventory=actor->GetUnitRPG()->GetInventory();
+    if(mode!=4) {
+        NDb::CRPGMeleeWeapon* record=nullptr;CDBIterator<NDb::CRPGMeleeWeapon> records(*NDatabase::GetTable<NDb::CRPGMeleeWeapon>());
+        while(records.MoveNext())if(records.Get()->bThrowing && IsValid(records.Get()->pItem) && IsValid(records.Get()->pItem->pModel)){
+            CObj<NRPG::CMeleeWeaponItem> candidate=new NRPG::CMeleeWeaponItem(records.Get());
+            if(NDb::IsMeleeWeapon(candidate->GetWeaponType())){record=records.Get();break;}
+        }
+        Require(record,"knife preview fixture has no authored throwing item");
+        blade=new NRPG::CMeleeWeaponItem(record);blade->nQuantity=1;
+        previous=inventory->Get(NDb::SLOT_1)?inventory->TakeOff(NDb::SLOT_1):nullptr;
+        Require(inventory->Equip(NDb::SLOT_1,blade) && inventory->Activate(NDb::SLOT_1) && NRPG::GetToHitType(actor)==NRPG::TH_THROWING && NDb::IsMeleeWeapon(actor->GetUnitRPG()->GetWeaponType()),
+            "knife preview fixture could not equip its actual ranged action");
+        actor->animator.SetActiveItem(true);actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
+    }
+    NWorld::CUnitServer* target=nullptr;
+    const NAI::EHitLocation location=mode==1?NAI::HL_HEAD:mode==2?NAI::HL_BODY:NAI::HL_ANY;
+    if(mode==5) {
+        for(auto entry:units)if(entry.GetPtr()!=actor && entry->CanFight()){target=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());if(target)break;}
+        Require(target,"replica preview fixture has no native target");int calls=0;
+        world->bNetworkReplica=true;
+        world->networkHitChance=[&](int kind,NWorld::CUnit* from,NWorld::CUnit* to,CVec3,int hitLocation,bool first){
+            ++calls;Require(kind==0 && from==actor && to==target && hitLocation==location && first==world->IsFirstTurn(),"replica preview changed its remote query");return 73;};
+        Require(world->GetGame()->GetCompositeToHit(actor,target,location,world->IsFirstTurn())==73 && calls==1,"replica preview did not delegate exactly once");
+        world->networkHitChance=nullptr;
+        Require(world->GetGame()->GetCompositeToHit(actor,target,location,world->IsFirstTurn())==0,"replica preview lost its unavailable remote control");return;
+    }
+    vector<NRPG::CAttackPortion> attacks;actor->GetUnitRPG()->CreateAttack(&attacks,false);
+    Require(!attacks.empty(),"native preview fixture has no authored attack portion");
+    int expected=0,hitCover=0;float distance=0;
+    for(auto entry:units) {
+        auto* person=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if(!person || person==actor || !person->CanFight() || person->IsEmptyPK() || person->IsWearingPK())continue;
+        distance=fabs(actor->GetPosition().GetCP()-person->GetPosition().GetCP());if(distance<2.5f)continue;
+        auto pos=actor->GetPosition();pos.pos.p.SetDirection(NRPG::GetShootDirection(pos.pos.pNet,pos.pos.p,person->GetPosition().GetCP()));
+        CObj<NRPG::CCoverInfo> cover=world->GetGame()->CalcCovers(actor->GetAttackOrigin(pos),attacks.front(),actor,person,location,actor->GetMinClearDistance());
+        hitCover=NRPG::GetHitCover(actor,cover);if(hitCover<=0)continue;
+        vector<int> noMeleeLocations;
+        expected=0;const int rounds=actor->GetUnitRPG()->GetBulletsQuantityInShot();
+        for(int i=0;i<rounds;++i)expected+=NRPG::GetToHit(actor,actor->GetPose(),int(distance/FP_GRID_STEP),actor->GetPosition().GetCenter(),
+            person->GetPosition().pos,location,actor->GetCarefulShotExtraAP(),person,noMeleeLocations,hitCover,world->IsFirstTurn(),CVec3(1,1,1),
+            !person->IsUnitAudible(actor) && !person->IsUnitVisible(actor),i);
+        expected/=rounds;if(expected>0){target=person;break;}
+    }
+    Require(target && expected>0,"native preview fixture has no positive unobstructed ranged unit chance outside arm reach");
+    const auto from=actor->GetPosition(),to=target->GetPosition();const int ap=actor->GetAP(),hp=target->GetUnitRPG()->GetTotalVP();
+    const auto* item=inventory->GetActive();const int quantity=item->GetQuantity();const auto rng=GlobalGameRandom();
+    CObj<UnitPreviewMapProbe> probe=new UnitPreviewMapProbe(world->GetAIMap());
+    CDGPtr<CFuncBase<STerrainInfo>> terrain=world->GetTerrainInfo();terrain.Refresh();
+    CObj<NRPG::IGame> preview=NRPG::CreateGame(probe,world->GetPathNetwork(),terrain->GetValue());
+    auto aimed=from;aimed.pos.p.SetDirection(NRPG::GetShootDirection(aimed.pos.pNet,aimed.pos.p,to.GetCP()));
+    const CVec3 expectedOrigin=actor->GetAttackOrigin(aimed);
+    const int actual=preview->GetCompositeToHit(actor,target,location,world->IsFirstTurn());
+    Require(probe->traces.size()==2,"unit preview lost actual high/low native cover projections");
+    float originError=0;for(const auto& trace:probe->traces)originError=Max(originError,fabs(trace.origin-expectedOrigin));
+    std::printf("native unit preview mode=%d action=%d distance=%.3f cover=%d chance=%d/%d location=%d originError=%.6g meleeQueries=%d\n",mode,int(NRPG::GetToHitType(actor)),distance,hitCover,actual,expected,int(location),originError,probe->meleeQueries);std::fflush(stdout);
+    Require(originError<2e-4f && probe->meleeQueries==0,"ranged knife preview cast from melee height or requested arm-reach hit locations");
+    Require(actual==expected && world->GetGame()->GetCompositeToHit(actor,target,location,world->IsFirstTurn())==expected,"native ranged unit preview changed the existing chance calculation");
+    auto expectedRng=rng;
+    Require(actor->GetPosition()==from && target->GetPosition()==to && actor->GetAP()==ap && target->GetUnitRPG()->GetTotalVP()==hp && inventory->GetActive()==item && item->GetQuantity()==quantity && !actor->HasCommand() && expectedRng.Get()==GlobalGameRandom().Get(),
+        "native unit preview changed an actor, its item, AP, health, action queue or gameplay RNG");
+}
+
 static void KnifeUnitDispatch(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=4,"unknown game knife dispatch mode");
@@ -30589,6 +30676,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "knife-unit-preview")) { Require(argc==5,"native knife preview requires db/resources/mode"); KnifeUnitPreview(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "knife-unit-dispatch")) { Require(argc==5,"game knife dispatch requires db/resources/mode"); KnifeUnitDispatch(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "knife-time-rebase")) { Require(argc==5,"knife clock requires db/resources/mode"); KnifeTimeRebase(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "hidden-skip-budget")) { Require(argc==5,"hidden skip requires db/resources/mode"); HiddenSkipBudget(argv[2],argv[3],std::atoi(argv[4])); return true; }

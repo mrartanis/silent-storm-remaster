@@ -1992,3 +1992,13 @@ validation теперь получает unit metadata вместо прежне
 Фактическая генерация броска/полёт и другие формулы5780c0be ещё требуют отдельного
 разбора, поэтому полная эквивалентность итоговых попаданий не заявляется.
 Свидетельства: knife-unit-dispatch-verification.json и retail-oracle.
+
+### `5780c0be`: geometry of the thrown-knife unit preview
+
+Preview cover rays now use the ranged throw origin/clear distance instead of
+melee height and do not request arm-reach hit locations. This restores original
+action-based routing; authored coefficients, ranges, AP costs, skills and the
+chance formula remain unchanged. On other geometry the displayed chance can
+change because the cover query is now the correct ranged query. In the native
+regression both numeric results are clamped to2%, while the wrong origins differ
+by up to0.20m. The actual final flight/impact path remains a separate pending audit.

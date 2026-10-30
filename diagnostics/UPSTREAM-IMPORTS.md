@@ -17514,3 +17514,37 @@ extended случаев вне323. Неудачная первая guarded patch
 полная корректность итогового попадания этим этапом не заявлена. Формулы и
 параметры баланса не менялись; эффект восстановления цели записан в balanceMD.
 Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027.
+
+## 2026-10-30: ranged cover routing for unit knife previews (`5780c0be`, partial)
+
+The two CGame::GetCompositeToHit predicates now use the existing GetToHitType
+action classifier. An equipped throwing knife can have a melee model type,
+yet its action is TH_THROWING: its actual native high/low cover projections
+must start at GetAttackOrigin and omit arm-reach hit-location queries.
+Swung melee remains TH_MELEE. The fork's network replica callback guard stays intact.
+
+NativeKnifeUnitPreview0..5 use authored equipped blades, native deployed actors,
+real geometry and the unchanged native chance calcer. A forwarding map observer
+on a separately constructed native IGame records projections/reach queries;
+there is no partial READ into a live game object. RED3/6 on each platform:
+ANY/head/body have origin errors up to 0.20m and one melee reach query. GREEN6/6:
+actual high/low origins agree within 0.0002m and reach queries are zero; true
+melee caption, firearm and replica delegation/unavailable callback controls pass.
+AP, positions, target health, item quantity, action queue and gameplay RNG stay intact.
+Chance remains 2% in the blade fixture due to the existing clamp; a chance-only
+test would miss this defect. Earlier unsuitable/numeric-clamp fixture logs are
+archived separately and are not counted as RED.
+
+Gold named PDB RealCalcCovers6ae3a0/553 calls GetToHitType6ad6f0 at6ae3d0,
+then only zero selects melee origin/zero clear distance (6ae543). Named
+SelectTargetHLs6ae8b0/248 calls the same classifier at6ae8e3, bypassing reachable
+HL queries on nonzero. Evidence records decoded29/31-byte branches. No whole
+function or Steam equivalence is claimed; the cover signature differs in Steam.
+knife-unit-preview-{red-verification,retail-oracle,verification}.json and raw logs
+are in the existing laboratory evidence directory.
+
+Full Windows/Linux Game builds, related22Win/21Linux and asset-free CI323/323 pass.
+These six resource extended tests are outside323. Source5780 remains partial:
+origin/distance/night/backstab inputs, final throw generation/flight and numerical
+throw formulas are still pending. No new balance coefficient or data change.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027.

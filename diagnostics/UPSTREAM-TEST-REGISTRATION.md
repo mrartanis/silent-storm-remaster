@@ -342,3 +342,11 @@ NativeKnifeUnitDispatch0..4: resource extended Windows/Linux,timeout120.
 ANY/head/body и point/targetless controls; actual native eligibility/factory/
 queue metadata/native aim/facing path/fresh executor restore/AP/HP/item checks.
 RED3/5 ->GREEN5/5 each,related16Win/15Linux,CI323. Сам полёт/попадание не проверялось.
+
+## Unit knife preview geometry
+
+NativeKnifeUnitPreview0..5: resource extended Windows/Linux,timeout120.
+Authored equipped knife ANY/head/body use actual native high/low geometry and
+forwarding map observations; true melee, firearm and LAN replica controls.
+RED3/6 each ->GREEN6/6 each. Chance clamp2% alone is not used as proof of failure.
+Related22Win/21Linux, full Game builds, CI323; new6 outside asset-free323.
