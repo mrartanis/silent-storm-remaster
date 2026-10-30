@@ -714,3 +714,15 @@ nearest-even rounding1.5/34.5, restored zero/fractional/negative parameters,
 unsigned negativeIC, intended/wornPK scope, HP/receiver/RNG/practice/baseIC/
 points/inventory/shell/input checked. Full Game builds, related65Win/65Linux,
 CI323; new17 outside323. Aura0; no full world/critical pipeline claim.
+
+## Aura player-pointer ownership
+
+NativeAuraPlayerOwnership0..9: resource extended Win/Linux,timeout120. Actual
+world810/person3/authored66 and native28 donor, real passable near/far points,
+SetPlayer restored after detached-pointer probes, production aura preview
+methods. Corrected RED3/10 ->GREEN10/10 each; seven controls. Bothnull-owner
+own66/neutral donor exclusion/ordinary same-player sum/fractional/untaken/
+absent/outside controls; HP/AP/points/RNG preserved. Scoped donor28 diagnostic
+label avoids pre-existing Linux CP1251 log exception and restores exact text;
+initial encoding-fixture failures explicitly NOT final RED. Full Game builds,
+related47Win/47Linux, CI323; new10 outside323. No victim damage scope claim.

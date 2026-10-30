@@ -18866,3 +18866,47 @@ trace/FX/critical-pipeline parity claim. Full Game builds, related65Win/65Linux
 and CI323 pass; new17 resource extended/outside323.
 Evidence explosion-evasion-retail-oracle/verification JSON and native logs.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-31: independent aura player-pointer ownership (`037c41d9` partial)
+
+GetAuraAdd now keeps donor28 behind its ALLY gate but evaluates the owner's
+same-player flag independently. This selects own66 when any nearby other
+unit has the same GetPlayer pointer, including two null owners; otherwise
+it selects93. Original GoldPDB689f00/581 maps uniquely to Steam68fed0 with
+all581bytes matching after only decoded SEH/RTTI/E8 relocation operands are
+masked. Both RTTI names are independently verified; radius immediate40480000
+is3.125. Gold68a013 skips only donor accumulation to68a047; the subsequent
+GetPlayer34/compare/sete/or is independent and has no nonnull guard. Own
+ordinary same-nonnull-player units are always ALLY, so the observable change
+is the detached/playerless pointer edge, not normal allied squads.
+
+NativeAuraPlayerOwnership0..9 use actual random world810 and native AddUnit-
+InGame, person3/authored66 (10hit/10IC), actual authored66/28 nodes granted
+through TakePerk, real passable free near/far positions, native SetPlayer and
+restored owner pointers. Actual CTileToHitCalcer.GetAuraToHitAdd and
+CUnitToHitCalcer.GetTAuraEvasionAdd both execute production GetAuraAdd.
+RED3/10 each ->GREEN10/10; seven controls already passed. Two nearby null
+owners now retain own10/10; a neutral null-owner28 donor contributes0 while
+own66 still applies. Temporary2.25/3.5 self parameters are restored; actual
+nonnull allied donor28 with distinct7.25/11.5 gives total9.5/15. Untaken66,
+no peer, different owner and outside3.125 cases remain0. Native neighborhood
+and diplomacy preconditions are checked, without forcing an impossible
+same-nonnull-player enemy relationship. Queries preserve HP/AP/points/RNG.
+No new exported helper, public API or victim damage scope is included here.
+
+Fixture correction: Linux's donor28 TakePerk logging throws range_error on
+its authored narrow CP1251 display label before native acquisition. GDB
+confirms CLogStream->TakePerk->fixture. A scoped ASCII diagnostic display
+label now surrounds the actual TakePerk, then restores its exact original
+string; native nodes/trees/persons/params/point spending remain intact and
+no DB file or engine conversion is changed. Initial Win3/Linux5 failures
+are archived as initial-encoding-fixture, NOT final cross-platform RED.
+The corrected compiled3/10 RED above precedes the production edit. The
+pre-existing Linux narrow-label logging issue remains separately recorded,
+not claimed fixed by aura ownership.
+
+Full Game builds, related47Win/47Linux (aura/perception/stealth/unhide/network) and
+CI323 pass; new10 resource extended/outside323. Evidence aura-ownership-
+retail-oracle/fixture-correction/verification JSON, original581byte bodies,
+disassembly, GDB and native per-platform RED/GREEN/gate logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

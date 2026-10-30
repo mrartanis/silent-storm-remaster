@@ -397,7 +397,7 @@ static void CheckAuraPerk( IUnitMission *pUnit, int nPerkID, float *pToHit, floa
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Retail GetAuraAdd @0x289f00. Allied units within 3.125 metres contribute perk 0x1c. The owner's
-// final aura perk depends on whether at least one nearby ally belongs to the same scenario player:
+// final aura perk depends on whether at least one nearby unit has the same player pointer:
 // 0x42 when it does, 0x5d otherwise. Both the attack and evasion terms are accumulated.
 static void GetAuraAdd( float *pToHit, float *pEvasion, CUnitServer *pUnit )
 {
@@ -412,19 +412,18 @@ static void GetAuraAdd( float *pToHit, float *pEvasion, CUnitServer *pUnit )
 
 	list<CPtr<CUnitServer> > units;
 	pWorld->GetUnitsNear( pUnit->GetPosition().GetCP(), &units, 3.125f );
-	bool bSamePlayerAlly = false;
+	bool bSamePlayer = false;
 	for ( list<CPtr<CUnitServer> >::iterator i = units.begin(); i != units.end(); ++i )
 	{
 		CUnitServer *pOther = *i;
 		if ( !IsValid( pOther ) || pOther == pUnit )
 			continue;
-		if ( pUnit->GetDiplomacyState( pOther ) != NDb::DS_ALLY )
-			continue;
-		CheckAuraPerk( pOther->GetUnitRPG(), 0x1c, pToHit, pEvasion );
+		if ( pUnit->GetDiplomacyState( pOther ) == NDb::DS_ALLY )
+			CheckAuraPerk( pOther->GetUnitRPG(), 0x1c, pToHit, pEvasion );
 		if ( pOther->GetPlayer() == pUnit->GetPlayer() )
-			bSamePlayerAlly = true;
+			bSamePlayer = true;
 	}
-	CheckAuraPerk( pUnit->GetUnitRPG(), bSamePlayerAlly ? 0x42 : 0x5d, pToHit, pEvasion );
+	CheckAuraPerk( pUnit->GetUnitRPG(), bSamePlayer ? 0x42 : 0x5d, pToHit, pEvasion );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Release-new terms. Weather and aura were absent from the predecessor tree, but their complete retail

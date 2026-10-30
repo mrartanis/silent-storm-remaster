@@ -2428,3 +2428,15 @@ unsigned chance and may amplify damage (IC-10/base40 ->43). Intended targets
 and wornPK continue to skip IC, including practice. Own RNG, existing public
 CheckIC, base40 perk, armor and DB remain unchanged. Nonzero aura ownership,
 addition and victim application/reset remain separately pending.
+
+### `037c41d9`: aura same-player ownership is independent of alliance
+
+Own aura66 now checks the same player pointer among nearby units independently
+of donor28's ally requirement. Two nearby playerless native units therefore
+retain own authored10 accuracy/10 evasion, as the original pointer comparison
+does; neutral donor28 contributes0. Same nonnull-player squads already count
+as allied in this engine and keep their existing aura. Absent/untaken/outside
+radius3.125 cases remain0. Both production attack/target preview methods and
+native world neighborhoods are verified. Victim damage addition and per-hit
+application/reset remain pending. A pre-existing Linux CP1251 perk-label log
+exception is isolated in the fixture and is not an aura gameplay fix.
