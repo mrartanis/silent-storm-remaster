@@ -17308,3 +17308,26 @@ object-sound-stage-red-verification.json, object-sound-stage-retail-oracle.json,
 object-sound-stage-verification.json и raw logs в lab/evidence/upstream-remaster-20261024.
 Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.
 Общий перенос не завершён.
+
+## `4949f285`: возраст звуков стадии разрушения
+
+Постоянный 3D звук и sound effect получают сохранённое tStageChange вместо 0
+и текущего world time. Наш RWSound уже считает возраст относительно aimtime
+(max(0,now-start-50)); событие должно иметь ту же эпоху. Native audio backend
+и собственный таймер сохранены.
+
+Compiled native RED4/4 Windows/Linux: permanent sound CRndObject563 получает 0
+вместо 1375, effect831 — 9000 вместо 1375. Каждый проверен также после повторного
+SetDestroyStage с прежним значением. GREEN4/4 each: оба вида хранят начало 1375,
+stage age остаётся 125. Посетитель удерживает созданные position nodes.
+Original Gold PDB tStageChange4c: unique exact16byte push block779757 ->
+Steam7852d7, отдельный exact24byte effect block7797c5 ->785345, без масок.
+
+Полные Game builds обеих систем, related45/45 each (в том числе прежние
+age/loop/channel и16 native-display), локальный asset-free CI323/323 проходят.
+Новые4 ресурсных extended случая не входят в323. Только два аргумента времени
+и удаление локальной переменной; баланс/RNG/шрифты/HD/мимика/DB/wire сохранены.
+Свидетельства object-sound-clock-red-verification.json,
+object-sound-clock-verification.json и object-sound-stage-retail-oracle.json.
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.
+ProcessAttack, carrier admission, log markup и world skip ещё требуют разбора.

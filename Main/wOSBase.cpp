@@ -593,14 +593,13 @@ void CObjectServerBase::AddObject( ISoundVisitor *p, NDb::CObject *pO, const SFB
 		rv.forward.RotateHVector( &ptOrigin, pCont->ptSoundPos );
 		NDb::CSoundVariant *pSVar = pCont->pSound->GetSound( &rnd );
 		if ( IsValid( pSVar ) )
-			p->Add3DSound( 0, pSVar->pSound, new NGScene::CCVec3( ptOrigin ) );
+			p->Add3DSound( tStageChange, pSVar->pSound, new NGScene::CCVec3( ptOrigin ) );
 	}
 	if ( pCont && pCont->pSoundEffect )
 	{
 		CVec3 ptOrigin;
 		rv.forward.RotateHVector( &ptOrigin, pCont->ptSoundPos );
-		STime t = pWorld->GetTime()->GetValue();
-		p->AddEffect( t, pCont->pSoundEffect, new NGScene::CCVec3( ptOrigin ), vCreateFlags );
+		p->AddEffect( tStageChange, pCont->pSoundEffect, new NGScene::CCVec3( ptOrigin ), vCreateFlags );
 	}
 	if ( IsValid( pO->pChild ) )
 		AddObject( p, pO->pChild, rv );

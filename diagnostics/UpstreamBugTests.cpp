@@ -29423,8 +29423,10 @@ struct ObjectStageAudio: NWorld::ISoundVisitor
 {
     vector<NDb::CSound*> sounds;
     vector<NDb::CSoundEffect*> effects;
-    void Add3DSound(STime,NDb::CSound* sound,CFuncBase<CVec3>*) override { sounds.push_back(sound); }
-    void AddEffect(STime,NDb::CSoundEffect* effect,CFuncBase<CVec3>*,const vector<int>&) override { effects.push_back(effect); }
+    vector<STime> soundTimes,effectTimes;
+    vector<CObj<CFuncBase<CVec3>>> positions;
+    void Add3DSound(STime time,NDb::CSound* sound,CFuncBase<CVec3>* position) override { sounds.push_back(sound);soundTimes.push_back(time);positions.push_back(position); }
+    void AddEffect(STime time,NDb::CSoundEffect* effect,CFuncBase<CVec3>* position,const vector<int>&) override { effects.push_back(effect);effectTimes.push_back(time);positions.push_back(position); }
     void Add2DSound(STime,NDb::CSound*) override { throw std::runtime_error("object stage emitted a 2D sound"); }
 };
 
@@ -29454,7 +29456,7 @@ struct AuthoredObjectStageAudio
 
 static void ObjectSoundStage(const char* databasePath,const char* resourcePath,int mode)
 {
-    Require(mode>=-1 && mode<=3,"unknown object sound stage mode");
+    Require(mode>=0 && mode<=7,"unknown object sound stage mode");
     auto world=FixtureWorld(databasePath,resourcePath);
     // The default mission has no differing stage audio. Instantiate an authored
     // staged record in the real world instead of treating missing fixture data as RED.
@@ -29467,7 +29469,9 @@ static void ObjectSoundStage(const char* databasePath,const char* resourcePath,i
         CObj<NDb::CObject> created=candidate->CreateObject(&random,{});
         if(created->GetStagesQuantity()<2)continue;
         AuthoredObjectStageAudio first(created,0),second(created,1);
-        if(first.sounds==second.sounds && first.effects==second.effects)continue;
+        if(mode>=6) { if(first.sounds.empty())continue; }
+        else if(mode>=4) { if(first.effects.empty())continue; }
+        else if(first.sounds==second.sounds && first.effects==second.effects)continue;
         record=created;break;
     }
     Require(IsValid(record),"database has no staged object with differing authored audio");
@@ -29475,6 +29479,23 @@ static void ObjectSoundStage(const char* databasePath,const char* resourcePath,i
     Require(IsValid(rpg),"authored staged RPG object construction failed");
     NWorld::SObjectPlace placement{};placement.ptScale=CVec3(1,1,1);
     CObj<NWorld::CObjectServer> object=new NWorld::CObjectServer(world,placement,false,record,rpg,{},NWorld::TOD_ANYTIME);
+    if(mode>=4) {
+        world->GetTime()->Set(100);world->GetAimTime()->Set(100);
+        object->SetDestroyStage(1);
+        const STime begin=1375;
+        world->GetTime()->Set(3000);world->GetAimTime()->Set(begin);
+        object->SetDestroyStage(0);
+        world->GetTime()->Set(9000);world->GetAimTime()->Set(1500);
+        if(mode%2)object->SetDestroyStage(0); // unchanged stage must not restart audio
+        ObjectStageAudio actual;object->Visit(&actual);
+        auto& times=mode>=6?actual.soundTimes:actual.effectTimes;
+        Require(!times.empty(),"authored record did not emit selected stage audio");
+        std::printf("object sound clock mode=%d db=%d expected=%d actual=%d count=%zu\n",mode,object->GetDBObjectID(),int(begin),int(times.front()),times.size());std::fflush(stdout);
+        Require(std::all_of(times.begin(),times.end(),[&](STime time){return time==begin;}),
+            "object stage audio lost its stage-change timestamp");
+        Require(object->GetTimeSinceLastStageChange()==125,"sound visit or unchanged stage reset gameplay stage age");
+        return;
+    }
     const int previous=mode==1?1:0,target=mode==1 || mode==3?0:1;
     object->SetDestroyStage(previous);
     NWorld::IRenderVisitor render;

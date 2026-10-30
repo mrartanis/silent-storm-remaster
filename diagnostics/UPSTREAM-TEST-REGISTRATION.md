@@ -290,3 +290,11 @@ Compiled native RED2/4 -> GREEN4/4 each. Ресурсные случаи не в
 asset-free теста. Итоговые related33/33 each включают16 native-display;
 Linux исполняется с Xvfb/openbox. Текущая стадия берётся из реального RPG
 объекта, записи stage audio — из authored CRndObject831.
+
+## Временные метки стадии разрушения
+
+NativeObjectSoundStage4..7 добавлены к ресурсной extended группе Windows/Linux:
+effect/permanent sound, с повторным неизменяющим SetDestroyStage и без него.
+RED4/4 -> GREEN4/4 each; actual authored831/563, aimtime1375/world9000,
+ожидаемый возраст стадии125. Всего stage/clock8 случаев, вне asset-free323.
+Related45/45 each и CI323/323 успешны, Linux display через Xvfb/openbox.
