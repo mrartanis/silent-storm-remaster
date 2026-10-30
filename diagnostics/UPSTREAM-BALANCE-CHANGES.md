@@ -2402,3 +2402,15 @@ victims. Existing wound-driven AP recomputation remains (40-damage control
 change. This step verifies native no39/aura0 noncritical RPG application;
 typed explosion39/aura/unsigned chance and broader critical/world-trace effects
 remain separately pending.
+
+### `037c41d9`: original unsigned evasion chance
+
+CheckIC now preserves the unsigned comparison found in both original binaries.
+Negative effective IC therefore passes a percentage roll, as in the target
+original. Actual native IC-10/base40 incidental damage becomes43 HP rather
+than40: truncating the negative reduction gives -3, which is subtracted.
+This numerical quirk is deliberately preserved instead of introducing a
+zero clamp. Positive/zero/>100 controls, existing IC practice and exact own
+RNG advancement remain verified. The change applies only to CheckIC; the
+shared generator and global random comparison helper remain unchanged.
+Typed explosion39 and attack-scoped aura still await their separate checks.

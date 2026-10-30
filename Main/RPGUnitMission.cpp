@@ -1600,7 +1600,7 @@ bool CUnitMission::CheckIC()
 {
 	UseSkill(NDb::ST_IC);
 	// Target movement???
-	bool isCheck = MissionRandom().Check(GetIC());
+	bool isCheck = MissionRandom().Get( 100 ) < static_cast<unsigned int>( GetIC() );
 	csRPG << "\t" << GetName() << " Dodge:" << isCheck << endl;
 	return isCheck;
 }

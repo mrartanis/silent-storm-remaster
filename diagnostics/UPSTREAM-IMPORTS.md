@@ -18797,3 +18797,33 @@ incidental-damage-verification JSON/raw block/complete-entry disassembly/logs.
 Full Game builds, related40Win/40Linux (health/head-body/attacker-level/PK/IC/critical/
 network) and CI323 pass; new8 resource extended/outside323.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-31: original unsigned IC chance (`037c41d9` partial)
+
+The mapped original CheckIC bodies both compare the unsigned random remainder
+against IC interpreted unsigned. GoldPDB6bca50/171 and Steam6c2d20 are reached
+through secondary mission90; offset77 contains xorEDX/movECX100/unsignedDIV,
+and offset103 is CMP EDX,EDI; SETB DL (3bd70f92c2), not signed SETL. Restore
+that comparison at this call alone with own MissionRandom.Get(100) and an
+explicit unsigned IC cast. Own generator/global RandomGen.Check, one draw,
+existing UseSkill and noarg public API remain unchanged. Source's CheckIC
+hunk is adapted with this original-binary correction; typed39/aura remain
+pending, rather than copying the global helper's signed comparison.
+
+NativeUnsignedICChance0..7 execute actual person41/untaken authored40 then
+native TakePerk as appropriate. IC21, authored.15->24, temporary Param-1.5
+->IC-10, -2->-21, -1->0, zero->21, and no40 IC140 exercise the real CheckIC.
+Parameters restore on exit, training remains positive, integer skill/AP/HP/
+points/XP/inventory stay valid and own shared RNG matches exactly one draw.
+Negative IC comparisons both pass in the original unsigned semantics.
+A real incidental ProcessAttack with IC-10 and exact base40 on the same
+actual perk owner applies43 HUMAN damage/HP loss, rather than40; its negative
+reduction truncates -3 before subtraction. VP is explicitly initialized500
+for that runtime damage fixture, without modifying DB or authored perk trees.
+No unexpected death/knockout and both shared draws match. RED3/8 each ->
+GREEN8/8, five controls already passed. This preserves a numerical quirk of
+the target original; it is not a new clamp or intended-design correction.
+Full Game builds, related48Win/48Linux and asset-freeCI323 pass; new8 extended
+outside323. Evidence unsigned-ic-retail-oracle/verification JSON, raw171byte
+original bodies, disassembly and per-platform RED/GREEN/gate logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

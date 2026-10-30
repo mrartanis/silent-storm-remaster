@@ -694,3 +694,12 @@ preserved. Initial overstrict AP fixture archived NOT final RED; existing
 wound-driven AP recomputation observed. Full Game builds, related40Win/40Linux and
 CI323 pass; new8 outside323. No39/aura0 noncritical native RPG application
 scope; no new full projectile/FX/AI/death-loot/critical-pipeline claim.
+
+## Original unsigned IC chance
+
+NativeUnsignedICChance0..7: resource extended Win/Linux,timeout120. Actual
+person41/40/native TakePerk and restored temporary parameters; actual CheckIC
+with IC21/24/-10/-21/0/140, plus real incidental base40 ->43 damage atIC-10.
+RED3/8 ->GREEN8/8 each, five pre-fix controls. One-check RNG/IC practice and
+unrelated state checked; damage case validates HUMAN/HP/RNG/death state.
+Full Game builds, related48Win/48Linux, CI323; new8 outside323. No39/aura0 scope.
