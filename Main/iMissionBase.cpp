@@ -27,6 +27,7 @@
 #include "..\MiscDll\LogStream.h"
 #include "..\DBFormat\DataFormat.h"
 #include "..\DBFormat\DataLight.h"
+#include "..\DBFormat\DataMap.h"
 #include "..\FileIO\BasicChunk1.h"   // START_REGISTER / FINISH_REGISTER (the ui_followcamera cvar)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // NGame::CMissionBase -- the retail mission base class bodies (release iBase.obj; serialization-
@@ -193,6 +194,21 @@ bool CMissionBase::ExecWorldCommonCommand( NWorld::CUICmd *pCmd )
 		// The clue modal needs a campaign; our backdrop worlds have no scenario.
 		if ( IsValid( pGlobalGame ) && IsValid( pClue->pClue ) )
 			NMainLoop::Command( new NGame::CICShowClue( this, pClue->GetID(), pGlobalGame, pClue->pClue ) );
+	}
+	// The AI-turn hint is an additive model flash with its own lifetime.
+	else if ( CDynamicCast<NWorld::CUICmdAIUnitWillMove>( pCmd ) )
+	{
+		NWorld::CUICmdAIUnitWillMove *pWillMove =
+			CDynamicCast<NWorld::CUICmdAIUnitWillMove>( pCmd );
+		if ( IsValid( pWillMove->pUnit ) && IsValid( pActivePlayer ) && IsValid( pWorld ) && IsValid( pRender ) )
+		{
+			NDb::EDiplomacyState eDiplomacy = pWorld->GetDiplomacyState(
+				pActivePlayer->GetPlayer(), pWillMove->pUnit->GetPlayer() );
+			if ( eDiplomacy == NDb::DS_ENEMY )
+				pRender->FlashUnit( pWillMove->pUnit, CVec4( 78.0f / 255, 20.0f / 255, 0, 0 ) );
+			else if ( eDiplomacy == NDb::DS_NEUTRAL || eDiplomacy == NDb::DS_ALLY )
+				pRender->FlashUnit( pWillMove->pUnit, CVec4( 0, 77.0f / 255, 78.0f / 255, 0 ) );
+		}
 	}
 	else
 		return ExecWorldSoundCommand( pCmd );

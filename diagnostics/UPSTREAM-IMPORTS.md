@@ -16414,3 +16414,73 @@ Evidence: world-clue-verification.json, RED/original/calibration JSONs and
 native focused/final logs. Source remains PARTIAL for shared AI flash only;
 ledger166 imported/19 partial/58 pending. Whole goal/final hosted CI/balance-MD
 delivery remain active.
+
+### world-ai-flash — finish shared command dispatch; cb954 fully accounted
+
+Source cb954e2e455b632c0174b88b2d051ac74e780ce0, parent
+5b161147ca62dbe7304565df52b55ae7608472fc. Actual chapter native UI queue
+dropped AI-unit flash commands even though its renderer could bind the real
+actor's15 mesh parts. Definitive native RED3/7 each: enemy/neutral/ally messages
+fail; direct-renderer geometry/color/clock control, null-unit and two actual
+unit-less/null-active-player menu controls pass. Main exact parent during RED.
+
+Minimal fix: move existing own guarded15-line AI arm, one indentation level,
+to common consumer; add DataMap.h for enum definition. Preserve all four guards,
+world diplomacy (including own same-scenario distinct-party semantics), exact
+red/teal values, additive renderer/selection ownership and1500ms lifetime.
+No renderer, body/facial, headers/fields/save/network/HD/clock implementation
+changes. Initial GREEN compile needed enum include; logs retained, not RED.
+
+Native GREEN7/7 each: real chapter actor/model and filters bound to same15
+geometry parts as ordinary selection, expected diplomacy colors, actual render
+clock and1500ms end, ordinary selection retained; AP/HP/position and queue stay
+unchanged. Neutral owner is a real held native -1 party (native deployed-body
+ownership pattern), not a null owner/private scenario-field rewrite. Enemy is
+actual registered separate party/CAICommander, ally actual observer party.
+Menu controls retain its actual no-unit/no-active-tracker architecture.
+
+Setup corrections are explicit. Initial compile used protected/private actor
+factories: switched to public native AddPlayer/AddUnit APIs. Null-owner server
+was invalid; native AddUnit requires owner, corrected before definitive RED.
+Own backdrop has no walking/navigation layers. GDB confirms attempted cinematic
+placement fails in CPathNetwork::SetOnLayer <- MakeFlyPos before UI dispatch;
+the old ELF hash and raw trace are saved, no old executable kept. Do not create
+synthetic menu navigation to satisfy tests. Use actual quiet/null-message menu
+controls and genuine15-part chapter actor coverage for enemy/neutral/ally.
+Invalid setup runs not counted as RED; final seven-case RED precedes production.
+
+Original proof: full shared typed dispatch300 Gold5a1642 -> Steam5a3fd2,
+RTTI-bound cast38, named world getters/slots130 vs138 (PDB field54), named
+renderer FlashUnit20 forwarder11 to CSetRender6c5e40/6cc8e0, exact full color
+blocks66+66 and original relation branches. Masks only decoded references;
+no original ABI offsets copied. Prior chapter common route proof reused.
+
+Fresh Windows ALL_BUILD/Linux Game+helpers+serializer; related195/195 each
+including previous tactical NativeAIUnitFlash GPU tint/fade/selection/expiry
+regression, body16/16 each, Windows network4/4 and local CI305/305 pass.
+Exact native raws/counts/manifests/exits checked. Actual hosted CI is separate.
+Two builds reused; no balance/RNG/DB/font/facial/HD changes or PNG generation.
+
+Final thirteen-file source accounting (current hashes/evidence in
+cb954-source-coverage-verification.json):
+
+| Source files | Final accounting |
+| --- | --- |
+| GScene.h, GSceneInternal.h, GSceneInternal.cpp | Animated ambient API/setter/existing DG node; native ambient proof. |
+| GView.h, GView.cpp | Original first-light-only ambient animator/clock/clear behavior; native graph tests. |
+| iChapterMap.cpp | Common fallback/camera drive; own chapter background/BeginZone args retained. |
+| iGlobalMap.cpp | Own 2D global map has no world; preserve UI-only draw, no upstream synthetic world drive. |
+| iMission.cpp, iMission.h | Shared helpers and routing; duplicate arms removed, own tactical BeginZone args retained. |
+| iMissionBase.cpp | Sound/light/FX/hints/tutorial/clue/camera/floor/video/AI consumers, own context/clock/API adapters. |
+| iMissionInternal.h | Obsolete mission ambient handle removed; scene owns ambient animation. |
+| iRenderWorld.cpp | Backdrop common consumer/camera pump, own null desktop and UI/audio ownership retained. |
+| wInterface.h | Const existing world-variant flags getter; real filtered ambient/FX cases. |
+
+Camera preemption correction, native floor-view adapter and all other earlier
+source stages retain their own RED/GREEN/original evidence. All useful cb954
+hunks now accounted; source marked imported, not literal unadapted cherry-pick.
+Ledger167 imported/18 partial/58 pending =76 unfinished sources. Whole goal,
+final actual hosted CI and balance Markdown delivery remain active.
+
+Evidence: world-ai-flash-verification.json, RED/original/calibration/cause JSONs,
+native focused/final logs and all13-file coverage proof.

@@ -7861,6 +7861,122 @@ static void ScriptAmbientVariants(const char* databasePath,const char* resourceP
 }
 
 
+static void WorldAIFlash(const char* databasePath,const char* resourcePath,int context,int mode)
+{
+    Require(context>=0 && context<=1 && mode>=0 && mode<=4,"unknown shared-world AI flash case");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"world AI flash fixture started with an interface");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm shared world AI flash regression");
+    struct ClockRestore {STime previous;~ClockRestore(){NMainLoop::SetTimeForHarness(previous);}} frameClock{NMainLoop::SetTimeForHarness(1000)};
+    CObj<NDb::CScript> quiet=new NDb::CScript;quiet->strCode="function OnEnterZone() end";
+    struct RestoreScripts {vector<std::pair<CPtr<NDb::CTemplVariant>,CPtr<NDb::CScript>>> variants;CPtr<NDb::CChapterMap> chapter;CPtr<NDb::CScript> entry;
+        ~RestoreScripts(){for(auto& p:variants)if(IsValid(p.first))p.first->pScript=p.second;if(IsValid(chapter))chapter->pScript=entry;}} restore;
+    struct SectorRestore {CObj<CChapterInfo> info;vector<SChapterSector> original;
+        ~SectorRestore(){if(IsValid(info))info->sectorsSet.swap(original);}} sectors;
+    CObj<NRPG::CGlobalGame> game;
+    if(context==0){
+        CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());while(maps.MoveNext())if(IsValid(maps.Get()->pBackground)){restore.chapter=maps.Get();break;}
+        Require(IsValid(restore.chapter),"world AI flash fixture has no authored chapter");restore.entry=restore.chapter->pScript;restore.chapter->pScript=quiet.GetPtr();
+        game=NRPG::CreateGlobalGame(1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+        list<CPtr<NScenario::CScenarioClue>> clues;game->pScenarioTracker->GetAvailableClues(&clues);for(auto clue:clues)if(IsValid(clue))clue->SetJustFound(false);
+        for(auto merc:game->players.front()->mercs){vector<CDBPtr<NDb::CMedal>> medals;merc->GetJustFoundMedals(&medals);}
+        CDGPtr<CPtrFuncBase<CChapterInfo>> info=shareChapterInfo.Get(restore.chapter->GetRecordID());info.Refresh();
+        sectors.info=info->GetValue();Require(IsValid(sectors.info),"clue fixture has no cached native map info");
+        sectors.original=sectors.info->sectorsSet;auto& isolated=sectors.info->sectorsSet;
+        isolated.erase(std::remove_if(isolated.begin(),isolated.end(),[](const SChapterSector& sector){return sector.eType==RANDOM;}),isolated.end());
+        Require(!isolated.empty(),"AI flash isolation removed every authored zone and exit");
+        CObj<NGame::CICBeginChapter> enter=new NGame::CICBeginChapter(restore.chapter->GetRecordID(),game);enter->Exec();
+    }else{
+        CDBIterator<NDb::CTemplVariant> variants(*NDatabase::GetTable<NDb::CTemplVariant>());
+        while(variants.MoveNext())if(IsValid(variants.Get()->pTemplate) && variants.Get()->pTemplate->GetRecordID()==2425){restore.variants.push_back({variants.Get(),variants.Get()->pScript});variants.Get()->pScript=quiet.GetPtr();}
+        Require(!restore.variants.empty(),"world AI flash fixture has no authored menu variants");CObj<NGame::CICMainMenu> open=new NGame::CICMainMenu;open->Exec();
+    }
+    CObj<NGame::CMissionBase> owner=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    auto* world=owner?dynamic_cast<NWorld::CWorld*>(owner->GetWorld()):nullptr;auto* view=owner?owner->GetScene():nullptr;auto* renderer=owner?owner->GetRenderGame():nullptr;
+    Require(world && view && renderer && world->GetOwnScript(),"world AI flash fixture lacks actual chapter/menu world, view, renderer or Lua");
+    Require(context==0?owner->GetDesktop()!=nullptr:owner->GetDesktop()==nullptr,"world AI flash fixture lost its real chapter/null-menu desktop distinction");
+    // Materialize authored static world effects before taking geometry baselines.
+    NMainLoop::SetTimeForHarness(1050);Require(NMainLoop::StepApp(true,false,false),"world AI flash warm-up frame exited");
+    Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand(),"world AI flash warm-up opened an unrelated interface");
+    while(auto* pending=world->GetUICommand()){CObj<NWorld::CUICmd> release=pending;}
+
+
+
+
+    Require(context==0?owner->GetActivePlayer()!=nullptr:owner->GetActivePlayer()==nullptr,"world AI flash fixture lost native active/null-player distinction");
+    if(context==1){
+        Require(mode==0 || mode==4,"native unit-less menu supports quiet/null-unit command controls");
+        vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);Require(units.empty(),"quiet native backdrop unexpectedly contains combat units");
+        if(mode==4)world->AddUICommand(new NWorld::CUICmdAIUnitWillMove(nullptr));
+        NMainLoop::SetTimeForHarness(1100);Require(NMainLoop::StepApp(true,false,false) && NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr(),"native menu AI control lost its actual owner");
+        struct Flash {CPtr<CObjectBase> node;STime end=0;int operator&(CStructureSaver& f){f.Add(2,&node);f.Add(3,&end);return 0;}};
+        struct Units {list<Flash> flashes;int operator&(CStructureSaver& f){f.Add(9,&flashes);return 0;}} value;
+        CStructureNetworkContext refs;auto saved=BorrowedObjectFields(renderer,&refs);{CStructureSaver reader(saved,CStructureSaver::READ,&refs);reader.Add(7,&value);}
+        Require(value.flashes.empty() && !world->GetUICommand() && !NMainLoop::HaveInterfaceCommand(),"unit-less/null-active-player menu flashed or retained a native command");
+        std::printf("native world AI flash context=1 mode=%d stage=complete units=0 activePlayer=0 flashes=0 queue=0\n",mode);return;
+    }
+    struct OptionRestore {NGlobal::CValue value;~OptionRestore(){NGlobal::SetVar("game_selectionmode",value);}} option{NGlobal::GetVar("game_selectionmode",0)};
+    NGlobal::SetVar("game_selectionmode",1);owner->SetCheatVisibility(true);owner->PauseGame(true);
+    vector<CPtr<NWorld::CPlayer>> players;world->GetPlayersList(&players);Require(!players.empty(),"world AI flash fixture lacks its real observer player");
+    auto* observer=context==0?dynamic_cast<NWorld::CPlayer*>(owner->GetActivePlayer()->GetPlayer()):players.front().GetPtr();
+    Require(observer && observer->GetScenarioPlayerID()==0,"world AI flash fixture lacks its native scenario-zero observer");
+    auto* scriptGame=world->GetOwnScript()->GetGlobalGame();Require(scriptGame,"world AI flash fixture lacks actual world global game");
+    CObj<NRPG::CGlobalPlayer> emptyParty=NRPG::CreateGlobalPlayer();
+    auto* party=dynamic_cast<NWorld::CPlayer*>(world->AddPlayer(L"Native flash target",emptyParty,new NWorld::CCommander));
+    Require(party && party!=observer,"world AI flash fixture failed to register its real separate party");party->SetCommander(new NAI::CAICommander(world,party));
+    // Native worlds also use held neutral (-1) owners outside the turn ring
+    // (e.g. deployed bodies); a unit itself must still have a valid owner.
+    CObj<NWorld::CPlayer> neutral=new NWorld::CPlayer(L"Native neutral flash owner",scriptGame,nullptr,-1);neutral->SetCommander(new NWorld::CCommander);
+    NWorld::CPlayer* unitOwner=mode==2?neutral.GetPtr():mode==3?observer:party;
+    const NDb::EDiplomacyState relation=mode==2?NDb::DS_NEUTRAL:mode==3?NDb::DS_ALLY:NDb::DS_ENEMY;
+    Require(world->GetDiplomacyState(observer,unitOwner)==relation,"world AI flash fixture lost its actual native diplomacy");
+    auto* network=world->GetPathNetwork();Require(network,"world AI flash fixture has no native navigation network");
+    vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(CVec3(3,3,0),50.f),&places);NAI::SPathPlace position;bool found=false;
+    for(auto p:places){p.SetPose(NAI::CM_STAND);p.SetMoving(0);if(network->IsPassable(p) && !network->IsLocked(p)){position=p;found=true;break;}}
+    Require(found,"world AI flash fixture found no real free native standing tile");
+    NAI::SUnitPosition placement;placement.bRun=false;placement.pos.SetNetwork(network);placement.pos.p=position;
+    CObj<NRPG::IUnitMission> rpg=NRPG::CreateUnit(NDb::GetPers(54));Require(rpg && rpg->GetModel(),"world AI flash fixture has no authored body");
+    CObj<NWorld::CUnitServer> target=new NWorld::CUnitServer(world,rpg,rpg->GetModel(),unitOwner,placement);world->AddUnit(target);
+    Require(target && target->CanFight() && (unitOwner!=party || target->IsAIUnit()),"world AI flash fixture failed to create a real living native AI unit");
+    // Match the existing tactical flash fixture: hold simulation ahead of the
+    // short renderer-clock interval, so no unrelated AI commands can run.
+    world->GetTime()->Set(1000000);world->GetAimTime()->Set(1000000);
+    auto frame=[&](STime tick){NMainLoop::SetTimeForHarness(tick);Require(NMainLoop::StepApp(true,false,false) && NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr(),"world AI flash fixture lost its actual owner frame");};
+    for(int step=0;step<4;++step)frame(1100+step*50);
+    while(auto* pending=world->GetUICommand()){CObj<NWorld::CUICmd> release=pending;}
+    auto parts=[&](CObjectBase* object){CStructureNetworkContext refs;auto saved=BorrowedObjectFields(object,&refs);vector<CPtr<CObjectBase>> result;
+        {CStructureSaver reader(saved,CStructureSaver::READ,&refs);reader.Add(1,&result);}return result;};
+    auto targetOf=[&](CObjectBase* binder){CStructureNetworkContext refs;auto saved=BorrowedObjectFields(binder,&refs);CPtr<CObjectBase> result;
+        {CStructureSaver reader(saved,CStructureSaver::READ,&refs);reader.Add(2,&result);}return result;};
+    CObj<CObjectBase> selected=renderer->Select(target,CVec4(.25f,0,0,1));Require(selected,"native renderer did not accept its real visible AI unit selection");
+    CPtr<CObjectBase> selectedNode;{CStructureNetworkContext refs;auto saved=BorrowedObjectFields(selected,&refs);CStructureSaver reader(saved,CStructureSaver::READ,&refs);reader.Add(3,&selectedNode);}
+    Require(selectedNode,"native selection has no actual scene node");auto selectedParts=parts(selectedNode);Require(!selectedParts.empty(),"native visible-model selection has no bound mesh parts");
+    vector<CPtr<CObjectBase>> geometry;for(auto binder:selectedParts){auto actual=targetOf(binder);Require(actual,"native selection has a null bound geometry target");geometry.push_back(actual);}
+    struct Flash {CPtr<CObjectBase> node;STime end=0;int operator&(CStructureSaver& f){f.Add(2,&node);f.Add(3,&end);return 0;}};
+    struct Units {list<Flash> flashes;int operator&(CStructureSaver& f){f.Add(9,&flashes);return 0;}};
+    auto flashes=[&](){CStructureNetworkContext refs;auto saved=BorrowedObjectFields(renderer,&refs);Units value;
+        {CStructureSaver reader(saved,CStructureSaver::READ,&refs);reader.Add(7,&value);}return value.flashes;};
+    Require(flashes().empty(),"quiet world AI flash fixture already had a transient filter");
+    const auto before=target->GetPosition();const int ap=target->GetAP(),hp=target->GetUnitRPG()->GetTotalVP();
+    const CVec4 wanted=mode==0?CVec4(.11f,.12f,.13f,0):relation==NDb::DS_ENEMY?CVec4(78.f/255,20.f/255,0,0):CVec4(0,77.f/255,78.f/255,0);
+    if(mode==0)renderer->FlashUnit(target,wanted); // Independent real-renderer observability control.
+    else {world->AddUICommand(new NWorld::CUICmdAIUnitWillMove(mode==4?nullptr:target.GetPtr()));frame(1350);}
+    const bool show=mode==0 || (context==0 && mode!=4);auto live=flashes();
+    std::printf("native world AI flash context=%d mode=%d stage=dispatch relation=%d geometry=%zu flashes=%zu expected=%d\n",context,mode,int(relation),geometry.size(),live.size(),int(show));std::fflush(stdout);
+    Require(live.size()==(show?1u:0u),"chapter lost its AI-unit flash command or a null-menu/unit control flashed");
+    if(show){Require(live.front().node,"native AI flash has no scene filter");auto filters=parts(live.front().node);Require(filters.size()==geometry.size(),"AI flash did not bind all actual selected model geometry");
+        STime start=0;CVec4 color;CPtr<CFuncBase<STime>> clock;
+        for(auto binder:filters){Require(std::find(geometry.begin(),geometry.end(),targetOf(binder))!=geometry.end(),"AI flash targeted a different unit's geometry");
+            CPtr<CObjectBase> post;{CStructureNetworkContext refs;auto saved=BorrowedObjectFields(binder,&refs);CStructureSaver reader(saved,CStructureSaver::READ,&refs);reader.Add(3,&post);}Require(post,"AI flash binder lacks a real postprocessor");
+            CPtr<CObjectBase> function;{CStructureNetworkContext refs;auto saved=BorrowedObjectFields(post,&refs);CStructureSaver reader(saved,CStructureSaver::READ,&refs);reader.Add(2,&function);}Require(function,"AI flash postprocessor lacks a real color function");
+            {CStructureNetworkContext refs;auto saved=BorrowedObjectFields(function,&refs);CStructureSaver reader(saved,CStructureSaver::READ,&refs);reader.Add(2,&clock);reader.Add(3,&start);reader.Add(4,&color);}
+            Require(clock.GetPtr()==renderer->GetTime() && live.front().end==start+1500 && std::abs(color.x-wanted.x)<1e-6f && std::abs(color.y-wanted.y)<1e-6f && std::abs(color.z-wanted.z)<1e-6f && color.w==wanted.w,"AI flash lost its native diplomacy color, renderer clock or1500ms lifetime");}
+        std::printf("native world AI flash context=%d mode=%d stage=filter parts=%zu color=%.6f,%.6f,%.6f,%.6f duration=%u clock=1\n",context,mode,filters.size(),color.x,color.y,color.z,color.w,unsigned(live.front().end-start));}
+    CObj<CObjectBase> retained=renderer->Select(target,CVec4(.25f,0,0,1));
+    Require(retained.GetPtr()==selected.GetPtr(),"AI flash replaced the ordinary native unit selection");
+    Require(target->GetPosition()==before && target->GetAP()==ap && target->GetUnitRPG()->GetTotalVP()==hp && !world->GetUICommand() && !NMainLoop::HaveInterfaceCommand(),"world AI flash changed combat state/position or left a queued command");
+    std::printf("native world AI flash context=%d mode=%d stage=complete selection=1 state=1 queue=0\n",context,mode);std::fflush(stdout);
+}
+
 static void WorldScriptClue(const char* databasePath,const char* resourcePath,int context,int mode)
 {
     Require(context>=0 && context<=1 && mode>=0 && mode<=2,"unknown shared-world clue case");
@@ -28931,6 +29047,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "world-ai-flash")) { Require(argc == 6, "world AI flash requires db, resources, context and mode"); WorldAIFlash(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-clue")) { Require(argc == 6, "world clue requires db, resources, context and mode"); WorldScriptClue(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-video")) { Require(argc == 6, "world video requires db, resources, context and mode"); WorldScriptVideo(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-camera-locator")) { Require(argc == 6, "world camera locator requires db, resources, context and mode"); WorldScriptCameraLocator(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }

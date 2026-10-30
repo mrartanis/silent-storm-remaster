@@ -2498,21 +2498,6 @@ void CMission::ExecWorldCommands()
 		{
 			PauseGame( !IsGamePaused() );
 		}
-		// The AI-turn hint is an additive model flash with its own lifetime.
-		else if ( CDynamicCast<NWorld::CUICmdAIUnitWillMove>( pCmd ) )
-		{
-			NWorld::CUICmdAIUnitWillMove *pWillMove =
-				CDynamicCast<NWorld::CUICmdAIUnitWillMove>( pCmd );
-			if ( IsValid( pWillMove->pUnit ) && IsValid( pActivePlayer ) && IsValid( pWorld ) && IsValid( pRender ) )
-			{
-				NDb::EDiplomacyState eDiplomacy = pWorld->GetDiplomacyState(
-					pActivePlayer->GetPlayer(), pWillMove->pUnit->GetPlayer() );
-				if ( eDiplomacy == NDb::DS_ENEMY )
-					pRender->FlashUnit( pWillMove->pUnit, CVec4( 78.0f / 255, 20.0f / 255, 0, 0 ) );
-				else if ( eDiplomacy == NDb::DS_NEUTRAL || eDiplomacy == NDb::DS_ALLY )
-					pRender->FlashUnit( pWillMove->pUnit, CVec4( 0, 77.0f / 255, 78.0f / 255, 0 ) );
-			}
-		}
 		else if ( ExecWorldCommonCommand( pCmd ) )
 		{
 		}
