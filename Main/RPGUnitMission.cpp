@@ -615,7 +615,6 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 		case AC_CLIMB_4: return 15;
 		case AC_JUMP: return 10;
 		case AC_TAKE_CORPSE: return 12;
-		case AC_THROW_KNIFE: return 16; // CRAP
 		case AC_TRAP_OBJECT: return 30;
 		case AC_DISARM_TRAP: return 30;
 		case AC_SET_MINE: 
@@ -638,15 +637,17 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 				ASSERT( 0 && "manual therapist?" );
 				return 15;
 			}
+		case AC_THROW_KNIFE:
 		case AC_MELEE:
 			{
 				CMeleeWeaponItem *pMelee = pRPGUnit->GetMeleeWeaponItem();
 				if ( !pMelee )
 					return 0;
 				NDb::CRPGMeleeWeapon *pW = pMelee->GetDBMeleeWeapon();
-				int nAP = pW->nMaxAP - (pW->nMaxAP - pW->nMinAP) * pRPGUnit->Skills(NDb::ST_MELEE) / N_MAX_SKILL;
+				NDb::ESkillType skill = action == AC_THROW_KNIFE ? NDb::ST_THROWING : NDb::ST_MELEE;
+				int nAP = pW->nMaxAP - (pW->nMaxAP - pW->nMinAP) * pRPGUnit->Skills( skill ) / N_MAX_SKILL;
 				float fParam;
-				if ( HasPerk( N_PERK_CHEAP_MELEE, &fParam ) )
+				if ( action == AC_MELEE && HasPerk( N_PERK_CHEAP_MELEE, &fParam ) )
 					nAP = int( ( 1.0 - double( fParam ) ) * nAP );
 				return nAP;
 			}

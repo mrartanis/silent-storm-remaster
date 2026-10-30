@@ -586,3 +586,12 @@ native Take32 and equipped authored item5; natural/0/140 melee skill, fractional
 and no-floor parameters, no32/throw/open controls and stable state/RNG. RED7/12
 -> GREEN12/12 each. Game builds, related249Win/249Linux and CI323 pass; new12 outside323.
 Native cost-query scope; no new attack execution/animation claim.
+
+## Throwing-knife base AP
+
+NativeThrowKnifeBaseAP0..9: resource extended Win/Linux,timeout120. Native
+person2/item5, throwing0/27/70/140, opposite melee skills, acquired32 scope,
+melee/open/none controls and stable AP/HP/XP/points/skills/item/RNG. RED7/10 ->
+GREEN10/10 each. Game builds, related44Win/44Linux and CI323 pass; new10 outside323.
+The existing native knife preview/dispatch/time/feedback/handoff and animation
+checks are included. No new complete knife-flight or actual AP-spending claim.

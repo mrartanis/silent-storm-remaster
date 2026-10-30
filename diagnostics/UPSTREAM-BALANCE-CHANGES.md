@@ -2276,3 +2276,12 @@ truncate; the original query has no lower floor. Thrown-knife and other actions
 are outside32's scope. Native tests preserve AP/HP/XP/points, equipment, skills
 and RNG. Authored data, actual AP spending and attack animation are unchanged
 by this cost query. The broader037c source remains partial.
+
+### `aa031e2e` / `037c41d9`: weapon/throwing-skill knife AP
+
+Replaces fixed16 AP with the original equipped knife's integer min/max cost
+scaled by effective throwing skill/140. Authored item5 min7/max12 costs12 at
+natural throwing27 or skill0,10 at70 and7 at140. Melee skill and acquired
+cheap-melee32 do not affect a thrown knife. The original cheap-throw43 effect
+is still pending separately. Native queries preserve actual state and RNG;
+projectile execution and AP spending are outside this change.

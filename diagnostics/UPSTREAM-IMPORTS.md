@@ -18437,3 +18437,32 @@ exceptional-float/overflow equivalence claim. Evidence: cheap-melee-retail-oracl
 and cheap-melee-verification JSON/raw logs. Game builds, related249Win/249Linux and
 asset-free CI323 pass; new12 are extended/outside323.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: native throwing-knife base AP (`aa031e2e` / `037c41d9` partial)
+
+Replaces the hardcoded16 with the equipped melee record's integer
+maxAP-(maxAP-minAP)*effectiveThrowing/140. Theaa source supplies weapon-based
+knife costing; its intermediate use of melee skill is superseded directly by
+the037c throwing-skill correction. Existing32 remains melee-only. Cheap-throw43
+is a separate pending hook rather than an untested extra change here.
+
+NativeThrowKnifeBaseAP0..9 use actual person2 and equipped authored throwable
+item5/min7/max12/quantity1. RED7/10 each -> GREEN10/10, with three controls
+passing before the fix. Natural throwing27 costs12, skill0 costs12, skill140
+costs7, skill70 costs10 instead of16. Deliberately opposite melee/throwing skills
+prove ownership; acquired32 leaves throwing unchanged while its melee control
+still reduces7 to5. Open/close4 and none0 remain. AP/HP/points/XP/skills,
+active-item identity/quantity and RNG stay stable. Scope is the cost API, without
+a new projectile execution/AP-spending claim.
+
+Original GetActionAP Gold6bac90/3724 and Steam6c0d30 independently map action29
+via tables6bba68/6c1a48 to knife entries6bb183/6c1229. Typed melee minAP+24/
+maxAP+28 and skill-array pointer+8 establish throwing index2. Thirty bytes of
+signed /140 base arithmetic Gold6bb1b4/Steam6c125a match exactly. Original43
+gate and multiplier are separately recorded for the next fix. No whole-method
+or optional-item ABI claim. Evidence throw-knife-ap-retail-oracle and
+throw-knife-base-verification JSON/raw logs. Full Game builds, related44Win/44Linux
+(melee/knife AP, existing knife preview/dispatch/time/feedback/handoff, reload,
+animation and network), CI323 pass. New10 extended/outside323.
+Sources: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918
+and https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
