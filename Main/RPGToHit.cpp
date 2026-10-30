@@ -375,7 +375,7 @@ float CToHitCalcer::GetAllAdd()
 		if ( ShotMode == NDb::SM_Aimed || ShotMode == NDb::SM_Careful )
 			fRes += sWeaponInfo.nTargetingAP;
 		if ( ShotMode == NDb::SM_Careful || ShotMode == NDb::SM_Snipe )
-			fRes += max( nExtraAP, int( GetSMove() ) );
+			fRes += int( GetSMove() ) - int( double( nExtraAP ) * -1.5 );
 	}
 	//
 	return fRes;

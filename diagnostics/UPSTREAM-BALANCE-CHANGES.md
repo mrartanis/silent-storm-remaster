@@ -2362,3 +2362,16 @@ would change incorrectly. No term values, authored records, learning rules or
 query state/RNG change. These native tests verify the shared additive result;
 effects on final hit chances after other factors and actual shooting are not
 claimed here. The extra-AP/targeting73 formula remains separately pending.
+
+### `037c41d9`: retail1.2 extra-AP coefficient and movement term
+
+Restores Careful/Snipe int(SMove)-int(extraAP*-1.5), with separate truncations.
+For stationary authored person14/firearm17, Careful extra2 gives raw total18
+instead of17 and extra3 gives19; Snipe extra2/3 gives8/9. Retail1.2 also adds
+the truncated movement penalty again in this term: at authored capped-9,
+Careful extra0 raw total6 becomes-3 and Snipe-4 becomes-13. Gold1.1 uses an
+older maximum rule; this change follows the project's explicit retail1.2
+baseline. Raw negative values remain allowed; later accuracy factors/clamps
+and actual hit chances are outside these tests. No DB values, actual AP
+spending, skill-training or query state/RNG change. Faster-targeting73 remains
+a separate pending multiplier; other calculation terms retain their values.

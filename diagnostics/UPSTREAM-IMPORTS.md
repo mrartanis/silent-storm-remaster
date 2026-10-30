@@ -18685,3 +18685,36 @@ PDB-symbol output/raw prefixes and native RED/GREEN logs. Full Game builds,
 related56Win/56Linux (familiarity/zeroing/stance, own weapon learning, loader/reload/
 network) and CI323 pass; new12 resource extended/outside323.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: retail1.2 extra-AP additive base (`037c41d9` partial)
+
+Careful/Snipe shared additive queries replace legacy max(extraAP,int(SMove))
+with int(SMove)-int(double(extraAP)*-1.5). The two conversions are separate
+truncations. Existing Aimed/Careful raw targeting-AP addition remains; SNAP,
+Aimed-only and no-weapon scope stay intact. Faster-targeting73 remains separate.
+
+NativeTargetingBase0..13 use actual person14, authored four-mode firearm17,
+native movement counters and concrete shared tile calcer with untaken73.
+RED7/14 each -> GREEN14/14; seven controls pass before the fix. Authored quality
+5/targetAP10: stationary Careful extra2 total17 ->18,extra3 ->19; Snipe extra2/
+3 gives8/9. At actual movement cap10, authored penalty-9 makes SNAP baseline-4;
+Careful extra0 total6 ->-3 and Snipe-4 ->-13, matching the extra truncated
+movement term in1.2. These are raw additive results, not final chances.
+Two declared native input boundary cases use calcer penalty-.4/moves2 ->-.8:
+extra1 proves separate truncation (adjustment1 rather than truncating.7 to0),
+and signed extra-1 yields adjustment-1. This does not mutate weapon DB data.
+SNAP/Aimed/zero-extra/no-weapon controls pass; AP/HP/XP/points, movement,
+equipment/ammo, skill, extra-AP input and RNG stay stable. No actual AP spending,
+Prepare/skill recalculation, final hit chance or shooting claim.
+
+Version audit: project balance policy targets retail v1.2. Independently mapped
+Steam GetAllAdd6b83c0 checks Careful2/Snipe5, truncates SMove at6b84aa and
+extraAP*factor*verified-1.5 separately at6b84d7, then subtracts at6b84df. Default
+factor1.f is explicit. Typed targetAP24/extraAP48 and virtual SMove28 identify
+inputs. Gold1.1 instead compares a converted extra-AP product (verified+1.5)
+with int(SMove) and selects the maximum; no Gold/Steam targeting equivalence
+or old Gold CRT-helper parity claim. Both versions'73 gate is Snipe-only and
+will be ported separately. Evidence targeting-retail-oracle and targeting-base-
+verification JSON/raw branch bytes/native logs. Full Game builds,
+related70Win/70Linux and CI323 pass; new14 resource extended/outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

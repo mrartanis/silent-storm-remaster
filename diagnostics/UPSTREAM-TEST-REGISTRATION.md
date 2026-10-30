@@ -662,3 +662,13 @@ query inputs/live familiarity/RNG stable. Full Game builds, related56Win/56Linux
 and CI323 pass; new12 outside323. Temporary discovery mode removed, discovery
 and provisional wrong-order scout explicitly are not RED evidence. Shared
 additive-query scope, not final chance or actual shooting.
+
+## Retail1.2 extra-AP additive base
+
+NativeTargetingBase0..13: resource extended Win/Linux,timeout120. Actual
+person14/firearm17/SNAP/Aimed/Careful/Snipe, native capped movement, no73,
+no-weapon and declared controlled fractional-movement inputs. RED7/14 ->
+GREEN14/14 each; seven pre-fix controls, state/counters/equipment/ammo/skill/
+inputs/RNG stable. Game builds, related70Win/70Linux and CI323 pass; new14 outside323.
+Raw additive-query scope. Goldolder-Max/Steam1.2 distinction recorded, no
+Prepare, AP-spend, final chance or shooting equivalence claim.
