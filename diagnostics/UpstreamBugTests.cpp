@@ -36,6 +36,7 @@
 #include "../DBFormat/DataObject.h"
 #include "../DBFormat/DataMisc.h"
 #include "../DBFormat/DataPerk.h"
+#include "../DBFormat/DataRpgConstants.h"
 #include "../Main/GView.h"
 #include "../Main/iMission.h"
 #include "../Main/iGameStates.h"
@@ -29523,6 +29524,25 @@ static CObj<NRPG::IUnitMission> NativeMissionWithUntakenPerk(int id)
     for(auto* person:candidates){CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(person);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();if(!tree || unit->HasPerk(id) || mission->GetTotalVP()<=0)continue;vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==id)return mission;}
     Require(false,"native RPG fixture lacks an actual untaken authored perk node");return nullptr;
 }
+static void DisarmTrapsPerk(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=15,"unknown native disarm mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    auto mission=NativeMissionWithUntakenPerk(51);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();auto* perk=NDb::GetDBPerk(51);auto* constants=NDb::GetDBMinesConstants();Require(perk && !perk->params.empty() && constants,"disarm fixture lacks authored perk/mines constants");
+    const float authored=perk->params[0];Require(authored>=1 && authored<50,"disarm fixture lacks an ordinary positive original bonus");struct Restore {NDb::CDBPerk* perk;float value;~Restore(){perk->params[0]=value;}}restore{perk,authored};
+    const bool acquired=mode!=0 && mode!=8 && mode!=13 && mode!=15;const int skill=mode==12?0:7;unit->Skills(NDb::ST_ENGINEERING).SetConst(skill);
+    if(mode==4)perk->params[0]=1.75f;if(mode==5)perk->params[0]=-.75f;if(mode==10)perk->params[0]=0;if(mode==11)perk->params[0]=-20;
+    const int baseline=mode==6 || mode==7 || mode==15?100:mode==13 || mode==14?0:40,dc=constants->nBaseDisarmProb+skill-baseline,modifier=mode==8?-500:mode==9?500:0;
+    const int adjusted=acquired?int(double(skill)+perk->params[0]):skill,prob=(std::min)(constants->nBaseDisarmProb+adjusted-dc,95);
+    const unsigned targetRoll=mode==2?5:mode==3?99:mode==4?40:mode==5?39:mode==6 || mode==15?95:mode==7?94:mode==11?25:mode==13 || mode==14?0:40;
+    const int ap=mission->GetAP(),hp=mission->GetTotalVP(),points=tree->GetPerkPoints();const float xp=unit->fXP;
+    if(acquired){tree->AddPerkPoints(1);tree->TakePerk(51);}Require(mission->HasPerk(51)==acquired && tree->GetPerkPoints()==points,"native disarm grant failed or changed point budget");
+    unsigned seed=0;auto expectedRng=GlobalGameRandom();for(unsigned candidate=1;candidate<10000;++candidate){auto probe=GlobalGameRandom();probe.SeedForHarness(candidate);if(probe.Get(0,100)==targetRoll){seed=candidate;expectedRng=probe;break;}}Require(seed,"disarm fixture could not select its deterministic boundary roll");
+    GlobalGameRandom().SeedForHarness(seed);const bool expected=targetRoll<static_cast<unsigned>(prob),actual=mission->CanClear(dc,modifier);
+    std::printf("native disarm mode=%d acquired=%d skill=%d param=%.6g dc=%d mod=%d prob=%d seed=%u roll=%u result=%d expected=%d\n",mode,int(acquired),skill,perk->params[0],dc,modifier,prob,seed,targetRoll,int(actual),int(expected));std::fflush(stdout);
+    Require(actual==expected,"native disarm roll ignored perk51 or changed truncation/cap/strict comparison");
+    Require(int(unit->Skills(NDb::ST_ENGINEERING))==skill && mission->GetAP()==ap && mission->GetTotalVP()==hp && unit->fXP==xp && expectedRng.Get()==GlobalGameRandom().Get(),"disarm query changed skill/AP/HP/XP or consumed other than one gameplay roll");
+}
+
 static void ClasslessPerkQuery(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=6,"unknown native classless-perk mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
@@ -31305,6 +31325,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "disarm-traps")) { Require(argc==5,"disarm requires db/resources/mode"); DisarmTrapsPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "classless-perk")) { Require(argc==5,"classless perk requires db/resources/mode"); ClasslessPerkQuery(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "difficult-traps")) { Require(argc==5,"trap difficulty requires db/resources/mode"); DifficultTrapsPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "zeroing-bonus")) { Require(argc==5,"zeroing bonus requires db/resources/mode"); ZeroingBonusPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }

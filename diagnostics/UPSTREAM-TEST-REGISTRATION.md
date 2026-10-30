@@ -512,3 +512,11 @@ personas887/888 with no class/tree, flag and optional-output lookups; classed
 native untaken49/acquired49/acquired50 controls. RED4 crashes/7 -> GREEN7/7
 each; AP/HP/XP/RNG and point budget stable, false retains output sentinels.
 Related96Win/96Linux, Game builds, CI323. New7 outside323.
+
+## Disarm traps51
+
+NativeDisarmTraps0..15: resource extended Win/Linux,timeout120. Native authored
+RPG grant and CanClear, fixed RNG boundary rolls, fractional/negative/zero
+parameters, cap95/probability0 and ignored modifier controls. RED7/16 -> GREEN
+16/16 each; skill/AP/HP/XP/points stable, exactly one RNG draw. Related112Win/112Linux,
+Game builds, CI323. New16 outside323; success-query scope only.

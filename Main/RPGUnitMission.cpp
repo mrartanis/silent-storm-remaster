@@ -2273,6 +2273,9 @@ bool CUnitMission::CanSeeMine( float fDistance, int nDC )
 bool CUnitMission::CanClear( int nDC, int nSkillModif )
 {
 	int nEngSkill = GetRPGUnit()->Skills( NDb::ST_ENGINEERING );
+	float fParam;
+	if ( HasPerk( N_PERK_DISARM_TRAPS, &fParam ) )
+		nEngSkill = int( nEngSkill + double( fParam ) );
 	int nProb = Min( pMinesConstants->nBaseDisarmProb + nEngSkill - nDC, 95 );
 	return MissionRandom().Get( 0, 100 ) < nProb;
 }

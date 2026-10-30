@@ -2186,3 +2186,12 @@ Restores the original false result for classless units with no perk tree.
 Prevents null dereference without granting abilities or writing optional
 parameters. Actual classed acquired/untaken behavior and authored parameters
 are retained. No balance constants or facial/head implementation changes.
+
+### `037c41d9`: disarm-traps ability51
+
+Restores acquired51 Param1 as an engineering addition for the disarm success
+query, truncating the sum before the existing probability and 95 upper cap.
+Preserves strict success comparison, one random draw, ordinary no-perk behavior
+and the original unused second modifier. Native tests isolate the query with
+fixed boundary rolls; actual trap removal, practice and AP/item spending are
+separate paths. Authored data and current skill are unchanged.

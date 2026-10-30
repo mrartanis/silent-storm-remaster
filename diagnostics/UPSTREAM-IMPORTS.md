@@ -18169,3 +18169,30 @@ verification/raw logs and Linux crash debugger log.
 Game builds, related96Win/96Linux, CI323 pass; new7 cases outside323.
 Other independent037c41d9 hunks remain pending.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: disarm-traps ability51 (`037c41d9`, partial)
+
+CanClear now adds acquired51 Param1 to engineering and truncates the sum before
+the existing disarm probability calculation. Retains the 95 upper cap, strict
+comparison, single gameplay random roll and unused second modifier argument.
+No authored values, AP use, actual skill or item spending changes.
+
+NativeDisarmTraps0..15 use actual authored RPG persona/native grant51 and
+CanClear. Select deterministic seeds at known probability boundaries. Cover
+authored bonus, zero engineering, fractional/negative/zero parameters, no-perk,
+strict cap95 and probability0, plus ignored modifier+/-500. RED7/16 each ->
+GREEN16/16; nine controls pass before the fix. Native engineering/AP/HP/XP and
+perk budget stay fixed; the RNG state advances by exactly one roll. Temporary
+parameters are restored and no DB files change. Scope is the native success
+query; no placed trap, full disarm executor or practice award claim.
+
+Gold named CanClear6ba4e0/208: perk51 sum/truncation precedes probability and
+cap. First140bytes map uniquely and byte-exactly, without masks, to Steam
+6c0580; this shared block ends before the original global RNG implementation.
+Typed CDBMinesConstants::nBaseDisarmProb is+10. Gold complete disassembly never
+uses the second modifier; native +/-500 controls retain that behavior. No whole
+208byte/RNG implementation equivalence claim. Evidence: disarm-traps-retail-
+oracle.json, disarm-verification.json and raw logs.
+Game builds, related112Win/112Linux, CI323 pass; new16 cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
