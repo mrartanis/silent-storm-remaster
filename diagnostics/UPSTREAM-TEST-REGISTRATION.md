@@ -726,3 +726,14 @@ absent/outside controls; HP/AP/points/RNG preserved. Scoped donor28 diagnostic
 label avoids pre-existing Linux CP1251 log exception and restores exact text;
 initial encoding-fixture failures explicitly NOT final RED. Full Game builds,
 related47Win/47Linux, CI323; new10 outside323. No victim damage scope claim.
+
+## Existing stored aura evasion term
+
+NativeStoredAuraEvasion0..12: resource extended Win/Linux,timeout120. Actual
+native mission existing tag43 restored by full snapshot, every other field
+and reference compared unchanged; real person2/39/ProcessAttack/body armor/
+fixed40/100. RED9/13 ->GREEN13/13 each, four pre-fix controls. Chance-only draw,
+normal/blast/fragment, 21.5/22.5 nearest-even and39+aura before final rounding,
+negative/zero stored result, intended/wornPK scope, HP/receiver/RNG/baseIC/
+field/points/inventory/shell/practice checked. Full Game builds, related78Win/78Linux,
+CI323; new13 outside323. World application/reset remains pending.

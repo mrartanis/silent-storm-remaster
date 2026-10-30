@@ -18910,3 +18910,39 @@ CI323 pass; new10 resource extended/outside323. Evidence aura-ownership-
 retail-oracle/fixture-correction/verification JSON, original581byte bodies,
 disassembly, GDB and native per-platform RED/GREEN/gate logs.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-31: stored aura term before final IC rounding (`037c41d9` partial)
+
+GetPerkModifiedIC now adds the already-existing fAuraPerkICModifier to its
+stored float after the optional39 product and before final Float2Int.
+GetIC still reports only the base/40 result. Gold typed member is full1cc;
+Gold6b88f0/118 maps to Steam6beca0 with only verified1.f operand masked.
+Steam6becf4..6bed0a load fIC/addfull1cc/storefloat/reload/FISTP proves both
+the additive term and its rounding position. Secondary198 setter Gold6bf650
+and Steam6c5de0 match all13bytes without masks, storing secondary+180 which
+is full+1cc. Corrects the old stale setter-address comment; no save tag,
+interface or actual world attack caller is changed in this step.
+
+NativeStoredAuraEvasion0..12 restore the actual native mission's existing
+tag43 through a complete borrowed-reference snapshot. Every other serialized
+field payload and native reference is compared unchanged after restoration;
+no sparse record that could zero unrelated fields or invented test API is
+used. Real person2, native39 node/TakePerk (as appropriate), runtimeVP500,
+authored body armor/flesh and actual ProcessAttack fixed40/100 execute the
+rule. RED9/13 each ->GREEN13/13; four controls already passed. Stored+10,
+baseIC21 givesIC31 and28 damage for normal and blast without39; authored39
+fragment gives(21*1.1 storedfloat +10) rounded33 and27 damage. A selected
+roll21..30 independently proves the aura chance change (old40 ->28).
+21+.5 and21+1.5 both round22, yielding79 damage from100. For39 Param.5 and
+IC1, 1.5+1 ->2.5 rounds2 (99 damage) whereas premature rounding would give3;
+1.5+1.5 ->3 rounds3 (98 damage), whereas premature rounding would give4.
+Stored-31 ->IC-10 preserves original unsigned success/43 damage; stored-21
+->IC0 fails the roll/full40. Intended and actual wornPK-bypass controls skip
+IC practice and retain40/shell HP. All HP/receiver/RNG/baseIC/field/points/
+inventory/practice checks pass; native stored aura remains unchanged by the
+RPG call because application/reset belongs to the separately pending world
+scope. Zero-aura controls and temporary39 parameter restoration also pass.
+Full Game builds, related78Win/78Linux and CI323 pass; new13 resource extended
+outside323. No new world trace/FX/critical pipeline claim.
+Evidence stored-aura-retail-oracle/verification JSON and native logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

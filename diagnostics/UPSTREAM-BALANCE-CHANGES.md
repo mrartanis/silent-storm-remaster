@@ -2440,3 +2440,16 @@ radius3.125 cases remain0. Both production attack/target preview methods and
 native world neighborhoods are verified. Victim damage addition and per-hit
 application/reset remain pending. A pre-existing Linux CP1251 perk-label log
 exception is isolated in the fixture and is not an aura gameplay fix.
+
+### `037c41d9`: existing aura value is added before final evasion rounding
+
+The stored aura modifier now participates in both evasion chance and the late
+damage percentage after any explosion39 float product, before final rounding.
+Base GetIC stays unchanged. Native baseIC21/stored+10 givesIC31/damage28 from
+40; with authored39 fragment bonus.1 it givesIC33/damage27. A newly-successful
+roll independently restores40 ->28. Fractional tests distinguish rounding
+the combined value from prematurely rounding the39 product: 1.5+1 rounds2,
+and1.5+1.5 rounds3. Negative/zero sums keep original unsigned chance semantics;
+intended targets and wornPK continue to skip IC practice. This step verifies
+actual native stored state/RPG arithmetic; the real world's per-hit aura
+application/reset is still separately pending.

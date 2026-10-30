@@ -183,7 +183,7 @@ private:
 	CPtr<IInventoryItem> pAdaptatedWeapon;
 	float fAdaptationCounter;
 	float fCurrentAdaptation;
-	float fAuraPerkICModifier;                    // retail +460 (tag 43): SetAuraPerkICModifier @0x2c5b90
+	float fAuraPerkICModifier;                    // retail full +0x1cc (existing tag 43); secondary setter Steam 0x6c5de0
 	int nScenarioPlayerID;                        // retail +464 (tag 44): SetScenarioPlayerID @0x2c5ba0
 public:
 	// retail table @0x2c6b10, member-by-member; tags 9/14/15 are retail's own permanent gaps.
@@ -1605,6 +1605,7 @@ int CUnitMission::GetPerkModifiedIC( EAttackType attackType ) const
 	if ( ( attackType == AT_BLAST_WAVE || attackType == AT_FRAGMENT ) &&
 		HasPerk( N_PERK_EXPLOSION_EVASION, &fParam ) )
 		fIC = ( 1.0 + double( fParam ) ) * fIC;
+	fIC += fAuraPerkICModifier;
 	return Float2Int( fIC );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
