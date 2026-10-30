@@ -18281,3 +18281,36 @@ stealth-verification.json/raw logs.
 Game builds, related148Win/148Linux, CI323 pass; new14 cases outside323.
 Other independent037c41d9 hunks remain pending.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: worn-PK unsupported-pose AP query (`2f5a3c75`, partial)
+
+GetActionAP returns the original1 for pose-dependent queries with a worn PK in
+CRAWL/CROUCH, before added-move AP and movement-action dispatch. Existing pose-
+independent action branches retain precedence; valid WALK/RUN retain suit AP.
+
+NativePKUnsupportedPose0..15 create an actual RPG unit and use native
+SetPanzerklein with authored suit1 (added move AP4), positive owned shell
+health and the API's null optional inventory-transfer argument. Pose/corpse
+abilities34/35/42 are untaken. RED8/16 each: four movement/corpse movement
+actions times the two unsupported poses return ordinary costs instead of1
+(e.g. side12/10 rather than1). Eight worn-WALK/RUN, ordinary body, open/close
+and AC_NONE controls pass before the fix. GREEN16/16 each; AP/HP/shell health,
+XP, points, worn state and gameplay RNG remain stable. Direct AP-query scope;
+no actual movement or pose/animation execution claim.
+
+Gold named GetActionAP6bac90/3724 and Steam6c0d30 are independently identified
+by mission secondary-vtable slot0. The pPK load8bytes6bb71e ->6c16f6 is exact;
+typed mission pPK+188 minus interface+4c is+13c. Guard12bytes6bb72c ->6c1704
+maps uniquely with only two decoded short-branch displacements masked. Both
+branches in each build independently lead to cleanup and return1. Return
+epilogue26bytes6bb7e7 ->6c17c9 is exact. Typed PK nAddMoveAP is+1c. No whole
+3724byte/ABI equivalence claim. Evidence: pk-unsupported-pose-{retail-oracle,
+verification}.json and raw logs.
+
+Keep2f5a3c75 PARTIAL: its separate corpse42 relocation requires the still-
+missing037c41d9 ability. The original order is pose34/35 recursive substitutions
+first, then the unsupported-PK guard, then corpse42 within valid-pose dispatch.
+This is not a rule disabling pose abilities in a PK. Those predecessor hooks
+and their combined cases remain to be imported individually. Game builds,
+related164Win/164Linux, CI323 pass; new16 cases outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2f5a3c753d9673bfc9aa24b2852a7fe2e1bbf60f.

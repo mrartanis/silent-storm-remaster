@@ -543,3 +543,11 @@ observer/target grants75, authored.25, target-only/both ownership, zero stealth,
 clamps and fractional/negative/zero controls. RED6/14 -> GREEN14/14 each; skills,
 AP/HP/XP/points/RNG stable. Related148Win/148Linux, Game builds, CI323. New14 outside323;
 query scope only, no complete visibility/world day-night scenario claim.
+
+## PK unsupported pose AP queries
+
+NativePKUnsupportedPose0..15: resource extended Win/Linux,timeout120. Native
+RPG SetPanzerklein/suit1/positive shell HP, four move actions in CRAWL/CROUCH,
+worn WALK/RUN, ordinary body and pose-independent controls. RED8/16 -> GREEN
+16/16 each; AP/HP/shell/XP/points/equipment/RNG stable. Related164Win/164Linux, Game
+builds, CI323. New16 outside323. Query scope; pose34/35/corpse42 are untaken.

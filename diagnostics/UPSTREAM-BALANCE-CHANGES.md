@@ -2223,3 +2223,13 @@ distance0 changes45% to20%. Having75 only on the target leaves45% unchanged.
 The audited original query has no night gate. Actual skills and authored data
 are unchanged. Native tests confirm ownership, truncation and clamp cases;
 full AI/day-night visibility scenarios are not claimed.
+
+### `2f5a3c75`: unsupported PK pose cost fallback (partial)
+
+Restores the original AP-query fallback1 for worn-PK CRAWL/CROUCH in pose-
+dependent movement/corpse movement queries. Authored suit1 adds4 AP to valid
+movement; these unsupported queries previously returned ordinary costs such
+as12/10 for side movement. WALK/RUN and pose-independent actions retain their
+costs. Native tests exercise the query, not movement/animation execution.
+Original pose-ability recursion precedes this guard; corpse42 ordering remains
+pending with that ability's predecessor. No authored AP record changes.

@@ -29524,6 +29524,22 @@ static CObj<NRPG::IUnitMission> NativeMissionWithUntakenPerk(int id)
     for(auto* person:candidates){CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(person);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();if(!tree || unit->HasPerk(id) || mission->GetTotalVP()<=0)continue;vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==id)return mission;}
     Require(false,"native RPG fixture lacks an actual untaken authored perk node");return nullptr;
 }
+static void PKUnsupportedPoseCost(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=15,"unknown native PK pose-cost mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    auto mission=NativeMissionWithUntakenPerk(34);auto* unit=mission->GetRPGUnit();Require(!mission->HasPerk(34) && !mission->HasPerk(35) && !mission->HasPerk(42),"PK pose fixture has a pose/corpse ability");
+    NDb::CPanzerklein* record=nullptr;CDBIterator<NDb::CPanzerklein> suits(*NDatabase::GetTable<NDb::CPanzerklein>());while(suits.MoveNext()){auto* suit=suits.Get();if(suit->nMaxVP>0 && suit->nAddMoveAP>0 && (!record || suit->GetRecordID()<record->GetRecordID()))record=suit;}Require(record,"PK pose fixture lacks an authored suit with positive added move AP");
+    CObj<NRPG::CDynamicSkill> shellHP=new NRPG::CDynamicSkill(record->nMaxVP,record->nMaxVP);const bool worn=mode!=10 && mode!=11 && mode!=15;if(worn)mission->SetPanzerklein(record,shellHP,nullptr);Require((mission->GetPanzerklein()==record)==worn,"native SetPanzerklein did not establish the requested worn state");
+    const NRPG::EAction moves[]={NRPG::AC_MOVE_SIDE,NRPG::AC_MOVE_DIAGONAL,NRPG::AC_MOVE_CORPSE_SIDE,NRPG::AC_MOVE_CORPSE_DIAGONAL};NAI::EPose pose=mode<4 || mode==10 || mode==12 || mode==15?NAI::CRAWL:mode<8 || mode==11 || mode==13?NAI::CROUCH:mode==9 || mode==14?NAI::RUN:NAI::WALK;
+    NRPG::EAction action=mode<8?moves[mode%4]:mode==9 || mode==11?NRPG::AC_MOVE_DIAGONAL:mode==12?NRPG::AC_OPEN_CLOSE:mode==13?NRPG::AC_NONE:mode==14?NRPG::AC_MOVE_CORPSE_SIDE:mode==15?NRPG::AC_MOVE_CORPSE_DIAGONAL:NRPG::AC_MOVE_SIDE;
+    const int ordinary=(NAI::RUN-pose+1)*2+(worn?record->nAddMoveAP:0);int expected=action==NRPG::AC_MOVE_DIAGONAL || action==NRPG::AC_MOVE_CORPSE_SIDE?ordinary*15/10:action==NRPG::AC_MOVE_CORPSE_DIAGONAL?ordinary*225/100:ordinary;
+    if(mode<8)expected=1;if(mode==12)expected=4;if(mode==13)expected=0;
+    const int ap=mission->GetAP(),hp=mission->GetTotalVP(),shell=*shellHP,points=unit->GetPerksTree()->GetPerkPoints();const float xp=unit->fXP;auto random=GlobalGameRandom();
+    const int actual=mission->GetActionAP(pose,action);std::printf("native PK pose-cost mode=%d worn=%d suit=%d add=%d pose=%d action=%d cost=%d expected=%d\n",mode,int(worn),record->GetRecordID(),record->nAddMoveAP,int(pose),int(action),actual,expected);std::fflush(stdout);
+    Require(actual==expected,"native worn-PK pose query missed the original unsupported-pose1 guard or changed a control cost");
+    Require(mission->GetAP()==ap && mission->GetTotalVP()==hp && int(*shellHP)==shell && unit->GetPerksTree()->GetPerkPoints()==points && unit->fXP==xp && (mission->GetPanzerklein()==record)==worn && random.Get()==GlobalGameRandom().Get(),"PK cost query changed AP/HP/suit health/points/XP/equipment/RNG");
+}
+
 static void ObserverStealthPerk(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=13,"unknown native observer-stealth mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
@@ -31367,6 +31383,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "pk-unsupported-pose")) { Require(argc==5,"PK pose cost requires db/resources/mode"); PKUnsupportedPoseCost(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "observer-stealth")) { Require(argc==5,"observer75 requires db/resources/mode"); ObserverStealthPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "better-spotting")) { Require(argc==5,"spotting requires db/resources/mode"); BetterSpottingPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "unhide-base")) { Require(argc==5,"unhide base requires db/resources/mode"); UnhideBasePrecision(argv[2],argv[3],std::atoi(argv[4])); return true; }

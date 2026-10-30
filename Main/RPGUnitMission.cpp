@@ -725,7 +725,11 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 	// actions whose cost depends on the pose
 	int nAddedAP = 0;
 	if ( pPanzerklein )
+	{
+		if ( curPose == NAI::CRAWL || curPose == NAI::CROUCH )
+			return 1;
 		nAddedAP = pPanzerklein->nAddMoveAP;
+	}
 	switch ( curPose )
 	{
 		case NAI::CRAWL:
