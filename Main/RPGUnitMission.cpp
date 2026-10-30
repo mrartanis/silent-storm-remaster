@@ -647,7 +647,7 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 				NDb::ESkillType skill = action == AC_THROW_KNIFE ? NDb::ST_THROWING : NDb::ST_MELEE;
 				int nAP = pW->nMaxAP - (pW->nMaxAP - pW->nMinAP) * pRPGUnit->Skills( skill ) / N_MAX_SKILL;
 				float fParam;
-				if ( action == AC_MELEE && HasPerk( N_PERK_CHEAP_MELEE, &fParam ) )
+				if ( HasPerk( action == AC_THROW_KNIFE ? N_PERK_CHEAP_THROW : N_PERK_CHEAP_MELEE, &fParam ) )
 					nAP = int( ( 1.0 - double( fParam ) ) * nAP );
 				return nAP;
 			}

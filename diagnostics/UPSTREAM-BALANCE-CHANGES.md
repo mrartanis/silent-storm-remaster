@@ -2285,3 +2285,14 @@ natural throwing27 or skill0,10 at70 and7 at140. Melee skill and acquired
 cheap-melee32 do not affect a thrown knife. The original cheap-throw43 effect
 is still pending separately. Native queries preserve actual state and RNG;
 projectile execution and AP spending are outside this change.
+
+### `aa031e2e` / `037c41d9`: cheap-throw43 knife AP
+
+Restores int((1-Param1)*integerKnifeBaseAP) for acquired43. Actual person2,
+item5, natural throwing27 and authored Param1=0.25 give12->9 AP.
+The original API truncates and has no lower floor; temporary Param1=1 yields0,
+greater-than-one may yield negative costs. Melee uses32 independently. Native
+queries preserve state/RNG; actual AP spending/flight are outside this change.
+Grenade43 remains a separate pending cost consumer. The037c reload33 consumer
+was already imported with the original Param1 multiplier; no balance rewrite
+or duplicate fix is made for that hunk.

@@ -29530,6 +29530,18 @@ static CObj<NRPG::CMeleeWeaponItem> NativeEquipCostMelee(NRPG::CUnit* unit,bool 
     Require(record,"native AP fixture lacks an authored usable melee item/range");CObj<NRPG::CMeleeWeaponItem> item=new NRPG::CMeleeWeaponItem(record);item->nQuantity=1;auto* inventory=unit->GetInventory();CObj<NRPG::IInventoryItem> previous=inventory->TakeOff(NDb::SLOT_1);
     Require(inventory->Equip(NDb::SLOT_1,item) && inventory->Activate(NDb::SLOT_1) && unit->GetMeleeWeaponItem()==item.GetPtr(),"native AP fixture could not equip/activate its authored melee item");return item;
 }
+static void CheapKnifeThrowAPPerk(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=11,"unknown native cheap-knife-throw AP mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    auto mission=NativeMissionWithUntakenPerk(43);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();auto* perk=NDb::GetDBPerk(43);Require(perk && !perk->params.empty() && !mission->HasPerk(32),"knife AP fixture lacks authored43 or has cheap melee32");auto item=NativeEquipCostMelee(unit,true);auto* record=item->GetDBMeleeWeapon();
+    const float authored=perk->params[0];Require(authored>0 && authored<1,"knife AP fixture lacks an ordinary authored reduction");struct Restore {NDb::CDBPerk* perk;float value;~Restore(){perk->params[0]=value;}}restore{perk,authored};
+    if(mode==2)unit->Skills(NDb::ST_THROWING).SetConst(0);if(mode==3 || mode==4)unit->Skills(NDb::ST_THROWING).SetConst(NRPG::N_MAX_SKILL);if(mode==5)perk->params[0]=.375f;if(mode==6)perk->params[0]=0;if(mode==7)perk->params[0]=1;if(mode==8)perk->params[0]=1.25f;if(mode==9)perk->params[0]=-.25f;
+    const bool acquired=mode!=0 && mode!=4;const auto action=mode==10?NRPG::AC_MELEE:mode==11?NRPG::AC_OPEN_CLOSE:NRPG::AC_THROW_KNIFE;const auto pose=mode==2?NAI::CROUCH:mode==3 || mode==11?NAI::CRAWL:mode==4?NAI::RUN:NAI::WALK;const int baseline=mission->GetActionAP(pose,action);Require(baseline>0,"knife AP fixture lacks a positive native base cost");if(mode==2)Require(baseline==record->nMaxAP,"zero throwing skill did not produce authored maximum AP");if(mode==3 || mode==4)Require(baseline==record->nMinAP,"denominator140 throwing skill did not produce authored minimum AP");
+    const int expected=acquired && action==NRPG::AC_THROW_KNIFE?int((1.0-double(perk->params[0]))*baseline):baseline,ap=mission->GetAP(),hp=mission->GetTotalVP(),points=tree->GetPerkPoints(),quantity=item->GetQuantity(),melee=unit->Skills(NDb::ST_MELEE),throwing=unit->Skills(NDb::ST_THROWING);const float xp=unit->fXP;auto random=GlobalGameRandom();if(acquired){tree->AddPerkPoints(1);tree->TakePerk(43);}Require(mission->HasPerk(43)==acquired && tree->GetPerkPoints()==points,"native43 grant failed or changed point budget");
+    const int actual=mission->GetActionAP(pose,action);std::printf("native cheap-knife-throw AP mode=%d acquired=%d persona=%d item=%d skill=%d action=%d authored=%.6g param=%.6g baseline=%d cost=%d expected=%d\n",mode,int(acquired),unit->pPers->GetRecordID(),record->GetRecordID(),throwing,int(action),authored,perk->params[0],baseline,actual,expected);std::fflush(stdout);
+    Require(actual==expected,"native knife throw AP ignored43 or changed original truncation/no-floor/action scope");Require(mission->GetAP()==ap && mission->GetTotalVP()==hp && tree->GetPerkPoints()==points && unit->fXP==xp && int(unit->Skills(NDb::ST_MELEE))==melee && int(unit->Skills(NDb::ST_THROWING))==throwing && unit->GetMeleeWeaponItem()==item.GetPtr() && item->GetQuantity()==quantity && random.Get()==GlobalGameRandom().Get(),"knife AP query changed AP/HP/points/XP/skills/weapon/quantity/RNG");
+}
+
 static void ThrowKnifeBaseAP(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=9,"unknown native throw-knife base AP mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
@@ -31461,6 +31473,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "cheap-knife-throw-ap")) { Require(argc==5,"knife43 requires db/resources/mode"); CheapKnifeThrowAPPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "throw-knife-base-ap")) { Require(argc==5,"throw base requires db/resources/mode"); ThrowKnifeBaseAP(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "cheap-melee-ap")) { Require(argc==5,"melee32 requires db/resources/mode"); CheapMeleeAPPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "corpse-tracker-ap")) { Require(argc==5,"corpse42 requires db/resources/mode"); CorpseTrackerAPPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }

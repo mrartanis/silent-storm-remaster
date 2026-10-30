@@ -595,3 +595,12 @@ melee/open/none controls and stable AP/HP/XP/points/skills/item/RNG. RED7/10 ->
 GREEN10/10 each. Game builds, related44Win/44Linux and CI323 pass; new10 outside323.
 The existing native knife preview/dispatch/time/feedback/handoff and animation
 checks are included. No new complete knife-flight or actual AP-spending claim.
+
+## Cheap-throw43 knife AP
+
+NativeCheapKnifeThrowAP0..11: resource extended Win/Linux,timeout120. Actual
+person2/Take43/item5; authored0.25, skill0/140, fractional/zero/free/
+negative parameters, no43/melee/open controls and stable state/RNG. RED7/12 ->
+GREEN12/12 each. Game builds, related56Win/56Linux including prior knife/melee AP,
+knife preview/dispatch/time/feedback/handoff, animation, reload33 and network,
+plus CI323 pass. New12 outside323; cost-query scope.

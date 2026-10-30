@@ -18466,3 +18466,32 @@ throw-knife-base-verification JSON/raw logs. Full Game builds, related44Win/44Li
 animation and network), CI323 pass. New10 extended/outside323.
 Sources: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918
 and https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: cheap-throw43 knife AP (`aa031e2e` / `037c41d9` partial)
+
+AC_THROW_KNIFE now applies int((1-double(Param1))*integerBaseAP) with acquired43;
+AC_MELEE retains acquired32. This follows the already restored weapon/throwing
+skill base. NativeCheapKnifeThrowAP0..11 use actual person2, native
+TakePerk43 and equipped authored throwable item5,quantity1. Natural throwing
+27, authored Param1=0.25: 12->9 AP. RED7/12 each -> GREEN12/12,
+five controls pass before the fix. Skill0/140, temporary.375/0/1/1.25/-.25
+parameters verify integer-base-first truncation, zero/free and negative results
+without a floor. Parameters are restored. No43/melee/open controls retain costs;
+AP/HP/XP/points, skills, active-item identity/quantity and RNG stay stable.
+
+Original action29 tables disambiguate Gold6bb183/Steam6c1229 knife branches.
+Has43 Gold6bb1dc/Steam6c1282; call-test-skip7bytes match exactly. The following
+multiply uses verified1.f Gold8a39e4/Steam8b2a34, Param1 subtraction and integer
+base, then x87 RC11 truncation, with independently decoded scratch offsets.
+Evidence throw-knife-ap-retail-oracle and cheap-knife-throw-verification JSON/
+raw logs. No full-method/optional-item ABI or actual attack/AP-spending claim.
+Game builds, related56Win/56Linux and CI323 pass; new12 extended/outside323.
+
+The037c reload33 hunk is already represented by CUnit::GetWeaponReloadActionAP
+and mission delegation, imported earlier for b875e43d: original Param1 itself,
+truncation/no floor. Existing UpstreamRetailReloadActionCost passes again in
+both related suites. No duplicate production change or new RED is claimed.
+Grenade43/table5 and otheraa hunks remain pending. Other037c familiarity/order/
+targeting/evasion/aura hunks remain pending; its melee/knife AP hooks are covered.
+Sources: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918
+and https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
