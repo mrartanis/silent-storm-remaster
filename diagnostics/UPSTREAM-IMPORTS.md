@@ -16657,3 +16657,42 @@ last-template reset and original chance/minimum-range restoration, pending
 native TDD and original-balance verification. No new tuning/coefficients.
 Ledger169 imported/18partial/56pending=74 unfinished source commits.
 Whole goal/final hosted CI/balance-review delivery remain active.
+
+
+## Clear matching last encounter template on its due update (5d3fe7df, partial)
+
+Source: [5d3fe7df8e9a3f15f57353d2451df63d85b0306b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5d3fe7df8e9a3f15f57353d2451df63d85b0306b).
+Parent: 488ba953fd4d5b760dea97c7b3d1cea5149e65c1. The chapter kept its completed
+random encounter template indefinitely. Clear nCurrentTemplateID only when it
+matches the sector and its update deadline is due. Future and nonmatching
+updates keep the record. Active-entry early return still precedes this branch.
+
+Native RED2/22 each -> GREEN22/22 each. Actual chapter/save graph/StepApp/Draw,
+normal/wide, matching-due clears the real campaign field; matching-future and
+other-template-due controls retain it. All previous sixteen encounter gate/
+consumption controls remain. Timer advances through its existing due path;
+queue, native UI/campaign alias and party XP remain unchanged. No partial live
+READ, fake command predicate or production test seam.
+
+Both original methods compare their sector template with game field30 and
+clear only on equality after the deadline gate. Named chapter vtables bind the
+pure four-byte GetRPGGame getter (both8b413cc3), and original control flow
+supplies zero to the clear store. Original Gold/Steam intermediate timer writes
+of30/300seconds are unconditionally overwritten by their common random timer
+assignment before activity/spawn branching. No retained cooldown is inferred
+or introduced. This proof concerns the bookkeeping branch, not full spawn parity.
+
+Fresh Win ALL_BUILD/Linux Game+helpers/serializer, campaign60/60 each and local
+asset-free CI305/305. Exact tested source diff is only the matching-field reset;
+no scheduling/chance/range/generator/entry/schema/font/HD/animation changes.
+Original, native and raw gate evidence: random-template-reset-verification.json
+under G:/SS/lab/evidence/upstream-remaster-20261024.
+
+Source5d3 remains PARTIAL: marker consumption/return and last-template reset
+are complete; chance rejection and minimum radius still need independent native
+TDD. Read-only Gold+Steam policy audit confirms strict roll>probability rejection
+and inclusive radius32..256; original-only evidence is
+random-spawn-policy-original-audit.json. These original values are verified,
+but no chance/range code has been ported yet. Before that range change also
+check own chapter-info/HD coordinate units. Ledger169 imported/18partial/56pending
+=74 unfinished source commits; whole goal/final hosted CI/balance review active.

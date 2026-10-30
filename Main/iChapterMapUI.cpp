@@ -613,6 +613,9 @@ void CRandomSector::UpdateSector( const STime &sTime, const CVec2 &vTeamPos )
 	if ( sUpdateTime > sTime )
 		return;
 
+	if ( pChapter->GetRPGGame()->nCurrentTemplateID == GetSector().nTemplate )
+		pChapter->GetRPGGame()->nCurrentTemplateID = 0;
+
 	sUpdateTime = sTime + N_RANDOMZONE_TTL * sRand.GetFloat( 0.5f, 1.0f );
 	if ( !IsVisible() )
 	{
