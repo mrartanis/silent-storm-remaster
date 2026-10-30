@@ -7861,6 +7861,97 @@ static void ScriptAmbientVariants(const char* databasePath,const char* resourceP
 }
 
 
+static void InactiveRandomEncounter(const char* databasePath,const char* resourcePath,int wide,int mode)
+{
+    Require(wide>=0 && wide<=1 && mode>=0 && mode<=5,"unknown inactive random encounter case");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"random encounter fixture began with an interface or command");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm inactive random encounter regression");
+    if(wide){NGfx::SRenderTargetsInfo targets;Require(NGfx::SetMode(NGfx::SVideoMode(640,360,32,NGfx::WINDOWED),targets),"random encounter fixture could not select its wide viewport");}
+    Require(!wide || S2UI::MapOffsetX()!=0,"wide encounter fixture did not activate centered map coordinates");
+    struct ClockRestore {STime previous;~ClockRestore(){NMainLoop::SetTimeForHarness(previous);}} clock{NMainLoop::SetTimeForHarness(1000)};
+    struct InfoRestore {CObj<CChapterInfo> info;vector<SChapterSector> original;~InfoRestore(){if(info)info->sectorsSet.swap(original);}} info;
+    CDBPtr<NDb::CChapterMap> map;SChapterSector random;
+    CDBIterator<NDb::CChapterMap> chapters(*NDatabase::GetTable<NDb::CChapterMap>());
+    while(chapters.MoveNext()){
+        if(!IsValid(chapters.Get()->pBackground))continue;
+        CDGPtr<CPtrFuncBase<CChapterInfo>> loader=shareChapterInfo.Get(chapters.Get()->GetRecordID());loader.Refresh();
+        auto* value=loader->GetValue();if(!value)continue;
+        for(const auto& sector:value->sectorsSet)if(sector.eType==RANDOM && !sector.pointsSet.empty()){
+            map=chapters.Get();random=sector;info.info=value;break;}
+        if(map)break;
+    }
+    Require(map && info.info,"random encounter fixture lacks an actual authored chapter/random sector");
+    info.original=info.info->sectorsSet;info.info->sectorsSet=vector<SChapterSector>{random};
+    CObj<NDb::CScript> quiet=new NDb::CScript;quiet->strCode="function OnEnterZone() end";
+    struct ScriptRestore {CPtr<NDb::CChapterMap> map;CPtr<NDb::CScript> script;~ScriptRestore(){if(map)map->pScript=script;}} script{map.GetPtr(),map->pScript};map->pScript=quiet.GetPtr();
+    auto* campaign=NDb::GetGlobalMap(3);Require(campaign && campaign->pScenario,"random encounter fixture lacks its authored campaign");
+    CObj<NRPG::CGlobalGame> game=NRPG::CreateGlobalGame(campaign->pScenario->GetRecordID());game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    list<CPtr<NScenario::CScenarioClue>> clues;game->pScenarioTracker->GetAvailableClues(&clues);for(auto clue:clues)if(clue)clue->SetJustFound(false);
+    for(auto merc:game->players.front()->mercs){vector<CDBPtr<NDb::CMedal>> medals;merc->GetJustFoundMedals(&medals);}
+    CObj<NGame::CICBeginChapter> enter=new NGame::CICBeginChapter(map->GetRecordID(),game);enter->Exec();
+    CObj<NGame::CMissionBase> chapter=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    auto* ui=chapter?dynamic_cast<NUI::CChapterMapUI*>(chapter->GetInterface()->GetChildByID("chaptermapUI")):nullptr;
+    Require(ui && chapter->GetWorld(),"random encounter fixture did not open its native chapter");
+    auto sectorWindow=[](NUI::CChapterMapUI* mapUI){
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(mapUI,&refs);vector<CPtr<CObjectBase>> sectors;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(17,&sectors);}
+        Require(sectors.size()==1 && pSSClasses->GetObjectTypeID(sectors.front())==int(0xb2606154),"chapter fixture lost its one actual CRandomSector");
+        auto* window=dynamic_cast<NUI::CWindow*>(sectors.front().GetPtr());Require(window,"native random sector is not a window");return window;};
+    auto* marker=sectorWindow(ui);marker->SetPosition(NUI::SPoint(mode>=4?200:0,mode>=4?200:0));marker->SetStyle(NUI::STYLE_VISIBLE,true);
+    NUI::SPoint screen;NUI::SRect rectangle;Require(marker->ClientToScreen(&screen,&rectangle),"random encounter fixture has no native marker rectangle");
+    const bool active=mode==2 || mode==3,overlap=mode==0 || mode==1 || mode==2 || mode==4;
+    CVec2 team(float((rectangle.x1+rectangle.x2)/2-S2UI::MapOffsetX()),float((rectangle.y1+rectangle.y2)/2-S2UI::MapOffsetY()));
+    if(!overlap)team+=CVec2(100,100);game->vChapterPos=team;
+    const int uiType=pSSClasses->GetObjectTypeID(ui);
+    // Build a complete ordinary save graph, alter fixture state in its bytes,
+    // then load fresh objects. Never partially deserialize into a live object.
+    CMemoryStream saved;{CStructureSaver writer(saved,CStructureSaver::WRITE);writer.Add(2,&chapter);writer.Add(3,&game);}
+    vector<unsigned char> bytes(saved.GetSize());saved.Seek(0);saved.Read(bytes.data(),unsigned(bytes.size()));
+    auto field=[](unsigned char* data,size_t size,unsigned id){S2FileIO::StructureChunk result{};int found=0;
+        for(size_t at=0;at<size;){S2FileIO::StructureChunk item;Require(S2FileIO::DecodeStructureChunkAt(data,size,at,&item),"invalid native random encounter save field");
+            if(item.id==id){result=item;++found;}at=size_t(item.payloadOffset)+item.length;}
+        Require(found==1,"native random encounter save field is missing or duplicated");return result;};
+    auto table=field(bytes.data(),bytes.size(),0),bodies=field(bytes.data(),bytes.size(),2);
+    std::vector<S2FileIO::StructureObjectRecord> records;std::vector<S2FileIO::StructureObjectBody> objects;
+    Require(S2FileIO::DecodeStructureObjectTable(bytes.data()+table.payloadOffset,table.length,&records) &&
+        S2FileIO::IndexStructureObjectBodies(bytes.data()+bodies.payloadOffset,bodies.length,&objects),"invalid native random encounter object graph");
+    auto body=[&](unsigned type){unsigned id=0;int found=0;for(auto record:records)if(record.typeId==type){id=record.wireId;++found;}
+        Require(found==1 && id,"random encounter fixture type is absent or duplicated");
+        for(auto object:objects)if(object.wireId==id)return std::make_pair(bytes.data()+bodies.payloadOffset+object.bodyOffset,size_t(object.bodyLength));
+        Require(false,"native random encounter object body is missing");return std::make_pair(static_cast<unsigned char*>(nullptr),size_t(0));};
+    auto mapBody=body(unsigned(uiType));
+    for(unsigned id:{8u,9u}){auto point=field(mapBody.first,mapBody.second,id);Require(point.length==sizeof(team),"chapter position save shape changed");std::memcpy(mapBody.first+point.payloadOffset,&team,sizeof(team));}
+    auto randomBody=body(0xb2606154u);auto base=field(randomBody.first,randomBody.second,1);auto visible=field(randomBody.first+base.payloadOffset,base.length,3);
+    Require(S2FileIO::EncodeStructureScalar(active,randomBody.first+base.payloadOffset+visible.payloadOffset,visible.length),"could not encode logical encounter activity");
+    const STime deadline=100000,morph=1100;const float coefficient=mode==0?0.f:1.f;
+    for(auto entry:{std::make_pair(3u,deadline),std::make_pair(6u,morph)}){auto item=field(randomBody.first,randomBody.second,entry.first);
+        Require(S2FileIO::EncodeStructureScalar(entry.second,randomBody.first+item.payloadOffset,item.length),"could not encode native encounter fixture clock");}
+    auto fade=field(randomBody.first,randomBody.second,5);Require(S2FileIO::EncodeStructureScalar(coefficient,randomBody.first+fade.payloadOffset,fade.length),"could not encode native encounter fade");
+    CMemoryStream wire;wire.Write(bytes.data(),unsigned(bytes.size()));wire.Seek(0);
+    CObj<NGame::CMissionBase> restored;CObj<NRPG::CGlobalGame> restoredGame;
+    {CStructureSaver reader(wire,CStructureSaver::READ);reader.Add(2,&restored);reader.Add(3,&restoredGame);}
+    class RestoreChapter:public NMainLoop::CInterfaceCommand {OBJECT_NOCOPY_METHODS(RestoreChapter);
+    public:CObj<NGame::CMissionBase> chapter;void Exec() override {chapter->OnSnapshotRestored();SetInterface(chapter);}};
+    CObj<RestoreChapter> load=new RestoreChapter;load->chapter=restored;load->Exec();chapter=restored;game=restoredGame;
+    ui=dynamic_cast<NUI::CChapterMapUI*>(chapter->GetInterface()->GetChildByID("chaptermapUI"));Require(ui && chapter->GetRPGGame()==game.GetPtr(),"random encounter save lost its actual UI/campaign alias");
+    marker=sectorWindow(ui);const bool hit=marker->HitTest(int(team.x)+S2UI::MapOffsetX(),int(team.y)+S2UI::MapOffsetY());
+    Require(hit==overlap && marker->GetStyle(NUI::STYLE_VISIBLE),"native random encounter fixture did not preserve overlap/draw visibility");
+    auto state=[&](){CStructureNetworkContext refs;auto fields=BorrowedObjectFields(marker,&refs);STime actualDeadline=0;bool logical=false;
+        struct Sector {bool* logical;int operator&(CStructureSaver& f){f.Add(3,logical);return 0;}} sector{&logical};
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(1,&sector);reader.Add(3,&actualDeadline);}return std::make_pair(logical,actualDeadline);};
+    Require(state()==std::make_pair(active,deadline),"native random encounter fixture lost logical state/deadline");
+    const float xp=game->players.front()->mercs.front()->fXP;const int currentTemplate=game->nCurrentTemplateID;
+    std::printf("native random encounter wide=%d mode=%d stage=before chapter=%d template=%d active=%d visible=1 hit=%d offset=%d,%d team=%.1f,%.1f deadline=%u\n",wide,mode,map->GetRecordID(),random.nTemplate,int(active),int(hit),S2UI::MapOffsetX(),S2UI::MapOffsetY(),team.x,team.y,unsigned(deadline));std::fflush(stdout);
+    NMainLoop::SetTimeForHarness(1100);Require(NMainLoop::StepApp(true,false,false),"native chapter encounter frame exited");
+    CObj<NMainLoop::CInterfaceCommand> command=NMainLoop::TakeInterfaceCommandForHarness();
+    const bool queued=command.GetPtr()!=nullptr;
+    std::printf("native random encounter wide=%d mode=%d stage=after queued=%d expected=%d logical=%d deadline=%u\n",wide,mode,int(queued),int(active && overlap),int(state().first),unsigned(state().second));std::fflush(stdout);
+    Require(queued==(active && overlap),"inactive random encounter marker queued a phantom mission entry");
+    Require(!queued || dynamic_cast<NMainLoop::CICContainer*>(command.GetPtr()),"active encounter did not queue its native autosave/mission container");
+    Require(!NMainLoop::HaveInterfaceCommand() && NMainLoop::GetCurrentInterfaceForHarness()==chapter.GetPtr() && state().second==deadline && game->nCurrentTemplateID==currentTemplate && game->players.front()->mercs.front()->fXP==xp,
+        "encounter activity gate changed its native queue, timer, campaign or XP");
+}
+
 static void GlobalMapScriptLifecycle(const char* databasePath,const char* resourcePath,int context,int mode)
 {
     Require(context>=0 && context<=1 && mode>=0 && mode<=6,"unknown global-map script lifecycle case");
@@ -29186,6 +29277,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "inactive-random-encounter")) { Require(argc == 6, "inactive encounter requires db, resources, viewport and mode"); InactiveRandomEncounter(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "global-map-script-lifecycle")) { Require(argc == 6, "global map lifecycle requires db, resources, context and mode"); GlobalMapScriptLifecycle(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-ai-flash")) { Require(argc == 6, "world AI flash requires db, resources, context and mode"); WorldAIFlash(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-clue")) { Require(argc == 6, "world clue requires db, resources, context and mode"); WorldScriptClue(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }

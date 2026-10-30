@@ -16585,3 +16585,38 @@ This supersedes the temporary PARTIAL audit at77a13fd7, not its warning against
 excluding useful functionality solely because the dev predecessor lacked it.
 Ledger168 imported/17 partial/58 pending =75 unfinished source commits.
 Whole-goal scope and final hosted CI/balance-review delivery remain active.
+
+
+## Inactive random encounter entry gate (b709a7dc)
+
+Source: [b709a7dcb54aec463f2ba85e1cc7b697cc46b27f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b709a7dcb54aec463f2ba85e1cc7b697cc46b27f).
+Parent: acb588dc7892774f37f3359f267dad5c223c0daa. An unspawned or expired
+random encounter retains a drawable window; HitTestMap alone queued a phantom
+mission when the party overlapped that window. Add the logical CChapterSector
+IsVisible gate, preserving the remaster centered-coordinate HitTestMap adapter.
+
+Native RED6/12 each -> GREEN12/12 each: actual chapter12/template2508 (Windows) and chapter27/template4301 (Linux), on
+normal and wide viewports (map offset0 versus171). Fresh inactive, fading
+inactive and moved inactive markers must not queue entry; actual active overlap
+still queues the native autosave/mission container, and outside-marker controls
+remain quiet. Complete ordinary save graphs initialize fresh native fixture
+states, then a real StepApp/2D chapter Draw queues the production command.
+No partial READ into live objects or production test seam. Commands are observed
+and drained without executing a mission/save. Deadline100000 stays unchanged,
+isolating this entry gate from random spawn rolls and authored probabilities.
+
+Original Gold UpdateSector0x5a7a50/1099 also calls CWindow::HitTest0x71da90
+before checking logical activity; named CChapterSector IsVisible0x5a6830 reads
+bVisible+90. This corrects an original bug, rather than restoring a missing
+retail guard. No authored probability/range/timer/RNG/fade rule, entry argument,
+UI/font/body/facial/HD pipeline or saved field changes. Source5d3fe7df's marker
+consumption/early return, last-template reset and spawn chance/range remain
+separate pending work; this is not a claim of complete encounter lifecycle parity.
+
+Fresh Win ALL_BUILD/Linux Game+helpers/serializer, campaign50/50 each (including
+legacy chapter/global map transitions and own active scripts/audio), local
+asset-free CI305/305. Prior body/network suites are unchanged by this UI-only
+guard and were not repeated. Raw logs/exits and original/native/source proof:
+inactive-encounter-verification.json under G:/SS/lab/evidence/upstream-remaster-20261024.
+Sourceb709 complete. Ledger169 imported/17partial/57pending=74 unfinished.
+Whole upstream goal and final hosted CI/balance-review link remain active.
