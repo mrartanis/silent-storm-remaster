@@ -17331,3 +17331,32 @@ age/loop/channel и16 native-display), локальный asset-free CI323/323 �
 object-sound-clock-verification.json и object-sound-stage-retail-oracle.json.
 Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.
 ProcessAttack, carrier admission, log markup и world skip ещё требуют разбора.
+
+## `4949f285`: мир разрушаемого объекта
+
+ProcessAttack записывает tStageChange и получает lag10 action counter через
+собственный pWorld вместо глобального pCurrentWorld. Compiled native RED2/4
+на обеих системах: без контекста SEGFAULT (Linux GDB подтверждает ProcessAttack);
+при чужом контексте age=-8499,ownerLag0/foreignLag10. Контроли собственного
+контекста и удара без смены стадии проходят до исправления. GREEN4/4 each:
+реальные authored/RPG объекты, stage1,age125,ownerLag10/foreignLag0; damage
+равен фактической разнице HP. DB iteration выбирает разные записи/HP на Windows
+и Linux (3->1 и1050->262), поэтому фиксированная HP величина не утверждается.
+Контроль неизменённой стадии сохраняет HP,age1500,lag0. Публичный
+ActionTrackerChunk используется только для наблюдения, контекст восстанавливает
+RAII. Гранаты исключены из fixture.
+
+Original Gold PDB ProcessAttack77a030/460, IAttackable this+8: world40/base48,
+timestamp44/base4c; unique exact31byte block77a0df -> Steam785c5f читает member
+world, получает aimtime через slot14 и action tracker/lag10 через d0/4. Нет масок
+или утверждения эквивалентности всего метода. Уточнён комментарий
+GetTimeSinceLastStageChange об aimtime; формула сохранена.
+
+Полные Game builds,related49/49 each и CI323/323 успешны. Свидетельства:
+object-attack-world-red-verification.json,object-attack-world-retail-oracle.json,
+object-attack-world-verification.json и raw logs. Первая попытка patch остановилась
+на assertion (совпадал закомментированный код), production не менялся; ошибочно
+помеченные green логи сохранены как unapplied-fix. Итоговый GREEN относится к
+применённому diff. Баланс/RNG/DB/HD/шрифты/мимика/wire сохранены.
+Все hunks wOSBase.cpp завершены; остаются iLogPanel.cpp,wMain.cpp,wUnitStates.cpp.
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.

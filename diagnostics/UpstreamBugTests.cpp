@@ -29456,7 +29456,7 @@ struct AuthoredObjectStageAudio
 
 static void ObjectSoundStage(const char* databasePath,const char* resourcePath,int mode)
 {
-    Require(mode>=0 && mode<=7,"unknown object sound stage mode");
+    Require(mode>=0 && mode<=11,"unknown object sound stage mode");
     auto world=FixtureWorld(databasePath,resourcePath);
     // The default mission has no differing stage audio. Instantiate an authored
     // staged record in the real world instead of treating missing fixture data as RED.
@@ -29468,6 +29468,7 @@ static void ObjectSoundStage(const char* databasePath,const char* resourcePath,i
         if(!IsValid(candidate->pTemplate))continue;
         CObj<NDb::CObject> created=candidate->CreateObject(&random,{});
         if(created->GetStagesQuantity()<2)continue;
+        if(mode>=8 && (IsValid(created->pGrenade) || IsValid(created->pModels[1]->pAttachedGrenade)))continue;
         AuthoredObjectStageAudio first(created,0),second(created,1);
         if(mode>=6) { if(first.sounds.empty())continue; }
         else if(mode>=4) { if(first.effects.empty())continue; }
@@ -29479,6 +29480,36 @@ static void ObjectSoundStage(const char* databasePath,const char* resourcePath,i
     Require(IsValid(rpg),"authored staged RPG object construction failed");
     NWorld::SObjectPlace placement{};placement.ptScale=CVec3(1,1,1);
     CObj<NWorld::CObjectServer> object=new NWorld::CObjectServer(world,placement,false,record,rpg,{},NWorld::TOD_ANYTIME);
+    if(mode>=8) {
+        CObj<NWorld::CWorld> other=new NWorld::CWorld(world->GetGlobalGame());
+        world->GetTime()->Set(9000);world->GetAimTime()->Set(1375);
+        other->GetAimTime()->Set(9999);
+        auto ownTracker=world->ActionTrackerChunk(),otherTracker=other->ActionTrackerChunk();
+        const int ownLag=*ownTracker.pnActionLag,otherLag=*otherTracker.pnActionLag;
+        const bool otherWasAction=*otherTracker.pbWasAction;
+        Require(ownLag<10 && otherLag<10,"object attack fixture already has a long action lag");
+        struct RestoreContext {NWorld::CWorld* previous=NWorld::pCurrentWorld;~RestoreContext(){NWorld::pCurrentWorld=previous;}} restore;
+        NWorld::pCurrentWorld=mode==9?other.GetPtr():mode==10?world.GetPtr():nullptr;
+        NRPG::CAttackPortion attack(0,0,0.f,0,0,0);
+        CRay ray;ray.ptOrigin=placement.ptPos;ray.ptDir=CVec3(1,0,0);
+        if(mode!=11)attack.MakeClickOfDeath(ray);
+        const int beforeHP=object->GetHP();
+        const int damage=object->ProcessAttack(world,0,&attack,ray.ptDir,nullptr);
+        const int stage=object->GetDestroyStage();
+        world->GetAimTime()->Set(1500);
+        std::printf("object attack world mode=%d stage=%d HP=%d->%d damage=%d age=%d ownerLag=%d foreignLag=%d\n",mode,stage,beforeHP,object->GetHP(),damage,object->GetTimeSinceLastStageChange(),*ownTracker.pnActionLag,*otherTracker.pnActionLag);std::fflush(stdout);
+        if(mode==11) {
+            Require(stage==0 && object->GetHP()==beforeHP && damage==0 && object->GetTimeSinceLastStageChange()==1500 && *ownTracker.pnActionLag==ownLag,
+                "unchanged object attack changed stage timing or action lag");
+        } else {
+            Require(stage==1 && damage==beforeHP-object->GetHP() && damage>0,"object attack failed to advance exactly one authored stage");
+            Require(object->GetTimeSinceLastStageChange()==125,"object attack stamped another world's aim clock");
+            Require(*ownTracker.pnActionLag==10,"object attack touched another world's action counter");
+        }
+        Require(*otherTracker.pnActionLag==otherLag && *otherTracker.pbWasAction==otherWasAction,
+            "object attack changed a foreign world's action tracker");
+        return;
+    }
     if(mode>=4) {
         world->GetTime()->Set(100);world->GetAimTime()->Set(100);
         object->SetDestroyStage(1);

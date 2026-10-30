@@ -298,3 +298,10 @@ effect/permanent sound, с повторным неизменяющим SetDestro
 RED4/4 -> GREEN4/4 each; actual authored831/563, aimtime1375/world9000,
 ожидаемый возраст стадии125. Всего stage/clock8 случаев, вне asset-free323.
 Related45/45 each и CI323/323 успешны, Linux display через Xvfb/openbox.
+
+## Контекст мира разрушаемого объекта
+
+NativeObjectAttackWorld8..11 — ресурсные extended случаи Windows/Linux:
+null/foreign/own context и no-stage-change. RED2/4 -> GREEN4/4 each;
+реальные RPG damage/clock/action tracker проверки. Related49/49 each и
+asset-free CI323/323 проходят;4 новых случая вне323.

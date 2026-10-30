@@ -209,9 +209,8 @@ int CObjectServerBase::GetDestroyStage()
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // wOSBase.obj @0x383c00 -- ticks elapsed since this object last changed destroy stage, measured on the
-// same clock that stamps tStageChange. The retail reads pWorld->GetWorldTime() (IWorld vtbl slot 5);
-// in the dev tree that override is protected (CDebrisController) and tStageChange is stamped from
-// GetAimTime()->GetValue() (see SetDestroyStage / ProcessAttack / Kill), so use the same accessible clock.
+// same aim clock that stamps tStageChange in SetDestroyStage / ProcessAttack / Kill.
+// Retail IWorld vtbl+0x14 is GetAimTime, not GetTime (which is at +0xf4).
 int CObjectServerBase::GetTimeSinceLastStageChange()
 {
 	return int( GetWorld()->GetAimTime()->GetValue() - tStageChange );
@@ -322,11 +321,11 @@ int CObjectServerBase::ProcessAttack( NWorld::IWorld *_pWorld, int nUserID, NRPG
 			bindGlobal.Update();
 		}
 		*/
-		tStageChange = pCurrentWorld->GetAimTime()->GetValue();
+		tStageChange = pWorld->GetAimTime()->GetValue();
 		// retail stage-change block @0x385130 (disasm 0x7851f7: push 0xa -- lag 10, unlike SetDestroyStage's
 		// lag 0): scoped counter hold -- see the SetDestroyStage comment (a bare GetActiveCounter leaks an
 		// unowned counter and pins IsAction() forever). Lag 10 = 2.5 segments at four tracker ticks/segment.
-		CObj<CActionCounter> pStageAction = pCurrentWorld->GetActiveCounter( 10 );
+		CObj<CActionCounter> pStageAction = pWorld->GetActiveCounter( 10 );
 		bindGlobal.Update();
 	}
 	// (A) retail @0x785242 -- detonate a grenade already ARMED on this object. NOTE this is deliberately
