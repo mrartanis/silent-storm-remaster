@@ -18718,3 +18718,36 @@ will be ported separately. Evidence targeting-retail-oracle and targeting-base-
 verification JSON/raw branch bytes/native logs. Full Game builds,
 related70Win/70Linux and CI323 pass; new14 resource extended/outside323.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: Snipe-only faster-targeting73 (`037c41d9` partial)
+
+GetAllAdd now obtains acquired73's Param1 only for SM_Snipe, defaulting to1
+otherwise, and applies it within the existing separately truncated extra-AP
+product. Careful/Aimed/SNAP rules remain. All037c shared additive-order/live
+familiarity/extra-AP/targeting73 hunks are now accounted for, with the earlier
+original D2-before-Stance correction; attack evasion/aura hunks remain pending.
+
+NativeFasterTargeting0..13 use actual person14/native Take73 and authored
+four-mode firearm17, actual authored Param1=1.25. RED6/14 each -> GREEN14/14;
+eight controls pass before the fix. Stationary extra10 Snipe raw total20 ->23;
+small extra1/2 remain6/8 because truncation masks the fractional bonus. Temporary
+Param.75/0/-.75/1.25 with extra3 produce raw8/5/2/10, while Param1 preserves9.
+At authored capped movement-9, extra3 total-9 becomes-8. An authored fractional
+movement case (one move at-.9, temporary Param.75,extra1) protects separate
+truncations; no movement override is used here. Careful/Aimed and SNAP-before/
+after grant, no73 and unit-parameter controls prove Snipe-only ownership and
+direct Param1 (not its complement). All temporary perk parameters are restored.
+AP/HP/XP/points, movement, active item/ammo/quantity, skill, shoot mode/extraAP
+and RNG remain stable during the query. No DB assets or actual AP spend change.
+
+Both originals compare mode5 before Has73 (Gold6b22c6/6b22e1,
+Steam6b8446/6b8461); the Has73 argument/call prefix5bytes is identical.
+Steam's explicit default1.f and separate x87 truncations retain precision
+through extraAP*floatParam*verified-1.5. Gold's older maximum tail is distinct,
+as recorded by the prior base fix; no full formula parity claim across versions.
+Evidence targeting-retail-oracle and faster-targeting-verification JSON/raw
+logs. Full Game builds, related84Win/84Linux with previous targeting/ordering/
+familiarity/stance/zeroing/own learning/loader/reload/network and CI323 pass;
+new14 resource extended/outside323. Native shared additive-query scope, without
+a new Prepare/skill/final-hit-chance/actual firing claim.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

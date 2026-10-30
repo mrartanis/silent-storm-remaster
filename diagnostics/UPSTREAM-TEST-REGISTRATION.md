@@ -672,3 +672,13 @@ GREEN14/14 each; seven pre-fix controls, state/counters/equipment/ammo/skill/
 inputs/RNG stable. Game builds, related70Win/70Linux and CI323 pass; new14 outside323.
 Raw additive-query scope. Goldolder-Max/Steam1.2 distinction recorded, no
 Prepare, AP-spend, final chance or shooting equivalence claim.
+
+## Faster-targeting73 Snipe contribution
+
+NativeFasterTargeting0..13: resource extended Win/Linux,timeout120. Actual
+person14/Take73/firearm17/authored1.25, extra1/2/10, capped and fractional
+authored movement, temporary direct parameters, no73/Careful/Aimed/SNAP and
+separate-truncation controls. RED6/14 -> GREEN14/14 each; eight pre-fix controls,
+state/counters/equipment/ammo/skill/inputs/RNG stable, parameters restored.
+Game builds, related84Win/84Linux and CI323 pass; new14 outside323. Shared additive
+query only; no new Prepare, AP-spend, final-chance or actual shooting claim.

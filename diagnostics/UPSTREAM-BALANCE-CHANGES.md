@@ -2375,3 +2375,15 @@ baseline. Raw negative values remain allowed; later accuracy factors/clamps
 and actual hit chances are outside these tests. No DB values, actual AP
 spending, skill-training or query state/RNG change. Faster-targeting73 remains
 a separate pending multiplier; other calculation terms retain their values.
+
+### `037c41d9`: faster-targeting73 only in Snipe
+
+Restores direct Param1 inside Snipe's int(SMove)-int(extraAP*Param1*-1.5).
+Actual person14/firearm17 with authored1.25 and extra10 gives raw additive23
+instead of20. Extra1/2 remain6/8 after truncation; the bonus is not a uniform
+percentage of the final hit chance. With authored capped movement-9, extra3
+raw total-9 becomes-8. Careful/Aimed/SNAP do not receive73's multiplier. Direct
+parameter/truncation/no-floor behavior is retained, including temporary zero/
+negative boundary tests restored afterward. No authored DB, learning rule or
+query state/RNG change. Prepare, actual AP spending, other accuracy factors
+and complete shooting outcomes remain outside these native query tests.

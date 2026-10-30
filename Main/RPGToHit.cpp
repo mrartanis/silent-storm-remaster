@@ -372,10 +372,13 @@ float CToHitCalcer::GetAllAdd()
 	if ( IsValid( pWeaponItem ) )
 	{
 		NDb::EShootMode ShotMode = pWeaponItem->GetShootMode();
+		float fTargeting = 1;
+		if ( ShotMode == NDb::SM_Snipe )
+			pUnitMission->HasPerk( N_PERK_FASTER_TARGETING, &fTargeting );
 		if ( ShotMode == NDb::SM_Aimed || ShotMode == NDb::SM_Careful )
 			fRes += sWeaponInfo.nTargetingAP;
 		if ( ShotMode == NDb::SM_Careful || ShotMode == NDb::SM_Snipe )
-			fRes += int( GetSMove() ) - int( double( nExtraAP ) * -1.5 );
+			fRes += int( GetSMove() ) - int( double( nExtraAP ) * fTargeting * -1.5 );
 	}
 	//
 	return fRes;
