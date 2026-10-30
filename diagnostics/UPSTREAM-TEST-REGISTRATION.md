@@ -419,3 +419,11 @@ Actual deployed hero/native RPG periodic consumer; safe/exact/overdose/mixed/
 empty trajectories, AP-refresh non-consumption, replica gate and native turn
 callback consciousness synchronization. RED7/9->GREEN9/9 each, related33 each,
 Game builds and asset-free CI323; new9 outside323.
+
+## Explicit script grenade chance
+
+NativeScriptGrenadeChance0..6: resource extended Win/Linux, timeout120.
+Real projectile initial physics, seeded random52 versus chance0/51/52/100/-1/101,
+plus null inputs. RED3/7->GREEN7/7 each; AP/HP/inventory/time/action controls.
+No complete flight/damage or actual Lua execution claim. Related17Win/17Linux,
+Game builds, CI323; new7 outside323.

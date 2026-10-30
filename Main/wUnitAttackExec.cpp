@@ -426,7 +426,7 @@ EUnitCommandResult CanUnitThrowGrenade( CUnitServer *pUS, const NAI::SUnitPositi
 // uses NO inventory grenade, AP spend or wind-up animation: it spawns a temp grenade item from the DB
 // record, computes the ballistic params (skill-based max velocity + to-hit scatter + fuse delay, exactly
 // as CExecThrowGrenade::CheckToHitAndDelay) and hands the flight to CWorld::ThrowGrenade.
-void UnitThrowGrenade( CUnitServer *pUS, NDb::CRPGGrenade *pGrenade, const CVec3 &ptTarget, int /*nReserved*/ )
+void UnitThrowGrenade( CUnitServer *pUS, NDb::CRPGGrenade *pGrenade, const CVec3 &ptTarget, int nToHit )
 {
 	if ( !IsValid( pUS ) || !IsValid( pGrenade ) )
 		return;
@@ -450,7 +450,7 @@ void UnitThrowGrenade( CUnitServer *pUS, NDb::CRPGGrenade *pGrenade, const CVec3
 	// to-hit scatter + fuse delay -- mirrors CExecThrowGrenade::CheckToHitAndDelay (`random` there is an
 	// executor member, so use a local SRand, the dev's local-rng idiom elsewhere in this file).
 	SRand random;
-	int nToHit = pToHitCalcer->GetToHit();
+	// Original Gold 0x7a0c84 / Steam 0x7ad304 forwards the script chance.
 	int nRandom = GlobalGameRandom().Get( 100 );
 	if ( nRandom > nToHit )
 	{

@@ -17810,3 +17810,33 @@ Game builds, related33 each and asset-free CI323/323 pass; new9 resource cases
 are outside323. Together with immediate-dose commit f312fa2f, all source hunks
 are now complete. Medical behavior is recorded in balanceMD.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/bf54ea44a50f7e9ab7095a05491ec289105c84d0.
+
+## 2026-10-30: explicit script grenade chance (`9da280e9`, partial)
+
+UnitThrowGrenade uses the chance its caller supplies for the existing strict
+random>chance scatter branch. Both Lua handlers already forward this argument.
+The to-hit calcer remains for existing max-velocity and skill/fuse calculations;
+it no longer replaces the supplied chance. No clamping or new random draws are
+added. Inventory grenade/equipment, AP, trajectory solver, fuse formula and
+physics/damage implementation are unchanged. Night-input hunks remain pending.
+
+NativeScriptGrenadeChance0..6 use a real deployed actor, authored grenade,
+native ballistic solver and actual CGrenadeServer/CASphereSet creation. They
+read initial physics velocity and compare it with seeded scatter from a native
+100%-chance reference launch. Seed42 produces roll52. Chances0,51,-1 require
+scatter; 52,100,101 do not. Null actor/record must not spawn or consume RNG.
+RED3/7 each, four controls pass before the fix; GREEN7/7 each. AP/HP/inventory
+quantity/position/time and projectile/action ownership are retained. Tests
+observe launch physics, not flight collision/explosion damage or actual Lua
+execution. Temporary projectiles are erased from their owning world after read.
+
+Gold named UnitThrowGrenade7a0ba0/394 forwards the caller's chance at7a0c84
+to CheckGrenadeToHitAndDelay795950/957. Unique14byte forward block maps to
+Steam7ad304, masking only the decoded call operand to independently observed
+helper7a1770. Exact24byte strict comparison block795984 ->7a17a4 has no masks.
+Velocity norm/spread52bytes79599c ->7a17bc masks only RNG-state/constant pointers;
+the multiplier is verified0.2 in both images. No complete helper/trajectory
+equivalence claim. Evidence: script-grenade-chance-{retail-oracle,verification}.json.
+Game builds, related17Win/17Linux and asset-free CI323/323 pass. Seven resource
+extended cases are outside323. Source remains partial for the night/turn inputs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.

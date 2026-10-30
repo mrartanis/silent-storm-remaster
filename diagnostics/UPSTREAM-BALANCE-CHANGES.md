@@ -2078,3 +2078,13 @@ are introduced, modifiers remain installed, and AP refresh does not count down.
 The fork's authoritative-world gate prevents duplicate calculation on LAN replicas.
 Native tests cover real turn-callback synchronization as well as the RPG consumer.
 All source hunks are complete; this supersedes earlier pending notes for bf54ea44.
+
+### `9da280e9`, first part: scenario grenade chance
+
+Script grenade throws honor the explicitly supplied scenario chance, as in
+Gold/Steam, rather than silently replacing it with the actor's calculated
+accuracy. Scatter retains strict random>chance and the existing0.2 velocity
+spread. Equal roll/chance is a hit; out-of-range arguments retain the original
+unclamped boundary behavior. Max velocity, skill/fuse, grenade data, inventory
+and ordinary player/AI throw calculations remain unchanged. Night-input
+forwarding and per-unit turn state are still pending separately.

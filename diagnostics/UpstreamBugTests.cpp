@@ -29513,6 +29513,40 @@ static CPtr<NAnimation::CASequence> ReadAnimationSequence(NAnimation::CSkeletonA
     return sequence;
 }
 
+static void ScriptGrenadeExplicitChance(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=6,"unknown scripted grenade chance mode");
+    NativeGrenadeThrowFixture fixture(databasePath,resourcePath,false,true);auto& world=fixture.world;auto* actor=fixture.actor;
+    CStructureNetworkContext targetRefs;auto targetFields=BorrowedObjectFields(fixture.executor,&targetRefs);CVec3 target;
+    {CStructureSaver reader(targetFields,CStructureSaver::READ,&targetRefs);reader.Add(2,&target);}
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),quantity=fixture.grenade->GetQuantity();
+    const auto position=actor->GetPosition();const auto time=world->GetTime()->GetValue();const auto initialCount=world->GetMiscObjects()->size();const bool action=world->IsAction();
+    CRandomGenerator reference;reference.SeedForHarness(42);const int roll=reference.Get(100);Require(roll>0 && roll<100,"script chance seed does not provide an interior boundary");
+    GlobalGameRandom().SeedForHarness(42);
+    if(mode==6) {
+        auto random=GlobalGameRandom();NWorld::UnitThrowGrenade(nullptr,fixture.regular,target,100);NWorld::UnitThrowGrenade(actor,nullptr,target,100);
+        Require(world->GetMiscObjects()->size()==initialCount && random.Get()==GlobalGameRandom().Get(),"invalid script grenade consumed RNG or spawned a projectile");return;
+    }
+    struct Launch {CVec3 position,velocity;};
+    auto launch=[&](int chance) {
+        const auto count=world->GetMiscObjects()->size();GlobalGameRandom().SeedForHarness(42);
+        NWorld::UnitThrowGrenade(actor,fixture.regular,target,chance);
+        Require(world->GetMiscObjects()->size()==count+1,"scripted grenade did not launch exactly one actual projectile");
+        auto last=world->GetMiscObjects()->end();--last;auto* grenade=last->GetPtr();
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(grenade,&refs);CPtr<NAnimation::CAnimator> animator;CPtr<NWorld::CUnitServer> owner;CDBPtr<NDb::CRPGGrenade> record;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(10,&animator);reader.Add(9,&owner);reader.Add(7,&record);}
+        auto* physics=dynamic_cast<NAnimation::CASphereSet*>(animator.GetPtr());Require(physics && owner.GetPtr()==actor && record.GetPtr()==fixture.regular,"script grenade lost its actual physics/owner/record");
+        const auto state=ReadItemPhysics(physics);Launch result{state.pos,state.posVelocity};world->GetMiscObjects()->erase(last);return result;
+    };
+    const auto baseline=launch(100);const int chances[]={100,0,roll,roll-1,-1,101};const int chance=chances[mode];const bool scatter=roll>chance;
+    CVec3 expected=baseline.velocity;
+    if(scatter){const float spread=.2f*fabs(baseline.velocity);expected.x+=reference.GetFloat(-spread,spread);expected.y+=reference.GetFloat(-spread,spread);expected.z+=reference.GetFloat(-spread,spread);}
+    const auto actual=launch(chance);const float error=fabs2(actual.velocity-expected);
+    std::printf("native script grenade mode=%d chance=%d roll=%d scatter=%d velocityError=%.7g difference=%.7g\n",mode,chance,roll,int(scatter),error,fabs2(actual.velocity-baseline.velocity));std::fflush(stdout);
+    Require(error<1e-6f && fabs2(actual.position-baseline.position)<1e-8f,"scripted grenade ignored its explicit chance or changed the strict random boundary");
+    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && fixture.grenade->GetQuantity()==quantity && actor->GetPosition()==position && world->GetTime()->GetValue()==time && world->GetMiscObjects()->size()==initialCount && world->IsAction()==action,"script chance consumed inventory/AP/HP/time or leaked projectile action ownership");
+}
+
 static vector<int> NativeVPBoostDurations(NRPG::IUnitMission* mission,int* modifierCount=nullptr)
 {
     CStructureNetworkContext refs;auto fields=BorrowedObjectFields(mission,&refs);vector<int> durations;vector<CPtr<CObjectBase>> modifiers;
@@ -30995,6 +31029,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "script-grenade-chance")) { Require(argc==5,"script grenade chance requires db/resources/mode"); ScriptGrenadeExplicitChance(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "vp-duration-countdown")) { Require(argc==5,"VP countdown requires db/resources/mode"); VPBoostDurationCountdown(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "vp-immediate-overdose")) { Require(argc==5,"VP overdose requires db/resources/mode"); VPBoostImmediateOverdose(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "debug-explosion-routing")) { Require(argc==5,"debug explosion requires db/resources/mode"); DebugExplosionRouting(argv[2],argv[3],std::atoi(argv[4])); return true; }
