@@ -2266,3 +2266,13 @@ Native tests exercise the cost query and preserve actual state. Authored data,
 AP spending and physical carrying/movement/animation are unchanged by the query.
 The2f follow-up's two hunks (unsupported-PK guard and corpse42 placement) are
 now fully accounted for; the broader037c commit remains partial.
+
+### `037c41d9`: cheap-melee32 AP
+
+Restores the acquired ability's multiplier after the weapon's integer melee
+cost: int((1-Param1)*baseAP). Authored .25 reduces item5 natural melee-skill33
+cost11 to8 AP, skill0 cost12 to9 and skill140 cost7 to5. Fractional products
+truncate; the original query has no lower floor. Thrown-knife and other actions
+are outside32's scope. Native tests preserve AP/HP/XP/points, equipment, skills
+and RNG. Authored data, actual AP spending and attack animation are unchanged
+by this cost query. The broader037c source remains partial.

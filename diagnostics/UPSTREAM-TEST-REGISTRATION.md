@@ -578,3 +578,11 @@ unsupported-PK1 retained,5.75 diagonal8 and-2.75 diagonal-4, no AP/HP/shell/XP/
 points/equipment/RNG mutation. Related237Win/237Linux includes native carrier admission,
 null-taker/cancel and carried-body stability; Game builds and CI323 pass. New24
 outside323. Direct AP-query scope; no new full movement/animation claim.
+
+## Cheap-melee32 AP
+
+NativeCheapMeleeAP0..11: resource extended Win/Linux,timeout120. Actual person2,
+native Take32 and equipped authored item5; natural/0/140 melee skill, fractional
+and no-floor parameters, no32/throw/open controls and stable state/RNG. RED7/12
+-> GREEN12/12 each. Game builds, related249Win/249Linux and CI323 pass; new12 outside323.
+Native cost-query scope; no new attack execution/animation claim.

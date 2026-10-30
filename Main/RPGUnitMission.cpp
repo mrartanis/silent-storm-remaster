@@ -644,7 +644,11 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 				if ( !pMelee )
 					return 0;
 				NDb::CRPGMeleeWeapon *pW = pMelee->GetDBMeleeWeapon();
-				return pW->nMaxAP - (pW->nMaxAP - pW->nMinAP) * pRPGUnit->Skills(NDb::ST_MELEE) / N_MAX_SKILL;
+				int nAP = pW->nMaxAP - (pW->nMaxAP - pW->nMinAP) * pRPGUnit->Skills(NDb::ST_MELEE) / N_MAX_SKILL;
+				float fParam;
+				if ( HasPerk( N_PERK_CHEAP_MELEE, &fParam ) )
+					nAP = int( ( 1.0 - double( fParam ) ) * nAP );
+				return nAP;
 			}
 		case AC_BURST:
 			return pRPGUnit->GetWeaponBurstAP();

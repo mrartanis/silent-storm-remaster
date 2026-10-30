@@ -18408,3 +18408,32 @@ builds, related237Win/237Linux including existing carrier-admission/null-taker/c
 stability regressions, and CI323 pass; new24 outside323.
 Sources: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43
 and https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2f5a3c753d9673bfc9aa24b2852a7fe2e1bbf60f.
+
+## 2026-10-30: acquired cheap-melee32 AP (`037c41d9` partial)
+
+AC_MELEE now applies int((1-double(Param1))*baseAP) after the existing integer
+weapon min/max/melee-skill calculation. The existing denominator140 remains.
+Only the missing32 hook changes; no clamp or thrown-knife change is introduced.
+
+NativeCheapMeleeAP0..11 use actual person2, native TakePerk32 and actual equipped
+throwable melee item5 (quantity1, authored min7/max12). Natural melee33 gives
+base11 ->8 with authored Param1=.25; skill0 gives12 ->9, skill140 gives7 ->5.
+RED7/12 each -> GREEN12/12, with five controls passing before the fix. Temporary
+fractional/zero/unit/greater-than-one/negative parameters prove truncation and
+absence of a lower floor (Param1=1.25 gives-2). Parameters are restored. No32,
+throw-knife and open/close controls retain their native costs. AP/HP/XP/points,
+skills, active item/quantity and RNG remain stable. Scope is the native cost
+query, without a new attack execution or animation claim.
+
+Independently mapped original GetActionAP: Gold6bac90/3724, Steam6c0d30,
+secondary mission slot0. Has32 Gold6bb277/Steam6c131d has a four-byte argument
+prefix unique within that mapped method (not globally unique), followed by
+identical seven-byte Has slot78/call-test-skip. Gold6bb286..6bb2ac and
+Steam6c132c..6c1352 independently decode verified1.f minus Param1, integer-base
+multiply and x87 RC11 truncation, with different scratch offsets. Typed melee
+record minAP+24/maxAP+28 and skill index0 establish the retained base formula;
+the signed magic division decodes /140. No whole-method/optional-item ABI or
+exceptional-float/overflow equivalence claim. Evidence: cheap-melee-retail-oracle
+and cheap-melee-verification JSON/raw logs. Game builds, related249Win/249Linux and
+asset-free CI323 pass; new12 are extended/outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
