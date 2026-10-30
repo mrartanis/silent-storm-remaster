@@ -29530,6 +29530,14 @@ static CObj<NRPG::CMeleeWeaponItem> NativeEquipCostMelee(NRPG::CUnit* unit,bool 
     Require(record,"native AP fixture lacks an authored usable melee item/range");CObj<NRPG::CMeleeWeaponItem> item=new NRPG::CMeleeWeaponItem(record);item->nQuantity=1;auto* inventory=unit->GetInventory();CObj<NRPG::IInventoryItem> previous=inventory->TakeOff(NDb::SLOT_1);
     Require(inventory->Equip(NDb::SLOT_1,item) && inventory->Activate(NDb::SLOT_1) && unit->GetMeleeWeaponItem()==item.GetPtr(),"native AP fixture could not equip/activate its authored melee item");return item;
 }
+static void GrenadeTableAP(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=8,"unknown native grenade table AP mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    auto mission=NativeMissionWithUntakenPerk(43);auto* unit=mission->GetRPGUnit();Require(!mission->HasPerk(32),"grenade table fixture has unrelated melee32");auto item=NativeEquipCostMelee(unit,true);auto* record=NDb::GetRPGAP(5);Require(record && record->nAP>0,"grenade table fixture lacks authored RPGAP5");const int authored=record->nAP;struct Restore {NDb::CRPGAP* record;int value;~Restore(){record->nAP=value;}}restore{record,authored};
+    const auto action=mode==5?NRPG::AC_OPEN_CLOSE:mode==6?NRPG::AC_NONE:mode==7?NRPG::AC_MELEE:mode==8?NRPG::AC_THROW_KNIFE:NRPG::AC_THROW_GRENADE;const auto pose=NAI::EPose(mode%4);const int baseline=mission->GetActionAP(pose,action);if(mode==1 || mode==5 || mode==7 || mode==8)record->nAP=24;if(mode==2)record->nAP=7;if(mode==3)record->nAP=0;if(mode==4 || mode==6)record->nAP=-3;const int expected=action==NRPG::AC_THROW_GRENADE?record->nAP:baseline,ap=mission->GetAP(),hp=mission->GetTotalVP(),points=unit->GetPerksTree()->GetPerkPoints(),quantity=item->GetQuantity(),melee=unit->Skills(NDb::ST_MELEE),throwing=unit->Skills(NDb::ST_THROWING);const float xp=unit->fXP;auto random=GlobalGameRandom();const int actual=mission->GetActionAP(pose,action);
+    std::printf("native grenade table AP mode=%d persona=%d authored=%d table=%d action=%d pose=%d cost=%d expected=%d\n",mode,unit->pPers->GetRecordID(),authored,record->nAP,int(action),int(pose),actual,expected);std::fflush(stdout);Require(actual==expected,"native grenade AP ignored table5 or invented a floor/leaked into another action");Require(mission->GetAP()==ap && mission->GetTotalVP()==hp && unit->GetPerksTree()->GetPerkPoints()==points && unit->fXP==xp && int(unit->Skills(NDb::ST_MELEE))==melee && int(unit->Skills(NDb::ST_THROWING))==throwing && unit->GetMeleeWeaponItem()==item.GetPtr() && item->GetQuantity()==quantity && random.Get()==GlobalGameRandom().Get(),"grenade table AP query changed AP/HP/points/XP/skills/item/quantity/RNG");
+}
+
 static void CheapKnifeThrowAPPerk(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=11,"unknown native cheap-knife-throw AP mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
@@ -31473,6 +31481,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "grenade-table-ap")) { Require(argc==5,"grenade table requires db/resources/mode"); GrenadeTableAP(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "cheap-knife-throw-ap")) { Require(argc==5,"knife43 requires db/resources/mode"); CheapKnifeThrowAPPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "throw-knife-base-ap")) { Require(argc==5,"throw base requires db/resources/mode"); ThrowKnifeBaseAP(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "cheap-melee-ap")) { Require(argc==5,"melee32 requires db/resources/mode"); CheapMeleeAPPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }

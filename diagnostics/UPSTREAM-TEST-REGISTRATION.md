@@ -604,3 +604,12 @@ negative parameters, no43/melee/open controls and stable state/RNG. RED7/12 ->
 GREEN12/12 each. Game builds, related56Win/56Linux including prior knife/melee AP,
 knife preview/dispatch/time/feedback/handoff, animation, reload33 and network,
 plus CI323 pass. New12 outside323; cost-query scope.
+
+## Grenade AP table5
+
+NativeGrenadeTableAP0..8: resource extended Win/Linux,timeout120. Native person2,
+runtime-owned RPGAP5 restored after temporary24/7/0/-3, authored20 and four
+non-grenade controls. RED4/9 -> GREEN9/9 each; state/RNG stable. Full Game
+builds, related51Win/51Linux with previous knife/melee AP and existing grenade
+execution/handoff/trajectory, and CI323 pass; new9 outside323. Steam table-driven
+query scope; Gold's fixed20 distinction is recorded, no actual AP-spend claim.

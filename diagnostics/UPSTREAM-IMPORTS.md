@@ -18495,3 +18495,30 @@ Grenade43/table5 and otheraa hunks remain pending. Other037c familiarity/order/
 targeting/evasion/aura hunks remain pending; its melee/knife AP hooks are covered.
 Sources: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918
 and https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: Steam grenade AP table5 (`aa031e2e` partial)
+
+AC_THROW_GRENADE now reads existing RPGAP record5/nAP, falling back to0 if
+absent, instead of hardcoded20. No DB records or schema change. Authored record5
+is20, so the ordinary unperked price stays20. Acquired43 remains a separate
+pending multiplier.
+
+NativeGrenadeTableAP0..8 use actual person2 with untaken43, actual runtime-owned
+RPGAP5 and equipped authored item5 for non-grenade controls. RED4/9 each ->
+GREEN9/9; five controls pass before the fix. Temporary in-memory prices24/7/0/
+-3 now reach the query across four poses, with no invented floor; the authored
+20 and open/none/melee/knife costs stay stable. The record is restored. AP/HP/
+XP/points/skills, active-item identity/quantity and RNG remain stable. This is
+table-driven native cost-query proof, not actual grenade spending/flight.
+
+Version distinction: Gold action13 table6bba68 ->6baf9d uses fixed20 (verified
+float20 at the perk branch, immediate20 at the unperked return). Steam table
+6c1a48 ->6c10a8 loads record5, decoded call7db220, then integer field+10. This
+change follows Steam1.2 table ownership; it does not claim Gold has that table
+read. Both originals separately contain the43 multiplier, still pending here.
+The authored baseline20 agrees. Evidence grenade-ap-retail-oracle and
+grenade-table-verification JSON/raw logs. Full Game builds, related51Win/51Linux
+(prior melee/knife AP and existing grenade execution/handoff/trajectory checks)
+and CI323 pass; new9 extended/outside323. Null-record fallback is defensive
+and not presented as an original null-record parity result.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.

@@ -608,7 +608,11 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 		case AC_SHOOT:   return pRPGUnit->GetWeaponAP();
 		case AC_PREPARE_AND_SHOOT:	return GetActionAP( curPose, AC_PREPARE ) + GetActionAP( curPose, AC_SHOOT );
 		case AC_EXPLODE: return 2;
-		case AC_THROW_GRENADE: return 20; // CRAP
+		case AC_THROW_GRENADE:
+		{
+			NDb::CRPGAP *pAP = NDb::GetRPGAP( 5 );
+			return pAP ? pAP->nAP : 0;
+		}
 		case AC_CLIMB_1: return 10;
 		case AC_CLIMB_2: return 12;
 		case AC_CLIMB_3: return 14;

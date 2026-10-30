@@ -2296,3 +2296,13 @@ queries preserve state/RNG; actual AP spending/flight are outside this change.
 Grenade43 remains a separate pending cost consumer. The037c reload33 consumer
 was already imported with the original Param1 multiplier; no balance rewrite
 or duplicate fix is made for that hunk.
+
+### `aa031e2e`: Steam grenade AP table5
+
+Uses the existing authored RPGAP5 price20 instead of hardcoded20; the ordinary
+unperked balance is unchanged. Runtime-owned table values are respected without
+a lower floor, matching Steam1.2's query. Gold1.1 instead has fixed20; no table
+ownership parity is claimed across these versions. Temporary24/7/0/-3 test
+values are restored and never written to DB assets. Native query state/RNG
+remain stable. Cheap-throw43 is still pending for grenades; actual AP spending
+and projectile execution are outside this table lookup change.
