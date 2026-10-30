@@ -16769,3 +16769,43 @@ hunks, not every possible random-encounter subsystem behavior. Own b709 guard,
 map adapters, UI/audio/font/HD/body/facial behavior and saved fields remain.
 Ledger170 imported/17partial/56pending=73unfinished source commits.
 Whole upstream goal/final actual hosted CI/balance-review delivery remain active.
+
+
+## `ad118e4a`: предметы при включении физики пересекали пол
+
+Источник: [ad118e4aec1b20a66da1b9c8628fd6a8f39101f2](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/ad118e4aec1b20a66da1b9c8628fd6a8f39101f2).
+
+До production-изменений скомпилированный native RED3/9 на Windows и Linux:
+два случая CASphereSet начинали с центрами сфер на полу и за первые100мс
+уходили ниже него. Третий проходит обычный игровой путь AddFrozenItem ->
+ActivateDebris: книга438 из ресурсов с шестью настоящими модельными сферами
+просыпалась с нижней поверхностью на-.05. Шесть контрольных случаев проходили.
+Физический коллайдер настоящей карты подтвердил восходящую нормаль и расстояния
+в единицах мира, по одному результату на входную сферу.
+
+Перенесены helper ResolveInitialFloorContact и его вызов после установки
+позиции: только !bMassCenter и ePhysCase != PH_GRENADE_ATTACK. Вертикальный
+sweep сверху устраняет начальное пересечение; lastPos синхронизируется для
+интерполяции. Собственные GameRandom(), исходные три ISAAC-вызова, выбор
+PhysParams, массы, инерция, скорости и collision/floor bookkeeping сохранены.
+CParticleSkeleton, мимика, рендер, шрифты и HD не изменялись. Новых полей,
+тегов сохранения или коэффициентов нет; вся остальная production-часть побайтно
+сверена с родителем после удаления только добавленного helper/guard/declaration.
+
+GREEN9/9 на каждой платформе. Книга поднимается ровно на.05; два начальных
+пересечения исправлены, центры после100мс остаются над полом. Пять траекторий
+совпадают с RED побитно по напечатанным round-trip float значениям: два
+исключения гранат, mass-center, предмет выше пола и отсутствие пола. У уже
+касающегося пола предмета разница после100мс менее2e-7 (округление float).
+
+Свежие Win ALL_BUILD и Linux Game+helpers успешны. Дополнительные35 проверок
+физики/гранат/анимации тела/сериализации прошли на каждой платформе. Linux:
+сначала34 прошли, один trace helper был Not Run из-за отсутствующего бинарника;
+его отдельно собрали и проверили1/1, успешные34 повторно не запускались.
+Локальный asset-free CI305/305. Native RED/GREEN, build/exit/raw logs и проверка
+полноты исходных двух файлов: item-floor-verification.json в
+G:/SS/lab/evidence/upstream-remaster-20261024.
+
+Ledger171 imported /17partial /55pending:72 исходных коммита ещё не закрыты.
+Полная задача, окончательный hosted GitHub Actions и итоговая выдача отчёта
+по балансу остаются незавершёнными.

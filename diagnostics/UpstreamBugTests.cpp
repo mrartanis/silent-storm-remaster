@@ -138,6 +138,7 @@ extern CBasicShare<int,CChapterInfoLoader> shareChapterInfo;
 #include "../Main/RPGBullet.h"
 #include "../Main/aiPath.h"
 #include "../Main/GAnimParticles.h"
+#include "../Main/phCollider.h"
 #include "../Main/GParticleInfo.h"
 #include "../Main/GAnimation.h"
 #include "../Main/GAnimPath.h"
@@ -7575,6 +7576,137 @@ static void DecalProjection()
     CObj<ProjectionRecorder> transformed = new ProjectionRecorder(part, saved);
     transformed->Rebuild();
     Require(transformed->captured == saved, "transformed decal lost its original projection pose");
+}
+
+
+struct ItemPhysicsSnapshot
+{
+    vector<SMassSphere> spheres;
+    CVec3 pos,lastPos,momentum,angular,posVelocity;
+    CDBPtr<NDb::CDBPhysParams> parameters;
+};
+
+static ItemPhysicsSnapshot ReadItemPhysics(NAnimation::CASphereSet* item)
+{
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(item,&refs);
+    ItemPhysicsSnapshot result;
+    CStructureSaver reader(fields,CStructureSaver::READ,&refs);
+    reader.Add(2,&result.spheres);reader.Add(8,&result.pos);reader.Add(10,&result.momentum);
+    reader.Add(11,&result.angular);reader.Add(12,&result.lastPos);reader.Add(18,&result.parameters);
+    reader.Add(23,&result.posVelocity);
+    return result;
+}
+
+struct ItemFloorTrack
+{
+    CPtr<NWorld::CDItem> item;CPtr<NAnimation::CASphereSet> animator;
+    int operator&(CStructureSaver& saver) { saver.Add(2,&item);saver.Add(3,&animator);return 0; }
+};
+struct ItemFloorController
+{
+    list<ItemFloorTrack> items;
+    int operator&(CStructureSaver& saver) { saver.Add(2,&items);return 0; }
+};
+
+static void AuthoredItemInitialFloorContact(NWorld::CWorld* world)
+{
+    auto* book=NDb::GetRPGItem(438);
+    Require(book && IsValid(book->pModel),"authored waking item has no native book model");
+    CObj<NRPG::IInventoryItem> inventory=NRPG::CreateClueItem(book);
+    CObj<NWorld::CDFrozenItem> frozen=world->AddFrozenItem(world->GetAIMap(),CVec3(2,2,0),QNULL,inventory,false,0);
+    Require(frozen && frozen->GetModel().pModel,"native frozen book construction failed");
+    vector<SMassSphere> authored;CVec3 massCenter;
+    NAI::GetSpheres(frozen->GetModel().pModel,&authored,&massCenter);
+    Require(!authored.empty(),"native book has no authored physics spheres");
+    float originalBottom=1.e10f;
+    for(const auto& sphere:authored) originalBottom=Min(originalBottom,sphere.ptCenter.z-Max(.05f,sphere.fRadius));
+    std::printf("authored waking book438 sphere-count=%zu initial-lowest-surface=%.9g\n",authored.size(),originalBottom);std::fflush(stdout);
+    Require(originalBottom<-.001f,"authored waking book fixture does not reproduce an initial floor overlap");
+    GlobalGameRandom().SeedForHarness(0x6e41);auto reference=GlobalGameRandom();
+    for(int axis=0;axis<3;++axis)reference.GetFloat(-2.f,2.f);
+    world->ActivateDebris(frozen,world->GetAIMap(),world->GetTime());
+    auto actual=GlobalGameRandom();Require(actual.Get()==reference.Get(),"native waking book changed its three ISAAC initialization draws");
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(world,&refs);ItemFloorController controller;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(5,&controller);}
+    Require(controller.items.size()==1 && controller.items.front().animator && controller.items.front().item,
+        "native activation did not replace the frozen book with one physics item");
+    auto* animator=controller.items.front().animator.GetPtr();auto initial=ReadItemPhysics(animator);
+    Require(controller.items.front().item->GetInvItem()==inventory.GetPtr(),"native activation replaced the authored inventory item");
+    float bottom=1.e10f;
+    for(const auto& sphere:initial.spheres)bottom=Min(bottom,initial.pos.z+sphere.ptCenter.z-sphere.fRadius);
+    std::printf("authored waking book438 native-center-z=%.9g lowest-surface=%.9g physics=%s\n",
+        initial.pos.z,bottom,initial.parameters?initial.parameters->szName.c_str():"missing");std::fflush(stdout);
+    Require(bottom>=-.0001f,"authored frozen book wakes with its collision spheres still embedded in the native floor");
+    Require(fabs(initial.lastPos-initial.pos)<.00001f,"authored waking book left its interpolation origin embedded");
+    Require(initial.parameters && initial.parameters->szName=="ItemThrowOut","authored waking book changed its original physics parameters");
+}
+
+static void ItemInitialFloorContact(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=8,"unknown item floor-contact case");
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    CObj<NRPG::CGlobalGame> game=NRPG::CreateGlobalGame(1);
+    CObj<NWorld::CWorld> world=new NWorld::CWorld(game);world->CreateDefault();
+    Require(world->GetAIMap()!=nullptr,"native item physics has no map");
+    if(mode==8) { AuthoredItemInitialFloorContact(world);return; }
+    const bool noFloor=mode==7;
+    const bool centerOrigin=mode==4 || mode==6;
+    const auto physicsCase=mode==4 || mode==5 ? NAnimation::PH_GRENADE_ATTACK :
+        mode==1 ? NAnimation::PH_FALL_FROM_BODY : NAnimation::PH_THROW_OUT;
+    const CVec3 origin(noFloor?-100.f:2.f,noFloor?-100.f:2.f,mode==2?.2f:mode==3?1.f:0.f);
+    vector<SMassSphere> spheres{SMassSphere(CVec3(-.15f,0,0),.2f,1),SMassSphere(CVec3(.15f,0,0),.2f,1)};
+    vector<SSphere> probes;vector<CVec3> sweeps;
+    for(const auto& sphere:spheres) {
+        probes.push_back(SSphere(origin+sphere.ptCenter+CVec3(0,0,sphere.fRadius),sphere.fRadius));
+        sweeps.push_back(CVec3(0,0,-2*sphere.fRadius));
+    }
+    vector<NAI::SCollisionPoint> contacts;
+    NAI::PhysCollideInfo(world->GetAIMap(),probes,sweeps,&contacts,NWorld::TS_ITEM_BLOCKER);
+    Require(contacts.size()==spheres.size(),"native floor collider changed its dense sphere/result correspondence");
+    for(const auto& contact:contacts) {
+        if(noFloor || mode==3) Require(contact.fDist==NAI::FP_NO_COLLISION,"floor-free control unexpectedly swept into geometry");
+        else {
+            Require(contact.fDist!=NAI::FP_NO_COLLISION && contact.plane.n.z>.99f,"native flat terrain did not supply its upward contact");
+            const float expected=mode==2?.2f:0.f;
+            Require(std::abs(contact.fDist-expected)<.0001f,"native sweep contact distance is not measured in world units");
+            std::printf("item floor mode=%d sweep-distance=%.9g normal-z=%.9g\n",mode,contact.fDist,contact.plane.n.z);
+        }
+    }
+    CObj<CCTime> clock=new CCTime(1000);
+    CObj<NAnimation::CASphereSet> item=new NAnimation::CASphereSet(spheres,VNULL3,CVec3(1,1,1),nullptr,-2);
+    item->pMap=world->GetAIMap();item->pTime=clock;
+    GlobalGameRandom().SeedForHarness(0x6e41);auto expectedRandom=GlobalGameRandom();
+    CVec3 angular;
+    angular.x=expectedRandom.GetFloat(-2.f,2.f)/3.f;
+    angular.y=expectedRandom.GetFloat(-2.f,2.f)/3.f;
+    angular.z=expectedRandom.GetFloat(-2.f,2.f)/3.f;
+    const CVec3 velocity(.1f,-.2f,0);
+    item->Init(1000,origin,QNULL,velocity,centerOrigin,physicsCase,nullptr);
+    auto actualRandom=GlobalGameRandom();
+    Require(actualRandom.Get()==expectedRandom.Get(),"initial floor correction changed the original three ISAAC draws");
+    auto initial=ReadItemPhysics(item);
+    Require(initial.parameters && initial.parameters->szName==(physicsCase==NAnimation::PH_GRENADE_ATTACK?"GrenadeAttack":mode==1?"ItemFallFromBody":"ItemThrowOut"),
+        "initial floor correction changed the authored physics case");
+    Require(fabs(initial.momentum-velocity*2.f)<.00001f && fabs(initial.posVelocity-velocity)<.00001f &&
+        fabs(initial.angular-angular)<.00001f,"initial floor correction changed native momentum or initial velocity");
+    Require(!item->DidCollide() && !item->HasStopped() && item->GetFloor()==-2,"initial placement changed collision/rest/floor bookkeeping");
+    Require(initial.spheres.size()==2,"native item fixture unexpectedly expanded its touching sphere chain");
+    const bool lift=mode==0 || mode==1;
+    const float expectedZ=origin.z+(lift?.2f:0.f);
+    std::printf("item floor mode=%d initial-origin-z=%.9g native-center-z=%.9g prior-z=%.9g expected-z=%.9g dt=%u\n",
+        mode,origin.z,initial.pos.z,initial.lastPos.z,expectedZ,initial.parameters->DELTA_T_DWORD);
+    item->Calc(1100);auto advanced=ReadItemPhysics(item);
+    std::printf("item floor mode=%d after100ms-center-z=%.9g collided=%d\n",mode,advanced.pos.z,item->DidCollide());
+    std::printf("item trajectory mode=%d pos=%.9g,%.9g,%.9g momentum=%.9g,%.9g,%.9g angular=%.9g,%.9g,%.9g prior=%.9g,%.9g,%.9g velocity=%.9g,%.9g,%.9g\n",
+        mode,advanced.pos.x,advanced.pos.y,advanced.pos.z,advanced.momentum.x,advanced.momentum.y,advanced.momentum.z,
+        advanced.angular.x,advanced.angular.y,advanced.angular.z,advanced.lastPos.x,advanced.lastPos.y,advanced.lastPos.z,
+        advanced.posVelocity.x,advanced.posVelocity.y,advanced.posVelocity.z);std::fflush(stdout);
+    Require(std::abs(initial.pos.z-expectedZ)<.0001f,
+        "item physics starts with its mass spheres embedded in the native terrain floor");
+    Require(fabs(initial.lastPos-initial.pos)<.00001f,"initial floor correction left the interpolation origin below the floor");
+    Require(std::abs(initial.pos.x-origin.x)<.00001f && std::abs(initial.pos.y-origin.y)<.00001f,
+        "initial floor correction displaced the item horizontally");
 }
 
 static CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* resourcePath,
@@ -29321,6 +29453,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "item-initial-floor")) { Require(argc == 5, "item floor contact requires db, resources and mode"); ItemInitialFloorContact(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "inactive-random-encounter")) { Require(argc == 6, "inactive encounter requires db, resources, viewport and mode"); InactiveRandomEncounter(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "global-map-script-lifecycle")) { Require(argc == 6, "global map lifecycle requires db, resources, context and mode"); GlobalMapScriptLifecycle(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-ai-flash")) { Require(argc == 6, "world AI flash requires db, resources, context and mode"); WorldAIFlash(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
