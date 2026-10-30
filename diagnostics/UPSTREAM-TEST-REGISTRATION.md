@@ -568,3 +568,13 @@ controls. RED6/16 -> GREEN16/16 each; AP/HP/shell/XP/points/equipment/RNG stable
 Native inventory shows34/tree6 separate, so failed mixed-owner setup is archived
 and no synthetic joint tree is used. Related196Win/196Linux, Game builds, CI323.
 New16 outside323; direct AP-query scope, no native joint34/35 claim.
+
+## Corpse-tracker42 AP and PK precedence
+
+NativeCorpseTrackerAP0..23: resource extended Win/Linux,timeout120. Actual
+person34/native Take42, four body poses, actual suit1, no42/normal/early-action
+controls and fractional/negative parameters. RED14/24 -> GREEN24/24 each;
+unsupported-PK1 retained,5.75 diagonal8 and-2.75 diagonal-4, no AP/HP/shell/XP/
+points/equipment/RNG mutation. Related237Win/237Linux includes native carrier admission,
+null-taker/cancel and carried-body stability; Game builds and CI323 pass. New24
+outside323. Direct AP-query scope; no new full movement/animation claim.

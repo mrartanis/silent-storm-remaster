@@ -742,6 +742,10 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 		case NAI::RUN:
 		{
 			int nPose = ( NAI::RUN - curPose + 1 ) * 2;
+			float fCorpseAP;
+			if ( ( action == AC_MOVE_CORPSE_SIDE || action == AC_MOVE_CORPSE_DIAGONAL ) &&
+				HasPerk( N_PERK_CORPSE_TRACKER, &fCorpseAP ) )
+				return int( action == AC_MOVE_CORPSE_SIDE ? double( fCorpseAP ) : double( fCorpseAP ) * 1.5 );
 			switch ( action )
 			{
 				case AC_MOVE_SIDE:		return nPose + nAddedAP;

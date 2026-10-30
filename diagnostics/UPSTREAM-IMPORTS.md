@@ -18374,3 +18374,37 @@ guard, as the actual worn-PK positive cases prove. Evidence: crouch-costs-walk-
 CI323 pass; new16 outside323. Corpse42 and other037c hunks remain pending;
 2f5a3c75 remains partial until corpse42 ordering is accounted for.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: corpse-tracker42 AP and final PK order (`037c41d9` partial; `2f5a3c75` complete)
+
+Acquired42 returns int(Param1) for corpse-side and int(double(Param1)*1.5) for
+corpse-diagonal queries. The hook is inside valid-pose0..3 dispatch, after the
+existing34/35 recursive substitutions and worn-PK unsupported-pose guard.
+This imports the037c ability directly at the final2f follow-up position, with
+the previously imported c203fbf0 unsupported-PK guard. All2f hunks are now
+accounted for; other037c accuracy/evasion/melee/throw hunks remain pending.
+
+NativeCorpseTrackerAP0..23 use actual authored person34/native TakePerk42,
+authored Param1=4 and actual PK suit1/add4/positive shell health. RED14/24 each
+-> GREEN24/24; ten controls pass before the fix. Ordinary corpse-side/diagonal
+queries across four poses now give4/6; valid PK queries also use fixed4/6
+instead of adding suit movement AP. Unsupported PK CRAWL/CROUCH still return1,
+including temporary positive/negative parameters, proving the guard precedes42.
+Normal movement, corpse pickup, AC_NONE and no42 controls retain their costs.
+Temporary5.75 yields side5/diagonal8 (multiply before truncation); -2.75 gives
+-2/-4 without an invented lower clamp. Parameters are restored; no DB files
+change. AP/HP/shell health, XP, points, equipment and RNG remain stable. Scope
+is the native cost API; no new complete carrying/movement/animation claim.
+
+Original Gold/Steam movement action tables6bbb0c/6c1afc map actions1..4 to
+side/diagonal/corpse-side/corpse-diagonal. Identical Has42 gates16bytes occur
+twice; each original table independently disambiguates the corpse-side/diagonal
+bodies (Gold6bb834/6bb8dd; Steam6c1815/6c18be). Verified diagonal constant1.5
+is Gold8a5cf8 / Steam8b4d90. Both originals set x87 RC=11 before integer store;
+scratch offsets differ and are decoded independently. The valid-pose and PK
+guards precede this dispatch. No whole method/ABI or exceptional-float claim.
+Evidence: corpse-tracker-{retail-oracle,verification}.json/raw logs. Game
+builds, related237Win/237Linux including existing carrier-admission/null-taker/cancel/
+stability regressions, and CI323 pass; new24 outside323.
+Sources: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43
+and https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2f5a3c753d9673bfc9aa24b2852a7fe2e1bbf60f.

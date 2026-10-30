@@ -2253,3 +2253,16 @@ Native tests confirm this order. Actual pose and AP spending are unchanged
 by the query. The original DB assigns34 and35 to different trees; their generic
 recursive composition is retained by code without claiming vanilla joint
 learning or a native combined-owner test.
+
+### `037c41d9` / `2f5a3c75`: corpse-tracker42 AP and PK order
+
+Restores fixed corpse-side/diagonal query costs from the acquired ability:
+authored Param1=4 gives4/6 AP across valid poses, including valid worn-PK poses.
+These fixed costs can increase a RUN query (ordinary3/4 becomes4/6), matching
+the original rule. Worn-PK unsupported CRAWL/CROUCH still return1 before42 is
+queried. Pose-independent actions and ordinary movement retain their costs.
+Fractional parameters multiply before truncation; the API has no lower clamp.
+Native tests exercise the cost query and preserve actual state. Authored data,
+AP spending and physical carrying/movement/animation are unchanged by the query.
+The2f follow-up's two hunks (unsupported-PK guard and corpse42 placement) are
+now fully accounted for; the broader037c commit remains partial.
