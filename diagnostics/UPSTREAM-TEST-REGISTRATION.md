@@ -622,3 +622,12 @@ table7/0/-3, no43/table24, melee/open and already fixed knife43 controls.
 RED7/14 -> GREEN14/14 each, state/RNG stable, runtime values restored. Full
 Game builds, related65Win/65Linux and CI323 pass; new14 outside323. Cost-query scope;
 existing grenade execution/handoff/trajectory checks included.
+
+## Better-evasion40 IC
+
+NativeBetterEvasion0..11: resource extended Win/Linux,timeout120. Native
+person41/Take40, authored0.15, skill0/21/23/140, fractional/negative/>1/
+zero parameters and nearest-even tie cases. RED8/12 -> GREEN12/12 each; four
+pre-fix controls, stable AP/HP/XP/points/skill/RNG. Game builds, related31Win/31Linux
+and CI323 pass; new12 outside323. Native GetIC query only, no new attack roll,
+practice, explosion39/aura or damage-reduction claim.

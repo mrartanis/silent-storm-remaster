@@ -18547,3 +18547,28 @@ pass; new14 extended/outside323. Allaa throw-AP hunks are now accounted for;
 explosive rounding/fragments/trace, grass, scenario knockout and melee-miss
 dispatch hunks remain pending for individual audit.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.
+
+## 2026-10-30: better-evasion40 IC (`037c41d9` partial)
+
+GetIC converts the effective skill to a stored float, applies acquired40's
+(1+double(Param1)) multiplier with a float store, then Float2Int using the active
+rounding mode. There is no new clamp or forced truncation. NativeBetterEvasion
+0..11 use actual person41/native Take40 and authored Param1=0.15; IC21
+becomes24. RED8/12 each -> GREEN12/12; four controls pass before the fix.
+No40, zero skill/parameter, effective140, temporary fractional/negative/>1
+parameters cover ownership and no floor/cap. Under the normal nearest-even mode,
+Param.5 makes21 ->32 and23 ->34, also1 ->2; -1.5 makes21 ->-10. These cases
+distinguish rounding from truncation and ties-away. Parameters are restored;
+AP/HP/XP/points, effective IC and RNG stay stable. This is the native GetIC
+query; attack-specific39/aura, CheckIC practice/RNG and damage are independent
+pending changes.
+
+Gold PDB GetIC6b9ce0/103 uniquely matches Steam6bfef0, with only the decoded
+fadds absolute pointer at offsets78..81 masked. Both pointed values independently
+verify1.f. Stored-float multiply then reload/FISTP are present; no x87 rounding
+mode overwrite occurs. The source comment6bff40 is not this function's entry in
+our independently identified Steam binary. Evidence evasion-getic-retail-oracle
+and better-evasion-verification JSON/raw logs. Full Game builds, related31Win/31Linux
+(IC health-survival, PK damage/critical and existing portable critical checks)
+and CI323 pass; new12 extended/outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

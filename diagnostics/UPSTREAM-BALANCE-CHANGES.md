@@ -2316,3 +2316,13 @@ Temporary table7/.25 gives5 and table-3/.25 gives-2. Gold has fixed20 while
 Steam uses table5; both have this multiplier. Runtime test values are restored,
 DB assets and query state/RNG remain unchanged. Knife43 and melee32 retain
 their independent rules. Actual AP spending/flight are outside this hook.
+
+### `037c41d9`: better-evasion40 IC
+
+Restores acquired40's (1+Param1) multiplier to the stored effective IC float,
+then rounds through Float2Int with the current mode. Authored Param1=0.15
+makes IC21 become24 for actual person41. With normal nearest-even mode,
+temporary.5 gives21 ->32 and23 ->34; no floor or upper clamp is invented.
+The native query preserves effective skills and state/RNG. Attack-specific39,
+aura, CheckIC training/random consumption and incidental damage remain separate
+pending consumers; this change does not claim their full restoration.

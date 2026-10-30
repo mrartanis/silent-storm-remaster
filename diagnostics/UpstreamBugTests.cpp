@@ -29570,6 +29570,15 @@ static void ThrowKnifeBaseAP(const char* databasePath,const char* resourcePath,i
     Require(actual==expected,"native throw-knife AP retained a fixed cost, used melee skill or leaked32 into throwing");Require(mission->GetAP()==ap && mission->GetTotalVP()==hp && tree->GetPerkPoints()==points && unit->fXP==xp && int(unit->Skills(NDb::ST_MELEE))==melee && int(unit->Skills(NDb::ST_THROWING))==throwing && unit->GetMeleeWeaponItem()==item.GetPtr() && item->GetQuantity()==quantity && random.Get()==GlobalGameRandom().Get(),"throw AP query changed AP/HP/points/XP/skills/item/quantity/RNG");
 }
 
+static void BetterEvasionPerk(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=11,"unknown native better-evasion mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    auto mission=NativeMissionWithUntakenPerk(40);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();auto* perk=NDb::GetDBPerk(40);Require(perk && !perk->params.empty() && perk->params[0]>0 && perk->params[0]<1,"evasion fixture lacks an ordinary authored40 bonus");const float authored=perk->params[0];struct Restore {NDb::CDBPerk* perk;float value;~Restore(){perk->params[0]=value;}}restore{perk,authored};
+    int skill=21,expected=int(std::nearbyint(float((1.0+double(authored))*21)));const bool acquired=mode!=0 && mode!=10;if(mode==0)expected=21;if(mode==2){skill=0;expected=0;}if(mode==3){skill=140;expected=int(std::nearbyint(float((1.0+double(authored))*140)));}if(mode==4){perk->params[0]=.5f;expected=32;}if(mode==5){skill=23;perk->params[0]=.5f;expected=34;}if(mode==6){perk->params[0]=0;expected=21;}if(mode==7){perk->params[0]=-1;expected=0;}if(mode==8){perk->params[0]=-1.5f;expected=-10;}if(mode==9){perk->params[0]=1.25f;expected=47;}if(mode==10){skill=140;expected=140;}if(mode==11){skill=1;perk->params[0]=.5f;expected=2;}unit->Skills(NDb::ST_IC).SetConst(skill);Require(int(unit->Skills(NDb::ST_IC))==skill,"native effective IC setup failed");
+    const int points=tree->GetPerkPoints();if(acquired){tree->AddPerkPoints(1);tree->TakePerk(40);}Require(mission->HasPerk(40)==acquired && tree->GetPerkPoints()==points,"native40 grant failed or changed point budget");const int ap=mission->GetAP(),hp=mission->GetTotalVP();const float xp=unit->fXP;auto random=GlobalGameRandom();const int actual=mission->GetIC();std::printf("native better-evasion mode=%d persona=%d acquired=%d skill=%d authored=%.6g param=%.6g IC=%d expected=%d\n",mode,unit->pPers->GetRecordID(),int(acquired),skill,authored,perk->params[0],actual,expected);std::fflush(stdout);
+    Require(actual==expected,"native IC query ignored40, truncated instead of rounded or invented a clamp");Require(mission->GetAP()==ap && mission->GetTotalVP()==hp && tree->GetPerkPoints()==points && unit->fXP==xp && int(unit->Skills(NDb::ST_IC))==skill && random.Get()==GlobalGameRandom().Get(),"IC query changed AP/HP/points/XP/skill/RNG");
+}
+
 static void CheapMeleeAPPerk(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=11,"unknown native cheap-melee AP mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
@@ -31494,6 +31503,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "grenade-table-ap")) { Require(argc==5,"grenade table requires db/resources/mode"); GrenadeTableAP(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "cheap-knife-throw-ap")) { Require(argc==5,"knife43 requires db/resources/mode"); CheapKnifeThrowAPPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "throw-knife-base-ap")) { Require(argc==5,"throw base requires db/resources/mode"); ThrowKnifeBaseAP(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "better-evasion")) { Require(argc==5,"evasion40 requires db/resources/mode"); BetterEvasionPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "cheap-melee-ap")) { Require(argc==5,"melee32 requires db/resources/mode"); CheapMeleeAPPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "corpse-tracker-ap")) { Require(argc==5,"corpse42 requires db/resources/mode"); CorpseTrackerAPPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "crouch-costs-walk")) { Require(argc==5,"crouch35 requires db/resources/mode"); CrouchCostsWalkPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }

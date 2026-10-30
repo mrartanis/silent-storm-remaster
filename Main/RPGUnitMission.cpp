@@ -1580,9 +1580,11 @@ int CUnitMission::GetMeleeToHit( const CVec3 &ptAttacker, const NAI::SPosition &
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitMission::GetIC() const
 {
-	//const float fMoveCoeff = 0.65f;
-	//return ( 100 - pRPGUnit->Skills(NDb::ST_IC) ) * int( 100 - float(nMoveInLastTurn) * fMoveCoeff ) / 100;
-	return pRPGUnit->Skills(NDb::ST_IC);
+	float fIC = pRPGUnit->Skills( NDb::ST_IC );
+	float fParam;
+	if ( HasPerk( N_PERK_BETTER_EVASION, &fParam ) )
+		fIC = ( 1.0 + double( fParam ) ) * fIC;
+	return Float2Int( fIC );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnitMission::CheckIC()
