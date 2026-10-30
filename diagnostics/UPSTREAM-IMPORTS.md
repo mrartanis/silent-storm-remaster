@@ -16069,3 +16069,39 @@ Evidence: world-camera-clipping-verification.json, RED/GREEN and original
 verification JSONs, exact native raw logs. Source remains PARTIAL for
 camera locator/lock/floor/AI flash/clue/video and camera-executor updates.
 Ledger166 imported/19 partial/58 pending =77 unfinished; whole goal active.
+
+### camera-clipping-fixture-isolation — keep camera command tests on their native map
+
+Own test-only follow-up to f516700cf7b6afb75cd27fc4de616ac53582fabd; related
+dispatch source cb954e2e455b632c0174b88b2d051ac74e780ce0. An initial extended
+run failed NativeWorldCameraClipping0_2 before its first camera assertion:
+chapter UI drawing queued an unrelated interface. The pending camera-lock
+production draft was removed before independent reproduction on this parent.
+Native repeated execution reproduced the failure; opt-in transition-only
+backtrace proves CICBeginMission via CommandWithAutoSave <- CRandomSector
+UpdateSector <- chapter UI Draw. Actual failed state at1100: team185,229,
+visible random template4351 hit1. Exit sector also hit1, but independently
+bounded actual ELF producer symbols identify the random-sector transition.
+This is a legitimate visible encounter interfering with an unrelated test;
+do not claim an origin/inactive-marker gameplay bug or change encounter rules.
+
+Before real CICBeginChapter, remove only RANDOM sectors from the actual cached
+CChapterInfo in this test process. Keep authored zones/exits, restore the full
+vector with RAII, assert actual constructed UI has no random sector. Add
+failure-only interface/queue/travel diagnostics. Every prior source line and
+positive Lua/camera/identity/repeated-change/projection assertion retained.
+No Main/CMake/DB/save/balance changes. All temporary production tracing removed;
+iMain original SHA256 restored. Save ELF hash/bounded symbols/raw stack only,
+no old executable or per-bug build retained. Pending lock draft stays separate.
+
+Fresh native fixture6/6 on Windows/Linux, then previously failing chapter
+case10/10 Windows and50/50 Linux actual repetitions (two clipping updates each).
+Local CI305/305; exact raw names/rows/exits/manifest verified. Chapter record
+and removed/retained counts logged per process; do not assume one fixed map
+or change authored gameplay data. Existing two builds reused, no HD/PNG work.
+
+Evidence: camera-clipping-fixture-isolation-verification.json,
+camera-clip-fixture-transition-cause.json, original initial extended failure,
+independent parent trace and fresh native fixture/stress/CI raw logs.
+This is our fixture adaptation, not a literal upstream test hunk. Ledger
+166/19/58 =77 unfinished sources; whole goal/final hosted Actions remain.

@@ -7870,6 +7870,12 @@ static void WorldScriptCameraClipping(const char* databasePath,const char* resou
     CObj<NDb::CScript> quiet=new NDb::CScript;quiet->strCode="function OnEnterZone() end";
     struct RestoreScripts {vector<std::pair<CPtr<NDb::CTemplVariant>,CPtr<NDb::CScript>>> variants;CPtr<NDb::CChapterMap> chapter;CPtr<NDb::CScript> entry;
         ~RestoreScripts(){for(auto& p:variants)if(IsValid(p.first))p.first->pScript=p.second;if(IsValid(chapter))chapter->pScript=entry;}} restore;
+    // This command fixture must not enter a randomly placed encounter while drawing the map.
+    struct SectorRestore {
+        CObj<CChapterInfo> info;
+        vector<SChapterSector> original;
+        ~SectorRestore() { if(IsValid(info)) info->sectorsSet.swap(original); }
+    } sectors;
     CObj<NRPG::CGlobalGame> game;
     if(context==0){
         CDBIterator<NDb::CChapterMap> maps(*NDatabase::GetTable<NDb::CChapterMap>());while(maps.MoveNext())if(IsValid(maps.Get()->pBackground)){restore.chapter=maps.Get();break;}
@@ -7877,6 +7883,15 @@ static void WorldScriptCameraClipping(const char* databasePath,const char* resou
         game=NRPG::CreateGlobalGame(1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
         list<CPtr<NScenario::CScenarioClue>> clues;game->pScenarioTracker->GetAvailableClues(&clues);for(auto clue:clues)if(IsValid(clue))clue->SetJustFound(false);
         for(auto merc:game->players.front()->mercs){vector<CDBPtr<NDb::CMedal>> medals;merc->GetJustFoundMedals(&medals);}
+        CDGPtr<CPtrFuncBase<CChapterInfo>> info=shareChapterInfo.Get(restore.chapter->GetRecordID());
+        info.Refresh();sectors.info=info->GetValue();
+        Require(IsValid(sectors.info),"camera clipping fixture lacks its actual cached map info");
+        sectors.original=sectors.info->sectorsSet;auto& isolated=sectors.info->sectorsSet;
+        isolated.erase(std::remove_if(isolated.begin(),isolated.end(),
+            [](const SChapterSector& sector){return sector.eType==RANDOM;}),isolated.end());
+        Require(!isolated.empty(),"camera clipping isolation removed every authored zone and exit");
+        std::printf("camera clipping isolation mode=%d map=%d randomRemoved=%zu retained=%zu\n",
+            mode,restore.chapter->GetRecordID(),sectors.original.size()-isolated.size(),isolated.size());
         CObj<NGame::CICBeginChapter> enter=new NGame::CICBeginChapter(restore.chapter->GetRecordID(),game);enter->Exec();
     }else{
         CDBIterator<NDb::CTemplVariant> variants(*NDatabase::GetTable<NDb::CTemplVariant>());
@@ -7892,6 +7907,11 @@ static void WorldScriptCameraClipping(const char* databasePath,const char* resou
     Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand(),"world camera clipping warm-up opened an unrelated interface");
     while(auto* pending=world->GetUICommand()){CObj<NWorld::CUICmd> release=pending;}
 
+    if(context==0){
+        auto* ui=dynamic_cast<NUI::CChapterMapUI*>(owner->GetInterface()->GetChildByID("chaptermapUI"));
+        Require(ui && ui->GetTravelForDiagnostics().find(" type=1 template=")==string::npos,
+            "camera clipping fixture UI retained a random encounter");
+    }
     auto* camera = owner->GetCamera();
     Require(camera && (context==0 ? owner->GetActivePlayer()!=nullptr : owner->GetActivePlayer()==nullptr),
         "world camera clipping fixture lost its actual player/null-player distinction");
@@ -7913,6 +7933,13 @@ static void WorldScriptCameraClipping(const char* databasePath,const char* resou
         Require(ran,"camera clipping Lua producer never ran");
         NMainLoop::SetTimeForHarness(1100+round*50);
         Require(NMainLoop::StepApp(true,false,false),"camera clipping native interface frame exited");
+        if(NMainLoop::GetCurrentInterfaceForHarness()!=owner.GetPtr() || NMainLoop::HaveInterfaceCommand()) {
+            auto* current=NMainLoop::GetCurrentInterfaceForHarness();
+            std::printf("camera clipping transition context=%d mode=%d round=%d active=%s queued=%d\n",context,mode,round,
+                current?typeid(*current).name():"null",int(NMainLoop::HaveInterfaceCommand()));
+            if(auto* ui=dynamic_cast<NUI::CChapterMapUI*>(owner->GetInterface()->GetChildByID("chaptermapUI")))
+                std::printf("%s",ui->GetTravelForDiagnostics().c_str());
+        }
         Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand(),
             "camera clipping fixture opened an unrelated interface");
         auto* selected=owner->GetCamera();float actualNear=-1,actualFar=-1;
