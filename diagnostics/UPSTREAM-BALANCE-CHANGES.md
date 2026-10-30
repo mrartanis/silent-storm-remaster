@@ -2233,3 +2233,12 @@ as12/10 for side movement. WALK/RUN and pose-independent actions retain their
 costs. Native tests exercise the query, not movement/animation execution.
 Original pose-ability recursion precedes this guard; corpse42 ordering remains
 pending with that ability's predecessor. No authored AP record changes.
+
+### `037c41d9`: prone-costs-crouch ability34
+
+Restores the acquired flag's original recursive CROUCH cost for pose-dependent
+CRAWL queries. Ordinary side/diagonal/corpse-side/corpse-diagonal costs change
+8/12/12/18 to6/9/9/13; other poses and pose-independent actions retain their
+costs. The recursion precedes the worn-PK unsupported-pose guard. Native tests
+preserve PK fallback1 and valid suit movement costs. Actual pose, AP spending,
+authored records and movement/animation execution are unchanged by the query.

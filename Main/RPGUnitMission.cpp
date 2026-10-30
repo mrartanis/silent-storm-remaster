@@ -723,6 +723,8 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 	}
 
 	// actions whose cost depends on the pose
+	if ( curPose == NAI::CRAWL && HasPerk( N_PERK_PRONE_COSTS_CROUCH ) )
+		return GetActionAP( NAI::CROUCH, action );
 	int nAddedAP = 0;
 	if ( pPanzerklein )
 	{

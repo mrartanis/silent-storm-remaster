@@ -551,3 +551,11 @@ RPG SetPanzerklein/suit1/positive shell HP, four move actions in CRAWL/CROUCH,
 worn WALK/RUN, ordinary body and pose-independent controls. RED8/16 -> GREEN
 16/16 each; AP/HP/shell/XP/points/equipment/RNG stable. Related164Win/164Linux, Game
 builds, CI323. New16 outside323. Query scope; pose34/35/corpse42 are untaken.
+
+## Prone costs crouch34
+
+NativeProneCostsCrouch0..15: resource extended Win/Linux,timeout120. Actual RPG
+Take34, four movement costs, ordinary/other-pose/early-action and actual PK
+controls;35/42 untaken. RED4/16 -> GREEN16/16 each; AP/HP/shell/XP/points/
+equipment/RNG stable. Related180Win/180Linux, Game builds, CI323. New16 outside323;
+cost-query scope. Joint34/35 awaits35.

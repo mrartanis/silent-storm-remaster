@@ -29524,6 +29524,21 @@ static CObj<NRPG::IUnitMission> NativeMissionWithUntakenPerk(int id)
     for(auto* person:candidates){CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(person);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();if(!tree || unit->HasPerk(id) || mission->GetTotalVP()<=0)continue;vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);for(auto perk:perks)if(perk->GetDBPerk()->GetRecordID()==id)return mission;}
     Require(false,"native RPG fixture lacks an actual untaken authored perk node");return nullptr;
 }
+static void ProneCostsCrouchPerk(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=15,"unknown native prone-costs-crouch mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    auto mission=NativeMissionWithUntakenPerk(34);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();Require(!mission->HasPerk(34) && !mission->HasPerk(35) && !mission->HasPerk(42),"prone-cost fixture has a pose/corpse ability");
+    NDb::CPanzerklein* record=nullptr;CDBIterator<NDb::CPanzerklein> suits(*NDatabase::GetTable<NDb::CPanzerklein>());while(suits.MoveNext()){auto* suit=suits.Get();if(suit->nMaxVP>0 && suit->nAddMoveAP>0 && (!record || suit->GetRecordID()<record->GetRecordID()))record=suit;}Require(record,"prone-cost fixture lacks an authored suit");
+    CObj<NRPG::CDynamicSkill> shellHP=new NRPG::CDynamicSkill(record->nMaxVP,record->nMaxVP);const bool worn=mode>=11 && mode<=14,acquired=mode!=0 && mode!=10 && mode!=14;if(worn)mission->SetPanzerklein(record,shellHP,nullptr);
+    const NAI::EPose poses[]={NAI::CRAWL,NAI::CRAWL,NAI::CRAWL,NAI::CRAWL,NAI::CRAWL,NAI::CROUCH,NAI::WALK,NAI::RUN,NAI::CRAWL,NAI::CRAWL,NAI::CRAWL,NAI::CRAWL,NAI::CROUCH,NAI::WALK,NAI::CRAWL,NAI::CRAWL};
+    const NRPG::EAction actions[]={NRPG::AC_MOVE_SIDE,NRPG::AC_MOVE_SIDE,NRPG::AC_MOVE_DIAGONAL,NRPG::AC_MOVE_CORPSE_SIDE,NRPG::AC_MOVE_CORPSE_DIAGONAL,NRPG::AC_MOVE_SIDE,NRPG::AC_MOVE_SIDE,NRPG::AC_MOVE_DIAGONAL,NRPG::AC_OPEN_CLOSE,NRPG::AC_ROTATE,NRPG::AC_MOVE_CORPSE_DIAGONAL,NRPG::AC_MOVE_SIDE,NRPG::AC_MOVE_SIDE,NRPG::AC_MOVE_SIDE,NRPG::AC_MOVE_SIDE,NRPG::AC_POSE_WALK};
+    const int values[]={8,6,9,9,13,6,4,3,4,0,18,1,1,0,1,0};const int baseline=mission->GetActionAP(poses[mode],actions[mode]);int expected=values[mode];if(mode==9 || mode==15)expected=baseline;if(mode==13)expected=4+record->nAddMoveAP;
+    const int ap=mission->GetAP(),hp=mission->GetTotalVP(),shell=*shellHP,points=tree->GetPerkPoints();const float xp=unit->fXP;auto random=GlobalGameRandom();if(acquired){tree->AddPerkPoints(1);tree->TakePerk(34);}Require(mission->HasPerk(34)==acquired && tree->GetPerkPoints()==points,"native34 grant failed or changed point budget");
+    const int actual=mission->GetActionAP(poses[mode],actions[mode]);std::printf("native prone-costs-crouch mode=%d acquired=%d worn=%d pose=%d action=%d baseline=%d cost=%d expected=%d\n",mode,int(acquired),int(worn),int(poses[mode]),int(actions[mode]),baseline,actual,expected);std::fflush(stdout);
+    Require(actual==expected,"native AP query ignored prone-to-crouch ability34 or changed an unrelated/PK control");
+    Require(mission->GetAP()==ap && mission->GetTotalVP()==hp && int(*shellHP)==shell && tree->GetPerkPoints()==points && unit->fXP==xp && (mission->GetPanzerklein()==record)==worn && random.Get()==GlobalGameRandom().Get(),"prone-cost query changed AP/HP/suit/points/XP/equipment/RNG");
+}
+
 static void PKUnsupportedPoseCost(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=15,"unknown native PK pose-cost mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
@@ -31383,6 +31398,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-network-restart-menu") && argc==4) { MissionRestartMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "prone-costs-crouch")) { Require(argc==5,"prone34 requires db/resources/mode"); ProneCostsCrouchPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "pk-unsupported-pose")) { Require(argc==5,"PK pose cost requires db/resources/mode"); PKUnsupportedPoseCost(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "observer-stealth")) { Require(argc==5,"observer75 requires db/resources/mode"); ObserverStealthPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "better-spotting")) { Require(argc==5,"spotting requires db/resources/mode"); BetterSpottingPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }

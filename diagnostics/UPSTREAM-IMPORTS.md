@@ -18314,3 +18314,30 @@ This is not a rule disabling pose abilities in a PK. Those predecessor hooks
 and their combined cases remain to be imported individually. Game builds,
 related164Win/164Linux, CI323 pass; new16 cases outside323.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2f5a3c753d9673bfc9aa24b2852a7fe2e1bbf60f.
+
+## 2026-10-30: prone-costs-crouch ability34 (`037c41d9`, partial)
+
+For pose-dependent actions, acquired34 in CRAWL recursively calls GetActionAP
+with CROUCH and the same action. The hook precedes the existing PK guard and
+retains the earlier pose-independent action branches. No actual pose changes.
+
+NativeProneCostsCrouch0..15 use an actual authored RPG unit/native TakePerk34;
+35/42 are untaken. Four ordinary prone movement/corpse movement actions give
+6/9/9/13 instead of8/12/12/18. RED4/16 each -> GREEN16/16; twelve controls pass
+before the fix: other poses, no34, rotation/pose-change/open actions and native
+worn PK suit1/add4/positive shell health. Existing PK unsupported cost1 and
+valid WALK cost are retained. Rotation/pose-change controls compare their
+pre-grant native cost to avoid assumptions about unrelated perks4/7. AP/HP,
+shell health, XP, point budget, equipment and RNG remain stable. Direct cost-
+query scope, not actual movement/animation. Joint34/35 execution awaits35.
+
+Gold GetActionAP rule6bb624..6bb652 and Steam6c161b..6c1649 independently
+decode pose0, HasPerk34 via slot78, then same mission GetActionAP slot0 with
+pose1/same action/null optional item. Their seven-byte perk-argument prefix
+maps uniquely/exactly; register allocations differ in the surrounding blocks,
+so no masked-register or whole-block/ABI byte-equivalence claim. Method slots
+are independently mapped to Gold6bac90/3724 and Steam6c0d30. Evidence: prone-
+costs-crouch-{retail-oracle,verification}.json/raw logs and complete original
+disassemblies. Game builds, related180Win/180Linux, CI323 pass; new16 outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
