@@ -19507,3 +19507,52 @@ Both Game builds, related37Win/37Linux, CI323 pass; new3 resource extended outsi
 Evidence melee-ignore-retail-oracle.json, native RED/GREEN/verification logs.
 Knife action/critical classification remains pending.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c.
+
+## 2026-10-31: distinct knife action and original critical restrictions (closes `c1ab9336`)
+
+Appends own AT_KNIFE12 after existing NONE11, preserving all prior action
+ordinals. Nonthrowing authored melee items select it; four existing place/
+executor switch groups share the normal melee branch and GetState retains
+the already corrected knife cursor. Existing CCriticalsBan GetParam now
+naturally gives knife the original default restriction list. No new serialized
+member/tag, virtual slot or factory ID; no damage/chance/AP formula change.
+Source's insertion at3 would shift all later own values and is deliberately
+adapted. Search found only native action classifiers/switches/critical keys
+and diagnostics as consumers; no EActionType member serialized here.
+
+Original PDB EActionType explicitly has MELEE2/KNIFE3/THROW7; typed melee DB
+bThrowing34. Named GetActionType Gold787e40/426 ->Steam793a40 matches all426
+uniquely with only decodedE8 operands masked. Tail tests bThrowing and returns
+3/7. Named CCriticalsBanGetParam Gold7bbda0/161 ->Steam7c8720 matches all161
+uniquely after decoded calls and independently same-named RTTI operands only:
+object singles out2, tile2/4, so knife3 uses default-1. InitGold7be5e0 first400
+->Steam7caff0 matches with only decodedcalls/constructorvtables/CR_LASTaddress
+masked; exact original fist/default critical push sequences and FFFF terminator.
+No whole1250 Init claim. Place classifier Gold7884a0 first180->Steam7940a0 and
+Gold788570 first276->Steam794170 match unique, only calls/tableaddresses;
+decoded lookup2/3 both route to melee atGold78850b/788637, Steam79410b/794237.
+Factory independently mapped interior anchors Gold79224e35->Steam79de8e,
+79253e41->79e17e,79256716->79e1a7 use only decodedcall/table/relative-branch
+masks; both action2/3 enter same table branch in each. No full factory match
+or unrelated object-melee-class parity claim (that remains source4cdc).
+
+NativeMeleeKnifeCritical0..7 use actual world810/party54, native armed actor,
+authored nonthrow blade2/throw blade5 or original gun/empty hand, actual native
+CCriticalsBan and ShootObject/ShootTile commands. RED2/8 ->GREEN8/8 each with
+six passing controls. Knife object list5->3 and tile4->2 remove only fist-only
+MOTIONLESS/PATIENT; blind/object, idlehand/both and brokenPK/both remain.
+Fists retain5/4; throw/firearm retain3/2. Actual knife state remainsKNIFE;
+AP/HP/position/AP-cost/order/RNG/item quantity unchanged. This is command-ban
+classification, not a claim that other movement/target/critical gates permit
+all commands. Previous cursor regression's deliberate old-action/ban invariance
+assertion is replaced with its AP-cost invariant BEFORE RED; the new native
+matrix owns the separately audited gameplay delta. All old cursor behavior
+continues in the related suite.
+
+All functional hunks of c1ab are now accounted: earlier UI correction,
+world context62, selected target63, original-validity dedup64, canonical unit
+plus preserved cannon alias65, knife classification66. Own vector/float API,
+renderer/fonts/facial/nativeaudio/network and save tags retained. Full Game
+builds, related45Win/45Linux, CI323 pass; new8 resource extended outside323. Original
+proof/mappings/enum/native RED/GREEN/verification logs under melee-knife-*.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c.

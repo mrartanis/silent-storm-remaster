@@ -2602,3 +2602,16 @@ changes self-damage3/hit1 to0/0; unmounted self and cannon protection stay.
 This is direct-dispatch coverage, not proof of an ordinary UI route for mounted
 melee. No damage/chance formula, sound or animation change. Knife action/critical
 classification remains pending.
+
+### `c1ab9336`: knife and fists have different critical restrictions
+
+A nonthrowing equipped blade now has its own action classification. Original
+knife attacks use the default command-ban list: unlike fists, MOTIONLESS and
+PATIENT do not add a blanket knife-command ban. Other movement/target/critical
+checks still apply. Native object/tile lists change5/4 to3/2; blind/object,
+idlehand and brokenPK restrictions remain. Fists and throwing/firearm controls
+retain prior lists. No damage/chance/AP-cost formula changes; knife cursor
+stays correct. New action is appended to preserve all previous own ordinals.
+This finishes the c1ab source's UI/dispatch/filter/ignore/classification scope;
+the unrelated pending object-melee source4cdc and broader critical formulas
+remain separate audits.

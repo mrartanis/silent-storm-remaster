@@ -23121,6 +23121,16 @@ static void PersonaFullDisplayName(const char* databasePath)
         "a persona without a long-name record changed the existing nickname or missing-name behavior");
 }
 
+static void NativeMeleeKnifeCritical(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=7,"unknown native knife critical classification mode");CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;for(auto u:units)if(u && u->CanFight() && !u->IsEmptyPK() && !u->IsWearingPK() && !u->HasCommand() && NWorld::GetActionType(u)==NWorld::AT_SHOOT){actor=u;break;}Require(actor,"knife critical fixture lacks actual ordinary armed actor");auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> previous=inventory->Get(NDb::SLOT_1)?inventory->TakeOff(NDb::SLOT_1):nullptr;Require(inventory->Activate(NDb::SLOT_1),"knife critical fixture cannot select empty hand");CObj<NRPG::CMeleeWeaponItem> blade;int recordID=-1;
+    if(mode<2 || mode==4 || mode==5){const bool throwing=mode>=4;NDb::CRPGMeleeWeapon* record=nullptr;CDBIterator<NDb::CRPGMeleeWeapon> records(*NDatabase::GetTable<NDb::CRPGMeleeWeapon>());while(records.MoveNext()){auto* candidate=records.Get();if(candidate->bThrowing==throwing && candidate->pItem && candidate->pItem->pModel && (!record || candidate->GetRecordID()<record->GetRecordID()))record=candidate;}Require(record,"knife critical fixture lacks authored modelled blade");blade=new NRPG::CMeleeWeaponItem(record);blade->nQuantity=1;recordID=record->GetRecordID();Require(inventory->Equip(NDb::SLOT_1,blade),"knife critical fixture cannot equip actual blade");}
+    if(mode>=6){Require(previous && dynamic_cast<NRPG::IWeaponItem*>(previous.GetPtr()) && inventory->Equip(NDb::SLOT_1,previous),"knife critical firearm control lacks actual native original gun");}
+    const bool tile=mode&1,fists=mode==2 || mode==3;CObj<NWorld::CCmd> command;if(tile)command=new NWorld::CCmdShootTile(actor->GetPosition().GetCP()+CVec3(1,0,0));else command=new NWorld::CCmdShootObject(nullptr,0);NWorld::CCriticalsBan bans;const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),cost=actor->GetActionAP(NRPG::AC_MELEE);const auto position=actor->GetPosition();GlobalGameRandom().SeedForHarness(666);auto random=GlobalGameRandom();const auto actual=bans.GetCommandBans(actor,command);list<NDb::ECritical> expected;if(!tile)expected.push_back(NDb::C_BLIND);if(fists)expected.push_back(NDb::C_MOTIONLESS);expected.push_back(NDb::C_IDLE_HAND);if(fists)expected.push_back(NDb::C_PATIENT);expected.push_back(NDb::C_PANZERKLEIN_BROKEN);
+    std::printf("native knife critical mode=%d blade=%d tile=%d fists=%d action=%d bans=%zu expected=%zu motionless=%d patient=%d\n",mode,recordID,int(tile),int(fists),int(NWorld::GetActionType(actor)),actual.size(),expected.size(),int(std::find(actual.begin(),actual.end(),NDb::C_MOTIONLESS)!=actual.end()),int(std::find(actual.begin(),actual.end(),NDb::C_PATIENT)!=actual.end()));std::fflush(stdout);Require(actual==expected,"native equipped knife inherited fist-only motionless/patient command restrictions");
+    if(mode<2)Require(NWorld::GetActionType(actor)!=NWorld::AT_MELEE && NWorld::GetActionType(actor)!=NWorld::AT_THROW && actor->GetState()==NWorld::CUnit::ST_NORMAL_KNIFE,"nonthrowing native blade lost distinct action/cursor state");else Require(NWorld::GetActionType(actor)==(fists?NWorld::AT_MELEE:mode<6?NWorld::AT_THROW:NWorld::AT_SHOOT),"native knife classification changed fist/throw/firearm action identity");Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetPosition()==position && actor->GetActionAP(NRPG::AC_MELEE)==cost && !actor->HasCommand() && GlobalGameRandom().Get()==random.Get() && (!blade || blade->GetQuantity()==1),"critical classification query changed native AP/HP/position/cost/order/RNG/item");
+}
+
 static void EquippedMeleeAttackCursor(const char* databasePath,const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -23165,9 +23175,9 @@ static void EquippedMeleeAttackCursor(const char* databasePath,const char* resou
     state->RefreshCursor();
     Require(actor->GetState() == NWorld::CUnit::ST_NORMAL_KNIFE && state->GetCursorInfo().pCursor == NDb::GetUICursor(9),
         "an equipped native melee weapon still advertised the unarmed fist state and cursor");
-    Require(NWorld::GetActionType(actor) == NWorld::AT_MELEE && bans.GetCommandBans(actor,object) == objectBans &&
-        bans.GetCommandBans(actor,tile) == tileBans && actor->GetActionAP(NRPG::AC_MELEE) == meleeCost,
-        "correcting the melee UI state changed attack dispatch, critical restrictions or its AP-cost query");
+    // Action classification/critical restrictions have their own native original-matrix regression.
+    Require(actor->GetActionAP(NRPG::AC_MELEE) == meleeCost,
+        "refreshing the melee UI state changed its AP-cost query");
     CObj<NRPG::IInventoryItem> removed = inventory->TakeOff(NDb::SLOT_1);
     state->RefreshCursor();
     Require(actor->GetState() == NWorld::CUnit::ST_NORMAL_MELEE && state->GetCursorInfo().pCursor == NDb::GetUICursor(8),
@@ -32151,6 +32161,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "sniper-held-aim") && argc == 4) { SniperHeldAim(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "snipe-tile-restriction") && argc == 4) { SnipeTileRestriction(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "person-clue-creation") && argc == 4) { PersonClueCreation(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "native-melee-knife-critical")) { Require(argc==5,"knife critical requires db/resources/mode"); NativeMeleeKnifeCritical(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "equipped-melee-attack-cursor")) { Require(argc == 4, "equipped melee cursor requires db and res"); EquippedMeleeAttackCursor(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "melee-attack-cursor") && argc == 4) { MeleeAttackCursor(argv[2]); return true; }
     if (!std::strcmp(mode, "blocked-attack-caption") && argc == 4) { AttackCaptionWithoutHitChance(argv[2], false); return true; }

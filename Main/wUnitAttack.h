@@ -47,7 +47,9 @@ enum EActionType
 	AT_MINE,
 	AT_TOOL,
 	AT_KEY,
-	AT_NONE
+	AT_NONE,
+	// Append to preserve the existing own action ordinals.
+	AT_KNIFE
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CCommandExecute* CreateMoveExecutor( CUnitServer *_pUS, NAI::CPath *pPath, NAI::EFindPathParams _eParams, ENeedActiveItem eActive, EUnitCommandResult *pError, bool bCheckCanRotate = true );

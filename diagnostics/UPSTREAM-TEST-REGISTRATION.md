@@ -869,3 +869,14 @@ fabricated animator pointer. Final RED1/3 ->GREEN3/3 each with2 passing controls
 mounted self HP3/hit1 ->0/0, unmounted self0/0; cannon HP/stage/fields unchanged.
 Actor AP/position/life/mount retained. Full Game builds, related37Win/37Linux, CI323.
 Fixture compile/joint-ray failures archived separately, not counted as RED.
+
+## Native knife/fist command critical matrix
+
+NativeMeleeKnifeCritical0..7: resource extended Win/Linux timeout120, outside323.
+Actual world/actor/authored blades/native gun/empty hand, native CCriticalsBan
+object/tile commands. RED2/8 ->GREEN8/8 each with six controls: knife5/4->3/2
+removes fist-only motionless/patient, fists5/4, throw/firearm3/2 unchanged.
+AP/HP/position/cost/order/RNG/quantity retained. Existing cursor regression
+moves old gameplay-invariance assertion to this original native matrix,
+retaining cursor/empty/equip/unequip/AP controls. Full Game builds, related
+45Win/45Linux, CI323. Appended action ordinal preserves every existing own value.
