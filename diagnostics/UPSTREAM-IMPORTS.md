@@ -19335,3 +19335,55 @@ address comments were audited/corrected rather than treated as proof. Own
 facial/font/audio/SDL/bgfx/LAN/codec implementations are preserved. Source
 ledger changes partial ->imported; this does not complete the broader queue.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.
+
+## 2026-10-31: melee executor forwards its real world (`c1ab9336` partial)
+
+The existing CExecMelee::PerformAttack vector loop now calls the already
+implemented native NRPG::PerformMeleeAttackPortion with actual world/map and
+null filter, replacing the old CGame method that supplied null to every
+damage receiver. The existing float third argument, virtual API, vector loop,
+cannon-vs-unit ignore alias, sound and no new state/schema remain. The helper
+comment claiming IWorld was unread is corrected. Unit target-filter wiring
+and original knife action classification stay separate and pending.
+
+Gold PDB CExecMelee::PerformAttack799540/319 uniquely maps to Steam7a59a0
+using all first128 bytes with only SEH3..6/decoded E8 operands masked. The
+independent named CExecMeleeUnit vtable48 mapping agrees. Steam's full method
+has a longer ack tail; no whole-method equivalence is claimed. Steam7a59f6
+reads pUS14 then typed CDumbUnitServer::pWorld2c, retains world in EDI and
+passes virtual20 AI-map in EDX/world in ECX. Direct Gold7995bb->PDB native
+portion68ac30/948 and Steam7a5a1b->690c30 verified. Both portions save ECXworld
+to ESP28. After three pushes the same slot is ESP34, loaded at callback-13
+and pushed at callback-8 before Gold68aeec/Steam690eec virtual ProcessAttack.
+The hidden received-damage return pointer is the final push. Original caller
+passes a portion vector; own per-portion loop is retained as the adaptation.
+
+NativeMeleeWorldContext0..3 use actual world810/party54/native units54/838,
+real collision geometry/Sync/Trace and native CExecMeleeUnit or Tile direct
+PerformAttack. Two authored unit instances can share person838; the fixture
+requires distinct actor/receiver pointers. Fixed damage2/positive kinetic,
+no critical/KO and an intended receiver isolate world/difficulty context.
+Native in-memory difficulty coefficients temporarily2 (restored exactly) give
+independently checked literal null-world2 vs real-world4. Unit/Tile RED2/4
+each ->GREEN4/4: received hit and actual HP drop2->4, exactly one receiver
+event. Anonymous attacker and coefficient1 remain2 as passing controls.
+Actor HP/AP and receiver CanFight are preserved. No fake map/world/mission/
+executor/callback implementation or new API stub supplies RED; no game.db
+file is changed. This covers the actual direct dispatch entry, not a new
+full movement/animation/OnLabel command test (existing related cases retain
+that coverage).
+
+Scope limits: both selected missions report stored IsAIPlayer0, including
+the tactical AI-owned actor. This fixes world propagation; it does not wire
+mission AI-flag assignment or newly verify the enemy-coefficient branch.
+Both own/upstream currently declare the private setter with no caller, so
+that separate original-state question remains unverified rather than silently
+inventing a setter/public ABI. Activating the existing native helper also
+uses its existing godmode traversal/callback semantics (HP protection remains
+in RPG); those special callbacks are not newly claimed covered by these four
+ordinary receivers. Filter, canonical-ignore and AT_KNIFE hunks still require
+their own original comparison. Full Game builds, related27Win/27Linux (native
+melee labels/costs/reach/preparation/cursors/network), CI323 pass; new4 resource
+extended/outside323. Evidence melee-world-retail-oracle/verification JSON,
+original caller/portion disassembly and native RED/GREEN/full logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c.

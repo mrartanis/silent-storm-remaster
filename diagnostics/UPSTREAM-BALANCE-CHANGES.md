@@ -2549,3 +2549,20 @@ random consumption, with HP/AP unchanged. They do not newly establish every
 live fragment damage value, all ricochet geometries or visible flight time.
 All aa functional hunks are now audited/imported or adapted to original
 behavior; the broader upstream queue remains open.
+
+### `c1ab9336`: native melee damage receives world difficulty
+
+Melee executors now pass the real world/map to the existing native damage
+helper. The old route passed null, skipping difficulty damage multipliers.
+Actual intended native Unit/Tile strikes with base2 and coefficient2 now
+cause4 HP loss instead of2; anonymous/coefficient1 controls remain2. Damage
+formulas are unchanged; their existing world-dependent inputs now reach them.
+Own executor float API, cannon ignore alias and native sound are retained.
+Target filtering and knife action classification are still pending.
+
+Unverified state boundary: the selected tactical AI-owned mission still
+reports stored IsAIPlayer0; assignment of that flag is not repaired here, so
+this is not claimed to complete all enemy-difficulty behavior. Existing
+native helper godmode callbacks/traversal also become active; HP protection
+remains in RPG, but the four new ordinary cases do not establish every
+special callback. These limits remain separate from the proven world fix.

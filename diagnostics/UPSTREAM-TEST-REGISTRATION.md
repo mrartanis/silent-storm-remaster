@@ -828,3 +828,14 @@ empty-cache fallback controls consume0 and preserve correct entries/metadata.
 RED2/5 ->GREEN5/5 each; three controls. Initial failed ray searches NOT RED.
 Full Game builds, related40Win/40Linux, CI323; Linux display decal uses Xvfb/Openbox.
 New5 outside323. Closes the last aa functional hunk with own hit fallback kept.
+
+## Native melee executor retains world/difficulty context
+
+NativeMeleeWorldContext0..3: resource extended Win/Linux,timeout120. Actual
+world810/party54/native geometry/units and Unit/Tile direct PerformAttack,
+fixed intended damage2/kinetic positive. Temporary native in-memory difficulty
+multiplier2 restored exactly: null/world literal2/4 controls; real HP+hit2->4.
+RED2/4 ->GREEN4/4 each, two controls (anonymous, multiplier1) remain2. Actor
+HP/AP/life and one receiver event checked. IsAIPlayer is0 for both actual
+selected missions; no new AI-flag/enemy-multiplier claim. Full Game builds,
+related27Win/27Linux, CI323; new4 outside323. No proxy world/map/callback is used.

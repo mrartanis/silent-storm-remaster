@@ -1867,7 +1867,7 @@ void CExecMelee::PerformAttack( const vector<NRPG::CAttackPortion> &attack, cons
 
 	for ( vector<NRPG::CAttackPortion>::const_iterator i = attack.begin(); i != attack.end(); ++i )
 	{
-		pUS->GetWorld()->GetGame()->ProcessMeleeAttackPortion( *i, ray, ignores );
+		NRPG::PerformMeleeAttackPortion( pUS->GetWorld(), pUS->GetWorld()->GetAIMap(), *i, ray, ignores, 0 );
 	}
 
 	if ( !attack.empty() )
