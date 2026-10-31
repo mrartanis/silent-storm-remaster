@@ -839,3 +839,16 @@ RED2/4 ->GREEN4/4 each, two controls (anonymous, multiplier1) remain2. Actor
 HP/AP/life and one receiver event checked. IsAIPlayer is0 for both actual
 selected missions; no new AI-flag/enemy-multiplier claim. Full Game builds,
 related27Win/27Linux, CI323; new4 outside323. No proxy world/map/callback is used.
+
+## Native unit melee target filter with retained float API
+
+NativeMeleeTargetFilter0..5: resource extended Win/Linux,timeout120. Actual
+world810/party54/two person103 units/free standing tiles/Sync/two native hulls/
+real Unit or Tile existing PerformAttack; no proxy callbacks or new API stub.
+RED3/6 ->GREEN6/6 each, three passing controls. Select back/front damages only
+selected3; unselected godmode gets0 callbacks, while null/Tile retains both
+and godmode Tile retains current two -1 per-piece callbacks with0 HP loss.
+HP500/IC0, no critical/KO, actor HP/AP/life preserved. Old native miss observer
+delegates immediate unit class before RED. Full Game builds, related33Win/33Linux,
+CI323; new6 outside323. PDB prototypes correct the old vector-ABI interpretation;
+original is single-portion, own vector/float API is retained by an override/core.

@@ -1858,6 +1858,11 @@ void CExecMelee::Start()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecMelee::PerformAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, float fHit )
 {
+	PerformFilteredAttack( attack, ray, 0 );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CExecMelee::PerformFilteredAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, CObjectBase *pFilter )
+{
 	vector<NRPG::IAttackable*> ignores;
 	CCannon *pCannon = pUS->animator.GetCannon();
 	if ( pCannon )
@@ -1867,7 +1872,7 @@ void CExecMelee::PerformAttack( const vector<NRPG::CAttackPortion> &attack, cons
 
 	for ( vector<NRPG::CAttackPortion>::const_iterator i = attack.begin(); i != attack.end(); ++i )
 	{
-		NRPG::PerformMeleeAttackPortion( pUS->GetWorld(), pUS->GetWorld()->GetAIMap(), *i, ray, ignores, 0 );
+		NRPG::PerformMeleeAttackPortion( pUS->GetWorld(), pUS->GetWorld()->GetAIMap(), *i, ray, ignores, pFilter );
 	}
 
 	if ( !attack.empty() )
@@ -1960,6 +1965,13 @@ void CExecMeleeUnit::Start()
 	// OnLabel's to-hit instead of being recomputed.)
 	SelectTargetHLPos( pUS->GetPosition(), &ptTarget, &hlInfo );
 	CExecMelee::Start();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Original Steam 0x7aa105..0x7aa136 supplies pTarget to the native filter.
+// Keep the existing float API and virtual slot; select the filter from this executor.
+void CExecMeleeUnit::PerformAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, float fHit )
+{
+	PerformFilteredAttack( attack, ray, pTarget.GetPtr() );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecMeleeUnit::OnLabel()

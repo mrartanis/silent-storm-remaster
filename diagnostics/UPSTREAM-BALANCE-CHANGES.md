@@ -2566,3 +2566,19 @@ this is not claimed to complete all enemy-difficulty behavior. Existing
 native helper godmode callbacks/traversal also become active; HP protection
 remains in RPG, but the four new ordinary cases do not establish every
 special callback. These limits remain separate from the proven world fix.
+
+### `c1ab9336`: unit melee only damages its selected receiver
+
+A direct unit melee strike now filters native damage callbacks by its stored
+selected target. Two actual bodies on the same ray previously both lost3 HP;
+only the selected body now loses3. Unselected godmode bodies also stop getting
+phantom -1 hit callbacks. Tile and null-target calls retain all-receiver
+behavior. Armor/energy traversal still runs across unselected objects, so
+this filter does not turn them into empty space. Damage/chance formulas,
+world context, own vector/float API, sound and cannon alias are retained.
+
+The current no-filter godmode path protects HP but produces two callbacks
+for the two intersected body pieces. This fix preserves that control rather
+than calling it original parity; original valid-unit duplicate suppression
+is a separate pending comparison/fix. Attacker ignoring and knife action/
+critical restrictions remain pending as well.

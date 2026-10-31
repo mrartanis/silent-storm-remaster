@@ -19355,8 +19355,10 @@ passes virtual20 AI-map in EDX/world in ECX. Direct Gold7995bb->PDB native
 portion68ac30/948 and Steam7a5a1b->690c30 verified. Both portions save ECXworld
 to ESP28. After three pushes the same slot is ESP34, loaded at callback-13
 and pushed at callback-8 before Gold68aeec/Steam690eec virtual ProcessAttack.
-The hidden received-damage return pointer is the final push. Original caller
-passes a portion vector; own per-portion loop is retained as the adaptation.
+The hidden received-damage return pointer is the final push. Later typed PDB
+argument inspection confirms a single CAttackPortion pointer in the original
+executor/helper. Own per-portion vector loop is an API adaptation, not an
+original vector ABI claim (see the following target-filter audit).
 
 NativeMeleeWorldContext0..3 use actual world810/party54/native units54/838,
 real collision geometry/Sync/Trace and native CExecMeleeUnit or Tile direct
@@ -19386,4 +19388,57 @@ their own original comparison. Full Game builds, related27Win/27Linux (native
 melee labels/costs/reach/preparation/cursors/network), CI323 pass; new4 resource
 extended/outside323. Evidence melee-world-retail-oracle/verification JSON,
 original caller/portion disassembly and native RED/GREEN/full logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c.
+
+## 2026-10-31: native unit melee filters callbacks by selected target (`c1ab9336` partial)
+
+Preserves the existing own vector/ray/float PerformAttack virtual API. Its base
+wrapper calls a new protected NON-virtual filtered core with null; the unit
+executor overrides that same existing float slot and passes its stored target.
+The core calls the already active native helper with that filter. No virtual
+slot, member field, save tag or factory registration is added. Tile and null-
+target calls keep null/all-receiver semantics. The native miss observer now
+delegates to the immediate unit class: that qualified inherited method already
+existed and compiled in RED, so no new missing-method stub supplies the failure.
+World forwarding, vector loop, cannon ignore alias and sound remain.
+
+Typed Gold PDB CExecMeleeUnit pTarget3c and independently named vtable mapping
+identify Gold79db24/Steam7aa105 loads of the real target, converted/pushed at
+79db3b/7aa11c as arg3 before virtual48 at79db52/7aa136. Original base dispatch
+loads/pushes that arg3 fromESP40 at+92. Gold7995bb->native portion68ac30 and
+Steam7a5a1b->690c30 forward it. Native Gold68aea7/Steam690ea7 load the filter
+atESP+9c/+a0 (real version frame difference), permit null or object equality,
+and mismatch branch+34 skips callback to68aeee/690eee while leaving armor/
+energy traversal running. Callbacks68aeec/690eec remain identity-conditional.
+Direct PDB function argument types (melee-filter-gold-prototypes.txt) prove
+SINGLE CAttackPortion* for both original functions, and CObjectBase* as their
+filter argument. This corrects the prior provisional vector wording in the
+world audit; own vector/float API is deliberately adapted instead of copied.
+No whole-body byte-equivalence/ABI transplant is claimed.
+
+NativeMeleeTargetFilter0..5 use actual world810/party54, two native person103
+receivers on real free adjacent standing tiles, their actual hulls after Sync,
+body-center ray intersecting both, real Unit/Tile executors and their existing
+public PerformAttack. Fixed small native portion2/current difficulty yields
+base3; no critical/KO, HP500/IC0 isolate routing. No fake map/geometry/world/
+mission/callback or new filter API supplies RED. Native RED3/6 each with three
+passing controls ->GREEN6/6. Unit selection of back/front previously damaged
+both3; now only selected receiver loses3 and gets its sole callback. Selecting
+back while front is godmode previously still generated two -1 front callbacks;
+now generates0 while back loses3. Tile/default and null-target Unit controls
+still damage both3. Godmode Tile control retains zero front HP loss and its
+current two per-piece -1 callbacks, with back3. Actor HP/AP and both living
+receivers retained. Native direct-dispatch scope is explicit, not a new claim
+about complete movement/animation/friendly-fire command gating.
+
+The godmode control also checks the health protection left as a boundary in
+the previous world fix. Its current two callbacks are preserved behavior,
+NOT claimed original parity: closer reading of the original valid-unit
+ignore-list branch suggests a separate duplicate-suppression discrepancy;
+that needs its own audit/RED and is not folded into this target-filter fix.
+Canonical attacker ignoring and AT_KNIFE/critical classification also remain
+pending. Full Game builds, related33Win/33Linux (new6 plus prior world/miss/cost/
+reach/preparation/cursor/network cases) and CI323 pass; new6 resource extended/
+outside323. Evidence melee-filter-retail-oracle/verification JSON, actual PDB
+prototypes, original disassemblies and native RED/GREEN/full logs.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c.

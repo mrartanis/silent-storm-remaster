@@ -275,6 +275,8 @@ public:
 	virtual int GetStartAP() const;
 	virtual void Start();
 	virtual void PerformAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, float fHit = 1.0f );
+protected:
+	void PerformFilteredAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, CObjectBase *pFilter );
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecMeleeTile
@@ -323,6 +325,7 @@ public:
 	virtual EUnitCommandResult CanDoIt( const NAI::SUnitPosition &from, bool bIgnoreTarget = false ) const;
 	virtual void Start();
 	virtual void OnLabel();
+	virtual void PerformAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, float fHit = 1.0f );
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecThrowGrenade
