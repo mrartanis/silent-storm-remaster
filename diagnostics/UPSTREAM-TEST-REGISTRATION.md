@@ -772,3 +772,13 @@ tags; live/missing/precompleted/uncarried controls and identities/other tags
 checked. Invalid positive-quantity search initially rejected native quantity0
 wrappers; initial logs NOT RED, unused fallback removed. Full Game builds,
 related43Win/43Linux, CI323; new9 outside323. Actual attack KO remains separate.
+
+## Native attack-induced knockout scenario notification
+
+NativeScenarioAttackKnockout0..9: resource extended Win/Linux,timeout120.
+Actual world/person clue/authored STUN goal, real RPG/world attack, raw task
+and objective-state query. Corrected RED5/10 ->GREEN10/10 each, five controls.
+Known/unseen/incidental/carrier/first-repeat cases and blocked/already-KO/
+other-person/precompleted/script-only controls. Initial lethal repeated-click
+fixture logs are NOT final RED. HP500, no IC practice, visibility/identities/
+other tags preserved. Full Game builds, related53Win/53Linux, CI323; new10 outside323.

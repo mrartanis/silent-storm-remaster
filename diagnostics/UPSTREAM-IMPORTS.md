@@ -19104,3 +19104,45 @@ head idle/network) and CI323 pass; new9 resource extended/outside323.
 Evidence carrier-destroyed-retail-oracle/fixture-correction/verification JSON,
 original bodies/disassembly and native RED/GREEN/full-gate logs.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387.
+
+## 2026-10-31: newly unconscious attack victim notifies scenario (`aa031e2e` partial)
+
+Restores CScenarioTracker::OnMakeUnconscious: invalidate the existing leave-
+zone cache, run carrier-task notification, then complete STUN_PERSON tasks
+for the victim's actual person clue when the scenario is active. CUnitServer
+calls it after combat reconciliation only if the old world state was conscious
+and the current state is unconscious. Reuses the existing wasUnconscious
+capture; optional-campaign guards remain. There is no detected/visible gate.
+
+Gold PDB handler6fa510/74 maps uniquely to Steam704650: all74 bytes match
+with only three decoded E8 operands masked. Typed tracker offsets cache60,
+active3c/flowchart40, victim RPG40/person54/recordID0c and task tag5 are decoded.
+Named CUnitServer RTTI offset8 tables Gold8eb648/8bec14 ->7b7650 and Steam
+8fae64/8ce1fc ->7c3dd0 identify the actual world caller. Independently verified
+Steam7c3e2e stores old unconscious state in stack13 before the base call
+7c3fa4->751570; 7c449d..7c44d4 gates oldfalse/currenttrue and calls704650.
+Gold7b7d33 calls6fa510. No whole-world-method equivalence claim. Upstream
+comments7042e0 and7c3e2d..7c3e64 are stale; the actual addresses above govern.
+
+NativeScenarioAttackKnockout0..9 use actual world810, authored person clue,
+existing goal/STUN task and real CreateUnit/AddUnitInGame/CAttackPortion/
+CUnitServer::ProcessAttack. No new goal/DB rows, fake tracker or missing-method
+stub supplies RED. Five failures and five passing controls on each platform
+before production -> ten passing cases each. Known and unseen victims,
+incidental click, carrier clue in a real backpack and first-then-repeated
+attack cover completion; blocked hit, already unconscious, other persona,
+precompleted task and direct-script-only knockout cover exclusions. Raw task
+state and native objective-state query agree, HP500 stays unchanged, IC
+practice stays0, detected/visible flags, clue/task identities and unrelated
+task tags remain unchanged. First notification followed by native task reset
+and blocked repeat stays unknown, proving the transition guard.
+
+Initial repeated-click fixture was corrected before production: a second
+MakeClickOfDeath on an unconscious victim is lethal, so already-unconscious/
+repeat controls now use a blocked normal portion. Initial logs are explicitly
+NOT final RED; final compiled RED5/10 with five controls precedes the fix.
+Full Game builds, related53Win/53Linux, CI323 pass; ten new cases extended/outside323.
+Evidence scenario-knockout-retail-oracle/verification JSON, decoded original
+bodies and complete RED/GREEN/build/gate logs. Fragment speed, melee-miss
+and plain-ray hunks of aa remain separate and pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.

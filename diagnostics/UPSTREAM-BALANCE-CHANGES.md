@@ -2493,3 +2493,16 @@ completed and unrelated task tags remain unchanged. Existing loot/ownership,
 combat formulas and data files remain intact. Simple plot-item quantity0 is
 preserved as the native input. This closes the360 destruction-notification
 hunk; aa's new-attack-knockout notification is still pending.
+
+### `aa031e2e`: new attack knockout completes native scenario tasks
+
+A newly unconscious attack victim now completes its authored STUN_PERSON
+task, even when discovery happened earlier or the clue is still unseen.
+The same event handles DESTROY_ITEM_CARRIER for plot items in its backpack,
+as in the original. Repeated hits on an already unconscious victim do not
+notify again. Blocked hits, another persona and direct scripted knockout
+do not complete this victim's task. Detection/visibility and unrelated task
+states remain intact. This changes objective progression; damage, health,
+IC training, combat RNG formulas and database records are unchanged. Original
+leave-zone cache invalidation is restored. Actual full leave-zone UI/pixels
+and all attack types are not newly claimed by these zero-damage native cases.

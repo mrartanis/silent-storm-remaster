@@ -1725,6 +1725,13 @@ int CUnitServer::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, NRPG::CAtta
 				(*i)->GetUnitRPG()->GetRPGUnit()->AddXP(fXP);
 		}
 	}
+	// Original Steam 0x7c449d..0x7c44d4: notify only the new unconscious transition.
+	if ( !wasUnconscious && IsUnconscious() )
+	{
+		NRPG::CGlobalGame *pGlobalGame = GetWorld()->GetGlobalGame();
+		if ( IsValid( pGlobalGame ) && IsValid( pGlobalGame->pScenarioTracker ) )
+			pGlobalGame->pScenarioTracker->OnMakeUnconscious( this );
+	}
 	// Original first incapacitation: preserve attribution on later corpse hits.
 	// Steam7c450c..7c4527; Gold also writes pKiller, without the later timestamp.
 	if ( !isDead && !wasUnconscious && ( GetUnitRPG()->IsDead() || IsUnconscious() ) )

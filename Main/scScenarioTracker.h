@@ -126,6 +126,7 @@ public:
 	void OnScenarioClueDestroyed( int nID, bool bUnit );
 	void OnUpdateVisible( NWorld::CPlayer *player, CScenarioZone *zone );
 	void OnUnitDestroyed( NWorld::CUnit *pUnit );
+	void OnMakeUnconscious( NWorld::CUnit *pUnit );
 	void OnItemTaken( NWorld::CUnitServer *pUS, NRPG::IInventoryItem *pItem, NDb::ESlot slot, bool bTaken );
 	void ProcessScenario( const vector< CPtr<NRPG::CUnit> > &units );
 	// retail @0x3030b0: may the squad leave pZone without making the scenario unwinnable? Writes the
