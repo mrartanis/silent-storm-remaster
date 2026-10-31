@@ -30111,15 +30111,17 @@ static void ExplosiveModifierMath(int mode)
       {10,14,1.25f,1,false,12,17},{10,20,.875f,1,false,8,17},
       {1,3,.5f,1,false,0,1},{0,0,1.25f,1,false,0,0},
       {10,20,0,1,false,0,0},{8,16,1.5f,1,false,12,24},
-      {33554435,33554439,.5f,1,false,16777217,16777219},
+      {33554435,33554439,.5f,1,false,16777218,16777220},
       {-9,-3,1.5f,1,false,-13,-4},{9,11,1.5f,2,true,13,16},
       {9,11,1.5f,.5f,false,13,16},{9,11,-1.5f,1,false,-13,-16},
-      {-33554439,-33554435,.5f,1,false,-16777219,-16777217},
-      {0,1,1,2.5f,true,0,1}};
+      {-33554439,-33554435,.5f,1,false,-16777220,-16777218},
+      {0,1,1,2.5f,true,0,1},
+      {10,30,.7f,1,false,7,21},{10,30,.9f,1,false,9,27},
+      {-30,-10,.7f,1,false,-21,-7}};
     Require(mode>=0 && mode<int(sizeof(samples)/sizeof(samples[0])),"unknown native explosive modifier mode");const auto& sample=samples[mode];NWorld::SPerkMineModifiers modifiers;modifiers.fAEDmgModifier=sample.area;modifiers.fStructureDmgModifier=sample.structure;modifiers.bAlwaysHumanCritical=sample.critical;
     NRPG::CAttackPortion attack(23,0,.125f,sample.minimum,sample.maximum,37,11,nullptr,nullptr,.75f,4,true);attack.atkType=NRPG::AT_FRAGMENT;attack.bAlwaysHumanCritical=!sample.critical;attack.fStructDmgModifier=19;attack.bBypassPK=true;attack.bNoBlowUp=false;attack.rTtrajectory.ptOrigin=CVec3(1,2,3);attack.rTtrajectory.ptDir=CVec3(0,1,0);const auto before=attack;auto random=GlobalGameRandom();NWorld::FillAttackModifiers(&attack,modifiers);
     std::printf("native explosive modifier mode=%d input=%d/%d area=%.6g structure=%.6g critical=%d damage=%d/%d expected=%d/%d struct=%.6g\n",mode,sample.minimum,sample.maximum,sample.area,sample.structure,int(sample.critical),attack.nDmgMin,attack.nDmgMax,sample.expectedMin,sample.expectedMax,attack.fStructDmgModifier);std::fflush(stdout);
-    Require(attack.nDmgMin==sample.expectedMin && attack.nDmgMax==sample.expectedMax,"native explosion modifier rounded or prematurely stored its min/max product as float");Require(attack.fStructDmgModifier==sample.area*sample.structure && attack.bAlwaysHumanCritical==sample.critical,"explosive min/max correction changed structure product or critical flag");Require(attack.nK==before.nK && attack.nDmgType==before.nDmgType && attack.nCrtical==before.nCrtical && attack.nCrticalDifficulty==before.nCrticalDifficulty && attack.fDamageCoeff==before.fDamageCoeff && attack.atkType==before.atkType && attack.nUnconsciousProbability==before.nUnconsciousProbability && attack.bBackStab==before.bBackStab && attack.fPushCoeff==before.fPushCoeff && attack.bBypassPK==before.bBypassPK && attack.bNoBlowUp==before.bNoBlowUp && attack.rTtrajectory.ptOrigin==before.rTtrajectory.ptOrigin && attack.rTtrajectory.ptDir==before.rTtrajectory.ptDir && !attack.pAttacker && !attack.pTarget && random.Get()==GlobalGameRandom().Get(),"explosion modifier changed unrelated attack fields or RNG");
+    Require(attack.nDmgMin==sample.expectedMin && attack.nDmgMax==sample.expectedMax,"native explosive modifier disagrees with original runtime PC24 multiplication");Require(attack.fStructDmgModifier==sample.area*sample.structure && attack.bAlwaysHumanCritical==sample.critical,"explosive min/max correction changed structure product or critical flag");Require(attack.nK==before.nK && attack.nDmgType==before.nDmgType && attack.nCrtical==before.nCrtical && attack.nCrticalDifficulty==before.nCrticalDifficulty && attack.fDamageCoeff==before.fDamageCoeff && attack.atkType==before.atkType && attack.nUnconsciousProbability==before.nUnconsciousProbability && attack.bBackStab==before.bBackStab && attack.fPushCoeff==before.fPushCoeff && attack.bBypassPK==before.bBypassPK && attack.bNoBlowUp==before.bNoBlowUp && attack.rTtrajectory.ptOrigin==before.rTtrajectory.ptOrigin && attack.rTtrajectory.ptDir==before.rTtrajectory.ptDir && !attack.pAttacker && !attack.pTarget && random.Get()==GlobalGameRandom().Get(),"explosion modifier changed unrelated attack fields or RNG");
 }
 
 static void CheapGrenadeAPPerk(const char* databasePath,const char* resourcePath,int mode)

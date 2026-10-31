@@ -634,6 +634,10 @@ practice, explosion39/aura or damage-reduction claim.
 
 ## Explosive modifier min/max precision
 
+**Precision clarification:** the earlier wide-product inference and large-half
+examples below are superseded by the later original-runtime audit. Integer
+truncation remains correct (13.5 ->13); product significand is PC24/RN.
+
 NativeExplosiveModifierMath0..14: asset-free extended Win/Linux,timeout120.
 Direct actual FillAttackModifiers with typed native records; fixed expected
 fractional/zero/neutral/negative and safe large-integer cases, structure/critical
@@ -1305,3 +1309,17 @@ Full context/config restoration and normal owned-process exit verified;
 incomplete timed-out probes excluded. Main-menu/kernel scope, no gameplay
 breakpoint or full original-method claim. Full Game builds, related396Win/
 395Linux and CI323 pass. Evidence prefix incidental-runtime-precision.
+
+## 2026-10-31: explosive modifier original-runtime regression
+
+NativeExplosiveModifierMath0..17, extended/120s on both platforms:3 new ordinary
+.7/.9 signed cases plus corrected2 large-half expectations, all BEFORE RED.
+FreshRED5/18 ->GREEN18/18 each,13 identical controls; actual native linked
+function/typed records, structure/critical/other fields/trajectory/owner/RNG.
+Original COMPLETE87 EXACT0 masks and actual-address36 operand/CW records confirm
+product PC24/RN before CHOP conversion. Guarded Game-code/empty-x87 injection,
+full context restore, six originalCW samples, normal WM_CLOSE/exit0/cfg restored;
+early-exit/timeout attempts excluded. Full Game builds, related27Win/26Linux, CI323.
+Isolated modifier math and existing grenade consumers; no new authored-perk
+ownership or full explosion propagation/gameplay-breakpoint claim. Prefix
+explosive-runtime-precision; prior wide/large-half explanations superseded.

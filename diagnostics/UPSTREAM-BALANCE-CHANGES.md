@@ -2329,6 +2329,10 @@ pending consumers; this change does not claim their full restoration.
 
 ### `aa031e2e`: explosive modifier min/max truncation
 
+**Precision clarification:** the earlier wide-product inference and large-half
+examples below are superseded by the later original-runtime audit. Integer
+truncation remains correct (13.5 ->13); product significand is PC24/RN.
+
 Restores original min/max damage multiplication with precision retained until
 integer truncation, replacing nearest rounding of a premature float product.
 For example9/11 damage with1.5 AE multiplier becomes13/16 instead of14/16;
@@ -3117,3 +3121,20 @@ CI323. Derived AP follows resulting HP. This corrects original parity; no new
 authored bonus, guard or random draw. Earlier source86 free-point damage1 is a
 historical consequence of old shared receiver and is superseded by this fix.
 Source: [037c41d91ec01f29848f346787aa7a8a1d471c43](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43).
+
+## 2026-10-31: explosive product precision before integer truncation
+
+Original observed PC24/RN rounds the float product BEFORE truncating to integer.
+Thus10/30 damage*.7 gives7/21 rather than6/20;*.9 gives9/27 rather than8/26.
+Signed -30/-10*.7 gives-21/-7. The final integer conversion still truncates:
+9/11*1.5 remains13/16. Existing33-million half-product API tests now match
+original float precision; earlier wide/large-half explanations are superseded.
+Structure/critical flags, other fields, authored data and random calls unchanged.
+
+Native RED5/18 ->GREEN18/18 both,13 identical controls. COMPLETE original87,
+actual-address36 input/CW records and six runtimeCW007f samples; owned guarded
+probe restores context/cfg and exits normally with0, incomplete attempts excluded.
+Full Game builds, related27Win/26Linux, CI323. Native modifier/known grenade consumer
+scope; no full explosion propagation/authored-perk ownership/gameplay breakpoint
+claim. Extreme arbitrary integer/float, nonfinite and overflow remain uncertified.
+Source: [aa031e2e636629f83c4b86eb5b73dc9b4fa76918](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918).

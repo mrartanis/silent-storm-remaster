@@ -18575,6 +18575,10 @@ Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d
 
 ## 2026-10-30: explosive modifier min/max precision (`aa031e2e` partial)
 
+**Precision clarification:** the earlier wide-product inference and large-half
+examples below are superseded by the later original-runtime audit. Integer
+truncation remains correct (13.5 ->13); product significand is PC24/RN.
+
 The actual NWorld::FillAttackModifiers now uses int(double(integerDamage)*
 floatAEModifier) for min/max, preserving precision until final truncation.
 The existing structure-product float and always-human-critical assignment are
@@ -21141,3 +21145,46 @@ precision adapters remain separate audits. Evidence prefix incidental-runtime-
 precision: retail-oracle.json, original-kernel.json, RED/GREEN/full native logs,
 verification.json and the two archived intermediate fixture sets.
 Source: [037c41d91ec01f29848f346787aa7a8a1d471c43](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43).
+
+## 2026-10-31: explosive min/max product matches original runtime precision
+
+Corrects the earlier44 wide-product inference while retaining truncation:
+min/max = int(float(double(integerDamage)*floatAE)). The explicit f32 product
+adapts original PC24/RN FMUL; integer input is retained until multiplication.
+Structure product, critical flag, other portion fields and random calls stay
+unchanged. No new clamp, public API, save/LAN fields or authored DB changes.
+
+COMPLETE87 GoldPDB NWorld::FillAttackModifiers749bb0 uniquely matches actual
+Steam7551e0 EXACT87, ZERO masks. Both signed FILD/FMULS occur BEFORE FLDCW
+for CHOP/FISTP: minFA/200 ->207 switch,20b convert,20e restore; max212/219
+->228 switch,22c convert,22f restore. ORingAH alone does not change FPU control.
+Original typed min8/maxc/critical2d/structure30 and modifiers0/4/8 retained.
+
+Actual complete function ran at ORIGINAL ADDRESS on ONLY owned initialized
+original main thread,18 native operand sets under observed PC24/RN and diagnostic
+PC53/RN,36 records. Six CW/FXSAVE007f samples; both casts restore requested CW.
+Controlled original-layout portion/modifier buffers, no original executable code/
+world/db/resource patch. Injection acquired only Game-code EIP and empty x87
+stack (fullTagffff/FXTag0), with full captured context restored. Owned process
+normal WM_CLOSE, exit0, cfg restored. Earlier early-exit and timeout attempts
+are archived/excluded; only the complete guarded retry is accepted. Main-menu
+isolated function scope, not full explosion propagation or gameplay breakpoint.
+
+Fresh native RED5/18 BEFORE production ->GREEN18/18 EACH;13 identical measured
+controls. Added ordinary coefficients:10/30*.7 changes6/20->7/21;*.9 changes
+8/26->9/27; -30/-10*.7 changes-20/-6->-21/-7. Existing large half-products
+33554435/33554439*.5 change16777217/16777219->16777218/16777220, with analogous
+signed negatives. Original PC24 kernel confirms those results; diagnosticPC53
+reproduces prior wide values. Fractional9/11*1.5 still13/16, not nearest14/16.
+Actual native function checks structure/critical/unrelated fields/trajectory/
+owner/target and RNG. Math fixtures do not establish authored perk ownership.
+
+Full Game builds, related27Win/26Linux grenade execution/handoff/trajectory and wire
+checks, CI323. Tested finite ordinary and explicit33-million half-product cases
+covered; arbitrary extreme int32*float double-rounding, nonfinite and integer
+overflow not newly certified. Source remains imported; earlier44 numerical
+wide/large-half statements explicitly superseded. Other precision audits and
+all remaining upstream work continue. Evidence prefix explosive-runtime-
+precision: original-kernel.json, retail-oracle.json, RED/GREEN/full logs and
+verification.json.
+Source: [aa031e2e636629f83c4b86eb5b73dc9b4fa76918](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918).

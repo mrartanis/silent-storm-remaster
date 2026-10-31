@@ -40,8 +40,9 @@ void FillAttackModifiers( NRPG::CAttackPortion *pAttack, const SPerkMineModifier
 {
 	pAttack->bAlwaysHumanCritical = mods.bAlwaysHumanCritical;
 	pAttack->fStructDmgModifier   = mods.fAEDmgModifier * mods.fStructureDmgModifier;
-	pAttack->nDmgMin = int( double( pAttack->nDmgMin ) * mods.fAEDmgModifier );
-	pAttack->nDmgMax = int( double( pAttack->nDmgMax ) * mods.fAEDmgModifier );
+	// Original 0x7551e0 multiplies under observed PC24/RN before its truncating cast.
+	pAttack->nDmgMin = int( float( double( pAttack->nDmgMin ) * mods.fAEDmgModifier ) );
+	pAttack->nDmgMax = int( float( double( pAttack->nDmgMax ) * mods.fAEDmgModifier ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // release NWorld::nBreakCalcs -- the per-segment explosion work budget that paces the destruction

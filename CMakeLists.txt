@@ -923,7 +923,7 @@ add_test(NAME UpstreamConsoleVisibilityToggle COMMAND UpstreamBugTests console-v
 add_test(NAME UpstreamAIReactionResetContacts COMMAND UpstreamBugTests ai-reaction-reset-contacts)
 add_test(NAME UpstreamMissionOverlayReadiness COMMAND UpstreamBugTests mission-overlay-readiness)
 add_test(NAME UpstreamAIPlayerMissionReadiness COMMAND UpstreamBugTests ai-player-mission-readiness)
-foreach(_explosive_modifier_case RANGE 0 14)
+foreach(_explosive_modifier_case RANGE 0 17)
   add_test(NAME NativeExplosiveModifierMath${_explosive_modifier_case} COMMAND UpstreamBugTests explosive-modifier-math ${_explosive_modifier_case})
   set_tests_properties(NativeExplosiveModifierMath${_explosive_modifier_case} PROPERTIES LABELS "extended" TIMEOUT 120)
 endforeach()
