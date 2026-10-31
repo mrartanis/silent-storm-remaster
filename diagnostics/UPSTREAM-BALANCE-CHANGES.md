@@ -2744,3 +2744,22 @@ body20->50; unforced1/forced0/unforced-1 controls stay20/no injury. Four shared 
 words and AP/pose/life/input flags/cap remain stable. RED5/8 ->GREEN8/8 each, full
 Game builds, related125Win/125Linux, CI323. Direct native portions are tested, not full
 command/UI producers; world-difficulty fallback remains pending in source65558b11.
+
+## 2026-10-31: failed-roll fallback from actual difficulty AlwaysCritical
+
+Restores target1.2 fallback only after failed nonzero probability, unless forced,
+when actual difficulty enables it and resistance is at least1. A valid attacker
+REPLACES severity with level*d5 after the normal cap; null attacker retains capped
+input and validlevel0 resets0. Existing level*d20 prefix/RNG remains. Native level20
+input300 becomes527 by d20, then47 by d5: HP27->33/BLEED DC47. Original cap5 still
+allows fallback47; no invented recapping. Nullattacker20->50/DC300, validlevel0
+HP27 unchanged but BLEED/DC0. Negative-nonzero boundary follows the same loop.
+
+Actual authored world damage coefficient stays in effect (raw20->base27 for native
+attacker). Difficultyoff/resistance46/passed/zero/forcedresisted/nullworld controls
+are stable. RED5/11 ->GREEN11/11 each; full Game builds, related136Win/136Linux, CI323,
+four shared RNG words and native HP/AP/pose/level/input/cap/difficulty validated.
+Legacy null-world calls remain compatible; direct RPG, not full UI command claim.
+Pending separate native comparison boundary: chance100 * factor.899999976 must
+compare at original wide precision (89.9999976 rather than rounded90). Original
+instruction audit identifies it; no native RED/GREEN or fix is claimed yet.

@@ -14,6 +14,7 @@
 #include "Grid.h"
 #include "A5Script.h"
 #include "../DBFormat/DataRPG.h"
+#include "../DBFormat/DataDifficulty.h"
 #include "../DBFormat/DataFormat.h"
 #include "../DBFormat/DataAI.h"
 #include "../Misc/RandomGen.h"
@@ -102,7 +103,7 @@ private:
 	void ApplyCritical( CCritical *p );
 	void ApplyCritical( NDb::CRPGCritical *pCritical, int nDC );
 	void ProcessCriticalsOnNewTurnFor();
-	float GetCriticalDmgModifier( NAI::EHitLocation eHL, int nCriticalProbability, int nCriticalDifficulty, bool bForced );
+	float GetCriticalDmgModifier( NWorld::IWorld *pWorld, NAI::EHitLocation eHL, int nCriticalProbability, int nCriticalDifficulty, bool bForced, IUnitMissionInfo *pAttacker );
 	void CheckOverdose();
 	EToHitType GetToHitWeaponType() const;
 	int GetMeleeToHit( const CVec3 &ptAttacker, const NAI::SPosition &posTarget, 
@@ -1168,7 +1169,7 @@ CReceivedDmg CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, C
 		}
 		// a critical injury may arise inside GetCriticalDmgModifier
 		float fCriticalDmgModifier = 
-			GetCriticalDmgModifier( (NAI::EHitLocation)nUserID, pAttack->nCrtical, nCriticalDifficulty, pAttack->bAlwaysHumanCritical );
+			GetCriticalDmgModifier( pWorld, (NAI::EHitLocation)nUserID, pAttack->nCrtical, nCriticalDifficulty, pAttack->bAlwaysHumanCritical, pAttack->pAttacker );
 		fDmgModifier += fCriticalDmgModifier;
 		csRPG << CC_GREY << "\tHL=" << GetHLName( (NAI::EHitLocation)nUserID );
 		csRPG << CC_GREY << " \tDmgModifier=" << fDmgModifier;
@@ -1856,8 +1857,8 @@ int CUnitMission::RollCritical( NAI::EHitLocation eHL, int nCriticalDifficulty, 
 	return nRezDiff;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-float CUnitMission::GetCriticalDmgModifier( NAI::EHitLocation eHL, 
-	int nCriticalProbability, int nCriticalDifficulty, bool bForced )
+float CUnitMission::GetCriticalDmgModifier( NWorld::IWorld *pWorld, NAI::EHitLocation eHL,
+	int nCriticalProbability, int nCriticalDifficulty, bool bForced, IUnitMissionInfo *pAttacker )
 {
 	if ( nCriticalProbability == 0 )
 		return 0;
@@ -1884,7 +1885,18 @@ float CUnitMission::GetCriticalDmgModifier( NAI::EHitLocation eHL,
 	if ( IsValid( pGame ) && nCriticalDifficulty > pGame->GetMaxCriticalSeverity() )
 		nCriticalDifficulty = pGame->GetMaxCriticalSeverity();
 	if ( !bForced && nRand > nCriticalProbability * fCriticalResist )
-		return fRet;
+	{
+		CGlobalGame *pGlobal = pWorld ? pWorld->GetGlobalGame() : 0;
+		if ( !pGlobal || !IsValid( pGlobal->pDifficulty ) ||
+			!pGlobal->pDifficulty->bAlwaysCritical || fCriticalResist < 1.f )
+			return fRet;
+		if ( IsValid( pAttacker ) )
+		{
+			nCriticalDifficulty = 0;
+			for ( int i = 0; i < pAttacker->GetSkillValue( NDb::ST_LEVEL ); ++i )
+				nCriticalDifficulty += MissionRandom().Get( 1, 5 );
+		}
+	}
 	csRPG << "<font size=16pt>";
 	csRPG << "<color=grey>" << "\tcrit prob=" << nCriticalProbability << " (check=" << nRand << ") \tseverity=" << nCriticalDifficulty;
 

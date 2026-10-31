@@ -19983,3 +19983,62 @@ these direct-RPG checks.
 Full Windows/Linux Game builds, 125Win/125Linux related tests and asset-free CI323 pass.
 Source remains partial only for the world-difficulty fallback branch.
 Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).
+
+## 2026-10-31: world-difficulty fallback for failed critical rolls (`65558b11` partial)
+
+The private helper now receives actual world/attacker. On a failed NONZERO chance,
+unless forced, it continues only when actual difficulty AlwaysCritical is true
+and stored resistance is at least1. Valid attacker resets severity0 then rolls
+level*d5 using the existing shared generator. Null attacker keeps capped input;
+valid level0 resets0. Fallback runs AFTER the normal cap and is NOT recapped.
+Original level*d20 prefix is retained, including its consumed shared RNG. No
+new severity/probability floor/cap, public API, object field or save/LAN shape.
+Own legacy null-world/default-global/difficulty calls retain zero critical result
+on a failed roll; real original gameplay has the actual nonnull context.
+
+Independent named CWorld primary RTTI/vtable slotEC: Gold76bd00 ->Steam777ab0,
+both read pGlobalGame158; Gold PDB GlobalGame.pDifficulty48. Named CDBDifficulty
+RTTI selects actual Steam serialization7e1d10/import80e240, rather than relying
+on older source comments' different addresses. Exact import80e3b5 takes field68
+with actual string AlwaysCritical8d33e8; serialization7e1eb1 saves that bool as
+tag25. Gold difficulty PDB endsat64 and lacks it: this is a target1.2 addition.
+Exact helper6c3a5a callsWorldEC, reads48/68;6c3a97 rejects resistance<1. Named
+GetSkillValue Gold6bf780/37 is exact uniqueSteam6c5f10 / mission vtable3c; Gold
+PDB ESkillType ST_LEVEL13 agrees with actual push0d. Steam6c3ace resets before
+level check and loops Get(1,5) through41b940/global9ca918. Independently existing
+ProcessAttack6c40be uses SAME generator/Get with1,20. No frame/register/field masks
+or false Gold equivalence. Evidence: critical-difficulty-fallback-retail-oracle.json,
+named types, skill enum, actual import/serialization/helper disassembly.
+
+NativeCriticalDifficultyFallback0..10 use FOUR actual native units in world810:
+two receivers plus actual level20 and reference level0 attackers, matching native
+AI flag/difficulty damage coefficient. The authored coefficient remains unchanged:
+fixed raw20 becomes real base27 with native attacker, while null attacker/world
+base20 stays20. Native game binding/tag45, VP500/IC0/no47, BLEED-only after warmup.
+Actual TakePerk46/authored.1 is acquired on both receivers only for resisted and
+forced-resisted controls, with exact point budget; log label restored. Only the
+actual AlwaysCritical bool/cap are temporarily selected/restored. Reference starts
+from explicit shared state after retained d20 prefix and any expected d5 loop,
+then processes explicit resulting severity with guaranteed or zero chance.
+
+Complete production RED5/11 ->GREEN11/11 EACH platform; six controls unchanged.
+Seed710/SRand12,71 rejects chance1. Level20 adds227 by d20: prefix300->527; failed
+unresisted fallback resets to sum47 by TWENTY d5, not527+47. Damage27->33, BLEED
+absent->DC47/value5, four RNG words change to the correct post-loop stream. With
+cap5 the original result is STILL DC47/damage33, proving no recapping. Null attacker
+retains300, damage20->50/DC300. Valid level0 resets0 and adds BLEED/DC0/value5 while
+HP remains27. Negative-nonzero chance boundary follows the same reset/d5 case.
+Controls: difficultyoff, resistance46, passed chance10000, zero chance, forced with
+46, and legacy nullworld. Native damage27/27/98/27/91/20 and associated injuries/
+four RNG words remain exact. HP/AP/pose/life/perks/input/cap/difficulty and attacker
+HP/AP/level remain stable. This is a direct native RPG context test, not full UI.
+
+Full Windows/Linux Game builds, 136Win/136Linux related tests and asset-free CI323 pass.
+Remaining adaptation audit before closing source: original FILD probability /
+FMULS stored resistance / FCOMPP has NO intermediate float store, whereas the
+current native C++ comparison multiplies as float. Authored46/.1 and chance100
+give wide89.9999976 versus rounded90; the draw90 boundary needs its own real
+native RED/GREEN before any separate comparison fix. It is not mixed into this
+fallback patch or claimed tested here. All other functional source hunks have
+independent native/original evidence from the preceding critical fixes.
+Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).

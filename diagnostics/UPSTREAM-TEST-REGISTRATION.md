@@ -990,3 +990,15 @@ native injury/AP/pose/life/chance/flag/input/cap verified. Full Game builds,
 related125Win/125Linux, CI323. OriginalSteam1.2 gates and typed field2d/tag14 prefix
 mapping recorded; Gold's different trueflag zero-return is not target behavior.
 Evidence prefix critical-forced; full UI/producer flows remain outside scope.
+
+## 2026-10-31: NativeCriticalDifficultyFallback0..10
+
+Both CMake lists, extended/120s. Four actual native units, actual difficulty flag,
+level20/reference0 attackers and authored damage coefficient retained (base27),
+native binding/tag45 and real46 grant controls. RED5/11 ->GREEN11/11 each, six
+controls: d20 prefix527 resetsd5sum47 ->HP27->33/DC47; cap5 stillDC47, nullattacker
+HP20->50/DC300, validlevel0HP27samebutBLEED/DC0, negative chance same d5 behavior.
+Difficultyoff/resisted/passed/zero/forcedresisted/nullworld controls stable. Four
+RNG words and native receiver/attacker HP/AP/pose/level/input/cap/difficulty checked.
+Full Game builds, related136Win/136Linux, CI323. Evidence prefix critical-difficulty-fallback.
+Separate float probability-threshold boundary remains unverified/pending; no UI claim.
