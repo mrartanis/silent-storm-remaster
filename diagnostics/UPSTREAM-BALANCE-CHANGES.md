@@ -2480,3 +2480,16 @@ the shared default-100 for other scene nodes remains intact. This is a visual
 floor-visibility correction with no combat formula or DB/HD asset change.
 Native render dispatch metadata is tested; actual GPU pixels are not claimed
 verified here. Fragment/knockout/melee/plain-ray parts of aa remain pending.
+
+### `360344ca`: carrier objectives complete on native death/removal
+
+Death and removal now notify the scenario before inventory/body/state teardown,
+completing DESTROY_ITEM_CARRIER tasks for the unit's plot items and any body
+it is actually carrying. Actual authored goals now change raw and displayed
+objective state from unknown to completed; two items are both handled. Normal
+death, silent removal and unconscious->death are covered. A nearby uncarried
+body, living carrier or missing item does not complete the task; already-
+completed and unrelated task tags remain unchanged. Existing loot/ownership,
+combat formulas and data files remain intact. Simple plot-item quantity0 is
+preserved as the native input. This closes the360 destruction-notification
+hunk; aa's new-attack-knockout notification is still pending.

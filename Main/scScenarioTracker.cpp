@@ -697,6 +697,17 @@ void CScenarioTracker::OnUpdateVisible( NWorld::CPlayer *pPlayer, CScenarioZone 
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Original Gold 0x6fa1d0 / Steam 0x704300: complete tasks for a removed carrier.
+void CScenarioTracker::OnUnitDestroyed( NWorld::CUnit *pUnit )
+{
+	if ( !bScenarioAvailable || !IsValid( pUnit ) )
+		return;
+	list< CPtr<CScenarioClue> > clues;
+	GetCluesFromPers( pUnit->GetRPG()->GetRPGUnit(), GetCorpse( pUnit ), &clues, false );
+	for ( list< CPtr<CScenarioClue> >::iterator i = clues.begin(); i != clues.end(); ++i )
+		CompleteTasks( *i, NDb::TT_DESTROY_ITEM_CARRIER );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScenarioTracker::ProcessCluesList( const list< CPtr<CScenarioClue> > &clues,
 	NDb::EScenarioObjectiveType type )
 {

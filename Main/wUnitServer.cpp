@@ -229,6 +229,9 @@ void CUnitServer::Die( bool bDeathBeauty, bool bRemove )
 		GetWorld()->GetGlobalAck()->OnUnitDied( this );
 	// remove this unit's acks
 	GetWorld()->GetGlobalAck()->RemoveUnitAcks( this );
+	NRPG::CGlobalGame *pGlobalGame = GetWorld()->GetGlobalGame();
+	if ( IsValid( pGlobalGame ) && IsValid( pGlobalGame->pScenarioTracker ) )
+		pGlobalGame->pScenarioTracker->OnUnitDestroyed( this );
 	//
 	if ( !bRemove )
 	{

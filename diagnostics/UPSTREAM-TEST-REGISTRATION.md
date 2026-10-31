@@ -760,3 +760,15 @@ GREEN2/2 each; all4+44 sectors -100 ->0,85 terrain controls remain0, room groups
 null and actual texture/pose/animator present, shared default-100 preserved.
 Original633byte helper/typed room and floor0 arguments independently mapped.
 Full Game builds, related33Win/33Linux, CI323; new2 outside323. No generated assets.
+
+## Native carrier objective notification on death/removal
+
+NativeScenarioCarrierDestroyed0..8: resource extended Win/Linux,timeout120.
+Actual world810/person103/authored campaign clue/item pairs Win5442/314,5452/303 and Linux5480/315,
+5479/338, with existing goals/tasks, real inventory/kill/remove/pickup/native objective-state
+query. Corrected authored-only RED5/9 ->GREEN9/9 each; four controls. Normal/
+silent removal/unconscious-death/two items/carried body complete only carrier
+tags; live/missing/precompleted/uncarried controls and identities/other tags
+checked. Invalid positive-quantity search initially rejected native quantity0
+wrappers; initial logs NOT RED, unused fallback removed. Full Game builds,
+related43Win/43Linux, CI323; new9 outside323. Actual attack KO remains separate.

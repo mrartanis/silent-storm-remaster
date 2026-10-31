@@ -19047,3 +19047,60 @@ outside323. Broader aa source remains partial (fragments/knockout/melee miss/
 plain-ray wrapper semantics pending). Evidence grass-floor-retail-oracle/
 verification JSON, original633byte bodies/disassembly and native logs.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.
+
+## 2026-10-31: death/removal notifies native carrier tasks (`360344ca` partial)
+
+Restores CScenarioTracker::OnUnitDestroyed and its CUnitServer::Die caller
+after ack removal, before state OnDeath/item drops and the bRemove branch.
+For an active scenario and valid unit, collect that person's and its actually
+carried body's clues with bTake=false and complete only DESTROY_ITEM_CARRIER
+tasks. This includes silent unit removal while it is still alive, rather than
+inventing an IsDead-only condition. Own optional/no-campaign worlds retain
+null guards at the caller. Existing death/loot/ack/animation/state/audio/UI
+camera paths, tracker fields/schema and per-item ownership handling remain.
+Attack-triggered knockout notification from aa is still separate and pending.
+
+GoldPDB OnUnitDestroyed6fa1d0/255 uniquely maps to Steam704300 with all255bytes
+matching after only SEH and seven decoded E8 operands are masked. Active flag
+3c/unit validity, unit40->RPG58, GetCorpse, GetCluesFromPers with false and
+CompleteTasks tag1 for every result are decoded. CompleteTasks Gold6f72d0/91
+uniquely maps to Steam701390 with only its setter E8 operand masked; mapped
+setter Gold6d8940/Steam6df820 matches all10bytes and stores state at18 with no
+other effect. Die Gold7b6440/500 maps by unique32byte prefix (SEH only) to
+Steam7c2bc0; independent direct call Gold7b6509/Steam7c2c89 reaches that exact
+handler before bRemove test at+ce, after ack removal. WorldEC/global scenario
+field38 and CUnit-interface adjustment14c decoded; no full Die byte-equivalence
+claim. Source's703fa0 comment is stale; actual mapped helper is704300.
+
+NativeScenarioCarrierDestroyed0..8 use actual world810, native person103,
+actual campaign flowchart lookup, stock authored clues/items (Win5442/314,5452/303; Linux5480/315,5479/338)
+with their existing goals/carrier tasks, real CreateClueItem/backpack
+placement and actual KillUnit/Die or RemoveUnit. Already-discovered inputs use
+native visible/detected setters; no new DB/task/goal records or fake tracker,
+new missing-handler API stub or flowchart substitution is used as RED.
+RED5/9 each ->GREEN9/9; four controls already passed. Normal death, removal,
+unconscious->death and two plot items complete raw task state and the native
+objective-state query (0 ->1). A loaded dead body's plot item is completed
+when its actual carrier dies: native CExecCorpse Run/TimeLabelReached creates
+reciprocal carrying before the event. A nearby uncarried body is excluded.
+Living/no-event, missing item, already-completed and uncarried-body controls
+retain their states. Parent/task/clue lookup identities and all unrelated
+authored task tags stay unchanged. Scripted KO is only a declared precondition
+here; this does not claim the pending actual attack-KO scenario notification.
+No new full projectile/loot/GUI-pixel equivalence claim.
+
+Fixture correction before production: initial9/9 searches incorrectly
+required positive item quantity. Native simple CClueItem normally retains
+CItem's quantity0, which is valid for this inventory/lookup path; removing
+that filter found the real authored goals. Initial goal/quantity-discovery
+logs are explicitly NOT RED. A declared-goal fallback was prepared but never
+used (authoredGoals1/2,declaredGoals0) and removed completely. The final
+compiled authored-only5/9 RED above precedes the production edit. No DB,
+goal-template or quantity mutation remains in the fixture. Native table
+iteration selects different authored pairs by platform; the exact pairs are
+verified equal between RED/GREEN on each platform, not forced to one order.
+Full Game builds, related43Win/43Linux (scenario/discovery/objective/task/carrier/
+head idle/network) and CI323 pass; new9 resource extended/outside323.
+Evidence carrier-destroyed-retail-oracle/fixture-correction/verification JSON,
+original bodies/disassembly and native RED/GREEN/full-gate logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387.
