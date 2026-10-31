@@ -431,8 +431,9 @@ int CUnitMission::GetUnhideProbability( IUnitMission *pTarget, float fDistance )
 	float fParam;
 	if ( HasPerk( N_PERK_BETTER_SPOTTING, &fParam ) )
 		nSpot = int( ( 1.0 + double( fParam ) ) * nSpot );
-	// Gold 0x6b9540 / Steam 0x6bf750 retain precision until the base truncation.
-	int nBase = int( 45.0 - double( 44.f / 30.f ) * fDistance );
+	// Original 0x6bf7cf/e0 rounds both float operations before integer truncation.
+	const volatile float fDistanceTerm = ( 44.f / 30.f ) * fDistance;
+	int nBase = int( 45.f - fDistanceTerm );
 	int nStealth = pTarget->GetRPGUnit()->Skills( NDb::ST_STEALTH );
 	// Both originals test the observer's perk75; their night argument is unused.
 	if ( HasPerk( N_PERK_HIDE_IN_NIGHT, &fParam ) )

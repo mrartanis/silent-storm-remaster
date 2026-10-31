@@ -523,6 +523,10 @@ Game builds, CI323. New16 outside323; success-query scope only.
 
 ## Detection baseline precision
 
+**Superseded precision inference:** the earlier double-product claim and
+distance15/30 baseline22/0 below are incorrect under observed original PC24/RN.
+See the later complete317 original-runtime audit; coefficient/truncation remain.
+
 NativeUnhideBasePrecision0..7: resource extended Win/Linux,timeout120. Actual
 RPG observer/target, no active25/75, distance0/5/15/30/40 and skill/clamp cases.
 RED3/8 -> GREEN8/8 each; both units' skill/AP/HP/XP and RNG stable. Related
@@ -1323,3 +1327,17 @@ early-exit/timeout attempts excluded. Full Game builds, related27Win/26Linux, CI
 Isolated modifier math and existing grenade consumers; no new authored-perk
 ownership or full explosion propagation/gameplay-breakpoint claim. Prefix
 explosive-runtime-precision; prior wide/large-half explanations superseded.
+
+## 2026-10-31: detection distance original-runtime regression
+
+Existing UnhideBase8/BetterSpotting14/ObserverStealth14: fresh RED4/36 ->GREEN36
+each,32 identical controls. Literal15/30 baselines23/1, trained63 and actual25
+fixture19 replace22/0/62/18. Other skill/perk ownership/scalar/clamp/AP/HP/XP/RNG
+assertions retained; only distance baseline production changed, with explicit
+float product barrier against FMA contraction. COMPLETE original317 with only
+four verified constant-pointer relocations, actual-address72 operand/CW records,
+six observedCW007f samples, guarded context restore and normal exit0/cfg restore.
+Separate24 actual live RPG getter/AP/weapon calls also showPC24/RN, but no live
+perception/critical/lateIC capture is claimed. Full Game builds, related71Win/71Linux,
+CI323. Evidence prefixes unhide-runtime-precision and original-live-fpu;
+prior31 wide-precision explanations superseded. Direct probability API scope.

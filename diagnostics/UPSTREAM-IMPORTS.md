@@ -18199,6 +18199,10 @@ Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d
 
 ## 2026-10-30: detection distance baseline precision (`037c41d9`, partial)
 
+**Superseded precision inference:** the earlier double-product claim and
+distance15/30 baseline22/0 below are incorrect under observed original PC24/RN.
+See the later complete317 original-runtime audit; coefficient/truncation remain.
+
 GetUnhideProbability retains the stored-float 44/30 coefficient but keeps the
 distance product/subtraction in double precision until truncating the base.
 The former float intermediate could round across an integer boundary. The
@@ -21188,3 +21192,59 @@ all remaining upstream work continue. Evidence prefix explosive-runtime-
 precision: original-kernel.json, retail-oracle.json, RED/GREEN/full logs and
 verification.json.
 Source: [aa031e2e636629f83c4b86eb5b73dc9b4fa76918](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918).
+
+## 2026-10-31: detection distance baseline matches original runtime precision
+
+Corrects earlier31 wide-product inference. With storedfloat k=44.f/30.f,
+baseline = int(float(45.f - float(k*distance))) under observed PC24/RN. A local
+volatile float materializes the product, preserving the original separate
+multiply/subtract even on compilers that permit FMA contraction. Equal17
+spot/stealth at distance15 returns23 rather than22; at30 returns1 rather than0.
+Spot70/stealth30 at15 returns63 rather than62; actual perk25 fixture19 rather
+than18. Coefficient/intercept, raw skills, perk25/75 scalar expressions,
+observer-owned75 quirk, ignored original night argument and0..100 clamp retained.
+No API, layout/save/LAN field, authored record or random-call changes.
+
+COMPLETE317 GoldPDB GetUnhideProbability6b9540 uniquely maps to Steam6bf750;
+only four decoded/independently dereferenced constant pointers differ (1,
+storedfloat44/30,45,1), no opcode/register/frame/branch masks. Exact50-byte
+baseline6bf7c7..7f9: FLDS distance, FMULS8c531c, FSUBRS8c5318 BEFORE FLDCW7ed
+sets CHOP for FISTP7f1; restore7f5. Any prior25 cast restores callerCW7c3.
+Raw SPOT6/STEALTH5 read cap/current/freeze through actual original getter777a40,
+independently bound by named mission RTTI/COL+4c/vtable58 and typed skill fields.
+
+Actual COMPLETE317 ran at ORIGINAL ADDRESS on ONLY owned original main thread,
+36 native operand sets under PC24/RN and diagnosticPC53/RN,72 records. Sparse
+original-layout mission/unit/skill buffers and per-actor HasPerk providers use
+each native grant/parameter; actual original getter, raw readers, both perk
+branches/ownership, baseline and clamp execute. Providers distinguish observer
+from target; this is not construction of a real original perk tree. PC24 matches
+all36 new expectations; PC53 reproduces all36 former results. Six runtimeCW/
+FXSAVE007f samples, guarded Game-code/empty-x87 capture, full context restoration,
+normal WM_CLOSE/exit0 and cfg restoration. Original executable code/world/db/
+resources untouched. Main-menu isolated-kernel scope, no full perception/AI flow.
+
+Additional read-only live original map810/person54 observation:24 actual RPG
+entry captures on the primary PE-entry thread, eight each GetRPGUnit777a40,
+GetActionAP6c0d30 and GetWeaponSkill6c06d0. All CW007f/PC24/RN; real weapon
+caller virtual188 at6b8399/return6b839f independently rechecked. Hardware
+breakpoints/read-only FP/register/stack capture, no injected kernel or manual
+thread/FPU replacement; normal WM_CLOSE/exit0 and cfg restoration. Initial
+CDB attempts stopped at first-chance AV notifications; forwarding them to original
+handlers allowed normal mission loading. This live run DID NOT capture this
+perception method, critical comparison or lateIC; it supports a bounded actual
+RPG main-thread environment, not all caller/thread precision modes. Whole1244
+weapon helper Gold/Steam equivalence remains rejected, and source9f3 is pending.
+
+Fresh native RED4/36 BEFORE production ->GREEN36/36 EACH;32 identical measured
+controls across actual Unhide8/BetterSpotting14/ObserverStealth14. Literal baseline
+and actual native TakePerk25/75/ownership/negative/zero/clamp contexts; both units'
+skills/AP/HP/XP and query RNG checks retained. Known four probability changes
+above are verified, not a detection-frequency survey. Full Game builds,
+related71Win/71Linux perception/awareness/AI/network checks, CI323. Source status stays
+imported; earlier wide/22/0 assertions explicitly superseded. Finite tested
+distance0..100/native skill/perk inputs covered; extremes/nonfinite, other
+callers/threads and whole visibility integration remain uncertified. Evidence
+unhide-runtime-precision original-kernel/retail-oracle/verification and RED/GREEN/
+full logs; original-live-fpu-observation/verification and CDB log/script.
+Source: [037c41d91ec01f29848f346787aa7a8a1d471c43](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43).

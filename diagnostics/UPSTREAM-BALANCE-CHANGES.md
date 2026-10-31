@@ -2198,6 +2198,10 @@ separate paths. Authored data and current skill are unchanged.
 
 ### `037c41d9`: detection distance rounding
 
+**Superseded precision inference:** the earlier double-product claim and
+distance15/30 baseline22/0 below are incorrect under observed original PC24/RN.
+See the later complete317 original-runtime audit; coefficient/truncation remain.
+
 Restores Gold/Steam intermediate precision while retaining the existing stored
 float coefficient44/30 and intercept45. Early float rounding could raise the
 detection probability by one point: equal spot/stealth at distance15 was23
@@ -3138,3 +3142,21 @@ Full Game builds, related27Win/26Linux, CI323. Native modifier/known grenade con
 scope; no full explosion propagation/authored-perk ownership/gameplay breakpoint
 claim. Extreme arbitrary integer/float, nonfinite and overflow remain uncertified.
 Source: [aa031e2e636629f83c4b86eb5b73dc9b4fa76918](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918).
+
+## 2026-10-31: detection baseline uses original float-operation precision
+
+Corrects earlier31 wide intermediate assumption. Original PC24/RN rounds the
+distance product and subtraction separately before integer truncation. Equal
+spot/stealth at distance15 gives23 instead of22, and at30 gives1 instead of0;
+spot70/stealth30 at15 gives63 instead of62. Actual25 fixture changes18->19.
+Stored coefficient44/30/intercept45, ability ownership/scalars, ignored night
+argument and0..100 clamp stay unchanged. No new authored bonus or query RNG draw.
+
+Native RED4/36 ->GREEN36/36 each with32 identical controls. COMPLETE original317,
+actual-address72 operand/CW records; separate24 actual mission RPG getter/AP/
+weapon entries confirmPC24/RN on the primary thread. That live run does not
+capture perception itself. Owned probes restore config/context and exit normally
+with0. Full Game builds, related71Win/71Linux, CI323. Direct probability API/finite
+native input scope; full visibility/AI frequency and other caller modes unclaimed.
+Earlier wide/22/0 baseline explanations are explicitly superseded.
+Source: [037c41d91ec01f29848f346787aa7a8a1d471c43](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43).
