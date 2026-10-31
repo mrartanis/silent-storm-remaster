@@ -1540,3 +1540,25 @@ real-stack/context/config restored/readback, normalexit0, six007f samples. Coeff
 is separate from pending recipient dispatch.
 
 Audit context: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed); not a donor hunk or source completion.
+
+## 2026-10-31: XP distribution after a fatal periodic pass
+
+NativeFatalBleedingXP0..10 execute actual native World/TBS periodic callbacks, NPC838
+death and real player rosters/AddXP. Fatal/nonfatal, neutral/ally, KO exclusion, double
+callback, already dead, replica, two distinct hostile parties sharing scenario0, empty
+roster and clue-KO suppression. Existing AddXP reference uses deep native Unit save/load
+clones; compare recipient XP/LEVEL/progress/points, HP/death, unchanged input/reference
+data and four following RNG words. RED4/58 both ->full GREEN 609 Windows / 610 Linux;7 new
+scenario controls,36 measured query controls and11 old periodic scenarios/37 measurement
+rows unchanged. All58 RED names in full selection, full Game builds/CI323. New11 extended
+tests are outside323.
+
+Original actual800-byte periodic function independently pinned by exact97 parent and51
+clock/caller blocks. Typed primary/secondary RTTI, GetTBS+8, unit/player diplomacy,
+CanFight/list, GetXP124 and UnitAddXP0 delegation are statically verified. Original
+world/constructors/recipient AddXP are not executed by the pure original math probe.
+Actual original GetXP128/helper70 has28 records; native cap15/level0/party0/1/2/3 quotes
+and thresholds match its PC24 records. Native parties/recipients retain multiplicity
+despite duplicate scenario/persona IDs. Source aa724 complete;56 pending/partial remain.
+
+Source: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed).

@@ -1986,6 +1986,22 @@ void CUnitServer::ProcessCriticalsAndRegenerations()
 			GetWorld()->CreateBloodyMess( GetPosition().GetCP() + CVec3(0,0,1), CVec3(0,0,-1.5f), this, 1 );
 			GetWorld()->GetGlobalAck()->OnSuffersLightDamage( this );
 		}
+		// Steam 0x7c330d: distribute periodic-death XP before synchronizing consciousness.
+		if ( GetUnitRPG()->IsDead() )
+		{
+			vector< CPtr<CPlayer> > players;
+			GetWorld()->GetPlayersList( &players );
+			for ( vector< CPtr<CPlayer> >::iterator i = players.begin(); i != players.end(); ++i )
+			{
+				if ( GetWorld()->GetDiplomacyState( static_cast<CUnit*>( this ), *i ) != NDb::DS_ENEMY )
+					continue;
+				list< CPtr<CUnitServer> > units;
+				(*i)->GetUnitsThatCanFight( &units );
+				const float fXP = GetUnitRPG()->GetXP( int(units.size()) );
+				for ( list< CPtr<CUnitServer> >::iterator u = units.begin(); u != units.end(); ++u )
+					(*u)->GetUnitRPG()->GetRPGUnit()->AddXP( fXP );
+			}
+		}
 	}
 	SyncConscious();
 }

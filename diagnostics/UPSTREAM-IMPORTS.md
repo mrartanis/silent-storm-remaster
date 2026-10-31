@@ -22013,3 +22013,83 @@ Evidence: kill-reward-quote mapping, full disassembly, original kernel/oracle, e
 RED/full GREEN and verification.
 
 Audit context: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed); independent coefficient correction, not completion of its recipient-dispatch hunk.
+
+## 2026-10-31: XP distribution after a fatal periodic pass (`aa724eca` complete)
+
+After the existing periodic regeneration/damage pass, a newly dead RPG unit now
+distributes XP to the combat-capable roster of each hostile player. The block stays inside
+the original initial !serverIsDead gate, outside the positive-bleed-only branch and before
+SyncConscious. Per-unit/player diplomacy selects only ENEMY; each hostile party receives
+its own existing clamped party-size quote and each eligible unit uses existing
+CUnit::AddXP intelligence/perk modifiers. Dead or unconscious roster members are excluded
+by existing CanFight. Already-dead callbacks do not pay again. Native
+authoritative-world/replica gating, periodic timing, damage, criticals,
+hit/corpse/attribution effects and save/network fields are retained. No authored rates or
+caps change. The independent shared-threshold and base-reward prerequisites were corrected
+in bafce7a4 and5aa0b9c9 before importing this donor hunk.
+
+Eleven real native World/TBS scenarios use authored NPC838, level0/cap15, a three-member
+party54/2/3 and an optional second distinct party54. Actual FINISH_OWN_TURN callback
+covers fatal/nonfatal damage, neutral/ally masks, exclusion of one unconscious fighter,
+repeated callback, already-dead victim, native replica, two hostile parties sharing
+scenarioID0, an empty hostile combat roster and an unconscious clue-unit
+bleeding-suppression control. Actual save/load deep clones supply existing native AddXP
+reference results per recipient. XP, LEVEL/progress, perk points and all four following
+RNG words are checked; victim HP/death and all original inputs/expected results remain
+unchanged. RED4/58 both ->full GREEN 609 Windows / 610 Linux; four changed
+scenarios0/4/5/8 now pay exactly the eligible3/2/3/4 recipients once. Seven new scenario
+controls,36 measured query controls (14 reward/6 threshold/16 AP), all11 earlier periodic
+scenarios and37 prior periodic measurement rows are unchanged. Native roster and recipient
+comparisons preserve multiplicity: distinct parties can share a scenario ID and units can
+share a persona ID. All58 RED names are in the single successful full GREEN selection,
+including the explicitly selected periodic controls. Full Game builds and323 asset-free
+checks pass.
+
+Original actual ProcessCriticalsAndRegenerations is800 bytes at7c31a0..7c34bf, not the
+donor's7c2c9d annotation. Named Gold7b6a20/797 is comparative only; no whole-method
+equivalence is claimed. Previously verified exact97-byte parent block Gold7b6a48
+->uniqueSteam7c31c8 and exact51-byte Segment clock block Gold7b73d1 ->uniqueSteam7c3b51
+with the following verified direct call to7c31a0 independently pin the entry. Full
+actual800 control flow is decoded: initial serverIsDead virtual3c skips directly to
+SyncConscious751cf0; regen/clue/KO and positive-bleed damage stay intact; both damage and
+no-positive-bleed paths reach RPGIsDead98 at7c330d. A true result enumerates all players,
+checks only enemy0, gets each party's CanFight list, counts it, calls mission GetXP124
+at7c33cc and stores its float result7c33d2. Each recipient's RPG getter58 yields its Unit,
+then CSkilledObject+c virtual AddXP0 receives that reward. Temporary weak references/list
+nodes are cleaned before the next party and final Sync751cf0. This restores periodic-pass
+RPG death handling, not a new global kill-frequency rule.
+
+Typed RTTI distinguishes CUnitServer PRIMARY VT8bec1c ->8ce204 from its CUnit
+SECONDARY+14c VT8beb74 ->8ce15c. World PRIMARY VT8bc74c ->8cbc8c slotcc GetTBS Gold76bb50
+->Steam777900 is exact11 bytes and returns World+8; the TBS SECONDARY+8 VT8bc94c ->8cbe8c
+slot30 maps named GetPlayersList Gold76aac0 ->Steam776840. Slot-context binding is used;
+the short getter is not claimed globally unique. WorldC0 maps the already-audited
+unit/player identity and per-unit diplomacy method756f60 ->7627f0. Player PRIMARY VT8bc3bc
+->8cb8a4 slot50 maps named GetUnitsThatCanFight77c420 ->787e90, whose actual220 bytes
+clear the output list, iterate units vector18/1c and append only primary CanFight44
+successes. CanFight34 matches Gold exactly and rejects primary IsDead3c or
+IsUnconscious40. Full list SEH/allocator equivalence is not claimed.
+
+The RPG receiver is IUnitMission SECONDARY+4c, VT8b63cc ->8c54e4; its unit field118 is
+interface-relative (complete-object164). Unit PRIMARY VT8b5ec0 ->8c4fd8 and CSkilledObject
+SECONDARY+c VT8b5eb4 ->8c4fcc bind AddXP0 to named Gold6b6150 ->actual6bc340. Its decoded
+prefix checks persona/name, reads effective INT16, performs .05/plus1/reward
+multiplication and optional perk61; whole474-byte logger/runtime equivalence is not
+claimed. Original WORLD/players/recipient-AddXP execution and constructors are STATIC ONLY
+here. The separate actual original complete GetXP128/helper70/CRT probe has28 records;
+current native victim cap15/level0/party sizes0/1/2/3 correlate bit-for-bit to its
+observed PC24 quote and threshold records. The native real World/death/party integration
+is tested separately. No fake original vtable/provider, original world/DB/TEB/executable
+patch or full original mission-frequency claim. The actual original math probes restored
+real-stack bytes/context/config and exited normally; no original test process remains
+open.
+
+All useful source aa724 behavior is imported. The earlier unverified balance deferral is
+superseded by typed original control-flow/math evidence and native real-world tests.
+Remaining sources56 (pending40 +partial16). Direct-attack pre-damage
+hostile-roster/first-incapacitation XP from sourcec923 remains separate work. Hosted CI on
+the final commit of the entire task remains pending. Evidence: fatal-bleeding-xp typed
+mapping/full disassembly, original reward correlation, native RED/full GREEN and
+verification.
+
+Source: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed).

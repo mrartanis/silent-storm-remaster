@@ -3442,3 +3442,28 @@ not complete source aa724: 57 pending or partial sources remain. Hosted CI on th
 commit of the entire task remains pending.
 
 Audit context: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed).
+
+## 2026-10-31: XP distribution after a fatal periodic pass
+
+When the periodic regeneration/damage pass leaves a unit dead, each hostile party now
+receives the original XP reward through its combat-capable members. Dead and unconscious
+members receive no share; each hostile party is handled separately. Neutral or allied
+parties, a surviving victim, an already-dead callback and a network replica receive no new
+award. Repeating the callback after death does not pay twice. Existing party-size
+clamping, recipient intelligence/perk modifiers and authoritative-world rules are
+preserved. Periodic timing, damage and authored growth parameters do not change. The
+earlier threshold and base-reward corrections supply the original amount.
+
+Native World tests reproduced four failures out of 58 on both systems. All 609 Windows /
+610 Linux full checks and 323 asset-free checks pass. Seven new scenario controls, 36
+query controls and 11 earlier periodic scenarios are unchanged. The four repaired cases
+pay exactly 3/2/3/4 eligible recipients, matching independent native AddXP references.
+HP/death, inputs, expected results and four subsequent RNG words remain unchanged. Typed
+original code verifies the periodic control flow and per-player/CanFight delegation. Its
+actual reward function was executed separately 28 times; matching native cap/level/party
+inputs produce the same reference bits. This does not claim execution of the original
+World/death/constructor loop. Source aa724 is complete; 56 pending or partial sources
+remain. Direct-attack first-incapacitation XP is next. Hosted CI on the final commit of
+the entire task remains pending.
+
+Source: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed).

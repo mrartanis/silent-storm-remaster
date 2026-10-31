@@ -22199,6 +22199,90 @@ static void BleedingReadout(const char* databasePath,const char* resourcePath)
     }
 }
 
+static void NativeFatalBleedingXP(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<11,"unknown fatal bleeding XP mode");
+    CObj<NRPG::CGlobalGame> game;
+    auto world=FixtureWorld(databasePath,resourcePath,false,&game);
+    auto deploy=[&](const vector<int>& people,const wchar_t* name) {
+        game->players.push_back(NRPG::CreateGlobalPlayer(people));
+        CObj<NAI::CSequenceCommander> commander=new NAI::CSequenceCommander(world);
+        auto* added=dynamic_cast<NWorld::CPlayer*>(world->AddPlayer(name,game->players.back(),commander));
+        Require(added,"fatal bleed fixture could not deploy real party");commander->SetPlayer(added);
+    };
+    deploy(vector<int>{54,2,3},L"Bleeding XP party");
+    if(mode==8)deploy(vector<int>{54},L"Second bleeding XP party");
+    vector<CPtr<NWorld::CPlayer>> players;world->GetPlayersList(&players);
+    list<CPtr<NWorld::CUnitServer>> all;world->GetAllUnits(&all);
+    NWorld::CUnitServer* victim=nullptr;
+    for(auto entry:all) {
+        auto* u=entry.GetPtr();
+        if(u && u->GetPlayer() && u->GetPlayer()->GetScenarioPlayerID()>0 && u->CanFight() && !u->IsWearingPK() && !u->IsEmptyPK() && !u->IsPerformingAction() && u->GetUnitRPG()->GetIC()<100 && u->GetUnitRPG()->GetTotalVP()>20 && u->GetUnitRPG()->GetHealedVP()==0 && std::isfinite(u->GetUnitRPG()->GetXP(1)) && u->GetUnitRPG()->GetXP(1)>0) {victim=u;break;}
+    }
+    Require(victim,"fatal bleed fixture lacks ordinary live authored NPC victim");
+    auto* mission=victim->GetUnitRPG();auto* deadUnit=mission->GetRPGUnit();victim->nClueCount=mode==10?1:0;
+    auto diplomacy=mission->GetDiplomacy();
+    for(auto p:players)if(p.GetPtr()!=victim->GetPlayer() && p->GetScenarioPlayerID()>=0)
+        diplomacy.SetDiplomacyState(p->GetScenarioPlayerID(),mode==2?NDb::DS_NEUTRAL:mode==3?NDb::DS_ALLY:NDb::DS_ENEMY);
+    mission->SetDiplomacy(diplomacy);
+    int removed=0;
+    if(mode==4 || mode==9)for(auto p:players) {
+        if(world->GetDiplomacyState(static_cast<NWorld::CUnit*>(victim),p)!=NDb::DS_ENEMY)continue;
+        list<CPtr<NWorld::CUnitServer>> roster;p->GetUnitsThatCanFight(&roster);
+        for(auto u:roster)if(u.GetPtr()!=victim && (mode==9 || removed==0)) {
+            u->SetState(new NWorld::CUnitStateUnconscious(u));Require(!u->CanFight(),"fatal bleed KO recipient still can fight");++removed;
+        }
+    }
+    if(mode==4 || mode==9)Require(removed>0,"fatal bleed exclusion fixture did not remove a real combatant");
+    mission->RemoveCritical(NDb::C_BLEEDING);deadUnit->Skills(NDb::ST_VP).SetValue(mode==1?40:10);
+    mission->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_BLEEDING,3,mode==1?1.f:float(110-deadUnit->GetDeathVP())));
+    if(mode==10) {victim->SetState(new NWorld::CUnitStateUnconscious(victim));Require(victim->IsClueUnit() && victim->IsUnconscious(),"fatal bleed clue control was not established");}
+    if(mode==6) {deadUnit->Kill();victim->SyncConscious();Require(victim->IsDead(),"fatal bleed already-dead control was not established");}
+    if(mode==7)world->bNetworkReplica=true;
+    const int victimLevel=deadUnit->Skills(NDb::ST_LEVEL);
+    std::printf("FATAL_BLEED_VICTIM mode=%d persona=%d level=%d cap=%d currentThreshold=%.9g nextThreshold=%.9g deathReserve=%d\n",mode,deadUnit->pPers->GetRecordID(),victimLevel,deadUnit->cap[NDb::ST_LEVEL],deadUnit->GetXPForSkill(NDb::ST_LEVEL,victimLevel),deadUnit->GetXPForSkill(NDb::ST_LEVEL,victimLevel+1),deadUnit->GetDeathVP());
+    const bool expectDeath=mode!=1 && mode!=7 && mode!=10;
+    const bool expectAward=expectDeath && mode!=6;
+    struct Recipient {CPtr<NWorld::CUnitServer> server;CObj<NRPG::CUnit> reference;float before,share;int side;bool eligible;};
+    std::vector<Recipient> checks;int hostileParties=0,eligible=0;
+    for(auto p:players) {
+        const bool hostile=world->GetDiplomacyState(static_cast<NWorld::CUnit*>(victim),p)==NDb::DS_ENEMY;
+        list<CPtr<NWorld::CUnitServer>> roster;p->GetUnitsThatCanFight(&roster);
+        if(hostile)++hostileParties;
+        const float share=hostile?mission->GetXP(int(roster.size())):0.f;
+        for(auto u:all)if(u.GetPtr()!=victim && u->GetPlayer()==p.GetPtr()) {
+            auto* actual=u->GetUnitRPG()->GetRPGUnit();CObj<NRPG::CUnit> saved=actual;CMemoryStream bytes;
+            {CStructureSaver writer(bytes,CStructureSaver::WRITE);writer.Add(1,&saved);}bytes.Seek(0);
+            CObj<NRPG::CUnit> reference;{CStructureSaver reader(bytes,CStructureSaver::READ);reader.Add(1,&reference);}
+            Require(reference && reference.GetPtr()!=actual && &reference->Skills(0)!=&actual->Skills(0) && (!actual->GetPerksTree() || reference->GetPerksTree()!=actual->GetPerksTree()),"fatal bleed XP reference did not deep-clone real native unit");
+            const bool receives=hostile && std::find(roster.begin(),roster.end(),u)!=roster.end();
+            if(receives)++eligible;
+            const float before=actual->fXP;
+            if(expectAward && receives)reference->AddXP(share);
+            checks.push_back({u,reference,before,share,p->GetScenarioPlayerID(),receives});
+        }
+        std::printf("FATAL_BLEED_ROSTER mode=%d side=%d hostile=%d size=%d share=%.9g\n",mode,p->GetScenarioPlayerID(),int(hostile),int(roster.size()),share);
+    }
+    Require(!checks.empty() && (mode==2 || mode==3 || hostileParties>0) && (mode==2 || mode==3 || mode==9 || eligible>0),"fatal bleed fixture has no recipient/hostility controls");
+    if(mode==8)Require(hostileParties>=2,"fatal bleed two-party fixture did not establish separate hostile rosters");
+    for(;;){CObj<NWorld::CHitLocator> hit=world->GetHitEvent();if(!hit)break;}
+    SeedPeriodicBleedNoDodge(mission);const int initialVP=mission->GetTotalVP();
+    victim->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);
+    Require(victim->IsDead()==expectDeath,"fatal bleed stimulus did not establish expected death transition/control");
+    if(mode==5)victim->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);
+    auto points=[](NRPG::CUnit* u){return u->GetPerksTree()?u->GetPerksTree()->GetPerkPoints():0;};
+    int mismatches=0,awarded=0;
+    for(std::size_t i=0;i<checks.size();++i) {
+        const auto& x=checks[i];auto* actual=x.server->GetUnitRPG()->GetRPGUnit();auto* reference=x.reference.GetPtr();
+        const bool equal=actual->fXP==reference->fXP && int(actual->Skills(NDb::ST_LEVEL))==int(reference->Skills(NDb::ST_LEVEL)) && actual->Skills(NDb::ST_LEVEL).GetProgress()==reference->Skills(NDb::ST_LEVEL).GetProgress() && points(actual)==points(reference);
+        if(!equal)++mismatches;if(actual->fXP!=x.before)++awarded;
+        std::printf("FATAL_BLEED_RECIPIENT mode=%d index=%d persona=%d side=%d eligible=%d before=%.9g share=%.9g actual=%.9g expected=%.9g level=%d expectedLevel=%d progress=%.9g expectedProgress=%.9g points=%d expectedPoints=%d equal=%d\n",mode,int(i),actual->pPers->GetRecordID(),x.side,int(x.eligible),x.before,x.share,actual->fXP,reference->fXP,int(actual->Skills(NDb::ST_LEVEL)),int(reference->Skills(NDb::ST_LEVEL)),actual->Skills(NDb::ST_LEVEL).GetProgress(),reference->Skills(NDb::ST_LEVEL).GetProgress(),points(actual),points(reference),int(equal));
+    }
+    auto random=GlobalGameRandom();unsigned words[4];for(auto& word:words)word=random.Get();
+    std::printf("native fatal bleeding XP mode=%d victim=%d dead=%d initialVP=%d finalVP=%d parties=%d eligible=%d removed=%d recipients=%d awarded=%d mismatches=%d rng0=%u rng1=%u rng2=%u rng3=%u\n",mode,deadUnit->pPers->GetRecordID(),int(victim->IsDead()),initialVP,mission->GetTotalVP(),hostileParties,eligible,removed,int(checks.size()),awarded,mismatches,words[0],words[1],words[2],words[3]);std::fflush(stdout);
+    Require(mismatches==0,"fatal periodic death omitted hostile combat-capable roster XP, paid excluded recipients or paid twice");
+}
+
 static void PeriodicBleedingPipeline(const char* databasePath,const char* resourcePath,int kind)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
@@ -32747,6 +32831,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "no-manufactured-bleed-blocked") && argc==4) { NoManufacturedBleeding(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "no-manufactured-bleed-hit") && argc==4) { NoManufacturedBleeding(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "bleeding-readout") && argc==4) { BleedingReadout(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "native-fatal-bleeding-xp")) { Require(argc==5,"fatal bleeding XP requires db/resources/mode"); NativeFatalBleedingXP(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "periodic-bleed-fractional") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "periodic-bleed-whole") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "periodic-bleed-low-nine") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],2); return true; }
