@@ -3096,3 +3096,24 @@ owned-process exit. Main-menu/kernel scope, no live-gameplay breakpoint claim.
 RED4/9 ->GREEN9/9 each, full Game builds related334Win/333Linux, CI323. Prior precision
 claim above explicitly superseded; other precision adapters audited separately.
 Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).
+
+## 2026-10-31: correct late incidental damage to observed original precision
+
+Earlier descriptions of IC100 leaving1 damage and IC20/base40 leaving33 are
+superseded. Actual original multiplies in observed PC24/RN BEFORE switching to
+integer truncation: IC100/base40 leaves0; IC20/base40 leaves32. For base100,
+effectiveIC22 leaves78 and IC2 leaves98. Signed custom aura IC-10/base40 leaves
+44; existing final max0 clamp remains. Click/intended/PK/failed-roll gates,
+shared RNG, aura reset and original late receiver order are retained.
+
+Fresh native RED13/56 ->GREEN56/56 each with43 controls (39 matching core
+measurements and four unchanged actual knife labels), actual HP/hit/
+receiver/perks/aura and4RNGwords. Actual original69-byte block+callback dispatch
+at original addresses and30 CW/input records confirm arithmetic; isolated final
+getter stops before original health application. Complete owned probe normal
+exit/config/context restore; incomplete attempts excluded. Main-menu/kernel
+scope, no full gameplay breakpoint claim. Full Game builds related396Win/395Linux,
+CI323. Derived AP follows resulting HP. This corrects original parity; no new
+authored bonus, guard or random draw. Earlier source86 free-point damage1 is a
+historical consequence of old shared receiver and is superseded by this fix.
+Source: [037c41d91ec01f29848f346787aa7a8a1d471c43](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43).

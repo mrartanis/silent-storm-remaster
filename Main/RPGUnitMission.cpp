@@ -1192,7 +1192,8 @@ CReceivedDmg CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, C
 		int nDamage = fDmgModifier * nDmg;
 		if ( pAttack->atkType != AT_CLICK_OF_DEATH && this != pAttack->pTarget &&
 			!GetPanzerklein() && CheckICForAttack( pAttack->atkType ) )
-			nDamage = Max( 0, nDamage - int( double( GetPerkModifiedIC( pAttack->atkType ) ) * nDamage * double( 0.01f ) ) );
+			// Original 0x6c4279 multiplies under PC24/RN before switching RC for the integer cast.
+			nDamage = Max( 0, nDamage - int( float( GetPerkModifiedIC( pAttack->atkType ) ) * float( nDamage ) * 0.01f ) );
 		int ndBVP = nDamage * (float)GetHealedVP() / GetTotalVP();
 		ASSERT( ndBVP >= 0 );
 		SetHealedVP( GetHealedVP() - ndBVP );

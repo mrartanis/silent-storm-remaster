@@ -18754,6 +18754,11 @@ Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d
 
 ## 2026-10-31: late incidental damage evasion base (`037c41d9` partial)
 
+**Superseded arithmetic precision:** the wide-product explanation and IC100/40
+remaining1 and IC20/40 remaining33 below are incorrect under observed original
+PC24/RN. See the later original-address late-IC runtime audit. The earlier gate/
+receiver/order work remains; historical numerical measurements are retained.
+
 Removes the early CheckIC whole-hit rejection and applies max(0,damage-
 int(double(IC)*damage*double(.01f))) after damage conversion, before healed/
 life application. Click-of-death, intended targets and worn PK skip the IC
@@ -21074,3 +21079,65 @@ not newly certified. Other prior precision adapters still require separate audit
 Evidence critical-probability-runtime-retail-oracle.json, original-kernel.json,
 RED/GREEN/full logs and verification.json.
 Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).
+
+## 2026-10-31: original runtime precision in late incidental IC reduction
+
+Corrects the earlier49 wide-product inference. Late incidental damage now uses
+float(IC)*float(integer damage)*storedfloat.01, then integer truncation and the
+existing max0 subtraction clamp. IC100/base40 leaves0, IC20/base40 leaves32,
+IC22/base100 leaves78 and IC2/base100 leaves98. Signed custom aura IC-10/base40
+leaves44; no new lower clamp on modifiedIC. Original click/intended/wornPK gates,
+modifiedIC provider, receiver order and shared random calls remain unchanged.
+No authored values, public API, save or LAN fields changed.
+
+Named GoldPDB ProcessAttack6bd7e0/1992 and mission RTTI/COL+4c/vtableA4 mapping
+to Steam6c3e20 were revalidated independently; no whole-method match is claimed.
+Exact69 Steam6c4279..42be: FILD IC, FNSTCW saved34, FIMUL integer damage40,
+OR0c ONLY in integer registerAH, FMULS actual8b3bc0 float.01, THEN FLDCW429c.
+Arithmetic therefore uses caller precision; only FISTP uses CHOP. Subtraction/
+clamp follows, and savedCW is restored42b1 before the next virtual getter.
+Changing AH alone does not change FPU control.
+
+Actual original69 and final getter dispatch ran AT ORIGINAL ADDRESSES on ONLY
+the owned original main thread, with controlled stack/getter and no original
+executable-code/world/db/resource patch. Six initialized D3D9 samples reported
+CW AND FXSAVE007f, PC24/RN. The30 operand/control-word records include diagnostic
+PC53/RN. PC24 confirms the results above, IC3/D100->97, -50/D2->3, -50/D4->6,
+50/D4->2 and100/D5->0; PC53 reproduces the former erroneous boundaries. The
+isolated getter records computed damage before original health application;
+it does not execute earlier CheckIC/perk/aura gates. Native fixtures cover those
+live consumers. Full integer/FPU/extended context and temporary cfg were restored,
+with normal WM_CLOSE. Two early probes timed out after5 records and are excluded;
+complete22/28/30-record retries are preserved. This is an initialized-main-menu
+kernel oracle, not a live gameplay breakpoint or full method invocation.
+
+Accepted FINAL native RED13/56 BEFORE production ->GREEN56/56 on EACH platform.
+Coverage: IC8, stored aura13, world aura12, explosion39 paths17, actual knife
+labels5 and bullet-impact visual order1. Eleven core damage changes plus actual
+free-point knifeIC1001->0 and bulletIC50/D4 3->2 are verified. The43 controls
+comprise39 matching core outcomes and four unchanged actual knife labels.
+Passing roll values may differ between processes: each fixture selects a valid
+roll and verifies its actual four-word RNG tail against that run's predicted
+sequence. No cross-process seed/roll identity is claimed. HP/receiver/hit-event/
+aura-reset/practice/perk/input controls pass; derived AP follows corrected HP.
+The bullet case retains particles/sound/decal order, and intended knife targets
+continue to bypass IC.
+
+InitialRED9/GREEN48 had two stale signed/aura expectations. Production was
+reverted; the negative world-aura fixture changed base4->2 so old2/new3 stays
+below the existing blood-effect threshold>5 and keeps a strict RNG comparison.
+Original kernel base4 still confirms5->6; that existing visual consumer can
+legitimately consume RNG after corrected damage. No visual consumer changed.
+IntermediateRED11/GREEN50 then full394/396Win and393/395Linux exposed stale
+knife-positive-damage and bullet3HP expectations. Those results were archived,
+production reverted again, and both consumers included in accepted RED13/56.
+No post-fix-only expected-value patch is used as regression evidence.
+
+Full Game builds, related396Win/395Linux, Windows manager and CI323 pass.
+Source remains imported; this corrects a precision adaptation. Earlier49 and86
+IC100 remaining1/free-point damage1 numerical claims are superseded. Ordinary
+and tested signed-aura inputs are covered; extreme integers/floats and other
+precision adapters remain separate audits. Evidence prefix incidental-runtime-
+precision: retail-oracle.json, original-kernel.json, RED/GREEN/full native logs,
+verification.json and the two archived intermediate fixture sets.
+Source: [037c41d91ec01f29848f346787aa7a8a1d471c43](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43).

@@ -1282,3 +1282,26 @@ injury selection; all21 CW/operand modes retained, context/config restored,
 owned original normal exit. Full Game builds, related334Win/333Linux, CI323.
 Old instruction-only wide inference explicitly superseded. Evidence prefix
 critical-probability-runtime; no whole helper/live-gameplay breakpoint claim.
+
+## 2026-10-31: late incidental IC runtime precision regression
+
+Accepted FINAL RED13/56 ->GREEN56/56 EACH: NativeIncidentalDamage8,
+StoredAura13, WorldVictimAura12, ExplosionEvasion17, actualKnifeLaunchTarget5
+and BulletImpactDodgeOrder1. The43 controls retain39 core outcomes plus four
+actual knife-label outcomes; passing rolls are selected per process and each
+run verifies four following RNG words against its own predicted sequence.
+Actual HP/receiver/hit/reset/practice/perk/pose/item/input assertions remain.
+
+InitialRED9/GREEN48 stale signed/aura controls and subsequentRED11/GREEN50 with
+two downstream full-suite failures were archived. Production was reverted
+before each accepted expanded RED. Negative world aura uses base2 to keep its
+corrected3HP below existing blood-effect threshold5; original kernel also
+verifies base4 giving6HP. Explicit knifeIC100 zero and bulletIC50/D4 two-HP
+expectations now fail against old production and pass after the fix.
+
+Exact original69-byte arithmetic/RC chronology and actual original-address
+kernel30 control/input records with six CW/FX007f samples support the correction.
+Full context/config restoration and normal owned-process exit verified;
+incomplete timed-out probes excluded. Main-menu/kernel scope, no gameplay
+breakpoint or full original-method claim. Full Game builds, related396Win/
+395Linux and CI323 pass. Evidence prefix incidental-runtime-precision.
