@@ -20294,3 +20294,58 @@ Source360 remains partial for scenario/context/mod-link/ray/other action work.
 Evidence prefix melee-called-shot; original oracle and measured JSON retained.
 Sources: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387),
 [23630bfd0c6924b748f79cca9ded910e0f4df35e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/23630bfd0c6924b748f79cca9ded910e0f4df35e).
+
+## 2026-10-31: retain ranged requested part before native ray construction (`360344ca` partial)
+
+CExecShootUnit::SelectRay now assigns attack.eWantedHL=eHL after the actual
+generated portion is copied and before existing cover/solver work. The real
+ranged carrier/trail can now reach the previously restored original critical
+consumer with that requested part. No change to cover/ray preparation, timing,
+ammo spending, difficulty fields, constants, trajectory or native codec/LAN.
+
+Independent named CExecShootUnit RTTI GoldTD9736e0/COL8ea548/vt8bdde4 ->Steam
+TD984950/COL8f9d64/vt8cd3cc. Slot20 PDBSelectRay799030/287 ->actual7a5480;
+slot3 PDBserialize7a53e0/76 ->7b1c20. GoldPDB pTarget11c/eHL120; target native
+serializer7b1c55 addresses eHL128/tag3 and selector loads pTarget124, a real
+layout difference. Target7a54b0 LEAEBX30 is the portion passed to CreateAttack
+7a54ba->7a4a00, with existing spend-ammo=true. Exact7a54c7 loads eHL128 and
+7a54cd stores6c =portion30+3c, independently established requested member.
+7a5553 sets rayInfo70 and7a5558 calls actualAttackObjectRanged6b6510. No whole
+function match/field masks or stale donor7a4e37 address accepted. Earlier named
+mission/constructor/consumer/save audit remains applicable. Evidence:
+ranged-called-shot-retail-oracle.json and typed Gold member output.
+
+NativeRangedCalledShot0..5 use actual world810/party54, real untaken38 actor
+and native perk-tree grant, two real person103 receivers, authored firearm1
+with actual loaded ammo8, native inventory, opposing owners/free standing
+places, target SEEALL/UpdateVisible to exclude backstab, legal CanDoIt/Start.
+Start genuinely spends its round8->7 and quotes/pays its native AP. Read actual
+generated portion and ray carrier through the existing native saver with
+borrowed live references (including existing optional requested-part LAN field).
+The fixture uses the actual selected ray or samples the SAME native cover to
+obtain a real matching first body intersection (no damage while sampling).
+Native ProcessRangedAttackPortion builds the real physical trail. The fixture
+bounds that existing trail to its first actual flesh entry, then actual native
+CreateBulletServer/Segment applies and retires that impact. This isolates one
+receiver without inventing a target/hit or duplicating RPG damage. It does not
+certify full animation/label timing, unconstrained travel or a multi-peer game.
+
+Both receivers bind actual native game through zero-energy server entry and
+enable BLEEDING afterward. Actor level20 retains original d20 prefix171;
+actual38 guarantees probability100, raw severity0 is retained. Actual native
+RPG reference uses fresh attack construction with explicit audited bonus
+inputs and same pre-impact shared RNG state. Compare real HP, bleeding count/
+part/DC/duration/value; actor AP/HP/pose, round count, points/perk/level stable.
+World effects and post-impact RNG are not equated with a direct RPG call.
+
+First fixture run already produced accepted RED4/6 ->GREEN6/6 EACH platform,
+two unchanged controls (rule-off and HL_ANY), no calibration failures. Head/
+body/hand/leg damage67/83/44/63 ->163/87/49/69. Head no bleeding ->DC321;
+other DC171 ->191/236/211, matching+20/65/40 after the same level prefix.
+ANY follows its actual sampled region and remains without a bonus. Authored
+gun1, ammo8->7, native raw probability100/severity0 remain unchanged. No new
+game-file write or full game/build-tree copy. Full Game builds, related180Win/179Linux,
+Windows manager regression and CI323 pass. Hosted final-head CI remains due at
+whole-task completion. Other source360 ray/context/mod/scenario/swap work and
+throwing-knife producer/flight remain separate. Source:
+[360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).

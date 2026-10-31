@@ -2834,3 +2834,19 @@ related174Win/173Linux and CI323. Checks certify real HP/injuries/actor controls
 native serialization, not complete peer/UI/resume or post-world RNG parity.
 Ranged/throwing producers and other360 portions remain separate work. Source
 23630bfd is complete together with its earlier visibility-awareness fix.
+
+## 2026-10-31: restore requested-part bonuses for firearm bullets
+
+The native unit-shot ray selector now retains the requested body part on its
+generated damage portion before cover/ray construction. Actual bullets can
+therefore receive the original1.2 conditional bonuses already restored for
+melee: only when the rule is enabled and actual hit matches the requested part.
+No authored values, ammo/AP costs, ray preparation or firing timing change.
+
+Actual native command/carrier/trail/bullet-impact RED4/6 ->GREEN6/6 each, two
+unchanged controls. Head/body/hand/leg damage67/83/44/63 ->163/87/49/69;
+level20*d20 prefix171 and actual ammo8->7 retained. Original named selector,
+typed/saved field identity and exact load/store/solver handoff verified.
+Full Game builds, related180Win/179Linux, CI323. Tests bound the real trail to one
+flesh entry; full firing timing/travel/peer/UI and post-world RNG parity are
+not newly certified. Throwing knives and other source360 pieces remain.

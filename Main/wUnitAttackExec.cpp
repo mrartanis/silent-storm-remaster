@@ -1748,6 +1748,8 @@ void CExecShootUnit::SelectRay() // false, when it is the last shot
 		bool bTmpMissed;
 		CPtr<CWorld> pWorld = pUS->GetWorld();
 		vector<int> accessibleHLs;
+		// Original Steam 0x7a54c7/0x7a54cd: eHL+0x128 -> attack+0x30+0x3c.
+		attack.eWantedHL = eHL;
 		// Retail RealCalcCovers applies the same alternating origin to unit shots.
 		CObj<NRPG::CCoverInfo> pCover = pWorld->GetGame()->CalcCovers( pUS->GetAttackOrigin( pUS->GetPosition(), ( nBulletGone & 1 ) != 0 ), attack, pUS, pTarget, eHL, pUS->GetMinClearDistance() );
 		float fHit = NRPG::CheckToHit( pUS, pTarget, GetExtraAP(), eHL, accessibleHLs, pCover, pWorld->IsFirstTurn(), &nTmpToHit, nBulletGone );

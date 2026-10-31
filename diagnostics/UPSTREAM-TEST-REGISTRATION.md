@@ -1053,3 +1053,15 @@ Native HP/injury fields and actor/item/rule controls; no equality assertion for
 post-world RNG versus a direct RPG call, no full peer/UI/resume claim. Invalid
 fixture calibration logs archived separately. Full Game builds, related174Win/173Linux,
 Windows manager regression and CI323. Evidence prefix melee-called-shot.
+
+## 2026-10-31: NativeRangedCalledShot0..5
+
+Both CMake lists, six extended/120s cases. Actual native CanDo/Start/generated
+portion/carrier saver/native cover+physical trail/real bullet Segment+HP/injury,
+not a future-field assertion. Accepted first-run RED4/6 ->GREEN6/6 each; rule-off
+and ANY controls. All four region groups exercise the actual producer and the
+existing consumer; actual38 grant and original level20*d20 prefix retained.
+Real trail is bounded to first flesh entry, keeping one physical receiver;
+no full firing animation/timing/travel/peer/UI or post-world RNG parity claim.
+Actor AP/HP/pose/perk/level/ammo8->7 controlled. Full Game builds, related180Win/179Linux,
+Windows manager regression and CI323. Evidence prefix ranged-called-shot.
