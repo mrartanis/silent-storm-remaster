@@ -269,6 +269,10 @@ void CToHitCalcer::Prepare()
 	if ( IsValid( pWeaponItem ) )
 	{
 		pWeaponItem->GetInfo( &sWeaponInfo );
+		// Original Steam 0x6b82fd..0x6b8332: apply range perk before skill preparation.
+		float fRangeMultiplier;
+		if ( pUnitMission->HasPerk( 0x56, &fRangeMultiplier ) )
+			sWeaponInfo.nMaxRange = int( sWeaponInfo.nMaxRange * fRangeMultiplier );
 		fMovePenalty = pWeaponItem->GetDBWeapon()->pWeaponType->fMovePenalty;
 	}
 	else
@@ -347,7 +351,9 @@ float CToHitCalcer::GetSMove()
 	if ( !bFirstRound )
 		fRes = Min( pUnitMission->GetMoveInLastTurn(),
 			pUnitMission->GetToHitConstants()->nSMaxMove ) * fMovePenalty;
-	//
+	// Original Steam 0x6b6e87..0x6b6ea8: perk19 cancels the additive movement penalty.
+	if ( pUnitMission->HasPerk( 0x13 ) )
+		return 0;
 	return fRes;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

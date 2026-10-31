@@ -3490,3 +3490,26 @@ pending or partial sources remain. Hosted CI on the final commit of the entire t
 remains pending.
 
 Source: [c923fe9eaa63ed62aee9178976661a74d4daefd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c923fe9eaa63ed62aee9178976661a74d4daefd9).
+
+## 2026-11-01: movement-immunity and range accuracy perks
+
+Accuracy now honors perk19 by removing the additive movement penalty, while retaining the
+existing first-round gate and movement cap for units without the perk. Perk86 applies its
+authored range multiplier to the firearm's maximum range, with integer truncation and
+unchanged minimum range. In the tested stock gun, factor1.25 changes maximum50 to62; the
+corresponding effective accuracy-distance term for skill30 changes28 to30.5714283. The
+original skill scale140 is retained. Skill values, authored parameters, AP spending and
+other accuracy terms do not change in this fix.
+
+Native RED3/60 both ->full GREEN 674 Windows / 675 Linux, full Game builds and323
+asset-free checks. All60 RED names are selected;50 old measured controls and seven new
+numeric controls remain valid. A perk-owned zero-movement case now returns original
+positive zero. Actual typed original Prepare256/SMove105/D1 38 control flow and constants
+are statically audited; no new original object or perk-grant runtime execution is claimed.
+A rejected scale100 assumption in the added D1 test was corrected from the actual original
+reciprocal before production. Source9f3 remains partial: full shared weapon
+skill/burst/aim/grenade behavior still needs work. An unproved D1 rounding candidate is
+retained for later original-precision audit. Remaining55 sources; hosted CI on the final
+commit of the entire task remains pending.
+
+Source: [9f3c03712f2a86f83fb7739891827847b2f9f645](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9f3c03712f2a86f83fb7739891827847b2f9f645).

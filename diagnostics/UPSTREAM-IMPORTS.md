@@ -22162,3 +22162,77 @@ remain (pending39 +partial16). Hosted CI on the final commit of the entire task 
 pending.
 
 Source: [c923fe9eaa63ed62aee9178976661a74d4daefd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c923fe9eaa63ed62aee9178976661a74d4daefd9).
+
+## 2026-11-01: movement-immunity and range accuracy perks (`9f3c0371` partial)
+
+Two independent accuracy behaviors from source9f3 are restored. CToHitCalcer::Prepare
+applies authored perk86 to the equipped firearm's maximum range after GetInfo, using float
+multiplication then integer truncation. Minimum range is preserved. CToHitCalcer::GetSMove
+returns zero for perk19; without it, the existing first-round gate and capped-movement
+multiplication are retained. Skill preparation, aim/snipe/burst formulas, grenade
+preparation, AP expenditure, authored parameters, own rendering/audio/font and
+save/network layouts are unchanged. The full shared GetWeaponSkill producer/callers from
+this source remain pending.
+
+Ten native consumer scenarios obtain real authored perk nodes and grant them through
+existing TakePerk, with no injected HasPerk providers. Persona2/perk19 and persona3/perk86
+use equipped authored gun17, movement cap10, coefficient-.899999976, range22..50 and
+actual range factor1.25. Cases cover no movement, three moves, movement13 above the cap,
+first round, owned/unowned perks, no calcer weapon, and aimed/snap modes. Native derived
+CTileToHitCalcer executes the existing shared Prepare/GetSMove/GetD1 methods. Perk19
+changes -2.69999981 and -9 to zero. Perk86 changes max50 to62 (truncate62.5), and the real
+D1 consumer from28 to30.571428298950195, bits41f49249, using skill30 and N_MAX_SKILL140.
+All queries preserve skill, min range, movement, HP/AP, ammo, perk-point budget and RNG. A
+perk-owned zero-movement control changes negative zero to original positive zero; its
+numeric value is retained.
+
+Before production, the initial fixture build attempted to instantiate the abstract base;
+raw compiler failures are archived and are not runtime RED. Switching to the existing
+native derived calcer produced genuine RED3/60 both, with57 passing controls. An extra D1
+measurement initially assumed skill scale100 and expected34. Actual decoded reciprocal
+bits3bea0ea1 and native N_MAX_SKILL140 rejected that hypothesis before production; its raw
+records are archived. The corrected literal41f49249 derives the actual original
+coefficient and observed PC24/RN arithmetic, and the refined RED remains exactly3/60 both.
+Full GREEN 674 Windows / 675 Linux, full Game builds and323 asset-free checks pass. All60
+RED names occur in each full selection;50 prior measurement controls are exactly
+unchanged, and seven new controls retain numeric results with the explicit signed-zero
+exception above.
+
+Typed CToHitCalcer RTTI primary VT Gold8b5b9c ->Steam8c4cb4 binds Prepare54 and
+GetSMove28. Named Gold Prepare6b2140/256 matches actual Steam6b82c0 UNIQUE EXACT256 bytes,
+with zero masks. GetToHit6b85a0 calls Prepare54 at6b85a8. Actual Prepare reads typed
+maxRange atcalcer30 (weaponInfo18 +max18), calls mission HasPerk78 with86/outputfloat,
+multiplies before setting RC11, truncates with FISTP and restores the control word.
+Minimum range at2c is untouched. The captured50*1.25=62.5 is exactly representable,
+yielding62 under original truncation. Whole original-method equivalence between the two
+original releases is not a claim that our other Prepare behavior is fully imported.
+
+Named Gold GetSMove6b0d00/105 maps uniquely to actual6b6e40/105 with only the decoded FLD
+positive-zero pointer operand5e..61 relocated. Both constants independently have
+bits00000000; no opcode/frame/branch masks. FirstRound64 skips movement; otherwise mission
+moveF4 is clamped to typed ToHitConstants nSMaxMove18, multiplied by calcer fMovePenalty14
+and stored as float. HasPerk78 receives19 and three null parameter pointers; true returns
+positive zero, false returns the saved movement. Existing GetAllAdd calls SMove28
+at6b83cc. Mission secondary4c VT8c54e4 slot78 binds HasPerk6beea0, whose11-byte wrapper
+gets unit118 and jumps to native-original UnitHas6ba640; its20-byte prefix reads real
+PerksTree84 or returns false. Earlier original real-tree lifecycle/Has evidence covers
+that generic primitive; no new original19/86 grant execution is claimed.
+
+Typed D1slot1c maps named Gold6b0af0/38 to Steam6b6be0/38, with only the decoded FMUL
+reciprocal pointer1a..1d relocated and actual equal bits3bea0ea1 (float1/140). Typed
+max30/min2c/skillc feed (max-min)*skill*float(1/140)+min. Captured30/22/50 and30/22/62
+give28 and30.571428298950195, matching native measurements. Native existing division by140
+versus original multiplication by float1/140 remains a separate static precision candidate
+for other operands; there is no divergent native RED or global parity claim, and it is not
+blindly rewritten here. The candidate is retained in
+accuracy-range-D1-precision-followup.json for whole-task follow-up.
+
+Original functions/dispatch/fields are STATIC ONLY in this fix. No original World,
+mission, unit, perk19/86 or calcer was newly constructed/executed; no fake virtual
+provider or original code/DB/world/TEB patch. Native actual authored TakePerk/query
+integration is separately exercised. Source9f3 becomes PARTIAL: range86 within Prepare and
+movement19 are covered, while shared item skill, burst/aim details and grenade preparation
+remain pending. Remaining sources stay55 (pending38 +partial17). Hosted CI on the final
+commit of the entire task remains pending.
+
+Source: [9f3c03712f2a86f83fb7739891827847b2f9f645](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9f3c03712f2a86f83fb7739891827847b2f9f645).

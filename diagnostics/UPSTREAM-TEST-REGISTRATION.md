@@ -1583,3 +1583,25 @@ original World/constructor/recipientAddXP runtime claim or fake providers. Sourc
 complete;55 pending/partial sources remain.
 
 Source: [c923fe9eaa63ed62aee9178976661a74d4daefd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c923fe9eaa63ed62aee9178976661a74d4daefd9).
+
+## 2026-11-01: movement-immunity and range accuracy perks
+
+NativeAccuracyMovementRange0..9 use actual native authored missions/perk nodes, equipped
+gun17 and TakePerk19/86; existing CTileToHitCalcer consumes shared Prepare/GetSMove/GetD1.
+Movement0/3/13-cap10, first round, range owned/unowned/no-weapon and aimed/snap controls.
+Real range50*1.25 truncates62, D1 skill30/min22 changes28 ->30.571428298950195
+(bits41f49249, scale140). Initial abstract-fixture compile and rejected extra
+scale100/D1=34 hypothesis are archived separately; final native RED3/60 both precedes
+production. Full GREEN 674 Windows / 675 Linux/Game builds/CI323, all60 RED names included
+and50 old measured controls unchanged. Seven new numeric controls pass; owned
+zero-movement now returns original positive zero.
+HP/AP/ammo/movement/points/skill/min-range/RNG checks remain intact.
+
+Original typed Prepare256 is UNIQUE EXACT Gold/Steam. SMove105 masks only independently
+verified positive-zero data pointer; D1 38 masks only equal float1/140 pointer, HasPerk
+wrappers/actual callers/typed fields are bound. Original runtime construction/grants/query
+execution is not claimed here. Other-input native D1 division versus original reciprocal
+multiplication is an unproved precision candidate retained separately. Source9f3 remains
+partial,55 sources unfinished.
+
+Source: [9f3c03712f2a86f83fb7739891827847b2f9f645](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9f3c03712f2a86f83fb7739891827847b2f9f645).

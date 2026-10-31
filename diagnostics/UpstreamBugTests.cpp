@@ -30288,6 +30288,30 @@ static void NativeKillRewardQuote(const char* databasePath,int mode)
     Require(bits==x.expectedBits,"native reward quote differs from the original single-precision reward value");Require(cells && rng && unit->fXP==xp && (unit->GetPerksTree()?unit->GetPerksTree()->GetPerkPoints():0)==points && persona->pClass->skills[NDb::ST_LEVEL]==15 && unit->cap[NDb::ST_LEVEL]==15,"reward query changed cells/XP/points/RNG/authored cap");
 }
 
+static void NativeAccuracyMovementRange(const char* databasePath,int mode)
+{
+    Require(mode>=0 && mode<10,"unknown accuracy movement/range mode");
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
+    const bool range=mode>=6,owned=mode==2 || mode==3 || mode==4 || mode==5 || mode==7 || mode==8;
+    const int id=range?86:19;auto mission=NativeMissionWithUntakenPerk(id);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();const int points=tree->GetPerkPoints();
+    const int cap=mission->GetToHitConstants()->nSMaxMove;Require(cap>3,"accuracy fixture lacks authored movement cap");auto gun=NativeEquipTargetingGun(unit,cap);Require(gun && !mission->HasPerk(id),"accuracy fixture lacks native weapon/untaken perk");
+    const int moves=range?0:mode==0 || mode==3?0:mode==5?cap+3:3;for(int i=0;i<moves;++i)mission->AddMoveInLastTurn(1);
+    CObj<NRPG::CTileToHitCalcer> calcer=new NRPG::CTileToHitCalcer;calcer->pUnitMission=mission;calcer->pWeaponItem=mode==8?nullptr:gun.GetPtr();calcer->bFirstRound=mode==4;calcer->nExtraAP=0;calcer->nSnipeAP=0;calcer->nBullet=0;calcer->eCurPose=NAI::WALK;calcer->nDistance=10;
+    Require(gun->SetShootMode(mode==9?NDb::SM_Snap:NDb::SM_Aimed),"accuracy fixture rejected its authored firing mode");calcer->Prepare();const int beforeMin=calcer->sWeaponInfo.nMinRange,beforeMax=calcer->sWeaponInfo.nMaxRange,skill=calcer->nSkill;
+    const float beforeMove=calcer->GetSMove(),moveCoefficient=calcer->fMovePenalty,beforeD1=calcer->GetD1();
+    auto* perk=NDb::GetDBPerk(id);Require(perk && (!range || (!perk->params.empty() && perk->params[0]>1.f)),"accuracy fixture lacks real range perk parameter");const float parameter=range?perk->params[0]:0.f;
+    if(owned){tree->AddPerkPoints(1);const string label=perk->szUserName;struct RestoreLabel{NDb::CDBPerk* perk;string label;~RestoreLabel(){perk->szUserName=label;}}restore{perk,label};perk->szUserName="Native accuracy movement/range";tree->TakePerk(id);}
+    Require(mission->HasPerk(id)==owned && tree->GetPerkPoints()==points,"accuracy fixture did not grant its actual perk");
+    NRPG::SWeaponInfo info;gun->GetInfo(&info);const int ammo=gun->GetAmmoQuantity(),hp=mission->GetTotalVP(),ap=mission->GetAP();auto random=GlobalGameRandom();
+    calcer->Prepare();const float actualMove=calcer->GetSMove(),actualD1=calcer->GetD1();const int actualMax=calcer->sWeaponInfo.nMaxRange;auto continuation=GlobalGameRandom();bool rng=true;for(int i=0;i<4;++i)rng&=random.Get()==continuation.Get();
+    const float expectedMove=owned && !range?0.f:beforeMove;const int expectedMax=range && owned && mode!=8?int(float(info.nMaxRange)*parameter):beforeMax;
+    if(!range && moves>0 && mode!=4)Require(beforeMove!=0 && moveCoefficient!=0,"accuracy movement fixture has no pre-perk penalty");
+    if(mode==7)Require(expectedMax>beforeMax && beforeMax==50 && beforeMin==22 && skill==30 && beforeD1==28.f && NRPG::N_MAX_SKILL==140,"accuracy range fixture lost its independently audited native range/skill inputs");
+    std::printf("native accuracy movement range mode=%d persona=%d perk=%d owned=%d parameter=%.9g weapon=%d moves=%d cap=%d first=%d coefficient=%.9g beforeMove=%.9g actualMove=%.9g expectedMove=%.9g minRange=%d beforeMax=%d actualMax=%d expectedMax=%d beforeD1=%.9g actualD1=%.9g expectedD1=%.9g skill=%d afterSkill=%d RNG=%d\n",mode,unit->pPers->GetRecordID(),id,int(owned),parameter,gun->GetDBWeapon()->GetRecordID(),moves,cap,int(calcer->bFirstRound),moveCoefficient,beforeMove,actualMove,expectedMove,beforeMin,beforeMax,actualMax,expectedMax,beforeD1,actualD1,mode==7?30.5714282989501953125f:beforeD1,skill,calcer->nSkill,int(rng));std::fflush(stdout);
+    Require(actualMove==expectedMove && actualMax==expectedMax && actualD1==(mode==7?30.5714282989501953125f:beforeD1),"native accuracy ignored acquired movement-immunity or weapon-range perk");
+    Require(calcer->sWeaponInfo.nMinRange==beforeMin && calcer->nSkill==skill && rng && gun->GetAmmoQuantity()==ammo && mission->GetTotalVP()==hp && mission->GetAP()==ap && mission->GetMoveInLastTurn()==moves && tree->GetPerkPoints()==points,"accuracy query changed skill/min-range/RNG/ammo/HP/AP/movement/points");
+}
+
 static void NativeExtraRoundAP(const char* databasePath,int mode)
 {
     struct Sample{bool owned;NDb::EShootMode shot;int quotient,low,high;bool noActive,explicitWeapon,zeroRate,spent,remainder;};static const Sample samples[]={
@@ -32528,6 +32552,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "better-spotting")) { Require(argc==5,"spotting requires db/resources/mode"); BetterSpottingPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-xp-threshold-pc24")) { Require(argc==4,"XP threshold requires db/mode"); NativeXPThresholdPC24(argv[2],std::atoi(argv[3])); return true; }
     if (!std::strcmp(mode, "native-kill-reward-quote")) { Require(argc==4,"reward quote requires db/mode"); NativeKillRewardQuote(argv[2],std::atoi(argv[3])); return true; }
+    if (!std::strcmp(mode, "native-accuracy-movement-range")) { Require(argc==4,"accuracy movement/range requires db/mode"); NativeAccuracyMovementRange(argv[2],std::atoi(argv[3])); return true; }
     if (!std::strcmp(mode, "native-extra-round-ap")) { Require(argc==4,"extra-round AP requires db/mode"); NativeExtraRoundAP(argv[2],std::atoi(argv[3])); return true; }
     if (!std::strcmp(mode, "native-hide-practice")) { Require(argc==5,"Hide practice requires db/resources/mode"); NativeHidePractice(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-medical-engineering-practice")) { Require(argc==4,"action practice requires db/mode"); NativeMedicalEngineeringPractice(argv[2],std::atoi(argv[3])); return true; }
