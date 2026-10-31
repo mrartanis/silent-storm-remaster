@@ -830,13 +830,11 @@ int CThrowKnifeToHitCalcer::GetKnifeMaxDistance()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CThrowKnifeToHitCalcer::FillWeaponInfo()
 {
-	// release routes the ballistic range through GetMaxThrowVelocity()/fGravity; that velocity formula
-	// is a deep opaque IUnitMission-vtable chain (@0x2b7b50) absent in this tree -> keep the dev's
-	// fixed 1..15 range (documented elision).
+	// Original 0x6b81a0 truncates ballistic range before applying the 1.5 maximum.
 	CToHitCalcer::FillWeaponInfo();
 	sWeaponInfo.nQuality = 0;
-	sWeaponInfo.nMinRange = 1;
-	sWeaponInfo.nMaxRange = 15;
+	sWeaponInfo.nMinRange = GetKnifeMaxDistance();
+	sWeaponInfo.nMaxRange = int( sWeaponInfo.nMinRange * 1.5f );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CThrowKnifeToHitCalcer::Prepare()

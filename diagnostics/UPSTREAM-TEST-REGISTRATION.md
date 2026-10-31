@@ -1181,3 +1181,17 @@ and182 VP factor/59pow dispatcher audited with only verified relocations/data.
 Full Game builds, related308Win/307Linux, Windows manager and CI323. No full speed/
 continuous-distance/flight/accuracy-range/UI or cross-CRT extended80 bit claim.
 Evidence prefix knife-ballistic-range.
+
+## 2026-10-31: NativeKnifeAccuracyRange0..5
+
+Six extended/120s native calcer/helper/player composite/CheckToHit cases with
+real authored blade, real perk88/89 grants, real native cover and boundary rolls.
+RED5/6 ->GREEN6/6 each; script37 public outcome unchanged. Reference supplies
+only independently decoded literal min/max19/28,32/48,33/49,18/27,19/28,11/16
+to native chance code. Public chance29->69,2->75,2->76,2->64,37->37,2->29;
+affected boundary rolls miss->hit. THROW0 is affected, not a clamp control.
+Queries0RNG/check1draw, four-word verification, native AP/HP/item/pose/contacts/
+day/quality0/grant points controls. COMPLETE171 named original virtual function
+and exact117 _ftol2 checked before production. Full Game builds, related314Win/313Linux,
+Windows manager and CI323. No full flight/shared-skill/UI claim. Evidence prefix
+knife-accuracy-range.

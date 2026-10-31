@@ -2986,3 +2986,18 @@ Full Game builds, related308Win/307Linux, CI323. Original complete285/48/49 and 
 blade/VP/item/PK contexts verified. Old speed5, fixed1..15 accuracy range and
 cached solver/full flight still require separate work. No cross-CRT pow/extended80
 bit identity or full continuous-distance/flight/UI parity claim.
+
+## 2026-10-31: physical knife range now feeds accuracy
+
+Knife accuracy uses its original physical range instead of fixed1..15. Minimum
+is the truncated physical range; maximum is int(minimum*1.5f), so19->28 and
+33->49. Skill, strength and authored perks88/89 can affect accuracy through
+range as in the original. Existing quality0 and other chance arithmetic kept.
+
+Real native cover/distance8 fixtures: ordinary29->69%; STR20/THROW50 2->75%;
+actual perk89 2->76%; actual perk88 2->64%; THROW0 2->29%. Script37 stays37%.
+At roll equal to corrected chance, affected cases become hits. RED5/6 ->GREEN6/6
+each, query0RNG/check1draw/AP/HP/item/pose/grant point controls. COMPLETE original
+171 bytes and exact117 conversion helper verified; min truncation precedes1.5.
+Full Game builds, related314Win/313Linux, CI323. Actual velocity/solver/full flight/drop
+and shared source9f3 accuracy skill remain unfinished; no full flight/UI claim.

@@ -20777,3 +20777,41 @@ night/incidental/critical coverage, Windows manager and CI323. Other source578
 accuracy range, actual speed, cached solver, frame/target/incidental flight and
 full UI/drop pieces remain partial.
 Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: original physical range in knife accuracy (`5780c0be` partial)
+
+CThrowKnifeToHitCalcer::FillWeaponInfo now sets minimum to the existing original
+physical integer range and maximum to int(minimum*1.5f), replacing fixed1..15.
+The original truncates the physical range FIRST; odd19 gives28, odd33 gives49.
+Existing quality0 and other chance arithmetic remain unchanged. Uses the live
+blade context preserved by the previous range/admission fix, including actual
+post-tear-off calcers. No new API/save/LAN/authored data/renderer changes.
+
+Native RED preceded audit and production. COMPLETE171 GoldPDB6b2020 -> named
+Steam6b81a0: base CThrowKnifeToHitCalcer RTTI Gold96fa80/COL8e2808/vt8b5b3c ->
+Steam980bc8/COL8f1f40/vt8c4c54 slot50. Unique full-body match masks only decoded
+E8 operands and independently dereferenced1.6f/1.5f pointers; no frame/register/
+field/branch masks. Typed SWeaponInfo.min14/max18 + member18 give object2c/30;
+actual melee8c/mission44/firstRound64 passed into native velocity6b7b10. Stored
+float velocity ->wide(v/gravity)*v*float1.6 ->_ftol2 ->INTEGER min. FILD reloads
+that integer before1.5f; RC11 FISTPL writes max. Complete117 _ftol2 Gold826614 ->
+Steam834594 EXACT with no masks, saved disassembly confirms truncation via
+integer-conversion remainder correction. Stale donor entry rejected. Evidence
+knife-accuracy-range-location.json/retail-oracle.json and full binaries/types.
+
+NativeKnifeAccuracyRange0..5: RED5/6 ->GREEN6/6 EACH; one unchanged public outcome
+control is script37. Native calcer, existing GetAttackerToHit, actual player
+composite preview and actual CheckToHit boundary all exercised. Original literal
+min/max19/28,32/48,33/49,18/27,19/28,11/16. Ordinary chance29->69; STR20/THROW50
+2->75; actual authored perk89 grant2->76; actual perk88 grant2->64; script37
+remains37; THROW0 is affected2->29 (not a clamp control). At actual native roll
+equal to corrected chance, affected cases change miss->hit. No expected result
+is inferred from the production output: reference changes only literal range
+inputs, retaining all other native chance calculation. Real cover34/distance8,
+native visibility+audibility, day and quality0 controls. Queries0 game RNG;
+actual hit check one native draw with four following words verified. AP/HP/pose/
+equipped item/perk points/script state retained, no authored data mutation or
+game/build copies. Full Game builds, related314Win/313Linux, Windows manager and CI323.
+Actual velocity/solver/flight/drop and source9f3 shared accuracy skill remain
+separate unfinished work; no full flight or UI parity claim.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
