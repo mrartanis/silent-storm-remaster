@@ -2913,3 +2913,20 @@ normalizer matched. Native actual physical collision and real world decal
 RED2/4 ->GREEN4/4 each. Full Game builds, related281Win/280Linux, CI323. This resolves
 the previous direction limitation; full throw command/flight/range/velocity and
 full renderer/UI/post-world RNG parity remain outside this check.
+
+## 2026-10-31: intended target survives the knife throw label
+
+Actual knife launch now passes the selected unit to existing attack creation.
+Intended hits no longer become incidental hits for the existing IC damage rule;
+unseen targets also receive the already established visibility-only backstab
+input. No authored numbers or damage/critical/IC formula changed. The earlier
+validator correction did not cover this actual launch producer.
+
+Native Start/OnLabel/projectile carrier and native BODY damage RED3/5 ->GREEN5/5
+each. Controlled IC100 intended damage1->37; IC0 intended remains37. Unseen but
+audible native bounds18..29->24..29, critical52->100. Free-point IC100/IC0 stay1/
+37. Cap1, disabled injuries and difficulty flag controls isolate target/damage;
+these observations do not certify ordinary critical frequency. AP51->42->42,
+native item/actor controls retained. Full Game builds, related286Win/285Linux, CI323.
+Original Gold/Steam both forward selected member28. Actual requested part,
+range/velocity/full solver/flight/timing/drop/UI remain separate source578 work.

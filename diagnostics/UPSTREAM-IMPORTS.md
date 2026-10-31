@@ -20545,3 +20545,56 @@ Full Game builds, related281Win/280Linux including knife clock/preview/dispatch/
 orientation/feedback/handoff, prior night/incidental and Windows manager, CI323.
 Source578 remains partial for actual launch target/requested-part producers and
 range/velocity/flight work. Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: selected target in actual knife label producer (`5780c0be` partial)
+
+CExecThrowKnife::ThrowKnife now calls existing CreateAttack(&attack,pTarget,false)
+instead of literal null. The earlier validator fix8 did not fix this actual
+OnLabel producer. One operand changed; own vector/front API, tear-off, successor,
+action and existing flight path remain. No new formula, wanted-part, range/
+velocity, solver, schema, save or LAN change.
+
+After genuine native RED, independent named CExecThrowKnife RTTI GoldTD9737d8/
+COL8ea404/vt8bdc44 ->SteamTD984a48/COL8f9c20/vt8cd22c. Slot16 PDBOnLabel79fb30/14
+->target7ac1e0. Exact direct calls79fb33->PDBThrowKnife79e350/861 and7ac1e6->
+7aa930 locate actual private producer; donor7aa2a0 is stale. Gold typed pTarget28,
+eHL30; independent slot3 saveGold7a45d0 ->Steam7b0db0 addresses member28/tag3 at
+7b0de1. Exact BOTH producers79e3f7/7aa9df load EAX[EDI28], push1/EBXzero/EAXtarget,
+then actual portion frame54 via LEAESP60 after three pushes and ECXEDIthis.
+Calls79e40d->7985b0 and7aa9f5->7a4a00 TESTAL. PDB original callee takes single
+portion,target,bool,bool; its first121 bytes uniquely map with ONLY previously
+audited SEH pointer operand3..6 masked (fix67). No register/frame/field/branch
+masks, whole caller equivalence or original-single/own-vector ABI claim.
+Evidence knife-launch-target-retail-oracle.json, named member/type/call slices.
+
+NativeKnifeLaunchTarget0..4 execute actual legal CanDoIt/Start/OnLabel with a
+real authored equipped knife, actual tactical owners and contact lists. Inspect
+the one actual native knife object/item/actor and its actual saved attack carrier.
+That extracted carrier enters existing native throwing flesh callback against a
+real isolated BODY intersection/receiver; a separately generated native portion
+with selected target enters a real native reference receiver at the same starting
+ISAAC state. The nonserialized trajectory is populated from the real body ray,
+as the collision writer does. This is actual launch carrier + native HP, NOT an
+assertion of the still-old launch velocity/flight/timing/cached solver/drop/UI.
+
+First fixture accepted RED3/5 ->GREEN5/5 EACH platform, two fully unchanged free-
+point controls. Selected visible IC100: damage1->37. Selected IC0 retains37 but
+now carries its intended target (the third RED is this carrier assertion).
+Selected unseen but audible IC100: damage1->37, native backstab0->1, damage
+bounds18..29->24..29, critical52->100. Free-point IC100/IC0 retain damage1/37 and
+null target. Existing incidental-IC rule is unchanged: intended receiver bypasses
+that incidental reducer; free-point collisions still use it. Native BODY max
+severity is positively capped1, injuries disabled and headshot/always-critical
+difficulty flags disabled/restored to isolate this input; no normal critical-
+frequency claim from these damage observations. Actor level0, native AP51->42
+at Start and remains42 at label (cost9); actor HP/position and item quantity1
+remain controlled. No successor is stored/equipped and the item flies once.
+Own new objects removed, rules/cap restored; no post-world RNG equality claim.
+AP real-time handling and positive cap were checked in source before the first
+compilation; no invalid native fixture or rejected calibration run.
+
+Full Game builds, related286Win/285Linux including original knife handoff/orientation/
+feedback/clock, direction/world impact, prior night/incidental/critical coverage
+and Windows manager, CI323. Source578 remains partial for actual requested-part
+producer, range/velocity and full solver/flight work.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).

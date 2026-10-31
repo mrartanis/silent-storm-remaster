@@ -1119,3 +1119,18 @@ hearing-based awareness after fixes82/83; corrected direct reference inputs and
 added environment/contact diagnostics, archived failure and repeated full gates.
 Full Game builds, related281Win/280Linux, Windows manager and CI323. No full launch/
 range/velocity/rendered frame/UI/post-world RNG claim. Evidence knife-direction.
+
+## 2026-10-31: NativeKnifeLaunchTarget0..4
+
+Five extended/120s cases in both CMake lists. Actual legal CanDo/Start/OnLabel ->
+one real native knife/item/actor -> saved actual carrier -> real BODY trace and
+existing native throwing callback/HP versus native target-aware reference.
+First fixture RED3/5 ->GREEN5/5 each; two unchanged free-point controls. Selected
+IC100 damage1->37 (visible and unseen/audible); IC0 keeps37 but target retained.
+Unseen backstab0->1, bounds18..29->24..29 and critical52->100. Free-point1/37
+unchanged. Native AP51->42->42/cost9, actor/item controls; cap1 and disabled
+injuries/headshot/forced difficulty isolate damage; no full critical frequency,
+flight/velocity/range/timing/drop/UI or post-world RNG parity. Rules restored and
+own objects removed. Original named label/private producer/member28/callee
+verified after RED. Full Game builds, related286Win/285Linux, Windows manager and CI323.
+Evidence prefix knife-launch-target; no failed fixture/calibration.

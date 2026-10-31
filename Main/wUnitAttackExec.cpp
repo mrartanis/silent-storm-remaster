@@ -3456,7 +3456,8 @@ void CExecThrowKnife::ThrowKnife()
 	if ( !IsValid( pMelee ) )
 		return;
 	vector<NRPG::CAttackPortion> attack;
-	CreateAttack( &attack, 0, false );
+	// Original Gold 0x79e3f7 / Steam 0x7aa9df forwards selected target28.
+	CreateAttack( &attack, pTarget, false );
 	if ( attack.empty() )
 		return;
 	pUS->TearOffItem( &item, (NDb::ESlot)pInventory->GetActiveSlot(), &pNextSameItem );
