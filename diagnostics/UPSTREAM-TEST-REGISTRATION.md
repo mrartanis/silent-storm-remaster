@@ -782,3 +782,11 @@ Known/unseen/incidental/carrier/first-repeat cases and blocked/already-KO/
 other-person/precompleted/script-only controls. Initial lethal repeated-click
 fixture logs are NOT final RED. HP500, no IC practice, visibility/identities/
 other tags preserved. Full Game builds, related53Win/53Linux, CI323; new10 outside323.
+
+## Impact-order fixture after original late evasion
+
+Existing UpstreamBulletImpactDodgeOrder now uses native IC50/aura0/base4 ->3,
+with seed55 first roll0/second>=90 and positive particle/sound/decal checks.
+Old actual3/expected-1 failure reproduced on both OS with pending fragment
+speed reverted0. Corrected test passes each, CI323; no production behavior
+change. Full35 related cases rerun in the separate fragment-speed fix.

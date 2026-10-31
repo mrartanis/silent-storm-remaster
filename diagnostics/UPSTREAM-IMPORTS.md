@@ -19146,3 +19146,23 @@ Evidence scenario-knockout-retail-oracle/verification JSON, decoded original
 bodies and complete RED/GREEN/build/gate logs. Fragment speed, melee-miss
 and plain-ray hunks of aa remain separate and pending.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.
+
+## 2026-10-31: maintain impact-order regression after original evasion port
+
+Test-only correction to UpstreamBulletImpactDodgeOrder. The broader fragment
+regression exposed its old full-hit-rejection expectation (-1), superseded
+by the original late percentage reduction restored in975e3ab3. Reverting
+both pending fragment-speed calls to0 reproduced the same actual3/expected-1
+failure on Windows/Linux, proving this is independent of fragment speed.
+The corrected native fixture isolates IC50/no aura with base4, expecting
+literal3 from the independently decoded stored-float .01/truncation rule
+(Steam6c4224..6c42be, incidental-damage-retail-oracle.json). The fixed ISAAC
+seed55 supplies firstdraw0 and second>=90 to retain the damage-before-visual
+ordering check. Positive damage now expects one particle, sound and surface
+decal; HP/AP/position/action, receiver and surface identity assertions remain.
+Focused case passes on both platforms with fragment calls still0; CI323
+passes. No production file or balance behavior changes in this maintenance
+commit. The separately pending fragment fix will rerun the complete35-case
+bullet/impact/decal/loose-ray set. Evidence impact-order-baseline-red,
+impact-order-maintenance-green/verification/ci logs.
+Original formula source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.

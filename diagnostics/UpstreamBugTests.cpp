@@ -13532,8 +13532,12 @@ static void BulletImpactEffects(const char* databasePath,const char* resourcePat
     const bool nonunit=kind==6 || kind==7 || kind==9 || kind==11;
     CObjectBase* object=nonunit?static_cast<CObjectBase*>(surfaceToken.GetPtr()):kind==4?static_cast<CObjectBase*>(other):static_cast<CObjectBase*>(actor);
     CObjectBase* receiver=nonunit || kind==3?nullptr:static_cast<CObjectBase*>(actor);
-    NRPG::CAttackPortion attack(kind==1?0:100000,2,0.f,3,3,0,0,nullptr,kind==2 || kind==12?nullptr:actor->GetUnitRPG(),1.f,-1,false);
-    const int damage=!receiver || kind==1?0:kind==2 || kind==12?-1:attack.CalcStructDmg(world,flesh,0);
+    // Original incidental evasion reduces converted damage; it does not reject the whole hit.
+    // Base4/IC50 ->3 (stored-float .01), while a failed roll leaves4.
+    if(kind==12){auto* unit=actor->GetUnitRPG()->GetRPGUnit();unit->Skills(NDb::ST_IC).SetConst(50);unit->Skills(NDb::ST_IC).SetProgress(0);float hitAura,evadeAura;NRPG::GetAuraAdd(&hitAura,&evadeAura,actor);Require(actor->GetUnitRPG()->GetIC()==50 && evadeAura==0,"impact order fixture lacks isolated native IC50");}
+    const int baseDamage=kind==12?4:3;
+    NRPG::CAttackPortion attack(kind==1?0:100000,2,0.f,baseDamage,baseDamage,0,0,nullptr,kind==2 || kind==12?nullptr:actor->GetUnitRPG(),1.f,-1,false);
+    const int damage=!receiver || kind==1?0:kind==2?-1:kind==12?3:attack.CalcStructDmg(world,flesh,0);
     const CVec3 point=position.GetCP()+CVec3(0,0,1),direction(1,0,0),normal(-1,0,0);
     attack.rTtrajectory.ptOrigin=point-direction;attack.rTtrajectory.ptDir=direction;
     vector<NRPG::STrailPoint> trail;trail.emplace_back(-1,direction,point-direction,attack,nullptr,nullptr,nullptr,normal,100);
@@ -13557,7 +13561,7 @@ static void BulletImpactEffects(const char* databasePath,const char* resourcePat
         actor->GetAP()==ap && actor->GetPosition()==position && world->IsAction()==action,"impact effects fixture changed its native damage/HP/AP/action control");
     const auto afterEffects=counts();const auto afterDecals=decals();vector<CObj<NWorld::CDecal>> added;
     for(const auto& decal:afterDecals)if(std::none_of(beforeDecals.begin(),beforeDecals.end(),[&](const CObj<NWorld::CDecal>& old){return old.GetPtr()==decal.GetPtr();}))added.push_back(decal);
-    const bool show=kind!=1 && kind!=2 && kind!=3 && kind!=4 && kind!=8 && kind!=9 && kind!=11 && kind!=12;
+    const bool show=kind!=1 && kind!=2 && kind!=3 && kind!=4 && kind!=8 && kind!=9 && kind!=11;
     const int expectedParticles=show && kind!=5 && kind!=10?1:0,expectedSounds=show && kind!=5?1:0,expectedDecals=show?1:0;
     std::printf("native impact effects: kind=%d damage=%d particles=%d/%d sounds=%d/%d decals=%zu/%d blood=%g\n",kind,damage,
         afterEffects.first-beforeEffects.first,expectedParticles,afterEffects.second-beforeEffects.second,expectedSounds,added.size(),expectedDecals,NGlobal::GetVar("cheat_blood",1).GetFloat());std::fflush(stdout);
