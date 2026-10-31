@@ -107,9 +107,8 @@ bool IsObstacleRay( NAI::CFastRenderer::SResult *pList, float fMaxDist, CObjectB
 	return false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// NRPG::PerformThrowingAttackPortion @0x290780 -- free-fn form of
-// CGame::ProcessThrowingAttackPortion. The release added the leading IWorld* and the
-// (unread) vPlace argument; the body is otherwise identical.
+// Original Gold 0x68a440 / Steam 0x690440: native throwing-hit application.
+// World and the supplied flight direction reach the existing receiver handler.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 EAttackResult PerformThrowingAttackPortion( NWorld::IWorld *pWorld, CAttackPortion *pA,
 	const CVec3 &vDir, IAttackable *pTarget, NDb::CRPGArmor *pArmor, int nUserID )

@@ -20442,3 +20442,56 @@ Full Game builds, related233Win/232Linux including existing night previews/incid
 night coverage, Windows manager regression and CI323 pass. Source578 range/
 velocity/knife-flight and other unfinished pieces remain partial. Source:
 [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: retain world at actual flying-knife collision (`5780c0be` partial)
+
+CKnifeServer::Segment now calls the already existing free throwing-hit handler
+with its actual owning world instead of the legacy game wrapper that passes
+null to the receiver. Flesh damage can again consume that world's difficulty
+coefficients. Existing stored attack.rTtrajectory direction is deliberately
+retained to isolate this world fix; reconstructing current flight direction is
+separate pending work. The legacy game API stays intact. Corrected the same
+free implementation's address/signature comment only, with no header/schema/
+renderer/codec/LAN or range/velocity/throw-command change.
+
+Independent named CKnifeServer RTTI/vtable GoldTD972d18/COL8e7f54/vt8bbdfc
+primaryslot0 PDBSegment754d60/1854 ->SteamTD983f88/COL8f76d8/vt8cb2dc slot0
+Segment7606e0. Typed Gold pWorld20/rayInfo4c and SAttackRayInfo.atk50.
+OriginalGold755095->PDBPerformThrowingAttackPortion68a440/147; Steam760a15->
+690440. COMPLETE147-byte free body uniquely maps between originals with ONLY
+the one decoded E8 operand15..18 masked. Gold typed signature explicitly leads
+with IWorld*, followed by attack/direction/receiver/armor/part. Exact21 bytes
+before both calls MOVECX[ESI20] world and LEAEDX[ESI9c] =rayInfo4c+atk50, with
+part/armor/receiver/direction stack inputs. Free body saves ECX world in EDI,
+EDX attack in ESI and forwards them to native IA slot0 for flesh (also glass).
+No register/frame/field masks or whole original/own callback ABI claim; own int
+callback/public API retained. Stale comments75fe50/690780 were not accepted.
+Evidence: knife-world-retail-oracle.json, typed members/functions and call slices.
+
+NativeKnifeWorldContext0..3 use actual world810/party54, a real clear approach
+to a native living flesh BODY (both fragmented and item-blocker traces), real
+tactical owners, authored throwing-knife model pool/item and actual native
+CreateKnifeServer/linear animator/Segment. Prime at launch: no movement/damage.
+Advance the actual world clock500ms and DG frame: native projectile travels5m,
+physically collides, applies damage, emits one native hit locator and retires
+before its1000ms deadline. No fabricated hit or future API. Native saved fields
+verify carried actor/ignore/RPG refs. Item quantity1 and actor AP/HP retain
+values; receiver remains able to fight. Own new debris is removed, projectile
+released and original clock/DG frame restored. No whole action-counter/drop
+simulation or OnLabel launch/producer parity claim.
+
+Accepted first-run RED2/4 ->GREEN4/4 EACH platform, two controls. A constant
+base2 portion with real attacker/difficulty2 received2 ->4 on both actual
+owner arrangements. Anonymous attacker and coefficient1 remain2. Both measured
+RPG IsAIPlayer flags are0; no separate enemy-coefficient branch or AI flag
+assignment is certified. Both difficulty coefficients are temporarily set2
+and restored; reference CalcStructDmg(null)=2/world=4 is checked. Constant
+damage, chance0, non-incidental intended target and negative KO probability
+isolate world propagation. The test supplies an already valid stored trajectory;
+current-direction reconstruction remains explicitly uncertified/pending.
+No calibration failures (clock type corrected before first compilation), DB
+mutation or new game/build-tree copy. Full Game builds, related277Win/276Linux including
+knife clock/preview/dispatch/orientation/feedback/handoff and prior night/
+incidental coverage, Windows manager regression and CI323. Other source578
+target/requested-part producers, direction/range/velocity/flight pieces remain.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).

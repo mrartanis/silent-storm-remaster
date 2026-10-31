@@ -2881,3 +2881,18 @@ selector/solver/context/calculator chain verified. Full Game builds, related
 remains the current fixed implementation, so full knife accuracy/range/flight
 parity is not claimed; full world lighting/LOS/cursor/firing/UI also remains
 outside these checks. Other source578 portions remain.
+
+## 2026-10-31: apply owning difficulty to flying-knife impact
+
+Actual knife collision now passes its owning world to the existing native
+throwing-hit handler. A base2 attack with difficulty coefficient2 receives4
+instead of2; anonymous and coefficient1 controls remain2. No authored values,
+range/velocity, saved carrier shape or launch command change. Existing stored
+trajectory direction remains, with current-direction reconstruction pending.
+
+Native actual flight/clock/physical body collision RED2/4 ->GREEN4/4 each,
+authored model/item, one hit/retirement and actor controls. Original named
+knife Segment, complete free147-byte helper and pWorld20 handoff verified.
+Full Game builds, related277Win/276Linux, CI323. Tests do not certify OnLabel producer,
+full flight/direction/range/velocity/drop behavior, enemy RPG flag classification
+or full UI/resume. Those source578 parts remain separate.

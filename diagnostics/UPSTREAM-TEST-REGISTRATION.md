@@ -1091,3 +1091,16 @@ awareness/night/perk/script state stable. Full Game builds, related233Win/232Lin
 including earlier night previews/incidental night, Win manager regression and
 CI323. Current knife fixed range intentionally retained; no full knife accuracy/
 physics or world lighting/LOS/cursor/firing/UI claim. Evidence prefix tohit-night.
+
+## 2026-10-31: NativeKnifeWorldContext0..3
+
+Both CMake lists,4 extended/120s actual native projectile/animator/world-clock/
+physical flesh collision/HP/hit-locator cases. First-run RED2/4 ->GREEN4/4 each,
+two controls. World difficulty2: damage2->4; anonymous/coefficient1 remain2.
+Prime launch has no damage; actual500ms advances5m and retires on one real hit.
+Authored model/item and saved carrier refs, actor AP/HP/item1/living receiver
+stable. Existing stored trajectory supplied; no current-direction/OnLabel/full
+flight/range/velocity/AI classification or whole action/drop parity claim.
+Own debris removed, clock restored. Full Game builds, related277Win/276Linux including
+knife and earlier night/incidental regressions, Windows manager and CI323.
+Evidence prefix knife-world; complete original147-byte helper/typed call verified.

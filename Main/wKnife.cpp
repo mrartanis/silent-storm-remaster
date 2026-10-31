@@ -162,7 +162,10 @@ bool CKnifeServer::Segment()
 			nCollFloor = i->pSrc->nFloor;   // retail @0x7600a8: the hit hull's floor (after the ignore test)
 			CDynamicCast<NRPG::IAttackable> pAttackCatcher( pCollided );
 			if ( pAttackCatcher )
-				res = pWorld->GetGame()->ProcessThrowingAttackPortion( &rayInfo.atk, pAttackCatcher, i->pSrc->pArmor, i->nUserID );
+				// Original Gold 0x755095 / Steam 0x760a15 forwards the owning world.
+				// Keep the existing stored direction; current flight direction is a separate fix.
+				res = NRPG::PerformThrowingAttackPortion( pWorld, &rayInfo.atk,
+					rayInfo.atk.rTtrajectory.ptDir, pAttackCatcher, i->pSrc->pArmor, i->nUserID );
 			else 
 			{
 				if ( ( i->pSrc->nTSFlags & NWorld::TS_ITEM_BLOCKER ) != 0 )
