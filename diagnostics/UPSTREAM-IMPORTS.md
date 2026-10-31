@@ -21454,3 +21454,72 @@ training-attributes-retail-mapping/oracle/original-kernel/verification, typed me
 RED/GREEN/full logs; rejected discovery evidence under
 training-attributes-revealed-upgrade-rounding. Source:
 [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).
+
+## 2026-10-31: authored learning-perk factors (`2893fa84` complete)
+
+CUnit practice now selects the real authored perk parameter: perk 11 for primary
+attributes 14..16; perk 60 for skills 0..13, including passive VP 9. Missing tree/unowned
+perk defaults to1. Associated primary practice runs first and selects its own attribute
+factor; selected practice always follows with its own category. Existing LEVEL 13 guard
+still returns false without division/training. The factor multiplies remaining fractional
+XP capacity before the existing per-skill rate division and min/max clamps. No authored
+rates/caps/XP/parameters changed. Native person 2 / tree 5 and person 3 / tree 4 provide
+actual untaken11/60 nodes; both authored factors are float1.1. Total XP and perk points do
+not increase.
+
+16 real native-unit fixtures use actual AddPerkPoints/TakePerk/HasPerk grants,
+owned/unowned pairs, correct/wrong categories, passive9 and guard13. Temporary safe
+logging labels restore immediately; no parameter mutation. Independent reference calls the
+previously audited base core on another real unit, choosing factors separately. Controlled
+total XP 1 keeps these stimuli above the minimum and below the maximum increment clamp; no
+new authored XP data. RED: four genuine failures among 266 Windows / 265 Linux; full
+GREEN: 334 Windows / 333 Linux. Exact test names prove the full gate includes every RED
+test, so its one execution is also GREEN evidence.88 identical measured controls (12 new
+learning controls and76 existing association/base/Upgrade/knife/critical rows),272
+unchanged learning initial/reference cell rows and374 unchanged association rows. All17
+cells, four following native RNG words, totalXP, ownership and point budget checked.
+These16 are fractional-progress cases, without a learning-perk integer-promotion claim.
+
+Actual original full Unit156/table36/recursive/base/cap/initialized
+DB/rates/Upgrade/derived-stat flow runs with a REAL original PerksTree, constructed at
+actual6aee50 with the captured authored treeID. Real TakePerk6ae630 grants the node; real
+HasPerk6ae5d0 returns its actual float parameter.16 native inputsets x observedPC24/RN and
+diagnosticPC53/RN =32 records, all 17 cells each. Exact
+base/XP/max/raw-current/freeze/bool, progress absolute1e-7. Real point budget checked
+before/after practice, other learning category remains unowned. Actual scalar deleting
+destructor6af420 with flags0 calls real6af440: captured map size becomes0 and vtable
+becomes real CObjectBase8b2418; placement buffer is retained. No fake map/provider,
+original code/world/DB/TEB patch, or original parameter override.
+
+Binding uses named Gold PDB only comparatively: RTTI
+TypeDescriptor96f98c/COL8e26f0/VT8b54d4 -> actualSteam980acc/8f1e28/8c45e4. Named ctor
+suffix45 uniquely matches without masks, actual factory allocates0x24 and calls ctor;
+actual typed refs4/8/map0c/points20 and ret4 decoded. Has91 uniquely matches with only its
+independently verified shared map-access call displacement. Take has a unique exact37-byte
+typed taken1c/points20 tail plus checked entry/shared-map prefix; complete193 decoded,
+without claiming whole logger equivalence. Typed VTslot8 adapter30 proves flags0 skips
+delete-this; real104 destructor/mapclear/bucket cleanup and base VT decoded. No masking
+unknown SEH/code pointers or claiming whole108/104 equivalence. Earlier Gold210/Steam151
+base-core version differences remain rejected.
+
+The first capture-prefix failure never injected; a detached VirtualAlloc-stack attempt
+completed unowned mode0 but real Take logging exited DBG_PRINTEXCEPTION_C, so those
+outcomes were rejected. The accepted kernel runs on a verified committed RW scratch
+region16..64 KiB below the captured original ESP. Every original stack byte is backed up,
+restored and read-back verified while paused before full context restore. No TEB stack
+bounds/SEH-head patch. All32 records confirm stack restore, real tree/base vtables and
+cleanup. Six original CW/FXSAVE007f samples, normal WM_CLOSE/exit0/config restore.
+Main-menu isolated kernel, not a live mission frequency/combined-perk/injured-promotion
+proof.
+
+Full Game builds, related 334 Windows / 333 Linux, asset-free CI 323. Existing
+mission/action/ACK callers keep the compatible two-argument entry; its obsolete PK offset
+is ignored since the base-rate correction, and GetSkillAddValue is only a read of PK
+values. No one-argument ABI churn is needed for behavioral parity. Together with the prior
+fractional-cap/rate, Upgrade and association fixes, all useful behavior of source 2893 is
+now imported. Other source commits still cover practice frequency/action routing;
+whole-project parity and final-head hosted CI remain pending. Evidence prefix
+training-perks, including retail-mapping/original-kernel/oracle/verification, rejected
+input-prefix/detached-stack captures and native RED/full GREEN logs.
+
+Source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).

@@ -564,7 +564,11 @@ bool CUnit::UseSkill( int eSkill, const int /*nAddValue*/ )
 		bAttributeUpgraded = UseSkill( NDb::ST_INT, 0 );
 		break;
 	}
-	const bool bSkillUpgraded = CSkilledObject::UseSkill( eSkill, 1.f );
+	float fLearningFactor = 1.f;
+	float fPerkFactor;
+	if ( IsValid( pPerksTree ) && pPerksTree->HasPerk( eSkill < NDb::ST_STR ? 60 : 11, &fPerkFactor, 0, 0 ) )
+		fLearningFactor = fPerkFactor;
+	const bool bSkillUpgraded = CSkilledObject::UseSkill( eSkill, fLearningFactor );
 	return bSkillUpgraded || bAttributeUpgraded;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

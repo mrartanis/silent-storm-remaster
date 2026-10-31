@@ -3228,3 +3228,25 @@ unchanged. Owned context/config restore/normalexit0, full Game builds, related 3
 / 317 Linux, CI323. Direct-unit scope; perk/injured/full mission frequency parity
 unclaimed. Source remains PARTIAL for learning perks. Source:
 [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).
+
+## 2026-10-31: authored learning-perk factors
+
+Taken perk 11 applies its authored learning factor to Strength/Dexterity/Intelligence;
+perk 60 applies it to secondary skills, including Vitality. The captured authored
+parameter is 1.1 (110%). A secondary skill's associated attribute and the selected skill
+each use their own category's perk. Absent/unowned perks use 1.0; LEVEL remains
+untrainable. The factor changes the incremental practice amount before the existing rate
+division and minimum/maximum clamps. It adds no total XP or perk points and changes no
+authored database values.
+
+Native RED: 4 among 266 Windows / 265 Linux; full GREEN 334 Windows / 333 Linux, 88
+identical measured controls. 16 actual grants/category cases/all 17 cells; actual original
+real-tree/full-unit 32 records, progress 1e-7 and exact integer/cap/current/freeze/bool.
+Original points/ownership and actual destructor cleanup verified; native RNG unchanged.
+Original stack/context/config restored and normal exit 0. Full Game builds and CI 323.
+Fractional-progress scope; combined perks, injured promotions and full mission frequency
+are not claimed by this matrix. Source 2893 is now complete after its separately recorded
+rate/Upgrade/association fixes; other remaining commits and whole-task final-head hosted
+CI are still pending.
+
+Source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).

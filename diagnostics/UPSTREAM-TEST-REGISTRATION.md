@@ -1397,3 +1397,21 @@ damage/probability/velocity/range/clock/AP/RNG assertions with canonical
 base+XP/held-modifier setup stable through real refresh; final RED250Win/249Linux preceded
 producer reapplication. Broader critical/called-shot final gate covers that affected path;
 evidence prefix training-attributes.
+
+## 2026-10-31: authored learning-perk factors
+
+NativeLearningPerkTraining0..15: real units/authored tree nodes and TakePerk grants
+for11/60, owned/unowned category pairs, passive9 and LEVEL 13 guard. Independent audited
+base-call reference; all 17 cells and four following RNG words. Native RED: 4 among 266
+Windows / 265 Linux; full GREEN 334 Windows / 333 Linux, exact RED-test inclusion
+verified.88 identical measured controls,272 learning and374 association initial/reference
+cells unchanged; all legacy golden assertions retained. Full Game builds and CI 323;
+extended tests remain outside323.
+
+Actual original Unit156/table36 and real constructor/LoadTree/Take/Has/flags0 destructor
+lifecycle,16 inputsets x2CW=32 records/full17cells. Exact integer/current/cap/freeze/bool,
+progress 1e-7; points before/after practice, other learning category unowned, destructor
+clears map and writes base vtable. Accepted real-stack scratch bytes/context/config
+restored, six CW007f and normal exit 0. Earlier prefix/detached-stack attempts rejected.
+Runtime is an isolated initialized main-menu kernel, without combined-perk or live mission
+frequency parity claims. Evidence prefix training-perks.
