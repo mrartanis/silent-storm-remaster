@@ -545,7 +545,27 @@ bool CSkilledObject::UseSkill( int eSkill, float fLearningFactor )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnit::UseSkill( int eSkill, const int /*nAddValue*/ )
 {
-	return CSkilledObject::UseSkill( eSkill, 1.f );
+	bool bAttributeUpgraded = false;
+	switch ( eSkill )
+	{
+	case NDb::ST_MELEE:
+	case NDb::ST_THROWING:
+	case NDb::ST_BURST:
+		bAttributeUpgraded = UseSkill( NDb::ST_STR, 0 );
+		break;
+	case NDb::ST_SHOOTING:
+	case NDb::ST_SNIPE:
+	case NDb::ST_STEALTH:
+		bAttributeUpgraded = UseSkill( NDb::ST_DEX, 0 );
+		break;
+	case NDb::ST_SPOT:
+	case NDb::ST_MEDICINE:
+	case NDb::ST_ENGINEERING:
+		bAttributeUpgraded = UseSkill( NDb::ST_INT, 0 );
+		break;
+	}
+	const bool bSkillUpgraded = CSkilledObject::UseSkill( eSkill, 1.f );
+	return bSkillUpgraded || bAttributeUpgraded;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 NDb::CRPGPers* CUnit::GetPers() const

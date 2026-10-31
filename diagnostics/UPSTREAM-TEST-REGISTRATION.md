@@ -1376,3 +1376,24 @@ normalexit0. Full Game builds, related128Win/128Linux, CI323. Associated-attribu
 was parked after original disproved its prior half-point promotion assumptions;
 its wrong original outcomes were not accepted/committed. This independent fix
 has a fresh native RED40 before production. Evidence prefix dynamic-skill-upgrade.
+
+## 2026-10-31: associated primary-attribute practice
+
+NativeAssociatedAttributeTraining0..21, actual units/all17 skills/all17 cells, offset7/-7
+and primary-only/selected-only/both whole-point boundaries. Separate native base-call
+reference checked by actual original full-unit code156+table36/
+recursive/core/DB/Update/GetBaseStat,22 inputs x2CW=44 records. Exact integer/
+base/raw-current/cap/frozen/bool and progress tolerance1e-7. Known raw current uses public
+temporary unfreeze/restore, no private fields. Correct threshold1: STRcap1/rate100
+atXP1m/progress.999999; no half-point promotions.16 existing Upgrade and24 base
+controls/goldens unchanged. FINAL RED: 14 failures among 250 Windows / 249 Linux tests;
+GREEN: 318 Windows / 317 Linux tests passed, 62 identical measured controls and374
+identical initial/reference cell rows. Six original CW007f, guarded context/config restore
+and normalexit0. Prior rejected half-point oracle led to separate Upgrade fix; this final
+RED was on corrected baseline BEFORE associated producer. Full Game/related 318 Windows /
+317 Linux, CI323. Extended native Win/Linux timeout120/outside323. Learning perks/live
+mission flow remain pending; Old combat and knife controls keep their
+damage/probability/velocity/range/clock/AP/RNG assertions with canonical
+base+XP/held-modifier setup stable through real refresh; final RED250Win/249Linux preceded
+producer reapplication. Broader critical/called-shot final gate covers that affected path;
+evidence prefix training-attributes.

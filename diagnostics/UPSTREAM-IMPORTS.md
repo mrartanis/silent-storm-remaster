@@ -21376,3 +21376,81 @@ and learning-perk11/60 wrapper remain pending. Evidence dynamic-skill-upgrade
 original-kernel/retail-oracle/verification/typed members and RED/GREEN/full logs;
 parked attribute discovery under training-attributes-revealed-upgrade-rounding.
 Source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).
+
+## 2026-10-31: associated primary-attribute practice (`2893fa84` partial)
+
+Restores original CUnit practice associations: MELEE0/THROWING2/BURST3 ->STR14;
+SHOOTING1/SNIPE4/STEALTH5 ->DEX15; SPOT6/MEDICINE7/ENGINEERING8 ->INT16. Passive9..13 and
+primary14..16 have no extra associated call. Associated practice runs first, selected base
+practice always follows, then both integer-improvement results are combined with OR.
+Attribute-only growth reports success and never skips selected practice. The corrected
+base rates/whole-point Upgrade remain unchanged. Existing two-argument unit entry ignores
+its legacy PK offset and is retained for actual action/mission callers. Learning-perk11/60
+multiplier selection remains separate; WHOLE source2893 stays PARTIAL.
+
+GoldPDB unit code6b6450/156 uniquely matchesSteam6bc640/156 with only four
+decoded/independently verified call operands and verified local switch-table address
+differing; all36 table bytes/nine targets independently checked by equal relative
+offsets1d/21/25 and PUSH14/15/16. No opcode/register/frame/branch masks. Real
+recursive-first/always-selected/OR order independently decoded. Named UpdateSkills
+Gold6b5b00/51 uniquely matchesSteam6bbd20/51 with only two verified call displacements to
+actual GetSkillBaseStat6ba790 and dynamic Update6bbb80. Typed unit base+0c/perkTree84 and
+all cell/vector fields rechecked. Gold210/ Steam151 base-core version differences remain
+explicitly rejected.
+
+Actual COMPLETE original unit code156+real table36 executes at ORIGINAL ADDRESS, including
+real recursive/base/cap/initialized DB/rates/Upgrade/UpdateSkills/ GetBaseStat calls.
+Controlled original-layout unit and all17 cells/vectors/caps, null original perk-tree
+pointer because native fixtures own neither11 nor60. 22 actual native input sets x
+observedPC24/RN and diagnosticPC53/RN =44 records. All17 base/XP/max/raw-current/frozen
+states and bool result match native reference exactly; progress within absolute1e-7.
+Reference consists of separate calls to already-audited base method on another real native
+unit, checked against the actual original complete unit flow. No fake attribute/math
+provider or original code/world/database/resource patch. Six CW/FXSAVE007f, guarded
+Game-code/empty-x87 acquisition/full captured context restore, normal WM_CLOSE/exit0 and
+cfg restore. Main-menu kernel, not real original perk-tree construction or live mission
+tick.
+
+FINAL fresh native RED: 14 failures among 250 Windows / 249 Linux tests before production;
+GREEN: 318 Windows / 317 Linux tests passed;62 identical measured controls.22 actual CUnit
+fixtures cover all17 selected IDs, offsets7/-7 and true whole-point growth of primary
+only, selected only and both.16 Upgrade and24 base goldens plus14 existing knife/critical
+boundary controls remain unchanged; base fixtures explicitly bind base scope, with
+unit-offset compatibility covered by new unit fixtures. All374 initial/reference cell rows
+are identical before/after. Native compares all17 XP/base/max/effective/current/ progress
+fields; known fixture raw current observed by public unfreeze/read/ restore, no private
+offsets. TotalXP/perk points/RNG stable. Low-XP associated progress0->.00001. Integer
+fixtures use authored STRcap1/rate100, controlled XP1million/progress.999999: original
+whole threshold1 is crossed, Strength's derived VP increase is retained, attribute-only
+growth returns true and selected melee still practices. These are bounded API stimuli, not
+new authored XP values.
+
+Earlier WIP half-point promotion assumptions were rejected by original44, revealing the
+separately corrected/pushed Upgrade truncation bug. No failed original outcome was
+accepted/committed. Accepted RED250Win/249Linux/original44/GREEN318Win/317Linux start from
+that corrected base and use the original whole-point threshold. No expected values changed
+after this accepted producer fix. Earlier broad gates exposed old combat and knife-launch
+fixtures using SetConst to replace derived bases: actual hit sound trains SPOT/INT and
+refreshes them. Only their setup now preserves canonical base+XP for the same positive
+effective/theoretical totals; below-base totals use a held real native modifier. Each
+setter explicitly verifies stability through actual UpdateSkills.
+Damage/probability/velocity/range/clock/AP/RNG expectations stay unchanged. STR-only knife
+perturbations re-establish the same requested THROW/VP totals before measurement to
+isolate the intended input. An earlier overbroad PK fixture normalization was rejected;
+all nine query-only ballistic fixtures were restored verbatim and only the real mode7
+launch was normalized before final RED. The obsolete Linux RED was cancelled through CTest
+SIGINT, not accepted as evidence. One simultaneous Win/Linux broad attempt exhausted
+system commit memory (native bad allocation and Linux not-enough-memory/BAD_COMMAND); its
+logs were archived and the final builds/tests run sequentially. The producer was restored
+to committed100 before final nativeRED250Win/249Linux; new original44 validation then
+minimal producer/GREEN318Win/317Linux follow. The full GREEN gate is a strict superset of
+every focused RED test (test names verified); its same raw log is used as GREEN evidence,
+with no duplicate execution. Broader critical/called-shot consumers were included because
+this real refresh reaches them. Full Game builds, related 318 Windows / 317 Linux
+including the full focused set, native action/interrupt/snipe/vitality ACK,
+IC/aura/critical/knife/classless consumers; CI323. Perk multipliers, injured/
+modifier-heavy promotions and whole mission practice frequencies unclaimed. Evidence
+training-attributes-retail-mapping/oracle/original-kernel/verification, typed members and
+RED/GREEN/full logs; rejected discovery evidence under
+training-attributes-revealed-upgrade-rounding. Source:
+[2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).

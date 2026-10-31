@@ -3206,3 +3206,25 @@ restore, normalexit0. Full Game builds, related128Win/128Linux, CI323. Direct-ce
 training scope; associated attributes/learning perks still pending in source2893.
 Reconstruction origin: [a8c50bf29e70191077257cca1a7fbd4cae01b731](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8c50bf29e70191077257cca1a7fbd4cae01b731).
 Source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).
+
+## 2026-10-31: associated primary-attribute practice
+
+Melee/throwing/burst practice also trains Strength; shooting/sniping/stealth trains
+Dexterity; spotting/medicine/engineering trains Intelligence. The associated attribute
+updates first, then the selected skill always practices. Either whole-point improvement
+reports success, including attribute-only growth. Passive/direct attribute skills have no
+extra association. Base rates, corrected whole-progress threshold and authored records are
+unchanged. Learning perks11/60 are the next separate part.
+
+Native RED: 14 failures among 250 Windows / 249 Linux tests; GREEN: 318 Windows / 317
+Linux tests passed,62 identical measured controls; all17 selected skills and three
+integer-growth boundaries. Actual original complete unit code156+table36/
+core/DB/derived-stat updates,44 operand/CW records/all17 cells; exact integer/
+current/cap/bool, progress1e-7. Low-XP associated progress previously0 now.00001.
+Controlled XP1m/progress.999999 with authored STRcap1/rate100 crosses original threshold1:
+Strength's VP update follows original, success is returned and melee still practices. This
+is an API boundary test, not new authored XP/balance data. TotalXP/perk points/RNG
+unchanged. Owned context/config restore/normalexit0, full Game builds, related 318 Windows
+/ 317 Linux, CI323. Direct-unit scope; perk/injured/full mission frequency parity
+unclaimed. Source remains PARTIAL for learning perks. Source:
+[2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).
