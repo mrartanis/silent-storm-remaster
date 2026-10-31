@@ -131,12 +131,10 @@ EAttackResult PerformThrowingAttackPortion( NWorld::IWorld *pWorld, CAttackPorti
 	return AR_BOUNCE;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// NRPG::PerformMeleeAttackPortion @0x290f70 -- free-fn form of CGame::ProcessMeleeAttackPortion.
-// The release added explicit IWorld* + IAIMap* + a pFilter object that, when non-null,
-// restricts the ProcessAttack callback to that one hit object.
-// DECOMP-vs-dev divergence (followed the release): the dev CGame version `continue`s on a
-// god-moded unit; the release only withholds it from the ignore list and still runs the
-// armor/damage path.
+// NRPG::PerformMeleeAttackPortion: Gold 0x68ac30, Steam v1.2 0x690c30.
+// Explicit world/map and optional target filter preserve the native damage context.
+// Every valid unit enters the ignore list once, including godmode units; the RPG
+// callback protects their HP while duplicate body intervals remain suppressed.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void PerformMeleeAttackPortion( NWorld::IWorld *pWorld, NAI::IAIMap *pAIMap, const CAttackPortion &a,
 	const CRay &ray, const vector<IAttackable*> &ignores, CObjectBase *pFilter )
@@ -160,7 +158,7 @@ void PerformMeleeAttackPortion( NWorld::IWorld *pWorld, NAI::IAIMap *pAIMap, con
 			if ( find( ignore.begin(), ignore.end(), pCatcher ) != ignore.end() )
 				continue;
 			CDynamicCast<NWorld::CUnit> pUnit( i->pSrc->pUserData );
-			if ( pUnit && !pUnit->IsCheatEnabled( CHEAT_GODMODE ) )
+			if ( IsValid( pUnit ) )
 				ignore.push_back( pCatcher );
 		}
 		NDb::CRPGArmor *pArmor = i->pSrc->pArmor;

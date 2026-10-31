@@ -852,3 +852,11 @@ HP500/IC0, no critical/KO, actor HP/AP/life preserved. Old native miss observer
 delegates immediate unit class before RED. Full Game builds, related33Win/33Linux,
 CI323; new6 outside323. PDB prototypes correct the old vector-ABI interpretation;
 original is single-portion, own vector/float API is retained by an override/core.
+
+## Native godmode melee receiver deduplication
+
+NativeMeleeGodmodeDedup: resource extended Win/Linux, timeout120, outside323.
+Actual Tile executor/world810/party54/two native bodies, requires >1 front
+body interval. RED1/1 ->GREEN1/1 each: protected front HP unchanged, callbacks
+2/-2 ->1/-1; back remains one/3 HP. Actor HP/AP/life retained. Both Game
+builds, related34Win/34Linux including all six filter controls and CI323 pass.

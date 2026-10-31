@@ -2582,3 +2582,13 @@ for the two intersected body pieces. This fix preserves that control rather
 than calling it original parity; original valid-unit duplicate suppression
 is a separate pending comparison/fix. Attacker ignoring and knife action/
 critical restrictions remain pending as well.
+
+### `c1ab9336` / inherited `a8c50bf2`: one melee callback per godmode unit
+
+Original valid-unit duplicate suppression also applies to invulnerable units.
+A ray crossing two body parts previously generated two protected -1 hit
+callbacks; it now generates one. HP stays protected, the next ordinary unit
+still takes the same3 damage, and filtering/armor traversal are retained.
+This resolves the separate godmode boundary recorded in the preceding two
+melee ports. Canonical attacker ignoring and knife critical restrictions
+remain pending. No new damage/chance formula or object validity rule added.

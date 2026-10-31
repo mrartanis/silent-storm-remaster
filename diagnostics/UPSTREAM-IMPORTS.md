@@ -19442,3 +19442,36 @@ reach/preparation/cursor/network cases) and CI323 pass; new6 resource extended/
 outside323. Evidence melee-filter-retail-oracle/verification JSON, actual PDB
 prototypes, original disassemblies and native RED/GREEN/full logs.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c.
+
+## 2026-10-31: deduplicate native godmode melee receivers (`c1ab9336` partial)
+
+The activated native helper now adds every IsValid CUnit to its seen/ignore
+list. The inherited helper from a8c50bf2 incorrectly tested !GODMODE instead
+of validity. This caused repeated ProcessAttack callbacks for separate actual
+body pieces of one invulnerable unit. RPG HP protection stays in its native
+callback; target filtering and armor/energy traversal remain unchanged.
+
+Independent original evidence: named Gold PerformMeleeAttackPortion68ac30/948
+already mapped through the original executor to Steam690c30. Exact named
+NWorld::CUnit RTTI cast Gold68ae18/Steam690e18 precedes the 17-byte validity
+check Gold68ae31/Steam690e31 and unconditional valid-unit append at68ae50/
+690e50 (or vector insert slowpath). Gold PDB IsValid<CUnit>435990/30 matches
+Steam4365f0 all30 bytes uniquely; same virtual-base adjustment/flags80 in
+that inline check. Typed CObjectBase nObjData4 identifies object-validity
+flags. Named Gold server cheat getter7b39c0/26 and RPG getter6b41d0/18 use
+RPG virtual58/flag64, absent from the append block. The old decompilation
+comment describing a godmode exception was incorrect and is replaced.
+
+NativeMeleeGodmodeDedup reuses the actual world810/party54, native two-unit
+body-ray fixture and real Tile PerformAttack. Requires multiple intersected
+front body pieces. RED1/1 each: front godmode HP0 loss but two callbacks/-2;
+GREEN1/1 each: same HP0 loss, exactly one callback/-1. Back unit remains one
+callback/3 HP loss; actor AP/HP and both living units retained. Earlier six
+filter controls and miss/world/cost/preparation/cursor/network cases pass.
+Full Game builds, related34Win/34Linux, CI323 pass; new resource extended case
+outside323. Evidence melee-godmode-retail-oracle.json and dedup verification/
+native logs. Canonical attacker ignore and knife/critical classification
+remain pending; this does not close the whole c1ab source.
+Activation source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c.
+Inherited helper origin (outside the 286-row ledger):
+https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8c50bf29e70191077257cca1a7fbd4cae01b731.
