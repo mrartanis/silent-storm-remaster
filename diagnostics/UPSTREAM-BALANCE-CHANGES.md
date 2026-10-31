@@ -2640,3 +2640,18 @@ and broader critical damage/cap/resistance/perk formulas remain separate
 pending audits. The surrounding attacker-level prefix is retained here.
 No new probability clamp, severity limit or formula beyond this extra-draw
 removal is introduced.
+
+### `65558b11`: original critical damage by severity and body region
+
+Restores severity times the original float reciprocal300, followed by headx2,
+bodyx1.5, handsx0.5 or legsx1. Existing normal location damage is still added.
+Controlled actual severity300/base2 hits now lose5 HP at body (was14),7 at
+head (13),2 at either hand (7),3 at either leg (10). Severity301/base20
+fractional controls lose50/70 at body/head (149/137). These examples use a
+native bleeding-only selection and neutral cap1000, not all critical types.
+A zero-probability body hit stays2 and zero-energy impact0. Lower excess damage
+can also avoid the existing wound/AP penalties; no AP formula changes.
+The byte audit follows wide multiply then float store, rather than silently
+changing original operation order. Applied injury severity, cap placement,
+resistance/perks and forced/difficulty fallback are still pending separate
+comparisons. No new clamp or HP/critical chance limit is introduced.

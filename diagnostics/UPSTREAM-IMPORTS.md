@@ -19654,3 +19654,58 @@ severity scaling/cap placement, resistance/perks, forced/difficulty fallback
 are not silently folded in. Evidence critical-severity-roll-retail-oracle,
 original disassemblies and critical-severity-draw native/verification/full logs.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66.
+
+## 2026-10-31: original critical damage reciprocal/location factors (`65558b11` partial)
+
+Only the returned critical damage factor changes: convert integer severity in
+wide precision, multiply by the original float reciprocal300 (bits3b5a740e),
+storefloat, then headx2/bodyx1.5/handsx0.5/legsx1 with float stores. Keeps
+current independent injury-severity scaling (the old fDC), cap placement,
+resistance/perk/forced rules and outer HP arithmetic pending their own audits.
+No header/API/virtual/save/network field changes.
+
+Gold PDB method is named ApplyCriticalAndGetDmgModifier6bd2f0/752 (not the
+own predecessor's GetCriticalDmgModifier). Typed CUnitMission IUnitMission
+base4c and named class RTTI GoldTD96fc90/COL8e2ca8(offset4c)/vtable8b63cc
+slot41 identify PDBProcessAttack6bd7e0; SteamTD980de4/COL8f23e0/vtable8c54e4
+slot41 identifies6c3e20. DirectGold6bda99->6bd2f0 andSteam6c4183->6c3820
+identify actual helpers. Steam takes6 args vsGold5; registers/frame really
+differ, so no whole-helper match claim or masking those differences.
+
+Gold6bd50f/Steam6c3b5a FILD returned integer severity, FLDS float reciprocal
+Gold8a7348/Steam8b643c=bits3b5a740e, multiplywide then FSTPS factorGoldESP40/
+SteamESP44. A separate FSTPS raw-severity floatGoldESP44/SteamESP50 is reserved
+for later injury application, not a damage multiplier. Exact decoded tables
+Gold6bd5c8/Steam6c3bfc map body0 tox1.5 (Gold8a5cf8/Steam8b4d90), head1 to
+FADD doubling, hands2/3 tox0.5 (Gold8a39ac/Steam8b29fc), legs4/5 leave it.
+Each version's actual bytes/constants/table checked independently. Factor
+float stored after location operation; final resistance multiply retained.
+
+NativeCriticalDamageFactor0..9 use actual world810/party54/new nativeperson103
+on real free standing place, real mission/flesh armor/damage type. FreshVP500/
+IC0, no perks46/47; native DisableCriticals then enable ONLY native bleeding
+keeps injury selection nonlethal while exercising the actual critical helper.
+Authored bleeding record counts body3/head1/arms2/legs3 required. Existing
+native game severity cap temporarily1000 and restoredexact; no DB edits.
+Six region cases use severity300/base2. Two fractional cases use301/base20.
+Zero-probability and zero-energy controls cover no modifier/no damage.
+
+Final RED8/10 ->GREEN10/10 each, two controls. Body14->5, head13->7,
+hands7->2 each, legs10->3 each, fractionalbody149->50/head137->70 actual
+received damage AND HP loss. Bleeding selection retained (one actual injury),
+GREEN AP/position/life/input-severity controls pass. This does not claim that
+old excess damage never induced normal wound/AP effects. Existing own
+N_MAX_SKILL=140 was part of the legacy factor, not a new denominator assumption.
+Initial fractionalbase40/head140 expected damage crossed the native <=75%
+health wound tier and changed AP as designed; that was a fixture control error,
+not a production regression. Archived invalid RED/GREEN. Production was restored
+EXACTLY to pushed68a694be before the final base20 RED; the same minimal patch
+was then reapplied and the final accepted inputs stayed unchanged in GREEN.
+
+Both Game builds, related79Win/79Linux (new10 and previous selector/melee/backstab/
+attacker-level/head/body/PK/impact/serializer controls), CI323 pass; new10
+resource extended outside323. Evidence critical-damage-factor-retail-oracle,
+original helper/process disassemblies, final native RED/GREEN/verification/full
+logs and exact production patch. Source655 still partial: applied injury
+severity scaling/cap placement/resistance/perks/forced/fallback pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66.

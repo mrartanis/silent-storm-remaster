@@ -905,3 +905,16 @@ regression updates only old extra selector-draw expectation, other controls
 retained. Fixture API/energy-guard assumptions and truncated invalid metadata
 log are archived, not RED. Complete final logs and Game/related69Win/69Linux/CI323
 pass. Probability SRand remains separate; no damage multiplier audit claimed.
+
+## Native critical damage factors across body regions
+
+NativeCriticalDamageFactor0..9: resource extended Win/Linux timeout120 outside323.
+Actual world/newperson103/armor/mission, authored bleeding-only selection, no
+resistance/severity perks, gamecap1000 restored. RED8/10 ->GREEN10/10 each with
+2 controls. Body14->5/head13->7/hands7->2/legs10->3, fractionalbody149->50/
+head137->70 actual HP/received damage; zeroCrit2/zeroenergy0 unchanged. Bleeding
+stillone; GREEN AP/pose/life/inputDC stable. Legacy injury DC scaling remains
+separate. Initial base40 head crossed existing wound/AP threshold; production
+restored exact68 baseline before accepted base20 RED, patch then reapplied.
+Both Game builds, related79Win/79Linux, CI323. Original reciprocal300 float stores
+and named-interface direct helper calls audited without whole-helper claims.
