@@ -1358,3 +1358,21 @@ is reached by existing live unit compatibility entry at factor1. Final full
 build/related112Win/112Linux includes core24 plus native ack/impact/aura/critical/knife/
 classless controls; CI323. Attribute/learning-perk wrapper remains pending;
 no full action-flow or bit-exact log claim. Evidence prefix training-rates.
+
+## 2026-10-31: training progress and cap truncate to whole points
+
+NativeDynamicSkillUpgrade0..15: actual native public dynamic-cell method,
+binary-exact fixed state/result literals, extended Win/Linux timeout120; full
+RPG harness, no runtime DB argument, outside asset-free323. Half/fractional/zero
+increments, whole/multiple points, fractional cap clamp, guard equality/above/
+zero, negative progress, hurt raw current and frozen effective values; bool
+quirk true on positive increment before cap clamp retained. Four RNG words equal.
+24 prior base-training goldens unchanged. FINAL RED8/40 ->GREEN40 each,
+32 identical measured controls. COMPLETE142 Gold/uniqueSteam EXACT zero masks,
+actual original32 operand/CW records including real Update; AL/raw fields/frozen
+match every literal exactly. Derived effective figure uses audited getter rule,
+not an executed original getter. Six CW007f samples, guarded context/cfg restore,
+normalexit0. Full Game builds, related128Win/128Linux, CI323. Associated-attribute WIP
+was parked after original disproved its prior half-point promotion assumptions;
+its wrong original outcomes were not accepted/committed. This independent fix
+has a fresh native RED40 before production. Evidence prefix dynamic-skill-upgrade.

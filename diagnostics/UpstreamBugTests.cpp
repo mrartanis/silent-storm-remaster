@@ -30072,6 +30072,29 @@ static void TargetingBaseFormula(const char* databasePath,const char* resourcePa
     Require(actual==expected,"native extra-AP additive formula kept legacyMax, lost1.5/separatetruncations or changed action scope");Require(mission->GetAP()==ap && mission->GetTotalVP()==hp && unit->GetPerksTree()->GetPerkPoints()==points && unit->fXP==xp && mission->GetMoveInLastTurn()==moves && gun->GetQuantity()==quantity && gun->GetAmmoQuantity()==ammo && int(unit->Skills(NDb::ST_SHOOTING))==skill && calcer->nExtraAP==extra && (mode==13?!unit->GetWeaponItem():unit->GetWeaponItem()==gun.GetPtr() && gun->GetShootMode()==shot) && random.Get()==GlobalGameRandom().Get(),"targeting query changed AP/HP/XP/points/movement/equipment/ammo/skill/inputs/RNG");
 }
 
+static void NativeDynamicSkillUpgrade(int mode)
+{
+    struct Sample {int part;float progress,add,cap;int hurt;bool frozen,advanced;int expectedPart;float expectedProgress;int expectedMaximum,expectedRaw,expectedEffective;};static const Sample samples[]={
+      {0,.25f,.25f,5,0,false,false,0,.5f,30,30,30},
+      {0,.5f,.25f,5,0,false,false,0,.75f,30,30,30},
+      {0,.75f,.25f,5,0,false,true,1,0,31,30,30},
+      {0,.25f,2.5f,5.75f,0,false,true,2,.75f,32,30,30},
+      {0,.5f,.5f,.75f,0,false,true,0,0,30,30,30},
+      {1,.25f,.75f,1.75f,0,false,true,1,0,31,31,31},
+      {1,.5f,.25f,1.5f,0,false,false,1,.5f,31,31,31},
+      {2,0,1,1.5f,0,false,false,2,0,32,32,32},
+      {0,-.25f,.125f,5,0,false,false,0,-.125f,30,30,30},
+      {0,-.75f,0,5,0,false,false,0,-.75f,30,30,30},
+      {0,.5f,0,5,0,false,false,0,.5f,30,30,30},
+      {0,.75f,.25f,.75f,0,false,false,0,.75f,30,30,30},
+      {0,0,.5f,0,0,false,false,0,0,30,30,30},
+      {3,.75f,.25f,5,5,true,true,4,0,34,28,34},
+      {3,.25f,.75f,3.5f,0,false,true,3,0,33,33,33},
+      {0,.25f,.25f,5,4,true,false,0,.5f,30,26,30}};Require(mode>=0 && mode<int(sizeof(samples)/sizeof(samples[0])),"unknown dynamic skill upgrade mode");const auto& sample=samples[mode];CObj<NRPG::CDynamicSkill> cell=new NRPG::CDynamicSkill(30,30);cell->SetXPPart(sample.part);cell->SetProgress(sample.progress);cell->SetValue(30+sample.part-sample.hurt);cell->FreezeToMax(sample.frozen);auto random=GlobalGameRandom();const bool actual=cell->Upgrade(sample.add,sample.cap);const int effective=*cell;cell->FreezeToMax(false);const int raw=*cell;cell->FreezeToMax(sample.frozen);bool rng=true;auto continuation=GlobalGameRandom();for(int i=0;i<4;++i)rng=rng && random.Get()==continuation.Get();
+    std::printf("native dynamic-upgrade mode=%d part=%d initialProgress=%.9g add=%.9g cap=%.9g hurt=%d frozen=%d advanced=%d xpPart=%d progress=%.9g maximum=%d raw=%d effective=%d expectedAdvanced=%d expectedPart=%d expectedProgress=%.9g expectedMaximum=%d expectedRaw=%d expectedEffective=%d rng=%d\n",mode,sample.part,sample.progress,sample.add,sample.cap,sample.hurt,int(sample.frozen),int(actual),cell->GetXPPart(),cell->GetProgress(),cell->GetMaxValue(),raw,effective,int(sample.advanced),sample.expectedPart,sample.expectedProgress,sample.expectedMaximum,sample.expectedRaw,sample.expectedEffective,int(rng));std::fflush(stdout);
+    Require(actual==sample.advanced && cell->GetXPPart()==sample.expectedPart && cell->GetProgress()==sample.expectedProgress && cell->GetMaxValue()==sample.expectedMaximum && raw==sample.expectedRaw && effective==sample.expectedEffective,"native dynamic skill promoted fractional progress or rounded its XP cap instead of original truncation");Require(cell->GetTheoreticalMax()-cell->GetXPPart()==30 && rng,"dynamic skill upgrade changed base value or random stream");
+}
+
 static void NativeFractionalSkillTraining(const char* databasePath,int mode)
 {
     Require(mode>=0 && mode<24,"unknown fractional skill training mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
@@ -32200,6 +32223,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "pk-unsupported-pose")) { Require(argc==5,"PK pose cost requires db/resources/mode"); PKUnsupportedPoseCost(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "observer-stealth")) { Require(argc==5,"observer75 requires db/resources/mode"); ObserverStealthPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "better-spotting")) { Require(argc==5,"spotting requires db/resources/mode"); BetterSpottingPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-dynamic-skill-upgrade")) { Require(argc==3,"dynamic skill upgrade requires mode"); NativeDynamicSkillUpgrade(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "native-fractional-skill-training")) { Require(argc==4,"fractional training requires db/mode"); NativeFractionalSkillTraining(argv[2],std::atoi(argv[3])); return true; }
     if (!std::strcmp(mode, "unhide-base")) { Require(argc==5,"unhide base requires db/resources/mode"); UnhideBasePrecision(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "disarm-traps")) { Require(argc==5,"disarm requires db/resources/mode"); DisarmTrapsPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }

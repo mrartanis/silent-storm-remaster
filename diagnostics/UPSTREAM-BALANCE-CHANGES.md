@@ -3185,3 +3185,24 @@ version and not forcibly equated; Steam adds LEVEL guard/extracts cap helper.
 Owned contexts/config restore and normal exit0. Full Game builds,
 related112Win/112Linux, CI323. Source remains PARTIAL for attributes/perks/caller cleanup.
 Source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).
+
+## 2026-10-31: training progress and cap truncate to whole points
+
+Corrects an inherited reconstruction error: a skill point now requires a full
+accumulated point of progress. Progress.5/.75 no longer grants an early point.
+For direct increment2.5 onto.25, the result is two points plus.75 remainder,
+instead of three points and-.25. Fractional XP capacity also truncates: cap1.75
+permits at most one XP-earned point. Existing eligibility checks and original
+return behavior remain, including true after a positive increment even if the
+cap clamp removes it. Authored rates/XP awards/base curve are unchanged. Saves
+retain their stored progress; no retroactive migration of earlier negative
+remainders is introduced. Other methods' rounding remains separate.
+
+Native RED8/40 ->GREEN40 both with32 identical controls. COMPLETE142 original
+method exactly identical Gold/Steam, zero masks;32 actual original operand/CW
+records prove both casts use truncation and all raw results match literal tests.
+Hurt/frozen controls and four RNG continuation words pass. Owned context/config
+restore, normalexit0. Full Game builds, related128Win/128Linux, CI323. Direct-cell/base
+training scope; associated attributes/learning perks still pending in source2893.
+Reconstruction origin: [a8c50bf29e70191077257cca1a7fbd4cae01b731](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8c50bf29e70191077257cca1a7fbd4cae01b731).
+Source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).

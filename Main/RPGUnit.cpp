@@ -89,7 +89,7 @@ void CSkilledObject::AddXP( float fXPToAdd )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CDynamicSkill (retail modifier-list model; RPGUnit.obj)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// x87 round-to-nearest for the skill math (retail Update/Upgrade fistp under the default CW).
+// Cap recomputation rounding; Upgrade uses separate truncating conversions.
 static inline int SkillRound( float f ) { return int( f + ( f < 0 ? -0.5f : 0.5f ) ); }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail @0x2bbb20: recompute the cap from base+XP and every live modifier, sweeping dead
@@ -168,18 +168,19 @@ void CDynamicSkill::Modify( int nModif )
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail @0x2bbc30: accumulate progress toward the XP cap; whole points move into nXPValue
-// (clamped to ROUND(fCap)) and the cap is recomputed via Update().
+// (clamped to TRUNC(fCap)) and the cap is recomputed via Update().
 bool CDynamicSkill::Upgrade( float fAddToProgress, float fCap )
 {
 	if ( float( nXPValue ) + fProgress < fCap )
 	{
 		fProgress += fAddToProgress;
-		int nModif = SkillRound( fProgress );
+		// Original 0x6bbcbD/c0 and 0x6bbcf2/f6 set CHOP for both conversions.
+		int nModif = int( fProgress );
 		if ( nModif > 0 )
 		{
 			nXPValue += nModif;
 			fProgress -= float( nModif );
-			int nCap = SkillRound( fCap );
+			int nCap = int( fCap );
 			if ( nXPValue > nCap )
 				nXPValue = nCap;
 			Update();

@@ -21312,3 +21312,67 @@ perks, coupled attributes or full combat/mission-level training frequencies.
 Evidence training-rates-retail-mapping/oracle/original-kernel/verification,
 typed members, original asm and RED/GREEN/full logs.
 Source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).
+
+## 2026-10-31: training progress and cap truncate to whole points (`2893fa84` partial)
+
+Corrects inherited CDynamicSkill::Upgrade reconstruction from
+[a8c50bf29e70191077257cca1a7fbd4cae01b731](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8c50bf29e70191077257cca1a7fbd4cae01b731).
+It incorrectly used SkillRound for both progress and cap. Accumulated progress
+must reach a whole point; .5 or.75 is not a point. Whole increment=int(progress),
+remaining progress subtracts that integer, XPpart clamps to int(fCap), both
+toward zero. Existing eligibility guard, bool return, Update, raw-current/frozen
+behavior and other cap-recomputation methods remain unchanged. Base training
+curve/rates/limits from99 remain unchanged; no authored data, saved fields,
+LAN/API/RNG or retroactive save-state migration. Incoming negative progress
+from previous builds is retained; this change does not rewrite saved characters.
+The old Upgrade/ROUND(fCap) source comments are corrected; broader rounding
+adapter/default-mode tie behavior in other methods remains separately audited.
+
+Discovery: the pending associated-attribute regression passed native46 but its
+three .5-based integer promotions FAILED actual original44 oracle validation.
+Original kept progress.500566959/.599999011 and returnedfalse rather than
+promoting. That WIP producer/tests were parked/restored to clean99; no attribute
+fix or failed original outcome was committed. This independent Upgrade fix ran
+its own final native RED before production. Attribute/perk work remains pending.
+
+GoldPDB named Upgrade6b5a70/142 matches UNIQUE Steam6bbc90/142 EXACTLY, ZERO
+MASKS. Both original conversions OR AH0c, then FLDCW BEFORE FISTP at6bbcc0
+and6bbcf6, restoring savedCW at6bbcc8/6bbd00. Integer OR alone does not alter
+FPU mode. Actual original Update call6bbd0b->6bbb80 retains its separate
+cap-recomputation rounding. Typed cell fields basec/XP10/progress14/cap18/
+current1c/empty-modifiers20/freeze2c independently rechecked.
+
+COMPLETE actual142 method, including real original Update when called, executes
+at ORIGINAL ADDRESS for16 actual native inputs under observedPC24/RN and
+diagnosticPC53/RN,32 records. Original-layout sparse dynamic cell, empty modifiers,
+binary-exact operands. Every literal AL/base/XP/progress/max/raw-current/frozen
+expectation matches EXACTLY in both modes. Effective figure is derived from
+independently audited cap/current/frozen getter semantics; an original getter
+was not executed in this probe. No original code/world/database/resources
+patched. Six CW/FXSAVE007f samples, guarded Game-code/empty-x87 capture/full
+context restoration, normal WM_CLOSE/exit0 and cfg restoration. Main-menu
+isolated direct-cell kernel, not actual combat/practice/perk caller observation.
+
+FINAL native RED8/40 BEFORE production ->GREEN40/40 EACH;32 identical measured
+controls =eight direct-cell controls plus24 unchanged fractional training tests.
+New NativeDynamicSkillUpgrade0..15 call actual public Upgrade on real native
+cells: .25+.25 and.5+.25 no longer grant a point; .25+2.5 yields two points and
+.75 remainder rather than three/-.25; fractional caps.75/1.75/3.5 truncate.
+Equality/exhausted/zero-cap/negative-progress, exact-one, multiple-point, hurt
+raw current and frozen-effective controls remain. Four following shared RNG
+words stay equal in every case. Raw native current uses public temporary
+unfreeze/read/restore on known fixture flags; no private-field access.
+Preserve the original quirk: a positive whole increment returns true even if
+the following cap clamp leaves XPpart unchanged. Oversized direct-call increments
+are API stimuli, not authored rates or a change to base training's.1 maximum.
+
+Full Game builds, related128Win/128Linux including new16/base24, native action/interrupt/
+snipe/vitality acknowledgments, IC/aura/critical/knife/classless consumers; CI323.
+New tests need no runtime database argument but link the existing full native
+RPG harness and are registered with its extended fixtures, outside asset-free323.
+No broad skill-growth-frequency, injured/perk-heavy unit or nonfinite/extreme
+conversion parity claim. Source2893 stays PARTIAL: associated primary practice
+and learning-perk11/60 wrapper remain pending. Evidence dynamic-skill-upgrade
+original-kernel/retail-oracle/verification/typed members and RED/GREEN/full logs;
+parked attribute discovery under training-attributes-revealed-upgrade-rounding.
+Source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).
