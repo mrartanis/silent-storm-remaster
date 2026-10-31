@@ -21689,3 +21689,49 @@ action-practice-retail-mapping/original-kernel/retail-oracle and
 medical-engineering-practice RED/fullGREEN/verification.
 
 Source: [156ccd173ff6c9671904e6d94e709397fc701d66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/156ccd173ff6c9671904e6d94e709397fc701d66).
+
+## 2026-10-31: reconcile deferred original-balance entries
+
+The older excluded-balance bucket mixed one deliberate original-balance change with four
+unverified deferrals. User scope is ALL useful original-balance fixes, so an unverified
+original claim is not a completed exclusion. This is a source-ledger correction with no
+engine/test/data change and no fabricated new RED.
+
+Sourceeb45f18a is now imported: its entire patch changes BOTH CDynamicSkill.Upgrade
+conversions from half-away rounding to truncation.
+Commit3f491d04725045f3ecffa7896e7e8dacbdc101c6 already implements exactly those hunks with
+native RED8/40both ->GREEN40/40,32 unchanged controls/related128both/CI323. Actual
+namedGold6b5a70/142 maps toSteam6bbc90 uniquely EXACTZERO masks;32 complete
+original-address native operand/CW records and explicit FLDCW CHOP before both conversions
+prove original behavior. Current104 full gates include all16 Upgrade cases unchanged. The
+old note that independent original verification was absent is superseded, not a claim of a
+new code fix.
+
+Sources2e15a102 (Hide->Stealth practice),24a00fd1 (additional short-burst AP) andaa724eca
+(fatal-bleeding hostile-roster XP) return to pending until actual original
+audits/nativeRED prove their behavior. The first dispatch is now observed in the original
+action table but still needs real Hide entry/exit/idempotency tests. The short-burst
+implementation is still absent in currentGetWeaponBurstAP. Fatal bleeding needs actual
+reward recipient/timing/empty/single-payment verification. No engine change for any of
+these3 is implied by reopening.
+
+Source405ed861 remains excluded: its stated purpose floors paid costs at1 AP despite the
+original, an intentional action-economy change incompatible with preserving original
+balance. Own renderer/audio/fonts/faces/HD/LAN exclusions are unchanged.
+
+After source156 completion the ordinary queue had56. Reopening3 earlier uncounted audit
+deferrals makes the active unfinished total59 (pending43 +partial16). Imported188,
+excluded-balance1. Earlier57 referred only to ordinary pending/partial rows and did not
+include these held entries; the current total is an honest expanded audit queue, not3
+newly introduced defects. Hosted actual final-head CI is still required after the entire
+task.
+
+Source: [eb45f18a9787d7994bcdb224b198818009786445](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/eb45f18a9787d7994bcdb224b198818009786445).
+
+Source: [2e15a10299e0d5e4a90558e39b34cc150ce51382](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2e15a10299e0d5e4a90558e39b34cc150ce51382).
+
+Source: [24a00fd151a39d6c696c2ee8ab6deeb9d862f875](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/24a00fd151a39d6c696c2ee8ab6deeb9d862f875).
+
+Source: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed).
+
+Source: [405ed86144c0340c1ac36f0775d989123e7d8010](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/405ed86144c0340c1ac36f0775d989123e7d8010).
