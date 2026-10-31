@@ -20393,3 +20393,52 @@ invalid compile logs retained separately. No game-file write or new game/build
 tree. Full Game builds, related195Win/194Linux, Windows manager regression and CI323.
 Other source578 night/range/velocity/knife-flight pieces remain partial. Source:
 [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: forward owning mission night into unit-target accuracy (`5780c0be` partial)
+
+NRPG::GetAttackerToHit now derives the actor's actual world game IsNight and
+forwards it through the already existing explicit GetToHit night parameter.
+This restores the missing environment input while preserving current light
+formula/night-vision21, cover, visibility-only awareness, first-turn/bullet
+inputs, script-forced chance and own explicit direct/AI calculator semantics.
+No implicit global replacement, authored DB change or new public API.
+
+Original Gold PDB function types establish GetAttackerToHit6aef60/389 has9 args
+ending two bools and RPGUnitGetToHit6ae9b0/780 has15 args ending bool (BasicType10
+bool,6int,8float). Gold helper first16 bytes exactly/uniquely mapsSteam6b5090;
+paired direct caller Gold6af0d6->6ae9b0 and Steam6b51e4->6b4ae0 identifies the
+native calculator handoff without whole-function/ABI equivalence claims.
+Typed CDumbUnitServer pWorld2c; named World RTTI/vtable1c GetGame Gold76bc50 ->
+Steam777a00 exact readpGamefc. Named NRPG::CGame RTTI/vtable30 IsNight Gold693250
+->Steam7b03f0 exact readbyte18, selected by named table rather than a generic
+tiny getter signature. Original ranged selector7a54e0..7a54f6 loads actor14/
+ownerWorld2c, calls those getters and stores actual night flagESP10. Exact
+7a552a/552e loads/pushes that local into AttackObjectRanged7a5558->6b6510.
+Actual chain6b6657->CheckToHit6b5200,6b5238->GetAttackerToHit6b5090; target
+context6b5178/5180 loads/pushes final stack boolESP4c before remaining calculator
+inputs and calls6b4ae0. No register/frame mask or invented old-prototype match.
+Evidence: tohit-night-retail-oracle.json, Gold typed functions/owner members.
+
+NativeToHitNight0..11 reuse actual world810/opposed person103 target, a real
+native actor with untaken21, actual melee/firearm/throwing-knife items, real
+cover and saved CoverSnapshot source. Stored target awareness is held visible/
+audible through actual SEEALL/UpdateVisible and SetAudible. Native accessible
+melee parts resolved; actual world IsNight is toggled/restored. Existing native
+GetHitCover and explicit day/night GetToHit reference keep the same physical
+inputs. For ordinary gun/knife cases, select an actual native skill0..100 with
+an observable day/night boundary (gun0, throwing66); no DB/range/light formula
+copy or mutation. Controls actually grant21 via the native perk tree with
+point budget/temp ASCII label restoration, or set actual script chance37.
+
+Accepted first-run RED2/12 ->GREEN12/12 EACH platform,10 controls: ordinary
+night firearm31->28; throwing knife3->2. Day cases, melee, actual21, script37
+and null target retain results. All12 preserve four shared RNG words, actor
+AP/HP/pose, victim HP, inventory/ammo, awareness, night/perk/points/script inputs.
+No calibration failures. Knife comparison intentionally retains current fixed
+range behavior: it certifies night input wiring, not full original knife
+accuracy/range/velocity/flight parity. No whole world lighting, natural LOS,
+cursor/firing/UI certification. No new game-file/build-tree copy or writes.
+Full Game builds, related233Win/232Linux including existing night previews/incidental
+night coverage, Windows manager regression and CI323 pass. Source578 range/
+velocity/knife-flight and other unfinished pieces remain partial. Source:
+[5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).

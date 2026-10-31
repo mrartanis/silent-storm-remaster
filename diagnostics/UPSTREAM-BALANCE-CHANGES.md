@@ -2865,3 +2865,19 @@ RNG words and native state unchanged. Original visible-only slot/test/inversion/
 native-calculator handoff verified. Full Game builds, related195Win/194Linux, CI323.
 Stored awareness was arranged through actual public APIs; natural LOS/full cursor/
 command/UI and missing night propagation remain outside these checks.
+
+## 2026-10-31: apply existing night penalty to unit-target accuracy
+
+The native unit to-hit helper now passes its owning mission's IsNight into
+the existing calculator. Ordinary night firearm31->28 and throwing knife3->2
+now follow that same native calculator; day, melee, actual night-vision21,
+script chance37 and null targets remain unchanged. No light/range/velocity
+formula, authored values, AP/ammo cost or explicit direct/AI API change.
+
+Native actual world/cover/night RED2/12 ->GREEN12/12 each,10 controls, four RNG
+words/state stable. Original typed bool inputs, named owner getters and actual
+selector/solver/context/calculator chain verified. Full Game builds, related
+233Win/232Linux including earlier night/incidental coverage and CI323. Knife range
+remains the current fixed implementation, so full knife accuracy/range/flight
+parity is not claimed; full world lighting/LOS/cursor/firing/UI also remains
+outside these checks. Other source578 portions remain.

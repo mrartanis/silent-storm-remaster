@@ -1078,3 +1078,16 @@ ammo/contact state stable. Initial private-cover compile fixture invalid/archive
 corrected native saved-field reader before RED. Full Game builds, related195Win/194Linux,
 Windows manager regression and CI323. No natural LOS/full cursor/UI/night claim.
 Evidence prefix tohit-awareness.
+
+## 2026-10-31: NativeToHitNight0..11
+
+Both CMake lists,12 extended/120s actual native world/unit/cover/night queries.
+First-run production RED2/12 ->GREEN12/12 each,10 controls. Firearm31->28 and
+knife3->2 only for ordinary night inputs; day/melee/native21/script37/null
+retained. Actual untaken21 actor/tree grant, saved cover source and existing
+GetHitCover/GetToHit explicit reference; ordinary native skill-boundary search
+0..100, no copied formulas/DB edits. Four RNG words/AP/HP/pose/items/ammo/
+awareness/night/perk/script state stable. Full Game builds, related233Win/232Linux
+including earlier night previews/incidental night, Win manager regression and
+CI323. Current knife fixed range intentionally retained; no full knife accuracy/
+physics or world lighting/LOS/cursor/firing/UI claim. Evidence prefix tohit-night.
