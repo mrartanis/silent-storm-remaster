@@ -1874,7 +1874,7 @@ float CUnitMission::GetCriticalDmgModifier( NAI::EHitLocation eHL,
 	int nRand = rand.Get( 100 );
 	float fCriticalResist = 1;
 	if ( pPanzerklein )
-		fCriticalResist = pPanzerklein->fCriticalResist;
+		fCriticalResist = 1.f - pPanzerklein->fCriticalResist;
 	// Original Gold 0x6bd402 / Steam 0x6c399a caps the incoming selector input.
 	if ( IsValid( pGame ) && nCriticalDifficulty > pGame->GetMaxCriticalSeverity() )
 		nCriticalDifficulty = pGame->GetMaxCriticalSeverity();

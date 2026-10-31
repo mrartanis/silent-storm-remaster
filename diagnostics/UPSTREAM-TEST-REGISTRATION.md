@@ -943,3 +943,15 @@ zeroCrit/low input, HP/AP/pose/life/limits and four-word RNG preserved. Fixture
 operator/deployment reset/unbound context errors archived, not RED. Prior69/70
 neutral worldcap did not prove cached binding and is not cap-order evidence.
 Full Game builds, related95Win/95Linux, CI323. No new cache-binding production change.
+
+## 2026-10-31: NativeCriticalPKResistance0..5
+
+Registered in both CMake lists, extended/120s. Actual mounted suit2 resistance.7,
+person103, native bound-game entry/tag45 and direct RPG bypassPK flesh processing.
+Complete RED4/6 ->GREEN6/6 each, two controls. Body/head/hand/leg damage
+41/58/21/31 ->29/42/17/23; naked50 and zero-critical20 controls unchanged.
+Injury severity300 and shellHP700/mount/AP/pose/input invariants retained.
+Full Game builds, related101Win/101Linux, CI323 pass. Logs/original oracle and final
+verification JSON use prefix critical-pk-resistance. Probability10000 isolates
+damage factor, not ordinary frequency; full UI/penetration is outside scope.
+Invalid inventory API compile logs are calibration, not RED.

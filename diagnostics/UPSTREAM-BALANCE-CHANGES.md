@@ -2684,3 +2684,18 @@ and existing tag45; previous neutral world-cap factor/severity tests did not
 establish that binding and are not cap-order evidence. Main damage remains a
 direct native RPG call, not a full UI-command claim. Other enabled injury types,
 resistance/perks and forced/difficulty fallback remain separate pending work.
+
+## 2026-10-31: PK resistance in the human critical modifier
+
+Restores the original complementary factor `1 - resistance`. An authored suit
+with resistance.7 now contributes.3 to this helper instead of.7. A native mounted
+pilot/bypassPK test with base damage20 and severity300 changes human HP damage
+body41->29, head58->42, hand21->17 and leg31->23. Injury severity remains300,
+shellHP700 and mount/AP/pose/inventory unchanged. Naked50 and zero-critical20
+controls are stable. No authored values or earlier penetration gate changed.
+
+Gold/Steam exact typed-field/complement and final-multiply bytes agree. Actual
+RED4/6 ->GREEN6/6 each; full Game builds, related101Win/101Linux, CI323. Probability10000
+is an explicit isolation input; ordinary critical frequency, non-bypassed shell
+penetration and full UI commands are not newly verified. Perks46/47 and
+forced/difficulty fallback remain pending within source65558b11.

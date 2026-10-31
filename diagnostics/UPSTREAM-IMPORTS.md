@@ -19808,3 +19808,44 @@ Evidence critical-cap-order-retail-oracle/private385mapping/original asm and
 actual bound native RED/GREEN/verification/full logs. Source655 still partial:
 resistance/perks and forced/difficulty fallback remain pending. Source:
 https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66.
+
+## 2026-10-31: native PK critical resistance complement (`65558b11` partial)
+
+The private human critical modifier now uses `1.f - pPanzerklein->fCriticalResist`
+instead of the authored resistance itself. The earlier suit/pilot penetration
+gate already used the complement and is unchanged. No new clamp, probability
+range, field, save/network tag, public API or database value is introduced.
+
+Gold PDB types locate CUnitMission.pPanzerklein188 and CPanzerklein.fCriticalResist2c.
+The independently named CUnitMission interface/ProcessAttack/direct private helper
+mapping is retained. Exact Gold6bd380 and Steam6c3910 windows independently check
+the actual suit pointer, initialize factor1 and, if nonnull, FLDS1 / FSUBS field2c /
+FSTPS factor. Both1 constants are verified. Final Gold6bd594/Steam6c3be4 load that
+stored factor and multiply the damage factor after the respective epilogue shifts.
+No register/frame/field masks or whole5/6argument helper equivalence are claimed.
+Evidence: critical-pk-resistance-retail-oracle.json and gold-members.txt.
+
+NativeCriticalPKResistance0..5 deploy actual person103 in world810/party54 and
+an actual authored suit2 with resistance0.699999988, shellHP700. Real WearAsPK /
+FlipPanzerklein establishes the wearer/surface-owner relation. Existing bypassPK
+explicitly isolates the private human branch from the earlier penetration gate.
+A native zero-energy server entry binds cached game, proved by readonly tag45;
+max severity1000 is restored afterward. VP500/IC0/no46or47 and BLEED-only filters
+are arranged after native deployment/warmup. A positive probability10000 makes
+both resistance formulas pass the independent probability gate; this is an
+isolation input, not a claim about ordinary weapon probability or frequency.
+
+Complete production RED4/6 -> GREEN6/6 on EACH platform, two controls unchanged.
+Base20/severity300 actual human HP damage: body41->29, head58->42, hand21->17,
+leg31->23, exactly matching original complementary factor0.300000012. The naked
+body control remains50 and worn zero-critical control20. Bleeding count/DC remain
+1/300 for positive cases and0/-1 for zero-critical. AP, pose, life, inventory,
+portion energy/damage/severity, shellHP and wearer/surface-owner identity remain
+stable. Main damage is a direct native RPG call after real mounting/binding;
+full UI attack, ordinary probability distribution and non-bypassed penetration
+are not newly established. Initial invalid GetInventory server API compilation
+logs are archived separately and are not RED evidence.
+
+Full Windows/Linux Game builds, 101Win/101Linux related tests and asset-free CI323 pass.
+Upstream source remains partial for perks46/47 and forced/difficulty fallback.
+Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).
