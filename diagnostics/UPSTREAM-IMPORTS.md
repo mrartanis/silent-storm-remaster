@@ -19709,3 +19709,44 @@ original helper/process disassemblies, final native RED/GREEN/verification/full
 logs and exact production patch. Source655 still partial: applied injury
 severity scaling/cap placement/resistance/perks/forced/fallback pending.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66.
+
+## 2026-10-31: selected severity reaches actual injury unchanged (`65558b11` partial)
+
+Removes legacy severity/N_MAX_SKILL followed by region200/250/300 scaling
+from GetCriticalDmgModifier. Actual ApplyCritical now receives int(float(nRand)),
+following original raw severity float storage/truncation. The previously
+restored reciprocal300 damage factor and location multipliers remain exact.
+Current cap location/resistance/perks/forced/fallback rules are still separate;
+no new limit, public API, save/network field or injury type is introduced.
+
+Earlier named CUnitMission interface4c/slot41 ->actual ProcessAttack direct
+calls identify Gold PDB ApplyCriticalAndGetDmgModifier6bd2f0/752 andSteam6c3820.
+Gold6bd51f stores raw returned severityfloat ESP44, Steam6c3b6a ESP50. Region
+modifiers operate on a DIFFERENT factor slot (Gold40/Steam44). Later rawfloat
+loads Gold6bd564/Steam6c3bae, x87 OR0c truncation at6bd573/6c3bbb, FISTPL at
+6bd57e/6c3bc6, pushes actual ApplyCritical callGold6bd58c->PDB6b9110/385 and
+Steam6c3bd8->6bf3e0. No /N_MAX_SKILL or body-region rescaling of that stored
+raw severity exists. Both frames/registers checked independently, not masked
+into false equivalence. Prototype confirms DB critical pointer plus integer
+severity. This audit is for normal representable severity values; extreme
+float-to-int overflow behavior is not newly claimed validated or clamped.
+
+NativeCriticalSeverityApply0..7 reuse the actual world/person103/bleeding-only
+mission/flesh armor fixture via modes10..17, observing the real injury's
+existing ICriticalInfo::GetDifficultyClass (CCritical returns critical.nDC).
+No private/test API or proxy supplies severity. All six regions/DC300 plus
+body/headDC301; cap1000 restoredexact, no46/47 perks, VP500/IC0 and actual
+native damage. Existing zero-probability/zero-energy cases8/9 are controls.
+RED8/10 ->GREEN10/10 each with two passing controls. Applied body/head642->300,
+hands428->300, legs535->300, body/head645->301. Actual damage/HP loss remains
+5/7/2/2/3/3/50/70 exactly across RED/GREEN; one bleeding injury, GREEN AP/pose/
+life/inputDC and no-critical/blocked controls retained. The earlier10 factor
+cases continue unchanged. The retained native treatment/critical interfaces
+now see the correct injury difficulty; no bleeding-rate or duration formula
+is changed or newly claimed measured.
+
+Both Game builds, related87Win/87Linux, CI323 pass; new8 resource extended outside323.
+Evidence critical-severity-apply-retail-oracle/prototypes/native RED/GREEN/
+verification/full logs. Source655 remains partial: cap placement, resistance/
+perks, forced/difficulty fallback remain pending separate original checks.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66.

@@ -918,3 +918,15 @@ separate. Initial base40 head crossed existing wound/AP threshold; production
 restored exact68 baseline before accepted base20 RED, patch then reapplied.
 Both Game builds, related79Win/79Linux, CI323. Original reciprocal300 float stores
 and named-interface direct helper calls audited without whole-helper claims.
+
+## Native applied injury severity across body regions
+
+NativeCriticalSeverityApply0..7 invoke existing real factor fixture modes10..17;
+Win/Linux resource extended timeout120 outside323. Real ICriticalInfo difficulty
+observes injury, no new API. RED8/10 ->GREEN10/10 each incl2 prior no-critical/
+blocked controls. Body/head642->300, hands428->300, legs535->300, fractionalbody/
+head645->301; real damage/HP5/7/2/2/3/3/50/70 remains identical. Bleeding type/
+count and GREEN AP/pose/life/inputDC retained. Both Game builds, related87Win/87Linux,
+CI323. Earlier10 factor cases pass. Original rawfloat store/FISTPL truncate/
+actual ApplyCritical call verified separately in each version; no extreme
+float-int overflow or broader cap/perk/forced rule claim.

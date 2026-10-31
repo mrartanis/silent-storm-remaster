@@ -2655,3 +2655,15 @@ The byte audit follows wide multiply then float store, rather than silently
 changing original operation order. Applied injury severity, cap placement,
 resistance/perks and forced/difficulty fallback are still pending separate
 comparisons. No new clamp or HP/critical chance limit is introduced.
+
+### `65558b11`: injury difficulty is separate from location damage
+
+Actual injury severity now keeps the selected difficulty. A supplied300 became
+642 for body/head,428 for hands,535 for legs; all now stay300. Supplied301
+body/head became645 and now stay301. These are actual bleeding injuries read
+through their normal difficulty interface. The existing treatment rules will
+receive those corrected values; no healing, bleeding-rate or duration formula
+changes. Actual HP damage stays5/7/2/2/3/3 and fractional50/70 in the controlled
+examples from the preceding factor fix. Original intermediate float store and
+truncation retained; no new severity limit/clamp. Cap location, resistance/
+perks and forced/difficulty fallback remain separate pending work.

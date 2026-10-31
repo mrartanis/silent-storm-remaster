@@ -1893,7 +1893,6 @@ float CUnitMission::GetCriticalDmgModifier( NAI::EHitLocation eHL,
 	if ( !IsValid( pCritical ) )
 		return 0;
 	//
-	float fDC = (float)nRand / N_MAX_SKILL;
 	// Original x87 stores severity * float(1/300) before the location multiplier.
 	fRet = float( double( nRand ) * double( 1.f / 300.f ) );
 
@@ -1901,23 +1900,20 @@ float CUnitMission::GetCriticalDmgModifier( NAI::EHitLocation eHL,
 	{
 		case NAI::HL_HEAD:
 			fRet *= 2.f;
-			fDC *= 300;
 			break;
 		case NAI::HL_BODY:
 			fRet *= 1.5f;
-			fDC *= 300;
 			break;
 		case NAI::HL_RHAND:
 		case NAI::HL_LHAND:
 			fRet *= 0.5f;
-			fDC *= 200;
 			break;
 		case NAI::HL_RLEG:
 		case NAI::HL_LLEG:
-			fDC *= 250;
 			break;
 	}
-	ApplyCritical( pCritical, fDC );
+	// Original Gold 0x6bd564 / Steam 0x6c3bae stores float severity then truncates.
+	ApplyCritical( pCritical, int( float( nRand ) ) );
 	return fRet * fCriticalResist;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
