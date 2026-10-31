@@ -19475,3 +19475,35 @@ remain pending; this does not close the whole c1ab source.
 Activation source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c.
 Inherited helper origin (outside the 286-row ledger):
 https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8c50bf29e70191077257cca1a7fbd4cae01b731.
+
+## 2026-10-31: canonical melee attacker ignore (`c1ab9336` partial)
+
+Native melee dispatch now always ignores pUS, and also retains the existing
+own cannon alias when present. The old either/or condition ignored only the
+cannon for a mounted actor, allowing the actual actor body to receive its own
+direct melee ray. Existing float/vector API, world/filter/dedup and sound stay.
+
+Gold PDB CExecMelee::PerformAttack799540/319 ->Steam7a59a0 was independently
+identified by named class/vtable and128-byte decoded-relocation match. At+43
+both load typed pUS14, null-check/adjust+8; typed CDumbUnitServer independently
+has NRPG::IAttackable base8. At+67 they push one-element vector insertion
+arguments and the adjusted unit address; at+81 call Gold named vector
+_M_insert_overflow4c28f0/214 or Steam6c60d0, immediately reloading pUS/world2c.
+No cannon conditional precedes that canonical unit insertion. Own alias is
+additionally retained for compatibility rather than dropping its protection.
+
+NativeMeleeAttackerIgnore0..2 use actual world810/party54, existing authored
+cannon fixture (person838/weapon65), real CreateExecutor entry Run/animation
+queue completion, mounted identities/state and actual map Sync/hulls/rays.
+RED1/3 ->GREEN3/3 each. Mounted self-body ray lost3 HP/generated1 hit before,
+then0/0; unmounted self-ray control already0/0. Separate cannon-bound ray
+control intersects actual cannon and preserves its HP/stage/serialized fields.
+Actor AP/position/life and actual mount identity retained. This tests direct
+PerformAttack, not a claim that the complete UI normally orders mounted
+melee. Initial missing snapshot-context comparison compilation and unavailable
+joint actor/cannon ray were test-fixture errors, archived invalid logs, not
+behavioral RED. Final RED uses the valid separate control unchanged in GREEN.
+Both Game builds, related37Win/37Linux, CI323 pass; new3 resource extended outside323.
+Evidence melee-ignore-retail-oracle.json, native RED/GREEN/verification logs.
+Knife action/critical classification remains pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c.

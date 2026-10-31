@@ -1864,11 +1864,11 @@ void CExecMelee::PerformAttack( const vector<NRPG::CAttackPortion> &attack, cons
 void CExecMelee::PerformFilteredAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, CObjectBase *pFilter )
 {
 	vector<NRPG::IAttackable*> ignores;
+	// Original Gold 0x79956b / Steam 0x7a59cb always inserts the canonical unit.
+	ignores.push_back( pUS );
 	CCannon *pCannon = pUS->animator.GetCannon();
 	if ( pCannon )
 		ignores.push_back( pCannon );
-	else
-		ignores.push_back( pUS );
 
 	for ( vector<NRPG::CAttackPortion>::const_iterator i = attack.begin(); i != attack.end(); ++i )
 	{

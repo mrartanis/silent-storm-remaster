@@ -2592,3 +2592,13 @@ still takes the same3 damage, and filtering/armor traversal are retained.
 This resolves the separate godmode boundary recorded in the preceding two
 melee ports. Canonical attacker ignoring and knife critical restrictions
 remain pending. No new damage/chance formula or object validity rule added.
+
+### `c1ab9336`: melee always ignores the canonical attacker
+
+A direct melee ray through a mounted actor could damage that same actor because
+only the cannon alias was ignored. Original dispatch always ignores the unit;
+we now retain both unit and existing cannon alias. Actual mounted body control
+changes self-damage3/hit1 to0/0; unmounted self and cannon protection stay.
+This is direct-dispatch coverage, not proof of an ordinary UI route for mounted
+melee. No damage/chance formula, sound or animation change. Knife action/critical
+classification remains pending.

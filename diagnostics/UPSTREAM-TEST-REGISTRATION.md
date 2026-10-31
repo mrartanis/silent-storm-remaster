@@ -860,3 +860,12 @@ Actual Tile executor/world810/party54/two native bodies, requires >1 front
 body interval. RED1/1 ->GREEN1/1 each: protected front HP unchanged, callbacks
 2/-2 ->1/-1; back remains one/3 HP. Actor HP/AP/life retained. Both Game
 builds, related34Win/34Linux including all six filter controls and CI323 pass.
+
+## Canonical native melee attacker and retained cannon alias
+
+NativeMeleeAttackerIgnore0..2: resource extended Win/Linux timeout120. Actual
+cannon entry/animation queue/hulls/body and separate cannon-bound rays, no
+fabricated animator pointer. Final RED1/3 ->GREEN3/3 each with2 passing controls:
+mounted self HP3/hit1 ->0/0, unmounted self0/0; cannon HP/stage/fields unchanged.
+Actor AP/position/life/mount retained. Full Game builds, related37Win/37Linux, CI323.
+Fixture compile/joint-ray failures archived separately, not counted as RED.
