@@ -3001,3 +3001,20 @@ each, query0RNG/check1draw/AP/HP/item/pose/grant point controls. COMPLETE origin
 171 bytes and exact117 conversion helper verified; min truncation precedes1.5.
 Full Game builds, related314Win/313Linux, CI323. Actual velocity/solver/full flight/drop
 and shared source9f3 accuracy skill remain unfinished; no full flight/UI claim.
+
+## 2026-10-31: actual knife speed uses original physical velocity
+
+Real knife launch now uses original physical velocity*1.5 instead of fixed5m/s.
+The existing blade/skill/VP/strength/weight/perk calculation feeds the actual
+projectile. Perk88 product remains wide until after1.5; existing range calls
+retain their float store. No authored numbers or damage/save/LAN fields changed.
+
+Actual native labels seeded with real GameRandom120 and skill/perk/healing/STR/night/cover inputs deliver
+16.61/16.21/21.85/16.61/21.48/14.74/14.74/14.74m/s versus5. Final RED7/8 ->GREEN8/8
+each, one unchanged lifetime/AP/item condition control. One real transferred
+blade, AP cost9 or11, native query RNG/HP/pose/grant controls. Original named
+producer, actual velocity call,1.5f then float store and typed world handoff
+verified; speed norm tolerance1e-5 relative. Full Game builds, related322Win/321Linux,
+CI323. Original absolute lifetime distance, ranged solver/cache and complete
+collision/flight/frame/drop/UI still require separate work; no exhaustive x87/CRT
+or post-world RNG claim.

@@ -3474,7 +3474,7 @@ void CExecThrowKnife::ThrowKnife()
 
 	int nToHit;
 	int nDistance = fabs( ptTarget - pUS->GetPosition().GetCP() ) / FP_GRID_STEP;
-	float fMaxDist;
+	float fMaxDist, fSpeed;
 	if ( pTarget )
 	{
 		CPtr<NRPG::CThrowKnifeToHitCalcer> pToHitCalcer =
@@ -3485,6 +3485,7 @@ void CExecThrowKnife::ThrowKnife()
 		nToHit = pToHitCalcer->GetToHit();
 		pToHitCalcer->Log();
 		fMaxDist = pToHitCalcer->GetKnifeMaxDistance() * FP_GRID_STEP;
+		fSpeed = pToHitCalcer->GetKnifeLaunchSpeed();
 	}
 	else
 	{
@@ -3496,9 +3497,9 @@ void CExecThrowKnife::ThrowKnife()
 		nToHit = pToHitCalcer->GetToHit();
 		pToHitCalcer->Log();
 		fMaxDist = pToHitCalcer->GetKnifeMaxDistance() * FP_GRID_STEP;
+		fSpeed = pToHitCalcer->GetKnifeLaunchSpeed();
 	}
 
-	float fSpeed = 5.f;
 	CVec3 speed = ptTarget - item.ptCenter;
 	Normalize(&speed);
 	speed *= fSpeed;

@@ -182,7 +182,7 @@ static double GetKnifeRangeSkill( IUnitMission *pMission, IMeleeWeaponItem *pIte
     return double(fSkill) * double(fVP);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-static float GetKnifeRangeVelocity( IUnitMission *pMission, IMeleeWeaponItem *pItem )
+static double GetKnifeRangeVelocity( IUnitMission *pMission, IMeleeWeaponItem *pItem )
 {
     float fStrength = int( pMission->GetRPGUnit()->Skills( NDb::ST_STR ) );
     if ( pMission->GetPanzerklein() )
@@ -195,15 +195,16 @@ static float GetKnifeRangeVelocity( IUnitMission *pMission, IMeleeWeaponItem *pI
     const float fWeightedPower = float( double(fPower) * pow( double(nWeight), double(0.74f) ) );
     float fVelocity = float( double(fWeightedPower) / ( double(nWeight) * double(0.001f) ) );
     float fMultiplier;
+    // Original returns the perk product wide; each caller chooses its float store.
     if ( pMission->HasPerk( 88, &fMultiplier ) )
-        fVelocity *= fMultiplier;
+        return double(fVelocity) * double(fMultiplier);
     return fVelocity;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static double GetKnifeRangeWide( IUnitMission *pMission, IMeleeWeaponItem *pItem )
 {
     // Original 48-byte distance helper stores velocity, then keeps range wide.
-    const float fVelocity = GetKnifeRangeVelocity( pMission, pItem );
+    const float fVelocity = float( GetKnifeRangeVelocity( pMission, pItem ) );
     return ( double(fVelocity) / double(pMission->GetToHitConstants()->fGravity) ) *
         double(fVelocity) * double(FP_INV_GRID_STEP);
 }
@@ -826,6 +827,12 @@ int CThrowKnifeToHitCalcer::GetKnifeMaxDistance()
 {
 	// Original world range getter 0x7a1b30 truncates the wide ballistic result.
 	return int( GetKnifeRangeWide( pUnitMission, pMeleeWeapon ) );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+float CThrowKnifeToHitCalcer::GetKnifeLaunchSpeed()
+{
+	// Original 0x7aabbd/0x7aabc5 stores velocity only AFTER multiplying by 1.5.
+	return float( GetKnifeRangeVelocity( pUnitMission, pMeleeWeapon ) * double(1.5f) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CThrowKnifeToHitCalcer::FillWeaponInfo()

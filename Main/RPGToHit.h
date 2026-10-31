@@ -239,6 +239,7 @@ public:
 
 	virtual void FillWeaponInfo();
 	int GetKnifeMaxDistance();
+	float GetKnifeLaunchSpeed();
 	virtual void Prepare();
 
 	CThrowKnifeToHitCalcer() {}

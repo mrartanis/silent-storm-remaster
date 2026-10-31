@@ -1195,3 +1195,22 @@ day/quality0/grant points controls. COMPLETE171 named original virtual function
 and exact117 _ftol2 checked before production. Full Game builds, related314Win/313Linux,
 Windows manager and CI323. No full flight/shared-skill/UI claim. Evidence prefix
 knife-accuracy-range.
+
+## 2026-10-31: NativeKnifeLaunchSpeed0..7
+
+Eight extended/120s actual legal label ->native knife velocity/deadline/item/AP
+cases. Initial6 genuine speed failures plus stale preheal HP control archived;
+correct health control and repeatRED7/8, pin original wide-perk speed literal.
+Archive unseeded RED/GREEN/full runs after review exposed occasional old scatter;
+restore owned production to90 and seed actual GameRandom120 just before label.
+Repeat FINALseededRED7/8 before production ->GREEN8/8 each and full gates. One lifetime/AP/item outcome
+control does not assert a new speed; actual speed changes there too. Original
+speed literals16.6124363/16.2141476/21.854887/16.6124363/21.4804249/14.7401333/
+14.7401333/14.7401333 versus fixed5. Real native perks/healing/STR/night/cover,
+one actual blade/knife and native vector norm1e-5 relative tolerance; lifetime
+coherent within native clock rounding. Query0RNG/four words and AP/HP/pose/item/
+grant controls. Actual original named label/direct velocity call/1.5f/store and
+named world virtual receiver/typed signature audited. Full Game builds, related
+322Win/321Linux, Windows manager and CI323. No post-world RNG, original absolute lifetime,
+solver/cache/full collision-flight/drop/UI or exhaustive x87/CRT claim. Evidence
+prefix knife-launch-speed.

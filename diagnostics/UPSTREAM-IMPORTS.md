@@ -20815,3 +20815,55 @@ game/build copies. Full Game builds, related314Win/313Linux, Windows manager and
 Actual velocity/solver/flight/drop and source9f3 shared accuracy skill remain
 separate unfinished work; no full flight or UI parity claim.
 Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: actual knife launch consumes physical velocity (`5780c0be` partial)
+
+Actual CExecThrowKnife point/unit label branches now obtain launch speed from
+the live blade velocity specialization instead of fixed5. A new live calcer
+GetKnifeLaunchSpeed stores velocity*1.5f once. Private velocity helper returns
+its perk88 product wide; existing range helper explicitly stores it float,
+preserving previous range/admission/accuracy arithmetic. Actual calcers retain
+the captured blade after tear-off. No new stored field/save/LAN/authored data.
+Other legacy solver/ray/scatter/lifetime distance remains separate unfinished
+work; this is actual launch speed, not a full original-flight parity claim.
+
+After real native RED, rechecked named CExecThrowKnife RTTI/virtual OnLabel:
+Gold79fb33->private79e350, Steam7ac1e6->private7aa930. Actual direct velocity
+calls Gold79e5cb->6b1990 /Steam7aabbd->6b7b10, complete285 helper independently
+verified previously. Actual1.5f pointers Gold8a5cf8/Steam8b4d90 independently
+dereferenced0000c03f. FMULS Gold79e5d3/Steam7aabc5 precedes FIRST caller float
+store Gold79e5e2/Steam7aabd4. Original perk88 multiplication returns wide;
+inserting a float store before1.5 would change the fixture's native launch
+literal16.2141476 to16.2141457. Range caller has its own original float store,
+so retains prior behavior. No whole expanded Gold/Steam caller equivalence or
+stale donor entry accepted; no register/frame/field/branch masks.
+
+Typed CCommandExecute.pUS14 ->CDumbUnitServer.pWorld2c is actual receiver;
+named CWorld primary RTTI Gold972dac/COL8e8a10/vt8bc74c ->Steam98401c/COL8f81e0/
+vt8cbc8c slot14c selects Gold7593d0/Steam764c40. Typed original signature is
+(rayInfo*,float speed,STime,float distance,model*,item*). Verified original stack
+tail pushes stored speed before actual rayInfo; no own/original ABI equality
+claimed. Evidence knife-launch-speed-retail-oracle.json and actual-address
+caller disassemblies plus typed members/signature; prior complete285 arithmetic
+and blade/VP/PK/item audits retained.
+
+NativeKnifeLaunchSpeed0..7 exercise actual legal CanDo/Start/OnLabel ->one real
+knife/blade, saved velocity and deadline, AP/HP/pose/item/grant controls. Initial
+six genuine speed failures plus one stale pre-healing HP assertion were archived;
+health control corrected after explicit healing and repeat RED7/8 each before
+production. Pin decoded wide-perk launch literal and repeat RED7/8 each. Final
+review found occasional legacy scatter changed measured norm in unseeded runs;
+archive unseeded RED/GREEN/full gates, restore owned91 production to90, seed real
+GameRandom120 immediately before actual label. Repeat FINAL seeded RED7/8 each
+BEFORE production, then GREEN8/8 each and full gates. Literal speeds16.6124363,16.2141476,21.854887,16.6124363,
+21.4804249,14.7401333,14.7401333,14.7401333m/s versus old5 in all. Native vector
+norm checked within1e-5 relative float tolerance; no exhaustive x87/CRT claim.
+The eighth case retains existing lifetime/AP/item conditions rather than asserting
+a new speed, an unchanged-outcome control; its actual speed also changes. Real
+perk88/89 grants, healing, STR, night and cover inputs; query0RNG/four words.
+AP57->48/cost9 for cases0/3,57->46/cost11 otherwise, actual one transferred item.
+Legacy lifetime still spans integer range*grid within clock rounding; original
+absolute lifetime/ray/solver/cached decision/collision/frame/drop remains separate.
+Full Game builds, related322Win/321Linux, Windows manager and CI323; no post-world RNG
+or full collision/flight/UI parity claim.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
