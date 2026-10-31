@@ -3053,3 +3053,25 @@ Named original producer/world/factory/ctor and complete44-byte clock block
 verified; real factory allocationF8/FC version difference not masked. Full Game
 builds, related328Win/327Linux, CI323. Existing norm/float clock adaptation retained;
 no exhaustive clock-bit identity or full solver/collision-flight/drop/UI claim.
+
+## 2026-10-31: knife wound penalty keeps original maximum health
+
+Knife accuracy now measures remaining health against original base+XP maximum,
+even if an injury lowered the current cap. Current300/cap300/original500 remains
+60% health rather than falsely100%; raw throwing100 receives*.9 ->skill90.
+Native fixture chance68->67%; at roll68 this changes hit->miss. Ordinary wounded
+cap500, healing, healthy, actual perk89 and script37 controls unchanged. The perk
+continues to act through physical range; no new direct flat accuracy bonus.
+
+FINAL native RED1/6 ->GREEN6/6 each; query0/check1draw/AP/HP/item/pose/grant controls.
+Exact original104 and actual main-thread original104/182 kernel prove90 under
+observed runtime PC24/RN (CW007f). Forced diagnosticPC53 alone yields89, so the
+extra-wide89 hypothesis was rejected, and native float product retained. Owned
+original test exited normally; full thread context and temporary cfg restored.
+Full Game builds, related334Win/333Linux, CI323. No authored/save/LAN changes.
+
+Precision audit remains open for earlier imported formulas: x87 registers alone
+do not imply wide arithmetic when PC24 is active, and RC placement also matters.
+No broad numerical parity claim until those native original PC/RC cases are
+checked. Existing physical adapters unchanged here; no full shared9f3/solver/
+flight/drop/UI claim.

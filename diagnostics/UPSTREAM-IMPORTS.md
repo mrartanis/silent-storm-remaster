@@ -20968,3 +20968,64 @@ Full Game builds, related328Win/327Linux, Windows manager and CI323. Shared accu
 skill/source9f3, cached ranged solver, frame/target/incidental collision, complete
 actual flight/drop/UI remain separate source578 work.
 Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: original wound context in knife accuracy (`5780c0be` partial)
+
+CThrowKnifeToHitCalcer::Prepare now uses the original theoretical-VP denominator
+already present in the live private knife-physics factor, extracted into one
+private GetKnifeVPPenalty. Range/velocity adapter still calls the same unchanged
+factor computation. Raw THROWING and existing float multiplication kept; no
+generic GetWeaponSkill API or direct perk89 addition. Original perk89 continues
+to affect range only in this knife override. No authored/save/LAN/metadata/API
+changes. Whole shared gun/grenade skill source9f3 remains pending.
+
+Native initial literal hypotheses were tested then audited, not implemented.
+COMPLETE104 GoldPDB Prepare6b20d0 ->uniqueSteam6b8250 EXACT104, ZERO masks. Named
+base/unit calcer RTTI/vtables from90/88 share slot54; actual unitGetToHit slot10
+calls54. Raw THROW2 pointer offset8 after CSkilledObject basec/vector8; dynamic
+skill frozen2c uses max18, else min(value1c,cap18). Store raw integercalcer0c,
+then actual mission virtual174 ->independently mapped wrappers6b90e0/6bf3b0 ->
+complete182 real CUnit VP factor6b4f70/6bb110. Theory denominator=base+XP,
+current capped/frozen VP +Max(0,healed)*.5, percent truncation, thresholds75/50/25.
+Actual104 contains NO generic item-skill/perk89/70/aiming/bullet-count call.
+
+Important runtime precision correction: instruction-only lack of float store
+does NOT establish wide significand. Original initialized Steam main thread,
+six samples after D3D9 initialization: ControlWord AND FXSAVE word0x007f, PC24/
+round-nearest. Actual original functions executed on ONLY owned main thread:
+_CIpow834830, Prepare6b8250/104, real missionGetRPG777a40, VPwrapper6bf3b0 and
+complete unitVP6bb110/182 with controlled original-layout unit/skill buffers.
+Only virtual FillWeaponInfo was no-op for isolated wound calculation; actual
+_CIpow was called separately first and preserved CW. Raw100/currentVP300/
+theory500 gives skill90 with BOTH cap500 and cap300 at actualCW7f. Diagnostic
+forcedCW27f gives89 for both. Thus retain native float multiplication: FMUL
+occurs before104 sets RC11, so observed PC24/RN rounds90 before integer cast.
+Full integer/FPU/extended thread context restored, owned original process closed
+normally with WM_CLOSE; temporary windowed cfg restored. No original executable
+code/world/db/resources patched. Main-menu environment and controlled original
+kernel proof, not a live gameplay-callsite breakpoint. Primary documentation:
+[Microsoft D3DCREATE](https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dcreate).
+Actual runtime/kernel capture, not documentation alone, establishes observed CW.
+
+Direct perk60 hypothesis REJECTED after exact104 audit; extra-wide89 hypothesis
+REJECTED after runtime/kernel proof, both archived BEFORE production. FINAL
+native RED1/6 ->GREEN6/6 EACH, five byte-identical measured controls. Real native
+cap-only modifier cap500->300/current300/theory500 wrongly normalized skill100/
+chance68; original skill90/chance67. Actual native boundaryroll68 changes hit1
+to miss67/68. Ordinary wounded cap500/current300 staysskill90/chance67; actual
+healing125+250*.5/theory500 ->50percent/.75/skill75/chance64; healthyraw50/chance56;
+real perk89/raw50/range16/chance59 (no direct extra skill), script37 unchanged.
+Native calcer/helper/player composite/actual CheckToHit, query0/check1draw with
+four following words and AP/HP/pose/item/grant/contact/day controls. Full Game
+builds, related334Win/333Linux, Windows manager and CI323.
+
+Evidence knife-skill-context-retail-oracle.json, original-runtime-fpu.json,
+original-kernel-fpu.json, exact104 binaries/types, accepted RED/GREEN and
+verification.json. Existing private physical double adapters were NOT changed
+by this fix. Earlier imported precision-dependent formulas require a separate
+original runtime PC/RC audit before overall parity can be claimed: do not blindly
+revert, because compiler casts can set RC=CHOP before arithmetic. Follow-up
+tracked in original-runtime-precision-followup.json. Full solver/cached ray/
+frame/incidental/flight/drop/UI and whole9f3 still pending.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+Related source audited but not imported wholesale: [9f3c03712f2a86f83fb7739891827847b2f9f645](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9f3c03712f2a86f83fb7739891827847b2f9f645).

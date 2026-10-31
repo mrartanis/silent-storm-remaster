@@ -163,8 +163,21 @@ NAI::EPose GetBestPose( const NDb::CRPGWeaponType &wt )
 	return NAI::WALK;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Original mission VP factor uses the theoretical maximum, even after a cap injury.
+static float GetKnifeVPPenalty( IUnitMission *pMission )
+{
+    CUnit *pUnit = pMission->GetRPGUnit();
+    const CDynamicSkill &vp = pUnit->Skills( NDb::ST_VP );
+    const int nHealed = Max( 0, pMission->GetHealedVP() );
+    // Original VP factor uses base+XP, independently of critical-modified cap.
+    const int nPercent = int( ( double( int(vp) ) + double(nHealed) * double(0.5f) ) *
+        double(100.f) / double( vp.GetTheoreticalMax() ) );
+    const float fVP = nPercent > 75 ? 1.f : nPercent > 50 ? 0.9f : nPercent > 25 ? 0.75f : 0.5f;
+    return fVP;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // Blade specialization of original Gold 0x6b1990 / Steam 0x6b7b10.
-// Preserve the native float stores and wide arithmetic between them.
+// Keep the existing physical adapter's explicit float stores.
 static double GetKnifeRangeSkill( IUnitMission *pMission, IMeleeWeaponItem *pItem )
 {
     CUnit *pUnit = pMission->GetRPGUnit();
@@ -173,13 +186,7 @@ static double GetKnifeRangeSkill( IUnitMission *pMission, IMeleeWeaponItem *pIte
     float fParam;
     if ( pMission->HasPerk( bThrowing ? 89 : 70, &fParam ) )
         fSkill += fParam;
-    const CDynamicSkill &vp = pUnit->Skills( NDb::ST_VP );
-    const int nHealed = Max( 0, pMission->GetHealedVP() );
-    // Original VP factor uses base+XP, independently of critical-modified cap.
-    const int nPercent = int( ( double( int(vp) ) + double(nHealed) * double(0.5f) ) *
-        double(100.f) / double( vp.GetTheoreticalMax() ) );
-    const float fVP = nPercent > 75 ? 1.f : nPercent > 50 ? 0.9f : nPercent > 25 ? 0.75f : 0.5f;
-    return double(fSkill) * double(fVP);
+    return double(fSkill) * double( GetKnifeVPPenalty( pMission ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static double GetKnifeRangeVelocity( IUnitMission *pMission, IMeleeWeaponItem *pItem )
@@ -848,8 +855,8 @@ void CThrowKnifeToHitCalcer::Prepare()
 {
 	FillWeaponInfo();
 	nSkill = pUnitMission->GetRPGUnit()->Skills( NDb::ST_THROWING );
-	float fVPPenalty = GetVPPenalty( pUnitMission->GetRPGUnit()->Skills( NDb::ST_VP ),
-		pUnitMission->GetHealedVP(), pUnitMission->GetRPGUnit()->Skills(NDb::ST_VP).GetMaxValue() );
+	// Original 0x6b8250 uses mission VP context; its observed PC24 float product is retained.
+	float fVPPenalty = GetKnifeVPPenalty( pUnitMission );
 	nSkill *= fVPPenalty;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1248,3 +1248,19 @@ only verified1000f pointer masked; actual allocationF8/FC difference not masked.
 Full Game builds, related328Win/327Linux, Windows manager and CI323. Existing norm/float
 clock adaptation, no exhaustive clock bits/extended80/full flight/drop/UI claim.
 Evidence prefix knife-lifetime-distance.
+
+## 2026-10-31: NativeKnifeSkillContext0..5 and original runtime/kernel audit
+
+Six extended/120s real calcer/helper/player preview/CheckToHit contexts, actual
+perk89 grant, actual VP-cap-only native modifier, healing and script37. Rejected
+direct-perk60 and PC53-derived89 hypotheses archived BEFORE production. Exact104
+original override +actual main-thread PC24 kernel prove raw100/current300/
+theory500 ->skill90 for cap500 AND300; diagnosticPC53 alone89. Native FINAL
+RED1/6 ->GREEN6/6 each: cap300 wrongly skill100/chance68 ->90/67, native roll68
+hit->miss. Five identical controls: ordinary wounded90/67, heal75/64, healthy
+50/56, real89 raw50/range16/chance59 and script37. Query0/check1draw/four words,
+AP/HP/item/pose/grant/contact/day controls. Original probe used ONLY owned
+process, restored full thread context/config and normal exit. Full Game builds,
+related334Win/333Linux, Windows manager and CI323. Main-menu/kernel precision proof,
+no live gameplay breakpoint/whole9f3/full flight claim. Precision follow-up on
+earlier wide assumptions required; evidence prefix knife-skill-context.
