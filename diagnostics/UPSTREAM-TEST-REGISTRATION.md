@@ -790,3 +790,14 @@ with seed55 first roll0/second>=90 and positive particle/sound/decal checks.
 Old actual3/expected-1 failure reproduced on both OS with pending fragment
 speed reverted0. Corrected test passes each, CI323; no production behavior
 change. Full35 related cases rerun in the separate fragment-speed fix.
+
+## Original speed in real fragment bullets
+
+NativeFragmentSpeed0..4: resource extended Win/Linux,timeout120. Native
+world810/tracker ctor/authored grenade16 and engineer1, skill160, zero damage
+modifiers. Two near bursts cover targeted+random, two remote bursts random
+only, no-record control creates0. Read-only actual CBulletServer snapshots
+verify speed3/tag3, nonempty trails, null model/shooter/effect-1; counts24/32
+unchanged. RED4/5 ->GREEN5/5 each, full Game builds, related35Win/35Linux, CI323.
+Linux display-labelled decal regression uses Xvfb/Openbox. New5 outside323.
+These tests do not claim changed null-model flight timing or GPU tracer pixels.

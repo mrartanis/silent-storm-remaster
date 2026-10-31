@@ -19166,3 +19166,45 @@ commit. The separately pending fragment fix will rerun the complete35-case
 bullet/impact/decal/loose-ray set. Evidence impact-order-baseline-red,
 impact-order-maintenance-green/verification/ci logs.
 Original formula source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-31: original fragment trail speed (`aa031e2e` partial)
+
+Both targeted and random CVoxelExplTracker fragment calls now pass3.0f instead
+of0. This is the complete production change. Gold PDB ctor74c0d0/467 maps
+uniquely to Steam7576d0 using all467 bytes with only SEH3..6, seven decoded
+E8 operands and the decoded named CVoxelExplTracker vtable71..74 masked.
+RTTI validates Gold8bbc78/Steam8cb160 as that exact named class. The ctor's
+Gold74c220->74bb20 and Steam757820->757160 identify ExplodeFragments (Gold
+PDB1449; Steam register allocation differs, no full-body equivalence claim).
+Targeted pushes Gold74bf90/Steam757583 and random Gold74c013/Steam757616 are
+exact float3. Native calls Gold74bfa6/74c02f->68c6a0 and Steam75759c/757638
+->692650 verified. Source's757183 comment is stale.
+
+NativeFragmentSpeed0..4 use actual world810 and actual tracker constructor
+with authored grenade16/count24 or engineer1/skill160/count32. Near cases
+produce two targeted rays plus22/30 random rays; remote cases produce24/32
+random rays. Native zero damage modifiers isolate metadata from combat HP.
+The no-record constructor creates0. Read-only complete borrowed snapshots
+of every newly created actual CBulletServer verify saved speed tag3 is3,
+nonempty real trail tag11, null model/shooter and own particle effect-1.
+No fake world/constructor or new missing-handler API supplies RED. Both
+platforms RED4/5 with no-record control passing ->GREEN5/5. Record IDs,
+counts and branch inputs match exactly before/after on each platform.
+
+Scope: no new damage/chance/RNG formula is imported. Current shooterless
+fragments have null trail models; CBulletServer guards travel-time division
+by pModel, so this fix does not establish changed flight time or visible
+tracers. It restores original speed metadata and internal velocity scaling.
+Own shooterless particle suppression and current ranged-hit fallback remain;
+plain-ray routing is a separate pending aa hunk. Full Game builds, related
+35Win/35Linux (real bullets, impacts, decals, loose ricochet, fragment cover) and
+CI323 pass. Linux's existing display-labelled decal case runs under Xvfb/
+Openbox/software GL; no no-display failure is counted. New5 extended/outside323.
+The initial related run exposed a stale pre-port full-hit-rejection assertion
+in UpstreamBulletImpactDodgeOrder. It was reproduced independently with both
+fragment calls reverted0, then corrected in separate2967ba79 using the already
+audited original late evasion rule. That maintenance commit changes no game
+code; final35 related cases below include its corrected literal3/IC50 control.
+Evidence fragment-speed-retail-oracle/verification JSON, decoded ctor/fragment
+bodies and native RED/GREEN/full gate logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.

@@ -2506,3 +2506,13 @@ states remain intact. This changes objective progression; damage, health,
 IC training, combat RNG formulas and database records are unchanged. Original
 leave-zone cache invalidation is restored. Actual full leave-zone UI/pixels
 and all attack types are not newly claimed by these zero-damage native cases.
+
+### `aa031e2e`: fragment speed metadata restored to3
+
+Targeted and random fragments of ordinary and engineering grenades now pass
+the original3.0 speed into real bullet objects instead of0. Counts, random
+direction generation, attack values and shooterless particle suppression are
+unchanged. This restores metadata/internal velocity scaling. Current fragment
+trail models are null, and native travel-time division is guarded by a model,
+so no change in visible flight time, damage or hit probability is demonstrated
+by this fix. The plain-ray routing hunk is still a separate pending audit.
