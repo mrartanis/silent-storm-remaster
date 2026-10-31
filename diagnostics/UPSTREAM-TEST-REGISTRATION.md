@@ -1500,3 +1500,21 @@ inventory/DBrecord/world/ammo construction and live shot frequency not claimed. 
 stack/context/cfg restored/readback, normalexit0, six observed007f samples.
 
 Source: [24a00fd151a39d6c696c2ee8ab6deeb9d862f875](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/24a00fd151a39d6c696c2ee8ab6deeb9d862f875).
+
+## 2026-10-31: Original single-precision XP threshold calculation
+
+NativeXPThresholdPC240..5 exercise the real native public Unit::GetXPForSkill query with
+authored NPC838/cap15 at levels 0/1/2/3/5/6. Six literal original float bit patterns, 17
+cells, XP, perk points, four RNG words and unchanged authored/live caps. RED 1/54 on
+Windows/Linux -> full GREEN 573 Windows / 574 Linux; 53 identical measured controls,
+strict RED-name inclusion, full Game builds and 323 asset-free checks. The six new cases
+are extended tests outside those 323.
+
+Complete original GetXPBySkill64 uniquely bound with only six verified constant operands
+and a verified CRT call. Twelve actual original records cover six inputs under observed
+PC24 and diagnostic PC53. Pure math inputs only: no original unit constructor, live
+progression or mission execution claim. Original real-stack/context/config
+restored/readback, six observed 007f samples and normal exit 0. Existing XP coefficient
+and recipient dispatch remain separate work.
+
+Audit context: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed); not a donor hunk or source completion.

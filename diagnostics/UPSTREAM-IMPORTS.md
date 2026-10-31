@@ -21888,3 +21888,58 @@ Whole-task actual final-head hosted CI remains pending. Evidence extra-round-ap
 mapping/full disassembly/original-kernel/oracle/exact RED/fullGREEN/verification.
 
 Source: [24a00fd151a39d6c696c2ee8ab6deeb9d862f875](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/24a00fd151a39d6c696c2ee8ab6deeb9d862f875).
+
+## 2026-10-31: Original single-precision XP threshold calculation
+
+While auditing periodic-death XP distribution from source aa724, an independent shared XP
+threshold mismatch was found. GetXPBySkill now rounds the power-minus-one intermediate to
+float and multiplies by the exact float 50, matching original PC24 arithmetic. It
+previously divided by the inexact float 0.02 without that explicit intermediate boundary.
+The original float base 2.7296, exponent/reciprocal calculation and nonpositive-level
+guard are retained. This helper supplies native CUnit::GetXPForSkill and
+CSkilledObject::AddXP progression thresholds. No class caps, authored data, reward
+coefficient, recipient dispatch, perk rates, API, save or network fields are changed. This
+is an independent original-precision correction, not a donor hunk or completion of source
+aa724; the pending count remains 57.
+
+Six real native Unit/person838 tests query authored level cap 15 at levels 0, 1, 2, 3, 5
+and 6 through production CUnit::GetXPForSkill. Original-backed literal float bit patterns,
+all 17 cells, total XP, perk points, four subsequent RNG words and class/live cap are
+checked. Exact RED 1/54 on both systems: level 6 returned 2243.253662109375 (450c340f)
+instead of original 2243.25341796875 (450c340e). Other five new inputs and 48 prior
+extra-round AP / dynamic Update / Upgrade measurements are identical. Full GREEN 573
+Windows / 574 Linux, strict inclusion of all 54 RED names, full Game builds and 323
+asset-free checks pass. No duplicate focused GREEN run is used.
+
+Named Gold NRPG::GetXPBySkill at 6b4190, complete 64 bytes, uniquely maps to actual Steam
+6ba330 with ONLY six verified equal-value constant operands and the independently verified
+_CIpow call 8268c0 -> 834830. No frame, branch, opcode or unknown code-pointer masks. The
+function accepts two integers and returns with ret8. Actual FPU arithmetic subtracts 1
+under the incoming precision before FMUL by exact 50. Its float-base value promoted to
+double, reciprocal constants, nonpositive-level guard and direct CRT call are decoded; no
+whole CRT implementation equivalence is claimed. The independently bound original 70-byte
+GetXPForSkill helper and 128-byte mission reward wrapper from the preceding audit provide
+a second source of the same level-6 threshold, not a claim that all XP APIs or caps are
+interchangeable.
+
+Twelve actual original executions run the complete 64-byte function and real CRT pow at
+their original addresses for the six native-captured cap/level inputs under observed CW
+007f (PC24/RN) and diagnostic 027f (PC53/RN). All six reference bit patterns match native
+GREEN. Diagnostic PC53 results are recorded separately and are not the native oracle;
+level 6 gives 2243.252685546875 there. This is a pure math probe with controlled integer
+arguments, not original unit construction, progression, mission, reward distribution or
+live frequency execution. Six original device-initialized CW/FXSAVE 007f samples, original
+real-stack byte backup/readback, full saved WOW64 context/config restoration and normal
+WM_CLOSE / exit 0. No original executable, DB, world or TEB patch. Baseline database
+SHA256 unchanged.
+
+Known next work remains separate: restore the original mission reward coefficient and
+periodic hostile-roster distribution, then direct-attack first-incapacitation XP. Source
+aa724 stays pending. The native GetXPForSkill class-cap lookup versus original per-unit
+cap-vector lookup is a separately observed static difference; no meaningful native
+divergence or new cap fix is claimed here. Broader pow domains, overflow and all
+inverse-growth APIs are not exhaustively proven by these six inputs. Hosted CI for the
+final commit of the entire task remains pending. Evidence: xp-threshold-pc24 mapping,
+disassembly, original kernel/oracle, native RED/full GREEN and verification.
+
+Audit context: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed); this independent correction does not complete its recipient-dispatch hunk.

@@ -3393,3 +3393,25 @@ The baseline database is unchanged. Source 24a is complete; 57 pending or partia
 remain. Hosted CI for the final commit of the entire task is still pending.
 
 Source: [24a00fd151a39d6c696c2ee8ab6deeb9d862f875](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/24a00fd151a39d6c696c2ee8ab6deeb9d862f875).
+
+## 2026-10-31: Original single-precision XP threshold calculation
+
+XP thresholds now round the power-minus-one intermediate to single precision and multiply
+by exactly 50, as original Steam 1.2 does. Dividing by the inexact float 0.02 could raise
+a threshold by one representable float step. With authored cap 15, the threshold queried
+for level 6 changes from 2243.253662109375 to the original 2243.25341796875. Class caps,
+growth parameters and the existing strict level-promotion comparison remain unchanged. The
+reward coefficient and recipient-distribution fixes are still pending separately.
+
+Native tests reproduced one failure out of 54 on both systems before the fix. All 573
+Windows / 574 Linux related checks, full Game builds and 323 asset-free checks now pass.
+The 53 measured controls are unchanged. Twelve original executions of the complete 64-byte
+function verify all six reference values. Observed original single precision is the
+reference; diagnostic double precision is recorded separately. This pure math probe does
+not claim to run original unit construction, live progression or a complete mission. The
+original stack, context and configuration were restored and the process exited normally.
+The database is unchanged. This independent correction was found during the aa724 audit
+and does not complete that source: 57 pending or partial sources remain. Hosted CI on the
+final commit of the entire task remains pending.
+
+Audit context: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed).

@@ -38,7 +38,9 @@ float GetXPBySkill( int nCap, int nLvl )
 	if ( nLvl <= 0 )
 		return 0;
 	const float C = 1.f / ( 20.f * LN161 / float(nCap) );
-	return ( pow( 2.7296f, float(nLvl) / C ) - 1.f ) / 0.02f;
+	// Steam 0x6ba330 rounds the subtraction as PC24, then multiplies by exact 50.
+	const float fGrowth = float( pow( double(2.7296f), double(float(nLvl) / C) ) - 1.0 );
+	return fGrowth * 50.f;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Retail CSkilledObject::GetSkillBaseStatValue @0x2ba7b0.

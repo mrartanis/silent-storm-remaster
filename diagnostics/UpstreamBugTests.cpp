@@ -30101,6 +30101,15 @@ static void TargetingBaseFormula(const char* databasePath,const char* resourcePa
     Require(actual==expected,"native extra-AP additive formula kept legacyMax, lost1.5/separatetruncations or changed action scope");Require(mission->GetAP()==ap && mission->GetTotalVP()==hp && unit->GetPerksTree()->GetPerkPoints()==points && unit->fXP==xp && mission->GetMoveInLastTurn()==moves && gun->GetQuantity()==quantity && gun->GetAmmoQuantity()==ammo && int(unit->Skills(NDb::ST_SHOOTING))==skill && calcer->nExtraAP==extra && (mode==13?!unit->GetWeaponItem():unit->GetWeaponItem()==gun.GetPtr() && gun->GetShootMode()==shot) && random.Get()==GlobalGameRandom().Get(),"targeting query changed AP/HP/XP/points/movement/equipment/ammo/skill/inputs/RNG");
 }
 
+static void NativeXPThresholdPC24(const char* databasePath,int mode)
+{
+    struct Sample{int level;float expected;};static const Sample samples[]={{0,0.f},{1,44.59837341308594f},{2,128.97703552246094f},{3,288.6187744140625f},{5,1162.0997314453125f},{6,2243.25341796875f}};
+    Require(mode>=0 && mode<6,"unknown XP threshold precision mode");const auto& x=samples[mode];CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);auto* persona=NDb::GetPers(838);Require(persona && persona->pClass && persona->pClass->skills[NDb::ST_LEVEL]==15,"XP threshold lacks actual authored NPC838/cap15");CObj<NRPG::CUnit> unit=new NRPG::CUnit(persona);Require(unit->cap[NDb::ST_LEVEL]==15,"XP threshold class and live cap differ");
+    struct Cell{int theory,part,maximum,value;float progress;};std::vector<Cell> before;for(int i=0;i<NDb::SKILL_TYPE_NUMBERS;++i){auto& c=unit->Skills(i);before.push_back({c.GetTheoreticalMax(),c.GetXPPart(),c.GetMaxValue(),int(c),c.GetProgress()});}const float xp=unit->fXP;const int points=unit->GetPerksTree()?unit->GetPerksTree()->GetPerkPoints():0;auto random=GlobalGameRandom();const float actual=unit->GetXPForSkill(NDb::ST_LEVEL,x.level);auto continuation=GlobalGameRandom();bool rng=true,cells=true;for(int i=0;i<4;++i)rng=rng && random.Get()==continuation.Get();for(int i=0;i<NDb::SKILL_TYPE_NUMBERS;++i){auto& c=unit->Skills(i);const auto& b=before[i];cells=cells && c.GetTheoreticalMax()==b.theory && c.GetXPPart()==b.part && c.GetMaxValue()==b.maximum && int(c)==b.value && c.GetProgress()==b.progress;}
+    unsigned bits=0,expectedBits=0;std::memcpy(&bits,&actual,4);std::memcpy(&expectedBits,&x.expected,4);std::printf("native XP threshold mode=%d persona=838 cap=15 level=%d actual=%.9g expected=%.9g bits=%08x expectedBits=%08x cells=%d rng=%d XP=%.9g points=%d\n",mode,x.level,actual,x.expected,bits,expectedBits,int(cells),int(rng),xp,points);std::fflush(stdout);
+    Require(actual==x.expected,"native XP threshold differs from original PC24 subtraction and final exact multiplier");Require(cells && rng && unit->fXP==xp && (unit->GetPerksTree()?unit->GetPerksTree()->GetPerkPoints():0)==points && persona->pClass->skills[NDb::ST_LEVEL]==15 && unit->cap[NDb::ST_LEVEL]==15,"XP threshold query changed cells/XP/points/RNG/authored cap");
+}
+
 static void NativeExtraRoundAP(const char* databasePath,int mode)
 {
     struct Sample{bool owned;NDb::EShootMode shot;int quotient,low,high;bool noActive,explicitWeapon,zeroRate,spent,remainder;};static const Sample samples[]={
@@ -32339,6 +32348,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "pk-unsupported-pose")) { Require(argc==5,"PK pose cost requires db/resources/mode"); PKUnsupportedPoseCost(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "observer-stealth")) { Require(argc==5,"observer75 requires db/resources/mode"); ObserverStealthPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "better-spotting")) { Require(argc==5,"spotting requires db/resources/mode"); BetterSpottingPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-xp-threshold-pc24")) { Require(argc==4,"XP threshold requires db/mode"); NativeXPThresholdPC24(argv[2],std::atoi(argv[3])); return true; }
     if (!std::strcmp(mode, "native-extra-round-ap")) { Require(argc==4,"extra-round AP requires db/mode"); NativeExtraRoundAP(argv[2],std::atoi(argv[3])); return true; }
     if (!std::strcmp(mode, "native-hide-practice")) { Require(argc==5,"Hide practice requires db/resources/mode"); NativeHidePractice(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-medical-engineering-practice")) { Require(argc==4,"action practice requires db/mode"); NativeMedicalEngineeringPractice(argv[2],std::atoi(argv[3])); return true; }
