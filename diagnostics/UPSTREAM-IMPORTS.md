@@ -21807,3 +21807,84 @@ hide-practice: mapping/typed/full disassembly/original-kernel/oracle/native
 RED/fullGREEN/verification.
 
 Source: [2e15a10299e0d5e4a90558e39b34cc150ce51382](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2e15a10299e0d5e4a90558e39b34cc150ce51382).
+
+## 2026-10-31: Original additional-round AP and short-burst perk (`24a00fd1` complete)
+
+CUnit::GetWeaponBurstAP now applies actual owned perk10 only to ShortBurst3, after signed
+integer maxAP/RoF division. The authored factor is float32 0.15. Product and subtraction
+round as original PC24 before truncating to int; a volatile float product prevents
+contraction/excess precision across that boundary. Valid extra-round cost has minimum1;
+unavailable weapon/zeroRoF returns10000. Explicit-weapon and existing effective-weapon
+fallback are retained. Other modes/unowned perk use no discount; spent currentAP does not
+replace maxAP. This is specific to extra-round pricing, not source405's intentionally
+excluded global paid-action minimum. No parameter/DB, inventory, ammunition,
+mode/selection, skill/XP/points, RNG, audio/rendering/HD/LAN behavior changed.
+
+16 native real-mission/gun/inventory/owned-or-unowned-tree cases use authored
+person39/tree1/weapon26/RoF25, real TakePerk10 with restored safe diagnostic label. Cases
+cover Short/Long/Snap, quotient20/3/1/0/-1, floor, no-active/null fallback, explicit
+override, diagnostic temporary RoF0, active fallback, spent currentAP0 and division
+remainder24. All17 cells, item/ammo/mode/selection/points/XP/authored data and four RNG
+words checked. Signed negative-cap and zeroRoF cases are controlled diagnostic inputs, not
+claims of legal authored play. Initial property-only RED9/54 both was archived, then
+actual-original literal costs17/2/17 strengthened before production and fresh exact
+RED9/54 both. Full GREEN 555 Windows / 556 Linux, strict inclusion of all54 RED cases,45
+unchanged measured controls (7 new plus10 Hide/28 medical-engineering),170 Hide and476
+prior medicine reference rows unchanged; full Game builds andCI323. Successful full run
+serves as GREEN without duplicate focused run.
+
+Initial expanded full run passed556 Linux but failed2/555 Windows in old
+UnitPreviewShotOrigin modes1/2. That fixture still supplied an implicit daytime default
+and obsolete hearing-plus-visibility unaware context, while production preview already
+used original-backed owning-game night and visibility only. Independent old-AP HEAD106
+method also failed1/3 (mode0); differing failed modes are explicitly recorded, not claimed
+identical, because mission night varies between launches. Corrected ONLY reference inputs
+and added actual visible/audible/night/backstab logging; corrected3/3 passed both systems
+with the old AP method. Windows logged night1 in modes0/2 and night0 in1, all audible0, so
+night variation is directly observed; hearing is a stale input contract, not newly claimed
+observed cause. All original-vs-legacy origin/distance discrimination, equality and
+AP/HP/ammo/pose/RNG/action assertions remain. No production preview change or loosened
+expectation. Restore exact107 production backup bytes, then rerun complete final full
+gates; initial and baseline/normalized raw logs retained.
+
+Actual Steam1.2 full504-byte entry is6bb6a0, independently reached from
+already-bound/live-observed CUnitMission::GetActionAP6c0d30: EAction22
+dispatcher6c0ed4/table6c1a48[22] ->6c13b4, typed unit118 and weapon argument, call6c13c1
+->6bb6a0. Donor comment6bb6f0 is midbody, rejected as entry. Named Gold6b5500/380 is
+comparative only: it lacks the perk10 discount and has genuine control-flow/SEH/layout
+differences, so no whole-method equivalence or masked structural/code-pointer match is
+claimed. Full actual504 decoded: signed IDIV first; only mode3 queries HasPerk10 at6ae5d0;
+FMUL6bb813/FSUBR6bb815 execute under incoming CW, CHOP only loaded6bb81b for FISTP6bb81f,
+then incoming CW restored6bb82c; min1 and10000 sentinel. Existing real weak-copy/release
+path is used.
+
+28 actual original executions (14 explicit-weapon native inputs x observed007f PC24/RN and
+diagnostic027f PC53/RN) execute complete actual504. Actual original placement weapon
+constructor6a3670(hidden virtual-base-init1) was independently bound through named Gold
+default factory41 ->uniqueSteam6a6750,104-byte allocation, plus weapon RTTI
+rootVT8c3ad4/CObjectBaseVT8c3aa8/IWeaponVT8c3a60. Actual
+rootVBtable8c4180=(-4,48,64,72,80,92) places CObjectBase34/strong38/weak3c/IWeapon60;
+constructor initializes real vtables/vtordisps. Actual virtual getter thunks6a3c90/6a38f0
+reach exact4-byte typed getters6a3ca0(mode24)/6a3cc0(record28). Real original tree1
+constructor/Take10/Has10/destructor lifecycle supplies authored factor0.15000000596046448.
+Controlled original-layout unit/AP cell and176-byte record with native-captured
+RoF25/diagnostic0; original DBrecord/unit/inventory/ammo construction and real shot
+frequency are not claimed. Native fallback modes10/13 exercise real native inventory;
+original fallback was independently decoded but not executed in this explicit-weapon
+kernel. No fake virtual provider/vtable substitution or original DB/code/world patch.
+
+Reference PC24 gives costs20->17,3->2,1->1; diagnostic PC53 gives16 for modes1/15,
+explicitly not the native oracle. All original weapon bytes before/after query, unit/AP
+cell/record bytes, tree points and CW checked unchanged. Constructor defaults restored
+before real original virtual deleting-destructor thunk6a3880 ->adapter6a3930
+->dtor6a3960(flags0), which skips delete-this and resets actual baseVT8b2418; tree map
+size clears to0/baseVT8b2418. Six original CW/FXSAVE007f samples, real original stack
+backup/readback/full716-byte WOW64 context and cfg restoration, normalWM_CLOSE/exit0.
+Scope does not claim full original world/executor/ammo lifecycle. Baseline DB SHA256
+unchanged.
+
+All useful source24a behavior imported;57 sources remain (pending41 +partial16).
+Whole-task actual final-head hosted CI remains pending. Evidence extra-round-ap
+mapping/full disassembly/original-kernel/oracle/exact RED/fullGREEN/verification.
+
+Source: [24a00fd151a39d6c696c2ee8ab6deeb9d862f875](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/24a00fd151a39d6c696c2ee8ab6deeb9d862f875).

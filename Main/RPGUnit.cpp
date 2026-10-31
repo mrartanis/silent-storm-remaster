@@ -652,16 +652,17 @@ int CUnit::GetWeaponBurstAP( CWeaponItem *_pWeapon ) const
 	CPtr<CWeaponItem> pWeapon = _pWeapon;
 	if ( !IsValid( pWeapon ) )
 		pWeapon = GetWeaponItem();
-	if ( IsValid( pWeapon ) )
+	if ( IsValid( pWeapon ) && pWeapon->GetDBWeapon()->nRoF != 0 )
 	{
-		if ( 0 == pWeapon->GetDBWeapon()->nRoF )
-		{
-			ASSERT( 0 );
-			return 0;
-		}
-		return skills[NDb::ST_AP]->GetMaxValue() / pWeapon->GetDBWeapon()->nRoF;
+		const int nAP = skills[NDb::ST_AP]->GetMaxValue() / pWeapon->GetDBWeapon()->nRoF;
+		float fDelta = 0;
+		if ( pWeapon->GetShootMode() == NDb::SM_ShortBurst )
+			HasPerk( N_PERK_CHEAP_SHORT_BURST, &fDelta );
+		// Steam1.2 0x6bb6a0: PC24 product/subtraction precede truncation.
+		const volatile float fDiscount = float( nAP ) * fDelta;
+		return max( 1, int( float( nAP ) - fDiscount ) );
 	}
-	return 0;
+	return 10000;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnit::GetWeaponReloadAP( CWeaponItem *_pWeapon ) const

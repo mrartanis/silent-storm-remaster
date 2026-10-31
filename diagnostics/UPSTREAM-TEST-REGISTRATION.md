@@ -1479,3 +1479,24 @@ restored/readback, normalexit0. DEX remains fractional in these fixtures; two in
 improvements concern selected Stealth.
 
 Source: [2e15a10299e0d5e4a90558e39b34cc150ce51382](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2e15a10299e0d5e4a90558e39b34cc150ce51382).
+
+## 2026-10-31: Original additional-round AP and short-burst perk
+
+NativeExtraRoundAP0..15: actual native mission/tree10/gun/inventory/query, authored RoF25
+and factor0.15; mode/ownership/floor/invalid/explicit/fallback/spent/max/remainder
+controls. All17 cells, four RNG words, XP/points/ammo/item/mode/selection/authored data
+unchanged. Original-backed literal costs replace initial hypothesis bounds before fresh
+exact RED9/54 both ->full GREEN 555 Windows / 556 Linux.45 unchanged measured controls,170
+Hide/476 medicine reference rows unchanged; full Game builds/CI323, all54 RED names in
+GREEN. New16 extended tests remain outside323.
+
+Actual Steam method504 at6bb6a0 bound via original mission action22 caller, not donor
+midbody6bb6f0.28 actual original explicit-weapon records include real original104-byte
+weapon virtual-base constructor/getters/destructor(flags0) and real
+tree1/Take10/Has10/cleanup. PC24 costs17 vs diagnosticPC53 cost16 for
+quotient20/factor0.15, original multiply/subtract before CHOP. Unit/AP and controlled
+typed record unchanged. Native fallback10/13 integration tested separately; original
+inventory/DBrecord/world/ammo construction and live shot frequency not claimed. Original
+stack/context/cfg restored/readback, normalexit0, six observed007f samples.
+
+Source: [24a00fd151a39d6c696c2ee8ab6deeb9d862f875](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/24a00fd151a39d6c696c2ee8ab6deeb9d862f875).

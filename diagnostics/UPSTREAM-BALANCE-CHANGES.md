@@ -3367,3 +3367,29 @@ normalexit0; full Game builds and CI323 pass. Source2e15 complete,58 pending/par
 sources remain; whole-task hosted final-head CI still pending.
 
 Source: [2e15a10299e0d5e4a90558e39b34cc150ce51382](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2e15a10299e0d5e4a90558e39b34cc150ce51382).
+
+## 2026-10-31: Original additional-round AP and short-burst perk
+
+The short burst perk now reduces the AP cost of additional rounds, matching original Steam
+1.2. First divide maximum AP by the weapon rate using integer division. For a short burst
+with the perk, subtract the authored 15% discount. Round the product and subtraction to
+single precision before truncating the result. A price of 20 becomes 17, 3 becomes 2, and
+1 stays 1. Other firing modes and units without the perk receive no discount. The minimum
+additional-round cost is 1 AP; no weapon or a zero rate returns the unavailable-cost value
+10000. Spent current AP does not replace maximum AP in this formula. This applies to
+additional rounds only. Authored values, ammunition, equipment, XP, skills and gameplay
+randomness remain unchanged.
+
+Native tests reproduced 9 failures out of 54 on both Windows and Linux before the fix. All
+555 Windows and 556 Linux related checks now pass, along with full Game builds and 323
+asset-free checks. The 45 measured controls and 170 Hide / 476 medical reference cell rows
+are unchanged. The original method was executed 28 times with real original weapon and
+perk lifecycle calls. The observed original single-precision mode returns 17; a diagnostic
+double-precision mode returns 16 and is not used as the reference. Inventory fallback was
+inspected in original code and exercised through real native inventory; the original probe
+does not claim to execute a complete mission, ammunition lifecycle or firing sequence. The
+original process stack, context and configuration were restored and it exited normally.
+The baseline database is unchanged. Source 24a is complete; 57 pending or partial sources
+remain. Hosted CI for the final commit of the entire task is still pending.
+
+Source: [24a00fd151a39d6c696c2ee8ab6deeb9d862f875](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/24a00fd151a39d6c696c2ee8ab6deeb9d862f875).
