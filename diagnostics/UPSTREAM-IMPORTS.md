@@ -20165,3 +20165,44 @@ native overlay identity/count/codec cases pass there. Source remains partial:
 derived CanSave success consumer and other scenario/context/called-shot/mod-link
 hunks are separate pending work.
 Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 2026-10-31: preserve CanSave mode when field import returns false (`360344ca` partial)
+
+Only convert/assign CDBDifficulty.canSave when the existing ImportField call
+succeeds. A skipped overlay field can no longer turn an existing mode into the
+parser's invalid N_CAN_SAVE value via an empty temporary string. Ordinary name
+parsing remains active, with no new default/name validation/fallback. Existing
+enum ordinals, member/save/LAN shape and public API are unchanged. Corrected
+the same type's import/save address comments to the independently verified
+target entries80e240/7e1d10, without changing header data or schema.
+
+Named CDBDifficulty RTTI/vtable again selects GoldPDB Import81f5d0/save7f3630 ->
+SteamImport80e240/save7e1d10. Gold PDB canSave member24, enumchapter0/realtime1/
+always2/invalidN3; actual target name table986958 contains those three names.
+Target80e277 passes the local string and literal CanSave8d356c. Exact80e28828
+calls narrowImportField401900, TESTAL/JZ13 skips ALL resolver/member work on false
+at80e2a4. Success pushescount3 and name table, callsresolver80e420 then MOVmember24.
+No frame/register/field masks or extra rejection/default rule. Evidence:
+difficulty-cansave-overlay-retail-oracle.json and native enum JSON.
+
+NativeDifficultyCanSaveOverlay0..2 reuse the ACTUAL authored DB/native overlay
+path from the scalar fixture, with modes10..12. Native Difficulty1 has mode2
+(always). A single in-memory CanSave UTF16 cell becomes the recognized marker;
+valid native chunk parent lengths are rebuilt, and production Serialize READ /
+overlay=true imports it. BEFORE this consumer patch, scalar ImportField correctly
+returnsfalse but unconditional enum conversion still corrupts2->3. This is a
+separate production RED after the scalar-marker fix, not a missing API/stub test.
+
+Complete RED1/3 ->GREEN3/3 EACH platform, two controls unchanged. The marker now
+preserves2; genuine chapter and realtime overlays still transition2->0 and2->1.
+Actual table/record identity and count3, and another real CP1251 script, remain
+exact. Source DB is read-only; no new disk/game/build-tree copy. Tests inspect
+actual native policy data, not save-menu/UI execution. False-result behavior
+is corrected for this consumer; ordinary ADO/name parser success behavior is
+retained. Missing-column false returns take the same code branch but are not a
+separate new fixture; unknown ordinary names retain existing parser semantics.
+
+Full Windows/Linux Game builds, related159Win/158Linux, Windows existing
+NativeModManagerTests and CI323 pass. Source360 remains partial for the other
+scenario/context/called-shot/mod-link pieces; own mod/codec behavior is retained.
+Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).

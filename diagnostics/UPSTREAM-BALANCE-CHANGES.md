@@ -2802,3 +2802,16 @@ initializer and exact wcsncmp comparison verified. Full Game builds, related
 codecs, missing-field diagnostics, database files and ADO path preserved.
 These are actual data-loader checks, not full UI/script execution claims. The
 derived CanSave caller's false-return guard remains separate pending work.
+
+## 2026-10-31: retain save-policy mode when mod field is skipped
+
+The native difficulty importer now respects ImportField's false result before
+converting CanSave. A skipped marker preserves actual always-mode2 instead of
+replacing it with invalid3. Real chapter/realtime overlays still change2->0/1;
+no new save-policy mode, default or authored value is introduced.
+
+Native DB overlay RED1/3 ->GREEN3/3 each, identity/count/CP1251 stable. Exact
+original target success branch/member24 and enum/name table verified. Full Game
+builds, related159Win/158Linux, Windows manager regression, CI323. These checks certify
+native imported policy data; save-menu/UI execution and separate missing-column/
+unknown-name cases are not newly certified. Other source360 portions remain.

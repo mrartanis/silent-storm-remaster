@@ -1027,3 +1027,15 @@ character fixture attempts archived separately, final RED both beforeproduction.
 Full Game builds, related156Win/155Linux, Windows existing NativeModManagerTests, CI323.
 Evidence prefix db-overlay-sentinel; data-loader checks do not certify full UI/
 script execution. Linux manager target unavailable, native overlay cases pass.
+
+## 2026-10-31: NativeDifficultyCanSaveOverlay0..2
+
+Both CMake lists, extended/120s, actual DB overlay fixture modes10..12. Accepted
+RED1/3 ->GREEN3/3 each, two controls. Actual Difficulty1.CanSave marker previously
+changed always2->invalid3 despite scalar false; now preserves2. Chapter/realtime
+controls still apply2->0/1. Pointer/count3/CP1251 control stable; original wire
+chunk parent lengths rebuilt in memory, no new game-file write/copy. Exact target
+TESTAL/JZ before resolver/member24 and enum/name table verified. Full Game builds,
+related159Win/158Linux, Windows manager regression, CI323. Data-loader state, not full
+save-menu/UI or separate missing-column/unknown-name certification. Evidence
+prefix difficulty-cansave-overlay.
