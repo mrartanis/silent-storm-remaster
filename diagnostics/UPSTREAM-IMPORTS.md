@@ -20495,3 +20495,53 @@ knife clock/preview/dispatch/orientation/feedback/handoff and prior night/
 incidental coverage, Windows manager regression and CI323. Other source578
 target/requested-part producers, direction/range/velocity/flight pieces remain.
 Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: current physical direction at knife impact (`5780c0be` partial)
+
+CKnifeServer::Segment now supplies its already computed current physical ray to
+the retained attack.rTtrajectory reader and forwards ray.ptDir to the existing
+free throwing-hit handler. Actual world forwarding from the previous fix remains.
+No new physics formula, range/velocity, callback API, save or LAN field. This
+closes the direction limitation recorded in the previous knife-world entry.
+
+Independent named knife Segment Gold754d60/Steam7606e0 and typed curPos34/
+velocity40 rechecked. Original portion has no rTtrajectory member. Exact target
+next-position components at760795/760769/76075d subtract actual curPos34/38/3c;
+delta stored local3c/40/44 at7607c4/7607e8/7607d4. Target760824 loads local3c,
+760828 calls Normalize40b710. GoldPDBNormalize40af90/86 COMPLETE body uniquely
+maps to Steam40b710 with ONLY verified zero/one constant pointer operands32..35
+and56..59 masked; exact dereferenced bits0 and3f800000. No register/frame/field
+masks. At760a00..760a15, after three pushes, LEAEDX[ESP48] supplies that local3c
+normalized physical direction to existing free690440; full147-byte helper and
+typed direction handoff were independently verified in the preceding fix.
+Evidence knife-direction-retail-oracle.json, typed members/functions and slices.
+
+NativeKnifeImpactDirection0..3 use actual world810/party54, real crouched native
+victim/head locator and unobstructed downward flesh trace, authored knife model/
+item, actual CreateKnifeServer/animator/Segment and clock100ms/DG frame. One
+physical1m flight hits HEAD once, retires and deals15 (base10) or3 (base2).
+Actual new native CDecal objects and native mapping centers are inspected through
+the world's active objects; no synthetic decal, fake hit or future-field stub.
+Stale UP and SIDE attack trajectories lost the real ground blood decal despite
+the downward physical impact: accepted RED2/4 ->GREEN4/4 EACH platform, two
+controls. Both now create exactly one native decal below the head; already-DOWN
+high damage keeps one, already-DOWN low damage keeps zero. HP, one hit/retirement,
+distance, actor AP/HP, item1, target crouch and ability to fight remain controlled.
+Own debris is removed and original clock restored. Existing decal RNG is allowed;
+no full post-world RNG, full rendered frame/UI, launch OnLabel or range/velocity/
+whole flight/drop parity claim. An unused saved-trajectory diagnostic initially
+printed zero because that field is not serialized; it was removed and genuine
+effect RED repeated BEFORE production. Initial effect failures are archived.
+
+The first full related run failed only old NativeKnifeUnitPreview4 on BOTH
+platforms: its direct reference assumed day and hearing-based awareness despite
+the already audited fixes82/83. Its independent direct GetToHit reference now
+passes actual owning-world IsNight and visibility-only awareness, and reports
+all three contact/environment inputs. No preview production formula changed.
+The failed full-run logs are archived as initial-final-stale-preview-reference;
+the complete gates were repeated after rebuilding this fixture-only repair.
+
+Full Game builds, related281Win/280Linux including knife clock/preview/dispatch/
+orientation/feedback/handoff, prior night/incidental and Windows manager, CI323.
+Source578 remains partial for actual launch target/requested-part producers and
+range/velocity/flight work. Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).

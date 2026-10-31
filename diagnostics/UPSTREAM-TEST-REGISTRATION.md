@@ -1104,3 +1104,18 @@ flight/range/velocity/AI classification or whole action/drop parity claim.
 Own debris removed, clock restored. Full Game builds, related277Win/276Linux including
 knife and earlier night/incidental regressions, Windows manager and CI323.
 Evidence prefix knife-world; complete original147-byte helper/typed call verified.
+
+## 2026-10-31: NativeKnifeImpactDirection0..3
+
+Four extended/120s cases in both CMake lists. Actual native crouched-head knife
+collision/clock/animator and actual world CDecal mapping center, not metadata-only
+assertions. Accepted RED2/4 ->GREEN4/4 each; stale UP/SIDE now produce one real
+lower-surface blood decal. Correct DOWN high/low controls unchanged1/0. Damage
+15/3, one physical hit/retirement,1m, actor/item/pose controls. Original normalized
+current-segment dataflow and complete86-byte normalizer verified independently.
+Unused nonserialized trajectory diagnostic removed and RED repeated before fix.
+First complete related run exposed an old preview reference assuming day and
+hearing-based awareness after fixes82/83; corrected direct reference inputs and
+added environment/contact diagnostics, archived failure and repeated full gates.
+Full Game builds, related281Win/280Linux, Windows manager and CI323. No full launch/
+range/velocity/rendered frame/UI/post-world RNG claim. Evidence knife-direction.

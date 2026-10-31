@@ -2896,3 +2896,20 @@ knife Segment, complete free147-byte helper and pWorld20 handoff verified.
 Full Game builds, related277Win/276Linux, CI323. Tests do not certify OnLabel producer,
 full flight/direction/range/velocity/drop behavior, enemy RPG flag classification
 or full UI/resume. Those source578 parts remain separate.
+
+## 2026-10-31: current direction for thrown-knife impact effects
+
+Actual knife collision uses its current physical direction, also populating the
+retained native attack trajectory reader. Stale upward/sideways launch data no
+longer suppresses ground blood after a downward head impact. Damage is unchanged:
+15 for base10 and3 for base2 in these controlled cases. Correct downward high/
+low damage controls retain one/zero ground decal. No authored values, new formula,
+range/velocity or save/LAN field change. An old preview test reference was also
+updated to supply actual night and visibility-only awareness from fixes82/83;
+the initial related-suite failure is archived and the full suite repeated.
+
+Original Segment current delta/normalization/call verified, complete86-byte
+normalizer matched. Native actual physical collision and real world decal
+RED2/4 ->GREEN4/4 each. Full Game builds, related281Win/280Linux, CI323. This resolves
+the previous direction limitation; full throw command/flight/range/velocity and
+full renderer/UI/post-world RNG parity remain outside this check.
