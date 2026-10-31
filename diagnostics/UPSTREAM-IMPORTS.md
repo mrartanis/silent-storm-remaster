@@ -20652,3 +20652,51 @@ CI323. No full launch timing/cached solver/range/velocity/flight/drop/UI, bleedi
 duration or post-world RNG parity claim. Other source578 range/velocity/solver/
 flight hunks remain separate.
 Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: truncate unit-knife chance as the originals do (`5780c0be` partial)
+
+CThrowKnifeUnitToHitCalcer now returns int(fToHit), removing the extra+0.5f after
+the existing2..100 clamp. Same-function gate/conversion comments corrected. No
+preceding chance formula, clamp, skill/range/velocity/perk/cover or hit-RNG change;
+no API/save/LAN/schema change. This restores integer conversion, not a new
+whole knife-accuracy formula or full launch/flight pipeline.
+
+After first genuine native RED, independent named CThrowKnifeUnitToHitCalcer
+GoldTD96fb4c/COL8e29d4/vt8b5d84 slot4 PDBGetToHit6b28c0/233 ->SteamTD980c94/
+COL8f210c/vt8c4e9c slot4 actual6b8a10. Donor/comment6b8a50 and6b8b50..70 were not
+accepted; target6b8b30 onward belongs to the next constructor. Typed base
+fToHit10/hitCover50 and derived eHL94, actual cover load6b8a1b. COMPLETE39-byte
+tail Gold6b2982..6b29a9 ==Steam6b8b00..6b8b27 byte-for-byte with NO masks:
+FNSTCW save, FSTS chance10, ORAH0c at6b298e/6b8b0c sets RC11 (toward zero),
+FLDCW temporary, FISTPL6b299a/6b8b18 ->EAX, FLDCW original restores mode. No half
+addition after clamp. Target bound100 at6b8ae7/call6b8aed->414690 and bound2 at
+6b8af6/call6b8afb->42b530. BOTH COMPLETE41-byte float selectors exactly equal
+Gold-call-selected413bb0/42a8c0 with NO masks; select existing float argument
+bits and FLDS before RET8. Thus the tested positive finite float converts by
+ordinary truncation, not nearest rounding or extra-precision pending arithmetic.
+No whole calcer-body or own/original layout/ABI equivalence claim. Evidence
+knife-chance-truncation-retail-oracle.json, named types/members and tiny slices.
+
+NativeKnifeChanceTruncation0..5 use actual world810/party54, ordinary actual
+owners, an authored equipped ranged knife, real native cover and visible/audible
+target. Search ordinary throwing skill0..100 for real calcer-computed fractional
+chance; inspect its existing public/logged fToHit without writing it. Actual
+GetAttackerToHit AND actual player GetCompositeToHit preview must agree with
+original conversion, then actual CheckToHit consumes seeded next-int boundary.
+First fixture RED2/6 ->GREEN6/6 EACH, four fully unchanged controls. Day raw
+2.73483658 (skill66) and night2.91429806 (skill68), distance8/cover34: displayed/
+returned chance3->2, native roll3 changes ratio1 (hit) ->2/3 (miss). Lower-fraction
+day4.34922028 ->4 and night2.18347549 ->2 unchanged, minimum2 and script37
+unchanged. Actual script override is tested through real helper/preview/check,
+not by requiring the bypassed calcer to return37. Queries consume zero game RNG;
+actual Check consumes exactly one native draw, four subsequent words checked.
+Actor AP/HP/position/item quantity, target HP/contact and actual night/perk/script
+controls retained. No invalid fixture/calibration or production-only field stub.
+
+Full Game builds, related298Win/297Linux including original knife handoff/orientation/
+feedback, actual target/requested-part producers and world/direction collisions,
+night/incidental/critical coverage, Windows manager and CI323. Current fixed
+knife accuracy range and old command velocity/solver/flight remain separate
+source578 work; this test does not certify their original parity or full UI/
+projectile damage. No authored values changed.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).

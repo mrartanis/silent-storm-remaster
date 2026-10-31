@@ -840,8 +840,7 @@ CThrowKnifeUnitToHitCalcer::CThrowKnifeUnitToHitCalcer( CUnitServer *_pUnitServe
 int CThrowKnifeUnitToHitCalcer::GetToHit()
 {
 	Prepare();
-	// retail @0x2b8a50: same <=0 cover gate (disasm 0x6b8a5b). CGrenadeToHitCalcer
-	// @0x2b8990 deliberately has NO gate (grenades arc over cover) -- dev matches.
+	// Original Steam 0x6b8a10/0x6b8a1b: unit-knife non-positive cover gate.
 	if ( fHitCover <= 0.0f )
 		return 0;
 	fToHit = GetAllMult() + ( GetAuraToHitAdd() + GetCarefulShootPerk() ) - GetWeatherPenalty();
@@ -852,7 +851,8 @@ int CThrowKnifeUnitToHitCalcer::GetToHit()
 	else
 		fToHit = fToHit - GetThrowToHitPenalty( eHitLocation );
 	fToHit = Clamp( fToHit, 2.0f, 100.0f );
-	return int( fToHit + 0.5f );  // release rounds the result (fistp), unlike the dev's truncation
+	// Original Gold 0x6b298e/0x6b299a and Steam 0x6b8b0c/0x6b8b18 use truncate mode.
+	return int( fToHit );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CThrowKnifeTileToHitCalcer

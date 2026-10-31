@@ -2948,3 +2948,19 @@ acceptance; ordinary chance frequency is not inferred. Initial disabled-injury
 fixture was unobservable and replaced before accepted RED. Full Game builds,
 related292Win/291Linux, CI323. No new full flight/range/velocity/timing/drop/UI, bleeding
 duration or post-world RNG parity claim.
+
+## 2026-10-31: original integer conversion for unit-knife accuracy
+
+Unit-target knife chance now returns int(fToHit) after the existing2..100 clamp,
+matching original toward-zero conversion. Previously+0.5f could add one
+percentage point and accept a boundary roll that should miss. No authored
+values, preceding formula, clamp, range/velocity or RNG rule changed.
+
+Actual player preview/unit helper/native CheckToHit RED2/6 ->GREEN6/6 each.
+Real day2.73483658/night2.91429806 change3%->2%; native roll3 changes hit ratio1
+to2/3 (miss). Four lower-fraction/day-night/minimum2/script37 controls unchanged.
+Queries use0 game RNG and Check exactly1, subsequent4 words verified. Both
+originals share an identical complete39-byte truncate/save/restore tail; both
+41-byte float clamp selectors also match exactly. Full Game builds,
+related298Win/297Linux, CI323. Current fixed range and old throw-command velocity/
+solver/flight remain separate; no whole accuracy-formula/flight/UI parity claim.

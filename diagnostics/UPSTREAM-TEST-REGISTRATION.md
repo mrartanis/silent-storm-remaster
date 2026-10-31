@@ -1149,3 +1149,17 @@ replaced BEFORE genuine RED/audit/fix. Original eHL30->portion54+3c and same
 solver handoff verified. Full Game builds, related292Win/291Linux, Windows manager and
 CI323. No full launch/flight/range/velocity/UI, ordinary probability frequency,
 bleeding duration or post-world RNG claim. Evidence knife-called-shot.
+
+## 2026-10-31: NativeKnifeChanceTruncation0..5
+
+Six extended/120s cases in both CMake lists: actual native calcer/skill0..100,
+authored knife/cover/contacts, actual unit helper AND player composite preview,
+then actual CheckToHit at seeded next-int roll. First RED2/6 ->GREEN6/6 each,
+four fully unchanged low-fraction/day-night/minimum2/script37 controls. Native
+raw2.73483658/day and2.91429806/night return3->2; roll3 ratio1->2/3 hit->miss.
+No query game-RNG draw; Check exactly1, subsequent4 words verified. Native AP/
+HP/pose/item/contact/night/perk/script controls. Named actual target6b8a10 and
+COMPLETE39-byte conversion tail/41-byte float clamps match originals without
+masks. Full Game builds, related298Win/297Linux, Windows manager and CI323. No failed
+fixture or full range/velocity/launch/flight/whole chance-formula parity claim.
+Evidence knife-chance-truncation.
