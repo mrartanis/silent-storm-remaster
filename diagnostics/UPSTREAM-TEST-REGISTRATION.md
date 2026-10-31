@@ -1231,3 +1231,20 @@ verified. Direct current-position helper exact23 and prior complete physical
 math retained; own enum0/11, no ABI/ordinal equivalence claim. Full Game builds,
 related328Win/327Linux, Windows manager and CI323. Double adaptation, no exhaustive
 extended80 or full flight/UI claim. Evidence prefix knife-fractional-range.
+
+## 2026-10-31: actual knife lifetime in fourteen existing cases
+
+Reused NativeKnifeLaunchSpeed0..7, NativeKnifeBallisticRange7 and extended actual
+NativeKnifeLaunchTarget0..4; no new registrations. Initial pointRED9/9, then
+selected-unit/freepoint coverage repeat FINAL RED14/14 ->GREEN14/14 each BEFORE/
+AFTER production. Actual legal CanDo/Start/OnLabel ->real projectile/item/actor
+->saved deadline/velocity versus original integer range, nine point cases plus
+three selected units/two freepoints. Point ranges19/18/33/19/32/15/15/15/15 now
+deliver integer distance instead*.625; selected/freepoint nominal18 now18 rather
+than11.25. Clock tolerance1.1ms*actual speed; point speed literals/AP/item controls
+kept; original selected target HP/native body callback continues after assertion.
+Named world/factory/ctor chain, exact38/31 forwarding and complete44 clock block
+only verified1000f pointer masked; actual allocationF8/FC difference not masked.
+Full Game builds, related328Win/327Linux, Windows manager and CI323. Existing norm/float
+clock adaptation, no exhaustive clock bits/extended80/full flight/drop/UI claim.
+Evidence prefix knife-lifetime-distance.

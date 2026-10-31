@@ -3480,6 +3480,7 @@ void CExecThrowKnife::ThrowKnife()
 
 	int nToHit;
 	int nDistance = fabs( ptTarget - pUS->GetPosition().GetCP() ) / FP_GRID_STEP;
+	// Original 0x7aabde passes the truncated range unchanged to the flight timer.
 	float fMaxDist, fSpeed;
 	if ( pTarget )
 	{
@@ -3490,7 +3491,7 @@ void CExecThrowKnife::ThrowKnife()
 		pToHitCalcer->pMeleeWeapon = pMelee;
 		nToHit = pToHitCalcer->GetToHit();
 		pToHitCalcer->Log();
-		fMaxDist = pToHitCalcer->GetKnifeMaxDistance() * FP_GRID_STEP;
+		fMaxDist = pToHitCalcer->GetKnifeMaxDistance();
 		fSpeed = pToHitCalcer->GetKnifeLaunchSpeed();
 	}
 	else
@@ -3502,7 +3503,7 @@ void CExecThrowKnife::ThrowKnife()
 		pToHitCalcer->pMeleeWeapon = pMelee;
 		nToHit = pToHitCalcer->GetToHit();
 		pToHitCalcer->Log();
-		fMaxDist = pToHitCalcer->GetKnifeMaxDistance() * FP_GRID_STEP;
+		fMaxDist = pToHitCalcer->GetKnifeMaxDistance();
 		fSpeed = pToHitCalcer->GetKnifeLaunchSpeed();
 	}
 

@@ -20912,3 +20912,59 @@ copies. Full Game builds, related328Win/327Linux, Windows manager and CI323. Act
 solver/cached decision/original absolute lifetime/collision/frame/incidental/
 drop/UI and shared source9f3 skill remain separate work.
 Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: original integer range feeds actual knife lifetime (`5780c0be` partial)
+
+Both actual point/unit ThrowKnife branches now pass GetKnifeMaxDistance's integer
+result unchanged as flight distance, removing two extra FP_GRID_STEP factors.
+Existing world point/velocity API, item/model/actor/carrier/AP flow, physical
+speed and clock types retained. Prior89/91 explicitly scoped legacy*grid lifetime
+controls were updated to the original integer-distance contract; no new CMake
+tests or fields. This restores distance used by the timer, not full solver/
+cached-ray/continuous collision/drop or bit-exact clock parity.
+
+Initial nine actual point/range cases RED9/9 before audit. Added actual selected
+unit/freepoint target fixtures0..4: obtain existing original public integer
+range while real blade remains equipped after Start; actual OnLabel creates
+the real projectile, then read its real saved tFinish/velocity and item/carrier.
+Repeat FINAL RED14/14 EACH BEFORE production, then GREEN14/14 EACH. Eight actual
+launch cases + original range handoff + three selected-unit and two freepoint
+cases. Original ranges19/18/33/19/32/15/15/15 plus15 control now deliver those
+distances rather than*.625; selected/freepoint fixtures nominal18 now deliver18
+rather than11.25. Clock reconstruction tolerance1.1ms*actual velocity handles
+native float/norm/rounding; actual point speed literals and AP/item controls
+retained. Selected fixtures continue through existing real body trace/throwing
+callback/target HP references after lifetime assertion; no full actual flight
+or post-world RNG equality claim. No authored data/game/build copies.
+
+Original actual named producer from91: target7aab78 calls complete48 physical
+distance6b7c30, RC11 FISTP7aaba3 ->FILD7aabb5/FSTPS7aabb9. Bool0 had been pushed,
+so resulting float integer is originalESP10. After two later pushes7aabde loads
+ESP18 =sameESP10, then pushes raw distance,time,speed,ray to worldslot14c. No
+grid multiplication in this argument. Independently rechecked named CWorld
+primary RTTI slot14c Gold7593d0/Steam764c40 ->actual calls759408->755770 and
+764c78->7610f0 factories ->actual ctor7557c8->7554a0 /761148->760e20. Typed world/
+factory/constructor signatures saved. Exact38-byte world forwarding after header
+and MOV EDX[entryESP10] preserve raw fourthfloat distance; exact31-byte factory
+forwarding passes seven constructor args plus hidden compiler virtual-base flag.
+Gold factory allocationF8 differs from targetFC: REAL version difference, never
+masked. No whole factory/ctor or own/original ABI equality claim. Target ctor
+900-byte inspection window is not a declared function length.
+
+Constructors write independently named primaryCKnifeServer vtables at+94,
+bound by GoldPDB Segment754d60 /target7606e0. COMPLETE44-byte clock block Gold
+7556de ->uniqueSteam76105e, masking ONLY independently dereferenced1000f pointer
+Gold8a48b8/Steam8b3950 (bits00007a44). No register/frame/field/branch masks. With
+0x24-byte balanced prologue, stack38=distance,arg5; stack30=speed,arg3; stack34=
+throwtime,arg4. Wide distance/speed*1000 ->FSTPSfloatduration ->FLDS ->FISTPL
+currentCW; add throwtime, write typed tFinish10. Own existing legacy constructor
+still uses norm(vSpeed) and its existing float expression; only the producer
+distance is changed here. Normal native tolerance1.1ms, no exhaustive extended80/
+clock-bit identity claim. New cached-ray constructor path remains separate.
+Evidence knife-lifetime-distance-retail-oracle.json/named typed chain/clock
+block/actual-address disassemblies and verification.json.
+
+Full Game builds, related328Win/327Linux, Windows manager and CI323. Shared accuracy
+skill/source9f3, cached ranged solver, frame/target/incidental collision, complete
+actual flight/drop/UI remain separate source578 work.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).

@@ -3036,3 +3036,20 @@ item/perk controls. COMPLETE original175 and direct23-byte current-position
 helper verified, only decoded calls/verified grid pointer masked in175. Full
 Game builds, related328Win/327Linux, CI323. No exhaustive extended80 identity or full
 solver/absolute lifetime/collision-flight/drop/UI claim.
+
+## 2026-10-31: original knife flight distance and lifetime
+
+Actual point/unit launches pass the original integer physical range directly
+to the flight timer. Removed an extra*.625 grid conversion that shortened the
+distance represented by the deadline. At range15 the timer now spans about15
+world distance units instead9.375; selected-unit fixtures range18 now18 instead
+11.25. Original constructor uses distance/speed*1000, stores float duration,
+rounds with current FPU mode and adds actual throw time. Speed/AP/item flow kept.
+
+Actual labels FINAL RED14/14 ->GREEN14/14 each: nine point/range cases, three
+selected-unit and two freepoint cases. Native saved clock/velocity/item/carrier,
+point speed literals and original target damage controls; tolerance1.1ms*speed.
+Named original producer/world/factory/ctor and complete44-byte clock block
+verified; real factory allocationF8/FC version difference not masked. Full Game
+builds, related328Win/327Linux, CI323. Existing norm/float clock adaptation retained;
+no exhaustive clock-bit identity or full solver/collision-flight/drop/UI claim.
