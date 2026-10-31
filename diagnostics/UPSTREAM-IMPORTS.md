@@ -19556,3 +19556,51 @@ renderer/fonts/facial/nativeaudio/network and save tags retained. Full Game
 builds, related45Win/45Linux, CI323 pass; new8 resource extended outside323. Original
 proof/mappings/enum/native RED/GREEN/verification logs under melee-knife-*.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c.
+
+## 2026-10-31: visibility-only unaware-target attack portions (`23630bfd` partial)
+
+Shared CExecAttack::CreateAttack now bases bBackStab only on the valid target's
+stored visibility of the attacker. Removes the old audible conjunction;
+null target remains false. Existing mission damage/critical/perk formulas,
+preview/to-hit awareness and own vector API are retained.
+
+Named Gold PDB CExecAttack::CreateAttack7985b0/411 first121 uniquely matches
+Steam7a4a00 with ONLY SEH operand3..6 masked. Both target and attacker adjust
+to typed CUnit base14c. Gold798616/Steam7a4a66 call virtual84 once, SETEAL and
+store the backstab byte. Independently named CUnitServer RTTI GoldTD93f530/
+COL8eb634(offset14c)/vtable8beb74 ->SteamTD950570/COL8fae50/vtable8ce15c:
+slot84 is Gold PDB IsUnitVisible7b3e20 ->Steam7c05a0; slot88 is named
+IsUnitAudible7b4530 ->7c0cb0. No audible query exists in the predicate.
+No registers/stack/branches/virtual offsets masked. The later original log
+string lies outside121; an initial oversized19-vs23-byte check crossing that
+string was corrected rather than masking its differing pointer. No full411
+method equivalence claim; native existing mission receives the stored bool.
+
+NativeBackstabAwareness0..9: actual world810/party54, two new person103 units
+with actual opposing owners/free standing network places, authored blade2
+or gun/current ammo, real protected CreateAttack via an access-only subclass
+of actual CExecMeleeTile. It neither overrides callbacks nor supplies portions.
+Ten contexts cover audible/unheard x unseen/seen plus null target for each
+weapon class. SetAudible uses the real public native contact list; unseen is
+fresh native stored contact state; seen controls call actual UpdateVisible
+with native SEEALL cheat. These arrange input contact states, not a claim
+about natural hearing/line-of-sight detection or a full legal melee command.
+Expected portions come from the unchanged native mission with the original
+explicit awareness bool; literal flag establishes routing independently.
+
+Final RED2/10 ->GREEN10/10 each, eight controls passed before Main change.
+Audible unseen blade flag0->1, current native damage28..46->38..46 and
+critical59->107. Existing current formula can exceed100; no new clamp or
+whole-formula parity claim. Audible unseen firearm flag0->1 while its current
+33..38/critical17 remains unchanged (no relevant extra perk). Unheard unseen,
+visible (heard/unheard), null controls retained. AP/HP/position/item quantity/
+ammo and stored contacts retained. Initial path-place CP compilation and
+strict assumption that BOTH damage bounds must rise were fixture errors,
+archived invalid logs; final accepted RED precedes production and only needs
+observed positive minimum/critical effect, nondecreasing maximum.
+
+Both Game builds, related55Win/55Linux, CI323 pass; new10 resource extended outside323.
+Source remains partial: melee requested-hit-location depends on the separately
+pending360 called-shot field/consumer foundation. Evidence backstab-retail-
+oracle, native RED/GREEN/verification/full logs. Source:
+https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/23630bfd0c6924b748f79cca9ded910e0f4df35e.

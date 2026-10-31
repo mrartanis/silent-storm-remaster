@@ -2615,3 +2615,16 @@ stays correct. New action is appended to preserve all previous own ordinals.
 This finishes the c1ab source's UI/dispatch/filter/ignore/classification scope;
 the unrelated pending object-melee source4cdc and broader critical formulas
 remain separate audits.
+
+### `23630bfd`: audible but unseen attackers retain unaware-target bonuses
+
+Original attack-portion generation checks whether the target sees the attacker;
+hearing alone does not remove its unaware-target flag. The actual blade input
+now produces38..46 rather than28..46 damage bounds and107 rather than59
+critical probability using the existing native formulas. Unheard/visible/null
+controls stay as before. A gun control changes the awareness flag with no
+numerical damage effect for its current perks. Other weapon/perk combinations
+are not newly claimed verified, and existing probability values above100 are
+retained. Preview/to-hit awareness is a separate unchanged rule. Tests arrange
+actual stored contacts, not natural detection or complete command execution.
+Melee called-shot metadata/consumer foundation remains pending under360/236.

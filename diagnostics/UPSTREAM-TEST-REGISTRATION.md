@@ -880,3 +880,15 @@ AP/HP/position/cost/order/RNG/quantity retained. Existing cursor regression
 moves old gameplay-invariance assertion to this original native matrix,
 retaining cursor/empty/equip/unequip/AP controls. Full Game builds, related
 45Win/45Linux, CI323. Appended action ordinal preserves every existing own value.
+
+## Native shared attack awareness portion routing
+
+NativeBackstabAwareness0..9: resource extended Win/Linux timeout120 outside323.
+Actual world/owners/person103, authoredblade2/gun, native contact-list/visibility
+state, access-only real executor subclass/shared CreateAttack, no fake portion.
+RED2/10 ->GREEN10/10 each, eight controls. Audible unseen blade28..46/crit59
+->38..46/107 and flag0->1; gun flag0->1 with unchanged current damage. Visible,
+unheard and null controls retain formulas/flags; AP/HP/position/items/ammo/
+contacts stable. NativeSEEALL only arranges visible controls, no naturalLOS
+claim. Invalid pathCP/max-rise assumptions archived, not RED. Game builds,
+related55Win/55Linux, CI323 pass.

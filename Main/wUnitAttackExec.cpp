@@ -1128,7 +1128,8 @@ bool CExecAttack::CreateAttack( vector<NRPG::CAttackPortion> *pAttack, CUnitServ
 	bool bBackStab = false;
 	if ( IsValid( pUnitTarget ) )
 	{
-		bBackStab = !pUnitTarget->IsUnitAudible( pUS ) && !pUnitTarget->IsUnitVisible( pUS );
+		// Gold 0x798616 / Steam 0x7a4a66 checks visibility only.
+		bBackStab = !pUnitTarget->IsUnitVisible( pUS );
 		if ( bBackStab )
 			csSystem << CC_RED << "Backstab attack" << endl;
 	}
