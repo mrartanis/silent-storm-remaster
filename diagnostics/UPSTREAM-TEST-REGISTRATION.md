@@ -1065,3 +1065,16 @@ Real trail is bounded to first flesh entry, keeping one physical receiver;
 no full firing animation/timing/travel/peer/UI or post-world RNG parity claim.
 Actor AP/HP/pose/perk/level/ammo8->7 controlled. Full Game builds, related180Win/179Linux,
 Windows manager regression and CI323. Evidence prefix ranged-called-shot.
+
+## 2026-10-31: NativeToHitAwareness0..14
+
+Both CMake lists,15 extended/120s actual native world/person/item/cover/to-hit
+queries. Accepted RED2/15 ->GREEN15/15 each,13 controls; unseen/audible melee
+33->50 and firearm34->41. Five awareness/null contexts per melee/firearm/knife.
+Existing native cover snapshot/GetHitCover/GetToHit reference, no new engine API
+or copied probability formula. Actual SelectTargetHLs, stored SEEALL visibility,
+public audible list and day isolation. Four shared RNG words, AP/HP/pose/items/
+ammo/contact state stable. Initial private-cover compile fixture invalid/archive;
+corrected native saved-field reader before RED. Full Game builds, related195Win/194Linux,
+Windows manager regression and CI323. No natural LOS/full cursor/UI/night claim.
+Evidence prefix tohit-awareness.

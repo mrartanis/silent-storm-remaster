@@ -2850,3 +2850,18 @@ typed/saved field identity and exact load/store/solver handoff verified.
 Full Game builds, related180Win/179Linux, CI323. Tests bound the real trail to one
 flesh entry; full firing timing/travel/peer/UI and post-world RNG parity are
 not newly certified. Throwing knives and other source360 pieces remain.
+
+## 2026-10-31: retain unaware-target accuracy when an unseen attacker is heard
+
+The native unit to-hit helper now checks target visibility alone before passing
+the unaware-target flag. Actual audible/unseen melee chance33->50 and firearm
+34->41 now match the original calculator context. This is distinct from the
+earlier awareness fix for damage/critical portion generation. Current chance
+formulas, cover origin/distance, AP/ammo, defaults and own night API are retained.
+
+Native actual world/cover/to-hit RED2/15 ->GREEN15/15 each,13 controls including
+visibility/hearing combinations, null target and throwing knives. Four shared
+RNG words and native state unchanged. Original visible-only slot/test/inversion/
+native-calculator handoff verified. Full Game builds, related195Win/194Linux, CI323.
+Stored awareness was arranged through actual public APIs; natural LOS/full cursor/
+command/UI and missing night propagation remain outside these checks.

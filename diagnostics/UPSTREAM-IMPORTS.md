@@ -20349,3 +20349,47 @@ Windows manager regression and CI323 pass. Hosted final-head CI remains due at
 whole-task completion. Other source360 ray/context/mod/scenario/swap work and
 throwing-knife producer/flight remain separate. Source:
 [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 2026-10-31: visibility-only unaware-target accuracy context (`5780c0be` partial)
+
+NRPG::GetAttackerToHit now supplies !target.IsUnitVisible(actor) to the existing
+native calculator. Hearing an unseen attacker no longer removes unaware-target
+accuracy. This is the separate unit to-hit context, not a repeat of the earlier
+CreateAttack damage/critical-awareness fix. Current physical cover origin and
+distance, accessible parts, first-turn/bullet inputs, formulas and own explicit
+night API remain unchanged. Missing night propagation remains separate work.
+
+GoldPDB NRPG::GetAttackerToHit6aef60/389 first16 bytes exactly and uniquely maps
+target6b5090. Independently named CUnitServer RTTI/table GoldTD93f530/COL8eb634/
+vt8beb74 ->SteamTD950570/COL8fae50/vt8ce15c establishes byte-offset84 visible
+(Gold7b3e20/Steam7c05a0) versus88 audible(Gold7b4530/Steam7c0cb0). Exact target
+6b516d..6b5194 calls only slot84 at6b5172, TESTAL6b5181, SETEAL6b5188 and
+stores/loads/pushes that single bool at6b518b/518f/5193. Direct6b51e4 calls
+nativeGetToHit6b4ae0; null/invalid target6b50b3 returns0. No whole-body match,
+register/frame/field mask or extra hearing predicate accepted. Evidence:
+tohit-awareness-retail-oracle.json and actual Gold PDB symbol output.
+
+NativeToHitAwareness0..14 use actual world810/party54, real person103 opposing
+pair, free native cells (adjacent melee,5..8m ranged), actual equipped melee/
+gun/throwing-knife items. Native target stored visibility is set via SEEALL/
+UpdateVisible when required; actual SetAudible list independently controls
+hearing. Native SelectTargetHLs resolves accessible melee parts. Native cover
+is built from the actual portion/origin and read through existing CoverSnapshot
+saved fields; existing native GetHitCover and GetToHit provide the reference,
+without copying chance formulas or adding engine APIs. Expected input differs
+only in the independently audited visibility predicate. Day is explicitly
+isolated/restored so this test does not absorb the separate night bug.
+
+Accepted RED2/15 ->GREEN15/15 EACH platform;13 controls. Audible/unseen melee
+33->50 and gun34->41. Inaudible/unseen, both visible contexts and null target
+retain their native results. Throwing-knife controls pass unchanged: current
+knife calculator does not derive a new chance change from this flag alone.
+All15 preserve four shared RNG words, actor AP/HP/position, victim HP, actual
+item quantity/ammo and contact/day inputs. Public list/SEEALL arrangement
+isolates stored awareness; no natural LOS/full cursor/command/UI certification.
+The initial direct private-cover-member access failed compilation; corrected
+to the already existing native CoverSnapshot reader before accepted RED, and
+invalid compile logs retained separately. No game-file write or new game/build
+tree. Full Game builds, related195Win/194Linux, Windows manager regression and CI323.
+Other source578 night/range/velocity/knife-flight pieces remain partial. Source:
+[5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
