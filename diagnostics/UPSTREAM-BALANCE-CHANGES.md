@@ -3160,3 +3160,28 @@ with0. Full Game builds, related71Win/71Linux, CI323. Direct probability API/fin
 native input scope; full visibility/AI frequency and other caller modes unclaimed.
 Earlier wide/22/0 baseline explanations are explicitly superseded.
 Source: [037c41d91ec01f29848f346787aa7a8a1d471c43](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43).
+
+## 2026-10-31: fractional-cap skill training core
+
+Restores record63 per-skill training rates and fractional XP capacity. Used
+capacity includes both accumulated skill points and fractional progress. The
+next increment is remainingCapacity*learningFactor/rate, clamped to .00001..1/10;
+the existing dynamic-cell upgrade guard still stops exhausted skills. LEVEL
+cannot train. The obsolete unit PK/add-value offset is absent from this original
+formula. Existing live unit entry currently delegates with factor1; associated
+attribute practice and learning-perk multipliers remain separate pending work.
+Authored records and total XP awards are unchanged.
+
+At totalXP.01, melee cap100/rate20 gains .000104997285 instead of zero; burst
+cap50/rate60 .0000174995475, medicine cap25/rate10 .0000524986426. At XP10,
+melee XPpart1/progress.25 advances to .283210069 instead of stopping. LEVEL's
+incorrect .1 progress is removed. These are direct training-core examples,
+not a claim of whole-mission experience balance parity.
+
+Native RED14/24 ->GREEN24 each,10 identical controls; fixed progress tolerance
+1e-7. Complete original Steam151 plus cap helper75/actual initialized DB rates/
+Upgrade,48 operand/CW records; actual mainCW007f. Gold210 is a real different
+version and not forcibly equated; Steam adds LEVEL guard/extracts cap helper.
+Owned contexts/config restore and normal exit0. Full Game builds,
+related112Win/112Linux, CI323. Source remains PARTIAL for attributes/perks/caller cleanup.
+Source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).

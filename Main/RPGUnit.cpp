@@ -526,18 +526,25 @@ void CUnit::AddXP( float fXPToAdd )
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-bool CUnit::UseSkill( int eSkill, const int nAddValue )
+bool CSkilledObject::UseSkill( int eSkill, float fLearningFactor )
 {
+	if ( eSkill == NDb::ST_LEVEL )
+		return false;
 	CDynamicSkill &skill = Skills(eSkill);
-	float fCap = GetSkillCap( NDb::ESkillType(eSkill), fXP );
-	float sSkillDiff = fCap - ( skill.GetXPPart() - nAddValue );
-	float fAdd = Clamp( (1.f - skill.GetProgress()) * sSkillDiff / 20.f, 0.005f, 0.1f );
-	// retail CSkilledObject::UseSkill @0x2bbf40 passes the XP cap into Upgrade (the amount
-	// formula there divides by the GetRPGBaseValue(0x3f) per-skill rate -- follow-up).
+	// Steam 0x6bbfa0 keeps the fractional XP cap and reads each authored training rate.
+	const float fCap = fXP <= 0 ? 0.f :
+		log( 1.f + 0.02f * fXP ) * ( 1.f / ( 20.f * LN161 / float(cap[eSkill]) ) );
+	const float fRemaining = fCap - ( float(skill.GetXPPart()) + skill.GetProgress() );
+	const float fAdd = Max( 0.00001f, Min( fRemaining * fLearningFactor / NDb::GetRPGBaseValue(63)->skills[eSkill], 0.1f ) );
 	bool bRes = skill.Upgrade( fAdd, fCap );
 	if ( eSkill >= NDb::ST_STR )
 		UpdateSkills();
 	return bRes;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CUnit::UseSkill( int eSkill, const int /*nAddValue*/ )
+{
+	return CSkilledObject::UseSkill( eSkill, 1.f );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 NDb::CRPGPers* CUnit::GetPers() const

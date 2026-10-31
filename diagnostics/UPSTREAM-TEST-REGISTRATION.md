@@ -1341,3 +1341,20 @@ Separate24 actual live RPG getter/AP/weapon calls also showPC24/RN, but no live
 perception/critical/lateIC capture is claimed. Full Game builds, related71Win/71Linux,
 CI323. Evidence prefixes unhide-runtime-precision and original-live-fpu;
 prior31 wide-precision explanations superseded. Direct probability API scope.
+
+## 2026-10-31: fractional-cap skill training core
+
+NativeFractionalSkillTraining0..23: actual person2/CUnit/dynamic cells, authored
+record63 per-skill rates/caps, resource-backed extended Win/Linux timeout120,
+outside CI323. FINAL RED14/24 ->GREEN24 each,10 identical controls. Fixed
+progress literals checked within absolute1e-7, independently rechecked by
+complete actual original151/helper75/initialized DB/Upgrade,24 operands x2 CWs
+=48 records. Fractional capacity, used progress, rates20/60/10, min.00001/max.1,
+LEVEL/zero/exhausted/legacy-offset cases; no promotion so all integer cells,
+caps/other cells/XP/points/RNG unchanged. Original owned context/config restored
+and normal exit0. Initial incomplete registration/stale LEVEL prerequisite
+archived; accepted final native RED24 precedes production. Shared base method
+is reached by existing live unit compatibility entry at factor1. Final full
+build/related112Win/112Linux includes core24 plus native ack/impact/aura/critical/knife/
+classless controls; CI323. Attribute/learning-perk wrapper remains pending;
+no full action-flow or bit-exact log claim. Evidence prefix training-rates.

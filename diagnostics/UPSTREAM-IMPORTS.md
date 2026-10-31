@@ -21248,3 +21248,67 @@ callers/threads and whole visibility integration remain uncertified. Evidence
 unhide-runtime-precision original-kernel/retail-oracle/verification and RED/GREEN/
 full logs; original-live-fpu-observation/verification and CDB log/script.
 Source: [037c41d91ec01f29848f346787aa7a8a1d471c43](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43).
+
+## 2026-10-31: fractional-cap skill training core (`2893fa84` partial)
+
+Restores the actual base CSkilledObject::UseSkill calculation. CUnit's live
+two-argument compatibility entry delegates with learningfactor1; its obsolete
+PK/add-value argument no longer changes the original core formula. LEVEL13
+returns false before rate access. C=0 for XP<=0, else the existing logarithmic
+XP curve retains its float fraction using the object's saved per-skill cap.
+Used capacity is float(XPpart)+fractionalProgress. The authored record63 rate
+divides remaining capacity*learningfactor; increment clamps to [.00001f,.1f].
+Actual CDynamicSkill::Upgrade receives fractionalC and retains its exhausted
+guard/rounding/return; attribute calls retain existing UpdateSkills behavior.
+New GetRPGBaseValue accessor uses the existing database table/record mechanism.
+No authored values, total-XP award, saved cell layout, LAN, RNG, AP/HP or item change.
+Coupled primary-attribute training, perks11/60 learning multiplier selection and
+one-argument caller cleanup remain separate; WHOLE source2893 stays PARTIAL.
+
+Original mapping deliberately rejects misleading donor comments: Steam entry
+is6bbfa0/151, not6bbff0 (inside its body); unit wrapper6bc640, not6bc690.
+GoldPDB CUnit::UseSkill6b6450 code156 uniquely maps toSteam6bc640 with only four
+decoded/independently verified direct-call operands and the verified local
+switch-table address; all nine case targets retain equal function-relative
+offsets. Its actual finalcall6bc6ce binds original core6bbfa0 and ECX+0c agrees
+with typed CUnit's skilled-object base. Gold core6b5d80/210 is NOT whole-method
+equivalent: Steam's LEVEL guard and extracted cap helper are real version
+changes; no frame/register/opcode/branch masks. Named Gold GetSkillCap6b4550/75
+uniquely maps toSteam6ba6f0/75 with only six decoded/verified float constants.
+Steam core uses actual DB getter7daee0 with ECX63 and rate integer at+10+skill*4,
+then actual Upgrade6bbc90; explicit float stores and min.1/max.00001 retained.
+
+COMPLETE original151, helper75, real initialized database getter/record/rates
+and Upgrade execute at ORIGINAL ADDRESSES on only an owned initialized original
+main thread. Controlled original-layout skilled-object/vector/cell buffers,
+24 actual native input sets at observedPC24/RN and diagnosticPC53,48 records.
+No fake rate provider or original database writes. Actual rates match native
+authored data. All observedPC24 results match fixed native progress literals
+within absolute1e-7, including .00001/.1 clamps, partial progress, exhausted
+and LEVEL guards. No original perk-tree/unit-wrapper/actual practice flow claim.
+Six CW/FXSAVE007f samples, guarded Game-code/empty-x87 acquisition, full captured
+context restoration each time, normal WM_CLOSE/exit0 and exact cfg restoration.
+Original executable code/world/database/resources untouched.
+
+FINAL native RED14/24 BEFORE production ->GREEN24/24 EACH;10 identical measured
+controls. Actual person2/class/native CUnit/dynamic skills/authored rates.
+At XP.01, melee cap100/rate20 now progresses .000104997285 rather than0;
+burst cap50/rate60 gives .0000174995475, medicine cap25/rate10 .0000524986426.
+At XP10, melee XPpart1/progress.25 goes .25->.283210069 instead of stopping;
+LEVEL formerly .1 now0. Fixed literal cases include zero/exhausted/max/min,
+partial progress and a legacy-offset input. Integer skills/caps/current/other
+cells/totalXP/points and query RNG remain stable in these no-promotion fixtures.
+Earlier16 exploratory coverage retained separately; first Linux registration
+omission and stale LEVEL positive-rate prerequisite are archived, not accepted
+production RED evidence. Final24 valid fixtures ran before production; original
+first16/32 and final24/48 probes close normally; an assertion-only incomplete
+attempt before injection was excluded and also closed normally.
+
+Full Game builds and related112Win/112Linux including all24 after base-core placement,
+existing action/interrupt/snipe/vitality acknowledgment, damage/IC/aura, knife,
+critical probability and classless-perk consumers; CI323. Progress tolerance
+does not certify bit-exact transcendental math, arbitrary caps/nonfinite inputs,
+perks, coupled attributes or full combat/mission-level training frequencies.
+Evidence training-rates-retail-mapping/oracle/original-kernel/verification,
+typed members, original asm and RED/GREEN/full logs.
+Source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).

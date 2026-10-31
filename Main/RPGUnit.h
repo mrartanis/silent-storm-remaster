@@ -161,6 +161,7 @@ public:
 
 	CDynamicSkill& Skills( const int eSkill ) { return *skills[eSkill]; }
 	void AddXP( float fXPToAdd );                         // retail @0x2bbde0
+	bool UseSkill( int eSkill, float fLearningFactor );     // Steam 0x6bbfa0
 	void UpdateSkills();                                  // retail @0x2bbcc0
 	int GetSkillBaseStatValue( const int eSkill );         // retail @0x2ba7b0
 };
