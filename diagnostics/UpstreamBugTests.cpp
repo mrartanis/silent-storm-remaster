@@ -20,6 +20,7 @@
 #undef small
 #endif
 #include "../Main/GSceneInternal.h"
+#include "../Main/GParticles.h"
 #include "../Main/wUnitGroup.h"
 #include "../Main/iCommonUI.h"
 #include "../Main/PerkToolTip.h"
@@ -21535,6 +21536,22 @@ public:
     }
 };
 
+// The world, terrain/grass trackers and CSetRender dispatch run unchanged;
+// this scene sink records native room metadata without creating GPU resources.
+class GrassFloorView: public HeadStateView
+{
+    OBJECT_NOCOPY_METHODS(GrassFloorView);
+public:
+    vector<NGScene::SRoomInfo> grassRooms;vector<int> terrainFloors;vector<CObj<NGScene::CGrassAnimator>> animators;vector<int> textures;
+    CObjectBase* CreateGrassSector(NGScene::CGrassAnimator* animator,NDb::CTexture* texture,CFuncBase<SFBTransform>* pose,const SBound& bound,const NGScene::SRoomInfo& room) override {Require(animator && texture && pose,"native grass dispatch omitted its actual animator/texture/pose");grassRooms.push_back(room);animators.push_back(animator);textures.push_back(texture->GetRecordID());return HeadStateView::CreateGrassSector(animator,texture,pose,bound,room);}
+    CObjectBase* CreateTerrainRegion(CFuncBase<STerrainInfo>* info,CVersioningBase* version,const SRandomSeed& seed,const CTRect<int>& region,const list<CObj<CPtrFuncBase<CTerrainPart>>>& parts,NGScene::CGrassTracker* tracker,const NGScene::SFullRoomInfo& room) override {terrainFloors.push_back(room.room.nFloor);return HeadStateView::CreateTerrainRegion(info,version,seed,region,parts,tracker,room);}
+};
+static void TerrainGrassFloor(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=1,"unknown native terrain grass floor mode");const int variant=mode==0?810:4517;CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game,variant);CDGPtr<CFuncBase<STerrainInfo>> terrain=world->GetTerrainInfo();terrain.Refresh();const int layers=int(terrain->GetValue().grass.size());std::printf("native grass input mode=%d variant=%d terrainLayers=%d\n",mode,variant,layers);std::fflush(stdout);Require(layers>0,"native grass fixture has no authored terrain grass layers; not a floor RED");CObj<GrassFloorView> view=new GrassFloorView;CObj<NRender::IRenderGame> render=NRender::CreateRenderGame(world,view,nullptr);render->UpdateViewWorld(false,world->GetTime()->GetValue(),nullptr,true);
+    Require(!view->grassRooms.empty() && !view->terrainFloors.empty(),"native grass fixture never reached actual grass/terrain render dispatch; not a floor RED");int wrong=0;for(const auto& room:view->grassRooms){Require(!room.pGroup,"native ungrouped terrain grass acquired a room light group");wrong+=room.nFloor!=0;}for(int floor:view->terrainFloors)Require(floor==0,"native terrain control unexpectedly lost its existing floor0");Require(NGScene::SRoomInfo().nFloor==-100,"grass fix incorrectly changed the shared default room for unrelated render nodes");std::printf("native terrain grass mode=%d variant=%d layers=%d sectors=%zu wrongFloor=%d firstFloor=%d expected=0 terrainControls=%zu defaultRoom=%d texture=%d\n",mode,variant,layers,view->grassRooms.size(),wrong,int(view->grassRooms.front().nFloor),view->terrainFloors.size(),int(NGScene::SRoomInfo().nFloor),view->textures.front());std::fflush(stdout);Require(wrong==0,"native terrain grass dispatch used always-visible default floor-100 instead of original floor0");
+}
+
 static void DownedHeadIdle(const char* databasePath,const char* resourcePath,bool dead)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -31658,6 +31675,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-save-menu") && argc == 4) { MissionSaveMenu(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "stored-aura-evasion")) { Require(argc==5,"stored aura requires db/resources/mode"); StoredAuraEvasion(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "terrain-grass-floor")) { Require(argc==5,"terrain grass requires db/resources/mode"); TerrainGrassFloor(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "world-victim-aura")) { Require(argc==5,"world aura requires db/resources/mode"); WorldVictimAuraScope(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "aura-player-ownership")) { Require(argc==5,"aura ownership requires db/resources/mode"); AuraPlayerOwnership(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "explosion-evasion")) { Require(argc==5,"explosion evasion requires db/resources/mode"); ExplosionEvasionPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }

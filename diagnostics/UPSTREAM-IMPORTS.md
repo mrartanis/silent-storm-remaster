@@ -19006,3 +19006,44 @@ the other unfinished sources or final-head hosted CI for the entire task.
 Evidence world-aura-retail-oracle/verification JSON, original disassembly and
 native per-platform RED/GREEN/full-build/related/CI logs.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-31: terrain grass belongs to floor0 (`aa031e2e` partial)
+
+CSetRender::AddGrass now supplies explicit SRoomInfo(0) for terrain sectors,
+rather than inheriting the shared default-100. Other scene node defaults,
+room groups, grass tracker/animator/texture/pose/sector bounds and own render
+backend remain unchanged. No grass generation, HD PNG regeneration or asset
+rebuild is performed.
+
+GoldPDB CSetRender::AddGrass6c6f50/633 maps uniquely to Steam6cda30, with the
+complete633bytes matching after only decoded SEH, nineteen E8 relocation
+operands and two named transform-vtable operands are masked. Both vtables'
+RTTI names (CFuncBase<SFBTransform>/NGScene::CCFBTransform) are independently
+verified. Typed SRoomInfo pGroup0/nFloor4(short) maps the original zeroEDI
+ptrstore esp28/wordstore esp2c at Gold6c6f9b/6c6f9f, Steam6cda7b/6cda7f;
+the room address is passed to scene CreateGrassSector3c atGold6c711d/
+Steam6cdbfd. The source's6cdacf comment is not used as an unverified oracle.
+
+NativeTerrainGrassFloor0..1 execute real native worlds810/4517, original
+terrain data, CGrass/CGrassTracker/CGrassAnimator and CSetRender dispatch.
+A recording scene sink retains actual inputs and inspects the emitted room
+metadata without allocating GPU resources; no copied grass/floor algorithm
+or fabricated sector is used as RED. World810 has one layer/four sectors,
+4517 three layers/44 sectors; all48 have floor-100 in RED and0 in GREEN.
+The85 terrain-region controls remain0, all grass room groups remain null,
+actual animator/texture/pose exist (first texture1906), and generic default
+SRoomInfo remains-100, rejecting an overbroad global-default change. RED2/2
+each ->GREEN2/2. Native dispatch metadata is verified, not GPU pixel output.
+Existing production GetFloorBit/GetFloorMask in GMatShare map -100 tofloorbit1
+and0 tofloorbit8; basement-1 mask7 therefore includes old grass and excludes
+the corrected ground grass. That visibility consequence is a source-level
+consumption audit, not a new screenshot/renderer-equivalence claim.
+Initial Linux related native-display gate lacked an SDL display (16
+setup failures, archived grass-floor-final-linux-no-display); the same list
+is rerun under Xvfb/Openbox with no additional source changes.
+Full Game builds, related33Win/33Linux (terrain dispatch, head idle, lights,
+ambient/script effects, decals/network) and CI323 pass; new2 resource extended
+outside323. Broader aa source remains partial (fragments/knockout/melee miss/
+plain-ray wrapper semantics pending). Evidence grass-floor-retail-oracle/
+verification JSON, original633byte bodies/disassembly and native logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.

@@ -500,7 +500,8 @@ void CSetRender::AddGrass( CTerrainInfoHolder *pInfo )
 					pGrassTracker->GetSectorBound( nLayer, nX, nY, &bound );
 					pGrassTracker->GetBoundTransform( nX, nY, &transform );
 					NGScene::CCFBTransform *pPlace = new NGScene::CCFBTransform( transform );
-					Register( pScene->CreateGrassSector( pAnimator, NDb::GetTexture( nTexID ), pPlace, bound ) );
+					// Original Gold 0x6c6f9f / Steam 0x6cda7f: terrain grass belongs to floor zero.
+					Register( pScene->CreateGrassSector( pAnimator, NDb::GetTexture( nTexID ), pPlace, bound, NGScene::SRoomInfo( 0 ) ) );
 				}
 			}
 		}

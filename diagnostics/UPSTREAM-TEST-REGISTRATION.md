@@ -750,3 +750,13 @@ input/alive checked. GREEN damage<=5 avoids unrelated blood-particle RNG;
 its legitimate old >5 path explains extra RED draws. Full Game builds,
 related100Win/100Linux, CI323; new12 outside323. All037c functional hunks now accounted
 with original arithmetic corrections and compatible own API adaptations.
+
+## Native terrain grass room floor
+
+NativeTerrainGrassFloor0..1: resource extended Win/Linux,timeout120. Actual
+worlds810/4517/terrain/grass trackers/animators/CSetRender; recording scene sink
+retains inputs and captures metadata, no GPU screenshot claim. RED2/2 ->
+GREEN2/2 each; all4+44 sectors -100 ->0,85 terrain controls remain0, room groups
+null and actual texture/pose/animator present, shared default-100 preserved.
+Original633byte helper/typed room and floor0 arguments independently mapped.
+Full Game builds, related33Win/33Linux, CI323; new2 outside323. No generated assets.

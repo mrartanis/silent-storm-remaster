@@ -2469,3 +2469,14 @@ The source's stale address comments are corrected to mapped Steam7515e6..
 public noarg CheckIC remain compatible. This completes the useful037c hunks,
 including original-verified corrections to the source's float sum order.
 The earlier Linux narrow perk-label logging issue remains separately recorded.
+
+### `aa031e2e`: terrain grass has ground-floor metadata
+
+Terrain grass now receives floor0 explicitly instead of default-100. The
+native consumer's floor bits imply that grass is excluded by basement-1
+mask7 (ground bit8), instead of remaining included via old bit1. Native
+worlds810/4517 verify48 actual grass sectors and85 unchanged terrain controls;
+the shared default-100 for other scene nodes remains intact. This is a visual
+floor-visibility correction with no combat formula or DB/HD asset change.
+Native render dispatch metadata is tested; actual GPU pixels are not claimed
+verified here. Fragment/knockout/melee/plain-ray parts of aa remain pending.
