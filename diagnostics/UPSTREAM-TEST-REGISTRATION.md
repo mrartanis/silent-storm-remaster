@@ -1014,3 +1014,16 @@ cap/difficulty checked. Full Game builds, related145Win/145Linux, CI323; evidenc
 critical-probability-precision. Exact original FILD/FMULS/FCOMPP has no FLOATstore;
 ordinary authored boundaries certified, no extreme/custom/nonfinite/fullUI claim.
 All functional source65558b11 hunks now have independent native/original evidence.
+
+## 2026-10-31: NativeDBOverlaySentinel0..9
+
+Both CMake lists, extended/120s. Actual authored DB/native Serialize READ overlay,
+single-cell in-memory edits with native chunk lengths and real CP1251 Script56 /
+UTF16 CString25. Accepted RED5/10 ->GREEN10/10 both; five controls. Int/bool/float/
+narrow/wide markers now preserve output; ordinary0/true/0/Lua-return8/localized
+control still apply. Record/table identity/count and another CP1251 script stay
+exact. No new disk/game-tree copy/write or mock importer. Invalid include/eight-
+character fixture attempts archived separately, final RED both beforeproduction.
+Full Game builds, related156Win/155Linux, Windows existing NativeModManagerTests, CI323.
+Evidence prefix db-overlay-sentinel; data-loader checks do not certify full UI/
+script execution. Linux manager target unavailable, native overlay cases pass.

@@ -11,6 +11,7 @@
 #include "../Misc/StrProcCodePage.h"
 #include <set>
 #include <cstdlib>
+#include <cstring>
 
 #if defined(_WIN32)
 #import "C:\Program Files (x86)\Common Files\System\ADO\msado15.dll" no_namespace rename("EOF", "EndOfFile")
@@ -829,10 +830,8 @@ void NDatabase::Refresh( int nTableID )
 }
 #endif // _WIN32: legacy SQL import/refresh is not used when loading game.db.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// v1.2 @0x7ef6d0-family: the scalar ImportFields now report success -- a missing
-// column returns false and leaves *pData untouched (v1.1 zero-filled on the storage
-// path / asserted + read column 0 on the ADO path), so a runtime mod db lacking a
-// column preserves the record's previous field value.
+// Target v1.2 storage getters preserve output on empty overlay sentinels.
+// Keep own column-presence diagnostics and CP1251 conversion below.
 bool NDatabase::ImportField( const char *pszFieldName, int *pData )
 {
 	if ( pStorageSource )
@@ -843,7 +842,10 @@ bool NDatabase::ImportField( const char *pszFieldName, int *pData )
 				pStorageSource->GetCurrentRecordID() );
 			return false;
 		}
-		*pData = pStorageSource->GetInt( pszFieldName );
+		const int nValue = pStorageSource->GetInt( pszFieldName );
+		if ( static_cast<std::uint32_t>( nValue ) == UINT32_C(0xfdfdfdfd) )
+			return false;
+		*pData = nValue;
 		return true;
 	}
 #if defined(_WIN32)
@@ -866,7 +868,10 @@ bool NDatabase::ImportField( const char *pszFieldName, bool *pData )
 				pStorageSource->GetCurrentRecordID() );
 			return false;
 		}
-		*pData = pStorageSource->GetBool( pszFieldName );
+		const int nValue = pStorageSource->GetInt( pszFieldName );
+		if ( static_cast<std::uint32_t>( nValue ) == UINT32_C(0xfdfdfdfd) )
+			return false;
+		*pData = nValue != 0;
 		return true;
 	}
 #if defined(_WIN32)
@@ -889,7 +894,12 @@ bool NDatabase::ImportField( const char *pszFieldName, float *pData )
 				pStorageSource->GetCurrentRecordID() );
 			return false;
 		}
-		*pData = pStorageSource->GetFloat( pszFieldName );
+		const float fValue = pStorageSource->GetFloat( pszFieldName );
+		std::uint32_t nBits = 0;
+		std::memcpy( &nBits, &fValue, sizeof(nBits) );
+		if ( nBits == UINT32_C(0xfdfdfdfd) )
+			return false;
+		*pData = fValue;
 		return true;
 	}
 #if defined(_WIN32)
@@ -916,6 +926,8 @@ bool NDatabase::ImportField( const char *pszFieldName, std::string *pData )
 		// The Russian Steam release runs with Windows-1251; keep its narrow
 		// string bytes independent of the host's locale or UTF-8 filesystem.
 		std::wstring ws = pStorageSource->GetWString( pszFieldName );
+		if ( ws == L"fdfdfdfd" )
+			return false;
 		NStr::ToAsciiCodePage( pData, ws, 1251 );
 		return true;
 	}
@@ -939,7 +951,10 @@ bool NDatabase::ImportField( const char *pszFieldName, std::wstring *pData )
 				pStorageSource->GetCurrentRecordID() );
 			return false;
 		}
-		*pData = pStorageSource->GetWString( pszFieldName );
+		const std::wstring ws = pStorageSource->GetWString( pszFieldName );
+		if ( ws == L"fdfdfdfd" )
+			return false;
+		*pData = ws;
 		return true;
 	}
 #if defined(_WIN32)

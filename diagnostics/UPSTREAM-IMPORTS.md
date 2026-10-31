@@ -20102,3 +20102,66 @@ Gold/Steam differences are recorded. Direct script SCritical and own legacy
 null-world entry, native audio/codecs, facial engine, fonts, SDL/bgfx and LAN
 are preserved. Other pending sources remain separate; this is not final-head
 hosted CI or completion of the whole upstream queue.
+
+## 2026-10-31: columnar overlay empty scalar markers (`360344ca` partial)
+
+Restores target storage semantics for actual `0xfdfdfdfd` integer/float bits and
+exact UTF16 `fdfdfdfd`: return false WITHOUT modifying the previous native output.
+Bool goes through the integer value before conversion, so a marker cannot turn
+false into true. Float compares copied bits rather than numeric/sign tests.
+String checks occur BEFORE the existing own CP1251 conversion; wide strings keep
+their ordinary copy path. Own missing-column diagnostics, overlay=true identity/
+count behavior, portable loading, explicit CP1251 codec and ADO editor path remain.
+Own Serialize third argument still means overlay; donor bBuildLinks/ModManager/
+PreCreate rewrite is not blindly copied. No database file/authored field/default,
+public API, class member, save or LAN shape changes.
+
+Named CDBTableDataStorage RTTI GoldTD93e8ac/COL8cdb84/vt8a355c ->SteamTD94f8ec/
+COL8dd21c/vt8b2564. Gold PDB fields: intRows0c/float18/wstring24, names3c/48/54,
+cursor60; target slots24/int401460,2c/bool4011d0,30/float4014a0,34/narrow4014f0,
+38/wide4015c0. Target named Difficulty Import wrappers4018a0/c0/e0 dispatch those
+slots; the wrapper addresses are not confused with getter bodies. Exact40147b
+compares FDF bits/returnsAL0 BEFORE outwrite, else writes/AL1. Bool4011d0 calls
+that integer getter into a local, false returns BEFORE output, success writes
+local!=0/AL1. Float4014bd stores exact float bits temporarily, compares FDF and
+false-returns before outwrite; ordinary values copy/AL1.
+
+Exact narrow401526 and wide4015de compare UTF16 length/content with global
+wstring9881b0/b4. Actual static initializer896b70 constructs it from UTF16 literal
+8b2638 `fdfdfdfd`. Gold PDB wcsncmp8252f9/53 maps EXACT/UNIQUE toSteam833279,
+used in both guards; equal length/content returnsfalse before any assignment.
+Narrow conversion404680 follows only at40156e..574, wide assignment at401617.
+Gold getters have an older return-value ABI; the real version difference is not
+masked or transplanted into own native storage. Evidence:
+db-overlay-sentinel-retail-oracle.json, named fields, actual getter/initializer
+and wrapper disassembly.
+
+NativeDBOverlaySentinel0..9 load the ACTUAL authored game.db through native
+NDatabase::Serialize. A single real cell in a valid full columnar overlay is
+changed IN MEMORY, with original native chunk parents/lengths rebuilt as needed
+for actual Cyrillic Script56.CodeText; source file and game/build trees are not
+copied/written by these new cases. Production native Serialize(READ,overlay=true)
+imports that overlay. Select actual RPGAP5/AP20, Difficulty3/HealOnLeaveZonefalse,
+Difficulty1/OurDamageMult bits3faa3d71, actual Script56 CP1251 code and localized
+CString25 UTF16. No mock storage/importer/model path or new test-only engine API.
+
+Complete accepted RED5/10 ->GREEN10/10 EACH platform; five controls already pass.
+Markers formerly replaced AP20 with -33686019, false withtrue, authored float
+with FDF bits, real Cyrillic Lua code and localized string with marker text.
+Now all five old values remain exact. Ordinary controls STILL APPLY: int0,
+booltrue, float0, valid Lua `return 8`, localized UTF16 control. Actual table/record
+identity and record counts26/3/113/9953 stay stable, plus another actual CP1251
+script remains byte-identical. Selected CodeText is also byte-identical under
+marker; localized strings match UTF16 hashes on both platforms. Full script/UI/
+policy execution is not claimed by these data-loader checks.
+
+Initial missing/legacy StrProc include compilation and nonexistent eight-character
+Perk UserName fixture assumptions are archived and NOT accepted RED. Corrected
+fixture uses isolated StrProcCodePage header and ACTUAL Cyrillic CodeText with
+valid original wire chunk reconstruction. Complete final RED rerun both BEFORE
+production. Full Windows/Linux Game builds, related156Win/155Linux, Windows existing
+NativeModManagerTests and CI323 pass. Linux has no existing manager test target;
+native overlay identity/count/codec cases pass there. Source remains partial:
+derived CanSave success consumer and other scenario/context/called-shot/mod-link
+hunks are separate pending work.
+Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).

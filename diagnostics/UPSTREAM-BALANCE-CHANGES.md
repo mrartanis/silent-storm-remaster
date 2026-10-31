@@ -2785,3 +2785,20 @@ damage factor, applied severity, cap placement, PK/perks46/47, forced flag and
 difficulty fallback fixes. Original post-cap fallback, null/level0 and chance0
 quirks remain. All limits/unverified scenarios above remain in force; other
 upstream sources and actual final-head hosted CI are still pending.
+
+## 2026-10-31: preserve existing fields at empty mod overlay markers
+
+Restores original target handling of integer/float bitsFDFDFDFD and exact UTF16
+`fdfdfdfd`: leave the previous value untouched and report no imported value.
+Previously a mod's empty cell could replace AP20 with -33686019, turn a false
+flag true, corrupt a damage coefficient, or replace Cyrillic code/localized text
+with marker text. All five now retain the existing actual native value. Ordinary
+int0/booltrue/float0 and real narrow/wide text overrides continue to apply.
+
+Native actual DB overlay RED5/10 ->GREEN10/10 each; pointer/count/CP1251/UTF16
+controls remain exact. Original named storage getter/vtable, sentinel literal/
+initializer and exact wcsncmp comparison verified. Full Game builds, related
+156Win/155Linux, Windows manager regression and CI323 pass. Own overlay semantics,
+codecs, missing-field diagnostics, database files and ADO path preserved.
+These are actual data-loader checks, not full UI/script execution claims. The
+derived CanSave caller's false-return guard remains separate pending work.
