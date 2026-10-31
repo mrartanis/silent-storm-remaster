@@ -19,6 +19,7 @@
 #include "rpgPerk.h"
 #include "rpgPerkConstants.h"
 #include <cstdint>
+#include <cmath>
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NRPG
 {
@@ -89,7 +90,7 @@ void CSkilledObject::AddXP( float fXPToAdd )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CDynamicSkill (retail modifier-list model; RPGUnit.obj)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// Cap recomputation rounding; Upgrade uses separate truncating conversions.
+// Legacy difficulty-scaling rounding; audited separately from Update/Upgrade.
 static inline int SkillRound( float f ) { return int( f + ( f < 0 ? -0.5f : 0.5f ) ); }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail @0x2bbb20: recompute the cap from base+XP and every live modifier, sweeping dead
@@ -111,7 +112,8 @@ void CDynamicSkill::Update()
 		fAdd += p->fAdd;
 		++i;
 	}
-	nMaxValue = SkillRound( float( nMaxValue ) * fMul + fAdd );
+	// Original FISTP uses the game's nearest mode (ties even); Upgrade uses CHOP.
+	nMaxValue = int( std::nearbyintf( float( nMaxValue ) * fMul + fAdd ) );
 	if ( nMaxValue <= nValue )
 		nValue = nMaxValue;
 }

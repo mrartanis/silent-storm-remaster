@@ -1415,3 +1415,24 @@ clears map and writes base vtable. Accepted real-stack scratch bytes/context/con
 restored, six CW007f and normal exit 0. Earlier prefix/detached-stack attempts rejected.
 Runtime is an isolated initialized main-menu kernel, without combined-perk or live mission
 frequency parity claims. Evidence prefix training-perks.
+
+## 2026-10-31: nearest-even rounding of modified skill caps
+
+NativeDynamicSkillRounding0..15: actual production Update with real RAII modifier,
+explicit public controlled input setters, fixed nearest-even literal caps and
+signed/odd/even/non-half/XP/hurt/frozen controls. Initial constructor effects are reset
+before the measured Update; no native private-offset access. Native RED: 8 among 282
+Windows / 281 Linux; full GREEN 547 Windows / 546 Linux, exact RED-test inclusion verified
+and no duplicate focused GREEN.100 identical measured controls and unchanged old272
+learning/374 association reference rows. Shared-cap regressions additionally cover
+wounds/perception/to-hit/AP/grenades/familiarity; full Game builds and CI 323. New tests
+are extended/outside323, timeout120.
+
+Complete actual original 178 at independently bound6bbb80, unique normalized178 with only
+two verified cleanup calls and typed operands.32 original-address binary-exact input/CW
+records, exact cap/current/base/XP/progress/freeze and stable live
+modifier/vector/references. Effective getter result is derived, not executed; original
+constructor/dead-entry/GC/ScaleForDifficulty are not runtime-proved by this matrix. Six
+CW007f, real-stack bytes/context/config restored and normal exit 0. Unchanged Upgrade
+truncation and old difficulty helper are explicitly checked. Evidence prefix
+dynamic-rounding.

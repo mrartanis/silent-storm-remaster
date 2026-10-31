@@ -3250,3 +3250,25 @@ rate/Upgrade/association fixes; other remaining commits and whole-task final-hea
 CI are still pending.
 
 Source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).
+
+## 2026-10-31: nearest-even rounding of modified skill caps
+
+Modified skill caps now round exact halves to the nearest even integer in the observed
+game environment, matching original Update: `5 * 0.5` becomes 2 rather than 3; `30 - 7.5`
+becomes 22 rather than 23; a controlled -2.5 cap becomes -2 rather than -3. Damage to the
+raw current value is preserved; frozen skills still expose the cap. XP parts, stored
+practice progress and authored modifiers/rates/data do not change. Upgrade still truncates
+whole progress/caps; difficulty scaling uses its existing helper pending a separate
+original caller audit.
+
+Native RED: 8 among 282 Windows / 281 Linux; full GREEN 547 Windows / 546 Linux, 100
+identical measured controls. 16 real-cell/modifier fixtures and 32 complete
+actual-original 178 input/CW records, with exact cap/raw/base/XP/progress/freeze and
+unchanged native RNG. Effective original view is derived from the captured fields, without
+executing its getter. Original stack/context/config restored and normal exit 0. Full Game
+builds, wounds/perception/to-hit/AP/grenade consumers and CI 323 pass. Exact finite binary
+boundary scope; altered FPU mode/exception flags, nonfinite/overflow, all non-binary FMA
+and dead-modifier/World difficulty behavior are unclaimed here. Remaining source count 57
+and whole-task final-head hosted CI are still pending.
+
+Source: [a8c50bf29e70191077257cca1a7fbd4cae01b731](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8c50bf29e70191077257cca1a7fbd4cae01b731).

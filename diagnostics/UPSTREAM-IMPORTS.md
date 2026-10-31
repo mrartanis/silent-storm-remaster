@@ -21523,3 +21523,71 @@ training-perks, including retail-mapping/original-kernel/oracle/verification, re
 input-prefix/detached-stack captures and native RED/full GREEN logs.
 
 Source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).
+
+## 2026-10-31: nearest-even rounding of modified skill caps (inherited `a8c50bf2` correction)
+
+CDynamicSkill::Update now converts its folded float cap with the current nearest mode
+(std::nearbyintf followed by integer conversion), matching the observed game RN
+environment and original ties to even. The old half-away SkillRound remains ONLY on
+ScaleForDifficulty until its independent caller/conversion audit; Upgrade retains its
+separately proved CHOP/truncation. Fold/list/raw-current clamp, XP/progress/base/freeze,
+save fields and authored records are unchanged. This is an independent inherited
+reconstruction correction: blame identifies source a8c50bf2 as the origin of SkillRound,
+rather than a new source 2893 training behavior.
+
+16 actual native cells with a real held RAII modifier use public
+SetConst/SetNewMaxValue/SetValue after attachment to establish exactly captured
+direct-Update inputs. This intentionally resets the constructor's prior flat/current
+effect; it does not claim AddModifier constructor behavior. Literal binary-exact
+positive/negative halves, odd/even ties, non-half controls, XP parts 0/3/4, hurt raw
+current and frozen effective values. No private native offsets. Examples:`5 * 0.5`
+formerly cap 3, now 2; `30 - 7.5` formerly 23, now 22;the controlled cap -2.5 formerly -3,
+now -2. A hurt current 20 stays 20 with cap 22; a frozen view reports 22. Progress 0.25,
+base/XP and four following RNG words remain unchanged. These are bounded direct-cell
+stimuli, not new authored database values.
+
+Fresh native RED: eight failures among 282 Windows / 281 Linux before production. Full
+GREEN: 547 Windows / 546 Linux, a strict test-name superset of RED, executed once as
+GREEN/full evidence.100 identical measured controls (eight new controls plus92 old
+learning/association/base/Upgrade/knife/critical rows),272 identical learning and374
+identical association reference cell rows. All existing assertions/literals retained.
+Because Update is shared, the full gate adds wound/healing, visibility/stealth, to-hit, AP
+and grenade/familiarity consumers. Full Game builds on both platforms and asset-free CI
+323.
+
+Named Gold Update6b5960/178 is independently bound to actualSteam6bbb80 by the unique
+EXACT142 GoldUpgrade6b5a70 ->Steam6bbc90 and its decoded call+7b. Full178 uniquely matches
+with ONLY two verified weak-list cleanup call displacements. Named/folded copy66 and
+weak-pointer destructor12 map to actual480620/649e10: pointer copy/refcount+8 and their
+common ReleaseRef target independently decoded; actualReleaseRef starts with
+weak--/strong-mask guard. Deeper GC global/call differences are retained, without a whole
+ReleaseRef/call-graph equivalence claim or structural masks. All
+math/frame/register/branch/constants in178 remain unmasked. Typed cell
+base0c/XP10/progress14/cap18/current1c/vector20/frozen2c, modifier pSkill0c/mul10/add14.
+Each modifier fold is F32-stored. Final FILD integer base+XP, FMUL/FADD, FSTPS and
+default-CW FISTP6bbc0e: NO FLDCW; RN gives nearest-even.
+
+Actual COMPLETE original 178 executes at its original address with16 captured native input
+sets x observedPC24/RN and diagnosticPC53/RN =32 exact records. Controlled original-layout
+cell/live modifier/vector have typed valid strong/weak counts, with all
+cap/raw/base/XP/progress/freeze values, vector/modifier/reference fields checked. Math
+comes from original instructions, not a fake provider. Effective value is explicitly
+DERIVED from captured cap/current/freeze under the already-audited getter rule; original
+getter and modifier constructor are NOT executed. One valid live modifier means dead-entry
+cleanup/GC is not runtime-exercised by this matrix. No original executable/world/DB/TEB
+patch or original heap allocation. Six CW/FXSAVE007f, guarded Game-code/empty-x87
+acquisition, original-stack scratch backup/restoration/readback verification and full
+captured context restore; normal WM_CLOSE/exit0/config restore.
+
+Scope is exact finite binary operand boundaries and the observed nearest environment,
+without altered-round-mode, floating exception-flag, overflow/nonfinite or all non-binary
+multiply-add/FMA parity claims. ScaleForDifficulty remains pending independently,
+including its actual World.CreateAIUnits context/field/call order: current comments and
+helper-only arithmetic must not substitute for an original caller audit. Source 2893 stays
+imported from102; remaining source count 57 is unchanged by this inherited precision
+correction. Whole-task final-head hosted CI remains pending. Evidence prefix
+dynamic-rounding: binding/mapping, typed members, actual 32 original-kernel/oracle,
+RED/full GREEN/verification logs.
+
+Source: [a8c50bf29e70191077257cca1a7fbd4cae01b731](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8c50bf29e70191077257cca1a7fbd4cae01b731).
+Related source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).

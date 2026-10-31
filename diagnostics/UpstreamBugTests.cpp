@@ -30116,6 +30116,23 @@ static void NativeAssociatedAttributeTraining(const char* databasePath,int mode)
     Require(actual==expected && matched,"native skill practice omitted its associated primary-attribute training or changed other cells");Require(unit->fXP==xp && unit->GetPerksTree()->GetPerkPoints()==points && random.Get()==GlobalGameRandom().Get(),"associated training changed totalXP/points/RNG");
 }
 
+static void NativeDynamicSkillRounding(int mode)
+{
+    struct Sample{int base,xp,hurt;float mul,add;bool frozen;int maximum,raw,effective;};static const Sample samples[]={
+      {1,0,0,.5f,0,false,0,0,0},{3,0,0,.5f,0,false,2,2,2},{5,0,0,.5f,0,false,2,2,2},{7,0,0,.5f,0,false,4,4,4},
+      {30,0,0,1.f,-7.5f,false,22,22,22},{30,0,0,1.f,-6.5f,false,24,24,24},{30,0,0,1.f,.5f,false,30,30,30},{31,0,0,1.f,.5f,false,32,31,31},
+      {30,3,0,.5f,0,false,16,16,16},{30,4,0,.5f,0,false,17,17,17},{30,0,10,.75f,0,false,22,20,20},{30,0,10,.75f,0,true,22,20,22},
+      {30,0,0,.75f,.25f,false,23,23,23},{30,0,0,.75f,-.75f,false,22,22,22},{30,0,0,0.f,-2.5f,false,-2,-2,-2},{30,0,0,0.f,-3.5f,false,-4,-4,-4}};
+    Require(mode>=0 && mode<int(sizeof(samples)/sizeof(samples[0])),"unknown dynamic skill rounding mode");const auto& x=samples[mode];CObj<NRPG::CDynamicSkill> cell=new NRPG::CDynamicSkill(x.base,x.base);CObj<NRPG::CSkillModifier> modifier=new NRPG::CSkillModifier(cell.GetPtr(),NRPG::SSkillModifyInfo(x.mul,x.add));
+    // Establish an explicit direct-Update input through public setters, after RAII attach.
+    // SetConst retains the real modifier; SetNewMaxValue supplies XP without an Update.
+    // This deliberately resets the constructor's prior flat/current effect; no AddModifier parity claim.
+    cell->SetConst(x.base);cell->SetNewMaxValue(x.base+x.xp);cell->SetValue(x.base+x.xp-x.hurt);cell->SetProgress(.25f);cell->FreezeToMax(x.frozen);cell->FreezeToMax(false);const int initialRaw=*cell;cell->FreezeToMax(x.frozen);Require(initialRaw==x.base+x.xp-x.hurt && cell->GetTheoreticalMax()==x.base+x.xp && cell->GetXPPart()==x.xp && cell->GetMaxValue()==x.base+x.xp && modifier->pSkill.GetPtr()==cell.GetPtr(),"rounding fixture did not establish controlled real cell/modifier input");
+    auto random=GlobalGameRandom();cell->Update();const int effective=*cell;cell->FreezeToMax(false);const int raw=*cell;cell->FreezeToMax(x.frozen);auto continuation=GlobalGameRandom();bool rng=true;for(int i=0;i<4;++i)rng=rng && random.Get()==continuation.Get();
+    std::printf("native dynamic-rounding mode=%d base=%d part=%d initialRaw=%d initialMaximum=%d mul=%.9g add=%.9g frozen=%d maximum=%d raw=%d effective=%d expectedMaximum=%d expectedRaw=%d expectedEffective=%d progress=%.9g rng=%d\n",mode,x.base,x.xp,initialRaw,x.base+x.xp,modifier->fMul,modifier->fAdd,int(x.frozen),cell->GetMaxValue(),raw,effective,x.maximum,x.raw,x.effective,cell->GetProgress(),int(rng));std::fflush(stdout);
+    Require(cell->GetMaxValue()==x.maximum && raw==x.raw && effective==x.effective,"native dynamic skill rounded an exact half away from zero instead of original nearest-even");Require(cell->GetTheoreticalMax()==x.base+x.xp && cell->GetXPPart()==x.xp && cell->GetProgress()==.25f && modifier->pSkill.GetPtr()==cell.GetPtr() && modifier->fMul==x.mul && modifier->fAdd==x.add && rng,"dynamic Update changed base/XP/progress/modifier ownership/values/RNG");
+}
+
 static void NativeDynamicSkillUpgrade(int mode)
 {
     struct Sample {int part;float progress,add,cap;int hurt;bool frozen,advanced;int expectedPart;float expectedProgress;int expectedMaximum,expectedRaw,expectedEffective;};static const Sample samples[]={
@@ -32269,6 +32286,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "better-spotting")) { Require(argc==5,"spotting requires db/resources/mode"); BetterSpottingPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-learning-perk-training")) { Require(argc==4,"learning training requires db/mode"); NativeLearningPerkTraining(argv[2],std::atoi(argv[3])); return true; }
     if (!std::strcmp(mode, "native-associated-attribute-training")) { Require(argc==4,"associated training requires db/mode"); NativeAssociatedAttributeTraining(argv[2],std::atoi(argv[3])); return true; }
+    if (!std::strcmp(mode, "native-dynamic-skill-rounding")) { Require(argc==3,"dynamic rounding requires mode"); NativeDynamicSkillRounding(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "native-dynamic-skill-upgrade")) { Require(argc==3,"dynamic skill upgrade requires mode"); NativeDynamicSkillUpgrade(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "native-fractional-skill-training")) { Require(argc==4,"fractional training requires db/mode"); NativeFractionalSkillTraining(argv[2],std::atoi(argv[3])); return true; }
     if (!std::strcmp(mode, "unhide-base")) { Require(argc==5,"unhide base requires db/resources/mode"); UnhideBasePrecision(argv[2],argv[3],std::atoi(argv[4])); return true; }
