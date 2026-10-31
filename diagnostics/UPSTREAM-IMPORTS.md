@@ -21591,3 +21591,101 @@ RED/full GREEN/verification logs.
 
 Source: [a8c50bf29e70191077257cca1a7fbd4cae01b731](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8c50bf29e70191077257cca1a7fbd4cae01b731).
 Related source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).
+
+## 2026-10-31: medical and engineering action practice (`156ccd17` complete)
+
+RegisterAction now routes FIRSTAID19 to medicine7 and TRAP_OBJECT34, DISARM_TRAP35,
+SET_MINE36, DISARM_MINE37, PICK_LOCK39 and REPAIR_PK40 to engineering8 through the
+existing mission UseSkill acknowledgment/log path. Existing Unit training also practices
+INT16 first, uses actual authored rates/caps/learning factors, and acknowledges only
+whole-point improvements. Source156 mounted-reload effective-weapon selection was already
+imported and is rechecked by the final gate. All source hunks are now accounted for. No
+authored rates/parameters/data, XP reward, action costs, equipment, save/network schema or
+new balance constants.
+
+28 native real-mission/unit fixtures:7 missing actions x fractional/wholepoint boundaries
+plus14 existing-action/no-training controls. Real reference calls the previously
+original-audited Unit UseSkill on a cloned native persona2; all17 cells, selected and
+associated progress, whole XP parts, caps/raw/frozen views, single skill acknowledgment/no
+duplicate, totalXP/perk points/movement/repetition accounting and4 subsequent RNG words
+checked. Literal controlled totalXP1 and1000000 with pre-boundary progress.999999 are
+diagnostic inputs, not authored changes. RED14/91 on both Windows/Linux; full GREEN 374
+Windows / 375 Linux is a strict RED-test-name superset and executed once.76 identical
+measured controls,476 unchanged new initial/reference cell rows,272 old learning and374
+old association rows unchanged. Full Game builds and CI323 pass, including native
+treatment/tool/reload/action acknowledgment consumers. An initial Windows virtual-memory
+compiler failure and interrupted/resource-failed Linux attempt were archived as
+environment failures, not behavioral RED.
+
+Original binding uses named Gold RegisterAction6b8af0/300 and verified CUnitMission RTTI:
+Gold TD96fc90/COL8e2ca8/VT8b63cc ->actualSteam980de4/8f23e0/8c54e4 at complete-object
+offset4c. Their same virtual slot80 independently identifies actual RegisterAction6c2080.
+Entire actual227 code bytes,1 padding byte,40 jump-table bytes and40 selector bytes
+decoded; selector40 is exact across versions. All7 action codes select original
+medicine/engineering handlers6c212d/6c2151. Original calls real mission wrapper6c1fb0/196.
+NamedGold UseSkill6bc980/196 maps through unique exact27 prefix with only independently
+verified Unit-call displacement (actual6bc640); typed mission unit field164, fraction-only
+ALfalse return6c206e and true SaveAck2/null call6c1e40 independently decoded.
+
+The first expanded374 gate exposed3 worn-pilot repair assertions. A read-only diagnostic
+rerun failed1/3: real repair sound can cause pilot103 Spot->INT practice. Pilot wore a
+real suit with effectiveSTR11, but its VP base was still140 (pre-suit STR9),
+XP7/max147/current140. The original-backed UpdateSkills canonicalizes base160, max167 and
+preserves missing7 by raising current160. That unrelated stat rebase is not kit healing.
+Test setup now stabilizes real derived values after suit wear BEFORE applying the SAME old
+wounded rawHP140 and existing wound critical. It asserts original
+canonical10*(effectiveSTR+5)+XP. No production PK/stat ordering or pilot-health rule
+changed. All old pilotHP140, AP51/49, engineering repair247, shell progress, dose10->9,
+ACK, medal and non-healing assertions remain. Corrected3 controls pass under
+baselineHEAD103 without the7 new mappings; then exact104 production was restored for final
+gates. Initial3/374 and1/3 diagnostic failures, baseline3 controls and normalization
+rationale retained raw. The initial baseline3/3 pass alone did not establish that the
+variable hearing exposure was absent before104; no unsupported causal claim is made.
+
+After the host interruption, Linux had no DISPLAY/XDG runtime environment. The initial
+full Linux run could not create hidden SDL windows in the8 existing camera-lock cases
+included by this broad lock/tool filter. NativeLockTokenTests and NativeRPGItemMapTests
+also had no built executables in the reused limited-target build; their existing targets
+were added to the final build list. These environment/not-run outcomes were retained; a
+direct existing camera0_0 case passed under owned Xvfb/Openbox with software rendering,
+then the unchanged entire Linux gate reran in that environment with all helper binaries
+built. No case was removed, excluded or given a weaker assertion. Owned window
+manager/display processes are cleaned up by the wrapper.
+
+28 actual-original records execute entire original Register227/tables80 and wrapper196 at
+their real addresses with14 captured fractional native inputs x observedPC24/RN and
+diagnosticPC53/RN, then real Unit156/table36/recursive/base151/DB/cap75/Upgrade/Update.
+All17 cells match the native reference,476 exact integer/state checks and progress
+absolute1e-7; action/repetition/movement and no acknowledgment allocation checked. Sparse
+typed mission/unit/cells represent native no-acquired-learning-perk inputs with null tree;
+no original constructor/lifecycle or owned-perk proof claimed. Fractional falsepath
+deliberately does not execute original acknowledgment/log allocations; native wholepoint
+checks use existing real mission acknowledgment code and earlier original-backed Unit
+boundaries. Original real-stack scratch bytes backed up/restored/readback verified before
+full WOW64context restoration; six CW/FXSAVE007f samples, normal WM_CLOSE/exit0/config
+restore. No original code/world/DB/TEB patch.
+
+Gold/Steam Register bodies genuinely differ (mission acknowledgment wrapper,
+repeated-burst guard, lastaction assignment order); no whole-body byte equivalence or
+arbitrary structural masks are claimed. This fix adds only the7 dispatch mappings;
+repeated-burst accounting remains a separate source. Original HIDE->STEALTH mapping was
+also observed but belongs to separately held2e15a102 and needs its live explicit-state
+Hide entry/exit/idempotency audit before import. Original high-level action
+completion/frequency is not proved by direct Register tests alone.
+
+The preceding NPC difficulty hypothesis was rejected without a production change: native
+Win/Linux4/22 failures asserted surviving Easy/Normal reductions, but unique EXACT244
+original World block76050d->76beed has the same VP/AP-before-level ordering and actual
+named/unique normalized271 SetXPLevel recomputes caps/current. The expected contract was
+unsupported. Its6 exploratory tests were removed and saved with raw logs in
+npc-difficulty-hypothesis-rejected.json/patch. Original scale blocks use explicit CHOP
+conversion; a separate helper-rounding followup remains, without changing World ordering
+or tuning NPC balance.
+
+Remaining ordinary pending/partial sources56; excluded-balance rows still require
+reconciling against newly established training/AP evidence before whole-task completion.
+Hosted final-head CI remains pending. Evidence:
+action-practice-retail-mapping/original-kernel/retail-oracle and
+medical-engineering-practice RED/fullGREEN/verification.
+
+Source: [156ccd173ff6c9671904e6d94e709397fc701d66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/156ccd173ff6c9671904e6d94e709397fc701d66).

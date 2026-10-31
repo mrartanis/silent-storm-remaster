@@ -1436,3 +1436,23 @@ constructor/dead-entry/GC/ScaleForDifficulty are not runtime-proved by this matr
 CW007f, real-stack bytes/context/config restored and normal exit 0. Unchanged Upgrade
 truncation and old difficulty helper are explicitly checked. Evidence prefix
 dynamic-rounding.
+
+## 2026-10-31: medical and engineering action practice
+
+NativeMedicalEngineeringPractice0..27 exercises real RegisterAction->mission->Unit
+practice for7 restored medical/engineering actions, fractional and wholepoint cases,
+plus14 existing/noop controls. All17 real cells compare with cloned native Unit UseSkill;
+one/no acknowledgment and no duplicate, unchanged XP/points/RNG/movement/repetition
+checks. Native RED14/91 both; full GREEN 374 Windows / 375 Linux, strict RED-name
+inclusion,76 identical measured controls,476 initial/reference rows and old272/374 cell
+rows preserved. Full Game builds and CI323. Tests remain extended/outside323, timeout120.
+
+Actual original Register227/table80 and realwrapper196 are bound by
+namedGold/typedRTTI/VTslot80 plus unique27 prefix with only verified Unit-call
+relocation.28 fractional original-address input/CW records check476 cells and actual
+action state; original acknowledgment/log truepath and live command frequency not
+runtime-covered by this sparse fixture. Real-stack byte restoration/readback,
+fullcontext/config restoration, normalexit0. All source156 hunks now accounted for
+including earlier mounted reload; no obsolete hypothesis accepted as a regression.
+
+Source: [156ccd173ff6c9671904e6d94e709397fc701d66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/156ccd173ff6c9671904e6d94e709397fc701d66).

@@ -514,6 +514,19 @@ void CUnitMission::RegisterAction( EAction action )
 		case AC_BURST:
 			UseSkill( NDb::ST_BURST );
 			break;
+		case AC_FIRSTAID:
+			// Original Steam 1.2 RegisterAction: 0x6c212d -> medicine practice.
+			UseSkill( NDb::ST_MEDICINE );
+			break;
+		case AC_TRAP_OBJECT:
+		case AC_DISARM_TRAP:
+		case AC_SET_MINE:
+		case AC_DISARM_MINE:
+		case AC_PICK_LOCK:
+		case AC_REPAIR_PK:
+			// These six original action codes share the engineering handler at 0x6c2151.
+			UseSkill( NDb::ST_ENGINEERING );
+			break;
 		case AC_MOVE_DIAGONAL:
 		case AC_MOVE_SIDE:
 			// retail @0x34edb0: the nMoveInLastTurn accounting moved to DoAction (gated on RUN pose); here we

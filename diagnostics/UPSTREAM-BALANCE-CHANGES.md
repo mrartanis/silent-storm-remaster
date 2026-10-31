@@ -3272,3 +3272,29 @@ and dead-modifier/World difficulty behavior are unclaimed here. Remaining source
 and whole-task final-head hosted CI are still pending.
 
 Source: [a8c50bf29e70191077257cca1a7fbd4cae01b731](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8c50bf29e70191077257cca1a7fbd4cae01b731).
+
+## 2026-10-31: medical and engineering action practice
+
+Starting first aid now practices Medicine; trapping/disarming objects, setting/disarming
+mines, picking locks and repairing Panzerkleins practice Engineering. Each also practices
+Intelligence through the already-restored original training rules. Fractional progress
+accumulates normally; a whole-point improvement emits one existing skill notification.
+This restores original action-to-skill dispatch, without changing rates, caps, perk
+factors, XP rewards, tool charges or AP costs. Source156's mounted-weapon reload selection
+was already restored and is rechecked here.
+
+Native RED14/91 Windows/Linux ->full GREEN 374 Windows / 375 Linux;76 identical measured
+controls and all476 new initial/reference cell rows preserved.28 actual-original
+fractional dispatch records at2 floating-point precision modes match all17 cells; original
+true acknowledgment/log path and command completion frequency are outside that sparse
+runtime matrix. Native whole-point tests check existing real acknowledgment behavior
+against the previously original-audited Unit growth rules. Full Game builds,
+treatment/tools/reload regressions and CI323 pass. Source156 is complete; ordinary
+pending/partial sources56 and whole-task final-head hosted CI remain.
+
+The NPC difficulty exploratory test did not establish a fix: original World scales before
+SetXPLevel too, and its level routine recomputes caps. No NPC ordering/coefficient/balance
+change was made. Earlier difficulty ROUND comments are unsupported by the newly observed
+explicit CHOP conversion, kept as a separate unresolved helper audit.
+
+Source: [156ccd173ff6c9671904e6d94e709397fc701d66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/156ccd173ff6c9671904e6d94e709397fc701d66).
