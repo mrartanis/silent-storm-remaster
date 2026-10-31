@@ -22199,6 +22199,86 @@ static void BleedingReadout(const char* databasePath,const char* resourcePath)
     }
 }
 
+static void NativeDirectAttackXP(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<19,"unknown direct attack XP mode");
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,false,&game);
+    auto deploy=[&](const vector<int>& people,const wchar_t* name) {
+        game->players.push_back(NRPG::CreateGlobalPlayer(people));CObj<NAI::CSequenceCommander> commander=new NAI::CSequenceCommander(world);
+        auto* p=dynamic_cast<NWorld::CPlayer*>(world->AddPlayer(name,game->players.back(),commander));Require(p,"direct XP party deployment failed");commander->SetPlayer(p);return p;
+    };
+    CObj<NWorld::CPlayer> party=deploy(vector<int>{54,2,3},L"Direct XP party"),second;
+    if(mode==5 || mode==16)second=deploy(vector<int>{54},L"Direct XP finisher");
+    list<CPtr<NWorld::CUnitServer>> all;world->GetAllUnits(&all);CPtr<NWorld::CUnitServer> victim,attacker,finisher;
+    for(auto u:all) {
+        if(u->GetPlayer()==party.GetPtr() && u->CanFight() && !attacker)attacker=u;
+        if(second && u->GetPlayer()==second.GetPtr())finisher=u;
+        if(!victim && u->GetPlayer() && u->GetPlayer()->GetScenarioPlayerID()>0 && u->CanFight() && !u->IsWearingPK() && !u->IsEmptyPK() && !u->IsPerformingAction() && u->GetUnitRPG()->GetTotalVP()>16 && std::isfinite(u->GetUnitRPG()->GetXP(1)) && u->GetUnitRPG()->GetXP(1)>0)victim=u;
+    }
+    if(mode==6)for(auto u:all)if(u->GetPlayer()==party.GetPtr() && u!=attacker && u->CanFight()){victim=u;break;}
+    Require(victim && attacker && (!second || finisher),"direct XP fixture lacks live native victim/attacker");victim->nClueCount=0;
+    CObj<NRPG::IUnitMission> victimMission=victim->GetUnitRPG(),attackerMission=attacker->GetUnitRPG(),finisherMission=finisher?finisher->GetUnitRPG():nullptr;
+    auto relation=[&](NWorld::CUnitServer* source,NDb::EDiplomacyState value){auto d=source->GetUnitRPG()->GetDiplomacy();d.SetDiplomacyState(victim->GetPlayer()->GetScenarioPlayerID(),value);source->GetUnitRPG()->SetDiplomacy(d);};
+    relation(attacker,mode==2?NDb::DS_ALLY:mode==3?NDb::DS_NEUTRAL:NDb::DS_ENEMY);if(finisher)relation(finisher,NDb::DS_ENEMY);
+    const bool retired=mode==14 || mode==15,removed=mode==12 || mode==13 || mode==18;
+    const CVec3 origin=attacker->GetPosition().GetCP();
+    struct RestoreOptions {NGlobal::CValue golden,blood;~RestoreOptions(){NGlobal::SetVar("cheat_golden_shot",golden);NGlobal::SetVar("cheat_blood",blood);}}options{NGlobal::GetVar("cheat_golden_shot",0),NGlobal::GetVar("cheat_blood",1)};
+    NGlobal::SetVar("cheat_golden_shot",0);if(mode==13)NGlobal::SetVar("cheat_blood",1);
+    auto hit=[&](NRPG::IUnitMission* source,bool ko,bool lethal,bool blocked,bool gib) {
+        const int damage=lethal?100000:ko?8:4;
+        NRPG::CAttackPortion attack(blocked?0:100000,0,0.f,damage,damage,0,0,source,victimMission,1.f,ko?100:-1);
+        attack.bNoBlowUp=!gib;attack.rTtrajectory.ptOrigin=origin;attack.rTtrajectory.ptDir=CVec3(0,1,0);GlobalGameRandom().SeedForHarness(0x7bda);
+        return victim->ProcessAttack(world,NAI::HL_BODY,&attack,CVec3(0,1,0),victimMission->GetRPGArmor());
+    };
+    if(mode==4 || mode==17 || mode==18) {
+        world->GetTime()->Set(1000);victim->animator.AlignTime();hit(nullptr,mode!=17,mode==17,false,false);
+        Require(mode!=17?victim->IsUnconscious() && !victim->IsDead():victim->IsDead(),"direct XP pre-incapacitated setup failed");
+    }
+    int excluded=0;
+    if(mode==10 || mode==11) {
+        list<CPtr<NWorld::CUnitServer>> roster;party->GetUnitsThatCanFight(&roster);
+        for(auto u:roster)if(mode==11 || (u!=attacker && excluded==0)){u->SetState(new NWorld::CUnitStateUnconscious(u));Require(!u->CanFight(),"direct XP excluded combatant still can fight");++excluded;}
+        Require(excluded>0,"direct XP exclusion control removed no fighter");
+    }
+    if(retired){world->RemoveUnit(attacker);Require(!world->GetUnitServer(attackerMission),"direct XP retired attacker is still registered in the world");}
+    struct Check {CObj<NRPG::CUnit> actual,reference;CPtr<NWorld::CUnitServer> server;int side,persona;};std::vector<Check> checks;
+    for(auto u:all) {
+        // Logical RPG data is held independently; removal tests never read invalid server contents.
+        auto* actual=u==attacker?attackerMission->GetRPGUnit():u==victim?victimMission->GetRPGUnit():u->GetUnitRPG()->GetRPGUnit();
+        CObj<NRPG::CUnit> saved=actual;CMemoryStream bytes;{CStructureSaver writer(bytes,CStructureSaver::WRITE);writer.Add(1,&saved);}bytes.Seek(0);CObj<NRPG::CUnit> reference;{CStructureSaver reader(bytes,CStructureSaver::READ);reader.Add(1,&reference);}
+        Require(reference && reference.GetPtr()!=actual && &reference->Skills(0)!=&actual->Skills(0),"direct XP reference is not a deep native unit clone");
+        checks.push_back({actual,reference,u,u==attacker?party->GetScenarioPlayerID():u->GetPlayer()->GetScenarioPlayerID(),actual->pPers->GetRecordID()});
+    }
+    auto points=[](NRPG::CUnit* u){return u->GetPerksTree()?u->GetPerksTree()->GetPerkPoints():0;};int totalMismatch=0;
+    const int phases=(mode==5 || mode==16)?2:1;
+    for(int phase=0;phase<phases;++phase) {
+        const bool ko=(mode==0 || mode==5) && phase==0,blocked=mode==8,nonlethal=mode==7 || mode==8 || mode==14 || mode==17 || (mode==16 && phase==1);
+        const bool anonymous=mode==9;
+        auto* source=phase==1?finisher.GetPtr():retired?nullptr:attacker.GetPtr();NRPG::IUnitMission* sourceMission=anonymous?nullptr:phase==1?finisherMission.GetPtr():attackerMission.GetPtr();
+        const bool beforeDead=victim->IsDead(),beforeKO=victim->IsUnconscious();
+        const bool hostile=source && source->GetDiplomacyState(victim)==NDb::DS_ENEMY;
+        list<CPtr<NWorld::CUnitServer>> roster;if(source && source->GetTBSPlayer())source->GetTBSPlayer()->GetUnitsThatCanFight(&roster);
+        const float share=victimMission->GetXP(int(roster.size()));const bool shouldPay=!anonymous && hostile && (removed || (!beforeDead && !beforeKO && !nonlethal));
+        std::vector<float> xpBefore;for(auto& x:checks){xpBefore.push_back(x.actual->fXP);if(shouldPay && std::find(roster.begin(),roster.end(),x.server)!=roster.end())x.reference->AddXP(share);}
+        const int beforeVP=victimMission->GetTotalVP();world->GetTime()->Set(phase?2345:1234);victim->animator.AlignTime();if(mode==12 || mode==18)NGlobal::SetVar("cheat_golden_shot",1);
+        std::printf("DIRECT_XP_INPUT mode=%d phase=%d persona=%d cap=%d level=%d party=%d share=%.9g beforeDead=%d beforeKO=%d sourceRegistered=%d anonymous=%d hostile=%d shouldPay=%d\n",mode,phase,victimMission->GetRPGUnit()->pPers->GetRecordID(),victimMission->GetRPGUnit()->cap[NDb::ST_LEVEL],int(victimMission->GetRPGUnit()->Skills(NDb::ST_LEVEL)),int(roster.size()),share,int(beforeDead),int(beforeKO),int(source!=nullptr),int(anonymous),int(hostile),int(shouldPay));std::fflush(stdout);
+        const int damage=hit(sourceMission,ko,!nonlethal && !ko,blocked,mode==13);const bool valid=IsValid(victim);
+        if(removed)Require(!valid,"direct XP removal control retained a valid native server");
+        else if(ko)Require(valid && victim->IsUnconscious() && !victim->IsDead() && damage>0,"direct XP attack did not produce its real first knockout");
+        else if(!nonlethal)Require(valid && victim->IsDead() && damage>0,"direct XP attack did not produce real death");
+        else if(mode!=17 && !(mode==16 && phase==1))Require(valid && victim->CanFight() && (blocked?damage==0:damage>0),"direct XP non-incapacitating control downed its target or missed");
+        int mismatches=0,awarded=0;
+        for(std::size_t i=0;i<checks.size();++i) {
+            auto& x=checks[i];auto* a=x.actual.GetPtr();auto* ref=x.reference.GetPtr();const bool equal=a->fXP==ref->fXP && int(a->Skills(NDb::ST_LEVEL))==int(ref->Skills(NDb::ST_LEVEL)) && a->Skills(NDb::ST_LEVEL).GetProgress()==ref->Skills(NDb::ST_LEVEL).GetProgress() && points(a)==points(ref);
+            if(!equal)++mismatches;if(a->fXP!=xpBefore[i])++awarded;
+            std::printf("DIRECT_XP_RECIPIENT mode=%d phase=%d index=%d persona=%d side=%d eligible=%d before=%.9g share=%.9g actual=%.9g expected=%.9g level=%d expectedLevel=%d progress=%.9g expectedProgress=%.9g points=%d expectedPoints=%d equal=%d\n",mode,phase,int(i),x.persona,x.side,int(std::find(roster.begin(),roster.end(),x.server)!=roster.end()),xpBefore[i],share,a->fXP,ref->fXP,int(a->Skills(NDb::ST_LEVEL)),int(ref->Skills(NDb::ST_LEVEL)),a->Skills(NDb::ST_LEVEL).GetProgress(),ref->Skills(NDb::ST_LEVEL).GetProgress(),points(a),points(ref),int(equal));
+        }
+        auto random=GlobalGameRandom();unsigned words[4];for(auto& w:words)w=random.Get();
+        std::printf("native direct attack XP mode=%d phase=%d sourceRegistered=%d anonymous=%d hostile=%d beforeDead=%d beforeKO=%d valid=%d dead=%d knockout=%d HP=%d finalHP=%d damage=%d roster=%d share=%.9g shouldPay=%d awarded=%d mismatches=%d killerFirst=%d killerFinisher=%d deathTime=%u rng0=%u rng1=%u rng2=%u rng3=%u\n",mode,phase,int(source!=nullptr),int(anonymous),int(hostile),int(beforeDead),int(beforeKO),int(valid),int(victimMission->IsDead()),valid?int(victim->IsUnconscious()):-1,beforeVP,victimMission->GetTotalVP(),damage,int(roster.size()),share,int(shouldPay),awarded,mismatches,valid?int(victim->pKiller.GetPtr()==attacker.GetPtr()):-1,valid && finisher?int(victim->pKiller.GetPtr()==finisher.GetPtr()):-1,valid?unsigned(victim->GetDeathTime()):0u,words[0],words[1],words[2],words[3]);std::fflush(stdout);totalMismatch+=mismatches;
+    }
+    Require(totalMismatch==0,"direct attack XP paid a non-hostile or later corpse hit, missed first KO/removal, or lost the prepared roster/reward");
+}
+
 static void NativeFatalBleedingXP(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<11,"unknown fatal bleeding XP mode");
@@ -32831,6 +32911,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "no-manufactured-bleed-blocked") && argc==4) { NoManufacturedBleeding(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "no-manufactured-bleed-hit") && argc==4) { NoManufacturedBleeding(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "bleeding-readout") && argc==4) { BleedingReadout(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "native-direct-attack-xp")) { Require(argc==5,"direct attack XP requires db/resources/mode"); NativeDirectAttackXP(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-fatal-bleeding-xp")) { Require(argc==5,"fatal bleeding XP requires db/resources/mode"); NativeFatalBleedingXP(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "periodic-bleed-fractional") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "periodic-bleed-whole") && argc==4) { PeriodicBleedingPipeline(argv[2],argv[3],1); return true; }

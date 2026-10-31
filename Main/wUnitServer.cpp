@@ -1660,7 +1660,7 @@ void CUnitServer::CancelHeal()
 		SetState( new CUnitStateNormal( this ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// retail @0x3c33a0: forwards to the CDumbUnitServer base with pWorld/vDir unchanged.
+// Original Steam 0x7c3dd0: preserve our ProcessAttack API and base damage call.
 int CUnitServer::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, NRPG::CAttackPortion *pAttack,
 	const CVec3 &vDir, NDb::CRPGArmor *pArmor )
 {
@@ -1670,9 +1670,23 @@ int CUnitServer::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, NRPG::CAtta
 	const bool wasUnconscious = IsUnconscious();
 	CPtr<CUnitServer> pAttacker = IsValid( pAttack->pAttacker ) ?
 		GetWorld()->GetUnitServer( pAttack->pAttacker ) : nullptr;
+	// Original Steam 0x7c3e8c..0x7c3f02: prepare the hostile party before damage.
+	list< CPtr<CUnitServer> > xpUnits;
+	float fXP = 0;
+	if ( IsValid( pAttacker ) && pAttacker->GetDiplomacyState( this ) == NDb::DS_ENEMY &&
+		pAttacker->GetTBSPlayer() )
+	{
+		pAttacker->GetTBSPlayer()->GetUnitsThatCanFight( &xpUnits );
+		fXP = GetUnitRPG()->GetXP( xpUnits.size() );
+	}
 	int nRet = CDumbUnitServer::ProcessAttack( pWorld, nUserID, pAttack, vDir, pArmor );
 	if ( !IsValid( this ) )
+	{
+		// Steam 0x7c4103..0x7c412c: removed targets pay the saved party directly.
+		for ( list< CPtr<CUnitServer> >::iterator i = xpUnits.begin(); i != xpUnits.end(); ++i )
+			(*i)->GetUnitRPG()->GetRPGUnit()->AddXP( fXP );
 		return nRet;
+	}
 	CUnitServer *pPKUnit = 0;
 	if ( IsWearingPK() )
 		pPKUnit = pWearingPK;
@@ -1712,15 +1726,6 @@ int CUnitServer::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, NRPG::CAtta
 					pGlobalPlayer->deployData.unitsDeployData[ GetUnitRPG()->GetRPGUnit() ].bCorpseAlive = false;
 		}
 		GetWorld()->GetGlobalGame()->pScenarioTracker->OnScenarioClueDestroyed( this->GetUnitRPG()->GetRPGPersID(), true );
-		//
-		if ( IsValid( pAttack->pAttacker ) )
-		{
-			list< CPtr<CUnitServer> > units;
-			GetWorld()->GetUnitServer(pAttack->pAttacker)->GetTBSPlayer()->GetUnitsThatCanFight( &units );
-			float fXP = GetUnitRPG()->GetXP( units.size() );
-			for ( list< CPtr<CUnitServer> >::iterator i = units.begin(); i != units.end(); ++i )
-				(*i)->GetUnitRPG()->GetRPGUnit()->AddXP(fXP);
-		}
 	}
 	// Original Steam 0x7c449d..0x7c44d4: notify only the new unconscious transition.
 	if ( !wasUnconscious && IsUnconscious() )
@@ -1735,6 +1740,9 @@ int CUnitServer::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, NRPG::CAtta
 	{
 		pKiller = pAttacker;
 		tDeathTime = GetWorld()->GetTime()->GetValue();
+		// Steam 0x7c452d..0x7c455c: a retained target pays only on its first incapacitation.
+		for ( list< CPtr<CUnitServer> >::iterator i = xpUnits.begin(); i != xpUnits.end(); ++i )
+			(*i)->GetUnitRPG()->GetRPGUnit()->AddXP( fXP );
 	}
 	return nRet;
 }

@@ -3467,3 +3467,26 @@ remain. Direct-attack first-incapacitation XP is next. Hosted CI on the final co
 the entire task remains pending.
 
 Source: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed).
+
+## 2026-11-01: hostile-party XP at direct-attack incapacitation
+
+Direct attacks now award the original experience to the hostile attacker's combat-capable
+party on the first knockout or death. The roster and reward are captured before damage.
+Allied, neutral, anonymous and unregistered attackers receive no award; dead/KO party
+members are excluded. A later hit that kills an already unconscious but retained body does
+not award experience again. When damage removes the target entirely, the prepared award is
+paid, including the original exception for an already unconscious target. Existing
+party-size limits, intelligence/perk modifiers and reward formulas are retained.
+
+Nineteen real native scenarios reproduced10 failures out of85 on both systems, including a
+null-lookup crash after attacker removal. Full GREEN 636 Windows / 637 Linux, full Game
+builds and323 asset-free checks pass. All66 old controls/nine passing new controls remain
+unchanged; the20 comparable post-hit phase records preserve damage, HP, state, killer/time
+and four following RNG words. Each phase's experience matches an independent native Unit
+clone using existing AddXP. Original control flow and dispatch are statically audited;
+separate actual original reward math matches captured native inputs. Original
+World/constructor/recipientAddXP execution is not claimed. Sourcec923 is complete;55
+pending or partial sources remain. Hosted CI on the final commit of the entire task
+remains pending.
+
+Source: [c923fe9eaa63ed62aee9178976661a74d4daefd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c923fe9eaa63ed62aee9178976661a74d4daefd9).

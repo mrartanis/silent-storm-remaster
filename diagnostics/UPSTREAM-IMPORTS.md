@@ -22093,3 +22093,72 @@ mapping/full disassembly, original reward correlation, native RED/full GREEN and
 verification.
 
 Source: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed).
+
+## 2026-11-01: hostile-party XP at direct-attack incapacitation (`c923fe9e` complete)
+
+Direct attacks now prepare the valid hostile attacker's CanFight roster and victim GetXP
+quote before base damage. An absent, unregistered, allied or neutral attacker prepares no
+award. If damage removes the target, the saved roster receives the saved reward before
+returning, without accessing removed target data. For retained targets, reward moves into
+the existing first-incapacitation block: initially neither dead nor unconscious, then
+either dead or unconscious. Killer/time attribution remains in that block. The old
+unguarded post-death lookup is removed. Existing PK behavior, scenario notifications,
+return API, save/network fields, damage and RNG remain intact; authored growth rates,
+party clamping and recipient AddXP modifiers are unchanged.
+
+The removed-target branch in the actual original has a distinct rule: its prepared payout
+does not test the initial dead/KO flags. A hit that removes an already unconscious target
+can pay. The retained-target branch alone rejects later corpse/KO-finishing awards. The
+regression explicitly preserves this original exception rather than inventing a global
+no-double-award rule.
+
+Nineteen native real-World scenarios cover first KO/death, ally/neutral/same-party death,
+already-KO death, KO followed by a different party's lethal hit,
+nonlethal/blocked/anonymous attacks, one/all KO recipients, real golden-shot and
+combat-gib removals, removed attacker nonlethal/lethal cases, death followed by another
+party's corpse hit, predead ordinary hit and pre-KO removal. Held logical RPG objects are
+independent of weak server references, so real removal is observed. Each recipient uses a
+deep native Unit save/load clone and existing AddXP as reference. XP/LEVEL/progress/perk
+points are compared after each phase, including both phases of KO/death and death/corpse
+scenarios. Duplicate persona/party IDs retain multiplicity.
+
+RED10/85 both (nine XP assertion failures plus one segmentation fault) ->full GREEN 636
+Windows / 637 Linux. All85 RED names are in each full selection; all66 prior controls and
+nine previously passing new scenarios remain unchanged. All21 phase input records and
+reference results match; all20 comparable post-hit records retain HP, damage,
+validity/death/KO, killer/time and four subsequent RNG words. The former crashing lethal
+case now returns without an award. Its input is a held valid RPG attacker mission after
+real World removal; this proves handling of the unresolved lookup, not the natural
+frequency or ownership of orphan projectiles. Baseline GDB and static objdump locate the
+fault immediately after CWorld::GetUnitServer: a null rax is dereferenced for
+GetTBSPlayer. Full Game builds and323 asset-free checks pass.
+
+Actual Steam ProcessAttack is2122 bytes at7c3dd0..7c4619, bound independently through
+CUnitServer DAMAGE secondary+8 RTTI VT8ce1fc slot0; named Gold7b7650/2058 uses VT8bec14
+and is comparative only. No whole-version equivalence is claimed. Actual receiver ESI is
+serverRoot+8. Saved initial RPG-dead/primary-KO flags are stack12/13. World primary
+slot140 maps actual762220, then null/weak checks precede diplomacy7c0160==ENEMY0. Attacker
+TBSsecondary+154 VT8ce138 slot0 maps7810f0, an exact four-byte Gold775580 getter returning
+interface+4 CPlayer; its result is null-checked. Player50 CanFightlist787e90, list
+size4d2dc0 and mission124 GetXP6bfaa0/FSTPfloat24 execute before base751570 at7c3fa4.
+Saved list14 and reward24 feed both payout paths.
+
+After base damage, target validity4099..40ac directs the removed path to4103..412c. That
+loop reads only saved recipient RPGc ->GetRPGUnit58 ->UnitCSkilled+c AddXP0; it has no
+saved dead/KO guard. Independent medal work before the loop belongs to source285 and is
+not claimed imported here. Valid targets continue at4183. First-incap44d9 rejects saved
+dead orKO, then requires RPGdead98 or primaryKO40; existing killer root1f8 and time
+root228 writes precede saved-list payout452d..455c. The original ABI has a hidden result
+structure and ret18, while our existing five-argument int-return API is preserved.
+
+Original World/constructors/roster/recipient AddXP execution is STATIC ONLY here. Typed
+dispatch and full actual control flow are audited without fake original providers/vtables
+or executable/DB/world/TEB patches. Separate actual original GetXP128/helper70/CRT
+evidence contains28 executions; every applicable captured native cap/level/party quote
+matches its reference PC24 float bits. Original math probes restored stack/context/config
+and exited normally. The test of original payout timing is static, paired with
+independently tested native real-World integration. Sourcec923 is complete;55 sources
+remain (pending39 +partial16). Hosted CI on the final commit of the entire task remains
+pending.
+
+Source: [c923fe9eaa63ed62aee9178976661a74d4daefd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c923fe9eaa63ed62aee9178976661a74d4daefd9).

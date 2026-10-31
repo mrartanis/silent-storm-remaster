@@ -1562,3 +1562,24 @@ and thresholds match its PC24 records. Native parties/recipients retain multipli
 despite duplicate scenario/persona IDs. Source aa724 complete;56 pending/partial remain.
 
 Source: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed).
+
+## 2026-11-01: hostile-party XP at direct-attack incapacitation
+
+NativeDirectAttackXP0..18 use actual native World, damage, KO, death, removal and party
+rosters. References are deep native Unit save/load clones using existing AddXP. Two-phase
+scenarios validate each phase separately. RED10/85 both includes nine reward assertion
+failures and a real null-lookup crash; full GREEN 636 Windows / 637 Linux, full Game
+builds andCI323. All85 RED names are selected,66 old controls/nine new controls
+unchanged;21 input/reference phase records and20 comparable damage/state/attribution/RNG
+records unchanged. The lethal removed-attacker case now passes. Real combat gib and
+existing golden-shot removals retain weak server ownership and held logical RPG data.
+
+Typed original DAMAGE+8 dispatch maps named Gold2058 to independently decoded Steam2122
+at7c3dd0. Original static evidence proves pre-damage hostile roster/quote, removed-target
+unconditional prepared payout and retained-target first-incap payout. Pre-KO removal
+intentionally pays, matching the original early branch. Actual original quote128/helper70
+has28 records; applicable native cap/level/party inputs match PC24 reference bits. No
+original World/constructor/recipientAddXP runtime claim or fake providers. Sourcec923
+complete;55 pending/partial sources remain.
+
+Source: [c923fe9eaa63ed62aee9178976661a74d4daefd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c923fe9eaa63ed62aee9178976661a74d4daefd9).
