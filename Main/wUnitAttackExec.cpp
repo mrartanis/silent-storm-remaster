@@ -1989,6 +1989,8 @@ void CExecMeleeUnit::OnLabel()
 	ASSERT( bComplete );
 	if ( !attack.empty() )
 	{
+		// Original Steam 0x7aa033/0x7aa03f keeps hlInfo on the damage portion.
+		attack.front().eWantedHL = hlInfo.eHL;
 		// retail @0x3a94c0 hands &hlInfo (as resolved by Start's SelectTargetHLs and SERIALIZED with
 		// the executor) into NRPG::AttackObjectRanged @0x2b6560, whose unit branch feeds hlInfo.eHL +
 		// hlInfo.accessibleHLs into the to-hit -- the Jan03 bIsHitLocationShot branch and the

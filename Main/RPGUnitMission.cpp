@@ -1161,15 +1161,31 @@ CReceivedDmg CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, C
 			else
 				nDmg = 100000;
 		}
+		int nCriticalProbability = pAttack->nCrtical;
 		int nCriticalDifficulty = pAttack->nCrticalDifficulty;
 		if ( IsValid( pAttack->pAttacker ) )
 		{
 			for ( int i = 0; i < pAttack->pAttacker->GetSkillValue( NDb::ST_LEVEL ); ++i )
 				nCriticalDifficulty += MissionRandom().Get( 1, 20 );
 		}
+		// Original Steam 0x6c40d7..0x6c4157: bonuses follow the level*d20 prefix.
+		CGlobalGame *pGlobal = pWorld ? pWorld->GetGlobalGame() : 0;
+		if ( pGlobal && IsValid( pGlobal->pDifficulty ) &&
+			pGlobal->pDifficulty->bHeadshotShouldKill && pAttack->eWantedHL == nUserID )
+		{
+			switch ( nUserID )
+			{
+			case NAI::HL_HEAD: nCriticalProbability += 90; nCriticalDifficulty += 150; break;
+			case NAI::HL_BODY: nCriticalProbability += 10; nCriticalDifficulty += 20; break;
+			case NAI::HL_RHAND:
+			case NAI::HL_LHAND: nCriticalProbability += 35; nCriticalDifficulty += 65; break;
+			case NAI::HL_RLEG:
+			case NAI::HL_LLEG: nCriticalProbability += 25; nCriticalDifficulty += 40; break;
+			}
+		}
 		// a critical injury may arise inside GetCriticalDmgModifier
 		float fCriticalDmgModifier = 
-			GetCriticalDmgModifier( pWorld, (NAI::EHitLocation)nUserID, pAttack->nCrtical, nCriticalDifficulty, pAttack->bAlwaysHumanCritical, pAttack->pAttacker );
+			GetCriticalDmgModifier( pWorld, (NAI::EHitLocation)nUserID, nCriticalProbability, nCriticalDifficulty, pAttack->bAlwaysHumanCritical, pAttack->pAttacker );
 		fDmgModifier += fCriticalDmgModifier;
 		csRPG << CC_GREY << "\tHL=" << GetHLName( (NAI::EHitLocation)nUserID );
 		csRPG << CC_GREY << " \tDmgModifier=" << fDmgModifier;

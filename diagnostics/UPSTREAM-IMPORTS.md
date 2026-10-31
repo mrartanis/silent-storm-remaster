@@ -20206,3 +20206,91 @@ Full Windows/Linux Game builds, related159Win/158Linux, Windows existing
 NativeModManagerTests and CI323 pass. Source360 remains partial for the other
 scenario/context/called-shot/mod-link pieces; own mod/codec behavior is retained.
 Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 2026-10-31: native melee requested-part critical bonuses (`23630bfd` complete; `360344ca` partial)
+
+The actual CExecMeleeUnit label now retains hlInfo.eHL on the front native
+attack portion. CUnitMission applies the original target bonuses only when
+HeadshotShouldKill is enabled AND requested part equals the actual ray hit:
+BODY probability+10/severity+20; HEAD+90/+150; hands+35/+65; legs+25/+40.
+The existing attacker-level*d20 severity prefix remains BEFORE these additions;
+the existing resistance, perk47, cap, selection, forced flag and difficulty
+fallback pipeline then consumes effective probability/severity. No new clamp,
+authored value or enum ordinal. Existing optional-world guard is retained for
+legacy callers. Own vector/trajectory/renderer/codec/LAN infrastructure stays.
+
+Original audit independently rechecks named CExecMeleeUnit RTTI/vtable slot16
+(Gold79d9d0 ->Steam7a9fa0) and named mission interface slot41/direct critical
+helper mapping. GoldPDB typed hlInfo2c and chance10/severity14; target CreateAttack
+7aa026->7a4a00 receives the portion at original frameESP34. After EBP/EDI pushes,
+load hlInfo2c7aa033/storeESP78 at7aa03f proves requested portion member3c.
+GoldPDB12arg ctor689740 first30 bytes maps EXACT/uniqueSteam68f7b0; target68f848
+sets member3c=-1 before RET30. Actual target ProcessAttack6c40d7 uses WorldEC ->
+global48difficulty69;6c40ef compares requested3c to actual hit EBX. Exact table
+6c4670 and add instructions6c410f/412b/4144/4151 establish all six region values
+AFTER level*d20 at6c40be..d1. Existing HeadshotShouldKill import80e3c2/literal
+8d33d4/Bool4018c0 and save7e1ec2 member69/tag26 independently checked.
+
+Target portion serialization7482c0..7483f4 is308 bytes; last field39/tag18,
+NO requested3c field. Its first233 bytes uniquely map GoldPDB73d5e0 with only
+decoded E8 operands masked. Ordinary save shape therefore remains tags2..18.
+Own LAN carries requested part plus one in optional network-only tag19; -1 omits it on
+write. Missing scalar chunks decode to zero, so zero maps back to -1. Every
+read resets -1 first, so old network messages and ordinary saves
+cannot retain stale metadata in reused portions. Both constructors initialize
+-1. This optional LAN adaptation belongs to our infrastructure, not a claim
+that the original game had that network field.
+
+NativeMeleeCalledShot0..14 use actual world810/party54, real untaken37 actor,
+two real person103 receivers, actual authored blade2 and native inventory,
+opposing owners, free adjacent cells, SEEALL/UpdateVisible actual awareness,
+CanDoIt/Start/OnLabel and real fragmented ray/body intersection. If the initial
+random cover sample reaches another part, the fixture samples the SAME native
+cover without damage until a real matching hit is found (max128); it then uses
+that actual native ray. This controls positive coverage without a fake hit or
+RPG result. HL_ANY follows its actual sampled part and remains without a bonus;
+its physical part may legitimately differ between runs. Actor level20
+retains the real d20 prefix; MELEE0/victim2000 plus actual TOHIT cheat isolate
+chance2 hit dispatch. Ordinary modes actually acquire37 via native perk tree;
+low-chance modes keep native probability27 and choose SRand first roll28
+(seed116), rejecting before the missing positive bonus. Reference calls the
+real native RPG ProcessAttack with explicit audited bonus inputs and the same
+pre-damage shared RNG state. Low positive reference uses the already existing
+forced flag to avoid relying on a later private SRand draw; actual attack does
+not use that flag. Real HP and bleeding count/location/DC/duration/value must
+match; actor AP/HP/pose, item quantity, level, living receivers and rule fields
+remain controlled. Both source/reference keep normal native attack fields.
+
+Accepted production RED9/15 ->GREEN15/15 EACH platform; six controls already
+passed: flag-off standard/low, HL_ANY local/network, ordinary save and legacy
+network. Standard local head/body/hand/leg HP drop122/86/45/65 ->167/90/50/71;
+DC184 ->334/204/249/224. Native network head also122->167/DC184->334. Low
+probability head/body/hand/leg49/33/23/28 ->128/70/38/55, no bleeding ->actual
+DC357/227/272/247. Raw probability/severity100-or27/13 remain unchanged on
+the produced portion. Actual20d20 prefix is preserved (171 standard,194 low).
+Own network roundtrip uses actual native saver and borrowed live unit refs;
+ordinary save and old tags2..18 network reuse the prefilled portion and keep
+the no-bonus behavior. Initial GREEN exposed the optional-scalar zero default
+turning HL_ANY into BODY and one random torso sample hitting an arm; those
+results were archived, the biased wire encoding and native cover resampling
+added, and a complete new production RED performed before final GREEN.
+No new game/build tree or game-file mutation.
+
+Calibration compile/type, ratio, unused full-world RNG comparison and head KO/
+body orientation failures were archived as INVALID fixtures, never counted as
+production RED. Final fixture faces the body target toward the actor, keeps
+only actor invariants after damage (a genuine head injury can cause KO), and
+resamples a mismatched positive ray through actual native cover. It
+does not assert post-world RNG equals a direct RPG call: receiver effects and
+AI sound consume additional shared draws. Physical damage/injury reference is
+seeded before those side effects. No whole-world RNG, full multiplayer peer,
+UI/resume or arbitrary multiportion certification. Unusual custom/extreme
+probabilities and other ranged/knife requested-part producers remain outside
+this change. Full Game builds, related174Win/173Linux, Windows manager regression and
+local CI323 pass; actual final-head hosted CI remains due at task completion.
+
+This closes BOTH hunks of23630bfd (visibility awareness was completed earlier).
+Source360 remains partial for scenario/context/mod-link/ray/other action work.
+Evidence prefix melee-called-shot; original oracle and measured JSON retained.
+Sources: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387),
+[23630bfd0c6924b748f79cca9ded910e0f4df35e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/23630bfd0c6924b748f79cca9ded910e0f4df35e).

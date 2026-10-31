@@ -2815,3 +2815,22 @@ original target success branch/member24 and enum/name table verified. Full Game
 builds, related159Win/158Linux, Windows manager regression, CI323. These checks certify
 native imported policy data; save-menu/UI execution and separate missing-column/
 unknown-name cases are not newly certified. Other source360 portions remain.
+
+## 2026-10-31: restore melee bonuses for the requested body part
+
+A melee command now carries its requested part into actual damage calculation.
+With HeadshotShouldKill enabled, a ray that hits that part receives original1.2
+probability/severity bonuses: body10/20, head90/150, hands35/65, legs25/40. These
+are added after existing level*d20 and before resistance/perk47/cap/selection.
+Flag-off and HL_ANY attacks retain their previous calculation. Authored values,
+defaults and attack enum ordinals are unchanged; own LAN carries optional
+transient metadata, ordinary saves retain original tags and clear it on read.
+
+Actual native action/trace/damage and native wire RED9/15 ->GREEN15/15 each;
+six controls, all four region groups including low-chance rejection->acceptance.
+Head damage122->167/DC184->334; body86->90, hand45->50, leg65->71. Independent
+original producer/constructor/flag/match/table/save audit, full Game builds,
+related174Win/173Linux and CI323. Checks certify real HP/injuries/actor controls and
+native serialization, not complete peer/UI/resume or post-world RNG parity.
+Ranged/throwing producers and other360 portions remain separate work. Source
+23630bfd is complete together with its earlier visibility-awareness fix.

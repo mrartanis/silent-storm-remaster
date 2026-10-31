@@ -1039,3 +1039,17 @@ TESTAL/JZ before resolver/member24 and enum/name table verified. Full Game build
 related159Win/158Linux, Windows manager regression, CI323. Data-loader state, not full
 save-menu/UI or separate missing-column/unknown-name certification. Evidence
 prefix difficulty-cansave-overlay.
+
+## 2026-10-31: NativeMeleeCalledShot0..14
+
+Both CMake lists register15 extended/120s actual world melee cases. Accepted
+production RED9/15 ->GREEN15/15 each, six unchanged controls. Real CanDo/Start/
+OnLabel/ray/native damage and actual borrowed-reference network/ordinary save/
+legacy network roundtrips, not future-field/stub RED. Four region groups test
+severity and low-probability acceptance; two hand/leg sides share independently
+verified original switch branches. Actual level20*d20 prefix retained. Ordinary
+save/old messages reuse live portions and must drop transient requested metadata.
+Native HP/injury fields and actor/item/rule controls; no equality assertion for
+post-world RNG versus a direct RPG call, no full peer/UI/resume claim. Invalid
+fixture calibration logs archived separately. Full Game builds, related174Win/173Linux,
+Windows manager regression and CI323. Evidence prefix melee-called-shot.
