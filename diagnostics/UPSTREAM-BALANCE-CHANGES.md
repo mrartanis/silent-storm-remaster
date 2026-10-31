@@ -2729,3 +2729,18 @@ and HP/AP/pose/points/input controls match actual explicit-reduced native refere
 Probability10000 isolates this calculation; ordinary frequency/fullUI and
 zero/nonfinite divisor or overflow remain unverified. Forced/difficulty fallback
 within source65558b11 is still pending.
+
+## 2026-10-31: Steam v1.2 forced human critical flag
+
+Existing bAlwaysHumanCritical now bypasses the probability rejection for nonzero
+chance, as target Steam v1.2 does. Chance0 retains its original early return.
+Resistance, severity cap, injury selection and random draw are retained; existing
+false default/tag14/save/network shape do not change. Gold1.1's differing trueflag
+zero-return is recorded and deliberately not copied over the target1.2 behavior.
+
+Native chance1 forced damage body20->50, head30->70, hand14->24, leg17->37 and
+injury absent->BLEED/DC300, matching guaranteed native reference. Forced-1 boundary
+body20->50; unforced1/forced0/unforced-1 controls stay20/no injury. Four shared RNG
+words and AP/pose/life/input flags/cap remain stable. RED5/8 ->GREEN8/8 each, full
+Game builds, related125Win/125Linux, CI323. Direct native portions are tested, not full
+command/UI producers; world-difficulty fallback remains pending in source65558b11.

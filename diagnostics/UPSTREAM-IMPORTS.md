@@ -19935,3 +19935,51 @@ Probability10000 isolates severity/selection/damage rather than ordinary critica
 frequency. Main damage is direct native RPG after real deployment/game binding,
 not a full UI command claim. Source remains partial for forced/difficulty fallback.
 Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).
+
+## 2026-10-31: Steam v1.2 forced human critical flag (`65558b11` partial)
+
+Forwards existing CAttackPortion.bAlwaysHumanCritical into the private helper.
+It bypasses the probability rejection for NONZERO chance. The existing chance0
+early return remains before SRand setup; resistance/perks/cap and the SRand100
+draw remain before the flag gate, so force does not remove those calculations.
+Only a private nonvirtual bool argument/caller changes. Existing constructor
+false default, field, tag14 and own network/save representation are unchanged.
+
+Gold PDB identifies portion bool2d. Its named serialization method73d5e0/291
+has a unique233-byte prefix match to Steam7482c0 with ONLY decodedE8 operands
+masked, including exact one-byte field2d / saved tag14. This is NOT a whole291
+match: Steam later adds field39/tag18, which is already retained by this fork.
+The independent named CUnitMission interface/ProcessAttack/private helper mapping
+continues to identify Steam6c416a reading2d/pushing fifth arg and6c4183 calling
+6c3820. Exact Steam6c383a tests chance0/returnsFLDS0 before static SRand;6c3b09
+forcedtrue branches straight to6c3b25 before probability comparison; the other
+difficulty branch6c3a73 also skips probability for true. Both exact gates checked.
+
+REAL VERSION DIFFERENCE: Gold caller6bda87 also passes2d, but Gold5argument helper
+6bd4b4 sends true to zero-return6bd5ad. That behavior is not masked into a false
+equivalence or copied over target Steam v1.2. No whole5/6argument helper match.
+Evidence: critical-forced-retail-oracle.json and portion-save prefix mapping.
+
+NativeCriticalForced0..7 use TWO actual person103 receivers in world810, actual
+native server/game binding verified readonly tag45, VP500/IC0/no46or47, post-warmup
+BLEED-only selection, cap1000. Actual difficulty.bAlwaysCritical=false/restored
+isolates force. Guaranteed-positive reference versus forced chance1 (body/head/
+hand/leg), zero-chance controls and an explicit negative-nonzero boundary. Harness
+seed710 local SRand sequence accounts for ctor Get4 then draw12/71, both>1;
+zero-energy warmups never enter helper, first positive reference draws once.
+No timing-dependent probability RED is accepted.
+
+Complete production RED5/8 ->GREEN8/8 EACH platform, three controls unchanged.
+Forced chance1 HP damage body20->50, head30->70, hand14->24, leg17->37; injury
+absent->BLEED/DC300, matching real guaranteed reference. Forced chance-1 body20->50
+also preserves original nonzero guard, without a new probability clamp. Unforced
+chance1, forced chance0 and unforced-1 all remain ordinary body20/no injury.
+Four shared RNG words, injury grade/location/duration, AP/pose/life, chance/flag/
+severity/input and cap match native reference/invariants. Negative probability
+is an explicit boundary input, not a claim about ordinary weapons. Existing
+flag is supplied on a native portion; complete command/UI producers are outside
+these direct-RPG checks.
+
+Full Windows/Linux Game builds, 125Win/125Linux related tests and asset-free CI323 pass.
+Source remains partial only for the world-difficulty fallback branch.
+Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).

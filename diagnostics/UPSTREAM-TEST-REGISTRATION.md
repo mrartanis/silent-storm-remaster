@@ -978,3 +978,15 @@ duration, four RNG words, native AP/pose/life/input/points/cap checked. Full Gam
 builds, related117Win/117Linux, CI323; evidence prefix critical-severity-perk. Preliminary
 cap200 passing control archived, finalcap270 RED rerun before production. No
 new ordinary-frequency/fullUI/zero-divisor/overflow claim.
+
+## 2026-10-31: NativeCriticalForced0..7
+
+Both CMake lists, extended/120s. Actual native portion flag and two receivers,
+world/game binding, difficulty-fallback disabled/restored. Seed710 local SRand
+ctor/Get4 then12/71 verifies rejecting chance1 conditions. RED5/8 ->GREEN8/8 each,
+three controls: forced HP20/30/14/17 ->50/70/24/37 and BLEED/DC300; forced-1 body
+20->50. Unforced1/forced0/unforced-1 body20/no injury stable. Four RNG words,
+native injury/AP/pose/life/chance/flag/input/cap verified. Full Game builds,
+related125Win/125Linux, CI323. OriginalSteam1.2 gates and typed field2d/tag14 prefix
+mapping recorded; Gold's different trueflag zero-return is not target behavior.
+Evidence prefix critical-forced; full UI/producer flows remain outside scope.

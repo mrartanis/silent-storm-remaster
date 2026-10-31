@@ -102,7 +102,7 @@ private:
 	void ApplyCritical( CCritical *p );
 	void ApplyCritical( NDb::CRPGCritical *pCritical, int nDC );
 	void ProcessCriticalsOnNewTurnFor();
-	float GetCriticalDmgModifier( NAI::EHitLocation eHL, int nCriticalProbability, int nCriticalDifficulty );
+	float GetCriticalDmgModifier( NAI::EHitLocation eHL, int nCriticalProbability, int nCriticalDifficulty, bool bForced );
 	void CheckOverdose();
 	EToHitType GetToHitWeaponType() const;
 	int GetMeleeToHit( const CVec3 &ptAttacker, const NAI::SPosition &posTarget, 
@@ -1168,7 +1168,7 @@ CReceivedDmg CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, C
 		}
 		// a critical injury may arise inside GetCriticalDmgModifier
 		float fCriticalDmgModifier = 
-			GetCriticalDmgModifier( (NAI::EHitLocation)nUserID, pAttack->nCrtical, nCriticalDifficulty );
+			GetCriticalDmgModifier( (NAI::EHitLocation)nUserID, pAttack->nCrtical, nCriticalDifficulty, pAttack->bAlwaysHumanCritical );
 		fDmgModifier += fCriticalDmgModifier;
 		csRPG << CC_GREY << "\tHL=" << GetHLName( (NAI::EHitLocation)nUserID );
 		csRPG << CC_GREY << " \tDmgModifier=" << fDmgModifier;
@@ -1857,7 +1857,7 @@ int CUnitMission::RollCritical( NAI::EHitLocation eHL, int nCriticalDifficulty, 
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float CUnitMission::GetCriticalDmgModifier( NAI::EHitLocation eHL, 
-	int nCriticalProbability, int nCriticalDifficulty )
+	int nCriticalProbability, int nCriticalDifficulty, bool bForced )
 {
 	if ( nCriticalProbability == 0 )
 		return 0;
@@ -1883,7 +1883,7 @@ float CUnitMission::GetCriticalDmgModifier( NAI::EHitLocation eHL,
 	// Original Gold 0x6bd402 / Steam 0x6c399a caps the incoming selector input.
 	if ( IsValid( pGame ) && nCriticalDifficulty > pGame->GetMaxCriticalSeverity() )
 		nCriticalDifficulty = pGame->GetMaxCriticalSeverity();
-	if ( nRand > nCriticalProbability * fCriticalResist )
+	if ( !bForced && nRand > nCriticalProbability * fCriticalResist )
 		return fRet;
 	csRPG << "<font size=16pt>";
 	csRPG << "<color=grey>" << "\tcrit prob=" << nCriticalProbability << " (check=" << nRand << ") \tseverity=" << nCriticalDifficulty;
