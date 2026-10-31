@@ -30110,6 +30110,20 @@ static void NativeXPThresholdPC24(const char* databasePath,int mode)
     Require(actual==x.expected,"native XP threshold differs from original PC24 subtraction and final exact multiplier");Require(cells && rng && unit->fXP==xp && (unit->GetPerksTree()?unit->GetPerksTree()->GetPerkPoints():0)==points && persona->pClass->skills[NDb::ST_LEVEL]==15 && unit->cap[NDb::ST_LEVEL]==15,"XP threshold query changed cells/XP/points/RNG/authored cap");
 }
 
+static void NativeKillRewardQuote(const char* databasePath,int mode)
+{
+    struct Sample {int level,party;unsigned expectedBits;};static const Sample samples[]={{0,1,0x410424b1u},{0,2,0x408424b1u},{0,3,0x403030ecu},{0,6,0x3fb030ecu},{0,0,0x410424b1u},{0,-3,0x410424b1u},{0,7,0x3fb030ecu},{0,100,0x3fb030ecu},{1,3,0x40a6ac84u},{2,3,0x411dabbdu},{5,3,0x428579cbu},{0,5,0x3fd36de8u},{-1,3,0x0u},{-2,3,0x0u}};
+    Require(mode>=0 && mode<14,"unknown kill reward quote mode");const auto& x=samples[mode];CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
+    auto* persona=NDb::GetPers(838);Require(persona && persona->pClass,"reward quote lacks actual native NPC838/class");CObj<NRPG::CUnit> unit=new NRPG::CUnit(persona);CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(unit);Require(mission && unit->cap[NDb::ST_LEVEL]==15 && persona->pClass->skills[NDb::ST_LEVEL]==15,"reward quote lacks authored level-cap15 control");unit->Skills(NDb::ST_LEVEL).SetConst(x.level);
+    struct Cell {int theory,part,maximum,value;float progress;};std::vector<Cell> before;for(int i=0;i<NDb::SKILL_TYPE_NUMBERS;++i){auto& c=unit->Skills(i);before.push_back({c.GetTheoreticalMax(),c.GetXPPart(),c.GetMaxValue(),int(c),c.GetProgress()});}
+    const float xp=unit->fXP,current=unit->GetXPForSkill(NDb::ST_LEVEL,x.level),next=unit->GetXPForSkill(NDb::ST_LEVEL,x.level+1);const int points=unit->GetPerksTree()?unit->GetPerksTree()->GetPerkPoints():0;auto random=GlobalGameRandom();const float actual=mission->GetXP(x.party);auto continuation=GlobalGameRandom();bool rng=true,cells=true;for(int i=0;i<4;++i)rng=rng && random.Get()==continuation.Get();for(int i=0;i<NDb::SKILL_TYPE_NUMBERS;++i){auto& c=unit->Skills(i);const auto& b=before[i];cells=cells && c.GetTheoreticalMax()==b.theory && c.GetXPPart()==b.part && c.GetMaxValue()==b.maximum && int(c)==b.value && c.GetProgress()==b.progress;}
+    // Literal float bits from complete actual Steam reward execution under observed PC24.
+    const float normalized=next==current?0:actual*float((x.party<1?1:x.party>6?6:x.party))/(next-current);
+    unsigned bits=0;float expected=0;std::memcpy(&bits,&actual,4);std::memcpy(&expected,&x.expectedBits,4);
+    std::printf("native kill reward quote mode=%d persona=838 cap=%d level=%d party=%d currentThreshold=%.9g nextThreshold=%.9g quote=%.9g normalized=%.9g expected=%.9g bits=%08x expectedBits=%08x cells=%d rng=%d XP=%.9g points=%d\n",mode,unit->cap[NDb::ST_LEVEL],x.level,x.party,current,next,actual,normalized,expected,bits,x.expectedBits,int(cells),int(rng),xp,points);std::fflush(stdout);
+    Require(bits==x.expectedBits,"native reward quote differs from the original single-precision reward value");Require(cells && rng && unit->fXP==xp && (unit->GetPerksTree()?unit->GetPerksTree()->GetPerkPoints():0)==points && persona->pClass->skills[NDb::ST_LEVEL]==15 && unit->cap[NDb::ST_LEVEL]==15,"reward query changed cells/XP/points/RNG/authored cap");
+}
+
 static void NativeExtraRoundAP(const char* databasePath,int mode)
 {
     struct Sample{bool owned;NDb::EShootMode shot;int quotient,low,high;bool noActive,explicitWeapon,zeroRate,spent,remainder;};static const Sample samples[]={
@@ -32349,6 +32363,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "observer-stealth")) { Require(argc==5,"observer75 requires db/resources/mode"); ObserverStealthPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "better-spotting")) { Require(argc==5,"spotting requires db/resources/mode"); BetterSpottingPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-xp-threshold-pc24")) { Require(argc==4,"XP threshold requires db/mode"); NativeXPThresholdPC24(argv[2],std::atoi(argv[3])); return true; }
+    if (!std::strcmp(mode, "native-kill-reward-quote")) { Require(argc==4,"reward quote requires db/mode"); NativeKillRewardQuote(argv[2],std::atoi(argv[3])); return true; }
     if (!std::strcmp(mode, "native-extra-round-ap")) { Require(argc==4,"extra-round AP requires db/mode"); NativeExtraRoundAP(argv[2],std::atoi(argv[3])); return true; }
     if (!std::strcmp(mode, "native-hide-practice")) { Require(argc==5,"Hide practice requires db/resources/mode"); NativeHidePractice(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-medical-engineering-practice")) { Require(argc==4,"action practice requires db/mode"); NativeMedicalEngineeringPractice(argv[2],std::atoi(argv[3])); return true; }

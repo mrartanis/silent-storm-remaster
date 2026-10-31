@@ -1518,3 +1518,25 @@ restored/readback, six observed 007f samples and normal exit 0. Existing XP coef
 and recipient dispatch remain separate work.
 
 Audit context: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed); not a donor hunk or source completion.
+
+## 2026-10-31: Original base XP reward coefficient
+
+NativeKillRewardQuote0..13 use the actual native mission/Unit838 and authored cap15.
+Effective level/party inputs cover ordinary values, signed and upper party clamping and
+controlled negative-level zero guards. Fourteen exact original PC24 float bit literals;
+all17 cells, XP/points, four RNG words and unchanged caps. Initial property RED12/41 both
+archived; final exact RED12/47 both -> full GREEN 587 related + 11 supplemental Windows /
+588 related + 11 supplemental Linux, 24 identical measured query controls and11 unchanged
+periodic scenarios/measurement rows, full Game builds and323 asset-free checks. New14 are
+extended tests outside323.
+
+Complete original wrapper128 and helper70 independently bound through named symbols/typed
+mission slot124 and only verified operands/calls. Actual28 original records at
+observedPC24 and diagnosticPC53; all14 reference quote bits and current/next thresholds
+match native GREEN. Kernel input operands cap/level/party are unchanged by the earlier
+threshold correction; prior printed threshold values were not injected operands. Pure math
+scope only, no original world/death/recipient AddXP/constructor execution claim. Original
+real-stack/context/config restored/readback, normalexit0, six007f samples. Coefficient fix
+is separate from pending recipient dispatch.
+
+Audit context: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed); not a donor hunk or source completion.

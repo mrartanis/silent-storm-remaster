@@ -21943,3 +21943,73 @@ final commit of the entire task remains pending. Evidence: xp-threshold-pc24 map
 disassembly, original kernel/oracle, native RED/full GREEN and verification.
 
 Audit context: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed); this independent correction does not complete its recipient-dispatch hunk.
+
+## 2026-10-31: Original base XP reward coefficient
+
+CUnitMission::GetXP now divides the victim's next-minus-current XP threshold by the
+clamped party size, then multiplies by original float bits 0x3e3da12f
+(0.18518517911434174). It previously divided by 8.1, equivalent to a coefficient near
+0.123457 and about one third less base XP. This restores the original base reward, before
+the recipient's existing intelligence and XP-perk modifiers. The party-size clamp 1..6,
+threshold inputs, recipient modifiers and dispatch are unchanged. No class caps, authored
+rates, API, save or network fields change. This independent mismatch was found while
+auditing source aa724; it is not its donor hunk or completion, so 57 pending/partial
+sources remain.
+
+Fourteen real native Unit838/mission queries cover authored cap15, levels 0/1/2/5,
+ordinary and clamped party sizes, plus controlled negative-level zero guards. All 14
+expected float bit patterns are literals from actual original PC24 execution, not a
+duplicate reward formula. All 17 cells, XP, perk points, four RNG words and class/live
+caps remain unchanged. Initial coefficient-property RED 12/41 both was archived; after the
+independent shared-threshold correction, fresh exact RED 12/47 both precedes this
+production change. Full GREEN 587 related + 11 supplemental Windows / 588 related + 11
+supplemental Linux, strict inclusion of all 47 RED names, 24 identical measured query
+controls and all 11 unchanged periodic-bleeding scenarios/measurement rows. Full Game
+builds and 323 asset-free checks pass. Successful full runs serve as GREEN without
+duplicate focused runs.
+
+The initial related gates passed 587 Windows / 588 Linux. The coverage verifier then
+identified 11 periodic-bleeding RED controls missing from that selection. Each was run
+once as a supplemental GREEN gate against the same already-built production code. The
+gates have no overlapping test names: 598 Windows / 599 Linux unique passing cases cover
+all 47 RED names. Separate raw reports and exits are retained. No source changed between
+the related and supplemental gates.
+
+Named Gold CUnitMission::GetXP at6b9890, full128 bytes, maps to actual Steam6bfaa0 through
+the independently bound mission RTTI vtable8b63cc ->8c54e4, same slot124. The complete
+method uniquely matches using ONLY two verified calls to GetXPForSkill70 and the verified
+equal-value float operand. Gold GetXPForSkill6b45a0 ->actual6ba740, full70 bytes, uniquely
+matches using ONLY six verified equal constants and real _CIpow call8268c0 ->834830. No
+frame, branch, SEH, opcode or unknown code-pointer masks. The actual periodic caller7c33cc
+uses the mission reward slot124 and stores the returned value to float at7c33d2. The
+wrapper reads mission unit118, unit skills14/index13, effective level via
+freeze2c/max18/current1c; helper receives unit+0c and reads per-unit cap vector20/index13.
+Clamp count1..6; next threshold is stored to float, current threshold is subtracted, then
+FIDIV count followed by FMUL original float coefficient. Whole CRT implementation
+equivalence is not claimed.
+
+Twenty-eight actual original executions run complete128/helper70/real CRT pow for the 14
+native-captured effective cap/level/party inputs under observed007f PC24/RN and
+diagnostic027f PC53/RN. All 14 reference quote bits match native GREEN, as do the
+separately instrumented current/next thresholds after the independent threshold fix. For
+cap15/level0, the base reward is8.258957862854004 for one eligible fighter
+and2.752985954284668 for three. The diagnostic PC53 values differ and are not the native
+oracle. Original kernel operands are effective cap/level/party only: the old native
+threshold printouts stored in the evidence were NOT injected inputs, so the same
+original28 records remain valid after the native shared-threshold correction. All
+controlled input bytes and CW remain unchanged. Six initialized-device CW/FXSAVE007f
+samples, actual original real-stack byte backup/readback, full saved WOW64 context/config
+restoration and normal WM_CLOSE/exit0. No original executable, world, DB or TEB patch.
+
+This is a pure reward calculation probe with controlled original-layout
+mission/unit/vector/level cell. It does not execute original Unit/DBrecord constructors, a
+mission, death, recipient AddXP or distribution loop. Native tests use real native
+constructors and mission query separately. The native class-cap versus original
+per-unit-cap-vector lookup remains a static observation without a new meaningful
+divergent-cap test; it is not silently claimed corrected. Periodic hostile-roster XP
+distribution and direct-attack first-incapacitation XP remain pending. Baseline database
+SHA256 unchanged. Hosted CI for the final commit of the entire task remains pending.
+Evidence: kill-reward-quote mapping, full disassembly, original kernel/oracle, exact
+RED/full GREEN and verification.
+
+Audit context: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed); independent coefficient correction, not completion of its recipient-dispatch hunk.

@@ -1069,7 +1069,8 @@ float CUnitMission::GetXP( int nHowManyPerson ) const
 	nHowManyPerson = Clamp( nHowManyPerson, 1, 6 );
 	int nLvl = pRPGUnit->Skills(NDb::ST_LEVEL);
 	float fXPDiff = pRPGUnit->GetXPForSkill( NDb::ST_LEVEL, nLvl+1 ) - pRPGUnit->GetXPForSkill( NDb::ST_LEVEL, nLvl );
-	return ( fXPDiff / float(nHowManyPerson) ) / 8.1f;
+	// Steam 0x6bfaa0: divide by roster size, then multiply by float bits 0x3e3da12f.
+	return ( fXPDiff / float(nHowManyPerson) ) * 0.185185179f;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CReceivedDmg CUnitMission::ProcessAttackForPK( NWorld::IWorld *pWorld, int nUserID, CAttackPortion *pAttack,

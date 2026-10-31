@@ -3415,3 +3415,30 @@ and does not complete that source: 57 pending or partial sources remain. Hosted 
 final commit of the entire task remains pending.
 
 Audit context: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed).
+
+## 2026-10-31: Original base XP reward coefficient
+
+The base XP reward now matches original Steam 1.2. Subtract the victim's current XP
+threshold from its next threshold, divide by the eligible party size clamped to 1..6, then
+multiply by the original float coefficient 0.185185179. Replacing the old division by 8.1
+restores about 50% more base XP. With authored cap 15 at level 0, one fighter's base share
+changes from about 5.505972 to 8.258958; a share in a three-person party changes from
+about 1.835324 to 2.752986. The recipient's existing intelligence and perk modifiers apply
+separately and remain unchanged. Class caps, authored growth rates and the party-size
+clamp are unchanged. Reward distribution is still being restored separately.
+
+Exact native tests reproduced 12 failures out of 47 on both systems before the coefficient
+change. GREEN includes 587 related plus 11 supplemental checks on Windows and 588 related
+plus 11 supplemental checks on Linux: 598 / 599 unique passing cases, covering all 47 RED
+names. The supplemental gate covers periodic-bleeding cases omitted from the initial
+selection; no source changed between the gates. Full Game builds and 323 asset-free checks
+also pass. The 24 measured query controls and 11 periodic scenarios are unchanged. Actual
+original executions verify all 14 reference reward bit patterns and thresholds under the
+observed single-precision mode. Diagnostic double precision is recorded separately. This
+pure calculation probe does not claim to run original missions, constructors, deaths or
+recipient distribution. Original stack, context and configuration were restored; the
+process exited normally and the database is unchanged. This independent correction does
+not complete source aa724: 57 pending or partial sources remain. Hosted CI on the final
+commit of the entire task remains pending.
+
+Audit context: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed).
