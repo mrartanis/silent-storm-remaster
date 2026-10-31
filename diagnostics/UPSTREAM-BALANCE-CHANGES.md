@@ -2930,3 +2930,21 @@ these observations do not certify ordinary critical frequency. AP51->42->42,
 native item/actor controls retained. Full Game builds, related286Win/285Linux, CI323.
 Original Gold/Steam both forward selected member28. Actual requested part,
 range/velocity/full solver/flight/timing/drop/UI remain separate source578 work.
+
+## 2026-10-31: requested part survives actual knife launch
+
+The actual throw label now retains selected eHL in the existing attack metadata.
+The already restored target1.2 critical consumer applies its existing bonuses
+when HeadshotShouldKill is enabled and actual hit matches: BODY probability+10/
+severity+20, HEAD+90/+150 (other regions already certified in the shared consumer).
+No new numbers or formulas. ANY, free-point, disabled rule and mismatched actual
+part do not gain a bonus. Existing own save/LAN encoding is retained.
+
+Native actual launch carrier/real HEAD-BODY callback/HP/bleeding RED2/6 ->GREEN6/6
+each: head90->123/DC185->335, body63->66/DC185->205. Four outcome controls remain
+unchanged. Native level20 prefix175, raw chance100/severity10, actual perk37
+grant and AP57->48->48/cost9 retained. This deliberately guarantees critical
+acceptance; ordinary chance frequency is not inferred. Initial disabled-injury
+fixture was unobservable and replaced before accepted RED. Full Game builds,
+related292Win/291Linux, CI323. No new full flight/range/velocity/timing/drop/UI, bleeding
+duration or post-world RNG parity claim.

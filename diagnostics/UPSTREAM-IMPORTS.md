@@ -20598,3 +20598,57 @@ feedback/clock, direction/world impact, prior night/incidental/critical coverage
 and Windows manager, CI323. Source578 remains partial for actual requested-part
 producer, range/velocity and full solver/flight work.
 Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: requested part in actual knife label producer (`5780c0be` partial)
+
+CExecThrowKnife::ThrowKnife copies eHL into attack.front().eWantedHL after actual
+nonempty generation and before tear-off. Uses the existing transient field,
+original critical consumer and own LAN +1/default encoding from fix80. Selected
+target from fix86 retained. No new formula, ordinal, API, schema or save/wire
+format; ANY remains-1. Existing flight/solver/range/velocity code is unchanged.
+
+After accepted native RED, named knife label/private mapping from fix86 rechecked
+(original Steam7ac1e6->7aa930). Gold typed eHL30; target named save7b0e05..11
+addresses member30 as int4/tag5. Real generated portion frame54 follows actual
+CreateAttack7aa9f5 (LEAESP60 after3 pushes). Exact target7aaa02 loads eHL30 and
+7aaa0c stores ESP90 =portion54+3c. Separate rayInfo construction starts frame94.
+Independent original ctor68f848 initializes requested3c=-1 (exact store/POPESI/
+RET30 sequence), and prior native consumer6c40ef compares this field to actual
+hit. Gold typed portion lacks it: a real target1.2 version difference, not a
+masked offset. At7aaaaa LEAEDXESP70 after7 pushes supplies same portion54;
+7aaaae pushes it, then after9 pushes LEAECXESPB8 supplies rayInfo94, EDXactor,
+7aaabc->native AttackObjectRanged6b6510. No whole caller equivalence/field/frame/
+register masks or original/own vector ABI claim. One preliminary byte assertion
+omitted the real constructor POPESI; corrected against prior exact audit before
+any production edit. Evidence knife-called-shot-retail-oracle.json/member/slice.
+
+NativeKnifeCalledShot0..5 execute actual authored perk37 grant with point budget
+restored, actor level20, legal CanDo/Start/OnLabel, one native knife/item/actor and
+actual saved carrier. A real native HEAD/BODY flesh trace supplies current ray
+and existing throwing callback; native reference receives explicit existing
+BODY+10/+20 or HEAD+90/+150 chance/severity bonuses with requested=-1 to avoid
+double application. Both use actual original level*d20 prefix at the same
+starting ISAAC state. Native zero-energy server warmup binds game; disable other
+injuries and enable real authored bleeding, cap1000, no resistance/perk47, IC0,
+and restore headshot/always-critical flags/cap. Native grant37 guarantees critical
+acceptance, so this does not test ordinary critical probability frequency.
+
+Accepted RED2/6 ->GREEN6/6 EACH, four outcome controls. Head HP90->123 and real
+bleeding DC185->335; body HP63->66/DC185->205. Native level prefix175, raw
+probability100/severity10 unchanged. Exactly one bleeding injury retains native
+body location/value5(head)/10(body). Flag off retains head90/DC185; ANY,
+free-point and requested-head/actual-body mismatch retain body63/DC185. Carrier
+requested field now follows chosen part even when disabled/mismatched, without
+giving an unwanted bonus. Native AP57->48 at Start and remains48 at label/cost9,
+actor HP/position, item1, real grant/points/level and living receivers controlled.
+Own new objects removed and rules restored. The first all-criticals-disabled
+fixture passed all cases because no selected injury meant no modifier; it was
+unobservable, archived, then warmup/bleeding/level fixed and genuine RED repeated
+BEFORE original audit/production. No fake injury/damage or future-field stub.
+
+Full Game builds, related292Win/291Linux, prior actual launch/knife direction/world/
+clock/feedback/handoff/orientation, night/incidental/critical/Windows manager and
+CI323. No full launch timing/cached solver/range/velocity/flight/drop/UI, bleeding
+duration or post-world RNG parity claim. Other source578 range/velocity/solver/
+flight hunks remain separate.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).

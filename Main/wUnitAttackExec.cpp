@@ -3460,6 +3460,8 @@ void CExecThrowKnife::ThrowKnife()
 	CreateAttack( &attack, pTarget, false );
 	if ( attack.empty() )
 		return;
+	// Original Steam 0x7aaa02/0x7aaa0c: requested eHL30 -> portion3c.
+	attack.front().eWantedHL = eHL;
 	pUS->TearOffItem( &item, (NDb::ESlot)pInventory->GetActiveSlot(), &pNextSameItem );
 	if ( IsValid( pNextSameItem ) )
 	{

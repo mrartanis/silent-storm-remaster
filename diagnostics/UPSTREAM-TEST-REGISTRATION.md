@@ -1134,3 +1134,18 @@ flight/velocity/range/timing/drop/UI or post-world RNG parity. Rules restored an
 own objects removed. Original named label/private producer/member28/callee
 verified after RED. Full Game builds, related286Win/285Linux, Windows manager and CI323.
 Evidence prefix knife-launch-target; no failed fixture/calibration.
+
+## 2026-10-31: NativeKnifeCalledShot0..5
+
+Six extended/120s native legal throw Start/OnLabel/projectile/item/actual carrier,
+real HEAD/BODY trace, native throwing callback/HP and real bleeding DC/value/part
+versus independently bonus-adjusted native reference. Actual perk37 grant,
+level20 prefix175, cap1000 and native game-binding warmup/bleeding-only states.
+Accepted RED2/6 ->GREEN6/6 each, four outcome controls. Head90->123/DC185->335;
+body63->66/DC185->205. Flag-off head90/DC185; ANY/free/mismatch body63/DC185.
+Raw100/10, AP57->48->48/cost9 and actor/item/grant/level/rule controls retained.
+First all-criticals-disabled fixture was unobservable/all-pass, archived and
+replaced BEFORE genuine RED/audit/fix. Original eHL30->portion54+3c and same
+solver handoff verified. Full Game builds, related292Win/291Linux, Windows manager and
+CI323. No full launch/flight/range/velocity/UI, ordinary probability frequency,
+bleeding duration or post-world RNG claim. Evidence knife-called-shot.
