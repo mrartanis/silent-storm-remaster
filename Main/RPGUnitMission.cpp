@@ -514,6 +514,10 @@ void CUnitMission::RegisterAction( EAction action )
 		case AC_BURST:
 			UseSkill( NDb::ST_BURST );
 			break;
+		case AC_HIDE:
+			// Original Steam 1.2 RegisterAction 0x6c213f: practice on Hide entry.
+			UseSkill( NDb::ST_STEALTH );
+			break;
 		case AC_FIRSTAID:
 			// Original Steam 1.2 RegisterAction: 0x6c212d -> medicine practice.
 			UseSkill( NDb::ST_MEDICINE );

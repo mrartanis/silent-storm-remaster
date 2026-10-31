@@ -1456,3 +1456,26 @@ fullcontext/config restoration, normalexit0. All source156 hunks now accounted f
 including earlier mounted reload; no obsolete hypothesis accepted as a regression.
 
 Source: [156ccd173ff6c9671904e6d94e709397fc701d66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/156ccd173ff6c9671904e6d94e709397fc701d66).
+
+## 2026-10-31: Stealth practice on real Hide entry
+
+NativeHidePractice0..9: actual World/persona54/player-turn CCmdHide factory/executor,
+legacy/explicit entry, unchanged requests, exits, cooldown and repeated explicit request;
+fractional and selected-Stealth wholepoint conditions. Native reference uses real Unit
+UseSkill with AP charged first. All17 cells, one/no acknowledgment, four RNG words,
+XP/points/position/inventory/ammo/action lifetime. RED5/43 both ->full GREEN 384 Windows /
+385 Linux, exact RED-name inclusion and no duplicate focused GREEN.33 identical measured
+controls,170 new and476 old initial/reference cell rows,16 unchanged action ACK events,
+old explicit Hide rows unchanged. Full Game builds/CI323; Linux existinghelper targets and
+owned display wrapper. New10 are extended/outside323.
+
+Original Run123/DoAction160 uniquely bound by typed RTTI and only verified call
+relocations, GetPose43 and hiding getters exact.6 actual original Register HIDE fractional
+input/CW records check102 cell states; original AP stays52 because pure Register excludes
+native command cost14/final38. This is a declared scope boundary. Original
+executor/world/trueACK lifecycle is not executed in the sparse original probe; native
+real-world integration tested separately. Original real-stack/context/config
+restored/readback, normalexit0. DEX remains fractional in these fixtures; two integer
+improvements concern selected Stealth.
+
+Source: [2e15a10299e0d5e4a90558e39b34cc150ce51382](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2e15a10299e0d5e4a90558e39b34cc150ce51382).

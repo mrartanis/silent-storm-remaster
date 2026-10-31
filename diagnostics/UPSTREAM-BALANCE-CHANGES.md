@@ -3344,3 +3344,26 @@ Source: [24a00fd151a39d6c696c2ee8ab6deeb9d862f875](https://github.com/met-nikita
 Source: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed).
 
 Source: [405ed86144c0340c1ac36f0775d989123e7d8010](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/405ed86144c0340c1ac36f0775d989123e7d8010).
+
+## 2026-10-31: Stealth practice on real Hide entry
+
+Actually entering Hide now practices Stealth and its associated Dexterity, matching the
+original action dispatch. Exiting Hide, requesting an unchanged state or a rejected
+cooldown order does not train; repeating an explicit Hide request trains only on the first
+entry. The existing command styles, AP pricing/charge order, visibility/cooldown checks
+and save/network fields remain intact. A whole-point Stealth improvement emits one
+existing skill notification. Learning rates, caps, perk factors and authored data do not
+change.
+
+Native actual-world RED5/43 Windows/Linux ->full GREEN 384 Windows / 385 Linux;33
+identical measured controls,170 new initial/reference rows and476 prior
+medical/engineering rows unchanged. Two wholepoint cases test selected Stealth; Dexterity
+stays fractional here. Original completeRun123/DoAction160 control flow is independently
+statically bound, and6 actual original pureRegister records at2CW check all17 cells.
+Original pureRegister AP remains52; native full command spends14 and ends38, an explicitly
+checked scope boundary. Original world/executor/trueACK frequency is not claimed
+runtime-proved by the sparse kernel. Original stack/context/config restore/readback and
+normalexit0; full Game builds and CI323 pass. Source2e15 complete,58 pending/partial
+sources remain; whole-task hosted final-head CI still pending.
+
+Source: [2e15a10299e0d5e4a90558e39b34cc150ce51382](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2e15a10299e0d5e4a90558e39b34cc150ce51382).

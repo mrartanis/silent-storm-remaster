@@ -21735,3 +21735,75 @@ Source: [24a00fd151a39d6c696c2ee8ab6deeb9d862f875](https://github.com/met-nikita
 Source: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed).
 
 Source: [405ed86144c0340c1ac36f0775d989123e7d8010](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/405ed86144c0340c1ac36f0775d989123e7d8010).
+
+## 2026-10-31: Stealth practice on real Hide entry (`2e15a102` complete)
+
+RegisterAction AC_HIDE33 now calls existing mission UseSkill(ST_STEALTH5). Unit training
+also practices DEX15 through the already original-audited association rules. Existing
+CExecHide still decides whether a real entry occurs: entering Hide runs DoAction once,
+while exiting or requesting an unchanged state does not. No change to the fork's
+desired-state/legacy-command compatibility, serialized fields, cooldown/visibility checks,
+AP cost/charge ordering, equipment or position. Authored learning rates/caps/perk
+factors/XP and all data remain unchanged. The earlier excluded-balance entry was an
+unverified deferral, not a deliberate rebalance; actual original behavior is now verified.
+
+10 native actual-World tests execute real CCmdHide/CreateExecutor/Run against persona54 in
+a native player turn. Legacy and explicit entry, already-hidden/already-visible noops,
+explicit/legacy exits, blocked cooldown, two selected-Stealth wholepoint boundaries and
+repeated explicit true request. All17 real unit cells compare to a cloned native Unit
+UseSkill reference, with actual AP charge applied before training. Raw wounded values,
+frozen views, XP/points, inventory/ammo, position, action lifetime, single skill
+acknowledgment/no duplicate and4 next RNG words checked. DEX remains fractional in these10
+stimuli; no new native DEX-integer-promotion/AP-change claim. RED5/43 both Windows/Linux
+->full GREEN 384 Windows / 385 Linux, strict RED-test-name inclusion, executed once as
+successful GREEN/full.33 unchanged measured controls (5 new no-training/noop controls
+plus28 medical/engineering rows),170 unchanged new initial/reference cells,476 old
+medical/engineering reference rows,16 unchanged original action acknowledgment events and
+unchanged old explicit Hide state rows. Full Game builds, all previous
+treatment/repair/Hide regressions and CI323 pass. Linux uses the established owned
+Xvfb/Openbox/software-rendering wrapper and builds the existing helper binaries; no test
+exclusion.
+
+Named Gold CExecHide::Run7a6dc0/123 maps through verified CExecHide RTTI:
+TD973f3c/COL8ead10/VT8be418 ->actualSteam9851cc/8fa52c/8cda00; same Run slot18
+->actual7b35b0. Complete123 uniquely matches with ONLY3 verified direct-call
+displacements: DoAction743f60->74f500 and Hide744c70->750260 twice. Original itself has
+desired-state bool18, actor14, state10: desiredtrue +not-hiding calls DoAction33 BEFORE
+Hide(true,false), then finishstate1; desiredtrue/alreadyhidden isnoop; desiredfalse only
+exits if hiding, calls Hide(false,false) and world104(false), and never DoAction33. No
+assumption of unconditional original toggling.
+
+Complete named Gold DoAction160 uniquely maps toactual74f500 with ONLY2 verified GetPose
+calls; namedGold4902d0/43 ->actual4913d0 is uniquely EXACT with ZERO masks. Typed actor
+pRPG0c/position18/world2c, original AP calculation/conditional spending precedes
+unconditional mission RegisterAction virtual80. Actual mission VT8c54e4 slot80 resolves
+already-audited6c2080/227+tables80, whose action33 selector reaches original Stealth
+handler6c213f and real mission wrapper6c1fb0/196. Action33 cannot enter movement-only1/2
+counters. Server completeobject+14c typed RTTI supplies exact IsHiding12 ->GetRPG7
+->mission IsHiding7 getters (reads original mission190); no fake virtual provider or
+vtable patch. Actual Hide primitive's bCanHide11d guard decoded independently from the Run
+direct call target; no whole primitive205/SEH/logger or CanDoIt463 equivalence newly
+claimed.
+
+6 actual-original pure-Register records execute original227/tables80 ->wrapper196
+->Unit156/table36/recursivebase/initializedDB/cap/Upgrade/Update for3 captured native
+World-Hide fractional inputs x observedPC24/RN and diagnosticPC53/RN. All17 cells checked
+(102 cell-state comparisons); base/XP/cap/current/freeze exact, progress absolute1e-7.
+Action33 and totalXP1 are explicit native fixture source controls; all cell operands are
+directly captured. Pure Register does NOT spend AP or change hiding: its AP stays captured
+initial52, while the native completed command spends14 and ends38. This declared boundary
+is checked explicitly, not misreported as full original command execution. Original
+Run123/DoAction160 are static audits only; original world/executor/constructor lifecycle,
+true acknowledgment/log path, live frequency and DEX promotion are not runtime-proved
+here. Native two selected-Stealth promotion cases check actual world one-ACK integration
+against earlier original-backed Unit growth rules. Six CW/FXSAVE007f samples, original
+real-stack scratch bytes backup/restoration/readback, full WOW64context/config restoration
+and normal WM_CLOSE/exit0; no original executable/world/DB/TEB patch.
+
+All useful behavior of source2e15 is imported; remaining58 sources (pending42 +partial16).
+Source24a additional short-burst AP andaa724 fatal-bleeding XP remain pending until
+original verification. Whole-task actual final-head hosted CI remains pending. Evidence
+hide-practice: mapping/typed/full disassembly/original-kernel/oracle/native
+RED/fullGREEN/verification.
+
+Source: [2e15a10299e0d5e4a90558e39b34cc150ce51382](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2e15a10299e0d5e4a90558e39b34cc150ce51382).
