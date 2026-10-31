@@ -20045,6 +20045,11 @@ Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita
 
 ## 2026-10-31: original critical probability comparison precision; source `65558b11` complete
 
+**Superseded precision inference:** the wide-significand claim and boundary
+rejection below are incorrect under the observed original PC24/RN runtime.
+See the later original-address critical comparison audit and correction.
+Historical measurements are retained; they do not establish original behavior.
+
 Adapts the final native precision boundary identified during the source audit.
 Compare double(integer roll) with double(integer probability)*double(stored float
 resistance), avoiding a premature FLOAT product store. The authored float factor
@@ -21029,3 +21034,43 @@ tracked in original-runtime-precision-followup.json. Full solver/cached ray/
 frame/incidental/flight/drop/UI and whole9f3 still pending.
 Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
 Related source audited but not imported wholesale: [9f3c03712f2a86f83fb7739891827847b2f9f645](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9f3c03712f2a86f83fb7739891827847b2f9f645).
+
+## 2026-10-31: original runtime precision corrects critical probability boundaries
+
+Corrects the earlier instruction-only inference in0bf56bed: no FSTPS does not
+prove wide x87 significand. Actual original main thread after D3D9 initialization
+has CW/FXSAVE007f, PC24/RN, six samples. Actual Steam comparison6c3b10/21 AND
+original JNP branches executed AT ORIGINAL ADDRESSES on ONLY owned main thread,
+using controlled stack/chooser. Accepted path reaches actual virtual chooser
+dispatch6c3b25..3b3a, whose isolated stub records admission before injury selection;
+rejected path follows actual6c3aa8 return preserving FS0. Full original integer/
+FPU/extended context restored before resume. Original executable code/world/db/
+resources untouched, normal WM_CLOSE and temporary cfg restored. This is an
+initialized-main-menu original kernel oracle, not a live gameplay breakpoint or
+full helper invocation. All21 actual records retained: PC24/RN boundaries100/90,
+50/45,30/27 ACCEPT; diagnostic PC53/RN and PC24/CHOP REJECT. Adjacent89 accepts,
+91 and zero-probability1 reject, no-resistance100/90 accepts in allthree modes.
+
+Independently named mission RTTI/vtable ProcessAttack and direct helper identity
+rechecked in Gold/Steam. Exact ordinaryGold6bd4bf25/Steam6c3b1021 and Steam
+AlwaysCritical6c3a7e25 retain FILD/FILD/FMULS/FCOMPP/FNSTSW/TESTAH5, same comparison.
+Exact36 Steam6c3976..399a verifies47 division occurs BEFORE changing RC for
+FISTP, and saved caller CW is restored3996 BEFORE probability comparison. No
+comparison precision override. Real Gold/Steam helper/AlwaysCritical differences
+remain; no whole-helper equivalence asserted.
+
+Minimal production: native float probability product/comparison, preserving
+stored factor, force/difficulty fallback, draws, selector and injury consumers.
+Actual46/.1 stored factor.899999976 rounds P100/50/30 products to90/45/27 under
+observed PC24/RN; equal integer roll admitted. Native real missions/TakePerk/
+actual ProcessAttack RED4/9 ->GREEN9/9 EACH; five measured controls identical.
+Three boundaries plus resisted AlwaysCritical: damage20->47, BLEED/DC300 restored
+against actual guaranteed-critical reference. Adjacent89/91, unacquired, zero and
+forced controls stable, four RNG words/AP/pose/HP/perks/input/cap/difficulty exact.
+Full Game builds, related334Win/333Linux, Windows manager, CI323. Source status remains
+imported; prior77 closure had an incorrect precision adaptation, corrected here.
+Finite ordinary authored inputs certified; extreme/nonfinite custom probabilities
+not newly certified. Other prior precision adapters still require separate audit.
+Evidence critical-probability-runtime-retail-oracle.json, original-kernel.json,
+RED/GREEN/full logs and verification.json.
+Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).

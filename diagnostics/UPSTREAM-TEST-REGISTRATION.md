@@ -1005,6 +1005,11 @@ Separate float probability-threshold boundary remains unverified/pending; no UI 
 
 ## 2026-10-31: NativeCriticalProbabilityPrecision0..8 / source65558b11 closure
 
+**Superseded precision inference:** the wide-significand claim and boundary
+rejection below are incorrect under the observed original PC24/RN runtime.
+See the later original-address critical comparison audit and correction.
+Historical measurements are retained; they do not establish original behavior.
+
 Both CMake lists, extended/120s. Actual authored46/.1/native grant/two world units,
 exact native SRand boundary seeds and real zero/guaranteed reference attacks.
 RED4/9 ->GREEN9/9 each, five controls. P100draw90/P50draw45/P30draw27 and resisted
@@ -1264,3 +1269,16 @@ process, restored full thread context/config and normal exit. Full Game builds,
 related334Win/333Linux, Windows manager and CI323. Main-menu/kernel precision proof,
 no live gameplay breakpoint/whole9f3/full flight claim. Precision follow-up on
 earlier wide assumptions required; evidence prefix knife-skill-context.
+
+## 2026-10-31: critical probability original-runtime regression correction
+
+Existing9 real native modes now use actual original-address PC24/RN kernel
+admission: boundaries100/90,50/45,30/27 and resisted AlwaysCritical accept.
+Fresh production RED4/9 ->GREEN9/9 EACH, five identical controls. Boundary
+damage20->47 and BLEED/DC300 match native guaranteed-critical reference; four
+RNG words/AP/HP/pose/perks/input/cap/difficulty exact. Original comparison AND
+branches executed at original addresses with controlled stack/chooser before
+injury selection; all21 CW/operand modes retained, context/config restored,
+owned original normal exit. Full Game builds, related334Win/333Linux, CI323.
+Old instruction-only wide inference explicitly superseded. Evidence prefix
+critical-probability-runtime; no whole helper/live-gameplay breakpoint claim.

@@ -1900,7 +1900,8 @@ float CUnitMission::GetCriticalDmgModifier( NWorld::IWorld *pWorld, NAI::EHitLoc
 	// Original Gold 0x6bd402 / Steam 0x6c399a caps the incoming selector input.
 	if ( IsValid( pGame ) && nCriticalDifficulty > pGame->GetMaxCriticalSeverity() )
 		nCriticalDifficulty = pGame->GetMaxCriticalSeverity();
-	if ( !bForced && double( nRand ) > double( nCriticalProbability ) * double( fCriticalResist ) )
+	// Original Steam 0x6c3b10 compares with observed PC24/RN after restoring caller CW.
+	if ( !bForced && nRand > nCriticalProbability * fCriticalResist )
 	{
 		CGlobalGame *pGlobal = pWorld ? pWorld->GetGlobalGame() : 0;
 		if ( !pGlobal || !IsValid( pGlobal->pDifficulty ) ||

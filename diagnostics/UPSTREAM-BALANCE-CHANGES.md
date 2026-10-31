@@ -2766,6 +2766,11 @@ instruction audit identifies it; no native RED/GREEN or fix is claimed yet.
 
 ## 2026-10-31: critical chance threshold precision; source65558b11 complete
 
+**Superseded precision inference:** the wide-significand claim and boundary
+rejection below are incorrect under the observed original PC24/RN runtime.
+See the later original-address critical comparison audit and correction.
+Historical measurements are retained; they do not establish original behavior.
+
 Restores original unrounded comparison of integer roll to probability times the
 stored resistance factor. With actual46/.1, chance100 has threshold89.9999976,
 so draw90 rejects; chance50/draw45 and chance30/draw27 reject likewise. Premature
@@ -3075,3 +3080,19 @@ do not imply wide arithmetic when PC24 is active, and RC placement also matters.
 No broad numerical parity claim until those native original PC/RC cases are
 checked. Existing physical adapters unchanged here; no full shared9f3/solver/
 flight/drop/UI claim.
+
+## 2026-10-31: correct critical chance rounding to observed original runtime
+
+Corrects earlier wide-precision adaptation: actual original uses single
+significand precision at this comparison under observed CW007f/PC24/RN.
+With real resistance46/.1, probabilities100/50/30 round to90/45/27 and equal
+roll90/45/27 admits critical. Fresh native boundary cases damage20->47 and
+BLEED/DC300 restored, including resisted AlwaysCritical. Five controls unchanged;
+four RNG words and actor/perk/input/cap/difficulty controls preserved. No new
+authored values, clamps or random draws. Exact RC chronology +actual original
+comparison/branches at original addresses prove this kernel behavior; isolated
+chooser stops before original injury selection. Context/config restored, normal
+owned-process exit. Main-menu/kernel scope, no live-gameplay breakpoint claim.
+RED4/9 ->GREEN9/9 each, full Game builds related334Win/333Linux, CI323. Prior precision
+claim above explicitly superseded; other precision adapters audited separately.
+Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).
