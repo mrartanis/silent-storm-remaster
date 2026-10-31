@@ -163,20 +163,51 @@ NAI::EPose GetBestPose( const NDb::CRPGWeaponType &wt )
 	return NAI::WALK;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// NRPG::GetMaxTrowDistance  @0x2b7c70 (RVA) -- release-new free helper. The release range is the
-// 45-degree ballistic r = v^2/g, then * FP_INV_GRID_STEP (1/0.625 = 1.6) to convert metres -> grid
-// tiles:  return (v/g)*v*1.6f .  The max throw VELOCITY v (NRPG::GetMaxThrowVelocity @0x2b7b50) and the
-// throw-physics gravity g (a vtbl[0xdc]()[+0x24] read) are a deep opaque IUnitMission-vtable chain
-// (0x58/0x74/0xdc/0x188/0x78 + weapon-DB reads + pow(x,0.74) + a clamp query) that is undecoded and
-// ABSENT in this tree -- the same elision already documented in CThrowKnifeToHitCalcer::FillWeaponInfo
-// (the fixed 1..15 range). A faithful port is NOT possible without reconstructing GetMaxThrowVelocity,
-// so this is a documented elision returning the dev's fixed throw range. STANDALONE: no caller; it must
-// NOT be wired into FillWeaponInfo (that would change behaviour). Landing it is a parity marker only.
-float GetMaxTrowDistance( IUnitMission *, IInventoryItem *, bool )
+// Blade specialization of original Gold 0x6b1990 / Steam 0x6b7b10.
+// Preserve the native float stores and wide arithmetic between them.
+static double GetKnifeRangeSkill( IUnitMission *pMission, IMeleeWeaponItem *pItem )
 {
-	// elided: the (v/g)*v*FP_INV_GRID_STEP formula needs the absent GetMaxThrowVelocity / gravity chain.
-	return 15.0f; // matches CThrowKnifeToHitCalcer's fixed nMaxRange elision (RPGToHit.cpp ~line 605)
+    CUnit *pUnit = pMission->GetRPGUnit();
+    const bool bThrowing = pItem->GetDBMeleeWeapon()->bThrowing;
+    float fSkill = int( pUnit->Skills( bThrowing ? NDb::ST_THROWING : NDb::ST_MELEE ) );
+    float fParam;
+    if ( pMission->HasPerk( bThrowing ? 89 : 70, &fParam ) )
+        fSkill += fParam;
+    const CDynamicSkill &vp = pUnit->Skills( NDb::ST_VP );
+    const int nHealed = Max( 0, pMission->GetHealedVP() );
+    // Original VP factor uses base+XP, independently of critical-modified cap.
+    const int nPercent = int( ( double( int(vp) ) + double(nHealed) * double(0.5f) ) *
+        double(100.f) / double( vp.GetTheoreticalMax() ) );
+    const float fVP = nPercent > 75 ? 1.f : nPercent > 50 ? 0.9f : nPercent > 25 ? 0.75f : 0.5f;
+    return double(fSkill) * double(fVP);
 }
+////////////////////////////////////////////////////////////////////////////////////////////////////
+static float GetKnifeRangeVelocity( IUnitMission *pMission, IMeleeWeaponItem *pItem )
+{
+    float fStrength = int( pMission->GetRPGUnit()->Skills( NDb::ST_STR ) );
+    if ( pMission->GetPanzerklein() )
+        fStrength = pMission->GetPanzerklein()->nGrenadeStrength;
+    fStrength = float( double(fStrength) + GetKnifeRangeSkill( pMission, pItem ) * double(1.f / 18.f) );
+    const NDb::SToHitConstants &constants = *pMission->GetToHitConstants();
+    const float fPower = float( double(fStrength) * double(constants.fGrenadeSTRCoeff) +
+        double(constants.fGrenadeBaseCoeff) );
+    const int nWeight = pItem->GetDBItem()->nWeight;
+    const float fWeightedPower = float( double(fPower) * pow( double(nWeight), double(0.74f) ) );
+    float fVelocity = float( double(fWeightedPower) / ( double(nWeight) * double(0.001f) ) );
+    float fMultiplier;
+    if ( pMission->HasPerk( 88, &fMultiplier ) )
+        fVelocity *= fMultiplier;
+    return fVelocity;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+static double GetKnifeRangeWide( IUnitMission *pMission, IMeleeWeaponItem *pItem )
+{
+    // Original 48-byte distance helper stores velocity, then keeps range wide.
+    const float fVelocity = GetKnifeRangeVelocity( pMission, pItem );
+    return ( double(fVelocity) / double(pMission->GetToHitConstants()->fGravity) ) *
+        double(fVelocity) * double(FP_INV_GRID_STEP);
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // The release gates the per-hit-location headshot reweighting on the campaign DIFFICULTY record:
 // world->GetGlobalGame()->pDifficulty->bHeadshotShouldKill (retail chain [+0x48][+0x69], resolved
 // 2026-07-12 -- CGlobalGame+0x48 = pDifficulty, CDBDifficulty+0x69 = bHeadshotShouldKill). For
@@ -793,7 +824,8 @@ int CRLauncherToHitCalcer::GetMaxDistance()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CThrowKnifeToHitCalcer::GetKnifeMaxDistance()
 {
-	return pUnitMission->GetRPGUnit()->Skills( NDb::ST_STR ) * 1.5f;
+	// Original world range getter 0x7a1b30 truncates the wide ballistic result.
+	return int( GetKnifeRangeWide( pUnitMission, pMeleeWeapon ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CThrowKnifeToHitCalcer::FillWeaponInfo()

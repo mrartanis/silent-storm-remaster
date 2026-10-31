@@ -1163,3 +1163,21 @@ COMPLETE39-byte conversion tail/41-byte float clamps match originals without
 masks. Full Game builds, related298Win/297Linux, Windows manager and CI323. No failed
 fixture or full range/velocity/launch/flight/whole chance-formula parity claim.
 Evidence knife-chance-truncation.
+
+## 2026-10-31: NativeKnifeBallisticRange0..9
+
+Ten extended/120s native range getter + actual admission cases, real equipped
+authored blade450g, actual perk88/89 grants and point budget, native healing,
+actual worn PK and native CSkillModifier changing only VP cap. Initial RED4/8,
+extended RED5/10, then decoded original literals/fixed points repeat FINAL
+RED7/10 ->GREEN10/10 each, three unchanged cases; no invalid fixture. Original
+ranges11->19 skill,15->18 perk88,32->33 perk89,15->19 healing,15->32 STR; actual
+fixed boundary denied->admitted. Worn PK pilotSTR12->22 stays14, cap-only VP500->
+300/current300/theory500 stays18. Night/cover/actual launch15 controls retained.
+Actual CanDo/Start/OnLabel one knife/item and saved deadline/velocity9.375m,
+AP57->46/cost11; prevents fists/null context after tear-off. Query0 game RNG,
+4-word/AP/HP/pose/item/perk controls. COMPLETE original285/48/49,557 blade suffix
+and182 VP factor/59pow dispatcher audited with only verified relocations/data.
+Full Game builds, related308Win/307Linux, Windows manager and CI323. No full speed/
+continuous-distance/flight/accuracy-range/UI or cross-CRT extended80 bit claim.
+Evidence prefix knife-ballistic-range.

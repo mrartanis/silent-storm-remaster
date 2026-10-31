@@ -20700,3 +20700,80 @@ knife accuracy range and old command velocity/solver/flight remain separate
 source578 work; this test does not certify their original parity or full UI/
 projectile damage. No authored values changed.
 Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: original ballistic knife range/admission (`5780c0be` partial)
+
+Existing GetKnifeMaxDistance now truncates a live private blade specialization
+of original ballistic velocity/distance. Removed the unused15 marker. Actual
+ThrowKnife still constructs legacy calcers after TearOffItem, so BOTH now retain
+the already captured actual pMelee before any weight/range read; otherwise they
+could read fists/null instead of the thrown blade. No new public API or save/
+LAN/metadata/renderer change. Old speed5/solver/flight and fixed1..15 accuracy
+range remain separate work; integer-range/legacy deadline is not full continuous-
+distance or max-speed parity.
+
+After native RED: COMPLETE GoldPDB GetMaxThrowVelocity6b1990/285 ->uniqueSteam
+6b7b10, only3 verified math-pointer operands and one decoded_CIpow E8 masked.
+COMPLETE GetMaxTrowDistance6b1ab0/48 ->unique6b7c30, decoded E8 and verified1.6f
+pointer only. COMPLETE world GetKnifeMaxDistance795d10/49 ->unique7a1b30, decoded
+E8 only. Direct calls close identities. No register/frame/field/branch masks;
+stale donor6b7b60/6b7c80 rejected. Named mission RTTI offset4c Gold96fc90/COL8e2ca8/
+vt8b63cc ->Steam980de4/COL8f23e0/vt8c54e4: slots58 RPGUnit164,74 actual PK188
+this-adjust getter,dc tohit94,188 typed item-skill6ba630/1244 ->6c06d0. Typed
+constants base1c/STR20/gravity24, item integerWeight10, PKgrenadeStrength50,
+meleeThrowing34 and native STR14/THROW2/MELEE0/VP9 verified. Independently named
+CMelee interfaces verify actual inventory virtual-base/thunk/GetDBItem and
+IMelee/GetDBMelee slots; no own/original ABI equality claim.
+
+Whole1244 skill equivalence was REJECTED: unrelated firearm Gold6ba84b FSUBS
+became target6c08eb FADDS. It was not masked or ported. COMPLETE557-byte later
+blade/tail suffix6ba8df ->unique6c097f matches only named RTTI pointers, verified
+float pointers and decoded E8 relocations. Actual bThrowing selects THROW/perk89
+or MELEE/perk70; raw int skill storedfloat, optional flat parameter added and
+storedfloat. Velocity passes extra-count0, skipping other count modifiers.
+Slot174 VP factor times stored skill returns wide ST0 without another store.
+Its COMPLETE182-byte implementation6b4f70 ->unique6bb110 matches only6 verified
+float pointers. It explicitly uses XP+base THEORETICAL max, not critical-modified
+cap; healedVP clamps max0; wide percent then truncates at75/50/25 thresholds to
+1/.9f/.75f/.5f. Shared non-knife accuracy skill remains source9f3 work.
+
+Original arithmetic retained: store STR (or actual PK grenade strength) float;
+wide skill*float(1/18)+STR ->storeeffectiveSTR; wide STR*coefficient+base ->store
+power; pow(integer grams,double(float.74))*storedpower ->storeweightedpower;
+divide by WIDE grams*float.001 (no denominator float store) ->storevelocity;
+perk88 multiplies velocity, caller storesfloat v. Distance is WIDE(v/gravity)*v*
+float1.6; original world49 immediately FISTPL truncates it with no range float
+store. Own code uses double intermediates at these boundaries, not donor's
+premature float denominator/range. Complete59-byte original_CIpow dispatcher
+8268c0 ->834830 matches only named CPU-math flag pointer and decodedE9, exact
+FPU/MXCSR guards. Exponent bits0000008014aee73f =double(float.74), inv18
+398e633d, grams6f12833a, gridcdcccc3f. No cross-CRT pow or exhaustive extended80
+bit identity claim. Evidence knife-ballistic-range-retail-oracle.json and
+separate location/typed getter/skill/VP/item/original-literal artifacts.
+
+NativeKnifeBallisticRange0..9: initial genuine metarelation RED4/8 each; added
+actual worn PK and actual native VP-cap-only modifier, RED5/10. Pin decoded
+original integer literals/fixed points, repeat FINAL RED7/10 BEFORE production,
+then GREEN10/10 EACH after the fix, three unchanged cases. No invalid fixture. One actual authored
+blade5/weight450, unchanged native base.02f/STRcoeff.0022f/gravity10. Native
+GetKnifeMaxDistance AND actual CanUnitThrowKnife admission: THROW0->100 gives
+11->19 tiles; actual native perk88/1.1f gives15->18; actual perk89/+10 gives32->33;
+healing VP125->500 gives15->19; STR10->20 gives15->32. Point is fixed original
+before+1 tile: denied before, admitted after in those five cases. Pilot STR12->22
+while actually wearing authored PK strength10 retains14 tiles; old18->33 wrongly
+admitted the fixed15-tile point. Native VP cap modifier500->300 with current300,
+theoretical500 and THROW100 retains18 tiles, not a false healthy-VP increase.
+Night/cover15 and real launch control15 unchanged. Queries consume zero game
+RNG (4 subsequent words), AP/HP/input/item/perk-point/pose controls retained.
+Actual legal CanDo/Start/OnLabel creates one real knife/item, AP57->46/cost11;
+saved velocity/deadline represents9.375m for15 tiles, consistent within integer-
+tile/clock granularity. This catches lost real blade after tear-off; it does not
+certify full original flight/deadline. Own new objects removed; native modifier
+destructor/rules restore state. No authored data mutation or game/build copy.
+
+Full Game builds, related308Win/307Linux, original knife handoff/clock/orientation/
+feedback, previous target/requested part/world/direction/chance and earlier
+night/incidental/critical coverage, Windows manager and CI323. Other source578
+accuracy range, actual speed, cached solver, frame/target/incidental flight and
+full UI/drop pieces remain partial.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).

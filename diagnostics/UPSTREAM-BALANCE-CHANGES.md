@@ -2964,3 +2964,25 @@ originals share an identical complete39-byte truncate/save/restore tail; both
 41-byte float clamp selectors also match exactly. Full Game builds,
 related298Win/297Linux, CI323. Current fixed range and old throw-command velocity/
 solver/flight remain separate; no whole accuracy-formula/flight/UI parity claim.
+
+## 2026-10-31: original physical range for knife admission
+
+Range now uses original blade skill/VP/strength/weight/gravity and perk88 velocity
+multiplier instead of STR*1.5; the unused constant15 marker was removed. Actual
+blade remains available to old post-tear-off calcers. No authored numbers changed.
+Raw skill+perk89 (or melee70), multiplied by VP factor, contributes1/18 to STR;
+actual worn PK uses its grenade strength. Power=(base+STR*coefficient)*grams^
+double(float.74); velocity=power/(grams*.001f), then perk88. Range=(v/gravity)*v*
+1.6f, truncated to native admission tiles. Original intermediate float stores
+and wide denominator/final range preserved. VP factor uses unmodified XP+base
+maximum; an altered current cap does not falsely remove the health penalty.
+
+Native getter/real admission FINAL RED7/10 ->GREEN10/10 each. THROW0->100:11->19
+tiles; perk88:15->18; perk89:32->33; healing125->500:15->19; STR10->20:15->32.
+Actual PK pilotSTR12->22 stays14; currentVP300 with cap reduced500->300 and
+theory500 stays18. Night/cover/actual launch15 controls remain unchanged. Real
+label creates one knife, AP57->46/cost11, coherent legacy deadline; queries0RNG.
+Full Game builds, related308Win/307Linux, CI323. Original complete285/48/49 and typed
+blade/VP/item/PK contexts verified. Old speed5, fixed1..15 accuracy range and
+cached solver/full flight still require separate work. No cross-CRT pow/extended80
+bit identity or full continuous-distance/flight/UI parity claim.

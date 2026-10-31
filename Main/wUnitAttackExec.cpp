@@ -3480,6 +3480,8 @@ void CExecThrowKnife::ThrowKnife()
 		CPtr<NRPG::CThrowKnifeToHitCalcer> pToHitCalcer =
 			new NRPG::CThrowKnifeToHitCalcer( pUS, pUS->GetPosition().GetPose(),
 			nDistance, pUS->GetPosition().GetCP(), 100.f, pUS->GetWorld()->IsFirstTurn(), false, CVec3(1,1,1), 0, false );
+		// Retain the actual blade after tear-off; range now consumes its weight.
+		pToHitCalcer->pMeleeWeapon = pMelee;
 		nToHit = pToHitCalcer->GetToHit();
 		pToHitCalcer->Log();
 		fMaxDist = pToHitCalcer->GetKnifeMaxDistance() * FP_GRID_STEP;
@@ -3489,6 +3491,8 @@ void CExecThrowKnife::ThrowKnife()
 		CPtr<NRPG::CThrowKnifeTileToHitCalcer> pToHitCalcer =
 			new NRPG::CThrowKnifeTileToHitCalcer( pUS, pUS->GetPosition().GetPose(),
 			nDistance, pUS->GetPosition().GetCP(), 100.f, pUS->GetWorld()->IsFirstTurn(), false, CVec3(1,1,1), ptTarget, 0 );
+		// Retain the actual blade after tear-off; range now consumes its weight.
+		pToHitCalcer->pMeleeWeapon = pMelee;
 		nToHit = pToHitCalcer->GetToHit();
 		pToHitCalcer->Log();
 		fMaxDist = pToHitCalcer->GetKnifeMaxDistance() * FP_GRID_STEP;
