@@ -816,3 +816,15 @@ AP/item quantity retained. No-enemy/placement/
 unsynced-hull/zero-draw/extreme-control/overstrict-HP logs NOT final RED.
 Extreme skill2000/VP20000 controls superseded because of invalid HP reading.
 Full Game builds, related23Win/23Linux, CI323; new4 outside323.
+
+## Native plain-ray routing and retained explicit-hit fallback
+
+NativePlainRayRoute0..4: resource extended Win/Linux,timeout120. Real world810/
+party54/unit838/body/materials/map Sync/Trace, real CWorld overload and bullet
+snapshots/Segment. Zero kinetic preserves HP/AP/life/action. Normal/fragment
+loose rays consume one eligible probability0 ricochet draw and one incidental
+chance100 draw; ISAAC777/four-word fingerprint. Ignored/empty/explicit true-
+empty-cache fallback controls consume0 and preserve correct entries/metadata.
+RED2/5 ->GREEN5/5 each; three controls. Initial failed ray searches NOT RED.
+Full Game builds, related40Win/40Linux, CI323; Linux display decal uses Xvfb/Openbox.
+New5 outside323. Closes the last aa functional hunk with own hit fallback kept.

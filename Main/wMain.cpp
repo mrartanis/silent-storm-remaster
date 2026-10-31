@@ -3100,7 +3100,8 @@ void CWorld::PerformRangedAttack( const NRPG::SAttackRayInfo &rayInfo, STime sCa
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorld::PerformRangedAttack( const NRPG::CAttackPortion &ap, const CRay &ray, const vector<NRPG::IAttackable*> &ignores, STime sCast, NDb::CModel *pTrailModel, float fTrailSpeed, float fMaxRange )
 {
-	NRPG::SAttackRayInfo rayInfo( ap, ray.ptOrigin, ray.ptDir, true, 0.0f, fMaxRange, 0 );
+	// Original MakeSplinter 0x691b90 / dispatcher 0x692650: plain rays take the loose trace.
+	NRPG::SAttackRayInfo rayInfo( ap, ray.ptOrigin, ray.ptDir, false, 0.0f, fMaxRange, 0 );
 	if ( !ignores.empty() )
 	{
 		CDynamicCast<CObjectBase> pObj( ignores[0] );

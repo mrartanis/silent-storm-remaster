@@ -19270,3 +19270,68 @@ and CI323 pass. New4 resource extended/outside323. Evidence melee-miss-retail-
 oracle/verification JSON, original decoded bodies and corrected RED/GREEN/
 full logs. Only aa plain-ray routing remains pending.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.
+
+## 2026-10-31: plain rays use the original loose tracer; closes `aa031e2e`
+
+The plain CWorld::PerformRangedAttack overload now constructs rayInfo with
+bTargetIsHit=false. Both current native callers are fragment-burst sites.
+Own NRPG::PerformRangedAttack's explicit-hit/empty-cache fallback remains:
+other callers can still deliberately select that existing path. Shooterless
+particle suppression, native interfaces, trail speed3 and serialization stay.
+This is not described as fixing an empty cached trail: own true branch already
+builds a valid trail through ProcessRangedAttackPortion. The actual defect is
+choosing that older tracer rather than original TraceLooseRay semantics.
+
+Gold PDB MakeSplinter68bbc0/259 corresponds to Steam691b90 by direct calls
+from independently identified fragment bodies (Gold74bd49, Steam757227 and
+757314). Both XOR EBX at+50 then store BL to ESP58 at+167: local rayInfo
+rootESP14 shifts+4 after pushEDX, typed bTargetIsHit40 ->false. Real frame/
+argument offset+4 differences are not masked as equivalence. Gold PDB
+PerformRangedAttack68c6a0/279 maps uniquely to Steam692650 using its whole
+first128 bytes, masking only SEH3..6 and decoded E8 operands. Remaining279
+also has a real STrailPoint iterator stride116->120 at+186; it is NOT masked
+to claim full equivalence. Gold typed nFloor70/size116 and actual Steam ADD
+ESI78 are decoded. Gold68c6d1/Steam692681 flag40 false branch reaches native
+TraceLooseRay through Gold68c716->68c4f0 / Steam6926c6->6924a0. Prior original
+audit incidental-hit-retail-oracle.json independently proves a modulo100 draw
+even at chance100, inclusive comparison and shooterless fallback100 at
+Steam6b583e..6b5872, plus incidental trace call691ef1->6b59f0.
+
+NativePlainRayRoute0..4 use actual world810 with native party54, actual unit
+hulls/materials, normal Sync/Trace to choose an isolated positive-enter human
+interval and the real CWorld wrapper/native CBulletServer. No map/world proxy,
+synthetic geometry, DB mutation, fake tracer or missing API stub supplies RED.
+On this native scene the selected person is838/body0 with authored zero
+ricochet probability but eligible incidence. The original loose path consumes
+one GetFloat ricochet check even at probability0, then one incidental chance100
+check. Seed777 plus four-word ISAAC fingerprint distinguishes those two draws
+from the old fallback's zero. Normal and AT_FRAGMENT cases RED; GREEN matches
+the exact two-draw fingerprint. Three passing controls exclude the ignored
+unit, use a remote empty ray, or explicitly select the retained true/empty-hit
+fallback; each consumes0. Real bullet snapshots retain one target entry in
+normal/fragment/explicit-hit, none for ignored/empty, nonempty trails/speed3/
+null model/shooter/effect-1. Native Segment retires, zero kinetic keeps victim
+HP/AP/life and the world's action ownership unchanged. RED2/5 ->GREEN5/5 each.
+
+Fixture discovery logs are NOT RED: the initial short, strict no-angle search
+found no ray. A longer native trace and rejection counters identified the
+real eligible-but-probability0 incidence; final setup explicitly preserves
+that authored probability and accounts for its consumed draw. The final five
+compiled tests precede production. Full Game builds, related40Win/40Linux
+(fragment generation, real bullets/impacts/decals, loose ricochet/cover,
+retained fallback/network) and CI323 pass. Linux's existing display-labelled
+decal test uses Xvfb/Openbox/software GL. New5 resource extended/outside323.
+Evidence plain-ray-retail-oracle/verification JSON, original disassemblies and
+complete native RED/GREEN/build/regression logs.
+
+All functional hunks of aa are now reconciled: grenade AP record5 and cheap-
+throw43; knife weapon/THROWING-skill AP base and43 (retains original separate
+melee32, rather than copying upstream's shared MELEE-skill expression);
+explosive integer min/max truncation; floor0 grass metadata; actual attack-KO
+scenario notification; speed3 in both fragment loops; missed-melee dispatch/
+success-event guard; and plain loose-ray routing. Perk43 constant is present.
+The trailing wExplTracker registration hunk is only a final newline. Original
+address comments were audited/corrected rather than treated as proof. Own
+facial/font/audio/SDL/bgfx/LAN/codec implementations are preserved. Source
+ledger changes partial ->imported; this does not complete the broader queue.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.

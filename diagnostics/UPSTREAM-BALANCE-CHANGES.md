@@ -2532,3 +2532,20 @@ or repaired here and is not claimed to be a supported range or an original
 formula. Final acceptance uses ordinary attacker skill0/HP500 and the native
 forced-hit flag. Existing zero to-hit draw/infinite-ratio behavior is also
 left untouched; final miss inputs explicitly avoid that draw.
+
+### `aa031e2e`: fragment/plain rays use the original loose trace
+
+Plain fragment rays now take TraceLooseRay. The older own cached-hit fallback
+already produced a trajectory, but skipped the original loose-ray incidence/
+ricochet and incidental-unit checks. Actual zero-damage rays through a human
+now consume the original probability0 ricochet draw and chance100 hit draw;
+the seeded four-word RNG continuation matches. This corrects the random
+sequence seen by later combat and restores existing loose-trace behavior
+without changing its formulas. Ignored units/empty rays consume neither draw.
+Explicit true/empty-cache callers retain their own existing fallback.
+
+The new checks use zero kinetic and establish routing, native metadata and
+random consumption, with HP/AP unchanged. They do not newly establish every
+live fragment damage value, all ricochet geometries or visible flight time.
+All aa functional hunks are now audited/imported or adapted to original
+behavior; the broader upstream queue remains open.
