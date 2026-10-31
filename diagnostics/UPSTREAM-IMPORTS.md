@@ -19891,3 +19891,47 @@ not a full UI attack or non-bypassed penetration claim.
 Full Windows/Linux Game builds, 109Win/109Linux related tests and asset-free CI323 pass.
 Source remains partial for perk47 and forced/difficulty fallback.
 Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).
+
+## 2026-10-31: native reduced critical severity perk47 (`65558b11` partial)
+
+Restores HasPerk47: divide signed incoming severity by the actual float parameter
+using a wide quotient, then truncate to int BEFORE the existing max-severity cap,
+critical type selection and physical damage. Adds named constant47 only. No
+authored parameter, default/cap, public API, field or save/network tag changes.
+
+Exact Gold6bd3ca56/Steam6c396058 windows independently identify HasPerk slot78 /
+id2f47 with actual parameter output, FILD severity / FDIVS parameter, OR0c x87
+truncation / FISTPL severity and control-word restoration. Both flow directly
+into previously verified cap blocks6bd402/6c399a. The named HasPerk RTTI/vtable
+identity is retained from46 (shim alone nonunique). Donor's premature float
+quotient and extra `param != 0` condition are not copied: neither original has
+that guard. Ordinary representable authored inputs are tested; zero/nonfinite
+divisor and float-to-int overflow are not newly validated or given invented
+saturation rules. Evidence: critical-severity-perk-retail-oracle.json.
+
+NativeCriticalSeverityPerk0..7 use TWO actual native missions with an untaken47
+in its authored class/tree. Only target receives actual TakePerk47/parameter1.25;
+point budget is exact. Actual world810 deployment, native zero-energy server
+binding/read-only tag45, VP500/IC0/no46 and post-warmup BLEED-only selection.
+Reference has no47 and receives explicit reduced/capped severity under neutral
+cap1000; target receives original input under actual cap. Compare actual HP,
+injury count/DC/location/value/duration and four shared RNG words. Native AP,
+pose, life, input, perk ownership/points and cap remain stable/restored. Temporary
+ASCII log label is restored, leaving unrelated Linux Cyrillic codec issue aside.
+
+Complete final production RED5/8 ->GREEN8/8 on EACH platform, three controls.
+Input301 / authored1.25 truncates240, not241. Body/head/hand/leg damage
+50/70/24/37 ->44/62/22/33; actual injury DC301->240, body bleeding value15->10.
+Cap270/input301 case changes damage47->44/DC270->240 and also rejects an
+incorrect cap-before-division implementation (which would produce216). Control
+unacquired body remains50/DC301; still-binding cap150/input300 remains35/DC150;
+zero-critical remains20/no injury. Four RNG words match explicit native reference
+in every case. Preliminary cap200 case was a valid passing order control; final
+cap270 additionally exposes missing perk, and complete final RED was rerun on
+both platforms before any production edit. Preliminary logs are archived.
+
+Full Windows/Linux Game builds, 117Win/117Linux related tests and asset-free CI323 pass.
+Probability10000 isolates severity/selection/damage rather than ordinary critical
+frequency. Main damage is direct native RPG after real deployment/game binding,
+not a full UI command claim. Source remains partial for forced/difficulty fallback.
+Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).

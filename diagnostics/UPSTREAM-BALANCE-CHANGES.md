@@ -2714,3 +2714,18 @@ instructions agree. Actual RED5/8 ->GREEN8/8 each, full Game builds, related
 109Win/109Linux, CI323. Probability10000 isolates damage factor; ordinary frequency,
 full UI commands and non-bypassed penetration remain unverified by these cases.
 Perk47 and forced/difficulty fallback remain pending within source65558b11.
+
+## 2026-10-31: reduced critical severity ability47
+
+Restores original division/truncation before cap, injury selection and damage.
+Actual authored1.25 turns severity301 into240. Native body/head/hand/leg damage
+50/70/24/37 becomes44/62/22/33; injury DC301 becomes240 and body bleeding value
+15 becomes10. At cap270, damage47 becomes44/DC270->240. Bindingcap150 and
+unacquired/zero-critical controls remain stable. No authored balance values change.
+
+Gold/Steam exact HasPerk47, wide division and truncation-before-cap agree. Native
+RED5/8 ->GREEN8/8 each, full Game builds, related117Win/117Linux, CI323. Four RNG words
+and HP/AP/pose/points/input controls match actual explicit-reduced native reference.
+Probability10000 isolates this calculation; ordinary frequency/fullUI and
+zero/nonfinite divisor or overflow remain unverified. Forced/difficulty fallback
+within source65558b11 is still pending.

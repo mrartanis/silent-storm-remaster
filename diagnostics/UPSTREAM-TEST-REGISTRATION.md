@@ -966,3 +966,15 @@ mount/shellHP700/AP/pose/inventory/points/inputs retained. Full Game builds,
 related109Win/109Linux, CI323. Evidence prefix critical-resistance-perk. Probability10000
 isolates factor, not ordinary frequency/fullUI/penetration. Shim candidate8-way
 ambiguity resolved by named RTTI/vtable, not an asserted unique byte pattern.
+
+## 2026-10-31: NativeCriticalSeverityPerk0..7
+
+Both CMake lists, extended/120s. Two native authored-class missions; actual
+TakePerk47/parameter1.25 vs unacquired explicit reduced/capped reference, real
+world/game binding. Final RED5/8 ->GREEN8/8 each, three controls. Severity301->240;
+body/head/hand/leg HP50/70/24/37 ->44/62/22/33; cap270 case47->44, DC270->240.
+Unacquired50, bindingcap15035, zero-critical20 stable. Injury grade/DC/location/
+duration, four RNG words, native AP/pose/life/input/points/cap checked. Full Game
+builds, related117Win/117Linux, CI323; evidence prefix critical-severity-perk. Preliminary
+cap200 passing control archived, finalcap270 RED rerun before production. No
+new ordinary-frequency/fullUI/zero-divisor/overflow claim.
