@@ -19208,3 +19208,65 @@ code; final35 related cases below include its corrected literal3/IC50 control.
 Evidence fragment-speed-retail-oracle/verification JSON, decoded ctor/fragment
 bodies and native RED/GREEN/full gate logs.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.
+
+## 2026-10-31: missed melee ray does not strike or announce success (`aa031e2e` partial)
+
+CExecMeleeUnit::OnLabel now requires PeekRay success AND !bIsMiss before
+calling the existing three-argument PerformAttack and throwing the successful
+melee event. Damage traversal, native melee AISound19, API shape and attack-
+consumed tail are retained. No new combat formula, RNG or registry change.
+
+Gold PDB OnLabel79d9d0/577 is identified by named CExecMeleeUnit RTTI973728,
+COL8ea27c/vtable8bdac4 slot16. Steam named RTTI984998/COL8f9b7c/vtable8cd16c
+slot16 yields7a9fa0. Gold79db17 calls PDBAttackObjectRanged6b0430; corresponding
+Steam7aa0f8 calls6b6510. Its AL test7aa0fd/JE7aa188 skips both dispatch7aa136
+(vtable48: Gold PDBPerformAttack799540/Steam7a59a0) and event7aa157/7aa164
+(typedesc98379c explicitly names CEventOnUnitSuccessfulMelee). In the helper,
+Gold6b0647 calls PDBRealPeekRay6addb0, corresponding Steam6b6727->6b3f00;
+both compare output-miss stack13 to0, SETE BL at6b067e/6b675e and return
+BL as AL at6b0745/6b6825. This proves !miss rather than merely a selected ray.
+Steam7aa1cb unconditionally stores bAttackCanceled18=1. Source7a9a6d and
+6b677c/6b6875 comments are stale. No whole-method/helper byte-equivalence claim.
+
+NativeMeleeMissGate0..3 use actual world810 with party54, opposing native
+owners, two real person103 units on free adjacent standing navigation places,
+authored nonthrowing blade2, native map Sync/CanDoIt/Start, real serialized
+resolved hit-location data, native cover/to-hit/PeekRay and OnLabel. The
+diagnostic executor only observes the existing virtual PerformAttack dispatch
+and delegates every actual call to its native base; a real CEventRegister
+counts the original successful-melee event for that actor. It supplies no
+replacement cover/chance/world/damage implementation or missing API stub.
+
+Final corrected RED2/4 each (two controls already pass) ->GREEN4/4. BODY and
+ANY misses use native chance2 and actual seed2 first ISAAC draw61: ratio2/61,
+old dispatch1/event1 ->new0/0, HP500 unchanged. Positive controls retain the
+same literal chance2 and ordinary attacker melee skill0; the existing native
+CHEAT_TOHIT flag supplies check1, ratio2, producing a real finite positive,
+nonlethal HP drop and dispatch1/event1. Positive HP remains within0..500 in
+both phases; exact damage is not asserted equal because the existing static
+SRand roulette used by PeekRay is initialized from the host clock separately
+from the seeded ISAAC to-hit check. Its valid selected hit ray can vary. The
+actual draws and outcomes are archived, rather than reseeding that own stream.
+Attacker HP500/AP after Start, item quantity1 and
+resolved body/ANY inputs are preserved. No GPU/voice-pixel assertion is added.
+The defender's runtime melee skill2000 deliberately drives the existing
+chance floor2; no database record or supported skill-range claim is changed.
+
+Fixture preparation logs are NOT final RED: first scene lacked an enemy;
+deploying the real party supplies opposing owners. Occupied placement was
+replaced with native free-place selection, then ordinary AI-map Sync registers
+new hulls before CanDoIt. Seed55 produced check0/infinite hit ratio rather than
+a miss; the final seed selects bounded draw61. An earlier extreme attacker
+skill2000/targetVP20000 positive control sometimes reported INT_MIN health
+despite IsDead=false; it was superseded entirely by ordinary attacker skill0,
+HP500 and the existing forced-hit flag. An overstrict old HP390 expectation
+was also discarded; final positive checks require finite 0<HP<500 with no
+death/KO. All final four cases were
+compiled and run before restoring the production guard; the prior apparent
+full-suite success with the extreme control is explicitly superseded.
+
+Full Game builds, related23Win/23Linux (melee costs/reach/preparation/cursors/network)
+and CI323 pass. New4 resource extended/outside323. Evidence melee-miss-retail-
+oracle/verification JSON, original decoded bodies and corrected RED/GREEN/
+full logs. Only aa plain-ray routing remains pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.

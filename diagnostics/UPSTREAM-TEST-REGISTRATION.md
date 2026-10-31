@@ -801,3 +801,18 @@ verify speed3/tag3, nonempty trails, null model/shooter/effect-1; counts24/32
 unchanged. RED4/5 ->GREEN5/5 each, full Game builds, related35Win/35Linux, CI323.
 Linux display-labelled decal regression uses Xvfb/Openbox. New5 outside323.
 These tests do not claim changed null-model flight timing or GPU tracer pixels.
+
+## Native melee miss dispatch and success-event gate
+
+NativeMeleeMissGate0..3: resource extended Win/Linux,timeout120. Real world810/
+party54/opposing person103 units/free standing places/AI Sync/blade2/CanDoIt/
+Start/cover/OnLabel. Observing executor delegates actual PerformAttack to its
+native base; native event listener. Corrected RED2/4 ->GREEN4/4 each, two
+passing nonlethal controls. Chance2, seed2/draw61 gives miss; existing native
+forced-hit flag/check1 gives positive ratio2 with ordinary attacker skill0.
+Miss dispatch/event1->0; HP500 unchanged, actual positive HP losses bounded
+in both phases (own clock-seeded static ray roulette retained), attacker HP/
+AP/item quantity retained. No-enemy/placement/
+unsynced-hull/zero-draw/extreme-control/overstrict-HP logs NOT final RED.
+Extreme skill2000/VP20000 controls superseded because of invalid HP reading.
+Full Game builds, related23Win/23Linux, CI323; new4 outside323.

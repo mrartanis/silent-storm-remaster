@@ -2516,3 +2516,19 @@ unchanged. This restores metadata/internal velocity scaling. Current fragment
 trail models are null, and native travel-time division is guarded by a model,
 so no change in visible flight time, damage or hit probability is demonstrated
 by this fix. The plain-ray routing hunk is still a separate pending audit.
+
+### `aa031e2e`: melee misses no longer dispatch a strike or success event
+
+A selected melee ray marked as a miss now skips damage/sound dispatch and
+the successful-melee event. Actual BODY/ANY misses previously dispatched
+both despite chance2/check61; now neither is sent. Real positive controls
+still strike and lose health. Existing melee damage/chance/RNG formulas,
+weapon data, attack-cost spending at Start and consumed-attack tail remain.
+
+Unverified diagnostic limit: a superseded control with attacker melee skill
+2000 and targetVP20000 occasionally returned INT_MIN total health while
+IsDead was false. This extreme-input critical/damage/VP path was not isolated
+or repaired here and is not claimed to be a supported range or an original
+formula. Final acceptance uses ordinary attacker skill0/HP500 and the native
+forced-hit flag. Existing zero to-hit draw/infinite-ratio behavior is also
+left untouched; final miss inputs explicitly avoid that draw.

@@ -1990,7 +1990,8 @@ void CExecMeleeUnit::OnLabel()
 			GetExtraAP(), hlInfo.eHL, hlInfo.accessibleHLs, pCover, pWorld->IsFirstTurn(), &nToHit );
 		CRay ray;
 		bool bIsMiss;
-		if ( NRPG::PeekRay( pCover, &ray, fHit, &bIsMiss ) )
+		// Original Steam 0x7aa0f8..0x7aa164: only !miss dispatches the strike and success event.
+		if ( NRPG::PeekRay( pCover, &ray, fHit, &bIsMiss ) && !bIsMiss )
 		{
 			PerformAttack( attack, ray, fHit );
 			//PerformAttack( attack, ray, bIsMiss, fHit );
