@@ -2699,3 +2699,18 @@ RED4/6 ->GREEN6/6 each; full Game builds, related101Win/101Linux, CI323. Probabi
 is an explicit isolation input; ordinary critical frequency, non-bypassed shell
 penetration and full UI commands are not newly verified. Perks46/47 and
 forced/difficulty fallback remain pending within source65558b11.
+
+## 2026-10-31: critical resistance ability46
+
+Restores the original acquired ability46 multiplier `1 - parameter` on the
+existing critical factor. The actual authored.1 parameter gives.9 for a human,
+or.27 combined with a suit's existing.3 complementary factor. Native base20 /
+severity300 damage changes body50->47, head70->66, hand24->23, leg37->35 and
+mounted body29->28. Injury severity300, shellHP700, mount/AP/pose/points/inventory
+remain stable. Unacquired and zero-critical controls are unchanged.
+
+Gold/Steam HasPerk46/parameter and wide x87 subtract/multiply/final float-store
+instructions agree. Actual RED5/8 ->GREEN8/8 each, full Game builds, related
+109Win/109Linux, CI323. Probability10000 isolates damage factor; ordinary frequency,
+full UI commands and non-bypassed penetration remain unverified by these cases.
+Perk47 and forced/difficulty fallback remain pending within source65558b11.

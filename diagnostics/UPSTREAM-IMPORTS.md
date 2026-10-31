@@ -19849,3 +19849,45 @@ logs are archived separately and are not RED evidence.
 Full Windows/Linux Game builds, 101Win/101Linux related tests and asset-free CI323 pass.
 Upstream source remains partial for perks46/47 and forced/difficulty fallback.
 Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).
+
+## 2026-10-31: native critical resistance perk46 (`65558b11` partial)
+
+Restores the missing HasPerk46 branch: multiply the existing (possibly PK)
+critical factor by1 minus the actual authored perk parameter. Uses wide double
+subtract/multiply until final float store, as original x87 does; avoids an extra
+rounded float intermediate. Adds only the named constant46, no authored values,
+clamps, new public API, fields or save/network tags.
+
+Exact Gold6bd39f43 and Steam6c393345 windows call named HasPerk interface slot78
+with id2e46, actual parameter output and two nulls; true branch FLDS1/FSUBSparam/
+FMULS previousfactor/FSTPSfactor. GoldPDB HasPerk6b8ab0/11 is selected by named
+CUnitMission interface vtable8b63cc+78, Steam8c54e4+78 selects6beea0. The11-byte
+shim has EIGHT matches with only decoded tailjmp relocation masked; its byte
+pattern alone is not unique. Named RTTI/vtable selects the method. Actual tailjmp
+Gold6b44a0 PDB CUnit::HasPerk/20 ->Steam6ba640; first16bytes agree and read/guard
+typed PerksTree84. No frame/register/field masks or wholehelper match claimed.
+Evidence: critical-resistance-perk-retail-oracle.json.
+
+NativeCriticalResistancePerk0..7 use actual native class/tree with an untaken46,
+native TakePerk/granted branch and exact original perk point budget, authored
+parameter0.100000001 (unchanged). VP500/IC0/no47, actual world810 deployment,
+native zero-energy server binding/read-only tag45, BLEED-only after warmup,
+cap1000 restored. Modes6/7 use actual mounted suit2/.7/shell700 and explicit
+bypassPK, verifying multiplication of existing complementary PK factor by.9
+to0.270000011. Linux-safe temporary ASCII logging label is restored exactly;
+the known unrelated Cyrillic TakePerk logging/codec issue is not fixed here.
+
+Complete production RED5/8 ->GREEN8/8 on EACH platform, three controls unchanged.
+Base20/severity300 acquired human damage body50->47, head70->66, hand24->23,
+leg37->35; acquired mounted body29->28. Unacquired human50, acquired zero-critical20
+and unacquired mounted29 controls remain identical. Positive bleeding/DC1/300,
+zero-critical0/-1, AP/pose/life/inventory/points/grant, portion energy/damage/severity,
+shellHP and wearer/surface-owner identity are retained. Probability10000 isolates
+the damage factor and does not newly establish ordinary critical frequency;
+the shared gate consumes the same factor, verified in the original instructions.
+Main damage remains a direct native RPG call after real deployment/mount/binding,
+not a full UI attack or non-bypassed penetration claim.
+
+Full Windows/Linux Game builds, 109Win/109Linux related tests and asset-free CI323 pass.
+Source remains partial for perk47 and forced/difficulty fallback.
+Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).

@@ -1875,6 +1875,9 @@ float CUnitMission::GetCriticalDmgModifier( NAI::EHitLocation eHL,
 	float fCriticalResist = 1;
 	if ( pPanzerklein )
 		fCriticalResist = 1.f - pPanzerklein->fCriticalResist;
+	float fParam = 0;
+	if ( HasPerk( N_PERK_CRITICAL_RESISTANCE, &fParam ) )
+		fCriticalResist = float( double( fCriticalResist ) * ( 1.0 - double( fParam ) ) );
 	// Original Gold 0x6bd402 / Steam 0x6c399a caps the incoming selector input.
 	if ( IsValid( pGame ) && nCriticalDifficulty > pGame->GetMaxCriticalSeverity() )
 		nCriticalDifficulty = pGame->GetMaxCriticalSeverity();

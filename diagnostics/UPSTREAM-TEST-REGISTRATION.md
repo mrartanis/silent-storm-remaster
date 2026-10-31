@@ -955,3 +955,14 @@ Full Game builds, related101Win/101Linux, CI323 pass. Logs/original oracle and f
 verification JSON use prefix critical-pk-resistance. Probability10000 isolates
 damage factor, not ordinary frequency; full UI/penetration is outside scope.
 Invalid inventory API compile logs are calibration, not RED.
+
+## 2026-10-31: NativeCriticalResistancePerk0..7
+
+Both CMake lists, extended/120s. Actual native TakePerk46/authored.1/point budget,
+world deployment/game binding and mounted suit2 combination. Native RED5/8 ->
+GREEN8/8 each, three controls; damage50/70/24/37 ->47/66/23/35, mounted29->28.
+Unacquired50, zero-critical20, unacquired mounted29 stable; injuries DC300 and
+mount/shellHP700/AP/pose/inventory/points/inputs retained. Full Game builds,
+related109Win/109Linux, CI323. Evidence prefix critical-resistance-perk. Probability10000
+isolates factor, not ordinary frequency/fullUI/penetration. Shim candidate8-way
+ambiguity resolved by named RTTI/vtable, not an asserted unique byte pattern.
