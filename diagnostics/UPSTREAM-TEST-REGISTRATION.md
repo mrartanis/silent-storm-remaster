@@ -1214,3 +1214,20 @@ named world virtual receiver/typed signature audited. Full Game builds, related
 322Win/321Linux, Windows manager and CI323. No post-world RNG, original absolute lifetime,
 solver/cache/full collision-flight/drop/UI or exhaustive x87/CRT claim. Evidence
 prefix knife-launch-speed.
+
+## 2026-10-31: NativeKnifeFractionalRange0..5
+
+Six extended/120s actual CanUnitThrowKnife cases, native authored blade5/450g,
+range15. Offsets+.125,+.875,+.0009765625 wrongly allowed ->denied; inside-.125,
+equality and outside+1.125 unchanged. Initial RED3/6 ->GREEN6/6 each; full gates
+exposed two older perk89 probes incorrectly expecting33.125 inside range33.
+Repair ONLY those fixed points to32.5 between before32/after33, restore ONLY92
+production and repeat FINAL RED5/8 ->GREEN8/8 each: six new cases and both real
+earlier native perk89 cases. Gate0->0 becomes11->0 at32.5; range32/33 unchanged.
+Three identical measured controls, query0RNG/four words/AP57/HP500/pose/item/perk controls.
+COMPLETE175 Gold795d50 ->uniqueSteam7a1b70 only two decoded E8 and verified1.6f
+pointer masked; actual distancefloat store and integer-range comparison/order
+verified. Direct current-position helper exact23 and prior complete physical
+math retained; own enum0/11, no ABI/ordinal equivalence claim. Full Game builds,
+related328Win/327Linux, Windows manager and CI323. Double adaptation, no exhaustive
+extended80 or full flight/UI claim. Evidence prefix knife-fractional-range.

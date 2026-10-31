@@ -484,13 +484,19 @@ void UnitThrowGrenade( CUnitServer *pUS, NDb::CRPGGrenade *pGrenade, const CVec3
 EUnitCommandResult CanUnitThrowKnife( CUnitServer *pUS, const NAI::SUnitPosition &from, const CVec3 &ptTarget, NRPG::IMeleeWeaponItem *pMelee )
 {
 	CPtr<NRPG::CThrowKnifeTileToHitCalcer> pToHitCalcer;
-	int nDistance = fabs( ptTarget - from.GetCP() ) / FP_GRID_STEP;
+	// Original 0x7a1b70 stores the fractional distance only after wide sqrt/grid scaling.
+	const CVec3 ptFrom = from.GetCP();
+	const double dx = double(ptTarget.x) - double(ptFrom.x);
+	const double dy = double(ptTarget.y) - double(ptFrom.y);
+	const double dz = double(ptTarget.z) - double(ptFrom.z);
+	const float fDistance = float( sqrt( (dz * dz + dy * dy) + dx * dx ) * double(FP_INV_GRID_STEP) );
+	int nDistance = int( fDistance );
 	pToHitCalcer = new NRPG::CThrowKnifeTileToHitCalcer( pUS, from.GetPose(),
 		nDistance, from.GetCP(), 100.f, pUS->GetWorld()->IsFirstTurn(), false, CVec3(1,1,1), ptTarget, 0 );
 
  	float fKnifeMaxDistance = pToHitCalcer->GetKnifeMaxDistance();
 
-	if ( nDistance > fKnifeMaxDistance )
+	if ( fDistance > fKnifeMaxDistance )
 		return UCR_TARGET_OUT_OF_RANGE;
 
 	return UCR_OK;

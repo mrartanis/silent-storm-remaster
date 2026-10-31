@@ -3018,3 +3018,21 @@ verified; speed norm tolerance1e-5 relative. Full Game builds, related322Win/321
 CI323. Original absolute lifetime distance, ranged solver/cache and complete
 collision/flight/frame/drop/UI still require separate work; no exhaustive x87/CRT
 or post-world RNG claim.
+
+## 2026-10-31: knife admission rejects fractional excess range
+
+The original compares fractional target distance to truncated maximum range.
+Removed premature target-distance truncation from actual CanUnitThrowKnife:
+at15-tile range,15.125/15.875/15.0009766 are denied;14.875 and15 remain allowed,
+16.125 remains denied. Distance components/sqrt/grid scaling keep double width
+until original distancefloat store. Own command errors and data unchanged.
+
+Initial native RED3/6 ->GREEN6/6 each. Correct two earlier perk89 test points
+from33.125 (outside range33) to32.5 (between original before32/after33). Restore
+ONLY92 production and repeat FINAL RED5/8 ->GREEN8/8 each including those two
+real native consumers. At32.5, gate0->0 becomes11->0; original range32/33 kept.
+Three identical controls; query0RNG/AP/HP/pose/
+item/perk controls. COMPLETE original175 and direct23-byte current-position
+helper verified, only decoded calls/verified grid pointer masked in175. Full
+Game builds, related328Win/327Linux, CI323. No exhaustive extended80 identity or full
+solver/absolute lifetime/collision-flight/drop/UI claim.

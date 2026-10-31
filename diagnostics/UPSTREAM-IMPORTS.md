@@ -20867,3 +20867,48 @@ absolute lifetime/ray/solver/cached decision/collision/frame/drop remains separa
 Full Game builds, related322Win/321Linux, Windows manager and CI323; no post-world RNG
 or full collision/flight/UI parity claim.
 Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: fractional knife range admission (`5780c0be` partial)
+
+Actual CanUnitThrowKnife compares fractional target distance with original
+integer physical range, replacing comparison of a truncated target distance.
+Retains existing calcer/range getter, actual equipped blade and own command
+error enum/API. Components stay double through sqrt((dz*dz+dy*dy)+dx*dx) and
+float1.6 scaling; only then store distancefloat, matching original store/order
+with the same double adaptation limit as prior physical math. No exhaustive
+extended80-bit identity claim. Integer distance remains only a legacy calcer
+constructor input, not the admission comparison. No authored/save/LAN changes.
+
+Native RED3/6 each BEFORE audit/production. COMPLETE175 GoldPDB CanUnitThrowKnife
+795d50 ->uniqueSteam7a1b70, masking ONLY two decoded E8 operands and independently
+verified1.6f pointer Gold8a3f74/Steam8b2fdc (bitscdcccc3f). No register/frame/field/
+branch/opcode masks. Actual direct distance call Gold795db7->6b1ab0 /Steam7a1bd7
+->6b7c30 closes identity with prior complete48 distance/285 velocity audit.
+Current-position call Gold795d5d->PDB NAI::SPosition::GetCP4903c0/23 ->directSteam
+4914c0 EXACT23, no masks; not claimed unique, bound from unique complete175
+caller. Typed SUnitPosition.pos offset0 and own GetCP forwarding retained.
+Original component differences remain wide; sqrt then1.6 precedes FIRST distance
+float store target7a1bbe. Original physical range RC11 truncates at7a1bf1,
+reloads INTEGER with FILD7a1c01 and compares to stored distancefloat7a1c05.
+Equality accepted, any positive fractional excess rejected. Original success/
+range-error1/13 semantically adapted to own0/11; original ordinals not copied.
+Evidence knife-fractional-range-location.json/full175 disassemblies/exact23
+position helper and prior ballistic math artifacts.
+
+NativeKnifeFractionalRange0..5 real world/actor/equipped authored blade5/450g,
+original range15: offsets+.125,+.875,+.0009765625 tiles wrongly allowed ->denied.
+Inside-.125, exact equality and outside+1.125 unchanged. Initial RED3/6 ->GREEN6/6
+EACH, three byte-identical measured controls. Full gates then exposed two older
+perk89 metarelations: their point33.125 was above corrected33-tile range yet
+expected admission through the old floor. Archive initial runs/full two failures,
+move ONLY those two original probes to32.5 (between original before32/after33),
+revert ONLY92 production and repeat FINAL RED5/8 BEFORE production. Three new
+fractional failures plus both real native old floor errors at32.5; after fix,
+GREEN8/8 each (six new cases plus both earlier perk89 cases). Their gate0->0
+becomes11->0 with identical original range literals32/33 and fixed point32.5.
+Query0 game RNG/four words, AP57/HP500/
+pose/item quantity/equipment/perk points retained; no authored data or game/build
+copies. Full Game builds, related328Win/327Linux, Windows manager and CI323. Actual
+solver/cached decision/original absolute lifetime/collision/frame/incidental/
+drop/UI and shared source9f3 skill remain separate work.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
