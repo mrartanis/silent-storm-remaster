@@ -19604,3 +19604,53 @@ Source remains partial: melee requested-hit-location depends on the separately
 pending360 called-shot field/consumer foundation. Evidence backstab-retail-
 oracle, native RED/GREEN/verification/full logs. Source:
 https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/23630bfd0c6924b748f79cca9ded910e0f4df35e.
+
+## 2026-10-31: critical type selection uses supplied severity (`65558b11` partial)
+
+Removes only MissionRandom.Get100 from CUnitMission::RollCritical; selection
+uses the already supplied difficulty. Existing probability checks, attacker
+level prefix, critical modifier/cap/resistance/forced rules and injury apply
+are separate unchanged boundaries pending further source audits.
+
+Gold PDB RollCritical6bd230/184 uniquely matches Steam6c3760 all184 bytes,
+masking only decoded calls/jumptable/globalcriticalBar addresses; six data
+table entries separately have exactly the same function-relative targets.
+Named CUnitMission RTTI GoldTD96fc90/COL8e2d48/vtable8b657c slot6 points to
+that PDB method; SteamTD980de4/COL8f2480/vtable8c5698 slot6 points to6c3760.
+Both+8 load supplied severity intoESI fromESP0c, four location groups pass it
+unchanged to Gold named GetCritical6bd0c0/364 orSteam6c35f0 then returnESI.
+Default location also returns it. No added random draw or addition exists in
+either original. No ABI transplant or new public test hook is introduced.
+
+NativeCriticalSeverityDraw0..5 use actual world810/party54/native world unit/
+mission/authored flesh armor, healthyVP500/IC0, DisableCriticals only to isolate
+critical type selection from injury side effects, anonymous intended small
+fixed portion2 with critical100 or0, positive or zero energy, head/body.
+RED2/6 ->GREEN6/6 each with four controls. Nonzero critical head/body previously
+advanced the shared RNG by an extra draw: four-word fingerprint's first next
+3568418836 ->original247089517, matching zero-probability controls. Zero-energy
+controls keep0 damage/no draws/next842502443; positive body/head retain literal
+2/3 HP damage, AP/position/life, unchanged input severity40 and no new non-VP
+critical. Static probability SRand is independent of this shared generator;
+probability100 guarantees the path without an unstable random critical gate.
+Existing AttackerLevelCriticalRolls test removes only its expressly old extra
+selection-draw expectation; attacker-level severity input/blocked/anonymous/
+zero-probability/HP/training/inventory controls remain in the related suite.
+The six new cases' genuine RED was already captured before production or
+that old-expectation maintenance.
+
+Initial missing critical-list API and incorrect assumptions that CalcStructDmg
+or CanDealDmg alone incorporate the separate nK>0 gate were fixture errors,
+archived invalid logs, not RED. One invalid LastTest log was truncated by a
+concurrent ctest metadata listing; final accepted RED/GREEN do not run that
+listing and retain complete six-case native logs. No failing calibration is
+counted as behavioral evidence. Final real-world damage proves the combined
+zero-energy gate directly.
+
+Both Game builds, related69Win/69Linux (new6, prior melee/backstab, actual attacker-
+level/head-body/PK-impact/critical controls and serializer), CI323 pass; new6
+resource extended outside323. Source655 remains partial: damage multipliers,
+severity scaling/cap placement, resistance/perks, forced/difficulty fallback
+are not silently folded in. Evidence critical-severity-roll-retail-oracle,
+original disassemblies and critical-severity-draw native/verification/full logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66.

@@ -2628,3 +2628,15 @@ are not newly claimed verified, and existing probability values above100 are
 retained. Preview/to-hit awareness is a separate unchanged rule. Tests arrange
 actual stored contacts, not natural detection or complete command execution.
 Melee called-shot metadata/consumer foundation remains pending under360/236.
+
+### `65558b11`: no extra random severity boost during critical selection
+
+Original critical selection uses supplied severity; current code added0..99
+and consumed an extra shared random draw. That addition is removed. This also
+restores the shared sequence for later actions. Native critical-disabled
+head/body damage stays3/2 HP while RNG now matches zero-critical controls;
+zero-energy impacts still do0 damage and consume no draw. Actual injury types
+and broader critical damage/cap/resistance/perk formulas remain separate
+pending audits. The surrounding attacker-level prefix is retained here.
+No new probability clamp, severity limit or formula beyond this extra-draw
+removal is introduced.

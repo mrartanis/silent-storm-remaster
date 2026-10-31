@@ -1842,7 +1842,8 @@ static NDb::CRPGCritical* GetCritical( int nProbability,
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitMission::RollCritical( NAI::EHitLocation eHL, int nCriticalDifficulty, NDb::CRPGCritical **pCritical )
 {
-	int nRezDiff = nCriticalDifficulty + MissionRandom().Get(100);
+	// Original Gold 0x6bd238 / Steam 0x6c3768 selects from supplied severity.
+	int nRezDiff = nCriticalDifficulty;
 	switch ( eHL )
 	{
 		case NAI::HL_HEAD:

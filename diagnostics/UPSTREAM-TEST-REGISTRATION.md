@@ -892,3 +892,16 @@ unheard and null controls retain formulas/flags; AP/HP/position/items/ammo/
 contacts stable. NativeSEEALL only arranges visible controls, no naturalLOS
 claim. Invalid pathCP/max-rise assumptions archived, not RED. Game builds,
 related55Win/55Linux, CI323 pass.
+
+## Native critical type selection shared RNG
+
+NativeCriticalSeverityDraw0..5: resource extended Win/Linux timeout120 outside323.
+Actual world/mission/flesh armor, crit100/0 head/body/zero-energy portions,
+critical application disabled to isolate selector. RED2/6 ->GREEN6/6 each with
+four controls: four-word shared RNG fingerprint matches original one KO draw
+for positive damage and no draw for blocked; actual body2/head3/blocked0 HP
+unchanged, AP/position/life/input severity stable. Previous attacker-level
+regression updates only old extra selector-draw expectation, other controls
+retained. Fixture API/energy-guard assumptions and truncated invalid metadata
+log are archived, not RED. Complete final logs and Game/related69Win/69Linux/CI323
+pass. Probability SRand remains separate; no damage multiplier audit claimed.
