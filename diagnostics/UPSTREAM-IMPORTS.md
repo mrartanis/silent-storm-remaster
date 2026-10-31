@@ -19750,3 +19750,61 @@ Evidence critical-severity-apply-retail-oracle/prototypes/native RED/GREEN/
 verification/full logs. Source655 remains partial: cap placement, resistance/
 perks, forced/difficulty fallback remain pending separate original checks.
 Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66.
+
+## 2026-10-31: maximum critical severity before type selection/damage (`65558b11` partial)
+
+Moves the existing valid-cached-game cap into GetCriticalDmgModifier before
+probability/type selection and damage, retaining the original two getter
+calls only if capped. Removes the late cap from private DB ApplyCritical, whose
+only live caller is this helper. Public SCritical/direct script application
+and max-severity setter/default remain unchanged. No new cap value, floor,
+API, field, save tag or network behavior is invented.
+
+Gold6bd402/Steam6c399a check typed cached pGame1d4 validity, call virtual44,
+compare severity atGoldESP0c/SteamESP10 and when greater call44 again/storecap
+into that input slot, before RollCritical and damage. Named CGame RTTI Gold
+TD96f30c/COL8e0260/vtable8b403c ->SteamTD98044c/COL8ef99c/vtable8c315c slot44:
+Gold PDB GetMaxCriticalSeverity693280/4 ->Steam6d38b0, both MOV[ECX1c]/RET,
+typed nMaxCriticalSeverity1c. Whole private ApplyCritical GoldPDB6b9110/385
+uniquely matchesSteam6bf3e0 with only decodedE8 and mapped PE absolute pointer
+operands (including valid virtual/BSS RNG/log globals) masked. No field/
+register/frame/control-flow masking; no later cap in that complete385 body.
+This replaces the old incorrect decompilation comment locating the cap there.
+
+NativeCriticalCapOrder0..7 use actual world810/party54 and TWO actual new
+person103 receivers on distinct native places, native damage/armor, VP500/IC0,
+no46/47 perks, bleeding-only state arranged AFTER deployment/warmup. Reference
+uses explicit min(input,cap) with neutral gamecap1000, target uses real cap and
+original input. Crit100 avoids probability uncertainty. Each actual native
+server first receives a ZERO-ENERGY hit with no HP loss, binding its cached RPG
+game through existing CDumbUnitServer::ProcessAttack->SetGame. Read-only real
+mission tag45 verifies the pointer equals world.GetGame before the main direct
+RPG damage call. No proxy/private writes/test API replaces that binding.
+Cap restoredexact; no DB edits. Selection value/location/difficulty/duration,
+received damage/HP and four-word shared RNG fingerprint compared to reference.
+
+Final RED4/8 ->GREEN8/8 each with four controls. At real cap50/input300/base20,
+body damage50->25 and selected bleeding value15->5; head70->30 and bleeding1
+->0 (this enabled-only type is absent at low head severity); hand24->15/value
+8->4; leg37->20/value12->4. Old late-applied difficulty already50 but wrong
+injury grade/damage; both now match the actual explicit-input reference.
+Equality cap300/input300, below-cap1000/input301, zero-probability and low-input
+30/cap50 controls remain exact. HP/AP/pose/life/input/limit controls and shared
+RNG match. This is native core damage with real production game binding, not
+an extra claim about full UI command/animation or all enabled critical types.
+
+Initial missing position-inequality operator, pre-deployment filter setup
+(reset by normal state initialization) and unbound direct-RPG game context
+were fixture errors, archived invalid logs, not accepted RED. Final bound RED
+precedes Main edits. Earlier neutral-cap factor/severity fixtures69/70 set the
+world field to1000 but did not prove a cached game was bound; their factor/
+severity scope remains valid because that neutral limit did not constrain the
+inputs. They were not cap-order evidence. This case explicitly proves binding
+and cap behavior. No new production cache-lifecycle fix is claimed: the native
+server binding already existed.
+
+Both Game builds, related95Win/95Linux, CI323 pass; new8 resource extended outside323.
+Evidence critical-cap-order-retail-oracle/private385mapping/original asm and
+actual bound native RED/GREEN/verification/full logs. Source655 still partial:
+resistance/perks and forced/difficulty fallback remain pending. Source:
+https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66.

@@ -930,3 +930,16 @@ count and GREEN AP/pose/life/inputDC retained. Both Game builds, related87Win/87
 CI323. Earlier10 factor cases pass. Original rawfloat store/FISTPL truncate/
 actual ApplyCritical call verified separately in each version; no extreme
 float-int overflow or broader cap/perk/forced rule claim.
+
+## Native maximum critical severity order with verified game binding
+
+NativeCriticalCapOrder0..7: resource extended Win/Linux timeout120 outside323.
+Two real native receivers compare real cap versus explicit-clamped input under
+neutral1000. Zero-energy actual server attack binds game; read-only tag45 proves
+cached identity. Bleeding-only after deployment/warmup. RED4/8 ->GREEN8/8 each,
+four controls: cap50/input300 damagebody50->25/head70->30/hand24->15/leg37->20,
+selected native bleeding grades now match reference (headnone). Equality/below/
+zeroCrit/low input, HP/AP/pose/life/limits and four-word RNG preserved. Fixture
+operator/deployment reset/unbound context errors archived, not RED. Prior69/70
+neutral worldcap did not prove cached binding and is not cap-order evidence.
+Full Game builds, related95Win/95Linux, CI323. No new cache-binding production change.

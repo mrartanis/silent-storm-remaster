@@ -2667,3 +2667,20 @@ changes. Actual HP damage stays5/7/2/2/3/3 and fractional50/70 in the controlled
 examples from the preceding factor fix. Original intermediate float store and
 truncation retained; no new severity limit/clamp. Cap location, resistance/
 perks and forced/difficulty fallback remain separate pending work.
+
+### `65558b11`: maximum critical severity constrains selection and damage
+
+The existing maximum-severity setting now applies before selecting the injury
+and calculating critical damage. It previously changed only the final stored
+difficulty after a stronger injury and excessive damage had already been chosen.
+At cap50/input300/base20, actual controlled damage changes body50->25,
+head70->30, hand24->15, leg37->20. Native bleeding grades/values now match an
+explicit severity50 reference; head has no eligible bleeding-only injury there.
+Cap equality/below-cap/zero probability/low input stay unchanged. No new cap,
+setter default, script-direct critical rule, injury field or RNG draw added.
+
+Tests verify the actual cached game through a native zero-energy server entry
+and existing tag45; previous neutral world-cap factor/severity tests did not
+establish that binding and are not cap-order evidence. Main damage remains a
+direct native RPG call, not a full UI-command claim. Other enabled injury types,
+resistance/perks and forced/difficulty fallback remain separate pending work.

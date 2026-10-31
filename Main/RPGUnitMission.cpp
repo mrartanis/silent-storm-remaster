@@ -1725,15 +1725,7 @@ void CUnitMission::ApplyCritical( const SCritical &cr )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitMission::ApplyCritical( NDb::CRPGCritical *p, int nDC )
 {
-	// honor the script-set cap (luaSetMaxCriticalSeverity -> CGame::nMaxCriticalSeverity). Retail clamps the
-	// rolled severity here in the combat path via the mission's cached IGame; this is that read-site. (The
-	// script-driven UnitApplyCritical path builds an SCritical directly and is intentionally not clamped.)
-	if ( IsValid( pGame ) )
-	{
-		int nCap = pGame->GetMaxCriticalSeverity();
-		if ( nDC > nCap )
-			nDC = nCap;
-	}
+	// Combat severity is capped before critical selection and damage.
 	int nDuration = -1;
 	if ( p->nMinDuration > 0 )
 		nDuration = p->nMinDuration + MissionRandom().Get( p->nMaxDuration - p->nMinDuration );
@@ -1883,6 +1875,9 @@ float CUnitMission::GetCriticalDmgModifier( NAI::EHitLocation eHL,
 	float fCriticalResist = 1;
 	if ( pPanzerklein )
 		fCriticalResist = pPanzerklein->fCriticalResist;
+	// Original Gold 0x6bd402 / Steam 0x6c399a caps the incoming selector input.
+	if ( IsValid( pGame ) && nCriticalDifficulty > pGame->GetMaxCriticalSeverity() )
+		nCriticalDifficulty = pGame->GetMaxCriticalSeverity();
 	if ( nRand > nCriticalProbability * fCriticalResist )
 		return fRet;
 	csRPG << "<font size=16pt>";
