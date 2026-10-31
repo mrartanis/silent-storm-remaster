@@ -20042,3 +20042,63 @@ native RED/GREEN before any separate comparison fix. It is not mixed into this
 fallback patch or claimed tested here. All other functional source hunks have
 independent native/original evidence from the preceding critical fixes.
 Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).
+
+## 2026-10-31: original critical probability comparison precision; source `65558b11` complete
+
+Adapts the final native precision boundary identified during the source audit.
+Compare double(integer roll) with double(integer probability)*double(stored float
+resistance), avoiding a premature FLOAT product store. The authored float factor
+itself is unchanged. No random draws, floors/clamps, defaults, public API, fields
+or save/LAN representation change. This is an architecture adaptation of the
+original comparison, not a new authored balance adjustment.
+
+Independent named mission interface/ProcessAttack/direct helper identity retained.
+Exact Gold6bd4bf25 / Steam6c3b1021 instructions FILD integer roll, FILD probability,
+FMULS stored float factor, FCOMPP/FNSTSW/TESTAH5; threshold<roll returnszero. NO
+FSTPS/other store between multiplication and comparison. Steam AlwaysCritical
+branch6c3a7e25 uses the same unrounded comparison before the resistance/fallback
+gate. Each version asserted independently; no register/frame masks or whole
+helper match. Authored46/.1 factor is0.8999999761581421: chance100/50/30 produce
+wide89.999997615814209 /44.999998807907104 /26.999999284744263, but native FLOAT
+products round90/45/27. Exact integer rolls90/45/27 must therefore REJECT, not
+pass. These ordinary authored products are exact in double, matching original
+x87 without that intermediate32-bit rounding. Evidence:
+critical-probability-precision-retail-oracle.json.
+
+NativeCriticalProbabilityPrecision0..8 use TWO actual native class/tree missions
+in world810, actual TakePerk46/authored.1 on both when acquired, native game entry/
+tag45, VP500/IC0/no47 and post-warmup BLEED-only selection. No database parameter
+changes; points and temporary ASCII label restored. Actual incoming probability
+100/50/30 is paired with a real native zero-critical reference for expected
+rejection; passing/forced controls use a guaranteed native critical reference.
+Harness selects exact native LCG seed accounting for ctor Get4 and whether a
+reference critical already consumed the first draw. Reject boundaries: seed63 /
+first90, seed22/first45, seed55/first27. Passing89 uses seed83/second89; unacquired
+and forced90 use seed39/second90. Zero-chance control never needs the SRand draw.
+
+Complete production RED4/9 ->GREEN9/9 on EACH platform; five controls unchanged.
+At those three boundary rolls and the chance100/90 AlwaysCritical+resisted case,
+HP damage47->20 and wrong BLEED/DC300 is absent, matching native zero-critical
+reference. Passing89 remains47/DC300; draw91 stays20/no injury; unacquired90
+remains50/DC300; zero chance20/no injury; forced90 remains47/DC300. Four shared
+RNG words, injury grade/location/duration, AP/pose/life, perk ownership/points,
+probability/flag/input, cap and actual difficulty remain exact. No new ordinary
+frequency survey/full UI producer claim. Nonfinite factors, unusual tiny custom
+database factors and extreme integer probabilities are not newly certified.
+
+Full Windows/Linux Game builds, 145Win/145Linux related tests and asset-free CI323 pass.
+
+All useful FUNCTIONAL hunks of [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66)
+are now imported/adapted with independent RED/GREEN/original evidence:
+68a694be selector severity RNG;4c3a8728 reciprocal300/location damage;
+8d171a3e applied raw severity;75b2dc48 cap before selection/damage;
+1863cc35 PK complement;63cdf2d1 perk46 wide composition;597bbd7b perk47 wide
+division/truncation before cap;cf794b02 target1.2 forced flag;
+82f2e820 actual difficulty failed-roll reset/level*d5 after cap; this final native
+comparison adaptation. Own diagnostic critical logging stays available. Donor
+premature float arithmetic and unsupported47 zero-param guard are not copied;
+original reciprocal/float stores, chance0 guard, null/level0/post-cap quirks and
+Gold/Steam differences are recorded. Direct script SCritical and own legacy
+null-world entry, native audio/codecs, facial engine, fonts, SDL/bgfx and LAN
+are preserved. Other pending sources remain separate; this is not final-head
+hosted CI or completion of the whole upstream queue.

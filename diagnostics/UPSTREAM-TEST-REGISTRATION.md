@@ -1002,3 +1002,15 @@ Difficultyoff/resisted/passed/zero/forcedresisted/nullworld controls stable. Fou
 RNG words and native receiver/attacker HP/AP/pose/level/input/cap/difficulty checked.
 Full Game builds, related136Win/136Linux, CI323. Evidence prefix critical-difficulty-fallback.
 Separate float probability-threshold boundary remains unverified/pending; no UI claim.
+
+## 2026-10-31: NativeCriticalProbabilityPrecision0..8 / source65558b11 closure
+
+Both CMake lists, extended/120s. Actual authored46/.1/native grant/two world units,
+exact native SRand boundary seeds and real zero/guaranteed reference attacks.
+RED4/9 ->GREEN9/9 each, five controls. P100draw90/P50draw45/P30draw27 and resisted
+AlwaysCritical boundary: HP47->20, wrongBLEED/DC300->none; adjacent89/91,
+unacquired/zero/forced controls stable. Four RNG words, injury/AP/pose/perk/input/
+cap/difficulty checked. Full Game builds, related145Win/145Linux, CI323; evidence prefix
+critical-probability-precision. Exact original FILD/FMULS/FCOMPP has no FLOATstore;
+ordinary authored boundaries certified, no extreme/custom/nonfinite/fullUI claim.
+All functional source65558b11 hunks now have independent native/original evidence.

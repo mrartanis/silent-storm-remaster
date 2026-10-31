@@ -2763,3 +2763,25 @@ Legacy null-world calls remain compatible; direct RPG, not full UI command claim
 Pending separate native comparison boundary: chance100 * factor.899999976 must
 compare at original wide precision (89.9999976 rather than rounded90). Original
 instruction audit identifies it; no native RED/GREEN or fix is claimed yet.
+
+## 2026-10-31: critical chance threshold precision; source65558b11 complete
+
+Restores original unrounded comparison of integer roll to probability times the
+stored resistance factor. With actual46/.1, chance100 has threshold89.9999976,
+so draw90 rejects; chance50/draw45 and chance30/draw27 reject likewise. Premature
+native FLOAT rounding previously admitted those rolls. Native HP47 becomes20
+and the wrong BLEED/DC300 disappears, including AlwaysCritical+resisted control.
+Passing89, rejecting91, unacquired, zero-chance and forced controls are unchanged.
+No authored values, new clamp or random draws are introduced.
+
+Gold/Steam exact FILD/FMULS/FCOMPP sequences have no intermediate product store.
+Native RED4/9 ->GREEN9/9 each; full Game builds, related145Win/145Linux, CI323; four RNG
+words and HP/AP/pose/perks/input/cap/difficulty validated. Ordinary authored
+boundaries are certified; nonfinite/tiny custom factors, extreme probabilities
+and full UI producer flows remain outside this check.
+
+This closes useful functional source65558b11 across the preceding severity RNG,
+damage factor, applied severity, cap placement, PK/perks46/47, forced flag and
+difficulty fallback fixes. Original post-cap fallback, null/level0 and chance0
+quirks remain. All limits/unverified scenarios above remain in force; other
+upstream sources and actual final-head hosted CI are still pending.
