@@ -1624,3 +1624,21 @@ differences and rejected setup/compiler artifacts remain retained. Source9f3 com
 unfinished.
 
 Source: [9f3c03712f2a86f83fb7739891827847b2f9f645](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9f3c03712f2a86f83fb7739891827847b2f9f645).
+
+## 2026-11-01: original distance-skill interpolation precision
+
+NativeD1Precision0..3 execute actual native Prepare/GetD1 on equipped authored gun17 and
+real TakePerk86, with skill13/unowned and13/30/140 owned. Genuine RED1/98 both ->full712
+Windows /713 Linux/Game builds/CI323. All98 RED names included,94 old measured controls
+exact,3 new controls exact, all4 captured inputs/reference/HP/AP/ammo/points/RNG
+unchanged. Mode1 old41cdb6db changes to original41cdb6dc, a one-ULP correction.
+
+Typed D1 Gold6b0af0/38 ->actualSteam6b6be0 unique, only decoded/verified float1/140
+operand relocated. Actual GetD2 calls1c and storesfloat. Eight actual original
+Prepare256+D1 queries with real item/tree lifecycles and sparse actual-vtable
+Mission/Unit/calcer buffers verify4 PC24 references; diagnostic PC53 recreates the old
+mode1 word. Original D2/world/shot/DB-record construction is not claimed.
+Stack/context/CW/config restored, normal WM_CLOSE/exit0. Source226 prerequisite only, its
+own3 hunks still pending;54 unfinished.
+
+Source: [226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4).

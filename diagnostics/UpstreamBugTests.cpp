@@ -30379,6 +30379,21 @@ static void NativeSharedGrenadeAccuracy(const char* databasePath,const char* res
     Require(rng && mission->GetTotalVP()==hp && mission->GetAP()==ap && grenade->GetQuantity()==quantity && inventory->GetActive()==active && (!activeGun || activeGun->GetAmmoQuantity()==ammo) && tree->GetPerkPoints()==points,"shared grenade query changed RNG/HP/AP/quantity/active item/ammo/points");
 }
 
+static void NativeD1Precision(const char* databasePath,int mode)
+{
+    Require(mode>=0 && mode<4,"unknown native D1 precision mode");CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
+    auto mission=NativeMissionWithUntakenPerk(86);auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();const int points=tree->GetPerkPoints(),skill=mode<2?13:mode==2?30:140;const bool owned=mode!=0;
+    std::vector<CObj<NRPG::CSkillModifier>> held;NativeSetTrainingStableSkill(unit,NDb::ST_SHOOTING,skill,held);NativeSetTrainingStableSkill(unit,NDb::ST_BURST,70,held);NativeSetTrainingStableSkill(unit,NDb::ST_VP,500,held);unit->nHealedVP=0;
+    auto gun=NativeEquipTargetingGun(unit,mission->GetToHitConstants()->nSMaxMove);Require(gun->SetShootMode(NDb::SM_Snap) && gun->GetDBWeapon()->GetRecordID()==17 && gun->GetWeaponType()==NDb::WT_RIFLE && !mission->HasPerk(68),"D1 fixture lost actual gun17/unowned rifle proficiency");auto* perk=NDb::GetDBPerk(86);Require(perk && !perk->params.empty() && perk->params[0]==1.25f,"D1 lacks its actual range multiplier1.25");
+    if(owned){tree->AddPerkPoints(1);const string label=perk->szUserName;struct RestoreLabel{NDb::CDBPerk* perk;string label;~RestoreLabel(){perk->szUserName=label;}}restore{perk,label};perk->szUserName="Native D1 precision range";tree->TakePerk(86);}
+    Require(mission->HasPerk(86)==owned && tree->GetPerkPoints()==points,"D1 actual native range grant failed its point budget");NRPG::SWeaponInfo info;gun->GetInfo(&info);Require(info.nMinRange==22 && info.nMaxRange==50,"D1 fixture lost actual native range22..50");const unsigned int reference[]={0x41c4cccdu,0x41cdb6dcu,0x41f49249u,0x42780000u};
+    CObj<NRPG::CTileToHitCalcer> calcer=new NRPG::CTileToHitCalcer;calcer->pUnitMission=mission;calcer->pWeaponItem=gun;calcer->nExtraAP=calcer->nSnipeAP=calcer->nBullet=0;calcer->bFirstRound=mission->IsFirstTurn();calcer->eCurPose=NAI::WALK;calcer->nDistance=10;calcer->fHitCover=0;calcer->ptIllumination=CVec3(1,1,1);calcer->bNight=false;
+    const int hp=mission->GetTotalVP(),ap=mission->GetAP(),ammo=gun->GetAmmoQuantity();auto random=GlobalGameRandom();calcer->Prepare();const float actual=calcer->GetD1();unsigned int bits=0;std::memcpy(&bits,&actual,sizeof(bits));auto continuation=GlobalGameRandom();bool rng=true;for(int i=0;i<4;++i)rng&=random.Get()==continuation.Get();
+    std::printf("native D1 precision mode=%d persona=%d tree=%d points=%d perk=86 owned=%d parameter=%.9g weapon=%d type=%d matching=68 shootMode=%d rawShoot=%d rawBurst=70 recoil=%d coefficient=%.9g stabilization=%d VP=%d capVP=%d theoryVP=%d moves=0 first=%d extra=0 snipe=0 bullet=0 actual=%d expected=%d minRange=%d maxRange=%d D1=%.17g bits=%08x reference=%08x RNG=%d\n",mode+40,unit->pPers->GetRecordID(),unit->pPers->pClass->nPerkTreeID,points,int(owned),perk->params[0],gun->GetDBWeapon()->GetRecordID(),int(gun->GetWeaponType()),int(gun->GetShootMode()),int(unit->Skills(NDb::ST_SHOOTING)),info.nRecoil,gun->GetDBWeapon()->pWeaponType->fMovePenalty,mission->GetToHitConstants()->nMaxBurstStabilize,hp,unit->Skills(NDb::ST_VP).GetMaxValue(),unit->Skills(NDb::ST_VP).GetTheoreticalMax(),int(mission->IsFirstTurn()),calcer->nSkill,skill,calcer->sWeaponInfo.nMinRange,calcer->sWeaponInfo.nMaxRange,double(actual),bits,reference[mode],int(rng));std::fflush(stdout);
+    Require(calcer->nSkill==skill && calcer->sWeaponInfo.nMinRange==22 && calcer->sWeaponInfo.nMaxRange==(owned?62:50),"D1 query lost its actual skill/range context");Require(bits==reference[mode],"native D1 differs from original float reciprocal multiplication at PC24 precision");
+    Require(rng && mission->GetTotalVP()==hp && mission->GetAP()==ap && gun->GetAmmoQuantity()==ammo && tree->GetPerkPoints()==points,"D1 query changed RNG/HP/AP/ammo/points");
+}
+
 static void NativeAccuracyMovementRange(const char* databasePath,int mode)
 {
     Require(mode>=0 && mode<10,"unknown accuracy movement/range mode");
@@ -32643,6 +32658,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "better-spotting")) { Require(argc==5,"spotting requires db/resources/mode"); BetterSpottingPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-xp-threshold-pc24")) { Require(argc==4,"XP threshold requires db/mode"); NativeXPThresholdPC24(argv[2],std::atoi(argv[3])); return true; }
     if (!std::strcmp(mode, "native-kill-reward-quote")) { Require(argc==4,"reward quote requires db/mode"); NativeKillRewardQuote(argv[2],std::atoi(argv[3])); return true; }
+    if (!std::strcmp(mode, "native-d1-precision")) { Require(argc==4,"D1 precision requires db/mode"); NativeD1Precision(argv[2],std::atoi(argv[3])); return true; }
     if (!std::strcmp(mode, "native-shared-grenade-accuracy")) { Require(argc==5,"shared grenade accuracy requires db/resources/mode"); NativeSharedGrenadeAccuracy(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-shared-melee-skill")) { Require(argc==4,"shared melee skill requires db/mode"); NativeSharedMeleeSkill(argv[2],std::atoi(argv[3])); return true; }
     if (!std::strcmp(mode, "native-shared-accuracy")) { Require(argc==4,"shared accuracy requires db/mode"); NativeSharedAccuracy(argv[2],std::atoi(argv[3])); return true; }

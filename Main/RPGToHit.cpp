@@ -294,7 +294,10 @@ float CToHitCalcer::GetStance()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float CToHitCalcer::GetD1()
 {
-	return float(nSkill) * ( sWeaponInfo.nMaxRange - sWeaponInfo.nMinRange ) / float(N_MAX_SKILL) + sWeaponInfo.nMinRange;
+    // Actual original D1 (Steam 0x6b6be0/38) multiplies by float(1/140) under PC24.
+    volatile float fDistanceProduct = float(nSkill) * ( sWeaponInfo.nMaxRange - sWeaponInfo.nMinRange );
+    volatile float fScaledDistance = fDistanceProduct * ( 1.f / float(N_MAX_SKILL) );
+    return fScaledDistance + sWeaponInfo.nMinRange;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float CToHitCalcer::GetD2()

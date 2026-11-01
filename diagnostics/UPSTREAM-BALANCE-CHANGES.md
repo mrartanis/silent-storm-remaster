@@ -3540,3 +3540,21 @@ complete;54 source commits remain unfinished. Original grenade physics/world con
 and whole-task final hosted CI are not claimed by these checks.
 
 Source: [9f3c03712f2a86f83fb7739891827847b2f9f645](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9f3c03712f2a86f83fb7739891827847b2f9f645).
+
+## 2026-11-01: original distance-skill interpolation precision
+
+Distance interpolation now uses the original float reciprocal and rounding order:
+(maxRange-minRange)*skill*float(1/140)+minRange. Authored ranges, skill values/scale, AP
+spending and other terms are unchanged. At tested skill13/min22/max62, the term
+changes25.714284896850586 ->25.714286804199219, exactly one float ULP. This preserves
+original precision rather than introducing a new balance parameter; no broader change to
+final hit percentages is asserted.
+
+Actual native RED1/98 both and8 real original Prepare/D1 queries establish the correction;
+original observed PC24/RN produces41cdb6dc, diagnostic PC53 produces old41cdb6db. Full712
+Windows /713 Linux/Game builds/CI323 pass, all98 RED names included,94 old measured
+controls and3 new controls unchanged. Source226's range/stance/final truncation hunks and
+source3cfc physical throw work remain separate;54 sources unfinished. Original
+D2/world/final shots and whole-task final hosted CI are not runtime claims here.
+
+Source: [226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4).

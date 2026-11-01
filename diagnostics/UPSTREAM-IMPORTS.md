@@ -22260,8 +22260,8 @@ regular/engineer movement coefficient after Fill. Blindly importing the donor's 
 Prepare would read uninitialized skill and could select active firearm metadata for an
 explicitly supplied AI backpack grenade. The native adaptation preserves explicit grenade
 identity, equal legacy min/max ranges, quality/weight and active firearm/ammo. Source226
-grenade range/stance/physics is still pending; this change does not claim original grenade
-physical range parity.
+grenade range/stance and source3cfc throw physics are still pending; this change does not
+claim original grenade physical range parity.
 
 Thirty real existing calcer cases produced genuine assertion RED17/90 both,73 passing
 controls before production. They cover all five proficiency owned/unowned pairs; burst30
@@ -22317,3 +22317,53 @@ Source9f3 is complete with the native grenade adaptation; unfinished sources54 (
 candidate. Hosted CI for the eventual whole-task final HEAD remains pending.
 
 Source: [9f3c03712f2a86f83fb7739891827847b2f9f645](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9f3c03712f2a86f83fb7739891827847b2f9f645).
+
+## 2026-11-01: original distance-skill interpolation precision (precision prerequisite)
+
+The D1 candidate retained after the range86 component is now reproduced in the actual
+native calcer and resolved. CToHitCalcer::GetD1 multiplies distance span by skill, then by
+float(1/140), then adds minimum range. Two explicit float stores preserve the original
+PC24 arithmetic and prevent reassociation with the final addition. The previous division
+by140 differs by one float ULP for actual gun17, owned authored range86 and shooting
+skill13: min22/max62 produced25.714284896850586, bits41cdb6db, while the original
+gives25.714286804199219, bits41cdb6dc. Existing authored skill scale140 and parameters
+remain intact.
+
+Four real native CTileToHitCalcer cases grant86 through TakePerk with real point budget
+and equipped gun17. Unowned skill13/range22..50, owned skill30/range22..62 and owned
+skill140/range22..62 are controls. Owned skill13 gives genuine assertion RED1/98 both
+with97 passing tests before production. All4 captured inputs/expectations and
+HP/AP/ammo/points/RNG remain unchanged. Full GREEN712 Windows /713 Linux, full Game builds
+and323 asset-free checks pass. All98 RED names are included,94 old measured controls and
+three new controls remain exact. The new measured value matches the original binary word
+on both platforms.
+
+Typed original base-calcer primary VT Gold8b5b9c ->Steam8c4cb4 slot1c binds named Gold D1
+6b0af0/38 to unique actual6b6be0/38, masking only the independently decoded FMUL
+data-pointer operand1a..1d. Both constants are bits3bea0ea1=float1/140. No
+opcode/frame/control or unknown pointer masks. Actual GetD2 slot20 targets6b6d60, calls
+D1slot1c at6b6d68 and immediately stores its return as float at6b6d6b. That call site
+establishes the live consumer and relevant store precision; original D2 or final shot
+execution is not a runtime claim.
+
+Eight original runtime queries execute actual Prepare256 then actual D1 38 in4 contexts
+under observed game PC24/RN CW007f and diagnostic PC53/RN CW027f. All4 reference words
+agree with the original-derived hypotheses. PC53 differs only in owned13, reproducing the
+old lower word41cdb6db, so it is not a valid substitute for the observed game mode. Six
+initialized D3D9 main-menu samples verify original CW007f. Real
+Weapon104/Clip108/Ammo56/PerksTree constructor/Take86/Has/virtual/destructor lifecycles,
+points/refcounts/base-vtable resets and unchanged objects are checked. Mission/Unit/calcer
+use sparse actual typed vtables with controlled typed DB data; original
+World/inventory/DB-record constructors are not executed. Actual original stack
+backup/readback, complete716-byte context/CW restoration, temporary config restoration and
+normal WM_CLOSE/exit0 are verified. Original binaries/resources unchanged; no fake virtual
+provider or original code/DB/world/TEB patch.
+
+This is an independently verified original-precision prerequisite for source226 grenade
+range interpolation, not a donor226 hunk. Source226's max-range1.5, stance92 and final
+integer conversion remain pending; source3cfc owns the separate remaining grenade physical
+velocity/distance/perk/PK work. The preceding shared skill component completed source9f3;
+this correction does not change source counts:54 unfinished (pending38 +partial16). No
+exhaustive D1/whole-physics parity or whole-task final hosted CI is claimed.
+
+Source: [226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4).
