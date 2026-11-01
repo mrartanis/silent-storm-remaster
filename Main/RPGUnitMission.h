@@ -137,6 +137,7 @@ public:
 	virtual int GetTotalVP() const = 0;
 	virtual int GetLastActionTimes() const = 0;
 	virtual int GetMoveInLastTurn() const = 0;
+	virtual float GetWeaponSkill( CObjectBase *pItem, int nExtraAP, int nBullet ) = 0;
 	virtual void ApplyCritical( const NRPG::SCritical &critical ) = 0;
 	virtual bool RemoveCritical( NDb::ECritical eCritical ) = 0;
 	virtual void SuspendCriticals( int nTurns ) = 0;
@@ -208,6 +209,7 @@ public:
 float GetCubesArea( const CVec3 &ptPos, vector<CVec3> *pCubes );
 int GetHLPenalty( NAI::EHitLocation hl );
 float GetVPPenalty( int nVP, int nHealedVP, int nMaxVP );
+float GetUnitVPPenalty( CUnit *pUnit );
 float GetHeadshotMultiplier( NAI::EHitLocation hl );   // @0x2b6ca0 (defined in RPGToHit.cpp; shared with GetMeleeToHit)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Weapon-class dispatch of the to-hit/cover pipeline. Was file-local to RPGUnitMission.cpp; the

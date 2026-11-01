@@ -22236,3 +22236,84 @@ remain pending. Remaining sources stay55 (pending38 +partial17). Hosted CI on th
 commit of the entire task remains pending.
 
 Source: [9f3c03712f2a86f83fb7739891827847b2f9f645](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9f3c03712f2a86f83fb7739891827847b2f9f645).
+
+## 2026-11-01: shared item skill and original accuracy arithmetic (`9f3c0371` completed)
+
+IUnitMission/CUnitMission now share GetWeaponSkill. Actual weapon types
+SMG/MG/pistol/rifle/launcher select authored perks9/13/67/68/84; grenade RTTI selects
+THROW and91; real melee bThrowing selects THROW+89 or MELEE+70. Bonuses stay floating
+point until consumer conversion. Careful/snipe aiming adds max(0,int(extraAP +
+cappedMovement*weaponCoefficient))*float(1/3). The mission's real first-turn counter
+suppresses movement; perk19 only cancels the separate additive GetSMove term, not this
+aiming movement. Snipe AP is added once by Prepare before calling the shared getter. Burst
+perk30 truncates bullet/parameter to the integer exponent, and the original integer-power
+loop rounds every multiply at PC24 precision. Stabilization percentage is
+integer-truncated before multiplying skill; recoil uses two float stages. The final VP
+multiplier uses theoretical base+XP maximum independently of a cap-only injury; the
+existing knife VP helper delegates to the extracted identical formula. Existing knife
+Prepare/raw throwing override and its physics adapter are retained.
+
+CToHitCalcer::Prepare keeps the already imported range86/GetInfo and delegates skill once.
+CGrenadeToHitCalcer initializes shared skill before FillWeaponInfo, because the native
+legacy physical range adapter reads nSkill while filling; it then assigns the actual
+regular/engineer movement coefficient after Fill. Blindly importing the donor's base
+Prepare would read uninitialized skill and could select active firearm metadata for an
+explicitly supplied AI backpack grenade. The native adaptation preserves explicit grenade
+identity, equal legacy min/max ranges, quality/weight and active firearm/ammo. Source226
+grenade range/stance/physics is still pending; this change does not claim original grenade
+physical range parity.
+
+Thirty real existing calcer cases produced genuine assertion RED17/90 both,73 passing
+controls before production. They cover all five proficiency owned/unowned pairs; burst30
+owned/unowned, first bullet and nonbinary burst99/140; fractional Careful/Snipe with
+VP.75; negative movement coefficient and real first-turn counter, perk19 distinction;
+cap-only VP; null/wrong weapon-type controls; regular/engineer/backpack-explicit grenades,
+wounds/cap-only and irrelevant knife perk89. New API raw-word comparisons and four direct
+melee API cases were added after production and are GREEN controls, not claimed baseline
+RED. Original raw PC24 return words match all34 contexts on both platforms. Full Game
+builds,708 Windows /709 Linux related tests and323 asset-free CI checks pass; all90 RED
+names are included and60 old measured controls remain exact. A first
+implementation-placement compiler failure is archived separately and is not native RED.
+
+Actual Steam GetWeaponSkill6c06d0/1244 ret0c is bound through mission secondary4c VT8c54e4
+slot188 and actual Prepare6b82c0/256. Gold named6ba630/1244 is comparative only: Gold
+FSUB6ba84b versus Steam FADD6c08eb is a genuine difference, so whole-method Gold
+equivalence is rejected. Typed skill indices SHOOT1/THROW2/BURST3/MELEE0/VP9, moveF4,
+ToHitConstantsDC/cap18, IsFirstTurn18c->6c5dd0 and Has78->6beea0->UnitHas6ba640/Tree84 are
+audited. VP174->6bf3b0->UnitVP6bb110/182 uses theoretical base+XP. Burst calls actual
+integer-power6c52a0/74, not _CIpow; double reciprocal1/140 first rounds under incoming
+PC24. Original aim float1/3 bits3eaaaaab and recoil float.01 bits3c23d70a are decoded.
+Actual original grenade Prepare is6b8890/188, not the donor comment's mid-body address; it
+calls the shared getter then RC11/FISTP and writes coefficient last. GetAllAdd6b6cc0/45
+subtracts SMove, matching the native grenade sign.
+
+Original runtime68 records are42 firearm,18 additional grenade/nonbinary firearm and8
+melee, each context under observed game PC24/RN CW007f and diagnostic PC53 CW027f. Six
+initialized D3D9/main-menu samples per probe verify original CW007f; PC53 is not the
+reference. Firearms execute actual GetWeaponSkill1244 and original Prepare256 consumer.
+Grenade/melee execute actual shared getter on real default item
+constructors/RTTI/virtuals; a wrapper reproduces the decoded original grenade truncation
+sequence, and original grenade/melee gameplay/Prepare/physics is not executed. All probes
+use real original thread stack with backup/readback and complete716-byte context
+restoration, actual real PerksTree constructor/Take/Has/destructor and real
+Weapon104/Clip108/Ammo56 constructors/virtuals/destructors. Melee80 default constructor
+and controlled typed DB bThrowing34 flag are validated; grenade100 default constructor is
+validated. Sparse actual-vtable Mission/Unit/calcer buffers and controlled typed DB record
+data are not original constructed World/inventory/DB records. No fake virtual provider or
+original code/DB/world/TEB patch; original binaries/resources unchanged, temporary config
+restored, each accepted process normal WM_CLOSE/exit0.
+
+PC53 consumer13/14 gives52 rather than original PC24 reference53,18 gives62 rather than63,
+and grenade26 gives71 rather than72 even though separate float return stores
+match53/63/72. Thus the original consumer conversion is separately checked. Nonbinary
+burst28 raw reference4144051d (12.251248359680176) differs one ULP from diagnostic PC53;
+owned29 gives418a9999 (17.32499885559082). The float integer-power adaptation matches both
+words. A first original prototype used an incorrect clip interface pointer in the weapon's
+strong root-pointer field and crashed; failed artifacts are retained, no original bug
+claim. Actual GetInnerClip adds24 to the stored clip ROOT; a corrected lifecycle control
+and all accepted68 records verify unchanged objects/refcounts and base-vtable resets.
+Source9f3 is complete with the native grenade adaptation; unfinished sources54 (pending38
++partial16). Other-input D1 reciprocal precision remains a separately retained unproved
+candidate. Hosted CI for the eventual whole-task final HEAD remains pending.
+
+Source: [9f3c03712f2a86f83fb7739891827847b2f9f645](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9f3c03712f2a86f83fb7739891827847b2f9f645).

@@ -1605,3 +1605,22 @@ multiplication is an unproved precision candidate retained separately. Source9f3
 partial,55 sources unfinished.
 
 Source: [9f3c03712f2a86f83fb7739891827847b2f9f645](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9f3c03712f2a86f83fb7739891827847b2f9f645).
+
+## 2026-11-01: shared item skill and original accuracy arithmetic
+
+NativeSharedAccuracy0..29 cover23 firearm and7 live-world grenade contexts through
+existing native calcers. NativeSharedMeleeSkill0..3 add real authored nonthrowing/throwing
+melee item and TakePerk70/89 API controls. Actual TakePerk/point budgets, stable native
+skills, wounded/cap-only contexts, real turn counter, correct explicit AI grenade,
+RNG/HP/AP/item/ammo/active slot and metadata invariants are checked. Genuine
+existing-calcer RED17/90 both precedes production; added raw API and melee assertions are
+GREEN controls only. Full708 Windows /709 Linux andGame builds/CI323 pass, all90 RED names
+included,60 old measured controls exact. All34 PC24 raw return words match68 actual
+original runtime records. Firearm consumers execute original Prepare256; grenade/melee
+conversion uses a wrapper and does not claim original gameplay/physics/Prepare execution.
+Original actual-vtable sparse buffers and controlled typed DB are explicitly scoped
+separately from real item/tree constructors/virtuals/destructors. PC53 diagnostic
+differences and rejected setup/compiler artifacts remain retained. Source9f3 complete,54
+unfinished.
+
+Source: [9f3c03712f2a86f83fb7739891827847b2f9f645](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9f3c03712f2a86f83fb7739891827847b2f9f645).

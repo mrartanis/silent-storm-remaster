@@ -166,14 +166,7 @@ NAI::EPose GetBestPose( const NDb::CRPGWeaponType &wt )
 // Original mission VP factor uses the theoretical maximum, even after a cap injury.
 static float GetKnifeVPPenalty( IUnitMission *pMission )
 {
-    CUnit *pUnit = pMission->GetRPGUnit();
-    const CDynamicSkill &vp = pUnit->Skills( NDb::ST_VP );
-    const int nHealed = Max( 0, pMission->GetHealedVP() );
-    // Original VP factor uses base+XP, independently of critical-modified cap.
-    const int nPercent = int( ( double( int(vp) ) + double(nHealed) * double(0.5f) ) *
-        double(100.f) / double( vp.GetTheoreticalMax() ) );
-    const float fVP = nPercent > 75 ? 1.f : nPercent > 50 ? 0.9f : nPercent > 25 ? 0.75f : 0.5f;
-    return fVP;
+    return GetUnitVPPenalty( pMission->GetRPGUnit() );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Blade specialization of original Gold 0x6b1990 / Steam 0x6b7b10.
@@ -277,30 +270,9 @@ void CToHitCalcer::Prepare()
 	}
 	else
 		FillWeaponInfo();
-	//
-	nSkill = pUnitMission->GetRPGUnit()->Skills( NDb::ST_SHOOTING );
-	//
-	if ( IsValid( pWeaponItem ) )
-	{
-		NDb::EShootMode shootMode = pWeaponItem->GetShootMode();
-		if ( shootMode == NDb::SM_Snipe )
-			nExtraAP += nSnipeAP;
-		if ( shootMode == NDb::SM_Careful || shootMode == NDb::SM_Snipe )
-			nSkill += max( 0, int( nExtraAP - GetSMove() ) ) / 3;
-	}
-	//
-	if ( nBullet > 0 )
-	{
-		float fBurstNonStab = nSkill * pow( (double)pUnitMission->GetRPGUnit()->Skills(NDb::ST_BURST) / N_MAX_SKILL,
-			nBullet );
-		float fBurstStab = pUnitMission->GetRPGUnit()->Skills(NDb::ST_BURST) *
-			pUnitMission->GetToHitConstants()->nMaxBurstStabilize / N_MAX_SKILL;
-		float fStabilized = fBurstStab * nSkill / 100;
-		nSkill = Max( fBurstNonStab, fStabilized ) * sWeaponInfo.nRecoil / 100;
-	}
-	float fVPPenalty = GetVPPenalty( pUnitMission->GetRPGUnit()->Skills( NDb::ST_VP ),
-		pUnitMission->GetHealedVP(), pUnitMission->GetRPGUnit()->Skills(NDb::ST_VP).GetMaxValue() );
-	nSkill *= fVPPenalty;
+	if ( IsValid( pWeaponItem ) && pWeaponItem->GetShootMode() == NDb::SM_Snipe )
+		nExtraAP += nSnipeAP;
+	nSkill = int( pUnitMission->GetWeaponSkill( pWeaponItem, nExtraAP, nBullet ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float CToHitCalcer::GetStance()
@@ -689,14 +661,12 @@ CGrenadeToHitCalcer::CGrenadeToHitCalcer( CUnitServer *_pUnitServer, NAI::EPose 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGrenadeToHitCalcer::Prepare()
 {
-	nSkill = pUnitMission->GetRPGUnit()->Skills( NDb::ST_THROWING );
-	float fVPPenalty = GetVPPenalty( pUnitMission->GetRPGUnit()->Skills( NDb::ST_VP ),
-		pUnitMission->GetHealedVP(), pUnitMission->GetRPGUnit()->Skills(NDb::ST_VP).GetMaxValue() );
-	nSkill *= fVPPenalty;
-	// retail @0x2b88d0 reads the weapon type off whichever record the item carries (regular
-	// grenade OR engineer grenade) -- the bare GetDBGrenade() deref crashed on equipping TNT.
-	fMovePenalty = GetGrenadeRecWeaponType( pGrenade )->fMovePenalty;
-	FillWeaponInfo();
+    // The native range adapter reads nSkill while filling grenade info; initialize it first.
+    // Keep the explicitly supplied AI grenade even when a firearm is active.
+    nSkill = int( pUnitMission->GetWeaponSkill( pGrenade, nExtraAP, nBullet ) );
+    FillWeaponInfo();
+    // Original Steam 0x6b8890/188 writes the grenade movement coefficient after filling info.
+    fMovePenalty = GetGrenadeRecWeaponType( pGrenade )->fMovePenalty;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float CGrenadeToHitCalcer::GetStance()

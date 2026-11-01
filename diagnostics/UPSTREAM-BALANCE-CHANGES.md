@@ -3513,3 +3513,30 @@ retained for later original-precision audit. Remaining55 sources; hosted CI on t
 commit of the entire task remains pending.
 
 Source: [9f3c03712f2a86f83fb7739891827847b2f9f645](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9f3c03712f2a86f83fb7739891827847b2f9f645).
+
+## 2026-11-01: shared item skill and original accuracy arithmetic
+
+Weapon class proficiency now adds authored +10 to the corresponding shooting skill before
+aiming/burst/VP; grenade91 and melee70/throwing-blade89 apply in the shared item query.
+Burst30 uses int(bullet/parameter) as the exponent; at stock parameter2, second-bullet
+skill improves12 ->24 for the tested SMG recoil35/burst70. Nonbinary third-bullet burst99
+changes12 ->17 with the perk. Fractional aiming is retained through the final VP
+multiplication: raw70 plus2/3 at VP.75 now truncates53 rather than52. Actual movement
+coefficient is added to extra aiming AP before truncation; stock gun17 coefficient-.9,
+moves3, extra5 now gives70 rather than72; perk19 does not cancel this aiming term.
+First-turn gating remains. A cap-only VP injury current300/cap300/theoretical500 gives
+factor.9, hence63 rather than70. Grenade91 gives80 rather than70, wounded60 rather than52,
+and cap-only72 rather than70. Melee direct shared query70/80 is checked without changing
+the knife-specific raw throwing override. Existing range86 and additive movement19 from
+the preceding component remain intact. No authored values, AP expenditure, knife physics
+or new grenade range/stance formula is introduced.
+
+Original PC24/RN arithmetic and final truncation are verified against68 real original
+records in34 contexts. Genuine native RED17/90 both ->full708 Windows /709 Linux/Game
+builds and323 asset-free checks; all90 RED names included and60 old measured controls
+unchanged. All34 raw return words match both platforms. Explicit backpack grenade
+metadata/active firearm are retained through the necessary native adapter. Source9f3 is
+complete;54 source commits remain unfinished. Original grenade physics/world construction
+and whole-task final hosted CI are not claimed by these checks.
+
+Source: [9f3c03712f2a86f83fb7739891827847b2f9f645](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9f3c03712f2a86f83fb7739891827847b2f9f645).

@@ -119,6 +119,7 @@ private:
 	void SetHealedVP( int n ) { pRPGUnit->nHealedVP = n; }
 	virtual int GetLastActionTimes() const { return nLastActionTimes; }
 	virtual int GetMoveInLastTurn() const { return nMoveInLastTurn; }
+	virtual float GetWeaponSkill( CObjectBase *pItem, int nExtraAP, int nBullet );
 	virtual void AddMoveInLastTurn( int n ) { nMoveInLastTurn += n; }
 	virtual int RollCritical( NAI::EHitLocation eHL, int nCriticalDifficulty, NDb::CRPGCritical **pCritical );
 	void SaveAck( int nAckID, IUnitMissionInfo *pAttacker );
@@ -1411,6 +1412,103 @@ int GetToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int nDistance,
 	if ( pMission->bLogActive )
 		pToHitCalcer->Log();
 	return nToHit;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Original Steam 0x6c52a0/74: integer power with each operation at the game's PC24 precision.
+static float WeaponSkillIntegerPower( float fBase, int nExponent )
+{
+    unsigned int nMagnitude = nExponent < 0 ? 0u - unsigned(nExponent) : unsigned(nExponent);
+    volatile float fPower = 1.f;
+    volatile float fSquare = fBase;
+    while ( nMagnitude )
+    {
+        if ( nMagnitude & 1 )
+            fPower = fPower * fSquare;
+        nMagnitude >>= 1;
+        if ( nMagnitude )
+            fSquare = fSquare * fSquare;
+    }
+    return nExponent < 0 ? 1.f / fPower : float(fPower);
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Shared theoretical-maximum VP factor, preserving the existing knife adapter's arithmetic.
+float GetUnitVPPenalty( CUnit *pUnit )
+{
+    const CDynamicSkill &vp = pUnit->Skills( NDb::ST_VP );
+    const int nHealed = Max( 0, pUnit->nHealedVP );
+    // Original VP factor uses base+XP, independently of critical-modified cap.
+    const int nPercent = int( ( double( int(vp) ) + double(nHealed) * double(0.5f) ) *
+        double(100.f) / double( vp.GetTheoreticalMax() ) );
+    const float fVP = nPercent > 75 ? 1.f : nPercent > 50 ? 0.9f : nPercent > 25 ? 0.75f : 0.5f;
+    return fVP;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Actual Steam 0x6c06d0/1244. Preserve PC24 stores until the calcer's final integer conversion.
+float CUnitMission::GetWeaponSkill( CObjectBase *pItem, int nExtraAP, int nBullet )
+{
+	float fSkill = GetRPGUnit()->Skills( NDb::ST_SHOOTING );
+	float fBonus;
+	CDynamicCast<CWeaponItem> pWeapon( pItem );
+	if ( IsValid( pWeapon ) )
+	{
+		int nPerk = 0;
+		switch ( pWeapon->GetWeaponType() )
+		{
+			case NDb::WT_SUB_MACHINE_GUN: nPerk = 9; break;
+			case NDb::WT_MACHINE_GUN: nPerk = 13; break;
+			case NDb::WT_PISTOL: nPerk = 67; break;
+			case NDb::WT_RIFLE: nPerk = 68; break;
+			case NDb::WT_RLAUNCHER: nPerk = 84; break;
+		}
+		if ( nPerk && HasPerk( nPerk, &fBonus ) )
+			fSkill += fBonus;
+		NDb::EShootMode mode = pWeapon->GetShootMode();
+		volatile float fMove = 0;
+		if ( !IsFirstTurn() )
+			fMove = Min( GetToHitConstants()->nSMaxMove, GetMoveInLastTurn() ) *
+				pWeapon->GetDBWeapon()->pWeaponType->fMovePenalty;
+		if ( mode == NDb::SM_Careful || mode == NDb::SM_Snipe )
+		{
+			volatile float fAimInput = nExtraAP + fMove;
+			volatile float fAimBonus = Max( 0, int(fAimInput) ) * ( 1.f / 3.f );
+			fSkill += fAimBonus;
+		}
+	}
+	else if ( CDynamicCast<IGrenadeItem>( pItem ) )
+	{
+		fSkill = GetRPGUnit()->Skills( NDb::ST_THROWING );
+		if ( HasPerk( 91, &fBonus ) )
+			fSkill += fBonus;
+	}
+	else if ( CDynamicCast<IMeleeWeaponItem> pMelee = pItem )
+	{
+		bool bThrowing = pMelee->GetDBMeleeWeapon()->bThrowing;
+		fSkill = GetRPGUnit()->Skills( bThrowing ? NDb::ST_THROWING : NDb::ST_MELEE );
+		if ( HasPerk( bThrowing ? 89 : 70, &fBonus ) )
+			fSkill += fBonus;
+	}
+	if ( nBullet > 0 )
+	{
+		int nExponent = nBullet;
+		if ( HasPerk( 30, &fBonus ) )
+			nExponent = int( nBullet / fBonus );
+		int nBurst = GetRPGUnit()->Skills( NDb::ST_BURST );
+		const float fRatio = float( double(nBurst) * ( 1.0 / N_MAX_SKILL ) );
+		float fUnstabilized = fSkill * WeaponSkillIntegerPower( fRatio, nExponent );
+		// Retail truncates the stabilization percentage BEFORE multiplying by skill.
+		volatile float fStabilizedProduct = ( GetToHitConstants()->nMaxBurstStabilize * nBurst / N_MAX_SKILL ) * fSkill;
+		float fStabilized = fStabilizedProduct * 0.01f;
+		int nRecoil = 0;
+		if ( IsValid( pWeapon ) )
+		{
+			SWeaponInfo info;
+			pWeapon->GetInfo( &info );
+			nRecoil = info.nRecoil;
+		}
+		volatile float fRecoilProduct = Max( fUnstabilized, fStabilized ) * nRecoil;
+		fSkill = fRecoilProduct * 0.01f;
+	}
+	return fSkill * GetUnitVPPenalty( GetRPGUnit() );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetTileToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int nDistance, const CVec3 &ptAttacker,
