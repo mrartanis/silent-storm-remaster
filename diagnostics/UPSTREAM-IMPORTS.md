@@ -22755,3 +22755,70 @@ imported;50 sources remain (pending36 +partial14), including source1b85 camera
 ordering/RNG. Eventual whole-task final hosted CI remains pending.
 
 Source: [a6753bf56be2d09c3b84412b4285db2ff54d6306](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a6753bf56be2d09c3b84412b4285db2ff54d6306).
+
+## 2026-11-01: camera candidate order and local probability window (source1b85 complete)
+
+The existing public two-point framing consumer first tries the current desired yaw at
+rods15/input/(input+40)/2, then the closer base/opposite angle, current yaw at40,
+secondary angle and primary at40. Strictly smaller opposite angular distance swaps
+priority; ties keep base. The two current-yaw loads continue to read the live desired
+placement as in the actual original and donor, rather than introducing an unproved
+cached-angle rewrite. The probability window is int((nSloMoTimes/3+2)/divisor) when
+divisor>1, without adding0.5. The fallback local SRand.Get(3) is evaluated before the
+force-rod condition. Own render-floor bridge, eight-argument framing API, portable random
+arithmetic and save/network camera records are retained.
+
+NativeCameraCandidate0..7 invokes the real existing public camera/frustum/serialization
+consumer in its supported no-world context. Four initial yaw values
+.125/-.75/2.4000001/-2.20000005 at rod40 wrongly selected .52359879/3.66519165; they now
+stay at their initial yaw with rod15. Four exact controls retain an already chosen
+base/opposite yaw or fast-path rod20/34.9999962. Live placement, floor, ratio and next
+gameplay-ISAAC word remain fixed. These cases isolate the first candidate group; later
+terrain/LOS-dependent groups and an isolated tie-result runtime are supported by the typed
+original static audit, not claimed as independently runtime-tested by these no-world
+cases.
+
+NativeCameraSloMoWindow0..5 binds a real FixtureWorld and its actual campaign, uses the
+existing cheat_slomo option and deterministic SRand harness initialization, then invokes
+the actual public framing consumer. At count3/divisor1.60000002, window3/1.6 truncates1
+rather than rounding2; seed1 changes roll1 to0, increments count3->4 and retains the4000ms
+activation lease. Seed3/common activation, cheat-off, divisor1 and1.5 and requested ratio1
+are five exact controls. The deliberately unframeable high target makes subsequent framing
+reset final ratio to1 on both old/new producers; counter and retained lease measure
+activation. Initial tests wrongly expected final ratio3 even after every framing candidate
+failed; those preliminary logs are archived separately and excluded from canonical RED.
+Corrected RED before any production edit is5/14 on both platforms, with9 exact controls.
+World time, live placement and next gameplay-ISAAC word remain fixed. No active final
+slow-motion duration or complete original framing pose is inferred from the all-failed
+context.
+
+The actual Steam ShowPlaces4cf350/926 is bound through its typed real camera vtable5c and
+its call to ShowTwo4cf170/474. Gold921/458 have8/4 arguments whereas Steam has9/5; the
+extra force-pair flag is outside this donor and remains a separate future source4940
+consumer task. For controlled false force-pair, actual candidate-array constants/stack
+operands, all5 real calls to TryShowPlaces4cf010 and the exact live-yaw loads4cf271/4cf2dc
+establish the order. Exact raw23-byte comparison/swap at4cf20c matches Gold4cdf3c,
+including equality skipping the swap; both actual AngleDiff calls bind4cc060 to typed
+Gold4cab80/73. The whole36-byte divide/CW-truncate/FISTP/CW-restore block from Gold4ce0f9
+matches uniquely at Steam4cf3d9. Donor's4cf349 division comment was wrong; no
+opcode/frame/field/branch masks force equivalence.
+
+Both actual local constructors call7d4d00, and the entire typed Gold SRand.Get43 matches
+uniquely7d4a20. Actual unique46-byte block4cf52a draws3 before testing forced byte, then
+selects12 or supplied rod. This local temporary has no later use on the native forced
+path, so the additional forced draw is restored from static evidence as part of this
+already failing source; it has no fabricated independent forced-outcome RED, global
+gameplay-RNG shift or separately observable future continuation claim. Original full
+camera/World/framing/LOS is not executed for this checkpoint; the prior119 real base-floor
+runtime remains separate. No original code/DB/World/TEB/RNG patch or fake visibility
+provider is used.
+
+Full Game builds, 100 Windows /99 Linux selected camera/Hide/serialization/lock/item-map
+regressions and CI323 pass, including all14 canonical RED names. Checkpoint119's three
+rod35/35+/40 angle expectations deliberately change from its documented current
+candidate-order preservation to current-yaw-first here; every other measured119 camera
+input/rod/floor/freeze value stays exact. Unrelated accuracy/medical/XP/graphics suites
+are not claimed as rerun. Source1b85 complete;49 sources remain (pending35 +partial14).
+Eventual whole-task final hosted CI remains pending.
+
+Source: [1b85f23ac337fb5f2f4d6acde5341cfe66bb757a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1b85f23ac337fb5f2f4d6acde5341cfe66bb757a).

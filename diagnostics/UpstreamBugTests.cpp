@@ -26623,6 +26623,30 @@ static void NativeCameraFramingBridge(const char* databasePath,const char* resou
 }
 
 
+static void NativeCameraCandidate(int mode)
+{
+    Require(mode>=0 && mode<8,"unknown camera candidate mode");CObj<ICamera> camera=::CreateCamera(CAMERA_PC);Require(camera,"candidate fixture lacks actual camera");
+    const float yaws[]={.125f,-.75f,2.4f,-2.2f,.5235988f,3.66519165f,.125f,.125f};const float yaw=yaws[mode],rod=mode==6?20.f:mode==7?std::nextafter(35.f,0.f):40.f;
+    camera->SetPlacement(ICamera::SCameraPos(CVec3(0,0,0),rod,-FP_PI/4,yaw,0,35.f));camera->SetScreenRect(CTRect<float>(0,0,1,1));camera->SetCutFloorRange(0,2);camera->SetCutFloor(0);ICamera::SCameraPos liveBefore;camera->GetPlacement(&liveBefore);auto random=GlobalGameRandom();const CVec3 A(-.125f,0,0),B(.125f,0,0);
+    camera->ShowPlacesFromBestPoint(A,B,0,24.f,1,1.f,true,true);ICamera::SCameraPos desired,liveAfter;{CStructureNetworkContext refs;auto fields=BorrowedObjectFields(camera,&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(4,&desired);}camera->GetPlacement(&liveAfter);const float expectedRod=mode>=6?rod:15.f;
+    std::printf("native camera candidate mode=%d initialRod=%.9g initialYaw=%.9g rod=%.9g expectedRod=%.9g yaw=%.9g expectedYaw=%.9g floor=%d ratio=%d\n",mode,rod,yaw,desired.fRod,expectedRod,desired.fYaw,yaw,camera->GetCutFloor(),camera->GetSloMoRatio());std::fflush(stdout);
+    Require(std::memcmp(&liveBefore,&liveAfter,sizeof(liveBefore))==0 && camera->GetCutFloor()==0 && camera->GetSloMoRatio()==1 && random.Get()==GlobalGameRandom().Get(),"candidate selection changed live pose/floor/ratio/gameplay RNG");
+    Require(desired.fRod==expectedRod && desired.fYaw==yaw,"framing rotated away before trying the current viewing angle");
+}
+
+static void NativeCameraSloMoWindow(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<6,"unknown camera slow-motion window mode");CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);Require(campaign && world->GetGlobalGame()==campaign.GetPtr(),"camera window lacks actual campaign/world binding");
+    const float divisor=mode==3?1.f:mode==4?1.5f:1.6f;const bool cheat=mode!=2;const int requestedRatio=mode==5?1:3,initialCount=3,expectedWindow=divisor>1.f?int(3.f/divisor):3;
+    struct Restore {NRPG::CGlobalGame* game;int count;NGlobal::CValue option;~Restore(){game->nSloMoTimes=count;NGlobal::SetVar("cheat_slomo",option);}} restore{campaign,campaign->nSloMoTimes,NGlobal::GetVar("cheat_slomo",0)};campaign->nSloMoTimes=initialCount;NGlobal::SetVar("cheat_slomo",cheat?1:0);
+    unsigned seed=0;int roll=-1,legacyRoll=-1;for(unsigned trial=1;trial<10000;++trial){GlobalGameRandom().SeedForHarness(trial);SRand a,b;const int current=a.Get(expectedWindow),old=b.Get(divisor>1.f?int(3.f/divisor+.5f):3);if((mode==1?current==0 && old==0:mode==0?current==0 && old!=0:true)){seed=trial;roll=current;legacyRoll=old;break;}}Require(seed,"camera window cannot isolate its deterministic native local roll");
+    CObj<ICamera> camera=::CreateCamera(CAMERA_PC);camera->SetWorld(world);camera->SetScreenRect(CTRect<float>(0,0,1,1));camera->SetCutFloorRange(0,4);const CVec3 point(0,0,1000);camera->SetPlacement(ICamera::SCameraPos(point,20.f,-FP_PI/4,.125f,0,35.f));ICamera::SCameraPos liveBefore;camera->GetPlacement(&liveBefore);const auto time=world->GetTime()->GetValue();GlobalGameRandom().SeedForHarness(seed);auto random=GlobalGameRandom();
+    camera->ShowPlacesFromBestPoint(point,point,0,24.f,requestedRatio,divisor,true,true);const bool fired=requestedRatio>1 && roll==0 && cheat;const int expectedRatio=1;S2CameraWire::SCameraSloMo state;{CStructureNetworkContext refs;auto fields=BorrowedObjectFields(camera,&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(10,&state);}ICamera::SCameraPos liveAfter;camera->GetPlacement(&liveAfter);
+    std::printf("native camera slomo window mode=%d count=%d divisor=%.9g window=%d seed=%u roll=%d legacyRoll=%d cheat=%d requested=%d ratio=%d expectedRatio=%d afterCount=%d expectedCount=%d lease=%d\n",mode,initialCount,divisor,expectedWindow,seed,roll,legacyRoll,int(cheat),requestedRatio,camera->GetSloMoRatio(),expectedRatio,campaign->nSloMoTimes,initialCount+int(fired),state.tMaxLen);std::fflush(stdout);
+    Require(std::memcmp(&liveBefore,&liveAfter,sizeof(liveBefore))==0 && world->GetTime()->GetValue()==time && random.Get()==GlobalGameRandom().Get(),"camera slow-motion query changed live pose/world time/gameplay ISAAC");
+    Require(camera->GetSloMoRatio()==expectedRatio && campaign->nSloMoTimes==initialCount+int(fired) && state.tMaxLen==(fired?4000:0),"camera slow-motion probability window rounded instead of truncating");
+}
+
 static void NativeCameraFraming(int mode)
 {
     Require(mode>=0 && mode<10,"unknown native camera framing mode");CObj<ICamera> camera=::CreateCamera(CAMERA_PC);Require(camera,"framing fixture lacks its actual native camera");
@@ -26633,7 +26657,7 @@ static void NativeCameraFraming(int mode)
     struct BaseState {int floor=-99,minimum=-99,maximum=-99,locks=-99,frozen=-99;int operator&(CStructureSaver& f){f.Add(2,&locks);f.Add(3,&floor);f.Add(11,&minimum);f.Add(12,&maximum);f.Add(14,&frozen);return 0;}};
     auto state=[&](ICamera::SCameraPos* desired){BaseState base;CStructureNetworkContext refs;auto fields=BorrowedObjectFields(camera,&refs);{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(1,&base);reader.Add(4,desired);}return base;};
     ICamera::SCameraPos before;const auto baseBefore=state(&before);ICamera::SCameraPos liveBefore;camera->GetPlacement(&liveBefore);auto random=GlobalGameRandom();const CVec3 A(-.125f,0,0),B=single?A:CVec3(.125f,0,0);
-    camera->ShowPlacesFromBestPoint(A,B,requested,24.f,1,1.f,true,true);ICamera::SCameraPos desired;const auto after=state(&desired);ICamera::SCameraPos liveAfter;camera->GetPlacement(&liveAfter);const bool keep=single || mode<2;const float expectedRod=keep?rod:15.f,expectedYaw=keep?.125f:.5235988f;
+    camera->ShowPlacesFromBestPoint(A,B,requested,24.f,1,1.f,true,true);ICamera::SCameraPos desired;const auto after=state(&desired);ICamera::SCameraPos liveAfter;camera->GetPlacement(&liveAfter);const bool keep=single || mode<2;const float expectedRod=keep?rod:15.f,expectedYaw=.125f /* source1b85 now tries the current angle first */;
     std::printf("native camera framing mode=%d single=%d initialRod=%.9g requestedFloor=%d beforeFloor=%d frozen=%d desiredRod=%.9g expectedRod=%.9g yaw=%.9g expectedYaw=%.9g floor=%d expectedFloor=%d savedFloor=%d\n",mode,int(single),rod,requested,baseBefore.floor,baseBefore.frozen,desired.fRod,expectedRod,desired.fYaw,expectedYaw,camera->GetCutFloor(),expectedFloor,after.floor);std::fflush(stdout);
     Require(std::memcmp(&liveBefore,&liveAfter,sizeof(liveBefore))==0 && after.minimum==0 && after.maximum==2 && after.locks==baseBefore.locks && after.frozen==baseBefore.frozen && random.Get()==GlobalGameRandom().Get(),"camera framing changed live placement/clamp range/freeze counts or gameplay RNG");
     Require(desired.fRod==expectedRod && std::fabs(desired.fYaw-expectedYaw)<1e-6f && camera->GetCutFloor()==expectedFloor && after.floor==expectedFloor,"native framing uses the wrong strict35 rod gate or bypasses frozen/clamped virtual floor updates");
@@ -32909,6 +32933,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-grenade-pk-launch")) { Require(argc==5,"grenade PK requires db/resources/mode"); NativeGrenadePKLaunch(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-pk-hide-gate")) { Require(argc==5,"PK hide gate requires db/resources/mode"); NativePKHideGate(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-camera-framing-bridge")) { Require(argc==5,"camera bridge requires db/resources/mode"); NativeCameraFramingBridge(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-camera-candidate")) { Require(argc==3,"camera candidate requires mode"); NativeCameraCandidate(std::atoi(argv[2])); return true; }
+    if (!std::strcmp(mode, "native-camera-slomo-window")) { Require(argc==5,"camera slomo requires db/resources/mode"); NativeCameraSloMoWindow(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-camera-framing")) { Require(argc==3,"camera framing requires mode"); NativeCameraFraming(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "native-held-grenade-priority")) { Require(argc==5,"held grenade priority requires db/resources/mode"); NativeHeldGrenadePriority(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grenade-fuse")) { Require(argc==5,"grenade fuse requires db/resources/mode"); NativeGrenadeFuse(argv[2],argv[3],std::atoi(argv[4])); return true; }

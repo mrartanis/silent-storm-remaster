@@ -3665,3 +3665,23 @@ World/framing/LOS/bridge/PKCanDo runtime is claimed. Sourcea675 is complete;50 s
 remain and whole-task final hosted CI is pending.
 
 Source: [a6753bf56be2d09c3b84412b4285db2ff54d6306](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a6753bf56be2d09c3b84412b4285db2ff54d6306).
+
+## 2026-11-01: camera candidate order and local probability window
+
+Camera framing tries the current viewing angle before rotating to alternatives and keeps
+base priority on equal angular distance. Cheat-gated cinematic probability uses a
+truncated window instead of adding0.5: tested count3/divisor1.6 window2->1 changes a
+deterministic missed activation to count4/4000ms retained lease. The tested unframeable
+target subsequently restores final ratio1; no final active slowing or world-time change is
+claimed. Forced fallback consumes the original local draw before selecting its supplied
+rod; local state is discarded and no gameplay ISAAC shift is implied. Own
+APIs/save/network/render-floor bridge remain.
+
+Native canonical RED5/14 both ->100 Windows /99 Linux selected regressions, full Game
+builds/CI323,9 exact controls and inputs fixed. Original typed static
+candidate/tie/truncate/local-roll audit supports the producer; no new full original
+World/framing/LOS runtime claim. Checkpoint119's three search-yaw expectations change
+intentionally; its floor/rod/freeze results remain exact. Source1b85 complete,49 sources
+remain; whole-task final hosted CI pending.
+
+Source: [1b85f23ac337fb5f2f4d6acde5341cfe66bb757a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1b85f23ac337fb5f2f4d6acde5341cfe66bb757a).

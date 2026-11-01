@@ -1758,3 +1758,28 @@ selected regressions/CI323 include all21 RED names. Sourcea675 complete,50 unfin
 source1b85 next.
 
 Source: [a6753bf56be2d09c3b84412b4285db2ff54d6306](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a6753bf56be2d09c3b84412b4285db2ff54d6306).
+
+## 2026-11-01: camera candidate order and local probability window
+
+NativeCameraCandidate0..7 exercises existing public real-camera framing and serialized
+desired pose in supported no-world contexts:4 changed yaws at rod40 ->rod15/current yaw,4
+exact base/opposite/fast-path controls. NativeCameraSloMoWindow0..5 uses real
+campaign/world and cheat option with existing local-seed harness: count3/divisor1.6/seed1
+changes window2->1, count3->4 and retained lease0->4000, with5 exact controls.
+Deliberately all-failed framing resets final ratio1; initial invalid final-ratio3 premises
+are archived, corrected canonical RED5/14 both before producer changes. Captured
+inputs/live pose/world time/next gameplay ISAAC stay fixed. Later candidate groups and
+strict tie are statically audited, not separately isolated native runtime here. Forced
+local extra roll is static-only because native temporary dies without another use on the
+forced path; no invented global RNG effect/test hook.
+
+Actual typed Steam926/474 functions differ from Gold921/458 by extra9th/5th argument;
+own8arg API remains. Unique actual36-byte truncation block, exact raw23-byte tie branch,
+independently decoded array/call/yaw operands and unique46-byte unconditional-roll block
+with typed whole43-byte SRand.Get bind original behavior without opcode/frame/branch/field
+masks. No new original runtime records or full original World/framing/LOS claim. Full Game
+builds/100 Windows /99 Linux selected checks/CI323 include all14 RED names. Three119
+search-yaw preservation expectations intentionally follow restored120 current-yaw-first;
+remaining119 camera measurements exact.49 unfinished sources remain.
+
+Source: [1b85f23ac337fb5f2f4d6acde5341cfe66bb757a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1b85f23ac337fb5f2f4d6acde5341cfe66bb757a).
