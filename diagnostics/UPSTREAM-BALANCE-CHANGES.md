@@ -3703,3 +3703,22 @@ supports the placement; no original full World/exit/animation runtime or full RN
 is claimed. Sourced44 complete,48 sources remain; whole-task final hosted CI pending.
 
 Source: [d44bba0e1f5ecb91f589ef70e205eb0cacfc6285](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d44bba0e1f5ecb91f589ef70e205eb0cacfc6285).
+
+## 2026-11-01: PK collapse, stun and ordinary corpse refresh gate
+
+Dead, unconscious and stunned PK wearers use authored collapse2484/2466 with the existing
+hold-last-frame policy and impact sound16584. Their logical placement no longer enters
+ordinary human-corpse hip snapping/hit-location refresh, preserving the worn shell in
+place. Five actual collapse cases now emit their clip/hold policy/sound; two downed-wearer
+cache cases keep0 human corpse points and unchanged position. Four ordinary controls and
+captured AP/HP/consciousness outcomes remain exact. This restores Steam behavior; Gold's
+smaller old helper only placed a prone pose. Own direction-aware placement checks, run
+flag, packed types/API/save/network remain.
+
+Canonical native RED7/11 both ->127 Windows /128 Linux selected regressions, full Game
+builds/CI323; prior121 pilot-exit10 measurements exact. Original Steam223
+helper/caller/whole615 segment audited statically; no original World/audio/animation
+runtime or sampled future held bone frames is claimed. Sourcec941 complete,47 sources
+remain; whole-task final hosted CI pending.
+
+Source: [c94140922b034b3e11dd9e2a1d740d32c559e488](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c94140922b034b3e11dd9e2a1d740d32c559e488).

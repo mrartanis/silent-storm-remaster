@@ -1807,3 +1807,28 @@ state. Full Game builds/116 Windows /117 Linux related checks/CI323 include all1
 names. Sourced44 complete,48 unfinished.
 
 Source: [d44bba0e1f5ecb91f589ef70e205eb0cacfc6285](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d44bba0e1f5ecb91f589ef70e205eb0cacfc6285).
+
+## 2026-11-01: PK collapse, stun and ordinary corpse refresh gate
+
+NativePKCollapse0..6 exercises actual
+world/wear/death/KO/scripted-KO-animationfalse/nonstanding-death/STUN ProcessAttack and
+exact ordinary/no-STUN controls. Five changed cases produce one positive-duration
+authored2484/2466 clip, actual idle-ban hold policy and world16584 sound;
+logical/worn/shellHP/time and captured AP/HP/consciousness outcomes stay fixed. Hold
+policy is tested, not future bone frames. NativePKCorpseGate0..3 exercises actual base
+Segment/GetCorpseHLs: downed wearers6HL/moved->0HL/unchanged, human corpse6 and living
+wearer0 exact controls. Canonical RED7/11 both,4 controls/inputsfixed; no fixture failure
+relabeled as RED. No fake provider or DB changes. Bounded segment/cache component, no full
+turn/AI/render claim.
+
+Actual Steam223 helper74fa60 via typed attack751570 and Fall750ec0 has different
+behavior/optimized register+stack ABI from Gold137 helper7444c0; whole-helper comparison
+rejected without frame/register/opcode/size masks. Exact AlignTime19, actual PlayCustom
+third-bool idleban and real typed MakeSound slot130/clip/sound constants bind the helper.
+Whole original Segment615 matches uniquely7510b0 with decoded E8/EH/exactfloat2 operands
+only; exact26-byte worn gate skips ordinary corpse refresh. Original full
+World/clip/audio/Segment runtime not executed. Full Game builds/127 Windows /128 Linux
+related regressions/CI323 include all11 RED names and prior placement tests; all10
+prior121 pilot-exit measurements exact. Sourcec941 complete,47 unfinished.
+
+Source: [c94140922b034b3e11dd9e2a1d740d32c559e488](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c94140922b034b3e11dd9e2a1d740d32c559e488).

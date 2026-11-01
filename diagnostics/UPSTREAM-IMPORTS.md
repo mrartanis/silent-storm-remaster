@@ -22886,3 +22886,71 @@ remain separate; its base placement checks already use this fork's previously te
 direction-aware helper. Eventual whole-task final hosted CI remains pending.
 
 Source: [d44bba0e1f5ecb91f589ef70e205eb0cacfc6285](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d44bba0e1f5ecb91f589ef70e205eb0cacfc6285).
+
+## 2026-11-01: PK collapse, stun and ordinary corpse refresh gate (sourcec941 complete)
+
+The real worn-PK fall path now sets animator poseCRAWL, copies the position while changing
+only its pose bits, aligns time and plays authored clip2484 for standing or2466 otherwise
+with the existing hold-last-frame flag, then emits authored world sound16584. The same
+helper runs after a stunned wearer's actual damage-provider call before later world
+consciousness reconciliation. Ordinary corpse position/hit-location/update refresh
+excludes valid worn PKs; it previously snapped downed wearers to the collapse/standing hip
+as human corpses. The live wearer keeps its logical pose/facing/position and locked shell
+identity. The two placement hunks are already covered by this fork's previously tested
+IsBigLockerPlacePassable in both PlaceOnPassablePlace loops: real standing anchor
+clearance, full direction-aware footprint and flying-final handling are retained instead
+of replacing it with a weaker lock-only test.
+
+NativePKCollapse0..6 uses actual world/human54/authored suit93/real wear and existing
+Kill+SyncConscious, MakeUnconscious and actual ProcessAttack with persistent STUN. Death,
+ordinary KO, scripted KO with death-animation flagfalse, nonstanding death and nonlethal
+STUN now each produce exactly one positive-duration authored collapse clip, internal
+idle-ban hold policy and sound16584; all five previously produced no such clip/flag/sound.
+Human scripted KO and worn zero-damage/no-STUN are exact controls. Logical position,
+run/facing/pose, worn-shell identity, shell HP and world time remain fixed; captured
+AP/HP/consciousness outcomes stay identical, including expected actual death HP-4095.
+Freeze is observed as the actual existing policy flag and scheduled clip duration; future
+held bone frames are not separately sampled by these cases. Native data/DB/sound/animation
+providers are used without record edits or fake providers.
+
+NativePKCorpseGate0..3 calls the existing CDumbUnitServer::Segment component on real fresh
+dead/unconscious wearers, a plain human corpse and a living wearer. The existing
+GetCorpseHLs consumer changes from6 generated human-corpse hit points and moved logical
+position to0/unchanged for both downed wearers. Plain human corpse still generates6 and
+living wearer0; both controls are exact. Worn/consciousness/AP/HP/time controls remain
+fixed. These are bounded base-segment/cache tests with actual world, not a complete active
+turn/AI/render iteration. Canonical unchanged-producer RED7/11 on both platforms is the
+first valid run; four controls and all captured inputs remain exact.
+
+The actual typed CDumbUnitServer attack entry is bound through named RTTI/secondary8
+vtable8cb054 to751570. Its exact original STUN gate7516a1..7516cd calls the actual
+collapse helper74fa60; the independently decoded actual Fall750ec0 also calls the same
+helper at750fa9. Worn DB virtual34 is backed by the retained typed60-byte getter proof.
+Actual helper is223 bytes, takes two optimized register arguments plus a stackWorld and
+returns4; it copies bRun byte8 before changing only copied pose bits, selects2484/2466,
+calls exact unique AlignTime19 at73b0e0, then PlayCustom73fe20 with true. Actual
+PlayCustom tests its third bool after PlayAnimation and sets skeleton-state idle-ban bit1.
+It looks up16584 and dispatches typed actual CWorld root8cbc8c virtual130 to
+MakeSound761b80.
+
+Gold's typed PanzerkleineDeathAnimation7444c0/137 merely places the copied prone pose with
+two optimized register arguments/RET0; it does not contain Steam's new authored clip/sound
+behavior. Whole Gold-helper equivalence is explicitly rejected. No
+register/frame/opcode/size masks or stale donor74f660/74f310 comments conceal the
+version/ABI change. The native helper adapts the independently audited Steam behavior
+through this fork's existing C++ APIs. Original Segment745ac0/615 instead matches
+uniquely7510b0 after masking only decoded E8 call addresses, validated compiler-EH
+metadata and independently equal F32 constant2; its opcode/frame/field/branch bytes remain
+exact. The raw26-byte valid-worn-DB skip at7510ed matches Gold745afd and branches before
+the human snap/HL/update block. Original World/clip/audio/Segment were not executed; no
+original code/DB/World/TEB/RNG patch or fabricated provider is used.
+
+Full Game builds, 127 Windows /128 Linux selected
+PK/placement/equipment/corpse/repair/critical/presentation/serialization/lock/item-map
+regressions and CI323 pass. All11 RED names and existing direction-aware placement tests
+are selected; all10 prior121 pilot-exit measurements remain exact. Unrelated
+camera/medical-XP/graphics suites are not claimed as rerun. All usefulc941 hunks are
+imported or already covered;47 sources remain (pending33 +partial14). Eventual whole-task
+final hosted CI remains pending.
+
+Source: [c94140922b034b3e11dd9e2a1d740d32c559e488](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c94140922b034b3e11dd9e2a1d740d32c559e488).

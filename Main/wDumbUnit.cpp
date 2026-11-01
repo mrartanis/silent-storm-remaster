@@ -550,6 +550,20 @@ void CDumbUnitServer::EnableHide()
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Actual Steam helper 0x74fa60/223 (Gold's smaller helper only placed the prone pose).
+static void PanzerkleineDeathAnimation( CUnitAnimator *pAnimator,
+	const NAI::SUnitPosition &pos, CWorld *pWorld )
+{
+	pAnimator->SetPose( NAI::CRAWL );
+	NAI::SUnitPosition animPos = pos;
+	// Change only the copied pose bits, retaining the original run flag.
+	animPos.pos.p.SetPose( NAI::CM_LAY );
+	pAnimator->AlignTime();
+	pAnimator->PlayCustomAnimation( animPos,
+		pos.pos.p.GetPose() == NAI::CM_STAND ? 2484 : 2466, true );
+	pWorld->MakeSound( pos.GetCP(), NDb::GetSound( 16584 ) );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDumbUnitServer::FallAsIfDead( const CVec3 &ptDir, bool bDropItemsFromBackPack, bool bPlayDeathAnim )
 {
 	DropItems( !IsWearingPK(), true, bDropItemsFromBackPack );   // retail @0x350770 always drops the cap here (bDropCap=true)
@@ -580,12 +594,7 @@ void CDumbUnitServer::FallAsIfDead( const CVec3 &ptDir, bool bDropItemsFromBackP
 		pWorld->GetPathNetwork()->Unlock( this );
 	}
 	else
-	{
-		animator.SetPose( NAI::CRAWL );
-		NAI::SUnitPosition animPos = position;
-		animPos.pos.p.SetPose( NAI::CRAWL );
-		animator.PlaceUnit( animPos );
-	}
+		PanzerkleineDeathAnimation( &animator, position, pWorld );
 	bindGlobal.Update();
 	pWorld->UpdateVisible();
 }
@@ -715,6 +724,10 @@ int CDumbUnitServer::ProcessAttack( NWorld::IWorld *_pWorld, int nUserID, NRPG::
 	// Original Steam 0x751570 has no damage-derived low-health bleeding critical.
 	// The periodic RPG pass computes the whole low-health amount independently.
 	int nCurrentVP = pRPG->GetTotalVP();
+
+	// Actual Steam 0x7516a1..0x7516cd: a stunned wearer collapses before reconciliation.
+	if ( IsWearingPK() && pRPG->HasCritical( NDb::C_STUN ) )
+		PanzerkleineDeathAnimation( &animator, position, pWorld );
 
 	// Retail v1.2 0x7512e6: use the world state before death/KO reconciliation.
 	if ( CanFight() )
@@ -878,7 +891,8 @@ void CDumbUnitServer::Segment()
 	// place to the body (NAI::GetNearestPosition @0x7ef50) and rebuild the 6 corpseHLpos ray points from
 	// the AI-map hull (CAIMap::GetUnitHLPos @0x65ee0, retail fill order 1,0,3,2,5,4). These points feed
 	// CGame::IsCorpseVisible @0x298da0 -- the tracker's corpse-sighting probe.
-	if ( !CanFight() && pRPG->GetRPGPers()->pPanzerklein == 0
+	// Actual Steam 0x7510ed..0x751101 skips ordinary corpse refresh for a valid worn PK.
+	if ( !CanFight() && pRPG->GetRPGPers()->pPanzerklein == 0 && !IsWearingPK()
 	     && !IsValid( animator.GetCorpseCarrier() ) )
 	{
 		CVec3 ptReal;
