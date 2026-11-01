@@ -4133,3 +4133,26 @@ entry/return, UI-consumed input reset and real minimized guard verified. Sourcef
 complete,32 remaining. Known prior campaign movement flake remains outside UI suite.
 
 Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).
+
+## 2026-11-01: cached point lights honor their shadow flag
+
+Cached point lights with their existing bCastShadow=false now illuminate through the
+existing no-shadow color path and complete their cache slot without cubemap occluder
+passes. Shadow-casting lights and later mixed neighbors keep their existing depth work. No
+source radius/color/attenuation, damage/AP/skills/prices or gameplay balance changes.
+Existing32-byte light-state/save flags and LAN wire remain unchanged.
+
+Adapt original no-shadow branch to own sequential four-stage cache scheduler. Keep native
+bgfx backend, stable sky/cache ownership, texture/shader/register choices and HD/face/font
+pipelines; donor mixed screen-history/reprojection/register/shader hunks remain pending.
+No new PNG/assets or original runtime. Whole420 helper equivalence is explicitly rejected
+because actual float operands lie in writable-marked rdata; no readonly-constant
+normalization claim.
+
+Native canonicalRED5/8 ->GREEN8/8 both, three exact controls, actual no-shadow depth
+views2/4->0, mixed neighbor2 and positive receiver color traversal verified. Full Game
+both/269 Windows/260 Linux selected related/CI378;23 prior demo/menu and12 font rows
+exact. Sourcef6 partial,32 donor sources unfinished. Known prior campaign movement flake
+remains outside selected suite.
+
+Source: [f6f6011fc301ace82317b9007ec6dd36b57f3369](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6f6011fc301ace82317b9007ec6dd36b57f3369).

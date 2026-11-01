@@ -2297,3 +2297,31 @@ except unchanged class/include extraction. No original runtime or asset rebuild.
 Sourcecomplete32unfinished.
 
 Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).
+
+## 2026-11-01: cached point lights honor their shadow flag
+
+NativeCachedPointShadowFlag0..7 are isolated extended native-display DB/resource cases.
+Use actual CLightmapTracker, actual saved light-state codec, actual fresh CGScene and
+hidden SDL/bgfx renderer. Test-only typed member access configures existing cache
+state/renderer and calls the real private RecalcStep without production API or offset
+changes. A passive CRenderWrapper observer counts and forwards every native
+FormDirOccludersList request. Cases cover shadow true at stages0/1, false
+positive/zero-color, two false points, mixed false/true neighbors and empty cache. Actual
+stage completion and depth-view counts are checked; controls0/4/6 stay exact.
+
+Case7 adds a bounded actual receiver fragment inside the non-shadowing point and observes
+its positive native color traversal at DG triangle/material extraction. A sentinel stops
+before buffer upload, so no pixel-output equivalence is claimed. Old code generates2
+shadow views without reaching that receiver; new code reaches it with0 shadow views. This
+checks that avoiding shadow work does not silently skip lighting.
+
+Initial7-case RED4/7 andGREEN7 retained separately. After adding receiver proof, restore
+production exactly141 and establish canonicalRED5/8 both ->GREEN8/8 both with three exact
+controls. Full Game both/269 Windows/260 Linux selected
+light/shadow/renderer/menu/UI/network suites/CI378 allpass. Existing
+UpstreamCachedPointLighting, UpstreamCachedPointShadowed, point shadow-flag and old/new
+save-layout tests selected.23 prior menu/demo and12 font rows exact. Only six production
+lines changed; source mixed history/reprojection/shader work remains partial,32
+unfinished. No original runtime or asset rebuild.
+
+Source: [f6f6011fc301ace82317b9007ec6dd36b57f3369](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6f6011fc301ace82317b9007ec6dd36b57f3369).

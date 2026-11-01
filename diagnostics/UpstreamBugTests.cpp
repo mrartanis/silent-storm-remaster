@@ -33525,6 +33525,72 @@ static void NativeMenuIdleDemo(const char* databasePath,const char* resourcePath
 }
 
 
+class CachedPointReceiverReached: public std::exception {};
+class CachedPointReceiverTriangles: public CFuncBase<vector<NGfx::STriangleList>>
+{
+    OBJECT_NOCOPY_METHODS(CachedPointReceiverTriangles);
+protected:
+    bool NeedUpdate() override {return true;}
+    void Recalc() override {throw CachedPointReceiverReached();}
+};
+
+// Access existing cache inputs/state without changing production interfaces or layout.
+struct CachedPointStateTag { friend auto CachedPointMember(CachedPointStateTag); };
+template<auto Member> struct CachedPointStateAccess { friend auto CachedPointMember(CachedPointStateTag){return Member;} };
+template struct CachedPointStateAccess<&NGScene::CLightmapTracker::rs>;
+struct CachedPointRendererTag { friend auto CachedPointMember(CachedPointRendererTag); };
+template<auto Member> struct CachedPointRendererAccess { friend auto CachedPointMember(CachedPointRendererTag){return Member;} };
+template struct CachedPointRendererAccess<&NGScene::CLightmapTracker::pRender>;
+struct CachedPointStepTag { using type=void(NGScene::CLightmapTracker::*)(NGfx::CRenderContext*,NGScene::CSceneFragments*,CTransformStack*);friend type CachedPointMember(CachedPointStepTag); };
+template<auto Member> struct CachedPointStepAccess { friend CachedPointStepTag::type CachedPointMember(CachedPointStepTag){return Member;} };
+template struct CachedPointStepAccess<&NGScene::CLightmapTracker::RecalcStep>;
+
+// Count actual occluder-list requests, forwarding every request into the real scene.
+class ObservedCachedPointRenderer: public NGScene::CRenderWrapper
+{
+public:
+    int shadowViews=0;
+    explicit ObservedCachedPointRenderer(NGScene::CGScene* scene):CRenderWrapper(scene){}
+    void FormDirOccludersList(CTransformStack* ts,const CVec3& direction,NGScene::CSceneFragments* result,const NGScene::SGroupSelect& groups,bool fast) override {
+        ++shadowViews;CRenderWrapper::FormDirOccludersList(ts,direction,result,groups,fast);
+    }
+};
+
+static void NativeCachedPointShadowFlag(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=7,"unknown cached point shadow-flag case");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm cached point shadow flag regression");
+    CObj<NGScene::CGScene> scene=new NGScene::CGScene(0);ObservedCachedPointRenderer renderer(scene);
+    CObj<NGScene::CLightmapTracker> tracker=new NGScene::CLightmapTracker;
+    NGScene::CLightState input;input.vAmbientColor=VNULL3;input.vUpDifColor=VNULL3;
+    const bool firstShadow=mode==0 || mode==4;
+    if(mode!=6)input.points.push_back(NGScene::CLightState::SPointLight(mode==3?VNULL3:CVec3(1,0.5f,0.25f),CVec3(0,0,2),8.f,firstShadow));
+    if(mode==2 || mode==5)input.points.push_back(NGScene::CLightState::SPointLight(CVec3(0.25f,1,0.5f),CVec3(4,0,2),9.f,mode==5));
+    CMemoryStream fields;{CStructureSaver writer(fields,CStructureSaver::WRITE);writer.Add(4,&input);}fields.Seek(0);{CStructureSaver reader(fields,CStructureSaver::READ);tracker->operator&(reader);}
+    Require(tracker->GetLightState().points.size()==input.points.size(),"cached point fixture lost its actual saved light inputs");
+    for(int i=0;i<input.points.size();++i)Require(tracker->GetLightState().points[i].bCastShadow==input.points[i].bCastShadow,"cached point fixture changed shadow flag through the actual light-state codec");
+    auto& state=tracker.GetPtr()->*CachedPointMember(CachedPointStateTag{});state.nState=static_cast<decltype(state.nState)>(2);state.nStep=mode==4?1:0;state.bCalcSky=false;state.bCalcColor=true;
+    (tracker.GetPtr()->*CachedPointMember(CachedPointRendererTag{}))=&renderer;
+    CTransformStack transform;NGScene::CSceneFragments receivers;NGfx::CRenderContext context;
+    if(mode==7){
+        CObj<CachedPointReceiverTriangles> triangles=new CachedPointReceiverTriangles;CObj<AnimatedLightMaterial> material=new AnimatedLightMaterial;
+        NGScene::SRenderGeometryInfo geometry;geometry.pTriLists[NGScene::TLT_GEOM]=triangles.GetPtr();geometry.pTriLists[NGScene::TLT_POSITION]=triangles.GetPtr();
+        SBound bound;bound.SphereInit(CVec3(0,0,2),1.f);const int index=receivers.AddGeometry(nullptr,&geometry,bound);NGScene::CPartFlags parts;parts.Clear();parts.Set(0);receivers.AddElement(index,parts,material,nullptr,nullptr);
+        bool reached=false;try{(tracker.GetPtr()->*CachedPointMember(CachedPointStepTag{}))(&context,&receivers,&transform);}catch(const CachedPointReceiverReached&){reached=true;}catch(const AnimatedLightRenderReached&){reached=true;}
+        std::printf("CACHED-POINT-FLAG mode=7 receiverReached=%d expectedReceiver=1 shadowViews=%d expectedViews=0 state=%d step=%d\n",int(reached),renderer.shadowViews,int(state.nState),state.nStep);std::fflush(stdout);
+        Require(reached && renderer.shadowViews==0,"nonshadowed cached point skipped its positive native receiver color traversal or still generated occluder views");return;
+    }
+    const int calls=mode==2 || mode==5?2:1;
+    for(int i=0;i<calls;++i)(tracker.GetPtr()->*CachedPointMember(CachedPointStepTag{}))(&context,&receivers,&transform);
+    const int expectedViews=mode==0 || mode==4 || mode==5?2:0;
+    const int expectedStep=mode==0?1:mode==2?8:mode==4?2:mode==5?5:mode==6?0:4;
+    const int expectedState=mode==6?4:2;
+    std::printf("CACHED-POINT-FLAG mode=%d lights=%u firstShadow=%d calls=%d shadowViews=%d expectedViews=%d step=%d expectedStep=%d state=%d expectedState=%d\n",mode,unsigned(input.points.size()),int(firstShadow),calls,renderer.shadowViews,expectedViews,state.nStep,expectedStep,int(state.nState),expectedState);std::fflush(stdout);
+    Require(renderer.shadowViews==expectedViews,"cached point light with shadows disabled still generated real cubemap occluder views or disturbed a shadow-casting neighbor");
+    Require(state.nStep==expectedStep && int(state.nState)==expectedState,"cached point light did not complete its color work and advance to the next source without shadow passes");
+}
+
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
@@ -34121,6 +34187,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-cached-point-shadow-flag")) { Require(argc==5,"cached point flags require db/res/mode"); NativeCachedPointShadowFlag(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-menu-idle-demo")) { Require(argc==5,"menu idle requires db/res/mode"); NativeMenuIdleDemo(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-autoplay-presentation")) { Require(argc==5,"autoplay presentation requires db/res/mode"); NativeAutoPlayPresentation(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-autoplay-lifecycle")) { Require(argc==5,"autoplay lifecycle requires db/res/mode"); NativeAutoPlayLifecycle(argv[2],argv[3],std::atoi(argv[4])); return true; }

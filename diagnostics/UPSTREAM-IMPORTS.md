@@ -23887,3 +23887,57 @@ Sourcefdd complete,32 unfinished. Actual final-head hosted CI remains required a
 whole-task completion.
 
 Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).
+
+## 2026-11-01: cached point lights honor their shadow flag (partial142)
+
+Split the useful cached-point flag consumer from donorf6's mixed cache-history, register
+and legacy shader work. Existing32-byte cached point inputs already retain bCastShadow,
+but native CLightmapTracker::RecalcStep ignored it and generated cubemap depth views for
+every point. Add only six production lines: when false, call existing
+RenderPointNoShadows, advance by existing N_POINT_LIGHT_RECALC_STEPS and finish this step.
+Keep own sequential four-stage scheduling, later shadow-casting sources, native bgfx
+rendering, cache ownership, stable sky samples, shaders and render registers unchanged.
+
+Gold PDB names SPointLight vColor0/vCenter0c/radius18/bCastShadow1c. The entire262-byte
+point-color switch arm Gold52d25e ->actualSteam52efde is unique with decoded E8 operands
+only; no field, frame, branch, state or global masks. Actual32-byte stride at52f00f and
+byte1c compare52f015 choose the no-shadow path. False branch calls original no-shadow
+renderer52caa0 at52f035, adds4 to stepc0 and1 to original round-robin indexcc, then
+jumps52f0e4. True branch calls native shadow-depth52e390 twice at52f073/52f092. Own
+scheduler lacks the original independent round-robin index/source gate, so adapt only
+false-flag rendering and four-stage completion; do not transplant unrelated original
+scheduler state.
+
+Whole Gold RecalcStep2424 equivalence is rejected rather than normalizing unrelated
+operands. Whole RenderPointNoShadows420 is also rejected: two absolute float reads point
+into actual Steam rdata flagged writable, so they are not normalized as readonly
+constants. Bind its unique56-byte entry using independently validated one-state19930520 EH
+record: same cleanup frameebp-bc and cleanup target as actual normal destructor call.
+Caller262 independently reaches52caa0; decode actual literal0/0.1 reads without masking
+them, operation74 at52cc04, callRenderLight52c490 at52cc11 and return16 at52cc41. No
+whole420 equivalence, original Game.exe or copied-function execution claim.
+
+Eight actual native cache-step cases canonicalRED5/8 both ->GREEN8/8, with three exact
+controls0/4/6 for shadow-stage0, shadow-stage1 and empty cache. Observe actual cubemap
+occluder-list requests through a passive CRenderWrapper subclass that forwards every
+request to actual CGScene, with real hidden SDL/bgfx lifetime. Old no-shadow
+single/zero-color points requested2 depth views and two no-shadow points requested4; now0
+while completing their slots. Mixed false/true pair now advances to the real shadow
+neighbor and requests its2 views. Actual saved light-state codec preserves each flag.
+Case7 adds an in-bound real receiver fragment and observes actual color traversal through
+its DG triangle/material extraction; old receiverReached0/shadowViews2 becomes1/0. Stop
+before buffer upload, without claiming final pixel output. This prevents a
+skip-all-lighting false positive.
+
+Initial seven-case RED4/7 ->GREEN7 both retained. Add positive receiver case7, restore
+production byte-exact141, establish final eight-case RED, then restore identical minimal
+production fix before GREEN. Full Game both/269 Windows/260 Linux related
+light/shadow/renderer/UI/network suites allpass/CI378. Existing cached-point
+lighting/shadow shader and flag/save-layout tests selected, three new controls exact,23
+prior menu/demo traces and12 font rows exact. No asset/PNG/HD/face/font regeneration or
+saved/LAN layout changes. Donor cache reprojection/history/shader/register work remains
+pending; sourcef6 becomes partial,32 unfinished. Known prior campaign movement flake
+remains tracked outside selected suite; final-head hosted CI still required at whole-task
+completion.
+
+Source: [f6f6011fc301ace82317b9007ec6dd36b57f3369](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6f6011fc301ace82317b9007ec6dd36b57f3369).

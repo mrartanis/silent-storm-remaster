@@ -841,6 +841,12 @@ void CLightmapTracker::RecalcStep( NGfx::CRenderContext *pRC, CSceneFragments *p
 				if ( nLight < lightState.points.size() )
 				{
 					const CLightState::SPointLight &p = lightState.points[ nLight ];
+					if ( !p.bCastShadow )
+					{
+						RenderPointNoShadows( &lmTarget, p.vCenter, p.fRadius, p.vColor );
+						rs.nStep += N_POINT_LIGHT_RECALC_STEPS;
+						break;
+					}
 					if ( nStep < 3 )
 					{
 						RenderCubeMapDepth( &lmTarget, p.vCenter, p.fRadius, nStep * 2 );
