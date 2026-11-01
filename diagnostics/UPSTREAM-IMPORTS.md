@@ -22527,3 +22527,85 @@ fuse threshold, PK origins and Hide/vision remain pending.53 sources remain (pen
 +partial16); eventual whole-task final hosted CI remains pending.
 
 Source: [3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a).
+
+## 2026-11-01: grenade fuse, PK launch and concealment completion (source3cfc complete)
+
+Both existing throw consumers now skip the fuse roll entirely for actual perk90. Otherwise
+the strict99 boundary remains and the fuse threshold calls current fractional
+GetWeaponSkill(explicitGrenade,0,0), rather than cached integer accuracy. The provided
+script chance and shared gameplay generator remain intact. The removed script SRand was
+unused already; this is not a local-to-global RNG migration. Physical construction still
+consumes its existing three angular-momentum draws after the script fuse.
+
+FindGrenadeParams now receives the existing actor and reads its actual worn-PK record
+once. Ordinary launch routing is unchanged. Worn PK starts at index2 (left side) and emits
+animation side0; both executor and script launch consumers use that live solver. Run exits
+actual concealment with Hide(false,false) before paying the throw action, records its
+existing serialized vision flag6 and flushes via the already-restored AnimationFinished
+path. The restored flag survives save/load; no tag/schema/public API was added.
+
+NativeFuse0..15 covers both consumers: owned/unowned90,70/140 skill, forced99,
+cap-only79*.9=71.0999985 with roll71, and wounded52.5 with roll52. Canonical RED12/145
+both has133 passing controls. NativeHideLaunch0..2 and NativePKLaunch0..2 independently
+produce RED4/6 both with2 controls, giving16 failures /151 unique names as a union of two
+runs, not one151-case RED run. Run, real worn-PK/collider/script projectile origin and
+actual save/completion/visibility batching execute natively. Old PK origins are centered
+(squared error.390625), new origins match left offset.441941589/.441941887 and side0 in
+the measured pose. Hidden1->0, saved request0->1 and queued visibility0->1; AP cost20
+remains single-paid in the measured hidden fixture.
+
+Initial fuse exploration used nondeterministic iterator-first grenade records, including
+zero-delay Linux data, and omitted the script physics constructor's3 legitimate RNG draws.
+Those runs are retained separately and are not canonical proof. Final cases choose the
+lowest authored positive-delay grenade and account for those3 calls. The first hide-save
+fixture reused a consumed stream and faulted; explicit rewind fixes the harness before
+canonical RED4/6, whose4 failures are all game behavior and contain no setup fault. No
+fixture crash is attributed to original gameplay. The first full207/204 runs each exposed
+one launch-fixture HP invariant: worn-PK attribute modifiers had not been folded into
+derived VP, so real RegisterAction/UseSkill refreshed137->157. A separate one-case
+diagnostic retained the unchanged origin correction and isolated this normal skill
+refresh. The fixture now calls real UpdateSkills after actual wear before measuring;
+corrected canonical6-case RED is independently recaptured on116 source, then
+byte-identical117 production is restored for the final gates. No HP assertion is removed
+or production skill/HP behavior changed.
+
+Actual Steam CheckGrenadeToHitAndDelay7a1770/957 was executed in64 records:16 native
+contexts from each platform under observed PC24 and diagnostic PC53. All delay words and
+complete2064-byte ISAAC post-states match the fixed hypotheses in both modes for these
+contexts. A16-record lifecycle smoke preceded the matrix. Exact44-byte native
+SGrenadeParams and seeded2064-byte native ISAAC states are inputs to the actual helper.
+Original global ISAAC is temporarily supplied with that explicit test state and its
+complete prior2064 bytes are restored inside the kernel and verified again during context
+cleanup. Native script construction's later3 draws are outside this original helper's
+scope.
+
+Real Grenade100/Weapon104/Clip108/Ammo56/PerksTree constructors, actual
+Take90/Has/virtuals/destructors, points/refcounts/base-vtable resets and unchanged
+item/sparse RPG/typed DB buffers are checked. A sparse CDumbUnitServer.pRPG+0c link and
+controlled points0 are scaffolding, not original server/world constructors. Original real
+stack/readback,716-byte context/CW/config restoration, D3D9 CW007f samples and normal
+WM_CLOSE/exit0 are verified. No original code/DB/world/TEB patch or fake provider. The
+explicitly temporary RNG state input is distinguished from untouched code/data resources
+and completely restored.
+
+Actual original static957 shape is unique with only decoded known data/call operands
+normalized; no opcode/frame/control masks. Independent unique gate90 and float-skill
+blocks, actual typed Mission slots78/188, Has forwarding and exact unique Isaac683 bind
+the consumer. For PK/Hide, unique33/19/95-byte Find blocks and43-byte Run block bind
+actual typed worn-PK/IsHiding slots, index2, side0 and Hide(false,false)/vision58 before
+DoAction13. Original World/trajectory/Run/physics constructors were not executed; native
+full consumers and bounded original helper/runtime versus static proofs are explicitly
+separated.
+
+Full Game builds,207 Windows /204 Linux affected tests and CI323 pass. Every151 RED name
+is included,129 previous measured controls plus6 new controls are exact, all16 fuse
+fixture parameter/RNG bytes and numerical hypotheses are fixed, and
+AP/HP/inventory/position/time/points invariants pass. Unrelated medical/XP suites are not
+claimed as rerun. Combined with113 shared grenade skill,116 physical velocity/range, and
+earlier saved-item/fresh-restore/successor/animation/invalidation work, every useful3cfc
+behavior is covered. Donor declarations/helper wiring are adapted to the existing live
+calcer/shared-skill API; own first-turn/night/explicit chance/restore handling remains.
+Source3cfc is imported;52 sources remain (pending37 +partial15). Eventual whole-task final
+hosted CI remains pending.
+
+Source: [3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a).

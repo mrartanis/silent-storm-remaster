@@ -3603,3 +3603,24 @@ needs fuse90/fractional threshold, PK origins and Hide/vision.53 sources remain;
 whole-task hosted CI is pending.
 
 Source: [3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a).
+
+## 2026-11-01: grenade fuse, PK launch and concealment completion
+
+Perfect-fuse perk90 now preserves the ordinary fuse and skips both its random roll and any
+misfire scaling. Without90, fractional71.0999985 does not fail at roll71, and52.5 does not
+fail at roll52; roll99 retains the original forced-failure rule even at140 skill. This
+changes the subsequent gameplay RNG sequence exactly where the original skips calls.
+Script chance stays caller-supplied and its physical spin retains3 ordinary later draws.
+Worn-PK grenades launch from the left side with animation side0. Throwing while hidden now
+exits concealment and requests deferred vision refresh, including completion after load,
+with a single throw AP payment and existing save/network layouts.
+
+Canonical native RED12/145 +4/6 both (union16/151) ->207 Windows /204 Linux affected
+tests, full Game builds/CI323.129 previous measured controls and6 new controls are
+exact.64 actual original957 records verify delay words and full ISAAC state on unchanged
+hypotheses, with complete temporary global RNG/context/stack/config restoration. Original
+PK/Hide branch proofs are static; complete original World/trajectory/Run/physics execution
+is outside scope. Source3cfc is complete after prior shared-skill/physical/lifetime
+imports;52 sources remain. Whole-task final hosted CI is pending.
+
+Source: [3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a).

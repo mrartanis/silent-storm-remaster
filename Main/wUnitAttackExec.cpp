@@ -293,8 +293,10 @@ static bool CheckParabolaIntersect( NAI::CCollider *pCollider, const float fTFly
 	return false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-static bool FindGrenadeParams( CWorld *pWorld, const NAI::SUnitPosition &pos, const CVec3 &to, float fMaxVel, SGrenadeParams *pRes ) 
+static bool FindGrenadeParams( CUnitServer *pUS, const NAI::SUnitPosition &pos, const CVec3 &to, float fMaxVel, SGrenadeParams *pRes )
 {
+	CWorld *pWorld = pUS->GetWorld();
+	const bool bWearingPK = IsValid( pUS->GetWearingDBPK() );
 	CVec3 from = pos.GetCenter();
 	
 	vector<CVec3> boundPoints;
@@ -358,7 +360,7 @@ static bool FindGrenadeParams( CWorld *pWorld, const NAI::SUnitPosition &pos, co
 	for ( fTFly = fTFlyMin; fTFly < fTFlyMax + F_GRENADE_DELAY_STEP; fTFly += F_GRENADE_DELAY_STEP )
 	{
 		int nSPSize = startPoints.size();
-		for ( int k = 0; k < nSPSize; ++k )
+		for ( int k = bWearingPK ? 2 : 0; k < nSPSize; ++k )
 		{
 			if ( k > 0 && results[k - 1] )
 				continue;
@@ -366,7 +368,7 @@ static bool FindGrenadeParams( CWorld *pWorld, const NAI::SUnitPosition &pos, co
 			bFound = !CheckParabolaIntersect( &collider, Min(fTFly, fTFlyMax), from, to );
 			if ( bFound ) 
 			{
-				nSide = k;
+				nSide = bWearingPK ? 0 : k;
 				break;
 			}
 		}
@@ -397,7 +399,7 @@ EUnitCommandResult CanUnitThrowGrenade( CUnitServer *pUS, const NAI::SUnitPositi
 
 	if ( nDistance > fGrenadeMaxDistance )
 		return UCR_TARGET_OUT_OF_RANGE;*/
-	if ( !FindGrenadeParams( pUS->GetWorld(), from, ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &sParams ) )
+	if ( !FindGrenadeParams( pUS, from, ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &sParams ) )
 		return UCR_TARGET_OUT_OF_RANGE;
 
 	// Engineer/PK grenades (satchel charges) gate on a required demolition perk + the unit's
@@ -444,12 +446,10 @@ void UnitThrowGrenade( CUnitServer *pUS, NDb::CRPGGrenade *pGrenade, const CVec3
 		nDistance, position.GetCP(), pUS->GetWorld()->IsFirstTurn(), false, CVec3( 1, 1, 1 ), ptTarget, pGrenadeItem.GetPtr() );	// transient script grenade is not equipped/active -> pass it explicitly
 
 	SGrenadeParams grenadeParams;
-	if ( !FindGrenadeParams( pUS->GetWorld(), position, ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &grenadeParams ) )
+	if ( !FindGrenadeParams( pUS, position, ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &grenadeParams ) )
 		return;
 
-	// to-hit scatter + fuse delay -- mirrors CExecThrowGrenade::CheckToHitAndDelay (`random` there is an
-	// executor member, so use a local SRand, the dev's local-rng idiom elsewhere in this file).
-	SRand random;
+	// Both throw paths use the shared gameplay generator; perfect fuse skips its roll.
 	// Original Gold 0x7a0c84 / Steam 0x7ad304 forwards the script chance.
 	int nRandom = GlobalGameRandom().Get( 100 );
 	if ( nRandom > nToHit )
@@ -461,11 +461,14 @@ void UnitThrowGrenade( CUnitServer *pUS, NDb::CRPGGrenade *pGrenade, const CVec3
 	}
 	grenadeParams.fT = Clamp( grenadeParams.fT, 0.f, float( pGrenade->nMaxDelay ) );
 	grenadeParams.fT = pGrenade->nMaxDelay - grenadeParams.fT;
-	nRandom = GlobalGameRandom().Get( 100 );
-	if ( nRandom >= 99 || nRandom >= pToHitCalcer->GetSkill() )
+	if ( !pUS->GetUnitRPG()->HasPerk( 0x5a ) )
 	{
-		grenadeParams.fT *= GlobalGameRandom().GetFloat( 0.5f, 2.f );
-		grenadeParams.fT = Clamp( grenadeParams.fT, 0.f, float( pGrenade->nMaxDelay ) * 0.75f );
+		nRandom = GlobalGameRandom().Get( 100 );
+		if ( nRandom >= 99 || nRandom >= pUS->GetUnitRPG()->GetWeaponSkill( pGrenadeItem, 0, 0 ) )
+		{
+			grenadeParams.fT *= GlobalGameRandom().GetFloat( 0.5f, 2.f );
+			grenadeParams.fT = Clamp( grenadeParams.fT, 0.f, float( pGrenade->nMaxDelay ) * 0.75f );
+		}
 	}
 
 	// the flying grenade mesh comes from the grenade's item record (null model still explodes)
@@ -2099,12 +2102,14 @@ void CExecThrowGrenade::CheckToHitAndDelay( NRPG::IGrenadeItem *pGrenade )
 	grenadeParams.fT = Clamp( grenadeParams.fT, 0.f, float(nMaxDelay) );
 	grenadeParams.fT = nMaxDelay - grenadeParams.fT;
 	csRPG << " True delay: " << grenadeParams.fT;
-	nRandom = AttackExecRandom().Get(100);
-	if ( nRandom >= 99 || nRandom >= pToHitCalcer->GetSkill() )
+	if ( !pUS->GetUnitRPG()->HasPerk( 0x5a ) )
 	{
-		// change the delay time
-		grenadeParams.fT *= AttackExecRandom().GetFloat( 0.5f, 2.f );
-		grenadeParams.fT = Clamp( grenadeParams.fT, 0.f, float(nMaxDelay) * 0.75f );
+		nRandom = AttackExecRandom().Get(100);
+		if ( nRandom >= 99 || nRandom >= pUS->GetUnitRPG()->GetWeaponSkill( pGrenade, 0, 0 ) )
+		{
+			grenadeParams.fT *= AttackExecRandom().GetFloat( 0.5f, 2.f );
+			grenadeParams.fT = Clamp( grenadeParams.fT, 0.f, float(nMaxDelay) * 0.75f );
+		}
 	}
 	csRPG << " Used delay: " << grenadeParams.fT << endl;
 }
@@ -2120,7 +2125,7 @@ void CExecThrowGrenade::ThrowGrenade()
 		return;
 
 	CPtr<NRPG::CGrenadeToHitCalcer> pToHitCalcer = CreateToHitCalcer( pGrenade );
-	if ( !FindGrenadeParams( pUS->GetWorld(), pUS->GetPosition(), ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &grenadeParams ) )
+	if ( !FindGrenadeParams( pUS, pUS->GetPosition(), ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &grenadeParams ) )
 		return;
 	CheckToHitAndDelay( pGrenade );
 
@@ -2149,7 +2154,7 @@ void CExecThrowGrenade::Run()
 	ASSERT( pUS->CanSpendAP( GetStartAP() ) );
 
 	CPtr<NRPG::CGrenadeToHitCalcer> pToHitCalcer = CreateToHitCalcer( pGrenade );
-	if ( !FindGrenadeParams( pUS->GetWorld(), pUS->GetPosition(), ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &grenadeParams ) )
+	if ( !FindGrenadeParams( pUS, pUS->GetPosition(), ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &grenadeParams ) )
 	{
 		Failed();
 		return;
@@ -2159,6 +2164,11 @@ void CExecThrowGrenade::Run()
 	const NAI::SUnitPosition position = pUS->GetPosition();
 	// (Jan03 StartAttack() burst-cursor reset dropped -- the mission cursor is gone in retail)
 	//
+	if ( pUS->IsHiding() )
+	{
+		pUS->Hide( false, false );
+		bUpdateVision = true;
+	}
 	pUS->DoAction( NRPG::AC_THROW_GRENADE );
 	pUS->animator.ThrowGrenade( position, grenadeParams.ptOriginalTarget, grenadeParams.nSide );
 	StartAction( pUS->GetWorld(), NORMAL );

@@ -1684,3 +1684,28 @@ its harness explicitly supplied100. The final affected-suite rerun includes that
 fixture. Source3cfc remains partial,53 unfinished.
 
 Source: [3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a).
+
+## 2026-11-01: grenade fuse, PK launch and concealment completion
+
+NativeGrenadeFuse0..15 covers actual executor/script fuse90 ownership, strict99,
+fractional71.0999985/roll71 and52.5/roll52, exact delay words and8 continuation draws.
+Exact native44-byte params and2064-byte input/reference ISAAC states are retained for64
+actual original957 records, with16 lifecycle-smoke records; all PC24 reference and PC53
+diagnostic outputs match in this matrix. The original global RNG test input is completely
+restored, along with actual stack/context/CW/cfg/lifecycles. Native script construction's3
+later physics draws are accounted separately. Initial record-selection/constructor-draw
+assumptions are archived, not canonical RED.
+
+NativeGrenadeHideLaunch0..2 exercises real Run, saved flag6 and deferred completion
+visibility; NativeGrenadePKLaunch0..2 exercises actual worn shell/collider/solver and
+script projectile launch origin. Initial consumed-save-stream fault was corrected by
+rewind before canonical RED. A later initial full-suite PK HP invariant137->157 was
+isolated to pending worn-PK derived-skill refresh; real UpdateSkills is now part of
+fixture preparation, with a fresh6-case RED on116 before restoring117. The HP invariant
+remains asserted. Genuine RED is12/145 +4/6 both,16/151 unique by union, followed by207
+Windows /204 Linux affected tests, full Game builds and CI323. All151 RED names,129 prior
+measured controls and6 new controls are included/exact. Native consumers versus
+original957 runtime and original PK/Hide static blocks are bounded separately; no original
+World/trajectory/Run runtime claim. Source3cfc completes;52 unfinished.
+
+Source: [3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a).
