@@ -23172,3 +23172,25 @@ operands remain unbound/unmasked. No whole consumer-body equivalence or original
 renderer/World runtime claim; zero new original runtime records.
 
 Source: [24c1eca77dbcf2eff5feaa8ef603f390df93f7fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/24c1eca77dbcf2eff5feaa8ef603f390df93f7fb).43 sources remain; whole-task actual-final-head hosted CI pending.
+
+## 2026-11-01: retain RGBA8 and HD atlas policy (source67d excluded)
+
+The complete two-file source restores the legacy16-bit conversion path, shared A4R4G4B4
+atlases and matching cache debug colors/assertions. Retain the remaster's intentional
+maximum-quality policy: SetModeFromConfig calls ApplyMaximumQuality, CV_VHIGH disables
+gfx_16bit_textures, both current atlases use RGBA8, and the transparent atlas
+keeps1024/HD4096 resource switching. Current CFileTexture has no LoadConvertTo16Bit path;
+its existing RGBA8 average-color fallback already passes eUsage. Thus every new source
+hunk is specific to the removed16-bit mode; there is no remaining independent ownership
+change to import into the supported pipeline. Classify excluded-own-behavior, not
+already-covered or an original-accuracy restoration.
+
+Documentation/ledger only. The production tree is identical to verified checkpoint126:
+full Game builds both,32Windows/32Linux actual native selected tests including
+GraphicsOptionsRuntimeTests/HD switching, bgfx renderer, particle/grass atlas output,
+sampling/resource cleanup, and CI323. These are reused unchanged-production results, not a
+new test run. No manufactured native RED, new original binary claim, original runtime
+record, gameplay balance/AP/RNG/save/wire or texture asset change.42 sources remain;
+actual-final-head hosted CI remains pending.
+
+Source: [67d766bc791c9207624bce8753fbe7b56a56e704](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/67d766bc791c9207624bce8753fbe7b56a56e704).

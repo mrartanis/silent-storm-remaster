@@ -3812,3 +3812,16 @@ named consumer/default0.5/grass0 calls support the port statically; zero new ori
 runtime records. Source24c1 complete,43 sources remain.
 
 Source: [24c1eca77dbcf2eff5feaa8ef603f390df93f7fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/24c1eca77dbcf2eff5feaa8ef603f390df93f7fb).
+
+## 2026-11-01: retain RGBA8 and HD atlas policy (source67d excluded)
+
+Intentionally exclude the complete legacy16-bit atlas restoration. Keep the existing
+remaster maximum-quality/RGBA8 policy and own1024/HD4096 transparent atlas; do not
+reintroduce the A4R4G4B4 conversion preset or lower color precision. All source hunks are
+mode-specific; the current RGBA8 fallback already preserves usage/ownership. No game code,
+renderer output, assets, gameplay coefficient, RNG, AP or save/network format changes.
+Documentation only; reuse unchanged-production checkpoint126 Game both/32Win/32Linux/CI323
+including actual graphics-options/HD-cache tests. No fresh run or original parity/runtime
+claim.42 sources remain.
+
+Source: [67d766bc791c9207624bce8753fbe7b56a56e704](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/67d766bc791c9207624bce8753fbe7b56a56e704).
