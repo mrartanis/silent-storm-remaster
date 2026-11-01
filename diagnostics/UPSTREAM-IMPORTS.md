@@ -23306,3 +23306,45 @@ addresses are not treated as method entries. Both sole-file source diffs are ful
 accounted,39 sources remain; actual-final-head hosted CI pending.
 
 Source: [70371f39f6fb4a8cc7cdc15b117f1c704cc81aeb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70371f39f6fb4a8cc7cdc15b117f1c704cc81aeb), [3bd9a53bf0cdd3a2e70c6418029c80f8e11325f5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3bd9a53bf0cdd3a2e70c6418029c80f8e11325f5).
+
+## 2026-11-01: original AI cover trace and transient-lock-free flanking (source9cf complete)
+
+Separate projection trace from physical bullet range in the existing seven-argument cover
+API: AI mode uses trace0, ordinary firing trace30; project to max(0.1,max(trace,D+2))
+while preserving min(D+1,30) penetration distance and the existing tile behavior. The
+actual flank caller uses false,true for suicide-check/dynamic-lock skipping. Its wave
+budget min(AP,8), perpendicular filter, pose/arrival costs, authored balance,
+public/save/LAN types and finite-value cover guards remain.
+
+Important rejected source hunk: do not insert IsBigLocker into NWorld::PrepareAllPaths.
+Actual Steam77dc30 and Gold771f10 both retain the original shifted table arguments:
+bigUnit=checkSuicide, checkSuicide=CannotFreelyChangePoses, moveOnly=false. Whole original
+constructor280 ->47cf40 and PDB members prove its last two original parameters are
+noClimb,bigUnit, unlike the own constructor API. The table285-byte prefix ->47d430 and
+actual world77df4f..77df80 establish the complete bool flow. Correct the misleading prior
+source comment, preserve executable behavior. This is an excluded original-gameplay
+correction, not an already-implemented fix. The initial test expectation of suppressing
+pose changes was disproved by the independent audit; the canonical suite now explicitly
+retains that original defect as a control.
+
+Original evidence: whole252 AI helper693e70 ->693ec1 calls independently bound whole933
+CalcCovers6938a0 with AI1/trace0/bulletMax30. Actual stack operands6939c1 and693abe
+distinguish trace at entry+24 from bullet maximum at entry+20. This explicitly corrects
+checkpoint125's prose conflating these inputs; its original raw whole933/540 bindings and
+ordinary30 evidence are retained. Whole2274 named attack-place Prepare48fb10 (named VT+10)
+binds all three safety calls and actual flank48ff6a..48ff8f ->77dc30 with false,true.
+Whole pose-lock69 ->77dfd0 is exact. World whole923 and table whole463 comparisons
+rejected for unbound RTTI/static-array/callback operands; no
+unknown-global/opcode/frame/field/branch/size masks. Zero new original runtime records.
+
+Canonical native RED4/16 both ->GREEN16 both. Actual cover-frustum probes isolate three AI
+failures, with human/long-target controls. Real CAIAttackPlaceSource misses a reachable
+perpendicular goal behind eight live allied units before the fix and includes it
+afterward; no-enemy/zero-budget/no-ring controls remain exact. Full Game both,
+final447Win/443Linux plus8 focused depth cases each (455/451 distinct), separate all-green
+batches and CI359 pass. All12 controls and AP/HP/position/four-word RNG continuations
+remain exact. The16 new database-dependent cases stay extended, outside asset-free CI.
+Initial missing-header/clearing/walk-cost fixture failures are archived and not counted as
+RED.38 sources remain; actual-final-head hosted CI pending.
+
+Source: [9cf3fd3dae155de3b0c0e1de443cf54a7f494426](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9cf3fd3dae155de3b0c0e1de443cf54a7f494426).

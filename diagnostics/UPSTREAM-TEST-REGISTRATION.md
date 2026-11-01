@@ -1982,3 +1982,26 @@ compile errors remain archived; compile failures are not RED. No original UI/ren
 runtime or rendered-image claim.
 
 Source: [70371f39f6fb4a8cc7cdc15b117f1c704cc81aeb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70371f39f6fb4a8cc7cdc15b117f1c704cc81aeb), [3bd9a53bf0cdd3a2e70c6418029c80f8e11325f5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3bd9a53bf0cdd3a2e70c6418029c80f8e11325f5).
+
+## 2026-11-01: original AI cover trace and transient-lock-free flanking
+
+Register NativeAICoverDepth0..7, NativePathWaveFlags0..3 and NativeAIFlankWave0..3 on
+Windows/Linux as database-dependent extended cases, isolated profiles, headless
+audio,120s. Cover modes call actual CalcCovers/GetCoverForAIUnitPrecise and observe the
+real native frustum while delegating world geometry. Distances8/40 and probe
+distances9/20/29/41/43 separate AI trace0 from human trace30 and preserve far-target
+expansion. Path modes call the real world/table wrapper with script pose-lock and16/0
+budgets, explicitly asserting the independently decoded original flag-shift defect. Flank
+modes use real factory AI wrappers and CAIAttackPlaceSource, an actual navigable5x3
+clearing, authored RUN cost2, eight native allied units and independent
+respect/ignore-lock reference floods; test a perpendicular unoccupied goal outside the
+allied ring. No replacement raster intervals, AI state providers, path costs or scores.
+
+Canonical RED4/16 both ->16/16 both,12 exact controls; final455Win/451Linux in
+separate447/443+8 all-green batches/Game both/asset-free CI359. AP/HP/physical position
+and4 RNG continuation words match before/after every query. Initial missing-header compile
+failures, over-wide7x7 clearing assumption, WALK budget failure and wrong expectation of
+correcting original pose-lock behavior are archived separately. These are not canonical
+RED. Collector/safety sourcefc remains pending.
+
+Source: [9cf3fd3dae155de3b0c0e1de443cf54a7f494426](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9cf3fd3dae155de3b0c0e1de443cf54a7f494426).

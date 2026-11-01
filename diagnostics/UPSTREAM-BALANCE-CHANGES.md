@@ -3869,3 +3869,25 @@ bodies and bound local switch tables support this statically; zero new original 
 records.39 sources remain.
 
 Source: [70371f39f6fb4a8cc7cdc15b117f1c704cc81aeb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70371f39f6fb4a8cc7cdc15b117f1c704cc81aeb), [3bd9a53bf0cdd3a2e70c6418029c80f8e11325f5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3bd9a53bf0cdd3a2e70c6418029c80f8e11325f5).
+
+## 2026-11-01: original AI cover trace and transient-lock-free flanking
+
+Restore original geometric AI policy: projection trace is0 for AI probes and30 for human
+shots, independently of the unchanged physical penetration cap30. The projection remains
+max(0.1,max(trace,targetDistance+2)); distant allies beyond a nearby target no longer
+enter that AI frustum merely because of the bullet maximum. Original flank search ignores
+transient unit locks with suicide checks disabled, retaining its8 AP wave cap,
+perpendicular0.1737 threshold, action/pose costs and14 AP constructor default. Candidate
+places and AI cover scores can therefore change; authored coefficients, AP/damage/training
+formulas, tile framing and save/network types do not.
+
+Exclude the donor's shared-wrapper IsBigLocker insertion: actual Steam77df57..77df80
+preserves the original bool-shift defect, including pose-lock not reaching moveOnly. Keep
+that original behavior and add an explicit regression control. This corrects a misleading
+old source comment, not the gameplay rule. Also correct checkpoint125's written AI range
+interpretation: bullet maximum30 and trace0 are separate original arguments; historical
+raw evidence is unchanged. Canonical RED4/16 ->16/16 both, final455Win/451Linux in
+separate447/443+8 all-green batches/Game both/CI359; all12 outcome controls and
+AP/HP/position/4 RNG invariants exact. No new original runtime claim.38 sources remain.
+
+Source: [9cf3fd3dae155de3b0c0e1de443cf54a7f494426](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9cf3fd3dae155de3b0c0e1de443cf54a7f494426).

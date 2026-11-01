@@ -437,7 +437,8 @@ void CAIAttackPlaceSource::Prepare()                                    // @0x00
 		Normalize( &dirUE );
 		NAI::CMultiMovesTable movesTable;
 		list<SPathPlace>      reach;
-		NWorld::PrepareAllPaths( pNet, &movesTable, &reach, pUS, curPlace, nBudget, pUS, true );
+		// Actual Steam 0x48ff6a..0x48ff8f: skip suicide checks and transient unit locks.
+		NWorld::PrepareAllPaths( pNet, &movesTable, &reach, pUS, curPlace, nBudget, pUS, false, true );
 		for ( list<SPathPlace>::const_iterator i = reach.begin(); i != reach.end(); ++i )
 		{
 			if ( (*i).GetPose() == 3 )                                       // skip special/climbing-pose tiles

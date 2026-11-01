@@ -384,8 +384,10 @@ CCoverInfo* CGame::CalcCovers( const CVec3 &src, const CAttackPortion &attack, N
 	float fTargetDistance = fabs( vTargetDir );
 	float fDistance = Min( fTargetDistance + 1, float(N_WEAPONTRAIL_MAXDISTANCE) );
 	Normalize( &vTargetDir );
-	// Steam 0x6939bd: extend rasterization past the target; keep the ray-walk cap separate.
-	float fProjectionDistance = Max( 0.1f, Max( float(N_WEAPONTRAIL_MAXDISTANCE), fTargetDistance + 2 ) );
+	// Steam 0x693e98: AI passes trace 0 separately from bullet maximum 30.
+	// Human shots retain the full trail projection; both retain the penetration cap.
+	const float fTraceDistance = bAIMode ? 0.f : float(N_WEAPONTRAIL_MAXDISTANCE);
+	float fProjectionDistance = Max( 0.1f, Max( fTraceDistance, fTargetDistance + 2 ) );
 	CVec3 ptProjectionTarget = src + vTargetDir * fProjectionDistance;
 	float fProjectionScale = fProjectionDistance / fTargetDistance;
 

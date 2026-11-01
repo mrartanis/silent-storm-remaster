@@ -87,8 +87,9 @@ void PrepareAllPaths( NAI::IPathNetwork *pPathNetwork, NAI::CMultiMovesTable *pT
 	nCosts[ NAI::MT_LADDER_MOVE ] = pRPG->GetActionAP( NAI::WALK, NRPG::AC_LADDER_MOVE );
 	nCosts[ NAI::MT_ZERO ] = 1;
 	
-	// retail PrepareAllPaths @0x37d1b0 passes CannotFreelyChangePoses() as the move-only flag (same
-	// as FindPath) -- corpse-carry, live PK, or a script pose-lock -> the table omits pose transitions.
+	// Actual Steam 0x77df57..0x77df80 retains this original argument shift:
+	// big-unit = bCheckSuicide, suicide-check = pose-lock, move-only = false.
+	// Preserve the original gameplay defect; do not insert IsBigLocker here.
 	pTable->PrepareAllPaths( pResult, pPathNetwork, ptSrc, nCosts, nPriceLimit, vis,
 		bCheckSuicide, pUS->CannotFreelyChangePoses() );
 

@@ -188,11 +188,13 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/aiRouteLogic.h"
 #include "../Main/aiRoute.h"
 #include "../Main/aiUnit.h"
+#include "../Main/aiMultiMoves.h"
 #include "../Main/aiActions.h"
 #include "../Main/aiRouteMisc.h"
 #include "../Main/aiPlayer.h"
 #include "../Main/aiReaction.h"
 #include "../Main/aiActionPlaceSource.h"
+#include "../Main/aiMoveAction.h"
 #include "../Main/aiCombatLogic.h"
 #include "../Main/aiReactions.h"
 #include "../Main/aiGuardReaction.h"
@@ -32888,6 +32890,72 @@ static void NativeRasterGuardPlane(int mode)
     Require(missing==0 && spurious==0 && wrongDepth==0 && wrongSource==0,"actual native projective intervals overflow without original guard planes");
 }
 
+
+static void NativeAICoverDepth(const char* db,const char* resources,int mode)
+{
+    Require(mode>=0 && mode<8,"unknown native AI cover depth case");NativeHearingOwners f(db,resources);
+    auto* actor=f.humanUnit;auto* target=f.aiUnit;auto* map=f.world->GetAIMap();auto* game=f.world->GetGame();map->Sync();
+    CVec3 aim;Require(map->GetUnitHLPos(&aim,map->GetHull(target),NAI::HL_ANY),"AI cover depth lacks actual target hull");
+    const bool human=mode==3 || mode==6;const float distance=mode>=4 && mode<=6?40.f:8.f;
+    const CVec3 origin=aim-CVec3(0,distance,0);float testDistance=mode==2?9.f:mode==4 || mode==6?41.f:mode==5?43.f:mode==7?29.f:20.f;
+    const int expected=mode==2 || mode==4?1:human?2:0;
+    CObj<NativeCoverFramingMap> probe=new NativeCoverFramingMap(map);probe->expectedDirection=CVec3(0,1,0);probe->farPoint=origin+CVec3(0,testDistance,0);
+    struct Restore{NRPG::IGame* game;CPtr<NAI::IAIMap> map;~Restore(){SetCoverProbeMap(game,map);}}restore{game,map};SetCoverProbeMap(game,probe);
+    const auto position=actor->GetPosition();const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();auto random=GlobalGameRandom();
+    auto attack=NativeCoverFixedAttack(actor,target);CObj<NRPG::CCoverInfo> cover;float score=0;
+    if(mode==1)score=game->GetCoverForAIUnitPrecise(origin,actor,target,attack,NAI::HL_ANY);
+    else cover=game->CalcCovers(origin,attack,actor,target,NAI::HL_ANY,1.f,!human);
+    auto after=GlobalGameRandom();bool rng=true;for(int i=0;i<4;++i)rng&=random.Get()==after.Get();
+    std::printf("native AI cover depth mode=%d human=%d distance=%.9g point=%.9g grids=%d farInside=%d expected=%d helper=%d score=%.9g AP=%d afterAP=%d HP=%d afterHP=%d position=%d RNG=%d\n",mode,int(human),distance,testDistance,probe->grids,probe->farInside,expected,int(mode==1),score,ap,actor->GetAP(),hp,actor->GetUnitRPG()->GetTotalVP(),int(position==actor->GetPosition()),int(rng));std::fflush(stdout);
+    Require(probe->grids==(human?2:1) && rng && ap==actor->GetAP() && hp==actor->GetUnitRPG()->GetTotalVP() && position==actor->GetPosition(),"AI projection query changed native grid/actor/RNG state");
+    Require(probe->farInside==expected,"actual AI cover raster still extends to the unrelated30 bullet range");
+}
+static void NativePathWaveFlags(const char* db,const char* resources,int mode)
+{
+    Require(mode>=0 && mode<4,"unknown native path-wave flag case");NativeHearingOwners f(db,resources);auto* actor=f.humanUnit;auto* net=f.world->GetPathNetwork();
+    const bool locked=mode==0 || mode==2;const int budget=mode>=2?0:16;actor->SetForceNoChangePose(locked);
+    const auto position=actor->GetPosition();const int pose=position.pos.p.GetPose(),ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();auto random=GlobalGameRandom();
+    NAI::CMultiMovesTable table;list<NAI::SPathPlace> paths;NWorld::PrepareAllPaths(net,&table,&paths,actor,position.pos.p,budget,actor,false,true);
+    int same=0,other=0;for(auto p:paths){same+=p.GetPose()==pose;other+=p.GetPose()!=pose;}
+    auto after=GlobalGameRandom();bool rng=true;for(int i=0;i<4;++i)rng&=random.Get()==after.Get();
+    std::printf("native path wave flags mode=%d locked=%d big=%d budget=%d pose=%d same=%d other=%d paths=%zu AP=%d afterAP=%d HP=%d afterHP=%d position=%d RNG=%d\n",mode,int(locked),int(NAI::IsBigLocker(actor)),budget,pose,same,other,paths.size(),ap,actor->GetAP(),hp,actor->GetUnitRPG()->GetTotalVP(),int(position==actor->GetPosition()),int(rng));std::fflush(stdout);
+    Require(same>0 && ap==actor->GetAP() && hp==actor->GetUnitRPG()->GetTotalVP() && position==actor->GetPosition() && rng,"native wave lost current pose or changed physical actor/RNG");
+    // Actual Steam77df57..77df80 also forwards checkSuicide as big-unit,
+    // pose-lock as suicide-check and default false as move-only. Preserve this
+    // original gameplay defect: the donor wrapper correction is excluded.
+    Require(budget==0?other==0:other>0,"native world path wrapper differs from the independently decoded original flag-shift control");
+}
+static void NativeAIFlankWave(const char* db,const char* resources,int mode)
+{
+    Require(mode>=0 && mode<4,"unknown native AI flank wave case");NativeHearingOwners f(db,resources);auto* actor=f.humanUnit;auto* target=f.aiUnit;auto* net=f.world->GetPathNetwork();
+    vector<NAI::SPathPlace> nearby;net->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),60.f),&nearby);NAI::SPathPlace center,enemyPlace;bool found=false;int bestClear=0;
+    for(auto p:nearby){const int x=p.GetX(),y=p.GetY();if(x<4 || x>251 || y<4 || y>245)continue;bool clear=true;
+        int good=0;for(int dy=-1;dy<=1;++dy)for(int dx=-2;dx<=2;++dx){NAI::SPathPlace cell(x+dx,y+dy,p.GetLayer(),0,NAI::CM_STAND,0);if(!net->IsPassable(cell) || net->IsLocked(cell))clear=false;else ++good;}bestClear=Max(bestClear,good);
+        if(!clear)continue;NAI::SPathPlace enemy(x,y+3,p.GetLayer(),0,NAI::CM_STAND,0);if(!net->IsPassable(enemy) || net->IsLocked(enemy))continue;
+        center=NAI::SPathPlace(x,y,p.GetLayer(),0,NAI::CM_STAND,0);enemyPlace=enemy;found=true;break;}
+    std::printf("native flank clearing nearby=%zu bestClear=%d found=%d\n",nearby.size(),bestClear,int(found));std::fflush(stdout);Require(found,"native flank fixture lacks an actual open5x3 navigation clearing and enemy cell");
+    auto place=[&](NWorld::CUnitServer* unit,NAI::SPathPlace p){auto next=NAI::GetUnitPos(p,net);unit->animator.PlaceUnit(next);unit->SetPosition(next);unit->Update();};place(actor,center);place(target,enemyPlace);actor->SetForceNoChangePose(false);actor->SetWishPose(NAI::RUN);
+    vector<CObj<NWorld::CUnitServer>> ring;
+    if(mode!=1)for(int dy=-1;dy<=1;++dy)for(int dx=-1;dx<=1;++dx){if(dx==0 && dy==0)continue;NAI::SPathPlace cell(center.GetX()+dx,center.GetY()+dy,center.GetLayer(),0,NAI::CM_STAND,0);
+        CObj<NWorld::CUnitServer> ally=f.world->AddUnitInGame(cell,NRPG::CreateUnit(NDb::GetPers(54)),f.human,"NativeFlankTransientAlly");Require(ally && actor->GetDiplomacyState(ally)==NDb::DS_ALLY,"native flank ring lost actual live allies");ring.push_back(ally);}
+    CObj<NAI::IAIUnit> unit=NAI::CreateAIUnit(actor,true),enemy=NAI::CreateAIUnit(target,false);unit->Synchronize(false);enemy->Synchronize(false);
+    Require(unit->GetAIUnitState() && unit->GetUnitServer()==actor && enemy->GetUnitServer()==target,"flank fixture did not construct real native AI wrappers");unit->GetAIUnitState()->pEnemy=mode==2?nullptr:enemy.GetPtr();
+    NAI::CMultiMovesTable respected,ignored;list<NAI::SPathPlace> withLocks,withoutLocks;
+    NWorld::PrepareAllPaths(net,&respected,&withLocks,actor,center,8,actor,false,false);
+    NWorld::PrepareAllPaths(net,&ignored,&withoutLocks,actor,center,8,actor,false,true);
+    std::set<unsigned> blockedKeys;for(auto p:withLocks)blockedKeys.insert(NAI::UnitAreaPlaceKey(p));NAI::SPathPlace goal;bool haveGoal=false;
+    for(auto p:withoutLocks){if(p.GetPose()!=NAI::CM_STAND || p.GetLayer()!=center.GetLayer() || p.GetY()!=center.GetY() || std::abs(int(p.GetX())-int(center.GetX()))<2)continue;
+        if(mode!=1 && blockedKeys.count(NAI::UnitAreaPlaceKey(p)))continue;goal=p;haveGoal=true;break;}
+    std::printf("native flank wave inputs wish=%d runCost=%d walkCost=%d respect=%zu ignore=%zu center=%u,%u,%u goal=%d\n",int(actor->GetWishPose()),actor->GetRPG()->GetActionAP(NAI::RUN,NRPG::AC_MOVE_SIDE),actor->GetRPG()->GetActionAP(NAI::WALK,NRPG::AC_MOVE_SIDE),withLocks.size(),withoutLocks.size(),unsigned(center.GetX()),unsigned(center.GetY()),unsigned(center.GetLayer()),int(haveGoal));std::fflush(stdout);Require(haveGoal,"native flank fixture has no unoccupied perpendicular place reachable past transient ally locks within8 wave AP");
+    const auto original=actor->GetPosition();const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();auto random=GlobalGameRandom();
+    CObj<NAI::CAIAttackPlaceSource> source=new NAI::CAIAttackPlaceSource(unit,mode==3?0:14,nullptr,false);source->Prepare();vector<NAI::SPlaceWithAP> places;source->GetPlaces(&places);bool hasGoal=false;
+    for(auto p:places)if(NAI::UnitAreaPlaceKey(p.place.pos.p)==NAI::UnitAreaPlaceKey(goal))hasGoal=true;
+    auto after=GlobalGameRandom();bool rng=true;for(int i=0;i<4;++i)rng&=random.Get()==after.Get();const bool expected=mode==0 || mode==1;
+    std::printf("native AI flank wave mode=%d ring=%zu respect=%zu ignore=%zu current=%08x goal=%08x goalRespect=%d plans=%zu goalPresent=%d expected=%d AP=%d afterAP=%d HP=%d afterHP=%d position=%d RNG=%d\n",mode,ring.size(),withLocks.size(),withoutLocks.size(),unsigned(center.GetBits()),unsigned(goal.GetBits()),int(blockedKeys.count(NAI::UnitAreaPlaceKey(goal))!=0),places.size(),int(hasGoal),int(expected),ap,actor->GetAP(),hp,actor->GetUnitRPG()->GetTotalVP(),int(original==actor->GetPosition()),int(rng));std::fflush(stdout);
+    Require(ap==actor->GetAP() && hp==actor->GetUnitRPG()->GetTotalVP() && original==actor->GetPosition() && rng,"native flank planning changed physical actor or RNG");
+    Require(hasGoal==expected,"actual native attack-place flank wave still applies suicide/dynamic unit-lock checks");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
@@ -33477,6 +33545,9 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-particle-atlas-margin")) { Require(argc==5,"atlas margin requires db/resources/mode"); NativeParticleAtlasMargin(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grass-atlas-margin")) { Require(argc==5,"atlas margin requires db/resources/mode"); NativeGrassAtlasMargin(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-raster-guard-plane")) { Require(argc==3,"guard plane requires mode"); NativeRasterGuardPlane(std::atoi(argv[2])); return true; }
+    if (!std::strcmp(mode, "native-ai-cover-depth")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativeAICoverDepth(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-path-wave-flags")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativePathWaveFlags(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-ai-flank-wave")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativeAIFlankWave(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-generic-raster")) { Require(argc==4,"generic raster requires mode and fog flag"); NativeGenericRaster(std::atoi(argv[2]),std::atoi(argv[3])!=0); return true; }
     if (!std::strcmp(mode, "native-cover-whole-center")) { Require(argc==5,"cover policy requires db/resources/mode"); NativeCoverFramingPolicy(argv[2],argv[3],std::atoi(argv[4]),false); return true; }
     if (!std::strcmp(mode, "native-cover-projection-extent")) { Require(argc==5,"cover policy requires db/resources/mode"); NativeCoverFramingPolicy(argv[2],argv[3],std::atoi(argv[4]),true); return true; }
