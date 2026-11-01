@@ -4111,3 +4111,25 @@ transition traces and12 vector-font traces exact. Sourcefdd partial,33 donor sou
 remain; known prior-head campaign movement flake not claimed fixed.
 
 Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).
+
+## 2026-11-01: main-menu idle demonstration, input and return focus
+
+Main menu starts original AI demo after strictly more than two UI-clock minutes. Real
+activity resets before UI can consume it; time-only events do not. Returning focus starts
+fresh interval on same clock. Restore original menu scalar timestamp field2 instead of
+incorrect UI reference; base-owned UI reference becomes transient. Ordinary mission saved
+tags and LAN wire unchanged.
+
+Exclude donor extra UI-counter ResetTiming on focus: original refreshes/stamps existing UI
+time then inherits focus, preserving150ms catch-up. Retain138-140 demo
+AI/levels/lifecycle/logo, live UI drawing, interactive-only music, own full demo canvas
+adapter and SDL pointer position. Native inactive menu paint/drawable gate,
+startup/LAN/HiDPI/fonts/audio/HD/face pipelines remain. No ordinary mission
+AP/damage/skills/prices changes.
+
+Native RED6/8 ->GREEN8/8 both, combined25/25, Gameboth/186 Windows/178 Linux
+related/CI378;9 prior lifecycle+6 presentation+12 font rows exact. Actual demo
+entry/return, UI-consumed input reset and real minimized guard verified. Sourcefdd
+complete,32 remaining. Known prior campaign movement flake remains outside UI suite.
+
+Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).

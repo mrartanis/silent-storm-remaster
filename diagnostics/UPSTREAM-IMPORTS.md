@@ -23840,3 +23840,50 @@ campaign movement flake remains known and is not in this UI-selected suite; no f
 Actual final-head hosted CI remains required at whole-task completion.
 
 Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).
+
+## 2026-11-01: main-menu idle demonstration, input and return focus (complete141)
+
+Finish sourcefdd after138 demo AI/levels,139 lifecycle and140 logo/UI-clock presentation.
+Extract existing CICAutoPlay declaration verbatim into iAutoPlay.h; default ctor,
+registered class ID and existing Exec remain unchanged. Menu now queues it strictly
+after120000 UI milliseconds, resets timestamp on named non-CT_TIME input BEFORE base UI
+consumption, and resets it on focus before inherited handler. Advance existing UI counter
+in owned backdrop Step, which bypasses shared mission pump. Keep inactive menu painting,
+native drawable gate, startup/first-frame/script cadence, LAN button, fullscreen backdrop,
+audio and wide/HiDPI transforms.
+
+Named original menu RTTI binds Gold GameStep5f3660/178 at15c to actual Steam5f7ab0/178
+at168. Actual5f7b08 loads UI node/value14, subtracts saved150, unsigned compare1d4c0
+at5f7b18 then jbe5f7b53 at5f7b1e; above threshold calls CICAutoPlay ctor59d230 at5f7b3b
+and queue5f5c10 at5f7b4e. Typed event5f7e60 checks event type+8 at5f7eb5, calls UI
+getter59dfb0 and stores150 at5f7ec2 BEFORE base62ec30 and consumed return. Gold PDB enum
+query proves CT_TIME5 whereas own enum has CT_TIME3: use named enum. No
+field/frame/branch/global masks or whole-event/step/focus equivalence claim.
+
+Original saved5f9d40/54 is unique whole Gold match with only two decoded E8 operands
+relocated: base1 then size4 scalar tag2 atthis+150. Replace incorrect saved menu-UI
+reference with timestamp; base window tree owns that now-transient reference. This
+corrects earlier menu-only field2 schema; ordinary mission fields and LAN wire unchanged.
+Typed focus5f7b70/87 refreshes UI node, stamps150 at5f7bb8 then tail-jumps
+inherited5a2580. No UI-counter ResetTiming exists: exclude donor extra reset, preserve
+original150ms catch-up after long raw-time gaps.
+
+NativeMenuIdleDemo0..7 canonicalRED6/8 both (controls0,7) ->GREEN8/8 both, combined25/25
+actual demo cases. Cover exactly120000/no launch,120001/real launch, focus reset,
+activity, CT_TIME not resetting,150ms return catch-up, actual UI-consumed owned SDL F12
+and actually minimized owned window. Both threshold cases execute registered command into
+real initialized demo, isolate unrelated start snapshot without saving, close modal and
+verify same-menu return does not relaunch. Root/world/audio graph identities remain
+intact. Set only actual shared CCTime leaf from read-only saved wrappers, never
+deserialize live world.
+
+Discovery1 synthetic minimize did not set actual SDL flags; discovery2 actual minimize
+worked but case6 native input uninitialized. Neither canonical. Discovery3 initializes
+nonexclusive input, forces owned event draining, requires actual UI consumption before
+timestamp evaluation. Full Game both/186 Windows/178 Linux related allpass/CI378, with9
+prior transition+6 presentation and12 font rows exact. No original runtime or
+PNG/HD/face/texture rebuild. Known prior campaign movement flake remains outside UI suite.
+Sourcefdd complete,32 unfinished. Actual final-head hosted CI remains required at
+whole-task completion.
+
+Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).

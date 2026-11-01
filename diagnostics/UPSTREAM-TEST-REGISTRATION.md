@@ -2276,3 +2276,24 @@ unchanged. No original runtime/new PNG or HD/face/font regeneration. Sourcefdd s
 partial,33 unfinished.
 
 Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).
+
+## 2026-11-01: main-menu idle demonstration, input and return focus
+
+NativeMenuIdleDemo0..7 are extended native-display DB/resource cases using actual menu,
+SDL/bgfx, UI clock and registered commands. Canonical RED controls0/7 verify exactly120000
+does not launch and actually minimized owned SDL window suppresses launch. Cases1..6
+expose strict idle launch, saved2 timestamp, focus/input reset, nonresetting time event,
+UI150ms catch-up and pre-consumed-UI reset. Require real nonexclusive SDL input and
+consumed F12 before timestamp evaluation. Synthetic-minimize/uninitialized-input
+discoveries retained separately, excluded from canonical RED.
+
+RED6/8 ->GREEN8/8 both, combined25/25. Threshold tests execute real demo and return to
+original menu without relaunch; isolate start snapshot without saving. Read saved wrappers
+without live-world reload, mutate only actual UI clock leaf; preserve root/world/audio
+identities. Focus case raw1000->6000 with UI1234 must yield1384, excluding donor extra
+reset. Full Game both/186 Windows/178 Linux UI/menu/font/sound/renderer/network
+tests/CI378 allpass;9 prior lifecycle+6 presentation+12 font rows exact. Command exact
+except unchanged class/include extraction. No original runtime or asset rebuild.
+Sourcecomplete32unfinished.
+
+Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).

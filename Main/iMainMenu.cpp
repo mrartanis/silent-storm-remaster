@@ -15,6 +15,7 @@
 #include "iFlashImage.h"
 #include "iMain.h"
 #include "iMainMenu.h"
+#include "iAutoPlay.h"
 #include "iMission.h"          // NGame::CICBeginMission (the tutorial jumps straight into a mission)
 #include "iRenderWorld.h"
 #include "iSaveLoad.h"
@@ -172,9 +173,10 @@ private:
 	bool firstFrameReported = false;
 
 	ZDATA_(CRenderBaseInterface)
-	CObj<NUI::CMainMenuUI> pMainMenuUI;
+	STime sAutoPlayTime = 0;
+	CObj<NUI::CMainMenuUI> pMainMenuUI; // transient; the base interface owns the window tree
 public:
-	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CRenderBaseInterface*)this); f.Add(2,&pMainMenuUI); return 0; }
+	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CRenderBaseInterface*)this); f.Add(2,&sAutoPlayTime); return 0; }
 
 public:
 	CMainMenuInterface();
@@ -183,6 +185,7 @@ public:
 	bool RenderWhenInactive() const override { return true; }
 
 	void Step();
+	void OnGetFocus() override;
 	bool ProcessEvent( const NInput::SEvent &sEvent );
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -214,6 +217,9 @@ void CMainMenuInterface::Initialize()
 bool CMainMenuInterface::ProcessEvent( const NInput::SEvent &sEvent )
 {
 	NInput::SetSection( "menu" );
+	// Real input resets the UI-clock deadline before a control can consume it.
+	if ( sEvent.mMessage.cType != NInput::CT_TIME )
+		sAutoPlayTime = GetUITime();
 
 	if ( CRenderBaseInterface::ProcessEvent( sEvent ) )
 		return true;
@@ -271,10 +277,14 @@ bool CMainMenuInterface::ProcessEvent( const NInput::SEvent &sEvent )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMainMenuInterface::Step()
 {
+	// This backdrop uses its own Step instead of the common mission pump.
+	sUITimeCounter.Advance( true, GetTime() );
 	CRenderBaseInterface::Step();
 
 	if ( CanRender() )
 	{
+		if ( GetUITime() - sAutoPlayTime > 120000 )
+			NMainLoop::Command( new CICAutoPlay() );
 		// RenderFrame advances the world segments and their script coroutines.
 		// Render the 3D menu world full-screen. The predecessor derived a sub-rect from a "clientview" UI
 		// control, but the retail menu container (347) ships no such control (-> GetUIWindow fell back to a
@@ -288,6 +298,14 @@ void CMainMenuInterface::Step()
             S2Net::StartupLog(std::string("main-menu-presented focus=") + (S2Platform::Active()?"1":"0"));
         }
 	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Main menu focus resumes with a fresh idle interval on the existing UI clock.
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CMainMenuInterface::OnGetFocus()
+{
+	sAutoPlayTime = GetUITime();
+	CRenderBaseInterface::OnGetFocus();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CICMainMenu

@@ -33474,6 +33474,57 @@ static void NativeAutoPlayPresentation(const char* databasePath,const char* reso
 }
 
 
+static bool NativeMenuIdleStamp(CObjectBase* menu,STime* stamp,std::size_t* size)
+{
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(menu,&refs);const auto* bytes=fields.GetBufferForWrite();S2FileIO::StructureChunk body{};
+    for(std::size_t at=0;at<std::size_t(fields.GetSize());){S2FileIO::StructureChunk field;Require(S2FileIO::DecodeStructureChunkAt(bytes,fields.GetSize(),at,&field) && field.id!=3,"menu timestamp has invalid native wire");if(field.id==1)body=field;at=field.payloadOffset+field.length;}
+    Require(body.length,"menu timestamp has no actual root fields");
+    for(std::size_t at=0;at<body.length;){S2FileIO::StructureChunk field;const auto* data=bytes+body.payloadOffset;Require(S2FileIO::DecodeStructureChunkAt(data,body.length,at,&field),"menu timestamp native field is malformed");if(field.id==2){*size=field.length;return field.length==4 && S2FileIO::DecodeStructureScalar(data+field.payloadOffset,field.length,stamp);}at=field.payloadOffset+field.length;}
+    *size=0;return false;
+}
+
+static void NativeMenuIdleDemo(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<8,"unknown idle-menu demonstration fixture");
+    Require(std::getenv("S2_USER_DATA_DIR") && !NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"idle-menu fixture needs isolated empty interface state");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm idle-menu demonstration regression");
+    struct Restore {NGlobal::CValue units=NGlobal::GetVar("autoplay_units"),maps=NGlobal::GetVar("autoplay_templates");STime time=NMainLoop::SetTimeForHarness(0);~Restore(){NGlobal::SetVar("autoplay_units",units);NGlobal::SetVar("autoplay_templates",maps);NMainLoop::SetTimeForHarness(time);}} restore;
+    NGlobal::SetVar("autoplay_units",NGlobal::CValue(L"968"));NGlobal::SetVar("autoplay_templates",NGlobal::CValue(L"4412"));
+    CObj<NGame::CICMainMenu> open=new NGame::CICMainMenu;open->Exec();
+    CObj<NGame::CMissionBase> menu=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());Require(IsValid(menu) && pSSClasses->GetObjectTypeID(menu)==int(0xB2540912) && !NMainLoop::HaveInterfaceCommand(),"idle-menu fixture did not initialize the actual registered main menu");
+    auto* root=menu->GetInterface();auto* world=menu->GetWorld();auto* sound=menu->GetSoundScene();CTimeCounter ui=NativeFrontendUIClock(menu);ui.SetCurrent(7);Require(menu->GetUITime()==7,"idle-menu clock reader does not reference its actual UI node");ui.SetCurrent(0);
+    int handled=0;bool minimized=false;STime expectedStamp=0;
+    if(mode==0)ui.SetCurrent(120000);
+    if(mode==1)ui.SetCurrent(120001);
+    if(mode==2){ui.SetCurrent(12345);menu->OnGetFocus();expectedStamp=12345;}
+    if(mode==3){ui.SetCurrent(12345);NInput::SEvent event{};event.mMessage.cType=NInput::CT_KEY;handled=menu->ProcessEvent(event)?1:0;expectedStamp=12345;}
+    if(mode==4){ui.SetCurrent(111);menu->OnGetFocus();expectedStamp=111;ui.SetCurrent(120112);NInput::SEvent event{};event.mMessage.cType=NInput::CT_TIME;handled=menu->ProcessEvent(event)?1:0;}
+    if(mode==5){NMainLoop::SetTimeForHarness(1000);menu->Step();Require(!NMainLoop::HaveInterfaceCommand(),"idle-menu focus-gap baseline unexpectedly queued a transition");ui.SetCurrent(1234);NMainLoop::SetTimeForHarness(6000);menu->OnGetFocus();expectedStamp=1234;}
+    struct NativeInputScope { bool active=false; ~NativeInputScope(){if(active)NInput::DoneInput();} } nativeInput;
+    if(mode==6){
+        Require(nativeInput.active=NInput::InitInput(true),"idle-menu fixture could not initialize native SDL input");
+        ui.SetCurrent(12345);expectedStamp=12345;NInput::SetSection("menu");NGlobal::ProcessCommand(L"bind 'console' 'F12'");NInput::UpdateBinds();
+        SDL_Event focus{};focus.type=SDL_EVENT_WINDOW_FOCUS_GAINED;focus.window.windowID=SDL_GetWindowID(S2Platform::Window());Require(SDL_PushEvent(&focus),"idle-menu UI input could not queue owned focus");
+        SDL_Event key{};key.type=SDL_EVENT_KEY_DOWN;key.key.windowID=SDL_GetWindowID(S2Platform::Window());key.key.scancode=SDL_SCANCODE_F12;key.key.down=true;Require(SDL_PushEvent(&key),"idle-menu UI input could not queue native console key");S2Platform::PumpEvents();NInput::PumpMessages(true,true);NInput::SEvent event;while(NInput::GetEvent(&event))if(menu->ProcessEvent(event))++handled;
+        key.type=SDL_EVENT_KEY_UP;key.key.down=false;Require(SDL_PushEvent(&key),"idle-menu UI input could not release owned console key");S2Platform::PumpEvents();NInput::PumpMessages(true,true);while(NInput::GetEvent(&event))menu->ProcessEvent(event);
+        Require(handled>0,"idle-menu fixture did not reach a real UI-consumed SDL key before checking the timestamp");
+    }
+    if(mode==7){ui.SetCurrent(120001);Require(SDL_MinimizeWindow(S2Platform::Window()),"idle-menu fixture could not minimize its owned window");SDL_SyncWindow(S2Platform::Window());S2Platform::PumpEvents();S2Platform::UpdateDisplay();minimized=!S2Platform::Display().drawable;Require(minimized,"idle-menu fixture did not establish the native nondrawable state");}
+    if(mode!=2 && mode!=3 && mode!=6){MarkNewDGFrame();menu->Step();}
+    STime stamp=0;std::size_t stampSize=0;const bool scalar=NativeMenuIdleStamp(menu,&stamp,&stampSize);CObj<NMainLoop::CInterfaceCommand> queued=NMainLoop::TakeInterfaceCommandForHarness();const bool expectedQueue=mode==1 || mode==4;
+    const bool graph=NMainLoop::GetCurrentInterfaceForHarness()==menu.GetPtr() && menu->GetInterface()==root && menu->GetWorld()==world && menu->GetSoundScene()==sound;
+    std::printf("MENU-IDLE-DEMO mode=%d ui=%u scalar=%d size=%u stamp=%u expectedStamp=%u queued=%d expectedQueue=%d handled=%d minimized=%d graph=%d\n",mode,unsigned(menu->GetUITime()),int(scalar),unsigned(stampSize),unsigned(stamp),unsigned(expectedStamp),int(IsValid(queued)),int(expectedQueue),handled,int(minimized),int(graph));std::fflush(stdout);
+    Require(graph && !NMainLoop::HaveInterfaceCommand(),"idle-menu frame changed its world/UI/audio graph before transition execution or queued duplicate commands");
+    Require(IsValid(queued)==expectedQueue,"actual main menu does not honor the strict two-minute idle threshold, time-only input or drawable gate");
+    if(mode>=2 && mode<=6)Require(scalar && stamp==expectedStamp,"native main-menu save field2 does not hold the reset UI timestamp before/after focus or input");
+    if(mode==5)Require(menu->GetUITime()==1384,"returning menu focus changed the original 150ms UI-counter catch-up behavior");
+    if(mode==6)Require(handled>0,"idle-menu activity fixture did not reach an actual UI-consumed native console event");
+    if(expectedQueue){queued->Exec();auto* demo=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());Require(demo && pSSClasses->GetObjectTypeID(demo)==int(0xB3723140) && demo!=menu.GetPtr(),"native menu idle command did not push a real demonstration modal");CObj<NMainLoop::CInterfaceCommand> snapshot=NMainLoop::TakeInterfaceCommandForHarness();Require(dynamic_cast<NMainLoop::CICSaveFile*>(snapshot.GetPtr()) && !NMainLoop::HaveInterfaceCommand(),"idle-demo transition did not isolate its existing mission-start snapshot");CObj<NMainLoop::CICExitModal> exit=new NMainLoop::CICExitModal;exit->Exec();Require(NMainLoop::GetCurrentInterfaceForHarness()==menu.GetPtr(),"demo dismissal did not focus its original menu");MarkNewDGFrame();menu->Step();Require(!NMainLoop::HaveInterfaceCommand(),"returning from an idle demonstration immediately launched it again");}
+    if(minimized){Require(SDL_RestoreWindow(S2Platform::Window()),"idle-menu fixture could not restore its owned window");SDL_SyncWindow(S2Platform::Window());S2Platform::PumpEvents();}
+    NMainLoop::DoneInterface();
+}
+
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
@@ -34070,6 +34121,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-menu-idle-demo")) { Require(argc==5,"menu idle requires db/res/mode"); NativeMenuIdleDemo(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-autoplay-presentation")) { Require(argc==5,"autoplay presentation requires db/res/mode"); NativeAutoPlayPresentation(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-autoplay-lifecycle")) { Require(argc==5,"autoplay lifecycle requires db/res/mode"); NativeAutoPlayLifecycle(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-autoplay-squads")) { Require(argc==5,"autoplay squads require db/res/mode"); NativeAutoPlaySquads(argv[2],argv[3],std::atoi(argv[4])); return true; }
