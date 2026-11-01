@@ -23127,3 +23127,48 @@ prologues/calls/arguments were decoded separately. Zero new original runtime rec
 original full World or firing/UI timeline claim.
 
 Source: [01eb873b41cd2c8b9ce2d7b81835d2e00d492118](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/01eb873b41cd2c8b9ce2d7b81835d2e00d492118).44 sources remain; whole-task actual-final-head hosted CI pending.
+
+## 2026-11-01: particle half-texel margins and grass cell insets (source24c1 complete)
+
+GetTransparentTexturePlace accepts a pixel margin, default0.5, and
+uses(min+margin)/holderSize and(max-margin)/holderSize before the existing packed-UV
+conversion. Grass requests the whole sheet with margin0, splits its existing integer UV
+span, then insets each cell by the separately packed0.5/holderSize per axis. Existing V
+reversal, sprite selection, geometry, color/depth and texture ownership remain. Public
+argument defaults preserve all existing two-argument callers; no texture asset or PNG
+generation, cache format, shader or save/network layout change.
+
+Canonical native RED9/14 both: actual rain output fails5/6 cases (three1024 allocations
+and two4096 NPOT19 right-edge cases); actual grass output fails four1024 grid1/2/3/4
+cases. GREEN32/32, full Game both/CI323. Five HD outcome controls match exactly; all
+geometry/color/depth/quad-count hashes and4 shared RNG continuation words remain exact,
+with real cache-region/owner identity retained. A resource node supplies actual allocated
+native bgfx textures; existing rain/grass AddParticles performs the UV and quad work and
+an existing IParticleOutput capture records the result. This is native GPU
+allocation/output integration, not a rendered-pixel screenshot or universal visual-seam
+claim. Related tests include actual bgfx renderer, graphics options/HD-cache switching,
+selection stencil, resource cleanup/cube filtering, sampling and particle wire checks.
+Initial fixture CObj/rectangle API compile errors and Linux's initial three unbuilt
+sampling-test executables are archived and excluded; the final executable preflight and
+both suites pass.
+
+Keep the own RGBA8 atlas sizes1024/HD4096 and native2048 packed-UV scale. A physical half
+texel can quantize away on even HD boundaries; the even-HD rain and four HD grass controls
+intentionally preserve that representable result. NPOT19 boundaries still isolate native
+nearest-even rounding (e.g.4096 right edge packed2042 ->2041). Do not change the global UV
+scale/wire to fabricate a sub-UV-unit margin, and do not claim exact half-pixel HD
+precision. Existing HD resources and renderer formats remain intact.
+
+Original static: typed GetTransparentTexturePlaceGold53ee40/481 ->Steam540f70/481 and
+GetGrassTexturePlaceGold53f030/678 ->Steam541160/678 uniquely match complete bodies with
+only decodedE8/validatedEH/equalF32 operands. No
+opcode/frame/register/field/branch/size/unknown-global masks. Actual grass541185 pushes0
+into540f70, and5411c1/5411cf use0.5/size with2048/FISTP packing. Named
+CGrassParticleEffect VT8b8bfc slot10 ->actual541f90 calls grass helper at5420a5;
+CRainParticleEffect VT8b8c64 slot10 ->543070 calls InitTexturePlaces541410 at543119.
+Init's unique60-byte entry and actual5414ef literal0.5 ->5414f7 bind the default call.
+Whole GoldInit302 matching is deliberately rejected because nDGCurrentFrame absolute
+operands remain unbound/unmasked. No whole consumer-body equivalence or original
+renderer/World runtime claim; zero new original runtime records.
+
+Source: [24c1eca77dbcf2eff5feaa8ef603f390df93f7fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/24c1eca77dbcf2eff5feaa8ef603f390df93f7fb).43 sources remain; whole-task actual-final-head hosted CI pending.

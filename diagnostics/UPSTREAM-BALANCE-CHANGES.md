@@ -3793,3 +3793,22 @@ tile plane were updated to the confirmed rules, with old failed runs archived. S
 complete,44 sources remain.
 
 Source: [01eb873b41cd2c8b9ce2d7b81835d2e00d492118](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/01eb873b41cd2c8b9ce2d7b81835d2e00d492118).
+
+## 2026-11-01: particle half-texel margins and grass cell insets
+
+Rendering-only change: particle texture coordinates add/subtract0.5 physical atlas texel
+before existing packing. Grass splits an uninset sheet, then applies its own per-cell
+half-texel margin while retaining V orientation and sprite order. This restores original
+atlas-edge sampling where coordinates can represent the margin. Native geometry,
+color/depth, counts, gameplay RNG, texture ownership, authored assets, shaders and
+save/network formats remain unchanged; no AP/damage/accuracy/training rule changes.
+
+Own HD4096 atlases remain RGBA8 with2048 UV packing. Even HD boundaries may round a half
+texel away; five exact HD controls intentionally keep that result. NPOT19 rain edges still
+change through original nearest-even rounding. No wider global UV format or pixel-perfect
+HD/seam-removal claim. Native real bgfx rain/grass RED9/14 ->32Win/32Linux/Game
+both/CI323,5 exact controls and unchanged geometry hashes. Original complete481/678 plus
+named consumer/default0.5/grass0 calls support the port statically; zero new original
+runtime records. Source24c1 complete,43 sources remain.
+
+Source: [24c1eca77dbcf2eff5feaa8ef603f390df93f7fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/24c1eca77dbcf2eff5feaa8ef603f390df93f7fb).

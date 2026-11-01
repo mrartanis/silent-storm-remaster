@@ -1908,3 +1908,26 @@ evidence is static only; no fake interval/score provider, original executable pa
 original full World/firing runtime claim.
 
 Source: [01eb873b41cd2c8b9ce2d7b81835d2e00d492118](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/01eb873b41cd2c8b9ce2d7b81835d2e00d492118).
+
+## 2026-11-01: particle half-texel margins and grass cell insets
+
+Register NativeParticleAtlasMargin0..5 and NativeGrassAtlasMargin0..7 on both native
+platforms, extended/120s, with distinct isolated profiles/headless audio. Each uses an
+actual hidden SDL/bgfx display, real RGBA8 atlas texture and current-container checks;
+normal cleanup closes the owned display. Rain emits a real front-facing quad with literal
+vertex/color/depth controls. Grass emits every cell of1/2/3/4 grids, checks fixed
+cell-boundary tables and independent fixed sprite-order tables, captures native quad
+output and records geometry hashes. Both compare4 RNG continuation words and preserve
+cache region/owner and source identity.
+
+Canonical9/14 RED both ->32Windows/32Linux selected names, all14 new names selected, full
+Game both and CI323. Five exact HD controls and all geometry hashes remain. Both
+actual32-test suites include bgfx rendering, HD graphics options, stencil, resource
+cleanup, texture filtering/sampling and portable particle wire. No synthetic
+UV/interval-return helper or PNG generation; the resource node only supplies the actual
+allocated texture. Initial fixture compile errors and Linux missing3 executable preflight
+are archived rather than counted as RED. Original481/678 and independently
+named/default/zero call evidence is static only, with no original full renderer or
+rendered-pixel claim.
+
+Source: [24c1eca77dbcf2eff5feaa8ef603f390df93f7fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/24c1eca77dbcf2eff5feaa8ef603f390df93f7fb).

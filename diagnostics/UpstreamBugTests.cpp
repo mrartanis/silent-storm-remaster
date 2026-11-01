@@ -32616,6 +32616,90 @@ static void NativeCoverRangePolicy(const char* databasePath,const char* resource
     Require((score>0)==expectedPositive,"native cover range retained an uncapped human ray or the old tile pullback");
 }
 
+class NativeAtlasTextureInput:public CPtrFuncBase<NGfx::CTexture>
+{
+    OBJECT_NOCOPY_METHODS(NativeAtlasTextureInput);
+    void Recalc() override {}
+public:
+    explicit NativeAtlasTextureInput(NGfx::CTexture* texture=nullptr){pValue=texture;}
+};
+class NativeAtlasParticleOutput:public NGScene::IParticleOutput
+{
+public:
+    struct Quad{CVec3 positions[4];DWORD color;NGScene::STransparentTexturePlace texture;float depth;};
+    NGScene::SParticleOrientationInfo orientation;
+    vector<Quad> quads;
+    NativeAtlasParticleOutput(){orientation.vBasic[0]=CVec3(1,0,0);orientation.vBasic[1]=CVec3(0,1,0);orientation.vBasic[2]=CVec3(0,0,1);orientation.vBasic[3]=VNULL3;orientation.vDepth=CVec3(0,0,1);}
+    const NGScene::SParticleOrientationInfo& GetOrientationInfo() const override{return orientation;}
+    void AddParticle(const CVec3* positions,DWORD color,const NGScene::STransparentTexturePlace& texture,float depth) override
+    {
+        Quad q;for(int i=0;i<4;++i){q.positions[i]=positions[i];Require(std::isfinite(positions[i].x) && std::isfinite(positions[i].y) && std::isfinite(positions[i].z),"atlas native particle has nonfinite geometry");}q.color=color;q.texture=texture;q.depth=depth;quads.push_back(q);
+    }
+    unsigned GeometryHash() const
+    {
+        unsigned h=2166136261u;auto add=[&](const void* value){unsigned word;std::memcpy(&word,value,4);h=(h^word)*16777619u;};
+        for(const auto& q:quads){for(const auto& p:q.positions){add(&p.x);add(&p.y);add(&p.z);}add(&q.color);add(&q.depth);}return h;
+    }
+};
+static bool NativeAtlasSameRegion(const CTRect<int>& a,const CTRect<int>& b)
+{
+    return a.x1==b.x1 && a.y1==b.y1 && a.x2==b.x2 && a.y2==b.y2;
+}
+static bool NativeAtlasQuadMatches(const NGScene::STransparentTexturePlace& q,int l,int t,int r,int b)
+{
+    const int expected[4][2]={{l,t},{r,t},{r,b},{l,b}};
+    for(int i=0;i<4;++i)if(q.vUVs[i].nU!=expected[i][0] || q.vUVs[i].nV!=expected[i][1])return false;return true;
+}
+
+static void NativeParticleAtlasMargin(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<6 && std::getenv("S2_USER_DATA_DIR"),"atlas particle requires actual mode and isolated profile");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm native particle atlas margin");
+    const int oldHD=NGlobal::GetVar("gfx_hd_textures",1).GetInt();struct Restore{int hd;~Restore(){NGlobal::SetVar("gfx_hd_textures",hd);}}restore{oldHD};
+    const bool hd=mode>=3,offset=mode==2 || mode==5;NGlobal::SetVar("gfx_hd_textures",int(hd));
+    CObj<NGfx::CTexture> padding;if(offset)padding=NGfx::MakeTexture(64,64,1,NGfx::SPixel8888::ID,NGfx::TRANSPARENT_TEXTURE,NGfx::CLAMP);
+    const int width=mode==0 || mode==3?16:19,height=mode==0 || mode==3?16:mode==4?19:17;
+    CObj<NGfx::CTexture> texture=NGfx::MakeTexture(width,height,1,NGfx::SPixel8888::ID,NGfx::TRANSPARENT_TEXTURE,NGfx::CLAMP);Require(texture,"atlas particle cannot allocate actual bgfx RGBA atlas texture");
+    NGfx::STexturePlaceInfo place;CObj<NGfx::CTexture> holder=NGfx::GetTextureContainer(texture,&place);
+    Require(holder && NGfx::HasSameContainer(holder,NGfx::GetTransparentTextureCache()) && place.size.x==(hd?4096:1024) && place.size.y==place.size.x && place.place.Width()==width && place.place.Height()==height && (place.place.x1%4)==0 && (place.place.y1%4)==0 && (!offset || place.place.x1>0 || place.place.y1>0),"atlas particle lacks real aligned/current cache region");
+    auto* buffer=texture->pTB.GetPtr();const auto region=texture->region;CObj<NativeAtlasTextureInput> input=new NativeAtlasTextureInput(texture);
+    CObj<NGScene::CRainParticleEffect> effect=new NGScene::CRainParticleEffect;effect->bEnd=false;effect->nGrassSize=0;effect->textures.push_back(CObj<CPtrFuncBase<NGfx::CTexture>>(input.GetPtr()));effect->positions.push_back(CVec3(0,1,-4));effect->directions.push_back(CVec3(0,0,-1));effect->faces.push_back(0);
+    NativeAtlasParticleOutput output;auto random=GlobalGameRandom();effect->AddParticles(&output);Require(output.quads.size()==1,"actual rain consumer did not emit exactly one quad");
+    // Literal atlas contracts:1024 maps integer texels to two UV units;4096 maps pairs of texels to one. Half-texel margin rounds to these bounds with current2048 packing.
+    const int left=hd?place.place.x1/2:place.place.x1*2+1,top=hd?place.place.y1/2:place.place.y1*2+1,right=hd?place.place.x2/2:place.place.x2*2-1,bottom=hd?place.place.y2/2:place.place.y2*2-1;
+    const auto& q=output.quads.front();const bool matches=NativeAtlasQuadMatches(q.texture,left,top,right,bottom);const CVec3 vertices[]={CVec3(0,1,-4),CVec3(.033f,1,-4),CVec3(.033f,1,-5.75f),CVec3(0,1,-5.75f)};bool geometry=q.color==0xffffffffu && q.depth==-4.f;for(int i=0;i<4;++i)geometry&=fabs(q.positions[i]-vertices[i])<.000001f;
+    auto after=GlobalGameRandom();bool sameRNG=true;for(int i=0;i<4;++i)sameRNG&=random.Get()==after.Get();
+    std::printf("native particle atlas margin mode=%d HD=%d atlas=%d width=%d height=%d region=%d,%d,%d,%d uv=%d,%d,%d,%d expected=%d,%d,%d,%d matches=%d geometry=%d hash=%08x RNG=%d owner=%d regionSame=%d\n",mode,int(hd),place.size.x,width,height,place.place.x1,place.place.y1,place.place.x2,place.place.y2,q.texture.vUVs[0].nU,q.texture.vUVs[0].nV,q.texture.vUVs[2].nU,q.texture.vUVs[2].nV,left,top,right,bottom,int(matches),int(geometry),output.GeometryHash(),int(sameRNG),int(texture->pTB.GetPtr()==buffer && NGfx::HasSameContainer(texture,holder)),int(NativeAtlasSameRegion(texture->region,region)));std::fflush(stdout);
+    Require(geometry && sameRNG && texture->pTB.GetPtr()==buffer && NativeAtlasSameRegion(texture->region,region) && effect->textures.front().GetPtr()==input.GetPtr() && !effect->bEnd,"particle UV query changed native geometry/color/depth/RNG/texture ownership/input");
+    Require(matches,"actual native rain output retains unpadded particle atlas edges");
+}
+
+static void NativeGrassAtlasMargin(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<8 && std::getenv("S2_USER_DATA_DIR"),"atlas grass requires actual mode and isolated profile");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm native grass atlas margin");
+    const int oldHD=NGlobal::GetVar("gfx_hd_textures",1).GetInt();struct Restore{int hd;~Restore(){NGlobal::SetVar("gfx_hd_textures",hd);}}restore{oldHD};
+    const bool hd=mode>=4;const int grid=mode%4+1;NGlobal::SetVar("gfx_hd_textures",int(hd));
+    CObj<NGfx::CTexture> texture=NGfx::MakeTexture(48,48,1,NGfx::SPixel8888::ID,NGfx::TRANSPARENT_TEXTURE,NGfx::CLAMP);Require(texture,"atlas grass cannot allocate actual bgfx atlas texture");
+    NGfx::STexturePlaceInfo place;CObj<NGfx::CTexture> holder=NGfx::GetTextureContainer(texture,&place);Require(holder && NGfx::HasSameContainer(holder,NGfx::GetTransparentTextureCache()) && place.size.x==(hd?4096:1024) && place.size.y==place.size.x && place.place.Width()==48 && place.place.Height()==48 && (place.place.x1%4)==0 && (place.place.y1%4)==0,"atlas grass lacks actual current aligned cache region");
+    auto* buffer=texture->pTB.GetPtr();const auto region=texture->region;CObj<NativeAtlasTextureInput> input=new NativeAtlasTextureInput(texture);
+    CObj<NGScene::CGrassParticleEffect> effect=new NGScene::CGrassParticleEffect;effect->bEnd=false;effect->nGrassSize=grid;effect->textures.push_back(CObj<CPtrFuncBase<NGfx::CTexture>>(input.GetPtr()));effect->fTEffect=0;effect->fXPivot=effect->fYPivot=effect->fScaleRange=0;effect->scale=CVec2(2,2);
+    for(int i=0;i<grid*grid;++i){effect->positions.push_back(CVec3(0,0,4.f+i));effect->colors.push_back(NGfx::SPixel8888(24,36,48,255));effect->waveAmps.push_back(0.f);}
+    NativeAtlasParticleOutput output;auto random=GlobalGameRandom();effect->AddParticles(&output);Require(output.quads.size()==size_t(grid*grid),"actual native grass consumer lost blades");
+    // Fixed cell-boundary tables for48-pixel input sheets in the two actual atlas sizes.
+    const int stockLeft[4][4]={{1,0,0,0},{1,49,0,0},{1,33,65,0},{1,25,49,73}};
+    const int stockRight[4][4]={{95,0,0,0},{47,95,0,0},{31,63,95,0},{23,47,71,95}};
+    const int hdLeft[4][4]={{0,0,0,0},{0,12,0,0},{0,8,16,0},{0,6,12,18}};
+    const int hdRight[4][4]={{24,0,0,0},{12,24,0,0},{8,16,24,0},{6,12,18,24}};
+    const int sprite1[]={0},sprite2[]={0,1,2,3},sprite3[]={0,2,4,6,8,1,3,5,7},sprite4[]={0,9,2,11,4,13,6,15,8,1,10,3,12,5,14,7};const int* sprites=grid==1?sprite1:grid==2?sprite2:grid==3?sprite3:sprite4;
+    const auto& l=hd?hdLeft:stockLeft;const auto& rr=hd?hdRight:stockRight;const int baseU=hd?place.place.x1/2:place.place.x1*2,baseV=hd?place.place.y1/2:place.place.y1*2;int matches=0;bool geometry=true;
+    for(int i=0;i<grid*grid;++i){const auto& q=output.quads[i];const int cell=sprites[i],col=cell%grid,row=grid-1-cell/grid;matches+=int(NativeAtlasQuadMatches(q.texture,baseU+l[grid-1][col],baseV+l[grid-1][row],baseU+rr[grid-1][col],baseV+rr[grid-1][row]));geometry&=q.color==NGfx::SPixel8888(24,36,48,255).color && q.depth==4.f+i;}
+    auto after=GlobalGameRandom();bool sameRNG=true;for(int i=0;i<4;++i)sameRNG&=random.Get()==after.Get();const auto& first=output.quads.front().texture;
+    std::printf("native grass atlas margin mode=%d HD=%d atlas=%d grid=%d region=%d,%d,%d,%d quads=%zu matches=%d expected=%d firstUV=%d,%d,%d,%d hash=%08x geometry=%d RNG=%d owner=%d regionSame=%d\n",mode,int(hd),place.size.x,grid,place.place.x1,place.place.y1,place.place.x2,place.place.y2,output.quads.size(),matches,grid*grid,first.vUVs[0].nU,first.vUVs[0].nV,first.vUVs[2].nU,first.vUVs[2].nV,output.GeometryHash(),int(geometry),int(sameRNG),int(texture->pTB.GetPtr()==buffer && NGfx::HasSameContainer(texture,holder)),int(NativeAtlasSameRegion(texture->region,region)));std::fflush(stdout);
+    Require(geometry && sameRNG && texture->pTB.GetPtr()==buffer && NativeAtlasSameRegion(texture->region,region) && effect->positions.size()==size_t(grid*grid) && effect->textures.front().GetPtr()==input.GetPtr() && !effect->bEnd,"grass UV update changed actual geometry/color/depth/RNG/cache/input identity");
+    Require(matches==grid*grid,"actual native grass output retains unpadded cell edges");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
@@ -33202,6 +33286,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-grenade-range-stance")) { Require(argc==5,"grenade range/stance requires db/resources/mode"); NativeGrenadeRangeStance(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grenade-hide-launch")) { Require(argc==5,"grenade hide requires db/resources/mode"); NativeGrenadeHideLaunch(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grenade-pk-launch")) { Require(argc==5,"grenade PK requires db/resources/mode"); NativeGrenadePKLaunch(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-particle-atlas-margin")) { Require(argc==5,"atlas margin requires db/resources/mode"); NativeParticleAtlasMargin(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-grass-atlas-margin")) { Require(argc==5,"atlas margin requires db/resources/mode"); NativeGrassAtlasMargin(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-cover-whole-center")) { Require(argc==5,"cover policy requires db/resources/mode"); NativeCoverFramingPolicy(argv[2],argv[3],std::atoi(argv[4]),false); return true; }
     if (!std::strcmp(mode, "native-cover-projection-extent")) { Require(argc==5,"cover policy requires db/resources/mode"); NativeCoverFramingPolicy(argv[2],argv[3],std::atoi(argv[4]),true); return true; }
     if (!std::strcmp(mode, "native-cover-range-policy")) { Require(argc==5,"cover policy requires db/resources/mode"); NativeCoverRangePolicy(argv[2],argv[3],std::atoi(argv[4])); return true; }
