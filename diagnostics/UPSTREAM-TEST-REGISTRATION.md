@@ -2325,3 +2325,35 @@ lines changed; source mixed history/reprojection/shader work remains partial,32
 unfinished. No original runtime or asset rebuild.
 
 Source: [f6f6011fc301ace82317b9007ec6dd36b57f3369](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6f6011fc301ace82317b9007ec6dd36b57f3369).
+
+## 2026-11-01: stable map-probe centimetre midpoint keys (validation143)
+
+Broad camera/deployment validation exposed a diagnostic-only map digest boundary. All52
+scenario root maps built with matching counts/routes/behavior. Root5066 item432 has
+Windows y9.375 bits41160000 versus Linux9.37499905 bits4115FFFF, one input-float ULP.
+Direct Float2Int(y*100) produced938 versus937, so the nominal-centimetre digest differed
+despite unchanged raw geometry. Keep native Float2Int rounding, but snap only a midpoint
+reachable within one representable input-float step before forming diagnostic x/y keys. Z
+hashing and all game/placement code remain unchanged.
+
+NativeMissionMapProbe --check-item-quantization checks positive/negative midpoint
+neighbors, ordinary values and distinct centimetre bins:11 invariants plus the
+distinct-bin check pass both. Collect52 roots plus3 small representative maps
+independently before adopting any expected digest. All52 per-platform raw item-coordinate
+multisets, every non-item detail field, counts, routes and behavior stay exact. Fresh
+Windows/Linux summaries agree
+on4f3d72fcd190fa788e8fc168b9b903bf78d0c0034d80ac6e6284204ebb4d6b82. Update only
+affected3830/4526 diagnostic item hashes and the52-root summary baseline; retain
+count/script/route/behavior guards. No production code, physical coordinates, collision
+data, save/LAN format or assets change in this commit.
+
+Windows6/6 map checks and Linux9/9 refreshed-target checks pass, including all52 roots.
+Retain original broad716/717 Windows and681/682 Linux logs; Linux also recorded an
+initially missing nested NativeMapDatabaseTests helper. Laboratory preflight now rebuilds
+selected existing targets and nested executable inputs. Hashing finds only4 changed Linux
+binaries and reruns their9 affected cases. Game/UpstreamBugTests and all other selected
+native binaries remain unchanged during this refresh. CI378 is green for accompanying
+camera work, recorded separately. This validation-only fix advances no donor ledger
+status; camera source completion follows in a separate commit.
+
+Validation source: [6b4f7b8f67f26adb20506bef1015f89aba9f29dd](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6b4f7b8f67f26adb20506bef1015f89aba9f29dd).
