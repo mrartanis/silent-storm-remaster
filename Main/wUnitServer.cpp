@@ -148,7 +148,7 @@ CUnitServer::CUnitServer( CWorld *pWorld, NRPG::IUnitMission *_pRPG, NDb::CModel
 	registerOnNewPlayerTurnOrTime( this, &CUnitServer::OnNewPlayerTurnOrTime ),
 	registerOnNewPlayerFastTurnOrTime( this, &CUnitServer::OnNewPlayerFastTurnOrTime ), bCanTalk( false ), nDialog( 0 )
 {
-	pPlayer = _pPlayer;
+	SetPlayer( _pPlayer );
 	bCallTimeLabel = false;
 	SetState( new CUnitStateNormal( this ) );
 	bIsRunningForcedAction = false;
@@ -2026,6 +2026,8 @@ NDb::EDiplomacyState CUnitServer::GetDiplomacyState( CUnitServer *pTarget ) cons
 void CUnitServer::SetPlayer( CPlayer *_pPlayer )
 {
 	pPlayer = _pPlayer;
+	// Steam 0x7c1de0: persist owner AI identity when assigned, including a null owner.
+	GetUnitRPG()->SetIsAIPlayer( NAI::IsAIPlayer( _pPlayer ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitServer::SetDialog( const string &szDialogCode )

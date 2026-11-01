@@ -32416,6 +32416,132 @@ static void NativeMovementNoise(const char* databasePath,const char* resourcePat
     std::printf("native movement noise mode=%d beforePose=%d afterPose=%d beforeDir=%d afterDir=%d heard=%d expected=%d objects=%d AP=%d afterAP=%d HP=%d afterHP=%d\n",mode,int(initial.GetPose()),int(target.GetPose()),int(initial.GetDir()),int(target.GetDir()),heard,expected,objects,ap,actor->GetAP(),hp,actor->GetUnitRPG()->GetTotalVP());std::fflush(stdout);Require(actor->GetPosition()==target && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && world->GetTime()->GetValue()==time,"movement noise changed target/AP/HP/world time");Require(heard==expected,"crawling SetPosition emitted a movement noise event or walking lost its ordinary event");
 }
 
+struct NativeHearingOwners
+{
+    CObj<NRPG::CGlobalGame> game;
+    CObj<NWorld::CWorld> world;
+    NWorld::CPlayer* human=nullptr;
+    NWorld::CPlayer* ai=nullptr;
+    NWorld::CUnitServer* humanUnit=nullptr;
+    NWorld::CUnitServer* aiUnit=nullptr;
+    NativeHearingOwners(const char* db,const char* res)
+    {
+        world=FixtureWorld(db,res,true,&game);
+        vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);
+        for(auto u:units){auto* s=dynamic_cast<NWorld::CUnitServer*>(u.GetPtr());
+            if(!s || !s->CanFight() || s->IsEmptyPK() || s->IsWearingPK())continue;
+            if(s->IsAIUnit() && !aiUnit){aiUnit=s;ai=dynamic_cast<NWorld::CPlayer*>(s->GetPlayer());}
+            if(!s->IsAIUnit() && !humanUnit){humanUnit=s;human=dynamic_cast<NWorld::CPlayer*>(s->GetPlayer());}}
+        Require(human && ai && humanUnit && aiUnit && human!=ai,"heard AI lacks actual deployed human and scenario AI owners");
+    }
+    NAI::SPathPlace FreePlace(const CVec3& center,float radius)
+    {
+        auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;
+        network->GetNearPlaces(SSphere(center,radius),&places);
+        for(auto p:places){p.SetPose(NAI::CM_STAND);p.SetMoving(0);p.SetDirection(0);
+            if(network->IsPassable(p) && !network->IsLocked(p))return p;}
+        Require(false,"heard AI has no actual free standing place");return NAI::SPathPlace();
+    }
+};
+
+static void NativeRPGOwnershipAI(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<11,"unknown native RPG ownership AI mode");
+    NativeHearingOwners f(databasePath,resourcePath);CObj<NWorld::CUnitServer> held;
+    NWorld::CUnitServer* actor=mode==0?f.aiUnit:mode==1?f.humanUnit:nullptr;
+    if(!actor){const bool initialAI=mode==2 || mode==5 || mode==6 || mode==7 || mode==10;
+        held=f.world->AddUnitInGame(f.FreePlace(f.humanUnit->GetPosition().GetCP(),20.f),NRPG::CreateUnit(NDb::GetPers(54)),initialAI?f.ai:f.human,"NativeOwnershipAI");actor=held;}
+    Require(actor && actor->CanFight(),"ownership AI cannot create actual native actor");
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();const auto pos=actor->GetPosition();
+    auto* identity=actor->GetUnitRPG()->GetRPGUnit();const auto time=f.world->GetTime()->GetValue();
+    if(mode==4)f.world->ChangeUnitPlayer(actor,f.ai);
+    if(mode==5)f.world->ChangeUnitPlayer(actor,f.human);
+    if(mode==6)actor->SetPlayer(nullptr);
+    if(mode==7)f.ai->SetCommander(new NAI::CSequenceCommander(f.world));
+    if(mode==8 || mode==9)f.human->SetCommander(new NAI::CAICommander(f.world,f.human));
+    if(mode==9)actor->SetPlayer(f.human);
+    const bool expected=mode==0 || mode==2 || mode==4 || mode==7 || mode==9 || mode==10;
+    const bool actual=actor->GetUnitRPG()->IsAIPlayer();bool saved=actual;
+    if(mode==10){CStructureNetworkContext refs;auto bytes=BorrowedObjectFields(actor->GetUnitRPG(),&refs);
+        CStructureSaver reader(bytes,CStructureSaver::READ,&refs);reader.Add(46,&saved);}
+    std::printf("native RPG ownership AI mode=%d persona=%d commanderAI=%d RPG=%d expected=%d saved46=%d AP=%d afterAP=%d HP=%d afterHP=%d identity=%d position=%d time=%d\n",mode,identity->pPers->GetRecordID(),int(actor->IsAIUnit()),int(actual),int(expected),int(saved),ap,actor->GetAP(),hp,actor->GetUnitRPG()->GetTotalVP(),int(identity==actor->GetUnitRPG()->GetRPGUnit()),int(pos==actor->GetPosition()),int(time==f.world->GetTime()->GetValue()));std::fflush(stdout);
+    Require(actual==expected && saved==expected,"native owner assignment did not publish or retain the saved RPG AI flag");
+    Require(ap==actor->GetAP() && hp==actor->GetUnitRPG()->GetTotalVP() && pos==actor->GetPosition() && identity==actor->GetUnitRPG()->GetRPGUnit() && time==f.world->GetTime()->GetValue(),"ownership AI changed AP/HP/position/identity/time");
+}
+
+static void NativeRPGOwnershipDamage(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<10,"unknown native RPG ownership damage mode");NativeHearingOwners f(databasePath,resourcePath);
+    NWorld::CUnitServer* actor=mode==0?f.aiUnit:mode==1?f.humanUnit:nullptr;CObj<NWorld::CUnitServer> held;
+    if(!actor){const bool initialAI=mode==2 || mode==5 || mode==7 || mode==9;
+        held=f.world->AddUnitInGame(f.FreePlace(f.humanUnit->GetPosition().GetCP(),20.f),NRPG::CreateUnit(NDb::GetPers(54)),initialAI?f.ai:f.human,"NativeOwnershipDamage");actor=held;}
+    if(mode==4)f.world->ChangeUnitPlayer(actor,f.ai);
+    if(mode==5)f.world->ChangeUnitPlayer(actor,f.human);
+    if(mode==7)f.ai->SetCommander(new NAI::CSequenceCommander(f.world));
+    if(mode==8)f.human->SetCommander(new NAI::CAICommander(f.world,f.human));
+    NDb::CDBDifficulty* authored=nullptr;CDBIterator<NDb::CDBDifficulty> records(*NDatabase::GetTable<NDb::CDBDifficulty>());
+    while(records.MoveNext()){auto* d=records.Get();if(d->fEnemyDamageMult>0 && d->fOurDamageMult>0 && d->fEnemyDamageMult!=d->fOurDamageMult && (!authored || d->GetRecordID()<authored->GetRecordID()))authored=d;}
+    Require(authored,"ownership damage lacks authored distinct enemy/our coefficients");f.game->pDifficulty=authored;
+    auto* armor=f.humanUnit->GetUnitRPG()->GetRPGArmor();Require(armor && armor->pMaterial && armor->pMaterial->GetRecordID()==NDb::CRPGMaterial::HUMAN_BODY,"ownership damage lacks actual human flesh armor");
+    int type=-1;CDBIterator<NDb::CRPGDmgToArmor> types(*NDatabase::GetTable<NDb::CRPGDmgToArmor>());
+    while(types.MoveNext())if(types.Get()->armors[armor->pMaterial->nDR]>0 && (type<0 || types.Get()->GetRecordID()<type))type=types.Get()->GetRecordID();
+    Require(type>=0,"ownership damage lacks authored positive damage type");
+    const bool anonymous=mode==6 || mode==9,expectedAI=mode==0 || mode==2 || mode==4 || mode==7;
+    NRPG::CAttackPortion attack(100000,type,0.f,100,100,0,0,anonymous?nullptr:actor->GetUnitRPG(),f.humanUnit->GetUnitRPG(),1.f,-1);
+    const int base=attack.CalcStructDmg(nullptr,armor,0);Require(base==100,"ownership damage lacks literal fixed-damage reference");
+    const float factor=anonymous?1.f:expectedAI?authored->fEnemyDamageMult:authored->fOurDamageMult;
+    const int expected=int(std::nearbyint(float(base)*factor));const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),targetHP=f.humanUnit->GetUnitRPG()->GetTotalVP();const auto pos=actor->GetPosition();auto random=GlobalGameRandom();
+    const int actual=attack.CalcStructDmg(f.world,armor,0);auto afterRandom=GlobalGameRandom();bool sameRNG=true;for(int i=0;i<4;++i)sameRNG&=random.Get()==afterRandom.Get();
+    std::printf("native RPG ownership damage mode=%d persona=%d difficulty=%d enemy=%.9g ours=%.9g RPG=%d commanderAI=%d anonymous=%d base=%d factor=%.9g actual=%d expected=%d AP=%d afterAP=%d HP=%d afterHP=%d targetHP=%d afterTargetHP=%d RNG=%d position=%d\n",mode,actor->GetUnitRPG()->GetRPGPersID(),authored->GetRecordID(),authored->fEnemyDamageMult,authored->fOurDamageMult,int(actor->GetUnitRPG()->IsAIPlayer()),int(actor->IsAIUnit()),int(anonymous),base,factor,actual,expected,ap,actor->GetAP(),hp,actor->GetUnitRPG()->GetTotalVP(),targetHP,f.humanUnit->GetUnitRPG()->GetTotalVP(),int(sameRNG),int(pos==actor->GetPosition()));std::fflush(stdout);
+    Require(actual==expected,"native structural damage used our difficulty multiplier for a saved AI-owned attacker");
+    Require(sameRNG && ap==actor->GetAP() && hp==actor->GetUnitRPG()->GetTotalVP() && targetHP==f.humanUnit->GetUnitRPG()->GetTotalVP() && pos==actor->GetPosition(),"ownership damage query changed combat state/RNG");
+}
+
+static void NativeHeardAICamera(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<12,"unknown native heard AI camera mode");NativeHearingOwners f(databasePath,resourcePath);
+    vector<CPtr<NWorld::CUnit>> prior;f.world->GetAllUnits(&prior);
+    for(auto u:prior){auto* s=dynamic_cast<NWorld::CUnitServer*>(u.GetPtr());if(s && s->CanFight())s->GetUnitRPG()->ApplyCritical(NRPG::SCritical(NDb::CL_HEAD,NDb::C_DEAF,3));}
+    auto* network=f.world->GetPathNetwork();const auto first=f.FreePlace(f.humanUnit->GetPosition().GetCP(),3.f);
+    const bool humanSource=mode==3,AIListener=mode==4;
+    CObj<NWorld::CUnitServer> source=f.world->AddUnitInGame(first,NRPG::CreateUnit(NDb::GetPers(103)),humanSource?f.human:f.ai,"NativeHeardAISource");
+    Require(source,"heard AI cannot create actual source");
+    const auto second=f.FreePlace(source->GetPosition().GetCP(),3.f);
+    CObj<NWorld::CUnitServer> listener=f.world->AddUnitInGame(second,NRPG::CreateUnit(NDb::GetPers(54)),AIListener?f.ai:f.human,"NativeHeardAIListener");
+    Require(listener && listener->CanFight(),"heard AI cannot create actual listener");
+    CObj<NWorld::CUnitServer> extra;
+    if(mode==9)extra=f.world->AddUnitInGame(f.FreePlace(source->GetPosition().GetCP(),3.f),NRPG::CreateUnit(NDb::GetPers(54)),f.human,"NativeHeardAIExtraListener");
+    if(mode!=5){listener->GetUnitRPG()->ApplyCritical(NRPG::SCritical(NDb::CL_HEAD,NDb::C_BLIND,3));if(extra)extra->GetUnitRPG()->ApplyCritical(NRPG::SCritical(NDb::CL_HEAD,NDb::C_BLIND,3));}
+    else listener->GetUnitRPG()->GetRPGUnit()->SetCheat(NRPG::CHEAT_SEEALL,true);
+    if(mode==6)listener->GetUnitRPG()->ApplyCritical(NRPG::SCritical(NDb::CL_HEAD,NDb::C_DEAF,3));
+    if(mode!=2)f.world->GivePlayerTurn(f.human);
+    f.world->UpdateVisible();
+    // Use the real ownerless sequence state; omitting GivePlayerTurn does not clear a prior turn.
+    if(mode==2)f.world->StartSequence();
+    Require(f.world->IsTurnBased()==(mode!=2) && (mode!=2 || f.world->IsSequence()),"heard AI lacks actual owned-turn/ownerless-sequence control");
+    auto isVisible=[&](NWorld::CUnitServer* u){const auto& v=u->GetTBSVisible();return std::find(v.begin(),v.end(),source.GetPtr())!=v.end();};
+    Require(isVisible(listener)==(mode==5),"heard AI lacks actual invisible/see-all visibility control");
+    if(extra)Require(!isVisible(extra),"heard AI extra actual blind listener unexpectedly sees source");
+    NDb::SAISound sound={NativeHearingSound(listener->GetUnitRPG(),true),0,1.f};
+    Require(fabs(source->GetPosition().GetCP()-listener->GetPosition().GetCP())*1.6f < sound.pAISound->GetRadiusFromAISoundType(0),"heard AI source falls outside actual loud hearing radius");
+    auto drain=[&](){int cameras=0;while(auto* p=f.world->GetUICommand()){CObj<NWorld::CUICmd> c=p;if(dynamic_cast<NWorld::CUICmdPointCamera*>(p))++cameras;}return cameras;};
+    drain();if(mode==1){f.world->MakeAISound(sound,source);Require(listener->IsAudible(source),"heard AI failed to prime actual already-audible sound");drain();listener->ClearSound(source);}
+    if(mode==10)f.ai->SetCommander(new NAI::CSequenceCommander(f.world));
+    if(mode==11)f.human->SetCommander(new NAI::CAICommander(f.world,f.human));
+    if(mode==7)sound.pAISound=nullptr;
+    if(mode==8){source->GetUnitRPG()->GetRPGUnit()->Kill();source->SyncConscious();Require(!source->CanFight(),"heard AI cannot establish actual dead-source control");drain();}
+    const int ap=listener->GetAP(),hp=listener->GetUnitRPG()->GetTotalVP();const auto pos=source->GetPosition();const auto time=f.world->GetTime()->GetValue();
+    const bool priorAudible=listener->IsAudible(source);f.world->MakeAISound(sound,source);
+    int cameras=0,payload=0,other=0;while(auto* p=f.world->GetUICommand()){CObj<NWorld::CUICmd> c=p;auto* camera=dynamic_cast<NWorld::CUICmdPointCamera*>(p);if(!camera){++other;continue;}++cameras;
+        payload+=int(camera->GetPriority()==NWorld::PR_UNIT_SOUND && camera->ptExplosion==pos.GetCP() && !camera->bUseSloMo && camera->fSloMoIncrProbability==0.f && camera->bNoZoom && camera->nExecTime==0 && camera->nFloor==pos.pos.GetFloor());}
+    const int expected=mode==0 || mode==1 || mode==10 || mode==11?1:mode==9?2:0;
+    const bool heard=mode!=6 && mode!=7 && mode!=8;int events=0;for(const auto& s:*listener->GetSounds())events+=int(s.pWho==source);
+    std::printf("native heard AI camera mode=%d TBS=%d sourceRPG=%d listenerRPG=%d sourceCommanderAI=%d listenerCommanderAI=%d visible=%d priorAudible=%d audible=%d heardEvents=%d expectedHeard=%d cameras=%d expected=%d payload=%d other=%d AP=%d afterAP=%d HP=%d afterHP=%d floor=%d\n",mode,int(f.world->IsTurnBased()),int(source->GetUnitRPG()->IsAIPlayer()),int(listener->GetUnitRPG()->IsAIPlayer()),int(source->IsAIUnit()),int(listener->IsAIUnit()),int(isVisible(listener)),int(priorAudible),int(listener->IsAudible(source)),events,int(heard),cameras,expected,payload,other,ap,listener->GetAP(),hp,listener->GetUnitRPG()->GetTotalVP(),pos.pos.GetFloor());std::fflush(stdout);
+    Require(events==int(heard) && listener->IsAudible(source)==(heard || priorAudible),"heard AI changed real hearing event/audible controls");
+    Require(cameras==expected && payload==expected && other==0,"heard AI failed to queue exact point/floor/priority camera payload for an unseen AI source");
+    Require(ap==listener->GetAP() && hp==listener->GetUnitRPG()->GetTotalVP() && pos==source->GetPosition() && time==f.world->GetTime()->GetValue(),"heard AI focus changed AP/HP/position/world time");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
@@ -33002,6 +33128,9 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-grenade-range-stance")) { Require(argc==5,"grenade range/stance requires db/resources/mode"); NativeGrenadeRangeStance(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grenade-hide-launch")) { Require(argc==5,"grenade hide requires db/resources/mode"); NativeGrenadeHideLaunch(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grenade-pk-launch")) { Require(argc==5,"grenade PK requires db/resources/mode"); NativeGrenadePKLaunch(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-rpg-ownership-damage")) { Require(argc==5,"ownership damage requires db/resources/mode"); NativeRPGOwnershipDamage(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-rpg-ownership-AI")) { Require(argc==5,"heard AI requires db/resources/mode"); NativeRPGOwnershipAI(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-heard-AI-camera")) { Require(argc==5,"heard AI requires db/resources/mode"); NativeHeardAICamera(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-hearing-probability")) { Require(argc==4,"hearing/noise requires db[/resources]/mode"); NativeHearingProbability(argv[2],std::atoi(argv[3])); return true; }
     if (!std::strcmp(mode, "native-hearing-practice")) { Require(argc==4,"hearing/noise requires db[/resources]/mode"); NativeHearingPractice(argv[2],std::atoi(argv[3])); return true; }
     if (!std::strcmp(mode, "native-movement-noise")) { Require(argc==5,"hearing/noise requires db[/resources]/mode"); NativeMovementNoise(argv[2],argv[3],std::atoi(argv[4])); return true; }

@@ -2425,9 +2425,14 @@ C3DSound* CWorld::MakeAISound( const NDb::SAISound &sound, CDumbUnitServer *_pWh
 			if ( pTarget->CanHearSound( pWho->GetPosition().GetCP(), sound, pWho ) )
 			{
 				pTarget->HearSound( stuff, pWho, pWho->GetPosition().pos.p );
-				// NOTE: retail @0x36aaf0 also queues a CUICmdPointCamera here when, in turn-based, a
-				// human unit hears an AI unit absent from the known-audible set (unit+0x168) -- that
-				// second set (rebuilt by UpdateVisible @0x3c4450) is not ported yet.
+				// Steam 0x76b600: focus an unseen AI sound even when it was already audible.
+				if ( IsTurnBased() && !pTarget->GetRPG()->IsAIPlayer() && pWho->GetRPG()->IsAIPlayer() )
+				{
+					const list<CPtr<CUnitServer> > &visible = pTarget->GetTBSVisible();
+					if ( find( visible.begin(), visible.end(), (CUnitServer*)pWho ) == visible.end() )
+						AddUICommand( new CUICmdPointCamera( pWho->GetPosition().GetCP(), PR_UNIT_SOUND,
+							false, 0, true, 0, pWho->GetPosition().pos.GetFloor() ) );
+				}
 				pTarget->SetAudible( pWho, true );
 				//
 				bool bDiplomacyEnemy = pTarget->GetDiplomacyState( pWho ) == NDb::DS_ENEMY;

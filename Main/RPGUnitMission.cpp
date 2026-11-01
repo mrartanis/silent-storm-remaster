@@ -207,7 +207,7 @@ public:
 	virtual CGlobalGame* GetGlobalGame() const { return pGlobalGame; }
 	// retail @0x2c5b40/@0x2c5b50/@0x2c5b90/@0x2c5ba0/@0x2c5bb0 -- plain setters/getters.
 	bool IsAIPlayer() const { return bIsAIUnit; }
-	void SetIsAIPlayer( bool b ) { bIsAIUnit = b; }
+	void SetIsAIPlayer( bool b ) override { bIsAIUnit = b; }
 	virtual void SetAuraPerkICModifier( float f ) { fAuraPerkICModifier = f; }
 	void SetScenarioPlayerID( int n ) { nScenarioPlayerID = n; }
 	int GetScenarioPlayerID() const { return nScenarioPlayerID; }

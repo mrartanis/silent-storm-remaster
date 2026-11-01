@@ -23035,3 +23035,46 @@ or already covered;46 sources remain (pending32 +partial14). Source171 heard-AI 
 dispatch remains separate. Eventual whole-task final hosted CI remains pending.
 
 Source: [242f6dfd827d93014c4210980f9d1c4af2a45b67](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/242f6dfd827d93014c4210980f9d1c4af2a45b67).
+
+## 2026-11-01: heard unseen AI camera and live RPG ownership identity (source171 complete)
+
+World.MakeAISound queues the existing CUICmdPointCamera after successful hearing when a
+human RPG listener hears an AI RPG source absent from that listener's real TBS-visible
+list. Prior audibility does not suppress repeat focus. Payload: source CP/floor,
+priority0, no slo-mo, probability0, noZoomtrue, dwell0. Existing mission camera
+arbitration consumes the command. This change checks producer queue/payload; it does not
+claim a full camera-animation/UI or original World runtime reproduction.
+
+The native saved RPG AI flag had no live writer, so the donor branch alone would be dead.
+Restore the original SetPlayer AI-snapshot binding and call that path from the real
+gameplay constructor. Append a nonpure setter without reordering current interface slots;
+existing concrete field/tag46 already exists. Ownership reassignment refreshes it; a
+commander-only change retains its saved snapshot. Original SetPlayer scenarioID/cheat128
+bookkeeping is outside this prerequisite. Existing serialized snapshots are respected;
+this does not rewrite old saves containing false flags.
+
+Canonical RED15/33 both:6 ownership assertions,5 actual heard-sound camera assertions and4
+actual difficulty-damage assertions. Authored difficulty rows remain untouched. GREEN33/33
+both plus416 Windows /414 Linux related regressions with identical production bytes, full
+Game builds and CI323: combined distinct passed coverage449/447. Final batches35/35
+include the33 new cases and two portable camera-wire checks; those2 Linux targets were
+missing from the initial build selection, so they were explicitly built and rechecked in
+the final batch. Eighteen new outcome controls pass; all35 prior hearing/noise/PK
+measurements match123. Initial mode2 omitted GivePlayerTurn but still hadTBS1; its
+unasserted setup is archived. Corrected mode2 uses actual StartSequence with explicit
+ownerless-sequence/TBS0 assertions. Repeat canonical RED restores both old live producers;
+the appended unused setter and assignment-only ctor call add no live flag/camera behavior.
+
+Original static: named CWorld root VT8cbc8c slot128 ->76b320/1316; whole1316 uniquely
+matches Gold75f940 only decodedE8/validatedEH/equalF32/namedRTTI+PointCameraVT operands.
+CUnitServer+168 is typed CTBSUnitVision, distinct from audible set+164. Saved mission AI
+getter6c5d90/7 and setter6c5da0/13 match exactGold; setter slot1a8. Whole SetPlayer139
+at7c1d70 uniquely matches Gold7b55f0 with decodedE8 only; actual classifier473ce0 excludes
+SequenceCommander. Actual gameplay ctor7c46f0 has unique validatedEH45 entry,
+actualcall7c499a ->SetPlayer andRET1c. Whole ctor comparison is rejected: extra Steam
+members/EHstates differ. Actual CalcStructDmg68f670 entry64 and raw exact unique62-byte
+flesh/AI/difficulty gate68f72d independently verify savedAI ->enemy+60 versus
+human->our+64. No opcode/frame/field/branch/size masks, fake provider or original
+executable patch; zero new original runtime records.
+
+Source: [1715d48307f8282d20192425599c5b4253c335ea](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1715d48307f8282d20192425599c5b4253c335ea). Whole-task final actual-head hosted CI remains pending;45 sources remain.

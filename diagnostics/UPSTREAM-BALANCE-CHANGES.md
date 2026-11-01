@@ -3743,3 +3743,29 @@ support the changes; no original full World/hearing/RNG runtime claim. Source242
 complete,46 sources remain; whole-task final hosted CI pending.
 
 Source: [242f6dfd827d93014c4210980f9d1c4af2a45b67](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/242f6dfd827d93014c4210980f9d1c4af2a45b67).
+
+## 2026-11-01: heard unseen AI camera and live RPG ownership identity
+
+Successful heard AI sounds in turn-based play can focus the camera when the human hearer
+cannot see their source. Repeat already-audible sounds still qualify. Priority0, source
+floor, no zoom, no slow motion and zero dwell match the original. Visible sources, human
+sources, AI hearers, ownerless sequences, deaf hearers, null sound records and dead
+sources produce no focus; two qualifying listeners each produce their own command.
+
+Restore the saved owner-AI snapshot when creating or assigning a unit. This also makes the
+already-present flesh-damage difficulty branch choose the authored enemy multiplier for
+AI-owned attackers, instead of always choosing the player multiplier. Commander-only
+changes keep the snapshot until another owner assignment. Null/anonymous attackers retain
+unscaled damage, and human attackers retain the player multiplier. The original
+flesh-material gate and damage/training/AP/HP/RNG formulas are unchanged; no authored
+difficulty record or save/network tag changes. Existing saved flag values remain
+authoritative; no legacy save migration is performed. Native fixed100 damage with distinct
+authored coefficients isolates four genuine RED cases, while six damage outcome controls
+pass.
+
+Canonical15/33 RED ->33 new tests both plus416Win/414Linux related passes, full Game
+both/CI323,35 prior hearing/PK measurements exact. Original typed139/1316,
+setter/classifier/ctor-call and exact62 difficulty gate are static evidence; zero new
+original runtime records. Source171 complete,45 sources remain.
+
+Source: [1715d48307f8282d20192425599c5b4253c335ea](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1715d48307f8282d20192425599c5b4253c335ea).

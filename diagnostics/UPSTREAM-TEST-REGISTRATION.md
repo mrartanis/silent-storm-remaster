@@ -1856,3 +1856,32 @@ Full Game builds/220 Windows /221 Linux selected checks/CI323 include all14 RED 
 prior PK measurements exact. Source242 complete,46 unfinished.
 
 Source: [242f6dfd827d93014c4210980f9d1c4af2a45b67](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/242f6dfd827d93014c4210980f9d1c4af2a45b67).
+
+## 2026-11-01: heard unseen AI camera and live RPG ownership identity
+
+Register NativeRPGOwnershipAI0..10, NativeRPGOwnershipDamage0..9 and
+NativeHeardAICamera0..11 for both native platforms, extended/120s. Real map/party owners
+and authored units exercise original-spawn/new-merc/owner-change/null/snapshot/tag46
+consumers. Damage uses actual CAttackPortion and untouched distinct authored difficulty,
+fixed100 flesh damage, independent coefficient/nearest-even reference and4 ISAAC
+continuation words. Hearing uses actual loud record, blind/see-all visibility,
+deaf/null/dead-source controls, prior real hearing, two listeners, ownerless sequence and
+saved flags diverging from current commanders; exact native point/floor/priority payload
+is drained from the actual World UI queue.
+
+Corrected canonical RED15/33 both ->33/33 final new tests; unchanged production bytes also
+pass416 Windows /414 Linux related tests. The initial broad run passes416/412 related
+names; the2 missing Linux portable camera targets are then explicitly built/rechecked in
+final35/35 batches both. Combined449/447 distinct names, Game both and CI323. The broad
+run's sole actual failing assertion is the unasserted mode2TBS1 premise, archived and
+replaced by the genuine asserted sequence control; no game-condition change was made to
+satisfy it. Related-only counts exclude all new cases, and no single all-green449/447
+CTest batch is claimed. All35 prior123 hearing/noise/PK samples exactly match. Original
+support is static only; no full World/mission timeline/RNG runtime claim.
+
+An intermediate restore copied the correct producer bytes with older timestamps, so both
+incremental builders retained RED objects. That35-case attempt is archived; the final run
+refreshes both source timestamps and verifies wMain/wUnitServer recompiled before
+accepting any GREEN result.
+
+Source: [1715d48307f8282d20192425599c5b4253c335ea](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1715d48307f8282d20192425599c5b4253c335ea).
