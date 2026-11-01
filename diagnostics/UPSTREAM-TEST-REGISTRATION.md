@@ -1732,3 +1732,29 @@ including rejection of a whole43-byte comparison with changed branch distances. 
 completes;51 unfinished.
 
 Source: [14ffbcc83ea0fff503aa22386c98274a5aadd9ca](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/14ffbcc83ea0fff503aa22386c98274a5aadd9ca).
+
+## 2026-11-01: camera framing floor gates and authored PK concealment
+
+NativeCameraFraming0..9 exercises real public framing, strict35 boundaries and independent
+single-point frozen/clamped/saved-floor cases. NativePKHideGate0..7 exercises actual worn
+authored allowed/forbidden records, factory acceptance/cooldown and zero-cost
+unhide/toggle Run; entry LOS/AP is outside scope. NativeCameraFramingBridge0..2 uses
+actual concrete CMission factory/accessor/forwarding with a real initialized view/world
+dependency attachment, no behavior override, and temporarily null camera-world handle; it
+does not claim full tactical initialization. Initial menu no-op forwarding assumptions are
+archived and excluded from canonical proof. Native RED9/10 +3/8 +2/3 both is a14/21 unique
+union. Seven controls, inputs and hypotheses remain exact; search-angle preservation is
+intentionally pending1b85 candidate order, not an original full-pose reference.
+
+10 original base-floor records/4 smoke execute real220-byte base-subobject
+ctor660/non-pure43-byte setter/getter/range/Freeze/Lock/dtor in PC24/PC53, with exact5
+floor references, read-only full RNG2064 equality,
+lifecycles/stack/context/CW/cfg/normalclose0. Actual original rod and PK gates are
+independently typed/unique/static. Original full World/framing/LOS/bridge/PKCanDo were not
+executed; null-world full framing was rejected before runtime, including detection of
+actual9/5-argument signatures and changed factory sizes/addresses. No
+branch/opcode/frame/size masks or fake provider. Full Game builds/86 Windows /85 Linux
+selected regressions/CI323 include all21 RED names. Sourcea675 complete,50 unfinished;
+source1b85 next.
+
+Source: [a6753bf56be2d09c3b84412b4285db2ff54d6306](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a6753bf56be2d09c3b84412b4285db2ff54d6306).

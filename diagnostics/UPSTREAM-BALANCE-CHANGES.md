@@ -3644,3 +3644,24 @@ restoration. Source14ff completes after prior queue/draw/Hide work;51 sources re
 final whole-task hosted CI is pending.
 
 Source: [14ffbcc83ea0fff503aa22386c98274a5aadd9ca](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/14ffbcc83ea0fff503aa22386c98274a5aadd9ca).
+
+## 2026-11-01: camera framing floor gates and authored PK concealment
+
+Two-point framing keeps an already-visible pose only below rod35, with equality searching.
+Framing now honors frozen/clamped camera floors and publishes the camera's accepted floor
+to the real render bridge. Tested request9 becomes2, frozen1 stays1, released negative
+request clamps0. Authored stealth-capable PK5/persona318 no longer fails Hide availability
+solely for wearing a suit; forbidden records/cooldown still reject, while existing
+visibility checks/costs remain. Actual unhide/toggle/no-op cases complete without extra
+AP/HP/item/position change. Hide-entry LOS/AP and complete original framing-pose parity
+are outside these bounded tests; candidate ordering/local-RNG restoration remains
+source1b85. Public API/save/network/renderer/authored DB values stay unchanged.
+
+Native RED union14/21 both ->86 Windows /85 Linux selected camera/Hide tests, full Game
+builds/CI323;7 controls and inputs fixed. Actual original base-floor10 records/4 smoke,
+complete read-only RNG/stack/context/CW/config restoration and separate static
+ordered35/DB-bool predicates support the changes. No original complete
+World/framing/LOS/bridge/PKCanDo runtime is claimed. Sourcea675 is complete;50 sources
+remain and whole-task final hosted CI is pending.
+
+Source: [a6753bf56be2d09c3b84412b4285db2ff54d6306](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a6753bf56be2d09c3b84412b4285db2ff54d6306).

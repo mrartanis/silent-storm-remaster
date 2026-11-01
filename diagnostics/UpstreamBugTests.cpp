@@ -26580,6 +26580,66 @@ static void DeferredTakeObject(const char* databasePath,const char* resourcePath
         "native script pickup changed actor/AP/inventory or removed the world body before queued command consumption");
 }
 
+static void NativePKHideGate(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<8,"unknown native PK hide gate mode");NativeGrenadeThrowFixture fixture(databasePath,resourcePath,false,true);auto& world=fixture.world;auto* actor=fixture.actor;const bool worn=mode!=0 && mode!=7,canHideRecord=mode==1 || mode==3 || mode==4 || mode==5,cooldown=mode==3 || mode==7;CObj<NWorld::CUnitServer> shell;NDb::CRPGPers* suit=nullptr;
+    if(worn){auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),20.f),&places);NAI::SPathPlace place;bool found=false;for(auto p:places){p.SetPose(NAI::CM_STAND);p.SetMoving(0);if(network->IsPassable(p) && !network->IsLocked(p) && NAI::IsBigLockerPlacePassable(network,p)){place=p;found=true;break;}}Require(found,"PK hide lacks an actual free big-locker placement");CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());while(people.MoveNext()){auto* p=people.Get();if(p->pPanzerklein && p->pModel && p->pPanzerklein->nMaxVP>0 && p->pPanzerklein->bCanHide==canHideRecord && (!suit || p->GetRecordID()<suit->GetRecordID()))suit=p;}Require(suit,"PK hide lacks its authored allowed/forbidden model");shell=world->AddUnitInGame(place,NRPG::CreateUnit(suit),nullptr);Require(shell && shell->IsEmptyPK() && shell->WearAsPK(true),"PK hide cannot prepare its actual empty shell");actor->SetPosition(shell->GetPosition());actor->FlipPanzerklein(shell,false,false);Require(actor->IsWearingPK() && actor->GetWearingDBPK()==suit->pPanzerklein.GetPtr(),"PK hide did not establish its actual worn identity");}
+    world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer()));actor->GetUnitRPG()->GetRPGUnit()->UpdateSkills();Require(!world->IsRealTime() && !world->IsSequence(),"PK hide fixture did not establish its actual player turn");const bool initial=mode!=5 && !cooldown;actor->EnableHide();actor->Hide(initial,false);actor->EnableHide();if(cooldown)actor->Hide(false,false);Require(actor->IsHiding()==initial && actor->CanHide()==!cooldown,"PK hide cannot prepare actual concealment/cooldown state");
+    CObj<NWorld::CCmdHide> command=mode==4 || mode==6?new NWorld::CCmdHide:new NWorld::CCmdHide(false);const bool accepted=(mode==0 || mode==1 || mode==4 || mode==5);const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();const auto position=actor->GetPosition();const auto time=world->GetTime()->GetValue();auto* active=actor->GetUnitRPG()->GetInventory()->GetActive();auto random=GlobalGameRandom();NWorld::EUnitCommandResult result=NWorld::UCR_GENERAL_FAILURE;CObj<NWorld::CCommandExecute> executor=NWorld::CreateExecutor(actor,command,&result);
+    std::printf("native PK hide mode=%d worn=%d persona=%d PK=%d DBcanHide=%d cooldown=%d initial=%d explicit=%d requested=%d result=%d expected=%d executor=%d\n",mode,int(worn),suit?suit->GetRecordID():0,suit?suit->pPanzerklein->GetRecordID():0,int(worn && canHideRecord),int(cooldown),int(initial),int(command->bExplicitState),int(command->bState),int(result),int(accepted?NWorld::UCR_OK:NWorld::UCR_GENERAL_FAILURE),int(bool(executor)));std::fflush(stdout);
+    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetPosition()==position && world->GetTime()->GetValue()==time && actor->IsHiding()==initial && actor->GetUnitRPG()->GetInventory()->GetActive()==active && random.Get()==GlobalGameRandom().Get(),"PK hide availability changed AP/HP/position/time/concealment/item/RNG");
+    Require(result==(accepted?NWorld::UCR_OK:NWorld::UCR_GENERAL_FAILURE) && bool(executor)==accepted,"native Hide executor rejects an authored stealth-capable PK or bypasses forbidden/cooldown gates");
+    if(executor){Require(executor->GetStartAP()==0,"PK unhide/toggle acquired a hide-entry AP cost");executor->Run();Require(!actor->IsHiding() && executor->GetState()==NWorld::CCommandExecute::FINISHED && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetPosition()==position && actor->GetUnitRPG()->GetInventory()->GetActive()==active,"actual accepted PK unhide/toggle changed AP/HP/item/position or failed completion");}
+}
+
+
+class CameraFloorBridgeMissionFixture: public NGame::CMission
+{
+public:
+    void Attach(NWorld::IWorld* world,NGScene::IGameView* view){pWorld=world;pScene=view;}
+    void Detach(){pWorld=nullptr;pScene=nullptr;}
+};
+
+static void NativeCameraFramingBridge(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<3,"unknown camera framing bridge mode");Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"camera bridge starts with an interface");NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm camera floor bridge regression");
+    struct ClockRestore{STime old;~ClockRestore(){NMainLoop::SetTimeForHarness(old);}} clock{NMainLoop::SetTimeForHarness(1000)};CObj<NDb::CScript> quiet=new NDb::CScript;quiet->strCode="function OnEnterZone() end";
+    struct Restore{vector<std::pair<CPtr<NDb::CTemplVariant>,CPtr<NDb::CScript>>> variants;~Restore(){for(auto& p:variants)if(IsValid(p.first))p.first->pScript=p.second;}} restore;
+    CDBIterator<NDb::CTemplVariant> variants(*NDatabase::GetTable<NDb::CTemplVariant>());while(variants.MoveNext())if(variants.Get()->pTemplate && variants.Get()->pTemplate->GetRecordID()==2425){restore.variants.push_back({variants.Get(),variants.Get()->pScript});variants.Get()->pScript=quiet.GetPtr();}Require(!restore.variants.empty(),"camera bridge lacks authored menu variants");CObj<NGame::CICMainMenu> open=new NGame::CICMainMenu;open->Exec();
+    CObj<NGame::CMissionBase> owner=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());auto* world=owner?dynamic_cast<NWorld::CWorld*>(owner->GetWorld()):nullptr;auto* view=owner?owner->GetScene():nullptr;auto* camera=owner?owner->GetCamera():nullptr;Require(world && view && camera && owner->GetRenderGame(),"camera bridge lacks its actual initialized mission/world/view/camera/renderer");
+    NMainLoop::SetTimeForHarness(1050);Require(NMainLoop::StepApp(true,false,false),"camera bridge warm-up frame exited");Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr() && !NMainLoop::HaveInterfaceCommand(),"camera bridge opened an unrelated interface");while(auto* pending=world->GetUICommand()){CObj<NWorld::CUICmd> release=pending;}
+    // Exercise concrete tactical-mission forwarding and its real factory/accessor,
+    // sharing the initialized native view/world; the menu base floor methods are no-ops.
+    CObj<CameraFloorBridgeMissionFixture> bridgeOwner=new CameraFloorBridgeMissionFixture;bridgeOwner->Attach(world,view);
+    CObj<ICamera> bridgeCamera=bridgeOwner->CreateCamera(CAMERA_PC);Require(bridgeCamera,"floor bridge cannot create its actual tactical camera");camera=bridgeCamera;
+    struct Detach{CameraFloorBridgeMissionFixture* owner;~Detach(){owner->Detach();}} detach{bridgeOwner};
+    // Use the supported no-world framing context to isolate floor publication from terrain/LOS.
+    // The concrete mission-installed accessor and actual render view remain attached.
+    camera->SetWorld(nullptr);struct RestoreWorld{ICamera* camera;NWorld::IWorld* world;~RestoreWorld(){camera->SetWorld(world);}} restoreWorld{camera,world};camera->SetPlacement(ICamera::SCameraPos(CVec3(0,0,0),20.f,-FP_PI/4,.125f,0,35.f));camera->SetScreenRect(CTRect<float>(0,0,1,1));camera->SetCutFloorRange(0,2);view->SetCutFloorRange(0,4);camera->SetCutFloor(1);view->SetCutFloor(1);if(mode==1)camera->FreezeCamera(true);
+    const int request=mode==0?9:mode==1?2:1,expected=mode==0?2:1;const auto time=world->GetTime()->GetValue();auto random=GlobalGameRandom();camera->ShowPlacesFromBestPoint(CVec3(-.125f,0,0),CVec3(-.125f,0,0),request,24.f,1,1.f,true,true);
+    const int cameraFloor=camera->GetCutFloor(),viewFloor=view->GetCutFloor();std::printf("native camera floor bridge mode=%d frozen=%d request=%d cameraFloor=%d viewFloor=%d expected=%d\n",mode,int(mode==1),request,cameraFloor,viewFloor,expected);std::fflush(stdout);
+    Require(world->GetTime()->GetValue()==time && random.Get()==GlobalGameRandom().Get() && NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr(),"floor framing advanced world time/RNG or changed interface ownership");if(mode==1)camera->FreezeCamera(false);
+    Require(cameraFloor==expected && viewFloor==expected,"camera framing published an unclamped or frozen floor to its actual mission/render bridge");
+}
+
+
+static void NativeCameraFraming(int mode)
+{
+    Require(mode>=0 && mode<10,"unknown native camera framing mode");CObj<ICamera> camera=::CreateCamera(CAMERA_PC);Require(camera,"framing fixture lacks its actual native camera");
+    const float rods[]={20.f,std::nextafter(35.f,0.f),35.f,std::nextafter(35.f,100.f),40.f};const bool single=mode>=5;const float rod=single?20.f:rods[mode];
+    const ICamera::SCameraPos initial(CVec3(0,0,0),rod,-FP_PI/4,.125f,0,35.f);camera->SetPlacement(initial);camera->SetScreenRect(CTRect<float>(0,0,1,1));camera->SetCutFloorRange(0,2);camera->SetCutFloor(single?1:0);
+    if(mode==6)camera->FreezeCamera(true);if(mode==7){camera->FreezeCamera(true);camera->FreezeCamera(true);camera->FreezeCamera(false);}if(mode==8){camera->FreezeCamera(true);camera->FreezeCamera(false);}
+    const int requested=mode==5?9:mode==6 || mode==7?2:mode==8?-3:mode==9?1:0;const int expectedFloor=mode==5?2:mode==6 || mode==7 || mode==9?1:0;
+    struct BaseState {int floor=-99,minimum=-99,maximum=-99,locks=-99,frozen=-99;int operator&(CStructureSaver& f){f.Add(2,&locks);f.Add(3,&floor);f.Add(11,&minimum);f.Add(12,&maximum);f.Add(14,&frozen);return 0;}};
+    auto state=[&](ICamera::SCameraPos* desired){BaseState base;CStructureNetworkContext refs;auto fields=BorrowedObjectFields(camera,&refs);{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(1,&base);reader.Add(4,desired);}return base;};
+    ICamera::SCameraPos before;const auto baseBefore=state(&before);ICamera::SCameraPos liveBefore;camera->GetPlacement(&liveBefore);auto random=GlobalGameRandom();const CVec3 A(-.125f,0,0),B=single?A:CVec3(.125f,0,0);
+    camera->ShowPlacesFromBestPoint(A,B,requested,24.f,1,1.f,true,true);ICamera::SCameraPos desired;const auto after=state(&desired);ICamera::SCameraPos liveAfter;camera->GetPlacement(&liveAfter);const bool keep=single || mode<2;const float expectedRod=keep?rod:15.f,expectedYaw=keep?.125f:.5235988f;
+    std::printf("native camera framing mode=%d single=%d initialRod=%.9g requestedFloor=%d beforeFloor=%d frozen=%d desiredRod=%.9g expectedRod=%.9g yaw=%.9g expectedYaw=%.9g floor=%d expectedFloor=%d savedFloor=%d\n",mode,int(single),rod,requested,baseBefore.floor,baseBefore.frozen,desired.fRod,expectedRod,desired.fYaw,expectedYaw,camera->GetCutFloor(),expectedFloor,after.floor);std::fflush(stdout);
+    Require(std::memcmp(&liveBefore,&liveAfter,sizeof(liveBefore))==0 && after.minimum==0 && after.maximum==2 && after.locks==baseBefore.locks && after.frozen==baseBefore.frozen && random.Get()==GlobalGameRandom().Get(),"camera framing changed live placement/clamp range/freeze counts or gameplay RNG");
+    Require(desired.fRod==expectedRod && std::fabs(desired.fYaw-expectedYaw)<1e-6f && camera->GetCutFloor()==expectedFloor && after.floor==expectedFloor,"native framing uses the wrong strict35 rod gate or bypasses frozen/clamped virtual floor updates");
+}
+
+
 static void NativeHeldGrenadePriority(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<9,"unknown held grenade priority mode");NativeGrenadeThrowFixture fixture(databasePath,resourcePath,false,true);auto* actor=fixture.actor;auto* inventory=actor->GetUnitRPG()->GetInventory();
@@ -32847,6 +32907,9 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-grenade-range-stance")) { Require(argc==5,"grenade range/stance requires db/resources/mode"); NativeGrenadeRangeStance(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grenade-hide-launch")) { Require(argc==5,"grenade hide requires db/resources/mode"); NativeGrenadeHideLaunch(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grenade-pk-launch")) { Require(argc==5,"grenade PK requires db/resources/mode"); NativeGrenadePKLaunch(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-pk-hide-gate")) { Require(argc==5,"PK hide gate requires db/resources/mode"); NativePKHideGate(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-camera-framing-bridge")) { Require(argc==5,"camera bridge requires db/resources/mode"); NativeCameraFramingBridge(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-camera-framing")) { Require(argc==3,"camera framing requires mode"); NativeCameraFraming(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "native-held-grenade-priority")) { Require(argc==5,"held grenade priority requires db/resources/mode"); NativeHeldGrenadePriority(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grenade-fuse")) { Require(argc==5,"grenade fuse requires db/resources/mode"); NativeGrenadeFuse(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grenade-physics")) { Require(argc==5,"grenade range/stance requires db/resources/mode"); NativeGrenadePhysics(argv[2],argv[3],std::atoi(argv[4])); return true; }

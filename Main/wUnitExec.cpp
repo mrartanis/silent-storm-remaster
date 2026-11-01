@@ -787,7 +787,9 @@ EUnitCommandResult CExecHide::CanDoIt()
 	if ( !pUS->CanHide() )
 		return UCR_GENERAL_FAILURE;
 
-	if ( pUS->IsWearingPK() )
+	// Actual Steam 0x7b3f7e tests the worn record's bCanHide after the cooldown gate.
+	NDb::CPanzerklein *pPK = pUS->GetWearingDBPK();
+	if ( IsValid( pPK ) && !pPK->bCanHide )
 		return UCR_GENERAL_FAILURE;
 
 	if ( bExplicitState ? !bState : pUS->GetUnitRPG()->IsHiding() )

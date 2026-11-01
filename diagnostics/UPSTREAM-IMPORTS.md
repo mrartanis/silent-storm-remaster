@@ -22676,3 +22676,82 @@ imported;51 sources remain (pending37 +partial14). Whole-task final hosted CI re
 pending.
 
 Source: [14ffbcc83ea0fff503aa22386c98274a5aadd9ca](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/14ffbcc83ea0fff503aa22386c98274a5aadd9ca).
+
+## 2026-11-01: camera framing floor gates and authored PK concealment (sourcea675 complete)
+
+The live ShowTwoPlaces fast path now requires ordered desired rod<35; equality and larger
+values search. The existing private CutFloorSet respects positive freeze count, dispatches
+through virtual SetCutFloor, and publishes GetCutFloor's accepted value through the
+retained mission/render accessor. Clamp range and nested freeze therefore apply to framing
+and the camera's saved floor. CExecHide availability now checks actual worn DB bCanHide
+after the unchanged cooldown gate, rather than rejecting every worn suit. Ordinary/no-suit
+behavior, enemy visibility checks, Hide costs/Run, saved fields, camera/render bridge
+ownership, own eight-argument public framing API and renderer stay intact.
+
+NativeCameraFraming0..9 invokes the existing public real-camera framing consumer and reads
+existing desired/base serialized fields in its supported no-world context. Rod20
+and34.9999962 now keep the pose;35,35.0000038 and40 search. One-point cases independently
+isolate floor dispatch: request9 clamps2, frozen/nested-frozen stays1, released lock
+accepts negative request as0, and accepted1 is a control. Live placement, ranges,
+lock/freeze counts and gameplay RNG remain fixed. Search yaw intentionally preserves the
+fork's existing candidate order here: these tests are rod/floor branch proofs, not whole
+original framing-pose references. Original current-yaw-first ordering, tie policy and
+local-RNG details remain source1b85's next task.
+
+NativePKHideGate0..7 uses actual worn suits and real executor factory, player turn,
+derived-skill refresh, concealment/cooldown and accepted Run. Authored stealth-capable
+persona318/PK5 is admitted for explicit unhide, live-toggle unhide and visible-state
+no-op; forbidden suits and cooldown remain rejected. Five controls are exact. Availability
+queries preserve AP/HP/item/position/time/concealment/RNG; accepted unhide/toggle Run
+finishes without AP/HP/item/position change. PK hide-entry LOS/visibility and entry AP
+spending are not presented as tested by these unhide-focused gate cases.
+
+NativeCameraFramingBridge0..2 uses actual CMissionBase::CreateCamera and CMission's
+inherited floor forwarding over a real initialized menu render view/world. A fixture
+subclass only attaches/detaches those real dependencies and overrides no behavior. Its
+created camera retains the actual mission-installed accessor; only the camera's world
+handle is temporarily null to isolate publication from terrain/LOS, then restored.
+Concrete mission owner and initialized view are distinguished from complete active
+tactical-mission initialization. Request9 previously left camera9/view4; both now2. Freeze
+previously changed both to2; both stay1. No-op1 is exact. The first bridge attempt used
+menu-base floor no-ops, so its scene result was not valid forwarding evidence; it is
+archived separately and replaced before canonical RED by the concrete-mission fixture. No
+game change was made to menu floor policy.
+
+Canonical native RED is9/10 CPU-camera +3/8 PK +2/3 corrected bridge on both platforms:14
+failures /21 unique tests by union, not a single21-case run. All7 controls and all
+captured input/numerical hypotheses remain fixed. Original Steam's actual unique ordered35
+predicate is4cf196/19, called from ShowTwoPlaces4cf170; the actual fast path dispatches
+floor virtual48 at4cf1bd. Unique PK cooldown and DB-bool blocks7b3f5b/12 and7b3f7e/12 bind
+actual GetWearingDBPK slot34 and byte55, with the same rejection target before later
+visibility logic. Real typed60-byte worn-PK getter proof is retained from117. No
+opcode/frame/branch masks force those predicates to match.
+
+Ten actual original records plus4 lifecycle-smoke records execute real CBaseCamera
+base-subobject constructor4cd500/660, non-pure virtual floor43/getter/range/Freeze/Lock
+and destructor on an owned220-byte base buffer under observed PC24 and diagnostic PC53.
+All5 integer floor references match in both modes. Only floor38 changes during the
+measured setter; minBC/maxC0, freezeD4 and locks34 match actual typed fields.
+Constructor/refcount/base-vtable cleanup and other real item/tree lifecycle controls,
+complete2064-byte original RNG read-only equality around the base lifecycle, real
+stack/readback,716-byte context/CW/config restoration and normal WM_CLOSE/exit0 are
+verified. No fake provider or original code/DB/world/TEB/RNG patch.
+
+Original rod and PK predicates are static audits; original complete-camera
+framing/LOS/World/bridge and complete PK CanDoIt were not executed. Full framing with a
+null original world was rejected statically before any runtime: actual ShowPlaces
+dereferences World and adds a ninth force-pair argument versus Gold's eight, forwarding it
+to the five-argument ShowTwo. No fake world/visibility provider or speculative API
+restoration is used. The donor's factory comment4cf8e0 points into another constructor;
+actual factory4cfa70 is independently identified. Gold factory allocationsF4/E4/1c8 become
+SteamF8/E8/1cc and base ctor648 becomes660; no allocation-size/field/branch masks or
+whole-factory/constructor equivalence claim hide those differences. Only the real base
+component is used for the bounded integer reference.
+
+Full Game builds, 86 Windows /85 Linux selected camera/Hide/serialization/lock/item-map
+tests and CI323 pass, including every21 RED name. Unrelated pure
+accuracy/medical/XP/graphics suites are not claimed as rerun. All usefula675 hunks are
+imported;50 sources remain (pending36 +partial14), including source1b85 camera
+ordering/RNG. Eventual whole-task final hosted CI remains pending.
+
+Source: [a6753bf56be2d09c3b84412b4285db2ff54d6306](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a6753bf56be2d09c3b84412b4285db2ff54d6306).
