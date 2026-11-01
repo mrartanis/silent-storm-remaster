@@ -4001,3 +4001,25 @@ Original static99/58/67/549 and independently decoded typed Normal callsites; no
 unknown-global/control masks or original game process.34 sources remain.
 
 Source: [98871d0f0def4f966e097b984c18e57a8f437d7b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98871d0f0def4f966e097b984c18e57a8f437d7b).
+
+## 2026-11-01: tooltip options and original hover deadline
+
+UI timing only: ui_showtooltips now controls hover claims; ui_tooltipdelay is scaled
+by10000, so .1 gives1000ms. Keep the same-owner deadline, reset on owner changes/re-entry,
+and show strictly after the deadline. Existing no-claim Step cleanup remains. The
+portable53-bit deadline math follows the observed original x86 default027F context: .7 at
+time100 gives7099; original signedFISTP32 out-of-range result80000000 is preserved.33
+bounded original calls characterize alternate precision contexts separately; no
+all-mode/full-original-UI identity is claimed. This supersedes the earlier provisional
+immediate display retained during sourcea2's oversized clamp partial. No
+gameplay/AP/damage, save/wire, fonts/faces/HD/PNG, owned sound/input/render lifecycle
+changes. Width400 and old tooltip measurement/Draw/clamp remain until the separate
+sourcea2 stage.
+
+Native RED10/12 ->GREEN12/12 both, two exact controls, owner geometry/fourRNG/shared sound
+preserved; 141 Windows/133 Linux related cases/full Game both/CI378.12 packaged
+vector-font rows match across platforms and old ordinary/oversized metrics remain intact.0
+original Game.exe processes;33 bounded native original-function calls. Both donor sources
+remain partial;34 unfinished.
+
+Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).

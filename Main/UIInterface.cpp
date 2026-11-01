@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include <cstdint>
 #include "DisplayLayout.h"
 #include "../Game/Platform.h"
 #include "G2DView.h"
@@ -401,21 +402,36 @@ void CInterface::SetCursorInfo( const SCursorInfo &sInfo )
 		sCursor = sDefaultCursor;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// The original default-precision clock path converts with signed x87 FISTP32.
+// Keep its result for fractional settings and out-of-range clocks on both ABIs.
+static STime ToolTipDeadline( STime time, float delay )
+{
+	const double value = double( time ) + double( delay ) * 10000.0;
+	if ( !( value >= -2147483648.0 && value < 2147483648.0 ) )
+		return STime( 0x80000000u );
+	return STime( static_cast<std::int32_t>( value ) );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterface::SetToolTipOwner( CWindow *pOwner )
 {
-	// retail @0x31c9e0: a live owner that owns a live tooltip sets the STICKY per-frame flag first
-	// (Step clears it and tears the tooltip down when no window re-claims it this frame).
+	if ( !NGlobal::GetVar( "ui_showtooltips", 1.0f ).GetFloat() )
+		return;
 	if ( IsValid( pOwner ) && IsValid( pOwner->GetToolTip() ) )
 		bToolTipSet = true;
-
 	if ( pToolTipOwner == pOwner )
 		return;
-
 	if ( IsValid( pToolTip ) )
 		pToolTip->SetStyle( STYLE_VISIBLE, false );
-
 	pToolTip = 0;
 	pToolTipOwner = pOwner;
+	sToolTipDelay = 0;
+	UpdateToolTip( true, 0 );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CInterface::UpdateToolTip( bool bNewOwner, const STime &sTime )
+{
+	if ( sTime && !sToolTipDelay )
+		sToolTipDelay = ToolTipDeadline( sTime, NGlobal::GetVar( "ui_tooltipdelay", 0.1f ).GetFloat() );
 	if ( IsValid( pToolTipOwner ) )
 	{
 		pToolTip = pToolTipOwner->GetToolTip();
@@ -423,13 +439,12 @@ void CInterface::SetToolTipOwner( CWindow *pOwner )
 		{
 			SRect sWindow;
 			SPoint sPosition;
-			pOwner->ClientToScreen( &sPosition, &sWindow );
-
-			pToolTip->SetStyle( STYLE_VISIBLE, true );
-			pToolTip->SetPosition( SPoint( sCursorPoint.x , sPosition.y ) );
+			pToolTipOwner->ClientToScreen( &sPosition, &sWindow );
+			if ( sToolTipDelay && sToolTipDelay < sTime )
+				pToolTip->SetStyle( STYLE_VISIBLE, true );
+			if ( bNewOwner )
+				pToolTip->SetPosition( SPoint( sCursorPoint.x, sPosition.y ) );
 		}
-
-//	DebugTrace( "%s\n", pToolTipOwner->GetWindowID().c_str() );
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -636,6 +651,7 @@ void CInterface::Draw( const STime &sTime )
 		pSound->Draw( &ts );
 	}
 
+	UpdateToolTip( false, sTime );
 	pView->StartNewFrame();
 	CWindow::Draw( sTime, pView );
 

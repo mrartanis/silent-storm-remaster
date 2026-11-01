@@ -33184,6 +33184,50 @@ static void NativeWoundedAIRetreat(const char* db,const char* resources,int mode
     Require(retreat==shouldRetreat && guard==!shouldRetreat && destination && deferred && rng,"normal fear routing uses the approximate unreachable target, omits suspects or inline-updates the new reaction");
 }
 
+static void NativeTooltipDelay(const char* db,const char* resources,int mode)
+{
+    Require(mode>=0 && mode<12,"unknown native tooltip delay mode");S2Platform::SetErrorDialogs(false);struct PlatformCleanup{~PlatformCleanup(){S2Platform::Done();}} platformCleanup;
+    Require(S2Platform::Init("native tooltip delay",1024,768,true),"tooltip clock cannot initialize owned dummy display");CFileStream database;database.OpenRead(db);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resources);
+    const auto oldShow=NGlobal::GetVar("ui_showtooltips"),oldDelay=NGlobal::GetVar("ui_tooltipdelay");struct Options{NGlobal::CValue show,delay;~Options(){NGlobal::SetVar("ui_showtooltips",show);NGlobal::SetVar("ui_tooltipdelay",delay);}} options{oldShow,oldDelay};NGlobal::SetVar("ui_showtooltips",NGlobal::CValue(mode==2?0.f:1.f));NGlobal::SetVar("ui_tooltipdelay",NGlobal::CValue(mode==1?0.f:mode==10?.7f:.1f));
+    struct FrameBoundary{};class ClockFrameView:public DialogueLayoutView{
+        OBJECT_NOCOPY_METHODS(ClockFrameView);
+        CObj<NGScene::CCVec2> screen=new NGScene::CCVec2(CVec2(1024,768));
+    public:
+        CFuncBase<NGScene::SText>* CreateText(CFuncBase<wstring>* text,CFuncBase<CTPoint<int>>* size,bool tags) override{return NGScene::CreateTextFormater(GetLocaleInfo(),screen,text,size,tags);}
+        void StartNewFrame() override{throw FrameBoundary();}
+    };
+    CObj<CCTime> clock=new CCTime(0);CObj<NSound::ISoundScene> sound=NSound::CreateSoundScene(nullptr,nullptr,clock);CObj<NUI::ICursor> cursor=NUI::ICursor::Create(false);CObj<NUI::CInterface> root=new NUI::CInterface(cursor,sound);CObj<NGScene::I2DGameView> view=new ClockFrameView;
+    {CStructureNetworkContext refs;auto fields=BorrowedObjectFields(root,&refs);auto* original=root->GetView();Require(refs.ids.count(original)!=0,"tooltip clock view not captured by actual native fields");refs.refs[refs.ids.at(original)]=view.GetPtr();CStructureSaver reader(fields,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(root.GetPtr())->operator&(reader);}
+    Require(root->GetView()==view.GetPtr() && root->GetSound()==sound.GetPtr(),"tooltip clock observer changed shared sound/view ownership");
+    CObj<NUI::CWindow> first=new NUI::CWindow(NUI::SWindowInfo(root,NUI::SPoint(0,0),NUI::SPoint(200,80),"clock-owner",NUI::STYLE_VISIBLE|NUI::STYLE_ENABLED));CObj<NUI::CWindow> second=new NUI::CWindow(NUI::SWindowInfo(root,NUI::SPoint(250,0),NUI::SPoint(200,80),"clock-other",NUI::STYLE_VISIBLE|NUI::STYLE_ENABLED));
+    CObj<NUI::CToolTip> tip=new NUI::CToolTip(NUI::SWindowInfo(root,NUI::SPoint(0,0),NUI::SPoint(0,0),"clock-tooltip",NUI::STYLE_VISIBLE|NUI::STYLE_ENABLED)),other=new NUI::CToolTip(NUI::SWindowInfo(root,NUI::SPoint(0,0),NUI::SPoint(0,0),"clock-other-tooltip",NUI::STYLE_VISIBLE|NUI::STYLE_ENABLED));tip->SetText(L"<font face=Courier size=16pt>Native clock");other->SetText(L"<font face=Courier size=16pt>Native other clock");first->SetToolTip(tip);other->SetStyle(NUI::STYLE_VISIBLE,false);if(mode!=6)second->SetToolTip(other);
+    auto draw=[&](STime time){MarkNewDGFrame();bool reached=false;try{root->Draw(time);}catch(const FrameBoundary&){reached=true;}Require(reached,"actual interface Draw did not reach frame boundary");};
+    string actual,expected;auto sample=[&](bool a,bool b,const char* label,STime time){const bool firstVisible=tip->GetStyle(NUI::STYLE_VISIBLE),secondVisible=other->GetStyle(NUI::STYLE_VISIBLE);actual+=firstVisible?'1':'0';actual+=secondVisible?'1':'0';expected+=a?'1':'0';expected+=b?'1':'0';std::printf("native tooltip delay mode=%d step=%s time=%u visible=%d/%d expected=%d/%d\n",mode,label,unsigned(time),int(firstVisible),int(secondVisible),int(a),int(b));};
+    auto at=[&](STime time,bool a,bool b){draw(time);sample(a,b,"draw",time);};
+    const auto firstPosition=first->GetPosition(),secondPosition=second->GetPosition(),firstSize=first->GetSize(),secondSize=second->GetSize();auto random=GlobalGameRandom();
+    if(mode==6){root->SetToolTipOwner(second);at(100,false,false);at(2001,false,false);}
+    else{
+        root->SetToolTipOwner(first);
+        if(mode==5){draw(100);at(2001,true,false);root->SetToolTipOwner(nullptr);sample(false,false,"clear",2001);at(3000,false,false);}
+        else if(mode==9){draw(100);at(2001,true,false);NGlobal::SetVar("ui_showtooltips",NGlobal::CValue(0.f));root->SetToolTipOwner(first);sample(true,false,"disabled-before-step",2001);root->Step(2002);sample(false,false,"disabled-step",2002);at(2003,false,false);}
+        else{
+            sample(false,false,"claim",0);
+            if(mode==0){at(0,false,false);at(100,false,false);at(1099,false,false);at(1100,false,false);at(1101,true,false);}
+            if(mode==1){at(100,false,false);at(101,true,false);}
+            if(mode==2){at(100,false,false);at(2001,false,false);}
+            if(mode==3){at(100,false,false);draw(700);root->SetToolTipOwner(first);sample(false,false,"same-owner",700);at(1100,false,false);at(1101,true,false);}
+            if(mode==4){draw(100);at(1101,true,false);root->SetToolTipOwner(second);sample(false,false,"switch",1101);at(1200,false,false);at(2200,false,false);at(2201,false,true);}
+            if(mode==7){at(100,false,false);NGlobal::SetVar("ui_tooltipdelay",NGlobal::CValue(.6f));at(800,false,false);at(1101,true,false);}
+            if(mode==8){at(100,false,false);root->SetToolTipOwner(nullptr);draw(500);root->SetToolTipOwner(first);at(700,false,false);at(1101,false,false);at(1700,false,false);at(1701,true,false);}
+            if(mode==10){at(100,false,false);at(7099,false,false);at(7100,true,false);}
+            if(mode==11){at(0x80000000u,false,false);at(0x80000001u,true,false);}
+        }
+    }
+    auto after=GlobalGameRandom();bool rng=true;for(int i=0;i<4;++i)rng&=random.Get()==after.Get();const bool geometry=first->GetPosition()==firstPosition && first->GetSize()==firstSize && second->GetPosition()==secondPosition && second->GetSize()==secondSize;
+    std::printf("native tooltip delay result mode=%d trace=%s expected=%s geometry=%d RNG=%d sharedSound=%d\n",mode,actual.c_str(),expected.c_str(),int(geometry),int(rng),int(root->GetSound()==sound.GetPtr()));std::fflush(stdout);
+    Require(geometry && rng && root->GetSound()==sound.GetPtr(),"tooltip clock changed owner geometry/RNG/shared sound");Require(actual==expected,"actual interface tooltip claim/Draw/Step does not implement original options/deadline/owner lifetime");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
@@ -33779,6 +33823,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-scared")) { Require(argc==5,"wounded AI requires db/res/mode"); NativeWoundedAIScared(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ally-ray-classification")) { Require(argc==5,"ally ray requires db/res/mode"); NativeAllyRayClassification(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ai-cover-depth")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativeAICoverDepth(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-path-wave-flags")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativePathWaveFlags(argv[2],argv[3],std::atoi(argv[4])); return true; }

@@ -2126,3 +2126,31 @@ explicitly selected; prior18 rows exactly unchanged. Full Game both/CI378. Sourc
 complete,34 unfinished.
 
 Source: [98871d0f0def4f966e097b984c18e57a8f437d7b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98871d0f0def4f966e097b984c18e57a8f437d7b).
+
+## 2026-11-01: tooltip options and original hover deadline
+
+NativeTooltipDelay0..11 are extended DB/dummy-SDL cases on both platforms, outside
+resource-freeCI. Genuine CInterface, CWindow, CToolTip and existing shared sound are used.
+Replace only the saved render-view reference with a literal frame-boundary observer that
+throws from StartNewFrame; actual interface Draw must execute the clock before that
+boundary. Packaged-font formatter remains available for the next measurement stage. Native
+Step handles disabled-tooltip teardown. No fake visibility, clock result or owner
+lifecycle. Trace every visibility transition and verify four RNG words, owner geometry and
+shared-sound identity. Empty-tooltip and cleared-owner modes5/6 are exact unchanged
+controls.
+
+Canonical first valid discovery RED10/12 both, byte-identical red-file aliases,
+thenGREEN12/12 both and 141 Windows/133 Linux related single all-green/full Game
+both/CI378. Include strict .1->1000 and zero/equality, same/switch/clear/re-enter, option
+changes/disable, .7 fractional7099 at time100 and highclock80000000 signed conversion.
+Independent native x86 actual original function33 calls/3CW modes with only3decoded
+data-address relocations establishes the default027F numerical references; no original
+Game.exe process/fullUI or all-FPU-mode claim. Earlier preferredVA host allocation487 is
+transcript/metadata only, not preserved raw or a nativeRED.
+
+All12 System/Courier/Times/Arial vector-font rows at scales1/1.5/2 are equal between
+platforms; ordinary/oversized native tooltip metrics and positions remain138x26/886,741
+and408x1808/616,0. Existing own menu sound, font wire, desktop/UI/tooltip/render tests
+pass. Measurement/anchor/width sourcea2 still pending;34 unfinished.
+
+Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).

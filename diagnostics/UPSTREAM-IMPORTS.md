@@ -23568,3 +23568,53 @@ compile/far-grid attempts and partial comment-anchor apply interruption are reta
 separately, not canonicalRED.34 sources remain; actual-final-head hosted CI pending.
 
 Source: [98871d0f0def4f966e097b984c18e57a8f437d7b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98871d0f0def4f966e097b984c18e57a8f437d7b).
+
+## 2026-11-01: tooltip options and original hover deadline (source360 additional partial)
+
+Restore only the tooltip option/deadline foundation needed before sourcea2
+measurement/anchors. SetToolTipOwner honors the existing ui_showtooltips option before
+claiming a tooltip, retains the per-frame sticky claim for a valid tooltip and does not
+restart its deadline for the same owner. A new owner hides the old tooltip, clears the
+transient deadline and updates at time0. Actual Draw updates before StartNewFrame. The
+first nonzero time computes time+double(delay)*10000; show only for a nonzero deadline
+strictly less than current time. Changing the delay setting during an existing hover does
+not rescale its deadline. Keep the existing Step teardown when no window claimed a
+tooltip. Own UI clock, shared/owned sound pump, SDL/bgfx lifecycle, saved tags, input
+binding and CToolTip width400/Draw/clamping remain unchanged.
+
+Actual Steam SetOwner71d1d0 is bound by a unique decodedE8-only40-byte named-Gold entry
+tail; independently decode actual reset/claim fields and calls to typed
+GetToolTip727a90/4, SetStyle7278f0 and Update71cfb0. Actual
+deadlineBC/owner110/tooltip114/sticky120 differ from GoldA0/F4/F8/104; no field/global
+normalization or whole188/536 comparison is accepted. Actual Draw71d290 calls
+Update(false,time) at71d34e before view StartNewFrame71d35b and typed CWindowDraw7288a0
+from the named RTTI slot. Independently decode10000/unsigned2^32 F32 operands, truncate
+CW, signedFISTP32 and CW restore.
+
+Execute actual536-byte original function on native x86 with synthetic owner-null state,
+three declared absolute data-operand relocations only, and unchanged
+arithmetic/opcodes/branches/stack/object offsets.33 calls characterize11 inputs under
+CW027F/037F/007F and preserve each input CW. Native runner CRT default027F gives
+time100/delay.7 ->7099, not7100 from a rounded float product; signed conversion
+yields80000000 for out-of-range clocks. Own portable double arithmetic models this
+observed53-bit context and its signed conversion, preserving that original edge instead of
+introducing a clamp or unsigned conversion. Original full-game ambient CW and UI rendering
+were not observed; no all-mode or FPU exception-status identity claim.0 original Game.exe
+processes. The first preferred-address host allocation failed487 before original calls;
+its raw log was replaced by the successful relocated-run log, so only transcript/metadata
+record that initial host attempt.
+
+Canonical native RED10/12 both ->GREEN12/12 both, two exact controls. The first valid
+discovery runs are the canonicalRED, copied byte-identically under red filenames, not
+extra runs. Real CInterface SetOwner/Draw/Step and actual CWindow/CToolTip use saved-field
+view substitution with a frame-boundary observer, not a replacement timing predicate.
+Cover default/zero delays, strict equality, disabled options, same/switch/clear/re-enter
+owners, delay changes during hover, disabled Step teardown, fractional rounding and
+highclock signed conversion. Owner geometry/four RNG words/shared sound remain unchanged.
+141 Windows/133 Linux related single all-green, full Game both/CI378. All12 packaged
+vector-font compatibility rows match between platforms; original ordinary138x26 at886,741
+and oversized408x1808 at616,0 remain intact. Source360 remains partial; sourcea2
+measurement/512width/anchors remains partial.34 sources unfinished, actual-final-head
+hosted CI pending.
+
+Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).

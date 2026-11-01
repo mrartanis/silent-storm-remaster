@@ -66,7 +66,8 @@ private:
 	ZDATA_(CWindow)
 	STime sLastLButtonDownTime, sLastRButtonDownTime, sDoubleClickTime;
 	SPoint sLastLButtonClickPoint;	// last L-click in UI space; transient like the times (retail @0x31c090 dblclk gate)
-	STime sLastTime;		// transient UI ms clock (retail CInterface sLastTime @+0xb8): set each Step(), read by NScript::luaGetUITime; NOT serialized (retail op& @0x31fea0 skips it)
+	STime sLastTime;		// own transient UI ms clock: set each Step(), read by NScript::luaGetUITime; not serialized
+	STime sToolTipDelay = 0; // transient hover deadline; not serialized
 	SPoint sCursorPoint;
 	SCursorInfo sCursor;
 	SCursorInfo sDefaultCursor;
@@ -100,6 +101,7 @@ private:
 
 protected:
 	void UpdateFPSText();
+	void UpdateToolTip( bool bNewOwner, const STime &sTime );
 
 public:
 	CInterface();
