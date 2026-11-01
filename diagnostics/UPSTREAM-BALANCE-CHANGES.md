@@ -3825,3 +3825,23 @@ including actual graphics-options/HD-cache tests. No fresh run or original parit
 claim.42 sources remain.
 
 Source: [67d766bc791c9207624bce8753fbe7b56a56e704](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/67d766bc791c9207624bce8753fbe7b56a56e704).
+
+## 2026-11-01: global-map desktop ownership, draw refresh and globe selection
+
+UI lifecycle restoration only: the strategic map owns a real desktop/client, refreshes
+native polygon hover and recommendation flashing in Draw, and offers the original unsaved
+optional globe selector with default false. Keep authored recommendation logic, campaign
+XP, world/script execution, adaptive layout, shared audio and2D rendering. No damage,
+accuracy, AP, movement, training, RNG or authored database tuning.
+
+New UI save writes use native nested desktop-base state; backward-compatible reads accept
+old remaster flat CWindow saves and restore only missing list/client ownership after
+loading the complete graph. Class IDs and LAN registration remain. Native RED7/10 both
+->10/10 both then208Win/181Linux related/full Game both/CI323; all14 prior map lifecycle
+probes retained. Linux coverage combines179 initial passes and two targeted unchanged-code
+retry passes after startup/resource timeouts, not a single all-green181 batch. Actual
+original named VTs/callers/opcodes/registration support the change statically; Gold/Steam
+whole-body layout equivalence is rejected, zero new original runtime records.41 sources
+remain.
+
+Source: [b91ea228f2a5443af74d0ae728e24410f7d90fad](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b91ea228f2a5443af74d0ae728e24410f7d90fad).

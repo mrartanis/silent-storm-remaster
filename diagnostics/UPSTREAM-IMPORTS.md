@@ -23194,3 +23194,56 @@ record, gameplay balance/AP/RNG/save/wire or texture asset change.42 sources rem
 actual-final-head hosted CI remains pending.
 
 Source: [67d766bc791c9207624bce8753fbe7b56a56e704](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/67d766bc791c9207624bce8753fbe7b56a56e704).
+
+## 2026-11-01: global-map desktop ownership, draw refresh and globe selection (sourceb91 complete)
+
+Own the global map through the existing CDesktopWindow list and client view. Normal entry
+constructs CGlobalMapUI/template175; unsaved cheat_global_xcom selects the existing
+CXComMapUI/template446, default false. CGlobalMapUI derives from the real desktop and
+delegates template messages/drawing to it. Refresh polygon hover and base-zone
+recommendation flashing during Draw, independently of a preceding Update. Earlier imports
+already supplied Initialize's bool/error guard, complete CMissionBase save chunk and
+native logical-world/script setup; keep those adaptations, shared audio, adaptive layout
+and own2D frame clock/renderer.
+
+Retain old remaster saves. New UI writes use the native nested desktop base at outer tag1;
+the reader detects the old flat CWindow payload by its absent nested tag1 and reads it
+directly. Read-only HasChunk inspects the current save chunk without consuming fields.
+OnSnapshotRestored restores only missing desktop-list/client references after the full
+graph loads, without replaying templates or duplicating children/desktops on repeated
+restoration. Existing class IDs and LAN type registration remain. This deliberately
+changes the desktop base's saved nesting/state while supporting the old layout; do not
+claim identical save bytes.
+
+Canonical actual native RED7/10 both: missing desktop, ignored globe selection, stale base
+flash, missing Draw-only polygon hover and normal/globe/legacy native graph restoration.
+Controls3/5/8 pass. GREEN10/10 both, then208Win/181Linux distinct selected coverage, full
+Game builds both/CI323. Windows is one all-green selected batch. Linux's initial181 batch
+passes179 but times out on ordinary Game startup/quit and a native LAN preparation
+save-policy probe. Both pass in a focused unchanged-code retry17.47/17.59s with explicit
+headless audio/owned runtime directory; source hashes are verified unchanged and raw
+initial logs retained. No single all-green181 Linux batch or proven unique timeout cause
+is claimed. All10 new and14 prior global-map script/legacy-world probes pass. Complete
+actual object graphs preserve campaign XP50, logical-world/UI identity, child views and
+exactly one restored desktop after two restoration calls; actual Draw tests use cursor
+input only and observe existing native UI state, not supplied outputs. No original UI
+runtime or rendered-globe screenshot assertion. Initial private-serializer fixture compile
+error, wrong static CWindow rectangle hit-test input and missing initial Linux
+registration are archived and excluded from canonical RED.
+
+Original static independently binds named CGlobalMapUI VT8bd58c slot30 to actual
+Draw5e51c0/327, not stale comment5e51d0. Actual sector virtual hit/update slots34/38 set
+selected bytea0; calls700ce0/7014c0 choose base/recommendation,5beb50 stores flash bytec4,
+then named CDesktopWindow Draw5d1880. Named CICContinueGlobal VT slot10 actual5e3830 calls
+Initialize5e3140 at5e38d0; actual show command separately calls it. Initialize's9c74b4
+byte is independently bound to literal cheat_global_xcom registration at5e4511/5e452e,
+with no BSS-value assumption. Actual normal/globe constructors5e5310/63f5f0 write the
+named VTs, templates175/446 are literal operands, and actual map virtual slot104 calls
+PushDesktop5a3bf0. Gold PushDesktop slotfc differs and is decoded separately; no
+slot-layout assumption. UI save slotc actual5e7120 writes base tag1 through5b0390 ->named
+desktop serializer5af950. Gold321 Draw/1784 Initialize whole-body matching is rejected
+because layouts/call spacing differ; no opcode/frame/field/size/unknown-global masks or
+copied retail offsets. Zero new original runtime records. All3 source files accounted;41
+sources remain, actual-final-head hosted CI pending.
+
+Source: [b91ea228f2a5443af74d0ae728e24410f7d90fad](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b91ea228f2a5443af74d0ae728e24410f7d90fad).

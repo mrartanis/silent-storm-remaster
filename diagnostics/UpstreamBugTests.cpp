@@ -96,6 +96,10 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../FileIO/Cruncher.h"
 #include "../Main/iMain.h"
 #include "../Main/iGlobalMap.h"
+#include "../Main/iGlobalMapUI.h"
+#include "../Main/iSpecialView.h"
+#include "../Main/GlobalInfo.h"
+#include "../Main/PolyUtils.h"
 #include "../Main/iChapterMap.h"
 #include "../Misc/BasicShare.h"
 extern CBasicShare<int,CChapterInfoLoader> shareChapterInfo;
@@ -8383,6 +8387,98 @@ static void InactiveRandomEncounter(const char* databasePath,const char* resourc
         "encounter activity gate changed its native queue, timer, campaign or XP");
 }
 
+
+static void GlobalMapDesktop(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=9,"unknown global map desktop case");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"global desktop fixture began with an interface");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm global map desktop regression");
+    struct OptionRestore {NGlobal::CValue globe,hints;~OptionRestore(){NGlobal::SetVar("cheat_global_xcom",globe);NGlobal::SetVar("ui_showhints",hints);}}
+        options{NGlobal::GetVar("cheat_global_xcom",0),NGlobal::GetVar("ui_showhints",1)};
+    const bool globe=mode==1 || mode==7;
+    NGlobal::SetVar("cheat_global_xcom",1);if(!globe)NGlobal::SetVar("cheat_global_xcom",0);
+    NGlobal::SetVar("ui_showhints",0);
+    CDBPtr<NDb::CGlobalMap> map=NDb::GetGlobalMap(3);Require(map && map->pScenario,"global desktop fixture lacks Axis campaign");
+    struct MapRestore {CPtr<NDb::CGlobalMap> map;CPtr<NDb::CScript> script;CPtr<NDb::CDBScenarioZone> base;
+        ~MapRestore(){map->pScript=script;map->pBaseZone=base;}} restore{map.GetPtr(),map->pScript,map->pBaseZone};
+    map->pScript=nullptr;
+    CObj<NRPG::CGlobalGame> game=NRPG::CreateGlobalGame(map->pScenario->GetRecordID());
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));game->bGlobalMapSet=true;game->nGlobalMapID=3;
+    auto* recommended=game->pScenarioTracker->GetRecommendedZone(game->players.front());
+    auto* base=game->pScenarioTracker->GetZoneByDBZone(map->pBaseZone);
+    Require(recommended && base && recommended!=base,"global desktop fixture lost distinct actual base/recommendation");
+    if(mode==3)map->pBaseZone=recommended->GetDBZone();
+    const float xp=game->players.front()->mercs.front()->fXP;
+    CObj<NGame::CICContinueGlobal> open=new NGame::CICContinueGlobal(game);open->Exec();
+    CObj<NGame::CMissionBase> owner=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(owner && owner->GetRPGGame()==game && owner->GetWorld() && owner->GetInterface(),"global desktop fixture failed actual campaign entry");
+    auto* ui=owner->GetInterface()->GetChildByID("globalmapUI");Require(ui,"global desktop fixture lacks actual global UI");
+    auto print=[&](const char* stage){std::printf("native global desktop mode=%d stage=%s globe=%d desktop=%d client=%d world=1 xp=%.3f stack=%d\n",mode,stage,int(dynamic_cast<NUI::CXComMapUI*>(ui)!=nullptr),int(owner->GetDesktop()==ui),int(owner->GetDesktop() && owner->GetDesktop()->GetClientWindow()==ui->GetChildByID("view")),game->players.front()->mercs.front()->fXP,NMainLoop::GetInterfaceStackDepth());std::fflush(stdout);};
+    if(mode>=6 && mode<=7 || mode==9){
+        list<CObj<NMainLoop::IInterfaceBase>> original;original.push_back(owner.GetPtr());CMemoryStream saved;
+        {CStructureSaver writer(saved,CStructureSaver::WRITE);writer.Add(2,&original);}
+        vector<unsigned char> bytes(saved.GetSize());saved.Seek(0);saved.Read(bytes.data(),unsigned(bytes.size()));
+        if(mode==9){
+            // Rebuild only the two known historical own-save fields: flat CWindow
+            // UI base and empty mission desktop list. Retain the complete native
+            // object table, actual UI children, campaign and logical world graph.
+            using Bytes=vector<unsigned char>;
+            auto fields=[](const Bytes& data){vector<std::pair<unsigned,Bytes>> result;
+                for(size_t at=0;at<data.size();){S2FileIO::StructureChunk c;Require(S2FileIO::DecodeStructureChunkAt(data.data(),data.size(),at,&c),"invalid native global desktop chunk");
+                    result.push_back({c.id,Bytes(data.begin()+c.payloadOffset,data.begin()+c.payloadOffset+c.length)});at=size_t(c.payloadOffset)+c.length;}return result;};
+            auto pack=[](const vector<std::pair<unsigned,Bytes>>& parts){Bytes result;for(const auto& p:parts){unsigned char length[4];size_t n=0;
+                Require(S2FileIO::EncodeStructureLength(unsigned(p.second.size()),length,&n),"cannot encode legacy desktop chunk");
+                result.push_back(static_cast<unsigned char>(p.first));result.insert(result.end(),length,length+n);result.insert(result.end(),p.second.begin(),p.second.end());}return result;};
+            auto top=fields(bytes);vector<S2FileIO::StructureObjectRecord> records;
+            for(const auto& part:top)if(part.first==0)Require(S2FileIO::DecodeStructureObjectTable(part.second.data(),part.second.size(),&records),"invalid desktop object table");
+            unsigned missionID=0,uiID=0;for(auto record:records){if(record.typeId==0xb1808180u)missionID=record.wireId;if(record.typeId==0xb0912170u)uiID=record.wireId;}
+            Require(missionID && uiID,"legacy desktop fixture lacks actual global map/UI IDs");int rewritten=0;
+            for(auto& part:top)if(part.first==2){auto objects=fields(part.second);
+                for(auto& object:objects){auto entry=fields(object.second);unsigned id=0;
+                    for(const auto& item:entry)if(item.first==0)Require(S2FileIO::DecodeStructureScalar(item.second.data(),item.second.size(),&id),"invalid native desktop object ID");
+                    if(id!=missionID && id!=uiID)continue;
+                    for(auto& item:entry)if(item.first==1){auto root=fields(item.second);
+                        for(auto& field:root)if(field.first==1){auto inner=fields(field.second);
+                            if(id==uiID){for(const auto& nested:inner)if(nested.first==1){field.second=nested.second;break;}++rewritten;}
+                            else{for(auto& nested:inner)if(nested.first==23){nested.second.clear();++rewritten;}field.second=pack(inner);}}
+                        item.second=pack(root);}object.second=pack(entry);}part.second=pack(objects);}
+            Require(rewritten==2,"legacy desktop fixture did not preserve both historical field forms");bytes=pack(top);
+        }
+        CMemoryStream snapshot;snapshot.Write(bytes.data(),unsigned(bytes.size()));snapshot.Seek(0);
+        list<CObj<NMainLoop::IInterfaceBase>> restored;{CStructureSaver reader(snapshot,CStructureSaver::READ);reader.Add(2,&restored);}
+        Require(restored.size()==1,"global map native save lost stack");
+        owner=dynamic_cast<NGame::CMissionBase*>(restored.front().GetPtr());Require(owner && owner.GetPtr()!=original.front().GetPtr(),"global save did not create fresh map");
+        owner->OnSnapshotRestored();owner->OnSnapshotRestored();game=owner->GetRPGGame();ui=owner->GetInterface()->GetChildByID("globalmapUI");
+        Require(ui && ui->GetInterface()==owner->GetInterface() && ui->GetWindowID()=="globalmapUI" && ui->GetChildByID("view"),"native legacy/current UI lost window fields or client subtree");
+        CStructureNetworkContext refs;auto state=BorrowedObjectFields(owner,&refs);struct MissionFields {list<CPtr<NUI::CDesktopWindow>> desktops;int operator&(CStructureSaver& f){f.Add(23,&desktops);return 0;}} mission;
+        {CStructureSaver reader(state,CStructureSaver::READ,&refs);reader.Add(1,&mission);}
+        print(mode==9?"legacy-restored":"restored");
+        Require(mission.desktops.size()==1 && mission.desktops.back().GetPtr()==ui,"native restored global map did not repair/retain exactly one desktop");
+        Require(owner->GetDesktop() && owner->GetDesktop()->GetClientWindow()==ui->GetChildByID("view"),"native restored global map lost actual desktop client ownership");
+    }else if(mode==2 || mode==3 || mode==4 || mode==5){
+        CStructureNetworkContext refs;auto state=BorrowedObjectFields(ui,&refs);CPtr<NUI::CFlashButton> baseButton;vector<CPtr<NUI::CWindow>> sectors;
+        {CStructureSaver reader(state,CStructureSaver::READ,&refs);reader.Add(8,&baseButton);reader.Add(9,&sectors);}
+        Require(baseButton && !sectors.empty(),"normal map lacks authored base button and sectors");
+        auto sector=sectors.front();struct SectorState {SGlobalSector sector;bool selected=false;int operator&(CStructureSaver& f){f.Add(2,&sector);f.Add(3,&selected);return 0;}} before,after;
+        auto readSector=[&](SectorState* out){CStructureNetworkContext refs;auto fields=BorrowedObjectFields(sector,&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(1,out);};readSector(&before);
+        NUI::SPoint cursor(-1000,-1000);if(mode==4){bool found=false;for(int y=0;y<768 && !found;++y)for(int x=0;x<1024;++x)if(IsPointInPolygon(before.sector.pointsSet,CVec2(x,y))){cursor=NUI::SPoint(x+S2UI::MapOffsetX(),y+S2UI::MapOffsetY());found=true;break;}Require(found,"actual global sector has no native polygon interior");}
+        // Supply a cursor input only. The actual interface Draw must perform the
+        // native hover/flash work without a preceding Update/Step dispatch.
+        CMemoryStream input;{CStructureSaver writer(input,CStructureSaver::WRITE);writer.Add(5,&cursor);}input.Seek(0);
+        {CStructureSaver reader(input,CStructureSaver::READ);static_cast<CObjectBase*>(owner->GetInterface())->operator&(reader);}
+        Require(owner->GetInterface()->GetCursorPos()==cursor,"native cursor input did not round trip");
+        owner->GetInterface()->Draw(1000);NGScene::Flip();readSector(&after);
+        std::printf("native global desktop mode=%d stage=draw selectedBefore=%d selectedAfter=%d flash=%d expectedFlash=%d cursor=%d,%d sectors=%zu\n",mode,int(before.selected),int(after.selected),int(baseButton->GetFlashMode()),int(mode==3),cursor.x,cursor.y,sectors.size());std::fflush(stdout);
+        if(mode==4 || mode==5)Require(after.selected==(mode==4),"actual global Draw did not refresh native polygon hover without Update");
+        else Require(baseButton->GetFlashMode()==(mode==3),"actual global Draw did not refresh authored base recommendation flash");
+    }else{
+        print("entry");Require(globe?dynamic_cast<NUI::CXComMapUI*>(ui)!=nullptr:dynamic_cast<NUI::CGlobalMapUI*>(ui)!=nullptr,"native global entry ignored globe/default selection");
+        if(mode!=8)Require(owner->GetDesktop()==ui && owner->GetDesktop()->GetClientWindow()==ui->GetChildByID("view"),"native global map did not own its actual desktop/client");
+    }
+    Require(game->players.front()->mercs.front()->fXP==xp && NMainLoop::GetInterfaceStackDepth()==1 && !NMainLoop::HaveInterfaceCommand(),"global desktop changed campaign XP or queued unrelated UI");
+    print("complete");
+}
+
 static void GlobalMapScriptLifecycle(const char* databasePath,const char* resourcePath,int context,int mode)
 {
     Require(context>=0 && context<=1 && mode>=0 && mode<=6,"unknown global-map script lifecycle case");
@@ -8423,7 +8519,7 @@ static void GlobalMapScriptLifecycle(const char* databasePath,const char* resour
     }else {CObj<NGame::CICContinueGlobal> open=new NGame::CICContinueGlobal(game);open->Exec();}
     CObj<NGame::CMissionBase> owner=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
     Require(owner && owner.GetPtr()!=underlying.GetPtr() && pSSClasses->GetObjectTypeID(owner)==int(0xb1808180) && owner->GetRPGGame()==game.GetPtr() && owner->IsGlobalMapShowMode()==(context==1),"native global-map entry lost its real UI/game/show mode");
-    Require(owner->GetInterface() && owner->GetInterface()->GetChildByID("globalmapUI") && owner->GetDesktop()==nullptr && owner->GetSoundScene()==owner->GetInterface()->GetSound(),"global-map fixture lost its own 2D plain-window/shared-audio contract");
+    Require(owner->GetInterface() && owner->GetInterface()->GetChildByID("globalmapUI") && owner->GetDesktop()==owner->GetInterface()->GetChildByID("globalmapUI") && owner->GetSoundScene()==owner->GetInterface()->GetSound(),"global-map fixture lost its actual desktop/shared-audio contract");
     const bool chapterFlag=game->bChapterMapSet;const float initialXP=game->players.front()->mercs.front()->fXP;
     STime time=1050;auto frame=[&](bool expectOwner=true){time+=50;NMainLoop::SetTimeForHarness(time);Require(NMainLoop::StepApp(true,false,false),"global-map native frame exited");if(expectOwner)Require(NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr(),"global-map native frame opened an unrelated interface");};
     auto* world=dynamic_cast<NWorld::CWorld*>(owner->GetWorld());
@@ -33354,6 +33450,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "bind-places-seed")) { Require(argc==5,"bind seed requires db, resources and mode"); BindPlacesSeed(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "item-initial-floor")) { Require(argc == 5, "item floor contact requires db, resources and mode"); ItemInitialFloorContact(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "inactive-random-encounter")) { Require(argc == 6, "inactive encounter requires db, resources, viewport and mode"); InactiveRandomEncounter(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
+    if (!std::strcmp(mode, "global-map-desktop")) { Require(argc == 5, "global desktop requires db, resources and mode"); GlobalMapDesktop(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "global-map-script-lifecycle")) { Require(argc == 6, "global map lifecycle requires db, resources, context and mode"); GlobalMapScriptLifecycle(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-ai-flash")) { Require(argc == 6, "world AI flash requires db, resources, context and mode"); WorldAIFlash(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }
     if (!std::strcmp(mode, "world-script-clue")) { Require(argc == 6, "world clue requires db, resources, context and mode"); WorldScriptClue(argv[2],argv[3],std::atoi(argv[4]),std::atoi(argv[5])); return true; }

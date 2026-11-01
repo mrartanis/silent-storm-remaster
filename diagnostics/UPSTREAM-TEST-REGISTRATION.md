@@ -1931,3 +1931,29 @@ named/default/zero call evidence is static only, with no original full renderer 
 rendered-pixel claim.
 
 Source: [24c1eca77dbcf2eff5feaa8ef603f390df93f7fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/24c1eca77dbcf2eff5feaa8ef603f390df93f7fb).
+
+## 2026-11-01: global-map desktop ownership, draw refresh and globe selection
+
+Register NativeGlobalMapDesktop0..9 on both native platforms, extended/native-display/120s
+with isolated profiles. Actual authored Axis map3/campaign/native world/UI constructs
+normal and optional globe desktops, checks the real child view and XP/stack identity.
+Draw-only tests select an actual authored polygon input, then observe selected state and
+base flash through existing serialized object fields. Native complete graph saves
+reconstruct normal/globe maps. The legacy variant rewrites only known historical flat
+UI-base/empty desktop-list fields, retains all actual object records/children, reads fresh
+objects and restores twice to verify one desktop and intact window fields/client identity.
+No replacement hover/flash/output provider.
+
+Canonical native RED7/10 both,3 outcome controls ->10/10 both and208Win/181Linux distinct
+coverage/Game both/CI323, including all14 existing normal/modal global script, hint,
+saved-world and legacy-world cases. Windows selected batch is all green. Linux combines179
+initial passes with two unchanged-code targeted retry passes after startup/resource
+timeouts; explicit headless audio/owned runtime directory, unchanged-source hashes and
+original raw logs are retained. No single all-green181 Linux batch or unique timeout cause
+claim. Update that older suite's explicit null-desktop premise to real ownership; its
+world/script/XP/return assertions remain. No original runtime/rendered-globe screenshot
+claim. Archive initial private typed serializer compile error, static rectangle hit-test
+fixture and missing Linux registration; exclude those preliminary runs from canonical RED.
+Sourceb91 complete.
+
+Source: [b91ea228f2a5443af74d0ae728e24410f7d90fad](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b91ea228f2a5443af74d0ae728e24410f7d90fad).
