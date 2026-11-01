@@ -2184,3 +2184,30 @@ switch targets;0 new original-function runs or Game.exe processes. Sourcea2 comp
 unfinished.
 
 Source: [a2bba0ad86c91dcf5a239adda24792664abf1e43](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a2bba0ad86c91dcf5a239adda24792664abf1e43).
+
+## 2026-11-01: AI-controlled demonstration squads and level preparation
+
+Register NativeAutoPlaySquads0/1 as extended native-display DB/resource cases with
+isolated user directories and headless audio. Actual console registration/queued
+command/mission Initialize/world tracker links and live CGlobalPlayer mercs are the
+consumer. Two person968/970 fixtures each verify four squads of4..7, all four AI flags,
+level30 for every merc, and untouched separately created ordinary human flag/level.
+Existing tick-seeded counts vary; only their original cardinality is asserted.
+NativeDisplayContext closes owned hidden SDL/bgfx state and interface commands. No user
+game is opened or closed.
+
+Windows UpstreamBugTests now links WHOLE_ARCHIVE Main like Game, so the unreferenced
+self-registering autoplay compiland participates; Linux already uses whole-archive.
+Initial Windows discovery failed before reaching the consumer and is excluded from
+behavioralRED. Windows discovery2 and Linux discovery actual rows show two missing
+AI/level cases each, then GREEN2/2 both. Full Game both/CI378 and related 416/417 Windows
+and 386/386 Linux; one pre-existing intermittent Windows
+NativeCampaignSequence-nested-save movement timeout reproduces on previous-head source,
+with byte-exact native .text and retries0/0/8 on both versions. Current source is restored
+exactly, full Game rebuilt and both actual demo cases retested; no full-Windows-all-green
+claim. All12 vector-font traces exact versus137. Original static typed
+command/CreatePlayer/AI-byte/merc-loop/literal30 binding is recorded without whole-body
+field/frame masks or original runtime claims. Demo lifecycle and automatic menu entry are
+separate unfinished hunks.
+
+Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).

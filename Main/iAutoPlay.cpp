@@ -85,18 +85,13 @@
 //   * CMissionBase: since serialization-convergence W4.2 the dev CMission IS split onto NGame::CMissionBase
 //     (iMission.h) with the retail tag tables; CAutoPlayInterface derives the dev CMission directly (byte-exact
 //     PDB layout 0x5a8 is still not a goal -- functional parity).
-//   * GameStep @0x19cc80 (the finished/progress>100/20-min watchdog) is NOT reconstructed: it walks the live
-//     world via opaque vtbl slots (collect NWorld::CPlayer, CPlayer-finished, GetGame()->GetProgress()) and
-//     resolves a DG CCTime node through CMissionBase::GetUITime -- none of which are surfaced as reachable dev
-//     public methods (the dev CMission exposes no GetUITime / world-player-finished gate). Its tail GoToNextMap
-//     is reconstructed for parity but is therefore unreferenced here.
-//   * AddPlayer drops the per-player AI flag: the release set CGlobalPlayer+0x54 = 1; the dev CGlobalPlayer
-//     (rpgGlobal.h) is the release-faithful type MINUS any AI flag, so there is no field to set.
-//   * Initialize omits: the per-unit "set level 30" walk (no NRPG::CUnit level setter is surfaced here); the
-//     logo NUI::CFlashImage template (the dev CFlashImage is file-local to iMainMenu.cpp, not a shared type);
-//     and the release's private-flag writes (bLoseSignalSended / bHideInterface) + the pWorld vtbl[0x1f0] call
-//     (those CMission members are private in the dev and have no public setter). pGlobalGame/pWorld/pScene/
-//     pSoundScene are instead set, faithfully, by routing through the public CMission::Initialize(...).
+//   * GameStep is not reconstructed yet. Actual Steam 1.2 has it at 0x59d7a0,
+//     mission slot 0x168 (Gold 1.1 slot 0x15c differs). Its winner/turn-limit/UI-clock
+//     watchdog needs the common mission pump separated from interactive GameStep first.
+//   * Squad preparation now follows the actual Steam 1.2 calls at 0x59daed..0x59db83:
+//     four AI players, then level 30 for every merc before initializing the mission.
+//   * Initialize still omits the logo CFlashImage, bLoseSignalSended / bHideInterface,
+//     sequence state and the scripted turn-based request; those need the demo lifecycle port.
 //   * Registration + serialization: retail registers CAutoPlayInterface under 0xB3723140 and serializes it
 //     (operator& @0x1a13e0: 1=CMission base, 2=bSignalSent, 3=sAutoPlayTime, 4=pLogoCursor, 5=pLogoInterface,
 //     6=pFlashImage). Registration landed in serialization-convergence W2, the operator& body in W3.
@@ -195,8 +190,7 @@ void CAutoPlayInterface::ParseNumbers( const wstring &szStr, vector<int> &outSet
 // NGame::CAutoPlayInterface::AddPlayer  @0x19c9d0
 //
 // Roll a 4..7-strong AI squad of random template ids (drawn with repetition from templateIDs), build the
-// global player from them and append it to the game's player list. The release also set the player's AI flag
-// (CGlobalPlayer+0x54 = 1); the dev CGlobalPlayer carries no such field, so that store is dropped.
+// global player from them, mark it as AI-controlled and append it to the game's player list.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoPlayInterface::AddPlayer( NRPG::CGlobalGame *pGame, const vector<int> &templateIDs )
 {
@@ -209,15 +203,16 @@ void CAutoPlayInterface::AddPlayer( NRPG::CGlobalGame *pGame, const vector<int> 
 		selSet.push_back( templateIDs[ sRand.Get( (int)templateIDs.size() ) ] );
 
 	NRPG::CGlobalPlayer *pPlayer = NRPG::CreateGlobalPlayer( selSet );
+	pPlayer->bAIPlayer = true;
 	pGame->players.push_back( pPlayer );				// CObj<> stores an owning AddRef'd reference
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // NGame::CAutoPlayInterface::Initialize  @0x19ce60
 //
 // The auto-play boot sequence: parse the two console vars, gate on both being non-empty, build a fresh global
-// game with four random AI squads, pick a random starting map template and boot the real mission on it, then
-// raise the logo cursor/interface overlay. See the file header for the omitted release tail (per-unit level
-// set, logo flash-image template, private-flag writes + pWorld vtbl call).
+// game with four random AI squads, prepare every merc to level 30, pick a starting map and boot it, then
+// raise the logo cursor/interface overlay. See the file header for the omitted release tail (the
+// logo flash-image template, private-flag writes + pWorld vtbl call).
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAutoPlayInterface::Initialize()
 {
@@ -230,6 +225,9 @@ bool CAutoPlayInterface::Initialize()
 	CPtr<NRPG::CGlobalGame> pGame = NRPG::CreateGlobalGame();
 	for ( int i = 0; i < 4; ++i )						// four AI squads
 		AddPlayer( pGame, unitsSet );
+	for ( const auto &player : pGame->players )
+		for ( const auto &unit : player->mercs )
+			unit->SetXPLevel( 30 );
 
 	SRandomSeed sSeed( GetTickCount() );
 	SRand sRand( sSeed );							// (split avoids the most-vexing-parse on SRandomSeed(...))

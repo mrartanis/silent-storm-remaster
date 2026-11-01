@@ -4043,3 +4043,24 @@ related/CI378; no gameplay or original-game process/runtime changes. Sourcea2 co
 donor sources remain.
 
 Source: [a2bba0ad86c91dcf5a239adda24792664abf1e43](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a2bba0ad86c91dcf5a239adda24792664abf1e43).
+
+## 2026-11-01: AI-controlled demonstration squads and level preparation
+
+Explicit autoplay demonstration squads now use the original AI-controlled flag and prepare
+every merc to level30 before mission creation. This changes the demo's unit skills/perks
+through the existing SetXPLevel routine as the original does; ordinary human creation and
+campaign preparation retain their previous behavior. Keep existing four-squad/random4..7
+composition, seed selection, parser quirks and map selection. Automatic idle entry, demo
+watchdog, flash overlay and mission lifecycle are not enabled by this partial import. No
+global level rule, paidAP, damage, price or combat formula changes.
+
+Actual Steam four AddPlayer calls and post-createAI byte54, typed saved flag8/mercvector5
+and nested merc-level30 loop are statically confirmed. Native RED2/2->GREEN2/2 both using
+actual console command and real world links; every demo merc reaches30 and the separate
+ordinary human remains unchanged. Random counts intentionally vary; no claim of full demo
+battle/watchdog validation. Full Game both/CI378; related 416/417 Windows and 386/386
+Linux, including one recorded pre-existing intermittent Windows campaign movement timeout
+reproduced on previous-head source with byte-exact native .text. Current source
+restored/rebuilt and demo cases retested;33 donor sources unfinished.
+
+Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).

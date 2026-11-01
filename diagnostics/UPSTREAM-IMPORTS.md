@@ -23669,3 +23669,56 @@ complete,213imported/21pending/12partial,33 sources unfinished. Source360's othe
 remain partial; actual-final-head hosted CI pending.
 
 Source: [a2bba0ad86c91dcf5a239adda24792664abf1e43](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a2bba0ad86c91dcf5a239adda24792664abf1e43).
+
+## 2026-11-01: AI-controlled demonstration squads and level preparation (partial138)
+
+Restore the independently useful squad-preparation part of sourcefdd.
+CAutoPlayInterface::AddPlayer marks each actual CGlobalPlayer as AI-controlled before
+appending it; Initialize walks every merc in all four players and calls the existing
+CUnit::SetXPLevel(30) before CMission::Initialize. Preserve the existing independent
+tick-seeded random4..7 squad selection, configuration parser and its consecutive-space
+quirk, map selection and normal mission initialization. This prepares explicitly requested
+autoplay missions; idle-menu entry and the demo lifecycle remain unfinished and are not
+enabled here.
+
+Actual Steam CICAutoPlay named RTTI slot10 binds Exec59df10; call59df6a reaches
+Initialize59d980. Its four decoded calls59daed/59dafd/59db0d/59db1d all reach
+AddPlayer59d4f0. Actual create-player call59d59b reaches69acc0, then byte[player+54]=1
+at59d5a2 before insertion. Named CGlobalPlayer save slot0c binds69cb20: merc vector tag5
+at30 and one-byte AI flag tag8 at54. Actual Init59db22..59db83 iterates global
+players3c..40 and every player's mercs30..34, resetting the inner index per player.
+At59db5b it passes literal30 through CUnit+0c secondary RTTI virtualslot4, typed
+Gold6b6330 and actualSteam6bc520; this loop precedes mission init601070 at59dc5d. Whole
+AddPlayer292 is rejected with its unmasked absolute GetTickCount IAT difference; the
+actual import8b2080 is independently named, not masked to force equivalence. Whole Init
+and cross-variant mission-slot shortcuts are also rejected: Gold GameStep slot15c is a
+return-false method in Steam, not a valid binding. No original runtime/function execution
+is claimed.
+
+NativeAutoPlaySquads0/1 invoke the real registered console autoplay command, take and
+execute its queued native command, initialize a real hidden SDL/bgfx mission and inspect
+all four world player trackers and global squad objects for two isolated person
+configurations968/970. Canonical RED2/2 both shows AI0/level30zero, with correct4..7
+cardinality and tracker identities; GREEN2/2 both has all four AI flags and every created
+merc at30. A separately created ordinary human player retains falseAI and its initial
+level. Random squad counts intentionally vary between runs; no exact RNG or cross-platform
+squad-size equality claim. These cases do not claim a complete simulated AI battle or the
+pending demo watchdog/overlay.
+
+Windows diagnostic linking now matches Game's WHOLE_ARCHIVE Main, retaining
+self-registering command-only code; Linux already does this. The initial Windows
+missing-command discovery is not behavioralRED; actual discovery2 supplies its
+canonicalRED. Full Game builds both and assetfreeCI378 pass; related 416/417 Windows and
+386/386 Linux. The one Windows NativeCampaignSequence-nested-save movement timeout is a
+pre-existing intermittent failure: unchanged current target retries0/0/8, then
+previous-head production source rebuilt and baseline retries0/0/8. Its native .text is
+byte-exact before/baseline/restored, with no autoplay RTTI or console strings in that
+separately linked target; the Windows whole-archive change affects only UpstreamBugTests.
+Restore current source byte-exactly, rebuild all Game targets, and rerun both actual demo
+consumers successfully. Keep the failed full-suite/raw/retry/baseline evidence; do not
+claim the legacy movement flake fixed or the entire Windows suite all-green.12 prior
+vector-font traces exact. Sourcefdd pending->partial:213imported/20pending/13partial,33
+donor sources unfinished. Actual-final-head hosted CI remains required at whole-task
+completion.
+
+Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).

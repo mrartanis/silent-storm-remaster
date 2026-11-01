@@ -33303,6 +33303,50 @@ static void NativeTooltipPlacement(const char* db,const char* resources,int mode
     Require(ownerIntact && rng,"tooltip measurement/placement changed actual owner/input/sound/RNG state");Require(actualSize==expectedSize && actualPosition==expected && stable,"native tooltip is not measured512 before placement or ignores anchors/moving owner/logical canvas");
 }
 
+static void NativeAutoPlaySquads(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode==0 || mode==1,"unknown autoplay squad fixture");
+    Require(std::getenv("S2_USER_DATA_DIR") && !NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),
+        "autoplay squad fixture needs isolated empty interface state");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm demonstration squad regression");
+    struct Restore {
+        NGlobal::CValue units=NGlobal::GetVar("autoplay_units"), maps=NGlobal::GetVar("autoplay_templates");
+        ~Restore(){NGlobal::SetVar("autoplay_units",units);NGlobal::SetVar("autoplay_templates",maps);}
+    } restore;
+    const int person=mode==0?968:970;
+    NGlobal::SetVar("autoplay_units",NGlobal::CValue(mode==0?L"968":L"970"));
+    NGlobal::SetVar("autoplay_templates",NGlobal::CValue(L"4412"));
+    CObj<NRPG::CGlobalPlayer> human=NRPG::CreateGlobalPlayer(vector<int>{person});
+    Require(IsValid(human) && !human->bAIPlayer && human->mercs.size()==1,"ordinary player control was not created");
+    const int humanLevel=int(human->mercs.front()->Skills(NDb::ST_LEVEL));
+    Require(humanLevel!=30,"ordinary player control already has the demonstration level");
+    NGlobal::ProcessCommand(L"autoplay");
+    CObj<NMainLoop::CInterfaceCommand> enter=NMainLoop::TakeInterfaceCommandForHarness();
+    Require(IsValid(enter) && !NMainLoop::HaveInterfaceCommand(),"real autoplay command did not queue exactly one entry");
+    enter->Exec();
+    CObj<NGame::CMissionBase> demo=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(IsValid(demo) && pSSClasses->GetObjectTypeID(demo)==int(0xB3723140),"real autoplay command did not initialize its registered mission");
+    auto* world=demo->GetWorld();auto* global=world?world->GetGlobalGame():nullptr;
+    Require(IsValid(global) && global->players.size()==4,"actual autoplay mission did not create four squads");
+    vector<CPtr<NGame::IPlayerTracker>> players;demo->GetPlayers(&players);
+    Require(players.size()==4,"actual autoplay world lost a squad tracker");
+    int count=0,ai=0,leveled=0;bool links=true,cardinality=true;
+    for(std::size_t i=0;i<global->players.size();++i) {
+        auto* player=global->players[i].GetPtr();ai+=player->bAIPlayer?1:0;
+        cardinality=cardinality && player->mercs.size()>=4 && player->mercs.size()<=7;
+        bool linked=false;for(const auto& tracker:players)if(tracker->GetGlobalPlayer()==player)linked=true;
+        links=links && linked;
+        for(const auto& unit:player->mercs) {++count;if(int(unit->Skills(NDb::ST_LEVEL))==30)++leveled;}
+    }
+    std::printf("AUTOPLAY-SQUADS mode=%d person=%d players=4 ai=%d units=%d level30=%d cardinality=%d links=%d humanAI=%d humanLevel=%d\n",
+        mode,person,ai,count,leveled,int(cardinality),int(links),int(human->bAIPlayer),int(human->mercs.front()->Skills(NDb::ST_LEVEL)));
+    Require(cardinality && links && count>=16 && count<=28,"demonstration initialization changed the original squad cardinality or native world links");
+    Require(!human->bAIPlayer && int(human->mercs.front()->Skills(NDb::ST_LEVEL))==humanLevel,"autoplay preparation changed a separately created ordinary player");
+    Require(ai==4 && leveled==count,"actual demonstration squads lack AI control or the original level-30 preparation");
+    NMainLoop::DoneInterface();
+}
+
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
@@ -33899,6 +33943,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-autoplay-squads")) { Require(argc==5,"autoplay squads require db/res/mode"); NativeAutoPlaySquads(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-placement")) { Require(argc==5,"tooltip placement requires db/res/mode"); NativeTooltipPlacement(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ally-ray-classification")) { Require(argc==5,"ally ray requires db/res/mode"); NativeAllyRayClassification(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ai-cover-depth")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativeAICoverDepth(argv[2],argv[3],std::atoi(argv[4])); return true; }
