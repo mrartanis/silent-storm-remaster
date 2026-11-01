@@ -368,4 +368,13 @@ void SAIUnitState::CheckScared()
 	bScared = true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Matched Steam 0x4b1e60: suspected contacts precede confirmed contacts.
+vector< CPtr<IAIUnit> > SAIUnitState::GetKnownEnemies() const
+{
+	vector< CPtr<IAIUnit> > result = possibleEnemies.data.units;
+	result.insert( result.end(), enemies.data.units.begin(), enemies.data.units.end() );
+	return result;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 }

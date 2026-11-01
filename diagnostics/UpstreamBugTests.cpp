@@ -11965,13 +11965,13 @@ static void BeginTurnLiveContacts(const char* databasePath, const char* resource
     }
     state->PrepareEnemies();
     std::printf("BEGIN-TURN staleOwner=%d known=%zu possible=%zu selectedEnemy=%d selectedPossible=%d\n", int(staleOwner),
-        state->GetKnownEnemies().size(), state->possibleEnemies.data.units.size(), int(IsValid(state->pEnemy)), int(IsValid(state->pPossibleEnemy)));
+        state->enemies.data.units.size(), state->possibleEnemies.data.units.size(), int(IsValid(state->pEnemy)), int(IsValid(state->pPossibleEnemy)));
     if (staleOwner) {
-        Require(state->GetKnownEnemies().empty() && state->possibleEnemies.data.units.size() == 1
+        Require(state->enemies.data.units.empty() && state->possibleEnemies.data.units.size() == 1
                 && state->possibleEnemies.data.units.front().GetPtr() == contact,
             "cached zero watcher HP suppressed the live begin-turn contact refresh");
     } else {
-        Require(state->GetKnownEnemies().size() == 1 && state->GetKnownEnemies().front().GetPtr() == contact
+        Require(state->enemies.data.units.size() == 1 && state->enemies.data.units.front().GetPtr() == contact
                 && state->possibleEnemies.data.units.empty(),
             "cached zero enemy HP suppressed promotion of a visible fighting contact");
     }
@@ -12662,7 +12662,14 @@ static void AIAlarmNearestTarget(const char* databasePath, const char* resourceP
                     referencePlan=NAI::CreateAIAlarmLogic(owner,contact);
                     if (!IsValid(referencePlan)) continue;
                     expected=inspect(referencePlan); expectedNext=GlobalGameRandom().Get();
-                } else expectedNext=mode==13 ? GlobalGameRandom().Get() : untouched.Get();
+                } else {
+                    // A declined alarm continues through the original fear wave.
+                    // With <=1 supporter Normal does not draw the alarm roll.
+                    if(mode!=13)GlobalGameRandom().SeedForHarness(seed);
+                    const vector<CPtr<NAI::IAIUnit>> contacts{contact};NAI::SPathPlace fallback;
+                    NAI::GetFearPosition(actor,contacts,&fallback,5.f,30);
+                    expectedNext=GlobalGameRandom().Get();
+                }
                 break;
             }
             Require(seed!=513 && (shouldAlarm==IsValid(referencePlan)),"alarm support fixture could not realize its native seeded branch");
@@ -33126,6 +33133,57 @@ static void NativeWoundedAIScared(const char* db,const char* resources,int mode)
     Require(state->bScared==expected && state->IsModified()==expectedModified,"native threat update has wrong wounded/enemy-count/support/PK fear policy");
 }
 
+static void NativeWoundedAIContacts(const char* db,const char* resources,int mode)
+{
+    Require(mode>=0 && mode<6,"unknown native fear contact mode");NativeHearingOwners f(db,resources);
+    CObj<NAI::IAIUnit> first=NAI::CreateAIUnit(f.humanUnit,false),second=NAI::CreateAIUnit(f.aiUnit,true);Require(first && second,"fear contacts lack real native factory identities");auto* state=second->GetAIUnitState();*state=NAI::SAIUnitState();state->SetUnit(second);
+    vector<CPtr<NAI::IAIUnit>> expected;
+    if(mode==1){state->enemies.data.units={first.GetPtr(),second.GetPtr()};expected={first.GetPtr(),second.GetPtr()};}
+    if(mode==2){state->possibleEnemies.data.units={first.GetPtr()};expected={first.GetPtr()};}
+    if(mode==3){state->enemies.data.units={first.GetPtr()};state->possibleEnemies.data.units={second.GetPtr()};expected={second.GetPtr(),first.GetPtr()};}
+    if(mode==4){state->enemies.data.units={first.GetPtr()};state->possibleEnemies.data.units={first.GetPtr(),nullptr};expected={first.GetPtr(),nullptr,first.GetPtr()};}
+    if(mode==5){state->enemies.data.units={first.GetPtr()};state->possibleEnemies.data.units={second.GetPtr()};expected={second.GetPtr(),first.GetPtr()};}
+    const auto confirmed=state->enemies.data.units,possible=state->possibleEnemies.data.units;const bool modified=state->IsModified();const auto position=f.aiUnit->GetPosition();const int ap=f.aiUnit->GetAP(),hp=f.aiUnit->GetUnitRPG()->GetTotalVP();auto random=GlobalGameRandom();
+    // Keep the same const-reference call shape used by the live mounted-gun consumer.
+    const auto& actual=state->GetKnownEnemies();bool unchanged=state->enemies.data.units==confirmed && state->possibleEnemies.data.units==possible && state->IsModified()==modified;
+    if(mode==5){state->enemies.data.units.clear();state->possibleEnemies.data.units.clear();}
+    auto after=GlobalGameRandom();bool rng=true;for(int i=0;i<4;++i)rng&=random.Get()==after.Get();bool identities=actual==expected;
+    std::printf("native fear contacts mode=%d confirmed=%zu suspected=%zu actual=%zu expected=%zu order=%d unchanged=%d detached=%d RNG=%d\n",mode,confirmed.size(),possible.size(),actual.size(),expected.size(),int(identities),int(unchanged),int(mode==5),int(rng));std::fflush(stdout);
+    Require(unchanged && rng && position==f.aiUnit->GetPosition() && ap==f.aiUnit->GetAP() && hp==f.aiUnit->GetUnitRPG()->GetTotalVP(),"native fear contact query changed threat or physical/RNG state");
+    Require(identities,"native fear contacts omit suspects, lose original order/duplicates/nulls or alias the source vector");
+}
+
+static void NativeWoundedAIRetreat(const char* db,const char* resources,int mode)
+{
+    Require(mode>=0 && mode<8,"unknown native fear retreat mode");NativeHearingOwners f(db,resources);auto* actor=f.aiUnit;auto* target=f.humanUnit;auto* net=f.world->GetPathNetwork();
+    auto* commander=dynamic_cast<NAI::CAICommander*>(f.ai->GetCommander());Require(commander,"fear retreat lacks native commander");commander->OnUnitAdded(actor);CObj<NAI::IAIUnit> owner=commander->GetAIUnit(actor);Require(owner,"fear retreat lacks actual owner");owner->SetAIState(commander->GetAIState());
+    list<CPtr<NWorld::CUnitServer>> all;f.world->GetAllUnits(&all);for(auto p:all)if(IsValid(p) && p.GetPtr()!=actor && p.GetPtr()!=target && p->CanFight())p->MakeUnconscious(VNULL3,true,false);
+    CObj<NAI::IAIUnit> enemy=NAI::CreateAIUnit(target,false);Require(enemy,"fear retreat lacks real target wrapper");CObj<NWorld::CUnitServer> possibleServer;CObj<NAI::IAIUnit> possible;
+    if(mode==1 || mode==2){possibleServer=f.world->AddUnitInGame(f.FreePlace(actor->GetPosition().GetCP(),12.f),NRPG::CreateUnit(NDb::GetPers(54)),f.human,"NativeFearSuspect");Require(possibleServer,"fear retreat cannot deploy actual suspected contact");possible=NAI::CreateAIUnit(possibleServer,false);Require(possible,"fear retreat cannot wrap suspect");possible->Synchronize(false);}
+    auto move=[&](NWorld::CUnitServer* server,NAI::SPathPlace p){auto pos=server->GetPosition();pos.pos=NAI::SPosition(p,net);server->SetPosition(pos);};
+    vector<NAI::SPathPlace> candidates;net->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),40.f),&candidates);bool staged=false;NAI::SPathPlace reference;
+    vector<CPtr<NAI::IAIUnit>> expectedContacts;
+    for(auto p:candidates){p.SetPose(NAI::CM_STAND);p.SetDirection(0);p.SetMoving(0);if(!net->IsPassable(p) || net->IsLocked(p))continue;const float distance=fabs(NAI::SPosition(p,net).GetCP()-actor->GetPosition().GetCP());if(distance<=2.f || distance>=10.f)continue;
+        move(target,p);enemy->Synchronize(false);expectedContacts.clear();if(mode==1 || mode==2)expectedContacts.push_back(possible.GetPtr());if(mode!=2 && mode!=3)expectedContacts.push_back(enemy.GetPtr());
+        if(mode==4)target->MakeUnconscious(VNULL3,true,false);GlobalGameRandom().SeedForHarness(1337);const bool found=NAI::GetFearPosition(actor,expectedContacts,&reference,5.f,30);
+        if(mode==1 && found){NAI::SPathPlace confirmedOnly;GlobalGameRandom().SeedForHarness(1337);const vector<CPtr<NAI::IAIUnit>> single{enemy.GetPtr()};const bool singleFound=NAI::GetFearPosition(actor,single,&confirmedOnly,5.f,30);if(singleFound && confirmedOnly==reference)continue;}
+        if((mode==3 || mode==4)?!found:found){staged=true;break;}}
+    Require(staged,"fear retreat could not realize its actual reachable or empty native fear-wave input");owner->Synchronize(false);enemy->Synchronize(false);if(possible)possible->Synchronize(false);
+    if(mode==5){enemy->SetHP(0,enemy->GetMaxHP());Require(target->CanFight(),"fear retreat stale planning HP lost physical target");}
+    if(mode==6)actor->GetUnitRPG()->SpendAP(actor->GetAP());
+    auto* state=owner->GetAIUnitState();*state=NAI::SAIUnitState();state->SetUnit(owner);if(mode!=2 && mode!=3)state->AddEnemy(enemy);if(mode==4)state->enemies.data.units.push_back(enemy.GetPtr());if(possible)state->AddPossibleEnemy(possible);state->pEnemy=enemy;state->bScared=true;state->enemies.bModified=state->possibleEnemies.bModified=state->allies.bModified=false;
+    CObj<NAI::CAIRouteLogic> incumbent;if(mode!=7){incumbent=new NAI::CAIRouteLogic(owner);incumbent->AddCommand(new NAI::CTaskCommandWait(3));incumbent->SetCircled(true);owner->SetRouteLogic(incumbent);}else{owner->SetRouteLogic(nullptr);owner->SetLogic(nullptr);}
+    GlobalGameRandom().SeedForHarness(1337);const bool shouldRetreat=NAI::GetFearPosition(actor,expectedContacts,&reference,5.f,30);auto expectedRandom=GlobalGameRandom();int cost=-1;float distance=-1;
+    if(shouldRetreat){NAI::CMultiMovesTable table;vector<NAI::SPathPlace> reachable;NAI::GetNearestPlaces(actor,actor->GetPosition().pos.p,30,NAI::RUN,&reachable,&table);cost=int(table.GetCost(reference));distance=fabs(NAI::SPosition(reference,net).GetCP()-actor->GetPosition().GetCP());Require(cost<=30 && cost>=0 && distance>=5.f && std::find(reachable.begin(),reachable.end(),reference)!=reachable.end(),"reference retreat is not in the actual30AP RUN wave at least5 units away");}
+    CObj<NAI::CAIReaction> normal=NAI::CreateAINormalReaction(owner);owner->SetReaction(normal);Require(owner->GetReactionForUpdate()==normal.GetPtr(),"fear retreat did not consume actual normal-reaction installation");const auto position=actor->GetPosition();const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),plannedAP=owner->GetAP(),plannedHP=owner->GetHP();const auto confirmed=state->enemies.data.units,suspected=state->possibleEnemies.data.units;const auto wish=actor->GetWishPose();
+    GlobalGameRandom().SeedForHarness(1337);NAI::SAIUpdateTracker pump;pump.Add(normal);pump.Update();auto* reaction=owner->GetReaction();const bool retreat=dynamic_cast<NAI::CAIRetreatReaction*>(reaction)!=nullptr,guard=dynamic_cast<NAI::CAIGuardReaction*>(reaction)!=nullptr;bool destination=!shouldRetreat;NAI::SPathPlace actual;
+    if(retreat){CStructureNetworkContext refs;auto bytes=BorrowedObjectFields(reaction,&refs);CStructureSaver reader(bytes,CStructureSaver::READ,&refs);reader.Add(3,&actual);destination=actual==reference;}
+    auto after=GlobalGameRandom();bool rng=true;for(int i=0;i<4;++i)rng&=expectedRandom.Get()==after.Get();const bool deferred=owner->GetRouteLogic()==incumbent.GetPtr() && owner->GetLogic()==incumbent.GetPtr();
+    std::printf("native fear retreat mode=%d confirmed=%zu suspected=%zu expectedRetreat=%d retreat=%d guard=%d destination=%d cost=%d distance=%.9g deferred=%d RNG=%d AP=%d afterAP=%d HP=%d afterHP=%d\n",mode,confirmed.size(),suspected.size(),int(shouldRetreat),int(retreat),int(guard),int(destination),cost,distance,int(deferred),int(rng),ap,actor->GetAP(),hp,actor->GetUnitRPG()->GetTotalVP());std::fflush(stdout);
+    Require(pump.CanGetCommand() && actor->GetPosition()==position && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && owner->GetAP()==plannedAP && owner->GetHP()==plannedHP && state->enemies.data.units==confirmed && state->possibleEnemies.data.units==suspected && actor->GetWishPose()==wish,"normal fear routing changed physical/planned unit state or contact lists");
+    Require(retreat==shouldRetreat && guard==!shouldRetreat && destination && deferred && rng,"normal fear routing uses the approximate unreachable target, omits suspects or inline-updates the new reaction");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
@@ -33719,6 +33777,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-ally-cover-cache")) { Require(argc==5,"ally cache requires db/res/mode"); NativeAllyCoverCache(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ally-raster-safety")) { Require(argc==5,"ally safety requires db/res/mode"); NativeAllyRasterSafety(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-scared")) { Require(argc==5,"wounded AI requires db/res/mode"); NativeWoundedAIScared(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ally-ray-classification")) { Require(argc==5,"ally ray requires db/res/mode"); NativeAllyRayClassification(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ai-cover-depth")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativeAICoverDepth(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-path-wave-flags")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativePathWaveFlags(argv[2],argv[3],std::atoi(argv[4])); return true; }

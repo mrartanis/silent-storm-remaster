@@ -2098,3 +2098,31 @@ all-green per platform/CI378 pass. Source partial; combined contact-list and
 reachable-retreat/timing cases pending.
 
 Source: [98871d0f0def4f966e097b984c18e57a8f437d7b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98871d0f0def4f966e097b984c18e57a8f437d7b).
+
+## 2026-11-01: combined threats and deferred reachable retreat
+
+Register NativeWoundedAIContacts0..5 and NativeWoundedAIRetreat0..7 as extended DB cases
+on both platforms, outside asset-freeCI. Native factory identities, actual threat
+vectors/const-reference caller shape, actual SAIUpdateTracker/Normal/Retreat/Guard and
+borrowed saved destination fields exercise the consumers. Contact cases cover
+empty/confirmed controls, suspected-only, possible-before-confirmed order, duplicate/null
+preservation and copy lifetime after source vectors clear. Retreat cases use real authored
+navigation and units: genuine suspected-contact destination deflection, empty/retainedKO
+contacts, stale planningHP0, actualAP0/fixed30 wave, incumbent/no-route timing. Compare
+seeded existing native helper only for caller routing; independently check native wave
+membership/cost<=30 and distance>=5. Native goal selection is checked against each
+platform's own helper; no cross-platform selected-point identity is claimed. No substitute
+path/fear outcome. Contact fourRNG unchanged; retreat fourRNG equals original-path
+consumption, plus physical/planned AP/HP/position/contact/wish-pose invariants.
+
+Canonical RED12/14 ->GREEN14/14 both; two exact contact controls. Initial implicit
+pointer-vector compilation and unavailable far-grid fixture are archived before
+canonicalRED, with no distant-grid coverage claim. Existing confirmed-promotion test now
+names the confirmed vector directly. Old alarm reference had11/12 initialWindows because
+Human assumed deterministic fallback; adjust only expected fallback RNG to actual5/30
+helper, retaining threshold/40percent/command/contact assertions. Final 403 Windows/406
+Linux related single all-green, all12 prior alarm cases and all18 prior fear cases
+explicitly selected; prior18 rows exactly unchanged. Full Game both/CI378. Source988
+complete,34 unfinished.
+
+Source: [98871d0f0def4f966e097b984c18e57a8f437d7b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98871d0f0def4f966e097b984c18e57a8f437d7b).

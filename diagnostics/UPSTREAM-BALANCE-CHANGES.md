@@ -3978,3 +3978,26 @@ No data/HD/font/face/audio/wire changes;0 new original-game process/runtime reco
 source commits remain.
 
 Source: [98871d0f0def4f966e097b984c18e57a8f437d7b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98871d0f0def4f966e097b984c18e57a8f437d7b).
+
+## 2026-11-01: combined threats and deferred reachable retreat
+
+Original retreat behavior: combine suspected then confirmed enemies; choose among
+reachable RUN places using the existing weighted-away/cone/random helper with minimum5
+units and maximum30 movement AP. This replaces a deterministic farthest passable point
+near an8-unit offset that did not establish reachability. The search uses the fixed30
+budget even at currentAP0. Keep empty-search Guard radius12. Install the next reaction and
+update it later through the existing pump, preserving the current route until then.
+Existing helper internals, movement prices and paidAP are unchanged. Contact-list copy
+preserves order/duplicates/nulls and does not change saved/wire fields. The random
+selection intentionally restores its original draw instead of preserving the
+approximation's no-draw behavior.
+
+Canonical native RED12/14 ->GREEN14/14 both, actual cost29Windows/26Linux<=30 and
+distance>=5, suspected-contact destination deflection, deferred route/timing and four
+seeded RNG-word checks. Physical/planned AP/HP/position/contacts/wish pose unchanged. 403
+Windows/406 Linux related cases, full Game both/CI378; all18 prior fear rows exact, all12
+prior alarm cases pass after old deterministic-fallback test expectation is updated.
+Original static99/58/67/549 and independently decoded typed Normal callsites; no
+unknown-global/control masks or original game process.34 sources remain.
+
+Source: [98871d0f0def4f966e097b984c18e57a8f437d7b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98871d0f0def4f966e097b984c18e57a8f437d7b).

@@ -23523,3 +23523,48 @@ one all-green batch per platform/CI378 pass.35 sources remain, now21pending14par
 hosted actual-final-head CI pending.
 
 Source: [98871d0f0def4f966e097b984c18e57a8f437d7b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98871d0f0def4f966e097b984c18e57a8f437d7b).
+
+## 2026-11-01: combined threats and deferred reachable retreat (source988 complete)
+
+Finish the donor after134: GetKnownEnemies returns a detached value containing suspected
+contacts first, then confirmed contacts, preserving original order/duplicates/null
+entries. The original99-byte collector uses two front inserts in reverse construction
+order; the own return-by-value API replaces its output parameter without saved-layout
+changes. Existing mounted-gun and fear callers that bind const references retain the
+temporary for their scope. Normal now uses the existing native aiRouteMisc
+GetFearPosition(server,combined,place,5,30) instead of its private farthest-passable-point
+approximation. Install Retreat when found or the existing radius12 Guard when empty; the
+native update pump handles the newly installed reaction later, with no inline Update. Keep
+the owned valid-server guard and existing route/helper/AP-cost APIs.
+
+Actual Steam collector4b1e60/99, retreat factory495e20/58, guard factory4513f0/67 and
+nearest-wave helper4a0990/549 bind whole uniquely with decodedE8/validatedEH only. Named
+Normal primaryRTTI slot10 maps Gold47e350 to actual47eee0. Decode actual collector
+call47f009, min5/max30 arguments47f013, fear call47f027->4a0ee0, factory branches,
+SetReaction slot64 and cleanup/tail jump to47f4a5 with no inline update. Full
+Normal1440/frame34 versusactual38 and existing fear/average/direction bodies are not
+claimed equivalent: unknown mutable zero-vector/RNG globals, frame and control differences
+are not masked. Existing own route helper is unchanged;0 new original-game process/runtime
+records.
+
+Native6 contact API +8 actual Normal reaction-pump cases: canonical RED12/14 both
+->GREEN14/14 both, two exact controls. A real suspected contact must alter the seeded
+destination versus confirmed-only input. Every selected target is in the actual RUN wave
+at cost29Windows/26Linux<=30 and distance>=5. Empty/KO-only contacts yield Guard; physical
+fightable/stale planningHP0 remains usable; actualAP0 still searches the fixed30 budget;
+both incumbent-route and no-route states retain deferred timing. Physical/planned
+AP/HP/positions/contacts/wish pose remain unchanged. Contact queries preserve four RNG
+words; retreat matches independently exercised helper consumption, intentionally differing
+from the removed deterministic approximation.
+
+Preserve existing begin-turn confirmed-versus-suspected assertions using the explicit
+confirmed vector. Prior alarm checks initially passed11/12 Windows; Human expected no
+fallback draw from the old approximation. Its expected fallback now queries the
+independently checked native5/30 helper, without changing threshold,40percent roll, alarm
+command/destination/contact or stale-cache checks. All12 prior alarm cases and all18 fear
+cases pass final both; the18 fear rows are exactly unchanged from134 GREEN. Full Game
+both/403 Windows/406 Linux related single all-green batches/CI378 pass. Initial fixture
+compile/far-grid attempts and partial comment-anchor apply interruption are retained
+separately, not canonicalRED.34 sources remain; actual-final-head hosted CI pending.
+
+Source: [98871d0f0def4f966e097b984c18e57a8f437d7b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98871d0f0def4f966e097b984c18e57a8f437d7b).
