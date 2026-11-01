@@ -784,6 +784,13 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 				CVec3 ptTarget(0, 0, 0);
 				NAI::IAIMap* pAIMap = pUS->GetWorld()->GetAIMap();
 				pAIMap->GetUnitHLPos(&ptTarget, pAIMap->GetHull(pAttackObject->pTarget), -1);
+				if ( eType == AT_MELEE || eType == AT_KNIFE )
+				{
+					ENeedActiveItem eActive = pUS->GetUnitRPG()->GetWeaponType() == NDb::WT_DEFAULT
+						? ITEM_INACTIVE : ITEM_ACTIVE;
+					return CreateActionQueue( pUS, pAttackObject.GetPtr(),
+						new CExecMeleeObject( pUS, ptTarget, pAttackObject->nExtraAttackAP ), eActive, pError );
+				}
 				CObj<CCmdShootTile> pShoot(new CCmdShootTile(ptTarget));
 				// Firearm object attacks use the same retail reload policy as unit attacks.
 				// Dev still represents their aiming executor as a tile shot (retail CExecShootObject).

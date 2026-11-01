@@ -292,7 +292,7 @@ public:
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecMeleeObject: original saved executor (Steam registry 0x01353130).
-// Its fresh-command constructor/routing is separate from legacy save restoration.
+// Fresh SS commands keep a null filter and the owned, already resolved point.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CExecMeleeObject: public CExecMelee
 {
@@ -302,6 +302,7 @@ class CExecMeleeObject: public CExecMelee
 	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CExecMelee*)this); f.Add(2,&pTarget); return 0; }
 public:
 	CExecMeleeObject() {}
+	CExecMeleeObject( CUnitServer *pUS, const CVec3 &ptTarget, int nExtraAP );
 	virtual void OnLabel();
 	virtual void PerformAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, float fHit = 1.0f );
 };

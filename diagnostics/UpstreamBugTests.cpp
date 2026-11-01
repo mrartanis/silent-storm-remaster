@@ -20861,6 +20861,91 @@ static NWorld::CExecShoot* FindNativeObjectOrPointShot(NWorld::CCommandExecute* 
     return nullptr;
 }
 
+static NWorld::CExecMelee* FindNativeQueuedMelee(NWorld::CCommandExecute* executor)
+{
+    if(auto* melee=dynamic_cast<NWorld::CExecMelee*>(executor))return melee;
+    auto* queue=dynamic_cast<NWorld::CSimpleExecQueue*>(executor);if(!queue)return nullptr;
+    vector<CObjectBase*> objects;CStructureNetworkContext graph;
+    graph.include=[&](CObjectBase* object){objects.push_back(object);return false;};
+    CMemoryStream traversal;{CStructureSaver writer(traversal,CStructureSaver::WRITE,&graph);queue->NWorld::CSimpleExecQueue::operator&(writer);}
+    CStructureNetworkContext refs;refs.externalReferences=true;refs.nextID=100;refs.include=[](CObjectBase*){return false;};
+    for(auto* object:objects)if(!refs.ids.count(object)){const auto id=refs.nextID++;refs.ids[object]=id;refs.refs[id]=object;}
+    CMemoryStream fields;{CStructureSaver writer(fields,CStructureSaver::WRITE,&refs);queue->NWorld::CSimpleExecQueue::operator&(writer);}fields.Seek(0);
+    list<CObj<NWorld::CCommandExecute>> children;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&children);}
+    for(const auto& child:children)if(auto* melee=FindNativeQueuedMelee(child))return melee;
+    return nullptr;
+}
+
+static void NativeObjectMeleeRoute(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<7,"unknown native object-melee routing mode");
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->IsAIUnit() && !unit->IsEmptyPK() && !unit->IsWearingPK() && !unit->HasCommand() && !unit->IsPerformingAction() && unit->GetUnitRPG()->CanMove()){actor=unit;break;}
+    Require(actor,"object-melee route fixture lacks an ordinary available native actor");
+    auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> previous;
+    const int slot=inventory->GetActiveSlot();if(slot>=0)previous=inventory->TakeOff(static_cast<NDb::ESlot>(slot));
+    CObj<NRPG::CMeleeWeaponItem> blade;
+    if(mode==6) {
+        NDb::CRPGMeleeWeapon* record=nullptr;CDBIterator<NDb::CRPGMeleeWeapon> rows(*NDatabase::GetTable<NDb::CRPGMeleeWeapon>());
+        while(rows.MoveNext()){auto* w=rows.Get();if(!w->bThrowing && w->pWeaponType && w->pItem && w->pItem->pModel && (!record || w->GetRecordID()<record->GetRecordID()))record=w;}
+        Require(record,"object-melee route fixture lacks an authored nonthrowing knife");blade=new NRPG::CMeleeWeaponItem(record);blade->nQuantity=1;
+        if(inventory->Get(NDb::SLOT_1))previous=inventory->TakeOff(NDb::SLOT_1);
+        Require(inventory->Equip(NDb::SLOT_1,blade) && inventory->Activate(NDb::SLOT_1),"object-melee route fixture cannot activate its native knife");
+    }
+    Require(NWorld::GetActionType(actor)==(mode==6?NWorld::AT_KNIFE:NWorld::AT_MELEE),"object-melee route fixture selected a different native action type");
+    auto* map=world->GetAIMap();auto* network=world->GetPathNetwork();NWorld::CWindowDoor* door=nullptr;CVec3 targetPoint;
+    CObj<NWorld::CCommandExecute> root;NWorld::EUnitCommandResult result=NWorld::UCR_OK;int attempts=0;
+    for(const auto& entry:world->GetObjectsForHarness()) {
+        auto* candidate=dynamic_cast<NWorld::CWindowDoor*>(entry.GetPtr());CVec3 point;
+        if(!candidate || candidate->IsBroken() || !map->GetUnitHLPos(&point,map->GetHull(candidate),-1))continue;
+        vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(point,2.f),&places);
+        for(auto place:places) {
+            place.SetPose(NAI::CM_STAND);place.SetDirection(NRPG::GetShootDirection(network,place,point));
+            if(!network->IsPassable(place) || network->IsLocked(place,false))continue;
+            auto at=actor->GetPosition();at.pos=NAI::SPosition(place,network);const float distance=fabs(at.GetCP()-point);
+            if(distance<.3f || distance>1.4f)continue;
+            world->GetTime()->Set(world->GetTime()->GetValue()+1);actor->SetPosition(at);actor->animator.AlignTime();actor->animator.PlaceUnit(at);
+            actor->animator.SetActiveItem(false);actor->SetUndrawItem(true);actor->SetWalkWithoutWeapon(true);MarkNewDGFrame();map->Sync();
+            root=NWorld::CreateActionExecutor(actor,new NWorld::CCmdShootObject(candidate,0),&result);++attempts;
+            if(root && result==NWorld::UCR_OK && FindNativeQueuedMelee(root)){door=candidate;targetPoint=point;break;}
+            if(attempts>=100)break;
+        }
+        if(door || attempts>=100)break;
+    }
+    Require(door && root,"object-melee route fixture lacks a native authored door with a valid close approach");
+    const auto position=actor->GetPosition();const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),extra=mode==4?0:7;
+    const bool active=actor->animator.IsActiveItem();auto random=GlobalGameRandom();
+    CObj<NWorld::CCmd> command;
+    if(mode==4)command=new NWorld::CCmdShootTile(targetPoint);
+    else command=new NWorld::CCmdShootObject(mode==5?nullptr:static_cast<CObjectBase*>(door),extra);
+    root=NWorld::CreateActionExecutor(actor,command,&result);auto* melee=FindNativeQueuedMelee(root);
+    Require(root && melee && result==(mode==5?NWorld::UCR_NO_TARGET:NWorld::UCR_OK),"native object-melee routing changed its existing availability control");
+    const int type=pSSClasses->GetObjectTypeID(melee),expectedType=mode==4?0x00422171:mode==5?0x00422172:0x01353130;
+    const int base=actor->GetActionAP(NRPG::AC_MELEE),start=melee->GetStartAP();
+    std::printf("OBJECT-MELEE-ROUTE mode=%d type=%08x expectedType=%08x action=%d startAP=%d expectedStart=%d status=%d attempts=%d\n",mode,type,expectedType,int(NWorld::GetActionType(actor)),start,base+extra,result,attempts);std::fflush(stdout);
+    if(mode==1)Require(start==base+extra,"native object-melee command discarded requested extra AP in a point conversion");
+    else if(mode==3){melee->Start();Require(actor->GetAP()==ap-base-extra,"native object-melee Start did not spend its requested extra AP");}
+    else Require(type==expectedType,"native object-melee command still uses a point executor instead of its original saved type");
+    if(mode==2) {
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(melee,&refs);CPtr<CObjectBase> target;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&target);}
+        Require(!target,"fresh SS object-melee retained a Sentinels target filter");
+        struct BaseState {CVec3 point;int extra=0;int operator&(CStructureSaver& f){f.Add(2,&point);f.Add(3,&extra);return 0;}} baseState;
+        CMemoryStream baseFields;{CStructureSaver writer(baseFields,CStructureSaver::WRITE,&refs);melee->NWorld::CExecMelee::operator&(writer);}baseFields.Seek(0);
+        {CStructureSaver reader(baseFields,CStructureSaver::READ,&refs);baseState.operator&(reader);}
+        Require(std::isfinite(baseState.point.x) && std::isfinite(baseState.point.y) && std::isfinite(baseState.point.z) && fabs2(baseState.point-targetPoint)<.00000001f && baseState.extra==extra,
+            "fresh SS object-melee lost the existing native hull point or saved extra AP");
+        CObj<NWorld::CExecMelee> restored=dynamic_cast<NWorld::CExecMelee*>(pSSClasses->CreateObject(type));Require(restored,"native fresh object-melee cannot roundtrip");fields.Seek(0);
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader);}
+        Require(restored->GetStartAP()==base+extra && restored->CanDoIt(position)==NWorld::UCR_OK,"native object-melee roundtrip lost its finite remembered point or extra AP");
+    }
+    Require(actor->GetAP()==ap-(mode==3?base+extra:0) && actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetPosition()==position && !actor->HasCommand(),"object-melee construction changed unexpected AP, health, position or orders");
+    if(mode!=3)Require(actor->animator.IsActiveItem()==active && random.Get()==GlobalGameRandom().Get(),"object-melee availability query executed item preparation or changed RNG");
+    Require(!blade || blade->nQuantity==1,"native knife melee routing spent the held knife early");
+}
+
 static void NativeObjectShot(const char* databasePath,const char* resourcePath,int mode)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);auto* map=world->GetAIMap();auto* network=world->GetPathNetwork();
@@ -34274,6 +34359,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "stored-aura-evasion")) { Require(argc==5,"stored aura requires db/resources/mode"); StoredAuraEvasion(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-melee-attacker-ignore")) { Require(argc==5,"melee ignore requires db/resources/mode"); NativeMeleeAttackerIgnore(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-object-melee-route")) { Require(argc==5,"object melee route requires db/resources/mode"); NativeObjectMeleeRoute(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-object-melee-save")) { Require(argc==5,"object melee requires db/resources/mode"); const int selected=std::atoi(argv[4]); if(selected<6)NativeObjectMeleeSave(argv[2],argv[3],selected);else {Require(selected==6 || selected==7,"unknown object melee filter mode");NativeMeleeTargetFilter(argv[2],argv[3],selected==6?0:3,true);} return true; }
     if (!std::strcmp(mode, "native-melee-target-filter")) { Require(argc==5,"melee filter requires db/resources/mode"); NativeMeleeTargetFilter(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-melee-world-context")) { Require(argc==5,"melee world requires db/resources/mode"); NativeMeleeWorldContext(argv[2],argv[3],std::atoi(argv[4])); return true; }

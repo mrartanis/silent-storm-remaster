@@ -2427,3 +2427,32 @@ runtime or whole retail-save-file interchange claim. Known prior campaign nested
 movement flake remains tracked, not fixed.
 
 Source: [4cdc1eada6c182c0a9093364e95c750a6166d4c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8).
+
+## 2026-11-01: fresh object-melee routing and requested AP (complete146)
+
+NativeObjectMeleeRoute0..6 exercise actual native fresh-command creation, queue traversal,
+real authored door/current hull point/close approach, original executor kind, requested
+AP, direct Start spending and native fresh decoder roundtrip.6 equips a real nonthrowing
+authored knife, with existing named AT_KNIFE12 and held-item preparation; unarmed uses
+default inactive-item policy.4 direct-point/5 missing-target controls remain exact. Query
+health/AP/position/orders/item state/RNG and knife quantity guarded. Only newly allocated
+executor is deserialized; no live-world read or original runtime.
+
+Canonical RED5/7 both ->GREEN7 both, combined21 with all14 prior native
+saved-executor/filter cases exact. Original unarmed14 versus expected21 and knife18
+versus25 now include requested7; same native approach succeeds on first real candidate.
+Fresh object roundtrip requires finite existing native hull point, saved extra7 and NULL
+SS filter. Own runtime point seed explicitly preserves the previous fork input and does
+not claim parity with original unchecked null-lookup coordinates. Original complete426
+classifier, unique typed63 factory prefix/named command/actual tables/constructor args and
+item rule independently audited; reject whole5657 factory and whole196 getter equivalence.
+Do not transplant Sentinels retained-object producer.
+
+Full Game both/379 Windows/368 Linux related/CI378 all pass. Prior14 raw case rows and
+separate godmode-dedup row exact;12 FONT-COMPAT rows exact each. Linux preflight rebuilds
+selected existing executables and nested helpers before tests. No native backend, asset,
+serialized-field or LAN changes. Source complete30unfinished; known prior campaign
+nested-save movement flake remains tracked, not fixed. Full damaging
+mission-loop/original-save-file interchange not claimed.
+
+Source: [4cdc1eada6c182c0a9093364e95c750a6166d4c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8).

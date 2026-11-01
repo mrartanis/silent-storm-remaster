@@ -4207,3 +4207,31 @@ constructor/routing and original null-coordinate issue remain pending;31 unfinis
 sources.
 
 Source: [4cdc1eada6c182c0a9093364e95c750a6166d4c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8).
+
+## 2026-11-01: fresh object-melee routing and requested AP (complete146)
+
+New melee/knife commands against non-unit world objects preserve requested extra AP
+instead of losing it during point-command conversion. In actual native tests extra7
+changes the unarmed query14->21 and a real knife18->25; direct Start spends base+extra.
+AP-price tables, skills, damage and to-hit formulas are unchanged. These commands now run
+the original object executor's existing native one-shot point selection/hit-miss path,
+with the SS NULL filter. Direct point, unit and missing-target controls keep their
+existing paths.
+
+Retain the fork's previous finite current-hull center as the runtime remembered point.
+Original SS passedNULL and ignored a failed coordinate lookup; reproducing those
+uninitialized coordinates would introduce undefined input. This explicit own constructor
+adaptation preserves existing geographic input and does not claim an original zero point.
+Donor Sentinels retained-target/frame-aim producer is omitted as an independently verified
+version difference; non-null loaded states still use145's saved-target support. Native
+path/facing/equipment, named own enum ordinals, saved fields/classID and LAN/native
+backend/assets stay unchanged.
+
+RED5/7 ->GREEN7 both, combined21 and two exact direct-point/targetless controls. Native
+fresh identity/extraAP/Start/finite-point/null-filter roundtrip and real nonthrowing knife
+covered; prior14 cases plus godmode-dedup and12 font rows exact. Game both/379 Windows/368
+Linux related/CI378 pass. Earlier door lookup +145 saved executor +146 SS
+routing/constructor adaptation complete this source;30 unfinished. Prior campaign movement
+flake remains tracked and unrelated, not fixed here.
+
+Source: [4cdc1eada6c182c0a9093364e95c750a6166d4c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8).

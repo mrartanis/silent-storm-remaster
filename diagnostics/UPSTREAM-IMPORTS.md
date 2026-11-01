@@ -24098,3 +24098,71 @@ tracked; only its exact test excluded if selected, not repaired here. Hosted fin
 success remains required at whole-task completion.
 
 Source: [4cdc1eada6c182c0a9093364e95c750a6166d4c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8).
+
+## 2026-11-01: fresh object-melee routing and requested AP (complete146)
+
+Generic non-unit object commands with native AT_MELEE or AT_KNIFE now create the original
+registered CExecMeleeObject through the existing native action queue and retain requested
+nExtraAttackAP. The old fallback converted them into CCmdShootTile/CExecMeleeTile and
+discarded extra AP. Keep existing unit, targetless, direct-point, ranged/explosive and
+other action paths. Unarmed default equipment still requests ITEM_INACTIVE; a held knife
+requests ITEM_ACTIVE through owned native path/facing/item preparation. Keep own
+AT_KNIFE12 ordinal rather than importing original enum3. No new virtual or save field:
+existing base point2/extra3 and object target2/ID01353130 remain as145.
+
+Actual original SS factory passes NULL to its object executor. Preserve that null saved
+target/filter, while retaining the current fork's already computed finite native
+hull-center point from its former fallback. Add an owned runtime
+constructor(actor,point,extra) that explicitly stores this same input, rather than
+introducing the original constructor's unchecked failed-null map lookup and uninitialized
+point. This is an intentional own initialization adaptation, not a claim that original
+coordinates were zero or equal. The command still retains its physical target for native
+approaches; the new executor does not adopt the donor's Sentinels retained-target
+producer. Consequently this is the SS object path, not a new broken-window remaining-frame
+targeting feature. Verified non-null legacy saved executors remain supported by145's
+existing decoder/label/filter.
+
+Bind original GetActionType Gold787e40/426 to actual793a40/426 uniquely with only eight
+decoded E8 operands. Bind the typed Gold CreateActionExecutor body prefix7921a8/63 after
+the EH prologue to actual79dde8/63 using only two named RTTI descriptors and two decoded
+E8 operands; independently decode actual79ddd0 prologue, reject whole Gold5657 factory
+comparison. Actual named CCmdShootObject descriptor951468/cast833bd2 at79e132..144 gates
+the branch, actual fields pTargetc/extra14 match PDB, classifier793a40/table79f40c maps
+original melee2/knife3 to79e1b7. That branch separates the unit cast and a valid generic
+command target, then79e1de pushes extra14,NULL,actor and79e1e7 calls7a5d80, whose typed
+object vtable is8cd1bc. Donor comment79db52 is not this constructor call in the actual
+Steam image; do not reuse it.
+
+Actual secondary translation for melee2/knife3 enters79e3c5: mission getter2c then
+NEG/SBB/+2 computes inactive2 for default0 and active1 otherwise, before queue
+builder799ca0. Independently named mission secondary4c slot2c maps Gold6b8cd0/11 to
+actual6befa0/11, exact field118 prefix and decoded tail to typed unit GetWeaponType
+Gold6b5060/actual6bb200, whose first27 bytes uniquely map. No whole196 getter or
+queue-builder prototype equivalence claim. Gold PDB enums independently confirm
+WT_DEFAULT0 and item active1/inactive2; own matching item policy and different action
+ordinals are retained. No arbitrary field/frame/branch masks or original runtime
+execution.
+
+NativeObjectMeleeRoute0..6 use actual CreateActionExecutor and native queue/executor on a
+real authored door with a valid close approach. RED5/7 both: generic/extra/saved
+identity/native Start/real nonthrowing knife use tile00422171 and lose extra7; direct
+point and missing-target controls pass and remain exact. GREEN7 both/combined21; unarmed
+query14->21 and knife18->25 retain requested7, actual Start deducts base+extra, fresh
+native roundtrip preserves finite prior hull point and NULL SS filter. Query actor
+health/position/AP/orders/equipment/RNG and knife quantity are guarded. All14 prior
+saved-executor/filter rows remain exact, with the separate old godmode-dedup control also
+exact in broad coverage. These are real factory/Start/decoder consumers; no claim of a
+full damaging mission-loop replay or original whole-save-file interchange.
+
+Full Game both/379 Windows/368 Linux related/CI378 pass, including current native helpers
+refreshed before Linux tests and12 packaged font rows exact each. Owned
+SDL/bgfx/audio/HiDPI/font/HD/face pipelines, foreground/background policy and LAN/save
+contracts remain intact; no assets/PNG generation. Prior145's test-only authored-health
+calibration remains unchanged. Known prior campaign nested-save movement flake remains
+tracked, not fixed; its exact case is excluded if selected. All SS-relevant source hunks
+are now accounted for: earlier active-door lookup,145 saved executor,146 live
+routing/constructor adaptation; the independently different Sentinels retained-target
+producer is intentionally not imported. Sourcecomplete,30 unfinished. Final-head hosted CI
+remains required at whole-task completion.
+
+Source: [4cdc1eada6c182c0a9093364e95c750a6166d4c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8).

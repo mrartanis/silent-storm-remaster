@@ -1928,6 +1928,14 @@ void CExecMeleeTile::OnLabel()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecMeleeObject: Steam OnLabel 0x7aa200, saved base1/target2 at0x7b1960.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+CExecMeleeObject::CExecMeleeObject( CUnitServer *_pUS, const CVec3 &_ptTarget, int _nExtraAP ):
+	CExecMelee( _pUS, _nExtraAP ), pTarget( 0 )
+{
+	// Steam's producer passes a null target. Keep our existing deterministic
+	// hull-center input instead of introducing its unchecked null lookup.
+	ptTarget = _ptTarget;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecMeleeObject::PerformAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, float fHit )
 {
 	// Original virtual48 takes the saved target as its third pointer argument.
