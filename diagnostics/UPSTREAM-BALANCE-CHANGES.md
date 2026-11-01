@@ -3558,3 +3558,28 @@ source3cfc physical throw work remain separate;54 sources unfinished. Original
 D2/world/final shots and whole-task final hosted CI are not runtime claims here.
 
 Source: [226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4).
+
+## 2026-11-01: grenade accuracy interval, stance perk and truncation
+
+Grenade accuracy now interpolates from the existing physical base distance to
+int(1.5*baseDistance), using the original skill scale140 and float/truncation order. This
+changes accuracy weighting within the existing throw solver's limits. Tested regular
+base21/28 gains accuracy endpoint31/42; engineer base30/41 gains45/61. Actual D1 values at
+tested skill70/140 become26/42/37.5/61. Authored ability92 selects the best stance bonus
+without changing the unit's pose. With stock crawl-4/crouch-2 it removes either penalty,
+while standing stays0 and unowned penalties remain. Final probability truncates after the
+existing2..100 clamp. At fixed distances8/9, native chance changes74 ->79 and70 ->76 with
+the interval change and truncation; same-interval pre-fix floats73.7984/69.5231 had
+rounded upward, and post-range floats79.7057/76.7160 now truncate. No AP spending,
+authored values or physical launch velocity/limit is changed here.
+
+Actual native RED10/114 both ->full728 Windows /729 Linux/Game builds/CI323, all114 RED
+names included.91 prior measured controls stay exact;7 prior shared grenade controls
+change only maxRange to the new contract, preserving raw
+skill/minRange/quality/weight/item/ammo/RNG. All16 new min/max/stance/D1 values match32
+actual original records; original finalGetToHit conversion is independently statically
+verified, but original live-world chance/flight is not executed. Source226 complete,53
+unfinished. Source3cfc still owns physical throw/perk88/90/PK/Hide changes. Whole-task
+final hosted CI remains pending.
+
+Source: [226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4).

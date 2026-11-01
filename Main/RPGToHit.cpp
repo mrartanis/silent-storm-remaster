@@ -674,12 +674,17 @@ void CGrenadeToHitCalcer::Prepare()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float CGrenadeToHitCalcer::GetStance()
 {
-	int nStance = 0;
-	if ( eCurPose == NAI::CROUCH  )
-		nStance = int( GetGrenadeRecWeaponType( pGrenade )->fCrouchBonus );
-	else if ( eCurPose == NAI::CRAWL )
-		nStance = int( GetGrenadeRecWeaponType( pGrenade )->fCrawlBonus );
-	return nStance;
+    const NDb::CRPGWeaponType &wt = *GetGrenadeRecWeaponType( pGrenade );
+    NAI::EPose pose = eCurPose;
+    // Original Steam 0x6b7990/200: perk92 selects the best bonus without changing the unit's pose.
+    if ( pUnitMission->HasPerk( 0x5c ) )
+        pose = GetBestPose( wt );
+    int nStance = 0;
+    if ( pose == NAI::CROUCH )
+        nStance = int( wt.fCrouchBonus );
+    else if ( pose == NAI::CRAWL )
+        nStance = int( wt.fCrawlBonus );
+    return nStance;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGrenadeToHitCalcer::FillWeaponInfo()
@@ -687,7 +692,8 @@ void CGrenadeToHitCalcer::FillWeaponInfo()
 	CToHitCalcer::FillWeaponInfo();
 	sWeaponInfo.nQuality = GetGrenadeRecQuality( pGrenade );
 	sWeaponInfo.nMinRange = GetGrenadeMaxDistance();
-	sWeaponInfo.nMaxRange = sWeaponInfo.nMinRange;
+	// Original Steam 0x6b7c60/252: the accuracy interval extends to 1.5 times its base.
+	sWeaponInfo.nMaxRange = int( sWeaponInfo.nMinRange * 1.5f );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float CGrenadeToHitCalcer::GetMaxImp()
@@ -729,7 +735,7 @@ int CGrenadeToHitCalcer::GetToHit()
 	Prepare();
 	fToHit = GetAllMult() + ( GetAuraToHitAdd() + GetCarefulShootPerk() ) - GetWeatherPenalty();
 	fToHit = Clamp( fToHit, 2.0f, 100.0f );
-	return int( fToHit + 0.5f );  // release rounds the result (fistp), unlike the dev's truncation
+	return int( fToHit );  // Actual Steam 0x6b89f4..0x6b8a04 selects CHOP before FISTP.
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGrenadeToHitCalcer::Log()

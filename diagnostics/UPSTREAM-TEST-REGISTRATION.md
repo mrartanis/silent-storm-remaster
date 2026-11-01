@@ -1642,3 +1642,27 @@ Stack/context/CW/config restored, normal WM_CLOSE/exit0. Source226 prerequisite 
 own3 hunks still pending;54 unfinished.
 
 Source: [226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4).
+
+## 2026-11-01: grenade accuracy interval, stance perk and truncation
+
+NativeGrenadeRangeStance0..15 use actual authored missions/Take92 and live-world calcers:6
+interval cases regular/engineer/explicit backpack,6 owned/unowned stance cases,2 fixed
+fractional realGetToHit cases and2 clamp controls. Unsupported initial positive-bonus
+fixture and exploratory helper composition are archived separately; neither is canonical
+RED. Actual stock bonuses-4/-2 mean ability92 selects WALK0. Canonical RED10/114 both
+->full728 Windows /729 Linux/Game builds/CI323, all114 RED names included.91 old
+measurements are exact;7 old shared grenade controls adapt only maxRange to1.5 while
+retaining every other field/raw API word/RNG.16 original PC24 min/max/stance/D1 references
+match. Fractional distances8/9 exercise the actual return conversion both before and after
+range enlargement; bounds100/2 stay exact.
+
+Typed complete Gold/Steam Stance200/Fill252/GetToHit191/BestPose73 plus exact
+Min41/Max41/_ftol2117 helpers are verified.32 actual original
+SharedSkill/Fill/Stance/D1/MaxVelocity records plus4-record lifecycle smoke use real
+item/tree constructors and sparse actual-vtable Mission/Unit/calcer/controlled typed DB
+buffers. Original GetToHit/grenadePrepare/world/flight/DB-record constructors are not
+runtime claims. Stack/context/CW/config/refcounts/objects restored, normal WM_CLOSE/exit0.
+Source226 complete,53 unfinished; source3cfc physical/perk/PK/Hide/executor work remains
+separate.
+
+Source: [226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4).

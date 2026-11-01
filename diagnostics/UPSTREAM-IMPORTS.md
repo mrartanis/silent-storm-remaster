@@ -22367,3 +22367,95 @@ this correction does not change source counts:54 unfinished (pending38 +partial1
 exhaustive D1/whole-physics parity or whole-task final hosted CI is claimed.
 
 Source: [226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4).
+
+## 2026-11-01: grenade accuracy interval, stance perk and truncation (`226b2ddb` completed)
+
+CGrenadeToHitCalcer::FillWeaponInfo keeps its existing physical base distance and quality,
+and sets accuracy maxRange=int(minRange*1.5f). The already corrected original D1 precision
+interpolates between these endpoints using skill scale140. GetStance applies authored
+ability92 by selecting GetBestPose on the actual regular/engineer weapon type, without
+changing the actor's real pose. Stock type bonuses are crawl-4/crouch-2, so GetBestPose
+selects WALK/0 and the owned perk removes either negative penalty. Standing remains0;
+unowned crouch/prone remain-2/-4. GetToHit retains its clamp2..100 and truncates the final
+positive float instead of adding.5. No physical throw velocity/limit, AP cost, authored
+field, animation, inventory ownership, save/network field, own rendering/font/audio path
+is changed. Source3cfc still owns physical velocity/distance/perk88/90/PK/Hide/executor
+review.
+
+Six range cases use actual stock regular grenade1/grams300, engineer grenade1/grams150 and
+an explicit AI backpack grenade while gun17 stays active, each at raw THROW70/140. Legacy
+base distances21/28/30/41 stay unchanged; accuracy maxima become31/42/45/61, and actual D1
+values become26/42/37.5/61. Six ability92 cases cover owned/unowned WALK/CROUCH/CRAWL
+query inputs with real TakePerk/point budgets, retaining the actual actor pose. Two
+final-conversion cases use fixed distances8/9 and actual GetToHit, requiring fractional
+parts above.5 both before and after the range change. Two boundary controls retain
+exact100 and2; the100 case advances the real mission counter before setup to remove the
+first-turn penalty.
+
+Initial exploration incorrectly required a positive authored grenade stance bonus; actual
+stock fields are negative. Its six range assertion divergences and seven setup failures
+are archived, and the setup failures are not counted as native RED. Removing that
+unsupported fixture filter gives genuine8/13 stock range/stance divergences and5 controls.
+An exploratory mode also composed existing native helpers with the public maxRange1.5
+input solely to choose fixed fractional distances; this exploratory composition is not
+baseline RED or original runtime proof and is completely removed from canonical tests. The
+final16 actual-calcer cases give genuine RED10/114 both,104 passing tests, before
+production:6 range,2 stance,2 truncation failures. All captured inputs remain fixed; no
+fake provider, future API or override replaces the actual consumer.
+
+Full GREEN728 Windows /729 Linux, full Game builds and323 asset-free checks pass. All114
+RED names are included. Of98 previous measured controls,91 are exact; the seven shared
+grenade cases from source9f3 are adapted only from the old equal-range metadata contract
+to the new1.5 maximum, retaining all other measurements including minRange, raw skill
+words and RNG. All16 new native min/max/stance/D1 values match their original PC24
+references; HP/AP/quantity/ammo/active item/pose/perk points/RNG and native
+constants/skills/weights remain unchanged. Fractional full chance changes74 ->79 and70
+->76 with the enlarged interval and correct truncation; independently, the old
+same-interval values73.7984085 and69.5231323 had incorrectly rounded to74/70. The
+post-range values79.7056656/76.716011 now truncate79/76. These full chance examples are
+native observations, not an original live-world chance execution claim.
+
+Typed named Gold grenade primary VT8b5c5c ->actual Steam8c4d74 binds GetStance18
+Gold6b1810/200 ->6b7990, Fill50 Gold6b1ae0/252 ->6b7c60 and GetToHit10 Gold6b2800/191
+->6b8950. All complete routines match uniquely with only independently decoded/verified
+call/data operands relocated. Stance's only relocated call targets independently bound
+GetBestPose73 Gold6b0aa0 ->6b6b90; its two relocated FLD positive-zero pointers
+independently hold00000000. Has78 receives92/three null outputs; pose68 is a local
+selection only. Fill's verified grid1.6f and range1.5f data pointers and exact117-byte
+_ftol2 helper relocation are the only masks. Actual maxRange30 is int(minRange2c*1.5f),
+with explicit RC11/FISTP. GetToHit's only relocated calls are exact unique41-byte Min/Max
+helpers; final6b89f4 selects CHOP then FISTP6b8a00 and restores CW. No
+opcode/frame/branch/unknown-pointer masking. Stale donor addresses and the initially
+misread Logslot14 are rejected; typed Fill is slot50, and that read-only rejected slice is
+retained separately.
+
+A four-record lifecycle smoke is followed by32 accepted actual original records in16
+contexts under observed game PC24/RN CW007f and diagnostic PC53/RN CW027f. Actual
+SharedGetWeaponSkill1244, Fill252, GetStance200, D1 38 and free MaxThrowVelocity285
+execute; raw skill conversion uses a wrapper, and original
+GetToHit191/grenadePrepare188/world/flight is not executed. Six initialized D3D9/main-menu
+samples verify original CW007f. The sampled32 observable outputs agree across the two
+precision modes; this does not replace the earlier independent D1/aim PC24 proofs. The16
+healthy stock-input base distances also agree, without claiming whole native throw-physics
+or other perk88/90/PK/trajectory parity; other original tree perks stay at default and are
+not a live-world ownership snapshot.
+
+Real original default Grenade100/Weapon104/Clip108/Ammo56/PerksTree
+constructor/Take92/Has/virtual/destructor lifecycles, points/refcounts/base-vtable resets
+and unchanged objects/typed DB buffers are checked. Actual emitted IGrenade base24/VBtable
+derives IInventoryItem80 and IGrenadeInfo92, with CObjectBase header48; no
+maximum-RTTI-offset guess. PDB CInventory pDBItem14 and grenade regular24/engineer28 links
+are supplied with controlled typed record data and restored from constructor snapshots
+before destructor calls. Actual getter thunks and PDB field offsets bind those links
+independently. Mission/Unit/calcer use sparse actual vtables, and DB records use
+controlled typed data; original World/inventory/calcer/DB-record constructors are not
+claimed. Original real stack backup/readback, complete716-byte context/CW/config
+restoration and normal WM_CLOSE/exit0 are verified; original binaries/resources untouched,
+no fake provider or code/DB/world/TEB patch.
+
+Source226's three useful hunks are complete after its independent D1 prerequisite.
+Remaining53 sources (pending37 +partial16). Physical grenade helpers/execution remain
+source3cfc work, and original final live-world chance/throw behavior is outside this
+bounded proof. Hosted CI on the eventual final HEAD of the entire task remains pending.
+
+Source: [226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4).
