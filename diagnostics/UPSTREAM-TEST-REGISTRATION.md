@@ -2211,3 +2211,38 @@ field/frame masks or original runtime claims. Demo lifecycle and automatic menu 
 separate unfinished hunks.
 
 Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).
+
+## 2026-11-01: one-shot demonstration map transitions
+
+NativeAutoPlayLifecycle0..8 are isolated extended native-display DB/resource cases. Invoke
+the actual registered autoplay command and native mission pump. Consume only its existing
+unrelated mission-start CICSaveFile; no snapshot is written. A test-only
+explicit-instantiation member accessor writes a literal to the existing typed
+CWorld::nTurnID field, then the real GetTurnID getter and pre/post-frame winner invariants
+verify the input. This avoids deserializing a live world or guessing a byte offset. The
+original world counter corresponds to existing save field38; no production setter,
+alternate getter or simulated turn gate is added. Existing serialized demo counter3
+supplies its actual shared CCTime node for literal watchdog input. Real MakeUnconscious on
+opponents creates one winner, preserving the last tracked squad or the active squad for
+the music case; do not substitute a fake winner or diplomacy table for same-id party
+hostility. The renderer uses an owned hidden SDL/bgfx window and normal cleanup.
+
+Canonical RED4/9 both ->GREEN9/9 both; exact controls0/1/3/6/7, strict100/101
+and1200000/1200001 boundaries, any/last winner, key/time latch, original demo music
+retention0->2, stable actual graph and repeated-frame one-shot behavior. Execute the
+actual resulting container and require a fresh registered demo modal. Initial
+snapshot/diplomacy fixture attempts, missing-getter compile errors and a failed
+full-live-world-snapshot GREEN remain in evidence and are excluded from
+canonicalRED/GREEN. Final literal-field inputs preserve winner conditions before and after
+each frozen native frame; restore prior-head production and re-establish final-fixture RED
+before restoring prepared production for GREEN. Original static typed actual59d7a0/168 and
+common cursor/callback order are separately verified; no original runtime claimed.
+
+Full Game both/425 Windows/395 Linux selected related all pass/CI378/12 exact vector-font
+rows. Both prior squad cases remain selected. Exclude by exact name only the138
+prior-head-proven Windows campaign nested-save movement flake; retain its failed suite
+and0/0/8 current/baseline evidence, no fix claim. Interactive mission logic, including LAN
+guards and UpdateSound ownership, is moved verbatim into the default callback. Sourcefdd
+still partial;33 sources unfinished.
+
+Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).

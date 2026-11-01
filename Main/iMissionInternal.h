@@ -222,7 +222,7 @@ private:
 	CDBPtr<NDb::CUITexture> pPWLImage;
 	// retail tag 38 (+ TRANSIENT tLastCurrentPlayerChange @+0x58c): the previous world current-player;
 	// on a change, GameStep @0x2017a0 stamps tLastCurrentPlayerChange with the UI clock (writer at the
-	// top of InternalStep here). Feeds the CanDoCommand(CCommand*) end-of-turn 2s cooldown @0x1fbf10.
+	// start of the interactive GameStep). Feeds the end-of-turn 2s cooldown @0x1fbf10.
 	CPtr<NWorld::IPlayer> pPrevCurrentPlayer;
 	STime tLastCurrentPlayerChange = 0;
 public:
@@ -242,6 +242,7 @@ private:
 	void InternalStep();
 
 protected:
+	virtual void GameStep();
 	// NO GetTime() override: retail's mission GetTime() IS the raw main-loop clock (@0x1f4e00).
 	// nDeltaTime supplies the script skip offset to world updates (retail @0x5a3c24).
 	// Sound separately uses GetGameTime with that offset; the UI has its own clock.

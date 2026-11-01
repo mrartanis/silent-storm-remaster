@@ -33347,6 +33347,79 @@ static void NativeAutoPlaySquads(const char* databasePath,const char* resourcePa
 }
 
 
+struct AutoPlayTurnMemberTag {
+    using type=int NWorld::CWorld::*;
+    friend type AutoPlayTurnField(AutoPlayTurnMemberTag);
+};
+template<auto Member> struct AutoPlayTurnMemberAccess {
+    friend AutoPlayTurnMemberTag::type AutoPlayTurnField(AutoPlayTurnMemberTag){return Member;}
+};
+template struct AutoPlayTurnMemberAccess<&NWorld::CWorld::nTurnID>;
+
+static void NativeAutoPlayLifecycle(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<9,"unknown autoplay lifecycle fixture");
+    Require(std::getenv("S2_USER_DATA_DIR") && !NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"autoplay lifecycle needs isolated empty interface state");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm demonstration lifecycle regression");
+    struct Restore {
+        NGlobal::CValue units=NGlobal::GetVar("autoplay_units"),maps=NGlobal::GetVar("autoplay_templates"),freeze=NGlobal::GetVar("diag_freeze_world_clock",0);
+        STime time=NMainLoop::SetTimeForHarness(0);
+        ~Restore(){NGlobal::SetVar("autoplay_units",units);NGlobal::SetVar("autoplay_templates",maps);NGlobal::SetVar("diag_freeze_world_clock",freeze);NMainLoop::SetTimeForHarness(time);}
+    } restore;
+    NGlobal::SetVar("autoplay_units",NGlobal::CValue(L"968"));NGlobal::SetVar("autoplay_templates",NGlobal::CValue(L"4412"));NGlobal::SetVar("diag_freeze_world_clock",NGlobal::CValue(1));
+    NGlobal::ProcessCommand(L"autoplay");CObj<NMainLoop::CInterfaceCommand> enter=NMainLoop::TakeInterfaceCommandForHarness();Require(IsValid(enter),"autoplay lifecycle has no real entry command");enter->Exec();
+    CObj<NGame::CMissionBase> demo=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(IsValid(demo) && pSSClasses->GetObjectTypeID(demo)==int(0xB3723140),"autoplay lifecycle did not open the actual registered mission");
+    CObj<NMainLoop::CInterfaceCommand> snapshot=NMainLoop::TakeInterfaceCommandForHarness();
+    Require(dynamic_cast<NMainLoop::CICSaveFile*>(snapshot.GetPtr()) && !NMainLoop::HaveInterfaceCommand(),"autoplay lifecycle did not isolate its existing mission-start snapshot command");
+    auto* world=dynamic_cast<NWorld::CWorld*>(demo->GetWorld());Require(world && world->GetGlobalGame(),"autoplay lifecycle has no native world/global game");
+    auto* global=world->GetGlobalGame();auto* scene=demo->GetSoundScene();auto* interface=demo->GetInterface();
+    vector<CPtr<NWorld::CPlayer>> players;world->GetPlayersList(&players);Require(players.size()>=2,"autoplay lifecycle has no competing native players");
+    vector<CPtr<NGame::IPlayerTracker>> trackers;demo->GetPlayers(&trackers);Require(trackers.size()==4,"autoplay lifecycle lost its four actual trackers");
+    auto* winnerTarget=mode==8?demo->GetActivePlayer()->GetPlayer():trackers.back()->GetPlayer();
+    const bool winnerInput=mode==5 || mode==8;
+    if(winnerInput){
+        vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);
+        for(const auto& unit:units)if(unit->GetPlayer()!=winnerTarget){
+            auto* server=dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());Require(server,"autoplay victory input has a non-server combat unit");
+            server->MakeUnconscious(VNULL3,true,false);Require(!server->CanFight(),"autoplay victory input did not knock out a real opponent");
+        }
+    }
+    int winners=0;for(const auto& tracker:trackers)if(tracker->IsPlayerWinner())++winners;
+    Require(winners==(winnerInput?1:0),"autoplay lifecycle native knockouts did not establish real winner/nonwinner conditions");
+    auto setWorldTurn=[&](int turn){
+        // A literal input to the existing native int; do not deserialize the live world.
+        (world->*AutoPlayTurnField(AutoPlayTurnMemberTag{}))=turn;
+        Require(world->GetTurnID()==turn && world->GetGlobalGame()==global && demo->GetWorld()==world,"autoplay turn input changed the actual world graph");
+    };
+    const int turn=mode==1?100:mode==2?101:0;setWorldTurn(turn);
+    {int current=0;for(const auto& tracker:trackers)if(tracker->IsPlayerWinner())++current;Require(current==winners,"autoplay scalar input changed actual winner state");}
+    CTimeCounter watchdog;
+    auto signal=[&](){CStructureNetworkContext refs;auto fields=BorrowedObjectFields(demo,&refs);bool value=false;CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&value);reader.Add(3,&watchdog);return value;};
+    Require(!signal(),"autoplay lifecycle started with a dismissed signal");
+    const STime watchdogInput=mode==3?1200000:mode==4?1200001:0;watchdog.SetCurrent(watchdogInput);
+    if(mode==8)scene->SetMusic(NDb::MT_COMBAT);
+    auto nextMusic=[&](){CStructureNetworkContext refs;auto fields=BorrowedObjectFields(scene,&refs);int value=-1;CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(9,&value);return value;};
+    if(mode==8)Require(nextMusic()==int(NDb::MT_COMBAT),"autoplay sound input did not establish native requested combat music");
+    if(mode==6 || mode==7){NInput::SEvent event;event.mMessage.cType=mode==6?NInput::CT_KEY:NInput::CT_TIME;demo->ProcessEvent(event);}
+    CObj<NMainLoop::CInterfaceCommand> dismissed=NMainLoop::TakeInterfaceCommandForHarness();
+    Require((mode==6 && dynamic_cast<NMainLoop::CICExitModal*>(dismissed.GetPtr())) || (mode!=6 && !IsValid(dismissed)),"native dismiss/time input queued the wrong command");
+    MarkNewDGFrame();Require(NMainLoop::StepApp(true,false,false),"autoplay lifecycle frame requested application exit");
+    CObj<NMainLoop::CInterfaceCommand> next=NMainLoop::TakeInterfaceCommandForHarness();const bool isContainer=dynamic_cast<NMainLoop::CICContainer*>(next.GetPtr())!=nullptr;
+    const bool latched=signal(),expected=mode==2 || mode==4 || winnerInput;
+    const bool graph=demo->GetWorld()==world && world->GetGlobalGame()==global && demo->GetSoundScene()==scene && demo->GetInterface()==interface && NMainLoop::GetCurrentInterfaceForHarness()==demo.GetPtr();
+    int winnersNow=0;for(const auto& tracker:trackers)if(tracker->IsPlayerWinner())++winnersNow;
+    std::printf("AUTOPLAY-LIFECYCLE mode=%d turn=%d watchdog=%u winners=%d container=%d signal=%d expected=%d graph=%d music=%d winnersNow=%d\n",mode,world->GetTurnID(),unsigned(watchdog.GetTime()->GetValue()),winners,int(isContainer),int(latched),int(expected),int(graph),nextMusic(),winnersNow);std::fflush(stdout);
+    Require(winnersNow==winners,"autoplay frozen native frame changed the fixture winner condition");
+    Require(graph && !NMainLoop::HaveInterfaceCommand(),"autoplay frame changed its graph before executing transition or queued duplicates");
+    Require(isContainer==expected && latched==(expected || mode==6),"actual autoplay frame does not honor winner/strict turn100/strict20minute watchdog or dismiss latch");
+    if(mode==8)Require(nextMusic()==int(NDb::MT_COMBAT),"autoplay ran the interactive mission's combat/ambient music policy");
+    MarkNewDGFrame();demo->Step();Require(!NMainLoop::HaveInterfaceCommand(),"latched autoplay lifecycle queued the same transition more than once");
+    if(expected){next->Exec();auto* replacement=NMainLoop::GetCurrentInterfaceForHarness();Require(replacement && replacement!=demo.GetPtr() && pSSClasses->GetObjectTypeID(replacement)==int(0xB3723140),"actual map transition did not replace its modal with a fresh registered demonstration mission");}
+    NMainLoop::DoneInterface();
+}
+
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
@@ -33943,6 +34016,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-autoplay-lifecycle")) { Require(argc==5,"autoplay lifecycle requires db/res/mode"); NativeAutoPlayLifecycle(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-autoplay-squads")) { Require(argc==5,"autoplay squads require db/res/mode"); NativeAutoPlaySquads(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-placement")) { Require(argc==5,"tooltip placement requires db/res/mode"); NativeTooltipPlacement(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ally-ray-classification")) { Require(argc==5,"ally ray requires db/res/mode"); NativeAllyRayClassification(argv[2],argv[3],std::atoi(argv[4])); return true; }

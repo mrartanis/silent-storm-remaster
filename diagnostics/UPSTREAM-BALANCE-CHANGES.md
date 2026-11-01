@@ -4064,3 +4064,26 @@ reproduced on previous-head source with byte-exact native .text. Current source
 restored/rebuilt and demo cases retested;33 donor sources unfinished.
 
 Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).
+
+## 2026-11-01: one-shot demonstration map transitions
+
+Explicit autoplay demonstrations can now advance to a new random map on any winning squad,
+world turn id>100, or UI watchdog>20minutes, once per current modal. Exact boundaries100
+and20minutes do not transition. Dismissal input retains its one-shot latch. Keep ordinary
+mission loss/trace/action/state/save policy and LAN restrictions verbatim in the default
+callback. Preserve existing random map/squad selection and138 level preparation,
+class/save/wire identifiers and shared renderer/audio backend.
+Initialization/overlay/sequence/fullscreen and automatic idle-menu entry still await
+separate hunks.
+
+Reject the donor's common combat/ambient UpdateSound move: both actual Steam and Gold keep
+it in interactive CMission::GameStep; demo must not run that policy. Native music input
+remains combat in demo (enum2; old behavior reset it to ambient enum0), while ordinary
+mission sound logic is unchanged. Original GetTurnID is the world counter, not game
+progress; actual getter and strict signed/unsigned branches are decoded without
+field/frame/virtual-slot masks. Native RED4/9->GREEN9/9 both/five exact controls; actual
+transition container replaces its modal once. Full Game both/425 Windows/395 Linux
+selected related all pass/CI378; known pre-existing Windows campaign movement flake is
+explicitly excluded and not claimed fixed.33 donor sources remain.
+
+Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).

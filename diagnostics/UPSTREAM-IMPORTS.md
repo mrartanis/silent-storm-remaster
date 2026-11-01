@@ -23722,3 +23722,63 @@ donor sources unfinished. Actual-final-head hosted CI remains required at whole-
 completion.
 
 Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).
+
+## 2026-11-01: one-shot demonstration map transitions (partial139)
+
+Separate CMission::GameStep from the common InternalStep pump, then override it in
+CAutoPlayInterface. The common pump still handles hot-seat activation, queued world/camera
+commands, camera/player updates, cursor, UI/desktop cadence, shared sound rendering and
+camera handover. It calls GameStep after UpdateCursor as original. Move the entire
+existing interactive current-player/cooldown/savepolicy, delayed-defeat,
+trace/action/state and UpdateSound body verbatim, including all own LAN restrictions and
+efficient network Wait behavior. The default mission body is checked byte-for-byte as
+normalized source after extraction; ordering now follows original callback placement. No
+saved fields/class IDs or network protocol changes.
+
+Demo GameStep returns after its one-shot dismiss/transition latch; otherwise any winning
+tracker queues the existing exit-modal/new-demo container. If no winner, a signed world
+turn id strictly greater than100 does the same. Otherwise advance the existing watchdog
+with always-running GetUITime, refresh its DG node and transition only when its unsigned
+time is strictly greater than1200000ms. Use the fork's existing native CWorld accessor
+through a checked typed cast; the own IWorld surface lacks this getter, so no new
+interface method or guessed-field access is added. Ordinary input dismissal remains
+unchanged, and the existing container really replaces its modal with a newly initialized
+registered demonstration.
+
+Original Steam named override tables have92 primary entries versus Gold89: GameStep is
+actual59d7a0/478 at168, not Gold15c. Ordinary mission override is602160/1223; inherited
+Step5a4690 calls common5a35b0 at5a4803. Actual UpdateCursor call5a36a2->71c120 precedes
+virtual168 at5a36ab. Independently decode the actual latch590, tracker
+GetPlayers64/winner28, GetWorld138->7743d0 exact4 Gold7685f0, World turn getter188->7778e0
+reading178, signedcmp100/jle, UI getter59dfb0/75 refresh/value path, Advance70fd10,
+refreshed unsignedcmp1200000/jbe and all three flag-before-GoNext59d620 exits. Whole478
+comparison is rejected for unmasked fields/virtual slots/DG globals; no normalization
+masks. The actual interactive tail602603 state.Step then602610->5ff520 UpdateSound matches
+Gold's responsibility; the donor's move of this music decision into the common pump is
+rejected. Demo skips interactive combat/ambient policy, while ordinary missions retain it.
+No new original function/Game.exe execution is claimed.
+
+Native9 actual console/mission-frame cases RED4/9->GREEN9/9 both, with five exact
+controls0/1/3/6/7. Cover turn100 versus101, watchdog1200000 versus1200001,
+last-tracked-squad victory via real opponent knockouts, existing key/time dismissal and
+latch, no duplicate transitions, actual container execution/new modal, stable
+world/global/UI/shared-sound identities and retained requested combat music in demo
+(old0->new2). First discovery failed because the unrelated mission-start snapshot command
+was not isolated; second discovery's diplomacy table could not override same-scenario-id
+party hostility. Corrected native knockout inputs and literal typed turn-field input
+supply canonicalRED. An earlier attempt read a whole live-world snapshot to patch turn38;
+its subsequent GREEN prematurely transitioned in four controls, so that attempt is not the
+canonical comparison. Preserve those failed logs, replace only the scalar input setup,
+restore prior-head production sources exactly, and re-establish RED with the same final
+fixture before restoring the exact prepared production fix. Initial missing-IWorld-getter
+compile errors are retained and corrected with the existing typed native accessor.
+
+Full Game both/425 Windows/395 Linux selected related all pass/CI378, including both138
+squad consumers and12 exact vector-font rows. Explicitly exclude only the previously
+characterized Windows NativeCampaignSequence-nested-save intermittent movement failure:138
+current/prior-head source both0/0/8 with byte-exact native.text. This does not fix or
+erase that known test flake. Sourcefdd remains partial with
+initialization/logo/sequence/fullscreen/menu idle-reset/focus/timestamp hunks pending;33
+donor sources unfinished. Actual final-head hosted CI remains required.
+
+Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).

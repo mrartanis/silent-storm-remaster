@@ -85,9 +85,8 @@
 //   * CMissionBase: since serialization-convergence W4.2 the dev CMission IS split onto NGame::CMissionBase
 //     (iMission.h) with the retail tag tables; CAutoPlayInterface derives the dev CMission directly (byte-exact
 //     PDB layout 0x5a8 is still not a goal -- functional parity).
-//   * GameStep is not reconstructed yet. Actual Steam 1.2 has it at 0x59d7a0,
-//     mission slot 0x168 (Gold 1.1 slot 0x15c differs). Its winner/turn-limit/UI-clock
-//     watchdog needs the common mission pump separated from interactive GameStep first.
+//   * The common mission pump now calls a separate virtual GameStep. AutoPlay uses
+//     actual Steam 1.2 0x59d7a0/slot168, without the interactive trace/lose/music policy.
 //   * Squad preparation now follows the actual Steam 1.2 calls at 0x59daed..0x59db83:
 //     four AI players, then level 30 for every merc before initializing the mission.
 //   * Initialize still omits the logo CFlashImage, bLoseSignalSended / bHideInterface,
@@ -108,7 +107,7 @@ class CAutoPlayInterface: public CMission
 	OBJECT_BASIC_METHODS(CAutoPlayInterface)
 	//// auto-play state (release CAutoPlayInterface members past the CMission base)
 	bool bSignalSent;						// @+0x590: latched on the first dismiss-worthy event
-	CTimeCounter sAutoPlayTime;				// @+0x594: wall-clock watchdog timer (consumed by the deferred GameStep)
+	CTimeCounter sAutoPlayTime;				// @+0x594: UI-clock watchdog timer
 	CObj<NUI::ICursor> pLogoCursor;			// @+0x59c
 	CObj<NUI::CInterface> pLogoInterface;	// @+0x5a0
 	CObj<NUI::CWindow> pFlashImage;			// @+0x5a4: parity placeholder; the real logo type NUI::CFlashImage is file-local to iMainMenu.cpp
@@ -116,6 +115,7 @@ class CAutoPlayInterface: public CMission
 	void ParseNumbers( const wstring &szStr, vector<int> &outSet );
 	void AddPlayer( NRPG::CGlobalGame *pGame, const vector<int> &templateIDs );
 	void GoToNextMap();
+	void GameStep() override;
 
 public:
 	CAutoPlayInterface();
@@ -247,7 +247,7 @@ bool CAutoPlayInterface::Initialize()
 // NGame::CAutoPlayInterface::GoToNextMap  @0x19cb00
 //
 // Queue, as a single container command, "dismiss the current logo modal then re-enter auto-play" -- advancing
-// the intro to its next random logo/map. (Reachable in retail from GameStep, which is deferred here.)
+// the intro to its next random logo/map. (Reached by GameStep after its one-shot latch is set.)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoPlayInterface::GoToNextMap()
 {
@@ -271,6 +271,42 @@ bool CAutoPlayInterface::ProcessEvent( const NInput::SEvent &sEvent )
 		NMainLoop::Command( new NMainLoop::CICExitModal() );
 	}
 	return false;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Actual Steam 1.2 GameStep @0x59d7a0: one-shot map change on any winner,
+// signed turn id >100, or the UI-clock watchdog strictly beyond twenty minutes.
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CAutoPlayInterface::GameStep()
+{
+	if ( bSignalSent )
+		return;
+	vector< CPtr<IPlayerTracker> > players;
+	GetPlayers( &players );
+	for ( const auto &player : players )
+	{
+		if ( player->IsPlayerWinner() )
+		{
+			bSignalSent = true;
+			GoToNextMap();
+			return;
+		}
+	}
+	// The fork exposes the original turn counter on its native CWorld.
+	NWorld::CWorld *world = dynamic_cast<NWorld::CWorld*>( pWorld.GetPtr() );
+	if ( world && world->GetTurnID() > 100 )
+	{
+		bSignalSent = true;
+		GoToNextMap();
+		return;
+	}
+	sAutoPlayTime.Advance( true, GetUITime() );
+	CDGPtr<CCTime> time = sAutoPlayTime.GetTime();
+	time.Refresh();
+	if ( time->GetValue() > 1200000 )
+	{
+		bSignalSent = true;
+		GoToNextMap();
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // NGame::CAutoPlayInterface::RenderFrame  @0x19c770
