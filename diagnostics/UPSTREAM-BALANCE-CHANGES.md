@@ -3685,3 +3685,21 @@ intentionally; its floor/rod/freeze results remain exact. Source1b85 complete,49
 remain; whole-task final hosted CI pending.
 
 Source: [1b85f23ac337fb5f2f4d6acde5341cfe66bb757a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1b85f23ac337fb5f2f4d6acde5341cfe66bb757a).
+
+## 2026-11-01: PK pilot exit owns the forward placement
+
+Leaving a PK now moves its pilot to the snapped point1.45 units ahead, keeps the released
+shell at the former wearer position and re-seats both actual animators. Exit passability
+is checked in the current pose/facing before detaching; a rejected point uses the existing
+failure state. The eight tested passable directions now have zero simulation/animation
+error. AP, healed wounds, shell HP, inventory identity and world time stay fixed in these
+callback cases; complete action AP spending and a separate blocked-abort runtime are
+outside the claim. Two ordinary eligibility controls stay exact. Own packed
+positions/enums/API/save/network/helpers remain.
+
+Canonical native RED8/10 both ->116 Windows /117 Linux selected related regressions, full
+Game builds/CI323. Typed actual original1058 callback/static branch/argument audit
+supports the placement; no original full World/exit/animation runtime or full RNG parity
+is claimed. Sourced44 complete,48 sources remain; whole-task final hosted CI pending.
+
+Source: [d44bba0e1f5ecb91f589ef70e205eb0cacfc6285](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d44bba0e1f5ecb91f589ef70e205eb0cacfc6285).

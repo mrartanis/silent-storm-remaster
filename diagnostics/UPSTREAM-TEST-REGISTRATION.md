@@ -1783,3 +1783,27 @@ search-yaw preservation expectations intentionally follow restored120 current-ya
 remaining119 camera measurements exact.49 unfinished sources remain.
 
 Source: [1b85f23ac337fb5f2f4d6acde5341cfe66bb757a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1b85f23ac337fb5f2f4d6acde5341cfe66bb757a).
+
+## 2026-11-01: PK pilot exit owns the forward placement
+
+NativePKPilotExit0..7 runs actual authored shell93/human54/world/path/wear and existing
+public callback in eight directions, measuring real simulation and current animation-graph
+standing placements. Canonical RED8/10 both ->zero pilot/shell/animation placement error,
+with fixed reference inputs/AP/healed wounds/shell HP/inventory
+identity/time/callback/poses. NativePKPilotExit8/9 retain two exact
+worn-ignore-target/unworn-invalid-command query controls, including next RNG word. Initial
+invalid border-footprint assumptions are archived; corrected actual geometry selection and
+independent post-wear reference precede canonical RED and producer change. No fake
+provider or new game helper. Blocked-abort runtime, completed action/AP-spending/timeline
+and full post-callback RNG are not claimed.
+
+Actual typed Steam7a64a0/1058 via RTTI8ccbe4/slot1c uniquely matches Gold799ff0 after
+decoded E8 operands and independently checked float/namedRTTI/EH absolute operands only;
+original opcode/frame/field/branch/size bytes remain exact. Original clear-link
+snap/passability-before-detach and distinct shell/pilot simulation/animator argument flow
+are audited. Callee names are comparative in-method PDB mappings, not separate
+whole-callee equivalence; no original World/callback/animation runtime or patched original
+state. Full Game builds/116 Windows /117 Linux related checks/CI323 include all10 RED
+names. Sourced44 complete,48 unfinished.
+
+Source: [d44bba0e1f5ecb91f589ef70e205eb0cacfc6285](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d44bba0e1f5ecb91f589ef70e205eb0cacfc6285).

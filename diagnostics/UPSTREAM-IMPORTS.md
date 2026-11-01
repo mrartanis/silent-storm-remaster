@@ -22822,3 +22822,67 @@ are not claimed as rerun. Source1b85 complete;49 sources remain (pending35 +part
 Eventual whole-task final hosted CI remains pending.
 
 Source: [1b85f23ac337fb5f2f4d6acde5341cfe66bb757a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1b85f23ac337fb5f2f4d6acde5341cfe66bb757a).
+
+## 2026-11-01: PK pilot exit owns the forward placement (sourced44 complete)
+
+The live CExecPanzerklein::TimeLabelReached leave branch now unlocks the pilot, snaps the
+forward1.45-unit point with clear-link enabled and retains the current pose/facing, then
+checks actual path passability before detaching. Failure uses the existing Failed()
+method. On success the released shell stays at the former wearer position, takes its
+existing parked CRAWL pose with run false, and both shell and pilot simulation positions
+and real animators are re-seated. The old branch detached first, left the pilot in place
+and shifted the shell instead. No API/header/enum/packed-position/save/network/physics
+helper or worn inventory pipeline is transplanted.
+
+NativePKPilotExit0..9 uses actual authored persona93 shell, live human persona54 and
+actual initialized world/path network/wear identity. Eight directions invoke the existing
+public animation-label callback after a valid CanDoIt query; all retain the same passable
+snapped inputs before/after the production change. The pilot's old error
+.626758754..1.92586875 and shell error .883883476..1.92586875 become zero; current actual
+animation graph standing-placement errors also become zero.
+Position/facing/pose/empty-versus-worn identities, callback false, AP, healed-wound
+amount, shell HP, inventory-object identity and world time are checked. These are bounded
+real callback/animation-placement tests, not a completed queued action, AP-spending or
+full animation timeline claim. Two exact query controls retain ignore-target rejection for
+a worn suit and invalid-command rejection for an unworn pilot, with fixed
+AP/position/time/inventory/next gameplay-RNG word.
+
+Initial first-free-footprint selection placed three directions against a map border
+without a distinct valid snapped exit. Those preliminary logs are archived and excluded
+from canonical RED. The corrected input selection uses actual geometry/passability before
+wear, independently verifies the reference after actual wear/Unlock, and reproduces eight
+actual callback failures before any producer change on both platforms: canonical RED8/10.
+Selection does not depend on a future helper or on changed producer results. No DB edits,
+fake path network or animation provider is used. A separate blocked-abort runtime is not
+claimed; that guard is supported by the exact original branch audit.
+
+Actual original TimeLabelReached is independently located through named
+RTTI/CExecPanzerklein root vtable8ccbe4 slot1c at Steam7a64a0/1058, versus typed
+Gold799ff0/1058. Donor7a5e9c/Gold7a5a5c comments are stale and rejected. The
+whole1058-byte typed function matches uniquely after masking only decoded E8 call-address
+operands and separately checked same F32 constants1.4500000476837158/1, named RTTI
+descriptors and a valid compiler-EH thunk/FuncInfo19930520. No
+opcode/frame/field/branch/size masks. Comparative Gold PDB callee labels identify the
+corresponding actual call sites and argument flow; this does not claim independent
+whole-function equivalence for every Steam callee.
+
+The actual unmasked method reads pUS14/action1c/wornPK1cc and CUnit secondary14c, agreeing
+with the typed fields. It unlocks at7a6529, snaps with clear-link true at7a659a, passes
+original pose/facing, calls path virtual3c at7a667c and rejects nonzero before
+Flip(null,true,true)7a66b7. Actual failed state2 is set before any detach. Shell
+Wear(false)7a6734 is followed by shell SetPosition/PlaceUnit7a6740/7a674d using local28;
+pilot SetPosition/PlaceUnit7a675a/7a676a use the distinct local1c. Both animator
+subobjects are actual58. The native source keeps its own enum/type/helper ABI. Original
+World/exit/animation runtime is not executed for this checkpoint, and no original
+code/DB/World/TEB/RNG patch is used. No original bit-level trig/snap parity or full
+post-callback RNG parity is inferred from the native cases.
+
+Full Game builds, 116 Windows /117 Linux selected
+PK/placement/equipment/corpse/repair/critical/presentation/serialization/lock/item-map
+regressions and CI323 pass, including all10 canonical RED names. Unrelated
+camera/medical-XP/graphics suites are not claimed as rerun. All usefuld44 hunks are
+imported;48 sources remain (pending34 +partial14). Sourcec941 death/stun/corpse gates
+remain separate; its base placement checks already use this fork's previously tested
+direction-aware helper. Eventual whole-task final hosted CI remains pending.
+
+Source: [d44bba0e1f5ecb91f589ef70e205eb0cacfc6285](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d44bba0e1f5ecb91f589ef70e205eb0cacfc6285).

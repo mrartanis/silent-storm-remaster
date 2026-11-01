@@ -2405,21 +2405,32 @@ bool CExecPanzerklein::TimeLabelReached()
 		CUnitServer *pPK = pUS->GetWearingPK();
 		CVec3 ptPos = pUS->GetPosition().GetCP();
 		float fAngle = pUS->GetPosition().GetDirection();
-		pUS->GetWorld()->GetPathNetwork()->Unlock( pUS );
-		pUS->FlipPanzerklein( 0 );
+		NAI::IPathNetwork *pNetwork = pUS->GetWorld()->GetPathNetwork();
+		pNetwork->Unlock( pUS );
 
-		// @0x3a59d0 -- retail ADDS the 1.45f back-off offset (fadd @0x7a5a89/0x7a5a97; 0x3fb9999a==1.45f);
-	// Jan03 SUBTRACTED. The decomp is authoritative -> drop the PK 1.45m FORWARD along the facing
-	// direction, not behind. (cp + 1.45*(cos a, sin a, 0).)
-	CVec3 ptPKPos( ptPos.x + 1.45f * cos(fAngle), ptPos.y + 1.45f * sin(fAngle), ptPos.z );
-		NAI::SPosition pos = NAI::GetNearestPosition( ptPKPos, pPK->GetWorld()->GetPathNetwork(), true, ptPos + CVec3( 0, 0, 1.0f ) );
-		NAI::SUnitPosition posPK;
-		posPK.pos = pos;
+		// Actual Steam 0x7a6529..0x7a66b7: validate the pilot's exit before detaching.
+		CVec3 ptExit( ptPos.x + 1.45f * cos(fAngle), ptPos.y + 1.45f * sin(fAngle), ptPos.z );
+		NAI::SUnitPosition posExit = pUS->GetPosition();
+		posExit.pos = NAI::GetNearestPosition( ptExit, pPK->GetWorld()->GetPathNetwork(), true, ptPos + CVec3( 0, 0, 1.0f ) );
+		posExit.SetPose( pUS->GetPosition().GetPose() );
+		posExit.pos.p.SetDirection( pUS->GetPosition().GetDir() );
+		if ( pNetwork->GetPassability( posExit.pos.p ) != NAI::AIP_YES )
+		{
+			Failed();
+			return false;
+		}
+
+		pUS->FlipPanzerklein( 0 );
+		NAI::SUnitPosition posPK = pUS->GetPosition();
 		posPK.SetPose( NAI::CRAWL );
 		posPK.pos.p.SetDirection( pUS->GetPosition().GetDir() );
 		posPK.bRun = false;
-		pPK->SetPosition( posPK );
+		// Actual Steam 0x7a6734..0x7a676a: park the shell and re-seat both animators.
 		pPK->WearAsPK( false );
+		pPK->SetPosition( posPK );
+		pPK->animator.PlaceUnit( posPK );
+		pUS->SetPosition( posExit );
+		pUS->animator.PlaceUnit( posExit );
 	}
 	else
 	{
