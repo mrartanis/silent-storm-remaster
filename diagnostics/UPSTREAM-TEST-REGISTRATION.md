@@ -2005,3 +2005,28 @@ correcting original pose-lock behavior are archived separately. These are not ca
 RED. Collector/safety sourcefc remains pending.
 
 Source: [9cf3fd3dae155de3b0c0e1de443cf54a7f494426](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9cf3fd3dae155de3b0c0e1de443cf54a7f494426).
+
+## 2026-11-01: original ally-ray classification and AI geometry safety
+
+Register NativeAllyRayClassification0..5, NativeAllyRasterSafety0..8 and
+NativeAllyCoverCache0..1 on Windows/Linux, extended, isolated profiles, headless
+audio,120s. Controlled closed collision hulls carry actual native unit ownership and
+authored flesh material through CFastRenderer and the live cover walk; no supplied
+intervals/classifications/scores. Classification covers ally-before-target (AI/human),
+target-only, enemy interposition, ally after target and minimum-clearance controls. Native
+factory AI wrappers, actual commander/state enumeration and a real CAIAttackPlaceSource
+current-place consumer separate collision geometry from the old centreline, cover allies
+behind the target, off-axis/enemy/absent controls and independently proven
+missingenemyfalse/state-nullweaponpriority. NativeAllySafetyAccess only exposes the
+existing protected method; it supplies no AI result.
+
+Canonical RED7/15 both ->17/17 both. New live-API tests are post-fix integration controls,
+not an invented compile-failure RED: hit/loose objects are collected, obstacle-only
+objects excluded, prior map keys cleared, READ invalidates runtime identities, fresh
+native CalcCovers rebuilds them and legacy saved bytes/fields are exact. All8 original
+controls and AP/HP/ammo/position/4 RNG invariants remain. Final506Win/502Linux single
+all-green/Game both/CI359. Every17 new and16 prior AI-depth/path/flank case appears in the
+actual final selected manifests. Initial Linux registration/constructor/incorrect donor
+no-enemy expectation logs retained separately.
+
+Source: [fc2836a521913dafcb7737659c6912f178dc5ef1](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fc2836a521913dafcb7737659c6912f178dc5ef1).

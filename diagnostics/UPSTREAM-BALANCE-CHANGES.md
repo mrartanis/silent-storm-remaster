@@ -3891,3 +3891,28 @@ separate447/443+8 all-green batches/Game both/CI359; all12 outcome controls and
 AP/HP/position/4 RNG invariants exact. No new original runtime claim.38 sources remain.
 
 Source: [9cf3fd3dae155de3b0c0e1de443cf54a7f494426](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9cf3fd3dae155de3b0c0e1de443cf54a7f494426).
+
+## 2026-11-01: original ally-ray classification and AI geometry safety
+
+Restore original geometric friendly-fire policy: an ally-blocked ray is loose, not a
+blocked target-hit ray; AI safety uses actual weapon-origin hit/loose-cell geometry and
+the tactical state's live non-enemies. The private collector includes every cell interval,
+even beyond a reached target or penetration stop, and excludes obstacle-only rays. AI
+places and cover/accuracy outcomes can change where the former one-metre centreline missed
+collision geometry or where ally rays incorrectly remained in hitRays. No
+AP/damage/accuracy/training coefficients or weapon data change; authored attack generation
+spends no ammunition. Keep physical range30, AI trace0, human/tile framing, finite score
+guards and the corrected130 flank caller.
+
+Adapt donor guards to actual original: no enemy is false, invalid actor/state true before
+the weapon check, enemy/server validity is not CanFight. Exclude the donor no-enemy true
+and extra enemy CanFight behavior. Preserve legacy CCoverInfo tags2..6, three SRay fields
+and class ID; the new private object union is transient, cleared onREAD, rebuilt only by
+fresh CalcCovers. No serialized grids/cell coordinates, LAN types, authored
+assets/HD/fonts/faces/backend changes. Canonical RED7/15 both ->17GREEN with8 exact
+outcome controls, full506Win/502Linux/Game both/CI359; saved bytes/fields and
+AP/HP/ammo/position/4 RNG invariants verified. Original complete523/234/717/505/99 methods
+plus independently decoded actual safety calls/branches support this statically; whole1099
+comparison rejected.0 new original runtime records.37 sources remain.
+
+Source: [fc2836a521913dafcb7737659c6912f178dc5ef1](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fc2836a521913dafcb7737659c6912f178dc5ef1).

@@ -23348,3 +23348,56 @@ Initial missing-header/clearing/walk-cost fixture failures are archived and not 
 RED.38 sources remain; actual-final-head hosted CI pending.
 
 Source: [9cf3fd3dae155de3b0c0e1de443cf54a7f494426](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9cf3fd3dae155de3b0c0e1de443cf54a7f494426).
+
+## 2026-11-01: original ally-ray classification and AI geometry safety (sourcefc complete)
+
+When an allied unit blocks the cover walk, clear target-hit and put the ray into looseRays
+instead of hitRays. Keep the original hit-part filtering, penetration rules,
+shooter/cannon ownership, finite-value cover guards and AI trace0 from checkpoint130.
+Replace the AI one-metre centreline corridor with actual weapon-origin CalcCovers,
+authored attack portions without spending ammunition, and intersection with
+SAIState::GetUnits(true,true). Native attack-place planning now rejects the real current
+place for endangered allies in sampled collision geometry, including eligible intervals
+just behind the target.
+
+Adapt the live collector to the own serialized cover: record a private transient union of
+source objects for every non-obstacle ray while its actual native interval cell is
+available. Every such ray finishes in hitRays or looseRays, so this is exactly the
+original collector's set over all hit/loose cells, including intervals beyond the
+target/penetration stop and nullable sources. Clear the caller's previous map, copy the
+union. Keep CCoverInfo's saved tags2..6, three saved SRay fields and class ID. READ clears
+stale runtime identities; a fresh CalcCovers rebuilds them. Do not copy CFastRenderer
+ownership or add original grid/cell fields to the legacy save. Retain the separate
+unregistered CCoverGridInfo helper and untouched deferred intersection helper.
+
+Independent original audit changes the donor guard adaptation: missing/invalid enemy or
+server returns false through actual48faaa..48fac4, not donor true. Invalid actor/server or
+null tactical state returns true through48fac8..48fae6 before the weapon check; invalid
+weapon returns false. The enemy check4365f0 is a complete30-byte CObject validity helper,
+not CanFight; exclude the donor extra enemy CanFight veto. Existing state enumeration
+supplies its live-unit policy. Initial donor-based no-enemy test expectation was disproved
+and archived before canonical RED.
+
+Original whole523 CanHitTarget ->690830 binds named unit/object RTTI and equal0 F32, ally
+diplomacy2 branch69099c ->690a08 clears the target-hit output. Whole717 AddGrid ->6935d0
+calls6937b5, combines output/penetration and selects hit/loose vectors via6937da. Whole234
+collector ->693f70 walks hitAF4 plus looseB0C, every source interval, excludes
+obstacleB18. Whole505 GetUnits ->4a9a20 and99 GetEnemy ->490740 are unique. Actual
+safety48f6b0 is independently bound by three calls from the previously proven named
+whole2274 Prepare48fb10; decode actual weapon-origin false,
+AI1/trace0/bulletMax30/mask8200/minClear1/body0, collector and state true,true calls.
+Reject whole Gold1099 safety matching because actual frame90 vs8c and later control/layout
+differ; no opcode/frame/field/branch/size/unknown-global masks. Zero new original runtime
+records; donor comments are not entry authority.
+
+Canonical native RED7/15 both ->17/17 both, including two additional post-fix
+API/save-byte/cache-lifecycle controls. The8 original outcome controls remain exact. Full
+Game both, final506Win/502Linux single all-green suites (all17 new and all16 prior
+AI-depth/path/flank cases explicitly included) and asset-free CI359 pass. These17
+DB-dependent cases stay extended. AP/HP/position/ammunition/four RNG continuations remain
+unchanged; saved bytes/fields round-trip exactly and obstacle-only rays contribute no
+cache keys. Initial Linux DB-variable registration/default-constructor compile/incorrect
+donor guard assumptions are archived, not canonical RED.37 sources remain;
+actual-final-head hosted CI pending.
+
+Source: [fc2836a521913dafcb7737659c6912f178dc5ef1](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fc2836a521913dafcb7737659c6912f178dc5ef1).

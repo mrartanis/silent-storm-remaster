@@ -222,6 +222,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include "../Main/scFlowChart.h"
 #include "../Main/scScenarioTracker.h"
 #include "../Main/RPGGame.h"
+#include "../Main/RPGCover.h"
 #include "../Main/aiJob.h"
 #include "../Main/iMissionExec.h"
 #include "../Main/iMissionInternal.h"
@@ -32956,6 +32957,101 @@ static void NativeAIFlankWave(const char* db,const char* resources,int mode)
     Require(hasGoal==expected,"actual native attack-place flank wave still applies suicide/dynamic unit-lock checks");
 }
 
+// Authored closed geometry enters the real renderer and cover classifier. The
+// fixture supplies no depth intervals, hit/miss decisions, or cover scores.
+class NativeAllyRayMap:public CoverOriginMapProbe
+{
+    OBJECT_NOCOPY_METHODS(NativeAllyRayMap);
+    struct Volume
+    {
+        vector<CVec3> points;NAI::CEdgesInfo edges;SFBTransform transform;NAI::SSourceInfo surface;
+        Volume(NWorld::CUnitServer* unit,const CVec3& lo,const CVec3& hi,int flags):surface(unit,unit->GetUnitRPG()->GetRPGArmor(),0,flags)
+        {
+            points={CVec3(lo.x,lo.y,lo.z),CVec3(hi.x,lo.y,lo.z),CVec3(hi.x,hi.y,lo.z),CVec3(lo.x,hi.y,lo.z),CVec3(lo.x,lo.y,hi.z),CVec3(hi.x,lo.y,hi.z),CVec3(hi.x,hi.y,hi.z),CVec3(lo.x,hi.y,hi.z)};
+            vector<STriangle> faces={STriangle(0,2,1),STriangle(0,3,2),STriangle(4,5,6),STriangle(4,6,7),STriangle(0,1,5),STriangle(0,5,4),STriangle(3,7,6),STriangle(3,6,2),STriangle(0,4,7),STriangle(0,7,3),STriangle(1,2,6),STriangle(1,6,5)};
+            edges.GenerateEdgeList(faces,points);Require(edges.IsClosed(),"ally-ray authored input is not a closed native hull");Identity(&transform.forward);Identity(&transform.backward);
+        }
+    };
+    vector<std::unique_ptr<Volume>> volumes;
+public:
+    explicit NativeAllyRayMap(NAI::IAIMap* map=nullptr):CoverOriginMapProbe(map){}
+    void Box(NWorld::CUnitServer* unit,const CVec3& lo,const CVec3& hi,int flags=NWorld::TS_COVER){volumes.emplace_back(new Volume(unit,lo,hi,flags));}
+    void TraceGrid(NAI::CFastRenderer* grid,int,ESort,const NAI::CFloorsSet&,ESplitTerrainHGroups,bool) override
+    {
+        for(auto& v:volumes){NAI::SConvexHull hull(v->points,v->edges,v->transform,v->surface,NAI::HL_BODY,{});grid->TraceEntity(hull,false);}grid->SortIntervals();
+    }
+};
+static void NativeAllyRayClassification(const char* db,const char* resources,int mode)
+{
+    Require(mode>=0 && mode<6,"unknown native ally-ray classification mode");NativeHearingOwners f(db,resources);auto* actor=f.humanUnit;auto* target=f.aiUnit;
+    CObj<NWorld::CUnitServer> other=f.world->AddUnitInGame(f.FreePlace(actor->GetPosition().GetCP(),10.f),NRPG::CreateUnit(NDb::GetPers(54)),mode==2?f.ai:f.human,"NativeRayOther");Require(other,"ally-ray cannot create its real ownership input");
+    auto* game=f.world->GetGame();auto* map=f.world->GetAIMap();map->Sync();CVec3 aim;Require(map->GetUnitHLPos(&aim,map->GetHull(target),NAI::HL_ANY),"ally-ray target lacks native hull locator");const CVec3 origin=aim-CVec3(0,8,0);
+    CObj<NativeAllyRayMap> probe=new NativeAllyRayMap(map);probe->Box(target,origin+CVec3(-2,7.7f,-2),origin+CVec3(2,8.2f,2));
+    if(mode!=1){const float depth=mode==3?9.f:mode==4?.25f:3.f;probe->Box(other,origin+CVec3(-2,depth,-2),origin+CVec3(2,depth+.1f,2));}
+    struct Restore{NRPG::IGame* game;CPtr<NAI::IAIMap> map;~Restore(){SetCoverProbeMap(game,map);}}restore{game,map};SetCoverProbeMap(game,probe);
+    const auto position=actor->GetPosition();const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),otherHP=other->GetUnitRPG()->GetTotalVP();auto random=GlobalGameRandom();
+    auto attack=NativeCoverFixedAttack(actor,target);CObj<NRPG::CCoverInfo> cover=game->CalcCovers(origin,attack,actor,target,NAI::HL_BODY,1.f,mode!=5);const auto snapshot=CoverSnapshot(cover);int penetrated=0;for(auto ray:snapshot.hits)penetrated+=int(ray.penetrate);
+    auto after=GlobalGameRandom();bool rng=true;for(int i=0;i<4;++i)rng&=random.Get()==after.Get();const bool expectedHit=mode!=0 && mode!=5;
+    std::printf("native ally-ray classification mode=%d diplomacy=%d hits=%zu loose=%zu obstacles=%zu penetrate=%d expectedHit=%d AP=%d afterAP=%d HP=%d afterHP=%d otherHP=%d afterOtherHP=%d position=%d RNG=%d\n",mode,int(actor->GetDiplomacyState(other)),snapshot.hits.size(),snapshot.loose.size(),snapshot.obstacles.size(),penetrated,int(expectedHit),ap,actor->GetAP(),hp,actor->GetUnitRPG()->GetTotalVP(),otherHP,other->GetUnitRPG()->GetTotalVP(),int(position==actor->GetPosition()),int(rng));std::fflush(stdout);
+    Require(ap==actor->GetAP() && hp==actor->GetUnitRPG()->GetTotalVP() && otherHP==other->GetUnitRPG()->GetTotalVP() && position==actor->GetPosition() && rng,"ally-ray classification mutated native actor/target/RNG");
+    Require(snapshot.obstacles.empty() && (expectedHit?(!snapshot.hits.empty() && penetrated>0):(snapshot.hits.empty() && !snapshot.loose.empty())),"actual native ally blocker is still classified as a blocked hit rather than a loose ray");
+}
+
+
+class NativeAllySafetyAccess:public NAI::CAIActionPlaceSource
+{
+    OBJECT_NOCOPY_METHODS(NativeAllySafetyAccess);
+public:
+    explicit NativeAllySafetyAccess(NAI::IAIUnit* unit=nullptr):NAI::CAIActionPlaceSource(unit){}
+    void Prepare() override {}
+    bool Dangerous(const NAI::SUnitPosition& pos,NAI::CAIFireArmsWeapon* weapon){return IsPosDangerousForAllies(pos,weapon);}
+};
+static void NativeAllyRasterSafety(const char* db,const char* resources,int mode)
+{
+    Require(mode>=0 && mode<9,"unknown native ally raster safety mode");NativeHearingOwners f(db,resources);auto* actor=f.aiUnit;auto* target=f.humanUnit;auto* net=f.world->GetPathNetwork();
+    auto at=actor->GetPosition();at.pos.p.SetPose(NAI::CM_STAND);actor->animator.PlaceUnit(at);actor->SetPosition(at);actor->Update();
+    auto* commander=dynamic_cast<NAI::CAICommander*>(f.ai->GetCommander());Require(commander,"ally raster safety lacks actual AI commander");commander->OnUnitAdded(actor);CObj<NAI::IAIUnit> unit=commander->GetAIUnit(actor),enemy=NAI::CreateAIUnit(target,false);Require(unit && enemy,"ally raster safety lacks native factory wrappers");unit->Synchronize(false);enemy->Synchronize(false);unit->SetAIState(commander->GetAIState());unit->GetAIUnitState()->pEnemy=mode==4?nullptr:enemy.GetPtr();if(mode==5 || mode==6)unit->SetAIState(nullptr);
+    auto* weapon=unit->GetAIInventory()->GetFirstFireArms();Require(weapon && weapon->GetItem(),"ally raster safety lacks actual authored firearm");
+    const CVec3 from=actor->GetPosition().GetCP(),to=target->GetPosition().GetCP(),shot=to-from;const float lengthSq=shot*shot;Require(lengthSq>16.f,"ally raster safety needs separated actual actors");
+    vector<NAI::SPathPlace> nearby;net->GetNearPlaces(SSphere(from,40.f),&nearby);NAI::SPathPlace place;bool found=false;
+    for(auto p:nearby){p.SetPose(NAI::CM_STAND);p.SetMoving(0);p.SetDirection(0);if(!net->IsPassable(p) || net->IsLocked(p))continue;const auto pos=NAI::GetUnitPos(p,net);const CVec3 rel=pos.GetCP()-from;const float t=(rel*shot)/lengthSq;
+        if(fabs(rel)>3.f && (t<=0 || t>=1 || fabs(rel-shot*t)>2.f)){place=p;found=true;break;}}
+    Require(found,"ally raster safety cannot put actual unit outside the old centreline corridor");CObj<NWorld::CUnitServer> other=f.world->AddUnitInGame(place,NRPG::CreateUnit(NDb::GetPers(54)),mode==2?f.human:f.ai,"NativeAllyRasterSafety");Require(other,"ally raster safety cannot add real ownership input");
+    if(mode!=2){commander->OnUnitAdded(other);Require(NAI::GetAIUnit(other),"ally raster safety's actual state query cannot resolve live ally");}
+    auto* map=f.world->GetAIMap();auto* game=f.world->GetGame();map->Sync();CVec3 aim;Require(map->GetUnitHLPos(&aim,map->GetHull(target),NAI::HL_ANY),"ally raster safety has no actual whole-hull aim");const CVec3 origin=actor->GetAttackOrigin(actor->GetPosition(),false);CVec3 axis=aim-origin;const float distance=fabs(axis);Require(distance>4.f,"ally raster safety has no usable native weapon-origin axis");Normalize(&axis);
+    CObj<NativeAllyRayMap> probe=new NativeAllyRayMap(map);probe->Box(target,aim-CVec3(2,2,2),aim+CVec3(2,2,2));
+    if(mode!=1){CVec3 center=origin+axis*(mode==8?distance+1.f:distance*.5f);if(mode==3){CVec3 side(axis.y,-axis.x,0);Normalize(&side);center+=side*20.f;}probe->Box(other,center-CVec3(.6f,.6f,.6f),center+CVec3(.6f,.6f,.6f));}
+    struct Restore{NRPG::IGame* game;CPtr<NAI::IAIMap> map;~Restore(){SetCoverProbeMap(game,map);}}restore{game,map};SetCoverProbeMap(game,probe);
+    const auto position=actor->GetPosition();const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),targetHP=target->GetUnitRPG()->GetTotalVP(),otherHP=other->GetUnitRPG()->GetTotalVP(),ammo=weapon->GetItem()->GetAmmoQuantity();auto random=GlobalGameRandom();
+    CObj<NativeAllySafetyAccess> access=new NativeAllySafetyAccess(unit);const bool danger=access->Dangerous(position,mode==6 || mode==7?nullptr:weapon);// Actual Steam48f769..48faaa: missing enemy returns false; invalid state
+    // returns true through48fac8..48fae6 before checking a null weapon.
+    const bool expected=mode==0 || mode==5 || mode==6 || mode==8;
+    bool consumer=true;int plans=-1,current=-1;if(mode<4 || mode==8){CObj<NAI::CAIAttackPlaceSource> source=new NAI::CAIAttackPlaceSource(unit,0,nullptr,true);source->Prepare();vector<NAI::SPlaceWithAP> places;source->GetPlaces(&places);plans=int(places.size());current=0;for(auto p:places)current+=NAI::UnitAreaPlaceKey(p.place.pos.p)==NAI::UnitAreaPlaceKey(position.pos.p);consumer=bool(current)==!expected;}
+    auto after=GlobalGameRandom();bool rng=true;for(int i=0;i<4;++i)rng&=random.Get()==after.Get();
+    std::printf("native ally raster safety mode=%d distance=%.9g diplomacy=%d danger=%d expected=%d plans=%d current=%d consumer=%d AP=%d afterAP=%d HP=%d afterHP=%d targetHP=%d afterTargetHP=%d otherHP=%d afterOtherHP=%d ammo=%d afterAmmo=%d position=%d RNG=%d\n",mode,distance,int(actor->GetDiplomacyState(other)),int(danger),int(expected),plans,current,int(consumer),ap,actor->GetAP(),hp,actor->GetUnitRPG()->GetTotalVP(),targetHP,target->GetUnitRPG()->GetTotalVP(),otherHP,other->GetUnitRPG()->GetTotalVP(),ammo,weapon->GetItem()->GetAmmoQuantity(),int(position==actor->GetPosition()),int(rng));std::fflush(stdout);
+    Require(ap==actor->GetAP() && hp==actor->GetUnitRPG()->GetTotalVP() && targetHP==target->GetUnitRPG()->GetTotalVP() && otherHP==other->GetUnitRPG()->GetTotalVP() && ammo==weapon->GetItem()->GetAmmoQuantity() && position==actor->GetPosition() && rng,"native ally safety query changed physical unit/ammo/RNG state");
+    Require(danger==expected && consumer,"actual native AI safety still uses a centreline corridor or checks weapon validity before its actor/enemy/state");
+}
+
+
+static void NativeAllyCoverCache(const char* db,const char* resources,int mode)
+{
+    Require(mode==0 || mode==1,"unknown native ally cover-cache case");NativeHearingOwners f(db,resources);auto* actor=f.humanUnit;auto* target=f.aiUnit;
+    CObj<NWorld::CUnitServer> other=f.world->AddUnitInGame(f.FreePlace(actor->GetPosition().GetCP(),10.f),NRPG::CreateUnit(NDb::GetPers(54)),f.human,"NativeCoverCacheOther");Require(other,"cover cache cannot create actual ally");auto* game=f.world->GetGame();auto* map=f.world->GetAIMap();map->Sync();CVec3 aim;Require(map->GetUnitHLPos(&aim,map->GetHull(target),NAI::HL_ANY),"cover cache lacks actual target locator");const CVec3 origin=aim-CVec3(0,8,0);
+    CObj<NativeAllyRayMap> probe=new NativeAllyRayMap(map);probe->Box(target,origin+CVec3(-2,7.7f,-2),origin+CVec3(2,8.2f,2));const float depth=mode==0?3.f:.2f;probe->Box(other,origin+CVec3(-2,depth,-2),origin+CVec3(2,depth+.1f,2),mode==0?NWorld::TS_COVER:NWorld::TS_WEAPON_BLOCKER);
+    struct Restore{NRPG::IGame* game;CPtr<NAI::IAIMap> map;~Restore(){SetCoverProbeMap(game,map);}}restore{game,map};SetCoverProbeMap(game,probe);auto random=GlobalGameRandom();const auto position=actor->GetPosition();const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();auto attack=NativeCoverFixedAttack(actor,target);
+    CObj<NRPG::CCoverInfo> cover=game->CalcCovers(origin,attack,actor,target,NAI::HL_BODY,1.f,true);const auto before=CoverSnapshot(cover);unordered_map<CPtr<CObjectBase>,int,SPtrHash> objects;objects[CastToObjectBase(actor)]=99;NRPG::GetObjectsThatMayBeDamaged(cover,&objects);
+    const bool correct=mode==0?objects.size()==2 && objects.count(CastToObjectBase(target)) && objects.count(CastToObjectBase(other.GetPtr())):objects.empty();const auto initialObjects=objects.size();Require(correct && !objects.count(CastToObjectBase(actor)),"live collector lost full hit/loose-cell objects, failed to clear prior keys, or included obstacle-only rays");
+    Require(mode==0?before.hits.empty() && !before.loose.empty() && before.obstacles.empty():before.hits.empty() && before.loose.empty() && !before.obstacles.empty(),"collector fixture did not separate loose and obstacle-only native cells");
+    CMemoryStream saved;{CStructureSaver writer(saved,CStructureSaver::WRITE);cover.GetBarePtr()->operator&(writer);}saved.Seek(0);{CStructureSaver reader(saved,CStructureSaver::READ);cover.GetBarePtr()->operator&(reader);}const auto afterLoad=CoverSnapshot(cover);objects[CastToObjectBase(actor)]=99;NRPG::GetObjectsThatMayBeDamaged(cover,&objects);const auto restoredObjects=objects.size();Require(objects.empty(),"cover load retained stale transient object identities");
+    CMemoryStream again;{CStructureSaver writer(again,CStructureSaver::WRITE);cover.GetBarePtr()->operator&(writer);}const bool sameBytes=saved.GetSize()==again.GetSize() && std::memcmp(saved.GetBuffer(),again.GetBuffer(),saved.GetSize())==0;
+    const bool sameFields=before.source==afterLoad.source && before.piercing==afterLoad.piercing && SameCoverRays(before.hits,afterLoad.hits) && SameCoverRays(before.loose,afterLoad.loose) && SameCoverRays(before.obstacles,afterLoad.obstacles);
+    CObj<NRPG::CCoverInfo> fresh=game->CalcCovers(origin,attack,actor,target,NAI::HL_BODY,1.f,true);NRPG::GetObjectsThatMayBeDamaged(fresh,&objects);Require(objects.size()==initialObjects,"fresh native recalculation did not rebuild the transient union");auto after=GlobalGameRandom();bool rng=true;for(int i=0;i<4;++i)rng&=random.Get()==after.Get();
+    std::printf("native ally cover cache mode=%d initialObjects=%zu restoredObjects=%zu rebuiltObjects=%zu hits=%zu loose=%zu obstacles=%zu bytes=%d sameBytes=%d sameFields=%d AP=%d afterAP=%d HP=%d afterHP=%d position=%d RNG=%d\n",mode,initialObjects,restoredObjects,objects.size(),before.hits.size(),before.loose.size(),before.obstacles.size(),int(saved.GetSize()),int(sameBytes),int(sameFields),ap,actor->GetAP(),hp,actor->GetUnitRPG()->GetTotalVP(),int(position==actor->GetPosition()),int(rng));std::fflush(stdout);
+    Require(sameBytes && sameFields && ap==actor->GetAP() && hp==actor->GetUnitRPG()->GetTotalVP() && position==actor->GetPosition() && rng,"transient collector changed legacy saved cover fields/bytes or native actor/RNG state");
+}
+
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
@@ -33545,6 +33641,9 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-particle-atlas-margin")) { Require(argc==5,"atlas margin requires db/resources/mode"); NativeParticleAtlasMargin(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grass-atlas-margin")) { Require(argc==5,"atlas margin requires db/resources/mode"); NativeGrassAtlasMargin(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-raster-guard-plane")) { Require(argc==3,"guard plane requires mode"); NativeRasterGuardPlane(std::atoi(argv[2])); return true; }
+    if (!std::strcmp(mode, "native-ally-cover-cache")) { Require(argc==5,"ally cache requires db/res/mode"); NativeAllyCoverCache(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-ally-raster-safety")) { Require(argc==5,"ally safety requires db/res/mode"); NativeAllyRasterSafety(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-ally-ray-classification")) { Require(argc==5,"ally ray requires db/res/mode"); NativeAllyRayClassification(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ai-cover-depth")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativeAICoverDepth(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-path-wave-flags")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativePathWaveFlags(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ai-flank-wave")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativeAIFlankWave(argv[2],argv[3],std::atoi(argv[4])); return true; }

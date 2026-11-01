@@ -6,6 +6,7 @@
 #include "../Misc/Geom.h"
 #endif
 #include "RPGGame.h"
+#include "RPGCover.h"
 #include "aiMap.h"
 #include "aiRender.h"
 #include "../Misc/RandomGen.h"
@@ -75,13 +76,25 @@ public:
 	vector<SRay> looseRays;	// set of rays that missed
 	vector<SRay> obstRays; // set of rays that ran into an obstacle at a certain distance from the source point
 	float fSummAPA;
-	ZEND int operator&( CStructureSaver &f ) { f.Add(2,&hitRays); f.Add(3,&src); f.Add(4,&looseRays); f.Add(5,&obstRays); f.Add(6,&fSummAPA); return 0; }
+	ZEND int operator&( CStructureSaver &f ) { if ( f.IsReading() ) potentialObjects.clear(); f.Add(2,&hitRays); f.Add(3,&src); f.Add(4,&looseRays); f.Add(5,&obstRays); f.Add(6,&fSummAPA); return 0; }
+	// Runtime-only union of all hit/loose ray cells; never added to saved fields.
+	unordered_map<CPtr<CObjectBase>, int, SPtrHash> potentialObjects;
 };
 static bool operator < ( const CCoverInfo::SRay &right, const CCoverInfo::SRay &left ) { return right.fDeviation < left.fDeviation; }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CanShoot( CCoverInfo *pCover )
 {
 	return !pCover->hitRays.empty() || !pCover->looseRays.empty();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// The original collector walks every interval of every hit/loose cell, including
+// intervals beyond the target or penetration cutoff. Retain that union while
+// native grids are alive instead of changing the legacy saved ray record.
+void GetObjectsThatMayBeDamaged( CCoverInfo *pCover,
+	unordered_map<CPtr<CObjectBase>, int, SPtrHash> *pRes )
+{
+	pRes->clear();
+	*pRes = pCover->potentialObjects;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CGame
@@ -203,6 +216,10 @@ static void AddGridToCovers( CCoverInfo *pRes, const NAI::CFastRenderer &res, co
 #endif
 				continue;
 			}
+// Every remaining ray is ultimately hit or loose, never an obstacle.
+			// Collect the full native cell, matching original GetObjectsThatMayBeDamaged.
+			for ( const NAI::CFastRenderer::SResult *p = res.resGrid[y][x]; p; p = p->pNext )
+				pRes->potentialObjects[p->GetInfo().pUserData] = 1;
 // Hit target rays
 			bool bHitTarget = false, bHitTargetPart = false;
 			if ( pTarget ) // shoot unit
@@ -290,6 +307,8 @@ static void AddGridToCovers( CCoverInfo *pRes, const NAI::CFastRenderer &res, co
 						CDynamicCast<NWorld::CUnitServer> pHitSrv( p->GetInfo().pUserData );
 						if ( pHitSrv && pAttackerSrv->GetDiplomacyState( pHitSrv ) == NDb::DS_ALLY )
 						{
+							// Steam 0x690a08 clears the target-hit output for an ally.
+							bHitTarget = false;
 							bBlocked = true;
 							break;
 						}
@@ -309,7 +328,10 @@ static void AddGridToCovers( CCoverInfo *pRes, const NAI::CFastRenderer &res, co
 				pRes->fSummAPA += fTempPiercing;
 				ray.isPenetrate = true;
 			}
-			pRes->hitRays.push_back( ray );
+			if ( bHitTarget )
+				pRes->hitRays.push_back( ray );
+			else
+				pRes->looseRays.push_back( ray );
 #ifdef OUTPUT_GRID_TO_FILE
 			fputc( ray.isPenetrate ? '#' : '?', f );
 #endif
