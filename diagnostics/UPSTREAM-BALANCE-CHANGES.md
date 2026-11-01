@@ -3916,3 +3916,28 @@ plus independently decoded actual safety calls/branches support this statically;
 comparison rejected.0 new original runtime records.37 sources remain.
 
 Source: [fc2836a521913dafcb7737659c6912f178dc5ef1](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fc2836a521913dafcb7737659c6912f178dc5ef1).
+
+## 2026-11-01: original integer shadow and occlusion depths
+
+Restore original rendering/occlusion precision: ushort depths use10000 shadow-part scale
+or40000 camera scale,8 fractional iterator bits, nearest-pixel gradient anchoring and
+signedSAR8. Equal quantized depths keep the first submitted owner. Span depth writes
+intentionally wrap to a16-bit word; HZ sphere queries above65535 return visible
+immediately, while ordinary queries truncate to a word and compare strictly. Spherical
+initialization is capped65535; hierarchy padding is65535 and2x2 reduction is conservative
+minimum. These can change hidden-part lists, shadows and near-surface rendering relative
+to the prior float approximation. Retain original overflow/quantization policy, not a new
+precision preference.
+
+Default non-shadow consumers keep float depth formulas; own16.16 edge wrap,0.01/four0.001
+clipping,24-byte projected point, raster public APIs and saved/LAN types stay. Native2D
+arrays replace original private pointer/row caches, avoiding32-bit ABI copying. Full
+native RED10/19 ->19GREEN both,9 exact controls, fractional-gradient/frontbehind and
+persistent ownership checks; old16 generic raster outputs exact/all20 guards pass,
+final527Win523Linux/Game both/CI378. No authored AP/damage/accuracy/training values or
+assets/HD/font/face/backend/audio changes. Static whole213/281/314/721/151/399/278/913
+plus prior1248/769 and independently decoded Generate/Fast scale inputs support this;
+unknown-global whole comparisons rejected.0 new original runtime records.36 sources
+remain.
+
+Source: [acf8dc8198a56959358dc0f226cf2613d8d56b4e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/acf8dc8198a56959358dc0f226cf2613d8d56b4e).

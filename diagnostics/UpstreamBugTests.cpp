@@ -166,6 +166,7 @@ namespace NRPG { int GetAttackerToHit(const NWorld::CUnit*,NWorld::CUnit*,int,NA
 #include "../Main/GAnimPath.h"
 #include "../Main/GDecalGeometry.h"
 #include "../Main/GCombiner.h"
+#include "../Main/GShadowVolume.h"
 #include "../Main/GSceneUtils.h"
 #include "../Main/GRenderCore.h"
 #include "../Main/GMaterial.h"
@@ -33052,6 +33053,48 @@ static void NativeAllyCoverCache(const char* db,const char* resources,int mode)
 }
 
 
+namespace NativeShadowDepthInput
+{
+using namespace NGScene;
+class MeshInput:public CPtrFuncBase<CObjectInfo>{OBJECT_NOCOPY_METHODS(MeshInput);protected:bool NeedUpdate()override{return false;}void Recalc()override{}public:MeshInput(){}explicit MeshInput(CObjectInfo* m){pValue=m;}};
+class MeshPart:public IPart{OBJECT_NOCOPY_METHODS(MeshPart);public:MeshPart(){}explicit MeshPart(MeshInput* m):IPart(m,nullptr,false){}};
+class BoundsInput:public IVBCombiner{OBJECT_NOCOPY_METHODS(BoundsInput);protected:bool NeedUpdate()override{return false;}void Recalc()override{}public:void Add(float depth){partBVs.push_back(SSphere(CVec3(0,0,depth),depth*3));}void AddBound(const SSphere& sphere){partBVs.push_back(sphere);}};
+struct PartsInput:IRender{
+ vector<CObj<CObjectInfo>> meshes;vector<CObj<MeshInput>> meshInputs;vector<CObj<MeshPart>> owned;vector<CPtr<IPart>> parts;CObj<BoundsInput> bounds=new BoundsInput;SRenderGeometryInfo geometry;bool shadows=true;int calls=0;
+ void Add(float depth){CObjectInfo::SData data;data.verts.resize(4);const float h=depth*2;CVec3 p[]={CVec3(-h,-h,depth),CVec3(h,-h,depth),CVec3(h,h,depth),CVec3(-h,h,depth)};for(int i=0;i<4;++i){Zero(data.verts[i]);data.verts[i].pos=p[i];}vector<STriangle> tris={STriangle(0,1,2),STriangle(0,2,3),STriangle(0,2,1),STriangle(0,3,2)};data.geometry.SetTriangles(tris);CObj<CObjectInfo> mesh=new CObjectInfo;mesh->AssignFast(data);CObj<MeshInput> input=new MeshInput(mesh);CObj<MeshPart> part=new MeshPart(input);meshes.push_back(mesh);meshInputs.push_back(input);owned.push_back(part);parts.push_back(part.GetPtr());bounds->Add(depth);}
+ void AddSloped(){CObjectInfo::SData data;data.verts.resize(4);CVec3 p[4];const float u[]={-2,2,2,-2},v[]={-2,-2,2,2};for(int i=0;i<4;++i){const float z=1.f/(.25f+.0103f*u[i]+.0057f*v[i]);p[i]=CVec3(u[i]*z,v[i]*z,z);}for(int i=0;i<4;++i){Zero(data.verts[i]);data.verts[i].pos=p[i];}vector<STriangle> tris={STriangle(0,1,2),STriangle(0,2,3),STriangle(0,2,1),STriangle(0,3,2)};data.geometry.SetTriangles(tris);CObj<CObjectInfo> mesh=new CObjectInfo;mesh->AssignFast(data);CObj<MeshInput> input=new MeshInput(mesh);CObj<MeshPart> part=new MeshPart(input);meshes.push_back(mesh);meshInputs.push_back(input);owned.push_back(part);parts.push_back(part.GetPtr());bounds->AddBound(SSphere(CVec3(0,0,4),20));}
+ void FormPartList(CTransformStack*,list<SRenderPartSet>* out,EDepthType,const SGroupSelect&)override{++calls;geometry.pVertices=bounds.GetPtr();geometry.pVertices.Refresh();SRenderPartSet set(meshInputs.front().GetPtr(),&parts,&geometry);set.parts.Clear();set.castShadow.Clear();for(int i=0;i<int(parts.size());++i){set.parts.Set(i);if(shadows)set.castShadow.Set(i);}out->push_back(set);}
+ void FormDepthList(CTransformStack*,const CVec3&,CSceneFragments*,EDepthType)override{}
+ void FormDirOccludersList(CTransformStack*,const CVec3&,CSceneFragments*,const SGroupSelect&,bool)override{}
+};
+}
+
+static void NativeIntegerShadowDepth(int mode)
+{
+ using namespace NGScene;using namespace NativeShadowDepthInput;Require(mode>=0 && mode<19,"unknown native integer shadow depth case");
+ auto random=GlobalGameRandom();PartsInput input;float a=4.00004f,b=4.00002f;
+ if(mode==2 || mode==12){a=4.00002f;b=4.00004f;}if(mode==3){a=4.1f;b=4.f;}if(mode==4 || mode==5){a=.4f;b=.5f;}if(mode==6)a=.2f;
+ if(mode==8){a=40.0002f;b=40.0001f;}if(mode==9){a=4.0009f;b=4.0005f;}if(mode==13){a=5;b=4;}
+ if(mode>=17){a=4.f;b=0.f;input.AddSloped();}else{input.Add(a);if(mode!=6 && mode!=10)input.Add(b);}input.shadows=mode!=7;
+ vector<vector<CVec3>> originalPositions;for(auto mesh:input.meshes)originalPositions.push_back(mesh->GetPositions());
+ const CVec2 screen=mode==14?CVec2(31,27):CVec2(64,64);CTransformStack transform;transform.MakeProjective(screen,90,.01f,1000);SHMatrix camera;MakeMatrix(&camera,CVec3(0,0,0),CVec3(0,0,1));transform.SetCamera(camera);
+ CIgnorePartsHash ignored;CObj<IHZBuffer> hz;++nDGCurrentFrame;const bool generate=(mode>=11 && mode<=13)||mode==16;
+ int mask=0,second=-1,persistent=-1;bool visible=false,cover=false;
+ auto hidden=[&](){int result=0;auto found=ignored.find(input.meshInputs.front().GetPtr());if(found!=ignored.end())for(int i=0;i<int(input.parts.size());++i)if(found->second.IsSet(i))result|=1<<i;return result;};
+ if(generate){list<SRenderPartSet> result;GeneratePartList(&input,CVec3(0,0,0),mode==16?3.f:8.f,&result,IRender::DT_STATIC,MakeSelectAll());int shown=0;for(auto set:result)if(set.pNode==input.meshInputs.front().GetPtr())for(int i=0;i<int(input.parts.size());++i)if(set.parts.IsSet(i))shown|=1<<i;mask=((1<<input.parts.size())-1)&~shown;}
+ else{if(mode==1 || mode==5 || mode==15)MakeInvisibleElementsListFast(&input,&transform,MakeSelectAll(),screen,&ignored,&hz);else MakeInvisibleElementsList(&input,&transform,MakeSelectAll(),screen,&ignored,&hz);mask=hidden();SSphere query(CVec3(0,0,mode==17?2.f:mode==18?10.f:mode==10?4.00002f:.5f),mode==10?.0000001f:.01f);CTRect<float> rect;cover=transform.GetCoverRect(&rect,query.ptCenter,query.fRadius);visible=hz->IsVisible(query,&transform);
+ if(mode==15){CObj<IHZBuffer> before=hz;std::swap(input.parts[0],input.parts[1]);ignored.clear();MakeInvisibleElementsListFast(&input,&transform,MakeSelectAll(),screen,&ignored,&hz);second=hidden();persistent=before.GetPtr()==hz.GetPtr();}}
+
+ const int expectedHidden[]={2,2,2,1,1,1,0,0,2,1,0,2,2,1,2,2,3,0,0};
+ const int expectedQuery[]={1,1,1,1,1,1,1,1,1,1,0,-1,-1,-1,1,1,-1,1,0};
+ bool geometry=true,identity=true;for(size_t i=0;i<input.meshes.size();++i){const auto& positions=input.meshes[i]->GetPositions();geometry&=positions.size()==originalPositions[i].size();for(size_t j=0;j<positions.size();++j)geometry&=positions[j]==originalPositions[i][j];identity&=input.owned[i]->GetObjectInfoNode()==input.meshInputs[i].GetPtr();}
+ auto after=GlobalGameRandom();bool rng=true;for(int i=0;i<4;++i)rng&=random.Get()==after.Get();const int query=generate?-1:int(visible),calls=mode==15?2:generate?6:1;
+ std::printf("native integer shadow depth mode=%d sloped=%d z=%.9g/%.9g hidden=%d expectedHidden=%d second=%d persistent=%d calls=%d expectedCalls=%d generate=%d hz=%d cover=%d query=%d expectedQuery=%d geometry=%d identity=%d RNG=%d\n",mode,int(mode>=17),a,b,mask,expectedHidden[mode],second,persistent,input.calls,calls,int(generate),int(hz!=nullptr),int(cover),query,expectedQuery[mode],int(geometry),int(identity),int(rng));std::fflush(stdout);
+ Require(geometry && identity && rng && input.calls==calls && (generate || (hz && cover)) && (mode!=15 || (persistent==1 && second==2)),"native shadow input geometry/source/RNG/frustum/reuse control failed");
+ Require(mask==expectedHidden[mode] && query==expectedQuery[mode],"actual native occlusion still uses float depth instead of original word-depth/iterator semantics");
+}
+
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
@@ -33640,6 +33683,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-grenade-pk-launch")) { Require(argc==5,"grenade PK requires db/resources/mode"); NativeGrenadePKLaunch(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-particle-atlas-margin")) { Require(argc==5,"atlas margin requires db/resources/mode"); NativeParticleAtlasMargin(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grass-atlas-margin")) { Require(argc==5,"atlas margin requires db/resources/mode"); NativeGrassAtlasMargin(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-integer-shadow-depth")) { Require(argc==3,"integer shadow depth requires mode"); NativeIntegerShadowDepth(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "native-raster-guard-plane")) { Require(argc==3,"guard plane requires mode"); NativeRasterGuardPlane(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "native-ally-cover-cache")) { Require(argc==5,"ally cache requires db/res/mode"); NativeAllyCoverCache(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ally-raster-safety")) { Require(argc==5,"ally safety requires db/res/mode"); NativeAllyRasterSafety(argv[2],argv[3],std::atoi(argv[4])); return true; }

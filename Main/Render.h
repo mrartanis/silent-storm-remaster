@@ -65,7 +65,21 @@ struct SProjectedPoint
 // rasterizers tries to conform DirectX rasterizing standard - points are checked by its centers
 const float F_RASTERIZER_NEAR_PLANE = 0.01f;
 const int N_F_RASTERIZER_NEAR_PLANE = 0x3c23d70a;//0.01f//*(int*)&F_RASTERIZER_NEAR_PLANE;
-template<class T>
+struct SFloatZIterator
+{
+	float fZ0, fZ, fZx, fZy;
+	template<class T> void Init( T *, const CVec3 &vA, float fX, float fY )
+	{
+		fZx = fX;
+		fZy = fY;
+		fZ0 = vA.z - ( vA.x - 0.5f ) * fZx - ( vA.y - 0.5f ) * fZy;
+	}
+	void Start( int nY ) { fZ = nY * fZy + fZ0; }
+	void Step() { fZ += fZy; }
+	float GetZ( int nX ) const { return fZ + nX * fZx; }
+	float GetDZ() const { return fZx; }
+};
+template<class T, class TZIterator = SFloatZIterator>
 class CRasterizer
 {
 	// Original generic consumers share the same 16.16 edge walker. Keep each
@@ -79,18 +93,14 @@ class CRasterizer
 		int nSY, nFY;
 		int nDX, nX0;
 	};
-	struct SFixedZGradientInfo
-	{
-		float fZ0, fZ, fZx, fZy;
-	};
 	void RasterTriangleLowFixed( const SFixedEdgeInfo &sLeft, const SFixedEdgeInfo &sRight,
-		const SFixedEdgeInfo &sRight2, SFixedZGradientInfo *pZGradient,
+		const SFixedEdgeInfo &sRight2, TZIterator *pZGradient,
 		int nSY, int nFY2, int nFY, int nBack )
 	{
 		T *pThis = static_cast<T*>( this );
 		pThis->ClipVertical( &nSY, &nFY2, &nFY );
 
-		pZGradient->fZ = nSY * pZGradient->fZy + pZGradient->fZ0;
+		pZGradient->Start( nSY );
 		// The original 16.16 edge walker uses 32-bit wraparound. Express it in
 		// unsigned arithmetic so steep/negative edges do not invoke signed UB.
 		const auto fixedXAt = []( int y, const SFixedEdgeInfo &edge ) {
@@ -101,7 +111,7 @@ class CRasterizer
 		std::uint32_t nRightX = fixedXAt( nSY, sRight );
 		int nY = nSY;
 		for ( ; nY < nFY2; ++nY, nLeftX += sLeft.nDX, nRightX += sRight.nDX,
-			pZGradient->fZ += pZGradient->fZy )
+			pZGradient->Step() )
 		{
 			int nLeft = std::int32_t( nLeftX ) >> 16;
 			int nRight = std::int32_t( nRightX ) >> 16;
@@ -119,13 +129,12 @@ class CRasterizer
 				continue;
 			pThis->ClipHorizontal( &nLeft, &nRight );
 			pThis->RasterSpan( nY, nLeft, nRight,
-				pZGradient->fZ + nLeft * pZGradient->fZx,
-				pZGradient->fZx, nBackface );
+				pZGradient->GetZ( nLeft ), pZGradient->GetDZ(), nBackface );
 		}
 
 		nRightX = fixedXAt( nY, sRight2 );
 		for ( ; nY < nFY; ++nY, nLeftX += sLeft.nDX, nRightX += sRight2.nDX,
-			pZGradient->fZ += pZGradient->fZy )
+			pZGradient->Step() )
 		{
 			int nLeft = std::int32_t( nLeftX ) >> 16;
 			int nRight = std::int32_t( nRightX ) >> 16;
@@ -143,8 +152,7 @@ class CRasterizer
 				continue;
 			pThis->ClipHorizontal( &nLeft, &nRight );
 			pThis->RasterSpan( nY, nLeft, nRight,
-				pZGradient->fZ + nLeft * pZGradient->fZx,
-				pZGradient->fZx, nBackface );
+				pZGradient->GetZ( nLeft ), pZGradient->GetDZ(), nBackface );
 		}
 	}
 	void InitFixedEdge( SFixedEdgeInfo *pRes, const CVec3 &a, const CVec3 &dif, int nSY, int nFY )
@@ -156,17 +164,16 @@ class CRasterizer
 		pRes->nSY = nSY;
 		pRes->nFY = nFY;
 	}
-	bool CalcFixedZGradient( SFixedZGradientInfo *pInfo, const CVec3 &vA,
+	bool CalcFixedZGradient( TZIterator *pInfo, const CVec3 &vA,
 		const CVec3 &vCB, const CVec3 &vAC )
 	{
 		const float fArea = -vAC.x * vCB.y + vAC.y * vCB.x;
 		if ( fArea == 0 )
 			return false;
 		const float fD = 1 / fArea;
-		pInfo->fZx = fD * ( -vCB.y * vAC.z + vAC.y * vCB.z );
-		pInfo->fZy = fD * ( vCB.x * vAC.z - vAC.x * vCB.z );
-		pInfo->fZ0 = vA.z - ( vA.x - 0.5f ) * pInfo->fZx - ( vA.y - 0.5f ) * pInfo->fZy;
-		pInfo->fZ = 0;
+		const float fZx = fD * ( -vCB.y * vAC.z + vAC.y * vCB.z );
+		const float fZy = fD * ( vCB.x * vAC.z - vAC.x * vCB.z );
+		pInfo->Init( static_cast<T*>( this ), vA, fZx, fZy );
 		return true;
 	}
 	void RasterTriangleFixed( const CVec3 &vA, const CVec3 &vB, const CVec3 &vC )
@@ -179,7 +186,7 @@ class CRasterizer
 
 		int nLeft = 0, nRight = 0;
 		const CVec3 vEdge1( vB - vA ), vEdge2( vC - vB ), vEdge3( vA - vC );
-		SFixedZGradientInfo zGrad;
+		TZIterator zGrad;
 		if ( !CalcFixedZGradient( &zGrad, vA, vEdge2, vEdge3 ) )
 			return;
 		SFixedEdgeInfo sLeft[2], sRight[2];

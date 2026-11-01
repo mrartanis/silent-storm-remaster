@@ -2030,3 +2030,27 @@ actual final selected manifests. Initial Linux registration/constructor/incorrec
 no-enemy expectation logs retained separately.
 
 Source: [fc2836a521913dafcb7737659c6912f178dc5ef1](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fc2836a521913dafcb7737659c6912f178dc5ef1).
+
+## 2026-11-01: original integer shadow and occlusion depths
+
+Register NativeIntegerShadowDepth0..18 on both native platforms, resource-free CPU,60s,
+inside asset-free CI (359 ->378). Input nodes provide real CObjectInfo AssignFast meshes,
+native IPart objects and conservative bounds to the actual public
+MakeInvisibleElementsList/Fast/GeneratePartList and IHZBuffer queries. No
+depth/refcount/visibility/ignore result is supplied by the input provider. Real
+TransformPart, fixed edges, near/guard clipping, part span ownership and HZ hierarchy run.
+MakeMatrix(origin,+Z) is explicit; verify actual GetCoverRect premises rather than the
+engine's identity-camera+Y convention. Initial wrong-camera exploratory output is archived
+and excluded from canonical RED.
+
+Canonical RED10/19 both ->19GREEN,9 exact outcome controls. Flat reciprocal-depth ties
+retain first owner after quantization; raw word wrap and the >65535 sphere shortcut
+preserve original behavior; quantized sphere comparisons, order/separated planes, odd
+sizes, six-view spherical bounds, two fractional-X/Y sloped planes and repeated Fast
+object identity are checked. Mesh positions/source-node identity and4 RNG words are
+unchanged. Full Game both/final527Win523Linux/CI378, all19 actually selected in final and
+CI manifests.16 prior generic raster rows are exact, all20 guard cases pass. Original
+evidence is static with complete typed functions and explicitly bounded caller blocks; no
+original runtime/rendered-image claim.
+
+Source: [acf8dc8198a56959358dc0f226cf2613d8d56b4e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/acf8dc8198a56959358dc0f226cf2613d8d56b4e).

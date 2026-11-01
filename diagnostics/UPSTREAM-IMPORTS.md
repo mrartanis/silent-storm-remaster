@@ -23401,3 +23401,52 @@ donor guard assumptions are archived, not canonical RED.37 sources remain;
 actual-final-head hosted CI pending.
 
 Source: [fc2836a521913dafcb7737659c6912f178dc5ef1](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fc2836a521913dafcb7737659c6912f178dc5ef1).
+
+## 2026-11-01: original integer shadow and occlusion depths (sourceacf complete)
+
+Restore word-depth HZ storage,10000 scale for six-view shadow part selection and40000 for
+normal/persistent camera occlusion. The parts depth iterator uses8 fractional bits,
+nearest-pixel anchoring before subtracting integer gradients, signedSAR8 initial
+depth/increment and explicit32-bit wrap. A span compares signed depth against the stored
+unsigned word, debits an old owner only for nonzero depth, and stores raw depth/owner
+words. Preserve original overflow behavior instead of clamping spans. HZ uses
+conservative2x2 minima, odd edges and65535 padding; sphere tests use scaled reciprocal
+depth, immediate visibility above65535 and truncated word checks. Initialize spherical
+bounds with incrementally stepped X and a65535 cap; fast initialization clears the shared
+base/index arrays.
+
+Retain one owned HZ object per parts renderer, reused by Fast and returned through the
+existing IHZBuffer API; reset reference counts per submission. Original
+pDepthBufferBase/nIndexBufferShift and iterator nShift/nDShift are pointer/row caches, not
+fractional carries. Use native2D array indexing instead of copying that32-bit ABI.
+Preserve own16.16 unsigned-wrap edge arithmetic, near0.01/four0.001 guard planes,24-byte
+projected point and public raster calls. Add a default float depth iterator with the
+unchanged float formulas for all existing non-shadow consumers; the separate parts
+consumer opts into integer depth.
+
+Original complete typed bindings: iterator213 ->575380 (donor5753e0 is internal),
+partsCtor281 ->5796e0 with independently named CHZBuffer VT, HZinit314 ->5795a0,
+HZbuild721 ->577c90, sphere151 ->578ec0, rect399 ->578f60, sphericalInit278 ->577f70,
+normalInvisible913 ->576f60. Reuse uniquely bound parts triangle1248 ->5786d0 and lower769
+->578120; decode SAR8, signed compare, zero-owner skip, raw word writes and integer
+increment in both span halves. Generate1265 whole comparison rejected unknown global
+vector/camera/table operands, but unique entry60 at576a60 plus decoded10000/128/128
+constructor/init calls are bound. Fast749 whole comparison also rejected unknown static
+object/guard/destructor operands; exact17-byte40000/300/400 input block plus independent
+entry26 binds577300 and constructor5796e0. Masks only decodedE8, validatedEH, namedVT and
+exact equalF32/F64; no opcode/frame/field/branch/size/unknown-global masks.0 new original
+runtime records.
+
+Canonical native RED10/19 both ->19/19 both. Actual public normal/Fast/six-view consumers
+receive real CObjectInfo/IPart meshes and literal bounds, and generate their own
+raster/depth/reference/visibility outputs. Cases cover depth ties/order, word wrap,65535
+sphere shortcut, quantized sphere comparisons, odd dimensions, persistent object
+ownership, partlist radius and two fractional X/Y gradient front/behind controls. Nine
+outcome controls remain exact; mesh positions/input-node identity and4 RNG continuation
+words remain. Full Game both, final527Win/523Linux single all-green suites and CI378 pass;
+all19 new cases are CPU-only and enter CI359 ->378. All16 old generic raster output rows
+are exact,20 old guard cases still pass. No
+assets/database/HD/font/face/SDL-bgfx/audio/LAN-type change.36 sources remain;
+actual-final-head hosted CI pending.
+
+Source: [acf8dc8198a56959358dc0f226cf2613d8d56b4e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/acf8dc8198a56959358dc0f226cf2613d8d56b4e).
