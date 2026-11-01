@@ -33095,6 +33095,37 @@ static void NativeIntegerShadowDepth(int mode)
 }
 
 
+static void NativeWoundedAIScared(const char* db,const char* resources,int mode)
+{
+    Require(mode>=0 && mode<18,"unknown native wounded AI mode");NativeHearingOwners f(db,resources);
+    auto* actor=f.aiUnit;auto* commander=dynamic_cast<NAI::CAICommander*>(f.ai->GetCommander());Require(commander,"wounded AI lacks real commander");commander->OnUnitAdded(actor);
+    CObj<NAI::IAIUnit> owner=commander->GetAIUnit(actor);Require(owner,"wounded AI lacks real owner");owner->SetAIState(commander->GetAIState());
+    list<CPtr<NWorld::CUnitServer>> all;f.world->GetAllUnits(&all);
+    for(auto p:all)if(IsValid(p) && p.GetPtr()!=actor && p.GetPtr()!=f.humanUnit && p->CanFight())p->MakeUnconscious(VNULL3,true,false);
+    vector<CObj<NWorld::CUnitServer>> extra;vector<CObj<NAI::IAIUnit>> contacts;
+    contacts.push_back(NAI::CreateAIUnit(f.humanUnit,false));Require(contacts.front(),"wounded AI lacks live enemy wrapper");
+    const int count=mode==3?3:mode==4?2:(mode>=6 && mode<=13) || mode==17?9:1;
+    for(int i=1;i<count;++i){auto* p=f.world->AddUnitInGame(f.FreePlace(f.humanUnit->GetPosition().GetCP(),30.f),NRPG::CreateUnit(NDb::GetPers(54)),f.human,"NativeFearContact");Require(p,"wounded AI cannot deploy native enemy");extra.push_back(p);contacts.push_back(NAI::CreateAIUnit(p,false));Require(contacts.back(),"wounded AI cannot wrap native enemy");}
+    CObj<NAI::CAICommander> foreignCommander;NWorld::CPlayer* supportPlayer=f.ai;CObj<NWorld::CUnitServer> support;CObj<NWorld::CUnitServer> shell;
+    const bool neutral=mode==6 || mode==7;
+    if(neutral){f.game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));foreignCommander=new NAI::CAICommander(f.world,nullptr);supportPlayer=dynamic_cast<NWorld::CPlayer*>(f.world->AddPlayer(L"Native fear neutral support",f.game->players.back(),foreignCommander));Require(supportPlayer,"wounded AI cannot deploy neutral owner");foreignCommander->SetPlayer(supportPlayer);const vector<CPtr<NRPG::IUnitMission>> noUnits;f.world->GetDiplomacy()->SetDiplomacyState(f.ai->GetScenarioPlayerID(),noUnits,supportPlayer->GetScenarioPlayerID(),NDb::DS_NEUTRAL);f.world->GetAllUnits(&all);for(auto p:all)if(IsValid(p) && p->GetPlayer()==supportPlayer && p->CanFight()){support=p;break;}}
+    if(mode>=5 && mode<=12){if(mode==9)supportPlayer=f.human;if(!support)support=f.world->AddUnitInGame(f.FreePlace(actor->GetPosition().GetCP(),20.f),NRPG::CreateUnit(NDb::GetPers(54)),supportPlayer,"NativeFearSupport");Require(support,"wounded AI cannot deploy actual support");
+        auto* net=f.world->GetPathNetwork();vector<NAI::SPathPlace> places;net->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),12.f),&places);bool found=false;const CVec3 center=actor->GetPosition().GetCP();
+        for(auto p:places){p.SetPose(NAI::CM_STAND);p.SetDirection(0);p.SetMoving(0);if(!net->IsPassable(p) || net->IsLocked(p))continue;auto pos=support->GetPosition();pos.pos=NAI::SPosition(p,net);const float distance=fabs(pos.GetCP()-center);const bool eligible=mode==11?distance>=9.f && distance<10.f:mode==12?distance>8.f && distance<9.f:distance>2.f && distance<6.f;if(!eligible)continue;support->SetPosition(pos);found=true;break;}
+        Require(found,"wounded AI cannot realize its intended actual nine-unit support boundary");if(mode==10)support->MakeUnconscious(VNULL3,true,false);
+    }
+    if(support){auto* supportCommander=dynamic_cast<NAI::CAICommander*>(supportPlayer->GetCommander());Require(supportCommander,"wounded AI support lacks real commander");supportCommander->OnUnitAdded(support);Require(NAI::GetAIUnit(support),"wounded AI support is absent from actual native registry");}
+    if(mode==17){NDb::CRPGPers* persona=nullptr;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());while(people.MoveNext()){auto* p=people.Get();if(p->pPanzerklein && !p->pPanzerklein->bHasNoHead && p->pModel){persona=p;break;}}Require(persona,"wounded AI lacks authored suit");auto* net=f.world->GetPathNetwork();vector<NAI::SPathPlace> places;net->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),20.f),&places);for(auto p:places){p.SetPose(NAI::CM_STAND);p.SetDirection(0);if(!NAI::IsBigLockerPlacePassable(net,p))continue;shell=f.world->AddUnitInGame(p,NRPG::CreateUnit(persona),nullptr);if(shell && shell->IsEmptyPK() && shell->WearAsPK(true)){actor->SetPosition(shell->GetPosition());actor->FlipPanzerklein(shell,false,false);break;}}Require(actor->IsWearingPK(),"wounded AI did not establish real pilot/suit relation");}
+    auto& vp=actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP);vp.SetConst(100);vp.SetValue(mode==1?50:mode==2?51:mode==0 || mode==5 || mode>=14?49:100);actor->GetUnitRPG()->GetRPGUnit()->nHealedVP=0;
+    owner->Synchronize(false);for(auto p:contacts)p->Synchronize(false);if(mode==13)contacts.front()->SetHP(0,contacts.front()->GetMaxHP());
+    auto* state=owner->GetAIUnitState();*state=NAI::SAIUnitState();state->SetUnit(owner);for(auto p:contacts)state->AddEnemy(p);state->pEnemy=mode==16?nullptr:contacts.front().GetPtr();state->enemies.bModified=state->possibleEnemies.bModified=state->allies.bModified=false;state->ClearModified();state->bHelpCalled=mode==14;state->bScared=mode==15;
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),planAP=owner->GetAP(),planHP=owner->GetHP();const auto position=actor->GetPosition();const auto contact=state->pEnemy;const auto enemies=state->enemies.data.units;auto random=GlobalGameRandom();
+    state->Update();const bool expected=mode==0 || mode==3 || mode==9 || mode==10 || mode==11 || mode==13 || mode==15;const bool expectedModified=expected && mode!=15;auto after=GlobalGameRandom();bool sameRNG=true;for(int i=0;i<4;++i)sameRNG&=random.Get()==after.Get();
+    std::printf("native wounded AI mode=%d VP=%d max=%d enemies=%zu support=%d distance=%.9g supportFight=%d PK=%d planEnemyHP=%d scared=%d expected=%d modified=%d expectedModified=%d RNG=%d\n",mode,int(vp),vp.GetMaxValue(),enemies.size(),int(bool(support)),support?fabs(support->GetPosition().GetCP()-position.GetCP()):-1.f,support?int(support->CanFight()):-1,int(actor->IsWearingPK()),contacts.front()->GetHP(),int(state->bScared),int(expected),int(state->IsModified()),int(expectedModified),int(sameRNG));std::fflush(stdout);
+    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && owner->GetAP()==planAP && owner->GetHP()==planHP && actor->GetPosition()==position && state->pEnemy==contact && state->enemies.data.units==enemies && sameRNG,"native fear check changed actual/planned health, AP, position, contacts or RNG");
+    Require(state->bScared==expected && state->IsModified()==expectedModified,"native threat update has wrong wounded/enemy-count/support/PK fear policy");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
@@ -33687,6 +33718,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-raster-guard-plane")) { Require(argc==3,"guard plane requires mode"); NativeRasterGuardPlane(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "native-ally-cover-cache")) { Require(argc==5,"ally cache requires db/res/mode"); NativeAllyCoverCache(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ally-raster-safety")) { Require(argc==5,"ally safety requires db/res/mode"); NativeAllyRasterSafety(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-wounded-ai-scared")) { Require(argc==5,"wounded AI requires db/res/mode"); NativeWoundedAIScared(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ally-ray-classification")) { Require(argc==5,"ally ray requires db/res/mode"); NativeAllyRayClassification(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ai-cover-depth")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativeAICoverDepth(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-path-wave-flags")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativePathWaveFlags(argv[2],argv[3],std::atoi(argv[4])); return true; }

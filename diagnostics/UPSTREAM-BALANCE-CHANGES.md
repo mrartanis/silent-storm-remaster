@@ -3958,3 +3958,23 @@ retry, full Game both/CI378. Original module was data-only,0 new original-game r
 records.35 sources remain.
 
 Source: [65b2d080d3a95f9bf713fbda814c2b39c68c74a4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65b2d080d3a95f9bf713fbda814c2b39c68c74a4).
+
+## 2026-11-01: wounded AI fear and live nearby support
+
+Original AI behavior changes: unsupported actors become scared at VP<0.5*maximum or
+confirmed enemy count>2, replacing the incomplete >8-only heuristic. Fight-capable
+non-enemy units within strict9 support the actor even across neutral owners or stale side
+caches. Self, enemies, unconscious units and support at/above9 do not prevent fear.
+Panzerklein pilots are exempt; valid contacts remain usable despite stale planningHP0. No
+extra chance/difficulty coefficient or AP cost is introduced. Existing help/scared latch
+semantics remain, first fear marks modified. GetKnownEnemies and retreat place/timing are
+still pending donor work.
+
+Actual original399/402 methods, namedPK54/skill19 and independently decoded
+constants/guards; canonical native RED8/18 ->GREEN18/18 both with10 exact control rows;
+physical/planned AP/HP/positions/contacts/fourRNG preserved. 389 Windows/392 Linux related
+cases, full Game both/CI378 pass. Runtime support controls are below/above9, not exact9.
+No data/HD/font/face/audio/wire changes;0 new original-game process/runtime records;35
+source commits remain.
+
+Source: [98871d0f0def4f966e097b984c18e57a8f437d7b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98871d0f0def4f966e097b984c18e57a8f437d7b).

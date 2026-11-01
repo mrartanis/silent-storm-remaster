@@ -13,13 +13,14 @@
 #include "aistate.h"       // SAIState
 #include "aiPlayer.h"      // IAIPlayer::GetUnits / IsContain
 #include "wUnitServer.h"   // CanFight
+#include "RPGUnit.h"
 #include "../DBFormat/DataRPG.h"  // NDb::EShootMode -- BEFORE aiInventory.h (its NDB:: fwd-decl typo)
 #include "../DBFormat/DataMap.h"  // NDb::DS_ENEMY
 #include "aiInventory.h"   // CAIInventory::GetBestFireArms (the FindMostDangerousEnemy to-hit metric)
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // SAIUnitState - per-unit threat tracker. See aiUnitState.h for the fidelity/scope notes (event-driven
-// contact pose maintenance follows the original; the morale-skill half of CheckScared is simplified).
+// contact pose maintenance and the wounded/support fear policy follow the original).
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NAI
 {
@@ -337,36 +338,34 @@ void SAIUnitState::FindNearestAlly()   // matched Steam 0x4b0cc0
 	pAlly = pBest;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// @0x004b0ea0: scared when there is an enemy but no support. The release also factors a morale/skill
-// check (CDynamicSkill < 0.5*max); here it is the "outnumbered + no ally within 9 units" half.
+// Matched Steam 0x4b1350: wounded or outnumbered without nearby fight-capable support.
 void SAIUnitState::CheckScared()
 {
 	if ( bScared || bHelpCalled )
 		return;
-	if ( !IsAlive( pEnemy ) || !IsValid( pUnit ) )
+	if ( !IsValid( pEnemy ) || !IsValid( pUnit ) || !IsValid( pUnit->GetUnitServer() ) )
 		return;
-	const int   N_SCARE_ENEMIES = 8;
-	const float F_ALLY_NEAR = 9.0f;
-	if ( (int)enemies.data.units.size() <= N_SCARE_ENEMIES )
+	if ( IsValid( pUnit->GetUnitServer()->GetWearingDBPK() ) )
 		return;
-	CVec3 me = pUnit->GetPosition().GetCP();
-	// Retail @0xb0ea0 queries the WORLD roster for teammates in range (SAIState::GetUnitsAtRange(cp, 9.0,
-	// exclude self)) -- NOT s.allies (which is the event-only help-caller list). Walk the unit's own team.
-	SAIState *pSt = pUnit->GetAIState();
-	IAIPlayer *pAllyPlayer = IsValid( pSt ) ? pSt->GetAllyAIPlayer() : 0;
-	IAIPlayer *pEnemyPlayer = IsValid( pSt ) ? pSt->GetEnemyAIPlayer() : 0;
-	const bool bUnitInAlly = IsValid( pAllyPlayer ) && pAllyPlayer->IsContain( pUnit );
-	IAIPlayer *pMine = bUnitInAlly ? pAllyPlayer : pEnemyPlayer;
-	if ( IsValid( pMine ) )
+	NRPG::CUnit *pRPG = pUnit->GetRPGUnit();
+	if ( !IsValid( pRPG ) )
+		return;
+	const NRPG::CDynamicSkill &vp = pRPG->Skills( NDb::ST_VP );
+	// The original compares the 32-bit pointer vector's byte span to eight.
+	if ( !( int( vp ) < 0.5 * vp.GetMaxValue() ) && enemies.data.units.size() <= 2 )
+		return;
+	const CVec3 me = pUnit->GetPosition().GetCP();
+	SAIState *pState = pUnit->GetAIState();
+	if ( pState != 0 )
 	{
-		vector< CPtr<IAIUnit> > *pTeam = pMine->GetUnits();
-		for ( vector< CPtr<IAIUnit> >::iterator i = pTeam->begin(); i != pTeam->end(); ++i )
-			if ( (*i).GetPtr() != pUnit.GetPtr() && IsAlive( *i )
-				&& fabs( (*i)->GetPosition().GetCP() - me ) < F_ALLY_NEAR )
-				return;   // an ally is close -> hold
+		vector< CPtr<IAIUnit> > support;
+		pState->GetUnits( &support, true, true );
+		for ( vector< CPtr<IAIUnit> >::const_iterator i = support.begin(); i != support.end(); ++i )
+			if ( (*i).GetPtr() != pUnit.GetPtr() && fabs( (*i)->GetPosition().GetCP() - me ) < 9.0f )
+				return;
 	}
-	bScared = true;
 	Modified();
+	bScared = true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 }

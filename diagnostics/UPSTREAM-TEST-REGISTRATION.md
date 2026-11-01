@@ -2076,3 +2076,25 @@ fingerprint; this is not an original Game.exe process/runtime or rendered-game p
 claim.
 
 Source: [65b2d080d3a95f9bf713fbda814c2b39c68c74a4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65b2d080d3a95f9bf713fbda814c2b39c68c74a4).
+
+## 2026-11-01: wounded AI fear and live nearby support
+
+NativeWoundedAIScared0..17 are extended DB cases on Windows/Linux, resource-freeCI
+excluded. Real FixtureWorld/NativeHearingOwners, authored personas, actual native
+commander/factory units and SAIUnitState::Update consume the state. Cases check VP49/50/51
+of100, healthy2/3 contacts, live neutral/own support despite stale team cache, enemy/KO
+support, actual positions below/above9, stale zero enemy planningHP,
+help-called/already-scared/missing-enemy controls and real pilot/suit ownership. Modes6/7
+repeat neutral support input; exact9 distance is not claimed. No substitute fear predicate
+or fake roster outcome. Freeze derived enemy-list refresh to isolate the actual
+CheckScared consumer, retain actual world support query, verify Modified and untouched
+state/physical/planned AP/HP/positions/contacts plus four RNG words.
+
+Canonical RED8/18 both ->GREEN18/18 both and10 exact unchanged controls. Discovery failure
+from impossible exact9 on this uneven map and unregistered added support is retained
+separately; canonical fixture uses actual8<d<9 /9<=d<10 and registers support through
+CAICommander::OnUnitAdded. Full Game both/389 Windows/392 Linux related cases single
+all-green per platform/CI378 pass. Source partial; combined contact-list and
+reachable-retreat/timing cases pending.
+
+Source: [98871d0f0def4f966e097b984c18e57a8f437d7b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98871d0f0def4f966e097b984c18e57a8f437d7b).

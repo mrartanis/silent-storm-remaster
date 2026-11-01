@@ -23489,3 +23489,37 @@ font/face, authored database, HD/PNG generation, audio or LAN changes.35 sources
 actual-final-head hosted CI pending.
 
 Source: [65b2d080d3a95f9bf713fbda814c2b39c68c74a4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65b2d080d3a95f9bf713fbda814c2b39c68c74a4).
+
+## 2026-11-01: wounded AI fear and live nearby support (source988 partial)
+
+Restore CheckScared only: a valid threat may scare an unsupported actor when current
+integer VP is strictly below half its maximum OR there are more than two confirmed
+contacts. The original compares a 32-bit pointer-vector byte span with8, not eight
+enemies. Panzerklein pilots do not scare. Already scared/help-called actors retain their
+state; the first newly scared result marks the threat modified. A valid enemy's stale zero
+planningHP does not suppress the check. Query the existing native
+SAIState::GetUnits(true,true), exclude self and require strict distance<9 for nearby
+support. This uses fight-capable non-enemy world units, including neutral parties and
+human-controlled units, independently of stale side caches. Preserve own null-state/world
+defensive handling and saved layout/tags.
+
+Actual Steam CheckScared399 at4b1350, GetUnitsAtRange402 at4a9c20 and GetKnownEnemies99
+at4b1e60 bind whole uniquely to named GoldPDB methods with only decodedE8, validatedEH and
+independently equalF64 half operands. Full54-byte namedCAIUnit IsInPK4ad860 and19-byte
+DynamicSkill integer getter423b00 are exact. The original4365f0 call is validity, not a
+live/planning-health check. No opcode/frame/field/control/unknown-global masks or original
+executable process. Combined known/suspected collection and retreat routing/timing from
+this donor remain pending independently; this partial does not change their API or
+callers.
+
+Canonical native actual threat Update RED8/18 both ->GREEN18/18 both, ten exact unchanged
+control rows, four RNG words and physical/planned AP/HP/position/contact identity
+controls. Eighteen modes include repeated neutral-support inputs6/7; no distinct
+wounded-neutral health coverage is claimed. Outer/inner support controls realize9<=d<10
+and8<d<9; exact9 on uneven authored geometry was not achieved. Initial discovery's invalid
+exact9 fixture is archived, excluded from canonicalRED; newly added support is explicitly
+registered through actual commander. Full Game both/389 Windows/392 Linux related cases in
+one all-green batch per platform/CI378 pass.35 sources remain, now21pending14partial;
+hosted actual-final-head CI pending.
+
+Source: [98871d0f0def4f966e097b984c18e57a8f437d7b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98871d0f0def4f966e097b984c18e57a8f437d7b).
