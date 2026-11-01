@@ -2054,3 +2054,25 @@ evidence is static with complete typed functions and explicitly bounded caller b
 original runtime/rendered-image claim.
 
 Source: [acf8dc8198a56959358dc0f226cf2613d8d56b4e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/acf8dc8198a56959358dc0f226cf2613d8d56b4e).
+
+## 2026-11-01: original game icon in the existing SDL window
+
+Register Windows-only NativeGameWindowIconTests as extended/native-display,60s, using real
+s2_platform and the same Game/Game.rc as Game. The observer creates its own hidden SDL
+window, reads native class/window HICON, loads resource101 through actual Win32 resource
+APIs and rasterizes32px BGRA with DrawIconEx. Original fingerprint is bound independently
+to all7 original Steam resource payloads and unchanged donor ICO. Loaded and native
+resource-selection controls pass before the fix; only image identity fails (RED1/1
+->GREEN1/1). The default-size class/resource comparison permits the native DPI-selected
+icon; explicit32px resource comparison verifies original pixels. Close the owned window
+through S2Platform::Done; do not destroy SDL/shared icon handles.
+
+Final14Win single all-green; Linux12 distinct as11 initial passes plus1 unchanged-code
+invalid-driver retry without the inherited x11 environment override. Initial Linux failure
+is archived and not a source regression or fresh RED. Full Game both/CI378 unchanged, new
+platform window test excluded from asset-freeCI. Separately inspect actual final Game.exe
+as a resource image and confirm all7 embedded RT_ICON payloads plus32px native
+fingerprint; this is not an original Game.exe process/runtime or rendered-game parity
+claim.
+
+Source: [65b2d080d3a95f9bf713fbda814c2b39c68c74a4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65b2d080d3a95f9bf713fbda814c2b39c68c74a4).

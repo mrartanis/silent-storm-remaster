@@ -3941,3 +3941,20 @@ unknown-global whole comparisons rejected.0 new original runtime records.36 sour
 remain.
 
 Source: [acf8dc8198a56959358dc0f226cf2613d8d56b4e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/acf8dc8198a56959358dc0f226cf2613d8d56b4e).
+
+## 2026-11-01: original game icon in the existing SDL window
+
+Visual branding only: replace A5 with the original seven-frame game icon in existing
+resource101. The live SDL loader already selects this application icon. Preserve own SDL
+startup/lifecycle; historical GDI splash/DC/bitmap changes and deleted WinFrame
+implementation are explicitly excluded, not reported as an already-shown logo. No
+AP/damage/accuracy/training, gameplay, renderer algorithms, font/face, HD textures, data,
+audio or wire changes. Exact source asset copy, no image generation or PNG rebuild.
+
+Native actual SDL window RED1/1 ->GREEN1/1 with loaded/selection controls; actual final
+Game resource101 matches all7 original payloads and8973e7b08c5fa1e4 native32px
+fingerprint. Windows14 related single all-green, Linux12 distinct split11+1 proper-env
+retry, full Game both/CI378. Original module was data-only,0 new original-game runtime
+records.35 sources remain.
+
+Source: [65b2d080d3a95f9bf713fbda814c2b39c68c74a4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65b2d080d3a95f9bf713fbda814c2b39c68c74a4).

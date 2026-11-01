@@ -576,6 +576,18 @@ add_custom_command(TARGET SDLPlatformInputTests POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:SDL3::SDL3>" "$<TARGET_FILE_DIR:SDLPlatformInputTests>")
 add_test(NAME SDLPlatformInputTests COMMAND SDLPlatformInputTests)
 add_test(NAME SDLPlatformInvalidDriver COMMAND SDLPlatformInputTests --invalid-driver)
+if(WIN32)
+  # Observe the actual SDL class icon with the same compiled resources as Game.
+  add_executable(NativeGameWindowIconTests "${root}/diagnostics/NativeGameWindowIconTests.cpp" "${root}/Game/Game.rc")
+  target_include_directories(NativeGameWindowIconTests PRIVATE "${root}/Game" "${CMAKE_BINARY_DIR}/rc_compat")
+  target_compile_features(NativeGameWindowIconTests PRIVATE cxx_std_17)
+  target_link_libraries(NativeGameWindowIconTests PRIVATE s2_platform user32 gdi32)
+  add_custom_command(TARGET NativeGameWindowIconTests POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:SDL3::SDL3>" "$<TARGET_FILE_DIR:NativeGameWindowIconTests>")
+  add_test(NAME NativeGameWindowIconTests COMMAND NativeGameWindowIconTests)
+  set_tests_properties(NativeGameWindowIconTests PROPERTIES LABELS "extended;native-display" TIMEOUT 60 ENVIRONMENT "SDL_VIDEODRIVER=windows")
+endif()
+
 if(S2_GAME_DIR AND EXISTS "${S2_GAME_DIR}/cfg/input.cfg")
   add_test(NAME SDLInputConfiguration
     COMMAND SDLPlatformInputTests --bindings "${S2_GAME_DIR}/cfg/input.cfg")

@@ -23450,3 +23450,42 @@ assets/database/HD/font/face/SDL-bgfx/audio/LAN-type change.36 sources remain;
 actual-final-head hosted CI pending.
 
 Source: [acf8dc8198a56959358dc0f226cf2613d8d56b4e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/acf8dc8198a56959358dc0f226cf2613d8d56b4e).
+
+## 2026-11-01: original game icon in the existing SDL window (source65b accounted)
+
+Copy the8478-byte SilentStorm.ico unchanged and point existing Game resource101 at it.
+All7 ICO frames match the actual original Steam group101 RT_ICON payloads byte-for-byte.
+Native OS LoadImage/DrawIcon32 fingerprint is8973e7b08c5fa1e4; the previous A5 resource
+wasb4eff8bae2391a79. The final compiled Game.exe group101 again matches all7 original
+payloads and the expected32px fingerprint. The original executable was loaded only as
+data/resource image, never executed;0 new original-game runtime records.
+
+The live pinnedSDL3.4.16 SDL_RegisterApp already enumerates the first RT_GROUP_ICON and
+its callback calls LoadIcon(module,name), then registers that native window-class icon.
+This replaces the donor's historical WinFrame LoadIcon101 route; no new hook or
+SDL_appicon alias is needed. A new native hidden-window observer links the same Game.rc as
+Game, calls actual S2Platform::Init, reads WM_GETICON/class icon and rasterizes the real
+HICON through native GDI. Canonical RED1/1 shows loaded1/selection1 controls with wrong A5
+image0; GREEN1/1 has the original image and the same resource-selection controls.
+Default-size class icon is compared with the module's own default-size resource, while
+explicit32px image is compared with independently bound original data, preserving DPI
+choice.
+
+Exclude the source's historical GDI startup-logo/DC/bitmap-lifecycle hunks from the own
+SDL startup path: current Game/Main.cpp loads the database and initializes S2Platform
+directly, with no ShowSplashScreen caller; Game/WinFrame.cpp no longer exists, and Linux
+explicitly removes both legacy splash sources. Preserve that owned startup ordering. This
+is an explicit backend/lifecycle exclusion, not a claim that the original splash is
+already displayed or that the unused legacy GDI leak was fixed. Source whitespace-only
+resource hunks have no independent effect.
+
+Full Game both,14 Windows related cases in one all-green batch,12 distinct Linux cases and
+CI378 pass. Linux had11 initial passes plus an unchanged-code SDLPlatformInvalidDriver
+retry with SDL_VIDEODRIVER unset: the display runner's inherited x11 variable overrode
+that test's deliberately invalid normal-priority hint. Preserve the initial exit8/raw
+logs; do not call this one all-green Linux batch or a production fix. Native window test
+is Windows-only extended/native-display, outside asset-freeCI. No gameplay, shader,
+font/face, authored database, HD/PNG generation, audio or LAN changes.35 sources remain;
+actual-final-head hosted CI pending.
+
+Source: [65b2d080d3a95f9bf713fbda814c2b39c68c74a4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65b2d080d3a95f9bf713fbda814c2b39c68c74a4).
