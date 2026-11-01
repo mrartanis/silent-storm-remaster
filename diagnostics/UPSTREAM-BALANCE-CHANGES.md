@@ -4087,3 +4087,27 @@ selected related all pass/CI378; known pre-existing Windows campaign movement fl
 explicitly excluded and not claimed fixed.33 donor sources remain.
 
 Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).
+
+## 2026-11-01: publisher-logo demonstration and UI-clock rendering
+
+Explicit demonstrations now show the original blinking publisher logo and hide the
+ordinary mission HUD, with sequence1, pre-init lose latch and scripted turn-based request
+as original. Both overlay Step and Draw use the live UI clock even while simulation is
+paused. The fork's HUD-reserving client view is overridden only for demo rendering with a
+full normalized canvas; native wide/HiDPI projection and fonts are retained. Shared scene
+sound is not pumped twice. Keep the original flash class ID/five fields and ordinary menu
+implementation, extracted into a shared header.
+
+Preserve the SDL pointer position instead of restoring the original cursor-center warp;
+the demo cursor is hidden. No ordinary mission AP/damage/skills/prices, LAN protocol,
+saved field numbers, audio backend, asset sampling or HD/face pipeline changes.138
+original demo level preparation and139 transition thresholds/latch/interactive-only music
+remain intact. Automatic menu idle entry still awaits its separate port.
+
+Native RED6/6 ->GREEN6/6 both, combined17/17; actual draw time4000->UI123 and flash
+morph123, original state flags, full ordinary/wide1792/200percent canvases and shared
+audio verified. Full Game both/178 Windows/170 Linux selected related/CI378;9 prior
+transition traces and12 vector-font traces exact. Sourcefdd partial,33 donor sources
+remain; known prior-head campaign movement flake not claimed fixed.
+
+Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).

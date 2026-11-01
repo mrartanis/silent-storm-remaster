@@ -36,6 +36,7 @@
 #include "iMain.h"
 #include "iSaveManager.h"
 #include "Interface.h"					// NUI::CInterface / NUI::ICursor / ICursor::Create
+#include "iFlashImage.h"
 #include "iCommonUI.h"
 #include "iMission.h"
 #include "iInterMission.h"
@@ -89,13 +90,10 @@
 //     actual Steam 1.2 0x59d7a0/slot168, without the interactive trace/lose/music policy.
 //   * Squad preparation now follows the actual Steam 1.2 calls at 0x59daed..0x59db83:
 //     four AI players, then level 30 for every merc before initializing the mission.
-//   * Initialize still omits the logo CFlashImage, bLoseSignalSended / bHideInterface,
-//     sequence state and the scripted turn-based request; those need the demo lifecycle port.
-//   * Registration + serialization: retail registers CAutoPlayInterface under 0xB3723140 and serializes it
-//     (operator& @0x1a13e0: 1=CMission base, 2=bSignalSent, 3=sAutoPlayTime, 4=pLogoCursor, 5=pLogoInterface,
-//     6=pFlashImage). Registration landed in serialization-convergence W2, the operator& body in W3.
-//     Retail tag 6 is CObj<NUI::CFlashImage>; the dev member is the CObj<NUI::CWindow> parity placeholder
-//     (see above) -- the object reference serializes identically through the class registry.
+//   * The original logo template, sequence/HUD/lose/TB state and UI-clock overlay
+//     are now restored. Keep the owned SDL pointer position instead of warping it.
+//   * Registration and save fields remain 1=CMission, 2=signal, 3=watchdog,
+//     4=logo cursor, 5=shared-sound interface, 6=the original CFlashImage reference.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NGame
 {
@@ -110,7 +108,7 @@ class CAutoPlayInterface: public CMission
 	CTimeCounter sAutoPlayTime;				// @+0x594: UI-clock watchdog timer
 	CObj<NUI::ICursor> pLogoCursor;			// @+0x59c
 	CObj<NUI::CInterface> pLogoInterface;	// @+0x5a0
-	CObj<NUI::CWindow> pFlashImage;			// @+0x5a4: parity placeholder; the real logo type NUI::CFlashImage is file-local to iMainMenu.cpp
+	CObj<NUI::CFlashImage> pFlashImage;		// original shared publisher-logo class
 
 	void ParseNumbers( const wstring &szStr, vector<int> &outSet );
 	void AddPlayer( NRPG::CGlobalGame *pGame, const vector<int> &templateIDs );
@@ -211,8 +209,7 @@ void CAutoPlayInterface::AddPlayer( NRPG::CGlobalGame *pGame, const vector<int> 
 //
 // The auto-play boot sequence: parse the two console vars, gate on both being non-empty, build a fresh global
 // game with four random AI squads, prepare every merc to level 30, pick a starting map and boot it, then
-// raise the logo cursor/interface overlay. See the file header for the omitted release tail (the
-// logo flash-image template, private-flag writes + pWorld vtbl call).
+// raise the original shared-sound publisher-logo overlay and scripted demonstration state.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAutoPlayInterface::Initialize()
 {
@@ -235,12 +232,22 @@ bool CAutoPlayInterface::Initialize()
 
 	vector<string> paramsSet;
 	paramsSet.push_back( "Day" );						// the release daytime param
+	bLoseSignalSended = true;
 	CMission::Initialize( nMapID, -1, 0, paramsSet, pGame );	// sets pGlobalGame / pWorld / pScene / pSoundScene
 
-	pLogoCursor = NUI::ICursor::Create();
+	// Keep the owned SDL cursor position; the demo has no visible cursor.
+	pLogoCursor = NUI::ICursor::Create( false );
 	pLogoInterface = new NUI::CInterface( pLogoCursor, GetSoundScene() );
+	pFlashImage = new NUI::CFlashImage( NUI::SWindowInfo( pLogoInterface,
+		NUI::SPoint( 768, 0 ), NUI::SPoint( 256, 128 ), "logo",
+		NUI::STYLE_VISIBLE | NUI::STYLE_ENABLED | NUI::STYLE_TOPMOST ) );
+	NUI::LoadTemplate( pFlashImage, NDb::GetUIContainer( 372 ) );
+	nSequence = 1;
+	bHideInterface = true;
 
 	SetCheatVisibility( true );							// release bCheatVisibility = true
+	if ( NWorld::CWorld *world = dynamic_cast<NWorld::CWorld*>( pWorld.GetPtr() ) )
+		world->ScriptWantTurnBased( true );
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -316,12 +323,15 @@ void CAutoPlayInterface::GameStep()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoPlayInterface::RenderFrame( int nMode, bool bAdvanceTime, ICamera *pCamera, bool bShowUnits )
 {
+	// The fork reserves HUD margins in its common mission client view.
+	if ( pCamera )
+		pCamera->SetScreenRect( CTRect<float>( 0, 0, 1, 1 ) );
 	CMission::RenderFrame( nMode | 8, bAdvanceTime, pCamera, bShowUnits );
 
 	if ( IsValid( pLogoInterface ) )
 	{
-		pLogoInterface->Step( GetTime() );				// GetTime() re-read before each (matches the binary)
-		pLogoInterface->Draw( GetTime() );
+		pLogoInterface->Step( GetUITime() );				// original rereads the UI clock before each call
+		pLogoInterface->Draw( GetUITime() );
 	}
 
 	if ( ( nMode & 8 ) == 0 )

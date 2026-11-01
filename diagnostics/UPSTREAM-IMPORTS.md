@@ -23782,3 +23782,61 @@ initialization/logo/sequence/fullscreen/menu idle-reset/focus/timestamp hunks pe
 donor sources unfinished. Actual final-head hosted CI remains required.
 
 Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).
+
+## 2026-11-01: publisher-logo demonstration and UI-clock rendering (partial140)
+
+Complete the explicit demo presentation before enabling menu idle entry. Move the existing
+CFlashImage declaration verbatim from iMainMenu.cpp to iFlashImage.h; keep its methods,
+original0xB2540911 class ID and five saved fields unchanged. Ordinary main-menu source is
+compared exactly after removing only that declaration and adding the include, preserving
+LAN button, startup script cadence, logging, inactive painting, fonts and sound.
+AutoPlay's saved6 reference now has its original CFlashImage type, using the same dynamic
+class ID.
+
+Before mission initialization set its original lose latch, then load the shared
+publisher-logo window named logo from template372 at authored768,0/256,128 with
+visible/enabled/topmost style0e. Restore nSequence1, hidden mission HUD, existing cheat
+visibility and script-requested turn-based mode. Use a checked native CWorld accessor
+because own IWorld lacks the script-turn method, without widening its interface. Create a
+hidden cursor without the original explicit center warp, preserving owned SDL pointer
+position. Keep the mission sound scene shared by the overlay.
+
+Actual Steam init59d980 stores lose574 before call601070, then
+sequence4f4=1/hide68/cheatD0 and calls world virtual1f0. Named CMission save5a0f10
+independently proves int17 at4f4 and byte31 at574; wholeGold844 comparison is rejected
+for12 unmasked tail opcode/control differences and appended actual fields, no field/frame
+masks. Named World1f0 binds762490/60 storing scripted wish1c0. Actual literal
+logo/style0e/256,128/768,0/parent fields use independently queried Gold SWindowInfo
+layout0/10/18/20; ctor59ddc5->5c0770/51 has namedFlashVT and four zero fields. Typed Flash
+save5cb150/121 has Window base1, float80/tag2, time84/tag3, images88/8c/tags4/5.
+Getter372/LoadTemplate actualcalls7dadd0/71e320 complete the logo. Gold ctor39 is not
+treated as actual length51.
+
+Correct both own/donor raw GetTime calls to independently read GetUITime for overlay Step
+and Draw, matching original render59d290 calls59d2c5/59d2e0->59dfb0 followed by
+actualInterfaceStep71cdb0/Draw71d290. The actual original render has no extra camera
+setter; the fork's common mission path reserves HUD client-view margins, so a demo-only
+full0,0,1,1 rect is the explicit own renderer adaptation for its hidden HUD. Retain
+wide/HiDPI transforms and all native SDL/bgfx/audio/font/texture pipelines; no PNG/HD/face
+rebuild or original-function/Game.exe execution.
+
+Six native actual console/mission/frame/widget cases RED6/6 both ->GREEN6/6, combined with
+all11 prior demo cases GREEN17/17 both. Public PauseGame freezes simulation while the
+actual UI counter remains live. Read existing nested saved base33 into an independent
+counter wrapper and set only its real shared CCTime leaf; no live-world deserialization. A
+passive actual CWindow child observes real overlay Draw: rawInput4000 produced old4000
+versus realUI123, now123; actual flash morph time becomes123, loaded active/background
+children exist, sound identity remains shared and original init flags/cursor state are
+correct. Client margins disappear at ordinary autofit,1792wide and2048px/200percent
+logical1024x768. Set the actual ui_scale option for HiDPI because normal StepApp reapplies
+it; an earlier one-off display update was not canonical. Initial observer/API compile
+errors, driver CRLF error and partial-apply whitespace recovery are retained without
+claiming behavioral runs for them.
+
+Full Game both/178 Windows/170 Linux related all pass/CI378, with17 native demo cases,
+exact9 prior transition traces and12 exact vector-font rows. Sourcefdd still needs menu
+idle/reset/focus/saved timestamp hunks, remains partial,33 unfinished. The prior138
+campaign movement flake remains known and is not in this UI-selected suite; no fix claim.
+Actual final-head hosted CI remains required at whole-task completion.
+
+Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).

@@ -33420,6 +33420,60 @@ static void NativeAutoPlayLifecycle(const char* databasePath,const char* resourc
 }
 
 
+static CTimeCounter NativeFrontendUIClock(CObjectBase* frontend)
+{
+    struct Base {CTimeCounter clock;int operator&(CStructureSaver& f){f.Add(33,&clock);return 0;}};
+    struct Parent {Base base;int operator&(CStructureSaver& f){f.Add(1,&base);return 0;}};
+    struct Root {Parent parent;int operator&(CStructureSaver& f){f.Add(1,&parent);return 0;}} state;
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(frontend,&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);state.operator&(reader);return state.parent.base.clock;
+}
+
+class AutoPlayClockObserver:public NUI::CWindow {
+    OBJECT_NOCOPY_METHODS(AutoPlayClockObserver);
+public:
+    int draws=0;STime observed=0;
+    AutoPlayClockObserver() {}
+    explicit AutoPlayClockObserver(NUI::CWindow* root):CWindow(NUI::SWindowInfo(root,NUI::SPoint(0,0),NUI::SPoint(8,8),"demo-clock-observer",NUI::STYLE_VISIBLE|NUI::STYLE_ENABLED)){}
+    void Draw(const STime& time,NGScene::I2DGameView* view) override {++draws;observed=time;CWindow::Draw(time,view);}
+};
+
+static void NativeAutoPlayPresentation(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<6,"unknown demonstration presentation fixture");
+    Require(std::getenv("S2_USER_DATA_DIR") && !NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"demo presentation needs isolated empty interface state");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm demonstration presentation regression");
+    struct Restore {NGlobal::CValue units=NGlobal::GetVar("autoplay_units"),maps=NGlobal::GetVar("autoplay_templates"),scale=NGlobal::GetVar("ui_scale",0);STime time=NMainLoop::SetTimeForHarness(0);~Restore(){NGlobal::SetVar("autoplay_units",units);NGlobal::SetVar("autoplay_templates",maps);NGlobal::SetVar("ui_scale",scale);NMainLoop::SetTimeForHarness(time);}} restore;
+    if(mode==3 || mode==4){NGlobal::SetVar("ui_scale",NGlobal::CValue(mode==4?200:100));NGfx::SRenderTargetsInfo targets;Require(NGfx::SetMode(NGfx::SVideoMode(mode==3?1792:2048,mode==3?768:1536,32,NGfx::WINDOWED),targets),"demo presentation could not resize its owned render surface");S2Platform::UpdateDisplay(mode==4?200:100);}
+    NGlobal::SetVar("autoplay_units",NGlobal::CValue(L"968"));NGlobal::SetVar("autoplay_templates",NGlobal::CValue(L"4412"));
+    NGlobal::ProcessCommand(L"autoplay");CObj<NMainLoop::CInterfaceCommand> enter=NMainLoop::TakeInterfaceCommandForHarness();Require(IsValid(enter),"demo presentation has no native entry command");enter->Exec();
+    CObj<NGame::CMissionBase> demo=dynamic_cast<NGame::CMissionBase*>(NMainLoop::GetCurrentInterfaceForHarness());Require(IsValid(demo) && pSSClasses->GetObjectTypeID(demo)==int(0xB3723140),"presentation fixture did not create the actual registered demo");
+    CObj<NMainLoop::CInterfaceCommand> snapshot=NMainLoop::TakeInterfaceCommandForHarness();Require(dynamic_cast<NMainLoop::CICSaveFile*>(snapshot.GetPtr()) && !NMainLoop::HaveInterfaceCommand(),"presentation fixture did not isolate its existing mission-start snapshot");
+    demo->PauseGame(true);Require(demo->IsGamePaused(),"presentation fixture did not pause native world simulation");
+    struct Base {bool hide=false;int operator&(CStructureSaver& f){f.Add(13,&hide);return 0;}};
+    struct Mission {Base base;int sequence=-1;bool lose=false;int operator&(CStructureSaver& f){f.Add(1,&base);f.Add(17,&sequence);f.Add(31,&lose);return 0;}};
+    struct State {Mission mission;CObj<NUI::ICursor> cursor;CObj<NUI::CInterface> root;CObj<NUI::CWindow> flash;int operator&(CStructureSaver& f){f.Add(1,&mission);f.Add(4,&cursor);f.Add(5,&root);f.Add(6,&flash);return 0;}} state;
+    {CStructureNetworkContext refs;auto fields=BorrowedObjectFields(demo,&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);state.operator&(reader);}
+    Require(IsValid(state.root) && IsValid(state.cursor),"actual demo lacks its existing logo root/cursor");
+    bool scriptTB=false,showCursor=true;
+    {CStructureNetworkContext refs;auto fields=BorrowedObjectFields(demo->GetWorld(),&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(56,&scriptTB);}
+    {CStructureNetworkContext refs;auto fields=BorrowedObjectFields(state.cursor,&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(3,&showCursor);}
+    const bool shared=state.root->GetSound()==demo->GetSoundScene();
+    CTimeCounter ui=NativeFrontendUIClock(demo);ui.SetCurrent(123);Require(demo->GetUITime()==123,"presentation clock reader does not reference the actual frontend UI node");
+    CObj<AutoPlayClockObserver> observer;
+    if(mode!=0){observer=new AutoPlayClockObserver(state.root);NMainLoop::SetTimeForHarness(4000);MarkNewDGFrame();Require(NMainLoop::StepApp(true,false,false) && !NMainLoop::HaveInterfaceCommand(),"paused presentation frame unexpectedly changed interfaces");}
+    const auto rect=demo->GetCamera()->GetScreenRect();const auto canvas=state.root->GetSize();const bool full=std::fabs(rect.x1)<1e-6f && std::fabs(rect.y1)<1e-6f && std::fabs(rect.x2-1)<1e-6f && std::fabs(rect.y2-1)<1e-6f;
+    const bool flash=IsValid(state.flash) && pSSClasses->GetObjectTypeID(state.flash)==int(0xB2540911);STime morph=0;float coefficient=-1;
+    if(flash){CStructureNetworkContext refs;auto fields=BorrowedObjectFields(state.flash,&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&coefficient);reader.Add(3,&morph);}
+    std::printf("AUTOPLAY-PRESENTATION mode=%d sequence=%d hide=%d lose=%d scriptTB=%d cursor=%d flash=%d shared=%d ui=%u rawInput=%u observed=%u draws=%d full=%d canvas=%d,%d scale=%.1f morph=%u coefficient=%.6f\n",mode,state.mission.sequence,int(state.mission.base.hide),int(state.mission.lose),int(scriptTB),int(showCursor),int(flash),int(shared),unsigned(demo->GetUITime()),mode==0?0u:4000u,observer?unsigned(observer->observed):0,observer?observer->draws:0,int(full),canvas.x,canvas.y,S2UI::Scale(),unsigned(morph),coefficient);std::fflush(stdout);
+    Require(shared,"demonstration overlay stopped sharing the mission sound scene");
+    if(mode==0)Require(state.mission.sequence==1 && state.mission.base.hide && state.mission.lose && scriptTB && !showCursor && flash && state.flash->GetParent()==state.root.GetPtr() && state.flash->GetStyle(NUI::STYLE_TOPMOST) && state.flash->GetStyle(NUI::STYLE_VISIBLE),"actual demonstration initialization lacks original sequence/HUD/lose/TB/cursor/flash state");
+    if(mode==1)Require(observer->draws>0 && observer->observed==demo->GetUITime() && observer->observed!=4000,"actual demonstration overlay uses raw time instead of the always-running UI clock");
+    if(mode>=2 && mode<=4){Require(full && canvas.x==S2UI::Width() && canvas.y==S2UI::Height(),"actual demonstration retains mission client-view margins or lost logical display bounds");if(mode==3)Require(canvas.x==1792 && canvas.y==768,"wide demo fixture did not establish its real larger canvas");if(mode==4)Require(canvas.x==1024 && canvas.y==768 && std::fabs(S2UI::Scale()-2.f)<.001f,"HiDPI demo fixture lost native two-pixel logical scaling");}
+    if(mode==5)Require(flash && state.flash->GetChildByID("active") && state.flash->GetChildByID("background") && morph==demo->GetUITime() && coefficient>=0 && coefficient<=1,"actual publisher-logo widget was not loaded/drawn on the demo UI clock");
+    NMainLoop::DoneInterface();
+}
+
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
@@ -34016,6 +34070,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-autoplay-presentation")) { Require(argc==5,"autoplay presentation requires db/res/mode"); NativeAutoPlayPresentation(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-autoplay-lifecycle")) { Require(argc==5,"autoplay lifecycle requires db/res/mode"); NativeAutoPlayLifecycle(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-autoplay-squads")) { Require(argc==5,"autoplay squads require db/res/mode"); NativeAutoPlaySquads(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-placement")) { Require(argc==5,"tooltip placement requires db/res/mode"); NativeTooltipPlacement(argv[2],argv[3],std::atoi(argv[4])); return true; }

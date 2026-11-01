@@ -85,6 +85,7 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMission: public CMissionBase
 {
+	friend class CAutoPlayInterface;
 	OBJECT_BASIC_METHODS(CMission)
   std::shared_ptr<S2Net::NetworkSession> networkSession;
   std::shared_ptr<S2Net::NetworkWorld> networkWorld;

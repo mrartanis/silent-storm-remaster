@@ -2246,3 +2246,33 @@ guards and UpdateSound ownership, is moved verbatim into the default callback. S
 still partial;33 sources unfinished.
 
 Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).
+
+## 2026-11-01: publisher-logo demonstration and UI-clock rendering
+
+NativeAutoPlayPresentation0..5 are isolated extended native-display DB/resource cases. Use
+the real registered autoplay command and initialized mission/overlay, consume only the
+unrelated start snapshot command without saving, then pause simulation through public
+PauseGame. Read actual existing saved flags and UI counter into independent wrappers,
+changing only its real CCTime leaf. A passive native CWindow child records the actual Draw
+time while normal hidden SDL/bgfx rendering, original flash widget, images, camera and
+shared sound run; no replacement visibility/font/clock/viewport implementation.
+
+CanonicalRED6/6 both ->GREEN6/6 both; combined prior2 squad+9 transition+new6
+presentation17/17. Cases cover original sequence/lose/HUD/scriptTB/hidden cursor/logo
+state, actualUI123 versus rawInput4000, full normalized viewport,1792wide
+canvas,2048px/200percent logical1024x768 and loaded flash Draw/morph123 with coefficient
+in0..1. The actual ui_scale option is scoped/restored so real StepApp retains the intended
+HiDPI setting. Earlier compile-only and ui_scale0 discovery attempts are retained and
+excluded from canonicalRED. Producer whitespace partial-apply stopped before AutoCpp write
+and was completed before any tests; initial missing-interface-method compile errors use
+retained logs and a checked existing native accessor. Shell-driver line endings were
+corrected before Linux build/test.
+
+Full Game both/178 Windows/170 Linux UI/menu/font/sound/renderer/network selected related
+all pass/CI378. All17 demo cases selected;9 prior transition rows and12 vector-font
+compatibility rows remain exact versus139. Existing ordinary-menu source is byte-exact
+after class declaration/include extraction; class ID/save fields/old flash methods remain
+unchanged. No original runtime/new PNG or HD/face/font regeneration. Sourcefdd still
+partial,33 unfinished.
+
+Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).
