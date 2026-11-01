@@ -3624,3 +3624,23 @@ is outside scope. Source3cfc is complete after prior shared-skill/physical/lifet
 imports;52 sources remain. Whole-task final hosted CI is pending.
 
 Source: [3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a).
+
+## 2026-11-01: held grenade priority and engineering fallback
+
+An engineering grenade in a hand now allows UnitSwitchToGrenade to select a regular
+grenade from the backpack. Ordinary held grenades take priority: SLOT_1 first, then
+SLOT_2, even if the other ordinary grenade was active. The queued backpack exchange
+targets the opposite active slot and retains owner/items/activation/ordered Continue. This
+restores script selection only; AP/HP/inventory/position/time/RNG are unchanged before
+queued execution, and authored costs, physical throw formulas and save/network layouts
+stay intact.
+
+Native RED5/13 both ->79 Windows /76 Linux selected tests, full Game builds/CI323. Fixed9
+cases and exact queue payloads, prior ordinary/draw controls, plus12 actual original
+classifier records/6 smoke establish DB-only held classification. Actual original
+Lua/World/queue/exchange execution is not claimed; these are native producer tests and
+bounded original getter/RTTI runtime with complete read-only RNG/context/stack/config
+restoration. Source14ff completes after prior queue/draw/Hide work;51 sources remain and
+final whole-task hosted CI is pending.
+
+Source: [14ffbcc83ea0fff503aa22386c98274a5aadd9ca](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/14ffbcc83ea0fff503aa22386c98274a5aadd9ca).

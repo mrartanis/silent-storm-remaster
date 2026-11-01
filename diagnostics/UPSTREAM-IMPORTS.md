@@ -22609,3 +22609,70 @@ Source3cfc is imported;52 sources remain (pending37 +partial15). Eventual whole-
 hosted CI remains pending.
 
 Source: [3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a).
+
+## 2026-11-01: held grenade priority and engineering fallback (source14ff complete)
+
+UnitSwitchToGrenade removes only two stale CGrenadeItem runtime guards after the
+already-restored DB-based held checks. It tries an ordinary held record in SLOT_1 before
+SLOT_2, activates that held slot when needed, and otherwise draws the first backpack
+grenade into the opposite active slot. An engineering grenade in either or both hands no
+longer suppresses ordinary-backpack fallback. Actual DB-successor CRPGGrenade
+classification, own null/DB hardening, active ordinary no-op, queued owner/Continue, and
+the shared draw helper stay intact. No public API, save/network schema, gameplay RNG,
+authored DB value or physical throw producer changes.
+
+New NativeHeldGrenadePriority0..8 executes real Lua and commander queue producers with
+actual regular1/engineer1 records, both ordinary hands, both active slots, engineering
+hands plus a regular backpack grenade, both engineering hands, and mixed held types.
+Canonical RED5/13 both has8 passing cases; all9 input/queue rows agree across platforms.
+Five engineer fallback rows queue0->1. Four new ordinary/mixed priority controls remain
+exact, as do3 prior measured draw/deferred cases and4 prior ordinary held cases. The
+previous8-case held test explicitly retained the unreviewed engineer no-op policy; its4
+engineer expectations now assert exact opposite-slot
+exchange/source/target/activation/actor/ordered Continue. All AP/HP/hands/backpack
+identity-order/position/time/RNG invariants remain. These tests validate actual queue
+payload production, not completed inventory exchange execution or full later animation/AP
+spend.
+
+Actual original CheckGrenade is Steam6f63c0/143 (named Gold6ec8e0/143), not the
+donor's6f61d0. Unique143-byte matching normalizes only decoded RTTI/new/call/command-VT
+operands; actual descriptors bind CRPGGrenade and CDBRecord, and actual command VT binds
+CCmdSetActiveItem. The helper reads actual GetDBItem()->pSuccessor+ac, performs original
+CRT RTTI, then either returns false or activates a nonactive ordinary held slot. Actual
+Lua handler6fb250 is independently named by embedded UnitSwitchToGrenade and the original
+name/callback registry pair9819b8/9819bc. Unique11/13-byte named Gold call/test blocks
+identify its slot0 then slot1 calls; actual success branches both exit6fb502 and failure
+immediately enters GetItems at6fb396, with no extra runtime-held guard. A proposed
+whole43-byte Gold match was rejected because branch displacements differ by3; no
+branch/opcode/frame masks were added to force equivalence.
+
+Twelve actual original classifier/Get/GetActive/realGrenadeGetDBItem/CRT-cast records
+cover empty/ordinary/engineering at both selected slots under observed PC24 and diagnostic
+PC53, following6 lifecycle-smoke records. Ordinary returns1; empty and engineering return0
+in every case. Actual CInventory RTTI slots20/24 bind the getters. Gold Get27 uses
+slots+34, while actual Steam Get27 uses+30; its actual complete27 bytes are independently
+unique. No field-offset normalization or whole-getter equivalence is claimed. A wrong
+Gold-offset assumption was rejected statically before runtime. The sparse owned
+inventory64 and borrowed8-byte slot array use actual Steam fields, with selected slot
+already active to avoid original DoCommand/world paths. This is not an original inventory
+constructor/Equip/World/Lua/queue/exchange execution claim, and controlled typed DB
+buffers are not original DB constructors. No fake vtable/provider is used.
+
+Real Grenade100/Weapon104/Clip108/Ammo56/PerksTree constructor/virtual/destructor
+lifecycles, restored grenade DB links before destruction, refcounts/base-vtable resets,
+unchanged item/sparse RPG/typed DB/64-byte inventory/8-byte slot buffers,
+complete2064-byte original gameplay RNG read-only equality, real stack/readback,716-byte
+context/CW/config restore and normal WM_CLOSE/exit0 are checked. No original RNG-state
+write or code/DB/world/TEB patch is used in this classifier probe.
+
+Full Game builds, 79 Windows /76 Linux selected tests and CI323 pass. The selection
+includes all13 RED names, configured deferred command producers, script draw/held
+requests, actual grenade flight/save/attachment regressions, script chance/fuse/PK/hide
+consumers and serialization/lock/itemmap checks. Unrelated pure accuracy,
+medical/XP/graphics suites are not claimed as rerun. Combined with earlier14 queued
+producers, opposite-hand draw, actual ordinary held activation, optional Hide boolean and
+retained valid empty-PK guard, all useful14ff behavior is covered. Source14ff is
+imported;51 sources remain (pending37 +partial14). Whole-task final hosted CI remains
+pending.
+
+Source: [14ffbcc83ea0fff503aa22386c98274a5aadd9ca](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/14ffbcc83ea0fff503aa22386c98274a5aadd9ca).

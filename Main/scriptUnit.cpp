@@ -1085,16 +1085,14 @@ static bool ActivateHeldGrenade( NWorld::CUnitServer *pUS, NRPG::IInventoryInfo 
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// Preserve the existing engineer-grenade fallback policy pending a separate retail check.
+// Steam luaUnitSwitchToGrenade 0x6fb250: regular held records stop backpack fallback.
 BEGIN_SCRIPT_COMMAND( UnitSwitchToGrenade, "u" )
 	CDynamicCast<NWorld::CUnitServer> pUS( luaParams[ 0 ].p );
 	if ( IsValid( pUS ) )
 	{
 		NRPG::IInventoryInfo *pInfo = pUS->GetRPG()->GetInventoryInfo();
 		if ( !ActivateHeldGrenade( pUS, pInfo, NDb::SLOT_1 ) &&
-			 !ActivateHeldGrenade( pUS, pInfo, NDb::SLOT_2 ) &&
-			 !CDynamicCast<NRPG::CGrenadeItem>( pInfo->Get( NDb::SLOT_1 ) ) &&
-			 !CDynamicCast<NRPG::CGrenadeItem>( pInfo->Get( NDb::SLOT_2 ) ) )
+			 !ActivateHeldGrenade( pUS, pInfo, NDb::SLOT_2 ) )
 			DrawFirstInventoryItem<NRPG::CGrenadeItem>( pUS );
 	}
 	return 0;

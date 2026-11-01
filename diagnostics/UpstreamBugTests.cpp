@@ -26580,6 +26580,32 @@ static void DeferredTakeObject(const char* databasePath,const char* resourcePath
         "native script pickup changed actor/AP/inventory or removed the world body before queued command consumption");
 }
 
+static void NativeHeldGrenadePriority(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<9,"unknown held grenade priority mode");NativeGrenadeThrowFixture fixture(databasePath,resourcePath,false,true);auto* actor=fixture.actor;auto* inventory=actor->GetUnitRPG()->GetInventory();
+    NDb::CRPGGrenade* regular=nullptr;NDb::CRPGEngGrenade* engineer=nullptr;NDb::CRPGWeapon* gun=nullptr;
+    CDBIterator<NDb::CRPGGrenade> regularRows(*NDatabase::GetTable<NDb::CRPGGrenade>());while(regularRows.MoveNext()){auto* p=regularRows.Get();if(p->pItem && p->pItem->pModel && p->pItem->nWeight>0 && (!regular || p->GetRecordID()<regular->GetRecordID()))regular=p;}
+    CDBIterator<NDb::CRPGEngGrenade> engRows(*NDatabase::GetTable<NDb::CRPGEngGrenade>());while(engRows.MoveNext()){auto* p=engRows.Get();if(p->pItem && p->pItem->pModel && p->pItem->nWeight>0 && (p->nRequiredPerkID<=0 || actor->GetUnitRPG()->HasPerk(p->nRequiredPerkID)) && (!engineer || p->GetRecordID()<engineer->GetRecordID()))engineer=p;}
+    vector<CPtr<NWorld::CUnit>> units;fixture.world->GetAllUnits(&units);for(auto u:units){auto* s=dynamic_cast<NWorld::CUnitServer*>(u.GetPtr());auto* w=s?s->GetUnitRPG()->GetWeaponItem():nullptr;if(w && w->GetDBWeapon() && (!gun || w->GetDBWeapon()->GetRecordID()<gun->GetRecordID()))gun=w->GetDBWeapon();}
+    Require(regular && engineer && gun,"held priority lacks actual authored regular/engineer/firearm records");
+    auto make=[&](int kind)->CObj<NRPG::IInventoryItem>{if(kind==0){CObj<NRPG::CGrenadeItem> p=new NRPG::CGrenadeItem(regular);p->nQuantity=1;return p.GetPtr();}if(kind==1){CObj<NRPG::CGrenadeItem> p=new NRPG::CGrenadeItem(engineer);p->nQuantity=1;return p.GetPtr();}return new NRPG::CWeaponItem(gun);};
+    int firstKind=0,secondKind=0;NDb::ESlot active=mode==0?NDb::SLOT_1:NDb::SLOT_2;
+    if(mode>=2 && mode<=5){firstKind=mode<4?1:2;secondKind=mode<4?2:1;active=(mode%2)==0?NDb::SLOT_1:NDb::SLOT_2;}
+    if(mode==6){firstKind=secondKind=1;active=NDb::SLOT_1;}if(mode==7){firstKind=1;secondKind=0;active=NDb::SLOT_1;}if(mode==8){firstKind=0;secondKind=1;active=NDb::SLOT_2;}
+    vector<CObj<NRPG::IInventoryItem>> removed;for(auto slot:{NDb::SLOT_1,NDb::SLOT_2})if(inventory->Get(slot))removed.push_back(inventory->TakeOff(slot));auto first=make(firstKind),second=make(secondKind),spare=make(0);CTPoint<int> place;
+    Require(inventory->Equip(NDb::SLOT_1,first) && inventory->Equip(NDb::SLOT_2,second) && inventory->Activate(active) && inventory->FindPlace(spare,&place) && inventory->Place(place,spare),"held priority cannot prepare its actual hands/backpack");
+    auto* commander=actor->GetPlayer()->GetCommander();Require(commander && !commander->HasCommands() && !actor->HasCommand(),"held priority starts with pending orders");CObj<NScript::CScript> script=NScript::CreateScript(fixture.world);NScript::luaPushCPtr(*script,actor);script->SetGlobal("upstreamActor");
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();const auto position=actor->GetPosition();const auto time=fixture.world->GetTime()->GetValue();auto random=GlobalGameRandom();RunScript(script,"UnitSwitchToGrenade(upstreamActor); UpstreamHeldPriority=19");auto returned=script->GetGlobal("UpstreamHeldPriority");Require(returned.IsNumber() && returned.GetNumber()==19,"held priority Lua callback did not finish");
+    const int held=firstKind==0?int(NDb::SLOT_1):secondKind==0?int(NDb::SLOT_2):-1;const bool expectedQueue=held<0 || held!=int(active);const int target=held<0?int(active==NDb::SLOT_1?NDb::SLOT_2:NDb::SLOT_1):held;const bool queued=commander->HasCommands();
+    std::printf("native held grenade priority mode=%d firstKind=%d secondKind=%d active=%d regular=%d engineer=%d held=%d expectedTarget=%d queued=%d expectedQueue=%d\n",mode,firstKind,secondKind,int(active),regular->GetRecordID(),engineer->GetRecordID(),held,target,int(queued),int(expectedQueue));std::fflush(stdout);
+    Require(!actor->HasCommand() && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetPosition()==position && fixture.world->GetTime()->GetValue()==time && inventory->GetActiveSlot()==active && inventory->Get(NDb::SLOT_1)==first.GetPtr() && inventory->Get(NDb::SLOT_2)==second.GetPtr() && inventory->GetItems().size()==1 && inventory->GetItems().front().pItem==spare.GetPtr() && random.Get()==GlobalGameRandom().Get(),"held priority changed AP/HP/item/position/time/RNG before queue consumption");
+    Require(queued==expectedQueue,"native held grenade selection blocks engineer fallback or loses first-hand priority");
+    if(!queued)return;CObj<NWorld::CCommand> one=commander->GetCommand(),two=commander->GetCommand();auto* set=dynamic_cast<NWorld::CCmdSetCommand*>(one.GetPtr());auto* resume=dynamic_cast<NWorld::CCmdSetCommand*>(two.GetPtr());Require(set && resume && set->pUnit==actor && resume->pUnit==actor && dynamic_cast<NWorld::CCmdContinue*>(resume->GetCmd()) && !commander->HasCommands(),"held priority lost actual actor/ordered Continue or queued extra orders");
+    if(held>=0){auto* select=dynamic_cast<NWorld::CCmdSetActiveItem*>(set->GetCmd());Require(select && int(select->nSlot)==target,"held priority selected wrong held grenade or drew the backpack instead");}
+    else{auto* exchange=dynamic_cast<NWorld::CCmdExchangeInventoryItems*>(set->GetCmd());Require(exchange && exchange->GetSlot()==target && exchange->GetActivate() && exchange->GetSource().pUnit==actor && exchange->GetSource().eType==NWorld::SItem::BACKPACK && exchange->GetSource().pItem==spare.GetPtr() && exchange->GetTarget().pUnit==actor && exchange->GetTarget().eType==NWorld::SItem::SLOT && exchange->GetTarget().nSlot==target && exchange->GetTarget().pItem==inventory->Get(NDb::ESlot(target)),"engineer fallback lost its exact opposite-slot exchange payload/owner/activation");}
+}
+
+
 static void ScriptHeldGrenadeActivation(const char* databasePath,const char* resourcePath)
 {
     for (bool engineer : {true,false}) for (auto heldSlot : {NDb::SLOT_1,NDb::SLOT_2}) for (bool alreadyActive : {true,false}) {
@@ -26624,8 +26650,18 @@ static void ScriptHeldGrenadeActivation(const char* databasePath,const char* res
         Require(returned.IsNumber() && returned.GetNumber() == 11,"held-grenade Lua callback did not finish");
         std::printf("native held grenade: engineer=%d held=%d active=%d already-active=%d queued=%d unit-command=%d\n",
             int(engineer),int(heldSlot),int(active),int(alreadyActive),int(commander->HasCommands()),int(actor->HasCommand()));
-        if (alreadyActive || engineer) Require(!commander->HasCommands(),
-            "active grenade or existing engineer-grenade selection policy issued a new command");
+        if (engineer) {
+            Require(commander->HasCommands(),"held engineer grenade blocked the original ordinary-backpack fallback");
+            CObj<NWorld::CCommand> first=commander->GetCommand(),second=commander->GetCommand();
+            auto* set=dynamic_cast<NWorld::CCmdSetCommand*>(first.GetPtr());auto* resume=dynamic_cast<NWorld::CCmdSetCommand*>(second.GetPtr());
+            auto* exchange=set?dynamic_cast<NWorld::CCmdExchangeInventoryItems*>(set->GetCmd()):nullptr;
+            const auto target=active==NDb::SLOT_1?NDb::SLOT_2:NDb::SLOT_1;
+            Require(set && set->pUnit==actor && exchange && exchange->GetSlot()==target && exchange->GetActivate() &&
+                exchange->GetSource().pUnit==actor && exchange->GetSource().eType==NWorld::SItem::BACKPACK && exchange->GetSource().pItem==spare.GetPtr() &&
+                exchange->GetTarget().pUnit==actor && exchange->GetTarget().eType==NWorld::SItem::SLOT && exchange->GetTarget().nSlot==target && exchange->GetTarget().pItem==inventory->Get(target) &&
+                resume && resume->pUnit==actor && dynamic_cast<NWorld::CCmdContinue*>(resume->GetCmd()) && !commander->HasCommands(),
+                "engineer held fallback lost its opposite-slot exchange, actual actor/item or ordered Continue");
+        } else if (alreadyActive) Require(!commander->HasCommands(),"active ordinary grenade issued a new command");
         else {
             Require(commander->HasCommands(),"native grenade switch leaves the held grenade inactive and queues no activation");
             CObj<NWorld::CCommand> first = commander->GetCommand(), second = commander->GetCommand();
@@ -32811,6 +32847,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-grenade-range-stance")) { Require(argc==5,"grenade range/stance requires db/resources/mode"); NativeGrenadeRangeStance(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grenade-hide-launch")) { Require(argc==5,"grenade hide requires db/resources/mode"); NativeGrenadeHideLaunch(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grenade-pk-launch")) { Require(argc==5,"grenade PK requires db/resources/mode"); NativeGrenadePKLaunch(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-held-grenade-priority")) { Require(argc==5,"held grenade priority requires db/resources/mode"); NativeHeldGrenadePriority(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grenade-fuse")) { Require(argc==5,"grenade fuse requires db/resources/mode"); NativeGrenadeFuse(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grenade-physics")) { Require(argc==5,"grenade range/stance requires db/resources/mode"); NativeGrenadePhysics(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-shared-grenade-accuracy")) { Require(argc==5,"shared grenade accuracy requires db/resources/mode"); NativeSharedGrenadeAccuracy(argv[2],argv[3],std::atoi(argv[4])); return true; }

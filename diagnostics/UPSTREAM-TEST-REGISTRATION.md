@@ -1709,3 +1709,26 @@ original957 runtime and original PK/Hide static blocks are bounded separately; n
 World/trajectory/Run runtime claim. Source3cfc completes;52 unfinished.
 
 Source: [3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a).
+
+## 2026-11-01: held grenade priority and engineering fallback
+
+NativeHeldGrenadePriority0..8 uses actual Lua/commander/items and exact
+SetActive/Exchange/Continue payloads, with both ordinary hands, mixed hands, engineering
+fallback and both active slots. Native RED5/13 both ->79 Windows /76 Linux selected tests,
+full Game builds/CI323. All13 RED names are selected,4 new priority controls/3 prior draw
+cases/4 prior ordinary held measurements are exact, all9 inputs fixed. The old held
+fixture's4 engineer-policy expectations intentionally change to exact queued exchanges;
+AP/HP/hands/backpack/position/time/RNG remain unchanged before queue consumption.
+Completed exchange/animation execution is outside this producer proof.
+
+12 actual original143 classification/Get/GetActive/realGrenadeGetDBItem/CRT records plus6
+smoke records distinguish empty/ordinary/engineering at both active slots in PC24/PC53.
+Sparse actual-vtable Inventory64/borrowed slots8 are not original
+InventoryCtor/Equip/World/Lua/queue. Actual Steam getter reads slots30 versus Gold34;
+actual complete27 bytes and typed slots bind it without offset/branch masks. Full RNG2064
+read-only equality, lifecycles, buffers, real stack/context/CW/cfg and normalclose0 are
+checked. Actual Lua registry/ordered calls/fallback are statically bound separately,
+including rejection of a whole43-byte comparison with changed branch distances. Source14ff
+completes;51 unfinished.
+
+Source: [14ffbcc83ea0fff503aa22386c98274a5aadd9ca](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/14ffbcc83ea0fff503aa22386c98274a5aadd9ca).
