@@ -4235,3 +4235,21 @@ routing/constructor adaptation complete this source;30 unfinished. Prior campaig
 flake remains tracked and unrelated, not fixed here.
 
 Source: [4cdc1eada6c182c0a9093364e95c750a6166d4c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8).
+
+## 2026-11-01: initial cinematic floor range (147)
+
+Scripted sequences now start with the map's floor limits on their cinematic camera,
+matching the already bounded player cameras and view. Previously an actual single-floor
+view0 could have cinematic floor4; initial range assignment now clamps it to0.
+Bounded[-1,1] and unset/default[-3,4] cases are independently checked. One initialization
+line; no AP/damage/price formula, pose, timing, frame count, saved range field or snapshot
+policy changes.
+
+Native RED2/3 ->GREEN3 both, combined54 with51 existing cases green and fixed46
+rows/non-active-winner marker exact. Real startup, selected-cinematic frame and graph
+identities checked; temporary metadata input restored and game.db file unchanged. Game
+both/278 Windows/251 Linux related/CI378, prior melee/godmode and12 font rows exact.
+Native backends, own HiDPI/font/HD/face assets and LAN remain intact. e825 deployment/foot
+support/light remainder stays pending; source partial30unfinished.
+
+Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).

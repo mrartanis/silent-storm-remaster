@@ -33770,6 +33770,52 @@ static void NativeCachedPointShadowFlag(const char* databasePath,const char* res
 }
 
 
+static void NativeCinematicFloorRange(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<3,"unknown native initial cinematic range mode");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"cinematic range fixture starts with an interface");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm initial cinematic floor range regression");
+    struct RestoreConfig {NGlobal::CValue units=NGlobal::GetVar("autoplay_units"),maps=NGlobal::GetVar("autoplay_templates");STime time=NMainLoop::SetTimeForHarness(0);~RestoreConfig(){NGlobal::SetVar("autoplay_units",units);NGlobal::SetVar("autoplay_templates",maps);NMainLoop::SetTimeForHarness(time);}} restoreConfig;
+    struct Bounds {NDb::CTemplVariant* variant;int minimum,maximum;};
+    struct RestoreBounds {std::vector<Bounds> values;~RestoreBounds(){for(auto value:values){value.variant->nMinCutFloor=value.minimum;value.variant->nMaxCutFloor=value.maximum;}}} restoreBounds;
+    auto* mapTemplate=NDb::GetTemplate(4412);Require(mapTemplate,"cinematic range fixture lacks its authored native template");
+    const int rawMinimum=mode==1?-1:0,rawMaximum=mode==0?0:mode==1?2:1;
+    CDBIterator<NDb::CTemplVariant> variants(*NDatabase::GetTable<NDb::CTemplVariant>());
+    while(variants.MoveNext()) {
+        auto* variant=variants.Get();if(variant->pTemplate.GetPtr()!=mapTemplate)continue;
+        restoreBounds.values.push_back({variant,variant->nMinCutFloor,variant->nMaxCutFloor});
+        variant->nMinCutFloor=rawMinimum;variant->nMaxCutFloor=rawMaximum;
+    }
+    Require(!restoreBounds.values.empty(),"cinematic range fixture did not configure real variants before native initialization");
+    NGlobal::SetVar("autoplay_units",NGlobal::CValue(L"968"));NGlobal::SetVar("autoplay_templates",NGlobal::CValue(L"4412"));
+    CObj<NGame::CICAutoPlay> open=new NGame::CICAutoPlay;open->Exec();
+    CObj<NGame::CMission> mission=dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(mission && pSSClasses->GetObjectTypeID(mission)==int(0xB3723140),"cinematic range fixture did not initialize an actual native mission");
+    CObj<NMainLoop::CInterfaceCommand> snapshot=NMainLoop::TakeInterfaceCommandForHarness();
+    Require(dynamic_cast<NMainLoop::CICSaveFile*>(snapshot.GetPtr()) && !NMainLoop::HaveInterfaceCommand(),"cinematic range fixture did not isolate the pending start snapshot");
+    auto* camera=mission->GetCamera();auto* player=mission->GetActivePlayer();auto* world=mission->GetWorld();auto* view=mission->GetScene();auto* root=mission->GetInterface();auto* sound=mission->GetSoundScene();
+    Require(camera && player && player->GetCamera() && world && view && root && sound && mission->IsSequence(),"cinematic range fixture lacks native selected cinematic/player/world/view/UI/audio");
+    struct Base {CObj<ICamera> camera;int operator&(CStructureSaver& f){f.Add(18,&camera);return 0;}} base;
+    struct Mission {Base* base;int operator&(CStructureSaver& f){f.Add(1,base);return 0;}} state{&base};
+    {CStructureNetworkContext refs;auto fields=BorrowedObjectFields(mission,&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(1,&state);}
+    Require(base.camera.GetPtr()==camera && camera!=player->GetCamera(),"native sequence did not select its separate cinematic camera");
+    mission->PauseGame(true);
+    const int expectedMinimum=mode==0?-3:rawMinimum,expectedMaximum=mode==0?4:rawMaximum-1;
+    int playerMinimum,playerMaximum,minimum,maximum;
+    player->GetCamera()->GetCutFloorRange(&playerMinimum,&playerMaximum);camera->GetCutFloorRange(&minimum,&maximum);
+    Require(playerMinimum==expectedMinimum && playerMaximum==expectedMaximum,"native player cameras did not consume the configured real variant range");
+    if(mode==2) {
+        camera->SetCutFloor(4);camera->FreezeCamera(true);
+        NMainLoop::SetTimeForHarness(25);Require(NMainLoop::StepApp(true,false,false),"native cinematic range frame failed");
+    }
+    const bool graph=mission.GetPtr()==NMainLoop::GetCurrentInterfaceForHarness() && mission->GetCamera()==camera && mission->GetWorld()==world && mission->GetScene()==view && mission->GetInterface()==root && mission->GetSoundScene()==sound && !NMainLoop::HaveInterfaceCommand();
+    std::printf("CINEMATIC-FLOOR-RANGE mode=%d raw=%d,%d player=%d,%d cinematic=%d,%d expected=%d,%d cameraFloor=%d viewFloor=%d variants=%zu graph=%d\n",mode,rawMinimum,rawMaximum,playerMinimum,playerMaximum,minimum,maximum,expectedMinimum,expectedMaximum,camera->GetCutFloor(),view->GetCutFloor(),restoreBounds.values.size(),int(graph));std::fflush(stdout);
+    Require(minimum==expectedMinimum && maximum==expectedMaximum,"initial native cinematic camera lost the variant's inclusive floor range");
+    if(mode==2)Require(camera->GetCutFloor()==0 && view->GetCutFloor()==0,"native selected cinematic floor disagrees with its initialized single-floor view");
+    Require(graph,"cinematic range initialization or frame replaced its live graph or queued an unexpected interface command");
+    NMainLoop::DoneInterface();
+}
+
 static void NativeCameraFloorOwner(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=13,"unknown native camera floor-owner case");
@@ -34407,6 +34453,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-cinematic-floor-range")) { Require(argc==5,"cinematic range requires db/resources/mode"); NativeCinematicFloorRange(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-camera-floor-owner")) { Require(argc==5,"camera floor ownership requires db/res/mode"); NativeCameraFloorOwner(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-cached-point-shadow-flag")) { Require(argc==5,"cached point flags require db/res/mode"); NativeCachedPointShadowFlag(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-menu-idle-demo")) { Require(argc==5,"menu idle requires db/res/mode"); NativeMenuIdleDemo(argv[2],argv[3],std::atoi(argv[4])); return true; }

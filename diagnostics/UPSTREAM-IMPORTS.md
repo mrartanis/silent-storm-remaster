@@ -24166,3 +24166,51 @@ producer is intentionally not imported. Sourcecomplete,30 unfinished. Final-head
 remains required at whole-task completion.
 
 Source: [4cdc1eada6c182c0a9093364e95c750a6166d4c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8).
+
+## 2026-11-01: initial cinematic floor range (147)
+
+Stamp the existing resolved inclusive variant cut-floor range on the freshly created
+cinematic camera, just as player cameras already receive it. One production line after
+owned SetCameraParams during CMission::Initialize. A sequence selects this separate
+cinematic camera: formerly bounded player/scene ranges coexisted with the cinematic
+default[-3,4], allowing camera floor4 on a view limited to0. Raw DB max remains exclusive;
+use existing nMinCutFloor/nMaxCutFloor resolution. Existing unbounded/default behavior,
+camera clamp/freeze/pose, normal frame publication and saved range fields11/12 remain
+unchanged. Do not broaden runtime camera replacement or snapshot semantics;144 already
+restores selected-camera scene range/floor publication.
+
+Actual initializer601070 is independently bound by144's typed command/AutoPlay caller and
+rechecked. Named camera slot3c SetCutFloorRange is byte-exact Gold4ca6d0/42
+->Steam4cbb90/42. Typed Gold Initialize5fc930/4324 is not assumed the actual size; whole
+comparison rejected. The entire13-byte camera74/vtable/max-1/pushmax/pushmin/range3c block
+Gold5fd231..23e uniquely matches actual601963..1970 without any masks. Actual60194f checks
+non-null variantEBP and min90<max94; else skips. EBP comes from variant stack84, also used
+by the player camera loop601856..1879 with the same fields and max-1/range3c. PDB
+CTemplVariant confirms min90/max94. Actual variant registerEBP differs GoldEBX; do not
+normalize registers/fields/frames/branches to claim whole-guard parity. Preceding70(1) is
+a camera setup call; it is not mission vtable70 or a guessed original SetCameraParams
+symbol. No original process/function execution.
+
+NativeCinematicFloorRange0..2 initialize real native AutoPlay
+missions/players/world/view/UI/audio and control actual template4412 variant metadata
+before construction, restoring it afterward.0 raw0/0 preserves default[-3,4], exact
+control;1 raw-1/2 gives player[-1,1] but old cinematic[-3,4];2 raw0/1 gives
+player/view[0,0] while old selected cinematic accepts4, preserved through a real paused
+StepApp with that camera frozen. Canonical RED2/3 both ->GREEN3 both, combined54 with
+all51 prior camera/demo/menu/light cases green. The fixed46
+camera-owner/lifecycle/presentation/menu/cached-point rows and dedicated non-active-winner
+marker remain exact; three bridge and two squad controls also pass. Actual independent
+saved wrappers inspect identities only, never reload the live world. The pending
+mission-start snapshot is retained without disk writes; game.db SHA
+remains314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df.
+
+Full Game both/278 Windows/251 Linux camera/mission/deploy/sequence/floor/save and prior
+melee checks/CI378 pass. Prior fresh/saved melee/filter/godmode rows and12 packaged font
+rows exact each. No additional world warmup/frame/clock ticks, API/classID/save/LAN
+changes or native SDL/bgfx/audio/font/HD/face/PNG pipeline changes. Known prior campaign
+nested-save movement flake is the only exact exclusion, unchanged since139, not fixed.
+Sourcee825 pending->partial for this independent cinematic-range hunk; deployment, foot
+support and light/API hunks still require separate verification.30 unfinished. Final-head
+hosted success remains required at whole-task completion.
+
+Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).

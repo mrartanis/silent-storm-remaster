@@ -383,6 +383,7 @@ bool CMission::Initialize( int _nTemplateID, int _nVariantID, NScenario::CScenar
 	// Create the cinematic camera now; the common-step subset below handles
 	// selected deploy-camera ownership and the idle cinematic handoff.
 	SetCameraParams( CAMERA_PC, fFOV, defaultCameraLimits );
+	pCamera->SetCutFloorRange( nMinCutFloor, nMaxCutFloor );
 
 	TraceCursor();
 

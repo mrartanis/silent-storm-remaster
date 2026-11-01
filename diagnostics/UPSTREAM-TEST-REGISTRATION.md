@@ -2456,3 +2456,25 @@ nested-save movement flake remains tracked, not fixed. Full damaging
 mission-loop/original-save-file interchange not claimed.
 
 Source: [4cdc1eada6c182c0a9093364e95c750a6166d4c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8).
+
+## 2026-11-01: initial cinematic floor range (147)
+
+NativeCinematicFloorRange0..2 are extended native-display actual initialized
+mission/sequence camera/view consumers. Temporarily set only real template4412 variant
+min/max before initialization and restore original values afterward. Control raw0/0
+defaults[-3,4] exact; bounded raw-1/2 requires[-1,1] on player and distinct selected
+cinematic cameras; single-floor raw0/1 requires[0,0] and a real frozen-camera StepApp
+keeps camera/view0 together. Actual mission/world/view/UI/audio identities and no extra
+interface command are guarded. Retain the native pending snapshot without writing it; no
+live-world deserialization. RED2/3 both ->GREEN3/combined54,51 prior cases green,46 fixed
+row controls plus the non-active-winner marker exact. Actual game.db file hash unchanged.
+
+Original typed caller, unique exact13 range producer and typed42 setter audited; whole4324
+initializer and changed-register guard parity not claimed. Actual camera70 setup is not
+misidentified as mission70. Only one production line in tactical Initialize. Full Game
+both/278 Windows/251 Linux related/CI378 pass; prior melee/filter/godmode and12 font rows
+exact both. Known prior campaign nested-save movement flake is the sole exact exclusion,
+not fixed. Source remains partial for deployment/foot-support/light remainder,30
+unfinished.
+
+Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
