@@ -1957,3 +1957,28 @@ fixture and missing Linux registration; exclude those preliminary runs from cano
 Sourceb91 complete.
 
 Source: [b91ea228f2a5443af74d0ae728e24410f7d90fad](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b91ea228f2a5443af74d0ae728e24410f7d90fad).
+
+## 2026-11-01: shared fixed raster edges with original projective guard planes
+
+Register NativeGenericRasterFast0..7, NativeGenericRasterFog0..7 and
+NativeRasterGuardPlane0..19 on both native platforms without database/display
+dependencies,60s. These36 native CPU cases belong to asset-free CI, increasing323 ->359.
+Fast cases trace real closed hulls through CFastRenderer into sorted interval grids, with
+literal pixel rows, source/user identity, flat1..3 depth and4 RNG continuation checks. Fog
+cases use the existing native CBilinearTexture input node and actual ISW2DScene
+CreateSpot/DrawFog, with literal pixel rows; no replacement raster/coverage provider.
+Half-pixel ties, adjacent untied/integer boundaries and clipping controls isolate6/16 RED
+with ten exact outcome controls.
+
+Guard cases trace actual native projective closed hulls at radii5..50000, four entirely
+external and four half-frustum boxes. Independent double ray/box slab intersections use
+unchanged native projection directions and literal1024/0/512 cell counts; compare every
+native cell's presence, source/interval chain and depth plus RNG state. Unguarded fixed
+edges yield15/20 RED both; five geometric controls pass. Near+four guard planes restore
+all20 and the combined36. Final439Win/435Linux selected suites and full Game both pass,
+CI359 includes every new case. All14Win/11Linux old failures without guard recover without
+changing their fixtures/assertions. Initial unguarded full logs and Windows oracle macro
+compile errors remain archived; compile failures are not RED. No original UI/renderer
+runtime or rendered-image claim.
+
+Source: [70371f39f6fb4a8cc7cdc15b117f1c704cc81aeb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70371f39f6fb4a8cc7cdc15b117f1c704cc81aeb), [3bd9a53bf0cdd3a2e70c6418029c80f8e11325f5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3bd9a53bf0cdd3a2e70c6418029c80f8e11325f5).

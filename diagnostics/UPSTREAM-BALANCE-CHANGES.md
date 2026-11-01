@@ -3845,3 +3845,27 @@ whole-body layout equivalence is rejected, zero new original runtime records.41 
 remain.
 
 Source: [b91ea228f2a5443af74d0ae728e24410f7d90fad](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b91ea228f2a5443af74d0ae728e24410f7d90fad).
+
+## 2026-11-01: shared fixed raster edges with original projective guard planes
+
+Restore original geometric sampling rather than introduce a combat coefficient: common
+triangle edges use16.16 arithmetic, including original half-pixel boundary behavior. The
+perspective path first clips against near0.01 and four0.001 guard planes, bounding
+projected coordinates near+/-1000 before integer conversion. Pixel coverage, cover rays,
+AI visibility/occlusion and resulting hit previews can change at edges; large off-screen
+geometry no longer creates negative/extra intervals. Keep the original near distance and
+existing native fixed helpers, unsigned32 wrap handling, span/depth implementations,
+projection matrices and public/packed/save/network layouts. Original temporary
+clip-distance storage is recomputed within the private algorithm. The separate
+integer-shadow-depth restoration remains pending.
+
+Native generic RED6/16 and projective guard RED15/20 both ->combined36/36 both,
+final439Win/435Linux/Game both/CI359. Ten generic controls are exact; guard
+source/interval-chain, geometric slab/count and direct4-RNG continuation invariants pass.
+Old night/awareness/knife/called-shot/AI-cover cases recover without fixture changes when
+both dependent sources are present. No AP/damage/accuracy/training parameter, authored
+database, HD texture, font/face, SDL/bgfx backend or LAN type change. Original typed whole
+bodies and bound local switch tables support this statically; zero new original runtime
+records.39 sources remain.
+
+Source: [70371f39f6fb4a8cc7cdc15b117f1c704cc81aeb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70371f39f6fb4a8cc7cdc15b117f1c704cc81aeb), [3bd9a53bf0cdd3a2e70c6418029c80f8e11325f5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3bd9a53bf0cdd3a2e70c6418029c80f8e11325f5).

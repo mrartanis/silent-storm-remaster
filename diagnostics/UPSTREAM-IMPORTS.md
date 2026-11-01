@@ -23247,3 +23247,62 @@ copied retail offsets. Zero new original runtime records. All3 source files acco
 sources remain, actual-final-head hosted CI pending.
 
 Source: [b91ea228f2a5443af74d0ae728e24410f7d90fad](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b91ea228f2a5443af74d0ae728e24410f7d90fad).
+
+## 2026-11-01: shared fixed raster edges with original projective guard planes (sources703/3bd complete)
+
+Route generic RasterTriangle into the already-present16.16 edge walker and remove the
+unused float-edge implementation. Preserve its existing unsigned32 wrap handling, fixed
+helpers, each consumer's span/depth code, projection matrices, public NoClip/Fixed entry
+points and projected-point layout. Keep the original near plane0.01 and add the four
+original guard distances z-x*0.001, z+x*0.001, z-y*0.001, z+y*0.001 before perspective
+edge walking; accept all five planes before rasterizing and recurse to the next plane
+after intersections. This bounds projected coordinates near+/-1000. Original stores a
+temporary clip distance at+18 in its projected-point record; recompute it from the current
+plane instead of copying that ABI into the own24-byte record. Preserve the existing
+MSVC/Clang unreachable spelling for impossible private switch defaults.
+
+The two sources are an atomic dependency. Publishing fixed edges without guard clipping
+corrupts real native large-projection intervals: pixel counts can still be1024 while
+depths become large negative numbers or zero-length/extra intervals. First native
+closed-box/software-fog RED6/16 both ->16/16 both. Then20 independent projective cases
+produce canonical15/20 RED both against that unguarded intermediate. Actual CFastRenderer
+projection directions feed an independent double slab oracle for closed world boxes:
+twelve radii5..50000, four entirely outside and four half-frustum boxes, literal
+expected1024/0/512 cells, full per-cell interval/source-chain/depth checks and4 RNG
+continuation words. Native guard clipping restores all20; combined36/36 both, ten generic
+outcome controls exact. WrongSource in raw guard diagnostics includes extra interval-chain
+nodes, not only object-ID mismatches.
+
+Final439Win/435Linux single selected batches all green, full Game builds both/CI359, all36
+new cases included in the asset-free suite. Before the guard fix,14Win/11Linux existing
+night/awareness/knife/called-shot/AI-cover checks failed. They recover unchanged: old
+fixture/assertion lines were not deleted or weakened, and focused affected-only checks
+plus both final suites pass. Initial unguarded full runs remain archived. Initial Windows
+test-oracle min/max and near/far macro compile errors are separately archived and excluded
+from canonical RED. Related cases exercise
+cover/composite/accuracy/melee/ranged/vision/voxels and actual healthy bgfx rendering,
+filtering, stencil and geometry. No rendered original-game image or original runtime
+claim; zero new original runtime records.
+
+Original generic static: complete typed true-color/fog/bump triangle1328 bodies bind to
+actual40d410/40e700/410190 through independently unique971/201/3386 pixel
+spans40dac0/40eda0/410870 and lower383/363 bodies40d940/40ec30/4106c0. Complete fast-cover
+triangle1238 ->494180 through unique363 lower494010; shadow-parts triangle1248 ->5786d0
+through unique769 lower578120. This disambiguates initially identical template signatures
+by decoded consumer calls. All five show equalF3265536/0.5, FISTP, add0x8000 and
+signedSAR16. Original parts uses SFixedZIterator; that is edge-policy evidence only. The
+separate integer-shadow-depth source remains pending; do not claim its depth
+implementation is imported here.
+
+Original guards: complete496 clipped functions bind fast494660 and parts578bb0; complete81
+one-triangle helpers493c40/577910,98 two-triangle helpers494850/577970 and shared122
+interpolation493bc0 bind through the already-proven actual triangle callees. Decode both
+function-local switch tables:5 plane entries and7 sign-mask entries, validate every target
+offset against its function in both images, then mask only those bound addresses/data
+entries. EqualF32 near0.01 and side0.001, plane count5 and helper plane increment are
+checked. Other masks are only decodedE8/validatedEH/equalF32; no
+opcode/frame/field/branch/size/unknown-global masks. Original source comments' internal
+addresses are not treated as method entries. Both sole-file source diffs are fully
+accounted,39 sources remain; actual-final-head hosted CI pending.
+
+Source: [70371f39f6fb4a8cc7cdc15b117f1c704cc81aeb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70371f39f6fb4a8cc7cdc15b117f1c704cc81aeb), [3bd9a53bf0cdd3a2e70c6418029c80f8e11325f5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3bd9a53bf0cdd3a2e70c6418029c80f8e11325f5).
