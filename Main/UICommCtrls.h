@@ -273,7 +273,7 @@ public:
 // CFrame base. operator& @ (inlined): 1=CFrame base, 2=pText -- NOT the dev-legacy CWindow base with
 // its own 9 slices at tags 3-11, which mis-reads a retail save (the slices are nested inside the
 // CFrame base chunk at tag 1) -> null pBackground* -> CToolTip::Draw AV in CImageDraw::GetWindow.
-// Differs from CTextFrame in the clamp target: the tooltip re-fits + clamps to the 1024x768 SCREEN.
+// The interface measures and places tooltips on the current logical screen.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CToolTip: public CFrame
 {
@@ -295,9 +295,7 @@ public:
 
 	void SetText( const wstring &szText );
 
-	void SetPosition( const SPoint &_sPosition );
-
-	void Draw( const STime &sTime, NGScene::I2DGameView *pView );
+	void UpdateToolTip();
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CSlider

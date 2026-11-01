@@ -23618,3 +23618,54 @@ measurement/512width/anchors remains partial.34 sources unfinished, actual-final
 hosted CI pending.
 
 Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 2026-11-01: measured tooltips and authored screen anchors (sourcea2 complete)
+
+Finish the measurement/width/anchor hunks after the earlier oversized clamp partial and136
+deadline prerequisite. CToolTip::UpdateToolTip measures its actual CText at logical
+width512/height0, adds4 each side, sets window size and child512/final-tip-height at4,4.
+Interface calls it before reading size or positioning, including hidden/first and
+changed-text frames. Remove CToolTip's size-resetting SetPosition and draw-time
+measurement overrides; inherit CWindow SetPosition and CFrame border/children Draw as in
+the original. Keep classID/saved tags and existing scalable packaged fonts.
+
+Interface uses actual ClientToScreen and current logical root GetSize. NONE retains its
+first cursorX for the same owner, recomputes ownerY-tipHeight each update, and falls below
+at ownerY+ownerHeight+32 if above would be negative. Four authored raw screen-anchor
+corners subtract the appropriate measured width/height; these anchors are not parent-local
+offsets. Clamp with Max0/Min(screen-tip,position), retaining the previous oversized-header
+fix and own wide/HiDPI canvas. Add only inline existing-field getters to CWindow; no new
+data/schema.
+
+Actual Steam measure714200/145 is reached by independently bound InterfaceUpdate
+call71d08c. Named CToolTip RTTI save slot0c ->5e7530/56 proves CFrame base tag1 and
+text+a4 tag2. Independently decode all four text+a4 loads, both512 writes, height0,
+GetRealSize712f50, add8, typedWindowSetSize727920 and child4/4 placement. Gold145 has
+text+8c and is not normalized/matched with field masks. Named CTIP and Frame draw slot30
+share713de0, and position slot1c sharesWindow727950. Actual anchor fields5c/60/type64 and
+table71d1b4 have all five target-relative offsets exactly equal Gold713024; decode actual
+new-ownerX, below+32, corner arms and signed min/max0 clamps. No whole536/145 equivalence,
+unknown field/frame/global masks or new original runtime;136's33 bounded math calls remain
+prior evidence.
+
+Canonical native RED17/20 both ->GREEN20/20 both with three exact controls7/13/19. Actual
+interface Step/SetOwner/Draw, real CText512/font formatting, visible widget glyph
+submission and frame boundary cover early measurement, nested parents, four corners,
+screen edges, moving/reanchored owners, content growth/shrink, empty text, repeated
+frames,1792-wide and200percent UI. Soft-wrapped text changes408x44->448x26; a true48x1826
+oversized control remains at30,0. Preserve owner/input/shared-sound/fourRNG state. Initial
+partial-field fixture failures are notRED; corrected full borrowed scalar anchor14/type15
+inputs and literal cursor through nativeStep retain all other references. Discovery2's
+nonbreaking word/softnewline fixtures were strengthened before canonicalRED.
+
+Route the existing oversized component regression through the actual measured
+Interface-owner protocol with a frame-boundary view, retaining real glyph, ordinary
+metrics and repeat/shrink assertions. Short tooltip remains138x26 at886,741; the same long
+caption intentionally rewraps from408x1808 at616,0 to518x1214 at506,0. This is a
+width/layout change, not font replacement. All12 vector-font compatibility rows exactly
+match136 and both platforms; all12 prior deadline traces are exact. Full Game both/161
+Windows/153 Linux related single all-green/CI378. Sourcea2
+complete,213imported/21pending/12partial,33 sources unfinished. Source360's other hunks
+remain partial; actual-final-head hosted CI pending.
+
+Source: [a2bba0ad86c91dcf5a239adda24792664abf1e43](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a2bba0ad86c91dcf5a239adda24792664abf1e43).

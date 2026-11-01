@@ -2154,3 +2154,33 @@ and408x1808/616,0. Existing own menu sound, font wire, desktop/UI/tooltip/render
 pass. Measurement/anchor/width sourcea2 still pending;34 unfinished.
 
 Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 2026-11-01: measured tooltips and authored screen anchors
+
+NativeTooltipPlacement0..19 are extended DB/dummy-SDL cases on both platforms, outside
+asset-freeCI. Literal ICursor positions enter native Interface::Step without OSwarp.
+Complete borrowed native owner snapshots patch only existing wire scalar fields14
+anchor/15 type; restore the fixture's explicitly fixed layout mode after its native
+postload hook. No replacement placement/visibility/font metric. Actual CText512 uses
+packaged Courier and current pixel/logic transforms; frame-boundary observer proves
+placement before StartNewFrame, then actual widget Draw submits vector glyphs. Actual
+owner geometry/parent/tooltip/shared-sound and fourRNG remain valid.
+
+Canonical RED17/20 ->GREEN20/20 both, exact controls7/13/19. Cases cover512 softwrap
+(408x44->448x26), before-frame measurement, all four raw screen anchors/nested parents,
+below+32, edge/negative/oversize clamp, same-ownerX, moving and reanchored owners, text
+grow/shrink/empty, stable repeatedframes,1792wide and200percent. Initial20 fixture
+failures and discovery2's unbroken-word/softnewline limitations are retained and excluded
+from canonicalRED; br forces a genuine1826-high control. Existing oversized regression now
+uses actual interface measurement/placement and standard Frame draw, preserving
+ordinary138x26/886,741 and glyph/repeat/shrink checks; intentional new long518x1214/506,0
+replaces old408x1808/616,0.
+
+161 Windows/153 Linux related single all-green, full Game both/CI378. Explicitly select
+all20 placement/all12 prior clock cases, owned menu sound, oversized and scaled edit
+tests. All12 clock traces exact versus136; all12 vector-font rows exact versus136 and
+between platforms. Static actual145 measure/typed56save/inheritedVTs/five exact relative
+switch targets;0 new original-function runs or Game.exe processes. Sourcea2 complete,33
+unfinished.
+
+Source: [a2bba0ad86c91dcf5a239adda24792664abf1e43](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a2bba0ad86c91dcf5a239adda24792664abf1e43).

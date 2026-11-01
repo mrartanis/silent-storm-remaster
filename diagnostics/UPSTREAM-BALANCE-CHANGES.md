@@ -4023,3 +4023,23 @@ original Game.exe processes;33 bounded native original-function calls. Both dono
 remain partial;34 unfinished.
 
 Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 2026-11-01: measured tooltips and authored screen anchors
+
+Tooltip layout only: maximum logical text width400->512, measure before placement, use
+authored four screen-anchor corners and update for moved/changed owners. Unanchored
+tooltips keep initial cursorX and normally sit above the owner, with ownerHeight+32 below
+fallback. Clamp to current logical canvas including oversized tips, wide display and
+HiDPI. Use inherited standard Frame drawing and Window positioning; no per-draw size-reset
+override. Preserve136 hover deadline/options, actual font family/size/texture pipeline,
+save/wire IDs, audio/input/SDL/bgfx and HD/face resources.
+
+Native RED17/20 ->GREEN20/20 both/three exact controls. Genuine wrap
+boundary408x44->448x26; the existing long caption intentionally changes408x1808 at616,0
+to518x1214 at506,0, while ordinary138x26 at886,741 and true oversized48x1826 at30,0
+remain. All12 vector-font compatibility rows and12 clock traces are exact versus136;
+owner/input/shared-sound/fourRNG preserved. Full Game both/161 Windows/153 Linux
+related/CI378; no gameplay or original-game process/runtime changes. Sourcea2 complete;33
+donor sources remain.
+
+Source: [a2bba0ad86c91dcf5a239adda24792664abf1e43](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a2bba0ad86c91dcf5a239adda24792664abf1e43).

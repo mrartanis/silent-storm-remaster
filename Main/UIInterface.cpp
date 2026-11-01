@@ -440,10 +440,30 @@ void CInterface::UpdateToolTip( bool bNewOwner, const STime &sTime )
 			SRect sWindow;
 			SPoint sPosition;
 			pToolTipOwner->ClientToScreen( &sPosition, &sWindow );
+			pToolTip->UpdateToolTip();
 			if ( sToolTipDelay && sToolTipDelay < sTime )
 				pToolTip->SetStyle( STYLE_VISIBLE, true );
-			if ( bNewOwner )
-				pToolTip->SetPosition( SPoint( sCursorPoint.x, sPosition.y ) );
+			const SPoint sScreenSize = GetSize();
+			const SPoint sTipSize = pToolTip->GetSize();
+			SPoint sTipPosition = pToolTip->GetPosition();
+			const SPoint sAnchor = pToolTipOwner->GetToolTipAnchor();
+			switch ( pToolTipOwner->GetToolTipAnchorType() )
+			{
+				case NDb::UIA_NONE:
+					if ( bNewOwner )
+						sTipPosition.x = sCursorPoint.x;
+					sTipPosition.y = sPosition.y - sTipSize.y;
+					if ( sTipPosition.y < 0 )
+						sTipPosition.y = sPosition.y + pToolTipOwner->GetSize().y + 32;
+					break;
+				case NDb::UIA_LEFTTOP: sTipPosition = sAnchor; break;
+				case NDb::UIA_RIGHTTOP: sTipPosition = SPoint( sAnchor.x - sTipSize.x, sAnchor.y ); break;
+				case NDb::UIA_LEFTBOTTOM: sTipPosition = SPoint( sAnchor.x, sAnchor.y - sTipSize.y ); break;
+				case NDb::UIA_RIGHTBOTTOM: sTipPosition = SPoint( sAnchor.x - sTipSize.x, sAnchor.y - sTipSize.y ); break;
+			}
+			sTipPosition.x = Max( 0, Min( sTipPosition.x, sScreenSize.x - sTipSize.x ) );
+			sTipPosition.y = Max( 0, Min( sTipPosition.y, sScreenSize.y - sTipSize.y ) );
+			pToolTip->SetPosition( sTipPosition );
 		}
 	}
 }

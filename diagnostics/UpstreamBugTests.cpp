@@ -16288,11 +16288,16 @@ static void OversizedTooltipPosition(const char* databasePath,const char* resour
         "tooltip layout fixture could not initialize its dummy display");
     CFileStream database;database.OpenRead(databasePath);
     NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    const auto oldShow=NGlobal::GetVar("ui_showtooltips"),oldDelay=NGlobal::GetVar("ui_tooltipdelay");
+    struct Options{NGlobal::CValue show,delay;~Options(){NGlobal::SetVar("ui_showtooltips",show);NGlobal::SetVar("ui_tooltipdelay",delay);}} options{oldShow,oldDelay};
+    NGlobal::SetVar("ui_showtooltips",NGlobal::CValue(1.f));NGlobal::SetVar("ui_tooltipdelay",NGlobal::CValue(0.f));
+    struct FrameBoundary{};
     class TooltipLayoutView: public DialogueLayoutView {
         OBJECT_NOCOPY_METHODS(TooltipLayoutView);
         CObj<NGScene::CCVec2> screen=new NGScene::CCVec2(CVec2(1024,768));
     public:
         int images=0,texts=0;
+        void StartNewFrame() override { throw FrameBoundary(); }
         CFuncBase<NGScene::SText>* CreateText(CFuncBase<wstring>* text,CFuncBase<CTPoint<int>>* size,bool tags) override {
             return NGScene::CreateTextFormater(GetLocaleInfo(),screen,text,size,tags);
         }
@@ -16307,15 +16312,21 @@ static void OversizedTooltipPosition(const char* databasePath,const char* resour
     };
     CObj<TooltipLayoutView> view=new TooltipLayoutView;
     CObj<NUI::ICursor> cursor=NUI::ICursor::Create(false);
-    CObj<NUI::CInterface> root=new NUI::CInterface(cursor);
+    CObj<CCTime> clock=new CCTime(0);CObj<NSound::ISoundScene> sound=NSound::CreateSoundScene(nullptr,nullptr,clock);
+    CObj<NUI::CInterface> root=new NUI::CInterface(cursor,sound);
+    {CStructureNetworkContext refs;auto fields=BorrowedObjectFields(root,&refs);auto* original=root->GetView();Require(refs.ids.count(original)!=0,"oversized protocol has no saved native view");refs.refs[refs.ids.at(original)]=view.GetPtr();CStructureSaver reader(fields,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(root.GetPtr())->operator&(reader);}
+    Require(root->GetView()==view.GetPtr() && root->GetSound()==sound.GetPtr(),"oversized protocol changed its native view/shared sound");
     CObj<NUI::CToolTip> tip=new NUI::CToolTip(NUI::SWindowInfo(root,NUI::SPoint(0,0),NUI::SPoint(0,0),
         "tooltip",NUI::STYLE_VISIBLE|NUI::STYLE_ENABLED));
     const int width=S2UI::Width(),height=S2UI::Height();
+    CObj<NUI::CWindow> owner=new NUI::CWindow(NUI::SWindowInfo(root,NUI::SPoint(0,height-1),NUI::SPoint(1,1),"oversized-owner",NUI::STYLE_VISIBLE|NUI::STYLE_ENABLED));
+    owner->SetToolTip(tip);root->SetToolTipOwner(owner);STime frameTime=100;
+    auto drawTooltip=[&](){for(int pass=0;pass<2;++pass){MarkNewDGFrame();bool reached=false;try{root->Draw(frameTime++);}catch(const FrameBoundary&){reached=true;}Require(reached,"oversized actual interface did not place before frame");}MarkNewDGFrame();tip->Draw(frameTime,view);};
     const wstring format=L"<font face=Courier size=16pt><left>";
     auto* font=root->GetView()->GetLocaleInfo()->GetFont(NGScene::SFont(16,"Courier"));
     Require(IsValid(font) && font->IsVector(),"tooltip fixture did not use our packaged high-resolution Courier font");
     tip->SetText(format+L"Short tooltip");tip->SetPosition(NUI::SPoint(width-1,height-1));
-    tip->Draw(0,view);
+    drawTooltip();
     Require(view->texts>0,"ordinary tooltip control did not submit native packaged-font glyphs");
     Require(tip->GetSize().x>0 && tip->GetSize().y>0 &&
         tip->GetPosition().x>=0 && tip->GetPosition().y>=0 &&
@@ -16326,7 +16337,7 @@ static void OversizedTooltipPosition(const char* databasePath,const char* resour
     const auto ordinarySize=tip->GetSize(),ordinaryPosition=tip->GetPosition();
     wstring oversized=format+L"HEADER";
     for(int row=0;row<100;++row)oversized+=L"\nNative packaged-font tooltip line";
-    tip->SetText(oversized);tip->SetPosition(NUI::SPoint(width-1,height-1));tip->Draw(0,view);
+    tip->SetText(oversized);tip->SetPosition(NUI::SPoint(width-1,height-1));drawTooltip();
     std::printf("native oversized tooltip: tip=%dx%d position=%d,%d glyph submissions=%d\n",
         tip->GetSize().x,tip->GetSize().y,tip->GetPosition().x,tip->GetPosition().y,view->texts);std::fflush(stdout);
     Require(tip->GetSize().y>height,
@@ -16334,10 +16345,10 @@ static void OversizedTooltipPosition(const char* databasePath,const char* resour
     Require(tip->GetPosition().x>=0 && tip->GetPosition().y>=0,
         "oversized native tooltip moves its header above the viewport");
     const auto measuredSize=tip->GetSize(),position=tip->GetPosition();
-    tip->Draw(0,view);
+    drawTooltip();
     Require(tip->GetSize()==measuredSize && tip->GetPosition()==position,
         "oversized tooltip drifts during repeated draw");
-    tip->SetText(format+L"Short tooltip");tip->SetPosition(NUI::SPoint(width-1,height-1));tip->Draw(0,view);
+    tip->SetText(format+L"Short tooltip");tip->SetPosition(NUI::SPoint(width-1,height-1));drawTooltip();
     Require(tip->GetSize()==ordinarySize && tip->GetPosition()==ordinaryPosition,
         "clamping an oversized tooltip changed ordinary font metrics or edge placement");
 }
@@ -33228,6 +33239,70 @@ static void NativeTooltipDelay(const char* db,const char* resources,int mode)
     Require(geometry && rng && root->GetSound()==sound.GetPtr(),"tooltip clock changed owner geometry/RNG/shared sound");Require(actual==expected,"actual interface tooltip claim/Draw/Step does not implement original options/deadline/owner lifetime");
 }
 
+static void NativeTooltipPlacement(const char* db,const char* resources,int mode)
+{
+    Require(mode>=0 && mode<20,"unknown native tooltip placement mode");S2Platform::SetErrorDialogs(false);struct Cleanup{~Cleanup(){S2Platform::Done();}} cleanup;const int pixelWidth=mode==16?1792:mode==17?2048:1024,pixelHeight=mode==17?1536:768;
+    Require(S2Platform::Init("native tooltip placement",pixelWidth,pixelHeight,true),"tooltip placement cannot initialize owned dummy display");S2Platform::UpdateDisplay(mode==17?200:100);CFileStream database;database.OpenRead(db);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resources);
+    const auto oldShow=NGlobal::GetVar("ui_showtooltips"),oldDelay=NGlobal::GetVar("ui_tooltipdelay");struct Options{NGlobal::CValue show,delay;~Options(){NGlobal::SetVar("ui_showtooltips",show);NGlobal::SetVar("ui_tooltipdelay",delay);}} options{oldShow,oldDelay};NGlobal::SetVar("ui_showtooltips",NGlobal::CValue(1.f));NGlobal::SetVar("ui_tooltipdelay",NGlobal::CValue(0.f));
+    struct FrameBoundary{};class PlacementView:public NGScene::I2DGameView{
+        OBJECT_NOCOPY_METHODS(PlacementView);
+        CObj<NGScene::CTextLocaleInfo> locale;CObj<NGScene::CCVec2> screen;CVec2 viewport;
+    public:
+        int glyphs=0;
+        explicit PlacementView(CVec2 size=CVec2(1024,768)):locale(new NGScene::CTextLocaleInfo),screen(new NGScene::CCVec2(size)),viewport(size){locale->Setup(viewport);}
+        CFuncBase<NGScene::SText>* CreateText(CFuncBase<wstring>* text,CFuncBase<CTPoint<int>>* size,bool tags) override{return NGScene::CreateTextFormater(locale,screen,text,size,tags);}
+        void CreateDynamicRects(CFuncBase<NGScene::SText>* value,const CTPoint<int>&,const CTRect<int>&) override{CDGPtr<CFuncBase<NGScene::SText>> node=value;node.Refresh();glyphs+=int(node->GetValue().charsSet.size());}
+        void CreateDynamicRects(NDb::CTexture*,const CRectLayout&,const CTPoint<int>&,const CTRect<int>&) override{}
+        void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>*,const CRectLayout& layout,const CTPoint<int>&,const CTRect<int>&) override{glyphs+=int(layout.rects.size());}
+        void CreateDynamicClearRects(const CRectLayout&,const CTPoint<int>&,const CTRect<int>&,float) override{}
+        NGScene::CTextLocaleInfo* GetLocaleInfo() const override{return locale;}
+        const CVec2& GetViewportSize() override{return viewport;}
+        void StartNewFrame() override{throw FrameBoundary();}
+        void Flush() override{}
+    };
+    // Literal mouse input only; all hover/claim/placement decisions stay native.
+    class PlacementCursor:public NUI::ICursor{
+        OBJECT_NOCOPY_METHODS(PlacementCursor);
+        CVec2 point=CVec2(0,0);NUI::SCursorInfo info;
+    public:
+        const CVec2& GetPos() const override{return point;}void SetPos(const CVec2& value) override{point=value;}
+        const NUI::SCursorInfo& GetCursor() const override{return info;}void SetCursor(const NUI::SCursorInfo& value) override{info=value;}
+        void Update() override{}void ProcessEvent(const NInput::SEvent&) override{}void Draw(const STime&,NGScene::I2DGameView*) override{}
+    };
+    CObj<CCTime> clock=new CCTime(0);CObj<NSound::ISoundScene> sound=NSound::CreateSoundScene(nullptr,nullptr,clock);CObj<NUI::ICursor> cursor=new PlacementCursor;CObj<NUI::CInterface> root=new NUI::CInterface(cursor,sound);CObj<PlacementView> view=new PlacementView(CVec2(float(pixelWidth),float(pixelHeight)));
+    {CStructureNetworkContext refs;auto fields=BorrowedObjectFields(root,&refs);auto* original=root->GetView();Require(refs.ids.count(original)!=0,"tooltip placement has no saved native view identity");refs.refs[refs.ids.at(original)]=view.GetPtr();CStructureSaver reader(fields,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(root.GetPtr())->operator&(reader);}
+    const auto canvas=root->GetSize();Require(canvas.x==S2UI::Width() && canvas.y==S2UI::Height(),"tooltip placement root lost owned logical canvas");if(mode==16)Require(canvas.x>1024,"wide tooltip fixture did not establish native wider canvas");if(mode==17)Require(std::fabs(S2UI::Scale()-2.f)<.001f && canvas.x==1024 && canvas.y==768,"tooltip fixture did not establish owned native HiDPI canvas");
+    CObj<NUI::CWindow> parent=root.GetPtr();if(mode==4 || mode==5)parent=new NUI::CWindow(NUI::SWindowInfo(root,NUI::SPoint(50,70),NUI::SPoint(800,600),"tooltip-nested",NUI::STYLE_VISIBLE|NUI::STYLE_ENABLED));
+    NUI::SPoint ownerPosition(mode==7?100:300,mode==7?100:300),ownerInputSize(mode==7?650:80,mode==7?450:40);if(mode==6)ownerPosition.y=2;if(mode==13)ownerPosition.y=canvas.y-10;
+    CObj<NUI::CWindow> owner=new NUI::CWindow(NUI::SWindowInfo(parent,ownerPosition,ownerInputSize,"placement-owner",NUI::STYLE_VISIBLE|NUI::STYLE_ENABLED));CObj<NUI::CToolTip> tip=new NUI::CToolTip(NUI::SWindowInfo(root,NUI::SPoint(0,0),NUI::SPoint(0,0),"placement-tooltip",NUI::STYLE_VISIBLE|NUI::STYLE_ENABLED));owner->SetToolTip(tip);
+    CObj<NUI::CText> reference=new NUI::CText(NUI::SWindowInfo(root,NUI::SPoint(0,0),NUI::SPoint(512,0),"placement-reference",NUI::STYLE_ENABLED|NUI::STYLE_TRANSPARENT));
+    const wstring format=L"<font face=Courier size=16pt><left>",shortText=format+L"Anchor",longText=format+L"WWWW WWWW WWWW WWWW WWWW WWWW WWWW WWWW WWWW";wstring bigText=format+L"Line";for(int i=0;i<100;++i)bigText+=L"<br>Line";
+    auto* font=view->GetLocaleInfo()->GetFont(NGScene::SFont(Float2Int(16*S2UI::Scale()),"Courier"));Require(font && font->IsVector(),"tooltip placement lost packaged high-resolution vector Courier");
+    NUI::SPoint cursorInput(mode==13?30:200,200),anchor(600,400);NDb::EUIAnchor type=mode>=1 && mode<=4?static_cast<NDb::EUIAnchor>(mode):NDb::UIA_NONE;
+    if(mode==11){type=NDb::UIA_RIGHTBOTTOM;anchor=NUI::SPoint(-20,-30);}if(mode==12){type=NDb::UIA_RIGHTBOTTOM;anchor=NUI::SPoint(canvas.x+100,canvas.y+100);}if(mode==13){type=NDb::UIA_LEFTTOP;anchor=NUI::SPoint(30,canvas.y-10);}if(mode==16){type=NDb::UIA_RIGHTTOP;anchor=NUI::SPoint(canvas.x-10,300);}if(mode==17){type=NDb::UIA_LEFTTOP;anchor=NUI::SPoint(400,200);}if(mode==18){type=NDb::UIA_LEFTTOP;anchor=NUI::SPoint(600,400);}
+    auto applyInputs=[&](CObjectBase* object,const std::map<unsigned,vector<unsigned char>>& inputs){
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(object,&refs);auto* bytes=fields.GetBufferForWrite();S2FileIO::StructureChunk body{};
+        for(std::size_t at=0;at<std::size_t(fields.GetSize());){S2FileIO::StructureChunk field;Require(S2FileIO::DecodeStructureChunkAt(bytes,fields.GetSize(),at,&field) && field.id!=3,"authored input snapshot is not plain native chunks");if(field.id==1)body=field;at=field.payloadOffset+field.length;}
+        Require(body.length!=0,"authored input snapshot has no native root fields");unsigned patched=0;
+        for(std::size_t at=0;at<body.length;){S2FileIO::StructureChunk field;auto* data=bytes+body.payloadOffset;Require(S2FileIO::DecodeStructureChunkAt(data,body.length,at,&field),"authored input native field invalid");auto input=inputs.find(field.id);if(input!=inputs.end()){Require(field.length==input->second.size(),"authored input field wire size differs");std::memcpy(data+field.payloadOffset,input->second.data(),field.length);++patched;}at=field.payloadOffset+field.length;}
+        Require(patched==inputs.size(),"authored input did not patch each existing native field");fields.Seek(0);CStructureSaver reader(fields,CStructureSaver::READ,&refs);object->operator&(reader);
+    };
+    unsigned inputStep=0;auto setCursor=[&](NUI::SPoint point){cursor->SetPos(CVec2(S2UI::ToPixel(point.x),S2UI::ToPixel(point.y)));MarkNewDGFrame();root->Step(++inputStep);Require(root->GetCursorPos()==point && root->GetView()==view.GetPtr() && root->GetSound()==sound.GetPtr(),"literal native mouse input changed view/sound or failed coordinate mapping");};
+    auto setAnchor=[&](){const auto position=owner->GetPosition(),size=owner->GetSize();vector<unsigned char> point(8),kind(4);Require(S2FileIO::EncodeStructureScalar(anchor.x,point.data(),4) && S2FileIO::EncodeStructureScalar(anchor.y,point.data()+4,4) && S2FileIO::EncodeStructureScalar(int(type),kind.data(),4),"authored anchor encoding failed");applyInputs(owner,{{14,point},{15,kind}});owner->DisableAdaptiveLayout();Require(owner->GetParent()==parent.GetPtr() && owner->GetToolTip()==tip.GetPtr() && owner->GetPosition()==position && owner->GetSize()==size,"complete borrowed authored anchor input changed actual owner");};
+    setCursor(cursorInput);setAnchor();wstring text=mode==0 || mode==14?longText:mode==10 || mode==13?bigText:mode==15?L"":shortText;tip->SetText(text);auto random=GlobalGameRandom();const auto ownerSize=owner->GetSize();
+    auto measure=[&](){reference->SetSize(NUI::SPoint(512,0));reference->SetText(text);NUI::SPoint size;reference->GetRealSize(&size);return size+NUI::SPoint(8,8);};
+    auto draw=[&](STime time){MarkNewDGFrame();bool reached=false;try{root->Draw(time);}catch(const FrameBoundary&){reached=true;}Require(reached,"native tooltip placement did not reach frame boundary");};
+    root->SetToolTipOwner(owner);const bool prime=mode==7 || mode==8 || mode==9 || mode==10 || mode==13 || mode==14 || mode==19;if(prime){MarkNewDGFrame();tip->Draw(1,view);}
+    if(mode==7){setCursor(NUI::SPoint(700,500));root->SetToolTipOwner(owner);}if(mode==8){ownerPosition.y=420;owner->SetPosition(ownerPosition);}if(mode==9){text=bigText;tip->SetText(text);}if(mode==10){text=shortText;tip->SetText(text);}if(mode==18){type=NDb::UIA_RIGHTBOTTOM;setAnchor();}
+    draw(100);draw(101);const auto expectedSize=measure();if(mode==13)Require(expectedSize.y>canvas.y,"oversized placement fixture is not taller than the native canvas");NUI::SPoint point;NUI::SRect rect;owner->ClientToScreen(&point,&rect);NUI::SPoint expected;
+    switch(type){case NDb::UIA_NONE:expected=NUI::SPoint(cursorInput.x,point.y-expectedSize.y);if(expected.y<0)expected.y=point.y+owner->GetSize().y+32;break;case NDb::UIA_LEFTTOP:expected=anchor;break;case NDb::UIA_RIGHTTOP:expected=NUI::SPoint(anchor.x-expectedSize.x,anchor.y);break;case NDb::UIA_LEFTBOTTOM:expected=NUI::SPoint(anchor.x,anchor.y-expectedSize.y);break;case NDb::UIA_RIGHTBOTTOM:expected=anchor-expectedSize;break;default:Require(false,"invalid native anchor input");}
+    expected.x=Max(0,Min(expected.x,canvas.x-expectedSize.x));expected.y=Max(0,Min(expected.y,canvas.y-expectedSize.y));
+    const auto actualSize=tip->GetSize(),actualPosition=tip->GetPosition();MarkNewDGFrame();tip->Draw(102,view);if(mode!=15)Require(view->glyphs>0,"native placement widget did not submit packaged vector glyphs after the measured frame boundary");bool stable=true;if(mode==19){for(STime time:{200u,300u,400u}){draw(time);MarkNewDGFrame();tip->Draw(time,view);stable&=tip->GetSize()==actualSize && tip->GetPosition()==actualPosition;}}
+    auto after=GlobalGameRandom();bool rng=true;for(int i=0;i<4;++i)rng&=random.Get()==after.Get();const bool ownerIntact=owner->GetPosition()==ownerPosition && owner->GetSize()==ownerSize && owner->GetParent()==parent.GetPtr() && owner->GetToolTip()==tip.GetPtr() && root->GetSound()==sound.GetPtr();
+    std::printf("native tooltip placement mode=%d canvas=%d,%d scale=%.1f anchor=%d size=%d,%d expectedSize=%d,%d position=%d,%d expectedPosition=%d,%d prime=%d glyphs=%d stable=%d owner=%d RNG=%d\n",mode,canvas.x,canvas.y,S2UI::Scale(),int(type),actualSize.x,actualSize.y,expectedSize.x,expectedSize.y,actualPosition.x,actualPosition.y,expected.x,expected.y,int(prime),view->glyphs,int(stable),int(ownerIntact),int(rng));std::fflush(stdout);
+    Require(ownerIntact && rng,"tooltip measurement/placement changed actual owner/input/sound/RNG state");Require(actualSize==expectedSize && actualPosition==expected && stable,"native tooltip is not measured512 before placement or ignores anchors/moving owner/logical canvas");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
@@ -33824,6 +33899,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-tooltip-placement")) { Require(argc==5,"tooltip placement requires db/res/mode"); NativeTooltipPlacement(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ally-ray-classification")) { Require(argc==5,"ally ray requires db/res/mode"); NativeAllyRayClassification(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ai-cover-depth")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativeAICoverDepth(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-path-wave-flags")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativePathWaveFlags(argv[2],argv[3],std::atoi(argv[4])); return true; }
