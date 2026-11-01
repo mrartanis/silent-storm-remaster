@@ -11417,12 +11417,92 @@ static void NativeMeleeWorldContext(const char* databasePath,const char* resourc
     std::printf("native melee world mode=%d actor=%d receiver=%d location=%d AI=%d anonymous=%d coefficient=%.9g received=%d expected=%d HPdrop=%d hits=%d AP=%d->%d\n",mode,actor->GetUnitRPG()->GetRPGPersID(),target->GetUnitRPG()->GetRPGPersID(),location,int(actor->GetUnitRPG()->IsAIPlayer()),int(anonymous),difficulty->fOurDamageMult,damage,expected,hp-target->GetUnitRPG()->GetTotalVP(),count,ap,actor->GetAP());std::fflush(stdout);Require(count==1 && damage==expected && hp-target->GetUnitRPG()->GetTotalVP()==expected,"native executor lost real world context before melee damage callback");Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==actorHP && target->CanFight(),"direct native melee dispatch spent actor AP/health or incapacitated its small-damage receiver");
 }
 
-static void NativeMeleeTargetFilter(const char* databasePath,const char* resourcePath,int mode)
+// Decode an independent legacy executor. The live world is only borrowed by reference.
+static CObj<NWorld::CExecMelee> RestoreNativeObjectMeleeSave(NWorld::CUnitServer* actor,
+    CObjectBase* target,const CVec3& point,int extra)
+{
+    CObj<NWorld::CExecMeleeTile> seed=new NWorld::CExecMeleeTile(actor,point);
+    struct MeleeFields {
+        NWorld::CExecAttack* attack;CVec3 point;int extra;
+        int operator&(CStructureSaver& f){f.Add(1,attack);f.Add(2,&point);f.Add(3,&extra);return 0;}
+    };
+    struct ObjectFields {
+        MeleeFields melee;CPtr<CObjectBase> target;
+        int operator&(CStructureSaver& f){f.Add(1,&melee);f.Add(2,&target);return 0;}
+    } saved{{seed.GetPtr(),point,extra},target};
+    CStructureNetworkContext refs;auto ignored=BorrowedObjectFields(seed,&refs);
+    if(target && !refs.ids.count(target)){const auto id=refs.nextID++;refs.ids[target]=id;refs.refs[id]=target;}
+    CMemoryStream fields;{CStructureSaver writer(fields,CStructureSaver::WRITE,&refs);saved.operator&(writer);}fields.Seek(0);
+    CObj<NWorld::CExecMelee> restored=dynamic_cast<NWorld::CExecMelee*>(pSSClasses->CreateObject(0x01353130));
+    std::printf("OBJECT-MELEE-FACTORY available=%d target=%d extra=%d\n",int(bool(restored)),int(target!=nullptr),extra);std::fflush(stdout);
+    Require(restored,"native save loader cannot construct original object-melee executor 01353130");
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader);}
+    Require(pSSClasses->GetObjectTypeID(restored.GetPtr())==0x01353130,"object-melee legacy factory changed its native type identity");
+    return restored;
+}
+
+static void NativeObjectMeleeSave(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<6,"unknown native object-melee save mode");
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->IsAIUnit() && !unit->IsEmptyPK() && !unit->IsWearingPK() && !unit->HasCommand()){actor=unit;break;}
+    Require(actor,"object-melee save fixture lacks an ordinary native human actor");
+    NWorld::CWindowDoor* door=nullptr;auto* map=world->GetAIMap();CVec3 center;
+    for(const auto& entry:world->GetObjectsForHarness()) {
+        auto* candidate=dynamic_cast<NWorld::CWindowDoor*>(entry.GetPtr());
+        if(candidate && !candidate->IsBroken() && map->GetUnitHLPos(&center,map->GetHull(candidate),-1)){door=candidate;break;}
+    }
+    Require(door,"object-melee save fixture lacks a real authored door and its native hull");
+    auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> previous;
+    const auto slot=inventory->GetActiveSlot();if(slot>=0)previous=inventory->TakeOff(static_cast<NDb::ESlot>(slot));
+    Require(NWorld::GetActionType(actor)==NWorld::AT_MELEE,"object-melee save fixture did not select native unarmed melee");
+    const CVec3 remembered=actor->GetPosition().GetCP()+CVec3(.25f,0,.5f);
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();const auto position=actor->GetPosition();
+    const int cost=actor->GetActionAP(NRPG::AC_MELEE),extra=7;
+    CObj<NWorld::CExecMelee> executor;
+    if(mode==0)executor=new NWorld::CExecMeleeTile(actor,remembered);
+    else executor=RestoreNativeObjectMeleeSave(actor,mode==2 || mode==5?nullptr:static_cast<CObjectBase*>(door),remembered,extra);
+    const int ignored=executor->CanDoIt(position,true),available=executor->CanDoIt(position);
+    Require(ignored==NWorld::UCR_NO_TARGET && available==NWorld::UCR_OK && executor->GetStartAP()==cost+(mode?extra:0),
+        "loaded native melee lost inherited remembered-point eligibility or requested AP");
+    if(mode==1 || mode==2) {
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(executor,&refs);CPtr<CObjectBase> target;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&target);}
+        Require(target.GetPtr()==(mode==2?nullptr:static_cast<CObjectBase*>(door)),"native object-melee save lost its retained target");
+        CObj<NWorld::CExecMelee> second=dynamic_cast<NWorld::CExecMelee*>(pSSClasses->CreateObject(0x01353130));
+        Require(second && second.GetPtr()!=executor.GetPtr(),"object-melee roundtrip reused its source executor");fields.Seek(0);
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);static_cast<CObjectBase*>(second.GetPtr())->operator&(reader);}
+        CStructureNetworkContext roundRefs;auto round=BorrowedObjectFields(second,&roundRefs);CPtr<CObjectBase> roundTarget;
+        {CStructureSaver reader(round,CStructureSaver::READ,&roundRefs);reader.Add(2,&roundTarget);}
+        Require(roundTarget==target && second->GetStartAP()==cost+extra && second->CanDoIt(position)==NWorld::UCR_OK,
+            "native object-melee roundtrip lost target, remembered point or extra AP");
+    }
+    if(mode==3) {
+        executor->Start();
+        Require(actor->GetAP()==ap-cost-extra && actor->GetPosition()==position && !door->IsBroken(),
+            "restored native object-melee Start lost base action/extra AP or changed its target early");
+    }
+    if(mode==4 || mode==5) {
+        if(mode==4){world->PlaceObjectInPocket(door);MarkNewDGFrame();map->Sync();Require(!map->GetHull(door),"native pocket did not remove the saved door hull");}
+        GlobalGameRandom().SeedForHarness(2026);executor->OnLabel();
+        struct Attack {bool canceled=false;int operator&(CStructureSaver& f){f.Add(2,&canceled);return 0;}};
+        struct Melee {Attack attack;int operator&(CStructureSaver& f){f.Add(1,&attack);return 0;}} melee;
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(executor,&refs);
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(1,&melee);}
+        Require(melee.attack.canceled,"native loaded object-melee label failed to consume its one-shot attack");
+    }
+    Require(actor->GetAP()==ap-(mode==3?cost+extra:0) && actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetPosition()==position && !actor->HasCommand(),
+        "native object-melee restore/query/label changed actor health, position, orders or unexpected AP");
+    std::printf("OBJECT-MELEE-SAVE mode=%d native=1 query=%d ignored=%d startAP=%d expectedStart=%d AP=%d->%d graph=1\n",mode,available,ignored,executor->GetStartAP(),cost+(mode?extra:0),ap,actor->GetAP());std::fflush(stdout);
+}
+
+static void NativeMeleeTargetFilter(const char* databasePath,const char* resourcePath,int mode,bool objectSave=false)
 {
     Require(mode>=0 && mode<=6,"unknown native melee filter mode");CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;for(auto u:units)if(u && u->CanFight() && !u->IsAIUnit() && u->GetTBSPlayer() && !u->IsEmptyPK() && !u->IsWearingPK()){actor=u;break;}Require(actor,"melee filter fixture lacks actual human owner/attacker");auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),30.f),&places);NAI::SPathPlace firstPlace,secondPlace;bool found=false;for(auto p:places){p.SetPose(NAI::CM_STAND);p.SetMoving(0);if(!network->IsPassable(p) || network->IsLocked(p))continue;for(int d=0;d<4;++d){auto q=p;const int x=int(p.GetX())+(d==0?1:d==1?-1:0),y=int(p.GetY())+(d==2?1:d==3?-1:0);if(x<0 || y<0 || x>254 || y>254)continue;q.SetXY(x,y);if(network->IsPassable(q) && !network->IsLocked(q)){firstPlace=p;secondPlace=q;found=true;break;}}if(found)break;}Require(found,"melee filter fixture lacks real adjacent free standing navigation places");
-    CObj<NRPG::IUnitMission> firstRPG=NRPG::CreateUnit(NDb::GetPers(103)),secondRPG=NRPG::CreateUnit(NDb::GetPers(103));for(auto* mission:{firstRPG.GetPtr(),secondRPG.GetPtr()}){auto* unit=mission->GetRPGUnit();unit->Skills(NDb::ST_VP).SetConst(500);unit->nHealedVP=0;unit->Skills(NDb::ST_IC).SetConst(0);unit->Skills(NDb::ST_IC).SetProgress(0);Require(mission->GetTotalVP()==500 && mission->GetIC()==0,"melee filter fixture lacks isolated healthy no-evasion humans");}CObj<NWorld::CUnitServer> first=world->AddUnitInGame(firstPlace,firstRPG,actor->GetTBSPlayer(),"NativeMeleeFilterFront"),second=world->AddUnitInGame(secondPlace,secondRPG,actor->GetTBSPlayer(),"NativeMeleeFilterBack");Require(first && second && first->CanFight() && second->CanFight(),"melee filter fixture cannot deploy actual distinct receivers");auto* map=world->GetAIMap();map->Sync();CVec3 a,b;Require(map->GetUnitHLPos(&a,map->GetHull(first),NAI::HL_BODY) && map->GetUnitHLPos(&b,map->GetHull(second),NAI::HL_BODY),"melee filter fixture lacks native body locators");CRay ray;ray.ptDir=b-a;Normalize(&ray.ptDir);ray.ptOrigin=a-ray.ptDir*2.f;vector<NAI::SInterval> intervals;map->Trace(ray,&intervals,NWorld::TS_FRAGMENTED);int firstPieces=0,secondPieces=0;NDb::CRPGArmor* armor=nullptr;for(const auto& interval:intervals)if(interval.enter.fT>0){if(interval.pSrc->pUserData==first.GetPtr()){++firstPieces;if(!armor)armor=interval.pSrc->pArmor;}if(interval.pSrc->pUserData==second.GetPtr())++secondPieces;}Require(firstPieces>0 && secondPieces>0 && armor && armor->pMaterial,"melee filter fixture ray does not cross both actual native humans");
-    Require(mode!=6 || firstPieces>1,"native godmode dedup input needs multiple actual body pieces");const bool god=mode==4 || mode==5 || mode==6;if(god)firstRPG->GetRPGUnit()->SetCheat(NRPG::CHEAT_GODMODE,true);NWorld::CUnitServer* selected=mode==1?first.GetPtr():second.GetPtr();int damageType=-1;CDBIterator<NDb::CRPGDmgToArmor> types(*NDatabase::GetTable<NDb::CRPGDmgToArmor>());while(types.MoveNext())if(types.Get()->armors[armor->pMaterial->nDR]>0 && (damageType<0 || types.Get()->GetRecordID()<damageType))damageType=types.Get()->GetRecordID();Require(damageType>=0,"melee filter fixture lacks native flesh damage type");NRPG::CAttackPortion portion(100000,damageType,0.f,2,2,0,0,actor->GetUnitRPG(),selected->GetUnitRPG(),1.f,-1);const int base=portion.CalcStructDmg(world,armor,0);Require(base>0 && base<6,"melee filter fixture lacks positive small literal native damage control");vector<NRPG::CAttackPortion> portions(1,portion);CObj<NWorld::CExecMelee> exec;if(mode==2 || mode==4 || mode==6)exec=new NWorld::CExecMeleeTile(actor,b);else exec=new NWorld::CExecMeleeUnit(actor,mode==3?nullptr:selected,NAI::HL_BODY,0);for(;;){CObj<NWorld::CHitLocator> event=world->GetHitEvent();if(!event)break;}const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();GlobalGameRandom().SeedForHarness(2026);exec->PerformAttack(portions,ray,1.f);int frontHits=0,backHits=0,frontDamage=0,backDamage=0;for(;;){CObj<NWorld::CHitLocator> event=world->GetHitEvent();if(!event)break;if(event->pUnit.GetPtr()==first.GetPtr()){++frontHits;frontDamage+=event->nHitValue;}if(event->pUnit.GetPtr()==second.GetPtr()){++backHits;backDamage+=event->nHitValue;}}
-    const bool hitFront=mode==1 || mode==2 || mode==3,hitBack=mode!=1;const int expectedFront=hitFront?base:0,expectedBack=hitBack?base:0;std::printf("native melee filter mode=%d base=%d frontPieces=%d backPieces=%d god=%d frontDrop=%d expectedFront=%d backDrop=%d expectedBack=%d frontHits=%d backHits=%d frontDamage=%d backDamage=%d\n",mode,base,firstPieces,secondPieces,int(god),500-firstRPG->GetTotalVP(),expectedFront,500-secondRPG->GetTotalVP(),expectedBack,frontHits,backHits,frontDamage,backDamage);std::fflush(stdout);Require(500-firstRPG->GetTotalVP()==expectedFront && 500-secondRPG->GetTotalVP()==expectedBack,"native unit melee dispatch damaged an unselected real receiver on its ray");const int expectedFrontHits=mode==4?-1:mode==6?1:hitFront?1:0;Require((expectedFrontHits<0?frontHits>0 && frontDamage==-frontHits:frontHits==expectedFrontHits && frontDamage==(mode==6?-1:expectedFront)) && backHits==int(hitBack) && backDamage==expectedBack,mode==6?"native godmode unit was not deduplicated to one original damage callback":"native melee target filter lost callback identity, default/null behavior or godmode protection");Require(first->CanFight() && second->CanFight() && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp,"small direct melee filter dispatch changed actor AP/health or incapacitated a receiver");
+    CObj<NRPG::IUnitMission> firstRPG=NRPG::CreateUnit(NDb::GetPers(103)),secondRPG=NRPG::CreateUnit(NDb::GetPers(103));for(auto* mission:{firstRPG.GetPtr(),secondRPG.GetPtr()}){auto* unit=mission->GetRPGUnit();unit->nHealedVP=0;unit->Skills(NDb::ST_IC).SetConst(0);unit->Skills(NDb::ST_IC).SetProgress(0);Require(mission->GetTotalVP()>20 && mission->GetIC()==0,"melee filter fixture lacks isolated healthy no-evasion humans");}CObj<NWorld::CUnitServer> first=world->AddUnitInGame(firstPlace,firstRPG,actor->GetTBSPlayer(),"NativeMeleeFilterFront"),second=world->AddUnitInGame(secondPlace,secondRPG,actor->GetTBSPlayer(),"NativeMeleeFilterBack");Require(first && second && first->CanFight() && second->CanFight(),"melee filter fixture cannot deploy actual distinct receivers");auto* map=world->GetAIMap();map->Sync();CVec3 a,b;Require(map->GetUnitHLPos(&a,map->GetHull(first),NAI::HL_BODY) && map->GetUnitHLPos(&b,map->GetHull(second),NAI::HL_BODY),"melee filter fixture lacks native body locators");CRay ray;ray.ptDir=b-a;Normalize(&ray.ptDir);ray.ptOrigin=a-ray.ptDir*2.f;vector<NAI::SInterval> intervals;map->Trace(ray,&intervals,NWorld::TS_FRAGMENTED);int firstPieces=0,secondPieces=0;NDb::CRPGArmor* armor=nullptr;for(const auto& interval:intervals)if(interval.enter.fT>0){if(interval.pSrc->pUserData==first.GetPtr()){++firstPieces;if(!armor)armor=interval.pSrc->pArmor;}if(interval.pSrc->pUserData==second.GetPtr())++secondPieces;}Require(firstPieces>0 && secondPieces>0 && armor && armor->pMaterial,"melee filter fixture ray does not cross both actual native humans");
+    Require(mode!=6 || firstPieces>1,"native godmode dedup input needs multiple actual body pieces");const bool god=mode==4 || mode==5 || mode==6;if(god)firstRPG->GetRPGUnit()->SetCheat(NRPG::CHEAT_GODMODE,true);NWorld::CUnitServer* selected=mode==1?first.GetPtr():second.GetPtr();int damageType=-1;CDBIterator<NDb::CRPGDmgToArmor> types(*NDatabase::GetTable<NDb::CRPGDmgToArmor>());while(types.MoveNext())if(types.Get()->armors[armor->pMaterial->nDR]>0 && (damageType<0 || types.Get()->GetRecordID()<damageType))damageType=types.Get()->GetRecordID();Require(damageType>=0,"melee filter fixture lacks native flesh damage type");NRPG::CAttackPortion portion(100000,damageType,0.f,2,2,0,0,actor->GetUnitRPG(),selected->GetUnitRPG(),1.f,-1);const int base=portion.CalcStructDmg(world,armor,0);Require(base>0 && base<6,"melee filter fixture lacks positive small literal native damage control");vector<NRPG::CAttackPortion> portions(1,portion);CObj<NWorld::CExecMelee> exec;if(mode==2 || mode==4 || mode==6)exec=new NWorld::CExecMeleeTile(actor,b);else if(objectSave)exec=RestoreNativeObjectMeleeSave(actor,mode==3?nullptr:selected,b,0);else exec=new NWorld::CExecMeleeUnit(actor,mode==3?nullptr:selected,NAI::HL_BODY,0);for(;;){CObj<NWorld::CHitLocator> event=world->GetHitEvent();if(!event)break;}const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),firstHP=firstRPG->GetTotalVP(),secondHP=secondRPG->GetTotalVP();Require(firstHP>base && secondHP>base,"melee filter fixture lacks healthy post-spawn native receivers");std::printf("MELEE-RECEIVER-BASELINE mode=%d first=%d second=%d\n",mode,firstHP,secondHP);GlobalGameRandom().SeedForHarness(2026);exec->PerformAttack(portions,ray,1.f);int frontHits=0,backHits=0,frontDamage=0,backDamage=0;for(;;){CObj<NWorld::CHitLocator> event=world->GetHitEvent();if(!event)break;if(event->pUnit.GetPtr()==first.GetPtr()){++frontHits;frontDamage+=event->nHitValue;}if(event->pUnit.GetPtr()==second.GetPtr()){++backHits;backDamage+=event->nHitValue;}}
+    const bool hitFront=mode==1 || mode==2 || mode==3,hitBack=mode!=1;const int expectedFront=hitFront?base:0,expectedBack=hitBack?base:0;std::printf("native melee filter mode=%d base=%d frontPieces=%d backPieces=%d god=%d frontDrop=%d expectedFront=%d backDrop=%d expectedBack=%d frontHits=%d backHits=%d frontDamage=%d backDamage=%d\n",mode,base,firstPieces,secondPieces,int(god),firstHP-firstRPG->GetTotalVP(),expectedFront,secondHP-secondRPG->GetTotalVP(),expectedBack,frontHits,backHits,frontDamage,backDamage);std::fflush(stdout);Require(firstHP-firstRPG->GetTotalVP()==expectedFront && secondHP-secondRPG->GetTotalVP()==expectedBack,"native unit melee dispatch damaged an unselected real receiver on its ray");const int expectedFrontHits=mode==4?-1:mode==6?1:hitFront?1:0;Require((expectedFrontHits<0?frontHits>0 && frontDamage==-frontHits:frontHits==expectedFrontHits && frontDamage==(mode==6?-1:expectedFront)) && backHits==int(hitBack) && backDamage==expectedBack,mode==6?"native godmode unit was not deduplicated to one original damage callback":"native melee target filter lost callback identity, default/null behavior or godmode protection");Require(first->CanFight() && second->CanFight() && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp,"small direct melee filter dispatch changed actor AP/health or incapacitated a receiver");
 }
 
 static void AICoverRange(const char* databasePath,const char* resourcePath,int mode)
@@ -34194,6 +34274,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-quick-save") && argc == 4) { MissionSaveMenu(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "stored-aura-evasion")) { Require(argc==5,"stored aura requires db/resources/mode"); StoredAuraEvasion(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-melee-attacker-ignore")) { Require(argc==5,"melee ignore requires db/resources/mode"); NativeMeleeAttackerIgnore(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-object-melee-save")) { Require(argc==5,"object melee requires db/resources/mode"); const int selected=std::atoi(argv[4]); if(selected<6)NativeObjectMeleeSave(argv[2],argv[3],selected);else {Require(selected==6 || selected==7,"unknown object melee filter mode");NativeMeleeTargetFilter(argv[2],argv[3],selected==6?0:3,true);} return true; }
     if (!std::strcmp(mode, "native-melee-target-filter")) { Require(argc==5,"melee filter requires db/resources/mode"); NativeMeleeTargetFilter(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-melee-world-context")) { Require(argc==5,"melee world requires db/resources/mode"); NativeMeleeWorldContext(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-plain-ray-route")) { Require(argc==5,"plain ray requires db/resources/mode"); NativePlainRayRoute(argv[2],argv[3],std::atoi(argv[4])); return true; }

@@ -4186,3 +4186,24 @@ demo/menu+8 cached-point+12 font rows exact. Known prior campaign movement flake
 outside selected suite. Source6b complete,31 remaining.
 
 Source: [6b4f7b8f67f26adb20506bef1015f89aba9f29dd](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6b4f7b8f67f26adb20506bef1015f89aba9f29dd).
+
+## 2026-11-01: saved object-melee executor foundation (145)
+
+The native save decoder can now restore the original object-melee executor ID01353130, its
+remembered point, extra AP and optional target. Loaded attacks use real inherited
+action/AP handling, current-hull or saved-point aim, normal hit/miss and saved-target
+damage filtering. Default/null filter remains unfiltered; saved unit targets keep original
+HL_ANY defaults. This class was absent; no fresh command producer, parameter constructor
+or current unit/tile/live object route changes here.
+
+Native RED7/14 ->GREEN14 both with seven exact controls, actual AP53->32 for
+cost14+extra7, real target/pocket/null decoding and native two-human selected0/3 versus
+null3/3 damage/callbacks. Correct the test fixture's artificial VP500 cap only after
+reproducing six old failures with byte-exact parent production; retain authored health and
+strict measured damage, callbacks and godmode. No production
+health/chance/AP-price/RPG/balance change, save/LAN backend change or frozen asset
+generation. Game both/372 Windows/361 Linux related/CI378,12 font rows exact. Parameter
+constructor/routing and original null-coordinate issue remain pending;31 unfinished
+sources.
+
+Source: [4cdc1eada6c182c0a9093364e95c750a6166d4c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8).

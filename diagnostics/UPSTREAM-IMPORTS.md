@@ -24029,3 +24029,72 @@ unfinished. Hosted142 head64c4172c was successful; actual final-head hosted CI r
 required at whole-task completion.
 
 Source: [6b4f7b8f67f26adb20506bef1015f89aba9f29dd](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6b4f7b8f67f26adb20506bef1015f89aba9f29dd).
+
+## 2026-11-01: saved object-melee executor foundation (145)
+
+Restore registered CExecMeleeObject0x01353130 so the native decoder can construct the
+original saved executor. Preserve its base1/CPtr<CObjectBase>target2 shape and existing
+CExecMelee point2/extraAP3. Default construction waits for native decode; no new
+fresh-command constructor or factory route. Existing unit/tile/live object fallback
+remains unchanged. The loaded executor inherits real remembered-point eligibility,
+ignored-target response, melee action and extra AP spending. Its one-shot label creates an
+untargeted native portion, selects current target hull or saved-point fallback, applies
+normal hit/miss selection, filters the existing native damage core by its saved target and
+marks attack canceled. For saved unit targets, preserve original default HL_ANY/empty
+locations rather than the separate unit executor's called-shot metadata; no unit-success
+event is introduced.
+
+Original Gold named vtable8bdb14 and actual named Steam8cd1bc identify serializer
+slot0c/7b1960 and label40/7aa200. Entire typed Gold serializer7a5120/53 uniquely matches
+actual53 with only decoded E8 operands19/38 normalized: base1 then target2 at2c. Actual
+registry8aab96 independently pairs descriptor984c10 and ID01353130;8aabbe registers
+factory7affb0, whose actual47-byte body writes this vtable and null target before decode.
+Typed Gold OnLabel79dc20/499 differs from actual507 and whole499 comparison is rejected.
+Independently decode actual7aa283 untargeted CreateAttack7a4a00, default local
+HL_ANY/empty vector, shared6b6510 call, success-only virtual48 with target2c and
+unconditional canceled18=true. Actual typed map28/4662d0 accepts an object; own
+direct-hull API is explicitly adapted through existing GetHull. Actual shared selector
+false-hull branch uses point helper6b6260; valid hull makes object cover, named
+CUnitServer cast selects CheckToHit6b5200, non-unit uses current HL_ANY
+center/CheckTile6b53b0. No whole helper equivalence or field/frame/control masks and no
+original runtime execution.
+
+Keep the owned vector/float virtual API: object PerformAttack override supplies its saved
+target to the existing nonvirtual filtered core, as the owned unit adaptation already
+does. No additional virtual slot, world/server/RPG state, LAN transport format, public
+production observer hook, render/audio backend or frozen HD/face/font/PNG changes. This
+restores a verified class and native payload shape; no original whole-save-file
+interoperability claim.
+
+NativeObjectMeleeSave0..7 plus six existing real native target-filter controls: canonical
+RED7/14 both, only missing class, ->GREEN14 both, seven measured controls exact.
+Independent saved payloads borrow actual world/actor/door references and decode only a
+newly allocated executor; the live world is never reloaded. Verify real target/null
+roundtrips, remembered-point availability, requested extra AP, actual Start spending,
+pocket/no-target label consumption, two real human hull receivers and selected/null damage
+filtering with native callbacks. Saved filters produce front0/back3 versus front3/back3;
+actor health/AP/position/orders remain guarded. Full Game both/372 Windows/361 Linux
+related/CI378 all pass;12 packaged font rows exact on each platform.
+
+During expanded controls, an old fixture set VP500 before native deployment/stat updates,
+then mistook later cap normalization to140 for damage. Restore byte-exact parent
+production files and reproduce all six identical failing rows before changing the fixture;
+retain parent proof and initial logs. Measuring before-attack HP alone fixes five
+controls, but godmode tile case still carries the second artificial500 until native
+traversal. Retain authored native health, require healthy receivers and measure exact
+pre-attack deltas instead. Keep explicit IC0, all literal
+small-damage/callback/identity/godmode expectations and actor invariants. No production
+health, cap, chance or damage change. Canonical corrected parent controls all pass while
+seven class-restoration cases fail, before restoring the same production implementation;
+failed fixture discoveries are not used as bug RED.
+
+Source remains partial: donor parameter-constructor and new command routing are not yet
+imported. Actual original factory79e1e7 passes a null target to7a5d80; that constructor
+ignores failed map coordinate lookup, whose empty-hull path does not write the point. Do
+not silently reproduce uninitialized coordinates or claim the donor's Sentinels
+retained-target producer is SS behavior. The earlier active-door lookup hunk remains
+complete.31 unfinished sources. Known prior138 campaign nested-save movement flake remains
+tracked; only its exact test excluded if selected, not repaired here. Hosted final-head
+success remains required at whole-task completion.
+
+Source: [4cdc1eada6c182c0a9093364e95c750a6166d4c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8).

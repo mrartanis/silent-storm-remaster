@@ -1926,6 +1926,53 @@ void CExecMeleeTile::OnLabel()
 	bAttackCanceled = true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// CExecMeleeObject: Steam OnLabel 0x7aa200, saved base1/target2 at0x7b1960.
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CExecMeleeObject::PerformAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, float fHit )
+{
+	// Original virtual48 takes the saved target as its third pointer argument.
+	// Keep the remaster's vector/float API and supply it to the existing native core.
+	PerformFilteredAttack( attack, ray, pTarget.GetPtr() );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CExecMeleeObject::OnLabel()
+{
+	CWorld *pWorld = pUS->GetWorld();
+	csRPG << CC_WHITE << "Melee " << pUS->GetUnitRPG()->GetName() << "\n{\n";
+	vector<NRPG::CAttackPortion> attack;
+	if ( CreateAttack( &attack, 0 ) && !attack.empty() )
+	{
+		CVec3 ptCurrent;
+		NAI::IAIMap *pMap = pWorld->GetAIMap();
+		const bool bObject = IsValid( pTarget ) && pMap->GetUnitHLPos( &ptCurrent, pMap->GetHull( pTarget ), -1 );
+		const CVec3 &ptAim = bObject ? ptCurrent : ptTarget;
+		CVec3 ptAttackPos = NRPG::GetMeleeAttackPos( pUS, ptAim );
+		CObj<NRPG::CCoverInfo> pCover = bObject
+			? pWorld->GetGame()->CalcCovers( ptAttackPos, attack[0], pUS, pTarget, -1, 0 )
+			: pWorld->GetGame()->CalcCoversForTile( ptAttackPos, attack[0], pUS, ptTarget, 0 );
+		int nToHit;
+		float fHit;
+		CDynamicCast<CUnitServer> pUnitTarget( pTarget );
+		if ( bObject && IsValid( pUnitTarget ) )
+		{
+			// The original object label supplies default HL_ANY/empty locations,
+			// independently of CExecMeleeUnit's saved called-shot selection.
+			NRPG::STargetHLInfo info;
+			fHit = NRPG::CheckToHit( pUS, pUnitTarget, GetExtraAP(), info.eHL,
+				info.accessibleHLs, pCover, pWorld->IsFirstTurn(), &nToHit );
+		}
+		else
+			fHit = NRPG::CheckTileToHit( pUS, ptAim, GetExtraAP(), NAI::THL_LOWER,
+				pCover, pWorld->IsFirstTurn(), &nToHit );
+		CRay ray;
+		bool bMissed;
+		if ( NRPG::PeekRay( pCover, &ray, fHit, &bMissed ) && !bMissed )
+			PerformAttack( attack, ray );
+	}
+	csRPG << "}\n";
+	bAttackCanceled = true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecMeleeUnit
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail @0x3a51b0: base chain + hlInfo = {_eHL, empty set} (SelectTargetHLs fills the set at
@@ -3953,6 +4000,7 @@ REGISTER_SAVELOAD_CLASS( 0x00222190, CExecThrowGrenade )
 REGISTER_SAVELOAD_CLASS( 0x00422170, CExecShootUnit )
 REGISTER_SAVELOAD_CLASS( 0x00422171, CExecMeleeTile )
 REGISTER_SAVELOAD_CLASS( 0x00422172, CExecMeleeUnit )
+REGISTER_SAVELOAD_CLASS( 0x01353130, CExecMeleeObject )
 REGISTER_SAVELOAD_CLASS( 0x10422130, CExecOpenClose )
 REGISTER_SAVELOAD_CLASS( 0x00422110, CExecCorpse )
 REGISTER_SAVELOAD_CLASS( 0x00622140, CExecHeal )

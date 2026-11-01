@@ -291,6 +291,21 @@ public:
 	virtual void OnLabel();
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// CExecMeleeObject: original saved executor (Steam registry 0x01353130).
+// Its fresh-command constructor/routing is separate from legacy save restoration.
+////////////////////////////////////////////////////////////////////////////////////////////////////
+class CExecMeleeObject: public CExecMelee
+{
+	OBJECT_BASIC_METHODS(CExecMeleeObject);
+	ZDATA_(CExecMelee)
+	CPtr<CObjectBase> pTarget;
+	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CExecMelee*)this); f.Add(2,&pTarget); return 0; }
+public:
+	CExecMeleeObject() {}
+	virtual void OnLabel();
+	virtual void PerformAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, float fHit = 1.0f );
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecMeleeUnit
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CExecMeleeUnit: public CExecMelee

@@ -2398,3 +2398,32 @@ exclusion. Only known prior NativeCampaignSequence-nested-save movement flake ex
 as139, not fixed. No original runtime or asset generation. Sourcecomplete31unfinished.
 
 Source: [6b4f7b8f67f26adb20506bef1015f89aba9f29dd](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6b4f7b8f67f26adb20506bef1015f89aba9f29dd).
+
+## 2026-11-01: saved object-melee executor foundation (145)
+
+NativeObjectMeleeSave0..7 are native real-world legacy payload consumers, not a new
+class-name/source-text check.0 keeps normal point melee;1/2 target/null original-field
+roundtrip into a fresh registered decoder;3 real inherited Start/AP cost+7;4 retained
+pocket target without hull;5 null target, both real one-shot label consumption;6/7 actual
+selected/null saved filters across two native human hulls, exact damage and callbacks. No
+live-world deserialization; only fresh executor decode with external references. Canonical
+RED7/14 both includes all six unchanged native unit/tile/godmode filter controls, all
+pass; GREEN14 both and seven controls exact.
+
+Retain initial enum compile failures, old artificial-health fixture failures and
+byte-exact parent reproduction separately. The old fixture changed native VP to500 before
+lifecycle updates, which later normalized caps to140 and contaminated its damage delta.
+Measuring pre-attack HP fixes five controls; removing that unstable artificial cap and
+retaining actual healthy native receivers fixes all six, with the exact literal
+damage/callback/godmode/actor guards preserved. The canonical RED after fixture
+calibration has only seven missing-factory failures. Restore unchanged production
+implementation after that RED.
+
+Typed original serializer53/registry and independently decoded label/selector/default HL
+info/filter accepted; reject whole Gold499 label comparison. Native full Game both/372
+Windows/361 Linux related/CI378 pass,12 FONT-COMPAT rows exact both. Parameter
+constructor/live route remain deferred; source still partial31unfinished, no original
+runtime or whole retail-save-file interchange claim. Known prior campaign nested-save
+movement flake remains tracked, not fixed.
+
+Source: [4cdc1eada6c182c0a9093364e95c750a6166d4c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8).
