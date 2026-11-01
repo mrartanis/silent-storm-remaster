@@ -3722,3 +3722,24 @@ runtime or sampled future held bone frames is claimed. Sourcec941 complete,47 so
 remain; whole-task final hosted CI pending.
 
 Source: [c94140922b034b3e11dd9e2a1d740d32c559e488](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c94140922b034b3e11dd9e2a1d740d32c559e488).
+
+## 2026-11-01: hearing probability, quiet practice and crawling noise
+
+Guaranteed loud sounds no longer grant SPOT/INT practice; quiet successful detection
+retains its existing fractional practice and d99 draw. Tested loud
+progress.00779656228/.0000207908342 becomes0/0. Perk20's fractional SPOT product truncates
+(tested probability71->70); human loud hearing no longer receives PK-only sensor perk76
+(100->0 at tested boundary). A quiet sound without a unit source now uses hard-range
+hearing instead of dereferencing null. Crawling SetPosition no longer emits its extra
+AI-noise event; walk/stance/turn controls remain. Positive quiet-step77 coefficients
+use1/coef as in the original, with that edge supported statically rather than a separately
+isolated custom-data runtime. Authored records/provider/training formulas/AP/HP/XP pool
+and save/network types remain.
+
+Canonical native RED5/14 both (4 assertions +null-source crash) ->220 Windows /221 Linux
+selected regressions, full Game builds/CI323,9 exact controls/inputsfixed and21 prior PK
+measurements exact. Typed original whole517/285/742 and separately decoded179 caller
+support the changes; no original full World/hearing/RNG runtime claim. Source242
+complete,46 sources remain; whole-task final hosted CI pending.
+
+Source: [242f6dfd827d93014c4210980f9d1c4af2a45b67](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/242f6dfd827d93014c4210980f9d1c4af2a45b67).

@@ -1832,3 +1832,27 @@ related regressions/CI323 include all11 RED names and prior placement tests; all
 prior121 pilot-exit measurements exact. Sourcec941 complete,47 unfinished.
 
 Source: [c94140922b034b3e11dd9e2a1d740d32c559e488](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c94140922b034b3e11dd9e2a1d740d32c559e488).
+
+## 2026-11-01: hearing probability, quiet practice and crawling noise
+
+NativeHearingProbability0..5 uses actual authored perks20/76 and independent unperked
+mission references, integral/fractional SPOT, human/PK sensor branches and valid null/deaf
+source cases. NativeHearingPractice0..3 checks real CanHearSound against separately
+trained unit skill cells and4-word d99 continuation: loud progress->0, quiet success
+unchanged, misses unchanged. NativeMovementNoise0..3 primes prior hearing through actual
+World, clears prior event/progress and checks real SetPosition heard
+event/marker/AP/HP/time: crawl1->0, walk1/stance0/turn0 exact. Initial missing DataAI
+include and invalid TBS-visible-list premise are archived setup failures. Canonical
+RED5/14 both is4 behavioral assertions +valid null-source SIGSEGV;9 exact
+controls/inputsfixed. No DB changes or fake provider.
+
+Typed actual probability517/step285/position742 match whole Gold bodies uniquely with
+decoded E8/EH/equalF32 operands only, preserving opcode/frame/field/branch bytes.
+Actual179 hearing caller differs from Gold182's training call; separately audit
+quiet-output/d99/quiet-gated mission SPOT6, no forced whole match. Native positive77
+low-coefficient boundary is not separately isolated; original exact285 positive0
+test/reciprocal supports it statically. Original World/hearing/RNG runtime not executed.
+Full Game builds/220 Windows /221 Linux selected checks/CI323 include all14 RED names;21
+prior PK measurements exact. Source242 complete,46 unfinished.
+
+Source: [242f6dfd827d93014c4210980f9d1c4af2a45b67](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/242f6dfd827d93014c4210980f9d1c4af2a45b67).

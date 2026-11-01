@@ -22954,3 +22954,84 @@ imported or already covered;47 sources remain (pending33 +partial14). Eventual w
 final hosted CI remains pending.
 
 Source: [c94140922b034b3e11dd9e2a1d740d32c559e488](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c94140922b034b3e11dd9e2a1d740d32c559e488).
+
+## 2026-11-01: hearing probability, quiet practice and crawling noise (source242 complete)
+
+The actual RPG hearing consumer trains SPOT and its associated INT only after successful
+quiet-sound detection; guaranteed loud hearing consumes its existing d99 but grants no
+practice. Perk20's SPOT product truncates, and perk76 modifies loud sensor range only
+inside a valid nonzero PK-sensor branch. A null source takes the existing hard-range
+branch before any quiet-source dereference. Float-clamp-to-int truncation already matched
+and stays intact. SetPosition emits no position-update movement-noise event for crawling,
+while walking/stance-change/turn rules remain. The quiet-step77 silencer uses1/coefficient
+for any positive coefficient. Own MissionRandom provider, training math/learning/perk
+caps, nullable-interface contract, packed sound/position/save/network types and
+actor/physics/rendering pipelines remain.
+
+NativeHearingProbability0..5 loads actual authored data and uses real RPG missions,
+granted real perk nodes and stable live skills. The fractional perk20 input
+SPOT1/factor1.5 is compared with an independently queried unperked SPOT1 reference,
+distinguished from unperked2 before the actual producer measurement: probability71->70 at
+distance.25. Integral SPOT2/factor1.5 matches reference3 unchanged. Perk76/factor1.5 on a
+human at14.6428566 no longer extends the actual unperked range:100->0; a real authored
+PK-sensor record at0 remains100. Quiet record3/radius2 with a null source previously
+segfaulted and now returns100 with quiet-outputfalse; the actual DEAF early return
+remains0/false. The inputs are identical across the corrected RED/GREEN and both
+platforms; queries retain AP/HP/SPOT progress/next gameplay RNG word. This null-source
+crash is a genuine existing public-consumer failure, not a malformed fixture/provider
+substitution.
+
+NativeHearingPractice0..3 uses actual mission.CanHearSound and an independently trained
+real-unit reference. Loud record8/radius40, probability100, seed1/roll95 previously added
+SPOT progress.00779656228 and INT progress.0000207908342; both now remain0. Quiet success
+seed2/roll63 retains exactly that native practice; quiet95/roll95 and out-of-range loud
+misses remain untrained. All skill cells match the independently prepared references.
+Hearing result, authored sound/seed/roll/probability/XP pool1/AP/HP and the four-word d99
+continuation remain fixed. This checks actual fractional skill progress rather than an
+invented training counter.
+
+NativeMovementNoise0..3 uses actual initialized world, ordinary actor and newly deployed
+real same-player listener. A real loud sound is first sent through World.MakeAISound to
+establish the actual known-audible state, then its prior event and fractional SPOT/INT
+progress are cleared before the measurement. Existing SetPosition at identical crawling
+pose/facing previously emitted a real heard event with a retained noise marker; it now
+emits none. Walking still emits one, a change to crawl and a crawl turn still emit none,
+with actual target/AP/HP/time fixed. These are actual world event/marker observations, not
+a fake hearing/visibility provider or a waveform claim. The first fixture wrongly required
+the same-player actor in the TBS visible list; those four setup failures and an initial
+missing-complete-DataAI include build failure are archived and excluded. Corrected
+canonical RED is5/14 both:4 runtime assertion failures plus the valid null-source SIGSEGV,
+with9 exact controls. No producer changes preceded canonical RED.
+
+Named CUnitMission RTTI maps Gold4c-vtable8b63cc to actual Steam8c54e4:
+GetHearingProbability slotd4 is6c0090/517 and CanHearSound slotd8 is6c2fa0/179. Original
+probability517, MakeStepSound285 at750330 and SetPosition742 at752050 each match whole
+typed Gold bodies uniquely with only decoded E8 call-address operands, validated
+compiler-EH metadata and independently equal F32 constants masked. Their
+opcode/frame/field/branch bytes remain exact. The original SPOT product's36-byte
+CW-truncate/FISTP/restore block is exact, null-source JE6c015a enters hard range6c021a,
+and PK null/zero-sensor exits skip the entire perk76 block. Original positive77 FCOMP0 and
+reciprocal are in the exact whole285 body; that positive-coefficient edge is independently
+static evidence, not a separately isolated native0..1-coefficient outcome. No authored
+perk parameter is changed for these tests.
+
+Gold CanHearSound182 and actual Steam179 differ in the successful quiet-training call:
+Gold calls the unit directly via118, while Steam adjusts the mission root-4c and
+calls6c1fb0. Whole-method equivalence is rejected without opcode/frame/branch masks. The
+independently decoded actual caller passes a quiet-output pointer to virtuald4, consumes
+exactly one shared ISAAC9ca918/mod99 draw, rejects roll>=probability and then gates SPOT6
+mission practice on the quiet byte at6c3034. The original distance constant is actual F32
+1.6. Native keeps its own proven provider and training implementation. Original full
+World/hearing/ISAAC runtime is not executed here; no original code/DB/World/TEB/RNG patch
+or fake provider. Stale donor6c2ff0/751c94/74ffd0 comments are replaced with independently
+audited actual entries/blocks.
+
+Full Game builds, 220 Windows /221 Linux selected
+hearing/noise/practice/learning/PK/audio/serialization/lock/item-map regressions and CI323
+pass, including all14 canonical RED names. All21 prior121/122
+pilot-exit/collapse/corpse-gate measurements stay exact. Unrelated
+accuracy/camera/graphics suites are not claimed as rerun. All useful242 hunks are imported
+or already covered;46 sources remain (pending32 +partial14). Source171 heard-AI camera
+dispatch remains separate. Eventual whole-task final hosted CI remains pending.
+
+Source: [242f6dfd827d93014c4210980f9d1c4af2a45b67](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/242f6dfd827d93014c4210980f9d1c4af2a45b67).

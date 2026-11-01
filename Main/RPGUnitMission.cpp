@@ -2186,14 +2186,17 @@ void CUnitMission::SetCannonItem( IWeaponItem *pItem )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail @0x2c2ee0 -- the Jan03 in-place hearing model was replaced by a roll of the hearing chance
 // (GetHearingProbability @0x2bff30, which owns the deaf/silencer/perk handling) at the 1.6x-scaled 3D
-// distance (0x3fcccccd), against a d99 (Isaac % 99); a heard sound trains the SPOT skill.
+// distance (0x3fcccccd), against a d99 (Isaac % 99); only a heard quiet sound trains SPOT.
 bool CUnitMission::CanHearSound( const CVec3 &ptSoundPosition, const CVec3 &ptListenerPosition,
 		const NDb::SAISound &sound, IUnitMission *pSource )
 {
 	float fDistance = fabs( ptSoundPosition - ptListenerPosition ) * 1.6f;
-	if ( GetHearingProbability( pSource, fDistance, sound, 0 ) <= (int)MissionRandom().Get( 99 ) )
+	bool bQuietSound = false;
+	if ( GetHearingProbability( pSource, fDistance, sound, &bQuietSound ) <= (int)MissionRandom().Get( 99 ) )
 		return false;
-	UseSkill( NDb::ST_SPOT );
+	// Actual Steam 0x6c3034 gates mission practice on the quiet-sound output.
+	if ( bQuietSound )
+		UseSkill( NDb::ST_SPOT );
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2206,7 +2209,7 @@ bool CUnitMission::CanHearSound( const CVec3 &ptSoundPosition, const CVec3 &ptLi
 // (Workflow corrections to the answer-key/decomp labels, resolved from the raw vtable: there is NO difficulty
 // global -- the "_DAT" chain is an inlined Skills(ST_SPOT/ST_STEALTH) CDynamicSkill read; the "ptLastCP" loud-
 // branch read is actually pPanzerklein->fSensorRange. Perk ids 0x14/0x4c are retail data-driven ids, emitted as
-// literals. The release rounds the clamped probability; we keep CanHearSound's truncating Clamp idiom.)
+// literals. Actual Steam 0x6c0090 truncates both perk-adjusted SPOT and clamped probability.)
 int CUnitMission::GetHearingProbability( IUnitMission *pSource, float fDist, const NDb::SAISound &sound, bool *pAudible )
 {
 	if ( pAudible )
@@ -2220,17 +2223,20 @@ int CUnitMission::GetHearingProbability( IUnitMission *pSource, float fDist, con
 	int nSpot = GetRPGUnit()->Skills( NDb::ST_SPOT );
 	float fPerk;
 	if ( HasPerk( 0x14, &fPerk ) )
-		nSpot = (int)( nSpot * fPerk + 0.5f );
+		nSpot = (int)( nSpot * fPerk );
 	//
-	if ( fRadius >= c->nLoudSound )
+	if ( !pSource || fRadius >= c->nLoudSound )
 	{
 		// a loud sound -> a hard hearing-DISTANCE test: certainly heard (100) if within range, else 0
 		float fHearingDistance = c->nPrecisePositionRadius +
 			( fRadius - c->nPrecisePositionRadius ) * nSpot / NRPG::N_MAX_SKILL;
 		if ( pPanzerklein && pPanzerklein->fSensorRange )
+		{
 			fHearingDistance *= pPanzerklein->fSensorRange;
-		if ( HasPerk( 0x4c, &fPerk ) )           // a silent-movement / acute-hearing perk
-			fHearingDistance *= fPerk;
+			// Actual Steam 0x6c024a..0x6c026f: sensor perk stays inside the PK branch.
+			if ( HasPerk( 0x4c, &fPerk ) )
+				fHearingDistance *= fPerk;
+		}
 		return ( fHearingDistance >= fDist ) ? 100 : 0;   // pAudible stays false on this branch
 	}
 	else
