@@ -3769,3 +3769,27 @@ setter/classifier/ctor-call and exact62 difficulty gate are static evidence; zer
 original runtime records. Source171 complete,45 sources remain.
 
 Source: [1715d48307f8282d20192425599c5b4253c335ea](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1715d48307f8282d20192425599c5b4253c335ea).
+
+## 2026-11-01: whole-hull cover projection, extended raster bounds and normal range caps
+
+Cover and hit-location queries frame the whole hull while retaining the requested part
+filter. Rasterization extends beyond the target so geometry is not cut off at its center;
+primary and secondary sampling squares scale with the extended projection. Penetration
+remains capped at30 world units on both AI and normal player cover paths. Tile cover
+stops0.625 before the aim point instead of0.25 and also respects30. This can change
+preview/AI cover weights and sampled ray distributions near body parts, distant targets
+and tile-adjacent allies. No independent accuracy, damage, training, AP or weapon formula
+changes. Unit walks remain radial, tile walks retain projected-plane distance, and trace
+masks/part filters/save/network types are unchanged.
+
+The original generic routines take an explicit range; normal AI/human unit/tile callers
+independently pass30. Keep that existing public adapter rather than adding another
+public/save parameter; custom splinter ranges elsewhere remain. Native RED15/22 ->22 new
+cases pass,7 outcome controls and all captured query-state/RNG invariants. Final38
+affected tests both plus371Win/372Linux other related passes, Game both/CI323,33 prior124
+samples exact. Original complete933/540 and independently bound tangent/callers are static
+evidence; zero new original runtime records. Earlier tests' uncapped33 reference and0.25
+tile plane were updated to the confirmed rules, with old failed runs archived. Source01eb
+complete,44 sources remain.
+
+Source: [01eb873b41cd2c8b9ce2d7b81835d2e00d492118](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/01eb873b41cd2c8b9ce2d7b81835d2e00d492118).

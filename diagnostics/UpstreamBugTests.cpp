@@ -10425,10 +10425,11 @@ static void AICoverProjection(const char* databasePath,const char* resourcePath,
     CVec3 aim;Require(original.GetPtr()==world->GetAIMap() && original->GetUnitHLPos(&aim,original->GetHull(target),NAI::HL_ANY),"projection fixture has no actual native target locator");
     const float distance=human?8.f:pk?6.f:30.f;
     const CVec3 source=tile?VNULL3:aim-CVec3(0,distance,0),tileTarget(0,30.25f,0);
-    CObj<CoverProjectionMapProbe> probe=new CoverProjectionMapProbe(original);probe->source=source;probe->cutoff=tile?30.f:Min(distance+1.f,30.f);
+    CObj<CoverProjectionMapProbe> probe=new CoverProjectionMapProbe(original);probe->source=source;probe->cutoff=tile?29.625f:Min(distance+1.f,30.f);
     CVec3 lo,hi;
     if(tile) {
-        const float plane=mode==4?29.99995f:mode==5?30.001f:29.99f;
+        // Tile target30.25 minus original0.625 pullback gives the actual29.625 plane.
+        const float plane=mode==4?29.62495f:mode==5?29.626f:29.615f;
         lo=CVec3(-.25f,plane,-.25f);hi=CVec3(.25f,plane+.01f,.25f);
     } else if(human) {
         const float plane=sliver?7.999f:7.8f;
@@ -11348,18 +11349,19 @@ static void AICoverRange(const char* databasePath,const char* resourcePath,int m
     Require(!attacks.empty() && attacks.front().nK>0,"cover range fixture has no actual native weapon portion");
     CObj<CoverRangeMapProbe> probe=new CoverRangeMapProbe(original);probe->target=target;
     struct Restore{NRPG::IGame* game;CPtr<NAI::IAIMap> map;~Restore(){SetCoverProbeMap(game,map);}}restore{game,original};SetCoverProbeMap(game,probe);
-    // The existing non-AI cover path is the native positive reference for
-    // hypothetical origins. Elevated profiles require a positive reference;
-    // level profiles retain the real map's fully blocked negative control.
-    // Never select from the AI result under test.
+    // Select the direction using a separate actual29-unit non-AI query.
+    // Both native producers now cap at30, so an elevated33-unit query can no
+    // longer serve as an uncapped positive reference. Keep real near blocked
+    // controls as well, independently of the distant result under test.
     const float distance=distant?33.f:29.f;CVec3 source;bool clear=false;int directionIndex=-1,referenceScore=0;
     const CVec2 directions[]={CVec2(1,0),CVec2(0,1),CVec2(-1,0),CVec2(0,-1),CVec2(1,1),CVec2(-1,1),CVec2(-1,-1),CVec2(1,-1)};
     for(const auto& xy:directions) {
         ++directionIndex;CVec3 offset(xy.x,xy.y,0);Normalize(&offset);
         if(elevated)offset=offset*.6f+CVec3(0,0,.8f);
         const CVec3 candidate=aim+offset*distance;
-        probe->source=candidate;probe->traces.clear();probe->targetIntervals=probe->insideCap=probe->outsideCap=probe->insideNaturalRange=0;
-        CObj<NRPG::CCoverInfo> reference=game->CalcCovers(candidate,attacks.front(),actor,target,NAI::HL_ANY,1.f,false);
+        const CVec3 referenceSource=aim+offset*29.f;
+        probe->source=referenceSource;probe->traces.clear();probe->targetIntervals=probe->insideCap=probe->outsideCap=probe->insideNaturalRange=0;
+        CObj<NRPG::CCoverInfo> reference=game->CalcCovers(referenceSource,attacks.front(),actor,target,NAI::HL_ANY,1.f,false);
         referenceScore=NRPG::GetHitCover(actor,reference);clear=elevated ? referenceScore>0 : referenceScore==-1;
         if(clear){source=candidate;break;}
     }
@@ -11374,7 +11376,7 @@ static void AICoverRange(const char* databasePath,const char* resourcePath,int m
         score=NRPG::GetHitCover(actor,cover);
     } else score=game->GetCoverForAIUnit(source,actor,target,attacks.front(),NAI::HL_ANY);
     const float realDistance=fabs(aim-source),horizontal=fabs(aim.x-source.x,aim.y-source.y);
-    std::printf("native AI cover range: mode=%d human=%d distant=%d elevated=%d direction=%d distance=%.2f horizontal=%.2f score=%d reference=%d target=%d inside=%d outside=%d natural=%d grids=%zu\n",
+    std::printf("native AI cover range: mode=%d human=%d distant=%d elevated=%d direction=%d distance=%.2f horizontal=%.2f score=%d reference=%d referenceDistance=29 target=%d inside=%d outside=%d natural=%d grids=%zu\n",
         mode,int(human),int(distant),int(elevated),directionIndex,realDistance,horizontal,score,referenceScore,probe->targetIntervals,probe->insideCap,probe->outsideCap,probe->insideNaturalRange,probe->traces.size());std::fflush(stdout);
     Require(probe->traces.size()==(human?2u:1u) && probe->targetIntervals>0 && probe->insideNaturalRange==probe->targetIntervals,
         "cover range fixture did not preserve genuine target intersections within the natural projection distance");
@@ -11382,9 +11384,9 @@ static void AICoverRange(const char* databasePath,const char* resourcePath,int m
     Require(fabs(realDistance-distance)<2e-4f && (!elevated || horizontal<30.f),"cover range fixture did not separate native 3D range from horizontal range");
     Require(distant ? probe->insideCap==0 && probe->outsideCap==probe->targetIntervals : probe->insideCap==probe->targetIntervals && probe->outsideCap==0,
         "cover range fixture did not separate the real target intervals on the two sides of the original cap");
-    Require(!human || score==referenceScore,"non-AI range control changed its actual native reference score");
-    if(elevated)Require(distant && !human ? score==0 : score>0,
-        "AI cover exceeded the original 30-unit ray range or changed a near/non-AI control");
+    Require(!human || distant || score==referenceScore,"near non-AI range control changed its actual native29-unit reference score");
+    if(elevated)Require(distant ? (human?score==-1:score==0) : score>0,
+        "cover exceeded the original30-unit radial limit or changed its real near control");
     else Require(human ? score==-1 : score==0,"AI range policy changed the real map's fully blocked level-ray control");
     Require(GlobalGameRandom().Get()==beforeRandom.Get(),"cover range queries consumed native RNG");
     Require(actor->GetPosition()==actorPosition && target->GetPosition()==targetPosition && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp
@@ -32542,6 +32544,78 @@ static void NativeHeardAICamera(const char* databasePath,const char* resourcePat
     Require(ap==listener->GetAP() && hp==listener->GetUnitRPG()->GetTotalVP() && pos==source->GetPosition() && time==f.world->GetTime()->GetValue(),"heard AI focus changed AP/HP/position/world time");
 }
 
+class NativeCoverFramingMap:public CoverOriginMapProbe
+{
+    OBJECT_NOCOPY_METHODS(NativeCoverFramingMap);
+public:
+    CVec3 expectedDirection,farPoint;
+    int requested=-99,locators=0,grids=0,farInside=0;
+    float axisError=0;
+    explicit NativeCoverFramingMap(NAI::IAIMap* m=nullptr):CoverOriginMapProbe(m){}
+    bool GetUnitHLPos(CVec3* out,CObjectBase* hull,int id) override
+    {
+        requested=id;++locators;return native->GetUnitHLPos(out,hull,id);
+    }
+    void TraceGrid(NAI::CFastRenderer* grid,int mask,ESort sort,const NAI::CFloorsSet& floors,ESplitTerrainHGroups split,bool doors) override
+    {
+        CVec3 axis;grid->GetDir(&axis,grid->resGrid.GetXSize()*.5f-.5f,grid->resGrid.GetYSize()*.5f-.5f);
+        axisError=Max(axisError,fabs(axis-expectedDirection));++grids;farInside+=int(grid->TestSphere(farPoint,.001f));
+        CoverOriginMapProbe::TraceGrid(grid,mask,sort,floors,split,doors);
+    }
+};
+
+static NRPG::CAttackPortion NativeCoverFixedAttack(NWorld::CUnitServer* actor,NWorld::CUnitServer* target)
+{
+    auto* armor=target->GetUnitRPG()->GetRPGArmor();Require(armor && armor->pMaterial,"cover policy lacks actual flesh material");
+    int type=-1;CDBIterator<NDb::CRPGDmgToArmor> types(*NDatabase::GetTable<NDb::CRPGDmgToArmor>());
+    while(types.MoveNext())if(types.Get()->armors[armor->pMaterial->nDR]>0 && (type<0 || types.Get()->GetRecordID()<type))type=types.Get()->GetRecordID();
+    Require(type>=0,"cover policy lacks authored positive damage type");return NRPG::CAttackPortion(100000,type,0.f,1,1,0,0,actor->GetUnitRPG(),target->GetUnitRPG(),1.f,-1);
+}
+
+static void NativeCoverFramingPolicy(const char* databasePath,const char* resourcePath,int mode,bool extent)
+{
+    Require(mode>=0 && mode<(extent?6:8),"unknown native cover framing policy mode");NativeHearingOwners f(databasePath,resourcePath);
+    auto* actor=f.humanUnit;auto* target=f.aiUnit;auto* game=f.world->GetGame();auto* map=f.world->GetAIMap();map->Sync();
+    CVec3 whole;Require(map->GetUnitHLPos(&whole,map->GetHull(target),NAI::HL_ANY),"cover framing lacks actual whole-hull locator");
+    const int parts[]={NAI::HL_ANY,NAI::HL_BODY,NAI::HL_HEAD,NAI::HL_RHAND,NAI::HL_LHAND,NAI::HL_RLEG,NAI::HL_LLEG,NAI::HL_ANY};
+    const bool tile=extent && mode>=4,human=extent?mode==1 || mode==3:mode%2;
+    const int part=extent?NAI::HL_ANY:parts[mode];const float distance=extent && (mode==2 || mode==3 || mode==5)?40.f:8.f;
+    const CVec3 aim=tile?CVec3(0,distance,0):whole,source=aim-CVec3(0,distance,0);
+    CObj<NativeCoverFramingMap> probe=new NativeCoverFramingMap(map);probe->expectedDirection=CVec3(0,1,0);probe->farPoint=source+CVec3(0,distance+1.f,0);
+    struct Restore{NRPG::IGame* game;CPtr<NAI::IAIMap> map;~Restore(){SetCoverProbeMap(game,map);}}restore{game,map};SetCoverProbeMap(game,probe);
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),targetHP=target->GetUnitRPG()->GetTotalVP();const auto actorPos=actor->GetPosition(),targetPos=target->GetPosition();const auto time=f.world->GetTime()->GetValue();auto random=GlobalGameRandom();
+    auto attack=NativeCoverFixedAttack(actor,target);CObj<NRPG::CCoverInfo> cover=tile?game->CalcCoversForTile(source,attack,actor,aim,0.f):game->CalcCovers(source,attack,actor,target,part,1.f,!human);
+    auto afterRandom=GlobalGameRandom();bool sameRNG=true;for(int i=0;i<4;++i)sameRNG&=random.Get()==afterRandom.Get();const int expectedGrids=tile || !human?1:2;
+    std::printf("native cover framing policy mode=%d extent=%d tile=%d human=%d requestedPart=%d actualLocator=%d locators=%d distance=%.9g grids=%d expectedGrids=%d farInside=%d axisError=%.9g AP=%d afterAP=%d HP=%d afterHP=%d targetHP=%d afterTargetHP=%d RNG=%d\n",mode,int(extent),int(tile),int(human),part,probe->requested,probe->locators,distance,probe->grids,expectedGrids,probe->farInside,probe->axisError,ap,actor->GetAP(),hp,actor->GetUnitRPG()->GetTotalVP(),targetHP,target->GetUnitRPG()->GetTotalVP(),int(sameRNG));std::fflush(stdout);
+    Require(cover && probe->grids==expectedGrids && probe->locators==(tile?0:1),"cover framing did not traverse actual producer/map/grid boundaries");
+    Require(sameRNG && ap==actor->GetAP() && hp==actor->GetUnitRPG()->GetTotalVP() && targetHP==target->GetUnitRPG()->GetTotalVP() && actorPos==actor->GetPosition() && targetPos==target->GetPosition() && time==f.world->GetTime()->GetValue(),"cover framing query changed combat inputs/time/RNG");
+    if(extent)Require(probe->farInside==expectedGrids,"native cover frustum stopped at the target and excluded geometry just beyond it");
+    else Require(probe->requested==NAI::HL_ANY && probe->axisError<.00001f,"native cover projection centered a selected body part instead of the whole hull");
+}
+
+static void NativeCoverRangePolicy(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<8,"unknown native cover range policy mode");NativeHearingOwners f(databasePath,resourcePath);auto* actor=f.humanUnit;auto* target=f.aiUnit;
+    const bool tile=mode>=3 && mode<=6,human=mode==0 || mode==2 || mode==7;const float distance=mode==0 || mode==1 || mode==4 || mode==5?40.f:8.f;
+    auto* map=f.world->GetAIMap();map->Sync();CVec3 whole;Require(map->GetUnitHLPos(&whole,map->GetHull(target),NAI::HL_ANY),"cover range lacks actual hull locator");
+    const CVec3 aim=tile?CVec3(0,distance,0):whole,source=aim-CVec3(0,distance,0);CObj<NWorld::CUnitServer> ally;
+    if(tile)ally=f.world->AddUnitInGame(f.FreePlace(actor->GetPosition().GetCP(),10.f),NRPG::CreateUnit(NDb::GetPers(54)),f.human,"NativeCoverClearanceAlly");
+    Require(!tile || (ally && actor->GetDiplomacyState(ally)==NDb::DS_ALLY),"cover range lacks real separate ally identity");
+    CObj<CoverProjectionMapProbe> probe=new CoverProjectionMapProbe(map);probe->source=source;probe->cutoff=30.f;
+    float front=distance-.5f,thickness=1.f;
+    if(tile){front=mode==3?7.5f:mode==4?31.f:mode==5?29.f:7.f;thickness=.125f;}
+    probe->Box(tile?ally.GetPtr():target,source+CVec3(-.3f,front,-.3f),source+CVec3(.3f,front+thickness,.3f));
+    auto attack=NativeCoverFixedAttack(actor,target);Require(attack.CanDealDmg(probe->surface.pArmor) && !attack.IsArmorIgnored(probe->surface.pArmor),"cover range has no actual eligible material");
+    auto* game=f.world->GetGame();struct Restore{NRPG::IGame* game;CPtr<NAI::IAIMap> map;~Restore(){SetCoverProbeMap(game,map);}}restore{game,map};SetCoverProbeMap(game,probe);
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),targetHP=target->GetUnitRPG()->GetTotalVP(),allyHP=ally?ally->GetUnitRPG()->GetTotalVP():0;const auto pos=actor->GetPosition();auto random=GlobalGameRandom();
+    CObj<NRPG::CCoverInfo> cover=tile?game->CalcCoversForTile(source,attack,actor,aim,0.f):game->CalcCovers(source,attack,actor,target,NAI::HL_ANY,1.f,!human);
+    const int score=NRPG::GetHitCover(actor,cover);const bool expectedPositive=mode==2 || mode==3 || mode==4 || mode==7;auto afterRandom=GlobalGameRandom();bool sameRNG=true;for(int i=0;i<4;++i)sameRNG&=random.Get()==afterRandom.Get();
+    std::printf("native cover range policy mode=%d tile=%d human=%d distance=%.9g front=%.9g thickness=%.9g score=%d expectedPositive=%d intersections=%d grids=%zu AP=%d afterAP=%d HP=%d afterHP=%d targetHP=%d afterTargetHP=%d allyHP=%d afterAllyHP=%d RNG=%d\n",mode,int(tile),int(human),distance,front,thickness,score,int(expectedPositive),probe->intersections,probe->traces.size(),ap,actor->GetAP(),hp,actor->GetUnitRPG()->GetTotalVP(),targetHP,target->GetUnitRPG()->GetTotalVP(),allyHP,ally?ally->GetUnitRPG()->GetTotalVP():0,int(sameRNG));std::fflush(stdout);
+    Require(cover && probe->intersections>0 && probe->traces.size()==(human?2u:1u),"cover range did not rasterize actual closed-box geometry");
+    Require(sameRNG && ap==actor->GetAP() && hp==actor->GetUnitRPG()->GetTotalVP() && targetHP==target->GetUnitRPG()->GetTotalVP() && allyHP==(ally?ally->GetUnitRPG()->GetTotalVP():0) && pos==actor->GetPosition(),"cover range query changed native combat state/RNG");
+    Require((score>0)==expectedPositive,"native cover range retained an uncapped human ray or the old tile pullback");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "heard-icon-anchor-height")) { Require(argc == 4, "heard icon requires db and res"); EnemyIconVisibility(argv[2],argv[3],true); return true; }
@@ -33128,6 +33202,9 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-grenade-range-stance")) { Require(argc==5,"grenade range/stance requires db/resources/mode"); NativeGrenadeRangeStance(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grenade-hide-launch")) { Require(argc==5,"grenade hide requires db/resources/mode"); NativeGrenadeHideLaunch(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grenade-pk-launch")) { Require(argc==5,"grenade PK requires db/resources/mode"); NativeGrenadePKLaunch(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-cover-whole-center")) { Require(argc==5,"cover policy requires db/resources/mode"); NativeCoverFramingPolicy(argv[2],argv[3],std::atoi(argv[4]),false); return true; }
+    if (!std::strcmp(mode, "native-cover-projection-extent")) { Require(argc==5,"cover policy requires db/resources/mode"); NativeCoverFramingPolicy(argv[2],argv[3],std::atoi(argv[4]),true); return true; }
+    if (!std::strcmp(mode, "native-cover-range-policy")) { Require(argc==5,"cover policy requires db/resources/mode"); NativeCoverRangePolicy(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-rpg-ownership-damage")) { Require(argc==5,"ownership damage requires db/resources/mode"); NativeRPGOwnershipDamage(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-rpg-ownership-AI")) { Require(argc==5,"heard AI requires db/resources/mode"); NativeRPGOwnershipAI(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-heard-AI-camera")) { Require(argc==5,"heard AI requires db/resources/mode"); NativeHeardAICamera(argv[2],argv[3],std::atoi(argv[4])); return true; }

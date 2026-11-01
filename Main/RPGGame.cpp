@@ -376,32 +376,35 @@ CCoverInfo* CGame::CalcCovers( const CVec3 &src, const CAttackPortion &attack, N
 	CCoverInfo *pRes = new CCoverInfo;
 	pRes->fSummAPA = 0;
 	CVec3 ptTarget;
-	pAIMap->GetUnitHLPos( &ptTarget, pAIMap->GetHull(pDest), nTargetUserID );//pDest->GetPosition().GetCenter();
+	// Steam 0x69390e: frame the whole hull; filter the requested part in AddGridToCovers.
+	pAIMap->GetUnitHLPos( &ptTarget, pAIMap->GetHull(pDest), NAI::HL_ANY );
 	CVec3 ptFrom = src;
 	CVec3 vTargetDir = ptTarget - ptFrom;
 	float fXYDistance = fabs( vTargetDir.x, vTargetDir.y );
-	float fDistance = fabs( vTargetDir ) + 1; // +1 to make sure whole target is considered
-	// Retail AI queries pass a 30-unit limit; nearer targets keep their natural distance.
-	if ( bAIMode )
-		fDistance = Min( fDistance, float(N_WEAPONTRAIL_MAXDISTANCE) );
+	float fTargetDistance = fabs( vTargetDir );
+	float fDistance = Min( fTargetDistance + 1, float(N_WEAPONTRAIL_MAXDISTANCE) );
 	Normalize( &vTargetDir );
+	// Steam 0x6939bd: extend rasterization past the target; keep the ray-walk cap separate.
+	float fProjectionDistance = Max( 0.1f, Max( float(N_WEAPONTRAIL_MAXDISTANCE), fTargetDistance + 2 ) );
+	CVec3 ptProjectionTarget = src + vTargetDir * fProjectionDistance;
+	float fProjectionScale = fProjectionDistance / fTargetDistance;
 
 	float fSquareLimit = fXYDistance * FP_TAN_PI8;
 	CVec2 viewSquare;
-	viewSquare.x = Min( F_VIEW_BOUND * 0.5f, fSquareLimit );
-	viewSquare.y = F_VIEW_BOUND * 0.5f;
+	viewSquare.x = Min( F_VIEW_BOUND * 0.5f, fSquareLimit ) * fProjectionScale;
+	viewSquare.y = F_VIEW_BOUND * 0.5f * fProjectionScale;
 	// Retail AI and hit previews sample cover plus item blockers (0x8200).
 	const int nTraceFlags = NWorld::TS_COVER | NWorld::TS_ITEM_BLOCKER;
 	NAI::CFastRenderer res, resLow;
-	res.InitProjective( src, ptTarget, viewSquare, N_HALF_GRID );
+	res.InitProjective( src, ptProjectionTarget, viewSquare, N_HALF_GRID );
 	pAIMap->TraceGrid( &res, nTraceFlags, NAI::IAIMap::STH_SORT_INTERVALS );
 	AddGridToCovers( pRes, res, vTargetDir, pIgnore->GetAttackIgnore(), CastToObjectBase(pDest), nTargetUserID, fDistance, attack, fMinClearDistance );
 	// add low res grid
 	if ( !bAIMode )
 	{
-		viewSquare.x = fSquareLimit;
-		viewSquare.y = Max( F_VIEW_BOUND * 0.5f, fSquareLimit );
-		resLow.InitProjective( src, ptTarget, viewSquare, N_LOW_HALF_GRID );
+		viewSquare.x = fSquareLimit * fProjectionScale;
+		viewSquare.y = Max( F_VIEW_BOUND * 0.5f, fSquareLimit ) * fProjectionScale;
+		resLow.InitProjective( src, ptProjectionTarget, viewSquare, N_LOW_HALF_GRID );
 		pAIMap->TraceGrid( &resLow, nTraceFlags, NAI::IAIMap::STH_SORT_INTERVALS );
 		AddGridToCovers( pRes, resLow, vTargetDir, pIgnore->GetAttackIgnore(), CastToObjectBase(pDest), nTargetUserID, fDistance, attack, fMinClearDistance );
 	}
@@ -413,21 +416,25 @@ CCoverInfo* CGame::CalcCoversForTile( const CVec3 &src, const CAttackPortion &at
 	const CVec3 &ptTarget, float fMinClearDistance )
 {
 	// trace some rays and calc covers
-	float fDelta = N_TILE_HIT_HALF_GRID * F_TILE_HALF_VIEW_BOUND / N_TILE_LOW_HALF_GRID;
+	// Steam 0x693d29: stop the penetration walk 0.625 before the tile.
+	const float fDelta = 0.625f;
 	CCoverInfo *pRes = new CCoverInfo;
 	pRes->fSummAPA = 0;
 	CVec3 ptFrom = src;
 	CVec3 vTargetDir = ptTarget - ptFrom;
 	float fDistance = fabs( vTargetDir ) - fDelta;
 	Normalize( &vTargetDir );
-	CVec3 ptRealTarget = ptTarget - vTargetDir * fDelta;
+	float fProjectionDistance = Max( 0.1f, Max( float(N_WEAPONTRAIL_MAXDISTANCE), fDistance + 2 ) );
+	CVec3 ptRealTarget = src + vTargetDir * fProjectionDistance;
+	float fProjectionScale = fProjectionDistance / fDistance;
 	CVec2 viewSquare;
 	NAI::CFastRenderer resLow;
-	viewSquare.x = F_TILE_HALF_VIEW_BOUND;
-	viewSquare.y = F_TILE_HALF_VIEW_BOUND;
+	viewSquare.x = F_TILE_HALF_VIEW_BOUND * fProjectionScale;
+	viewSquare.y = F_TILE_HALF_VIEW_BOUND * fProjectionScale;
 	resLow.InitProjective( src, ptRealTarget, viewSquare, N_TILE_LOW_HALF_GRID );
 	pAIMap->TraceGrid( &resLow, NWorld::TS_COVER, NAI::IAIMap::STH_SORT_INTERVALS );
-	AddGridToCovers( pRes, resLow, vTargetDir, pIgnore->GetAttackIgnore(), 0, -1, fDistance, attack, fMinClearDistance );
+	AddGridToCovers( pRes, resLow, vTargetDir, pIgnore->GetAttackIgnore(), 0, -1,
+		Min( fDistance, float(N_WEAPONTRAIL_MAXDISTANCE) ), attack, fMinClearDistance );
 	pRes->src = src;
 	return pRes;
 }

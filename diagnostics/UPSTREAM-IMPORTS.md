@@ -23078,3 +23078,52 @@ human->our+64. No opcode/frame/field/branch/size masks, fake provider or origina
 executable patch; zero new original runtime records.
 
 Source: [1715d48307f8282d20192425599c5b4253c335ea](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1715d48307f8282d20192425599c5b4253c335ea). Whole-task final actual-head hosted CI remains pending;45 sources remain.
+
+## 2026-11-01: whole-hull cover projection, extended raster bounds and normal range caps (source01eb complete)
+
+CalcCovers centers its native projective grids on HL_ANY; the requested body part is still
+filtered by the unchanged AddGridToCovers walk. For unit center distanceD, extend the
+raster frustum toP=max(.1,max(30,D+2)) and scale both primary/secondary half-squares
+byP/D. Both grids retain the normal penetration limitmin(D+1,30), including the non-AI
+path. For a tile at distanceT, useD=T-.625, extend its raster frustum
+toP=max(.1,max(30,D+2)), scale its1.25 half-square byP/D and retain min(D,30) penetration.
+Own trace masks, radial-unit/projected-tile interval rules, later part filtering,
+stack-grid ownership and public/save/wire types stay unchanged. The complete
+AddGridToCovers source block is byte-identical to124.
+
+Canonical native RED15/22 both:6 actual body-part/whole-hull-axis failures,6 actual
+delegated native-map/frustum failures and3 existing native closed-box raster/cover outcome
+failures. Seven new outcome controls pass; all captured input/AP/HP/pose and4-word RNG
+controls stay fixed. Native GetHitCover is a cover weight, not a percentage chance:
+the40-unit human target previously returned positive weight and now blocks; actual ally
+clearance at the tile's original0.625 pullback and30-unit cap now stays outside the walk.
+Closed-box geometry is an input to real CFastRenderer/cover traversal; no fabricated
+intervals or returned scores. Native map/hull delegation covers the real authored objects
+for center/frustum checks.
+
+Final affected38/38 both plus371 Windows /372 Linux other related passes, unchanged game
+bytes across those runs, full Game both and CI323: combined distinct passed
+coverage409/410. Broad regression4 failures came only from old controls assuming uncapped
+non-AI33-unit reference or tile30.25-.25=30 plane. The corrected controls choose
+directions through a separate actual29-unit positive/blocked native reference and use the
+original tile plane30.25-.625=29.625 with sliver/near/far geometry on either side. They
+still verify real target intersections,3D versus horizontal range, radial versus projected
+tile cutoffs and genuine ally blocking. Game conditions were not changed to satisfy them.
+All33 prior124 ownership/difficulty/camera measurements match exactly. No single
+all-green409/410 CTest batch is claimed.
+
+Original static: typed CalcCoversGold68d940/933 ->Steam6938a0/933 and tileGold68dcf0/540
+->Steam693c50/540 each uniquely match complete bodies. Masks are only decodedE8 operands,
+validatedEH, equal F32 constants and named FP_TAN_PI8: Gold9b68f4 ->Steam9c7bec is
+independently bound by its sole use and unique17-byte same-F64-input FPTAN
+initializerGold894ab0 ->Steam8a3c70. No opcode/frame/register/field/branch/size or
+unknown-variable masks. Actual69390e push-1 selects whole hull;693d29 subtracts0.625;
+actual693ad6/693bd4/693e0d apply the explicit-range min cap. The original generic
+functions accept a range parameter; they are not inherently fixed30. Actual AI693e9c and
+normal human unit/tile callers6b5ad3/6b5b83 plus shot/cannon6b60a2/6b65c6/6b62a2 pass30.
+This tree retains its fixed30 public cover adapter; custom splinter ranges on other paths
+are untouched. Whole Gold human wrapper matching was rejected; actual wrapper
+prologues/calls/arguments were decoded separately. Zero new original runtime records; no
+original full World or firing/UI timeline claim.
+
+Source: [01eb873b41cd2c8b9ce2d7b81835d2e00d492118](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/01eb873b41cd2c8b9ce2d7b81835d2e00d492118).44 sources remain; whole-task actual-final-head hosted CI pending.

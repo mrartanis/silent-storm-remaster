@@ -1885,3 +1885,26 @@ refreshes both source timestamps and verifies wMain/wUnitServer recompiled befor
 accepting any GREEN result.
 
 Source: [1715d48307f8282d20192425599c5b4253c335ea](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1715d48307f8282d20192425599c5b4253c335ea).
+
+## 2026-11-01: whole-hull cover projection, extended raster bounds and normal range caps
+
+Register NativeCoverWholeCenter0..7, NativeCoverProjectionExtent0..5 and
+NativeCoverRangePolicy0..7 on both native platforms, extended/120s. Actual map/hull
+delegation checks selected-part versus whole-hull optical axis and whether geometry just
+past an8/40-unit target remains inside the producer's real native frustum. Actual
+CFastRenderer closed-box input plus the existing cover walk checks40-unit human/AI
+targets, near positives, tile0.625 pullback and30-unit ally-clearance controls. Query
+invariants capture AP/HP/poses and4 shared RNG continuation words; framing also preserves
+world time.
+
+Canonical RED15/22 both ->22 new cases pass. The affected final38/38 also cover all8
+existing projection and8 existing range controls after replacing superseded
+uncapped33-unit references with actual29-unit near controls and the old30 plane
+with29.625. Other371Win/372Linux related tests passed in the broad run on identical game
+bytes, giving409/410 combined distinct names plus full Game both/CI323. All33 prior124
+native RPG/camera/difficulty samples match. Initial broad4 old-reference failures are
+archived; no single all-green409/410 batch is claimed. The original933/540/FPTAN17/caller
+evidence is static only; no fake interval/score provider, original executable patch or
+original full World/firing runtime claim.
+
+Source: [01eb873b41cd2c8b9ce2d7b81835d2e00d492118](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/01eb873b41cd2c8b9ce2d7b81835d2e00d492118).
