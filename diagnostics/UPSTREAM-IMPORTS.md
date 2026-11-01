@@ -23941,3 +23941,91 @@ remains tracked outside selected suite; final-head hosted CI still required at w
 completion.
 
 Source: [f6f6011fc301ace82317b9007ec6dd36b57f3369](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6f6011fc301ace82317b9007ec6dd36b57f3369).
+
+## 2026-11-01: selected-camera floor ownership and initial handoff (complete144)
+
+Each tactical camera now owns its existing floor and clamp/freeze state. Remove the
+transient ICameraCutFloor/provider bridge; camera framing reads/writes its own floor,
+concrete mission Get/SetCutFloor use the selected camera, and the native mission frame
+publishes that value to the view after camera Update. Route floor keys and level-switch
+up/down/authored slots through this owner; its Draw reads the camera range/floor. After
+snapshot graph resolution and runtime-handle installation, publish the selected saved
+camera range11/12 and floor3. No serialized fields/class IDs or LAN wire changes; the
+removed provider was runtime-only.
+
+Keep initialization coherent with the original shared-step contract: remove the old
+party-to-scene floor seed, select the actual first acting player before choosing a camera,
+advance the existing dedicated locator with GetGameTime, publish the selected initial
+floor, then copy pose/floor to the idle cinematic camera only when it differs and no live
+locator owns it. Do not add world simulation warmup or per-turn pose copies. In real demo
+initialization the old active tracker0 disagreed with current player3, cinematic
+floor4/anchor1.875,1.875 disagreed with deploy floor0/anchor.625,20, and no locator
+prevented the handoff. The new native tests require the real acting player and copied
+deploy pose/floor before the first visible demo frame.
+
+Original global CBaseCamera Gold PDB fields floor38/rangebc,c0/frozend4 are independently
+confirmed by four typed byte-exact methods: actual GetFloor4d0150/4, SetFloor4d0210/43,
+GetRange4cbbc0/27, SetRange4cbb90/42. Donor/comment addresses4cff90/4d0050 belong to a
+different layout and are not reused. Typed view SetFloor587550/36 is byte-exact
+Gold584f50, clamps[-3,4]/stores48 and has no camera freeze. Actual common5a35b0, bound
+from typed base Step14 via5a4803, calls GetCameraB8 then cameraGet44 then sceneSet78
+at5a365f/5a366e/5a3674. Actual GetCamera is5a2aa0/B8 versus Gold5a01c0/B4; whole105
+comparison is rejected for actual extra frame/controls/length. Independently decode its
+sequence branch returning camera74; no frame/field/control masks.
+
+Typed original CICAutoPlay Exec59df10->59d980 calls mission init601070, which calls the
+full common step at602021. The common selects the acting tracker first, pumps
+ProcessWorld5a3060/ProcessCamera5a3160, updates/finishes locatorbc, publishes selected
+floor, then its5a3796..3820 tail conditionally hands off selected
+GetPlacement4c/SetPlacement50 and GetFloor44/SetFloor48 to cinematic74 when no live
+locator exists. Typed level-bar ProcessMessage Gold652900 slot28 binds actual658aa0:
+decode event10000006/up/down and mission80->GetCameraB8->GetFloor44/SetFloor48, with
+Range40 for authored slot indexing. Gold pMission68 differs; use actual field
+independently, no normalization. Gold Init4324 and bar1332 are not assumed actual sizes.
+No original Game.exe/copied-function execution.
+
+Own shared base dispatcher already consumed script floor/lock requests before the donor's
+concrete fallback. Adapt that existing dispatch using the actual CMission type: tactical
+floor requests use its camera API and omit the scene-lock mirror; non-tactical
+menu/globalmap worlds retain their owned scene-floor and lock behavior. Keep those owned
+background policies, native SDL/bgfx/audio/HiDPI/font/HD/face pipelines and pointer
+position. Interactive-only music was already restored at139, satisfying this donor hunk
+without moving it again.
+
+NativeCameraFloorOwner0..13 canonicalRED13/14 both/control0 ->GREEN14 both, combined50/50
+including3 camera bridge,25 prior demo/menu and8 cached-point cases. Cover real API
+reads/writes, renderer drift, actual StepApp publication, deferred framing, camera
+freeze/clamp, initial acting-player/deploy handoff and actual loaded level-bar
+up/down/range/freeze. Earlier d3 had4 UI fixture failures because GetChildByID searches
+direct children only, not canonical; d4 follows actual missionUI/unitpanel/levelswitch and
+checks original class ID. The older bridge-only tests asserted immediate scene mutation
+from the removed fork provider; update them to unchanged view1 and keep camera
+clamp/freeze assertions. New actual mission frame case4 separately proves deferred
+publication.
+
+Add NativeAutoPlayLifecycle9 as a separate real virtual GameStep control with a genuinely
+non-active native winner, before the common pump can switch active player. Existing9
+whole-frame lifecycle cases remain unchanged. Use test-only typed member access to
+dispatch the actual override, not a substitute or public production hook; actual knockout
+winner state, latch, command and fresh-demo replacement still run. This retains
+independent non-active-winner coverage after correcting initial active-player selection.
+Full related suite includes51 combined cases.
+
+Full Game both/717 Windows/682 Linux selected
+camera/floor/deploy/mission/save/scenario/UI/light/network checks are covered, with CI378
+and23 prior lifecycle/presentation/menu,8 cached-point and12 font rows exact. Keep the
+original broad Windows716/717 and Linux681/682 results: only NativeScenarioRootMaps
+failed, from a one-ULP diagnostic rounding boundary on Windows and an initially unbuilt
+nested DB helper on Linux. Separate validation143,2c071f1a, fixes only diagnostic
+centimetre-midpoint keys and baselines after52 raw item-coordinate/non-item/gameplay
+records remain exact per platform and55 native map summaries agree. Windows6/6 and
+Linux9/9 affected reruns now cover the entire selected set. Linux preflight also updates
+existing selected/nested targets; hash changes identify three additional stale test
+binaries, whose cases are rerun with the probe cases. Game/UpstreamBugTests remain
+unchanged in that refresh. Original failed logs and separate retries are retained; no
+root-map test is excluded. Known prior138 campaign nested-save movement flake remains
+tracked; only that exact test is excluded as139, not fixed here. Source6b complete,31
+unfinished. Hosted142 head64c4172c was successful; actual final-head hosted CI remains
+required at whole-task completion.
+
+Source: [6b4f7b8f67f26adb20506bef1015f89aba9f29dd](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6b4f7b8f67f26adb20506bef1015f89aba9f29dd).

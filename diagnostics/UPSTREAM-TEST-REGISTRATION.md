@@ -2357,3 +2357,44 @@ camera work, recorded separately. This validation-only fix advances no donor led
 status; camera source completion follows in a separate commit.
 
 Validation source: [6b4f7b8f67f26adb20506bef1015f89aba9f29dd](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6b4f7b8f67f26adb20506bef1015f89aba9f29dd).
+
+## 2026-11-01: selected-camera floor ownership and initial handoff
+
+NativeCameraFloorOwner0..13 are extended native-display actual initialized
+demo/mission/camera/view/UI cases. Isolate the existing mission-start snapshot without
+disk writes and pause simulation. Read independent saved camera18/locator21 wrappers
+without reloading the live world; retain root/world/audio graph identity. The no-world
+framing context is supported native input used only to isolate framing from terrain/LOS. A
+real StepApp with the selected camera frozen separately proves view-floor publication.
+Real loaded missionUI/unitpanel/levelswitch, class0xB0241943, consumes the actual floor
+notifications.
+
+Cases0baseline,1camera-owned read,2camera-owned write,3renderer drift,4native frame
+publication,5deferred framing,6freeze,7clamp,8initial acting player,9idle
+deploy-pose/floor handoff,10up,11down,12camera-range slot and13frozen button produce
+canonicalRED13/14 both ->GREEN14 both/control0 exact. Discovery3 expanded14 but4 UI
+lookups used a root-only search and failed before behavioral rows; discovery4 fixes the
+real hierarchy and provides all14 valid rows. Original source is checked independently
+through typed camera APIs, original common/init/caller/widget routing, with rejected
+whole-selector comparisons documented.
+
+Three earlier bridge-only cases retain clamp/freeze and now require unchanged view1 before
+actual mission publication, replacing the removed provider's original-inaccurate immediate
+side effect. New actual StepApp case4 covers the deferred scene update. All50 initial
+combined cases pass both. Add NativeAutoPlayLifecycle9, actual virtual override dispatch
+with a real non-active winner and no common-player switch before the consumer; its typed
+protected member access is test-only. The previous9 full-frame cases remain unchanged and
+all51 combined cases are in final related selection.
+
+Full Game both/717 Windows/682 Linux
+camera/floor/deploy/mission/save/scenario/UI/light/network checks covered/CI378;23 prior
+demo/menu,8 cached-point and12 font rows exact. Original full runs retain716/717 Windows
+and681/682 Linux, only root maps failing. Separate validation143 fixes a diagnostic
+one-ULP midpoint boundary and laboratory nested-helper/freshness setup;52 raw map
+geometry/non-item/gameplay fields remain unchanged. Windows6/6 and Linux9/9 affected
+reruns cover all selected tests, including all52 roots and three newly refreshed
+standalone test binaries. Keep original failures and separate passing retries, no root-map
+exclusion. Only known prior NativeCampaignSequence-nested-save movement flake excluded
+as139, not fixed. No original runtime or asset generation. Sourcecomplete31unfinished.
+
+Source: [6b4f7b8f67f26adb20506bef1015f89aba9f29dd](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6b4f7b8f67f26adb20506bef1015f89aba9f29dd).

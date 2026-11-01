@@ -4156,3 +4156,33 @@ exact. Sourcef6 partial,32 donor sources unfinished. Known prior campaign moveme
 remains outside selected suite.
 
 Source: [f6f6011fc301ace82317b9007ec6dd36b57f3369](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6f6011fc301ace82317b9007ec6dd36b57f3369).
+
+## 2026-11-01: selected-camera floor ownership and initial handoff
+
+Tactical floor controls now use the selected camera's existing saved floor, clamp and
+freeze. The render scene receives that floor on the normal native frame, initial common
+subset and snapshot restoration. Framing no longer publishes another camera's render floor
+immediately. Level-bar buttons/drawing and floor keys/script requests use the selected
+owner. Initial all-AI demo selection now follows its actual acting player and copies the
+selected deploy pose/floor to an idle cinematic camera when no locator owns it, avoiding
+the old map-edge/ceiling starting view.
+
+Restore the original initialization's existing player/locator/camera subset without extra
+world ticks or per-turn pose copies. Remove the runtime-only provider, retaining saved
+floor3/ranges11/12/class IDs and LAN wire. Non-tactical menu/globalmap floor/lock policy
+remains owned by the scene through the shared dispatcher. Interactive-only music already
+matched at139. No AP/damage/skill/price changes, SDL cursor warp, renderer/audio/font
+backend or frozen HD/face/PNG changes.
+
+Native RED13/14 ->GREEN14 both/control0, combined50 and final51 with a dedicated real
+virtual non-active-winner consumer. Actual initialized
+camera/API/frame/buttons/freeze/clamp/handoff verified. Historical bridge-only immediate
+scene assertions are replaced by original deferred semantics and actual frame proof. Full
+Game both/717 Windows/682 Linux related covered/CI378, with original716/717 Windows
+and681/682 Linux root-map failures retained, then Windows6/6 and Linux9/9 affected reruns
+after separate diagnostic-only validation143. All52 raw map geometry/non-item/gameplay
+fields stay exact; no physical coordinates changed to repair a diagnostic hash.23 prior
+demo/menu+8 cached-point+12 font rows exact. Known prior campaign movement flake remains
+outside selected suite. Source6b complete,31 remaining.
+
+Source: [6b4f7b8f67f26adb20506bef1015f89aba9f29dd](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6b4f7b8f67f26adb20506bef1015f89aba9f29dd).

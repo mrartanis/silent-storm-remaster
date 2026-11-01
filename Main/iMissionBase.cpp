@@ -30,6 +30,7 @@
 #include "..\DBFormat\DataFormat.h"
 #include "..\DBFormat\DataLight.h"
 #include "..\DBFormat\DataMap.h"
+#include "iMissionInternal.h"
 #include "..\FileIO\BasicChunk1.h"   // START_REGISTER / FINISH_REGISTER (the ui_followcamera cvar)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // NGame::CMissionBase -- the retail mission base class bodies (release iBase.obj; serialization-
@@ -150,8 +151,10 @@ bool CMissionBase::ExecWorldCommonCommand( NWorld::CUICmd *pCmd )
 		// The remaster frontend has no active player tracker.
 		if ( bTutorialMode && IsValid( pActivePlayer ) )
 			pActivePlayer->GetCamera()->FreezeCamera( bLock );
-		// Preserve the remaster's floor lock mirror once per script command.
-		pScene->SetCutFloorLock( bLock );
+		// Background worlds retain their owned renderer-floor policy. Tactical
+		// worlds keep the original freeze solely on each camera.
+		if ( !dynamic_cast<CMission*>( this ) )
+			pScene->SetCutFloorLock( bLock );
 	}
 	// Shared native CameraSetClipping dispatch (Gold5a15e4; Steam5a3f74).
 	else if ( CDynamicCast<NWorld::CUICmdSetCameraClipDistance>( pCmd ) )
@@ -163,8 +166,10 @@ bool CMissionBase::ExecWorldCommonCommand( NWorld::CUICmd *pCmd )
 	else if ( CDynamicCast<NWorld::CUICmdSetFloor>( pCmd ) )
 	{
 		NWorld::CUICmdSetFloor *pFloor = CDynamicCast<NWorld::CUICmdSetFloor>( pCmd );
-		// The remaster owns rendered floor, clamp and freeze state on the view.
-		pScene->SetCutFloor(pFloor->nFloor);
+		if ( CMission *pTactical = dynamic_cast<CMission*>( this ) )
+			pTactical->SetCutFloor( pFloor->nFloor );
+		else
+			pScene->SetCutFloor( pFloor->nFloor );
 	}
 	else if ( CDynamicCast<NWorld::CUICmdPlayEffect>( pCmd ) )
 	{

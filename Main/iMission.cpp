@@ -380,9 +380,8 @@ bool CMission::Initialize( int _nTemplateID, int _nVariantID, NScenario::CScenar
 	else
 		SetLightMode( 0 );
 
-	// The cinematic camera (base pCamera, tag 18). Retail Initialize does NOT copy the tracker's
-	// deploy pose into it -- the deploy view IS the active player's own camera (seeded in the
-	// CPlayerTracker ctor @0x287d70); the cinematic camera only gets a pose when a script drives it.
+	// Create the cinematic camera now; the common-step subset below handles
+	// selected deploy-camera ownership and the idle cinematic handoff.
 	SetCameraParams( CAMERA_PC, fFOV, defaultCameraLimits );
 
 	TraceCursor();
@@ -415,37 +414,6 @@ bool CMission::Initialize( int _nTemplateID, int _nVariantID, NScenario::CScenar
 	{
 		if (IsValid(liveWorld)) liveWorld->RepairInactiveSequenceFlags();
 		pWorld->RunPostInit( pPostInfo );
-	}
-
-	// retail zone-entry focus floor: the deploy camera-focus path (CUICmdUnitCameraExec::Update
-	// @0x24eae0 -> CCamera::ShowPlacesFromBestPoint @0xcf1c0 tail) sets the camera cut floor to the
-	// focused party unit's floor BEFORE the zone script's CameraLock() freeze drains below. Dev has
-	// no ShowPlaces* family, so seed the scene cut floor from the party here. Without it a zone with
-	// an unset floor range (Min==Max==0 skips the strict `<` install above, e.g. the Axis base,
-	// variant 5376 Min0/Max0) freezes the fresh-scene default N_MAX_FLOOR = "locked under the ceiling".
-	// NOTE (why the first attempt did nothing): the party MUST be read from the WORLD player
-	// (IPlayer::GetUnits) -- the UI trackers' CPlayerTracker::unitsSet is filled only by
-	// CPlayerTracker::Update() from CMission::Step (first live frame), so a tracker read here is
-	// always EMPTY and the seed silently never fires. The hero is preferred (retail focuses the
-	// party lead); dead units are skipped like CPlayerTracker::Update does.
-	{
-		NWorld::IPlayer::CUnitSet partySet;
-		pActivePlayer->GetPlayer()->GetUnits( &partySet );
-		NWorld::CUnit *pSeedUnit = 0;
-		for ( int nTemp = 0; nTemp < partySet.size(); nTemp++ )
-		{
-			if ( !IsValid( partySet[nTemp] ) || partySet[nTemp]->IsDead() )
-				continue;
-			if ( pSeedUnit == 0 )
-				pSeedUnit = partySet[nTemp].GetPtr();
-			if ( partySet[nTemp]->GetRPG()->IsHero() )
-			{
-				pSeedUnit = partySet[nTemp].GetPtr();
-				break;
-			}
-		}
-		if ( pSeedUnit )
-			GetScene()->SetCutFloor( pSeedUnit->GetPosition().pos.GetFloor() );
 	}
 
 	// retail @0x200690 (asm 0x601655): BEFORE the InternalStep drain below, Initialize primes the render
@@ -483,19 +451,49 @@ bool CMission::Initialize( int _nTemplateID, int _nVariantID, NScenario::CScenar
 	// deploy-camera SEED being degenerate for script-deployed zones (PlayerTracker/GetDeploySpot),
 	// which is fixed at the seed -- NOT by pumping extra hidden segments here (a prior dev-invented
 	// pump loop was reverted: retail runs no extra warm-up simulation at Initialize).
+	if ( ( playersSet.size() > 1 ) && !IsPlayerTurn() )
+	{
+		pActivePlayer->Deactivate();
+		for ( vector< CObj<IPlayerTracker> >::iterator iPlayer = playersSet.begin(); iPlayer != playersSet.end(); iPlayer++ )
+		{
+			if ( (*iPlayer)->GetPlayer() == pWorld->GetCurrentPlayer() )
+				pActivePlayer = (*iPlayer);
+		}
+		pActivePlayer->Activate();
+	}
+
 	ExecWorldCommands();
 	if ( IsValid( pCmdExec ) && pCmdExec->Update( GetGameTime() ) )
 	{
 		pCmdExec->Finished();
 		pCmdExec = 0;
 	}
+	if ( IsValid( pExecLocator ) )
+	{
+		if ( pExecLocator->Update( GetGameTime() ) )
+		{
+			pExecLocator->Finished();
+			pExecLocator = 0;
+		}
+	}
 	// through the SELECTOR (@0x1a1ee0), like the InternalStep it mirrors: during the opening
 	// sequence that is the cinematic camera, else the active player's deploy camera.
 	ICamera *pInitCamera = GetCamera();
 	pInitCamera->Update( GetTime() );
+	GetScene()->SetCutFloor( pInitCamera->GetCutFloor() );
 	vCameraCP = pInitCamera->GetCP();
 	sCameraPos = pInitCamera->GetPos();
 	pInitCamera->GetTransform( &sTransform, GetScene()->GetScreenRect() );
+
+	// Original common-step tail: keep the idle cinematic camera at the selected
+	// deploy pose, unless a script or live locator owns that camera.
+	if ( pInitCamera != pCamera && !IsValid( pExecLocator ) )
+	{
+		ICamera::SCameraPos sPos;
+		pInitCamera->GetPlacement( &sPos );
+		pCamera->SetPlacement( sPos );
+		pCamera->SetCutFloor( pInitCamera->GetCutFloor() );
+	}
 
 	// retail @0x60167d: render ONE hidden frame -- RenderFrame(0xb = 2D|3D|bit8-NOFLIP,
 	// !IsGamePaused() [vtbl+0x58], GetCamera(), true). Nothing presents (bit 8 skips the Flip; the
@@ -1031,30 +1029,12 @@ void CMission::GetCameraParams( ECameraType *pType, float *pFOV, ICamera::SCamer
 	*pLimits = cameraLimits;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// release keeps the tactical cut floor on the camera; this dev build owns it on the render scene, so the
-// camera reaches it through this accessor (installed like the height source) for the two-point framing.
-class CMissionCameraCutFloor: public ICameraCutFloor
-{
-	OBJECT_BASIC_METHODS(CMissionCameraCutFloor);
-	CPtr<NGame::IMission> pMission;
-public:
-	CMissionCameraCutFloor() {}
-	CMissionCameraCutFloor( NGame::IMission *_pMission ): pMission( _pMission ) {}
-	virtual int  GetCutFloor() const { return IsValid( pMission ) ? pMission->GetCutFloor() : 0; }
-	virtual void SetCutFloor( int nFloor ) { if ( IsValid( pMission ) ) pMission->SetCutFloor( nFloor ); }
-};
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// The dev runtime-only camera handles: the world/view/UI handles (retail threads pWorld/pView/pUI
-// through the camera factory ctor args @0xcf8e0 -- the dev factory keeps its 2-arg signature, so every
-// camera-creation/restore path installs them here instead) and the render cut-floor accessor (the
-// documented dev relocation of the live floor onto the scene). The terrain height source that used to
-// lead this list is gone -- the camera samples pWorld->GetHeightLayers() directly, as retail does.
+// Install the existing runtime-only world/view/UI handles on each restored camera.
 static void InstallCameraRuntimeHandles( ICamera *pCam, IMission *pMission )
 {
 	pCam->SetWorld( pMission->GetWorld() );
 	pCam->SetView( pMission->GetScene() );
 	pCam->SetUI( pMission->GetInterface() );
-	pCam->SetCutFloorSource( new CMissionCameraCutFloor( pMission ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail CMissionBase::CreateCamera @0x1a2390 (mission vtbl+0xb4) -- the camera FACTORY: create the
@@ -1148,6 +1128,13 @@ void CMission::OnSnapshotRestored()
 		if ( IsValid( *iPlayer ) && (*iPlayer)->GetCamera() )
 			InstallCameraRuntimeHandles( (*iPlayer)->GetCamera(), this );
 	}
+	if ( ICamera *pRestoredCamera = GetCamera() )
+	{
+		int nMinimum, nMaximum;
+		pRestoredCamera->GetCutFloorRange( &nMinimum, &nMaximum );
+		GetScene()->SetCutFloorRange( nMinimum, nMaximum );
+		GetScene()->SetCutFloor( pRestoredCamera->GetCutFloor() );
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // W4.2: FocusCameraOnUnit @0x1a16e0 / FocusCameraOnItem @0x1a1740 moved to CMissionBase
@@ -1155,12 +1142,12 @@ void CMission::OnSnapshotRestored()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CMission::GetCutFloor()
 {
-	return GetScene()->GetCutFloor();
+	return GetCamera()->GetCutFloor();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMission::SetCutFloor( int nFloor )
 {
-	GetScene()->SetCutFloor( nFloor );
+	GetCamera()->SetCutFloor( nFloor );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 const CVec3& CMission::GetCameraCP() const
@@ -1497,6 +1484,7 @@ void CMission::InternalStep()
 	// the frame transform below is dev bookkeeping recomputed from the same selected camera.
 	ICamera *pFrameCamera = GetCamera();
 	pFrameCamera->Update( GetTime() );
+	GetScene()->SetCutFloor( pFrameCamera->GetCutFloor() );
 
 	vCameraCP = pFrameCamera->GetCP();
 	sCameraPos = pFrameCamera->GetPos();
@@ -1704,11 +1692,11 @@ bool CMission::ProcessEvent( const NInput::SEvent &sEvent )
 		pScene->SetNextFogMode();
 	// retail clamps the cut floor to the template variant's [MinCutFloor, MaxCutFloor) range
 	// (CBaseCamera::SetCutFloor @0xd0050 against the range CMission::Initialize @0x200690 installs);
-	// dev keeps floors on the scene, so the same clamp is applied here.
+	// The selected camera owns both the clamp and script freeze.
 	else if ( bindAddFloor.ProcessEvent( sEvent ) )
-		pScene->SetCutFloor( Min( pScene->GetCutFloor() + 1, nMaxCutFloor ) );
+		SetCutFloor( GetCutFloor() + 1 );
 	else if ( bindSubFloor.ProcessEvent( sEvent ) )
-		pScene->SetCutFloor( Max( pScene->GetCutFloor() - 1, nMinCutFloor ) );
+		SetCutFloor( GetCutFloor() - 1 );
 	else if ( bindShowParticles.ProcessEvent( sEvent ) )
 		pScene->SetParticleShow( !pScene->GetParticleShow() );
 	else if ( bindShowAI.ProcessEvent( sEvent ) )

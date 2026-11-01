@@ -108,6 +108,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 extern CBasicShare<int,CChapterInfoLoader> shareChapterInfo;
 #include "../Main/iRenderWorld.h"
 #include "../Main/iMainMenu.h"
+#include "../Main/iAutoPlay.h"
 #include "../Main/iLoading.h"
 #include "../Main/iChapterMapUI.h"
 #include "../Main/iShowMedal.h"
@@ -26738,12 +26739,13 @@ static void NativeCameraFramingBridge(const char* databasePath,const char* resou
     CObj<ICamera> bridgeCamera=bridgeOwner->CreateCamera(CAMERA_PC);Require(bridgeCamera,"floor bridge cannot create its actual tactical camera");camera=bridgeCamera;
     struct Detach{CameraFloorBridgeMissionFixture* owner;~Detach(){owner->Detach();}} detach{bridgeOwner};
     // Use the supported no-world framing context to isolate floor publication from terrain/LOS.
-    // The concrete mission-installed accessor and actual render view remain attached.
+    // The factory-installed native handles and render view remain attached; only
+    // the real mission step publishes its selected camera floor.
     camera->SetWorld(nullptr);struct RestoreWorld{ICamera* camera;NWorld::IWorld* world;~RestoreWorld(){camera->SetWorld(world);}} restoreWorld{camera,world};camera->SetPlacement(ICamera::SCameraPos(CVec3(0,0,0),20.f,-FP_PI/4,.125f,0,35.f));camera->SetScreenRect(CTRect<float>(0,0,1,1));camera->SetCutFloorRange(0,2);view->SetCutFloorRange(0,4);camera->SetCutFloor(1);view->SetCutFloor(1);if(mode==1)camera->FreezeCamera(true);
     const int request=mode==0?9:mode==1?2:1,expected=mode==0?2:1;const auto time=world->GetTime()->GetValue();auto random=GlobalGameRandom();camera->ShowPlacesFromBestPoint(CVec3(-.125f,0,0),CVec3(-.125f,0,0),request,24.f,1,1.f,true,true);
-    const int cameraFloor=camera->GetCutFloor(),viewFloor=view->GetCutFloor();std::printf("native camera floor bridge mode=%d frozen=%d request=%d cameraFloor=%d viewFloor=%d expected=%d\n",mode,int(mode==1),request,cameraFloor,viewFloor,expected);std::fflush(stdout);
+    const int cameraFloor=camera->GetCutFloor(),viewFloor=view->GetCutFloor();std::printf("native camera floor bridge mode=%d frozen=%d request=%d cameraFloor=%d viewFloor=%d expectedCamera=%d expectedView=1\n",mode,int(mode==1),request,cameraFloor,viewFloor,expected);std::fflush(stdout);
     Require(world->GetTime()->GetValue()==time && random.Get()==GlobalGameRandom().Get() && NMainLoop::GetCurrentInterfaceForHarness()==owner.GetPtr(),"floor framing advanced world time/RNG or changed interface ownership");if(mode==1)camera->FreezeCamera(false);
-    Require(cameraFloor==expected && viewFloor==expected,"camera framing published an unclamped or frozen floor to its actual mission/render bridge");
+    Require(cameraFloor==expected && viewFloor==1,"camera framing bypassed its clamp/freeze or published the render floor before the real selected-camera mission step");
 }
 
 
@@ -33356,9 +33358,15 @@ template<auto Member> struct AutoPlayTurnMemberAccess {
 };
 template struct AutoPlayTurnMemberAccess<&NWorld::CWorld::nTurnID>;
 
+// Observe the real virtual demo consumer before the common pump can select a new
+// active player. Keep a genuinely non-active winner as a distinct regression control.
+struct AutoPlayStepMemberTag {using type=void(NGame::CMission::*)();friend type AutoPlayGameStepMember(AutoPlayStepMemberTag);};
+template<auto Member> struct AutoPlayStepMemberAccess {friend AutoPlayStepMemberTag::type AutoPlayGameStepMember(AutoPlayStepMemberTag){return Member;}};
+template struct AutoPlayStepMemberAccess<&NGame::CMission::GameStep>;
+
 static void NativeAutoPlayLifecycle(const char* databasePath,const char* resourcePath,int mode)
 {
-    Require(mode>=0 && mode<9,"unknown autoplay lifecycle fixture");
+    Require(mode>=0 && mode<10,"unknown autoplay lifecycle fixture");
     Require(std::getenv("S2_USER_DATA_DIR") && !NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"autoplay lifecycle needs isolated empty interface state");
     NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm demonstration lifecycle regression");
     struct Restore {
@@ -33377,7 +33385,8 @@ static void NativeAutoPlayLifecycle(const char* databasePath,const char* resourc
     vector<CPtr<NWorld::CPlayer>> players;world->GetPlayersList(&players);Require(players.size()>=2,"autoplay lifecycle has no competing native players");
     vector<CPtr<NGame::IPlayerTracker>> trackers;demo->GetPlayers(&trackers);Require(trackers.size()==4,"autoplay lifecycle lost its four actual trackers");
     auto* winnerTarget=mode==8?demo->GetActivePlayer()->GetPlayer():trackers.back()->GetPlayer();
-    const bool winnerInput=mode==5 || mode==8;
+    if(mode==9){winnerTarget=nullptr;for(auto it=trackers.rbegin();it!=trackers.rend();++it){auto* candidate=(*it)->GetPlayer();if(candidate!=demo->GetActivePlayer()->GetPlayer() && candidate!=world->GetCurrentPlayer()){winnerTarget=candidate;break;}}Require(winnerTarget,"non-active victory control has no independent real player");}
+    const bool winnerInput=mode==5 || mode==8 || mode==9;
     if(winnerInput){
         vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);
         for(const auto& unit:units)if(unit->GetPlayer()!=winnerTarget){
@@ -33404,7 +33413,12 @@ static void NativeAutoPlayLifecycle(const char* databasePath,const char* resourc
     if(mode==6 || mode==7){NInput::SEvent event;event.mMessage.cType=mode==6?NInput::CT_KEY:NInput::CT_TIME;demo->ProcessEvent(event);}
     CObj<NMainLoop::CInterfaceCommand> dismissed=NMainLoop::TakeInterfaceCommandForHarness();
     Require((mode==6 && dynamic_cast<NMainLoop::CICExitModal*>(dismissed.GetPtr())) || (mode!=6 && !IsValid(dismissed)),"native dismiss/time input queued the wrong command");
-    MarkNewDGFrame();Require(NMainLoop::StepApp(true,false,false),"autoplay lifecycle frame requested application exit");
+    if(mode==9){
+        Require(!demo->GetActivePlayer()->IsPlayerWinner() && winnerTarget!=demo->GetActivePlayer()->GetPlayer(),"virtual demo consumer does not have a genuinely non-active native winner");
+        auto* native=dynamic_cast<NGame::CMission*>(demo.GetPtr());Require(native,"virtual demo consumer lost its native mission type");
+        std::printf("AUTOPLAY-NONACTIVE-WINNER mode=9 activeWinner=0 actualVirtualConsumer=1\n");std::fflush(stdout);
+        (native->*AutoPlayGameStepMember(AutoPlayStepMemberTag{}))();
+    }else{MarkNewDGFrame();Require(NMainLoop::StepApp(true,false,false),"autoplay lifecycle frame requested application exit");}
     CObj<NMainLoop::CInterfaceCommand> next=NMainLoop::TakeInterfaceCommandForHarness();const bool isContainer=dynamic_cast<NMainLoop::CICContainer*>(next.GetPtr())!=nullptr;
     const bool latched=signal(),expected=mode==2 || mode==4 || winnerInput;
     const bool graph=demo->GetWorld()==world && world->GetGlobalGame()==global && demo->GetSoundScene()==scene && demo->GetInterface()==interface && NMainLoop::GetCurrentInterfaceForHarness()==demo.GetPtr();
@@ -33588,6 +33602,45 @@ static void NativeCachedPointShadowFlag(const char* databasePath,const char* res
     std::printf("CACHED-POINT-FLAG mode=%d lights=%u firstShadow=%d calls=%d shadowViews=%d expectedViews=%d step=%d expectedStep=%d state=%d expectedState=%d\n",mode,unsigned(input.points.size()),int(firstShadow),calls,renderer.shadowViews,expectedViews,state.nStep,expectedStep,int(state.nState),expectedState);std::fflush(stdout);
     Require(renderer.shadowViews==expectedViews,"cached point light with shadows disabled still generated real cubemap occluder views or disturbed a shadow-casting neighbor");
     Require(state.nStep==expectedStep && int(state.nState)==expectedState,"cached point light did not complete its color work and advance to the next source without shadow passes");
+}
+
+
+static void NativeCameraFloorOwner(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=13,"unknown native camera floor-owner case");
+    Require(!NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"camera floor-owner fixture starts with an interface");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm camera floor ownership regression");
+    struct Restore { NGlobal::CValue units=NGlobal::GetVar("autoplay_units"),maps=NGlobal::GetVar("autoplay_templates");STime time=NMainLoop::SetTimeForHarness(0);~Restore(){NGlobal::SetVar("autoplay_units",units);NGlobal::SetVar("autoplay_templates",maps);NMainLoop::SetTimeForHarness(time);} } restore;
+    NGlobal::SetVar("autoplay_units",NGlobal::CValue(L"968"));NGlobal::SetVar("autoplay_templates",NGlobal::CValue(L"4412"));
+    CObj<NGame::CICAutoPlay> open=new NGame::CICAutoPlay;open->Exec();
+    CObj<NGame::CMission> mission=dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());Require(IsValid(mission) && pSSClasses->GetObjectTypeID(mission)==int(0xB3723140),"camera floor-owner fixture did not enter a real demo mission");
+    CObj<NMainLoop::CInterfaceCommand> snapshot=NMainLoop::TakeInterfaceCommandForHarness();Require(dynamic_cast<NMainLoop::CICSaveFile*>(snapshot.GetPtr()) && !NMainLoop::HaveInterfaceCommand(),"camera floor-owner fixture did not isolate the native mission-start snapshot");
+    auto* camera=mission->GetCamera();auto* view=mission->GetScene();auto* world=mission->GetWorld();auto* root=mission->GetInterface();auto* sound=mission->GetSoundScene();Require(camera && view && world && root && sound && mission->IsSequence(),"camera floor-owner fixture lacks its real cinematic camera/view/world/UI/audio");mission->PauseGame(true);
+    struct InitialBaseState {CObj<ICamera> cinematic;CObj<NGame::CUICmdLocatorExec> locator;int operator&(CStructureSaver& f){f.Add(18,&cinematic);f.Add(21,&locator);return 0;}} initial;
+    struct InitialMissionState {InitialBaseState* base;int operator&(CStructureSaver& f){f.Add(1,base);return 0;}} initialMission{&initial};
+    {CStructureNetworkContext refs;auto fields=BorrowedObjectFields(mission,&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(1,&initialMission);}
+    auto* active=mission->GetActivePlayer();Require(active && active->GetCamera() && initial.cinematic==camera,"camera floor initial observer lost the actual selected cinematic/player cameras");
+    vector<CPtr<NGame::IPlayerTracker>> trackers;mission->GetPlayers(&trackers);int activeIndex=-1,currentIndex=-1;for(int i=0;i<trackers.size();++i){if(trackers[i]==active)activeIndex=i;if(trackers[i]->GetPlayer()==world->GetCurrentPlayer())currentIndex=i;}
+    ICamera::SCameraPos cinematicPose,playerPose;camera->GetPlacement(&cinematicPose);active->GetCamera()->GetPlacement(&playerPose);
+    std::printf("CAMERA-FLOOR-INIT mode=%d active=%d current=%d locator=%d cineFloor=%d playerFloor=%d viewFloor=%d cineAnchor=%.6g,%.6g,%.6g playerAnchor=%.6g,%.6g,%.6g poseEqual=%d\n",mode,activeIndex,currentIndex,int(IsValid(initial.locator)),camera->GetCutFloor(),active->GetCamera()->GetCutFloor(),view->GetCutFloor(),cinematicPose.ptAnchor.x,cinematicPose.ptAnchor.y,cinematicPose.ptAnchor.z,playerPose.ptAnchor.x,playerPose.ptAnchor.y,playerPose.ptAnchor.z,int(std::memcmp(&cinematicPose,&playerPose,sizeof(cinematicPose))==0));std::fflush(stdout);
+    if(mode==8){const bool selectedCurrent=activeIndex==currentIndex;std::printf("CAMERA-FLOOR-OWNER mode=8 activeCurrent=%d expectedActiveCurrent=1 graph=1\n",int(selectedCurrent));std::fflush(stdout);Require(selectedCurrent,"mission initialization did not select the actual first acting AI before choosing its deploy camera");NMainLoop::DoneInterface();return;}
+    if(mode==9){Require(!IsValid(initial.locator),"idle-camera handoff fixture unexpectedly has a native pending locator");const bool copied=std::memcmp(&cinematicPose,&playerPose,sizeof(cinematicPose))==0;const bool floor=camera->GetCutFloor()==active->GetCamera()->GetCutFloor() && view->GetCutFloor()==camera->GetCutFloor();std::printf("CAMERA-FLOOR-OWNER mode=9 poseCopied=%d expectedPoseCopied=1 floorCopied=%d expectedFloorCopied=1 graph=1\n",int(copied),int(floor));std::fflush(stdout);Require(copied && floor,"mission initialization did not hand off its selected deploy camera pose/floor to the idle cinematic camera before demo mode");NMainLoop::DoneInterface();return;}
+    camera->SetCutFloorRange(-1,2);camera->SetCutFloor(1);view->SetCutFloorRange(-3,4);view->SetCutFloor(mode==0 || mode==6 || mode==13?1:0);
+    Require(camera->GetCutFloor()==1 && view->GetCutFloor()==(mode==0 || mode==6 || mode==13?1:0),"camera floor-owner fixture did not establish independently controlled native camera/render floors");
+    int expectedCamera=1,expectedView=mode==0 || mode==6 || mode==13?1:0,expectedMission=1;
+    if(mode==1){camera->SetCutFloor(2);expectedCamera=expectedMission=2;}
+    if(mode==2){mission->SetCutFloor(-1);expectedCamera=expectedMission=-1;}
+    if(mode==3){view->SetCutFloor(2);expectedView=2;}
+    if(mode==4){camera->SetCutFloor(2);camera->FreezeCamera(true);NMainLoop::SetTimeForHarness(50);MarkNewDGFrame();Require(NMainLoop::StepApp(true,false,false),"camera floor publication frame exited");expectedCamera=expectedMission=expectedView=2;camera->FreezeCamera(false);}
+    if(mode==5){camera->SetWorld(nullptr);struct WorldRestore{ICamera* camera;NWorld::IWorld* world;~WorldRestore(){camera->SetWorld(world);}} restoreWorld{camera,world};camera->SetPlacement(ICamera::SCameraPos(CVec3(0,0,0),20.f,-FP_PI/4,.125f,0,35.f));camera->SetScreenRect(CTRect<float>(0,0,1,1));camera->ShowPlacesFromBestPoint(CVec3(-.125f,0,0),CVec3(-.125f,0,0),2,24.f,1,1.f,true,true);expectedCamera=expectedMission=2;}
+    if(mode==6){camera->FreezeCamera(true);mission->SetCutFloor(2);camera->FreezeCamera(false);}
+    if(mode==7){camera->SetCutFloorRange(0,1);camera->SetCutFloor(0);mission->SetCutFloor(9);}
+    if(mode>=10){auto* hud=root->GetChildByID("missionUI");auto* panel=hud?hud->GetChildByID("unitpanel"):nullptr;auto* bar=panel?panel->GetChildByID("levelswitch"):nullptr;Require(bar && pSSClasses->GetObjectTypeID(bar)==int(0xB0241943),"camera floor-owner widget fixture did not find its actual native level switch bar");const char* command=mode==10 || mode==13?"up":mode==11?"down":"level_4";if(mode==13)camera->FreezeCamera(true);Require(bar->ProcessMessage(NUI::SEvent(NUI::EVENT_NOTIFY,string(command))),"actual native level switch bar did not consume its floor notification");if(mode==13)camera->FreezeCamera(false);expectedCamera=expectedMission=mode==11?0:mode==13?1:2;}
+    const bool graph=NMainLoop::GetCurrentInterfaceForHarness()==mission.GetPtr() && mission->GetCamera()==camera && mission->GetScene()==view && mission->GetWorld()==world && mission->GetInterface()==root && mission->GetSoundScene()==sound && !NMainLoop::HaveInterfaceCommand();
+    std::printf("CAMERA-FLOOR-OWNER mode=%d camera=%d expectedCamera=%d mission=%d expectedMission=%d view=%d expectedView=%d graph=%d\n",mode,camera->GetCutFloor(),expectedCamera,mission->GetCutFloor(),expectedMission,view->GetCutFloor(),expectedView,int(graph));std::fflush(stdout);
+    Require(graph,"camera floor API/publication changed actual camera/world/UI/audio graph or queued a transition");
+    Require(camera->GetCutFloor()==expectedCamera && mission->GetCutFloor()==expectedMission && view->GetCutFloor()==expectedView,"mission floor ownership ignores the selected camera, its clamp/freeze or deferred native scene publication");
+    NMainLoop::DoneInterface();
 }
 
 
@@ -34187,6 +34240,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-camera-floor-owner")) { Require(argc==5,"camera floor ownership requires db/res/mode"); NativeCameraFloorOwner(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-cached-point-shadow-flag")) { Require(argc==5,"cached point flags require db/res/mode"); NativeCachedPointShadowFlag(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-menu-idle-demo")) { Require(argc==5,"menu idle requires db/res/mode"); NativeMenuIdleDemo(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-autoplay-presentation")) { Require(argc==5,"autoplay presentation requires db/res/mode"); NativeAutoPlayPresentation(argv[2],argv[3],std::atoi(argv[4])); return true; }
