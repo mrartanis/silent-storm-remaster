@@ -713,16 +713,42 @@ float CGrenadeToHitCalcer::GetRelWeight()
 	return float(GetGrenadeRecItem( pGrenade )->nWeight) / 1000.f; // i.e. in kilograms
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Actual Steam GetMaxThrowVelocity 0x6b7b10/285; PC24 operation/store boundaries.
+// The live calcer adapter keeps its existing public API and explicit inventory item.
+static float GetMaxThrowVelocity( IUnitMission *pMission, IInventoryItem *pItem, bool bFirstRound )
+{
+    float fStrength = float( pMission->GetRPGUnit()->Skills( NDb::ST_STR ) );
+    if ( pMission->GetPanzerklein() )
+        fStrength = float( pMission->GetPanzerklein()->nGrenadeStrength );
+    volatile float fSkillPart = pMission->GetWeaponSkill( pItem, bFirstRound ? 1 : 0, 0 ) * ( 1.f / 18.f );
+    volatile float fEffectiveStrength = fStrength + fSkillPart;
+    const NDb::SToHitConstants &constants = *pMission->GetToHitConstants();
+    volatile float fStrengthProduct = fEffectiveStrength * constants.fGrenadeSTRCoeff;
+    volatile float fPower = constants.fGrenadeBaseCoeff + fStrengthProduct;
+    const int nWeight = pItem->GetDBItem()->nWeight;
+    // Original CRT power returns a wide value before the weighted product's float store.
+    volatile float fWeightedPower = float( pow( double(nWeight), double(0.74f) ) * double(fPower) );
+    volatile float fWeightKG = float(nWeight) * 0.001f;
+    volatile float fVelocity = fWeightedPower / fWeightKG;
+    float fMultiplier;
+    if ( pMission->HasPerk( 0x58, &fMultiplier ) )
+        return fVelocity * fMultiplier;
+    return fVelocity;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 float CGrenadeToHitCalcer::GetMaxGrenadeVelocity()
 {
-	return GetMaxImp() / GetRelWeight();
+	return GetMaxThrowVelocity( pUnitMission, pGrenade, bFirstRound );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGrenadeToHitCalcer::GetGrenadeMaxDistance()
 {
-	float fMaxImp = GetMaxImp();
-	float fRelWeight = GetRelWeight();
-	return int( pow(fMaxImp,2) / ( pUnitMission->GetToHitConstants()->fGravity * pow(fRelWeight,2) ) / FP_GRID_STEP );
+    // Actual original FillWeaponInfo 0x6b7c60/252 uses the same staged PC24 range.
+    volatile float fVelocity = GetMaxGrenadeVelocity();
+    volatile float fGravityPart = fVelocity / pUnitMission->GetToHitConstants()->fGravity;
+    volatile float fSquaredPart = fGravityPart * fVelocity;
+    volatile float fRange = fSquaredPart * FP_INV_GRID_STEP;
+    return int(fRange);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float CGrenadeToHitCalcer::GetAllAdd()

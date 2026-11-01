@@ -3583,3 +3583,23 @@ unfinished. Source3cfc still owns physical throw/perk88/90/PK/Hide changes. Whol
 final hosted CI remains pending.
 
 Source: [226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4).
+
+## 2026-11-01: live grenade velocity and physical distance
+
+Physical speed now honors authored88 multiplier1.1 and current fractional shared skill
+with original rounding. Tested88 ranges change21 ->25 for regular70,28 ->34 for regular140
+and30 ->36 for engineer70. Wounded52.5 remains fractional, with velocity10.9886255264.
+Damage after preparation now changes physical range to current19 instead of cached21.
+Cap-only/healed VP retain the restored theoretical denominator. PK strength overrides
+human strength and its measured control is unchanged. Several bare regular velocities
+correct one float ULP. Accuracy1.5/92/truncation, AP, authored values, fuse rules, PK
+origins, hide behavior and save/network layouts remain unchanged here.
+
+Native RED13/129 both ->185 Windows /182 Linux affected tests/full Game builds/CI323;
+all129 RED names,114 old measurements and2 new controls are included/exact.15 references
+match30 original records under observed PC24. Original world/PK-wear/cache/flight
+execution and exhaustive cross-CRT parity are outside the bounded proof. Source3cfc still
+needs fuse90/fractional threshold, PK origins and Hide/vision.53 sources remain; final
+whole-task hosted CI is pending.
+
+Source: [3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a).

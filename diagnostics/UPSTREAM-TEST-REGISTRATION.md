@@ -1666,3 +1666,21 @@ Source226 complete,53 unfinished; source3cfc physical/perk/PK/Hide/executor work
 separate.
 
 Source: [226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4).
+
+## 2026-11-01: live grenade velocity and physical distance
+
+NativeGrenadePhysics0..14 target existing public velocity/range methods with real Take88,
+regular/engineer/backpack items, raw70/140, fractional wound/cap/healed inputs, worn PK,
+night and post-Prepare damage. Initial PK setup/override failures and input-only
+exploration are archived separately. Final PK60/27/10 inputs are measured and pinned.
+Canonical RED13/129 both ->185 Windows /182 Linux affected tests, full Game builds/CI323.
+All129 RED names selected;114 old measured controls and2 new controls exact, all15 inputs
+and query invariants fixed. All15 PC24 velocity/range words match30 actual original
+records; PC53 diagnostics expose PK one-ULP and cap-only extended-return conversion
+differences. Real item/tree lifecycles and sparse typed contexts are distinguished from
+unexecuted original world/PK-wear/cache/flight/DB construction. The Windows flight/save
+fixture independently failed on clean115 with default script chance0 and passed1/1 after
+its harness explicitly supplied100. The final affected-suite rerun includes that corrected
+fixture. Source3cfc remains partial,53 unfinished.
+
+Source: [3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a).

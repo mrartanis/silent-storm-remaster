@@ -838,7 +838,8 @@ int main(int argc, char** argv) {
               grenadeAPBefore, inventory->GetActiveSlot(), thrower->HasCommand() ? 1 : 0,
               thrower->GetCurrentCommandName(&commandName) ? commandName.c_str() : "none");
           } else if (missionPartyGrenadeFlightSave)
-            NWorld::UnitThrowGrenade(thrower, grenade, epicentre);
+            // This save/flight fixture needs a guaranteed impact; the script API defaults to chance0.
+            NWorld::UnitThrowGrenade(thrower, grenade, epicentre, 100);
           else
             world->AddGrenadeExplosion(epicentre, grenade, thrower);
           if (missionPartyGrenadeFlightSave || missionPartyGrenadeInventorySave ||

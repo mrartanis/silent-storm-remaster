@@ -22459,3 +22459,71 @@ source3cfc work, and original final live-world chance/throw behavior is outside 
 bounded proof. Hosted CI on the eventual final HEAD of the entire task remains pending.
 
 Source: [226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4).
+
+## 2026-11-01: live grenade velocity and physical distance (source3cfc partial)
+
+Existing live CGrenadeToHitCalcer velocity/range adapters now call a private shared
+GetMaxThrowVelocity matching actual Steam6b7b10/285. It queries current fractional
+GetWeaponSkill(item,first?1:0,0), uses raw strength or actual PK grenade strength, stored
+float1/18 strength/power stages, weighted double pow(grams,double(float.74)), float
+kilograms/division and authored88 multiplier. Explicit operation stores preserve observed
+PC24 and prevent fused product/add reassociation. Range uses staged velocity/gravity,
+multiply velocity, multiply float1.6, then truncation. Existing CanUnitThrowGrenade,
+script and executor consumers retain their calcer API and explicit item. No header,
+serialized field or public API changes. Accuracy1.5/92/truncation, night/per-unit turn
+inputs, script chance, fresh-restore fallback, legacy debug GetMaxImp and private knife
+wide adapters remain intact.
+
+NativePhysics0..14 use real world actors/items/Take88: regular/engineer/backpack,
+raw70/140, wounded/cap/healed VP, worn PK, night and post-Prepare damage. Authored88
+is1.1. Bare regular70 velocity corrects413795c6 ->413795c7; raw140 corrects4156a73e
+->4156a73f. Owned88 was ignored: ranges21 ->25,28 ->34, engineer30 ->36. Wounded
+shared52.5 was reduced to calcer52; corrected velocity is10.988625526428223 bits412fd169.
+Raw79 atVP.9 preserves71.0999985. A wound after preparation leaves cached calcer70 but
+current quote52.5; the live getter now gives current range19 rather than21.
+Current125/healed200/theory500 also yields52.5. The measured worn-PK control uses
+effective THROW60/human STR27/PK strength10, bits41332591/range20, unchanged.
+
+Initial PK setup after wear violated the stable-skill helper contract. Moving wear and
+attempting a constant override still violated the intended raw-skill guard. Those setup
+failures are retained separately, not native RED. An input-only diagnostic retained
+authored PK modifiers, measured60/27/10 and omitted its numeric assertion only for
+calibration. Final canonical assertions are restored with the independently
+original-derived reference for those measured inputs. Night is fixed after equipment so
+both platforms match. Genuine RED13/129 both has116 passing cases including114 prior
+controls and2 new controls; all15 input rows agree across platforms.
+
+Thirty actual original records in15 contexts execute SharedSkill1244, MaxVelocity285 and
+Fill252 integer physical range, plus auxiliary Stance/D1 with controlled unused pose/bonus
+fields. A12-record lifecycle smoke precedes the matrix. All15 PC24 velocity words/ranges
+match the fixed hypotheses. Six initialized D3D9 samples verify CW007f. Diagnostic CW027f
+gives PK41332590 instead of reference41332591; its cap-only shared float store is63 but
+extended-return integer consumer is62, versus PC24 consumer63. These diagnostic
+differences are not references. Existing complete typed285/48/helper/slot/field audits are
+retained; no exhaustive cross-CRT pow identity is claimed.
+
+Real Grenade100/Weapon104/Clip108/Ammo56/PerksTree
+constructor/Take88/Has/virtual/destructor lifecycles, points/refcounts/base-vtable resets
+and unchanged objects/typed DB data are checked. Current/healed VP and typed PK strength
+come from native inputs. Sparse actual-vtable Mission/Unit/calcer and controlled DB/PK
+buffers are not original World/PK-wear/inventory/calcer/DB constructors. Original
+cache/world/trajectory execution is not claimed: post-Prepare damage is compared with the
+free fresh-input original method. Real stack/readback, complete716-byte context/CW/config
+restoration and normal WM_CLOSE/exit0 are verified. No fake provider or original
+code/DB/world/TEB patch.
+
+The first Windows affected-suite run failed the existing
+NativeWorldMission810PartyGrenadeFlightSave fixture. The same fixture also failed
+independently on clean115 math: its script call omitted chance, whose default is0. The
+fixture now supplies100 so it tests impact/flight/save rather than scatter; corrected
+clean115 passes1/1. No test is disabled or game behavior changed for this harness
+correction. Initial failure and both baseline runs are retained separately.
+
+Full Game builds and configured affected grenade tests plus all129 RED names pass:185
+Windows /182 Linux, CI323. All114 prior measured controls and2 new controls are exact;
+all15 inputs/references and HP/AP/ammo/item/position/points/RNG remain fixed. Unrelated
+medical/XP suites are not presented as rerun. Source3cfc stays partial: fuse90/fractional
+fuse threshold, PK origins and Hide/vision remain pending.53 sources remain (pending37
++partial16); eventual whole-task final hosted CI remains pending.
+
+Source: [3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a).
