@@ -217,6 +217,7 @@ int main(int argc, char** argv) {
       // CCmdInterfaceEvent on completion. We acknowledge their IDs but do not
       // simulate camera motion, rendering, or input; the world still executes
       // its original scripted unit actions.
+      bool checkedScriptedFlyer = false;
       for (int tick = 0; tick < 220; ++tick) {
         world->UpdateWorld(tick * 50, nullptr);
         while (auto* raw = world->GetUICommand()) {
@@ -227,16 +228,19 @@ int main(int argc, char** argv) {
             ++acknowledged;
           }
         }
-        if (missionRootPartySaveTurn && tick == 50) {
+        if (missionRootPartySaveTurn && !checkedScriptedFlyer && tick >= 50) {
           auto* boss = world->GetUnitServer("BOSS");
-          if (!boss || !boss->CanFight() ||
-              !boss->GetPosition().pos.p.IsFinal()) return 78;
-          const CVec3 before = boss->GetPosition().GetCP();
-          boss->OnTBSEvent(NWorld::TBS_GRID_INFO_UPDATED);
-          if (!boss->CanFight() ||
-              fabs(boss->GetPosition().GetCP() - before) > 0.001f)
-            return 79;
-          std::printf("scripted flyer survived grid update at fw2\n");
+          // Implicit Lua ends yield their callers in Steam 1.2. Observe the
+          // scripted flight phase within this existing 220-update budget.
+          if (boss && boss->CanFight() && boss->GetPosition().pos.p.IsFinal()) {
+            const CVec3 before = boss->GetPosition().GetCP();
+            boss->OnTBSEvent(NWorld::TBS_GRID_INFO_UPDATED);
+            if (!boss->CanFight() ||
+                fabs(boss->GetPosition().GetCP() - before) > 0.001f)
+              return 79;
+            checkedScriptedFlyer = true;
+            std::printf("scripted flyer survived grid update at fw2: tick=%d\n",tick);
+          }
         }
         if (variant == 810) {
           auto* shooter = world->GetUnitServer("pers1");
@@ -255,6 +259,7 @@ int main(int argc, char** argv) {
         }
         if (!NScript::luaLastError.szError.empty()) return 14;
       }
+      if (missionRootPartySaveTurn && !checkedScriptedFlyer) return 78;
       std::printf("headless UI IDs acknowledged: %d\n", acknowledged);
       for (const auto& name : observedCommands)
         std::printf("observed shooter executor: %s\n", name.c_str());

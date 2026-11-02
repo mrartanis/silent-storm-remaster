@@ -2555,3 +2555,35 @@ Existing sole nested-save exclusion retained. All15 donor files now accounted fo
 across144/147/148/149/150; e825 complete,29 unfinished.
 
 Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
+
+## 2026-11-02: native Lua implicit-end scheduling (151)
+
+UpstreamLuaImplicitEnd0..3 execute native compiled Lua through Script.ExecuteThreads.
+Verify implicit call first-update trace1 then12, exact explicit-return control12,
+two-level trace1/12/123, and independent fresh Script-only save/reload of a suspended
+caller that resumes exactly once to12 alongside the live state. Canonical unchanged RED3/4
+both ->GREEN4 both. No fake interpreter/instructions, live-world decode, extra game frame,
+timing warmup or tolerance. Actual Steam823080 dispatch823e80 and opcode0 tail823e50
+audited; Gold1.1 lacks the yield and is not treated as equivalent. Unique typed23/10 exact
+blocks and return helper30 E8-only establish caller/helper context; actual changed
+lua_State fields and opcode branch decoded separately, never normalized. Correct the
+donor's stale addresses in the production comment.
+
+Windows initial624/625 fails only the old5247 fixedtick50 flyer-phase precondition before
+any save. Controlled exact parent passes both old/refined5247 while new4 retain RED3.
+Refine only phase observation inside unchanged220-update budget, require native flyer
+event, same survival/grid/0.001 position/fullsave/endturn/secondsave checks. Parent
+event50/GREEN52, no production/tolerance/frame/clock change. Fresh ALL_BUILD then
+refined5/5 and CI382; initial failure retained and624 unaffected passes reused,625
+distinct aggregate coverage rather than a single625/625 run. Linux full590/590 with
+identical production remains valid; probe case is Windows-only here.
+
+Full Game both/625 Windows/590 Linux distinct related coverage including all150,
+prior/new77 cases, CI382,71 fixed rows/melee/godmode/fonts12 exact, database unchanged.
+Separate12 fresh LAN gates each platform including361 maps. Linux5 CTest+7 direct native
+game modes, Windows12 CTest; all commands/exits retained. Existing single nested-save
+exclusion retained. An initial Windows-only target name in the Linux builder was corrected
+without dropping tests; original build log retained. Source6face remains partial for its
+other four files,29 unfinished.
+
+Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).

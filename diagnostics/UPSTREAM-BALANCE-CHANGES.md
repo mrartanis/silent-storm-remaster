@@ -4309,3 +4309,25 @@ related/CI378, previous melee/godmode/fonts12 exact, database unchanged. All15 e
 files accounted for across144/147/148/149/150; source imported,29 unfinished.
 
 Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
+
+## 2026-11-02: native Lua implicit-end scheduling (151)
+
+Match actual Steam1.2 script update scheduling: implicit function completion yields the
+caller until its next native script update; explicit return continues immediately. This is
+verified Steam behavior; Gold1.1 differs and is not claimed as matching. Four-line loop
+break, existing native return and save handling retained. No AP/damage/price rules, extra
+world frames or artificial clock changes.
+
+Native RED3/4 ->GREEN4 both, explicit-return control exact, two nested yields and
+independent saved suspended Script resume verified. The old5247 test assumes flyer state
+at50; actual Steam scheduling puts it at52. Only the diagnostic phase gate now waits for
+the native event within its unchanged220 updates, retaining native grid/survival/0.001
+position/fullsave/endturn/secondsave checks. Parent phase50 andGREEN52 both pass; initial
+full624/625 failure retained, refined5/5 after freshALL/CI382,625 aggregate coverage
+without a single625/625 claim. Linux590/590 complete. Game both/625 Windows/590 Linux
+distinct related coverage/CI382, previous/new77 cases,71 prior fixed
+rows/melee/godmode/fonts12 exact;12 LAN gates and361 encounter maps each platform pass.
+Database unchanged. Other6face mission/route/deployment changes remain pending;29
+unfinished.
+
+Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).

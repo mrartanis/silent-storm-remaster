@@ -24402,3 +24402,78 @@ partial,17 pending;29 unfinished. Actual final-head hosted success still require
 whole-task completion.
 
 Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
+
+## 2026-11-02: native Lua implicit-end scheduling (151)
+
+Restore the actual Steam1.2 script scheduling boundary: luaV_stepExecute returns after
+implicit OP_END, leaving the caller to the next native lua_executeThreads update. Explicit
+OP_RETURN continues in the same update. Add only the opcode0 loop break to Script/lvm.cpp;
+preserve the existing return helper, stack/result handling, explicit return, sleep/no-wait
+rules and wire representation. No new scheduler, extra world frame/tick, clock adjustment
+or interpreter replacement.
+
+Four unchanged native UpstreamLuaImplicitEnd0..3 cases compile and execute through the
+actual Script/lua VM. Implicit child first-update trace12->1, two-level nesting123->1
+then12/123 on subsequent updates, explicit-return control12 in the same first update, and
+a suspended native Script saved/reloaded as an independent Lua graph then resumed to12
+exactly once alongside its live counterpart. No live-world decode or forged VM
+instruction/state. Canonical RED3/4 both ->GREEN4 both; explicit-return1 exact. A guarded
+production application first stopped on Git LF versus working CRLF; the incidental
+before-production rerun remains archived separately and was not claimed as GREEN. Correct
+normalized content comparison, then four-line production applied without modifying the
+tests.
+
+Original comparison distinguishes versions. Gold typed luaV_stepExecute7ddfe0/3716 does
+NOT have this yield; its7ded78 tail checks only the thread-error flag before looping.
+Actual verified Steam1.2 scheduler81b520 is bound by the whole23-byte typed sleeping/error
+block Gold7d674d->Steam81b53d, unique exact without masks, and independently decoded sole
+fallback string8d3e6c/reference81b5aa. Actual81b55c calls lua_setThread816870 and81b563
+calls step823080; thread retirement checks and fallback newThread8168a0 decoded
+separately. Actual lua_State fields pCT4/threads14/nNoWait44/protos64 differ from
+Gold0/10/40/60; never mask or normalize those fields. Actual setThread reads/replaces pCT4
+independently.
+
+Complete10-byte explicit-return index/base prefix Gold7de0a7->Steam82314c uniquely matches
+without masks. Named typed return helper body Gold7dd412/30->Steam822483/30 uniquely
+matches masking only its decoded luaD_endCall E8; changed initial pCT load excluded and
+independently decoded at822480. Actual helper pops one20-byte frame from
+executedCalls.end24 and calls81c5f0. Actual opcode extraction823125 masks3f, compares48,
+stores opcode atesp1c, then dispatches through actual49-entry table823e80. Table0=82313e
+calls822480 with top; table1=82314c calls the same helper with base+argument. Both
+jump823e50, where actual opcode==0 exits to823e64/ret823e7d; nonzero checks pCT error30
+then loops8230e6. No no-wait exception to this END exit. Whole165 scheduler/3716 step/32
+helper comparisons rejected because state fields, frames, added branch, EH/global/BSS
+operands differ; no field/frame/register/branch/opcode/unknown-pointer masks, BSS reads or
+original execution. Donor cited7eb770/8238c0 are wrong for these verified images;
+actual8238c0 is inside an arithmetic opcode.
+
+Initial full Windows run624/625 exposed one stale fixed-phase assertion in existing
+NativeWorldMission5247PartySaveTurn: exit78 before save expected BOSS already flying at
+exactly tick50. Exact parent Script replay passes that original case and retains new
+RED3/4. Refine ONLY the diagnostic phase gate: observe the first native CanFight+IsFinal
+phase at/after50 within the SAME existing220-update loop; require the event occurred or
+return the same78. Keep native grid update, survival and original0.001 position bound, all
+save/reload, end-turn and second-save checks. No extra updates/frames, clock, tolerance,
+geometry, actor or production adjustment. Identical refined diagnostics pass on parent
+at50 and audited production at52; unchanged new RED3/4 on parent ->GREEN4 and refined5247
+all5/5 after fresh Windows ALL_BUILD. Direct native logs verify full
+save/end-turn/second-save on both. Retain initial failure and all624 unaffected passes;625
+is aggregate coverage, never a claim of one625/625 pass. Linux single590/590 remains valid
+with byte-identical production; corrected probe case is Windows-only in the configured
+tests.
+
+Full Game both/625 Windows/590 Linux distinct related Lua/script/world coverage including
+all150 regressions, CI382, and77 previous/new cases pass as qualified above;71 previous
+fixed rows, melee/filter/godmode and12 fonts exact per platform, database hash unchanged.
+Twelve fresh existing LAN gates each platform pass, including real match/client
+UI/preparation/partial movement/object stages/stop-resume and all361 encounter
+deployments/replicas. Linux5 infrastructure gates use CTest and7 actual NetworkMatchTests
+modes run directly because this configured Linux build does not register them; Windows12
+via CTest. Initial Linux full-build typo requested Windows-only
+NativeScriptRouteWaitTests; log retained and target corrected without excluding any
+registered Linux test. The prior nested-save movement flake remains the sole exact
+exclusion since139. Other four6face files (mission transition, route installation and
+deployment reservations) remain pending; source becomes partial,217 imported/16 pending/13
+partial,29 unfinished. Final-head hosted success required at whole-task completion.
+
+Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).

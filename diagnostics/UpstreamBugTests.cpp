@@ -376,6 +376,51 @@ static int PerStateArgumentCount(lua_State* state)
     return 1;
 }
 
+static void LuaImplicitEndYield(int mode)
+{
+    Require(mode>=0 && mode<4,"implicit end mode outside fixture range");
+    Script script;
+    const bool explicitReturn=mode==1;
+    const char* source=explicitReturn
+        ? "trace = 0; function child() trace = trace * 10 + 1; return end; child(); trace = trace * 10 + 2"
+        : mode==2
+        ? "trace = 0; function leaf() trace = trace * 10 + 1 end; function child() leaf(); trace = trace * 10 + 2 end; child(); trace = trace * 10 + 3"
+        : "trace = 0; function child() trace = trace * 10 + 1 end; child(); trace = trace * 10 + 2";
+    Require(script.DoString(source)==LUA_NOERR,"implicit end fixture did not compile in the native VM");
+    script.ExecuteThreads();
+    const int first=script.GetGlobal("trace").GetNumber();
+    std::printf("LUA-IMPLICIT-END mode=%d update=1 trace=%d expected=%d\n",mode,first,explicitReturn?12:1);
+    Require(first==(explicitReturn?12:1),"native implicit function end continued its caller in the same thread update");
+    if(mode==3) {
+        CMemoryStream bytes;
+        { CStructureSaver save(bytes,CStructureSaver::WRITE);save.Add(1,&script); }
+        bytes.Seek(0);
+        Script restored;
+        { CStructureSaver load(bytes,CStructureSaver::READ);load.Add(1,&restored); }
+        Require(restored.GetGlobal("trace").GetNumber()==first,"saving a suspended native Lua caller changed its progress");
+        restored.ExecuteThreads();script.ExecuteThreads();
+        const int live=script.GetGlobal("trace").GetNumber();
+        const int loaded=restored.GetGlobal("trace").GetNumber();
+        std::printf("LUA-IMPLICIT-END mode=%d update=2 live=%d loaded=%d expected=12\n",mode,live,loaded);
+        Require(live==12 && loaded==12,"fresh native Lua-state reload did not resume the suspended caller on the next update");
+        restored.ExecuteThreads();script.ExecuteThreads();
+        Require(restored.GetGlobal("trace").GetNumber()==12 && script.GetGlobal("trace").GetNumber()==12,"completed native Lua caller repeated after save/load");
+        return;
+    }
+    script.ExecuteThreads();
+    const int second=script.GetGlobal("trace").GetNumber();
+    std::printf("LUA-IMPLICIT-END mode=%d update=2 trace=%d expected=12\n",mode,second);
+    Require(second==12,"native Lua caller did not resume exactly once on its next thread update");
+    if(mode==2) {
+        script.ExecuteThreads();
+        const int third=script.GetGlobal("trace").GetNumber();
+        std::printf("LUA-IMPLICIT-END mode=%d update=3 trace=%d expected=123\n",mode,third);
+        Require(third==123,"nested native implicit ends did not preserve one caller per thread update");
+    }
+    script.ExecuteThreads();
+    Require(script.GetGlobal("trace").GetNumber()==(mode==2?123:12),"completed native Lua script repeated or lost final progress");
+}
+
 static void LuaArgumentState()
 {
     CObj<NScript::CScript> executing = new NScript::CScript, other = new NScript::CScript;
@@ -34216,6 +34261,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "script-misc-weak-cleanup")) { Require(argc==3,"script miscellaneous cleanup requires mode"); ScriptMiscWeakCleanup(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "window-activation-flags")) { Require(argc==3,"window activation requires mode"); WindowActivationFlags(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "window-child-registration")) { WindowChildRegistration(); return true; }
+    if (!std::strcmp(mode, "lua-implicit-end")) { Require(argc==3,"implicit end requires mode"); LuaImplicitEndYield(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "lua-argument-state")) { LuaArgumentState(); return true; }
     if (!std::strcmp(mode, "worldless-ui-script")) { WorldlessUIScript(); return true; }
     if (!std::strcmp(mode, "lua-window-userdata")) { LuaWindowUserdata(); return true; }
