@@ -32587,6 +32587,51 @@ static void UnitPreviewShotOrigin(const char* databasePath,const char* resourceP
     Require(false,"native origin fixture has no observable unclamped chance difference");
 }
 
+class NativeMeleePreviewHullMap : public CoverOriginMapProbe
+{
+    OBJECT_NOCOPY_METHODS(NativeMeleePreviewHullMap);
+public:
+    int calls=0;
+    CObjectBase* received=nullptr;
+    vector<int> locations;
+    explicit NativeMeleePreviewHullMap(NAI::IAIMap* map=nullptr):CoverOriginMapProbe(map){}
+    void GetAccessibleUnitHL(vector<int>* out,const CVec3& from,CObjectBase* hull,float distance) override
+    {
+        ++calls;received=hull;native->GetAccessibleUnitHL(out,from,hull,distance);locations=*out;
+    }
+};
+
+static void NativeMeleePreviewHull(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<6,"unknown melee preview hull mode");
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->IsAIUnit() && !unit->IsEmptyPK() && !unit->IsWearingPK()){actor=unit;break;}
+    Require(actor,"melee preview hull lacks actual party actor");auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::CMeleeWeaponItem> blade;
+    if(mode<4 || mode==5){NDb::CRPGMeleeWeapon* record=nullptr;CDBIterator<NDb::CRPGMeleeWeapon> weapons(*NDatabase::GetTable<NDb::CRPGMeleeWeapon>());while(weapons.MoveNext()){auto* p=weapons.Get();if(p->bThrowing==(mode==3) && p->pItem && p->pItem->pModel && (!record || p->GetRecordID()<record->GetRecordID()))record=p;}
+        Require(record,"melee preview hull lacks authored blade");blade=new NRPG::CMeleeWeaponItem(record);blade->nQuantity=1;CObj<NRPG::IInventoryItem> old=inventory->TakeOff(NDb::SLOT_1);Require(inventory->Equip(NDb::SLOT_1,blade) && inventory->Activate(NDb::SLOT_1),"melee preview hull cannot equip authored blade");}
+    else {NDb::CRPGWeapon* record=nullptr;CDBIterator<NDb::CRPGWeapon> weapons(*NDatabase::GetTable<NDb::CRPGWeapon>());while(weapons.MoveNext()){auto* p=weapons.Get();if(p->shootModes[NDb::SM_Snap] && !p->bBazookaLogic && p->pItem && p->pItem->pModel && p->pInnerClip && p->pWeaponType && (!record || p->GetRecordID()<record->GetRecordID()))record=p;}
+        Require(record,"melee preview hull lacks authored snap firearm");CObj<NRPG::CWeaponItem> weapon=new NRPG::CWeaponItem(record);CObj<NRPG::IInventoryItem> old=inventory->TakeOff(NDb::SLOT_1);Require(inventory->Equip(NDb::SLOT_1,weapon) && inventory->Activate(NDb::SLOT_1) && weapon->GetAmmoQuantity()>0 && weapon->SetShootMode(NDb::SM_Snap),"melee preview hull cannot equip actual loaded firearm control");}
+    const auto action=NRPG::GetToHitType(actor);Require(action==((mode<3 || mode==5)?NRPG::TH_MELEE:mode==3?NRPG::TH_THROWING:NRPG::TH_SHOOT),"melee preview hull has wrong actual action type");
+    actor->animator.SetActiveItem(true);actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());actor->animator.AlignTime();actor->animator.PlaceUnit(actor->GetPosition());
+    auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),mode==5?3.f:1.f),&places);NAI::SPathPlace adjacent;bool found=false;const auto from=actor->GetPosition();
+    for(auto p:places){p.SetPose(NAI::CM_STAND);p.SetMoving(0);NAI::SPosition pos(p,from.pos.pNet);const auto delta=pos.GetCP()-from.GetCP();if(fabs(delta.z)<.1f && (mode==5?(fabs2(delta)>sqr(1.4f) && fabs2(delta)<sqr(2.f)):(fabs2(delta)>.1f && fabs2(delta)<sqr(F_MELEE_DISTANCE))) && network->IsPassable(p) && !network->IsLocked(p)){adjacent=p;found=true;break;}}
+    Require(found,"melee preview hull lacks actual free adjacent reachable tile");CObj<NWorld::CUnitServer> target=world->AddUnitInGame(adjacent,NRPG::CreateUnit(NDb::GetPers(103)),actor->GetTBSPlayer(),"NativeMeleePreviewHullTarget");Require(target && target->CanFight(),"melee preview hull cannot deploy real target");target->animator.AlignTime();target->animator.PlaceUnit(target->GetPosition());MarkNewDGFrame();world->GetAIMap()->Sync();
+    auto* map=world->GetAIMap();CObjectBase* targetHull=map->GetHull(target);CObjectBase* actorHull=map->GetHull(actor);Require(targetHull && actorHull && targetHull!=actorHull,"melee preview hull lacks distinct real collision hulls");vector<int> expected,self;map->GetAccessibleUnitHL(&expected,actor->GetPosition().GetCenter(),targetHull,F_MELEE_DISTANCE);map->GetAccessibleUnitHL(&self,actor->GetPosition().GetCenter(),actorHull,F_MELEE_DISTANCE);
+    Require(mode==5?(expected.empty() && !self.empty()):(!expected.empty() && expected!=self),"melee preview hull lacks a native reachable-hit-location witness distinguishing the two real hulls");
+    CObj<NativeMeleePreviewHullMap> probe=new NativeMeleePreviewHullMap(map);CDGPtr<CFuncBase<STerrainInfo>> terrain=world->GetTerrainInfo();terrain.Refresh();CObj<NRPG::IGame> preview=NRPG::CreateGame(probe,network,terrain->GetValue());
+    // Ranged controls exercise the real script override and action routing;
+    // they do not claim ordinary ranged formula parity.
+    if(mode==3 || mode==4)actor->SetScriptToHit(37);
+    const auto targetPos=target->GetPosition();const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),targetHP=target->GetUnitRPG()->GetTotalVP();const auto* active=inventory->GetActive();const int quantity=active->GetQuantity();const auto time=world->GetTime()->GetValue();const auto location=mode==1?NAI::HL_HEAD:mode==2?NAI::HL_BODY:NAI::HL_ANY;GlobalGameRandom().SeedForHarness(721);auto referenceRandom=GlobalGameRandom();
+    const int chance=preview->GetCompositeToHit(actor,target,location,world->IsFirstTurn());auto actualRandom=GlobalGameRandom();unsigned words[4];bool same=true;for(int i=0;i<4;++i){words[i]=actualRandom.Get();same&=words[i]==referenceRandom.Get();}
+    std::printf("MELEE-PREVIEW-HULL mode=%d action=%d location=%d scripted=%d calls=%d targetHull=%d selfHull=%d expectedCount=%zu selfCount=%zu observedCount=%zu nativeSetMatches=%d chance=%d AP=%d HP=%d targetHP=%d RNGsame=%d rng0=%u rng1=%u rng2=%u rng3=%u\n",mode,int(action),int(location),int(mode==3 || mode==4),probe->calls,int(probe->received==targetHull),int(probe->received==actorHull),expected.size(),self.size(),probe->locations.size(),int(probe->locations==expected),chance,ap,hp,targetHP,int(same),words[0],words[1],words[2],words[3]);std::fflush(stdout);
+    if(mode==5)Require(chance==0,"melee preview returned a positive chance for an empty actual target hit-location set");
+    if(mode<3 || mode==5)Require(probe->calls==1 && probe->received==targetHull && probe->locations==expected,"melee preview queried the attacker's collision hull instead of the target's native reachable hit locations");
+    else Require(probe->calls==0 && chance==37,"scripted ranged blade/firearm control queried melee locations or lost its native override");
+    Require(actor->GetPosition()==from && target->GetPosition()==targetPos && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && target->GetUnitRPG()->GetTotalVP()==targetHP && inventory->GetActive()==active && active->GetQuantity()==quantity && world->GetTime()->GetValue()==time && !actor->HasCommand() && same,"melee preview changed native actor/target/item/time/RNG controls");
+}
+
 class UnitPreviewMapProbe: public CoverOriginMapProbe
 {
     OBJECT_NOCOPY_METHODS(UnitPreviewMapProbe);
@@ -35347,6 +35392,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-melee-preview-hull")) { Require(argc==5,"melee preview hull requires db/resources/mode"); NativeMeleePreviewHull(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-dead-pk-support")) { Require(argc==5,"PK support requires db/resources/mode"); NativeDeadPKSupport(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-object-hover")) { Require(argc==5,"object hover requires db/resources/mode"); NativeObjectHoverAttack(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-smooth-relocation")) { Require(argc==5,"smooth relocation requires db/resources/mode"); NativeSmoothRelocation(argv[2],argv[3],std::atoi(argv[4])); return true; }

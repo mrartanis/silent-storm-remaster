@@ -2836,3 +2836,24 @@ tail, with executable SHA fixed before/after. Raw inequality and unproven cause 
 reported, without normalization or extra test counts; see UPSTREAM-IMPORTS.md.
 
 Source: [b3bd4703140eedb548126513d32cc16ad5c06b2a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b3bd4703140eedb548126513d32cc16ad5c06b2a).
+
+## 161. Query the target hull for melee hit-chance previews
+
+NativeMeleePreviewHull0..5: final canonical RED4/6 ->unchangedGREEN6 both. Real
+actor/target/map810, actual authored weapons and native collision-hull queries;
+transparent delegate returns the real native values. Near target3/self6 ANY/head/body
+contracts and far targetempty public chance100->0. Two complete SCRIPT37 ranged-control
+rows/all six RNG tails exact; actor AP/HP, target HP, positions/item/commands/time
+retained. No ordinary ranged-formula claim from scripted controls. First unavailable gun
+input archived, corrected before accepted tests; final six parent replay before the exact
+one-line fix reapply.
+
+Full Game both; scoped preview/melee/to-hit/Lua663 Windows/655 Linux,160 focused/13
+tactical/117 old fixed rows/AImelee-filter/five hover/12 fonts, CI382 and12 LAN gates/361
+maps each. Previous dead-PK job counts and known HP/old smooth RNG variations remain
+explicit raw inequalities if observed. One existing nested-save exclusion. Original
+bounded target identity and virtual30->34/global/whole-function limitations appear in
+UPSTREAM-IMPORTS.md. Only RPGGame.cpp hunk imported; source directed-pose and
+inactive-door-turn hunks remain,23 unfinished.
+
+Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).

@@ -25195,3 +25195,72 @@ full-run RNG-parity claim is made. These confirmations overlap1156/1129 and are 
 additional cases; the seven new support operation RNG streams remain unconsumed.
 
 Source: [b3bd4703140eedb548126513d32cc16ad5c06b2a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b3bd4703140eedb548126513d32cc16ad5c06b2a).
+
+## 161. Query the target hull for melee hit-chance previews
+
+Composite unit previews asked the native map for reachable hit locations on the attacker's
+own hull. Pass the target's hull to that existing query. This is one line in RPGGame.cpp;
+the current actor center, reach constant, called-location selection, chance formulas,
+first-turn/logging interface and LAN delegation remain unchanged. Real attack execution
+already has its own target-aware selector. Only this source fcc994bc RPGGame hunk is
+imported here; directed attack-pose selection and the inactive door-path turn guard remain
+pending.
+
+NativeMeleePreviewHull0..5 deploy a real person103 beside the native party actor on
+map810, equip actual authored blades/loaded Snap firearm, initialize real native poses and
+use a transparent map delegate. Independent native queries distinguish the target's three
+accessible locations from the actor's six; a farther real free tile has no accessible
+target location. Final corrected canonical RED4/6 both becomes unchanged GREEN6 both.
+Three near ANY/head/body queries now obtain target3 instead of self6; their
+percentages100/86/92 remain unchanged, so they prove the native input contract rather than
+a visible percentage change. The far case proves the public result: old100 becomes0 when
+the independently queried target set is empty. This retains our existing zero-for-empty
+policy; it does not import the original free preview's broader sentinel/logging/API
+rewrite.
+
+The two ranged controls use the real public script37 override to isolate action routing.
+Both complete rows remain exact, and all six four-word RNG tails
+stay2543441365/3409503325/3097050868/3040333759. Actual actor AP/HP, target HP, positions,
+active item/quantity, command absence and world time remain unchanged. Ordinary ranged
+formula equivalence is covered by existing regressions, rather than claimed from these
+scripted controls. The first firearm control was unavailable because person54 is unarmed:
+that input was archived and corrected through a real authored loaded gun before accepting
+the initial five-case contract set. After adding the sixth public-result case, restore the
+one Main parent file with a fresh timestamp and replay the final six before reapplying the
+exact same one-line fix. No private health/grid/position injection, fake returned map
+values, partial World READ, actual mouse-pick/firing or original gameplay execution is
+involved.
+
+Original target identity is established in actual Steam SelectTargetHLs6b49e0, typed
+Gold6ae8b0/248: complete target loading/reference-normalization32 bytes Gold6ae8f0
+->unique raw-exact Steam6b4a20, plus complete20-byte argument setup Gold6ae916
+->unique6b4a46 with only its decoded E8 displacement. The center calls are Gold490530/184
+and actual491630, without a whole184 claim. Named CWorld root slot20 binds GetAIMap
+Gold76bc60/7 ->Steam777a10/7 raw exact. The CAIMap method is separately typed at Gold root
+slot30/GetAccessibleUnitHL465110/572 and actual Steam root slot34/465fc0. Whole23 is
+explicitly rejected because its virtual call differs30->34; that slot is never normalized.
+The adjacent six-byte global-distance MOV is excluded as a whole instruction and its
+target memory is neither read nor masked. Actual free unit preview6b5e90 receives the
+target in EBP from its native ESP9c argument, casts it with independently typed
+UnitServer/CObjectBase descriptors at6b60e7, and passes the resulting EAX at6b616b
+into6b617f ->6b49e0. The original named Gold6afdb0/972 five-argument free API differs from
+our four-argument adapter. Complete248/972/572/184, global-distance value, full ABI and
+whole preview parity are not forced or claimed. No BSS or
+field/frame/register/opcode/local-branch masks.
+
+Fresh full Game builds pass on both platforms. Scoped preview/melee/to-hit/Lua-query
+single suites663 Windows/655 Linux cover the actual UI, Lua and network consumers, all160
+focused cases and13 tactical views. All117 previous fixed rows, explosive/AI/melee/filter
+outputs, five hover rows and12 font outputs remain exact; previous dead-PK physical rows
+retain their native job-budget iteration inequalities explicitly. CI382 and12 LAN
+gates/361 encounter variants each pass with fresh helpers, unchanged baseline/Steam
+game.db SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df and only the
+pre-existing nested-save exclusion. This is not a repeat or claim of160's full1156/1129
+world suites. Any previously observed137/157 setup-HP or old smooth-mode0 Windows/mode1
+Linux RNG variant remains a raw inequality with cause unproven; no normalization or fresh
+unchanged-binary confirmation is claimed without separate evidence.
+
+Source fcc994bc remains partial:223 imported,14 pending,9 partial;23 unfinished.
+Final-head hosted success remains required at whole-task completion.
+
+Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).

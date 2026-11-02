@@ -4549,3 +4549,24 @@ tail, with executable SHA fixed before/after. Raw inequality and unproven cause 
 reported, without normalization or extra test counts; see UPSTREAM-IMPORTS.md.
 
 Source: [b3bd4703140eedb548126513d32cc16ad5c06b2a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b3bd4703140eedb548126513d32cc16ad5c06b2a).
+
+## 161. Query the target hull for melee hit-chance previews
+
+Melee unit previews now measure reachable body parts on the target rather than the
+attacking unit. A real target with no body part within reach previously displayed100 in
+the isolated query; it now returns the existing empty-set value0. Near target queries use
+the correct three locations instead of six actor locations, while the tested ANY/head/body
+percentages100/86/92 remain unchanged. Real attack execution and its chance/damage/AP
+formulas retain their paths. Own first-turn/logging, Lua and LAN interfaces remain
+unchanged.
+
+This is a preview-input correction, not an authored value or combat-formula change. Final
+native RED4/6 ->GREEN6 both, two complete scripted ranged controls and all six RNG tails
+exact. Actor AP/HP, target HP, position/item/command/time controls pass. Full Game
+both/scoped query663 Windows/655 Linux/CI382/160 focused/117 old rows/12 fonts/13 tactical
+views/12 LAN gates and361 maps each pass. Database/save/wire fields unchanged; only the
+existing nested-save exclusion. Raw prior setup/job/RNG inequalities are retained if seen;
+full original/runtime limitations are in UPSTREAM-IMPORTS.md. Remaining source fcc994bc
+directed attack poses/inactive door turns are still pending,23 unfinished.
+
+Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).
