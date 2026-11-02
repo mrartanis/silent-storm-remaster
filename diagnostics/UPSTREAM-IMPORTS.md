@@ -24214,3 +24214,65 @@ support and light/API hunks still require separate verification.30 unfinished. F
 hosted success remains required at whole-task completion.
 
 Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
+
+## 2026-11-02: live and saved foot support (148)
+
+Restore one foot-support contract across live animation movement and saved height-map DG
+nodes. Existing saved center/specialPoint/floors2/3/5/6/7 are now active rather than
+paired with an unsaved transient list. Constructor initializes both points and floors;
+single movement supplies one position/floor, two-position movement supplies destination
+center/floor and previous special/floor. Both cache movement and fresh recalculation call
+the same six-argument sampler. Restrict actual native TraceGrid to the two movement
+floors; choose nearest matching non-door support, reject relocated points outside absolute
+rectangle right/bottom, fall back to unit height above a one-unit support gap, then pin
+center/special samples and retain existing CheckGradient. Preserve original same-center
+early-return. Three production files; no new classID/save tags.
+
+Actual Steam1.2 entries independently audited: CHeightMapBlock RTTI VT8ca950 Recalc
+slot14=73b740; whole typed Move Gold7308e0/288->73b620/288 uniquely matches with only six
+decoded E8 relocations. Entire equality guard, point copies and floors38/3c writes remain
+unmasked. Both typed terrain Move Gold730b20/79 and730b70/85 uniquely match
+actual73b860/79 and73b8b0/85 with decoded E8 only. Height constructor
+Gold738990/108->7436f0/108 masks only the independently named height-block VT. Terrain
+constructor body132 Gold7311a5->73bee5 masks decoded E8 and named terrain VT only,
+excluding its EH prologue; actual third-floor argument reaches typed height constructor.
+Animator constructor caller43 Gold73225e->73cf9e is unique with only its three decoded E8
+operands and supplies actual CP/GetFloor/map to actual terrain constructor73bed0. No
+whole853 animator-ctor claim.
+
+Both actual cached movement73b6e7 and fresh Recalc73b81e call453b70 with saved map1c,
+center20, special2c, floors38/3c. Actual453c01 supplies both floor arguments to454be0;
+its139-byte body Gold454155->454bf5 uniquely matches with decoded E8 only, preserving
+duplicate-floor suppression. Actual TraceGrid slot1c receives floor set,
+TS_PASS_BLOCKER100, NOSORT0. Four exact, unmasked unique blocks bind optional-special
+comparison71 bytes, nearest matching-source loop159, fallback112 and support helper
+bounds/source search133. Actual writable file data100/1 operands are read independently,
+never normalized; whole995 height-map comparison is rejected. Actual helper453aa0 uses
+absolute right/bottom comparisons; actual final stores pin both points. Donor
+comments453c60/73b2c0/73b3e0 are corrected. No original process/world execution; no
+register/field/frame/branch/opcode/unknown-pointer masking.
+
+NativeFootSupport0..6 run actual world810, deployed actor, native map geometry and
+registered node11461141.0 preserves ordinary ground within existing0.002 sampling
+tolerance, not exact textual output;1 excludes actual floor0 via empty valid floor4 and
+must retain center height away from pinned samples;2 restores a distinct special height;3
+verifies every sample of floors4/0 equals actual floor0/0 and differs from4/4. Both actual
+nonempty ground trace743 and empty floor4 trace0 are checked.4 observes actual animator
+construction;5 native PlaceUnit and6 actual StartMove/Move update saved samples on the
+same cached DG node. Every live cached sample must equal a fresh independent
+registered-node reload. Native actor navigation stays unchanged; only new nodes are
+decoded, never the live world.
+
+Initial GREEN60/61 both retained: diagnostic special rise0.5 exceeded existing
+CheckGradient's center-preserving slope and lowered the peak0.018875. Refine only this
+input to0.25 within the existing slope and add full second-floor differential, without
+production changes or tolerance relaxation. Final unchanged diagnostics rerun against
+three exact parent production blobs give canonical RED6/7 both; GREEN7/combined61 both,
+all54 prior camera/cinematic/demo/menu/light cases green.49 fixed rows plus
+non-active-winner marker exact. Full Game both/376 Windows/348 Linux related/CI378 pass;
+prior melee/filter/godmode and12 packaged font rows exact; game.db SHA unchanged. Known
+prior campaign nested-save movement flake remains the sole exact exclusion since139, not
+fixed. Native renderer/audio/SDL/bgfx/font/HD/face/PNG/LAN and gameplay timing untouched.
+e825 remains partial for deployment and authored-light propagation;30 unfinished.
+
+Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).

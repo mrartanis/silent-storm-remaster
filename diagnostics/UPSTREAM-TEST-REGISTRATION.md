@@ -2478,3 +2478,28 @@ not fixed. Source remains partial for deployment/foot-support/light remainder,30
 unfinished.
 
 Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
+
+## 2026-11-02: live and saved foot support (148)
+
+NativeFootSupport0..6 use actual world/map/navigation, a deployed actor and registered
+height node11461141. Four saved-node recalculation cases: ground control, empty allowed
+floor4 fallback, distinct restored special height, full two-floor inclusion differential.
+Three actual animator producers: constructor, PlaceUnit, StartMove/Move; keep node
+identity and compare every cached sample to an independent fresh node decoded from its
+saved fields. Borrow map references only; never decode the live world. Native ground
+trace743 and floor4 trace0 prove real geometry/filter controls. Existing ground sampling
+tolerance0.002 is unchanged; no exact row claim for its small interpolation difference.
+
+Initial peak0.5 GREEN60/61 both retained; existing center-preserving CheckGradient lowers
+such a peak. Input corrected to0.25 within its slope, with no production
+adjustment/tolerance relaxation. Add actual full-surface floor4/0 vs0/0 and4/4
+differential. Same final diagnostics against exact parent three-file source give RED6/7
+both; GREEN7/combined61 both.54 prior camera/cinematic/demo/menu/light cases and49 fixed
+rows plus non-active-winner marker exact. Full Game both/376 Windows/348 Linux
+related/CI378, prior melee/filter/godmode and12 font rows exact, game.db unchanged. Typed
+original Move288/both terrain79/85/height ctor108/terrain body132/animator caller43 plus
+exact support/nearest/fallback blocks audited; whole995 sampler rejected, no unsafe
+masking or original runtime. Source remains partial for deployment/light remainder,30
+unfinished. Sole exact campaign nested-save flake exclusion unchanged since139.
+
+Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).

@@ -4253,3 +4253,24 @@ Native backends, own HiDPI/font/HD/face assets and LAN remain intact. e825 deplo
 support/light remainder stays pending; source partial30unfinished.
 
 Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
+
+## 2026-11-02: live and saved foot support (148)
+
+Unit foot placement now uses the actual movement floors and the same supporting points
+before and after loading. Excluded geometry no longer supplies another floor's height;
+missing support keeps the unit height. Constructor and actual movement publish the
+existing saved fields; native cached and freshly loaded surfaces agree at every sample.
+Restore original nearest non-door support, relocation bounds and same-center guard while
+retaining native gradient smoothing. Three production files, no damage/AP/price/timing
+changes or new save tags.
+
+Canonical native RED6/7->GREEN7/combined61 both, including full second-floor
+inclusion/exclusion surfaces, actual PlaceUnit/Move and fresh registered-node reload.
+Initial diagnostic peak beyond existing smoothing slope was corrected only in input after
+preserving failed evidence, then final tests replayed against exact parent source. All54
+earlier camera/demo/light cases pass,49 fixed rows plus non-active-winner marker exact.
+Full Game both/376 Windows/348 Linux related/CI378; prior melee/godmode/font12 exact,
+database hash unchanged. Existing native backends, fonts/HD/face/PNG and LAN unchanged.
+e825 still partial for deployment/light propagation;30 unfinished.
+
+Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).

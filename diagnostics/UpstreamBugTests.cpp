@@ -80,6 +80,7 @@ extern "C" int S2FmodRenderForTest(float* output,std::size_t frames);
 #include "../Main/aiColourer.h"
 #include <tuple>
 #include "../Main/aiMap.h"
+#include "../Main/aiHeight.h"
 #include "../Main/RPGVision.h"
 #include "../Main/RPGVisionQuery.h"
 #include "../Main/TerrainInfo.h"
@@ -33770,6 +33771,108 @@ static void NativeCachedPointShadowFlag(const char* databasePath,const char* res
 }
 
 
+static CPtr<CObjectBase> NativeFootBlock(NWorld::CUnitServer* actor)
+{
+    vector<CObjectBase*> referenced;CStructureNetworkContext graph;
+    graph.include=[&](CObjectBase* child){referenced.push_back(child);return false;};CMemoryStream traversal;
+    {CStructureSaver writer(traversal,CStructureSaver::WRITE,&graph);actor->animator.operator&(writer);}
+    CStructureNetworkContext refs;refs.externalReferences=true;refs.nextID=100;refs.include=[](CObjectBase*){return false;};
+    for(auto* child:referenced)if(!refs.ids.count(child)){const auto id=refs.nextID++;refs.ids[child]=id;refs.refs[id]=child;}
+    CMemoryStream fields;{CStructureSaver writer(fields,CStructureSaver::WRITE,&refs);actor->animator.operator&(writer);}
+    fields.Seek(0);CPtr<CObjectBase> terrain;{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&terrain);}
+    Require(terrain,"native animator lost its actual terrain function");
+    CStructureNetworkContext terrainRefs;auto terrainFields=BorrowedObjectFields(terrain,&terrainRefs);
+    CDGPtr<CPtrFuncBase<NAI::CHeightMapBlockInfo>> block;
+    {CStructureSaver reader(terrainFields,CStructureSaver::READ,&terrainRefs);reader.Add(1,&block);}
+    Require(IsValid(block),"native terrain lost its registered height DG node");return block.GetPtr();
+}
+
+static void NativeFootSupportProducer(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=4 && mode<=6,"unknown native foot producer mode");
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()){actor=unit;break;}
+    Require(actor,"foot producer lacks a native ordinary actor");
+    const auto initial=actor->GetPosition();auto destination=initial;
+    CPtr<CObjectBase> block=NativeFootBlock(actor);
+    // Populate the real runtime cache before moving, exercising its in-place path too.
+    CDGPtr<CPtrFuncBase<NAI::CHeightMapBlockInfo>> cached=dynamic_cast<CPtrFuncBase<NAI::CHeightMapBlockInfo>*>(block.GetPtr());cached.Refresh();
+    Require(cached->GetValue(),"native foot producer did not create its initial cache");
+    if(mode!=4){
+        auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(initial.GetCP(),4.f),&places);bool found=false;
+        for(auto place:places){place.SetPose(initial.pos.p.GetPose());place.SetDirection(initial.GetDir());place.SetMoving(0);if(!network->IsPassable(place) || network->IsLocked(place))continue;auto next=initial;next.pos=NAI::SPosition(place,network);if(fabs(next.GetCP()-initial.GetCP())>0.4f){destination=next;found=true;break;}}
+        Require(found,"foot producer lacks another real native navigation place");
+        if(mode==5)actor->animator.PlaceUnit(destination);
+        else {actor->animator.StartMove(false);actor->animator.Move(initial,destination,destination,false);}
+    }
+    Require(NativeFootBlock(actor)==block,"native movement replaced its terrain node unexpectedly");
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(block,&refs);CPtr<NAI::IAIMap> map;CVec3 center,special;int floor1=-99,floor2=-99;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&map);reader.Add(3,&center);reader.Add(5,&special);reader.Add(6,&floor1);reader.Add(7,&floor2);}
+    const CVec3 expectedSpecial=mode==6?initial.GetCP():destination.GetCP();
+    std::printf("FOOT-PRODUCER mode=%d center=%.6f,%.6f,%.6f special=%.6f,%.6f,%.6f expectedSpecial=%.6f,%.6f,%.6f floors=%d,%d expectedFloors=%d,%d map=%d stableNode=1\n",mode,center.x,center.y,center.z,special.x,special.y,special.z,expectedSpecial.x,expectedSpecial.y,expectedSpecial.z,floor1,floor2,destination.pos.GetFloor(),mode==6?initial.pos.GetFloor():destination.pos.GetFloor(),map.GetPtr()==world->GetAIMap());std::fflush(stdout);
+    Require(center==destination.GetCP() && special==expectedSpecial && floor1==destination.pos.GetFloor() && floor2==(mode==6?initial.pos.GetFloor():destination.pos.GetFloor()) && map.GetPtr()==world->GetAIMap(),"native ctor/movement did not publish its actual foot-support samples");
+    CObj<CObjectBase> restored=pSSClasses->CreateObject(0x11461141);fields.Seek(0);{CStructureSaver reader(fields,CStructureSaver::READ,&refs);restored->operator&(reader);}
+    CDGPtr<CPtrFuncBase<NAI::CHeightMapBlockInfo>> decoded=dynamic_cast<CPtrFuncBase<NAI::CHeightMapBlockInfo>*>(restored.GetPtr());decoded.Refresh();cached.Refresh();
+    auto* live=cached->GetValue();auto* reloaded=decoded->GetValue();Require(live->height.GetXSize()==reloaded->height.GetXSize() && live->height.GetYSize()==reloaded->height.GetYSize() && live->ptShift==reloaded->ptShift,"foot reload changed native cache coordinates");
+    for(int y=0;y<live->height.GetYSize();++y)for(int x=0;x<live->height.GetXSize();++x)Require(live->height[y][x]==reloaded->height[y][x],"native movement and fresh reload computed different foot surfaces");
+    Require(actor->GetPosition().GetCP()==initial.GetCP(),"animation-only foot sampling changed actual navigation position");
+}
+
+static void NativeFootSupport(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=3,"unknown foot support mode");
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    auto* map=world->GetAIMap();map->Sync();
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor=nullptr;for(auto unit:units)if(unit && unit->CanFight() && !unit->IsEmptyPK()){actor=unit;break;}
+    Require(actor,"foot support lacks a real deployed owner");
+    const float step=FP_GRID_STEP*0.333333f;
+    const auto position=actor->GetPosition();CVec3 center=position.GetCP();
+    center.x=Float2Int(center.x/step)*step;center.y=Float2Int(center.y/step)*step;
+    const float ground=center.z;
+    if(mode!=0)center.z+=0.75f;
+    CVec3 special=center;if(mode==2){special.x+=step*4;special.z+=0.25f;}
+    int floor1=mode==1?4:position.pos.GetFloor(),floor2=mode==3?position.pos.GetFloor():floor1;
+    if(mode==3)floor1=4;
+    CTRect<int> rect;NAI::CalcHeightMapSize(&rect,center,2.5f);
+    NAI::CFastRenderer all,empty;all.InitParallel(CVec2(0,0),0,step,rect);empty.InitParallel(CVec2(0,0),0,step,rect);
+    map->TraceGrid(&all,NWorld::TS_PASS_BLOCKER,NAI::IAIMap::STH_NOSORT,NAI::CFloorsSet());
+    map->TraceGrid(&empty,NWorld::TS_PASS_BLOCKER,NAI::IAIMap::STH_NOSORT,NAI::CFloorsSet(4));
+    int allCount=0,emptyCount=0;for(int y=0;y<all.resGrid.GetYSize();++y)for(int x=0;x<all.resGrid.GetXSize();++x){for(auto* p=all.resGrid[y][x];p;p=p->pNext)++allCount;for(auto* p=empty.resGrid[y][x];p;p=p->pNext)++emptyCount;}
+    Require(allCount>0 && emptyCount==0,"foot support requires actual ground and an empty allowed floor4");
+    // Decode only this new registered DG node, borrowing the native map. Never reload the live world.
+    CObj<CObjectBase> object=pSSClasses->CreateObject(0x11461141);
+    auto* node=dynamic_cast<CPtrFuncBase<NAI::CHeightMapBlockInfo>*>(object.GetPtr());Require(node,"registered height map node has wrong native type");
+    CStructureNetworkContext refs;refs.externalReferences=true;refs.include=[](CObjectBase*){return false;};refs.ids[map]=100;refs.refs[100]=map;refs.nextID=101;
+    CMemoryStream fields;CPtr<NAI::IAIMap> borrowed=map;
+    {CStructureSaver writer(fields,CStructureSaver::WRITE,&refs);writer.Add(2,&borrowed);writer.Add(3,&center);writer.Add(5,&special);writer.Add(6,&floor1);writer.Add(7,&floor2);}
+    fields.Seek(0);{CStructureSaver reader(fields,CStructureSaver::READ,&refs);object->operator&(reader);}
+    CDGPtr<CPtrFuncBase<NAI::CHeightMapBlockInfo>> refreshed=node;refreshed.Refresh();auto* heights=node->GetValue();Require(heights,"native height map failed to recalculate");
+    const CVec3 sample=mode==2?special:mode==1?center+CVec3(step*4,0,0):center;
+    const float actual=heights->GetHeight(sample.x,sample.y),expected=mode==0?ground:mode==1?center.z:mode==2?special.z:center.z;
+    const CVec3 normal=heights->GetNormal(sample.x,sample.y);
+    int unionChangedCells=0;bool unionMatches=true;
+    if(mode==3){
+        auto surface=[&](int first,int second)->CObj<NAI::CHeightMapBlockInfo>{
+            CObj<CObjectBase> fresh=pSSClasses->CreateObject(0x11461141);CMemoryStream payload;
+            {CStructureSaver writer(payload,CStructureSaver::WRITE,&refs);writer.Add(2,&borrowed);writer.Add(3,&center);writer.Add(5,&special);writer.Add(6,&first);writer.Add(7,&second);}
+            payload.Seek(0);{CStructureSaver reader(payload,CStructureSaver::READ,&refs);fresh->operator&(reader);}
+            CDGPtr<CPtrFuncBase<NAI::CHeightMapBlockInfo>> evaluated=dynamic_cast<CPtrFuncBase<NAI::CHeightMapBlockInfo>*>(fresh.GetPtr());evaluated.Refresh();return evaluated->GetValue();
+        };
+        const int nativeFloor=position.pos.GetFloor();auto included=surface(nativeFloor,nativeFloor),excluded=surface(4,4);
+        Require(included->height.GetXSize()==heights->height.GetXSize() && excluded->height.GetXSize()==heights->height.GetXSize() && included->height.GetYSize()==heights->height.GetYSize() && excluded->height.GetYSize()==heights->height.GetYSize(),"native floor controls changed sample dimensions");
+        for(int y=0;y<heights->height.GetYSize();++y)for(int x=0;x<heights->height.GetXSize();++x){unionMatches=unionMatches && heights->height[y][x]==included->height[y][x];unionChangedCells+=heights->height[y][x]!=excluded->height[y][x];}
+        std::printf("FOOT-FLOOR-UNION mode=3 matchesIncluded=%d differsExcluded=%d\n",int(unionMatches),unionChangedCells);
+    }
+
+    std::printf("FOOT-SUPPORT mode=%d floor=%d,%d ground=%.6f center=%.6f special=%.6f actual=%.6f expected=%.6f normal=%.6f,%.6f,%.6f traces=%d,%d\n",mode,floor1,floor2,ground,center.z,special.z,actual,expected,normal.x,normal.y,normal.z,allCount,emptyCount);std::fflush(stdout);
+    Require(std::isfinite(actual) && fabs(actual-expected)<0.002f,"native foot support ignored saved center/special point/floor contract");
+    Require(std::isfinite(normal.x) && std::isfinite(normal.y) && std::isfinite(normal.z),"native foot normal is not finite");
+    if(mode==3)Require(unionMatches && unionChangedCells>0,"native height sampling ignored the second movement floor");
+    Require(actor->GetPosition().GetCP()==position.GetCP(),"height sampling moved its native owner");
+}
+
 static void NativeCinematicFloorRange(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<3,"unknown native initial cinematic range mode");
@@ -34453,6 +34556,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-foot-support")) { Require(argc==5,"foot support requires db/resources/mode"); if(std::atoi(argv[4])<4)NativeFootSupport(argv[2],argv[3],std::atoi(argv[4]));else NativeFootSupportProducer(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-cinematic-floor-range")) { Require(argc==5,"cinematic range requires db/resources/mode"); NativeCinematicFloorRange(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-camera-floor-owner")) { Require(argc==5,"camera floor ownership requires db/res/mode"); NativeCameraFloorOwner(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-cached-point-shadow-flag")) { Require(argc==5,"cached point flags require db/res/mode"); NativeCachedPointShadowFlag(argv[2],argv[3],std::atoi(argv[4])); return true; }
