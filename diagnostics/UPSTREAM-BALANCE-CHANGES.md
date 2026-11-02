@@ -4517,3 +4517,35 @@ physical/time/HP/AP fields matched. One unchanged-binary confirmation each retur
 previous tail, SHA fixed before/after. Full unequal RNG fields remain reported, not
 normalized or called equal; exact cause unproven. These overlapping confirmations are not
 added to558/550 counts; new hover5 RNG tails remain exact. See UPSTREAM-IMPORTS.md.
+
+## 160. Preserve collapsed dead panzerkleins when their floor is destroyed
+
+When a supporting floor disappears, a dead panzerklein wearer now drops vertically with
+its collapsed pose preserved. Another unit's dynamic lock is treated as occupied physical
+support, rather than a reason to slide the corpse sideways. The actual physical fall-ray
+limit remains in force. Existing live-unit movement and ordinary corpse processing retain
+their paths. This is an own compatibility correction around the original frozen-collapse
+path; original CPlayerBase dead-event filtering is preserved because the current world
+GRID adapter already delivers support changes to dead units.
+
+The new path bypasses living movement callbacks and fall processing for dead wearers. It
+changes corpse placement/animation and removes four old handler RNG draws in the isolated
+long-fall test. This may affect the later RNG sequence when that bug is triggered; no
+all-case paired RNG-equivalence claim is made. Six other paired tails remain exact, all
+seven new operation queries consume none. No AP costs, damage/hit-chance formulas, item
+records, save/wire fields or live-unit combat values change.
+
+Final corrected native RED3/7 ->GREEN7 both with whole frozen pose and real floor/lock
+witnesses. Four physical controls retained, job-budget iteration counts reported honestly
+as raw inequalities. Full Game both/related1156 Windows1129 Linux/CI382/154 focused/117
+old fixed rows/12 fonts/13 tactical views/12 LAN gates and361 maps each pass. Database
+unchanged; one pre-existing nested-save exclusion. Full
+original/static/runtime-scope/discovery details are in UPSTREAM-IMPORTS.md. Source b3bd470
+is complete including159 UI:23 unfinished.
+
+An auxiliary old door mode0 full-row comparison found one fewer RNG draw on Windows with
+identical physical results. One unchanged-binary confirmation each returned the canonical
+tail, with executable SHA fixed before/after. Raw inequality and unproven cause remain
+reported, without normalization or extra test counts; see UPSTREAM-IMPORTS.md.
+
+Source: [b3bd4703140eedb548126513d32cc16ad5c06b2a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b3bd4703140eedb548126513d32cc16ad5c06b2a).

@@ -2809,3 +2809,30 @@ physical/time/HP/AP fields matched. One unchanged-binary confirmation each retur
 previous tail, SHA fixed before/after. Full unequal RNG fields remain reported, not
 normalized or called equal; exact cause unproven. These overlapping confirmations are not
 added to558/550 counts; new hover5 RNG tails remain exact. See UPSTREAM-IMPORTS.md.
+
+## 160. Preserve collapsed dead panzerkleins when their floor is destroyed
+
+NativeDeadPKSupport0..6: final corrected canonical RED3/7 ->unchangedGREEN7 on both
+platforms. Real maps4517/3830, actual worn shell/pilot and death collapse, building
+destruction, independent lower support and physical clearance, native map job drain.
+Drop2.49977/3.95775m, intact/living/ordinary-body and real lower-lock controls. Whole
+frozen poseError=0, vertical landing156/247ms. Five world GRID cases plus isolated actual
+long-fall/occupied-floor wearer events. All seven operation RNG streams unconsumed; six
+paired tails exact, old long fall four draws ->new zero explicitly reported. Four physical
+controls retained; raw job iteration inequalities are not normalized or called full-row
+equality.
+
+Full Game both; single related1156 Windows/1129 Linux,154 focused/117 old fixed rows/five
+hover rows/12 fonts,13 tactical views, CI382,12 LAN gates and361 maps per platform. Full
+proof and discovery/explicit-clock/scheduler/original limitations appear in
+UPSTREAM-IMPORTS.md. No new test exclusion; all helpers fresh. Original player133/dead
+predicate and prior actual frozen collapse are verified, while this new fall is explicitly
+an own compatibility correction. Source UI1/10 completed159; remaining9 completed160 via8
+imports and existing direct GRID adapter.223 imported/23 unfinished.
+
+An auxiliary old door mode0 full-row comparison found one fewer RNG draw on Windows with
+identical physical results. One unchanged-binary confirmation each returned the canonical
+tail, with executable SHA fixed before/after. Raw inequality and unproven cause remain
+reported, without normalization or extra test counts; see UPSTREAM-IMPORTS.md.
+
+Source: [b3bd4703140eedb548126513d32cc16ad5c06b2a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b3bd4703140eedb548126513d32cc16ad5c06b2a).

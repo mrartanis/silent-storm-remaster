@@ -30542,6 +30542,69 @@ static void NativeExplosiveGroups(const char* databasePath,const char* resourceP
     for(const auto& saved:before)Require(saved.unit->GetPosition()==saved.position && saved.unit->GetAP()==saved.ap && saved.unit->GetUnitRPG()->GetTotalVP()==saved.hp && saved.unit->HasCommand()==saved.command,"explosive target groups changed actual position/HP/AP/commands");
 }
 
+// Isolate the public grid-event handler after real building damage and native
+// pass-calculator jobs. The explicit Freeze(false) is fixture setup: this does
+// not claim to test natural action retirement or the complete world scheduler.
+static void NativeDeadPKSupport(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<7,"unknown dead PK support mode");
+    const int variant=mode==1?3830:4517;
+    const bool worn=mode!=3 && mode!=5,dead=mode!=4 && mode!=5,destroy=mode!=2;
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game,variant);
+    world->GetAIMap()->Sync();auto* network=dynamic_cast<NAI::CPathNetwork*>(world->GetPathNetwork());Require(network,"PK support lacks actual path network");
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* pilot=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->IsAIUnit() && !unit->IsEmptyPK() && !unit->IsWearingPK()){pilot=unit;break;}
+    Require(pilot,"PK support lacks real human pilot");
+    vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(pilot->GetPosition().GetCP(),100.f),&places,true);
+    NAI::SPathPlace upper,lower;bool found=false;CVec3 upperCP,lowerCP;
+    // Fixed authored coordinates; discover the native layer, not an unstable
+    // process-dependent layer index. Both surfaces must independently exist.
+    const CVec2 authored=variant==3830?CVec2(59.375f,15.f):CVec2(35.625f,5.f);
+    for(auto p:places){if(p.IsFinal() || network->GetFloor(p.GetLayer())<=0)continue;p.SetPose(NAI::CM_STAND);p.SetDirection(0);p.SetMoving(0);const auto cp=network->GetCP(p);
+        if(sqr(cp.x-authored.x)+sqr(cp.y-authored.y)>.0001f || cp.z<(variant==3830?9.f:10.f) || !NAI::IsBigLockerPlacePassable(network,p))continue;
+        float best=-1e38f;NAI::SPathPlace below;const auto& layers=network->GetLayers();
+        for(int k=0;k<layers.size();++k){auto* layer=layers[k].GetPtr();if(!layer || !layer->pGroup)continue;const auto point=layer->pGroup->GetPoint(cp);if(point.x<0 || point.y<0 || point.x>=layer->pGroup->GetXSize() || point.y>=layer->pGroup->GetYSize())continue;
+            auto candidate=p;candidate.SetOnLayer(k,point.x,point.y);candidate.SetPose(NAI::CM_STAND);candidate.SetDirection(network->GetClosestDir(k,network->GetDirection(p)));const auto pass=network->GetPassability(candidate);const auto at=network->GetCP(candidate);
+            if((pass!=NAI::AIP_YES && pass!=NAI::AIP_DOOR && pass!=NAI::AIP_LOCKED) || sqr(at.x-cp.x)+sqr(at.y-cp.y)>.01f || cp.z-at.z<.5f || at.z<=best)continue;
+            best=at.z;below=candidate;}
+        if(best!=-1e38f){upper=p;lower=below;upperCP=cp;lowerCP=network->GetCP(lower);found=true;break;}}
+    Require(found && upperCP.z-lowerCP.z>2.f,"PK support lacks authored real upper/lower physical witnesses");
+    CObj<NWorld::CUnitServer> shell,blocker;NDb::CRPGPers* suit=nullptr;
+    if(worn){CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());while(people.MoveNext()){auto* p=people.Get();if(p->pPanzerklein && !p->pPanzerklein->bHasNoHead && p->pModel && p->pPanzerklein->nMaxVP>0 && (!suit || p->GetRecordID()<suit->GetRecordID()))suit=p;}
+        Require(suit,"PK support lacks authored regular suit");shell=world->AddUnitInGame(upper,NRPG::CreateUnit(suit),nullptr);Require(shell && shell->IsEmptyPK() && shell->WearAsPK(true),"PK support cannot prepare real shell");pilot->SetPosition(shell->GetPosition());pilot->FlipPanzerklein(shell,false,false);}
+    else {auto pos=pilot->GetPosition();pos.pos=NAI::SPosition(upper,network);pos.SetPose(NAI::WALK);pilot->SetPosition(pos);}
+    Require(pilot->IsWearingPK()==worn && pilot->CanFight() && fabs(pilot->GetPosition().GetCP()-upperCP)<.001f,"PK support lacks actual wearer and upper position");
+    pilot->animator.AlignTime();pilot->animator.PlaceUnit(pilot->GetPosition());pilot->OnTBSEvent(NWorld::TBS_ACTION_FINISH);
+    if(dead){pilot->GetUnitRPG()->GetRPGUnit()->Kill();pilot->SyncConscious();Require(pilot->IsDead(),"PK support did not execute real death");}
+    if(mode==6){blocker=world->AddUnitInGame(lower,NRPG::CreateUnit(NDb::GetPers(103)),pilot->GetTBSPlayer(),"NativeSupportBlocker");Require(blocker && blocker->CanFight(),"PK support cannot place actual lower locker");}
+    auto sample=[&](STime t){world->GetTime()->Set(t);MarkNewDGFrame();CDGPtr<CFuncBase<STime>> time=world->GetTime();time.Refresh();CDGPtr<NAnimation::CSkeletonAnimator> skeleton=pilot->animator.GetSkeletonAnimator();skeleton.Refresh();return skeleton->GetValue();};
+    const STime settled=pilot->animator.GetTimeEnd();const auto frozen=sample(settled);
+    const auto previous=pilot->GetPosition();const int hp=pilot->GetUnitRPG()->GetTotalVP(),ap=pilot->GetAP();const auto command=pilot->HasCommand();const int shellHP=shell?shell->GetUnitRPG()->GetTotalVP():0;
+    int jobs=0;if(destroy){for(auto building:world->GetBuildingsForHarness()){building->Explode(upperCP-CVec3(0,0,.1f),mode==1?1024:256);building->Segment();}MarkNewDGFrame();world->GetAIMap()->Sync();network->Freeze(false);
+        while(network->HasPassCalcerJobs() && jobs<256){world->GetAIJobManager()->Segment();++jobs;}Require(!network->HasPassCalcerJobs(),"PK support native rebake jobs did not finish");}
+    const auto changedCP=pilot->GetPosition().GetCP();const auto upperPass=network->GetPassability(previous.pos.p);const auto lowerPass=network->GetPassability(lower);const auto lowerNow=network->GetCP(lower);
+    Require(fabs(lowerNow-lowerCP)<.001f && (lowerPass==NAI::AIP_YES || lowerPass==NAI::AIP_LOCKED || lowerPass==NAI::AIP_DOOR),"PK support destruction removed its independent lower witness");
+    Require(!destroy || upperPass==NAI::AIP_NOT_PASSABLE || fabs(changedCP.z-lowerCP.z)<.001f,"PK support did not actually remove the original upper surface");
+    if(mode==6)Require(lowerPass==NAI::AIP_LOCKED,"PK support lower locker was not a real dynamic lock");
+    // Require a genuinely unobstructed physical fall, not merely another
+    // grid layer somewhere below remaining rubble.
+    float clearance=0;if(destroy){CRay ray;ray.ptOrigin=upperCP+CVec3(0,0,.2f);ray.ptDir=CVec3(0,0,-1);vector<NAI::SInterval> hits;world->GetAIMap()->Trace(ray,&hits,NWorld::TS_PASS_BLOCKER);for(const auto& hit:hits)if(hit.enter.fT>=0){clearance=hit.enter.fT;break;}
+        std::printf("DEAD-PK-CLEARANCE mode=%d actual=%.9g required=%.9g\n",mode,clearance,upperCP.z-lowerCP.z);std::fflush(stdout);Require(clearance+.05f>=upperCP.z-lowerCP.z,"PK support lacks a clear actual physical fall column");}
+    // Seed only the operation under test, after actual map/death preparation.
+    GlobalGameRandom().SeedForHarness(720);auto expectedRandom=GlobalGameRandom();
+    // The long fall and occupied floor isolate the wearer event: broadcasting to
+    // other live units would also invoke those actors' normal movement/RNG.
+    if(mode==1 || mode==6)pilot->OnTBSEvent(NWorld::TBS_GRID_INFO_UPDATED);else world->GridInfoUpdated();const auto after=pilot->GetPosition();const STime end=pilot->animator.GetTimeEnd();
+    float poseError=0;int roots=0;if(dead && worn){const auto landed=sample(end);Require(landed.size()==frozen.size() && !landed.empty(),"PK support lost native collapsed skeleton");const CVec3 delta=destroy?CVec3(0,0,lowerCP.z-upperCP.z):VNULL3;
+        for(int i=0;i<landed.size();++i){const auto& a=frozen[i];const auto& b=landed[i];Require(a.nParent==b.nParent,"PK support changed collapsed skeleton topology");const auto expected=a.pos+(a.nParent<0?delta:VNULL3);poseError=Max(poseError,fabs(b.pos-expected));poseError=Max(poseError,fabs(b.scale-a.scale));float ar[4],br[4];a.rot.GetComponentsForWire(ar);b.rot.GetComponentsForWire(br);for(int k=0;k<4;++k)poseError=Max(poseError,float(std::abs(ar[k]-br[k])));if(a.nParent<0)++roots;}}
+    auto actualRandom=GlobalGameRandom();bool sameRNG=true;unsigned tail[4];for(int i=0;i<4;++i){tail[i]=actualRandom.Get();sameRNG&=tail[i]==expectedRandom.Get();}
+    std::printf("DEAD-PK-SUPPORT mode=%d variant=%d dead=%d worn=%d destroy=%d upper=%.9g lower=%.9g changed=%.9g final=%.9g dx=%.9g dy=%.9g upperPass=%d lowerPass=%d jobs=%d roots=%d poseError=%.9g endDelta=%d HP=%d afterHP=%d AP=%d afterAP=%d shellHP=%d afterShellHP=%d RNGsame=%d rng0=%u rng1=%u rng2=%u rng3=%u\n",mode,variant,int(dead),int(worn),int(destroy),upperCP.z,lowerCP.z,changedCP.z,after.GetCP().z,after.GetCP().x-upperCP.x,after.GetCP().y-upperCP.y,int(upperPass),int(lowerPass),jobs,roots,poseError,int(end-settled),hp,pilot->GetUnitRPG()->GetTotalVP(),ap,pilot->GetAP(),shellHP,shell?shell->GetUnitRPG()->GetTotalVP():0,int(sameRNG),tail[0],tail[1],tail[2],tail[3]);std::fflush(stdout);
+    Require(pilot->IsDead()==dead && pilot->IsWearingPK()==worn && pilot->GetUnitRPG()->GetTotalVP()==hp && pilot->GetAP()==ap && pilot->HasCommand()==command && (!shell || shell->GetUnitRPG()->GetTotalVP()==shellHP),"PK support changed actor death/worn/HP/AP/command/shell controls");
+    if(dead && worn){Require(fabs(after.GetCP()-(destroy?lowerCP:upperCP))<.001f && roots>0 && poseError<.0001f && sameRNG,"unsupported dead PK did not land vertically with the complete frozen collapse pose and no live movement draws");Require(destroy?end>settled:end==settled,"PK support did not use a future fall interval or changed an intact corpse");}
+    else if(dead)Require(after==previous && end==settled && sameRNG,"PK support changed an ordinary corpse's grid-event control");
+    else Require(fabs(after.GetCP()-lowerCP)<.001f,"PK support changed a living unit's existing grid relocation");
+}
+
 static void NativeObjectHoverAttack(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<5,"unknown native object hover mode");Require(std::getenv("S2_USER_DATA_DIR"),"object hover requires isolated native user data");NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm native object hover regression");NGame::InitLoadingScreen();
@@ -35284,6 +35347,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-dead-pk-support")) { Require(argc==5,"PK support requires db/resources/mode"); NativeDeadPKSupport(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-object-hover")) { Require(argc==5,"object hover requires db/resources/mode"); NativeObjectHoverAttack(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-smooth-relocation")) { Require(argc==5,"smooth relocation requires db/resources/mode"); NativeSmoothRelocation(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-unit-aware-pk")) { Require(argc==5,"unit-aware PK control requires db/resources/mode"); NativeUnitAwarePKControl(argv[2],argv[3],std::atoi(argv[4])); return true; }

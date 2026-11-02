@@ -25104,3 +25104,94 @@ current full old-smooth RNG parity is claimed. The two confirmations overlap the
 suites and are not added to558/550 totals.
 
 Source: [b3bd4703140eedb548126513d32cc16ad5c06b2a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b3bd4703140eedb548126513d32cc16ad5c06b2a).
+
+## 160. Preserve collapsed dead panzerkleins when their floor is destroyed
+
+Dead panzerklein wearers used the living fall/forced-move path after a support change. It
+could replace their original frozen collapse pose, slide them sideways to avoid a dynamic
+lock, and run ordinary fall processing. Add a dead-wearer-only GRID handler that searches
+vertically across native layers, honors the actual maximum fall ray, accepts physical
+support even when another unit locks it, and relocks its final position. Translate only
+root bones in a memorized native pose through a future fall interval. The helper samples
+the previous destination if a later support change interrupts a fall; this
+interrupted-multiple-fall branch has code review coverage, not a separate runtime claim.
+Living movement, ordinary ragdolls, intact support and combat values retain their existing
+paths.
+
+NativeDeadPKSupport0..6 use actual4517/3830 maps, authored full PK footprints, a real
+pilot/shell relationship, real death/collapse clips, independently witnessed lower
+surfaces, public building Explode/Segment and the actual native pass-calculator jobs. A
+separate collision trace requires a clear vertical fall column. Cases cover2.49977112m
+and3.95774841m drops, intact dead PK, ordinary dead body, live PK, live ordinary unit and
+a lower floor locked by another real unit. Five cases deliver world.GridInfoUpdated; the
+long fall and occupied floor isolate the actual wearer GRID event to exclude other actors'
+movement. Controlled native CCTime samples the collapse endpoint and landing; this is not
+a claim about natural scheduler/action-retirement timing or original gameplay execution.
+The explicit public Freeze(false) and bounded native job drain are fixture preparation,
+with actual raw iteration counts retained.
+
+Final corrected canonical parent RED3/7 on both platforms becomes unchanged GREEN7 on
+both. The complete skeleton retains parent topology, rotations, scales and local
+positions, with only vertical root translation; observed poseError=0, no sideways
+displacement, intervals156ms and247ms. Four controls retain
+physical/timing/HP/AP/command/shell and RNG behavior; raw pass-job iteration counts may
+differ and are explicitly reported as unequal, never normalized into complete-row
+equality. All seven corrected operation queries consume no RNG. Six paired old/new tails
+are exact; the long-fall old handler consumes four draws and its new path consumes none,
+so no all-seven paired RNG-parity claim is made. Seed720 untouched tail
+is1212278508/2789043273/1545738150/2805276718. Actual before/after native
+HP/AP/death/worn/command/shell assertions pass.
+
+This is an OWN support/animation compatibility correction, not an original DropFrozenPose
+implementation. Typed Gold CPlayerBase.OnTBSEvent764460/133 matches actual Steam7700d0/133
+uniquely and raw-exact. Its primary unit slot3c is independently bound to named IsDead
+Gold7b4580 -> Steam7c0d00; exact fields/registers/branches and two independently typed
+descriptor PUSHes confirm the dead-state predicate. The original player filter excludes
+dead units for every event. Our existing direct synchronous world GRID path already visits
+all valid units, including dead wearers, so the donor wTurnBased.h exception is adapted by
+that existing delivery and the original player dead-event filter remains unchanged. The
+previously accepted actual Steam frozen-collapse helper74fa60/223 is reused as evidence
+for the death path; its different Gold7444c0/137 implementation is not forced into parity.
+No original execution, BSS reads or field/frame/register/opcode/branch/global masks are
+introduced.
+
+Initial missing-map footprint810, insufficient damage/no completed map rebake, and the
+first mis-scoped rubble/whole-world RNG expectations are archived as discovery rather than
+final canonical failures. All eight Main parent files were restored with fresh timestamps
+and the corrected seven cases were rerun before reapplying exactly the same production
+implementation. Windows also required regeneration of its own generated6.43GB test PDB
+after a linker limit; the common concrete aiGrid.h include was added after an initial
+compile failure. Neither build failure is counted as native RED. No production algorithm
+or test assertion was changed to hide these findings.
+
+Fresh full Game builds and single related suites1156 Windows/1129 Linux pass: previous
+broad world/combat/AI/save/mission coverage plus
+PK/corpse/skeleton/animation/death/fall/terrain/floor/lock regressions, all154 focused
+cases and13 tactical views. All117 previous fixed rows, prior explosive/AI/melee/filter
+results, five hover rows and12 font outputs remain exact. CI382 and12 LAN gates/361
+encounter variants per platform pass with fresh helpers and only the pre-existing
+nested-save exclusion. Previously observed137/157 setup-HP and old smooth-mode1 RNG
+variants, if present, are preserved explicitly as inequalities; their exact causes are not
+inferred. Baseline/Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df remains unchanged. No
+new serialized fields, virtual methods, save/wire schema, AP/damage/hit-chance formulas or
+authored item values.
+
+This completes the remaining nine source files through eight minimal file imports plus the
+existing world-delivery adaptation. UI admission1/10 was already imported in159. Source
+b3bd470 is now complete:223 imported,14 pending,9 partial;23 unfinished. Final-head hosted
+verification remains required at whole-task completion.
+
+The additional full-row comparison initially refused the Windows report for old
+NativeSmoothRelocation0: all physical/timing/HP/AP/command fields matched, but its raw RNG
+tail was shifted by one draw (3285973158/2793744859/1494726304/2075231427 rather
+than2793744859/1494726304/2075231427/2971378132). One unchanged-binary single-case replay
+on each platform passed the native assertions and returned the canonical three-draw tail.
+Executable SHA values were captured before and verified after; no source, fixture,
+assertion or binary was changed. This newly observed Windows mode0 variation is analogous
+to the previously recorded Linux mode1 variation, without a claim of the same cause. The
+full unequal raw rows and fields remain in evidence; no normalization or old smooth
+full-run RNG-parity claim is made. These confirmations overlap1156/1129 and are not
+additional cases; the seven new support operation RNG streams remain unconsumed.
+
+Source: [b3bd4703140eedb548126513d32cc16ad5c06b2a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b3bd4703140eedb548126513d32cc16ad5c06b2a).

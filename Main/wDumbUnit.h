@@ -131,6 +131,7 @@ private:
 	void BlowUp();
 protected:
 	bool IsLocker();
+	void DropDeadPK( const NAI::SUnitPosition &dst, const CVec3 &delta );
 	// retail @0x3c2190 Die(bool,bool) -- arg1 bDeathBeauty ORs into the beauty-cam condition
 	// (the gib path forces it); arg2 bRemove = the silent removal flavor (no ack/state/camera).
 	virtual void Die( bool bDeathBeauty = false, bool bRemove = false ) {}
