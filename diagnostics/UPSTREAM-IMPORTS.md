@@ -24617,3 +24617,101 @@ previously imported inventory/dialogue/drop hunks retained.217 imported/16 pendi
 partial,29 unfinished. Final-head hosted success required at whole-task completion.
 
 Source: [884f91f42db3aa840f729fb5196a18133d49917b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b).
+
+## 2026-11-02: native health depletion and knockout probability (154)
+
+Finish the remaining numeric hunks of884 in Main/RPGUnitMission.cpp. Clamp reported/stored
+bandaged health and initial body damage to zero. Clamp the converted damage share,
+explicitly handle zero total health instead of casting NaN to int, and apply the remaining
+raw-health shift through existing CDynamicSkill::Modify. Preserve the original distinction
+between raw and bandaged health. Restore original knockout: draw Get(1,100), which
+is1..99, scale probability by
+clamp((0.5-totalAfterDamage/maxHealth)*2.500000238418579,0,1), round through Float2Int,
+and force unconsciousness for nonpositive total health or click-of-death. Existing
+incidental damage/PK/critical ordering remains.
+
+Five NativeHealedDamage and twelve NativeHealthKnockout cases use real person103 with
+untouched authored cap147, real world/owner/free standing placement, the existing native
+CalcDeathVP with actual difficulty party reserve exactly as CWorld::AddPlayer, native
+HealVP and actual death critical. No negative health-field injection or live-world read.
+Fixed positive native body attack, intended target, no attacker, zero critical input
+isolate health depletion from critical/IC rolls. Ordinary/bandaged/overkill/zero-total and
+healthy/half/quarter/low/bandaged health, zero probability and forced click cases are
+pinned. Independent raw/healed/Boolean literals are fixed before production; real seeded
+rolls64YES/65NO at total36/max147 verify rounded probability64 without private hooks or a
+mirrored expected formula. Initial three invalid KO preconditions used a fresh NPC default
+death threshold0; those runs are archived and not counted as genuine RED. Actual native
+party reserve fixed before a valid15-case discovery RED9/15 and final17-case canonical
+RED10/17 both. Final17 tests unchanged during production.
+
+GREEN17 both, seven control rows exact: health0/3/4 and KO3/5/9/10. Zero-health damage
+previously produced INT_MIN bandages and could wrap raw HP up to147; now
+raw-20/bandages0/total-20. Bandaged overkill previously raw-30/bandages-30/total-60; now
+raw-30/bandages0/total-30. Healthy146/147 and half74/147 no longer collapse on
+probability100; quarter36/147 accepts roll64 and rejects65. Raw0 with real bandages19
+or146 no longer forces unconsciousness while total health remains positive and the scaled
+roll fails. The original zero-roll bug at zero probability is removed; click and truly
+zero total still force collapse. Native RNG four-word tails, wound AP clamp, position,
+inventory, health cap and attack inputs checked. Corrupted old zero-health branch skipped
+its KO draw after an overflow-induced death; the fix restores the original alive-path
+draw, not a claim of unchanged RNG in that broken case.
+
+Actual Steam function6c3e20 is bound through named CUnitMission secondary4c slotA4 to
+typed Gold ProcessAttack6bd7e0/1992. SlotsE8/EC bind GetHealed6c5e40/GetTotal6c5eb0.
+Complete CUnit setter22/getter16 and DynamicSkill Modify36 are unique exact from typed
+Gold6b42e0/6b4300/6b6f90 to Steam6ba480/6ba4a0/6bd200; complete GetTotal60
+Gold6bf720->Steam6c5eb0 unique exact. Generic GetHealed thunk prefix is not unique: its
+named table and independently decoded E9 bind it to the complete exact getter, without
+claiming masked11 uniqueness. Complete actual share block6c42be..4318 is decoded with
+original fields/frames/registers: converted negative share becomes0. Original masked x87
+zero division yields INT_MIN then that clamp drops it; explicit divisor guard preserves
+this scalar result without claiming FPU exception-status parity. Actual6c4333 calls the
+exact setter and6c4344..4366 inlines Modify's cap/raw clamps.
+
+Actual initial damage calls Max<float>42b530; complete typed Gold42a8c0/41 is unique exact
+and both calls decoded. Actual KO6c44b1..4570 calls typed range RNG41b940, complete70
+unique with only its decoded E8 fill-call displacement relocated; fill targets decoded, no
+whole fill-body claim. Actual range subtraction/modulo/add preserves exclusive upper
+bound100. Actual total-health division, independently read writable constants0.5 at8b29fc
+and2.500000238 at8c5480, Min1/Max0, FSTPS and restored-CW FISTP, total<=0/roll
+comparison/type2 force are decoded directly. Complete typed Min41 and Max41 are unique
+exact. Writable constant pointers are never masked. Whole1992 comparison rejected at
+different layout/frame/register/global/log operands, no unsafe normalization or original
+process execution. Initial damage clamp and old-save getter protection are additionally
+statically proved; no separate invalid-negative-input RED claim or exhaustive
+x87/all-int32/full-projectile claim.
+
+Full Game both/1400 Windows/1363 Linux related, all103 old/new cases and89 previous fixed
+rows, melee/filter/godmode and12 fonts exact; CI382 and12 fresh LAN gates each
+including361 encounter maps pass. Linux5 CTest+7 direct native match modes; all selected
+executables/nested helpers freshly built. Sole old nested-save exclusion retained. DB
+remains identical to verified Steam
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df. All four source files
+accounted: inventory null uniform, dialogue priority65535 and backpack
+launch-before-removal were previously imported; unaware-critical153 and health/KO154
+finish RPGUnitMission. Source884 now imported:218 imported/16 pending/12 partial,28
+unfinished. Final-head hosted success still required at whole-task completion.
+
+The initial full1394/1357 related runs retained six fixture failures per platform:
+NativeDirectAttackXP0/4/5/18 and
+UpstreamAIFirstIncapacitationUnconscious/FinishUnconscious. Their raw logs remain
+archived. These fixtures used ordinary input8/probability100 on a healthy target as a
+forced KO; original health scaling correctly suppresses it. Only these six KO preparations
+change: an actual fixed-input8 CAttackPortion::CalcStructDmg probe with unchanged source,
+body armor and difficulty pins damage11 for the party,8 anonymously and5 for the enemy.
+Existing native Skills(VP).Modify prepares living HP12/9/6 at authored cap80, so the
+unchanged hit leaves HP1 and original probability caps100. The previous strict
+KO/death/XP/level/progress/perk/roster/killer/time conditions remain; HP1 is additionally
+asserted. No forced state, disabled injuries, fake fields, extra frames or clock. The XP
+preparation precedes native reference clones and the AI preparation precedes its first-hit
+baseline. Controlled exact parent Main plus corrected fixtures freshly runs
+XP19+AI8+new17: all27 old cases pass and unchanged new17 retain canonical RED10. Restore
+production Main byte-exact and freshly run all44: all pass. All21 XP inputs/summary rows
+including four RNG words and every recipient row match parent versus production exactly,
+as do all7 AI metadata summaries and its corpse contact event. Final full scope
+additionally includes all8 AI cases, giving1400 Windows/1363 Linux: a SINGLE complete
+passing full run each, with the paired rows retained exactly. Initial six failures are
+never rewritten/reported as a pass and no new exclusion is added. Paired proof and both
+fixture byte snapshots are saved.
+
+Source: [884f91f42db3aa840f729fb5196a18133d49917b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b).

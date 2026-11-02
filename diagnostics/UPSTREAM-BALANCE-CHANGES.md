@@ -4369,3 +4369,44 @@ rows/melee/godmode/fonts12 exact;12 LAN gates/361 maps each pass, DB unchanged. 
 healed health/depletion/KO changes remain pending;29 unfinished.
 
 Source: [884f91f42db3aa840f729fb5196a18133d49917b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b).
+
+## 2026-11-02: native health depletion and knockout probability (154)
+
+Restore original Steam damage and knockout arithmetic. Bandaged health cannot become
+negative; zero total health avoids NaN-to-int corruption; raw and bandaged damage shares
+remain separate. Knockout probability uses post-hit total health/max health, original
+clamped factor2.500000238418579 and rounding; above half health the ordinary probability
+is0. Draws are1..99, removing a spurious zero-roll knockout at probability0. Nonpositive
+total and click-of-death still force unconsciousness. This intentionally corrects injury
+outcomes; no authored health, weapon, AP, difficulty or perk values are changed.
+
+Actual native cap147/HealVP/death critical/party reserve and final17 unchanged tests give
+canonical RED10/17 both ->GREEN17 both, including exact64YES/65NO at total36. Seven
+controls exact. Original actual Steam blocks/helper identities independently audited, no
+unsafe operand masks or original execution. Game both/1400 Windows/1363
+Linux/CI382/prior103cases89fixedrows/melee/fonts12/12 LAN gates with361maps each pass, DB
+identical to Steam. Entire source884 now imported;28 unfinished.
+
+The initial full1394/1357 related runs retained six fixture failures per platform:
+NativeDirectAttackXP0/4/5/18 and
+UpstreamAIFirstIncapacitationUnconscious/FinishUnconscious. Their raw logs remain
+archived. These fixtures used ordinary input8/probability100 on a healthy target as a
+forced KO; original health scaling correctly suppresses it. Only these six KO preparations
+change: an actual fixed-input8 CAttackPortion::CalcStructDmg probe with unchanged source,
+body armor and difficulty pins damage11 for the party,8 anonymously and5 for the enemy.
+Existing native Skills(VP).Modify prepares living HP12/9/6 at authored cap80, so the
+unchanged hit leaves HP1 and original probability caps100. The previous strict
+KO/death/XP/level/progress/perk/roster/killer/time conditions remain; HP1 is additionally
+asserted. No forced state, disabled injuries, fake fields, extra frames or clock. The XP
+preparation precedes native reference clones and the AI preparation precedes its first-hit
+baseline. Controlled exact parent Main plus corrected fixtures freshly runs
+XP19+AI8+new17: all27 old cases pass and unchanged new17 retain canonical RED10. Restore
+production Main byte-exact and freshly run all44: all pass. All21 XP inputs/summary rows
+including four RNG words and every recipient row match parent versus production exactly,
+as do all7 AI metadata summaries and its corpse contact event. Final full scope
+additionally includes all8 AI cases, giving1400 Windows/1363 Linux: a SINGLE complete
+passing full run each, with the paired rows retained exactly. Initial six failures are
+never rewritten/reported as a pass and no new exclusion is added. Paired proof and both
+fixture byte snapshots are saved.
+
+Source: [884f91f42db3aa840f729fb5196a18133d49917b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b).

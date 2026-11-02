@@ -2647,3 +2647,52 @@ freshly built/validated. Existing sole nested-save exclusion retained. Other884
 healedVP/damage-share/KO hunks pending;29 unfinished.
 
 Source: [884f91f42db3aa840f729fb5196a18133d49917b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b).
+
+## 2026-11-02: native health depletion and knockout probability (154)
+
+NativeHealedDamage0..4 and NativeHealthKnockout0..11 use actual native
+world/person103/cap147, authored party death reserve through CalcDeathVP, native HealVP
+and death critical, actual fixed noncritical body attacks. Final independent literals and
+actual seeded64/65 probability boundary pinned BEFORE production. Initial three invalid
+default-death-threshold KO fixture failures archived, corrected before valid15 discovery
+RED9/15 and final17 canonical RED10/17 both. Final17 unchanged during fix ->GREEN17 both;
+seven control rows exact. Verify finite nonnegative bandaged health, raw health depletion,
+total health and original rounded health-scaled KO/zero probability/forced-click
+semantics, native four-word RNG tails and wound AP clamp/pose/inventory/cap/input
+controls. No fake fields, live-world read, extra frames or clock changes.
+
+Named original ProcessAttack slotA4/GetHealedE8/GetTotalEC, unique complete
+setter22/getter16/Modify36/GetTotal60/Min41/Max41 and range70 with only decoded E8
+relocation audited. Generic11 thunk uniqueness rejected; named slot and decoded tail
+target used. Actual share/depletion and KO blocks decoded without
+field/frame/register/branch/writable constant masks; whole1992 equality rejected. No
+original runtime or x87 exception-status/full-flight claim. Initial damage clamp and
+legacy getter protection additionally static-proved, no invalid-negative-input RED.
+
+Game both/1400 Windows/1363 Linux related/CI382; prior86+new17=103 cases,89 old fixed
+rows/melee/godmode/fonts12 exact,12 LAN gates each/361 maps, DB unchanged. Source884
+all4files now imported;28 unfinished.
+
+The initial full1394/1357 related runs retained six fixture failures per platform:
+NativeDirectAttackXP0/4/5/18 and
+UpstreamAIFirstIncapacitationUnconscious/FinishUnconscious. Their raw logs remain
+archived. These fixtures used ordinary input8/probability100 on a healthy target as a
+forced KO; original health scaling correctly suppresses it. Only these six KO preparations
+change: an actual fixed-input8 CAttackPortion::CalcStructDmg probe with unchanged source,
+body armor and difficulty pins damage11 for the party,8 anonymously and5 for the enemy.
+Existing native Skills(VP).Modify prepares living HP12/9/6 at authored cap80, so the
+unchanged hit leaves HP1 and original probability caps100. The previous strict
+KO/death/XP/level/progress/perk/roster/killer/time conditions remain; HP1 is additionally
+asserted. No forced state, disabled injuries, fake fields, extra frames or clock. The XP
+preparation precedes native reference clones and the AI preparation precedes its first-hit
+baseline. Controlled exact parent Main plus corrected fixtures freshly runs
+XP19+AI8+new17: all27 old cases pass and unchanged new17 retain canonical RED10. Restore
+production Main byte-exact and freshly run all44: all pass. All21 XP inputs/summary rows
+including four RNG words and every recipient row match parent versus production exactly,
+as do all7 AI metadata summaries and its corpse contact event. Final full scope
+additionally includes all8 AI cases, giving1400 Windows/1363 Linux: a SINGLE complete
+passing full run each, with the paired rows retained exactly. Initial six failures are
+never rewritten/reported as a pass and no new exclusion is added. Paired proof and both
+fixture byte snapshots are saved.
+
+Source: [884f91f42db3aa840f729fb5196a18133d49917b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b).

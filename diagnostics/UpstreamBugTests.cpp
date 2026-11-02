@@ -11249,12 +11249,24 @@ static void AIFirstIncapacitation(const char* databasePath,const char* resourceP
         attack.rTtrajectory.ptDir=CVec3(0,1,0);GlobalGameRandom().SeedForHarness(0x7bda);
         return target->ProcessAttack(world,NAI::HL_BODY,&attack,CVec3(0,1,0),target->GetUnitRPG()->GetRPGArmor());
     };
+    if(knockout) {
+        // Preserve the real enemy difficulty multiplier: fixed input8 deals5.
+        // This metadata fixture needs an actual ordinary-hit KO, not a healthy
+        // target whose knockout chance is suppressed by original health scaling.
+        auto* mission=target->GetUnitRPG();auto& health=mission->GetRPGUnit()->Skills(NDb::ST_VP);
+        NRPG::CAttackPortion probe(100000,0,0.f,8,8,0,0,attacker->GetUnitRPG(),mission,1.f,100);
+        const int expectedDamage=probe.CalcStructDmg(world,NDb::GetArmor(NDb::N_HUMAN_BODY_ARMOR),0),before=health;
+        Require(expectedDamage==5 && health.GetMaxValue()==80,"AI incapacitation native enemy damage/health cap changed");
+        health.Modify(expectedDamage+1-int(health));
+        Require(mission->GetTotalVP()==6 && !target->IsDead() && !target->IsUnconscious(),"AI incapacitation lacks its real wounded living target");
+        std::printf("AI_KO_HEALTH mode=%d before=%d prepared=%d cap=%d expectedDamage=5 expectedRemaining=1\n",mode,before,mission->GetTotalVP(),health.GetMaxValue());std::fflush(stdout);
+    }
     const int hp=target->GetUnitRPG()->GetTotalVP(),attackerHP=attacker->GetUnitRPG()->GetTotalVP(),observerHP=observer->GetUnitRPG()->GetTotalVP();
     const int damage=hit(anonymous?nullptr:attacker.GetPtr(),knockout,!knockout && !blocked && !nonlethal,blocked);
     if(blocked || nonlethal)Require(target->CanFight() && !target->GetUnitRPG()->IsDead() && !target->GetUnitRPG()->IsUnconscious()
         && (blocked?damage==0:damage>0),"incapacitation control accidentally downed the target or missed its intended native damage branch");
     else Require(IsValid(target) && (knockout?target->IsUnconscious() && !target->IsDead():target->IsDead())
-        && damage>0,"native attack did not produce the intended death or unconscious transition");
+        && damage>0 && (!knockout || (damage==5 && target->GetUnitRPG()->GetTotalVP()==1)),"native attack did not produce the intended death or unconscious transition");
     if(repeat) {
         // A loaded old corpse already has recorded metadata. This is setup for
         // the repeat-hit control, not evidence that the first-hit writer ran.
@@ -22566,9 +22578,24 @@ static void NativeDirectAttackXP(const char* databasePath,const char* resourcePa
         attack.bNoBlowUp=!gib;attack.rTtrajectory.ptOrigin=origin;attack.rTtrajectory.ptDir=CVec3(0,1,0);GlobalGameRandom().SeedForHarness(0x7bda);
         return victim->ProcessAttack(world,NAI::HL_BODY,&attack,CVec3(0,1,0),victimMission->GetRPGArmor());
     };
+    if(mode==0 || mode==4 || mode==5 || mode==18) {
+        // This XP fixture needs a real ordinary-hit knockout. Original health scaling
+        // suppresses ordinary knockout above half health. Keep the real difficulty
+        // multiplier: fixed input8 deals11 with the party attacker,8 anonymously.
+        // Prepare exactly that native body damage plus1, so the real hit leaves HP1.
+        auto* source=(mode==0 || mode==5)?attackerMission.GetPtr():nullptr;
+        NRPG::CAttackPortion probe(100000,0,0.f,8,8,0,0,source,victimMission,1.f,100);
+        const int expectedDamage=probe.CalcStructDmg(world,NDb::GetArmor(NDb::N_HUMAN_BODY_ARMOR),0);
+        Require(expectedDamage==((mode==0 || mode==5)?11:8),"direct XP native difficulty-adjusted knockout damage changed");
+        auto& health=victimMission->GetRPGUnit()->Skills(NDb::ST_VP);const int before=health;
+        health.Modify(expectedDamage+1-int(health));
+        Require(victimMission->GetTotalVP()==expectedDamage+1 && health.GetMaxValue()==80 && !victim->IsDead() && !victim->IsUnconscious(),"direct XP lacks its native wounded, living pre-knockout target");
+        std::printf("DIRECT_XP_KO_HEALTH mode=%d before=%d prepared=%d cap=%d expectedDamage=%d expectedRemaining=1\n",mode,before,victimMission->GetTotalVP(),health.GetMaxValue(),expectedDamage);std::fflush(stdout);
+    }
     if(mode==4 || mode==17 || mode==18) {
         world->GetTime()->Set(1000);victim->animator.AlignTime();hit(nullptr,mode!=17,mode==17,false,false);
         Require(mode!=17?victim->IsUnconscious() && !victim->IsDead():victim->IsDead(),"direct XP pre-incapacitated setup failed");
+        if(mode!=17)Require(victimMission->GetTotalVP()==1,"direct XP native pre-knockout hit did not leave exactly HP1");
     }
     int excluded=0;
     if(mode==10 || mode==11) {
@@ -22600,7 +22627,7 @@ static void NativeDirectAttackXP(const char* databasePath,const char* resourcePa
         std::printf("DIRECT_XP_INPUT mode=%d phase=%d persona=%d cap=%d level=%d party=%d share=%.9g beforeDead=%d beforeKO=%d sourceRegistered=%d anonymous=%d hostile=%d shouldPay=%d\n",mode,phase,victimMission->GetRPGUnit()->pPers->GetRecordID(),victimMission->GetRPGUnit()->cap[NDb::ST_LEVEL],int(victimMission->GetRPGUnit()->Skills(NDb::ST_LEVEL)),int(roster.size()),share,int(beforeDead),int(beforeKO),int(source!=nullptr),int(anonymous),int(hostile),int(shouldPay));std::fflush(stdout);
         const int damage=hit(sourceMission,ko,!nonlethal && !ko,blocked,mode==13);const bool valid=IsValid(victim);
         if(removed)Require(!valid,"direct XP removal control retained a valid native server");
-        else if(ko)Require(valid && victim->IsUnconscious() && !victim->IsDead() && damage>0,"direct XP attack did not produce its real first knockout");
+        else if(ko)Require(valid && victim->IsUnconscious() && !victim->IsDead() && damage==11 && victimMission->GetTotalVP()==1,"direct XP attack did not produce its real first knockout");
         else if(!nonlethal)Require(valid && victim->IsDead() && damage>0,"direct XP attack did not produce real death");
         else if(mode!=17 && !(mode==16 && phase==1))Require(valid && victim->CanFight() && (blocked?damage==0:damage>0),"direct XP non-incapacitating control downed its target or missed");
         int mismatches=0,awarded=0;
@@ -30336,6 +30363,102 @@ static CObj<NRPG::CWeaponItem> NativeEquipFamiliarityGun(NRPG::CUnit* unit)
 {
     NDb::CRPGWeapon* record=nullptr;CDBIterator<NDb::CRPGWeapon> rows(*NDatabase::GetTable<NDb::CRPGWeapon>());while(rows.MoveNext()){auto* candidate=rows.Get();if(candidate->pItem && candidate->pWeaponType && candidate->shootModes[NDb::SM_Snap] && (!record || candidate->GetRecordID()<record->GetRecordID()))record=candidate;}Require(record,"familiarity fixture lacks an authored snap firearm");CObj<NRPG::CWeaponItem> gun=new NRPG::CWeaponItem(record);gun->nQuantity=1;auto* inventory=unit->GetInventory();CObj<NRPG::IInventoryItem> previous=inventory->TakeOff(NDb::SLOT_1);Require(inventory->Equip(NDb::SLOT_1,gun) && inventory->Activate(NDb::SLOT_1) && unit->GetWeaponItem()==gun.GetPtr() && gun->SetShootMode(NDb::SM_Snap),"familiarity fixture could not activate its actual firearm");return gun;
 }
+static void NativeHealthKnockout(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<12,"unknown native health knockout mode");
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(NDb::GetPers(103));auto* rpg=mission->GetRPGUnit();
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* owner=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && unit->GetTBSPlayer()){owner=unit;break;}
+    Require(owner && !mission->GetPanzerklein() && mission->GetHealedVP()==0,"health knockout lacks actual human owner and fresh health");
+    auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(owner->GetPosition().GetCP(),20.f),&places);NAI::SPathPlace place;bool found=false;
+    for(auto candidate:places){candidate.SetPose(NAI::CM_STAND);if(network->IsPassable(candidate)){place=candidate;found=true;break;}}
+    Require(found,"health knockout lacks real free standing placement");
+    CObj<NWorld::CUnitServer> actor=world->AddUnitInGame(place,mission,owner->GetTBSPlayer(),"NativeHealthKnockout");
+    Require(actor && actor->CanFight(),"health knockout cannot deploy its actual human");
+    Require(campaign->pDifficulty && campaign->pDifficulty->fDeathCoeff>0,"health fixture lacks actual authored party death reserve");
+    rpg->CalcDeathVP(campaign->pDifficulty->fDeathCoeff); // same native initialization as CWorld::AddPlayer
+    auto* armor=NDb::GetArmor(NDb::N_HUMAN_BODY_ARMOR);Require(armor && armor->pMaterial,"health knockout lacks actual body armor");
+    int type=-1;CDBIterator<NDb::CRPGDmgToArmor> types(*NDatabase::GetTable<NDb::CRPGDmgToArmor>());
+    while(types.MoveNext())if(types.Get()->armors[armor->pMaterial->nDR]>0 && (type<0 || types.Get()->GetRecordID()<type))type=types.Get()->GetRecordID();
+    Require(type>=0,"health knockout lacks actual flesh damage type");
+    NRPG::CAttackPortion blocked(0,type,0.f,1,1,0,0,nullptr,mission,1.f,-1);
+    Require(actor->ProcessAttack(world,NAI::HL_BODY,&blocked,CVec3(1,0,0),armor)==0,"health knockout binding warmup dealt damage");
+    const int maximum=rpg->Skills(NDb::ST_VP).GetMaxValue();Require(maximum==147 && mission->GetTotalVP()==maximum,"health knockout lacks untouched authored health cap");
+    if(mode==1 || mode==2 || mode==3 || mode==9 || mode>=10){const int before=mode==1?(maximum+1)/2+1:mode==9?2:maximum/4+1;rpg->Skills(NDb::ST_VP).Modify(before-int(rpg->Skills(NDb::ST_VP)));}
+    if(mode==4 || mode==7 || mode==8){
+        mission->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_DEATH));Require(int(rpg->Skills(NDb::ST_VP))==0,"health knockout real death critical did not consume raw HP");
+        if(mode!=8){NRPG::SFirstAid aid;aid.fdVP=mode==4?20:maximum;aid.nMaxVP=maximum;Require(mission->HealVP(aid)==aid.fdVP,"health knockout could not acquire bandaged health through native HealVP");}
+    }
+    Require(!mission->IsUnconscious() && !mission->IsDead(),"health knockout starts already unconscious or dead");
+    const int beforeRaw=rpg->Skills(NDb::ST_VP),beforeHealed=mission->GetHealedVP(),amount=mode==8?0:1,probability=mode==4 || mode==6 || mode==8?0:100;
+    NRPG::CAttackPortion attack(100000,type,0.f,amount,amount,0,0,nullptr,mission,1.f,-1);attack.nUnconsciousProbability=probability;if(mode==5)attack.atkType=NRPG::AT_CLICK_OF_DEATH;
+    attack.rTtrajectory.ptOrigin=actor->GetPosition().GetCP();attack.rTtrajectory.ptDir=CVec3(1,0,0);
+    Require(attack.CanDealDmg(armor) && attack.CalcStructDmg(world,armor,0)==amount,"health knockout lost fixed actual noncritical damage");
+    const int rawLiteral[]={147,75,37,37,0,147,147,0,0,2,37,37},healedLiteral[]={0,0,0,0,20,0,0,147,0,0,0,0};
+    Require(beforeRaw==rawLiteral[mode] && beforeHealed==healedLiteral[mode],"health knockout authored native setup differs from independent pinned raw/bandaged literals");
+    unsigned int seed=0,roll=0;bool selected=false;
+    for(;seed<10000;++seed){GlobalGameRandom().SeedForHarness(seed);auto probe=GlobalGameRandom();roll=probe.Get(1,100);auto oldProbe=GlobalGameRandom();const auto oldRoll=oldProbe.Get(0,100);if(mode==6?oldRoll==0:roll==static_cast<unsigned int>(mode==10?64:mode==11?65:mode==3 || mode==9?10:90)){selected=true;break;}}
+    Require(selected,"health knockout lacks its native seeded probability-boundary draw");
+    auto expectedRandom=GlobalGameRandom();Require(expectedRandom.Get(1,100)==roll,"health knockout selected seed changed its real native roll");
+    const int ap=actor->GetAP();const auto position=actor->GetPosition();auto* inventory=mission->GetInventory();
+    const auto result=mission->ProcessAttack(world,NAI::HL_BODY,&attack,armor);
+    auto actualRandom=GlobalGameRandom();bool rng=true;for(int i=0;i<4;++i)rng&=actualRandom.Get()==expectedRandom.Get();
+    const bool expected[]={false,false,false,true,false,true,false,false,true,true,true,false};
+    const int expectedDamage=mode==5?0:amount,expectedRaw=beforeRaw-(beforeHealed?0:expectedDamage),expectedHealed=beforeHealed-(beforeHealed?expectedDamage:0);
+    const int hp=mission->GetTotalVP();const int expectedScale[]={0,0,64,64,0,0,0,0,0,100,64,64};
+    std::printf("HEALTH-KNOCKOUT mode=%d cap=%d beforeRaw=%d beforeHealed=%d damage=%d raw=%d healed=%d total=%d probability=%d expectedScale=%d seed=%u roll=%u unconscious=%d expected=%d RNG=%d\n",mode,maximum,beforeRaw,beforeHealed,result.nDmg,int(rpg->Skills(NDb::ST_VP)),mission->GetHealedVP(),hp,probability,expectedScale[mode],seed,roll,int(mission->IsUnconscious()),int(expected[mode]),int(rng));std::fflush(stdout);
+    Require(result.type==NRPG::RD_HUMAN && result.nDmg==expectedDamage && int(rpg->Skills(NDb::ST_VP))==expectedRaw && mission->GetHealedVP()==expectedHealed && hp==expectedRaw+expectedHealed && mission->IsUnconscious()==expected[mode] && !mission->IsDead(),"native knockout failed its original post-damage total-health probability and forced-attack rules");
+    Require(rng && actor->GetAP()==(std::min)(ap,rpg->Skills(NDb::ST_AP).GetMaxValue()) && actor->GetPosition()==position && mission->GetInventory()==inventory && rpg->Skills(NDb::ST_VP).GetMaxValue()==maximum && attack.nK==100000 && attack.nCrtical==0 && attack.nCrticalDifficulty==0 && attack.nDmgMin==amount && attack.nDmgMax==amount,"health knockout changed native RNG/wound AP clamp/pose/inventory/health cap/attack inputs");
+}
+
+static void NativeHealedDamage(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<5,"unknown native healed damage mode");
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(NDb::GetPers(103));auto* rpg=mission->GetRPGUnit();
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* owner=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && unit->GetTBSPlayer()){owner=unit;break;}
+    Require(owner && !mission->GetPanzerklein() && mission->GetHealedVP()==0,"healed damage lacks actual native human owner and fresh health");
+    auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(owner->GetPosition().GetCP(),20.f),&places);NAI::SPathPlace place;bool found=false;
+    for(auto candidate:places){candidate.SetPose(NAI::CM_STAND);if(network->IsPassable(candidate)){place=candidate;found=true;break;}}
+    Require(found,"healed damage lacks actual free standing placement");
+    CObj<NWorld::CUnitServer> actor=world->AddUnitInGame(place,mission,owner->GetTBSPlayer(),"NativeHealedDamage");
+    Require(actor && actor->CanFight(),"healed damage cannot deploy its actual actor");
+    Require(campaign->pDifficulty && campaign->pDifficulty->fDeathCoeff>0,"health fixture lacks actual authored party death reserve");
+    rpg->CalcDeathVP(campaign->pDifficulty->fDeathCoeff); // same native initialization as CWorld::AddPlayer
+    auto* armor=NDb::GetArmor(NDb::N_HUMAN_BODY_ARMOR);Require(armor && armor->pMaterial,"healed damage lacks actual body armor");
+    int type=-1;CDBIterator<NDb::CRPGDmgToArmor> types(*NDatabase::GetTable<NDb::CRPGDmgToArmor>());
+    while(types.MoveNext())if(types.Get()->armors[armor->pMaterial->nDR]>0 && (type<0 || types.Get()->GetRecordID()<type))type=types.Get()->GetRecordID();
+    Require(type>=0,"healed damage lacks authored flesh damage type");
+    NRPG::CAttackPortion blocked(0,type,0.f,20,20,0,0,nullptr,mission,1.f,-1);
+    Require(actor->ProcessAttack(world,NAI::HL_BODY,&blocked,CVec3(1,0,0),armor)==0,"healed damage binding warmup dealt damage");
+    const int maximum=rpg->Skills(NDb::ST_VP).GetMaxValue();Require(maximum==147 && mission->GetTotalVP()==maximum,"healed damage lacks fresh authored health cap");
+    if(mode==2 || mode==3 || mode==4){
+        rpg->Skills(NDb::ST_VP).Modify((mode==3?40:20)-int(rpg->Skills(NDb::ST_VP)));
+        NRPG::SFirstAid aid;aid.fdVP=20;aid.nMaxVP=20;
+        Require(mission->HealVP(aid)==20 && mission->GetHealedVP()==20,"healed damage cannot acquire actual bandaged health through HealVP");
+    }
+    if(mode==1 || mode==4){mission->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_DEATH));Require(int(rpg->Skills(NDb::ST_VP))==0,"healed damage native death critical did not consume raw HP");}
+    const int rawBefore=rpg->Skills(NDb::ST_VP),healedBefore=mission->GetHealedVP(),totalBefore=mission->GetTotalVP();
+    const int amount=mode==2?100:mode==3?30:20;
+    NRPG::CAttackPortion attack(100000,type,0.f,amount,amount,0,0,nullptr,mission,1.f,-1);
+    attack.rTtrajectory.ptOrigin=actor->GetPosition().GetCP();attack.rTtrajectory.ptDir=CVec3(1,0,0);
+    Require(attack.CanDealDmg(armor) && attack.CalcStructDmg(world,armor,0)==amount,"healed damage lost its fixed native noncritical damage");
+    const int ap=actor->GetAP();const auto position=actor->GetPosition();auto* inventory=mission->GetInventory();
+    GlobalGameRandom().SeedForHarness(710);auto expectedRandom=GlobalGameRandom();
+    const int expectedRaw=mode==0?maximum-20:mode==1?-20:mode==2?-30:mode==3?20:0;
+    const int expectedHealed=mode==3?10:0;
+    // Native attack consumes one KO roll only while the resulting unit is not dead.
+    const auto result=mission->ProcessAttack(world,NAI::HL_BODY,&attack,armor);
+    if(!mission->IsDead())expectedRandom.Get(100);
+    auto actualRandom=GlobalGameRandom();bool rng=true;for(int i=0;i<4;++i)rng&=actualRandom.Get()==expectedRandom.Get();
+    const int rawAfter=rpg->Skills(NDb::ST_VP),healedAfter=mission->GetHealedVP(),storedHealed=rpg->nHealedVP,totalAfter=mission->GetTotalVP();
+    std::printf("HEALED-DAMAGE mode=%d cap=%d beforeRaw=%d beforeHealed=%d beforeTotal=%d damage=%d expectedDamage=%d raw=%d expectedRaw=%d healed=%d storedHealed=%d expectedHealed=%d total=%d expectedTotal=%d RNG=%d\n",mode,maximum,rawBefore,healedBefore,totalBefore,result.nDmg,amount,rawAfter,expectedRaw,healedAfter,storedHealed,expectedHealed,totalAfter,expectedRaw+expectedHealed,int(rng));std::fflush(stdout);
+    Require(result.type==NRPG::RD_HUMAN && result.nDmg==amount && rawAfter==expectedRaw && healedAfter==expectedHealed && storedHealed==expectedHealed && totalAfter==expectedRaw+expectedHealed,"native damage failed to preserve finite nonnegative bandaged health and independent raw HP depletion");
+    Require(rng && actor->GetAP()==(std::min)(ap,rpg->Skills(NDb::ST_AP).GetMaxValue()) && actor->GetPosition()==position && mission->GetInventory()==inventory && rpg->Skills(NDb::ST_VP).GetMaxValue()==maximum && attack.nK==100000 && attack.nCrtical==0 && attack.nCrticalDifficulty==0 && attack.nDmgMin==amount && attack.nDmgMax==amount,"healed damage changed RNG/native wound AP clamp/pose/inventory/health cap/attack inputs");
+}
+
 static void NativeUnawareCritical(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<6,"unknown native unaware critical mode");
@@ -34853,6 +34976,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-health-knockout")) { Require(argc==5,"health knockout requires db/resources/mode"); NativeHealthKnockout(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-healed-damage")) { Require(argc==5,"healed damage requires db/resources/mode"); NativeHealedDamage(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-unaware-critical")) { Require(argc==5,"unaware critical requires db/resources/mode"); NativeUnawareCritical(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-subzone-transition")) { Require(argc==5,"subzone transition requires db/resources/mode"); NativeSubzoneTransition(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-store-passage")) { Require(argc==5,"store passage requires db/resources/mode"); NativeStorePassage(argv[2],argv[3],std::atoi(argv[4])); return true; }

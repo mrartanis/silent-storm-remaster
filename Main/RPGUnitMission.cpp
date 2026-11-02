@@ -114,9 +114,9 @@ private:
 	// branches with bBackStab.
 	void ModifyUnawareCritical( CAttackPortion &a, bool bApply ) const;
 
-	virtual int GetHealedVP() const { return pRPGUnit->nHealedVP; }
+	virtual int GetHealedVP() const { return Max( 0, pRPGUnit->nHealedVP ); }
 	virtual int GetTotalVP() const { return pRPGUnit->Skills( NDb::ST_VP ) + GetHealedVP(); }
-	void SetHealedVP( int n ) { pRPGUnit->nHealedVP = n; }
+	void SetHealedVP( int n ) { pRPGUnit->nHealedVP = Max( 0, n ); }
 	virtual int GetLastActionTimes() const { return nLastActionTimes; }
 	virtual int GetMoveInLastTurn() const { return nMoveInLastTurn; }
 	virtual float GetWeaponSkill( CObjectBase *pItem, int nExtraAP, int nBullet );
@@ -1208,15 +1208,16 @@ CReceivedDmg CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, C
 		fDmgModifier += fCriticalDmgModifier;
 		csRPG << CC_GREY << "\tHL=" << GetHLName( (NAI::EHitLocation)nUserID );
 		csRPG << CC_GREY << " \tDmgModifier=" << fDmgModifier;
-		int nDamage = fDmgModifier * nDmg;
+		int nDamage = Max( 0.f, fDmgModifier * nDmg );
 		if ( pAttack->atkType != AT_CLICK_OF_DEATH && this != pAttack->pTarget &&
 			!GetPanzerklein() && CheckICForAttack( pAttack->atkType ) )
 			// Original 0x6c4279 multiplies under PC24/RN before switching RC for the integer cast.
 			nDamage = Max( 0, nDamage - int( float( GetPerkModifiedIC( pAttack->atkType ) ) * float( nDamage ) * 0.01f ) );
-		int ndBVP = nDamage * (float)GetHealedVP() / GetTotalVP();
-		ASSERT( ndBVP >= 0 );
+		// Original Steam 0x6c42be..0x6c4366 clamps the converted healed share.
+		// A death critical can leave zero total VP; avoid a NaN-to-int cast.
+		int ndBVP = GetTotalVP() != 0 ? Max( 0, int( nDamage * (float)GetHealedVP() / GetTotalVP() ) ) : 0;
 		SetHealedVP( GetHealedVP() - ndBVP );
-		pRPGUnit->Skills(NDb::ST_VP) -= nDamage - ndBVP;
+		pRPGUnit->Skills(NDb::ST_VP).Modify( ndBVP - nDamage );
 		// Acks
 		if ( bAlive )
 		{
@@ -1234,8 +1235,12 @@ CReceivedDmg CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, C
 		if ( !IsDead() )
 		{
 			int nProbability = pAttack->nUnconsciousProbability;
-			int nCheck = MissionRandom().Get( 0, 100 );
-			if ( pRPGUnit->Skills(NDb::ST_VP) <= 0 || nCheck <= nProbability )
+			int nCheck = MissionRandom().Get( 1, 100 );
+			// Original Steam 0x6c44b1..0x6c4570 scales by post-damage total health.
+			float fHealth = float( GetTotalVP() ) / pRPGUnit->Skills(NDb::ST_VP).GetMaxValue();
+			float fKnockout = Max( 0.f, Min( 1.f, ( 0.5f - fHealth ) * 2.500000238418579f ) );
+			nProbability = Float2Int( fKnockout * nProbability );
+			if ( GetTotalVP() <= 0 || nCheck <= nProbability || pAttack->atkType == AT_CLICK_OF_DEATH )
 			{
 				bUnconscious = true;
 				csRPG << " \t" << CC_YELLOW << GetName() << CC_WHITE << " made unconscious" << endl;
