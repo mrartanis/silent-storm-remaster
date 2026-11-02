@@ -4628,3 +4628,19 @@ unchanged. Source317 is partial;22 unfinished sources remain. Original proof and
 discovery limits are in UPSTREAM-IMPORTS.md.
 
 Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).
+
+## 165. Return the unavailable sentinel for unreachable melee previews
+
+Unreachable current-pose unit melee preview returns-1 rather than0 to both Lua and network
+consumers, matching the original unavailable contract and existing AP-only cursor display.
+Reach is measured to native target HL_ANY center independently of called shot.
+Authoritative replica delegation stays first; formulas, AP, damage, helper, save and
+packet formats remain unchanged. Four native game+Lua cases, actual signed TCP
+reply/cache, old hull/caption transitions and ten complete controls establish the
+behavior. Original Lua arg3 is HL, while our existing argument API remains retained in
+this narrow change. Canonical RED7/17 ->GREEN17 both;
+full1058W1048L/186focused/CI382/12LANeach361 pass; measured pure query RNG tails exact.
+Sourcef645 closes;21 unfinished sources remain. Proof bounds and raw legacy inequalities
+are in UPSTREAM-IMPORTS.md.
+
+Source: [f6455c9f92eb6d4c66efebc74face61d1e1065bb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6455c9f92eb6d4c66efebc74face61d1e1065bb).

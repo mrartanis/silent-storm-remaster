@@ -755,6 +755,14 @@ int CGame::GetCompositeToHit( NWorld::CUnit *pAttacker,
 	auto* actor = dynamic_cast<NWorld::CUnitServer*>(pAttacker);
 	if (actor && actor->GetWorld()->bNetworkReplica)
 		return actor->GetWorld()->networkHitChance ? actor->GetWorld()->networkHitChance(0,pAttacker,pTarget,CVec3(0,0,0),eHL,bFirstTurn) : 0;
+	// Original Steam 0x6b5f61/0x6b5f68: current-pose reach uses the target hull center.
+	if ( NRPG::GetToHitType( pAttacker ) == NRPG::TH_MELEE )
+	{
+		CVec3 ptTarget( VNULL3 );
+		pAIMap->GetUnitHLPos( &ptTarget, pAIMap->GetHull( pTarget ), NAI::HL_ANY );
+		if ( !NWorld::CanMeleeAttack( actor, pAttacker->GetPosition(), ptTarget ) )
+			return -1;
+	}
 	vector<NRPG::CAttackPortion> attack;
 	CDynamicCast<NRPG::IUnitMission> pRealAttacker( pAttacker->GetRPG() );
 	ASSERT( pRealAttacker );

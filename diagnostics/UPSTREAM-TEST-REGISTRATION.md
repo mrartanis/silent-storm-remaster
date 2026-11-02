@@ -2923,3 +2923,22 @@ E8-only/typed Cover.srcB00/GetPose43 raw and excluded-global/whole225/ABI limits
 detailed in UPSTREAM-IMPORTS.md. Source317 now partial,22 unfinished.
 
 Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).
+
+## 165. Return the unavailable sentinel for unreachable melee previews
+
+NativeMeleeReach0..8 plus NativeMeleeReachLAN and updated old Hull0..5/caption: final
+canonical RED7/17 both -> unchanged GREEN17/17. Four real distant game+Lua0->-1, actual
+replicaIGame/TCP signed unavailable0->-1, old Hull5 early no-query sentinel and caption
+shared sentinel; ten complete controls exact. Nine game+Lua zero-draw seed726 tails and
+six old hull seed721 tails exact. Real actor/target/native placement/blade/fists/loaded
+gun, per-query physical purity, caption AP-only7/inreach%/no action, native sessions
+finish. Compile errors/earlier six-failure phases archived, final strengthened17-case
+parent replay authoritative. Original bounded
+target-center43RAW/caller22E8/predicate93E8/GetCP23RAW/Human47RAW/Lua60E8/HL-valid11RAW,
+and excluded absolute globals/whole-function/API limits documented in UPSTREAM-IMPORTS.md.
+Original Lua arg3 is HL; own existing API retained with explicit1 tested. Full Game
+both/1058W1048L/186focused/117oldfixed/prior tile5 pose8 inactive3 hover5
+fonts12/13tactical/CI382/standard12LANeach361 pass. Historical raw job/HP/RNG inequalities
+explicit; no fresh confirmation/cause claim. Sourcef645 complete,21 unfinished.
+
+Source: [f6455c9f92eb6d4c66efebc74face61d1e1065bb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6455c9f92eb6d4c66efebc74face61d1e1065bb).

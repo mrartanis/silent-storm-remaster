@@ -25490,3 +25490,92 @@ UI/Lua consumers remain pending. Ledger:224 imported,13 pending,9 partial;22 unf
 Final-head hosted success is still required at whole-task completion.
 
 Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).
+
+## 165. Return the unavailable sentinel for unreachable melee previews
+
+The shared unit preview now returns -1 for TH_MELEE when native CanMeleeAttack rejects the
+current position against the target hull's HL_ANY center. The eight-line guard follows
+existing replica delegation, so authoritative queries still reach the server. Self/group
+target rejection and the AP-only cursor adaptation were already imported; the verified
+original Lua return contract now closes the remaining shared numeric hunk of f6455c9f.
+Existing API/first-turn ownership, calculation formulas, melee helper, AP, damage,
+serialization and network packet layout are retained. Source317 remains partial.
+
+Nine real native game+Lua cases use map810/person54, a real target103, authored blade,
+empty hands or loaded Snap firearm. Four distant blade/called-shot/unarmed cases change
+shared and Lua results0->-1; near blade100/head86, near fists91/Lua-head74 and distant
+throwing/firearm public script37 controls retain their entire rows. All nine queries
+preserve positions, actual HP137/AP53/targetHP147, item/quantity/ammo and time; zero-draw
+seed726 tails748710301/3303685163/2569198498/2292318096 remain exact. Actual
+NScript::RunScript calls UnitGetToHitUnit with explicit third argument1. No private
+geometry/HP injection, partial World READ, fabricated result or executed attack.
+
+An additional real loopback TCP case exercises replica IGame.GetCompositeToHit -> existing
+preview callback -> authoritative IGame query -> signed result -> replica cache. The
+loaded ranged public script37 control remains37/00000025; after native unequip and actual
+replicated unarmed state, unavailable0/00000000 becomes-1/FFFFFFFF. Both authoritative
+queries preserve AP/HP/position/time and their RNG state. No fixed whole-network RNG tail
+is claimed across simulation ticks. Sessions finish naturally. This extra case is separate
+from the standard12 LAN gates.
+
+Two existing tests deliberately adopt the now-proven shared sentinel. Old hull case5
+independently establishes native center reach=false and checks physical/RNG preservation
+before the assertion; it now returns-1 without an accessible-hit-location query, while its
+prior chance0/query1 becomes chance-1/query0. The first five hull rows and all six
+zero-draw seed721 tails stay exact. The caption test completes its old AP-only7, in-reach
+percent, AP preservation and no-command controls before requiring shared-1. Caption RNG is
+not measured. The full suite also runs its pre-existing NativeKnifeUnitPreview3 alias of
+the same caption helper; both named case blocks must separately retain the identical
+caption witness, without deduplication or inflated canonical17 counts. The initial LAB
+full checker expected only one aggregate caption row and rejected this valid alias
+duplication; corrected only that checker to verify both named blocks, with no
+source/assertion changes or rerun required. Final canonical unchanged-parent RED7/17 on
+both systems becomes unchanged GREEN17/17. Ten complete controls pass on both sides.
+Earlier diagnostic compile failures and initial valid six-failure phases are archived; the
+final seven-failure replay, including strengthened UI/physical assertions and actual
+replica IGame path, is authoritative.
+
+Typed Gold free unit preview6afdb0/972 binds actual Steam6b5e90, but its
+separate-position/five-argument API differs from our retained four-argument adapter.
+Complete43 raw bytes Gold6afe1f -> uniqueSteam6b5eff establish zero-initialized target
+HL_ANY center lookup; typed CAIMap root slot28 binds GetUnitHLPos Gold465440/144
+->Steam4662d0 without a whole144 claim. Complete22 Gold6afe72 ->uniqueSteam6b5f52 match
+with only one decoded E8 displacement, calling CanMeleeAttack at6b5f61 ->7a2660. Actual
+false branch6b5f68 reaches6b608e, where OR EAX,FFFFFFFF feeds the return-preserving
+epilogue6b6241/27. Wider28-byte local-branch and112-byte frame candidates are rejected,
+not masked. Donor comment addresses6b5f4f/6b5fa2 are stale; production cites
+actual6b5f61/6b5f68.
+
+The predicate's complete93-byte tail Gold79681a ->uniqueSteam7a266a matches with only two
+decoded E8 displacements. Named SPosition.GetCP Gold4903c0/23 ->Steam4914c0 is whole23 raw
+exact; Human predicate Gold795110 ->Steam7a0e10 first47 bytes are raw exact. The
+original103-byte wrapper's absolute A1 global instruction at7a2665 is excluded whole, and
+target984dd4 is never read or masked. Human vertical global constants beyond47 are
+likewise unclaimed. No numeric original base-reach/global value, full103/91 or
+special-cannon predicate parity is inferred; the existing native helper is retained.
+
+Complete60 Lua bytes Gold6f24c2 ->uniqueSteam6fc095 match with only three decoded E8
+displacements. Actual call6fc0b1 targets unit preview6b5e90; signed FILD at6fc0bb
+preserves its result into the numeric Lua push at6fc0cc ->81a750. The named Gold
+lua_pushnumber7d5a30/66 has a different body: no whole66 match is claimed. Actual push
+independently loads/stores the double with numeric tag2 and no negative clamp. Typed
+UnitServer secondary-position slot44 binding is reused from161. Original Lua third
+argument is a hit location, verified by GetHitLocation Gold6ec7c0 ->Steam6f62a0 first11
+raw bytes and valid[-1,5] return; it is not the donor317 logging comment. Our pre-existing
+argument/first-turn API remains unchanged here, with explicit1 tested; full argument
+parity awaits317. No whole972/341/66 ABI, original gameplay execution, mutable/BSS
+target-memory read, or field/frame/register/opcode/local-branch/global normalization is
+claimed.
+
+Fresh Game builds pass on Windows and Linux, with1058/1048 scoped cases,186 focused cases
+and13 tactical views. Prior tile5 query/integration/environment rows, pose8, inactive3,
+hover5,117 old fixed rows, prior explosive/AI/melee filters and12 fonts remain exact.
+CI382 and the standard12 LAN gates/361 encounter variants each pass. Historical raw native
+job/HP137-157 and known smooth0 Windows/0-or-1 Linux RNG inequalities remain explicit if
+observed, with historical confirmations only; no fresh confirmation, normalization or
+cause claim. Only the existing nested-save exclusion is retained. Baseline/Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged.
+Ledger225 imported/13 pending/8 partial:21 unfinished. Final-head hosted success remains
+required at whole-task completion.
+
+Source: [f6455c9f92eb6d4c66efebc74face61d1e1065bb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6455c9f92eb6d4c66efebc74face61d1e1065bb).
