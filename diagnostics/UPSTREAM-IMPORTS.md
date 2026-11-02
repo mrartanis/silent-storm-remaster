@@ -25034,3 +25034,73 @@ including361 maps. No added exclusion, relaxed test, proven root cause or networ
 production fix is claimed, and the diagnostic probes are not counted as LAN gates.
 
 Source: [71bf7730c33bf37b19beaab21042f6a39e5b3285](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/71bf7730c33bf37b19beaab21042f6a39e5b3285).
+
+## 159. Ordinary hover attack admission for world objects
+
+Ordinary attack-state initialization rejected every target that was neither a unit nor a
+sound marker, even though its comment already described the original IObject case. Add the
+missing native IObject cast and include it in the existing target-type admission. Preserve
+the current forced-mode, unit-owner, sound-marker, target command, action information and
+caption rules. This imports only iGameStates.cpp, one of source b3bd470's ten files; the
+nine dead-panzerklein support/animation files remain pending. This is not a complete
+import of that source commit and does not reduce the unfinished-source count.
+
+NativeObjectHover0..4 open the actual authored810 tactical mission with a real person54
+party, desktop, player turn and selected actor. The public mission target is an intact
+targetable world object1914/HP47, door439/HP66, own unit, non-owned unit or null. Real
+forced attack initializes for both object targets before probing ordinary hover, excluding
+an unavailable command/context as the cause. Canonical native RED2/5 both becomes
+unchanged GREEN5 both; own-unit rejection, non-owned-unit acceptance and null rejection
+retain all three complete control rows. All five four-word RNG tails
+remain724253223/457891056/3219285046/1955194503. Object and door allocate the original
+caption frame but keep its unit caption hidden, and Terminate releases it. Actor/target
+HP, AP, position, command and simulation time remain unchanged. The tests use real public
+state-target/init/terminate APIs, not a fabricated mission or world, private field
+injection or partial World reads. Actual mouse pixel picking and shot delivery are not
+claimed.
+
+Named CStateAttack root vtable slot10 binds typed Gold Initialize5da670/802 to actual
+Steam5ddc40. The complete66-byte type-result admission block at Gold5da7a6 -> Steam5ddd76
+is unique and raw exact: IObject validity allows continuation alongside Unit and IAISound.
+Six whole descriptor PUSH instructions are decoded independently for the three exact
+native destination types and CObjectBase source; their addresses are not normalized. Every
+fixed instruction span around them retains opcode/register/frame/argument values, with
+only three decoded E8 displacement changes. Gold __RTDynamicCast825c52 is independently
+typed; the three actual calls reach833bd2. Whole802 is not claimed or forced through
+EH/descriptor operands. The adjacent102-byte owner-dispatch region is explicitly rejected:
+its Gold130 and actualSteam138 virtual slots differ. Existing own owner behavior is
+retained, without a new whole-owner/transitive parity claim or
+field/frame/register/opcode/branch/global masks. No BSS reads or original gameplay
+execution.
+
+Fresh full Game builds pass on both platforms. Validation follows the UI-only production
+scope: single related suites558 Windows/550 Linux cover
+hover/attack/aim/tooltip/cursor/target/picking/selection/trace/font/preview/action/heard-marker/UI/state
+tests, all142 earlier focused cases, new5, all13 tactical views and every earlier
+diagnostic row-producing AI/melee/filter/font case. The previous927/900 world/physics
+suites are not rerun or claimed for this two-line UI change. All117 earlier fixed rows,
+explosive group/clearance, AI/melee/filter rows and12 fonts remain exact; prior PK
+bootstrap-health inequalities are retained explicitly if observed, never normalized or
+described as equality. CI382 and12 fresh LAN gates per platform pass, including361 maps;
+Linux5 infrastructure CTest+7 direct modes. Every selected executable and nested helper is
+rebuilt, only the old nested-save exclusion remains and the new five tests carry
+native-display metadata. Verified baseline/Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged. No new
+API, save/network fields, combat values or item data.222 imported/14 pending/10 partial,24
+unfinished. Final-head hosted success remains required at whole-task completion.
+
+The additional full-log equality check initially refused the Linux report for one old
+case, NativeSmoothRelocation1: every position/timing/HP/AP/command field matched, but its
+four-word RNG tail was shifted by one draw (3285973158/2793744859/1494726304/2075231427
+instead of2793744859/1494726304/2075231427/2971378132). One additional unchanged-binary
+single-case confirmation on each platform passed the same native assertions and returned
+the earlier tail. Executable SHA values were captured before and checked after, with no
+source, fixture, assertion or executable change. This establishes observed runtime
+variation in that existing world/visibility diagnostic, not its exact cause. Full raw rows
+and the unequal RNG fields remain in verification data; they are not stripped, normalized
+or called equal. The new five hover cases retain their full canonical RNG tails. The old
+canonical small smooth test's own paired RNG statement remains scoped to that phase; no
+current full old-smooth RNG parity is claimed. The two confirmations overlap the existing
+suites and are not added to558/550 totals.
+
+Source: [b3bd4703140eedb548126513d32cc16ad5c06b2a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b3bd4703140eedb548126513d32cc16ad5c06b2a).

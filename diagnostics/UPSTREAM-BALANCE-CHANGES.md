@@ -4494,3 +4494,26 @@ exact cause remains unproven. Five LAB diagnostic replays did not reproduce it, 
 fresh unchanged full12-gate Linux run passes all361 maps. Initial logs are retained, no
 repository/assertion/timeout edits or new exclusions, diagnostic probes not counted as LAN
 gates. See UPSTREAM-IMPORTS.md.
+
+## 159. Ordinary hover attack admission for world objects
+
+Allow ordinary attack hover to enter its existing state for actual IObject targets,
+including world props and doors, as the original type admission does. Preserve current
+forced attack, own-unit restrictions, sound-marker handling, command feasibility and
+caption policy. This changes target admission; no damage, hit chance, AP costs, item
+records, save or network values change. No dead-panzerklein physics change is included.
+
+Real native mission RED2/5 ->GREEN5 both, three exact control rows/all five RNG tails and
+actor/target controls preserved. Full Game both/scoped UI558 Windows550 Linux/CI382,147
+focused cases/117 previous fixed rows/12 fonts and12 LAN gates/361 maps each pass;13
+tactical views pass. Full original bounds and unclaimed owner102/whole802 scope are
+recorded in UPSTREAM-IMPORTS.md. UI1 of10 source files imported, remaining9 dead-PK files
+pending;24 unfinished.
+
+Source: [b3bd4703140eedb548126513d32cc16ad5c06b2a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b3bd4703140eedb548126513d32cc16ad5c06b2a).
+
+An auxiliary old smooth-mode1 full-row comparison found one fewer RNG draw in Linux; all
+physical/time/HP/AP fields matched. One unchanged-binary confirmation each returned the
+previous tail, SHA fixed before/after. Full unequal RNG fields remain reported, not
+normalized or called equal; exact cause unproven. These overlapping confirmations are not
+added to558/550 counts; new hover5 RNG tails remain exact. See UPSTREAM-IMPORTS.md.

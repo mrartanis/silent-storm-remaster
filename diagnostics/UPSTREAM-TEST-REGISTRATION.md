@@ -2785,3 +2785,27 @@ exact cause remains unproven. Five LAB diagnostic replays did not reproduce it, 
 fresh unchanged full12-gate Linux run passes all361 maps. Initial logs are retained, no
 repository/assertion/timeout edits or new exclusions, diagnostic probes not counted as LAN
 gates. See UPSTREAM-IMPORTS.md.
+
+## 159. Ordinary hover attack admission for world objects
+
+NativeObjectHover0..4: canonical real-mission RED2/5 ->unchanged GREEN5 both. Actual world
+object1914/HP47 and door439/HP66 fail ordinary admission despite a successful native
+forced-state control. Own/non-owned unit and null controls retain complete rows; all five
+RNG tails exact. Native caption allocated/hidden for objects and released on Terminate;
+HP/AP/position/command/time unchanged. No fake mission, private field injection or actual
+mouse-pick/shot-delivery claim.
+
+Full Game both plus scoped single UI-related558 Windows550 Linux/CI382; all142 prior+5 new
+cases,13 tactical views,117 old fixed rows and explosive/AI/melee/filter/12 font outputs
+retained.12 LAN gates/361 maps each, every helper rebuilt, only old nested-save exclusion,
+database unchanged. Original unique raw66 admission and typed descriptors are detailed in
+UPSTREAM-IMPORTS.md; whole802 and neighboring owner102 are not normalized. Only source
+UI1/10 files imported; nine dead-PK files remain,24 unfinished.
+
+Source: [b3bd4703140eedb548126513d32cc16ad5c06b2a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b3bd4703140eedb548126513d32cc16ad5c06b2a).
+
+An auxiliary old smooth-mode1 full-row comparison found one fewer RNG draw in Linux; all
+physical/time/HP/AP fields matched. One unchanged-binary confirmation each returned the
+previous tail, SHA fixed before/after. Full unequal RNG fields remain reported, not
+normalized or called equal; exact cause unproven. These overlapping confirmations are not
+added to558/550 counts; new hover5 RNG tails remain exact. See UPSTREAM-IMPORTS.md.
