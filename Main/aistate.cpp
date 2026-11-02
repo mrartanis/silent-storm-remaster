@@ -196,44 +196,50 @@ IAIUnit* SAIState::GetDangerousAttackableEnemy( IAIUnit *pAIUnit )
 	return pGoodEnemy;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Original Steam 0x4a9890 uses the count before insertion, including n == 1.
+void SAIUnitGroup::AddUnit( IAIUnit *pUnit )
+{
+	if ( !IsValid( pUnit ) )
+		return;
+	int nCount = enemies.size();
+	CVec3 ptUnit = pUnit->GetPosition().GetCP();
+	ptCenter = nCount == 0 ? ptUnit : (ptCenter * float(nCount - 1) + ptUnit) / float(nCount);
+	enemies.push_back( pUnit );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void SAIState::MakeEnemyGroups()
 {
-	const float F_SQR_ENEMY_GROUP_DISTANCE = 2.25; // distance = 1.5 m
-	const float F_SQR_ALLY_GROUP_DISTANCE = 9; // distance = 3 m
-	//
 	enemyGroups.clear();
-	vector< CPtr<IAIUnit> > &units = *( pEnemy->GetUnits() );
-	vector< CPtr<IAIUnit> > &allies = *( pAlly->GetUnits() );
-	for ( vector< CPtr<IAIUnit> >::iterator i = units.begin(); i != units.end(); ++i )
+	if ( !IsValid( pWorld ) )
+		return;
+	// Keep GetUnits' unbound-player contract and use current world diplomacy.
+	list< CPtr<NWorld::CUnitServer> > units;
+	vector< CPtr<NWorld::CUnitServer> > enemies, protectedUnits;
+	pWorld->GetAllUnits( &units );
+	for ( list< CPtr<NWorld::CUnitServer> >::const_iterator i = units.begin(); i != units.end(); ++i )
 	{
-		ASSERT( IsValid( *i ) );
-		if ( !IsValid( *i ) )
+		if ( !IsValid( *i ) || !(*i)->CanFight() )
 			continue;
-		//
-		CPtr<IAIUnit> unitI = *i;
-		enemyGroups.push_back( SAIUnitGroup() );
-		enemyGroups.back().enemies.push_back( unitI );
-		enemyGroups.back().ptCenter = unitI->GetPosition().GetCP();
-		vector< CPtr<IAIUnit> >::iterator j = i;
-		for ( ++j; j != units.end(); ++j )
-		{
-			CPtr<IAIUnit> unitJ = *j;
-			float fSqrDistance = fabs2( unitI->GetPosition().GetCP() - unitJ->GetPosition().GetCP() );
-			if ( fSqrDistance < F_SQR_ALLY_GROUP_DISTANCE )
-			{
-				enemyGroups.back().enemies.push_back( unitJ );
-				enemyGroups.back().ptCenter += unitJ->GetPosition().GetCP();
-			}
-		}
-		enemyGroups.back().ptCenter /= enemyGroups.back().enemies.size();
-		for ( vector< CPtr<IAIUnit> >::iterator j = allies.begin(); j != allies.end(); ++j )
-		{
-			CPtr<IAIUnit> unitJ = *j;
-			float fSqrDistance = fabs2( unitI->GetPosition().GetCP() - unitJ->GetPosition().GetCP() );
-			if ( fSqrDistance < F_SQR_ALLY_GROUP_DISTANCE )
-				enemyGroups.back().allies.push_back( unitJ );
-		}
+		if ( pWorld->GetDiplomacyState( pPlayer, (*i)->GetPlayer() ) == NDb::DS_ENEMY )
+			enemies.push_back( *i );
+		else
+			protectedUnits.push_back( *i );
 	}
+	// Original Steam 0x4a9ee0: merge at strictly less than 1.5m, then
+	// also retain a singleton for each enemy in native world order.
+	for ( int i = 0; i < enemies.size(); ++i )
+	{
+		CVec3 ptUnit = enemies[i]->GetPosition().GetCP();
+		for ( int j = 0; j < enemyGroups.size(); ++j )
+			if ( fabs2( ptUnit - enemyGroups[j].ptCenter ) < 2.25f )
+				enemyGroups[j].AddUnit( GetAIUnit( enemies[i] ) );
+		enemyGroups.push_back( SAIUnitGroup() );
+		enemyGroups.back().AddUnit( GetAIUnit( enemies[i] ) );
+	}
+	for ( int i = 0; i < protectedUnits.size(); ++i )
+		for ( int j = 0; j < enemyGroups.size(); ++j )
+			enemyGroups[j].fNearestAlly = Min( enemyGroups[j].fNearestAlly,
+				fabs( protectedUnits[i]->GetPosition().GetCP() - enemyGroups[j].ptCenter ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void SAIState::OnTurnStarted()

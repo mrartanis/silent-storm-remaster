@@ -30363,6 +30363,124 @@ static CObj<NRPG::CWeaponItem> NativeEquipFamiliarityGun(NRPG::CUnit* unit)
 {
     NDb::CRPGWeapon* record=nullptr;CDBIterator<NDb::CRPGWeapon> rows(*NDatabase::GetTable<NDb::CRPGWeapon>());while(rows.MoveNext()){auto* candidate=rows.Get();if(candidate->pItem && candidate->pWeaponType && candidate->shootModes[NDb::SM_Snap] && (!record || candidate->GetRecordID()<record->GetRecordID()))record=candidate;}Require(record,"familiarity fixture lacks an authored snap firearm");CObj<NRPG::CWeaponItem> gun=new NRPG::CWeaponItem(record);gun->nQuantity=1;auto* inventory=unit->GetInventory();CObj<NRPG::IInventoryItem> previous=inventory->TakeOff(NDb::SLOT_1);Require(inventory->Equip(NDb::SLOT_1,gun) && inventory->Activate(NDb::SLOT_1) && unit->GetWeaponItem()==gun.GetPtr() && gun->SetShootMode(NDb::SM_Snap),"familiarity fixture could not activate its actual firearm");return gun;
 }
+namespace NWorld {
+EUnitCommandResult CanUnitThrowGrenade(CUnitServer*,const NAI::SUnitPosition&,const CVec3&,NRPG::IGrenadeItem*);
+EUnitCommandResult CanUnitLaunchRocket(CUnitServer*,const NAI::SUnitPosition&,const CVec3&,int,NRPG::IWeaponItem*);
+}
+static void NativeExplosiveClearance(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<8,"unknown native explosive clearance mode");
+    const bool rocket=mode==2 || mode==4 || mode==7,engineer=mode==1,lowAP=mode==3 || mode==4,noEnemy=mode==5,distant=mode==6 || mode==7;
+    NativeGrenadeThrowFixture fixture(databasePath,resourcePath,false,false,true);auto& world=fixture.world;auto* actor=fixture.actor;auto* owner=NAI::GetAIUnit(actor);
+    auto* commander=dynamic_cast<NAI::CAICommander*>(actor->GetPlayer()->GetCommander());Require(owner && commander,"explosive clearance lacks an actual AI owner");auto* state=commander->GetAIState();state->pPlayer=actor->GetPlayer();
+    auto* rpg=actor->GetUnitRPG()->GetRPGUnit();
+    if(engineer)for(int level=int(rpg->Skills(NDb::ST_LEVEL))+1;int(rpg->Skills(NDb::ST_ENGINEERING))<20 && level<=20;++level)rpg->SetXPLevel(level);
+    if(mode==6)rpg->SetXPLevel((std::max)(10,int(rpg->Skills(NDb::ST_LEVEL))));
+    std::printf("EXPLOSIVE-CLEARANCE-ACTOR mode=%d persona=%d level=%d engineering=%d throwing=%d strength=%d\n",mode,rpg->pPers->GetRecordID(),int(rpg->Skills(NDb::ST_LEVEL)),int(rpg->Skills(NDb::ST_ENGINEERING)),int(rpg->Skills(NDb::ST_THROWING)),int(rpg->Skills(NDb::ST_STR)));std::fflush(stdout);
+    auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> previous=inventory->TakeOff(NDb::SLOT_1);CObj<NRPG::CWeaponItem> gun;CObj<NRPG::CGrenadeItem> grenade;float clearance=3.f;int recordID=-1;
+    if(rocket){NDb::CRPGWeapon* record=nullptr;CDBIterator<NDb::CRPGWeapon> rows(*NDatabase::GetTable<NDb::CRPGWeapon>());while(rows.MoveNext()){auto* p=rows.Get();if(p->bBazookaLogic && p->pItem && p->pAnimWeaponType && p->pInnerClip && (!record || p->GetRecordID()<record->GetRecordID()))record=p;}Require(record,"explosive clearance lacks an authored launcher");gun=new NRPG::CWeaponItem(record);recordID=record->GetRecordID();Require(gun->HasAmmo(),"explosive clearance authored launcher starts unloaded");Require(inventory->Equip(NDb::SLOT_1,gun),"explosive clearance cannot equip native launcher");}
+    else if(engineer){NDb::CRPGEngGrenade* record=nullptr;CDBIterator<NDb::CRPGEngGrenade> rows(*NDatabase::GetTable<NDb::CRPGEngGrenade>());while(rows.MoveNext()){auto* p=rows.Get();std::printf("EXPLOSIVE-AUTHORED-ENGINEER id=%d range=%.9g required=%d skill=%d actualSkill=%d perk=%d\n",p->GetRecordID(),p->fFragmentRange,p->nRequiredPerkID,p->nSkillReq,int(actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_ENGINEERING)),int(actor->GetUnitRPG()->HasPerk(p->nRequiredPerkID)));if(p->pItem && p->pItem->pModel && p->pItem->nWeight>0 && p->fFragmentRange>0 && (p->nRequiredPerkID<=0 || actor->GetUnitRPG()->HasPerk(p->nRequiredPerkID)) && actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_ENGINEERING)>=p->nSkillReq && (!record || p->fFragmentRange<record->fFragmentRange || (p->fFragmentRange==record->fFragmentRange && p->GetRecordID()<record->GetRecordID())))record=p;}std::fflush(stdout);Require(record,"explosive clearance lacks a naturally eligible authored engineer grenade");grenade=new NRPG::CGrenadeItem(record);clearance=record->fFragmentRange;recordID=record->GetRecordID();}
+    else {NDb::CRPGGrenade* record=nullptr;CDBIterator<NDb::CRPGGrenade> rows(*NDatabase::GetTable<NDb::CRPGGrenade>());while(rows.MoveNext()){auto* p=rows.Get();std::printf("EXPLOSIVE-AUTHORED-GRENADE id=%d range=%.9g\n",p->GetRecordID(),p->fFragmentRange);if(p->pItem && p->pItem->pModel && p->pItem->nWeight>0 && p->fFragmentRange>0 && (!record || p->fFragmentRange<record->fFragmentRange || (p->fFragmentRange==record->fFragmentRange && p->GetRecordID()<record->GetRecordID())))record=p;}std::fflush(stdout);Require(record,"explosive clearance lacks an authored ordinary fragment grenade");grenade=new NRPG::CGrenadeItem(record);clearance=record->fFragmentRange;recordID=record->GetRecordID();}
+    if(grenade){grenade->nQuantity=1;Require(inventory->Equip(NDb::SLOT_1,grenade),"explosive clearance cannot equip its actual grenade");}Require(inventory->Activate(NDb::SLOT_1),"explosive clearance cannot activate native item");owner->Synchronize(false);
+    if(mode==6){list<CPtr<NWorld::CUnitServer>> others;world->GetAllUnits(&others);for(auto unit:others)if(unit && unit.GetPtr()!=actor && unit->CanFight())unit->MakeUnconscious(VNULL3,true,false);}
+    fixture.game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));CObj<NAI::CSequenceCommander> targetCommander=new NAI::CSequenceCommander(world);auto* targetPlayer=dynamic_cast<NWorld::CPlayer*>(world->AddPlayer(L"Native explosive target party",fixture.game->players.back(),targetCommander));Require(targetPlayer,"explosive clearance cannot create its native opposing party");targetCommander->SetPlayer(targetPlayer);
+    const vector<CPtr<NRPG::IUnitMission>> noUnits;vector<CPtr<NWorld::CPlayer>> players;world->GetPlayersList(&players);for(auto player:players)if(player.GetPtr()!=actor->GetPlayer())world->GetDiplomacy()->SetDiplomacyState(actor->GetPlayer()->GetScenarioPlayerID(),noUnits,player->GetScenarioPlayerID(),player.GetPtr()==targetPlayer?NDb::DS_ENEMY:NDb::DS_NEUTRAL);
+    list<CPtr<NWorld::CUnitServer>> all;world->GetAllUnits(&all);for(auto unit:all)if(unit && unit->GetPlayer()==targetPlayer && unit->CanFight())unit->MakeUnconscious(VNULL3,true,false);
+    auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),30.f),&places);NAI::SPathPlace spawn;float nearest=65535.f;bool found=noEnemy;
+    if(!noEnemy)for(auto p:places){p.SetPose(NAI::CM_STAND);p.SetMoving(0);if(!network->IsPassable(p))continue;const auto cp=NAI::SPosition(p,network).GetCP();if(fabs2(cp-actor->GetPosition().GetCP())<2.f)continue;float current=65535.f;for(auto unit:all)if(unit && unit->CanFight() && world->GetDiplomacyState(actor->GetPlayer(),unit->GetPlayer())!=NDb::DS_ENEMY)current=(std::min)(current,fabs(unit->GetPosition().GetCP()-cp));if(distant?!(current>clearance):!(current<=clearance))continue;const auto result=rocket?NWorld::CanUnitLaunchRocket(actor,actor->GetPosition(),cp,0,gun):NWorld::CanUnitThrowGrenade(actor,actor->GetPosition(),cp,grenade);if(result==NWorld::UCR_OK){spawn=p;nearest=current;found=true;break;}}
+    std::printf("EXPLOSIVE-CLEARANCE-INPUT mode=%d rocket=%d engineer=%d record=%d clearance=%.9g found=%d nearest=%.9g distant=%d lowAP=%d noEnemy=%d\n",mode,int(rocket),int(engineer),recordID,clearance,int(found),nearest,int(distant),int(lowAP),int(noEnemy));std::fflush(stdout);Require(found,"explosive clearance lacks its feasible native near/distant input");
+    CObj<NWorld::CUnitServer> enemy;if(!noEnemy){enemy=world->AddUnitInGame(spawn,NRPG::CreateUnit(NDb::GetPers(103)),targetPlayer,"NativeExplosiveClearanceEnemy");Require(enemy && enemy->CanFight() && enemy->GetPosition().pos.p.GetBits()==spawn.GetBits(),"explosive clearance changed its declared actual free target");}
+    state->Synchronize();const auto& groups=state->GetEnemyGroups();Require(groups.size()==(noEnemy?0u:1u),"explosive clearance contains unintended enemy groups");if(!noEnemy)Require(groups[0].enemies.size()==1 && groups[0].enemies[0].GetPtr()==NAI::GetAIUnit(enemy) && groups[0].fNearestAlly==nearest,"explosive clearance native world grouping lost nearest protected unit");
+    const auto position=actor->GetPosition();const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),ammo=gun?gun->GetAmmoQuantity():0,quantity=grenade?grenade->GetQuantity():0;const auto time=world->GetTime()->GetValue();const auto roster=commander->GetUnitsList();GlobalGameRandom().SeedForHarness(714);auto reference=GlobalGameRandom();const NAI::SPlaceWithAP place(position,lowAP?0:ap);bool can=false;int size=0;CVec3 target=VNULL3;
+    if(rocket){CObj<NAI::CAILaunchRocketAction> action=new NAI::CAILaunchRocketAction(owner);NAI::CAILaunchRocketAction::SInfo info;action->GetInfoInner(place,&info);can=info.bCanDo;size=info.nTargetSize;if(can)target=info.ptTarget;}
+    else {CObj<NAI::CAIThrowGrenadeAction> action=new NAI::CAIThrowGrenadeAction(owner);NAI::CAIThrowGrenadeAction::SInfo info;action->GetInfoInner(place,&info);can=info.bCanDo;size=info.nTargetSize;if(can)target=info.ptTarget;}
+    unsigned words[4];auto continuation=GlobalGameRandom();for(auto& word:words)word=continuation.Get();const bool expected=distant;
+    std::printf("EXPLOSIVE-CLEARANCE mode=%d rocket=%d engineer=%d record=%d clearance=%.9g nearest=%.9g can=%d expected=%d size=%d target=%.9g,%.9g,%.9g rng0=%u rng1=%u rng2=%u rng3=%u\n",mode,int(rocket),int(engineer),recordID,clearance,nearest,int(can),int(expected),size,target.x,target.y,target.z,words[0],words[1],words[2],words[3]);std::fflush(stdout);
+    Require(can==expected,"native explosive action ignored protected-unit clearance or rejected a clear feasible target");Require(!can || (size==1 && target==enemy->GetPosition().GetCP()),"native explosive action changed selected group/target");
+    for(auto word:words)Require(word==reference.Get(),"explosive action query consumed native RNG");Require(actor->GetPosition()==position && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && world->GetTime()->GetValue()==time && inventory->GetActive()==(rocket?static_cast<NRPG::IInventoryItem*>(gun.GetPtr()):static_cast<NRPG::IInventoryItem*>(grenade.GetPtr())) && (!gun || gun->GetAmmoQuantity()==ammo) && (!grenade || grenade->GetQuantity()==quantity) && commander->GetUnitsList()==roster,"explosive action query changed position/HP/AP/time/item/ammo/quantity/ownership");
+}
+
+static void NativeExplosiveGroups(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<7,"unknown native explosive groups mode");
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> all;world->GetAllUnits(&all);
+    NWorld::CUnitServer *actor=nullptr,*human=nullptr;
+    for(auto unit:all)if(unit && unit->CanFight() && !unit->HasCommand() && !unit->IsEmptyPK() && !unit->IsWearingPK() && IsValid(NAI::GetAIUnit(unit))){if(!actor && unit->IsAIUnit())actor=unit;if(!human && !unit->IsAIUnit())human=unit;}
+    Require(actor && human,"explosive groups lacks native AI owner and human party");
+    auto* commander=dynamic_cast<NAI::CAICommander*>(actor->GetPlayer()->GetCommander());Require(commander,"explosive groups lacks native commander");
+    auto* state=commander->GetAIState();state->pPlayer=actor->GetPlayer();
+    vector<CPtr<NWorld::CPlayer>> players;world->GetPlayersList(&players);const vector<CPtr<NRPG::IUnitMission>> noUnits;
+    for(auto player:players)if(player.GetPtr()!=actor->GetPlayer())world->GetDiplomacy()->SetDiplomacyState(actor->GetPlayer()->GetScenarioPlayerID(),noUnits,player->GetScenarioPlayerID(),player.GetPtr()==human->GetPlayer()?NDb::DS_ENEMY:NDb::DS_NEUTRAL);
+    for(auto unit:all)if(unit && unit->GetPlayer()==human->GetPlayer() && unit->CanFight())unit->MakeUnconscious(VNULL3,true,false);
+    if(mode==4)state->Synchronize(); // A real enemy is spawned after the last tactical view refresh.
+    auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(human->GetPosition().GetCP(),20.f),&places);
+    vector<CObj<NWorld::CUnitServer>> enemies;vector<CVec3> points;
+    const int count=mode==6?0:mode==2?3:mode==1 || mode==3?2:1;
+    for(int i=0;i<count;++i){
+        NAI::SPathPlace spawn;bool found=false;
+        for(auto p:places){p.SetPose(NAI::CM_STAND);p.SetMoving(0);if(!network->IsPassable(p))continue;const auto cp=NAI::SPosition(p,network).GetCP();bool acceptable=true;
+            for(const auto& previous:points){const float d=fabs2(cp-previous);acceptable&=mode==3?d>2.25f && d<9.f:d>0.f && d<2.25f;}
+            if(acceptable){spawn=p;found=true;break;}
+        }
+        Require(found,"explosive groups cannot find its actual free close/boundary native input");
+        CObj<NWorld::CUnitServer> enemy=world->AddUnitInGame(spawn,NRPG::CreateUnit(NDb::GetPers(103)),human->GetTBSPlayer(),"NativeExplosiveGroupEnemy");
+        Require(enemy && enemy->CanFight() && enemy->GetPosition().pos.p.GetBits()==spawn.GetBits() && IsValid(NAI::GetAIUnit(enemy)),"explosive groups native spawn changed the declared free input");
+        Require(NAI::GetAIUnit(enemy)->GetPosition().GetCP()==enemy->GetPosition().GetCP(),"explosive groups native wrapper has not synchronized its spawn position");
+        enemies.push_back(enemy);points.push_back(enemy->GetPosition().GetCP());
+        const auto cp=points.back();std::printf("EXPLOSIVE-GROUP-INPUT mode=%d enemy=%d place=%08x cp=%.9g,%.9g,%.9g\n",mode,i,unsigned(enemy->GetPosition().pos.p.GetBits()),cp.x,cp.y,cp.z);std::fflush(stdout);
+    }
+    if(mode!=4)state->Synchronize();
+    vector<CPtr<NAI::IAIUnit>> expectedEnemies;state->GetUnits(&expectedEnemies,false,true);
+    Require(expectedEnemies.size()==enemies.size(),"explosive groups fixture contains an unintended hostile world fighter");
+    for(int i=0;i<count;++i)Require(expectedEnemies[i].GetPtr()==NAI::GetAIUnit(enemies[i]),"explosive groups input world order differs from native insertion order");
+    if(mode==5){enemies[0]->MakeUnconscious(VNULL3,true,false);Require(!enemies[0]->CanFight(),"explosive groups nonfighter control remains fightable");}
+    world->GetAllUnits(&all);struct Snapshot{NWorld::CUnitServer* unit;NAI::SUnitPosition position;int ap,hp;bool command;};vector<Snapshot> before;
+    for(auto unit:all)if(unit)before.push_back({unit,unit->GetPosition(),unit->GetAP(),unit->GetUnitRPG()->GetTotalVP(),unit->HasCommand()});
+    const auto roster=commander->GetUnitsList();GlobalGameRandom().SeedForHarness(713);auto reference=GlobalGameRandom();
+    state->MakeEnemyGroups();const auto& groups=state->GetEnemyGroups();const int expectedCount=mode==5 || mode==6?0:count;
+    unsigned words[4];auto random=GlobalGameRandom();for(auto& word:words)word=random.Get();
+    std::printf("EXPLOSIVE-GROUPS mode=%d input=%d groups=%zu expected=%d rng0=%u rng1=%u rng2=%u rng3=%u\n",mode,count,groups.size(),expectedCount,words[0],words[1],words[2],words[3]);
+    for(int i=0;i<int(groups.size());++i){const auto& group=groups[i];std::printf("EXPLOSIVE-GROUP-ROW mode=%d group=%d count=%zu center=%.9g,%.9g,%.9g members=",mode,i,group.enemies.size(),group.ptCenter.x,group.ptCenter.y,group.ptCenter.z);for(auto member:group.enemies){int index=-1;for(int k=0;k<count;++k)if(member.GetPtr()==NAI::GetAIUnit(enemies[k]))index=k;std::printf("%d,",index);}std::printf("\n");}std::fflush(stdout);
+    Require(int(groups.size())==expectedCount,"explosive target groups used a stale tactical view or retained a native nonfighter");
+    for(int i=0;i<expectedCount;++i){const auto& group=groups[i];const int expectedSize=mode==3?1:count-i;
+        Require(int(group.enemies.size())==expectedSize,"explosive target group used a three-meter merge or lost a close world enemy");
+        for(int k=0;k<expectedSize;++k)Require(group.enemies[k].GetPtr()==NAI::GetAIUnit(enemies[i+k]),"explosive target group changed native member order or identity");
+        // Independent concrete one/two/three-member cases: the original uses
+        // its pre-insertion count, so inserting member two replaces the center.
+        const CVec3 expectedCenter=mode==3?points[i]:count==3 && i==0?(points[1]+points[2])*.5f:points.back();
+        Require(group.ptCenter==expectedCenter,"explosive target center averaged all members instead of the native pre-insertion count");
+        if(mode!=0){
+            // Observe the standalone native group through its real serializer.
+            // Existing tags 2/3/4 retain their types; the optional clearance is 5.
+            auto* protectedUnit=state->GetNearestUnit(group.ptCenter,true,true,nullptr);Require(protectedUnit,"explosive groups has no native protected-distance reference");
+            CStructureNetworkContext references;references.externalReferences=true;references.nextID=100;references.include=[](CObjectBase*){return false;};
+            auto borrow=[&](NAI::IAIUnit* unit){CObjectBase* object=unit;if(references.ids.count(object))return;const auto id=references.nextID++;references.ids[object]=id;references.refs[id]=object;};
+            for(auto unit:group.enemies)borrow(unit);for(auto unit:group.allies)borrow(unit);borrow(protectedUnit);
+            CMemoryStream fields;NAI::SAIUnitGroup copy=group;
+            {CStructureSaver writer(fields,CStructureSaver::WRITE,&references);copy.operator&(writer);}
+            CVec3 center;vector<CPtr<NAI::IAIUnit>> savedEnemies,savedAllies;float nearest=-1.f;
+            fields.Seek(0);{CStructureSaver reader(fields,CStructureSaver::READ,&references);reader.Add(2,&center);reader.Add(3,&savedEnemies);reader.Add(4,&savedAllies);reader.Add(5,&nearest);}
+            const float expectedNearest=fabs(protectedUnit->GetUnitServer()->GetPosition().GetCP()-group.ptCenter);
+            std::printf("EXPLOSIVE-GROUP-CLEARANCE mode=%d group=%d saved=%.9g expected=%.9g\n",mode,i,nearest,expectedNearest);std::fflush(stdout);
+            Require(center==group.ptCenter && savedEnemies==group.enemies && savedAllies==group.allies && nearest==expectedNearest,"explosive groups changed legacy save tags or failed nearest non-enemy clearance");
+            NAI::SAIUnitGroup restored;fields.Seek(0);{CStructureSaver reader(fields,CStructureSaver::READ,&references);restored.operator&(reader);}
+            CMemoryStream roundtrip;{CStructureSaver writer(roundtrip,CStructureSaver::WRITE,&references);restored.operator&(writer);}
+            float restoredNearest=-1.f;roundtrip.Seek(0);{CStructureSaver reader(roundtrip,CStructureSaver::READ,&references);reader.Add(5,&restoredNearest);}
+            Require(restored.enemies==group.enemies && restored.ptCenter==group.ptCenter && restoredNearest==nearest,"standalone explosive group save lost clearance or enemy identities");
+            vector<CPtr<NAI::IAIUnit>> legacyAllies{protectedUnit};CMemoryStream legacy;{CStructureSaver writer(legacy,CStructureSaver::WRITE,&references);writer.Add(2,&center);writer.Add(3,&savedEnemies);writer.Add(4,&legacyAllies);}
+            NAI::SAIUnitGroup legacyGroup;legacy.Seek(0);{CStructureSaver reader(legacy,CStructureSaver::READ,&references);legacyGroup.operator&(reader);}
+            Require(legacyGroup.enemies==group.enemies && legacyGroup.allies==legacyAllies && legacyGroup.ptCenter==group.ptCenter,"older standalone group save changed legacy tag types or identities");
+            CMemoryStream legacyResaved;{CStructureSaver writer(legacyResaved,CStructureSaver::WRITE,&references);legacyGroup.operator&(writer);}
+            float legacyNearest=65535.f;legacyResaved.Seek(0);{CStructureSaver reader(legacyResaved,CStructureSaver::READ,&references);reader.Add(5,&legacyNearest);}
+            Require(legacyNearest==65535.f,"older standalone group save did not retain the absent optional clearance default");
+        }
+    }
+    for(int i=0;i<4;++i)Require(words[i]==reference.Get(),"explosive target group rebuild consumed native RNG");
+    Require(commander->GetUnitsList()==roster,"explosive target groups changed commander ownership");
+    for(const auto& saved:before)Require(saved.unit->GetPosition()==saved.position && saved.unit->GetAP()==saved.ap && saved.unit->GetUnitRPG()->GetTotalVP()==saved.hp && saved.unit->HasCommand()==saved.command,"explosive target groups changed actual position/HP/AP/commands");
+}
+
 static void NativeWorldWaypointRoute(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<4,"unknown native world waypoint route mode");const bool aiOwner=mode==0 || mode==3,sequence=mode==2,samePlace=mode==3;
@@ -35043,6 +35161,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-explosive-clearance")) { Require(argc==5,"explosive clearance requires db/resources/mode"); NativeExplosiveClearance(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-explosive-groups")) { Require(argc==5,"explosive groups requires db/resources/mode"); NativeExplosiveGroups(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-world-waypoint-route")) { Require(argc==5,"world waypoint route requires db/resources/mode"); NativeWorldWaypointRoute(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-placement-reservations")) { Require(argc==5,"placement reservations requires db/resources/mode"); NativePlacementReservations(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-health-knockout")) { Require(argc==5,"health knockout requires db/resources/mode"); NativeHealthKnockout(argv[2],argv[3],std::atoi(argv[4])); return true; }

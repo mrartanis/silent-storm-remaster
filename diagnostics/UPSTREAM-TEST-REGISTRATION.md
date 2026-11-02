@@ -2716,3 +2716,21 @@ floor/anchor/diagonal facing and stale-owner rules retained.
 Source all5files complete through151/152/155;27 unfinished.
 
 Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).
+
+## 2026-11-02: explosive target groups and protected-unit clearance (156)
+
+NativeExplosiveGroups0..6: canonical group RED5/7 at155parent ->GREEN7 both.
+NativeExplosiveClearance0..7: consumer RED3/8 atupdatedgroups/oldAIAction
+->combinedGREEN15 both. Tests unchanged through each accepted fix; two exact group
+controls, five exact consumer controls, all consumer RNG tails and group rows retained.
+Phases are not an oldparent8/15 RED claim. Native XP progression and actual
+world/inventory/trajectory APIs; external borrowed refs only for standalone group saves.
+
+Game both/877 Windows/850 Linux plus14 supplemental melee cases each/CI382;129 current
+cases,13 tactical-view controls including null saved player,117 old fixed rows,
+AI/melee/fonts12 exact.12 LAN gates/361 maps each. Only the old nested-save exclusion; all
+selected helpers rebuilt. Old save2/3/4 retained plus optional5/absent65535; DB unchanged.
+Initial fixture/observer/build rejections remain separately archived. Source all3files
+complete;26 unfinished.
+
+Source: [069451e7e61dc0c720812b2f939339f7732fdaf3](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/069451e7e61dc0c720812b2f939339f7732fdaf3).

@@ -24783,3 +24783,105 @@ imported/16 pending/11 partial,27 unfinished. Final-head hosted success required
 whole-task completion.
 
 Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).
+
+## 2026-11-02: explosive target groups and protected-unit clearance (156)
+
+Explosive decisions used stale tactical views, a three-meter merge and an average that
+differs from the original pre-insertion rule. Restore live fightable world groups and
+their nearest protected-unit distance, then update grenade/rocket consumers together.
+Preserve existing null-player and save-format compatibility.
+
+Restore live-world explosive target groups: enumerate fightable units using the saved
+tactical player's global diplomacy, merge at strictly less than1.5m, preserve native order
+and each singleton, and use the original pre-insertion count for group centers. A newly
+spawned enemy is included without waiting for the legacy tactical-view refresh; a unit
+made unconscious through the native API is excluded. Track the linear distance to the
+nearest fightable non-enemy, including the thrower and neutral units. Grenades require the
+raw authored fragment range to be smaller than that distance; rocket launchers require
+more than3m. Existing item/AP/trajectory/fallback behavior is retained. The tested normal
+and engineer grenade1 retain authored range5; launcher92 and all weapon/damage/AP values
+remain unchanged. This restores AI decision safety without changing weapon blast radii.
+
+Phased native TDD: final NativeExplosiveGroups0..6 give canonical RED5/7 on155parent
+->GREEN7 both. Controls0(single enemy) and6(empty world enemy set) are exact. After the
+group fix, NativeExplosiveClearance0..7 with the old action consumer give RED3/8, then
+all15 pass with the minimal action guards. Five consumer controls3..7 and all eight
+four-word RNG tails are exact; all seven group rows stay exact through the consumer fix.
+Rocket-near is a required integration control after the group representation change, not a
+separate claimed old155rocket bug. No aggregate oldparent8/15RED is claimed. All three
+source files ship together; the unsafe group-only intermediate was never committed or
+pushed.
+
+New tests use actual world actors, person103 targets and actual GetInfoInner calls, native
+inventory/trajectory feasibility and world grouping. Authored actor838 needs actual XP
+progression tolevel2/engineering21 for engineer grenade1; distant ordinary-grenade control
+uses real level10/throwing44 and native incapacitation of other protected actors before
+the baseline. No direct skill/HP/position field writes, perk bypass, DB edits, injected
+world state or extra ticks. Normal grenade1/engineer1 range5 reject nearest3.69264531;
+launcher92 rejects2.71312618 at threshold3. Safe controls accept ordinary5.10886574 and
+rocket3.69264531. All8 RNG tails3347300753/533642937/2369221069/2490556528 remain exact.
+
+Compatibility adaptation retains own group save tags2(center),3(enemies),4(legacy allies);
+adds optional5(nearest distance) with explicit65535 when absent because the native chunk
+reader zeroes missing scalar fields. Standalone current/older group round trips use
+external borrowed object references, including nonempty legacy ally vectors, without
+decoding a live World. Preserve existing null-player behavior rather than donor's
+early-return guard; all13 tactical-view controls pass. No new virtual method, object class
+ID or resource field is introduced.
+
+Original read-only proof: typed Gold AddUnit4a8110/397 ->actualSteam4a9890 (donor4a9860
+stale), complete105+265 unique with only decoded E8 operands; local branches are unmasked.
+Typed MakeEnemyGroups4a8760/1206 ->4a9ee0, complete561+41+71+474 unique E8-only. Named
+World A4/BC and Unit CanFight34/AI GetPosition18 bind current world
+enumeration/diplomacy/eligibility; complete34/18 bodies unique exact. Literal1 and2.25
+read separately, not normalized through writable-address masks. Whole397/1206 identities
+are rejected at EH/writable operands/VNULL3 storage; the PE helper refused non-file-backed
+access and returned no BSS bytes. No original execution, BSS call/read/mask,
+field/frame/register/branch normalization, whole transitive constructor or exhaustive
+x87/x64 all-input parity claim.
+
+Original normal/engineer grenade helper Gold41b8c0/188 ->Steam41c360 is complete188 unique
+with E8-only relocation; donor41c390 is midfunction. Named grenade-info secondary5c
+slots4/8 use decoded virtual-base thunks to exact typed getters and DB fragment
+offsets74/78. Rocket guard at41ce40 is bounded by unique complete41+87+84+104 blocks;
+threshold3 and other floating literals are read separately. Whole324 is not forced through
+writable constant operands, and no whole172 throw/trajectory identity is claimed.
+
+Discovery evidence remains separate: an exact1.5m authored-grid input was unavailable,
+corrected before group production to a real1.5<distance<3 range case; strict equality
+behavior is original-static only. A diagnostic missing stream rewind was corrected with
+exact-parent replay; a stale-copy-timestamp build was rejected and rebuilt using fresh
+input writes. A real missing-tag5 compatibility failure then led to the explicit default
+without changing the tests. Initial Windows far-macro compile rejection and Linux
+unqualified-engineer/unavailable-distant inputs are not RED; corrected before consumer
+production through normal XP progression and native setup. Final respective fixtures
+remain unchanged through their accepted fixes.
+
+Fresh full Game both,877 Windows/850 Linux in single related suites,14 supplemental legacy
+melee cases each and CI382 pass. Actual prior114+new15=129 cases, all13 tactical views,106
+earlier fixed rows plus11 placement/route rows, AI/melee/filter rows and12 font rows
+remain exact.12 fresh LAN gates each, all361 map variants pass; Linux5 CTest+7 direct
+match modes. Every selected executable and nested helper is rebuilt. The only old
+nested-save exclusion is retained. DB
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df stays identical to
+verified Steam. Source all3files now complete;220 imported/15 pending/11 partial,26
+unfinished. Final-head hosted success remains required at whole-task completion.
+
+Final validation initially refused to publish because the focused AI/world/save selection
+omitted14 previous melee cases:7 object routes,6 target filters and1 godmode
+deduplication. Those14 cases run separately on each platform with the same unchanged
+production and test code and all pass. The877/850 figures describe the single full related
+suites;891/864 are distinct totals including this supplement, not single-suite totals.
+Legacy output rows are compared by test identity with within-case order retained, so all
+earlier melee/filter/AI rows remain exact despite the separate runs. No extra exclusion or
+relaxed assertion was added.
+
+The initial Linux network infrastructure run failed one of five tests: NetworkSessionTests
+reported its compound readiness/state/event-count assertion as "duplicate event played
+twice". It links only the unchanged network transport library, and the initial build did
+no work; the AI code is not linked into this executable. A fresh unchanged full rerun
+passes all five infrastructure tests and seven native match modes, including361 maps. The
+initial failure is retained separately; no exclusion, test relaxation, proven root cause
+or separate network production fix is claimed.
+
+Source: [069451e7e61dc0c720812b2f939339f7732fdaf3](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/069451e7e61dc0c720812b2f939339f7732fdaf3).

@@ -4427,3 +4427,21 @@ Linux/CI382/114cases106oldrows/XP-AI-melee-fonts exact;12 LAN gates/361 maps eac
 unchanged. Source6face all5files now imported;27 unfinished.
 
 Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).
+
+## 2026-11-02: explosive target groups and protected-unit clearance (156)
+
+Restore original AI explosive-target decisions. Groups use live fightable world units,
+strict1.5m proximity and original pre-insertion centers. Protect the thrower, allies and
+neutral fightable units using the nearest linear distance: ordinary/engineer grenades
+compare the unchanged authored range5 directly; rockets require more than3m. Existing AP
+affordability, feasible trajectory and fallback checks remain. No item, blast radius,
+damage, health, AP cost, difficulty or network command value changes. Own null-player and
+older save fields remain supported.
+
+Phased group RED5/7 ->GREEN7 and consumer RED3/8 ->combined15 both, with exact
+controls/RNG. Full Game both/877 Windows/850 Linux plus14 supplemental melee cases
+each/CI382,129 cases/117 old rows/13 tactical controls/12 fonts,12 LAN gates and361 maps
+each pass; original static proof and all discovery limitations are recorded in
+UPSTREAM-IMPORTS.md. Source069 all3files now imported;26 unfinished.
+
+Source: [069451e7e61dc0c720812b2f939339f7732fdaf3](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/069451e7e61dc0c720812b2f939339f7732fdaf3).

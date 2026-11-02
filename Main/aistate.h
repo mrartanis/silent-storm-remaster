@@ -22,10 +22,12 @@ struct SAIUnitGroup
 {
 	ZDATA
 	CVec3 ptCenter;
+	float fNearestAlly;
 	vector< CPtr<IAIUnit> > enemies;
-	vector< CPtr<IAIUnit> > allies;
-	ZEND int operator&( CStructureSaver &f ) { f.Add(2,&ptCenter); f.Add(3,&enemies); f.Add(4,&allies); return 0; }
-	SAIUnitGroup(): ptCenter( VNULL3 ) {}
+	vector< CPtr<IAIUnit> > allies; // Legacy save tag 4; the current actions use nearest clearance.
+	ZEND int operator&( CStructureSaver &f ) { f.Add(2,&ptCenter); f.Add(3,&enemies); f.Add(4,&allies); if ( f.IsReading() && !f.HasChunk(5) ) fNearestAlly = 65535.0f; else f.Add(5,&fNearestAlly); return 0; }
+	SAIUnitGroup(): ptCenter( VNULL3 ), fNearestAlly( 65535.0f ) {}
+	void AddUnit( IAIUnit *pUnit );
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // SAIState -- retail's flat AI-state VALUE struct (operator& @0x38c30). AI-convergence final structural
