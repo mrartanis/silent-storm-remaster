@@ -24715,3 +24715,71 @@ never rewritten/reported as a pass and no new exclusion is added. Paired proof a
 fixture byte snapshots are saved.
 
 Source: [884f91f42db3aa840f729fb5196a18133d49917b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b).
+
+## 2026-11-02: world placement reservations and waypoint route order (155)
+
+Placement must evaluate all other world units and restore all reservations on every exit.
+The predecessor used the caller's temporary selected-only filter: new actors could overlap
+a live blocker, leave the filter active, or move unnecessarily around a pending dead-owner
+lock. Restore the original all-world selection and three cleanup calls while retaining own
+anchor-floor, actual diagonal footprint orientation and explicit self-lock handling. Also
+restore original waypoint route installation after synchronous teleport with
+AI-or-sequence guard; native command/position APIs stay unchanged.
+
+Final NativePlacementReservations0..6 use actual World::AddUnitInGame, real
+person103/blocker, public selected-only path queries and native death-state preparation.
+Canonical RED4/7 both ->GREEN7 both. Controls0(all blockers),4(free) and6(native
+pre-cleaned corpse) are exact. Cases1/2 now match normal0 including full placebc010102;
+free3 matches4 atb8010107 and restores reservations; pending-dead5 matches clean6
+atb8010101. All7 four-word native RNG tails match the normal reference. Expected full
+place words are pinned before production from independent native controls, not a copied
+nearest-cell algorithm. Initial dead-lock precondition wrongly assumed cleanup had already
+run; archived and corrected before valid6 RED4/6 discovery and final7 RED4/7. No fake
+health/position fields, world decode or extra frames/clock.
+
+Four NativeWorldWaypointRoute controls exercise actual native Lua/AI route slots: AI-far,
+human outside sequence, human through real c_BeginSequence/EndSequence, AI already at
+waypoint. Authored waypoint goes through actual native snap; no manual waypoint-position
+injection. Initial far inputs were standing-passable but their actual snapped native
+posture was blocked and correctly used the existing fallback; archived as invalid endpoint
+assumptions, then corrected to truly native-passable inputs before route production. An
+initial unseeded comparison passed all11 behavioral checks but failed RNG equality; those
+logs remain, RNG was never masked. Native SeedForHarness712 immediately before the command
+and exact parent-scriptRoute replay then production-byte restore give parent11 ->GREEN11
+both; all four complete route rows and RNG tails exact. Position, route ownership, HP/AP,
+time and no-active-command controls retained. These four are positive controls for the
+additionally static-proved ordering, not a new RED or an asynchronous-teleport theory.
+
+Actual original placement entry752380 is bound by named World root174 AddUnitInGame
+Gold75b980/84->Steam767200 and independent PlaceAllUnits Gold756930/37->Steam7621c0:
+complete84 and37 unique with only decoded E8 relocations, both call752380. Complete
+placement body986(+0d) and508(+43b) unique with only decoded E8 call operands;
+fields/frames/registers/branches retained. Named WorldA8 vector getter and
+PathNetwork5c/60 selection/restore slots, self removal and three exits audited. Whole1591
+equality rejected at EH, writable best-distance operand and opaque11-byte Steam debug-call
+block; no unsafe masks/BSS reads/original execution. Best-distance float1e38 read
+separately, pointer never normalized. Preserve own native stale-owner policy, floor/anchor
+and diagonal-facing footprint guards, and explicit own self-lock cleanup; donor removal of
+those guards is deliberately not copied. No separate original-world-death runtime parity
+claim.
+
+Actual UnitSetToWaypoint registry binds callback6ec360 and its own name literal.
+Complete44 conditional tail and complete283 route-helper suffix are unique with only
+decoded E8 relocation; named GetTBS11 exact, TBS IsSequence25 unique exact and IsAIUnit47
+unique with decoded E9 tail validate the AI-or-sequence gate. Route call6ec6f3 follows
+native teleport/continue dispatch; earlier donor address6ec00c is stale. Whole
+Lua1142/helper296 identities are not forced through EH/field/frame/global masks, no whole
+transitive constructor/dispatcher claim. Existing synchronous command APIs are retained.
+
+Full Game both/1411 Windows/1374 Linux related/CI382, prior103+new11=114 cases and106
+earlier fixed rows, all XP/AI/melee/filter/godmode rows and12 fonts exact;12 fresh LAN
+gates each with361 maps pass. Linux5 CTest+7 direct native match modes; all selected
+executables/nested helpers rebuilt. Sole old nested-save exclusion retained. DB remains
+identical to verified Steam
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df. Source all5files now
+complete:151 Lua implicit END,152 deferred outgoing mission termination,155 remaining
+placement/route. Exact previously ported lvm.cpp/iMission.cpp/h blobs retained.219
+imported/16 pending/11 partial,27 unfinished. Final-head hosted success required at
+whole-task completion.
+
+Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).

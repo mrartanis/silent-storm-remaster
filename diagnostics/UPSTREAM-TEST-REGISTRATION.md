@@ -2696,3 +2696,23 @@ never rewritten/reported as a pass and no new exclusion is added. Paired proof a
 fixture byte snapshots are saved.
 
 Source: [884f91f42db3aa840f729fb5196a18133d49917b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b).
+
+## 2026-11-02: world placement reservations and waypoint route order (155)
+
+NativePlacementReservations0..6: canonical pinned native RED4/7 both ->GREEN7,
+controls0/4/6 exact. NativeWorldWaypointRoute0..3: real Lua/AI and sequence/same-point
+positive controls, seeded paired parent11 ->GREEN11 both with all4 complete rows and RNG
+exact. Tests are unchanged during each respective production fix. All fixture corrections
+and rejected unseeded comparison are retained separately, never counted as genuine RED or
+masked into equivalence.
+
+Game both/1411 Windows/1374 Linux/CI382;114 current cases,106 old fixed rows,
+XP/AI/melee/godmode/fonts12 exact,12 LAN gates/361 maps each. DB unchanged and only old
+nested-save exclusion. Original complete84+37 callers/986+508 placement bodies/44
+guard+283 helper, named GetTBS11/TBS25/IsAI47 audited. No unsafe operand masks, original
+runtime, injected live-world state or added ticks/clock. Existing own
+floor/anchor/diagonal facing and stale-owner rules retained.
+
+Source all5files complete through151/152/155;27 unfinished.
+
+Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).

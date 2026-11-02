@@ -4410,3 +4410,20 @@ never rewritten/reported as a pass and no new exclusion is added. Paired proof a
 fixture byte snapshots are saved.
 
 Source: [884f91f42db3aa840f729fb5196a18133d49917b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b).
+
+## 2026-11-02: world placement reservations and waypoint route order (155)
+
+Restore original reservation scope and waypoint command ordering. New actors no longer
+overlap units excluded by a temporary path query, placement restores all reservations, and
+pending dead reservations use existing native eligibility cleanup. Existing own
+anchor/floor and seven-cell diagonal footprint checks remain. Waypoint routes are
+installed after synchronous teleport for AI or script sequences. No weapon, health, AP,
+item, difficulty, resource or network protocol values change.
+
+Native canonical RED4/7 ->GREEN7 both with three exact controls and all7 RNG tails
+matching normal placement; four actual Lua route controls are exact seeded
+parent/production, not a fabricated asynchronous bug. Game both/1411 Windows/1374
+Linux/CI382/114cases106oldrows/XP-AI-melee-fonts exact;12 LAN gates/361 maps each, DB
+unchanged. Source6face all5files now imported;27 unfinished.
+
+Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).

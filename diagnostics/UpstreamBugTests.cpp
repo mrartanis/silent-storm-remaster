@@ -30363,6 +30363,73 @@ static CObj<NRPG::CWeaponItem> NativeEquipFamiliarityGun(NRPG::CUnit* unit)
 {
     NDb::CRPGWeapon* record=nullptr;CDBIterator<NDb::CRPGWeapon> rows(*NDatabase::GetTable<NDb::CRPGWeapon>());while(rows.MoveNext()){auto* candidate=rows.Get();if(candidate->pItem && candidate->pWeaponType && candidate->shootModes[NDb::SM_Snap] && (!record || candidate->GetRecordID()<record->GetRecordID()))record=candidate;}Require(record,"familiarity fixture lacks an authored snap firearm");CObj<NRPG::CWeaponItem> gun=new NRPG::CWeaponItem(record);gun->nQuantity=1;auto* inventory=unit->GetInventory();CObj<NRPG::IInventoryItem> previous=inventory->TakeOff(NDb::SLOT_1);Require(inventory->Equip(NDb::SLOT_1,gun) && inventory->Activate(NDb::SLOT_1) && unit->GetWeaponItem()==gun.GetPtr() && gun->SetShootMode(NDb::SM_Snap),"familiarity fixture could not activate its actual firearm");return gun;
 }
+static void NativeWorldWaypointRoute(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<4,"unknown native world waypoint route mode");const bool aiOwner=mode==0 || mode==3,sequence=mode==2,samePlace=mode==3;
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);CObj<NWorld::CUnitServer> actor;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->HasCommand() && !unit->IsEmptyPK() && !unit->IsWearingPK() && unit->IsAIUnit()==aiOwner && NAI::GetAIUnit(unit)){actor=unit.GetPtr();break;}
+    Require(actor,"world waypoint route lacks actual idle native AI/human actor");
+    auto* network=world->GetPathNetwork();auto before=actor->GetPosition();NAI::SPosition target=before.pos;
+    if(!samePlace){vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(before.GetCP(),20.f),&places);bool found=false;for(auto p:places){p.SetPose(NAI::CM_STAND);NAI::SPosition pos(p,network);if(!network->IsPassable(p) || fabs2(pos.GetCP()-before.GetCP())<=9.f)continue;const auto native=NAI::GetNearestNativePosition(pos.GetCP(),network);if(network->IsPassable(native.p) && fabs2(native.GetCP()-before.GetCP())>9.f){target=native;found=true;break;}}Require(found,"world waypoint route lacks actual free distant target");}
+    CObj<NDb::CWaypointName> name=new NDb::CWaypointName;name->szName="native_waypoint_route";CObj<CMapWaypoint> authored=new CMapWaypoint;authored->pName=name;authored->b3DWaypoint=false;authored->pos.ptPos=target.GetCP();world->AddWaypoint(authored);
+    auto* waypoint=world->GetWaypoint(name->szName);Require(waypoint && fabs2(waypoint->pos.GetCP()-target.GetCP())<.0025f,"world waypoint route authored point did not native-snap to its real target");
+    Require(samePlace || network->IsPassable(waypoint->pos.p),"world waypoint route control target is not freely passable in its actual native waypoint posture");
+    CObj<NScript::CScript> script=NScript::CreateScript(world);NScript::luaPushCPtr(*script,actor);script->SetGlobal("nativeRouteActor");
+    if(sequence)RunScript(script,"c_BeginSequence(false)");
+    Require(world->IsSequence()==sequence,"world waypoint route did not enter its requested native script sequence");
+    CObj<NAI::IAIUnit> brain=NAI::GetAIUnit(actor);CObj<NAI::IAILogic> oldRoute=brain->GetRouteLogic();before=actor->GetPosition();const int hp=actor->GetUnitRPG()->GetTotalVP(),ap=actor->GetAP();
+    const unsigned beforeBits=before.pos.p.GetBits(),targetBits=waypoint->pos.p.GetBits();const STime time=world->GetTime()->GetValue();
+    GlobalGameRandom().SeedForHarness(712); // paired native command RNG control, after all fixture setup
+    RunScript(script,"UnitSetToWaypoint(nativeRouteActor, 'native_waypoint_route')");
+    const auto after=actor->GetPosition();auto* route=brain->GetRouteLogic();const bool expectedRoute=aiOwner || sequence;
+    auto random=GlobalGameRandom();unsigned words[4];for(auto& word:words)word=random.Get();
+    std::printf("WORLD-WAYPOINT-ROUTE mode=%d AI=%d sequence=%d same=%d before=%08x target=%08x after=%08x oldRoute=%d route=%d replaced=%d expectedRoute=%d command=%d HP=%d AP=%d rng0=%u rng1=%u rng2=%u rng3=%u\n",mode,int(aiOwner),int(sequence),int(samePlace),beforeBits,targetBits,unsigned(after.pos.p.GetBits()),int(oldRoute.GetPtr()!=nullptr),int(route!=nullptr),int(route!=oldRoute.GetPtr()),int(expectedRoute),int(actor->HasCommand()),actor->GetUnitRPG()->GetTotalVP(),actor->GetAP(),words[0],words[1],words[2],words[3]);std::fflush(stdout);
+    Require(fabs2(after.GetCP()-waypoint->pos.GetCP())<.0025f && (samePlace?after.pos.p.GetBits()==beforeBits:after.GetPose()==NAI::WALK),"native Lua waypoint command did not complete its real teleport or preserve the already-at-point control");
+    Require(expectedRoute?(route && route!=oldRoute.GetPtr()):route==oldRoute.GetPtr(),"native Lua waypoint route did not respect the actual AI/sequence ownership gate");
+    Require(actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetAP()==ap && world->GetTime()->GetValue()==time && actor->IsAIUnit()==aiOwner && world->IsSequence()==sequence,"native waypoint route changed health/AP/time or native ownership/sequence controls");
+    if(sequence){RunScript(script,"EndSequence(false, true)");Require(!world->IsSequence(),"world waypoint route sequence did not exit through native EndSequence");}
+}
+
+static void NativePlacementReservations(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<7,"unknown native placement reservations mode");
+    const bool filtered=mode==1 || mode==2 || mode==3,freeSpawn=mode==3 || mode==4,deadBlocker=mode>=5;
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* owner=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && unit->GetTBSPlayer() && !unit->IsEmptyPK() && !unit->IsWearingPK()){owner=unit;break;}
+    Require(owner,"placement reservations lacks actual native human world owner");
+    auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(owner->GetPosition().GetCP(),20.f),&places);NAI::SPathPlace blockerPlace;bool found=false;
+    for(auto p:places){p.SetPose(NAI::CM_STAND);p.SetMoving(0);if(network->IsPassable(p)){blockerPlace=p;found=true;break;}}
+    Require(found,"placement reservations lacks free actual blocker placement");
+    CObj<NWorld::CUnitServer> blocker=world->AddUnitInGame(blockerPlace,NRPG::CreateUnit(NDb::GetPers(103)),owner->GetTBSPlayer(),"NativePlacementBlocker");
+    Require(blocker && blocker->CanFight() && blocker->IsPathLocker(),"placement reservations cannot deploy its actual living blocker");blockerPlace=blocker->GetPosition().pos.p;
+    const auto blockerSpawnPosition=blocker->GetPosition();
+    NAI::SPathPlace spawn=blockerPlace;
+    if(freeSpawn){found=false;for(auto p:places){p.SetPose(NAI::CM_STAND);p.SetMoving(0);NAI::SPosition pos(p,network);if(network->IsPassable(p) && fabs2(pos.GetCP()-blockerSpawnPosition.GetCP())>9.f){spawn=p;found=true;break;}}Require(found,"placement reservations lacks separate real free spawn");}
+    if(deadBlocker){blocker->GetUnitRPG()->GetRPGUnit()->Kill();blocker->SetState(new NWorld::CUnitStateDeath(blocker));Require(blocker->IsDead() && !blocker->IsPathLocker(),"placement reservations corpse control is still a native locker");}
+    if(mode==6)network->UnlockSelected(); // native clean-corpse reference for pending-lock mode5
+    const auto blockerPosition=blocker->GetPosition(),ownerPosition=owner->GetPosition();const int blockerAP=blocker->GetAP(),ownerAP=owner->GetAP(),ownerHP=owner->GetUnitRPG()->GetTotalVP();
+    const bool initialReservation=network->IsLocked(blockerPlace,true);
+    if(filtered){std::list<CObjectBase*> selected;if(mode==2)selected.push_back(owner);network->LockSelected(selected);Require(!network->IsLocked(blockerPlace,true),"placement reservations selected-only query did not disable its unselected blocker");}
+    else if(!deadBlocker)Require(initialReservation,"placement reservations lost its actual living blocker reservation");
+    CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(NDb::GetPers(103));const int hp=mission->GetTotalVP();
+    GlobalGameRandom().SeedForHarness(711);
+    CObj<NWorld::CUnitServer> actor=world->AddUnitInGame(spawn,mission,owner->GetTBSPlayer(),"NativePlacementSpawn");
+    Require(actor && actor->CanFight() && actor->IsPathLocker(),"placement reservations native AddUnitInGame failed");
+    const auto result=actor->GetPosition().pos.p;
+    const bool sameCell=result.GetX()==spawn.GetX() && result.GetY()==spawn.GetY() && result.GetLayer()==spawn.GetLayer();
+    // Observe the public result before query cleanup, then validate it with every
+    // real eligible world locker enabled, independently of the caller's selection.
+    network->Unlock(actor);const bool reservationBeforeCleanup=network->IsLocked(blockerPlace,true);network->UnlockSelected();
+    const bool passable=network->IsPassable(result),blockerReserved=network->IsLocked(blockerPlace,true);network->Lock(actor,result);
+    const unsigned expectedBits[]={0xbc010102u,0xbc010102u,0xbc010102u,0xb8010107u,0xb8010107u,0xb8010101u,0xb8010101u};
+    const bool expectedSame=freeSpawn || deadBlocker;auto random=GlobalGameRandom();unsigned words[4];for(auto& word:words)word=random.Get();
+    std::printf("PLACEMENT-RESERVATIONS mode=%d filtered=%d free=%d dead=%d spawn=%08x result=%08x expectedBits=%08x same=%d expectedSame=%d initialReservation=%d reservationBeforeCleanup=%d blockerReserved=%d passable=%d rng0=%u rng1=%u rng2=%u rng3=%u\n",mode,int(filtered),int(freeSpawn),int(deadBlocker),unsigned(spawn.GetBits()),unsigned(result.GetBits()),expectedBits[mode],int(sameCell),int(expectedSame),int(initialReservation),int(reservationBeforeCleanup),int(blockerReserved),int(passable),words[0],words[1],words[2],words[3]);std::fflush(stdout);
+    Require(result.GetBits()==expectedBits[mode] && sameCell==expectedSame && passable && reservationBeforeCleanup==!deadBlocker && blockerReserved==!deadBlocker,"native placement ignored another world unit or leaked the caller's selected-only reservation filter");
+    Require(result.GetPose()==spawn.GetPose() && result.GetDirection()==spawn.GetDirection() && network->GetFloor(result.GetLayer())<=network->GetFloor(spawn.GetLayer()) && mission->GetTotalVP()==hp && owner->GetAP()==ownerAP && owner->GetUnitRPG()->GetTotalVP()==ownerHP && owner->GetPosition()==ownerPosition && blocker->GetPosition()==blockerPosition && (deadBlocker || blocker->GetAP()==blockerAP),"placement reservations changed posture/direction/floor/health or another real actor");
+}
+
 static void NativeHealthKnockout(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<12,"unknown native health knockout mode");
@@ -34976,6 +35043,8 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-world-waypoint-route")) { Require(argc==5,"world waypoint route requires db/resources/mode"); NativeWorldWaypointRoute(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-placement-reservations")) { Require(argc==5,"placement reservations requires db/resources/mode"); NativePlacementReservations(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-health-knockout")) { Require(argc==5,"health knockout requires db/resources/mode"); NativeHealthKnockout(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-healed-damage")) { Require(argc==5,"healed damage requires db/resources/mode"); NativeHealedDamage(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-unaware-critical")) { Require(argc==5,"unaware critical requires db/resources/mode"); NativeUnawareCritical(argv[2],argv[3],std::atoi(argv[4])); return true; }

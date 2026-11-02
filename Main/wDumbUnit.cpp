@@ -990,12 +990,22 @@ void CDumbUnitServer::PlaceOnPassablePlace()
 		return;
 	bool bBigUnit = NAI::IsBigLocker( this );
 	NAI::IPathNetwork *pNet = pWorld->GetPathNetwork();
+	// Original Steam 0x752380 checks against every other world unit,
+	// independently of the caller's temporary selected-only path query.
+	vector< CPtr<CUnit> > units;
+	pWorld->GetAllUnits( &units );
+	list<CObjectBase*> selected;
+	for ( int k = 0; k < units.size(); ++k )
+		selected.push_back( units[k] );
+	selected.remove( this );
+	pNet->LockSelected( selected );
 	pNet->Unlock( this );
 	bool bPassable = bBigUnit? NAI::IsBigLockerPlacePassable( pNet, position.pos.p ) : pNet->IsPassable( position.pos.p );
 	if ( bPassable )
 	{
 		bLocksTwoPlaces = false;
 		pNet->Lock( this, position.pos.p );
+		pNet->UnlockSelected();
 		return;
 	}
 	CVec3 cp = position.GetCP();
@@ -1037,6 +1047,7 @@ void CDumbUnitServer::PlaceOnPassablePlace()
 			newPos.pos.p = p;
 			animator.PlaceUnit( newPos );
 			SetPosition( newPos );
+			pNet->UnlockSelected();
 			return;			
 		}
 	}
@@ -1048,6 +1059,7 @@ void CDumbUnitServer::PlaceOnPassablePlace()
 #endif
 	bLocksTwoPlaces = false;
 	pNet->Lock( this, position.pos.p );
+	pNet->UnlockSelected();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // @0x351630: retail is CreateFlash(bLeft, bFirstBullet). bLeft picks the L_/R_Weapon barrel bone on a dual-mount
