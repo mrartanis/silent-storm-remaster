@@ -2528,3 +2528,30 @@ nested-save flake is the sole exact exclusion, unchanged since139. e825 deployme
 remainder still pending;30 unfinished.
 
 Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
+
+## 2026-11-02: authored subzone passage deployment (150)
+
+NativeStorePassage0..4 cover actual ETStore2291 Unit1_l/Unit1_g crouch arrivals,
+companion2292 ordinary passage facing, exact non-passage control and actual two-merc
+formation with consumed saved passage metadata. Load real campaign/DB/variant geometry and
+call native AddPlayer; no fake passages/waypoints, live-world read, frame/clock warmup or
+geometry replacement. Initial GREEN72/73 both exposed a raw expected formation target
+inside a wall. Native GetNearestPosition before party locks now supplies the strict
+full-bit expectation, with pose/direction preserved and valid/passable checks. Initial
+evidence retained; exact-parent replay of final tests gives RED4/5 both, non-passage3
+exact, then byte-identical audited production gives GREEN5/combined73 both. Production was
+not adjusted for this fixture refinement.
+
+All68 prior cases and65 fixed rows retained; Game both/471 Windows/442 Linux
+related/CI378, melee/godmode/fonts12 exact. Separate12 fresh LAN gates each platform
+include all7 actual NetworkMatchTests modes. Linux lacks their CTest registration in this
+configured build, so record actual executable commands, exits and per-mode logs directly;
+first5 infrastructure gates use CTest. Windows all12 CTest. Native formation full
+bits4c011d09+4c011e0a and same native snap row are verified in RED/GREEN; prior formation
+already occupied2 cells. Database unchanged. Original named typed getters/slots, full
+equality E8-only, five exact blocks and independently decoded actual changed
+guard/frame/register operands audited without unsafe normalization or runtime execution.
+Existing sole nested-save exclusion retained. All15 donor files now accounted for
+across144/147/148/149/150; e825 complete,29 unfinished.
+
+Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).

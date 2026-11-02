@@ -33771,6 +33771,67 @@ static void NativeCachedPointShadowFlag(const char* databasePath,const char* res
 }
 
 
+static void NativeStorePassage(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=4,"unknown native store passage mode");
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);NGScene::AddResourceDir(resourcePath);
+    CObj<NRPG::CGlobalGame> campaign;NScenario::CScenarioZone* zone=nullptr;int scenario=0;
+    for(int candidate=1;candidate<=3;++candidate){
+        CObj<NRPG::CGlobalGame> current=NRPG::CreateGlobalGame(candidate);
+        auto* found=current->pScenarioTracker->GetZone(2291);
+        if(found && found->GetDBZone() && found->GetDBZone()->sSmallDescription=="ETStore"){campaign=current;zone=found;scenario=candidate;break;}
+    }
+    Require(campaign && zone,"store passage fixture has no actual campaign ETStore/template2291 association");
+    int templateID=2291;
+    if(mode>=2){vector<int> templates;zone->GetTemplatesIDs(&templates);std::sort(templates.begin(),templates.end());templateID=0;for(int id:templates)if(id>0 && id!=2291){templateID=id;break;}Require(templateID>0,"ETStore lacks a real ordinary companion template");}
+    const int variantID=zone->GetVariantIDForTemplate(templateID);Require(variantID>0,"actual ETStore zone did not select its authored template variant");
+    campaign->pCurrentZone=zone;campaign->nCurrentTemplateID=templateID;
+    CObj<NWorld::CWorld> world=new NWorld::CWorld(campaign);CObj<NWorld::CPostWorldCreateInfo> post;
+    world->CreateRandom(variantID,{},true,{},0,&post,zone->GetRandomSeedForTemplate(templateID));
+    Require(post && world->GetPathNetwork(),"native ETStore world failed to construct");
+    int passageZone=mode==0?1:0;list<CPtr<NWorld::IPassageObject>> passages;auto collectPassages=[&](int group){passages.clear();for(auto object:world->GetObjectsForHarness())if(auto* passage=dynamic_cast<NWorld::IPassageObject*>(object.GetPtr()))if(passage->GetPassageZoneID()==group)passages.push_back(passage);};collectPassages(passageZone);
+    if(mode!=0 && passages.empty())for(int group=2;group<9 && passages.empty();++group){collectPassages(group);if(!passages.empty())passageZone=group;}
+    Require(!passages.empty(),"actual ETStore world lacks its matching incoming passage group");
+    auto* passage=passages.front().GetPtr();vector<NAI::SPathPlace> approaches;passage->GetObjectApproaches(&approaches);Require(!approaches.empty(),"actual ETStore passage has no real native approach");
+    auto expected=world->GetPathNetwork()->GetDeployPlace(approaches.front(),0);
+    string marker=passageZone==1?"unit1_l":"unit1_g";
+    if(mode<2){auto* waypoint=world->GetWaypoint(marker);Require(waypoint,"actual ETStore underground variant lacks its authored party marker");expected=waypoint->pos.p;expected.SetPose(NAI::CM_CROUCH);Require(world->GetPathNetwork()->IsPassable(expected),"authored crouch arrival marker is not a real passable native navigation place");}
+    std::set<std::uint32_t> formationExpected;int nativeSnapCount=0;
+    if(mode==4){
+        auto* network=world->GetPathNetwork();
+        for(int i=0;i<2;++i){
+            auto target=network->GetDeployPlace(approaches.front(),i-1);
+            if(!network->IsPassable(target)){
+                const NAI::SPosition requested(target,network);auto nearest=NAI::GetNearestPosition(requested.GetCP(),network);
+                Require(nearest.IsValid() && nearest.GetFloor()<=requested.GetFloor(),"native nearest-placement control left the real arrival floor");
+                nearest.p.SetPose(target.GetPose());nearest.p.SetDirection(target.GetDirection());
+                std::printf("STORE-NATIVE-SNAP mode=4 requested=%08x nearest=%08x\n",unsigned(target.GetBits()),unsigned(nearest.p.GetBits()));
+                target=nearest.p;++nativeSnapCount;
+            }
+            Require(network->IsPassable(target),"native formation control has no passable resolved target");formationExpected.insert(target.GetBits());
+        }
+    }
+    const int partySize=mode==4?2:1;CObj<NRPG::CGlobalPlayer> party=NRPG::CreateGlobalPlayer(mode==4?vector<int>{54,103}:vector<int>{54});Require(party && party->mercs.size()==partySize,"native store party creation failed");campaign->players.push_back(party);
+    party->deployData.bPassage=mode!=3;party->deployData.nPassageZoneID=passageZone;for(auto merc:party->mercs)party->deployData.unitsDeployData[merc.GetPtr()].nPassageObjectID=passage->GetPassageObjectID();
+    CObj<NAI::CSequenceCommander> commander=new NAI::CSequenceCommander(world);
+    auto* player=dynamic_cast<NWorld::CPlayer*>(world->AddPlayer(L"Native store arrival",party,commander,false));Require(player,"native passage AddPlayer did not create its owner");commander->SetPlayer(player);
+    vector<CPtr<NWorld::CUnitServer>> units;player->GetUnits(&units);Require(units.size()==partySize,"native passage AddPlayer lost its actual mercenary");for(auto unit:units)Require(unit && unit->CanFight(),"native passage AddPlayer lost a live party member");
+    if(mode==4){
+        std::set<std::uint32_t> actualPlaces;const auto& expectedPlaces=formationExpected;
+        for(auto unit:units)actualPlaces.insert(unit->GetPosition().pos.p.GetBits());
+        std::printf("STORE-FORMATION mode=4 scenario=%d template=%d variant=%d group=%d nativeSnap=%d actualCells=%zu expectedCells=%zu",scenario,templateID,variantID,passageZone,nativeSnapCount,actualPlaces.size(),expectedPlaces.size());
+        for(auto bits:actualPlaces)std::printf(" actual=%08x",unsigned(bits));for(auto bits:expectedPlaces)std::printf(" expected=%08x",unsigned(bits));std::printf(" passageConsumed=%d\n",int(!party->deployData.bPassage));std::fflush(stdout);
+        Require(expectedPlaces.size()==partySize,"native ordinary passage formation lacks two distinct valid target cells");
+        Require(actualPlaces==expectedPlaces,"native ordinary passage stacked the party or lost final formation/facing");
+        Require(!party->deployData.bPassage && campaign->pCurrentZone==zone && campaign->nCurrentTemplateID==templateID,"native formation did not consume passage metadata while preserving zone/template");return;
+    }
+    const auto actual=units[0]->GetPosition().pos.p;
+    if(mode==3){NAI::SPathPlace deploySpot;player->GetDeploySpot(&deploySpot);expected=world->GetPathNetwork()->GetDeployPlace(deploySpot,0);}
+    std::printf("STORE-PASSAGE mode=%d scenario=%d template=%d variant=%d group=%d passage=%d marker=%s approach=%08x actual=%08x expected=%08x floor=%d pose=%d passageConsumed=%d\n",mode,scenario,templateID,variantID,passageZone,passage->GetPassageObjectID(),mode<2?marker.c_str():"ordinary",unsigned(approaches.front().GetBits()),unsigned(actual.GetBits()),unsigned(expected.GetBits()),units[0]->GetPosition().pos.GetFloor(),int(actual.GetPose()),int(!party->deployData.bPassage));std::fflush(stdout);
+    Require(actual==expected,"native passage deployment ignored the authored crouch marker or final approach facing");
+    Require(!party->deployData.bPassage && campaign->pCurrentZone==zone && campaign->nCurrentTemplateID==templateID,"native arrival did not consume passage metadata while preserving its actual zone/template");
+}
+
 template<class View>
 static auto AddAuthoredPoint(View* view,const CVec3& color,const CVec3& origin,float radius,bool lightmap,bool shadow,int)
     ->decltype(view->AddPointLight(color,origin,radius,lightmap,shadow))
@@ -34641,6 +34702,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-store-passage")) { Require(argc==5,"store passage requires db/resources/mode"); NativeStorePassage(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-authored-light")) { Require(argc==5,"authored light requires db/resources/mode"); NativeAuthoredLight(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-foot-support")) { Require(argc==5,"foot support requires db/resources/mode"); if(std::atoi(argv[4])<4)NativeFootSupport(argv[2],argv[3],std::atoi(argv[4]));else NativeFootSupportProducer(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-cinematic-floor-range")) { Require(argc==5,"cinematic range requires db/resources/mode"); NativeCinematicFloorRange(argv[2],argv[3],std::atoi(argv[4])); return true; }

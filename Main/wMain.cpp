@@ -2228,13 +2228,14 @@ IPlayer* CWorld::AddPlayer( const wstring &wsName, NRPG::CGlobalPlayer *pGlobalP
 			continue;
 		//
 		NAI::SPathPlace placeForUnit;
+		int nShift = 0;
+		bool bSpecialPassageDeploy = false;
 		if ( !deployWps.empty() )
 		{
 			placeForUnit = i < (int)deployWps.size() ? deployWps[i] : deployWps[0];
 		}
 		else
 		{
-			int nShift;
 			if ( bAddOnManyDeploySpots )
 			{
 				GetDeployWithNumber( nPartiesAdded, i + 1, deploySpots, pPathNetwork, &placeForUnit );
@@ -2245,7 +2246,9 @@ IPlayer* CWorld::AddPlayer( const wstring &wsName, NRPG::CGlobalPlayer *pGlobalP
 				GetDeployWithNumber( nPartiesAdded, 0, deploySpots, pPathNetwork, &placeForUnit );
 				nShift = i - nPers / 2;
 			}
-			placeForUnit = pPathNetwork->GetDeployPlace( placeForUnit, nShift );
+			// Keep the existing network call before its explicit placement override.
+			if ( bNetworkArena )
+				placeForUnit = pPathNetwork->GetDeployPlace( placeForUnit, nShift );
 		}
 
 		if (bNetworkArena)
@@ -2276,16 +2279,45 @@ IPlayer* CWorld::AddPlayer( const wstring &wsName, NRPG::CGlobalPlayer *pGlobalP
 			pPassageObject->GetObjectApproaches( &approaches );
 			if ( !approaches.empty() )
 				placeForUnit = approaches[0];
+			if ( !bNetworkArena )
+			{
+				// Steam 1.2 0x76efba/0x76f0e9: ETStore's underground
+				// template uses the authored crouch arrivals instead of the passage.
+				NScenario::CScenarioZone *pZone = GetGlobalGame()->pCurrentZone;
+				if ( IsValid( pZone ) && pZone->GetDBZone() &&
+					pZone->GetDBZone()->sSmallDescription == "ETStore" &&
+					GetGlobalGame()->nCurrentTemplateID == 2291 )
+				{
+					bSpecialPassageDeploy = true;
+					string szWaypoint = "Unit";
+					szWaypoint += char( '1' + i );
+					szWaypoint += pGlobalPlayer->deployData.nPassageZoneID == 1 ? "_l" : "_g";
+					NStr::ToLower( szWaypoint );
+					NAI::CAIRouteWaypoint *pWaypoint = waypoints[szWaypoint];
+					if ( pWaypoint )
+					{
+						placeForUnit = pWaypoint->pos.p;
+						placeForUnit.SetPose( NAI::CM_CROUCH );
+					}
+					else
+						placeForUnit = pPathNetwork->GetDeployPlace( placeForUnit, nShift );
+				}
+			}
 		}
 		if ( bSetDeploySpot )
 		{
 			pRes->SetDeploySpot( placeForUnit );
 			bSetDeploySpot = false;
 		}
-		// Retail 1.1 0x76e8fd / 1.2 0x76eb5d: waypoint deployment also
-		// calls GetDeployPlace, with displacement zero, to face into the map.
-		if ( !deployWps.empty() )
-			placeForUnit = pPathNetwork->GetDeployPlace( placeForUnit, 0 );
+		// Steam 1.2 0x76f166/0x76f19a: save the spot before the normal
+		// facing/formation calculation, after selecting any passage approach.
+		if ( bNetworkArena )
+		{
+			if ( !deployWps.empty() )
+				placeForUnit = pPathNetwork->GetDeployPlace( placeForUnit, 0 );
+		}
+		else if ( !bSpecialPassageDeploy )
+			placeForUnit = pPathNetwork->GetDeployPlace( placeForUnit, nShift );
 
 		NRPG::CUnit *pUnit = pGlobalPlayer->mercs[i];
  		CPtr<CUnitServer> pUS = AddUnit( placeForUnit, NRPG::CreateUnit( pUnit ), pRes );

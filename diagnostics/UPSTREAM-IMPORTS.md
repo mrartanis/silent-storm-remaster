@@ -24333,3 +24333,72 @@ fixed. e825 remains partial only for its deployment remainder;30 unfinished. Act
 final-head hosted success remains required at whole-task completion.
 
 Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
+
+## 2026-11-02: authored subzone passage deployment (150)
+
+Finish e825 deployment in CWorld::AddPlayer. For actual campaign ETStore/template2291
+passage arrivals, choose authored UnitN_l when saved passage zone ID is1 and UnitN_g
+otherwise, lower-case lookup, and set crouch. Missing marker falls back to native
+GetDeployPlace. For ordinary single-player arrivals, retain formation displacement, select
+the passage approach first, save the initial deploy spot, then run native final
+facing/formation. Special markers skip that final recalculation. Preserve the remaster's
+existing network placement call sequence explicitly under bNetworkArena, including the
+pre-override ordinary call and post-waypoint call; real NetworkWorld replicas also set
+bNetworkArena. No replacement of own LAN placement logic.
+
+Actual Steam1.2 AddPlayer is independently bound through named CWorld root VT slot58
+to76e9e0 (Gold typed762fb0/2296 is only a guide; actual size not assumed). Typed exact
+getters bind globalGame158 via slotec/777ab0 and waypoints holder64 via slot3c/7778a0,
+named holder slot0 GetWaypoint77eb00; named CPathNetwork slot98 GetDeployPlace43ec10. The
+complete56-byte string-equality routine Gold403b00->Steam403eb0 uniquely matches masking
+only its decoded strncmp E8. Actual76efba tests global current template30==2291 and
+actual76efd2 combines it with ETStore through independently decoded currentZone34/zone
+DB24/string24; the Gold1.1 guard differs and is not normalized. Actual success flag,
+Unit/character index/_l/_g file data and actual template/zone predicate are decoded
+separately; no writable literal operand normalization. Diagnostic printf omitted as in
+donor.
+
+Five unique exact unmasked typed blocks bind waypoint lookup Gold76363a/29->Steam76f0c8,
+marker position18/crouch Gold76365b/24->76f0e9, fallback prefix763675/18->76f103, initial
+deploySpot58 store/flag13 reset7636d8/23->76f166, and final not-special/path/displacement
+caller prefix7636ef/21->76f17d. Actual changed null register, fallback/normal stack
+temporaries and return-copy instructions are independently decoded; no register/frame
+masks. Both actual native calls use path-network slot98; normal displacement defaults0,
+ordinary formation is i-trunc(nPers/2). Whole AddPlayer/guard equivalence rejected where
+registers, frames, branches, diagnostics, template guard or writable operands differ. No
+original process/function/world execution, field/branch/opcode/unknown-pointer masking or
+BSS reads.
+
+NativeStorePassage0..4 use a genuine campaign1 ETStore zone, native passages and real
+selected variants3844/3845 (templates2291/2292), actual CreateGlobalPlayer merc records
+and CWorld::AddPlayer. Special group1/2 arrivals exactly select crouched7c032e15/7c010d20;
+ordinary passage facing becomes4c011e0a; non-passage control is exact. Two-person ordinary
+formation compares the entire exact native position bit-set4c011d09/4c011e0a and consumed
+passage state. Initial GREEN72/73 both retained: raw expected4c011d0a was inside a real
+wall and the existing native placement snapped to4c011d09. Refine ONLY the diagnostic
+expectation by independently invoking actual GetNearestPosition before party locks,
+retaining full original direction/pose and validating passability. No tolerance
+relaxation, duplicate nearest algorithm, fake geometry, actor/world mutation, extra frame
+or production change. Replay final diagnostics against exact parent Main: canonical RED4/5
+both, ordinary control exact; audited production restored byte-exact ->GREEN5/combined73
+both. Old formation already had two distinct cells; the failure was final layout/facing.
+
+All68 prior cases pass and65 fixed rows remain exact. Full Game both/471 Windows/442 Linux
+related/CI378, prior melee/filter/godmode and12 packaged font rows exact, database SHA
+unchanged. Separately fresh-build and pass12 existing LAN gates per platform:
+transport/session/graph/identity/serializer plus real match/client UI/preparation/partial
+movement/object stages/stop-resume/all encounter maps. Linux build config registers only
+the first5; invoke the same freshly built NetworkMatchTests executable directly for all7
+game scenarios with actual database/resources, retaining each command, exit and log.
+Windows registers/runs all12 via CTest. No save/API/backend/asset/HD changes. The
+previously established nested-save movement flake remains the sole exact related
+exclusion, unchanged since139.
+
+All15 source files accounted for: iMission selected-camera snapshot range adapted144 and
+initial cinematic range147; aiHeight.cpp/h+wAnimation148; ten authored-shadow
+interfaces/consumers149; wMain deployment150. Nonsemantic donor whitespace/obsolete
+address comments need no import. Promote e825 from partial to imported:217 imported,12
+partial,17 pending;29 unfinished. Actual final-head hosted success still required at
+whole-task completion.
+
+Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).

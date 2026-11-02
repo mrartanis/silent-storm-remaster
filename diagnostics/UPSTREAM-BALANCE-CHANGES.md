@@ -4291,3 +4291,21 @@ melee/godmode/font12 exact, database unchanged. Existing backends, assets and LA
 retained. e825 remains partial for deployment;30 unfinished.
 
 Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
+
+## 2026-11-02: authored subzone passage deployment (150)
+
+Campaign ETStore underground arrivals now use their authored crouched unit markers,
+selected by passage side. Ordinary passage arrivals receive native final facing and
+formation after their passage approach has been selected. Unit geometry snapping is
+unchanged. Own LAN placement call sequence is preserved and12 existing network gates pass
+per platform, including preparation, combat movement, stop/resume and all encounter
+deployments. No AP/damage/price/timing rule or save/API changes.
+
+Native canonical RED4/5 ->GREEN5/combined73 both; exact ordinary non-passage control,
+all68 prior cases and65 fixed rows retained. Initial diagnostic raw wall-target mismatch
+is retained and corrected only by independently resolving existing native nearest geometry
+before locks; final full position bits remain strict. Game both/471 Windows/442 Linux
+related/CI378, previous melee/godmode/fonts12 exact, database unchanged. All15 e825 source
+files accounted for across144/147/148/149/150; source imported,29 unfinished.
+
+Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
