@@ -4587,3 +4587,21 @@ unchanged. Original bounded limits appear in UPSTREAM-IMPORTS.md; source inactiv
 turn remains pending,23 unfinished.
 
 Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).
+
+## 163. Skip ordinary door turns at inactive path points
+
+Inactive movement points no longer receive an ordinary turn before a queued door action.
+The native ladder fixture previously inserted a heading1 point that the physical network
+rejected; it now retains heading6. A real standing door approach still turns6->7. This is
+a queue-preparation correction; authored values and combat/AP formulas remain unchanged,
+and these focused tests do not execute movement or open/close the door.
+
+Final native RED1/3 ->unchanged GREEN3 both, two complete controls/all three RNG tails/six
+input witnesses exact; actual HP/AP/position/time/door state retained. Full Game
+both/scoped771 Windows761 Linux/CI382/171 focused/117 old rows/13 tactical/12 LAN gates
+and361 variants each pass. Prior raw native job/setup/RNG inequalities remain explicit.
+Save/wire schema and baseline data unchanged. Lower-level requested-action and original
+static proof limits are in UPSTREAM-IMPORTS.md. Source fcc994bc complete,22 unfinished
+donor sources remain.
+
+Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).

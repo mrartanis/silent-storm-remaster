@@ -25318,3 +25318,74 @@ this checkpoint:223 imported,14 pending,9 partial,23 unfinished. Final-head host
 remains required at whole-task completion.
 
 Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).
+
+## 163. Skip ordinary door turns at inactive path points
+
+CExecQueue::AddPath no longer appends an ordinary direction-change point when the door
+action is attached to CM_INACTIVE. Its existing stop-before-door operation, active-pose
+turns, approach selection, command/AP scheduling and movement conversion remain unchanged.
+Main/wUnitQueue.cpp gains only the pose condition and a corrected actual-original address
+comment. This imports the last fcc994bc hunk.
+
+NativeInactiveDoorTurn0..2 exercise the lower-level queue with an explicit request to
+close a real unlocked, unbroken, untrapped door beside a real authored ladder on map4517.
+The physical map independently accepts the original rung heading6 and rejects the proposed
+heading1. An actual public CExecOpenClose validator accepts the requested action. The
+final canonical parent RED1/3 on both systems becomes unchanged GREEN3: previously the
+front mover contained two points and one physically invalid rung turn, now its desired
+point retains heading6 and contains no travel prefix. A no-action inactive control remains
+unchanged, and a real free standing door approach still creates its valid heading6->7
+turn. Both complete control rows, all six setup witness rows and all three RNG
+tails4074664770/1311952697/2407351315/841343289 remain exact. Actual actor HP137/AP53,
+position, world time and door state remain unchanged; no door operation or movement is
+executed by these preparation tests.
+
+The fixture sets a native valid rung through public position/animator APIs and explicitly
+requests the door action. It does not claim that the player pathfinder automatically
+generates this door action or that a natural climbing interaction was executed. An initial
+automatic-path attempt generated no action and was archived as unavailable, not RED.
+Initial self-lock checks were also invalid: public SetPosition legitimately locks the
+rung. The corrected probes exclude and restore only the actor using native Unlock/Lock,
+exactly as FindPath does; all physical conditions are established before accepting
+canonical RED. Initial diagnostic compile errors for unsupported SPathPlace inequality and
+a protected executor destructor were corrected with equality and CObj ownership before
+native runtime proof. No private grid/position/HP injection or partial World READ.
+
+Typed Gold CExecQueue::AddPath7b2840/1967 guides actual Steam7bf010. The complete43-byte
+stop and two-guard block Gold7b2a86 -> unique Steam7bf256 is raw exact with no masks.
+Steam7bf25d clears moving;7bf267 shifts direction11 and masks7;7bf26f skips an unchanged
+heading to7bf2ae. Steam7bf273 masks poseC000,7bf279 comparesC000 and7bf27f skips the turn
+to that same7bf2ae. The donor7bebed comment is stale. Whole88 is explicitly rejected:
+frame offsets Gold40 vs Steam3c differ at46/87, alongside the decoded E8 displacement.
+Those frame bytes are never normalized. No whole1967, ABI, original runtime, BSS/global
+reads or field/frame/register/opcode/local-branch masking claim.
+
+Fresh full Game builds pass on both platforms. Scoped
+attack/planning/pose/door/ladder/movement/preview suites pass771 Windows/761 Linux with171
+focused cases and13 tactical views. All117 old fixed rows, prior explosive/AI/melee/filter
+outputs, eight attack-pose rows, six melee-preview rows, five hover rows and12 fonts
+remain exact. CI382 and12 LAN gates/361 encounter variants each pass with freshly built
+helpers; only the pre-existing nested-save exclusion remains. Baseline and Steam game.db
+retain SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df. Prior dead-PK
+native job counts, setup HP137/157 and old smooth RNG variants remain explicit raw
+inequalities. The offline Linux checker initially rejected a newly observed mode0 RNG
+tail: all physical fields matched, but the four-word tail was shifted by one draw
+(canonical3 versus observed2). It matches the earlier Windows160 mode0 tail pattern
+without proving the same cause. ONE actual unchanged-binary mode0 confirmation on each
+platform returned the canonical3-draw tail. Before/after SHA256
+Windowsaa2cbfff030629e887facdd8ca28500baa9cee1b135b88e59a840dc2c1008a9b and
+Linux445fe2c31d0c65201aae04dfb8f4910be42ae22b29560b2113385f6f9249c03b remain equal; no
+source, fixture, assertion or binary edits/rebuilds occurred. These confirmations
+overlap771/761, not additional cases. The original full Linux inequality is retained:
+exact cause remains unproven, without normalization or a full old RNG parity claim. An
+initial shell wrapper had CRLF and never launched the test; only its LAB line endings were
+corrected before the single actual Linux confirmation.
+
+Source fcc994bc is now complete: aiMapProxy invalid-source coloring, wKnife orientation,
+wUnitExec explicit activation visibility, wUnitMove movement activation visibility,
+wUnitQueue stop-before-door and inactive-turn guards, RPGGame target-hull previews161, and
+wUnitAttack current-pose planning162 are all accounted for. Ledger:224 imported,14
+pending,8 partial;22 unfinished. This closes this donor source rather than the whole
+import task. Final-head hosted success remains required at whole-task completion.
+
+Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).

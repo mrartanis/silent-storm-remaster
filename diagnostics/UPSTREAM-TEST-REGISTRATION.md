@@ -2877,3 +2877,23 @@ Only wUnitAttack pose-mask hunk imported; inactive door turn remains pending,23
 unfinished.
 
 Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).
+
+## 163. Skip ordinary door turns at inactive path points
+
+NativeInactiveDoorTurn0..2: final canonical RED1/3 both ->unchanged GREEN3. Explicit
+lower-level real door request at a valid authored4517 inactive ladder point; native
+physical heading6 valid/heading1 invalid, actual OpenClose validator positive. Bad
+two-point turn disappears; no-action inactive and standing heading6->7 controls retain
+complete rows. All three RNG tails and six setup witnesses exact; HP/AP/position/time/door
+state preserved. Public native Unlock/Lock excludes only self for probes. No natural
+climb, automatic player-route, actual door operation or movement-execution claim.
+
+Initial unavailable automatic action/self-lock fixtures and compile failures archived, not
+RED. Full Game both; scoped771 Windows761 Linux/171 focused/13 tactical/117 old rows/8
+attack-pose6 melee-preview5 hover12 fonts/CI382/12 LAN gates and361 maps each pass.
+Previous raw job/HP/RNG inequalities remain explicit. Only existing nested-save exclusion.
+Original complete43-byte raw proof and rejected88-byte frame/full-function limits are in
+UPSTREAM-IMPORTS.md. Last fcc994bc hunk complete;224 imported14 pending8 partial22
+unfinished.
+
+Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).
