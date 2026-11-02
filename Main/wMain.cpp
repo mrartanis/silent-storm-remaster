@@ -73,7 +73,7 @@
 #include "../Misc/Set.h"
 #include "aiRoute.h"
 #include "aiReaction.h"			// NAI::CreateUnitReaction -- the map-deploy reaction install (AI-convergence Stage 2)
-#include "aiNearestPosition.h"	// NAI::GetNearestPosition -- FetchDeployPoint's free-cell snap (retail LookWhereToMoveUnit analog)
+#include "aiNearestPosition.h"
 #include "rpgCheatConstants.h"
 #include "wUnitCommands.h"
 #include "../DBFormat/DataDifficulty.h"
@@ -2127,8 +2127,8 @@ void CWorld::RemoveCarriedCorpses()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail NWorld::FetchDeployPoint @0x362430: SILENT named-waypoint lookup (the Unit1..9 probe
 // misses BY DESIGN -- CWorld::GetWaypoint would ScriptWarning each miss) -> copy the waypoint's
-// position, bRun=false, WALK pose, snap to a free nearby cell (retail LookWhereToMoveUnit r=10
-// @0x7e500; dev stand-in = GetNearestPosition, the same analog UnitSetToWaypoint uses).
+// position, bRun=false and WALK pose, then use unit-aware relocation with max fall 10.
+// Original Steam FetchDeployPoint 0x762ca0 uses the authored waypoint height.
 static bool FetchDeployPoint( unordered_map< string, CObj<NAI::CAIRouteWaypoint> > &waypoints,
 	NAI::IPathNetwork *pNet, const string &szName, NAI::SPathPlace *pRes )
 {
@@ -2141,8 +2141,12 @@ static bool FetchDeployPoint( unordered_map< string, CObj<NAI::CAIRouteWaypoint>
 	unitPos.pos = pWp->pos;
 	unitPos.bRun = false;
 	unitPos.SetPose( NAI::WALK );
-	if ( IsValid( pNet ) && !pNet->IsPassable( unitPos.pos.p ) )
-		unitPos.pos = NAI::GetNearestPosition( unitPos.pos.GetCP(), pNet, false, CVec3() );
+	if ( IsValid( pNet ) && pNet->GetPassability( unitPos.pos.p ) != NAI::AIP_YES )
+	{
+		NAI::SUnitPosition relocated;
+		NAI::LookWhereToMoveUnit( unitPos, &relocated, 10, pWp->ptPos.z );
+		unitPos = relocated;
+	}
 	*pRes = unitPos.pos.p;
 	return true;
 }

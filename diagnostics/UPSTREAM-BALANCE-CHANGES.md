@@ -4445,3 +4445,26 @@ each pass; original static proof and all discovery limitations are recorded in
 UPSTREAM-IMPORTS.md. Source069 all3files now imported;26 unfinished.
 
 Source: [069451e7e61dc0c720812b2f939339f7732fdaf3](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/069451e7e61dc0c720812b2f939339f7732fdaf3).
+
+## 157. Unit-aware waypoint and deployment placement
+
+Restore original nearby placement for ordinary blocked script teleports and authored
+deployment markers. Prepare standing pose before querying, require free connected tiles
+within3m and rank them using native facing and source height. Keep panzerklein placement
+with its existing full-footprint policy and route/command/same-point semantics. These
+changes affect where obstructed units appear; no combat statistics, costs, equipment
+records, save or network command fields change.
+
+Native canonical RED3/8 ->GREEN8 both with five exact controls including empty/worn PKs.
+Full Game both/single899 Windows872 Linux/CI382,137 focused cases/117 prior fixed rows/13
+tactical controls/12 fonts and12 LAN gates/361 maps each pass. Original static proof,
+distinct numeric literals, native blocked-deploy RNG change and archived invalid input are
+detailed in UPSTREAM-IMPORTS.md. All9 source files accounted,25 unfinished.
+
+Source: [a8311049890a7fa91a1a439a43fdfc2da9619a3e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8311049890a7fa91a1a439a43fdfc2da9619a3e).
+
+The full/confirmation worn-PK setup HP varies137/157 on both platforms; each unchanged
+native test proves before/after HP preservation. Canonical small five controls are exact;
+full/confirmation raw HP inequality is retained explicitly, not normalized or called
+equality. Extra unchanged8 confirmations each overlap899/872 totals. Exact setup cause
+remains unproven; see UPSTREAM-IMPORTS.md.

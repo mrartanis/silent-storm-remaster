@@ -24885,3 +24885,72 @@ initial failure is retained separately; no exclusion, test relaxation, proven ro
 or separate network production fix is claimed.
 
 Source: [069451e7e61dc0c720812b2f939339f7732fdaf3](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/069451e7e61dc0c720812b2f939339f7732fdaf3).
+
+## 157. Unit-aware waypoint and deployment placement
+
+Ordinary scripted teleport queried the waypoint's native prone pose before preparing WALK,
+and blocked points used a generic nearest-cell snap without movement exits, facing or
+source-height constraints. Restore the original three-meter unit-aware search and prepare
+WALK before the ordinary passability query. Authored deployment uses the raw waypoint
+height; scripted teleport uses the actor height. Keep the current map/network/output-place
+interface, synchronous command flow, AI-or-sequence route installation after teleport and
+same-point behavior. Preserve the existing generic relocation branch for actual empty/worn
+panzerkleins, whose full footprint differs from the original anchor-only helper. Native
+real-persona93 controls retain independently pinned complete words3c010408/bc010408 and
+valid seven-cell footprints.
+
+Canonical native tests NativeUnitAwareWaypoint0..3, Deploy0..1 and PK0..1 fail3/8 on the
+exact parent, then all8 pass unchanged on Windows and Linux. The three failures are a
+standing-free but prone-blocked target, a genuinely occupied teleport point with real
+connected height-safe neighbors and a blocked authored UnitHero marker storing the wrong
+pose/farther cell. Real Lua/world/AddPlayer/person103 blockers and person54 party are
+used. Five complete control rows and all four waypoint RNG tails remain exact. Blocked
+deployment now creates the hero at the corrected location and changes its native creation
+RNG tail; no blanket RNG parity is claimed. No fake private health/grid/position edits,
+partial World reads, artificial action ticking or original gameplay execution. The initial
+low-height actor lacked a valid nearby witness and is archived as an invalid input, not
+RED; it was replaced with an actual human actor before production. Actual empty/worn PK
+controls were added and full result words pinned before the final canonical RED replay.
+
+Original Steam Move47e270 is bound by the previously verified Lua callback6ec360 and
+actual call6ec572. Typed Gold47de60/806 gives unique complete232+400+128 instruction
+blocks with only decoded E8 relocations. Actual Move calls criterion47e160; every fixed
+span of its190 bytes is exact, and all eight whole FPU literal instructions are decoded
+and independently checked. The original Z,Y,X dot order, double0.3 facing scales with
+their distinct store stages, float0.3 Z, bias0.04 bits3d23d70a and fall weight(0.2f*0.2f)
+bits3d23d70b are retained. FetchDeployPoint entry is762ca0, not the rejected
+midfunction762cc0 candidate: typed Gold757430/359 yields a unique complete338-byte body
+with E8-only relocations. Named path vtables bind GetPassability3c and GetNearPlaces7c;
+actual unit-position getter is a complete exact7-byte body. SetPose's actual indexed
+branch2 yields the complete exact24-byte WALK case. Whole806/190/359/116 signatures are
+not forced through EH, writable literal or jump-table operands. No
+field/frame/register/opcode/local-branch/global address masks, BSS reads, whole-transitive
+or exhaustive x87/transcendental/FPU-status parity claim.
+
+Fresh full Game builds and single related suites899 Windows/872 Linux, CI382 and all137
+focused cases pass. The previous14 supplemental melee cases are included in these single
+suites. All117 previous fixed rows, explosive group/clearance rows, AI/melee/filter
+rows and12 font rows remain exact. All13 tactical views pass. Twelve fresh LAN gates on each
+platform cover all361 encounter variants; Linux uses5 infrastructure CTest plus7 native
+direct match modes. Every selected executable and nested helper is rebuilt; only the old
+nested-save exclusion remains. Baseline game.db retains verified Steam
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df. Player cleanup/ACK
+removal were already imported in013a81868/d410c1430 and the AI-pruning files were
+completed earlier; this closes the remaining four of all nine source files.221 imported/15
+pending/10 partial,25 unfinished. Final-head hosted success remains required at whole-task
+completion.
+
+The extra full-log equality check initially refused publication: Windows full-suite
+worn-PK control started with HP157 rather than the focused canonical137. Its native test
+passed the unchanged assertion comparing HP after teleport with that same run's captured
+HP before teleport; position, full footprint, AP, command and all RNG fields remained
+exact. No production, fixture or assertion changed. An additional unchanged8-case
+confirmation passed on each platform: Windows returned137, Linux used157, while its
+earlier full run used137. Thus both platforms exhibit the setup variation; its exact cause
+is unproven. All raw rows and their explicit unequal HP field are retained in verification
+data. Only the five canonical small RED/GREEN controls have complete row equality; no
+all-eight full/confirmation row equality, health-field normalization or root-cause claim
+is made. These confirmations overlap the single-suite selections and are not added
+to899/872 totals.
+
+Source: [a8311049890a7fa91a1a439a43fdfc2da9619a3e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8311049890a7fa91a1a439a43fdfc2da9619a3e).

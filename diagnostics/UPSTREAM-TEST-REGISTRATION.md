@@ -2734,3 +2734,27 @@ Initial fixture/observer/build rejections remain separately archived. Source all
 complete;26 unfinished.
 
 Source: [069451e7e61dc0c720812b2f939339f7732fdaf3](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/069451e7e61dc0c720812b2f939339f7732fdaf3).
+
+## 157. Unit-aware waypoint and deployment placement
+
+NativeUnitAwareWaypoint0..3, Deploy0..1 and PK0..1: exact-parent canonical RED3/8 ->
+unchanged GREEN8 on both platforms, five full controls and four waypoint RNG tails exact.
+Actual native Lua/world/AddPlayer/authored marker and real blockers; public standing
+movement links supply independent close witnesses. Empty/worn person93 PK controls retain
+pinned full destinations and seven-cell footprints. The invalid initial height witness is
+archived separately and corrected before production. Blocked-deploy creation RNG changes
+with the corrected position; no blanket RNG parity claim.
+
+Fresh Game both/single899 Windows872 Linux/CI382,137 focused cases,14 previous
+supplemental melee now included,117 old fixed rows plus explosive/AI/melee/filter rows and12 fonts exact;13 tactical controls pass.12 LAN gates and361 map variants each; only the
+previous nested-save exclusion, every helper rebuilt, verified DB unchanged. Original
+bounded static proof and limitations in UPSTREAM-IMPORTS.md. All9 source files
+accounted,25 unfinished.
+
+Source: [a8311049890a7fa91a1a439a43fdfc2da9619a3e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8311049890a7fa91a1a439a43fdfc2da9619a3e).
+
+The full/confirmation worn-PK setup HP varies137/157 on both platforms; each unchanged
+native test proves before/after HP preservation. Canonical small five controls are exact;
+full/confirmation raw HP inequality is retained explicitly, not normalized or called
+equality. Extra unchanged8 confirmations each overlap899/872 totals. Exact setup cause
+remains unproven; see UPSTREAM-IMPORTS.md.
