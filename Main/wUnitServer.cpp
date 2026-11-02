@@ -24,6 +24,8 @@
 #include "../Misc/RandomGen.h"
 #include "RPGUnit.h"
 #include "aiPath.h"
+#include "aiNearestPosition.h"
+#include "aiLocker.h"
 #include "aiMap.h"                // NAI::IAIMap::GetObjectBound (mine-LOS probe pull-back)
 #include "scScenarioTracker.h"
 #include "scriptCallLUA.h"		// NScript::luaCallFunction (OnClickUsable)
@@ -756,62 +758,74 @@ void CUnitServer::ForcedMove()
 {
 	csSystem << CC_RED << "FORCED MOVE\n";
 	NAI::IPathNetwork *pNet = GetWorld()->GetPathNetwork();
-	SSphere s( GetPosition().GetCP(), 3 );
-	vector<NAI::SPathPlace> res;
-	pNet->GetNearPlaces( s, &res );
-	float fMinDist = 1000, fMinHorDist = 1000;
 	NAI::SUnitPosition dst( GetPosition() );
-	int pose = GetPosition().pos.p.GetPose();
-	if ( pose == NAI::CM_INACTIVE )
-		pose = NAI::CM_CROUCH;
-	float fMaxFall = GetMaxFallDist( fLastHeight );   // retail @0x3c0b80 passes fLastHeight as the ray-origin z
-	for ( int i = 0; i < res.size(); ++i )
+	float fMaxFall = GetMaxFallDist( fLastHeight );
+	NAI::ENearestUnitPosResult placement;
+	if ( !NAI::IsBigLocker( this ) )
+		placement = NAI::LookWhereToMoveUnit( GetPosition(), &dst, fMaxFall, fLastHeight );
+	else
 	{
-		res[i].SetPose( pose );
-		res[i].SetDirection( GetPosition().GetDir() );
-		if ( !pNet->IsPassable( res[i] ) )
-			continue;
-		NAI::SPosition pos;
-		pos.p = res[i];
-		pos.SetNetwork( pNet );
-		CVec3 cp = pos.GetCP();
-		CVec3 desired = GetPosition().GetCP();
-		if ( cp.z > fLastHeight + 0.01f )
-			continue;
-		CVec3 vDist = desired - cp; 
-		float fZDist = fLastHeight - cp.z;
-		float fHorDist = vDist.x * vDist.x + vDist.y * vDist.y;
-		float fDist;
-		if ( fZDist < fMaxFall ) 
+		// Retain the existing large-unit candidate policy and lock-footprint query.
+		SSphere s( GetPosition().GetCP(), 3 );
+		vector<NAI::SPathPlace> res;
+		pNet->GetNearPlaces( s, &res );
+		float fMinDist = 1000, fMinHorDist = 1000;
+		int pose = GetPosition().pos.p.GetPose();
+		if ( pose == NAI::CM_INACTIVE )
+			pose = NAI::CM_CROUCH;
+		for ( int i = 0; i < res.size(); ++i )
 		{
-			if ( fHorDist < 0.01f )
-				fDist = fHorDist + fZDist * fZDist * 0.2f * 0.2f;
+			res[i].SetPose( pose );
+			res[i].SetDirection( GetPosition().GetDir() );
+			if ( !pNet->IsPassable( res[i] ) )
+				continue;
+			NAI::SPosition pos;
+			pos.p = res[i];
+			pos.SetNetwork( pNet );
+			CVec3 cp = pos.GetCP();
+			CVec3 desired = GetPosition().GetCP();
+			if ( cp.z > fLastHeight + 0.01f )
+				continue;
+			CVec3 vDist = desired - cp;
+			float fZDist = fLastHeight - cp.z;
+			float fHorDist = vDist.x * vDist.x + vDist.y * vDist.y;
+			float fDist;
+			if ( fZDist < fMaxFall )
+			{
+				if ( fHorDist < 0.01f )
+					fDist = fHorDist + fZDist * fZDist * 0.2f * 0.2f;
+				else
+					fDist = fHorDist + fZDist * fZDist;
+			}
 			else
-				fDist = fHorDist + fZDist * fZDist;
+				fDist = fHorDist + fZDist * fZDist * 4;
+			if ( fDist < fMinDist )
+			{
+				fMinDist = fDist;
+				fMinHorDist = vDist.x * vDist.x + vDist.y * vDist.y;
+				dst.pos.p = res[i];
+			}
 		}
-		else
-			fDist = fHorDist + fZDist * fZDist * 4;
-		if ( fDist < fMinDist )
-		{
-			fMinDist = fDist;
-			fMinHorDist = vDist.x * vDist.x + vDist.y * vDist.y;
-			dst.pos.p = res[i];
-		}
+		placement = fMinDist < 100 ? ( fMinHorDist < 0.01f ? NAI::NPR_FALL : NAI::NPR_MOVE ) : NAI::NPR_FAILED;
 	}
-	if ( fMinDist < 100 )
+	if ( placement != NAI::NPR_FAILED )
 	{
-		if ( fMinHorDist < 0.01f )
+		if ( placement == NAI::NPR_FALL )
 		{
 			SetPosition( dst );
 			Fall();
 		}
 		else
 		{
+			// Original Steam 0x7c17a4: start at the current clock, publish
+			// the destination before refreshing world/visibility bindings.
+			animator.AlignTime();
 			animator.ForcedMove( dst );
+			SetPosition( dst );
 			Update();
 			GetWorld()->UpdateVisible();
-			SetPosition( dst );
 		}
+		pNet->GetPassability( GetPosition().pos.p );
 		return;
 	}
 	// retail @0x3c0b80: nowhere to land at all -> the unit dies FALLING. Stash the pre-fall height

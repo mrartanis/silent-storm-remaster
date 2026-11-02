@@ -30542,6 +30542,48 @@ static void NativeExplosiveGroups(const char* databasePath,const char* resourceP
     for(const auto& saved:before)Require(saved.unit->GetPosition()==saved.position && saved.unit->GetAP()==saved.ap && saved.unit->GetUnitRPG()->GetTotalVP()==saved.hp && saved.unit->HasCommand()==saved.command,"explosive target groups changed actual position/HP/AP/commands");
 }
 
+static void NativeSmoothRelocation(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<5,"unknown native smooth relocation mode");
+    const bool explicitEvent=mode==1,unobstructed=mode==2,pk=mode>=3,worn=mode==4;
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);world->GetAIMap()->Sync();
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);
+    CObj<NWorld::CUnitServer> human;for(auto unit:units)if(unit && unit->CanFight() && !unit->IsAIUnit() && !unit->IsEmptyPK() && !unit->IsWearingPK()){human=unit.GetPtr();break;}
+    Require(human,"smooth relocation lacks actual human owner");
+    NAI::CPathNetwork* network=human->GetPosition().pos.pNet;
+    NWorld::CWindowDoor* door=nullptr;NAI::SPathPlace place;
+    for(const auto& object:world->GetObjectsForHarness()){
+        auto* candidate=dynamic_cast<NWorld::CWindowDoor*>(object.GetPtr());
+        if(!candidate || candidate->IsBroken() || candidate->IsMineSet())continue;
+        candidate->LockDoor(false,0,0);
+        candidate->OpenClose(false,true);vector<NAI::SPathPlace> nearby;network->GetNearPlaces(SSphere(candidate->GetPosition().ptPos,3.f),&nearby);
+        vector<NAI::SPathPlace> possible;for(auto p:nearby){p.SetPose(NAI::CM_STAND);p.SetDirection(0);p.SetMoving(0);if(unobstructed?network->IsPassable(p):network->GetPassability(p)==NAI::AIP_DOOR)possible.push_back(p);}
+        candidate->OpenClose(true,true);
+        for(auto p:possible){auto* layer=network->GetLayer(p.GetLayer());if(network->IsPassable(p) && layer && layer->tiles[p.GetY()][p.GetX()].nMove[NAI::CM_STAND]){place=p;door=candidate;break;}}
+        if(door)break;
+    }
+    Require(door,"smooth relocation lacks real door with an independently observed open/free and closed/obstructed tile");
+    CObj<NWorld::CUnitServer> actor;
+    if(!pk){actor=world->AddUnitInGame(place,NRPG::CreateUnit(NDb::GetPers(103)),human->GetTBSPlayer(),"NativeSmoothRelocationActor");Require(actor && actor->CanFight() && NativeUnitAwareSameCell(actor->GetPosition().pos.p,place),"smooth relocation cannot deploy actual actor on declared open-door cell");}
+    else {
+        NDb::CRPGPers* persona=nullptr;CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());while(people.MoveNext()){auto* p=people.Get();if(p->pPanzerklein && !p->pPanzerklein->bHasNoHead && p->pModel && (!persona || p->GetRecordID()<persona->GetRecordID()))persona=p;}
+        Require(persona,"smooth relocation lacks authored regular PK");vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(human->GetPosition().GetCP(),20.f),&places);bool found=false;
+        for(auto p:places){p.SetPose(NAI::CM_STAND);p.SetDirection(0);p.SetMoving(0);if(NAI::IsBigLockerPlacePassable(network,p) && fabs2(network->GetCP(p)-door->GetPosition().ptPos)>25.f){place=p;found=true;break;}}
+        Require(found,"smooth relocation PK control lacks full free footprint away from door");CObj<NWorld::CUnitServer> shell=world->AddUnitInGame(place,NRPG::CreateUnit(persona),nullptr);Require(shell && shell->IsEmptyPK(),"smooth relocation cannot create actual empty PK");actor=shell;
+        if(worn){Require(shell->WearAsPK(true),"smooth relocation cannot prepare native PK");human->SetPosition(shell->GetPosition());human->FlipPanzerklein(shell,false,false);world->GetAIMap()->Sync();actor=human;Require(actor->IsWearingPK(),"smooth relocation lost real pilot/armor relationship");}
+    }
+    const auto before=actor->GetPosition();GlobalGameRandom().SeedForHarness(718);actor->animator.AlignTime();actor->animator.ForcedMove(before);const auto previousEnd=actor->animator.GetTimeEnd();const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();
+    // Advance the native CCTime source without running simulation/actions: this
+    // isolates an idle animation timestamp from the actual later door event.
+    if(explicitEvent){world->GetTime()->Set(world->GetTime()->GetValue()+5000);MarkNewDGFrame();CDGPtr<CFuncBase<STime>> clock(world->GetTime());clock.Refresh();}
+    const auto now=world->GetTime()->GetValue();if(explicitEvent)Require(previousEnd<now,"smooth relocation lacks a genuinely old initialized animation timestamp");GlobalGameRandom().SeedForHarness(718);door->OpenClose(false,true);if(explicitEvent)world->GridInfoUpdated();
+    const auto after=actor->GetPosition();const bool moved=!NativeUnitAwareSameCell(before.pos.p,after.pos.p);network->Unlock(actor);const auto pass=network->GetPassability(after.pos.p);network->Lock(actor,after.pos.p);auto random=GlobalGameRandom();unsigned words[4];for(auto& word:words)word=random.Get();
+    std::printf("SMOOTH-RELOCATION mode=%d explicit=%d free=%d PK=%d worn=%d before=%08x after=%08x moved=%d pass=%d now=%u previousEnd=%u label=%u end=%u HP=%d AP=%d command=%d rng0=%u rng1=%u rng2=%u rng3=%u\n",mode,int(explicitEvent),int(unobstructed),int(pk),int(worn),unsigned(before.pos.p.GetBits()),unsigned(after.pos.p.GetBits()),int(moved),int(pass),unsigned(now),unsigned(previousEnd),unsigned(actor->animator.GetTimeLabel1()),unsigned(actor->animator.GetTimeEnd()),actor->GetUnitRPG()->GetTotalVP(),actor->GetAP(),int(actor->HasCommand()),words[0],words[1],words[2],words[3]);std::fflush(stdout);
+    if(mode<2){Require(moved && pass==NAI::AIP_YES,"door obstruction did not immediately relocate the actual unit to a free cell");Require(actor->animator.GetTimeLabel1()==now && actor->animator.GetTimeEnd()>now,"forced relocation reused a stale animation timestamp");}
+    else Require(after==before && actor->animator.GetTimeEnd()==previousEnd,"free ordinary/empty/worn PK control moved or restarted its animation");
+    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && !actor->HasCommand() && world->GetTime()->GetValue()==now,"smooth relocation changed HP/AP/commands or advanced simulation time");
+}
+
 static void NativeWorldWaypointRoute(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<4,"unknown native world waypoint route mode");const bool aiOwner=mode==0 || mode==3,sequence=mode==2,samePlace=mode==3;
@@ -35222,6 +35264,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-smooth-relocation")) { Require(argc==5,"smooth relocation requires db/resources/mode"); NativeSmoothRelocation(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-unit-aware-pk")) { Require(argc==5,"unit-aware PK control requires db/resources/mode"); NativeUnitAwarePKControl(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-unit-aware-waypoint")) { Require(argc==5,"unit-aware waypoint requires db/resources/mode"); NativeUnitAwareWaypointPlacement(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-unit-aware-deploy")) { Require(argc==5,"unit-aware deploy requires db/resources/mode"); NativeUnitAwareDeployment(argv[2],argv[3],std::atoi(argv[4])); return true; }

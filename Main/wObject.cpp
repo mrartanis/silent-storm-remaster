@@ -210,6 +210,9 @@ void CWindowDoor::OpenClose( bool bOpen, bool bAbruptly, CUnitServer *pWho )
 		pAnimator->AddMemorizer( tEnd );
 	}
 	pWorld->GetPathNetwork()->FlipperOpenClose( this, bOpen );
+	// Original Steam 0x782e25 requests the grid event after changing the flipper.
+	// Use the world's established synchronous TBS event adapter.
+	pWorld->GridInfoUpdated();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail @0x3813b0: lock/unlock the door and, WHEN LOCKING, record the required-key id and the

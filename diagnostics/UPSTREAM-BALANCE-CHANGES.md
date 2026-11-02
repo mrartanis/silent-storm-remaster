@@ -4468,3 +4468,29 @@ native test proves before/after HP preservation. Canonical small five controls a
 full/confirmation raw HP inequality is retained explicitly, not normalized or called
 equality. Extra unchanged8 confirmations each overlap899/872 totals. Exact setup cause
 remains unproven; see UPSTREAM-IMPORTS.md.
+
+## 158. Door-triggered forced relocation and animation timing
+
+Restore nearby obstruction handling for ordinary units and start forced movement at the
+current animation clock. The world receives the door grid notification after the real
+flipper change; destination position is published before visibility refresh. Ordinary
+search uses the native connected/facing/height criterion already restored in157. Keep the
+existing large-unit candidate/footprint policy as an own adaptation and the existing
+fall/death behavior. The original queues its grid event, whereas the established own world
+adapter delivers synchronously; no original same-tick timing equivalence is claimed. No
+combat values, costs, item records or save/network fields change.
+
+Canonical native RED2/5 ->GREEN5 both with three exact controls; full Game both/single927
+Windows900 Linux/CI382,142 focused cases/23 extra controls/117 prior fixed rows/12 fonts
+and12 LAN gates/361 maps each pass.13 tactical views pass. Native input/bootstrap health
+inequalities remain visible in reports; no value normalization. All3 source files now
+accounted,24 unfinished. Full original proof and discovery limitations are recorded in
+UPSTREAM-IMPORTS.md.
+
+Source: [71bf7730c33bf37b19beaab21042f6a39e5b3285](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/71bf7730c33bf37b19beaab21042f6a39e5b3285).
+
+The initial Linux transport-only NetworkSessionTests compound assertion failed once; its
+exact cause remains unproven. Five LAB diagnostic replays did not reproduce it, and a
+fresh unchanged full12-gate Linux run passes all361 maps. Initial logs are retained, no
+repository/assertion/timeout edits or new exclusions, diagnostic probes not counted as LAN
+gates. See UPSTREAM-IMPORTS.md.

@@ -24954,3 +24954,83 @@ is made. These confirmations overlap the single-suite selections and are not add
 to899/872 totals.
 
 Source: [a8311049890a7fa91a1a439a43fdfc2da9619a3e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8311049890a7fa91a1a439a43fdfc2da9619a3e).
+
+## 158. Door-triggered forced relocation and animation timing
+
+An actual door changing its flipper did not notify units immediately through the world
+grid-event adapter. An explicit grid notification relocated an obstructed actor but reused
+the previous animation end, so a later move could be scheduled entirely in the past.
+Restore the door grid request after changing the flipper, align forced movement to the
+current native clock, publish SetPosition before updating world/visibility bindings and
+refresh destination passability afterward. Ordinary units reuse the already verified
+unit-aware three-meter helper, including native movement exits, facing, upward tolerance
+and fall classification. Deliberately retain the existing large-unit candidate policy and
+footprint query as an own adaptation; no original panzerklein scoring equivalence is
+claimed. The animator inactive-pose hunk was already imported in b4035116 and remains
+unchanged. All three source files are accounted for by the remaining two-file integration.
+
+NativeSmoothRelocation0..4 use real authored doors, public native unlock/open/close, map
+Sync and actual person103 actors. Mode0 reproduces no immediate relocation; mode1 sends an
+additional real grid event after a controlled native CCTime advance of5000 and reproduces
+the old animation timestamp. A native prior pose is initialized through public AlignTime
+and animator.ForcedMove at the same position before reading end/label. Initial initialized
+end11550 is strictly before the later now15050; old movement uses label11550/end13050,
+fixed movement uses label15050/end16550. No simulation steps or private state injection
+create the timing difference. Canonical RED2/5 on both exact parents becomes unchanged
+GREEN5 both. Free ordinary actor, actual empty PK and actual worn PK controls retain all
+complete canonical rows, positions, native end/label, HP/AP/command and four-word RNG
+tails. Explicit-event mode1 retains its RNG tail; door-only mode0 now performs actual
+relocation and consumes its normal draws, so no blanket RNG parity is claimed.
+
+Original Steam ForcedMove7c15b0 is bound through named CUnitServer CTBS base154 slot10
+OnTBSEvent7c34c0 and the independently decoded event10 jump-table target7c3655. Its
+complete93-byte event case calls7c15b0 at7c36ab. Typed Gold7b4e30/704 yields unique
+complete141+96+59 instruction blocks with only decoded E8 relocations. The actual helper
+call7c16ec reaches the previously verified47e270. Native AlignTime19 bytes are complete,
+raw exact and unique at73b0e0: direct native clock read plus delay into tEnd. Named door
+secondary9c slot8 binds Gold7770c0/609 to Steam782c30; complete108-byte tail is unique
+E8-only and orders path slot8c flipper change before worldCC GetTBS and TBS slot38 grid
+event. World GetTBS11 bytes are exact; the113-byte grid method has a unique
+complete92-byte body after excluding its21-byte EH prologue and queues event10. The own
+world adapter already delivers grid events synchronously; no same-tick original behavior
+is claimed. Whole704/609 are rejected at EH/log globals, whole113 at EH and
+whole126/105-byte flipper body at changed native instructions. No
+field/frame/register/opcode/local-branch/global masks, BSS reads, original execution or
+whole-transitive parity claim.
+
+Initial interface-type and private-API compile failures are archived as compile failures,
+not RED. Initial missing-door inputs are archived as invalid and corrected before
+production through existing public map synchronization and native door unlocking. The
+earlier candidate2/5 discovery observed uninitialized animation time and is not canonical;
+native prior-pose initialization and strict old-time precondition were added before the
+final canonical replay. Final tests remain unchanged through the accepted production fix.
+
+Fresh full Game builds and single related suites927 Windows/900 Linux pass, including all
+prior137 and new5 cases plus23 additional door/forced/ladder/critical controls. All117
+earlier fixed rows, explosive group/clearance rows, AI/melee/filter rows and12 fonts
+remain exact;13 tactical views pass. CI382 and12 fresh LAN gates per platform pass
+with361/361 map variants; Linux uses5 infrastructure CTest plus7 direct native match
+modes. Every selected executable and nested helper is rebuilt and only the old nested-save
+exclusion remains. Previous unit-aware bootstrap health137/157 inequalities are retained
+as explicit raw unequal rows whenever observed, not normalized or described as equality;
+each native test still asserts exact before/after health preservation and the setup cause
+remains unproven. No save/network fields, item/stat records or database data change.
+Verified Steam/baseline DB
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df remains unchanged.222
+imported/15 pending/9 partial,24 unfinished. Final-head hosted success remains required at
+whole-task completion.
+
+The initial Linux network infrastructure run passed4/5: NetworkSessionTests failed its
+compound readiness/Playing/event-count assertion with the text "duplicate event played
+twice". It links only the unchanged transport library, excluding the changed Main code,
+and its build did no work. The failing run has no individual counters, so neither an
+actual duplicate nor a timeout cause is proved. Five concurrent LAB-only diagnostic copies
+linked the same library, reported ready1/Playing4/events3/baseline1/expected3 and passed
+the original100-poll gate without reproducing the failure; their optional extra drain
+would preserve the original failure result and did not run. No repository, production,
+assertion or timeout change was made. Initial logs are retained separately. A fresh
+unchanged full Linux rerun passes all5 infrastructure tests and7 native match modes,
+including361 maps. No added exclusion, relaxed test, proven root cause or network
+production fix is claimed, and the diagnostic probes are not counted as LAN gates.
+
+Source: [71bf7730c33bf37b19beaab21042f6a39e5b3285](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/71bf7730c33bf37b19beaab21042f6a39e5b3285).

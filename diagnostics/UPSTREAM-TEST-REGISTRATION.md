@@ -2758,3 +2758,30 @@ native test proves before/after HP preservation. Canonical small five controls a
 full/confirmation raw HP inequality is retained explicitly, not normalized or called
 equality. Extra unchanged8 confirmations each overlap899/872 totals. Exact setup cause
 remains unproven; see UPSTREAM-IMPORTS.md.
+
+## 158. Door-triggered forced relocation and animation timing
+
+NativeSmoothRelocation0..4: final initialized native RED2/5 ->unchanged GREEN5 both.
+Actual authored door/public unlock/map Sync/real actor and free ordinary/empty/worn PK
+controls; all three complete canonical controls exact. Controlled native CCTime+5000
+isolates an already initialized earlier animation (11550<15050), no simulation
+ticks/private state. Door mode0 now really relocates and consumes normal RNG;
+explicit-event mode1 and controls retain RNG tails.
+Compile/invalid-input/uninitialized-time discovery rejections are archived separately, not
+canonical RED.
+
+Fresh Game both/single927 Windows900 Linux/CI382,142 focused cases plus23 added
+door/forced/ladder/critical controls.117 earlier fixed rows, explosive/AI/melee/filter
+rows and12 fonts exact;13 tactical views pass.12 LAN gates/361 maps each; all helpers
+rebuilt, only old nested-save exclusion, verified DB unchanged. Bootstrap PK health
+inequality where observed is recorded explicitly with unchanged before/after assertions;
+no field normalization/equality or root-cause claim. All3 source files accounted,24
+unfinished. Original static bounds and adapter limitations in UPSTREAM-IMPORTS.md.
+
+Source: [71bf7730c33bf37b19beaab21042f6a39e5b3285](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/71bf7730c33bf37b19beaab21042f6a39e5b3285).
+
+The initial Linux transport-only NetworkSessionTests compound assertion failed once; its
+exact cause remains unproven. Five LAB diagnostic replays did not reproduce it, and a
+fresh unchanged full12-gate Linux run passes all361 maps. Initial logs are retained, no
+repository/assertion/timeout edits or new exclusions, diagnostic probes not counted as LAN
+gates. See UPSTREAM-IMPORTS.md.
