@@ -4570,3 +4570,20 @@ full original/runtime limitations are in UPSTREAM-IMPORTS.md. Remaining source f
 directed attack poses/inactive door turns are still pending,23 unfinished.
 
 Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).
+
+## 162. Preserve the current pose in directed attack planning
+
+Directed tile and object attacks retain the actor's current pose while selecting a facing.
+A blocked prone facing no longer creates an automatic crouch movement prefix. Six valid
+standing/crouching/prone controls retain their full results and AP start11; the rejected
+prefix formerly reported4, which was preparation cost rather than total shot AP. Weapon,
+damage, chance, movement cost and authored database values remain unchanged.
+
+Final native RED2/8 ->unchanged GREEN8 both; all eight physical witnesses and RNG tails
+exact, HP/AP/ammo/position/item/command/time preserved. Full Game both/scoped768
+Windows758 Linux/CI382/168 focused/117 old rows/13 tactical/12 LAN gates and361 maps each
+pass. Prior raw setup/job/RNG inequalities remain explicit if seen. Save/wire schema
+unchanged. Original bounded limits appear in UPSTREAM-IMPORTS.md; source inactive door
+turn remains pending,23 unfinished.
+
+Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).

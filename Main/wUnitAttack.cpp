@@ -175,6 +175,18 @@ static void GetHumanReachPlaces( CUnitServer *pUS, const CVec3 &ptTarget, vector
 	}	
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static int GetAttackPoseMask( const NAI::SPathPlace &place )
+{
+	// Original Steam 0x7940c1/0x7941ba keeps directed attacks in the current pose.
+	switch ( place.GetPose() )
+	{
+		case NAI::CM_LAY: return PM_LAY;
+		case NAI::CM_CROUCH: return PM_CROUCH;
+		case NAI::CM_STAND: return PM_STAND;
+		default: return PM_ALL;
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdShootTile *pCmd, vector<NAI::SPathPlace> *pRes )
 {
 	CWorld *pWorld = pUS->GetWorld();
@@ -189,7 +201,8 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdShootTile 
 		case AT_GRENADE:
 		case AT_THROW:
 		case AT_BAZOOKA:
-			GetDirectedPoints( pNet, pUS->GetPosition().pos.p, pCmd->ptTarget, pRes );
+			GetDirectedPoints( pNet, pUS->GetPosition().pos.p, pCmd->ptTarget, pRes,
+				GetAttackPoseMask( pUS->GetPosition().pos.p ) );
 			break;
 		default:
 			ASSERT( 0 );
@@ -219,7 +232,8 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdShootObjec
 		case AT_SHOOT:
 		case AT_BAZOOKA:
 		case AT_THROW:
-			GetDirectedPoints( pNet, pUS->GetPosition().pos.p, ptTo, pRes );
+			GetDirectedPoints( pNet, pUS->GetPosition().pos.p, ptTo, pRes,
+				GetAttackPoseMask( pUS->GetPosition().pos.p ) );
 			break;
 		default:
 			ASSERT( 0 );

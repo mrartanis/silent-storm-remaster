@@ -2857,3 +2857,23 @@ UPSTREAM-IMPORTS.md. Only RPGGame.cpp hunk imported; source directed-pose and
 inactive-door-turn hunks remain,23 unfinished.
 
 Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).
+
+## 162. Preserve the current pose in directed attack planning
+
+NativeDirectedAttackPose0..7: final canonical RED2/8 both ->unchanged GREEN8 both. Real
+map810/actor54/target103/loaded authored pistol, independent native physical and concrete
+action validators. Blocked prone tile/object preparation previously inserted a crouch
+mover; now rejected. Six complete free standing/crouching/prone control rows, all eight
+input witnesses and RNG tails exact; actual HP/AP/ammo/position/item/command/time
+preserved. Initial base-validator compile failure archived before genuine RED; no
+fixture/runtime failure relabeled as RED.
+
+Full Game both; scoped attack/planning768 Windows/758 Linux,168 focused/13 tactical/117
+old fixed rows/prior explosive-AI-melee-filter/six melee-preview/five hover/12 fonts;
+CI382 and12 LAN gates/361 encounter variants each pass. Existing raw job/HP/RNG
+inequalities are retained explicitly. One existing nested-save exclusion. Original bounded
+proofs and rejected jump-table/whole-function claims are detailed in UPSTREAM-IMPORTS.md.
+Only wUnitAttack pose-mask hunk imported; inactive door turn remains pending,23
+unfinished.
+
+Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).

@@ -25264,3 +25264,57 @@ Source fcc994bc remains partial:223 imported,14 pending,9 partial;23 unfinished.
 Final-head hosted success remains required at whole-task completion.
 
 Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).
+
+## 162. Preserve the current pose in directed attack planning
+
+Directed tile and object attacks now pass the actor's current pose mask into the existing
+directed-point query: prone1, crouched2, standing4, inactive/default ALL7. Previously a
+prone unit could receive an automatic crouch movement prefix when the requested prone
+facing was physically blocked. Only Main/wUnitAttack.cpp changes: a small mask helper and
+its two callers. Existing fly-bit handling, action enums, weapon validators, planner/AP
+rules, first-turn handling and save/LAN interfaces remain unchanged. The remaining
+fcc994bc inactive door-path turn guard is still pending.
+
+NativeDirectedAttackPose0..7 use real map810/person54 and an authored loaded Snap pistol,
+with person103 for object targets. Independent physical passability and concrete
+ShootTile/ShootUnit validators select a real blocked prone facing while the standing
+alternative and current prone placement remain valid. Final canonical RED2/8 on both
+platforms becomes unchanged GREEN8: the two blocked attacks previously queued a crouch
+prefix with startAP4; they now reject preparation without changing pose. That start value
+is the movement prefix, not total shot AP. Six free tile/object standing/crouching/prone
+controls keep complete identical rows, no mover and start11. All eight input-witness rows
+and RNG tails1647188390/2110648069/3791589815/3734604457 remain exact, with actor
+HP137/AP53/ammo8, position/item/command/time preserved. No firing, fake tile flags,
+private health/position injection or partial World READ. The first diagnostic compile used
+a nonexistent base CanDoIt member; it was archived and corrected to public concrete
+validators before accepting any native RED.
+
+Actual Steam tile7940a0 and object794170 are guided by typed Gold7884a0/200 and788570/297.
+Complete81/175-byte current-pose prefixes match uniquely and raw exactly.
+Complete30/31-byte selected call setups match with only their decoded E8 displacements
+into the independently identified private helper. The whole348-byte GetDirectedPoints body
+Gold787ff0 -> unique Steam793bf0 matches with only four decoded E8 displacements; actual
+flag tests at793bfb/793c68/793cd6 read stack10 bits1/2/4. Named World root24
+GetPathNetwork Gold76bc70 ->Steam777a20 and UnitServer secondary14c slot44 GetPosition
+Gold7baa00 ->Steam7c72d0 are complete7-byte raw matches. The donor comments793a31/793b2a
+were stale; imported comments name actual7940c1/7941ba. Whole200/297 are rejected because
+native jump tables differ. No table/field/frame/register/opcode/local-branch/global
+normalization, BSS reads, original gameplay execution, ABI or whole-pipeline equivalence
+is claimed.
+
+Fresh full Game builds pass on both systems. Scoped
+attack/planning/pose/door/ladder/movement and prior preview suites pass768 Windows/758
+Linux, including168 focused cases and13 tactical views. All117 old fixed rows, prior
+explosive/AI/melee/filter results, six melee-preview rows, five hover rows and12 fonts
+remain exact. CI382 and12 LAN gates/361 encounter variants each pass with fresh helpers.
+Baseline and Steam game.db retain
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df; only the pre-existing
+nested-save exclusion applies. Previous native dead-PK job-budget counts, setup HP137/157
+and known old smooth RNG differences remain explicit raw inequalities where observed, with
+cause unproven; no fresh same-binary confirmation or normalization is claimed.
+
+Source fcc994bc remains partial, with only its inactive door-path turn guard left after
+this checkpoint:223 imported,14 pending,9 partial,23 unfinished. Final-head hosted success
+remains required at whole-task completion.
+
+Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).
