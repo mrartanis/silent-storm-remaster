@@ -4659,3 +4659,21 @@ pending317;21 unfinished sources. Original proof bounds and exact scope are in
 UPSTREAM-IMPORTS.md.
 
 Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).
+
+## 167. Give previews native unit turn state and correct Lua hit locations
+
+Unit/tile preview percentages now use the attacking unit's native first turn,
+independently of query logging: controlled unit75(first)/84(later), tile76/84. Real Lua
+numeric argument selects hit location: defaultANY/legs86->100, body86->92,
+head/hands/invalidHEAD86 controls. Existing waypoint numeric compatibility argument is
+accepted and ignored. HP/AP/ammo/item/position/time and query RNG remain unchanged.
+Existing network FIRST field retains its role and layout; four native-counter requests
+corrected without new fields. Native RED9/53 ->GREEN53 both; Game521 scoped
+each/CI382/12LANeach361 pass. No action, damage, database or save-format change. General
+object/grenade-rocket/full command routing remains pending317;21unfinished sources.
+Initial Linux disconnect/other diagnostic failures remain recorded; original
+executable/library hashes unchanged and one full unchanged LAN retry passes, cause
+unproven. Original proof bounds and fixture corrections are recorded in
+UPSTREAM-IMPORTS.md.
+
+Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).

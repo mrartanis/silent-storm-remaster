@@ -1028,7 +1028,7 @@ void CStateAttack::UpdateCursorInfo()
 				if (pWeapon)
 				{
 					if ( !pWeapon->GetDBWeapon()->bBazookaLogic )
-						nToHit = pWorld->GetGame()->GetCompositeToHit( (*iTemp)->GetUnit(), pUnit, eHitLocation, pWorld->IsFirstTurn() );
+						nToHit = pWorld->GetGame()->GetCompositeToHit( (*iTemp)->GetUnit(), pUnit, eHitLocation, false );
 					else
 					{
 						if ( bTraceOk )
@@ -1051,7 +1051,7 @@ void CStateAttack::UpdateCursorInfo()
 						// scored exactly like a knife swing. The old `if (pMelee)` cast tested the INVENTORY
 						// active item, which is null for bare fists (nothing equipped), so no calc ran and
 						// nToHit stayed 0.
-						nToHit = pWorld->GetGame()->GetCompositeToHit((*iTemp)->GetUnit(), pUnit, eHitLocation, pWorld->IsFirstTurn());
+						nToHit = pWorld->GetGame()->GetCompositeToHit((*iTemp)->GetUnit(), pUnit, eHitLocation, false);
 					}
 				}
 			}
@@ -1065,7 +1065,7 @@ void CStateAttack::UpdateCursorInfo()
 					if (pWeapon)
 					{
 						if (!pWeapon->GetDBWeapon()->bBazookaLogic)
-							nToHit = pWorld->GetGame()->GetTileCompositeToHit((*iTemp)->GetUnit(), pos, NAI::THL_MIDDLE, pWorld->IsFirstTurn());
+							nToHit = pWorld->GetGame()->GetTileCompositeToHit((*iTemp)->GetUnit(), pos, NAI::THL_MIDDLE, false);
 						else
 							nToHit = pWorld->GetGame()->GetBazookaToHit((*iTemp)->GetUnit(), pos,
 								NAI::THL_MIDDLE, pWorld->IsFirstTurn());
@@ -1080,7 +1080,7 @@ void CStateAttack::UpdateCursorInfo()
 						// `if (pMelee)` cast was null and a punch aimed at ground/walls/objects showed 0%;
 						// GetTileCompositeToHit derives TH_MELEE from the unit's default fists weapon and
 						// casts covers from GetMeleeAttackPos, matching retail's TH_MELEE tile rule.
-						nToHit = pWorld->GetGame()->GetTileCompositeToHit((*iTemp)->GetUnit(), pos, NAI::THL_MIDDLE, pWorld->IsFirstTurn());
+						nToHit = pWorld->GetGame()->GetTileCompositeToHit((*iTemp)->GetUnit(), pos, NAI::THL_MIDDLE, false);
 					}
 				}
 			}

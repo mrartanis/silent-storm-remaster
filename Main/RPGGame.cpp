@@ -122,11 +122,11 @@ public:
 	virtual void ProcessMeleeAttackPortion( const CAttackPortion &a, const CRay &ray, const vector<IAttackable*> &ignores );
 	virtual void ProcessRangedAttackPortion( const CAttackPortion &a, const CRay &ray, const vector<IAttackable*> &ignores, vector<STrailPoint> *pTrail, float fMaxRange );
 	virtual EAttackResult ProcessThrowingAttackPortion( CAttackPortion *pA, IAttackable *pTarget, NDb::CRPGArmor *pArmor, int nUserID );
-	virtual int GetCompositeToHit( NWorld::CUnit *pAttacker, NWorld::CUnit *pTarget, NAI::EHitLocation eHL, bool bFirstTurn );
+	virtual int GetCompositeToHit( NWorld::CUnit *pAttacker, NWorld::CUnit *pTarget, NAI::EHitLocation eHL, bool bLog );
 	virtual int GetGrenadeCompositeToHit( NWorld::CUnit *pAttacker, 
 		CVec3 ptTarget, bool bFirstTurn, NDb::CRPGGrenade *pGrenade );
 	virtual int GetTileCompositeToHit(  NWorld::CUnit *pAttacker, CVec3 ptTilePos, 
-		NAI::ETileHitLocation eHitLocation, bool bFirstTurn );
+		NAI::ETileHitLocation eHitLocation, bool bLog );
 	virtual int GetBazookaToHit(  NWorld::CUnit *pAttacker, CVec3 ptTilePos, 
 		NAI::ETileHitLocation eHitLocation, bool bFirstTurn );
 	virtual bool CheckVisibility( const NWorld::CUnit *pObserver, const NWorld::CUnit *pDest, bool bUseFOV );   // retail @0x298cb0
@@ -750,11 +750,12 @@ int GetAttackerToHit( const NWorld::CUnit *pAttacker, NWorld::CUnit *pTarget, in
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Used only for inteface tasks. Returns not exactly correct value.
 int CGame::GetCompositeToHit( NWorld::CUnit *pAttacker, 
-	NWorld::CUnit *pTarget, NAI::EHitLocation eHL, bool bFirstTurn )
+	NWorld::CUnit *pTarget, NAI::EHitLocation eHL, bool bLog )
 {
 	auto* actor = dynamic_cast<NWorld::CUnitServer*>(pAttacker);
+	// LAN retains its existing first-turn wire flag; authority-side logging is separate.
 	if (actor && actor->GetWorld()->bNetworkReplica)
-		return actor->GetWorld()->networkHitChance ? actor->GetWorld()->networkHitChance(0,pAttacker,pTarget,CVec3(0,0,0),eHL,bFirstTurn) : 0;
+		return actor->GetWorld()->networkHitChance ? actor->GetWorld()->networkHitChance(0,pAttacker,pTarget,CVec3(0,0,0),eHL,actor->GetUnitRPG()->IsFirstTurn()) : 0;
 	// Original Steam 0x6b5f61/0x6b5f68: current-pose reach uses the target hull center.
 	if ( NRPG::GetToHitType( pAttacker ) == NRPG::TH_MELEE )
 	{
@@ -766,7 +767,9 @@ int CGame::GetCompositeToHit( NWorld::CUnit *pAttacker,
 	vector<NRPG::CAttackPortion> attack;
 	CDynamicCast<NRPG::IUnitMission> pRealAttacker( pAttacker->GetRPG() );
 	ASSERT( pRealAttacker );
-	pRealAttacker->PrintLog( false );
+	// Original Steam 0x6b5f9b/0x6b5fb1: unit first-turn state and separate logging.
+	const bool bFirstTurn = pRealAttacker->IsFirstTurn();
+	pRealAttacker->PrintLog( bLog );
 	pRealAttacker->CreateAttack( &attack, false );
 	if ( attack.empty() )
 	{
@@ -808,7 +811,10 @@ int CGame::GetCompositeToHit( NWorld::CUnit *pAttacker,
 			accessibleHLs.push_back( eHL );
 		}
 		if ( accessibleHLs.empty() )
+		{
+			pRealAttacker->PrintLog( true );
 			return 0;
+		}
 	}
 	int nToHit = 0;
 	int nRof = pRealAttacker->GetBulletsQuantityInShot();
@@ -840,17 +846,24 @@ int CGame::GetGrenadeCompositeToHit( NWorld::CUnit *pAttacker,
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGame::GetTileCompositeToHit(  NWorld::CUnit *pAttacker, CVec3 ptTilePos, 
-		NAI::ETileHitLocation eHitLocation, bool bFirstTurn )
+		NAI::ETileHitLocation eHitLocation, bool bLog )
 {
 	auto* actor = dynamic_cast<NWorld::CUnitServer*>(pAttacker);
+	// Preserve the legacy first-turn packet field for existing network adapters.
 	if (actor && actor->GetWorld()->bNetworkReplica)
-		return actor->GetWorld()->networkHitChance ? actor->GetWorld()->networkHitChance(2,pAttacker,nullptr,ptTilePos,eHitLocation,bFirstTurn) : 0;
+		return actor->GetWorld()->networkHitChance ? actor->GetWorld()->networkHitChance(2,pAttacker,nullptr,ptTilePos,eHitLocation,actor->GetUnitRPG()->IsFirstTurn()) : 0;
 	//
 	CDynamicCast<NRPG::IUnitMission> pRPG( pAttacker->GetRPG() );
+	// Original Steam 0x6b54eb/0x6b5504: derive the round modifier from the unit.
+	const bool bFirstTurn = pRPG->IsFirstTurn();
+	pRPG->PrintLog( bLog );
 	vector<NRPG::CAttackPortion> attack;
 	pRPG->CreateAttack( &attack, false );
 	if ( attack.empty() )
+	{
+		pRPG->PrintLog( true );
 		return 0;
+	}
 	//
 	// Original Steam tile preview 0x6b5480 and RealCalcTileCovers 0x6b4700: a SWUNG melee weapon
 	// (TH_MELEE) first gates on NWorld::CanMeleeAttack -- out of arm's reach returns the -1
@@ -891,6 +904,7 @@ int CGame::GetTileCompositeToHit(  NWorld::CUnit *pAttacker, CVec3 ptTilePos,
 	for ( int i = 0; i < nRof; ++i )
 		nToHit += GetAttackerTileToHit( pAttacker, ptTilePos, pAttacker->GetCarefulShotExtraAP(),
 			eHitLocation, pCover, bFirstTurn, i );
+	pRPG->PrintLog( true );
 	return nToHit / nRof;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

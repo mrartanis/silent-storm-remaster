@@ -274,9 +274,10 @@ Bytes NetworkWorld::Handle(unsigned slot,const Bytes& bytes,bool preview) {
          (kind==3 && (!heldWeapon || !heldWeapon->GetDBWeapon()->bBazookaLogic)))
         return Result(UCR_UNAVAILABLE,0,0,Revision());
       auto* game=match.world->GetGame();int chance=0;
-      if(kind==0)chance=game->GetCompositeToHit(actor,target,static_cast<NAI::EHitLocation>(location),first!=0);
+      // Unit/tile previews own their turn state; network query logging stays quiet.
+      if(kind==0)chance=game->GetCompositeToHit(actor,target,static_cast<NAI::EHitLocation>(location),false);
       if(kind==1)chance=game->GetGrenadeCompositeToHit(actor,point,first!=0,nullptr);
-      if(kind==2)chance=game->GetTileCompositeToHit(actor,point,static_cast<NAI::ETileHitLocation>(location),first!=0);
+      if(kind==2)chance=game->GetTileCompositeToHit(actor,point,static_cast<NAI::ETileHitLocation>(location),false);
       if(kind==3)chance=game->GetBazookaToHit(actor,point,static_cast<NAI::ETileHitLocation>(location),first!=0);
       return Result(UCR_OK,chance,0,Revision());
     }

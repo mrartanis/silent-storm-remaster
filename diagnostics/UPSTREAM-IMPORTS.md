@@ -25666,3 +25666,133 @@ remains partial until its remaining API/dispatch/UI/Lua family is completed. Fin
 hosted success is still required at whole-task completion.
 
 Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).
+
+## 167. Give previews native unit turn state and correct Lua hit locations
+
+Unit and tile previews now derive their first-turn modifier from the attacking
+IUnitMission rather than the caller's last boolean. That boolean controls PrintLog. The
+four ordinary UI consumers and authoritative network requests disable query logging. Empty
+attack/empty accessible-location and successful normal paths restore logging; existing
+early unavailable-pose/melee return behavior is retained. Grenade/Bazooka APIs still
+expose their existing explicit first-turn parameter. No first-turn formula, AP, damage,
+action, serialization or database change.
+
+UnitGetToHitUnit's numeric argument now selects the hit location: default-1 is ANY;
+valid0..5 selects body/head/hands/legs; invalid values warn and fall back to HEAD. The
+real RunScript cases exercise omitted default, all six valid locations and invalid-2/6.
+ANY and legs change86->100, body86->92; head/hands/invalid fallback remain86. Equal
+hand/head values are controls, not a claim that all locations are numerically
+distinguished. UnitGetToHitWaypoint continues accepting its numeric compatibility
+argument, but ignores it and disables logging, as the actual native valid path does.
+Signed result propagation remains unchanged.
+
+Canonical parent RED9/53 on Windows and Linux becomes unchanged GREEN53/53: eight numeric
+native failures and one real TCP flag failure are repaired, with44 controls passing. Eight
+unit/tile cases distinguish a fresh unit's first turn from a later unit turn while the
+world remains in its first turn, and exercise both logging arguments. Unit first-turn
+chances75 and later84 no longer depend on logging; tile chances76 and84 likewise.
+Seventeen native result rows change only actual to expected. HP137/AP53, authored
+inventory/ammo/quantity, position, time, day, no-command state and all17 seed728 zero-draw
+tails2338396984/919571607/321284963/2512875575 remain exact. Counter/environment witnesses
+match across phases and platforms. Inputs use real map810/person54, public
+AddUnitInGame/StartNewTurn, actual native calcers and target hulls, never private
+world/grid/HP injection or input selection on the query under test.
+
+The initial deployed-party fixture incorrectly assumed a first unit turn and is archived
+as invalid. A subsequent fresh-actor phase exposed uncontrolled target turn-start data; a
+pre-control observer read an uninitialized ptLastCP and is also excluded from canonical
+evidence. The final fixture initializes actor and target turn starts using public
+StartNewTurn at actual positions before any query or turn-start read, and observes only
+the controlled after-state. No production constructor change is invented. Thirty-four
+existing knife/range/truncation/unit-origin/unit-hull/tile-preview cases retain all native
+calcer, roll-boundary, physical and RNG assertions. Their references use the unit's native
+turn state; three fresh knife fixtures initialize turn starts through public StartNewTurn
+before existing HP/skill setup and deployment. All34 already pass on the unchanged parent.
+The final parent53 includes a strengthened four-request real TCP fixture; an earlier
+incomplete-type diagnostic compile failure and earlier two-unit-query version are archived
+separately, not counted as extra tests.
+
+The real S2Net client/host fixture adds a real owned actor, transfers its existing
+authored loaded firearm through public inventory APIs, waits for replica state and queries
+through replica IGame, actual request packet, authoritative IGame and result cache. It
+sends kind0(unit) and kind2(tile) in each of two stages: native first1 with API logging0,
+then native first0 with API logging1. Existing wire fields previously encoded0,0,1,1; they
+now encode1,1,0,0. Both peers retain the existing packet layout/IDs and FIRST meaning: a
+new replica sends native first-turn state for older hosts; new authority derives its own
+state and keeps logging quiet. All four replies retain ScriptToHit37/status0 and per-query
+HP/AP/position/time/RNG purity. Script37 proves transport and field ownership, not numeric
+first-turn scaling. No fixed whole-network RNG tail is claimed. The previous real melee
+TCP37/-1 control remains exact.
+
+Static proof uses actual file-backed Steam Game.exe
+SHA4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705 with Gold PDB only as
+a typed guide. Independently identified CUnitMission secondary vtable+4c
+(Gold8b63cc/Steam8c54e4), not its root or medal slots, binds IsFirstTurn slot18c
+Gold6bf640/13 ->unique Steam6c5dd0/13, raw exact counter<2, and PrintLog slot4c
+Gold6bf510/10 ->unique Steam6c5cb0/10, raw exact byte store. Complete raw caller blocks10
+Gold6afeaf ->6b5f97 and12 Gold6afec0 ->6b5fa8 separately bind native first-turn and the
+logging argument. Tile blocks15 Gold6af3d2 ->6b54e2 and8 Gold6af3ef ->6b54ff bind the same
+roles. Differing whole frame-load instructions are excluded, never operand-masked. No
+whole972/938 preview equivalence or retained adapter ABI claim.
+
+Published on-disk Lua name/callback records independently bind actual
+UnitGetToHitUnit6fbfa0 and Waypoint6fc100 function entries: Gold records970898/9708a0 to
+Steam9819f0/9819f8, with named literal addresses independently inspected. Actual format
+pushes6fbfd2 ->8c78e0 and6fc132 ->8c7910 contain uun[-1] and usn[0]. These addresses are
+not masked or assumed read-only by section name. Complete60 Gold6f24c2 ->unique
+Steam6fc095 matches with only three decoded external E8 displacements. Actual calls6fc09f
+->6f62a0,6fc0b1 ->6b5e90 and6fc0cc ->81a750 establish third numeric argument
+->GetHitLocation ->preview ->numeric result. GetHitLocation's complete first11 raw bytes
+Gold6ec7c0 ->unique Steam6f62a0 retain[-1,5]; its typed helper's raw seven-byte invalid
+tail Gold6ec7fa ->Steam6f62da returns1(HEAD), without claiming that tail is independently
+unique. Logger global instruction operands remain unnormalized and target memory9ca814 is
+never read. No whole65 helper or341 Lua handler equivalence.
+
+Waypoint complete58 Gold6f2645 ->unique Steam6fc218 matches with only two decoded external
+E8 displacements, including actual6fc247 ->tile6b5480; the valid path pushes proven zero
+and does not read the numeric compatibility argument. Entry disassembly establishes EBX
+zero at6fbfbc/6fc11c and its valid-path uses. No waypoint-index meaning, donor
+logging-argument comment or whole459 handler claim. Signed FILD/numeric push proof from165
+is reused; no whole66 numeric-push body claim.
+
+Typed CStateAttack.Step Gold5d9ec0/41 ->unique Steam5dcf30/41, with only decoded external
+E8/E9 displacements, independently binds actual protected UpdateCursorInfo entry5dac10 and
+its EBX zero5dac3c. Complete29 Gold5d79f3 ->unique Steam5dad23 and44 Gold5d7a2a ->unique
+Steam5dad5a match with only their decoded E8 displacement and preserve quiet pushes,
+command target/point and -1/min-max folding. Wider203/46 cursor-prefix candidates are
+rejected for real member48/44 and54/50 differences; no
+member/frame/register/opcode/NOP/local-branch masks. No whole758 cursor body, original
+gameplay execution, global/BSS target-memory reads, complete API/ABI or live private-field
+binding is claimed.
+
+Fresh full Game builds and521 appropriately scoped cases pass on both platforms: prior503
+plus17 mission-first/Lua and one real TCP case. This521 filter repeats22 of34 aligned
+legacy cases; the other12 (six knife skill-context and six knife chance-truncation) are
+already covered by unchanged paired GREEN53. An initial LAB verification assumed all34
+were repeated in521; correct only that metadata assumption and record it, with no
+selection/assertion/source change or rerun. Aligned tile7 result rows match the167
+parent/green baseline, rather than the deliberately superseded world-first numeric
+baseline166. Prior17 melee witnesses and both named caption case blocks, five tile-helper
+query/input/environment/integration rows, eight pose result/input rows and selected prior
+AI/melee witnesses remain exact. CI382 and12 standard LAN gates/361 encounter variants
+each pass; only the existing nested-save exclusion remains. Windows LAN passes on its
+first full run. Initial Linux infrastructure4/5 fails at the original single-Poll
+disconnect check, so direct matches do not run. Preserve every initial raw log. Three
+serial unchanged executable runs yield two full passes and a different compound
+ready/state/event-count failure whose message alone does not identify the failing
+conjunct. Three separate LAB-only readiness probes retain the original single-Poll failure
+gate: all three pass that boundary without extra drain, two pass the full test and one
+fails a later raw-host single-Poll disconnect gate. All six exits and raw messages are
+captured; do not claim three full successes in either group. Original executable and
+transport-library hashes remain exact and original session/test/transport source is
+unchanged. One unchanged full Linux retry passes five infrastructure plus seven direct
+matches/361 variants. The cause is unproven and is not assigned to RPG, TCP, timing or
+compiler; no source/assertion/exclusion changes or extra LAN count inflation. Unrelated
+full117 camera/light/demo/health, all13 tactical views and12 font cases are not repeated
+or claimed in this scoped gate. Baseline/Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df remains unchanged.
+Ledger stays225 imported/13 pending/8 partial,21 unfinished. General CObjectBase target
+support, grenade/rocket dispatch and full command-based UI routing remain pending317.
+Final-head hosted success is required at whole-task completion.
+
+Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).

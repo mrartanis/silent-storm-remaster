@@ -2963,3 +2963,25 @@ selected AImelee witnesses exact. No unrelated full117/fonts/tactical suite clai
 Source317 stillpartial/21unfinished.
 
 Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).
+
+## 167. Give previews native unit turn state and correct Lua hit locations
+
+NativePreviewFirstTurnLua0..16 and NativePreviewFirstTurnLAN: canonical parent RED9/53
+both ->unchanged GREEN53,44 controls pass. Seventeen real native cases separate unit-first
+state from logging and world-first, exercise actual Lua default/valid/invalid hit
+locations and preserve physical/counter/environment/seed728 zero-draw witnesses. Real TCP
+performs unit+tile requests before/after native first-turn transition: old0,0,1,1
+->native1,1,0,0, unchanged packet shape, four Script37 replies/per-query purity. Old melee
+TCP37/-1 exact. Thirty-four legacy assertions retained and reference unit-first; native
+turn starts initialized publicly before reads. Invalid deployed-actor/pre-initialization
+observer/compile phases archived, not canonical RED. Actual Steam bounded static proof and
+no-whole-body/field-frame-global masking limits are in UPSTREAM-IMPORTS.md. Fresh
+Gameboth/521 scoped each/CI382/12LANeach361 pass; prior selected critical witnesses exact.
+Full521 repeats22aligned;12otheraligned covered in53, LABmetadataassumption correctedonly.
+Linuxinitialdisconnect4/5
++serialoriginal2PASS1compoundFAIL/probesoriginalboundary3PASSbutcomplete2PASS1laterrawdisconnectFAIL
+allrawretained, hashes exact/causeunproven/oneunchangedfull12retry361PASS/no
+sourceassertionexclusion changes or inflatedcounts. No unrelated full117/font/tactical
+suite claim. Source317 remains partial/21unfinished.
+
+Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).
