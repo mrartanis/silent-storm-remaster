@@ -25579,3 +25579,90 @@ Ledger225 imported/13 pending/8 partial:21 unfinished. Final-head hosted success
 required at whole-task completion.
 
 Source: [f6455c9f92eb6d4c66efebc74face61d1e1065bb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6455c9f92eb6d4c66efebc74face61d1e1065bb).
+
+## 166. Use directed shot origins and per-bullet tile previews
+
+The tile preview now copies the current pose, faces it toward the commanded point and
+returns-1 for native AIP_NOT_PASSABLE or AIP_CANNOT_LAY. Other granular outcomes retain
+their previous handling. Ranged cover rays start at the actual attack origin for that
+directed pose. The query uses the existing GetAttackerTileToHit helper with the real cover
+source for each bullet, then integer-averages the chances. Max(1, the existing quantity
+API) retains the original minimum-one rule without changing that API. Existing melee
+reach/blow-height/min-clear routing and replica delegation remain in place. Only
+CGame.GetTileCompositeToHit changes; first-turn/logging ownership, general object API,
+grenade/rocket dispatcher and UI/Lua/network routing remain pending in31725f2d. No AP,
+damage, execution, serialization, packet or database changes.
+
+Seven native cases use real map810/person54, actual passability and cover tracing,
+authored loaded firearms and public placement/animation. Input selection uses independent
+directed-pose geometry, native covers, existing per-bullet helper and legacy
+direct-calculator inputs; it never selects on GetTileCompositeToHit under test. A prone
+pose with currentPass0 but desiredPass2 changes77->-1. Standing native pistol1
+changes69->62; crouching changes63->70. Short burst weapon9 has two native chances61/45,
+averaging53 rather than old68. Long burst weapon26 has66/57/56/56, integer average58
+rather than old72. A positive-cover Snap control remains69 and an actual blocked-cover(-1)
+control remains0; both complete result rows are unchanged. These tests do not fire a shot
+or measure actual damage/shot execution.
+
+Canonical parent RED5/7 on Windows and Linux becomes unchanged GREEN7/7. All seven result
+rows, per-bullet chances and platform-specific recorded input witnesses agree between
+their RED/GREEN phases. The query preserves real HP137/AP53, ammo8/20/100, position,
+active item, world time, day flag and no-command state. All seven seed727 zero-draw
+tails3111839282/2529240221/2765625043/3155365749 remain exact. The first diagnostic
+compile used GetDirection through IPathNetwork, which has no such method; both compile
+failures are archived, not RED. Correct only the diagnostic to require the actual
+CPathNetwork before the canonical parent replay.
+
+Cross-platform input rows are explicitly unequal in the positive cover field: Windows75
+versus Linux100 in modes1..4, and68 versus93 for long burst. All other recorded fields and
+all result/per-bullet/RNG rows agree. One unchanged seven-case pre-fix confirmation on
+each platform reproduces all of that platform's complete result/input/per-bullet rows,
+with native executable SHA unchanged before/after. The difference's cause is unproven; it
+is not normalized or assigned to a compiler, renderer or timing. In this ordinary TH_SHOOT
+tile path, inherited CToHitCalcer.GetToHit checks cover<=0 and GetAllMult omits GetCA, so
+the positive magnitude does not scale these percentages; unit-target calculations have
+different coverage handling. The runtime fixtures and assertions are not weakened, cover
+is never fabricated and these confirmations do not inflate the seven-case count. No full
+cross-platform cover/input parity is claimed.
+
+Typed Gold tile GetToHit6af370/938 binds actual Steam6b5480, not the donor's
+interior6b54a0 label. Its original unit/position/point/logging arguments differ from our
+retained adapter. Complete46 bytes Gold6af596 ->uniqueSteam6b56ae, with only its decoded
+E8 displacement, bind GetShootDirection6b56ae ->6984f0, direction update, native slot3c
+and comparisons1/2. Actual unavailable return is OR EAX,FFFFFFFF at6b570e ->JMP6b5813.
+CPathNetwork RTTI root slot3c independently binds named GoldGetPassability442830/385
+->Steam443560; typed EPassable ordinals0..4 are retained, with no whole385 claim.
+
+Complete29 Gold6af682 ->uniqueSteam6b5796, with only one decoded E8 displacement, includes
+per-bullet helper6b579c ->6b52c0, sum/increment/JL and signed IDIV6b57b1. Complete17
+Gold6af633 ->uniqueSteam6b574b independently binds quantity call6b5751 ->6b3e60. The named
+quantity helper's division-six/minimum-one complete30-byte tail Gold6add70
+->uniqueSteam6b3ec0 is raw exact. Its whole160-byte jump-table body is not matched or
+normalized. Existing164 actual-origin helper proof is reused, not reimported.
+
+The named direction helper's complete168-byte suffix Gold692488 ->uniqueSteam698508
+matches with only four decoded E8 displacements; its24-byte EH prefix and whole192 are
+unclaimed. Complete17 raw bytes Gold6ae62b ->uniqueSteam6b475e bind the cover-builder
+argument setup and virtual origin call. Typed CUnitServer root slot48 independently binds
+GetAttackOrigin Gold7b3b80/624 ->Steam7c0300, without whole624 equivalence. Wider
+cover-builder516 bytes are rejected for real frame60/64 and argument-layout differences;
+wider burst candidates reject NOP/opcode, local-JLE and frame differences. No
+whole938/516/192/160, original gameplay execution, full adapter ABI, global/BSS
+target-memory reads or field/frame/register/opcode/local-branch/global masks are claimed.
+Mission first-turn/logging and Lua argument research are separate pending317 evidence, not
+completed by this change.
+
+Fresh full Game builds and503 appropriately scoped native
+tile/cover/ray/ranged/shooting/bullet/burst/weapon/accuracy/to-hit/incidental/rocket/throw/preview/melee
+plus eight pose-planning cases pass on each platform. Prior17 melee results, both named
+caption helper case blocks, all five tile-helper query/input/environment/integration rows,
+all eight pose result/input rows and selected prior AI/melee witness rows remain exact.
+Unrelated full117 camera/light/demo/health rows,13 tactical views and12 fonts are not
+repeated or claimed in this scoped gate. CI382 and12 standard LAN gates/361 encounter
+variants each pass with fresh helpers and only the existing nested-save exclusion.
+Baseline/Steam game.db SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df
+remains unchanged. Ledger stays225 imported/13 pending/8 partial,21 unfinished: source317
+remains partial until its remaining API/dispatch/UI/Lua family is completed. Final-head
+hosted success is still required at whole-task completion.
+
+Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).

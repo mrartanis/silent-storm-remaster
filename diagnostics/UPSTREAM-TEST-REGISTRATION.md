@@ -2942,3 +2942,24 @@ fonts12/13tactical/CI382/standard12LANeach361 pass. Historical raw job/HP/RNG in
 explicit; no fresh confirmation/cause claim. Sourcef645 complete,21 unfinished.
 
 Source: [f6455c9f92eb6d4c66efebc74face61d1e1065bb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6455c9f92eb6d4c66efebc74face61d1e1065bb).
+
+## 166. Use directed shot origins and per-bullet tile previews
+
+NativeTileShotPreview0..6: canonical parent RED5/7 both ->unchanged GREEN7/7. Native prone
+impossible-facing77->-1, actual directed-origin standing69->62/crouch63->70, short weapon9
+two-bullet61/45 average53 vsold68, long weapon26 four-bullet66/57/56/56 average58 vsold72.
+Two complete result controls69 and blocked-cover0 exact. All seven physical preservation
+and seed727 zero-draw RNG tails exact, recorded inputs exact within each platform.
+Cross-platform positive-cover75/100 and68/93 are raw inequalities with unproven cause; one
+unchanged seven-case pre-fix confirmation per platform and binary hashes retain all
+per-platform rows. Positive magnitude is not used by this TH_SHOOT tile calcer beyond
+the<=0 gate, unlike unit-target coverage. No normalization, fake rays, assertion change,
+actual shot or inflated counts. Initial IPathNetwork.GetDirection compile failures
+archivedNOTRED; nativeCPathNetwork fixture correction precedes canonicalRED. Original
+bounded46/29/17/168 E8-only and30/17RAW, typed passability/origin slots and whole-body
+rejection limits are in UPSTREAM-IMPORTS.md. Fresh Gameboth/503
+targeted/CI382/12LANeach361 pass; prior17melee+two caption blocks/5tile helpers/8pose and
+selected AImelee witnesses exact. No unrelated full117/fonts/tactical suite claim.
+Source317 stillpartial/21unfinished.
+
+Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).

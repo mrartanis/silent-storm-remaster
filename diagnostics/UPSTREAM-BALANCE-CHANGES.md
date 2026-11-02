@@ -4644,3 +4644,18 @@ Sourcef645 closes;21 unfinished sources remain. Proof bounds and raw legacy ineq
 are in UPSTREAM-IMPORTS.md.
 
 Source: [f6455c9f92eb6d4c66efebc74face61d1e1065bb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6455c9f92eb6d4c66efebc74face61d1e1065bb).
+
+## 166. Use directed shot origins and per-bullet tile previews
+
+Tile shot previews now reject a pose that cannot face its commanded point, cast from that
+facing's actual origin and average existing per-bullet chances. Native
+examples77->-1,69->62,63->70, short68->53 and long72->58; controls69/0 remain unchanged.
+HP/AP/ammo/item/position/time and query RNG are preserved, with no executed shot, damage,
+action or packet change. Seven real native cases RED5->GREEN7 both; Game503 targeted
+each/CI382/12LANeach361 pass. Raw cross-platform positive-cover inequalities are retained
+with unchanged-binary confirmations, not normalized; cause unproven and no full cover
+parity claim. Firstturn/logging/generalobject/grenade-rocket/UI-Lua routing remains
+pending317;21 unfinished sources. Original proof bounds and exact scope are in
+UPSTREAM-IMPORTS.md.
+
+Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).

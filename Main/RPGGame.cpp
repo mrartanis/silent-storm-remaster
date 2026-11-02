@@ -845,7 +845,6 @@ int CGame::GetTileCompositeToHit(  NWorld::CUnit *pAttacker, CVec3 ptTilePos,
 	auto* actor = dynamic_cast<NWorld::CUnitServer*>(pAttacker);
 	if (actor && actor->GetWorld()->bNetworkReplica)
 		return actor->GetWorld()->networkHitChance ? actor->GetWorld()->networkHitChance(2,pAttacker,nullptr,ptTilePos,eHitLocation,bFirstTurn) : 0;
-	int nDistance = fabs( pAttacker->GetPosition().GetCP() - ptTilePos ) / FP_GRID_STEP;
 	//
 	CDynamicCast<NRPG::IUnitMission> pRPG( pAttacker->GetRPG() );
 	vector<NRPG::CAttackPortion> attack;
@@ -853,7 +852,7 @@ int CGame::GetTileCompositeToHit(  NWorld::CUnit *pAttacker, CVec3 ptTilePos,
 	if ( attack.empty() )
 		return 0;
 	//
-	// retail composite tile to-hit @0x2b54a0 + RealCalcTileCovers @0x2b4700: a SWUNG melee weapon
+	// Original Steam tile preview 0x6b5480 and RealCalcTileCovers 0x6b4700: a SWUNG melee weapon
 	// (TH_MELEE) first gates on NWorld::CanMeleeAttack -- out of arm's reach returns the -1
 	// sentinel (the retail cursor @0x1da200 SKIPS -1 results instead of printing them) -- and its
 	// cover walk starts at the blow-height melee attack pos (GetMeleeAttackPos) with NO min-clear
@@ -861,6 +860,12 @@ int CGame::GetTileCompositeToHit(  NWorld::CUnit *pAttacker, CVec3 ptTilePos,
 	// GetMinClearDistance. The previous unconditional muzzle-origin+min-clear walk produced no
 	// usable hit rays at melee range, so GetHitCover fed a constant 0 into the TH_MELEE 0/100
 	// rule of GetTileToHit (@0x2b4df0) -> melee at ground/walls/objects always displayed 0%.
+	// Original Steam 0x6b56ae/0x6b56cf: preview the pose facing the commanded point.
+	NAI::SUnitPosition pos = pAttacker->GetPosition();
+	pos.pos.p.SetDirection( GetShootDirection( pos.pos.pNet, pos.pos.p, ptTilePos ) );
+	const NAI::EPassable pass = pos.pos.pNet->GetPassability( pos.pos.p );
+	if ( pass == NAI::AIP_NOT_PASSABLE || pass == NAI::AIP_CANNOT_LAY )
+		return -1;
 	CVec3 ptFrom;
 	float fMinClearDistance;
 	if ( GetToHitType( pAttacker ) == TH_MELEE )
@@ -873,16 +878,20 @@ int CGame::GetTileCompositeToHit(  NWorld::CUnit *pAttacker, CVec3 ptTilePos,
 	}
 	else
 	{
-		ptFrom = pAttacker->GetAttackOrigin( pAttacker->GetPosition() );
+		ptFrom = pAttacker->GetAttackOrigin( pos );
 		fMinClearDistance = pAttacker->GetMinClearDistance();
 	}
 	//
 	CObj<NRPG::CCoverInfo> pCover = CalcCoversForTile( ptFrom, attack[0], pAttacker,
 		ptTilePos, fMinClearDistance );
-	int nHitCover = GetHitCover( pAttacker, pCover );
-	//
-	return NRPG::GetTileToHit( pAttacker, pAttacker->GetPose(), nDistance, pAttacker->GetPosition().GetCP(),
-		ptTilePos, eHitLocation, pAttacker->GetCarefulShotExtraAP(), nHitCover, bFirstTurn );
+	// Original Steam 0x6b5751/0x6b579c..0x6b57b1: average the per-bullet chances.
+	// Its quantity helper clamps to at least one (0x6b3ed1..0x6b3edb).
+	const int nRof = Max( 1, pRPG->GetBulletsQuantityInShot() );
+	int nToHit = 0;
+	for ( int i = 0; i < nRof; ++i )
+		nToHit += GetAttackerTileToHit( pAttacker, ptTilePos, pAttacker->GetCarefulShotExtraAP(),
+			eHitLocation, pCover, bFirstTurn, i );
+	return nToHit / nRof;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CGame::GetBazookaToHit(  NWorld::CUnit *pAttacker, CVec3 ptTilePos, 

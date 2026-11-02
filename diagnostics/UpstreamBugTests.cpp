@@ -32615,6 +32615,99 @@ static void MeleeReachPreview(const char* databasePath,const char* resourcePath,
 }
 
 
+static void TileShotPreview(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<7,"unknown native tile shot preview case");
+    const bool blockedPose=mode==0,burst=mode==3 || mode==6;
+    const auto pose=blockedPose?NAI::CM_LAY:mode==2?NAI::CM_CROUCH:NAI::CM_STAND;
+    CObj<NRPG::CGlobalGame> global;
+    auto world=FixtureWorld(databasePath,resourcePath,true,&global);
+    auto* network=dynamic_cast<NAI::CPathNetwork*>(world->GetPathNetwork());
+    Require(network,"tile shot preview lacks the actual native path network");
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor=nullptr;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->IsAIUnit() && !unit->IsWearingPK() && !unit->IsEmptyPK()){actor=unit;break;}
+    Require(actor,"tile shot preview lacks a native party actor");
+    const auto shot=mode==6?NDb::SM_LongBurst:burst?NDb::SM_ShortBurst:NDb::SM_Snap;
+    CObj<NRPG::CWeaponItem> gun;
+    CDBIterator<NDb::CRPGWeapon> records(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while(records.MoveNext()){
+        auto* p=records.Get();
+        if(!p->shootModes[shot] || p->bBazookaLogic || !p->pItem || !p->pItem->pModel || !p->pInnerClip || !p->pWeaponType || (burst && p->nRoF<12))continue;
+        CObj<NRPG::CWeaponItem> candidate=new NRPG::CWeaponItem(p);
+        if(candidate->GetAmmoQuantity()>0 && (!gun || p->GetRecordID()<gun->GetDBWeapon()->GetRecordID()))gun=candidate;
+    }
+    Require(gun && gun->SetShootMode(shot),"tile shot preview lacks an actual loaded authored shoot mode");
+    auto* inventory=actor->GetUnitRPG()->GetInventory();
+    CObj<NRPG::IInventoryItem> previous=inventory->TakeOff(NDb::SLOT_1);
+    Require(inventory->Equip(NDb::SLOT_1,gun) && inventory->Activate(NDb::SLOT_1) && NRPG::GetToHitType(actor)==NRPG::TH_SHOOT,"tile shot preview cannot equip native firearm");
+    actor->SetWalkWithoutWeapon(false);actor->SetUndrawItem(false);
+    actor->animator.SetActiveItem(true);actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
+    const auto initial=actor->GetPosition();
+    vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(initial.GetCP(),blockedPose?8.f:1.f),&places);
+    NAI::SUnitPosition from=initial;CVec3 target=VNULL3;
+    bool foundPose=false;int currentPass=-1,desiredPass=-1;
+    for(auto base:places){
+        if(!base.IsIntegral() || base.IsFinal() || base.GetLayer()!=initial.pos.p.GetLayer())continue;
+        for(int d=0;d<8;++d){
+            auto source=base;source.SetPose(pose);source.SetDirection(d);source.SetMoving(0);
+            const auto at=NAI::SPosition(source,network).GetCP();
+            target=at+CVec3(float(cos(network->GetDirection(source)+1.57079632679f)),float(sin(network->GetDirection(source)+1.57079632679f)),0)*3.125f;
+            auto desired=source;desired.SetDirection(NRPG::GetShootDirection(network,source,target));
+            network->Unlock(actor);currentPass=network->GetPassability(source);desiredPass=network->GetPassability(desired);network->Lock(actor,actor->GetPosition().pos.p);
+            if(currentPass!=NAI::AIP_YES || (blockedPose?desiredPass!=NAI::AIP_CANNOT_LAY:desiredPass!=NAI::AIP_YES))continue;
+            from=initial;from.pos=NAI::SPosition(source,network);from.SetPose(blockedPose?NAI::CRAWL:pose==NAI::CM_CROUCH?NAI::CROUCH:NAI::WALK);
+            foundPose=true;break;
+        }
+        if(foundPose)break;
+    }
+    Require(foundPose,"tile shot preview lacks independently passable current pose and desired-facing witness");
+    actor->SetPosition(from);actor->animator.AlignTime();actor->animator.PlaceUnit(from);MarkNewDGFrame();world->GetAIMap()->Sync();world->GetGame()->SetNight(false);
+    auto* mission=dynamic_cast<NRPG::IUnitMission*>(actor->GetRPG());Require(mission && actor->GetScriptToHit()<0,"tile shot preview lacks unscripted native mission");
+    vector<NRPG::CAttackPortion> attacks;mission->CreateAttack(&attacks,false);Require(!attacks.empty(),"tile shot preview lacks actual native attack");
+    const bool first=world->IsFirstTurn();const int bullets=Max(1,mission->GetBulletsQuantityInShot());Require(burst?bullets>1:bullets==1,"tile shot preview has no native multi-bullet or single-shot witness");
+    int expected=-1,legacy=-2,firstBullet=-1,cover=-2,examined=0;vector<int> bulletChances;
+    CVec3 oldOrigin=actor->GetAttackOrigin(from),newOrigin=VNULL3;
+    if(!blockedPose){
+        vector<NAI::SPathPlace> targets;network->GetNearPlaces(SSphere(from.GetCP(),20.f),&targets);
+        bool selected=false;
+        for(auto p:targets){
+            if(!p.IsIntegral() || p.IsFinal())continue;
+            const auto ground=NAI::SPosition(p,network).GetCP();if(fabs2(ground-from.GetCP())<4.f)continue;
+            for(float height:{0.f,0.625f,1.25f,2.5f}){
+                ++examined;const auto at=ground+CVec3(0,0,height);
+                auto directed=from;directed.pos.p.SetDirection(NRPG::GetShootDirection(network,from.pos.p,at));
+                network->Unlock(actor);const int pass=network->GetPassability(directed.pos.p);network->Lock(actor,from.pos.p);if(pass!=NAI::AIP_YES)continue;
+                const auto origin=actor->GetAttackOrigin(directed);
+                CObj<NRPG::CCoverInfo> rays=world->GetGame()->CalcCoversForTile(origin,attacks.front(),actor,at,actor->GetMinClearDistance());
+                CObj<NRPG::CCoverInfo> oldRays=world->GetGame()->CalcCoversForTile(oldOrigin,attacks.front(),actor,at,actor->GetMinClearDistance());
+                Require(rays && oldRays,"tile shot preview lacks actual native cover results");
+                const auto snapshot=CoverSnapshot(rays);Require(snapshot.source==origin,"tile shot preview lost actual solver origin");
+                const int hit=NRPG::GetHitCover(actor,rays),oldHit=NRPG::GetHitCover(actor,oldRays);
+                vector<int> chances;int sum=0;
+                for(int i=0;i<bullets;++i){const int chance=NRPG::GetAttackerTileToHit(actor,at,actor->GetCarefulShotExtraAP(),NAI::THL_LOWER,rays,first,i);chances.push_back(chance);sum+=chance;}
+                const int average=sum/bullets;
+                const int before=NRPG::GetTileToHit(actor,actor->GetPose(),int(fabs(from.GetCP()-at)/FP_GRID_STEP),from.GetCP(),at,NAI::THL_LOWER,actor->GetCarefulShotExtraAP(),oldHit,first);
+                if(mode==5?(hit>0 || average!=0 || before!=0):mode==4?(hit<=0 || average!=before):(hit<=0 || average==before || (burst && average==chances.front())))continue;
+                target=at;newOrigin=origin;desiredPass=pass;expected=average;legacy=before;firstBullet=chances.front();cover=hit;bulletChances=chances;selected=true;break;
+            }
+            if(selected)break;
+        }
+        Require(selected,"tile shot preview lacks independently distinguishing cover/origin/burst inputs or exact control");
+    }
+    std::printf("TILE-SHOT-INPUT mode=%d pose=%d currentPass=%d desiredPass=%d weapon=%d shot=%d bullets=%d examined=%d cover=%d expected=%d old=%d firstBullet=%d originChanged=%d\n",mode,int(pose),currentPass,desiredPass,gun->GetDBWeapon()->GetRecordID(),int(shot),bullets,examined,cover,expected,legacy,firstBullet,int(newOrigin!=oldOrigin));
+    for(size_t i=0;i<bulletChances.size();++i)std::printf("TILE-SHOT-BULLET mode=%d index=%u chance=%d\n",mode,unsigned(i),bulletChances[i]);
+    const auto position=actor->GetPosition();const int hp=mission->GetTotalVP(),ap=actor->GetAP(),ammo=gun->GetAmmoQuantity();const auto time=world->GetTime()->GetValue();
+    GlobalGameRandom().SeedForHarness(727);auto reference=GlobalGameRandom();
+    const int actual=world->GetGame()->GetTileCompositeToHit(actor,target,NAI::THL_LOWER,first);
+    auto after=GlobalGameRandom();unsigned tail[4];bool rng=true;for(int i=0;i<4;++i){tail[i]=after.Get();rng&=tail[i]==reference.Get();}
+    const bool pure=position==actor->GetPosition() && hp==mission->GetTotalVP() && ap==actor->GetAP() && ammo==gun->GetAmmoQuantity() && inventory->GetActive()==gun.GetPtr() && time==world->GetTime()->GetValue() && !actor->HasCommand() && !world->GetGame()->IsNight();
+    std::printf("TILE-SHOT mode=%d actual=%d expected=%d old=%d HP=%d AP=%d ammo=%d pure=%d RNGsame=%d rng0=%u rng1=%u rng2=%u rng3=%u\n",mode,actual,expected,legacy,hp,ap,ammo,int(pure),int(rng),tail[0],tail[1],tail[2],tail[3]);std::fflush(stdout);
+    Require(pure && rng,"tile shot preview changed native actor/item/time/night/command/RNG controls");
+    Require(actual==expected,"tile shot preview lost desired-pose clearance, actual-origin helper or per-bullet average");
+}
+
+
 static void TileCoverOrigin(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<5,"unknown tile cover origin case");CObj<NRPG::CGlobalGame> global;auto world=FixtureWorld(databasePath,resourcePath,true,&global);auto* network=world->GetPathNetwork();list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;for(auto unit:units)if(unit && unit->CanFight() && !unit->IsAIUnit() && !unit->IsWearingPK() && !unit->IsEmptyPK()){actor=unit;break;}Require(actor,"tile cover origin lacks real native actor");
@@ -35470,6 +35563,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-melee-reach-preview") && argc==5) { MeleeReachPreview(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-tile-shot-preview") && argc==5) { TileShotPreview(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tile-cover-origin") && argc==5) { TileCoverOrigin(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-inactive-door-turn") && argc==5) { InactiveDoorTurn(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-directed-attack-pose")) { Require(argc==5,"directed attack pose requires db/resources/mode"); NativeDirectedAttackPose(argv[2],argv[3],std::atoi(argv[4])); return true; }
