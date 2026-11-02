@@ -4605,3 +4605,26 @@ static proof limits are in UPSTREAM-IMPORTS.md. Source fcc994bc complete,22 unfi
 donor sources remain.
 
 Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).
+
+## 164. Measure tile-shot distance from the actual cover origin
+
+Tile/non-unit shot chance now measures range from the actual traced shot origin instead of
+the unit's feet; the calculator also receives that same origin. Real day-controlled native
+inputs correct standing62->54 and crouched55->63. Equal-origin and blocked-cover controls
+stay62 and0. Existing chance, damage, AP and weapon formulas and authored values are
+unchanged; corrected geometric input can change the resulting percentage. Point-only
+arithmetic changes are not claimed from the current constant-area tile calculator. The
+legacy direct tile preview dispatcher remains a separate pending317 hunk.
+
+Final native RED3/5 ->unchanged GREEN5 both, two complete query/integration controls and
+all five zero-draw query/one-draw roll78 tails exact. HP/AP/ammo/position/item/time/day
+preserved; integration uses CheckTileToHit but does not fire a projectile or cause damage.
+Full Game both/scoped1048 Windows1038 Linux/CI382/176 focused/117 old rows/13 tactical/12
+LAN gates and361 maps each pass. Raw previous native setup/job/RNG differences remain
+explicit. Linux initial disconnect and separate original compound-event failures are
+retained; final LAN gates pass after one complete unchanged retry, with unchanged
+binaries/library and no test/assertion change; cause unproven. Save/wire and baseline data
+unchanged. Source317 is partial;22 unfinished sources remain. Original proof and fixture
+discovery limits are in UPSTREAM-IMPORTS.md.
+
+Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).

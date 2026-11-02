@@ -2897,3 +2897,29 @@ UPSTREAM-IMPORTS.md. Last fcc994bc hunk complete;224 imported14 pending8 partial
 unfinished.
 
 Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).
+
+## 164. Measure tile-shot distance from the actual cover origin
+
+NativeTileCoverOrigin0..4: final day-controlled parent RED3/5 both ->unchanged GREEN5
+both. Real810/actor54/weapon1 loaded Snap/native cover/independent calcer inputs/read-only
+native CoverSnapshot. Standing and left-origin query62->54, crouching55->63; real
+equal-center62 and blocked-cover0 controls exact. Two complete query+CheckTileToHit
+control rows, all five pure-query zero-draw and execution-helper one-draw tails/roll78
+exact. HP/AP/ammo/position/item/time and day input witnesses preserved. Native percentages
+distinguish distance; point-only arithmetic effect is not claimed because current tile
+area is constant.
+
+Initial compile failures and too-early day controls archived, not RED. Initial valid
+night-dependent rows retained; public day control after all placement/visibility refresh,
+then final unchanged-parent replay before the fix. No full shot, original execution, fake
+ray/grid/HP or World READ. Full Game both/scoped1048 Windows1038 Linux/176 focused/13
+tactical/117 old rows/8 pose6 preview5 hover3 inactive12 fonts/CI382/12 LAN gates and361
+variants each pass. Previous raw job/HP/RNG variants remain explicit; historical
+confirmations only. Linux initial4/5 disconnect failure and one of5 unchanged originals
+different compound-event failure retained; five original-gate-preserving LAB probes and
+one complete unchanged12-gate/361-map Linux retry pass, no repo/assertion/exclusion
+changes and exact cause unproven. One existing nested-save exclusion. Original173+46
+E8-only/typed Cover.srcB00/GetPose43 raw and excluded-global/whole225/ABI limits are
+detailed in UPSTREAM-IMPORTS.md. Source317 now partial,22 unfinished.
+
+Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).

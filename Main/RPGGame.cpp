@@ -718,8 +718,9 @@ int GetAttackerTileToHit( const NWorld::CUnit *pAttacker, const CVec3 ptTarget, 
 	NAI::ETileHitLocation eHitLocation, CCoverInfo *pCover, bool bFirstRound, int nBullet )
 {
 	int nHitCover = GetHitCover( pAttacker, pCover );
-	int nDistance = fabs(pAttacker->GetPosition().GetCP() - ptTarget ) / FP_GRID_STEP;
-	CVec3 ptAttacker = pAttacker->GetPosition().GetCenter();
+	// Original Steam 0x6b52dd/0x6b5393: use the cover solver's actual shot origin.
+	int nDistance = fabs( pCover->src - ptTarget ) * FP_INV_GRID_STEP;
+	CVec3 ptAttacker = pCover->src;
 	//
 	return NRPG::GetTileToHit( pAttacker, pAttacker->GetPose(), nDistance, ptAttacker,
 		ptTarget, eHitLocation, nExtraAP, nHitCover, bFirstRound, CVec3(1,1,1), nBullet );

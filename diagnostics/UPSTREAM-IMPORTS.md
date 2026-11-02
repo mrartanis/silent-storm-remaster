@@ -25389,3 +25389,104 @@ pending,8 partial;22 unfinished. This closes this donor source rather than the w
 import task. Final-head hosted success remains required at whole-task completion.
 
 Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).
+
+## 164. Measure tile-shot distance from the actual cover origin
+
+GetAttackerTileToHit now measures distance from the native cover result's src and passes
+that same point to the existing calculator. Previously it measured from the actor's feet
+and supplied the actor's center, even when the rays began at a different muzzle position.
+Only two helper assignments and an actual-original address comment change in RPGGame.cpp.
+This shared helper is consumed by CheckTileToHit in tile shots, non-unit object shots and
+incidental attack paths. Existing first-round/logging, seven-argument helper and current
+game/UI/Lua/LAN interfaces, int hit-cover adapter, damage/AP and chance formulas remain
+unchanged. The legacy direct GetTileCompositeToHit dispatcher is a separate pending317
+hunk: this checkpoint does not claim to have changed that UI preview path or completed the
+full source.
+
+NativeTileCoverOrigin0..4 use real map810/person54, authored weapon1 with loaded Snap
+ammo8, real native CalcCoversForTile geometry and the existing read-only CoverSnapshot
+native serializer. Input selection compares independent native GetTileToHit calls using
+the actual cover origin versus the old feet/center inputs; it never selects on the helper
+under test. In the final controlled day fixture, canonical parent RED3/5 both becomes
+unchanged GREEN5 both. Standing and the left-origin request have real cover81/distance8
+versus old7, correcting62->54. Crouching has cover100/distance7 versus old8,
+correcting55->63. The left-origin query shares the same observed numbers as the first
+case; this is not proof of distinct dual-weapon origins or equipment. A real center-origin
+equal-distance control stays62 and an actual blocked-cover(-1) control stays0. The
+percentages distinguish the distance correction. The current tile calculator's area is
+constant0.33 and does not independently use ptAttacker in its arithmetic, so no separate
+point-only observable effect is claimed; that assignment is supported by the original
+argument identity and code inspection.
+
+Each case also calls the actual CheckTileToHit integration used by execution. Its output
+chance equals the queried helper, its seeded roll stays78 and exactly one random draw is
+consumed; no projectile, damage or full shot is executed. Both complete query/integration
+control rows remain exact. All five pure-query RNG
+tails2831930006/4275284366/2085145947/2144279815 (seed724, zero draws) and integration
+tails1899666822/1019879914/3374018504/644028078 (seed725, one draw) remain exact. All five
+physical/environment input rows retain day0/first1/skill35/weather0/person54/weapon1.
+Actual HP137/AP53/ammo8, position, active item and world time remain unchanged.
+
+The first diagnostic compile attempted IPathNetwork.GetCP and direct access to the private
+incomplete cover type. Those compile failures were archived, not RED; use SPosition.GetCP
+and the already established read-only native CoverSnapshot. Initial valid three-failure
+phases had differing native percentages; raw rows were retained. Added public environment
+witnesses showed the native night flag0/1 varying between fresh processes, including on
+Windows, with the same skill/actor/weapon/weather/first-round inputs. Existing GetLight
+applies the night0.9 factor. A first public SetNight(false) control was too early: public
+actor placement calls UpdateVisible, which rederives the RPG night flag from world
+time-of-day at wMain.cpp1209. Linux then failed the day-purity precondition; that phase is
+not canonical RED. Set the public day control after all placement/sync and before the
+query, then replay the final five on unchanged Main before the two-line fix. No claim
+about why fresh fixture worlds chose night, no private field/HP/grid/position injection,
+fabricated ray values or partial World READ.
+
+Typed Gold GetAttackerTileToHit6af1b0/225 binds actual Steam6b52c0. Complete173 bytes
+Gold6af1b0 -> uniqueSteam6b52c0 and complete46 Gold6af263 ->uniqueSteam6b5373 match with
+only three decoded E8 displacements in total. Named Gold CCoverInfo.src is atB00; raw
+actual6b52dd loads it and6b52e3 retains its address for the calculator call at6b5395
+(argument setup6b5393). Named SUnitPosition.GetPose Gold4902d0/43 ->Steam4913d0 is
+whole43-byte raw exact and unique. The six-byte global FMUL Gold6af25d/Steam6b536d is
+excluded as a whole instruction; target memory8a3f74/8b2fdc is neither read nor masked.
+Whole225 is rejected, and no original multiplier value is inferred. The Gold helper has
+eight arguments including separate unit/position, while our retained adapter has seven and
+int rather than original float hit cover. No whole225/668, ABI, complete original
+shot/runtime equivalence or field/frame/register/opcode/local-branch/global masks are
+claimed. The donor6b532d..6b53e5 comment spills beyond the actual helper end53a1; imported
+comments use actual6b52dd/6b5393.
+
+Fresh full Game builds pass on both systems. Scoped prior attack/planning/preview plus
+ranged/tile/shooting/bullet/burst/weapon/accuracy/cover/ray/incidental/RLauncher/throw
+suites pass1048 Windows/1038 Linux with176 focused cases and13 tactical views. All117 old
+fixed rows, prior explosive/AI/melee/filter outputs, eight pose rows, six melee-preview
+rows, five hover rows, three inactive-door rows and12 fonts remain exact. CI382 and12 LAN
+gates/361 encounter variants each pass with fresh helpers and only the existing
+nested-save exclusion. Baseline and Steam game.db retain
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df. Previous raw native
+job counts, setup HP137/157 and known smooth0 Windows/0-or-1 Linux RNG variants remain
+explicit inequalities if observed, with only their historical159/160/163 confirmations
+referenced; no fresh current-binary confirmation, root cause, normalization or full old
+RNG parity is claimed.
+
+Linux initially passed4/5 infrastructure gates and failed NetworkSessionTests with
+"disconnect did not stop match", before any seven direct matches ran. The original test
+checks session failure after only one Poll following peer.Close. Five unchanged
+original-executable runs gave four measured passes and one different compound
+ready/state/event-count failure labeled "duplicate event played twice". The helper had
+set-e and did not capture that failing process exit; its raw failure is retained, not
+counted as a fifth pass. A LAB-only probe reports the original disconnect gate and
+preserves its failure even if an extra bounded drain could recover. All five probe copies
+passed the original gate and the entire unchanged test flow; no extra drain occurred. This
+does not prove why either original failure happened. One complete unchanged Linux LAN
+retry then passed5 infrastructure plus7 direct matches/361 variants. Original
+NetworkSessionTests and linked transport-library hashes stayed identical before/after
+diagnostics and retry; no repository, assertion, exclusion or network production change.
+The raw first failures remain explicit and these extra runs do not inflate the12 final
+gates.
+
+Only the two-line origin helper hunk of31725f2d is imported. Its general object-preview
+routing, logging/first-turn ownership, tile dispatcher, facing-origin, rocket, burst and
+UI/Lua consumers remain pending. Ledger:224 imported,13 pending,9 partial;22 unfinished.
+Final-head hosted success is still required at whole-task completion.
+
+Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).
