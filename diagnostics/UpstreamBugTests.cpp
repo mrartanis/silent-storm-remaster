@@ -30336,6 +30336,58 @@ static CObj<NRPG::CWeaponItem> NativeEquipFamiliarityGun(NRPG::CUnit* unit)
 {
     NDb::CRPGWeapon* record=nullptr;CDBIterator<NDb::CRPGWeapon> rows(*NDatabase::GetTable<NDb::CRPGWeapon>());while(rows.MoveNext()){auto* candidate=rows.Get();if(candidate->pItem && candidate->pWeaponType && candidate->shootModes[NDb::SM_Snap] && (!record || candidate->GetRecordID()<record->GetRecordID()))record=candidate;}Require(record,"familiarity fixture lacks an authored snap firearm");CObj<NRPG::CWeaponItem> gun=new NRPG::CWeaponItem(record);gun->nQuantity=1;auto* inventory=unit->GetInventory();CObj<NRPG::IInventoryItem> previous=inventory->TakeOff(NDb::SLOT_1);Require(inventory->Equip(NDb::SLOT_1,gun) && inventory->Activate(NDb::SLOT_1) && unit->GetWeaponItem()==gun.GetPtr() && gun->SetShootMode(NDb::SM_Snap),"familiarity fixture could not activate its actual firearm");return gun;
 }
+static void NativeUnawareCritical(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<6,"unknown native unaware critical mode");
+    const bool acquired=mode!=0,backstab=mode!=2 && mode!=5,gun=mode>=4;
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    CObj<NRPG::IUnitMission> mission=NativeMissionWithUntakenPerk(74),victim=NRPG::CreateUnit(NDb::GetPers(103));
+    auto* unit=mission->GetRPGUnit();auto* tree=unit->GetPerksTree();auto* definition=NDb::GetDBPerk(74);
+    Require(definition && definition->params.size()>=2 && definition->params[0]>=0 && definition->params[1]>0,"unaware critical lacks its two real authored parameters");
+    vector<CPtr<NRPG::CPerk>> perks;tree->GetAllPerks(&perks);NRPG::CPerk* bonus=nullptr;
+    for(auto perk:perks)if(perk->GetDBPerk()==definition)bonus=perk;
+    Require(bonus && !bonus->IsTaken(),"unaware critical lacks an actual untaken perk74 node");
+    std::set<NRPG::CPerk*> visited;std::function<void(NRPG::CPerk*)> takeParent=[&](NRPG::CPerk* perk){
+        if(!visited.insert(perk).second || perk->IsTaken())return;
+        const auto& parents=perk->GetParents();for(int i=0;i<parents.GetSize();++i)takeParent(parents[i]);
+        Require(perk!=bonus && perk->CanTake(),"unaware critical prerequisite cannot be acquired through its native tree");
+        tree->AddPerkPoints(1);tree->TakePerk(perk->GetDBPerk()->GetRecordID());Require(perk->IsTaken(),"unaware critical native prerequisite did not take");
+    };
+    const auto& parents=bonus->GetParents();for(int i=0;i<parents.GetSize();++i)takeParent(parents[i]);
+    Require(!mission->HasPerk(74),"unaware critical prerequisite path already acquired the tested bonus");
+    unit->Skills(NDb::ST_MELEE).SetConst(mode==3?200:73);unit->Skills(NDb::ST_SNIPE).SetConst(73);
+    CObj<NRPG::IInventoryItem> item;
+    if(gun){auto weapon=NativeEquipFamiliarityGun(unit);Require(weapon->SetShootMode(NDb::SM_Snap) && weapon->GetAmmoQuantity()>0,"unaware critical lacks its native loaded snap-shot weapon");item=weapon.GetPtr();}
+    else item=NativeEquipCostMelee(unit,false).GetPtr();
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* anchor=nullptr;
+    for(auto candidate:units)if(candidate && candidate->CanFight() && candidate->GetTBSPlayer() && !candidate->IsEmptyPK() && !candidate->IsWearingPK()){anchor=candidate;break;}
+    Require(anchor,"unaware critical has no native world owner");
+    auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(anchor->GetPosition().GetCP(),20.f),&places);NAI::SPathPlace place;bool found=false;
+    for(auto candidate:places){candidate.SetPose(NAI::CM_STAND);if(network->IsPassable(candidate)){place=candidate;found=true;break;}}
+    Require(found,"unaware critical has no real free native standing place");
+    CObj<NWorld::CUnitServer> actor=world->AddUnitInGame(place,mission,anchor->GetTBSPlayer(),"NativeUnawareCriticalActor");Require(actor && actor->CanFight(),"unaware critical failed to deploy its real RPG attacker");
+    const auto random=GlobalGameRandom();vector<NRPG::CAttackPortion> before;
+    Require(mission->CreateAttack(&before,false,false,victim,backstab,false) && before.size()==1 && before[0].nCrtical>0 && before[0].nCrticalDifficulty>0,"unaware critical lacks positive native baseline attack fields");
+    const int points=tree->GetPerkPoints();
+    if(acquired){Require(bonus->CanTake(),"unaware critical native perk74 is unavailable after its prerequisites");tree->AddPerkPoints(1);tree->TakePerk(74);}
+    float chanceBonus=-1,difficultyFactor=-1;
+    Require(mission->HasPerk(74,&chanceBonus,&difficultyFactor)==acquired && (!acquired || (chanceBonus==definition->params[0] && difficultyFactor==definition->params[1])) && tree->GetPerkPoints()==points,"unaware critical did not acquire/withhold the real authored perk through native APIs");
+    const int ap=actor->GetAP(),hp=mission->GetTotalVP(),targetHP=victim->GetTotalVP(),quantity=item->GetQuantity();const auto position=actor->GetPosition();auto* firearm=dynamic_cast<NRPG::IWeaponItem*>(item.GetPtr());const int ammo=firearm?firearm->GetAmmoQuantity():-1;
+    vector<NRPG::CAttackPortion> after;Require(mission->CreateAttack(&after,false,false,victim,backstab,false) && after.size()==before.size(),"unaware critical did not create its real comparison attack");
+    const int baseChanceLiteral[]={99,99,56,227,39,39},baseDifficultyLiteral[]={49,49,28,113,18,18};
+    const int chanceLiteral[]={99,100,56,100,48,39},difficultyLiteral[]={49,73,28,169,27,18};
+    Require(mission->GetRPGPersID()==2 && definition->params[0]==.25f && definition->params[1]==1.5f && before[0].nCrtical==baseChanceLiteral[mode] && before[0].nCrticalDifficulty==baseDifficultyLiteral[mode],"unaware critical real authored inputs differ from the pinned original formula cases");
+    const bool active=acquired && backstab;
+    const int derivedChance=active?int((std::min)(100.f,(1.f+chanceBonus)*before[0].nCrtical)):before[0].nCrtical;
+    const int derivedDifficulty=active?int(before[0].nCrticalDifficulty*difficultyFactor):before[0].nCrticalDifficulty;
+    const int expectedChance=chanceLiteral[mode],expectedDifficulty=difficultyLiteral[mode];
+    Require(derivedChance==expectedChance && derivedDifficulty==expectedDifficulty,"unaware critical independent literals no longer agree with the original arithmetic");
+    auto afterRandom=GlobalGameRandom();auto beforeRandom=random;bool pure=true;for(int i=0;i<4;++i)pure&=beforeRandom.Get()==afterRandom.Get();
+    std::printf("UNAWARE-CRITICAL mode=%d gun=%d acquired=%d backstab=%d pers=%d melee=%d snipe=%d param1=%.9g param2=%.9g baseChance=%d baseDifficulty=%d chance=%d expectedChance=%d difficulty=%d expectedDifficulty=%d pure=%d\n",mode,int(gun),int(acquired),int(backstab),mission->GetRPGPersID(),int(unit->Skills(NDb::ST_MELEE)),int(unit->Skills(NDb::ST_SNIPE)),definition->params[0],definition->params[1],before[0].nCrtical,before[0].nCrticalDifficulty,after[0].nCrtical,expectedChance,after[0].nCrticalDifficulty,expectedDifficulty,int(pure));std::fflush(stdout);
+    Require(after[0].nCrtical==expectedChance && after[0].nCrticalDifficulty==expectedDifficulty,"native perk74 used capped chance as the critical difficulty multiplier or rounded instead of truncating");
+    Require(pure && actor->GetAP()==ap && mission->GetTotalVP()==hp && victim->GetTotalVP()==targetHP && actor->GetPosition()==position && item->GetQuantity()==quantity && (!firearm || firearm->GetAmmoQuantity()==ammo) && tree->GetPerkPoints()==points && after[0].nK==before[0].nK && after[0].nDmgMin==before[0].nDmgMin && after[0].nDmgMax==before[0].nDmgMax && after[0].nUnconsciousProbability==before[0].nUnconsciousProbability && after[0].pAttacker.GetPtr()==mission.GetPtr() && after[0].pTarget.GetPtr()==victim.GetPtr() && after[0].bBackStab==backstab,"unaware critical query changed native RNG/AP/HP/pose/perk points/ammo/item/ordinary attack fields");
+}
+
 class NativeAttackCreateProbe: public NWorld::CExecMeleeTile
 {
     OBJECT_NOCOPY_METHODS(NativeAttackCreateProbe);
@@ -34801,6 +34853,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-unaware-critical")) { Require(argc==5,"unaware critical requires db/resources/mode"); NativeUnawareCritical(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-subzone-transition")) { Require(argc==5,"subzone transition requires db/resources/mode"); NativeSubzoneTransition(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-store-passage")) { Require(argc==5,"store passage requires db/resources/mode"); NativeStorePassage(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-authored-light")) { Require(argc==5,"authored light requires db/resources/mode"); NativeAuthoredLight(argv[2],argv[3],std::atoi(argv[4])); return true; }

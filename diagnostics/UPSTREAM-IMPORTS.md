@@ -24547,3 +24547,73 @@ Script/lvm change and152 both iMission files.217 imported/16 pending/13 partial,
 unfinished. Final-head hosted success required at whole-task completion.
 
 Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).
+
+## 2026-11-02: authored unaware-critical parameters (153)
+
+Correct only CUnitMission::ModifyUnawareCritical. The authored perk74 chance parameter
+scales chance by1+Param1 capped100, while Param2 independently scales original critical
+difficulty. Both conversions truncate. The predecessor wrongly multiplied difficulty by
+the capped chance and rounded both fields. Fetch both real outputs through the existing
+HasPerk API and cast the two results to int. Existing no-backstab/no-perk early returns
+remain; no new API, virtual/save/enum/wire field, resource or LAN protocol.
+
+Six NativeUnawareCritical0..5 cases use actual person2 from a real authored perk tree,
+grant all real prerequisites through native CanTake/TakePerk before generating the
+baseline, then acquire only74 through the same APIs. Real melee item and loaded snap-gun
+factories feed the actual native CreateAttack with no ammunition spending or familiarity
+adaptation. Real world/owner/standing placement and target RPG object retained, no fake
+attack or private modifier hook. The actual source parameters are0.25 and1.5; baseline and
+verified original Steam game.db have the SAME complete
+SHA256314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df. Nothing in DB is
+edited. Controlled native melee73/200 and snipe73 inputs produce base
+chances99/99/56/227/39/39 and difficulties49/49/28/113/18/18. Independent literal expected
+chances99/100/56/100/48/39 and difficulties49/73/28/169/27/18 were pinned and final RED3/6
+both replayed BEFORE production. Initial formula-based RED evidence retained; final six
+tests remain unchanged during the fix. An initial SUnitPosition versus SPathPlace fixture
+compile error was corrected before genuine RED, not counted as RED.
+
+GREEN6 both. Melee severity4900->73, capped case11300->169, gun chance49->48 and
+severity878->27. No-perk0 and non-backstab melee2/gun5 rows are exact. Difficulty49*1.5
+and113*1.5 truncate to73/169; gun39*1.25 truncates48. Chance alone caps100. Queries
+consume no native RNG words and preserve AP, HP, position, item/ammo/perk points, ordinary
+min/max damage, unconscious probability and real attacker/target pointers. This verifies
+the actual attack-portion producer, not a complete projectile/animation/hit outcome or
+post-damage RNG trace.
+
+Original typed Gold helper6b8820/133 independently maps to actual Steam6bebd0.
+Complete40-byte prefix is unique exact, no masks; it gates the apply flag and calls the
+named CUnitMission secondary4c slot78 HasPerk with ID74, both actual output pointers and
+third-null. Named table binds typed GoldHasPerk6b8ab0/11 to actual6beea0 without claiming
+whole11 equivalence. Complete87-byte suffix Gold6b884e->Steam6bebfe is unique with ONLY
+decoded Min E8 displacement bytes17..20 masked; both actual call targets independently
+decode to typed Gold Min<float>413bb0/41 and Steam414690/41, whose complete41 bytes are
+unique exact without masks. The intervening6-byte FADD uses independently read IEEE1 at
+writable Gold8a39e4/Steam8b2a34; neither operand is normalized. Whole133 equivalence is
+rejected at this absolute global operand, not forced with a constant-pointer mask.
+
+Actual prefix returns Param1 atesp0c before pushESI. Param1+1 times portion chance10 is
+first stored as a float, then passed with immediate IEEE10042c80000 to Min.
+FNSTCW/OR-RC0c/FLDCW/FISTP writes chance10 then restores CW. FILD original difficulty14
+multiplies returned Param2 atesp4, followed by a separate RC-chop FISTP14 and CW restore.
+PDB names bind both portion fields; full exact suffix retains their offsets, registers and
+frame operands. Actual incoming helper calls6c268f and6c2b95 independently decoded:
+bool+portionESI and thisEDI-4c. No whole2606 parent-method/vtable binding is claimed where
+it was not found. Donor6bec20 is inside the helper; production comment uses actual
+entry6bebd0. No writable-data/field/frame/register/branch/opcode/unknown-pointer masks,
+BSS reads or original process execution. Tests pin exact supported authored-data
+arithmetic; no exhaustive x87/CRT/all-int32 parity claim.
+
+Full Game both/1377 Windows/1340 Linux
+critical/attack/combat/damage/knife/melee/perk/healing/health/accuracy/weapon/RPG/inventory/PK
+plus all152 world/zone/Lua regressions and CI382 pass. Prior/new86 cases and83 earlier
+fixed rows, melee/filter/godmode and12 fonts exact per platform; DB hash unchanged. Linux
+selected-target builder resolves omitted CTest executable commands from the generated
+Linux CTestTestfile alias mapping, still rebuilding/validating every selected executable
+and named nested helper; no alias skipped or stale binary accepted. Twelve fresh LAN gates
+each platform pass, including all361 encounter deployments/replicas; Linux5 CTest+7 direct
+native match modes, Windows12 CTest. Sole old nested-save exclusion retained since139.
+Source884 remains partial for healed VP, damage-share depletion and knockout probability;
+previously imported inventory/dialogue/drop hunks retained.217 imported/16 pending/13
+partial,29 unfinished. Final-head hosted success required at whole-task completion.
+
+Source: [884f91f42db3aa840f729fb5196a18133d49917b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b).

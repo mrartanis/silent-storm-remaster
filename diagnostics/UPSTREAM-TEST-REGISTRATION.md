@@ -2617,3 +2617,33 @@ run, initial151 failure still retained. Sole old nested-save exclusion retained.
 Other6face route/reservation files remain pending;29 unfinished.
 
 Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).
+
+## 2026-11-02: authored unaware-critical parameters (153)
+
+NativeUnawareCritical0..5 exercise real person2, native authored perk74/prerequisite
+acquisition, actual equipped melee/snap-gun factories and native CreateAttack. No-perk0,
+non-backstab melee2 and gun5 are exact controls; affected melee1/cap3/gun4 give canonical
+pinned RED3/6 both ->GREEN6 both. Independent expected chance99/100/56/100/48/39 and
+difficulty49/73/28/169/27/18, authored Params0.25/1.5, base chance99/99/56/227/39/39 and
+severity49/49/28/113/18/18 fixed before final RED. Preserve no-ammo-spend/no-adaptation,
+RNG purity, AP/HP/position/item/ammo/perk points, damage bounds/unconscious probability
+and native pointer identities. Initial compile correction/formula discovery retained
+separately; final six tests unchanged during production. No fake combat, private modifier
+hooks, DB edits, world decode or extra frames/ticks.
+
+Actual original helper6bebd0/133: unique exact40 prefix, complete87 suffix with only
+decoded Min E8 relocation, complete Min41 unique exact, independently read writable IEEE1
+operand never masked. Named secondary4c HasPerk slot78 and both output pointers, actual
+chance10/difficulty14, cap100 immediate, two RC-chop FISTPs/CW restoration and
+incoming6c268f/6c2b95 calls audited. Baseline DB equals verified original Steam DB
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df. Whole133/2606 parent
+identity not claimed at unmatched global/parent layout; no unsafe masks/original
+execution. No full projectile/post-damage RNG/exhaustive x87 claim.
+
+Game both/1377 Windows/1340 Linux broad combat+all152 related/CI382, prior/new86 cases
+and83 fixed rows/melee/godmode/fonts12 exact, DB unchanged;12 fresh LAN gates each
+including361 maps. Linux aliases resolve actual generated CTest command paths, all helpers
+freshly built/validated. Existing sole nested-save exclusion retained. Other884
+healedVP/damage-share/KO hunks pending;29 unfinished.
+
+Source: [884f91f42db3aa840f729fb5196a18133d49917b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b).

@@ -4350,3 +4350,22 @@ maps each platform pass. Source6face remains partial for route order/deployment
 reservations;29 unfinished.
 
 Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).
+
+## 2026-11-02: authored unaware-critical parameters (153)
+
+Restore original Steam perk74 arithmetic. Chance uses1+Param1 capped100; difficulty uses
+original difficulty times Param2; both truncate. Authored original/baseline DB
+parameters0.25/1.5 are identical. This corrects exaggerated critical input: native melee
+difficulty4900->73 and11300->169; gun chance49->48/severity878->27. Ordinary damage bounds
+and unconscious input stay unchanged, while the corrected critical inputs intentionally
+affect later original injury calculations. No-perk/non-backstab controls remain exact. No
+new damage rule, AP price, item data or LAN protocol.
+
+Native canonical RED3/6 ->GREEN6 both with independent fixed literals, native perk-tree
+acquisition and actual melee/gun CreateAttack. Queries preserve
+RNG/AP/HP/pose/item/ammo/perk points; no fake combat/world reload or added frames/clock.
+Game both/1377 Windows/1340 Linux related/CI382, prior/new86 cases and83 fixed
+rows/melee/godmode/fonts12 exact;12 LAN gates/361 maps each pass, DB unchanged. Other884
+healed health/depletion/KO changes remain pending;29 unfinished.
+
+Source: [884f91f42db3aa840f729fb5196a18133d49917b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b).

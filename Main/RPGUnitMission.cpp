@@ -1043,19 +1043,18 @@ bool CUnitMission::CreateAttack( vector<CAttackPortion> *pRes, bool bSpendAmmo,
 	return bRet;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// retail CUnitMission::ModifyUnawareCritical @0x2bea70: perk 74 "Unaware critical difficulty" --
-// on a backstab, the crit chance scales by (Param1+1) capped at 100, and the crit difficulty by
-// that same capped chance value.
+// Steam 1.2 0x6bebd0: perk 74 scales chance by Param1+1 and
+// difficulty by Param2. Both conversions truncate; chance alone caps at 100.
 void CUnitMission::ModifyUnawareCritical( CAttackPortion &a, bool bApply ) const
 {
 	if ( !bApply )
 		return;
-	float fBonus = 0;
-	if ( !HasPerk( N_PERK_UNAWARE_CRITICAL, &fBonus ) )
+	float fBonus = 0, fDifficulty = 0;
+	if ( !HasPerk( N_PERK_UNAWARE_CRITICAL, &fBonus, &fDifficulty ) )
 		return;
 	const float fCapped = Min( 100.0f, ( fBonus + 1.0f ) * a.nCrtical );
-	a.nCrtical = Round( fCapped );
-	a.nCrticalDifficulty = Round( a.nCrticalDifficulty * fCapped );
+	a.nCrtical = int( fCapped );
+	a.nCrticalDifficulty = int( a.nCrticalDifficulty * fDifficulty );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 NDb::CRPGArmor* CUnitMission::GetRPGArmor() const 
