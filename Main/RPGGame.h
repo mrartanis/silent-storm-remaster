@@ -104,7 +104,7 @@ public:
 	// normal/accidental shot paths; splinters pass fFragmentRange*FP_GRID_STEP).
 	virtual void ProcessRangedAttackPortion( const CAttackPortion &a, const CRay &ray, const vector<IAttackable*> &ignores, vector<STrailPoint> *pTrail, float fMaxRange ) = 0;
 	virtual EAttackResult ProcessThrowingAttackPortion( CAttackPortion *pA, IAttackable *pTarget, NDb::CRPGArmor *pArmor, int nUserID ) = 0;
-	virtual int GetCompositeToHit( NWorld::CUnit *pAttacker, NWorld::CUnit *pTarget, NAI::EHitLocation eHL, bool bLog ) = 0;
+	virtual int GetCompositeToHit( NWorld::CUnit *pAttacker, CObjectBase *pTarget, NAI::EHitLocation eHL, bool bLog ) = 0;
 	virtual int GetGrenadeCompositeToHit( NWorld::CUnit *pAttacker, 
 		CVec3 ptTarget, bool bFirstTurn, NDb::CRPGGrenade *pGrenade ) = 0;
 	virtual int GetTileCompositeToHit(  NWorld::CUnit *pAttacker, CVec3 ptTilePos,

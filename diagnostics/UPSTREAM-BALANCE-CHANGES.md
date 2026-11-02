@@ -4677,3 +4677,20 @@ unproven. Original proof bounds and fixture corrections are recorded in
 UPSTREAM-IMPORTS.md.
 
 Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).
+
+## 168. Complete command-based attack previews for objects, grenades and rockets
+
+Attack preview routing now follows the actual object/tile command. Prop90->84, door0->16;
+grenade tile0->100/unit0->70; real rocket cover coefficient1 retains clear55 and changes
+weak-obstacle tile7->0. Positive fractional rocket cover remains positive through the
+retained integer adapter; no all-type float/formula rewrite. Prone nonunit attacks reject
+native impossible-facing1/2 with-1/AP-only7, clear18 unchanged. Actual TCP/UI retains
+fields, IDs, actor ownership, Script37 and per-query purity. Native phaseA
+RED9/64->GREEN64, phaseB RED1/2->final GREEN66 both;
+HP/AP/ammo/quantity/position/time/query RNG exact. No database/action/damage/save format
+change. Fresh Gameboth546/CI382/LAN12each361 pass; initial interim full544 failures and
+unequal native cover inputs are retained with unproven causes. Source317 complete
+after164/166/167/168,20 unfinished; f638 unit pose/selector and combat/contact remain
+separate.
+
+Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e). Dependencies only: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).

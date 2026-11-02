@@ -824,6 +824,9 @@ EToHitType CUnitMission::GetToHitWeaponType() const
 			return TH_THROWING;
 		return TH_MELEE;
 	}
+	// Original Steam type dispatcher: grenade4, other active items5.
+	if ( CDynamicCast<IGrenadeItem>( pRPGUnit->GetInventory()->GetActive() ) )
+		return TH_GRENADE;
 	return TH_DEFAULT;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

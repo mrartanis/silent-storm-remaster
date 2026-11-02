@@ -17,6 +17,7 @@
 #include "wBuilding.h"
 #include "BuildingGrid.h"
 #include "aiGrid.h"
+#include "aiMap.h"
 #include "wUICommands.h"
 #include "RPGGame.h"
 #include "RPGUnitMission.h"
@@ -263,9 +264,15 @@ Bytes NetworkWorld::Handle(unsigned slot,const Bytes& bytes,bool preview) {
          ((kind==2 || kind==3) && location>NAI::THL_UPPER))
         return Result(UCR_INVALID_COMMAND,0,0,Revision());
       auto* actor=dynamic_cast<CUnitServer*>(objects.refs.at(actorID).GetPtr());
-      auto* target=targetID && objects.refs.count(targetID) ? dynamic_cast<CUnitServer*>(objects.refs.at(targetID).GetPtr()) : nullptr;
+      auto* target=targetID && objects.refs.count(targetID) ? objects.refs.at(targetID).GetPtr() : nullptr;
       if(!IsValid(actor) || actor->GetPlayer()!=match.players[slot].GetPtr() || (kind==0 && !IsValid(target)))
         return Result(UCR_UNAVAILABLE,0,0,Revision());
+      // Keep actor ownership and the existing object-ID field; score only real hulls.
+      if(kind==0) {
+        auto* map=match.world->GetAIMap();auto* hull=map->GetHull(target);CVec3 center(VNULL3);
+        if(!IsValid(hull) || !map->GetUnitHLPos(&center,hull,NAI::HL_ANY))
+          return Result(UCR_UNAVAILABLE,0,0,Revision());
+      }
       // Equipment may have changed while the preview was in transit. Native
       // calcers assume a matching active item (grenade calcers dereference it).
       auto* active=actor->GetUnitRPG()->GetInventory()->GetActive();
@@ -489,7 +496,7 @@ void NetworkWorld::BindSession(std::shared_ptr<NetworkSession> owner) {
       auto active=currentPreviews.find({unit,"path"});if(active==currentPreviews.end())return nullptr;
       auto cache=previews.find(active->second);return cache==previews.end()?nullptr:cache->second.path.GetPtr();
     };
-    Match().world->networkHitChance=[this](int kind,NWorld::CUnit* actor,NWorld::CUnit* target,CVec3 point,int location,bool first){return HitChance(kind,actor,target,point,location,first);};
+    Match().world->networkHitChance=[this](int kind,NWorld::CUnit* actor,CObjectBase* target,CVec3 point,int location,bool first){return HitChance(kind,actor,target,point,location,first);};
   }
 }
 void NetworkWorld::SetPreviewSelection(const std::vector<NWorld::CUnit*>& units) {
@@ -587,7 +594,7 @@ void NetworkWorld::ReceiveResult(std::uint64_t id,const Bytes& bytes,bool previe
   cached.fullAP=static_cast<int>(static_cast<std::int32_t>(full));
   if(current)previewUpdated=true;
 }
-int NetworkWorld::HitChance(int kind,NWorld::CUnit* actor,NWorld::CUnit* target,CVec3 point,int location,bool first) {
+int NetworkWorld::HitChance(int kind,NWorld::CUnit* actor,CObjectBase* target,CVec3 point,int location,bool first) {
   TrimPreviews();
   auto owner=session.lock();if(!owner || !objects.ids.count(actor))return 0;
   Bytes key;Put32(key,HitMagic);Put32(key,kind);Put32(key,objects.ids.at(actor));

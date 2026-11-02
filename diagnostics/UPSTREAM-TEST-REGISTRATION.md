@@ -2985,3 +2985,26 @@ sourceassertionexclusion changes or inflatedcounts. No unrelated full117/font/ta
 suite claim. Source317 remains partial/21unfinished.
 
 Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).
+
+## 168. Complete command-based attack previews for objects, grenades and rockets
+
+NativePreviewDispatch0..5, NativePreviewCommandObject0..1, NativePreviewRocketCover0..1
+and NativePreviewObjectLAN: phaseA parent RED9/64 ->GREEN64 both/55 controls. Additional
+NativePreviewObjectFacing0..1 on interim168 production: phaseB RED1/2 ->final GREEN66
+both; blocked prone door0->-1/AP-only7, clear18 control. These are separate production
+baselines, not original-parent66 failures. All prior53 assertions retained; two diagnostic
+callback target types widened only. Actual prop90->84/door0->16, grenade0->100/70, unit
+rocket helper0->55/Game55, blocked tile rocket7->0/helper0, real FirstAidKit4->5, actual
+TCP/UI prop-door kind2/absent target ->kind0/present target with Script37 and purity.
+Physical/query RNG and per-platform native inputs remain exact apart from intentional
+rocket integer positive gate. Raw unit cover fractions/counts differ across platforms,
+unchanged-binary confirmation retained/cause unproven. Unavailable blocked-unit candidate
+and invalid discovery phases are not RED or exclusions. Initial full544 failed W17/L59
+with allocation/mapping/segfault/renderer errors, archived/cause unproven. After actual
+phaseB fix fresh Gameboth/546 scoped/CI382/LAN12each361 pass with serial platforms.
+Previous critical witnesses exact;12 old knife skill/truncation outside broad filter
+covered66; only old nested-save exclusion. Actual bounded original proof and limits are in
+UPSTREAM-IMPORTS.md; no whole ABI/runtime/global masking claim. Source317 complete,20
+sources remain; f638 only dependency subset.
+
+Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e). Dependencies only: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).

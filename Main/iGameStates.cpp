@@ -995,13 +995,6 @@ void CStateAttack::UpdateCursorInfo()
 		CObj<NWorld::CCmd> pCmd = GetTargetCmd();
 		CDynamicCast<NWorld::CCmdShootObject> pObjectCmd( pCmd );
 		CDynamicCast<NWorld::CCmdShootTile> pTileCmd( pCmd );
-		CPtr<CObjectBase> pTraceObject = pObjectCmd ? pObjectCmd->pTarget.GetPtr() : 0;
-		CVec3 pos;
-		bool bTraceOk = pTileCmd != 0;
-		if ( pTileCmd )
-			pos = pTileCmd->ptTarget;
-		else
-			bTraceOk = GetMission()->GetTracePosition( &pos );
 
 		int nMin = 100, nMax = -1;
 		vector< CPtr<NGame::IUnitTracker> > unitsSet;
@@ -1012,78 +1005,13 @@ void CStateAttack::UpdateCursorInfo()
 
 			int nToHit = -1;
 
-			CDynamicCast<NWorld::CUnit> pUnit(pTraceObject);
-			if (pUnit)
-			{
-				NWorld::CUnit *pAttacker = (*iTemp)->GetUnit();
-				if ( NRPG::GetToHitType( pAttacker ) == NRPG::TH_MELEE )
-				{
-					CVec3 ptTarget;
-					pWorld->GetAIMap()->GetUnitHLPos( &ptTarget, pWorld->GetAIMap()->GetHull( pUnit ), NAI::HL_ANY );
-					CDynamicCast<NWorld::CUnitServer> pActor( pAttacker );
-					if ( !NWorld::CanMeleeAttack( pActor, pAttacker->GetPosition(), ptTarget ) )
-						continue;
-				}
-				CDynamicCast<NRPG::IWeaponItemInfo> pWeapon((*iTemp)->GetUnit()->GetRPG()->GetInventoryInfo()->GetActive());
-				if (pWeapon)
-				{
-					if ( !pWeapon->GetDBWeapon()->bBazookaLogic )
-						nToHit = pWorld->GetGame()->GetCompositeToHit( (*iTemp)->GetUnit(), pUnit, eHitLocation, false );
-					else
-					{
-						if ( bTraceOk )
-							nToHit = pWorld->GetGame()->GetBazookaToHit( (*iTemp)->GetUnit(), pos,	NAI::THL_MIDDLE, pWorld->IsFirstTurn() );
-					}
-				}
-				else {
-					CDynamicCast<NRPG::IGrenadeItemInfo> pGrenade((*iTemp)->GetUnit()->GetRPG()->GetInventoryInfo()->GetActive());
-					if (pGrenade)
-					{
-						if (bTraceOk)
-							nToHit = pWorld->GetGame()->GetGrenadeCompositeToHit((*iTemp)->GetUnit(), pos, pWorld->IsFirstTurn(), pGrenade->GetDBGrenade());
-					}
-					else
-					{
-						// retail @0x1da200 routes EVERY CCmdShootObject (swung melee weapon OR BARE FISTS)
-						// through the object GetToHit unconditionally -- GetCompositeToHit reads the firing
-						// unit's own weapon class (GetToHitType -> GetMeleeWeaponItem, which returns the
-						// default fists weapon when the hand is empty => TH_MELEE), so an unarmed punch is
-						// scored exactly like a knife swing. The old `if (pMelee)` cast tested the INVENTORY
-						// active item, which is null for bare fists (nothing equipped), so no calc ran and
-						// nToHit stayed 0.
-						nToHit = pWorld->GetGame()->GetCompositeToHit((*iTemp)->GetUnit(), pUnit, eHitLocation, false);
-					}
-				}
-			}
-			else if ( bTraceOk )
-			{
-				CDynamicCast<NRPG::IGrenadeItemInfo> pGrenade((*iTemp)->GetUnit()->GetRPG()->GetInventoryInfo()->GetActive());
-				if (pGrenade)
-					nToHit = pWorld->GetGame()->GetGrenadeCompositeToHit( (*iTemp)->GetUnit(), pos, pWorld->IsFirstTurn(), pGrenade->GetDBGrenade() );
-				else {
-					CDynamicCast<NRPG::IWeaponItemInfo> pWeapon((*iTemp)->GetUnit()->GetRPG()->GetInventoryInfo()->GetActive());
-					if (pWeapon)
-					{
-						if (!pWeapon->GetDBWeapon()->bBazookaLogic)
-							nToHit = pWorld->GetGame()->GetTileCompositeToHit((*iTemp)->GetUnit(), pos, NAI::THL_MIDDLE, false);
-						else
-							nToHit = pWorld->GetGame()->GetBazookaToHit((*iTemp)->GetUnit(), pos,
-								NAI::THL_MIDDLE, pWorld->IsFirstTurn());
-					}
-					else
-					{
-						// retail UpdateCursorInfo @0x1da200 routes EVERY non-AoE weapon at a tile target
-						// through the same NRPG::GetToHit tile overload (via the CCmdShootTile target
-						// command) -- the throwing-vs-swinging-vs-UNARMED dispatch happens inside
-						// RPGUnitGetTileToHit @0x2b4df0 (TH_THROWING -> knife calcer, TH_MELEE -> 100 when
-						// the cover walk connects). Bare fists have NO inventory active item, so the old
-						// `if (pMelee)` cast was null and a punch aimed at ground/walls/objects showed 0%;
-						// GetTileCompositeToHit derives TH_MELEE from the unit's default fists weapon and
-						// casts covers from GetMeleeAttackPos, matching retail's TH_MELEE tile rule.
-						nToHit = pWorld->GetGame()->GetTileCompositeToHit((*iTemp)->GetUnit(), pos, NAI::THL_MIDDLE, false);
-					}
-				}
-			}
+			// Original 0x5dad07..0x5dad74 dispatches by the actual attack command.
+			if ( pObjectCmd )
+				nToHit = pWorld->GetGame()->GetCompositeToHit( (*iTemp)->GetUnit(),
+					pObjectCmd->pTarget, eHitLocation, false );
+			else if ( pTileCmd )
+				nToHit = pWorld->GetGame()->GetTileCompositeToHit( (*iTemp)->GetUnit(),
+					pTileCmd->ptTarget, NAI::THL_MIDDLE, false );
 
 			// retail UpdateCursorInfo @0x1da200: the composite to-hit returns the -1 sentinel for an
 			// impossible attack (melee swing out of arm's reach, blocked direction); such units are

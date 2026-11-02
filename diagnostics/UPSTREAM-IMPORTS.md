@@ -25796,3 +25796,102 @@ support, grenade/rocket dispatch and full command-based UI routing remain pendin
 Final-head hosted success is required at whole-task completion.
 
 Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).
+
+## 168. Complete command-based attack previews for objects, grenades and rockets
+
+Attack captions now follow the actual CCmdShootObject or CCmdShootTile. General
+CObjectBase targets resolve their native hull center; grenades use the tile dispatcher,
+and ordinary nonunit objects use the native tile calcer with LOWER while retaining object
+cover traces. Tile grenades and rockets share the dispatcher. The type classifier
+distinguishes grenade4 from unsupported active item5. Rockets trace with native
+coefficient1. The retained integer GetHitCover API preserves a strictly positive
+fractional rocket cover as1: the native rocket calcer tests positivity and does not scale
+by cover magnitude. Without that bounded adapter a real positive0.25 would truncate to0
+and regress the previously correct55. The full float API is not imported. Existing unit
+feet-direction/manual hit-location selection is preserved for separate f638 work.
+
+Real CStateAttack prop/door captions change90->84 and0->16. Native grenade tile0->100 and
+unit0->70; explicit grenade100 is a control. Native unit rocket helper0->55 retains
+Game55; blocked tile rocket7->0 retains native helper0. Actual FirstAidKit
+classification4->5 is covered. The full Main TCP/UI fixture sends actual prop then door
+object IDs through the existing packet fields: kind2/no target becomes kind0/present
+target, with two ScriptToHit37/status0 replies and per-query physical/RNG purity. This
+proves routing and transport, not numeric network geometry or a fixed whole-network RNG
+tail. Actor ownership and actual native hull validation remain authoritative; packet
+shape, IDs and FIRST meaning are unchanged.
+
+PhaseA canonical parent RED9/64 on both platforms becomes GREEN64,55 controls. Subsequent
+review found a prerequisite lost by moving nonunit commands from the old tile path: a
+prone actor unable to face a door still showed0%. PhaseB adds two real native scenarios on
+the interim168 production state, RED1/2 with the clear18 control passing on both
+platforms. A nonunit-only desired-facing guard rejects exactly native passability1/2 and
+returns-1, producing the existing AP-only7 caption; locked3 and door4 remain legal. Final
+GREEN66 passes both platforms. Do not describe this as ten failures on an original
+parent66 set: the stages have different production baselines. The phaseB actual door439
+native pose/pick/input rows, blocked0->-1/clear18, physical
+HP137/AP53/ammo8/targetHP66/time/no-command and seed732
+zero-draw1427754151/2391215426/4085969260/4101464360 are exact. All phaseA rows also
+retain their predicted values, physical state and seed729/730/731 zero-draw witnesses.
+
+Initial candidate compile failures, invalid UI preconditions and unordered grenade-item
+inputs are archived separately, not counted as native RED. The final grenade fixture
+selects the lowest valid authored record122 and revalidates actual throw executability/AP;
+the old shared grenade fixture is unchanged. The cursor fixture uses real TS_PICK first
+intersections after public placement; no forced grid edits. A proposed fully blocked unit
+rocket fixture found no qualifying placement for actor201 and then4959 candidate
+placements per platform. It is archived as unavailable and removed before canonical
+registration, not counted as RED or excluded as a genuine failure. No fully blocked unit
+runtime claim is made. Raw positive unit rocket cover remains unequal across platforms
+(232 versus268 of295 penetrating rays, fractions0.26214689/0.302824855); both are positive
+and yield55. One unchanged pre-fix executable confirmation per platform reproduces its own
+inputs and results. The cause remains unproven; no full cross-platform cover/input parity
+or compiler/renderer/timing explanation is asserted. Diagnostic callback adaptation
+changes only two CUnit* target parameter types to CObjectBase*, retaining assertions. The
+original two callback compile failures prevented runtime; the first raw failed build log
+was overwritten by one redundant unchanged compile after a LAB quoting error, and that
+limitation is recorded.
+
+Static evidence uses actual file-backed Steam Game.exe
+SHA4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705, with Gold PDB solely
+as a typed guide. Twenty bounded blocks independently match, including complete type
+getter110 (actual6b3790), copied attack prefix132 (6927f0), float cover53/32
+(6b4473/6b44ae), rocket AllMult53 and GetToHit suffix194 (6b6c10/6b85b4). Independently
+typed rocket root vtable8c4e3c binds GetToHit6b85a0, AllMult6b6c10 and AllAdd6b83c0;
+actual AllAdd is318 bytes versus Gold357, so no whole-body equivalence. The actual unit
+cover caller23 at6b60c2 binds RealCalcCovers entry6b44f0. Native temporary nK stores6b45cc
+and6b47d6 are inspected without normalizing differing frames. Command casts31/24
+at5dad07/5dad42 independently bind object/tile RTTI; general target cast29 at6b60d8 and
+nonunit loop80 at6b6100 bind the existing tile helper6b52c0. PhaseB unique46 Gold6aff46
+->actual6b602e matches with only its decoded external E8 displacement, calling
+independently bound GetShootDirection6984f0 and native path-network slot3c. CMP1/2 reaches
+actual unavailable OR-EAX,-1 at6b608e; the epilogue jump is inspected independently
+without masking local branches. Typed path-network RTTI separately binds slot3c to443560.
+Previous164 origin,166 tile direction/burst and167 first-turn/Lua/quiet cursor proofs are
+reused.
+
+No whole972/938/553/516/346/357/145/758 body, adapter ABI, original gameplay execution,
+global/BSS target read, field/frame/register/opcode/NOP/local-branch/global-address
+masking is claimed. Whole absolute FMUL/FCOMP and differing whole frame-load instructions
+are excluded; target memory8b2fdc/8b3984/8d65bc/8c4be4 is never read or masked. Wider
+copied-portion and float-cover candidates are rejected for actual opcode/frame
+differences. Original global inputs are not inferred from private live state.
+
+The first interim full544 run failed17 Windows and59 Linux cases, including bad
+allocation, library segment mapping, segfault and renderer errors. All raw logs remain
+archived; this is not an accepted544 gate, and its root cause is unproven. After the
+actual phaseB guard change, fresh Game builds and the final546 scoped cases run with
+serial platforms and pass, followed by CI382 and12 standard LAN gates/361 encounter
+variants each. The546 set is prior521 plus13 new and12 appropriate existing UI controls.
+Twelve legacy knife skill/truncation cases outside the inherited broad filter are
+additionally covered by GREEN66. Prior melee17/two named caption blocks, tile-helper5
+query/input/environment/execution, pose8 input/result and selected AI/melee witnesses
+remain exact. Only the existing nested-save exclusion remains. No unrelated
+full117/font/tactical suite is claimed. Baseline/Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged. Together
+with164/166/167, source317 is complete:226 imported/13 pending/7 partial,20 unfinished.
+Only the type classifier, unit rocket coefficient and nonunit guard dependencies are
+attributed to f638; its unit pose/center-direction/SelectTargetHLs and remaining
+combat/contact review are still partial. Final-head hosted success is required at
+whole-task completion.
+
+Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e). Dependencies only: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).

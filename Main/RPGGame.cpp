@@ -122,7 +122,7 @@ public:
 	virtual void ProcessMeleeAttackPortion( const CAttackPortion &a, const CRay &ray, const vector<IAttackable*> &ignores );
 	virtual void ProcessRangedAttackPortion( const CAttackPortion &a, const CRay &ray, const vector<IAttackable*> &ignores, vector<STrailPoint> *pTrail, float fMaxRange );
 	virtual EAttackResult ProcessThrowingAttackPortion( CAttackPortion *pA, IAttackable *pTarget, NDb::CRPGArmor *pArmor, int nUserID );
-	virtual int GetCompositeToHit( NWorld::CUnit *pAttacker, NWorld::CUnit *pTarget, NAI::EHitLocation eHL, bool bLog );
+	virtual int GetCompositeToHit( NWorld::CUnit *pAttacker, CObjectBase *pTarget, NAI::EHitLocation eHL, bool bLog );
 	virtual int GetGrenadeCompositeToHit( NWorld::CUnit *pAttacker, 
 		CVec3 ptTarget, bool bFirstTurn, NDb::CRPGGrenade *pGrenade );
 	virtual int GetTileCompositeToHit(  NWorld::CUnit *pAttacker, CVec3 ptTilePos, 
@@ -709,6 +709,11 @@ int GetHitCover( const NWorld::CUnit *pAttacker, CCoverInfo *pCover )
 		nHitCover = (100 * nPenetrateCount) / pCover->hitRays.size();
 		nHitCover = int( float(nHitCover) * fAverageAPA );
 	}
+	// Native GetHitCover returns a float. Preserve its positive gate in this
+	// integer API for rockets, whose calcer does not scale by cover magnitude.
+	if ( nHitCover == 0 && GetToHitType( pAttacker ) == TH_RLAUNCHER &&
+		nPenetrateCount > 0 && fAverageAPA > 0 )
+		return 1;
 	return nHitCover;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -750,17 +755,22 @@ int GetAttackerToHit( const NWorld::CUnit *pAttacker, NWorld::CUnit *pTarget, in
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Used only for inteface tasks. Returns not exactly correct value.
 int CGame::GetCompositeToHit( NWorld::CUnit *pAttacker, 
-	NWorld::CUnit *pTarget, NAI::EHitLocation eHL, bool bLog )
+	CObjectBase *pTarget, NAI::EHitLocation eHL, bool bLog )
 {
 	auto* actor = dynamic_cast<NWorld::CUnitServer*>(pAttacker);
 	// LAN retains its existing first-turn wire flag; authority-side logging is separate.
 	if (actor && actor->GetWorld()->bNetworkReplica)
 		return actor->GetWorld()->networkHitChance ? actor->GetWorld()->networkHitChance(0,pAttacker,pTarget,CVec3(0,0,0),eHL,actor->GetUnitRPG()->IsFirstTurn()) : 0;
+	CVec3 ptTarget( VNULL3 );
+	pAIMap->GetUnitHLPos( &ptTarget, pAIMap->GetHull( pTarget ), NAI::HL_ANY );
+	auto* targetUnit = dynamic_cast<NWorld::CUnitServer*>( pTarget );
+	const EToHitType actionType = GetToHitType( pAttacker );
+	// Original 0x6b5f2c..0x6b5f48 forwards grenades through the tile dispatcher.
+	if ( actionType == TH_GRENADE )
+		return GetTileCompositeToHit( pAttacker, ptTarget, NAI::THL_MIDDLE, bLog );
 	// Original Steam 0x6b5f61/0x6b5f68: current-pose reach uses the target hull center.
-	if ( NRPG::GetToHitType( pAttacker ) == NRPG::TH_MELEE )
+	if ( actionType == TH_MELEE )
 	{
-		CVec3 ptTarget( VNULL3 );
-		pAIMap->GetUnitHLPos( &ptTarget, pAIMap->GetHull( pTarget ), NAI::HL_ANY );
 		if ( !NWorld::CanMeleeAttack( actor, pAttacker->GetPosition(), ptTarget ) )
 			return -1;
 	}
@@ -776,6 +786,15 @@ int CGame::GetCompositeToHit( NWorld::CUnit *pAttacker,
 		pRealAttacker->PrintLog( true );
 		return 0;
 	}
+	// Preserve the native facing guard for object commands formerly previewed as tiles.
+	if ( !targetUnit )
+	{
+		NAI::SUnitPosition pos = pAttacker->GetPosition();
+		pos.pos.p.SetDirection( GetShootDirection( pos.pos.pNet, pos.pos.p, ptTarget ) );
+		const NAI::EPassable pass = pos.pos.pNet->GetPassability( pos.pos.p );
+		if ( pass == NAI::AIP_NOT_PASSABLE || pass == NAI::AIP_CANNOT_LAY )
+			return -1;
+	}
 	CVec3 ptAttackPos;
 	// retail NRPG::GetToHit @0x2b5ee0 and the executor CExecMeleeUnit::OnLabel (wUnitAttackExec.cpp:1645) pass
 	// min-clear 0 for melee -- there is no muzzle to pull the cover-walk origin back from. Using the ranged
@@ -785,9 +804,9 @@ int CGame::GetCompositeToHit( NWorld::CUnit *pAttacker,
 	// faithful sibling CGame::GetTileCompositeToHit.
 	// A knife model can perform a ranged throw; cover routing follows the action.
 	float fMinClearDistance;
-	if ( NRPG::GetToHitType( pAttacker ) == NRPG::TH_MELEE )
+	if ( actionType == TH_MELEE )
 	{
-		CVec3 pTargetHL;
+		CVec3 pTargetHL( ptTarget );
 		pAIMap->GetUnitHLPos( &pTargetHL, pAIMap->GetHull(pTarget), eHL );
 		ptAttackPos = GetMeleeAttackPos( pAttacker, pTargetHL );
 		fMinClearDistance = 0;
@@ -795,14 +814,17 @@ int CGame::GetCompositeToHit( NWorld::CUnit *pAttacker,
 	else
 	{
 		NAI::SUnitPosition pos = pAttacker->GetPosition();
-		NAI::EDirection dir = GetShootDirection( pos.pos.pNet, pos.pos.p, pTarget->GetPosition().GetCP() );
+		NAI::EDirection dir = GetShootDirection( pos.pos.pNet, pos.pos.p, targetUnit ? targetUnit->GetPosition().GetCP() : ptTarget );
 		pos.pos.p.SetDirection( dir );
 		ptAttackPos = pAttacker->GetAttackOrigin( pos );
 		fMinClearDistance = pAttacker->GetMinClearDistance();
 	}
+	// Original RealCalcCovers 0x6b45cc traces rockets with a unit coefficient.
+	if ( actionType == TH_RLAUNCHER )
+		attack.front().nK = 1;
 	CObj<NRPG::CCoverInfo> pCover = CalcCovers( ptAttackPos, attack.front(), pAttacker, pTarget, eHL, fMinClearDistance );
 	vector<int> accessibleHLs; // needed only for computing Melee ToHit
-	if ( NRPG::GetToHitType( pAttacker ) == NRPG::TH_MELEE )
+	if ( actionType == TH_MELEE && targetUnit )
 	{
 		pAIMap->GetAccessibleUnitHL( &accessibleHLs, pAttacker->GetPosition().GetCenter(), pAIMap->GetHull(pTarget), F_MELEE_DISTANCE );
 		if ( NAI::HL_ANY != eHL && find( accessibleHLs.begin(), accessibleHLs.end(), eHL ) != accessibleHLs.end() )
@@ -822,8 +844,12 @@ int CGame::GetCompositeToHit( NWorld::CUnit *pAttacker,
 	// mission-side StartAttack/NextBullet cursor exists in retail).
 	for ( int i = 0; i < nRof; ++i )
 	{
-		nToHit += GetAttackerToHit( pAttacker, pTarget, pAttacker->GetCarefulShotExtraAP(),
-			eHL, accessibleHLs, pCover, bFirstTurn, i );
+		if ( targetUnit )
+			nToHit += GetAttackerToHit( pAttacker, targetUnit, pAttacker->GetCarefulShotExtraAP(),
+				eHL, accessibleHLs, pCover, bFirstTurn, i );
+		else
+			nToHit += GetAttackerTileToHit( pAttacker, ptTarget, pAttacker->GetCarefulShotExtraAP(),
+				NAI::THL_LOWER, pCover, bFirstTurn, i );
 	}
 	nToHit /= nRof;
 	pRealAttacker->PrintLog( true );
@@ -857,6 +883,19 @@ int CGame::GetTileCompositeToHit(  NWorld::CUnit *pAttacker, CVec3 ptTilePos,
 	// Original Steam 0x6b54eb/0x6b5504: derive the round modifier from the unit.
 	const bool bFirstTurn = pRPG->IsFirstTurn();
 	pRPG->PrintLog( bLog );
+	const EToHitType actionType = GetToHitType( pAttacker );
+	if ( actionType == TH_GRENADE )
+	{
+		const int chance = GetGrenadeCompositeToHit( pAttacker, ptTilePos, bFirstTurn, 0 );
+		pRPG->PrintLog( true );
+		return chance;
+	}
+	if ( actionType != TH_MELEE && actionType != TH_THROWING &&
+		actionType != TH_SHOOT && actionType != TH_RLAUNCHER )
+	{
+		pRPG->PrintLog( true );
+		return 0;
+	}
 	vector<NRPG::CAttackPortion> attack;
 	pRPG->CreateAttack( &attack, false );
 	if ( attack.empty() )
@@ -881,7 +920,7 @@ int CGame::GetTileCompositeToHit(  NWorld::CUnit *pAttacker, CVec3 ptTilePos,
 		return -1;
 	CVec3 ptFrom;
 	float fMinClearDistance;
-	if ( GetToHitType( pAttacker ) == TH_MELEE )
+	if ( actionType == TH_MELEE )
 	{
 		CDynamicCast<NWorld::CUnitServer> pUS( pAttacker );
 		if ( pUS && !NWorld::CanMeleeAttack( pUS, pAttacker->GetPosition(), ptTilePos ) )
@@ -895,6 +934,9 @@ int CGame::GetTileCompositeToHit(  NWorld::CUnit *pAttacker, CVec3 ptTilePos,
 		fMinClearDistance = pAttacker->GetMinClearDistance();
 	}
 	//
+	// Original tile cover builder 0x6b47d6 uses nK=1 for a rocket.
+	if ( actionType == TH_RLAUNCHER )
+		attack.front().nK = 1;
 	CObj<NRPG::CCoverInfo> pCover = CalcCoversForTile( ptFrom, attack[0], pAttacker,
 		ptTilePos, fMinClearDistance );
 	// Original Steam 0x6b5751/0x6b579c..0x6b57b1: average the per-bullet chances.

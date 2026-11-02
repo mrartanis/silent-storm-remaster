@@ -498,7 +498,7 @@ public:
 	bool bNetworkReplica = false;
 	std::function<EUnitCommandResult(CUnitServer*,CCmd*,int*,int*)> networkPreview;
 	std::function<NAI::CPath*(CUnitServer*)> networkPreviewPath;
-	std::function<int(int,CUnit*,CUnit*,CVec3,int,bool)> networkHitChance;
+	std::function<int(int,CUnit*,CObjectBase*,CVec3,int,bool)> networkHitChance;
 	vector<NAI::SPathPlace> networkDeployment[2];
 	// Authoring positions captured from the fully assembled map, before removing
 	// campaign actors/scripts. Runtime only; neither saves nor replicas need them.

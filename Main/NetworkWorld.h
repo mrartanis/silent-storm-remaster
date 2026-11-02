@@ -63,7 +63,7 @@ class NetworkWorld {
   void SetPreviewSelection(const std::vector<NWorld::CUnit*>&);
   bool TakePreviewUpdated(){bool changed=previewUpdated;previewUpdated=false;return changed;}
   void ReceiveResult(std::uint64_t,const Bytes&,bool preview);
-  int HitChance(int,NWorld::CUnit*,NWorld::CUnit*,CVec3,int,bool);
+  int HitChance(int,NWorld::CUnit*,CObjectBase*,CVec3,int,bool);
   NWorld::EUnitCommandResult TakeCommandError(){auto result=commandError;commandError=NWorld::UCR_OK;return result;}
   NetworkMatch& Match() { return match; }
   const NetworkMatch& Match() const {return match;}
