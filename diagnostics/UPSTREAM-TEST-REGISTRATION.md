@@ -2587,3 +2587,33 @@ without dropping tests; original build log retained. Source6face remains partial
 other four files,29 unfinished.
 
 Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).
+
+## 2026-11-02: deferred outgoing subzone termination (152)
+
+NativeSubzoneTransition0..2 cover real initialized scenario1 ETStore forward2291->2292,
+reverse2292->2291 and exact first-entry control. Use actual world passage group1, real
+global merc54, native UI command drain and deferred CICBeginMission execution. Before the
+deferred command the old party/interface/world remain intact and no snapshot exists.
+Afterwards the old world loses its one human actor, its isolated native linked-zone
+snapshot is nonempty, and the real replacement contains the same one living global merc
+with passage metadata consumed. RED2/3 both ->GREEN3 both, first-entry2 exact. Tests do
+not fake worlds/passages, override mission behavior, modify DB/geometry, execute extra
+frames or deserialize a live world. Snapshot reentry/deserialization and a831 historical
+footprint cleanup are not claimed. Initial diagnostic filename compile error retained
+separately, not RED; final three cases unchanged during production.
+
+Original named CICBeginMission Exec slot10->60c350, unique exact19 termination
+block60c3cf/slot28 before actual Init60c50b, named CMission Terminate slot28->5fc560,
+unique exact typed47 reference/field block60c146 at constructor60c0f0, actual
+producer5feb69/constructor call5feb95 and deferred5febab audited. Typed constructor
+mission is native arg5/field2c; own API appends an optional input to preserve preceding
+bool/image callers. Actual slot134/frame/register/field changes decoded independently
+rather than normalized, no unsafe masks or original runtime.
+
+Game both/640 Windows/604 Linux related in complete runs/CI382, previous/new80 cases and80
+previous fixed rows, melee/godmode/fonts12 exact, database unchanged;12 fresh LAN gates
+each including361 maps. The151 refined5247 phase probe passes within this Windows full
+run, initial151 failure still retained. Sole old nested-save exclusion retained.
+Other6face route/reservation files remain pending;29 unfinished.
+
+Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).

@@ -33816,6 +33816,59 @@ static void NativeCachedPointShadowFlag(const char* databasePath,const char* res
 }
 
 
+class NativeSubzoneMissionAccess: public NGame::CMission
+{
+public:
+    static auto Drain() { return &NativeSubzoneMissionAccess::ExecWorldCommands; }
+};
+
+static void NativeSubzoneTransition(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<3,"unknown native subzone transition mode");
+    Require(std::getenv("S2_USER_DATA_DIR") && !NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"subzone transition requires its isolated native profile and empty interface stack");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm native subzone termination ordering");
+    NMainLoop::CreateProfile("UpstreamSubzoneTransition");NMainLoop::SetActiveProfile("UpstreamSubzoneTransition");
+    auto* manager=NMainLoop::GetSaveManager();
+    struct Slots {NMainLoop::CSaveManager* manager;~Slots(){manager->DeleteSlot(NMainLoop::S_SLOT_ACTIVE);}} slots{manager};
+    NGame::InitLoadingScreen();
+    CObj<NRPG::CGlobalGame> game=NRPG::CreateGlobalGame(1);
+    auto* zone=game->pScenarioTracker->GetZone(2291);
+    Require(zone && zone->GetDBZone() && zone->GetDBZone()->sSmallDescription=="ETStore","subzone transition has no genuine ETStore campaign zone");
+    game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    const int from=mode==1?2292:2291;
+    CObj<NGame::CICBeginMission> enter=new NGame::CICBeginMission(zone,from,{},game);enter->Exec();
+    CObj<NGame::CMission> mission=dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(mission && mission->GetRPGGame()==game.GetPtr() && game->nCurrentTemplateID==from,"native subzone entry lost its actual mission/campaign/template");
+    while(NMainLoop::HaveInterfaceCommand()){CObj<NMainLoop::CInterfaceCommand> start=NMainLoop::TakeInterfaceCommandForHarness();Require(dynamic_cast<NMainLoop::CICSaveFile*>(start.GetPtr()),"native subzone entry queued an unrelated transition");}
+    CObj<NWorld::CWorld> oldWorld=dynamic_cast<NWorld::CWorld*>(mission->GetWorld());Require(oldWorld && oldWorld->IsLinkedZone(),"native ETStore entry did not retain its linked-zone lifecycle");
+    auto* player=dynamic_cast<NWorld::CPlayer*>(mission->GetActivePlayer()->GetPlayer());Require(player,"native subzone entry has no active human owner");
+    vector<CPtr<NWorld::CUnitServer>> units;player->GetUnits(&units);Require(units.size()==1 && units[0]->CanFight(),"native subzone entry did not deploy its genuine mercenary");
+    const string saveName=std::to_string(zone->GetDBZone()->GetRecordID())+"_"+std::to_string(from)+".sav";
+    const wstring savedPath=manager->GetSlotFilePathW(NMainLoop::S_SLOT_ACTIVE,saveName);
+    auto savedExists=[&](){CFileStream file;try{file.OpenRead(savedPath.c_str());return file.GetSize()>0;}catch(...){return false;}};
+    Require(!savedExists(),"native subzone test inherited an outgoing world snapshot");
+    if(mode==2){std::printf("SUBZONE-TRANSITION mode=2 from=%d current=%d party=%u saved=%d control=first-entry\n",from,game->nCurrentTemplateID,unsigned(units.size()),int(savedExists()));return;}
+    std::set<int> groups;for(auto object:oldWorld->GetObjectsForHarness())if(auto* passage=dynamic_cast<NWorld::IPassageObject*>(object.GetPtr()))if(passage->GetPassageZoneID()>0)groups.insert(passage->GetPassageZoneID());
+    int passageGroup=0;for(int group:groups)if(oldWorld->UsePassageObject(units[0],group,true)){passageGroup=group;break;}
+    Require(passageGroup>0 && game->players[0]->deployData.bPassage,"real native ETStore passage did not queue its actual template transition");
+    (mission.GetPtr()->*NativeSubzoneMissionAccess::Drain())();
+    CObj<NMainLoop::CInterfaceCommand> pending=NMainLoop::TakeInterfaceCommandForHarness();
+    auto* transition=dynamic_cast<NGame::CICBeginMission*>(pending.GetPtr());Require(transition && !NMainLoop::HaveInterfaceCommand(),"real mission did not defer its single native passage transition");
+    const int to=transition->*BeginMissionCommandAccess::Template();Require(to>0 && to!=from,"real passage transition did not select a different native template");
+    vector<CPtr<NWorld::CUnitServer>> before;player->GetUnits(&before);
+    Require(before.size()==1 && !savedExists() && mission->GetWorld()==oldWorld.GetPtr() && NMainLoop::GetCurrentInterfaceForHarness()==mission.GetPtr(),"outgoing mission was terminated inside its UI update instead of its deferred main-loop command");
+    pending->Exec();
+    auto* next=dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(next && next!=mission.GetPtr() && next->GetWorld()!=oldWorld.GetPtr() && next->GetRPGGame()==game.GetPtr() && game->nCurrentTemplateID==to,"native subzone transition did not install its real replacement mission");
+    list<CPtr<NWorld::CUnitServer>> remaining;oldWorld->GetAllUnits(&remaining);int oldParty=0;for(auto unit:remaining)if(unit->GetPlayer()==player)++oldParty;
+    auto* nextPlayer=dynamic_cast<NWorld::CPlayer*>(next->GetActivePlayer()->GetPlayer());Require(nextPlayer,"replacement subzone has no native concrete player");
+    vector<CPtr<NWorld::CUnitServer>> newParty;nextPlayer->GetUnits(&newParty);
+    const bool saved=savedExists();
+    std::printf("SUBZONE-TRANSITION mode=%d from=%d to=%d group=%d deferredParty=%u outgoingParty=%d newParty=%u saved=%d passageConsumed=%d\n",mode,from,to,passageGroup,unsigned(before.size()),oldParty,unsigned(newParty.size()),int(saved),int(!game->players[0]->deployData.bPassage));std::fflush(stdout);
+    Require(oldParty==0 && saved,"deferred native subzone transition did not terminate/save the outgoing linked world before creating its replacement");
+    Require(newParty.size()==1 && newParty[0]->CanFight() && newParty[0]->GetUnitRPG()->GetRPGUnit()==game->players[0]->mercs[0].GetPtr() && !game->players[0]->deployData.bPassage,"native subzone transition duplicated/lost the actual mercenary or failed to consume its passage arrival");
+}
+
 static void NativeStorePassage(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=4,"unknown native store passage mode");
@@ -34748,6 +34801,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-subzone-transition")) { Require(argc==5,"subzone transition requires db/resources/mode"); NativeSubzoneTransition(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-store-passage")) { Require(argc==5,"store passage requires db/resources/mode"); NativeStorePassage(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-authored-light")) { Require(argc==5,"authored light requires db/resources/mode"); NativeAuthoredLight(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-foot-support")) { Require(argc==5,"foot support requires db/resources/mode"); if(std::atoi(argv[4])<4)NativeFootSupport(argv[2],argv[3],std::atoi(argv[4]));else NativeFootSupportProducer(argv[2],argv[3],std::atoi(argv[4])); return true; }

@@ -24477,3 +24477,73 @@ deployment reservations) remain pending; source becomes partial,217 imported/16 
 partial,29 unfinished. Final-head hosted success required at whole-task completion.
 
 Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).
+
+## 2026-11-02: deferred outgoing subzone termination (152)
+
+Restore outgoing mission termination for linked-template passage transitions.
+CMission::ExecWorldCommands retains its actual CUICmdLoadTemplate zone/template and native
+deferred NMainLoop command, passing its existing owned loading image and this mission.
+Append an optional outgoing IMission argument to the existing zone constructor, preserving
+all earlier bool/image positions and default-null callers. The command retains
+CPtr<IMission> and calls the existing Terminate after the loading screen and BEFORE
+replacement mission initialization. Never terminate from the UI/world/script update
+itself; native Terminate removes the departing party and writes the linked-zone snapshot.
+Two production Main files, no new virtual slot, save tag, enum, wire field or LAN
+protocol. A stale producer comment is corrected after GREEN without semantic changes.
+
+NativeSubzoneTransition0..2 use the real scenario1 ETStore zone and actual initialized
+CMission, native campaign merc54, registered passage objects and the real forced scripted
+passage gate. Native mission command drain only exposes the existing protected method as a
+typed member pointer; no derived mission override, fake world/passage, actor teleport or
+DB modification. Real forward2291->2292 and reverse2292->2291 use group1; before deferred
+command execution the old interface/world/party remain intact and no zone snapshot exists.
+Execute the actual queued CICBeginMission; the replacement is real and uses the same
+campaign/merc, consumes the saved passage data and keeps exactly one living party member.
+RED2/3 both: old world still contains its human actor and no snapshot was written despite
+a valid replacement. GREEN3 both: outgoing party1->0, snapshot absent->present/nonempty,
+replacement party1/passage consumed. First-entry2 is exact. Own isolated test
+profiles/active slots are cleaned, no user saves touched. No live-world decode or extra
+game frames/ticks. Snapshot file creation is tested; its deserialization/reentry, stale
+historical snapshots and remaining a831 footprint cleanup are not claimed. An initial
+diagnostic NStr::Format include error was corrected by composing the integer filename
+before genuine RED; compile errors remain archived, not counted as RED. The three final
+tests stay unchanged during production.
+
+Original actual command Exec is independently bound through named CICBeginMission root VT
+slot10: Gold607930/532->Steam60c350, actual size not assumed. Complete19-byte termination
+block Gold6079af->Steam60c3cf is unique exact without masks: validate saved mission2c,
+call its slot28 at60c3df, before chapter-emulation flag14 at60c3e2, allocation590
+at60c4c4, CMission constructor5ff9d0 at60c4e0, Initialize601070 at60c50b and successful
+interface install5f59b0 at60c517. Named CMission root slot28 binds typed Gold
+Terminate5f7fe0/251 to Steam5fc560 without claiming whole251 equivalence.
+
+Typed Gold zone constructor6076d0/181 has outgoing mission as its fifth native input. The
+complete47-byte reference/field block607726->Steam60c146 is unique exact without masks:
+game24/zone28/outgoing mission2c and refcounts. Actual constructor60c0f0 writes
+independently named CICBeginMission VT at60c12e; actual arg stack30->field2c at60c167 and
+ret1c independently checked. The actual UI producer's five-byte
+false/image/current-missionESI push block Gold5fa443->Steam5feb69 is unique exact, used
+only with the independently decoded actual constructor call5feb95->60c0f0 and subsequent
+deferred main-loop call5febab->5f5c10. Actual mission image580/zone4b0, incoming command
+template10, game getter slot134 and temporary/register layout are decoded independently;
+Gold slot12c and frame/register differences are never normalized. Preserve own CUICmd
+zone, which is the same actual linked zone in the supported native transition; append the
+optional mission to own source API instead of transplanting original argument positions.
+Whole532 Exec/181 constructor/2799 UI producer comparisons rejected at changed fields,
+virtual offsets, frames/registers, EH/globals/literal pointers. No unsafe masks, BSS reads
+or original process/function/world execution. Donor60ba7f is stale for these verified
+binaries.
+
+Full Game both/640 Windows/604 Linux related including all151 plus zone/transition cases,
+CI382, prior/new80 cases and80 earlier fixed rows pass. Previous melee/filter/godmode
+and12 font rows exact, database hash unchanged. Windows now also runs the151 corrected5247
+save-turn probe as part of this single complete related run; its native
+flyer-phase/survival/position/save-turn assertions remain intact. Twelve fresh existing
+LAN gates each platform pass, including all361 encounter deployments and replicas; Linux5
+CTest+7 direct native match modes, Windows12 CTest, all commands/exits retained. The old
+nested-save movement flake remains the sole exact exclusion since139. Source6face remains
+partial for scriptRoute order and wDumbUnit deployment reservations;151 accounts its
+Script/lvm change and152 both iMission files.217 imported/16 pending/13 partial,29
+unfinished. Final-head hosted success required at whole-task completion.
+
+Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).

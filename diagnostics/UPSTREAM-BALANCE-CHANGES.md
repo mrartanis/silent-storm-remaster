@@ -4331,3 +4331,22 @@ Database unchanged. Other6face mission/route/deployment changes remain pending;2
 unfinished.
 
 Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).
+
+## 2026-11-02: deferred outgoing subzone termination (152)
+
+Within-zone passage transitions now finish the outgoing mission before constructing its
+replacement. The old party is removed from the old world and its linked-zone snapshot is
+written through existing native Terminate. This happens in the deferred main-loop command,
+preserving the active world throughout UI/script processing. Real ETStore forward/reverse
+and exact first-entry control verified, RED2/3 ->GREEN3 both. No AP/damage/price changes,
+artificial frames/clock, save tags or LAN protocol. Existing zone/template, loading image,
+bool behavior and prior constructor callers retained via one optional outgoing-mission
+input.
+
+Snapshot file creation is tested; snapshot reentry and historical/stale footprint cleanup
+are separate. Game both/640 Windows/604 Linux related/CI382, prior/new80 cases and80 prior
+fixed rows, melee/godmode/fonts12 exact, database unchanged.12 LAN gates/361 encounter
+maps each platform pass. Source6face remains partial for route order/deployment
+reservations;29 unfinished.
+
+Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).

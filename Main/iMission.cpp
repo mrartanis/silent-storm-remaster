@@ -2684,15 +2684,15 @@ void CMission::ExecWorldCommands()
 						else {
 							// W5 serialization-convergence: the NGame UICmdExec wrappers are gone -- retail
 							// CMission::ExecWorldCommand @0x1fd8c0 executes these three INLINE:
-							// LoadTemplate -> NMainLoop::Command(new CICBeginMission(pZone, nTemplateID,
-							// vector<string>(), GetRPGGame())); ShowStore -> the immediate panel open
+							// LoadTemplate defers CICBeginMission with the outgoing mission for termination;
+							// ShowStore -> the immediate panel open
 							// (mission vtbl+0x68 == SetPanelState(PANEL_STORE|PANEL_INVENTORY, true));
 							// ShowTeamMng -> NMainLoop::Command(new CICTeamMngMenu(globalPlayer, this, nID))
 							// -- NB retail passes the command's wait id as the 3rd arg.
 							CDynamicCast<NWorld::CUICmdLoadTemplate> pLoadTemplate(pCmd);
 							if (pLoadTemplate)
 								NMainLoop::Command(new CICBeginMission(pLoadTemplate->pZone,
-									pLoadTemplate->nTemplateID, vector<string>(), GetRPGGame()));
+									pLoadTemplate->nTemplateID, vector<string>(), GetRPGGame(), false, pPWLImage, this));
 							else {
 								CDynamicCast<NWorld::CUICmdShowStore> pShowStore(pCmd);
 								if (pShowStore)
@@ -3385,9 +3385,9 @@ CICBeginMission::CICBeginMission( int _nTemplateID, int _nVariantID, const vecto
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CICBeginMission::CICBeginMission( NScenario::CScenarioZone *_pZone,
-		int _nTemplateID, const vector<string> &_params, NRPG::CGlobalGame *_pGlobalGame, bool _bEmulateChapter, NDb::CUITexture *_pPWLImage ):
+		int _nTemplateID, const vector<string> &_params, NRPG::CGlobalGame *_pGlobalGame, bool _bEmulateChapter, NDb::CUITexture *_pPWLImage, IMission *_pMissionToTerminate ):
 	pZone( _pZone ), nTemplateID( _nTemplateID ), nVariantID( -1 ), pGlobalGame( _pGlobalGame ), params(_params),
-	bEmulateChapter( _bEmulateChapter ), pPWLImage( _pPWLImage )
+	bEmulateChapter( _bEmulateChapter ), pPWLImage( _pPWLImage ), pMissionToTerminate( _pMissionToTerminate )
 {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -3406,6 +3406,10 @@ void CICBeginMission::Exec()
 		pSplash = pPWLImage;
 	SetLoadingImage( pSplash );
 	ShowLoadingScreen( 0 );
+	// Steam 1.2 0x60c3df: terminate the outgoing linked mission here,
+	// outside its UI/script update and before initializing its replacement.
+	if ( IsValid( pMissionToTerminate ) )
+		pMissionToTerminate->Terminate();
 
 	// retail @0x20ba00 bEmulateChapter arm: a direct mission->zone transition (script BeginZone)
 	// runs the leave-zone bookkeeping the chapter map would have done. The load-bearing call is
