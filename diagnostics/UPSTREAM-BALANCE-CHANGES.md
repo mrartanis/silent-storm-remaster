@@ -4274,3 +4274,20 @@ database hash unchanged. Existing native backends, fonts/HD/face/PNG and LAN unc
 e825 still partial for deployment/light propagation;30 unfinished.
 
 Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
+
+## 2026-11-02: authored point-light shadow propagation (149)
+
+Authored point lights now retain their shadow setting through world rendering, scene
+creation and saved light-node reload. The setting remains independent of lightmap-only
+eligibility, color, position and radius. Actual44-lamp true-shadow route changes44 lost
+flags to0; false-shadow and zero-radius controls remain exact. The142 cached renderer
+already honors the delivered setting. Mandatory explicit argument restored across existing
+interfaces, no new virtual slot or save tag, no AP/damage/price/timing change.
+
+Native RED3/7 ->GREEN7/combined68 both, all61 prior foot/camera/demo/cached-point cases
+and fixed58 rows exact. Real native light factory/radiance/fresh saved-node reload tested,
+no fake light or world reload. Game both/452 Windows/423 Linux related/CI378, prior
+melee/godmode/font12 exact, database unchanged. Existing backends, assets and LAN
+retained. e825 remains partial for deployment;30 unfinished.
+
+Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).

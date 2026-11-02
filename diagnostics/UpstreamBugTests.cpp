@@ -6324,18 +6324,18 @@ static void TinyPointLightCache()
 
 static void PointLightRadiance()
 {
-    CObj<NGScene::CPointLight> light = new NGScene::CPointLight(CVec3(4, 2, 1), CVec3(3, -2, 5), 3.f, nullptr, true);
+    CObj<NGScene::CPointLight> light = new NGScene::CPointLight(CVec3(4, 2, 1), CVec3(3, -2, 5), 3.f, nullptr, true, false);
     NGScene::CPointLight::SRadianceInfo info;
     light->GetRadianceInfo(&info, NGScene::RP_GF3_CL);
     Require(info.vColor == CVec3(1, 0.5f, 0.25f) && info.fRadius == 6.f,
         "point-light radiance failed to fold colour strength into its cached radius");
     Require(info.vCenter == CVec3(3, -2, 5) && !info.bIsRendered,
         "radiance conversion changed light position or lightmap-only eligibility");
-    CObj<NGScene::CPointLight> dim = new NGScene::CPointLight(CVec3(0.25f, 0.125f, 0), VNULL3, 8.f, nullptr, true);
+    CObj<NGScene::CPointLight> dim = new NGScene::CPointLight(CVec3(0.25f, 0.125f, 0), VNULL3, 8.f, nullptr, true, false);
     dim->GetRadianceInfo(&info, NGScene::RP_GF3_CL);
     Require(info.vColor == CVec3(1, 0.5f, 0) && info.fRadius == 4.f,
         "dim point-light radiance used the wrong radius scaling");
-    CObj<NGScene::CPointLight> dark = new NGScene::CPointLight(VNULL3, VNULL3, 3.f, nullptr, true);
+    CObj<NGScene::CPointLight> dark = new NGScene::CPointLight(VNULL3, VNULL3, 3.f, nullptr, true, false);
     dark->GetRadianceInfo(&info, NGScene::RP_GF3_CL);
     Require(info.vColor == VNULL3 && info.fRadius == 3.f,
         "zero-strength point light generated nonfinite radiance or changed its radius");
@@ -21927,7 +21927,7 @@ public:
     CObjectBase* CreateGrassSector(NGScene::CGrassAnimator*,NDb::CTexture*,CFuncBase<SFBTransform>* pose,const SBound&,const NGScene::SRoomInfo&) override { Keep(pose); return nullptr; }
     NGScene::CBuilding* CreateBuildingPart(int,const SMapBuilding&,NBuilding::CBuildingInfoHold*) override { return nullptr; }
     CObjectBase* AddDirectionalLight(const CVec3&,const CVec3&,const CVec3&,const CVec2&,float,bool) override { return nullptr; }
-    CObjectBase* AddPointLight(const CVec3&,const CVec3&,float,bool) override { return nullptr; }
+    CObjectBase* AddPointLight(const CVec3&,const CVec3&,float,bool,bool) override { return nullptr; }
     CObjectBase* AddSpotLight(const CVec3&,const CVec3&,const CVec3&,float,float,NDb::CTexture*,bool) override { return nullptr; }
     CObjectBase* AddFlare(CFuncBase<CVec3>* position,CFuncBase<STime>* time,int,float,NDb::CTexture*,float,float) override { Keep(position); Keep(time); return nullptr; }
     CObjectBase* CreateParticles(NDb::CEffect*,STime,CFuncBase<STime>* time,CFuncBase<SFBTransform>* pose,const NGScene::SRoomInfo&,NAnimation::CSkeletonAnimator* skeleton,NGScene::IParticleFilter* filter) override { Keep(time); Keep(pose); Keep(skeleton); Keep(filter); return nullptr; }
@@ -33771,6 +33771,91 @@ static void NativeCachedPointShadowFlag(const char* databasePath,const char* res
 }
 
 
+template<class View>
+static auto AddAuthoredPoint(View* view,const CVec3& color,const CVec3& origin,float radius,bool lightmap,bool shadow,int)
+    ->decltype(view->AddPointLight(color,origin,radius,lightmap,shadow))
+{return view->AddPointLight(color,origin,radius,lightmap,shadow);}
+template<class View>
+static auto AddAuthoredPoint(View* view,const CVec3& color,const CVec3& origin,float radius,bool lightmap,bool,long)
+    ->decltype(view->AddPointLight(color,origin,radius,lightmap))
+{return view->AddPointLight(color,origin,radius,lightmap);}
+template<class Light>
+static auto ConstructAuthoredPoint(bool shadow,int)->decltype(new Light(CVec3(1,.5f,.25f),CVec3(3,2,1),4.f,nullptr,false,shadow))
+{return new Light(CVec3(1,.5f,.25f),CVec3(3,2,1),4.f,nullptr,false,shadow);}
+template<class Light>
+static auto ConstructAuthoredPoint(bool,long)->decltype(new Light(CVec3(1,.5f,.25f),CVec3(3,2,1),4.f,nullptr,false))
+{return new Light(CVec3(1,.5f,.25f),CVec3(3,2,1),4.f,nullptr,false);}
+
+static bool NativeAuthoredPointShadow(NGScene::CPointLight* light)
+{
+    Require(light,"point light route did not create the actual native light");
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(light,&refs);bool shadow=false;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(12,&shadow);}
+    NGScene::CPointLight::SRadianceInfo radiance;light->GetRadianceInfo(&radiance,NGScene::RP_GF3_CL);
+    Require(radiance.bCastShadow==shadow,"native radiance disagrees with the saved authored shadow flag");
+    CObj<CObjectBase> fresh=pSSClasses->CreateObject(0x01961170);fields.Seek(0);
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);fresh->operator&(reader);}
+    auto* restored=dynamic_cast<NGScene::CPointLight*>(fresh.GetPtr());Require(restored,"point-light save class has wrong native type");
+    restored->GetRadianceInfo(&radiance,NGScene::RP_GF3_CL);Require(radiance.bCastShadow==shadow,"fresh native light reload lost the emitted shadow flag");
+    return shadow;
+}
+
+class AuthoredLightView:public HeadStateView
+{
+    OBJECT_NOCOPY_METHODS(AuthoredLightView);
+    CObj<NGScene::IGameView> actual;
+public:
+    vector<CObj<NGScene::CPointLight>> points;
+    AuthoredLightView():actual(NGScene::CreateNewView()){}
+    CObjectBase* KeepPoint(CObjectBase* object){
+        if(!object)return nullptr;auto* light=dynamic_cast<NGScene::CPointLight*>(object);Require(light,"world point-light dispatch did not reach the actual game-view/scene factory");points.push_back(light);return object;
+    }
+    // Both native API shapes compile on the predecessor; neither synthesizes a light or shadow flag.
+    CObjectBase* AddPointLight(const CVec3& color,const CVec3& origin,float radius,bool lightmap){return KeepPoint(AddAuthoredPoint(actual.GetPtr(),color,origin,radius,lightmap,false,0));}
+    CObjectBase* AddPointLight(const CVec3& color,const CVec3& origin,float radius,bool lightmap,bool shadow){return KeepPoint(AddAuthoredPoint(actual.GetPtr(),color,origin,radius,lightmap,shadow,0));}
+};
+
+static void NativeAuthoredLight(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=6,"unknown authored point-light mode");
+    const bool shadow=(mode&1)!=0;
+    if(mode<=1){
+        CObj<NGScene::CPointLight> point=ConstructAuthoredPoint<NGScene::CPointLight>(shadow,0);
+        const bool actual=NativeAuthoredPointShadow(point);
+        std::printf("AUTHORED-LIGHT mode=%d route=constructor actual=%d expected=%d\n",mode,int(actual),int(shadow));std::fflush(stdout);
+        Require(actual==shadow,"native point-light constructor dropped the shadow input");return;
+    }
+    NativeDisplayContext display;
+    if(mode<=3 || mode==6){
+        CObj<NGScene::IGameView> view=NGScene::CreateNewView();
+        CObj<CObjectBase> object=AddAuthoredPoint(view.GetPtr(),CVec3(1,.5f,.25f),CVec3(3,2,1),mode==6?0.f:4.f,false,shadow,0);
+        if(mode==6){Require(!object,"zero-radius point light became a real light");std::printf("AUTHORED-LIGHT mode=6 route=game-view zeroRadius=1\n");return;}
+        auto* point=dynamic_cast<NGScene::CPointLight*>(object.GetPtr());const bool actual=NativeAuthoredPointShadow(point);
+        std::printf("AUTHORED-LIGHT mode=%d route=game-view actual=%d expected=%d\n",mode,int(actual),int(shadow));std::fflush(stdout);
+        Require(actual==shadow,"native game-view/scene propagation dropped the authored shadow input");return;
+    }
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,false,&campaign,4517);world->SetTimeOfDay(NWorld::TOD_ANYTIME);
+    vector<std::pair<NDb::CContainerModel*,bool>> changed;
+    vector<NDb::CObject*> visited;
+    std::function<void(NDb::CObject*)> setFlags=[&](NDb::CObject* data){
+        if(!data || std::find(visited.begin(),visited.end(),data)!=visited.end())return;visited.push_back(data);
+        for(int stage=0;stage<NDb::N_DESTROY_STAGES;++stage){auto* model=data->pModels[stage].GetPtr();if(!model || model->ptPLightCr==VNULL3 || model->fPLightRadius<=0)continue;
+            bool known=false;for(const auto& saved:changed)if(saved.first==model){known=true;break;}if(known)continue;
+            changed.emplace_back(model,model->bPLightShadow);model->bPLightShadow=shadow;
+        }
+        setFlags(data->pChild);
+    };
+    for(auto object:world->GetObjectsForHarness())setFlags(object->GetDBObjectForHarness());
+    struct RestoreFlags{vector<std::pair<NDb::CContainerModel*,bool>>& changed;~RestoreFlags(){for(auto saved:changed)saved.first->bPLightShadow=saved.second;}} restore{changed};
+    Require(!changed.empty(),"authored-light fixture has no actual authored lamp model; not a shadow RED");
+    CObj<AuthoredLightView> view=new AuthoredLightView;CObj<NRender::IRenderGame> render=NRender::CreateRenderGame(world,view,nullptr);
+    render->UpdateViewWorld(false,world->GetTime()->GetValue(),nullptr,true);
+    Require(!view->points.empty(),"actual world/render visitor never emitted a lamp; not a shadow RED");
+    int wrong=0;for(auto point:view->points)wrong+=NativeAuthoredPointShadow(point)!=shadow;
+    std::printf("AUTHORED-LIGHT mode=%d route=world models=%zu points=%zu wrong=%d expected=%d\n",mode,changed.size(),view->points.size(),wrong,int(shadow));std::fflush(stdout);
+    Require(wrong==0,"actual world object/render visitor/game-view/scene chain dropped its authored shadow flag");
+}
+
 static CPtr<CObjectBase> NativeFootBlock(NWorld::CUnitServer* actor)
 {
     vector<CObjectBase*> referenced;CStructureNetworkContext graph;
@@ -34556,6 +34641,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-wounded-ai-contacts")) { Require(argc==5,"fear contacts requires db/res/mode"); NativeWoundedAIContacts(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-retreat")) { Require(argc==5,"fear retreat requires db/res/mode"); NativeWoundedAIRetreat(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tooltip-delay")) { Require(argc==5,"tooltip delay requires db/res/mode"); NativeTooltipDelay(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-authored-light")) { Require(argc==5,"authored light requires db/resources/mode"); NativeAuthoredLight(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-foot-support")) { Require(argc==5,"foot support requires db/resources/mode"); if(std::atoi(argv[4])<4)NativeFootSupport(argv[2],argv[3],std::atoi(argv[4]));else NativeFootSupportProducer(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-cinematic-floor-range")) { Require(argc==5,"cinematic range requires db/resources/mode"); NativeCinematicFloorRange(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-camera-floor-owner")) { Require(argc==5,"camera floor ownership requires db/res/mode"); NativeCameraFloorOwner(argv[2],argv[3],std::atoi(argv[4])); return true; }

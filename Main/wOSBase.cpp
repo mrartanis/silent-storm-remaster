@@ -387,7 +387,7 @@ void CObjectServerBase::AddLights( IRenderVisitor *p, NDb::CContainerModel *pCon
 		SFBTransform m;
 		CVec3 ptOrigin;
 		rv.forward.RotateHVector( &ptOrigin, pCont->ptPLightPos );
-		p->AddPointLight( pCont->ptPLightCr, ptOrigin, pCont->fPLightRadius, bLightMap );
+		p->AddPointLight( pCont->ptPLightCr, ptOrigin, pCont->fPLightRadius, bLightMap, pCont->bPLightShadow );
 		if ( pCont->fPFlareRadius > 0 )
 		{
 			CVec3 ptFlareOrigin;

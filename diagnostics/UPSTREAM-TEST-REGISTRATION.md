@@ -2503,3 +2503,28 @@ masking or original runtime. Source remains partial for deployment/light remaind
 unfinished. Sole exact campaign nested-save flake exclusion unchanged since139.
 
 Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
+
+## 2026-11-02: authored point-light shadow propagation (149)
+
+NativeAuthoredPointLight0..6 verify native constructor, real game-view/scene creation,
+actual world4517/CSetRender lamp dispatch and zero-radius rejection. Toggle and restore
+only the existing authored flag on44 runtime lamp models, retaining real
+geometry/color/position/radius. Every actual CPointLight must agree with its saved tag12
+and native radiance; a fresh independent registered01961170 node must reload the same
+flag. No live-world deserialization or DB file writes. Canonical RED3/7 both
+->GREEN7/combined68 both; false0/2/4 and zero6 exact; all44 true world lamps formerly lose
+the flag, now preserve it. The unchanged seven new tests support native
+predecessor/current API shapes without generating a fake light/flag. Existing three
+radiance constructors preserve prior false explicitly; three diagnostic virtual sinks only
+accept the native signature.
+
+All61 prior foot/camera/demo/cached-point cases and fixed58 rows remain exact. Full Game
+both/452 Windows/423 Linux related/CI378; prior melee/filter/godmode and12 font rows
+exact, database hash unchanged. Original unique exact world53/28, named typed render52
+E8-only, view exact20 suffix/decoded zero guard, scene103 E8-only, constructor115
+namedVT-only and exact77 field stores audited. Whole384/30/165/449 comparisons rejected
+where writable/BSS/EH operands differ; no unsafe masks or original runtime. Known campaign
+nested-save flake is the sole exact exclusion, unchanged since139. e825 deployment
+remainder still pending;30 unfinished.
+
+Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).

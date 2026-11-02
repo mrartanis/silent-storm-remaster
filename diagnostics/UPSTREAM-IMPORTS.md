@@ -24276,3 +24276,60 @@ fixed. Native renderer/audio/SDL/bgfx/font/HD/face/PNG/LAN and gameplay timing u
 e825 remains partial for deployment and authored-light propagation;30 unfinished.
 
 Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
+
+## 2026-11-02: authored point-light shadow propagation (149)
+
+Pass the actual CContainerModel.bPLightShadow through CObjectServerBase::AddLights,
+IRenderVisitor/CSetRender, IGameView/CGameView, IGScene/CGScene and the real CPointLight
+constructor. The fifth view/visitor input becomes the sixth constructor input, separate
+from lightmap-only eligibility. Store it in existing bCastShadow/tag12, consumed by
+radiance and the previously restored142 cached point-shadow renderer. Ten production files
+change only explicit argument declarations/forwarding/initialization; mandatory input, no
+guessed defaults or extra virtual slots. Default save decoder remains false for missing
+old fields; positive-radius guards, color/position/radius/radiance math and saved
+fields10/11/12 remain intact.
+
+Actual Steam1.2 chain audited independently: typed Gold world entry778c50/53->7847d0/53
+unique exact, and complete28-byte authored flag producer778cd6->784856 unique exact
+(containerac, lightmap1c, five inputs, visitor slot0c). Named secondary CSetRender RTTI
+table offset20 slot0c maps Gold6c6610/52->6cd0f0/52; whole52 unique with only decoded
+RegisterBase E8 relocation, all pushes/game-view slot88/ret14 retained. Named CGameView VT
+slot88 maps584c80->587280; its20-byte guard/tail-call suffix is unique exact,
+pScene0c/scene slot3c. Whole30 comparison rejected due writable absolute zero operand;
+actual guard is independently decoded and file-backed zero checked, not masked.
+
+Named CGScene VT slot3c maps55c5c0->55e450. Its103-byte
+allocation/argument/constructor/AddLight/return body Gold55c5fe->55e48e uniquely matches
+with only three decoded E8 relocations, excluding EH/zero guard. Actual caller55e4c9
+supplies both booleans to constructor552530. Constructor115-byte body prefix550675->552545
+uniquely matches masking only independently named CPointLight VT, excluding EH prologue
+and floating global operands. Complete77-byte field block5506f2->5525c2 is unique exact
+without masks: stack80 ->lightmap4f0, stack84 ->shadow500, color4f4; actual ret18 confirms
+six inputs. PDB class/member/prototype names bind container flagac, point flag500 and both
+booleans. Whole449 constructor/384 world/165 scene equivalence rejected; never mask
+writable constants, BSS VNULL3, fields, frames, registers, branches, opcodes or unknown
+pointers. No original process/function/world execution.
+
+NativeAuthoredPointLight0..6 use real predecessor/new API constructor and view factories
+plus actual world4517/CSetRender dispatch, forwarding to a real native game view/scene
+factory. Native metadata of44 authored runtime lamp models is temporarily toggled and
+restored, never written to game.db. All44 emitted real CPointLights must preserve the
+flag, agree with native radiance, and retain it after a fresh independent
+registered01961170 saved-node reload. False constructor/view/world controls0/2/4 and
+zero-radius6 remain exact. True constructor/view/world1/3/5 give canonical RED3/7 both
+->GREEN7 both, world wrong flags44->0. Compatibility templates only call actual native
+predecessor/current methods; no synthetic point or expected flag. Seven new RED tests stay
+byte-identical during the production fix. Existing three radiance constructors explicitly
+keep predecessor false, and three diagnostic virtual sinks only adapt the required
+signature.
+
+Combined68 both, all61 prior foot/camera/cinematic/demo/menu/cached-point cases green and
+fixed58 rows exact. Full Game both/452 Windows/423 Linux
+light/ambient/effects/weather/render and previous148 related/CI378 pass; prior
+melee/filter/godmode and12 packaged font rows exact; game.db SHA unchanged. No live-world
+decode, extra frame/tick, backend/audio/SDL/bgfx/font/HD/face/PNG/LAN changes. The known
+prior campaign nested-save movement flake remains the sole exact exclusion since139, not
+fixed. e825 remains partial only for its deployment remainder;30 unfinished. Actual
+final-head hosted success remains required at whole-task completion.
+
+Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).

@@ -24,7 +24,7 @@ public:
     void SetAmbient( const CVec3 &vBottomAmbientColor, const CVec3 &vTopAmbientColor ) override { throw std::runtime_error("unexpected lighting fixture operation"); }
     void SetAmbientAnimation( CPtrFuncBase<CAnimLight>*) override { throw std::runtime_error("unexpected lighting fixture operation"); }
     CObjectBase* AddDirectionalLight( CFuncBase<CVec3> *pColor, CFuncBase<CVec3> *pGlossColor, const CVec3 &vShadowColor, const CVec3 &ptLight, const CVec3 &ptOrigin, const CVec2 &ptSize, float fMaxHeight, bool bLightmapOnly, float fBlurShift ) override { throw std::runtime_error("unexpected lighting fixture operation"); }
-    CObjectBase* AddPointLight( const CVec3 &_vColor, const CVec3 &ptOrigin, float fR, bool bLightmapOnly ) override { throw std::runtime_error("unexpected lighting fixture operation"); }
+    CObjectBase* AddPointLight( const CVec3 &_vColor, const CVec3 &ptOrigin, float fR, bool bLightmapOnly, bool bCastShadow ) override { throw std::runtime_error("unexpected lighting fixture operation"); }
     CObjectBase* AddPointLight( CPtrFuncBase<CAnimLight> *pLight ) override { throw std::runtime_error("unexpected lighting fixture operation"); }
     CObjectBase* AddSpotLight( CFuncBase<CVec3> *pColor, const CVec3 &ptOrigin, const CVec3 &ptDir, float fFOV, float fRadius, CPtrFuncBase<NGfx::CTexture> *pMask, bool bLightmapOnly ) override { throw std::runtime_error("unexpected lighting fixture operation"); }
     CDecalTarget* CreateDecalTarget( const vector<CObjectBase*> &targets, const SDecalMappingInfo &_info ) override { throw std::runtime_error("unexpected lighting fixture operation"); }
