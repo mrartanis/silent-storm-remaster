@@ -3028,3 +3028,19 @@ bounded proof and limits are in UPSTREAM-IMPORTS.md. Sourcef638 still partial/ca
 trail pending;20 unfinished.
 
 Source: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).
+
+## 170. Consume resolved cached hit trails without inventing a second trace
+
+NativePlainRayRoute0..5: corrected old4 fallback reference before Main yields RED1/6
+both/five controls ->GREEN6. Empty cache2points1contact->0/0; actual populated5 cache2/1
+survives contradictory remote query origin, old0..3 exact. All
+physical/metadata/action/native Segment and seed777 call-return RNG assertions retained.
+Fresh Game246Win/242Linux/CI382/LAN12each361 pass; four existing Win-only grenade saves
+kept, not registered Linux/no new exclusion. Actual Steam unique160+92/Create109 E8-only
+proof and whole-stride/EH exclusions in UPSTREAM-IMPORTS.md. Unconstrained requested-shot
+ANY raw hit/damage variation retained, exact cause unproven; one unchanged confirmation
+each, all independent hit-specific native assertions intact/no forcing or normalization.
+Other five requested-shot/selected incidental-impact-loose-ray witnesses exact; fragment5
+and empty constructor/retirement pass. Sourcef638 complete,19 unfinished.
+
+Source: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).

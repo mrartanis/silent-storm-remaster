@@ -4711,3 +4711,18 @@ for observer. Sourcef638 cached-hit fallback remains pending;226 imported/13 pen
 partial/20 unfinished.
 
 Source: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).
+
+## 170. Consume resolved cached hit trails without inventing a second trace
+
+Resolved HIT data now owns the ranged contact path even when its trail is empty; an empty
+cached hit no longer invents a second trace/contact. Loose misses and real populated
+caches remain unchanged. Native RED1/6->GREEN6 both, old0..3 exact and real
+populated-cache control retained; HP/AP/life/action/metadata/native retirement and
+call-return RNG assertions pass. No bullet-constructor/retirement/damage-receiver/IC
+formula or database/save-format implementation change.
+Game246Win/242Linux/CI382/LAN12each361 pass. Unconstrained ANY hit-part/derived-damage raw
+differences are recorded with same-binary confirmation and per-hit independent
+expectations, cause unproven/no fixed-row parity claim. All f638 hunks accounted across
+prior steps;227 imported/13 pending/6 partial/19 unfinished.
+
+Source: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).

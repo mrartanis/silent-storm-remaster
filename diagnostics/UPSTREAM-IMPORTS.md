@@ -25980,3 +25980,75 @@ imported/13 pending/7 partial,20 unfinished. Hosted CI for the actual final head
 required at whole-task completion.
 
 Source: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).
+
+## 170. Consume resolved cached hit trails without inventing a second trace
+
+PerformRangedAttack now consumes its existing HIT trail even when empty. It no longer
+traces again to invent contacts when the caller already supplied an empty resolved hit.
+Only RPGBullet.cpp changes in production; loose MISS rays, cached populated hits, effect
+ownership, bullet construction/retirement and damage receivers remain intact. Original
+function/ownerless-effect address comments are corrected to actual Steam entries.
+
+The inherited NativePlainRayRoute4 expected a fallback trace. Correct its reference to the
+independently verified native empty-cache contract before changing Main: canonical RED1/6
+on both platforms, five controls pass. Final GREEN6 keeps old0..3 result/input rows exact
+and changes only empty4 points2->0/entries1->0. A new populated5 control builds its
+two-point/one-contact cache through the real native ProcessRangedAttackPortion, then
+raises the query origin1000 to ensure a fresh trace cannot reproduce that target contact.
+It remains2/1. No hand-built trail, fake calcer or private world/grid injection. All
+speed3/no-model/no-shooter/effect-1 and native Segment retirement,
+HP/AP/life/action-counter assertions remain. Seed777 references compare four random
+outputs at call return: zero-draw cases first2196510041, ordinary/fragment loose controls
+two-draw first4141246879. No full Segment RNG-tail or new damage formula claim.
+
+Actual file-backed Steam
+SHA4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705 with Gold PDB only a
+typed guide binds PerformRangedAttack entry692650 (Gold68c6a0/279). Unique160 Gold68c6b8
+->692668 includes CMP hit flag at692681 and the true path directly passing cached
+vector+34 to CreateBulletServer747a30 via6926a1; there is no emptiness gate or second
+trace. Unique92 Gold68c75b ->69270b retains cleanup/return. Independently matched
+CreateBulletServer109 Gold73cd65 ->747a45 binds actual helper entry747a30 and constructor
+call7474d0, constructor binding only. Only decoded external E8 displacements are
+normalized. The contiguous standard SEH registration/function prologues are inspected;
+whole five-byte PUSH-handler instructions are excluded, never operand-masked or
+dereferenced. Full255/279 is rejected for real STrailPoint destructor
+stride74(Gold)/78(Steam); exclude the whole ADD-ESI3 at68c758/692708, not its operand. No
+whole279/130, trail/layout/own ABI, constructor-body equivalence, original gameplay,
+global/BSS physics read or field/frame/register/opcode/NOP/local-branch/global-address
+masking claim. The donor692731..692751 comment does not identify this actual hit
+dispatcher.
+
+Fresh full Game builds,246 Windows/242 Linux scoped
+ray/bullet/ranged/shoot/fragment/grenade/incidental/throw cases, CI382 and12 standard LAN
+gates/361 encounter variants each pass. Four existing Windows-only grenade-save cases stay
+in Windows and were never registered in Linux; no new exclusion. An initial LAB
+registry/quoting/equal-count assumption failed only during policy preparation and was
+corrected without test/source/assertion changes. Old0..3, the other five requested-shot
+cases and selected incidental/impact/loose-ray quantitative/RNG witnesses remain exact;
+five fragment-speed cases and empty constructor/retirement assertions pass. No unrelated
+full UI/calcer/camera/font/tactical suite claim. Baseline/Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged.
+
+NativeRangedCalledShot5 requests ANY. Raw Windows old body0/damage40/value10 versus
+current leg4/damage31/value8 differ, while each actual result matches its independent
+hit-specific damage/critical reference. One unchanged current Windows binary confirmation
+selects body0/40/10 again; both-platform raw observations and one unchanged binary
+confirmation each are retained. The ray is selected before the fixture seeds777 for the
+bullet/reference phase, and the fixture uses direct CreateBulletServer rather than the
+free function changed here. Exact cause of the hit selection difference remains unproven;
+do not attribute it to clock/compiler/renderer or claim complete ANY input/raw/RNG parity.
+All original native assertions remain, no part is forced and no row is normalized. Correct
+only the LAB assumption of byte-exact equality for this unconstrained ANY row; other
+requested-part rows still compare exactly. Native pointer identities remain checked by
+existing assertions, not cross-process pointer equality.
+
+Source f638 is now complete. This closes its last cached-hit hunk after168
+type/rocket/nonunit dependencies and169 unit pose/ranged-origin/selector. The valid-unit
+melee dedup already landed in d4b43e2f; the exact early full-dodge deletion in975e3ab3
+via037c41d9, with legitimate later CheckICForAttack proportional reduction retained; empty
+constructor176 and signed retirement177 already landed. All five source-file diffs are
+accounted for without reapplying those fixes. Ledger becomes227 imported/13 pending/6
+partial,19 unfinished. Actual final-head hosted success remains required at whole-task
+completion.
+
+Source: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).

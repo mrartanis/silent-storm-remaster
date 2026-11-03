@@ -305,7 +305,7 @@ void TraceLooseRay( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, vector<S
 
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// NRPG::PerformRangedAttack @0x2929e0
+// NRPG::PerformRangedAttack: Gold 0x68c6a0, actual Steam 0x692650.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CObjectBase * PerformRangedAttack( NWorld::IWorld *pWorld, const SAttackRayInfo &rayInfo, STime sCast, NDb::CModel *pTrailModel, float fTrailSpeed, NDb::CRPGGrenade *pGrenade, int nEffectType )
 {
@@ -321,27 +321,11 @@ CObjectBase * PerformRangedAttack( NWorld::IWorld *pWorld, const SAttackRayInfo 
 	}
 	else
 	{
-		// HIT branch: if trailPoints already populated, use them; otherwise process attack portion along the ray
-		if ( !rayInfo.trailPoints.empty() )
-		{
-			trail = rayInfo.trailPoints;
-		}
-		else
-		{
-			vector<IAttackable*> ignores;
-			if ( rayInfo.pIgnore )
-			{
-				CDynamicCast<IAttackable> pAtt( rayInfo.pIgnore.GetPtr() );
-				if ( pAtt )
-					ignores.push_back( pAtt );
-			}
-			CRay ray; ray.ptOrigin = rayInfo.vOrigin; ray.ptDir = rayInfo.vDir;
-			float fMaxRange = rayInfo.fMaxRange > 0.0f ? rayInfo.fMaxRange : 30.0f;
-			pCWorld->GetGame()->ProcessRangedAttackPortion( rayInfo.atk, ray, ignores, &trail, fMaxRange );
-		}
+		// Original Steam 0x692681..0x6926a6 consumes the cached hit trail even
+		// when empty. A second trace must not invent contacts or damage.
+		trail = rayInfo.trailPoints;
 	}
-
-	// Retail v1.2 0x69271d..0x69272e suppresses impact particles for shooterless rays.
+	// Original Steam 0x69266d..0x692681 suppresses impact particles for shooterless rays.
 	if ( !rayInfo.pUS )
 		nEffectType = -1;
 	NWorld::IDynamicObject *pBulletServer = NWorld::CreateBulletServer( pCWorld, trail, sCast, pTrailModel, fTrailSpeed, pGrenade, nEffectType );
