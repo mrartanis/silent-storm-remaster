@@ -34630,16 +34630,44 @@ namespace NativeShadowDepthInput
 {
 using namespace NGScene;
 class MeshInput:public CPtrFuncBase<CObjectInfo>{OBJECT_NOCOPY_METHODS(MeshInput);protected:bool NeedUpdate()override{return false;}void Recalc()override{}public:MeshInput(){}explicit MeshInput(CObjectInfo* m){pValue=m;}};
-class MeshPart:public IPart{OBJECT_NOCOPY_METHODS(MeshPart);public:MeshPart(){}explicit MeshPart(MeshInput* m):IPart(m,nullptr,false){}};
-class BoundsInput:public IVBCombiner{OBJECT_NOCOPY_METHODS(BoundsInput);protected:bool NeedUpdate()override{return false;}void Recalc()override{}public:void Add(float depth){partBVs.push_back(SSphere(CVec3(0,0,depth),depth*3));}void AddBound(const SSphere& sphere){partBVs.push_back(sphere);}};
+class MeshPart:public IPart{OBJECT_NOCOPY_METHODS(MeshPart);public:MeshPart(){}explicit MeshPart(MeshInput* m):IPart(m,nullptr,false){auto* mesh=m->GetValue();fAverageTriArea=mesh->GetAverageTriArea();const auto& p=mesh->GetPositions();vBVMin=vBVMax=p.front();for(const auto& v:p){vBVMin.x=Min(vBVMin.x,v.x);vBVMin.y=Min(vBVMin.y,v.y);vBVMin.z=Min(vBVMin.z,v.z);vBVMax.x=Max(vBVMax.x,v.x);vBVMax.y=Max(vBVMax.y,v.y);vBVMax.z=Max(vBVMax.z,v.z);}}};
+class BoundsInput:public IVBCombiner{OBJECT_NOCOPY_METHODS(BoundsInput);protected:bool NeedUpdate()override{return false;}void Recalc()override{}public:void Add(float depth,float halfX=-1,float halfY=-1){partBVs.push_back(SSphere(CVec3(0,0,depth),depth*3));bound.BoxInit(CVec3(-depth*3,-depth*3,-depth*2),CVec3(depth*3,depth*3,depth*4));}void AddBound(const SSphere& sphere){partBVs.push_back(sphere);}};
 struct PartsInput:IRender{
  vector<CObj<CObjectInfo>> meshes;vector<CObj<MeshInput>> meshInputs;vector<CObj<MeshPart>> owned;vector<CPtr<IPart>> parts;CObj<BoundsInput> bounds=new BoundsInput;SRenderGeometryInfo geometry;bool shadows=true;int calls=0;
- void Add(float depth){CObjectInfo::SData data;data.verts.resize(4);const float h=depth*2;CVec3 p[]={CVec3(-h,-h,depth),CVec3(h,-h,depth),CVec3(h,h,depth),CVec3(-h,h,depth)};for(int i=0;i<4;++i){Zero(data.verts[i]);data.verts[i].pos=p[i];}vector<STriangle> tris={STriangle(0,1,2),STriangle(0,2,3),STriangle(0,2,1),STriangle(0,3,2)};data.geometry.SetTriangles(tris);CObj<CObjectInfo> mesh=new CObjectInfo;mesh->AssignFast(data);CObj<MeshInput> input=new MeshInput(mesh);CObj<MeshPart> part=new MeshPart(input);meshes.push_back(mesh);meshInputs.push_back(input);owned.push_back(part);parts.push_back(part.GetPtr());bounds->Add(depth);}
- void AddSloped(){CObjectInfo::SData data;data.verts.resize(4);CVec3 p[4];const float u[]={-2,2,2,-2},v[]={-2,-2,2,2};for(int i=0;i<4;++i){const float z=1.f/(.25f+.0103f*u[i]+.0057f*v[i]);p[i]=CVec3(u[i]*z,v[i]*z,z);}for(int i=0;i<4;++i){Zero(data.verts[i]);data.verts[i].pos=p[i];}vector<STriangle> tris={STriangle(0,1,2),STriangle(0,2,3),STriangle(0,2,1),STriangle(0,3,2)};data.geometry.SetTriangles(tris);CObj<CObjectInfo> mesh=new CObjectInfo;mesh->AssignFast(data);CObj<MeshInput> input=new MeshInput(mesh);CObj<MeshPart> part=new MeshPart(input);meshes.push_back(mesh);meshInputs.push_back(input);owned.push_back(part);parts.push_back(part.GetPtr());bounds->AddBound(SSphere(CVec3(0,0,4),20));}
- void FormPartList(CTransformStack*,list<SRenderPartSet>* out,EDepthType,const SGroupSelect&)override{++calls;geometry.pVertices=bounds.GetPtr();geometry.pVertices.Refresh();SRenderPartSet set(meshInputs.front().GetPtr(),&parts,&geometry);set.parts.Clear();set.castShadow.Clear();for(int i=0;i<int(parts.size());++i){set.parts.Set(i);if(shadows)set.castShadow.Set(i);}out->push_back(set);}
+ void Add(float depth,float halfX=-1,float halfY=-1){CObjectInfo::SData data;data.verts.resize(4);const float hx=halfX<0?depth*2:halfX,hy=halfY<0?depth*2:halfY;CVec3 p[]={CVec3(-hx,-hy,depth),CVec3(hx,-hy,depth),CVec3(hx,hy,depth),CVec3(-hx,hy,depth)};for(int i=0;i<4;++i){Zero(data.verts[i]);data.verts[i].pos=p[i];}vector<STriangle> tris={STriangle(0,1,2),STriangle(0,2,3),STriangle(0,2,1),STriangle(0,3,2)};data.geometry.SetTriangles(tris);CObj<CObjectInfo> mesh=new CObjectInfo;mesh->Assign(data,false);CObj<MeshInput> input=new MeshInput(mesh);CObj<MeshPart> part=new MeshPart(input);meshes.push_back(mesh);meshInputs.push_back(input);owned.push_back(part);parts.push_back(part.GetPtr());bounds->Add(depth);}
+ void AddSloped(){CObjectInfo::SData data;data.verts.resize(4);CVec3 p[4];const float u[]={-2,2,2,-2},v[]={-2,-2,2,2};for(int i=0;i<4;++i){const float z=1.f/(.25f+.0103f*u[i]+.0057f*v[i]);p[i]=CVec3(u[i]*z,v[i]*z,z);}for(int i=0;i<4;++i){Zero(data.verts[i]);data.verts[i].pos=p[i];}vector<STriangle> tris={STriangle(0,1,2),STriangle(0,2,3),STriangle(0,2,1),STriangle(0,3,2)};data.geometry.SetTriangles(tris);CObj<CObjectInfo> mesh=new CObjectInfo;mesh->Assign(data,false);CObj<MeshInput> input=new MeshInput(mesh);CObj<MeshPart> part=new MeshPart(input);meshes.push_back(mesh);meshInputs.push_back(input);owned.push_back(part);parts.push_back(part.GetPtr());bounds->AddBound(SSphere(CVec3(0,0,4),20));}
+ void FormPartList(CTransformStack*,list<SRenderPartSet>* out,EDepthType,const SGroupSelect&)override{++calls;geometry.pVertices=bounds.GetPtr();geometry.pVertices.Refresh();SRenderPartSet set(meshInputs.front().GetPtr(),&parts,&geometry,0);set.parts.Clear();set.castShadow.Clear();for(int i=0;i<int(parts.size());++i){set.parts.Set(i);if(shadows)set.castShadow.Set(i);}out->push_back(set);}
  void FormDepthList(CTransformStack*,const CVec3&,CSceneFragments*,EDepthType)override{}
  void FormDirOccludersList(CTransformStack*,const CVec3&,CSceneFragments*,const SGroupSelect&,bool)override{}
 };
+}
+
+static void NativeFloorCulling(int mode)
+{
+ using namespace NGScene;using namespace NativeShadowDepthInput;
+ Require(mode>=0 && mode<5,"unknown floor-culling mode");
+ CTransformStack transform;transform.MakeProjective(CVec2(128,128),90,.01f,100);SHMatrix camera;MakeMatrix(&camera,VNULL3,CVec3(0,0,1));transform.SetCamera(camera);
+ CIgnorePartsHash ignored;CObj<IHZBuffer> hz;
+ if(mode<2){
+  struct TwoFloors:IRender {
+   PartsInput parts[2];int floor[2]={0,0};
+   void FormPartList(CTransformStack* ts,list<SRenderPartSet>* out,EDepthType type,const SGroupSelect& mask)override{for(int i=0;i<2;++i){list<SRenderPartSet> one;parts[i].FormPartList(ts,&one,type,mask);one.front().nFloorMask=floor[i];out->splice(out->end(),one);}}
+   void FormDepthList(CTransformStack*,const CVec3&,CSceneFragments*,EDepthType)override{}
+   void FormDirOccludersList(CTransformStack*,const CVec3&,CSceneFragments*,const SGroupSelect&,bool)override{}
+  }input;
+  input.parts[0].Add(4.00004f);input.parts[1].Add(4.00002f);input.floor[0]=mode==1?2:1;input.floor[1]=1;
+  ++nDGCurrentFrame;MakeInvisibleElementsList(&input,&transform,MakeSelectAll(),CVec2(128,128),&ignored,&hz);
+  auto hidden=[&](int i){auto f=ignored.find(input.parts[i].meshInputs.front().GetPtr());return f!=ignored.end() && f->second.IsSet(0);};
+  std::printf("NATIVE-FLOOR-CULL mode=%d farHidden=%d nearHidden=%d farFloor=%d nearFloor=%d\n",mode,int(hidden(0)),int(hidden(1)),input.floor[0],input.floor[1]);std::fflush(stdout);
+  Require(mode==0?hidden(0) && !hidden(1):!hidden(0) && hidden(1),"actual native equal-word-depth raster lost front-to-back within floor or descending floor priority");
+ }else{
+  PartsInput input;input.Add(4.f,mode==2?.1f:.4f,mode==3?.1f:mode==2?.1f:.4f);
+  const float area=input.meshes.front()->GetAverageTriArea();Require(fabs(area-(mode==2?.02f:mode==3?.08f:.32f))<.0001f,"object average triangle area not calculated from actual geometry");
+  ++nDGCurrentFrame;if(mode==2)MakeInvisibleElementsList(&input,&transform,MakeSelectAll(),CVec2(128,128),&ignored,&hz);else MakeInvisibleElementsListFast(&input,&transform,MakeSelectAll(),CVec2(128,128),&ignored,&hz);
+  const auto found=ignored.find(input.meshInputs.front().GetPtr());bool selfHidden=found!=ignored.end() && found->second.IsSet(0);const bool behind=hz->IsVisible(SSphere(CVec3(0,0,8),.0001f),&transform);
+  std::printf("NATIVE-FLOOR-CULL mode=%d area=%.6f selfHidden=%d behindVisible=%d\n",mode,area,int(selfHidden),int(behind));std::fflush(stdout);
+  Require(!selfHidden && behind==(mode!=4),"small native geometry must stay visible without occluding; large control must actually occlude");
+ }
 }
 
 static void NativeIntegerShadowDepth(int mode)
@@ -36211,7 +36239,7 @@ static void NativeRuntimeInputSettings(const char* databasePath,const char* reso
 
 static void NativeCachedLightingPipeline(const char* databasePath,const char* resourcePath,int mode)
 {
-    Require(mode==0 || mode==1,"unknown cached-lighting pipeline mode");
+    Require(mode>=0 && mode<=2,"unknown cached-lighting pipeline mode");
     NativeDisplayContext display;display.Initialize(databasePath,resourcePath,"Silent Storm native cached-lighting pipeline");NGlobal::SetVar("gfx_resolution",wstring(L"320x240"));NGlobal::SetVar("gfx_fullscreen",0);Require(NGScene::SetModeFromConfig(false) && NGScene::CanCacheLighting() && NGScene::CanRenderShadows(),"cached lighting must enable the actual full shadow/cache pipeline");NGame::InitLoadingScreen();
     CObj<NRPG::CGlobalGame> game=NRPG::CreateGlobalGame(-1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
     CObj<NGame::CICBeginMission> open=new NGame::CICBeginMission(810,-1,vector<string>(),game);open->Exec();
@@ -36224,6 +36252,7 @@ static void NativeCachedLightingPipeline(const char* databasePath,const char* re
     Require(shadow && clear && dynamic_cast<NGScene::CPointLight*>(shadow.GetPtr()) && NativeAuthoredPointShadow(dynamic_cast<NGScene::CPointLight*>(shadow.GetPtr())) && !NativeAuthoredPointShadow(dynamic_cast<NGScene::CPointLight*>(clear.GetPtr())),"actual game-view light factory lost shadowed/unshadowed cache inputs");
     auto* camera=mission->GetCamera();camera->FreezeCamera(true);ICamera::SCameraPos base;camera->GetPlacement(&base);base.ptAnchor=origin+CVec3(0,0,1);base.fRod=18;camera->SetPlacement(base);
     struct RestoreClock {STime previous=NMainLoop::SetTimeForHarness(100000);~RestoreClock(){NMainLoop::SetTimeForHarness(previous);}} restoreClock;
+    NGlobal::SetVar("gfx_hw_hsr",0);
     int frame=0;
     auto render=[&](const ICamera::SCameraPos& position,int count){for(int i=0;i<count;++i){camera->SetPlacement(position);NMainLoop::SetTimeForHarness(100000+(++frame)*40);MarkNewDGFrame();Require(NMainLoop::StepApp(true,false,false) && NMainLoop::GetCurrentInterfaceForHarness()==mission.GetPtr() && NGfx::Is3DActive(),"native cached-lighting frame failed or lost its real renderer");}CArray2D<NGfx::SPixel8888> pixels;NGfx::MakeScreenShot(&pixels,false);Require(pixels.GetXSize()>=128 && pixels.GetYSize()>=128,"cached lighting has no actual GPU image");int lit=0;for(int y=8;y<pixels.GetYSize()-8;++y)for(int x=8;x<pixels.GetXSize()-8;++x)lit+=pixels[y][x].r>8 || pixels[y][x].g>8 || pixels[y][x].b>8;Require(lit>(pixels.GetXSize()-16)*(pixels.GetYSize()-16)/10,"cached-lighting frame is blank");return pixels;};
     auto first=render(base,36);const auto position=actor->GetPosition();const auto ap=actor->GetAP();const auto hp=actor->GetUnitRPG()->GetTotalVP();const auto time=world->GetTime()->GetValue();
@@ -36232,6 +36261,7 @@ static void NativeCachedLightingPipeline(const char* databasePath,const char* re
     for(int y=8;y<first.GetYSize()-8;++y)for(int x=8;x<first.GetXSize()-8;++x){const auto a=first[y][x],b=alternate[y][x],c=returned[y][x];changedView+=abs(int(a.r)-int(b.r))+abs(int(a.g)-int(b.g))+abs(int(a.b)-int(b.b))>24;changedReturn+=abs(int(a.r)-int(c.r))+abs(int(a.g)-int(c.g))+abs(int(a.b)-int(c.b))>24;}
     std::printf("ACTUAL-CACHED-LIGHTING mode=%d frames=%d changedCamera=%d changedReturn=%d pixels=%d\n",mode,frame,changedView,changedReturn,total);std::fflush(stdout);
     Require(changedView>total/20,"cached-lighting fixture did not actually change its rendered camera");Require(changedReturn<total/20,"returning the native camera left widespread cached-lighting artifacts");
+    if(mode==2){Require(NGfx::DoesSupportOcclusionQueries(),"actual mission hardware query support missing");NGlobal::SetVar("gfx_hw_hsr",1);auto hwMoved=render(moved,18);auto hwReturned=render(base,36);int changed=0;for(int y=8;y<first.GetYSize()-8;++y)for(int x=8;x<first.GetXSize()-8;++x){const auto a=returned[y][x],b=hwReturned[y][x];changed+=abs(int(a.r)-int(b.r))+abs(int(a.g)-int(b.g))+abs(int(a.b)-int(b.b))>24;}std::printf("ACTUAL-HW-HSR frames=%d off-on-return-difference=%d pixels=%d\n",frame,changed,total);std::fflush(stdout);Require(changed<total/20,"hardware queries removed visible native mission surfaces");NGlobal::SetVar("gfx_hw_hsr",0);}
     if(mode==1){const int generation=NGfx::GetDeviceCreationID();NGlobal::SetVar("gfx_resolution",wstring(L"384x288"));Require(NGScene::SetModeFromConfig(false) && NGfx::GetDeviceCreationID()!=generation,"actual native graphics-object recreation did not invalidate cache generation");auto reset=render(base,36);Require(reset.GetXSize()==384 && reset.GetYSize()==288,"native graphics reset did not use its requested real dimensions");}
     Require(actor->GetPosition()==position && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && world->GetTime()->GetValue()==time,"camera/lighting cache changed paused simulation position/AP/HP/time");
 }
@@ -36833,6 +36863,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-grenade-pk-launch")) { Require(argc==5,"grenade PK requires db/resources/mode"); NativeGrenadePKLaunch(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-particle-atlas-margin")) { Require(argc==5,"atlas margin requires db/resources/mode"); NativeParticleAtlasMargin(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-grass-atlas-margin")) { Require(argc==5,"atlas margin requires db/resources/mode"); NativeGrassAtlasMargin(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-floor-culling")) {Require(argc==3,"floor culling requires case");NativeFloorCulling(std::atoi(argv[2]));return true;}
     if (!std::strcmp(mode, "native-integer-shadow-depth")) { Require(argc==3,"integer shadow depth requires mode"); NativeIntegerShadowDepth(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "native-raster-guard-plane")) { Require(argc==3,"guard plane requires mode"); NativeRasterGuardPlane(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "native-ally-cover-cache")) { Require(argc==5,"ally cache requires db/res/mode"); NativeAllyCoverCache(argv[2],argv[3],std::atoi(argv[4])); return true; }

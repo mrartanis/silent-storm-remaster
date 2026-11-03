@@ -101,10 +101,11 @@ struct SRenderPartSet
 	const vector< CPtr<IPart> > *pParts;
 	CPartFlags parts, castShadow;
 	SRenderGeometryInfo *pGeometry;
+	int nFloorMask;
 
-	SRenderPartSet() {}
-	SRenderPartSet( CObjectBase *_pNode, const vector< CPtr<IPart> > *_pParts, SRenderGeometryInfo *_pGeometry ) 
-		: pNode(_pNode), pParts(_pParts), pGeometry(_pGeometry) 
+	SRenderPartSet() : nFloorMask(0) {}
+	SRenderPartSet( CObjectBase *_pNode, const vector< CPtr<IPart> > *_pParts, SRenderGeometryInfo *_pGeometry, int _nFloorMask )
+		: pNode(_pNode), pParts(_pParts), pGeometry(_pGeometry), nFloorMask(_nFloorMask)
 	{ 
 		parts.Clear();
 	}
@@ -188,7 +189,7 @@ enum EStencilBlendingOp
 	ABM_SRC_AMUL = 128,
 	ABM_ALPHA_BLEND = 160,
 	ABM_SMART = 192,
-	ABM_MUL2     = 224,
+	ABM_ADD_SRC_AMUL = 224,
 	ABM_MASK     = 224
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -424,6 +425,8 @@ private:
 	vector<CPartFlags> selectedParts;
 public:
 	CSceneFragments();
+	bool bNeedHSR;
+	void HideGeometry( const vector<CPartFlags> &occluded );
 	int AddGeometry( CObjectBase *pHandle, SRenderGeometryInfo *pGeometry, const SBound &_bv );
 	void AddElement( int nGeometryIndex, const CPartFlags &_parts, IMaterial *pMaterial, 
 		NGfx::CTexture *pLightmap, const SDynamicAmbientInfo *pLM );
@@ -441,6 +444,7 @@ public:
 	const SRenderFragmentInfo& GetLitParticles() const { return *fragments[0]; }
 	const SRenderStaticInfo& GetStaticInfo( int nGeom ) const { return *statics[ nGeom ]; }
 	SRenderGeometryInfo* GetGeometryInfo( int nGeom ) const { return geometries[ nGeom ]; }
+	int GetGeometriesNumber() const { return geometries.size(); }
 	friend class CSelectFragments;
 	friend class CSelectGeometries;
 };

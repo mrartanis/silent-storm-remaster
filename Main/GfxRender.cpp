@@ -12,6 +12,29 @@
 
 namespace NGfx
 {
+static bool bSupportOcclusionQueries = false;
+bool DoesSupportOcclusionQueries() { return bSupportOcclusionQueries && pDevice && pDevice->Healthy(); }
+class COcclusionQuery : public IOcclusionQuery
+{
+    OBJECT_NOCOPY_METHODS(COcclusionQuery);
+    std::shared_ptr<BgfxOcclusionQuery> query;
+public:
+    COcclusionQuery() { if(pDevice) query=pDevice->CreateOcclusionQuery(); }
+    ~COcclusionQuery() { if(pDevice) pDevice->FinishOcclusionQuery(query); }
+    void Start() { if(pDevice) pDevice->StartOcclusionQuery(query); }
+    void Finish() { if(pDevice) pDevice->FinishOcclusionQuery(query); }
+    int GetData() { return pDevice ? pDevice->ReadOcclusionQuery(query) : 1; }
+    void Flush() { if(pDevice && query) pDevice->FlushOcclusionQueries(); }
+};
+static vector<CMObj<COcclusionQuery> > occlusionQueries;
+IOcclusionQuery* CreateOcclusionQuery()
+{
+    if(!pDevice || !pDevice->SupportsOcclusionQueries()) return nullptr;
+    EraseInvalidRefs(&occlusionQueries);
+    COcclusionQuery* query=new COcclusionQuery;
+    occlusionQueries.push_back(query);
+    return query;
+}
 externA5 SRenderTargetsInfo rtInfo;
 static bool operator==( const SFBTransform &a, const SFBTransform &b )
 {
@@ -339,6 +362,7 @@ void Apply( const EAlphaCombineMode &alphaMode )
 			ApplyRenderState( D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA );
 			break;
 		case COMBINE_ALPHA_ADD:
+		case COMBINE_ADD_SRC_ALPHA_MUL:
 			ApplyRenderState( D3DRS_ALPHABLENDENABLE, TRUE );
 			ApplyRenderState( D3DRS_SRCBLEND, D3DBLEND_SRCALPHA );
 			ApplyRenderState( D3DRS_DESTBLEND, D3DBLEND_ONE );
@@ -1206,6 +1230,8 @@ bool InitZBuffer( D3DFORMAT format )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void DoneZBuffer()
 {
+	bSupportOcclusionQueries = false;
+	occlusionQueries.clear();
 	pCurrentRTTB = 0;
 	pCurrentRTZB = 0;
 	pCurrentRenderContext = 0;
@@ -1363,6 +1389,7 @@ static void InitEffects()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 HRESULT InitRender()
 {
+	bSupportOcclusionQueries = pDevice && pDevice->SupportsOcclusionQueries();
 	InitEffects();
 	HRESULT hr;
 	wireframeMode.DoApply();

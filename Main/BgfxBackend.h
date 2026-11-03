@@ -70,6 +70,7 @@ public:
   explicit BgfxDeclaration(const D3DVERTEXELEMENT9*);
   void CopyVertices(void* output,const void* input,unsigned count) const;
 };
+struct BgfxOcclusionQuery;
 class BgfxDevice : public BgfxResource {
   struct Impl;
   std::unique_ptr<Impl> impl;
@@ -79,6 +80,12 @@ public:
   bool Init(HWND, unsigned width, unsigned height);
   bool Resize(unsigned width, unsigned height);
   bool Healthy() const;
+  bool SupportsOcclusionQueries() const;
+  std::shared_ptr<BgfxOcclusionQuery> CreateOcclusionQuery();
+  void StartOcclusionQuery(const std::shared_ptr<BgfxOcclusionQuery>&);
+  void FinishOcclusionQuery(const std::shared_ptr<BgfxOcclusionQuery>&);
+  int ReadOcclusionQuery(const std::shared_ptr<BgfxOcclusionQuery>&);
+  void FlushOcclusionQueries();
   unsigned PresentationResetFlags() const; // Diagnostics of the state actually applied to bgfx.
   void ApplySceneAntialiasing(); // Finish the 3D scene before drawing any interface.
   void Present(float gamma);

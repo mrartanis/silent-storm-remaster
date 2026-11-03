@@ -3303,3 +3303,19 @@ Source: [f6f6011fc301ace82317b9007ec6dd36b57f3369](https://github.com/met-nikita
 Source: [755b0bdc2de8da8166be8cb61fc5d8d921499947](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/755b0bdc2de8da8166be8cb61fc5d8d921499947).
 Source: [5369d7468bf1c5a0574d53d3ecabae84cdfe6bdf](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5369d7468bf1c5a0574d53d3ecabae84cdfe6bdf).
 Source: [8718138b4eddd431a96cdeb80c7a42621265f569](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8718138b4eddd431a96cdeb80c7a42621265f569).
+
+## 186. Complete floor-aware occlusion and active GPU query execution
+
+Register 3 actual GPU query/scene-filter/alpha-add cases, 5 native floor/small-geometry
+cases and 1 real 144-frame hardware-off/on mission case. Preserve the 19 existing
+integer-depth assertions with explicit real area/bounds/floor metadata and adapt the
+selection fixture constructor only. These are post-Main GREEN/integration checks, not
+canonical pre-Main RED. Actual query unknown/visible/hidden/multi-submit/reset/device
+recreation and real scene filters are tested; bounded mission images are not
+original-runtime parity. Final fresh Games/WinALL/current related/core2/CI383/LAN12each361
+pass with no selected exclusions. All 246 donor sources are complete within documented own
+policy; hosted final-head status is recorded separately.
+
+Source: [6781938bd3901a6ffe2c3c8bbb342881d573a5a6](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6781938bd3901a6ffe2c3c8bbb342881d573a5a6).
+Source: [ea0eb485fef85c1c694c6355803a4155802e2bfe](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/ea0eb485fef85c1c694c6355803a4155802e2bfe).
+Source: [0589a3378fe3263f6e0a366620b6505e13b06f32](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0589a3378fe3263f6e0a366620b6505e13b06f32).

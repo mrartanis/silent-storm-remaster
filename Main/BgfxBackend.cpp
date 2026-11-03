@@ -448,7 +448,26 @@ void BgfxDeclaration::CopyVertices(void* output,const void* input,unsigned count
   }
 }
 
+struct BgfxOcclusionQuery {
+  unsigned epoch=activeEpoch;
+  std::vector<bgfx::OcclusionQueryHandle> handles;
+  bool uncertain=false,sealed=false,complete=false;
+  int result=1;
+  void Retire() {
+    if(epoch && epoch==activeEpoch)for(auto h:handles)if(bgfx::isValid(h))bgfx::destroy(h);
+    handles.clear();
+  }
+  void Invalidate() {Retire();uncertain=true;sealed=false;complete=false;result=1;}
+  void Reset() {Retire();epoch=activeEpoch;uncertain=false;sealed=false;complete=false;result=1;}
+  ~BgfxOcclusionQuery() {Retire();}
+};
 struct BgfxDevice::Impl {
+  std::shared_ptr<BgfxOcclusionQuery> activeQuery;
+  std::vector<std::weak_ptr<BgfxOcclusionQuery>> queries;
+  void InvalidateQueries() {
+    activeQuery.reset();
+    for(auto& weak:queries)if(auto query=weak.lock())query->Invalidate();
+  }
   bool initialized=false,healthy=true;
   bool persistentGeometry=std::getenv("S2_GEOMETRY_TRANSIENT")==nullptr;
   bool batchGeometry=std::getenv("S2_GEOMETRY_NO_BATCH")==nullptr;
@@ -575,7 +594,19 @@ struct BgfxDevice::Impl {
     S2Perf::Scope perf(S2Perf::DrawFlush);
     bgfx::setVertexBuffer(0,pending.vb,pending.vertexStart,pending.vertexCount);
     if(pending.indexed)bgfx::setIndexBuffer(pending.ib,pending.indexStart,pending.indexCount);
-    Apply(pending.primitive);bgfx::submit(pending.view,pending.program);
+    Apply(pending.primitive);
+    if(activeQuery && activeQuery->epoch==activeEpoch) {
+      // One native query scope can contain several unmerged GPU draws. bgfx
+      // attaches a query to a single submit, so aggregate distinct handles.
+      auto handle=bgfx::createOcclusionQuery();
+      if(bgfx::isValid(handle)) {
+        activeQuery->handles.push_back(handle);
+        bgfx::submit(pending.view,pending.program,handle);
+      } else {
+        activeQuery->uncertain=true;
+        bgfx::submit(pending.view,pending.program);
+      }
+    } else bgfx::submit(pending.view,pending.program);
     pending.valid=false;
   }
   void QueueDraw(bgfx::DynamicVertexBufferHandle vb,unsigned first,unsigned count,
@@ -709,6 +740,7 @@ bool BgfxDevice::Init(HWND window,unsigned w,unsigned h) {
 BgfxDevice::~BgfxDevice() {
   if(!impl->initialized)return;
   impl->FlushDraw();
+  impl->InvalidateQueries();
   FlushGeometry();
   impl->EndFrame();
   impl->ClearTargets();
@@ -725,7 +757,7 @@ BgfxDevice::~BgfxDevice() {
 bool BgfxDevice::Resize(unsigned w,unsigned h) {
   if(!impl->initialized || !w || !h || w>16384 || h>16384)return false;
   try {
-    impl->FlushDraw();FlushGeometry();impl->EndFrame();impl->ClearTargets();bgfx::SwapChain swapChain;swapChain.width=w;swapChain.height=h;
+    impl->FlushDraw();impl->InvalidateQueries();FlushGeometry();impl->EndFrame();impl->ClearTargets();bgfx::SwapChain swapChain;swapChain.width=w;swapChain.height=h;
     impl->resetFlags=DisplayResetFlags();
     bgfx::reset(impl->resetFlags,&swapChain);
     impl->width=w;impl->height=h;
@@ -737,6 +769,63 @@ bool BgfxDevice::Resize(unsigned w,unsigned h) {
   }catch(const std::exception& e){impl->Fail(e.what());return false;}
 }
 bool BgfxDevice::Healthy() const {return impl->initialized && impl->healthy;}
+bool BgfxDevice::SupportsOcclusionQueries() const {
+  // bgfx API161 exposes query capacity, with baseline query support in the
+  // two backends selected by Init. Noop/other renderers stay conservative.
+  if(!Healthy())return false;
+  const auto* caps=bgfx::getCaps();
+  return caps->limits.maxOcclusionQueries>0 &&
+    (caps->rendererType==bgfx::RendererType::Direct3D11 || caps->rendererType==bgfx::RendererType::Vulkan);
+}
+std::shared_ptr<BgfxOcclusionQuery> BgfxDevice::CreateOcclusionQuery() {
+  if(!SupportsOcclusionQueries())return {};
+  auto query=std::make_shared<BgfxOcclusionQuery>();impl->queries.push_back(query);return query;
+}
+void BgfxDevice::StartOcclusionQuery(const std::shared_ptr<BgfxOcclusionQuery>& query) {
+  if(!query || !SupportsOcclusionQueries())return;
+  impl->FlushDraw();const bool nested=bool(impl->activeQuery);
+  if(nested){impl->activeQuery->uncertain=true;impl->activeQuery->sealed=true;impl->activeQuery.reset();}
+  if(query->epoch!=activeEpoch)impl->queries.push_back(query);
+  query->Reset();query->uncertain=nested;impl->activeQuery=query;
+}
+void BgfxDevice::FinishOcclusionQuery(const std::shared_ptr<BgfxOcclusionQuery>& query) {
+  if(!query || impl->activeQuery!=query)return;
+  impl->FlushDraw();query->sealed=true;impl->activeQuery.reset();
+}
+int BgfxDevice::ReadOcclusionQuery(const std::shared_ptr<BgfxOcclusionQuery>& query) {
+  if(!query || !Healthy() || query->epoch!=activeEpoch || !query->sealed || query->uncertain)return 1;
+  if(query->complete)return query->result;
+  if(query->handles.empty())return 1;
+  bool pending=false,visible=false;
+  for(auto handle:query->handles) {
+    auto result=bgfx::getResult(handle);
+    visible|=result==bgfx::OcclusionQueryResult::Visible;
+    pending|=result==bgfx::OcclusionQueryResult::NoResult;
+  }
+  // Any visible draw makes the whole native scope visible. Unknown results
+  // must never hide a mesh; callers can read again after a submission fence.
+  if(!visible && pending)return 1;
+  query->result=visible?1:0;query->complete=true;query->Retire();return query->result;
+}
+void BgfxDevice::FlushOcclusionQueries() {
+  if(!SupportsOcclusionQueries())return;
+  // Both selected backends support the same readback fence used by DXFinish.
+  std::vector<unsigned char> pixels;unsigned width=0,height=0;
+  Screenshot(&pixels,&width,&height);
+  // Query delivery is asynchronous even after submitted GPU work finishes.
+  // Advance a bounded number of empty frames, never spin on a driver query.
+  // A delayed/lost result still falls back to visible in ReadOcclusionQuery.
+  for(unsigned attempt=0;attempt<4;++attempt) {
+    bool pending=false;
+    for(auto it=impl->queries.begin();it!=impl->queries.end();) {
+      auto query=it->lock();if(!query){it=impl->queries.erase(it);continue;}++it;
+      if(query->epoch!=activeEpoch || !query->sealed || query->complete || query->uncertain)continue;
+      for(auto handle:query->handles)pending|=bgfx::getResult(handle)==bgfx::OcclusionQueryResult::NoResult;
+    }
+    if(!pending)break;
+    bgfx::frame();impl->EndFrame();
+  }
+}
 unsigned BgfxDevice::PresentationResetFlags() const {return impl->resetFlags;}
 void BgfxDevice::ApplySceneAntialiasing() {
   if(!Healthy() || NGlobal::GetVar("gfx_antialiasing",0).GetInt()!=1)return;

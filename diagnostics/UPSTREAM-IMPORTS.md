@@ -27235,3 +27235,73 @@ Source: [f6f6011fc301ace82317b9007ec6dd36b57f3369](https://github.com/met-nikita
 Source: [755b0bdc2de8da8166be8cb61fc5d8d921499947](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/755b0bdc2de8da8166be8cb61fc5d8d921499947).
 Source: [5369d7468bf1c5a0574d53d3ecabae84cdfe6bdf](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5369d7468bf1c5a0574d53d3ecabae84cdfe6bdf).
 Source: [8718138b4eddd431a96cdeb80c7a42621265f569](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8718138b4eddd431a96cdeb80c7a42621265f569).
+
+## 186. Complete floor-aware occlusion and active GPU query execution
+
+Complete the last three donor sources 6781938/ea0eb48/0589a33 together: 47 hunks in 18
+actual production files. Carry floor masks from group bits through combiner grouping,
+actual floor-aware part lists and descending-floor/front-to-back software raster order.
+Calculate object-space average triangle area in full Assign, preserve the remaster's
+optional optimization argument and initialize the actual moved IPart constructor in
+GCombinerCore.cpp. Small geometry remains a visibility candidate but does not occlude;
+preserve integer word-depth raster behavior.
+
+Restore actual depth query scopes in Execute, query results and HideGeometry intersection
+with existing selections, plus SRC_ALPHA+ONE blending. Clear result vectors before the
+empty-command early return. Preserve the existing profiling scopes and185 cached sun
+history/copy/scratch. The explicit EM_DEPTH_SORT argument follows the donor API; the final
+donor selects query execution through the result pointer and ignores the mode argument.
+Optional gfx_hw_hsr remains off by default, requires backend support and bridges only the
+first two software occlusion updates.
+
+Implement queries in the active bgfx backend rather than leaving a D3D9 wrapper. The
+pinned API 161 has removed the old global OCCLUSION_QUERY/TEXTURE_READ_BACK/TEXTURE_BLIT
+capability bits: use query capacity and the D3D11/Vulkan backends actually selected by
+Init. Vulkan initialization itself requires its real query pool. One native Start/Finish
+scope can contain several unmerged submits, so attach a distinct GPU handle to each submit
+and aggregate visibility. Return 0 only when every submitted draw is known invisible;
+pending, allocation failure, unsupported, nested, empty or stale results remain visible.
+Flush pending batches at scope boundaries; use the same real readback fence as DXFinish
+and bounded asynchronous frame advancement. Cache known results, retire handles and
+invalidate all tracked states on resize/destruction/device epoch changes; register reused
+states on a recreated device. Never spin indefinitely on a driver query.
+
+Nine new cases are post-production GREEN/integration evidence, without a canonical
+pre-Main RED claim. Actual D3D11/Vulkan draws prove invisible/visible query results,
+conservative NoResult before submission, two-submit OR aggregation, empty/reset/device
+recreation behavior, real Execute filtering and existing-selection intersection,
+empty-list clearing, and alpha-add pixels at 0/half/full alpha. Five native software
+raster cases prove per-floor/front-to-back order and small-object visibility without
+occlusion, with a live large-occluder control. A 144-frame real mission compares
+hardware-off/on camera-return images within 5 percent and retains paused
+position/AP/HP/world time. This bounded image check is not original-runtime/pixel-perfect
+or whole-engine RNG parity.
+
+Retain all 19 earlier integer-shadow-depth assertions. Their constructed inputs now
+provide actual full-Assign area, real geometry bounds and explicit floor0 metadata, and
+the earlier selection GPU fixture passes explicit floor0 to its changed constructor. The
+first Windows invocation used a mis-expanded SDK environment and failed; the corrected
+invocation required a complete 346-object Main rebuild because the failed header rebuild
+had left stale dependency state. Record these as failed build attempts, not successful
+evidence. The new scene-query fixture initially used identity projection, whose W row
+carries no depth sort key. Use its real projective camera to prove front-to-back sorting;
+fix this fixture assumption without modifying production sorting.
+
+Fresh Game builds/Windows ALL_BUILD, 248W/236L related cases including all 28 new/adapted
+focused cases, Linux core2, 383 asset-free CI checks and 12 LAN gates with 361 encounter
+variants per platform pass. No selected exclusions; exact registrations are in
+scene-culling-final-selection-policy.json. All 47 hunk decisions are in
+scene-culling-hunk-accounting.json. DB
+314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged. Preserve
+RGBA8/HD/FXAA, fixed sky/cube256 policies, fractional UI and existing save tags. Auto
+detection remains excluded at the user's explicit request. HD stays frozen: no PNG
+generation and no original gameplay runs.
+
+All 246 donor source commits are now imported within the documented remaster policy; 0
+pending/0 partial/0 unfinished. See scene-culling-verification.json. Final-head hosted CI
+is a separate publication check and is recorded in scene-culling-hosted-ci.json once it
+actually succeeds.
+
+Source: [6781938bd3901a6ffe2c3c8bbb342881d573a5a6](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6781938bd3901a6ffe2c3c8bbb342881d573a5a6).
+Source: [ea0eb485fef85c1c694c6355803a4155802e2bfe](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/ea0eb485fef85c1c694c6355803a4155802e2bfe).
+Source: [0589a3378fe3263f6e0a366620b6505e13b06f32](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0589a3378fe3263f6e0a366620b6505e13b06f32).

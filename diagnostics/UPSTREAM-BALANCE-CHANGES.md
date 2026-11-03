@@ -4945,3 +4945,18 @@ Source: [f6f6011fc301ace82317b9007ec6dd36b57f3369](https://github.com/met-nikita
 Source: [755b0bdc2de8da8166be8cb61fc5d8d921499947](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/755b0bdc2de8da8166be8cb61fc5d8d921499947).
 Source: [5369d7468bf1c5a0574d53d3ecabae84cdfe6bdf](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5369d7468bf1c5a0574d53d3ecabae84cdfe6bdf).
 Source: [8718138b4eddd431a96cdeb80c7a42621265f569](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8718138b4eddd431a96cdeb80c7a42621265f569).
+
+## 186. Complete floor-aware occlusion and active GPU query execution
+
+Complete floor-aware visibility and optional actual hardware query execution, default off
+and capability-gated. Preserve software word-depth rules; small meshes remain visible
+while contributing no occlusion. Unknown/failed/empty query results cannot hide objects.
+Restore alpha-add blending without changing AP/actions, paused simulation, DB/save tags,
+fixed sky/cube256/HD-RGBA8-FXAA or fractional UI. Actual native mission keeps
+position/AP/HP/world time. User explicitly excludes auto detection. HD frozen/no
+PNG/original-runtime work. Fresh Games/WinALL/related/core2/CI383/LAN12each361 pass. No
+donor source remains pending.
+
+Source: [6781938bd3901a6ffe2c3c8bbb342881d573a5a6](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6781938bd3901a6ffe2c3c8bbb342881d573a5a6).
+Source: [ea0eb485fef85c1c694c6355803a4155802e2bfe](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/ea0eb485fef85c1c694c6355803a4155802e2bfe).
+Source: [0589a3378fe3263f6e0a366620b6505e13b06f32](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0589a3378fe3263f6e0a366620b6505e13b06f32).

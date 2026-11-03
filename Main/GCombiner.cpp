@@ -906,6 +906,7 @@ void CVBCombiner::XFormPosition()
 				for ( int k = 0; k < nSize; ++k )
 					AddMMXBoundPoint( &(*pRes)[k] );
 				StoreMMXBoundResult( &pPart->vBVMin, &pPart->vBVMax );
+				pPart->fAverageTriArea = pObjInfo->GetAverageTriArea();
 			}
 		}
 		if ( nSize > 0 )

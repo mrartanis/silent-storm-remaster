@@ -379,10 +379,10 @@ struct RenderParameterQuad {
   CObj<LowRamCombinerProbe> vertices;
   CObj<NGScene::CIBCombiner> indices;
   NGScene::SRenderGeometryInfo geometry;
-  void Initialize(float left,float right,const CVec3& color) {
+  void Initialize(float left,float right,const CVec3& color,float z=.5f) {
     using namespace NGScene;
     CObjectInfo::SData data;
-    for(auto position:{CVec3(left,.5f,.5f),CVec3(right,.5f,.5f),CVec3(right,-.5f,.5f),CVec3(left,-.5f,.5f)}) {
+    for(auto position:{CVec3(left,.5f,z),CVec3(right,.5f,z),CVec3(right,-.5f,z),CVec3(left,-.5f,z)}) {
       SVertex vertex{};vertex.pos=position;data.verts.push_back(vertex);
     }
     data.geometry.SetTriangles({STriangle(0,1,2),STriangle(0,2,3)});
@@ -391,10 +391,79 @@ struct RenderParameterQuad {
     parts=new CAutomaticCombiner;parts->AddPart(part);
     vertices=new LowRamCombinerProbe(parts,LT_POSITION,CT_STATIC);vertices->Prepare();
     indices=new CIBCombiner(parts,LT_POSITION,IBTT_POSITIONS);
-    geometry.pVertices=vertices.GetPtr();geometry.pTriLists[TLT_POSITION]=indices.GetPtr();
+    geometry.pVertices=vertices.GetPtr();geometry.pTriLists[TLT_POSITION]=indices.GetPtr();geometry.pTriLists[TLT_GEOM]=indices.GetPtr();
   }
 };
 
+
+int RunOcclusionQueries() {
+  NGfx::SRenderTargetsInfo targets;
+  if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 340;
+  if(!NGfx::DoesSupportOcclusionQueries())return 341;
+  NGfx::BgfxDevice unavailable;
+  if(unavailable.SupportsOcclusionQueries() || unavailable.CreateOcclusionQuery() || unavailable.ReadOcclusionQuery({})!=1)return 342;
+  CTransformStack identity;identity.Init();NGfx::CRenderContext context;
+  context.SetScreenRT();context.SetTransform(identity.Get());context.SetCulling(NGfx::CULL_NONE);
+  context.SetDepth(NGfx::DEPTH_NORMAL);context.SetStencil(NGfx::STENCIL_NONE);
+  context.SetColorWrite(NGfx::COLORWRITE_ALL);context.SetAlphaCombine(NGfx::COMBINE_NONE);
+  context.SetVertexShader(vsConstLight);context.SetPixelShader(psDiffuse);context.ClearBuffers(0xff000000);
+  context.SetVSConst(16,CVec4(1,0,0,1));Draw(context,Quad(-1,1,0,-1,.2f));context.Flush();
+  CObj<NGfx::IOcclusionQuery> hidden=NGfx::CreateOcclusionQuery(),visible=NGfx::CreateOcclusionQuery(),mixed=NGfx::CreateOcclusionQuery(),empty=NGfx::CreateOcclusionQuery();
+  if(!hidden || !visible || !mixed || !empty)return 343;
+  context.SetDepth(NGfx::DEPTH_TESTONLY);context.SetColorWrite(NGfx::COLORWRITE_NONE);context.Use();
+  hidden->Start();Draw(context,Quad(-1,1,0,-1,.8f));context.Flush();hidden->Finish();
+  if(hidden->GetData()!=1)return 344; // No GPU frame submitted: unknown must stay visible.
+  visible->Start();Draw(context,Quad(0,1,1,-1,.8f));context.Flush();visible->Finish();
+  mixed->Start();Draw(context,Quad(-1,1,0,-1,.8f));context.Flush();
+  context.SetVSConst(16,CVec4(0,1,0,1));Draw(context,Quad(0,1,1,-1,.8f));context.Flush();mixed->Finish();
+  empty->Start();empty->Finish();mixed->Flush();
+  const int h=hidden->GetData(),v=visible->GetData(),m=mixed->GetData(),z=empty->GetData();
+  std::printf("NATIVE-QUERY hidden=%d visible=%d mixed-two-submits=%d empty=%d unknown-before-frame=1\n",h,v,m,z);std::fflush(stdout);
+  if(h!=0 || v!=1 || m!=1 || z!=1)return 345;
+  hidden->Start();hidden->Finish();if(hidden->GetData()!=1)return 346;
+  // Keep a finished invisible query across real drawable/device recreation.
+  hidden->Start();Draw(context,Quad(-1,1,0,-1,.8f));context.Flush();hidden->Finish();hidden->Flush();
+  if(hidden->GetData()!=0)return 347;
+  if(!NGfx::SetMode(NGfx::SVideoMode(160,128,32,NGfx::WINDOWED),targets))return 348;
+  if(hidden->GetData()!=1)return 349;
+  hidden->Start();hidden->Finish();if(hidden->GetData()!=1)return 350;
+  std::puts("NATIVE-QUERY conservative unsupported/empty/reset and real device recreation passed");return 0;
+}
+int RunOcclusionScene() {
+  using namespace NGScene;
+  NGfx::SRenderTargetsInfo targets;
+  if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 351;
+  RenderParameterQuad quads[2];quads[0].Initialize(-.5f,.5f,CVec3(1,0,0),.2f);quads[1].Initialize(-.5f,.5f,CVec3(0,1,0),.8f);
+  CSceneFragments scene;CPartFlags parts;parts.Clear();parts.Set(0);
+  for(int i=1;i>=0;--i){SBound bound;quads[i].mesh->CalcBound(&bound);int index=scene.AddGeometry(nullptr,&quads[i].geometry,bound);scene.AddElement(index,parts,quads[i].material,nullptr,nullptr);}
+  CTransformStack identity;identity.MakeProjective(CVec2(128,128),90,.01f,100);SHMatrix camera;MakeMatrix(&camera,VNULL3,CVec3(0,0,1));identity.SetCamera(camera);NGfx::CRenderContext context;context.SetCulling(NGfx::CULL_NONE);context.SetScreenRT();context.ClearBuffers(0xff000000);
+  const CVec4 color(1,1,1,1);CRenderCmdList commands;
+  for(int f=1;f<int(scene.GetFragments().size());++f)commands.ops.push_back(CRenderCmdList::SOperation(scene.GetFragments()[f],RO_SOLID_COLOR,10,DPM_NORMAL,0,&color));
+  vector<CPartFlags> occluded;Execute(nullptr,&context,identity,commands,scene,SLightInfo(),EM_DEPTH_SORT,&occluded);
+  if(occluded.size()!=2 || !occluded[0].IsSet(0) || occluded[1].IsSet(0))return 352;
+  scene.HideGeometry(occluded);
+  if(scene.GetGeometryFlags(0)!=FST_SPLIT || scene.GetGeometryParts(0).IsSet(0) || !scene.GetGeometryParts(1).IsSet(0))return 353;
+  // Preserve an earlier selection: hiding another part cannot re-enable part0.
+  vector<CPartFlags> again(2);again[0].Clear();again[1].Clear();again[0].Set(1);scene.HideGeometry(again);
+  if(scene.GetGeometryParts(0).IsSet(0) || scene.GetGeometryParts(0).IsSet(1))return 354;
+  CRenderCmdList noCommands;Execute(nullptr,&context,identity,noCommands,scene,SLightInfo(),EM_NORMAL,&occluded);
+  if(occluded.size()!=2 || !occluded[0].IsEmpty() || !occluded[1].IsEmpty())return 355;
+  CArray2D<NGfx::SPixel8888> image;NGfx::MakeScreenShot(&image,false);if(!Color(image,64,64,255,255,255))return 356;
+  std::puts("NATIVE-SCENE-QUERY actual Execute front-to-back/hidden flags/selection intersection/empty-list clearing passed");return 0;
+}
+int RunAlphaAdd() {
+  NGfx::SRenderTargetsInfo targets;if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 357;
+  CTransformStack identity;identity.Init();NGfx::CRenderContext context;
+  context.SetScreenRT();context.SetTransform(identity.Get());context.SetCulling(NGfx::CULL_NONE);context.SetDepth(NGfx::DEPTH_NONE);context.SetStencil(NGfx::STENCIL_NONE);
+  context.SetVertexShader(vsConstLight);context.SetPixelShader(psDiffuse);
+  for(float alpha:{0.f,.5f,1.f}) {
+    context.SetAlphaCombine(NGfx::COMBINE_NONE);context.ClearBuffers(0xff000000);context.SetVSConst(16,CVec4(.2f,.1f,.1f,1));Draw(context,Quad(-1,1,1,-1,.5f));
+    context.SetAlphaCombine(NGfx::COMBINE_ADD_SRC_ALPHA_MUL);context.SetVSConst(16,CVec4(.4f,.6f,.2f,alpha));Draw(context,Quad(-1,1,1,-1,.5f));
+    CArray2D<NGfx::SPixel8888> image;NGfx::MakeScreenShot(&image,false);
+    if(!Color(image,64,64,int((.2f+.4f*alpha)*255+.5f),int((.1f+.6f*alpha)*255+.5f),int((.1f+.2f*alpha)*255+.5f)))return 358;
+  }
+  std::puts("NATIVE-ALPHA-ADD actual SRC_ALPHA plus ONE RGB controls 0/half/full passed");return 0;
+}
 int RunRenderParameterOrder() {
   using namespace NGScene;
   FixedRenderColors colors;
@@ -1002,7 +1071,7 @@ int RunSelectionStencil() {
   CObj<SelectionMeshNode> node=new SelectionMeshNode(mesh);
   CObj<NGScene::IMaterial> material=NGScene::CreateMaterial(CVec3(1,1,1));
   CObj<NGScene::CNonePart> part=new NGScene::CNonePart(node,material,NGScene::SFullGroupInfo());
-  CObj<NGScene::CCombinedPart> owner=new NGScene::CCombinedPart(nullptr,NGScene::CCombinedPart::CP_NORMAL);
+  CObj<NGScene::CCombinedPart> owner=new NGScene::CCombinedPart(nullptr,NGScene::CCombinedPart::CP_NORMAL,0);
   owner->GetCombiner()->AddPart(part);part->pOwner=owner;owner->UpdatePartInfo();
   CObj<NGScene::CGScene> scene=new NGScene::CGScene(0);
   CObj<CObjectBase> selection=scene->CreateSelection(part,CVec4(.25f,.5f,.125f,1));
@@ -1800,7 +1869,10 @@ int main(int argc,char** argv) {
   S2Platform::SetErrorDialogs(false);
   if(!S2Platform::Init("Silent Storm bgfx regression",128,128,true))return 1;
   if(!NGfx::Init3D(static_cast<HWND>(S2Platform::NativeWindow()))) {S2Platform::Done();return 2;}
-  int result=argc>2 && std::string(argv[1])=="--terrain-hd" ? RunTerrainHD(argv[2]) :
+  int result=argc>1 && std::string(argv[1])=="--occlusion-queries" ? RunOcclusionQueries() :
+             argc>1 && std::string(argv[1])=="--occlusion-scene" ? RunOcclusionScene() :
+             argc>1 && std::string(argv[1])=="--alpha-add" ? RunAlphaAdd() :
+             argc>2 && std::string(argv[1])=="--terrain-hd" ? RunTerrainHD(argv[2]) :
              argc>1 && std::string(argv[1])=="--focus-restore" ? RunFocusRestore() :
              argc>1 && std::string(argv[1])=="--display" ? RunDisplay() :
              argc>1 && std::string(argv[1])=="--geometry" ? RunGeometry() :
