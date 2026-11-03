@@ -25,6 +25,8 @@
 #include "../Main/wUnitGroup.h"
 #include "../Main/iCommonUI.h"
 #include "../Main/iTeamMngMenu.h"
+#include "../Main/eventPlayer.h"
+#include "../Misc/EventsBase.h"
 #include "../Main/PerkToolTip.h"
 #include "../Main/UnitStepSound.h"
 #include "../Main/InventoryUnit.h"
@@ -30710,6 +30712,41 @@ static void NativeSmoothRelocation(const char* databasePath,const char* resource
     Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && !actor->HasCommand() && world->GetTime()->GetValue()==now,"smooth relocation changed HP/AP/commands or advanced simulation time");
 }
 
+class NativeAIMercDeploymentPhase: public CObjectBase
+{
+    OBJECT_NOCOPY_METHODS(NativeAIMercDeploymentPhase);
+public:
+    CPtr<NRPG::CGlobalPlayer> watchedParty;
+    bool captured=false;int callbacks=0;
+    std::map<NWorld::CUnitServer*,unsigned> beforeStartPositions;
+    void OnPlayerTurn(const NWorld::CEventOnNewPlayerTurn& event) {
+        auto* player=event.pPlayer.GetPtr();if(watchedParty && player && player->GetGlobalPlayer()==watchedParty.GetPtr()){
+            ++callbacks;if(!captured){vector<CPtr<NWorld::CUnitServer>> units;player->GetUnits(&units);for(auto unit:units)beforeStartPositions[unit.GetPtr()]=unit->GetPosition().pos.p.GetBits();captured=true;}
+        }
+    }
+};
+static void NativeAIMercAddPlayer(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=5,"unknown AI merc AddPlayer mode");const bool ai=mode!=1 && mode!=3,empty=mode==4,preexistingAI=mode==5;const int count=empty?0:(mode==2 || mode==3?2:1);
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);CObj<NativeAIMercDeploymentPhase> observer=new NativeAIMercDeploymentPhase;NGlobal::CEventRegister<NativeAIMercDeploymentPhase,NWorld::CEventOnNewPlayerTurn> observeTurn(observer.GetPtr(),&NativeAIMercDeploymentPhase::OnPlayerTurn);list<CPtr<NWorld::CUnitServer>> all;world->GetAllUnits(&all);CObj<NWorld::CUnitServer> anchor;
+    for(auto unit:all)if(unit && unit->CanFight() && !unit->IsEmptyPK() && !unit->IsWearingPK()){anchor=unit.GetPtr();break;}Require(anchor,"AI merc deployment lacks a real native anchor");
+    auto first=NativeUnitAwareChoosePoint(world,anchor->GetPosition().GetCP(),false);NativeUnitAwareWaypoint(world,"Unit1",first);if(count==2){auto second=NativeUnitAwareChoosePoint(world,first.GetCP(),false);NativeUnitAwareWaypoint(world,"Unit2",second);}
+    vector<int> ids;if(count)ids.push_back(54);if(count==2)ids.push_back(103);CObj<NRPG::CGlobalPlayer> party=NRPG::CreateGlobalPlayer(ids);party->bAIPlayer=ai;game->players.push_back(party);observer->watchedParty=party.GetPtr();
+    CObj<NAI::CAICommander> supplied;if(preexistingAI)supplied=new NAI::CAICommander(world,nullptr);else supplied=new NAI::CSequenceCommander(world);
+    const auto time=world->GetTime()->GetValue();GlobalGameRandom().SeedForHarness(736);auto* player=dynamic_cast<NWorld::CPlayer*>(world->AddPlayer(L"Native AI merc deployment",party,supplied));Require(player,"AI merc AddPlayer failed to create the real player");supplied->SetPlayer(player);Require(observer->captured && int(observer->beforeStartPositions.size())==count,"AI merc setup never reached its real pre-StartGame turn callback");
+    auto* commander=player->GetCommander();const bool pureAI=dynamic_cast<NAI::CAICommander*>(commander) && !dynamic_cast<NAI::CSequenceCommander*>(commander),same=commander==supplied.GetPtr();vector<CPtr<NWorld::CUnitServer>> units;player->GetUnits(&units);Require(int(units.size())==count,"AI merc AddPlayer failed the actual native party cardinality");
+    std::sort(units.begin(),units.end(),[](auto left,auto right){return left->GetUnitRPG()->GetRPGPers()->GetRecordID()<right->GetUnitRPG()->GetRPGPers()->GetRecordID();});auto random=GlobalGameRandom();unsigned words[4];for(auto& word:words)word=random.Get();
+    std::printf("AI-MERC-PLAYER mode=%d flag=%d expectedUnits=%d units=%zu suppliedAI=%d pureAI=%d sameCommander=%d rng0=%u rng1=%u rng2=%u rng3=%u\n",mode,int(ai),count,units.size(),int(preexistingAI),int(pureAI),int(same),words[0],words[1],words[2],words[3]);std::fflush(stdout);bool initialized=true;
+    for(auto actor:units){Require(observer->beforeStartPositions.count(actor.GetPtr())==1,"AI merc observer lost its deployed actor");const unsigned initBits=observer->beforeStartPositions.at(actor.GetPtr());const auto beforeInspection=actor->GetPosition();auto* brain=NAI::GetAIUnit(actor);auto* route=brain?dynamic_cast<NAI::CAIRouteLogic*>(brain->GetRouteLogic()):nullptr;auto* normal=brain?dynamic_cast<NAI::CAINormalReaction*>(brain->GetReaction()):nullptr;int roams=0,radius=-1,commandsCount=0;unsigned centerBits=0;bool centerMatches=false,returnCenterMatches=false,reactionOwner=false;
+        if(route){CStructureNetworkContext references;auto fields=BorrowedObjectFields(route,&references);vector<CObj<NAI::CTaskCommand>> commands;{CStructureSaver reader(fields,CStructureSaver::READ,&references);reader.Add(4,&commands);}commandsCount=int(commands.size());for(auto command:commands)if(auto* roam=dynamic_cast<NAI::CTaskCommandRoaming*>(command.GetPtr())){++roams;radius=roam->GetAPRadius();CStructureNetworkContext refs;auto data=BorrowedObjectFields(roam,&refs);NAI::SPathPlace center;{CStructureSaver reader(data,CStructureSaver::READ,&refs);reader.Add(3,&center);}centerBits=center.GetBits();centerMatches=center.GetBits()==initBits;returnCenterMatches=center.GetBits()==beforeInspection.pos.p.GetBits();}}
+        if(normal){struct ReactionOwner{CPtr<NAI::IAIUnit> unit;int operator&(CStructureSaver& f){f.Add(2,&unit);return 0;}} owner;CStructureNetworkContext refs;auto data=BorrowedObjectFields(normal,&refs);{CStructureSaver reader(data,CStructureSaver::READ,&refs);reader.Add(2,&owner);}reactionOwner=owner.unit.GetPtr()==brain;}
+        Require(actor->GetPosition()==beforeInspection,"read-only AI route/reaction observer changed the actor position");const bool healthy=actor->CanFight() && actor->GetUnitRPG()->GetTotalVP()>0 && actor->GetAP()>0 && actor->GetPlayer()==player && !actor->HasCommand();const bool expected=ai?(actor->IsAIUnit() && brain && brain->GetUnitServer()==actor.GetPtr() && route && route->IsCircled() && roams==1 && radius==25 && centerMatches && normal && reactionOwner):(!actor->IsAIUnit() && !route);initialized=initialized && healthy && expected;
+        std::printf("AI-MERC-UNIT mode=%d person=%d AI=%d brain=%d route=%d circled=%d commands=%d roams=%d radius=%d center=%d centerBits=%08x initPos=%08x returnCenter=%d normal=%d reactionOwner=%d pos=%08x HP=%d AP=%d command=%d healthy=%d expected=%d\n",mode,actor->GetUnitRPG()->GetRPGPers()->GetRecordID(),int(actor->IsAIUnit()),int(brain!=nullptr),int(route!=nullptr),int(route && route->IsCircled()),commandsCount,roams,radius,int(centerMatches),centerBits,initBits,int(returnCenterMatches),int(normal!=nullptr),int(reactionOwner),unsigned(actor->GetPosition().pos.p.GetBits()),actor->GetUnitRPG()->GetTotalVP(),actor->GetAP(),int(actor->HasCommand()),int(healthy),int(expected));std::fflush(stdout);
+    }
+    Require(preexistingAI?pureAI:(ai?pureAI && !same:!pureAI && same),"native AI merc flag did not choose the AI commander or human commander identity changed");
+    Require(initialized,"native recruited AI merc lacks its own normal reaction and circled native roaming25 route, or human control changed");Require(world->GetTime()->GetValue()==time && player->GetGlobalPlayer()==party.GetPtr() && party->bAIPlayer==ai,"AI merc setup advanced time or changed the global party identity/AI flag");
+}
+
 static void NativeGroupWaypoint(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=5,"unknown group waypoint mode");const bool human=mode==1 || mode==2,sequence=mode==2,missing=mode==3,empty=mode==4;
@@ -35959,6 +35996,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-unit-aware-deploy")) { Require(argc==5,"unit-aware deploy requires db/resources/mode"); NativeUnitAwareDeployment(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-explosive-clearance")) { Require(argc==5,"explosive clearance requires db/resources/mode"); NativeExplosiveClearance(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-explosive-groups")) { Require(argc==5,"explosive groups requires db/resources/mode"); NativeExplosiveGroups(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-ai-merc-addplayer")) { Require(argc==5,"AI merc AddPlayer requires db/resources/mode"); NativeAIMercAddPlayer(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-group-waypoint")) { Require(argc==5,"group waypoint requires db/resources/mode"); NativeGroupWaypoint(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-world-waypoint-route")) { Require(argc==5,"world waypoint route requires db/resources/mode"); NativeWorldWaypointRoute(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-placement-reservations")) { Require(argc==5,"placement reservations requires db/resources/mode"); NativePlacementReservations(argv[2],argv[3],std::atoi(argv[4])); return true; }

@@ -73,6 +73,8 @@
 #include "../Misc/Set.h"
 #include "aiRoute.h"
 #include "aiReaction.h"			// NAI::CreateUnitReaction -- the map-deploy reaction install (AI-convergence Stage 2)
+#include "aiReactions.h"
+#include "aiUnit.h"
 #include "aiNearestPosition.h"
 #include "rpgCheatConstants.h"
 #include "wUnitCommands.h"
@@ -2202,6 +2204,9 @@ IPlayer* CWorld::AddPlayer( const wstring &wsName, NRPG::CGlobalPlayer *pGlobalP
 	CPlayer *pRes = new CPlayer( wsName, pGlobalGame, pGlobalPlayer, bNetworkArena ? nPartiesAdded : 0 );
 	csSystem << "User player was created" << endl; // DEBUG
 	RegisterPlayer( pRes );
+	// Steam 1.2 AddPlayer @0x76e9e0: AI parties own an AI commander.
+	if ( pGlobalPlayer->bAIPlayer )
+		_pCommander = new NAI::CAICommander( this, pRes );
 	pRes->SetCommander( _pCommander );
 
 	if ( nRootLayersGroup < 0 )
@@ -2217,7 +2222,7 @@ IPlayer* CWorld::AddPlayer( const wstring &wsName, NRPG::CGlobalPlayer *pGlobalP
 	GetDeployWithNumber( 100, -1, deploySpots, pPathNetwork, &fakePlace );
 	pRes->SetDeploySpot( fakePlace );
 
-	// retail AddPlayer @0x36e160: with the world carrying waypoints and no passage deploy, the
+	// Steam 1.2 AddPlayer @0x76e9e0: with the world carrying waypoints and no passage deploy, the
 	// waypoint scheme (FetchDeployWaypoints @0x368fd0) takes PRIORITY over deploy-spot placeables:
 	// unit i -> deployWps[i] (overflow -> deployWps[0]), with zero formation displacement.
 	// GetDeployPlace still supplies the facing after saving the player's deploy spot below.
@@ -2330,6 +2335,16 @@ IPlayer* CWorld::AddPlayer( const wstring &wsName, NRPG::CGlobalPlayer *pGlobalP
 			continue;
 		//
 		pUS->GetUnitRPG()->GetRPGUnit()->CalcDeathVP( GetGlobalGame()->pDifficulty->fDeathCoeff );
+		// Install the recruited AI unit's route and reaction after native deployment.
+		if ( pGlobalPlayer->bAIPlayer )
+		{
+			CPtr<NAI::IAIUnit> pAIUnit = NAI::GetAIUnit( pUS );
+			if ( IsValid( pAIUnit ) )
+			{
+				NAI::SetUnitRoaming( pUS, pUS->GetPosition().pos.p, 25, NAI::AIM_AI );
+				pAIUnit->SetReaction( NAI::CreateAINormalReaction( pAIUnit ) );
+			}
+		}
 	}
 	//
 	InitPlayerCorpseCarrying( pRes );	

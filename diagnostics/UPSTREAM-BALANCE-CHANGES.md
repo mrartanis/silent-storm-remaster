@@ -4751,3 +4751,18 @@ each361 pass. Existing dead/unconscious world heads keep DEATH2. Source46b3 rema
 partial pending AI-merc initialization;19 source commits unfinished.
 
 Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).
+
+## 173. Initialize recruited AI parties through native AddPlayer
+
+AI mercenary parties now receive the native AI commander, roaming radius25 and normal
+reaction after deployment; human commanders and all observed HP/AP/positions/world time
+remain exact. Existing AI counter behavior and LAN authority stay unchanged; no
+damage/AP/probability formula, DB/save/network format or HD asset change. Native RED4/6
+->GREEN6 both, fresh Game93Win92Linux/CI382/LAN12 each361 pass. Existing actual-original
+SetReaction extraADD200 versus own++ counter is explicitly outside this caller-level
+import. Supported authored voice lookup equivalence accounts for that hunk without
+fabricating a mutation fix. Source46b3 complete for current own flows; pending3053
+equipment setup still requires its own handoff boundary.228 imported/13 pending/5
+partial,18 unfinished.
+
+Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).

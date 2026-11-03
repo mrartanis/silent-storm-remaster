@@ -26182,3 +26182,87 @@ AI-merc AddPlayer initialization remains; ledger stays227 imported/13 pending/6 
 unfinished sources.
 
 Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).
+
+## 173. Initialize recruited AI parties through native AddPlayer
+
+CWorld::AddPlayer now replaces the supplied commander for global AI parties after
+RegisterPlayer. Each successfully deployed AI actor receives an AIM_AI roaming route of
+radius25 centered at its deployment-phase position and a normal reaction bound to its
+actual AI brain. Human parties keep the supplied commander. Only Main/wMain.cpp changes,
+including the same-function address comment; existing aiRoute/aiUnit behavior and LAN
+replica/server authority remain intact.
+
+Six real public AddPlayer cases on both platforms establish canonical RED4/6 with two
+human controls, then GREEN6: one/two AI mercenaries, one/two human mercenaries, an empty
+AI party and an already-AI supplied commander isolating the missing actor initialization.
+Seven real authored actor rows preserve physical position, HP/AP, ownership, no immediate
+command and unchanged world time; human headers and rows are byte-exact to parent. Actual
+route/roaming25/circled state and normal reaction ownership are inspected read-only
+through public APIs and real serialization. Four Seed736 RNG words are recorded, with no
+zero-draw or original whole-call RNG parity claim. All prior diagnostic lines/assertions
+remain untouched.
+
+The first post-fix observer incorrectly compared the route center with position after
+AddPlayer returned, producing3/6 on both platforms. Existing StartGame at the end calls
+PlaceAllUnits/PlaceOnPassablePlace: center84010902 legitimately precedes returned84010901.
+The final passive public CEventRegister/CEventOnNewPlayerTurn observer records the first
+matching party event before StartGame, checks exact full-word center equality and ensures
+inspection does not move actors. No tolerance, mask, production placement change or
+private-state injection. A rejected subclass attempt could not forward the private base
+callback and failed compilation on both platforms; it was fully replaced by the public
+event observer. These failures remain archived, not claimed as additional runtime RED.
+With the final fixture, parent Main was restored and RED4/6 re-established on both before
+restoring exactly the same production fix; final fixture SHA remains unchanged through
+GREEN and full gates.
+
+File-backed actual Steam
+SHA4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705 CWorld root8cbc8c
+slot58 binds AddPlayer76e9e0, not donor76e160. Typed Gold root8bc74c/762fb0 is a guide;
+IWorld root shape127/virtual offset88 bounds this read. Seven bounded blocks are accepted:
+raw21 Gold76303d->76ea70 proves bAIPlayer54 and the native branch; unique74
+Gold763057->76ea8a binds CAICommander436340 after excluding the WHOLE five-byte differing
+allocation PUSH (Gold9c/Steam a0). Unique18 Gold7637f7->76f285 binds CalcDeathVP6baab0 and
+AI guard. Unique15 Gold76380b->76f299 binds GetAIUnit4741b0. Unique47 Gold763840->76f2ce
+proves public unit-position slot44, radius25/manager0, SetUnitRoaming4966e0 and normal
+factory47ed50, then reaction slot64. Typed NWorld::CUnit shape39/base14c and IAIUnit
+shape36 bound these public method slots; no secondary-table target read is needed.
+
+The named CAIUnit root reaction slot64 binds4adb40: unique58 prefix Gold4ac360->4adb40 is
+accepted, but whole62 is rejected because the actual72-byte function has an EXTRA whole
+ten-byte ADD200 to field104. Own SetReaction retains its existing ++nNonFreezeCounter
+unchanged; no whole AI-engine/counter parity claim. Full86 normal factory
+Gold47e1c0->47ed50 matches with decoded E8 and independently typed named CAINormalReaction
+root-vptr normalization only, storing the brain and WasCombat0. Other accepted blocks
+normalize decoded external E8 only. Gold AI ctor332/GetAIUnit145/SetUnitRoaming194/whole
+AddPlayer2296 are bindings, not full identities. The standard21-byte SEH prologue is
+inspected; WHOLE five-byte handler PUSH is excluded and its target never read.
+Wider147/validity21 are rejected for differing whole eight-byte EH-state MOV instructions
+(0d/0e,0c/0d), not operand-masked. Whole player allocation PUSH2/PUSH5 and context/global
+MOVs are outside accepted blocks; their global targets are never read. No
+field/frame/register/opcode/local-branch/global-address masking, original gameplay,
+private global/BSS reads or own ABI equivalence claim.
+
+Fresh Game93 Windows/92 Linux AI/route/deployment/autoplay/demo/hotseat cases, CI382,
+twelve standard LAN gates and361 encounter variants on each platform pass. Existing
+Windows-only NativeScriptRouteWaitTests stays registered on Windows; no new exclusion.
+Verified baseline and Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df remains unchanged. No
+HD PNG generation/rebuild, balance formula, save/database or network format change.
+
+All ten donor files are now accounted for: facial idle/recruitment in be971cbc5; group
+waypoint routing in8af5a1bb3; automatic human handoff in0690176eca with layout de7a151e5
+and keyboard integration1e10218c6; AI AddPlayer here. The voice pointer-filter hunk is
+already satisfied for supported authored data: merc54 and hero voices0/1/2
+select2898/10402/10971/10260 in both current and verified original DB, numeric and
+referenced condition102 agreeing; importer derives both from the same ConditionID column.
+Only an artificial numeric=-1 mutation gave RED and was rejected, so no synthetic fix/test
+or arbitrary corrupt-record parity is claimed. Current setup uses
+CMultiPlayerInterface::Initialize's custom desktop/global game/four parties, without
+CMission::Initialize, a world or MissionHUD; LAN exposes one local tracker. Thus its
+existing adapted handoff boundary is satisfied without the donor IsSetupMode API.
+Pending3053's equipment-mission setup is NOT imported here and must preserve an explicit
+no-handoff setup boundary if introduced. Ten-file hunk map is in the lab evidence.
+Source46b3 is complete for the supported own flows; ledger228 imported/13 pending/5
+partial,18 unfinished sources.
+
+Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).

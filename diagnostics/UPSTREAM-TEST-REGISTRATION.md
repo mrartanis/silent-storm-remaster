@@ -3079,3 +3079,21 @@ adaptation documented in UPSTREAM-IMPORTS.md. No pixel/full morph-timeline/RNG p
 HD asset generation claim. Source46b3 still partial,19 unfinished.
 
 Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).
+
+## 173. Initialize recruited AI parties through native AddPlayer
+
+NativeAIMercAddPlayer0..5: actual public AddPlayer, AI1/2, human1/2 controls, emptyAI and
+suppliedAI initializer isolation. Canonical correct-phase RED4/6 both ->GREEN6 both; six
+headers/seven actor rows exact to small runs in fresh Game93Win92Linux. Human headers/rows
+and all actor physical inputs exact to parent. Passive PUBLIC new-player-turn event
+captures exact center before StartGame re-placement, real serialized route/reaction
+observations; inspection preserves actors. Initial wrong-phase3/6 and private-callback
+compile failures archived, not production RED. Parent RED re-established with final
+fixture before restoring same Main fix. All old test lines/assertions retained. RNG words
+recorded, no zero-draw/original call parity claim. CI382/LAN12 each361 pass; existing
+Win-only NativeScriptRouteWaitTests retained/no new exclusion. Seven bounded actual
+original blocks and explicit SetReaction extraADD200 deviation documented above.
+Source46b3 ten-file accounting complete for supported flows,18 unfinished; pending3053
+equipment-setup boundary remains separate.
+
+Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).
