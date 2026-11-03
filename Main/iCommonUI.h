@@ -234,6 +234,21 @@ public:
 	void Draw( const STime &sTime, NGScene::I2DGameView *pView );
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+class CComplexComboBox: public CComboBox
+{
+	OBJECT_NOCOPY_METHODS(CComplexComboBox)
+private:
+	ZDATA_(CComboBox)
+	CObj<CHoverButton> pDropDown;
+	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CComboBox*)this); f.Add(2,&pDropDown); return 0; }
+
+public:
+	CComplexComboBox() {}
+	CComplexComboBox( const SWindowInfo &sInfo );
+
+	bool ProcessMessage( const SEvent &sEvent );
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // CHoverCheckButton -- a CHoverButton with a checked state (release widget, reg 0xB3529130). While
 // checked it forces state 3 (the "selected/down" art); OnAction toggles the check. Used e.g. for the
 // face-gen voice selector. operator& @0x1cbae0 (base + bChecked@+0xcc); Draw @0x1bdff0; OnAction @0x1be010.
@@ -444,7 +459,7 @@ public:
 	CUnitView() {}
 	CUnitView( const SWindowInfo &sInfo, NRender::IRenderGame *pRender = 0, float fScale = 1.0f );
 
-	void SetUnit( NRPG::CUnit *pUnit, ECameraType eType = CAMERA_PORTRAIT );
+	void SetUnit( NRPG::CUnit *pUnit, ECameraType eType = CAMERA_PORTRAIT, bool bPlayIdleEmotions = true );
 	void SetUnit( NWorld::CUnit *pUnit, ECameraType eType = CAMERA_PORTRAIT );
 	// release @0x1c03d0: SetUnit(unit, camera, b1, b2, b3) with b1=bItems, b2=bShowCap, b3=bPlayIdle -- the
 	// @0x1c043c..3e push order feeds CreateShowUnit's three bools as (b1, b3, b2) = (bItems, bPlayIdle, bShowCap).

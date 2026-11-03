@@ -10,7 +10,8 @@
 #include "aiControl.h"
 #include "aiCommander.h"
 #include "aiPosition.h"
-#include "aiNearestPosition.h"	// NAI::GetNearestPosition (UnitSetToWaypoint blocked-cell relocation)
+#include "aiNearestPosition.h"
+#include "aiLocker.h"
 #include "aiRoute.h"
 #include "RPGUnitMission.h"
 #include "aiUnit.h"
@@ -85,7 +86,7 @@ static void SetOneWaypointRoute( NWorld::CUnitServer *pUS, NAI::CAIRouteWaypoint
 // not a raw SetPosition. Retail: build the WALK-posed target from the waypoint; skip the teleport
 // entirely when the unit already stands within 0.05 of it; if the target cell is not freely passable
 // (locked by another unit -- e.g. GFirst teleports three robbers to the SAME "firstfloor" waypoint in
-// a row) relocate to a free cell nearby (NAI::LookWhereToMoveUnit, radius 10); then, for a live unit,
+// a row) relocate within 3m (NAI::LookWhereToMoveUnit, max fall 10); then, for a live unit,
 // Do( CCmdCancel ) + Do( CCmdSetCommand( CCmdTeleport ) ) + Do( CCmdSetCommand( CCmdContinue ) ).
 // The CCmdCancel FIRST is the load-bearing part: the old raw SetPosition/PlaceUnit teleported a unit
 // whose move executor was still LIVE, so the surviving CExecMove kept operating on stale path state
@@ -101,25 +102,32 @@ BEGIN_SCRIPT_COMMAND(UnitSetToWaypoint, "us")
 		CPtr<NAI::CAIRouteWaypoint> pWaypoint = pScript->pWorld->GetWaypoint( luaParams[ 1 ].s );
 		if ( IsValid( pWaypoint ) )
 		{
-			// Route installed BEFORE the teleport chain. CORRECTED retail facts (disasm-verified):
-			// retail @0x2ebca0 installs the route AFTER the teleport commands, and retail's SetRoute
-			// @0xadb90 DOES cancel too (vtbl+0x28 = CAIUnit::CancelCommand @0xad820 -> a CCmdCancel
-			// through the server sink) -- so dev AssignControl's Do(CCmdCancel) mirrors retail, and
-			// since CExecTeleport::Run is fully SYNCHRONOUS (PlaceUnit+SetPosition+Finished inside Run)
-			// a trailing cancel cannot hit an in-flight teleport in either order. The route-first order
-			// is kept as a harmless invariant (the cancel then demonstrably targets only the unit's
-			// previous activity), NOT as a fix -- the "multi-segment teleport killed mid-flight" theory
-			// was refuted by live command-lifecycle logging (teleports complete synchronously).
-			SetOneWaypointRoute( pUS, pWaypoint );
 			NAI::SUnitPosition unitPos;
 			unitPos.pos = pWaypoint->pos;
+			const bool bBigUnit = NAI::IsBigLocker( pUS );
+			if ( !bBigUnit )
+			{
+				unitPos.bRun = false;
+				unitPos.SetPose( NAI::WALK );
+			}
 			CVec3 ptDst = unitPos.pos.GetCP();
 			CVec3 ptCur = pUS->GetPosition().GetCP();
 			if ( fabs2( ptDst - ptCur ) >= 0.05f * 0.05f )   // retail distance gate (0.05, linear)
 			{
 				NAI::IPathNetwork *pNet = pScript->pWorld->GetPathNetwork();
-				if ( IsValid( pNet ) && !pNet->IsPassable( unitPos.pos.p ) )
-					unitPos.pos = NAI::GetNearestPosition( ptDst, pNet, false, CVec3() );   // retail LookWhereToMoveUnit analog
+				if ( IsValid( pNet ) && ( bBigUnit ? !pNet->IsPassable( unitPos.pos.p )
+					: pNet->GetPassability( unitPos.pos.p ) != NAI::AIP_YES ) )
+				{
+					// Keep the established large-unit placement policy for empty/worn PKs.
+					if ( bBigUnit )
+						unitPos.pos = NAI::GetNearestPosition( ptDst, pNet, false, CVec3() );
+					else
+					{
+						NAI::SUnitPosition relocated;
+						NAI::LookWhereToMoveUnit( unitPos, &relocated, 10, ptCur.z );
+						unitPos = relocated;
+					}
+				}
 				unitPos.bRun = false;
 				unitPos.SetPose( NAI::WALK );
 				if ( pUS->IsEmptyPK() )
@@ -136,6 +144,10 @@ BEGIN_SCRIPT_COMMAND(UnitSetToWaypoint, "us")
 					pUS->Do( new NWorld::CCmdSetCommand( pUS, new NWorld::CCmdContinue() ) );
 				}
 			}
+			// Original Steam 0x6ec6cc..0x6ec6f8 installs the route after
+			// the synchronous teleport, only for AI units or a script sequence.
+			if ( pScript->pWorld->IsSequence() || pUS->IsAIUnit() )
+				SetOneWaypointRoute( pUS, pWaypoint );
 		}
 	}
 	return 0;

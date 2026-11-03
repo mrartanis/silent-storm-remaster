@@ -155,15 +155,21 @@ CAmbientLightReal* CTAmbientLight::GetLight( SRand *pRand ) const
 	return pRes;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-CAmbientLightReal* CTAmbientLight::GetLight( SRand *pRand, const vector<int> &params ) const 
-{ 
-	CAmbientLightReal *pRes = new CAmbientLightReal;
+CAmbientLightReal* CTAmbientLight::GetLight( SRand *pRand, const vector<int> &params ) const
+{
 	CAmbientLight *p = GetRnd( pRand, params );
+	if ( !IsValid( p ) )
+		return 0;
+	CAmbientLightReal *pRes = new CAmbientLightReal;
 	CopyAmbientLight( pRes, p );
 	if ( p->pGF2Light )
 	{
-		pRes->pGF2Light = new CAmbientLightReal;
-		CopyAmbientLight( pRes->pGF2Light, p->pGF2Light->GetRnd( pRand, params ) );
+		CAmbientLight *pGF2Light = p->pGF2Light->GetRnd( pRand, params );
+		if ( IsValid( pGF2Light ) )
+		{
+			pRes->pGF2Light = new CAmbientLightReal;
+			CopyAmbientLight( pRes->pGF2Light, pGF2Light );
+		}
 	}
 	return pRes;
 }
@@ -1961,6 +1967,7 @@ CPlacableObject* GetPlacableObject( int nID ) { return Get<CPlacableObject>( nID
 CSpot* GetSpot( int nID ) { return Get<CSpot>( nID ); }
 CUnit* GetUnit( int nID ) { return Get<CUnit>( nID ); }
 CRPGGrenade *GetRPGGrenade( int nID ) { return Get<CRPGGrenade>( nID ); }
+CRPGBaseValue *GetRPGBaseValue( int nID ) { return Get<CRPGBaseValue>( nID ); }
 CRPGAP *GetRPGAP( int nID ) { return Get<CRPGAP>( nID ); }   // retail @0x3f9b60 (RPGAP action-cost table)
 CSkeleton *GetSkeleton( int nID ) { return Get<CSkeleton>( nID ); }
 CRPGCritical *GetDBCritical( int nID ) { return Get<CRPGCritical>( nID ); }

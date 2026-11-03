@@ -137,6 +137,7 @@ public:
 	virtual int GetTotalVP() const = 0;
 	virtual int GetLastActionTimes() const = 0;
 	virtual int GetMoveInLastTurn() const = 0;
+	virtual float GetWeaponSkill( CObjectBase *pItem, int nExtraAP, int nBullet ) = 0;
 	virtual void ApplyCritical( const NRPG::SCritical &critical ) = 0;
 	virtual bool RemoveCritical( NDb::ECritical eCritical ) = 0;
 	virtual void SuspendCriticals( int nTurns ) = 0;
@@ -192,6 +193,9 @@ public:
 	// CUnitServer ctor. Appended NON-PURE at the vtable tail (dev<->release order is name-dispatched) so
 	// other IUnitMission implementors keep building; CUnitMission overrides it.
 	virtual void SetGlobalGame( CGlobalGame *p ) {}
+	virtual void Segment() {}
+	virtual void SetScenarioPlayerID( int nPlayer ) {}
+	virtual int GetScenarioPlayerID() const { return 0; }
 	// Getter counterpart: the release reads the campaign difficulty record through the world's global
 	// game (e.g. the called-shots gate pDifficulty->bHeadshotShouldKill in the to-hit paths). Appended
 	// NON-PURE at the vtable tail like SetGlobalGame; CUnitMission overrides it.
@@ -200,11 +204,17 @@ public:
 	// (wUnitStates.cpp) dispatches through IUnitMission. Appended NON-PURE at the vtable tail like the
 	// two above; CUnitMission overrides it.
 	virtual void AddVPBoost( float fStrength, int nDuration ) {}
+	virtual float GetWeaponAdaptation() const { return 0; }
+	// Original Steam 0x7515e6: transient victim aura supplied by world damage.
+	virtual void SetAuraPerkICModifier( float f ) {}
+	// Steam SetPlayer 0x7c1def publishes the owner AI snapshot; saved tag 46 already exists.
+	virtual void SetIsAIPlayer( bool b ) {}
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float GetCubesArea( const CVec3 &ptPos, vector<CVec3> *pCubes );
 int GetHLPenalty( NAI::EHitLocation hl );
 float GetVPPenalty( int nVP, int nHealedVP, int nMaxVP );
+float GetUnitVPPenalty( CUnit *pUnit );
 float GetHeadshotMultiplier( NAI::EHitLocation hl );   // @0x2b6ca0 (defined in RPGToHit.cpp; shared with GetMeleeToHit)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Weapon-class dispatch of the to-hit/cover pipeline. Was file-local to RPGUnitMission.cpp; the
@@ -216,6 +226,7 @@ enum EToHitType
 	TH_THROWING,
 	TH_SHOOT,
 	TH_RLAUNCHER,
+	TH_GRENADE,
 	TH_DEFAULT,
 };
 // NRPG::GetToHitType @0x2b3790: the held-item class of the attacker. NOTE: TH_MELEE means a SWUNG

@@ -40,8 +40,9 @@ void FillAttackModifiers( NRPG::CAttackPortion *pAttack, const SPerkMineModifier
 {
 	pAttack->bAlwaysHumanCritical = mods.bAlwaysHumanCritical;
 	pAttack->fStructDmgModifier   = mods.fAEDmgModifier * mods.fStructureDmgModifier;
-	pAttack->nDmgMin = Float2Int( pAttack->nDmgMin * mods.fAEDmgModifier );
-	pAttack->nDmgMax = Float2Int( pAttack->nDmgMax * mods.fAEDmgModifier );
+	// Original 0x7551e0 multiplies under observed PC24/RN before its truncating cast.
+	pAttack->nDmgMin = int( float( double( pAttack->nDmgMin ) * mods.fAEDmgModifier ) );
+	pAttack->nDmgMax = int( float( double( pAttack->nDmgMax ) * mods.fAEDmgModifier ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // release NWorld::nBreakCalcs -- the per-segment explosion work budget that paces the destruction
@@ -675,7 +676,7 @@ void CVoxelExplTracker::ExplodeFragments()
 			pWorld->GetAIMap()->GetUnitHLPos( &pt, CastToObjectBase( it->GetPtr() ), (int)ExplosionRandom().Get( 6 ) );   // retail: isaac % 6
 			v = pt - ptCenter;
 			Normalize( &v );   // self-guarded against a zero delta, matching the retail fabs2 != 0 gate
-			pWorld->PerformRangedAttack( att, ray, ignores, pWorld->GetTime()->GetValue(), 0, 0, fRange );
+			pWorld->PerformRangedAttack( att, ray, ignores, pWorld->GetTime()->GetValue(), 0, 3.0f, fRange );
 		}
 		units.erase( it );
 	}
@@ -692,7 +693,7 @@ void CVoxelExplTracker::ExplodeFragments()
 			fN2 = fabs2( v );
 		} while ( fN2 > 1.0f || fN2 <= 0.001f );
 		Normalize( &v );
-		pWorld->PerformRangedAttack( att, ray, ignores, pWorld->GetTime()->GetValue(), 0, 0, fRange );
+		pWorld->PerformRangedAttack( att, ray, ignores, pWorld->GetTime()->GetValue(), 0, 3.0f, fRange );
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

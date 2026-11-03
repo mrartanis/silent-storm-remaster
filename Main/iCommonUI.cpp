@@ -603,13 +603,13 @@ void CUnitView::RecalcCamera()
 	MakeMatrix( &sCamera, fPitch, fYaw, 0, vCP );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CUnitView::SetUnit( NRPG::CUnit *pUnit, ECameraType eType )
+void CUnitView::SetUnit( NRPG::CUnit *pUnit, ECameraType eType, bool bPlayIdleEmotions )
 {
 	pInventoryUnit = 0;
 	if ( !IsValid( pUnit ) )
 		return;
 
-	pInventoryUnit = NRender::CreateShowUnit( p3DView, pUnit, sTimer.GetTime(), pRenderGame );
+	pInventoryUnit = NRender::CreateShowUnit( p3DView, pUnit, sTimer.GetTime(), pRenderGame, bPlayIdleEmotions );
 
 	NDb::SCameraParams sCameraParams;
 	switch( eType )
@@ -746,13 +746,11 @@ void CUnitView::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 	if ( !ClientToScreen( &sPosition, &sWindow ) )
 		return;
 
-	SRect s2DWindow( sWindow );
-	SPoint s2DPosition( sPosition );
-	VirtualToScreen( &s2DPosition, &s2DWindow );
-
-	SRect sDummyWindow( sWindow );
-	SPoint sRealSize( GetSize() );
-	VirtualToScreen( &sRealSize, &sDummyWindow );
+	CTRect<float> s2DWindow;
+	CTPoint<float> s2DPosition, sRealSize;
+	VirtualToScreen( &sPosition, &s2DPosition );
+	VirtualToScreen( &sWindow, &s2DWindow );
+	VirtualToScreen( &GetSize(), &sRealSize );
 
 	CRectLayout sLayout;
 	sLayout.AddRect( 0, 0, sRealSize.x, sRealSize.y, CTRect<float>( 0, 0, sRealSize.x, sRealSize.y ) );

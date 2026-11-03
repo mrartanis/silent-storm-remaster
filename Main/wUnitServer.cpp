@@ -24,6 +24,9 @@
 #include "../Misc/RandomGen.h"
 #include "RPGUnit.h"
 #include "aiPath.h"
+#include "aiNearestPosition.h"
+#include "aiGrid.h"
+#include "aiLocker.h"
 #include "aiMap.h"                // NAI::IAIMap::GetObjectBound (mine-LOS probe pull-back)
 #include "scScenarioTracker.h"
 #include "scriptCallLUA.h"		// NScript::luaCallFunction (OnClickUsable)
@@ -54,6 +57,15 @@ namespace NWorld
 void CUnitServer::PrepareToRemove()
 {
 	GetWorld()->GetPathNetwork()->Unlock( this );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CUnitServer::GetPointOfInterest( CVec3 *pOut )
+{
+	// Original Steam 0x7c05f0 forwards to the active commander's logic.
+	// The remaster also supports unowned units, including isolated native contexts.
+	auto *pOwner = GetPlayer();
+	return IsValid( pOwner ) && IsValid( pOwner->GetCommander() ) &&
+		pOwner->GetCommander()->GetPointOfInterest( this, pOut );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CCommandExecute
@@ -148,7 +160,7 @@ CUnitServer::CUnitServer( CWorld *pWorld, NRPG::IUnitMission *_pRPG, NDb::CModel
 	registerOnNewPlayerTurnOrTime( this, &CUnitServer::OnNewPlayerTurnOrTime ),
 	registerOnNewPlayerFastTurnOrTime( this, &CUnitServer::OnNewPlayerFastTurnOrTime ), bCanTalk( false ), nDialog( 0 )
 {
-	pPlayer = _pPlayer;
+	SetPlayer( _pPlayer );
 	bCallTimeLabel = false;
 	SetState( new CUnitStateNormal( this ) );
 	bIsRunningForcedAction = false;
@@ -229,6 +241,9 @@ void CUnitServer::Die( bool bDeathBeauty, bool bRemove )
 		GetWorld()->GetGlobalAck()->OnUnitDied( this );
 	// remove this unit's acks
 	GetWorld()->GetGlobalAck()->RemoveUnitAcks( this );
+	NRPG::CGlobalGame *pGlobalGame = GetWorld()->GetGlobalGame();
+	if ( IsValid( pGlobalGame ) && IsValid( pGlobalGame->pScenarioTracker ) )
+		pGlobalGame->pScenarioTracker->OnUnitDestroyed( this );
 	//
 	if ( !bRemove )
 	{
@@ -650,11 +665,8 @@ CUnit::EState CUnitServer::GetState()
 		case AT_SHOOT:
 		case AT_BAZOOKA:
 			break;//return ST_NORMAL;
-		case AT_MELEE:
-		{
-			CDynamicCast<NRPG::IMeleeWeaponItem> pMelee( GetUnitRPG()->GetInventory()->GetActive() );
-			return IsValid( pMelee ) ? ST_NORMAL_KNIFE : ST_NORMAL_MELEE;
-		}
+		case AT_MELEE: return ST_NORMAL_MELEE;
+		case AT_KNIFE: return ST_NORMAL_KNIFE;
 		case AT_GRENADE: return ST_NORMAL_GRENADE;
 		case AT_FIRSTAID: return ST_NORMAL_MEDKIT;
 		case AT_MINE: return ST_NORMAL_MINE;
@@ -752,66 +764,124 @@ void CUnitServer::Fall()
 	FallFromHigh( fHeightDiff );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void CUnitServer::UpdateDeadPKSupport()
+{
+	NAI::CPathNetwork *pNet = GetPosition().pos.pNet;
+	NAI::SUnitPosition dst( GetPosition() );
+	if ( !dst.pos.p.IsIntegral() || dst.pos.p.IsFinal() )
+		return;
+	CVec3 previous = dst.GetCP();
+	previous.z = fLastHeight;
+	float fBestHeight = -1e38f;
+	float fMaxFall = GetMaxFallDist( fLastHeight );
+	pNet->Unlock( this );
+	// Look straight down through every floor, not within ForcedMove's 3m
+	// sphere. Do not move sideways around walls or through an intact floor.
+	const vector<CObj<NAI::CNodesLayer> > &layers = pNet->GetLayers();
+	for ( int k = 0; k < layers.size(); ++k )
+	{
+		NAI::CNodesLayer *pLayer = layers[k];
+		if ( !IsValid( pLayer ) || !IsValid( pLayer->pGroup ) )
+			continue;
+		NAI::SPoint pt = pLayer->pGroup->GetPoint( previous );
+		if ( pt.x < 0 || pt.y < 0 || pt.x >= pLayer->pGroup->GetXSize() || pt.y >= pLayer->pGroup->GetYSize() )
+			continue;
+		NAI::SUnitPosition candidate( dst );
+		candidate.pos.p.SetOnLayer( k, pt.x, pt.y );
+		candidate.pos.p.SetPose( dst.pos.p.GetPose() );
+		candidate.pos.p.SetDirection( pNet->GetClosestDir( k, GetPosition().GetDirection() ) );
+		NAI::EPassable pass = pNet->GetPassability( candidate.pos.p );
+		// Another unit's lock is not missing physical support.
+		if ( pass != NAI::AIP_YES && pass != NAI::AIP_LOCKED && pass != NAI::AIP_DOOR )
+			continue;
+		CVec3 cp = candidate.GetCP();
+		if ( sqr(cp.x - previous.x) + sqr(cp.y - previous.y) > 0.01f ||
+			cp.z > previous.z + 0.01f || previous.z - cp.z > fMaxFall + 0.05f || cp.z <= fBestHeight )
+			continue;
+		fBestHeight = cp.z;
+		dst = candidate;
+	}
+	if ( fBestHeight != -1e38f && fLastHeight - fBestHeight > 0.01f )
+	{
+		DropDeadPK( dst, dst.GetCP() - previous );
+		fLastHeight = fBestHeight;
+		plLast = dst.pos.p;
+	}
+	pNet->Lock( this, GetPosition().pos.p );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitServer::ForcedMove()
 {
 	csSystem << CC_RED << "FORCED MOVE\n";
 	NAI::IPathNetwork *pNet = GetWorld()->GetPathNetwork();
-	SSphere s( GetPosition().GetCP(), 3 );
-	vector<NAI::SPathPlace> res;
-	pNet->GetNearPlaces( s, &res );
-	float fMinDist = 1000, fMinHorDist = 1000;
 	NAI::SUnitPosition dst( GetPosition() );
-	int pose = GetPosition().pos.p.GetPose();
-	if ( pose == NAI::CM_INACTIVE )
-		pose = NAI::CM_CROUCH;
-	float fMaxFall = GetMaxFallDist( fLastHeight );   // retail @0x3c0b80 passes fLastHeight as the ray-origin z
-	for ( int i = 0; i < res.size(); ++i )
+	float fMaxFall = GetMaxFallDist( fLastHeight );
+	NAI::ENearestUnitPosResult placement;
+	if ( !NAI::IsBigLocker( this ) )
+		placement = NAI::LookWhereToMoveUnit( GetPosition(), &dst, fMaxFall, fLastHeight );
+	else
 	{
-		res[i].SetPose( pose );
-		res[i].SetDirection( GetPosition().GetDir() );
-		if ( !pNet->IsPassable( res[i] ) )
-			continue;
-		NAI::SPosition pos;
-		pos.p = res[i];
-		pos.SetNetwork( pNet );
-		CVec3 cp = pos.GetCP();
-		CVec3 desired = GetPosition().GetCP();
-		if ( cp.z > fLastHeight + 0.01f )
-			continue;
-		CVec3 vDist = desired - cp; 
-		float fZDist = fLastHeight - cp.z;
-		float fHorDist = vDist.x * vDist.x + vDist.y * vDist.y;
-		float fDist;
-		if ( fZDist < fMaxFall ) 
+		// Retain the existing large-unit candidate policy and lock-footprint query.
+		SSphere s( GetPosition().GetCP(), 3 );
+		vector<NAI::SPathPlace> res;
+		pNet->GetNearPlaces( s, &res );
+		float fMinDist = 1000, fMinHorDist = 1000;
+		int pose = GetPosition().pos.p.GetPose();
+		if ( pose == NAI::CM_INACTIVE )
+			pose = NAI::CM_CROUCH;
+		for ( int i = 0; i < res.size(); ++i )
 		{
-			if ( fHorDist < 0.01f )
-				fDist = fHorDist + fZDist * fZDist * 0.2f * 0.2f;
+			res[i].SetPose( pose );
+			res[i].SetDirection( GetPosition().GetDir() );
+			if ( !pNet->IsPassable( res[i] ) )
+				continue;
+			NAI::SPosition pos;
+			pos.p = res[i];
+			pos.SetNetwork( pNet );
+			CVec3 cp = pos.GetCP();
+			CVec3 desired = GetPosition().GetCP();
+			if ( cp.z > fLastHeight + 0.01f )
+				continue;
+			CVec3 vDist = desired - cp;
+			float fZDist = fLastHeight - cp.z;
+			float fHorDist = vDist.x * vDist.x + vDist.y * vDist.y;
+			float fDist;
+			if ( fZDist < fMaxFall )
+			{
+				if ( fHorDist < 0.01f )
+					fDist = fHorDist + fZDist * fZDist * 0.2f * 0.2f;
+				else
+					fDist = fHorDist + fZDist * fZDist;
+			}
 			else
-				fDist = fHorDist + fZDist * fZDist;
+				fDist = fHorDist + fZDist * fZDist * 4;
+			if ( fDist < fMinDist )
+			{
+				fMinDist = fDist;
+				fMinHorDist = vDist.x * vDist.x + vDist.y * vDist.y;
+				dst.pos.p = res[i];
+			}
 		}
-		else
-			fDist = fHorDist + fZDist * fZDist * 4;
-		if ( fDist < fMinDist )
-		{
-			fMinDist = fDist;
-			fMinHorDist = vDist.x * vDist.x + vDist.y * vDist.y;
-			dst.pos.p = res[i];
-		}
+		placement = fMinDist < 100 ? ( fMinHorDist < 0.01f ? NAI::NPR_FALL : NAI::NPR_MOVE ) : NAI::NPR_FAILED;
 	}
-	if ( fMinDist < 100 )
+	if ( placement != NAI::NPR_FAILED )
 	{
-		if ( fMinHorDist < 0.01f )
+		if ( placement == NAI::NPR_FALL )
 		{
 			SetPosition( dst );
 			Fall();
 		}
 		else
 		{
+			// Original Steam 0x7c17a4: start at the current clock, publish
+			// the destination before refreshing world/visibility bindings.
+			animator.AlignTime();
 			animator.ForcedMove( dst );
+			SetPosition( dst );
 			Update();
 			GetWorld()->UpdateVisible();
-			SetPosition( dst );
 		}
+		pNet->GetPassability( GetPosition().pos.p );
 		return;
 	}
 	// retail @0x3c0b80: nowhere to land at all -> the unit dies FALLING. Stash the pre-fall height
@@ -862,6 +932,12 @@ void CUnitServer::OnTBSEvent( ETBSEvent event )
 			pState->OnActionFinish();
 			break;
 		case TBS_GRID_INFO_UPDATED:
+			// Own adapter: dead PKs keep the original frozen collapse animation.
+			if ( IsDead() && IsWearingPK() )
+			{
+				UpdateDeadPKSupport();
+				break;
+			}
 			// retail @0x3c2a90 case 10: a locker unit re-seats on the changed grid -- release the lock,
 			// force-move off a now-impassable tile; otherwise fall/snap when the ground height under the
 			// SAME place drifted (> 0.01), store the new height/place, and re-lock.
@@ -924,7 +1000,7 @@ void CUnitServer::OnTBSEvent( ETBSEvent event )
 			if ( !animator.GetCannon() && CanFight() && ShouldReseatMoveAnimation( pExec, animator.bStandIfRecalcCommand ) )
 				animator.PlaceUnit( GetPosition() );
 			CancelAction();
-			// TURN-STALL FIX (dev-bugs s6 retest#5, bug B): retail @0x3c2a90 RELEASES the move executor
+			// AI turn-stall guard: retail @0x3c2a90 RELEASES the move executor
 			// here, so the interrupted move COMMAND is gone with it. The dev tree keeps pExec alive (the
 			// re-entrant-free hazard documented above) but must still abandon the command: CancelAction's
 			// own `pCurrentCmd = 0` is commented out and CheckCmdExecState clears pCurrentCmd only on
@@ -934,12 +1010,19 @@ void CUnitServer::OnTBSEvent( ETBSEvent event )
 			// HasCommand(), which made the unit's think-job IsIdleJob()==true forever (@0x4331c0), the
 			// job manager never ran it, the tactical commander's WaitForJob dependency never finished,
 			// bEndOfTurn never latched -- the AI player's first turn never ended. Clearing the command
-			// here mirrors retail's executor release; the unit's route/logic re-decides from scratch.
-			pCurrentCmd = 0;
+			// here lets the AI re-decide; a human retains its route for Continue.
+			if ( IsAIUnit() )
+				pCurrentCmd = 0;
 			break;
 		default:
 			ASSERT( 0 );
 	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CUnitServer::HasAutoFirstTurnInterrupt() const
+{
+	// Retail v1.2 0x7bfda0, reached by first-turn interrupt collection.
+	return GetUnitRPG()->GetRPGUnit()->HasPerk( 0x1b );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnitServer::IsPerformingAction() const
@@ -1103,6 +1186,7 @@ void CUnitServer::Segment()
 	}
 	pState->Segment();
 	FetchRPGAcks();
+	GetUnitRPG()->Segment();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitServer::HearUnit( CUnitServer *pSource )
@@ -1660,7 +1744,7 @@ void CUnitServer::CancelHeal()
 		SetState( new CUnitStateNormal( this ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// retail @0x3c33a0: forwards to the CDumbUnitServer base with pWorld/vDir unchanged.
+// Original Steam 0x7c3dd0: preserve our ProcessAttack API and base damage call.
 int CUnitServer::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, NRPG::CAttackPortion *pAttack,
 	const CVec3 &vDir, NDb::CRPGArmor *pArmor )
 {
@@ -1670,9 +1754,23 @@ int CUnitServer::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, NRPG::CAtta
 	const bool wasUnconscious = IsUnconscious();
 	CPtr<CUnitServer> pAttacker = IsValid( pAttack->pAttacker ) ?
 		GetWorld()->GetUnitServer( pAttack->pAttacker ) : nullptr;
+	// Original Steam 0x7c3e8c..0x7c3f02: prepare the hostile party before damage.
+	list< CPtr<CUnitServer> > xpUnits;
+	float fXP = 0;
+	if ( IsValid( pAttacker ) && pAttacker->GetDiplomacyState( this ) == NDb::DS_ENEMY &&
+		pAttacker->GetTBSPlayer() )
+	{
+		pAttacker->GetTBSPlayer()->GetUnitsThatCanFight( &xpUnits );
+		fXP = GetUnitRPG()->GetXP( xpUnits.size() );
+	}
 	int nRet = CDumbUnitServer::ProcessAttack( pWorld, nUserID, pAttack, vDir, pArmor );
 	if ( !IsValid( this ) )
+	{
+		// Steam 0x7c4103..0x7c412c: removed targets pay the saved party directly.
+		for ( list< CPtr<CUnitServer> >::iterator i = xpUnits.begin(); i != xpUnits.end(); ++i )
+			(*i)->GetUnitRPG()->GetRPGUnit()->AddXP( fXP );
 		return nRet;
+	}
 	CUnitServer *pPKUnit = 0;
 	if ( IsWearingPK() )
 		pPKUnit = pWearingPK;
@@ -1712,15 +1810,13 @@ int CUnitServer::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, NRPG::CAtta
 					pGlobalPlayer->deployData.unitsDeployData[ GetUnitRPG()->GetRPGUnit() ].bCorpseAlive = false;
 		}
 		GetWorld()->GetGlobalGame()->pScenarioTracker->OnScenarioClueDestroyed( this->GetUnitRPG()->GetRPGPersID(), true );
-		//
-		if ( IsValid( pAttack->pAttacker ) )
-		{
-			list< CPtr<CUnitServer> > units;
-			GetWorld()->GetUnitServer(pAttack->pAttacker)->GetTBSPlayer()->GetUnitsThatCanFight( &units );
-			float fXP = GetUnitRPG()->GetXP( units.size() );
-			for ( list< CPtr<CUnitServer> >::iterator i = units.begin(); i != units.end(); ++i )
-				(*i)->GetUnitRPG()->GetRPGUnit()->AddXP(fXP);
-		}
+	}
+	// Original Steam 0x7c449d..0x7c44d4: notify only the new unconscious transition.
+	if ( !wasUnconscious && IsUnconscious() )
+	{
+		NRPG::CGlobalGame *pGlobalGame = GetWorld()->GetGlobalGame();
+		if ( IsValid( pGlobalGame ) && IsValid( pGlobalGame->pScenarioTracker ) )
+			pGlobalGame->pScenarioTracker->OnMakeUnconscious( this );
 	}
 	// Original first incapacitation: preserve attribution on later corpse hits.
 	// Steam7c450c..7c4527; Gold also writes pKiller, without the later timestamp.
@@ -1728,6 +1824,9 @@ int CUnitServer::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, NRPG::CAtta
 	{
 		pKiller = pAttacker;
 		tDeathTime = GetWorld()->GetTime()->GetValue();
+		// Steam 0x7c452d..0x7c455c: a retained target pays only on its first incapacitation.
+		for ( list< CPtr<CUnitServer> >::iterator i = xpUnits.begin(); i != xpUnits.end(); ++i )
+			(*i)->GetUnitRPG()->GetRPGUnit()->AddXP( fXP );
 	}
 	return nRet;
 }
@@ -1979,6 +2078,22 @@ void CUnitServer::ProcessCriticalsAndRegenerations()
 			GetWorld()->CreateBloodyMess( GetPosition().GetCP() + CVec3(0,0,1), CVec3(0,0,-1.5f), this, 1 );
 			GetWorld()->GetGlobalAck()->OnSuffersLightDamage( this );
 		}
+		// Steam 0x7c330d: distribute periodic-death XP before synchronizing consciousness.
+		if ( GetUnitRPG()->IsDead() )
+		{
+			vector< CPtr<CPlayer> > players;
+			GetWorld()->GetPlayersList( &players );
+			for ( vector< CPtr<CPlayer> >::iterator i = players.begin(); i != players.end(); ++i )
+			{
+				if ( GetWorld()->GetDiplomacyState( static_cast<CUnit*>( this ), *i ) != NDb::DS_ENEMY )
+					continue;
+				list< CPtr<CUnitServer> > units;
+				(*i)->GetUnitsThatCanFight( &units );
+				const float fXP = GetUnitRPG()->GetXP( int(units.size()) );
+				for ( list< CPtr<CUnitServer> >::iterator u = units.begin(); u != units.end(); ++u )
+					(*u)->GetUnitRPG()->GetRPGUnit()->AddXP( fXP );
+			}
+		}
 	}
 	SyncConscious();
 }
@@ -1995,6 +2110,10 @@ NDb::EDiplomacyState CUnitServer::GetDiplomacyState( CUnitServer *pTarget ) cons
 void CUnitServer::SetPlayer( CPlayer *_pPlayer )
 {
 	pPlayer = _pPlayer;
+	// Keep medal diplomacy aligned with the actual owner, including a null owner.
+	GetUnitRPG()->SetScenarioPlayerID( IsValid( pPlayer ) ? pPlayer->GetScenarioPlayerID() : -1 );
+	// Steam 0x7c1de0: persist owner AI identity when assigned, including a null owner.
+	GetUnitRPG()->SetIsAIPlayer( NAI::IsAIPlayer( _pPlayer ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitServer::SetDialog( const string &szDialogCode )

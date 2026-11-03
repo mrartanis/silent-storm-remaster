@@ -14568,3 +14568,12825 @@ remain active. Two shared builds reused, no source/build backup copies.
 Evidence: layer-merge original typed symbols/asm/oracle, baseline manifests,
 RED9/GREEN50/48 raw logs/exits, exact verifier, fresh network, ALL_BUILD and
 CI299 manifest/raw/exits. Final balance-review artifact remains unchanged.
+
+### Portable bullet RNG include follow-up (0726a489 / own 41682818)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0726a489c66ef5131dc5f336d8539c316ca31573
+
+The own-fork ISAAC adaptation in416828184718bb4bc3e6e5820b766ca34f5dab35
+introduced a Windows-only backslash include in RPGBullet.cpp. The full Linux
+game uses normalized build sources, so its successful build did not cover
+the separate portable combat library compiled directly from repository sources.
+
+Actual native clang RED while building NetworkMatchTests: s2_game_rpg_combat's
+RPGBullet.cpp cannot find ..\Misc\RandomGen.h. Change only that include to
+../Misc/RandomGen.h. GREEN: actual portable s2_game_rpg_combat archive compiles
+and links; Windows Main also builds successfully. No behavior, RNG draw,
+coefficient, balance, schema, rendering or HD pipeline change. No additional
+runtime behavior is claimed by these compiler checks. Recorded failed native
+command/log and successful compiler logs/exits: portable-bullet-include-* in
+the shared upstream-remaster-20261024 evidence directory. The independent
+network burst-fixture and source5ab terrain work remain uncommitted separately.
+Ledger counts and whole-goal/final hosted Actions status are unchanged.
+
+### Prevent the network ammunition fixture from shooting its later actors
+
+Original own test: https://github.com/mrartanis/silent-storm-remaster/commit/782eb719e1325f3a6ad3f2feeeab01d898a4d415
+Discovered while validating source5abdeaa6f1178d4d10361d3abfa5e3238036eba7;
+the fixture adaptation is ours, not logic copied from that upstream commit.
+
+NetworkMatchTests shoots at actor position+(3,0,1) before medical, engineer
+and scoped-aim phases. Actual bullets can injure or kill those required actors;
+later equip/disarm commands then legitimately fail. Do not weaken production
+damage, AP, interrupts, inventory or server validation to accommodate the test.
+
+Reproduced BEFORE the terrain production fix (all five terrain Main files
+restored to committed parent): add only a health snapshot/assertion around
+the existing real burst/reload. Genuine native RED3/3 on Windows and3/3 on
+Linux, all at the new assertion, with12 real actors per run. Windows engineer
+HP104->-8/28/21 demonstrates death/AP-loss contamination directly. The earlier
+diagnostic failures alone were ambiguous: later disarm returned5 (not enough
+AP), and a previous equip returned1. The new immediate assertion identifies
+the earlier fixture injury; it does not claim all possible network rejections
+have this cause.
+
+Minimal fix: aim at actor position+(3,0,30), above the squad. Retain the real
+command queue, live bullets, AP/ammo spending and reload checks, and keep the
+new health invariant. No heal/revive, damage disabling or numerical gameplay
+change. GREEN3/3 complete scenarios on EACH platform, all12 actor HP unchanged
+after burst/reload. Full subsequent medical/mine/door/aim/grenade/interrupt/
+victory assertions remain enabled. Additional Windows4/4 CTest22.15s; Linux
+actual serializer CTest1/1 plus direct --partial-move/--stop-resume both pass.
+The existing Linux cache does not register asset-backed network cases; do not
+call the Linux CTest result4/4. Six complete direct scenarios cover the repair.
+
+Exact test-only production scope, native RED/GREEN rows, complete logs and
+exit records verified in network-burst-isolation-verification.json and related
+evidence. Small terrain patch retained outside source; two shared build trees
+reused, no old build/source copies. Ledger and final hosted Actions status
+unchanged. Terrain fix will be checked and committed separately.
+
+### Reduce native terrain intervals before passability sorting (5abdeaa6, terrain half)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5abdeaa6f1178d4d10361d3abfa5e3238036eba7
+
+The reconstruction's passability projection retains the full native terrain
+volume. Restore the original terrain-only cap: intervals whose actual source
+owner is null get fEnter=fExit-0.01f BEFORE sorting. Object intervals and every
+exit/source record remain unchanged. Append tracing mode2 while preserving
+old modes0/1; CPassCalcer requests mode2. Default sorting and unsorted callers
+retain their behavior. Only five Main files,18 insertions/3 removals.
+
+Independent original oracle: Gold PDB ReduceTerrain490f40/89 uniquely maps to
+actual Steam492030, masking only its four-byte float address; both actual
+literals are identical float0.01 bits0ad7233c. Typed SResult/SSource/SSourceInfo
+prove the actual null-owner chain. Entire TraceGrid193 Gold465b90 uniquely
+maps to Steam466a20 with only its SEH thunk operand and decoded E8 operands
+masked. Both actual SEH thunks/FuncInfo signatures checked. Original mode2
+calls reducer then sort; mode1 sort only/mode0 neither. Entire SortIntervals157
+uniquely maps490ea0->491f90 with decoded-call masks. EXACT zero-mask35-byte
+CPassCalcer caller4866ac->4876fc selects mode2 and TS_PASS_BLOCKER100, with
+typed map/render offsets and virtual call slot. No full2838-byte Calc/EH/helper
+audit claim; cached upstream addresses differ from the actual Steam oracle.
+
+Four native tests use real authored map810/4517 geometry and actual CAIMap
+and CPassCalcer.Calc, with real mixed terrain/object intervals. No fabricated
+intervals, DB edits, private-member access or casts to an unknown enum before
+the fix. The probe compares all normalized interval/source-record tuples to
+an unchanged native sorted projection and observes the actual public Calc
+mode; the complete Calc continues. Map810 region10,9..15,14 has324 terrain/
+78 object intervals/3 actors; ladder map4517 region49,54..54,59 has156 terrain/
+1234 object intervals/15 actors. All actor HP/AP/positions, time/action/RNG
+remain unchanged. Tests prove native projection/calculation, not a rendered
+cursor or a complete authored below-ground walking route.
+
+Genuine compiled RED2/4 on BOTH platforms before Main: both public Calc cases
+request old mode1 and cap zero terrain intervals; normal-sort and no-sort
+controls pass unchanged. GREEN changes only mode1->2, capped0->324/156 and
+matched0->1 in the two failing rows. All source/object/exit tuples and control
+rows remain exact, with actual linked-list order checked after reduction.
+Final related Windows47/47/Linux45/45, exact saved baselines43/41 plus4.
+Linux Game/helpers/actual NetworkSerializer and Windows ALL_BUILD succeed.
+Fresh Windows serializer/match/partial-movement/stop-resume4/4 pass after
+ALL_BUILD. All299 selected local CI-like asset-free cases pass, with exact
+manifest/raw records; the four asset-backed additions are correctly outside
+that gate. No hosted/full-suite completion claim.
+
+The first fresh network run exposed an independent test-fixture defect:
+its low burst injured later actors. That was reproduced on committed pre-
+terrain Main and fixed/committed/pushed separately in75b55cd7, after a separate
+portable include repair34b48a0c. The final terrain checks use both repairs;
+the failed original run and diagnostic repetitions remain archived. Do not
+claim the initial network failure was scoped aiming or terrain regression.
+
+No original numerical balance change: the1cm rule is independently original.
+No authored DB, door flags, save/wire, body/face, renderer backend, fonts or HD
+pipeline change. The other half of this nine-file source, door creation flags
+and open-door vision, remains unported; mark5ab PARTIAL. Ledger286 remains
+158imported, now19partial/66pending =85unfinished sources. Goal and final actual
+GitHub Actions repair/check stay active. Shared two builds reused; only a small
+temporary five-file diff was retained to isolate the network test repair.
+Evidence: terrain-reduction native RED/GREEN/original oracle/typed asm,
+verification JSON, exact manifests, ALL_BUILD/fresh network/localCI raw/exits.
+
+### Preserve authored door flags and original open-hull vision (5abdeaa6, door half)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5abdeaa6f1178d4d10361d3abfa5e3238036eba7
+
+The map builder already creates bIsChest/bIsTransparentIfOpen. CWorld::AddObject
+does not forward them, and the native door constructor hardcodes both existing
+saved members false. Forward both independently, assign the constructor body
+from those arguments (an initializer alone would be overwritten), and pass
+the transparency flag through the native AI visitor. For the open-pose hull
+only, clear TS_VISION. Retain all other masks, closed-pose vision, active-hull
+selection, door collision restrictions and own save/network/runtime behavior.
+Default constructor and old-call defaults remain false; existing tags8/9 and
+class layout are unchanged. No chest inventory/loot duplication: map builder
+already places the items. No renderer, body/facial/font or HD pipeline changes.
+
+Independent original: typed Gold members chest0xe4/transparent0xe5 and nested
+SMapElement.doorParams0x6c/SMapDoorParams flags0x10/11. THREE zero-mask unique
+blocks match actual Steam: constructor37 bytes777479->782fe9, visitor31 bytes
+776b7e->7826ee, open-hull mask31 bytes467f19->468d59. Original world constructor
+argument/call56 bytes75af5f uniquely maps with only the verified E8 constructor
+operand masked; actual Steam constructor782ea0 reaches the exact flag store.
+Actual visitor94-byte argument block uniquely maps with only GetDestroyStage
+E8 operand masked; both getters'8 bytes agree, and typed original CAIMap visitor
+vtable8a5a64 slot0xc targets AddFlippingHull467bb0. That flag input controls only
+AND~0x20 in the open hull. This is block/call/type evidence, not a claim to
+have audited every byte of constructor/Visit/AddObject/AddFlippingHull bodies.
+
+Three native tests use PUBLIC CreateRandom on real authored maps810/4517 with
+seed123/relative level0. Independently repeat actual BuildMap into a separate
+native path network to observe its authored inputs, then match born native
+doors by published DB record ID AND actual position. CDBPtr wrapper addresses
+are transient and unsuitable identities. Real inputs: map810 ordinary1/chest0;
+map4517 ordinary81/chest5. Select ordinary record439 on both maps and chest2425
+on4517. No private factory access, new testing API, fake hull/flags or DB edits.
+These authored fixtures cover the actual false/false and true/true pairs;
+they do not claim all four independently authored boolean combinations or an
+initially open authoring record. Both runtime poses are checked repeatedly.
+
+Genuine compiled RED1/3 BOTH platforms BEFORE Main: two ordinary controls pass;
+actual map chest flags1,1 become created0,0 and restored0,0, and the real open
+hull retains vision. All18 native pose/query rows per platform are recorded.
+The full original world/game/door graph is saved and independently restored,
+runtime caches rebuilt, then both poses queried again. Actual PrepareCollider
+selection is owner-filtered, so overlapping unrelated geometry cannot fake a
+pass. Check actual active-hull ownership/state/validity, vision inclusion,
+nonempty picking and movement hull geometry, and unchanged actor HP/AP/position
+and time. GREEN all3 on EACH platform: chest created/restored1,1; only its open
+flags lose0x20 and vision count1->0, while picking/movement and ordinary/closed
+rows remain unchanged. No full save byte-equality claim.
+
+Separate isolated class-read control omits optional tags8/9 and verifies false
+defaults. It is NOT a full legacy-world migration test, and existing old saves
+which already contain false flags are NOT migrated. Early private-API compile,
+transient-record matching, legacy-root/binding and locked-door fixture failures
+are archived as SETUP, never counted as bug RED. The final fixture explicitly
+unlocks the door through native LockDoor before pose checks, preserving all
+production lock/key rules. A borrowed live-world clone was removed from the
+default-control setup; actual full-world round trips use independent graphs.
+
+Final Windows ALL_BUILD, Linux Game/helpers/actual NetworkSerializer succeed;
+related Windows50/50/Linux48/48 equal saved47/45 baselines plus3 cases. Fresh
+actual Windows serializer/match/partial-movement/stop-resume4/4 pass after the
+build. Local CI-like299/299 passes with exact manifest/raw records; these three
+asset-backed tests remain outside that gate. Final hosted Actions and whole
+goal are not complete. Five Main production files exactly reconstructed from
+the attributed edit script against parent274db3f4; all other local changes are
+the tests/registration and this documentation/ledger. Native oracle, RED/GREEN,
+all18 rows, full-world snapshots in memory only, builds/exits, final gates and
+verification JSON are in door-flags-* evidence. Two shared builds reused.
+
+Together with terrain274db3f47fbfb7c9bc0d7af2daf8cb2697e3571a, all hunks in
+all9 original source files are accounted. Mark5ab fully imported. Ledger286:
+159imported/18partial/66pending =84unfinished sources. No original balance or
+authored data change; goal and final actual GitHub Actions repair/check remain.
+
+### Execute an already-ready action without movement preparation (dcba0202)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/dcba0202d249b3e67c9ce726805457c2e6a54064
+
+CreateActionQueue always calls the movement factory, even when the actor is
+already at an action place with appropriate item state. The factory correctly
+rejects an RPG-motionless actor; consequently an otherwise valid reload or
+aligned shot cannot be queued. A mobile actor also receives an unnecessary
+movement-preparation executor, even when it exposes no positional path.
+
+Restore only the original ready-action branch. Compare candidates under
+0xf9feffff: ignore integral/final/moving bits, preserve tile/layer/pose/facing.
+NO_TARGET can enter direct validation too. ITEM_ACTIVE/ITEM_INACTIVE mismatches
+and the own GetUndrawItem flag still force existing preparation. When ready,
+call the actual action validator at the actual position; accept only named
+OK/NO_TARGET, then put that action alone into the existing native CExecQueue.
+All existing path, pose, weapon-draw/undraw, walk-without-weapon, forced movement
+and body-animation code remains intact. Only Main/wUnitAttack.cpp18 additions;
+no public API, class layout, save/wire field, error ordinal or AP formula change.
+
+Independent original: unique128-byte reload readiness gate Gold7900a7 maps to
+actual Steam79bce7, masking ONLY the verified IsSamePlace E8 operand. Entire
+22-byte helper4731a0 exactly and uniquely maps473c90. The generic heal142-byte
+gate has8 identical template matches; resolve the actual79acae through its
+preceding call to independently verified medical helper7942a0, not by choosing
+an arbitrary signature occurrence. Gold78f06e is typed as the actual heal
+template. Both gates use original mask and active/undraw fields. Typed
+CDumbUnitServer.animator58 + CUnitAnimator.bActiveItem64 =bc; undraw38. Named
+original active enums0/1/2 match the semantics; original OK1/NO_TARGET3 translate
+to OWN named OK0/NO_TARGET4 without changing our ordinals. Actual direct
+availability72-byte block790266 uniquely maps79bea6 with only its verified E8
+operand. Follow accepted branches to queue allocation; three vtable operands
+independently match actual RTTI/COL offsets on both PEs, and zero mover state
+skips the optional movement child before appending the real action once.
+Common allocation bytes are resolved by control-flow context, not declared
+globally unique. No whole template/helper/validator/AP-formula audit claim.
+
+Before tests/production changes, related baseline Windows90/90(103.38s) and
+Linux88/88(98.49s) pass. Eleven new resource-backed cases call the PUBLIC actual
+CreateActionExecutor on real authored map810 units/ammo. Use actual RPG
+ApplyMotionless/ReleaseMotionless counting, existing animator/item APIs and
+native direction selection; no fake action/movement/path provider, private
+access or DB edits. Six controls cover holstered/undraw preparation, both
+immobile preparation rejections, missing reload weapon, and real facing change;
+ready cases cover standing/crouched reloads and aligned/mobile/immobile shots.
+
+Final compiled tactical RED5/11 BOTH platforms before Main: mobile ready
+reload/crouched reload/aligned shot wrongly prepend a mover, and motionless
+reload/aligned shot return GENERAL_FAILURE despite direct validator OK. All
+six controls pass. GOLD/Steam gating proof corroborates the native cause.
+GREEN11/11 each, with EXACT semantic row changes: ready movers1->0, motionless
+results GENERAL_FAILURE->OK and executor0->1; every control row unchanged.
+Planning preserves AP/ammo/HP/place/item wishes/mobility/time, command absence
+and next RNG word. Do not claim a whole-RNG-state byte comparison.
+
+Actual native reload Run/TimeLabelReached/AnimationFinished are directly
+dispatched in three ready cases after entering the native tactical turn via
+GivePlayerTurn. Each spends its existing17 AP(46->29), loads0->32 rounds,
+retains posture/HP and, for the motionless case, remains immobile. This is
+native action/label evidence, not a complete UI/animation-timing test. Fresh
+full server/replica network tests separately exercise real queued execution.
+The earlier fixture used real time, where AP is correctly not spent: its
+runtime-expectation failures are archived as SETUP. Only our18-line Main block
+was restored to the exact committed parent, then the final tactical fixture
+produced fresh RED5/11 on both platforms before the same minimal fix was
+reapplied. Also archive the direction compile setup and two incorrect
+positional-path expectations for item-only preparation; neither counts as bug
+RED. Item-only preparation legitimately has a mover but no positional path.
+
+Final related Windows101/101(115.79s)/Linux99/99(110.69s) are exact saved90/88
+baselines plus11. Existing reload wire, mounted/holstered/cannon reload,
+medical reach/pose/PK repair, object shots, interrupted routes, ladder/door and
+all own body-animation interruption/reseat checks pass without adapting their
+assertions. Windows ALL_BUILD and Linux Game/helpers/actual NetworkSerializer
+build. Fresh Windows actual serializer/match/partial/stop4/4(24.87s) and local
+CI-like299/299(24.57s) pass; exact manifests/raw records/exits verified. Eleven
+asset-backed additions correctly remain outside CI299. No final hosted Actions
+or full-suite claim. Two shared builds reused; no per-bug build/source copies.
+
+All hunks of this single-file source are accounted: markdcba imported. Pickup/
+talk radii/retry source70cf and reserved AP sourcecad507 remain separate pending
+work. No original balance, authored DB, own body/facial/font/bgfx/HD change.
+Ledger286 now160imported/18partial/65pending =83unfinished sources. Whole goal
+and final actual GitHub Actions repair/check remain active. Evidence: ready-
+action native baseline/RED/GREEN, exact11 row comparisons and3 action labels,
+typed original enum/member/RTTI/control-flow oracle, full build/final raw gates,
+manifest/exits and ready-action-verification.json. General verifier is tied to
+precommit parente7a086d3; do not rerun it after committing this change.
+
+### Pick up nearby ground items without changing pose or facing (70cf40f3, partial)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70cf40f33e68f95da25e8db4865dc86aefb05070
+
+The ground-item planner always enumerated approach positions, even when the
+actor could pick up the item from its current place. This rejected valid
+pickups by an RPG-motionless actor and made a mobile actor turn unnecessarily.
+Restore only the original nearby-ground branch: planar distance * 1.6 <= 2,
+with strict actorZ-itemZ < 0.5 and > -2. Append the actual current full place,
+preserving posture and facing. Keep the existing world-item validity guard
+and ordinary approach fallback. No other-unit radii, dialogue, retry logic,
+AP formula, DB, save/wire layout or own body/facial/font/bgfx/HD code changes.
+
+Original proof: the entire 344-byte Gold pickup helper at 788f80 maps uniquely
+to actual Steam 794b80, masking only six decoded E8 operands and five verified
+float addresses. Both PEs contain the same exact float bits and comparison
+directions. The actual current-place append is verified. Typed SPosition
+GetCP maps as an exact 23-byte body; GetCPNoHeight maps as a 21-byte body with
+only its verified network-call operand differing. Existing independent
+GetHumanReachPlaces proof resolves both call sites. The container append and
+network getter callees are not wholly audited here. This is static original
+code evidence, not a claim to have run the original game at each boundary.
+
+Before changes, related Windows30/30 and Linux28/28 pass. Thirteen new native
+cases use public CreateActionExecutor, real map810 actors, actual RPG
+motionless counting, registered frozen items, authored compatible ammunition,
+native backpack placement and the real tactical turn. Compiled RED9/13 on
+BOTH platforms precedes the Main edit: eight valid immobile pickups fail,
+and one mobile pickup unnecessarily adds a movement-preparation executor.
+Four controls already pass, including aligned direct pickup and the three
+exclusive-boundary/outside motionless rejections. GREEN13/13 on both platforms
+changes only the expected planner fields; all four control rows are unchanged.
+Standing, crouched and prone places are exercised, including exact inclusive
+planar and strict vertical boundaries and just-inside/outside cases.
+
+Ten actual native Run transfers put the intact 32-round item in the backpack
+exactly once and remove the ground body. Preserve HP, current full place,
+held weapon, mobility and native price. That fixture's price is zero, including
+the already-passing pre-fix aligned control; no minimum AP cost is introduced.
+Planning preserves inventory, wishes, time and the next RNG word. The inventory
+validator ignores its from argument and does not itself prove physical reach.
+Controlled item heights without physics advancement do not simulate authored
+shelf/support physics. No full UI, animation timing or whole RNG-state claim.
+The initial near-macro/type compilation corrections are archived as SETUP,
+not counted as the subsequent genuine runtime RED.
+
+Final Windows ALL_BUILD and Linux Game/helpers/actual NetworkSerializer build.
+Related Windows43/43(44.16s) and Linux41/41(38.90s) are exactly the saved30/28
+plus13. Fresh Windows serializer/match/partial/stop4/4(21.85s) and local CI-like
+299/299(24.65s) pass with exact manifests, raw records and zero exits verified.
+New asset-backed cases correctly remain outside CI299. Two shared builds are
+reused without per-bug backups. Final hosted Actions and the whole goal remain
+unfinished. Evidence: nearby-pickup-verification.json and nearby-pickup native
+baseline/RED/GREEN/final logs plus original oracle in the external lab.
+
+Mark source70 PARTIAL: standing-only dialogue approaches, initial pickup/hint/
+other-unit radii and wider retry after movement-preparation failure remain
+independent work. Ledger286:160 imported/19 partial/64 pending =83 unfinished
+sources, not83 future commits. General nearby-pickup verifier is tied to
+precommit parent dbf7dfcd and must not be rerun after this commit; the read-only
+original verifier remains reusable.
+
+### Require a standing actor when planning a conversation (70cf40f3, partial)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70cf40f33e68f95da25e8db4865dc86aefb05070
+
+The talk planner accepted crouched/prone candidates. The direct action
+validator checks CanTalk and IsHero, not pose; combined with direct-ready
+execution this allowed an RPG-motionless crouched/prone actor to talk without
+being able to stand. A mobile actor also skipped standing preparation.
+Filter the existing reach candidates to named CM_STAND, retaining each full
+place. Keep the actual target eye point, default0.8 radius, target/self guards,
+validator, result values, prices and own queue/movement/animation engines.
+This changes gameplay approach planning, not the facial-animation renderer.
+
+Original verification: typed Gold GetTalkValidPlaces7889d0/319; its14-byte
+upper-word pose mask/compare is an exact unique match at Steam794680 inside
+the actual7945b0 helper. Decode both conditional skip/append/advance loops,
+prove named original ECheckMove CM_STAND2 and actual RTTI descriptor names,
+the Steam0.8 wrapper call and the already-audited human-reach callee793ef0.
+Gold inlines the append while Steam calls7706d0, and register allocation
+differs. Therefore no entire319-byte identity, SEH, eye224-body or append-body
+claim is made; the initial37-byte identity attempt correctly failed and was
+replaced by the semantic proof. No production change was made during that
+read-only audit. Original code is corroborated by native current runtime TDD.
+
+Before test/production changes, related Windows66/66(72.97s) and Linux64/64
+(66.45s) pass. Ten new real-world cases call public CreateActionExecutor:
+actual hero/nonhero, scripted CanTalk flag, native passable/unlocked actor and
+target positions, tactical turn, crouched/prone actor and RPG motionless
+counter. No fake action/path provider, DB edits or private-field injection.
+Final compiled RED4/10 BOTH before Main: mobile crouched/prone wrongly skips
+the mover, and immobile crouched/prone wrongly accepts direct execution.
+Six controls pass: standing/mobile, standing/motionless, disabled target,
+nonhero, real turning, and a crouched target with standing actor.
+GREEN10/10 BOTH(11.21s Windows/10.96s Linux) changes exactly the four intended
+rows; all six controls remain identical. The new mover's actual desired
+position is standing and inside unchanged0.8 eye reach. Planning preserves
+both actors' AP/HP/positions, inventory/ammunition, wishes, mobility, world
+time and next RNG word. This verifies planning and real native destinations,
+not executed dialogue/Lua callbacks or natural animation timing.
+
+Fixture setup: an extra prone-target control had no established unlocked
+nearby footprint, even after expanding its foot-position search. Archive both
+setup attempts; replace that unestablished control with a valid crouched
+target. Native prone-ACTOR cases remain, and final fresh RED4/10 on the exact
+committed Main precedes the minimal filter. Those setup failures are not
+counted as bug RED and do not establish a prone-target gameplay bug.
+
+Final Windows ALL_BUILD and Linux Game/helpers/actual NetworkSerializer build.
+Related76/76 Windows and74/74 Linux are exactly the saved66/64 plus10. All16
+own animation-reseat/legacy-walk/ladder/turn/cannon controls pass on BOTH;
+fresh Windows serializer/match/partial/stop4/4 and localCI299/299 pass. Exact
+manifests, raw results and zero exits verified. Ten new asset-backed cases
+remain outside CI299. Two shared builds reused; no per-bug build/source copies
+or HD generation. Own body/facial/font/bgfx/LAN/save implementation retained.
+
+Source70 remains PARTIAL: close pickup and standing talk are now imported;
+ordinary/hint/other-unit fallback radii and wider retries after movement-
+preparation failure remain. Ledger286 stays160 imported/19 partial/64 pending,
+83 unfinished sources. Whole goal and final actual hosted Actions remain.
+Evidence: standing-talk-verification.json, native baseline/RED/GREEN/final
+raw logs and standing-talk-retail-oracle.json in the external lab. General
+verifier is tied to precommit parent6e0b1ab0; do not rerun after this commit.
+
+### Restore original item-type approach radii (70cf40f3, partial)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70cf40f33e68f95da25e8db4865dc86aefb05070
+
+All pickup/transfer approaches used the generic0.8 radius. Restore the original
+source-item RTTI selection: ordinary0.625, IHintItem1.3, and base+0.1 for the
+other-unit branch. Parameterize the existing pickup helper and add its typed
+initial-radius wrapper. Retain the already-imported close-ground1.25 branch
+with full current pose/facing, all world-item guards, current target points,
+standing talk, inventory validators and own queue/animation implementations.
+The source command's pItem selects the type, as in the original; do not use
+the DB item identity as a substitute for the marker interface. No wider retry
+is added in this step. No authored data, price formula or save/wire changes.
+
+Original proof: the entire72-byte typed Gold wrapper7890e0 matches uniquely
+at actual Steam794ce0, masking only two verified RTTI PUSH operands and two
+decoded E8 operands. Both actual descriptors name IHintItem/CObjectBase; exact
+float bits initialize0.625 and conditionally assign1.3 after the cast. The
+wrapper calls the independently proven whole344-byte pickup helper794b80.
+That helper's exact x87 load/add/pass sequence adds the same0.1 to the base
+radius for another unit. Reuse the independent original human-reach proof.
+No copied ABI offsets, changed common F_HEAL_DISTANCE or arbitrary new radius.
+
+Before any test/Main changes, related Windows53/53(55.34s) and Linux51/51
+(49.48s) pass. Twelve new native cases use the public real planner, authored
+hint marker and an ordinary dummy sharing its exact DB record, real frozen
+world bodies, intact32-round clips, actual backpacks/recipient units, native
+passable/unlocked cells, tactical turns and native RPG motionless counting.
+No fake action/path provider, private fields or DB edits. Native grid0.625
+matters: the other-unit hint control is at sqrt(5)*0.625=1.397542, inside
+original1.3+0.1 but outside1.3; the same-DB dummy there remains rejected.
+
+Genuine compiled RED6/12 BOTH before Main: four motionless hint cases are
+rejected (standing/crouched/prone ground and other-unit margin); a mobile hint
+gets an unnecessary mover; an ordinary item at1.35 gets a path ending0.725
+away, outside original0.625. Six controls pass: same-DB ground/transfer dummy,
+close ordinary pickup, hint beyond1.3, transfer beyond1.4 and adjacent ordinary
+transfer. GREEN12/12 BOTH(13.24s Windows/13.09s Linux) changes exactly those
+six semantic rows, with every control row identical. The actual ordinary path
+endpoint is now0.1 away. This is actual native path planning, not a claim to
+have walked that full route or simulated ground-support physics.
+
+Seven actual native Run outcomes verify five hints consumed exactly once
+(hintsSet0->1, no source/destination inventory occurrence, no retained ground
+body) and two unchanged pre-fix ordinary controls transferred once with32
+rounds intact. Planning retains both actors' AP/HP/positions, inventory counts,
+item quantity/rounds, held ammunition/slot, actor wishes/mobility, hint state,
+world time and next RNG word. Native direct fixture costs remain0, as already
+proved by both pre-fix ordinary controls. A corrected longer approach can
+naturally have a different movement cost; no cost formula or minimum is tuned.
+No full UI/animation-timing/physics or whole RNG-state claim.
+
+Final Windows ALL_BUILD and Linux Game/helpers/actual NetworkSerializer build.
+Related65/65 Windows(67.61s) and63/63 Linux(62.32s) are exactly saved53/51 plus12.
+All16 own animation-reseat/legacy-walk/ladder/turn/cannon controls pass on BOTH;
+fresh Windows serializer/match/partial/stop4/4 and localCI299/299 pass, exact
+manifests/raw records/zero exits verified. New12 asset-backed cases remain
+outside CI299. Two existing builds reused without per-bug copies or PNG work.
+Own body/facial/font/bgfx/LAN/save code retained. Evidence: pickup-radii native
+baseline/RED/GREEN/final logs, pickup-radii-verification.json and original oracle
+in the external lab. General verifier/finisher require precommit96865e80 and
+must not be rerun after committing this change; original verifier is reusable.
+
+Source70 remains PARTIAL only for the wider1.6 retry after movement preparation
+fails, its opt-in dispatch and clearing stale candidates. Close pickup, standing
+talk and initial item-type/other-unit radii are now accounted. Ledger286 stays
+160 imported/19 partial/64 pending =83 unfinished sources. Whole objective and
+final actual hosted GitHub Actions repair/check remain active. These exact
+original constants are a reconstruction correction, not a new balance policy.
+
+### Retry failed movement preparation at the original wider reach (70cf40f3, complete)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70cf40f33e68f95da25e8db4865dc86aefb05070
+
+Initial pickup/talk destinations can be absent or unusable by the actor's
+native footprint although a wider valid approach exists. Factor the existing
+movement-preparation block verbatim, keeping its validation/filter/error and
+move factory. Only after it returns no mover, and only for explicit ground
+pickup, other-unit transfer and talk callers, discard old candidates and
+recompute at original1.6. Other-unit+0.1 remains in its existing helper.
+Use the same movement preparation again. Preserve the prior direct-ready
+branch, which bypasses this retry entirely, and default all other commands
+to opt-out. Parameterize the existing standing-talk helper with an unchanged
+0.8 initial wrapper; both passes retain standing-only candidates. Initial
+ordinary0.625/hint1.3 and close-ground1.25 full-place rules remain intact.
+No class layout, virtual slots, save/wire fields, AP formula, DB or own
+body/facial/font/bgfx/LAN/HD implementation changes. The historical name
+DoubleRadius denotes an absolute1.6, not multiplication of every first radius.
+
+Original: typed Gold pickup queue7903b0/871 and talk790a40/820 plus movement
+helpers78c3c0/692 and78cc00/692. Entire97-byte inventory retry block7904ee maps
+uniquely to actual Steam79c12e with only four decoded E8 operands masked:
+movement helper798000, named delete[]7d63c0, proven pickup helper794b80, then
+the same movement helper. Exact opt-in/null branches skip retry when disabled
+or successful; all three old vector fields are cleared before querying1.6.
+Talk uses different generated registers/reset order, so verify its actual
+79c787/79c7cd/79c7e1 calls and explicit branch/clear/literal/error-store flow
+instead of pretending98-byte identity. Actual talk helper7945b0 was already
+independently proven. Direct-ready jumps on BOTH templates bypass the whole
+retry region. No entire820/871/692 body or ABI-identity claim is made.
+
+Baseline before test/Main changes: Windows65/65(68.04s), Linux63/63(62.08s).
+Eight native cases use actual map810 geometry, authored doors closed/locked
+through public APIs, registered world ammunition and genuine inventories.
+Talk/transfer actors are real heroes wearing an authored PK through native
+WearAsPK/FlipPanzerklein ownership, not fake body/path providers. A test-only
+candidate enumeration selects scene preconditions from actual native geometry
+and the already-proven reach rules; actual NWorld::FindPath independently
+demonstrates that the first destinations fail and the wider destinations work.
+It supplies no path/results to the production planner. Ground scene has0
+initial/24 wider candidates; PK talk5/15 and transfer15/54 have blocked initial
+paths but actual wider paths. The real public CreateActionExecutor then fails.
+
+Final compiled RED3/8 BOTH on exact committed parent before the final Main
+application: ground, PK talk and PK transfer fail; three real RPG-motionless
+rejections, no-wide-position and already-ready pickup controls pass. All8 rows
+preserve measured state. GREEN8/8 BOTH gives each successful case an actual
+mover/path and exactly one correctly typed queued action, observed through the
+existing native serializer graph. The actual selected destination is standing,
+within1.6 (transfer1.7), and revalidated by the real owner-aware pathfinder.
+Ground reach0.988212 and both PK reaches1.25 are measured. Motionless cases
+remain rejected; their error becomes the real movement denial2 instead of the
+old empty0/path6 result. The last two control rows are identical. Planning
+preserves both actors' AP/HP/positions, active slot/item and held64 rounds,
+backpack counts, source32-round item, PK ownership/classification, wishes,
+mobility, world time/hints and next RNG word. No arbitrary route-cost or full
+RNG-state claim. These tests do not walk the full route, execute dialogue,
+simulate support physics or round-trip a complete save. A controlled registered
+item point is used without advancing physics; no authored shelf claim.
+
+Setup evidence is separate: integer-only scene search found no usable case;
+half-grid ground positions establish the genuine geometry failure. Ordinary
+human talk search had no suitable footprint case; actual hero/PK does. The
+test initially called a derived validator through a base lacking that member;
+compile errors are not bug RED. IsEmptyPK is this fork's persistent shell-kind
+tag, not occupancy; correct that fixture assumption using native source. The
+first fixed planner succeeded but a free-space PK query saw the new mover's
+OWN route reservations as obstacles. Replace it with actual owner-aware
+FindPath destination revalidation, not weakened success assertions. Restore
+only our Main edit to exact parent, repeat final fresh RED3/8 BOTH, then
+reapply the same minimal change and obtain final GREEN. All setup logs kept.
+
+Final Windows ALL_BUILD and Linux Game/helpers/actual NetworkSerializer build.
+Related73/73 Windows and71/71 Linux exactly match saved65/63 plus8. All16 own
+animation-reseat/ladder/turn/cannon/legacy-walk controls pass on BOTH; fresh
+Windows serializer/match/partial/stop4/4 and localCI299/299 pass. Exact raw
+manifests/results/zero exits verified. New8 asset-backed cases remain outside
+CI299. Two shared builds reused, no per-bug build/source copies or HD/PNG work.
+Evidence: approach-retry-verification.json, original oracle and native
+baseline/RED/GREEN/final logs in the external lab. General verifier/finisher
+are tied to precommit a4bae577; do not rerun after this commit. Read-only
+original verifier and pure transform remain usable for their stated scope.
+
+All hunks of the source's sole file are now accounted across close pickup
+6e0b1ab0, standing talk96865e80, initial radiia4bae577 and this final retry.
+Mark source70 IMPORTED. Ledger286:161 imported/18 partial/64 pending =82
+unfinished sources. Whole goal and final actual hosted Actions repair/check
+remain active. These original search rules introduce no new balance policy.
+
+### Forward reserved AP through native action queues (cad50790, complete)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cad50790ee66055c8b4d4d66cf16d3f4ae1dfc83
+
+Queued reload/move followed by Careful or LongBurst incorrectly counted the
+actor's whole AP again, inflating the total forecast beyond the actual budget.
+Add the original optional signed reserved-AP argument to GetActionAP and all
+overrides, forwarding parent reservation plus accumulated child prices through
+CSimpleExecQueue. Only Careful/LongBurst return max(current AP-reserved,start).
+All fixed-price actions ignore reservation. Keep accidental zero, minimum
+start price, the existing temporary-position propagation/restoration, and own
+public CExecReload/CExecLoadWeapon hierarchy. No DB/price/perk/save/wire field
+change. The virtual call signature DOES change; all game/helpers rebuilt.
+
+Original PDB calls this method GetTotalActionAP, with a signed-int argument;
+the fork's GetActionAP name is retained. Entire Gold shoot796a90/91 maps
+uniquely to Steam7a29d0 with only two decoded E8 operands masked. Actual AP
+getter743ef0/8 ->74f490/8 is identical. The unmasked29-byte queue block at
+Gold7b1cb4 maps uniquely to Steam7be4a4 and loads parent reservation, adds
+running prefix, passes it to the same virtual total-cost method and adds the
+returned price. No whole525-byte queue body or ABI identity is claimed.
+
+Baseline before tests/Main: Windows42/42, Linux40/40. Definitive compiled
+RED7/18 BOTH before production, each with the budget-double-count assertion;
+eleven independent controls already pass. GREEN18/18 BOTH. Native authored
+weapons/real human ownership, real compatible ammunition, partial magazine
+via CreateNewAttackPortion, actual reload executor, real FindPath/move factory
+and actual CExecShootTile are used, not dummy priced executors. Careful has
+reload14/start29/AP53: old67 ->53. LongBurst17/12/AP46: old63 ->46. Low-budget
+cases still require43 with42 available and29 with28. Actual movement prefix8
+before Careful gives old61 ->53; nested queues forward the same reservation.
+Snap/Aimed/ShortBurst, reload-only, direct shots and direct start floors stay
+identical. Both actual holstered public CreateActionExecutor/CanDo previews
+already pass baseline and remain unchanged, including the existing movement
+preparation node0 (not the RPG AC_PREPARE price).
+Future move position is used for native start cost and restored after query.
+Repeated/base-virtual queries give the same total and preserve measured actor
+AP/HP/position/ammo/mode/active item+slot/inventory count/wishes/mobility/time
+and next RNG word. No full RNG-state, action execution or damage claim.
+
+Fixture setup corrections are archived separately: default map human lacked
+required shoot modes; select real supported authored weapons, with capacity2+
+and affordable authored reload/start prices. Create real spare clips through
+the actual schema/factory; initialize the native move result to OK because
+the success factory does not overwrite it. These are setup corrections, not
+bug RED. No authored data/stats or production prices were changed to fit tests.
+
+Final Windows ALL_BUILD/Linux Game+helpers+actual serializer built. Related
+60/60 Windows and58/58 Linux exactly equal saved baseline plus18. Own body
+animation-reseat/legacy-walk/ladder/turn/cannon16/16 BOTH, fresh Windows actual
+network serializer/match/partial/stop4/4 and local CI299/299 pass. Exact saved
+raw manifests, zero exits and cross-platform rows/deltas verified. New18
+asset-backed cases remain outside asset-free CI299. Two shared builds reused;
+no per-bug build/source copies, HD/PNG work or own facial/font/backend rewrites.
+Evidence: reserved-ap-verification.json, retail oracle and baseline/RED/GREEN/
+final raw logs in the external lab. General verifier/finisher tied to parent
+1cad60b9; safe original verifier/pure transform retain their stated scope.
+
+All seven upstream files/hunks accounted, with own reload declarations adapted.
+Mark source IMPORTED. Ledger286:162 imported/18 partial/63 pending =81
+unfinished sources. Preparation pricing08c4 remains independent and pending.
+Whole goal and final actual hosted Actions repair/check remain unfinished.
+
+### Restore original effective-weapon preparation AP (08c4bb5a, complete)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/08c4bb5a6b9a94337d88bd8241a2e51b6984cfce
+
+AC_PREPARE still returned a fixed2, or the perk22 parameter itself. Replace
+only that branch with the original effective firearm's weapon-type PrepareCost,
+zero for no firearm, subtract perk22 parameter with integer truncation, then
+clamp signed result to0..8. Use the existing pRPGUnit->GetWeaponItem, retaining
+own installed-cannon precedence over the personal weapon. The original item
+override argument is not introduced into our public API. No authored DB/perk
+values, other action prices, save/wire layout or own rewritten engine change.
+This restores original pricing; it does affect the broken reconstruction's
+actual spend and is not described as a cosmetic-only change.
+
+Independent original proof: typed Gold CUnitMission::GetActionAP6bac90/3724
+has EPose/EAction/optional item. Original EAction AC_PREPARE30 dispatches through
+Gold6bba68 to6bae7a; actual Steam table6c1a48 has the same action30 entry6c0f31
+and an independently located indirect dispatcher. Unique unmasked27-byte field
+chain maps Gold6bae8d to Steam6c0f44. PDB confirms CRPGWeapon.pWeaponType34 and
+CRPGWeaponType.nPrepareCost38; original item vtable8b4938+1c reaches the named
+GetDBWeapon adjustment thunk69d860/getter69d870. Named original HasPerk is at
+mission vtable8b63cc+78. Both actual builds contain the exact perk22 probe, x87
+integer-load/subtract/round-toward-zero conversion and signed0..8 clamp.
+Frame-local offsets differ and are checked explicitly, without arbitrary masks
+or a whole3724-byte identity claim. No retail process was executed for this.
+
+Baseline before tests/Main: Windows60/60, Linux58/58. Compiled native RED10/12
+BOTH -> GREEN12/12 BOTH. All105 authored firearm records with valid item/type/
+clip data are queried in all4 poses through native CUnitMission, held or mounted,
+with/without the actual authored acquired perk22. Unarmed/melee controls and
+complete native in-memory weapon/type record copies for raw -1,0,1,2,7,8,9,20
+cover zero/cap boundaries without editing game.db. Of1760 repeated/combined
+query rows,1556 correct the former price; all other rows stay identical.
+AP/HP/ammo/effective and active item/slot/bag count/XP/perk points/next RNG
+word remain unchanged during queries. AC_SHOOT prices are identical; the real
+AC_PREPARE_AND_SHOOT result includes the corrected preparation. Authored perk22
+parameter is0, which in original subtraction preserves the weapon's price,
+rather than making preparation free as in the separately excluded multiplier.
+
+Two actual world actors with the same authored6AP weapon prove native
+CUnitServer::DoAction(AC_PREPARE) spends6: before55 ->49 instead of53 without
+perk or55 with perk. HP/ammo/position/orders remain unchanged. This exercises
+the native AP action path, not full preparation animation/shot/hit/damage.
+The full authored sweep supplies real-data failures, separate from controlled
+boundary copies. Fractional-parameter truncation is proven in original x87;
+the actual authored runtime perk is0, not a fabricated fractional definition.
+
+Setup evidence retained separately: initial fixture used IWorld instead of
+actual FixtureWorld CWorld and wrong spawn/player argument types; compiler
+errors are not RED. Real free native map place and concrete owner correct the
+fixture. Database hash iteration initially selected different valid records
+on each platform; choose lowest-ID real persona and sort firearms, then repeat
+definitive RED on unchanged Main. A guard initially expected one platform's
+record/AP constants and blocked production; its unfixed reruns are archived as
+unapplied-guard, never claimed GREEN. General guard now checks actual native
+price deltas. Final before/after rows match exactly across both platforms.
+
+Final Windows ALL_BUILD and Linux Game/helpers/actual serializer built; exact
+related72/72 Windows and70/70 Linux are baseline+12. Own animation-reseat/
+legacy-walk/ladder/turn/cannon16/16 BOTH, fresh Windows actual network4/4 and
+local CI299/299 pass. Exact saved manifests/raw/zero exits/source scope checked.
+New12 asset-backed cases remain outside asset-free CI299. Only the existing
+two builds used, no per-bug build/source copies or HD/PNG generation.
+Evidence: preparation-ap-verification.json, retail oracle, baseline/definitive
+RED/GREEN/final raw logs. General verifier/finisher tied to e7a7e7a3 parent;
+original verifier and pure transform retain their stated reusable scope.
+
+All source08c4's sole-file hunks are imported. Ledger286:163 imported/18 partial/
+62 pending =80 unfinished sources. Whole goal/final actual hosted Actions remain.
+
+### Reserve the complete original short burst (8cfff49d, partial)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8cfff49d3a409f8514b3b1b78ee9b005ffd311d2
+
+Short-burst preview/start eligibility counted only the first shot, so a native
+four-round burst priced21AP appeared as15 and was accepted with only20AP.
+GetStartAP now selects full short-burst cost for mode3: first-shot price plus
+max(0,native length-1)*native AC_BURST. Factor the old first-shot body verbatim
+into GetFirstShotAP; add the original GetShortBurstAP helper. Actual SpendAP,
+CheckBurst, first/per-round prices, weapon/perk data, length formula and save/
+wire layout are unchanged. These two protected helpers are nonvirtual. This
+stage leaves the separate temporary-aim predicate and queue restore untouched.
+
+Independent original proof maps full named Gold methods to actual Steam with
+only decoded E8/E9 operands masked: GetStartAP796af0/26 ->7a2a30 selects mode3
+to GetShortBurstAP7967a0/112 ->7a25f0, otherwise GetFirstShotAP795f00/70 ->7a1d20.
+SpendAP795f50/73 ->7a1d70 retains actual first action6/7 plus extraAP. Both shot
+price helpers call the same actual CDumbUnitServer action getter. Its32-byte
+wrapper maps with one decoded call operand, whose named SUnitPosition::GetPose
+callee43 bytes is identical. Original length helper795270/107 maps with one
+decoded call and its actual float1/6 reference masked; both constants equal
+1/6, perk16 and typed DB nRoF+2c loads are verified. The original first-shot
+body also checks temporary aim; that independent source portion remains pending
+and is not claimed restored by this commit. Newer own v1.2 CheckBurst mode/
+multi-pellet dispatch remains; no whole older132-byte CheckBurst identity claim.
+
+Baseline before tests/Main: Windows72/72, Linux70/70. Compiled native RED9/18
+BOTH -> GREEN18/18 BOTH, without fixture/compile corrections. Actual authored
+persona/firearm26, real native human world owner and free passable map cell,
+native aiming graph (Snipe), actual acquired perk16, native compatible reload
+prefix and real public CanDo are used. A test subclass only exposes protected
+native SpendAP and GetShortBurstLength, overriding no prices/providers. Full
+forecast15->21 cold,11->17 aimed; longer-burst perk1 changes4 rounds to5 and
+forecasts15->23/11->19. Exact21 budget remains accepted;20 now yields native
+NOT_ENOUGH_AP5. Nested queue forwards the same full price; reload21+burst21
+changes36->42. A real1-round magazine still reserves the original full21,
+without introducing an ammo cap absent from original. Zero/one-length controls
+use complete native in-memory weapon copies with RoF3/6 (never zero), no DB edit.
+Snap/Aimed/Long controls remain identical. Repeated/base-virtual/public queries
+preserve measured AP/HP/ammo/position/aim/active item+slot/bag count/XP/perk
+points/world time/next RNG word; this is not a full world/RNG-state claim.
+
+Four real native payment controls already pass RED and remain byte-for-byte
+identical GREEN: cold budget21 spends first15 then3x2; aimed17 spends11 then3x2;
+perk23 spends15 then4x2. Dry budget16 spends15, then both preview/execute gates
+reject the next2AP round with1 left. Native CheckBurst(0) does not pay extra;
+length boundary rejects more rounds. HP/ammo/position/equipment/aim/orders stay
+unchanged in these AP-only charge/gate checks. They do not run full timed shot
+animation, consume projectile ammunition, simulate damage or inspect pixels.
+
+Final Windows ALL_BUILD and Linux Game/helpers/actual serializer built. Exact
+related90/90 Windows and88/88 Linux equal saved baselines+18. Own animation-
+reseat/legacy-walk/ladder/turn/cannon16/16 BOTH, fresh actual Windows network4/4
+and local CI299/299 pass. Raw manifests/exits/state rows/source scope verified.
+New18 asset-backed cases stay outside asset-free CI299. Existing two builds
+only, no per-bug build/source copies or frozen HD/PNG work. Evidence: burst-
+preview-verification.json, original oracle and baseline/RED/GREEN/final raw.
+General verifier/finisher tied to parent698aa17c, not reusable after commit;
+original verifier/pure transform retain their stated scope.
+
+Source PARTIAL: short-burst routing/cost helper and header declarations done;
+temporary-position aim invalidation/reset and the first-shot aim predicate
+remain for a separate independent TDD commit. Ledger286:163 imported/19 partial/
+61 pending =80 unfinished sources. Whole goal/final hosted Actions remain.
+
+### Restore temporary aim during action-queue forecasts (8cfff49d, complete)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8cfff49d3a409f8514b3b1b78ee9b005ffd311d2
+
+An aimed actor's queued shot retained its old preparation discount even after
+planned movement, turn or pose change. Use the already existing temporary-aim
+field/tag23: SetTemporaryPosition keeps it only while the previous full native
+SPathPlace equals the next one. The first-shot query now requires both the
+own animator's IsAiming and that temporary flag. At queue completion restore
+the original SUnitPosition and set temporary aim true, as in original. Add
+named nonvirtual read/reset helpers; retain class fields, save tags and wire
+schema. Actual animation/SpendAP/CheckBurst, prices and body/facial/bgfx/HD/font
+implementations are unchanged. No previous-false restore policy is invented
+for nested queues; the original completion rule is explicitly reset=true.
+
+Original proof: named GetTotalActionAP525's inlined invalidation28 bytes at
+Gold7b1cf9 uniquely match actual Steam7be4e9 unmasked; computed-flag store17
+at7b1d49 ->7be539 and reset10 at7b1dc9 ->7be5b9 likewise uniquely match without
+masks. PDB CDumb position18, temporary aim11e and animator58 with bAimed54/
+bAimedStrafe45 prove the compared/stored fields. The whole original70-byte
+GetFirstShotAP maps independently through the prior burst oracle; its actual
+29-byte aim/temporary predicate and shot7 vs prepare-and-shot6 branches are
+checked. Main uses our named fields/portable SPathPlace equality, not original
+ABI offsets. No whole525-byte body identity or retail-process execution claim.
+
+Baseline90/90 Windows,88/88 Linux; separate fresh sniper/AI-snipe12/12 BOTH
+before production. Definitive compiled native RED11/20 BOTH -> GREEN20/20
+BOTH. Eight real aimed queued-shot forecasts fail plus three direct temporary-
+position bounce/latch contracts. Nine controls already pass. Actual map810,
+human actor, authored firearm26, native Snipe aiming graph, owner-aware
+FindPath and CreateMoveExecutor provide move/turn/pose endpoints and prices.
+Native path movement has3 points/8AP, same-cell turn2 points/0AP, crouch2
+points/4AP. Existing native zero-price turn is preserved, no1AP minimum.
+Nested real queues preserve the same forecast. Snap after movement19->23,
+turn11->15, crouch15->19; short burst25->29/17->21/21->25. Cold paths and direct,
+empty/same-position controls stay identical. Repeated/base calls agree.
+
+Temporary flag observation is read-only via qualified native CDumb serializer
+tag23, with borrowed pointer references; no private flag injection or fake cost/
+path provider. Direct actual temporary-position transitions to native path
+endpoints and back retain false until a real empty-queue query resets true.
+The direct-shot price temporarily11->15, then returns11 after completion;
+same-place update stays aimed. Queue forecasts restore full original position,
+temporary flagtrue and direct-shot price. Measured AP/HP/ammo/physical aim/
+active item+slot/bag count/time/next RNG word/orders stay unchanged. These are
+planning and native state checks, not walked routes, rendered facial/body
+pixels, complete timed shots/damage or full save/load round-trip evidence.
+
+Fixture setup is archived separately. A raw owner-unaware cell occupancy and
+passability check rejected the actor's own cell for turn/pose. Removing only
+the lock check was insufficient: actual probe shows raw passable0/locked1;
+native owner-aware FindPath correctly produces2-point turn/pose paths. Those
+paths/typed endpoint invariants remain required, with normal movement target
+filters intact. A further fixture assumption incorrectly demanded positive
+turn AP; actual native turn is0 and must stay0. Correct those preconditions
+and repeat definitive RED on unchanged Main before applying this same small
+fix. Setup assertions are never counted as behavioral RED.
+
+Final Windows ALL_BUILD/Linux Game/helpers/actual serializer built. Exact
+related110/110 Windows and108/108 Linux equal baseline+20. Own animation-
+reseat/legacy-walk/ladder/turn/cannon16/16 BOTH and fresh sniper/AI-snipe12/12
+BOTH pass. Fresh actual Windows network4/4 and local CI299/299 pass. Raw
+manifests/exits/state/source scope verified;20 new asset-backed cases stay
+outside asset-free CI299. Two shared builds only, no per-bug build/source
+copies or HD/PNG work. Evidence: queued-aim-verification.json, original oracle
+and native baseline/definitiveRED/GREEN/final raw logs in external lab.
+General verifier/finisher tied to931969fb parent, not reusable after commit;
+original verifier/pure transform retain their stated scope.
+
+All four source files/hunks now accounted with prior931969fb short-burst half,
+including existing helper declarations in wUnitAttackExec.h. Mark source
+IMPORTED. Ledger286:164 imported/18 partial/61 pending =79 unfinished sources.
+Whole goal and final actual hosted Actions repair/check remain unfinished.
+
+### Keep full-inventory rejection visible to the mission UI (4953e977, adapted complete)
+
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4953e977b39ac18b873baf2fd944771a903b6d3e
+
+Native inventory validation correctly returns NO_PLACE, but CMission's action-
+info classifier omitted that result and left bAvailable false. Add only its
+case label to the existing blocked-but-available branch. bOk remains false,
+the result/AP outputs and all actual placement/drag/AP/ownership rules remain
+unchanged. This is an action-info contract fix, not rendered button evidence.
+
+Original: typed Gold CMission::CanDoCommand(CCmd*,bool,SActionInfo*)5f7a30/193
+maps uniquely to actual Steam5fbfb0/193. Only decoded internal switch-data
+operands/table pointers and a verified virtual delegate displacement differ.
+All internal pointers retain identical function-relative targets and the
+compact21-byte case map is unmasked. The delegate slot shifts a8->ac; actual
+RTTI-named CMission vtables8ab2a4/8ba394 independently identify both delegates
+and classifier slots, not an arbitrary mask or ABI identity assumption. PDB
+enum NO_PLACE18 selects compact case5 ->Gold5f7aa1/Steam5fc021, which sets
+enoughAP/available true and leaves ok false. Typed SActionInfo offsets prove
+the flags. No reliance on stale source comments' Steam addresses.
+
+Baseline17/17 Windows and15/15 Linux. Definitive compiled native RED2/6 BOTH
+before Main -> GREEN6/6 BOTH. Real human/map810, authored clip1 with8 actual
+rounds, native inventory Place/Take -> actual unit-owned drag hand,75 actual
+filler items/count81 exhaust backpack space without DB/size/grid injection.
+Both BACKPACK auto-placement and UNIT_ANYPLACE fail through native executor,
+public unit CanDo, actual CUnitTracker and native CMission classification.
+The test mission controls selection only, not command results or prices.
+Four controls: room, one real filler removed/count80, actual clip equip denial
+and genuinely absent drag item. Only availability0->1 changes in two rows;
+result remains own legacy12 (not retail18), four controls are identical.
+Repeated UI queries preserve AP53/HP/ammo8/item quantity/active slot and item/
+bag count/position/drag ownership/time/next RNG word/orders. Actual own20-byte
+SActionInfo encode/decode preserves every computed field and result byte12;
+the availability flag changes as intended, not an all-bytes-identical claim.
+No full drag execution, rendering, entire save round-trip or full RNG proof.
+
+Setup corrections are archived separately: native interface is IClipItem,
+not guessed IClipItemInfo (compiler errors are not RED). An ownerless empty
+player descriptor does not clear this fork's UNIT-owned drag hand. Use the
+actual public actor/VACUUM descriptor and verify GetInHandItem becomes false;
+do not change production hand ownership. Repeat definitive RED on unchanged
+Main after correction. Runner-generation switch replacement guard corrected
+externally before final gates; no failed builds treated as test evidence.
+
+All other source hunks were individually audited against the remaster:
+* Keep own22 legacy numeric values including asynchronous UCR_PENDING, own
+  portable20-byte codec and invalid-cache UNAVAILABLE constructor sentinel.
+  Renumbering to retail/adding NULL would reinterpret existing save/LAN values.
+* Keep UCRRetailOrdinal: all21 original computed results map exactly to PDB
+  ordinals; own pending maps22 and retains its existing separate override.
+  The actual structural comparison rule matches all441 static mapped pairs.
+  This is a finite source/translation audit, not441 native runtime scenarios.
+* Keep explicit bHaveRes instead of a new numeric NULL sentinel: it represents
+  no first result separately from legacy OK0. Current empty-selection guard,
+  own pending handling and native cache/group-caption regressions remain.
+* After the one case label, all22 known own enum values have explicit UI
+  branches. The removed-upstream default assert applies only to unknown raw
+  values/absent NULL in this fork, not a demonstrated supported native bug;
+  keep current hardening. No fabricated invalid-enum RED is used.
+Thus every source hunk is accounted through the small import and necessary
+own-protocol adaptations; iMission.h/wUnitCommands.h are byte-identical to
+parent. This is not a wholesale cherry-pick or a balance exclusion.
+
+Final Windows ALL_BUILD/Linux Game/helpers/actual serializer built. Related
+23/23 Windows and21/21 Linux exactly match baselines+6, including existing
+native inventory/invalid-cache/tool/group-caption controls. Own body animation
+16/16 BOTH, fresh Windows network serializer/match/partial/stop4/4 and local
+CI299/299 pass. Exact saved raw manifests/exits/source/rows verified. Six new
+asset-backed cases stay outside asset-free CI299; registration-inventory test
+is not included in the live related run. Existing two builds only; no per-bug
+source/build copies, frozen HD/PNG/font/renderer/facial changes.
+Evidence: inventory-ui-verification.json, original oracle and compatibility
+before/after audit, baseline/definitiveRED/GREEN/final raw logs. General verifier/
+finisher tied to397bafc2 parent, not reusable after commit; original/compatibility
+verifiers and pure transform retain their stated reusable scopes.
+
+Mark source IMPORTED with adaptations. Ledger286:165 imported/18 partial/
+60 pending =78 unfinished sources. Whole goal/final hosted Actions remain.
+
+## 2026-10-29 — contextual menus inherit music pools (part of 1c67b8ab)
+
+Source: [1c67b8ab988769072e8b287a615751e950bde6db](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1c67b8ab988769072e8b287a615751e950bde6db).
+
+Real menu commands discarded their source mission, so pause/options screens
+created pool-less scenes. Our prior stream-continuity fix preserves a playing
+file; it does not supply a menu's next ambient/combat selection. Forward the
+source IMission from tactical/chapter/global/main menus and across all five
+options tabs. The existing serialized context fields are now populated. Clone
+only both CTMusic pools into a fresh UI-owned scene using its own counter;
+retain explicit shared-scene constructor behavior and the native audio backend.
+
+TDD on unchanged fc01d44b: Windows/Linux baseline33/33; definitive compiled
+RED4/5 BOTH. Actual main-menu, tactical, chapter and global interfaces traverse
+27 real pause/options pages:108 pool/context/music-selection predicates fail.
+The six-page no-origin control passes. Source positive control plays an actual
+decoded combat WAV through the native stream backend. GREEN5/5 BOTH verifies
+all33 pages, both registered DB pools, actual ambient/combat music objects,
+fresh playback state/clock/ownership, unchanged source pools/music object/
+deadlines/type/RNG state, and return to the original interface stack. PCM files
+replace only database payloads in isolated test processes; no mocked menus or
+music pricing/results. This is selection/stream-start evidence, not a claim
+about audible output quality or a complete timed playlist cycle.
+
+Initial test setup incorrectly required a true ProcessEvent return while
+options intentionally queues commands and returns false; corrected to inspect
+the actual command queue. LinuxGame has its own registration list, also added.
+Those setup failures/no-tests runs were archived separately, before definitive
+RED; neither production nor expected music predicates changed to manufacture RED.
+
+Independent original proof: typed Gold clone6fc590 maps to actual Steam706320,
+with its complete113-byte post-cast success/fallback branches and both decoded
+constructor calls to7060a0. The46-byte owned-UI branch maps7145ba->71e773;
+serialized tags21/22/23 independently account for Steam UI field offsets
+124/128/130 vs Gold108/10c/114. The67-byte fresh-clock/pools/music/type/RNG
+constructor block is mapped. RNG target has a unique unchanged17-byte seed
+calculation tail; Steam's entry protection trampoline is explicitly recorded,
+not claimed byte-identical to Gold's GetTickCount call prologue. Gold typed
+menu/options initialization confirms passing the source scene as the third UI
+argument; no full cross-build menu-body identity or ABI transplant is claimed.
+
+Final Windows ALL_BUILD/Linux Game/helpers and actual serializer built.
+Related native audio/menu/options40/40 BOTH, own body animation16/16 BOTH,
+fresh Windows serializer/match/partial/stop4/4 and local CI299/299 pass; exact
+raw manifests/exits verified. Existing saver-call lists unchanged in all12
+changed Main files; CP1251/CRLF preserved. Existing two builds reused; no HD/
+PNG/font/facial/renderer changes or per-bug build/source backups.
+
+Evidence: menu-pools-verification.json, menu-pools-retail-verification.json,
+typed PDB records, baseline/definitiveRED/GREEN/final raw logs in the laboratory.
+The independent iRenderWorld ownership hunk remains unported pending its own
+native reproduction/audit. Mark source PARTIAL:165 imported/19 partial/
+59 pending =78 unfinished sources. Whole goal and final hosted Actions remain.
+
+## 2026-10-29 — backdrop UI audio has independent ownership (completes 1c67b8ab)
+
+Source: [1c67b8ab988769072e8b287a615751e950bde6db](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1c67b8ab988769072e8b287a615751e950bde6db).
+
+This independent hunk overlaps an old menu-audio workaround: it shared the
+world sound scene with the backdrop UI. CInterface already creates and pumps
+an owned scene, so sharing is unnecessary and makes native OnLostFocus pause
+UI clicks/previews along with world effects. Instantiate the existing owned
+pool-less UI scene; keep the renderer/world scene, scripts and pumps intact.
+
+Native TDD on unchanged cb1b990b: compiled RED1/1 BOTH. Open the actual main
+menu with its real world/render/UI graph, start a native world loop and an
+actual CWindow::PlaySound one-shot plus an independent mixer control. Decode
+non-silent PCM and verify all three initially advance. Open real options via
+the native binding/command/focus path: world512->512 (correct), UI512->512
+(bug), independent512->1024 (mixer control). The single constructor-argument
+fix produces GREEN1/1 BOTH: world512->512, UI512->1024, control512->1024.
+Verify actual non-silent mixer output, owned tag23, separate clocks, no UI
+music pools, original stack return and world/UI playback after closing options.
+No mocked scenes or duplicate focus logic; no fixture/setup failures for this
+test. This proves playback position/lifetime, not subjective audio quality.
+
+Original named Gold CRenderBaseInterface::Initialize62a550 contains the15-byte
+UI constructor call block62ab3a. Unique actual Steam match62f44a has the same
+cursor+6c and TWO null scene arguments; only the checked rel32 constructor
+operand moves714210->71e3c0. Its independently mapped owned/fallback branch
+71e773 and serialized ownership tag23 establish the constructor semantics.
+Upstream's older62f30d address is not reused as proof. No foreign ABI/layout
+or audio/renderer backend replacement.
+
+Final Windows ALL_BUILD/Linux Game/helpers+actual serializer build. Expanded
+related51/51 BOTH includes world-backed authored/main-menu scripts, native
+backdrop2D/3D, all five contextual-menu music cases, actual save/shortcut/
+restart/LAN-menu policies, native audio options and earlier sound/music controls.
+Own body animation16/16 BOTH; fresh Windows serializer/match/partial/stop4/4;
+local CI299/299. All exact raw manifests/exits/source verified. Only Main
+iRenderWorld.cpp changes; saver calls/CP1251/CRLF retained. The two existing
+builds reused, no new per-bug old builds/source copies or HD/font/facial changes.
+Evidence: backdrop-ui-verification.json, backdrop-ui-retail-verification.json,
+native RED/GREEN/final raw logs. Previous menu-pools evidence remains separate.
+
+All13 original source files/hunks are now accounted across two independently
+tested fixes; mark source IMPORTED. Ledger286:166 imported/18 partial/
+59 pending =77 unfinished sources. Whole goal/final hosted Actions remain.
+
+## 2026-10-29 — native scripted ambient animation (part of cb954e2e)
+
+Source: [cb954e2e455b632c0174b88b2d051ac74e780ce0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cb954e2e455b632c0174b88b2d051ac74e780ce0).
+
+SetAmbientEffect incorrectly spawned a complete effect at the origin, including
+ordinary point lights and particles, while leaving scene ambient unchanged.
+Restore this command's original path: choose a world-flag-compatible effect,
+bind only its FIRST light through the real native CLightAnimator onto the
+already-existing top-ambient node, and use the renderer clock/current begin time.
+Reuse own CGScene/native bgfx graph and its directional/mean edges; do not
+replace any renderer or facial/HD machinery. Add the two scene/view API slots
+and expose the existing CWorld GetCreateFlags through IWorld. Existing strict
+scene/view test doubles implement the new slots by throwing on unexpected use;
+the new feature tests use the real view/scene/world/renderer, never those doubles.
+Remove only the obsolete unsaved mission-owned full-effect handle. Other
+commands and shared dispatch are intentionally outside this independent fix.
+
+Native TDD on unchanged339b4e7c: baseline lighting14/14 BOTH; definitive
+compiled RED8/10 BOTH, two controls pass. Actual Lua SetAmbientEffect -> native
+world queue -> CMission drain -> real game renderer/view/scene, actual registered
+DB records and real Lights.res curves. Timelines on instance records are
+controlled in-process; resource curves, placement and scale remain authored.
+Before: no ambient edge, one ordinary point light (mixed case two+one particle),
+clear leaves an existing restored edge, and a night-only effect is not filtered
+out of a day world. GREEN10/10 BOTH verifies first-instance/scale/renderer-clock/
+nonzero1375ms begin identity, real curve reaching ambient mean, mixed-effect
+geometry exclusion, replacement, null/empty clearing, unsuitable world-flag
+clearing, natural end fallback, and retained-invalid-FIRST-light behavior.
+No selecting a later valid light in place of retail's invalid first entry.
+Two controls: clear when already unanimated; invalid first with no extra light
+preserves the existing real animation. No extra UI commands/geometry remain.
+This is native graph/color/state evidence, not rendered-pixel or whole-save-
+roundtrip evidence. Existing native directional-edge fixture also passes.
+
+Initial fixture pointer conversions were corrected before execution. A second
+fixture setup error used a fresh serializer context instead of the existing
+borrowed/external-reference context for seeding an animation edge. GDB traced
+the setup exception to CStructureSaver::Start; corrected to the same borrowed
+field mechanism as the already-passing FreshAmbientGraph test. Compile/setup
+logs are archived separately. Definitive RED was repeated on unchanged Main,
+with ordinary test failures and both controls passing; no setup abort counted.
+
+Independent original evidence: typed Gold CGameView::SetAmbientEffect5879c0/276
+maps to actual Steam589fd0. Matched all non-address instructions/control flow,
+recorded relocation call pairs (not independent full identity of every generic
+math/ref helper); typed effect lights+2c, first instance/pLight+14/scale+34.
+RTTI-named game-view slot+a4 and scene slot+30 independently bind that method
+and CGScene::SetAmbientAnimation559800->55b680/full54. Full112 NeedUpdate and82
+Recalc maps preserve original cache behavior. The76-byte command suffix
+5a188d->5a421d verifies world GetCreateFlags slot100, filtered effect thunk,
+renderer clock/value and view ambient slot; named CWorld vtable/getter checked.
+The existing own CAmbientAnimator class remains byte-identical: clearing an edge
+does not force a cached color update until the normal top-light refresh; tests
+preserve that original detail rather than adding global DG invalidation.
+
+Final Windows ALL_BUILD/Linux Game/helpers+actual serializer build. Related
+74/74 BOTH include lighting/ambient14, ten new cases, native main-menu/authored
+scripts/backdrop2D/3D, contextual-menu music, options/save/restart/LAN-menu and
+earlier sound/music controls. Own body animation16/16 BOTH; fresh Windows
+network serializer/match/partial/stop4/4 and local CI299/299 pass. Exact raw
+manifests/exits/source/ten rows verified. Existing saver-call lists unchanged
+in all8 Main files; CAmbientAnimator unchanged; CP1251/CRLF preserved. Two
+existing builds reused, no per-bug source/build backups or HD/PNG/font changes.
+
+Evidence: ambient-effect-verification.json, ambient-effect-retail-verification.json,
+typed records/excerpts, baseline/definitiveRED/GREEN/final raw logs and setup GDB.
+Source remains PARTIAL: common world/camera dispatch, non-tactical consumers,
+ordinary PlayEffect flags/timing and SetAmbient immediate/flags still require
+independent native TDD. Ledger286:166 imported/19 partial/58 pending =77
+unfinished sources. Whole goal and final actual hosted Actions remain.
+
+## 2026-10-29 — ordinary scripted effect launch and variants (part of cb954e2e)
+
+Source: [cb954e2e455b632c0174b88b2d051ac74e780ce0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cb954e2e455b632c0174b88b2d051ac74e780ce0).
+
+PlayEffect always passed begin0 into the real particle/light factory, so a
+short effect launched after the render clock advanced could already be ended.
+It also selected variants without world creation flags. Restore this ordinary
+command's static SRand, world-compatible selection and current renderer begin
+value, retaining the renderer clock, position, complete effect bundle and handle.
+Adapt the no-match result at the caller: the filtered picker returns null and
+the render factory requires a real effect. Leave/clear the handle to null and
+skip that call, rather than reproduce a null dereference. This is technical
+crash prevention; no variant weights, gameplay rules or authored data change.
+The ordinary render factory itself and the ambient command are unchanged.
+
+Native TDD on unchanged0d2a87dd: extract the unchanged stock-light resource
+loader into a shared fixture and freshly compile/pass24/24 existing lighting/
+ambient controls BOTH. Add actual Lua PlayEffect/StopEffect -> native world
+queue/CMission -> real view/CGScene/CLightAnimator/stock Lights.res cases.
+Definitive compiled RED3/5 BOTH: two renderer1375/world50 cases store begin0,
+native light active0/ended1 (including the complete2-light/1-particle effect);
+the day world renders a night-only variant. Two controls pass: renderer0 has
+correct active animation and native StopEffect removes its nodes; invalid DB
+token preserves nil/no geometry. GREEN5/5 BOTH:1375 begin/allTimes, active1/
+ended0 and the actual authored curve; incompatible variant yields no handle/
+geometry; full ordinary mixed bundle retained; native StopEffect/world consumer
+removes both lights and particles; position/template identities and unchanged
+ambient graph verified. Particle-node counts are verified, not particle pixels.
+The shared fixture keeps resource curves/placement/scale and controls only
+instance timelines in isolated test-process DB records; no game.db writes.
+
+Initial stop control inspected the handle before the second Lua chunk reached
+the native world consumer. GDB confirmed luaStopEffect was not called in that
+run. Add the same world/mission consumer boundary as the play producer and an
+explicit Lua completion marker; control then passes on unchanged Main. Also
+avoid reading uninitialized inactive-light color. These setup logs are archived
+separately; definitive RED3/5 repeated before production, no setup failure counted.
+
+Original proof: unique Gold31-byte flags block5a1937 and unmasked75-byte renderer
+clock/value/argument block5a199a map to Steam; RTTI-named game-view slot44 binds
+the typed ordinary CreateParticles overload. A unique22-byte command prefix
+links the decoded CUICmdPlayEffect RTTI helper and both named base descriptors.
+The filtered picker returns null for no suitable variant: Gold/Steam cleanup/
+zero-return paths are separately decoded, not asserted byte-identical (register
+allocation and epilogue order differ). Both original and own factory have a
+non-null effect contract, independently confirmed; the caller guard is the
+explicit adaptation, not a false claim of identical original crash behavior.
+No whole renderer/picker/helper identity or foreign ABI transplant is claimed.
+
+Final Windows ALL_BUILD/Linux Game/helpers+actual serializer build. Related
+79/79 BOTH cover lighting, ten ambient cases, five ordinary-effect cases,
+native main-menu/authored scripts/backdrop2D/3D, contextual music, options/
+save/restart/LAN-menu and previous audio controls. Own body16/16 BOTH; fresh
+Windows serializer/match/partial/stop4/4; local CI299/299. Exact raw manifests/
+exits/rows/source verified. Only Main iMission.cpp PlayEffect branch changes;
+existing saver calls and CP1251/CRLF retained. Two existing builds reused;
+no per-bug old sources/builds or HD/PNG/font/facial/backend changes.
+
+Evidence: play-effect-verification.json, play-effect-retail-verification.json,
+original snippets/types and native baseline/definitiveRED/GREEN/final raw logs.
+Source remains PARTIAL: shared world/camera dispatch, non-tactical consumers
+and SetAmbient immediate/default/flag handling remain. Ledger unchanged:
+166 imported/19 partial/58 pending =77 unfinished sources. Whole goal and
+final actual hosted Actions remain.
+
+## 2026-10-29 — immediate time-of-day changes use the zone light (part of cb954e2e)
+
+Source: [cb954e2e455b632c0174b88b2d051ac74e780ce0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cb954e2e455b632c0174b88b2d051ac74e780ce0).
+
+Lua SetTimeOfDay already changes world flags and queues an immediate null-template
+ambient command. The mission ignored that flag and selected a global developer
+light instead of the zone template. Restore original default-light acquisition
+and immediate/default priority, including priority over an explicit template.
+Keep existing ordinary explicit-template and developer fallback branches. Hold
+the freshly created default in CPtr: release an unused result while a selected
+result remains held by the native view. This ownership adaptation preserves
+selection calls and does not reroll templates.
+
+Native TDD: freshcompiled29/29 existing controls BOTH. Definitive RED2/5 BOTH:
+actual Lua night selects debug0.1 instead of zone0.3; immediate explicit command
+selects debug0.1 instead of zone-day0.2. Three controls pass. GREEN5/5 BOTH:
+actual Lua night->day, unchanged Lua return, actual queued immediate/null-template
+flags, real scene mean graph, retained ambient/ground/fog/background values,
+explicit immediate priority, ordinary Lua SetupAmbientLight, ordinary null-template
+fallback, and bare native world without a default. Registered DB records are
+controlled only in the test process, using the actual authored world default;
+no game.db writes, private flag injection or replacement dispatch/view/clock.
+No rendered fog/pixels or whole-save roundtrip claim.
+
+Setup logs are archived separately: private saver access compile error fixed
+through CObjectBase before baseline. Partial-field world READ zeros missing
+scalar state, and the initial Lua controls did not execute. Remove world writes
+entirely and inspect its authored default; a bare world supplies the no-default
+control. Definitive RED repeated on unchanged Main with all controls passing;
+no compile/setup failure counted.
+
+Original: Gold branch5a1784/41 -> actual Steam5a4114. Only GetWorld virtual
+displacement differs130->138; named CMission RTTI tables and exact four-byte
+GetWorld accessors verify it. Immediate flag14, default slot34, null guard and
+ambient slot7c agree; named CWorld/CGameView tables independently bind targets.
+Exact22-byte caller prefix links the named CUICmdSetAmbient RTTI helper and both
+command/CObjectBase descriptors;14 unmasked fallback bytes preserve light-mode
+routing. This proves the specific branch/linkage, not whole renderer/getter identity.
+
+Final Windows ALL_BUILD/Linux Game/helpers+actual serializer; related84/84 BOTH,
+own body16/16 BOTH, fresh Windows network4/4, local CI299/299. Exact raw names,
+rows, exits/manifests, unchanged Main saver calls and CP1251/CRLF verified.
+Existing two builds reused, no per-bug backups or HD/PNG/font/facial/backend edits.
+One initial Linux related run failed only NativeChapterScriptSound9: chapter
+queued CICContainer at1250 (unexpected mission-transition command). Its unchanged
+test passed three immediate repeats; initial failure and repeat raw logs are
+retained separately. The complete Linux related group was rerun; the final gate
+counts below require all84 pass. This known fixture instability needs separate
+investigation; no unrelated test or production change is bundled here.
+Actual hosted Actions remains separate and is not claimed green here.
+Evidence: immediate-ambient-verification.json, immediate-ambient-retail-verification.json
+and native baseline/definitiveRED/GREEN/final raw logs.
+Source PARTIAL: explicit-template world flags/no-match contract, shared world/
+camera dispatch and non-tactical consumers remain. Ledger166/19/58 =77 unfinished;
+whole goal remains active.
+
+## 2026-10-29 — tolerate absent filtered ambient variants (adaptation for cb954e2e)
+
+Source: [cb954e2e455b632c0174b88b2d051ac74e780ce0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cb954e2e455b632c0174b88b2d051ac74e780ce0).
+
+Before enabling the source command's world-flag selection, adapt the filtered
+CTAmbientLight::GetLight factory's non-null copy contract. Its picker can return
+null for no eligible primary or optional GF2 variant. Both own and original
+factory immediately dereference that result. Return null when the primary is
+absent; retain the primary without an optional alternate when only GF2 is
+absent. Select each at most once, and allocate only after a valid selection.
+Do not change the picker, weights, copied properties, unfiltered overload or
+invent an incompatible fallback. The source caller already skips a null result;
+this is necessary crash protection for our integration, not a literal upstream
+factory hunk or a claim of restoring the original null crash.
+
+Native TDD before production edits: six resource-free cases call the actual
+factory, real record/template types and SRand. RED2/6 BOTH are native access
+violations for missing primary and missing GF2; four controls pass. Linux GDB
+independently stops in the actual filtered factory with RAX0 at both copy
+instructions (+76/+375), confirming the cause. GREEN6/6 BOTH: all18 result rows
+per platform over seeds1/123/90210 confirm exact0/1/2 draws, primary null,
+missing-alternate retention, matched primary/alternate, empty-filter and
+unfiltered behavior. Colors/properties and weights3/7 retained. No resource,
+GPU, authored file or game.db writes; no fake factory implementation.
+
+Original proof: typed Gold filtered factory7ea690/202 -> Steam7d8b20; all
+non-address instructions/control agree, only decoded rel32 callees and two
+independently RTTI-named real-light vtable operands masked. Both copy calls
+link Gold7ea440 -> Steam7d88d0; first32 unmasked copy bytes load selected+10
+without a null guard. Separately decoded empty-picker gates and zero-return
+tails prove null selection (Gold7f48b0/466, Steam7e2f30/430); no whole picker or
+copy-body equivalence claim. Explicitly adapt the original crash contract.
+
+Final Windows ALL_BUILD/Linux Game/helpers+actual serializer, related90/90 BOTH,
+own body16/16 BOTH, fresh Windows network4/4 and local CI305/305. Six new
+resource-free cases participate in the local CI manifest. Exact raw names,
+rows, exits/manifests verified. Only filtered DataFormat.cpp overload changes;
+copy helper/unfiltered overload/rest of file byte-equivalent after newline
+normalization, schema calls and all Main unchanged; CP1251/CRLF retained.
+Two existing builds reused, no per-bug backups or HD/PNG/font/facial changes.
+Actual hosted Actions remains separate from local CI and is not claimed green.
+
+Evidence: ambient-variant-verification.json, ambient-variant-retail-verification.json,
+RED/GREEN/final raw logs and both native GDB traces. Source remains PARTIAL:
+explicit-template command static SRand/world flags/null result, shared world/
+camera dispatch and non-tactical consumers remain. Ledger166/19/58 =77 unfinished;
+whole goal remains active. Earlier independent chapter9 fixture instability is
+still tracked, not declared resolved by this change.
+
+## 2026-10-29 — world-compatible scripted ambient variants and persistent draws (part of cb954e2e)
+
+Source: [cb954e2e455b632c0174b88b2d051ac74e780ce0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cb954e2e455b632c0174b88b2d051ac74e780ce0).
+
+Restore the explicit ambient command's static SRand, world creation flags and
+valid-result guard. Ordinary SetupAmbientLight previously selected without
+world flags, restarted its random stream on every call and always replaced
+the scene light. A missing compatible result now leaves the current light
+unchanged. The separately committed filtered-factory null adapter prevents
+primary/optional-alternate dereferences; no factory change is bundled here.
+
+Native TDD on unchanged1b07025a: actual Lua SetupAmbientLight -> world queue/
+CMission -> native CGameView/CGScene. RED4/6 BOTH: a night-only template replaces
+day-world lighting; incompatible GF2 exists and actually drives the scene mean;
+a day/night pool selects night in a day world; repeated local SRand returns
+night until a mismatch with the persistent reference on call15. Two controls
+(flagless light and invalid DB ID) pass. GREEN6/6 BOTH/23 rows each: no match
+retains baseline identity and actual ambient mean, incompatible GF2 is omitted,
+day->night->day is correct, both controls retained, and16 sequential weighted
+choices follow the independent SRand reference over authored weights3/7.
+The harness seed is set after real world/view setup; no private state or fake
+factory/dispatcher used. Actual Lua completion and queued command identity/
+immediate=false are checked. The next gameplay ISAAC word is unchanged around
+each native mission drain; this does not claim unchanged RNG over world ticks
+or equivalence of entire RNG state. Registered light records are controlled
+only inside each test process, with no authored DB/resource writes.
+
+Original proof: Gold62-byte filtered command5a17e7 -> actual Steam5a4177;
+only decoded SRand operand and two rel32 callees masked. World flags slot100,
+valid-result branch and view ambient slot7c stay unmasked. Gold48-byte static
+guard5a17b7 -> Steam5a4147: decoded guard references are atseed+4 and constructor/
+selection share the same seed address. Both original IsValid<CAmbientLightReal>
+helper19-byte bodies agree unmasked. Exact named command/getter/view linkage
+and factory contracts are independently recorded by the prior two verifiers.
+No full shared dispatcher or renderer equivalence claim.
+
+Final Windows ALL_BUILD/Linux Game/helpers+actual serializer, related96/96 BOTH,
+own body16/16 BOTH, fresh Windows network4/4 and local CI305/305. Exact raw
+names, rows, exits/manifests verified. Production change is exactly the explicit
+branch's three lines replaced with four: DBFormat, earlier immediate/default
+priority, remaining Main bytes and schema calls unchanged; CP1251/CRLF kept.
+Two existing builds reused, no per-bug backups or HD/PNG/font/facial/backend edits.
+Actual hosted Actions remains separate and is not claimed green here.
+
+Evidence: script-ambient-variants-verification.json, script-ambient-variants-retail-verification.json,
+RED/GREEN/final raw logs. Tactical SetAmbient immediate/default/flags is now
+complete; source still PARTIAL for shared world/camera dispatch and non-tactical
+consumers. Ledger166/19/58 =77 unfinished; whole goal remains active. Prior
+chapter9 fixture instability remains separately tracked.
+
+## 2026-10-29 — shared lighting/effect dispatch for chapter and backdrop worlds (part of cb954e2e)
+
+Source: [cb954e2e455b632c0174b88b2d051ac74e780ce0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cb954e2e455b632c0174b88b2d051ac74e780ce0).
+
+Chapter and backdrop pumps consumed Lua ambient/effect commands without applying
+them. Move the already-tested tactical PlayEffect/SetAmbient/SetAmbientEffect
+branches verbatim into CMissionBase::ExecWorldCommonCommand, with the existing
+sound handler as fallback. Wire tactical, chapter and backdrop pumps to it.
+Backdrop respects an available desktop's command policy, permitting the own
+main menu's actual null desktop. Keep own chapter BeginZone(false,PWLImage),
+tactical BeginZone(true), existing load/store/roster/travel/clock bookkeeping.
+The own 2D global map has no world and is unchanged. Shared camera/hint/video
+routing is still pending; do not declare the complete source imported.
+
+Native TDD on unchanged6af44059: real CICBeginChapter/CICMainMenu, real Lua ->
+world queue -> native interface frame -> real renderer/view/CGScene. Definitive
+RED10/12 BOTH: five valid command cases are discarded in each actual interface;
+two invalid-ID controls pass. GREEN12/12 BOTH: explicit palette/native mean,
+SetTimeOfDay (chapter no-default developer fallback vs menu default), ambient
+binding/native instance+clock identity, clear, ordinary Lua handle with one
+actual point light, no extra ambient particles/geometry, and invalid controls.
+Chapter's actual non-null desktop and main menu's null desktop are checked.
+Use natural renderer clocks (0 in these fixtures); the earlier tactical tests
+still cover1375. Ambient clear verifies the graph edge; it does not invent a
+new cache invalidation rule. No particle pixel or whole-save roundtrip claim.
+
+Setup failures are retained separately: initial main-menu geometry snapshots
+preceded the first frame's authored2-light/13-particle materialization, so warm
+one native frame first. A subsequent setup forced1375 ahead of native frame
+clocks and read a not-yet-loaded/inactive animation color. Remove forced clock
+and prime the real shared loader via public view/animator, wait for bActive,
+then clear/rebind as appropriate. Actual stock curves are not replaced. Repeat
+definitive RED on unchanged Main after both controls pass; no setup failure is
+counted. Registered palettes/quiet scripts are test-process DB records only.
+
+Original proof: independently named ChapterMap/MainMenu RTTI vtables bind both
+Step slot14 to Gold5a1d00/Steam5a4690. Matched21-byte Step->InternalStep and18-byte
+InternalStep->ProcessWorldCommands call blocks. Matched80-byte queue/desktop/
+dispatch block with only one reference-release rel32 and named virtual-slot
+shifts masked (desktop100->108, Exec104->10c). Main menu binds directly to the
+common Exec; chapter binds its own override with matched29-byte fallback tail
+Gold5a490e->Steam5a73df and decoded null-cast gates. Typed Gold chapter override
+is635 bytes, actual Steam override700 (extra version1.2 arm), not asserted fully
+equivalent. Native world queue slot8 and desktop policy slot50 remain unmasked.
+Prior verifiers independently prove the three command arguments. No full
+Step/pump/chapter/renderer equivalence or foreign ABI replacement claim.
+
+Final Windows ALL_BUILD/Linux Game/helpers+actual serializer; related108/108
+BOTH, own body16/16 BOTH, fresh Windows network4/4, local CI305/305. Exact raw
+names/rows/exits/manifests checked. Five Main files only: extracted tactical
+branches match byte-for-byte after indentation/first-if normalization; original
+sound handler, base remainder, tactical remainder and all schema calls unchanged.
+Nonvirtual helper only, no fields/save tags. CP1251/CRLF preserved. Two existing
+builds reused; no per-bug backups or HD/PNG/font/facial/backend changes. Hosted
+Actions is separate and is not claimed green. Earlier chapter9 fixture
+instability remains tracked; this change does not claim to resolve it.
+
+Evidence: world-lighting-verification.json, world-lighting-retail-verification.json,
+original snippets, native definitiveRED/GREEN/final logs and separate setup logs.
+Source still PARTIAL: common camera/hint/tutorial/clue/floor/flash/video routing
+and camera-executor updates remain for independent native TDD. Ledger166/19/58
+=77 unfinished sources; whole goal remains active.
+
+## 2026-10-30 — shared tutorial flags and native hint lifecycle (part of cb954e2e)
+
+Source: [cb954e2e455b632c0174b88b2d051ac74e780ce0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cb954e2e455b632c0174b88b2d051ac74e780ce0).
+
+Chapter dropped SetTutorialMode, so disabled hints stayed hidden during a tutorial.
+Backdrop menus dropped both commands, including the suppressed hint's UI event,
+leaving Lua waiting. Move the existing tactical hint/tutorial branches verbatim
+into the shared base and remove the duplicate chapter hint branch. Keep the
+existing UI, reward, de-duplication and virtual DoEvent paths. A campaignless
+menu keeps the existing CICShowHint valid-game XP guard; no campaign is invented.
+
+Native RED5/8 BOTH before Main edits: chapter tutorial flag ignored and four
+menu visibility/wait failures; three chapter controls pass. GREEN8/8 BOTH tests
+real Lua/world queues, actual chapter/main-menu interfaces, readonly saved base
+flag31, native hint modal origin/event ID, pause while covered, cancel/restore,
+shown and suppressed wait release, and one-shot replay. Positive authored reward1
+adds native1.2 XP once to the chapter unit; suppression and campaignless menu
+add none. Restoring tutorial display also restores its existing reward, so this
+is not claimed cosmetic-only. Lua4 false is nil; numeric0 remains true. Setup
+producer/Boolean errors were corrected before definitive RED and archived;
+explicit native world consumers advance the owner only, never a covered modal.
+This is routing/wait proof, not whole interface-clock equivalence or pixel QA.
+
+Original proof: typed/RTTI-named ShowHint31 and Tutorial39 command blocks,
+Gold5a13c5/5a14f7 mapped to Steam. Named command boolean+10 (bMode) stores into
+base bTutorialMode+e5. Matched34-byte policy block with independently checked
+float0 constant and27-byte suppressed CCmdInterfaceEvent/ID/DoEvent path. The
+original option is nonzero OR tutorial; preserve this fork's existing exact1
+consumer for normal boolean0/1 here, not a claim about arbitrary nonboolean
+configuration. Prior named world-route verifier binds chapter and menu callers.
+No full hint-interface/XP-body/renderer equivalence claim; existing own null-game
+reward guard and Lua bridge are unchanged.
+
+Final Win ALL_BUILD/Linux Game/helpers+serializer, related122/122 BOTH (includes
+all six legacy chapter script/command cases), own body16/16 BOTH, fresh Win
+network4/4, local CI305/305. Exact raw names/rows/manifests/exits checked. Only
+three Main files change; extracted branches/base+tactical remainder and schema
+calls match parent, CP1251/CRLF preserved. Hint UI/XP/Boolean bridge and actual
+encounter gameplay source bytes unchanged. Existing two builds reused; no old
+build copies or HD/PNG/font/facial changes. Hosted Actions is separate.
+
+An initial Linux related run failed old NativeChapterScriptSound8 at1250 with
+unexpected CICContainer, matching the prior9 instability. Native transition-only
+backtrace caught CommandWithAutoSave <- CRandomSector::UpdateSector <- chapter
+UI draw, independently bounded to actual ELF symbols; the test entered an
+unrelated random encounter. GDB pauses hid it; native repeated8/9 reproduced it.
+Position/visibility was not captured, so no origin/inactive-marker claim. All
+temporary production tracing was removed and iMain hash restored before the
+final clean122 run. Initial/raw/trace proof retained. A separate test-fixture
+isolation fix remains next; no encounter rule change is bundled here.
+
+Evidence: world-hints-verification.json, world-hints-retail-verification.json,
+chapter-command-random-encounter-cause.json, native RED/GREEN/final/raw traces.
+Source still PARTIAL for camera/clue/floor/flash/video and camera-executor routing.
+Ledger166/19/58 =77 unfinished; whole goal remains active.
+
+### chapter-command-isolation — keep native command/audio tests out of unrelated encounters
+
+Test-only follow-up to shared world dispatch source cb954e2e455b632c0174b88b2d051ac74e780ce0
+and own parent 8445b339cb598f8774f304ec87165c0c88f3acc3. This is our fixture
+adaptation, not a literal upstream test hunk or an import of encounter rules.
+Existing compiled NativeChapterScriptSound8 failed after its real hint closed:
+bounded native backtrace proves CommandWithAutoSave <- CRandomSector::UpdateSector
+<- chapter UI Draw. GDB timing hid the failure; native repeated execution
+reproduced it. Marker position/visibility was not captured.
+
+Before actual CICBeginChapter, retain the real cached CChapterInfo and remove
+only RANDOM sectors in this test process; preserve authored zones/exits in
+order and restore the original cached vector with RAII. Actual baseline has
+13 random sectors removed and 6 ordinary sectors retained. Native UI assertion
+checks that no random sector was instantiated. All previous test source lines
+and positive Lua/audio/hint/modal/pause/resume/stop/restart assertions remain.
+No production Main/CMake/DB/resource/save/balance changes. Original encounter
+behavior and its separate pending audit remain unchanged.
+
+Fresh build + focused30/30 on Windows and Linux. Previously unstable sound8/9:
+Windows20/20 actual repetitions (10 each), Linux100/100 (50 each). Local Windows
+CI305/305 with exact native raws/exit codes and manifest verified. Parent's
+production/body/network gates are retained evidence; no new hosted Actions
+claim. Two existing builds reused; no HD/PNG regeneration or old build copies.
+
+Evidence: chapter-command-isolation-verification.json and linked native
+RED/cause/focused/stress/CI raws. Ledger remains166 imported/19 partial/58
+pending =77 unfinished sources; whole goal and final hosted Actions remain.
+
+### world-camera-clipping — forward native Lua camera planes to chapter/menu worlds
+
+Source cb954e2e455b632c0174b88b2d051ac74e780ce0 remains PARTIAL. Own parent
+42ccc5352e32f65b8ec9260e99e980d8efcad418. Actual compiled native RED4/6 on
+Windows and Linux: CameraSetClipping executes in real chapter/menu Lua but
+the selected native camera remains at default near0.1/far100; unchanged-camera
+controls pass. Existing tactical-only command branch was absent from the
+common dispatcher, so chapter and backdrop consumers discarded the command.
+
+Move only the existing CUICmdSetCameraClipDistance branch into
+CMissionBase::ExecWorldCommonCommand. Preserve its exact GetCamera selector
+and near/far arguments. Tactical dispatch reaches the same branch; no camera
+algorithm, projection/aspect policy, tracker, clock, lock, floor, animation,
+database, combat, RNG or save-schema changes. Own chapter has a real active
+player; own menu has none and uses its existing sequence-camera selection.
+Do not import a foreign player dependency or replace the remaster renderer.
+
+Native GREEN6/6 both,8 exact camera snapshots each: untouched defaults,
+near0.75/far45, and two successive updates near0.25/far80 then1.25/70.
+Assert actual selected-camera identity and native projection: near depth0,
+far depth1, before-near and beyond-far points outside clipping bounds.
+Real Lua/world/interface/bgfx path, no direct test calls to the dispatcher or
+clip setter. All previous tests/assertions remain.
+
+Original proof: Gold5a15e4 -> Steam5a3f74 shared dispatch49 bytes, decoded
+typed cast38 with independently named CUICmdSetCameraClipDistance/base RTTI;
+named command min/max fields10/14 and camera SetClip slot34. Exact unmasked
+native setter17/getter21, fields3c/40, plus named chapter/menu camera vtable
+slots and prior independently verified common world route. No full selector,
+renderer or world-clock equivalence claim.
+
+Fresh Win ALL_BUILD and Linux Game/helpers+serializer. Related135/135 and own
+body16/16 on each; fresh Win network4/4 and local CI305/305. Exact raw names,
+rows, exit codes and CI manifest checked. Two Main files only, tactical/base
+remainder and save calls match parent; CP1251/CRLF preserved. Existing two
+builds reused, no HD/PNG/font/facial changes or old build copies. Hosted
+Actions remains a separate final requirement.
+
+Evidence: world-camera-clipping-verification.json, RED/GREEN and original
+verification JSONs, exact native raw logs. Source remains PARTIAL for
+camera locator/lock/floor/AI flash/clue/video and camera-executor updates.
+Ledger166 imported/19 partial/58 pending =77 unfinished; whole goal active.
+
+### camera-clipping-fixture-isolation — keep camera command tests on their native map
+
+Own test-only follow-up to f516700cf7b6afb75cd27fc4de616ac53582fabd; related
+dispatch source cb954e2e455b632c0174b88b2d051ac74e780ce0. An initial extended
+run failed NativeWorldCameraClipping0_2 before its first camera assertion:
+chapter UI drawing queued an unrelated interface. The pending camera-lock
+production draft was removed before independent reproduction on this parent.
+Native repeated execution reproduced the failure; opt-in transition-only
+backtrace proves CICBeginMission via CommandWithAutoSave <- CRandomSector
+UpdateSector <- chapter UI Draw. Actual failed state at1100: team185,229,
+visible random template4351 hit1. Exit sector also hit1, but independently
+bounded actual ELF producer symbols identify the random-sector transition.
+This is a legitimate visible encounter interfering with an unrelated test;
+do not claim an origin/inactive-marker gameplay bug or change encounter rules.
+
+Before real CICBeginChapter, remove only RANDOM sectors from the actual cached
+CChapterInfo in this test process. Keep authored zones/exits, restore the full
+vector with RAII, assert actual constructed UI has no random sector. Add
+failure-only interface/queue/travel diagnostics. Every prior source line and
+positive Lua/camera/identity/repeated-change/projection assertion retained.
+No Main/CMake/DB/save/balance changes. All temporary production tracing removed;
+iMain original SHA256 restored. Save ELF hash/bounded symbols/raw stack only,
+no old executable or per-bug build retained. Pending lock draft stays separate.
+
+Fresh native fixture6/6 on Windows/Linux, then previously failing chapter
+case10/10 Windows and50/50 Linux actual repetitions (two clipping updates each).
+Local CI305/305; exact raw names/rows/exits/manifest verified. Chapter record
+and removed/retained counts logged per process; do not assume one fixed map
+or change authored gameplay data. Existing two builds reused, no HD/PNG work.
+
+Evidence: camera-clipping-fixture-isolation-verification.json,
+camera-clip-fixture-transition-cause.json, original initial extended failure,
+independent parent trace and fresh native fixture/stress/CI raw logs.
+This is our fixture adaptation, not a literal upstream test hunk. Ledger
+166/19/58 =77 unfinished sources; whole goal/final hosted Actions remain.
+
+### world-camera-lock — share native script locks with chapter and backdrop worlds
+
+Source cb954e2e455b632c0174b88b2d051ac74e780ce0 remains PARTIAL. Own parent
+c7fa988c9176e931ae380ae628ddbdc3eeb18262. Compiled native RED6/8 on Windows
+and Linux: actual Lua CameraLock/CameraLock(nil) executes but selected camera
+freeze counters stay0 in chapter/menu. Both no-command controls pass. Chapter
+selected camera aliases the actual player tracker camera; menu has no tracker.
+
+Move existing tactical lock branch into ExecWorldCommonCommand. Preserve
+selected-camera FreezeCamera, the second tutorial tracker call even on alias,
+and the remaster's scene cut-floor mirror once per command. Only necessary
+adapter: skip the extra tracker call when the frontend has no active player.
+Do not clamp negative counts or replace our camera/view/renderer ownership.
+
+Native GREEN8/8 both,26 camera and26 floor snapshots each: ordinary nested
+counts1/2/1/0; chapter tutorial alias2/4/2/0; frontend tutorial1/2/1/0 without
+a tracker; unmatched unlock-1/0/1/0 preserved. Actual camera and scene floors
+remain blocked while their counters are positive and become writable on
+release. Read actual full saved camera fields (base tags2/14) without mutating
+engine state. Native Lua/world/interface/renderer path; no direct test calls
+to the dispatcher or FreezeCamera. Keep the real map's ordinary zones/exits,
+isolate random sectors only in this new command fixture, restore cached data
+with RAII. No production encounter changes. All prior test lines retained.
+
+Original proof: Gold5a1597 -> Steam5a3f27 dispatch77/cast38, independently named
+lock/base RTTI, bLock+10/tutorial+e5/active tracker+58, named camera Freeze74 and
+tracker GetCamera18 slots. Gold freeze33 and Steam freeze47 independently
+decoded: both signed/unclamped counts then tail-call Lock70; Steam additionally
+clears unlock-intent bytes. Existing own Steam intent behavior retained; no
+whole-body cross-version identity claim. Exact scroll-counter21 and frozen
+floor-gate43 bodies, prior shared chapter/menu route. Our scene mirror stays
+an explicit existing adapter; no full selector/renderer/clock equivalence claim.
+
+Initial Linux extended gate exposed a separate clipping-fixture encounter;
+independently reproduced without this production draft and repaired in
+c7fa988c9176e931ae380ae628ddbdc3eeb18262. Main bytes between the original
+RED parent and this parent are identical. Fresh final gates below use the
+repaired fixture and restored lock draft; no temporary tracing remains.
+
+Fresh Win ALL_BUILD/Linux Game+helpers+serializer. Related143/143 and own
+body16/16 each, fresh Windows network4/4 and local CI305/305. Exact raw names,
+rows, exits and CI manifest checked. Only two Main files: moved operations
+plus null-tracker guard; base/tactical remainder and save calls match parent,
+CP1251/CRLF retained. No combat/RNG/balance/DB/schema/HD/font/facial changes.
+Existing two builds reused, no old builds or PNG regeneration. Actual final
+hosted Actions remains separate.
+
+Evidence: world-camera-lock-verification.json, original and RED/GREEN JSONs,
+all native raw logs. Source still PARTIAL for locator/floor/AI flash/clue/video
+and camera-executor updates. Ledger166/19/58 =77 unfinished; whole goal active.
+
+### world-floor — apply script floors in chapter and backdrop views
+
+Source cb954e2e455b632c0174b88b2d051ac74e780ce0 remains PARTIAL. Own parent
+9b398de2e51caed7a57dfd95b44380dc0938decf. Compiled native RED8/10 on Windows
+and Linux: real Lua Floor executes but rendered native view stays at0 for
+requested1/-99/99 and after unlocking. Both no-command controls pass; the
+locked first round correctly remains0. Range and camera ownership controls
+stay valid. The floor handler existed only in the tactical command chain.
+
+Move its existing pScene->SetCutFloor operation into ExecWorldCommonCommand.
+Remove the old floor-only wrapper, deindent its false branch once; every
+remaining clue/load/store/team/video operation is preserved. Own rendered
+floors already belong to CGameView: Draw consumes GetFloorMask(nCutFloor),
+CMission::SetCutFloor uses the view, and its range/freeze mirror is implemented
+there. Blindly calling the upstream helper's base SetCutFloor would no-op:
+our base virtual is empty. Keep the existing view owner, inclusive clamp and
+freeze semantics; no camera ABI or renderer replacement, no header changes.
+
+Native GREEN10/10 both,12 actual view snapshots each: baseline0, Floor(1),
+Floor(-99)->-1, Floor(99)->2 for fixture range[-1,2], and actual tutorial
+CameraLock/Floor remains0 then CameraLock(nil)/Floor becomes1. Preserve
+selected-camera identity and range. Real Lua/world/interface/renderer path,
+isolated chapter random sectors restored with RAII; no direct test calls to
+the dispatcher. All prior test source/assertions remain. Test range changes
+are in memory only; production/authored floor bounds are unchanged.
+
+Original proof: typed floor dispatch Gold5a1615 -> Steam5a3fa5,45 bytes;
+named CUICmdSetFloor/base RTTI cast38, payload nFloor+10, named selected-camera
+and SetCutFloor48/GetCutFloor44 slots. Exact original setter43 checks positive
+freeze count then inclusive min/max and stores floor; exact getter4. Prior
+shared chapter/menu route independently binds callers. Own view adaptation
+is explicit; no full camera-floor storage/renderer/clock equivalence claim.
+
+Fresh Win ALL_BUILD and Linux Game/helpers+serializer, related153/153 and own
+body16/16 each, fresh Windows network4/4 and local CI305/305. Exact raw names,
+rows, exits and CI manifest checked. Only two Main files; tactical false-branch
+indentation is the only unrelated text change, all operations/save calls and
+fields preserved, CP1251/CRLF retained. No combat/RNG/balance/DB/save/HD/font/
+facial changes. Two existing builds reused; no old builds or PNG regeneration.
+Actual hosted Actions remains a separate final requirement.
+
+Evidence: world-floor-verification.json, original and RED/GREEN JSONs, native
+raw logs. Source still PARTIAL for camera locator/AI flash/clue/video and
+camera-executor updates. Ledger166/19/58 =77 unfinished; whole goal active.
+
+### world-camera-locator — execute scripted moves in chapter and backdrop worlds
+
+Source cb954e2e455b632c0174b88b2d051ac74e780ce0 remains PARTIAL. Own parent
+43d581da08797c78fb47b87c415e3dacab531a90. Compiled native RED10/12 on both
+platforms: real Lua GetCamera/CameraMove/CameraSequence produces a pending ID
+but common consumers create no executor, leave camera unchanged and never
+release the wait. Both no-command controls pass. Windows helper name collided
+with SDK near macro; renamed before definitive RED, no production changes.
+
+Move existing tactical locator priority/cancel/factory branch and normal
+Update/Finished/reset drive into base helper. Existing tactical ordering stays;
+chapter calls after its command drain with GetGameTime, backdrop with actual
+owned-world aim clock before camera/render update. New method is nonvirtual;
+saved slot21/fields/schema unchanged. Keep own factory/interpolation, selected
+player/cinematic cameras, follow option, nullable frontend desktop/player,
+2D no-world global map, BeginZone args, roster/audio and renderer unchanged.
+
+Native GREEN12/12 both:2 controls,10 real Lua completions per platform.
+Actual DB-camera userdata and two-waypoint table, zero/timed moves, exact
+intermediate interpolation against owner clock, final target, native executor
+type/owner/priority6 and cleared saved slot. Followed chapter moves update
+cinematic camera and return selection to player; follow-off updates player
+and preserves unrelated cinematic camera; menu always retains its cinematic.
+Real hint modal freezes pose/world/pending wait while covered, restores owner
+and permits timed completion. DB record changes are in-memory/RAII restored;
+no direct test calls to factory/dispatcher/executor Update or private time writes.
+
+Initial green11/12 exposed an invalid modal-fixture expectation: a200ms move
+can finish on chapter return because its existing game counter catches up by
+the original150ms cap. Use1000ms for modal case, keep exact interpolation,
+covered-pose/wait/clock/selection/completion checks, bound32 frames. Original
+counter64 and game/UI Step61 instruction blocks independently verified;
+Time/OnGetFocus unchanged. Initial raw retained; not reported as production RED.
+
+Original mapping: shared locator dispatch173 with named RTTI and decoded
+priority/factory calls; normal completion pump90 inside original command-drain
+tail, actual GetGameTime -> Update10 -> Finished14 -> clear saved slot. Exact
+priority getter7/tie-rule19, Finished64 native command-ID event/DoEvent2c,
+named move-executor vtables and prior independently verified world callers.
+No full factory/interpolation/renderer/clock equivalence claim.
+
+IMPORTANT independent follow-up: original REPLACEMENT also calls Finished14
+and clears the old slot BEFORE factory, while current own tactical/upstream
+helper uses Cancel and assignment (move Cancel is empty). Preserve prior own
+replacement behavior in this routing-only commit; reproduce and repair this
+separate defect next, with both old/new Lua IDs and replacement starting pose.
+Do not declare original preemption parity or the entire source imported.
+
+Fresh Win ALL_BUILD/Linux Game+helpers+serializer, related165/165 and own
+body16/16 each, fresh Windows network4/4 and local CI305/305. Exact raw names,
+completions/pauses/rows/exits/manifest verified. Five Main files including one
+nonvirtual declaration; extracted operations, remainder and save calls match
+parent. CP1251/CRLF retained. No combat/RNG/balance/DB/wire/HD/font/facial work.
+Two builds reused, no old builds/PNG regeneration. Actual hosted CI separate.
+
+Evidence: world-camera-locator-verification.json, RED/GREEN/original JSONs,
+native raw logs and camera-locator-preemption-followup.json. Source remains
+PARTIAL for preemption/clue/video/AI flash. Ledger166/19/58 =77 unfinished;
+whole goal active; final actual hosted Actions and balance-MD link remain.
+
+### camera-locator-preemption — finish replaced moves before creating the next one
+
+Own retail-conformance correction for related shared-dispatch source
+cb954e2e455b632c0174b88b2d051ac74e780ce0, parent
+8123e96b8933cfc3919525ff3dd970ff05695f35. This is not a literal upstream
+Finished hunk: upstream/own handler called Cancel, but original calls Finished
+and clears the saved slot before factory. The routing import documented this
+gap rather than claiming full original replacement parity.
+
+Native RED4/4 each platform, four actual Lua immediate/timed replacements:
+the second move finishes/new coroutine resumes, old ID stays pending and old
+coroutine sleeps in three cases. Timed chapter case fails earlier: constructor
+samples outgoing cinematic0.75 instead of selected player0.625 because old
+slot remains set. Menu correctly samples its cinematic, but old wait still hangs.
+All prior fixture assertions retained; mode bound expanded to7. Release the
+diagnostic first.exec strong ref before replacement; no test-held old executor
+lifetime or direct calls to its completion/factory/dispatcher.
+
+Minimal production fix in one Main file: Finished once, slot0, then existing
+CreateCameraExecutor. Preserve priority rejection/tie rules, constructor,
+interpolation, normal completion/clock/selector/follow policies and wire.
+Move Finished posts its native ID event; own unit/explosion Finished and
+Cancel have identical single locked-camera cleanup bodies, unchanged here.
+Do not call both and double-unlock. No header/new fields or renderer changes.
+
+Native GREEN4/4 both: all four old/new wait pairs clear and both Lua coroutines
+resume; replacement slot clears and target lands. Timed constructor uses fresh
+native owner clock and selected player pose in chapter, current cinematic pose
+in menu. Actual saved constructor pose/tag6 read without mutating private state.
+
+Original proof: exact mapped replacement48 Gold5a1368 -> Steam5a3cf8. Only
+decoded release/factory rel32 masked. Named move-executor vtable14 binds to
+Finished6487b0/64e460, then verified-zero register clears saved slot+bc BEFORE
+named factory6491c0/64ef20. Prior full mapped dispatch173 and priority7/19
+independently bound. Finished-event64 maps command ID to native interface event
+and owning DoEvent2c. C++ calls use our ABI; no copied offsets in production.
+
+Fresh Win ALL_BUILD/Linux Game+helpers+serializer, related169/169 and own
+body16/16 each, fresh Windows network4/4 and local CI305/305. Exact native raws,
+constructor samples, wait pairs, old normal10 completions/2 modal pauses,
+exit codes and CI manifest checked. One Main hunk only; all other Main bytes,
+fields/schema/CP1251CRLF preserved. No combat/RNG/balance/DB/time/header/HD/font/
+facial changes. Two builds reused, no old builds/PNG regeneration. Actual
+hosted Actions remains separate.
+
+Evidence: camera-locator-preemption-verification.json, RED/GREEN/original
+JSONs and native raw logs. The previously documented replacement gap is fixed;
+cb954 remains PARTIAL for clue/video/AI flash. Ledger166/19/58 =77 unfinished;
+whole goal/final actual hosted Actions/balance-MD delivery remain active.
+
+### world-video — dispatch scripted sequences in chapter and backdrop worlds
+
+Source cb954e2e455b632c0174b88b2d051ac74e780ce0, parent
+ed5b200f5f68e11740f0a90eda5da146b3d98589. Lua PlayVideo already allocated
+a UI-action ID in both worlds, but only tactical mission had a consumer.
+The command disappeared and the requested sequence never opened.
+
+Definitive native RED8/10 each on Windows/Linux: both quiet controls pass;
+eight actual EOF/explicit-mainmenu natural/cancel cases show queued0/wait1/
+marker0 and fail at missing consumer. Production was exact parent during RED.
+Minimal fix: move existing seven-line PlayVideo arm, one indentation level,
+into CMissionBase::ExecWorldCommonCommand; add iIntroScreen.h there. Preserve
+PlayVideoSequence(this, ID, filename, false), own player/decoder, native event,
+stack mode and original EOF policy. No other Main bytes or fields changed.
+
+Native GREEN10/10 both: temporary .seq is opened through actual Lua/world/
+interface queue. Independent first-line marker10 plus Step-stage10 prove both
+Initialize and same-frame Step commands executed. Natural advancement and
+cancel both run stage20. Four actual EOF cases consume original application-
+exit sentinel (StepApp=false, modal stack2). Four explicit mainmenu cases
+install a fresh actual menu/stack1, preserve null player/campaign/desktop and
+abandon the previous script as the authored transition requires. Covered owner
+world stays paused. Two quiet controls retain stage0/no sequence/no wait.
+No automatic modal return/Lua-resume or codec-decoding claim: player untouched.
+
+Fixture corrections are explicit. First GREEN reached native modal but assumed
+one command per StepApp: actual loop initializes then immediately Steps it.
+Added independent first-line marker. Next GREEN reached EOF but assumed it
+would pop the modal. Original named EOF tail39 proves Command(0) requests exit;
+shipped intro.seq/loose.seq end in exec mainmenu, win.seq in exec credits final
+(baseline and Steam copies match). This is not evidence of a separate player
+bug; no completion behavior changed. Added both original termination policies,
+restored exact parent Main and reran definitive RED before identical fix.
+Initial raw logs retained; all preexisting fixture lines remain unchanged.
+
+Original proof: unique shared-dispatch87 Gold5a1c8b -> Steam5a461b, exact
+RTTI-bound video cast38, named CICPlaySequence constructor119/Exec145,
+nonexclusive PushInterface, native command-ID/filename/owner arguments and
+EOF-event/null-command tail39. Masks cover decoded external references only.
+Prior chapter/menu shared-route proof reused; no original offsets copied to C++.
+
+Fresh Windows ALL_BUILD/Linux Game+helpers+serializer; related179/179 and
+body16/16 each, Windows network4/4 and local CI305/305 all pass. Exact native
+raws/counts/manifests/exits verified, including previous camera replacement
+waits and modal pauses. Actual hosted Actions remains a separate gate.
+Two builds reused; no old builds/HD/PNG generation, balance/RNG/DB/font/facial
+changes. Temporary sequence files removed by fixture cleanup.
+
+Evidence: world-video-verification.json, RED/original JSONs and focused/final
+native logs. Source remains PARTIAL for clue/AI flash; ledger166 imported/
+19 partial/58 pending. Whole goal/final hosted CI/balance-MD delivery active.
+
+### world-clue — show scenario clues through the common chapter consumer
+
+Source cb954e2e455b632c0174b88b2d051ac74e780ce0, parent
+be26d8764a1d36bace7e61217edc1b94c72facef. Actual chapter Lua ClueShow found
+the authored captured cipher-key clue but its world command was discarded.
+Definitive native RED1/6 each on Windows/Linux: chapter valid clue fails with
+queued0/expected1; five quiet/unknown-name/no-scenario-menu controls pass.
+Production was exact parent before RED, including after fixture calibration.
+
+Move existing own four-argument CICShowClue(this, ID, pGlobalGame, clue)
+consumer into shared handler, preserving valid-clue guard and requiring actual
+campaign for this campaign modal. Keep our API: no upstream global-player arg
+or dereference of own menu's null active-player. Actual menu script world has
+global game but scenario is unavailable; ClueShow returns0 and queues nothing.
+No synthetic scenario/world-game fallback needed. Old deep clue wrapper is
+removed and its retained load/store/team body deindented once; exact rest of
+Main bytes, headers except include, fields/save/network/clock unchanged.
+
+Native GREEN6/6 each. Actual Lua producer, native command queue and real clue
+modal verified; saved origin/game/clue identity, unique unregistered native ID,
+authored completed objective description with existing markup and positive text
+layout, underlying-world pause, native cancel and exact chapter owner/stack1
+restoration. Lua ClueShow result remains nil, no invented wait API. Showing the
+clue leaves XP50 and prepared scenario/found/just-found state unchanged; all
+three real menu controls preserve scenario unavailable/no modal/XP0.
+
+Fixture correction: first GREEN reached real modal but test expected ID=-1.
+Own CUICmd constructors assign a unique ID to every command; ClueShow's
+AddUICommand simply does not register that ID in Lua's wait set. Corrected
+assertion to nonnegative ID with no active wait; retained all origin/context/
+text/close/state assertions. Restored parent Main and repeated definitive RED
+before identical fix. Production hashes before/after calibration match; raw
+initial evidence preserved. No production change made to satisfy wrong ID test.
+
+Original proof: mapped common ShowClue dispatch121 Gold5a151e -> Steam5a3eae
+with independently named RTTI/constructor, constructor163 Gold633da0 ->639070,
+named chapter GetActivePlayer5c exact getter4/PDB field58 and base game3c.
+Prior chapter/menu common route reused. Preserve our established clue UI API,
+renderer/fonts and event/close policy; no copied original ABI offsets in C++.
+
+Fresh Windows ALL_BUILD/Linux Game+helpers+serializer; related187/187 and
+body16/16 each, Windows network4/4 and local CI305/305 pass. Exact native raws,
+test names/manifests/exits and prior camera replacement/modal cases verified.
+Actual hosted Actions remains separate. Two builds reused, no HD/PNG or old
+build copies. No balance/RNG/DB/font/facial changes.
+
+Evidence: world-clue-verification.json, RED/original/calibration JSONs and
+native focused/final logs. Source remains PARTIAL for shared AI flash only;
+ledger166 imported/19 partial/58 pending. Whole goal/final hosted CI/balance-MD
+delivery remain active.
+
+### world-ai-flash — shared dispatch in current worlds; global-map dependency open
+
+Source cb954e2e455b632c0174b88b2d051ac74e780ce0, parent
+5b161147ca62dbe7304565df52b55ae7608472fc. Actual chapter native UI queue
+dropped AI-unit flash commands even though its renderer could bind the real
+actor's15 mesh parts. Definitive native RED3/7 each: enemy/neutral/ally messages
+fail; direct-renderer geometry/color/clock control, null-unit and two actual
+unit-less/null-active-player menu controls pass. Main exact parent during RED.
+
+Minimal fix: move existing own guarded15-line AI arm, one indentation level,
+to common consumer; add DataMap.h for enum definition. Preserve all four guards,
+world diplomacy (including own same-scenario distinct-party semantics), exact
+red/teal values, additive renderer/selection ownership and1500ms lifetime.
+No renderer, body/facial, headers/fields/save/network/HD/clock implementation
+changes. Initial GREEN compile needed enum include; logs retained, not RED.
+
+Native GREEN7/7 each: real chapter actor/model and filters bound to same15
+geometry parts as ordinary selection, expected diplomacy colors, actual render
+clock and1500ms end, ordinary selection retained; AP/HP/position and queue stay
+unchanged. Neutral owner is a real held native -1 party (native deployed-body
+ownership pattern), not a null owner/private scenario-field rewrite. Enemy is
+actual registered separate party/CAICommander, ally actual observer party.
+Menu controls retain its actual no-unit/no-active-tracker architecture.
+
+Setup corrections are explicit. Initial compile used protected/private actor
+factories: switched to public native AddPlayer/AddUnit APIs. Null-owner server
+was invalid; native AddUnit requires owner, corrected before definitive RED.
+Own backdrop has no walking/navigation layers. GDB confirms attempted cinematic
+placement fails in CPathNetwork::SetOnLayer <- MakeFlyPos before UI dispatch;
+the old ELF hash and raw trace are saved, no old executable kept. Do not create
+synthetic menu navigation to satisfy tests. Use actual quiet/null-message menu
+controls and genuine15-part chapter actor coverage for enemy/neutral/ally.
+Invalid setup runs not counted as RED; final seven-case RED precedes production.
+
+Original proof: full shared typed dispatch300 Gold5a1642 -> Steam5a3fd2,
+RTTI-bound cast38, named world getters/slots130 vs138 (PDB field54), named
+renderer FlashUnit20 forwarder11 to CSetRender6c5e40/6cc8e0, exact full color
+blocks66+66 and original relation branches. Masks only decoded references;
+no original ABI offsets copied. Prior chapter common route proof reused.
+
+Fresh Windows ALL_BUILD/Linux Game+helpers+serializer; related195/195 each
+including previous tactical NativeAIUnitFlash GPU tint/fade/selection/expiry
+regression, body16/16 each, Windows network4/4 and local CI305/305 pass.
+Exact native raws/counts/manifests/exits checked. Actual hosted CI is separate.
+Two builds reused; no balance/RNG/DB/font/facial/HD changes or PNG generation.
+
+Final thirteen-file source accounting (current hashes/evidence in
+cb954-source-coverage-verification.json):
+
+| Source files | Final accounting |
+| --- | --- |
+| GScene.h, GSceneInternal.h, GSceneInternal.cpp | Animated ambient API/setter/existing DG node; native ambient proof. |
+| GView.h, GView.cpp | Original first-light-only ambient animator/clock/clear behavior; native graph tests. |
+| iChapterMap.cpp | Common fallback/camera drive; own chapter background/BeginZone args retained. |
+| iGlobalMap.cpp | Current 2D UI has no logical world/script drive; common-consumer hunk remains dependent on5f997 lifecycle review. Do not classify absent world as sufficient proof of inapplicability. |
+| iMission.cpp, iMission.h | Shared helpers and routing; duplicate arms removed, own tactical BeginZone args retained. |
+| iMissionBase.cpp | Sound/light/FX/hints/tutorial/clue/camera/floor/video/AI consumers, own context/clock/API adapters. |
+| iMissionInternal.h | Obsolete mission ambient handle removed; scene owns ambient animation. |
+| iRenderWorld.cpp | Backdrop common consumer/camera pump, own null desktop and UI/audio ownership retained. |
+| wInterface.h | Const existing world-variant flags getter; real filtered ambient/FX cases. |
+
+Camera preemption correction, native floor-view adapter and all other earlier
+source stages retain their own RED/GREEN/original evidence. Shared AI fix is complete, but the global-map hunk remains open under the
+5f997 logical-world/script dependency. Earlier full-source classification was
+premature and is corrected below. Ledger166 imported/19 partial/58 pending
+=77 unfinished sources. Whole goal,
+final actual hosted CI and balance Markdown delivery remain active.
+
+Evidence: world-ai-flash-verification.json, RED/original/calibration/cause JSONs,
+native focused/final logs and all13-file coverage proof.
+
+
+### follow-up audit — keep the global-map script dependency open
+
+The valid AI fix1b196a28 remains unchanged with its native RED/GREEN/gates.
+Its claim that all useful cb954 hunks were finished was premature: source
+5f9977b7be4204857caa9f2a54f1391393e0da0c adds a logical world/player/script
+context to the 2D global map and runs pGlobalMap->pScript. Current own
+iGlobalMap::Initialize only builds UI/interface-owned audio; it never runs
+that script, and iGlobalMapUI provides no alternative script implementation.
+The existing comment describes a dev predecessor without a world clock; this
+alone does not prove an intentional replacement of the upstream functionality.
+
+Consequently restore cb954 status PARTIAL until the dependent native global-map
+lifecycle/script behavior is audited and implemented/adapted as appropriate.
+Preserve the actual 2D drawing and own audio/save/HD/body/facial behavior while
+restoring useful script functionality; do not exclude it just to preserve an
+incomplete current implementation. First inspect real authored global-map
+scripts, original Initialize/Step/save behavior and both normal/show-mode entry.
+Then compiled native RED, cause proof, minimal own-adapted fix, independent
+commits/full original SHA+URL/immediate push as usual. If script rewards affect
+balance, verify original values and document any excluded changes.
+
+Global-map common dispatch/camera drive in cb954 remains coupled to that
+earlier context dependency; chapter/backdrop/tactical consumers and all their
+verified fixes are complete. Source5f997's independent empty-Lua-default fix
+was already imported; its global-map part remains open. Do not repeat that
+argument-default work. Prior all13-file hashes remain useful inventory, not
+proof of full semantic completion. Ledger166 imported/19 partial/58 pending
+=77 unfinished sources. Whole goal/final hosted CI/balance-MD delivery active.
+
+
+## Global map: native script lifecycle and save restore (5f9977b7 / cb954e2e)
+
+Sources: [5f9977b7be4204857caa9f2a54f1391393e0da0c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5f9977b7be4204857caa9f2a54f1391393e0da0c),
+[cb954e2e455b632c0174b88b2d051ac74e780ce0](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/cb954e2e455b632c0174b88b2d051ac74e780ce0).
+Parent: 77a13fd759dfb000adb619ff4670e8e0495303fb.
+
+The remaster global map built only its 2D UI and never ran its DB script.
+Both normal entry and chapter overview therefore skipped the authored first-
+country hint, its wait/visited flag and original reward. Restore the logical
+world/player/render/camera context using the unchanged existing chapter
+initializer, moved to a protected base helper. Run the DB postinit once and
+pump the world, trackers, common commands, camera and script sound on active
+frames. Keep own plain CWindow (nullable desktop), 2D drawing, UI/travel clock
+and shared audio ownership. BeginZone keeps the own map transition arguments.
+
+OnSnapshotRestored bootstraps context only when absent in a legacy map;
+complete saves retain their world/Lua state and rebind runtime caches/cameras.
+No new serialized fields, facial/body/HD/font pipeline changes or authored
+balance values. Existing chapter initializer body is unchanged.
+
+Compiled native RED before runtime edits: twelve missing-context failures and
+two no-script controls on each platform. Definitive RED uses explicit authored
+map3; an earlier Linux test selected another record because DB iteration is
+unordered, and those setup failures do not count as RED.
+
+Native GREEN14/14 per platform covers both actual entry commands, no-script,
+OnEnterZone/Sleep continuation, real script91 on map3, suppressed hint47,
+already-visited flag, actual hint modal origin/wait/pause/close/one-shot XP,
+and legacy-style/current full local-save graph roundtrips. Native StepApp
+frames drive the test; no direct world update hides a missing map pump.
+Legacy mode clears only known context wire references in a complete native
+save before reading fresh objects; it retains all tags/UI/campaign fields.
+Snapshot coverage is native graph/restore-hook/stack behavior, not on-disk
+SaveManager/header/compression or network compatibility.
+
+Two snapshot-fixture calibration attempts used network graph serialization.
+GDB exposed missing image state and then a null commander in CTBSWorld::Segment:
+network writes intentionally skip CPlayerBase commander tag6 and UI-only state.
+The final fixture uses the normal local-save writer AND reader. No production
+GUI/AI workaround was added for those test setup errors. Initial entry/script
+RED failures and their production cause remain unchanged.
+
+Original proof: named Gold global-map Initialize0x5df600/1784, unique45-byte
+world bootstrap mapped to Steam0x5e3228 (only two decoded rel32 operands
+masked), exact28-byte map-script/frame5 tail mapped to Steam0x5e37e7;
+named CWorld vtables bind CreateDefault and RunPostInit. Global-map vtable
+inherits common Step (Gold0x5a1d00 -> Steam0x5a4690, slot14).
+Gold CICShowHint::Exec0x635630 loads the hint integer at+10, calls the
+mission game getter and named AddXPToAllUnits0x693780. Actual authored reward
+is34; unchanged native intelligence bonus gives merc54 exactly50->90.8 once.
+Suppressed and already-visited cases leave XP unchanged. This restores original
+behavior; no new reward, coefficient or tuning is introduced.
+
+Fresh final gates: Win ALL_BUILD and Linux Game/helpers/serializer;
+related220/220 and body16/16 each, Windows network4/4, local asset-free CI305/305.
+Evidence: global-map-script-red-verification.json,
+global-map-script-native-green-verification.json,
+global-map-script-retail-verification.json and global-map-script-verification.json
+under G:/SS/lab/evidence/upstream-remaster-20261024. Raw native logs/exits retained.
+
+Source5f997 is now complete: independent Lua empty-default native69-test import
+was already done; this closes its global-map portion. Sourcecb954's global-map
+consumer/camera dependency is now closed; all13 source files are accounted for
+with prior command/ambient native evidence plus this actual global-map route.
+This supersedes the temporary PARTIAL audit at77a13fd7, not its warning against
+excluding useful functionality solely because the dev predecessor lacked it.
+Ledger168 imported/17 partial/58 pending =75 unfinished source commits.
+Whole-goal scope and final hosted CI/balance-review delivery remain active.
+
+
+## Inactive random encounter entry gate (b709a7dc)
+
+Source: [b709a7dcb54aec463f2ba85e1cc7b697cc46b27f](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b709a7dcb54aec463f2ba85e1cc7b697cc46b27f).
+Parent: acb588dc7892774f37f3359f267dad5c223c0daa. An unspawned or expired
+random encounter retains a drawable window; HitTestMap alone queued a phantom
+mission when the party overlapped that window. Add the logical CChapterSector
+IsVisible gate, preserving the remaster centered-coordinate HitTestMap adapter.
+
+Native RED6/12 each -> GREEN12/12 each: actual chapter12/template2508 (Windows) and chapter27/template4301 (Linux), on
+normal and wide viewports (map offset0 versus171). Fresh inactive, fading
+inactive and moved inactive markers must not queue entry; actual active overlap
+still queues the native autosave/mission container, and outside-marker controls
+remain quiet. Complete ordinary save graphs initialize fresh native fixture
+states, then a real StepApp/2D chapter Draw queues the production command.
+No partial READ into live objects or production test seam. Commands are observed
+and drained without executing a mission/save. Deadline100000 stays unchanged,
+isolating this entry gate from random spawn rolls and authored probabilities.
+
+Original Gold UpdateSector0x5a7a50/1099 also calls CWindow::HitTest0x71da90
+before checking logical activity; named CChapterSector IsVisible0x5a6830 reads
+bVisible+90. This corrects an original bug, rather than restoring a missing
+retail guard. No authored probability/range/timer/RNG/fade rule, entry argument,
+UI/font/body/facial/HD pipeline or saved field changes. Source5d3fe7df's marker
+consumption/early return, last-template reset and spawn chance/range remain
+separate pending work; this is not a claim of complete encounter lifecycle parity.
+
+Fresh Win ALL_BUILD/Linux Game+helpers/serializer, campaign50/50 each (including
+legacy chapter/global map transitions and own active scripts/audio), local
+asset-free CI305/305. Prior body/network suites are unchanged by this UI-only
+guard and were not repeated. Raw logs/exits and original/native/source proof:
+inactive-encounter-verification.json under G:/SS/lab/evidence/upstream-remaster-20261024.
+Sourceb709 complete. Ledger169 imported/17partial/57pending=74 unfinished.
+Whole upstream goal and final hosted CI/balance-review link remain active.
+
+
+## Consume random marker before autosave and stop entry update (5d3fe7df, partial)
+
+Source: [5d3fe7df8e9a3f15f57353d2451df63d85b0306b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5d3fe7df8e9a3f15f57353d2451df63d85b0306b).
+Parent: 7adc7c8e37f21dc6752cf7e4b185e57e960111ab. Entering an active encounter
+queued its mission/autosave with the logical marker still active. When the
+spawn deadline was due, the same update then advanced the timer and drew spawn
+rolls despite the pending transition. Clear logical activity before the native
+queue call and return after it. Own b709 guard, centered HitTestMap, queue args,
+UI fade and save fields remain unchanged.
+
+Native RED4/16 each -> GREEN16/16 each. Twelve existing inactive/active/outside
+controls remain. Four new normal/wide active-entry cases verify markerfalse
+before processing the actual queued autosave/mission container, preserving
+future deadline100000 and due deadline1000. Real native chapter/save graph/
+StepApp/Draw/queue; no save/mission command is executed or live partial READ.
+These assertions establish entry-state/timer behavior, not an exact RNG-stream
+comparison. Returning early removes the unwanted post-entry update/rolls.
+
+Original named Gold/Steam CRandomSector vtables bind Update and Draw. Draw
+independently identifies logical activity fields90/A8 (different original UI
+layouts); fourteen-byte clear blocks match after only bound field displacement
+and decoded allocator-rel32 masks. Gold native queue is named
+CommandWithAutoSave. The exact20-byte epilogue matches both versions and
+returns before their respective deadline-load branches. Initial direct byte
+signatures failed on genuine layout/cleanup differences; these were decoded
+and bound, not arbitrarily masked. No ABI offsets copied to production.
+
+Fresh Win ALL_BUILD/Linux Game+helpers/serializer, campaign54/54 each and local
+asset-free CI305/305. Exact production diff, original and raw native evidence:
+random-entry-consumption-verification.json in G:/SS/lab/evidence/upstream-remaster-20261024.
+Only this independent hunk is imported. Source5d3 remains PARTIAL for matching
+last-template reset and original chance/minimum-range restoration, pending
+native TDD and original-balance verification. No new tuning/coefficients.
+Ledger169 imported/18partial/56pending=74 unfinished source commits.
+Whole goal/final hosted CI/balance-review delivery remain active.
+
+
+## Clear matching last encounter template on its due update (5d3fe7df, partial)
+
+Source: [5d3fe7df8e9a3f15f57353d2451df63d85b0306b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5d3fe7df8e9a3f15f57353d2451df63d85b0306b).
+Parent: 488ba953fd4d5b760dea97c7b3d1cea5149e65c1. The chapter kept its completed
+random encounter template indefinitely. Clear nCurrentTemplateID only when it
+matches the sector and its update deadline is due. Future and nonmatching
+updates keep the record. Active-entry early return still precedes this branch.
+
+Native RED2/22 each -> GREEN22/22 each. Actual chapter/save graph/StepApp/Draw,
+normal/wide, matching-due clears the real campaign field; matching-future and
+other-template-due controls retain it. All previous sixteen encounter gate/
+consumption controls remain. Timer advances through its existing due path;
+queue, native UI/campaign alias and party XP remain unchanged. No partial live
+READ, fake command predicate or production test seam.
+
+Both original methods compare their sector template with game field30 and
+clear only on equality after the deadline gate. Named chapter vtables bind the
+pure four-byte GetRPGGame getter (both8b413cc3), and original control flow
+supplies zero to the clear store. Original Gold/Steam intermediate timer writes
+of30/300seconds are unconditionally overwritten by their common random timer
+assignment before activity/spawn branching. No retained cooldown is inferred
+or introduced. This proof concerns the bookkeeping branch, not full spawn parity.
+
+Fresh Win ALL_BUILD/Linux Game+helpers/serializer, campaign60/60 each and local
+asset-free CI305/305. Exact tested source diff is only the matching-field reset;
+no scheduling/chance/range/generator/entry/schema/font/HD/animation changes.
+Original, native and raw gate evidence: random-template-reset-verification.json
+under G:/SS/lab/evidence/upstream-remaster-20261024.
+
+Source5d3 remains PARTIAL: marker consumption/return and last-template reset
+are complete; chance rejection and minimum radius still need independent native
+TDD. Read-only Gold+Steam policy audit confirms strict roll>probability rejection
+and inclusive radius32..256; original-only evidence is
+random-spawn-policy-original-audit.json. These original values are verified,
+but no chance/range code has been ported yet. Before that range change also
+check own chapter-info/HD coordinate units. Ledger169 imported/18partial/56pending
+=74 unfinished source commits; whole goal/final hosted CI/balance review active.
+
+
+## Restore original random encounter probability comparison (5d3fe7df, partial)
+
+Source: [5d3fe7df8e9a3f15f57353d2451df63d85b0306b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5d3fe7df8e9a3f15f57353d2451df63d85b0306b).
+Parent: cbd4ebca01ded73680edd324aace971f0d7fc1c2. The dev reversed the rejection
+comparison: probability100 never spawned, while rolls above probability0 did.
+Reject only roll>authored probability, retaining original equality acceptance.
+
+Native compiled RED10/38 each (28controls) -> GREEN38/38 each. Eight seeded
+probability/roll pairs0/0,0/1,50/49,50/50,50/51,99/98,99/99,100/99 across normal/
+wide layouts run actual native chapter/save/StepApp/Draw. Existing public seed
+harness seeds lazy SRand; its constructorGet4 plus timer/roll draws are checked
+with a reference SRand, and every native timer matches exactly. A legal fixed
+sampler point64 authored units away and its actual polygon avoid geometric
+randomness. Accepted native marker centers preserve the own MapOffset adapter.
+All previous22 gate/lifetime/template controls remain. No live partial READ or
+new production test seam; commands are observed/drained without executing saves.
+
+Original Gold/Steam both push bound100, load the typed sector probability and
+use CMP/JG rejection. Their SRand::Get is an exact unmasked43-byte match of the
+32-bit LCG; own generator code is untouched. Native equality cases, including
+probability0/roll0, preserve the original strict boundary. Only one source
+comparator changes. Authored values/weights, existing timer, hundred-attempt
+loop, radius8/256, expiry quarter-chance, save fields, fonts/HD/facial/body remain.
+This restores original behavior; accepted paths naturally consume placement
+draws, so no unchanged full RNG-trace claim is made.
+
+Fresh Win ALL_BUILD/Linux Game+helpers/serializer, campaign76/76 each and local
+asset-free CI305/305. Exact tested source and raw native/original/gate evidence:
+random-chance-verification.json in G:/SS/lab/evidence/upstream-remaster-20261024.
+Own HD audit confirms Chapters geometry bypasses the texture-only HD layer;
+distance uses authored coordinates. Original minimum32/max256 are verified in
+both EXE versions, but minimum-radius code remains unported pending its own TDD.
+Source5d3 stays PARTIAL only for that final radius hunk. Ledger169 imported/
+18partial/56pending=74unfinished; whole goal/final hostedCI/balance review active.
+
+
+## Restore original minimum encounter radius and close source5d3fe7df
+
+Source: [5d3fe7df8e9a3f15f57353d2451df63d85b0306b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5d3fe7df8e9a3f15f57353d2451df63d85b0306b).
+Parent: 5c8b5e877c080f1f625e7d1d5f0561ff51dd0b6a. Only minimum8->32 changes; maximum256 and all data,
+attempts100, probability/generator/timer/entry logic remain unchanged.
+
+Native compiled RED2/46 each (44controls) -> GREEN46/46 each. New actual chapter/
+save/StepApp/Draw cases use legal fixed candidates at Euclidean radius31,32,256,
+257 with probability100/reference roll99. Radius31 was incorrectly accepted;
+32 and256 remain accepted,257 rejected. Both normal and wide layouts validate
+real marker centers, timers and own centered coordinates. Previous38 gate/
+lifecycle/template/chance cases remain controls. No production seam/live partial
+READ, and commands are not executed as saves/missions.
+
+Both original named random-sector methods use an identical unmasked16-byte
+squared-delta/FSQRT sequence, followed by17-byte min/max compare/status/branch
+blocks. Only independently read absolute float operands differ; values are
+32 and256 in both Gold/Steam. The status branches include both boundaries.
+Own ChapterInfoLoader reads serialized Chapters; resource resolution excludes
+that type from the texture-only HD layer. Distance is in authored map units,
+with MapOffset confined to drawing/hit testing. No HD regeneration/scaling.
+
+Fresh Win ALL_BUILD/Linux Game+helpers/serializer, campaign84/84 each and local
+asset-free CI305/305. Exact source bytes/encoding, original/native/raw gates:
+random-radius-verification.json under G:/SS/lab/evidence/upstream-remaster-20261024.
+
+All four applicable one-file source hunks are now complete in separate native
+TDD commits: marker consumption/return488ba953, matching-template resetcbd4ebca,
+strict chance comparison5c8b5e87, and this minimum-radius fix. The source inventory
+links each behavioral proof in random-spawn-source-coverage-verification.json;
+file hashes alone are not completion proof. Scope is the upstream diff's four
+hunks, not every possible random-encounter subsystem behavior. Own b709 guard,
+map adapters, UI/audio/font/HD/body/facial behavior and saved fields remain.
+Ledger170 imported/17partial/56pending=73unfinished source commits.
+Whole upstream goal/final actual hosted CI/balance-review delivery remain active.
+
+
+## `ad118e4a`: предметы при включении физики пересекали пол
+
+Источник: [ad118e4aec1b20a66da1b9c8628fd6a8f39101f2](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/ad118e4aec1b20a66da1b9c8628fd6a8f39101f2).
+
+До production-изменений скомпилированный native RED3/9 на Windows и Linux:
+два случая CASphereSet начинали с центрами сфер на полу и за первые100мс
+уходили ниже него. Третий проходит обычный игровой путь AddFrozenItem ->
+ActivateDebris: книга438 из ресурсов с шестью настоящими модельными сферами
+просыпалась с нижней поверхностью на-.05. Шесть контрольных случаев проходили.
+Физический коллайдер настоящей карты подтвердил восходящую нормаль и расстояния
+в единицах мира, по одному результату на входную сферу.
+
+Перенесены helper ResolveInitialFloorContact и его вызов после установки
+позиции: только !bMassCenter и ePhysCase != PH_GRENADE_ATTACK. Вертикальный
+sweep сверху устраняет начальное пересечение; lastPos синхронизируется для
+интерполяции. Собственные GameRandom(), исходные три ISAAC-вызова, выбор
+PhysParams, массы, инерция, скорости и collision/floor bookkeeping сохранены.
+CParticleSkeleton, мимика, рендер, шрифты и HD не изменялись. Новых полей,
+тегов сохранения или коэффициентов нет; вся остальная production-часть побайтно
+сверена с родителем после удаления только добавленного helper/guard/declaration.
+
+GREEN9/9 на каждой платформе. Книга поднимается ровно на.05; два начальных
+пересечения исправлены, центры после100мс остаются над полом. Пять траекторий
+совпадают с RED побитно по напечатанным round-trip float значениям: два
+исключения гранат, mass-center, предмет выше пола и отсутствие пола. У уже
+касающегося пола предмета разница после100мс менее2e-7 (округление float).
+
+Свежие Win ALL_BUILD и Linux Game+helpers успешны. Дополнительные35 проверок
+физики/гранат/анимации тела/сериализации прошли на каждой платформе. Linux:
+сначала34 прошли, один trace helper был Not Run из-за отсутствующего бинарника;
+его отдельно собрали и проверили1/1, успешные34 повторно не запускались.
+Локальный asset-free CI305/305. Native RED/GREEN, build/exit/raw logs и проверка
+полноты исходных двух файлов: item-floor-verification.json в
+G:/SS/lab/evidence/upstream-remaster-20261024.
+
+Ledger171 imported /17partial /55pending:72 исходных коммита ещё не закрыты.
+Полная задача, окончательный hosted GitHub Actions и итоговая выдача отчёта
+по балансу остаются незавершёнными.
+
+
+## `4949f285`: отмена переноса тела пересоздавала текущее состояние
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+Взята отдельная часть CExecCorpse::Cancel; источник из19 файлов остаётся partial.
+
+До production-изменений native RED2/4 на Windows и Linux. Реальные бойцы
+созданного мира, настоящий RPG Kill/DeathState и публичные Run,
+TimeLabelReached, Cancel воспроизводят обе стороны до/после передачи тела.
+Отмена сбрасывания до передачи заменяла уже существующее carrier-состояние:
+его OnStateFinished вызывал BeDropped, тело теряло обратную связь с бойцом,
+хотя тот оставался ST_CARRY_CORPSE. Отмена поднятия до передачи также без нужды
+заменяла нормальное состояние. Два случая после передачи проходили.
+Это проверка native callbacks; естественное проигрывание полной анимации
+по часам данным fixture не заявляется. Чтение существующего unit state через
+BorrowedObjectFields не меняет живые поля; приватные флаги не подменялись.
+
+Оригинальные named Gold Cancel79ac30/371 и Steam Cancel7a70e0 независимо
+связаны через CExecCorpse RTTI/vtable slot9. Actor secondary interface +14c,
+slot64 указывает на настоящий CUnitServer::GetState; обе реализации проверяют
+RTTI CorpseCarrier и возвращают8. Одинаковые27-byte take и23-byte drop блоки
+пропускают SetState при уже подходящем состоянии. Адрес7a6a50 из upstream
+комментария неверен; заимствование его в новый комментарий не делалось.
+Сверка доказывает именно эти условия. В Gold take-ветвь вызывает CalmCorpse,
+а текущая реализация форка использует BeDropped; этот существующий вызов
+сохранён и находится за пределами данного переноса двух guards.
+
+В production добавлены только два условия с нашим GetState()/ST_CARRY_CORPSE
+и исправлен комментарий. GREEN4/4 на каждой платформе: обратная связь тела,
+режим переноса и идентичность уже подходящего состояния сохраняются; нужные
+переходы после передачи продолжаются. Два post-label контроля имеют прежние
+наблюдаемые результаты. В четырёх случаях сохранены AP34, здоровье, положение,
+смерть тела и завершение executor. Приоритеты команд, привязка/физика тела,
+мимика, поля сохранений, коэффициенты, данные и HD не менялись.
+
+Свежие Win ALL_BUILD/Linux Game+helpers,29 связанных проверок на каждой
+платформе и локальный asset-free CI305/305 успешны. Полнота двух guards,
+остальные неизменённые production bytes и native/raw/build/exit свидетельства:
+corpse-cancel-verification.json и corpse-cancel-retail-oracle.json в
+G:/SS/lab/evidence/upstream-remaster-20261024. Ledger171 imported/18partial/
+54pending:72 незакрытых исходных коммита. Все остальные части4949, полная
+задача и окончательная проверка hosted CI остаются незавершёнными.
+
+
+## `4949f285`: уведомления активности дочерних окон
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+Отдельная часть UIWindow.cpp; смешанный источник остаётся partial.
+
+Сначала compiled native RED4/6 на Windows и Linux. Настоящие CWindow,
+ProcessMessage и SendMessage воспроизводят EAF_ACTIVATENOTIFY/DEACTIVATENOTIFY
+с дополнительным битом10000000. Равенство всего значения не меняло bActive;
+при активации родителя его child/grandchild оставались выключенными, при
+деактивации оставались активными. NOACTIVATE и обычные прямые события проходили.
+Приватные поля и виртуальный рендер для воспроизведения не подменялись.
+
+Два сравнения заменены побитовыми проверками существующих констант. Named Gold
+ProcessMessage71e760/1762 и Steam728ac0 через CWindow RTTI/vtable slot10
+подтверждают фактический EVENT_ACTIVATE01000001, проверку NOACTIVATE,
+bit1/bit2 и запись bActive, плюс notify-значения при отправке потомкам.
+Steam содержит большую Lua-прелюдию; проверен нужный обработчик события,
+идентичность всего тела функции не заявляется. Typed Gold nVal+0c/bActive+10
+и оба декодированных24/25-byte блока проверены отдельно.
+
+GREEN6/6 на каждой платформе. Свежие Win ALL_BUILD/Linux Game+helpers,
+8 проверок реальных меню/диалогов/скриптов/сериализации на каждой платформе,
+локальный asset-free CI311/311. Все шесть новых тестов включены в CI-манифест
+без зависимости от game.db/res. Собственные layout, масштабирование, шрифты,
+рендеринг, поля сохранений и данные побайтно сохранены вне двух операторов.
+Свидетельства: window-activation-verification.json и
+window-activation-retail-oracle.json в G:/SS/lab/evidence/upstream-remaster-20261024.
+
+После независимых Cancel и UIWindow исправлений остальные части4949 требуют
+дальнейшей проверки. Ledger171 imported/18partial/54pending:72 исходных коммита
+ещё не закрыты. Полная задача и окончательный hosted CI остаются активными.
+
+
+## `4949f285`: seed визуальных вариантов снаряжения
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+Перенесён связанный путь Unit -> Mission/Info -> GetItemsBindPlaces.
+Источник остаётся partial; PK backpack bone и другие части проверяются отдельно.
+
+После исправления начальной узкой fixture проверен настоящий authored cap
+(наблюдались персона1030 на Win и1031 на Linux). Native CreateModel независимо
+получает разные geometry/material signatures для существующего публичного
+bindSeed0/3703701. Четыре clock-seed заданы штатным harness-контролем SRand;
+исходная реализация давала7/8 неверных вариантов как для живого unit, так и
+после полного обычного save graph -> NEW CUnit -> CreateUnit. Поля живого
+объекта через partial READ не подменялись. Body-only/no-cap8 queries проходили.
+Первый поиск только backpack-шаблонов с узкими seed не нашёл различий: это
+архивированная ошибка подготовки теста, а не RED движка.
+
+Compiled native RED2/3each -> GREEN3/3each. Получено16/16 ожидаемых вариантов
+на каждой платформе, включая реальную загрузку, плюс8 body-only controls.
+В каждом запросе сохраняются gameplay ISAAC, существующий seed, head object,
+здоровье, uniform и inventory. SRand по умолчанию использует clock/harness
+и Get4 warmup; он не расходует gameplay ISAAC. Проблема касается визуального
+выбора, зависевшего от времени кадра. Сам генератор не менялся.
+
+Оригинал: named Gold Unit getter6b74a0/15 читает typed bindSeed+a8; exact
+unmasked unique Steam getter6bd810. Mission getter6bf6f0/23 -> exact unique
+Steam6c5e80; secondary Info tables8b63cc/8c54e4 slot6c указывают на эти getters.
+Render consumer Gold6195e0/1678 -> Steam61e340 через unique32-byte prologue
+с маской только SEH address; actual10-byte virtual seed call отдельно связан.
+Проверен путь seed, идентичность всей политики выбора моделей не заявляется.
+
+Поле bindSeed и tag27 уже были в нашем форке. Добавлены const getters и
+аргумент SRand(existingSeed). Info getter помещён в конец, чтобы сохранить
+существующие Info slots; производные интерфейсы и потребители пересобраны.
+Новых полей, инициализаций, тегов, коэффициентов или весов нет. Остальные
+production bytes четырёх файлов сверены с родителем; собственные head engine,
+мимика, renderer, API тела, шрифты и HD-данные сохранены.
+
+Свежие Win ALL_BUILD/Linux Game+helpers,100 связанных проверок на каждой
+платформе, включая UpstreamHeadRenderTopology, PK/body/attachment/serializer,
+и локальный asset-free CI311/311 успешны. Свидетельства:
+bind-seed-verification.json и bind-seed-retail-oracle.json в
+G:/SS/lab/evidence/upstream-remaster-20261024. Общая задача и final hosted CI
+остаются незавершёнными; ledger171 imported/18partial/54pending=72 источника.
+
+
+## `4949f285`: невидимый рюкзак панцеркляйна
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+
+До production-изменений compiled native RED1/4 на Windows/Linux. Настоящий
+GetItemsBindPlaces выдавал authored backpack model (проверен независимым
+CreateModel), но bone=BackPack не существует в PK skeleton55: index=-1.
+Slot1 существует, index49, default world-relative point приблизительно
+(0,-.0135035,1.10295). Наш действующий RWGame::AddMesh пропускает mesh при
+отрицательном GetBoneIndex: это ошибка привязки, GPU readback не заявляется.
+Наблюдались authored owners321 на Win/738 на Linux. Human BackPack, body-only
+no-items/no-cap и L_Weapon проходят до исправления.
+
+Из общего case выделен UIT_BACKPACK: для PK возвращается Slot1, для человека
+сохраняется прежний effectors[type]. Initial GREEN4/4 each; затем добавлен
+независимый каталоговый контроль данных, итог GREEN5/5 each. У всех2 применимых
+PK owners текущей базы один skeleton55 и нужный non-root Slot1. Проверка не
+отбирает их по наличию нужного узла и не подменяет скелеты/живые private fields.
+Human/weapon наблюдения идентичны RED; inventory/health/seed/ISAAC сохранены.
+
+Original typed enum UIT_BACKPACK12 -> обе dispatch tables -> boolPK block:
+Gold getter6192b0/268, Steam61e010. Unique31-byte prologue и24-byte conditional
+block маскируют только декодированные, отдельно проверенные pointer operands.
+True string=Slot1, false=effectors[12]=BackPack; unrelated left-hand13 остаётся
+L_Weapon. В production перенесены строки/условие, адреса и ABI не копировались.
+
+Свежие Win ALL_BUILD/Linux Game+helpers,103 связанных теста на каждой
+платформе, включая три предыдущих NativeBindPlacesSeed и наш head topology,
+PK/body/attachment/network, плюс локальный asset-free CI311/311 успешны.
+Остальные production bytes InventoryUnit.cpp, прежний seed fix, коэффициенты,
+поля сохранений, собственный renderer/body/head engine, шрифты и HD сохранены.
+Свидетельства: backpack-bone-verification.json/backpack-bone-retail-oracle.json
+в G:/SS/lab/evidence/upstream-remaster-20261024.
+
+Обе части source InventoryUnit.cpp теперь завершены отдельными TDD commits:
+seed=f33b7198, backpack bone=текущий фикс. Весь19-file source4949 остаётся
+partial; общий ledger171imported/18partial/54pending=72 незакрытых источника.
+Полная задача и окончательный actual hosted CI остаются активными.
+
+
+## `4949f285`: очистка слабых ссылок скрипта
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+
+До изменения production-кода compiled native RED: 3/4 проверки падают на
+Windows и Linux. Настоящий CScript::AddMiscObject оставляет две записи после
+удаления первого объекта и вставки живого вместо одной, одну null-запись вместо
+нуля и 1025 записей после 1024 завершённых объектов вместо одной. Контроль
+живых CUICmdPlaySound/CUICmdPlayEffect проходит до исправления: порядок,
+дубликаты и particle handle сохранены, слабые ссылки не приобретают владение.
+Список наблюдается через существующий tag4, чтением в новый weak-list observer;
+живой CScript через serializer не изменяется.
+
+Добавлен EraseInvalidRefs после push_back и исправлен неверный комментарий
+о владении. Тип list<CPtr<CObjectBase>>, теги и реальные владельцы звука и
+эффектов не менялись. Финальный GREEN4/4 на обеих платформах, включая очистку
+при null-вставке и сохранение независимо принадлежащего объекта после удаления
+скрипта. Других изменений production-кода в этом исправлении нет.
+
+Original Gold: PDB named NScript::CScript::AddMiscObject413020/203 -> Steam4138f0,
+unique full203-byte signature с масками только decoded SEH address и четырёх
+rel32 call operands. Exact30-byte validity/unlink block Gold4130a0/Steam413970
+проверяет null/invalid bit; цикл освобождает слабые ссылки и узлы списка.
+Это проверка очистки контейнера, без переноса адресов или ABI в наш код.
+
+Свежие Win ALL_BUILD/Linux Game+helpers,37 связанных проверок на каждой
+платформе (Lua, serializer, реальные script sound/effect paths), локальный
+asset-free CI315/315, включая все четыре новые проверки, успешны.
+Свидетельства: script-misc-red-verification.json, script-misc-verification.json,
+script-misc-retail-oracle.json и raw logs в
+G:/SS/lab/evidence/upstream-remaster-20261024. Два существующих дерева сборки,
+без старых копий Game и генерации HD. Игровые данные и баланс не менялись.
+Обе части A5Script.cpp/.h этого источника завершены; весь смешанный19-file
+коммит остаётся partial. Полная задача и окончательный hosted CI ещё в работе.
+
+
+## `4949f285`: зависание публичного запроса вокселя видимости
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+
+До production-изменения compiled native RED2/2 на Windows и Linux: оба теста
+дошли до публичного GetVision (есть flushed marker) и превысили15s timeout.
+Первый использует настоящий зарегистрированный default tracker с пустой сеткой,
+проверяет coordinate round-trip и запрашивает(-1,0,0). Второй создаёт настоящий
+FixtureWorld и независимо растеризует native AI geometry: voxel(32,32,20) SOLID2,
+после чего вызывает публичный getter штатного RPG tracker. Причина: GetVision
+после FlushCubeCache снова вызывает GetVision, образуя бесконечную рекурсию.
+
+Первые попытки подготовки тестов не считаются RED: недопустимый null-map ctor,
+неподходящий building-owner lookup и неверная Linux resource variable исправлены
+в тестах до подтверждённого падения. Их raw logs сохранены отдельно как
+vision-voxel-initial-setup-*; production-код в этот период не менялся.
+
+Исправлена только цель вызова: GetVisionCached. GREEN2/2 на обеих платформах:
+шесть граничных координат пустой сетки возвращают NONE, реальная геометрия
+возвращает SOLID, переход к отсутствующему кубу и обратно сохраняет результат.
+Наш CAIViewer::ShowVisionCache использует этот публичный accessor. Диапазон/FOV,
+правила лучей, трава, environment, кеширование perception и баланс не менялись.
+
+Original Gold: PDB named CVisionTracker::GetVision6c3cc0/169 -> Steam6ca510,
+unique169-byte match с масками только двух decoded rel32 calls. Actual FetchCube
+call связан с PDB Gold6c2630/166 и Steam6c8f80 по exact unique32-byte prefix.
+Оба оригинала сбрасывают выбор куба, читают куб по координатам и классифицируют
+NONE0/SOLID2/TRANSPARENT1; самовызова нет. Адреса/ABI в production не переносились.
+
+Свежие Windows ALL_BUILD/Linux Game+UpstreamBugTests успешны. Связанные проверки
+8/8 Windows (включая native vision/voxel wire controls),6/6 Linux; предыдущие
+четыре script misc проверки входят в оба набора. Локальный asset-free CI316/316
+включает новый boundary test. Данные game.db, save tags, HD и собственные движки
+не менялись. Свидетельства: vision-voxel-red-verification.json,
+vision-voxel-retail-oracle.json, vision-voxel-verification.json и raw logs в
+G:/SS/lab/evidence/upstream-remaster-20261024. Это только GetVision hunk:
+остальные RPGVision hunks и весь смешанный19-file source остаются незавершёнными.
+Общая задача и окончательный hosted CI остаются в работе.
+
+
+## `4949f285`: кеш повторных точечных запросов видимости
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+
+До production compiled native RED3/3 на Windows/Linux. Настоящий tracker
+успешно проверяет видимость, но существующий pointVisionCache/tag6 остаётся
+пустым после1 и15000 различных принятых запросов. В реальном authored map4517
+door439 блокирует луч закрытой и пропускает открытой, однако blocked result
+тоже не сохраняется. Первая попытка выбрать такой луч на map810 не нашла
+подходящей двери; это отдельно сохранённый setup failure, не geometry RED.
+
+Добавлены lookup/early return, сохранение результата существующего IsVisible
+и оригинальная очистка при size>15000. Ключ использует from/target/effective
+range/cosFOV. Проверки FOV/range остаются перед lookup; сами формулы, лучи,
+трава, environment и настройки баланса не менялись. Поля, tag6 и32-byte
+portable SVisionQuery codec уже существовали. Исправлены два устаревших комментария.
+
+Initial GREEN3/3 на обеих платформах: повторные запросы и rejected FOV/range,
+разные ключи, предел15000/15001 с очисткой перед следующей вставкой, изменённый
+и неизменный capped multiplier. Реальная дверь closed/open/closed очищает кеш
+и даёт false/true/false; public open/lock state восстанавливается. Затем добавлен
+контроль полного ordinary save -> NEW native tracker с заполненным кешем и
+независимым сбросом; он повторно исполнен в финальных проверках на обеих системах.
+Кеш наблюдается read-only через существующий tag6 в новый observer, без READ
+в живой объект. Ускорение FPS и полная LAN-сессия этим тестом не измеряются.
+
+Original Gold: PDB IsPointVisible6c2e80/198 -> Steam6c97d0, unique198-byte match
+с масками только пяти decoded rel32 calls. Typed pointVisionCache+50/count+60,
+lookup early return до IsVisible и strict15000 clear/store branch подтверждены
+в обоих оригиналах. Это аудит кеша, не идентичности всей perception реализации.
+
+Свежие Win ALL_BUILD/Linux Game+UpstreamBugTests,16 связанных проверок Windows
+и14 Linux (новые случаи, предыдущие voxel/script регрессии, authored door flags,
+полный world save, AI sighting, Windows wire controls) успешны. Локальный
+asset-free CI318/318 включает оба новых CPU случая. Точный scope production:
+только кеш в RPGVision.cpp и два комментария; прежний public GetVision фикс,
+собственные save/network/render/facial/body/fonts/HD сохранены, game.db не менялся.
+Существующий сетевой путь сериализации и64MB transport limit просмотрены;
+новых полей, wire-формата и networking edits нет. Использованы два прежних
+дерева сборки, без старых Game copies и генерации HD.
+
+Свидетельства: point-vision-red-verification.json, point-vision-retail-oracle.json,
+point-vision-verification.json и raw logs в
+G:/SS/lab/evidence/upstream-remaster-20261024. В source RPGVision остаётся
+отдельный TraverseLine destination-voxel hunk, требующий аудита оригинальной
+видимости/баланса. Смешанный19-file source и общая задача остаются незавершёнными.
+
+Дополнительная сверка исходных hunks: RPGToHit.cpp/.h уже реализуют weather
+часть этого источника в нашем b8e4e254aeacd344ae7edc619a8b11a03dfcd5f2:
+SUNNY0 ->0, SNOW1/RAIN2 ->5.0, с собственным null-world guard. Header уже
+описывает восстановленные weather/aura и caller-supplied night. Повторного
+production-переноса этих двух файлов не требуется. Это статическая сверка
+исходных hunks, не новая runtime-проверка weather/aura/всех night callers;
+collateral-weather-already-present.json фиксирует scope и текущие хеши.
+
+
+## `4949f285`: исходное правило конечного вокселя видимости
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+
+До production compiled native RED6/7 на Windows и Linux. На настоящем map810
+отдельный native CVisionVoxelRenderer находит SOLID/NONE границы; публичные
+GetVision/GetCenter/GetCoord штатного RPG tracker подтверждают клетки и центры.
+Шесть соседних NONE->SOLID лучей по X/Y/Z в обоих направлениях возвращают false,
+хотя оригинал исключает конечную клетку из occlusion. Препятствие внутри луча,
+твёрдая начальная клетка и zero-length контроль проходят до исправления;
+седьмой case также сохраняет исходные FOV и strict equal-range gates.
+Искусственных voxels, записей в private fields и правок DB нет.
+
+В TraverseLine for(;;)/поздняя проверка конца заменены на while(cur[major]!=end)
+с return true после цикла. Остальные production bytes совпадают с родителем:
+формулы дистанции/FOV, transparency budget, rasterization, трава, environment,
+RNG, поля, теги, данные и предыдущие GetVision/pointCache фиксы сохранены.
+GREEN7/7 на обеих платформах: все шесть конечных точек видимы, start/interior
+по-прежнему блокируют, zero-length/FOV/range результаты неизменны.
+
+Original Gold PDB TraverseLine6c26e0/659 -> Steam6c9030: unique whole659-byte
+match с масками только четырёх decoded rel32 calls. Actual ReleaseRef и три
+FetchCube targets отдельно проверены. Gold initial cmp6c2792/equal branch6c2798
+возвращает true6c295b до voxel lookup6c27c0; tailcmp6c2953 повторяет цикл только
+при неравенстве endpoint. Аналогичные unmasked blocks/branches подтверждены
+в Steam. В production восстановлено правило обоих оригиналов; адреса/ABI
+и новые коэффициенты баланса не переносились. Практический эффект записан в
+UPSTREAM-BALANCE-CHANGES.md в разделе восстановлений оригинального поведения.
+
+Свежие Win ALL_BUILD/Linux Game+UpstreamBugTests,23 связанных проверки Windows
+и21 Linux (предыдущие pointCache/save, voxel/script, authored door flags/world
+save, active hull lookup, AI sighting и Windows wire controls) успешны.
+Локальный asset-free CI318/318 сохранён. Семь новых ресурсных тестов исполнялись
+локально на обеих платформах и помечены extended; в318 они не включаются.
+Два прежних дерева сборки, без старых копий Game и без генерации HD.
+Свидетельства: vision-destination-red-verification.json,
+vision-destination-retail-oracle.json, vision-destination-verification.json,
+tiny original bin/asm и raw logs в G:/SS/lab/evidence/upstream-remaster-20261024.
+
+Теперь все source hunks RPGVision.cpp учтены: public GetVision=1ad15e11,
+point cache=db072e98, конечная клетка=текущий независимый фикс, связанные
+комментарии обновлены с кешем. Весь смешанный19-file source остаётся partial;
+остальные UI/world/animation/carrier части и общий final hosted CI ещё в работе.
+
+
+## `4949f285`: подсказки выбора стороны и сложности
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+
+До production compiled native RED6/9 на Windows/Linux. Настоящее CICSideMenu,
+нативный кадр и реальные кнопки показывают: у Axis/Allies/Next/Easy/Normal/Hard
+нет прикреплённого CToolTip, хотя соответствующие локализованные DB descriptions
+непусты. Существующая Back19250, собственные SelectedStyle17338/HiRes markup
+и передача фактического difficulty record в реальное hero menu проходят до фикса.
+Normal/hover подписи и font markup проверены также до assertion missing tooltip.
+
+В private AddScriptButton передаётся nToolTip; подключены Axis19254,Allies19253,
+Next19249,Easy19246,Normal19247,Hard19248 через существующий CButtonsLine.
+Back19250 сохранён. Реальный CToolTip/CText содержит ровно нужный GetDBString;
+текст наблюдается read-only через tag2 в новый observer, без READ в живую UI.
+GREEN9/9 на обеих платформах, включая прежние style/difficulty controls.
+Показ popup через GPU readback этим тестом не заявляется; проверены attachment,
+локализованный текст и настоящие кадры меню/переходы выбора сложности.
+
+В нашем форке уже исправлен selected style17338 перед скобками и используется
+собственный HiRes font path. Эти байты, normal/hover/disabled captions, размеры,
+layout, enum/difficulty mapping, коэффициенты, поля/теги и данные не менялись.
+Из исходного patch перенесены только metadata подсказок, без возврата старого
+caption style11129. Уровни сложности и игровой баланс сохраняются.
+
+Original Gold: PDB ProcessMessage637910/4750, семь decoded tooltip immediates
+перед typed AddScriptHoverButton5c3a10/230 или AddHoverButton5c37f0/283, затем
+assignment return value в PDB named member: Axis88,Allies8c,Next84,Easy90,
+Normal98,Hard94,Back80. Проверка оригинала ограничена этими Gold callsites;
+полный блок в Steam не сопоставлен, произвольные masks не добавлялись и
+эквивалентность Steam/всего4750-byte method/font policy не заявляется.
+
+Свежие Win ALL_BUILD/Linux Game+UpstreamBugTests,21 связанных проверок на
+каждой платформе (девять menu cases, window activation/tree, Lua/window bridge,
+serializer) и локальный asset-free CI318/318 успешны. Семь новых ресурсных
+native-display tests помечены extended и исполнялись локально Windows D3D11 /
+Linux Xvfb; в318 они не включены. Own NativeDisplayContext/Xvfb завершены,
+два прежних дерева сборки, без старых Game copies и генерации HD.
+Свидетельства: side-tooltips-red-verification.json, side-tooltips-verification.json,
+side-tooltips-retail-oracle.json и raw logs в
+G:/SS/lab/evidence/upstream-remaster-20261024. Все source hunks iSideMenu.cpp
+завершены. Смешанный19-file source и общая задача/final hosted CI ещё в работе.
+
+
+## `4949f285`: выключенное слежение не блокирует камеру
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+
+Наш CMissionBase::GetCamera уже учитывает ui_followcamera при выборе активной
+камеры. Пропущен фильтр CMissionUI перед созданием обработчика: обычная очередь
+всё равно создаёт Unit/Explosion camera executor, который вызывает SetLock(true)
+на выбранной камере. Это может запрещать прокрутку при выключенном слежении.
+
+До production compiled native RED2/5 Windows/Linux. Настоящие CMissionUI,
+CMission::ExecWorldCommands/ExecWorldCommonCommand и исполнители создают
+обработчик при registered follow=false; реальный CCamera::ScrollAnchor не двигает
+anchor. В тестовой CMission выбранная камера предоставлена fixture getter;
+полный MissionBase selector этим CPU тестом не заменяется и не проверяется.
+Контроли до фикса проходят: follow=true блокирует прокрутку до Finished,
+script move при follow=false интерполирует1000/1500/2000, достигает final pose
+и выдаёт ровно один completion event; посторонний TutorialMode не теряется.
+Ни сцена, ни Game DB для этих пяти случаев не требуются.
+
+Добавлен override существующего CDesktopWindow::IsValidCommand: ScriptMoveCamera
+разрешён независимо от follow, остальные CameraLocator отклоняются при follow=0,
+прочие UI-команды проходят. Include wUICommands и declaration завершают coupled
+двухфайловый фикс. GREEN5/5 на обеих системах: disabled auto больше не создаёт
+executor и native immediate scroll работает. В собственные selector/motion/
+clock/priority/slow-motion параметры, fields/tags, facial/body/font/HD код и
+RPG коэффициенты изменения не вносились. Перенесена исходная admission policy.
+
+Original Gold PDB IsValidCommand60b2f0/94 -> Steam RTTI CMissionUI slot20=60fd90.
+Exact94-byte policy match маскирует только проверенные RTTI descriptors/rel32
+casts, mission-member operand (Goldcc/Steame4 из serializer tag2) и getter-vslot
+operand (Goldc8/Steamcc из CMissionBase vtable). Getter59fa70/5a2350 читает bool,
+связанный с ui_followcamera регистрацией; Gold named bool96a8ec. Все branches и
+true/false опкоды сохранены. Source comment60fb60 не является этим Steam filter:
+там identity-cast thunk. Адреса и ABI в C++ не переносились.
+
+Свежие Win ALL_BUILD/Linux Game+UpstreamBugTests,34 связанных проверки на
+каждой платформе успешны: пять новых CPU cases, три cinematic filters,
+24 настоящих world-camera locator/lock сценария (Lua wait/clock/priority,
+follow-off script paths, lock state), movement-camera producer и serializer.
+Локальный asset-free CI323/323 включает все пять новых случаев. Существующие
+ресурсные camera cases исполнены через hidden native context/Windows и Xvfb/Linux;
+own процессы завершены. Два прежних build trees, без старых Game copies/HD gen,
+постоянный game.db не менялся. Свидетельства:
+follow-camera-policy-red-verification.json, follow-camera-filter-retail-oracle.json,
+follow-camera-policy-verification.json и raw logs в
+G:/SS/lab/evidence/upstream-remaster-20261024. Части источника в iMissionUI.cpp/.h
+завершены; ещё пять файлов смешанного19-file source и общая задача остаются
+в работе. Окончательный hosted CI необходим отдельно на финальном HEAD.
+
+## `4949f285`: отсутствующий аниматор носильщика
+
+Источник: [4949f285477d5fb089d45523f63c85b89a6eb03e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e).
+
+CUnitAnimator::BeTaken без проверки разыменовывал pTaker и заранее выставлял
+bIsCarried. Это защитное восстановление nullable контракта низкоуровневого API:
+все три текущих штатных вызова передают аниматор, поэтому воспроизведение вылета
+через обычную пользовательскую операцию здесь не заявляется. Это анимация тела
+при переносе, без изменений собственного движка лицевой анимации.
+
+До production compiled native RED3/4 Windows/Linux: настоящие мёртвое тело,
+носильщик и CUnitAnimator падают при null taker с carrier/без carrier и при уже
+переносимом теле. Контроль обычного переноса с настоящим аниматором проходит
+до исправления. Теперь carrier reference обновляется перед ранним выходом,
+но флаг carried и активный native dynamics clip сохраняются. В nonnull контроле
+по-прежнему выставляется carried=true и добавляется dynamics transition.
+Read-only graph observer находит настоящую CASequence; нет частичного READ
+в живые объекты. Дополнительно проверены прежние head object identities обеих
+единиц, здоровье/AP, состояние смерти и позиции; полный facial render не заявлен.
+
+Original Gold PDB BeTaken731ac0/257: typed pCarrier98/pTime88/pAnimator8c/
+bIsCarried67. Unique86-byte prefix -> Steam73c800 с единственным mask decoded
+ReleaseRef rel32 operand; независимый25-byte time/null block совпадает точно
+в Steam73c83d. В обеих версиях null branch ведёт к общему epilogue до первого
+разыменования taker и записи carried=true. Это не whole257-byte proof и не
+проверка эквивалентности Steam ReleaseRef body. Source comment73c4e7 в нашем
+Steam image не указывает на этот метод; адреса/ABI в production не копировались.
+
+GREEN4/4 each, свежие Win ALL_BUILD/Linux Game+UpstreamBugTests, связанные
+40 Windows/39 Linux и asset-free CI323/323 успешны. Related включает предыдущие
+Cancel guards, реальные deferred take/drop, carried stability/backpack,
+head/body damage, ragdoll/animation reseat, native animation path и serializer.
+Четыре новых ресурсных случая extended исполнялись локально, в323 не входят.
+Баланс, стоимость команд, RNG, fields/tags, facial/font/HD код не менялись.
+Два прежних дерева сборки, без старых Game copies и генерации HD.
+Свидетельства corpse-null-taker-red-verification.json,
+corpse-null-taker-retail-oracle.json, corpse-null-taker-verification.json и raw
+logs: G:/SS/lab/evidence/upstream-remaster-20261024.
+Все source hunks wAnimation.cpp завершены. Смешанный source ещё PARTIAL:
+iLogPanel.cpp, wMain.cpp, wOSBase.cpp, wUnitStates.cpp. Общая задача не завершена.
+
+## `4949f285`: звук текущей стадии разрушения
+
+Звуковой обход CObjectServerBase теперь читает текущую RPG-стадию напрямую.
+Ранее он зависел от кэша, который обновляют render/AI visitors: между сменой
+стадии и следующим таким обходом звучала прежняя запись. Production diff —
+одна замена индекса; часы звука/effect и ProcessAttack — отдельные остатки.
+
+Compiled native RED2/4 на Windows/Linux: обе смены 0->1 и 1->0 выдают прежний
+эффект. Контроли render-first и неизменённой стадии проходят до исправления.
+GREEN4/4 each; настоящий authored CRndObject831 создан в FixtureWorld вместе
+с обычным NRPG::IObject. Здоровье, положение и RPG-стадия обходом не меняются.
+Начальные ошибки прежнего fixture (нет объекта на карте/несовместимый include)
+не считались RED. Оригинальный Gold PDB AddObject779690/385: вызов RPG virtual+4
+перед индексом модели; unique exact36byte block -> Steam785259. Отдельные
+exact16/24byte blocks обеих временных меток сохранены для следующего исправления.
+
+Свежие полные Windows/Linux Game builds,33 связанных теста на каждой системе
+(включая16 native-display), локальный asset-free CI323/323 проходят. Первый
+Linux related запуск без дисплея невалиден для графических проверок и сохранён
+отдельно; повторный Xvfb/openbox запуск успешен. Два прежних buildtrees;
+HD/шрифты/мимика/баланс/RNG/схема сохранений не менялись. Свидетельства:
+object-sound-stage-red-verification.json, object-sound-stage-retail-oracle.json,
+object-sound-stage-verification.json и raw logs в lab/evidence/upstream-remaster-20261024.
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.
+Общий перенос не завершён.
+
+## `4949f285`: возраст звуков стадии разрушения
+
+Постоянный 3D звук и sound effect получают сохранённое tStageChange вместо 0
+и текущего world time. Наш RWSound уже считает возраст относительно aimtime
+(max(0,now-start-50)); событие должно иметь ту же эпоху. Native audio backend
+и собственный таймер сохранены.
+
+Compiled native RED4/4 Windows/Linux: permanent sound CRndObject563 получает 0
+вместо 1375, effect831 — 9000 вместо 1375. Каждый проверен также после повторного
+SetDestroyStage с прежним значением. GREEN4/4 each: оба вида хранят начало 1375,
+stage age остаётся 125. Посетитель удерживает созданные position nodes.
+Original Gold PDB tStageChange4c: unique exact16byte push block779757 ->
+Steam7852d7, отдельный exact24byte effect block7797c5 ->785345, без масок.
+
+Полные Game builds обеих систем, related45/45 each (в том числе прежние
+age/loop/channel и16 native-display), локальный asset-free CI323/323 проходят.
+Новые4 ресурсных extended случая не входят в323. Только два аргумента времени
+и удаление локальной переменной; баланс/RNG/шрифты/HD/мимика/DB/wire сохранены.
+Свидетельства object-sound-clock-red-verification.json,
+object-sound-clock-verification.json и object-sound-stage-retail-oracle.json.
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.
+ProcessAttack, carrier admission, log markup и world skip ещё требуют разбора.
+
+## `4949f285`: мир разрушаемого объекта
+
+ProcessAttack записывает tStageChange и получает lag10 action counter через
+собственный pWorld вместо глобального pCurrentWorld. Compiled native RED2/4
+на обеих системах: без контекста SEGFAULT (Linux GDB подтверждает ProcessAttack);
+при чужом контексте age=-8499,ownerLag0/foreignLag10. Контроли собственного
+контекста и удара без смены стадии проходят до исправления. GREEN4/4 each:
+реальные authored/RPG объекты, stage1,age125,ownerLag10/foreignLag0; damage
+равен фактической разнице HP. DB iteration выбирает разные записи/HP на Windows
+и Linux (3->1 и1050->262), поэтому фиксированная HP величина не утверждается.
+Контроль неизменённой стадии сохраняет HP,age1500,lag0. Публичный
+ActionTrackerChunk используется только для наблюдения, контекст восстанавливает
+RAII. Гранаты исключены из fixture.
+
+Original Gold PDB ProcessAttack77a030/460, IAttackable this+8: world40/base48,
+timestamp44/base4c; unique exact31byte block77a0df -> Steam785c5f читает member
+world, получает aimtime через slot14 и action tracker/lag10 через d0/4. Нет масок
+или утверждения эквивалентности всего метода. Уточнён комментарий
+GetTimeSinceLastStageChange об aimtime; формула сохранена.
+
+Полные Game builds,related49/49 each и CI323/323 успешны. Свидетельства:
+object-attack-world-red-verification.json,object-attack-world-retail-oracle.json,
+object-attack-world-verification.json и raw logs. Первая попытка patch остановилась
+на assertion (совпадал закомментированный код), production не менялся; ошибочно
+помеченные green логи сохранены как unapplied-fix. Итоговый GREEN относится к
+применённому diff. Баланс/RNG/DB/HD/шрифты/мимика/wire сохранены.
+Все hunks wOSBase.cpp завершены; остаются iLogPanel.cpp,wMain.cpp,wUnitStates.cpp.
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.
+
+## `4949f285`: разрешённые команды носильщика
+
+Добавлены UsePassage,Teleport,PlayAnimation,Talk в allow-list состояния переноса
+тела. NotHeroWantsToTalk направляется в тот же существующий native factory
+(прежде отдельная ветка создавала эквивалентный executor). Сохраняются собственные
+валидация, очереди, коды результата и анимация тела/лиц, а не копируется ABI.
+Original Gold7bdf40/679 и Steam7c9630 найдены через RTTI primary table slot4.
+Exact240byte block содержит8typed RTTI casts и общий success join; маскированы
+только16 проверенных RTTI immediates и8 decoded cast rel32. Оригинал зовёт
+CUnitState::CreateExecutor wrapper7bd6d0; в нашем дереве base абстрактный,
+использован уже существующий NWorld::CreateExecutor.
+
+Native RED4/8 each: passage/talk получают UNAVAILABLE до штатной target validation;
+teleport/custom animation не получают executor. Path/Look/NotHero и Hide-ban
+контроли проходят до фикса. GREEN8/8 each: настоящий pickup/label handoff,
+совпадение executor type/result с native factory; teleport в ту же точку и
+script4437 выполняются/завершаются с сохранением carrying state и attachment.
+Проверены AP/HP/позиция/death и отдельные facial-head object identities обеих
+единиц; полноценный facial render не заявлен. Passage/Talk случаи проверяют
+именно forwarding до штатного отказа target validation, не успешный переход
+между зонами/полный диалог. Их существующие обработчики не менялись.
+
+Полные Game builds,related48 Windows/47 Linux и CI323/323 успешны. Новые8
+ресурсных extended случаев вне323. Два прежних дерева,без HD generation.
+Файл wUnitStates.cpp исходно LF/CP1251, сохранён; остальные изменённые sources
+CRLF. Первая guarded patch попытка предполагала CRLF и прервалась без записи;
+неприменённый Linux green запуск сохранён отдельно. Свидетельства
+carrier-admission-red-verification.json,carrier-admission-retail-oracle.json,
+carrier-admission-verification.json. Все hunks wUnitStates.cpp завершены;
+остаются iLogPanel.cpp,wMain.cpp.
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.
+
+## `4949f285`: локализованное оформление журнала без замены нашего шрифта
+
+В CLogPanel AddToHead восстановлены цвета и обводка из GetDBString20952.
+Upstream CourierBold17pt не переносится: сохраняем прежний Impact20pt нашего
+форка. Его face/size добавлены последними атрибутами в том же font tag: второй
+font tag в настоящем CML сбрасывает outline. При отсутствии font tag остаётся
+прежний font fallback. Font engine, atlas data и размеры glyphs не меняются.
+
+Compiled RED3/3 Windows/Linux на настоящем CTextDraw->CML: цвет/обводка отсутствуют,
+при этом прежняя font texture и размеры букв подтверждены. GREEN3/3 each:
+foregroundEAC78B/outline513E2B, одна строка, ротация9 из12 событий, масштаб100/200%.
+Все реальные texture pointers совпадают с прежним Impact20; размеры foreground
+quads равны native reference с прежней font markup. Текущий resolved packaged
+font имеет IsVector=false; проверка не заявляет новый vectorfont или GPU readback.
+Сохранены десять ring slots/новые строки age0/newest-first порядок/кириллица.
+Начальный тест через другой GText formatter и ошибка private constant отдельно
+архивированы; подтверждённый RED относится только к финальному CML test.
+
+Original Gold PDB AddToHead5eee60/167: ID20952 -> GetDBString712200 -> concat ->
+CTextDraw SetText71f8b0. Unique exact19byte format/flags block5eeea0 ->Steam5f2fb3,
+без масок/wholemethod claim. Свидетельства localized-log-red-verification.json,
+localized-log-retail-oracle.json,localized-log-verification.json и raw logs.
+Полные Game builds,related6Win/5Linux и CI323/323 успешны. Первоначальный Linux
+final script запросил Windows-only NativeFontWireTests; исправлен на PortableFontWireTests,
+весь related набор повторён. Новые3 resource extended случая вне323.
+Все iLogPanel source hunks учтены адаптацией; в4949f285 остаётся wMain.cpp.
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.
+
+## `4949f285`: бюджет пропуска невидимых действий
+
+SP CWorld::UpdateWorld вместо пяти дополнительных скрытых шагов использует
+сумму измеренной работы сегментов <0.03f. Сохранён собственный monotonic
+stdchrono NHPTimer и50ms simulation step. LAN arena/replica early return и
+AdvanceNetworkSegment не менялись. Это восстановление pacing policy оригинала,
+не перенос старой TSC calibration/ABI.
+
+Compiled native RED1/4 each: реальный world/owned turn/held skippable counter,
+наблюдатель без бойцов не видит/не слышит действие; CEventOnSegment откладывает
+один шаг на50ms. Старый код выполняет6 сегментов/world+300ms/aim+50ms вопреки
+бюджету. Owner-viewer/null-viewer и оба LAN flag guard контроля проходят.
+GREEN4/4 each: первый вызов1 сегмент/world+50/aim+50, следующий вызов ещё1,
+проверяя reset бюджета. Delay — только в тестовом subscriber, в production
+нет ни sleep, ни clock injection. Случай fast>5 отдельно runtime не заявлен.
+Original Gold PDB UpdateWorld7610e0/546: HPTimerGetTime7c7ae0/GetTimePassed7c7af0,
+unique21byte fadds/fsts/fcomps/branch block761217 ->Steam76cc47; mask только
+absolute адрес float constant, обе памяти0.03f. Полный ABI/wholemethod не заявлен.
+
+Полные Game builds,related13/13 each (turn/sequence/periodic clock/serialization),
+локальный CI323/323 успешны. Новые4 resource extended случая вне323.
+Начальная probe default-constructor build ошибка не считалась RED. Свидетельства
+hidden-skip-budget-red-verification.json,hidden-skip-budget-retail-oracle.json,
+hidden-skip-budget-verification.json и raw logs. Влияние pacing записано в
+UPSTREAM-BALANCE-CHANGES.md. Все wMain source hunks завершены.
+
+Все19 файлов mixed source4949f285 теперь учтены: независимые native-TDD переносы
+предыдущих checkpoint плюс текущие stage/audio/ownerworld/carrier/log/pacing.
+Собственные fonts/facial/audio/renderer/LAN реализации сохранены, log font часть
+адаптирована с прежним Impact20. Weather penalty sourcehunks ранее already-present
+в b8e4e254, без повторной правки. Закрытие этого source не завершает общий аудит:
+ещё54 pending и17 partially-imported исходных коммитов.
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4949f285477d5fb089d45523f63c85b89a6eb03e.
+
+## `5780c0be`: ранние кадры анимации метательного ножа
+
+CKnifeAnimator::GetFrame при t<tStart обнуляет возраст и переносит начало
+отсчёта на t. Unsigned underflow прежде уносил координаты на миллионы единиц.
+Это только projectile animator: параметры броска/попадания/дальности, constructor,
+quaternion, RNG и отдельный движок лиц не менялись.
+
+Compiled native RED2/4 Windows/Linux: настоящий authored knife/model/server,
+опубликованный skeleton и фактический registered animator0x10661181.
+Future-start firstsample и rollback100ms дают huge pose, обычный forward
+и exactstart контроли проходят. GREEN4/4 each: origin, новый persisted epoch,
+прежние origin/velocity/quaternion и дальнейшее250ms движение. Полное save/load
+в новый native animator воспроизводит движение; read-only tags2..5 observer,
+без partial READ в живые объекты. Projectile освобождает action counter.
+Проверяется публичный GetFrame опубликованной анимации; конкретный игровой
+сценарий rollback/future-start firstsample отдельно не заявлен.
+
+Original Gold PDB GetFrame754b90/164, typed tStart14/start18/vel24/qRot30:
+unique exact24byte prefix ->Steam760510 содержит unsigned guard/zero age/write
+new epoch. Без масок/wholemethod claim. Полные Game builds, related11Win/10Linux
+(knife handoff/feedback/orientation, animation paths/wire), CI323/323 успешны.
+Новые4 resource extended случая вне323. Свидетельства knife-time-rebase-red-verification.json,
+knife-time-rebase-retail-oracle.json,knife-time-rebase-verification.json и raw logs.
+Source5780c0be остаётся PARTIAL: остальные hunks wKnife и10 файлов не завершены.
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027.
+
+## `5780c0be`: команда броска в бойца и выбранная часть тела
+
+Unit-target AT_THROW теперь создаёт CExecThrowKnife(actor,eHL,target) через
+существующий CreateActionQueue/ITEM_ACTIVE. В GetActionValidPlaces добавлено
+то же GetDirectedPoints, которым пользуется наша очередь поворота. HL_ANY
+в конструкторе передаётся native hull query без замены на BODY. Бросок в точку
+и targetless order-bar запрос сохраняют прежние tile paths.
+
+Native RED3/5 each: ANY/head/body команды теряют unit target/eHL и имеют неверный
+aim point. Все три цели сначала проходят существующую native eligibility;
+point/targetless контроли проходят до фикса. GREEN5/5 each: реальные nearby
+standing actors, экипированный authored item, native factory/queue. Сохранены
+target/HL/точная native aim point; facing path остаётся на том же XY/layer и
+поворачивается к цели. Полный READ в новый executor сохраняет fields2/3/5,
+AP/HP/позиции/количество предметов dry preview не меняет. Read-only graph
+наблюдатель обходит только очереди; нет partial READ в живые объекты.
+
+Original Gold PDB unit constructor79ba90/201 ->Steam7a7f40: unique175byte body
+mask только2 decoded vtable operands, проверенные COL/RTTI CCommandExecute и
+CExecThrowKnife. Named factory792190/5657 вызывает его в792705, передавая
+typed command eHL10 и target;17byte caller block сопоставлен с независимо
+определённым Steam ctor. Stored eHL30 идёт в native aim query без ANY remap.
+Числовые ABI/enum значения не копировались. Свидетельства knife-unit-dispatch-red-verification.json,
+knife-unit-dispatch-retail-oracle.json,knife-unit-dispatch-verification.json.
+
+Полные Game builds,related16Win/15Linux и CI323/323 успешны; новые5 resource
+extended случаев вне323. Неудачная первая guarded patch попытка отличалась
+пробелами и ничего не записала; unapplied-fix логи сохранены отдельно.
+Все hunks wUnitAttack.cpp из этого source учтены, targeted ctor также завершён.
+Сам ThrowKnife label/flight/velocity/range/skill/night/backstab ещё pending;
+полная корректность итогового попадания этим этапом не заявлена. Формулы и
+параметры баланса не менялись; эффект восстановления цели записан в balanceMD.
+Источник: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027.
+
+## 2026-10-30: ranged cover routing for unit knife previews (`5780c0be`, partial)
+
+The two CGame::GetCompositeToHit predicates now use the existing GetToHitType
+action classifier. An equipped throwing knife can have a melee model type,
+yet its action is TH_THROWING: its actual native high/low cover projections
+must start at GetAttackOrigin and omit arm-reach hit-location queries.
+Swung melee remains TH_MELEE. The fork's network replica callback guard stays intact.
+
+NativeKnifeUnitPreview0..5 use authored equipped blades, native deployed actors,
+real geometry and the unchanged native chance calcer. A forwarding map observer
+on a separately constructed native IGame records projections/reach queries;
+there is no partial READ into a live game object. RED3/6 on each platform:
+ANY/head/body have origin errors up to 0.20m and one melee reach query. GREEN6/6:
+actual high/low origins agree within 0.0002m and reach queries are zero; true
+melee caption, firearm and replica delegation/unavailable callback controls pass.
+AP, positions, target health, item quantity, action queue and gameplay RNG stay intact.
+Chance remains 2% in the blade fixture due to the existing clamp; a chance-only
+test would miss this defect. Earlier unsuitable/numeric-clamp fixture logs are
+archived separately and are not counted as RED.
+
+Gold named PDB RealCalcCovers6ae3a0/553 calls GetToHitType6ad6f0 at6ae3d0,
+then only zero selects melee origin/zero clear distance (6ae543). Named
+SelectTargetHLs6ae8b0/248 calls the same classifier at6ae8e3, bypassing reachable
+HL queries on nonzero. Evidence records decoded29/31-byte branches. No whole
+function or Steam equivalence is claimed; the cover signature differs in Steam.
+knife-unit-preview-{red-verification,retail-oracle,verification}.json and raw logs
+are in the existing laboratory evidence directory.
+
+Full Windows/Linux Game builds, related22Win/21Linux and asset-free CI323/323 pass.
+These six resource extended tests are outside323. Source5780 remains partial:
+origin/distance/night/backstab inputs, final throw generation/flight and numerical
+throw formulas are still pending. No new balance coefficient or data change.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027.
+
+## 2026-10-30: unit hit chance uses its cover-ray origin (`5780c0be`, partial)
+
+GetAttackerToHit now takes both physical origin and grid distance from
+CCoverInfo::src, which the native cover solver has already resolved. The old
+tile/center pair could use a shorter grid distance and a different target-area
+viewpoint. No coefficient, range, AP cost or chance formula is edited.
+
+NativeUnitPreviewShotOrigin0..2: real deployed actor, authored snap firearm,
+native standing/crouching/prone temporary-pose preview and real cover geometry.
+Each selects a positive unclamped difference between the unchanged native calcer
+with the actual cover origin and legacy tile/center inputs. RED3/3 each:
+Windows ANY/head/body92/88/89 versus expected87/80/83, grid distance2 instead3.
+GREEN3/3 each. AP/HP/ammo/pose/action/RNG remain intact. Extra attempted standalone
+area-only cases had no observable unclamped difference on this scene; those logs
+are archived and are not counted as RED. The retained regression observes the
+combined physical-origin contract, with independently observable distance effect.
+Prior knife-preview references now use that same native ray-origin contract.
+
+Gold named GetAttackerToHit6aef60/389 and typed CCoverInfo::src+b00 prove the
+copy/subtract/sqrt/grid conversion. Its110byte block6aefc3 maps uniquely to
+Steam6b50f3 with only the decoded float-address operand masked; both operands
+contain the original grid inverse1.6. No whole-function equivalence is claimed;
+the neighbouring night/backstab behavior is still a separate audit.
+Evidence: unit-preview-origin-{red-verification,retail-oracle,verification}.json
+and raw logs in the laboratory evidence directory. Full Game builds, related
+25Win/24Linux and asset-free CI323/323 pass. New3 resource extended cases are
+outside323. Source5780 remains partial.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027.
+
+## 2026-10-30: test weather world-space placement (`9235a832`, complete)
+
+CMission::ShowWeatherEffect clears its existing owned vector first and passes
+identity placement to CreateParticles. The current native particle path wraps
+positions around the camera before applying this placement (GParticleInfo.cpp);
+adding camera.ptAnchor again translates the already wrapped world-space cloud.
+The rain/snow debug binds keep the same templates817/732 and renderer time node.
+
+NativeWeatherWorldPlacement0..3 call the real mission method with actual authored
+wrapped weather records, real renderer clock and native camera. A fixture getter
+supplies that camera without requiring a player/UI selection; a view observer
+records particle creation, matrix and owned-handle lifetime. RED3/4 each:
+nonzero rain/snow/replacement cases pass anchor42,27,11 as extra translation;
+zero-anchor control passes. GREEN4/4 each: forward/inverse identity at four basis
+points, three alternating rain/snow creations after camera moves, only one live
+handle at a time, retirement before replacement and final mission release.
+World time/action/gameplay RNG unchanged. This is a CPU creation-contract test,
+not a screenshot or claim of GPU pixel equivalence. First fixture camera-selector
+SEGFAULTs (no active player) are archived separately with a native GDB trace and
+not counted as RED. The selected source's matrix and clear-order hunks are complete.
+
+Gold named ShowWeatherEffect5fde60/433 sets zero translation/unit scale/zero
+rotation. Unique69byte setup5fdedc maps to Steam6026ac; only decoded MakeMatrix
+call displacement masked (Gold named708bc0, Steam712940). No whole-function
+equivalence claim. Evidence: weather-world-placement-{red-verification,retail-oracle,
+verification}.json and raw logs in the laboratory evidence directory.
+
+Full Windows/Linux Game builds, related8Win/7Linux and asset-free CI323/323 pass.
+The first Linux related run omitted building its registered particle runtime
+helper; it is archived as unbuilt-helper and the rerun includes that helper.
+New4 resource extended cases are outside323. Modern renderer/font/audio/LAN APIs,
+particle algorithms, game data and balance coefficients are unchanged.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9235a832ed5de3a80b8d3f68639cc5dab8212be0.
+
+## 2026-10-30: chapter mission Panzerklein gate (`974d8543`, complete)
+
+The native chapter action handler checks a sector CanDeploy predicate before
+constructing its existing autosave/mission container. For a valid zone disallowing
+PK, a living fielded wearer blocks entry and emits localized20995 exactly once.
+The action is handled, preventing fallback camp entry. Other sector types keep
+the default allowed predicate. CGlobalPlayer::IsAnybodyInPK scans mercs, excluding
+dead people and checking the existing stored pPanzerklein field. Own null-merc
+and empty-player guards adapt this safely to the current APIs. No save fields,
+inventory mutation, new deployment coefficient or script transition rule was added.
+
+NativeChapterPanzerkleinGate0..6 build the real chapter world/UI with one authored
+zone/inside team position and actual hired mercs/suit persona. They invoke the
+native action handler directly, inspecting and retiring queued native containers
+without executing save/loading/transition. RED2/7 each: living PK and a list with
+a null merc still queue a transition without warning. Five existing controls
+pass: no PK, dead wearer, allowed zone, hired reserve wearer outside mercs, empty
+player list. GREEN7/7 each: blocked cases queue nothing and warn once; controls
+retain one native autosave/transition container and no denial. Money, current
+interface, travel position, world clock and gameplay RNG stay intact. This
+does not claim an actual mission load or a rendered mouse-click screenshot.
+
+Gold named IsAnybodyInPK693ab0/81 maps uniquely to Steam699ae0, with only its
+decoded IsDead call operand masked (Gold6b48a0,Steam6baa40). Typed mercs+30 and
+bAllowPK+50, plus31byte policy5a7488->Steam5a9eb8, prove the flag/fielded scan.
+Independent CZoneSector RTTI vtable slot38 points to Gold5a7440/Steam5a9e70.
+Gold named ProcessMessage5a9cf0/3742 calls that slot5aa827, then denial20995 at
+5aa82e and GetDBString712200. No whole UI-function or ABI equivalence claim.
+Evidence: chapter-pk-gate-{red-verification,retail-oracle,verification}.json and
+raw logs in the laboratory. Initial fixture type/zone-center/container-expectation
+failures are archived separately and not counted as RED evidence.
+
+Full Windows/Linux Game builds, related10/10 each (seven new cases, chapter clue
+heading/exit marker and network serializer) and asset-free CI323/323 pass. New7
+resource/display extended cases are outside323; Linux ran under Xvfb/Openbox.
+All changes selected from this source are complete; neighbouring chapter CanEnter
+and other mixed-source work remain independent.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/974d85437e9cb6c69403dbdc76ffeea8c3a2b905.
+
+## 2026-10-30: main-menu version caption (`898ccb8a`, adapted/complete)
+
+CMainMenuUI handles template-load completion by assigning the localized20247
+version caption, original right-aligned grey Courier14 styling and this build's
+date. It keeps the existing font backend, remaster menu/network controls and
+separate protocol/build metadata. No hard-coded new product/version number is added.
+
+NativeMainMenuVersionCaption creates the actual native main-menu world and
+authored347 UI template. RED1/1 each: plain localized template text has no
+original styling/build date. GREEN1/1 each: full localized Cyrillic remains,
+one valid build date is appended; replacing the text with a stale caption and
+repeating template completion restores exactly the same text. Camera/world,
+interface depth and pending-command state stay intact. The date is structurally
+validated, not compared to the test translation unit's __DATE__, so builds
+spanning midnight/different compile dates do not create a false dependency.
+
+Direct use of the upstream Microsoft wide printf format truncated Linux's
+localized caption to S while Windows passed. That intermediate run is archived
+as unportable-format and is not final GREEN. The final adapter concatenates the
+wide localized string with the ASCII build date converted through existing
+NStr::ToUnicode; original visible formatting is preserved on both platforms.
+Initial fixture-only diagnostic-print compile errors are archived separately.
+
+Gold named ProcessMessage5f3ea0/3994 references the exact wide style literal at
+5f3f56, Steam at5f8386. Decoded49byte callers5f3f3d/5f836d load20247, then
+the original build date and formatter (Gold Aug11 2003 / Steam Nov21 2003).
+The exact formatting literal and decoded arguments are evidence, not a claim
+of whole-function equivalence or changing the existing rendering engine.
+Evidence: menu-version-{red-verification,retail-oracle,verification}.json and raw logs.
+
+Full Windows/Linux Game builds, related8Win/7Linux (menu cadence/map/authored
+script, load/save tab, font wire and network serializer) and CI323/323 pass.
+New1 resource/display extended case is outside323. Source898 is fully accounted.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/898ccb8a5977c5b9fd9843b92b56d17893f5094d.
+
+## 2026-10-30: person-clue death reserve (`e6a660f7`, complete)
+
+CreateAIUnits calls the existing CalcDeathVP with the existing difficulty
+fClueDeathCoeff for an occupied person-clue slot, after final level/VP setup and
+native spawning. Ordinary non-slot actors keep their current zero reserve.
+The coefficient, threshold formula and serialization fields are unchanged.
+
+NativeClueDeathReserve0..3 reuse the established native PersonClueCreation
+fixture: real authored human spawn records temporarily offer clue slots in the
+loaded DB; the real scenario tracker supplies the person clue and CreateRandom
+performs distribution/spawning. No game assets are written. Initial RED2/3 each:
+authored coefficient3 leaves reserve0 instead of negative max-VP times3, at both
+base and raised level. Zero-coefficient control already passes. GREEN4/4 each
+includes an added normal non-slot/no-clue control with two actual ordinary actors
+and zero reserve (that extra control was added after the original RED).
+
+Windows native examples: VP130/154 at levels0/9 ->reserve-390/-462; Linux's
+fixture selects a different person and yields VP80/104 ->-240/-312. Per-platform
+DB iteration is not asserted as cross-platform identity. A full save/read into a
+fresh RPG unit keeps the reserve/final VP cap; native IsDead is false at threshold+1
+and true at the threshold. The real clue retains positive health, its marker and
+one clue count. This tests creation/RPG death boundary, not a full rescue mission
+or retroactive migration of already-created units in old saves.
+
+Gold named CreateAIUnits760100/2198 branches on typed bSlot+34 (iterator+6c,
+guard[esi-38]), reads pDifficulty+48/fClueDeathCoeff+4c and calls named
+CalcDeathVP6b4910/45. Unique35byte guard/call block7607f0->Steam76c1d0 masks
+only decoded relative call; its Steam callee6baab0 has the exact same45byte body.
+No whole creation-function or ABI equivalence claim. Evidence:
+clue-death-reserve-{red-verification,retail-oracle,verification}.json and raw logs.
+
+Full Windows/Linux Game builds, related10/10 each (person/inventory/replacement
+clue creation/capacity/count, new4 and serializer) and CI323/323 pass. New4
+resource extended cases are outside323. All selected source hunks are complete.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e6a660f7b69c986528b8d04c86f8bdd4ba6b763e.
+
+## 2026-10-30: debug explosion preset and ownership (`67ac71a9`, complete)
+
+CWorld::MakeExplosion traces the supplied ray regardless of the unit roster and
+passes the resulting point with original grenade preset16 and default null
+owner/ignition/modifier arguments. It no longer chooses units.front or preset21.
+The existing five-argument AddGrenadeExplosion API then retains its neutral
+SPerkMineModifiers defaults (1,1,false) when owner/modifier pointers are null.
+The active call graph reaches this method only from CMission::Explosion's
+existing debug action. Normal throw/placement/explosion algorithms are unchanged.
+
+NativeDebugExplosionRouting0..2 construct the real world/map, use actual native
+TraceRay and capture the virtual blast-call boundary. RED2/3 each: an empty
+roster yields no call; a populated roster yields preset21 and an arbitrary owner.
+The no-hit control passes. GREEN3/3: each real-hit case makes one preset16 call,
+null owner/ignition/modifiers and the exact native collision point; the no-hit
+case makes none. Time/action/gameplay RNG remain intact up to the captured call.
+Empty-roster setup uses native RemoveUnit. This proves producer routing, not
+actual blast damage/visuals; the callee is deliberately observed at its boundary.
+
+Gold named MakeExplosion756320/106 starts directly with tracing and initializes
+neutral modifiers/preset16. Unique entry41/preset40byte blocks map respectively
+to Steam761bb0/761bda; only decoded relative call operands are masked. Original
+getter is named NDb::GetRPGGrenade7ecbf0/7. No whole-function/ABI equivalence claim.
+Evidence: debug-explosion-{red-verification,retail-oracle,verification}.json/raw logs.
+Full Game builds, related7Win/6Linux (native voxel/perk wire/portable wire/serializer)
+and asset-free CI323/323 pass. New3 resource extended cases are outside323.
+All selected source hunks are complete; effect scope is recorded in balanceMD.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/67ac71a9831fea31095b52f2d74d0309414b8f44.
+
+## 2026-10-30: immediate VP boost overdose (`bf54ea44`, partial)
+
+AddVPBoost now invokes the original CheckOverdose after installing its existing
+modifier and duration. The helper accumulates reciprocal durations without
+division, starting numerator0/denominator1. A strict excess or zero denominator
+clears durations; living units become unconscious with VP0, while dead units
+retain their state after the existing boost operation. Temporary skill modifiers
+remain installed, as in the original. No serialized fields or strength values
+change. Periodic duration decrement/check is still pending separately.
+
+NativeVPImmediateOverdose0..6 use the actual deployed hero and native RPG calls.
+Cases: zero; 1+1; exact boundaries 2+2 and 2+3+6; excess 2+3+5; safe single3;
+and already-dead zero-duration/zero-strength control. RED4/7 each; all three safe
+controls pass before the fix. GREEN7/7 each includes modifier retention, normal
+positive VP boosting, no resurrection, and AP/XP/position/time/RNG preservation.
+Read-only native serializer field observation inspects duration/modifier lists.
+An initial fixture incorrectly expected positive boosters to preserve HP; those
+logs are archived as fixture-health-control and are not counted as valid RED.
+
+Gold named CheckOverdose6bab10/232 maps uniquely to Steam6c0bb0/232. All decoded
+instructions match with only three verified constant pointers (0,1,0) and the
+deallocation-call operand masked. AddVPBoost tail6bd0a5 -> Steam6c35d5 calls those
+exact helpers. This proves the original rule, not arbitrary extreme-stack x87
+versus native-double precision or allocator implementation equivalence.
+Evidence: vp-overdose-{retail-oracle,verification}.json and raw logs.
+Windows/Linux Game builds, related24 each and asset-free CI323/323 pass.
+Seven new resource extended tests are outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/bf54ea44a50f7e9ab7095a05491ec289105c84d0.
+
+## 2026-10-30: periodic VP drug duration (`bf54ea44`, complete)
+
+DoRegenerations now decrements each existing boost duration and invokes the
+verified overdose helper before processing critical lifetimes/bleeding/PK
+regeneration. AP refresh does not consume duration. The existing authoritative
+world gate remains: replica callbacks do not independently decrement or overdose.
+Temporary skill modifiers and serialized fields remain unchanged.
+
+NativeVPDurationCountdown0..8 use a deployed native hero and real RPG consumer.
+Cases cover one decrement, safe/equal/overdose after multiple ticks, zero reached
+from1, empty list, mixed3+6, replica callback and actual TBS_FINISH_OWN_TURN
+with actor consciousness synchronization. Each case first exercises StartNewTurn
+and confirms duration is untouched there. RED7/9 each; empty and replica controls
+pass before the fix. GREEN9/9 each includes exact remaining durations, VP and
+unconsciousness, modifier retention, XP/position/time and existing C_VP wound/AP effects; direct RPG cases also
+preserve gameplay RNG. Callback cases do not claim unchanged transition RNG.
+Initial post-fix checks exposed the existing C_VP wound reduction of AP at VP0;
+that expectation was corrected, logs archived as expected-wound-AP-control,
+and the final tests rerun RED/GREEN on both platforms.
+
+Gold named DoRegenerations6be2c0/418 shares a unique exact55byte duration-loop
+block6be2c6 with Steam6c49a6, without masks. Separately decoded calls show
+Gold6be305 -> CheckOverdose6bab10 and Steam6c49e5 -> CheckOverdose6c0bb0,
+then critical processing6be30c ->6be0e0 and6c49ec ->6c47c0 respectively.
+Register allocation/prologue differ; no whole-function equivalence claim.
+Evidence: vp-countdown-{retail-oracle,verification}.json and raw logs.
+Game builds, related33 each and asset-free CI323/323 pass; new9 resource cases
+are outside323. Together with immediate-dose commit f312fa2f, all source hunks
+are now complete. Medical behavior is recorded in balanceMD.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/bf54ea44a50f7e9ab7095a05491ec289105c84d0.
+
+## 2026-10-30: explicit script grenade chance (`9da280e9`, partial)
+
+UnitThrowGrenade uses the chance its caller supplies for the existing strict
+random>chance scatter branch. Both Lua handlers already forward this argument.
+The to-hit calcer remains for existing max-velocity and skill/fuse calculations;
+it no longer replaces the supplied chance. No clamping or new random draws are
+added. Inventory grenade/equipment, AP, trajectory solver, fuse formula and
+physics/damage implementation are unchanged. Night-input hunks remain pending.
+
+NativeScriptGrenadeChance0..6 use a real deployed actor, authored grenade,
+native ballistic solver and actual CGrenadeServer/CASphereSet creation. They
+read initial physics velocity and compare it with seeded scatter from a native
+100%-chance reference launch. Seed42 produces roll52. Chances0,51,-1 require
+scatter; 52,100,101 do not. Null actor/record must not spawn or consume RNG.
+RED3/7 each, four controls pass before the fix; GREEN7/7 each. AP/HP/inventory
+quantity/position/time and projectile/action ownership are retained. Tests
+observe launch physics, not flight collision/explosion damage or actual Lua
+execution. Temporary projectiles are erased from their owning world after read.
+
+Gold named UnitThrowGrenade7a0ba0/394 forwards the caller's chance at7a0c84
+to CheckGrenadeToHitAndDelay795950/957. Unique14byte forward block maps to
+Steam7ad304, masking only the decoded call operand to independently observed
+helper7a1770. Exact24byte strict comparison block795984 ->7a17a4 has no masks.
+Velocity norm/spread52bytes79599c ->7a17bc masks only RNG-state/constant pointers;
+the multiplier is verified0.2 in both images. No complete helper/trajectory
+equivalence claim. Evidence: script-grenade-chance-{retail-oracle,verification}.json.
+Game builds, related17Win/17Linux and asset-free CI323/323 pass. Seven resource
+extended cases are outside323. Source remains partial for the night/turn inputs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.
+
+## 2026-10-30: own columnar weapon import prerequisite (`9da280e9` verification)
+
+ImportReleaseStorage loads RPGWeaponTypes before dependent records, alongside
+its existing texture-before-UI rule. CRPGWeapon::Import computes bBazookaLogic
+from pWeaponType->nWeaponTypeID==5; precreated shells resolve the reference but
+do not supply that field until its table is imported. Host unordered_map order
+previously made all four authored launchers lose their launcher classification
+on Linux, although their referenced type was5 after the complete load.
+The exact same original database loads correctly on Windows by incidental order.
+
+NativeWeaponImportOrder1/92/93/98/99 independently load the actual original DB.
+Linux RED4/5: launcher flag0 despite final referenced type5; ordinary record1
+passes. Windows5/5 controls pass before the fix. GREEN5/5 each preserves ordinary
+type2/flag0 and restores all four type5/flag1 records. No authored data, numerical
+formula, save tags or source SQL import changes are made. Partial overlays skip
+an absent type table and retain the existing records.
+
+Gold named NDb::CRPGWeapon::Import81b780/754 computes exactly this ID5 rule.
+Its15byte block81b973 maps uniquely and exactly to Steam80a4d3, without masks;
+PDB typed fields are CRPGWeaponType::nWeaponTypeID+30 and weapon flag+86.
+This is a fix to our portable columnar-loader dependency, discovered while
+verifying the pending launcher/night inputs of9da280e9. It is not a claim that
+the source commit contains this loader hunk. Those night inputs remain pending.
+Evidence: weapon-import-order-{retail-oracle,verification}.json/raw logs.
+Full Game builds, related10Win/9Linux, asset-free CI323/323 pass; five resource
+extended tests are outside323. The effect is recorded in balanceMD.
+Related source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.
+
+## 2026-10-30: night inputs for tile/launcher/grenade previews (`9da280e9`, partial)
+
+The retained GetTileToHit, GetRLauncherToHit and GetGrenadeToHit APIs now pass
+their attacker's owning CWorld::GetGame()->IsNight into existing calculators.
+This covers ordinary/knife/launcher tile branches and the dedicated legacy
+launcher/grenade helpers. The original light formula, perk0x15 exception,
+rounding, cover, first-round input and script override are unchanged.
+
+NativeNightPreviewInputs0..4 use a deployed actor and authored equipment, the
+actual dispatchers and corresponding native calculator. They select observable
+non-clamped day/night inputs. RED4/5 each after loader prerequisite f0103180:
+firearm tile, launcher tile, dedicated launcher and grenade all retain day
+chance at night. Day checks and script-forced37 control pass before the fix.
+GREEN5/5 each includes exact native chances and AP/HP/position/time/RNG controls.
+Initial fixture enum compilation and Linux launcher-selection failures are
+archived separately and are not counted as night RED. The latter exposed the
+own loader dependency fixed independently; these final tests were then rerun
+against the corrected loader before applying the night change. No fixture
+weapon flag or authored value is overridden.
+
+Gold/Steam CWorld RTTI tables8bc74c/8cbc8c slot1c identify GetGame76bc50/777a00;
+CGame tables8b403c/8c315c slot30 identify IsNight693250/7b03f0, identical
+getter bytes for typed bNight+18. Unique exact owner-night blocks map tile
+6afe07/17 ->6b5ee7 and grenade6af3b9/25 ->6b54c9. Existing GetLight tail
+6b0e0a/35 ->6b6f4a masks only its verified0.9 constant pointer and preserves
+the perk0x15 bypass. This adapts our retained legacy APIs to the original
+owner input; it does not claim complete numerical/ABI equivalence of previews.
+Evidence: night-preview-{retail-oracle,verification}.json and raw logs.
+Game builds, related50Win/50Linux, asset-free CI323/323 pass. Five new resource
+extended cases are outside323. AI constructor and live grenade executor's
+night/per-unit-first-turn inputs remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.
+
+## 2026-10-30: AI accuracy night input (`9da280e9`, partial)
+
+The retained CAIUnitToHitCalcer API derives its night flag from the shooter's
+own world/game, matching the original GetAIShootToHit caller. The integer-cover
+overload still forwards to the float overload; selected weapon, precise cover,
+other accuracy inputs and the original light/perk formula are unchanged.
+
+NativeNightAIInputs0..2 use actual world actors and their native AI wrappers,
+an authored equipped firearm and live calculator construction/GetToHit. RED2/3
+each: both float/integer-cover constructors retain calcerNight0 and light1
+at ownerNight1; the day control passes. GREEN3/3 each: night flag1/light0.9
+for a unit without night vision; AP/HP/position/time/gameplay RNG retained.
+This proves constructor input and actual light-factor evaluation, not a full
+planner choice or simulated AI attack. No private AI/night field is injected.
+
+Gold named GetAIShootToHit6ae7e0/193 reads world.GetGame and game.IsNight.
+Its unique exact27byte block6ae7fb maps to Steam6b492b with no masks;
+the vtable getter meanings were independently verified by RTTI in the prior
+night-preview oracle. Evidence: night-ai-{retail-oracle,verification}.json/rawlogs.
+Game builds, related53Win/53Linux, CI323/323 pass; new3 resource tests are outside323.
+Only selected live-grenade executor night/per-unit-first-turn inputs remain.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.
+
+## 2026-10-30: actual grenade executor night input (`9da280e9`, partial)
+
+CExecThrowGrenade::CreateToHitCalcer supplies the owning game's night flag to
+the existing calculator used by Run, ThrowGrenade and CheckToHitAndDelay.
+Its world-first-turn argument is deliberately unchanged in this independent fix;
+the original per-unit input remains pending separately. Ballistic solver, skill,
+fuse/scatter formulas, item handling and serialized fields remain unchanged.
+
+NativeGrenadeThrowNight0..2 construct the real executor/calculator. Day control
+passes; night construction and actual scatter-consumer cases fail before the
+fix (RED2/3 each). The latter uses real Run to initialize a valid native trajectory,
+then seeds the gameplay RNG between the day/night thresholds and invokes the
+existing protected CheckToHitAndDelay through a diagnostic subclass. Native
+grenadeParams are observed read-only. Windows example: night81/day90, roll88;
+the old consumer retains its velocity instead of applying the existing scatter.
+GREEN3/3 each verifies night flag/light0.9 and exact expected scattered velocity,
+unchanged query AP/HP/quantity/position/time/RNG and no additional AP/HP/inventory
+cost at the scatter boundary. This is executor/consumer proof, not complete
+projectile flight or damage. The current first-turn input is held identical
+between reference/control to isolate night; unit/world flags may differ.
+Initial calcer-lifetime compilation and turn-alignment fixture failures are
+archived separately and are not counted as RED.
+
+Gold named CheckToHitAndDelay796170/70 maps uniquely to Steam7a1fb0/70 with
+only its two decoded relative calls masked: original GetToHit6af370/Steam6b5480,
+then scatter/fuse helper795950/Steam7a1770. The GetToHit owner-night read and
+RTTI getter meanings were independently verified in the earlier night oracle.
+Evidence: grenade-throw-inputs-retail-oracle.json and grenade-throw-night-
+verification.json/raw logs. Game builds, related31Win/31Linux,CI323/323 pass; new3
+resource tests are outside323. Only selected per-unit-first-turn hunk remains.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.
+
+## 2026-10-30: per-unit first-turn input for grenade throws (`9da280e9`, complete)
+
+CExecThrowGrenade::CreateToHitCalcer uses GetUnitRPG()->IsFirstTurn rather than
+World::IsFirstTurn. World first-turn remains true during real time even after
+this actor has advanced beyond its own first turn. The per-unit input controls
+the existing first-round multiplier and movement-penalty suppression; neither
+formula nor its data values change. Night input from e40044e5 is retained.
+
+NativeGrenadeUnitFirstTurn0..3 use the actual differing native world/unit states,
+public StartNewTurn if needed to advance the actor and AddMoveInLastTurn(4) to
+prime the existing movement consumer, without private flag/counter injection.
+Mode0 is a no-side-effect/night-input query control and does not assert a
+matching first-turn flag. Day/night input cases plus actual Run/seeded scatter
+consumer fail (RED3/4 each). GREEN4/4: per-unit flag0, correct existing first-round
+multiplier, retained night/AP/HP/quantity/position/time/RNG query controls. Windows
+native scatter example: correct98 versus old89, roll92; old code adds erroneous
+scatter, corrected consumer preserves initial native velocity. The result can
+reflect both existing first-round and movement terms; no assertion that the
+corrected chance must always decrease. This proves input/consumer behavior,
+not complete projectile flight/damage or natural movement traversal. The
+tested authored grenade retains its existing zero movement factor; this does
+not claim a restored nonzero movement penalty.
+
+The earlier night-only scatter test now gives both day/night references the
+current per-unit first-turn input, keeping that regression independent of this
+separate correction; it is rerun in the related gate.
+Gold GetToHit6af370/938 calls the mission's slot18c at6af3db; exact22byte block
+6af3cb maps uniquely to Steam6b54db with no masks. Secondary-interface tables
+Gold8b63cc/Steam8c54e4 identify IsFirstTurn6bf640/6c5dd0, identical13bytes
+reading nTurnCounter<2 (interface+170, complete-object+1bc). This is the original
+callee used by CheckToHitAndDelay796170/Steam7a1fb0, independently mapped earlier.
+Evidence: grenade-throw-inputs-retail-oracle.json, grenade-unit-first-turn-
+verification.json/raw logs. Game builds, related35Win/35Linux,CI323/323 pass; new4
+resource tests outside323. Script chance, tile/launcher/grenade previews, AI
+construction and live throw night/per-unit inputs are all complete. The source
+calcer-removal refactor is adapted by retaining our required velocity/skill API;
+no unrelated throw-velocity formulas are imported under this source.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9da280e9d8a61e939a3a1015b7e45f4149dedc37.
+
+## 2026-10-30: first-turn penalty perk23 (`037c41d9`, partial)
+
+GetFRMult checks authored perk23 before bFirstRound, returning
+Max(fFirstRoundCoeff,1) when acquired. Its previous unperked first/later-turn
+behavior remains intact. The symbolic perk ID is added without changing any
+serialized enum or authored coefficient. Other independent037c41d9 hunks remain.
+
+NativeFirstTurnPenaltyPerk0..5 select an actual deployed actor whose native tree
+contains untaken authored23, grant it through AddPerkPoints/TakePerk, and use a
+concrete native tile calculator's shared first-round consumer. The point budget
+is unchanged after the grant. Cases cover no-perk first/later controls, acquired
+first/later with authored0.9, and first/later with a temporary owned-mission
+coefficient1.2. The latter is a runtime fixture input, restored by RAII; no DB
+record/file is modified. RED2/6 each: acquired first0.9 is still penalized; later
+1.2 is incorrectly reduced to1. Four controls pass before the fix. GREEN6/6
+includes exact factors and AP/HP/XP/position/time/RNG preservation. Initial
+abstract-calculator compilation is archived as fixture-concrete-calcer, not RED.
+This proves the shared perk consumer, not a full damaging attack/planner run.
+
+Gold named GetFRMult6b0e40/80 maps uniquely to Steam6b6f80/80, masking only
+the relative Max-helper call and verified1.0 constant address. HasPerk23 precedes
+the first-round test in both. The called Gold42a8c0/Steam42b530 Max helper is
+exact41bytes with no masks; decoded x87 C0 selection chooses the greater finite
+argument. This supports Max, including coefficients above1 and the later-turn
+perk path; exceptional floating values are not claimed.
+Evidence: first-turn-perk-{retail-oracle,verification}.json/raw logs.
+Game builds, related41Win/41Linux,CI323/323 pass; new6 resource cases outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: perfect-engineering tool eligibility (`037c41d9`, partial)
+
+CToolItem::CanBeUsed honors perk50 for valid unit/tool records, returning true
+only with positive contained charge quantity. The existing ordinary required-
+perk/engineering/charge predicate remains intact. Our existing final charge
+gate already accounts for the source's separate empty-container hunk; the new
+early ability branch repeats that requirement instead of bypassing it.
+No skill threshold, authored tool/perk value, quantity or save tag changes.
+
+NativePerfectEngineeringTool0..5 load the actual DB, create an authored RPG
+persona with native untaken node50 (deterministically person3), and construct
+authored tool1 with its three real charges and a normal outer stack1. They
+grant50 through native perk APIs, vary the owned unit's engineering via SetConst,
+and exhaust empty controls through SpendOneCharge. RED1/6 each: acquired50 at
+skill0/required20 still rejects the charged tool. Five ordinary/qualified/empty
+controls pass before the fix. GREEN6/6: the ability bypass works; empty tools
+remain unusable even with50 and outer stack1; queries retain charges, stack,
+point budget, AP/HP/XP/skill and gameplay RNG. This directly exercises the RPG
+eligibility API, not actual world engineering/disarm action execution. Initial
+broader deployed/spawned fixtures failed initialization and are archived with
+their debugger evidence; none are counted as RED. The final fixture requires
+no AI/world placement and never edits DB records/files.
+
+Gold named CanBeUsed69ab70/400 first checks contained charges, then perk50
+before ordinary required-perk/skill tests. Unique exact28byte charge block
+69ab9d -> Steam6a0c4d has no masks; perk/early-success56byte block69ac0d ->
+6a0cbd masks only decoded HasPerk/object-release call operands. Steam HasPerk
+callee is independently identified via the mission's RTTI vtable slot78 and
+its forwarding thunk. This proves gate order/semantics, not whole400byte ABI
+or object-release implementation equivalence. Required-perk bypass is proved
+by original control flow; the native positive failure isolates the skill gate.
+Evidence: perfect-engineering-{retail-oracle,verification}.json/raw logs.
+Game builds, related28Win/28Linux,CI323/323 pass; new6 resource cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: best shooting pose ability12 (`037c41d9`, partial)
+
+GetStance now routes acquired perk12 through the existing GetBestPose helper.
+Preserves the original active-inventory weapon lookup, integer truncation and
+cached actual pose. Strict positive comparisons are intentional: tied bonuses
+or two nonpositive bonuses choose WALK (zero stance bonus), not an intuitive
+maximum. The already recovered helper is reused; its stale standalone/address
+comment is corrected. No movement, animation, weapon records or AP changes.
+
+NativeBestShootingPose0..10 create an actual authored RPG unit with untaken12,
+equip and activate authored weapon1 (crouch1/crawl2), and grant12 through native
+perk APIs. Concrete tile-calcer GetStance is exercised with public mission/pose
+inputs. RED4/11 each: acquired12 standing/crouching fails to use the best bonus,
+and equal7/7 or negative-2/-3 controls fail the original zero-bonus rule. Seven
+ordinary/already-best/unarmed controls pass before the fix; GREEN11/11 each.
+Tie/negative variations temporarily alter the owned loaded type and restore it;
+no asset files change. Queries preserve AP/HP/XP/RNG/perk budget and actual pose.
+This isolates the stance API, not an entire shot/animation. Initial tests that
+failed to equip the active weapon are archived as fixture failures, not RED.
+
+Gold named GetStance6b2af0/295 calls CUnit::GetWeaponItem6b4320 after the mission
+GetRPGUnit virtual, confirming the active weapon routing. Helper6b0aa0/73 maps
+uniquely to Steam6b6b90 with only two independently verified zero-pointer
+operands masked. Perk12 gate32bytes6b2b79 -> Steam6b8cf9 masks only the decoded
+helper-call operand; literal12 precedes the local-pose override and truncating
+bonus selection. Evidence: best-shooting-pose-{retail-oracle,verification}.json
+and raw logs. Game builds, related58Win/58Linux, CI323 pass; new11 cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: repeated-shot zeroing ability85 (`037c41d9`, partial)
+
+CToHitCalcer::GetRS now adds acquired85 Param1 to the native completed-shot
+repeat count, truncates the sum toward zero, then applies the existing signed
+repeat cap and doubles it. Without85 the previous behavior is retained. No
+repeat-state mutation, authored values, lower clamp or save-tag changes.
+
+NativeZeroingBonus0..14 use an actual authored RPG persona with untaken85,
+native TakePerk and RegisterAction(AC_END_SHOOT) counters plus concrete tile-
+calcer GetRS. Authored cap5/bonus2, no-perk/zero/two/cap/above-cap controls,
+temporary Param1=1.75,-.75,-3.5,0 isolate truncation before cap and absence of
+an invented lower clamp. Parameters are restored and no DB files change.
+RED6/15 each -> GREEN15/15; nine controls pass before the fix. Queries preserve
+native repeats, perk point budget, AP/HP/XP and gameplay RNG. Scope is the
+actual repeated-shot accuracy consumer, not a complete firing action.
+
+Gold named GetRS6b0c80/122 maps uniquely and byte-exactly, without masks, to
+Steam6b6dc0. It uses HasPerk literal85 and truncating x87 sum, then signed Min
+and double. Mission secondary-vtable slotsf0/dc independently map native
+GetLastActionTimes/GetToHitConstants: getter bytes are identical on both
+builds and typed mission offsets5c/94 minus interface4c match +10/+48.
+Typed SToHitConstants::nMaxShotsRepeat is offset0. No exceptional-float or
+overflow claim. Evidence: zeroing-{retail-oracle,verification}.json/raw logs.
+Game builds, related73Win/73Linux, CI323 pass; new15 cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: difficult-traps ability49 (`037c41d9`, partial)
+
+Both GetGrenadeTrapDC and GetMineDC now honor acquired49: engineering skill
+times (1 + Param1), truncated toward zero. Ordinary engineering remains the
+result without49. No lower clamp, authored data or actual trap placement changes.
+
+NativeDifficultTraps0..15 use actual authored RPG persona/grant49 and actual
+mine/grenade records. Cover both APIs with skill21, skill0, temporary fractional
+and negative parameters, no-ability controls and unused/null item arguments.
+Temporary parameters are restored; no DB files change. RED10/16 each -> GREEN
+16/16; six controls pass before the fix. Skill, AP/HP/XP, perk budget and gameplay
+RNG remain stable. Scope is the native difficulty query, not trap placement,
+spotting or disarm execution.
+
+Gold named grenade6ba2e0/132 and mine6ba370/132 match Steam6c0380/132 and
+6c0410/132 with only the independently verified 1.f pointer operand masked.
+The two functions have identical instruction bodies, so the two candidate
+matches are disambiguated by their corresponding mission secondary-vtable
+slots. Literal49, engineering skill, multiplier and truncation are preserved;
+both originals ignore the item argument. Evidence: {grenade-trap-dc,mine-dc}-
+retail-oracle.json, trap-difficulty-verification.json/raw logs.
+Game builds, related89Win/89Linux, CI323 pass; new16 cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: classless unit perk query (`037c41d9`, partial)
+
+CUnit::HasPerk returns false before forwarding when its actual perk tree is
+absent. Classless authored gender-preview personas887/888 already intentionally
+construct without a tree. Missing-tree queries retain all optional outputs;
+classed units continue through the existing native tree implementation.
+
+NativeClasslessPerk0..6 construct both actual authored classless personas and
+query flag/three optional parameters. Three classed native-tree controls cover
+untaken49, acquired49 with authored outputs and acquired50 flag. RED: four
+classless queries reach their printed before-query boundary and crash before
+returning; all three classed controls pass. GREEN7/7 each; AP/HP/XP/RNG and
+native perk point budget remain stable. Initial accessor compile mistakes are
+archived separately and are not behavioral RED. No facial/head, tree creation,
+DB record, perk parameter or save-layout changes.
+
+Gold named CUnit::HasPerk6b44a0/20 maps uniquely to Steam6ba640 with only its
+decoded tail-jump operand masked. Typed CUnit::pPerksTree+84 is tested for null
+before false return and before forwarding; outputs are untouched. The tail
+targets Gold CPerksTree::HasPerk6a8640 / Steam6ae5d0; their91byte wrappers match
+with the single decoded map-lookup call operand masked. No lower-level hash-
+map helper equivalence claim. Evidence: classless-perk-retail-oracle.json,
+verification/raw logs and Linux crash debugger log.
+Game builds, related96Win/96Linux, CI323 pass; new7 cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: disarm-traps ability51 (`037c41d9`, partial)
+
+CanClear now adds acquired51 Param1 to engineering and truncates the sum before
+the existing disarm probability calculation. Retains the 95 upper cap, strict
+comparison, single gameplay random roll and unused second modifier argument.
+No authored values, AP use, actual skill or item spending changes.
+
+NativeDisarmTraps0..15 use actual authored RPG persona/native grant51 and
+CanClear. Select deterministic seeds at known probability boundaries. Cover
+authored bonus, zero engineering, fractional/negative/zero parameters, no-perk,
+strict cap95 and probability0, plus ignored modifier+/-500. RED7/16 each ->
+GREEN16/16; nine controls pass before the fix. Native engineering/AP/HP/XP and
+perk budget stay fixed; the RNG state advances by exactly one roll. Temporary
+parameters are restored and no DB files change. Scope is the native success
+query; no placed trap, full disarm executor or practice award claim.
+
+Gold named CanClear6ba4e0/208: perk51 sum/truncation precedes probability and
+cap. First140bytes map uniquely and byte-exactly, without masks, to Steam
+6c0580; this shared block ends before the original global RNG implementation.
+Typed CDBMinesConstants::nBaseDisarmProb is+10. Gold complete disassembly never
+uses the second modifier; native +/-500 controls retain that behavior. No whole
+208byte/RNG implementation equivalence claim. Evidence: disarm-traps-retail-
+oracle.json, disarm-verification.json and raw logs.
+Game builds, related112Win/112Linux, CI323 pass; new16 cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: detection distance baseline precision (`037c41d9`, partial)
+
+**Superseded precision inference:** the earlier double-product claim and
+distance15/30 baseline22/0 below are incorrect under observed original PC24/RN.
+See the later complete317 original-runtime audit; coefficient/truncation remain.
+
+GetUnhideProbability retains the stored-float 44/30 coefficient but keeps the
+distance product/subtraction in double precision until truncating the base.
+The former float intermediate could round across an integer boundary. The
+existing spot/stealth terms and 0..100 clamp remain unchanged; ability25/75
+hooks are separate pending fixes. No coefficient or authored skill changes.
+
+NativeUnhideBasePrecision0..7 use actual authored observer/target RPG units with
+25/75 untaken, native SetConst spot/stealth and direct detection queries. RED
+3/8 each: at distance15, equal skills return23 rather than22; at30,1 rather
+than0; spot70/stealth30 at15 returns63 rather than62. Five origin/ordinary-
+distance/low/high-clamp controls pass before the fix. GREEN8/8 each. Queries
+preserve both units' skills/AP/HP/XP and gameplay RNG. Scope is this actual
+probability API, not a complete visibility/AI-turn calculation.
+
+Gold named GetUnhideProbability6b9540/317 maps uniquely to Steam6bf750 with
+only four decoded constant-pointer operands masked, all independently checked:
+1.f, storedfloat44/30,45.f,1.f. Both originals keep the product/subtraction in
+x87 until the truncating integer store. Double reproduces the tested finite
+distance/skill cases; exceptional floats/overflow are unclaimed. This evidence
+also exposes the still-pending25/75 branches, so no complete317byte behavioral
+equivalence is claimed yet. Evidence: spotting-retail-oracle.json and unhide-
+base-verification.json/raw logs.
+Game builds, related120Win/120Linux, CI323 pass; new8 cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: observer better-spotting ability25 (`037c41d9`, partial)
+
+GetUnhideProbability scales the observer's local spot term by (1 + acquired25
+Param1), truncating before the existing base-minus-stealth sum and final clamp.
+Actual ST_SPOT is unchanged; this restores a query-local ability effect.
+
+NativeBetterSpotting0..13 use real authored observer/target RPG units and native
+TakePerk25. Authored Param1=.25: spot21/stealth30 at distance0 gives41 rather
+than36, and at15 gives18 rather than13. Include zero spot, clamp controls,
+temporary fractional/negative/zero parameters, target-only and both-units25.
+RED6/14 each -> GREEN14/14; eight controls pass before the fix. Target-only25
+retains36, proving ownership. Both units' actual skills/AP/HP/XP, perk point
+budgets and gameplay RNG stay fixed; temporary parameters are restored and no
+DB files change. Scope is the native detection probability API, not a full
+visibility/AI turn or other ST_SPOT consumers such as mine spotting.
+
+The independently audited Gold6b9540/317 -> Steam6bf750 mapping (only four
+verified constant-pointer operands masked) includes literal25 on the observer
+before the distance calculation, (1 + Param1) multiplication and truncation.
+The original75 branch remains a separate pending fix; no complete function
+behavioral equivalence or exceptional-float claim yet. Evidence: spotting-
+retail-oracle.json and better-spotting-verification.json/raw logs.
+Game builds, related134Win/134Linux, CI323 pass; new14 cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: original observer75/target-stealth rule (`037c41d9`, partial)
+
+GetUnhideProbability now tests acquired75 on the OBSERVER, then scales the
+TARGET's local stealth term by (1 + Param1) and truncates. This counterintuitive
+ownership is present in both Gold and Steam; no night gate is introduced.
+Actual skills stay unchanged. Does not move75 to the target or convert it to
+a global skill modifier.
+
+NativeObserverStealth0..13 use actual authored RPG observer/target and native
+TakePerk75. With authored .25 and spot100/stealth100, distance0 restores20%
+rather than45%; distance15 restores the final clamp0 rather than22%. Target-
+only75 retains45%, both75 give20%. Zero stealth, high/low clamp, temporary
+fractional/negative/zero parameters and no-ability controls are included.
+RED6/14 each -> GREEN14/14; eight controls pass before the fix. Both units'
+skills/AP/HP/XP, point budgets and RNG remain stable. Temporary parameters are
+restored; no DB files change. Direct query scope, not a full AI/visibility or
+world day/night scenario claim.
+
+Gold GetUnhideProbability6b9540/317 -> Steam6bf750 mapping masks only four
+independently verified constant-pointer operands. At the75 gate, Gold6b961f
+restores ECX from ESI (the observer), while the preceding target skill read
+uses the argument. The scaled value is that target's stealth. The full audited
+original body has no night gate; its extra argument is unused. Along with the
+separate baseline/25 commits, the ordinary finite arithmetic/hooks of this
+query are now accounted for; no exceptional-float/overflow or ABI identity
+claim. Evidence: spotting-retail-oracle.json, original disassembly and observer-
+stealth-verification.json/raw logs.
+Game builds, related148Win/148Linux, CI323 pass; new14 cases outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: worn-PK unsupported-pose AP query (`2f5a3c75`, partial)
+
+GetActionAP returns the original1 for pose-dependent queries with a worn PK in
+CRAWL/CROUCH, before added-move AP and movement-action dispatch. Existing pose-
+independent action branches retain precedence; valid WALK/RUN retain suit AP.
+
+NativePKUnsupportedPose0..15 create an actual RPG unit and use native
+SetPanzerklein with authored suit1 (added move AP4), positive owned shell
+health and the API's null optional inventory-transfer argument. Pose/corpse
+abilities34/35/42 are untaken. RED8/16 each: four movement/corpse movement
+actions times the two unsupported poses return ordinary costs instead of1
+(e.g. side12/10 rather than1). Eight worn-WALK/RUN, ordinary body, open/close
+and AC_NONE controls pass before the fix. GREEN16/16 each; AP/HP/shell health,
+XP, points, worn state and gameplay RNG remain stable. Direct AP-query scope;
+no actual movement or pose/animation execution claim.
+
+Gold named GetActionAP6bac90/3724 and Steam6c0d30 are independently identified
+by mission secondary-vtable slot0. The pPK load8bytes6bb71e ->6c16f6 is exact;
+typed mission pPK+188 minus interface+4c is+13c. Guard12bytes6bb72c ->6c1704
+maps uniquely with only two decoded short-branch displacements masked. Both
+branches in each build independently lead to cleanup and return1. Return
+epilogue26bytes6bb7e7 ->6c17c9 is exact. Typed PK nAddMoveAP is+1c. No whole
+3724byte/ABI equivalence claim. Evidence: pk-unsupported-pose-{retail-oracle,
+verification}.json and raw logs.
+
+Keep2f5a3c75 PARTIAL: its separate corpse42 relocation requires the still-
+missing037c41d9 ability. The original order is pose34/35 recursive substitutions
+first, then the unsupported-PK guard, then corpse42 within valid-pose dispatch.
+This is not a rule disabling pose abilities in a PK. Those predecessor hooks
+and their combined cases remain to be imported individually. Game builds,
+related164Win/164Linux, CI323 pass; new16 cases outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2f5a3c753d9673bfc9aa24b2852a7fe2e1bbf60f.
+
+## 2026-10-30: prone-costs-crouch ability34 (`037c41d9`, partial)
+
+For pose-dependent actions, acquired34 in CRAWL recursively calls GetActionAP
+with CROUCH and the same action. The hook precedes the existing PK guard and
+retains the earlier pose-independent action branches. No actual pose changes.
+
+NativeProneCostsCrouch0..15 use an actual authored RPG unit/native TakePerk34;
+35/42 are untaken. Four ordinary prone movement/corpse movement actions give
+6/9/9/13 instead of8/12/12/18. RED4/16 each -> GREEN16/16; twelve controls pass
+before the fix: other poses, no34, rotation/pose-change/open actions and native
+worn PK suit1/add4/positive shell health. Existing PK unsupported cost1 and
+valid WALK cost are retained. Rotation/pose-change controls compare their
+pre-grant native cost to avoid assumptions about unrelated perks4/7. AP/HP,
+shell health, XP, point budget, equipment and RNG remain stable. Direct cost-
+query scope, not actual movement/animation. Joint34/35 execution awaits35.
+
+Gold GetActionAP rule6bb624..6bb652 and Steam6c161b..6c1649 independently
+decode pose0, HasPerk34 via slot78, then same mission GetActionAP slot0 with
+pose1/same action/null optional item. Their seven-byte perk-argument prefix
+maps uniquely/exactly; register allocations differ in the surrounding blocks,
+so no masked-register or whole-block/ABI byte-equivalence claim. Method slots
+are independently mapped to Gold6bac90/3724 and Steam6c0d30. Evidence: prone-
+costs-crouch-{retail-oracle,verification}.json/raw logs and complete original
+disassemblies. Game builds, related180Win/180Linux, CI323 pass; new16 outside323.
+Other independent037c41d9 hunks remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: crouch-costs-walk ability35 (`037c41d9`, partial)
+
+Acquired35 recursively queries WALK cost for pose-dependent CROUCH actions,
+after the34 hook and before the PK guard. Earlier pose-independent actions
+retain precedence. No actual pose or authored AP record changes.
+
+NativeCrouchCostsWalk0..15 use actual authored person2, native TakePerk35 and
+actual worn PK suit1/add4/positive shell health. RED6/16 each -> GREEN16/16:
+four body crouch movement/corpse costs6/9/9/13 become4/6/6/9; worn crouch side/
+corpse-diagonal become8/18 rather than the unsupported fallback1. Ten no35,
+prone/walk/run, early-action and PK controls pass before the fix. AP/HP/shell
+health, XP, points, equipment and RNG stay fixed. Direct cost-query scope.
+
+An initial joint34/35 fixture found no authored owner and was discarded as
+setup failure, not RED. Native DB inventory explains why: node121/perk35 is
+tree5 (classes1/11), whereas node141/perk34 is tree6. The final fixture uses
+the real tree5 owner and never merges/mutates trees. Optional companion-helper
+changes and debug instrumentation were removed. Both production hooks retain
+original recursive composition by code, but no vanilla combined-learning or
+native joint34/35 execution claim is made. Evidence includes authored-fixture-
+audit.json and archived setup/inventory logs.
+
+Gold Has35 block14bytes6bb6e2 -> Steam6c16d9 maps uniquely/exactly. Both check
+pose1 then HasPerk35/slot78. Gold6bb6f2 directly calls same mission AP/slot0
+with pose2/same action/null optional item; Steam6c16e9 pushes those inputs and
+branches to shared call tail6c1643. Registers/control sharing are decoded
+independently; no whole3724byte/ABI identity claim. The call precedes the PK
+guard, as the actual worn-PK positive cases prove. Evidence: crouch-costs-walk-
+{retail-oracle,verification}.json/raw logs. Game builds, related196Win/196Linux,
+CI323 pass; new16 outside323. Corpse42 and other037c hunks remain pending;
+2f5a3c75 remains partial until corpse42 ordering is accounted for.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: corpse-tracker42 AP and final PK order (`037c41d9` partial; `2f5a3c75` complete)
+
+Acquired42 returns int(Param1) for corpse-side and int(double(Param1)*1.5) for
+corpse-diagonal queries. The hook is inside valid-pose0..3 dispatch, after the
+existing34/35 recursive substitutions and worn-PK unsupported-pose guard.
+This imports the037c ability directly at the final2f follow-up position, with
+the previously imported c203fbf0 unsupported-PK guard. All2f hunks are now
+accounted for; other037c accuracy/evasion/melee/throw hunks remain pending.
+
+NativeCorpseTrackerAP0..23 use actual authored person34/native TakePerk42,
+authored Param1=4 and actual PK suit1/add4/positive shell health. RED14/24 each
+-> GREEN24/24; ten controls pass before the fix. Ordinary corpse-side/diagonal
+queries across four poses now give4/6; valid PK queries also use fixed4/6
+instead of adding suit movement AP. Unsupported PK CRAWL/CROUCH still return1,
+including temporary positive/negative parameters, proving the guard precedes42.
+Normal movement, corpse pickup, AC_NONE and no42 controls retain their costs.
+Temporary5.75 yields side5/diagonal8 (multiply before truncation); -2.75 gives
+-2/-4 without an invented lower clamp. Parameters are restored; no DB files
+change. AP/HP/shell health, XP, points, equipment and RNG remain stable. Scope
+is the native cost API; no new complete carrying/movement/animation claim.
+
+Original Gold/Steam movement action tables6bbb0c/6c1afc map actions1..4 to
+side/diagonal/corpse-side/corpse-diagonal. Identical Has42 gates16bytes occur
+twice; each original table independently disambiguates the corpse-side/diagonal
+bodies (Gold6bb834/6bb8dd; Steam6c1815/6c18be). Verified diagonal constant1.5
+is Gold8a5cf8 / Steam8b4d90. Both originals set x87 RC=11 before integer store;
+scratch offsets differ and are decoded independently. The valid-pose and PK
+guards precede this dispatch. No whole method/ABI or exceptional-float claim.
+Evidence: corpse-tracker-{retail-oracle,verification}.json/raw logs. Game
+builds, related237Win/237Linux including existing carrier-admission/null-taker/cancel/
+stability regressions, and CI323 pass; new24 outside323.
+Sources: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43
+and https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2f5a3c753d9673bfc9aa24b2852a7fe2e1bbf60f.
+
+## 2026-10-30: acquired cheap-melee32 AP (`037c41d9` partial)
+
+AC_MELEE now applies int((1-double(Param1))*baseAP) after the existing integer
+weapon min/max/melee-skill calculation. The existing denominator140 remains.
+Only the missing32 hook changes; no clamp or thrown-knife change is introduced.
+
+NativeCheapMeleeAP0..11 use actual person2, native TakePerk32 and actual equipped
+throwable melee item5 (quantity1, authored min7/max12). Natural melee33 gives
+base11 ->8 with authored Param1=.25; skill0 gives12 ->9, skill140 gives7 ->5.
+RED7/12 each -> GREEN12/12, with five controls passing before the fix. Temporary
+fractional/zero/unit/greater-than-one/negative parameters prove truncation and
+absence of a lower floor (Param1=1.25 gives-2). Parameters are restored. No32,
+throw-knife and open/close controls retain their native costs. AP/HP/XP/points,
+skills, active item/quantity and RNG remain stable. Scope is the native cost
+query, without a new attack execution or animation claim.
+
+Independently mapped original GetActionAP: Gold6bac90/3724, Steam6c0d30,
+secondary mission slot0. Has32 Gold6bb277/Steam6c131d has a four-byte argument
+prefix unique within that mapped method (not globally unique), followed by
+identical seven-byte Has slot78/call-test-skip. Gold6bb286..6bb2ac and
+Steam6c132c..6c1352 independently decode verified1.f minus Param1, integer-base
+multiply and x87 RC11 truncation, with different scratch offsets. Typed melee
+record minAP+24/maxAP+28 and skill index0 establish the retained base formula;
+the signed magic division decodes /140. No whole-method/optional-item ABI or
+exceptional-float/overflow equivalence claim. Evidence: cheap-melee-retail-oracle
+and cheap-melee-verification JSON/raw logs. Game builds, related249Win/249Linux and
+asset-free CI323 pass; new12 are extended/outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: native throwing-knife base AP (`aa031e2e` / `037c41d9` partial)
+
+Replaces the hardcoded16 with the equipped melee record's integer
+maxAP-(maxAP-minAP)*effectiveThrowing/140. Theaa source supplies weapon-based
+knife costing; its intermediate use of melee skill is superseded directly by
+the037c throwing-skill correction. Existing32 remains melee-only. Cheap-throw43
+is a separate pending hook rather than an untested extra change here.
+
+NativeThrowKnifeBaseAP0..9 use actual person2 and equipped authored throwable
+item5/min7/max12/quantity1. RED7/10 each -> GREEN10/10, with three controls
+passing before the fix. Natural throwing27 costs12, skill0 costs12, skill140
+costs7, skill70 costs10 instead of16. Deliberately opposite melee/throwing skills
+prove ownership; acquired32 leaves throwing unchanged while its melee control
+still reduces7 to5. Open/close4 and none0 remain. AP/HP/points/XP/skills,
+active-item identity/quantity and RNG stay stable. Scope is the cost API, without
+a new projectile execution/AP-spending claim.
+
+Original GetActionAP Gold6bac90/3724 and Steam6c0d30 independently map action29
+via tables6bba68/6c1a48 to knife entries6bb183/6c1229. Typed melee minAP+24/
+maxAP+28 and skill-array pointer+8 establish throwing index2. Thirty bytes of
+signed /140 base arithmetic Gold6bb1b4/Steam6c125a match exactly. Original43
+gate and multiplier are separately recorded for the next fix. No whole-method
+or optional-item ABI claim. Evidence throw-knife-ap-retail-oracle and
+throw-knife-base-verification JSON/raw logs. Full Game builds, related44Win/44Linux
+(melee/knife AP, existing knife preview/dispatch/time/feedback/handoff, reload,
+animation and network), CI323 pass. New10 extended/outside323.
+Sources: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918
+and https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: cheap-throw43 knife AP (`aa031e2e` / `037c41d9` partial)
+
+AC_THROW_KNIFE now applies int((1-double(Param1))*integerBaseAP) with acquired43;
+AC_MELEE retains acquired32. This follows the already restored weapon/throwing
+skill base. NativeCheapKnifeThrowAP0..11 use actual person2, native
+TakePerk43 and equipped authored throwable item5,quantity1. Natural throwing
+27, authored Param1=0.25: 12->9 AP. RED7/12 each -> GREEN12/12,
+five controls pass before the fix. Skill0/140, temporary.375/0/1/1.25/-.25
+parameters verify integer-base-first truncation, zero/free and negative results
+without a floor. Parameters are restored. No43/melee/open controls retain costs;
+AP/HP/XP/points, skills, active-item identity/quantity and RNG stay stable.
+
+Original action29 tables disambiguate Gold6bb183/Steam6c1229 knife branches.
+Has43 Gold6bb1dc/Steam6c1282; call-test-skip7bytes match exactly. The following
+multiply uses verified1.f Gold8a39e4/Steam8b2a34, Param1 subtraction and integer
+base, then x87 RC11 truncation, with independently decoded scratch offsets.
+Evidence throw-knife-ap-retail-oracle and cheap-knife-throw-verification JSON/
+raw logs. No full-method/optional-item ABI or actual attack/AP-spending claim.
+Game builds, related56Win/56Linux and CI323 pass; new12 extended/outside323.
+
+The037c reload33 hunk is already represented by CUnit::GetWeaponReloadActionAP
+and mission delegation, imported earlier for b875e43d: original Param1 itself,
+truncation/no floor. Existing UpstreamRetailReloadActionCost passes again in
+both related suites. No duplicate production change or new RED is claimed.
+Grenade43/table5 and otheraa hunks remain pending. Other037c familiarity/order/
+targeting/evasion/aura hunks remain pending; its melee/knife AP hooks are covered.
+Sources: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918
+and https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: Steam grenade AP table5 (`aa031e2e` partial)
+
+AC_THROW_GRENADE now reads existing RPGAP record5/nAP, falling back to0 if
+absent, instead of hardcoded20. No DB records or schema change. Authored record5
+is20, so the ordinary unperked price stays20. Acquired43 remains a separate
+pending multiplier.
+
+NativeGrenadeTableAP0..8 use actual person2 with untaken43, actual runtime-owned
+RPGAP5 and equipped authored item5 for non-grenade controls. RED4/9 each ->
+GREEN9/9; five controls pass before the fix. Temporary in-memory prices24/7/0/
+-3 now reach the query across four poses, with no invented floor; the authored
+20 and open/none/melee/knife costs stay stable. The record is restored. AP/HP/
+XP/points/skills, active-item identity/quantity and RNG remain stable. This is
+table-driven native cost-query proof, not actual grenade spending/flight.
+
+Version distinction: Gold action13 table6bba68 ->6baf9d uses fixed20 (verified
+float20 at the perk branch, immediate20 at the unperked return). Steam table
+6c1a48 ->6c10a8 loads record5, decoded call7db220, then integer field+10. This
+change follows Steam1.2 table ownership; it does not claim Gold has that table
+read. Both originals separately contain the43 multiplier, still pending here.
+The authored baseline20 agrees. Evidence grenade-ap-retail-oracle and
+grenade-table-verification JSON/raw logs. Full Game builds, related51Win/51Linux
+(prior melee/knife AP and existing grenade execution/handoff/trajectory checks)
+and CI323 pass; new9 extended/outside323. Null-record fallback is defensive
+and not presented as an original null-record parity result.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.
+
+## 2026-10-30: cheap-throw43 grenade AP (`aa031e2e` partial)
+
+AC_THROW_GRENADE now applies int((1-double(Param1))*integerTable5Price) with
+acquired43 after the restored table lookup. NativeCheapGrenadeAP0..13 use actual
+person2/native Take43, authored Param1=.25 and RPGAP5=20, plus actual item5 for
+melee/knife scope controls. RED7/14 each -> GREEN14/14; seven controls pass
+before the fix. Authored20 ->15; temporary Param.375 gives12 (truncates12.5),
+Param1 gives0,1.25 gives-5 and-.25 gives25. Temporary table7/.25 gives5,
+table0 gives0 and table-3 gives-2. No43 table24 remains24, melee/open retain
+their prices, and the already restored knife43 still gives12 ->9. Parameters
+and table price are restored; AP/HP/XP/points/skills, active-item/quantity and
+RNG stay stable. Native cost-query scope, without a new actual AP-spend claim.
+
+Original action13 maps to Gold6baf9d/Steam6c10a8. Both query Has43slot78 and
+use verified1.f-Param1 before x87 RC11 truncation, without a floor. Gold uses
+verifiedfloat20, Steam integer table5 (the prior commit records the version
+distinction). This hook follows each version's multiplier; no claim that Gold
+uses the Steam table. Evidence grenade-ap-retail-oracle and cheap-grenade-ap-
+verification JSON/raw logs. Full Game builds, related65Win/65Linux including prior
+melee/knife/table queries and grenade execution/handoff/trajectory, and CI323
+pass; new14 extended/outside323. Allaa throw-AP hunks are now accounted for;
+explosive rounding/fragments/trace, grass, scenario knockout and melee-miss
+dispatch hunks remain pending for individual audit.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.
+
+## 2026-10-30: better-evasion40 IC (`037c41d9` partial)
+
+GetIC converts the effective skill to a stored float, applies acquired40's
+(1+double(Param1)) multiplier with a float store, then Float2Int using the active
+rounding mode. There is no new clamp or forced truncation. NativeBetterEvasion
+0..11 use actual person41/native Take40 and authored Param1=0.15; IC21
+becomes24. RED8/12 each -> GREEN12/12; four controls pass before the fix.
+No40, zero skill/parameter, effective140, temporary fractional/negative/>1
+parameters cover ownership and no floor/cap. Under the normal nearest-even mode,
+Param.5 makes21 ->32 and23 ->34, also1 ->2; -1.5 makes21 ->-10. These cases
+distinguish rounding from truncation and ties-away. Parameters are restored;
+AP/HP/XP/points, effective IC and RNG stay stable. This is the native GetIC
+query; attack-specific39/aura, CheckIC practice/RNG and damage are independent
+pending changes.
+
+Gold PDB GetIC6b9ce0/103 uniquely matches Steam6bfef0, with only the decoded
+fadds absolute pointer at offsets78..81 masked. Both pointed values independently
+verify1.f. Stored-float multiply then reload/FISTP are present; no x87 rounding
+mode overwrite occurs. The source comment6bff40 is not this function's entry in
+our independently identified Steam binary. Evidence evasion-getic-retail-oracle
+and better-evasion-verification JSON/raw logs. Full Game builds, related31Win/31Linux
+(IC health-survival, PK damage/critical and existing portable critical checks)
+and CI323 pass; new12 extended/outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: explosive modifier min/max precision (`aa031e2e` partial)
+
+**Precision clarification:** the earlier wide-product inference and large-half
+examples below are superseded by the later original-runtime audit. Integer
+truncation remains correct (13.5 ->13); product significand is PC24/RN.
+
+The actual NWorld::FillAttackModifiers now uses int(double(integerDamage)*
+floatAEModifier) for min/max, preserving precision until final truncation.
+The existing structure-product float and always-human-critical assignment are
+unchanged. Own SPerkMineModifiers and attack layouts/serialized codecs remain.
+
+NativeExplosiveModifierMath0..14 call that real linked production function
+directly with typed native attack/modifier records; no copied formula/model or
+test-only production hook. RED10/15 each -> GREEN15/15; five controls pass
+before the fix. Fixed oracle examples:9/11*1.5 ->13/16,10/14*1.25 ->12/17,
+10/20*.875 ->8/17 and1/3*.5 ->0/1. Neutral/zero/exact products, negative API
+values, structure multipliers and both critical flags are covered. Safe large
+integer inputs33554435/33554439*.5 ->16777217/16777219 (and signed negatives)
+prove no premature float product/operand store. Unrelated attack fields,
+trajectory, owner/target and RNG remain stable. These are direct native math
+fixtures, not authored grenade/perk ownership or full explosion/trace/damage
+application claims; no DB/resource assets are needed or changed.
+
+Gold PDB FillAttackModifiers749bb0/87 uniquely matches Steam7551e0, all87bytes
+exact with no masks. Typed PDB attack min8/maxc/human-critical2d/structure30
+and modifier structure0/AE4/human8 identify fields. Both signed FILD/FMUL
+min/max paths set x87 RC11 before FISTP. Source comments754dfa/354b00 do not
+identify our Steam entry. No original ABI, exceptional-float/overflow or whole
+explosion pipeline parity claim. Evidence explosive-modifiers-retail-oracle
+and explosive-modifier-verification JSON/raw logs. Full Game builds,
+related24Win/23Linux with existing grenade execution/handoff/trajectory (and Windows
+explosion-perk wire) plus CI323 pass. New15 asset-free extended/outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.
+
+## 2026-10-30: live current-item familiarity consumer (`037c41d9` partial)
+
+Adds the missing live familiarity term to shared GetAllAdd. The mission getter
+delegates to the existing CUnit counter for its actual firearm first, otherwise
+its actual melee/unarmed item; it never reads the mission's serialized mirror.
+The interface adds a compatible default0 getter at its tail for other mission
+implementors. Existing CUnit::UseWeapon, learning rates/caps and own6/71 rules
+are unchanged. Existing base sum order/precision and targeting73 remain separate
+pending hunks; this change claims the missing familiarity contribution only.
+
+NativeLiveFamiliarity0..9 use actual person2, authored firearm1 and melee5,
+native unarmed fallback, real equipped item instances and actual UseWeapon.
+RED6/10 each -> GREEN10/10; four controls pass before the fix. Isolated range
+input makes D2=0, WALK/first-round/repeat0 and SNAP leave just authored quality
+(firearm1 or melee/unarmed0) before training. API inputs rate3/cap20/multiplier
+1.25 produce live3.75; firearm total1 ->4.75, melee/unarmed0 ->3.75. Cap and
+fraction/negative API controls produce totals26/1.125/.25. These are explicit
+native API stimuli, not new authored perk-rate values. Untrained, trained-other
+item, inactive firearm and same-DB/different-instance controls retain totals;
+the tracked item remains alive. AP/HP/XP/points, active item/quantity, live
+counter and RNG stay stable during the query. No DB mutations, actual firing,
+preview/AI choice or full accuracy-formula parity claim.
+
+Gold PDB mission getter6bac00/143 uniquely matches Steam6c0ca0/143 with only
+four independently decoded call operands and verified0.f pointer masked.
+Gold CUnit getter6b52e0/51 uniquely matches Steam6bb480 with only verified0.f
+pointer masked; typed live pAdaptatedWeapon98/fCurrentAdaptationa0 prove item
+identity and live value. Named firearm/melee getter call targets and RTTI item
+names are verified. Both original GetAllAdd bodies call mission slot70
+(Gold6b2284/Steam6b8404), independently mapped to those getters. Their scratch
+offsets differ and are decoded independently; no whole-prefix/method/ABI claim.
+Evidence mission-familiarity-retail-oracle and live-familiarity-verification
+JSON/raw logs. Full Game builds, related44Win/44Linux including own existing weapon
+familiarity, zeroing/stance, loader ordering/reload/network and CI323 pass.
+New10 resource extended/outside323. Broader037c order/targeting/evasion/aura
+consumers remain pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: original additive float order, correcting upstream (`037c41d9` partial)
+
+GetAllAdd now stores float(SMove+RS), adds/stores D2, then Stance, and retains
+wide precision through live familiarity plus integer quality until the final
+float assignment. Other terms, live counter and targeting branch are unchanged.
+The upstream037c hunk reverses D2/Stance; that reconstruction error is corrected
+here using both originals. Faster-targeting73 and the extra-AP formula remain
+separate pending hunks.
+
+Gold PDB GetAllAdd6b2240/357 and independently identified Steam6b83c0 call
+slots28,24,20,18. PDB/RTTI primary tables Gold8b5b9c/Steam8c4cb4 resolve them to
+SMove,RS,D2,Stance respectively (slot20 is D2, not Stance). Then mission70
+is the live familiarity getter, followed by integer quality. Typed PDB
+sWeaponInfo18/nQuality4 ->quality1c and pUnitMission44 identify fields.
+Goldscratch0c/Steam10 differ; both are independently decoded, no forced prefix
+parity. Valid firearm SNAP returns reload the stored float. No whole-method,
+unarmed excess-precision ABI or full accuracy/targeting equivalence claim.
+
+Discovery, NOT RED evidence: a temporary native probe enumerated16848 actual
+term combinations per platform. A provisional upstream-order probe was
+corrected against those named vtables before fixed tests or production edits;
+its separate logs are retained as additive-order-discovery-upstream-order and
+provisional-scout-correction JSON. Corrected Win/Linux observations agree for
+all128 differences. Exact Fraction arithmetic on round-tripped native float32
+terms independently checks all128 original-order outputs. The temporary probe
+was removed; fixed native regressions contain literal golden result/input bits,
+without a copied calculation of the implementation in the test.
+
+NativeAdditiveOrder0..11 use actual person2/firearm1/SNAP/native shooting35,
+D1=13.5, actual distance/stance/weapon movement terms, native movement/repeat
+counters and existing UseWeapon live3.75. RED8/12 each -> GREEN12/12. Four
+pre-fix controls also reject upstream's wrong Stance-before-D2 order. All
+native term bit patterns are checked as fixture prerequisites; none failed
+setup. All four poses, repeats and movement saturation/cancellation are covered.
+Example raw additive bits4106bc44 ->4106bc45; these are small rounding steps,
+not evidence of a changed final hit chance. AP/HP/XP/points, counters, equipment/
+ammo, skill, query inputs, live familiarity and RNG remain stable. Scope is the
+shared additive query; no new actual firing/AI-choice/final-chance claim.
+
+Evidence additive-order-{retail-oracle,golden-samples,verification}.json,
+PDB-symbol output/raw prefixes and native RED/GREEN logs. Full Game builds,
+related56Win/56Linux (familiarity/zeroing/stance, own weapon learning, loader/reload/
+network) and CI323 pass; new12 resource extended/outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: retail1.2 extra-AP additive base (`037c41d9` partial)
+
+Careful/Snipe shared additive queries replace legacy max(extraAP,int(SMove))
+with int(SMove)-int(double(extraAP)*-1.5). The two conversions are separate
+truncations. Existing Aimed/Careful raw targeting-AP addition remains; SNAP,
+Aimed-only and no-weapon scope stay intact. Faster-targeting73 remains separate.
+
+NativeTargetingBase0..13 use actual person14, authored four-mode firearm17,
+native movement counters and concrete shared tile calcer with untaken73.
+RED7/14 each -> GREEN14/14; seven controls pass before the fix. Authored quality
+5/targetAP10: stationary Careful extra2 total17 ->18,extra3 ->19; Snipe extra2/
+3 gives8/9. At actual movement cap10, authored penalty-9 makes SNAP baseline-4;
+Careful extra0 total6 ->-3 and Snipe-4 ->-13, matching the extra truncated
+movement term in1.2. These are raw additive results, not final chances.
+Two declared native input boundary cases use calcer penalty-.4/moves2 ->-.8:
+extra1 proves separate truncation (adjustment1 rather than truncating.7 to0),
+and signed extra-1 yields adjustment-1. This does not mutate weapon DB data.
+SNAP/Aimed/zero-extra/no-weapon controls pass; AP/HP/XP/points, movement,
+equipment/ammo, skill, extra-AP input and RNG stay stable. No actual AP spending,
+Prepare/skill recalculation, final hit chance or shooting claim.
+
+Version audit: project balance policy targets retail v1.2. Independently mapped
+Steam GetAllAdd6b83c0 checks Careful2/Snipe5, truncates SMove at6b84aa and
+extraAP*factor*verified-1.5 separately at6b84d7, then subtracts at6b84df. Default
+factor1.f is explicit. Typed targetAP24/extraAP48 and virtual SMove28 identify
+inputs. Gold1.1 instead compares a converted extra-AP product (verified+1.5)
+with int(SMove) and selects the maximum; no Gold/Steam targeting equivalence
+or old Gold CRT-helper parity claim. Both versions'73 gate is Snipe-only and
+will be ported separately. Evidence targeting-retail-oracle and targeting-base-
+verification JSON/raw branch bytes/native logs. Full Game builds,
+related70Win/70Linux and CI323 pass; new14 resource extended/outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-30: Snipe-only faster-targeting73 (`037c41d9` partial)
+
+GetAllAdd now obtains acquired73's Param1 only for SM_Snipe, defaulting to1
+otherwise, and applies it within the existing separately truncated extra-AP
+product. Careful/Aimed/SNAP rules remain. All037c shared additive-order/live
+familiarity/extra-AP/targeting73 hunks are now accounted for, with the earlier
+original D2-before-Stance correction; attack evasion/aura hunks remain pending.
+
+NativeFasterTargeting0..13 use actual person14/native Take73 and authored
+four-mode firearm17, actual authored Param1=1.25. RED6/14 each -> GREEN14/14;
+eight controls pass before the fix. Stationary extra10 Snipe raw total20 ->23;
+small extra1/2 remain6/8 because truncation masks the fractional bonus. Temporary
+Param.75/0/-.75/1.25 with extra3 produce raw8/5/2/10, while Param1 preserves9.
+At authored capped movement-9, extra3 total-9 becomes-8. An authored fractional
+movement case (one move at-.9, temporary Param.75,extra1) protects separate
+truncations; no movement override is used here. Careful/Aimed and SNAP-before/
+after grant, no73 and unit-parameter controls prove Snipe-only ownership and
+direct Param1 (not its complement). All temporary perk parameters are restored.
+AP/HP/XP/points, movement, active item/ammo/quantity, skill, shoot mode/extraAP
+and RNG remain stable during the query. No DB assets or actual AP spend change.
+
+Both originals compare mode5 before Has73 (Gold6b22c6/6b22e1,
+Steam6b8446/6b8461); the Has73 argument/call prefix5bytes is identical.
+Steam's explicit default1.f and separate x87 truncations retain precision
+through extraAP*floatParam*verified-1.5. Gold's older maximum tail is distinct,
+as recorded by the prior base fix; no full formula parity claim across versions.
+Evidence targeting-retail-oracle and faster-targeting-verification JSON/raw
+logs. Full Game builds, related84Win/84Linux with previous targeting/ordering/
+familiarity/stance/zeroing/own learning/loader/reload/network and CI323 pass;
+new14 resource extended/outside323. Native shared additive-query scope, without
+a new Prepare/skill/final-hit-chance/actual firing claim.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-31: late incidental damage evasion base (`037c41d9` partial)
+
+**Superseded arithmetic precision:** the wide-product explanation and IC100/40
+remaining1 and IC20/40 remaining33 below are incorrect under observed original
+PC24/RN. See the later original-address late-IC runtime audit. The earlier gate/
+receiver/order work remains; historical numerical measurements are retained.
+
+Removes the early CheckIC whole-hit rejection and applies max(0,damage-
+int(double(IC)*damage*double(.01f))) after damage conversion, before healed/
+life application. Click-of-death, intended targets and worn PK skip the IC
+roll/practice before it executes. Existing GetIC/CheckIC and own shared RNG
+are retained for this no39/aura0 specialization; typed39/aura and original
+unsigned chance semantics remain separately pending. No unrelated critical,
+training formula, armor, API or serialized-layout rewrite is included.
+
+NativeIncidentalDamage0..7 execute real ProcessAttack with actual person103,
+authored human armor/matched flesh damage type, exact base40, no attacker,
+noncritical BODY and explicit no-random-knockout input. RED4/8 each -> GREEN8/8;
+four controls pass before the fix. IC100 incidental old rejected(-1/NONE)/HP0
+now applies1 HUMAN damage; IC20 selected success applies33; IC140 clamps to0
+but continues through HUMAN receiver and normal RNG flow. IC0/failed roll,
+intended target and an actual worn suit/bypass-pilot control retain full40.
+HP loss agrees with every receipt, shell/inventory/input portion stay valid,
+no unexpected death/knockout occurs, and shared RNG progression matches.
+Two actual MakeClickOfDeath payloads compare intended vs incidental targets:
+both remain zero-damage knockouts, with equal shared RNG and no IC practice.
+Previously incidental click added a roll and.1 IC practice. No actual world
+trace/FX/AI/death-loot or full critical-pipeline equivalence claim.
+
+Fixture correction before production edit: the initial all-eight failure
+suite wrongly demanded invariant defender AP during real damage. Existing
+VP/wound modifiers legitimately change51 ->48 at40 damage. That assertion was
+removed while recording AP and retaining all other checks; initial logs are
+archived as incidental-damage-initial-state-fixture and explicitly NOT final
+RED evidence. The corrected compiled4/8 RED above preceded the production fix.
+Victim AP remains governed by the existing wound system.
+
+Original secondary mission slotA4 maps GoldPDB6bd7e0/1992 ->Steam6c3e20;
+late block6c4224..6c42be checks click2, target identity, worn-PK primary14,
+then actual attack-type CheckIC90 and modifier helper6beca0. The PK getter
+Gold76bd20/Steam777ad0 matches all7bytes (typed fullpPK188). Modifier helper
+Gold6b88f0/118 uniquely matches Steam6beca0 with only independently verified
+1.f pointer masked. No39/aura0 small integer IC is its GetIC specialization.
+Reduction uses verified storedfloat.01 at8b3bc0, x87 RC11 truncate/subtract/
+negative-to0 mask. Its actual value.009999999776482582 explains IC100/base40
+leaving1, and IC20 leaving33. Evidence incidental-damage-retail-oracle and
+incidental-damage-verification JSON/raw block/complete-entry disassembly/logs.
+Full Game builds, related40Win/40Linux (health/head-body/attacker-level/PK/IC/critical/
+network) and CI323 pass; new8 resource extended/outside323.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-31: original unsigned IC chance (`037c41d9` partial)
+
+The mapped original CheckIC bodies both compare the unsigned random remainder
+against IC interpreted unsigned. GoldPDB6bca50/171 and Steam6c2d20 are reached
+through secondary mission90; offset77 contains xorEDX/movECX100/unsignedDIV,
+and offset103 is CMP EDX,EDI; SETB DL (3bd70f92c2), not signed SETL. Restore
+that comparison at this call alone with own MissionRandom.Get(100) and an
+explicit unsigned IC cast. Own generator/global RandomGen.Check, one draw,
+existing UseSkill and noarg public API remain unchanged. Source's CheckIC
+hunk is adapted with this original-binary correction; typed39/aura remain
+pending, rather than copying the global helper's signed comparison.
+
+NativeUnsignedICChance0..7 execute actual person41/untaken authored40 then
+native TakePerk as appropriate. IC21, authored.15->24, temporary Param-1.5
+->IC-10, -2->-21, -1->0, zero->21, and no40 IC140 exercise the real CheckIC.
+Parameters restore on exit, training remains positive, integer skill/AP/HP/
+points/XP/inventory stay valid and own shared RNG matches exactly one draw.
+Negative IC comparisons both pass in the original unsigned semantics.
+A real incidental ProcessAttack with IC-10 and exact base40 on the same
+actual perk owner applies43 HUMAN damage/HP loss, rather than40; its negative
+reduction truncates -3 before subtraction. VP is explicitly initialized500
+for that runtime damage fixture, without modifying DB or authored perk trees.
+No unexpected death/knockout and both shared draws match. RED3/8 each ->
+GREEN8/8, five controls already passed. This preserves a numerical quirk of
+the target original; it is not a new clamp or intended-design correction.
+Full Game builds, related48Win/48Linux and asset-freeCI323 pass; new8 extended
+outside323. Evidence unsigned-ic-retail-oracle/verification JSON, raw171byte
+original bodies, disassembly and per-platform RED/GREEN/gate logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-31: typed explosion evasion39 (`037c41d9` partial)
+
+Introduces internal GetPerkModifiedIC/CheckICForAttack, preserving the existing
+noarg public virtual CheckIC as an AT_NORMAL wrapper. ProcessAttack supplies
+its real attack type to both the chance and the late damage reduction.
+Only blast1/fragment3 use native perk39: float(GetIC)*(1+doubleParam), store
+float then Float2Int current rounding; normal0 does not use39. Own unsigned
+single-draw chance/training, base GetIC40, interfaces, serialized fields and
+RNG generator stay intact. The original helper's nonzero aura term remains
+separately pending with its victim ownership/scope, rather than being claimed
+by these aura0 tests.
+
+GoldPDB GetPerkModifiedIC6b88f0/118 uniquely maps to Steam6beca0: all118bytes
+match after masking only the independently verified1.f absolute operand.
+Decoded virtual GetIC14, type1/type3 branches, Has39/slot78, stored-float
+multiplication and current-mode FISTP agree. The typed CheckIC90 and actual
+late percentage calls were independently mapped in the preceding damage
+audit; source comments at6becf0 refer to a store inside the mapped helper.
+
+NativeExplosionEvasion0..16 execute real ProcessAttack/person2/authored39
+bonus.1/native TakePerk with runtime VP500, actual body armor/flesh damage,
+constant noncritical40 (100 in the IC1 rounding case), no attacker and no
+random knockout. RED9/17 each ->GREEN17/17, eight controls already passed.
+Authored bonus IC21 ->23 yields31 damage for both blast/fragment, rather
+than32. With Param.5, a selected roll21..31 isolates chance: old40 ->28;
+a selected roll below21 isolates percentage: old32 ->28. Current rounding
+is checked at IC1*1.5 ->2 (100 ->99 damage), and IC23*1.5 ->34 (40 ->27).
+Param1.25 givesIC47/damage22; Param-1 givesIC0/failed chance/full40; Param
+-1.5 givesIC-10/unsigned-success/damage43. Native base GetIC is unchanged,
+all shared RNG/HP/receiver/IC practice/points/inventory/input checks pass,
+and parameters restore. Normal, no39 blast/fragment, zero parameter, >100,
+intended and real wornPK-bypass controls retain their original behavior;
+intended/PK skip IC practice, actual shell HP is unchanged. No artificial
+joint39/40 perk tree, public typed-API break, DB modification or full world
+trace/FX/critical-pipeline parity claim. Full Game builds, related65Win/65Linux
+and CI323 pass; new17 resource extended/outside323.
+Evidence explosion-evasion-retail-oracle/verification JSON and native logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-31: independent aura player-pointer ownership (`037c41d9` partial)
+
+GetAuraAdd now keeps donor28 behind its ALLY gate but evaluates the owner's
+same-player flag independently. This selects own66 when any nearby other
+unit has the same GetPlayer pointer, including two null owners; otherwise
+it selects93. Original GoldPDB689f00/581 maps uniquely to Steam68fed0 with
+all581bytes matching after only decoded SEH/RTTI/E8 relocation operands are
+masked. Both RTTI names are independently verified; radius immediate40480000
+is3.125. Gold68a013 skips only donor accumulation to68a047; the subsequent
+GetPlayer34/compare/sete/or is independent and has no nonnull guard. Own
+ordinary same-nonnull-player units are always ALLY, so the observable change
+is the detached/playerless pointer edge, not normal allied squads.
+
+NativeAuraPlayerOwnership0..9 use actual random world810 and native AddUnit-
+InGame, person3/authored66 (10hit/10IC), actual authored66/28 nodes granted
+through TakePerk, real passable free near/far positions, native SetPlayer and
+restored owner pointers. Actual CTileToHitCalcer.GetAuraToHitAdd and
+CUnitToHitCalcer.GetTAuraEvasionAdd both execute production GetAuraAdd.
+RED3/10 each ->GREEN10/10; seven controls already passed. Two nearby null
+owners now retain own10/10; a neutral null-owner28 donor contributes0 while
+own66 still applies. Temporary2.25/3.5 self parameters are restored; actual
+nonnull allied donor28 with distinct7.25/11.5 gives total9.5/15. Untaken66,
+no peer, different owner and outside3.125 cases remain0. Native neighborhood
+and diplomacy preconditions are checked, without forcing an impossible
+same-nonnull-player enemy relationship. Queries preserve HP/AP/points/RNG.
+No new exported helper, public API or victim damage scope is included here.
+
+Fixture correction: Linux's donor28 TakePerk logging throws range_error on
+its authored narrow CP1251 display label before native acquisition. GDB
+confirms CLogStream->TakePerk->fixture. A scoped ASCII diagnostic display
+label now surrounds the actual TakePerk, then restores its exact original
+string; native nodes/trees/persons/params/point spending remain intact and
+no DB file or engine conversion is changed. Initial Win3/Linux5 failures
+are archived as initial-encoding-fixture, NOT final cross-platform RED.
+The corrected compiled3/10 RED above precedes the production edit. The
+pre-existing Linux narrow-label logging issue remains separately recorded,
+not claimed fixed by aura ownership.
+
+Full Game builds, related47Win/47Linux (aura/perception/stealth/unhide/network) and
+CI323 pass; new10 resource extended/outside323. Evidence aura-ownership-
+retail-oracle/fixture-correction/verification JSON, original581byte bodies,
+disassembly, GDB and native per-platform RED/GREEN/gate logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-31: stored aura term before final IC rounding (`037c41d9` partial)
+
+GetPerkModifiedIC now adds the already-existing fAuraPerkICModifier to its
+stored float after the optional39 product and before final Float2Int.
+GetIC still reports only the base/40 result. Gold typed member is full1cc;
+Gold6b88f0/118 maps to Steam6beca0 with only verified1.f operand masked.
+Steam6becf4..6bed0a load fIC/addfull1cc/storefloat/reload/FISTP proves both
+the additive term and its rounding position. Secondary198 setter Gold6bf650
+and Steam6c5de0 match all13bytes without masks, storing secondary+180 which
+is full+1cc. Corrects the old stale setter-address comment; no save tag,
+interface or actual world attack caller is changed in this step.
+
+NativeStoredAuraEvasion0..12 restore the actual native mission's existing
+tag43 through a complete borrowed-reference snapshot. Every other serialized
+field payload and native reference is compared unchanged after restoration;
+no sparse record that could zero unrelated fields or invented test API is
+used. Real person2, native39 node/TakePerk (as appropriate), runtimeVP500,
+authored body armor/flesh and actual ProcessAttack fixed40/100 execute the
+rule. RED9/13 each ->GREEN13/13; four controls already passed. Stored+10,
+baseIC21 givesIC31 and28 damage for normal and blast without39; authored39
+fragment gives(21*1.1 storedfloat +10) rounded33 and27 damage. A selected
+roll21..30 independently proves the aura chance change (old40 ->28).
+21+.5 and21+1.5 both round22, yielding79 damage from100. For39 Param.5 and
+IC1, 1.5+1 ->2.5 rounds2 (99 damage) whereas premature rounding would give3;
+1.5+1.5 ->3 rounds3 (98 damage), whereas premature rounding would give4.
+Stored-31 ->IC-10 preserves original unsigned success/43 damage; stored-21
+->IC0 fails the roll/full40. Intended and actual wornPK-bypass controls skip
+IC practice and retain40/shell HP. All HP/receiver/RNG/baseIC/field/points/
+inventory/practice checks pass; native stored aura remains unchanged by the
+RPG call because application/reset belongs to the separately pending world
+scope. Zero-aura controls and temporary39 parameter restoration also pass.
+Full Game builds, related78Win/78Linux and CI323 pass; new13 resource extended
+outside323. No new world trace/FX/critical pipeline claim.
+Evidence stored-aura-retail-oracle/verification JSON and native logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-31: victim world aura scope; `037c41d9` complete with adaptations
+
+Exports the existing native GetAuraAdd, appends a compatible default no-op
+SetAuraPerkICModifier at the IUnitMission tail and overrides the existing
+CUnitMission setter. CDumbUnitServer::ProcessAttack computes its actual
+victim's evasion aura, sets it before the existing RPG call and resets it to0
+immediately afterwards. Existing field43/layout, world five-argument entry,
+SetGame binding, own renderer/audio/network and other fake implementors remain
+compatible. No typed public CheckIC replacement or source-wide rewrite.
+
+Original named CDumbUnitServer COL offset8 maps GoldPDB745f80/1884 to Steam
+751570 (prior world-damage-rtti-oracle). Victim fullthis EBP is pushed7515e6,
+GetAuraAdd7515ef calls independently mapped68fed0; second output is loaded
+7515f7 and passed to RPGsecondary198 setter7515fe. Actual RPGsecondaryA4
+attack is75162e; push0/same198 reset is751639..751641, before hit response.
+Setter Gold6bf650/Steam6c5de0 matches all13bytes. The source comments citing
+7511fe..75123b are stale; the adapted code cites the actual mapped range.
+
+NativeWorldVictimAura0..11 execute real world810/AddUnitInGame/person3/
+authored66/native TakePerk and actual CUnitServer->CDumbUnitServer->RPG damage,
+not a dummy world or newly-added setter as RED. Native preview checks the
+real victim neighborhood first. RuntimeVP500, actual body armor/flesh,
+fixed noncritical4/5/7, null attacker and explicit no-random-knockout isolate
+this scope. Existing stored43 stale values use the complete snapshot helper
+from the preceding fix; every other field/reference is verified unchanged.
+RED9/12 each ->GREEN12/12; three controls pass before editing production.
+Authored+10/IC21/base7 restores6 ->5 damage, matching HP loss and exactly
+one world hit locator. A selected roll21..30 isolates chance (old7 ->5).
+Stale-21 is overwritten with current+10, stale+10 on an unperked victim is
+overwritten with0 (old3 ->4 from base4). Both normal and intended/blocked
+calls leave stored aura0; intended/blocked skip IC practice. A blocked hit
+still clears stale4 without consuming game RNG. Distinct to-hit10/evasion0
+control proves use of the second output. Restored temporary negative aura
+-71 givesIC-50/base4 ->5 via original unsigned chance; aura1.5/IC20/base5 ->4;
+aura100/IC0/base4 ->1. Unperked and ordinary intended controls stay4.
+All final amounts are<=5, so unrelated bloody-particle RNG is not involved
+in GREEN: exact shared RNG advances by IC+unconscious draw, intended by only
+unconscious and blocked by none. Initial old wrong6/7 legitimately entered
+its existing >5 blood-effect path and therefore differed in RNG as well as
+damage. Native points/inventory/baseIC/practice/input/living state remain
+valid; parameters restore. No full projectile/FX/death/critical-pipeline claim.
+Full Game builds, related100Win/100Linux and CI323 pass; new12 extended/outside323.
+
+Final037c hunk reconciliation: charged perfect-tool50; stance12; zeroing85;
+first-turn23; live familiarity and original additive/targeting order; aura
+player-pointer/donor ownership; classless HasPerk; unhide base/observer25/75;
+knife base/32/43; reload33 already-own delegation; pose34/35/corpse42;
+late incidental IC/40/39/aura and original unsigned comparison; trap49 and
+disarm51 are all accounted for by the separate native RED/GREEN imports.
+The CToolItem registration hunk only adds a final newline: existing own
+0x024c2140 is unchanged since52c270952, not a missing registration. The
+source's swapped Stance/D2 sum was deliberately corrected to the independently
+verified original D2-then-Stance order; public noarg CheckIC is retained with
+internal typed dispatch. Helper/header/include/constant glue is complete.
+Status changes from partial to imported; this does not claim completion of
+the other unfinished sources or final-head hosted CI for the entire task.
+Evidence world-aura-retail-oracle/verification JSON, original disassembly and
+native per-platform RED/GREEN/full-build/related/CI logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-31: terrain grass belongs to floor0 (`aa031e2e` partial)
+
+CSetRender::AddGrass now supplies explicit SRoomInfo(0) for terrain sectors,
+rather than inheriting the shared default-100. Other scene node defaults,
+room groups, grass tracker/animator/texture/pose/sector bounds and own render
+backend remain unchanged. No grass generation, HD PNG regeneration or asset
+rebuild is performed.
+
+GoldPDB CSetRender::AddGrass6c6f50/633 maps uniquely to Steam6cda30, with the
+complete633bytes matching after only decoded SEH, nineteen E8 relocation
+operands and two named transform-vtable operands are masked. Both vtables'
+RTTI names (CFuncBase<SFBTransform>/NGScene::CCFBTransform) are independently
+verified. Typed SRoomInfo pGroup0/nFloor4(short) maps the original zeroEDI
+ptrstore esp28/wordstore esp2c at Gold6c6f9b/6c6f9f, Steam6cda7b/6cda7f;
+the room address is passed to scene CreateGrassSector3c atGold6c711d/
+Steam6cdbfd. The source's6cdacf comment is not used as an unverified oracle.
+
+NativeTerrainGrassFloor0..1 execute real native worlds810/4517, original
+terrain data, CGrass/CGrassTracker/CGrassAnimator and CSetRender dispatch.
+A recording scene sink retains actual inputs and inspects the emitted room
+metadata without allocating GPU resources; no copied grass/floor algorithm
+or fabricated sector is used as RED. World810 has one layer/four sectors,
+4517 three layers/44 sectors; all48 have floor-100 in RED and0 in GREEN.
+The85 terrain-region controls remain0, all grass room groups remain null,
+actual animator/texture/pose exist (first texture1906), and generic default
+SRoomInfo remains-100, rejecting an overbroad global-default change. RED2/2
+each ->GREEN2/2. Native dispatch metadata is verified, not GPU pixel output.
+Existing production GetFloorBit/GetFloorMask in GMatShare map -100 tofloorbit1
+and0 tofloorbit8; basement-1 mask7 therefore includes old grass and excludes
+the corrected ground grass. That visibility consequence is a source-level
+consumption audit, not a new screenshot/renderer-equivalence claim.
+Initial Linux related native-display gate lacked an SDL display (16
+setup failures, archived grass-floor-final-linux-no-display); the same list
+is rerun under Xvfb/Openbox with no additional source changes.
+Full Game builds, related33Win/33Linux (terrain dispatch, head idle, lights,
+ambient/script effects, decals/network) and CI323 pass; new2 resource extended
+outside323. Broader aa source remains partial (fragments/knockout/melee miss/
+plain-ray wrapper semantics pending). Evidence grass-floor-retail-oracle/
+verification JSON, original633byte bodies/disassembly and native logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.
+
+## 2026-10-31: death/removal notifies native carrier tasks (`360344ca` partial)
+
+Restores CScenarioTracker::OnUnitDestroyed and its CUnitServer::Die caller
+after ack removal, before state OnDeath/item drops and the bRemove branch.
+For an active scenario and valid unit, collect that person's and its actually
+carried body's clues with bTake=false and complete only DESTROY_ITEM_CARRIER
+tasks. This includes silent unit removal while it is still alive, rather than
+inventing an IsDead-only condition. Own optional/no-campaign worlds retain
+null guards at the caller. Existing death/loot/ack/animation/state/audio/UI
+camera paths, tracker fields/schema and per-item ownership handling remain.
+Attack-triggered knockout notification from aa is still separate and pending.
+
+GoldPDB OnUnitDestroyed6fa1d0/255 uniquely maps to Steam704300 with all255bytes
+matching after only SEH and seven decoded E8 operands are masked. Active flag
+3c/unit validity, unit40->RPG58, GetCorpse, GetCluesFromPers with false and
+CompleteTasks tag1 for every result are decoded. CompleteTasks Gold6f72d0/91
+uniquely maps to Steam701390 with only its setter E8 operand masked; mapped
+setter Gold6d8940/Steam6df820 matches all10bytes and stores state at18 with no
+other effect. Die Gold7b6440/500 maps by unique32byte prefix (SEH only) to
+Steam7c2bc0; independent direct call Gold7b6509/Steam7c2c89 reaches that exact
+handler before bRemove test at+ce, after ack removal. WorldEC/global scenario
+field38 and CUnit-interface adjustment14c decoded; no full Die byte-equivalence
+claim. Source's703fa0 comment is stale; actual mapped helper is704300.
+
+NativeScenarioCarrierDestroyed0..8 use actual world810, native person103,
+actual campaign flowchart lookup, stock authored clues/items (Win5442/314,5452/303; Linux5480/315,5479/338)
+with their existing goals/carrier tasks, real CreateClueItem/backpack
+placement and actual KillUnit/Die or RemoveUnit. Already-discovered inputs use
+native visible/detected setters; no new DB/task/goal records or fake tracker,
+new missing-handler API stub or flowchart substitution is used as RED.
+RED5/9 each ->GREEN9/9; four controls already passed. Normal death, removal,
+unconscious->death and two plot items complete raw task state and the native
+objective-state query (0 ->1). A loaded dead body's plot item is completed
+when its actual carrier dies: native CExecCorpse Run/TimeLabelReached creates
+reciprocal carrying before the event. A nearby uncarried body is excluded.
+Living/no-event, missing item, already-completed and uncarried-body controls
+retain their states. Parent/task/clue lookup identities and all unrelated
+authored task tags stay unchanged. Scripted KO is only a declared precondition
+here; this does not claim the pending actual attack-KO scenario notification.
+No new full projectile/loot/GUI-pixel equivalence claim.
+
+Fixture correction before production: initial9/9 searches incorrectly
+required positive item quantity. Native simple CClueItem normally retains
+CItem's quantity0, which is valid for this inventory/lookup path; removing
+that filter found the real authored goals. Initial goal/quantity-discovery
+logs are explicitly NOT RED. A declared-goal fallback was prepared but never
+used (authoredGoals1/2,declaredGoals0) and removed completely. The final
+compiled authored-only5/9 RED above precedes the production edit. No DB,
+goal-template or quantity mutation remains in the fixture. Native table
+iteration selects different authored pairs by platform; the exact pairs are
+verified equal between RED/GREEN on each platform, not forced to one order.
+Full Game builds, related43Win/43Linux (scenario/discovery/objective/task/carrier/
+head idle/network) and CI323 pass; new9 resource extended/outside323.
+Evidence carrier-destroyed-retail-oracle/fixture-correction/verification JSON,
+original bodies/disassembly and native RED/GREEN/full-gate logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387.
+
+## 2026-10-31: newly unconscious attack victim notifies scenario (`aa031e2e` partial)
+
+Restores CScenarioTracker::OnMakeUnconscious: invalidate the existing leave-
+zone cache, run carrier-task notification, then complete STUN_PERSON tasks
+for the victim's actual person clue when the scenario is active. CUnitServer
+calls it after combat reconciliation only if the old world state was conscious
+and the current state is unconscious. Reuses the existing wasUnconscious
+capture; optional-campaign guards remain. There is no detected/visible gate.
+
+Gold PDB handler6fa510/74 maps uniquely to Steam704650: all74 bytes match
+with only three decoded E8 operands masked. Typed tracker offsets cache60,
+active3c/flowchart40, victim RPG40/person54/recordID0c and task tag5 are decoded.
+Named CUnitServer RTTI offset8 tables Gold8eb648/8bec14 ->7b7650 and Steam
+8fae64/8ce1fc ->7c3dd0 identify the actual world caller. Independently verified
+Steam7c3e2e stores old unconscious state in stack13 before the base call
+7c3fa4->751570; 7c449d..7c44d4 gates oldfalse/currenttrue and calls704650.
+Gold7b7d33 calls6fa510. No whole-world-method equivalence claim. Upstream
+comments7042e0 and7c3e2d..7c3e64 are stale; the actual addresses above govern.
+
+NativeScenarioAttackKnockout0..9 use actual world810, authored person clue,
+existing goal/STUN task and real CreateUnit/AddUnitInGame/CAttackPortion/
+CUnitServer::ProcessAttack. No new goal/DB rows, fake tracker or missing-method
+stub supplies RED. Five failures and five passing controls on each platform
+before production -> ten passing cases each. Known and unseen victims,
+incidental click, carrier clue in a real backpack and first-then-repeated
+attack cover completion; blocked hit, already unconscious, other persona,
+precompleted task and direct-script-only knockout cover exclusions. Raw task
+state and native objective-state query agree, HP500 stays unchanged, IC
+practice stays0, detected/visible flags, clue/task identities and unrelated
+task tags remain unchanged. First notification followed by native task reset
+and blocked repeat stays unknown, proving the transition guard.
+
+Initial repeated-click fixture was corrected before production: a second
+MakeClickOfDeath on an unconscious victim is lethal, so already-unconscious/
+repeat controls now use a blocked normal portion. Initial logs are explicitly
+NOT final RED; final compiled RED5/10 with five controls precedes the fix.
+Full Game builds, related53Win/53Linux, CI323 pass; ten new cases extended/outside323.
+Evidence scenario-knockout-retail-oracle/verification JSON, decoded original
+bodies and complete RED/GREEN/build/gate logs. Fragment speed, melee-miss
+and plain-ray hunks of aa remain separate and pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.
+
+## 2026-10-31: maintain impact-order regression after original evasion port
+
+Test-only correction to UpstreamBulletImpactDodgeOrder. The broader fragment
+regression exposed its old full-hit-rejection expectation (-1), superseded
+by the original late percentage reduction restored in975e3ab3. Reverting
+both pending fragment-speed calls to0 reproduced the same actual3/expected-1
+failure on Windows/Linux, proving this is independent of fragment speed.
+The corrected native fixture isolates IC50/no aura with base4, expecting
+literal3 from the independently decoded stored-float .01/truncation rule
+(Steam6c4224..6c42be, incidental-damage-retail-oracle.json). The fixed ISAAC
+seed55 supplies firstdraw0 and second>=90 to retain the damage-before-visual
+ordering check. Positive damage now expects one particle, sound and surface
+decal; HP/AP/position/action, receiver and surface identity assertions remain.
+Focused case passes on both platforms with fragment calls still0; CI323
+passes. No production file or balance behavior changes in this maintenance
+commit. The separately pending fragment fix will rerun the complete35-case
+bullet/impact/decal/loose-ray set. Evidence impact-order-baseline-red,
+impact-order-maintenance-green/verification/ci logs.
+Original formula source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43.
+
+## 2026-10-31: original fragment trail speed (`aa031e2e` partial)
+
+Both targeted and random CVoxelExplTracker fragment calls now pass3.0f instead
+of0. This is the complete production change. Gold PDB ctor74c0d0/467 maps
+uniquely to Steam7576d0 using all467 bytes with only SEH3..6, seven decoded
+E8 operands and the decoded named CVoxelExplTracker vtable71..74 masked.
+RTTI validates Gold8bbc78/Steam8cb160 as that exact named class. The ctor's
+Gold74c220->74bb20 and Steam757820->757160 identify ExplodeFragments (Gold
+PDB1449; Steam register allocation differs, no full-body equivalence claim).
+Targeted pushes Gold74bf90/Steam757583 and random Gold74c013/Steam757616 are
+exact float3. Native calls Gold74bfa6/74c02f->68c6a0 and Steam75759c/757638
+->692650 verified. Source's757183 comment is stale.
+
+NativeFragmentSpeed0..4 use actual world810 and actual tracker constructor
+with authored grenade16/count24 or engineer1/skill160/count32. Near cases
+produce two targeted rays plus22/30 random rays; remote cases produce24/32
+random rays. Native zero damage modifiers isolate metadata from combat HP.
+The no-record constructor creates0. Read-only complete borrowed snapshots
+of every newly created actual CBulletServer verify saved speed tag3 is3,
+nonempty real trail tag11, null model/shooter and own particle effect-1.
+No fake world/constructor or new missing-handler API supplies RED. Both
+platforms RED4/5 with no-record control passing ->GREEN5/5. Record IDs,
+counts and branch inputs match exactly before/after on each platform.
+
+Scope: no new damage/chance/RNG formula is imported. Current shooterless
+fragments have null trail models; CBulletServer guards travel-time division
+by pModel, so this fix does not establish changed flight time or visible
+tracers. It restores original speed metadata and internal velocity scaling.
+Own shooterless particle suppression and current ranged-hit fallback remain;
+plain-ray routing is a separate pending aa hunk. Full Game builds, related
+35Win/35Linux (real bullets, impacts, decals, loose ricochet, fragment cover) and
+CI323 pass. Linux's existing display-labelled decal case runs under Xvfb/
+Openbox/software GL; no no-display failure is counted. New5 extended/outside323.
+The initial related run exposed a stale pre-port full-hit-rejection assertion
+in UpstreamBulletImpactDodgeOrder. It was reproduced independently with both
+fragment calls reverted0, then corrected in separate2967ba79 using the already
+audited original late evasion rule. That maintenance commit changes no game
+code; final35 related cases below include its corrected literal3/IC50 control.
+Evidence fragment-speed-retail-oracle/verification JSON, decoded ctor/fragment
+bodies and native RED/GREEN/full gate logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.
+
+## 2026-10-31: missed melee ray does not strike or announce success (`aa031e2e` partial)
+
+CExecMeleeUnit::OnLabel now requires PeekRay success AND !bIsMiss before
+calling the existing three-argument PerformAttack and throwing the successful
+melee event. Damage traversal, native melee AISound19, API shape and attack-
+consumed tail are retained. No new combat formula, RNG or registry change.
+
+Gold PDB OnLabel79d9d0/577 is identified by named CExecMeleeUnit RTTI973728,
+COL8ea27c/vtable8bdac4 slot16. Steam named RTTI984998/COL8f9b7c/vtable8cd16c
+slot16 yields7a9fa0. Gold79db17 calls PDBAttackObjectRanged6b0430; corresponding
+Steam7aa0f8 calls6b6510. Its AL test7aa0fd/JE7aa188 skips both dispatch7aa136
+(vtable48: Gold PDBPerformAttack799540/Steam7a59a0) and event7aa157/7aa164
+(typedesc98379c explicitly names CEventOnUnitSuccessfulMelee). In the helper,
+Gold6b0647 calls PDBRealPeekRay6addb0, corresponding Steam6b6727->6b3f00;
+both compare output-miss stack13 to0, SETE BL at6b067e/6b675e and return
+BL as AL at6b0745/6b6825. This proves !miss rather than merely a selected ray.
+Steam7aa1cb unconditionally stores bAttackCanceled18=1. Source7a9a6d and
+6b677c/6b6875 comments are stale. No whole-method/helper byte-equivalence claim.
+
+NativeMeleeMissGate0..3 use actual world810 with party54, opposing native
+owners, two real person103 units on free adjacent standing navigation places,
+authored nonthrowing blade2, native map Sync/CanDoIt/Start, real serialized
+resolved hit-location data, native cover/to-hit/PeekRay and OnLabel. The
+diagnostic executor only observes the existing virtual PerformAttack dispatch
+and delegates every actual call to its native base; a real CEventRegister
+counts the original successful-melee event for that actor. It supplies no
+replacement cover/chance/world/damage implementation or missing API stub.
+
+Final corrected RED2/4 each (two controls already pass) ->GREEN4/4. BODY and
+ANY misses use native chance2 and actual seed2 first ISAAC draw61: ratio2/61,
+old dispatch1/event1 ->new0/0, HP500 unchanged. Positive controls retain the
+same literal chance2 and ordinary attacker melee skill0; the existing native
+CHEAT_TOHIT flag supplies check1, ratio2, producing a real finite positive,
+nonlethal HP drop and dispatch1/event1. Positive HP remains within0..500 in
+both phases; exact damage is not asserted equal because the existing static
+SRand roulette used by PeekRay is initialized from the host clock separately
+from the seeded ISAAC to-hit check. Its valid selected hit ray can vary. The
+actual draws and outcomes are archived, rather than reseeding that own stream.
+Attacker HP500/AP after Start, item quantity1 and
+resolved body/ANY inputs are preserved. No GPU/voice-pixel assertion is added.
+The defender's runtime melee skill2000 deliberately drives the existing
+chance floor2; no database record or supported skill-range claim is changed.
+
+Fixture preparation logs are NOT final RED: first scene lacked an enemy;
+deploying the real party supplies opposing owners. Occupied placement was
+replaced with native free-place selection, then ordinary AI-map Sync registers
+new hulls before CanDoIt. Seed55 produced check0/infinite hit ratio rather than
+a miss; the final seed selects bounded draw61. An earlier extreme attacker
+skill2000/targetVP20000 positive control sometimes reported INT_MIN health
+despite IsDead=false; it was superseded entirely by ordinary attacker skill0,
+HP500 and the existing forced-hit flag. An overstrict old HP390 expectation
+was also discarded; final positive checks require finite 0<HP<500 with no
+death/KO. All final four cases were
+compiled and run before restoring the production guard; the prior apparent
+full-suite success with the extreme control is explicitly superseded.
+
+Full Game builds, related23Win/23Linux (melee costs/reach/preparation/cursors/network)
+and CI323 pass. New4 resource extended/outside323. Evidence melee-miss-retail-
+oracle/verification JSON, original decoded bodies and corrected RED/GREEN/
+full logs. Only aa plain-ray routing remains pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.
+
+## 2026-10-31: plain rays use the original loose tracer; closes `aa031e2e`
+
+The plain CWorld::PerformRangedAttack overload now constructs rayInfo with
+bTargetIsHit=false. Both current native callers are fragment-burst sites.
+Own NRPG::PerformRangedAttack's explicit-hit/empty-cache fallback remains:
+other callers can still deliberately select that existing path. Shooterless
+particle suppression, native interfaces, trail speed3 and serialization stay.
+This is not described as fixing an empty cached trail: own true branch already
+builds a valid trail through ProcessRangedAttackPortion. The actual defect is
+choosing that older tracer rather than original TraceLooseRay semantics.
+
+Gold PDB MakeSplinter68bbc0/259 corresponds to Steam691b90 by direct calls
+from independently identified fragment bodies (Gold74bd49, Steam757227 and
+757314). Both XOR EBX at+50 then store BL to ESP58 at+167: local rayInfo
+rootESP14 shifts+4 after pushEDX, typed bTargetIsHit40 ->false. Real frame/
+argument offset+4 differences are not masked as equivalence. Gold PDB
+PerformRangedAttack68c6a0/279 maps uniquely to Steam692650 using its whole
+first128 bytes, masking only SEH3..6 and decoded E8 operands. Remaining279
+also has a real STrailPoint iterator stride116->120 at+186; it is NOT masked
+to claim full equivalence. Gold typed nFloor70/size116 and actual Steam ADD
+ESI78 are decoded. Gold68c6d1/Steam692681 flag40 false branch reaches native
+TraceLooseRay through Gold68c716->68c4f0 / Steam6926c6->6924a0. Prior original
+audit incidental-hit-retail-oracle.json independently proves a modulo100 draw
+even at chance100, inclusive comparison and shooterless fallback100 at
+Steam6b583e..6b5872, plus incidental trace call691ef1->6b59f0.
+
+NativePlainRayRoute0..4 use actual world810 with native party54, actual unit
+hulls/materials, normal Sync/Trace to choose an isolated positive-enter human
+interval and the real CWorld wrapper/native CBulletServer. No map/world proxy,
+synthetic geometry, DB mutation, fake tracer or missing API stub supplies RED.
+On this native scene the selected person is838/body0 with authored zero
+ricochet probability but eligible incidence. The original loose path consumes
+one GetFloat ricochet check even at probability0, then one incidental chance100
+check. Seed777 plus four-word ISAAC fingerprint distinguishes those two draws
+from the old fallback's zero. Normal and AT_FRAGMENT cases RED; GREEN matches
+the exact two-draw fingerprint. Three passing controls exclude the ignored
+unit, use a remote empty ray, or explicitly select the retained true/empty-hit
+fallback; each consumes0. Real bullet snapshots retain one target entry in
+normal/fragment/explicit-hit, none for ignored/empty, nonempty trails/speed3/
+null model/shooter/effect-1. Native Segment retires, zero kinetic keeps victim
+HP/AP/life and the world's action ownership unchanged. RED2/5 ->GREEN5/5 each.
+
+Fixture discovery logs are NOT RED: the initial short, strict no-angle search
+found no ray. A longer native trace and rejection counters identified the
+real eligible-but-probability0 incidence; final setup explicitly preserves
+that authored probability and accounts for its consumed draw. The final five
+compiled tests precede production. Full Game builds, related40Win/40Linux
+(fragment generation, real bullets/impacts/decals, loose ricochet/cover,
+retained fallback/network) and CI323 pass. Linux's existing display-labelled
+decal test uses Xvfb/Openbox/software GL. New5 resource extended/outside323.
+Evidence plain-ray-retail-oracle/verification JSON, original disassemblies and
+complete native RED/GREEN/build/regression logs.
+
+All functional hunks of aa are now reconciled: grenade AP record5 and cheap-
+throw43; knife weapon/THROWING-skill AP base and43 (retains original separate
+melee32, rather than copying upstream's shared MELEE-skill expression);
+explosive integer min/max truncation; floor0 grass metadata; actual attack-KO
+scenario notification; speed3 in both fragment loops; missed-melee dispatch/
+success-event guard; and plain loose-ray routing. Perk43 constant is present.
+The trailing wExplTracker registration hunk is only a final newline. Original
+address comments were audited/corrected rather than treated as proof. Own
+facial/font/audio/SDL/bgfx/LAN/codec implementations are preserved. Source
+ledger changes partial ->imported; this does not complete the broader queue.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918.
+
+## 2026-10-31: melee executor forwards its real world (`c1ab9336` partial)
+
+The existing CExecMelee::PerformAttack vector loop now calls the already
+implemented native NRPG::PerformMeleeAttackPortion with actual world/map and
+null filter, replacing the old CGame method that supplied null to every
+damage receiver. The existing float third argument, virtual API, vector loop,
+cannon-vs-unit ignore alias, sound and no new state/schema remain. The helper
+comment claiming IWorld was unread is corrected. Unit target-filter wiring
+and original knife action classification stay separate and pending.
+
+Gold PDB CExecMelee::PerformAttack799540/319 uniquely maps to Steam7a59a0
+using all first128 bytes with only SEH3..6/decoded E8 operands masked. The
+independent named CExecMeleeUnit vtable48 mapping agrees. Steam's full method
+has a longer ack tail; no whole-method equivalence is claimed. Steam7a59f6
+reads pUS14 then typed CDumbUnitServer::pWorld2c, retains world in EDI and
+passes virtual20 AI-map in EDX/world in ECX. Direct Gold7995bb->PDB native
+portion68ac30/948 and Steam7a5a1b->690c30 verified. Both portions save ECXworld
+to ESP28. After three pushes the same slot is ESP34, loaded at callback-13
+and pushed at callback-8 before Gold68aeec/Steam690eec virtual ProcessAttack.
+The hidden received-damage return pointer is the final push. Later typed PDB
+argument inspection confirms a single CAttackPortion pointer in the original
+executor/helper. Own per-portion vector loop is an API adaptation, not an
+original vector ABI claim (see the following target-filter audit).
+
+NativeMeleeWorldContext0..3 use actual world810/party54/native units54/838,
+real collision geometry/Sync/Trace and native CExecMeleeUnit or Tile direct
+PerformAttack. Two authored unit instances can share person838; the fixture
+requires distinct actor/receiver pointers. Fixed damage2/positive kinetic,
+no critical/KO and an intended receiver isolate world/difficulty context.
+Native in-memory difficulty coefficients temporarily2 (restored exactly) give
+independently checked literal null-world2 vs real-world4. Unit/Tile RED2/4
+each ->GREEN4/4: received hit and actual HP drop2->4, exactly one receiver
+event. Anonymous attacker and coefficient1 remain2 as passing controls.
+Actor HP/AP and receiver CanFight are preserved. No fake map/world/mission/
+executor/callback implementation or new API stub supplies RED; no game.db
+file is changed. This covers the actual direct dispatch entry, not a new
+full movement/animation/OnLabel command test (existing related cases retain
+that coverage).
+
+Scope limits: both selected missions report stored IsAIPlayer0, including
+the tactical AI-owned actor. This fixes world propagation; it does not wire
+mission AI-flag assignment or newly verify the enemy-coefficient branch.
+Both own/upstream currently declare the private setter with no caller, so
+that separate original-state question remains unverified rather than silently
+inventing a setter/public ABI. Activating the existing native helper also
+uses its existing godmode traversal/callback semantics (HP protection remains
+in RPG); those special callbacks are not newly claimed covered by these four
+ordinary receivers. Filter, canonical-ignore and AT_KNIFE hunks still require
+their own original comparison. Full Game builds, related27Win/27Linux (native
+melee labels/costs/reach/preparation/cursors/network), CI323 pass; new4 resource
+extended/outside323. Evidence melee-world-retail-oracle/verification JSON,
+original caller/portion disassembly and native RED/GREEN/full logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c.
+
+## 2026-10-31: native unit melee filters callbacks by selected target (`c1ab9336` partial)
+
+Preserves the existing own vector/ray/float PerformAttack virtual API. Its base
+wrapper calls a new protected NON-virtual filtered core with null; the unit
+executor overrides that same existing float slot and passes its stored target.
+The core calls the already active native helper with that filter. No virtual
+slot, member field, save tag or factory registration is added. Tile and null-
+target calls keep null/all-receiver semantics. The native miss observer now
+delegates to the immediate unit class: that qualified inherited method already
+existed and compiled in RED, so no new missing-method stub supplies the failure.
+World forwarding, vector loop, cannon ignore alias and sound remain.
+
+Typed Gold PDB CExecMeleeUnit pTarget3c and independently named vtable mapping
+identify Gold79db24/Steam7aa105 loads of the real target, converted/pushed at
+79db3b/7aa11c as arg3 before virtual48 at79db52/7aa136. Original base dispatch
+loads/pushes that arg3 fromESP40 at+92. Gold7995bb->native portion68ac30 and
+Steam7a5a1b->690c30 forward it. Native Gold68aea7/Steam690ea7 load the filter
+atESP+9c/+a0 (real version frame difference), permit null or object equality,
+and mismatch branch+34 skips callback to68aeee/690eee while leaving armor/
+energy traversal running. Callbacks68aeec/690eec remain identity-conditional.
+Direct PDB function argument types (melee-filter-gold-prototypes.txt) prove
+SINGLE CAttackPortion* for both original functions, and CObjectBase* as their
+filter argument. This corrects the prior provisional vector wording in the
+world audit; own vector/float API is deliberately adapted instead of copied.
+No whole-body byte-equivalence/ABI transplant is claimed.
+
+NativeMeleeTargetFilter0..5 use actual world810/party54, two native person103
+receivers on real free adjacent standing tiles, their actual hulls after Sync,
+body-center ray intersecting both, real Unit/Tile executors and their existing
+public PerformAttack. Fixed small native portion2/current difficulty yields
+base3; no critical/KO, HP500/IC0 isolate routing. No fake map/geometry/world/
+mission/callback or new filter API supplies RED. Native RED3/6 each with three
+passing controls ->GREEN6/6. Unit selection of back/front previously damaged
+both3; now only selected receiver loses3 and gets its sole callback. Selecting
+back while front is godmode previously still generated two -1 front callbacks;
+now generates0 while back loses3. Tile/default and null-target Unit controls
+still damage both3. Godmode Tile control retains zero front HP loss and its
+current two per-piece -1 callbacks, with back3. Actor HP/AP and both living
+receivers retained. Native direct-dispatch scope is explicit, not a new claim
+about complete movement/animation/friendly-fire command gating.
+
+The godmode control also checks the health protection left as a boundary in
+the previous world fix. Its current two callbacks are preserved behavior,
+NOT claimed original parity: closer reading of the original valid-unit
+ignore-list branch suggests a separate duplicate-suppression discrepancy;
+that needs its own audit/RED and is not folded into this target-filter fix.
+Canonical attacker ignoring and AT_KNIFE/critical classification also remain
+pending. Full Game builds, related33Win/33Linux (new6 plus prior world/miss/cost/
+reach/preparation/cursor/network cases) and CI323 pass; new6 resource extended/
+outside323. Evidence melee-filter-retail-oracle/verification JSON, actual PDB
+prototypes, original disassemblies and native RED/GREEN/full logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c.
+
+## 2026-10-31: deduplicate native godmode melee receivers (`c1ab9336` partial)
+
+The activated native helper now adds every IsValid CUnit to its seen/ignore
+list. The inherited helper from a8c50bf2 incorrectly tested !GODMODE instead
+of validity. This caused repeated ProcessAttack callbacks for separate actual
+body pieces of one invulnerable unit. RPG HP protection stays in its native
+callback; target filtering and armor/energy traversal remain unchanged.
+
+Independent original evidence: named Gold PerformMeleeAttackPortion68ac30/948
+already mapped through the original executor to Steam690c30. Exact named
+NWorld::CUnit RTTI cast Gold68ae18/Steam690e18 precedes the 17-byte validity
+check Gold68ae31/Steam690e31 and unconditional valid-unit append at68ae50/
+690e50 (or vector insert slowpath). Gold PDB IsValid<CUnit>435990/30 matches
+Steam4365f0 all30 bytes uniquely; same virtual-base adjustment/flags80 in
+that inline check. Typed CObjectBase nObjData4 identifies object-validity
+flags. Named Gold server cheat getter7b39c0/26 and RPG getter6b41d0/18 use
+RPG virtual58/flag64, absent from the append block. The old decompilation
+comment describing a godmode exception was incorrect and is replaced.
+
+NativeMeleeGodmodeDedup reuses the actual world810/party54, native two-unit
+body-ray fixture and real Tile PerformAttack. Requires multiple intersected
+front body pieces. RED1/1 each: front godmode HP0 loss but two callbacks/-2;
+GREEN1/1 each: same HP0 loss, exactly one callback/-1. Back unit remains one
+callback/3 HP loss; actor AP/HP and both living units retained. Earlier six
+filter controls and miss/world/cost/preparation/cursor/network cases pass.
+Full Game builds, related34Win/34Linux, CI323 pass; new resource extended case
+outside323. Evidence melee-godmode-retail-oracle.json and dedup verification/
+native logs. Canonical attacker ignore and knife/critical classification
+remain pending; this does not close the whole c1ab source.
+Activation source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c.
+Inherited helper origin (outside the 286-row ledger):
+https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8c50bf29e70191077257cca1a7fbd4cae01b731.
+
+## 2026-10-31: canonical melee attacker ignore (`c1ab9336` partial)
+
+Native melee dispatch now always ignores pUS, and also retains the existing
+own cannon alias when present. The old either/or condition ignored only the
+cannon for a mounted actor, allowing the actual actor body to receive its own
+direct melee ray. Existing float/vector API, world/filter/dedup and sound stay.
+
+Gold PDB CExecMelee::PerformAttack799540/319 ->Steam7a59a0 was independently
+identified by named class/vtable and128-byte decoded-relocation match. At+43
+both load typed pUS14, null-check/adjust+8; typed CDumbUnitServer independently
+has NRPG::IAttackable base8. At+67 they push one-element vector insertion
+arguments and the adjusted unit address; at+81 call Gold named vector
+_M_insert_overflow4c28f0/214 or Steam6c60d0, immediately reloading pUS/world2c.
+No cannon conditional precedes that canonical unit insertion. Own alias is
+additionally retained for compatibility rather than dropping its protection.
+
+NativeMeleeAttackerIgnore0..2 use actual world810/party54, existing authored
+cannon fixture (person838/weapon65), real CreateExecutor entry Run/animation
+queue completion, mounted identities/state and actual map Sync/hulls/rays.
+RED1/3 ->GREEN3/3 each. Mounted self-body ray lost3 HP/generated1 hit before,
+then0/0; unmounted self-ray control already0/0. Separate cannon-bound ray
+control intersects actual cannon and preserves its HP/stage/serialized fields.
+Actor AP/position/life and actual mount identity retained. This tests direct
+PerformAttack, not a claim that the complete UI normally orders mounted
+melee. Initial missing snapshot-context comparison compilation and unavailable
+joint actor/cannon ray were test-fixture errors, archived invalid logs, not
+behavioral RED. Final RED uses the valid separate control unchanged in GREEN.
+Both Game builds, related37Win/37Linux, CI323 pass; new3 resource extended outside323.
+Evidence melee-ignore-retail-oracle.json, native RED/GREEN/verification logs.
+Knife action/critical classification remains pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c.
+
+## 2026-10-31: distinct knife action and original critical restrictions (closes `c1ab9336`)
+
+Appends own AT_KNIFE12 after existing NONE11, preserving all prior action
+ordinals. Nonthrowing authored melee items select it; four existing place/
+executor switch groups share the normal melee branch and GetState retains
+the already corrected knife cursor. Existing CCriticalsBan GetParam now
+naturally gives knife the original default restriction list. No new serialized
+member/tag, virtual slot or factory ID; no damage/chance/AP formula change.
+Source's insertion at3 would shift all later own values and is deliberately
+adapted. Search found only native action classifiers/switches/critical keys
+and diagnostics as consumers; no EActionType member serialized here.
+
+Original PDB EActionType explicitly has MELEE2/KNIFE3/THROW7; typed melee DB
+bThrowing34. Named GetActionType Gold787e40/426 ->Steam793a40 matches all426
+uniquely with only decodedE8 operands masked. Tail tests bThrowing and returns
+3/7. Named CCriticalsBanGetParam Gold7bbda0/161 ->Steam7c8720 matches all161
+uniquely after decoded calls and independently same-named RTTI operands only:
+object singles out2, tile2/4, so knife3 uses default-1. InitGold7be5e0 first400
+->Steam7caff0 matches with only decodedcalls/constructorvtables/CR_LASTaddress
+masked; exact original fist/default critical push sequences and FFFF terminator.
+No whole1250 Init claim. Place classifier Gold7884a0 first180->Steam7940a0 and
+Gold788570 first276->Steam794170 match unique, only calls/tableaddresses;
+decoded lookup2/3 both route to melee atGold78850b/788637, Steam79410b/794237.
+Factory independently mapped interior anchors Gold79224e35->Steam79de8e,
+79253e41->79e17e,79256716->79e1a7 use only decodedcall/table/relative-branch
+masks; both action2/3 enter same table branch in each. No full factory match
+or unrelated object-melee-class parity claim (that remains source4cdc).
+
+NativeMeleeKnifeCritical0..7 use actual world810/party54, native armed actor,
+authored nonthrow blade2/throw blade5 or original gun/empty hand, actual native
+CCriticalsBan and ShootObject/ShootTile commands. RED2/8 ->GREEN8/8 each with
+six passing controls. Knife object list5->3 and tile4->2 remove only fist-only
+MOTIONLESS/PATIENT; blind/object, idlehand/both and brokenPK/both remain.
+Fists retain5/4; throw/firearm retain3/2. Actual knife state remainsKNIFE;
+AP/HP/position/AP-cost/order/RNG/item quantity unchanged. This is command-ban
+classification, not a claim that other movement/target/critical gates permit
+all commands. Previous cursor regression's deliberate old-action/ban invariance
+assertion is replaced with its AP-cost invariant BEFORE RED; the new native
+matrix owns the separately audited gameplay delta. All old cursor behavior
+continues in the related suite.
+
+All functional hunks of c1ab are now accounted: earlier UI correction,
+world context62, selected target63, original-validity dedup64, canonical unit
+plus preserved cannon alias65, knife classification66. Own vector/float API,
+renderer/fonts/facial/nativeaudio/network and save tags retained. Full Game
+builds, related45Win/45Linux, CI323 pass; new8 resource extended outside323. Original
+proof/mappings/enum/native RED/GREEN/verification logs under melee-knife-*.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c1ab93366661d3a4e25a0effe62625bae92c2d0c.
+
+## 2026-10-31: visibility-only unaware-target attack portions (`23630bfd` partial)
+
+Shared CExecAttack::CreateAttack now bases bBackStab only on the valid target's
+stored visibility of the attacker. Removes the old audible conjunction;
+null target remains false. Existing mission damage/critical/perk formulas,
+preview/to-hit awareness and own vector API are retained.
+
+Named Gold PDB CExecAttack::CreateAttack7985b0/411 first121 uniquely matches
+Steam7a4a00 with ONLY SEH operand3..6 masked. Both target and attacker adjust
+to typed CUnit base14c. Gold798616/Steam7a4a66 call virtual84 once, SETEAL and
+store the backstab byte. Independently named CUnitServer RTTI GoldTD93f530/
+COL8eb634(offset14c)/vtable8beb74 ->SteamTD950570/COL8fae50/vtable8ce15c:
+slot84 is Gold PDB IsUnitVisible7b3e20 ->Steam7c05a0; slot88 is named
+IsUnitAudible7b4530 ->7c0cb0. No audible query exists in the predicate.
+No registers/stack/branches/virtual offsets masked. The later original log
+string lies outside121; an initial oversized19-vs23-byte check crossing that
+string was corrected rather than masking its differing pointer. No full411
+method equivalence claim; native existing mission receives the stored bool.
+
+NativeBackstabAwareness0..9: actual world810/party54, two new person103 units
+with actual opposing owners/free standing network places, authored blade2
+or gun/current ammo, real protected CreateAttack via an access-only subclass
+of actual CExecMeleeTile. It neither overrides callbacks nor supplies portions.
+Ten contexts cover audible/unheard x unseen/seen plus null target for each
+weapon class. SetAudible uses the real public native contact list; unseen is
+fresh native stored contact state; seen controls call actual UpdateVisible
+with native SEEALL cheat. These arrange input contact states, not a claim
+about natural hearing/line-of-sight detection or a full legal melee command.
+Expected portions come from the unchanged native mission with the original
+explicit awareness bool; literal flag establishes routing independently.
+
+Final RED2/10 ->GREEN10/10 each, eight controls passed before Main change.
+Audible unseen blade flag0->1, current native damage28..46->38..46 and
+critical59->107. Existing current formula can exceed100; no new clamp or
+whole-formula parity claim. Audible unseen firearm flag0->1 while its current
+33..38/critical17 remains unchanged (no relevant extra perk). Unheard unseen,
+visible (heard/unheard), null controls retained. AP/HP/position/item quantity/
+ammo and stored contacts retained. Initial path-place CP compilation and
+strict assumption that BOTH damage bounds must rise were fixture errors,
+archived invalid logs; final accepted RED precedes production and only needs
+observed positive minimum/critical effect, nondecreasing maximum.
+
+Both Game builds, related55Win/55Linux, CI323 pass; new10 resource extended outside323.
+Source remains partial: melee requested-hit-location depends on the separately
+pending360 called-shot field/consumer foundation. Evidence backstab-retail-
+oracle, native RED/GREEN/verification/full logs. Source:
+https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/23630bfd0c6924b748f79cca9ded910e0f4df35e.
+
+## 2026-10-31: critical type selection uses supplied severity (`65558b11` partial)
+
+Removes only MissionRandom.Get100 from CUnitMission::RollCritical; selection
+uses the already supplied difficulty. Existing probability checks, attacker
+level prefix, critical modifier/cap/resistance/forced rules and injury apply
+are separate unchanged boundaries pending further source audits.
+
+Gold PDB RollCritical6bd230/184 uniquely matches Steam6c3760 all184 bytes,
+masking only decoded calls/jumptable/globalcriticalBar addresses; six data
+table entries separately have exactly the same function-relative targets.
+Named CUnitMission RTTI GoldTD96fc90/COL8e2d48/vtable8b657c slot6 points to
+that PDB method; SteamTD980de4/COL8f2480/vtable8c5698 slot6 points to6c3760.
+Both+8 load supplied severity intoESI fromESP0c, four location groups pass it
+unchanged to Gold named GetCritical6bd0c0/364 orSteam6c35f0 then returnESI.
+Default location also returns it. No added random draw or addition exists in
+either original. No ABI transplant or new public test hook is introduced.
+
+NativeCriticalSeverityDraw0..5 use actual world810/party54/native world unit/
+mission/authored flesh armor, healthyVP500/IC0, DisableCriticals only to isolate
+critical type selection from injury side effects, anonymous intended small
+fixed portion2 with critical100 or0, positive or zero energy, head/body.
+RED2/6 ->GREEN6/6 each with four controls. Nonzero critical head/body previously
+advanced the shared RNG by an extra draw: four-word fingerprint's first next
+3568418836 ->original247089517, matching zero-probability controls. Zero-energy
+controls keep0 damage/no draws/next842502443; positive body/head retain literal
+2/3 HP damage, AP/position/life, unchanged input severity40 and no new non-VP
+critical. Static probability SRand is independent of this shared generator;
+probability100 guarantees the path without an unstable random critical gate.
+Existing AttackerLevelCriticalRolls test removes only its expressly old extra
+selection-draw expectation; attacker-level severity input/blocked/anonymous/
+zero-probability/HP/training/inventory controls remain in the related suite.
+The six new cases' genuine RED was already captured before production or
+that old-expectation maintenance.
+
+Initial missing critical-list API and incorrect assumptions that CalcStructDmg
+or CanDealDmg alone incorporate the separate nK>0 gate were fixture errors,
+archived invalid logs, not RED. One invalid LastTest log was truncated by a
+concurrent ctest metadata listing; final accepted RED/GREEN do not run that
+listing and retain complete six-case native logs. No failing calibration is
+counted as behavioral evidence. Final real-world damage proves the combined
+zero-energy gate directly.
+
+Both Game builds, related69Win/69Linux (new6, prior melee/backstab, actual attacker-
+level/head-body/PK-impact/critical controls and serializer), CI323 pass; new6
+resource extended outside323. Source655 remains partial: damage multipliers,
+severity scaling/cap placement, resistance/perks, forced/difficulty fallback
+are not silently folded in. Evidence critical-severity-roll-retail-oracle,
+original disassemblies and critical-severity-draw native/verification/full logs.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66.
+
+## 2026-10-31: original critical damage reciprocal/location factors (`65558b11` partial)
+
+Only the returned critical damage factor changes: convert integer severity in
+wide precision, multiply by the original float reciprocal300 (bits3b5a740e),
+storefloat, then headx2/bodyx1.5/handsx0.5/legsx1 with float stores. Keeps
+current independent injury-severity scaling (the old fDC), cap placement,
+resistance/perk/forced rules and outer HP arithmetic pending their own audits.
+No header/API/virtual/save/network field changes.
+
+Gold PDB method is named ApplyCriticalAndGetDmgModifier6bd2f0/752 (not the
+own predecessor's GetCriticalDmgModifier). Typed CUnitMission IUnitMission
+base4c and named class RTTI GoldTD96fc90/COL8e2ca8(offset4c)/vtable8b63cc
+slot41 identify PDBProcessAttack6bd7e0; SteamTD980de4/COL8f23e0/vtable8c54e4
+slot41 identifies6c3e20. DirectGold6bda99->6bd2f0 andSteam6c4183->6c3820
+identify actual helpers. Steam takes6 args vsGold5; registers/frame really
+differ, so no whole-helper match claim or masking those differences.
+
+Gold6bd50f/Steam6c3b5a FILD returned integer severity, FLDS float reciprocal
+Gold8a7348/Steam8b643c=bits3b5a740e, multiplywide then FSTPS factorGoldESP40/
+SteamESP44. A separate FSTPS raw-severity floatGoldESP44/SteamESP50 is reserved
+for later injury application, not a damage multiplier. Exact decoded tables
+Gold6bd5c8/Steam6c3bfc map body0 tox1.5 (Gold8a5cf8/Steam8b4d90), head1 to
+FADD doubling, hands2/3 tox0.5 (Gold8a39ac/Steam8b29fc), legs4/5 leave it.
+Each version's actual bytes/constants/table checked independently. Factor
+float stored after location operation; final resistance multiply retained.
+
+NativeCriticalDamageFactor0..9 use actual world810/party54/new nativeperson103
+on real free standing place, real mission/flesh armor/damage type. FreshVP500/
+IC0, no perks46/47; native DisableCriticals then enable ONLY native bleeding
+keeps injury selection nonlethal while exercising the actual critical helper.
+Authored bleeding record counts body3/head1/arms2/legs3 required. Existing
+native game severity cap temporarily1000 and restoredexact; no DB edits.
+Six region cases use severity300/base2. Two fractional cases use301/base20.
+Zero-probability and zero-energy controls cover no modifier/no damage.
+
+Final RED8/10 ->GREEN10/10 each, two controls. Body14->5, head13->7,
+hands7->2 each, legs10->3 each, fractionalbody149->50/head137->70 actual
+received damage AND HP loss. Bleeding selection retained (one actual injury),
+GREEN AP/position/life/input-severity controls pass. This does not claim that
+old excess damage never induced normal wound/AP effects. Existing own
+N_MAX_SKILL=140 was part of the legacy factor, not a new denominator assumption.
+Initial fractionalbase40/head140 expected damage crossed the native <=75%
+health wound tier and changed AP as designed; that was a fixture control error,
+not a production regression. Archived invalid RED/GREEN. Production was restored
+EXACTLY to pushed68a694be before the final base20 RED; the same minimal patch
+was then reapplied and the final accepted inputs stayed unchanged in GREEN.
+
+Both Game builds, related79Win/79Linux (new10 and previous selector/melee/backstab/
+attacker-level/head/body/PK/impact/serializer controls), CI323 pass; new10
+resource extended outside323. Evidence critical-damage-factor-retail-oracle,
+original helper/process disassemblies, final native RED/GREEN/verification/full
+logs and exact production patch. Source655 still partial: applied injury
+severity scaling/cap placement/resistance/perks/forced/fallback pending.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66.
+
+## 2026-10-31: selected severity reaches actual injury unchanged (`65558b11` partial)
+
+Removes legacy severity/N_MAX_SKILL followed by region200/250/300 scaling
+from GetCriticalDmgModifier. Actual ApplyCritical now receives int(float(nRand)),
+following original raw severity float storage/truncation. The previously
+restored reciprocal300 damage factor and location multipliers remain exact.
+Current cap location/resistance/perks/forced/fallback rules are still separate;
+no new limit, public API, save/network field or injury type is introduced.
+
+Earlier named CUnitMission interface4c/slot41 ->actual ProcessAttack direct
+calls identify Gold PDB ApplyCriticalAndGetDmgModifier6bd2f0/752 andSteam6c3820.
+Gold6bd51f stores raw returned severityfloat ESP44, Steam6c3b6a ESP50. Region
+modifiers operate on a DIFFERENT factor slot (Gold40/Steam44). Later rawfloat
+loads Gold6bd564/Steam6c3bae, x87 OR0c truncation at6bd573/6c3bbb, FISTPL at
+6bd57e/6c3bc6, pushes actual ApplyCritical callGold6bd58c->PDB6b9110/385 and
+Steam6c3bd8->6bf3e0. No /N_MAX_SKILL or body-region rescaling of that stored
+raw severity exists. Both frames/registers checked independently, not masked
+into false equivalence. Prototype confirms DB critical pointer plus integer
+severity. This audit is for normal representable severity values; extreme
+float-to-int overflow behavior is not newly claimed validated or clamped.
+
+NativeCriticalSeverityApply0..7 reuse the actual world/person103/bleeding-only
+mission/flesh armor fixture via modes10..17, observing the real injury's
+existing ICriticalInfo::GetDifficultyClass (CCritical returns critical.nDC).
+No private/test API or proxy supplies severity. All six regions/DC300 plus
+body/headDC301; cap1000 restoredexact, no46/47 perks, VP500/IC0 and actual
+native damage. Existing zero-probability/zero-energy cases8/9 are controls.
+RED8/10 ->GREEN10/10 each with two passing controls. Applied body/head642->300,
+hands428->300, legs535->300, body/head645->301. Actual damage/HP loss remains
+5/7/2/2/3/3/50/70 exactly across RED/GREEN; one bleeding injury, GREEN AP/pose/
+life/inputDC and no-critical/blocked controls retained. The earlier10 factor
+cases continue unchanged. The retained native treatment/critical interfaces
+now see the correct injury difficulty; no bleeding-rate or duration formula
+is changed or newly claimed measured.
+
+Both Game builds, related87Win/87Linux, CI323 pass; new8 resource extended outside323.
+Evidence critical-severity-apply-retail-oracle/prototypes/native RED/GREEN/
+verification/full logs. Source655 remains partial: cap placement, resistance/
+perks, forced/difficulty fallback remain pending separate original checks.
+Source: https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66.
+
+## 2026-10-31: maximum critical severity before type selection/damage (`65558b11` partial)
+
+Moves the existing valid-cached-game cap into GetCriticalDmgModifier before
+probability/type selection and damage, retaining the original two getter
+calls only if capped. Removes the late cap from private DB ApplyCritical, whose
+only live caller is this helper. Public SCritical/direct script application
+and max-severity setter/default remain unchanged. No new cap value, floor,
+API, field, save tag or network behavior is invented.
+
+Gold6bd402/Steam6c399a check typed cached pGame1d4 validity, call virtual44,
+compare severity atGoldESP0c/SteamESP10 and when greater call44 again/storecap
+into that input slot, before RollCritical and damage. Named CGame RTTI Gold
+TD96f30c/COL8e0260/vtable8b403c ->SteamTD98044c/COL8ef99c/vtable8c315c slot44:
+Gold PDB GetMaxCriticalSeverity693280/4 ->Steam6d38b0, both MOV[ECX1c]/RET,
+typed nMaxCriticalSeverity1c. Whole private ApplyCritical GoldPDB6b9110/385
+uniquely matchesSteam6bf3e0 with only decodedE8 and mapped PE absolute pointer
+operands (including valid virtual/BSS RNG/log globals) masked. No field/
+register/frame/control-flow masking; no later cap in that complete385 body.
+This replaces the old incorrect decompilation comment locating the cap there.
+
+NativeCriticalCapOrder0..7 use actual world810/party54 and TWO actual new
+person103 receivers on distinct native places, native damage/armor, VP500/IC0,
+no46/47 perks, bleeding-only state arranged AFTER deployment/warmup. Reference
+uses explicit min(input,cap) with neutral gamecap1000, target uses real cap and
+original input. Crit100 avoids probability uncertainty. Each actual native
+server first receives a ZERO-ENERGY hit with no HP loss, binding its cached RPG
+game through existing CDumbUnitServer::ProcessAttack->SetGame. Read-only real
+mission tag45 verifies the pointer equals world.GetGame before the main direct
+RPG damage call. No proxy/private writes/test API replaces that binding.
+Cap restoredexact; no DB edits. Selection value/location/difficulty/duration,
+received damage/HP and four-word shared RNG fingerprint compared to reference.
+
+Final RED4/8 ->GREEN8/8 each with four controls. At real cap50/input300/base20,
+body damage50->25 and selected bleeding value15->5; head70->30 and bleeding1
+->0 (this enabled-only type is absent at low head severity); hand24->15/value
+8->4; leg37->20/value12->4. Old late-applied difficulty already50 but wrong
+injury grade/damage; both now match the actual explicit-input reference.
+Equality cap300/input300, below-cap1000/input301, zero-probability and low-input
+30/cap50 controls remain exact. HP/AP/pose/life/input/limit controls and shared
+RNG match. This is native core damage with real production game binding, not
+an extra claim about full UI command/animation or all enabled critical types.
+
+Initial missing position-inequality operator, pre-deployment filter setup
+(reset by normal state initialization) and unbound direct-RPG game context
+were fixture errors, archived invalid logs, not accepted RED. Final bound RED
+precedes Main edits. Earlier neutral-cap factor/severity fixtures69/70 set the
+world field to1000 but did not prove a cached game was bound; their factor/
+severity scope remains valid because that neutral limit did not constrain the
+inputs. They were not cap-order evidence. This case explicitly proves binding
+and cap behavior. No new production cache-lifecycle fix is claimed: the native
+server binding already existed.
+
+Both Game builds, related95Win/95Linux, CI323 pass; new8 resource extended outside323.
+Evidence critical-cap-order-retail-oracle/private385mapping/original asm and
+actual bound native RED/GREEN/verification/full logs. Source655 still partial:
+resistance/perks and forced/difficulty fallback remain pending. Source:
+https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66.
+
+## 2026-10-31: native PK critical resistance complement (`65558b11` partial)
+
+The private human critical modifier now uses `1.f - pPanzerklein->fCriticalResist`
+instead of the authored resistance itself. The earlier suit/pilot penetration
+gate already used the complement and is unchanged. No new clamp, probability
+range, field, save/network tag, public API or database value is introduced.
+
+Gold PDB types locate CUnitMission.pPanzerklein188 and CPanzerklein.fCriticalResist2c.
+The independently named CUnitMission interface/ProcessAttack/direct private helper
+mapping is retained. Exact Gold6bd380 and Steam6c3910 windows independently check
+the actual suit pointer, initialize factor1 and, if nonnull, FLDS1 / FSUBS field2c /
+FSTPS factor. Both1 constants are verified. Final Gold6bd594/Steam6c3be4 load that
+stored factor and multiply the damage factor after the respective epilogue shifts.
+No register/frame/field masks or whole5/6argument helper equivalence are claimed.
+Evidence: critical-pk-resistance-retail-oracle.json and gold-members.txt.
+
+NativeCriticalPKResistance0..5 deploy actual person103 in world810/party54 and
+an actual authored suit2 with resistance0.699999988, shellHP700. Real WearAsPK /
+FlipPanzerklein establishes the wearer/surface-owner relation. Existing bypassPK
+explicitly isolates the private human branch from the earlier penetration gate.
+A native zero-energy server entry binds cached game, proved by readonly tag45;
+max severity1000 is restored afterward. VP500/IC0/no46or47 and BLEED-only filters
+are arranged after native deployment/warmup. A positive probability10000 makes
+both resistance formulas pass the independent probability gate; this is an
+isolation input, not a claim about ordinary weapon probability or frequency.
+
+Complete production RED4/6 -> GREEN6/6 on EACH platform, two controls unchanged.
+Base20/severity300 actual human HP damage: body41->29, head58->42, hand21->17,
+leg31->23, exactly matching original complementary factor0.300000012. The naked
+body control remains50 and worn zero-critical control20. Bleeding count/DC remain
+1/300 for positive cases and0/-1 for zero-critical. AP, pose, life, inventory,
+portion energy/damage/severity, shellHP and wearer/surface-owner identity remain
+stable. Main damage is a direct native RPG call after real mounting/binding;
+full UI attack, ordinary probability distribution and non-bypassed penetration
+are not newly established. Initial invalid GetInventory server API compilation
+logs are archived separately and are not RED evidence.
+
+Full Windows/Linux Game builds, 101Win/101Linux related tests and asset-free CI323 pass.
+Upstream source remains partial for perks46/47 and forced/difficulty fallback.
+Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).
+
+## 2026-10-31: native critical resistance perk46 (`65558b11` partial)
+
+Restores the missing HasPerk46 branch: multiply the existing (possibly PK)
+critical factor by1 minus the actual authored perk parameter. Uses wide double
+subtract/multiply until final float store, as original x87 does; avoids an extra
+rounded float intermediate. Adds only the named constant46, no authored values,
+clamps, new public API, fields or save/network tags.
+
+Exact Gold6bd39f43 and Steam6c393345 windows call named HasPerk interface slot78
+with id2e46, actual parameter output and two nulls; true branch FLDS1/FSUBSparam/
+FMULS previousfactor/FSTPSfactor. GoldPDB HasPerk6b8ab0/11 is selected by named
+CUnitMission interface vtable8b63cc+78, Steam8c54e4+78 selects6beea0. The11-byte
+shim has EIGHT matches with only decoded tailjmp relocation masked; its byte
+pattern alone is not unique. Named RTTI/vtable selects the method. Actual tailjmp
+Gold6b44a0 PDB CUnit::HasPerk/20 ->Steam6ba640; first16bytes agree and read/guard
+typed PerksTree84. No frame/register/field masks or wholehelper match claimed.
+Evidence: critical-resistance-perk-retail-oracle.json.
+
+NativeCriticalResistancePerk0..7 use actual native class/tree with an untaken46,
+native TakePerk/granted branch and exact original perk point budget, authored
+parameter0.100000001 (unchanged). VP500/IC0/no47, actual world810 deployment,
+native zero-energy server binding/read-only tag45, BLEED-only after warmup,
+cap1000 restored. Modes6/7 use actual mounted suit2/.7/shell700 and explicit
+bypassPK, verifying multiplication of existing complementary PK factor by.9
+to0.270000011. Linux-safe temporary ASCII logging label is restored exactly;
+the known unrelated Cyrillic TakePerk logging/codec issue is not fixed here.
+
+Complete production RED5/8 ->GREEN8/8 on EACH platform, three controls unchanged.
+Base20/severity300 acquired human damage body50->47, head70->66, hand24->23,
+leg37->35; acquired mounted body29->28. Unacquired human50, acquired zero-critical20
+and unacquired mounted29 controls remain identical. Positive bleeding/DC1/300,
+zero-critical0/-1, AP/pose/life/inventory/points/grant, portion energy/damage/severity,
+shellHP and wearer/surface-owner identity are retained. Probability10000 isolates
+the damage factor and does not newly establish ordinary critical frequency;
+the shared gate consumes the same factor, verified in the original instructions.
+Main damage remains a direct native RPG call after real deployment/mount/binding,
+not a full UI attack or non-bypassed penetration claim.
+
+Full Windows/Linux Game builds, 109Win/109Linux related tests and asset-free CI323 pass.
+Source remains partial for perk47 and forced/difficulty fallback.
+Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).
+
+## 2026-10-31: native reduced critical severity perk47 (`65558b11` partial)
+
+Restores HasPerk47: divide signed incoming severity by the actual float parameter
+using a wide quotient, then truncate to int BEFORE the existing max-severity cap,
+critical type selection and physical damage. Adds named constant47 only. No
+authored parameter, default/cap, public API, field or save/network tag changes.
+
+Exact Gold6bd3ca56/Steam6c396058 windows independently identify HasPerk slot78 /
+id2f47 with actual parameter output, FILD severity / FDIVS parameter, OR0c x87
+truncation / FISTPL severity and control-word restoration. Both flow directly
+into previously verified cap blocks6bd402/6c399a. The named HasPerk RTTI/vtable
+identity is retained from46 (shim alone nonunique). Donor's premature float
+quotient and extra `param != 0` condition are not copied: neither original has
+that guard. Ordinary representable authored inputs are tested; zero/nonfinite
+divisor and float-to-int overflow are not newly validated or given invented
+saturation rules. Evidence: critical-severity-perk-retail-oracle.json.
+
+NativeCriticalSeverityPerk0..7 use TWO actual native missions with an untaken47
+in its authored class/tree. Only target receives actual TakePerk47/parameter1.25;
+point budget is exact. Actual world810 deployment, native zero-energy server
+binding/read-only tag45, VP500/IC0/no46 and post-warmup BLEED-only selection.
+Reference has no47 and receives explicit reduced/capped severity under neutral
+cap1000; target receives original input under actual cap. Compare actual HP,
+injury count/DC/location/value/duration and four shared RNG words. Native AP,
+pose, life, input, perk ownership/points and cap remain stable/restored. Temporary
+ASCII log label is restored, leaving unrelated Linux Cyrillic codec issue aside.
+
+Complete final production RED5/8 ->GREEN8/8 on EACH platform, three controls.
+Input301 / authored1.25 truncates240, not241. Body/head/hand/leg damage
+50/70/24/37 ->44/62/22/33; actual injury DC301->240, body bleeding value15->10.
+Cap270/input301 case changes damage47->44/DC270->240 and also rejects an
+incorrect cap-before-division implementation (which would produce216). Control
+unacquired body remains50/DC301; still-binding cap150/input300 remains35/DC150;
+zero-critical remains20/no injury. Four RNG words match explicit native reference
+in every case. Preliminary cap200 case was a valid passing order control; final
+cap270 additionally exposes missing perk, and complete final RED was rerun on
+both platforms before any production edit. Preliminary logs are archived.
+
+Full Windows/Linux Game builds, 117Win/117Linux related tests and asset-free CI323 pass.
+Probability10000 isolates severity/selection/damage rather than ordinary critical
+frequency. Main damage is direct native RPG after real deployment/game binding,
+not a full UI command claim. Source remains partial for forced/difficulty fallback.
+Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).
+
+## 2026-10-31: Steam v1.2 forced human critical flag (`65558b11` partial)
+
+Forwards existing CAttackPortion.bAlwaysHumanCritical into the private helper.
+It bypasses the probability rejection for NONZERO chance. The existing chance0
+early return remains before SRand setup; resistance/perks/cap and the SRand100
+draw remain before the flag gate, so force does not remove those calculations.
+Only a private nonvirtual bool argument/caller changes. Existing constructor
+false default, field, tag14 and own network/save representation are unchanged.
+
+Gold PDB identifies portion bool2d. Its named serialization method73d5e0/291
+has a unique233-byte prefix match to Steam7482c0 with ONLY decodedE8 operands
+masked, including exact one-byte field2d / saved tag14. This is NOT a whole291
+match: Steam later adds field39/tag18, which is already retained by this fork.
+The independent named CUnitMission interface/ProcessAttack/private helper mapping
+continues to identify Steam6c416a reading2d/pushing fifth arg and6c4183 calling
+6c3820. Exact Steam6c383a tests chance0/returnsFLDS0 before static SRand;6c3b09
+forcedtrue branches straight to6c3b25 before probability comparison; the other
+difficulty branch6c3a73 also skips probability for true. Both exact gates checked.
+
+REAL VERSION DIFFERENCE: Gold caller6bda87 also passes2d, but Gold5argument helper
+6bd4b4 sends true to zero-return6bd5ad. That behavior is not masked into a false
+equivalence or copied over target Steam v1.2. No whole5/6argument helper match.
+Evidence: critical-forced-retail-oracle.json and portion-save prefix mapping.
+
+NativeCriticalForced0..7 use TWO actual person103 receivers in world810, actual
+native server/game binding verified readonly tag45, VP500/IC0/no46or47, post-warmup
+BLEED-only selection, cap1000. Actual difficulty.bAlwaysCritical=false/restored
+isolates force. Guaranteed-positive reference versus forced chance1 (body/head/
+hand/leg), zero-chance controls and an explicit negative-nonzero boundary. Harness
+seed710 local SRand sequence accounts for ctor Get4 then draw12/71, both>1;
+zero-energy warmups never enter helper, first positive reference draws once.
+No timing-dependent probability RED is accepted.
+
+Complete production RED5/8 ->GREEN8/8 EACH platform, three controls unchanged.
+Forced chance1 HP damage body20->50, head30->70, hand14->24, leg17->37; injury
+absent->BLEED/DC300, matching real guaranteed reference. Forced chance-1 body20->50
+also preserves original nonzero guard, without a new probability clamp. Unforced
+chance1, forced chance0 and unforced-1 all remain ordinary body20/no injury.
+Four shared RNG words, injury grade/location/duration, AP/pose/life, chance/flag/
+severity/input and cap match native reference/invariants. Negative probability
+is an explicit boundary input, not a claim about ordinary weapons. Existing
+flag is supplied on a native portion; complete command/UI producers are outside
+these direct-RPG checks.
+
+Full Windows/Linux Game builds, 125Win/125Linux related tests and asset-free CI323 pass.
+Source remains partial only for the world-difficulty fallback branch.
+Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).
+
+## 2026-10-31: world-difficulty fallback for failed critical rolls (`65558b11` partial)
+
+The private helper now receives actual world/attacker. On a failed NONZERO chance,
+unless forced, it continues only when actual difficulty AlwaysCritical is true
+and stored resistance is at least1. Valid attacker resets severity0 then rolls
+level*d5 using the existing shared generator. Null attacker keeps capped input;
+valid level0 resets0. Fallback runs AFTER the normal cap and is NOT recapped.
+Original level*d20 prefix is retained, including its consumed shared RNG. No
+new severity/probability floor/cap, public API, object field or save/LAN shape.
+Own legacy null-world/default-global/difficulty calls retain zero critical result
+on a failed roll; real original gameplay has the actual nonnull context.
+
+Independent named CWorld primary RTTI/vtable slotEC: Gold76bd00 ->Steam777ab0,
+both read pGlobalGame158; Gold PDB GlobalGame.pDifficulty48. Named CDBDifficulty
+RTTI selects actual Steam serialization7e1d10/import80e240, rather than relying
+on older source comments' different addresses. Exact import80e3b5 takes field68
+with actual string AlwaysCritical8d33e8; serialization7e1eb1 saves that bool as
+tag25. Gold difficulty PDB endsat64 and lacks it: this is a target1.2 addition.
+Exact helper6c3a5a callsWorldEC, reads48/68;6c3a97 rejects resistance<1. Named
+GetSkillValue Gold6bf780/37 is exact uniqueSteam6c5f10 / mission vtable3c; Gold
+PDB ESkillType ST_LEVEL13 agrees with actual push0d. Steam6c3ace resets before
+level check and loops Get(1,5) through41b940/global9ca918. Independently existing
+ProcessAttack6c40be uses SAME generator/Get with1,20. No frame/register/field masks
+or false Gold equivalence. Evidence: critical-difficulty-fallback-retail-oracle.json,
+named types, skill enum, actual import/serialization/helper disassembly.
+
+NativeCriticalDifficultyFallback0..10 use FOUR actual native units in world810:
+two receivers plus actual level20 and reference level0 attackers, matching native
+AI flag/difficulty damage coefficient. The authored coefficient remains unchanged:
+fixed raw20 becomes real base27 with native attacker, while null attacker/world
+base20 stays20. Native game binding/tag45, VP500/IC0/no47, BLEED-only after warmup.
+Actual TakePerk46/authored.1 is acquired on both receivers only for resisted and
+forced-resisted controls, with exact point budget; log label restored. Only the
+actual AlwaysCritical bool/cap are temporarily selected/restored. Reference starts
+from explicit shared state after retained d20 prefix and any expected d5 loop,
+then processes explicit resulting severity with guaranteed or zero chance.
+
+Complete production RED5/11 ->GREEN11/11 EACH platform; six controls unchanged.
+Seed710/SRand12,71 rejects chance1. Level20 adds227 by d20: prefix300->527; failed
+unresisted fallback resets to sum47 by TWENTY d5, not527+47. Damage27->33, BLEED
+absent->DC47/value5, four RNG words change to the correct post-loop stream. With
+cap5 the original result is STILL DC47/damage33, proving no recapping. Null attacker
+retains300, damage20->50/DC300. Valid level0 resets0 and adds BLEED/DC0/value5 while
+HP remains27. Negative-nonzero chance boundary follows the same reset/d5 case.
+Controls: difficultyoff, resistance46, passed chance10000, zero chance, forced with
+46, and legacy nullworld. Native damage27/27/98/27/91/20 and associated injuries/
+four RNG words remain exact. HP/AP/pose/life/perks/input/cap/difficulty and attacker
+HP/AP/level remain stable. This is a direct native RPG context test, not full UI.
+
+Full Windows/Linux Game builds, 136Win/136Linux related tests and asset-free CI323 pass.
+Remaining adaptation audit before closing source: original FILD probability /
+FMULS stored resistance / FCOMPP has NO intermediate float store, whereas the
+current native C++ comparison multiplies as float. Authored46/.1 and chance100
+give wide89.9999976 versus rounded90; the draw90 boundary needs its own real
+native RED/GREEN before any separate comparison fix. It is not mixed into this
+fallback patch or claimed tested here. All other functional source hunks have
+independent native/original evidence from the preceding critical fixes.
+Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).
+
+## 2026-10-31: original critical probability comparison precision; source `65558b11` complete
+
+**Superseded precision inference:** the wide-significand claim and boundary
+rejection below are incorrect under the observed original PC24/RN runtime.
+See the later original-address critical comparison audit and correction.
+Historical measurements are retained; they do not establish original behavior.
+
+Adapts the final native precision boundary identified during the source audit.
+Compare double(integer roll) with double(integer probability)*double(stored float
+resistance), avoiding a premature FLOAT product store. The authored float factor
+itself is unchanged. No random draws, floors/clamps, defaults, public API, fields
+or save/LAN representation change. This is an architecture adaptation of the
+original comparison, not a new authored balance adjustment.
+
+Independent named mission interface/ProcessAttack/direct helper identity retained.
+Exact Gold6bd4bf25 / Steam6c3b1021 instructions FILD integer roll, FILD probability,
+FMULS stored float factor, FCOMPP/FNSTSW/TESTAH5; threshold<roll returnszero. NO
+FSTPS/other store between multiplication and comparison. Steam AlwaysCritical
+branch6c3a7e25 uses the same unrounded comparison before the resistance/fallback
+gate. Each version asserted independently; no register/frame masks or whole
+helper match. Authored46/.1 factor is0.8999999761581421: chance100/50/30 produce
+wide89.999997615814209 /44.999998807907104 /26.999999284744263, but native FLOAT
+products round90/45/27. Exact integer rolls90/45/27 must therefore REJECT, not
+pass. These ordinary authored products are exact in double, matching original
+x87 without that intermediate32-bit rounding. Evidence:
+critical-probability-precision-retail-oracle.json.
+
+NativeCriticalProbabilityPrecision0..8 use TWO actual native class/tree missions
+in world810, actual TakePerk46/authored.1 on both when acquired, native game entry/
+tag45, VP500/IC0/no47 and post-warmup BLEED-only selection. No database parameter
+changes; points and temporary ASCII label restored. Actual incoming probability
+100/50/30 is paired with a real native zero-critical reference for expected
+rejection; passing/forced controls use a guaranteed native critical reference.
+Harness selects exact native LCG seed accounting for ctor Get4 and whether a
+reference critical already consumed the first draw. Reject boundaries: seed63 /
+first90, seed22/first45, seed55/first27. Passing89 uses seed83/second89; unacquired
+and forced90 use seed39/second90. Zero-chance control never needs the SRand draw.
+
+Complete production RED4/9 ->GREEN9/9 on EACH platform; five controls unchanged.
+At those three boundary rolls and the chance100/90 AlwaysCritical+resisted case,
+HP damage47->20 and wrong BLEED/DC300 is absent, matching native zero-critical
+reference. Passing89 remains47/DC300; draw91 stays20/no injury; unacquired90
+remains50/DC300; zero chance20/no injury; forced90 remains47/DC300. Four shared
+RNG words, injury grade/location/duration, AP/pose/life, perk ownership/points,
+probability/flag/input, cap and actual difficulty remain exact. No new ordinary
+frequency survey/full UI producer claim. Nonfinite factors, unusual tiny custom
+database factors and extreme integer probabilities are not newly certified.
+
+Full Windows/Linux Game builds, 145Win/145Linux related tests and asset-free CI323 pass.
+
+All useful FUNCTIONAL hunks of [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66)
+are now imported/adapted with independent RED/GREEN/original evidence:
+68a694be selector severity RNG;4c3a8728 reciprocal300/location damage;
+8d171a3e applied raw severity;75b2dc48 cap before selection/damage;
+1863cc35 PK complement;63cdf2d1 perk46 wide composition;597bbd7b perk47 wide
+division/truncation before cap;cf794b02 target1.2 forced flag;
+82f2e820 actual difficulty failed-roll reset/level*d5 after cap; this final native
+comparison adaptation. Own diagnostic critical logging stays available. Donor
+premature float arithmetic and unsupported47 zero-param guard are not copied;
+original reciprocal/float stores, chance0 guard, null/level0/post-cap quirks and
+Gold/Steam differences are recorded. Direct script SCritical and own legacy
+null-world entry, native audio/codecs, facial engine, fonts, SDL/bgfx and LAN
+are preserved. Other pending sources remain separate; this is not final-head
+hosted CI or completion of the whole upstream queue.
+
+## 2026-10-31: columnar overlay empty scalar markers (`360344ca` partial)
+
+Restores target storage semantics for actual `0xfdfdfdfd` integer/float bits and
+exact UTF16 `fdfdfdfd`: return false WITHOUT modifying the previous native output.
+Bool goes through the integer value before conversion, so a marker cannot turn
+false into true. Float compares copied bits rather than numeric/sign tests.
+String checks occur BEFORE the existing own CP1251 conversion; wide strings keep
+their ordinary copy path. Own missing-column diagnostics, overlay=true identity/
+count behavior, portable loading, explicit CP1251 codec and ADO editor path remain.
+Own Serialize third argument still means overlay; donor bBuildLinks/ModManager/
+PreCreate rewrite is not blindly copied. No database file/authored field/default,
+public API, class member, save or LAN shape changes.
+
+Named CDBTableDataStorage RTTI GoldTD93e8ac/COL8cdb84/vt8a355c ->SteamTD94f8ec/
+COL8dd21c/vt8b2564. Gold PDB fields: intRows0c/float18/wstring24, names3c/48/54,
+cursor60; target slots24/int401460,2c/bool4011d0,30/float4014a0,34/narrow4014f0,
+38/wide4015c0. Target named Difficulty Import wrappers4018a0/c0/e0 dispatch those
+slots; the wrapper addresses are not confused with getter bodies. Exact40147b
+compares FDF bits/returnsAL0 BEFORE outwrite, else writes/AL1. Bool4011d0 calls
+that integer getter into a local, false returns BEFORE output, success writes
+local!=0/AL1. Float4014bd stores exact float bits temporarily, compares FDF and
+false-returns before outwrite; ordinary values copy/AL1.
+
+Exact narrow401526 and wide4015de compare UTF16 length/content with global
+wstring9881b0/b4. Actual static initializer896b70 constructs it from UTF16 literal
+8b2638 `fdfdfdfd`. Gold PDB wcsncmp8252f9/53 maps EXACT/UNIQUE toSteam833279,
+used in both guards; equal length/content returnsfalse before any assignment.
+Narrow conversion404680 follows only at40156e..574, wide assignment at401617.
+Gold getters have an older return-value ABI; the real version difference is not
+masked or transplanted into own native storage. Evidence:
+db-overlay-sentinel-retail-oracle.json, named fields, actual getter/initializer
+and wrapper disassembly.
+
+NativeDBOverlaySentinel0..9 load the ACTUAL authored game.db through native
+NDatabase::Serialize. A single real cell in a valid full columnar overlay is
+changed IN MEMORY, with original native chunk parents/lengths rebuilt as needed
+for actual Cyrillic Script56.CodeText; source file and game/build trees are not
+copied/written by these new cases. Production native Serialize(READ,overlay=true)
+imports that overlay. Select actual RPGAP5/AP20, Difficulty3/HealOnLeaveZonefalse,
+Difficulty1/OurDamageMult bits3faa3d71, actual Script56 CP1251 code and localized
+CString25 UTF16. No mock storage/importer/model path or new test-only engine API.
+
+Complete accepted RED5/10 ->GREEN10/10 EACH platform; five controls already pass.
+Markers formerly replaced AP20 with -33686019, false withtrue, authored float
+with FDF bits, real Cyrillic Lua code and localized string with marker text.
+Now all five old values remain exact. Ordinary controls STILL APPLY: int0,
+booltrue, float0, valid Lua `return 8`, localized UTF16 control. Actual table/record
+identity and record counts26/3/113/9953 stay stable, plus another actual CP1251
+script remains byte-identical. Selected CodeText is also byte-identical under
+marker; localized strings match UTF16 hashes on both platforms. Full script/UI/
+policy execution is not claimed by these data-loader checks.
+
+Initial missing/legacy StrProc include compilation and nonexistent eight-character
+Perk UserName fixture assumptions are archived and NOT accepted RED. Corrected
+fixture uses isolated StrProcCodePage header and ACTUAL Cyrillic CodeText with
+valid original wire chunk reconstruction. Complete final RED rerun both BEFORE
+production. Full Windows/Linux Game builds, related156Win/155Linux, Windows existing
+NativeModManagerTests and CI323 pass. Linux has no existing manager test target;
+native overlay identity/count/codec cases pass there. Source remains partial:
+derived CanSave success consumer and other scenario/context/called-shot/mod-link
+hunks are separate pending work.
+Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 2026-10-31: preserve CanSave mode when field import returns false (`360344ca` partial)
+
+Only convert/assign CDBDifficulty.canSave when the existing ImportField call
+succeeds. A skipped overlay field can no longer turn an existing mode into the
+parser's invalid N_CAN_SAVE value via an empty temporary string. Ordinary name
+parsing remains active, with no new default/name validation/fallback. Existing
+enum ordinals, member/save/LAN shape and public API are unchanged. Corrected
+the same type's import/save address comments to the independently verified
+target entries80e240/7e1d10, without changing header data or schema.
+
+Named CDBDifficulty RTTI/vtable again selects GoldPDB Import81f5d0/save7f3630 ->
+SteamImport80e240/save7e1d10. Gold PDB canSave member24, enumchapter0/realtime1/
+always2/invalidN3; actual target name table986958 contains those three names.
+Target80e277 passes the local string and literal CanSave8d356c. Exact80e28828
+calls narrowImportField401900, TESTAL/JZ13 skips ALL resolver/member work on false
+at80e2a4. Success pushescount3 and name table, callsresolver80e420 then MOVmember24.
+No frame/register/field masks or extra rejection/default rule. Evidence:
+difficulty-cansave-overlay-retail-oracle.json and native enum JSON.
+
+NativeDifficultyCanSaveOverlay0..2 reuse the ACTUAL authored DB/native overlay
+path from the scalar fixture, with modes10..12. Native Difficulty1 has mode2
+(always). A single in-memory CanSave UTF16 cell becomes the recognized marker;
+valid native chunk parent lengths are rebuilt, and production Serialize READ /
+overlay=true imports it. BEFORE this consumer patch, scalar ImportField correctly
+returnsfalse but unconditional enum conversion still corrupts2->3. This is a
+separate production RED after the scalar-marker fix, not a missing API/stub test.
+
+Complete RED1/3 ->GREEN3/3 EACH platform, two controls unchanged. The marker now
+preserves2; genuine chapter and realtime overlays still transition2->0 and2->1.
+Actual table/record identity and count3, and another real CP1251 script, remain
+exact. Source DB is read-only; no new disk/game/build-tree copy. Tests inspect
+actual native policy data, not save-menu/UI execution. False-result behavior
+is corrected for this consumer; ordinary ADO/name parser success behavior is
+retained. Missing-column false returns take the same code branch but are not a
+separate new fixture; unknown ordinary names retain existing parser semantics.
+
+Full Windows/Linux Game builds, related159Win/158Linux, Windows existing
+NativeModManagerTests and CI323 pass. Source360 remains partial for the other
+scenario/context/called-shot/mod-link pieces; own mod/codec behavior is retained.
+Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 2026-10-31: native melee requested-part critical bonuses (`23630bfd` complete; `360344ca` partial)
+
+The actual CExecMeleeUnit label now retains hlInfo.eHL on the front native
+attack portion. CUnitMission applies the original target bonuses only when
+HeadshotShouldKill is enabled AND requested part equals the actual ray hit:
+BODY probability+10/severity+20; HEAD+90/+150; hands+35/+65; legs+25/+40.
+The existing attacker-level*d20 severity prefix remains BEFORE these additions;
+the existing resistance, perk47, cap, selection, forced flag and difficulty
+fallback pipeline then consumes effective probability/severity. No new clamp,
+authored value or enum ordinal. Existing optional-world guard is retained for
+legacy callers. Own vector/trajectory/renderer/codec/LAN infrastructure stays.
+
+Original audit independently rechecks named CExecMeleeUnit RTTI/vtable slot16
+(Gold79d9d0 ->Steam7a9fa0) and named mission interface slot41/direct critical
+helper mapping. GoldPDB typed hlInfo2c and chance10/severity14; target CreateAttack
+7aa026->7a4a00 receives the portion at original frameESP34. After EBP/EDI pushes,
+load hlInfo2c7aa033/storeESP78 at7aa03f proves requested portion member3c.
+GoldPDB12arg ctor689740 first30 bytes maps EXACT/uniqueSteam68f7b0; target68f848
+sets member3c=-1 before RET30. Actual target ProcessAttack6c40d7 uses WorldEC ->
+global48difficulty69;6c40ef compares requested3c to actual hit EBX. Exact table
+6c4670 and add instructions6c410f/412b/4144/4151 establish all six region values
+AFTER level*d20 at6c40be..d1. Existing HeadshotShouldKill import80e3c2/literal
+8d33d4/Bool4018c0 and save7e1ec2 member69/tag26 independently checked.
+
+Target portion serialization7482c0..7483f4 is308 bytes; last field39/tag18,
+NO requested3c field. Its first233 bytes uniquely map GoldPDB73d5e0 with only
+decoded E8 operands masked. Ordinary save shape therefore remains tags2..18.
+Own LAN carries requested part plus one in optional network-only tag19; -1 omits it on
+write. Missing scalar chunks decode to zero, so zero maps back to -1. Every
+read resets -1 first, so old network messages and ordinary saves
+cannot retain stale metadata in reused portions. Both constructors initialize
+-1. This optional LAN adaptation belongs to our infrastructure, not a claim
+that the original game had that network field.
+
+NativeMeleeCalledShot0..14 use actual world810/party54, real untaken37 actor,
+two real person103 receivers, actual authored blade2 and native inventory,
+opposing owners, free adjacent cells, SEEALL/UpdateVisible actual awareness,
+CanDoIt/Start/OnLabel and real fragmented ray/body intersection. If the initial
+random cover sample reaches another part, the fixture samples the SAME native
+cover without damage until a real matching hit is found (max128); it then uses
+that actual native ray. This controls positive coverage without a fake hit or
+RPG result. HL_ANY follows its actual sampled part and remains without a bonus;
+its physical part may legitimately differ between runs. Actor level20
+retains the real d20 prefix; MELEE0/victim2000 plus actual TOHIT cheat isolate
+chance2 hit dispatch. Ordinary modes actually acquire37 via native perk tree;
+low-chance modes keep native probability27 and choose SRand first roll28
+(seed116), rejecting before the missing positive bonus. Reference calls the
+real native RPG ProcessAttack with explicit audited bonus inputs and the same
+pre-damage shared RNG state. Low positive reference uses the already existing
+forced flag to avoid relying on a later private SRand draw; actual attack does
+not use that flag. Real HP and bleeding count/location/DC/duration/value must
+match; actor AP/HP/pose, item quantity, level, living receivers and rule fields
+remain controlled. Both source/reference keep normal native attack fields.
+
+Accepted production RED9/15 ->GREEN15/15 EACH platform; six controls already
+passed: flag-off standard/low, HL_ANY local/network, ordinary save and legacy
+network. Standard local head/body/hand/leg HP drop122/86/45/65 ->167/90/50/71;
+DC184 ->334/204/249/224. Native network head also122->167/DC184->334. Low
+probability head/body/hand/leg49/33/23/28 ->128/70/38/55, no bleeding ->actual
+DC357/227/272/247. Raw probability/severity100-or27/13 remain unchanged on
+the produced portion. Actual20d20 prefix is preserved (171 standard,194 low).
+Own network roundtrip uses actual native saver and borrowed live unit refs;
+ordinary save and old tags2..18 network reuse the prefilled portion and keep
+the no-bonus behavior. Initial GREEN exposed the optional-scalar zero default
+turning HL_ANY into BODY and one random torso sample hitting an arm; those
+results were archived, the biased wire encoding and native cover resampling
+added, and a complete new production RED performed before final GREEN.
+No new game/build tree or game-file mutation.
+
+Calibration compile/type, ratio, unused full-world RNG comparison and head KO/
+body orientation failures were archived as INVALID fixtures, never counted as
+production RED. Final fixture faces the body target toward the actor, keeps
+only actor invariants after damage (a genuine head injury can cause KO), and
+resamples a mismatched positive ray through actual native cover. It
+does not assert post-world RNG equals a direct RPG call: receiver effects and
+AI sound consume additional shared draws. Physical damage/injury reference is
+seeded before those side effects. No whole-world RNG, full multiplayer peer,
+UI/resume or arbitrary multiportion certification. Unusual custom/extreme
+probabilities and other ranged/knife requested-part producers remain outside
+this change. Full Game builds, related174Win/173Linux, Windows manager regression and
+local CI323 pass; actual final-head hosted CI remains due at task completion.
+
+This closes BOTH hunks of23630bfd (visibility awareness was completed earlier).
+Source360 remains partial for scenario/context/mod-link/ray/other action work.
+Evidence prefix melee-called-shot; original oracle and measured JSON retained.
+Sources: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387),
+[23630bfd0c6924b748f79cca9ded910e0f4df35e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/23630bfd0c6924b748f79cca9ded910e0f4df35e).
+
+## 2026-10-31: retain ranged requested part before native ray construction (`360344ca` partial)
+
+CExecShootUnit::SelectRay now assigns attack.eWantedHL=eHL after the actual
+generated portion is copied and before existing cover/solver work. The real
+ranged carrier/trail can now reach the previously restored original critical
+consumer with that requested part. No change to cover/ray preparation, timing,
+ammo spending, difficulty fields, constants, trajectory or native codec/LAN.
+
+Independent named CExecShootUnit RTTI GoldTD9736e0/COL8ea548/vt8bdde4 ->Steam
+TD984950/COL8f9d64/vt8cd3cc. Slot20 PDBSelectRay799030/287 ->actual7a5480;
+slot3 PDBserialize7a53e0/76 ->7b1c20. GoldPDB pTarget11c/eHL120; target native
+serializer7b1c55 addresses eHL128/tag3 and selector loads pTarget124, a real
+layout difference. Target7a54b0 LEAEBX30 is the portion passed to CreateAttack
+7a54ba->7a4a00, with existing spend-ammo=true. Exact7a54c7 loads eHL128 and
+7a54cd stores6c =portion30+3c, independently established requested member.
+7a5553 sets rayInfo70 and7a5558 calls actualAttackObjectRanged6b6510. No whole
+function match/field masks or stale donor7a4e37 address accepted. Earlier named
+mission/constructor/consumer/save audit remains applicable. Evidence:
+ranged-called-shot-retail-oracle.json and typed Gold member output.
+
+NativeRangedCalledShot0..5 use actual world810/party54, real untaken38 actor
+and native perk-tree grant, two real person103 receivers, authored firearm1
+with actual loaded ammo8, native inventory, opposing owners/free standing
+places, target SEEALL/UpdateVisible to exclude backstab, legal CanDoIt/Start.
+Start genuinely spends its round8->7 and quotes/pays its native AP. Read actual
+generated portion and ray carrier through the existing native saver with
+borrowed live references (including existing optional requested-part LAN field).
+The fixture uses the actual selected ray or samples the SAME native cover to
+obtain a real matching first body intersection (no damage while sampling).
+Native ProcessRangedAttackPortion builds the real physical trail. The fixture
+bounds that existing trail to its first actual flesh entry, then actual native
+CreateBulletServer/Segment applies and retires that impact. This isolates one
+receiver without inventing a target/hit or duplicating RPG damage. It does not
+certify full animation/label timing, unconstrained travel or a multi-peer game.
+
+Both receivers bind actual native game through zero-energy server entry and
+enable BLEEDING afterward. Actor level20 retains original d20 prefix171;
+actual38 guarantees probability100, raw severity0 is retained. Actual native
+RPG reference uses fresh attack construction with explicit audited bonus
+inputs and same pre-impact shared RNG state. Compare real HP, bleeding count/
+part/DC/duration/value; actor AP/HP/pose, round count, points/perk/level stable.
+World effects and post-impact RNG are not equated with a direct RPG call.
+
+First fixture run already produced accepted RED4/6 ->GREEN6/6 EACH platform,
+two unchanged controls (rule-off and HL_ANY), no calibration failures. Head/
+body/hand/leg damage67/83/44/63 ->163/87/49/69. Head no bleeding ->DC321;
+other DC171 ->191/236/211, matching+20/65/40 after the same level prefix.
+ANY follows its actual sampled region and remains without a bonus. Authored
+gun1, ammo8->7, native raw probability100/severity0 remain unchanged. No new
+game-file write or full game/build-tree copy. Full Game builds, related180Win/179Linux,
+Windows manager regression and CI323 pass. Hosted final-head CI remains due at
+whole-task completion. Other source360 ray/context/mod/scenario/swap work and
+throwing-knife producer/flight remain separate. Source:
+[360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 2026-10-31: visibility-only unaware-target accuracy context (`5780c0be` partial)
+
+NRPG::GetAttackerToHit now supplies !target.IsUnitVisible(actor) to the existing
+native calculator. Hearing an unseen attacker no longer removes unaware-target
+accuracy. This is the separate unit to-hit context, not a repeat of the earlier
+CreateAttack damage/critical-awareness fix. Current physical cover origin and
+distance, accessible parts, first-turn/bullet inputs, formulas and own explicit
+night API remain unchanged. Missing night propagation remains separate work.
+
+GoldPDB NRPG::GetAttackerToHit6aef60/389 first16 bytes exactly and uniquely maps
+target6b5090. Independently named CUnitServer RTTI/table GoldTD93f530/COL8eb634/
+vt8beb74 ->SteamTD950570/COL8fae50/vt8ce15c establishes byte-offset84 visible
+(Gold7b3e20/Steam7c05a0) versus88 audible(Gold7b4530/Steam7c0cb0). Exact target
+6b516d..6b5194 calls only slot84 at6b5172, TESTAL6b5181, SETEAL6b5188 and
+stores/loads/pushes that single bool at6b518b/518f/5193. Direct6b51e4 calls
+nativeGetToHit6b4ae0; null/invalid target6b50b3 returns0. No whole-body match,
+register/frame/field mask or extra hearing predicate accepted. Evidence:
+tohit-awareness-retail-oracle.json and actual Gold PDB symbol output.
+
+NativeToHitAwareness0..14 use actual world810/party54, real person103 opposing
+pair, free native cells (adjacent melee,5..8m ranged), actual equipped melee/
+gun/throwing-knife items. Native target stored visibility is set via SEEALL/
+UpdateVisible when required; actual SetAudible list independently controls
+hearing. Native SelectTargetHLs resolves accessible melee parts. Native cover
+is built from the actual portion/origin and read through existing CoverSnapshot
+saved fields; existing native GetHitCover and GetToHit provide the reference,
+without copying chance formulas or adding engine APIs. Expected input differs
+only in the independently audited visibility predicate. Day is explicitly
+isolated/restored so this test does not absorb the separate night bug.
+
+Accepted RED2/15 ->GREEN15/15 EACH platform;13 controls. Audible/unseen melee
+33->50 and gun34->41. Inaudible/unseen, both visible contexts and null target
+retain their native results. Throwing-knife controls pass unchanged: current
+knife calculator does not derive a new chance change from this flag alone.
+All15 preserve four shared RNG words, actor AP/HP/position, victim HP, actual
+item quantity/ammo and contact/day inputs. Public list/SEEALL arrangement
+isolates stored awareness; no natural LOS/full cursor/command/UI certification.
+The initial direct private-cover-member access failed compilation; corrected
+to the already existing native CoverSnapshot reader before accepted RED, and
+invalid compile logs retained separately. No game-file write or new game/build
+tree. Full Game builds, related195Win/194Linux, Windows manager regression and CI323.
+Other source578 night/range/velocity/knife-flight pieces remain partial. Source:
+[5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: forward owning mission night into unit-target accuracy (`5780c0be` partial)
+
+NRPG::GetAttackerToHit now derives the actor's actual world game IsNight and
+forwards it through the already existing explicit GetToHit night parameter.
+This restores the missing environment input while preserving current light
+formula/night-vision21, cover, visibility-only awareness, first-turn/bullet
+inputs, script-forced chance and own explicit direct/AI calculator semantics.
+No implicit global replacement, authored DB change or new public API.
+
+Original Gold PDB function types establish GetAttackerToHit6aef60/389 has9 args
+ending two bools and RPGUnitGetToHit6ae9b0/780 has15 args ending bool (BasicType10
+bool,6int,8float). Gold helper first16 bytes exactly/uniquely mapsSteam6b5090;
+paired direct caller Gold6af0d6->6ae9b0 and Steam6b51e4->6b4ae0 identifies the
+native calculator handoff without whole-function/ABI equivalence claims.
+Typed CDumbUnitServer pWorld2c; named World RTTI/vtable1c GetGame Gold76bc50 ->
+Steam777a00 exact readpGamefc. Named NRPG::CGame RTTI/vtable30 IsNight Gold693250
+->Steam7b03f0 exact readbyte18, selected by named table rather than a generic
+tiny getter signature. Original ranged selector7a54e0..7a54f6 loads actor14/
+ownerWorld2c, calls those getters and stores actual night flagESP10. Exact
+7a552a/552e loads/pushes that local into AttackObjectRanged7a5558->6b6510.
+Actual chain6b6657->CheckToHit6b5200,6b5238->GetAttackerToHit6b5090; target
+context6b5178/5180 loads/pushes final stack boolESP4c before remaining calculator
+inputs and calls6b4ae0. No register/frame mask or invented old-prototype match.
+Evidence: tohit-night-retail-oracle.json, Gold typed functions/owner members.
+
+NativeToHitNight0..11 reuse actual world810/opposed person103 target, a real
+native actor with untaken21, actual melee/firearm/throwing-knife items, real
+cover and saved CoverSnapshot source. Stored target awareness is held visible/
+audible through actual SEEALL/UpdateVisible and SetAudible. Native accessible
+melee parts resolved; actual world IsNight is toggled/restored. Existing native
+GetHitCover and explicit day/night GetToHit reference keep the same physical
+inputs. For ordinary gun/knife cases, select an actual native skill0..100 with
+an observable day/night boundary (gun0, throwing66); no DB/range/light formula
+copy or mutation. Controls actually grant21 via the native perk tree with
+point budget/temp ASCII label restoration, or set actual script chance37.
+
+Accepted first-run RED2/12 ->GREEN12/12 EACH platform,10 controls: ordinary
+night firearm31->28; throwing knife3->2. Day cases, melee, actual21, script37
+and null target retain results. All12 preserve four shared RNG words, actor
+AP/HP/pose, victim HP, inventory/ammo, awareness, night/perk/points/script inputs.
+No calibration failures. Knife comparison intentionally retains current fixed
+range behavior: it certifies night input wiring, not full original knife
+accuracy/range/velocity/flight parity. No whole world lighting, natural LOS,
+cursor/firing/UI certification. No new game-file/build-tree copy or writes.
+Full Game builds, related233Win/232Linux including existing night previews/incidental
+night coverage, Windows manager regression and CI323 pass. Source578 range/
+velocity/knife-flight and other unfinished pieces remain partial. Source:
+[5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: retain world at actual flying-knife collision (`5780c0be` partial)
+
+CKnifeServer::Segment now calls the already existing free throwing-hit handler
+with its actual owning world instead of the legacy game wrapper that passes
+null to the receiver. Flesh damage can again consume that world's difficulty
+coefficients. Existing stored attack.rTtrajectory direction is deliberately
+retained to isolate this world fix; reconstructing current flight direction is
+separate pending work. The legacy game API stays intact. Corrected the same
+free implementation's address/signature comment only, with no header/schema/
+renderer/codec/LAN or range/velocity/throw-command change.
+
+Independent named CKnifeServer RTTI/vtable GoldTD972d18/COL8e7f54/vt8bbdfc
+primaryslot0 PDBSegment754d60/1854 ->SteamTD983f88/COL8f76d8/vt8cb2dc slot0
+Segment7606e0. Typed Gold pWorld20/rayInfo4c and SAttackRayInfo.atk50.
+OriginalGold755095->PDBPerformThrowingAttackPortion68a440/147; Steam760a15->
+690440. COMPLETE147-byte free body uniquely maps between originals with ONLY
+the one decoded E8 operand15..18 masked. Gold typed signature explicitly leads
+with IWorld*, followed by attack/direction/receiver/armor/part. Exact21 bytes
+before both calls MOVECX[ESI20] world and LEAEDX[ESI9c] =rayInfo4c+atk50, with
+part/armor/receiver/direction stack inputs. Free body saves ECX world in EDI,
+EDX attack in ESI and forwards them to native IA slot0 for flesh (also glass).
+No register/frame/field masks or whole original/own callback ABI claim; own int
+callback/public API retained. Stale comments75fe50/690780 were not accepted.
+Evidence: knife-world-retail-oracle.json, typed members/functions and call slices.
+
+NativeKnifeWorldContext0..3 use actual world810/party54, a real clear approach
+to a native living flesh BODY (both fragmented and item-blocker traces), real
+tactical owners, authored throwing-knife model pool/item and actual native
+CreateKnifeServer/linear animator/Segment. Prime at launch: no movement/damage.
+Advance the actual world clock500ms and DG frame: native projectile travels5m,
+physically collides, applies damage, emits one native hit locator and retires
+before its1000ms deadline. No fabricated hit or future API. Native saved fields
+verify carried actor/ignore/RPG refs. Item quantity1 and actor AP/HP retain
+values; receiver remains able to fight. Own new debris is removed, projectile
+released and original clock/DG frame restored. No whole action-counter/drop
+simulation or OnLabel launch/producer parity claim.
+
+Accepted first-run RED2/4 ->GREEN4/4 EACH platform, two controls. A constant
+base2 portion with real attacker/difficulty2 received2 ->4 on both actual
+owner arrangements. Anonymous attacker and coefficient1 remain2. Both measured
+RPG IsAIPlayer flags are0; no separate enemy-coefficient branch or AI flag
+assignment is certified. Both difficulty coefficients are temporarily set2
+and restored; reference CalcStructDmg(null)=2/world=4 is checked. Constant
+damage, chance0, non-incidental intended target and negative KO probability
+isolate world propagation. The test supplies an already valid stored trajectory;
+current-direction reconstruction remains explicitly uncertified/pending.
+No calibration failures (clock type corrected before first compilation), DB
+mutation or new game/build-tree copy. Full Game builds, related277Win/276Linux including
+knife clock/preview/dispatch/orientation/feedback/handoff and prior night/
+incidental coverage, Windows manager regression and CI323. Other source578
+target/requested-part producers, direction/range/velocity/flight pieces remain.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: current physical direction at knife impact (`5780c0be` partial)
+
+CKnifeServer::Segment now supplies its already computed current physical ray to
+the retained attack.rTtrajectory reader and forwards ray.ptDir to the existing
+free throwing-hit handler. Actual world forwarding from the previous fix remains.
+No new physics formula, range/velocity, callback API, save or LAN field. This
+closes the direction limitation recorded in the previous knife-world entry.
+
+Independent named knife Segment Gold754d60/Steam7606e0 and typed curPos34/
+velocity40 rechecked. Original portion has no rTtrajectory member. Exact target
+next-position components at760795/760769/76075d subtract actual curPos34/38/3c;
+delta stored local3c/40/44 at7607c4/7607e8/7607d4. Target760824 loads local3c,
+760828 calls Normalize40b710. GoldPDBNormalize40af90/86 COMPLETE body uniquely
+maps to Steam40b710 with ONLY verified zero/one constant pointer operands32..35
+and56..59 masked; exact dereferenced bits0 and3f800000. No register/frame/field
+masks. At760a00..760a15, after three pushes, LEAEDX[ESP48] supplies that local3c
+normalized physical direction to existing free690440; full147-byte helper and
+typed direction handoff were independently verified in the preceding fix.
+Evidence knife-direction-retail-oracle.json, typed members/functions and slices.
+
+NativeKnifeImpactDirection0..3 use actual world810/party54, real crouched native
+victim/head locator and unobstructed downward flesh trace, authored knife model/
+item, actual CreateKnifeServer/animator/Segment and clock100ms/DG frame. One
+physical1m flight hits HEAD once, retires and deals15 (base10) or3 (base2).
+Actual new native CDecal objects and native mapping centers are inspected through
+the world's active objects; no synthetic decal, fake hit or future-field stub.
+Stale UP and SIDE attack trajectories lost the real ground blood decal despite
+the downward physical impact: accepted RED2/4 ->GREEN4/4 EACH platform, two
+controls. Both now create exactly one native decal below the head; already-DOWN
+high damage keeps one, already-DOWN low damage keeps zero. HP, one hit/retirement,
+distance, actor AP/HP, item1, target crouch and ability to fight remain controlled.
+Own debris is removed and original clock restored. Existing decal RNG is allowed;
+no full post-world RNG, full rendered frame/UI, launch OnLabel or range/velocity/
+whole flight/drop parity claim. An unused saved-trajectory diagnostic initially
+printed zero because that field is not serialized; it was removed and genuine
+effect RED repeated BEFORE production. Initial effect failures are archived.
+
+The first full related run failed only old NativeKnifeUnitPreview4 on BOTH
+platforms: its direct reference assumed day and hearing-based awareness despite
+the already audited fixes82/83. Its independent direct GetToHit reference now
+passes actual owning-world IsNight and visibility-only awareness, and reports
+all three contact/environment inputs. No preview production formula changed.
+The failed full-run logs are archived as initial-final-stale-preview-reference;
+the complete gates were repeated after rebuilding this fixture-only repair.
+
+Full Game builds, related281Win/280Linux including knife clock/preview/dispatch/
+orientation/feedback/handoff, prior night/incidental and Windows manager, CI323.
+Source578 remains partial for actual launch target/requested-part producers and
+range/velocity/flight work. Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: selected target in actual knife label producer (`5780c0be` partial)
+
+CExecThrowKnife::ThrowKnife now calls existing CreateAttack(&attack,pTarget,false)
+instead of literal null. The earlier validator fix8 did not fix this actual
+OnLabel producer. One operand changed; own vector/front API, tear-off, successor,
+action and existing flight path remain. No new formula, wanted-part, range/
+velocity, solver, schema, save or LAN change.
+
+After genuine native RED, independent named CExecThrowKnife RTTI GoldTD9737d8/
+COL8ea404/vt8bdc44 ->SteamTD984a48/COL8f9c20/vt8cd22c. Slot16 PDBOnLabel79fb30/14
+->target7ac1e0. Exact direct calls79fb33->PDBThrowKnife79e350/861 and7ac1e6->
+7aa930 locate actual private producer; donor7aa2a0 is stale. Gold typed pTarget28,
+eHL30; independent slot3 saveGold7a45d0 ->Steam7b0db0 addresses member28/tag3 at
+7b0de1. Exact BOTH producers79e3f7/7aa9df load EAX[EDI28], push1/EBXzero/EAXtarget,
+then actual portion frame54 via LEAESP60 after three pushes and ECXEDIthis.
+Calls79e40d->7985b0 and7aa9f5->7a4a00 TESTAL. PDB original callee takes single
+portion,target,bool,bool; its first121 bytes uniquely map with ONLY previously
+audited SEH pointer operand3..6 masked (fix67). No register/frame/field/branch
+masks, whole caller equivalence or original-single/own-vector ABI claim.
+Evidence knife-launch-target-retail-oracle.json, named member/type/call slices.
+
+NativeKnifeLaunchTarget0..4 execute actual legal CanDoIt/Start/OnLabel with a
+real authored equipped knife, actual tactical owners and contact lists. Inspect
+the one actual native knife object/item/actor and its actual saved attack carrier.
+That extracted carrier enters existing native throwing flesh callback against a
+real isolated BODY intersection/receiver; a separately generated native portion
+with selected target enters a real native reference receiver at the same starting
+ISAAC state. The nonserialized trajectory is populated from the real body ray,
+as the collision writer does. This is actual launch carrier + native HP, NOT an
+assertion of the still-old launch velocity/flight/timing/cached solver/drop/UI.
+
+First fixture accepted RED3/5 ->GREEN5/5 EACH platform, two fully unchanged free-
+point controls. Selected visible IC100: damage1->37. Selected IC0 retains37 but
+now carries its intended target (the third RED is this carrier assertion).
+Selected unseen but audible IC100: damage1->37, native backstab0->1, damage
+bounds18..29->24..29, critical52->100. Free-point IC100/IC0 retain damage1/37 and
+null target. Existing incidental-IC rule is unchanged: intended receiver bypasses
+that incidental reducer; free-point collisions still use it. Native BODY max
+severity is positively capped1, injuries disabled and headshot/always-critical
+difficulty flags disabled/restored to isolate this input; no normal critical-
+frequency claim from these damage observations. Actor level0, native AP51->42
+at Start and remains42 at label (cost9); actor HP/position and item quantity1
+remain controlled. No successor is stored/equipped and the item flies once.
+Own new objects removed, rules/cap restored; no post-world RNG equality claim.
+AP real-time handling and positive cap were checked in source before the first
+compilation; no invalid native fixture or rejected calibration run.
+
+Full Game builds, related286Win/285Linux including original knife handoff/orientation/
+feedback/clock, direction/world impact, prior night/incidental/critical coverage
+and Windows manager, CI323. Source578 remains partial for actual requested-part
+producer, range/velocity and full solver/flight work.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: requested part in actual knife label producer (`5780c0be` partial)
+
+CExecThrowKnife::ThrowKnife copies eHL into attack.front().eWantedHL after actual
+nonempty generation and before tear-off. Uses the existing transient field,
+original critical consumer and own LAN +1/default encoding from fix80. Selected
+target from fix86 retained. No new formula, ordinal, API, schema or save/wire
+format; ANY remains-1. Existing flight/solver/range/velocity code is unchanged.
+
+After accepted native RED, named knife label/private mapping from fix86 rechecked
+(original Steam7ac1e6->7aa930). Gold typed eHL30; target named save7b0e05..11
+addresses member30 as int4/tag5. Real generated portion frame54 follows actual
+CreateAttack7aa9f5 (LEAESP60 after3 pushes). Exact target7aaa02 loads eHL30 and
+7aaa0c stores ESP90 =portion54+3c. Separate rayInfo construction starts frame94.
+Independent original ctor68f848 initializes requested3c=-1 (exact store/POPESI/
+RET30 sequence), and prior native consumer6c40ef compares this field to actual
+hit. Gold typed portion lacks it: a real target1.2 version difference, not a
+masked offset. At7aaaaa LEAEDXESP70 after7 pushes supplies same portion54;
+7aaaae pushes it, then after9 pushes LEAECXESPB8 supplies rayInfo94, EDXactor,
+7aaabc->native AttackObjectRanged6b6510. No whole caller equivalence/field/frame/
+register masks or original/own vector ABI claim. One preliminary byte assertion
+omitted the real constructor POPESI; corrected against prior exact audit before
+any production edit. Evidence knife-called-shot-retail-oracle.json/member/slice.
+
+NativeKnifeCalledShot0..5 execute actual authored perk37 grant with point budget
+restored, actor level20, legal CanDo/Start/OnLabel, one native knife/item/actor and
+actual saved carrier. A real native HEAD/BODY flesh trace supplies current ray
+and existing throwing callback; native reference receives explicit existing
+BODY+10/+20 or HEAD+90/+150 chance/severity bonuses with requested=-1 to avoid
+double application. Both use actual original level*d20 prefix at the same
+starting ISAAC state. Native zero-energy server warmup binds game; disable other
+injuries and enable real authored bleeding, cap1000, no resistance/perk47, IC0,
+and restore headshot/always-critical flags/cap. Native grant37 guarantees critical
+acceptance, so this does not test ordinary critical probability frequency.
+
+Accepted RED2/6 ->GREEN6/6 EACH, four outcome controls. Head HP90->123 and real
+bleeding DC185->335; body HP63->66/DC185->205. Native level prefix175, raw
+probability100/severity10 unchanged. Exactly one bleeding injury retains native
+body location/value5(head)/10(body). Flag off retains head90/DC185; ANY,
+free-point and requested-head/actual-body mismatch retain body63/DC185. Carrier
+requested field now follows chosen part even when disabled/mismatched, without
+giving an unwanted bonus. Native AP57->48 at Start and remains48 at label/cost9,
+actor HP/position, item1, real grant/points/level and living receivers controlled.
+Own new objects removed and rules restored. The first all-criticals-disabled
+fixture passed all cases because no selected injury meant no modifier; it was
+unobservable, archived, then warmup/bleeding/level fixed and genuine RED repeated
+BEFORE original audit/production. No fake injury/damage or future-field stub.
+
+Full Game builds, related292Win/291Linux, prior actual launch/knife direction/world/
+clock/feedback/handoff/orientation, night/incidental/critical/Windows manager and
+CI323. No full launch timing/cached solver/range/velocity/flight/drop/UI, bleeding
+duration or post-world RNG parity claim. Other source578 range/velocity/solver/
+flight hunks remain separate.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: truncate unit-knife chance as the originals do (`5780c0be` partial)
+
+CThrowKnifeUnitToHitCalcer now returns int(fToHit), removing the extra+0.5f after
+the existing2..100 clamp. Same-function gate/conversion comments corrected. No
+preceding chance formula, clamp, skill/range/velocity/perk/cover or hit-RNG change;
+no API/save/LAN/schema change. This restores integer conversion, not a new
+whole knife-accuracy formula or full launch/flight pipeline.
+
+After first genuine native RED, independent named CThrowKnifeUnitToHitCalcer
+GoldTD96fb4c/COL8e29d4/vt8b5d84 slot4 PDBGetToHit6b28c0/233 ->SteamTD980c94/
+COL8f210c/vt8c4e9c slot4 actual6b8a10. Donor/comment6b8a50 and6b8b50..70 were not
+accepted; target6b8b30 onward belongs to the next constructor. Typed base
+fToHit10/hitCover50 and derived eHL94, actual cover load6b8a1b. COMPLETE39-byte
+tail Gold6b2982..6b29a9 ==Steam6b8b00..6b8b27 byte-for-byte with NO masks:
+FNSTCW save, FSTS chance10, ORAH0c at6b298e/6b8b0c sets RC11 (toward zero),
+FLDCW temporary, FISTPL6b299a/6b8b18 ->EAX, FLDCW original restores mode. No half
+addition after clamp. Target bound100 at6b8ae7/call6b8aed->414690 and bound2 at
+6b8af6/call6b8afb->42b530. BOTH COMPLETE41-byte float selectors exactly equal
+Gold-call-selected413bb0/42a8c0 with NO masks; select existing float argument
+bits and FLDS before RET8. Thus the tested positive finite float converts by
+ordinary truncation, not nearest rounding or extra-precision pending arithmetic.
+No whole calcer-body or own/original layout/ABI equivalence claim. Evidence
+knife-chance-truncation-retail-oracle.json, named types/members and tiny slices.
+
+NativeKnifeChanceTruncation0..5 use actual world810/party54, ordinary actual
+owners, an authored equipped ranged knife, real native cover and visible/audible
+target. Search ordinary throwing skill0..100 for real calcer-computed fractional
+chance; inspect its existing public/logged fToHit without writing it. Actual
+GetAttackerToHit AND actual player GetCompositeToHit preview must agree with
+original conversion, then actual CheckToHit consumes seeded next-int boundary.
+First fixture RED2/6 ->GREEN6/6 EACH, four fully unchanged controls. Day raw
+2.73483658 (skill66) and night2.91429806 (skill68), distance8/cover34: displayed/
+returned chance3->2, native roll3 changes ratio1 (hit) ->2/3 (miss). Lower-fraction
+day4.34922028 ->4 and night2.18347549 ->2 unchanged, minimum2 and script37
+unchanged. Actual script override is tested through real helper/preview/check,
+not by requiring the bypassed calcer to return37. Queries consume zero game RNG;
+actual Check consumes exactly one native draw, four subsequent words checked.
+Actor AP/HP/position/item quantity, target HP/contact and actual night/perk/script
+controls retained. No invalid fixture/calibration or production-only field stub.
+
+Full Game builds, related298Win/297Linux including original knife handoff/orientation/
+feedback, actual target/requested-part producers and world/direction collisions,
+night/incidental/critical coverage, Windows manager and CI323. Current fixed
+knife accuracy range and old command velocity/solver/flight remain separate
+source578 work; this test does not certify their original parity or full UI/
+projectile damage. No authored values changed.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: original ballistic knife range/admission (`5780c0be` partial)
+
+Existing GetKnifeMaxDistance now truncates a live private blade specialization
+of original ballistic velocity/distance. Removed the unused15 marker. Actual
+ThrowKnife still constructs legacy calcers after TearOffItem, so BOTH now retain
+the already captured actual pMelee before any weight/range read; otherwise they
+could read fists/null instead of the thrown blade. No new public API or save/
+LAN/metadata/renderer change. Old speed5/solver/flight and fixed1..15 accuracy
+range remain separate work; integer-range/legacy deadline is not full continuous-
+distance or max-speed parity.
+
+After native RED: COMPLETE GoldPDB GetMaxThrowVelocity6b1990/285 ->uniqueSteam
+6b7b10, only3 verified math-pointer operands and one decoded_CIpow E8 masked.
+COMPLETE GetMaxTrowDistance6b1ab0/48 ->unique6b7c30, decoded E8 and verified1.6f
+pointer only. COMPLETE world GetKnifeMaxDistance795d10/49 ->unique7a1b30, decoded
+E8 only. Direct calls close identities. No register/frame/field/branch masks;
+stale donor6b7b60/6b7c80 rejected. Named mission RTTI offset4c Gold96fc90/COL8e2ca8/
+vt8b63cc ->Steam980de4/COL8f23e0/vt8c54e4: slots58 RPGUnit164,74 actual PK188
+this-adjust getter,dc tohit94,188 typed item-skill6ba630/1244 ->6c06d0. Typed
+constants base1c/STR20/gravity24, item integerWeight10, PKgrenadeStrength50,
+meleeThrowing34 and native STR14/THROW2/MELEE0/VP9 verified. Independently named
+CMelee interfaces verify actual inventory virtual-base/thunk/GetDBItem and
+IMelee/GetDBMelee slots; no own/original ABI equality claim.
+
+Whole1244 skill equivalence was REJECTED: unrelated firearm Gold6ba84b FSUBS
+became target6c08eb FADDS. It was not masked or ported. COMPLETE557-byte later
+blade/tail suffix6ba8df ->unique6c097f matches only named RTTI pointers, verified
+float pointers and decoded E8 relocations. Actual bThrowing selects THROW/perk89
+or MELEE/perk70; raw int skill storedfloat, optional flat parameter added and
+storedfloat. Velocity passes extra-count0, skipping other count modifiers.
+Slot174 VP factor times stored skill returns wide ST0 without another store.
+Its COMPLETE182-byte implementation6b4f70 ->unique6bb110 matches only6 verified
+float pointers. It explicitly uses XP+base THEORETICAL max, not critical-modified
+cap; healedVP clamps max0; wide percent then truncates at75/50/25 thresholds to
+1/.9f/.75f/.5f. Shared non-knife accuracy skill remains source9f3 work.
+
+Original arithmetic retained: store STR (or actual PK grenade strength) float;
+wide skill*float(1/18)+STR ->storeeffectiveSTR; wide STR*coefficient+base ->store
+power; pow(integer grams,double(float.74))*storedpower ->storeweightedpower;
+divide by WIDE grams*float.001 (no denominator float store) ->storevelocity;
+perk88 multiplies velocity, caller storesfloat v. Distance is WIDE(v/gravity)*v*
+float1.6; original world49 immediately FISTPL truncates it with no range float
+store. Own code uses double intermediates at these boundaries, not donor's
+premature float denominator/range. Complete59-byte original_CIpow dispatcher
+8268c0 ->834830 matches only named CPU-math flag pointer and decodedE9, exact
+FPU/MXCSR guards. Exponent bits0000008014aee73f =double(float.74), inv18
+398e633d, grams6f12833a, gridcdcccc3f. No cross-CRT pow or exhaustive extended80
+bit identity claim. Evidence knife-ballistic-range-retail-oracle.json and
+separate location/typed getter/skill/VP/item/original-literal artifacts.
+
+NativeKnifeBallisticRange0..9: initial genuine metarelation RED4/8 each; added
+actual worn PK and actual native VP-cap-only modifier, RED5/10. Pin decoded
+original integer literals/fixed points, repeat FINAL RED7/10 BEFORE production,
+then GREEN10/10 EACH after the fix, three unchanged cases. No invalid fixture. One actual authored
+blade5/weight450, unchanged native base.02f/STRcoeff.0022f/gravity10. Native
+GetKnifeMaxDistance AND actual CanUnitThrowKnife admission: THROW0->100 gives
+11->19 tiles; actual native perk88/1.1f gives15->18; actual perk89/+10 gives32->33;
+healing VP125->500 gives15->19; STR10->20 gives15->32. Point is fixed original
+before+1 tile: denied before, admitted after in those five cases. Pilot STR12->22
+while actually wearing authored PK strength10 retains14 tiles; old18->33 wrongly
+admitted the fixed15-tile point. Native VP cap modifier500->300 with current300,
+theoretical500 and THROW100 retains18 tiles, not a false healthy-VP increase.
+Night/cover15 and real launch control15 unchanged. Queries consume zero game
+RNG (4 subsequent words), AP/HP/input/item/perk-point/pose controls retained.
+Actual legal CanDo/Start/OnLabel creates one real knife/item, AP57->46/cost11;
+saved velocity/deadline represents9.375m for15 tiles, consistent within integer-
+tile/clock granularity. This catches lost real blade after tear-off; it does not
+certify full original flight/deadline. Own new objects removed; native modifier
+destructor/rules restore state. No authored data mutation or game/build copy.
+
+Full Game builds, related308Win/307Linux, original knife handoff/clock/orientation/
+feedback, previous target/requested part/world/direction/chance and earlier
+night/incidental/critical coverage, Windows manager and CI323. Other source578
+accuracy range, actual speed, cached solver, frame/target/incidental flight and
+full UI/drop pieces remain partial.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: original physical range in knife accuracy (`5780c0be` partial)
+
+CThrowKnifeToHitCalcer::FillWeaponInfo now sets minimum to the existing original
+physical integer range and maximum to int(minimum*1.5f), replacing fixed1..15.
+The original truncates the physical range FIRST; odd19 gives28, odd33 gives49.
+Existing quality0 and other chance arithmetic remain unchanged. Uses the live
+blade context preserved by the previous range/admission fix, including actual
+post-tear-off calcers. No new API/save/LAN/authored data/renderer changes.
+
+Native RED preceded audit and production. COMPLETE171 GoldPDB6b2020 -> named
+Steam6b81a0: base CThrowKnifeToHitCalcer RTTI Gold96fa80/COL8e2808/vt8b5b3c ->
+Steam980bc8/COL8f1f40/vt8c4c54 slot50. Unique full-body match masks only decoded
+E8 operands and independently dereferenced1.6f/1.5f pointers; no frame/register/
+field/branch masks. Typed SWeaponInfo.min14/max18 + member18 give object2c/30;
+actual melee8c/mission44/firstRound64 passed into native velocity6b7b10. Stored
+float velocity ->wide(v/gravity)*v*float1.6 ->_ftol2 ->INTEGER min. FILD reloads
+that integer before1.5f; RC11 FISTPL writes max. Complete117 _ftol2 Gold826614 ->
+Steam834594 EXACT with no masks, saved disassembly confirms truncation via
+integer-conversion remainder correction. Stale donor entry rejected. Evidence
+knife-accuracy-range-location.json/retail-oracle.json and full binaries/types.
+
+NativeKnifeAccuracyRange0..5: RED5/6 ->GREEN6/6 EACH; one unchanged public outcome
+control is script37. Native calcer, existing GetAttackerToHit, actual player
+composite preview and actual CheckToHit boundary all exercised. Original literal
+min/max19/28,32/48,33/49,18/27,19/28,11/16. Ordinary chance29->69; STR20/THROW50
+2->75; actual authored perk89 grant2->76; actual perk88 grant2->64; script37
+remains37; THROW0 is affected2->29 (not a clamp control). At actual native roll
+equal to corrected chance, affected cases change miss->hit. No expected result
+is inferred from the production output: reference changes only literal range
+inputs, retaining all other native chance calculation. Real cover34/distance8,
+native visibility+audibility, day and quality0 controls. Queries0 game RNG;
+actual hit check one native draw with four following words verified. AP/HP/pose/
+equipped item/perk points/script state retained, no authored data mutation or
+game/build copies. Full Game builds, related314Win/313Linux, Windows manager and CI323.
+Actual velocity/solver/flight/drop and source9f3 shared accuracy skill remain
+separate unfinished work; no full flight or UI parity claim.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: actual knife launch consumes physical velocity (`5780c0be` partial)
+
+Actual CExecThrowKnife point/unit label branches now obtain launch speed from
+the live blade velocity specialization instead of fixed5. A new live calcer
+GetKnifeLaunchSpeed stores velocity*1.5f once. Private velocity helper returns
+its perk88 product wide; existing range helper explicitly stores it float,
+preserving previous range/admission/accuracy arithmetic. Actual calcers retain
+the captured blade after tear-off. No new stored field/save/LAN/authored data.
+Other legacy solver/ray/scatter/lifetime distance remains separate unfinished
+work; this is actual launch speed, not a full original-flight parity claim.
+
+After real native RED, rechecked named CExecThrowKnife RTTI/virtual OnLabel:
+Gold79fb33->private79e350, Steam7ac1e6->private7aa930. Actual direct velocity
+calls Gold79e5cb->6b1990 /Steam7aabbd->6b7b10, complete285 helper independently
+verified previously. Actual1.5f pointers Gold8a5cf8/Steam8b4d90 independently
+dereferenced0000c03f. FMULS Gold79e5d3/Steam7aabc5 precedes FIRST caller float
+store Gold79e5e2/Steam7aabd4. Original perk88 multiplication returns wide;
+inserting a float store before1.5 would change the fixture's native launch
+literal16.2141476 to16.2141457. Range caller has its own original float store,
+so retains prior behavior. No whole expanded Gold/Steam caller equivalence or
+stale donor entry accepted; no register/frame/field/branch masks.
+
+Typed CCommandExecute.pUS14 ->CDumbUnitServer.pWorld2c is actual receiver;
+named CWorld primary RTTI Gold972dac/COL8e8a10/vt8bc74c ->Steam98401c/COL8f81e0/
+vt8cbc8c slot14c selects Gold7593d0/Steam764c40. Typed original signature is
+(rayInfo*,float speed,STime,float distance,model*,item*). Verified original stack
+tail pushes stored speed before actual rayInfo; no own/original ABI equality
+claimed. Evidence knife-launch-speed-retail-oracle.json and actual-address
+caller disassemblies plus typed members/signature; prior complete285 arithmetic
+and blade/VP/PK/item audits retained.
+
+NativeKnifeLaunchSpeed0..7 exercise actual legal CanDo/Start/OnLabel ->one real
+knife/blade, saved velocity and deadline, AP/HP/pose/item/grant controls. Initial
+six genuine speed failures plus one stale pre-healing HP assertion were archived;
+health control corrected after explicit healing and repeat RED7/8 each before
+production. Pin decoded wide-perk launch literal and repeat RED7/8 each. Final
+review found occasional legacy scatter changed measured norm in unseeded runs;
+archive unseeded RED/GREEN/full gates, restore owned91 production to90, seed real
+GameRandom120 immediately before actual label. Repeat FINAL seeded RED7/8 each
+BEFORE production, then GREEN8/8 each and full gates. Literal speeds16.6124363,16.2141476,21.854887,16.6124363,
+21.4804249,14.7401333,14.7401333,14.7401333m/s versus old5 in all. Native vector
+norm checked within1e-5 relative float tolerance; no exhaustive x87/CRT claim.
+The eighth case retains existing lifetime/AP/item conditions rather than asserting
+a new speed, an unchanged-outcome control; its actual speed also changes. Real
+perk88/89 grants, healing, STR, night and cover inputs; query0RNG/four words.
+AP57->48/cost9 for cases0/3,57->46/cost11 otherwise, actual one transferred item.
+Legacy lifetime still spans integer range*grid within clock rounding; original
+absolute lifetime/ray/solver/cached decision/collision/frame/drop remains separate.
+Full Game builds, related322Win/321Linux, Windows manager and CI323; no post-world RNG
+or full collision/flight/UI parity claim.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: fractional knife range admission (`5780c0be` partial)
+
+Actual CanUnitThrowKnife compares fractional target distance with original
+integer physical range, replacing comparison of a truncated target distance.
+Retains existing calcer/range getter, actual equipped blade and own command
+error enum/API. Components stay double through sqrt((dz*dz+dy*dy)+dx*dx) and
+float1.6 scaling; only then store distancefloat, matching original store/order
+with the same double adaptation limit as prior physical math. No exhaustive
+extended80-bit identity claim. Integer distance remains only a legacy calcer
+constructor input, not the admission comparison. No authored/save/LAN changes.
+
+Native RED3/6 each BEFORE audit/production. COMPLETE175 GoldPDB CanUnitThrowKnife
+795d50 ->uniqueSteam7a1b70, masking ONLY two decoded E8 operands and independently
+verified1.6f pointer Gold8a3f74/Steam8b2fdc (bitscdcccc3f). No register/frame/field/
+branch/opcode masks. Actual direct distance call Gold795db7->6b1ab0 /Steam7a1bd7
+->6b7c30 closes identity with prior complete48 distance/285 velocity audit.
+Current-position call Gold795d5d->PDB NAI::SPosition::GetCP4903c0/23 ->directSteam
+4914c0 EXACT23, no masks; not claimed unique, bound from unique complete175
+caller. Typed SUnitPosition.pos offset0 and own GetCP forwarding retained.
+Original component differences remain wide; sqrt then1.6 precedes FIRST distance
+float store target7a1bbe. Original physical range RC11 truncates at7a1bf1,
+reloads INTEGER with FILD7a1c01 and compares to stored distancefloat7a1c05.
+Equality accepted, any positive fractional excess rejected. Original success/
+range-error1/13 semantically adapted to own0/11; original ordinals not copied.
+Evidence knife-fractional-range-location.json/full175 disassemblies/exact23
+position helper and prior ballistic math artifacts.
+
+NativeKnifeFractionalRange0..5 real world/actor/equipped authored blade5/450g,
+original range15: offsets+.125,+.875,+.0009765625 tiles wrongly allowed ->denied.
+Inside-.125, exact equality and outside+1.125 unchanged. Initial RED3/6 ->GREEN6/6
+EACH, three byte-identical measured controls. Full gates then exposed two older
+perk89 metarelations: their point33.125 was above corrected33-tile range yet
+expected admission through the old floor. Archive initial runs/full two failures,
+move ONLY those two original probes to32.5 (between original before32/after33),
+revert ONLY92 production and repeat FINAL RED5/8 BEFORE production. Three new
+fractional failures plus both real native old floor errors at32.5; after fix,
+GREEN8/8 each (six new cases plus both earlier perk89 cases). Their gate0->0
+becomes11->0 with identical original range literals32/33 and fixed point32.5.
+Query0 game RNG/four words, AP57/HP500/
+pose/item quantity/equipment/perk points retained; no authored data or game/build
+copies. Full Game builds, related328Win/327Linux, Windows manager and CI323. Actual
+solver/cached decision/original absolute lifetime/collision/frame/incidental/
+drop/UI and shared source9f3 skill remain separate work.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: original integer range feeds actual knife lifetime (`5780c0be` partial)
+
+Both actual point/unit ThrowKnife branches now pass GetKnifeMaxDistance's integer
+result unchanged as flight distance, removing two extra FP_GRID_STEP factors.
+Existing world point/velocity API, item/model/actor/carrier/AP flow, physical
+speed and clock types retained. Prior89/91 explicitly scoped legacy*grid lifetime
+controls were updated to the original integer-distance contract; no new CMake
+tests or fields. This restores distance used by the timer, not full solver/
+cached-ray/continuous collision/drop or bit-exact clock parity.
+
+Initial nine actual point/range cases RED9/9 before audit. Added actual selected
+unit/freepoint target fixtures0..4: obtain existing original public integer
+range while real blade remains equipped after Start; actual OnLabel creates
+the real projectile, then read its real saved tFinish/velocity and item/carrier.
+Repeat FINAL RED14/14 EACH BEFORE production, then GREEN14/14 EACH. Eight actual
+launch cases + original range handoff + three selected-unit and two freepoint
+cases. Original ranges19/18/33/19/32/15/15/15 plus15 control now deliver those
+distances rather than*.625; selected/freepoint fixtures nominal18 now deliver18
+rather than11.25. Clock reconstruction tolerance1.1ms*actual velocity handles
+native float/norm/rounding; actual point speed literals and AP/item controls
+retained. Selected fixtures continue through existing real body trace/throwing
+callback/target HP references after lifetime assertion; no full actual flight
+or post-world RNG equality claim. No authored data/game/build copies.
+
+Original actual named producer from91: target7aab78 calls complete48 physical
+distance6b7c30, RC11 FISTP7aaba3 ->FILD7aabb5/FSTPS7aabb9. Bool0 had been pushed,
+so resulting float integer is originalESP10. After two later pushes7aabde loads
+ESP18 =sameESP10, then pushes raw distance,time,speed,ray to worldslot14c. No
+grid multiplication in this argument. Independently rechecked named CWorld
+primary RTTI slot14c Gold7593d0/Steam764c40 ->actual calls759408->755770 and
+764c78->7610f0 factories ->actual ctor7557c8->7554a0 /761148->760e20. Typed world/
+factory/constructor signatures saved. Exact38-byte world forwarding after header
+and MOV EDX[entryESP10] preserve raw fourthfloat distance; exact31-byte factory
+forwarding passes seven constructor args plus hidden compiler virtual-base flag.
+Gold factory allocationF8 differs from targetFC: REAL version difference, never
+masked. No whole factory/ctor or own/original ABI equality claim. Target ctor
+900-byte inspection window is not a declared function length.
+
+Constructors write independently named primaryCKnifeServer vtables at+94,
+bound by GoldPDB Segment754d60 /target7606e0. COMPLETE44-byte clock block Gold
+7556de ->uniqueSteam76105e, masking ONLY independently dereferenced1000f pointer
+Gold8a48b8/Steam8b3950 (bits00007a44). No register/frame/field/branch masks. With
+0x24-byte balanced prologue, stack38=distance,arg5; stack30=speed,arg3; stack34=
+throwtime,arg4. Wide distance/speed*1000 ->FSTPSfloatduration ->FLDS ->FISTPL
+currentCW; add throwtime, write typed tFinish10. Own existing legacy constructor
+still uses norm(vSpeed) and its existing float expression; only the producer
+distance is changed here. Normal native tolerance1.1ms, no exhaustive extended80/
+clock-bit identity claim. New cached-ray constructor path remains separate.
+Evidence knife-lifetime-distance-retail-oracle.json/named typed chain/clock
+block/actual-address disassemblies and verification.json.
+
+Full Game builds, related328Win/327Linux, Windows manager and CI323. Shared accuracy
+skill/source9f3, cached ranged solver, frame/target/incidental collision, complete
+actual flight/drop/UI remain separate source578 work.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 2026-10-31: original wound context in knife accuracy (`5780c0be` partial)
+
+CThrowKnifeToHitCalcer::Prepare now uses the original theoretical-VP denominator
+already present in the live private knife-physics factor, extracted into one
+private GetKnifeVPPenalty. Range/velocity adapter still calls the same unchanged
+factor computation. Raw THROWING and existing float multiplication kept; no
+generic GetWeaponSkill API or direct perk89 addition. Original perk89 continues
+to affect range only in this knife override. No authored/save/LAN/metadata/API
+changes. Whole shared gun/grenade skill source9f3 remains pending.
+
+Native initial literal hypotheses were tested then audited, not implemented.
+COMPLETE104 GoldPDB Prepare6b20d0 ->uniqueSteam6b8250 EXACT104, ZERO masks. Named
+base/unit calcer RTTI/vtables from90/88 share slot54; actual unitGetToHit slot10
+calls54. Raw THROW2 pointer offset8 after CSkilledObject basec/vector8; dynamic
+skill frozen2c uses max18, else min(value1c,cap18). Store raw integercalcer0c,
+then actual mission virtual174 ->independently mapped wrappers6b90e0/6bf3b0 ->
+complete182 real CUnit VP factor6b4f70/6bb110. Theory denominator=base+XP,
+current capped/frozen VP +Max(0,healed)*.5, percent truncation, thresholds75/50/25.
+Actual104 contains NO generic item-skill/perk89/70/aiming/bullet-count call.
+
+Important runtime precision correction: instruction-only lack of float store
+does NOT establish wide significand. Original initialized Steam main thread,
+six samples after D3D9 initialization: ControlWord AND FXSAVE word0x007f, PC24/
+round-nearest. Actual original functions executed on ONLY owned main thread:
+_CIpow834830, Prepare6b8250/104, real missionGetRPG777a40, VPwrapper6bf3b0 and
+complete unitVP6bb110/182 with controlled original-layout unit/skill buffers.
+Only virtual FillWeaponInfo was no-op for isolated wound calculation; actual
+_CIpow was called separately first and preserved CW. Raw100/currentVP300/
+theory500 gives skill90 with BOTH cap500 and cap300 at actualCW7f. Diagnostic
+forcedCW27f gives89 for both. Thus retain native float multiplication: FMUL
+occurs before104 sets RC11, so observed PC24/RN rounds90 before integer cast.
+Full integer/FPU/extended thread context restored, owned original process closed
+normally with WM_CLOSE; temporary windowed cfg restored. No original executable
+code/world/db/resources patched. Main-menu environment and controlled original
+kernel proof, not a live gameplay-callsite breakpoint. Primary documentation:
+[Microsoft D3DCREATE](https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dcreate).
+Actual runtime/kernel capture, not documentation alone, establishes observed CW.
+
+Direct perk60 hypothesis REJECTED after exact104 audit; extra-wide89 hypothesis
+REJECTED after runtime/kernel proof, both archived BEFORE production. FINAL
+native RED1/6 ->GREEN6/6 EACH, five byte-identical measured controls. Real native
+cap-only modifier cap500->300/current300/theory500 wrongly normalized skill100/
+chance68; original skill90/chance67. Actual native boundaryroll68 changes hit1
+to miss67/68. Ordinary wounded cap500/current300 staysskill90/chance67; actual
+healing125+250*.5/theory500 ->50percent/.75/skill75/chance64; healthyraw50/chance56;
+real perk89/raw50/range16/chance59 (no direct extra skill), script37 unchanged.
+Native calcer/helper/player composite/actual CheckToHit, query0/check1draw with
+four following words and AP/HP/pose/item/grant/contact/day controls. Full Game
+builds, related334Win/333Linux, Windows manager and CI323.
+
+Evidence knife-skill-context-retail-oracle.json, original-runtime-fpu.json,
+original-kernel-fpu.json, exact104 binaries/types, accepted RED/GREEN and
+verification.json. Existing private physical double adapters were NOT changed
+by this fix. Earlier imported precision-dependent formulas require a separate
+original runtime PC/RC audit before overall parity can be claimed: do not blindly
+revert, because compiler casts can set RC=CHOP before arithmetic. Follow-up
+tracked in original-runtime-precision-followup.json. Full solver/cached ray/
+frame/incidental/flight/drop/UI and whole9f3 still pending.
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+Related source audited but not imported wholesale: [9f3c03712f2a86f83fb7739891827847b2f9f645](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9f3c03712f2a86f83fb7739891827847b2f9f645).
+
+## 2026-10-31: original runtime precision corrects critical probability boundaries
+
+Corrects the earlier instruction-only inference in0bf56bed: no FSTPS does not
+prove wide x87 significand. Actual original main thread after D3D9 initialization
+has CW/FXSAVE007f, PC24/RN, six samples. Actual Steam comparison6c3b10/21 AND
+original JNP branches executed AT ORIGINAL ADDRESSES on ONLY owned main thread,
+using controlled stack/chooser. Accepted path reaches actual virtual chooser
+dispatch6c3b25..3b3a, whose isolated stub records admission before injury selection;
+rejected path follows actual6c3aa8 return preserving FS0. Full original integer/
+FPU/extended context restored before resume. Original executable code/world/db/
+resources untouched, normal WM_CLOSE and temporary cfg restored. This is an
+initialized-main-menu original kernel oracle, not a live gameplay breakpoint or
+full helper invocation. All21 actual records retained: PC24/RN boundaries100/90,
+50/45,30/27 ACCEPT; diagnostic PC53/RN and PC24/CHOP REJECT. Adjacent89 accepts,
+91 and zero-probability1 reject, no-resistance100/90 accepts in allthree modes.
+
+Independently named mission RTTI/vtable ProcessAttack and direct helper identity
+rechecked in Gold/Steam. Exact ordinaryGold6bd4bf25/Steam6c3b1021 and Steam
+AlwaysCritical6c3a7e25 retain FILD/FILD/FMULS/FCOMPP/FNSTSW/TESTAH5, same comparison.
+Exact36 Steam6c3976..399a verifies47 division occurs BEFORE changing RC for
+FISTP, and saved caller CW is restored3996 BEFORE probability comparison. No
+comparison precision override. Real Gold/Steam helper/AlwaysCritical differences
+remain; no whole-helper equivalence asserted.
+
+Minimal production: native float probability product/comparison, preserving
+stored factor, force/difficulty fallback, draws, selector and injury consumers.
+Actual46/.1 stored factor.899999976 rounds P100/50/30 products to90/45/27 under
+observed PC24/RN; equal integer roll admitted. Native real missions/TakePerk/
+actual ProcessAttack RED4/9 ->GREEN9/9 EACH; five measured controls identical.
+Three boundaries plus resisted AlwaysCritical: damage20->47, BLEED/DC300 restored
+against actual guaranteed-critical reference. Adjacent89/91, unacquired, zero and
+forced controls stable, four RNG words/AP/pose/HP/perks/input/cap/difficulty exact.
+Full Game builds, related334Win/333Linux, Windows manager, CI323. Source status remains
+imported; prior77 closure had an incorrect precision adaptation, corrected here.
+Finite ordinary authored inputs certified; extreme/nonfinite custom probabilities
+not newly certified. Other prior precision adapters still require separate audit.
+Evidence critical-probability-runtime-retail-oracle.json, original-kernel.json,
+RED/GREEN/full logs and verification.json.
+Source: [65558b11623917d5634c55a1b718fa2cb588ef66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65558b11623917d5634c55a1b718fa2cb588ef66).
+
+## 2026-10-31: original runtime precision in late incidental IC reduction
+
+Corrects the earlier49 wide-product inference. Late incidental damage now uses
+float(IC)*float(integer damage)*storedfloat.01, then integer truncation and the
+existing max0 subtraction clamp. IC100/base40 leaves0, IC20/base40 leaves32,
+IC22/base100 leaves78 and IC2/base100 leaves98. Signed custom aura IC-10/base40
+leaves44; no new lower clamp on modifiedIC. Original click/intended/wornPK gates,
+modifiedIC provider, receiver order and shared random calls remain unchanged.
+No authored values, public API, save or LAN fields changed.
+
+Named GoldPDB ProcessAttack6bd7e0/1992 and mission RTTI/COL+4c/vtableA4 mapping
+to Steam6c3e20 were revalidated independently; no whole-method match is claimed.
+Exact69 Steam6c4279..42be: FILD IC, FNSTCW saved34, FIMUL integer damage40,
+OR0c ONLY in integer registerAH, FMULS actual8b3bc0 float.01, THEN FLDCW429c.
+Arithmetic therefore uses caller precision; only FISTP uses CHOP. Subtraction/
+clamp follows, and savedCW is restored42b1 before the next virtual getter.
+Changing AH alone does not change FPU control.
+
+Actual original69 and final getter dispatch ran AT ORIGINAL ADDRESSES on ONLY
+the owned original main thread, with controlled stack/getter and no original
+executable-code/world/db/resource patch. Six initialized D3D9 samples reported
+CW AND FXSAVE007f, PC24/RN. The30 operand/control-word records include diagnostic
+PC53/RN. PC24 confirms the results above, IC3/D100->97, -50/D2->3, -50/D4->6,
+50/D4->2 and100/D5->0; PC53 reproduces the former erroneous boundaries. The
+isolated getter records computed damage before original health application;
+it does not execute earlier CheckIC/perk/aura gates. Native fixtures cover those
+live consumers. Full integer/FPU/extended context and temporary cfg were restored,
+with normal WM_CLOSE. Two early probes timed out after5 records and are excluded;
+complete22/28/30-record retries are preserved. This is an initialized-main-menu
+kernel oracle, not a live gameplay breakpoint or full method invocation.
+
+Accepted FINAL native RED13/56 BEFORE production ->GREEN56/56 on EACH platform.
+Coverage: IC8, stored aura13, world aura12, explosion39 paths17, actual knife
+labels5 and bullet-impact visual order1. Eleven core damage changes plus actual
+free-point knifeIC1001->0 and bulletIC50/D4 3->2 are verified. The43 controls
+comprise39 matching core outcomes and four unchanged actual knife labels.
+Passing roll values may differ between processes: each fixture selects a valid
+roll and verifies its actual four-word RNG tail against that run's predicted
+sequence. No cross-process seed/roll identity is claimed. HP/receiver/hit-event/
+aura-reset/practice/perk/input controls pass; derived AP follows corrected HP.
+The bullet case retains particles/sound/decal order, and intended knife targets
+continue to bypass IC.
+
+InitialRED9/GREEN48 had two stale signed/aura expectations. Production was
+reverted; the negative world-aura fixture changed base4->2 so old2/new3 stays
+below the existing blood-effect threshold>5 and keeps a strict RNG comparison.
+Original kernel base4 still confirms5->6; that existing visual consumer can
+legitimately consume RNG after corrected damage. No visual consumer changed.
+IntermediateRED11/GREEN50 then full394/396Win and393/395Linux exposed stale
+knife-positive-damage and bullet3HP expectations. Those results were archived,
+production reverted again, and both consumers included in accepted RED13/56.
+No post-fix-only expected-value patch is used as regression evidence.
+
+Full Game builds, related396Win/395Linux, Windows manager and CI323 pass.
+Source remains imported; this corrects a precision adaptation. Earlier49 and86
+IC100 remaining1/free-point damage1 numerical claims are superseded. Ordinary
+and tested signed-aura inputs are covered; extreme integers/floats and other
+precision adapters remain separate audits. Evidence prefix incidental-runtime-
+precision: retail-oracle.json, original-kernel.json, RED/GREEN/full native logs,
+verification.json and the two archived intermediate fixture sets.
+Source: [037c41d91ec01f29848f346787aa7a8a1d471c43](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43).
+
+## 2026-10-31: explosive min/max product matches original runtime precision
+
+Corrects the earlier44 wide-product inference while retaining truncation:
+min/max = int(float(double(integerDamage)*floatAE)). The explicit f32 product
+adapts original PC24/RN FMUL; integer input is retained until multiplication.
+Structure product, critical flag, other portion fields and random calls stay
+unchanged. No new clamp, public API, save/LAN fields or authored DB changes.
+
+COMPLETE87 GoldPDB NWorld::FillAttackModifiers749bb0 uniquely matches actual
+Steam7551e0 EXACT87, ZERO masks. Both signed FILD/FMULS occur BEFORE FLDCW
+for CHOP/FISTP: minFA/200 ->207 switch,20b convert,20e restore; max212/219
+->228 switch,22c convert,22f restore. ORingAH alone does not change FPU control.
+Original typed min8/maxc/critical2d/structure30 and modifiers0/4/8 retained.
+
+Actual complete function ran at ORIGINAL ADDRESS on ONLY owned initialized
+original main thread,18 native operand sets under observed PC24/RN and diagnostic
+PC53/RN,36 records. Six CW/FXSAVE007f samples; both casts restore requested CW.
+Controlled original-layout portion/modifier buffers, no original executable code/
+world/db/resource patch. Injection acquired only Game-code EIP and empty x87
+stack (fullTagffff/FXTag0), with full captured context restored. Owned process
+normal WM_CLOSE, exit0, cfg restored. Earlier early-exit and timeout attempts
+are archived/excluded; only the complete guarded retry is accepted. Main-menu
+isolated function scope, not full explosion propagation or gameplay breakpoint.
+
+Fresh native RED5/18 BEFORE production ->GREEN18/18 EACH;13 identical measured
+controls. Added ordinary coefficients:10/30*.7 changes6/20->7/21;*.9 changes
+8/26->9/27; -30/-10*.7 changes-20/-6->-21/-7. Existing large half-products
+33554435/33554439*.5 change16777217/16777219->16777218/16777220, with analogous
+signed negatives. Original PC24 kernel confirms those results; diagnosticPC53
+reproduces prior wide values. Fractional9/11*1.5 still13/16, not nearest14/16.
+Actual native function checks structure/critical/unrelated fields/trajectory/
+owner/target and RNG. Math fixtures do not establish authored perk ownership.
+
+Full Game builds, related27Win/26Linux grenade execution/handoff/trajectory and wire
+checks, CI323. Tested finite ordinary and explicit33-million half-product cases
+covered; arbitrary extreme int32*float double-rounding, nonfinite and integer
+overflow not newly certified. Source remains imported; earlier44 numerical
+wide/large-half statements explicitly superseded. Other precision audits and
+all remaining upstream work continue. Evidence prefix explosive-runtime-
+precision: original-kernel.json, retail-oracle.json, RED/GREEN/full logs and
+verification.json.
+Source: [aa031e2e636629f83c4b86eb5b73dc9b4fa76918](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa031e2e636629f83c4b86eb5b73dc9b4fa76918).
+
+## 2026-10-31: detection distance baseline matches original runtime precision
+
+Corrects earlier31 wide-product inference. With storedfloat k=44.f/30.f,
+baseline = int(float(45.f - float(k*distance))) under observed PC24/RN. A local
+volatile float materializes the product, preserving the original separate
+multiply/subtract even on compilers that permit FMA contraction. Equal17
+spot/stealth at distance15 returns23 rather than22; at30 returns1 rather than0.
+Spot70/stealth30 at15 returns63 rather than62; actual perk25 fixture19 rather
+than18. Coefficient/intercept, raw skills, perk25/75 scalar expressions,
+observer-owned75 quirk, ignored original night argument and0..100 clamp retained.
+No API, layout/save/LAN field, authored record or random-call changes.
+
+COMPLETE317 GoldPDB GetUnhideProbability6b9540 uniquely maps to Steam6bf750;
+only four decoded/independently dereferenced constant pointers differ (1,
+storedfloat44/30,45,1), no opcode/register/frame/branch masks. Exact50-byte
+baseline6bf7c7..7f9: FLDS distance, FMULS8c531c, FSUBRS8c5318 BEFORE FLDCW7ed
+sets CHOP for FISTP7f1; restore7f5. Any prior25 cast restores callerCW7c3.
+Raw SPOT6/STEALTH5 read cap/current/freeze through actual original getter777a40,
+independently bound by named mission RTTI/COL+4c/vtable58 and typed skill fields.
+
+Actual COMPLETE317 ran at ORIGINAL ADDRESS on ONLY owned original main thread,
+36 native operand sets under PC24/RN and diagnosticPC53/RN,72 records. Sparse
+original-layout mission/unit/skill buffers and per-actor HasPerk providers use
+each native grant/parameter; actual original getter, raw readers, both perk
+branches/ownership, baseline and clamp execute. Providers distinguish observer
+from target; this is not construction of a real original perk tree. PC24 matches
+all36 new expectations; PC53 reproduces all36 former results. Six runtimeCW/
+FXSAVE007f samples, guarded Game-code/empty-x87 capture, full context restoration,
+normal WM_CLOSE/exit0 and cfg restoration. Original executable code/world/db/
+resources untouched. Main-menu isolated-kernel scope, no full perception/AI flow.
+
+Additional read-only live original map810/person54 observation:24 actual RPG
+entry captures on the primary PE-entry thread, eight each GetRPGUnit777a40,
+GetActionAP6c0d30 and GetWeaponSkill6c06d0. All CW007f/PC24/RN; real weapon
+caller virtual188 at6b8399/return6b839f independently rechecked. Hardware
+breakpoints/read-only FP/register/stack capture, no injected kernel or manual
+thread/FPU replacement; normal WM_CLOSE/exit0 and cfg restoration. Initial
+CDB attempts stopped at first-chance AV notifications; forwarding them to original
+handlers allowed normal mission loading. This live run DID NOT capture this
+perception method, critical comparison or lateIC; it supports a bounded actual
+RPG main-thread environment, not all caller/thread precision modes. Whole1244
+weapon helper Gold/Steam equivalence remains rejected, and source9f3 is pending.
+
+Fresh native RED4/36 BEFORE production ->GREEN36/36 EACH;32 identical measured
+controls across actual Unhide8/BetterSpotting14/ObserverStealth14. Literal baseline
+and actual native TakePerk25/75/ownership/negative/zero/clamp contexts; both units'
+skills/AP/HP/XP and query RNG checks retained. Known four probability changes
+above are verified, not a detection-frequency survey. Full Game builds,
+related71Win/71Linux perception/awareness/AI/network checks, CI323. Source status stays
+imported; earlier wide/22/0 assertions explicitly superseded. Finite tested
+distance0..100/native skill/perk inputs covered; extremes/nonfinite, other
+callers/threads and whole visibility integration remain uncertified. Evidence
+unhide-runtime-precision original-kernel/retail-oracle/verification and RED/GREEN/
+full logs; original-live-fpu-observation/verification and CDB log/script.
+Source: [037c41d91ec01f29848f346787aa7a8a1d471c43](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/037c41d91ec01f29848f346787aa7a8a1d471c43).
+
+## 2026-10-31: fractional-cap skill training core (`2893fa84` partial)
+
+Restores the actual base CSkilledObject::UseSkill calculation. CUnit's live
+two-argument compatibility entry delegates with learningfactor1; its obsolete
+PK/add-value argument no longer changes the original core formula. LEVEL13
+returns false before rate access. C=0 for XP<=0, else the existing logarithmic
+XP curve retains its float fraction using the object's saved per-skill cap.
+Used capacity is float(XPpart)+fractionalProgress. The authored record63 rate
+divides remaining capacity*learningfactor; increment clamps to [.00001f,.1f].
+Actual CDynamicSkill::Upgrade receives fractionalC and retains its exhausted
+guard/rounding/return; attribute calls retain existing UpdateSkills behavior.
+New GetRPGBaseValue accessor uses the existing database table/record mechanism.
+No authored values, total-XP award, saved cell layout, LAN, RNG, AP/HP or item change.
+Coupled primary-attribute training, perks11/60 learning multiplier selection and
+one-argument caller cleanup remain separate; WHOLE source2893 stays PARTIAL.
+
+Original mapping deliberately rejects misleading donor comments: Steam entry
+is6bbfa0/151, not6bbff0 (inside its body); unit wrapper6bc640, not6bc690.
+GoldPDB CUnit::UseSkill6b6450 code156 uniquely maps toSteam6bc640 with only four
+decoded/independently verified direct-call operands and the verified local
+switch-table address; all nine case targets retain equal function-relative
+offsets. Its actual finalcall6bc6ce binds original core6bbfa0 and ECX+0c agrees
+with typed CUnit's skilled-object base. Gold core6b5d80/210 is NOT whole-method
+equivalent: Steam's LEVEL guard and extracted cap helper are real version
+changes; no frame/register/opcode/branch masks. Named Gold GetSkillCap6b4550/75
+uniquely maps toSteam6ba6f0/75 with only six decoded/verified float constants.
+Steam core uses actual DB getter7daee0 with ECX63 and rate integer at+10+skill*4,
+then actual Upgrade6bbc90; explicit float stores and min.1/max.00001 retained.
+
+COMPLETE original151, helper75, real initialized database getter/record/rates
+and Upgrade execute at ORIGINAL ADDRESSES on only an owned initialized original
+main thread. Controlled original-layout skilled-object/vector/cell buffers,
+24 actual native input sets at observedPC24/RN and diagnosticPC53,48 records.
+No fake rate provider or original database writes. Actual rates match native
+authored data. All observedPC24 results match fixed native progress literals
+within absolute1e-7, including .00001/.1 clamps, partial progress, exhausted
+and LEVEL guards. No original perk-tree/unit-wrapper/actual practice flow claim.
+Six CW/FXSAVE007f samples, guarded Game-code/empty-x87 acquisition, full captured
+context restoration each time, normal WM_CLOSE/exit0 and exact cfg restoration.
+Original executable code/world/database/resources untouched.
+
+FINAL native RED14/24 BEFORE production ->GREEN24/24 EACH;10 identical measured
+controls. Actual person2/class/native CUnit/dynamic skills/authored rates.
+At XP.01, melee cap100/rate20 now progresses .000104997285 rather than0;
+burst cap50/rate60 gives .0000174995475, medicine cap25/rate10 .0000524986426.
+At XP10, melee XPpart1/progress.25 goes .25->.283210069 instead of stopping;
+LEVEL formerly .1 now0. Fixed literal cases include zero/exhausted/max/min,
+partial progress and a legacy-offset input. Integer skills/caps/current/other
+cells/totalXP/points and query RNG remain stable in these no-promotion fixtures.
+Earlier16 exploratory coverage retained separately; first Linux registration
+omission and stale LEVEL positive-rate prerequisite are archived, not accepted
+production RED evidence. Final24 valid fixtures ran before production; original
+first16/32 and final24/48 probes close normally; an assertion-only incomplete
+attempt before injection was excluded and also closed normally.
+
+Full Game builds and related112Win/112Linux including all24 after base-core placement,
+existing action/interrupt/snipe/vitality acknowledgment, damage/IC/aura, knife,
+critical probability and classless-perk consumers; CI323. Progress tolerance
+does not certify bit-exact transcendental math, arbitrary caps/nonfinite inputs,
+perks, coupled attributes or full combat/mission-level training frequencies.
+Evidence training-rates-retail-mapping/oracle/original-kernel/verification,
+typed members, original asm and RED/GREEN/full logs.
+Source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).
+
+## 2026-10-31: training progress and cap truncate to whole points (`2893fa84` partial)
+
+Corrects inherited CDynamicSkill::Upgrade reconstruction from
+[a8c50bf29e70191077257cca1a7fbd4cae01b731](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8c50bf29e70191077257cca1a7fbd4cae01b731).
+It incorrectly used SkillRound for both progress and cap. Accumulated progress
+must reach a whole point; .5 or.75 is not a point. Whole increment=int(progress),
+remaining progress subtracts that integer, XPpart clamps to int(fCap), both
+toward zero. Existing eligibility guard, bool return, Update, raw-current/frozen
+behavior and other cap-recomputation methods remain unchanged. Base training
+curve/rates/limits from99 remain unchanged; no authored data, saved fields,
+LAN/API/RNG or retroactive save-state migration. Incoming negative progress
+from previous builds is retained; this change does not rewrite saved characters.
+The old Upgrade/ROUND(fCap) source comments are corrected; broader rounding
+adapter/default-mode tie behavior in other methods remains separately audited.
+
+Discovery: the pending associated-attribute regression passed native46 but its
+three .5-based integer promotions FAILED actual original44 oracle validation.
+Original kept progress.500566959/.599999011 and returnedfalse rather than
+promoting. That WIP producer/tests were parked/restored to clean99; no attribute
+fix or failed original outcome was committed. This independent Upgrade fix ran
+its own final native RED before production. Attribute/perk work remains pending.
+
+GoldPDB named Upgrade6b5a70/142 matches UNIQUE Steam6bbc90/142 EXACTLY, ZERO
+MASKS. Both original conversions OR AH0c, then FLDCW BEFORE FISTP at6bbcc0
+and6bbcf6, restoring savedCW at6bbcc8/6bbd00. Integer OR alone does not alter
+FPU mode. Actual original Update call6bbd0b->6bbb80 retains its separate
+cap-recomputation rounding. Typed cell fields basec/XP10/progress14/cap18/
+current1c/empty-modifiers20/freeze2c independently rechecked.
+
+COMPLETE actual142 method, including real original Update when called, executes
+at ORIGINAL ADDRESS for16 actual native inputs under observedPC24/RN and
+diagnosticPC53/RN,32 records. Original-layout sparse dynamic cell, empty modifiers,
+binary-exact operands. Every literal AL/base/XP/progress/max/raw-current/frozen
+expectation matches EXACTLY in both modes. Effective figure is derived from
+independently audited cap/current/frozen getter semantics; an original getter
+was not executed in this probe. No original code/world/database/resources
+patched. Six CW/FXSAVE007f samples, guarded Game-code/empty-x87 capture/full
+context restoration, normal WM_CLOSE/exit0 and cfg restoration. Main-menu
+isolated direct-cell kernel, not actual combat/practice/perk caller observation.
+
+FINAL native RED8/40 BEFORE production ->GREEN40/40 EACH;32 identical measured
+controls =eight direct-cell controls plus24 unchanged fractional training tests.
+New NativeDynamicSkillUpgrade0..15 call actual public Upgrade on real native
+cells: .25+.25 and.5+.25 no longer grant a point; .25+2.5 yields two points and
+.75 remainder rather than three/-.25; fractional caps.75/1.75/3.5 truncate.
+Equality/exhausted/zero-cap/negative-progress, exact-one, multiple-point, hurt
+raw current and frozen-effective controls remain. Four following shared RNG
+words stay equal in every case. Raw native current uses public temporary
+unfreeze/read/restore on known fixture flags; no private-field access.
+Preserve the original quirk: a positive whole increment returns true even if
+the following cap clamp leaves XPpart unchanged. Oversized direct-call increments
+are API stimuli, not authored rates or a change to base training's.1 maximum.
+
+Full Game builds, related128Win/128Linux including new16/base24, native action/interrupt/
+snipe/vitality acknowledgments, IC/aura/critical/knife/classless consumers; CI323.
+New tests need no runtime database argument but link the existing full native
+RPG harness and are registered with its extended fixtures, outside asset-free323.
+No broad skill-growth-frequency, injured/perk-heavy unit or nonfinite/extreme
+conversion parity claim. Source2893 stays PARTIAL: associated primary practice
+and learning-perk11/60 wrapper remain pending. Evidence dynamic-skill-upgrade
+original-kernel/retail-oracle/verification/typed members and RED/GREEN/full logs;
+parked attribute discovery under training-attributes-revealed-upgrade-rounding.
+Source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).
+
+## 2026-10-31: associated primary-attribute practice (`2893fa84` partial)
+
+Restores original CUnit practice associations: MELEE0/THROWING2/BURST3 ->STR14;
+SHOOTING1/SNIPE4/STEALTH5 ->DEX15; SPOT6/MEDICINE7/ENGINEERING8 ->INT16. Passive9..13 and
+primary14..16 have no extra associated call. Associated practice runs first, selected base
+practice always follows, then both integer-improvement results are combined with OR.
+Attribute-only growth reports success and never skips selected practice. The corrected
+base rates/whole-point Upgrade remain unchanged. Existing two-argument unit entry ignores
+its legacy PK offset and is retained for actual action/mission callers. Learning-perk11/60
+multiplier selection remains separate; WHOLE source2893 stays PARTIAL.
+
+GoldPDB unit code6b6450/156 uniquely matchesSteam6bc640/156 with only four
+decoded/independently verified call operands and verified local switch-table address
+differing; all36 table bytes/nine targets independently checked by equal relative
+offsets1d/21/25 and PUSH14/15/16. No opcode/register/frame/branch masks. Real
+recursive-first/always-selected/OR order independently decoded. Named UpdateSkills
+Gold6b5b00/51 uniquely matchesSteam6bbd20/51 with only two verified call displacements to
+actual GetSkillBaseStat6ba790 and dynamic Update6bbb80. Typed unit base+0c/perkTree84 and
+all cell/vector fields rechecked. Gold210/ Steam151 base-core version differences remain
+explicitly rejected.
+
+Actual COMPLETE original unit code156+real table36 executes at ORIGINAL ADDRESS, including
+real recursive/base/cap/initialized DB/rates/Upgrade/UpdateSkills/ GetBaseStat calls.
+Controlled original-layout unit and all17 cells/vectors/caps, null original perk-tree
+pointer because native fixtures own neither11 nor60. 22 actual native input sets x
+observedPC24/RN and diagnosticPC53/RN =44 records. All17 base/XP/max/raw-current/frozen
+states and bool result match native reference exactly; progress within absolute1e-7.
+Reference consists of separate calls to already-audited base method on another real native
+unit, checked against the actual original complete unit flow. No fake attribute/math
+provider or original code/world/database/resource patch. Six CW/FXSAVE007f, guarded
+Game-code/empty-x87 acquisition/full captured context restore, normal WM_CLOSE/exit0 and
+cfg restore. Main-menu kernel, not real original perk-tree construction or live mission
+tick.
+
+FINAL fresh native RED: 14 failures among 250 Windows / 249 Linux tests before production;
+GREEN: 318 Windows / 317 Linux tests passed;62 identical measured controls.22 actual CUnit
+fixtures cover all17 selected IDs, offsets7/-7 and true whole-point growth of primary
+only, selected only and both.16 Upgrade and24 base goldens plus14 existing knife/critical
+boundary controls remain unchanged; base fixtures explicitly bind base scope, with
+unit-offset compatibility covered by new unit fixtures. All374 initial/reference cell rows
+are identical before/after. Native compares all17 XP/base/max/effective/current/ progress
+fields; known fixture raw current observed by public unfreeze/read/ restore, no private
+offsets. TotalXP/perk points/RNG stable. Low-XP associated progress0->.00001. Integer
+fixtures use authored STRcap1/rate100, controlled XP1million/progress.999999: original
+whole threshold1 is crossed, Strength's derived VP increase is retained, attribute-only
+growth returns true and selected melee still practices. These are bounded API stimuli, not
+new authored XP values.
+
+Earlier WIP half-point promotion assumptions were rejected by original44, revealing the
+separately corrected/pushed Upgrade truncation bug. No failed original outcome was
+accepted/committed. Accepted RED250Win/249Linux/original44/GREEN318Win/317Linux start from
+that corrected base and use the original whole-point threshold. No expected values changed
+after this accepted producer fix. Earlier broad gates exposed old combat and knife-launch
+fixtures using SetConst to replace derived bases: actual hit sound trains SPOT/INT and
+refreshes them. Only their setup now preserves canonical base+XP for the same positive
+effective/theoretical totals; below-base totals use a held real native modifier. Each
+setter explicitly verifies stability through actual UpdateSkills.
+Damage/probability/velocity/range/clock/AP/RNG expectations stay unchanged. STR-only knife
+perturbations re-establish the same requested THROW/VP totals before measurement to
+isolate the intended input. An earlier overbroad PK fixture normalization was rejected;
+all nine query-only ballistic fixtures were restored verbatim and only the real mode7
+launch was normalized before final RED. The obsolete Linux RED was cancelled through CTest
+SIGINT, not accepted as evidence. One simultaneous Win/Linux broad attempt exhausted
+system commit memory (native bad allocation and Linux not-enough-memory/BAD_COMMAND); its
+logs were archived and the final builds/tests run sequentially. The producer was restored
+to committed100 before final nativeRED250Win/249Linux; new original44 validation then
+minimal producer/GREEN318Win/317Linux follow. The full GREEN gate is a strict superset of
+every focused RED test (test names verified); its same raw log is used as GREEN evidence,
+with no duplicate execution. Broader critical/called-shot consumers were included because
+this real refresh reaches them. Full Game builds, related 318 Windows / 317 Linux
+including the full focused set, native action/interrupt/snipe/vitality ACK,
+IC/aura/critical/knife/classless consumers; CI323. Perk multipliers, injured/
+modifier-heavy promotions and whole mission practice frequencies unclaimed. Evidence
+training-attributes-retail-mapping/oracle/original-kernel/verification, typed members and
+RED/GREEN/full logs; rejected discovery evidence under
+training-attributes-revealed-upgrade-rounding. Source:
+[2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).
+
+## 2026-10-31: authored learning-perk factors (`2893fa84` complete)
+
+CUnit practice now selects the real authored perk parameter: perk 11 for primary
+attributes 14..16; perk 60 for skills 0..13, including passive VP 9. Missing tree/unowned
+perk defaults to1. Associated primary practice runs first and selects its own attribute
+factor; selected practice always follows with its own category. Existing LEVEL 13 guard
+still returns false without division/training. The factor multiplies remaining fractional
+XP capacity before the existing per-skill rate division and min/max clamps. No authored
+rates/caps/XP/parameters changed. Native person 2 / tree 5 and person 3 / tree 4 provide
+actual untaken11/60 nodes; both authored factors are float1.1. Total XP and perk points do
+not increase.
+
+16 real native-unit fixtures use actual AddPerkPoints/TakePerk/HasPerk grants,
+owned/unowned pairs, correct/wrong categories, passive9 and guard13. Temporary safe
+logging labels restore immediately; no parameter mutation. Independent reference calls the
+previously audited base core on another real unit, choosing factors separately. Controlled
+total XP 1 keeps these stimuli above the minimum and below the maximum increment clamp; no
+new authored XP data. RED: four genuine failures among 266 Windows / 265 Linux; full
+GREEN: 334 Windows / 333 Linux. Exact test names prove the full gate includes every RED
+test, so its one execution is also GREEN evidence.88 identical measured controls (12 new
+learning controls and76 existing association/base/Upgrade/knife/critical rows),272
+unchanged learning initial/reference cell rows and374 unchanged association rows. All17
+cells, four following native RNG words, totalXP, ownership and point budget checked.
+These16 are fractional-progress cases, without a learning-perk integer-promotion claim.
+
+Actual original full Unit156/table36/recursive/base/cap/initialized
+DB/rates/Upgrade/derived-stat flow runs with a REAL original PerksTree, constructed at
+actual6aee50 with the captured authored treeID. Real TakePerk6ae630 grants the node; real
+HasPerk6ae5d0 returns its actual float parameter.16 native inputsets x observedPC24/RN and
+diagnosticPC53/RN =32 records, all 17 cells each. Exact
+base/XP/max/raw-current/freeze/bool, progress absolute1e-7. Real point budget checked
+before/after practice, other learning category remains unowned. Actual scalar deleting
+destructor6af420 with flags0 calls real6af440: captured map size becomes0 and vtable
+becomes real CObjectBase8b2418; placement buffer is retained. No fake map/provider,
+original code/world/DB/TEB patch, or original parameter override.
+
+Binding uses named Gold PDB only comparatively: RTTI
+TypeDescriptor96f98c/COL8e26f0/VT8b54d4 -> actualSteam980acc/8f1e28/8c45e4. Named ctor
+suffix45 uniquely matches without masks, actual factory allocates0x24 and calls ctor;
+actual typed refs4/8/map0c/points20 and ret4 decoded. Has91 uniquely matches with only its
+independently verified shared map-access call displacement. Take has a unique exact37-byte
+typed taken1c/points20 tail plus checked entry/shared-map prefix; complete193 decoded,
+without claiming whole logger equivalence. Typed VTslot8 adapter30 proves flags0 skips
+delete-this; real104 destructor/mapclear/bucket cleanup and base VT decoded. No masking
+unknown SEH/code pointers or claiming whole108/104 equivalence. Earlier Gold210/Steam151
+base-core version differences remain rejected.
+
+The first capture-prefix failure never injected; a detached VirtualAlloc-stack attempt
+completed unowned mode0 but real Take logging exited DBG_PRINTEXCEPTION_C, so those
+outcomes were rejected. The accepted kernel runs on a verified committed RW scratch
+region16..64 KiB below the captured original ESP. Every original stack byte is backed up,
+restored and read-back verified while paused before full context restore. No TEB stack
+bounds/SEH-head patch. All32 records confirm stack restore, real tree/base vtables and
+cleanup. Six original CW/FXSAVE007f samples, normal WM_CLOSE/exit0/config restore.
+Main-menu isolated kernel, not a live mission frequency/combined-perk/injured-promotion
+proof.
+
+Full Game builds, related 334 Windows / 333 Linux, asset-free CI 323. Existing
+mission/action/ACK callers keep the compatible two-argument entry; its obsolete PK offset
+is ignored since the base-rate correction, and GetSkillAddValue is only a read of PK
+values. No one-argument ABI churn is needed for behavioral parity. Together with the prior
+fractional-cap/rate, Upgrade and association fixes, all useful behavior of source 2893 is
+now imported. Other source commits still cover practice frequency/action routing;
+whole-project parity and final-head hosted CI remain pending. Evidence prefix
+training-perks, including retail-mapping/original-kernel/oracle/verification, rejected
+input-prefix/detached-stack captures and native RED/full GREEN logs.
+
+Source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).
+
+## 2026-10-31: nearest-even rounding of modified skill caps (inherited `a8c50bf2` correction)
+
+CDynamicSkill::Update now converts its folded float cap with the current nearest mode
+(std::nearbyintf followed by integer conversion), matching the observed game RN
+environment and original ties to even. The old half-away SkillRound remains ONLY on
+ScaleForDifficulty until its independent caller/conversion audit; Upgrade retains its
+separately proved CHOP/truncation. Fold/list/raw-current clamp, XP/progress/base/freeze,
+save fields and authored records are unchanged. This is an independent inherited
+reconstruction correction: blame identifies source a8c50bf2 as the origin of SkillRound,
+rather than a new source 2893 training behavior.
+
+16 actual native cells with a real held RAII modifier use public
+SetConst/SetNewMaxValue/SetValue after attachment to establish exactly captured
+direct-Update inputs. This intentionally resets the constructor's prior flat/current
+effect; it does not claim AddModifier constructor behavior. Literal binary-exact
+positive/negative halves, odd/even ties, non-half controls, XP parts 0/3/4, hurt raw
+current and frozen effective values. No private native offsets. Examples:`5 * 0.5`
+formerly cap 3, now 2; `30 - 7.5` formerly 23, now 22;the controlled cap -2.5 formerly -3,
+now -2. A hurt current 20 stays 20 with cap 22; a frozen view reports 22. Progress 0.25,
+base/XP and four following RNG words remain unchanged. These are bounded direct-cell
+stimuli, not new authored database values.
+
+Fresh native RED: eight failures among 282 Windows / 281 Linux before production. Full
+GREEN: 547 Windows / 546 Linux, a strict test-name superset of RED, executed once as
+GREEN/full evidence.100 identical measured controls (eight new controls plus92 old
+learning/association/base/Upgrade/knife/critical rows),272 identical learning and374
+identical association reference cell rows. All existing assertions/literals retained.
+Because Update is shared, the full gate adds wound/healing, visibility/stealth, to-hit, AP
+and grenade/familiarity consumers. Full Game builds on both platforms and asset-free CI
+323.
+
+Named Gold Update6b5960/178 is independently bound to actualSteam6bbb80 by the unique
+EXACT142 GoldUpgrade6b5a70 ->Steam6bbc90 and its decoded call+7b. Full178 uniquely matches
+with ONLY two verified weak-list cleanup call displacements. Named/folded copy66 and
+weak-pointer destructor12 map to actual480620/649e10: pointer copy/refcount+8 and their
+common ReleaseRef target independently decoded; actualReleaseRef starts with
+weak--/strong-mask guard. Deeper GC global/call differences are retained, without a whole
+ReleaseRef/call-graph equivalence claim or structural masks. All
+math/frame/register/branch/constants in178 remain unmasked. Typed cell
+base0c/XP10/progress14/cap18/current1c/vector20/frozen2c, modifier pSkill0c/mul10/add14.
+Each modifier fold is F32-stored. Final FILD integer base+XP, FMUL/FADD, FSTPS and
+default-CW FISTP6bbc0e: NO FLDCW; RN gives nearest-even.
+
+Actual COMPLETE original 178 executes at its original address with16 captured native input
+sets x observedPC24/RN and diagnosticPC53/RN =32 exact records. Controlled original-layout
+cell/live modifier/vector have typed valid strong/weak counts, with all
+cap/raw/base/XP/progress/freeze values, vector/modifier/reference fields checked. Math
+comes from original instructions, not a fake provider. Effective value is explicitly
+DERIVED from captured cap/current/freeze under the already-audited getter rule; original
+getter and modifier constructor are NOT executed. One valid live modifier means dead-entry
+cleanup/GC is not runtime-exercised by this matrix. No original executable/world/DB/TEB
+patch or original heap allocation. Six CW/FXSAVE007f, guarded Game-code/empty-x87
+acquisition, original-stack scratch backup/restoration/readback verification and full
+captured context restore; normal WM_CLOSE/exit0/config restore.
+
+Scope is exact finite binary operand boundaries and the observed nearest environment,
+without altered-round-mode, floating exception-flag, overflow/nonfinite or all non-binary
+multiply-add/FMA parity claims. ScaleForDifficulty remains pending independently,
+including its actual World.CreateAIUnits context/field/call order: current comments and
+helper-only arithmetic must not substitute for an original caller audit. Source 2893 stays
+imported from102; remaining source count 57 is unchanged by this inherited precision
+correction. Whole-task final-head hosted CI remains pending. Evidence prefix
+dynamic-rounding: binding/mapping, typed members, actual 32 original-kernel/oracle,
+RED/full GREEN/verification logs.
+
+Source: [a8c50bf29e70191077257cca1a7fbd4cae01b731](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8c50bf29e70191077257cca1a7fbd4cae01b731).
+Related source: [2893fa8470599905a5de221be3d8057a52c6d479](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2893fa8470599905a5de221be3d8057a52c6d479).
+
+## 2026-10-31: medical and engineering action practice (`156ccd17` complete)
+
+RegisterAction now routes FIRSTAID19 to medicine7 and TRAP_OBJECT34, DISARM_TRAP35,
+SET_MINE36, DISARM_MINE37, PICK_LOCK39 and REPAIR_PK40 to engineering8 through the
+existing mission UseSkill acknowledgment/log path. Existing Unit training also practices
+INT16 first, uses actual authored rates/caps/learning factors, and acknowledges only
+whole-point improvements. Source156 mounted-reload effective-weapon selection was already
+imported and is rechecked by the final gate. All source hunks are now accounted for. No
+authored rates/parameters/data, XP reward, action costs, equipment, save/network schema or
+new balance constants.
+
+28 native real-mission/unit fixtures:7 missing actions x fractional/wholepoint boundaries
+plus14 existing-action/no-training controls. Real reference calls the previously
+original-audited Unit UseSkill on a cloned native persona2; all17 cells, selected and
+associated progress, whole XP parts, caps/raw/frozen views, single skill acknowledgment/no
+duplicate, totalXP/perk points/movement/repetition accounting and4 subsequent RNG words
+checked. Literal controlled totalXP1 and1000000 with pre-boundary progress.999999 are
+diagnostic inputs, not authored changes. RED14/91 on both Windows/Linux; full GREEN 374
+Windows / 375 Linux is a strict RED-test-name superset and executed once.76 identical
+measured controls,476 unchanged new initial/reference cell rows,272 old learning and374
+old association rows unchanged. Full Game builds and CI323 pass, including native
+treatment/tool/reload/action acknowledgment consumers. An initial Windows virtual-memory
+compiler failure and interrupted/resource-failed Linux attempt were archived as
+environment failures, not behavioral RED.
+
+Original binding uses named Gold RegisterAction6b8af0/300 and verified CUnitMission RTTI:
+Gold TD96fc90/COL8e2ca8/VT8b63cc ->actualSteam980de4/8f23e0/8c54e4 at complete-object
+offset4c. Their same virtual slot80 independently identifies actual RegisterAction6c2080.
+Entire actual227 code bytes,1 padding byte,40 jump-table bytes and40 selector bytes
+decoded; selector40 is exact across versions. All7 action codes select original
+medicine/engineering handlers6c212d/6c2151. Original calls real mission wrapper6c1fb0/196.
+NamedGold UseSkill6bc980/196 maps through unique exact27 prefix with only independently
+verified Unit-call displacement (actual6bc640); typed mission unit field164, fraction-only
+ALfalse return6c206e and true SaveAck2/null call6c1e40 independently decoded.
+
+The first expanded374 gate exposed3 worn-pilot repair assertions. A read-only diagnostic
+rerun failed1/3: real repair sound can cause pilot103 Spot->INT practice. Pilot wore a
+real suit with effectiveSTR11, but its VP base was still140 (pre-suit STR9),
+XP7/max147/current140. The original-backed UpdateSkills canonicalizes base160, max167 and
+preserves missing7 by raising current160. That unrelated stat rebase is not kit healing.
+Test setup now stabilizes real derived values after suit wear BEFORE applying the SAME old
+wounded rawHP140 and existing wound critical. It asserts original
+canonical10*(effectiveSTR+5)+XP. No production PK/stat ordering or pilot-health rule
+changed. All old pilotHP140, AP51/49, engineering repair247, shell progress, dose10->9,
+ACK, medal and non-healing assertions remain. Corrected3 controls pass under
+baselineHEAD103 without the7 new mappings; then exact104 production was restored for final
+gates. Initial3/374 and1/3 diagnostic failures, baseline3 controls and normalization
+rationale retained raw. The initial baseline3/3 pass alone did not establish that the
+variable hearing exposure was absent before104; no unsupported causal claim is made.
+
+After the host interruption, Linux had no DISPLAY/XDG runtime environment. The initial
+full Linux run could not create hidden SDL windows in the8 existing camera-lock cases
+included by this broad lock/tool filter. NativeLockTokenTests and NativeRPGItemMapTests
+also had no built executables in the reused limited-target build; their existing targets
+were added to the final build list. These environment/not-run outcomes were retained; a
+direct existing camera0_0 case passed under owned Xvfb/Openbox with software rendering,
+then the unchanged entire Linux gate reran in that environment with all helper binaries
+built. No case was removed, excluded or given a weaker assertion. Owned window
+manager/display processes are cleaned up by the wrapper.
+
+28 actual-original records execute entire original Register227/tables80 and wrapper196 at
+their real addresses with14 captured fractional native inputs x observedPC24/RN and
+diagnosticPC53/RN, then real Unit156/table36/recursive/base151/DB/cap75/Upgrade/Update.
+All17 cells match the native reference,476 exact integer/state checks and progress
+absolute1e-7; action/repetition/movement and no acknowledgment allocation checked. Sparse
+typed mission/unit/cells represent native no-acquired-learning-perk inputs with null tree;
+no original constructor/lifecycle or owned-perk proof claimed. Fractional falsepath
+deliberately does not execute original acknowledgment/log allocations; native wholepoint
+checks use existing real mission acknowledgment code and earlier original-backed Unit
+boundaries. Original real-stack scratch bytes backed up/restored/readback verified before
+full WOW64context restoration; six CW/FXSAVE007f samples, normal WM_CLOSE/exit0/config
+restore. No original code/world/DB/TEB patch.
+
+Gold/Steam Register bodies genuinely differ (mission acknowledgment wrapper,
+repeated-burst guard, lastaction assignment order); no whole-body byte equivalence or
+arbitrary structural masks are claimed. This fix adds only the7 dispatch mappings;
+repeated-burst accounting remains a separate source. Original HIDE->STEALTH mapping was
+also observed but belongs to separately held2e15a102 and needs its live explicit-state
+Hide entry/exit/idempotency audit before import. Original high-level action
+completion/frequency is not proved by direct Register tests alone.
+
+The preceding NPC difficulty hypothesis was rejected without a production change: native
+Win/Linux4/22 failures asserted surviving Easy/Normal reductions, but unique EXACT244
+original World block76050d->76beed has the same VP/AP-before-level ordering and actual
+named/unique normalized271 SetXPLevel recomputes caps/current. The expected contract was
+unsupported. Its6 exploratory tests were removed and saved with raw logs in
+npc-difficulty-hypothesis-rejected.json/patch. Original scale blocks use explicit CHOP
+conversion; a separate helper-rounding followup remains, without changing World ordering
+or tuning NPC balance.
+
+Remaining ordinary pending/partial sources56; excluded-balance rows still require
+reconciling against newly established training/AP evidence before whole-task completion.
+Hosted final-head CI remains pending. Evidence:
+action-practice-retail-mapping/original-kernel/retail-oracle and
+medical-engineering-practice RED/fullGREEN/verification.
+
+Source: [156ccd173ff6c9671904e6d94e709397fc701d66](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/156ccd173ff6c9671904e6d94e709397fc701d66).
+
+## 2026-10-31: reconcile deferred original-balance entries
+
+The older excluded-balance bucket mixed one deliberate original-balance change with four
+unverified deferrals. User scope is ALL useful original-balance fixes, so an unverified
+original claim is not a completed exclusion. This is a source-ledger correction with no
+engine/test/data change and no fabricated new RED.
+
+Sourceeb45f18a is now imported: its entire patch changes BOTH CDynamicSkill.Upgrade
+conversions from half-away rounding to truncation.
+Commit3f491d04725045f3ecffa7896e7e8dacbdc101c6 already implements exactly those hunks with
+native RED8/40both ->GREEN40/40,32 unchanged controls/related128both/CI323. Actual
+namedGold6b5a70/142 maps toSteam6bbc90 uniquely EXACTZERO masks;32 complete
+original-address native operand/CW records and explicit FLDCW CHOP before both conversions
+prove original behavior. Current104 full gates include all16 Upgrade cases unchanged. The
+old note that independent original verification was absent is superseded, not a claim of a
+new code fix.
+
+Sources2e15a102 (Hide->Stealth practice),24a00fd1 (additional short-burst AP) andaa724eca
+(fatal-bleeding hostile-roster XP) return to pending until actual original
+audits/nativeRED prove their behavior. The first dispatch is now observed in the original
+action table but still needs real Hide entry/exit/idempotency tests. The short-burst
+implementation is still absent in currentGetWeaponBurstAP. Fatal bleeding needs actual
+reward recipient/timing/empty/single-payment verification. No engine change for any of
+these3 is implied by reopening.
+
+Source405ed861 remains excluded: its stated purpose floors paid costs at1 AP despite the
+original, an intentional action-economy change incompatible with preserving original
+balance. Own renderer/audio/fonts/faces/HD/LAN exclusions are unchanged.
+
+After source156 completion the ordinary queue had56. Reopening3 earlier uncounted audit
+deferrals makes the active unfinished total59 (pending43 +partial16). Imported188,
+excluded-balance1. Earlier57 referred only to ordinary pending/partial rows and did not
+include these held entries; the current total is an honest expanded audit queue, not3
+newly introduced defects. Hosted actual final-head CI is still required after the entire
+task.
+
+Source: [eb45f18a9787d7994bcdb224b198818009786445](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/eb45f18a9787d7994bcdb224b198818009786445).
+
+Source: [2e15a10299e0d5e4a90558e39b34cc150ce51382](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2e15a10299e0d5e4a90558e39b34cc150ce51382).
+
+Source: [24a00fd151a39d6c696c2ee8ab6deeb9d862f875](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/24a00fd151a39d6c696c2ee8ab6deeb9d862f875).
+
+Source: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed).
+
+Source: [405ed86144c0340c1ac36f0775d989123e7d8010](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/405ed86144c0340c1ac36f0775d989123e7d8010).
+
+## 2026-10-31: Stealth practice on real Hide entry (`2e15a102` complete)
+
+RegisterAction AC_HIDE33 now calls existing mission UseSkill(ST_STEALTH5). Unit training
+also practices DEX15 through the already original-audited association rules. Existing
+CExecHide still decides whether a real entry occurs: entering Hide runs DoAction once,
+while exiting or requesting an unchanged state does not. No change to the fork's
+desired-state/legacy-command compatibility, serialized fields, cooldown/visibility checks,
+AP cost/charge ordering, equipment or position. Authored learning rates/caps/perk
+factors/XP and all data remain unchanged. The earlier excluded-balance entry was an
+unverified deferral, not a deliberate rebalance; actual original behavior is now verified.
+
+10 native actual-World tests execute real CCmdHide/CreateExecutor/Run against persona54 in
+a native player turn. Legacy and explicit entry, already-hidden/already-visible noops,
+explicit/legacy exits, blocked cooldown, two selected-Stealth wholepoint boundaries and
+repeated explicit true request. All17 real unit cells compare to a cloned native Unit
+UseSkill reference, with actual AP charge applied before training. Raw wounded values,
+frozen views, XP/points, inventory/ammo, position, action lifetime, single skill
+acknowledgment/no duplicate and4 next RNG words checked. DEX remains fractional in these10
+stimuli; no new native DEX-integer-promotion/AP-change claim. RED5/43 both Windows/Linux
+->full GREEN 384 Windows / 385 Linux, strict RED-test-name inclusion, executed once as
+successful GREEN/full.33 unchanged measured controls (5 new no-training/noop controls
+plus28 medical/engineering rows),170 unchanged new initial/reference cells,476 old
+medical/engineering reference rows,16 unchanged original action acknowledgment events and
+unchanged old explicit Hide state rows. Full Game builds, all previous
+treatment/repair/Hide regressions and CI323 pass. Linux uses the established owned
+Xvfb/Openbox/software-rendering wrapper and builds the existing helper binaries; no test
+exclusion.
+
+Named Gold CExecHide::Run7a6dc0/123 maps through verified CExecHide RTTI:
+TD973f3c/COL8ead10/VT8be418 ->actualSteam9851cc/8fa52c/8cda00; same Run slot18
+->actual7b35b0. Complete123 uniquely matches with ONLY3 verified direct-call
+displacements: DoAction743f60->74f500 and Hide744c70->750260 twice. Original itself has
+desired-state bool18, actor14, state10: desiredtrue +not-hiding calls DoAction33 BEFORE
+Hide(true,false), then finishstate1; desiredtrue/alreadyhidden isnoop; desiredfalse only
+exits if hiding, calls Hide(false,false) and world104(false), and never DoAction33. No
+assumption of unconditional original toggling.
+
+Complete named Gold DoAction160 uniquely maps toactual74f500 with ONLY2 verified GetPose
+calls; namedGold4902d0/43 ->actual4913d0 is uniquely EXACT with ZERO masks. Typed actor
+pRPG0c/position18/world2c, original AP calculation/conditional spending precedes
+unconditional mission RegisterAction virtual80. Actual mission VT8c54e4 slot80 resolves
+already-audited6c2080/227+tables80, whose action33 selector reaches original Stealth
+handler6c213f and real mission wrapper6c1fb0/196. Action33 cannot enter movement-only1/2
+counters. Server completeobject+14c typed RTTI supplies exact IsHiding12 ->GetRPG7
+->mission IsHiding7 getters (reads original mission190); no fake virtual provider or
+vtable patch. Actual Hide primitive's bCanHide11d guard decoded independently from the Run
+direct call target; no whole primitive205/SEH/logger or CanDoIt463 equivalence newly
+claimed.
+
+6 actual-original pure-Register records execute original227/tables80 ->wrapper196
+->Unit156/table36/recursivebase/initializedDB/cap/Upgrade/Update for3 captured native
+World-Hide fractional inputs x observedPC24/RN and diagnosticPC53/RN. All17 cells checked
+(102 cell-state comparisons); base/XP/cap/current/freeze exact, progress absolute1e-7.
+Action33 and totalXP1 are explicit native fixture source controls; all cell operands are
+directly captured. Pure Register does NOT spend AP or change hiding: its AP stays captured
+initial52, while the native completed command spends14 and ends38. This declared boundary
+is checked explicitly, not misreported as full original command execution. Original
+Run123/DoAction160 are static audits only; original world/executor/constructor lifecycle,
+true acknowledgment/log path, live frequency and DEX promotion are not runtime-proved
+here. Native two selected-Stealth promotion cases check actual world one-ACK integration
+against earlier original-backed Unit growth rules. Six CW/FXSAVE007f samples, original
+real-stack scratch bytes backup/restoration/readback, full WOW64context/config restoration
+and normal WM_CLOSE/exit0; no original executable/world/DB/TEB patch.
+
+All useful behavior of source2e15 is imported; remaining58 sources (pending42 +partial16).
+Source24a additional short-burst AP andaa724 fatal-bleeding XP remain pending until
+original verification. Whole-task actual final-head hosted CI remains pending. Evidence
+hide-practice: mapping/typed/full disassembly/original-kernel/oracle/native
+RED/fullGREEN/verification.
+
+Source: [2e15a10299e0d5e4a90558e39b34cc150ce51382](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/2e15a10299e0d5e4a90558e39b34cc150ce51382).
+
+## 2026-10-31: Original additional-round AP and short-burst perk (`24a00fd1` complete)
+
+CUnit::GetWeaponBurstAP now applies actual owned perk10 only to ShortBurst3, after signed
+integer maxAP/RoF division. The authored factor is float32 0.15. Product and subtraction
+round as original PC24 before truncating to int; a volatile float product prevents
+contraction/excess precision across that boundary. Valid extra-round cost has minimum1;
+unavailable weapon/zeroRoF returns10000. Explicit-weapon and existing effective-weapon
+fallback are retained. Other modes/unowned perk use no discount; spent currentAP does not
+replace maxAP. This is specific to extra-round pricing, not source405's intentionally
+excluded global paid-action minimum. No parameter/DB, inventory, ammunition,
+mode/selection, skill/XP/points, RNG, audio/rendering/HD/LAN behavior changed.
+
+16 native real-mission/gun/inventory/owned-or-unowned-tree cases use authored
+person39/tree1/weapon26/RoF25, real TakePerk10 with restored safe diagnostic label. Cases
+cover Short/Long/Snap, quotient20/3/1/0/-1, floor, no-active/null fallback, explicit
+override, diagnostic temporary RoF0, active fallback, spent currentAP0 and division
+remainder24. All17 cells, item/ammo/mode/selection/points/XP/authored data and four RNG
+words checked. Signed negative-cap and zeroRoF cases are controlled diagnostic inputs, not
+claims of legal authored play. Initial property-only RED9/54 both was archived, then
+actual-original literal costs17/2/17 strengthened before production and fresh exact
+RED9/54 both. Full GREEN 555 Windows / 556 Linux, strict inclusion of all54 RED cases,45
+unchanged measured controls (7 new plus10 Hide/28 medical-engineering),170 Hide and476
+prior medicine reference rows unchanged; full Game builds andCI323. Successful full run
+serves as GREEN without duplicate focused run.
+
+Initial expanded full run passed556 Linux but failed2/555 Windows in old
+UnitPreviewShotOrigin modes1/2. That fixture still supplied an implicit daytime default
+and obsolete hearing-plus-visibility unaware context, while production preview already
+used original-backed owning-game night and visibility only. Independent old-AP HEAD106
+method also failed1/3 (mode0); differing failed modes are explicitly recorded, not claimed
+identical, because mission night varies between launches. Corrected ONLY reference inputs
+and added actual visible/audible/night/backstab logging; corrected3/3 passed both systems
+with the old AP method. Windows logged night1 in modes0/2 and night0 in1, all audible0, so
+night variation is directly observed; hearing is a stale input contract, not newly claimed
+observed cause. All original-vs-legacy origin/distance discrimination, equality and
+AP/HP/ammo/pose/RNG/action assertions remain. No production preview change or loosened
+expectation. Restore exact107 production backup bytes, then rerun complete final full
+gates; initial and baseline/normalized raw logs retained.
+
+Actual Steam1.2 full504-byte entry is6bb6a0, independently reached from
+already-bound/live-observed CUnitMission::GetActionAP6c0d30: EAction22
+dispatcher6c0ed4/table6c1a48[22] ->6c13b4, typed unit118 and weapon argument, call6c13c1
+->6bb6a0. Donor comment6bb6f0 is midbody, rejected as entry. Named Gold6b5500/380 is
+comparative only: it lacks the perk10 discount and has genuine control-flow/SEH/layout
+differences, so no whole-method equivalence or masked structural/code-pointer match is
+claimed. Full actual504 decoded: signed IDIV first; only mode3 queries HasPerk10 at6ae5d0;
+FMUL6bb813/FSUBR6bb815 execute under incoming CW, CHOP only loaded6bb81b for FISTP6bb81f,
+then incoming CW restored6bb82c; min1 and10000 sentinel. Existing real weak-copy/release
+path is used.
+
+28 actual original executions (14 explicit-weapon native inputs x observed007f PC24/RN and
+diagnostic027f PC53/RN) execute complete actual504. Actual original placement weapon
+constructor6a3670(hidden virtual-base-init1) was independently bound through named Gold
+default factory41 ->uniqueSteam6a6750,104-byte allocation, plus weapon RTTI
+rootVT8c3ad4/CObjectBaseVT8c3aa8/IWeaponVT8c3a60. Actual
+rootVBtable8c4180=(-4,48,64,72,80,92) places CObjectBase34/strong38/weak3c/IWeapon60;
+constructor initializes real vtables/vtordisps. Actual virtual getter thunks6a3c90/6a38f0
+reach exact4-byte typed getters6a3ca0(mode24)/6a3cc0(record28). Real original tree1
+constructor/Take10/Has10/destructor lifecycle supplies authored factor0.15000000596046448.
+Controlled original-layout unit/AP cell and176-byte record with native-captured
+RoF25/diagnostic0; original DBrecord/unit/inventory/ammo construction and real shot
+frequency are not claimed. Native fallback modes10/13 exercise real native inventory;
+original fallback was independently decoded but not executed in this explicit-weapon
+kernel. No fake virtual provider/vtable substitution or original DB/code/world patch.
+
+Reference PC24 gives costs20->17,3->2,1->1; diagnostic PC53 gives16 for modes1/15,
+explicitly not the native oracle. All original weapon bytes before/after query, unit/AP
+cell/record bytes, tree points and CW checked unchanged. Constructor defaults restored
+before real original virtual deleting-destructor thunk6a3880 ->adapter6a3930
+->dtor6a3960(flags0), which skips delete-this and resets actual baseVT8b2418; tree map
+size clears to0/baseVT8b2418. Six original CW/FXSAVE007f samples, real original stack
+backup/readback/full716-byte WOW64 context and cfg restoration, normalWM_CLOSE/exit0.
+Scope does not claim full original world/executor/ammo lifecycle. Baseline DB SHA256
+unchanged.
+
+All useful source24a behavior imported;57 sources remain (pending41 +partial16).
+Whole-task actual final-head hosted CI remains pending. Evidence extra-round-ap
+mapping/full disassembly/original-kernel/oracle/exact RED/fullGREEN/verification.
+
+Source: [24a00fd151a39d6c696c2ee8ab6deeb9d862f875](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/24a00fd151a39d6c696c2ee8ab6deeb9d862f875).
+
+## 2026-10-31: Original single-precision XP threshold calculation
+
+While auditing periodic-death XP distribution from source aa724, an independent shared XP
+threshold mismatch was found. GetXPBySkill now rounds the power-minus-one intermediate to
+float and multiplies by the exact float 50, matching original PC24 arithmetic. It
+previously divided by the inexact float 0.02 without that explicit intermediate boundary.
+The original float base 2.7296, exponent/reciprocal calculation and nonpositive-level
+guard are retained. This helper supplies native CUnit::GetXPForSkill and
+CSkilledObject::AddXP progression thresholds. No class caps, authored data, reward
+coefficient, recipient dispatch, perk rates, API, save or network fields are changed. This
+is an independent original-precision correction, not a donor hunk or completion of source
+aa724; the pending count remains 57.
+
+Six real native Unit/person838 tests query authored level cap 15 at levels 0, 1, 2, 3, 5
+and 6 through production CUnit::GetXPForSkill. Original-backed literal float bit patterns,
+all 17 cells, total XP, perk points, four subsequent RNG words and class/live cap are
+checked. Exact RED 1/54 on both systems: level 6 returned 2243.253662109375 (450c340f)
+instead of original 2243.25341796875 (450c340e). Other five new inputs and 48 prior
+extra-round AP / dynamic Update / Upgrade measurements are identical. Full GREEN 573
+Windows / 574 Linux, strict inclusion of all 54 RED names, full Game builds and 323
+asset-free checks pass. No duplicate focused GREEN run is used.
+
+Named Gold NRPG::GetXPBySkill at 6b4190, complete 64 bytes, uniquely maps to actual Steam
+6ba330 with ONLY six verified equal-value constant operands and the independently verified
+_CIpow call 8268c0 -> 834830. No frame, branch, opcode or unknown code-pointer masks. The
+function accepts two integers and returns with ret8. Actual FPU arithmetic subtracts 1
+under the incoming precision before FMUL by exact 50. Its float-base value promoted to
+double, reciprocal constants, nonpositive-level guard and direct CRT call are decoded; no
+whole CRT implementation equivalence is claimed. The independently bound original 70-byte
+GetXPForSkill helper and 128-byte mission reward wrapper from the preceding audit provide
+a second source of the same level-6 threshold, not a claim that all XP APIs or caps are
+interchangeable.
+
+Twelve actual original executions run the complete 64-byte function and real CRT pow at
+their original addresses for the six native-captured cap/level inputs under observed CW
+007f (PC24/RN) and diagnostic 027f (PC53/RN). All six reference bit patterns match native
+GREEN. Diagnostic PC53 results are recorded separately and are not the native oracle;
+level 6 gives 2243.252685546875 there. This is a pure math probe with controlled integer
+arguments, not original unit construction, progression, mission, reward distribution or
+live frequency execution. Six original device-initialized CW/FXSAVE 007f samples, original
+real-stack byte backup/readback, full saved WOW64 context/config restoration and normal
+WM_CLOSE / exit 0. No original executable, DB, world or TEB patch. Baseline database
+SHA256 unchanged.
+
+Known next work remains separate: restore the original mission reward coefficient and
+periodic hostile-roster distribution, then direct-attack first-incapacitation XP. Source
+aa724 stays pending. The native GetXPForSkill class-cap lookup versus original per-unit
+cap-vector lookup is a separately observed static difference; no meaningful native
+divergence or new cap fix is claimed here. Broader pow domains, overflow and all
+inverse-growth APIs are not exhaustively proven by these six inputs. Hosted CI for the
+final commit of the entire task remains pending. Evidence: xp-threshold-pc24 mapping,
+disassembly, original kernel/oracle, native RED/full GREEN and verification.
+
+Audit context: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed); this independent correction does not complete its recipient-dispatch hunk.
+
+## 2026-10-31: Original base XP reward coefficient
+
+CUnitMission::GetXP now divides the victim's next-minus-current XP threshold by the
+clamped party size, then multiplies by original float bits 0x3e3da12f
+(0.18518517911434174). It previously divided by 8.1, equivalent to a coefficient near
+0.123457 and about one third less base XP. This restores the original base reward, before
+the recipient's existing intelligence and XP-perk modifiers. The party-size clamp 1..6,
+threshold inputs, recipient modifiers and dispatch are unchanged. No class caps, authored
+rates, API, save or network fields change. This independent mismatch was found while
+auditing source aa724; it is not its donor hunk or completion, so 57 pending/partial
+sources remain.
+
+Fourteen real native Unit838/mission queries cover authored cap15, levels 0/1/2/5,
+ordinary and clamped party sizes, plus controlled negative-level zero guards. All 14
+expected float bit patterns are literals from actual original PC24 execution, not a
+duplicate reward formula. All 17 cells, XP, perk points, four RNG words and class/live
+caps remain unchanged. Initial coefficient-property RED 12/41 both was archived; after the
+independent shared-threshold correction, fresh exact RED 12/47 both precedes this
+production change. Full GREEN 587 related + 11 supplemental Windows / 588 related + 11
+supplemental Linux, strict inclusion of all 47 RED names, 24 identical measured query
+controls and all 11 unchanged periodic-bleeding scenarios/measurement rows. Full Game
+builds and 323 asset-free checks pass. Successful full runs serve as GREEN without
+duplicate focused runs.
+
+The initial related gates passed 587 Windows / 588 Linux. The coverage verifier then
+identified 11 periodic-bleeding RED controls missing from that selection. Each was run
+once as a supplemental GREEN gate against the same already-built production code. The
+gates have no overlapping test names: 598 Windows / 599 Linux unique passing cases cover
+all 47 RED names. Separate raw reports and exits are retained. No source changed between
+the related and supplemental gates.
+
+Named Gold CUnitMission::GetXP at6b9890, full128 bytes, maps to actual Steam6bfaa0 through
+the independently bound mission RTTI vtable8b63cc ->8c54e4, same slot124. The complete
+method uniquely matches using ONLY two verified calls to GetXPForSkill70 and the verified
+equal-value float operand. Gold GetXPForSkill6b45a0 ->actual6ba740, full70 bytes, uniquely
+matches using ONLY six verified equal constants and real _CIpow call8268c0 ->834830. No
+frame, branch, SEH, opcode or unknown code-pointer masks. The actual periodic caller7c33cc
+uses the mission reward slot124 and stores the returned value to float at7c33d2. The
+wrapper reads mission unit118, unit skills14/index13, effective level via
+freeze2c/max18/current1c; helper receives unit+0c and reads per-unit cap vector20/index13.
+Clamp count1..6; next threshold is stored to float, current threshold is subtracted, then
+FIDIV count followed by FMUL original float coefficient. Whole CRT implementation
+equivalence is not claimed.
+
+Twenty-eight actual original executions run complete128/helper70/real CRT pow for the 14
+native-captured effective cap/level/party inputs under observed007f PC24/RN and
+diagnostic027f PC53/RN. All 14 reference quote bits match native GREEN, as do the
+separately instrumented current/next thresholds after the independent threshold fix. For
+cap15/level0, the base reward is8.258957862854004 for one eligible fighter
+and2.752985954284668 for three. The diagnostic PC53 values differ and are not the native
+oracle. Original kernel operands are effective cap/level/party only: the old native
+threshold printouts stored in the evidence were NOT injected inputs, so the same
+original28 records remain valid after the native shared-threshold correction. All
+controlled input bytes and CW remain unchanged. Six initialized-device CW/FXSAVE007f
+samples, actual original real-stack byte backup/readback, full saved WOW64 context/config
+restoration and normal WM_CLOSE/exit0. No original executable, world, DB or TEB patch.
+
+This is a pure reward calculation probe with controlled original-layout
+mission/unit/vector/level cell. It does not execute original Unit/DBrecord constructors, a
+mission, death, recipient AddXP or distribution loop. Native tests use real native
+constructors and mission query separately. The native class-cap versus original
+per-unit-cap-vector lookup remains a static observation without a new meaningful
+divergent-cap test; it is not silently claimed corrected. Periodic hostile-roster XP
+distribution and direct-attack first-incapacitation XP remain pending. Baseline database
+SHA256 unchanged. Hosted CI for the final commit of the entire task remains pending.
+Evidence: kill-reward-quote mapping, full disassembly, original kernel/oracle, exact
+RED/full GREEN and verification.
+
+Audit context: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed); independent coefficient correction, not completion of its recipient-dispatch hunk.
+
+## 2026-10-31: XP distribution after a fatal periodic pass (`aa724eca` complete)
+
+After the existing periodic regeneration/damage pass, a newly dead RPG unit now
+distributes XP to the combat-capable roster of each hostile player. The block stays inside
+the original initial !serverIsDead gate, outside the positive-bleed-only branch and before
+SyncConscious. Per-unit/player diplomacy selects only ENEMY; each hostile party receives
+its own existing clamped party-size quote and each eligible unit uses existing
+CUnit::AddXP intelligence/perk modifiers. Dead or unconscious roster members are excluded
+by existing CanFight. Already-dead callbacks do not pay again. Native
+authoritative-world/replica gating, periodic timing, damage, criticals,
+hit/corpse/attribution effects and save/network fields are retained. No authored rates or
+caps change. The independent shared-threshold and base-reward prerequisites were corrected
+in bafce7a4 and5aa0b9c9 before importing this donor hunk.
+
+Eleven real native World/TBS scenarios use authored NPC838, level0/cap15, a three-member
+party54/2/3 and an optional second distinct party54. Actual FINISH_OWN_TURN callback
+covers fatal/nonfatal damage, neutral/ally masks, exclusion of one unconscious fighter,
+repeated callback, already-dead victim, native replica, two hostile parties sharing
+scenarioID0, an empty hostile combat roster and an unconscious clue-unit
+bleeding-suppression control. Actual save/load deep clones supply existing native AddXP
+reference results per recipient. XP, LEVEL/progress, perk points and all four following
+RNG words are checked; victim HP/death and all original inputs/expected results remain
+unchanged. RED4/58 both ->full GREEN 609 Windows / 610 Linux; four changed
+scenarios0/4/5/8 now pay exactly the eligible3/2/3/4 recipients once. Seven new scenario
+controls,36 measured query controls (14 reward/6 threshold/16 AP), all11 earlier periodic
+scenarios and37 prior periodic measurement rows are unchanged. Native roster and recipient
+comparisons preserve multiplicity: distinct parties can share a scenario ID and units can
+share a persona ID. All58 RED names are in the single successful full GREEN selection,
+including the explicitly selected periodic controls. Full Game builds and323 asset-free
+checks pass.
+
+Original actual ProcessCriticalsAndRegenerations is800 bytes at7c31a0..7c34bf, not the
+donor's7c2c9d annotation. Named Gold7b6a20/797 is comparative only; no whole-method
+equivalence is claimed. Previously verified exact97-byte parent block Gold7b6a48
+->uniqueSteam7c31c8 and exact51-byte Segment clock block Gold7b73d1 ->uniqueSteam7c3b51
+with the following verified direct call to7c31a0 independently pin the entry. Full
+actual800 control flow is decoded: initial serverIsDead virtual3c skips directly to
+SyncConscious751cf0; regen/clue/KO and positive-bleed damage stay intact; both damage and
+no-positive-bleed paths reach RPGIsDead98 at7c330d. A true result enumerates all players,
+checks only enemy0, gets each party's CanFight list, counts it, calls mission GetXP124
+at7c33cc and stores its float result7c33d2. Each recipient's RPG getter58 yields its Unit,
+then CSkilledObject+c virtual AddXP0 receives that reward. Temporary weak references/list
+nodes are cleaned before the next party and final Sync751cf0. This restores periodic-pass
+RPG death handling, not a new global kill-frequency rule.
+
+Typed RTTI distinguishes CUnitServer PRIMARY VT8bec1c ->8ce204 from its CUnit
+SECONDARY+14c VT8beb74 ->8ce15c. World PRIMARY VT8bc74c ->8cbc8c slotcc GetTBS Gold76bb50
+->Steam777900 is exact11 bytes and returns World+8; the TBS SECONDARY+8 VT8bc94c ->8cbe8c
+slot30 maps named GetPlayersList Gold76aac0 ->Steam776840. Slot-context binding is used;
+the short getter is not claimed globally unique. WorldC0 maps the already-audited
+unit/player identity and per-unit diplomacy method756f60 ->7627f0. Player PRIMARY VT8bc3bc
+->8cb8a4 slot50 maps named GetUnitsThatCanFight77c420 ->787e90, whose actual220 bytes
+clear the output list, iterate units vector18/1c and append only primary CanFight44
+successes. CanFight34 matches Gold exactly and rejects primary IsDead3c or
+IsUnconscious40. Full list SEH/allocator equivalence is not claimed.
+
+The RPG receiver is IUnitMission SECONDARY+4c, VT8b63cc ->8c54e4; its unit field118 is
+interface-relative (complete-object164). Unit PRIMARY VT8b5ec0 ->8c4fd8 and CSkilledObject
+SECONDARY+c VT8b5eb4 ->8c4fcc bind AddXP0 to named Gold6b6150 ->actual6bc340. Its decoded
+prefix checks persona/name, reads effective INT16, performs .05/plus1/reward
+multiplication and optional perk61; whole474-byte logger/runtime equivalence is not
+claimed. Original WORLD/players/recipient-AddXP execution and constructors are STATIC ONLY
+here. The separate actual original complete GetXP128/helper70/CRT probe has28 records;
+current native victim cap15/level0/party sizes0/1/2/3 correlate bit-for-bit to its
+observed PC24 quote and threshold records. The native real World/death/party integration
+is tested separately. No fake original vtable/provider, original world/DB/TEB/executable
+patch or full original mission-frequency claim. The actual original math probes restored
+real-stack bytes/context/config and exited normally; no original test process remains
+open.
+
+All useful source aa724 behavior is imported. The earlier unverified balance deferral is
+superseded by typed original control-flow/math evidence and native real-world tests.
+Remaining sources56 (pending40 +partial16). Direct-attack pre-damage
+hostile-roster/first-incapacitation XP from sourcec923 remains separate work. Hosted CI on
+the final commit of the entire task remains pending. Evidence: fatal-bleeding-xp typed
+mapping/full disassembly, original reward correlation, native RED/full GREEN and
+verification.
+
+Source: [aa724eca2dd4b71a630bbdb63992f8bd8f3752ed](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/aa724eca2dd4b71a630bbdb63992f8bd8f3752ed).
+
+## 2026-11-01: hostile-party XP at direct-attack incapacitation (`c923fe9e` complete)
+
+Direct attacks now prepare the valid hostile attacker's CanFight roster and victim GetXP
+quote before base damage. An absent, unregistered, allied or neutral attacker prepares no
+award. If damage removes the target, the saved roster receives the saved reward before
+returning, without accessing removed target data. For retained targets, reward moves into
+the existing first-incapacitation block: initially neither dead nor unconscious, then
+either dead or unconscious. Killer/time attribution remains in that block. The old
+unguarded post-death lookup is removed. Existing PK behavior, scenario notifications,
+return API, save/network fields, damage and RNG remain intact; authored growth rates,
+party clamping and recipient AddXP modifiers are unchanged.
+
+The removed-target branch in the actual original has a distinct rule: its prepared payout
+does not test the initial dead/KO flags. A hit that removes an already unconscious target
+can pay. The retained-target branch alone rejects later corpse/KO-finishing awards. The
+regression explicitly preserves this original exception rather than inventing a global
+no-double-award rule.
+
+Nineteen native real-World scenarios cover first KO/death, ally/neutral/same-party death,
+already-KO death, KO followed by a different party's lethal hit,
+nonlethal/blocked/anonymous attacks, one/all KO recipients, real golden-shot and
+combat-gib removals, removed attacker nonlethal/lethal cases, death followed by another
+party's corpse hit, predead ordinary hit and pre-KO removal. Held logical RPG objects are
+independent of weak server references, so real removal is observed. Each recipient uses a
+deep native Unit save/load clone and existing AddXP as reference. XP/LEVEL/progress/perk
+points are compared after each phase, including both phases of KO/death and death/corpse
+scenarios. Duplicate persona/party IDs retain multiplicity.
+
+RED10/85 both (nine XP assertion failures plus one segmentation fault) ->full GREEN 636
+Windows / 637 Linux. All85 RED names are in each full selection; all66 prior controls and
+nine previously passing new scenarios remain unchanged. All21 phase input records and
+reference results match; all20 comparable post-hit records retain HP, damage,
+validity/death/KO, killer/time and four subsequent RNG words. The former crashing lethal
+case now returns without an award. Its input is a held valid RPG attacker mission after
+real World removal; this proves handling of the unresolved lookup, not the natural
+frequency or ownership of orphan projectiles. Baseline GDB and static objdump locate the
+fault immediately after CWorld::GetUnitServer: a null rax is dereferenced for
+GetTBSPlayer. Full Game builds and323 asset-free checks pass.
+
+Actual Steam ProcessAttack is2122 bytes at7c3dd0..7c4619, bound independently through
+CUnitServer DAMAGE secondary+8 RTTI VT8ce1fc slot0; named Gold7b7650/2058 uses VT8bec14
+and is comparative only. No whole-version equivalence is claimed. Actual receiver ESI is
+serverRoot+8. Saved initial RPG-dead/primary-KO flags are stack12/13. World primary
+slot140 maps actual762220, then null/weak checks precede diplomacy7c0160==ENEMY0. Attacker
+TBSsecondary+154 VT8ce138 slot0 maps7810f0, an exact four-byte Gold775580 getter returning
+interface+4 CPlayer; its result is null-checked. Player50 CanFightlist787e90, list
+size4d2dc0 and mission124 GetXP6bfaa0/FSTPfloat24 execute before base751570 at7c3fa4.
+Saved list14 and reward24 feed both payout paths.
+
+After base damage, target validity4099..40ac directs the removed path to4103..412c. That
+loop reads only saved recipient RPGc ->GetRPGUnit58 ->UnitCSkilled+c AddXP0; it has no
+saved dead/KO guard. Independent medal work before the loop belongs to source285 and is
+not claimed imported here. Valid targets continue at4183. First-incap44d9 rejects saved
+dead orKO, then requires RPGdead98 or primaryKO40; existing killer root1f8 and time
+root228 writes precede saved-list payout452d..455c. The original ABI has a hidden result
+structure and ret18, while our existing five-argument int-return API is preserved.
+
+Original World/constructors/roster/recipient AddXP execution is STATIC ONLY here. Typed
+dispatch and full actual control flow are audited without fake original providers/vtables
+or executable/DB/world/TEB patches. Separate actual original GetXP128/helper70/CRT
+evidence contains28 executions; every applicable captured native cap/level/party quote
+matches its reference PC24 float bits. Original math probes restored stack/context/config
+and exited normally. The test of original payout timing is static, paired with
+independently tested native real-World integration. Sourcec923 is complete;55 sources
+remain (pending39 +partial16). Hosted CI on the final commit of the entire task remains
+pending.
+
+Source: [c923fe9eaa63ed62aee9178976661a74d4daefd9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c923fe9eaa63ed62aee9178976661a74d4daefd9).
+
+## 2026-11-01: movement-immunity and range accuracy perks (`9f3c0371` partial)
+
+Two independent accuracy behaviors from source9f3 are restored. CToHitCalcer::Prepare
+applies authored perk86 to the equipped firearm's maximum range after GetInfo, using float
+multiplication then integer truncation. Minimum range is preserved. CToHitCalcer::GetSMove
+returns zero for perk19; without it, the existing first-round gate and capped-movement
+multiplication are retained. Skill preparation, aim/snipe/burst formulas, grenade
+preparation, AP expenditure, authored parameters, own rendering/audio/font and
+save/network layouts are unchanged. The full shared GetWeaponSkill producer/callers from
+this source remain pending.
+
+Ten native consumer scenarios obtain real authored perk nodes and grant them through
+existing TakePerk, with no injected HasPerk providers. Persona2/perk19 and persona3/perk86
+use equipped authored gun17, movement cap10, coefficient-.899999976, range22..50 and
+actual range factor1.25. Cases cover no movement, three moves, movement13 above the cap,
+first round, owned/unowned perks, no calcer weapon, and aimed/snap modes. Native derived
+CTileToHitCalcer executes the existing shared Prepare/GetSMove/GetD1 methods. Perk19
+changes -2.69999981 and -9 to zero. Perk86 changes max50 to62 (truncate62.5), and the real
+D1 consumer from28 to30.571428298950195, bits41f49249, using skill30 and N_MAX_SKILL140.
+All queries preserve skill, min range, movement, HP/AP, ammo, perk-point budget and RNG. A
+perk-owned zero-movement control changes negative zero to original positive zero; its
+numeric value is retained.
+
+Before production, the initial fixture build attempted to instantiate the abstract base;
+raw compiler failures are archived and are not runtime RED. Switching to the existing
+native derived calcer produced genuine RED3/60 both, with57 passing controls. An extra D1
+measurement initially assumed skill scale100 and expected34. Actual decoded reciprocal
+bits3bea0ea1 and native N_MAX_SKILL140 rejected that hypothesis before production; its raw
+records are archived. The corrected literal41f49249 derives the actual original
+coefficient and observed PC24/RN arithmetic, and the refined RED remains exactly3/60 both.
+Full GREEN 674 Windows / 675 Linux, full Game builds and323 asset-free checks pass. All60
+RED names occur in each full selection;50 prior measurement controls are exactly
+unchanged, and seven new controls retain numeric results with the explicit signed-zero
+exception above.
+
+Typed CToHitCalcer RTTI primary VT Gold8b5b9c ->Steam8c4cb4 binds Prepare54 and
+GetSMove28. Named Gold Prepare6b2140/256 matches actual Steam6b82c0 UNIQUE EXACT256 bytes,
+with zero masks. GetToHit6b85a0 calls Prepare54 at6b85a8. Actual Prepare reads typed
+maxRange atcalcer30 (weaponInfo18 +max18), calls mission HasPerk78 with86/outputfloat,
+multiplies before setting RC11, truncates with FISTP and restores the control word.
+Minimum range at2c is untouched. The captured50*1.25=62.5 is exactly representable,
+yielding62 under original truncation. Whole original-method equivalence between the two
+original releases is not a claim that our other Prepare behavior is fully imported.
+
+Named Gold GetSMove6b0d00/105 maps uniquely to actual6b6e40/105 with only the decoded FLD
+positive-zero pointer operand5e..61 relocated. Both constants independently have
+bits00000000; no opcode/frame/branch masks. FirstRound64 skips movement; otherwise mission
+moveF4 is clamped to typed ToHitConstants nSMaxMove18, multiplied by calcer fMovePenalty14
+and stored as float. HasPerk78 receives19 and three null parameter pointers; true returns
+positive zero, false returns the saved movement. Existing GetAllAdd calls SMove28
+at6b83cc. Mission secondary4c VT8c54e4 slot78 binds HasPerk6beea0, whose11-byte wrapper
+gets unit118 and jumps to native-original UnitHas6ba640; its20-byte prefix reads real
+PerksTree84 or returns false. Earlier original real-tree lifecycle/Has evidence covers
+that generic primitive; no new original19/86 grant execution is claimed.
+
+Typed D1slot1c maps named Gold6b0af0/38 to Steam6b6be0/38, with only the decoded FMUL
+reciprocal pointer1a..1d relocated and actual equal bits3bea0ea1 (float1/140). Typed
+max30/min2c/skillc feed (max-min)*skill*float(1/140)+min. Captured30/22/50 and30/22/62
+give28 and30.571428298950195, matching native measurements. Native existing division by140
+versus original multiplication by float1/140 remains a separate static precision candidate
+for other operands; there is no divergent native RED or global parity claim, and it is not
+blindly rewritten here. The candidate is retained in
+accuracy-range-D1-precision-followup.json for whole-task follow-up.
+
+Original functions/dispatch/fields are STATIC ONLY in this fix. No original World,
+mission, unit, perk19/86 or calcer was newly constructed/executed; no fake virtual
+provider or original code/DB/world/TEB patch. Native actual authored TakePerk/query
+integration is separately exercised. Source9f3 becomes PARTIAL: range86 within Prepare and
+movement19 are covered, while shared item skill, burst/aim details and grenade preparation
+remain pending. Remaining sources stay55 (pending38 +partial17). Hosted CI on the final
+commit of the entire task remains pending.
+
+Source: [9f3c03712f2a86f83fb7739891827847b2f9f645](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9f3c03712f2a86f83fb7739891827847b2f9f645).
+
+## 2026-11-01: shared item skill and original accuracy arithmetic (`9f3c0371` completed)
+
+IUnitMission/CUnitMission now share GetWeaponSkill. Actual weapon types
+SMG/MG/pistol/rifle/launcher select authored perks9/13/67/68/84; grenade RTTI selects
+THROW and91; real melee bThrowing selects THROW+89 or MELEE+70. Bonuses stay floating
+point until consumer conversion. Careful/snipe aiming adds max(0,int(extraAP +
+cappedMovement*weaponCoefficient))*float(1/3). The mission's real first-turn counter
+suppresses movement; perk19 only cancels the separate additive GetSMove term, not this
+aiming movement. Snipe AP is added once by Prepare before calling the shared getter. Burst
+perk30 truncates bullet/parameter to the integer exponent, and the original integer-power
+loop rounds every multiply at PC24 precision. Stabilization percentage is
+integer-truncated before multiplying skill; recoil uses two float stages. The final VP
+multiplier uses theoretical base+XP maximum independently of a cap-only injury; the
+existing knife VP helper delegates to the extracted identical formula. Existing knife
+Prepare/raw throwing override and its physics adapter are retained.
+
+CToHitCalcer::Prepare keeps the already imported range86/GetInfo and delegates skill once.
+CGrenadeToHitCalcer initializes shared skill before FillWeaponInfo, because the native
+legacy physical range adapter reads nSkill while filling; it then assigns the actual
+regular/engineer movement coefficient after Fill. Blindly importing the donor's base
+Prepare would read uninitialized skill and could select active firearm metadata for an
+explicitly supplied AI backpack grenade. The native adaptation preserves explicit grenade
+identity, equal legacy min/max ranges, quality/weight and active firearm/ammo. Source226
+grenade range/stance and source3cfc throw physics are still pending; this change does not
+claim original grenade physical range parity.
+
+Thirty real existing calcer cases produced genuine assertion RED17/90 both,73 passing
+controls before production. They cover all five proficiency owned/unowned pairs; burst30
+owned/unowned, first bullet and nonbinary burst99/140; fractional Careful/Snipe with
+VP.75; negative movement coefficient and real first-turn counter, perk19 distinction;
+cap-only VP; null/wrong weapon-type controls; regular/engineer/backpack-explicit grenades,
+wounds/cap-only and irrelevant knife perk89. New API raw-word comparisons and four direct
+melee API cases were added after production and are GREEN controls, not claimed baseline
+RED. Original raw PC24 return words match all34 contexts on both platforms. Full Game
+builds,708 Windows /709 Linux related tests and323 asset-free CI checks pass; all90 RED
+names are included and60 old measured controls remain exact. A first
+implementation-placement compiler failure is archived separately and is not native RED.
+
+Actual Steam GetWeaponSkill6c06d0/1244 ret0c is bound through mission secondary4c VT8c54e4
+slot188 and actual Prepare6b82c0/256. Gold named6ba630/1244 is comparative only: Gold
+FSUB6ba84b versus Steam FADD6c08eb is a genuine difference, so whole-method Gold
+equivalence is rejected. Typed skill indices SHOOT1/THROW2/BURST3/MELEE0/VP9, moveF4,
+ToHitConstantsDC/cap18, IsFirstTurn18c->6c5dd0 and Has78->6beea0->UnitHas6ba640/Tree84 are
+audited. VP174->6bf3b0->UnitVP6bb110/182 uses theoretical base+XP. Burst calls actual
+integer-power6c52a0/74, not _CIpow; double reciprocal1/140 first rounds under incoming
+PC24. Original aim float1/3 bits3eaaaaab and recoil float.01 bits3c23d70a are decoded.
+Actual original grenade Prepare is6b8890/188, not the donor comment's mid-body address; it
+calls the shared getter then RC11/FISTP and writes coefficient last. GetAllAdd6b6cc0/45
+subtracts SMove, matching the native grenade sign.
+
+Original runtime68 records are42 firearm,18 additional grenade/nonbinary firearm and8
+melee, each context under observed game PC24/RN CW007f and diagnostic PC53 CW027f. Six
+initialized D3D9/main-menu samples per probe verify original CW007f; PC53 is not the
+reference. Firearms execute actual GetWeaponSkill1244 and original Prepare256 consumer.
+Grenade/melee execute actual shared getter on real default item
+constructors/RTTI/virtuals; a wrapper reproduces the decoded original grenade truncation
+sequence, and original grenade/melee gameplay/Prepare/physics is not executed. All probes
+use real original thread stack with backup/readback and complete716-byte context
+restoration, actual real PerksTree constructor/Take/Has/destructor and real
+Weapon104/Clip108/Ammo56 constructors/virtuals/destructors. Melee80 default constructor
+and controlled typed DB bThrowing34 flag are validated; grenade100 default constructor is
+validated. Sparse actual-vtable Mission/Unit/calcer buffers and controlled typed DB record
+data are not original constructed World/inventory/DB records. No fake virtual provider or
+original code/DB/world/TEB patch; original binaries/resources unchanged, temporary config
+restored, each accepted process normal WM_CLOSE/exit0.
+
+PC53 consumer13/14 gives52 rather than original PC24 reference53,18 gives62 rather than63,
+and grenade26 gives71 rather than72 even though separate float return stores
+match53/63/72. Thus the original consumer conversion is separately checked. Nonbinary
+burst28 raw reference4144051d (12.251248359680176) differs one ULP from diagnostic PC53;
+owned29 gives418a9999 (17.32499885559082). The float integer-power adaptation matches both
+words. A first original prototype used an incorrect clip interface pointer in the weapon's
+strong root-pointer field and crashed; failed artifacts are retained, no original bug
+claim. Actual GetInnerClip adds24 to the stored clip ROOT; a corrected lifecycle control
+and all accepted68 records verify unchanged objects/refcounts and base-vtable resets.
+Source9f3 is complete with the native grenade adaptation; unfinished sources54 (pending38
++partial16). Other-input D1 reciprocal precision remains a separately retained unproved
+candidate. Hosted CI for the eventual whole-task final HEAD remains pending.
+
+Source: [9f3c03712f2a86f83fb7739891827847b2f9f645](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9f3c03712f2a86f83fb7739891827847b2f9f645).
+
+## 2026-11-01: original distance-skill interpolation precision (precision prerequisite)
+
+The D1 candidate retained after the range86 component is now reproduced in the actual
+native calcer and resolved. CToHitCalcer::GetD1 multiplies distance span by skill, then by
+float(1/140), then adds minimum range. Two explicit float stores preserve the original
+PC24 arithmetic and prevent reassociation with the final addition. The previous division
+by140 differs by one float ULP for actual gun17, owned authored range86 and shooting
+skill13: min22/max62 produced25.714284896850586, bits41cdb6db, while the original
+gives25.714286804199219, bits41cdb6dc. Existing authored skill scale140 and parameters
+remain intact.
+
+Four real native CTileToHitCalcer cases grant86 through TakePerk with real point budget
+and equipped gun17. Unowned skill13/range22..50, owned skill30/range22..62 and owned
+skill140/range22..62 are controls. Owned skill13 gives genuine assertion RED1/98 both
+with97 passing tests before production. All4 captured inputs/expectations and
+HP/AP/ammo/points/RNG remain unchanged. Full GREEN712 Windows /713 Linux, full Game builds
+and323 asset-free checks pass. All98 RED names are included,94 old measured controls and
+three new controls remain exact. The new measured value matches the original binary word
+on both platforms.
+
+Typed original base-calcer primary VT Gold8b5b9c ->Steam8c4cb4 slot1c binds named Gold D1
+6b0af0/38 to unique actual6b6be0/38, masking only the independently decoded FMUL
+data-pointer operand1a..1d. Both constants are bits3bea0ea1=float1/140. No
+opcode/frame/control or unknown pointer masks. Actual GetD2 slot20 targets6b6d60, calls
+D1slot1c at6b6d68 and immediately stores its return as float at6b6d6b. That call site
+establishes the live consumer and relevant store precision; original D2 or final shot
+execution is not a runtime claim.
+
+Eight original runtime queries execute actual Prepare256 then actual D1 38 in4 contexts
+under observed game PC24/RN CW007f and diagnostic PC53/RN CW027f. All4 reference words
+agree with the original-derived hypotheses. PC53 differs only in owned13, reproducing the
+old lower word41cdb6db, so it is not a valid substitute for the observed game mode. Six
+initialized D3D9 main-menu samples verify original CW007f. Real
+Weapon104/Clip108/Ammo56/PerksTree constructor/Take86/Has/virtual/destructor lifecycles,
+points/refcounts/base-vtable resets and unchanged objects are checked. Mission/Unit/calcer
+use sparse actual typed vtables with controlled typed DB data; original
+World/inventory/DB-record constructors are not executed. Actual original stack
+backup/readback, complete716-byte context/CW restoration, temporary config restoration and
+normal WM_CLOSE/exit0 are verified. Original binaries/resources unchanged; no fake virtual
+provider or original code/DB/world/TEB patch.
+
+This is an independently verified original-precision prerequisite for source226 grenade
+range interpolation, not a donor226 hunk. Source226's max-range1.5, stance92 and final
+integer conversion remain pending; source3cfc owns the separate remaining grenade physical
+velocity/distance/perk/PK work. The preceding shared skill component completed source9f3;
+this correction does not change source counts:54 unfinished (pending38 +partial16). No
+exhaustive D1/whole-physics parity or whole-task final hosted CI is claimed.
+
+Source: [226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4).
+
+## 2026-11-01: grenade accuracy interval, stance perk and truncation (`226b2ddb` completed)
+
+CGrenadeToHitCalcer::FillWeaponInfo keeps its existing physical base distance and quality,
+and sets accuracy maxRange=int(minRange*1.5f). The already corrected original D1 precision
+interpolates between these endpoints using skill scale140. GetStance applies authored
+ability92 by selecting GetBestPose on the actual regular/engineer weapon type, without
+changing the actor's real pose. Stock type bonuses are crawl-4/crouch-2, so GetBestPose
+selects WALK/0 and the owned perk removes either negative penalty. Standing remains0;
+unowned crouch/prone remain-2/-4. GetToHit retains its clamp2..100 and truncates the final
+positive float instead of adding.5. No physical throw velocity/limit, AP cost, authored
+field, animation, inventory ownership, save/network field, own rendering/font/audio path
+is changed. Source3cfc still owns physical velocity/distance/perk88/90/PK/Hide/executor
+review.
+
+Six range cases use actual stock regular grenade1/grams300, engineer grenade1/grams150 and
+an explicit AI backpack grenade while gun17 stays active, each at raw THROW70/140. Legacy
+base distances21/28/30/41 stay unchanged; accuracy maxima become31/42/45/61, and actual D1
+values become26/42/37.5/61. Six ability92 cases cover owned/unowned WALK/CROUCH/CRAWL
+query inputs with real TakePerk/point budgets, retaining the actual actor pose. Two
+final-conversion cases use fixed distances8/9 and actual GetToHit, requiring fractional
+parts above.5 both before and after the range change. Two boundary controls retain
+exact100 and2; the100 case advances the real mission counter before setup to remove the
+first-turn penalty.
+
+Initial exploration incorrectly required a positive authored grenade stance bonus; actual
+stock fields are negative. Its six range assertion divergences and seven setup failures
+are archived, and the setup failures are not counted as native RED. Removing that
+unsupported fixture filter gives genuine8/13 stock range/stance divergences and5 controls.
+An exploratory mode also composed existing native helpers with the public maxRange1.5
+input solely to choose fixed fractional distances; this exploratory composition is not
+baseline RED or original runtime proof and is completely removed from canonical tests. The
+final16 actual-calcer cases give genuine RED10/114 both,104 passing tests, before
+production:6 range,2 stance,2 truncation failures. All captured inputs remain fixed; no
+fake provider, future API or override replaces the actual consumer.
+
+Full GREEN728 Windows /729 Linux, full Game builds and323 asset-free checks pass. All114
+RED names are included. Of98 previous measured controls,91 are exact; the seven shared
+grenade cases from source9f3 are adapted only from the old equal-range metadata contract
+to the new1.5 maximum, retaining all other measurements including minRange, raw skill
+words and RNG. All16 new native min/max/stance/D1 values match their original PC24
+references; HP/AP/quantity/ammo/active item/pose/perk points/RNG and native
+constants/skills/weights remain unchanged. Fractional full chance changes74 ->79 and70
+->76 with the enlarged interval and correct truncation; independently, the old
+same-interval values73.7984085 and69.5231323 had incorrectly rounded to74/70. The
+post-range values79.7056656/76.716011 now truncate79/76. These full chance examples are
+native observations, not an original live-world chance execution claim.
+
+Typed named Gold grenade primary VT8b5c5c ->actual Steam8c4d74 binds GetStance18
+Gold6b1810/200 ->6b7990, Fill50 Gold6b1ae0/252 ->6b7c60 and GetToHit10 Gold6b2800/191
+->6b8950. All complete routines match uniquely with only independently decoded/verified
+call/data operands relocated. Stance's only relocated call targets independently bound
+GetBestPose73 Gold6b0aa0 ->6b6b90; its two relocated FLD positive-zero pointers
+independently hold00000000. Has78 receives92/three null outputs; pose68 is a local
+selection only. Fill's verified grid1.6f and range1.5f data pointers and exact117-byte
+_ftol2 helper relocation are the only masks. Actual maxRange30 is int(minRange2c*1.5f),
+with explicit RC11/FISTP. GetToHit's only relocated calls are exact unique41-byte Min/Max
+helpers; final6b89f4 selects CHOP then FISTP6b8a00 and restores CW. No
+opcode/frame/branch/unknown-pointer masking. Stale donor addresses and the initially
+misread Logslot14 are rejected; typed Fill is slot50, and that read-only rejected slice is
+retained separately.
+
+A four-record lifecycle smoke is followed by32 accepted actual original records in16
+contexts under observed game PC24/RN CW007f and diagnostic PC53/RN CW027f. Actual
+SharedGetWeaponSkill1244, Fill252, GetStance200, D1 38 and free MaxThrowVelocity285
+execute; raw skill conversion uses a wrapper, and original
+GetToHit191/grenadePrepare188/world/flight is not executed. Six initialized D3D9/main-menu
+samples verify original CW007f. The sampled32 observable outputs agree across the two
+precision modes; this does not replace the earlier independent D1/aim PC24 proofs. The16
+healthy stock-input base distances also agree, without claiming whole native throw-physics
+or other perk88/90/PK/trajectory parity; other original tree perks stay at default and are
+not a live-world ownership snapshot.
+
+Real original default Grenade100/Weapon104/Clip108/Ammo56/PerksTree
+constructor/Take92/Has/virtual/destructor lifecycles, points/refcounts/base-vtable resets
+and unchanged objects/typed DB buffers are checked. Actual emitted IGrenade base24/VBtable
+derives IInventoryItem80 and IGrenadeInfo92, with CObjectBase header48; no
+maximum-RTTI-offset guess. PDB CInventory pDBItem14 and grenade regular24/engineer28 links
+are supplied with controlled typed record data and restored from constructor snapshots
+before destructor calls. Actual getter thunks and PDB field offsets bind those links
+independently. Mission/Unit/calcer use sparse actual vtables, and DB records use
+controlled typed data; original World/inventory/calcer/DB-record constructors are not
+claimed. Original real stack backup/readback, complete716-byte context/CW/config
+restoration and normal WM_CLOSE/exit0 are verified; original binaries/resources untouched,
+no fake provider or code/DB/world/TEB patch.
+
+Source226's three useful hunks are complete after its independent D1 prerequisite.
+Remaining53 sources (pending37 +partial16). Physical grenade helpers/execution remain
+source3cfc work, and original final live-world chance/throw behavior is outside this
+bounded proof. Hosted CI on the eventual final HEAD of the entire task remains pending.
+
+Source: [226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/226b2ddb63dce7dcffa22e1b12c7c73c4a81f4f4).
+
+## 2026-11-01: live grenade velocity and physical distance (source3cfc partial)
+
+Existing live CGrenadeToHitCalcer velocity/range adapters now call a private shared
+GetMaxThrowVelocity matching actual Steam6b7b10/285. It queries current fractional
+GetWeaponSkill(item,first?1:0,0), uses raw strength or actual PK grenade strength, stored
+float1/18 strength/power stages, weighted double pow(grams,double(float.74)), float
+kilograms/division and authored88 multiplier. Explicit operation stores preserve observed
+PC24 and prevent fused product/add reassociation. Range uses staged velocity/gravity,
+multiply velocity, multiply float1.6, then truncation. Existing CanUnitThrowGrenade,
+script and executor consumers retain their calcer API and explicit item. No header,
+serialized field or public API changes. Accuracy1.5/92/truncation, night/per-unit turn
+inputs, script chance, fresh-restore fallback, legacy debug GetMaxImp and private knife
+wide adapters remain intact.
+
+NativePhysics0..14 use real world actors/items/Take88: regular/engineer/backpack,
+raw70/140, wounded/cap/healed VP, worn PK, night and post-Prepare damage. Authored88
+is1.1. Bare regular70 velocity corrects413795c6 ->413795c7; raw140 corrects4156a73e
+->4156a73f. Owned88 was ignored: ranges21 ->25,28 ->34, engineer30 ->36. Wounded
+shared52.5 was reduced to calcer52; corrected velocity is10.988625526428223 bits412fd169.
+Raw79 atVP.9 preserves71.0999985. A wound after preparation leaves cached calcer70 but
+current quote52.5; the live getter now gives current range19 rather than21.
+Current125/healed200/theory500 also yields52.5. The measured worn-PK control uses
+effective THROW60/human STR27/PK strength10, bits41332591/range20, unchanged.
+
+Initial PK setup after wear violated the stable-skill helper contract. Moving wear and
+attempting a constant override still violated the intended raw-skill guard. Those setup
+failures are retained separately, not native RED. An input-only diagnostic retained
+authored PK modifiers, measured60/27/10 and omitted its numeric assertion only for
+calibration. Final canonical assertions are restored with the independently
+original-derived reference for those measured inputs. Night is fixed after equipment so
+both platforms match. Genuine RED13/129 both has116 passing cases including114 prior
+controls and2 new controls; all15 input rows agree across platforms.
+
+Thirty actual original records in15 contexts execute SharedSkill1244, MaxVelocity285 and
+Fill252 integer physical range, plus auxiliary Stance/D1 with controlled unused pose/bonus
+fields. A12-record lifecycle smoke precedes the matrix. All15 PC24 velocity words/ranges
+match the fixed hypotheses. Six initialized D3D9 samples verify CW007f. Diagnostic CW027f
+gives PK41332590 instead of reference41332591; its cap-only shared float store is63 but
+extended-return integer consumer is62, versus PC24 consumer63. These diagnostic
+differences are not references. Existing complete typed285/48/helper/slot/field audits are
+retained; no exhaustive cross-CRT pow identity is claimed.
+
+Real Grenade100/Weapon104/Clip108/Ammo56/PerksTree
+constructor/Take88/Has/virtual/destructor lifecycles, points/refcounts/base-vtable resets
+and unchanged objects/typed DB data are checked. Current/healed VP and typed PK strength
+come from native inputs. Sparse actual-vtable Mission/Unit/calcer and controlled DB/PK
+buffers are not original World/PK-wear/inventory/calcer/DB constructors. Original
+cache/world/trajectory execution is not claimed: post-Prepare damage is compared with the
+free fresh-input original method. Real stack/readback, complete716-byte context/CW/config
+restoration and normal WM_CLOSE/exit0 are verified. No fake provider or original
+code/DB/world/TEB patch.
+
+The first Windows affected-suite run failed the existing
+NativeWorldMission810PartyGrenadeFlightSave fixture. The same fixture also failed
+independently on clean115 math: its script call omitted chance, whose default is0. The
+fixture now supplies100 so it tests impact/flight/save rather than scatter; corrected
+clean115 passes1/1. No test is disabled or game behavior changed for this harness
+correction. Initial failure and both baseline runs are retained separately.
+
+Full Game builds and configured affected grenade tests plus all129 RED names pass:185
+Windows /182 Linux, CI323. All114 prior measured controls and2 new controls are exact;
+all15 inputs/references and HP/AP/ammo/item/position/points/RNG remain fixed. Unrelated
+medical/XP suites are not presented as rerun. Source3cfc stays partial: fuse90/fractional
+fuse threshold, PK origins and Hide/vision remain pending.53 sources remain (pending37
++partial16); eventual whole-task final hosted CI remains pending.
+
+Source: [3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a).
+
+## 2026-11-01: grenade fuse, PK launch and concealment completion (source3cfc complete)
+
+Both existing throw consumers now skip the fuse roll entirely for actual perk90. Otherwise
+the strict99 boundary remains and the fuse threshold calls current fractional
+GetWeaponSkill(explicitGrenade,0,0), rather than cached integer accuracy. The provided
+script chance and shared gameplay generator remain intact. The removed script SRand was
+unused already; this is not a local-to-global RNG migration. Physical construction still
+consumes its existing three angular-momentum draws after the script fuse.
+
+FindGrenadeParams now receives the existing actor and reads its actual worn-PK record
+once. Ordinary launch routing is unchanged. Worn PK starts at index2 (left side) and emits
+animation side0; both executor and script launch consumers use that live solver. Run exits
+actual concealment with Hide(false,false) before paying the throw action, records its
+existing serialized vision flag6 and flushes via the already-restored AnimationFinished
+path. The restored flag survives save/load; no tag/schema/public API was added.
+
+NativeFuse0..15 covers both consumers: owned/unowned90,70/140 skill, forced99,
+cap-only79*.9=71.0999985 with roll71, and wounded52.5 with roll52. Canonical RED12/145
+both has133 passing controls. NativeHideLaunch0..2 and NativePKLaunch0..2 independently
+produce RED4/6 both with2 controls, giving16 failures /151 unique names as a union of two
+runs, not one151-case RED run. Run, real worn-PK/collider/script projectile origin and
+actual save/completion/visibility batching execute natively. Old PK origins are centered
+(squared error.390625), new origins match left offset.441941589/.441941887 and side0 in
+the measured pose. Hidden1->0, saved request0->1 and queued visibility0->1; AP cost20
+remains single-paid in the measured hidden fixture.
+
+Initial fuse exploration used nondeterministic iterator-first grenade records, including
+zero-delay Linux data, and omitted the script physics constructor's3 legitimate RNG draws.
+Those runs are retained separately and are not canonical proof. Final cases choose the
+lowest authored positive-delay grenade and account for those3 calls. The first hide-save
+fixture reused a consumed stream and faulted; explicit rewind fixes the harness before
+canonical RED4/6, whose4 failures are all game behavior and contain no setup fault. No
+fixture crash is attributed to original gameplay. The first full207/204 runs each exposed
+one launch-fixture HP invariant: worn-PK attribute modifiers had not been folded into
+derived VP, so real RegisterAction/UseSkill refreshed137->157. A separate one-case
+diagnostic retained the unchanged origin correction and isolated this normal skill
+refresh. The fixture now calls real UpdateSkills after actual wear before measuring;
+corrected canonical6-case RED is independently recaptured on116 source, then
+byte-identical117 production is restored for the final gates. No HP assertion is removed
+or production skill/HP behavior changed.
+
+Actual Steam CheckGrenadeToHitAndDelay7a1770/957 was executed in64 records:16 native
+contexts from each platform under observed PC24 and diagnostic PC53. All delay words and
+complete2064-byte ISAAC post-states match the fixed hypotheses in both modes for these
+contexts. A16-record lifecycle smoke preceded the matrix. Exact44-byte native
+SGrenadeParams and seeded2064-byte native ISAAC states are inputs to the actual helper.
+Original global ISAAC is temporarily supplied with that explicit test state and its
+complete prior2064 bytes are restored inside the kernel and verified again during context
+cleanup. Native script construction's later3 draws are outside this original helper's
+scope.
+
+Real Grenade100/Weapon104/Clip108/Ammo56/PerksTree constructors, actual
+Take90/Has/virtuals/destructors, points/refcounts/base-vtable resets and unchanged
+item/sparse RPG/typed DB buffers are checked. A sparse CDumbUnitServer.pRPG+0c link and
+controlled points0 are scaffolding, not original server/world constructors. Original real
+stack/readback,716-byte context/CW/config restoration, D3D9 CW007f samples and normal
+WM_CLOSE/exit0 are verified. No original code/DB/world/TEB patch or fake provider. The
+explicitly temporary RNG state input is distinguished from untouched code/data resources
+and completely restored.
+
+Actual original static957 shape is unique with only decoded known data/call operands
+normalized; no opcode/frame/control masks. Independent unique gate90 and float-skill
+blocks, actual typed Mission slots78/188, Has forwarding and exact unique Isaac683 bind
+the consumer. For PK/Hide, unique33/19/95-byte Find blocks and43-byte Run block bind
+actual typed worn-PK/IsHiding slots, index2, side0 and Hide(false,false)/vision58 before
+DoAction13. Original World/trajectory/Run/physics constructors were not executed; native
+full consumers and bounded original helper/runtime versus static proofs are explicitly
+separated.
+
+Full Game builds,207 Windows /204 Linux affected tests and CI323 pass. Every151 RED name
+is included,129 previous measured controls plus6 new controls are exact, all16 fuse
+fixture parameter/RNG bytes and numerical hypotheses are fixed, and
+AP/HP/inventory/position/time/points invariants pass. Unrelated medical/XP suites are not
+claimed as rerun. Combined with113 shared grenade skill,116 physical velocity/range, and
+earlier saved-item/fresh-restore/successor/animation/invalidation work, every useful3cfc
+behavior is covered. Donor declarations/helper wiring are adapted to the existing live
+calcer/shared-skill API; own first-turn/night/explicit chance/restore handling remains.
+Source3cfc is imported;52 sources remain (pending37 +partial15). Eventual whole-task final
+hosted CI remains pending.
+
+Source: [3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3cfccbee6ac4c5a231a5a6f7ec4230342c82bc1a).
+
+## 2026-11-01: held grenade priority and engineering fallback (source14ff complete)
+
+UnitSwitchToGrenade removes only two stale CGrenadeItem runtime guards after the
+already-restored DB-based held checks. It tries an ordinary held record in SLOT_1 before
+SLOT_2, activates that held slot when needed, and otherwise draws the first backpack
+grenade into the opposite active slot. An engineering grenade in either or both hands no
+longer suppresses ordinary-backpack fallback. Actual DB-successor CRPGGrenade
+classification, own null/DB hardening, active ordinary no-op, queued owner/Continue, and
+the shared draw helper stay intact. No public API, save/network schema, gameplay RNG,
+authored DB value or physical throw producer changes.
+
+New NativeHeldGrenadePriority0..8 executes real Lua and commander queue producers with
+actual regular1/engineer1 records, both ordinary hands, both active slots, engineering
+hands plus a regular backpack grenade, both engineering hands, and mixed held types.
+Canonical RED5/13 both has8 passing cases; all9 input/queue rows agree across platforms.
+Five engineer fallback rows queue0->1. Four new ordinary/mixed priority controls remain
+exact, as do3 prior measured draw/deferred cases and4 prior ordinary held cases. The
+previous8-case held test explicitly retained the unreviewed engineer no-op policy; its4
+engineer expectations now assert exact opposite-slot
+exchange/source/target/activation/actor/ordered Continue. All AP/HP/hands/backpack
+identity-order/position/time/RNG invariants remain. These tests validate actual queue
+payload production, not completed inventory exchange execution or full later animation/AP
+spend.
+
+Actual original CheckGrenade is Steam6f63c0/143 (named Gold6ec8e0/143), not the
+donor's6f61d0. Unique143-byte matching normalizes only decoded RTTI/new/call/command-VT
+operands; actual descriptors bind CRPGGrenade and CDBRecord, and actual command VT binds
+CCmdSetActiveItem. The helper reads actual GetDBItem()->pSuccessor+ac, performs original
+CRT RTTI, then either returns false or activates a nonactive ordinary held slot. Actual
+Lua handler6fb250 is independently named by embedded UnitSwitchToGrenade and the original
+name/callback registry pair9819b8/9819bc. Unique11/13-byte named Gold call/test blocks
+identify its slot0 then slot1 calls; actual success branches both exit6fb502 and failure
+immediately enters GetItems at6fb396, with no extra runtime-held guard. A proposed
+whole43-byte Gold match was rejected because branch displacements differ by3; no
+branch/opcode/frame masks were added to force equivalence.
+
+Twelve actual original classifier/Get/GetActive/realGrenadeGetDBItem/CRT-cast records
+cover empty/ordinary/engineering at both selected slots under observed PC24 and diagnostic
+PC53, following6 lifecycle-smoke records. Ordinary returns1; empty and engineering return0
+in every case. Actual CInventory RTTI slots20/24 bind the getters. Gold Get27 uses
+slots+34, while actual Steam Get27 uses+30; its actual complete27 bytes are independently
+unique. No field-offset normalization or whole-getter equivalence is claimed. A wrong
+Gold-offset assumption was rejected statically before runtime. The sparse owned
+inventory64 and borrowed8-byte slot array use actual Steam fields, with selected slot
+already active to avoid original DoCommand/world paths. This is not an original inventory
+constructor/Equip/World/Lua/queue/exchange execution claim, and controlled typed DB
+buffers are not original DB constructors. No fake vtable/provider is used.
+
+Real Grenade100/Weapon104/Clip108/Ammo56/PerksTree constructor/virtual/destructor
+lifecycles, restored grenade DB links before destruction, refcounts/base-vtable resets,
+unchanged item/sparse RPG/typed DB/64-byte inventory/8-byte slot buffers,
+complete2064-byte original gameplay RNG read-only equality, real stack/readback,716-byte
+context/CW/config restore and normal WM_CLOSE/exit0 are checked. No original RNG-state
+write or code/DB/world/TEB patch is used in this classifier probe.
+
+Full Game builds, 79 Windows /76 Linux selected tests and CI323 pass. The selection
+includes all13 RED names, configured deferred command producers, script draw/held
+requests, actual grenade flight/save/attachment regressions, script chance/fuse/PK/hide
+consumers and serialization/lock/itemmap checks. Unrelated pure accuracy,
+medical/XP/graphics suites are not claimed as rerun. Combined with earlier14 queued
+producers, opposite-hand draw, actual ordinary held activation, optional Hide boolean and
+retained valid empty-PK guard, all useful14ff behavior is covered. Source14ff is
+imported;51 sources remain (pending37 +partial14). Whole-task final hosted CI remains
+pending.
+
+Source: [14ffbcc83ea0fff503aa22386c98274a5aadd9ca](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/14ffbcc83ea0fff503aa22386c98274a5aadd9ca).
+
+## 2026-11-01: camera framing floor gates and authored PK concealment (sourcea675 complete)
+
+The live ShowTwoPlaces fast path now requires ordered desired rod<35; equality and larger
+values search. The existing private CutFloorSet respects positive freeze count, dispatches
+through virtual SetCutFloor, and publishes GetCutFloor's accepted value through the
+retained mission/render accessor. Clamp range and nested freeze therefore apply to framing
+and the camera's saved floor. CExecHide availability now checks actual worn DB bCanHide
+after the unchanged cooldown gate, rather than rejecting every worn suit. Ordinary/no-suit
+behavior, enemy visibility checks, Hide costs/Run, saved fields, camera/render bridge
+ownership, own eight-argument public framing API and renderer stay intact.
+
+NativeCameraFraming0..9 invokes the existing public real-camera framing consumer and reads
+existing desired/base serialized fields in its supported no-world context. Rod20
+and34.9999962 now keep the pose;35,35.0000038 and40 search. One-point cases independently
+isolate floor dispatch: request9 clamps2, frozen/nested-frozen stays1, released lock
+accepts negative request as0, and accepted1 is a control. Live placement, ranges,
+lock/freeze counts and gameplay RNG remain fixed. Search yaw intentionally preserves the
+fork's existing candidate order here: these tests are rod/floor branch proofs, not whole
+original framing-pose references. Original current-yaw-first ordering, tie policy and
+local-RNG details remain source1b85's next task.
+
+NativePKHideGate0..7 uses actual worn suits and real executor factory, player turn,
+derived-skill refresh, concealment/cooldown and accepted Run. Authored stealth-capable
+persona318/PK5 is admitted for explicit unhide, live-toggle unhide and visible-state
+no-op; forbidden suits and cooldown remain rejected. Five controls are exact. Availability
+queries preserve AP/HP/item/position/time/concealment/RNG; accepted unhide/toggle Run
+finishes without AP/HP/item/position change. PK hide-entry LOS/visibility and entry AP
+spending are not presented as tested by these unhide-focused gate cases.
+
+NativeCameraFramingBridge0..2 uses actual CMissionBase::CreateCamera and CMission's
+inherited floor forwarding over a real initialized menu render view/world. A fixture
+subclass only attaches/detaches those real dependencies and overrides no behavior. Its
+created camera retains the actual mission-installed accessor; only the camera's world
+handle is temporarily null to isolate publication from terrain/LOS, then restored.
+Concrete mission owner and initialized view are distinguished from complete active
+tactical-mission initialization. Request9 previously left camera9/view4; both now2. Freeze
+previously changed both to2; both stay1. No-op1 is exact. The first bridge attempt used
+menu-base floor no-ops, so its scene result was not valid forwarding evidence; it is
+archived separately and replaced before canonical RED by the concrete-mission fixture. No
+game change was made to menu floor policy.
+
+Canonical native RED is9/10 CPU-camera +3/8 PK +2/3 corrected bridge on both platforms:14
+failures /21 unique tests by union, not a single21-case run. All7 controls and all
+captured input/numerical hypotheses remain fixed. Original Steam's actual unique ordered35
+predicate is4cf196/19, called from ShowTwoPlaces4cf170; the actual fast path dispatches
+floor virtual48 at4cf1bd. Unique PK cooldown and DB-bool blocks7b3f5b/12 and7b3f7e/12 bind
+actual GetWearingDBPK slot34 and byte55, with the same rejection target before later
+visibility logic. Real typed60-byte worn-PK getter proof is retained from117. No
+opcode/frame/branch masks force those predicates to match.
+
+Ten actual original records plus4 lifecycle-smoke records execute real CBaseCamera
+base-subobject constructor4cd500/660, non-pure virtual floor43/getter/range/Freeze/Lock
+and destructor on an owned220-byte base buffer under observed PC24 and diagnostic PC53.
+All5 integer floor references match in both modes. Only floor38 changes during the
+measured setter; minBC/maxC0, freezeD4 and locks34 match actual typed fields.
+Constructor/refcount/base-vtable cleanup and other real item/tree lifecycle controls,
+complete2064-byte original RNG read-only equality around the base lifecycle, real
+stack/readback,716-byte context/CW/config restoration and normal WM_CLOSE/exit0 are
+verified. No fake provider or original code/DB/world/TEB/RNG patch.
+
+Original rod and PK predicates are static audits; original complete-camera
+framing/LOS/World/bridge and complete PK CanDoIt were not executed. Full framing with a
+null original world was rejected statically before any runtime: actual ShowPlaces
+dereferences World and adds a ninth force-pair argument versus Gold's eight, forwarding it
+to the five-argument ShowTwo. No fake world/visibility provider or speculative API
+restoration is used. The donor's factory comment4cf8e0 points into another constructor;
+actual factory4cfa70 is independently identified. Gold factory allocationsF4/E4/1c8 become
+SteamF8/E8/1cc and base ctor648 becomes660; no allocation-size/field/branch masks or
+whole-factory/constructor equivalence claim hide those differences. Only the real base
+component is used for the bounded integer reference.
+
+Full Game builds, 86 Windows /85 Linux selected camera/Hide/serialization/lock/item-map
+tests and CI323 pass, including every21 RED name. Unrelated pure
+accuracy/medical/XP/graphics suites are not claimed as rerun. All usefula675 hunks are
+imported;50 sources remain (pending36 +partial14), including source1b85 camera
+ordering/RNG. Eventual whole-task final hosted CI remains pending.
+
+Source: [a6753bf56be2d09c3b84412b4285db2ff54d6306](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a6753bf56be2d09c3b84412b4285db2ff54d6306).
+
+## 2026-11-01: camera candidate order and local probability window (source1b85 complete)
+
+The existing public two-point framing consumer first tries the current desired yaw at
+rods15/input/(input+40)/2, then the closer base/opposite angle, current yaw at40,
+secondary angle and primary at40. Strictly smaller opposite angular distance swaps
+priority; ties keep base. The two current-yaw loads continue to read the live desired
+placement as in the actual original and donor, rather than introducing an unproved
+cached-angle rewrite. The probability window is int((nSloMoTimes/3+2)/divisor) when
+divisor>1, without adding0.5. The fallback local SRand.Get(3) is evaluated before the
+force-rod condition. Own render-floor bridge, eight-argument framing API, portable random
+arithmetic and save/network camera records are retained.
+
+NativeCameraCandidate0..7 invokes the real existing public camera/frustum/serialization
+consumer in its supported no-world context. Four initial yaw values
+.125/-.75/2.4000001/-2.20000005 at rod40 wrongly selected .52359879/3.66519165; they now
+stay at their initial yaw with rod15. Four exact controls retain an already chosen
+base/opposite yaw or fast-path rod20/34.9999962. Live placement, floor, ratio and next
+gameplay-ISAAC word remain fixed. These cases isolate the first candidate group; later
+terrain/LOS-dependent groups and an isolated tie-result runtime are supported by the typed
+original static audit, not claimed as independently runtime-tested by these no-world
+cases.
+
+NativeCameraSloMoWindow0..5 binds a real FixtureWorld and its actual campaign, uses the
+existing cheat_slomo option and deterministic SRand harness initialization, then invokes
+the actual public framing consumer. At count3/divisor1.60000002, window3/1.6 truncates1
+rather than rounding2; seed1 changes roll1 to0, increments count3->4 and retains the4000ms
+activation lease. Seed3/common activation, cheat-off, divisor1 and1.5 and requested ratio1
+are five exact controls. The deliberately unframeable high target makes subsequent framing
+reset final ratio to1 on both old/new producers; counter and retained lease measure
+activation. Initial tests wrongly expected final ratio3 even after every framing candidate
+failed; those preliminary logs are archived separately and excluded from canonical RED.
+Corrected RED before any production edit is5/14 on both platforms, with9 exact controls.
+World time, live placement and next gameplay-ISAAC word remain fixed. No active final
+slow-motion duration or complete original framing pose is inferred from the all-failed
+context.
+
+The actual Steam ShowPlaces4cf350/926 is bound through its typed real camera vtable5c and
+its call to ShowTwo4cf170/474. Gold921/458 have8/4 arguments whereas Steam has9/5; the
+extra force-pair flag is outside this donor and remains a separate future source4940
+consumer task. For controlled false force-pair, actual candidate-array constants/stack
+operands, all5 real calls to TryShowPlaces4cf010 and the exact live-yaw loads4cf271/4cf2dc
+establish the order. Exact raw23-byte comparison/swap at4cf20c matches Gold4cdf3c,
+including equality skipping the swap; both actual AngleDiff calls bind4cc060 to typed
+Gold4cab80/73. The whole36-byte divide/CW-truncate/FISTP/CW-restore block from Gold4ce0f9
+matches uniquely at Steam4cf3d9. Donor's4cf349 division comment was wrong; no
+opcode/frame/field/branch masks force equivalence.
+
+Both actual local constructors call7d4d00, and the entire typed Gold SRand.Get43 matches
+uniquely7d4a20. Actual unique46-byte block4cf52a draws3 before testing forced byte, then
+selects12 or supplied rod. This local temporary has no later use on the native forced
+path, so the additional forced draw is restored from static evidence as part of this
+already failing source; it has no fabricated independent forced-outcome RED, global
+gameplay-RNG shift or separately observable future continuation claim. Original full
+camera/World/framing/LOS is not executed for this checkpoint; the prior119 real base-floor
+runtime remains separate. No original code/DB/World/TEB/RNG patch or fake visibility
+provider is used.
+
+Full Game builds, 100 Windows /99 Linux selected camera/Hide/serialization/lock/item-map
+regressions and CI323 pass, including all14 canonical RED names. Checkpoint119's three
+rod35/35+/40 angle expectations deliberately change from its documented current
+candidate-order preservation to current-yaw-first here; every other measured119 camera
+input/rod/floor/freeze value stays exact. Unrelated accuracy/medical/XP/graphics suites
+are not claimed as rerun. Source1b85 complete;49 sources remain (pending35 +partial14).
+Eventual whole-task final hosted CI remains pending.
+
+Source: [1b85f23ac337fb5f2f4d6acde5341cfe66bb757a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1b85f23ac337fb5f2f4d6acde5341cfe66bb757a).
+
+## 2026-11-01: PK pilot exit owns the forward placement (sourced44 complete)
+
+The live CExecPanzerklein::TimeLabelReached leave branch now unlocks the pilot, snaps the
+forward1.45-unit point with clear-link enabled and retains the current pose/facing, then
+checks actual path passability before detaching. Failure uses the existing Failed()
+method. On success the released shell stays at the former wearer position, takes its
+existing parked CRAWL pose with run false, and both shell and pilot simulation positions
+and real animators are re-seated. The old branch detached first, left the pilot in place
+and shifted the shell instead. No API/header/enum/packed-position/save/network/physics
+helper or worn inventory pipeline is transplanted.
+
+NativePKPilotExit0..9 uses actual authored persona93 shell, live human persona54 and
+actual initialized world/path network/wear identity. Eight directions invoke the existing
+public animation-label callback after a valid CanDoIt query; all retain the same passable
+snapped inputs before/after the production change. The pilot's old error
+.626758754..1.92586875 and shell error .883883476..1.92586875 become zero; current actual
+animation graph standing-placement errors also become zero.
+Position/facing/pose/empty-versus-worn identities, callback false, AP, healed-wound
+amount, shell HP, inventory-object identity and world time are checked. These are bounded
+real callback/animation-placement tests, not a completed queued action, AP-spending or
+full animation timeline claim. Two exact query controls retain ignore-target rejection for
+a worn suit and invalid-command rejection for an unworn pilot, with fixed
+AP/position/time/inventory/next gameplay-RNG word.
+
+Initial first-free-footprint selection placed three directions against a map border
+without a distinct valid snapped exit. Those preliminary logs are archived and excluded
+from canonical RED. The corrected input selection uses actual geometry/passability before
+wear, independently verifies the reference after actual wear/Unlock, and reproduces eight
+actual callback failures before any producer change on both platforms: canonical RED8/10.
+Selection does not depend on a future helper or on changed producer results. No DB edits,
+fake path network or animation provider is used. A separate blocked-abort runtime is not
+claimed; that guard is supported by the exact original branch audit.
+
+Actual original TimeLabelReached is independently located through named
+RTTI/CExecPanzerklein root vtable8ccbe4 slot1c at Steam7a64a0/1058, versus typed
+Gold799ff0/1058. Donor7a5e9c/Gold7a5a5c comments are stale and rejected. The
+whole1058-byte typed function matches uniquely after masking only decoded E8 call-address
+operands and separately checked same F32 constants1.4500000476837158/1, named RTTI
+descriptors and a valid compiler-EH thunk/FuncInfo19930520. No
+opcode/frame/field/branch/size masks. Comparative Gold PDB callee labels identify the
+corresponding actual call sites and argument flow; this does not claim independent
+whole-function equivalence for every Steam callee.
+
+The actual unmasked method reads pUS14/action1c/wornPK1cc and CUnit secondary14c, agreeing
+with the typed fields. It unlocks at7a6529, snaps with clear-link true at7a659a, passes
+original pose/facing, calls path virtual3c at7a667c and rejects nonzero before
+Flip(null,true,true)7a66b7. Actual failed state2 is set before any detach. Shell
+Wear(false)7a6734 is followed by shell SetPosition/PlaceUnit7a6740/7a674d using local28;
+pilot SetPosition/PlaceUnit7a675a/7a676a use the distinct local1c. Both animator
+subobjects are actual58. The native source keeps its own enum/type/helper ABI. Original
+World/exit/animation runtime is not executed for this checkpoint, and no original
+code/DB/World/TEB/RNG patch is used. No original bit-level trig/snap parity or full
+post-callback RNG parity is inferred from the native cases.
+
+Full Game builds, 116 Windows /117 Linux selected
+PK/placement/equipment/corpse/repair/critical/presentation/serialization/lock/item-map
+regressions and CI323 pass, including all10 canonical RED names. Unrelated
+camera/medical-XP/graphics suites are not claimed as rerun. All usefuld44 hunks are
+imported;48 sources remain (pending34 +partial14). Sourcec941 death/stun/corpse gates
+remain separate; its base placement checks already use this fork's previously tested
+direction-aware helper. Eventual whole-task final hosted CI remains pending.
+
+Source: [d44bba0e1f5ecb91f589ef70e205eb0cacfc6285](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d44bba0e1f5ecb91f589ef70e205eb0cacfc6285).
+
+## 2026-11-01: PK collapse, stun and ordinary corpse refresh gate (sourcec941 complete)
+
+The real worn-PK fall path now sets animator poseCRAWL, copies the position while changing
+only its pose bits, aligns time and plays authored clip2484 for standing or2466 otherwise
+with the existing hold-last-frame flag, then emits authored world sound16584. The same
+helper runs after a stunned wearer's actual damage-provider call before later world
+consciousness reconciliation. Ordinary corpse position/hit-location/update refresh
+excludes valid worn PKs; it previously snapped downed wearers to the collapse/standing hip
+as human corpses. The live wearer keeps its logical pose/facing/position and locked shell
+identity. The two placement hunks are already covered by this fork's previously tested
+IsBigLockerPlacePassable in both PlaceOnPassablePlace loops: real standing anchor
+clearance, full direction-aware footprint and flying-final handling are retained instead
+of replacing it with a weaker lock-only test.
+
+NativePKCollapse0..6 uses actual world/human54/authored suit93/real wear and existing
+Kill+SyncConscious, MakeUnconscious and actual ProcessAttack with persistent STUN. Death,
+ordinary KO, scripted KO with death-animation flagfalse, nonstanding death and nonlethal
+STUN now each produce exactly one positive-duration authored collapse clip, internal
+idle-ban hold policy and sound16584; all five previously produced no such clip/flag/sound.
+Human scripted KO and worn zero-damage/no-STUN are exact controls. Logical position,
+run/facing/pose, worn-shell identity, shell HP and world time remain fixed; captured
+AP/HP/consciousness outcomes stay identical, including expected actual death HP-4095.
+Freeze is observed as the actual existing policy flag and scheduled clip duration; future
+held bone frames are not separately sampled by these cases. Native data/DB/sound/animation
+providers are used without record edits or fake providers.
+
+NativePKCorpseGate0..3 calls the existing CDumbUnitServer::Segment component on real fresh
+dead/unconscious wearers, a plain human corpse and a living wearer. The existing
+GetCorpseHLs consumer changes from6 generated human-corpse hit points and moved logical
+position to0/unchanged for both downed wearers. Plain human corpse still generates6 and
+living wearer0; both controls are exact. Worn/consciousness/AP/HP/time controls remain
+fixed. These are bounded base-segment/cache tests with actual world, not a complete active
+turn/AI/render iteration. Canonical unchanged-producer RED7/11 on both platforms is the
+first valid run; four controls and all captured inputs remain exact.
+
+The actual typed CDumbUnitServer attack entry is bound through named RTTI/secondary8
+vtable8cb054 to751570. Its exact original STUN gate7516a1..7516cd calls the actual
+collapse helper74fa60; the independently decoded actual Fall750ec0 also calls the same
+helper at750fa9. Worn DB virtual34 is backed by the retained typed60-byte getter proof.
+Actual helper is223 bytes, takes two optimized register arguments plus a stackWorld and
+returns4; it copies bRun byte8 before changing only copied pose bits, selects2484/2466,
+calls exact unique AlignTime19 at73b0e0, then PlayCustom73fe20 with true. Actual
+PlayCustom tests its third bool after PlayAnimation and sets skeleton-state idle-ban bit1.
+It looks up16584 and dispatches typed actual CWorld root8cbc8c virtual130 to
+MakeSound761b80.
+
+Gold's typed PanzerkleineDeathAnimation7444c0/137 merely places the copied prone pose with
+two optimized register arguments/RET0; it does not contain Steam's new authored clip/sound
+behavior. Whole Gold-helper equivalence is explicitly rejected. No
+register/frame/opcode/size masks or stale donor74f660/74f310 comments conceal the
+version/ABI change. The native helper adapts the independently audited Steam behavior
+through this fork's existing C++ APIs. Original Segment745ac0/615 instead matches
+uniquely7510b0 after masking only decoded E8 call addresses, validated compiler-EH
+metadata and independently equal F32 constant2; its opcode/frame/field/branch bytes remain
+exact. The raw26-byte valid-worn-DB skip at7510ed matches Gold745afd and branches before
+the human snap/HL/update block. Original World/clip/audio/Segment were not executed; no
+original code/DB/World/TEB/RNG patch or fabricated provider is used.
+
+Full Game builds, 127 Windows /128 Linux selected
+PK/placement/equipment/corpse/repair/critical/presentation/serialization/lock/item-map
+regressions and CI323 pass. All11 RED names and existing direction-aware placement tests
+are selected; all10 prior121 pilot-exit measurements remain exact. Unrelated
+camera/medical-XP/graphics suites are not claimed as rerun. All usefulc941 hunks are
+imported or already covered;47 sources remain (pending33 +partial14). Eventual whole-task
+final hosted CI remains pending.
+
+Source: [c94140922b034b3e11dd9e2a1d740d32c559e488](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/c94140922b034b3e11dd9e2a1d740d32c559e488).
+
+## 2026-11-01: hearing probability, quiet practice and crawling noise (source242 complete)
+
+The actual RPG hearing consumer trains SPOT and its associated INT only after successful
+quiet-sound detection; guaranteed loud hearing consumes its existing d99 but grants no
+practice. Perk20's SPOT product truncates, and perk76 modifies loud sensor range only
+inside a valid nonzero PK-sensor branch. A null source takes the existing hard-range
+branch before any quiet-source dereference. Float-clamp-to-int truncation already matched
+and stays intact. SetPosition emits no position-update movement-noise event for crawling,
+while walking/stance-change/turn rules remain. The quiet-step77 silencer uses1/coefficient
+for any positive coefficient. Own MissionRandom provider, training math/learning/perk
+caps, nullable-interface contract, packed sound/position/save/network types and
+actor/physics/rendering pipelines remain.
+
+NativeHearingProbability0..5 loads actual authored data and uses real RPG missions,
+granted real perk nodes and stable live skills. The fractional perk20 input
+SPOT1/factor1.5 is compared with an independently queried unperked SPOT1 reference,
+distinguished from unperked2 before the actual producer measurement: probability71->70 at
+distance.25. Integral SPOT2/factor1.5 matches reference3 unchanged. Perk76/factor1.5 on a
+human at14.6428566 no longer extends the actual unperked range:100->0; a real authored
+PK-sensor record at0 remains100. Quiet record3/radius2 with a null source previously
+segfaulted and now returns100 with quiet-outputfalse; the actual DEAF early return
+remains0/false. The inputs are identical across the corrected RED/GREEN and both
+platforms; queries retain AP/HP/SPOT progress/next gameplay RNG word. This null-source
+crash is a genuine existing public-consumer failure, not a malformed fixture/provider
+substitution.
+
+NativeHearingPractice0..3 uses actual mission.CanHearSound and an independently trained
+real-unit reference. Loud record8/radius40, probability100, seed1/roll95 previously added
+SPOT progress.00779656228 and INT progress.0000207908342; both now remain0. Quiet success
+seed2/roll63 retains exactly that native practice; quiet95/roll95 and out-of-range loud
+misses remain untrained. All skill cells match the independently prepared references.
+Hearing result, authored sound/seed/roll/probability/XP pool1/AP/HP and the four-word d99
+continuation remain fixed. This checks actual fractional skill progress rather than an
+invented training counter.
+
+NativeMovementNoise0..3 uses actual initialized world, ordinary actor and newly deployed
+real same-player listener. A real loud sound is first sent through World.MakeAISound to
+establish the actual known-audible state, then its prior event and fractional SPOT/INT
+progress are cleared before the measurement. Existing SetPosition at identical crawling
+pose/facing previously emitted a real heard event with a retained noise marker; it now
+emits none. Walking still emits one, a change to crawl and a crawl turn still emit none,
+with actual target/AP/HP/time fixed. These are actual world event/marker observations, not
+a fake hearing/visibility provider or a waveform claim. The first fixture wrongly required
+the same-player actor in the TBS visible list; those four setup failures and an initial
+missing-complete-DataAI include build failure are archived and excluded. Corrected
+canonical RED is5/14 both:4 runtime assertion failures plus the valid null-source SIGSEGV,
+with9 exact controls. No producer changes preceded canonical RED.
+
+Named CUnitMission RTTI maps Gold4c-vtable8b63cc to actual Steam8c54e4:
+GetHearingProbability slotd4 is6c0090/517 and CanHearSound slotd8 is6c2fa0/179. Original
+probability517, MakeStepSound285 at750330 and SetPosition742 at752050 each match whole
+typed Gold bodies uniquely with only decoded E8 call-address operands, validated
+compiler-EH metadata and independently equal F32 constants masked. Their
+opcode/frame/field/branch bytes remain exact. The original SPOT product's36-byte
+CW-truncate/FISTP/restore block is exact, null-source JE6c015a enters hard range6c021a,
+and PK null/zero-sensor exits skip the entire perk76 block. Original positive77 FCOMP0 and
+reciprocal are in the exact whole285 body; that positive-coefficient edge is independently
+static evidence, not a separately isolated native0..1-coefficient outcome. No authored
+perk parameter is changed for these tests.
+
+Gold CanHearSound182 and actual Steam179 differ in the successful quiet-training call:
+Gold calls the unit directly via118, while Steam adjusts the mission root-4c and
+calls6c1fb0. Whole-method equivalence is rejected without opcode/frame/branch masks. The
+independently decoded actual caller passes a quiet-output pointer to virtuald4, consumes
+exactly one shared ISAAC9ca918/mod99 draw, rejects roll>=probability and then gates SPOT6
+mission practice on the quiet byte at6c3034. The original distance constant is actual F32
+1.6. Native keeps its own proven provider and training implementation. Original full
+World/hearing/ISAAC runtime is not executed here; no original code/DB/World/TEB/RNG patch
+or fake provider. Stale donor6c2ff0/751c94/74ffd0 comments are replaced with independently
+audited actual entries/blocks.
+
+Full Game builds, 220 Windows /221 Linux selected
+hearing/noise/practice/learning/PK/audio/serialization/lock/item-map regressions and CI323
+pass, including all14 canonical RED names. All21 prior121/122
+pilot-exit/collapse/corpse-gate measurements stay exact. Unrelated
+accuracy/camera/graphics suites are not claimed as rerun. All useful242 hunks are imported
+or already covered;46 sources remain (pending32 +partial14). Source171 heard-AI camera
+dispatch remains separate. Eventual whole-task final hosted CI remains pending.
+
+Source: [242f6dfd827d93014c4210980f9d1c4af2a45b67](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/242f6dfd827d93014c4210980f9d1c4af2a45b67).
+
+## 2026-11-01: heard unseen AI camera and live RPG ownership identity (source171 complete)
+
+World.MakeAISound queues the existing CUICmdPointCamera after successful hearing when a
+human RPG listener hears an AI RPG source absent from that listener's real TBS-visible
+list. Prior audibility does not suppress repeat focus. Payload: source CP/floor,
+priority0, no slo-mo, probability0, noZoomtrue, dwell0. Existing mission camera
+arbitration consumes the command. This change checks producer queue/payload; it does not
+claim a full camera-animation/UI or original World runtime reproduction.
+
+The native saved RPG AI flag had no live writer, so the donor branch alone would be dead.
+Restore the original SetPlayer AI-snapshot binding and call that path from the real
+gameplay constructor. Append a nonpure setter without reordering current interface slots;
+existing concrete field/tag46 already exists. Ownership reassignment refreshes it; a
+commander-only change retains its saved snapshot. Original SetPlayer scenarioID/cheat128
+bookkeeping is outside this prerequisite. Existing serialized snapshots are respected;
+this does not rewrite old saves containing false flags.
+
+Canonical RED15/33 both:6 ownership assertions,5 actual heard-sound camera assertions and4
+actual difficulty-damage assertions. Authored difficulty rows remain untouched. GREEN33/33
+both plus416 Windows /414 Linux related regressions with identical production bytes, full
+Game builds and CI323: combined distinct passed coverage449/447. Final batches35/35
+include the33 new cases and two portable camera-wire checks; those2 Linux targets were
+missing from the initial build selection, so they were explicitly built and rechecked in
+the final batch. Eighteen new outcome controls pass; all35 prior hearing/noise/PK
+measurements match123. Initial mode2 omitted GivePlayerTurn but still hadTBS1; its
+unasserted setup is archived. Corrected mode2 uses actual StartSequence with explicit
+ownerless-sequence/TBS0 assertions. Repeat canonical RED restores both old live producers;
+the appended unused setter and assignment-only ctor call add no live flag/camera behavior.
+
+Original static: named CWorld root VT8cbc8c slot128 ->76b320/1316; whole1316 uniquely
+matches Gold75f940 only decodedE8/validatedEH/equalF32/namedRTTI+PointCameraVT operands.
+CUnitServer+168 is typed CTBSUnitVision, distinct from audible set+164. Saved mission AI
+getter6c5d90/7 and setter6c5da0/13 match exactGold; setter slot1a8. Whole SetPlayer139
+at7c1d70 uniquely matches Gold7b55f0 with decodedE8 only; actual classifier473ce0 excludes
+SequenceCommander. Actual gameplay ctor7c46f0 has unique validatedEH45 entry,
+actualcall7c499a ->SetPlayer andRET1c. Whole ctor comparison is rejected: extra Steam
+members/EHstates differ. Actual CalcStructDmg68f670 entry64 and raw exact unique62-byte
+flesh/AI/difficulty gate68f72d independently verify savedAI ->enemy+60 versus
+human->our+64. No opcode/frame/field/branch/size masks, fake provider or original
+executable patch; zero new original runtime records.
+
+Source: [1715d48307f8282d20192425599c5b4253c335ea](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1715d48307f8282d20192425599c5b4253c335ea). Whole-task final actual-head hosted CI remains pending;45 sources remain.
+
+## 2026-11-01: whole-hull cover projection, extended raster bounds and normal range caps (source01eb complete)
+
+CalcCovers centers its native projective grids on HL_ANY; the requested body part is still
+filtered by the unchanged AddGridToCovers walk. For unit center distanceD, extend the
+raster frustum toP=max(.1,max(30,D+2)) and scale both primary/secondary half-squares
+byP/D. Both grids retain the normal penetration limitmin(D+1,30), including the non-AI
+path. For a tile at distanceT, useD=T-.625, extend its raster frustum
+toP=max(.1,max(30,D+2)), scale its1.25 half-square byP/D and retain min(D,30) penetration.
+Own trace masks, radial-unit/projected-tile interval rules, later part filtering,
+stack-grid ownership and public/save/wire types stay unchanged. The complete
+AddGridToCovers source block is byte-identical to124.
+
+Canonical native RED15/22 both:6 actual body-part/whole-hull-axis failures,6 actual
+delegated native-map/frustum failures and3 existing native closed-box raster/cover outcome
+failures. Seven new outcome controls pass; all captured input/AP/HP/pose and4-word RNG
+controls stay fixed. Native GetHitCover is a cover weight, not a percentage chance:
+the40-unit human target previously returned positive weight and now blocks; actual ally
+clearance at the tile's original0.625 pullback and30-unit cap now stays outside the walk.
+Closed-box geometry is an input to real CFastRenderer/cover traversal; no fabricated
+intervals or returned scores. Native map/hull delegation covers the real authored objects
+for center/frustum checks.
+
+Final affected38/38 both plus371 Windows /372 Linux other related passes, unchanged game
+bytes across those runs, full Game both and CI323: combined distinct passed
+coverage409/410. Broad regression4 failures came only from old controls assuming uncapped
+non-AI33-unit reference or tile30.25-.25=30 plane. The corrected controls choose
+directions through a separate actual29-unit positive/blocked native reference and use the
+original tile plane30.25-.625=29.625 with sliver/near/far geometry on either side. They
+still verify real target intersections,3D versus horizontal range, radial versus projected
+tile cutoffs and genuine ally blocking. Game conditions were not changed to satisfy them.
+All33 prior124 ownership/difficulty/camera measurements match exactly. No single
+all-green409/410 CTest batch is claimed.
+
+Original static: typed CalcCoversGold68d940/933 ->Steam6938a0/933 and tileGold68dcf0/540
+->Steam693c50/540 each uniquely match complete bodies. Masks are only decodedE8 operands,
+validatedEH, equal F32 constants and named FP_TAN_PI8: Gold9b68f4 ->Steam9c7bec is
+independently bound by its sole use and unique17-byte same-F64-input FPTAN
+initializerGold894ab0 ->Steam8a3c70. No opcode/frame/register/field/branch/size or
+unknown-variable masks. Actual69390e push-1 selects whole hull;693d29 subtracts0.625;
+actual693ad6/693bd4/693e0d apply the explicit-range min cap. The original generic
+functions accept a range parameter; they are not inherently fixed30. Actual AI693e9c and
+normal human unit/tile callers6b5ad3/6b5b83 plus shot/cannon6b60a2/6b65c6/6b62a2 pass30.
+This tree retains its fixed30 public cover adapter; custom splinter ranges on other paths
+are untouched. Whole Gold human wrapper matching was rejected; actual wrapper
+prologues/calls/arguments were decoded separately. Zero new original runtime records; no
+original full World or firing/UI timeline claim.
+
+Source: [01eb873b41cd2c8b9ce2d7b81835d2e00d492118](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/01eb873b41cd2c8b9ce2d7b81835d2e00d492118).44 sources remain; whole-task actual-final-head hosted CI pending.
+
+## 2026-11-01: particle half-texel margins and grass cell insets (source24c1 complete)
+
+GetTransparentTexturePlace accepts a pixel margin, default0.5, and
+uses(min+margin)/holderSize and(max-margin)/holderSize before the existing packed-UV
+conversion. Grass requests the whole sheet with margin0, splits its existing integer UV
+span, then insets each cell by the separately packed0.5/holderSize per axis. Existing V
+reversal, sprite selection, geometry, color/depth and texture ownership remain. Public
+argument defaults preserve all existing two-argument callers; no texture asset or PNG
+generation, cache format, shader or save/network layout change.
+
+Canonical native RED9/14 both: actual rain output fails5/6 cases (three1024 allocations
+and two4096 NPOT19 right-edge cases); actual grass output fails four1024 grid1/2/3/4
+cases. GREEN32/32, full Game both/CI323. Five HD outcome controls match exactly; all
+geometry/color/depth/quad-count hashes and4 shared RNG continuation words remain exact,
+with real cache-region/owner identity retained. A resource node supplies actual allocated
+native bgfx textures; existing rain/grass AddParticles performs the UV and quad work and
+an existing IParticleOutput capture records the result. This is native GPU
+allocation/output integration, not a rendered-pixel screenshot or universal visual-seam
+claim. Related tests include actual bgfx renderer, graphics options/HD-cache switching,
+selection stencil, resource cleanup/cube filtering, sampling and particle wire checks.
+Initial fixture CObj/rectangle API compile errors and Linux's initial three unbuilt
+sampling-test executables are archived and excluded; the final executable preflight and
+both suites pass.
+
+Keep the own RGBA8 atlas sizes1024/HD4096 and native2048 packed-UV scale. A physical half
+texel can quantize away on even HD boundaries; the even-HD rain and four HD grass controls
+intentionally preserve that representable result. NPOT19 boundaries still isolate native
+nearest-even rounding (e.g.4096 right edge packed2042 ->2041). Do not change the global UV
+scale/wire to fabricate a sub-UV-unit margin, and do not claim exact half-pixel HD
+precision. Existing HD resources and renderer formats remain intact.
+
+Original static: typed GetTransparentTexturePlaceGold53ee40/481 ->Steam540f70/481 and
+GetGrassTexturePlaceGold53f030/678 ->Steam541160/678 uniquely match complete bodies with
+only decodedE8/validatedEH/equalF32 operands. No
+opcode/frame/register/field/branch/size/unknown-global masks. Actual grass541185 pushes0
+into540f70, and5411c1/5411cf use0.5/size with2048/FISTP packing. Named
+CGrassParticleEffect VT8b8bfc slot10 ->actual541f90 calls grass helper at5420a5;
+CRainParticleEffect VT8b8c64 slot10 ->543070 calls InitTexturePlaces541410 at543119.
+Init's unique60-byte entry and actual5414ef literal0.5 ->5414f7 bind the default call.
+Whole GoldInit302 matching is deliberately rejected because nDGCurrentFrame absolute
+operands remain unbound/unmasked. No whole consumer-body equivalence or original
+renderer/World runtime claim; zero new original runtime records.
+
+Source: [24c1eca77dbcf2eff5feaa8ef603f390df93f7fb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/24c1eca77dbcf2eff5feaa8ef603f390df93f7fb).43 sources remain; whole-task actual-final-head hosted CI pending.
+
+## 2026-11-01: retain RGBA8 and HD atlas policy (source67d excluded)
+
+The complete two-file source restores the legacy16-bit conversion path, shared A4R4G4B4
+atlases and matching cache debug colors/assertions. Retain the remaster's intentional
+maximum-quality policy: SetModeFromConfig calls ApplyMaximumQuality, CV_VHIGH disables
+gfx_16bit_textures, both current atlases use RGBA8, and the transparent atlas
+keeps1024/HD4096 resource switching. Current CFileTexture has no LoadConvertTo16Bit path;
+its existing RGBA8 average-color fallback already passes eUsage. Thus every new source
+hunk is specific to the removed16-bit mode; there is no remaining independent ownership
+change to import into the supported pipeline. Classify excluded-own-behavior, not
+already-covered or an original-accuracy restoration.
+
+Documentation/ledger only. The production tree is identical to verified checkpoint126:
+full Game builds both,32Windows/32Linux actual native selected tests including
+GraphicsOptionsRuntimeTests/HD switching, bgfx renderer, particle/grass atlas output,
+sampling/resource cleanup, and CI323. These are reused unchanged-production results, not a
+new test run. No manufactured native RED, new original binary claim, original runtime
+record, gameplay balance/AP/RNG/save/wire or texture asset change.42 sources remain;
+actual-final-head hosted CI remains pending.
+
+Source: [67d766bc791c9207624bce8753fbe7b56a56e704](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/67d766bc791c9207624bce8753fbe7b56a56e704).
+
+## 2026-11-01: global-map desktop ownership, draw refresh and globe selection (sourceb91 complete)
+
+Own the global map through the existing CDesktopWindow list and client view. Normal entry
+constructs CGlobalMapUI/template175; unsaved cheat_global_xcom selects the existing
+CXComMapUI/template446, default false. CGlobalMapUI derives from the real desktop and
+delegates template messages/drawing to it. Refresh polygon hover and base-zone
+recommendation flashing during Draw, independently of a preceding Update. Earlier imports
+already supplied Initialize's bool/error guard, complete CMissionBase save chunk and
+native logical-world/script setup; keep those adaptations, shared audio, adaptive layout
+and own2D frame clock/renderer.
+
+Retain old remaster saves. New UI writes use the native nested desktop base at outer tag1;
+the reader detects the old flat CWindow payload by its absent nested tag1 and reads it
+directly. Read-only HasChunk inspects the current save chunk without consuming fields.
+OnSnapshotRestored restores only missing desktop-list/client references after the full
+graph loads, without replaying templates or duplicating children/desktops on repeated
+restoration. Existing class IDs and LAN type registration remain. This deliberately
+changes the desktop base's saved nesting/state while supporting the old layout; do not
+claim identical save bytes.
+
+Canonical actual native RED7/10 both: missing desktop, ignored globe selection, stale base
+flash, missing Draw-only polygon hover and normal/globe/legacy native graph restoration.
+Controls3/5/8 pass. GREEN10/10 both, then208Win/181Linux distinct selected coverage, full
+Game builds both/CI323. Windows is one all-green selected batch. Linux's initial181 batch
+passes179 but times out on ordinary Game startup/quit and a native LAN preparation
+save-policy probe. Both pass in a focused unchanged-code retry17.47/17.59s with explicit
+headless audio/owned runtime directory; source hashes are verified unchanged and raw
+initial logs retained. No single all-green181 Linux batch or proven unique timeout cause
+is claimed. All10 new and14 prior global-map script/legacy-world probes pass. Complete
+actual object graphs preserve campaign XP50, logical-world/UI identity, child views and
+exactly one restored desktop after two restoration calls; actual Draw tests use cursor
+input only and observe existing native UI state, not supplied outputs. No original UI
+runtime or rendered-globe screenshot assertion. Initial private-serializer fixture compile
+error, wrong static CWindow rectangle hit-test input and missing initial Linux
+registration are archived and excluded from canonical RED.
+
+Original static independently binds named CGlobalMapUI VT8bd58c slot30 to actual
+Draw5e51c0/327, not stale comment5e51d0. Actual sector virtual hit/update slots34/38 set
+selected bytea0; calls700ce0/7014c0 choose base/recommendation,5beb50 stores flash bytec4,
+then named CDesktopWindow Draw5d1880. Named CICContinueGlobal VT slot10 actual5e3830 calls
+Initialize5e3140 at5e38d0; actual show command separately calls it. Initialize's9c74b4
+byte is independently bound to literal cheat_global_xcom registration at5e4511/5e452e,
+with no BSS-value assumption. Actual normal/globe constructors5e5310/63f5f0 write the
+named VTs, templates175/446 are literal operands, and actual map virtual slot104 calls
+PushDesktop5a3bf0. Gold PushDesktop slotfc differs and is decoded separately; no
+slot-layout assumption. UI save slotc actual5e7120 writes base tag1 through5b0390 ->named
+desktop serializer5af950. Gold321 Draw/1784 Initialize whole-body matching is rejected
+because layouts/call spacing differ; no opcode/frame/field/size/unknown-global masks or
+copied retail offsets. Zero new original runtime records. All3 source files accounted;41
+sources remain, actual-final-head hosted CI pending.
+
+Source: [b91ea228f2a5443af74d0ae728e24410f7d90fad](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b91ea228f2a5443af74d0ae728e24410f7d90fad).
+
+## 2026-11-01: shared fixed raster edges with original projective guard planes (sources703/3bd complete)
+
+Route generic RasterTriangle into the already-present16.16 edge walker and remove the
+unused float-edge implementation. Preserve its existing unsigned32 wrap handling, fixed
+helpers, each consumer's span/depth code, projection matrices, public NoClip/Fixed entry
+points and projected-point layout. Keep the original near plane0.01 and add the four
+original guard distances z-x*0.001, z+x*0.001, z-y*0.001, z+y*0.001 before perspective
+edge walking; accept all five planes before rasterizing and recurse to the next plane
+after intersections. This bounds projected coordinates near+/-1000. Original stores a
+temporary clip distance at+18 in its projected-point record; recompute it from the current
+plane instead of copying that ABI into the own24-byte record. Preserve the existing
+MSVC/Clang unreachable spelling for impossible private switch defaults.
+
+The two sources are an atomic dependency. Publishing fixed edges without guard clipping
+corrupts real native large-projection intervals: pixel counts can still be1024 while
+depths become large negative numbers or zero-length/extra intervals. First native
+closed-box/software-fog RED6/16 both ->16/16 both. Then20 independent projective cases
+produce canonical15/20 RED both against that unguarded intermediate. Actual CFastRenderer
+projection directions feed an independent double slab oracle for closed world boxes:
+twelve radii5..50000, four entirely outside and four half-frustum boxes, literal
+expected1024/0/512 cells, full per-cell interval/source-chain/depth checks and4 RNG
+continuation words. Native guard clipping restores all20; combined36/36 both, ten generic
+outcome controls exact. WrongSource in raw guard diagnostics includes extra interval-chain
+nodes, not only object-ID mismatches.
+
+Final439Win/435Linux single selected batches all green, full Game builds both/CI359, all36
+new cases included in the asset-free suite. Before the guard fix,14Win/11Linux existing
+night/awareness/knife/called-shot/AI-cover checks failed. They recover unchanged: old
+fixture/assertion lines were not deleted or weakened, and focused affected-only checks
+plus both final suites pass. Initial unguarded full runs remain archived. Initial Windows
+test-oracle min/max and near/far macro compile errors are separately archived and excluded
+from canonical RED. Related cases exercise
+cover/composite/accuracy/melee/ranged/vision/voxels and actual healthy bgfx rendering,
+filtering, stencil and geometry. No rendered original-game image or original runtime
+claim; zero new original runtime records.
+
+Original generic static: complete typed true-color/fog/bump triangle1328 bodies bind to
+actual40d410/40e700/410190 through independently unique971/201/3386 pixel
+spans40dac0/40eda0/410870 and lower383/363 bodies40d940/40ec30/4106c0. Complete fast-cover
+triangle1238 ->494180 through unique363 lower494010; shadow-parts triangle1248 ->5786d0
+through unique769 lower578120. This disambiguates initially identical template signatures
+by decoded consumer calls. All five show equalF3265536/0.5, FISTP, add0x8000 and
+signedSAR16. Original parts uses SFixedZIterator; that is edge-policy evidence only. The
+separate integer-shadow-depth source remains pending; do not claim its depth
+implementation is imported here.
+
+Original guards: complete496 clipped functions bind fast494660 and parts578bb0; complete81
+one-triangle helpers493c40/577910,98 two-triangle helpers494850/577970 and shared122
+interpolation493bc0 bind through the already-proven actual triangle callees. Decode both
+function-local switch tables:5 plane entries and7 sign-mask entries, validate every target
+offset against its function in both images, then mask only those bound addresses/data
+entries. EqualF32 near0.01 and side0.001, plane count5 and helper plane increment are
+checked. Other masks are only decodedE8/validatedEH/equalF32; no
+opcode/frame/field/branch/size/unknown-global masks. Original source comments' internal
+addresses are not treated as method entries. Both sole-file source diffs are fully
+accounted,39 sources remain; actual-final-head hosted CI pending.
+
+Source: [70371f39f6fb4a8cc7cdc15b117f1c704cc81aeb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/70371f39f6fb4a8cc7cdc15b117f1c704cc81aeb), [3bd9a53bf0cdd3a2e70c6418029c80f8e11325f5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3bd9a53bf0cdd3a2e70c6418029c80f8e11325f5).
+
+## 2026-11-01: original AI cover trace and transient-lock-free flanking (source9cf complete)
+
+Separate projection trace from physical bullet range in the existing seven-argument cover
+API: AI mode uses trace0, ordinary firing trace30; project to max(0.1,max(trace,D+2))
+while preserving min(D+1,30) penetration distance and the existing tile behavior. The
+actual flank caller uses false,true for suicide-check/dynamic-lock skipping. Its wave
+budget min(AP,8), perpendicular filter, pose/arrival costs, authored balance,
+public/save/LAN types and finite-value cover guards remain.
+
+Important rejected source hunk: do not insert IsBigLocker into NWorld::PrepareAllPaths.
+Actual Steam77dc30 and Gold771f10 both retain the original shifted table arguments:
+bigUnit=checkSuicide, checkSuicide=CannotFreelyChangePoses, moveOnly=false. Whole original
+constructor280 ->47cf40 and PDB members prove its last two original parameters are
+noClimb,bigUnit, unlike the own constructor API. The table285-byte prefix ->47d430 and
+actual world77df4f..77df80 establish the complete bool flow. Correct the misleading prior
+source comment, preserve executable behavior. This is an excluded original-gameplay
+correction, not an already-implemented fix. The initial test expectation of suppressing
+pose changes was disproved by the independent audit; the canonical suite now explicitly
+retains that original defect as a control.
+
+Original evidence: whole252 AI helper693e70 ->693ec1 calls independently bound whole933
+CalcCovers6938a0 with AI1/trace0/bulletMax30. Actual stack operands6939c1 and693abe
+distinguish trace at entry+24 from bullet maximum at entry+20. This explicitly corrects
+checkpoint125's prose conflating these inputs; its original raw whole933/540 bindings and
+ordinary30 evidence are retained. Whole2274 named attack-place Prepare48fb10 (named VT+10)
+binds all three safety calls and actual flank48ff6a..48ff8f ->77dc30 with false,true.
+Whole pose-lock69 ->77dfd0 is exact. World whole923 and table whole463 comparisons
+rejected for unbound RTTI/static-array/callback operands; no
+unknown-global/opcode/frame/field/branch/size masks. Zero new original runtime records.
+
+Canonical native RED4/16 both ->GREEN16 both. Actual cover-frustum probes isolate three AI
+failures, with human/long-target controls. Real CAIAttackPlaceSource misses a reachable
+perpendicular goal behind eight live allied units before the fix and includes it
+afterward; no-enemy/zero-budget/no-ring controls remain exact. Full Game both,
+final447Win/443Linux plus8 focused depth cases each (455/451 distinct), separate all-green
+batches and CI359 pass. All12 controls and AP/HP/position/four-word RNG continuations
+remain exact. The16 new database-dependent cases stay extended, outside asset-free CI.
+Initial missing-header/clearing/walk-cost fixture failures are archived and not counted as
+RED.38 sources remain; actual-final-head hosted CI pending.
+
+Source: [9cf3fd3dae155de3b0c0e1de443cf54a7f494426](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9cf3fd3dae155de3b0c0e1de443cf54a7f494426).
+
+## 2026-11-01: original ally-ray classification and AI geometry safety (sourcefc complete)
+
+When an allied unit blocks the cover walk, clear target-hit and put the ray into looseRays
+instead of hitRays. Keep the original hit-part filtering, penetration rules,
+shooter/cannon ownership, finite-value cover guards and AI trace0 from checkpoint130.
+Replace the AI one-metre centreline corridor with actual weapon-origin CalcCovers,
+authored attack portions without spending ammunition, and intersection with
+SAIState::GetUnits(true,true). Native attack-place planning now rejects the real current
+place for endangered allies in sampled collision geometry, including eligible intervals
+just behind the target.
+
+Adapt the live collector to the own serialized cover: record a private transient union of
+source objects for every non-obstacle ray while its actual native interval cell is
+available. Every such ray finishes in hitRays or looseRays, so this is exactly the
+original collector's set over all hit/loose cells, including intervals beyond the
+target/penetration stop and nullable sources. Clear the caller's previous map, copy the
+union. Keep CCoverInfo's saved tags2..6, three saved SRay fields and class ID. READ clears
+stale runtime identities; a fresh CalcCovers rebuilds them. Do not copy CFastRenderer
+ownership or add original grid/cell fields to the legacy save. Retain the separate
+unregistered CCoverGridInfo helper and untouched deferred intersection helper.
+
+Independent original audit changes the donor guard adaptation: missing/invalid enemy or
+server returns false through actual48faaa..48fac4, not donor true. Invalid actor/server or
+null tactical state returns true through48fac8..48fae6 before the weapon check; invalid
+weapon returns false. The enemy check4365f0 is a complete30-byte CObject validity helper,
+not CanFight; exclude the donor extra enemy CanFight veto. Existing state enumeration
+supplies its live-unit policy. Initial donor-based no-enemy test expectation was disproved
+and archived before canonical RED.
+
+Original whole523 CanHitTarget ->690830 binds named unit/object RTTI and equal0 F32, ally
+diplomacy2 branch69099c ->690a08 clears the target-hit output. Whole717 AddGrid ->6935d0
+calls6937b5, combines output/penetration and selects hit/loose vectors via6937da. Whole234
+collector ->693f70 walks hitAF4 plus looseB0C, every source interval, excludes
+obstacleB18. Whole505 GetUnits ->4a9a20 and99 GetEnemy ->490740 are unique. Actual
+safety48f6b0 is independently bound by three calls from the previously proven named
+whole2274 Prepare48fb10; decode actual weapon-origin false,
+AI1/trace0/bulletMax30/mask8200/minClear1/body0, collector and state true,true calls.
+Reject whole Gold1099 safety matching because actual frame90 vs8c and later control/layout
+differ; no opcode/frame/field/branch/size/unknown-global masks. Zero new original runtime
+records; donor comments are not entry authority.
+
+Canonical native RED7/15 both ->17/17 both, including two additional post-fix
+API/save-byte/cache-lifecycle controls. The8 original outcome controls remain exact. Full
+Game both, final506Win/502Linux single all-green suites (all17 new and all16 prior
+AI-depth/path/flank cases explicitly included) and asset-free CI359 pass. These17
+DB-dependent cases stay extended. AP/HP/position/ammunition/four RNG continuations remain
+unchanged; saved bytes/fields round-trip exactly and obstacle-only rays contribute no
+cache keys. Initial Linux DB-variable registration/default-constructor compile/incorrect
+donor guard assumptions are archived, not canonical RED.37 sources remain;
+actual-final-head hosted CI pending.
+
+Source: [fc2836a521913dafcb7737659c6912f178dc5ef1](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fc2836a521913dafcb7737659c6912f178dc5ef1).
+
+## 2026-11-01: original integer shadow and occlusion depths (sourceacf complete)
+
+Restore word-depth HZ storage,10000 scale for six-view shadow part selection and40000 for
+normal/persistent camera occlusion. The parts depth iterator uses8 fractional bits,
+nearest-pixel anchoring before subtracting integer gradients, signedSAR8 initial
+depth/increment and explicit32-bit wrap. A span compares signed depth against the stored
+unsigned word, debits an old owner only for nonzero depth, and stores raw depth/owner
+words. Preserve original overflow behavior instead of clamping spans. HZ uses
+conservative2x2 minima, odd edges and65535 padding; sphere tests use scaled reciprocal
+depth, immediate visibility above65535 and truncated word checks. Initialize spherical
+bounds with incrementally stepped X and a65535 cap; fast initialization clears the shared
+base/index arrays.
+
+Retain one owned HZ object per parts renderer, reused by Fast and returned through the
+existing IHZBuffer API; reset reference counts per submission. Original
+pDepthBufferBase/nIndexBufferShift and iterator nShift/nDShift are pointer/row caches, not
+fractional carries. Use native2D array indexing instead of copying that32-bit ABI.
+Preserve own16.16 unsigned-wrap edge arithmetic, near0.01/four0.001 guard planes,24-byte
+projected point and public raster calls. Add a default float depth iterator with the
+unchanged float formulas for all existing non-shadow consumers; the separate parts
+consumer opts into integer depth.
+
+Original complete typed bindings: iterator213 ->575380 (donor5753e0 is internal),
+partsCtor281 ->5796e0 with independently named CHZBuffer VT, HZinit314 ->5795a0,
+HZbuild721 ->577c90, sphere151 ->578ec0, rect399 ->578f60, sphericalInit278 ->577f70,
+normalInvisible913 ->576f60. Reuse uniquely bound parts triangle1248 ->5786d0 and lower769
+->578120; decode SAR8, signed compare, zero-owner skip, raw word writes and integer
+increment in both span halves. Generate1265 whole comparison rejected unknown global
+vector/camera/table operands, but unique entry60 at576a60 plus decoded10000/128/128
+constructor/init calls are bound. Fast749 whole comparison also rejected unknown static
+object/guard/destructor operands; exact17-byte40000/300/400 input block plus independent
+entry26 binds577300 and constructor5796e0. Masks only decodedE8, validatedEH, namedVT and
+exact equalF32/F64; no opcode/frame/field/branch/size/unknown-global masks.0 new original
+runtime records.
+
+Canonical native RED10/19 both ->19/19 both. Actual public normal/Fast/six-view consumers
+receive real CObjectInfo/IPart meshes and literal bounds, and generate their own
+raster/depth/reference/visibility outputs. Cases cover depth ties/order, word wrap,65535
+sphere shortcut, quantized sphere comparisons, odd dimensions, persistent object
+ownership, partlist radius and two fractional X/Y gradient front/behind controls. Nine
+outcome controls remain exact; mesh positions/input-node identity and4 RNG continuation
+words remain. Full Game both, final527Win/523Linux single all-green suites and CI378 pass;
+all19 new cases are CPU-only and enter CI359 ->378. All16 old generic raster output rows
+are exact,20 old guard cases still pass. No
+assets/database/HD/font/face/SDL-bgfx/audio/LAN-type change.36 sources remain;
+actual-final-head hosted CI pending.
+
+Source: [acf8dc8198a56959358dc0f226cf2613d8d56b4e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/acf8dc8198a56959358dc0f226cf2613d8d56b4e).
+
+## 2026-11-01: original game icon in the existing SDL window (source65b accounted)
+
+Copy the8478-byte SilentStorm.ico unchanged and point existing Game resource101 at it.
+All7 ICO frames match the actual original Steam group101 RT_ICON payloads byte-for-byte.
+Native OS LoadImage/DrawIcon32 fingerprint is8973e7b08c5fa1e4; the previous A5 resource
+wasb4eff8bae2391a79. The final compiled Game.exe group101 again matches all7 original
+payloads and the expected32px fingerprint. The original executable was loaded only as
+data/resource image, never executed;0 new original-game runtime records.
+
+The live pinnedSDL3.4.16 SDL_RegisterApp already enumerates the first RT_GROUP_ICON and
+its callback calls LoadIcon(module,name), then registers that native window-class icon.
+This replaces the donor's historical WinFrame LoadIcon101 route; no new hook or
+SDL_appicon alias is needed. A new native hidden-window observer links the same Game.rc as
+Game, calls actual S2Platform::Init, reads WM_GETICON/class icon and rasterizes the real
+HICON through native GDI. Canonical RED1/1 shows loaded1/selection1 controls with wrong A5
+image0; GREEN1/1 has the original image and the same resource-selection controls.
+Default-size class icon is compared with the module's own default-size resource, while
+explicit32px image is compared with independently bound original data, preserving DPI
+choice.
+
+Exclude the source's historical GDI startup-logo/DC/bitmap-lifecycle hunks from the own
+SDL startup path: current Game/Main.cpp loads the database and initializes S2Platform
+directly, with no ShowSplashScreen caller; Game/WinFrame.cpp no longer exists, and Linux
+explicitly removes both legacy splash sources. Preserve that owned startup ordering. This
+is an explicit backend/lifecycle exclusion, not a claim that the original splash is
+already displayed or that the unused legacy GDI leak was fixed. Source whitespace-only
+resource hunks have no independent effect.
+
+Full Game both,14 Windows related cases in one all-green batch,12 distinct Linux cases and
+CI378 pass. Linux had11 initial passes plus an unchanged-code SDLPlatformInvalidDriver
+retry with SDL_VIDEODRIVER unset: the display runner's inherited x11 variable overrode
+that test's deliberately invalid normal-priority hint. Preserve the initial exit8/raw
+logs; do not call this one all-green Linux batch or a production fix. Native window test
+is Windows-only extended/native-display, outside asset-freeCI. No gameplay, shader,
+font/face, authored database, HD/PNG generation, audio or LAN changes.35 sources remain;
+actual-final-head hosted CI pending.
+
+Source: [65b2d080d3a95f9bf713fbda814c2b39c68c74a4](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/65b2d080d3a95f9bf713fbda814c2b39c68c74a4).
+
+## 2026-11-01: wounded AI fear and live nearby support (source988 partial)
+
+Restore CheckScared only: a valid threat may scare an unsupported actor when current
+integer VP is strictly below half its maximum OR there are more than two confirmed
+contacts. The original compares a 32-bit pointer-vector byte span with8, not eight
+enemies. Panzerklein pilots do not scare. Already scared/help-called actors retain their
+state; the first newly scared result marks the threat modified. A valid enemy's stale zero
+planningHP does not suppress the check. Query the existing native
+SAIState::GetUnits(true,true), exclude self and require strict distance<9 for nearby
+support. This uses fight-capable non-enemy world units, including neutral parties and
+human-controlled units, independently of stale side caches. Preserve own null-state/world
+defensive handling and saved layout/tags.
+
+Actual Steam CheckScared399 at4b1350, GetUnitsAtRange402 at4a9c20 and GetKnownEnemies99
+at4b1e60 bind whole uniquely to named GoldPDB methods with only decodedE8, validatedEH and
+independently equalF64 half operands. Full54-byte namedCAIUnit IsInPK4ad860 and19-byte
+DynamicSkill integer getter423b00 are exact. The original4365f0 call is validity, not a
+live/planning-health check. No opcode/frame/field/control/unknown-global masks or original
+executable process. Combined known/suspected collection and retreat routing/timing from
+this donor remain pending independently; this partial does not change their API or
+callers.
+
+Canonical native actual threat Update RED8/18 both ->GREEN18/18 both, ten exact unchanged
+control rows, four RNG words and physical/planned AP/HP/position/contact identity
+controls. Eighteen modes include repeated neutral-support inputs6/7; no distinct
+wounded-neutral health coverage is claimed. Outer/inner support controls realize9<=d<10
+and8<d<9; exact9 on uneven authored geometry was not achieved. Initial discovery's invalid
+exact9 fixture is archived, excluded from canonicalRED; newly added support is explicitly
+registered through actual commander. Full Game both/389 Windows/392 Linux related cases in
+one all-green batch per platform/CI378 pass.35 sources remain, now21pending14partial;
+hosted actual-final-head CI pending.
+
+Source: [98871d0f0def4f966e097b984c18e57a8f437d7b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98871d0f0def4f966e097b984c18e57a8f437d7b).
+
+## 2026-11-01: combined threats and deferred reachable retreat (source988 complete)
+
+Finish the donor after134: GetKnownEnemies returns a detached value containing suspected
+contacts first, then confirmed contacts, preserving original order/duplicates/null
+entries. The original99-byte collector uses two front inserts in reverse construction
+order; the own return-by-value API replaces its output parameter without saved-layout
+changes. Existing mounted-gun and fear callers that bind const references retain the
+temporary for their scope. Normal now uses the existing native aiRouteMisc
+GetFearPosition(server,combined,place,5,30) instead of its private farthest-passable-point
+approximation. Install Retreat when found or the existing radius12 Guard when empty; the
+native update pump handles the newly installed reaction later, with no inline Update. Keep
+the owned valid-server guard and existing route/helper/AP-cost APIs.
+
+Actual Steam collector4b1e60/99, retreat factory495e20/58, guard factory4513f0/67 and
+nearest-wave helper4a0990/549 bind whole uniquely with decodedE8/validatedEH only. Named
+Normal primaryRTTI slot10 maps Gold47e350 to actual47eee0. Decode actual collector
+call47f009, min5/max30 arguments47f013, fear call47f027->4a0ee0, factory branches,
+SetReaction slot64 and cleanup/tail jump to47f4a5 with no inline update. Full
+Normal1440/frame34 versusactual38 and existing fear/average/direction bodies are not
+claimed equivalent: unknown mutable zero-vector/RNG globals, frame and control differences
+are not masked. Existing own route helper is unchanged;0 new original-game process/runtime
+records.
+
+Native6 contact API +8 actual Normal reaction-pump cases: canonical RED12/14 both
+->GREEN14/14 both, two exact controls. A real suspected contact must alter the seeded
+destination versus confirmed-only input. Every selected target is in the actual RUN wave
+at cost29Windows/26Linux<=30 and distance>=5. Empty/KO-only contacts yield Guard; physical
+fightable/stale planningHP0 remains usable; actualAP0 still searches the fixed30 budget;
+both incumbent-route and no-route states retain deferred timing. Physical/planned
+AP/HP/positions/contacts/wish pose remain unchanged. Contact queries preserve four RNG
+words; retreat matches independently exercised helper consumption, intentionally differing
+from the removed deterministic approximation.
+
+Preserve existing begin-turn confirmed-versus-suspected assertions using the explicit
+confirmed vector. Prior alarm checks initially passed11/12 Windows; Human expected no
+fallback draw from the old approximation. Its expected fallback now queries the
+independently checked native5/30 helper, without changing threshold,40percent roll, alarm
+command/destination/contact or stale-cache checks. All12 prior alarm cases and all18 fear
+cases pass final both; the18 fear rows are exactly unchanged from134 GREEN. Full Game
+both/403 Windows/406 Linux related single all-green batches/CI378 pass. Initial fixture
+compile/far-grid attempts and partial comment-anchor apply interruption are retained
+separately, not canonicalRED.34 sources remain; actual-final-head hosted CI pending.
+
+Source: [98871d0f0def4f966e097b984c18e57a8f437d7b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/98871d0f0def4f966e097b984c18e57a8f437d7b).
+
+## 2026-11-01: tooltip options and original hover deadline (source360 additional partial)
+
+Restore only the tooltip option/deadline foundation needed before sourcea2
+measurement/anchors. SetToolTipOwner honors the existing ui_showtooltips option before
+claiming a tooltip, retains the per-frame sticky claim for a valid tooltip and does not
+restart its deadline for the same owner. A new owner hides the old tooltip, clears the
+transient deadline and updates at time0. Actual Draw updates before StartNewFrame. The
+first nonzero time computes time+double(delay)*10000; show only for a nonzero deadline
+strictly less than current time. Changing the delay setting during an existing hover does
+not rescale its deadline. Keep the existing Step teardown when no window claimed a
+tooltip. Own UI clock, shared/owned sound pump, SDL/bgfx lifecycle, saved tags, input
+binding and CToolTip width400/Draw/clamping remain unchanged.
+
+Actual Steam SetOwner71d1d0 is bound by a unique decodedE8-only40-byte named-Gold entry
+tail; independently decode actual reset/claim fields and calls to typed
+GetToolTip727a90/4, SetStyle7278f0 and Update71cfb0. Actual
+deadlineBC/owner110/tooltip114/sticky120 differ from GoldA0/F4/F8/104; no field/global
+normalization or whole188/536 comparison is accepted. Actual Draw71d290 calls
+Update(false,time) at71d34e before view StartNewFrame71d35b and typed CWindowDraw7288a0
+from the named RTTI slot. Independently decode10000/unsigned2^32 F32 operands, truncate
+CW, signedFISTP32 and CW restore.
+
+Execute actual536-byte original function on native x86 with synthetic owner-null state,
+three declared absolute data-operand relocations only, and unchanged
+arithmetic/opcodes/branches/stack/object offsets.33 calls characterize11 inputs under
+CW027F/037F/007F and preserve each input CW. Native runner CRT default027F gives
+time100/delay.7 ->7099, not7100 from a rounded float product; signed conversion
+yields80000000 for out-of-range clocks. Own portable double arithmetic models this
+observed53-bit context and its signed conversion, preserving that original edge instead of
+introducing a clamp or unsigned conversion. Original full-game ambient CW and UI rendering
+were not observed; no all-mode or FPU exception-status identity claim.0 original Game.exe
+processes. The first preferred-address host allocation failed487 before original calls;
+its raw log was replaced by the successful relocated-run log, so only transcript/metadata
+record that initial host attempt.
+
+Canonical native RED10/12 both ->GREEN12/12 both, two exact controls. The first valid
+discovery runs are the canonicalRED, copied byte-identically under red filenames, not
+extra runs. Real CInterface SetOwner/Draw/Step and actual CWindow/CToolTip use saved-field
+view substitution with a frame-boundary observer, not a replacement timing predicate.
+Cover default/zero delays, strict equality, disabled options, same/switch/clear/re-enter
+owners, delay changes during hover, disabled Step teardown, fractional rounding and
+highclock signed conversion. Owner geometry/four RNG words/shared sound remain unchanged.
+141 Windows/133 Linux related single all-green, full Game both/CI378. All12 packaged
+vector-font compatibility rows match between platforms; original ordinary138x26 at886,741
+and oversized408x1808 at616,0 remain intact. Source360 remains partial; sourcea2
+measurement/512width/anchors remains partial.34 sources unfinished, actual-final-head
+hosted CI pending.
+
+Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 2026-11-01: measured tooltips and authored screen anchors (sourcea2 complete)
+
+Finish the measurement/width/anchor hunks after the earlier oversized clamp partial and136
+deadline prerequisite. CToolTip::UpdateToolTip measures its actual CText at logical
+width512/height0, adds4 each side, sets window size and child512/final-tip-height at4,4.
+Interface calls it before reading size or positioning, including hidden/first and
+changed-text frames. Remove CToolTip's size-resetting SetPosition and draw-time
+measurement overrides; inherit CWindow SetPosition and CFrame border/children Draw as in
+the original. Keep classID/saved tags and existing scalable packaged fonts.
+
+Interface uses actual ClientToScreen and current logical root GetSize. NONE retains its
+first cursorX for the same owner, recomputes ownerY-tipHeight each update, and falls below
+at ownerY+ownerHeight+32 if above would be negative. Four authored raw screen-anchor
+corners subtract the appropriate measured width/height; these anchors are not parent-local
+offsets. Clamp with Max0/Min(screen-tip,position), retaining the previous oversized-header
+fix and own wide/HiDPI canvas. Add only inline existing-field getters to CWindow; no new
+data/schema.
+
+Actual Steam measure714200/145 is reached by independently bound InterfaceUpdate
+call71d08c. Named CToolTip RTTI save slot0c ->5e7530/56 proves CFrame base tag1 and
+text+a4 tag2. Independently decode all four text+a4 loads, both512 writes, height0,
+GetRealSize712f50, add8, typedWindowSetSize727920 and child4/4 placement. Gold145 has
+text+8c and is not normalized/matched with field masks. Named CTIP and Frame draw slot30
+share713de0, and position slot1c sharesWindow727950. Actual anchor fields5c/60/type64 and
+table71d1b4 have all five target-relative offsets exactly equal Gold713024; decode actual
+new-ownerX, below+32, corner arms and signed min/max0 clamps. No whole536/145 equivalence,
+unknown field/frame/global masks or new original runtime;136's33 bounded math calls remain
+prior evidence.
+
+Canonical native RED17/20 both ->GREEN20/20 both with three exact controls7/13/19. Actual
+interface Step/SetOwner/Draw, real CText512/font formatting, visible widget glyph
+submission and frame boundary cover early measurement, nested parents, four corners,
+screen edges, moving/reanchored owners, content growth/shrink, empty text, repeated
+frames,1792-wide and200percent UI. Soft-wrapped text changes408x44->448x26; a true48x1826
+oversized control remains at30,0. Preserve owner/input/shared-sound/fourRNG state. Initial
+partial-field fixture failures are notRED; corrected full borrowed scalar anchor14/type15
+inputs and literal cursor through nativeStep retain all other references. Discovery2's
+nonbreaking word/softnewline fixtures were strengthened before canonicalRED.
+
+Route the existing oversized component regression through the actual measured
+Interface-owner protocol with a frame-boundary view, retaining real glyph, ordinary
+metrics and repeat/shrink assertions. Short tooltip remains138x26 at886,741; the same long
+caption intentionally rewraps from408x1808 at616,0 to518x1214 at506,0. This is a
+width/layout change, not font replacement. All12 vector-font compatibility rows exactly
+match136 and both platforms; all12 prior deadline traces are exact. Full Game both/161
+Windows/153 Linux related single all-green/CI378. Sourcea2
+complete,213imported/21pending/12partial,33 sources unfinished. Source360's other hunks
+remain partial; actual-final-head hosted CI pending.
+
+Source: [a2bba0ad86c91dcf5a239adda24792664abf1e43](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a2bba0ad86c91dcf5a239adda24792664abf1e43).
+
+## 2026-11-01: AI-controlled demonstration squads and level preparation (partial138)
+
+Restore the independently useful squad-preparation part of sourcefdd.
+CAutoPlayInterface::AddPlayer marks each actual CGlobalPlayer as AI-controlled before
+appending it; Initialize walks every merc in all four players and calls the existing
+CUnit::SetXPLevel(30) before CMission::Initialize. Preserve the existing independent
+tick-seeded random4..7 squad selection, configuration parser and its consecutive-space
+quirk, map selection and normal mission initialization. This prepares explicitly requested
+autoplay missions; idle-menu entry and the demo lifecycle remain unfinished and are not
+enabled here.
+
+Actual Steam CICAutoPlay named RTTI slot10 binds Exec59df10; call59df6a reaches
+Initialize59d980. Its four decoded calls59daed/59dafd/59db0d/59db1d all reach
+AddPlayer59d4f0. Actual create-player call59d59b reaches69acc0, then byte[player+54]=1
+at59d5a2 before insertion. Named CGlobalPlayer save slot0c binds69cb20: merc vector tag5
+at30 and one-byte AI flag tag8 at54. Actual Init59db22..59db83 iterates global
+players3c..40 and every player's mercs30..34, resetting the inner index per player.
+At59db5b it passes literal30 through CUnit+0c secondary RTTI virtualslot4, typed
+Gold6b6330 and actualSteam6bc520; this loop precedes mission init601070 at59dc5d. Whole
+AddPlayer292 is rejected with its unmasked absolute GetTickCount IAT difference; the
+actual import8b2080 is independently named, not masked to force equivalence. Whole Init
+and cross-variant mission-slot shortcuts are also rejected: Gold GameStep slot15c is a
+return-false method in Steam, not a valid binding. No original runtime/function execution
+is claimed.
+
+NativeAutoPlaySquads0/1 invoke the real registered console autoplay command, take and
+execute its queued native command, initialize a real hidden SDL/bgfx mission and inspect
+all four world player trackers and global squad objects for two isolated person
+configurations968/970. Canonical RED2/2 both shows AI0/level30zero, with correct4..7
+cardinality and tracker identities; GREEN2/2 both has all four AI flags and every created
+merc at30. A separately created ordinary human player retains falseAI and its initial
+level. Random squad counts intentionally vary between runs; no exact RNG or cross-platform
+squad-size equality claim. These cases do not claim a complete simulated AI battle or the
+pending demo watchdog/overlay.
+
+Windows diagnostic linking now matches Game's WHOLE_ARCHIVE Main, retaining
+self-registering command-only code; Linux already does this. The initial Windows
+missing-command discovery is not behavioralRED; actual discovery2 supplies its
+canonicalRED. Full Game builds both and assetfreeCI378 pass; related 416/417 Windows and
+386/386 Linux. The one Windows NativeCampaignSequence-nested-save movement timeout is a
+pre-existing intermittent failure: unchanged current target retries0/0/8, then
+previous-head production source rebuilt and baseline retries0/0/8. Its native .text is
+byte-exact before/baseline/restored, with no autoplay RTTI or console strings in that
+separately linked target; the Windows whole-archive change affects only UpstreamBugTests.
+Restore current source byte-exactly, rebuild all Game targets, and rerun both actual demo
+consumers successfully. Keep the failed full-suite/raw/retry/baseline evidence; do not
+claim the legacy movement flake fixed or the entire Windows suite all-green.12 prior
+vector-font traces exact. Sourcefdd pending->partial:213imported/20pending/13partial,33
+donor sources unfinished. Actual-final-head hosted CI remains required at whole-task
+completion.
+
+Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).
+
+## 2026-11-01: one-shot demonstration map transitions (partial139)
+
+Separate CMission::GameStep from the common InternalStep pump, then override it in
+CAutoPlayInterface. The common pump still handles hot-seat activation, queued world/camera
+commands, camera/player updates, cursor, UI/desktop cadence, shared sound rendering and
+camera handover. It calls GameStep after UpdateCursor as original. Move the entire
+existing interactive current-player/cooldown/savepolicy, delayed-defeat,
+trace/action/state and UpdateSound body verbatim, including all own LAN restrictions and
+efficient network Wait behavior. The default mission body is checked byte-for-byte as
+normalized source after extraction; ordering now follows original callback placement. No
+saved fields/class IDs or network protocol changes.
+
+Demo GameStep returns after its one-shot dismiss/transition latch; otherwise any winning
+tracker queues the existing exit-modal/new-demo container. If no winner, a signed world
+turn id strictly greater than100 does the same. Otherwise advance the existing watchdog
+with always-running GetUITime, refresh its DG node and transition only when its unsigned
+time is strictly greater than1200000ms. Use the fork's existing native CWorld accessor
+through a checked typed cast; the own IWorld surface lacks this getter, so no new
+interface method or guessed-field access is added. Ordinary input dismissal remains
+unchanged, and the existing container really replaces its modal with a newly initialized
+registered demonstration.
+
+Original Steam named override tables have92 primary entries versus Gold89: GameStep is
+actual59d7a0/478 at168, not Gold15c. Ordinary mission override is602160/1223; inherited
+Step5a4690 calls common5a35b0 at5a4803. Actual UpdateCursor call5a36a2->71c120 precedes
+virtual168 at5a36ab. Independently decode the actual latch590, tracker
+GetPlayers64/winner28, GetWorld138->7743d0 exact4 Gold7685f0, World turn getter188->7778e0
+reading178, signedcmp100/jle, UI getter59dfb0/75 refresh/value path, Advance70fd10,
+refreshed unsignedcmp1200000/jbe and all three flag-before-GoNext59d620 exits. Whole478
+comparison is rejected for unmasked fields/virtual slots/DG globals; no normalization
+masks. The actual interactive tail602603 state.Step then602610->5ff520 UpdateSound matches
+Gold's responsibility; the donor's move of this music decision into the common pump is
+rejected. Demo skips interactive combat/ambient policy, while ordinary missions retain it.
+No new original function/Game.exe execution is claimed.
+
+Native9 actual console/mission-frame cases RED4/9->GREEN9/9 both, with five exact
+controls0/1/3/6/7. Cover turn100 versus101, watchdog1200000 versus1200001,
+last-tracked-squad victory via real opponent knockouts, existing key/time dismissal and
+latch, no duplicate transitions, actual container execution/new modal, stable
+world/global/UI/shared-sound identities and retained requested combat music in demo
+(old0->new2). First discovery failed because the unrelated mission-start snapshot command
+was not isolated; second discovery's diplomacy table could not override same-scenario-id
+party hostility. Corrected native knockout inputs and literal typed turn-field input
+supply canonicalRED. An earlier attempt read a whole live-world snapshot to patch turn38;
+its subsequent GREEN prematurely transitioned in four controls, so that attempt is not the
+canonical comparison. Preserve those failed logs, replace only the scalar input setup,
+restore prior-head production sources exactly, and re-establish RED with the same final
+fixture before restoring the exact prepared production fix. Initial missing-IWorld-getter
+compile errors are retained and corrected with the existing typed native accessor.
+
+Full Game both/425 Windows/395 Linux selected related all pass/CI378, including both138
+squad consumers and12 exact vector-font rows. Explicitly exclude only the previously
+characterized Windows NativeCampaignSequence-nested-save intermittent movement failure:138
+current/prior-head source both0/0/8 with byte-exact native.text. This does not fix or
+erase that known test flake. Sourcefdd remains partial with
+initialization/logo/sequence/fullscreen/menu idle-reset/focus/timestamp hunks pending;33
+donor sources unfinished. Actual final-head hosted CI remains required.
+
+Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).
+
+## 2026-11-01: publisher-logo demonstration and UI-clock rendering (partial140)
+
+Complete the explicit demo presentation before enabling menu idle entry. Move the existing
+CFlashImage declaration verbatim from iMainMenu.cpp to iFlashImage.h; keep its methods,
+original0xB2540911 class ID and five saved fields unchanged. Ordinary main-menu source is
+compared exactly after removing only that declaration and adding the include, preserving
+LAN button, startup script cadence, logging, inactive painting, fonts and sound.
+AutoPlay's saved6 reference now has its original CFlashImage type, using the same dynamic
+class ID.
+
+Before mission initialization set its original lose latch, then load the shared
+publisher-logo window named logo from template372 at authored768,0/256,128 with
+visible/enabled/topmost style0e. Restore nSequence1, hidden mission HUD, existing cheat
+visibility and script-requested turn-based mode. Use a checked native CWorld accessor
+because own IWorld lacks the script-turn method, without widening its interface. Create a
+hidden cursor without the original explicit center warp, preserving owned SDL pointer
+position. Keep the mission sound scene shared by the overlay.
+
+Actual Steam init59d980 stores lose574 before call601070, then
+sequence4f4=1/hide68/cheatD0 and calls world virtual1f0. Named CMission save5a0f10
+independently proves int17 at4f4 and byte31 at574; wholeGold844 comparison is rejected
+for12 unmasked tail opcode/control differences and appended actual fields, no field/frame
+masks. Named World1f0 binds762490/60 storing scripted wish1c0. Actual literal
+logo/style0e/256,128/768,0/parent fields use independently queried Gold SWindowInfo
+layout0/10/18/20; ctor59ddc5->5c0770/51 has namedFlashVT and four zero fields. Typed Flash
+save5cb150/121 has Window base1, float80/tag2, time84/tag3, images88/8c/tags4/5.
+Getter372/LoadTemplate actualcalls7dadd0/71e320 complete the logo. Gold ctor39 is not
+treated as actual length51.
+
+Correct both own/donor raw GetTime calls to independently read GetUITime for overlay Step
+and Draw, matching original render59d290 calls59d2c5/59d2e0->59dfb0 followed by
+actualInterfaceStep71cdb0/Draw71d290. The actual original render has no extra camera
+setter; the fork's common mission path reserves HUD client-view margins, so a demo-only
+full0,0,1,1 rect is the explicit own renderer adaptation for its hidden HUD. Retain
+wide/HiDPI transforms and all native SDL/bgfx/audio/font/texture pipelines; no PNG/HD/face
+rebuild or original-function/Game.exe execution.
+
+Six native actual console/mission/frame/widget cases RED6/6 both ->GREEN6/6, combined with
+all11 prior demo cases GREEN17/17 both. Public PauseGame freezes simulation while the
+actual UI counter remains live. Read existing nested saved base33 into an independent
+counter wrapper and set only its real shared CCTime leaf; no live-world deserialization. A
+passive actual CWindow child observes real overlay Draw: rawInput4000 produced old4000
+versus realUI123, now123; actual flash morph time becomes123, loaded active/background
+children exist, sound identity remains shared and original init flags/cursor state are
+correct. Client margins disappear at ordinary autofit,1792wide and2048px/200percent
+logical1024x768. Set the actual ui_scale option for HiDPI because normal StepApp reapplies
+it; an earlier one-off display update was not canonical. Initial observer/API compile
+errors, driver CRLF error and partial-apply whitespace recovery are retained without
+claiming behavioral runs for them.
+
+Full Game both/178 Windows/170 Linux related all pass/CI378, with17 native demo cases,
+exact9 prior transition traces and12 exact vector-font rows. Sourcefdd still needs menu
+idle/reset/focus/saved timestamp hunks, remains partial,33 unfinished. The prior138
+campaign movement flake remains known and is not in this UI-selected suite; no fix claim.
+Actual final-head hosted CI remains required at whole-task completion.
+
+Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).
+
+## 2026-11-01: main-menu idle demonstration, input and return focus (complete141)
+
+Finish sourcefdd after138 demo AI/levels,139 lifecycle and140 logo/UI-clock presentation.
+Extract existing CICAutoPlay declaration verbatim into iAutoPlay.h; default ctor,
+registered class ID and existing Exec remain unchanged. Menu now queues it strictly
+after120000 UI milliseconds, resets timestamp on named non-CT_TIME input BEFORE base UI
+consumption, and resets it on focus before inherited handler. Advance existing UI counter
+in owned backdrop Step, which bypasses shared mission pump. Keep inactive menu painting,
+native drawable gate, startup/first-frame/script cadence, LAN button, fullscreen backdrop,
+audio and wide/HiDPI transforms.
+
+Named original menu RTTI binds Gold GameStep5f3660/178 at15c to actual Steam5f7ab0/178
+at168. Actual5f7b08 loads UI node/value14, subtracts saved150, unsigned compare1d4c0
+at5f7b18 then jbe5f7b53 at5f7b1e; above threshold calls CICAutoPlay ctor59d230 at5f7b3b
+and queue5f5c10 at5f7b4e. Typed event5f7e60 checks event type+8 at5f7eb5, calls UI
+getter59dfb0 and stores150 at5f7ec2 BEFORE base62ec30 and consumed return. Gold PDB enum
+query proves CT_TIME5 whereas own enum has CT_TIME3: use named enum. No
+field/frame/branch/global masks or whole-event/step/focus equivalence claim.
+
+Original saved5f9d40/54 is unique whole Gold match with only two decoded E8 operands
+relocated: base1 then size4 scalar tag2 atthis+150. Replace incorrect saved menu-UI
+reference with timestamp; base window tree owns that now-transient reference. This
+corrects earlier menu-only field2 schema; ordinary mission fields and LAN wire unchanged.
+Typed focus5f7b70/87 refreshes UI node, stamps150 at5f7bb8 then tail-jumps
+inherited5a2580. No UI-counter ResetTiming exists: exclude donor extra reset, preserve
+original150ms catch-up after long raw-time gaps.
+
+NativeMenuIdleDemo0..7 canonicalRED6/8 both (controls0,7) ->GREEN8/8 both, combined25/25
+actual demo cases. Cover exactly120000/no launch,120001/real launch, focus reset,
+activity, CT_TIME not resetting,150ms return catch-up, actual UI-consumed owned SDL F12
+and actually minimized owned window. Both threshold cases execute registered command into
+real initialized demo, isolate unrelated start snapshot without saving, close modal and
+verify same-menu return does not relaunch. Root/world/audio graph identities remain
+intact. Set only actual shared CCTime leaf from read-only saved wrappers, never
+deserialize live world.
+
+Discovery1 synthetic minimize did not set actual SDL flags; discovery2 actual minimize
+worked but case6 native input uninitialized. Neither canonical. Discovery3 initializes
+nonexclusive input, forces owned event draining, requires actual UI consumption before
+timestamp evaluation. Full Game both/186 Windows/178 Linux related allpass/CI378, with9
+prior transition+6 presentation and12 font rows exact. No original runtime or
+PNG/HD/face/texture rebuild. Known prior campaign movement flake remains outside UI suite.
+Sourcefdd complete,32 unfinished. Actual final-head hosted CI remains required at
+whole-task completion.
+
+Source: [fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fdd3e76a911cd34238d37a4a1a36dd8aacbf6bc9).
+
+## 2026-11-01: cached point lights honor their shadow flag (partial142)
+
+Split the useful cached-point flag consumer from donorf6's mixed cache-history, register
+and legacy shader work. Existing32-byte cached point inputs already retain bCastShadow,
+but native CLightmapTracker::RecalcStep ignored it and generated cubemap depth views for
+every point. Add only six production lines: when false, call existing
+RenderPointNoShadows, advance by existing N_POINT_LIGHT_RECALC_STEPS and finish this step.
+Keep own sequential four-stage scheduling, later shadow-casting sources, native bgfx
+rendering, cache ownership, stable sky samples, shaders and render registers unchanged.
+
+Gold PDB names SPointLight vColor0/vCenter0c/radius18/bCastShadow1c. The entire262-byte
+point-color switch arm Gold52d25e ->actualSteam52efde is unique with decoded E8 operands
+only; no field, frame, branch, state or global masks. Actual32-byte stride at52f00f and
+byte1c compare52f015 choose the no-shadow path. False branch calls original no-shadow
+renderer52caa0 at52f035, adds4 to stepc0 and1 to original round-robin indexcc, then
+jumps52f0e4. True branch calls native shadow-depth52e390 twice at52f073/52f092. Own
+scheduler lacks the original independent round-robin index/source gate, so adapt only
+false-flag rendering and four-stage completion; do not transplant unrelated original
+scheduler state.
+
+Whole Gold RecalcStep2424 equivalence is rejected rather than normalizing unrelated
+operands. Whole RenderPointNoShadows420 is also rejected: two absolute float reads point
+into actual Steam rdata flagged writable, so they are not normalized as readonly
+constants. Bind its unique56-byte entry using independently validated one-state19930520 EH
+record: same cleanup frameebp-bc and cleanup target as actual normal destructor call.
+Caller262 independently reaches52caa0; decode actual literal0/0.1 reads without masking
+them, operation74 at52cc04, callRenderLight52c490 at52cc11 and return16 at52cc41. No
+whole420 equivalence, original Game.exe or copied-function execution claim.
+
+Eight actual native cache-step cases canonicalRED5/8 both ->GREEN8/8, with three exact
+controls0/4/6 for shadow-stage0, shadow-stage1 and empty cache. Observe actual cubemap
+occluder-list requests through a passive CRenderWrapper subclass that forwards every
+request to actual CGScene, with real hidden SDL/bgfx lifetime. Old no-shadow
+single/zero-color points requested2 depth views and two no-shadow points requested4; now0
+while completing their slots. Mixed false/true pair now advances to the real shadow
+neighbor and requests its2 views. Actual saved light-state codec preserves each flag.
+Case7 adds an in-bound real receiver fragment and observes actual color traversal through
+its DG triangle/material extraction; old receiverReached0/shadowViews2 becomes1/0. Stop
+before buffer upload, without claiming final pixel output. This prevents a
+skip-all-lighting false positive.
+
+Initial seven-case RED4/7 ->GREEN7 both retained. Add positive receiver case7, restore
+production byte-exact141, establish final eight-case RED, then restore identical minimal
+production fix before GREEN. Full Game both/269 Windows/260 Linux related
+light/shadow/renderer/UI/network suites allpass/CI378. Existing cached-point
+lighting/shadow shader and flag/save-layout tests selected, three new controls exact,23
+prior menu/demo traces and12 font rows exact. No asset/PNG/HD/face/font regeneration or
+saved/LAN layout changes. Donor cache reprojection/history/shader/register work remains
+pending; sourcef6 becomes partial,32 unfinished. Known prior campaign movement flake
+remains tracked outside selected suite; final-head hosted CI still required at whole-task
+completion.
+
+Source: [f6f6011fc301ace82317b9007ec6dd36b57f3369](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6f6011fc301ace82317b9007ec6dd36b57f3369).
+
+## 2026-11-01: selected-camera floor ownership and initial handoff (complete144)
+
+Each tactical camera now owns its existing floor and clamp/freeze state. Remove the
+transient ICameraCutFloor/provider bridge; camera framing reads/writes its own floor,
+concrete mission Get/SetCutFloor use the selected camera, and the native mission frame
+publishes that value to the view after camera Update. Route floor keys and level-switch
+up/down/authored slots through this owner; its Draw reads the camera range/floor. After
+snapshot graph resolution and runtime-handle installation, publish the selected saved
+camera range11/12 and floor3. No serialized fields/class IDs or LAN wire changes; the
+removed provider was runtime-only.
+
+Keep initialization coherent with the original shared-step contract: remove the old
+party-to-scene floor seed, select the actual first acting player before choosing a camera,
+advance the existing dedicated locator with GetGameTime, publish the selected initial
+floor, then copy pose/floor to the idle cinematic camera only when it differs and no live
+locator owns it. Do not add world simulation warmup or per-turn pose copies. In real demo
+initialization the old active tracker0 disagreed with current player3, cinematic
+floor4/anchor1.875,1.875 disagreed with deploy floor0/anchor.625,20, and no locator
+prevented the handoff. The new native tests require the real acting player and copied
+deploy pose/floor before the first visible demo frame.
+
+Original global CBaseCamera Gold PDB fields floor38/rangebc,c0/frozend4 are independently
+confirmed by four typed byte-exact methods: actual GetFloor4d0150/4, SetFloor4d0210/43,
+GetRange4cbbc0/27, SetRange4cbb90/42. Donor/comment addresses4cff90/4d0050 belong to a
+different layout and are not reused. Typed view SetFloor587550/36 is byte-exact
+Gold584f50, clamps[-3,4]/stores48 and has no camera freeze. Actual common5a35b0, bound
+from typed base Step14 via5a4803, calls GetCameraB8 then cameraGet44 then sceneSet78
+at5a365f/5a366e/5a3674. Actual GetCamera is5a2aa0/B8 versus Gold5a01c0/B4; whole105
+comparison is rejected for actual extra frame/controls/length. Independently decode its
+sequence branch returning camera74; no frame/field/control masks.
+
+Typed original CICAutoPlay Exec59df10->59d980 calls mission init601070, which calls the
+full common step at602021. The common selects the acting tracker first, pumps
+ProcessWorld5a3060/ProcessCamera5a3160, updates/finishes locatorbc, publishes selected
+floor, then its5a3796..3820 tail conditionally hands off selected
+GetPlacement4c/SetPlacement50 and GetFloor44/SetFloor48 to cinematic74 when no live
+locator exists. Typed level-bar ProcessMessage Gold652900 slot28 binds actual658aa0:
+decode event10000006/up/down and mission80->GetCameraB8->GetFloor44/SetFloor48, with
+Range40 for authored slot indexing. Gold pMission68 differs; use actual field
+independently, no normalization. Gold Init4324 and bar1332 are not assumed actual sizes.
+No original Game.exe/copied-function execution.
+
+Own shared base dispatcher already consumed script floor/lock requests before the donor's
+concrete fallback. Adapt that existing dispatch using the actual CMission type: tactical
+floor requests use its camera API and omit the scene-lock mirror; non-tactical
+menu/globalmap worlds retain their owned scene-floor and lock behavior. Keep those owned
+background policies, native SDL/bgfx/audio/HiDPI/font/HD/face pipelines and pointer
+position. Interactive-only music was already restored at139, satisfying this donor hunk
+without moving it again.
+
+NativeCameraFloorOwner0..13 canonicalRED13/14 both/control0 ->GREEN14 both, combined50/50
+including3 camera bridge,25 prior demo/menu and8 cached-point cases. Cover real API
+reads/writes, renderer drift, actual StepApp publication, deferred framing, camera
+freeze/clamp, initial acting-player/deploy handoff and actual loaded level-bar
+up/down/range/freeze. Earlier d3 had4 UI fixture failures because GetChildByID searches
+direct children only, not canonical; d4 follows actual missionUI/unitpanel/levelswitch and
+checks original class ID. The older bridge-only tests asserted immediate scene mutation
+from the removed fork provider; update them to unchanged view1 and keep camera
+clamp/freeze assertions. New actual mission frame case4 separately proves deferred
+publication.
+
+Add NativeAutoPlayLifecycle9 as a separate real virtual GameStep control with a genuinely
+non-active native winner, before the common pump can switch active player. Existing9
+whole-frame lifecycle cases remain unchanged. Use test-only typed member access to
+dispatch the actual override, not a substitute or public production hook; actual knockout
+winner state, latch, command and fresh-demo replacement still run. This retains
+independent non-active-winner coverage after correcting initial active-player selection.
+Full related suite includes51 combined cases.
+
+Full Game both/717 Windows/682 Linux selected
+camera/floor/deploy/mission/save/scenario/UI/light/network checks are covered, with CI378
+and23 prior lifecycle/presentation/menu,8 cached-point and12 font rows exact. Keep the
+original broad Windows716/717 and Linux681/682 results: only NativeScenarioRootMaps
+failed, from a one-ULP diagnostic rounding boundary on Windows and an initially unbuilt
+nested DB helper on Linux. Separate validation143,2c071f1a, fixes only diagnostic
+centimetre-midpoint keys and baselines after52 raw item-coordinate/non-item/gameplay
+records remain exact per platform and55 native map summaries agree. Windows6/6 and
+Linux9/9 affected reruns now cover the entire selected set. Linux preflight also updates
+existing selected/nested targets; hash changes identify three additional stale test
+binaries, whose cases are rerun with the probe cases. Game/UpstreamBugTests remain
+unchanged in that refresh. Original failed logs and separate retries are retained; no
+root-map test is excluded. Known prior138 campaign nested-save movement flake remains
+tracked; only that exact test is excluded as139, not fixed here. Source6b complete,31
+unfinished. Hosted142 head64c4172c was successful; actual final-head hosted CI remains
+required at whole-task completion.
+
+Source: [6b4f7b8f67f26adb20506bef1015f89aba9f29dd](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6b4f7b8f67f26adb20506bef1015f89aba9f29dd).
+
+## 2026-11-01: saved object-melee executor foundation (145)
+
+Restore registered CExecMeleeObject0x01353130 so the native decoder can construct the
+original saved executor. Preserve its base1/CPtr<CObjectBase>target2 shape and existing
+CExecMelee point2/extraAP3. Default construction waits for native decode; no new
+fresh-command constructor or factory route. Existing unit/tile/live object fallback
+remains unchanged. The loaded executor inherits real remembered-point eligibility,
+ignored-target response, melee action and extra AP spending. Its one-shot label creates an
+untargeted native portion, selects current target hull or saved-point fallback, applies
+normal hit/miss selection, filters the existing native damage core by its saved target and
+marks attack canceled. For saved unit targets, preserve original default HL_ANY/empty
+locations rather than the separate unit executor's called-shot metadata; no unit-success
+event is introduced.
+
+Original Gold named vtable8bdb14 and actual named Steam8cd1bc identify serializer
+slot0c/7b1960 and label40/7aa200. Entire typed Gold serializer7a5120/53 uniquely matches
+actual53 with only decoded E8 operands19/38 normalized: base1 then target2 at2c. Actual
+registry8aab96 independently pairs descriptor984c10 and ID01353130;8aabbe registers
+factory7affb0, whose actual47-byte body writes this vtable and null target before decode.
+Typed Gold OnLabel79dc20/499 differs from actual507 and whole499 comparison is rejected.
+Independently decode actual7aa283 untargeted CreateAttack7a4a00, default local
+HL_ANY/empty vector, shared6b6510 call, success-only virtual48 with target2c and
+unconditional canceled18=true. Actual typed map28/4662d0 accepts an object; own
+direct-hull API is explicitly adapted through existing GetHull. Actual shared selector
+false-hull branch uses point helper6b6260; valid hull makes object cover, named
+CUnitServer cast selects CheckToHit6b5200, non-unit uses current HL_ANY
+center/CheckTile6b53b0. No whole helper equivalence or field/frame/control masks and no
+original runtime execution.
+
+Keep the owned vector/float virtual API: object PerformAttack override supplies its saved
+target to the existing nonvirtual filtered core, as the owned unit adaptation already
+does. No additional virtual slot, world/server/RPG state, LAN transport format, public
+production observer hook, render/audio backend or frozen HD/face/font/PNG changes. This
+restores a verified class and native payload shape; no original whole-save-file
+interoperability claim.
+
+NativeObjectMeleeSave0..7 plus six existing real native target-filter controls: canonical
+RED7/14 both, only missing class, ->GREEN14 both, seven measured controls exact.
+Independent saved payloads borrow actual world/actor/door references and decode only a
+newly allocated executor; the live world is never reloaded. Verify real target/null
+roundtrips, remembered-point availability, requested extra AP, actual Start spending,
+pocket/no-target label consumption, two real human hull receivers and selected/null damage
+filtering with native callbacks. Saved filters produce front0/back3 versus front3/back3;
+actor health/AP/position/orders remain guarded. Full Game both/372 Windows/361 Linux
+related/CI378 all pass;12 packaged font rows exact on each platform.
+
+During expanded controls, an old fixture set VP500 before native deployment/stat updates,
+then mistook later cap normalization to140 for damage. Restore byte-exact parent
+production files and reproduce all six identical failing rows before changing the fixture;
+retain parent proof and initial logs. Measuring before-attack HP alone fixes five
+controls, but godmode tile case still carries the second artificial500 until native
+traversal. Retain authored native health, require healthy receivers and measure exact
+pre-attack deltas instead. Keep explicit IC0, all literal
+small-damage/callback/identity/godmode expectations and actor invariants. No production
+health, cap, chance or damage change. Canonical corrected parent controls all pass while
+seven class-restoration cases fail, before restoring the same production implementation;
+failed fixture discoveries are not used as bug RED.
+
+Source remains partial: donor parameter-constructor and new command routing are not yet
+imported. Actual original factory79e1e7 passes a null target to7a5d80; that constructor
+ignores failed map coordinate lookup, whose empty-hull path does not write the point. Do
+not silently reproduce uninitialized coordinates or claim the donor's Sentinels
+retained-target producer is SS behavior. The earlier active-door lookup hunk remains
+complete.31 unfinished sources. Known prior138 campaign nested-save movement flake remains
+tracked; only its exact test excluded if selected, not repaired here. Hosted final-head
+success remains required at whole-task completion.
+
+Source: [4cdc1eada6c182c0a9093364e95c750a6166d4c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8).
+
+## 2026-11-01: fresh object-melee routing and requested AP (complete146)
+
+Generic non-unit object commands with native AT_MELEE or AT_KNIFE now create the original
+registered CExecMeleeObject through the existing native action queue and retain requested
+nExtraAttackAP. The old fallback converted them into CCmdShootTile/CExecMeleeTile and
+discarded extra AP. Keep existing unit, targetless, direct-point, ranged/explosive and
+other action paths. Unarmed default equipment still requests ITEM_INACTIVE; a held knife
+requests ITEM_ACTIVE through owned native path/facing/item preparation. Keep own
+AT_KNIFE12 ordinal rather than importing original enum3. No new virtual or save field:
+existing base point2/extra3 and object target2/ID01353130 remain as145.
+
+Actual original SS factory passes NULL to its object executor. Preserve that null saved
+target/filter, while retaining the current fork's already computed finite native
+hull-center point from its former fallback. Add an owned runtime
+constructor(actor,point,extra) that explicitly stores this same input, rather than
+introducing the original constructor's unchecked failed-null map lookup and uninitialized
+point. This is an intentional own initialization adaptation, not a claim that original
+coordinates were zero or equal. The command still retains its physical target for native
+approaches; the new executor does not adopt the donor's Sentinels retained-target
+producer. Consequently this is the SS object path, not a new broken-window remaining-frame
+targeting feature. Verified non-null legacy saved executors remain supported by145's
+existing decoder/label/filter.
+
+Bind original GetActionType Gold787e40/426 to actual793a40/426 uniquely with only eight
+decoded E8 operands. Bind the typed Gold CreateActionExecutor body prefix7921a8/63 after
+the EH prologue to actual79dde8/63 using only two named RTTI descriptors and two decoded
+E8 operands; independently decode actual79ddd0 prologue, reject whole Gold5657 factory
+comparison. Actual named CCmdShootObject descriptor951468/cast833bd2 at79e132..144 gates
+the branch, actual fields pTargetc/extra14 match PDB, classifier793a40/table79f40c maps
+original melee2/knife3 to79e1b7. That branch separates the unit cast and a valid generic
+command target, then79e1de pushes extra14,NULL,actor and79e1e7 calls7a5d80, whose typed
+object vtable is8cd1bc. Donor comment79db52 is not this constructor call in the actual
+Steam image; do not reuse it.
+
+Actual secondary translation for melee2/knife3 enters79e3c5: mission getter2c then
+NEG/SBB/+2 computes inactive2 for default0 and active1 otherwise, before queue
+builder799ca0. Independently named mission secondary4c slot2c maps Gold6b8cd0/11 to
+actual6befa0/11, exact field118 prefix and decoded tail to typed unit GetWeaponType
+Gold6b5060/actual6bb200, whose first27 bytes uniquely map. No whole196 getter or
+queue-builder prototype equivalence claim. Gold PDB enums independently confirm
+WT_DEFAULT0 and item active1/inactive2; own matching item policy and different action
+ordinals are retained. No arbitrary field/frame/branch masks or original runtime
+execution.
+
+NativeObjectMeleeRoute0..6 use actual CreateActionExecutor and native queue/executor on a
+real authored door with a valid close approach. RED5/7 both: generic/extra/saved
+identity/native Start/real nonthrowing knife use tile00422171 and lose extra7; direct
+point and missing-target controls pass and remain exact. GREEN7 both/combined21; unarmed
+query14->21 and knife18->25 retain requested7, actual Start deducts base+extra, fresh
+native roundtrip preserves finite prior hull point and NULL SS filter. Query actor
+health/position/AP/orders/equipment/RNG and knife quantity are guarded. All14 prior
+saved-executor/filter rows remain exact, with the separate old godmode-dedup control also
+exact in broad coverage. These are real factory/Start/decoder consumers; no claim of a
+full damaging mission-loop replay or original whole-save-file interchange.
+
+Full Game both/379 Windows/368 Linux related/CI378 pass, including current native helpers
+refreshed before Linux tests and12 packaged font rows exact each. Owned
+SDL/bgfx/audio/HiDPI/font/HD/face pipelines, foreground/background policy and LAN/save
+contracts remain intact; no assets/PNG generation. Prior145's test-only authored-health
+calibration remains unchanged. Known prior campaign nested-save movement flake remains
+tracked, not fixed; its exact case is excluded if selected. All SS-relevant source hunks
+are now accounted for: earlier active-door lookup,145 saved executor,146 live
+routing/constructor adaptation; the independently different Sentinels retained-target
+producer is intentionally not imported. Sourcecomplete,30 unfinished. Final-head hosted CI
+remains required at whole-task completion.
+
+Source: [4cdc1eada6c182c0a9093364e95c750a6166d4c8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cdc1eada6c182c0a9093364e95c750a6166d4c8).
+
+## 2026-11-01: initial cinematic floor range (147)
+
+Stamp the existing resolved inclusive variant cut-floor range on the freshly created
+cinematic camera, just as player cameras already receive it. One production line after
+owned SetCameraParams during CMission::Initialize. A sequence selects this separate
+cinematic camera: formerly bounded player/scene ranges coexisted with the cinematic
+default[-3,4], allowing camera floor4 on a view limited to0. Raw DB max remains exclusive;
+use existing nMinCutFloor/nMaxCutFloor resolution. Existing unbounded/default behavior,
+camera clamp/freeze/pose, normal frame publication and saved range fields11/12 remain
+unchanged. Do not broaden runtime camera replacement or snapshot semantics;144 already
+restores selected-camera scene range/floor publication.
+
+Actual initializer601070 is independently bound by144's typed command/AutoPlay caller and
+rechecked. Named camera slot3c SetCutFloorRange is byte-exact Gold4ca6d0/42
+->Steam4cbb90/42. Typed Gold Initialize5fc930/4324 is not assumed the actual size; whole
+comparison rejected. The entire13-byte camera74/vtable/max-1/pushmax/pushmin/range3c block
+Gold5fd231..23e uniquely matches actual601963..1970 without any masks. Actual60194f checks
+non-null variantEBP and min90<max94; else skips. EBP comes from variant stack84, also used
+by the player camera loop601856..1879 with the same fields and max-1/range3c. PDB
+CTemplVariant confirms min90/max94. Actual variant registerEBP differs GoldEBX; do not
+normalize registers/fields/frames/branches to claim whole-guard parity. Preceding70(1) is
+a camera setup call; it is not mission vtable70 or a guessed original SetCameraParams
+symbol. No original process/function execution.
+
+NativeCinematicFloorRange0..2 initialize real native AutoPlay
+missions/players/world/view/UI/audio and control actual template4412 variant metadata
+before construction, restoring it afterward.0 raw0/0 preserves default[-3,4], exact
+control;1 raw-1/2 gives player[-1,1] but old cinematic[-3,4];2 raw0/1 gives
+player/view[0,0] while old selected cinematic accepts4, preserved through a real paused
+StepApp with that camera frozen. Canonical RED2/3 both ->GREEN3 both, combined54 with
+all51 prior camera/demo/menu/light cases green. The fixed46
+camera-owner/lifecycle/presentation/menu/cached-point rows and dedicated non-active-winner
+marker remain exact; three bridge and two squad controls also pass. Actual independent
+saved wrappers inspect identities only, never reload the live world. The pending
+mission-start snapshot is retained without disk writes; game.db SHA
+remains314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df.
+
+Full Game both/278 Windows/251 Linux camera/mission/deploy/sequence/floor/save and prior
+melee checks/CI378 pass. Prior fresh/saved melee/filter/godmode rows and12 packaged font
+rows exact each. No additional world warmup/frame/clock ticks, API/classID/save/LAN
+changes or native SDL/bgfx/audio/font/HD/face/PNG pipeline changes. Known prior campaign
+nested-save movement flake is the only exact exclusion, unchanged since139, not fixed.
+Sourcee825 pending->partial for this independent cinematic-range hunk; deployment, foot
+support and light/API hunks still require separate verification.30 unfinished. Final-head
+hosted success remains required at whole-task completion.
+
+Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
+
+## 2026-11-02: live and saved foot support (148)
+
+Restore one foot-support contract across live animation movement and saved height-map DG
+nodes. Existing saved center/specialPoint/floors2/3/5/6/7 are now active rather than
+paired with an unsaved transient list. Constructor initializes both points and floors;
+single movement supplies one position/floor, two-position movement supplies destination
+center/floor and previous special/floor. Both cache movement and fresh recalculation call
+the same six-argument sampler. Restrict actual native TraceGrid to the two movement
+floors; choose nearest matching non-door support, reject relocated points outside absolute
+rectangle right/bottom, fall back to unit height above a one-unit support gap, then pin
+center/special samples and retain existing CheckGradient. Preserve original same-center
+early-return. Three production files; no new classID/save tags.
+
+Actual Steam1.2 entries independently audited: CHeightMapBlock RTTI VT8ca950 Recalc
+slot14=73b740; whole typed Move Gold7308e0/288->73b620/288 uniquely matches with only six
+decoded E8 relocations. Entire equality guard, point copies and floors38/3c writes remain
+unmasked. Both typed terrain Move Gold730b20/79 and730b70/85 uniquely match
+actual73b860/79 and73b8b0/85 with decoded E8 only. Height constructor
+Gold738990/108->7436f0/108 masks only the independently named height-block VT. Terrain
+constructor body132 Gold7311a5->73bee5 masks decoded E8 and named terrain VT only,
+excluding its EH prologue; actual third-floor argument reaches typed height constructor.
+Animator constructor caller43 Gold73225e->73cf9e is unique with only its three decoded E8
+operands and supplies actual CP/GetFloor/map to actual terrain constructor73bed0. No
+whole853 animator-ctor claim.
+
+Both actual cached movement73b6e7 and fresh Recalc73b81e call453b70 with saved map1c,
+center20, special2c, floors38/3c. Actual453c01 supplies both floor arguments to454be0;
+its139-byte body Gold454155->454bf5 uniquely matches with decoded E8 only, preserving
+duplicate-floor suppression. Actual TraceGrid slot1c receives floor set,
+TS_PASS_BLOCKER100, NOSORT0. Four exact, unmasked unique blocks bind optional-special
+comparison71 bytes, nearest matching-source loop159, fallback112 and support helper
+bounds/source search133. Actual writable file data100/1 operands are read independently,
+never normalized; whole995 height-map comparison is rejected. Actual helper453aa0 uses
+absolute right/bottom comparisons; actual final stores pin both points. Donor
+comments453c60/73b2c0/73b3e0 are corrected. No original process/world execution; no
+register/field/frame/branch/opcode/unknown-pointer masking.
+
+NativeFootSupport0..6 run actual world810, deployed actor, native map geometry and
+registered node11461141.0 preserves ordinary ground within existing0.002 sampling
+tolerance, not exact textual output;1 excludes actual floor0 via empty valid floor4 and
+must retain center height away from pinned samples;2 restores a distinct special height;3
+verifies every sample of floors4/0 equals actual floor0/0 and differs from4/4. Both actual
+nonempty ground trace743 and empty floor4 trace0 are checked.4 observes actual animator
+construction;5 native PlaceUnit and6 actual StartMove/Move update saved samples on the
+same cached DG node. Every live cached sample must equal a fresh independent
+registered-node reload. Native actor navigation stays unchanged; only new nodes are
+decoded, never the live world.
+
+Initial GREEN60/61 both retained: diagnostic special rise0.5 exceeded existing
+CheckGradient's center-preserving slope and lowered the peak0.018875. Refine only this
+input to0.25 within the existing slope and add full second-floor differential, without
+production changes or tolerance relaxation. Final unchanged diagnostics rerun against
+three exact parent production blobs give canonical RED6/7 both; GREEN7/combined61 both,
+all54 prior camera/cinematic/demo/menu/light cases green.49 fixed rows plus
+non-active-winner marker exact. Full Game both/376 Windows/348 Linux related/CI378 pass;
+prior melee/filter/godmode and12 packaged font rows exact; game.db SHA unchanged. Known
+prior campaign nested-save movement flake remains the sole exact exclusion since139, not
+fixed. Native renderer/audio/SDL/bgfx/font/HD/face/PNG/LAN and gameplay timing untouched.
+e825 remains partial for deployment and authored-light propagation;30 unfinished.
+
+Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
+
+## 2026-11-02: authored point-light shadow propagation (149)
+
+Pass the actual CContainerModel.bPLightShadow through CObjectServerBase::AddLights,
+IRenderVisitor/CSetRender, IGameView/CGameView, IGScene/CGScene and the real CPointLight
+constructor. The fifth view/visitor input becomes the sixth constructor input, separate
+from lightmap-only eligibility. Store it in existing bCastShadow/tag12, consumed by
+radiance and the previously restored142 cached point-shadow renderer. Ten production files
+change only explicit argument declarations/forwarding/initialization; mandatory input, no
+guessed defaults or extra virtual slots. Default save decoder remains false for missing
+old fields; positive-radius guards, color/position/radius/radiance math and saved
+fields10/11/12 remain intact.
+
+Actual Steam1.2 chain audited independently: typed Gold world entry778c50/53->7847d0/53
+unique exact, and complete28-byte authored flag producer778cd6->784856 unique exact
+(containerac, lightmap1c, five inputs, visitor slot0c). Named secondary CSetRender RTTI
+table offset20 slot0c maps Gold6c6610/52->6cd0f0/52; whole52 unique with only decoded
+RegisterBase E8 relocation, all pushes/game-view slot88/ret14 retained. Named CGameView VT
+slot88 maps584c80->587280; its20-byte guard/tail-call suffix is unique exact,
+pScene0c/scene slot3c. Whole30 comparison rejected due writable absolute zero operand;
+actual guard is independently decoded and file-backed zero checked, not masked.
+
+Named CGScene VT slot3c maps55c5c0->55e450. Its103-byte
+allocation/argument/constructor/AddLight/return body Gold55c5fe->55e48e uniquely matches
+with only three decoded E8 relocations, excluding EH/zero guard. Actual caller55e4c9
+supplies both booleans to constructor552530. Constructor115-byte body prefix550675->552545
+uniquely matches masking only independently named CPointLight VT, excluding EH prologue
+and floating global operands. Complete77-byte field block5506f2->5525c2 is unique exact
+without masks: stack80 ->lightmap4f0, stack84 ->shadow500, color4f4; actual ret18 confirms
+six inputs. PDB class/member/prototype names bind container flagac, point flag500 and both
+booleans. Whole449 constructor/384 world/165 scene equivalence rejected; never mask
+writable constants, BSS VNULL3, fields, frames, registers, branches, opcodes or unknown
+pointers. No original process/function/world execution.
+
+NativeAuthoredPointLight0..6 use real predecessor/new API constructor and view factories
+plus actual world4517/CSetRender dispatch, forwarding to a real native game view/scene
+factory. Native metadata of44 authored runtime lamp models is temporarily toggled and
+restored, never written to game.db. All44 emitted real CPointLights must preserve the
+flag, agree with native radiance, and retain it after a fresh independent
+registered01961170 saved-node reload. False constructor/view/world controls0/2/4 and
+zero-radius6 remain exact. True constructor/view/world1/3/5 give canonical RED3/7 both
+->GREEN7 both, world wrong flags44->0. Compatibility templates only call actual native
+predecessor/current methods; no synthetic point or expected flag. Seven new RED tests stay
+byte-identical during the production fix. Existing three radiance constructors explicitly
+keep predecessor false, and three diagnostic virtual sinks only adapt the required
+signature.
+
+Combined68 both, all61 prior foot/camera/cinematic/demo/menu/cached-point cases green and
+fixed58 rows exact. Full Game both/452 Windows/423 Linux
+light/ambient/effects/weather/render and previous148 related/CI378 pass; prior
+melee/filter/godmode and12 packaged font rows exact; game.db SHA unchanged. No live-world
+decode, extra frame/tick, backend/audio/SDL/bgfx/font/HD/face/PNG/LAN changes. The known
+prior campaign nested-save movement flake remains the sole exact exclusion since139, not
+fixed. e825 remains partial only for its deployment remainder;30 unfinished. Actual
+final-head hosted success remains required at whole-task completion.
+
+Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
+
+## 2026-11-02: authored subzone passage deployment (150)
+
+Finish e825 deployment in CWorld::AddPlayer. For actual campaign ETStore/template2291
+passage arrivals, choose authored UnitN_l when saved passage zone ID is1 and UnitN_g
+otherwise, lower-case lookup, and set crouch. Missing marker falls back to native
+GetDeployPlace. For ordinary single-player arrivals, retain formation displacement, select
+the passage approach first, save the initial deploy spot, then run native final
+facing/formation. Special markers skip that final recalculation. Preserve the remaster's
+existing network placement call sequence explicitly under bNetworkArena, including the
+pre-override ordinary call and post-waypoint call; real NetworkWorld replicas also set
+bNetworkArena. No replacement of own LAN placement logic.
+
+Actual Steam1.2 AddPlayer is independently bound through named CWorld root VT slot58
+to76e9e0 (Gold typed762fb0/2296 is only a guide; actual size not assumed). Typed exact
+getters bind globalGame158 via slotec/777ab0 and waypoints holder64 via slot3c/7778a0,
+named holder slot0 GetWaypoint77eb00; named CPathNetwork slot98 GetDeployPlace43ec10. The
+complete56-byte string-equality routine Gold403b00->Steam403eb0 uniquely matches masking
+only its decoded strncmp E8. Actual76efba tests global current template30==2291 and
+actual76efd2 combines it with ETStore through independently decoded currentZone34/zone
+DB24/string24; the Gold1.1 guard differs and is not normalized. Actual success flag,
+Unit/character index/_l/_g file data and actual template/zone predicate are decoded
+separately; no writable literal operand normalization. Diagnostic printf omitted as in
+donor.
+
+Five unique exact unmasked typed blocks bind waypoint lookup Gold76363a/29->Steam76f0c8,
+marker position18/crouch Gold76365b/24->76f0e9, fallback prefix763675/18->76f103, initial
+deploySpot58 store/flag13 reset7636d8/23->76f166, and final not-special/path/displacement
+caller prefix7636ef/21->76f17d. Actual changed null register, fallback/normal stack
+temporaries and return-copy instructions are independently decoded; no register/frame
+masks. Both actual native calls use path-network slot98; normal displacement defaults0,
+ordinary formation is i-trunc(nPers/2). Whole AddPlayer/guard equivalence rejected where
+registers, frames, branches, diagnostics, template guard or writable operands differ. No
+original process/function/world execution, field/branch/opcode/unknown-pointer masking or
+BSS reads.
+
+NativeStorePassage0..4 use a genuine campaign1 ETStore zone, native passages and real
+selected variants3844/3845 (templates2291/2292), actual CreateGlobalPlayer merc records
+and CWorld::AddPlayer. Special group1/2 arrivals exactly select crouched7c032e15/7c010d20;
+ordinary passage facing becomes4c011e0a; non-passage control is exact. Two-person ordinary
+formation compares the entire exact native position bit-set4c011d09/4c011e0a and consumed
+passage state. Initial GREEN72/73 both retained: raw expected4c011d0a was inside a real
+wall and the existing native placement snapped to4c011d09. Refine ONLY the diagnostic
+expectation by independently invoking actual GetNearestPosition before party locks,
+retaining full original direction/pose and validating passability. No tolerance
+relaxation, duplicate nearest algorithm, fake geometry, actor/world mutation, extra frame
+or production change. Replay final diagnostics against exact parent Main: canonical RED4/5
+both, ordinary control exact; audited production restored byte-exact ->GREEN5/combined73
+both. Old formation already had two distinct cells; the failure was final layout/facing.
+
+All68 prior cases pass and65 fixed rows remain exact. Full Game both/471 Windows/442 Linux
+related/CI378, prior melee/filter/godmode and12 packaged font rows exact, database SHA
+unchanged. Separately fresh-build and pass12 existing LAN gates per platform:
+transport/session/graph/identity/serializer plus real match/client UI/preparation/partial
+movement/object stages/stop-resume/all encounter maps. Linux build config registers only
+the first5; invoke the same freshly built NetworkMatchTests executable directly for all7
+game scenarios with actual database/resources, retaining each command, exit and log.
+Windows registers/runs all12 via CTest. No save/API/backend/asset/HD changes. The
+previously established nested-save movement flake remains the sole exact related
+exclusion, unchanged since139.
+
+All15 source files accounted for: iMission selected-camera snapshot range adapted144 and
+initial cinematic range147; aiHeight.cpp/h+wAnimation148; ten authored-shadow
+interfaces/consumers149; wMain deployment150. Nonsemantic donor whitespace/obsolete
+address comments need no import. Promote e825 from partial to imported:217 imported,12
+partial,17 pending;29 unfinished. Actual final-head hosted success still required at
+whole-task completion.
+
+Source: [e825c21b229ebf5c302b2361daf49166db50407e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e825c21b229ebf5c302b2361daf49166db50407e).
+
+## 2026-11-02: native Lua implicit-end scheduling (151)
+
+Restore the actual Steam1.2 script scheduling boundary: luaV_stepExecute returns after
+implicit OP_END, leaving the caller to the next native lua_executeThreads update. Explicit
+OP_RETURN continues in the same update. Add only the opcode0 loop break to Script/lvm.cpp;
+preserve the existing return helper, stack/result handling, explicit return, sleep/no-wait
+rules and wire representation. No new scheduler, extra world frame/tick, clock adjustment
+or interpreter replacement.
+
+Four unchanged native UpstreamLuaImplicitEnd0..3 cases compile and execute through the
+actual Script/lua VM. Implicit child first-update trace12->1, two-level nesting123->1
+then12/123 on subsequent updates, explicit-return control12 in the same first update, and
+a suspended native Script saved/reloaded as an independent Lua graph then resumed to12
+exactly once alongside its live counterpart. No live-world decode or forged VM
+instruction/state. Canonical RED3/4 both ->GREEN4 both; explicit-return1 exact. A guarded
+production application first stopped on Git LF versus working CRLF; the incidental
+before-production rerun remains archived separately and was not claimed as GREEN. Correct
+normalized content comparison, then four-line production applied without modifying the
+tests.
+
+Original comparison distinguishes versions. Gold typed luaV_stepExecute7ddfe0/3716 does
+NOT have this yield; its7ded78 tail checks only the thread-error flag before looping.
+Actual verified Steam1.2 scheduler81b520 is bound by the whole23-byte typed sleeping/error
+block Gold7d674d->Steam81b53d, unique exact without masks, and independently decoded sole
+fallback string8d3e6c/reference81b5aa. Actual81b55c calls lua_setThread816870 and81b563
+calls step823080; thread retirement checks and fallback newThread8168a0 decoded
+separately. Actual lua_State fields pCT4/threads14/nNoWait44/protos64 differ from
+Gold0/10/40/60; never mask or normalize those fields. Actual setThread reads/replaces pCT4
+independently.
+
+Complete10-byte explicit-return index/base prefix Gold7de0a7->Steam82314c uniquely matches
+without masks. Named typed return helper body Gold7dd412/30->Steam822483/30 uniquely
+matches masking only its decoded luaD_endCall E8; changed initial pCT load excluded and
+independently decoded at822480. Actual helper pops one20-byte frame from
+executedCalls.end24 and calls81c5f0. Actual opcode extraction823125 masks3f, compares48,
+stores opcode atesp1c, then dispatches through actual49-entry table823e80. Table0=82313e
+calls822480 with top; table1=82314c calls the same helper with base+argument. Both
+jump823e50, where actual opcode==0 exits to823e64/ret823e7d; nonzero checks pCT error30
+then loops8230e6. No no-wait exception to this END exit. Whole165 scheduler/3716 step/32
+helper comparisons rejected because state fields, frames, added branch, EH/global/BSS
+operands differ; no field/frame/register/branch/opcode/unknown-pointer masks, BSS reads or
+original execution. Donor cited7eb770/8238c0 are wrong for these verified images;
+actual8238c0 is inside an arithmetic opcode.
+
+Initial full Windows run624/625 exposed one stale fixed-phase assertion in existing
+NativeWorldMission5247PartySaveTurn: exit78 before save expected BOSS already flying at
+exactly tick50. Exact parent Script replay passes that original case and retains new
+RED3/4. Refine ONLY the diagnostic phase gate: observe the first native CanFight+IsFinal
+phase at/after50 within the SAME existing220-update loop; require the event occurred or
+return the same78. Keep native grid update, survival and original0.001 position bound, all
+save/reload, end-turn and second-save checks. No extra updates/frames, clock, tolerance,
+geometry, actor or production adjustment. Identical refined diagnostics pass on parent
+at50 and audited production at52; unchanged new RED3/4 on parent ->GREEN4 and refined5247
+all5/5 after fresh Windows ALL_BUILD. Direct native logs verify full
+save/end-turn/second-save on both. Retain initial failure and all624 unaffected passes;625
+is aggregate coverage, never a claim of one625/625 pass. Linux single590/590 remains valid
+with byte-identical production; corrected probe case is Windows-only in the configured
+tests.
+
+Full Game both/625 Windows/590 Linux distinct related Lua/script/world coverage including
+all150 regressions, CI382, and77 previous/new cases pass as qualified above;71 previous
+fixed rows, melee/filter/godmode and12 fonts exact per platform, database hash unchanged.
+Twelve fresh existing LAN gates each platform pass, including real match/client
+UI/preparation/partial movement/object stages/stop-resume and all361 encounter
+deployments/replicas. Linux5 infrastructure gates use CTest and7 actual NetworkMatchTests
+modes run directly because this configured Linux build does not register them; Windows12
+via CTest. Initial Linux full-build typo requested Windows-only
+NativeScriptRouteWaitTests; log retained and target corrected without excluding any
+registered Linux test. The prior nested-save movement flake remains the sole exact
+exclusion since139. Other four6face files (mission transition, route installation and
+deployment reservations) remain pending; source becomes partial,217 imported/16 pending/13
+partial,29 unfinished. Final-head hosted success required at whole-task completion.
+
+Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).
+
+## 2026-11-02: deferred outgoing subzone termination (152)
+
+Restore outgoing mission termination for linked-template passage transitions.
+CMission::ExecWorldCommands retains its actual CUICmdLoadTemplate zone/template and native
+deferred NMainLoop command, passing its existing owned loading image and this mission.
+Append an optional outgoing IMission argument to the existing zone constructor, preserving
+all earlier bool/image positions and default-null callers. The command retains
+CPtr<IMission> and calls the existing Terminate after the loading screen and BEFORE
+replacement mission initialization. Never terminate from the UI/world/script update
+itself; native Terminate removes the departing party and writes the linked-zone snapshot.
+Two production Main files, no new virtual slot, save tag, enum, wire field or LAN
+protocol. A stale producer comment is corrected after GREEN without semantic changes.
+
+NativeSubzoneTransition0..2 use the real scenario1 ETStore zone and actual initialized
+CMission, native campaign merc54, registered passage objects and the real forced scripted
+passage gate. Native mission command drain only exposes the existing protected method as a
+typed member pointer; no derived mission override, fake world/passage, actor teleport or
+DB modification. Real forward2291->2292 and reverse2292->2291 use group1; before deferred
+command execution the old interface/world/party remain intact and no zone snapshot exists.
+Execute the actual queued CICBeginMission; the replacement is real and uses the same
+campaign/merc, consumes the saved passage data and keeps exactly one living party member.
+RED2/3 both: old world still contains its human actor and no snapshot was written despite
+a valid replacement. GREEN3 both: outgoing party1->0, snapshot absent->present/nonempty,
+replacement party1/passage consumed. First-entry2 is exact. Own isolated test
+profiles/active slots are cleaned, no user saves touched. No live-world decode or extra
+game frames/ticks. Snapshot file creation is tested; its deserialization/reentry, stale
+historical snapshots and remaining a831 footprint cleanup are not claimed. An initial
+diagnostic NStr::Format include error was corrected by composing the integer filename
+before genuine RED; compile errors remain archived, not counted as RED. The three final
+tests stay unchanged during production.
+
+Original actual command Exec is independently bound through named CICBeginMission root VT
+slot10: Gold607930/532->Steam60c350, actual size not assumed. Complete19-byte termination
+block Gold6079af->Steam60c3cf is unique exact without masks: validate saved mission2c,
+call its slot28 at60c3df, before chapter-emulation flag14 at60c3e2, allocation590
+at60c4c4, CMission constructor5ff9d0 at60c4e0, Initialize601070 at60c50b and successful
+interface install5f59b0 at60c517. Named CMission root slot28 binds typed Gold
+Terminate5f7fe0/251 to Steam5fc560 without claiming whole251 equivalence.
+
+Typed Gold zone constructor6076d0/181 has outgoing mission as its fifth native input. The
+complete47-byte reference/field block607726->Steam60c146 is unique exact without masks:
+game24/zone28/outgoing mission2c and refcounts. Actual constructor60c0f0 writes
+independently named CICBeginMission VT at60c12e; actual arg stack30->field2c at60c167 and
+ret1c independently checked. The actual UI producer's five-byte
+false/image/current-missionESI push block Gold5fa443->Steam5feb69 is unique exact, used
+only with the independently decoded actual constructor call5feb95->60c0f0 and subsequent
+deferred main-loop call5febab->5f5c10. Actual mission image580/zone4b0, incoming command
+template10, game getter slot134 and temporary/register layout are decoded independently;
+Gold slot12c and frame/register differences are never normalized. Preserve own CUICmd
+zone, which is the same actual linked zone in the supported native transition; append the
+optional mission to own source API instead of transplanting original argument positions.
+Whole532 Exec/181 constructor/2799 UI producer comparisons rejected at changed fields,
+virtual offsets, frames/registers, EH/globals/literal pointers. No unsafe masks, BSS reads
+or original process/function/world execution. Donor60ba7f is stale for these verified
+binaries.
+
+Full Game both/640 Windows/604 Linux related including all151 plus zone/transition cases,
+CI382, prior/new80 cases and80 earlier fixed rows pass. Previous melee/filter/godmode
+and12 font rows exact, database hash unchanged. Windows now also runs the151 corrected5247
+save-turn probe as part of this single complete related run; its native
+flyer-phase/survival/position/save-turn assertions remain intact. Twelve fresh existing
+LAN gates each platform pass, including all361 encounter deployments and replicas; Linux5
+CTest+7 direct native match modes, Windows12 CTest, all commands/exits retained. The old
+nested-save movement flake remains the sole exact exclusion since139. Source6face remains
+partial for scriptRoute order and wDumbUnit deployment reservations;151 accounts its
+Script/lvm change and152 both iMission files.217 imported/16 pending/13 partial,29
+unfinished. Final-head hosted success required at whole-task completion.
+
+Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).
+
+## 2026-11-02: authored unaware-critical parameters (153)
+
+Correct only CUnitMission::ModifyUnawareCritical. The authored perk74 chance parameter
+scales chance by1+Param1 capped100, while Param2 independently scales original critical
+difficulty. Both conversions truncate. The predecessor wrongly multiplied difficulty by
+the capped chance and rounded both fields. Fetch both real outputs through the existing
+HasPerk API and cast the two results to int. Existing no-backstab/no-perk early returns
+remain; no new API, virtual/save/enum/wire field, resource or LAN protocol.
+
+Six NativeUnawareCritical0..5 cases use actual person2 from a real authored perk tree,
+grant all real prerequisites through native CanTake/TakePerk before generating the
+baseline, then acquire only74 through the same APIs. Real melee item and loaded snap-gun
+factories feed the actual native CreateAttack with no ammunition spending or familiarity
+adaptation. Real world/owner/standing placement and target RPG object retained, no fake
+attack or private modifier hook. The actual source parameters are0.25 and1.5; baseline and
+verified original Steam game.db have the SAME complete
+SHA256314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df. Nothing in DB is
+edited. Controlled native melee73/200 and snipe73 inputs produce base
+chances99/99/56/227/39/39 and difficulties49/49/28/113/18/18. Independent literal expected
+chances99/100/56/100/48/39 and difficulties49/73/28/169/27/18 were pinned and final RED3/6
+both replayed BEFORE production. Initial formula-based RED evidence retained; final six
+tests remain unchanged during the fix. An initial SUnitPosition versus SPathPlace fixture
+compile error was corrected before genuine RED, not counted as RED.
+
+GREEN6 both. Melee severity4900->73, capped case11300->169, gun chance49->48 and
+severity878->27. No-perk0 and non-backstab melee2/gun5 rows are exact. Difficulty49*1.5
+and113*1.5 truncate to73/169; gun39*1.25 truncates48. Chance alone caps100. Queries
+consume no native RNG words and preserve AP, HP, position, item/ammo/perk points, ordinary
+min/max damage, unconscious probability and real attacker/target pointers. This verifies
+the actual attack-portion producer, not a complete projectile/animation/hit outcome or
+post-damage RNG trace.
+
+Original typed Gold helper6b8820/133 independently maps to actual Steam6bebd0.
+Complete40-byte prefix is unique exact, no masks; it gates the apply flag and calls the
+named CUnitMission secondary4c slot78 HasPerk with ID74, both actual output pointers and
+third-null. Named table binds typed GoldHasPerk6b8ab0/11 to actual6beea0 without claiming
+whole11 equivalence. Complete87-byte suffix Gold6b884e->Steam6bebfe is unique with ONLY
+decoded Min E8 displacement bytes17..20 masked; both actual call targets independently
+decode to typed Gold Min<float>413bb0/41 and Steam414690/41, whose complete41 bytes are
+unique exact without masks. The intervening6-byte FADD uses independently read IEEE1 at
+writable Gold8a39e4/Steam8b2a34; neither operand is normalized. Whole133 equivalence is
+rejected at this absolute global operand, not forced with a constant-pointer mask.
+
+Actual prefix returns Param1 atesp0c before pushESI. Param1+1 times portion chance10 is
+first stored as a float, then passed with immediate IEEE10042c80000 to Min.
+FNSTCW/OR-RC0c/FLDCW/FISTP writes chance10 then restores CW. FILD original difficulty14
+multiplies returned Param2 atesp4, followed by a separate RC-chop FISTP14 and CW restore.
+PDB names bind both portion fields; full exact suffix retains their offsets, registers and
+frame operands. Actual incoming helper calls6c268f and6c2b95 independently decoded:
+bool+portionESI and thisEDI-4c. No whole2606 parent-method/vtable binding is claimed where
+it was not found. Donor6bec20 is inside the helper; production comment uses actual
+entry6bebd0. No writable-data/field/frame/register/branch/opcode/unknown-pointer masks,
+BSS reads or original process execution. Tests pin exact supported authored-data
+arithmetic; no exhaustive x87/CRT/all-int32 parity claim.
+
+Full Game both/1377 Windows/1340 Linux
+critical/attack/combat/damage/knife/melee/perk/healing/health/accuracy/weapon/RPG/inventory/PK
+plus all152 world/zone/Lua regressions and CI382 pass. Prior/new86 cases and83 earlier
+fixed rows, melee/filter/godmode and12 fonts exact per platform; DB hash unchanged. Linux
+selected-target builder resolves omitted CTest executable commands from the generated
+Linux CTestTestfile alias mapping, still rebuilding/validating every selected executable
+and named nested helper; no alias skipped or stale binary accepted. Twelve fresh LAN gates
+each platform pass, including all361 encounter deployments/replicas; Linux5 CTest+7 direct
+native match modes, Windows12 CTest. Sole old nested-save exclusion retained since139.
+Source884 remains partial for healed VP, damage-share depletion and knockout probability;
+previously imported inventory/dialogue/drop hunks retained.217 imported/16 pending/13
+partial,29 unfinished. Final-head hosted success required at whole-task completion.
+
+Source: [884f91f42db3aa840f729fb5196a18133d49917b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b).
+
+## 2026-11-02: native health depletion and knockout probability (154)
+
+Finish the remaining numeric hunks of884 in Main/RPGUnitMission.cpp. Clamp reported/stored
+bandaged health and initial body damage to zero. Clamp the converted damage share,
+explicitly handle zero total health instead of casting NaN to int, and apply the remaining
+raw-health shift through existing CDynamicSkill::Modify. Preserve the original distinction
+between raw and bandaged health. Restore original knockout: draw Get(1,100), which
+is1..99, scale probability by
+clamp((0.5-totalAfterDamage/maxHealth)*2.500000238418579,0,1), round through Float2Int,
+and force unconsciousness for nonpositive total health or click-of-death. Existing
+incidental damage/PK/critical ordering remains.
+
+Five NativeHealedDamage and twelve NativeHealthKnockout cases use real person103 with
+untouched authored cap147, real world/owner/free standing placement, the existing native
+CalcDeathVP with actual difficulty party reserve exactly as CWorld::AddPlayer, native
+HealVP and actual death critical. No negative health-field injection or live-world read.
+Fixed positive native body attack, intended target, no attacker, zero critical input
+isolate health depletion from critical/IC rolls. Ordinary/bandaged/overkill/zero-total and
+healthy/half/quarter/low/bandaged health, zero probability and forced click cases are
+pinned. Independent raw/healed/Boolean literals are fixed before production; real seeded
+rolls64YES/65NO at total36/max147 verify rounded probability64 without private hooks or a
+mirrored expected formula. Initial three invalid KO preconditions used a fresh NPC default
+death threshold0; those runs are archived and not counted as genuine RED. Actual native
+party reserve fixed before a valid15-case discovery RED9/15 and final17-case canonical
+RED10/17 both. Final17 tests unchanged during production.
+
+GREEN17 both, seven control rows exact: health0/3/4 and KO3/5/9/10. Zero-health damage
+previously produced INT_MIN bandages and could wrap raw HP up to147; now
+raw-20/bandages0/total-20. Bandaged overkill previously raw-30/bandages-30/total-60; now
+raw-30/bandages0/total-30. Healthy146/147 and half74/147 no longer collapse on
+probability100; quarter36/147 accepts roll64 and rejects65. Raw0 with real bandages19
+or146 no longer forces unconsciousness while total health remains positive and the scaled
+roll fails. The original zero-roll bug at zero probability is removed; click and truly
+zero total still force collapse. Native RNG four-word tails, wound AP clamp, position,
+inventory, health cap and attack inputs checked. Corrupted old zero-health branch skipped
+its KO draw after an overflow-induced death; the fix restores the original alive-path
+draw, not a claim of unchanged RNG in that broken case.
+
+Actual Steam function6c3e20 is bound through named CUnitMission secondary4c slotA4 to
+typed Gold ProcessAttack6bd7e0/1992. SlotsE8/EC bind GetHealed6c5e40/GetTotal6c5eb0.
+Complete CUnit setter22/getter16 and DynamicSkill Modify36 are unique exact from typed
+Gold6b42e0/6b4300/6b6f90 to Steam6ba480/6ba4a0/6bd200; complete GetTotal60
+Gold6bf720->Steam6c5eb0 unique exact. Generic GetHealed thunk prefix is not unique: its
+named table and independently decoded E9 bind it to the complete exact getter, without
+claiming masked11 uniqueness. Complete actual share block6c42be..4318 is decoded with
+original fields/frames/registers: converted negative share becomes0. Original masked x87
+zero division yields INT_MIN then that clamp drops it; explicit divisor guard preserves
+this scalar result without claiming FPU exception-status parity. Actual6c4333 calls the
+exact setter and6c4344..4366 inlines Modify's cap/raw clamps.
+
+Actual initial damage calls Max<float>42b530; complete typed Gold42a8c0/41 is unique exact
+and both calls decoded. Actual KO6c44b1..4570 calls typed range RNG41b940, complete70
+unique with only its decoded E8 fill-call displacement relocated; fill targets decoded, no
+whole fill-body claim. Actual range subtraction/modulo/add preserves exclusive upper
+bound100. Actual total-health division, independently read writable constants0.5 at8b29fc
+and2.500000238 at8c5480, Min1/Max0, FSTPS and restored-CW FISTP, total<=0/roll
+comparison/type2 force are decoded directly. Complete typed Min41 and Max41 are unique
+exact. Writable constant pointers are never masked. Whole1992 comparison rejected at
+different layout/frame/register/global/log operands, no unsafe normalization or original
+process execution. Initial damage clamp and old-save getter protection are additionally
+statically proved; no separate invalid-negative-input RED claim or exhaustive
+x87/all-int32/full-projectile claim.
+
+Full Game both/1400 Windows/1363 Linux related, all103 old/new cases and89 previous fixed
+rows, melee/filter/godmode and12 fonts exact; CI382 and12 fresh LAN gates each
+including361 encounter maps pass. Linux5 CTest+7 direct native match modes; all selected
+executables/nested helpers freshly built. Sole old nested-save exclusion retained. DB
+remains identical to verified Steam
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df. All four source files
+accounted: inventory null uniform, dialogue priority65535 and backpack
+launch-before-removal were previously imported; unaware-critical153 and health/KO154
+finish RPGUnitMission. Source884 now imported:218 imported/16 pending/12 partial,28
+unfinished. Final-head hosted success still required at whole-task completion.
+
+The initial full1394/1357 related runs retained six fixture failures per platform:
+NativeDirectAttackXP0/4/5/18 and
+UpstreamAIFirstIncapacitationUnconscious/FinishUnconscious. Their raw logs remain
+archived. These fixtures used ordinary input8/probability100 on a healthy target as a
+forced KO; original health scaling correctly suppresses it. Only these six KO preparations
+change: an actual fixed-input8 CAttackPortion::CalcStructDmg probe with unchanged source,
+body armor and difficulty pins damage11 for the party,8 anonymously and5 for the enemy.
+Existing native Skills(VP).Modify prepares living HP12/9/6 at authored cap80, so the
+unchanged hit leaves HP1 and original probability caps100. The previous strict
+KO/death/XP/level/progress/perk/roster/killer/time conditions remain; HP1 is additionally
+asserted. No forced state, disabled injuries, fake fields, extra frames or clock. The XP
+preparation precedes native reference clones and the AI preparation precedes its first-hit
+baseline. Controlled exact parent Main plus corrected fixtures freshly runs
+XP19+AI8+new17: all27 old cases pass and unchanged new17 retain canonical RED10. Restore
+production Main byte-exact and freshly run all44: all pass. All21 XP inputs/summary rows
+including four RNG words and every recipient row match parent versus production exactly,
+as do all7 AI metadata summaries and its corpse contact event. Final full scope
+additionally includes all8 AI cases, giving1400 Windows/1363 Linux: a SINGLE complete
+passing full run each, with the paired rows retained exactly. Initial six failures are
+never rewritten/reported as a pass and no new exclusion is added. Paired proof and both
+fixture byte snapshots are saved.
+
+Source: [884f91f42db3aa840f729fb5196a18133d49917b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/884f91f42db3aa840f729fb5196a18133d49917b).
+
+## 2026-11-02: world placement reservations and waypoint route order (155)
+
+Placement must evaluate all other world units and restore all reservations on every exit.
+The predecessor used the caller's temporary selected-only filter: new actors could overlap
+a live blocker, leave the filter active, or move unnecessarily around a pending dead-owner
+lock. Restore the original all-world selection and three cleanup calls while retaining own
+anchor-floor, actual diagonal footprint orientation and explicit self-lock handling. Also
+restore original waypoint route installation after synchronous teleport with
+AI-or-sequence guard; native command/position APIs stay unchanged.
+
+Final NativePlacementReservations0..6 use actual World::AddUnitInGame, real
+person103/blocker, public selected-only path queries and native death-state preparation.
+Canonical RED4/7 both ->GREEN7 both. Controls0(all blockers),4(free) and6(native
+pre-cleaned corpse) are exact. Cases1/2 now match normal0 including full placebc010102;
+free3 matches4 atb8010107 and restores reservations; pending-dead5 matches clean6
+atb8010101. All7 four-word native RNG tails match the normal reference. Expected full
+place words are pinned before production from independent native controls, not a copied
+nearest-cell algorithm. Initial dead-lock precondition wrongly assumed cleanup had already
+run; archived and corrected before valid6 RED4/6 discovery and final7 RED4/7. No fake
+health/position fields, world decode or extra frames/clock.
+
+Four NativeWorldWaypointRoute controls exercise actual native Lua/AI route slots: AI-far,
+human outside sequence, human through real c_BeginSequence/EndSequence, AI already at
+waypoint. Authored waypoint goes through actual native snap; no manual waypoint-position
+injection. Initial far inputs were standing-passable but their actual snapped native
+posture was blocked and correctly used the existing fallback; archived as invalid endpoint
+assumptions, then corrected to truly native-passable inputs before route production. An
+initial unseeded comparison passed all11 behavioral checks but failed RNG equality; those
+logs remain, RNG was never masked. Native SeedForHarness712 immediately before the command
+and exact parent-scriptRoute replay then production-byte restore give parent11 ->GREEN11
+both; all four complete route rows and RNG tails exact. Position, route ownership, HP/AP,
+time and no-active-command controls retained. These four are positive controls for the
+additionally static-proved ordering, not a new RED or an asynchronous-teleport theory.
+
+Actual original placement entry752380 is bound by named World root174 AddUnitInGame
+Gold75b980/84->Steam767200 and independent PlaceAllUnits Gold756930/37->Steam7621c0:
+complete84 and37 unique with only decoded E8 relocations, both call752380. Complete
+placement body986(+0d) and508(+43b) unique with only decoded E8 call operands;
+fields/frames/registers/branches retained. Named WorldA8 vector getter and
+PathNetwork5c/60 selection/restore slots, self removal and three exits audited. Whole1591
+equality rejected at EH, writable best-distance operand and opaque11-byte Steam debug-call
+block; no unsafe masks/BSS reads/original execution. Best-distance float1e38 read
+separately, pointer never normalized. Preserve own native stale-owner policy, floor/anchor
+and diagonal-facing footprint guards, and explicit own self-lock cleanup; donor removal of
+those guards is deliberately not copied. No separate original-world-death runtime parity
+claim.
+
+Actual UnitSetToWaypoint registry binds callback6ec360 and its own name literal.
+Complete44 conditional tail and complete283 route-helper suffix are unique with only
+decoded E8 relocation; named GetTBS11 exact, TBS IsSequence25 unique exact and IsAIUnit47
+unique with decoded E9 tail validate the AI-or-sequence gate. Route call6ec6f3 follows
+native teleport/continue dispatch; earlier donor address6ec00c is stale. Whole
+Lua1142/helper296 identities are not forced through EH/field/frame/global masks, no whole
+transitive constructor/dispatcher claim. Existing synchronous command APIs are retained.
+
+Full Game both/1411 Windows/1374 Linux related/CI382, prior103+new11=114 cases and106
+earlier fixed rows, all XP/AI/melee/filter/godmode rows and12 fonts exact;12 fresh LAN
+gates each with361 maps pass. Linux5 CTest+7 direct native match modes; all selected
+executables/nested helpers rebuilt. Sole old nested-save exclusion retained. DB remains
+identical to verified Steam
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df. Source all5files now
+complete:151 Lua implicit END,152 deferred outgoing mission termination,155 remaining
+placement/route. Exact previously ported lvm.cpp/iMission.cpp/h blobs retained.219
+imported/16 pending/11 partial,27 unfinished. Final-head hosted success required at
+whole-task completion.
+
+Source: [6facee6dbea4189b0d817f37d4f62f9318212152](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6facee6dbea4189b0d817f37d4f62f9318212152).
+
+## 2026-11-02: explosive target groups and protected-unit clearance (156)
+
+Explosive decisions used stale tactical views, a three-meter merge and an average that
+differs from the original pre-insertion rule. Restore live fightable world groups and
+their nearest protected-unit distance, then update grenade/rocket consumers together.
+Preserve existing null-player and save-format compatibility.
+
+Restore live-world explosive target groups: enumerate fightable units using the saved
+tactical player's global diplomacy, merge at strictly less than1.5m, preserve native order
+and each singleton, and use the original pre-insertion count for group centers. A newly
+spawned enemy is included without waiting for the legacy tactical-view refresh; a unit
+made unconscious through the native API is excluded. Track the linear distance to the
+nearest fightable non-enemy, including the thrower and neutral units. Grenades require the
+raw authored fragment range to be smaller than that distance; rocket launchers require
+more than3m. Existing item/AP/trajectory/fallback behavior is retained. The tested normal
+and engineer grenade1 retain authored range5; launcher92 and all weapon/damage/AP values
+remain unchanged. This restores AI decision safety without changing weapon blast radii.
+
+Phased native TDD: final NativeExplosiveGroups0..6 give canonical RED5/7 on155parent
+->GREEN7 both. Controls0(single enemy) and6(empty world enemy set) are exact. After the
+group fix, NativeExplosiveClearance0..7 with the old action consumer give RED3/8, then
+all15 pass with the minimal action guards. Five consumer controls3..7 and all eight
+four-word RNG tails are exact; all seven group rows stay exact through the consumer fix.
+Rocket-near is a required integration control after the group representation change, not a
+separate claimed old155rocket bug. No aggregate oldparent8/15RED is claimed. All three
+source files ship together; the unsafe group-only intermediate was never committed or
+pushed.
+
+New tests use actual world actors, person103 targets and actual GetInfoInner calls, native
+inventory/trajectory feasibility and world grouping. Authored actor838 needs actual XP
+progression tolevel2/engineering21 for engineer grenade1; distant ordinary-grenade control
+uses real level10/throwing44 and native incapacitation of other protected actors before
+the baseline. No direct skill/HP/position field writes, perk bypass, DB edits, injected
+world state or extra ticks. Normal grenade1/engineer1 range5 reject nearest3.69264531;
+launcher92 rejects2.71312618 at threshold3. Safe controls accept ordinary5.10886574 and
+rocket3.69264531. All8 RNG tails3347300753/533642937/2369221069/2490556528 remain exact.
+
+Compatibility adaptation retains own group save tags2(center),3(enemies),4(legacy allies);
+adds optional5(nearest distance) with explicit65535 when absent because the native chunk
+reader zeroes missing scalar fields. Standalone current/older group round trips use
+external borrowed object references, including nonempty legacy ally vectors, without
+decoding a live World. Preserve existing null-player behavior rather than donor's
+early-return guard; all13 tactical-view controls pass. No new virtual method, object class
+ID or resource field is introduced.
+
+Original read-only proof: typed Gold AddUnit4a8110/397 ->actualSteam4a9890 (donor4a9860
+stale), complete105+265 unique with only decoded E8 operands; local branches are unmasked.
+Typed MakeEnemyGroups4a8760/1206 ->4a9ee0, complete561+41+71+474 unique E8-only. Named
+World A4/BC and Unit CanFight34/AI GetPosition18 bind current world
+enumeration/diplomacy/eligibility; complete34/18 bodies unique exact. Literal1 and2.25
+read separately, not normalized through writable-address masks. Whole397/1206 identities
+are rejected at EH/writable operands/VNULL3 storage; the PE helper refused non-file-backed
+access and returned no BSS bytes. No original execution, BSS call/read/mask,
+field/frame/register/branch normalization, whole transitive constructor or exhaustive
+x87/x64 all-input parity claim.
+
+Original normal/engineer grenade helper Gold41b8c0/188 ->Steam41c360 is complete188 unique
+with E8-only relocation; donor41c390 is midfunction. Named grenade-info secondary5c
+slots4/8 use decoded virtual-base thunks to exact typed getters and DB fragment
+offsets74/78. Rocket guard at41ce40 is bounded by unique complete41+87+84+104 blocks;
+threshold3 and other floating literals are read separately. Whole324 is not forced through
+writable constant operands, and no whole172 throw/trajectory identity is claimed.
+
+Discovery evidence remains separate: an exact1.5m authored-grid input was unavailable,
+corrected before group production to a real1.5<distance<3 range case; strict equality
+behavior is original-static only. A diagnostic missing stream rewind was corrected with
+exact-parent replay; a stale-copy-timestamp build was rejected and rebuilt using fresh
+input writes. A real missing-tag5 compatibility failure then led to the explicit default
+without changing the tests. Initial Windows far-macro compile rejection and Linux
+unqualified-engineer/unavailable-distant inputs are not RED; corrected before consumer
+production through normal XP progression and native setup. Final respective fixtures
+remain unchanged through their accepted fixes.
+
+Fresh full Game both,877 Windows/850 Linux in single related suites,14 supplemental legacy
+melee cases each and CI382 pass. Actual prior114+new15=129 cases, all13 tactical views,106
+earlier fixed rows plus11 placement/route rows, AI/melee/filter rows and12 font rows
+remain exact.12 fresh LAN gates each, all361 map variants pass; Linux5 CTest+7 direct
+match modes. Every selected executable and nested helper is rebuilt. The only old
+nested-save exclusion is retained. DB
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df stays identical to
+verified Steam. Source all3files now complete;220 imported/15 pending/11 partial,26
+unfinished. Final-head hosted success remains required at whole-task completion.
+
+Final validation initially refused to publish because the focused AI/world/save selection
+omitted14 previous melee cases:7 object routes,6 target filters and1 godmode
+deduplication. Those14 cases run separately on each platform with the same unchanged
+production and test code and all pass. The877/850 figures describe the single full related
+suites;891/864 are distinct totals including this supplement, not single-suite totals.
+Legacy output rows are compared by test identity with within-case order retained, so all
+earlier melee/filter/AI rows remain exact despite the separate runs. No extra exclusion or
+relaxed assertion was added.
+
+The initial Linux network infrastructure run failed one of five tests: NetworkSessionTests
+reported its compound readiness/state/event-count assertion as "duplicate event played
+twice". It links only the unchanged network transport library, and the initial build did
+no work; the AI code is not linked into this executable. A fresh unchanged full rerun
+passes all five infrastructure tests and seven native match modes, including361 maps. The
+initial failure is retained separately; no exclusion, test relaxation, proven root cause
+or separate network production fix is claimed.
+
+Source: [069451e7e61dc0c720812b2f939339f7732fdaf3](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/069451e7e61dc0c720812b2f939339f7732fdaf3).
+
+## 157. Unit-aware waypoint and deployment placement
+
+Ordinary scripted teleport queried the waypoint's native prone pose before preparing WALK,
+and blocked points used a generic nearest-cell snap without movement exits, facing or
+source-height constraints. Restore the original three-meter unit-aware search and prepare
+WALK before the ordinary passability query. Authored deployment uses the raw waypoint
+height; scripted teleport uses the actor height. Keep the current map/network/output-place
+interface, synchronous command flow, AI-or-sequence route installation after teleport and
+same-point behavior. Preserve the existing generic relocation branch for actual empty/worn
+panzerkleins, whose full footprint differs from the original anchor-only helper. Native
+real-persona93 controls retain independently pinned complete words3c010408/bc010408 and
+valid seven-cell footprints.
+
+Canonical native tests NativeUnitAwareWaypoint0..3, Deploy0..1 and PK0..1 fail3/8 on the
+exact parent, then all8 pass unchanged on Windows and Linux. The three failures are a
+standing-free but prone-blocked target, a genuinely occupied teleport point with real
+connected height-safe neighbors and a blocked authored UnitHero marker storing the wrong
+pose/farther cell. Real Lua/world/AddPlayer/person103 blockers and person54 party are
+used. Five complete control rows and all four waypoint RNG tails remain exact. Blocked
+deployment now creates the hero at the corrected location and changes its native creation
+RNG tail; no blanket RNG parity is claimed. No fake private health/grid/position edits,
+partial World reads, artificial action ticking or original gameplay execution. The initial
+low-height actor lacked a valid nearby witness and is archived as an invalid input, not
+RED; it was replaced with an actual human actor before production. Actual empty/worn PK
+controls were added and full result words pinned before the final canonical RED replay.
+
+Original Steam Move47e270 is bound by the previously verified Lua callback6ec360 and
+actual call6ec572. Typed Gold47de60/806 gives unique complete232+400+128 instruction
+blocks with only decoded E8 relocations. Actual Move calls criterion47e160; every fixed
+span of its190 bytes is exact, and all eight whole FPU literal instructions are decoded
+and independently checked. The original Z,Y,X dot order, double0.3 facing scales with
+their distinct store stages, float0.3 Z, bias0.04 bits3d23d70a and fall weight(0.2f*0.2f)
+bits3d23d70b are retained. FetchDeployPoint entry is762ca0, not the rejected
+midfunction762cc0 candidate: typed Gold757430/359 yields a unique complete338-byte body
+with E8-only relocations. Named path vtables bind GetPassability3c and GetNearPlaces7c;
+actual unit-position getter is a complete exact7-byte body. SetPose's actual indexed
+branch2 yields the complete exact24-byte WALK case. Whole806/190/359/116 signatures are
+not forced through EH, writable literal or jump-table operands. No
+field/frame/register/opcode/local-branch/global address masks, BSS reads, whole-transitive
+or exhaustive x87/transcendental/FPU-status parity claim.
+
+Fresh full Game builds and single related suites899 Windows/872 Linux, CI382 and all137
+focused cases pass. The previous14 supplemental melee cases are included in these single
+suites. All117 previous fixed rows, explosive group/clearance rows, AI/melee/filter
+rows and12 font rows remain exact. All13 tactical views pass. Twelve fresh LAN gates on each
+platform cover all361 encounter variants; Linux uses5 infrastructure CTest plus7 native
+direct match modes. Every selected executable and nested helper is rebuilt; only the old
+nested-save exclusion remains. Baseline game.db retains verified Steam
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df. Player cleanup/ACK
+removal were already imported in013a81868/d410c1430 and the AI-pruning files were
+completed earlier; this closes the remaining four of all nine source files.221 imported/15
+pending/10 partial,25 unfinished. Final-head hosted success remains required at whole-task
+completion.
+
+The extra full-log equality check initially refused publication: Windows full-suite
+worn-PK control started with HP157 rather than the focused canonical137. Its native test
+passed the unchanged assertion comparing HP after teleport with that same run's captured
+HP before teleport; position, full footprint, AP, command and all RNG fields remained
+exact. No production, fixture or assertion changed. An additional unchanged8-case
+confirmation passed on each platform: Windows returned137, Linux used157, while its
+earlier full run used137. Thus both platforms exhibit the setup variation; its exact cause
+is unproven. All raw rows and their explicit unequal HP field are retained in verification
+data. Only the five canonical small RED/GREEN controls have complete row equality; no
+all-eight full/confirmation row equality, health-field normalization or root-cause claim
+is made. These confirmations overlap the single-suite selections and are not added
+to899/872 totals.
+
+Source: [a8311049890a7fa91a1a439a43fdfc2da9619a3e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/a8311049890a7fa91a1a439a43fdfc2da9619a3e).
+
+## 158. Door-triggered forced relocation and animation timing
+
+An actual door changing its flipper did not notify units immediately through the world
+grid-event adapter. An explicit grid notification relocated an obstructed actor but reused
+the previous animation end, so a later move could be scheduled entirely in the past.
+Restore the door grid request after changing the flipper, align forced movement to the
+current native clock, publish SetPosition before updating world/visibility bindings and
+refresh destination passability afterward. Ordinary units reuse the already verified
+unit-aware three-meter helper, including native movement exits, facing, upward tolerance
+and fall classification. Deliberately retain the existing large-unit candidate policy and
+footprint query as an own adaptation; no original panzerklein scoring equivalence is
+claimed. The animator inactive-pose hunk was already imported in b4035116 and remains
+unchanged. All three source files are accounted for by the remaining two-file integration.
+
+NativeSmoothRelocation0..4 use real authored doors, public native unlock/open/close, map
+Sync and actual person103 actors. Mode0 reproduces no immediate relocation; mode1 sends an
+additional real grid event after a controlled native CCTime advance of5000 and reproduces
+the old animation timestamp. A native prior pose is initialized through public AlignTime
+and animator.ForcedMove at the same position before reading end/label. Initial initialized
+end11550 is strictly before the later now15050; old movement uses label11550/end13050,
+fixed movement uses label15050/end16550. No simulation steps or private state injection
+create the timing difference. Canonical RED2/5 on both exact parents becomes unchanged
+GREEN5 both. Free ordinary actor, actual empty PK and actual worn PK controls retain all
+complete canonical rows, positions, native end/label, HP/AP/command and four-word RNG
+tails. Explicit-event mode1 retains its RNG tail; door-only mode0 now performs actual
+relocation and consumes its normal draws, so no blanket RNG parity is claimed.
+
+Original Steam ForcedMove7c15b0 is bound through named CUnitServer CTBS base154 slot10
+OnTBSEvent7c34c0 and the independently decoded event10 jump-table target7c3655. Its
+complete93-byte event case calls7c15b0 at7c36ab. Typed Gold7b4e30/704 yields unique
+complete141+96+59 instruction blocks with only decoded E8 relocations. The actual helper
+call7c16ec reaches the previously verified47e270. Native AlignTime19 bytes are complete,
+raw exact and unique at73b0e0: direct native clock read plus delay into tEnd. Named door
+secondary9c slot8 binds Gold7770c0/609 to Steam782c30; complete108-byte tail is unique
+E8-only and orders path slot8c flipper change before worldCC GetTBS and TBS slot38 grid
+event. World GetTBS11 bytes are exact; the113-byte grid method has a unique
+complete92-byte body after excluding its21-byte EH prologue and queues event10. The own
+world adapter already delivers grid events synchronously; no same-tick original behavior
+is claimed. Whole704/609 are rejected at EH/log globals, whole113 at EH and
+whole126/105-byte flipper body at changed native instructions. No
+field/frame/register/opcode/local-branch/global masks, BSS reads, original execution or
+whole-transitive parity claim.
+
+Initial interface-type and private-API compile failures are archived as compile failures,
+not RED. Initial missing-door inputs are archived as invalid and corrected before
+production through existing public map synchronization and native door unlocking. The
+earlier candidate2/5 discovery observed uninitialized animation time and is not canonical;
+native prior-pose initialization and strict old-time precondition were added before the
+final canonical replay. Final tests remain unchanged through the accepted production fix.
+
+Fresh full Game builds and single related suites927 Windows/900 Linux pass, including all
+prior137 and new5 cases plus23 additional door/forced/ladder/critical controls. All117
+earlier fixed rows, explosive group/clearance rows, AI/melee/filter rows and12 fonts
+remain exact;13 tactical views pass. CI382 and12 fresh LAN gates per platform pass
+with361/361 map variants; Linux uses5 infrastructure CTest plus7 direct native match
+modes. Every selected executable and nested helper is rebuilt and only the old nested-save
+exclusion remains. Previous unit-aware bootstrap health137/157 inequalities are retained
+as explicit raw unequal rows whenever observed, not normalized or described as equality;
+each native test still asserts exact before/after health preservation and the setup cause
+remains unproven. No save/network fields, item/stat records or database data change.
+Verified Steam/baseline DB
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df remains unchanged.222
+imported/15 pending/9 partial,24 unfinished. Final-head hosted success remains required at
+whole-task completion.
+
+The initial Linux network infrastructure run passed4/5: NetworkSessionTests failed its
+compound readiness/Playing/event-count assertion with the text "duplicate event played
+twice". It links only the unchanged transport library, excluding the changed Main code,
+and its build did no work. The failing run has no individual counters, so neither an
+actual duplicate nor a timeout cause is proved. Five concurrent LAB-only diagnostic copies
+linked the same library, reported ready1/Playing4/events3/baseline1/expected3 and passed
+the original100-poll gate without reproducing the failure; their optional extra drain
+would preserve the original failure result and did not run. No repository, production,
+assertion or timeout change was made. Initial logs are retained separately. A fresh
+unchanged full Linux rerun passes all5 infrastructure tests and7 native match modes,
+including361 maps. No added exclusion, relaxed test, proven root cause or network
+production fix is claimed, and the diagnostic probes are not counted as LAN gates.
+
+Source: [71bf7730c33bf37b19beaab21042f6a39e5b3285](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/71bf7730c33bf37b19beaab21042f6a39e5b3285).
+
+## 159. Ordinary hover attack admission for world objects
+
+Ordinary attack-state initialization rejected every target that was neither a unit nor a
+sound marker, even though its comment already described the original IObject case. Add the
+missing native IObject cast and include it in the existing target-type admission. Preserve
+the current forced-mode, unit-owner, sound-marker, target command, action information and
+caption rules. This imports only iGameStates.cpp, one of source b3bd470's ten files; the
+nine dead-panzerklein support/animation files remain pending. This is not a complete
+import of that source commit and does not reduce the unfinished-source count.
+
+NativeObjectHover0..4 open the actual authored810 tactical mission with a real person54
+party, desktop, player turn and selected actor. The public mission target is an intact
+targetable world object1914/HP47, door439/HP66, own unit, non-owned unit or null. Real
+forced attack initializes for both object targets before probing ordinary hover, excluding
+an unavailable command/context as the cause. Canonical native RED2/5 both becomes
+unchanged GREEN5 both; own-unit rejection, non-owned-unit acceptance and null rejection
+retain all three complete control rows. All five four-word RNG tails
+remain724253223/457891056/3219285046/1955194503. Object and door allocate the original
+caption frame but keep its unit caption hidden, and Terminate releases it. Actor/target
+HP, AP, position, command and simulation time remain unchanged. The tests use real public
+state-target/init/terminate APIs, not a fabricated mission or world, private field
+injection or partial World reads. Actual mouse pixel picking and shot delivery are not
+claimed.
+
+Named CStateAttack root vtable slot10 binds typed Gold Initialize5da670/802 to actual
+Steam5ddc40. The complete66-byte type-result admission block at Gold5da7a6 -> Steam5ddd76
+is unique and raw exact: IObject validity allows continuation alongside Unit and IAISound.
+Six whole descriptor PUSH instructions are decoded independently for the three exact
+native destination types and CObjectBase source; their addresses are not normalized. Every
+fixed instruction span around them retains opcode/register/frame/argument values, with
+only three decoded E8 displacement changes. Gold __RTDynamicCast825c52 is independently
+typed; the three actual calls reach833bd2. Whole802 is not claimed or forced through
+EH/descriptor operands. The adjacent102-byte owner-dispatch region is explicitly rejected:
+its Gold130 and actualSteam138 virtual slots differ. Existing own owner behavior is
+retained, without a new whole-owner/transitive parity claim or
+field/frame/register/opcode/branch/global masks. No BSS reads or original gameplay
+execution.
+
+Fresh full Game builds pass on both platforms. Validation follows the UI-only production
+scope: single related suites558 Windows/550 Linux cover
+hover/attack/aim/tooltip/cursor/target/picking/selection/trace/font/preview/action/heard-marker/UI/state
+tests, all142 earlier focused cases, new5, all13 tactical views and every earlier
+diagnostic row-producing AI/melee/filter/font case. The previous927/900 world/physics
+suites are not rerun or claimed for this two-line UI change. All117 earlier fixed rows,
+explosive group/clearance, AI/melee/filter rows and12 fonts remain exact; prior PK
+bootstrap-health inequalities are retained explicitly if observed, never normalized or
+described as equality. CI382 and12 fresh LAN gates per platform pass, including361 maps;
+Linux5 infrastructure CTest+7 direct modes. Every selected executable and nested helper is
+rebuilt, only the old nested-save exclusion remains and the new five tests carry
+native-display metadata. Verified baseline/Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged. No new
+API, save/network fields, combat values or item data.222 imported/14 pending/10 partial,24
+unfinished. Final-head hosted success remains required at whole-task completion.
+
+The additional full-log equality check initially refused the Linux report for one old
+case, NativeSmoothRelocation1: every position/timing/HP/AP/command field matched, but its
+four-word RNG tail was shifted by one draw (3285973158/2793744859/1494726304/2075231427
+instead of2793744859/1494726304/2075231427/2971378132). One additional unchanged-binary
+single-case confirmation on each platform passed the same native assertions and returned
+the earlier tail. Executable SHA values were captured before and checked after, with no
+source, fixture, assertion or executable change. This establishes observed runtime
+variation in that existing world/visibility diagnostic, not its exact cause. Full raw rows
+and the unequal RNG fields remain in verification data; they are not stripped, normalized
+or called equal. The new five hover cases retain their full canonical RNG tails. The old
+canonical small smooth test's own paired RNG statement remains scoped to that phase; no
+current full old-smooth RNG parity is claimed. The two confirmations overlap the existing
+suites and are not added to558/550 totals.
+
+Source: [b3bd4703140eedb548126513d32cc16ad5c06b2a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b3bd4703140eedb548126513d32cc16ad5c06b2a).
+
+## 160. Preserve collapsed dead panzerkleins when their floor is destroyed
+
+Dead panzerklein wearers used the living fall/forced-move path after a support change. It
+could replace their original frozen collapse pose, slide them sideways to avoid a dynamic
+lock, and run ordinary fall processing. Add a dead-wearer-only GRID handler that searches
+vertically across native layers, honors the actual maximum fall ray, accepts physical
+support even when another unit locks it, and relocks its final position. Translate only
+root bones in a memorized native pose through a future fall interval. The helper samples
+the previous destination if a later support change interrupts a fall; this
+interrupted-multiple-fall branch has code review coverage, not a separate runtime claim.
+Living movement, ordinary ragdolls, intact support and combat values retain their existing
+paths.
+
+NativeDeadPKSupport0..6 use actual4517/3830 maps, authored full PK footprints, a real
+pilot/shell relationship, real death/collapse clips, independently witnessed lower
+surfaces, public building Explode/Segment and the actual native pass-calculator jobs. A
+separate collision trace requires a clear vertical fall column. Cases cover2.49977112m
+and3.95774841m drops, intact dead PK, ordinary dead body, live PK, live ordinary unit and
+a lower floor locked by another real unit. Five cases deliver world.GridInfoUpdated; the
+long fall and occupied floor isolate the actual wearer GRID event to exclude other actors'
+movement. Controlled native CCTime samples the collapse endpoint and landing; this is not
+a claim about natural scheduler/action-retirement timing or original gameplay execution.
+The explicit public Freeze(false) and bounded native job drain are fixture preparation,
+with actual raw iteration counts retained.
+
+Final corrected canonical parent RED3/7 on both platforms becomes unchanged GREEN7 on
+both. The complete skeleton retains parent topology, rotations, scales and local
+positions, with only vertical root translation; observed poseError=0, no sideways
+displacement, intervals156ms and247ms. Four controls retain
+physical/timing/HP/AP/command/shell and RNG behavior; raw pass-job iteration counts may
+differ and are explicitly reported as unequal, never normalized into complete-row
+equality. All seven corrected operation queries consume no RNG. Six paired old/new tails
+are exact; the long-fall old handler consumes four draws and its new path consumes none,
+so no all-seven paired RNG-parity claim is made. Seed720 untouched tail
+is1212278508/2789043273/1545738150/2805276718. Actual before/after native
+HP/AP/death/worn/command/shell assertions pass.
+
+This is an OWN support/animation compatibility correction, not an original DropFrozenPose
+implementation. Typed Gold CPlayerBase.OnTBSEvent764460/133 matches actual Steam7700d0/133
+uniquely and raw-exact. Its primary unit slot3c is independently bound to named IsDead
+Gold7b4580 -> Steam7c0d00; exact fields/registers/branches and two independently typed
+descriptor PUSHes confirm the dead-state predicate. The original player filter excludes
+dead units for every event. Our existing direct synchronous world GRID path already visits
+all valid units, including dead wearers, so the donor wTurnBased.h exception is adapted by
+that existing delivery and the original player dead-event filter remains unchanged. The
+previously accepted actual Steam frozen-collapse helper74fa60/223 is reused as evidence
+for the death path; its different Gold7444c0/137 implementation is not forced into parity.
+No original execution, BSS reads or field/frame/register/opcode/branch/global masks are
+introduced.
+
+Initial missing-map footprint810, insufficient damage/no completed map rebake, and the
+first mis-scoped rubble/whole-world RNG expectations are archived as discovery rather than
+final canonical failures. All eight Main parent files were restored with fresh timestamps
+and the corrected seven cases were rerun before reapplying exactly the same production
+implementation. Windows also required regeneration of its own generated6.43GB test PDB
+after a linker limit; the common concrete aiGrid.h include was added after an initial
+compile failure. Neither build failure is counted as native RED. No production algorithm
+or test assertion was changed to hide these findings.
+
+Fresh full Game builds and single related suites1156 Windows/1129 Linux pass: previous
+broad world/combat/AI/save/mission coverage plus
+PK/corpse/skeleton/animation/death/fall/terrain/floor/lock regressions, all154 focused
+cases and13 tactical views. All117 previous fixed rows, prior explosive/AI/melee/filter
+results, five hover rows and12 font outputs remain exact. CI382 and12 LAN gates/361
+encounter variants per platform pass with fresh helpers and only the pre-existing
+nested-save exclusion. Previously observed137/157 setup-HP and old smooth-mode1 RNG
+variants, if present, are preserved explicitly as inequalities; their exact causes are not
+inferred. Baseline/Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df remains unchanged. No
+new serialized fields, virtual methods, save/wire schema, AP/damage/hit-chance formulas or
+authored item values.
+
+This completes the remaining nine source files through eight minimal file imports plus the
+existing world-delivery adaptation. UI admission1/10 was already imported in159. Source
+b3bd470 is now complete:223 imported,14 pending,9 partial;23 unfinished. Final-head hosted
+verification remains required at whole-task completion.
+
+The additional full-row comparison initially refused the Windows report for old
+NativeSmoothRelocation0: all physical/timing/HP/AP/command fields matched, but its raw RNG
+tail was shifted by one draw (3285973158/2793744859/1494726304/2075231427 rather
+than2793744859/1494726304/2075231427/2971378132). One unchanged-binary single-case replay
+on each platform passed the native assertions and returned the canonical three-draw tail.
+Executable SHA values were captured before and verified after; no source, fixture,
+assertion or binary was changed. This newly observed Windows mode0 variation is analogous
+to the previously recorded Linux mode1 variation, without a claim of the same cause. The
+full unequal raw rows and fields remain in evidence; no normalization or old smooth
+full-run RNG-parity claim is made. These confirmations overlap1156/1129 and are not
+additional cases; the seven new support operation RNG streams remain unconsumed.
+
+Source: [b3bd4703140eedb548126513d32cc16ad5c06b2a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/b3bd4703140eedb548126513d32cc16ad5c06b2a).
+
+## 161. Query the target hull for melee hit-chance previews
+
+Composite unit previews asked the native map for reachable hit locations on the attacker's
+own hull. Pass the target's hull to that existing query. This is one line in RPGGame.cpp;
+the current actor center, reach constant, called-location selection, chance formulas,
+first-turn/logging interface and LAN delegation remain unchanged. Real attack execution
+already has its own target-aware selector. Only this source fcc994bc RPGGame hunk is
+imported here; directed attack-pose selection and the inactive door-path turn guard remain
+pending.
+
+NativeMeleePreviewHull0..5 deploy a real person103 beside the native party actor on
+map810, equip actual authored blades/loaded Snap firearm, initialize real native poses and
+use a transparent map delegate. Independent native queries distinguish the target's three
+accessible locations from the actor's six; a farther real free tile has no accessible
+target location. Final corrected canonical RED4/6 both becomes unchanged GREEN6 both.
+Three near ANY/head/body queries now obtain target3 instead of self6; their
+percentages100/86/92 remain unchanged, so they prove the native input contract rather than
+a visible percentage change. The far case proves the public result: old100 becomes0 when
+the independently queried target set is empty. This retains our existing zero-for-empty
+policy; it does not import the original free preview's broader sentinel/logging/API
+rewrite.
+
+The two ranged controls use the real public script37 override to isolate action routing.
+Both complete rows remain exact, and all six four-word RNG tails
+stay2543441365/3409503325/3097050868/3040333759. Actual actor AP/HP, target HP, positions,
+active item/quantity, command absence and world time remain unchanged. Ordinary ranged
+formula equivalence is covered by existing regressions, rather than claimed from these
+scripted controls. The first firearm control was unavailable because person54 is unarmed:
+that input was archived and corrected through a real authored loaded gun before accepting
+the initial five-case contract set. After adding the sixth public-result case, restore the
+one Main parent file with a fresh timestamp and replay the final six before reapplying the
+exact same one-line fix. No private health/grid/position injection, fake returned map
+values, partial World READ, actual mouse-pick/firing or original gameplay execution is
+involved.
+
+Original target identity is established in actual Steam SelectTargetHLs6b49e0, typed
+Gold6ae8b0/248: complete target loading/reference-normalization32 bytes Gold6ae8f0
+->unique raw-exact Steam6b4a20, plus complete20-byte argument setup Gold6ae916
+->unique6b4a46 with only its decoded E8 displacement. The center calls are Gold490530/184
+and actual491630, without a whole184 claim. Named CWorld root slot20 binds GetAIMap
+Gold76bc60/7 ->Steam777a10/7 raw exact. The CAIMap method is separately typed at Gold root
+slot30/GetAccessibleUnitHL465110/572 and actual Steam root slot34/465fc0. Whole23 is
+explicitly rejected because its virtual call differs30->34; that slot is never normalized.
+The adjacent six-byte global-distance MOV is excluded as a whole instruction and its
+target memory is neither read nor masked. Actual free unit preview6b5e90 receives the
+target in EBP from its native ESP9c argument, casts it with independently typed
+UnitServer/CObjectBase descriptors at6b60e7, and passes the resulting EAX at6b616b
+into6b617f ->6b49e0. The original named Gold6afdb0/972 five-argument free API differs from
+our four-argument adapter. Complete248/972/572/184, global-distance value, full ABI and
+whole preview parity are not forced or claimed. No BSS or
+field/frame/register/opcode/local-branch masks.
+
+Fresh full Game builds pass on both platforms. Scoped preview/melee/to-hit/Lua-query
+single suites663 Windows/655 Linux cover the actual UI, Lua and network consumers, all160
+focused cases and13 tactical views. All117 previous fixed rows, explosive/AI/melee/filter
+outputs, five hover rows and12 font outputs remain exact; previous dead-PK physical rows
+retain their native job-budget iteration inequalities explicitly. CI382 and12 LAN
+gates/361 encounter variants each pass with fresh helpers, unchanged baseline/Steam
+game.db SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df and only the
+pre-existing nested-save exclusion. This is not a repeat or claim of160's full1156/1129
+world suites. Any previously observed137/157 setup-HP or old smooth-mode0 Windows/mode1
+Linux RNG variant remains a raw inequality with cause unproven; no normalization or fresh
+unchanged-binary confirmation is claimed without separate evidence.
+
+Source fcc994bc remains partial:223 imported,14 pending,9 partial;23 unfinished.
+Final-head hosted success remains required at whole-task completion.
+
+Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).
+
+## 162. Preserve the current pose in directed attack planning
+
+Directed tile and object attacks now pass the actor's current pose mask into the existing
+directed-point query: prone1, crouched2, standing4, inactive/default ALL7. Previously a
+prone unit could receive an automatic crouch movement prefix when the requested prone
+facing was physically blocked. Only Main/wUnitAttack.cpp changes: a small mask helper and
+its two callers. Existing fly-bit handling, action enums, weapon validators, planner/AP
+rules, first-turn handling and save/LAN interfaces remain unchanged. The remaining
+fcc994bc inactive door-path turn guard is still pending.
+
+NativeDirectedAttackPose0..7 use real map810/person54 and an authored loaded Snap pistol,
+with person103 for object targets. Independent physical passability and concrete
+ShootTile/ShootUnit validators select a real blocked prone facing while the standing
+alternative and current prone placement remain valid. Final canonical RED2/8 on both
+platforms becomes unchanged GREEN8: the two blocked attacks previously queued a crouch
+prefix with startAP4; they now reject preparation without changing pose. That start value
+is the movement prefix, not total shot AP. Six free tile/object standing/crouching/prone
+controls keep complete identical rows, no mover and start11. All eight input-witness rows
+and RNG tails1647188390/2110648069/3791589815/3734604457 remain exact, with actor
+HP137/AP53/ammo8, position/item/command/time preserved. No firing, fake tile flags,
+private health/position injection or partial World READ. The first diagnostic compile used
+a nonexistent base CanDoIt member; it was archived and corrected to public concrete
+validators before accepting any native RED.
+
+Actual Steam tile7940a0 and object794170 are guided by typed Gold7884a0/200 and788570/297.
+Complete81/175-byte current-pose prefixes match uniquely and raw exactly.
+Complete30/31-byte selected call setups match with only their decoded E8 displacements
+into the independently identified private helper. The whole348-byte GetDirectedPoints body
+Gold787ff0 -> unique Steam793bf0 matches with only four decoded E8 displacements; actual
+flag tests at793bfb/793c68/793cd6 read stack10 bits1/2/4. Named World root24
+GetPathNetwork Gold76bc70 ->Steam777a20 and UnitServer secondary14c slot44 GetPosition
+Gold7baa00 ->Steam7c72d0 are complete7-byte raw matches. The donor comments793a31/793b2a
+were stale; imported comments name actual7940c1/7941ba. Whole200/297 are rejected because
+native jump tables differ. No table/field/frame/register/opcode/local-branch/global
+normalization, BSS reads, original gameplay execution, ABI or whole-pipeline equivalence
+is claimed.
+
+Fresh full Game builds pass on both systems. Scoped
+attack/planning/pose/door/ladder/movement and prior preview suites pass768 Windows/758
+Linux, including168 focused cases and13 tactical views. All117 old fixed rows, prior
+explosive/AI/melee/filter results, six melee-preview rows, five hover rows and12 fonts
+remain exact. CI382 and12 LAN gates/361 encounter variants each pass with fresh helpers.
+Baseline and Steam game.db retain
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df; only the pre-existing
+nested-save exclusion applies. Previous native dead-PK job-budget counts, setup HP137/157
+and known old smooth RNG differences remain explicit raw inequalities where observed, with
+cause unproven; no fresh same-binary confirmation or normalization is claimed.
+
+Source fcc994bc remains partial, with only its inactive door-path turn guard left after
+this checkpoint:223 imported,14 pending,9 partial,23 unfinished. Final-head hosted success
+remains required at whole-task completion.
+
+Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).
+
+## 163. Skip ordinary door turns at inactive path points
+
+CExecQueue::AddPath no longer appends an ordinary direction-change point when the door
+action is attached to CM_INACTIVE. Its existing stop-before-door operation, active-pose
+turns, approach selection, command/AP scheduling and movement conversion remain unchanged.
+Main/wUnitQueue.cpp gains only the pose condition and a corrected actual-original address
+comment. This imports the last fcc994bc hunk.
+
+NativeInactiveDoorTurn0..2 exercise the lower-level queue with an explicit request to
+close a real unlocked, unbroken, untrapped door beside a real authored ladder on map4517.
+The physical map independently accepts the original rung heading6 and rejects the proposed
+heading1. An actual public CExecOpenClose validator accepts the requested action. The
+final canonical parent RED1/3 on both systems becomes unchanged GREEN3: previously the
+front mover contained two points and one physically invalid rung turn, now its desired
+point retains heading6 and contains no travel prefix. A no-action inactive control remains
+unchanged, and a real free standing door approach still creates its valid heading6->7
+turn. Both complete control rows, all six setup witness rows and all three RNG
+tails4074664770/1311952697/2407351315/841343289 remain exact. Actual actor HP137/AP53,
+position, world time and door state remain unchanged; no door operation or movement is
+executed by these preparation tests.
+
+The fixture sets a native valid rung through public position/animator APIs and explicitly
+requests the door action. It does not claim that the player pathfinder automatically
+generates this door action or that a natural climbing interaction was executed. An initial
+automatic-path attempt generated no action and was archived as unavailable, not RED.
+Initial self-lock checks were also invalid: public SetPosition legitimately locks the
+rung. The corrected probes exclude and restore only the actor using native Unlock/Lock,
+exactly as FindPath does; all physical conditions are established before accepting
+canonical RED. Initial diagnostic compile errors for unsupported SPathPlace inequality and
+a protected executor destructor were corrected with equality and CObj ownership before
+native runtime proof. No private grid/position/HP injection or partial World READ.
+
+Typed Gold CExecQueue::AddPath7b2840/1967 guides actual Steam7bf010. The complete43-byte
+stop and two-guard block Gold7b2a86 -> unique Steam7bf256 is raw exact with no masks.
+Steam7bf25d clears moving;7bf267 shifts direction11 and masks7;7bf26f skips an unchanged
+heading to7bf2ae. Steam7bf273 masks poseC000,7bf279 comparesC000 and7bf27f skips the turn
+to that same7bf2ae. The donor7bebed comment is stale. Whole88 is explicitly rejected:
+frame offsets Gold40 vs Steam3c differ at46/87, alongside the decoded E8 displacement.
+Those frame bytes are never normalized. No whole1967, ABI, original runtime, BSS/global
+reads or field/frame/register/opcode/local-branch masking claim.
+
+Fresh full Game builds pass on both platforms. Scoped
+attack/planning/pose/door/ladder/movement/preview suites pass771 Windows/761 Linux with171
+focused cases and13 tactical views. All117 old fixed rows, prior explosive/AI/melee/filter
+outputs, eight attack-pose rows, six melee-preview rows, five hover rows and12 fonts
+remain exact. CI382 and12 LAN gates/361 encounter variants each pass with freshly built
+helpers; only the pre-existing nested-save exclusion remains. Baseline and Steam game.db
+retain SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df. Prior dead-PK
+native job counts, setup HP137/157 and old smooth RNG variants remain explicit raw
+inequalities. The offline Linux checker initially rejected a newly observed mode0 RNG
+tail: all physical fields matched, but the four-word tail was shifted by one draw
+(canonical3 versus observed2). It matches the earlier Windows160 mode0 tail pattern
+without proving the same cause. ONE actual unchanged-binary mode0 confirmation on each
+platform returned the canonical3-draw tail. Before/after SHA256
+Windowsaa2cbfff030629e887facdd8ca28500baa9cee1b135b88e59a840dc2c1008a9b and
+Linux445fe2c31d0c65201aae04dfb8f4910be42ae22b29560b2113385f6f9249c03b remain equal; no
+source, fixture, assertion or binary edits/rebuilds occurred. These confirmations
+overlap771/761, not additional cases. The original full Linux inequality is retained:
+exact cause remains unproven, without normalization or a full old RNG parity claim. An
+initial shell wrapper had CRLF and never launched the test; only its LAB line endings were
+corrected before the single actual Linux confirmation.
+
+Source fcc994bc is now complete: aiMapProxy invalid-source coloring, wKnife orientation,
+wUnitExec explicit activation visibility, wUnitMove movement activation visibility,
+wUnitQueue stop-before-door and inactive-turn guards, RPGGame target-hull previews161, and
+wUnitAttack current-pose planning162 are all accounted for. Ledger:224 imported,14
+pending,8 partial;22 unfinished. This closes this donor source rather than the whole
+import task. Final-head hosted success remains required at whole-task completion.
+
+Source: [fcc994bc87c9dad2c90e6c3fd4288bbce281b094](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/fcc994bc87c9dad2c90e6c3fd4288bbce281b094).
+
+## 164. Measure tile-shot distance from the actual cover origin
+
+GetAttackerTileToHit now measures distance from the native cover result's src and passes
+that same point to the existing calculator. Previously it measured from the actor's feet
+and supplied the actor's center, even when the rays began at a different muzzle position.
+Only two helper assignments and an actual-original address comment change in RPGGame.cpp.
+This shared helper is consumed by CheckTileToHit in tile shots, non-unit object shots and
+incidental attack paths. Existing first-round/logging, seven-argument helper and current
+game/UI/Lua/LAN interfaces, int hit-cover adapter, damage/AP and chance formulas remain
+unchanged. The legacy direct GetTileCompositeToHit dispatcher is a separate pending317
+hunk: this checkpoint does not claim to have changed that UI preview path or completed the
+full source.
+
+NativeTileCoverOrigin0..4 use real map810/person54, authored weapon1 with loaded Snap
+ammo8, real native CalcCoversForTile geometry and the existing read-only CoverSnapshot
+native serializer. Input selection compares independent native GetTileToHit calls using
+the actual cover origin versus the old feet/center inputs; it never selects on the helper
+under test. In the final controlled day fixture, canonical parent RED3/5 both becomes
+unchanged GREEN5 both. Standing and the left-origin request have real cover81/distance8
+versus old7, correcting62->54. Crouching has cover100/distance7 versus old8,
+correcting55->63. The left-origin query shares the same observed numbers as the first
+case; this is not proof of distinct dual-weapon origins or equipment. A real center-origin
+equal-distance control stays62 and an actual blocked-cover(-1) control stays0. The
+percentages distinguish the distance correction. The current tile calculator's area is
+constant0.33 and does not independently use ptAttacker in its arithmetic, so no separate
+point-only observable effect is claimed; that assignment is supported by the original
+argument identity and code inspection.
+
+Each case also calls the actual CheckTileToHit integration used by execution. Its output
+chance equals the queried helper, its seeded roll stays78 and exactly one random draw is
+consumed; no projectile, damage or full shot is executed. Both complete query/integration
+control rows remain exact. All five pure-query RNG
+tails2831930006/4275284366/2085145947/2144279815 (seed724, zero draws) and integration
+tails1899666822/1019879914/3374018504/644028078 (seed725, one draw) remain exact. All five
+physical/environment input rows retain day0/first1/skill35/weather0/person54/weapon1.
+Actual HP137/AP53/ammo8, position, active item and world time remain unchanged.
+
+The first diagnostic compile attempted IPathNetwork.GetCP and direct access to the private
+incomplete cover type. Those compile failures were archived, not RED; use SPosition.GetCP
+and the already established read-only native CoverSnapshot. Initial valid three-failure
+phases had differing native percentages; raw rows were retained. Added public environment
+witnesses showed the native night flag0/1 varying between fresh processes, including on
+Windows, with the same skill/actor/weapon/weather/first-round inputs. Existing GetLight
+applies the night0.9 factor. A first public SetNight(false) control was too early: public
+actor placement calls UpdateVisible, which rederives the RPG night flag from world
+time-of-day at wMain.cpp1209. Linux then failed the day-purity precondition; that phase is
+not canonical RED. Set the public day control after all placement/sync and before the
+query, then replay the final five on unchanged Main before the two-line fix. No claim
+about why fresh fixture worlds chose night, no private field/HP/grid/position injection,
+fabricated ray values or partial World READ.
+
+Typed Gold GetAttackerTileToHit6af1b0/225 binds actual Steam6b52c0. Complete173 bytes
+Gold6af1b0 -> uniqueSteam6b52c0 and complete46 Gold6af263 ->uniqueSteam6b5373 match with
+only three decoded E8 displacements in total. Named Gold CCoverInfo.src is atB00; raw
+actual6b52dd loads it and6b52e3 retains its address for the calculator call at6b5395
+(argument setup6b5393). Named SUnitPosition.GetPose Gold4902d0/43 ->Steam4913d0 is
+whole43-byte raw exact and unique. The six-byte global FMUL Gold6af25d/Steam6b536d is
+excluded as a whole instruction; target memory8a3f74/8b2fdc is neither read nor masked.
+Whole225 is rejected, and no original multiplier value is inferred. The Gold helper has
+eight arguments including separate unit/position, while our retained adapter has seven and
+int rather than original float hit cover. No whole225/668, ABI, complete original
+shot/runtime equivalence or field/frame/register/opcode/local-branch/global masks are
+claimed. The donor6b532d..6b53e5 comment spills beyond the actual helper end53a1; imported
+comments use actual6b52dd/6b5393.
+
+Fresh full Game builds pass on both systems. Scoped prior attack/planning/preview plus
+ranged/tile/shooting/bullet/burst/weapon/accuracy/cover/ray/incidental/RLauncher/throw
+suites pass1048 Windows/1038 Linux with176 focused cases and13 tactical views. All117 old
+fixed rows, prior explosive/AI/melee/filter outputs, eight pose rows, six melee-preview
+rows, five hover rows, three inactive-door rows and12 fonts remain exact. CI382 and12 LAN
+gates/361 encounter variants each pass with fresh helpers and only the existing
+nested-save exclusion. Baseline and Steam game.db retain
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df. Previous raw native
+job counts, setup HP137/157 and known smooth0 Windows/0-or-1 Linux RNG variants remain
+explicit inequalities if observed, with only their historical159/160/163 confirmations
+referenced; no fresh current-binary confirmation, root cause, normalization or full old
+RNG parity is claimed.
+
+Linux initially passed4/5 infrastructure gates and failed NetworkSessionTests with
+"disconnect did not stop match", before any seven direct matches ran. The original test
+checks session failure after only one Poll following peer.Close. Five unchanged
+original-executable runs gave four measured passes and one different compound
+ready/state/event-count failure labeled "duplicate event played twice". The helper had
+set-e and did not capture that failing process exit; its raw failure is retained, not
+counted as a fifth pass. A LAB-only probe reports the original disconnect gate and
+preserves its failure even if an extra bounded drain could recover. All five probe copies
+passed the original gate and the entire unchanged test flow; no extra drain occurred. This
+does not prove why either original failure happened. One complete unchanged Linux LAN
+retry then passed5 infrastructure plus7 direct matches/361 variants. Original
+NetworkSessionTests and linked transport-library hashes stayed identical before/after
+diagnostics and retry; no repository, assertion, exclusion or network production change.
+The raw first failures remain explicit and these extra runs do not inflate the12 final
+gates.
+
+Only the two-line origin helper hunk of31725f2d is imported. Its general object-preview
+routing, logging/first-turn ownership, tile dispatcher, facing-origin, rocket, burst and
+UI/Lua consumers remain pending. Ledger:224 imported,13 pending,9 partial;22 unfinished.
+Final-head hosted success is still required at whole-task completion.
+
+Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).
+
+## 165. Return the unavailable sentinel for unreachable melee previews
+
+The shared unit preview now returns -1 for TH_MELEE when native CanMeleeAttack rejects the
+current position against the target hull's HL_ANY center. The eight-line guard follows
+existing replica delegation, so authoritative queries still reach the server. Self/group
+target rejection and the AP-only cursor adaptation were already imported; the verified
+original Lua return contract now closes the remaining shared numeric hunk of f6455c9f.
+Existing API/first-turn ownership, calculation formulas, melee helper, AP, damage,
+serialization and network packet layout are retained. Source317 remains partial.
+
+Nine real native game+Lua cases use map810/person54, a real target103, authored blade,
+empty hands or loaded Snap firearm. Four distant blade/called-shot/unarmed cases change
+shared and Lua results0->-1; near blade100/head86, near fists91/Lua-head74 and distant
+throwing/firearm public script37 controls retain their entire rows. All nine queries
+preserve positions, actual HP137/AP53/targetHP147, item/quantity/ammo and time; zero-draw
+seed726 tails748710301/3303685163/2569198498/2292318096 remain exact. Actual
+NScript::RunScript calls UnitGetToHitUnit with explicit third argument1. No private
+geometry/HP injection, partial World READ, fabricated result or executed attack.
+
+An additional real loopback TCP case exercises replica IGame.GetCompositeToHit -> existing
+preview callback -> authoritative IGame query -> signed result -> replica cache. The
+loaded ranged public script37 control remains37/00000025; after native unequip and actual
+replicated unarmed state, unavailable0/00000000 becomes-1/FFFFFFFF. Both authoritative
+queries preserve AP/HP/position/time and their RNG state. No fixed whole-network RNG tail
+is claimed across simulation ticks. Sessions finish naturally. This extra case is separate
+from the standard12 LAN gates.
+
+Two existing tests deliberately adopt the now-proven shared sentinel. Old hull case5
+independently establishes native center reach=false and checks physical/RNG preservation
+before the assertion; it now returns-1 without an accessible-hit-location query, while its
+prior chance0/query1 becomes chance-1/query0. The first five hull rows and all six
+zero-draw seed721 tails stay exact. The caption test completes its old AP-only7, in-reach
+percent, AP preservation and no-command controls before requiring shared-1. Caption RNG is
+not measured. The full suite also runs its pre-existing NativeKnifeUnitPreview3 alias of
+the same caption helper; both named case blocks must separately retain the identical
+caption witness, without deduplication or inflated canonical17 counts. The initial LAB
+full checker expected only one aggregate caption row and rejected this valid alias
+duplication; corrected only that checker to verify both named blocks, with no
+source/assertion changes or rerun required. Final canonical unchanged-parent RED7/17 on
+both systems becomes unchanged GREEN17/17. Ten complete controls pass on both sides.
+Earlier diagnostic compile failures and initial valid six-failure phases are archived; the
+final seven-failure replay, including strengthened UI/physical assertions and actual
+replica IGame path, is authoritative.
+
+Typed Gold free unit preview6afdb0/972 binds actual Steam6b5e90, but its
+separate-position/five-argument API differs from our retained four-argument adapter.
+Complete43 raw bytes Gold6afe1f -> uniqueSteam6b5eff establish zero-initialized target
+HL_ANY center lookup; typed CAIMap root slot28 binds GetUnitHLPos Gold465440/144
+->Steam4662d0 without a whole144 claim. Complete22 Gold6afe72 ->uniqueSteam6b5f52 match
+with only one decoded E8 displacement, calling CanMeleeAttack at6b5f61 ->7a2660. Actual
+false branch6b5f68 reaches6b608e, where OR EAX,FFFFFFFF feeds the return-preserving
+epilogue6b6241/27. Wider28-byte local-branch and112-byte frame candidates are rejected,
+not masked. Donor comment addresses6b5f4f/6b5fa2 are stale; production cites
+actual6b5f61/6b5f68.
+
+The predicate's complete93-byte tail Gold79681a ->uniqueSteam7a266a matches with only two
+decoded E8 displacements. Named SPosition.GetCP Gold4903c0/23 ->Steam4914c0 is whole23 raw
+exact; Human predicate Gold795110 ->Steam7a0e10 first47 bytes are raw exact. The
+original103-byte wrapper's absolute A1 global instruction at7a2665 is excluded whole, and
+target984dd4 is never read or masked. Human vertical global constants beyond47 are
+likewise unclaimed. No numeric original base-reach/global value, full103/91 or
+special-cannon predicate parity is inferred; the existing native helper is retained.
+
+Complete60 Lua bytes Gold6f24c2 ->uniqueSteam6fc095 match with only three decoded E8
+displacements. Actual call6fc0b1 targets unit preview6b5e90; signed FILD at6fc0bb
+preserves its result into the numeric Lua push at6fc0cc ->81a750. The named Gold
+lua_pushnumber7d5a30/66 has a different body: no whole66 match is claimed. Actual push
+independently loads/stores the double with numeric tag2 and no negative clamp. Typed
+UnitServer secondary-position slot44 binding is reused from161. Original Lua third
+argument is a hit location, verified by GetHitLocation Gold6ec7c0 ->Steam6f62a0 first11
+raw bytes and valid[-1,5] return; it is not the donor317 logging comment. Our pre-existing
+argument/first-turn API remains unchanged here, with explicit1 tested; full argument
+parity awaits317. No whole972/341/66 ABI, original gameplay execution, mutable/BSS
+target-memory read, or field/frame/register/opcode/local-branch/global normalization is
+claimed.
+
+Fresh Game builds pass on Windows and Linux, with1058/1048 scoped cases,186 focused cases
+and13 tactical views. Prior tile5 query/integration/environment rows, pose8, inactive3,
+hover5,117 old fixed rows, prior explosive/AI/melee filters and12 fonts remain exact.
+CI382 and the standard12 LAN gates/361 encounter variants each pass. Historical raw native
+job/HP137-157 and known smooth0 Windows/0-or-1 Linux RNG inequalities remain explicit if
+observed, with historical confirmations only; no fresh confirmation, normalization or
+cause claim. Only the existing nested-save exclusion is retained. Baseline/Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged.
+Ledger225 imported/13 pending/8 partial:21 unfinished. Final-head hosted success remains
+required at whole-task completion.
+
+Source: [f6455c9f92eb6d4c66efebc74face61d1e1065bb](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6455c9f92eb6d4c66efebc74face61d1e1065bb).
+
+## 166. Use directed shot origins and per-bullet tile previews
+
+The tile preview now copies the current pose, faces it toward the commanded point and
+returns-1 for native AIP_NOT_PASSABLE or AIP_CANNOT_LAY. Other granular outcomes retain
+their previous handling. Ranged cover rays start at the actual attack origin for that
+directed pose. The query uses the existing GetAttackerTileToHit helper with the real cover
+source for each bullet, then integer-averages the chances. Max(1, the existing quantity
+API) retains the original minimum-one rule without changing that API. Existing melee
+reach/blow-height/min-clear routing and replica delegation remain in place. Only
+CGame.GetTileCompositeToHit changes; first-turn/logging ownership, general object API,
+grenade/rocket dispatcher and UI/Lua/network routing remain pending in31725f2d. No AP,
+damage, execution, serialization, packet or database changes.
+
+Seven native cases use real map810/person54, actual passability and cover tracing,
+authored loaded firearms and public placement/animation. Input selection uses independent
+directed-pose geometry, native covers, existing per-bullet helper and legacy
+direct-calculator inputs; it never selects on GetTileCompositeToHit under test. A prone
+pose with currentPass0 but desiredPass2 changes77->-1. Standing native pistol1
+changes69->62; crouching changes63->70. Short burst weapon9 has two native chances61/45,
+averaging53 rather than old68. Long burst weapon26 has66/57/56/56, integer average58
+rather than old72. A positive-cover Snap control remains69 and an actual blocked-cover(-1)
+control remains0; both complete result rows are unchanged. These tests do not fire a shot
+or measure actual damage/shot execution.
+
+Canonical parent RED5/7 on Windows and Linux becomes unchanged GREEN7/7. All seven result
+rows, per-bullet chances and platform-specific recorded input witnesses agree between
+their RED/GREEN phases. The query preserves real HP137/AP53, ammo8/20/100, position,
+active item, world time, day flag and no-command state. All seven seed727 zero-draw
+tails3111839282/2529240221/2765625043/3155365749 remain exact. The first diagnostic
+compile used GetDirection through IPathNetwork, which has no such method; both compile
+failures are archived, not RED. Correct only the diagnostic to require the actual
+CPathNetwork before the canonical parent replay.
+
+Cross-platform input rows are explicitly unequal in the positive cover field: Windows75
+versus Linux100 in modes1..4, and68 versus93 for long burst. All other recorded fields and
+all result/per-bullet/RNG rows agree. One unchanged seven-case pre-fix confirmation on
+each platform reproduces all of that platform's complete result/input/per-bullet rows,
+with native executable SHA unchanged before/after. The difference's cause is unproven; it
+is not normalized or assigned to a compiler, renderer or timing. In this ordinary TH_SHOOT
+tile path, inherited CToHitCalcer.GetToHit checks cover<=0 and GetAllMult omits GetCA, so
+the positive magnitude does not scale these percentages; unit-target calculations have
+different coverage handling. The runtime fixtures and assertions are not weakened, cover
+is never fabricated and these confirmations do not inflate the seven-case count. No full
+cross-platform cover/input parity is claimed.
+
+Typed Gold tile GetToHit6af370/938 binds actual Steam6b5480, not the donor's
+interior6b54a0 label. Its original unit/position/point/logging arguments differ from our
+retained adapter. Complete46 bytes Gold6af596 ->uniqueSteam6b56ae, with only its decoded
+E8 displacement, bind GetShootDirection6b56ae ->6984f0, direction update, native slot3c
+and comparisons1/2. Actual unavailable return is OR EAX,FFFFFFFF at6b570e ->JMP6b5813.
+CPathNetwork RTTI root slot3c independently binds named GoldGetPassability442830/385
+->Steam443560; typed EPassable ordinals0..4 are retained, with no whole385 claim.
+
+Complete29 Gold6af682 ->uniqueSteam6b5796, with only one decoded E8 displacement, includes
+per-bullet helper6b579c ->6b52c0, sum/increment/JL and signed IDIV6b57b1. Complete17
+Gold6af633 ->uniqueSteam6b574b independently binds quantity call6b5751 ->6b3e60. The named
+quantity helper's division-six/minimum-one complete30-byte tail Gold6add70
+->uniqueSteam6b3ec0 is raw exact. Its whole160-byte jump-table body is not matched or
+normalized. Existing164 actual-origin helper proof is reused, not reimported.
+
+The named direction helper's complete168-byte suffix Gold692488 ->uniqueSteam698508
+matches with only four decoded E8 displacements; its24-byte EH prefix and whole192 are
+unclaimed. Complete17 raw bytes Gold6ae62b ->uniqueSteam6b475e bind the cover-builder
+argument setup and virtual origin call. Typed CUnitServer root slot48 independently binds
+GetAttackOrigin Gold7b3b80/624 ->Steam7c0300, without whole624 equivalence. Wider
+cover-builder516 bytes are rejected for real frame60/64 and argument-layout differences;
+wider burst candidates reject NOP/opcode, local-JLE and frame differences. No
+whole938/516/192/160, original gameplay execution, full adapter ABI, global/BSS
+target-memory reads or field/frame/register/opcode/local-branch/global masks are claimed.
+Mission first-turn/logging and Lua argument research are separate pending317 evidence, not
+completed by this change.
+
+Fresh full Game builds and503 appropriately scoped native
+tile/cover/ray/ranged/shooting/bullet/burst/weapon/accuracy/to-hit/incidental/rocket/throw/preview/melee
+plus eight pose-planning cases pass on each platform. Prior17 melee results, both named
+caption helper case blocks, all five tile-helper query/input/environment/integration rows,
+all eight pose result/input rows and selected prior AI/melee witness rows remain exact.
+Unrelated full117 camera/light/demo/health rows,13 tactical views and12 fonts are not
+repeated or claimed in this scoped gate. CI382 and12 standard LAN gates/361 encounter
+variants each pass with fresh helpers and only the existing nested-save exclusion.
+Baseline/Steam game.db SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df
+remains unchanged. Ledger stays225 imported/13 pending/8 partial,21 unfinished: source317
+remains partial until its remaining API/dispatch/UI/Lua family is completed. Final-head
+hosted success is still required at whole-task completion.
+
+Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).
+
+## 167. Give previews native unit turn state and correct Lua hit locations
+
+Unit and tile previews now derive their first-turn modifier from the attacking
+IUnitMission rather than the caller's last boolean. That boolean controls PrintLog. The
+four ordinary UI consumers and authoritative network requests disable query logging. Empty
+attack/empty accessible-location and successful normal paths restore logging; existing
+early unavailable-pose/melee return behavior is retained. Grenade/Bazooka APIs still
+expose their existing explicit first-turn parameter. No first-turn formula, AP, damage,
+action, serialization or database change.
+
+UnitGetToHitUnit's numeric argument now selects the hit location: default-1 is ANY;
+valid0..5 selects body/head/hands/legs; invalid values warn and fall back to HEAD. The
+real RunScript cases exercise omitted default, all six valid locations and invalid-2/6.
+ANY and legs change86->100, body86->92; head/hands/invalid fallback remain86. Equal
+hand/head values are controls, not a claim that all locations are numerically
+distinguished. UnitGetToHitWaypoint continues accepting its numeric compatibility
+argument, but ignores it and disables logging, as the actual native valid path does.
+Signed result propagation remains unchanged.
+
+Canonical parent RED9/53 on Windows and Linux becomes unchanged GREEN53/53: eight numeric
+native failures and one real TCP flag failure are repaired, with44 controls passing. Eight
+unit/tile cases distinguish a fresh unit's first turn from a later unit turn while the
+world remains in its first turn, and exercise both logging arguments. Unit first-turn
+chances75 and later84 no longer depend on logging; tile chances76 and84 likewise.
+Seventeen native result rows change only actual to expected. HP137/AP53, authored
+inventory/ammo/quantity, position, time, day, no-command state and all17 seed728 zero-draw
+tails2338396984/919571607/321284963/2512875575 remain exact. Counter/environment witnesses
+match across phases and platforms. Inputs use real map810/person54, public
+AddUnitInGame/StartNewTurn, actual native calcers and target hulls, never private
+world/grid/HP injection or input selection on the query under test.
+
+The initial deployed-party fixture incorrectly assumed a first unit turn and is archived
+as invalid. A subsequent fresh-actor phase exposed uncontrolled target turn-start data; a
+pre-control observer read an uninitialized ptLastCP and is also excluded from canonical
+evidence. The final fixture initializes actor and target turn starts using public
+StartNewTurn at actual positions before any query or turn-start read, and observes only
+the controlled after-state. No production constructor change is invented. Thirty-four
+existing knife/range/truncation/unit-origin/unit-hull/tile-preview cases retain all native
+calcer, roll-boundary, physical and RNG assertions. Their references use the unit's native
+turn state; three fresh knife fixtures initialize turn starts through public StartNewTurn
+before existing HP/skill setup and deployment. All34 already pass on the unchanged parent.
+The final parent53 includes a strengthened four-request real TCP fixture; an earlier
+incomplete-type diagnostic compile failure and earlier two-unit-query version are archived
+separately, not counted as extra tests.
+
+The real S2Net client/host fixture adds a real owned actor, transfers its existing
+authored loaded firearm through public inventory APIs, waits for replica state and queries
+through replica IGame, actual request packet, authoritative IGame and result cache. It
+sends kind0(unit) and kind2(tile) in each of two stages: native first1 with API logging0,
+then native first0 with API logging1. Existing wire fields previously encoded0,0,1,1; they
+now encode1,1,0,0. Both peers retain the existing packet layout/IDs and FIRST meaning: a
+new replica sends native first-turn state for older hosts; new authority derives its own
+state and keeps logging quiet. All four replies retain ScriptToHit37/status0 and per-query
+HP/AP/position/time/RNG purity. Script37 proves transport and field ownership, not numeric
+first-turn scaling. No fixed whole-network RNG tail is claimed. The previous real melee
+TCP37/-1 control remains exact.
+
+Static proof uses actual file-backed Steam Game.exe
+SHA4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705 with Gold PDB only as
+a typed guide. Independently identified CUnitMission secondary vtable+4c
+(Gold8b63cc/Steam8c54e4), not its root or medal slots, binds IsFirstTurn slot18c
+Gold6bf640/13 ->unique Steam6c5dd0/13, raw exact counter<2, and PrintLog slot4c
+Gold6bf510/10 ->unique Steam6c5cb0/10, raw exact byte store. Complete raw caller blocks10
+Gold6afeaf ->6b5f97 and12 Gold6afec0 ->6b5fa8 separately bind native first-turn and the
+logging argument. Tile blocks15 Gold6af3d2 ->6b54e2 and8 Gold6af3ef ->6b54ff bind the same
+roles. Differing whole frame-load instructions are excluded, never operand-masked. No
+whole972/938 preview equivalence or retained adapter ABI claim.
+
+Published on-disk Lua name/callback records independently bind actual
+UnitGetToHitUnit6fbfa0 and Waypoint6fc100 function entries: Gold records970898/9708a0 to
+Steam9819f0/9819f8, with named literal addresses independently inspected. Actual format
+pushes6fbfd2 ->8c78e0 and6fc132 ->8c7910 contain uun[-1] and usn[0]. These addresses are
+not masked or assumed read-only by section name. Complete60 Gold6f24c2 ->unique
+Steam6fc095 matches with only three decoded external E8 displacements. Actual calls6fc09f
+->6f62a0,6fc0b1 ->6b5e90 and6fc0cc ->81a750 establish third numeric argument
+->GetHitLocation ->preview ->numeric result. GetHitLocation's complete first11 raw bytes
+Gold6ec7c0 ->unique Steam6f62a0 retain[-1,5]; its typed helper's raw seven-byte invalid
+tail Gold6ec7fa ->Steam6f62da returns1(HEAD), without claiming that tail is independently
+unique. Logger global instruction operands remain unnormalized and target memory9ca814 is
+never read. No whole65 helper or341 Lua handler equivalence.
+
+Waypoint complete58 Gold6f2645 ->unique Steam6fc218 matches with only two decoded external
+E8 displacements, including actual6fc247 ->tile6b5480; the valid path pushes proven zero
+and does not read the numeric compatibility argument. Entry disassembly establishes EBX
+zero at6fbfbc/6fc11c and its valid-path uses. No waypoint-index meaning, donor
+logging-argument comment or whole459 handler claim. Signed FILD/numeric push proof from165
+is reused; no whole66 numeric-push body claim.
+
+Typed CStateAttack.Step Gold5d9ec0/41 ->unique Steam5dcf30/41, with only decoded external
+E8/E9 displacements, independently binds actual protected UpdateCursorInfo entry5dac10 and
+its EBX zero5dac3c. Complete29 Gold5d79f3 ->unique Steam5dad23 and44 Gold5d7a2a ->unique
+Steam5dad5a match with only their decoded E8 displacement and preserve quiet pushes,
+command target/point and -1/min-max folding. Wider203/46 cursor-prefix candidates are
+rejected for real member48/44 and54/50 differences; no
+member/frame/register/opcode/NOP/local-branch masks. No whole758 cursor body, original
+gameplay execution, global/BSS target-memory reads, complete API/ABI or live private-field
+binding is claimed.
+
+Fresh full Game builds and521 appropriately scoped cases pass on both platforms: prior503
+plus17 mission-first/Lua and one real TCP case. This521 filter repeats22 of34 aligned
+legacy cases; the other12 (six knife skill-context and six knife chance-truncation) are
+already covered by unchanged paired GREEN53. An initial LAB verification assumed all34
+were repeated in521; correct only that metadata assumption and record it, with no
+selection/assertion/source change or rerun. Aligned tile7 result rows match the167
+parent/green baseline, rather than the deliberately superseded world-first numeric
+baseline166. Prior17 melee witnesses and both named caption case blocks, five tile-helper
+query/input/environment/integration rows, eight pose result/input rows and selected prior
+AI/melee witnesses remain exact. CI382 and12 standard LAN gates/361 encounter variants
+each pass; only the existing nested-save exclusion remains. Windows LAN passes on its
+first full run. Initial Linux infrastructure4/5 fails at the original single-Poll
+disconnect check, so direct matches do not run. Preserve every initial raw log. Three
+serial unchanged executable runs yield two full passes and a different compound
+ready/state/event-count failure whose message alone does not identify the failing
+conjunct. Three separate LAB-only readiness probes retain the original single-Poll failure
+gate: all three pass that boundary without extra drain, two pass the full test and one
+fails a later raw-host single-Poll disconnect gate. All six exits and raw messages are
+captured; do not claim three full successes in either group. Original executable and
+transport-library hashes remain exact and original session/test/transport source is
+unchanged. One unchanged full Linux retry passes five infrastructure plus seven direct
+matches/361 variants. The cause is unproven and is not assigned to RPG, TCP, timing or
+compiler; no source/assertion/exclusion changes or extra LAN count inflation. Unrelated
+full117 camera/light/demo/health, all13 tactical views and12 font cases are not repeated
+or claimed in this scoped gate. Baseline/Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df remains unchanged.
+Ledger stays225 imported/13 pending/8 partial,21 unfinished. General CObjectBase target
+support, grenade/rocket dispatch and full command-based UI routing remain pending317.
+Final-head hosted success is required at whole-task completion.
+
+Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e).
+
+## 168. Complete command-based attack previews for objects, grenades and rockets
+
+Attack captions now follow the actual CCmdShootObject or CCmdShootTile. General
+CObjectBase targets resolve their native hull center; grenades use the tile dispatcher,
+and ordinary nonunit objects use the native tile calcer with LOWER while retaining object
+cover traces. Tile grenades and rockets share the dispatcher. The type classifier
+distinguishes grenade4 from unsupported active item5. Rockets trace with native
+coefficient1. The retained integer GetHitCover API preserves a strictly positive
+fractional rocket cover as1: the native rocket calcer tests positivity and does not scale
+by cover magnitude. Without that bounded adapter a real positive0.25 would truncate to0
+and regress the previously correct55. The full float API is not imported. Existing unit
+feet-direction/manual hit-location selection is preserved for separate f638 work.
+
+Real CStateAttack prop/door captions change90->84 and0->16. Native grenade tile0->100 and
+unit0->70; explicit grenade100 is a control. Native unit rocket helper0->55 retains
+Game55; blocked tile rocket7->0 retains native helper0. Actual FirstAidKit
+classification4->5 is covered. The full Main TCP/UI fixture sends actual prop then door
+object IDs through the existing packet fields: kind2/no target becomes kind0/present
+target, with two ScriptToHit37/status0 replies and per-query physical/RNG purity. This
+proves routing and transport, not numeric network geometry or a fixed whole-network RNG
+tail. Actor ownership and actual native hull validation remain authoritative; packet
+shape, IDs and FIRST meaning are unchanged.
+
+PhaseA canonical parent RED9/64 on both platforms becomes GREEN64,55 controls. Subsequent
+review found a prerequisite lost by moving nonunit commands from the old tile path: a
+prone actor unable to face a door still showed0%. PhaseB adds two real native scenarios on
+the interim168 production state, RED1/2 with the clear18 control passing on both
+platforms. A nonunit-only desired-facing guard rejects exactly native passability1/2 and
+returns-1, producing the existing AP-only7 caption; locked3 and door4 remain legal. Final
+GREEN66 passes both platforms. Do not describe this as ten failures on an original
+parent66 set: the stages have different production baselines. The phaseB actual door439
+native pose/pick/input rows, blocked0->-1/clear18, physical
+HP137/AP53/ammo8/targetHP66/time/no-command and seed732
+zero-draw1427754151/2391215426/4085969260/4101464360 are exact. All phaseA rows also
+retain their predicted values, physical state and seed729/730/731 zero-draw witnesses.
+
+Initial candidate compile failures, invalid UI preconditions and unordered grenade-item
+inputs are archived separately, not counted as native RED. The final grenade fixture
+selects the lowest valid authored record122 and revalidates actual throw executability/AP;
+the old shared grenade fixture is unchanged. The cursor fixture uses real TS_PICK first
+intersections after public placement; no forced grid edits. A proposed fully blocked unit
+rocket fixture found no qualifying placement for actor201 and then4959 candidate
+placements per platform. It is archived as unavailable and removed before canonical
+registration, not counted as RED or excluded as a genuine failure. No fully blocked unit
+runtime claim is made. Raw positive unit rocket cover remains unequal across platforms
+(232 versus268 of295 penetrating rays, fractions0.26214689/0.302824855); both are positive
+and yield55. One unchanged pre-fix executable confirmation per platform reproduces its own
+inputs and results. The cause remains unproven; no full cross-platform cover/input parity
+or compiler/renderer/timing explanation is asserted. Diagnostic callback adaptation
+changes only two CUnit* target parameter types to CObjectBase*, retaining assertions. The
+original two callback compile failures prevented runtime; the first raw failed build log
+was overwritten by one redundant unchanged compile after a LAB quoting error, and that
+limitation is recorded.
+
+Static evidence uses actual file-backed Steam Game.exe
+SHA4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705, with Gold PDB solely
+as a typed guide. Twenty bounded blocks independently match, including complete type
+getter110 (actual6b3790), copied attack prefix132 (6927f0), float cover53/32
+(6b4473/6b44ae), rocket AllMult53 and GetToHit suffix194 (6b6c10/6b85b4). Independently
+typed rocket root vtable8c4e3c binds GetToHit6b85a0, AllMult6b6c10 and AllAdd6b83c0;
+actual AllAdd is318 bytes versus Gold357, so no whole-body equivalence. The actual unit
+cover caller23 at6b60c2 binds RealCalcCovers entry6b44f0. Native temporary nK stores6b45cc
+and6b47d6 are inspected without normalizing differing frames. Command casts31/24
+at5dad07/5dad42 independently bind object/tile RTTI; general target cast29 at6b60d8 and
+nonunit loop80 at6b6100 bind the existing tile helper6b52c0. PhaseB unique46 Gold6aff46
+->actual6b602e matches with only its decoded external E8 displacement, calling
+independently bound GetShootDirection6984f0 and native path-network slot3c. CMP1/2 reaches
+actual unavailable OR-EAX,-1 at6b608e; the epilogue jump is inspected independently
+without masking local branches. Typed path-network RTTI separately binds slot3c to443560.
+Previous164 origin,166 tile direction/burst and167 first-turn/Lua/quiet cursor proofs are
+reused.
+
+No whole972/938/553/516/346/357/145/758 body, adapter ABI, original gameplay execution,
+global/BSS target read, field/frame/register/opcode/NOP/local-branch/global-address
+masking is claimed. Whole absolute FMUL/FCOMP and differing whole frame-load instructions
+are excluded; target memory8b2fdc/8b3984/8d65bc/8c4be4 is never read or masked. Wider
+copied-portion and float-cover candidates are rejected for actual opcode/frame
+differences. Original global inputs are not inferred from private live state.
+
+The first interim full544 run failed17 Windows and59 Linux cases, including bad
+allocation, library segment mapping, segfault and renderer errors. All raw logs remain
+archived; this is not an accepted544 gate, and its root cause is unproven. After the
+actual phaseB guard change, fresh Game builds and the final546 scoped cases run with
+serial platforms and pass, followed by CI382 and12 standard LAN gates/361 encounter
+variants each. The546 set is prior521 plus13 new and12 appropriate existing UI controls.
+Twelve legacy knife skill/truncation cases outside the inherited broad filter are
+additionally covered by GREEN66. Prior melee17/two named caption blocks, tile-helper5
+query/input/environment/execution, pose8 input/result and selected AI/melee witnesses
+remain exact. Only the existing nested-save exclusion remains. No unrelated
+full117/font/tactical suite is claimed. Baseline/Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged. Together
+with164/166/167, source317 is complete:226 imported/13 pending/7 partial,20 unfinished.
+Only the type classifier, unit rocket coefficient and nonunit guard dependencies are
+attributed to f638; its unit pose/center-direction/SelectTargetHLs and remaining
+combat/contact review are still partial. Final-head hosted success is required at
+whole-task completion.
+
+Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e). Dependencies only: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).
+
+## 169. Restore native unit composite preview callers
+
+Unit previews now use the native pose facing the target ANY hull center. The shared
+passability guard rejects exactly1/2 before the existing unavailable-attack caption
+folding; locked3 and door4 remain legal. Ranged cover origins use that adjusted pose. The
+caller reuses the existing SelectTargetHLs helper with the adjusted position, then passes
+its selected location/vector to the existing calcer even when selection returns false. The
+old empty-vector early0 is removed. No scalar probability, damage, action, inventory,
+packet or save-format implementation changes. The existing melee-origin adapter remains
+unchanged.
+
+Two parent stages use the same unchanged Main bytes: RED1/70 on each platform with69
+controls, then an additional RED1/2 with one control. Do not claim a measured single
+parent RED2/72. Final GREEN78 (the prior72 plus six existing hull cases) passes on both
+platforms. Four real unit-facing cases use the existing authored loaded snap pistol,
+public valid placement and actual path-network classification: blocked prone Script37 now
+returns-1; clear standing/crouched/prone controls remain37. HP137/AP53/ammo8/targetHP147,
+inputs, physical state and seed733 zero-draw2646359344/927438468/1037524220/75684108 are
+exact. The two additional real melee/Lua cases use authored blade/native actor-target
+placement. The geometric CanMeleeAttack predicate succeeds while native and legacy
+accessible lists are both empty; the native helper returns false and the direct calcer
+yields Script37, but old game/Lua queries returned0. They now return37. Nonempty
+one-location control remains37. Reach=1 does not assert a legal full melee execution
+order; Script37 proves caller routing, not a new melee probability formula or the numeric
+value of an unread original global. Physical state and seed734
+zero-draw3577622975/3820222347/212297508/2161777521 remain exact. Previous66 assertions
+and critical rows are unchanged. Initial Windows compile failure required RPGItemInfo
+before RPGToHit for SWeaponInfo; it is archived as build-only, not runtime RED/GREEN. The
+first Windows218 gate failed three existing hull-observer cases although chances100/86/92
+and physical/RNG state stayed unchanged. Those raw failures are archived. The helper now
+uses the actor world map, while the old observer wrapped only a separately created CGame.
+A diagnostic-only optional FixtureWorld factory (default unchanged) constructs a CWorld
+subclass whose public GetAIMap forwards through the same real-map proxy for these six
+cases. Every old fixture Require remains byte-for-byte intact: exact target hull,
+locations, call counts, physical state and RNG. No private world/grid field, fake geometry
+or calcer is injected. Final78 explicitly includes these six cases and retains their prior
+raw rows. No production change was made for the observer correction; no existing assertion
+is weakened or failure excluded.
+
+Actual file-backed Steam
+SHA4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705 supplies bounded
+proof, with Gold PDB only a typed guide. Unique46 Gold6aff46 ->Steam6b602e retains native
+direction and passability1/2 before the later unit cast6b60d8. Unique selector
+blocks96/20/123 at6b49e0/6b4a46/6b4a5d match only decoded external E8 displacements.
+Unique97 Gold6b009f ->6b617f calls SelectTargetHLs6b49e0, immediately continues
+XOR-EBP/TEST-ESI without testing AL, and forwards the location/vector to
+GetAttackerToHit6b5090. Independently typed path-network slot3c and unit slot48
+retain443560 and7c0300 bindings. The previously bound unit cover builder6b44f0 receives
+the adjusted local pose and calls GetAttackOrigin via6b4558/slot48. The caller's
+local-position flow is inspected without changing its stack operands; the retained origin
+API differs from the original builder API.
+
+Wider selector146 is rejected for real AI-map vcall slot30(Gold) versus34(Steam); exclude
+the whole three-byte call, never mask that operand. Independently typed CAIMap root
+tables8a5a9c/8b4b34 bind Gold slot30 to465110 and actual slot34 to465fc0, binding only.
+Exploratory secondary-table tail values are rejected as method bindings. Whole absolute
+MOV6 Gold6ae910/Steam6b4a40 is excluded; target980b5c is never read or masked. The wider
+origin17 block differs in its whole LEA temporary destination10/18, and builder
+frames6c/78 differ. No whole972/553/248/572, own ABI/layout parity, original gameplay,
+global/BSS physics reads, field/frame/register/opcode/NOP/local-branch/global-address
+masking or new global distance value is claimed. Previous168 hull/type/rocket proof and166
+direction/origin bindings are reused.
+
+Fresh full Game builds and218 appropriate
+Preview/Melee/TileCoverOrigin/caption/hover/directed-pose scenarios pass on both
+platforms, plus CI382 and12 standard LAN gates/361 encounter variants each. All previous
+melee17/two named caption blocks, tile-helper5 query/input/environment/execution, eight
+pose input/result and preview ownership/object/grenade/rocket/TCP witnesses are exact. The
+focused78 additionally covers old knife skill/truncation cases outside the broad filter.
+Only the existing nested-save exclusion remains; no full552 or unrelated
+accuracy/ray/formula/font/camera/tactical suite claim. Baseline/Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df remains unchanged.
+
+Source f638 stays partial: the cached-hit empty-trail fallback is still pending. Other
+hunks are accounted for:168 classifier/rocket/nonunit dependencies; previous176/177 empty
+constructor/signed endpoint; melee valid-unit dedup already landed in d4b43e2f; early
+full-dodge deletion already landed in975e3ab3 via037c41d9. Exact deletion history corrects
+an initial research attribution based on neighboring line blame. The legitimate later
+CheckICForAttack proportional damage reduction remains; it is distinct from the removed
+early full-dodge check. No bullet or damage receiver code changes in169. Ledger remains226
+imported/13 pending/7 partial,20 unfinished. Hosted CI for the actual final head remains
+required at whole-task completion.
+
+Source: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).
+
+## 170. Consume resolved cached hit trails without inventing a second trace
+
+PerformRangedAttack now consumes its existing HIT trail even when empty. It no longer
+traces again to invent contacts when the caller already supplied an empty resolved hit.
+Only RPGBullet.cpp changes in production; loose MISS rays, cached populated hits, effect
+ownership, bullet construction/retirement and damage receivers remain intact. Original
+function/ownerless-effect address comments are corrected to actual Steam entries.
+
+The inherited NativePlainRayRoute4 expected a fallback trace. Correct its reference to the
+independently verified native empty-cache contract before changing Main: canonical RED1/6
+on both platforms, five controls pass. Final GREEN6 keeps old0..3 result/input rows exact
+and changes only empty4 points2->0/entries1->0. A new populated5 control builds its
+two-point/one-contact cache through the real native ProcessRangedAttackPortion, then
+raises the query origin1000 to ensure a fresh trace cannot reproduce that target contact.
+It remains2/1. No hand-built trail, fake calcer or private world/grid injection. All
+speed3/no-model/no-shooter/effect-1 and native Segment retirement,
+HP/AP/life/action-counter assertions remain. Seed777 references compare four random
+outputs at call return: zero-draw cases first2196510041, ordinary/fragment loose controls
+two-draw first4141246879. No full Segment RNG-tail or new damage formula claim.
+
+Actual file-backed Steam
+SHA4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705 with Gold PDB only a
+typed guide binds PerformRangedAttack entry692650 (Gold68c6a0/279). Unique160 Gold68c6b8
+->692668 includes CMP hit flag at692681 and the true path directly passing cached
+vector+34 to CreateBulletServer747a30 via6926a1; there is no emptiness gate or second
+trace. Unique92 Gold68c75b ->69270b retains cleanup/return. Independently matched
+CreateBulletServer109 Gold73cd65 ->747a45 binds actual helper entry747a30 and constructor
+call7474d0, constructor binding only. Only decoded external E8 displacements are
+normalized. The contiguous standard SEH registration/function prologues are inspected;
+whole five-byte PUSH-handler instructions are excluded, never operand-masked or
+dereferenced. Full255/279 is rejected for real STrailPoint destructor
+stride74(Gold)/78(Steam); exclude the whole ADD-ESI3 at68c758/692708, not its operand. No
+whole279/130, trail/layout/own ABI, constructor-body equivalence, original gameplay,
+global/BSS physics read or field/frame/register/opcode/NOP/local-branch/global-address
+masking claim. The donor692731..692751 comment does not identify this actual hit
+dispatcher.
+
+Fresh full Game builds,246 Windows/242 Linux scoped
+ray/bullet/ranged/shoot/fragment/grenade/incidental/throw cases, CI382 and12 standard LAN
+gates/361 encounter variants each pass. Four existing Windows-only grenade-save cases stay
+in Windows and were never registered in Linux; no new exclusion. An initial LAB
+registry/quoting/equal-count assumption failed only during policy preparation and was
+corrected without test/source/assertion changes. Old0..3, the other five requested-shot
+cases and selected incidental/impact/loose-ray quantitative/RNG witnesses remain exact;
+five fragment-speed cases and empty constructor/retirement assertions pass. No unrelated
+full UI/calcer/camera/font/tactical suite claim. Baseline/Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged.
+
+NativeRangedCalledShot5 requests ANY. Raw Windows old body0/damage40/value10 versus
+current leg4/damage31/value8 differ, while each actual result matches its independent
+hit-specific damage/critical reference. One unchanged current Windows binary confirmation
+selects body0/40/10 again; both-platform raw observations and one unchanged binary
+confirmation each are retained. The ray is selected before the fixture seeds777 for the
+bullet/reference phase, and the fixture uses direct CreateBulletServer rather than the
+free function changed here. Exact cause of the hit selection difference remains unproven;
+do not attribute it to clock/compiler/renderer or claim complete ANY input/raw/RNG parity.
+All original native assertions remain, no part is forced and no row is normalized. Correct
+only the LAB assumption of byte-exact equality for this unconstrained ANY row; other
+requested-part rows still compare exactly. Native pointer identities remain checked by
+existing assertions, not cross-process pointer equality.
+
+Source f638 is now complete. This closes its last cached-hit hunk after168
+type/rocket/nonunit dependencies and169 unit pose/ranged-origin/selector. The valid-unit
+melee dedup already landed in d4b43e2f; the exact early full-dodge deletion in975e3ab3
+via037c41d9, with legitimate later CheckICForAttack proportional reduction retained; empty
+constructor176 and signed retirement177 already landed. All five source-file diffs are
+accounted for without reapplying those fixes. Ledger becomes227 imported/13 pending/6
+partial,19 unfinished. Actual final-head hosted success remains required at whole-task
+completion.
+
+Source: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).
+
+## 171. Assign a group waypoint route through the native AI route slot
+
+GroupMoveToWaypoint now builds a one-waypoint CAIRoute and calls the existing
+SetGroupRoute with circled=false/AIM_SCRIPT. The Lua handler no longer calls unit
+Do(Path/Continue) directly. Existing per-unit route logic, human/sequence ownership gates,
+formation/synchronization and network authority remain in their existing implementations;
+aiRoute/aiUnit/NetworkWorld are unchanged. Only Main/scriptUnitGroup.cpp changes in
+production.
+
+Six actual Lua cases on real fixture-world actors establish canonical RED4/6 on both
+platforms with two no-op controls, then GREEN6 with seven member observations. An AI unit
+and a human unit inside a real c_BeginSequence receive new route logic without immediate
+commands or physical changes; an ordinary human outside a sequence keeps its route slot
+and receives no immediate command. Missing waypoint and empty group remain no-ops; two
+actual same-owner AI members both receive routes. Every position, HP/AP, world-time,
+owner/sequence and native sequence-exit assertion stays intact. No private waypoint/grid
+injection or fake AI calcer; the fixture adds authored waypoints through public
+CWorld::AddWaypoint and invokes actual Lua GroupMoveToWaypoint.
+
+The initial exploratory candidate stopped at a zero-RNG assertion before route
+observations; those logs are retained separately from the canonical pre-fix route/physical
+RED4/6. An interim diagnostic recorded active-route random words and enforced zero draws
+only on no-ops. Final verification restores all four zero-draw assertions for all six
+cases, with seed735 words2089344776/2710627834/3276963841/249826914 and seven member rows
+exact to the earlier small GREEN. FormationMoveTo contains no RNG calls; the earlier
+inference from its presence to RNG use was unsupported and is not a retained cause claim.
+The final strengthened six-case suite passes on both platforms. Windows103/CI382/LAN
+passed before this diagnostic-only strengthening, and final Windows Game/NetworkMatch
+binary hashes remain unchanged; Linux102/LAN follow the strengthened fixture. No original
+whole-call or Segment RNG parity claim.
+
+Actual file-backed Steam
+SHA4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705 independently
+registers name8c6778/callback6ffb40 at981b38; typed Gold registers
+name8b75b8/callback6f5aa0 at9709c8. Self-name PUSH instructions confirm both entries. The
+donor comment6ff030 is not the actual callback. Unique161 Gold6f5bf7 ->Steam6ffc9a matches
+with only eight decoded external E8 displacements normalized: append the real waypoint,
+allocate/construct CAIRoute (typedGold4953e0 ->actual496690), push manager1/circled0 and
+call typedGoldSetGroupRoute495d50 ->actual497000. Child functions are call bindings only.
+No whole Lua523 identity, own route ABI, original gameplay/private global read or
+field/frame/register/opcode/local-branch/global-address masking claim.
+
+Fresh Game builds and 103 Windows/102 Linux related
+route/waypoint/formation/placement/hotseat/AI cases pass on both platforms, along with
+asset-free CI382 and12 standard LAN gates/361 encounter variants each. Native six-case
+rows remain unchanged in the broader runs. No new exclusion, database/save schema or
+balance formula change. This completes only the GroupMoveToWaypoint hunk of46b3;
+facial-idle propagation and AI-merc AddPlayer initialization remain. Ledger stays227
+imported/13 pending/6 partial,19 unfinished source commits.
+
+NativeScriptRouteWaitTests is an existing Windows-only registered case: keep it on
+Windows; Linux has102 related cases. No test was excluded or deregistered.
+
+The first Windows broad run passed99/103 but failed four old handoff/keyboard cases. A
+parent-production attribution run fails the same four and records
+initialActive=1/hardcodedNext=1: since the prior c16a95ca initial-turn correction the
+native initial tracker can already be player2. The old fixture selected that same tracker
+and incorrectly expected a new handoff. Correct only the fixture to alternate from its
+actual starting tracker and select the AI-skip control from the opposite current tracker.
+Every previous Require block remains byte-identical and in order; no handoff runtime or
+exclusion changes. Archive the initial103 and parent-four failures. The corrected full
+related runs, not those failed runs, supply the accepted counts above. This is diagnostic
+repair, not another game-behavior RED.
+
+Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).
+
+## 172. Keep recruitment faces static while preserving FaceGen facial idle
+
+The recruitment portrait now explicitly opts out of ambient facial idle. A default-true
+facial flag flows through the NRPG CUnitView/CreateShowUnit/CShowRPGUnit/CFakeRPGUnit
+chain into its existing transient CHeadTransformInfo. The standalone morph-head renderer
+uses that existing flag before arming IDLE_NORMAL. FaceGen retains its default; NWorld
+preview overloads, shared world heads, body-pose/cap handling, morph/texture pipeline and
+saved fields remain intact. Six Main files change; the new IsPlayIdle accessor adds no
+state or save tag.
+
+Actual native recruitment menus for authored persons54/103 establish RED2/4 on both
+platforms, with two default FaceGen CUnitView controls passing. GREEN4 changes only
+recruitment animator IDLE_NORMAL0 ->IDLE_NONE1 for complex heads14/13. Every other raw
+field and both control rows remain exact within each platform and in the broader runs. The
+observer reads the actual CUnitView base serialization field8, calls the public
+IShowUnit::Update(0) used by drawing, and walks a bounded read-only serialized render
+graph to the one real CHeadAnimator (145/146 nodes). It does not inject private state,
+replace gameplay/graphics calculations or add a production test hook. All previous
+diagnostic lines/assertions remain unchanged; no pixel, morph-weight, full
+animation-timeline or RNG parity claim.
+
+File-backed actual Steam
+SHA4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705 independently binds
+the portrait constructor644320 using typed Gold63ec40: unique41 prefix63ec55 ->644335
+normalizes one decoded E8 and the independently named root RTTI vptr8b294c ->8c1aac.
+Unique50 tail63ed2d ->64440d proves the five argument pushes and call644424
+->SetUnit5c0ba0; donor comment64456b is wrong. Unique25 Gold5be068 ->5c0be8 binds
+CreateShowUnit6cecb0. The original NRPG API has three bools: SetUnit(0,1,0) maps to
+CreateShowUnit(body0,emotions0,cap1). This remaster adapter exposes only facial idle and
+retains its existing body/cap path; it does not claim the original had a one-bool ABI.
+
+Unique266 CreateShowUnit post-prologue Gold6c81e5 ->6cecc5 and121 ShowRPGUnit constructor
+tail6c8155 ->6cec35 bind the actual constructor chain6cecb0 ->6ceb70 ->CFakeRPGUnit6ce610.
+Unique raw17 Gold6c7c00 ->6ce6e0 stores the second flag in the original bPlayIdleEmotions
+field38. Unique raw22 Gold6c79f1 ->6ce4d1 gates the visitor50 call on that field. Named
+CFakeRPGUnit root slot8 binds actual RenderVisit6ce320 within the three-overload IVisObj
+root (12 bytes); an initial unsupported first-slot assumption was rejected before
+acceptance, its target never dereferenced, with no secondary-table scan. The own transient
+transform flag is a policy adapter, not original field38 layout equivalence.
+
+Unique59 public AddHead Gold6c7500 ->6cdfe0 binds GetAnimator65dec0 and private
+AddHead6cdd70. Unique294 GetAnimator post-prologue657bf5 ->65ded5 creates a head with
+enum1 through65df51 ->665770; unique70 fallback Gold6c743b ->6cdf1b does the same. Full87
+CHeadAnimator constructor65f480 ->665770 matches with only independently typed root RTTI
+vptr8b3620 ->8c2748 normalized, storing its mode argument in field34. Gold enum values are
+NORMAL0/NONE1/DEATH2. Other masks are decoded external E8 displacements only. Contiguous
+standard21-byte SEH prologues are inspected; whole5-byte PUSH-handler instructions are
+excluded, never operand-masked or dereferenced. Whole SetUnit290 and portrait287 are
+rejected for actual field/camera/branch differences. No whole private
+AddHead563/FakeCtor933/ShowCtor318/Visit660 identity, own ABI, original gameplay,
+global/BSS read or field/frame/register/opcode/local-branch/global-address masking claim.
+
+Fresh Game builds,22 Windows/20 Linux related facial/head/portrait/hotseat/data/resource
+cases, CI382 and12 standard LAN gates/361 encounter variants each pass. Native downed
+shared-head cases retain DEATH2; head topology, restored portrait selection and default
+FaceGen controls pass. NativeHeadResourceTests and NativeHeadSequenceRuntimeTests are
+existing Windows-only registrations kept on Windows, with no new exclusion. Baseline/Steam
+game.db SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged.
+No HD PNG generation/rebuild or database/save-format change. Source46b3 remains partial:
+AI-merc AddPlayer initialization remains; ledger stays227 imported/13 pending/6 partial,19
+unfinished sources.
+
+Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).
+
+## 173. Initialize recruited AI parties through native AddPlayer
+
+CWorld::AddPlayer now replaces the supplied commander for global AI parties after
+RegisterPlayer. Each successfully deployed AI actor receives an AIM_AI roaming route of
+radius25 centered at its deployment-phase position and a normal reaction bound to its
+actual AI brain. Human parties keep the supplied commander. Only Main/wMain.cpp changes,
+including the same-function address comment; existing aiRoute/aiUnit behavior and LAN
+replica/server authority remain intact.
+
+Six real public AddPlayer cases on both platforms establish canonical RED4/6 with two
+human controls, then GREEN6: one/two AI mercenaries, one/two human mercenaries, an empty
+AI party and an already-AI supplied commander isolating the missing actor initialization.
+Seven real authored actor rows preserve physical position, HP/AP, ownership, no immediate
+command and unchanged world time; human headers and rows are byte-exact to parent. Actual
+route/roaming25/circled state and normal reaction ownership are inspected read-only
+through public APIs and real serialization. Four Seed736 RNG words are recorded, with no
+zero-draw or original whole-call RNG parity claim. All prior diagnostic lines/assertions
+remain untouched.
+
+The first post-fix observer incorrectly compared the route center with position after
+AddPlayer returned, producing3/6 on both platforms. Existing StartGame at the end calls
+PlaceAllUnits/PlaceOnPassablePlace: center84010902 legitimately precedes returned84010901.
+The final passive public CEventRegister/CEventOnNewPlayerTurn observer records the first
+matching party event before StartGame, checks exact full-word center equality and ensures
+inspection does not move actors. No tolerance, mask, production placement change or
+private-state injection. A rejected subclass attempt could not forward the private base
+callback and failed compilation on both platforms; it was fully replaced by the public
+event observer. These failures remain archived, not claimed as additional runtime RED.
+With the final fixture, parent Main was restored and RED4/6 re-established on both before
+restoring exactly the same production fix; final fixture SHA remains unchanged through
+GREEN and full gates.
+
+File-backed actual Steam
+SHA4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705 CWorld root8cbc8c
+slot58 binds AddPlayer76e9e0, not donor76e160. Typed Gold root8bc74c/762fb0 is a guide;
+IWorld root shape127/virtual offset88 bounds this read. Seven bounded blocks are accepted:
+raw21 Gold76303d->76ea70 proves bAIPlayer54 and the native branch; unique74
+Gold763057->76ea8a binds CAICommander436340 after excluding the WHOLE five-byte differing
+allocation PUSH (Gold9c/Steam a0). Unique18 Gold7637f7->76f285 binds CalcDeathVP6baab0 and
+AI guard. Unique15 Gold76380b->76f299 binds GetAIUnit4741b0. Unique47 Gold763840->76f2ce
+proves public unit-position slot44, radius25/manager0, SetUnitRoaming4966e0 and normal
+factory47ed50, then reaction slot64. Typed NWorld::CUnit shape39/base14c and IAIUnit
+shape36 bound these public method slots; no secondary-table target read is needed.
+
+The named CAIUnit root reaction slot64 binds4adb40: unique58 prefix Gold4ac360->4adb40 is
+accepted, but whole62 is rejected because the actual72-byte function has an EXTRA whole
+ten-byte ADD200 to field104. Own SetReaction retains its existing ++nNonFreezeCounter
+unchanged; no whole AI-engine/counter parity claim. Full86 normal factory
+Gold47e1c0->47ed50 matches with decoded E8 and independently typed named CAINormalReaction
+root-vptr normalization only, storing the brain and WasCombat0. Other accepted blocks
+normalize decoded external E8 only. Gold AI ctor332/GetAIUnit145/SetUnitRoaming194/whole
+AddPlayer2296 are bindings, not full identities. The standard21-byte SEH prologue is
+inspected; WHOLE five-byte handler PUSH is excluded and its target never read.
+Wider147/validity21 are rejected for differing whole eight-byte EH-state MOV instructions
+(0d/0e,0c/0d), not operand-masked. Whole player allocation PUSH2/PUSH5 and context/global
+MOVs are outside accepted blocks; their global targets are never read. No
+field/frame/register/opcode/local-branch/global-address masking, original gameplay,
+private global/BSS reads or own ABI equivalence claim.
+
+Fresh Game93 Windows/92 Linux AI/route/deployment/autoplay/demo/hotseat cases, CI382,
+twelve standard LAN gates and361 encounter variants on each platform pass. Existing
+Windows-only NativeScriptRouteWaitTests stays registered on Windows; no new exclusion.
+Verified baseline and Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df remains unchanged. No
+HD PNG generation/rebuild, balance formula, save/database or network format change.
+
+All ten donor files are now accounted for: facial idle/recruitment in be971cbc5; group
+waypoint routing in8af5a1bb3; automatic human handoff in0690176eca with layout de7a151e5
+and keyboard integration1e10218c6; AI AddPlayer here. The voice pointer-filter hunk is
+already satisfied for supported authored data: merc54 and hero voices0/1/2
+select2898/10402/10971/10260 in both current and verified original DB, numeric and
+referenced condition102 agreeing; importer derives both from the same ConditionID column.
+Only an artificial numeric=-1 mutation gave RED and was rejected, so no synthetic fix/test
+or arbitrary corrupt-record parity is claimed. Current setup uses
+CMultiPlayerInterface::Initialize's custom desktop/global game/four parties, without
+CMission::Initialize, a world or MissionHUD; LAN exposes one local tracker. Thus its
+existing adapted handoff boundary is satisfied without the donor IsSetupMode API.
+Pending3053's equipment-mission setup is NOT imported here and must preserve an explicit
+no-handoff setup boundary if introduced. Ten-file hunk map is in the lab evidence.
+Source46b3 is complete for the supported own flows; ledger228 imported/13 pending/5
+partial,18 unfinished sources.
+
+Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).
+
+## 174. Restore live hotseat team setup and equipment flow
+
+The local hotseat menu now uses a template-less CMission world with four empty live player
+trackers. Side changes clear hired and deployed actors, then rebuild the hireable roster
+for the selected side in hero mode. AI selection writes the actual global-party flag; team
+management opens its real modal and returning deploys the recruited mercenaries. Weapons
+issues actual UpdateStore for the selected party and exposes the existing HUD
+inventory/store; inventory/store/cancel returns to the setup menu. Play removes empty
+slots, applies the selected tech level and opens the chosen tactical mission with those
+same mercenary objects and AI flags. Tech level remains clamped0..20; the numeric map
+field and live-roster presence control play availability.
+
+All eight donor files are accounted for in nine Main files: the existing complex-combo
+definition moves verbatim into iCommonUI.h, retaining methods/registration/save ID in
+iOptionsMenu.cpp; the reusable AddTeamMngPerses helper uses the player's resolved side and
+preserves normal non-hero recruitment. That also fixes documented null-side fallback to
+side1 producing no recruits instead of the authored20. IsSetupMode defaults false and is
+true only for this local setup. CMission::Initialize admits the blank world only for that
+mode with template/variant-1, retaining the ordinary invalid-template rejection.
+CMissionUI adds the required setup guard from prior source46b3 now that setup actually has
+a MissionHUD. The donor's side local is adapted to CDBPtr for both platforms; its implicit
+CDBPtr->CPtr conversion compiled on Windows but failed on Linux. No Network sources, LAN
+preparation architecture, damage/AP/probability formulas, normal mission/save/network
+schemas, database or HD PNG assets change. Local setup row/desktop serialization follows
+the donor's live-tracker graph; no old detached-lobby save compatibility claim.
+
+Before Main changes, three actual native cases establish RED2/3 on both platforms:
+CICMultiPlayer has world0/players0/desktop0, and null-side recruitment produces0 instead
+of20; explicit-side recruitment passes. The first diagnostic candidate used a nonexistent
+RPG accessor and failed compilation, not runtime RED. Native setup then passes world/four
+empty cleared-side parties, real side1/2 changes, same-side reselect, AI on/off, actual
+team command, public native queued add/remove actor flow and hidden/unpaused handoff for
+another active human. Initial downstream observers incorrectly inspected the team-command
+queue before the existing restart snapshot and tried unsupported/private Segment APIs.
+Their compile failures and initial2/3 are retained; the final observer executes the actual
+CICSaveFile startup snapshot and uses public IWorld::UpdateWorld/GetAimTime and tracker
+Update without a private bypass or production hook. No production change was made for
+these observer errors.
+
+Three additional post-port cases exercise real UI/input/draw paths: opening team
+management, actual hire, modal return and deployed actor, native weapons/UpdateStore,
+nonempty stock and both equipment panels, return to menu with HP/AP/position unchanged;
+launching two selected parties at level7 into actual template810, removing two empty slots
+and retaining hero/person identity plus human/AI commanders; and rendered play
+availability0/1/0 for no actors/valid map+actor/empty map, tech bounds0/20 and actual
+cancel. The launch observer originally read an unrefreshed tracker immediately after
+CICBeginMission; the underlying world already had each chosen actor. Final read-only
+native actor assertions precede the public tracker refresh and verify exact
+identities/tech7/AI afterwards. The play widget observer follows its actual nested
+buttons-line parent. Earlier4/6 and5/6 logs remain, not extra gameplay RED claims. The
+first roster entry differs between platforms (observed Windows106/42 versus Linux2/129),
+so native flow assertions follow the actual selected objects and preserve physical state
+within each run. No cross-platform roster-order/person/HP/AP identity claim. Final6 pass
+both; initial RED2/3 and later six-case coverage are distinct, not a fabricated RED5/6 on
+an identical fixture. All pre174 UpstreamBugTests lines/assertions remain unchanged. These
+are native input/action API and real2D-render checks, not physical OS mouse/keyboard
+testing or original-game execution.
+
+File-backed actual Steam
+SHA4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705 independently supports
+the adapter. Unique68 Gold616a35->61b705 begins after the standard21-byte SEH prologue and
+binds actual setup Initialize61b6f0. Unique388 Gold616a79->61b749 proves four empty-vector
+CreateGlobalPlayer69acc0 calls. Unique42 Gold616c04->61b8d4 binds
+call61b8f9->CMission::Initialize601070 with template/variant-1. Unique101
+Gold694ad5->69ab05 begins after AddTeamMngPerses69aaf0's validated21-byte SEH prologue and
+clears its roster/validates current side. Unique40 Gold694be4->69ac14 filters CanHiredC0
+and current side2c and passes the hero argument to CreateMerc6ad250. Only decoded external
+E8 displacements normalize in these blocks. Whole5-byte SEH handler PUSH instructions are
+excluded, not operand-masked, and their targets never read. No full setup942/roster455
+identity claim.
+
+Named CPlayerLine root8bffc8 slot40, bounded by CWindow shape13 and typed Gold
+root/function616e40, binds actual row ProcessMessage61bb10. Its live
+tracker/current-side/team modal/remove/add-roster path is inspected directly; native
+call61bd72->69aaf0 uses DL1. Named CMultiPlayerInterface root8c006c matches known Gold
+ProcessEvent616530 at root ordinal28 within shape89, binding actual61b1f0. Initial offset0
+inference was rejected because Gold root0 is618d60; no code at that wrong target was read.
+Actual UpdateStore root8be534 is stored at61b4f7; unique raw23 Gold61683e->61b501 proves
+unit GetUnit34, instant1 and mission Command30. Unique raw11 Gold616d68->61ba38 proves
+world StartSequence1f4.
+
+Named MissionHUD root8bfe0c slot44 binds actual Update6126e0, with typed CWindow Update
+offset44 and CMissionUI shape22. Native call612728 uses mission slot14c; true
+branch612730->612791 skips handoff. Within named setup root8c006c and mission root8ba394,
+bounded89 slots, slot14c resolves to actual3-byte true488e70 and false696440 stubs. No
+Gold/Steam same-ordinal claim past their inherited table divergence. Initial unsupported
+HUD slot48 failed its Gold identity check; an ensuing guessed donor611d60 disassembly was
+unrelated and rejected/retained, contributing no accepted proof. Whole921
+initialization/tail76 and wider row blocks35/35/91/17 are rejected for field/table-offset
+differences. No field/frame/register/opcode/local-branch/global-address masking,
+private-global/BSS reads, secondary-table scan, original gameplay, full
+function/ABI/AI/RNG parity claim.
+
+A pre-existing standalone NetworkSessionTests failure surfaced at its one-Poll
+queued-state disconnect assertion. The target links unchanged
+NetworkSession/Transport/Diagnostics only, not Main/RPG/UI. The first failed5-gate attempt
+and unchanged full probes (two failures/one pass) are retained. A LAB-only public observer
+recorded raw-host Playing4 ->Failed7 after three polls/130 microseconds; its full
+runs/strace are observations, not production-test GREEN. Three analogous dedup/burst/raw
+close boundaries now use the existing Pump and original3-second deadline before the
+original Poll/Require. Every one of31 original Require blocks remains byte-exact and in
+order; no network production, callback, selection/exclusion or CTest-timeout change. The
+corrected standalone test passes five consecutive Linux runs under the same Xvfb/openbox
+display wrapper and three Windows runs. The old100-poll duplicate-event gate also failed
+in standalone and full-display runs. Failed logs and five initially passing LAB probes are
+retained; a same-display LAB observer then preserves its failed gate with
+Playing4/events7/baseline6/expected8 and reaches8 only after100 additional polls. The test
+now sends a valid trailing State11 on the same ordered TCP stream; its local raw-client
+applyState callback delegates unchanged validation and marks the batch complete. The
+original100-poll loop remains, followed by the existing3-second deadline wait and one new
+strict completion assertion before the unchanged exact dedup count. This detects both
+duplicate application and lost events after every packet has been handled; no accepting
+early merely because a duplicated first event produced count2. No specific Nagle/OS root
+cause for every individual failure is claimed. Complete standard LAN gates on both
+platforms and CI382 are rerun after the wait correction.
+Game/UpstreamBugTests/NetworkMatch binaries on both platforms and the Linux network
+library remain byte-identical to the prior complete builds. No claim of a new gameplay bug
+or complete network/timing parity.
+
+Fresh Game builds and59 Windows/56 Linux related cases pass, including all six new native
+cases, prior hotseat handoff/keyboard, recruitment facial idle, AI mercenary setup,
+combo/options, roster/store/deployment and normal/local-network save/restart boundaries.
+Three existing Windows-only CampaignSequence cases stay on Windows; the existing
+nested-save exclusion remains the only exclusion. Native observations match their final
+per-platform six-case runs. CI382 and twelve standard LAN gates/361 encounter variants
+each pass. Baseline/Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df remains unchanged,
+with no HD PNG generation/rebuild. Source3053 is complete;229 imported/12 pending/5
+partial,17 unfinished sources.
+
+Source: [3053c3125ddb6be5fd7b0b6b30a375536d073200](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3053c3125ddb6be5fd7b0b6b30a375536d073200).
+
+## 175. Complete hero, hotseat and scenario defeat handling
+
+A party remains alive only while one of its heroes can fight. A healthy non-hero no longer
+keeps an unconscious hero's party alive. Local hotseat queues its real loss modal as soon
+as fewer than two parties remain capable, regardless of which party owns the turn; the
+existing acknowledgment latch makes that transition one-shot. An unwinnable campaign now
+sends OnPlayerLose(1) even while its hero is healthy. Ordinary hero defeat retains
+OnPlayerLose(0) wrapped in the existing 4000ms corpse-settle delay. Both new local defeat
+paths retain the remaster's network-session guard and server authority.
+
+All three donor files are accounted for. PlayerTracker receives the hero-and-CanFight
+predicate. The lazy GetActionInfo/UpdateActionsInfo cache hunks were imported earlier:
+retain every existing action enum/save slot, sniper entry, equipped-tool probe,
+replacement reload and network preview-selection hook. The existing file-local hide helper
+already has the correct nonempty/all-members reduction. Add the equivalent strafe helper
+and probe the opposite of the current group state. The donor's iMissionInternal.h member
+declaration is adapted to a file-local helper matching the existing hide arrangement, so
+no header, API or state-layout change is needed. Current CanDoStrafe does not depend on
+its desired bool, so no separate behavior RED is claimed for this query-parameter
+correction. The new screenshot call uses own Generate(), whose existing body already calls
+MakeScreenShot(...,false); the donor bool parameter does not exist here. The initial
+compile rejection is archived, not counted as a gameplay failure.
+
+The final identical diagnostic source reproduced four genuine runtime failures among
+thirteen cases on both Windows and Linux before Main changed: unconscious hero with
+healthy non-hero, inactive-party and active-party hotseat defeat, and real authored clue
+destruction leaving a healthy hero in an unwinnable campaign. Nine controls passed. Tests
+enter actual native tactical missions, execute their queued restart snapshots, refresh
+actual trackers, use public MakeUnconscious/Kill/SyncConscious, and reach the first
+GameStep through public paused StepApp plus the existing harness clock. Read-only existing
+save fields38/36 verify first-frame entry/scenario failure; read-only actual commander
+event objects verify immediate OnPlayerLose1 versus delayed OnPlayerLose0. No private
+flag/seed/command-cache injection, callback replacement, fake world/calculator, new
+production test hook or database record corruption is used.
+
+Campaign generation varies authored clue placement: the first scenario fixture's fixed
+zone2/template2240/two-clue preconditions failed and are retained as observer failures,
+not extra RED. The corrected fixture discovers an actual critical zone through public
+CanLeaveZone and immediate CheatDestroyClue before entering that zone's actual mission,
+then checks the mission's real CanLeaveZone writer. It never forces a private scenario
+seed. All thirteen cases pass after the two-file fix, including actual loss-modal
+open/close and no-repeat checks. The nine Windows control rows and four expected result
+changes were exact; broader per-platform checks allow only naturally generated
+destroyed-clue counts to differ between runs. Dead heroes removed by ordinary tracker
+refresh were already handled correctly and remain controls.
+
+Read-only original proof uses Steam Game.exe SHA256
+4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705. Typed Gold
+IsPlayerLoser681460/105 bytes matches Steam687550 uniquely with no masks, and the
+independently named CPlayerTracker root slot24 fits its27-method shape. Typed
+GetUnit34/GetRPG40/IsHero5c/CanFight0 establish predicate semantics. GameStep binds
+through the early CMission root Step slot14(decimal20) ->5a4690, direct
+call5a4803->5a35b0, and unique13 bytes Gold5a0d0e->5a369e with decoded E8 relocation only.
+The actual self-call5a36ab uses slot168 and proves minimum primary-table extent364 BEFORE
+reading that exact named CMission root entry ->602160. Gold GameStep uses15c; inherited
+slot shifts are nonuniform, not an assumed constant. A unique raw37-byte
+survivor-count/threshold2 block and17-byte screenshot-false/loss-constructor-minus1 block
+with only decoded E8 relocations support the actual native branches. Inspection confirms
+scenario57d bypasses the active-player predicate, passes0/1 and selects direct
+versus4000ms delayed commands.
+
+The group-strafe proof is unique212 bytes after the standard21-byte SEH prefix,
+Gold5fa785->Steam5feeb5 (entry5feea0), with only two decoded E8 relocations. The whole
+five-byte EH-handler push is excluded and its target never read; remaining prologue bytes
+agree. Typed GetSelectedUnits6c/GetUnit34/IsStrafing18 confirm the nonempty/all-members
+reduction. Earlier52/58-byte GameStep candidates are rejected for alignment and
+frame/register/local-branch differences; none are masked away. No original gameplay,
+private global data, unknown secondary-vtable entries, whole GameStep1223-versus1079
+identity or ABI/full-engine/RNG parity is claimed. Detailed proof:
+hero-defeat-original-static-proof.json and hero-defeat-red-verification.json in the
+laboratory evidence directory.
+
+Fresh full Game builds pass with 108 Windows and 105 Linux related tests, including all13
+new cases, prior hotseat setup/equipment/handoff, action availability and normal
+local/network save gates. Asset-free CI382 and twelve LAN gates with361 encounter variants
+pass on each platform. Three existing Windows-only CampaignSequence registrations and the
+existing nested-save exclusion remain as before; no new exclusion or old assertion
+removal. Game DB SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is
+unchanged. No combat formula, damage/AP/probability rule, save/DB/network schema or HD PNG
+work. Source9af complete;230 imported/12 pending/4 partial,16 unfinished sources.
+
+Source: [9af844d6b62ed800bb59a64057b03e0eafc83878](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9af844d6b62ed800bb59a64057b03e0eafc83878).
+
+## 176. Complete transient attack sessions and populate selected-hit trails
+
+The actual RPG mission now implements the four-method transient medal interface. Fresh
+server binding supplies the global game and medal recipient; scenario player identity
+follows the existing owner binding. Executed attacks record targets and weak references to
+the actual returned bullet, grenade, rocket or knife. Segment waits for those projectiles,
+drains expired references and resets the finished latch. It does not award medals, clear
+target lists or gate world/AI behavior. The reconstructed AddMedalPoints remains uncalled,
+matching the inspected original direct-reference evidence. Cancellation at the firing
+animation label closes the session, while actual AnimationFinished completes the executor.
+No new saved attack-session fields or load-time rebinding is introduced. Source285's nine
+files are fully accounted; retain the remaster's existing knife API/geometry, raw-ray miss
+carrier, owner AI identity and constructor owner binding.
+
+The first broad Windows run exposed three real mission-shot failures already present in
+the exact pre176 parent: ammo31->30 and AP46->36, with an attack event, but no bullet and
+no damage. Full-parent attribution reproduced the failures, and the same three existing
+native mission gates reproduced them on Linux. All physical bullet/damage/save assertions
+are retained. The required prerequisite comes from still-partial source360: retain
+completed cover grids and selected cell coordinates, return the exact selected ray through
+the existing roulette, and build SAttackRayInfo.trailPoints from that cell. Tile, unit and
+the remaster's separate object-shot producers now call PrepareAttackRay with
+GetAttackIgnore. A precise trace refines surface normals only; it does not replace
+grid-selected objects, body parts or damage decisions. Preserve the existing projection
+range/origin/HL/safety refinements and object union, roulette math and draw order,
+incidental-hit implementation, loose-ray path and checkpoint170's literal cached-hit
+consumer, including an empty cache. CalcCoverIntervals ignores the shooter and uses the
+original armor-ignored/damage conjunction. Other scenario/context/swap and knife-solver
+hunks remain separate.
+
+The first Linux bundle reached all aim-state observations but crashed during native world
+teardown. An own-process debugger and the actual thunk disassembly showed
+OBJECT_BASIC_METHODS reading a virtual CObjectBase offset through the already-destroyed
+primary medal base. Preserve the remaster's IUnitMission/CObject-facing base first and add
+the medal base second. This local inheritance-order adapter keeps dynamic cross-casts and
+saved fields while leaving the global refcount mechanism unchanged; the inspected original
+base offsets are not a live ABI promise. Fresh17 cases then pass on Linux before the
+separate trace-purpose correction. The recorded failure is production integration
+evidence, separate from the earlier grenade observer lifetime fault.
+
+The expanded first616-case Windows run passed609 and caught seven mask regressions from
+taking source360's literal enum expression: in this engine WEAPON_BLOCKER is0x400, whereas
+physical shots select ITEM_BLOCKER0x8000. Prior original evidence distinguishes
+preview/AI0x8200 from physical0x8210; the physical caller's Gold6b04f0/Steam6b65d0
+literal8210 and direct call to RealCalcCovers are rechecked. Keep preview/AI0x8200 and the
+existing tile-preview0x200 defaults. Add the original trace-purpose argument to the
+remaster cover helpers and pass0x8210 only from the three actual shot producers. Muzzle
+tests still inspect WEAPON_BLOCKER0x400 inside selected cells. All fourteen prior category
+controls and the actual fragment-parity assertion remain unchanged. A read-only actual-map
+decorator in the six called-shot cases additionally requires preview high/low8200 and
+physical high/low8210 while delegating rasterization unchanged. There is no second-trace
+workaround or whole-category enum remapping.
+
+The registered, copyable CCoverInfo retains class02841161 and its legacy saved tags2..6.
+Runtime rays gain coordinates and shared ownership of two completed grids, while an
+explicit SStoredRay adapter preserves the old raw20-byte ray payload including padding.
+Runtime grids/coordinates and safety union remain unsaved. The native registry-based
+compatibility control reads a legacy20-byte payload and writes the identical145 bytes on
+both platforms before and after the port. No replacement registered class, raw32-byte
+widening or blind donor noncopyable layout is used. Linux's existing PortableCore
+NativeWorldInitProbe receives the same three actual mission-shot registrations; no
+duplicate executable is defined. The mission archive now includes RPGAttackSession.cpp,
+the required new constructor/method dependency.
+
+Canonical session diagnostics reproduced four failures among five native cases on both
+platforms: three contexts lacked the real mission's medal cross-cast, and an actual
+aim-only shot prematurely finished at its label. The pending-aim control passed. The first
+weapon/zero-ammo fixture preconditions are retained as invalid setup, not extra RED; the
+original aim-only one-round consumption is preserved. After that failed gate, grenade
+tests initially read actor AP after destroying its owning world; an own-process debugger
+identified the observer lifetime fault. Move that same physical assertion before world
+teardown and retain the real RPG object for the post-teardown check. No engine change
+repairs the observer and no identical-final-fixture RED claim is made. Real
+regular/engineering grenades now demonstrate live wait, FinishAttackSession, natural world
+release and weak-reference draining. Two old knife observers now require RUNNING at the
+release label and FINISHED after actual AnimationFinished, retaining all
+projectile/successor/animation/AP/VP checks. Six called-shot observers replace the
+obsolete empty-producer expectation with bounded populated-hit-cache and actual-target
+assertions; their damage/injury/cost checks remain. The final32-case bundle passes both
+platforms: session5, mission shots3, called shots6, knife2 and legacy wire1 and prior
+mask/fragment controls15. The three mission shots each now create a bullet and reduce
+target HP, preserving ammo/AP/event costs. Temporary diagnostic tracing was removed.
+
+Read-only original session proof binds full127-byte Segment to Steam68fc30, full848-byte
+AddMedalPoints to68f8e0, raw5-byte FinishAttackSession to6c5770, and full31-byte
+TimeLabelReached to7a3120 using only decoded external E8 relocations. The actual call
+reaches106-byte FinishMe7a2720; independently typed RTTI operands and the named
+four-method medal root bind its FinishAttackSession call without an executor state write.
+Actual CUnitMission RTTI confirms medal base0 and IUnitMission base76. AddMedalPoints has
+no absolute/direct E8/E9 references in either inspected binary; this is not proof about
+computed callers. Typed world projectile methods return CObjectBase*. For the producer, a
+strict full65-byte Gold grid-forward overload68d620 matches Steam693580 uniquely with one
+E8 relocation; actual6935b6 calls691290. Inspection of that actual2304-byte function binds
+CalcCoverIntervals690a40 and normals6904e0. Whole Gold hit/normals/interval/object-ray
+signatures are rejected for real frame/field/size differences; none are hidden by broader
+masks. No original gameplay, private globals, unknown secondary-vtable reads or
+whole-method/ABI/full-engine/RNG equivalence is claimed. Detailed accepted laboratory
+records are attack-session-original-static-proof.json,
+attack-session-parent-attribution-verification.json, ray-producer-red-verification.json
+and ray-producer-original-binding-proof.json.
+
+Fresh full Game builds pass616 Windows and612 Linux related tests, including all13 prior
+defeat cases and cover/cache/shot/save/action/hotseat controls. The required Linux
+portable mission archive/core diagnostic,383 Windows asset-free CI cases, and12 LAN gates
+with361 encounter variants per platform pass. Four pre-existing Windows-only grenade
+mission registrations remain; no new exclusion. The first Windows ALL_BUILD also reported
+COMDAT link failures in three diagnostic executables. A serial retry of those targets
+passed with unchanged source and no artifact deletion; the subsequent ALL_BUILD and full
+gates pass. The cause of the first link failure remains unproven. The missing
+diplomacy-header Windows compile failure and platform-conditional include Linux compile
+failure are archived, corrected before final gates, and never counted as runtime RED. Game
+DB SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged. No
+save/DB/network schema, combat formula, medal-award policy or HD PNG change. Full285
+complete; partial360 remains partial.231 imported/11 pending/4 partial,15 unfinished
+sources.
+
+Sources: [285f6a0cff9737d2789396a2543bc75d0ab11da7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/285f6a0cff9737d2789396a2543bc75d0ab11da7), [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 177. Complete thrown-knife solver and flight intent
+
+The actual knife executor selects its physical unit/tile cover ray while the blade is
+still equipped, through the existing CheckToHit/CheckTileToHit and PrepareAttackRay path.
+The carried attack retains the intended target, requested body part, shooter
+position/first-turn flag, actual attack origin, selected trail, ignore object and hit
+decision. The original physical8210 trace-purpose argument is explicit; preview/AI8200 and
+tile-preview200 defaults remain. Remove the superseded scalar accuracy/scatter path. Keep
+the validated integer flight range and GetKnifeLaunchSpeed wide1.5 math, successor
+handoff/weapon animation and actual returned projectile weak tracking from176. No change
+to the label-session/actual-animation lifecycle.
+
+New nonvirtual world/factory overloads copy SAttackRayInfo and launch its normalized
+direction at the supplied speed. CWorld retains and returns the actual projectile. The old
+scalar world/factory/constructor overloads remain for raw orientation and clock
+compatibility. The new constructor retains the original float distance/speed duration and
+current rounding behavior. Segment skips an intended miss, performs the existing
+incidental CheckBulletToHit roll once for a new incidental unit, and remembers a missed
+unit instead of rerolling each body hull. Door/window frame state flags select BOUNCE
+before attackability. Preserve physical-direction damage/trajectory synchronization,
+actual world, item ownership, hit floor,0.2 bounce dropback, registered class/save tags
+and the previously imported animator time rebase.
+
+All11 source files are accounted. The earlier imports already supply cover-origin
+distance, visibility-only backstab/night, thrown-action preview classification, blade
+skill/wounds/weight/strength/perks/gravity, ballistic range and accuracy truncation,
+fractional admission, HL_ANY target aim and directed unit dispatch. Retain the remaster's
+independently validated wider precision adapters and safe owner/origin/projection handling
+rather than copying donor files over them. RPGBullet.cpp already documents and forwards
+the physical direction; its donor comment hunk requires no edit. Rename only the stale
+header parameter. The source contains no separate drop-UI hunk; historical ledger wording
+is not an additional outstanding change.
+
+Before engine edits the final identical native fixture reproduced nine failures on both
+Windows and Linux, with eleven passing controls: five actual executor contexts lost
+selected-ray metadata; an intended miss and an incidental miss caused damage; actual
+open/closed authored Door439 in world4517 stuck the blade instead of bouncing. Three
+physical-hit controls and eight prior guaranteed-impact controls passed. Those eight older
+controls now explicitly supply an intended-hit carrier through the public world API, with
+an actual legacy-factory fallback before the new API existed; all old damage, blood
+direction, world, AP, pose and item assertions remain. New solver observations read saved
+fields only; pTarget is not serialized and is verified through actual cache/impact
+behavior. Public script chance0/100 and seed2026 yielding80 select the incidental miss
+without private-state injection. The postgate checks require exactly one incidental draw,
+one remembered unit and no second-hull reroll; no extra preport RED is claimed for checks
+not reached then. The initial world810 door search found no suitable collision and is
+retained as invalid setup, not runtime RED; canonical both-platform RED uses actual
+authored4517 geometry with no fake hull, material or flag change. All91 knife controls
+pass on both platforms after the port.
+
+Read-only original proof binds the named CExecThrowKnife OnLabel slot64 to actual
+Steam7ac1e0->7aa930, both native solver calls before tearoff, and the named
+world/factory/constructor chain764c40->7610f0->760e20. The named CKnifeServer Segment
+is7606e0. Six strict bounded comparisons prove frame flags, intended-miss branch,
+incidental-hit call branch, bounce result, full147-byte damage helper and constructor
+clock tail; only decoded external E8 relocations are allowed where needed. Actual
+target/ignore field differences between Gold and Steam remain unmasked. Whole
+producer/Segment signatures are rejected; native inspection buffers are not whole-function
+identity proofs. The writable Steam.rdata literal operand is not masked. No original
+gameplay, private globals, unknown secondary-vtable reads or whole ABI/full-engine/RNG
+parity claim.
+
+Fresh full Game builds pass628 Windows and624 Linux related cases, retaining every
+prior616/612 name and adding12. Linux's required portable mission archive/core test,383
+Windows asset-free CI cases, and12 LAN gates with361 encounter variants per platform pass.
+The four pre-existing Windows-only grenade registrations remain; no new exclusion. Game DB
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged. No new
+saved fields, virtual slots, DB/network schema, production test hook, combat-math rewrite
+or HD PNG generation. Full578 complete:232 imported/11 pending/3 partial,14 unfinished
+sources. Detailed laboratory records: knife-completion-red-verification.json,
+knife-completion-original-static-proof.json, knife-completion-hunk-accounting.json and
+knife-completion-verification.json.
+
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 178. Complete automatic camera framing, effects and active AI interest
+
+The cinematic camera now receives its persistent scroll lock at mission initialization,
+preserving the separate per-player camera and existing temporary action-lock lifecycle.
+Actual active AI logic retains a point of interest from path, look, object/tile shooting
+and cannon commands. The remaster unwraps its CCmdSetCommand queue entries and ORs the
+result so a later pose/reload command does not erase the destination. Commander forwarding
+resolves GetLogic, including the scripted sequence route, and the actual unit delegates
+through its owner. Keep the remaster's unowned-unit and absent-world support through local
+validity guards. No change to AI control/reaction/route scheduling, physical execution,
+AP/time or gameplay RNG.
+
+Automatic UI framing now uses the active tracker's AI flag, actual visible/primary unit,
+original ownership/user-camera gates, half-height primary/interest anchors and the unit's
+interest when targetless. It uses the actual cinematic camera and active-player rod with
+a12 minimum, preserves a running hit effect, escalates the visible actor's floor where
+required and follows/releases the original command shooter. The remaster's IPlayerTracker
+lacks the donor's IsAIPlayer method: a file-local adapter reads the existing public
+GetGlobalPlayer()->bAIPlayer. This matches the original tracker getter; NAI's
+commander-identity query would be a different predicate. No new tracker vtable slot,
+global flag or saved field is introduced.
+
+The camera supports AddFOVEffect with its original integer probability divisor,
+independent local SRand, active-effect rejection, native LOS and backup restoration. Its
+existing portable56-byte effect record is updated through a file-local helper: initial
+divider1000 waits for yaw/rod settlement, changes to3 and expires only when unsigned
+elapsed time exceeds duration, resetting ratio/FOV/roll. Apply FOV/roll only outside movie
+mode. The locked non-orbit update follows the actual live unit until its10-second lease
+expires; free and expired controls do not follow. A point-of-interest argument changes
+only the intended rod-candidate order. Preserve existing saved records/codecs, all
+fields/tags, SDL/input/DPI, terrain/soft-limit refinements and the deliberate
+movie-placement hold. Constructor/Cancel/Finished action-lock code is identical to the
+parent. Movement already posted the correct arbitrated camera command after successful
+TestNextGameMove and before animation/next-tile lock; keep that entire file unchanged
+instead of adding a duplicate notification.
+
+All11 source files are accounted with10 scoped adapters. Before camera engine edits the
+final identical21-case native fixture produced16 genuine behavioral failures and5 passing
+controls on both platforms. Six direct command-interest contexts and two real active
+combat/script commander-unit chains lost the point; four positive FOV contexts lacked the
+public effect foundation; the actual initialized mission had zero persistent lock; real
+locked/live follow did not reframe; and two actual UI-executor contexts missed the
+original0.5 anchor height. Both parent UI commands already continued, so no separate
+target-only gating RED is claimed. The FOV timer, settlement, rejection and movie checks
+occur after that failed foundation gate and are GREEN evidence, not extra preport RED.
+Controls cover unknown-command interest, rejected probability/worldless FOV and
+free/expired following. Tests use actual worlds, brains, command wrappers, mission-created
+cameras with native views/height layers/map-safe limits, public locks/routes/sequence
+commands and native seed inputs. Actual UI framing uses its real mission/factory with the
+supported no-world camera context to isolate framing from terrain/LOS; no fake producer,
+private saved-state/flag injection or new production hook. The same21 fixture passes both
+platforms after the port, together with the existing real movement-camera control. First
+Windows compilation rejected a const tracker pointer in the new helper through the legacy
+IsValid template. Accept its existing nonconst accessor result locally; do not alter
+global pointer/refcount helpers. The archived compiler failure is not runtime RED, and no
+diagnostic body changed after canonical RED.
+
+Read-only original proof binds16 strict blocks and named primary methods.
+Logic/commander/unit interest, full310-byte command-point dispatch and38-byte typed
+cannon-cast wrapper match with only decoded external calls and independently named RTTI
+operands. The named original tracker IsAIPlayer slot32 binds Gold6813a0 to Steam687490
+with all7 bytes unchanged. Camera primary37-method slots bind actual
+Show4cf350/Update4cdab0/GetSloMo4d06c0/AddFOV4cf6f0; actual Update calls FOV4cbf60. Three
+disjoint raw FOV blocks, integer-window and active-AI gate blocks and the exact
+initialization Lock1 sequence at601945 are retained. Exact standard21-byte SEH and
+unique32-byte post-setup entry anchors bind actual movement/init entries; the native
+movement path writes the independently named CUICmdUnitCamera primary and posts it before
+animator movement. Native UI GetWorld138 differs nonuniformly from Gold130; use the
+existing named public accessor. Whole large FOV/AddFOV/UI/logic signatures remain rejected
+for actual field/frame/global differences. The writable Steam.rdata literal operands are
+not masked. No original execution, private-global inspection, unknown secondary-table
+lookup or whole-method/ABI/full-engine/RNG parity claim. Details:
+automatic-camera-original-static-proof.json and automatic-camera-hunk-accounting.json.
+
+Fresh full Games pass714 Windows and690 Linux related scenarios across camera/cinematic
+effects, AI, routes/movement, scripts/sequences, missions/saves, hotseat and demos. Keep
+all existing platform registrations:26 Windows-only wire/head/route/mission/sequence cases
+and2 Linux-only AIInterval/AILog cases; only the inherited nested-save exclusion remains,
+no new exclusion. The required Linux portable mission archive/core check,383 Windows
+asset-free CI cases and12 LAN gates/361 encounter variants per platform pass. Game DB
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged. No
+save/DB/network schema or HD PNG change. Full4940 complete:233 imported/10 pending/3
+partial,13 unfinished sources. The final laboratory record is
+automatic-camera-verification.json.
+
+Source: [4940c8d8fb2fbf8786c8039bfa9e039162f95a69](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4940c8d8fb2fbf8786c8039bfa9e039162f95a69).
+
+## 179. Preserve fractional screen coordinates through the complete UI pipeline
+
+Screen positions and clipping edges remain float through I2DGameView, I2DScene and
+RenderRectLayoutClipped, with the renderer performing the final pixel snap. Markup submits
+fractional text/image offsets and reports float character rectangles. Windows, wrappers,
+cursor captions, editing controls, screenshots/video, unit previews, inventory and
+dialogue pagination use those coordinates. All18 donor files are accounted for. Keep the
+remaster uniform display scale, adaptive/wide-screen logical bounds, native cursor pixel
+anchors, video/logo fitting, font formatter, texture density/UVs and logicalSource
+argument. The existing edit formatter deliberately retains its integer glyph metrics; text
+and caret placement now share float screen coordinates. Model transforms and
+input/hit-test coordinates remain logical integers. Wide-screen backdrops, tiled panels,
+native LAN borders and editor submissions are adapted too. The CPU LAN text canvas and
+integer harness logs use an explicitly named final-pixel-boundary helper; GPU rendering
+does not pass through that rounding helper. No new saved member, DB/network schema or HD
+asset generation.
+
+Before Main changes, the same final native18-case fixture produced12 expected failures on
+both platforms:9 actual framebuffer mismatches at position/clip/negative-size boundaries
+through the real renderer, scene and game view, plus3 missing float-clear API foundations.
+Those3 clear cases have no pixel mismatch and are not visual RED. Six integer/empty-clip
+native controls and23 Windows/22 Linux existing markup/dialogue/font/edit/portrait/demo
+controls passed. The fixture uses real public native render calls, existing low-level
+AddRect reference quads and RAM readbacks, without a fake producer, private field
+injection, new production hook or image assets. The old-interface fallback explicitly
+truncates the fixture inputs; this does not assert every old UI caller used that rounding
+mode. Existing diagnostic callbacks and markup-bound observers deduce the current header
+argument types with all old behavioral assertions retained. After the port the identical
+fixture passes41 Windows/40 Linux cases, including all18 native images with zero pixel
+difference. Initial local compilation exposed a missing header end guard in patch
+preparation; it was repaired and archived as a compiler failure, never counted as runtime
+RED.
+
+Original Gold metadata explicitly types the screen arguments as
+CTPoint<float>/CTRect<float>. Independently named primary roots bind the original
+scene8/view11 method shapes and their known dynamic/clear slots; the remaster keeps its
+extra text overload and does not claim ABI identity. Six strict static spans are accepted:
+whole35-byte scene clear, two whole8-byte view forwarders,335-byte clip prefix,253-byte
+suffix and a bound19-byte middle. Only decoded external calls are relocated. The
+whole619-byte clip candidate is rejected because two zero-constant absolute operands
+differ in writable Steam.rdata; they are omitted from the accepted spans, never masked.
+Larger scene/view candidates also remain rejected. The actual scene-clear call binds
+native548290, correcting the old548190 guide. No original execution, private-global
+inspection, unknown secondary table read or whole-function/full-engine/RNG parity claim.
+See fractional-ui-original-static-proof.json.
+
+Fresh full Games pass311 Windows and289 Linux related scenarios covering
+UI/render/display, text/fonts/dialogues, menus, cameras/cinematics and saves/sequences.
+All existing registrations remain:23 Windows-only and1 Linux-only selected cases, only the
+inherited nested-save exclusion, no new exclusions. Required Linux portable
+mission/core,383 local Windows asset-free CI cases and12 LAN gates/361 encounter variants
+per platform pass. The game DB hash
+remains314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df. Full5b
+complete:234 imported/9 pending/3 partial,12 unfinished sources. Final laboratory record:
+fractional-ui-verification.json.
+
+Source: [5b7ed0510f6265088741bdb7cd333315b73a3f86](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5b7ed0510f6265088741bdb7cd333315b73a3f86).
+
+## 180. Complete scenario updates and native contextual actions
+
+Complete all34 donor files, retaining the earlier selected-grid shot producers,
+called-shot damage, scalar overlay markers, clue discovery/death notifications,
+script-to-clue goal fallback and tooltip fixes. The remaining20 production files,
+including a shared dev-table tool adapter, add native adjacent-unit exchange,
+command/executor registrations01093130/71983146 and action41/RPGAP10; retain individual
+facing and debit only the actor. Friend cursor27 and click fallback follow existing
+talk/not-hero handling and keep the remaster LAN base-service branch. The separate34eee
+inactive-pose and late-run revalidation change remains pending until independently tested
+on this published foundation.
+
+AI turn completion now considers actual world execution, active logic, current commands,
+fighting eligibility and AP instead of raw AP alone. Keep the already-correct
+HasCommand-based retirement, point-of-interest behavior and saved fields. Dedicated trap
+action14 replaces the separate snipe availability slot while retaining max24; compute it
+in this fork's lazy action cache, dispatch shared setmine to mine or trap, preserve
+pending asynchronous results, and reject ordinary grenade shooting in trap mode. Restore
+all four iconbar changes, including trap17411 and exitPK686/687/19876. The actual
+mission-base clue caller and chapter map pass their global player through the existing
+mission/event/screenshot parameters; template429 uses the player's authored side paper and
+keeps the close callback and existing saved tags.
+
+The mod manager builds derived database links once after all overlays. This fork's
+existing third Serialize boolean still means overlay: separate buildBaseLinks and an
+unsaved load context collect base/new animation insertion IDs. Keep portable decoding, ADO
+behavior, FDF/missing-field semantics, live object identity, legacy-v0 derived links,
+default callers, Linux resource paths and original STLport group ordering. Reuse the
+existing builder; do not copy the donor's incompatible boolean calls or original
+translation-status ABI.
+
+The final identical21-case native fixture runs before production changes on both
+platforms:19 expected failures comprise7 missing Swap command foundations and12 actual
+behavioral failures (3 mod reverse-link/order,4 actual human-mission trap/cache/input,3
+worldless/paused/TBS-busy logic,2 real clue-modal player/paper). Two native logic controls
+and93 selected prior controls pass. After the port all114 cases pass on each platform,
+including actual Swap command/executor field restoration, cost, positions, facing and
+unchanged health/time. Rejected Swap queries preserve gameplay RNG; successful relocation
+retains native step/visibility and hearing rolls. Swap post-foundation assertions are
+GREEN evidence, not7 independent pre-port behavior bugs. Friend cursor/click is
+source/static-accounted, not claimed as independent native UI RED. No fake producer,
+private flag injection, test-only production hook or asset modification was introduced for
+the native fixture.
+
+One successful-Swap-only post-foundation assertion was corrected after the first GREEN
+attempt: the native position setter emits ordinary step/visibility notifications and
+hearing probability intentionally rolls gameplay RNG. All physical/AP/facing/save checks
+had passed; only the unsupported no-RNG-on-success assumption failed in3 cases. The final
+whole fixture is not byte-identical to baseline. An exact full-source transformation
+proves that only this unreachable-after-api0 tail changed; the other14 native cases and
+every pre-foundation Swap input/check are byte-identical. Keep separate baseline/final
+hashes, health/time checks and rejected-command no-RNG checks; success RNG is observed
+without a parity assertion. No production RNG suppression or fake producer was added.
+Linux compilation also required explicit namespace qualification for the load-context type
+in the global table class friend declaration; the compiler error is archived separately.
+Clang also requires the explicit raw-pointer extraction between the world dynamic-cast
+wrapper and CPtr, preserving the same cast and ownership. The final full Windows build
+covers both portable spellings too. Its first complete sweep also found the separate
+DataImport console serializer still defining the old3arg API; its matching5arg definition
+retains the same dev-table format and legacy derived links, with runtime build flags
+ignored and optional base-read context reset. This extra tool adapter is covered by the
+successful final ALL build; the initial compiler failure is archived separately. The
+asset-free NativeAILogicTests lifecycle control now expects an unattached logic to end its
+unavailable turn, matching independent native case0 and the original branch; its
+pause/resume/finish assertions remain. The initial CI382-pass/one-old-expectation failure
+is archived separately, then all383 cases pass after the test update. Initial fixture
+experiments are archived separately. MSVC rejected decltype(new T) because the command
+destructor is protected; the feature probe now tests completeness/base conversion and
+constructs through the normal native API. A second borrowed-field observer reused a
+network-reference context whose ID allocator resets, so it now owns a separate context.
+The old shortcut fixture explicitly caches its intended valid actions and available mine,
+retaining its prior behavioral assertions. The Swap fixture explicitly enters the actual
+owned TBS turn and installs its native world callback context before observing AP/run
+behavior; ordinary real-time actions intentionally do not debit AP. All19 production files
+were restored to the exact parent, then the corrected identical21 fixture was rerun RED on
+both platforms before restoring the complete selective port. These setup/compiler/probe
+failures are not runtime RED evidence.
+
+Original metadata binds typed primary entries and trap14/attack8/max24. Thirteen strict
+static spans use only decoded external-call displacement relocation; larger
+builder/UI/icon/state candidates retain unmasked field/frame/global/opcode differences and
+are rejected. Actual AI binding is Gold461ef0/604 to Steam462ae0, with583 bytes after
+omitted SEH21; stale source guide addresses are not evidence. Named native Swap primary
+GetStartAP16 supplies action41 and its full32-byte AP forwarder is matched; Gold lacks
+Swap metadata, and no whole cost-table/ABI/RNG/engine parity or original execution is
+claimed. Preserve physical8210 versus AI8200/tile200 and the existing empty cached-hit
+consumer.
+
+Fresh full Games pass546 Windows and525 Linux related scenarios, plus Linux portable
+core,383 local asset-free CI cases and12 LAN gates/361 encounter variants per platform.
+Existing22 Windows-only and1 Linux-only registrations and the inherited nested-save
+exclusion remain; no new exclusions. Original game.db
+hash314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged.
+Existing saved/DB/network formats and the frozen HD pack are preserved; native Swap types
+use their original field tags. Full360 complete:235 imported/9 pending/2 partial,11
+unfinished sources. See scenario-context-verification.json and
+scenario-context-integration-audit.json.
+
+Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 181. Reject inactive or late-invalid unit exchanges before spending AP
+
+The native Swap executor checks the raw actor pose before the ignore-target gate, then the
+target's raw pose when target eligibility is requested. CM_INACTIVE is interpreted as
+crouch by the general pose accessor, so checking the raw transition state is necessary. A
+missing target in direct executor admission returns UCR_NO_TARGET. Run rechecks current
+eligibility before DoAction: a unit that started a transition, or a target that moved out
+of reach after admission, fails without exchanging positions or spending AP. Preserve this
+fork's inherited null-actor/world/base guards, the action41/RPGAP10 cost, per-unit facing,
+native position/visibility/hearing updates and all saved fields/registrations. This is the
+complete14-line donor guard semantics in one existing production file, on the separately
+published360 foundation.
+
+The identical15-case native fixture runs before the guard on both platforms:7 intended
+behavioral failures and8 passing controls. These are not missing-command API failures.
+Actor inactive admission already rejected with the wrong range result11; target inactive
+and ignore-target actor admission incorrectly returned OK0; three actual late Run cases
+(target inactive, actor inactive, distant target) incorrectly finished and debited AP53
+to41; direct missing-target admission returned general failure2 instead of no-target4. The
+standing Run control and all7 prior Swap cases, including
+diagonal/crawl/range/missing-command-target and registered command/executor save
+restoration, pass before and after. After the guard all15 pass on both platforms. Native
+setup uses actual owned turns, real public CanDoIt/Run and public pose/position setters.
+Late setup deliberately triggers native visibility/hearing, so
+AP/health/time/positions/RNG snapshots are taken after it. Rejected admission/run
+preserves those snapshots; successful standing exchange retains native hearing rolls, with
+no original full RNG parity assertion. No fake producer, private flag injection, new
+production test hook or asset change.
+
+Original evidence from180 binds the named native Swap through independently known base
+primary GetStartAP16/Run24 and action41. Gold has no Swap class metadata; the native
+Run500-byte inspection buffer is not a whole-method identity proof. The observed original
+Run did not perform this live revalidation: this source intentionally fixes that original
+transition bug, rather than asserting whole original/Gold Swap/ABI/RNG parity or reading
+an unknown secondary slot. No original process was executed. The original cost and saved
+tags remain unchanged.
+
+Fresh full Games pass33 relevant scenarios on each platform (the15 native exchange cases
+plus18 talk/approach controls), Linux portable core2,383 local asset-free CI cases and12
+LAN gates/361 encounter variants per platform. The narrow guard changes no public header,
+existing serialization or other command implementations; the just-published180 already
+passed the broader546W525L suite, which is not repeated for this local executor guard. No
+excluded or unrun selected test. game.db
+remains314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df; the HD pack is
+frozen. Full34eee complete:236 imported/8 pending/2 partial,10 unfinished sources. See
+inactive-swap-verification.json.
+
+Source: [34eee93698ec4eaefee89e2680d9df36429550d7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/34eee93698ec4eaefee89e2680d9df36429550d7).
+
+## 182. Complete AI looting, approach geometry and hotseat command ownership
+
+Complete all13 donor files, including144's existing radius prerequisite. Pickup/drop
+records commit to the actual AI inventory mirror and generate physical inventory commands:
+pickup wish-pose/arrange/actual ground identity/deferred backpack placement, drop
+backpack-or-equipment through hand to ground. Drop the gun plus spares, retaining its
+loaded magazine. Loot uses the shared native reach helper, FindPath and endpoint batching;
+recompute later drop lists after previous records commit. Normal after-combat loot is
+enabled. Preserve144's0.8 heal/tool wrapper, explicit0.625 AI reach, existing
+inventory/log save tags and the existing log's append/Commit/Clear semantics. Physical
+inventory is changed by command execution; no invented rollback behavior.
+
+Short-range approach returns direct native positions unless a downed ally is too near.
+Projection uses the normalized direction. Independent file-backed Gold PDB audit binds
+NAI::GetRoundUpPlaces49f760/2589, Normalize49fd26 ->40af90 and GetCP49fd32 ->4903c0. Four
+pushes shift normalized locals20/24/28 to30/34/38; separate native4a1e83 inspection
+confirms the stack accounting. The former cpOwn.x/original-bug comment was wrong. Exact
+cross-build projection candidates were rejected, with no
+frame/register/field/global/opcode masks. This is an algorithm audit, not
+whole-method/ABI/RNG/geometry identity. The inherited documented downed-ally
+CP0-versus-unit-centre approximation remains; original Game.exe is never executed.
+
+All player trackers receive the mission IsPlayerTurn value; inactive hotseat players lose
+stale selection. Keyboard EndOfTurn observes the same2s CanDoCommand cooldown as the
+button. Path visibility uses mission IsPlayerTurn and preserves this fork's existing
+unit-owner filter (the donor parent's IsReady expression was absent here). The native
+hotseat fixture executes a real StepApp frame; the cooldown test observes the actual
+commander queue rather than assuming synchronous turn rotation.
+
+The global registry keeps separately identified command/variable owners. Destructors
+remove only their token. Dispatch snapshots IDs and looks each registration up before
+invoking it, so callbacks may destroy later owners safely and new registrations wait for
+the next dispatch. Preserve preloaded/reopened configuration values/defaults, OR save
+flags and compatible one-argument unregistration. The donor data.empty default reset is
+intentionally adapted to retain existing configuration behavior. Tokens introduce no
+serialized format.
+
+Identical17-case fixture before production on Windows/Linux:14 behavioral failures,1
+missing clip-enumeration API foundation and2 passing preloaded-value/command-variable
+controls. Afterwards17GREEN each. Gun/spare/loaded membership assertions after the new API
+are GREEN-only, not additional independent pre-port failures. Actual worlds, public
+inventory/mirror methods, generated commands, real allied/downed actors, two-player
+missions, input and registration callbacks; no fake producer/private injection/new
+production hook. Initial fixture compiler/setup failures were corrected before the
+canonical baseline.
+
+Fresh full Games and selected inventory/heal/reaction/hotseat/console/Swap regressions
+pass on both platforms, as do383 asset-free CI checks, Linux portable core2 and12 LAN
+gates/361 encounters per platform. Windows ALL_BUILD passes; selected helpers are rebuilt,
+with no excluded/unrun selected test. Actual counts and proof: ai-loot-verification.json
+and ai-loot-final-selection-policy.json.
+DB314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df unchanged; HD frozen/no
+PNG generation. FullAFEE complete:237 imported/8 pending/1 partial,9 unfinished.
+
+Source: [afee0c2eb6ee5cc6927eb48d9a273ef2622b6d72](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/afee0c2eb6ee5cc6927eb48d9a273ef2622b6d72).
+
+## 183. Defer turn notifications without reentrant movement release
+
+Complete all5 donor files and2 own live-consumer adapters. CTBSWorld changes its interrupt
+stack immediately but queues notifications with their captured owner: event values0..11,
+saved parent tag7 and event-record tags2/3. Pop before dispatch, drain appended callbacks
+and run the action-tracker/recalculation tail once per pump. Keep the four segment
+boundaries, deferred turn/global-clear/grid/realtime/large-turn notifications, weather at
+queued turn start and perk27 first-turn interrupt collection. This intentionally adds the
+previously skipped retail saved queue field; existing other saved fields/counter chunks
+and the DB schema stay unchanged.
+
+Preserve this fork's safe CancelAction lifetime, FAILED/waiting-executor retirement and
+real animation-phase/cannon/jump guards. Global STOP retains a human destination for
+pending path/Continue while clearing a stale AI order so its scheduler can re-decide. Do
+not copy the donor's unconditional immediate move-executor release or remove the fork's
+proven retirement guards. Native Cancel queues EndMove: cancellation dispatch itself
+leaves AP/HP unchanged; the pending step then completes on its real animation edge
+(observed AP49->45) before the genuine FAILED mover retires and Continue becomes eligible.
+No zero-AP/RNG assertion across ordinary movement retirement.
+
+The public pump owns the CFWContext needed by outside-Segment callers. Hotseat setup
+explicitly drains its initial StartSequence notifications before the first hire/equipment
+command; otherwise the deferred global-clear discards that first command. Network match
+creation publishes an already-settled initial turn/AP/notification state, retaining its
+prior readiness contract. GivePlayerTurn/StartSequence themselves remain asynchronous.
+These are7 actual production files, not just the5 donor paths.
+
+The canonical same-source26-case fixture runs before production on both platforms:6
+behavioral failures,2 missing queue/wire foundations and18 passing controls, including
+actual prepared AI cleanup and all17 prior AI-loot cases. Afterwards26GREEN on both.
+Captured-owner and roundtrip assertions after absent foundations are GREEN-only, not
+evidence of a separate captured-owner bug in the old synchronous implementation. Final
+whole diagnostic source DIFFERENT from RED: the exact transform replaces only human7's
+post-parent-failure else branch to await real EndMove/FAILED retirement, plus one legacy
+AnimationReseat ownership assertion outside canonical26. All remaining code, AI8's
+branch/post-Continue AP guard and the other24 canonical case bodies are exact. See
+deferred_turn_fixture_proof.py and
+deferred-turn-postfoundation-expectation-correction.json. No fake producer, private-field
+injection or production test hook.
+
+The first broader Windows335 run caught9 failures (326 passes). Three actual hotseat
+failures required the live setup adapter. The legacy animation test's STOP expectation now
+distinguishes retained human orders from cleared AI orders without weakening its
+AP/HP/RNG/position/clip checks. Campaign controls settle3 explicit Give sites, deliver7
+pose/move/shoot commands through the actual commander queue, wait for both queue and unit
+completion, and request enabled Continue for retained interrupted human paths (max4 within
+the unchanged200-tick window). All movement/AP/ammo/save assertions remain. A second335
+run exposed one intermittent nested-save case; shortcut/full-admission/unlocked-goal and
+queue-only hypotheses did not fix it and are not claimed proven. Actual
+public-rule-enabled pending-route continuation stabilizes all4 campaign scenarios in3
+fresh repetitions (12/12), with a single legal resume observed in two runs. The
+partial-network fixture settles one direct Give before manually imposing its AP budget;
+this fixture failure does not independently prove the production network-publication
+adapter was necessary. All9 focused cases now pass. Initial failing logs are retained,
+with no selected case excluded. One standalone Windows native raw trace was incomplete
+because a concurrent CTest-N inventory overwrote LastTest.log; it was rejected and
+replaced by a complete serial26-case rerun, never represented as complete evidence.
+
+Independent original static evidence accepts three RAW capture/dequeue spans34/34/26, a
+bounded104-byte named-Gold Segment span with only6 decoded external E8 operands masked,
+and the named32-byte perk wrapper with one external E8 operand mask. Native pump767e40 has
+four decoded calls at76c543/76c569/76c57a/76c598; perk wrapper7bfda0 passes27. Correct the
+donor's wrong guide addresses. The longer120-byte Segment prefix was rejected for real
+frame/global differences. No unknown secondary-table lookup/invocation,
+field/frame/register/opcode/local-branch/global masks, whole912-byte pump/1452-byte
+Segment/ABI/RNG parity claim, or original gameplay execution.
+
+Windows ALL_BUILD and fresh Games pass335W/326L registered related cases,383 asset-free CI
+checks, Linux core2 and12 LAN gates/361 encounters per platform. Platform registrations
+differ (the full selected names are in deferred-turn-final-selection-policy.json); no
+selected test is missing, skipped or excluded. All selected helpers are rebuilt.
+DB314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df remains unchanged, HD
+stays frozen and no PNG generation runs. Full890 complete:238 imported/7 pending/1
+partial,8 unfinished. See deferred-turn-verification.json.
+
+Source: [890e4474fff18faad3d11d2682022ce8a5d43a19](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/890e4474fff18faad3d11d2682022ce8a5d43a19).
+
+## 184. Apply live rendering and tactical input settings
+
+Handle all20 donor files/65 hunks within the current user request;15 production paths
+change. The user explicitly does not need auto detection, so do not add
+AutoDetectVideoConfig, GetVideoConfigInfo, card tables/probes or a new call from the
+Default button. GAutoDetect.cpp/.h and iOptionsMenu.cpp stay unchanged. Preserve the
+remaster's documented32-bit/RGBA8/full-HD mip-chain policy and existing scene-only FXAA,
+including the earlier67d766 own-behavior exclusion. Do not revive16-bit
+framebuffer/texture conversion/dither, mip dropping or D3D9 NONMASKABLE MSAA. These are
+explicit user/own-behavior exceptions, not claims that unsupported legacy modes have been
+implemented. Every donor hunk has an entry in runtime-settings-hunk-accounting.json.
+
+Restore actual depth-only mission-frame clear, optional blocking GPU synchronization, live
+decal suppression/null-target handling, independent static/dynamic point-specular gates,
+cached point-light bump/fast-update settings, register-area scaling/capability clamp and
+live anisotropy cache invalidation while retaining cube filtering. DXFinish uses the
+active bgfx ordered GPU readback/wait; locking a CPU staging vertex buffer would not
+synchronize this backend. No screenshot or PNG file is written. Clear both target lists
+when resetting SRenderTargetsInfo. The texture loader rejects missing records and failed2D
+allocations, bypasses8888-only atlases for incompatible input, preserves authored/logical
+HD dimensions and skips previews in low-RAM mode. No texture assets are rebuilt.
+
+Restore realtime path visibility, selection-frame sensitivity and click/double-click move
+semantics. Optional realtime run queues native Cancel/WishPose before the new path,
+guarded against turn-based mode, panzerklein and carrying a body. WishPose retains its
+native default instant Continue, so an explicit run move produces five real commander
+entries. Keep the fork's EUnitCommandResult result, asynchronous network intent
+holder/PENDING handling, proper Continue admission and182 IsPlayerTurn/current-unit
+ownership gates. Preserve179 fractional UI coordinates. All actions still use the existing
+native command/AP model; no invented free movement rule or save-field change.
+
+The final eight actual mission input cases and one graphics case were authored after
+production changes: GREEN/integration evidence, not pre-change RED. The earlier four-case
+experiment concerned an auto-detection API later removed at the user's request; its shared
+missing foundation is outside the final scope and is not completion evidence. One initial
+expectation also incorrectly requested16-bit restoration and was rejected before
+production. Final tests drive actual mouse drags, inspect real commander path/Continue/run
+identity/order, verify the turn-based run guard and actual prepared pending-path
+visibility1/0/1 without moving or spending AP. The GPU test reads real pixels to prove
+both depth reset and color preservation with buffering off/on, checks four actual register
+sizes and cube-list reset, toggles actual decal creation1/0/1, and generates native
+point-light operations from a real textured material/fragment with independent specular
+flags. Legal member access calls the real private per-fragment method; no production test
+hook or fake operation producer.
+
+Initial diagnostic errors were corrected only in fixtures: rebind the render context
+before writing its shader constant after the depth helper, include WishPose's native
+implicit Continue, and use a real textured material because the untextured factory
+intentionally returns before setting specular. The game implementation was not changed to
+satisfy these incorrect expectations. The small15-case Windows/Linux passes preceded the
+final independent null-allocation guard in GTexture.cpp; all15 names are required again in
+the final fresh-build related runs on the final production hashes.
+
+Windows ALL_BUILD/fresh Games pass161W/153L selected related cases,383 asset-free CI
+checks, Linux core2 and12 LAN gates/361 encounter variants per platform. Exact platform
+registrations and no selected exclusions are recorded in
+runtime-settings-final-selection-policy.json.
+DB314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged, HD
+remains frozen, and no original gameplay is executed or whole-binary/ABI/RNG parity
+asserted. Source handled within user scope:239 imported/6 pending/1 partial,7 unfinished.
+See runtime-settings-verification.json.
+
+Source: [34fee25e45545e40cf48c5d0313f2c83f3fa4e9c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/34fee25e45545e40cf48c5d0313f2c83f3fa4e9c).
+
+## 185. Restore cached-light history, packed shadows and safe render reuse
+
+Complete the four connected lighting sources f6f6011/755b0bd/5369d74/8718138 together:136
+donor hunks,23 actual production files. Restore previous-frame light reprojection/depth
+validation,12-step lightmap application and optional sky-channel prefetch, packed
+four-channel point-shadow leases/LRU/refinement, receiver visibility and first-catch
+coarse maps. Restore real static FormDepthList, single-quad downsampling, channel-only
+clears, full-register copies before sun-history overwrite, independent specular scratch
+and batched index-buffer mapping. All handoffs reach the active bgfx backend. Its existing
+CompileBgfxShaders translator compiles the actual new token arrays; retain the fork's
+three cached-point variants and assign nonconflicting IDs (final VS82/PS85 arrays).
+
+The later871 source supersedes f6's intermediate standalone STORE operation/register5
+history: final history comes from combined sun output/register4 alpha. Preserve old alpha
+until reuse finishes, and use a separate specular scratch. Do not reintroduce a removed
+STORE API just to compile a fixture. Actual device-object generations also change after
+drawable resize. The legacy Gfx.cpp remains unchanged. Persistent index locks retain our
+configurable ring size, per-append MarkWritten/versioned GPU banks and existing
+batching/overwrite guards; unlock before submission/reset/destruction.
+
+Preserve the explicit remaster policy:142 fixed sky directions/transient stable caches,
+optional rotating samples only under UseProgressiveSky, the configured100-cube256 pool
+and256 refinement target, matching bias3 and full RGBA8/HD/FXAA/179 fractional
+coordinates. Do not silently reapply the previously rejected half-resolution128/38-pool
+allocation tradeoff. Logical packed lease capacity152 is distinct from the retained
+configured pool count100. Sort texture identity with intptr_t rather than truncating64-bit
+pointers; retain channel0 ordering. Auto detection stays excluded at the user's request.
+Existing saved light fields, DB schema and assets are unchanged; the new GPU
+caches/receiver visibility are transient.
+
+The24 focused cases are post-production GREEN/integration evidence, not pre-Main RED.
+Actual GPU tests prove152 real leases/four independent channels/LRU retirement/device
+invalidation, independent linear register copies, history vertex depth encoding and live
+TEST/COPY shaders with both signs of depth mismatch. Each packed channel is exercised
+through actual two-pass and fast point-light shaders with opposite values in the other
+channels. Two real-mission cases explicitly enable the full cached-light/shadow
+configuration, add actual shadowed/unshadowed lights through IGameView, render90/126
+frames, move the camera A-B-A, then recreate384x288 graphics objects. They require a
+changed camera image and fewer than5 percent substantially changed pixels on return, plus
+unchanged paused position/AP/HP/world time. This is a bounded artifact test, not
+pixel-perfect/original-image or whole-engine RNG parity. NativeDisplayContext alone
+creates empty targets and does not enable CL; the explicit configuration call is essential
+to this proof.
+
+Retain all eight older shadow-flag controls. Adapt only their real refinement-target
+setup, RecalcStep signature, new ring terminal Apply state5/step0 and observer of the
+actual FormDepthList path. Serialized shadow flags, positive native receiver traversal and
+no-shadow-view assertions remain. Those older tests use pre-existing private input/state
+access; the new public mission/GPU cases are separate evidence. Fix fixture-only unsigned
+bitfield subtraction/abs overloads and signature assumptions without modifying the engine
+to satisfy an incorrect test. One871 mode argument initially depended on the
+still-unported query API; omit it from this batch's current Execute call (the donor
+explicitly ignores that mode) until the final three culling sources are integrated.
+
+Fresh Game builds, Windows ALL_BUILD, 180W/168L related cases plus supplemental current
+GPU cases covering all24 focused names, Linux core2,383 asset-free CI checks and12 LAN
+gates/361 encounter variants per platform pass. No selected case is skipped/excluded;
+exact platform registrations are in cached-renderer-batch-final-selection-policy.json.
+All136 hunk decisions/final supersessions are in
+cached-renderer-batch-hunk-accounting.json.
+DB314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged; HD is
+frozen and no PNG generation or original gameplay runs. No new whole-binary/ABI/RNG parity
+claim.243 imported/3 pending/0 partial: three source commits remain. See
+cached-renderer-batch-verification.json.
+
+Source: [f6f6011fc301ace82317b9007ec6dd36b57f3369](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6f6011fc301ace82317b9007ec6dd36b57f3369).
+Source: [755b0bdc2de8da8166be8cb61fc5d8d921499947](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/755b0bdc2de8da8166be8cb61fc5d8d921499947).
+Source: [5369d7468bf1c5a0574d53d3ecabae84cdfe6bdf](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5369d7468bf1c5a0574d53d3ecabae84cdfe6bdf).
+Source: [8718138b4eddd431a96cdeb80c7a42621265f569](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8718138b4eddd431a96cdeb80c7a42621265f569).
+
+## 186. Complete floor-aware occlusion and active GPU query execution
+
+Complete the last three donor sources 6781938/ea0eb48/0589a33 together: 47 hunks in 18
+actual production files. Carry floor masks from group bits through combiner grouping,
+actual floor-aware part lists and descending-floor/front-to-back software raster order.
+Calculate object-space average triangle area in full Assign, preserve the remaster's
+optional optimization argument and initialize the actual moved IPart constructor in
+GCombinerCore.cpp. Small geometry remains a visibility candidate but does not occlude;
+preserve integer word-depth raster behavior.
+
+Restore actual depth query scopes in Execute, query results and HideGeometry intersection
+with existing selections, plus SRC_ALPHA+ONE blending. Clear result vectors before the
+empty-command early return. Preserve the existing profiling scopes and185 cached sun
+history/copy/scratch. The explicit EM_DEPTH_SORT argument follows the donor API; the final
+donor selects query execution through the result pointer and ignores the mode argument.
+Optional gfx_hw_hsr remains off by default, requires backend support and bridges only the
+first two software occlusion updates.
+
+Implement queries in the active bgfx backend rather than leaving a D3D9 wrapper. The
+pinned API 161 has removed the old global OCCLUSION_QUERY/TEXTURE_READ_BACK/TEXTURE_BLIT
+capability bits: use query capacity and the D3D11/Vulkan backends actually selected by
+Init. Vulkan initialization itself requires its real query pool. One native Start/Finish
+scope can contain several unmerged submits, so attach a distinct GPU handle to each submit
+and aggregate visibility. Return 0 only when every submitted draw is known invisible;
+pending, allocation failure, unsupported, nested, empty or stale results remain visible.
+Flush pending batches at scope boundaries; use the same real readback fence as DXFinish
+and bounded asynchronous frame advancement. Cache known results, retire handles and
+invalidate all tracked states on resize/destruction/device epoch changes; register reused
+states on a recreated device. Never spin indefinitely on a driver query.
+
+Nine new cases are post-production GREEN/integration evidence, without a canonical
+pre-Main RED claim. Actual D3D11/Vulkan draws prove invisible/visible query results,
+conservative NoResult before submission, two-submit OR aggregation, empty/reset/device
+recreation behavior, real Execute filtering and existing-selection intersection,
+empty-list clearing, and alpha-add pixels at 0/half/full alpha. Five native software
+raster cases prove per-floor/front-to-back order and small-object visibility without
+occlusion, with a live large-occluder control. A 144-frame real mission compares
+hardware-off/on camera-return images within 5 percent and retains paused
+position/AP/HP/world time. This bounded image check is not original-runtime/pixel-perfect
+or whole-engine RNG parity.
+
+Retain all 19 earlier integer-shadow-depth assertions. Their constructed inputs now
+provide actual full-Assign area, real geometry bounds and explicit floor0 metadata, and
+the earlier selection GPU fixture passes explicit floor0 to its changed constructor. The
+first Windows invocation used a mis-expanded SDK environment and failed; the corrected
+invocation required a complete 346-object Main rebuild because the failed header rebuild
+had left stale dependency state. Record these as failed build attempts, not successful
+evidence. The new scene-query fixture initially used identity projection, whose W row
+carries no depth sort key. Use its real projective camera to prove front-to-back sorting;
+fix this fixture assumption without modifying production sorting.
+
+Fresh Game builds/Windows ALL_BUILD, 248W/236L related cases including all 28 new/adapted
+focused cases, Linux core2, 383 asset-free CI checks and 12 LAN gates with 361 encounter
+variants per platform pass. No selected exclusions; exact registrations are in
+scene-culling-final-selection-policy.json. All 47 hunk decisions are in
+scene-culling-hunk-accounting.json. DB
+314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged. Preserve
+RGBA8/HD/FXAA, fixed sky/cube256 policies, fractional UI and existing save tags. Auto
+detection remains excluded at the user's explicit request. HD stays frozen: no PNG
+generation and no original gameplay runs.
+
+All 246 donor source commits are now imported within the documented remaster policy; 0
+pending/0 partial/0 unfinished. See scene-culling-verification.json. Final-head hosted CI
+is a separate publication check and is recorded in scene-culling-hosted-ci.json once it
+actually succeeds.
+
+Source: [6781938bd3901a6ffe2c3c8bbb342881d573a5a6](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6781938bd3901a6ffe2c3c8bbb342881d573a5a6).
+Source: [ea0eb485fef85c1c694c6355803a4155802e2bfe](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/ea0eb485fef85c1c694c6355803a4155802e2bfe).
+Source: [0589a3378fe3263f6e0a366620b6505e13b06f32](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0589a3378fe3263f6e0a366620b6505e13b06f32).
+
+## 187. Restore temporary companions across subzones
+
+Restore all six donor hunks: include living zoneMercs in scenario exit processing, release
+them only after ProcessScenario, deploy regular and temporary actors together, skip
+dead/unconscious direct deployment (carried actors use InitPlayerCorpseCarrying), and
+retain/release temporary RPG identities during actual ChangeUnitPlayer. Preserve existing
+strong-owner transfer order, guards, AI/visibility hooks, own arena deployment, waypoint
+priority and ETStore arrival rules. Existing zoneMercs save tag7 is unchanged.
+
+Six new native cases cover actual global-owner transfers/repeated transfers,
+living/dead/corpse-deduplicated exit lists, real AddPlayer with healthy/unconscious/dead
+temporary actors, scenario exit cleanup, a real linked ETStore passage with deferred
+outgoing world save and exactly one redeployed temporary companion, plus same-owner/null
+guards. Canonical pre-Main RED5/6 with one control on both platforms; GREEN6/6 and related
+cases after the two production files. An earlier fixture assumed ordinary scenario AI had
+a global owner: five setup failures from that attempt are archived separately and excluded
+from RED evidence. The corrected fixture selects the genuine global human party and
+installs a real prior global owner via public AddPlayer. AP/HP/position/world time remain
+unchanged in direct retention; guarded no-op also preserves game RNG. No blanket zero-RNG
+claim for an actual passage.
+
+Fresh Games and 134 Windows/130 Linux related cases pass, including all6 focused cases; no
+selected exclusions. DB314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df
+unchanged, HD frozen/no PNG generation, user NO auto detection honored. The final combined
+CI/network/hosted gates are recorded after all three October30 imports; no per-source
+hosted success is claimed.
+
+Source: [97c4d9c8095e607a3e4818a118b536fdfad56f5a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/97c4d9c8095e607a3e4818a118b536fdfad56f5a).
+
+## 188. Replace the underlying healing pose when treatment ends
+
+Import the single FinishHealing hunk. Ordinary treatment now calls Stand, replacing the
+underlying healing pose before the idle overlay is disabled by subsequent movement. Keep
+the explicit repair-end animation followed by IdleOn in the repair branch. Preserve own
+body/facial animation, weapon flags and saved animator fields; no treatment/AP/health
+formulas change.
+
+Native cases use real authored START_HEAL clips, actual skeleton animation graph observers
+and evaluated bone frames with the idle overlay disabled. Standing/crouched ordinary
+treatment must add a fresh standing-pose clip; repair must retain its authored0x1184 end
+clip without adding ordinary standing. Canonical pre-Main RED2/3 with one repair control
+on both platforms, then GREEN3/3 and related animation/treatment cases. Actual
+AP/HP/position/world time stay unchanged by visual finish. Existing save fields and assets
+remain unchanged; no original-runtime or full engine/RNG parity claim. Preliminary setup
+runs kept firearm animation flags, so no authored START_HEAL existed; those setup failures
+are excluded. Canonical inputs select the public item animation mode before real
+StartHealing, and both ordinary cases require an actual START_HEAL clip before observing
+the bug.
+
+Fresh Games and 107 Windows/107 Linux related cases pass, including all3 focused cases; no
+selected exclusions. DB314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df
+unchanged, HD frozen/no PNG generation, user NO auto detection honored. The final combined
+CI/network/hosted gates are recorded after all three October30 imports; no per-source
+hosted success is claimed.
+
+Source: [e71f4da3fe69b9730901d5f08db3b79ee81d68d8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e71f4da3fe69b9730901d5f08db3b79ee81d68d8).
+
+## 189. Restore the seventh party-member selection command
+
+Import all three donor hunks: the hero_7 bind member, constructor registration and
+selection index6 branch. Reuse existing selection and camera focus behavior. Preserve own
+command-state routing, input settings, fonts, fractional UI and saved fields.
+
+Native mission/input cases deploy six real regular RPG actors plus one temporary RPG
+companion through the actual AddPlayer/zoneMercs deployment path, send actual named input
+events through CMission::ProcessEvent and check the selected tracker. The hero_6 control
+still selects member six, and hero_7 with only six actors leaves the prior selection
+intact. Canonical pre-Main RED1/3 with two controls on both platforms, then GREEN3/3 and
+related input/selection cases. Selecting the party member preserves actual AP/HP/position.
+An initial setup incorrectly expected a foreign owner in the single-party match mission;
+its setup failures are excluded. The canonical fixture supplies a temporary actor through
+existing global party data before native mission entry. All three October30 source commits
+are now imported; the previously completed audit stopped at the October26 source head.
+Updated total:249 imported and40 previously
+classified/already-present/excluded/documentation sources,289 classified,0
+pending/partial.
+
+Fresh Games and 59 Windows/54 Linux related cases pass, including all3 focused cases; no
+selected exclusions. DB314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df
+unchanged, HD frozen/no PNG generation, user NO auto detection honored. The final combined
+CI/network/hosted gates are recorded after all three October30 imports; no per-source
+hosted success is claimed.
+
+Source: [f5b5b620d4b251d7548b36134ae16d3abe4457e5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f5b5b620d4b251d7548b36134ae16d3abe4457e5).

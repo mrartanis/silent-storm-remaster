@@ -45,19 +45,19 @@ int CSimpleExecQueue::GetStartAP() const
 	return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-int CSimpleExecQueue::GetActionAP() const 
+int CSimpleExecQueue::GetActionAP( int nAlreadyReservedAP ) const
 { 
 	int nTemp = 0;
 	NAI::SUnitPosition pos = pUS->GetPosition(), dst = pos;
 	for( list<CObj<CCommandExecute> >::const_iterator iTemp = execList.begin(); iTemp != execList.end(); iTemp++ )
 	{
-		nTemp += (*iTemp)->GetActionAP();
+		nTemp += (*iTemp)->GetActionAP( nAlreadyReservedAP + nTemp );
 		CObj<NAI::CPath> pPath = (*iTemp)->GetCurrentPath();
 		if ( pPath )
 			dst.pos.p = pPath->points.back();
 		pUS->SetTemporaryPosition( dst );
 	}
-	pUS->SetTemporaryPosition( pos );
+	pUS->ResetTemporaryPosition( pos );
 	return nTemp;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -360,8 +360,8 @@ void CExecQueue::AddPath( NAI::CPath *pPath, NAI::EFindPathParams _eParams, ENee
 			}
 
 			pSimplePath->points.back().SetMoving( false );
-			// add an extra turn point so the character opens the door from the correct side
-			if ( nBestDir != p.GetDirection() )
+			// Original Steam 0x7bf273: inactive places cannot add a normal turning step.
+			if ( nBestDir != p.GetDirection() && p.GetPose() != NAI::CM_INACTIVE )
 			{
 				NAI::SPathPlace newPoint( p );
 				newPoint.SetDirection( nBestDir );

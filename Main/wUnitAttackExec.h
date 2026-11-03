@@ -61,7 +61,7 @@ public:
 	CExecLoadWeapon();
 	CExecLoadWeapon( CUnitServer *_pUS, NRPG::IWeaponItemInfo *_pWeapon, const SItem &_sClip );
 	int GetStartAP() const override;
-	int GetActionAP() const override;
+	int GetActionAP( int nAlreadyReservedAP = 0 ) const override;
 	void Run() override;
 	bool TimeLabelReached() override;
 	EUnitCommandResult CanDoIt();
@@ -80,7 +80,7 @@ public:
 	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CExecLoadWeapon*)this); f.Add(2,&nSlot); f.Add(3,&bSameColor); return 0; }
 	CExecReload( CUnitServer *_pUS = 0, int _nSlot = -1 );
 	int GetStartAP() const override;
-	int GetActionAP() const override;
+	int GetActionAP( int nAlreadyReservedAP = 0 ) const override;
 	void Run() override;
 	bool TimeLabelReached() override;
 	EUnitCommandResult CanDoIt();
@@ -105,6 +105,7 @@ protected:
 
 public:
 	CExecAttack( CUnitServer *_pUS = 0 );
+	void FinishMe();
 
 	virtual EUnitCommandResult CanDoIt( const NAI::SUnitPosition &from, bool bIgnoreTarget = false ) const = 0;
 	virtual void Start() = 0;
@@ -167,6 +168,8 @@ protected:
 	int  GetExtraAP() const { return nExtraAP; }
 	void CalculateExtraAP();
 	void SpendAP();
+	int GetFirstShotAP() const;
+	int GetShortBurstAP() const;
 	int  GetBulletDelay() const;                 // @0x3a1f30 -- per-shot label->launch delay (ms) from the weapon DB
 	NDb::EShootMode GetShootMode() const;        // @0x3a1ee0 -- the equipped weapon's shoot mode (SM_Snap if none)
 	int  GetShortBurstLength() const;            // short-burst bullet count (nRoF/6 + LONGER_SHORT_BURST perk)
@@ -183,7 +186,7 @@ public:
 
 	virtual EUnitCommandResult CanDoIt( const NAI::SUnitPosition &from, bool bIgnoreTarget = false ) const;
 	virtual int GetStartAP() const;
-	virtual int GetActionAP() const;
+	virtual int GetActionAP( int nAlreadyReservedAP = 0 ) const;
 	virtual void Start();
 	virtual void Segment();                      // @0x3a8d20 -- per-tick timed-bullet driver (overrides CCommandExecute::Segment)
 	virtual bool CheckBurst( int nFired, bool bDoAction );   // @0x3a1fa0 -- may the burst keep firing (+ optionally spend burst AP)
@@ -273,6 +276,8 @@ public:
 	virtual int GetStartAP() const;
 	virtual void Start();
 	virtual void PerformAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, float fHit = 1.0f );
+protected:
+	void PerformFilteredAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, CObjectBase *pFilter );
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecMeleeTile
@@ -285,6 +290,22 @@ public:
 	CExecMeleeTile( CUnitServer *_pUS, const CVec3 &_ptTarget );
 
 	virtual void OnLabel();
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// CExecMeleeObject: original saved executor (Steam registry 0x01353130).
+// Fresh SS commands keep a null filter and the owned, already resolved point.
+////////////////////////////////////////////////////////////////////////////////////////////////////
+class CExecMeleeObject: public CExecMelee
+{
+	OBJECT_BASIC_METHODS(CExecMeleeObject);
+	ZDATA_(CExecMelee)
+	CPtr<CObjectBase> pTarget;
+	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CExecMelee*)this); f.Add(2,&pTarget); return 0; }
+public:
+	CExecMeleeObject() {}
+	CExecMeleeObject( CUnitServer *pUS, const CVec3 &ptTarget, int nExtraAP );
+	virtual void OnLabel();
+	virtual void PerformAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, float fHit = 1.0f );
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecMeleeUnit
@@ -321,6 +342,7 @@ public:
 	virtual EUnitCommandResult CanDoIt( const NAI::SUnitPosition &from, bool bIgnoreTarget = false ) const;
 	virtual void Start();
 	virtual void OnLabel();
+	virtual void PerformAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, float fHit = 1.0f );
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecThrowGrenade
@@ -800,6 +822,19 @@ public:
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecTalk
+////////////////////////////////////////////////////////////////////////////////////////////////////
+class CExecSwap: public CCommandExecute
+{
+	OBJECT_BASIC_METHODS( CExecSwap );
+	CPtr<CUnitServer> pTarget;
+public:
+	CExecSwap() {}
+	CExecSwap( CUnitServer *_pUS, CUnitServer *_pTarget ): CCommandExecute( _pUS ), pTarget( _pTarget ) {}
+	int operator&( CStructureSaver &f ) { f.Add(2,(CCommandExecute*)this); f.Add(3,&pTarget); return 0; }
+	virtual int GetStartAP() const;
+	virtual EUnitCommandResult CanDoIt( const NAI::SUnitPosition &from, bool bIgnoreTarget = false );
+	virtual void Run();
+};
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CExecTalk: public CCommandExecute
 {

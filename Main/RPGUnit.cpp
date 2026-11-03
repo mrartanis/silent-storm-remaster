@@ -19,6 +19,7 @@
 #include "rpgPerk.h"
 #include "rpgPerkConstants.h"
 #include <cstdint>
+#include <cmath>
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NRPG
 {
@@ -37,7 +38,9 @@ float GetXPBySkill( int nCap, int nLvl )
 	if ( nLvl <= 0 )
 		return 0;
 	const float C = 1.f / ( 20.f * LN161 / float(nCap) );
-	return ( pow( 2.7296f, float(nLvl) / C ) - 1.f ) / 0.02f;
+	// Steam 0x6ba330 rounds the subtraction as PC24, then multiplies by exact 50.
+	const float fGrowth = float( pow( double(2.7296f), double(float(nLvl) / C) ) - 1.0 );
+	return fGrowth * 50.f;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Retail CSkilledObject::GetSkillBaseStatValue @0x2ba7b0.
@@ -89,7 +92,7 @@ void CSkilledObject::AddXP( float fXPToAdd )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CDynamicSkill (retail modifier-list model; RPGUnit.obj)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// x87 round-to-nearest for the skill math (retail Update/Upgrade fistp under the default CW).
+// Legacy difficulty-scaling rounding; audited separately from Update/Upgrade.
 static inline int SkillRound( float f ) { return int( f + ( f < 0 ? -0.5f : 0.5f ) ); }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail @0x2bbb20: recompute the cap from base+XP and every live modifier, sweeping dead
@@ -111,7 +114,8 @@ void CDynamicSkill::Update()
 		fAdd += p->fAdd;
 		++i;
 	}
-	nMaxValue = SkillRound( float( nMaxValue ) * fMul + fAdd );
+	// Original FISTP uses the game's nearest mode (ties even); Upgrade uses CHOP.
+	nMaxValue = int( std::nearbyintf( float( nMaxValue ) * fMul + fAdd ) );
 	if ( nMaxValue <= nValue )
 		nValue = nMaxValue;
 }
@@ -168,18 +172,19 @@ void CDynamicSkill::Modify( int nModif )
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail @0x2bbc30: accumulate progress toward the XP cap; whole points move into nXPValue
-// (clamped to ROUND(fCap)) and the cap is recomputed via Update().
+// (clamped to TRUNC(fCap)) and the cap is recomputed via Update().
 bool CDynamicSkill::Upgrade( float fAddToProgress, float fCap )
 {
 	if ( float( nXPValue ) + fProgress < fCap )
 	{
 		fProgress += fAddToProgress;
-		int nModif = SkillRound( fProgress );
+		// Original 0x6bbcbD/c0 and 0x6bbcf2/f6 set CHOP for both conversions.
+		int nModif = int( fProgress );
 		if ( nModif > 0 )
 		{
 			nXPValue += nModif;
 			fProgress -= float( nModif );
-			int nCap = SkillRound( fCap );
+			int nCap = int( fCap );
 			if ( nXPValue > nCap )
 				nXPValue = nCap;
 			Update();
@@ -526,18 +531,49 @@ void CUnit::AddXP( float fXPToAdd )
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-bool CUnit::UseSkill( int eSkill, const int nAddValue )
+bool CSkilledObject::UseSkill( int eSkill, float fLearningFactor )
 {
+	if ( eSkill == NDb::ST_LEVEL )
+		return false;
 	CDynamicSkill &skill = Skills(eSkill);
-	float fCap = GetSkillCap( NDb::ESkillType(eSkill), fXP );
-	float sSkillDiff = fCap - ( skill.GetXPPart() - nAddValue );
-	float fAdd = Clamp( (1.f - skill.GetProgress()) * sSkillDiff / 20.f, 0.005f, 0.1f );
-	// retail CSkilledObject::UseSkill @0x2bbf40 passes the XP cap into Upgrade (the amount
-	// formula there divides by the GetRPGBaseValue(0x3f) per-skill rate -- follow-up).
+	// Steam 0x6bbfa0 keeps the fractional XP cap and reads each authored training rate.
+	const float fCap = fXP <= 0 ? 0.f :
+		log( 1.f + 0.02f * fXP ) * ( 1.f / ( 20.f * LN161 / float(cap[eSkill]) ) );
+	const float fRemaining = fCap - ( float(skill.GetXPPart()) + skill.GetProgress() );
+	const float fAdd = Max( 0.00001f, Min( fRemaining * fLearningFactor / NDb::GetRPGBaseValue(63)->skills[eSkill], 0.1f ) );
 	bool bRes = skill.Upgrade( fAdd, fCap );
 	if ( eSkill >= NDb::ST_STR )
 		UpdateSkills();
 	return bRes;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CUnit::UseSkill( int eSkill, const int /*nAddValue*/ )
+{
+	bool bAttributeUpgraded = false;
+	switch ( eSkill )
+	{
+	case NDb::ST_MELEE:
+	case NDb::ST_THROWING:
+	case NDb::ST_BURST:
+		bAttributeUpgraded = UseSkill( NDb::ST_STR, 0 );
+		break;
+	case NDb::ST_SHOOTING:
+	case NDb::ST_SNIPE:
+	case NDb::ST_STEALTH:
+		bAttributeUpgraded = UseSkill( NDb::ST_DEX, 0 );
+		break;
+	case NDb::ST_SPOT:
+	case NDb::ST_MEDICINE:
+	case NDb::ST_ENGINEERING:
+		bAttributeUpgraded = UseSkill( NDb::ST_INT, 0 );
+		break;
+	}
+	float fLearningFactor = 1.f;
+	float fPerkFactor;
+	if ( IsValid( pPerksTree ) && pPerksTree->HasPerk( eSkill < NDb::ST_STR ? 60 : 11, &fPerkFactor, 0, 0 ) )
+		fLearningFactor = fPerkFactor;
+	const bool bSkillUpgraded = CSkilledObject::UseSkill( eSkill, fLearningFactor );
+	return bSkillUpgraded || bAttributeUpgraded;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 NDb::CRPGPers* CUnit::GetPers() const
@@ -618,16 +654,17 @@ int CUnit::GetWeaponBurstAP( CWeaponItem *_pWeapon ) const
 	CPtr<CWeaponItem> pWeapon = _pWeapon;
 	if ( !IsValid( pWeapon ) )
 		pWeapon = GetWeaponItem();
-	if ( IsValid( pWeapon ) )
+	if ( IsValid( pWeapon ) && pWeapon->GetDBWeapon()->nRoF != 0 )
 	{
-		if ( 0 == pWeapon->GetDBWeapon()->nRoF )
-		{
-			ASSERT( 0 );
-			return 0;
-		}
-		return skills[NDb::ST_AP]->GetMaxValue() / pWeapon->GetDBWeapon()->nRoF;
+		const int nAP = skills[NDb::ST_AP]->GetMaxValue() / pWeapon->GetDBWeapon()->nRoF;
+		float fDelta = 0;
+		if ( pWeapon->GetShootMode() == NDb::SM_ShortBurst )
+			HasPerk( N_PERK_CHEAP_SHORT_BURST, &fDelta );
+		// Steam1.2 0x6bb6a0: PC24 product/subtraction precede truncation.
+		const volatile float fDiscount = float( nAP ) * fDelta;
+		return max( 1, int( float( nAP ) - fDiscount ) );
 	}
-	return 0;
+	return 10000;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnit::GetWeaponReloadAP( CWeaponItem *_pWeapon ) const
@@ -844,6 +881,8 @@ bool CUnit::CanHealWounds( CUnit *pTarget, IFirstAidItem *pItem ) const
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnit::HasPerk( int nPerkID, float *pParam1, float *pParam2, float *pParam3 ) const
 {
+	if ( !GetPerksTree() )
+		return false;
 	return GetPerksTree()->HasPerk( nPerkID, pParam1, pParam2, pParam3 );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

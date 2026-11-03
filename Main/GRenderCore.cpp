@@ -1,5 +1,6 @@
 #include "StdAfx.h"
 #include "GRenderCore.h"
+#include "GCombiner.h"
 #include "GfxBuffers.h"
 #include "Transform.h"
 namespace NGScene
@@ -7,10 +8,37 @@ namespace NGScene
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CSceneFragments
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-CSceneFragments::CSceneFragments() : nSceneTris(0)//, pRejected(0), nRejectedUsed(0) 
+CSceneFragments::CSceneFragments() : nSceneTris(0), bNeedHSR(false)
 {
 	fragments.push_back( fragmentInfos.Alloc() );
 	ASSERT( fragments.size() == 1 );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CSceneFragments::HideGeometry( const vector<CPartFlags> &occluded )
+{
+	// Retail v1.2 0x548aa0: query bits exclude parts from subsequent passes,
+	// intersecting rather than replacing any existing geometry selection.
+	if ( filterGeometry.empty() )
+	{
+		filterGeometry.resize( geometries.size(), FST_ACCEPT );
+		selectedParts.resize( geometries.size(), TakeAllParts() );
+	}
+	const int nCount = Min( geometries.size(), occluded.size() );
+	for ( int k = 0; k < nCount; ++k )
+	{
+		if ( filterGeometry[k] == FST_REJECT )
+			continue;
+		CPartFlags remaining = ~occluded[k];
+		if ( filterGeometry[k] == FST_SPLIT )
+			remaining &= selectedParts[k];
+		if ( remaining.IsEmpty() )
+			filterGeometry[k] = FST_REJECT;
+		else
+		{
+			filterGeometry[k] = FST_SPLIT;
+			selectedParts[k] = remaining;
+		}
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CSceneFragments::AddGeometry( CObjectBase *pHandle, SRenderGeometryInfo *pGeometry, const SBound &_bv )
@@ -220,6 +248,56 @@ EFragmentsSplit SSphereFilter::operator()( SRenderStaticInfo *pStatic, SRenderGe
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // SSphereAndIgnoredFilter
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void SIgnorePartsInfo::Init( const CPartFlags &accepted, const vector<CPtr<IPart> > &parts )
+{
+	// Retail v1.2 counterpart of v1.1 0x548f40.
+	flags = accepted;
+	ignore.clear();
+	for ( int i = 0; i < parts.size(); ++i )
+		if ( !accepted.IsSet(i) )
+			ignore.push_back(parts[i]);
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+EFragmentsSplit SIgnoredSphereFilter::operator()( SRenderStaticInfo *pStatic, SRenderGeometryInfo *pGeom, CPartFlags *pRes ) const
+{
+	// Retail v1.1 0x5493d0: no cache means sphere-only selection. A cache
+	// excludes absent handles and intersects the existing per-part selection.
+	if ( !pIgnoreList )
+		return sph( pStatic, pGeom, pRes );
+	CPointHSRParts::iterator i = pIgnoreList->find( pStatic->pHandle );
+	if ( i == pIgnoreList->end() )
+		return FST_REJECT;
+	SIgnorePartsInfo &info = i->second;
+	if ( !info.pTrackCombiner )
+		info.pTrackCombiner = pGeom->pVertices->GetCombiner();
+	if ( !info.pTrackCombiner )
+	{
+		pIgnoreList->erase(i);
+		return FST_ACCEPT;
+	}
+	if ( info.pTrackCombiner.Refresh() )
+	{
+		info.flags.TakeAll();
+		unordered_map<IPart*,bool> ignored;
+		int nAlive = 0;
+		for ( int k = 0; k < info.ignore.size(); ++k )
+		{
+			if ( !IsValid(info.ignore[k]) )
+				continue;
+			ignored[info.ignore[k].GetPtr()] = true;
+			info.ignore[nAlive++] = info.ignore[k];
+		}
+		info.ignore.resize(nAlive);
+		const vector<SSphere> &bounds = pGeom->pVertices->GetBounds();
+		const vector<CPtr<IPart> > &parts = info.pTrackCombiner->GetValue();
+		for ( int k = 0; k < parts.size(); ++k )
+			if ( ignored.find(parts[k].GetPtr()) != ignored.end() || !DoesIntersect(bounds[k], sph.sph) )
+				info.flags.Reset(k);
+	}
+	*pRes &= info.flags;
+	return FST_SPLIT;
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 /*EFragmentsSplit SSphereAndIgnoredFilter::operator()( SRenderFragmentInfo *pF, const SSelectFragments &selector ) const
 {

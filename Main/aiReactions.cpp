@@ -19,6 +19,7 @@
 #include "aiPosition.h"      // IPathNetwork, SUnitPosition, SPathPlace
 #include "aiActionBase.h"    // NAI::SPlaceWithAP (complete) -- before aiMoveAction.h (C2036 guard)
 #include "aiMoveAction.h"    // NAI::GetUnitPos (the reconciled CAIRetreatReaction::Update)
+#include "aiRouteMisc.h"
 #include "aiRouteLogic.h"    // NAI::CreateAILookToPositionLogic / CreateAIMoveToPositionLogic / CreateAIAlarmLogic / CAIRouteLogic
 #include "aiPlayer.h"        // NAI::IAIPlayer::GetUnits (squad-alarm ally count)
 #include "aiEvent.h"         // NAI::CreateAIEnemyDiedEvent / IAIEvent (squad-alarm: drop own enemy)
@@ -33,65 +34,11 @@ static CRandomGenerator &ReactionRandom() { return s2_game_random; }
 #endif
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// Concrete reaction bodies. CAINormalReaction::Update is the core of the release @0x0047f190: enemy ->
-// Attack, combat-over -> AfterCombat, and (now) scared -> hand off to a Retreat reaction. The release's
-// other escalations there (Defence/Assassin/Guard, the event hooks) still need the AI event system and are
-// omitted; bScared comes from the reconstructed SAIUnitState threat tracker.
+// Concrete reaction bodies. Normal (matched Steam 0x47eee0) chooses combat,
+// retreat, defence, assassin, investigation and ally assistance from the threat state.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NAI
 {
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// A fall-back place away from the enemy. The release GetFearPosition @0x004a0b20 picks a random place in
-// the direction away from the enemies' average position (GetAvgPos + GetPlacesAtDirection, not ported);
-// reconstructed here as the passable place farthest from the enemy among those ~8 units back along the
-// unit->enemy axis.
-////////////////////////////////////////////////////////////////////////////////////////////////////
-static bool GetFearPosition( IAIUnit *pUnit, IAIUnit *pEnemy, SPathPlace *pOut )
-{
-	if ( !IsValid( pUnit ) || !IsValid( pEnemy ) )
-		return false;
-	NWorld::CUnitServer *pUS = pUnit->GetUnitServer();
-	if ( !IsValid( pUS ) || !IsValid( pUS->GetWorld() ) )
-		return false;
-	IPathNetwork *pNet = pUS->GetWorld()->GetPathNetwork();
-	if ( pNet == 0 )
-		return false;
-	CVec3 me = pUnit->GetPosition().GetCP();
-	CVec3 foe = pEnemy->GetPosition().GetCP();
-	CVec3 away = me - foe;
-	float len = fabs( away );
-	if ( len < 0.1f )
-		return false;
-	CVec3 target = me + away * ( 8.0f / len );   // ~8 units back from the enemy
-	SSphere s;
-	s.ptCenter = target;
-	s.fRadius = 5.0f;
-	vector<SPathPlace> places;
-	pNet->GetNearPlaces( s, &places );
-	SUnitPosition probe( pUnit->GetUnitPosition() );
-	float fBest = -1.0f;
-	bool bFound = false;
-	for ( int k = 0; k < (int)places.size(); ++k )
-	{
-		if ( !pNet->IsNativePassable( places[k] ) )
-			continue;
-		probe.pos.p = places[k];
-		float d = fabs( probe.GetCP() - foe );   // farthest-from-enemy passable place
-		if ( d > fBest )
-		{
-			fBest = d;
-			*pOut = places[k];
-			bFound = true;
-		}
-	}
-	return bFound;
-}
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// (Wireable-surface note: CAIDefenceReaction is the ONLY landed route reaction/logic whose install site
-// exists in the dev tree. The other route logics -- CheckPosition/LookRound/Roaming/Hide -- are installed
-// only by the still-absent CAIGuardReaction/CAIFearReaction/CAIAssassinReaction; LookTo/MoveTo would go via
-// the present CAIRetreatReaction but that is a separate behaviour reconciliation. See
-// docs/CONVERGENCE_PROGRESS.md session 19.)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Count the current non-enemy AI world set, including the caller (matched retail GetUnits(true,false)).
 static int CountActiveAllies( IAIUnit *u )
@@ -121,9 +68,8 @@ void CAINormalReaction::Update()
 	// current enemy + the bScared flag. A live pEnemy means combat.
 	SAIUnitState *us = GetAIUnitState();   // plain struct ptr - not a CObjectBase, so no IsValid()
 	IAIUnit *pEnemy = ( us != 0 ) ? us->pEnemy.GetPtr() : 0;
-	// scared (outnumbered + no support) with a threat present -> fall back. Hand the unit to a Retreat
-	// reaction (release scared branch: CreateAIRetreatReaction). Run it now so the retreat logic is set
-	// this think.
+	// A scared actor with a valid threat installs its next reaction; the native
+	// update pump runs that reaction after the current update returns.
 	if ( us != 0 && us->bScared && IsValid( pEnemy ) )
 	{
 		// SQUAD ALARM (release @0x47f241): an outnumbered-but-supported scared unit may break off and RUN to a nearby
@@ -142,17 +88,12 @@ void CAINormalReaction::Update()
 			}
 		}
 		SPathPlace fearPos;
-		if ( GetFearPosition( u, pEnemy, &fearPos ) )
+		// Original Normal installs the reachable 5m/30AP retreat; the pump
+		// updates the new reaction on its next turn, after this reaction returns.
+		if ( IsValid( u->GetUnitServer() ) &&
+			GetFearPosition( u->GetUnitServer(), us->GetKnownEnemies(), &fearPos, 5.0f, 30 ) )
 		{
-			// Hold the new reaction in a CPtr across the inline Update: the reconciled
-			// CAIRetreatReaction::Update may SetReaction(Guard) on arrival, which releases the unit's pReaction
-			// ref -- the CPtr keeps `this` alive through the rest of that Update, exactly as the tactical
-			// commander's CPtr<CAIReaction> does each think (aiTacticalCommander.cpp:120/126). Without the hold
-			// the raw pointer would dangle mid-Update.
-			CPtr<CAIReaction> pRetreat = CreateAIRetreatReaction( u, fearPos );
-			u->SetReaction( pRetreat );
-			if ( IsValid( pRetreat ) )
-				pRetreat->Update();
+			u->SetReaction( CreateAIRetreatReaction( u, fearPos ) );
 			return;
 		}
 		// Cornered: nowhere to fall back. Dig in via the guard REACTION (release @0x47f2f2:
@@ -264,7 +205,7 @@ void CAINormalReaction::Update()
 	}
 	if ( bWasCombat )
 	{
-		SetLogic( CreateAIAfterCombatLogic( u, false ) );   // regroup once combat is over (loot off: stub body)
+		SetLogic( CreateAIAfterCombatLogic( u, true ) );   // v1.2 0x47f722: loot enabled
 		bWasCombat = false;
 	}
 	else

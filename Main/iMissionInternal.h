@@ -85,7 +85,9 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMission: public CMissionBase
 {
+	friend class CAutoPlayInterface;
 	OBJECT_BASIC_METHODS(CMission)
+	friend class CMultiPlayerInterface;
   std::shared_ptr<S2Net::NetworkSession> networkSession;
   std::shared_ptr<S2Net::NetworkWorld> networkWorld;
   CObj<NUI::CWindow> networkPreparationControls;
@@ -96,7 +98,7 @@ private:
 	NInput::CBind bindFocusUnit, bindAddFloor, bindSubFloor;
 
 	NInput::CBind bindCancel, bindCancelAction, bindContinue, bindPause, bindMainMenu, bindCluesMenu, bindObjectivesMenu, bindGameMenu, bindEndMission;
-	NInput::CBind bindHero1, bindHero2, bindHero3, bindHero4, bindHero5, bindHero6, bindSelPrev, bindSelNext;
+	NInput::CBind bindHero1, bindHero2, bindHero3, bindHero4, bindHero5, bindHero6, bindHero7, bindSelPrev, bindSelNext;
 	NInput::CBind bindMove, bindAttack, bindSetMine, bindSetTrap, bindFirstAid, bindDropCorpse, bindExitPK, bindRotate;
 	NInput::CBind bindUseTool;	// retail "usetool" icon-bar command (use the held tool on a target)
 	NInput::CBind bindNormalPose, bindCrawlPose, bindCrouchPose, bindRunPose, bindStrafe, bindHide;
@@ -187,10 +189,6 @@ private:
 	// retail tag 26: the test-weather-effect VECTOR (retail ShowWeatherEffect @0x201c60 clears the
 	// vector, then pushes the one new effect handle).
 	vector<CObj<CObjectBase> > testWeatherEffect;
-	// LUA convergence: the single, replaceable scene-wide ambient effect (SetAmbientEffect). The retail keeps it
-	// in a scene slot (CGameView::SetAmbientEffect @0x1895f0); the dev parks the live render handle here instead.
-	// Runtime-only (a render handle, like CUICmdPlayEffect::pHandle) -- NOT serialized.
-	CObj<CObjectBase> pAmbientEffect;
 	// SetLeaveZoneMode: bLeaveBlockedByScript blocks the player from leaving the zone; pBlockReason is
 	// the DB string of the "can't leave" message (retail tag 33; the dev previously kept the raw int id).
 	// Consumed by CanLeaveZone (retail @0x1fcbd0); set by the CUICmdLeaveZoneMode dispatch.
@@ -226,7 +224,7 @@ private:
 	CDBPtr<NDb::CUITexture> pPWLImage;
 	// retail tag 38 (+ TRANSIENT tLastCurrentPlayerChange @+0x58c): the previous world current-player;
 	// on a change, GameStep @0x2017a0 stamps tLastCurrentPlayerChange with the UI clock (writer at the
-	// top of InternalStep here). Feeds the CanDoCommand(CCommand*) end-of-turn 2s cooldown @0x1fbf10.
+	// start of the interactive GameStep). Feeds the end-of-turn 2s cooldown @0x1fbf10.
 	CPtr<NWorld::IPlayer> pPrevCurrentPlayer;
 	STime tLastCurrentPlayerChange = 0;
 public:
@@ -246,6 +244,7 @@ private:
 	void InternalStep();
 
 protected:
+	virtual void GameStep();
 	// NO GetTime() override: retail's mission GetTime() IS the raw main-loop clock (@0x1f4e00).
 	// nDeltaTime supplies the script skip offset to world updates (retail @0x5a3c24).
 	// Sound separately uses GetGameTime with that offset; the UI has its own clock.

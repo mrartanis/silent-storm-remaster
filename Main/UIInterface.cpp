@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include <cstdint>
 #include "DisplayLayout.h"
 #include "../Game/Platform.h"
 #include "G2DView.h"
@@ -341,7 +342,7 @@ CInterface::CInterface():
 	pNonPublicDemo = new CTextDraw( SPoint( 0, 32 ), SPoint( 1024, 768 ), L"<font size=18pt face=Courier><right>Work in progress" );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-CInterface::CInterface( ICursor* _pCursor, NSound::ISoundScene *_pSound ): 
+CInterface::CInterface( ICursor* _pCursor, NSound::ISoundScene *_pSound, NSound::ISoundScene *_pInheritSound ):
 	CWindow( SWindowInfo( 0, SPoint( 0, 0 ), SPoint( 1024, 768 ), "desktop", STYLE_VISIBLE | STYLE_ENABLED ) ), bShowFPSStats( false ), 
 	cmdLButtonDown( "leftbutton_down" ), cmdLButtonUp( "leftbutton_up" ), cmdRButtonDown( "rightbutton_down" ), cmdRButtonUp( "rightbutton_up" ), 
 	cmdConsole( "console" ), cmdFPSShow( "showfps" ), bindScroll( "scroll" ),
@@ -362,7 +363,8 @@ CInterface::CInterface( ICursor* _pCursor, NSound::ISoundScene *_pSound ):
 	if ( !IsValid( pSound ) )
 	{
 		bOwnSoundScene = true;		// retail @0x31dbd0: the flag is SET before the own scene is created (serialized tag 23)
-		pSound = NSound::CreateSoundScene( 0, 0, sCounter.GetTime() );
+		pSound = IsValid( _pInheritSound ) ? NSound::CreateSoundScene( _pInheritSound, sCounter.GetTime() ) :
+			NSound::CreateSoundScene( 0, 0, sCounter.GetTime() );
 	}
 	pCursor = _pCursor;
 	pConsole = new CConsole( SWindowInfo( this, SPoint( 0, 0 ), SPoint( 0, 0 ), "console", STYLE_ENABLED | STYLE_TOPMOST ) );
@@ -400,21 +402,36 @@ void CInterface::SetCursorInfo( const SCursorInfo &sInfo )
 		sCursor = sDefaultCursor;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// The original default-precision clock path converts with signed x87 FISTP32.
+// Keep its result for fractional settings and out-of-range clocks on both ABIs.
+static STime ToolTipDeadline( STime time, float delay )
+{
+	const double value = double( time ) + double( delay ) * 10000.0;
+	if ( !( value >= -2147483648.0 && value < 2147483648.0 ) )
+		return STime( 0x80000000u );
+	return STime( static_cast<std::int32_t>( value ) );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CInterface::SetToolTipOwner( CWindow *pOwner )
 {
-	// retail @0x31c9e0: a live owner that owns a live tooltip sets the STICKY per-frame flag first
-	// (Step clears it and tears the tooltip down when no window re-claims it this frame).
+	if ( !NGlobal::GetVar( "ui_showtooltips", 1.0f ).GetFloat() )
+		return;
 	if ( IsValid( pOwner ) && IsValid( pOwner->GetToolTip() ) )
 		bToolTipSet = true;
-
 	if ( pToolTipOwner == pOwner )
 		return;
-
 	if ( IsValid( pToolTip ) )
 		pToolTip->SetStyle( STYLE_VISIBLE, false );
-
 	pToolTip = 0;
 	pToolTipOwner = pOwner;
+	sToolTipDelay = 0;
+	UpdateToolTip( true, 0 );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CInterface::UpdateToolTip( bool bNewOwner, const STime &sTime )
+{
+	if ( sTime && !sToolTipDelay )
+		sToolTipDelay = ToolTipDeadline( sTime, NGlobal::GetVar( "ui_tooltipdelay", 0.1f ).GetFloat() );
 	if ( IsValid( pToolTipOwner ) )
 	{
 		pToolTip = pToolTipOwner->GetToolTip();
@@ -422,13 +439,32 @@ void CInterface::SetToolTipOwner( CWindow *pOwner )
 		{
 			SRect sWindow;
 			SPoint sPosition;
-			pOwner->ClientToScreen( &sPosition, &sWindow );
-
-			pToolTip->SetStyle( STYLE_VISIBLE, true );
-			pToolTip->SetPosition( SPoint( sCursorPoint.x , sPosition.y ) );
+			pToolTipOwner->ClientToScreen( &sPosition, &sWindow );
+			pToolTip->UpdateToolTip();
+			if ( sToolTipDelay && sToolTipDelay < sTime )
+				pToolTip->SetStyle( STYLE_VISIBLE, true );
+			const SPoint sScreenSize = GetSize();
+			const SPoint sTipSize = pToolTip->GetSize();
+			SPoint sTipPosition = pToolTip->GetPosition();
+			const SPoint sAnchor = pToolTipOwner->GetToolTipAnchor();
+			switch ( pToolTipOwner->GetToolTipAnchorType() )
+			{
+				case NDb::UIA_NONE:
+					if ( bNewOwner )
+						sTipPosition.x = sCursorPoint.x;
+					sTipPosition.y = sPosition.y - sTipSize.y;
+					if ( sTipPosition.y < 0 )
+						sTipPosition.y = sPosition.y + pToolTipOwner->GetSize().y + 32;
+					break;
+				case NDb::UIA_LEFTTOP: sTipPosition = sAnchor; break;
+				case NDb::UIA_RIGHTTOP: sTipPosition = SPoint( sAnchor.x - sTipSize.x, sAnchor.y ); break;
+				case NDb::UIA_LEFTBOTTOM: sTipPosition = SPoint( sAnchor.x, sAnchor.y - sTipSize.y ); break;
+				case NDb::UIA_RIGHTBOTTOM: sTipPosition = SPoint( sAnchor.x - sTipSize.x, sAnchor.y - sTipSize.y ); break;
+			}
+			sTipPosition.x = Max( 0, Min( sTipPosition.x, sScreenSize.x - sTipSize.x ) );
+			sTipPosition.y = Max( 0, Min( sTipPosition.y, sScreenSize.y - sTipSize.y ) );
+			pToolTip->SetPosition( sTipPosition );
 		}
-
-//	DebugTrace( "%s\n", pToolTipOwner->GetWindowID().c_str() );
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -635,6 +671,7 @@ void CInterface::Draw( const STime &sTime )
 		pSound->Draw( &ts );
 	}
 
+	UpdateToolTip( false, sTime );
 	pView->StartNewFrame();
 	CWindow::Draw( sTime, pView );
 

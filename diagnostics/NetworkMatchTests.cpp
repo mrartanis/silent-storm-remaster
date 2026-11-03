@@ -7,6 +7,8 @@
 #endif
 #include "../Main/NetworkMatch.h"
 #include "../Main/NetworkWorld.h"
+#include "../Main/RPGGame.h"
+#include "../Main/aiMap.h"
 #include "../Main/aiGrid.h"
 #include "../Main/GSceneUtils.h"
 #include "../Main/wUnitServer.h"
@@ -43,6 +45,7 @@
 #include <atomic>
 #include <fstream>
 #include <sstream>
+namespace NWorld { bool CanMeleeAttack(CUnitServer*,const NAI::SUnitPosition&,const CVec3&); }
 static void Require(bool condition, const char* message) {
   if (!condition) throw std::runtime_error(message);
 }
@@ -73,6 +76,53 @@ int main(int argc,char** argv) {
     CFileStream db; db.OpenRead(argv[1]);
     NDatabase::Serialize(db,CStructureSaver::READ);
     NGScene::AddResourceDir(argv[2]);
+    if(argc==4 && std::string(argv[3])=="--preview-firstturn-wire") {
+      S2Net::NetworkMatchPreset preset;preset.squadSize=1;preset.personas={54};
+      auto host=std::make_shared<S2Net::NetworkWorld>(true,preset),client=std::make_shared<S2Net::NetworkWorld>(false);
+      CObj<NWorld::CUnitServer> fresh;int stage=0,delivered=0;bool pureAll=true,randomAll=true;
+      std::vector<unsigned> flags,kinds;std::vector<int> hostTurns,chances;
+      auto hostCallbacks=host->Callbacks(),clientCallbacks=client->Callbacks();auto nativeQuery=hostCallbacks.query;auto nativeResult=clientCallbacks.result;
+      hostCallbacks.query=[&](unsigned slot,const S2Net::Bytes& bytes){
+        Require(fresh && bytes.size()>=24,"native wire first-turn query lacks real actor or packet");size_t at=4;const auto kind=S2Net::Get32(bytes,at);at=20;const auto first=S2Net::Get32(bytes,at);
+        const auto position=fresh->GetPosition();const int hp=fresh->GetUnitRPG()->GetTotalVP(),ap=fresh->GetAP();const auto time=fresh->GetWorld()->GetTime()->GetValue();auto random=GlobalGameRandom();
+        auto reply=nativeQuery(slot,bytes);auto after=GlobalGameRandom();bool same=true;for(int i=0;i<4;++i)same&=random.Get()==after.Get();
+        const bool pure=position==fresh->GetPosition() && hp==fresh->GetUnitRPG()->GetTotalVP() && ap==fresh->GetAP() && time==fresh->GetWorld()->GetTime()->GetValue();pureAll&=pure;randomAll&=same;
+        at=8;const auto status=S2Net::Get32(reply,at),chance=S2Net::Get32(reply,at);const int unitFirst=int(fresh->GetUnitRPG()->IsFirstTurn());flags.push_back(first);kinds.push_back(kind);hostTurns.push_back(unitFirst);
+        std::printf("NETWORK-PREVIEW-FIRST stage=%d kind=%u wireFirst=%u unitFirst=%d chance=%d status=%u pure=%d RNGsame=%d\n",stage,unsigned(kind),unsigned(first),unitFirst,int(std::int32_t(chance)),unsigned(status),int(pure),int(same));Require(status==NWorld::UCR_OK,"native authoritative first-turn query failed");return reply;
+      };
+      clientCallbacks.result=[&](std::uint64_t id,const S2Net::Bytes& bytes,bool preview){nativeResult(id,bytes,preview);if(preview){size_t at=8;const auto status=S2Net::Get32(bytes,at),value=S2Net::Get32(bytes,at);Require(status==NWorld::UCR_OK,"native first-turn result has an error");chances.push_back(int(std::int32_t(value)));++delivered;}};
+      auto server=std::make_shared<S2Net::NetworkSession>(S2Net::Compatibility{"preview-firstturn-wire","data"},hostCallbacks),peer=std::make_shared<S2Net::NetworkSession>(S2Net::Compatibility{"preview-firstturn-wire","data"},clientCallbacks);
+      server->Host(0);peer->Connect("127.0.0.1",server->Port());
+      auto until=[&](auto condition){const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(15);while(!condition() && std::chrono::steady_clock::now()<deadline){server->Poll();peer->Poll();if(host->Match().world)while(CObj<NWorld::CUICmd> ui=host->Match().world->GetUICommand())server->Submit(host->EncodeCommand(new NWorld::CCmdInterfaceEvent(ui->GetID())));if(client->Match().world)while(CObj<NWorld::CUICmd> ui=client->Match().world->GetUICommand()){}Require(server->State()!=S2Net::SessionState::Failed && peer->State()!=S2Net::SessionState::Failed,"native first-turn wire connection failed");std::this_thread::sleep_for(std::chrono::milliseconds(2));}Require(condition(),"native first-turn wire operation timed out");};
+      until([&]{return server->State()==S2Net::SessionState::Playing && peer->State()==S2Net::SessionState::Playing;});host->BindSession(server);client->BindSession(peer);
+      auto* original=host->Match().players[1]->GetPlayerUnits().front().GetPtr();auto* originalGun=original->GetUnitRPG()->GetWeaponItem();Require(originalGun && originalGun->GetAmmoQuantity()>0,"native first-turn wire lacks real authored loaded firearm");
+      auto* network=host->Match().world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(original->GetPosition().GetCP(),3.f),&places);
+      for(auto p:places){if(!p.IsIntegral() || p.IsFinal())continue;p.SetPose(NAI::CM_STAND);p.SetMoving(0);if(!network->IsPassable(p) || network->IsLocked(p))continue;fresh=host->Match().world->AddUnitInGame(p,NRPG::CreateUnit(NDb::GetPers(54)),host->Match().players[1].GetPtr(),"NativeFirstTurnWireActor");if(fresh)break;}
+      Require(fresh && fresh->CanFight(),"native first-turn wire cannot add a real owned actor");fresh->GetUnitRPG()->StartNewTurn(fresh->GetPosition().GetCP());Require(fresh->GetUnitRPG()->IsFirstTurn(),"native first-turn wire actor did not retain its actual first turn");
+      auto* inventory=fresh->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> previous=inventory->TakeOff(NDb::SLOT_1);auto* originalInventory=original->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> gun=originalInventory->TakeOff(static_cast<NDb::ESlot>(originalInventory->GetActiveSlot()));Require(gun && inventory->Equip(NDb::SLOT_1,gun) && inventory->Activate(NDb::SLOT_1) && fresh->GetUnitRPG()->GetWeaponItem() && fresh->GetUnitRPG()->GetWeaponItem()->GetAmmoQuantity()>0,"native first-turn wire cannot transfer its real loaded firearm through native inventory");original->animator.SetActiveItem(false);original->animator.SetWeaponAnimation(original->GetUnitRPG()->GetWeaponType());original->animator.AlignTime();original->animator.PlaceUnit(original->GetPosition());
+      Require(NRPG::GetToHitType(fresh)==NRPG::TH_SHOOT,"native first-turn wire requires the authored ordinary ranged action");
+      fresh->SetWalkWithoutWeapon(false);fresh->SetUndrawItem(false);fresh->animator.SetActiveItem(true);fresh->animator.SetWeaponAnimation(fresh->GetUnitRPG()->GetWeaponType());fresh->animator.AlignTime();fresh->animator.PlaceUnit(fresh->GetPosition());fresh->SetScriptToHit(37);
+      auto replicaActor=[&]() -> NWorld::CUnitServer* {for(auto unit:client->Match().players[1]->GetPlayerUnits())if(unit && unit->GetPosition().pos.p==fresh->GetPosition().pos.p)return unit.GetPtr();return nullptr;};
+      until([&]{auto* unit=replicaActor();return unit && unit->GetScriptToHit()==37 && unit->GetUnitRPG()->IsFirstTurn();});
+      for(stage=0;stage<2;++stage){
+        if(stage){fresh->GetUnitRPG()->StartNewTurn(fresh->GetPosition().GetCP());Require(!fresh->GetUnitRPG()->IsFirstTurn(),"native first-turn wire failed to advance its actual unit counter");until([&]{auto* unit=replicaActor();return unit && !unit->GetUnitRPG()->IsFirstTurn();});}
+        for(int kind:{0,2}){
+          auto* unit=replicaActor();auto* target=client->Match().players[0]->GetPlayerUnits().front().GetPtr();Require(unit && unit->GetWorld()->bNetworkReplica,"native first-turn wire query lacks actual replica");client->SetPreviewSelection({unit});const int before=delivered;const CVec3 point=target->GetPosition().GetCP()+CVec3(0,0,1);
+          if(kind==0)client->Match().world->GetGame()->GetCompositeToHit(unit,target,NAI::HL_ANY,stage!=0);else client->Match().world->GetGame()->GetTileCompositeToHit(unit,point,NAI::THL_MIDDLE,stage!=0);
+          until([&]{return delivered>before;});unit=replicaActor();target=client->Match().players[0]->GetPlayerUnits().front().GetPtr();const int actual=kind==0?client->Match().world->GetGame()->GetCompositeToHit(unit,target,NAI::HL_ANY,stage!=0):client->Match().world->GetGame()->GetTileCompositeToHit(unit,point,NAI::THL_MIDDLE,stage!=0);Require(actual==37 && chances.back()==37,"native first-turn wire lost its public script37 transport control");
+        }
+      }
+      peer->Finish("First-turn wire test complete");server->Poll();peer->Poll();std::printf("NETWORK-PREVIEW-FIRST-COMPLETE replies=%d pure=%d RNGsame=%d\n",delivered,int(pureAll),int(randomAll));
+      Require(pureAll && randomAll && hostTurns==std::vector<int>({1,1,0,0}) && chances==std::vector<int>({37,37,37,37}) && kinds==std::vector<unsigned>({0,2,0,2}),"native first-turn wire physical/state/result controls failed");Require(flags==std::vector<unsigned>({1,1,0,0}),"logging arguments replaced the legacy first-turn wire field instead of using the replicated native unit counter");return 0;
+    }
+
+    if(argc==4 && std::string(argv[3])=="--melee-reach-preview") {
+      S2Net::NetworkMatchPreset preset;preset.squadSize=1;preset.personas={54};auto host=std::make_shared<S2Net::NetworkWorld>(true,preset),client=std::make_shared<S2Net::NetworkWorld>(false);int stage=0,delivered=0;vector<int> wireChances;bool allPure=true,allRandom=true;auto serverCallbacks=host->Callbacks(),clientCallbacks=client->Callbacks();auto nativeQuery=serverCallbacks.query;auto nativeResult=clientCallbacks.result;
+      serverCallbacks.query=[&](unsigned slot,const S2Net::Bytes& bytes){auto* actor=host->Match().players[1]->GetPlayerUnits().front().GetPtr();const auto position=actor->GetPosition();const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();const auto time=actor->GetWorld()->GetTime()->GetValue();auto random=GlobalGameRandom();auto reply=nativeQuery(slot,bytes);auto after=GlobalGameRandom();bool same=true;for(int i=0;i<4;++i)same&=random.Get()==after.Get();bool pure=ap==actor->GetAP() && hp==actor->GetUnitRPG()->GetTotalVP() && position==actor->GetPosition() && time==actor->GetWorld()->GetTime()->GetValue();allPure&=pure;allRandom&=same;size_t pos=8;const auto status=S2Net::Get32(reply,pos),wire=S2Net::Get32(reply,pos);std::printf("NETWORK-MELEE-CALL stage=%d status=%u chance=%d wire=%08X pure=%d RNGsame=%d\n",stage,unsigned(status),int(std::int32_t(wire)),unsigned(wire),int(pure),int(same));Require(status==NWorld::UCR_OK,"native authoritative chance query failed");return reply;};
+      clientCallbacks.result=[&](std::uint64_t id,const S2Net::Bytes& bytes,bool preview){nativeResult(id,bytes,preview);if(preview){size_t pos=8;const auto status=S2Net::Get32(bytes,pos),wire=S2Net::Get32(bytes,pos);Require(status==NWorld::UCR_OK,"native chance result has an error");wireChances.push_back(int(std::int32_t(wire)));++delivered;std::printf("NETWORK-MELEE-RECEIVE stage=%d chance=%d wire=%08X\n",stage,int(std::int32_t(wire)),unsigned(wire));}};
+      auto server=std::make_shared<S2Net::NetworkSession>(S2Net::Compatibility{"melee-reach","data"},serverCallbacks),peer=std::make_shared<S2Net::NetworkSession>(S2Net::Compatibility{"melee-reach","data"},clientCallbacks);server->Host(0);peer->Connect("127.0.0.1",server->Port());auto until=[&](auto condition){const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(15);while(!condition() && std::chrono::steady_clock::now()<deadline){server->Poll();peer->Poll();if(host->Match().world)while(CObj<NWorld::CUICmd> ui=host->Match().world->GetUICommand())server->Submit(host->EncodeCommand(new NWorld::CCmdInterfaceEvent(ui->GetID())));if(client->Match().world)while(CObj<NWorld::CUICmd> ui=client->Match().world->GetUICommand()){}Require(server->State()!=S2Net::SessionState::Failed && peer->State()!=S2Net::SessionState::Failed,"native melee preview connection failed");std::this_thread::sleep_for(std::chrono::milliseconds(2));}Require(condition(),"native melee preview network operation timed out");};until([&]{return server->State()==S2Net::SessionState::Playing && peer->State()==S2Net::SessionState::Playing;});host->BindSession(server);client->BindSession(peer);auto* actor=host->Match().players[1]->GetPlayerUnits().front().GetPtr();auto* target=host->Match().players[0]->GetPlayerUnits().front().GetPtr();CVec3 center;Require(actor->GetWorld()->GetAIMap()->GetUnitHLPos(&center,actor->GetWorld()->GetAIMap()->GetHull(target),NAI::HL_ANY) && !NWorld::CanMeleeAttack(actor,actor->GetPosition(),center),"native network target is not independently outside melee reach");actor->SetScriptToHit(37);until([&]{return client->Match().players[1]->GetPlayerUnits().front()->GetScriptToHit()==37;});
+      auto query=[&]{Require(client->Match().world->bNetworkReplica,"network chance query lacks actual replica delegation");auto* unit=client->Match().players[1]->GetPlayerUnits().front().GetPtr();auto* enemy=client->Match().players[0]->GetPlayerUnits().front().GetPtr();client->SetPreviewSelection({unit});const int before=delivered;client->Match().world->GetGame()->GetCompositeToHit(unit,enemy,NAI::HL_ANY,true);until([&]{return delivered>before;});unit=client->Match().players[1]->GetPlayerUnits().front().GetPtr();enemy=client->Match().players[0]->GetPlayerUnits().front().GetPtr();return client->Match().world->GetGame()->GetCompositeToHit(unit,enemy,NAI::HL_ANY,true);};const int control=query();Require(control==37 && !wireChances.empty() && wireChances.back()==37,"native network ranged control lost actual script37 query");stage=1;actor->SetScriptToHit(-1);auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> held=inventory->TakeOff(static_cast<NDb::ESlot>(inventory->GetActiveSlot()));Require(!inventory->GetActive() && NRPG::GetToHitType(actor)==NRPG::TH_MELEE,"native network actor did not enter actual unarmed melee");actor->animator.SetActiveItem(false);actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());actor->animator.AlignTime();actor->animator.PlaceUnit(actor->GetPosition());until([&]{auto* unit=client->Match().players[1]->GetPlayerUnits().front().GetPtr();return unit->GetScriptToHit()<0 && !unit->GetUnitRPG()->GetInventory()->GetActive();});const int unavailable=query();const int received=wireChances.back();peer->Finish("Melee preview test complete");server->Poll();peer->Poll();std::printf("NETWORK-MELEE control=%d unavailable=%d received=%d replies=%d pure=%d RNGsame=%d\n",control,unavailable,received,delivered,int(allPure),int(allRandom));Require(allPure && allRandom,"native network chance queries changed AP/HP/position/time/RNG");Require(unavailable==-1 && received==-1,"native melee unavailable sentinel was lost through authoritative query/real TCP/replica cache");return 0;
+    }
     if(argc==4 && std::string(argv[3])=="--object-stages") {
       S2Net::NetworkWorld host(true),client(false);client.Apply(host.Initial(),true);
       // Applying a snapshot rebuilds the client's object list. Resolve the
@@ -339,6 +389,7 @@ int main(int argc,char** argv) {
       S2Net::NetworkWorld host(true),client(false);client.Apply(host.Initial(),true);
       for(int tick=0;tick<20;++tick)client.Apply(host.Segment(),false);
       host.Match().world->GivePlayerTurn(host.Match().players[1]);
+      host.Match().world->ProcessTBSEvents(); // Settle the new turn before imposing the test AP budget.
       auto* actor=host.Match().players[1]->GetPlayerUnits().front().GetPtr();
       auto before=actor->GetPosition();NAI::SPosition destination;int start=0,full=0;bool found=false;
       for(int distance:{8,12,16,24})for(auto delta:{CTPoint<int>(distance,0),CTPoint<int>(0,distance),CTPoint<int>(-distance,0),CTPoint<int>(0,-distance)}) {
@@ -673,11 +724,25 @@ int main(int argc,char** argv) {
     host.Handle(1,client.EncodeCommand(new NWorld::CCmdEndOfTurn),false);pump(5);
     host.Handle(0,host.EncodeCommand(new NWorld::CCmdEndOfTurn),false);pump(5);
     auto* weapon=actor->GetUnitRPG()->GetWeaponItem();int ammo=weapon->GetAmmoQuantity();ap=actor->GetAP();
-    action(new NWorld::CCmdShootTile(replica->GetPosition().GetCP()+CVec3(3,0,1)));
+    // Later phases require these native fighters; this ammunition fixture must
+    // not accidentally injure them with its real bullets.
+    vector<pair<CPtr<NWorld::CUnitServer>, int>> shootingFixtureHealth;
+    for(unsigned team=0;team<2;++team)
+      for(auto unit:host.Match().players[team]->GetPlayerUnits())
+        shootingFixtureHealth.push_back(make_pair(CPtr<NWorld::CUnitServer>(unit.GetPtr()),unit->GetUnitRPG()->GetTotalVP()));
+    // Aim above the squad: a low shot can hit the engineer used below.
+    action(new NWorld::CCmdShootTile(replica->GetPosition().GetCP()+CVec3(3,0,30)));
     Require(weapon->GetAmmoQuantity()<ammo && actor->GetAP()<ap,"remote shot did not spend ammunition/AP");
     Require(replica->GetUnitRPG()->GetWeaponItem()->GetAmmoQuantity()==weapon->GetAmmoQuantity(),"replicated ammunition differs");
     action(new NWorld::CCmdReload);
     Require(weapon->GetAmmoQuantity()==ammo,"remote reload did not restore magazine");
+    bool untouchedShootingFixture=true;
+    for(const auto& saved:shootingFixtureHealth) {
+      const int actual=saved.first->GetUnitRPG()->GetTotalVP();
+      std::printf("network burst fixture: HP=%d->%d\n",saved.second,actual);
+      untouchedShootingFixture=untouchedShootingFixture && actual==saved.second;
+    }
+    Require(untouchedShootingFixture,"ammunition fixture injured a fighter required by later network phases");
     auto resetAP=[&]{host.Match().world->GivePlayerTurn(host.Match().players[side]);pump(2);};
     auto equip=[&](NRPG::IInventoryItem* item,const CTPoint<int>& position) {
       NWorld::SItem source(replica,NWorld::SItem::BACKPACK,position,item);

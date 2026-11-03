@@ -12,6 +12,29 @@
 
 namespace NGfx
 {
+static bool bSupportOcclusionQueries = false;
+bool DoesSupportOcclusionQueries() { return bSupportOcclusionQueries && pDevice && pDevice->Healthy(); }
+class COcclusionQuery : public IOcclusionQuery
+{
+    OBJECT_NOCOPY_METHODS(COcclusionQuery);
+    std::shared_ptr<BgfxOcclusionQuery> query;
+public:
+    COcclusionQuery() { if(pDevice) query=pDevice->CreateOcclusionQuery(); }
+    ~COcclusionQuery() { if(pDevice) pDevice->FinishOcclusionQuery(query); }
+    void Start() { if(pDevice) pDevice->StartOcclusionQuery(query); }
+    void Finish() { if(pDevice) pDevice->FinishOcclusionQuery(query); }
+    int GetData() { return pDevice ? pDevice->ReadOcclusionQuery(query) : 1; }
+    void Flush() { if(pDevice && query) pDevice->FlushOcclusionQueries(); }
+};
+static vector<CMObj<COcclusionQuery> > occlusionQueries;
+IOcclusionQuery* CreateOcclusionQuery()
+{
+    if(!pDevice || !pDevice->SupportsOcclusionQueries()) return nullptr;
+    EraseInvalidRefs(&occlusionQueries);
+    COcclusionQuery* query=new COcclusionQuery;
+    occlusionQueries.push_back(query);
+    return query;
+}
 externA5 SRenderTargetsInfo rtInfo;
 static bool operator==( const SFBTransform &a, const SFBTransform &b )
 {
@@ -29,7 +52,7 @@ struct SRenderParam
 };
 typedef unordered_map<int, NWin32Helper::com_ptr<BgfxSurface> > CDepthHash;
 
-const int N_MAX_REGISTERS =	5;
+const int N_MAX_REGISTERS =	6;
 static int nScreenRegisters;
 bool bDoValidateDevice = false;
 static SRenderParam<EWireframe> wireframeMode( WIREFRAME_OFF );
@@ -43,6 +66,8 @@ static NWin32Helper::com_ptr<BgfxSurface> pScreenColor, pScreenDepth, pRegisterD
 static CDepthHash sharedZBuffers;
 static CMObj<CTexture> pRegisters[N_MAX_REGISTERS];
 static CTPoint<int> ptRegisterBufferSize, ptScreenSize;
+static float fRegisterResolution = 1.0f;
+static int nAppliedAnisotropy[8];
 //static bool bUseSeparateZBuffer;
 static bool bLastUsedAddressMode[8], bPointAddress[8], bCubeFilter[8];
 static NWin32Helper::com_ptr<BgfxShader> pixelShaders[200];
@@ -337,6 +362,7 @@ void Apply( const EAlphaCombineMode &alphaMode )
 			ApplyRenderState( D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA );
 			break;
 		case COMBINE_ALPHA_ADD:
+		case COMBINE_ADD_SRC_ALPHA_MUL:
 			ApplyRenderState( D3DRS_ALPHABLENDENABLE, TRUE );
 			ApplyRenderState( D3DRS_SRCBLEND, D3DBLEND_SRCALPHA );
 			ApplyRenderState( D3DRS_DESTBLEND, D3DBLEND_ONE );
@@ -571,7 +597,7 @@ static void SetTextureWrap( int nStage, bool bWrap )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static void SetTexturePointFilter( int n, bool bPoint, bool bCube = false )
 {
-	if ( bPointAddress[n] == bPoint && bCubeFilter[n] == bCube )
+	if ( bPointAddress[n] == bPoint && bCubeFilter[n] == bCube && ( bPoint || bCube || nAppliedAnisotropy[n] == nUseAnisotropy ) )
 		return;
 	bPointAddress[n] = bPoint;
 	bCubeFilter[n] = bCube;
@@ -606,6 +632,7 @@ static void SetTexturePointFilter( int n, bool bPoint, bool bCube = false )
 			pDevice->SetSamplerState( n, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR );//D3DTEXF_POINT );
 		}
 	}
+	nAppliedAnisotropy[n]=nUseAnisotropy;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static NWin32Helper::com_ptr<BgfxSurface> pCurrentRTTB, pCurrentRTZB;
@@ -1157,10 +1184,13 @@ bool InitZBuffer( D3DFORMAT format )
 			nXSize = nXRSize;
 			nYSize = nYRSize;
 #else
-			nXSize = nXRSize;
-			nYSize = Float2Int( nYRSize * (564.0f / 768.0f ) );
+			const float scale=sqrt(Max(fRegisterResolution,0.0f));
+			nXSize = Float2Int(nXRSize*scale);
+			nYSize = Float2Int(nYRSize*scale*(564.0f/768.0f));
 #endif
 		}
+		nXSize=Clamp(nXSize,1,int(devCaps.MaxTextureWidth));
+		nYSize=Clamp(nYSize,1,int(devCaps.MaxTextureHeight));
 		ptRegisterBufferSize = CTPoint<int>( nXSize, nYSize );
 		hr = pDevice->CreateDepthStencilSurface( nXSize, nYSize, format, D3DMULTISAMPLE_NONE, 0,
 			FALSE, pRegisterDepth.GetAddr(), 0 );
@@ -1200,6 +1230,8 @@ bool InitZBuffer( D3DFORMAT format )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void DoneZBuffer()
 {
+	bSupportOcclusionQueries = false;
+	occlusionQueries.clear();
 	pCurrentRTTB = 0;
 	pCurrentRTZB = 0;
 	pCurrentRenderContext = 0;
@@ -1231,6 +1263,7 @@ static void InitTextureStage( int n )
 	pDevice->SetSamplerState( n, D3DSAMP_MIPMAPLODBIAS, *(DWORD*)&fMipBias );
 	bLastUsedAddressMode[n] = false;
 	bPointAddress[n] = false;
+	nAppliedAnisotropy[n]=nUseAnisotropy;
 	bCubeFilter[n] = false;
 	pDevice->SetSamplerState( n, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP );
 	pDevice->SetSamplerState( n, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP );
@@ -1356,6 +1389,7 @@ static void InitEffects()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 HRESULT InitRender()
 {
+	bSupportOcclusionQueries = pDevice && pDevice->SupportsOcclusionQueries();
 	InitEffects();
 	HRESULT hr;
 	wireframeMode.DoApply();
@@ -1394,7 +1428,6 @@ void DoneRender()
 // retail GfxRenderInit @0x11e0f0: two vars bound to module globals (nMaxLag @0x99c1fc,
 // fRegisterResolution @0x955408)
 static int nMaxLag = 0;                    // gfx_maxlag
-static float fRegisterResolution = 1.0f;   // gfx_register_resolution
 START_REGISTER(GfxRender)
 	REGISTER_VAR_EX( "gfx_maxlag", NGlobal::VarIntHandler, &nMaxLag, 0.0f, true )
 	REGISTER_VAR_EX( "gfx_register_resolution", NGlobal::VarFloatHandler, &fRegisterResolution, 1.0f, true )

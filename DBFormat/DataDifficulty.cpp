@@ -3,7 +3,7 @@
 #include "DataDifficulty.h"
 //
 // Release version: Import() column order/names taken verbatim from Game.exe (CDBDifficulty::Import
-// @0x82c7b0). Identical to the dev snapshot through "REDifficulty"; release inserts "ClueDeathCoeff"
+// @0x80e240). Identical to the dev snapshot through "REDifficulty"; release inserts "ClueDeathCoeff"
 // after "DeathCoeff" and appends the difficulty/combat tuning columns.
 //
 namespace NDb
@@ -34,8 +34,8 @@ ECanSave GetCanSaveByString( const string &szName )
 void CDBDifficulty::Import()
 {
 	string szName;
-	NDatabase::ImportField( "CanSave", &szName );
-	canSave = GetCanSaveByString( szName );
+	if ( NDatabase::ImportField( "CanSave", &szName ) )
+		canSave = GetCanSaveByString( szName );
 	NDatabase::ImportField( "AIAPCoeff", &fAPCoeff );
 	NDatabase::ImportField( "AIVPCoeff", &fVPCoeff );
 	NDatabase::ImportField( "DeathCoeff", &fDeathCoeff );

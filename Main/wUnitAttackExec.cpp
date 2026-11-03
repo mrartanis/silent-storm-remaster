@@ -5,6 +5,7 @@
 #include "../FileIO/BasicChunk1.h"
 #include "../Misc/Geom.h"
 #endif
+#include "RPGAttackSession.h"
 #include "wUnitAttack.h"
 #include "wUnitMove.h"
 #include "wUnitServer.h"
@@ -37,6 +38,7 @@
 #include "wUnitAttack.h"
 #include "wUnitAttackExec.h"
 #include "aiNearestPosition.h"
+#include "aiMoves.h"
 #include "aiMisc.h"            // NAI::IsAIPlayer (GetActionType AI-silent gate)
 #include "rpgPerkConstants.h"
 #include "wUnitQueue.h"
@@ -293,8 +295,10 @@ static bool CheckParabolaIntersect( NAI::CCollider *pCollider, const float fTFly
 	return false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-static bool FindGrenadeParams( CWorld *pWorld, const NAI::SUnitPosition &pos, const CVec3 &to, float fMaxVel, SGrenadeParams *pRes ) 
+static bool FindGrenadeParams( CUnitServer *pUS, const NAI::SUnitPosition &pos, const CVec3 &to, float fMaxVel, SGrenadeParams *pRes )
 {
+	CWorld *pWorld = pUS->GetWorld();
+	const bool bWearingPK = IsValid( pUS->GetWearingDBPK() );
 	CVec3 from = pos.GetCenter();
 	
 	vector<CVec3> boundPoints;
@@ -358,7 +362,7 @@ static bool FindGrenadeParams( CWorld *pWorld, const NAI::SUnitPosition &pos, co
 	for ( fTFly = fTFlyMin; fTFly < fTFlyMax + F_GRENADE_DELAY_STEP; fTFly += F_GRENADE_DELAY_STEP )
 	{
 		int nSPSize = startPoints.size();
-		for ( int k = 0; k < nSPSize; ++k )
+		for ( int k = bWearingPK ? 2 : 0; k < nSPSize; ++k )
 		{
 			if ( k > 0 && results[k - 1] )
 				continue;
@@ -366,7 +370,7 @@ static bool FindGrenadeParams( CWorld *pWorld, const NAI::SUnitPosition &pos, co
 			bFound = !CheckParabolaIntersect( &collider, Min(fTFly, fTFlyMax), from, to );
 			if ( bFound ) 
 			{
-				nSide = k;
+				nSide = bWearingPK ? 0 : k;
 				break;
 			}
 		}
@@ -397,7 +401,7 @@ EUnitCommandResult CanUnitThrowGrenade( CUnitServer *pUS, const NAI::SUnitPositi
 
 	if ( nDistance > fGrenadeMaxDistance )
 		return UCR_TARGET_OUT_OF_RANGE;*/
-	if ( !FindGrenadeParams( pUS->GetWorld(), from, ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &sParams ) )
+	if ( !FindGrenadeParams( pUS, from, ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &sParams ) )
 		return UCR_TARGET_OUT_OF_RANGE;
 
 	// Engineer/PK grenades (satchel charges) gate on a required demolition perk + the unit's
@@ -426,7 +430,7 @@ EUnitCommandResult CanUnitThrowGrenade( CUnitServer *pUS, const NAI::SUnitPositi
 // uses NO inventory grenade, AP spend or wind-up animation: it spawns a temp grenade item from the DB
 // record, computes the ballistic params (skill-based max velocity + to-hit scatter + fuse delay, exactly
 // as CExecThrowGrenade::CheckToHitAndDelay) and hands the flight to CWorld::ThrowGrenade.
-void UnitThrowGrenade( CUnitServer *pUS, NDb::CRPGGrenade *pGrenade, const CVec3 &ptTarget, int /*nReserved*/ )
+void UnitThrowGrenade( CUnitServer *pUS, NDb::CRPGGrenade *pGrenade, const CVec3 &ptTarget, int nToHit )
 {
 	if ( !IsValid( pUS ) || !IsValid( pGrenade ) )
 		return;
@@ -444,13 +448,11 @@ void UnitThrowGrenade( CUnitServer *pUS, NDb::CRPGGrenade *pGrenade, const CVec3
 		nDistance, position.GetCP(), pUS->GetWorld()->IsFirstTurn(), false, CVec3( 1, 1, 1 ), ptTarget, pGrenadeItem.GetPtr() );	// transient script grenade is not equipped/active -> pass it explicitly
 
 	SGrenadeParams grenadeParams;
-	if ( !FindGrenadeParams( pUS->GetWorld(), position, ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &grenadeParams ) )
+	if ( !FindGrenadeParams( pUS, position, ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &grenadeParams ) )
 		return;
 
-	// to-hit scatter + fuse delay -- mirrors CExecThrowGrenade::CheckToHitAndDelay (`random` there is an
-	// executor member, so use a local SRand, the dev's local-rng idiom elsewhere in this file).
-	SRand random;
-	int nToHit = pToHitCalcer->GetToHit();
+	// Both throw paths use the shared gameplay generator; perfect fuse skips its roll.
+	// Original Gold 0x7a0c84 / Steam 0x7ad304 forwards the script chance.
 	int nRandom = GlobalGameRandom().Get( 100 );
 	if ( nRandom > nToHit )
 	{
@@ -461,11 +463,14 @@ void UnitThrowGrenade( CUnitServer *pUS, NDb::CRPGGrenade *pGrenade, const CVec3
 	}
 	grenadeParams.fT = Clamp( grenadeParams.fT, 0.f, float( pGrenade->nMaxDelay ) );
 	grenadeParams.fT = pGrenade->nMaxDelay - grenadeParams.fT;
-	nRandom = GlobalGameRandom().Get( 100 );
-	if ( nRandom >= 99 || nRandom >= pToHitCalcer->GetSkill() )
+	if ( !pUS->GetUnitRPG()->HasPerk( 0x5a ) )
 	{
-		grenadeParams.fT *= GlobalGameRandom().GetFloat( 0.5f, 2.f );
-		grenadeParams.fT = Clamp( grenadeParams.fT, 0.f, float( pGrenade->nMaxDelay ) * 0.75f );
+		nRandom = GlobalGameRandom().Get( 100 );
+		if ( nRandom >= 99 || nRandom >= pUS->GetUnitRPG()->GetWeaponSkill( pGrenadeItem, 0, 0 ) )
+		{
+			grenadeParams.fT *= GlobalGameRandom().GetFloat( 0.5f, 2.f );
+			grenadeParams.fT = Clamp( grenadeParams.fT, 0.f, float( pGrenade->nMaxDelay ) * 0.75f );
+		}
 	}
 
 	// the flying grenade mesh comes from the grenade's item record (null model still explodes)
@@ -484,13 +489,19 @@ void UnitThrowGrenade( CUnitServer *pUS, NDb::CRPGGrenade *pGrenade, const CVec3
 EUnitCommandResult CanUnitThrowKnife( CUnitServer *pUS, const NAI::SUnitPosition &from, const CVec3 &ptTarget, NRPG::IMeleeWeaponItem *pMelee )
 {
 	CPtr<NRPG::CThrowKnifeTileToHitCalcer> pToHitCalcer;
-	int nDistance = fabs( ptTarget - from.GetCP() ) / FP_GRID_STEP;
+	// Original 0x7a1b70 stores the fractional distance only after wide sqrt/grid scaling.
+	const CVec3 ptFrom = from.GetCP();
+	const double dx = double(ptTarget.x) - double(ptFrom.x);
+	const double dy = double(ptTarget.y) - double(ptFrom.y);
+	const double dz = double(ptTarget.z) - double(ptFrom.z);
+	const float fDistance = float( sqrt( (dz * dz + dy * dy) + dx * dx ) * double(FP_INV_GRID_STEP) );
+	int nDistance = int( fDistance );
 	pToHitCalcer = new NRPG::CThrowKnifeTileToHitCalcer( pUS, from.GetPose(),
 		nDistance, from.GetCP(), 100.f, pUS->GetWorld()->IsFirstTurn(), false, CVec3(1,1,1), ptTarget, 0 );
 
  	float fKnifeMaxDistance = pToHitCalcer->GetKnifeMaxDistance();
 
-	if ( nDistance > fKnifeMaxDistance )
+	if ( fDistance > fKnifeMaxDistance )
 		return UCR_TARGET_OUT_OF_RANGE;
 
 	return UCR_OK;
@@ -1102,17 +1113,29 @@ void CExecAttack::UpdateCamera()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CExecAttack::TimeLabelReached()
 {
-	// @0x3a2650 -- retail: OnLabel is now VOID (arms the timed-bullet schedule / ends the shot). Two changes
-	// from Jan03, both disasm-confirmed at 0x7a2650:
+	// Gold 0x7970b0 / Steam 0x7a3120: OnLabel is now VOID (arms the timed-bullet schedule / ends the shot). Two changes
+	// from Jan03, confirmed by the complete original 31-byte method:
 	//   (1) NextBullet() is DROPPED -- retail does NOT advance the RPG bullet cursor per label; the timed
 	//       pipeline tracks bullets via nBulletGone/nBulletPrepared + SelectRay's per-bullet CreateAttack.
 	//       (The one-shot CExecMelee*/CExecThrowKnife OnLabel overrides call NextBullet() themselves.)
-	//   (2) the Jan03 "!bRes -> StartAttack() reset burst state" re-arm is GONE; instead, on cancel we Finish
-	//       the executor here. Return !bAttackCanceled (consumed by CUnitServer::Segment's bCallTimeLabel).
+	//   (2) cancel closes only the transient attack session. AnimationFinished completes the executor.
+	//       Return !bAttackCanceled (consumed by CUnitServer::Segment's bCallTimeLabel).
 	OnLabel();
 	if ( bAttackCanceled )
-		Finished();
+		FinishMe();
 	return !bAttackCanceled;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CExecAttack::FinishMe()
+{
+	// Steam 1.2 0x7a2720: close the transient session, keeping the executor
+	// running until its actual animation end.
+	if ( IsValid( pUS ) && IsValid( pUS->GetUnitRPG() ) )
+	{
+		NRPG::IUnitMissionForMedals *pMedals = dynamic_cast<NRPG::IUnitMissionForMedals*>( pUS->GetUnitRPG() );
+		if ( pMedals )
+			pMedals->FinishAttackSession();
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecAttack::Cancel()
@@ -1128,11 +1151,18 @@ bool CExecAttack::CreateAttack( vector<NRPG::CAttackPortion> *pAttack, CUnitServ
 	bool bBackStab = false;
 	if ( IsValid( pUnitTarget ) )
 	{
-		bBackStab = !pUnitTarget->IsUnitAudible( pUS ) && !pUnitTarget->IsUnitVisible( pUS );
+		// Gold 0x798616 / Steam 0x7a4a66 checks visibility only.
+		bBackStab = !pUnitTarget->IsUnitVisible( pUS );
 		if ( bBackStab )
 			csSystem << CC_RED << "Backstab attack" << endl;
 	}
 	CPtr<NRPG::IUnitMission> pTarget = IsValid( pUnitTarget ) ? pUnitTarget->GetUnitRPG() : 0;
+	if ( IsValid( pUS ) && IsValid( pUS->GetUnitRPG() ) )
+	{
+		NRPG::IUnitMissionForMedals *pMedals = dynamic_cast<NRPG::IUnitMissionForMedals*>( pUS->GetUnitRPG() );
+		if ( pMedals )
+			pMedals->AddAttackToAttackSession( pTarget, false, false );
+	}
 	return pUS->GetUnitRPG()->CreateAttack( pAttack, bSpendAmmo, false, pTarget, bBackStab, bAdaptWeapon );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1210,8 +1240,7 @@ void CExecShoot::OnLabel()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // @0x3a4480 -- retail fires ONE ranged attack per call (no args), from this->attack + this->ray (Jan03 looped
 // a vector<CAttackPortion>). Trail model/speed come from the equipped weapon's DB record. (Retail also reports
-// the spawned bullet to IUnitMissionForMedals::AddWaitForBullet -- DEFERRED: the concrete CUnitMission does not
-// derive that interface in-tree, so the cross-cast never resolves; the whole medal-session subsystem is unwired.)
+// the spawned projectile weakly to the transient IUnitMissionForMedals session.)
 void CExecShoot::PerformAttack()
 {
 	float fTrailSpeed = 0;
@@ -1233,7 +1262,10 @@ void CExecShoot::PerformAttack()
 	NDb::CRPGGrenade *pGrenade = 0;
 	if ( pWeapon && pWeapon->GetInnerClip() && pWeapon->GetInnerClip()->GetDBAmmo() )
 		pGrenade = pWeapon->GetInnerClip()->GetDBAmmo()->pExplosiveBullet;
-	pUS->GetWorld()->PerformRangedAttack( rayInfo, pUS->GetWorld()->GetTime()->GetValue(), pTrailEffect, fTrailSpeed, pGrenade, nEffectType );
+	CObjectBase *pBullet = pUS->GetWorld()->PerformRangedAttack( rayInfo, pUS->GetWorld()->GetTime()->GetValue(), pTrailEffect, fTrailSpeed, pGrenade, nEffectType );
+	NRPG::IUnitMissionForMedals *pMedals = dynamic_cast<NRPG::IUnitMissionForMedals*>( pUS->GetUnitRPG() );
+	if ( pMedals )
+		pMedals->AddWaitForBullet( pBullet );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // @0x3a1fa0 -- retail CheckBurst(nFired, bDoAction): may the burst keep firing? (return TRUE == continue) and,
@@ -1276,7 +1308,7 @@ bool CExecShoot::CheckBurst( int nFired, bool bDoAction )
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-int CExecShoot::GetActionAP() const 
+int CExecShoot::GetActionAP( int nAlreadyReservedAP ) const
 { 
 	if ( IsAccidental() )
 		return 0;
@@ -1286,9 +1318,7 @@ int CExecShoot::GetActionAP() const
 		NDb::EShootMode ShootMode = pWeapon->GetShootMode();
 		if ( ShootMode == NDb::SM_Careful || ShootMode == NDb::SM_LongBurst )
 		{
-			NRPG::SUnitInfo Info;
-			pUS->GetInfo( &Info );
-			return max( Info.nAP,  GetStartAP() );
+			return max( pUS->GetAP() - nAlreadyReservedAP, GetStartAP() );
 		} 
 	}
 
@@ -1356,9 +1386,20 @@ void CExecShoot::Start()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CExecShoot::GetStartAP() const
 {
+	// Retail reserves the complete short burst; execution still pays per round.
+	return GetShootMode() == NDb::SM_ShortBurst ? GetShortBurstAP() : GetFirstShotAP();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+int CExecShoot::GetShortBurstAP() const
+{
+	return GetFirstShotAP() + max( 0, GetShortBurstLength() - 1 ) * pUS->GetActionAP( NRPG::AC_BURST );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+int CExecShoot::GetFirstShotAP() const
+{
 	if ( IsAccidental() )
 		return 0;
-	if ( pUS->animator.IsAiming() )
+	if ( pUS->animator.IsAiming() && pUS->IsTemporaryAimed() )
 		return pUS->GetActionAP( NRPG::AC_SHOOT ) + nExtraAP;
 	else
 		return pUS->GetActionAP( NRPG::AC_PREPARE_AND_SHOOT ) + nExtraAP;
@@ -1582,17 +1623,14 @@ void CExecShoot::SelectPointRay()
 		CPtr<CWorld> pWorld = pUS->GetWorld();
 		// Retail RealCalcTileCovers uses the left-hand origin on odd-numbered bullets.
 		CObj<NRPG::CCoverInfo> pCover = pWorld->GetGame()->CalcCoversForTile( pUS->GetAttackOrigin( pUS->GetPosition(), ( nBulletGone & 1 ) != 0 ),
-			attack, pUS, ptAnimTarget, pUS->GetMinClearDistance() );
+			attack, pUS, ptAnimTarget, pUS->GetMinClearDistance(), 0x8210 );
 		float fHit = NRPG::CheckTileToHit( pUS, ptAnimTarget,
 			GetExtraAP(), NAI::THL_LOWER, pCover, pWorld->IsFirstTurn(), &nTmpToHit, nBulletGone );   // retail: no eHL member, tile always THL_LOWER; the exec's burst cursor is the bullet index
-		CRay r;
-		NRPG::PeekRay( pCover, &r, fHit, &bTmpMissed );
-		// retail @0x3a4720 tail (NRPG::AttackPointRanged @0x2b62b0): the solver rebuilds the FULL
-		// SAttackRayInfo carrier (12-arg ctor @0x291330 semantics) and stores it in the member.
-		rayInfo = NRPG::SAttackRayInfo( attack, r.ptOrigin, r.ptDir, pUS, pUS->GetPosition(),
-			nBulletGone, GetExtraAP(), !bTmpMissed, pUS->GetMinClearDistance(), 30.0f, 0 );
-		rayInfo.bFirstTurn = pWorld->IsFirstTurn();
-		rayInfo.pIgnore = pUS;   // retail: the shooter's own hull is the in-flight ignore object
+		rayInfo = NRPG::SAttackRayInfo( attack, CVec3(0,0,0), CVec3(0,0,0), pUS, pUS->GetPosition(),
+			nBulletGone, GetExtraAP(), false, pUS->GetMinClearDistance(), 30.0f, 0 );
+		rayInfo.pIgnore = const_cast<CObjectBase*>( pUS->GetAttackIgnore() );
+		NRPG::PrepareAttackRay( pWorld->GetAIMap(), pCover, &rayInfo, fHit );
+		bTmpMissed = !rayInfo.bTargetIsHit;
 		bMissed &= bTmpMissed;
 		nToHit = max( nToHit, nTmpToHit );
 	}
@@ -1644,18 +1682,16 @@ void CExecShootObject::SelectRay()
 	attack = portions[0];
 	CObj<NRPG::CCoverInfo> pCover = pWorld->GetGame()->CalcCovers(
 		pUS->GetAttackOrigin( pUS->GetPosition(), (nBulletGone & 1) != 0 ),
-		attack, pUS, pTarget, -1, pUS->GetMinClearDistance() );
+		attack, pUS, pTarget, -1, pUS->GetMinClearDistance(), false, 0x8210 );
 	int nTmpToHit;
 	// AttackObjectRanged uses tile accuracy for non-units, but object hull cover.
 	float fHit = NRPG::CheckTileToHit( pUS, ptTarget, GetExtraAP(), NAI::THL_LOWER,
 		pCover, pWorld->IsFirstTurn(), &nTmpToHit, nBulletGone );
-	CRay ray;
-	bool missed;
-	NRPG::PeekRay( pCover, &ray, fHit, &missed );
-	rayInfo = NRPG::SAttackRayInfo( attack, ray.ptOrigin, ray.ptDir, pUS, pUS->GetPosition(),
-		nBulletGone, GetExtraAP(), !missed, pUS->GetMinClearDistance(), 30.0f, pTarget.GetPtr() );
-	rayInfo.bFirstTurn = pWorld->IsFirstTurn();
+	rayInfo = NRPG::SAttackRayInfo( attack, CVec3(0,0,0), CVec3(0,0,0), pUS, pUS->GetPosition(),
+		nBulletGone, GetExtraAP(), false, pUS->GetMinClearDistance(), 30.0f, pTarget.GetPtr() );
 	rayInfo.pIgnore = const_cast<CObjectBase*>( pUS->GetAttackIgnore() );
+	NRPG::PrepareAttackRay( pWorld->GetAIMap(), pCover, &rayInfo, fHit );
+	bool missed = !rayInfo.bTargetIsHit;
 	bMissed &= missed;
 	nToHit = max( nToHit, nTmpToHit );
 }
@@ -1738,17 +1774,16 @@ void CExecShootUnit::SelectRay() // false, when it is the last shot
 		bool bTmpMissed;
 		CPtr<CWorld> pWorld = pUS->GetWorld();
 		vector<int> accessibleHLs;
+		// Original Steam 0x7a54c7/0x7a54cd: eHL+0x128 -> attack+0x30+0x3c.
+		attack.eWantedHL = eHL;
 		// Retail RealCalcCovers applies the same alternating origin to unit shots.
-		CObj<NRPG::CCoverInfo> pCover = pWorld->GetGame()->CalcCovers( pUS->GetAttackOrigin( pUS->GetPosition(), ( nBulletGone & 1 ) != 0 ), attack, pUS, pTarget, eHL, pUS->GetMinClearDistance() );
+		CObj<NRPG::CCoverInfo> pCover = pWorld->GetGame()->CalcCovers( pUS->GetAttackOrigin( pUS->GetPosition(), ( nBulletGone & 1 ) != 0 ), attack, pUS, pTarget, eHL, pUS->GetMinClearDistance(), false, 0x8210 );
 		float fHit = NRPG::CheckToHit( pUS, pTarget, GetExtraAP(), eHL, accessibleHLs, pCover, pWorld->IsFirstTurn(), &nTmpToHit, nBulletGone );
-		CRay r;
-		NRPG::PeekRay( pCover, &r, fHit, &bTmpMissed );
-		// retail @0x3a49b0 tail (NRPG::AttackObjectRanged @0x2b6560): rebuild the full SAttackRayInfo
-		// carrier (12-arg ctor @0x291330 semantics; pTarget rides the trailing ctor arg).
-		rayInfo = NRPG::SAttackRayInfo( attack, r.ptOrigin, r.ptDir, pUS, pUS->GetPosition(),
-			nBulletGone, GetExtraAP(), !bTmpMissed, pUS->GetMinClearDistance(), 30.0f, pTarget.GetPtr() );
-		rayInfo.bFirstTurn = pWorld->IsFirstTurn();
-		rayInfo.pIgnore = pUS;   // retail: the shooter's own hull is the in-flight ignore object
+		rayInfo = NRPG::SAttackRayInfo( attack, CVec3(0,0,0), CVec3(0,0,0), pUS, pUS->GetPosition(),
+			nBulletGone, GetExtraAP(), false, pUS->GetMinClearDistance(), 30.0f, pTarget.GetPtr() );
+		rayInfo.pIgnore = const_cast<CObjectBase*>( pUS->GetAttackIgnore() );
+		NRPG::PrepareAttackRay( pWorld->GetAIMap(), pCover, &rayInfo, fHit );
+		bTmpMissed = !rayInfo.bTargetIsHit;
 		bMissed &= bTmpMissed;
 		nToHit = max( nToHit, nTmpToHit );
 	}
@@ -1849,16 +1884,21 @@ void CExecMelee::Start()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecMelee::PerformAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, float fHit )
 {
+	PerformFilteredAttack( attack, ray, 0 );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CExecMelee::PerformFilteredAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, CObjectBase *pFilter )
+{
 	vector<NRPG::IAttackable*> ignores;
+	// Original Gold 0x79956b / Steam 0x7a59cb always inserts the canonical unit.
+	ignores.push_back( pUS );
 	CCannon *pCannon = pUS->animator.GetCannon();
 	if ( pCannon )
 		ignores.push_back( pCannon );
-	else
-		ignores.push_back( pUS );
 
 	for ( vector<NRPG::CAttackPortion>::const_iterator i = attack.begin(); i != attack.end(); ++i )
 	{
-		pUS->GetWorld()->GetGame()->ProcessMeleeAttackPortion( *i, ray, ignores );
+		NRPG::PerformMeleeAttackPortion( pUS->GetWorld(), pUS->GetWorld()->GetAIMap(), *i, ray, ignores, pFilter );
 	}
 
 	if ( !attack.empty() )
@@ -1897,6 +1937,61 @@ void CExecMeleeTile::OnLabel()
 	// It suppresses CExecAttack::TimeLabelReached's burst-reset branch
 	// (`if(!bRes && !bAttackCanceled) StartAttack()`): without it a completed
 	// melee-tile swing re-triggers StartAttack(), a behavioral divergence.
+	bAttackCanceled = true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// CExecMeleeObject: Steam OnLabel 0x7aa200, saved base1/target2 at0x7b1960.
+////////////////////////////////////////////////////////////////////////////////////////////////////
+CExecMeleeObject::CExecMeleeObject( CUnitServer *_pUS, const CVec3 &_ptTarget, int _nExtraAP ):
+	CExecMelee( _pUS, _nExtraAP ), pTarget( 0 )
+{
+	// Steam's producer passes a null target. Keep our existing deterministic
+	// hull-center input instead of introducing its unchecked null lookup.
+	ptTarget = _ptTarget;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CExecMeleeObject::PerformAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, float fHit )
+{
+	// Original virtual48 takes the saved target as its third pointer argument.
+	// Keep the remaster's vector/float API and supply it to the existing native core.
+	PerformFilteredAttack( attack, ray, pTarget.GetPtr() );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CExecMeleeObject::OnLabel()
+{
+	CWorld *pWorld = pUS->GetWorld();
+	csRPG << CC_WHITE << "Melee " << pUS->GetUnitRPG()->GetName() << "\n{\n";
+	vector<NRPG::CAttackPortion> attack;
+	if ( CreateAttack( &attack, 0 ) && !attack.empty() )
+	{
+		CVec3 ptCurrent;
+		NAI::IAIMap *pMap = pWorld->GetAIMap();
+		const bool bObject = IsValid( pTarget ) && pMap->GetUnitHLPos( &ptCurrent, pMap->GetHull( pTarget ), -1 );
+		const CVec3 &ptAim = bObject ? ptCurrent : ptTarget;
+		CVec3 ptAttackPos = NRPG::GetMeleeAttackPos( pUS, ptAim );
+		CObj<NRPG::CCoverInfo> pCover = bObject
+			? pWorld->GetGame()->CalcCovers( ptAttackPos, attack[0], pUS, pTarget, -1, 0 )
+			: pWorld->GetGame()->CalcCoversForTile( ptAttackPos, attack[0], pUS, ptTarget, 0 );
+		int nToHit;
+		float fHit;
+		CDynamicCast<CUnitServer> pUnitTarget( pTarget );
+		if ( bObject && IsValid( pUnitTarget ) )
+		{
+			// The original object label supplies default HL_ANY/empty locations,
+			// independently of CExecMeleeUnit's saved called-shot selection.
+			NRPG::STargetHLInfo info;
+			fHit = NRPG::CheckToHit( pUS, pUnitTarget, GetExtraAP(), info.eHL,
+				info.accessibleHLs, pCover, pWorld->IsFirstTurn(), &nToHit );
+		}
+		else
+			fHit = NRPG::CheckTileToHit( pUS, ptAim, GetExtraAP(), NAI::THL_LOWER,
+				pCover, pWorld->IsFirstTurn(), &nToHit );
+		CRay ray;
+		bool bMissed;
+		if ( NRPG::PeekRay( pCover, &ray, fHit, &bMissed ) && !bMissed )
+			PerformAttack( attack, ray );
+	}
+	csRPG << "}\n";
 	bAttackCanceled = true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1953,6 +2048,13 @@ void CExecMeleeUnit::Start()
 	CExecMelee::Start();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Original Steam 0x7aa105..0x7aa136 supplies pTarget to the native filter.
+// Keep the existing float API and virtual slot; select the filter from this executor.
+void CExecMeleeUnit::PerformAttack( const vector<NRPG::CAttackPortion> &attack, const CRay &ray, float fHit )
+{
+	PerformFilteredAttack( attack, ray, pTarget.GetPtr() );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecMeleeUnit::OnLabel()
 {
 	NRPG::IUnitMission *pRPG = pUS->GetUnitRPG();
@@ -1967,6 +2069,8 @@ void CExecMeleeUnit::OnLabel()
 	ASSERT( bComplete );
 	if ( !attack.empty() )
 	{
+		// Original Steam 0x7aa033/0x7aa03f keeps hlInfo on the damage portion.
+		attack.front().eWantedHL = hlInfo.eHL;
 		// retail @0x3a94c0 hands &hlInfo (as resolved by Start's SelectTargetHLs and SERIALIZED with
 		// the executor) into NRPG::AttackObjectRanged @0x2b6560, whose unit branch feeds hlInfo.eHL +
 		// hlInfo.accessibleHLs into the to-hit -- the Jan03 bIsHitLocationShot branch and the
@@ -1981,7 +2085,8 @@ void CExecMeleeUnit::OnLabel()
 			GetExtraAP(), hlInfo.eHL, hlInfo.accessibleHLs, pCover, pWorld->IsFirstTurn(), &nToHit );
 		CRay ray;
 		bool bIsMiss;
-		if ( NRPG::PeekRay( pCover, &ray, fHit, &bIsMiss ) )
+		// Original Steam 0x7aa0f8..0x7aa164: only !miss dispatches the strike and success event.
+		if ( NRPG::PeekRay( pCover, &ray, fHit, &bIsMiss ) && !bIsMiss )
 		{
 			PerformAttack( attack, ray, fHit );
 			//PerformAttack( attack, ray, bIsMiss, fHit );
@@ -2013,7 +2118,7 @@ CPtr<NRPG::CGrenadeToHitCalcer> CExecThrowGrenade::CreateToHitCalcer( NRPG::IGre
 	const NAI::SUnitPosition &position = pUS->GetPosition();
 	int nDistance = fabs( ptTarget - position.GetCP() ) / FP_GRID_STEP;
 	return new NRPG::CGrenadeToHitCalcer( pUS, position.GetPose(), nDistance, position.GetCP(),
-		pUS->GetWorld()->IsFirstTurn(), false, CVec3(1,1,1), ptTarget, pItem );
+		pUS->GetUnitRPG()->IsFirstTurn(), pUS->GetWorld()->GetGame()->IsNight(), CVec3(1,1,1), ptTarget, pItem );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 EUnitCommandResult CExecThrowGrenade::CanDoIt( const NAI::SUnitPosition &from, bool bIgnoreTarget ) const
@@ -2066,12 +2171,14 @@ void CExecThrowGrenade::CheckToHitAndDelay( NRPG::IGrenadeItem *pGrenade )
 	grenadeParams.fT = Clamp( grenadeParams.fT, 0.f, float(nMaxDelay) );
 	grenadeParams.fT = nMaxDelay - grenadeParams.fT;
 	csRPG << " True delay: " << grenadeParams.fT;
-	nRandom = AttackExecRandom().Get(100);
-	if ( nRandom >= 99 || nRandom >= pToHitCalcer->GetSkill() )
+	if ( !pUS->GetUnitRPG()->HasPerk( 0x5a ) )
 	{
-		// change the delay time
-		grenadeParams.fT *= AttackExecRandom().GetFloat( 0.5f, 2.f );
-		grenadeParams.fT = Clamp( grenadeParams.fT, 0.f, float(nMaxDelay) * 0.75f );
+		nRandom = AttackExecRandom().Get(100);
+		if ( nRandom >= 99 || nRandom >= pUS->GetUnitRPG()->GetWeaponSkill( pGrenade, 0, 0 ) )
+		{
+			grenadeParams.fT *= AttackExecRandom().GetFloat( 0.5f, 2.f );
+			grenadeParams.fT = Clamp( grenadeParams.fT, 0.f, float(nMaxDelay) * 0.75f );
+		}
 	}
 	csRPG << " Used delay: " << grenadeParams.fT << endl;
 }
@@ -2087,7 +2194,7 @@ void CExecThrowGrenade::ThrowGrenade()
 		return;
 
 	CPtr<NRPG::CGrenadeToHitCalcer> pToHitCalcer = CreateToHitCalcer( pGrenade );
-	if ( !FindGrenadeParams( pUS->GetWorld(), pUS->GetPosition(), ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &grenadeParams ) )
+	if ( !FindGrenadeParams( pUS, pUS->GetPosition(), ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &grenadeParams ) )
 		return;
 	CheckToHitAndDelay( pGrenade );
 
@@ -2102,9 +2209,12 @@ void CExecThrowGrenade::ThrowGrenade()
 
 	// retail @0x764140: BOTH records go to the world -- CWorld::ThrowGrenade dispatches an
 	// engineer grenade (null regular record) to the contact-fused eng grenade server.
-	pUS->GetWorld()->ThrowGrenade( grenadeParams.ptStart, grenadeParams.vel,
+	CObjectBase *pBullet = pUS->GetWorld()->ThrowGrenade( grenadeParams.ptStart, grenadeParams.vel,
 		pUS->animator.GetTimeLabel1(), grenadeParams.fT, item.pModel,
 		pGrenade->GetDBGrenade(), pUS, pGrenade->GetDBEngGrenade() );
+	NRPG::IUnitMissionForMedals *pMedals = dynamic_cast<NRPG::IUnitMissionForMedals*>( pRPG );
+	if ( pMedals )
+		pMedals->AddWaitForBullet( pBullet );
 	pUS->Update();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2116,7 +2226,7 @@ void CExecThrowGrenade::Run()
 	ASSERT( pUS->CanSpendAP( GetStartAP() ) );
 
 	CPtr<NRPG::CGrenadeToHitCalcer> pToHitCalcer = CreateToHitCalcer( pGrenade );
-	if ( !FindGrenadeParams( pUS->GetWorld(), pUS->GetPosition(), ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &grenadeParams ) )
+	if ( !FindGrenadeParams( pUS, pUS->GetPosition(), ptTarget, pToHitCalcer->GetMaxGrenadeVelocity(), &grenadeParams ) )
 	{
 		Failed();
 		return;
@@ -2126,6 +2236,11 @@ void CExecThrowGrenade::Run()
 	const NAI::SUnitPosition position = pUS->GetPosition();
 	// (Jan03 StartAttack() burst-cursor reset dropped -- the mission cursor is gone in retail)
 	//
+	if ( pUS->IsHiding() )
+	{
+		pUS->Hide( false, false );
+		bUpdateVision = true;
+	}
 	pUS->DoAction( NRPG::AC_THROW_GRENADE );
 	pUS->animator.ThrowGrenade( position, grenadeParams.ptOriginalTarget, grenadeParams.nSide );
 	StartAction( pUS->GetWorld(), NORMAL );
@@ -2156,6 +2271,9 @@ void CExecThrowGrenade::AnimationFinished()
 	pUS->Update();
 	if ( IsActiveItemToShow( pInventory ) )
 		pUS->animator.SetWeaponAnimation( pUS->GetUnitRPG()->GetWeaponType() );
+	NRPG::IUnitMissionForMedals *pMedals = dynamic_cast<NRPG::IUnitMissionForMedals*>( pUS->GetUnitRPG() );
+	if ( pMedals )
+		pMedals->FinishAttackSession();
 	if ( bUpdateVision )
 		pUS->GetWorld()->UpdateVisible( false );
 	Finished();
@@ -2251,8 +2369,11 @@ void CExecLaunchRocket::LaunchRocket( )
 	STime tThrow = pUS->animator.GetTimeLabel1();
 	if ( IsAccidental() )
 		tThrow = pUS->GetWorld()->GetTime()->GetValue();
-	pUS->GetWorld()->LaunchRocket( r.ptOrigin, speed, tThrow,
+	CObjectBase *pBullet = pUS->GetWorld()->LaunchRocket( r.ptOrigin, speed, tThrow,
 		pToHitCalcer->GetMaxDistance() * FP_GRID_STEP, pModel, attack.front(), pRocket, pUS, pEffect );
+	NRPG::IUnitMissionForMedals *pMedals = dynamic_cast<NRPG::IUnitMissionForMedals*>( pUS->GetUnitRPG() );
+	if ( pMedals )
+		pMedals->AddWaitForBullet( pBullet );
 	pUS->Update();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2362,21 +2483,32 @@ bool CExecPanzerklein::TimeLabelReached()
 		CUnitServer *pPK = pUS->GetWearingPK();
 		CVec3 ptPos = pUS->GetPosition().GetCP();
 		float fAngle = pUS->GetPosition().GetDirection();
-		pUS->GetWorld()->GetPathNetwork()->Unlock( pUS );
-		pUS->FlipPanzerklein( 0 );
+		NAI::IPathNetwork *pNetwork = pUS->GetWorld()->GetPathNetwork();
+		pNetwork->Unlock( pUS );
 
-		// @0x3a59d0 -- retail ADDS the 1.45f back-off offset (fadd @0x7a5a89/0x7a5a97; 0x3fb9999a==1.45f);
-	// Jan03 SUBTRACTED. The decomp is authoritative -> drop the PK 1.45m FORWARD along the facing
-	// direction, not behind. (cp + 1.45*(cos a, sin a, 0).)
-	CVec3 ptPKPos( ptPos.x + 1.45f * cos(fAngle), ptPos.y + 1.45f * sin(fAngle), ptPos.z );
-		NAI::SPosition pos = NAI::GetNearestPosition( ptPKPos, pPK->GetWorld()->GetPathNetwork(), true, ptPos + CVec3( 0, 0, 1.0f ) );
-		NAI::SUnitPosition posPK;
-		posPK.pos = pos;
+		// Actual Steam 0x7a6529..0x7a66b7: validate the pilot's exit before detaching.
+		CVec3 ptExit( ptPos.x + 1.45f * cos(fAngle), ptPos.y + 1.45f * sin(fAngle), ptPos.z );
+		NAI::SUnitPosition posExit = pUS->GetPosition();
+		posExit.pos = NAI::GetNearestPosition( ptExit, pPK->GetWorld()->GetPathNetwork(), true, ptPos + CVec3( 0, 0, 1.0f ) );
+		posExit.SetPose( pUS->GetPosition().GetPose() );
+		posExit.pos.p.SetDirection( pUS->GetPosition().GetDir() );
+		if ( pNetwork->GetPassability( posExit.pos.p ) != NAI::AIP_YES )
+		{
+			Failed();
+			return false;
+		}
+
+		pUS->FlipPanzerklein( 0 );
+		NAI::SUnitPosition posPK = pUS->GetPosition();
 		posPK.SetPose( NAI::CRAWL );
 		posPK.pos.p.SetDirection( pUS->GetPosition().GetDir() );
 		posPK.bRun = false;
-		pPK->SetPosition( posPK );
+		// Actual Steam 0x7a6734..0x7a676a: park the shell and re-seat both animators.
 		pPK->WearAsPK( false );
+		pPK->SetPosition( posPK );
+		pPK->animator.PlaceUnit( posPK );
+		pUS->SetPosition( posExit );
+		pUS->animator.PlaceUnit( posExit );
 	}
 	else
 	{
@@ -2632,23 +2764,23 @@ bool CExecCorpse::TimeLabelReached()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecCorpse::Cancel()
 {
-	// @0x3a6610 -- reversal now gated on !bCorpseInPK; CalmCorpse dropped (retail
-	// dropped it); StopAction() reordered ahead of AlignTime/PlaceUnit.
-	// NOTE: retail gates each SetState on GetStateType()==8 (corpse-carrier state-
-	// machine id); a5dll has no GetStateType -> kept unconditional SetState (FLAGGED).
+	// Original Gold79ac30 / Steam7a70e0: replace the unit state only
+	// when cancellation changes its corpse-carrying mode.
 	if ( !bCorpseInPK )
 	{
 		if ( bTake )
 		{
 			pUS->animator.DropCorpse( pUS->GetPosition() );
 			pDeadUnit->animator.BeDropped( pDeadUnit );
-			pUS->SetState( new CUnitStateNormal( pUS ) );
+			if ( pUS->GetState() == CUnit::ST_CARRY_CORPSE )
+				pUS->SetState( new CUnitStateNormal( pUS ) );
 		}
 		else
 		{
 			pUS->animator.TakeCorpse( pUS->GetPosition() );
 			pDeadUnit->animator.BeTaken( pUS, &pUS->animator, pDeadUnit );
-			pUS->SetState( new CUnitStateCorpseCarrier( pUS, pDeadUnit ) );
+			if ( pUS->GetState() != CUnit::ST_CARRY_CORPSE )
+				pUS->SetState( new CUnitStateCorpseCarrier( pUS, pDeadUnit ) );
 		}
 	}
 
@@ -3355,17 +3487,15 @@ CExecThrowKnife::CExecThrowKnife( CUnitServer *_pUS, const CVec3 &_ptTarget, CUn
 {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// @0x3a7470 -- targeted-unit ctor (RETAIL ADDITION; Jan03 had only the point ctor). Records eHL and
-// derives the aim point from the target unit's hit location instead of taking an explicit ptTarget.
-// The exact retail aim helper (pUS->GetWorld()->...->vtbl[0x28](&ptTarget, pTarget->ObjBase, eHL)) is
-// not mapped in-tree; reproduced with the proven AIMap hit-location idiom (cf. CExecShootUnit ctor).
+// Unit-target constructor: retain the selected actor and requested hit location.
+// Use this fork's existing native AI-map aim query, including HL_ANY.
 CExecThrowKnife::CExecThrowKnife( CUnitServer *_pUS, NAI::EHitLocation _eHL, CUnitServer *_pTarget ):
 	CExecAttack(_pUS), pTarget(_pTarget), eHL(_eHL)
 {
 	if ( IsValid( pTarget ) )
 	{
-		NAI::EHitLocation eHitLoc = ( eHL == NAI::HL_ANY ) ? NAI::HL_BODY : eHL;
-		pUS->GetWorld()->GetAIMap()->GetUnitHLPos( &ptTarget, pUS->GetWorld()->GetAIMap()->GetHull( pTarget ), eHitLoc );
+		// HL_ANY is the native hull center, not an implicit body shot.
+		pUS->GetWorld()->GetAIMap()->GetUnitHLPos( &ptTarget, pUS->GetWorld()->GetAIMap()->GetHull( pTarget ), eHL );
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -3416,7 +3546,7 @@ void CExecThrowKnife::OnLabel()
 	// bullet index, so nothing replaces the old NextBullet() advance here)
 	ThrowKnife();
 	// @0x3ab700 -- retail marks the attack canceled after the throw label fires so CExecAttack::TimeLabelReached
-	// finishes the executor for this one-shot throw (the decomp writes [esi+0x18]=1). Jan03 omitted this.
+	// closes the attack session (writes [esi+0x18]=1); AnimationFinished finishes the executor.
 	if ( !IsValid( pUS->GetWearingDBPK() ) )
 		pUS->GetWorld()->MakeSound( pUS->GetPosition().GetCP(), NDb::GetSound( 0x3285 ) );
 	bAttackCanceled = true;
@@ -3431,9 +3561,45 @@ void CExecThrowKnife::ThrowKnife()
 	if ( !IsValid( pMelee ) )
 		return;
 	vector<NRPG::CAttackPortion> attack;
-	CreateAttack( &attack, 0, false );
+	// Original Gold 0x79e3f7 / Steam 0x7aa9df forwards selected target28.
+	CreateAttack( &attack, pTarget, false );
 	if ( attack.empty() )
 		return;
+	// Original Steam 0x7aaa02/0x7aaa0c: requested eHL30 -> portion3c.
+	attack.front().eWantedHL = eHL;
+	CWorld *pWorld = pUS->GetWorld();
+	NRPG::SAttackRayInfo rayInfo( attack.front(), VNULL3, VNULL3, pUS, pUS->GetPosition(),
+		0, 0, false, pUS->GetMinClearDistance(), 30.f, IsValid(pTarget) ? pTarget.GetBarePtr() : 0 );
+	rayInfo.pIgnore = const_cast<CObjectBase*>( pUS->GetAttackIgnore() );
+	int nToHit;
+	float fHit;
+	CObj<NRPG::CCoverInfo> pCover;
+	// Select the physical ray while the actual blade is still equipped.
+	if ( IsValid( pTarget ) )
+	{
+		vector<int> accessibleHLs;
+		pCover = pWorld->GetGame()->CalcCovers( pUS->GetAttackOrigin( pUS->GetPosition() ),
+			attack.front(), pUS, pTarget, eHL, pUS->GetMinClearDistance(), false, 0x8210 );
+		fHit = NRPG::CheckToHit( pUS, pTarget, 0, eHL, accessibleHLs, pCover,
+			pWorld->IsFirstTurn(), &nToHit, 0 );
+	}
+	else
+	{
+		pCover = pWorld->GetGame()->CalcCoversForTile( pUS->GetAttackOrigin( pUS->GetPosition() ),
+			attack.front(), pUS, ptTarget, pUS->GetMinClearDistance(), 0x8210 );
+		fHit = NRPG::CheckTileToHit( pUS, ptTarget, 0, NAI::THL_LOWER, pCover,
+			pWorld->IsFirstTurn(), &nToHit, 0 );
+	}
+	NRPG::PrepareAttackRay( pWorld->GetAIMap(), pCover, &rayInfo, fHit );
+	int nDistance = fabs( ptTarget - pUS->GetPosition().GetCP() ) / FP_GRID_STEP;
+	CPtr<NRPG::CThrowKnifeToHitCalcer> pPhysics =
+		new NRPG::CThrowKnifeToHitCalcer( pUS, pUS->GetPosition().GetPose(),
+			nDistance, pUS->GetPosition().GetCP(), 100.f, pWorld->IsFirstTurn(), false, CVec3(1,1,1), 0, false );
+	pPhysics->pMeleeWeapon = pMelee;
+	// Keep the validated integer range and wide 1.5 launch-speed calculation.
+	float fMaxDist = pPhysics->GetKnifeMaxDistance();
+	float fSpeed = pPhysics->GetKnifeLaunchSpeed();
+	STime tThrow = pUS->animator.GetTimeLabel1();
 	pUS->TearOffItem( &item, (NDb::ESlot)pInventory->GetActiveSlot(), &pNextSameItem );
 	if ( IsValid( pNextSameItem ) )
 	{
@@ -3444,43 +3610,10 @@ void CExecThrowKnife::ThrowKnife()
 	if ( IsActiveItemToShow( pInventory ) )
 		pUS->animator.SetWeaponAnimation( pRPG->GetWeaponType() );
 
-	int nToHit;
-	int nDistance = fabs( ptTarget - pUS->GetPosition().GetCP() ) / FP_GRID_STEP;
-	float fMaxDist;
-	if ( pTarget )
-	{
-		CPtr<NRPG::CThrowKnifeToHitCalcer> pToHitCalcer =
-			new NRPG::CThrowKnifeToHitCalcer( pUS, pUS->GetPosition().GetPose(),
-			nDistance, pUS->GetPosition().GetCP(), 100.f, pUS->GetWorld()->IsFirstTurn(), false, CVec3(1,1,1), 0, false );
-		nToHit = pToHitCalcer->GetToHit();
-		pToHitCalcer->Log();
-		fMaxDist = pToHitCalcer->GetKnifeMaxDistance() * FP_GRID_STEP;
-	}
-	else
-	{
-		CPtr<NRPG::CThrowKnifeTileToHitCalcer> pToHitCalcer =
-			new NRPG::CThrowKnifeTileToHitCalcer( pUS, pUS->GetPosition().GetPose(),
-			nDistance, pUS->GetPosition().GetCP(), 100.f, pUS->GetWorld()->IsFirstTurn(), false, CVec3(1,1,1), ptTarget, 0 );
-		nToHit = pToHitCalcer->GetToHit();
-		pToHitCalcer->Log();
-		fMaxDist = pToHitCalcer->GetKnifeMaxDistance() * FP_GRID_STEP;
-	}
-
-	float fSpeed = 5.f;
-	CVec3 speed = ptTarget - item.ptCenter;
-	Normalize(&speed);
-	speed *= fSpeed;
-	if ( AttackExecRandom().Get( 1, 100 ) > nToHit )
-	{
-		// we miss
-		// find where the knife will actually fly
-		float fD = 0.15f * fabs( fSpeed );
-		speed.x += AttackExecRandom().GetFloat( -fD, +fD );
-		speed.y += AttackExecRandom().GetFloat( -fD, +fD );
-		speed.z += AttackExecRandom().GetFloat( -fD, +fD );
-	}
-	pUS->GetWorld()->ThrowKnife( item.ptCenter, speed, 
-		pUS->animator.GetTimeLabel1(), fMaxDist, item.pModel, attack.front(), item.pItem, pUS ); 
+	CObjectBase *pBullet = pWorld->ThrowKnife( rayInfo, fSpeed, tThrow, fMaxDist, item.pModel, item.pItem );
+	NRPG::IUnitMissionForMedals *pMedals = dynamic_cast<NRPG::IUnitMissionForMedals*>( pRPG );
+	if ( pMedals )
+		pMedals->AddWaitForBullet( pBullet );
 	pUS->Update();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -3840,6 +3973,55 @@ void CExecPlayAnimation::Cancel()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecTalk
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+int CExecSwap::GetStartAP() const
+{
+	return pUS->GetActionAP( NRPG::AC_SWAP );
+}
+EUnitCommandResult CExecSwap::CanDoIt( const NAI::SUnitPosition &from, bool bIgnoreTarget )
+{
+	if ( !IsValid( pUS ) || !IsValid( pUS->GetWorld() ) || pUS->GetWorld()->IsBase() )
+		return UCR_GENERAL_FAILURE;
+	// The interpreted pose maps CM_INACTIVE to crouch; retain the raw transition guard.
+	if ( from.pos.p.GetPose() == NAI::CM_INACTIVE )
+		return UCR_UNAVAILABLE;
+	if ( !bIgnoreTarget )
+	{
+		if ( !IsValid( pTarget ) )
+			return UCR_NO_TARGET;
+		const NAI::SUnitPosition &to = pTarget->GetPosition();
+		if ( to.pos.p.GetPose() == NAI::CM_INACTIVE )
+			return UCR_UNAVAILABLE;
+		if ( from.GetPose() == NAI::CRAWL || to.GetPose() == NAI::CRAWL )
+			return UCR_TARGET_OUT_OF_RANGE;
+		NAI::ETransitionType type = NAI::GetTransitionType( from.pos.GetNetwork(), from.pos.p, to.pos.p );
+		if ( type != NAI::TT_MOVE && type != NAI::TT_MOVE_DIAGONAL && type != NAI::TT_INTERGRID )
+			return UCR_TARGET_OUT_OF_RANGE;
+	}
+	return UCR_OK;
+}
+void CExecSwap::Run()
+{
+	// The target may have started a transition or moved since admission.
+	if ( !IsValid( pUS ) || CanDoIt( pUS->GetPosition() ) != UCR_OK )
+	{
+		Failed();
+		return;
+	}
+	pUS->DoAction( NRPG::AC_SWAP );
+	CObj<CExecSwap> pKeepAlive = this;
+	NAI::SUnitPosition from = pUS->GetPosition(), to = pTarget->GetPosition();
+	unsigned short nDirection = from.pos.p.GetDirection();
+	from.pos.p.SetDirection( to.pos.p.GetDirection() );
+	to.pos.p.SetDirection( nDirection );
+	pUS->animator.PlaceUnit( to );
+	pUS->SetPosition( to );
+	pUS->Update();
+	pTarget->animator.PlaceUnit( from );
+	pTarget->SetPosition( from );
+	pTarget->Update();
+	Finished();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 CExecTalk::CExecTalk( CUnitServer *_pUS, CUnitServer *_pTarget ):
 	CCommandExecute( _pUS ), pTarget( _pTarget )
 {
@@ -3892,6 +4074,7 @@ REGISTER_SAVELOAD_CLASS( 0x00222190, CExecThrowGrenade )
 REGISTER_SAVELOAD_CLASS( 0x00422170, CExecShootUnit )
 REGISTER_SAVELOAD_CLASS( 0x00422171, CExecMeleeTile )
 REGISTER_SAVELOAD_CLASS( 0x00422172, CExecMeleeUnit )
+REGISTER_SAVELOAD_CLASS( 0x01353130, CExecMeleeObject )
 REGISTER_SAVELOAD_CLASS( 0x10422130, CExecOpenClose )
 REGISTER_SAVELOAD_CLASS( 0x00422110, CExecCorpse )
 REGISTER_SAVELOAD_CLASS( 0x00622140, CExecHeal )
@@ -3904,6 +4087,7 @@ REGISTER_SAVELOAD_CLASS( 0x51892150, CExecUsePassage )
 REGISTER_SAVELOAD_CLASS( 0x52492170, CExecTakeCorpseOnDeploy )
 REGISTER_SAVELOAD_CLASS( 0x50112152, CExecPlayAnimation )
 REGISTER_SAVELOAD_CLASS( 0x51922130, CExecTalk )
+REGISTER_SAVELOAD_CLASS( 0x71983146, CExecSwap )
 // retail saveload ids (serialization-convergence W1; s2_scratch docs/SERIALIZATION_CONVERGENCE.md)
 REGISTER_SAVELOAD_CLASS( 0x71983141, CExecPanzerklein )
 REGISTER_SAVELOAD_CLASS( 0x71983142, CExecSetTrap )

@@ -93,7 +93,6 @@ private:
 	}
 
 	void UpdateChapterDifficulty();
-	void InitializeWorld();
 	void ProcessWorldCommands();
 
 protected:
@@ -160,29 +159,6 @@ void CChapterMap::UpdateChapterDifficulty()
 			nDifficulty = Float2Int( float( nDifficulty ) / nZoneCount );
 	}
 	pGlobalGame->nCurrentChapterDifficulty = nDifficulty;
-}
-////////////////////////////////////////////////////////////////////////////////////////////////////
-void CChapterMap::InitializeWorld()
-{
-	pWorld = NWorld::CreateWorld( pGlobalGame );
-	pWorld->CreateDefault();
-	playersSet.resize( pGlobalGame->players.size() );
-	for ( int nPlayer = 0; nPlayer < pGlobalGame->players.size(); ++nPlayer )
-	{
-		WCHAR wsName[32];
-		swprintf( wsName, sizeof(wsName) / sizeof(wsName[0]), L"Player %d", nPlayer );
-		playersSet[nPlayer] = new CPlayerTracker( this, pGlobalGame->players[nPlayer], wsName );
-	}
-	pActivePlayer = playersSet.front();
-	CommandState( new CStateEmpty );
-	pScene = NGScene::CreateNewView();
-	pSoundScene = NSound::CreateSoundScene( NDb::GetTMusic( 15 ), 0, pWorld->GetAimTime() );
-	pRender = NRender::CreateRenderGame( pWorld, pScene, pSoundScene );
-	pCamera = CreateCamera( CAMERA_PC );
-	ICamera::SCameraLimits limits;
-	limits.bMovie = true;
-	pCamera->SetLimits( limits );
-	pCamera->SetLock( true );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CChapterMap::Initialize( NRPG::CGlobalGame *_pGame )
@@ -262,7 +238,7 @@ bool CChapterMap::ProcessEvent( const NInput::SEvent &sEvent )
 	// Retail routes CMissionBase's gamemenu bind before cursor/UI events.
 	if ( bindMenu.ProcessEvent( sEvent ) )
 	{
-		NMainLoop::Command( new CICInGameMenu( pGlobalGame->players.front(), false, bCanSave ) );
+		NMainLoop::Command( new CICInGameMenu( pGlobalGame->players.front(), false, bCanSave, this ) );
 		return true;
 	}
 
@@ -296,7 +272,7 @@ void CChapterMap::ProcessWorldCommands()
 			continue;
 		// Chapter entry already completed leave-zone bookkeeping. Preserve the
 		// remaster's manual map-entry path and its chapter loading background.
-		if ( ExecWorldBeginZoneCommand( pCmd, false, pChapterMap->pPWLImage ) || ExecWorldSoundCommand( pCmd ) )
+		if ( ExecWorldBeginZoneCommand( pCmd, false, pChapterMap->pPWLImage ) || ExecWorldCommonCommand( pCmd ) )
 			continue;
 		if ( CDynamicCast<NWorld::CUICmdLoadTemplate> pLoad = pCmd )
 			NMainLoop::CommandWithAutoSave( NStr::ToAscii( NUI::GetDBString( 20243 ).c_str() ),
@@ -308,13 +284,6 @@ void CChapterMap::ProcessWorldCommands()
 		{
 			if ( pFeature->nFeature == 0 )
 				bV12WorldCmdFlag = true;
-		}
-		else if ( CDynamicCast<NWorld::CUICmdShowHint> pHint = pCmd )
-		{
-			if ( NGlobal::GetVar( "ui_showhints" ).GetFloat() == 1.0f || bTutorialMode )
-				NMainLoop::Command( new CICShowHint( this, pHint->GetID(), pHint->pHint, pGlobalGame ) );
-			else
-				DoEvent( new NWorld::CCmdInterfaceEvent( pHint->GetID() ) );
 		}
 	}
 }
@@ -335,6 +304,7 @@ void CChapterMap::Step()
 		for ( int nPlayer = 0; nPlayer < playersSet.size(); ++nPlayer )
 			playersSet[nPlayer]->Update( IsRealTime() );
 		ProcessWorldCommands();
+		UpdateWorldCameraCommand( GetGameTime() );
 		// Script channels start lazily in the native scene. Pump it before a
 		// queued modal can cover this chapter, without syncing hidden world SFX.
 		CTransformStack soundTransform;

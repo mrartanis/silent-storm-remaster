@@ -1,6 +1,7 @@
 #include "StdAfx.h"
 #include "iMain.h"
 #include "GView.h"
+#include "Transform.h"
 #include "G2DView.h"
 #include "RPGGlobal.h"
 #include "Sound.h"
@@ -10,9 +11,16 @@
 #include "iGlobalMap.h"
 #include "iCluesMenu.h"
 #include "iMission.h"
+#include "wInterface.h"
+#include "wUICommands.h"
+#include "RWGame.h"
+#include "PlayerTracker.h"
+#include "iDesktopWindow.h"
 #include "iInGameMenu.h"
 #include "Interface.h"
 #include "iGlobalMapUI.h"
+#include "iCommonUI.h"
+#include "iSpecialView.h"
 #include "..\Misc\StrProc.h"
 #include "..\MiscDll\Commands.h"
 #include "..\Misc\BasicShare.h"
@@ -23,6 +31,7 @@
 #include "scScenarioTracker.h"
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static CBasicShare<int, CGlobalInfoLoader> shareGlobalInfo(141);
+static bool bXComMode = false;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NGame
 {
@@ -43,7 +52,7 @@ private:
 	CDBPtr<NDb::CGlobalMap> pGlobalMap;
 	CDGPtr<CPtrFuncBase<CGlobalInfo> > pGlobalInfo;
 	//// interface
-	CObj<NUI::CGlobalMapUI> pGlobalMapUI;
+	CObj<NUI::CDesktopWindow> pGlobalMapUI;
 	// Retail NGame::CGlobalMap::operator& @0x1e4180: tag 1 is the COMPLETE 34-tag
 	// CMissionBase chunk. The former four-member SBaseChunk silently discarded the other 30 tags
 	// whenever a campaign was saved on the global map.
@@ -59,6 +68,7 @@ private:
 
 protected:
 	void RenderFrame( const STime &sTime );
+	void ProcessWorldCommands();
 
 public:
 	CGlobalMap();
@@ -69,6 +79,7 @@ public:
 	NDb::CGlobalMap* GetGlobalMap() const;
 	CPtrFuncBase<CGlobalInfo>* GetGlobalInfo() const;
 
+	void OnSnapshotRestored();
 	void OnGetFocus();
 	bool ProcessEvent( const NInput::SEvent &sEvent );
 	void Step();
@@ -93,19 +104,24 @@ bool CGlobalMap::Initialize( NRPG::CGlobalGame *_pGame, bool _bShowMode )
 	if ( !IsValid( pGlobalMap ) || !IsValid( pGlobalInfo ) )
 		return false;
 
+	InitializeWorld();
+
 #ifdef _MAPEDIT
 	pCursor = NUI::ICursor::CreateEditorCursor();
 #else
 	pCursor = NUI::ICursor::Create( true );
 #endif
 
-	pInterface = new NUI::CInterface( pCursor );
-	// This dev 2D map has no world clock; share the interface's clock-backed sound scene.
-	pSoundScene = pInterface->GetSound();
+	pInterface = new NUI::CInterface( pCursor, pSoundScene );
 
-	pGlobalMapUI = new NUI::CGlobalMapUI( NUI::SWindowInfo( pInterface, NUI::SPoint( 0, 0 ), NUI::SPoint( 1024, 768 ), "globalmapUI" ), this );
-	NUI::LoadTemplate( pGlobalMapUI, NDb::GetUIContainer( 175 ) );
-	pGlobalMapUI->ShowWindow( NUI::SWTYPE_SHOW );
+	if ( bXComMode )
+		pGlobalMapUI = new NUI::CXComMapUI( NUI::SWindowInfo( pInterface, NUI::SPoint( 0, 0 ), NUI::SPoint( 1024, 768 ), "globalmapUI" ), this );
+	else
+		pGlobalMapUI = new NUI::CGlobalMapUI( NUI::SWindowInfo( pInterface, NUI::SPoint( 0, 0 ), NUI::SPoint( 1024, 768 ), "globalmapUI" ), this );
+	NUI::LoadTemplate( pGlobalMapUI, NDb::GetUIContainer( bXComMode ? 446 : 175 ) );
+	PushDesktop( pGlobalMapUI );
+	pWorld->RunPostInitScript( pGlobalMap->pScript );
+	sMinFrameTime = 5;
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -124,8 +140,41 @@ CPtrFuncBase<CGlobalInfo>* CGlobalMap::GetGlobalInfo() const
 	return pGlobalInfo;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void CGlobalMap::OnSnapshotRestored()
+{
+	// Historical remaster maps saved a plain CWindow and no desktop-list entry.
+	// Rebind only missing runtime ownership after all native graph fields load.
+	if ( !GetDesktop() )
+		PushDesktop( pGlobalMapUI );
+	if ( !pGlobalMapUI->GetClientWindow() )
+		pGlobalMapUI->CDesktopWindow::ProcessMessage( NUI::SEvent( NUI::EVENT_TEMPLATELOADCOMPLETE ) );
+	if ( sMinFrameTime == 0 )
+		sMinFrameTime = 5;
+	// Old remaster saves have a complete 2D map but no logical world.
+	// Bootstrap only that missing context; saved Lua state must not run postinit twice.
+	if ( !IsValid( pWorld ) )
+	{
+		InitializeWorld();
+		pInterface->SetSharedSoundScene( pSoundScene );
+		pWorld->RunPostInitScript( pGlobalMap->pScript );
+	}
+	else
+		pWorld->RestoreRuntimeCaches( pGlobalGame );
+	pCamera->SetWorld( pWorld );
+	pCamera->SetView( pScene );
+	pCamera->SetUI( pInterface );
+	for ( int nPlayer = 0; nPlayer < playersSet.size(); ++nPlayer )
+	{
+		ICamera *pPlayerCamera = playersSet[nPlayer]->GetCamera();
+		pPlayerCamera->SetWorld( pWorld );
+		pPlayerCamera->SetView( pScene );
+		pPlayerCamera->SetUI( pInterface );
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalMap::OnGetFocus()
 {
+	CMissionBase::OnGetFocus();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CGlobalMap::ProcessEvent( const NInput::SEvent &sEvent )
@@ -135,7 +184,7 @@ bool CGlobalMap::ProcessEvent( const NInput::SEvent &sEvent )
 	// Retail routes CMissionBase's gamemenu bind before cursor/UI events.
 	if ( bindMenu.ProcessEvent( sEvent ) )
 	{
-		NMainLoop::Command( new CICInGameMenu( pGlobalGame->players.front(), false, bCanSave ) );
+		NMainLoop::Command( new CICInGameMenu( pGlobalGame->players.front(), false, bCanSave, this ) );
 		return true;
 	}
 
@@ -167,14 +216,49 @@ bool CGlobalMap::ProcessEvent( const NInput::SEvent &sEvent )
 	return false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void CGlobalMap::ProcessWorldCommands()
+{
+	while ( true )
+	{
+		CPtr<NWorld::CUICmd> pCmd = pWorld->GetUICommand();
+		if ( !IsValid( pCmd ) )
+			return;
+		// Legacy maps acquire their missing desktop during snapshot restoration.
+		if ( GetDesktop() && !GetDesktop()->IsValidCommand( pCmd ) )
+			continue;
+		if ( ExecWorldBeginZoneCommand( pCmd, false ) )
+			continue;
+		ExecWorldCommonCommand( pCmd );
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalMap::Step()
 {
+	if ( GetTime() - sFPSLimitLastTime < sMinFrameTime )
+		return;
+	sFPSLimitLastTime = GetTime();
+	sTimeCounter.Advance( !bPause, GetTime() );
+	sUITimeCounter.Advance( true, GetTime() );
+	EraseInvalidRefs( &soundsList );
 	if ( CanRender() )
 	{
+		pRender->UpdateViewWorld( !bPause, GetGameTime(), pActivePlayer->GetPlayer(), bCheatVisibility );
+		for ( int nPlayer = 0; nPlayer < playersSet.size(); ++nPlayer )
+			playersSet[nPlayer]->Update( IsRealTime() );
+		ProcessWorldCommands();
+		UpdateWorldCameraCommand( GetGameTime() );
+		CTransformStack soundTransform;
+		GetCamera()->GetTransform( &soundTransform, pScene->GetScreenRect() );
+		pSoundScene->Draw( &soundTransform );
+		if ( NMainLoop::HaveInterfaceCommand() )
+			return;
 		pInterface->UpdateCursor();
+		// Preserve the remaster's 2D UI/travel clock and renderer.
 		pInterface->Step( GetTime() );
 		RenderFrame( GetTime() );
 	}
+	else
+		pRender->ResetTiming();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalMap::RenderFrame( const STime &sTime )
@@ -307,4 +391,5 @@ static void CommandStartGlobal( const string &szID, const vector<wstring> &param
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 START_REGISTER(iGlobalMap)
 	REGISTER_CMD( "global", CommandStartGlobal )
+	REGISTER_VAR_EX( "cheat_global_xcom", NGlobal::VarBoolHandler, &bXComMode, 0, false )
 FINISH_REGISTER

@@ -129,12 +129,16 @@ public:
 	bool HitTest( int nX, int nY ) const;
 	bool ClientToScreen( SPoint *pPosition, SRect *pWindow, bool bSelf = true ) const;
 	void ScreenToClient( const SPoint &sScreenPos, SPoint *pPosition ) const;
-	void VirtualToScreen( SPoint *pPosition, SRect *pRes );
+	void VirtualToScreen( const SPoint *pPosition, CTPoint<float> *pRes );
+	void VirtualToScreen( const SRect *pWindow, CTRect<float> *pRes );
+	void VirtualToPixelBounds( SPoint *pPosition, SRect *pWindow );
 	// retail @0x3275c0: full-window depth-clear quad (fZ=1 punches the 3D hole, fZ=0 restores)
 	void CreateClearRect( NGScene::I2DGameView *pView, float fZ );
 
 	CToolTip* GetToolTip() const;		// retail @0x327220: returns the typed CObj<CToolTip> member
 	void SetToolTip( CToolTip *pWindow );
+	const SPoint& GetToolTipAnchor() const { return sToolTipAnchor; }
+	NDb::EUIAnchor GetToolTipAnchorType() const { return eToolTipAnchorType; }
 
 	const SCursorInfo& GetCursorInfo() const;
 	void SetCursorInfo( const SCursorInfo &sInfo );

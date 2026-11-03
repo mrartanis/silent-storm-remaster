@@ -85,7 +85,9 @@ int main(){try{
   Pump(wrongBuildHost,wrongBuild,[&]{return wrongBuildHost.State()==SessionState::Failed && wrongBuild.State()==SessionState::Failed;});
   Require(wrongBuild.Status()=="Different game builds","build mismatch not reported");
   Transport rawHost;rawHost.Listen(0);
-  NetworkSession rawClient({"build","data"},mirror);rawClient.Connect("127.0.0.1",rawHost.Port());
+  bool eventBatchDrained=false;SessionCallbacks rawMirror=mirror;
+  rawMirror.applyState=[&](const Bytes& bytes,bool initial){mirror.applyState(bytes,initial);if(!initial)eventBatchDrained=true;};
+  NetworkSession rawClient({"build","data"},rawMirror);rawClient.Connect("127.0.0.1",rawHost.Port());
   bool welcome=false,ready=false;deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
   while(!ready && std::chrono::steady_clock::now()<deadline){
     rawClient.Poll();for(auto packet:rawHost.Poll()) {
@@ -95,7 +97,12 @@ int main(){try{
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
   int delivered=events;rawHost.Send({Message::Event,1,{14}});rawHost.Send({Message::Event,1,{14}});rawHost.Send({Message::Event,2,{14}});
+  // A trailing state is an ordered barrier: count events after all three arrived.
+  rawHost.Send({Message::State,0,{11}});
+  deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
   for(int i=0;i<100;++i){rawHost.Poll();rawClient.Poll();std::this_thread::sleep_for(std::chrono::milliseconds(1));}
+  while(!eventBatchDrained && rawClient.State()!=SessionState::Failed && std::chrono::steady_clock::now()<deadline){rawHost.Poll();rawClient.Poll();std::this_thread::sleep_for(std::chrono::milliseconds(1));}
+  Require(eventBatchDrained,"event dedup fixture did not drain its ordered batch");
   Require(ready && rawClient.State()==SessionState::Playing && events==delivered+2,"duplicate event played twice");
   // Reproduce a burst accumulated during scene loading. Each state is costly,
   // but one Poll must yield after the first instead of freezing for the batch.

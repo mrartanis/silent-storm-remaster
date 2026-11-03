@@ -16,7 +16,7 @@
 namespace NGScene
 {
 IPart::IPart( CPtrFuncBase<CObjectInfo> *pData, CPerMaterialCombiner *_pCombiner, bool _bIsSolid )
-	: pObjInfo(pData), pCombiner( _pCombiner ), bIsSolid( _bIsSolid )
+	: pObjInfo(pData), pCombiner( _pCombiner ), bIsSolid( _bIsSolid ), fAverageTriArea(0)
 {
 	if ( IsValid( pCombiner ) )
 		pCombiner->AddPart( this );

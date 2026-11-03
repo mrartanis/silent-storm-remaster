@@ -93,10 +93,11 @@ class IVisionTracker;
 class IGame: public CObjectBase
 {
 public:
+	// Original callers distinguish preview/AI cover 0x8200 from physical hit grids 0x8210.
 	virtual CCoverInfo* CalcCovers( const CVec3 &src, const CAttackPortion &attack, 
-		NWorld::CUnit *pIgnore, CObjectBase *pDest, int nTargetUserID, float fMinClearDistance, bool bAIMode = false ) = 0;
+		NWorld::CUnit *pIgnore, CObjectBase *pDest, int nTargetUserID, float fMinClearDistance, bool bAIMode = false, int nTraceFlags = 0x8200 ) = 0;
 	virtual CCoverInfo* CalcCoversForTile( const CVec3 &src, const CAttackPortion &attack, NWorld::CUnit *pIgnore,
-	const CVec3 &ptTarget, float fMinClearDistance ) = 0;
+	const CVec3 &ptTarget, float fMinClearDistance, int nTraceFlags = 0x200 ) = 0;
 	virtual void ProcessMeleeAttackPortion( const CAttackPortion &a, const CRay &ray, const vector<IAttackable*> &ignores ) = 0;
 	// retail keeps the per-attack range cap on SAttackRayInfo.fMaxRange (TraceLooseRaySegment @0x292010
 	// gates fEnter/fExit on it and places the terminal trail point at origin+dir*fMaxRange); this tree's
@@ -104,11 +105,11 @@ public:
 	// normal/accidental shot paths; splinters pass fFragmentRange*FP_GRID_STEP).
 	virtual void ProcessRangedAttackPortion( const CAttackPortion &a, const CRay &ray, const vector<IAttackable*> &ignores, vector<STrailPoint> *pTrail, float fMaxRange ) = 0;
 	virtual EAttackResult ProcessThrowingAttackPortion( CAttackPortion *pA, IAttackable *pTarget, NDb::CRPGArmor *pArmor, int nUserID ) = 0;
-	virtual int GetCompositeToHit( NWorld::CUnit *pAttacker, NWorld::CUnit *pTarget, NAI::EHitLocation eHL, bool bFirstTurn ) = 0;
+	virtual int GetCompositeToHit( NWorld::CUnit *pAttacker, CObjectBase *pTarget, NAI::EHitLocation eHL, bool bLog ) = 0;
 	virtual int GetGrenadeCompositeToHit( NWorld::CUnit *pAttacker, 
 		CVec3 ptTarget, bool bFirstTurn, NDb::CRPGGrenade *pGrenade ) = 0;
 	virtual int GetTileCompositeToHit(  NWorld::CUnit *pAttacker, CVec3 ptTilePos,
-		NAI::ETileHitLocation eHitLocation, bool bFirstTurn ) = 0;
+		NAI::ETileHitLocation eHitLocation, bool bLog ) = 0;
 	virtual int GetBazookaToHit(  NWorld::CUnit *pAttacker, CVec3 ptTilePos,
 		NAI::ETileHitLocation eHitLocation, bool bFirstTurn ) = 0;
 	// retail CGame::CheckVisibility @0x298cb0 (game vtbl+0x10) -- THE per-unit visibility probe:

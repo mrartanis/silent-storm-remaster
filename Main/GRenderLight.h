@@ -24,7 +24,7 @@ class ICacheLightRender : virtual public CObjectBase
 {
 public:
 	virtual void RenderCL( NGfx::CRenderContext *pRC, IRender *pRender, CTransformStack *pTS,
-		CSceneFragments *pGeom, bool bSceneHasChanged ) = 0;
+		CSceneFragments *pGeom, bool bSceneHasChanged, const CVec4 &vDepth, bool bReuseLight, int nScratchRegister ) = 0;
 	// retail ICacheLightRender vtbl+8 @0x167380 (CGScene::nLightingOptions)
 	virtual int GetLightingOptions() = 0;
 };
@@ -55,7 +55,7 @@ class CDirectionalLight: public ILight
 	template<class TParam, class TOp>
 	void Render( CTransformStack *pTS, NGfx::CRenderContext *pRC, ERenderPath renderPath, 
 		IRender *pRender, const CSceneFragments &scene, const SLightInfo &lightInfo, TOp process,
-		const TParam &param )
+		const TParam &param, EExecMode mode = EM_NORMAL, vector<CPartFlags> *pOccluded = 0 )
 	{
 		CRenderCmdList lightOps;
 		const vector<SRenderFragmentInfo*> &fragments = scene.GetFragments();
@@ -68,7 +68,7 @@ class CDirectionalLight: public ILight
 			const SMaterialInfo &info = frag.pMaterial->GetMaterialInfo();
 			process( op, info, param, renderPath );
 		}
-		Execute( pRender, pRC, *pTS, lightOps, scene, lightInfo );
+		Execute( pRender, pRC, *pTS, lightOps, scene, lightInfo, mode, pOccluded );
 	}
 	void FinalPass( NGfx::CRenderContext *pRC, ERenderPath renderPath );
 	// retail @0x153900: fills depthInfo and re-renders the shared depth map; a no-shadow scene
@@ -132,7 +132,7 @@ class CPointLight: public ILight
 	void FinalPass( NGfx::CRenderContext *pRC, float fHullRadius );
 public:
 	CPointLight() {}
-	CPointLight( const CVec3 &_vColor, const CVec3 &ptCenter, float fRadius, CVersioningBase *_pStaticTracker, bool bLightmapOnly );
+	CPointLight( const CVec3 &_vColor, const CVec3 &ptCenter, float fRadius, CVersioningBase *_pStaticTracker, bool bLightmapOnly, bool bCastShadow );
 	virtual int GetPriority() const { return 3; }
 	virtual void Render( CTransformStack *pTS, CTransformStack *pClipTS, NGfx::CRenderContext *pRC, ERenderPath renderPath, 
 		IRender *pRender, CSceneFragments &scene, const SParticleLMRenderTargetInfo &particleLM );

@@ -131,6 +131,7 @@ private:
 	void BlowUp();
 protected:
 	bool IsLocker();
+	void DropDeadPK( const NAI::SUnitPosition &dst, const CVec3 &delta );
 	// retail @0x3c2190 Die(bool,bool) -- arg1 bDeathBeauty ORs into the beauty-cam condition
 	// (the gib path forces it); arg2 bRemove = the silent removal flavor (no ack/state/camera).
 	virtual void Die( bool bDeathBeauty = false, bool bRemove = false ) {}
@@ -168,7 +169,16 @@ public:
 	void SyncConscious();   // retail @0x3515a0: reconcile world alive/conscious state with the RPG persona
 	void SetPosition( const NAI::SUnitPosition &dst );
 	void SetTemporaryPosition( const NAI::SUnitPosition &dst ) // to be used only in CExecQueue; in all other cases use SetPosition
-	{	position = dst;	}
+	{
+		bTemporaryAimed = bTemporaryAimed && position.pos.p == dst.pos.p;
+		position = dst;
+	}
+	bool IsTemporaryAimed() const { return bTemporaryAimed; }
+	void ResetTemporaryPosition( const NAI::SUnitPosition &pos )
+	{
+		position = pos;
+		bTemporaryAimed = true;
+	}
 	void DoGameMove( const NAI::SUnitPosition &dst );
 	void LockNextPlace( const NAI::SUnitPosition &dst );
 	ECanMoveRes CanDoGameMove( const NAI::SUnitPosition &dst );  // @0x34f100 retail widened bool->ECanMoveRes

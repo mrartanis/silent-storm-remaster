@@ -32,10 +32,10 @@ public:
 typedef void (*VarHandler)( const string &szID, const CValue &sValue, void *pContext );
 typedef void (*CmdHandler)( const string &szID, const vector<wstring> &paramsSet, void *pContext );
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void RegisterCmd( const string &szID, CmdHandler pHandler = 0, void *pContext = 0 );
-void RegisterVar( const string &szID, VarHandler pHandler = 0, void *pContext = 0, const CValue &sValue = CValue(), bool bSave = false );
-void UnregisterCmd( const string &szID );
-void UnregisterVar( const string &szID );
+int RegisterCmd( const string &szID, CmdHandler pHandler = 0, void *pContext = 0 );
+int RegisterVar( const string &szID, VarHandler pHandler = 0, void *pContext = 0, const CValue &sValue = CValue(), bool bSave = false );
+void UnregisterCmd( const string &szID, int nID = 0 );
+void UnregisterVar( const string &szID, int nID = 0 );
 void GetIDList( vector<string> *pList );
 ////
 const CValue& GetVar( const string &szID, const CValue &sDefault = CValue() );
@@ -52,6 +52,7 @@ void VarFloatHandler( const string &szID, const NGlobal::CValue &sValue, void *p
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CCmd
 {
+	int nID;
 	void *pContext;
 	string szID;
 	CmdHandler pHandler;
@@ -65,6 +66,7 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CVar
 {
+	int nID;
 	string szID;
 
 public:

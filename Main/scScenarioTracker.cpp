@@ -697,6 +697,31 @@ void CScenarioTracker::OnUpdateVisible( NWorld::CPlayer *pPlayer, CScenarioZone 
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Original Gold 0x6fa1d0 / Steam 0x704300: complete tasks for a removed carrier.
+void CScenarioTracker::OnUnitDestroyed( NWorld::CUnit *pUnit )
+{
+	if ( !bScenarioAvailable || !IsValid( pUnit ) )
+		return;
+	list< CPtr<CScenarioClue> > clues;
+	GetCluesFromPers( pUnit->GetRPG()->GetRPGUnit(), GetCorpse( pUnit ), &clues, false );
+	for ( list< CPtr<CScenarioClue> >::iterator i = clues.begin(); i != clues.end(); ++i )
+		CompleteTasks( *i, NDb::TT_DESTROY_ITEM_CARRIER );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Original Gold 0x6fa510 / Steam 0x704650: a newly stunned victim also loses its carrier tasks.
+void CScenarioTracker::OnMakeUnconscious( NWorld::CUnit *pUnit )
+{
+	InvalidateLeaveZoneCache();
+	OnUnitDestroyed( pUnit );
+	int nPersID = pUnit->GetRPG()->GetRPGPers()->GetRecordID();
+	if ( bScenarioAvailable )
+	{
+		CPtr<CScenarioClue> pClue = pScenarioFlowChart->GetClueByPersID( nPersID );
+		if ( IsValid( pClue ) )
+			CompleteTasks( pClue, NDb::TT_STUN_PERSON );
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CScenarioTracker::ProcessCluesList( const list< CPtr<CScenarioClue> > &clues,
 	NDb::EScenarioObjectiveType type )
 {

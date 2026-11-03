@@ -164,3 +164,13 @@ percentage.
 The stage-2 gate remains the **used non-graphics code and data**, not a
 mechanical 338/338 Linux compile, a Linux graphical client, or full Steam
 decision parity. The latter belong to later stages.
+
+## Current integration follow-up: checkpoint176
+
+The earlier tables are the historical2026-09-28 snapshot. Checkpoint176 now
+integrates RPGAttackSession.cpp into the live RPG mission and the non-MSVC
+s2_game_rpg_mission archive. The actual transient interface tracks targets and
+weak projectiles and drains them on Segment; AddMedalPoints remains uncalled.
+Fresh Linux Game, the mission archive/core diagnostic and612 related tests pass.
+This follow-up does not rewrite the historical source counts or claim original
+ABI, whole-engine or RNG parity. See UPSTREAM-IMPORTS.md checkpoint176.

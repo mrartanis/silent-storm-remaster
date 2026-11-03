@@ -498,7 +498,7 @@ public:
 	bool bNetworkReplica = false;
 	std::function<EUnitCommandResult(CUnitServer*,CCmd*,int*,int*)> networkPreview;
 	std::function<NAI::CPath*(CUnitServer*)> networkPreviewPath;
-	std::function<int(int,CUnit*,CUnit*,CVec3,int,bool)> networkHitChance;
+	std::function<int(int,CUnit*,CObjectBase*,CVec3,int,bool)> networkHitChance;
 	vector<NAI::SPathPlace> networkDeployment[2];
 	// Authoring positions captured from the fully assembled map, before removing
 	// campaign actors/scripts. Runtime only; neither saves nor replicas need them.
@@ -591,7 +591,8 @@ public:
 	// queues STBSEvent tag9 -> ProcessTBSEvents @0x3675d0 throws) -- base turn AND stacked interrupt AND
 	// interrupt-pop resume. The event drives the per-unit begin-turn threat refresh (tracker OnNewTurn
 	// @0xab180 -> CAIBeginTurnEvent -> PrepareEnemies @0xb17a0 == dev Populate). Defined in wMain.cpp.
-	virtual void OnPassControlNotify();
+	void OnPassControlNotify( CPlayer *pPlayer );
+	virtual void ProcessTBSEvents();
 	virtual bool IsUnitActive( CUnit *pTest ) const { return IsTBSUnitActive( GetUnit(pTest) ); }
 	virtual void GetActiveUnits( IPlayer *pPlayer, list<CUnit*> *pRes );
 	virtual bool IsFirstTurn() const { return TTBSWorld::IsFirstTurn(); }
@@ -620,8 +621,8 @@ public:
 	CMineTracker* GetMineTracker() const { return pMineTracker; }
 	
 	CCTime* GetTime() const { return pTime; }
-	void PerformRangedAttack( const NRPG::SAttackRayInfo &rayInfo, STime sCast, NDb::CModel *pTrailModel, float fTrailSpeed, NDb::CRPGGrenade *pGrenade = 0, int nEffectType = 0 );
-	void PerformRangedAttack( const NRPG::CAttackPortion &ap, const CRay &ray, const vector<NRPG::IAttackable*> &ignores, STime sCast, NDb::CModel *pTrailModel, float fTrailSpeed, float fMaxRange = 30.0f );
+	CObjectBase *PerformRangedAttack( const NRPG::SAttackRayInfo &rayInfo, STime sCast, NDb::CModel *pTrailModel, float fTrailSpeed, NDb::CRPGGrenade *pGrenade = 0, int nEffectType = 0 );
+	CObjectBase *PerformRangedAttack( const NRPG::CAttackPortion &ap, const CRay &ray, const vector<NRPG::IAttackable*> &ignores, STime sCast, NDb::CModel *pTrailModel, float fTrailSpeed, float fMaxRange = 30.0f );
 	virtual void Explode( const CVec3 &ptEpicentre, int nPower );
 	virtual void CreateParticle( const CVec3 &ptPos, const CQuat &rot, NDb::CEffect *pEffect, int nFloor = -100 );
 	void AttachMiscObject( CTimedObject *p );
@@ -634,12 +635,14 @@ public:
 	void AddHitLocator( CHitLocator* pLocator );
 	// retail @0x764140 takes BOTH grenade records: an engineer grenade arrives with a null
 	// pRPGGrenade and a live pRPGEngGrenade (contact-fused eng server, thrower's ENG skill).
-	void ThrowGrenade( const CVec3 &vFrom, const CVec3 &vSpeed, STime tThrow, float fTFly,
+	CObjectBase *ThrowGrenade( const CVec3 &vFrom, const CVec3 &vSpeed, STime tThrow, float fTFly,
 		NDb::CModel *pModel, NDb::CRPGGrenade *pRPGGrenade, CUnitServer *pUnitServer,
 		NDb::CRPGEngGrenade *pRPGEngGrenade = 0 );
-	void ThrowKnife( const CVec3 &vFrom, const CVec3 &vSpeed, STime tThrow, float fDistance,
+	CObjectBase *ThrowKnife( const NRPG::SAttackRayInfo &rayInfo, float fSpeed, STime tThrow,
+		float fDistance, NDb::CModel *pModel, NRPG::IInventoryItem *pIItem );
+	CObjectBase *ThrowKnife( const CVec3 &vFrom, const CVec3 &vSpeed, STime tThrow, float fDistance,
 		NDb::CModel *pModel, NRPG::CAttackPortion &attack, NRPG::IInventoryItem *pIItem, CUnitServer *pUnitServer );
-	void LaunchRocket( const CVec3 &vFrom, const CVec3 &vSpeed,
+	CObjectBase *LaunchRocket( const CVec3 &vFrom, const CVec3 &vSpeed,
 		STime tThrow, float fDistance, NDb::CModel *pModel, NRPG::CAttackPortion &attack, 
 		NRPG::IClipItem *pRocket, CUnitServer *pIgnored, NDb::CEffect *_pEffect = 0 );
 	virtual void AddGrenadeExplosion( const CVec3 &vStartPosition,

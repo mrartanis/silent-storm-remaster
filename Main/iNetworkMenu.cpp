@@ -96,7 +96,8 @@ bool NetworkHover(NUI::CWindow* window) {
 void DrawNetworkFrame(NUI::CWindow* window,NGScene::I2DGameView* view,bool checked=false,int arrow=0) {
   NUI::SPoint position;NUI::SRect clip;
   if(!window->ClientToScreen(&position,&clip))return;
-  window->VirtualToScreen(&position,&clip);
+  CTPoint<float> screenPosition; CTRect<float> screenClip;
+  window->VirtualToScreen(&position,&screenPosition);window->VirtualToScreen(&clip,&screenClip);
   const bool hover=NetworkHover(window),enabled=window->GetStyle(NUI::STYLE_ENABLED);
   CRectLayout rects;
   const CTRect<float> uv(0,0,1,1);
@@ -111,7 +112,7 @@ void DrawNetworkFrame(NUI::CWindow* window,NGScene::I2DGameView* view,bool check
     rects.AddRect(x,height*.5f+row*S2UI::Scale(),span,S2UI::Scale(),uv,
       enabled?NGfx::SPixel8888(238,183,84,255):NGfx::SPixel8888(100,100,100,255));
   }
-  view->CreateDynamicRects((NDb::CTexture*)0,rects,position,clip);
+  view->CreateDynamicRects((NDb::CTexture*)0,rects,screenPosition,screenClip);
 }
 class NetworkControls:public NUI::CWindow {
   OBJECT_NOCOPY_METHODS(NetworkControls);
@@ -268,7 +269,7 @@ class NetworkControls:public NUI::CWindow {
       for(int y=0;y<height;++y)for(int x=0;x<width;++x)lock[y][x]=NGfx::SPixel8888(16,16,24,255);
       auto text=[&](NUI::CWindow* window,const wstring& value,int offset,NGfx::SPixel8888 color,int caret=-1) {
         NUI::SPoint position;NUI::SRect clip;if(!window->ClientToScreen(&position,&clip))return;
-        window->VirtualToScreen(&position,&clip);
+        window->VirtualToPixelBounds(&position,&clip);
         int x=position.x+Float2Int(8*S2UI::Scale()),y=position.y+Float2Int(offset*S2UI::Scale()),index=0;WORD previous=0;
         auto cursor=[&] {if(blink)for(int cy=y;cy<y+fontAtlas.lineHeight && cy<clip.y2 && cy<height;++cy)
           if(x>=0 && x<width && cy>=0)lock[cy][x]=color;};
@@ -293,7 +294,7 @@ class NetworkControls:public NUI::CWindow {
       const NGfx::SPixel8888 white(255,255,255,255),gray(150,150,150,255),yellow(255,255,0,255);
       auto frame=[&](NUI::CWindow* control,bool checked=false) {
         NUI::SPoint position;NUI::SRect clip;if(!control->ClientToScreen(&position,&clip))return;
-        control->VirtualToScreen(&position,&clip);
+        control->VirtualToPixelBounds(&position,&clip);
         const bool hover=NetworkHover(control),enabled=control->GetStyle(NUI::STYLE_ENABLED);
         const int border=Max(1,Float2Int(2*S2UI::Scale()));
         for(int y=Max(0,clip.y1);y<Min(height,clip.y2);++y)for(int x=Max(0,clip.x1);x<Min(width,clip.x2);++x) {

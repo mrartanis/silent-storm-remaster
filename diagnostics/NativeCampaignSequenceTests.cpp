@@ -129,6 +129,7 @@ void Pose(NWorld::CWorld* world, int& tick) {
   auto* player = dynamic_cast<NWorld::CPlayer*>(hero->GetPlayer());
   Require(player != nullptr, "hero player missing");
   world->GivePlayerTurn(player);
+  world->ProcessTBSEvents(); // Settle the turn before queuing the controlled action.
   const int ap = hero->GetAP();
   CObj<NWorld::CCmdWishPose> wish = new NWorld::CCmdWishPose(target);
   std::printf("pose setup time=%u tick=%d final=%d active=%d current=%d position=%.3f,%.3f,%.3f can=%d\n",
@@ -137,15 +138,15 @@ void Pose(NWorld::CWorld* world, int& tick) {
     hero->GetPosition().GetCP().y, hero->GetPosition().GetCP().z,
     hero->CanDo(wish));
   Require(ap >= 4, "hero has insufficient AP for pose control");
-  world->ExecuteCommand(new NWorld::CCmdSetCommand(hero, wish));
+  hero->GetTBSPlayer()->GetCommander()->Do(new NWorld::CCmdSetCommand(hero, wish));
   world->UpdateWorld(tick++ * 50, nullptr);
   auto position = hero->GetSetPosePosition();
   position.SetPose(target);
-  world->ExecuteCommand(new NWorld::CCmdSetCommand(hero,
+  hero->GetTBSPlayer()->GetCommander()->Do(new NWorld::CCmdSetCommand(hero,
     new NWorld::CCmdPath(position.pos, NAI::PF_USE_POSEDIR)));
-  world->ExecuteCommand(new NWorld::CCmdSetCommand(hero, new NWorld::CCmdContinue()));
+  hero->GetTBSPlayer()->GetCommander()->Do(new NWorld::CCmdSetCommand(hero, new NWorld::CCmdContinue()));
   for (int end = tick + 200; tick < end &&
-       (hero->GetPosition().GetPose() != target || hero->HasCommand()); ++tick)
+       (hero->GetPosition().GetPose() != target || hero->HasCommand() || hero->GetTBSPlayer()->GetCommander()->HasCommands()); ++tick)
     world->UpdateWorld(tick * 50, nullptr);
   std::string executor;
   hero->GetCurrentCommandName(&executor);
@@ -153,27 +154,37 @@ void Pose(NWorld::CWorld* world, int& tick) {
     before, hero->GetPosition().GetPose(), target, ap, hero->GetAP(), hero->GetWishPose(), executor.c_str(), world->GetTime()->GetValue());
   Require(hero->GetPosition().GetPose() == target, "pose command did not execute");
   Require(hero->GetAP() < ap, "completed pose spent no AP");
-  Require(!hero->HasCommand(), "pose did not finish within 200 ticks");
+  Require(!hero->HasCommand() && !hero->GetTBSPlayer()->GetCommander()->HasCommands(), "pose did not finish within 200 ticks");
 }
 void Move(NWorld::CWorld* world, int& tick) {
   auto* hero = Hero(world);
   world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(hero->GetPlayer()));
+  world->ProcessTBSEvents(); // Settle the turn before queuing the controlled action.
   const CVec3 before = hero->GetPosition().GetCP();
   const int ap = hero->GetAP();
   bool moved = false;
+  int resumes = 0;
   // Find a usable adjacent tile through real path commands, not teleportation.
   const int offsets[][2] = {{1,0},{0,1},{-1,0},{0,-1}};
   for (const auto& offset : offsets) {
     auto destination = hero->GetPosition().pos;
     destination.p.SetXY(destination.p.GetX() + offset[0], destination.p.GetY() + offset[1]);
     destination.p.SetFinal(0);
-    world->ExecuteCommand(new NWorld::CCmdSetCommand(hero, new NWorld::CCmdPath(destination)));
-    world->ExecuteCommand(new NWorld::CCmdSetCommand(hero, new NWorld::CCmdContinue()));
+    hero->GetTBSPlayer()->GetCommander()->Do(new NWorld::CCmdSetCommand(hero, new NWorld::CCmdPath(destination)));
+    hero->GetTBSPlayer()->GetCommander()->Do(new NWorld::CCmdSetCommand(hero, new NWorld::CCmdContinue()));
     for (int end = tick + 200; tick < end; ++tick) {
       world->UpdateWorld(tick * 50, nullptr);
-      if (!hero->HasCommand() && tick + 1 < end) break;
+      auto* commander = hero->GetTBSPlayer()->GetCommander();
+      if (resumes < 4 && hero->HasCommand() && !hero->IsPerformingAction() &&
+          !commander->HasCommands() && world->IsUnitActive(hero) &&
+          hero->CanDo(new NWorld::CCmdContinue()) == NWorld::UCR_OK) {
+        // A turn interruption keeps the human route pending; resume through the same enabled action as the UI.
+        commander->Do(new NWorld::CCmdSetCommand(hero,new NWorld::CCmdContinue()));
+        std::printf("move pending route resumed=%d tick=%d AP=%d\n",++resumes,tick,hero->GetAP());
+      }
+      if (!hero->HasCommand() && !commander->HasCommands() && tick + 1 < end) break;
     }
-    Require(!hero->HasCommand(), "movement did not finish within 200 ticks");
+    Require(!hero->HasCommand() && !hero->GetTBSPlayer()->GetCommander()->HasCommands(), "movement did not finish within 200 ticks");
     moved = fabs(hero->GetPosition().GetCP() - before) > .1f;
     if (moved) break;
   }
@@ -186,12 +197,13 @@ void Move(NWorld::CWorld* world, int& tick) {
 void Shoot(NWorld::CWorld* world, int& tick) {
   auto* hero = Hero(world);
   world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(hero->GetPlayer()));
+  world->ProcessTBSEvents(); // Settle the turn before queuing the controlled action.
   auto* weapon = hero->GetUnitRPG()->GetWeaponItem();
   Require(weapon && weapon->HasAmmo(), "hero has no loaded weapon");
   const int ammo = weapon->GetAmmoQuantity(), ap = hero->GetAP();
   const CVec3 destination = hero->GetPosition().GetCP() + CVec3(3,0,1);
-  world->ExecuteCommand(new NWorld::CCmdSetCommand(hero, new NWorld::CCmdShootTile(destination)));
-  world->ExecuteCommand(new NWorld::CCmdSetCommand(hero, new NWorld::CCmdContinue()));
+  hero->GetTBSPlayer()->GetCommander()->Do(new NWorld::CCmdSetCommand(hero, new NWorld::CCmdShootTile(destination)));
+  hero->GetTBSPlayer()->GetCommander()->Do(new NWorld::CCmdSetCommand(hero, new NWorld::CCmdContinue()));
   for (int end = tick + 200; tick < end; ++tick) {
     world->UpdateWorld(tick * 50, nullptr);
     if (!hero->HasCommand() && weapon->GetAmmoQuantity() < ammo) break;
@@ -199,7 +211,7 @@ void Shoot(NWorld::CWorld* world, int& tick) {
   std::printf("shoot ammo_before=%d ammo_after=%d ap_before=%d ap_after=%d\n",
     ammo,weapon->GetAmmoQuantity(),ap,hero->GetAP());
   Require(weapon->GetAmmoQuantity() < ammo, "shoot command fired no round");
-  Require(!hero->HasCommand(), "shooting did not finish within 200 ticks");
+  Require(!hero->HasCommand() && !hero->GetTBSPlayer()->GetCommander()->HasCommands(), "shooting did not finish within 200 ticks");
   Require(hero->GetAP() < ap, "completed shot spent no AP");
 }
 }

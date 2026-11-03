@@ -7,6 +7,7 @@
 #endif
 #include <map>
 #include "Transform.h"
+#include "../Misc/HPTimer.h"
 #include "InterfaceConst.h"
 #include "MapBuild.h"
 #include "wUnitServer.h"
@@ -72,7 +73,9 @@
 #include "../Misc/Set.h"
 #include "aiRoute.h"
 #include "aiReaction.h"			// NAI::CreateUnitReaction -- the map-deploy reaction install (AI-convergence Stage 2)
-#include "aiNearestPosition.h"	// NAI::GetNearestPosition -- FetchDeployPoint's free-cell snap (retail LookWhereToMoveUnit analog)
+#include "aiReactions.h"
+#include "aiUnit.h"
+#include "aiNearestPosition.h"
 #include "rpgCheatConstants.h"
 #include "wUnitCommands.h"
 #include "../DBFormat/DataDifficulty.h"
@@ -581,7 +584,8 @@ CObjectServerBase *CWorld::AddObject( const SObjectPlace &pos,
 	if ( pDBObject->pDoor )
 	{
 		CWindowDoor *pWD = new CWindowDoor( this, pos,
-			mapElement.bLightmap, pDBObject, pRPGObject, GetTime(), mapElement.flags, mapElement.eTimeOfDay, mapElement.bOpen );
+			mapElement.bLightmap, pDBObject, pRPGObject, GetTime(), mapElement.flags, mapElement.eTimeOfDay, mapElement.bOpen,
+			mapElement.bIsChest, mapElement.bIsTransparentIfOpen );
 		if ( IsValid( mapElement.pGrenade ) )
 			if ( pPostInfo )
 				pPostInfo->traps.push_back( SDoorTrap( pWD, mapElement.pGrenade, mapElement.nDC ) );
@@ -589,10 +593,8 @@ CObjectServerBase *CWorld::AddObject( const SObjectPlace &pos,
 				pWD->SetTrap( mapElement.pGrenade, mapElement.nDC );
 		// retail AddObject @0x365ee0: after the door/chest CWindowDoor is built, a set
 		// doorParams.bIsLocked applies the lock (virtual +0x10 = LockDoor) with the map builder's
-		// key id + hardness (chests: lvl*7+16; plain locked doors: rolled). Retail also threads
-		// bIsChest/bIsTransparentIfOpen into the CWindowDoor ctor (chest containers turn
-		// transparent when open) -- dev CWindowDoor lacks those members; loot placement is already
-		// done at map build (the items are spilled as world items), so that visual is deferred.
+		// key id + hardness (chests: lvl*7+16; plain locked doors: rolled). The constructor
+		// retains the map chest/vision flags; loot remains placed by the map builder.
 		if ( mapElement.bIsLocked )
 			pWD->LockDoor( true, mapElement.nKeyID, mapElement.nLockHardness );
 		pResult = pWD;
@@ -1598,6 +1600,9 @@ void CWorld::CreateAIUnits( const SMapInfo &mapInfo, const ClueToSlot &personClu
 		// Retail v1.2 0x76bb3b: occupied person-clue slots mark their spawned unit.
 		CPtr<CUnitServer> pUnitServer = AddUnit( pos.p, pRPG, pPlayer, i->szName, i->bSlot );
 		(*pIDToUnit)[ i->nUnitID ] = pUnitServer;
+		// Person-clue slots use the existing difficulty reserve after level/VP setup.
+		if ( i->bSlot )
+			pRPG->GetRPGUnit()->CalcDeathVP( pGlobalGame->pDifficulty->fClueDeathCoeff );
 
 		ASSERT( IsValid( pUnitServer ) );
 		// create routes
@@ -2124,8 +2129,8 @@ void CWorld::RemoveCarriedCorpses()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail NWorld::FetchDeployPoint @0x362430: SILENT named-waypoint lookup (the Unit1..9 probe
 // misses BY DESIGN -- CWorld::GetWaypoint would ScriptWarning each miss) -> copy the waypoint's
-// position, bRun=false, WALK pose, snap to a free nearby cell (retail LookWhereToMoveUnit r=10
-// @0x7e500; dev stand-in = GetNearestPosition, the same analog UnitSetToWaypoint uses).
+// position, bRun=false and WALK pose, then use unit-aware relocation with max fall 10.
+// Original Steam FetchDeployPoint 0x762ca0 uses the authored waypoint height.
 static bool FetchDeployPoint( unordered_map< string, CObj<NAI::CAIRouteWaypoint> > &waypoints,
 	NAI::IPathNetwork *pNet, const string &szName, NAI::SPathPlace *pRes )
 {
@@ -2138,8 +2143,12 @@ static bool FetchDeployPoint( unordered_map< string, CObj<NAI::CAIRouteWaypoint>
 	unitPos.pos = pWp->pos;
 	unitPos.bRun = false;
 	unitPos.SetPose( NAI::WALK );
-	if ( IsValid( pNet ) && !pNet->IsPassable( unitPos.pos.p ) )
-		unitPos.pos = NAI::GetNearestPosition( unitPos.pos.GetCP(), pNet, false, CVec3() );
+	if ( IsValid( pNet ) && pNet->GetPassability( unitPos.pos.p ) != NAI::AIP_YES )
+	{
+		NAI::SUnitPosition relocated;
+		NAI::LookWhereToMoveUnit( unitPos, &relocated, 10, pWp->ptPos.z );
+		unitPos = relocated;
+	}
 	*pRes = unitPos.pos.p;
 	return true;
 }
@@ -2195,6 +2204,9 @@ IPlayer* CWorld::AddPlayer( const wstring &wsName, NRPG::CGlobalPlayer *pGlobalP
 	CPlayer *pRes = new CPlayer( wsName, pGlobalGame, pGlobalPlayer, bNetworkArena ? nPartiesAdded : 0 );
 	csSystem << "User player was created" << endl; // DEBUG
 	RegisterPlayer( pRes );
+	// Steam 1.2 AddPlayer @0x76e9e0: AI parties own an AI commander.
+	if ( pGlobalPlayer->bAIPlayer )
+		_pCommander = new NAI::CAICommander( this, pRes );
 	pRes->SetCommander( _pCommander );
 
 	if ( nRootLayersGroup < 0 )
@@ -2210,7 +2222,7 @@ IPlayer* CWorld::AddPlayer( const wstring &wsName, NRPG::CGlobalPlayer *pGlobalP
 	GetDeployWithNumber( 100, -1, deploySpots, pPathNetwork, &fakePlace );
 	pRes->SetDeploySpot( fakePlace );
 
-	// retail AddPlayer @0x36e160: with the world carrying waypoints and no passage deploy, the
+	// Steam 1.2 AddPlayer @0x76e9e0: with the world carrying waypoints and no passage deploy, the
 	// waypoint scheme (FetchDeployWaypoints @0x368fd0) takes PRIORITY over deploy-spot placeables:
 	// unit i -> deployWps[i] (overflow -> deployWps[0]), with zero formation displacement.
 	// GetDeployPlace still supplies the facing after saving the player's deploy spot below.
@@ -2218,20 +2230,26 @@ IPlayer* CWorld::AddPlayer( const wstring &wsName, NRPG::CGlobalPlayer *pGlobalP
 	if ( !pGlobalPlayer->deployData.bPassage && !waypoints.empty() )
 		FetchDeployWaypoints( waypoints, pPathNetwork, &deployWps );
 
-	int nPers = pGlobalPlayer->mercs.size();
+	// Regular mercenaries and temporary recruits share campaign deployment.
+	vector< CObj<NRPG::CUnit> > deployingUnits = pGlobalPlayer->mercs;
+	deployingUnits.insert( deployingUnits.end(), pGlobalPlayer->zoneMercs.begin(), pGlobalPlayer->zoneMercs.end() );
+	int nPers = deployingUnits.size();
   for ( int i = 0; i < nPers; i++ )
 	{
-		if ( pGlobalPlayer->mercs[i]->IsDead() )
+		NRPG::CUnit *pUnit = deployingUnits[i];
+		// Carried unconscious units are restored by InitPlayerCorpseCarrying.
+		if ( pUnit->IsDead() || pUnit->IsUnconscious() )
 			continue;
 		//
 		NAI::SPathPlace placeForUnit;
+		int nShift = 0;
+		bool bSpecialPassageDeploy = false;
 		if ( !deployWps.empty() )
 		{
 			placeForUnit = i < (int)deployWps.size() ? deployWps[i] : deployWps[0];
 		}
 		else
 		{
-			int nShift;
 			if ( bAddOnManyDeploySpots )
 			{
 				GetDeployWithNumber( nPartiesAdded, i + 1, deploySpots, pPathNetwork, &placeForUnit );
@@ -2242,7 +2260,9 @@ IPlayer* CWorld::AddPlayer( const wstring &wsName, NRPG::CGlobalPlayer *pGlobalP
 				GetDeployWithNumber( nPartiesAdded, 0, deploySpots, pPathNetwork, &placeForUnit );
 				nShift = i - nPers / 2;
 			}
-			placeForUnit = pPathNetwork->GetDeployPlace( placeForUnit, nShift );
+			// Keep the existing network call before its explicit placement override.
+			if ( bNetworkArena )
+				placeForUnit = pPathNetwork->GetDeployPlace( placeForUnit, nShift );
 		}
 
 		if (bNetworkArena)
@@ -2258,7 +2278,7 @@ IPlayer* CWorld::AddPlayer( const wstring &wsName, NRPG::CGlobalPlayer *pGlobalP
 			for ( list< CPtr<IPassageObject> >::iterator j = passageObjects.begin(); j != passageObjects.end(); ++j )
 			{
 				if ( (*j)->GetPassageObjectID() == 
-					pGlobalPlayer->deployData.unitsDeployData[ pGlobalPlayer->mercs[i].GetPtr() ].nPassageObjectID )
+					pGlobalPlayer->deployData.unitsDeployData[ pUnit ].nPassageObjectID )
 				{
 					pPassageObject = *j;
 					break;
@@ -2273,24 +2293,62 @@ IPlayer* CWorld::AddPlayer( const wstring &wsName, NRPG::CGlobalPlayer *pGlobalP
 			pPassageObject->GetObjectApproaches( &approaches );
 			if ( !approaches.empty() )
 				placeForUnit = approaches[0];
+			if ( !bNetworkArena )
+			{
+				// Steam 1.2 0x76efba/0x76f0e9: ETStore's underground
+				// template uses the authored crouch arrivals instead of the passage.
+				NScenario::CScenarioZone *pZone = GetGlobalGame()->pCurrentZone;
+				if ( IsValid( pZone ) && pZone->GetDBZone() &&
+					pZone->GetDBZone()->sSmallDescription == "ETStore" &&
+					GetGlobalGame()->nCurrentTemplateID == 2291 )
+				{
+					bSpecialPassageDeploy = true;
+					string szWaypoint = "Unit";
+					szWaypoint += char( '1' + i );
+					szWaypoint += pGlobalPlayer->deployData.nPassageZoneID == 1 ? "_l" : "_g";
+					NStr::ToLower( szWaypoint );
+					NAI::CAIRouteWaypoint *pWaypoint = waypoints[szWaypoint];
+					if ( pWaypoint )
+					{
+						placeForUnit = pWaypoint->pos.p;
+						placeForUnit.SetPose( NAI::CM_CROUCH );
+					}
+					else
+						placeForUnit = pPathNetwork->GetDeployPlace( placeForUnit, nShift );
+				}
+			}
 		}
 		if ( bSetDeploySpot )
 		{
 			pRes->SetDeploySpot( placeForUnit );
 			bSetDeploySpot = false;
 		}
-		// Retail 1.1 0x76e8fd / 1.2 0x76eb5d: waypoint deployment also
-		// calls GetDeployPlace, with displacement zero, to face into the map.
-		if ( !deployWps.empty() )
-			placeForUnit = pPathNetwork->GetDeployPlace( placeForUnit, 0 );
+		// Steam 1.2 0x76f166/0x76f19a: save the spot before the normal
+		// facing/formation calculation, after selecting any passage approach.
+		if ( bNetworkArena )
+		{
+			if ( !deployWps.empty() )
+				placeForUnit = pPathNetwork->GetDeployPlace( placeForUnit, 0 );
+		}
+		else if ( !bSpecialPassageDeploy )
+			placeForUnit = pPathNetwork->GetDeployPlace( placeForUnit, nShift );
 
-		NRPG::CUnit *pUnit = pGlobalPlayer->mercs[i];
  		CPtr<CUnitServer> pUS = AddUnit( placeForUnit, NRPG::CreateUnit( pUnit ), pRes );
 		ASSERT( IsValid( pUS ) );
 		if ( !IsValid( pUS ) )
 			continue;
 		//
 		pUS->GetUnitRPG()->GetRPGUnit()->CalcDeathVP( GetGlobalGame()->pDifficulty->fDeathCoeff );
+		// Install the recruited AI unit's route and reaction after native deployment.
+		if ( pGlobalPlayer->bAIPlayer )
+		{
+			CPtr<NAI::IAIUnit> pAIUnit = NAI::GetAIUnit( pUS );
+			if ( IsValid( pAIUnit ) )
+			{
+				NAI::SetUnitRoaming( pUS, pUS->GetPosition().pos.p, 25, NAI::AIM_AI );
+				pAIUnit->SetReaction( NAI::CreateAINormalReaction( pAIUnit ) );
+			}
+		}
 	}
 	//
 	InitPlayerCorpseCarrying( pRes );	
@@ -2422,9 +2480,14 @@ C3DSound* CWorld::MakeAISound( const NDb::SAISound &sound, CDumbUnitServer *_pWh
 			if ( pTarget->CanHearSound( pWho->GetPosition().GetCP(), sound, pWho ) )
 			{
 				pTarget->HearSound( stuff, pWho, pWho->GetPosition().pos.p );
-				// NOTE: retail @0x36aaf0 also queues a CUICmdPointCamera here when, in turn-based, a
-				// human unit hears an AI unit absent from the known-audible set (unit+0x168) -- that
-				// second set (rebuilt by UpdateVisible @0x3c4450) is not ported yet.
+				// Steam 0x76b600: focus an unseen AI sound even when it was already audible.
+				if ( IsTurnBased() && !pTarget->GetRPG()->IsAIPlayer() && pWho->GetRPG()->IsAIPlayer() )
+				{
+					const list<CPtr<CUnitServer> > &visible = pTarget->GetTBSVisible();
+					if ( find( visible.begin(), visible.end(), (CUnitServer*)pWho ) == visible.end() )
+						AddUICommand( new CUICmdPointCamera( pWho->GetPosition().GetCP(), PR_UNIT_SOUND,
+							false, 0, true, 0, pWho->GetPosition().pos.GetFloor() ) );
+				}
 				pTarget->SetAudible( pWho, true );
 				//
 				bool bDiplomacyEnemy = pTarget->GetDiplomacyState( pWho ) == NDb::DS_ENEMY;
@@ -3009,10 +3072,12 @@ void CWorld::UpdateWorld( STime tScene, IPlayer *pPlayer )
 	CFWContext world( &pCurrentWorld, this );
 	ASSERT( IsValid( pTime ) );
 	STime tCurrent = pTime->GetValue();
-	int nSkipped = 0;
+	float fTimeSpent = 0;
 	tScene += tHiddenDelta;
 	while ( tScene >= tCurrent ) // CRAP - time wrap problem
 	{
+		NHPTimer::STime tStart;
+		NHPTimer::GetTime( &tStart );
 		tCurrent += DW_SEGMENT_TIME;
 		pTime->Set( tCurrent );
 		MarkNewDGFrame();
@@ -3023,11 +3088,12 @@ void CWorld::UpdateWorld( STime tScene, IPlayer *pPlayer )
 		pRefreshAimTime.Refresh();
 		Segment();
 
-		if ( IsValid(pPlayer) && CanSkip( CDynamicCast<CPlayer>(pPlayer) ) && nSkipped < 5 )
+		// Budget measured segment work while keeping the fork's simulation clocks.
+		fTimeSpent += NHPTimer::GetTimePassed( &tStart );
+		if ( fTimeSpent < 0.03f && IsValid(pPlayer) && CanSkip( CDynamicCast<CPlayer>(pPlayer) ) )
 		{
 			tHiddenDelta += DW_SEGMENT_TIME;
 			tScene += DW_SEGMENT_TIME;
-			nSkipped++;
 		}
 	}
 }
@@ -3087,58 +3153,75 @@ void CWorld::KillObject( CObjectServerBase *pOS )
 	ActivateDebris( SSphere( pOS->GetPosition(), 5 ), GetAIMap(), pTime );*/
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CWorld::PerformRangedAttack( const NRPG::SAttackRayInfo &rayInfo, STime sCast, NDb::CModel *pTrailModel, float fTrailSpeed, NDb::CRPGGrenade *pGrenade, int nEffectType )
+CObjectBase *CWorld::PerformRangedAttack( const NRPG::SAttackRayInfo &rayInfo, STime sCast, NDb::CModel *pTrailModel, float fTrailSpeed, NDb::CRPGGrenade *pGrenade, int nEffectType )
 {
-	NRPG::PerformRangedAttack( this, rayInfo, sCast, pTrailModel, fTrailSpeed, pGrenade, nEffectType );
+	return NRPG::PerformRangedAttack( this, rayInfo, sCast, pTrailModel, fTrailSpeed, pGrenade, nEffectType );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CWorld::PerformRangedAttack( const NRPG::CAttackPortion &ap, const CRay &ray, const vector<NRPG::IAttackable*> &ignores, STime sCast, NDb::CModel *pTrailModel, float fTrailSpeed, float fMaxRange )
+CObjectBase *CWorld::PerformRangedAttack( const NRPG::CAttackPortion &ap, const CRay &ray, const vector<NRPG::IAttackable*> &ignores, STime sCast, NDb::CModel *pTrailModel, float fTrailSpeed, float fMaxRange )
 {
-	NRPG::SAttackRayInfo rayInfo( ap, ray.ptOrigin, ray.ptDir, true, 0.0f, fMaxRange, 0 );
+	// Original MakeSplinter 0x691b90 / dispatcher 0x692650: plain rays take the loose trace.
+	NRPG::SAttackRayInfo rayInfo( ap, ray.ptOrigin, ray.ptDir, false, 0.0f, fMaxRange, 0 );
 	if ( !ignores.empty() )
 	{
 		CDynamicCast<CObjectBase> pObj( ignores[0] );
 		if ( pObj )
 			rayInfo.pIgnore = pObj;
 	}
-	NRPG::PerformRangedAttack( this, rayInfo, sCast, pTrailModel, fTrailSpeed );
+	return NRPG::PerformRangedAttack( this, rayInfo, sCast, pTrailModel, fTrailSpeed );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CWorld::ThrowGrenade( const CVec3 &vFrom, const CVec3 &vSpeed, STime tThrow,
+CObjectBase *CWorld::ThrowGrenade( const CVec3 &vFrom, const CVec3 &vSpeed, STime tThrow,
 	float fTFly, NDb::CModel *pModel, NDb::CRPGGrenade *pRPGGrenade, CUnitServer *pUnitServer,
 	NDb::CRPGEngGrenade *pRPGEngGrenade )
 {
 	// retail @0x764140: a valid regular record flies as the timed grenade; otherwise a valid
 	// engineer record flies as the contact-fused eng grenade, carrying the thrower's
 	// ENGINEERING skill for the explosion (read here, at throw time).
+	IDynamicObject *pBullet = 0;
 	if ( IsValid( pRPGGrenade ) )
 	{
-		miscObjects.push_back( CreateGrenadeServer( this, vFrom, vSpeed, tThrow,
-			fTFly, pModel, pRPGGrenade, pUnitServer ) );
+		pBullet = CreateGrenadeServer( this, vFrom, vSpeed, tThrow,
+			fTFly, pModel, pRPGGrenade, pUnitServer );
 	}
 	else if ( IsValid( pRPGEngGrenade ) )
 	{
 		int nEngSkill = 0;
 		if ( IsValid( pUnitServer ) )
 			nEngSkill = pUnitServer->GetUnitRPG()->GetRPGUnit()->Skills( NDb::ST_ENGINEERING );
-		miscObjects.push_back( CreateGrenadeServer( this, vFrom, vSpeed, tThrow,
-			fTFly, pModel, pRPGEngGrenade, pUnitServer, nEngSkill ) );
+		pBullet = CreateGrenadeServer( this, vFrom, vSpeed, tThrow,
+			fTFly, pModel, pRPGEngGrenade, pUnitServer, nEngSkill );
 	}
+	if ( pBullet )
+		miscObjects.push_back( pBullet );
+	return pBullet;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CWorld::ThrowKnife( const CVec3 &vFrom, const CVec3 &vSpeed, STime tThrow, float fDistance,
+CObjectBase *CWorld::ThrowKnife( const NRPG::SAttackRayInfo &rayInfo, float fSpeed, STime tThrow,
+	float fDistance, NDb::CModel *pModel, NRPG::IInventoryItem *pIItem )
+{
+	IDynamicObject *pBullet = CreateKnifeServer( this, rayInfo, fSpeed, tThrow, fDistance, pModel, pIItem );
+	miscObjects.push_back( pBullet );
+	return pBullet;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+CObjectBase *CWorld::ThrowKnife( const CVec3 &vFrom, const CVec3 &vSpeed, STime tThrow, float fDistance,
 	NDb::CModel *pModel, NRPG::CAttackPortion &attack, NRPG::IInventoryItem *pIItem, CUnitServer *pUnitServer )
 {
-	miscObjects.push_back( CreateKnifeServer( this, vFrom, vSpeed, tThrow, 
-		fDistance, pModel, attack, pIItem, pUnitServer ) );
+	IDynamicObject *pBullet = CreateKnifeServer( this, vFrom, vSpeed, tThrow,
+		fDistance, pModel, attack, pIItem, pUnitServer );
+	miscObjects.push_back( pBullet );
+	return pBullet;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CWorld::LaunchRocket( const CVec3 &vFrom, const CVec3 &vSpeed,
+CObjectBase *CWorld::LaunchRocket( const CVec3 &vFrom, const CVec3 &vSpeed,
 		STime tThrow, float fDistance, NDb::CModel *pModel, NRPG::CAttackPortion &attack, 
 		NRPG::IClipItem *pRocket, CUnitServer *pIgnored, NDb::CEffect *pEffect   )
 {
-	miscObjects.push_back( CreateRocketServer( this, vFrom, vSpeed, tThrow, 
-		fDistance, pModel, attack, pRocket, pIgnored, pEffect ) );
+	IDynamicObject *pBullet = CreateRocketServer( this, vFrom, vSpeed, tThrow,
+		fDistance, pModel, attack, pRocket, pIgnored, pEffect );
+	miscObjects.push_back( pBullet );
+	return pBullet;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 const float F_UNIT_REACH_DISTANCE = 20.0f;
@@ -3183,18 +3266,12 @@ bool CWorld::IsWinnerPlayer( IPlayer *pPlayer )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorld::MakeExplosion( const CRay &ray, int nMaxFloor )
 {
-	CPtr<CUnitServer> pThrower = 0;
-	if ( !units.empty() )
-		pThrower = units.front();
-	//
-	if ( IsValid( pThrower ) )
-	{
-		int nUserID;
-		CVec3 ptPoint;
-		CObjectBase *pUserData;
-		if ( TraceRay( this, ray, nMaxFloor, &pUserData, &nUserID, &ptPoint ) )
-			AddGrenadeExplosion( ptPoint, NDb::GetRPGGrenade( 21 ), pThrower );
-	}
+    int nUserID;
+    CVec3 ptPoint;
+    CObjectBase *pUserData;
+    // The debug blast uses the original preset with no arbitrary unit owner.
+    if ( TraceRay( this, ray, nMaxFloor, &pUserData, &nUserID, &ptPoint ) )
+        AddGrenadeExplosion( ptPoint, NDb::GetRPGGrenade( 16 ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorld::AddGrenadeExplosion( const CVec3 &vStartPosition, NDb::CRPGGrenade *pRPGGrenade,
@@ -3471,18 +3548,78 @@ void CWorld::OnNewPlayerTurn( CPlayer *pPlayer )
 	// (StartPlayerTurn calls OnNewPlayerTurn then OnPassControl -- still exactly ONE pass-control throw).
 	//
 	GetGlobalAck()->OnNewTurnStarted( pPlayer );
-	RollNewWeather( 60 );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail CTBSWorld::OnPassControl @0x372bf0 (via ProcessTBSEvents @0x3675d0, STBSEvent tag9): every
-// control hand-over throws CEventOnPassControl(current stack-top owner). Subscribers: the per-unit
+// control hand-over throws CEventOnPassControl(captured owner). Subscribers: the per-unit
 // threat tracker (OnNewTurn @0xab180 -> CAIBeginTurnEvent -> PrepareEnemies @0xb17a0 == dev Populate)
-// and, dev-side, the commanders are notified by the base body's direct OnPassControl loop. An ownerless
+// and, dev-side, commanders receive the same captured owner here. An ownerless
 // (sequence) top throws with a null player -- the tracker's own-player filter makes that a no-op,
 // matching retail.
-void CWorld::OnPassControlNotify()
+void CWorld::OnPassControlNotify( CPlayer *pPlayer )
 {
-	NGlobal::ThrowEvent( CEventOnPassControl( GetTBSCurrentPlayer() ) );
+	NGlobal::ThrowEvent( CEventOnPassControl( pPlayer ) );
+	vector< CPtr<CPlayer> > players;
+	GetPlayersList( &players );
+	for ( int k = 0; k < players.size(); ++k )
+		players[k]->GetCommander()->OnPassControl( pPlayer );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CWorld::ProcessTBSEvents()
+{
+	CFWContext world( &pCurrentWorld, this );
+	// Original Steam 0x767e40: pop before dispatch, and drain events appended by callbacks.
+	bool bRecalc = false;
+	while ( !events.empty() )
+	{
+		STBSEvent event = events.front();
+		events.pop_front();
+		CDynamicCast<CPlayer> pPlayer( event.pParam );
+		vector< CPtr<CPlayer> > players;
+		switch ( event.event )
+		{
+		case TBS_START_NEW_TURN:
+			if ( !IsValid( pPlayer ) )
+				break;
+			willWantTBS.clear();
+			pPlayer->OnTBSEvent( TBS_START_NEW_TURN );
+			OnNewPlayerTurn( pPlayer );
+			UINeedUpdate();
+			RollNewWeather( 60 );
+			break;
+		case TBS_FINISH_OWN_TURN:
+			if ( IsValid( pPlayer ) )
+				pPlayer->OnTBSEvent( TBS_FINISH_OWN_TURN );
+			break;
+		case TBS_START_REAL_TIME:
+			GetPlayersList( &players );
+			for ( int k = 0; k < players.size(); ++k )
+				players[k]->OnTBSEvent( TBS_START_REAL_TIME );
+			OnRealTimeStarted();
+			break;
+		case TBS_GLOBAL_SITUATION_CHANGED:
+			GetPlayersList( &players );
+			for ( int k = 0; k < players.size(); ++k )
+				players[k]->GetCommander()->ClearList();
+			CancelAllAction();
+			break;
+		case TBS_NEW_LARGE_TURN:
+			OnNewTurn();
+			break;
+		case TBS_PASS_CONTROL:
+			OnPassControlNotify( pPlayer );
+			// Fall through: all control notifications share one final command recalculation.
+		case TBS_RECALC_COMMAND:
+			bRecalc = true;
+			break;
+		case TBS_GRID_INFO_UPDATED:
+			GetPlayersList( &players );
+			for ( int k = 0; k < players.size(); ++k )
+				players[k]->OnTBSEvent( TBS_GRID_INFO_UPDATED );
+			break;
+		}
+	}
+	ProcessActionTracker( bRecalc );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorld::OnNewPlayerFastTurnOrTime( const CEventOnNewPlayerFastTurnOrTime &event )
@@ -4012,6 +4149,16 @@ void CWorld::ChangeUnitPlayer( CUnitServer *pUnit, CPlayer *pPlayer )
 	// the order must be exactly this, otherwise pUnit becomes non-IsValid
 	pPlayer->AddUnit( pUnit );
 	pOldPlayer->RemoveUnit( pUnit );
+	// Retain the recruit before releasing its previous global owner.
+	CPtr<NRPG::CGlobalPlayer> pGlobalPlayer = pPlayer->GetGlobalPlayer();
+	if ( IsValid( pGlobalPlayer ) )
+		pGlobalPlayer->zoneMercs.push_back( pUnit->GetUnitRPG()->GetRPGUnit() );
+	pGlobalPlayer = pOldPlayer->GetGlobalPlayer();
+	if ( IsValid( pGlobalPlayer ) )
+	{
+		vector< CObj<NRPG::CUnit> > &zoneMercs = pGlobalPlayer->zoneMercs;
+		zoneMercs.erase( remove( zoneMercs.begin(), zoneMercs.end(), pUnit->GetUnitRPG()->GetRPGUnit() ), zoneMercs.end() );
+	}
 	//
 	pUnit->SetPlayer( pPlayer );
 	pUnit->GetUnitRPG()->SetDiplomacy( GetDiplomacy()->GetPlayerDiplomacy( pPlayer->GetScenarioPlayerID() ) );

@@ -80,26 +80,13 @@ void CPlayerTracker::RemoveUnit( IUnitTracker *pUnit )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPlayerTracker::IsPlayerLoser()
 {
-	bool bAllDead = true;
+	// Steam 1.2 0x687550: only a hero who can fight keeps this party alive.
 	for ( int nTemp = 0; nTemp < unitsSet.size(); nTemp++ )
 	{
-		if ( unitsSet[nTemp]->GetUnit()->IsDead() )
-			continue;
-		if ( unitsSet[nTemp]->GetUnit()->IsUnconscious() )
-			continue;
-
-		bAllDead = false;
-	}
-
-	if ( bAllDead )
-		return true;
-
-	for ( int nTemp = 0; nTemp < unitsSet.size(); nTemp++ )
-	{
-		if ( unitsSet[nTemp]->GetUnit()->GetRPG()->IsHero() )
+		NWorld::CUnit *pUnit = unitsSet[nTemp]->GetUnit();
+		if ( pUnit->GetRPG()->IsHero() && pUnit->CanFight() )
 			return false;
 	}
-
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

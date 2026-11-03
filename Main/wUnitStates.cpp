@@ -406,7 +406,13 @@ CCommandExecute* CUnitStateCorpseCarrier::CreateExecutor( CCmd *pCmd, EUnitComma
 	CDynamicCast<CCmdLook> pLook(pCmd);
 	// v1.2 0x7c9141..0x7c9158: taking a perk is also allowed while carrying.
 	CDynamicCast<CCmdTakePerk> pTakePerk(pCmd);
-	if (pPath || pLook || pTakePerk)
+	CDynamicCast<CCmdUsePassage> pPassage(pCmd);
+	CDynamicCast<CCmdTeleport> pTeleport(pCmd);
+	CDynamicCast<CCmdPlayAnimation> pAnimation(pCmd);
+	CDynamicCast<CCmdTalk> pTalk(pCmd);
+	CDynamicCast<CCmdNotHeroWantsToTalk> pNotHeroTalk(pCmd);
+	// Forward original carrier commands through this fork's existing dispatch.
+	if (pPath || pPassage || pLook || pTeleport || pAnimation || pTakePerk || pTalk || pNotHeroTalk)
 		return NWorld::CreateExecutor( pUS, pCmd, pResult );
 	CDynamicCast<CCmdWishPose> pWishPose(pCmd);
 	if (pWishPose)
@@ -432,12 +438,6 @@ CCommandExecute* CUnitStateCorpseCarrier::CreateExecutor( CCmd *pCmd, EUnitComma
 		pDropCorpse->pCorpse = pDeadUnit;
 		return NWorld::CreateExecutor( pUS, pDropCorpse, pResult );
 	}
-	// retail corpse-carrier CreateExecutor @0x3c8c90 also honours a non-hero talk command (mirror of
-	// the normal-state dispatch) so the NPC-interaction bark still fires while carrying a corpse.
-	CDynamicCast<CCmdNotHeroWantsToTalk> pNotHeroTalk(pCmd);
-	if (pNotHeroTalk)
-		return new CExecNotHeroWantsToTalk( pUS );
-
 	*pResult = UCR_UNAVAILABLE;
 	return 0;
 }

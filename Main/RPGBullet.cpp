@@ -16,6 +16,7 @@
 #include "RPGUnitMission.h"		// NRPG::IUnitMissionInfo (complete -- for CAttackPortion's CPtr members)
 #include "rpgCheatConstants.h"	// CHEAT_GODMODE
 #include "../Misc/RandomGen.h"
+#include "../DBFormat/DataMap.h"
 
 namespace NRPG
 {
@@ -107,9 +108,8 @@ bool IsObstacleRay( NAI::CFastRenderer::SResult *pList, float fMaxDist, CObjectB
 	return false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// NRPG::PerformThrowingAttackPortion @0x290780 -- free-fn form of
-// CGame::ProcessThrowingAttackPortion. The release added the leading IWorld* and the
-// (unread) vPlace argument; the body is otherwise identical.
+// Original Gold 0x68a440 / Steam 0x690440: native throwing-hit application.
+// World and the supplied flight direction reach the existing receiver handler.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 EAttackResult PerformThrowingAttackPortion( NWorld::IWorld *pWorld, CAttackPortion *pA,
 	const CVec3 &vDir, IAttackable *pTarget, NDb::CRPGArmor *pArmor, int nUserID )
@@ -131,12 +131,10 @@ EAttackResult PerformThrowingAttackPortion( NWorld::IWorld *pWorld, CAttackPorti
 	return AR_BOUNCE;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// NRPG::PerformMeleeAttackPortion @0x290f70 -- free-fn form of CGame::ProcessMeleeAttackPortion.
-// The release added explicit IWorld* (unread) + IAIMap* + a pFilter object that, when non-null,
-// restricts the ProcessAttack callback to that one hit object.
-// DECOMP-vs-dev divergence (followed the release): the dev CGame version `continue`s on a
-// god-moded unit; the release only withholds it from the ignore list and still runs the
-// armor/damage path.
+// NRPG::PerformMeleeAttackPortion: Gold 0x68ac30, Steam v1.2 0x690c30.
+// Explicit world/map and optional target filter preserve the native damage context.
+// Every valid unit enters the ignore list once, including godmode units; the RPG
+// callback protects their HP while duplicate body intervals remain suppressed.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void PerformMeleeAttackPortion( NWorld::IWorld *pWorld, NAI::IAIMap *pAIMap, const CAttackPortion &a,
 	const CRay &ray, const vector<IAttackable*> &ignores, CObjectBase *pFilter )
@@ -160,7 +158,7 @@ void PerformMeleeAttackPortion( NWorld::IWorld *pWorld, NAI::IAIMap *pAIMap, con
 			if ( find( ignore.begin(), ignore.end(), pCatcher ) != ignore.end() )
 				continue;
 			CDynamicCast<NWorld::CUnit> pUnit( i->pSrc->pUserData );
-			if ( pUnit && !pUnit->IsCheatEnabled( CHEAT_GODMODE ) )
+			if ( IsValid( pUnit ) )
 				ignore.push_back( pCatcher );
 		}
 		NDb::CRPGArmor *pArmor = i->pSrc->pArmor;
@@ -184,6 +182,7 @@ void CalcCoverIntervals( NAI::CFastRenderer::SResult *pList, const SAttackRayInf
 	float fAP = (float)ray.atk.nK;
 	pOut->push_back( SCoverInterval( -1e30f, fAP ) );	// sentinel: profile before anything is hit
 	vector<CObjectBase*> seen;
+	seen.push_back( ray.pIgnore );
 	for ( NAI::CFastRenderer::SResult *node = pList; node; node = node->pNext )
 	{
 		if ( node->fEnter >= ray.fMaxRange )
@@ -203,7 +202,7 @@ void CalcCoverIntervals( NAI::CFastRenderer::SResult *pList, const SAttackRayInf
 		if ( !pArmor )
 			pArmor = pFallbackArmor;
 		float fNext;
-		if ( ray.atk.IsArmorIgnored( pArmor ) || !ray.atk.CanDealDmg( pArmor ) )
+		if ( !ray.atk.IsArmorIgnored( pArmor ) && !ray.atk.CanDealDmg( pArmor ) )
 			fNext = -100.0f;							// blocked: hard stop at this cover
 		else
 			fNext = fAP - GetAPASubstraction( node->fEnter, node->fExit, pArmor );
@@ -212,6 +211,110 @@ void CalcCoverIntervals( NAI::CFastRenderer::SResult *pList, const SAttackRayInf
 		if ( fAP <= 0 )
 			break;
 	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Original bound normals helper 0x6904e0: the precise trace supplies normals ONLY.
+// It must not replace the selected grid's object, body part, or damage decision.
+static void CalcNormals( NAI::IAIMap *pAIMap, vector<STrailPoint> *pTrail,
+	const CVec3 &vOrigin, const CVec3 &vDir )
+{
+	CRay ray; ray.ptOrigin = vOrigin; ray.ptDir = vDir;
+	vector<NAI::SInterval> intersections;
+	pAIMap->Trace( ray, &intersections, NWorld::TS_FRAGMENTED );
+	for ( vector<STrailPoint>::iterator i = pTrail->begin(); i != pTrail->end(); ++i )
+	{
+		if ( i->nFloor == 100 )
+			continue;
+		bool bExit = vDir * i->vNormal <= 0;
+		float fNearest = 1e38f;
+		for ( vector<NAI::SInterval>::const_iterator j = intersections.begin(); j != intersections.end(); ++j )
+		{
+			if ( j->pSrc->pUserData != i->pObject )
+				continue;
+			const NAI::SInterval::SCrossPoint &point = bExit ? j->exit : j->enter;
+			float fDistance = fabs2( i->vPosition - ray.Get( point.fT ) );
+			if ( fDistance < fNearest )
+			{
+				fNearest = fDistance;
+				i->vNormal = -point.ptNormal;
+			}
+		}
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Original Steam grid forward 0x693580 calls 0x691290. The hit grid is authoritative; the
+// separate precise trace above only refines entry/exit particle normals.
+void GetHitIntersections( NAI::IAIMap *pAIMap, vector<STrailPoint> *pTrail,
+	NAI::CFastRenderer::SResult *pList, const SAttackRayInfo &rayInfo )
+{
+	NDb::CRPGArmor *pDefaultArmor = NDb::GetArmor( NDb::N_DEFAULT_ARMOR );
+	vector<SCoverInterval> cover;
+	CalcCoverIntervals( pList, rayInfo, pDefaultArmor, &cover );
+	CRay ray = rayInfo.GetRay();
+	CAttackPortion attack( rayInfo.atk );
+	attack.rTtrajectory = ray;
+	vector<CObjectBase*> ignored;
+	ignored.push_back( rayInfo.pIgnore );
+	pTrail->clear();
+	pTrail->push_back( STrailPoint( 0, ray.ptDir, ray.Get( rayInfo.fMinClearDistance ),
+		attack, 0, 0, 0, CVec3(0,0,1), 100 ) );
+	float fEnd = rayInfo.fMaxRange;
+	for ( int i = 0; i < cover.size(); ++i )
+		if ( cover[i].fK < 0 )
+			fEnd = Min( fEnd, cover[i].fEnter );
+	int nCover = 0;
+	for ( NAI::CFastRenderer::SResult *p = pList; p; p = p->pNext )
+	{
+		if ( p->fEnter >= rayInfo.fMaxRange )
+			break;
+		const NAI::SSourceInfo &src = p->GetInfo();
+		if ( p->fExit < rayInfo.fMinClearDistance || !( src.nTSFlags & NWorld::TS_FRAGMENTED ) )
+			continue;
+		NDb::CRPGArmor *pArmor = src.pArmor;
+		if ( !pArmor )
+			pArmor = pDefaultArmor;
+		while ( nCover + 1 < cover.size() && p->fEnter > cover[nCover + 1].fEnter )
+			++nCover;
+		attack.nK = int( cover[nCover].fK );
+		if ( attack.nK < 1 )
+		{
+			fEnd = cover[nCover].fEnter;
+			break;
+		}
+		CObjectBase *pObject = src.pUserData;
+		if ( find( ignored.begin(), ignored.end(), pObject ) != ignored.end() )
+			continue;
+		CDynamicCast<NWorld::CUnit> pUnit( pObject );
+		if ( pUnit || pObject == rayInfo.pTarget )
+			ignored.push_back( pObject );
+		int nUserID = p->pSrc->nUserID;
+		bool bHit = true;
+		if ( IsValid( pUnit ) && pObject != rayInfo.pTarget )
+		{
+			CDynamicCast<NWorld::CUnitServer> pServer( pObject );
+			if ( rayInfo.pUS && pServer && rayInfo.pUS->GetDiplomacyState( pServer ) == NDb::DS_ALLY )
+				bHit = false;
+			else
+				bHit = CheckBulletToHit( rayInfo, pObject, (NAI::EHitLocation)nUserID );
+		}
+		if ( rayInfo.atk.IsArmorIgnored( pArmor ) )
+			continue;
+		bool bCanDealDmg = rayInfo.atk.CanDealDmg( pArmor );
+		bool bDraw = bHit && bCanDealDmg || !pUnit;
+		if ( bDraw )
+			pTrail->push_back( STrailPoint( nUserID, ray.ptDir, ray.Get( p->fEnter ), attack,
+				bHit && bCanDealDmg ? pObject : 0, pObject, pArmor, ray.ptDir, src.nFloor ) );
+		if ( !bCanDealDmg )
+		{
+			fEnd = p->fEnter + 0.01f;
+			break;
+		}
+		if ( bDraw && p->fExit > 0 && p->fExit < rayInfo.fMaxRange )
+			pTrail->push_back( STrailPoint( nUserID, ray.ptDir, ray.Get( p->fExit ), attack,
+				0, pObject, pArmor, -ray.ptDir, src.nFloor ) );
+	}
+	pTrail->push_back( STrailPoint( 0, ray.ptDir, ray.Get( fEnd ), attack, 0, 0, 0, CVec3(0,0,1), 100 ) );
+	CalcNormals( pAIMap, pTrail, rayInfo.vOrigin, rayInfo.vDir );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // NRPG::TraceLooseRaySegment @0x292010
@@ -308,7 +411,7 @@ void TraceLooseRay( NAI::IAIMap *pAIMap, const SAttackRayInfo &rayInfo, vector<S
 
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// NRPG::PerformRangedAttack @0x2929e0
+// NRPG::PerformRangedAttack: Gold 0x68c6a0, actual Steam 0x692650.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CObjectBase * PerformRangedAttack( NWorld::IWorld *pWorld, const SAttackRayInfo &rayInfo, STime sCast, NDb::CModel *pTrailModel, float fTrailSpeed, NDb::CRPGGrenade *pGrenade, int nEffectType )
 {
@@ -324,27 +427,11 @@ CObjectBase * PerformRangedAttack( NWorld::IWorld *pWorld, const SAttackRayInfo 
 	}
 	else
 	{
-		// HIT branch: if trailPoints already populated, use them; otherwise process attack portion along the ray
-		if ( !rayInfo.trailPoints.empty() )
-		{
-			trail = rayInfo.trailPoints;
-		}
-		else
-		{
-			vector<IAttackable*> ignores;
-			if ( rayInfo.pIgnore )
-			{
-				CDynamicCast<IAttackable> pAtt( rayInfo.pIgnore.GetPtr() );
-				if ( pAtt )
-					ignores.push_back( pAtt );
-			}
-			CRay ray; ray.ptOrigin = rayInfo.vOrigin; ray.ptDir = rayInfo.vDir;
-			float fMaxRange = rayInfo.fMaxRange > 0.0f ? rayInfo.fMaxRange : 30.0f;
-			pCWorld->GetGame()->ProcessRangedAttackPortion( rayInfo.atk, ray, ignores, &trail, fMaxRange );
-		}
+		// Original Steam 0x692681..0x6926a6 consumes the cached hit trail even
+		// when empty. A second trace must not invent contacts or damage.
+		trail = rayInfo.trailPoints;
 	}
-
-	// Retail v1.2 0x69271d..0x69272e suppresses impact particles for shooterless rays.
+	// Original Steam 0x69266d..0x692681 suppresses impact particles for shooterless rays.
 	if ( !rayInfo.pUS )
 		nEffectType = -1;
 	NWorld::IDynamicObject *pBulletServer = NWorld::CreateBulletServer( pCWorld, trail, sCast, pTrailModel, fTrailSpeed, pGrenade, nEffectType );

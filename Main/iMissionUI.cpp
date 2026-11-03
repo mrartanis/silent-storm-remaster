@@ -5,6 +5,7 @@
 #include "G2DView.h"
 #include "Transform.h"
 #include "wInterface.h"
+#include "wUICommands.h"
 #include "wMisc.h"			// NWorld::GetDMeshUnit -- clue ("ear") markers over heard-not-seen units
 #include "RPGItemInfo.h"
 #include "RPGGlobal.h"
@@ -1041,6 +1042,14 @@ CMissionUI::CMissionUI( const SWindowInfo &sInfo, NGame::IMission *_pMission ):
 {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CMissionUI::IsValidCommand( NWorld::CUICmd *pCmd )
+{
+	// Script-authored moves are independent of automatic follow-camera framing.
+	if ( CDynamicCast<NWorld::CUICmdScriptMoveCamera>( pCmd ) )
+		return true;
+	return pMission->GetFollowCameraState() || !CDynamicCast<NWorld::CUICmdCameraLocator>( pCmd );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 NGame::CUICmdExec* CMissionUI::CreateExecutor( NWorld::CUICmd *pCmd )
 {
 	return NGame::CreateExecutor( pCmd, pMission );
@@ -1217,7 +1226,7 @@ bool CMissionUI::Update( const STime &sTime, NGScene::I2DGameView *pView )
 	// LAN missions expose one local tracker; only local hotseat needs a handoff.
 	vector< CPtr<NGame::IPlayerTracker> > players;
 	pMission->GetPlayers( &players );
-	if ( players.size() > 1 )
+	if ( !pMission->IsSetupMode() && players.size() > 1 )
 	{
 		NGame::IPlayerTracker *pActive = pMission->GetActivePlayer();
 		NRPG::CGlobalPlayer *pGlobal = IsValid( pActive ) ? pActive->GetGlobalPlayer() : 0;

@@ -488,6 +488,8 @@ public:
 	~CStructureSaver() { Finish(); }
 	bool IsReading() { return bIsReading; }
 	bool IsNetwork() const { return network != nullptr; }
+	// Inspect the current read chunk without consuming fields or changing its cache.
+	bool HasChunk( const chunk_id idChunk ) { return bIsReading && CountChunks( idChunk ) != 0; }
 	// file format version (0 = legacy, 1 = release/shipped). Consulted by version-gated operator&.
 	int GetVersion() const { return nVersion; }
 

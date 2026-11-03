@@ -42,13 +42,14 @@ public:
     void SetParticleShow( bool bNewState ) override { throw std::runtime_error("unexpected icon fixture render operation"); }
     void SetAmbient( const CVec3 &vBottomAmbientColor, const CVec3 &vTopAmbientColor ) override { throw std::runtime_error("unexpected icon fixture render operation"); }
     CObjectBase* AddDirectionalLight( const CVec3 &ptColor, const CVec3 &ptLight, const CVec3 &ptOrigin, const CVec2 &ptSize, float fMaxHeight, bool bLightmapOnly = false ) override { throw std::runtime_error("unexpected icon fixture render operation"); }
-    CObjectBase* AddPointLight( const CVec3 &ptColor, const CVec3 &ptOrigin, float fR, bool bLightmapOnly ) override { throw std::runtime_error("unexpected icon fixture render operation"); }
+    CObjectBase* AddPointLight( const CVec3 &ptColor, const CVec3 &ptOrigin, float fR, bool bLightmapOnly, bool bCastShadow ) override { throw std::runtime_error("unexpected icon fixture render operation"); }
     CObjectBase* AddFlare( CFuncBase<CVec3> *pOrigin, CFuncBase<STime> *pTime, int nFloor, float fFlareRadius, NDb::CTexture *pFlareTexture, float fOnTime, float fOffTime ) override { throw std::runtime_error("unexpected icon fixture render operation"); }
     CObjectBase* AddPostFilter( const vector<CObjectBase*> &target, IPostProcess *pEffect ) override { throw std::runtime_error("unexpected icon fixture render operation"); }
     CObjectBase* AddSpotLight( const CVec3 &ptColor, const CVec3 &ptOrigin, const CVec3 &ptDir, float fFOV, float fRadius, NDb::CTexture *pMask, bool bLightmapOnly = false ) override { throw std::runtime_error("unexpected icon fixture render operation"); }
     CDecalTarget* CreateDecalTarget( const vector<CObjectBase*> &targets, const SDecalMappingInfo &_info ) override { throw std::runtime_error("unexpected icon fixture render operation"); }
     CObjectBase* AddDecal( NGScene::CDecalTarget *pTarget, NDb::CMaterial *pMaterial ) override { throw std::runtime_error("unexpected icon fixture render operation"); }
     void SetAmbient( NDb::CAmbientLightReal *pLight, ELightMode lm = LT_ZONE ) override { throw std::runtime_error("unexpected icon fixture render operation"); }
+    void SetAmbientEffect( NDb::CEffect*, STime, CFuncBase<STime>*) override { throw std::runtime_error("unexpected icon fixture render operation"); }
     ESceneRenderMode GetRenderMode() const override { throw std::runtime_error("unexpected icon fixture render operation"); }
     void SetRenderMode( ESceneRenderMode mode ) override { throw std::runtime_error("unexpected icon fixture render operation"); }
     EFogMode GetFogMode() const override { throw std::runtime_error("unexpected icon fixture render operation"); }

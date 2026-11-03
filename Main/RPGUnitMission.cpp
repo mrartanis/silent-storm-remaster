@@ -14,6 +14,7 @@
 #include "Grid.h"
 #include "A5Script.h"
 #include "../DBFormat/DataRPG.h"
+#include "../DBFormat/DataDifficulty.h"
 #include "../DBFormat/DataFormat.h"
 #include "../DBFormat/DataAI.h"
 #include "../Misc/RandomGen.h"
@@ -23,6 +24,7 @@
 #include "RPGCritical.h"
 #include "RPGToHit.h"
 #include "wUnitServer.h"   // NWorld::CUnitServer / CUnit -- the to-hit dispatch RTTI-casts to the server
+#include "wMain.h"
 #include "wAckBase.h"
 #include "RPGDiplomacy.h"
 #include "rpgCheatConstants.h"
@@ -31,6 +33,7 @@
 #include "../DBFormat/DataMisc.h"   // NDb::CRPGAP (GetActionAP RPGAP-table costs) + CRPGPicklock (AC_PICK_LOCK nAPToUse)
 
 #include "RPGUnitMission.h"
+#include "RPGAttackSession.h"
 
 #if defined(_WIN32)
 static CRandomGenerator &MissionRandom() { return random; }
@@ -81,7 +84,9 @@ struct SModifierHolder
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CUnitMission
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-class CUnitMission: public IUnitMission
+// Keep the CObject-facing base first: the remaster lifetime macro reads its
+// virtual-base refcounts after destruction, before reconstructing the object.
+class CUnitMission: public IUnitMission, public CUnitMissionForMedals
 {
 	friend class CUnitToHitCalcer;
 	friend class CTileToHitCalcer;
@@ -101,7 +106,8 @@ private:
 	void ApplyCritical( CCritical *p );
 	void ApplyCritical( NDb::CRPGCritical *pCritical, int nDC );
 	void ProcessCriticalsOnNewTurnFor();
-	float GetCriticalDmgModifier( NAI::EHitLocation eHL, int nCriticalProbability, int nCriticalDifficulty );
+	float GetCriticalDmgModifier( NWorld::IWorld *pWorld, NAI::EHitLocation eHL, int nCriticalProbability, int nCriticalDifficulty, bool bForced, IUnitMissionInfo *pAttacker );
+	void CheckOverdose();
 	EToHitType GetToHitWeaponType() const;
 	int GetMeleeToHit( const CVec3 &ptAttacker, const NAI::SPosition &posTarget, 
 		IUnitMissionInfo *pTarget, NAI::EHitLocation hl, const vector<int> &accessibleHLs, bool bBackStab ) const;
@@ -111,11 +117,12 @@ private:
 	// branches with bBackStab.
 	void ModifyUnawareCritical( CAttackPortion &a, bool bApply ) const;
 
-	virtual int GetHealedVP() const { return pRPGUnit->nHealedVP; }
+	virtual int GetHealedVP() const { return Max( 0, pRPGUnit->nHealedVP ); }
 	virtual int GetTotalVP() const { return pRPGUnit->Skills( NDb::ST_VP ) + GetHealedVP(); }
-	void SetHealedVP( int n ) { pRPGUnit->nHealedVP = n; }
+	void SetHealedVP( int n ) { pRPGUnit->nHealedVP = Max( 0, n ); }
 	virtual int GetLastActionTimes() const { return nLastActionTimes; }
 	virtual int GetMoveInLastTurn() const { return nMoveInLastTurn; }
+	virtual float GetWeaponSkill( CObjectBase *pItem, int nExtraAP, int nBullet );
 	virtual void AddMoveInLastTurn( int n ) { nMoveInLastTurn += n; }
 	virtual int RollCritical( NAI::EHitLocation eHL, int nCriticalDifficulty, NDb::CRPGCritical **pCritical );
 	void SaveAck( int nAckID, IUnitMissionInfo *pAttacker );
@@ -181,7 +188,7 @@ private:
 	CPtr<IInventoryItem> pAdaptatedWeapon;
 	float fAdaptationCounter;
 	float fCurrentAdaptation;
-	float fAuraPerkICModifier;                    // retail +460 (tag 43): SetAuraPerkICModifier @0x2c5b90
+	float fAuraPerkICModifier;                    // retail full +0x1cc (existing tag 43); secondary setter Steam 0x6c5de0
 	int nScenarioPlayerID;                        // retail +464 (tag 44): SetScenarioPlayerID @0x2c5ba0
 public:
 	// retail table @0x2c6b10, member-by-member; tags 9/14/15 are retail's own permanent gaps.
@@ -199,17 +206,27 @@ public:
 	// Retail threads it through the ctor (CreateUnit @0x2c4f50); this fork binds it in the
 	// CUnitServer ctor (SetGlobalGame).
 	CPtr<CGlobalGame> pGlobalGame;
-	virtual void SetGlobalGame( CGlobalGame *p ) { pGlobalGame = p; }
+	virtual void SetGlobalGame( CGlobalGame *p )
+	{
+		pGlobalGame = p;
+		// Bind fresh server context; the medal session remains transient on load.
+		CUnitMissionForMedals::pGame = p;
+		pMedalsGainer = pRPGUnit;
+	}
+	virtual void Segment() { CUnitMissionForMedals::Segment(); }
+	virtual NDb::EDiplomacyState MedalDiplomacyState( int nPlayer )
+	{
+		return GetDiplomacy().GetDiplomacyState( nPlayer );
+	}
 	virtual CGlobalGame* GetGlobalGame() const { return pGlobalGame; }
 	// retail @0x2c5b40/@0x2c5b50/@0x2c5b90/@0x2c5ba0/@0x2c5bb0 -- plain setters/getters.
 	bool IsAIPlayer() const { return bIsAIUnit; }
-	void SetIsAIPlayer( bool b ) { bIsAIUnit = b; }
-	void SetAuraPerkICModifier( float f ) { fAuraPerkICModifier = f; }
+	void SetIsAIPlayer( bool b ) override { bIsAIUnit = b; }
+	virtual void SetAuraPerkICModifier( float f ) { fAuraPerkICModifier = f; }
 	void SetScenarioPlayerID( int n ) { nScenarioPlayerID = n; }
 	int GetScenarioPlayerID() const { return nScenarioPlayerID; }
 	// retail AddVPBoost @0x2c3400: install a temporary VP modifier (fAdd = 1% of the VP base per
-	// unit of strength) + record its lifetime. (Retail tails into CheckOverdose @0x2c0a50, whose
-	// overdose metric the oracle left unresolved -- deferred with it.)
+	// unit of strength), record its lifetime and check overdose.
 	virtual void AddVPBoost( float fStrength, int nDuration );   // overrides IUnitMission vtbl+0x184
 	//
 	CUnitMission();
@@ -247,7 +264,10 @@ public:
 	virtual void AddBleedingStopper( int nAmount ) { nBleedingStopAmount += nAmount; }
 	virtual void AddPostponedModifier( CDynamicSkill *pSkill, const SSkillModifyInfo &info, int nTurns );
 	virtual int  GetIC() const;
+	virtual float GetWeaponAdaptation() const;
 	virtual bool CheckIC();
+	int GetPerkModifiedIC( EAttackType attackType ) const;
+	bool CheckICForAttack( EAttackType attackType );
 	virtual int CheckInterrupt( const IUnitMission *pEnemy, bool bIsMutual, bool bWasShot );
 	virtual int  GetInterrupt() const { return pRPGUnit->Skills(NDb::ST_INTERRUPT); }
 	virtual NDb::CRPGArmor* GetRPGArmor() const;
@@ -284,6 +304,7 @@ public:
 	virtual NDb::CRPGPers* GetRPGPers() const;
 	virtual NDb::CComplexHead* GetRPGPersHead() const;
 	virtual CUnit *GetRPGUnit() const { return pRPGUnit; }
+	virtual SRandomSeed GetBindPlacesSeed() const { return pRPGUnit->GetBindPlacesSeed(); }
 	virtual NDb::SToHitConstants *GetToHitConstants() { return &tohit; }
 	virtual NDb::SAISoundConstants *GetAISoundConstants() { return &sAISoundConstants; }
 	virtual NDb::SInterruptsConstants *GetInterruptsConstants() { return &SInterruptsConstants; }
@@ -421,11 +442,18 @@ bool CUnitMission::GetAck( int *pAckID, IUnitMissionInfo **ppAttacker )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitMission::GetUnhideProbability( IUnitMission *pTarget, float fDistance ) const
 {
-	int n0 = 45; // probability at distance 0 tiles
-	int n30 = 1; // probability at distance 30 tiles
-	int nBase = ( int )( ( n30 - n0 ) / 30.f * fDistance + n0 );
-	int nProbability = 
-		GetRPGUnit()->Skills( NDb::ST_SPOT ) -	pTarget->GetRPGUnit()->Skills( NDb::ST_STEALTH ) + nBase;
+	int nSpot = GetRPGUnit()->Skills( NDb::ST_SPOT );
+	float fParam;
+	if ( HasPerk( N_PERK_BETTER_SPOTTING, &fParam ) )
+		nSpot = int( ( 1.0 + double( fParam ) ) * nSpot );
+	// Original 0x6bf7cf/e0 rounds both float operations before integer truncation.
+	const volatile float fDistanceTerm = ( 44.f / 30.f ) * fDistance;
+	int nBase = int( 45.f - fDistanceTerm );
+	int nStealth = pTarget->GetRPGUnit()->Skills( NDb::ST_STEALTH );
+	// Both originals test the observer's perk75; their night argument is unused.
+	if ( HasPerk( N_PERK_HIDE_IN_NIGHT, &fParam ) )
+		nStealth = int( ( 1.0 + double( fParam ) ) * nStealth );
+	int nProbability = nSpot - nStealth + nBase;
 	return Clamp( nProbability, 0, 100 );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -500,6 +528,23 @@ void CUnitMission::RegisterAction( EAction action )
 			break;
 		case AC_BURST:
 			UseSkill( NDb::ST_BURST );
+			break;
+		case AC_HIDE:
+			// Original Steam 1.2 RegisterAction 0x6c213f: practice on Hide entry.
+			UseSkill( NDb::ST_STEALTH );
+			break;
+		case AC_FIRSTAID:
+			// Original Steam 1.2 RegisterAction: 0x6c212d -> medicine practice.
+			UseSkill( NDb::ST_MEDICINE );
+			break;
+		case AC_TRAP_OBJECT:
+		case AC_DISARM_TRAP:
+		case AC_SET_MINE:
+		case AC_DISARM_MINE:
+		case AC_PICK_LOCK:
+		case AC_REPAIR_PK:
+			// These six original action codes share the engineering handler at 0x6c2151.
+			UseSkill( NDb::ST_ENGINEERING );
 			break;
 		case AC_MOVE_DIAGONAL:
 		case AC_MOVE_SIDE:
@@ -587,23 +632,34 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 		case AC_HIDE: return 14;
 		case AC_PREPARE: 
 		{
+			// Retail Steam 0x6c0f31: weapon-type price, subtract perk22, clamp to 0..8.
+			int nAP = 0;
+			CWeaponItem *pWeapon = pRPGUnit->GetWeaponItem();
+			if ( IsValid( pWeapon ) )
+				nAP = pWeapon->GetDBWeapon()->pWeaponType->nPrepareCost;
 			float fParam;
 			if ( HasPerk( N_PERK_CHEAP_SHOOT_PREPARE, &fParam ) )
-				return fParam;
-			else
-				return 2;
+				nAP = int( nAP - fParam );
+			return Min( 8, Max( 0, nAP ) );
 		}
 		case AC_SHOOT:   return pRPGUnit->GetWeaponAP();
 		case AC_PREPARE_AND_SHOOT:	return GetActionAP( curPose, AC_PREPARE ) + GetActionAP( curPose, AC_SHOOT );
 		case AC_EXPLODE: return 2;
-		case AC_THROW_GRENADE: return 20; // CRAP
+		case AC_THROW_GRENADE:
+		{
+			NDb::CRPGAP *pAP = NDb::GetRPGAP( 5 );
+			int nAP = pAP ? pAP->nAP : 0;
+			float fParam;
+			if ( HasPerk( N_PERK_CHEAP_THROW, &fParam ) )
+				nAP = int( ( 1.0 - double( fParam ) ) * nAP );
+			return nAP;
+		}
 		case AC_CLIMB_1: return 10;
 		case AC_CLIMB_2: return 12;
 		case AC_CLIMB_3: return 14;
 		case AC_CLIMB_4: return 15;
 		case AC_JUMP: return 10;
 		case AC_TAKE_CORPSE: return 12;
-		case AC_THROW_KNIFE: return 16; // CRAP
 		case AC_TRAP_OBJECT: return 30;
 		case AC_DISARM_TRAP: return 30;
 		case AC_SET_MINE: 
@@ -626,13 +682,19 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 				ASSERT( 0 && "manual therapist?" );
 				return 15;
 			}
+		case AC_THROW_KNIFE:
 		case AC_MELEE:
 			{
 				CMeleeWeaponItem *pMelee = pRPGUnit->GetMeleeWeaponItem();
 				if ( !pMelee )
 					return 0;
 				NDb::CRPGMeleeWeapon *pW = pMelee->GetDBMeleeWeapon();
-				return pW->nMaxAP - (pW->nMaxAP - pW->nMinAP) * pRPGUnit->Skills(NDb::ST_MELEE) / N_MAX_SKILL;
+				NDb::ESkillType skill = action == AC_THROW_KNIFE ? NDb::ST_THROWING : NDb::ST_MELEE;
+				int nAP = pW->nMaxAP - (pW->nMaxAP - pW->nMinAP) * pRPGUnit->Skills( skill ) / N_MAX_SKILL;
+				float fParam;
+				if ( HasPerk( action == AC_THROW_KNIFE ? N_PERK_CHEAP_THROW : N_PERK_CHEAP_MELEE, &fParam ) )
+					nAP = int( ( 1.0 - double( fParam ) ) * nAP );
+				return nAP;
 			}
 		case AC_BURST:
 			return pRPGUnit->GetWeaponBurstAP();
@@ -679,9 +741,10 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 					return curPose == NAI::CRAWL? 4 : 2;
 			}
 		// @0x2c0bd0 -- retail sources these from the RPGAP DB table (NDb::GetRPGAP, ids 11/12/13)
+		case AC_SWAP:
 		case AC_ITEM_TAKE:
 		{
-			NDb::CRPGAP *pAP = NDb::GetRPGAP( 11 );
+			NDb::CRPGAP *pAP = NDb::GetRPGAP( action == AC_SWAP ? 10 : 11 );
 			return pAP ? pAP->nAP : 0;
 		}
 		case AC_ITEM_SLOT:
@@ -711,9 +774,17 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 	}
 
 	// actions whose cost depends on the pose
+	if ( curPose == NAI::CRAWL && HasPerk( N_PERK_PRONE_COSTS_CROUCH ) )
+		return GetActionAP( NAI::CROUCH, action );
+	if ( curPose == NAI::CROUCH && HasPerk( N_PERK_CROUCH_COSTS_WALK ) )
+		return GetActionAP( NAI::WALK, action );
 	int nAddedAP = 0;
 	if ( pPanzerklein )
+	{
+		if ( curPose == NAI::CRAWL || curPose == NAI::CROUCH )
+			return 1;
 		nAddedAP = pPanzerklein->nAddMoveAP;
+	}
 	switch ( curPose )
 	{
 		case NAI::CRAWL:
@@ -722,6 +793,10 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 		case NAI::RUN:
 		{
 			int nPose = ( NAI::RUN - curPose + 1 ) * 2;
+			float fCorpseAP;
+			if ( ( action == AC_MOVE_CORPSE_SIDE || action == AC_MOVE_CORPSE_DIAGONAL ) &&
+				HasPerk( N_PERK_CORPSE_TRACKER, &fCorpseAP ) )
+				return int( action == AC_MOVE_CORPSE_SIDE ? double( fCorpseAP ) : double( fCorpseAP ) * 1.5 );
 			switch ( action )
 			{
 				case AC_MOVE_SIDE:		return nPose + nAddedAP;
@@ -764,6 +839,9 @@ EToHitType CUnitMission::GetToHitWeaponType() const
 			return TH_THROWING;
 		return TH_MELEE;
 	}
+	// Original Steam type dispatcher: grenade4, other active items5.
+	if ( CDynamicCast<IGrenadeItem>( pRPGUnit->GetInventory()->GetActive() ) )
+		return TH_GRENADE;
 	return TH_DEFAULT;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -983,19 +1061,18 @@ bool CUnitMission::CreateAttack( vector<CAttackPortion> *pRes, bool bSpendAmmo,
 	return bRet;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// retail CUnitMission::ModifyUnawareCritical @0x2bea70: perk 74 "Unaware critical difficulty" --
-// on a backstab, the crit chance scales by (Param1+1) capped at 100, and the crit difficulty by
-// that same capped chance value.
+// Steam 1.2 0x6bebd0: perk 74 scales chance by Param1+1 and
+// difficulty by Param2. Both conversions truncate; chance alone caps at 100.
 void CUnitMission::ModifyUnawareCritical( CAttackPortion &a, bool bApply ) const
 {
 	if ( !bApply )
 		return;
-	float fBonus = 0;
-	if ( !HasPerk( N_PERK_UNAWARE_CRITICAL, &fBonus ) )
+	float fBonus = 0, fDifficulty = 0;
+	if ( !HasPerk( N_PERK_UNAWARE_CRITICAL, &fBonus, &fDifficulty ) )
 		return;
 	const float fCapped = Min( 100.0f, ( fBonus + 1.0f ) * a.nCrtical );
-	a.nCrtical = Round( fCapped );
-	a.nCrticalDifficulty = Round( a.nCrticalDifficulty * fCapped );
+	a.nCrtical = int( fCapped );
+	a.nCrticalDifficulty = int( a.nCrticalDifficulty * fDifficulty );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 NDb::CRPGArmor* CUnitMission::GetRPGArmor() const 
@@ -1010,7 +1087,8 @@ float CUnitMission::GetXP( int nHowManyPerson ) const
 	nHowManyPerson = Clamp( nHowManyPerson, 1, 6 );
 	int nLvl = pRPGUnit->Skills(NDb::ST_LEVEL);
 	float fXPDiff = pRPGUnit->GetXPForSkill( NDb::ST_LEVEL, nLvl+1 ) - pRPGUnit->GetXPForSkill( NDb::ST_LEVEL, nLvl );
-	return ( fXPDiff / float(nHowManyPerson) ) / 8.1f;
+	// Steam 0x6bfaa0: divide by roster size, then multiply by float bits 0x3e3da12f.
+	return ( fXPDiff / float(nHowManyPerson) ) * 0.185185179f;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CReceivedDmg CUnitMission::ProcessAttackForPK( NWorld::IWorld *pWorld, int nUserID, CAttackPortion *pAttack,
@@ -1087,12 +1165,6 @@ CReceivedDmg CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, C
 	if ( pAttack->CanDealDmg(pArmor) && pAttack->nK > 0 )
 	{
 		csRPG << "<font size=16pt>";
-		// Maybe I dodged?
-		if ( this != pAttack->pTarget && !GetPanzerklein() && CheckIC() && pAttack->atkType != NRPG::AT_CLICK_OF_DEATH )
-		{
-			csRPG << CC_RED << " damage avoided!" << endl;
-			return CReceivedDmg();
-		}
 		int nDmg = pAttack->CalcStructDmg( pWorld, pArmor, 0 );
 		//	Get
 		float fDmgModifier = 0;
@@ -1126,23 +1198,44 @@ CReceivedDmg CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, C
 			else
 				nDmg = 100000;
 		}
+		int nCriticalProbability = pAttack->nCrtical;
 		int nCriticalDifficulty = pAttack->nCrticalDifficulty;
 		if ( IsValid( pAttack->pAttacker ) )
 		{
 			for ( int i = 0; i < pAttack->pAttacker->GetSkillValue( NDb::ST_LEVEL ); ++i )
 				nCriticalDifficulty += MissionRandom().Get( 1, 20 );
 		}
+		// Original Steam 0x6c40d7..0x6c4157: bonuses follow the level*d20 prefix.
+		CGlobalGame *pGlobal = pWorld ? pWorld->GetGlobalGame() : 0;
+		if ( pGlobal && IsValid( pGlobal->pDifficulty ) &&
+			pGlobal->pDifficulty->bHeadshotShouldKill && pAttack->eWantedHL == nUserID )
+		{
+			switch ( nUserID )
+			{
+			case NAI::HL_HEAD: nCriticalProbability += 90; nCriticalDifficulty += 150; break;
+			case NAI::HL_BODY: nCriticalProbability += 10; nCriticalDifficulty += 20; break;
+			case NAI::HL_RHAND:
+			case NAI::HL_LHAND: nCriticalProbability += 35; nCriticalDifficulty += 65; break;
+			case NAI::HL_RLEG:
+			case NAI::HL_LLEG: nCriticalProbability += 25; nCriticalDifficulty += 40; break;
+			}
+		}
 		// a critical injury may arise inside GetCriticalDmgModifier
 		float fCriticalDmgModifier = 
-			GetCriticalDmgModifier( (NAI::EHitLocation)nUserID, pAttack->nCrtical, nCriticalDifficulty );
+			GetCriticalDmgModifier( pWorld, (NAI::EHitLocation)nUserID, nCriticalProbability, nCriticalDifficulty, pAttack->bAlwaysHumanCritical, pAttack->pAttacker );
 		fDmgModifier += fCriticalDmgModifier;
 		csRPG << CC_GREY << "\tHL=" << GetHLName( (NAI::EHitLocation)nUserID );
 		csRPG << CC_GREY << " \tDmgModifier=" << fDmgModifier;
-		int nDamage = fDmgModifier * nDmg;
-		int ndBVP = nDamage * (float)GetHealedVP() / GetTotalVP();
-		ASSERT( ndBVP >= 0 );
+		int nDamage = Max( 0.f, fDmgModifier * nDmg );
+		if ( pAttack->atkType != AT_CLICK_OF_DEATH && this != pAttack->pTarget &&
+			!GetPanzerklein() && CheckICForAttack( pAttack->atkType ) )
+			// Original 0x6c4279 multiplies under PC24/RN before switching RC for the integer cast.
+			nDamage = Max( 0, nDamage - int( float( GetPerkModifiedIC( pAttack->atkType ) ) * float( nDamage ) * 0.01f ) );
+		// Original Steam 0x6c42be..0x6c4366 clamps the converted healed share.
+		// A death critical can leave zero total VP; avoid a NaN-to-int cast.
+		int ndBVP = GetTotalVP() != 0 ? Max( 0, int( nDamage * (float)GetHealedVP() / GetTotalVP() ) ) : 0;
 		SetHealedVP( GetHealedVP() - ndBVP );
-		pRPGUnit->Skills(NDb::ST_VP) -= nDamage - ndBVP;
+		pRPGUnit->Skills(NDb::ST_VP).Modify( ndBVP - nDamage );
 		// Acks
 		if ( bAlive )
 		{
@@ -1160,8 +1253,12 @@ CReceivedDmg CUnitMission::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, C
 		if ( !IsDead() )
 		{
 			int nProbability = pAttack->nUnconsciousProbability;
-			int nCheck = MissionRandom().Get( 0, 100 );
-			if ( pRPGUnit->Skills(NDb::ST_VP) <= 0 || nCheck <= nProbability )
+			int nCheck = MissionRandom().Get( 1, 100 );
+			// Original Steam 0x6c44b1..0x6c4570 scales by post-damage total health.
+			float fHealth = float( GetTotalVP() ) / pRPGUnit->Skills(NDb::ST_VP).GetMaxValue();
+			float fKnockout = Max( 0.f, Min( 1.f, ( 0.5f - fHealth ) * 2.500000238418579f ) );
+			nProbability = Float2Int( fKnockout * nProbability );
+			if ( GetTotalVP() <= 0 || nCheck <= nProbability || pAttack->atkType == AT_CLICK_OF_DEATH )
 			{
 				bUnconscious = true;
 				csRPG << " \t" << CC_YELLOW << GetName() << CC_WHITE << " made unconscious" << endl;
@@ -1339,6 +1436,103 @@ int GetToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int nDistance,
 	return nToHit;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Original Steam 0x6c52a0/74: integer power with each operation at the game's PC24 precision.
+static float WeaponSkillIntegerPower( float fBase, int nExponent )
+{
+    unsigned int nMagnitude = nExponent < 0 ? 0u - unsigned(nExponent) : unsigned(nExponent);
+    volatile float fPower = 1.f;
+    volatile float fSquare = fBase;
+    while ( nMagnitude )
+    {
+        if ( nMagnitude & 1 )
+            fPower = fPower * fSquare;
+        nMagnitude >>= 1;
+        if ( nMagnitude )
+            fSquare = fSquare * fSquare;
+    }
+    return nExponent < 0 ? 1.f / fPower : float(fPower);
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Shared theoretical-maximum VP factor, preserving the existing knife adapter's arithmetic.
+float GetUnitVPPenalty( CUnit *pUnit )
+{
+    const CDynamicSkill &vp = pUnit->Skills( NDb::ST_VP );
+    const int nHealed = Max( 0, pUnit->nHealedVP );
+    // Original VP factor uses base+XP, independently of critical-modified cap.
+    const int nPercent = int( ( double( int(vp) ) + double(nHealed) * double(0.5f) ) *
+        double(100.f) / double( vp.GetTheoreticalMax() ) );
+    const float fVP = nPercent > 75 ? 1.f : nPercent > 50 ? 0.9f : nPercent > 25 ? 0.75f : 0.5f;
+    return fVP;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Actual Steam 0x6c06d0/1244. Preserve PC24 stores until the calcer's final integer conversion.
+float CUnitMission::GetWeaponSkill( CObjectBase *pItem, int nExtraAP, int nBullet )
+{
+	float fSkill = GetRPGUnit()->Skills( NDb::ST_SHOOTING );
+	float fBonus;
+	CDynamicCast<CWeaponItem> pWeapon( pItem );
+	if ( IsValid( pWeapon ) )
+	{
+		int nPerk = 0;
+		switch ( pWeapon->GetWeaponType() )
+		{
+			case NDb::WT_SUB_MACHINE_GUN: nPerk = 9; break;
+			case NDb::WT_MACHINE_GUN: nPerk = 13; break;
+			case NDb::WT_PISTOL: nPerk = 67; break;
+			case NDb::WT_RIFLE: nPerk = 68; break;
+			case NDb::WT_RLAUNCHER: nPerk = 84; break;
+		}
+		if ( nPerk && HasPerk( nPerk, &fBonus ) )
+			fSkill += fBonus;
+		NDb::EShootMode mode = pWeapon->GetShootMode();
+		volatile float fMove = 0;
+		if ( !IsFirstTurn() )
+			fMove = Min( GetToHitConstants()->nSMaxMove, GetMoveInLastTurn() ) *
+				pWeapon->GetDBWeapon()->pWeaponType->fMovePenalty;
+		if ( mode == NDb::SM_Careful || mode == NDb::SM_Snipe )
+		{
+			volatile float fAimInput = nExtraAP + fMove;
+			volatile float fAimBonus = Max( 0, int(fAimInput) ) * ( 1.f / 3.f );
+			fSkill += fAimBonus;
+		}
+	}
+	else if ( CDynamicCast<IGrenadeItem>( pItem ) )
+	{
+		fSkill = GetRPGUnit()->Skills( NDb::ST_THROWING );
+		if ( HasPerk( 91, &fBonus ) )
+			fSkill += fBonus;
+	}
+	else if ( CDynamicCast<IMeleeWeaponItem> pMelee = pItem )
+	{
+		bool bThrowing = pMelee->GetDBMeleeWeapon()->bThrowing;
+		fSkill = GetRPGUnit()->Skills( bThrowing ? NDb::ST_THROWING : NDb::ST_MELEE );
+		if ( HasPerk( bThrowing ? 89 : 70, &fBonus ) )
+			fSkill += fBonus;
+	}
+	if ( nBullet > 0 )
+	{
+		int nExponent = nBullet;
+		if ( HasPerk( 30, &fBonus ) )
+			nExponent = int( nBullet / fBonus );
+		int nBurst = GetRPGUnit()->Skills( NDb::ST_BURST );
+		const float fRatio = float( double(nBurst) * ( 1.0 / N_MAX_SKILL ) );
+		float fUnstabilized = fSkill * WeaponSkillIntegerPower( fRatio, nExponent );
+		// Retail truncates the stabilization percentage BEFORE multiplying by skill.
+		volatile float fStabilizedProduct = ( GetToHitConstants()->nMaxBurstStabilize * nBurst / N_MAX_SKILL ) * fSkill;
+		float fStabilized = fStabilizedProduct * 0.01f;
+		int nRecoil = 0;
+		if ( IsValid( pWeapon ) )
+		{
+			SWeaponInfo info;
+			pWeapon->GetInfo( &info );
+			nRecoil = info.nRecoil;
+		}
+		volatile float fRecoilProduct = Max( fUnstabilized, fStabilized ) * nRecoil;
+		fSkill = fRecoilProduct * 0.01f;
+	}
+	return fSkill * GetUnitVPPenalty( GetRPGUnit() );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetTileToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int nDistance, const CVec3 &ptAttacker,
 	CVec3 ptTilePos, NAI::ETileHitLocation eHitLocation, int nExtraAP, int nHitCover, bool bFirstRound,
 	const CVec3 &ptIllumination, int nBullet )   // retail @0x2b4df0 param (see GetToHit)
@@ -1349,7 +1543,7 @@ int GetTileToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int nDista
 	if ( pUS && pUS->GetScriptToHit() >= 0 )
 		return pUS->GetScriptToHit();
 	CUnitMission *pMission = CDynamicCast<CUnitMission>( pUS->GetUnitRPG() );
-	const bool bNight = false;
+	const bool bNight = pUS->GetWorld()->GetGame()->IsNight();
 	CPtr<IToHitCalcer> pToHitCalcer;
 	switch ( pMission->GetToHitWeaponType() )
 	{
@@ -1397,7 +1591,7 @@ int GetRLauncherToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int n
 	CUnitMission *pMission = CDynamicCast<CUnitMission>( pUS->GetUnitRPG() );
 	CPtr<CRLauncherToHitCalcer> pToHitCalcer =
 		new CRLauncherToHitCalcer( pUS, curPose, nDistance, ptAttacker, 100.f, nExtraAP, bFirstRound,
-			false, ptIllumination, ptTilePos );
+			pUS->GetWorld()->GetGame()->IsNight(), ptIllumination, ptTilePos );
 
 	int nToHit = pToHitCalcer->GetToHit();
 
@@ -1417,7 +1611,7 @@ int GetGrenadeToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int nDi
 	// release: the thrown grenade is no longer an argument -- the calcer derives it from the active item.
 	CPtr<CGrenadeToHitCalcer> pToHitCalcer =
 		new CGrenadeToHitCalcer( pUS, curPose, nDistance, ptAttacker,
-			bFirstRound, false, ptIllumination, ptTilePos );
+			bFirstRound, pUS->GetWorld()->GetGame()->IsNight(), ptIllumination, ptTilePos );
 
 	int nToHit = pToHitCalcer->GetToHit();
 
@@ -1541,18 +1735,46 @@ int CUnitMission::GetMeleeToHit( const CVec3 &ptAttacker, const NAI::SPosition &
 	return fToHit;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+float CUnitMission::GetWeaponAdaptation() const
+{
+	IWeaponItem *pWeapon = pRPGUnit->GetWeaponItem();
+	IMeleeWeaponItem *pMelee = pRPGUnit->GetMeleeWeaponItem();
+	if ( IsValid( pWeapon ) )
+		return pRPGUnit->GetWeaponAdaptation( pWeapon );
+	if ( IsValid( pMelee ) )
+		return pRPGUnit->GetWeaponAdaptation( pMelee );
+	return 0;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitMission::GetIC() const
 {
-	//const float fMoveCoeff = 0.65f;
-	//return ( 100 - pRPGUnit->Skills(NDb::ST_IC) ) * int( 100 - float(nMoveInLastTurn) * fMoveCoeff ) / 100;
-	return pRPGUnit->Skills(NDb::ST_IC);
+	float fIC = pRPGUnit->Skills( NDb::ST_IC );
+	float fParam;
+	if ( HasPerk( N_PERK_BETTER_EVASION, &fParam ) )
+		fIC = ( 1.0 + double( fParam ) ) * fIC;
+	return Float2Int( fIC );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+int CUnitMission::GetPerkModifiedIC( EAttackType attackType ) const
+{
+	float fIC = GetIC();
+	float fParam;
+	if ( ( attackType == AT_BLAST_WAVE || attackType == AT_FRAGMENT ) &&
+		HasPerk( N_PERK_EXPLOSION_EVASION, &fParam ) )
+		fIC = ( 1.0 + double( fParam ) ) * fIC;
+	fIC += fAuraPerkICModifier;
+	return Float2Int( fIC );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnitMission::CheckIC()
 {
+	return CheckICForAttack( AT_NORMAL );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CUnitMission::CheckICForAttack( EAttackType attackType )
+{
 	UseSkill(NDb::ST_IC);
-	// Target movement???
-	bool isCheck = MissionRandom().Check(GetIC());
+	bool isCheck = MissionRandom().Get( 100 ) < static_cast<unsigned int>( GetPerkModifiedIC( attackType ) );
 	csRPG << "\t" << GetName() << " Dodge:" << isCheck << endl;
 	return isCheck;
 }
@@ -1660,15 +1882,7 @@ void CUnitMission::ApplyCritical( const SCritical &cr )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitMission::ApplyCritical( NDb::CRPGCritical *p, int nDC )
 {
-	// honor the script-set cap (luaSetMaxCriticalSeverity -> CGame::nMaxCriticalSeverity). Retail clamps the
-	// rolled severity here in the combat path via the mission's cached IGame; this is that read-site. (The
-	// script-driven UnitApplyCritical path builds an SCritical directly and is intentionally not clamped.)
-	if ( IsValid( pGame ) )
-	{
-		int nCap = pGame->GetMaxCriticalSeverity();
-		if ( nDC > nCap )
-			nDC = nCap;
-	}
+	// Combat severity is capped before critical selection and damage.
 	int nDuration = -1;
 	if ( p->nMinDuration > 0 )
 		nDuration = p->nMinDuration + MissionRandom().Get( p->nMaxDuration - p->nMinDuration );
@@ -1777,7 +1991,8 @@ static NDb::CRPGCritical* GetCritical( int nProbability,
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitMission::RollCritical( NAI::EHitLocation eHL, int nCriticalDifficulty, NDb::CRPGCritical **pCritical )
 {
-	int nRezDiff = nCriticalDifficulty + MissionRandom().Get(100);
+	// Original Gold 0x6bd238 / Steam 0x6c3768 selects from supplied severity.
+	int nRezDiff = nCriticalDifficulty;
 	switch ( eHL )
 	{
 		case NAI::HL_HEAD:
@@ -1798,8 +2013,8 @@ int CUnitMission::RollCritical( NAI::EHitLocation eHL, int nCriticalDifficulty, 
 	return nRezDiff;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-float CUnitMission::GetCriticalDmgModifier( NAI::EHitLocation eHL, 
-	int nCriticalProbability, int nCriticalDifficulty )
+float CUnitMission::GetCriticalDmgModifier( NWorld::IWorld *pWorld, NAI::EHitLocation eHL,
+	int nCriticalProbability, int nCriticalDifficulty, bool bForced, IUnitMissionInfo *pAttacker )
 {
 	if ( nCriticalProbability == 0 )
 		return 0;
@@ -1816,9 +2031,29 @@ float CUnitMission::GetCriticalDmgModifier( NAI::EHitLocation eHL,
 	int nRand = rand.Get( 100 );
 	float fCriticalResist = 1;
 	if ( pPanzerklein )
-		fCriticalResist = pPanzerklein->fCriticalResist;
-	if ( nRand > nCriticalProbability * fCriticalResist )
-		return fRet;
+		fCriticalResist = 1.f - pPanzerklein->fCriticalResist;
+	float fParam = 0;
+	if ( HasPerk( N_PERK_CRITICAL_RESISTANCE, &fParam ) )
+		fCriticalResist = float( double( fCriticalResist ) * ( 1.0 - double( fParam ) ) );
+	if ( HasPerk( N_PERK_REDUCED_CRITICAL_SEVERITY, &fParam ) )
+		nCriticalDifficulty = int( double( nCriticalDifficulty ) / double( fParam ) );
+	// Original Gold 0x6bd402 / Steam 0x6c399a caps the incoming selector input.
+	if ( IsValid( pGame ) && nCriticalDifficulty > pGame->GetMaxCriticalSeverity() )
+		nCriticalDifficulty = pGame->GetMaxCriticalSeverity();
+	// Original Steam 0x6c3b10 compares with observed PC24/RN after restoring caller CW.
+	if ( !bForced && nRand > nCriticalProbability * fCriticalResist )
+	{
+		CGlobalGame *pGlobal = pWorld ? pWorld->GetGlobalGame() : 0;
+		if ( !pGlobal || !IsValid( pGlobal->pDifficulty ) ||
+			!pGlobal->pDifficulty->bAlwaysCritical || fCriticalResist < 1.f )
+			return fRet;
+		if ( IsValid( pAttacker ) )
+		{
+			nCriticalDifficulty = 0;
+			for ( int i = 0; i < pAttacker->GetSkillValue( NDb::ST_LEVEL ); ++i )
+				nCriticalDifficulty += MissionRandom().Get( 1, 5 );
+		}
+	}
 	csRPG << "<font size=16pt>";
 	csRPG << "<color=grey>" << "\tcrit prob=" << nCriticalProbability << " (check=" << nRand << ") \tseverity=" << nCriticalDifficulty;
 
@@ -1827,30 +2062,27 @@ float CUnitMission::GetCriticalDmgModifier( NAI::EHitLocation eHL,
 	if ( !IsValid( pCritical ) )
 		return 0;
 	//
-	float fDC = (float)nRand / N_MAX_SKILL;
+	// Original x87 stores severity * float(1/300) before the location multiplier.
+	fRet = float( double( nRand ) * double( 1.f / 300.f ) );
 
 	switch ( eHL )
 	{
 		case NAI::HL_HEAD:
-			fRet = 2.5f * fDC;
-			fDC *= 300;
+			fRet *= 2.f;
 			break;
 		case NAI::HL_BODY:
-			fRet = 3.0f * fDC;
-			fDC *= 300;
+			fRet *= 1.5f;
 			break;
 		case NAI::HL_RHAND:
 		case NAI::HL_LHAND:
-			fRet = 1.5f * fDC;
-			fDC *= 200;
+			fRet *= 0.5f;
 			break;
 		case NAI::HL_RLEG:
 		case NAI::HL_LLEG:
-			fRet = 2.0f * fDC;
-			fDC *= 250;
 			break;
 	}
-	ApplyCritical( pCritical, fDC );
+	// Original Gold 0x6bd564 / Steam 0x6c3bae stores float severity then truncates.
+	ApplyCritical( pCritical, int( float( nRand ) ) );
 	return fRet * fCriticalResist;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1976,14 +2208,17 @@ void CUnitMission::SetCannonItem( IWeaponItem *pItem )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail @0x2c2ee0 -- the Jan03 in-place hearing model was replaced by a roll of the hearing chance
 // (GetHearingProbability @0x2bff30, which owns the deaf/silencer/perk handling) at the 1.6x-scaled 3D
-// distance (0x3fcccccd), against a d99 (Isaac % 99); a heard sound trains the SPOT skill.
+// distance (0x3fcccccd), against a d99 (Isaac % 99); only a heard quiet sound trains SPOT.
 bool CUnitMission::CanHearSound( const CVec3 &ptSoundPosition, const CVec3 &ptListenerPosition,
 		const NDb::SAISound &sound, IUnitMission *pSource )
 {
 	float fDistance = fabs( ptSoundPosition - ptListenerPosition ) * 1.6f;
-	if ( GetHearingProbability( pSource, fDistance, sound, 0 ) <= (int)MissionRandom().Get( 99 ) )
+	bool bQuietSound = false;
+	if ( GetHearingProbability( pSource, fDistance, sound, &bQuietSound ) <= (int)MissionRandom().Get( 99 ) )
 		return false;
-	UseSkill( NDb::ST_SPOT );
+	// Actual Steam 0x6c3034 gates mission practice on the quiet-sound output.
+	if ( bQuietSound )
+		UseSkill( NDb::ST_SPOT );
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1996,7 +2231,7 @@ bool CUnitMission::CanHearSound( const CVec3 &ptSoundPosition, const CVec3 &ptLi
 // (Workflow corrections to the answer-key/decomp labels, resolved from the raw vtable: there is NO difficulty
 // global -- the "_DAT" chain is an inlined Skills(ST_SPOT/ST_STEALTH) CDynamicSkill read; the "ptLastCP" loud-
 // branch read is actually pPanzerklein->fSensorRange. Perk ids 0x14/0x4c are retail data-driven ids, emitted as
-// literals. The release rounds the clamped probability; we keep CanHearSound's truncating Clamp idiom.)
+// literals. Actual Steam 0x6c0090 truncates both perk-adjusted SPOT and clamped probability.)
 int CUnitMission::GetHearingProbability( IUnitMission *pSource, float fDist, const NDb::SAISound &sound, bool *pAudible )
 {
 	if ( pAudible )
@@ -2010,17 +2245,20 @@ int CUnitMission::GetHearingProbability( IUnitMission *pSource, float fDist, con
 	int nSpot = GetRPGUnit()->Skills( NDb::ST_SPOT );
 	float fPerk;
 	if ( HasPerk( 0x14, &fPerk ) )
-		nSpot = (int)( nSpot * fPerk + 0.5f );
+		nSpot = (int)( nSpot * fPerk );
 	//
-	if ( fRadius >= c->nLoudSound )
+	if ( !pSource || fRadius >= c->nLoudSound )
 	{
 		// a loud sound -> a hard hearing-DISTANCE test: certainly heard (100) if within range, else 0
 		float fHearingDistance = c->nPrecisePositionRadius +
 			( fRadius - c->nPrecisePositionRadius ) * nSpot / NRPG::N_MAX_SKILL;
 		if ( pPanzerklein && pPanzerklein->fSensorRange )
+		{
 			fHearingDistance *= pPanzerklein->fSensorRange;
-		if ( HasPerk( 0x4c, &fPerk ) )           // a silent-movement / acute-hearing perk
-			fHearingDistance *= fPerk;
+			// Actual Steam 0x6c024a..0x6c026f: sensor perk stays inside the PK branch.
+			if ( HasPerk( 0x4c, &fPerk ) )
+				fHearingDistance *= fPerk;
+		}
 		return ( fHearingDistance >= fDist ) ? 100 : 0;   // pAudible stays false on this branch
 	}
 	else
@@ -2130,14 +2368,37 @@ void CUnitMission::InitAsPanzerklein( NDb::CPanzerklein *pPK )
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail @0x2c3400: a VP drug boost -- fAdd = (VP base) * strength * 1%, installed as a temporary
-// modifier with a recorded lifetime. (Retail tails into CheckOverdose @0x2c0a50; its overdose
-// metric is unresolved in the oracle and deferred with the drug-use wiring.)
+// modifier with a recorded lifetime, followed by the original overdose gate.
 void CUnitMission::AddVPBoost( float fStrength, int nDuration )
 {
 	CDynamicSkill &vp = pRPGUnit->Skills( NDb::ST_VP );
 	SSkillModifyInfo info( 1.0f, float( vp.GetTheoreticalMax() ) * fStrength * 0.01f );
 	temporaryModifiers.push_back( new CSkillModifier( &vp, info ) );
 	vpBoostDurations.push_back( nDuration );
+	CheckOverdose();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CUnitMission::CheckOverdose()
+{
+	if ( vpBoostDurations.empty() )
+		return;
+	// Original Gold 0x6bab10 / Steam 0x6c0bb0: sum reciprocal durations
+	// without division; strict excess or a zero denominator causes overdose.
+	double fNumerator = 0, fDenominator = 1;
+	for ( int i = 0; i < vpBoostDurations.size(); ++i )
+	{
+		fNumerator = vpBoostDurations[i] * fNumerator + fDenominator;
+		fDenominator *= vpBoostDurations[i];
+	}
+	if ( fNumerator > fDenominator || fDenominator == 0 )
+	{
+		vpBoostDurations.clear();
+		if ( !IsDead() )
+		{
+			bUnconscious = true;
+			pRPGUnit->Skills( NDb::ST_VP ).SetValue( 0 );
+		}
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Original Steam 0x6c4a25: whole bleeding strength, low-health contribution and suppression.
@@ -2154,6 +2415,9 @@ static int CalcBleedingDamage( int nVP, int nMaxVP, float fCritical, int nStoppe
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitMission::DoRegenerations( NWorld::IWorld *pWorld, int *pnBleed )
 {
+	for ( int i = 0; i < vpBoostDurations.size(); ++i )
+		--vpBoostDurations[i];
+	CheckOverdose();
 	// Original Steam 0x6c49ec: advance critical lifetimes at the periodic end tick.
 	ProcessCriticalsOnNewTurnFor();
 	CCritical *pBleeding = 0;
@@ -2196,12 +2460,20 @@ void CUnitMission::SetHiding( bool _bHiding )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitMission::GetGrenadeTrapDC( NDb::CRPGGrenade *pGrenade )
 {
-	return GetRPGUnit()->Skills( NDb::ST_ENGINEERING );
+	int nEngineering = GetRPGUnit()->Skills( NDb::ST_ENGINEERING );
+	float fParam;
+	if ( HasPerk( N_PERK_DIFFICULT_TRAPS, &fParam ) )
+		nEngineering = int( ( 1.0 + double( fParam ) ) * nEngineering );
+	return nEngineering;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitMission::GetMineDC( NDb::CRPGMine *pMine )
 {
-	return GetRPGUnit()->Skills( NDb::ST_ENGINEERING );
+	int nEngineering = GetRPGUnit()->Skills( NDb::ST_ENGINEERING );
+	float fParam;
+	if ( HasPerk( N_PERK_DIFFICULT_TRAPS, &fParam ) )
+		nEngineering = int( ( 1.0 + double( fParam ) ) * nEngineering );
+	return nEngineering;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail CUnitMission::GetMineSpotRange @0x2c0340 (disasm-verified): the Jan03 CanSeeMine formula
@@ -2233,6 +2505,9 @@ bool CUnitMission::CanSeeMine( float fDistance, int nDC )
 bool CUnitMission::CanClear( int nDC, int nSkillModif )
 {
 	int nEngSkill = GetRPGUnit()->Skills( NDb::ST_ENGINEERING );
+	float fParam;
+	if ( HasPerk( N_PERK_DISARM_TRAPS, &fParam ) )
+		nEngSkill = int( nEngSkill + double( fParam ) );
 	int nProb = Min( pMinesConstants->nBaseDisarmProb + nEngSkill - nDC, 95 );
 	return MissionRandom().Get( 0, 100 ) < nProb;
 }

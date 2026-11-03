@@ -22,18 +22,22 @@ namespace NGlobal
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SRecord
 {
-	void *pCmdContext; 
+	void *pCmdContext;
 	CmdHandler pCmdHandler;
-
-	bool bSave;
 	void *pVarContext;
-	CValue sValue;
-	CValue sDefaultValue;    // release SCommandInfo[+0x20] -- the registered default, restored by ResetVar
 	VarHandler pVarHandler;
-
-	SRecord(): pCmdContext( 0 ), pCmdHandler( 0 ), bSave( false ), pVarContext( 0 ), pVarHandler( 0 ) {}
+	int nUniqueID;
+	SRecord(): pCmdContext( 0 ), pCmdHandler( 0 ), pVarContext( 0 ), pVarHandler( 0 ), nUniqueID( 0 ) {}
 };
-typedef unordered_map<string, SRecord> TRecordsMap;
+struct SCommandInfo
+{
+	vector<SRecord> data;
+	bool bSave;
+	CValue sValue, sDefaultValue;
+	SCommandInfo(): bSave( false ) {}
+};
+typedef unordered_map<string, SCommandInfo> TRecordsMap;
+static int nUniqueVarID;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CRecordsMap : public CObjectBase
 {
@@ -102,65 +106,68 @@ const wstring& CValue::GetString() const
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // VARS
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void RegisterCmd( const string &szID, CmdHandler pHandler, void *pContext )
+int RegisterCmd( const string &szID, CmdHandler pHandler, void *pContext )
 {
 	CPtr<CRecordsMap> pHold( GetRecordsMap() );
-	TRecordsMap &recordsMap = pHold->recordsMap;
-
-	SRecord &sRecord = recordsMap[szID];
-	sRecord.pCmdContext = pContext;
-	sRecord.pCmdHandler = pHandler;
+	SRecord record;
+	record.pCmdHandler = pHandler;
+	record.pCmdContext = pContext;
+	record.nUniqueID = ++nUniqueVarID;
+	pHold->recordsMap[szID].data.push_back( record );
+	return record.nUniqueID;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void RegisterVar( const string &szID, VarHandler pHandler, void *pContext, const CValue &sValue, bool bSave )
+int RegisterVar( const string &szID, VarHandler pHandler, void *pContext, const CValue &sValue, bool bSave )
 {
 	CPtr<CRecordsMap> pHold( GetRecordsMap() );
 	TRecordsMap &recordsMap = pHold->recordsMap;
-
-	TRecordsMap::iterator iTemp = recordsMap.find( szID );
-	if ( iTemp != recordsMap.end() )
+	// Preserve values loaded before registration and after a previous owner's destruction.
+	bool bNew = recordsMap.find( szID ) == recordsMap.end();
+	SCommandInfo &info = recordsMap[szID];
+	if ( bNew )
 	{
-		SRecord &sRecord = iTemp->second;
-		sRecord.bSave = bSave;
-		sRecord.pVarContext = pContext;
-		sRecord.pVarHandler = pHandler;
-		return;
+		info.sValue = sValue;
+		info.sDefaultValue = sValue;
 	}
-
-	SRecord &sRecord = recordsMap[szID];
-	sRecord.bSave = bSave;
-	sRecord.sValue = sValue;
-	sRecord.sDefaultValue = sValue;    // remember the registered default so ResetVar can restore it
-	sRecord.pVarContext = pContext;
-	sRecord.pVarHandler = pHandler;
+	info.bSave = info.bSave || bSave;
+	SRecord record;
+	record.pVarHandler = pHandler;
+	record.pVarContext = pContext;
+	record.nUniqueID = ++nUniqueVarID;
+	info.data.push_back( record );
+	return record.nUniqueID;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void UnregisterCmd( const string &szID )
+static void Unregister( const string &szID, int nID, bool bVariable )
 {
 	CPtr<CRecordsMap> pHold( GetRecordsMap() );
-	TRecordsMap &recordsMap = pHold->recordsMap;
-
-	TRecordsMap::iterator iTemp = recordsMap.find( szID );
-	if ( iTemp == recordsMap.end() )
+	TRecordsMap::iterator found = pHold->recordsMap.find( szID );
+	if ( found == pHold->recordsMap.end() )
 		return;
-
-	SRecord &sRecord = iTemp->second;
-	sRecord.pCmdHandler = 0;
-	sRecord.pCmdContext = 0;
+	vector<SRecord> &data = found->second.data;
+	for ( vector<SRecord>::iterator i = data.begin(); i != data.end(); )
+		if ( nID ? i->nUniqueID == nID : ( bVariable ? i->pVarHandler != 0 : i->pCmdHandler != 0 ) )
+			i = data.erase( i );
+		else
+			++i;
 }
+void UnregisterCmd( const string &szID, int nID ) { Unregister( szID, nID, false ); }
+void UnregisterVar( const string &szID, int nID ) { Unregister( szID, nID, true ); }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void UnregisterVar( const string &szID )
+// Snapshot IDs, then look each up again: callbacks may destroy or register owners.
+static vector<int> RegistrationIDs( const SCommandInfo &info )
 {
-	CPtr<CRecordsMap> pHold( GetRecordsMap() );
-	TRecordsMap &recordsMap = pHold->recordsMap;
-
-	TRecordsMap::iterator iTemp = recordsMap.find( szID );
-	if ( iTemp == recordsMap.end() )
-		return;
-
-	SRecord &sRecord = iTemp->second;
-	sRecord.pVarHandler = 0;
-	sRecord.pVarContext = 0;
+	vector<int> ids;
+	for ( int i = 0; i < (int)info.data.size(); ++i ) ids.push_back( info.data[i].nUniqueID );
+	return ids;
+}
+static SRecord FindRegistration( const CRecordsMap &map, const string &id, int token )
+{
+	TRecordsMap::const_iterator found = map.recordsMap.find( id );
+	if ( found != map.recordsMap.end() )
+		for ( int i = 0; i < (int)found->second.data.size(); ++i )
+			if ( found->second.data[i].nUniqueID == token ) return found->second.data[i];
+	return SRecord();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void GetIDList( vector<string> *pList )
@@ -195,11 +202,14 @@ void SetVar( const string &szVar, const CValue &sValue )
 	CPtr<CRecordsMap> pHold( GetRecordsMap() );
 	TRecordsMap &recordsMap = pHold->recordsMap;
 
-	SRecord &sRecord = recordsMap[szVar];
-	if ( sRecord.pVarHandler != 0 )
-		sRecord.pVarHandler( szVar, sValue, sRecord.pVarContext );
-
-	recordsMap[szVar].sValue = sValue;
+	const CValue value = sValue;
+	const vector<int> ids = RegistrationIDs( recordsMap[szVar] );
+	for ( int i = 0; i < (int)ids.size(); ++i )
+	{
+		const SRecord record = FindRegistration( *pHold, szVar, ids[i] );
+		if ( record.pVarHandler ) record.pVarHandler( szVar, value, record.pVarContext );
+	}
+	recordsMap[szVar].sValue = value;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // ResetVar @0x3d4c80 -- restore the registered default. The release stores the default in the
@@ -236,14 +246,18 @@ void ProcessCommand( const wstring &wsCommandStr )
 		return;
 	}
 
-	SRecord &sRecord = iTemp->second;
-	if ( sRecord.pCmdHandler == 0 )
+	const vector<int> ids = RegistrationIDs( iTemp->second );
+	bool bHandled = false;
+	for ( int i = 0; i < (int)ids.size(); ++i )
 	{
-		CmdDefaultHandler( szCommandName, wordsSet, sRecord.pCmdContext );
-		return;
+		const SRecord record = FindRegistration( *pHold, szCommandName, ids[i] );
+		if ( record.pCmdHandler )
+		{
+			record.pCmdHandler( szCommandName, wordsSet, record.pCmdContext );
+			bHandled = true;
+		}
 	}
-
-	sRecord.pCmdHandler( szCommandName, wordsSet, sRecord.pCmdContext );
+	if ( !bHandled ) CmdDefaultHandler( szCommandName, wordsSet, 0 );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void LoadConfig( const string &szFileName )
@@ -347,12 +361,12 @@ void SaveConfig( const string &szFileName )
 CCmd::CCmd( const string &_szID, CmdHandler _pHandler, void *_pContext ):
 	szID( _szID ), pHandler( _pHandler ), pContext( _pContext )
 {
-	RegisterCmd( szID, pHandler, pContext );
+	nID = RegisterCmd( szID, pHandler, pContext );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CCmd::~CCmd()
 {
-	UnregisterCmd( szID );
+	UnregisterCmd( szID, nID );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCmd::Run( const vector<wstring> &paramsSet )
@@ -365,12 +379,12 @@ void CCmd::Run( const vector<wstring> &paramsSet )
 CVar::CVar( const string &_szID, VarHandler pHandler, void *pContext, const CValue &sValue, bool bSave ):
 	szID( _szID )
 {
-	RegisterVar( szID, pHandler, pContext, sValue, bSave );
+	nID = RegisterVar( szID, pHandler, pContext, sValue, bSave );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CVar::~CVar()
 {
-	UnregisterVar( szID );
+	UnregisterVar( szID, nID );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 const CValue& CVar::Get()

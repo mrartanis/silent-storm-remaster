@@ -69,8 +69,7 @@ protected:
 	// release +0x34: the scroll-lock COUNT (CBaseCamera::Lock @0xcffa0; script CameraLock). <= 0 = free.
 	int nLockCount;
 	// release +0x38: the retail tactical cut floor (GetCutFloor @0xcff90 / SetCutFloor @0xd0050).
-	// The dev relocated the LIVE cut floor to the render scene (ICameraCutFloor accessor); this
-	// member is the retail save slot, mirrored by CCamera's CutFloorSet writes (see note there).
+	// Authoritative per-camera floor, published to the scene by the mission step.
 	int nCutFloor;
 	float fMinClipDistance;			// release +0x3C
 	float fMaxClipDistance;			// release +0x40
@@ -422,9 +421,7 @@ class CCamera: public CBaseCamera
 	OBJECT_BASIC_METHODS(CCamera);
 private:
 	// release CCamera slow-motion block @+0x180 (0xc bytes) and "FOV effect" transition block
-	// @+0x18C (0x38 bytes, PDB layout -- the FOV-spring members tOn/tOnFOVSpring/tMaxLen/
-	// sDesiredPlacement drive Update's separate effect, still unported; carried + serialized so the
-	// save chunk is the retail 0x38). Ctor defaults = the release ctor stores (nSloMo 1, FOV 35).
+	// @+0x18C (0x38 bytes, PDB layout). Keep the existing portable saved records.
 	// retail CCamera serialized state -- full parity with operator& @0xd0c30 (tags 2..13).
 	ZDATA_(CBaseCamera)
 	CPtr<NWorld::IWorld>     pWorld;					// tag 2, release +0x0F4 (the raycast + terrain world handle)
@@ -459,20 +456,19 @@ public:
 		return 0;
 	}
 private:
-	// the render cut-floor accessor. Runtime-only (re-installed on every mission init / snapshot
-	// restore). The dev terrain-height stand-in that used to sit beside it is gone: the terrain legs
-	// now sample pWorld->GetHeightLayers() the way retail does.
-	CPtr<ICameraCutFloor>  pCutFloorSource;             // the render cut-floor accessor (see ICameraCutFloor)
-	//
-	int  CutFloorGet() const { return IsValid( pCutFloorSource ) ? pCutFloorSource->GetCutFloor() : 0; }
-	// the LIVE owner stays the render scene (dev relocation); nCutFloor is the retail save slot
-	// (CBaseCamera tag 3), mirrored here so a save carries the floor the camera framing chose.
-	void CutFloorSet( int nF ) { nCutFloor = nF; if ( IsValid( pCutFloorSource ) ) pCutFloorSource->SetCutFloor( nF ); }
+	int  CutFloorGet() const { return GetCutFloor(); }
+	// Framing updates this camera only; the mission publishes its selected floor.
+	void CutFloorSet( int nF )
+	{
+		if ( nLockNoUpdate >= 1 )
+			return;
+		SetCutFloor( nF );
+	}
 	bool CanSeeOneRay( const CVec3 &target ) const;                             // release @0xceb20
 	bool CanSeeNow( const CVec3 &target );                                      // release @0xcecd0
 	int  TestCurrentDesiredPosition( const CVec3 &p1, const CVec3 &p2 );        // release @0xcee10
 	int  TryShowPlaces( const CVec3 &ptA, const CVec3 &ptB, int nFloor, float fRod, float fYaw );  // @0xcee90
-	int  ShowTwoPlaces( const CVec3 &ptA, const CVec3 &ptB, int nFloor, float fRodIn );            // @0xceff0
+	int  ShowTwoPlaces( const CVec3 &ptA, const CVec3 &ptB, int nFloor, float fRodIn, bool bPointOfInterest = false );
 	void SlowCameraAcceleration();                                              // release @0xd03c0
 
 	// release @0xccd60 -- __thiscall (SCameraPos*, SHLayer*), ret 8: the eye lift-off against ONE layer.
@@ -505,10 +501,11 @@ public:
 	void Update( const STime &sTime );
 	virtual void SetWorld( NWorld::IWorld *_pWorld ) { pWorld = _pWorld; }
 	virtual void SetView( NGScene::IGameView *_pView ) { pView = _pView; }
-	virtual void SetCutFloorSource( ICameraCutFloor *pSource ) { pCutFloorSource = pSource; }
 	virtual void ShowPlacesFromBestPoint( const CVec3 &ptA, const CVec3 &ptB, int nFloor, float fRodIn,
-		int nSloMoRatio, float fDivisor, bool bKeepFollow, bool bForceRod );   // release @0xcf1c0
+		int nSloMoRatio, float fDivisor, bool bKeepFollow, bool bForceRod, bool bPointOfInterest = false );
 	virtual void FollowUnit( CObjectBase *pUnit );                             // release @0xd0520
+	void UpdateFollowing( const STime &sTime );
+	virtual void AddFOVEffect( const CVec3 &ptAnchor, float fYaw, const STime &sDuration, int nDivisor );
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CCamera::CCamera():
@@ -641,9 +638,10 @@ int CCamera::TryShowPlaces( const CVec3 &ptA, const CVec3 &ptB, int /*nFloor*/, 
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // ShowTwoPlaces @0xceff0: frame BOTH points -- fast path, then a two-yaw x rod-candidate sweep.
-int CCamera::ShowTwoPlaces( const CVec3 &ptA, const CVec3 &ptB, int nFloor, float fRodIn )
+int CCamera::ShowTwoPlaces( const CVec3 &ptA, const CVec3 &ptB, int nFloor, float fRodIn, bool bPointOfInterest )
 {
-	if ( CanSeeNow( ptA ) && CanSeeNow( ptB ) && sDesiredPlacement.fRod >= F_FOV )
+	// Actual Steam 0x4cf196: only ordered rod < 35 takes the fast path.
+	if ( CanSeeNow( ptA ) && CanSeeNow( ptB ) && sDesiredPlacement.fRod < F_FOV )
 	{
 		if ( nFloor != CutFloorGet() ) CutFloorSet( nFloor );
 		return 1;
@@ -651,18 +649,21 @@ int CCamera::ShowTwoPlaces( const CVec3 &ptA, const CVec3 &ptB, int nFloor, floa
 	float fBase = atan2f( ptB.y - ptA.y, ptB.x - ptA.x ) + 0.5235988f;   // + PI/6
 	float fOpp  = fBase + FP_PI;
 	float fPrimary = fBase, fSecondary = fOpp;
-	if ( AngleDiff( sDesiredPlacement.fYaw, fBase ) >= AngleDiff( sDesiredPlacement.fYaw, fOpp ) )
+	if ( AngleDiff( sDesiredPlacement.fYaw, fOpp ) < AngleDiff( sDesiredPlacement.fYaw, fBase ) )
 	{
 		fPrimary = fOpp;
 		fSecondary = fBase;
 	}
-	const float rods[3] = { 15.0f, fRodIn, ( fRodIn + 40.0f ) * 0.5f };
+	const float fMiddleRod = ( fRodIn + 40.0f ) * 0.5f;
+	const float rods[3] = { 15.0f, fRodIn, bPointOfInterest ? fRodIn : fMiddleRod };
+	const float fFarRod = bPointOfInterest ? fMiddleRod : 40.0f;
 	int r;
+	// Actual Steam 0x4cf271 tries the current desired yaw before the alternatives.
+	for ( int i = 0; i < 3; i++ ) { r = TryShowPlaces( ptA, ptB, nFloor, rods[i], sDesiredPlacement.fYaw ); if ( r ) return r; }
 	for ( int i = 0; i < 3; i++ ) { r = TryShowPlaces( ptA, ptB, nFloor, rods[i], fPrimary );   if ( r ) return r; }
-	for ( int i = 0; i < 3; i++ ) { r = TryShowPlaces( ptA, ptB, nFloor, rods[i], fOpp );        if ( r ) return r; }
-	r = TryShowPlaces( ptA, ptB, nFloor, 40.0f, fPrimary ); if ( r ) return r;
+	r = TryShowPlaces( ptA, ptB, nFloor, fFarRod, sDesiredPlacement.fYaw ); if ( r ) return r;
 	for ( int i = 0; i < 3; i++ ) { r = TryShowPlaces( ptA, ptB, nFloor, rods[i], fSecondary );  if ( r ) return r; }
-	return TryShowPlaces( ptA, ptB, nFloor, 40.0f, fOpp );
+	return TryShowPlaces( ptA, ptB, nFloor, fFarRod, fPrimary );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // SlowCameraAcceleration @0xd03c0: one-shot "settled" reset -- fires only once the live ease has caught the
@@ -691,11 +692,78 @@ void CCamera::FollowUnit( CObjectBase *pUnit )
 	sMaxFollowUnitTime = sLastTime + 10000;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void CCamera::UpdateFollowing( const STime &sTime )
+{
+	// Original Steam locked follow branch: called only by the locked, non-orbit update branch.
+	if ( !IsValid( pFollowUnit ) || sTime >= sMaxFollowUnitTime || !IsValid( pWorld ) )
+		return;
+	NAI::IAIMap *pMap = pWorld->GetAIMap();
+	CVec3 ptFollow;
+	if ( pMap->GetUnitHLPos( &ptFollow, pMap->GetHull( pFollowUnit ), 0 ) )
+		ShowPlacesFromBestPoint( ptFollow, ptFollow, GetCutFloor(), sDesiredPlacement.fRod,
+			0, 0, true, false, false );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+static bool UpdateCameraFOVEffect( S2CameraWire::SCameraFOVEffect &effect, const STime &sTime, const ICamera::SCameraPos &sPos )
+{
+	// Actual original Update 0x4cbf60; preserve the portable saved wire record.
+	if ( effect.nSloMo == 1 )
+		return false;
+	if ( effect.tOn == 0 )
+		effect.tOn = sTime;
+	else if ( sTime - (STime)effect.tOn > effect.tMaxLen )
+	{
+		effect.nSloMo = 1;
+		effect.fFOV = 35.0f;
+		effect.fRoll = 0;
+		return true;
+	}
+	if ( effect.tOnFOVSpring == 0 && fabs( sPos.fYaw - effect.sDesiredPlacement.fYaw ) < FP_PI / 4 &&
+		fabs( sPos.fRod - effect.sDesiredPlacement.fRod ) < 1.0f )
+	{
+		effect.tOnFOVSpring = sTime;
+		effect.nSloMo = 3;
+	}
+	return false;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CCamera::AddFOVEffect( const CVec3 &ptAnchor, float fYaw, const STime &sDuration, int nDivisor )
+{
+	// Original Steam 0x4cf6f0: independent of cheat_slomo, rejected while another effect is active.
+	if ( GetSloMoRatio() >= 2 || !IsValid( pWorld ) || !IsValid( pWorld->GetGlobalGame() ) )
+		return;
+	SRand rnd;
+	int nWindow = pWorld->GetGlobalGame()->nSloMoTimes / 3 + 2;
+	if ( nDivisor > 1 )
+		nWindow /= nDivisor;
+	if ( rnd.Get( nWindow ) > 0 )
+		return;
+	SCameraPos backup = sDesiredPlacement;
+	sDesiredPlacement.ptAnchor = ptAnchor;
+	sDesiredPlacement.ptAnchor.z += 1.5f;
+	sDesiredPlacement.fRod = 12.0f;
+	sDesiredPlacement.fPitch = -FP_PI / 6;
+	float fTargetYaw = fYaw + FP_PI / 2;
+	while ( sDesiredPlacement.fYaw - fTargetYaw > FP_PI ) fTargetYaw += FP_2PI;
+	while ( sDesiredPlacement.fYaw - fTargetYaw < -FP_PI ) fTargetYaw -= FP_2PI;
+	sDesiredPlacement.fYaw = fTargetYaw;
+	if ( !CanSeeNow( ptAnchor ) )
+	{
+		sDesiredPlacement = backup;
+		return;
+	}
+	fov.nSloMo = 1000;
+	fov.tOn = 0;
+	fov.tOnFOVSpring = 0;
+	fov.tMaxLen = sDuration;
+	fov.sDesiredPlacement = sDesiredPlacement;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // ShowPlacesFromBestPoint @0xcf1c0: reset the cinematic state, roll the cheat-gated random slo-mo,
 // try to frame both points, else fan-sweep around ptA for a single visible pose.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCamera::ShowPlacesFromBestPoint( const CVec3 &ptA, const CVec3 &ptB, int nFloor, float fRodIn,
-	int nSloMoRatio, float fDivisor, bool bKeepFollow, bool bForceRod )
+	int nSloMoRatio, float fDivisor, bool bKeepFollow, bool bForceRod, bool bPointOfInterest )
 {
 	SRand rndSloMo;                                                         // retail: fn-head SRand (self-seeded, no shared-RNG shift)
 	sloMo.nSloMo = 1; fov.nSloMo = 1; fov.fFOV = 35.0f; fov.fRoll = 0.0f;   // (1) reset
@@ -703,13 +771,13 @@ void CCamera::ShowPlacesFromBestPoint( const CVec3 &ptA, const CVec3 &ptB, int n
 		pFollowUnit = 0;                                                     // (2) release follow
 
 	// retail @0xcf1c0 slo-mo roll: window = nSloMoTimes/3 + 2 (a repeat-offender tax -- the more
-	// slo-mos fired, the rarer they get), shrunk by fDivisor>1 (round-to-nearest); fires only on
+	// slo-mos fired, the rarer they get), shrunk by fDivisor>1 (truncate); fires only on
 	// roll==0 AND the cheat_slomo console var; 4000ms lease, expiry in CCamera::Update.
 	if ( IsValid( pWorld ) && IsValid( pWorld->GetGlobalGame() ) )
 	{
 		int nWindow = pWorld->GetGlobalGame()->nSloMoTimes / 3 + 2;
 		if ( fDivisor > 1.0f )
-			nWindow = (int)( (float)nWindow / fDivisor + 0.5f );
+			nWindow = (int)( (float)nWindow / fDivisor ); // Actual Steam 0x4cf3d9..0x4cf3f9.
 		if ( nSloMoRatio > 1 && rndSloMo.Get( nWindow ) == 0 && bCheatSloMo )
 		{
 			if ( sloMo.nSloMo < 2 )
@@ -722,7 +790,7 @@ void CCamera::ShowPlacesFromBestPoint( const CVec3 &ptA, const CVec3 &ptB, int n
 
 	SCameraPos backup = sDesiredPlacement;                                  // (5) backup
 	bool bSame = ( ptB.x == ptA.x && ptB.y == ptA.y && ptB.z == ptA.z );
-	if ( bSame || ShowTwoPlaces( ptA, ptB, nFloor, fRodIn ) == 0 )          // (6) frame both, else fan-sweep ptA
+	if ( bSame || ShowTwoPlaces( ptA, ptB, nFloor, fRodIn, bPointOfInterest ) == 0 )          // (6) frame both, else fan-sweep ptA
 	{
 		int nSloMo = sloMo.nSloMo;
 		sDesiredPlacement = backup;
@@ -733,7 +801,8 @@ void CCamera::ShowPlacesFromBestPoint( const CVec3 &ptA, const CVec3 &ptB, int n
 		}
 		const float fBaseYaw = sDesiredPlacement.fYaw;
 		SRand rnd;
-		const float fRod = ( !bForceRod && rnd.Get( 3 ) != 1 ) ? 12.0f : fRodIn;
+		const bool bRandomCloseRod = rnd.Get( 3 ) != 1; // Actual 0x4cf530 rolls before testing force.
+		const float fRod = ( !bForceRod && bRandomCloseRod ) ? 12.0f : fRodIn;
 		const float kPi4 = 0.7853982f, kPi3 = 1.0471976f, kPi2 = 1.5707964f;
 		bool bAllZero =
 			TryShowPlaces( ptA, ptA, nFloor, fRod,   fBaseYaw )        == 0 &&
@@ -954,10 +1023,13 @@ void CCamera::Update( const STime &sTime )
 			sDesiredPlacement = sPlacement;
 		}
 	}
-	// release @0xcd930: user input mutates the DESIRED placement; the tail then eases the live
-	// placement toward it (Approach2DesiredPlacement @0xcb710). The release terrain legs (averaged-
-	// height anchor easing + CorrectPlacement) need the world/view height grids the camera cannot
-	// reach here -- the Jan03 stand-on-ground fix below keeps standing in for them.
+	// Update the transient lens effect before input and terrain-aware placement easing.
+	UpdateCameraFOVEffect( fov, sTime, sPlacement );
+	if ( !sLimits.bMovie )
+	{
+		SetFOV( fov.fFOV );
+		sPlacement.fRoll = fov.fRoll;
+	}
 	float fPitchDelta = pitch.GetDelta();
 	float fYawDelta = rotate.GetDelta();
 	float fFwd = fwd.GetDelta() * 10.0f;
@@ -1113,7 +1185,6 @@ void CCamera::Update( const STime &sTime )
 				// retail @0x4cdefa (LOCKED path only): while the cheat slo-mo is live, the approach's
 				// yaw ease is UNDONE and both yaws instead orbit at PI/4000 rad/ms toward the desired
 				// side, wrapped at PI -- the slow cinematic pan around the kill.
-				// (nSloMo<2 runs retail's follow-unit leg here instead -- UNPORTED, see DIVERGENCES.)
 				if ( sloMo.nSloMo >= 2 )
 				{
 					const float fStep = ( ( sDesiredPlacement.fYaw < fSavedYaw ) ? -FP_PI : FP_PI ) / 4000.0f * (float)sDelta;
@@ -1125,6 +1196,8 @@ void CCamera::Update( const STime &sTime )
 						sDesiredPlacement.fYaw -= FP_2PI;
 					}
 				}
+				else
+					UpdateFollowing( sTime );
 			}
 		}
 	}

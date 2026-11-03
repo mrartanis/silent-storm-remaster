@@ -38,7 +38,7 @@ const int
 	N_ZONE_SIZE									= 69,
 	N_RANDOMZONE_SIZE						= 49,
 	N_RANDOMZONE_TTL						= 10000,	// TimeToLife
-	N_RANDOMZONE_MIN_DIST				= 8,
+	N_RANDOMZONE_MIN_DIST				= 32,
 	N_RANDOMZONE_MAX_DIST				= 256,
 	N_RANDOMZONE_ROLLTRY_COUNT	= 100;
 const float
@@ -345,6 +345,7 @@ public:
 	CChapterSector() {}
 	CChapterSector( const SWindowInfo &sInfo, const SChapterSector &sSector );
 
+	virtual bool CanDeploy() const { return true; }
 	virtual bool IsRecommended() const;
 	virtual bool GetDescription( wstring *psText ) const;
 
@@ -428,6 +429,7 @@ public:
 	CZoneSector() {}
 	CZoneSector( const SWindowInfo &sInfo, NGame::IMission *pChapter, const SChapterSector &sSector );
 
+	bool CanDeploy() const;
 	bool IsRecommended() const;
 	bool GetDescription( wstring *psText ) const;
 
@@ -447,6 +449,13 @@ CZoneSector::CZoneSector( const SWindowInfo &sInfo, NGame::IMission *_pChapter, 
 bool CZoneSector::IsRecommended() const
 {
 	return bRecommended;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CZoneSector::CanDeploy() const
+{
+    CPtr<NRPG::CGlobalGame> pGame = pChapter->GetRPGGame();
+    return !IsValid( pZone ) || pZone->GetDBZone()->bAllowPK ||
+        pGame->players.empty() || !pGame->players[0]->IsAnybodyInPK();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CZoneSector::GetDescription( wstring *psText ) const
@@ -601,16 +610,25 @@ void CRandomSector::UpdateSector( const STime &sTime, const CVec2 &vTeamPos )
 	static SRand sRand;
 
 	vector<string> templParams;
-	if ( HitTestMap( vTeamPos ) )
+	// A fading or not-yet-spawned window can still draw and hit-test.
+	// Only a logically active random encounter may queue mission entry.
+	if ( IsVisible() && HitTestMap( vTeamPos ) )
+	{
+		SetVisible( false );
 		NMainLoop::CommandWithAutoSave( NStr::ToAscii( GetDBString( 20243 ) ), new NGame::CICBeginMission( GetSector().nTemplate, -1, templParams, pChapter->GetRPGGame(), pChapter->GetChapterMap()->pPWLImage ) );
+		return;
+	}
 
 	if ( sUpdateTime > sTime )
 		return;
 
+	if ( pChapter->GetRPGGame()->nCurrentTemplateID == GetSector().nTemplate )
+		pChapter->GetRPGGame()->nCurrentTemplateID = 0;
+
 	sUpdateTime = sTime + N_RANDOMZONE_TTL * sRand.GetFloat( 0.5f, 1.0f );
 	if ( !IsVisible() )
 	{
-		if ( sRand.Get( 100 ) < GetSector().nProbability )
+		if ( sRand.Get( 100 ) > GetSector().nProbability )
 			return;
 
 		for ( int nTemp = 0; nTemp < N_RANDOMZONE_ROLLTRY_COUNT; nTemp++ )
@@ -838,6 +856,12 @@ bool CChapterMapUI::ProcessMessage( const SEvent &sEvent )
 
 					if ( sSector.eType == ZONE )
 					{
+                        if ( !sectorsSet[nTemp]->CanDeploy() )
+                        {
+                            bHandled = true;
+                            csGame << GetDBString( 20995 ) << endl;
+                            continue;
+                        }
 						vector<string> templParams;
 						CPtr<NScenario::CScenarioZone> pZone = pChapter->GetRPGGame()->pScenarioTracker->GetZoneByDBZone( NDb::GetDBScenarioZone( sSector.nTemplate ) );
 						if ( IsValid( pZone ) )
@@ -1076,7 +1100,8 @@ void CChapterMapUI::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 			if ( !(*iTemp)->IsJustFound() )
 				continue;
 
-			NMainLoop::Command( new NGame::CICShowClue( 0, 0, pChapter->GetRPGGame(), (*iTemp) ) );
+			NMainLoop::Command( new NGame::CICShowClue( 0, 0, pChapter->GetRPGGame(),
+				pChapter->GetRPGGame()->players.empty() ? 0 : pChapter->GetRPGGame()->players.front().GetPtr(), (*iTemp) ) );
 			(*iTemp)->SetJustFound( false );
 			if ( !pChapter->GetRPGGame()->players.empty() )
 				pChapter->GetRPGGame()->players.front()->AddMedalPointsForClue( pChapter->GetRPGGame() );

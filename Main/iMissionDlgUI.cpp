@@ -454,10 +454,10 @@ void CMissionDlgUI::UpdatePhrases( NGScene::I2DGameView *pView )
 			int nPageEnd = wsText.length();
 			if ( sRealSize.y > pDialog->GetSize().y )
 			{
-				list<SRect> rects;
-				pML->Render( &rects, SPoint( 0, 0 ), SRect( 0, 0, 0, 0 ) );
+				list<CTRect<float> > rects;
+				pML->Render( &rects, CTPoint<float>( 0, 0 ), CTRect<float>( 0, 0, 0, 0 ) );
 				int nCutChar = 0;
-				for ( list<SRect>::const_iterator iRect = rects.begin(); iRect != rects.end(); iRect++ )
+				for ( list<CTRect<float> >::const_iterator iRect = rects.begin(); iRect != rects.end(); iRect++ )
 				{
 					if ( S2UI::FromPixel(iRect->y2) > pDialog->GetSize().y )
 						break;

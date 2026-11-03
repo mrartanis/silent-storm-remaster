@@ -45,15 +45,15 @@ namespace NWorld
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail ctor @0x3823f0: eTimeOfDay sits between vCreateFlags and bOpen
 CWindowDoor::CWindowDoor( CWorld *pWorld, const SObjectPlace &pos, bool bLightMap,
-	NDb::CObject *pO, NRPG::IObject *pRPG, CFuncBase<STime> *_pTime, const vector<int> &vCreateFlags, ETimeOfDay eTimeOfDay, bool bOpen )
+	NDb::CObject *pO, NRPG::IObject *pRPG, CFuncBase<STime> *_pTime, const vector<int> &vCreateFlags, ETimeOfDay eTimeOfDay, bool bOpen, bool _bIsChest, bool _bTransparentIfOpen )
 	: CAnimObjectServerBase( pWorld, pos, bLightMap, pO, pRPG, _pTime, vCreateFlags, eTimeOfDay )
 {
 	bIsOpen = bOpen;
 	bIsLocked = false;
 	nKeyID = 0;
 	nLockHardness = 0;
-	bIsChest = false;
-	bIsTransparentIfOpen = false;
+	bIsChest = _bIsChest;
+	bIsTransparentIfOpen = _bTransparentIfOpen;
 	if ( bOpen )
 	{
 		STime t = pTime->GetValue();
@@ -210,6 +210,9 @@ void CWindowDoor::OpenClose( bool bOpen, bool bAbruptly, CUnitServer *pWho )
 		pAnimator->AddMemorizer( tEnd );
 	}
 	pWorld->GetPathNetwork()->FlipperOpenClose( this, bOpen );
+	// Original Steam 0x782e25 requests the grid event after changing the flipper.
+	// Use the world's established synchronous TBS event adapter.
+	pWorld->GridInfoUpdated();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail @0x3813b0: lock/unlock the door and, WHEN LOCKING, record the required-key id and the
@@ -285,7 +288,7 @@ void CWindowDoor::Visit( IAIVisitor *p )
 					pAn2->AddAnimator( current, pAnim2 );
 				}
 				pAIHull = p->AddFlippingHull( pModel->pGeometry->pAIGeometry, pSkeleton, rv, pAn1, pAn2, pModel->pRPGArmor, 
-					position.nFloor, nMask, bIsOpen, pDbObject->pDoor->GetRecordID(), nDestroyStage );
+					position.nFloor, nMask, bIsOpen, pDbObject->pDoor->GetRecordID(), nDestroyStage, bIsTransparentIfOpen );
 			}
 			else
 				pAIHull = p->AddHull( pModel->pGeometry->pAIGeometry, rv, pModel->pRPGArmor, position.nFloor, nMask );

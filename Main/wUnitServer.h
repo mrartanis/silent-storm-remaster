@@ -61,7 +61,7 @@ public:
 	CCommandExecute( CUnitServer *_pUS = 0 ): state(RUNNING), pUS(_pUS) {}
 	EFinishType GetState() const { return state; }
 	virtual int GetStartAP() const { return 0; }
-	virtual int GetActionAP() const { return GetStartAP(); }
+	virtual int GetActionAP( int nAlreadyReservedAP = 0 ) const { return GetStartAP(); }
 	virtual void Run() { Finished(); }
 	virtual bool TimeLabelReached() { return false; }
 	virtual void AnimationFinished() { Finished(); }
@@ -164,6 +164,7 @@ private:
 	void RefreshExecutor();
 	void CheckCmdExecState();
 	void Fall();
+	void UpdateDeadPKSupport();
 	void ForcedMove();
 	// CDumbUnit callbacks
 	virtual void OnUnitMadeUnconscious( bool bFromScript = false );
@@ -223,7 +224,9 @@ public:
 	virtual bool IsHiding() const;
 	virtual bool IsEmptyPK() const { return bIsPK; }
 	virtual void OnTBSEvent( ETBSEvent event );
+	bool HasAutoFirstTurnInterrupt() const;
 	virtual bool IsPerformingAction() const;
+	virtual bool GetPointOfInterest( CVec3 *pOut );
 	// implement CUnit	
 	virtual bool IsUnitVisible( const CUnit *pUnit ) const;
 	virtual bool IsUnitAudible( const CUnit *pUnit ) const;

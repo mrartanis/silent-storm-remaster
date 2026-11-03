@@ -39,6 +39,7 @@ namespace NGScene
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static SRenderStats lastFrameStats;
 static bool bWireframe;
+static bool bUseHWHSR = false;
 static bool bShow2DTextureCache = false, bShowTranspTextureCache = false, bShowParticleLMCache = false;
 static int nTotalParts, nTotalElements;
 enum EShowLinearCache
@@ -87,10 +88,11 @@ static void AttachPart( CNonePart *pRes, CVolumeNode *pNode,
 {
 	bool bIsLightmapped = !bIsDynamic && pRes->GetGroupInfo().nLightGroup == 0 && pRes->GetMaterial()->GetType() == IMaterial::MT_NORMAL;//!= IMaterial::MT_OCCLUDER;
 	CCombinedPart *pCPart;
+	const int nFloorMask = pRes->GetGroupInfo().nObjectGroup & 0xfff;
 	if ( bIsDynamic )
-		pCPart = pNode->dynamicParts.GetCombinerPartForAdd( pRes->GetMaterial(), 0, bIsLightmapped );
+		pCPart = pNode->dynamicParts.GetCombinerPartForAdd( pRes->GetMaterial(), 0, nFloorMask, bIsLightmapped );
 	else
-		pCPart = pNode->staticParts.GetCombinerPartForAdd( pRes->GetMaterial(), pTrackers, bIsLightmapped );
+		pCPart = pNode->staticParts.GetCombinerPartForAdd( pRes->GetMaterial(), pTrackers, nFloorMask, bIsLightmapped );
 	pRes->pOwner = pCPart;
 	if ( bAnimationOnly )
 		pRes->SetCombiner( pCPart->GetCombiner(), false, true );
@@ -403,8 +405,8 @@ void CPostProcessBinder::Store( vector<IPostProcess::SObject> *pRes, CTransformS
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CCombinedPart
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-CCombinedPart::CCombinedPart( SStaticTrackers *pTrackers, EType t )
-	: nFloorMask(0), nIgnoreMark(0), pCombiner( new CPerMaterialCombiner( pTrackers ) ), partType(t)
+CCombinedPart::CCombinedPart( SStaticTrackers *pTrackers, EType t, int _nFloorMask )
+	: nFloorMask(_nFloorMask), nIgnoreMark(0), pCombiner( new CPerMaterialCombiner( pTrackers ) ), partType(t)
 {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -975,6 +977,11 @@ CObjectBase* CGScene::CreatePostProcessor( CObjectBase *pRenderNode, IPostProces
 	return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void CGScene::SetAmbientAnimation( CPtrFuncBase<CAnimLight> *pLight )
+{
+	pTopAmbientAnimator->SetAnimation( pLight );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGScene::SetAmbient( const CVec3 &_vBottomAmbientColor, const CVec3 &_vTopAmbientColor )
 {
 	// @0x159f20: write the two edge nodes (Set bumps their versions); pAmbient (CAmbientMean) and the
@@ -997,11 +1004,11 @@ void CGScene::AddLight( ILight *pGroup )
 	bLightStateCalced = false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-CObjectBase* CGScene::AddPointLight( const CVec3 &_vColor, const CVec3 &ptOrigin, float fR, bool bLightmapOnly )
+CObjectBase* CGScene::AddPointLight( const CVec3 &_vColor, const CVec3 &ptOrigin, float fR, bool bLightmapOnly, bool bCastShadow )
 {
 	if ( fR <= 0 )
 		return 0;
-	ILight *pRes = new CPointLight( _vColor, ptOrigin, fR, trackers.pSolidTracker, bLightmapOnly );
+	ILight *pRes = new CPointLight( _vColor, ptOrigin, fR, trackers.pSolidTracker, bLightmapOnly, bCastShadow );
 	AddLight( pRes );
 	return pRes;
 }
@@ -1112,7 +1119,7 @@ static void AddParts( CTransformStack *pTS, list<SRenderPartSet> *pRes,
 		CDGPtr<CPerMaterialCombiner> pCombiner = pElement->GetCombiner();
 		pCombiner.Refresh();
 		const vector< CPtr<IPart> > &listParts = pCombiner->GetValue();
-		SRenderPartSet &res = *pRes->insert( pRes->end(), SRenderPartSet( pElement, &listParts, pElement->GetGeometryInfo() ) );
+		SRenderPartSet &res = *pRes->insert( pRes->end(), SRenderPartSet( pElement, &listParts, pElement->GetGeometryInfo(), pElement->GetFloorMask() ) );
 		SelectParts( &res.parts, pTS, pVB, pElement, mask );
 		CalcCastShadow( &res.castShadow, pElement );
 
@@ -1760,10 +1767,19 @@ void CGScene::DrawLines( NGfx::CRenderContext *pRC )
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static CPtr<CGScene> pPreviousCLScene;
 void CGScene::RenderCL( NGfx::CRenderContext *pRC, IRender *pRender, CTransformStack *pTS, 
-	CSceneFragments *pGeom, bool bSceneHasChanged )
+	CSceneFragments *pGeom, bool bSceneHasChanged, const CVec4 &vDepth, bool bReuseLight, int nScratchRegister )
 {
-	GetLMTracker()->CatchUp( pRC, pRender, pTS, pGeom, bSceneHasChanged, lastMask );
+	// Retail v1.2 0x55b0e0: shared lighting registers may belong to another scene.
+	if ( pPreviousCLScene != this )
+	{
+		pPreviousCLScene = this;
+		bSceneHasChanged = true;
+		bFirstLMCatch = true;
+	}
+	GetLMTracker()->CatchUp( pRC, pRender, pTS, pGeom, bSceneHasChanged, lastMask,
+		bFirstLMCatch, vDepth, bReuseLight && !bFirstLMCatch, nScratchRegister );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CObjectBase* CGScene::CreateStaticDecal( CNonePart *pTarget, CPtrFuncBase<CObjectInfo> *pDecal, IMaterial *pMaterial, const SFullGroupInfo &fg )
@@ -1890,13 +1906,19 @@ void CGScene::GetPartsList( const SDecalMappingInfo &_info, const CObjectBaseSet
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static bool bUseDecals = true;
 CDecalTarget* CGScene::CreateDecalTarget( const vector<CObjectBase*> &targets, const SDecalMappingInfo &_info )
 {
+	// Retail v1.2 0x559ff0: disabling decals suppresses new decal targets.
+	if ( !bUseDecals )
+		return 0;
 	return pDecalsManager->CreateDecalTarget( targets, _info );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CObjectBase* CGScene::AddDecal( NGScene::CDecalTarget *pTarget, IMaterial *pMaterial )
 {
+	if ( !IsValid(pTarget) )
+		return 0;
 	return pDecalsManager->CreateDecal( pTarget, pMaterial );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1925,7 +1947,15 @@ void CGScene::Draw( CTransformStack *pTS, CTransformStack *pClipTS, NGfx::CRende
 	ERenderPath renderPath, EFogMode fogMode, const SFogParams &_fog, EHSRMode hsrMode, ETransparentMode trMode, 
 	NGfx::CCubeTexture *pSky )
 {
+	// Retail Draw 0x561309: recreate transient shadow resources after a device reset.
+	if ( nGfxDeviceCreationID != NGfx::GetDeviceCreationID() )
+	{
+		nGfxDeviceCreationID = NGfx::GetDeviceCreationID();
+		trackers.pSolidTracker->Updated();
+		bWaitForLoad = true;
+	}
 	WalkNotLoadedObjects();
+	bFirstLMCatch = bWaitForLoad;
 	while ( bWaitForLoad )
 	{
 		WalkNotLoadedObjects();
@@ -1983,6 +2013,9 @@ void CGScene::Draw( CTransformStack *pTS, CTransformStack *pClipTS, NGfx::CRende
 		nUseIgnoreMark = nCurrentIgnoreMark;
 	}
 	ERLRequest rlReq = RN_ALL;
+	// Retail v1.2 0x561758: hardware queries bridge the first two software
+	// occlusion updates; they remain opt-in and require device support.
+	geom.bNeedHSR = bUseHWHSR && NGfx::DoesSupportOcclusionQueries() && nIgnoreListWasCalced < 2;
 	switch ( renderPath )
 	{
 		case RP_TNL:
@@ -2217,6 +2250,16 @@ void Clear( NGfx::CRenderContext *pRC, const CVec3 &vColor )
 		pRC->ClearBuffers( clearColor.color );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static bool bBlockBuffering = false;  // gfx_block_buffering
+void ClearScreenZBuffer()
+{
+	// Retail v1.2 0x5599f0: the input-latency option synchronizes before drawing.
+	if ( bBlockBuffering )
+		NGfx::DXFinish();
+	NGfx::CRenderContext rc;
+	rc.ClearZBuffer();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void ClearScreen( const CVec3 &vColor )
 {
 	NGfx::CRenderContext rc;
@@ -2330,9 +2373,6 @@ static void VarSwitchLinearCache( const string &szID, const NGlobal::CValue &sVa
 // retail GSceneInternalInit @0x162a50 registers SEVEN vars: the 4 showcache debug switches plus
 // gfx_hw_hsr / gfx_decals / gfx_block_buffering bound through VarBoolHandler (0x99e2f3 / 0x97901b /
 // 0x99e2f4).
-static bool bUseHWHSR = false;        // gfx_hw_hsr @0x99e2f3
-static bool bUseDecals = true;        // gfx_decals @0x97901b (default 1.0)
-static bool bBlockBuffering = false;  // gfx_block_buffering @0x99e2f4
 START_REGISTER(GSceneInternal)
 	REGISTER_VAR( "gfx_showcache_2d", VarSwitchTexCache, 0.0f, false )
 	REGISTER_VAR( "gfx_showcache_transp", VarSwitchTranspCache, 0.0f, false )

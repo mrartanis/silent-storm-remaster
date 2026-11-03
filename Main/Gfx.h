@@ -32,7 +32,7 @@ struct SRenderTargetsInfo
 	int nRegisters;
 	SRenderTargetsInfo() : nRegisters(0) {}
 
-	void Clear() { targets.clear(); nRegisters = 0; }
+	void Clear() { targets.clear(); cubeTargets.clear(); nRegisters = 0; }
 	void Add(unordered_map<int,int> *pRes, int nResolution, int nTargets )
 	{ 
 		if ( pRes->find( nResolution ) == pRes->end() )
@@ -48,10 +48,12 @@ struct SRenderTargetsInfo
 bool Init3D( HWND hWnd );
 void Done3D();
 bool Is3DActive();
+int GetDeviceCreationID();
 HWND GetHWND();
 bool Is16BitTextures();   // @0x10ce10 -- selects 16-bit (SPixel1555) vs 32-bit (SPixel8888) dynamic 2D textures
 bool Is16BitMode();       // @0x10cde0
 int GetMaxAnisotropicLevel();   // @0x10cee0
+void DXFinish();
 void SetGamma( bool bGamma );
 bool SetMode( const SVideoMode &m_, const SRenderTargetsInfo &_rtInfo );
 void GetModesList( list<SVideoMode> *pRes, int nBpp = 32 );

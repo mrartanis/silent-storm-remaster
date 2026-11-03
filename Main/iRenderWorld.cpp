@@ -16,6 +16,7 @@
 #include "iMain.h"
 #include "iRenderWorld.h"
 #include "iCommonUI.h"
+#include "iDesktopWindow.h"
 #include "..\Misc\StrProc.h"
 #include "..\MiscDll\Commands.h"
 #include "..\DBFormat\DataMap.h"
@@ -84,11 +85,9 @@ void CRenderBaseInterface::Initialize( int nTemplateID )
 	pCamera->SetLock( true );					// @0x62f510, cam vtbl+0x70 (retail Lock)
 
 	pCursor = NUI::ICursor::Create();
-	// Wire the sound scene into the UI interface so CWindow::PlaySound (-> GetInterface()->GetSound()->Add2DSound)
-	// actually plays UI/voice-preview sounds on these 3D-backdrop menus. The dev created pSoundScene (above) but
-	// never connected it to the interface, so GetSound() was null and every menu PlaySound silently dropped. Retail
-	// passes null to the CInterface ctor then wires the scene separately; the dev's single-arg ctor takes it directly.
-	pInterface = new NUI::CInterface( pCursor, pSoundScene );
+	// Original Gold 0x62ab3a / Steam 0x62f44a: the UI owns a separate pool-less scene.
+	// Covering the backdrop pauses world audio while already-playing UI sounds continue.
+	pInterface = new NUI::CInterface( pCursor );
 
 	pWorld->RunPostInit( pPostInfo );
 }
@@ -127,10 +126,11 @@ void CRenderBaseInterface::Step()
 {
 	if ( CanRender() )
 	{
-		// Backdrop scripts use the same scene-owned sound commands as missions.
+		// World-backed menus share lighting/effect and scene-owned sound commands.
 		while ( CPtr<NWorld::CUICmd> pCmd = pWorld->GetUICommand() )
-			if ( IsValid( pCmd ) )
-				ExecWorldSoundCommand( pCmd );
+			if ( IsValid( pCmd ) && ( !GetDesktop() || GetDesktop()->IsValidCommand( pCmd ) ) )
+				ExecWorldCommonCommand( pCmd );
+		UpdateWorldCameraCommand( pWorld->GetAimTime()->GetValue() );
 		EraseInvalidRefs( &soundsList );
 		pCamera->Update( GetTime() );
 

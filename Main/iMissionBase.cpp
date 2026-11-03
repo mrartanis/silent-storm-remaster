@@ -17,13 +17,20 @@
 #include "Interface.h"
 #include "iMain.h"
 #include "iMission.h"
+#include "PlayerTracker.h"
+#include "iGameStates.h"
 #include "iMissionExec.h"
 #include "iCommonUI.h"
 #include "iDesktopWindow.h"
+#include "iShowHint.h"
+#include "iShowClue.h"
+#include "iIntroScreen.h"
 #include "..\MiscDll\Commands.h"
 #include "..\MiscDll\LogStream.h"
 #include "..\DBFormat\DataFormat.h"
 #include "..\DBFormat\DataLight.h"
+#include "..\DBFormat\DataMap.h"
+#include "iMissionInternal.h"
 #include "..\FileIO\BasicChunk1.h"   // START_REGISTER / FINISH_REGISTER (the ui_followcamera cvar)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // NGame::CMissionBase -- the retail mission base class bodies (release iBase.obj; serialization-
@@ -35,6 +42,29 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NGame
 {
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CMissionBase::InitializeWorld()
+{
+	pWorld = NWorld::CreateWorld( pGlobalGame );
+	pWorld->CreateDefault();
+	playersSet.resize( pGlobalGame->players.size() );
+	for ( int nPlayer = 0; nPlayer < pGlobalGame->players.size(); ++nPlayer )
+	{
+		WCHAR wsName[32];
+		swprintf( wsName, sizeof(wsName) / sizeof(wsName[0]), L"Player %d", nPlayer );
+		playersSet[nPlayer] = new CPlayerTracker( this, pGlobalGame->players[nPlayer], wsName );
+	}
+	pActivePlayer = playersSet.front();
+	CommandState( new CStateEmpty );
+	pScene = NGScene::CreateNewView();
+	pSoundScene = NSound::CreateSoundScene( NDb::GetTMusic( 15 ), 0, pWorld->GetAimTime() );
+	pRender = NRender::CreateRenderGame( pWorld, pScene, pSoundScene );
+	pCamera = CreateCamera( CAMERA_PC );
+	ICamera::SCameraLimits limits;
+	limits.bMovie = true;
+	pCamera->SetLimits( limits );
+	pCamera->SetLock( true );
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Both mission and chapter scripts enter zones through the native transition.
 // Only a direct tactical jump still needs leave-zone bookkeeping.
@@ -81,6 +111,151 @@ bool CMissionBase::ExecWorldSoundCommand( NWorld::CUICmd *pCmd )
 		soundsList.push_back( pSound->pChannel.GetPtr() );
 	}
 	return true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Commands shared by tactical, chapter and backdrop worlds.
+bool CMissionBase::ExecWorldCommonCommand( NWorld::CUICmd *pCmd )
+{
+	if ( CDynamicCast<NWorld::CUICmdCameraLocator>( pCmd ) )
+	{
+		NWorld::CUICmdCameraLocator *pLoc = CDynamicCast<NWorld::CUICmdCameraLocator>( pCmd );
+		if ( IsValid( pExecLocator ) && !NGame::MustReplaceCameraExecutor( pExecLocator->GetPriority(), pLoc->GetPriority() ) )
+			return true;
+		if ( IsValid( pExecLocator ) )
+		{
+			// Finish its wait and clear camera selection before the next constructor.
+			pExecLocator->Finished();
+			pExecLocator = 0;
+		}
+		pExecLocator = NGame::CreateCameraExecutor( pLoc, this );
+	}
+	else if ( CDynamicCast<NWorld::CUICmdShowHint>( pCmd ) )
+	{
+		NWorld::CUICmdShowHint *pShowHint = CDynamicCast<NWorld::CUICmdShowHint>( pCmd );
+		bool bShow = ( NGlobal::GetVar( "ui_showhints" ).GetFloat() == 1.0f ) || bTutorialMode;
+		if ( bShow )
+			NMainLoop::Command( new NGame::CICShowHint( this, pShowHint->GetID(), pShowHint->pHint, pGlobalGame ) );
+		else
+			DoEvent( new NWorld::CCmdInterfaceEvent( pShowHint->GetID() ) );
+	}
+	else if ( CDynamicCast<NWorld::CUICmdTutorialMode>( pCmd ) )
+	{
+		bTutorialMode = CDynamicCast<NWorld::CUICmdTutorialMode>( pCmd )->bTutorial;
+	}
+	// Native shared lock dispatch (Gold5a1597; Steam5a3f27).
+	else if ( CDynamicCast<NWorld::CUICmdLockCamera>( pCmd ) )
+	{
+		bool bLock = CDynamicCast<NWorld::CUICmdLockCamera>( pCmd )->bLock;
+		GetCamera()->FreezeCamera( bLock );
+		// Tutorial also freezes the tracker camera, even when both cameras alias.
+		// The remaster frontend has no active player tracker.
+		if ( bTutorialMode && IsValid( pActivePlayer ) )
+			pActivePlayer->GetCamera()->FreezeCamera( bLock );
+		// Background worlds retain their owned renderer-floor policy. Tactical
+		// worlds keep the original freeze solely on each camera.
+		if ( !dynamic_cast<CMission*>( this ) )
+			pScene->SetCutFloorLock( bLock );
+	}
+	// Shared native CameraSetClipping dispatch (Gold5a15e4; Steam5a3f74).
+	else if ( CDynamicCast<NWorld::CUICmdSetCameraClipDistance>( pCmd ) )
+	{
+		NWorld::CUICmdSetCameraClipDistance *pClip =
+			CDynamicCast<NWorld::CUICmdSetCameraClipDistance>( pCmd );
+		GetCamera()->SetClipDistance( pClip->fMinDistance, pClip->fMaxDistance );
+	}
+	else if ( CDynamicCast<NWorld::CUICmdSetFloor>( pCmd ) )
+	{
+		NWorld::CUICmdSetFloor *pFloor = CDynamicCast<NWorld::CUICmdSetFloor>( pCmd );
+		if ( CMission *pTactical = dynamic_cast<CMission*>( this ) )
+			pTactical->SetCutFloor( pFloor->nFloor );
+		else
+			pScene->SetCutFloor( pFloor->nFloor );
+	}
+	else if ( CDynamicCast<NWorld::CUICmdPlayEffect>( pCmd ) )
+	{
+		NWorld::CUICmdPlayEffect *pPlayEffect = CDynamicCast<NWorld::CUICmdPlayEffect>( pCmd );
+		if ( IsValid( pPlayEffect->pEffect ) )
+		{
+			SFBTransform place;
+			MakeMatrix( &place, CVec3( 1, 1, 1 ), pPlayEffect->vPos, 0 );
+			static SRand rnd;
+			NDb::CEffect *pEffect = pPlayEffect->pEffect->GetEffect( &rnd, pWorld->GetCreateFlags() );
+			// A filtered pool can be empty; the render factory requires a real effect.
+			pPlayEffect->pHandle = pEffect ? GetScene()->CreateParticles( pEffect,
+				pRender->GetTime()->GetValue(), pRender->GetTime(), place ) : 0;
+		}
+	}
+	// Immediate time-of-day changes use the current zone light before explicit/debug modes.
+	else if ( CDynamicCast<NWorld::CUICmdSetAmbient>( pCmd ) )
+	{
+		NWorld::CUICmdSetAmbient *pSetAmbient = CDynamicCast<NWorld::CUICmdSetAmbient>( pCmd );
+		CPtr<NDb::CAmbientLightReal> pDefault = pWorld->GetDefaultLight();
+		if ( pSetAmbient->bImmediate && IsValid( pDefault ) )
+			GetScene()->SetAmbient( pDefault );
+		else if ( IsValid( pSetAmbient->pLight ) )
+		{
+			static SRand rnd;
+			CPtr<NDb::CAmbientLightReal> pLight = pSetAmbient->pLight->GetLight( &rnd, pWorld->GetCreateFlags() );
+			if ( IsValid( pLight ) )
+				GetScene()->SetAmbient( pLight );
+		}
+		else
+			SetLightMode( nLightMode );
+	}
+	// Original ambient-only command: preserve world variants and the renderer timeline.
+	else if ( CDynamicCast<NWorld::CUICmdSetAmbientEffect>( pCmd ) )
+	{
+		NWorld::CUICmdSetAmbientEffect *pSetAmbientEffect = CDynamicCast<NWorld::CUICmdSetAmbientEffect>( pCmd );
+		static SRand rnd;
+		NDb::CEffect *pEffect = IsValid( pSetAmbientEffect->pEffect ) ?
+			pSetAmbientEffect->pEffect->GetEffect( &rnd, pWorld->GetCreateFlags() ) : 0;
+		GetScene()->SetAmbientEffect( pEffect, pRender->GetTime()->GetValue(), pRender->GetTime() );
+	}
+	// LUA convergence: PlayVideo -- play the named .seq cut-scene via the existing iIntroScreen sequence
+	// player (retail CMissionBase::ExecWorldCommand @0x1a30c0 -> new CICPlaySequence(this, nID, file, false)).
+	else if ( CDynamicCast<NWorld::CUICmdPlayVideo>( pCmd ) )
+	{
+		NWorld::CUICmdPlayVideo *pVideo = CDynamicCast<NWorld::CUICmdPlayVideo>( pCmd );
+		NGame::PlayVideoSequence( this, pVideo->GetID(), pVideo->szFileName, false );
+	}
+	else if ( CDynamicCast<NWorld::CUICmdShowClue>( pCmd ) )
+	{
+		NWorld::CUICmdShowClue *pClue = CDynamicCast<NWorld::CUICmdShowClue>( pCmd );
+		// The clue modal needs a campaign; our backdrop worlds have no scenario.
+		if ( IsValid( pGlobalGame ) && IsValid( pClue->pClue ) )
+			NMainLoop::Command( new NGame::CICShowClue( this, pClue->GetID(), pGlobalGame,
+				IsValid( pActivePlayer ) ? pActivePlayer->GetGlobalPlayer() : 0, pClue->pClue ) );
+	}
+	// The AI-turn hint is an additive model flash with its own lifetime.
+	else if ( CDynamicCast<NWorld::CUICmdAIUnitWillMove>( pCmd ) )
+	{
+		NWorld::CUICmdAIUnitWillMove *pWillMove =
+			CDynamicCast<NWorld::CUICmdAIUnitWillMove>( pCmd );
+		if ( IsValid( pWillMove->pUnit ) && IsValid( pActivePlayer ) && IsValid( pWorld ) && IsValid( pRender ) )
+		{
+			NDb::EDiplomacyState eDiplomacy = pWorld->GetDiplomacyState(
+				pActivePlayer->GetPlayer(), pWillMove->pUnit->GetPlayer() );
+			if ( eDiplomacy == NDb::DS_ENEMY )
+				pRender->FlashUnit( pWillMove->pUnit, CVec4( 78.0f / 255, 20.0f / 255, 0, 0 ) );
+			else if ( eDiplomacy == NDb::DS_NEUTRAL || eDiplomacy == NDb::DS_ALLY )
+				pRender->FlashUnit( pWillMove->pUnit, CVec4( 0, 77.0f / 255, 78.0f / 255, 0 ) );
+		}
+	}
+	else
+		return ExecWorldSoundCommand( pCmd );
+	return true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CMissionBase::UpdateWorldCameraCommand( const STime &sTime )
+{
+	if ( IsValid( pExecLocator ) )
+	{
+		if ( pExecLocator->Update( sTime ) )
+		{
+			pExecLocator->Finished();
+			pExecLocator = 0;
+		}
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail NGame::iBaseInit::iBaseInit @0x1a4610 (iBase.obj): registers the "ui_followcamera" cvar

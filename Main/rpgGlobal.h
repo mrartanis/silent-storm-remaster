@@ -119,6 +119,7 @@ public:
 	void TakeMoney( int n ) { nMoney -= n; if ( nMoney < 0 ) nMoney = 0; }
 	//
 	void AddMerc( CUnit *pMerc );
+	bool IsAnybodyInPK() const;
 	//
 	void CaptureUnit( NRPG::CUnit *pCarrier, NRPG::CUnit *pUnit );
 	void RescueUnit( NRPG::CUnit *pCarrier, NRPG::CUnit *pUnit );
@@ -198,6 +199,7 @@ NRPG::CGlobalGame* CreateGlobalGame( int nScenarioID = -1, NDb::CDBDifficulty *p
 NRPG::CGlobalPlayer* CreateGlobalPlayer();
 NRPG::CGlobalPlayer* CreateGlobalPlayer( NDb::CSide* pSide );
 NRPG::CGlobalPlayer* CreateGlobalPlayer( const vector<int> &personages );
+void AddTeamMngPerses( CGlobalPlayer *pPlayer, bool bHero );
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 } // namespace
 ////////////////////////////////////////////////////////////////////////////////////////////////////

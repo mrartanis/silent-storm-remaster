@@ -1085,16 +1085,14 @@ static bool ActivateHeldGrenade( NWorld::CUnitServer *pUS, NRPG::IInventoryInfo 
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// Preserve the existing engineer-grenade fallback policy pending a separate retail check.
+// Steam luaUnitSwitchToGrenade 0x6fb250: regular held records stop backpack fallback.
 BEGIN_SCRIPT_COMMAND( UnitSwitchToGrenade, "u" )
 	CDynamicCast<NWorld::CUnitServer> pUS( luaParams[ 0 ].p );
 	if ( IsValid( pUS ) )
 	{
 		NRPG::IInventoryInfo *pInfo = pUS->GetRPG()->GetInventoryInfo();
 		if ( !ActivateHeldGrenade( pUS, pInfo, NDb::SLOT_1 ) &&
-			 !ActivateHeldGrenade( pUS, pInfo, NDb::SLOT_2 ) &&
-			 !CDynamicCast<NRPG::CGrenadeItem>( pInfo->Get( NDb::SLOT_1 ) ) &&
-			 !CDynamicCast<NRPG::CGrenadeItem>( pInfo->Get( NDb::SLOT_2 ) ) )
+			 !ActivateHeldGrenade( pUS, pInfo, NDb::SLOT_2 ) )
 			DrawFirstInventoryItem<NRPG::CGrenadeItem>( pUS );
 	}
 	return 0;
@@ -1255,11 +1253,9 @@ BEGIN_SCRIPT_COMMAND( UnitGrenadeToWaypoint, "usnn" )
 	return 0;
 END_SCRIPT_COMMAND
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// retail @0x2fb4b0 ("uun[-1]"): the shooter's chance to hit the target unit. The retail handler aims at the
-// target (HL_HEAD = GetHitLocation(0)) and calls the heavy 4-arg NRPG::GetToHit convenience (which builds
-// cover + accessible-HLs + the weapon-type dispatch internally) -- mapped here to the dev's purpose-built
-// CGame::GetCompositeToHit (same "interface-grade to-hit" intent: it CreateAttack's, CalcCovers, and averages
-// over the rate of fire). arg2 (default -1) is the bFirstTurn flag.
+// Actual Steam 0x6fc09f/0x6fc0b1: the numeric argument selects the hit location.
+// Default -1 means ANY; invalid values warn and fall back to HEAD.
+// The unit owns its first-turn state; this script query keeps logging off.
 BEGIN_SCRIPT_COMMAND( UnitGetToHitUnit, "uun[-1]" )
 	CDynamicCast<NWorld::CUnitServer> pShooter( luaParams[ 0 ].p );
 	CDynamicCast<NWorld::CUnit> pTarget( luaParams[ 1 ].p );
@@ -1268,15 +1264,22 @@ BEGIN_SCRIPT_COMMAND( UnitGetToHitUnit, "uun[-1]" )
 	{
 		NRPG::IGame *pGame = pScript->pWorld->GetGame();
 		if ( pGame )
-			nToHit = pGame->GetCompositeToHit( pShooter, pTarget, NAI::HL_HEAD, luaParams[ 2 ].n != 0 );
+		{
+			const int requested = luaParams[ 2 ].n;
+			NAI::EHitLocation location = NAI::HL_HEAD;
+			if ( requested >= NAI::HL_ANY && requested < NAI::N_HL )
+				location = static_cast<NAI::EHitLocation>( requested );
+			else
+				csSystem << CC_RED << "Script warning: invalid hit location" << endl;
+			nToHit = pGame->GetCompositeToHit( pShooter, pTarget, location, false );
+		}
 	}
 	pScript->PushNumber( nToHit );
 	return 1;
 END_SCRIPT_COMMAND
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// retail @0x2fb610 ("usn[0]"): the unit's chance to hit the tile at a named waypoint; warn on a bad waypoint
-// name. The retail aims at the waypoint CP and calls GetToHit -- mapped to the dev's CGame::GetTileCompositeToHit
-// (THL_MIDDLE = the waypoint centre). arg2 (default 0) is the bFirstTurn flag.
+// Actual Steam 0x6fc227/0x6fc247 resolves the waypoint and disables query logging.
+// Retain the accepted numeric compatibility argument; the native valid path ignores it.
 BEGIN_SCRIPT_COMMAND( UnitGetToHitWaypoint, "usn[0]" )
 	CDynamicCast<NWorld::CUnitServer> pUS( luaParams[ 0 ].p );
 	int nToHit = 0;
@@ -1289,7 +1292,7 @@ BEGIN_SCRIPT_COMMAND( UnitGetToHitWaypoint, "usn[0]" )
 		{
 			NRPG::IGame *pGame = pScript->pWorld->GetGame();
 			if ( pGame )
-				nToHit = pGame->GetTileCompositeToHit( pUS, pWaypoint->pos.GetCP(), NAI::THL_MIDDLE, luaParams[ 2 ].n != 0 );
+				nToHit = pGame->GetTileCompositeToHit( pUS, pWaypoint->pos.GetCP(), NAI::THL_MIDDLE, false );
 		}
 	}
 	pScript->PushNumber( nToHit );

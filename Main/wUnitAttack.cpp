@@ -97,7 +97,7 @@ EActionType GetActionType( CUnitServer *pUS )
 				if (pMelee->GetDBMeleeWeapon()->bThrowing)
 					return AT_THROW;
 
-				return AT_MELEE;
+				return AT_KNIFE;
 			}
 		}
 	}
@@ -155,8 +155,8 @@ static void GetSnipeAttackPlaces( CUnitServer *pUS, CUnitServer *pTarget, vector
 	pRes->push_back( p );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-static void GetHumanReachPlaces( CUnitServer *pUS, const CVec3 &ptTarget, vector<NAI::SPathPlace> *pRes,
-	float fPlaneDist = F_HEAL_DISTANCE )
+void GetHumanReachPlaces( CUnitServer *pUS, const CVec3 &ptTarget, vector<NAI::SPathPlace> *pRes,
+	float fPlaneDist )
 {
 	NAI::IPathNetwork *pNet = pUS->GetWorld()->GetPathNetwork();
 	SSphere s;
@@ -175,6 +175,23 @@ static void GetHumanReachPlaces( CUnitServer *pUS, const CVec3 &ptTarget, vector
 	}	
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static void GetHumanReachPlaces( CUnitServer *pUS, const CVec3 &ptTarget, vector<NAI::SPathPlace> *pRes )
+{
+	GetHumanReachPlaces( pUS, ptTarget, pRes, F_HEAL_DISTANCE );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+static int GetAttackPoseMask( const NAI::SPathPlace &place )
+{
+	// Original Steam 0x7940c1/0x7941ba keeps directed attacks in the current pose.
+	switch ( place.GetPose() )
+	{
+		case NAI::CM_LAY: return PM_LAY;
+		case NAI::CM_CROUCH: return PM_CROUCH;
+		case NAI::CM_STAND: return PM_STAND;
+		default: return PM_ALL;
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdShootTile *pCmd, vector<NAI::SPathPlace> *pRes )
 {
 	CWorld *pWorld = pUS->GetWorld();
@@ -182,13 +199,15 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdShootTile 
 	switch ( GetActionType( pUS ) )
 	{
 		case AT_MELEE:
+		case AT_KNIFE:
 			GetMeleeAttackPlaces( pUS, pCmd->ptTarget, pRes );
 			break;
 		case AT_SHOOT:
 		case AT_GRENADE:
 		case AT_THROW:
 		case AT_BAZOOKA:
-			GetDirectedPoints( pNet, pUS->GetPosition().pos.p, pCmd->ptTarget, pRes );
+			GetDirectedPoints( pNet, pUS->GetPosition().pos.p, pCmd->ptTarget, pRes,
+				GetAttackPoseMask( pUS->GetPosition().pos.p ) );
 			break;
 		default:
 			ASSERT( 0 );
@@ -211,12 +230,15 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdShootObjec
 	switch ( GetActionType( pUS ) )
 	{
 		case AT_MELEE:
+		case AT_KNIFE:
 			GetMeleeAttackPlaces( pUS, ptTo, pRes );
 			break;
 		case AT_SNIPE:
 		case AT_SHOOT:
 		case AT_BAZOOKA:
-			GetDirectedPoints( pNet, pUS->GetPosition().pos.p, ptTo, pRes );
+		case AT_THROW:
+			GetDirectedPoints( pNet, pUS->GetPosition().pos.p, ptTo, pRes,
+				GetAttackPoseMask( pUS->GetPosition().pos.p ) );
 			break;
 		default:
 			ASSERT( 0 );
@@ -271,14 +293,23 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdHeal *pCmd
 	return UCR_OK;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdTalk *pCmd, vector<NAI::SPathPlace> *pRes )
+static EUnitCommandResult GetTalkValidPlaces( CUnitServer *pUS, CCmdTalk *pCmd, vector<NAI::SPathPlace> *pRes, float fPlaneDist )
 {
 	CDynamicCast<CUnitServer> pTarget( pCmd->pTarget );
 	if ( !IsValid( pTarget ) || pUS == pTarget.GetPtr() )
 		return UCR_NO_TARGET;
-	//
-	GetHumanReachPlaces( pUS, pTarget->GetPosition().GetEyePosition(), pRes );
+	// Original dialogue approaches require a standing actor.
+	vector<NAI::SPathPlace> places;
+	GetHumanReachPlaces( pUS, pTarget->GetPosition().GetEyePosition(), &places, fPlaneDist );
+	for ( int k = 0; k < places.size(); ++k )
+		if ( places[k].GetPose() == NAI::CM_STAND )
+			pRes->push_back( places[k] );
 	return UCR_OK;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdTalk *pCmd, vector<NAI::SPathPlace> *pRes )
+{
+	return GetTalkValidPlaces( pUS, pCmd, pRes, 0.8f );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdSetGrenadeOnObject *pCmd, vector<NAI::SPathPlace> *pRes )
@@ -415,7 +446,7 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdReload *, 
 	return UCR_OK;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdMoveInventoryItem *pCmd, vector<NAI::SPathPlace> *pRes )
+static EUnitCommandResult GetMoveIItemValidPlaces( CUnitServer *pUS, CCmdMoveInventoryItem *pCmd, vector<NAI::SPathPlace> *pRes, float fPlaneDist )
 {
 	if ( pCmd->GetSource().eType == SItem::GROUND )
 	{
@@ -423,12 +454,38 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdMoveInvent
 			return UCR_NO_TARGET;
 
 		CVec3 ptTo = pCmd->GetSource().pWorldItem->GetPos();
-		GetHumanReachPlaces( pUS, ptTo, pRes );
+		// Original close pickup keeps the current pose and heading.
+		CVec2 delta = pUS->GetPosition().GetCPNoHeight() - CVec2( ptTo.x, ptTo.y );
+		float fHeight = pUS->GetPosition().GetCP().z - ptTo.z;
+		if ( fabs( delta ) * 1.6f <= 2.0f && fHeight < 0.5f && fHeight > -2.0f )
+			pRes->push_back( pUS->GetPosition().pos.p );
+		else
+			GetHumanReachPlaces( pUS, ptTo, pRes, fPlaneDist );
 		return UCR_OK;
 	}
 
-	GetHumanReachPlaces( pUS, pCmd->GetTarget().pUnit->GetPosition().GetCP(), pRes );
+	GetHumanReachPlaces( pUS, pCmd->GetTarget().pUnit->GetPosition().GetCP(), pRes, fPlaneDist + 0.1f );
 	return UCR_OK;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdMoveInventoryItem *pCmd, vector<NAI::SPathPlace> *pRes )
+{
+	CDynamicCast<NRPG::IHintItem> pHint( pCmd->GetSource().pItem );
+	return GetMoveIItemValidPlaces( pUS, pCmd, pRes, pHint ? 1.3f : 0.625f );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+template<class TCommand>
+static EUnitCommandResult GetValidPlacesInDoubleRadius( CUnitServer *, TCommand *, vector<NAI::SPathPlace> * )
+{
+	return UCR_OK;
+}
+static EUnitCommandResult GetValidPlacesInDoubleRadius( CUnitServer *pUS, CCmdTalk *pCmd, vector<NAI::SPathPlace> *pRes )
+{
+	return GetTalkValidPlaces( pUS, pCmd, pRes, 1.6f );
+}
+static EUnitCommandResult GetValidPlacesInDoubleRadius( CUnitServer *pUS, CCmdMoveInventoryItem *pCmd, vector<NAI::SPathPlace> *pRes )
+{
+	return GetMoveIItemValidPlaces( pUS, pCmd, pRes, 1.6f );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Execute creators
@@ -470,14 +527,9 @@ static CCommandExecute* CreateActionExecMove( CUnitServer *pUS, const vector<NAI
 	return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-template<class TCommand, class TExecAction>
-static CCommandExecute* CreateActionQueue( CUnitServer *pUS, TCommand *pCmd, TExecAction *pAction, ENeedActiveItem eActive, EUnitCommandResult *pError )
+template<class TExecAction>
+static CCommandExecute* CreateActionMoveTo( CUnitServer *pUS, TExecAction *pAction, ENeedActiveItem eActive, EUnitCommandResult *pError, vector<NAI::SPathPlace> &dst )
 {
-	CObj<CCommandExecute> pHold( pAction );
-	CPtr<CCmd> pCmdHolder( pCmd );
-
-	vector<NAI::SPathPlace> dst;
-	*pError = GetActionValidPlaces( pUS, pCmd, &dst );
 	if ( *pError == UCR_NO_TARGET )
 		dst.push_back( pUS->GetPosition().pos.p );
 	else if ( dst.empty() )
@@ -499,7 +551,42 @@ static CCommandExecute* CreateActionQueue( CUnitServer *pUS, TCommand *pCmd, TEx
 		return 0;
 	}
 
-	CCommandExecute *pMove = CreateActionExecMove( pUS, spots, eActive, pError );
+	return CreateActionExecMove( pUS, spots, eActive, pError );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+template<class TCommand, class TExecAction>
+static CCommandExecute* CreateActionQueue( CUnitServer *pUS, TCommand *pCmd, TExecAction *pAction, ENeedActiveItem eActive, EUnitCommandResult *pError, bool bTryDoubleRadius = false )
+{
+	CObj<CCommandExecute> pHold( pAction );
+	CPtr<CCmd> pCmdHolder( pCmd );
+
+	vector<NAI::SPathPlace> dst;
+	*pError = GetActionValidPlaces( pUS, pCmd, &dst );
+	// Original ready-action branch: keep pose/facing, ignore only transient place bits.
+	bool bNeedMove = *pError != UCR_NO_TARGET;
+	for ( unsigned int k = 0; bNeedMove && k < dst.size(); ++k )
+		if ( NAI::IsSamePlace( pUS->GetPosition().pos.p, dst[k], 0xf9feffff ) )
+			bNeedMove = false;
+	if ( ( eActive == ITEM_ACTIVE && !pUS->animator.IsActiveItem() ) ||
+		( eActive == ITEM_INACTIVE && pUS->animator.IsActiveItem() ) || pUS->GetUndrawItem() )
+		bNeedMove = true;
+	if ( !bNeedMove )
+	{
+		*pError = pAction->CanDoIt( pUS->GetPosition() );
+		if ( *pError != UCR_OK && *pError != UCR_NO_TARGET )
+			return 0;
+		CExecQueue *pRes = new CExecQueue( pUS );
+		pRes->AddExecutor( pAction );
+		return pRes;
+	}
+
+	CCommandExecute *pMove = CreateActionMoveTo( pUS, pAction, eActive, pError, dst );
+	if ( !pMove && bTryDoubleRadius )
+	{
+		vector<NAI::SPathPlace>().swap( dst );
+		*pError = GetValidPlacesInDoubleRadius( pUS, pCmd, &dst );
+		pMove = CreateActionMoveTo( pUS, pAction, eActive, pError, dst );
+	}
 	if ( !pMove )
 		return 0;
 
@@ -549,6 +636,17 @@ static CCommandExecute* CreateActionQueueOrReload( CUnitServer *pUS, TCommand *p
 CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitCommandResult *pError )
 {
 	*pError = UCR_OK;
+	CDynamicCast<CCmdSwap> pSwap( pCmd );
+	if ( pSwap )
+	{
+		CDynamicCast<CUnitServer> pTarget( pSwap->pTarget );
+		if ( !IsValid( pTarget ) )
+		{
+			*pError = UCR_NO_TARGET;
+			return 0;
+		}
+		return CreateSimpleAction( pUS, new CExecSwap( pUS, pTarget ), pError );
+	}
 	CDynamicCast<CCmdReload> pReload( pCmd );
 	if ( pReload )
 		return CreateActionQueue( pUS, pReload.GetPtr(), new CExecReload( pUS, pReload->nSlot ), ITEM_ACTIVE, pError );
@@ -575,6 +673,7 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 				*pError = UCR_UNAVAILABLE;
 				return 0;
 			case AT_MELEE:
+			case AT_KNIFE:
 			{
 				NRPG::IUnitMission* pRPG = pUS->GetUnitRPG();
 				ENeedActiveItem eActive = (pRPG->GetWeaponType() == NDb::WT_DEFAULT ? ITEM_INACTIVE : ITEM_ACTIVE);
@@ -648,12 +747,16 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 					}
 				}
 
-				CDynamicCast<NWorld::CWindowDoor> pWDTarget(pAttackObject->pTarget);
-				if ((eType == AT_GRENADE) && (IsValid(pWDTarget) || !IsValid(pAttackObject->pTarget))) //// CRAP!: for CanDo
+				if ( eType == AT_GRENADE )
 				{
 					CDynamicCast<NRPG::IGrenadeItemInfo> pGrenade(pUS->GetRPG()->GetInventoryInfo()->GetActive());
 					if (IsValid(pGrenade) && (pGrenade->GetMode() == NRPG::GM_SETTRAP))
-						return CreateActionQueue(pUS, new CCmdSetGrenadeOnObject(pAttackObject->pTarget), new CExecSetTrap(pUS, pWDTarget), ITEM_ACTIVE, pError);
+					{
+						// Retail ShootObject rejects trap mode; its dedicated command is
+						// queried separately by the order bar and trap cursor.
+						*pError = UCR_UNAVAILABLE;
+						return 0;
+					}
 				}
 
 				if (IsValid(pUnitTarget) || !IsValid(pAttackObject->pTarget)) //// CRAP!: for CanDo
@@ -665,6 +768,7 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 						*pError = UCR_UNAVAILABLE;
 						return 0;
 					case AT_MELEE:
+					case AT_KNIFE:
 					{
 						NRPG::IUnitMission* pRPG = pUS->GetUnitRPG();
 						ENeedActiveItem eActive = (pRPG->GetWeaponType() == NDb::WT_DEFAULT ? ITEM_INACTIVE : ITEM_ACTIVE);
@@ -682,6 +786,11 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 					case AT_CANNON:
 						return CreateSimpleActionOrReload(pUS, pAttackObject.GetPtr(), new CExecShootUnit(pUS, pUnitTarget,
 							pAttackObject->eHL, pAttackObject->nExtraAttackAP, pAttackObject->bOnlyPrepareToShoot), pError);
+					case AT_THROW:
+						// Keep actual unit targeting; targetless previews retain their tile fallback.
+						if ( IsValid( pUnitTarget ) )
+							return CreateActionQueue( pUS, pAttackObject.GetPtr(), new CExecThrowKnife(pUS, pAttackObject->eHL, pUnitTarget), ITEM_ACTIVE, pError );
+						break;
 					}
 				}
 
@@ -709,6 +818,13 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 				CVec3 ptTarget(0, 0, 0);
 				NAI::IAIMap* pAIMap = pUS->GetWorld()->GetAIMap();
 				pAIMap->GetUnitHLPos(&ptTarget, pAIMap->GetHull(pAttackObject->pTarget), -1);
+				if ( eType == AT_MELEE || eType == AT_KNIFE )
+				{
+					ENeedActiveItem eActive = pUS->GetUnitRPG()->GetWeaponType() == NDb::WT_DEFAULT
+						? ITEM_INACTIVE : ITEM_ACTIVE;
+					return CreateActionQueue( pUS, pAttackObject.GetPtr(),
+						new CExecMeleeObject( pUS, ptTarget, pAttackObject->nExtraAttackAP ), eActive, pError );
+				}
 				CObj<CCmdShootTile> pShoot(new CCmdShootTile(ptTarget));
 				// Firearm object attacks use the same retail reload policy as unit attacks.
 				// Dev still represents their aiming executor as a tile shot (retail CExecShootObject).
@@ -826,7 +942,7 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 													if (pMoveItem)
 													{
 														if (pMoveItem->GetSource().eType == SItem::GROUND)
-															return CreateActionQueue(pUS, pMoveItem.GetPtr(), new CExecMoveInventoryItem(pUS, pMoveItem), ITEM_NO_MATTER, pError);
+															return CreateActionQueue(pUS, pMoveItem.GetPtr(), new CExecMoveInventoryItem(pUS, pMoveItem), ITEM_NO_MATTER, pError, true);
 														else if ((pMoveItem->GetSource().eType == SItem::STORAGE) || (pMoveItem->GetTarget().eType == SItem::STORAGE))
 															return CreateSimpleAction(pUS, new CExecMoveInventoryItem(pUS, pMoveItem), pError);
 														else if (IsValid(pMoveItem->GetSource().pUnit) && IsValid(pMoveItem->GetTarget().pUnit) &&
@@ -834,7 +950,7 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 														{
 															CDynamicCast<CUnitServer> pUSSource(pMoveItem->GetSource().pUnit);
 															return CreateActionQueue(pUSSource, pMoveItem.GetPtr(), new CExecMoveInventoryItem(pUSSource, pMoveItem),
-																ITEM_NO_MATTER, pError);
+																ITEM_NO_MATTER, pError, true);
 														}
 
 														return CreateSimpleAction(pUS, new CExecMoveInventoryItem(pUS, pMoveItem), pError);
@@ -873,7 +989,7 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 																			if (pTalk)
 																			{
 																				CDynamicCast<CUnitServer> pTarget(pTalk->pTarget);
-																				return CreateActionQueue(pUS, pTalk.GetPtr(), new CExecTalk(pUS, pTarget), ITEM_NO_MATTER, pError);
+																				return CreateActionQueue(pUS, pTalk.GetPtr(), new CExecTalk(pUS, pTarget), ITEM_NO_MATTER, pError, true);
 																			}
 																		}
 																	}

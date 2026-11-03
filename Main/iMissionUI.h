@@ -117,6 +117,7 @@ public:
 	CMissionUI( const SWindowInfo &sInfo, NGame::IMission *pMission );
 	bool IsReady() const override { return true; }
 
+	bool IsValidCommand( NWorld::CUICmd *pCmd ) override;
 	NGame::CUICmdExec* CreateExecutor( NWorld::CUICmd *pCmd );
 
 	bool ProcessEvent( const NInput::SEvent &sEvent );

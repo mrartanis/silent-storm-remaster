@@ -11,6 +11,7 @@
 #include "../Misc/StrProcCodePage.h"
 #include <set>
 #include <cstdlib>
+#include <cstring>
 
 #if defined(_WIN32)
 #import "C:\Program Files (x86)\Common Files\System\ADO\msado15.dll" no_namespace rename("EOF", "EndOfFile")
@@ -829,10 +830,8 @@ void NDatabase::Refresh( int nTableID )
 }
 #endif // _WIN32: legacy SQL import/refresh is not used when loading game.db.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// v1.2 @0x7ef6d0-family: the scalar ImportFields now report success -- a missing
-// column returns false and leaves *pData untouched (v1.1 zero-filled on the storage
-// path / asserted + read column 0 on the ADO path), so a runtime mod db lacking a
-// column preserves the record's previous field value.
+// Target v1.2 storage getters preserve output on empty overlay sentinels.
+// Keep own column-presence diagnostics and CP1251 conversion below.
 bool NDatabase::ImportField( const char *pszFieldName, int *pData )
 {
 	if ( pStorageSource )
@@ -843,7 +842,10 @@ bool NDatabase::ImportField( const char *pszFieldName, int *pData )
 				pStorageSource->GetCurrentRecordID() );
 			return false;
 		}
-		*pData = pStorageSource->GetInt( pszFieldName );
+		const int nValue = pStorageSource->GetInt( pszFieldName );
+		if ( static_cast<std::uint32_t>( nValue ) == UINT32_C(0xfdfdfdfd) )
+			return false;
+		*pData = nValue;
 		return true;
 	}
 #if defined(_WIN32)
@@ -866,7 +868,10 @@ bool NDatabase::ImportField( const char *pszFieldName, bool *pData )
 				pStorageSource->GetCurrentRecordID() );
 			return false;
 		}
-		*pData = pStorageSource->GetBool( pszFieldName );
+		const int nValue = pStorageSource->GetInt( pszFieldName );
+		if ( static_cast<std::uint32_t>( nValue ) == UINT32_C(0xfdfdfdfd) )
+			return false;
+		*pData = nValue != 0;
 		return true;
 	}
 #if defined(_WIN32)
@@ -889,7 +894,12 @@ bool NDatabase::ImportField( const char *pszFieldName, float *pData )
 				pStorageSource->GetCurrentRecordID() );
 			return false;
 		}
-		*pData = pStorageSource->GetFloat( pszFieldName );
+		const float fValue = pStorageSource->GetFloat( pszFieldName );
+		std::uint32_t nBits = 0;
+		std::memcpy( &nBits, &fValue, sizeof(nBits) );
+		if ( nBits == UINT32_C(0xfdfdfdfd) )
+			return false;
+		*pData = fValue;
 		return true;
 	}
 #if defined(_WIN32)
@@ -916,6 +926,8 @@ bool NDatabase::ImportField( const char *pszFieldName, std::string *pData )
 		// The Russian Steam release runs with Windows-1251; keep its narrow
 		// string bytes independent of the host's locale or UTF-8 filesystem.
 		std::wstring ws = pStorageSource->GetWString( pszFieldName );
+		if ( ws == L"fdfdfdfd" )
+			return false;
 		NStr::ToAsciiCodePage( pData, ws, 1251 );
 		return true;
 	}
@@ -939,7 +951,10 @@ bool NDatabase::ImportField( const char *pszFieldName, std::wstring *pData )
 				pStorageSource->GetCurrentRecordID() );
 			return false;
 		}
-		*pData = pStorageSource->GetWString( pszFieldName );
+		const std::wstring ws = pStorageSource->GetWString( pszFieldName );
+		if ( ws == L"fdfdfdfd" )
+			return false;
+		*pData = ws;
 		return true;
 	}
 #if defined(_WIN32)
@@ -1056,7 +1071,7 @@ static void ImportReleaseStorage( CStorageHash &storageTables,
 	list<NDatabase::SRelation> &relations, const char *source,
 	std::vector<std::int32_t>* animationRowOrder, bool overlay )
 {
-	if ( animationRowOrder && !overlay )
+	if ( animationRowOrder && ( !overlay || storageTables.find( 2 ) != storageTables.end() ) )
 	{
 		animationRowOrder->clear();
 		const CStorageHash::const_iterator animationTable = storageTables.find( 2 );
@@ -1072,7 +1087,10 @@ static void ImportReleaseStorage( CStorageHash &storageTables,
 			if ( idColumn >= (int)row.size() )
 				throw SFileIOError( "columnar Animations row missing ID" );
 			if ( !seenIds.insert( row[idColumn] ).second )
+			{
+				if ( overlay ) continue;
 				throw SFileIOError( "columnar Animations table has duplicate ID" );
+			}
 			animationRowOrder->push_back( row[idColumn] );
 		}
 	}
@@ -1126,8 +1144,12 @@ static void ImportReleaseStorage( CStorageHash &storageTables,
     // textures first, independently of the host's unordered_map iteration order.
     std::vector<int> importOrder;
     if (storageTables.find(3) != storageTables.end()) importOrder.push_back(3);
+    // RPGWeapons::Import derives launcher logic from the referenced type ID.
+    // Its shells exist already, but their fields must be populated first.
+    const int weaponTypes = static_cast<int>(0xE0000001u);
+    if (storageTables.find(weaponTypes) != storageTables.end()) importOrder.push_back(weaponTypes);
     for (const auto& item : storageTables)
-        if (item.first != 3) importOrder.push_back(item.first);
+        if (item.first != 3 && item.first != weaponTypes) importOrder.push_back(item.first);
     for (const int tableId : importOrder)
 	{
 		CDBTableBase *pTable = NDatabase::GetTable( tableId );
@@ -1145,7 +1167,8 @@ static void ImportReleaseStorage( CStorageHash &storageTables,
 	DebugTrace( "DB-STORAGE: loaded %d columnar tables via %s\n", nTables, source );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void NDatabase::Serialize( CDataStream &file, CStructureSaver::EMode mode, bool overlay )
+void NDatabase::Serialize( CDataStream &file, CStructureSaver::EMode mode, bool overlay,
+	bool buildBaseLinks, SDatabaseLoadContext *loadContext )
 {
 	CTablesHash &tables = GetTables();
 	NDatabase::bIsDatabaseLoading = true;
@@ -1153,6 +1176,11 @@ void NDatabase::Serialize( CDataStream &file, CStructureSaver::EMode mode, bool 
 	missingStorageFields.clear();
 	bool bDidColumnarLoad = false;
 	std::vector<std::int32_t> animationRowOrder;
+	if ( loadContext && !overlay && mode == CStructureSaver::READ )
+	{
+		loadContext->columnarBase = false;
+		loadContext->animationRowOrder.clear();
+	}
 	// The release v1 database is decoded without CStructureSaver or Windows
 	// object-table layout. Historical v0/dev data and writes keep their path.
 	bool bPortableRelease = false;
@@ -1234,10 +1262,20 @@ void NDatabase::Serialize( CDataStream &file, CStructureSaver::EMode mode, bool 
 	NDatabase::bIsDatabaseLoading = false;
 			ReportUnresolvedReferences();
 			ReportMissingStorageFields();
-	// The base v1 load needs cross-record links. Partial overlays retain live
-	// objects; the tested optional mod tables have no link-bearing fields, and the
-	// append-only builder must not run again for them.
-	if ( bDidColumnarLoad && !overlay )
+	// Defer derived links until the entire overlay set has updated live records.
+	if ( bDidColumnarLoad && loadContext )
+	{
+		if ( !overlay )
+		{
+			loadContext->columnarBase = true;
+			loadContext->animationRowOrder = animationRowOrder;
+		}
+		else if ( loadContext->columnarBase )
+			for ( std::int32_t id : animationRowOrder )
+				if ( std::find( loadContext->animationRowOrder.begin(), loadContext->animationRowOrder.end(), id ) == loadContext->animationRowOrder.end() )
+					loadContext->animationRowOrder.push_back( id );
+	}
+	if ( bDidColumnarLoad && !overlay && buildBaseLinks )
 		NDb::BuildMapLinks( false, &animationRowOrder );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

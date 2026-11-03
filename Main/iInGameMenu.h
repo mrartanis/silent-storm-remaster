@@ -8,12 +8,14 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NGame
 {
+class IMission;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CICInGameMenu: public NMainLoop::CInterfaceCommand
 {
 	OBJECT_BASIC_METHODS(CICInGameMenu);
 private:
 	CPtr<NRPG::CGlobalPlayer> pGlobalPlayer;
+	CPtr<IMission> pMission;
 	// retail threads bAllowRestart into CInGameMenuInterface::Initialize @0x1e9940: the "Restart
 	// mission" button follows the saved mission restart permission. Local initialization arms it;
 	// chapter/global-map callers and network preparation do not have a local restart snapshot.
@@ -22,7 +24,7 @@ private:
 
 public:
 	CICInGameMenu() {}
-	CICInGameMenu( NRPG::CGlobalPlayer *pGlobalPlayer, bool bAllowRestart = false, bool bAllowSave = true );   // retail threads the mission's bCanSave down to the save/load screen
+	CICInGameMenu( NRPG::CGlobalPlayer *pGlobalPlayer, bool bAllowRestart = false, bool bAllowSave = true, IMission *pMission = 0 );   // retail threads the mission's bCanSave down to the save/load screen
 
 	virtual void Exec();
 };

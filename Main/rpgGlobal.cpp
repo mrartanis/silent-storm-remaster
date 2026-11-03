@@ -22,6 +22,13 @@
 //
 namespace NRPG
 {
+bool CGlobalPlayer::IsAnybodyInPK() const
+{
+    for ( int i = 0; i < mercs.size(); ++i )
+        if ( IsValid( mercs[i] ) && !mercs[i]->IsDead() && IsValid( mercs[i]->pPanzerklein ) )
+            return true;
+    return false;
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail v1.2 @0x6998d0: use the best living merc's skill plus a difficulty-controlled
 // fraction of the remaining living mercs' average skill.
@@ -117,6 +124,12 @@ void CGlobalPlayer::GetAliveUnits( vector< CPtr<NRPG::CUnit> > *pUnits )
 	//
 	pUnits->clear();
 	for ( vector<CObj<CUnit> >::iterator i = mercs.begin();	i != mercs.end(); ++i )
+	{
+		if ( !(*i)->IsDead() )
+			pUnits->push_back( (*i).GetPtr() );
+	}
+	// Temporary companions also participate in scenario exit processing.
+	for ( vector<CObj<CUnit> >::iterator i = zoneMercs.begin(); i != zoneMercs.end(); ++i )
 	{
 		if ( !(*i)->IsDead() )
 			pUnits->push_back( (*i).GetPtr() );
@@ -257,6 +270,14 @@ CGlobalPlayer* CreateGlobalPlayer( NDb::CSide* pSide )
 		pPlayer->pSide = NDb::GetDBSide( 1 );
 	pPlayer->pStore = new CStore( pPlayer );
 
+	AddTeamMngPerses( pPlayer, false );
+	return pPlayer;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void AddTeamMngPerses( CGlobalPlayer *pPlayer, bool bHero )
+{
+	pPlayer->totalMercs.clear();
+	if ( IsValid( pPlayer->pSide ) )
 	{
 		CDBTable<NDb::CRPGPers> *pPersTable = NDatabase::GetTable<NDb::CRPGPers>();
 		CDBIterator<NDb::CRPGPers> iTempPers( *pPersTable );
@@ -270,14 +291,13 @@ CGlobalPlayer* CreateGlobalPlayer( NDb::CSide* pSide )
 			// gate every civilian/mob persona of the side floods the recruit menu.
 			if ( !pRPGPers->bCanHired )
 				continue;
-			if ( pRPGPers->pSide != pSide )
+			if ( pRPGPers->pSide != pPlayer->pSide )
 				continue;
 
-			pPlayer->totalMercs.push_back( CreateMerc( pRPGPers ) );
+			pPlayer->totalMercs.push_back( CreateMerc( pRPGPers, 0, bHero ) );
 		}
 	}
 
-	return pPlayer;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CGlobalPlayer* CreateGlobalPlayer( const vector<int> &personages )
@@ -335,6 +355,8 @@ void CGlobalGame::UpdateScenarioOnLeaveZone()
 		vector< CPtr<NRPG::CUnit> > units;
 		pPlayer->GetAliveUnits( &units );
 		pScenarioTracker->ProcessScenario( units );
+		// Keep companions through linked subzones; release after scenario exit.
+		pPlayer->zoneMercs.clear();
 		//
 		for ( vector<CObj<CUnit> >::iterator i = pPlayer->mercs.begin(); i != pPlayer->mercs.end(); ++i )
 			pPlayer->deployData.unitsDeployData[ (*i).GetPtr() ].pCorpse = 0;

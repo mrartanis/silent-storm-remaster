@@ -140,6 +140,7 @@ public:
 	CSoundScene(): bSilence(true), eCurrentMusicType(NDb::MT_AMBIENT),
 		eNextMusicType(NDb::MT_AMBIENT), tStartMusic(0), tStopMusic(0) {}
 	CSoundScene( NDb::CTMusic *_pAmbient, NDb::CTMusic *_pCombat, CFuncBase<STime> *_pTime );
+	friend ISoundScene* CreateSoundScene( ISoundScene *pSource, CFuncBase<STime> *pTime );
 
 	virtual CSound* Add3DSound( NDb::CSound *pSample, CFuncBase<CVec3> *pPos, STime tStart );
 	virtual CSound2D* Add2DSound( NDb::CSound *pSample, STime tStart = 0 );
@@ -556,6 +557,16 @@ bool SetModeFromConfig()
 ISoundScene* CreateSoundScene( NDb::CTMusic *pAmbient, NDb::CTMusic *pCombat, CFuncBase<STime> *pTime )
 {
 	return new CSoundScene( pAmbient, pCombat, pTime ); // v1.2 @0x705f40
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+ISoundScene* CreateSoundScene( ISoundScene *pSource, CFuncBase<STime> *pTime )
+{
+	// Original clone factory: Gold 0x6fc590 / Steam 0x706320.
+	// Inherit only the DB music pools; the new scene owns its clock and playback state.
+	CDynamicCast<CSoundScene> pOriginal( pSource );
+	if ( pOriginal )
+		return new CSoundScene( pOriginal->pAmbient, pOriginal->pCombat, pTime );
+	return new CSoundScene( 0, 0, pTime );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void DoneSound()

@@ -12,6 +12,7 @@
 #include <stdexcept>
 #endif
 #include "ModManager.h"
+#include "../DBFormat/DataMap.h"
 #if defined(_WIN32)
 #include "DG.h"						// ClearHoldQueue
 #else
@@ -156,6 +157,7 @@ bool CModManager::Activate( const vector<SModInfo> &mods )
 	NGScene::CloseAllResources();				// release @0x157f20
 	NGScene::ClearResourceDirs();				// release @0x157950
 	NDatabase::ClearDatabaseTables();			// release @0x3570
+	NDatabase::SDatabaseLoadContext loadContext;
 	// base reload (release @0x685f40-0x685fb6): Open("game.db","rb",2) + Serialize(READ). The dev
 	// Serialize's v1 columnar path performs the record rebuild the release does in the separate
 	// NDatabase::Import(true) @0x402e90 call, so no explicit Import is needed here (same idiom as
@@ -164,7 +166,7 @@ bool CModManager::Activate( const vector<SModInfo> &mods )
 	{
 		CFileStream f;
 		f.OpenRead( "game.db" );
-		NDatabase::Serialize( f, CStructureSaver::READ );
+		NDatabase::Serialize( f, CStructureSaver::READ, false, false, &loadContext );
 	}
 	catch (...)
 	{
@@ -193,18 +195,17 @@ bool CModManager::Activate( const vector<SModInfo> &mods )
 				throw std::runtime_error( "mod database not found" );
 			f.OpenRead( resolved.c_str() );
 #endif
-			NDatabase::Serialize( f, CStructureSaver::READ, true );
+			NDatabase::Serialize( f, CStructureSaver::READ, true, false, &loadContext );
 		}
 		catch (...)
 		{
 		}
 		NGScene::AddResourceDir( mods[i].szDirectory.c_str() );
 	}
-	// footer (release @0x6860a8-0x6860c5). The release calls NDb::BuildMapLinks(&status) @0x424150
-	// ONCE here; the dev NDatabase::Serialize builds links for the base v1 load.
-	// Partial mod overlays retain existing objects and links. The optional
-	// Versions/Current mod tables (DifficultyConstants/RPGAPs) have no reverse-link fields;
-	// rebuilding append-only links for each mod would duplicate them.
+	// Legacy v0 already stores derived links. Columnar loads rebuild once,
+	// after every overlay, retaining each animation's first insertion order.
+	if ( loadContext.columnarBase )
+		NDb::BuildMapLinks( false, &loadContext.animationRowOrder );
 	++nDataBaseVersion;
 	activatedMods = mods;
 	return true;

@@ -282,7 +282,8 @@ private:
 public:
 
 	CCombinedPart() : nFloorMask(0), nIgnoreMark(0) {}
-	CCombinedPart( SStaticTrackers *pTrackers, EType t );
+	CCombinedPart( SStaticTrackers *pTrackers, EType t, int _nFloorMask );
+	int GetFloorMask() const { return nFloorMask; }
 	CPerMaterialCombiner* GetCombiner() const { return pCombiner; }
 	IVBCombiner* GetVBCombiner() { return GetGeometryInfo()->pVertices; }
 	SRenderGeometryInfo* GetGeometryInfo();
@@ -308,32 +309,33 @@ public:
 		list<CPtr<CCombinedPart> > elements;
 		ZEND int operator&( CStructureSaver &f ) { f.Add(2,&transparent); f.Add(3,&occluder); f.Add(4,&normal); f.Add(5,&normalLM); f.Add(6,&alien); f.Add(7,&elements); return 0; }
 
-		CCombinedPart* AllocCombinerPart( vector<CObj<CCombinedPart> > *pRes, SStaticTrackers *pTrackers, CCombinedPart::EType t )
+		CCombinedPart* AllocCombinerPart( vector<CObj<CCombinedPart> > *pRes, int nFloorMask, SStaticTrackers *pTrackers, CCombinedPart::EType t )
 		{
 			for ( int k = 0; k < pRes->size(); ++k )
 			{
-				if ( (*pRes)[k]->GetCombiner()->GetSize() < PF_MAX_PARTS_PER_COMBINER )
+				if ( (*pRes)[k]->GetCombiner()->GetSize() < PF_MAX_PARTS_PER_COMBINER &&
+					(*pRes)[k]->GetFloorMask() == nFloorMask )
 					return (*pRes)[k];
 			}
 			// have to alloc new one
-			CCombinedPart *p = new CCombinedPart( pTrackers, t );
+			CCombinedPart *p = new CCombinedPart( pTrackers, t, nFloorMask );
 			pRes->push_back( p );
 			elements.push_back( p );
 			return p;
 		}
-		CCombinedPart* GetCombinerPartForAdd( IMaterial *pMaterial, SStaticTrackers *pTrackers, bool bIsLightmapped )
+		CCombinedPart* GetCombinerPartForAdd( IMaterial *pMaterial, SStaticTrackers *pTrackers, int nFloorMask, bool bIsLightmapped )
 		{
 			if ( bIsLightmapped )
 			{
 				ASSERT( pMaterial->GetType() == IMaterial::MT_NORMAL );
-				return AllocCombinerPart( &normalLM, pTrackers, CCombinedPart::CP_NORMAL );//CCombinedPart::CP_LIGHTMAPPED );
+				return AllocCombinerPart( &normalLM, nFloorMask, pTrackers, CCombinedPart::CP_NORMAL );
 			}
 			switch ( pMaterial->GetType() )
 			{
-				case IMaterial::MT_TRANSPARENT: return AllocCombinerPart( &transparent, pTrackers, CCombinedPart::CP_NORMAL );
-				case IMaterial::MT_OCCLUDER: return AllocCombinerPart( &occluder, pTrackers, CCombinedPart::CP_OCCLUDER );
-				case IMaterial::MT_NORMAL: return AllocCombinerPart( &normal, pTrackers, CCombinedPart::CP_NORMAL );
-				case IMaterial::MT_ALIEN: return AllocCombinerPart( &alien, pTrackers, CCombinedPart::CP_NORMAL );
+				case IMaterial::MT_TRANSPARENT: return AllocCombinerPart( &transparent, 0, pTrackers, CCombinedPart::CP_NORMAL );
+				case IMaterial::MT_OCCLUDER: return AllocCombinerPart( &occluder, 0, 0, CCombinedPart::CP_OCCLUDER );
+				case IMaterial::MT_NORMAL: return AllocCombinerPart( &normal, 0, pTrackers, CCombinedPart::CP_NORMAL );
+				case IMaterial::MT_ALIEN: return AllocCombinerPart( &alien, 0, pTrackers, CCombinedPart::CP_NORMAL );
 				default: ASSERT(0); break;
 			}
 			return 0;
@@ -504,6 +506,9 @@ OBJECT_BASIC_METHODS(CGScene);
 	SGroupSelect lastMask;
 	CObj<IHZBuffer> pHZBuffer;
 	bool bWaitForLoad;
+	// Retail's first displayed frame builds coarse lamp shadows synchronously.
+	bool bFirstLMCatch = true;
+	int nGfxDeviceCreationID = -1;
 	// retail +0x1b8, not serialized: HSR_DYNAMIC frame counter -- reuse the ignore list while
 	// moving, recalc via MakeInvisibleElementsListFast every 2nd frame (or on a big change)
 	int nReuseIgnoreList;
@@ -570,7 +575,7 @@ OBJECT_BASIC_METHODS(CGScene);
 	void PrecacheMaterials( CVolumeNode *pNode );
 	// ICLRender
 	void RenderCL( NGfx::CRenderContext *pRC, IRender *pRender, CTransformStack *pTS, 
-		CSceneFragments *pGeom, bool bSceneHasChanged );
+		CSceneFragments *pGeom, bool bSceneHasChanged, const CVec4 &vDepth, bool bReuseLight, int nScratchRegister );
 	// IDecalQuery
 	CObjectBase* CreateDecal( CNonePart *pTarget, const vector<CVec3> &srcPositions, const SDecalMappingInfo &_info, IMaterial *pMaterial );
 	CObjectBase* CreateStaticDecal( CNonePart *pTarget, CPtrFuncBase<CObjectInfo> *pDecal, IMaterial *pMaterial, const SFullGroupInfo &fg );
@@ -601,8 +606,9 @@ public:
 	virtual CObjectBase* CreateSelection( CObjectBase *pRenderNode, const CVec4 &vColor );
 	virtual CObjectBase* CreatePostProcessor( CObjectBase *pRenderNode, IPostProcess *pProcessor );
 	virtual void SetAmbient( const CVec3 &vBottomAmbientColor, const CVec3 &vTopAmbientColor );
+	virtual void SetAmbientAnimation( CPtrFuncBase<CAnimLight> *pLight );
 	virtual CObjectBase* AddDirectionalLight( CFuncBase<CVec3> *pColor, CFuncBase<CVec3> *pGlossColor, const CVec3 &vShadowColor, const CVec3 &ptLight, const CVec3 &ptOrigin, const CVec2 &ptSize, float fMaxHeight, bool bLightmapOnly, float fBlurShift );
-	virtual CObjectBase* AddPointLight( const CVec3 &_vColor, const CVec3 &ptOrigin, float fR, bool bLightmapOnly );
+	virtual CObjectBase* AddPointLight( const CVec3 &_vColor, const CVec3 &ptOrigin, float fR, bool bLightmapOnly, bool bCastShadow );
 	virtual CObjectBase* AddPointLight( CPtrFuncBase<CAnimLight> *pLight );
 	virtual CObjectBase* AddSpotLight( CFuncBase<CVec3> *pColor, const CVec3 &ptOrigin, const CVec3 &ptDir, float fFOV, float fRadius, CPtrFuncBase<NGfx::CTexture> *pMask, bool bLightmapOnly );
 	virtual CDecalTarget* CreateDecalTarget( const vector<CObjectBase*> &targets, const SDecalMappingInfo &_info );

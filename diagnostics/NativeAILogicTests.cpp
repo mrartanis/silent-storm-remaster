@@ -12,7 +12,8 @@
 int main()
 {
 	CObj<NAI::CAILogic> logic = new NAI::CAILogic;
-	if ( logic->IsFinished() || logic->IsEndOfTurn() || !logic->IsActive() )
+	// An unattached logic has no world/unit in which to continue its turn.
+	if ( logic->IsFinished() || !logic->IsEndOfTurn() || !logic->IsActive() )
 		return 1;
 	logic->Pause();
 	logic->Pause();

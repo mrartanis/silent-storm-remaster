@@ -3,8 +3,8 @@
 //
 #include "../ADOImport/BasicDB.h"
 //
-// Release version of CDBDifficulty, reconstructed from Game.exe (type, operator& tags @0x8005b0,
-// Import columns @0x82c7b0). Serialization tags 2..15 are identical to the dev snapshot; release
+// Release version of CDBDifficulty, reconstructed from Game.exe (type, operator& tags @0x7e1d10,
+// Import columns @0x80e240). Serialization tags 2..15 are identical to the dev snapshot; release
 // appended fClueDeathCoeff + 14 more fields as tags 16..30 (backward-compatible).
 //
 namespace NDb

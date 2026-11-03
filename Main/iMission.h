@@ -128,6 +128,7 @@ enum EUnitAction
 	UA_WEAPONRELOAD,
 	UA_EXITPK,
 	UA_HIDE,
+	UA_SETTRAP,
 	//// poses
 	UA_STRAFE,
 	UA_POSERUN,
@@ -135,7 +136,6 @@ enum EUnitAction
 	UA_POSECROUCH,
 	UA_POSECRAWL,
 	//// snipe
-	UA_SNIPE_ATTACK,
 	UA_COLLECTAP_1AP,
 	UA_COLLECTAP_10AP,
 	UA_COLLECTAP_MAX,
@@ -267,7 +267,7 @@ public:
 	// retail @0x32b670 returns EUnitCommandResult from a click-time CanDo (FindPath preview) --
 	// the SOLE source of the user-visible "Path not found" on an unreachable move click; a
 	// rejected command is never queued.
-	virtual NWorld::EUnitCommandResult SetTargetPosition( const NAI::SPosition &sPos, bool bInstantly = false ) = 0;
+	virtual NWorld::EUnitCommandResult SetTargetPosition( const NAI::SPosition &sPos, bool bInstantly = false, bool bRun = false ) = 0;
 	virtual NAI::SPosition GetTargetPosition() const = 0;
 
 	virtual bool IsPathComplete() const = 0;
@@ -456,6 +456,7 @@ public:
 	// retail mission vtbl+0x48 (CMissionBase::IsPlayerTurn @0x1a1910): false only in turn-based play
 	// while the world's current player is NOT the active (human) tracker's player.
 	virtual bool IsPlayerTurn() const = 0;
+	virtual bool IsSetupMode() const { return false; }
 	// retail mission vtbl+0xcc (CMissionBase::GetFollowCameraState @0x1a1790): the "ui_followcamera"
 	// game option (camera follows enemy actions) -- a gate of the GetCamera selector @0x1a1ee0.
 	virtual bool GetFollowCameraState() const = 0;
@@ -597,7 +598,10 @@ protected:
 	STime sFPSLimitLastTime;
 	// Retail base tag 38 owns script sound channels; commands hold weak handles.
 	list<CObj<CObjectBase> > soundsList;
+	void InitializeWorld();
 	bool ExecWorldSoundCommand( NWorld::CUICmd *pCmd );
+	bool ExecWorldCommonCommand( NWorld::CUICmd *pCmd );
+	void UpdateWorldCameraCommand( const STime &sTime );
 	bool ExecWorldBeginZoneCommand( NWorld::CUICmd *pCmd, bool bEmulateChapter, NDb::CUITexture *pPWLImage = 0 );
 public:
 	// retail NGame::CMissionBase::operator& @0x19f3f0 -- 34 tags, gaps at 6/17/27 preserved
@@ -731,13 +735,14 @@ protected:
 	// splash. Exec @0x20ba00 does a 3-way pick zone-image -> this->pPWLImage -> default 0x373, so a
 	// chapter whose zone carries no PWL image still shows the chapter's own loading background.
 	CDBPtr<NDb::CUITexture> pPWLImage;
+	CPtr<IMission> pMissionToTerminate;
 
 public:
 	CICBeginMission() {}
 	CICBeginMission( int nTemplateID, int nVariantID, const vector<string> &params, NRPG::CGlobalGame *_pGlobalGame, NDb::CUITexture *_pPWLImage = 0 );
 	// one scenario zone can consist of several templates
 	CICBeginMission( NScenario::CScenarioZone *pZone,
-		int _nTemplateID, const vector<string> &params, NRPG::CGlobalGame *_pGlobalGame, bool bEmulateChapter = false, NDb::CUITexture *_pPWLImage = 0 );
+		int _nTemplateID, const vector<string> &params, NRPG::CGlobalGame *_pGlobalGame, bool bEmulateChapter = false, NDb::CUITexture *_pPWLImage = 0, IMission *_pMissionToTerminate = 0 );
 	virtual void Exec();
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////

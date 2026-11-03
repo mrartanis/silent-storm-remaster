@@ -161,6 +161,7 @@ public:
 
 	CDynamicSkill& Skills( const int eSkill ) { return *skills[eSkill]; }
 	void AddXP( float fXPToAdd );                         // retail @0x2bbde0
+	bool UseSkill( int eSkill, float fLearningFactor );     // Steam 0x6bbfa0
 	void UpdateSkills();                                  // retail @0x2bbcc0
 	int GetSkillBaseStatValue( const int eSkill );         // retail @0x2ba7b0
 };
@@ -303,6 +304,7 @@ public:
 	NDb::CComplexHead* GetHead() const;          // the head TEMPLATE (resolved via pHeadInfo)
 	NLSHead::CHeadInfo* GetHeadInfo() const { return pHeadInfo; }
 	SRandomSeed GetHeadSeed() const;             // per-unit head-randomization seed (retail CreateLSHead source)
+	SRandomSeed GetBindPlacesSeed() const { return bindSeed; }
 	int GetRPGPersID() const;                    // live read of pPers->nRPGPersID
 	// retail GetAckHolder @0x2ba8f0 (pers-id form): the pers whose ACK rows this unit's barks use.
 	// A HERO maps per-VOICE to the donor pers of its voice family (same Side + gender, nVoice

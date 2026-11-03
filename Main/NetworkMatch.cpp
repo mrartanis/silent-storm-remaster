@@ -410,6 +410,8 @@ NetworkMatch CreatePreparedNetworkMatch(const NetworkMatchPreset& preset,NRPG::C
   }
   match.world->RunPostInit(post);
   match.world->GivePlayerTurn(match.players[preset.rules.firstSlot]);
+  // Publish the match only after the initial turn/AP and notifications are settled.
+  match.world->ProcessTBSEvents();
   match.ambient=match.world->GetDefaultLight();
   return match;
 }

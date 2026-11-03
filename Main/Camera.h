@@ -27,17 +27,6 @@ enum ECameraType : int
 	CAMERA_FIRSTPERSON
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// release keeps the tactical cut floor ON the camera (CBaseCamera +0x38, vtbl 0x44/0x48 GetCutFloor/
-// SetCutFloor) -- the framing helpers (CanSeeOneRay ray floors, ShowTwoPlaces tail) read/write it. This dev
-// camera relocated the cut floor to the render scene (IMission::Get/SetCutFloor -> CScene), so the mission
-// installs this thin accessor over the single owner.
-class ICameraCutFloor: public CObjectBase
-{
-public:
-	virtual int  GetCutFloor() const = 0;
-	virtual void SetCutFloor( int nFloor ) = 0;
-};
-////////////////////////////////////////////////////////////////////////////////////////////////////
 class ICamera: public CObjectBase
 {
 public:
@@ -186,17 +175,17 @@ public:
 	// best-visible camera pose (ShowPlacesFromBestPoint @0xcf1c0, ICamera vtbl+0x5c), and latch a follow
 	// target (FollowUnit @0xd0520). Default no-op so the menu / first-person / maya cameras need not override.
 	virtual void ShowPlacesFromBestPoint( const CVec3 &ptA, const CVec3 &ptB, int nFloor, float fRodIn,
-		int nSloMoRatio, float fDivisor, bool bKeepFollow, bool bForceRod ) {}
+		int nSloMoRatio, float fDivisor, bool bKeepFollow, bool bForceRod, bool bPointOfInterest = false ) {}
 	virtual void FollowUnit( CObjectBase *pUnit ) {}
+	virtual void AddFOVEffect( const CVec3 &ptAnchor, float fYaw, const STime &sDuration, int nDivisor ) {}
 	// retail ICamera vtbl+0x7c (CBaseCamera::AddEarthQuake @0xce5d0): queue a grenade-blast screen
 	// shake of the given amplitude (the point is accepted but unused by the base impl). Default no-op
 	// so menu / first-person / maya cameras need not override.
 	virtual void AddEarthQuake( const CVec3 &pt, float fAmplitude ) {}
 	// the world handle (release CCamera +0xF4 -- the terrain raycast AND the height layers the terrain
-	// leg samples) + the render cut-floor accessor, installed by the mission after world creation.
+	// leg samples), installed by the mission after world creation.
 	// Default no-op for non-tactical cameras.
 	virtual void SetWorld( NWorld::IWorld *pWorld ) {}
-	virtual void SetCutFloorSource( ICameraCutFloor *pSource ) {}
 	// the render-view handle (release CCamera pView +0xF8 / CFPCamera pView) and the UI handle
 	// (release CFPCamera pUI): retail threads these through the CreateCamera factory ctor args
 	// (@0xcf8e0 -- CreateCamera(CInterface*, IWorld*, IGameView*, ECameraType, float)); the dev

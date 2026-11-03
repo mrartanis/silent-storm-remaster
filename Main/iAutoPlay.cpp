@@ -34,8 +34,10 @@
 #include "..\DBFormat\DataLight.h"
 #include "..\DBFormat\DataInterface.h"
 #include "iMain.h"
+#include "iAutoPlay.h"
 #include "iSaveManager.h"
 #include "Interface.h"					// NUI::CInterface / NUI::ICursor / ICursor::Create
+#include "iFlashImage.h"
 #include "iCommonUI.h"
 #include "iMission.h"
 #include "iInterMission.h"
@@ -85,23 +87,14 @@
 //   * CMissionBase: since serialization-convergence W4.2 the dev CMission IS split onto NGame::CMissionBase
 //     (iMission.h) with the retail tag tables; CAutoPlayInterface derives the dev CMission directly (byte-exact
 //     PDB layout 0x5a8 is still not a goal -- functional parity).
-//   * GameStep @0x19cc80 (the finished/progress>100/20-min watchdog) is NOT reconstructed: it walks the live
-//     world via opaque vtbl slots (collect NWorld::CPlayer, CPlayer-finished, GetGame()->GetProgress()) and
-//     resolves a DG CCTime node through CMissionBase::GetUITime -- none of which are surfaced as reachable dev
-//     public methods (the dev CMission exposes no GetUITime / world-player-finished gate). Its tail GoToNextMap
-//     is reconstructed for parity but is therefore unreferenced here.
-//   * AddPlayer drops the per-player AI flag: the release set CGlobalPlayer+0x54 = 1; the dev CGlobalPlayer
-//     (rpgGlobal.h) is the release-faithful type MINUS any AI flag, so there is no field to set.
-//   * Initialize omits: the per-unit "set level 30" walk (no NRPG::CUnit level setter is surfaced here); the
-//     logo NUI::CFlashImage template (the dev CFlashImage is file-local to iMainMenu.cpp, not a shared type);
-//     and the release's private-flag writes (bLoseSignalSended / bHideInterface) + the pWorld vtbl[0x1f0] call
-//     (those CMission members are private in the dev and have no public setter). pGlobalGame/pWorld/pScene/
-//     pSoundScene are instead set, faithfully, by routing through the public CMission::Initialize(...).
-//   * Registration + serialization: retail registers CAutoPlayInterface under 0xB3723140 and serializes it
-//     (operator& @0x1a13e0: 1=CMission base, 2=bSignalSent, 3=sAutoPlayTime, 4=pLogoCursor, 5=pLogoInterface,
-//     6=pFlashImage). Registration landed in serialization-convergence W2, the operator& body in W3.
-//     Retail tag 6 is CObj<NUI::CFlashImage>; the dev member is the CObj<NUI::CWindow> parity placeholder
-//     (see above) -- the object reference serializes identically through the class registry.
+//   * The common mission pump now calls a separate virtual GameStep. AutoPlay uses
+//     actual Steam 1.2 0x59d7a0/slot168, without the interactive trace/lose/music policy.
+//   * Squad preparation now follows the actual Steam 1.2 calls at 0x59daed..0x59db83:
+//     four AI players, then level 30 for every merc before initializing the mission.
+//   * The original logo template, sequence/HUD/lose/TB state and UI-clock overlay
+//     are now restored. Keep the owned SDL pointer position instead of warping it.
+//   * Registration and save fields remain 1=CMission, 2=signal, 3=watchdog,
+//     4=logo cursor, 5=shared-sound interface, 6=the original CFlashImage reference.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NGame
 {
@@ -113,14 +106,15 @@ class CAutoPlayInterface: public CMission
 	OBJECT_BASIC_METHODS(CAutoPlayInterface)
 	//// auto-play state (release CAutoPlayInterface members past the CMission base)
 	bool bSignalSent;						// @+0x590: latched on the first dismiss-worthy event
-	CTimeCounter sAutoPlayTime;				// @+0x594: wall-clock watchdog timer (consumed by the deferred GameStep)
+	CTimeCounter sAutoPlayTime;				// @+0x594: UI-clock watchdog timer
 	CObj<NUI::ICursor> pLogoCursor;			// @+0x59c
 	CObj<NUI::CInterface> pLogoInterface;	// @+0x5a0
-	CObj<NUI::CWindow> pFlashImage;			// @+0x5a4: parity placeholder; the real logo type NUI::CFlashImage is file-local to iMainMenu.cpp
+	CObj<NUI::CFlashImage> pFlashImage;		// original shared publisher-logo class
 
 	void ParseNumbers( const wstring &szStr, vector<int> &outSet );
 	void AddPlayer( NRPG::CGlobalGame *pGame, const vector<int> &templateIDs );
 	void GoToNextMap();
+	void GameStep() override;
 
 public:
 	CAutoPlayInterface();
@@ -137,14 +131,6 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CICAutoPlay -- the queued main-loop command that (re-)enters the auto-play logo screen.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-class CICAutoPlay: public NMainLoop::CInterfaceCommand
-{
-	OBJECT_BASIC_METHODS(CICAutoPlay)
-public:
-	CICAutoPlay() {}
-
-	virtual void Exec();
-};
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // NGame::CAutoPlayInterface::CAutoPlayInterface  @0x19c960
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -195,8 +181,7 @@ void CAutoPlayInterface::ParseNumbers( const wstring &szStr, vector<int> &outSet
 // NGame::CAutoPlayInterface::AddPlayer  @0x19c9d0
 //
 // Roll a 4..7-strong AI squad of random template ids (drawn with repetition from templateIDs), build the
-// global player from them and append it to the game's player list. The release also set the player's AI flag
-// (CGlobalPlayer+0x54 = 1); the dev CGlobalPlayer carries no such field, so that store is dropped.
+// global player from them, mark it as AI-controlled and append it to the game's player list.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoPlayInterface::AddPlayer( NRPG::CGlobalGame *pGame, const vector<int> &templateIDs )
 {
@@ -209,15 +194,15 @@ void CAutoPlayInterface::AddPlayer( NRPG::CGlobalGame *pGame, const vector<int> 
 		selSet.push_back( templateIDs[ sRand.Get( (int)templateIDs.size() ) ] );
 
 	NRPG::CGlobalPlayer *pPlayer = NRPG::CreateGlobalPlayer( selSet );
+	pPlayer->bAIPlayer = true;
 	pGame->players.push_back( pPlayer );				// CObj<> stores an owning AddRef'd reference
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // NGame::CAutoPlayInterface::Initialize  @0x19ce60
 //
 // The auto-play boot sequence: parse the two console vars, gate on both being non-empty, build a fresh global
-// game with four random AI squads, pick a random starting map template and boot the real mission on it, then
-// raise the logo cursor/interface overlay. See the file header for the omitted release tail (per-unit level
-// set, logo flash-image template, private-flag writes + pWorld vtbl call).
+// game with four random AI squads, prepare every merc to level 30, pick a starting map and boot it, then
+// raise the original shared-sound publisher-logo overlay and scripted demonstration state.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAutoPlayInterface::Initialize()
 {
@@ -230,6 +215,9 @@ bool CAutoPlayInterface::Initialize()
 	CPtr<NRPG::CGlobalGame> pGame = NRPG::CreateGlobalGame();
 	for ( int i = 0; i < 4; ++i )						// four AI squads
 		AddPlayer( pGame, unitsSet );
+	for ( const auto &player : pGame->players )
+		for ( const auto &unit : player->mercs )
+			unit->SetXPLevel( 30 );
 
 	SRandomSeed sSeed( GetTickCount() );
 	SRand sRand( sSeed );							// (split avoids the most-vexing-parse on SRandomSeed(...))
@@ -237,19 +225,29 @@ bool CAutoPlayInterface::Initialize()
 
 	vector<string> paramsSet;
 	paramsSet.push_back( "Day" );						// the release daytime param
+	bLoseSignalSended = true;
 	CMission::Initialize( nMapID, -1, 0, paramsSet, pGame );	// sets pGlobalGame / pWorld / pScene / pSoundScene
 
-	pLogoCursor = NUI::ICursor::Create();
+	// Keep the owned SDL cursor position; the demo has no visible cursor.
+	pLogoCursor = NUI::ICursor::Create( false );
 	pLogoInterface = new NUI::CInterface( pLogoCursor, GetSoundScene() );
+	pFlashImage = new NUI::CFlashImage( NUI::SWindowInfo( pLogoInterface,
+		NUI::SPoint( 768, 0 ), NUI::SPoint( 256, 128 ), "logo",
+		NUI::STYLE_VISIBLE | NUI::STYLE_ENABLED | NUI::STYLE_TOPMOST ) );
+	NUI::LoadTemplate( pFlashImage, NDb::GetUIContainer( 372 ) );
+	nSequence = 1;
+	bHideInterface = true;
 
 	SetCheatVisibility( true );							// release bCheatVisibility = true
+	if ( NWorld::CWorld *world = dynamic_cast<NWorld::CWorld*>( pWorld.GetPtr() ) )
+		world->ScriptWantTurnBased( true );
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // NGame::CAutoPlayInterface::GoToNextMap  @0x19cb00
 //
 // Queue, as a single container command, "dismiss the current logo modal then re-enter auto-play" -- advancing
-// the intro to its next random logo/map. (Reachable in retail from GameStep, which is deferred here.)
+// the intro to its next random logo/map. (Reached by GameStep after its one-shot latch is set.)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoPlayInterface::GoToNextMap()
 {
@@ -275,6 +273,42 @@ bool CAutoPlayInterface::ProcessEvent( const NInput::SEvent &sEvent )
 	return false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Actual Steam 1.2 GameStep @0x59d7a0: one-shot map change on any winner,
+// signed turn id >100, or the UI-clock watchdog strictly beyond twenty minutes.
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CAutoPlayInterface::GameStep()
+{
+	if ( bSignalSent )
+		return;
+	vector< CPtr<IPlayerTracker> > players;
+	GetPlayers( &players );
+	for ( const auto &player : players )
+	{
+		if ( player->IsPlayerWinner() )
+		{
+			bSignalSent = true;
+			GoToNextMap();
+			return;
+		}
+	}
+	// The fork exposes the original turn counter on its native CWorld.
+	NWorld::CWorld *world = dynamic_cast<NWorld::CWorld*>( pWorld.GetPtr() );
+	if ( world && world->GetTurnID() > 100 )
+	{
+		bSignalSent = true;
+		GoToNextMap();
+		return;
+	}
+	sAutoPlayTime.Advance( true, GetUITime() );
+	CDGPtr<CCTime> time = sAutoPlayTime.GetTime();
+	time.Refresh();
+	if ( time->GetValue() > 1200000 )
+	{
+		bSignalSent = true;
+		GoToNextMap();
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // NGame::CAutoPlayInterface::RenderFrame  @0x19c770
 //
 // Render the mission with the AutoPlay render-mode flag (bit 8) forced on, step+draw the live logo interface,
@@ -282,12 +316,15 @@ bool CAutoPlayInterface::ProcessEvent( const NInput::SEvent &sEvent )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAutoPlayInterface::RenderFrame( int nMode, bool bAdvanceTime, ICamera *pCamera, bool bShowUnits )
 {
+	// The fork reserves HUD margins in its common mission client view.
+	if ( pCamera )
+		pCamera->SetScreenRect( CTRect<float>( 0, 0, 1, 1 ) );
 	CMission::RenderFrame( nMode | 8, bAdvanceTime, pCamera, bShowUnits );
 
 	if ( IsValid( pLogoInterface ) )
 	{
-		pLogoInterface->Step( GetTime() );				// GetTime() re-read before each (matches the binary)
-		pLogoInterface->Draw( GetTime() );
+		pLogoInterface->Step( GetUITime() );				// original rereads the UI clock before each call
+		pLogoInterface->Draw( GetUITime() );
 	}
 
 	if ( ( nMode & 8 ) == 0 )

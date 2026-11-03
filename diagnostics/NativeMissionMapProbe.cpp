@@ -21,7 +21,43 @@
 #include <cstring>
 #include <algorithm>
 #include <array>
+#include <cmath>
+#include <limits>
 #include <vector>
+
+// Generated transforms can differ by one input-float ULP across compilers.
+// Stabilize only a centimetre rounding midpoint within that uncertainty;
+// this diagnostic must not turn it into a different map coordinate.
+static int QuantizeItemCoordinate( float value )
+{
+	const float scaled = value * 100.f;
+	const float midpoint = std::floor( scaled ) + 0.5f;
+	const float lower = std::nextafter( value, -std::numeric_limits<float>::infinity() ) * 100.f;
+	const float upper = std::nextafter( value, std::numeric_limits<float>::infinity() ) * 100.f;
+	return Float2Int( lower <= midpoint && midpoint <= upper ? midpoint : scaled );
+}
+
+static int CheckItemQuantization()
+{
+	int checks = 0;
+	for ( float value : {9.375f, -9.375f, 7.875f} )
+	{
+		const int expected = QuantizeItemCoordinate( value );
+		for ( float direction : {-std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()} )
+		{
+			if ( QuantizeItemCoordinate( std::nextafter( value, direction ) ) != expected ) return 20;
+			++checks;
+		}
+	}
+	for ( float value : {0.f, 1.f, -1.f, 2.12345f, -2.12345f} )
+	{
+		if ( QuantizeItemCoordinate( value ) != Float2Int( value * 100.f ) ) return 21;
+		++checks;
+	}
+	if ( QuantizeItemCoordinate( 9.364f ) == QuantizeItemCoordinate( 9.386f ) ) return 22;
+	std::printf( "MAP-ITEM-QUANTIZATION checks=%d distinctCentimetres=1\n", checks );
+	return 0;
+}
 
 static std::uint64_t digest = UINT64_C(14695981039346656037);
 static std::uint64_t routeDigest = UINT64_C(14695981039346656037);
@@ -114,6 +150,8 @@ static std::size_t AddRoute( const std::vector<CPtr<CMapWaypoint> > &route )
 
 int main( int argc, char **argv )
 {
+	if ( argc == 2 && !std::strcmp( argv[1], "--check-item-quantization" ) )
+		return CheckItemQuantization();
 	const bool printScripts = argc == 5 && !std::strcmp( argv[4], "--print-scripts" );
   details = argc == 5 && !std::strcmp( argv[4], "--details" );
   const bool deterministic = details || (argc == 5 && !std::strcmp( argv[4], "--deterministic" ));
@@ -320,8 +358,8 @@ int main( int argc, char **argv )
 		itemKeys.push_back( {
 			static_cast<std::uint32_t>( item.pObject ? item.pObject->nParentID : 0 ),
 			static_cast<std::uint32_t>( item.pos.nFloor ),
-			static_cast<std::uint32_t>( Float2Int( item.pos.ptPos.x * 100 ) ),
-			static_cast<std::uint32_t>( Float2Int( item.pos.ptPos.y * 100 ) ),
+			static_cast<std::uint32_t>( QuantizeItemCoordinate( item.pos.ptPos.x ) ),
+			static_cast<std::uint32_t>( QuantizeItemCoordinate( item.pos.ptPos.y ) ),
 			static_cast<std::uint32_t>( Float2Int( item.pos.ptPos.z ) ),
 			static_cast<std::uint32_t>( item.nRelFloor ),
 			static_cast<std::uint32_t>( item.bOpen ),
@@ -386,7 +424,7 @@ int main( int argc, char **argv )
 		  routedUnits != 10 || unitRoutePoints != 36 || groupRoutePoints != 17 ||
 		  routeDigest != UINT64_C(0xF11ECF559130C3B2) ||
 		  behaviorDigest != UINT64_C(0x04DA549A759E4957) ||
-		  digest != UINT64_C(0xE1FBA16F1FFAF877) ) )
+		  digest != UINT64_C(0x89748056FB46B6CD) ) )
 		return 4;
 	if ( variantID == 4526 &&
 		( map.buildings.size() != 7 || map.units.size() != 49 ||
@@ -395,7 +433,7 @@ int main( int argc, char **argv )
 		  routedUnits != 0 || unitRoutePoints != 0 || groupRoutePoints != 14 ||
 		  routeDigest != UINT64_C(0xC9FCDC98D9DCD6F3) ||
 		  behaviorDigest != UINT64_C(0x7EAF4F97AD129EED) ||
-		  digest != UINT64_C(0xC26EF134D7A3DAA8) ) )
+		  digest != UINT64_C(0x2C45C29ECA306FF0) ) )
 		return 4;
 	return built ? 0 : 3;
 }

@@ -24,6 +24,7 @@ static int GetRealTextureID( NDb::CTexture *pTex )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NGScene
 {
+extern bool bLowRAM;
 bool bTextureStreaming = false;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CTextureLoader
@@ -114,7 +115,7 @@ static NGfx::CTexture* MakeTexture( const SMMPFileHeader &hdr, NGfx::ETextureUsa
 	int logicalWidth, int logicalHeight )
 {
 	// HD/LR file texels differ from authored UI pixels; use an exact standalone sheet.
-	if ( eUsage == NGfx::TEXTURE_2D && ( hdr.nSizeX != logicalWidth || hdr.nSizeY != logicalHeight ) )
+	if ( ((eUsage==NGfx::TEXTURE_2D || eUsage==NGfx::TRANSPARENT_TEXTURE) && hdr.format!=NGfx::CF_A8R8G8B8) || (eUsage==NGfx::TEXTURE_2D && (hdr.nSizeX!=logicalWidth || hdr.nSizeY!=logicalHeight)) )
 		eUsage = NGfx::REGULAR;
 	NGfx::CTexture *pResult = NGfx::MakeTexture( hdr.nSizeX, hdr.nSizeY, hdr.nNumMipLevels,
 		hdr.format, eUsage, eWrap );
@@ -130,6 +131,7 @@ void CFileTexture::Recalc()
 		return;
 
 	NDb::CTexture *pTex = NDb::GetTexture( GetKey().nID );
+	if(!pTex) {CreateChecker();return;}
 	NGfx::ETextureUsage eUsage;
 	switch ( pTex->usage )
 	{
@@ -155,13 +157,13 @@ void CFileTexture::Recalc()
 		bIsFakeTexture = true;
 		if(S2TextureDiag::Enabled()) ++S2TextureDiag::Get().lowFileLoads;
 		bool bHasRead = false;
-		try
+		if(!bLowRAM) try
 		{
 			SMMPFileHeader hdr;
 			CResourceFileOpener file( "LRTextures", GetRealTextureID( pTex ) );
 			file->Read( &hdr, sizeof(hdr) );
 			pValue = MakeTexture( hdr, eUsage, eWrap, pTex->nWidth, pTex->nHeight );
-			if ( !RealLoadTexture( pValue.GetPtr(), file.GetStream(), hdr, 0, 0, hdr.nSizeX, hdr.nSizeY, hdr.nNumMipLevels ) )
+			if ( !IsValid(pValue) || !RealLoadTexture( pValue.GetPtr(), file.GetStream(), hdr, 0, 0, hdr.nSizeX, hdr.nSizeY, hdr.nNumMipLevels ) )
 				throw int(0);
 			bHasRead = true;
 		}
@@ -188,7 +190,7 @@ void CFileTexture::Recalc()
 		file->Seek(0);
 		file->Read( &hdr, sizeof(hdr) );
 		pValue = MakeTexture( hdr, eUsage, eWrap, pTex->nWidth, pTex->nHeight );
-		if ( !RealLoadTexture( pValue.GetPtr(), file.GetStream(), hdr, 0, 0, hdr.nSizeX, hdr.nSizeY, hdr.nNumMipLevels ) )
+		if ( !IsValid(pValue) || !RealLoadTexture( pValue.GetPtr(), file.GetStream(), hdr, 0, 0, hdr.nSizeX, hdr.nSizeY, hdr.nNumMipLevels ) )
 		{
 			ASSERT(0);
 			CreateChecker();

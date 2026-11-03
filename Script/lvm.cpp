@@ -756,6 +756,10 @@ void luaV_stepExecute( lua_State *L )
 				break;
 			}
 		}
+		// Steam 1.2 0x823e50: an implicit function end yields its caller
+		// until the next thread update; explicit OP_RETURN continues.
+		if ( GET_OPCODE(i) == OP_END )
+			break;
   }
 #ifdef _DEBUG
 	// didn't we spoil the CBase?

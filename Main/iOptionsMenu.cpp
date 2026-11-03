@@ -15,6 +15,7 @@
 #include "..\FileIO\PortableUserPaths.h"
 #include "..\FileIO\WindowsSaveNames.h"
 #include "iOptionsMenu.h"
+#include "iMission.h"
 #include "DisplayOptions.h"
 #include "../Game/Platform.h"
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -180,20 +181,6 @@ bool CComplexScroll::ProcessMessage( const SEvent &sEvent )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CComplexComboBox
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-class CComplexComboBox: public CComboBox
-{
-	OBJECT_NOCOPY_METHODS(CComplexComboBox)
-private:
-	ZDATA_(CComboBox)
-	CObj<CHoverButton> pDropDown;
-	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CComboBox*)this); f.Add(2,&pDropDown); return 0; }
-
-public:
-	CComplexComboBox() {}
-	CComplexComboBox( const SWindowInfo &sInfo );
-
-	bool ProcessMessage( const SEvent &sEvent );
-};
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CComplexComboBox::CComplexComboBox( const SWindowInfo &sInfo ):
 	CComboBox( sInfo )
@@ -1305,7 +1292,7 @@ public:
 	COptionsInterface();
 	bool RenderWhenInactive() const override { return true; }
 
-	void Initialize( EOptionsScreen eScreen, NGScene::CScreenshotTexture *pScreenShotTexture );
+	void Initialize( EOptionsScreen eScreen, NGScene::CScreenshotTexture *pScreenShotTexture, IMission *pMission );
 
 	void Step();
 	void OnGetFocus();
@@ -1318,10 +1305,11 @@ COptionsInterface::COptionsInterface():
 {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void COptionsInterface::Initialize( EOptionsScreen eScreen, NGScene::CScreenshotTexture *pScreenShotTexture )
+void COptionsInterface::Initialize( EOptionsScreen eScreen, NGScene::CScreenshotTexture *pScreenShotTexture, IMission *_pMission )
 {
+	pMission = _pMission;
 	pCursor = NUI::ICursor::Create();
-	pInterface = new NUI::CInterface( pCursor );
+	pInterface = new NUI::CInterface( pCursor, 0, IsValid(pMission) ? pMission->GetSoundScene() : 0 );
 
 	pScreenShot = new NUI::CScreenShot( NUI::SWindowInfo( pInterface, NUI::SPoint( 0, 0 ), NUI::SPoint( 1024, 768 ), "clues", NUI::STYLE_ENABLED | NUI::STYLE_VISIBLE | NUI::STYLE_BOTTOMMOST ) );
 	// Apply the menu treatment before adopting an existing screenshot as well.
@@ -1399,27 +1387,27 @@ bool COptionsInterface::ProcessEvent( const NInput::SEvent &sEvent )
 	else if ( bindVideoOptions.ProcessEvent( sEvent ) )
 	{
 		NMainLoop::Command( new NMainLoop::CICExitModal() );
-		NMainLoop::Command( new NGame::CICOptions( NGame::OS_VIDEO, pScreenShot->GetTexture() ) );
+		NMainLoop::Command( new NGame::CICOptions( NGame::OS_VIDEO, pScreenShot->GetTexture(), pMission ) );
 	}
 	else if ( bindAudioOptions.ProcessEvent( sEvent ) )
 	{
 		NMainLoop::Command( new NMainLoop::CICExitModal() );
-		NMainLoop::Command( new NGame::CICOptions( NGame::OS_AUDIO, pScreenShot->GetTexture() ) );
+		NMainLoop::Command( new NGame::CICOptions( NGame::OS_AUDIO, pScreenShot->GetTexture(), pMission ) );
 	}
 	else if ( bindProfileOptions.ProcessEvent( sEvent ) )
 	{
 		NMainLoop::Command( new NMainLoop::CICExitModal() );
-		NMainLoop::Command( new NGame::CICOptions( NGame::OS_PROFILE, pScreenShot->GetTexture() ) );
+		NMainLoop::Command( new NGame::CICOptions( NGame::OS_PROFILE, pScreenShot->GetTexture(), pMission ) );
 	}
 	else if ( bindGamePlayOptions.ProcessEvent( sEvent ) )
 	{
 		NMainLoop::Command( new NMainLoop::CICExitModal() );
-		NMainLoop::Command( new NGame::CICOptions( NGame::OS_GAMEPLAY, pScreenShot->GetTexture() ) );
+		NMainLoop::Command( new NGame::CICOptions( NGame::OS_GAMEPLAY, pScreenShot->GetTexture(), pMission ) );
 	}
 	else if ( bindControlsOptions.ProcessEvent( sEvent ) )
 	{
 		NMainLoop::Command( new NMainLoop::CICExitModal() );
-		NMainLoop::Command( new NGame::CICOptions( NGame::OS_CONTROLS, pScreenShot->GetTexture() ) );
+		NMainLoop::Command( new NGame::CICOptions( NGame::OS_CONTROLS, pScreenShot->GetTexture(), pMission ) );
 	}
 
 	return false;
@@ -1436,15 +1424,15 @@ void COptionsInterface::RenderFrame()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CICMission
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-CICOptions::CICOptions( EOptionsScreen _eScreen, NGScene::CScreenshotTexture *_pScreenShotTexture ):
-	eScreen( _eScreen ), pScreenShotTexture( _pScreenShotTexture )
+CICOptions::CICOptions( EOptionsScreen _eScreen, NGScene::CScreenshotTexture *_pScreenShotTexture, IMission *_pMission ):
+	eScreen( _eScreen ), pMission( _pMission ), pScreenShotTexture( _pScreenShotTexture )
 {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CICOptions::Exec()
 {
 	COptionsInterface *pRes = new COptionsInterface();
-	pRes->Initialize( eScreen, pScreenShotTexture );
+	pRes->Initialize( eScreen, pScreenShotTexture, pMission );
 	PushInterface( pRes );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

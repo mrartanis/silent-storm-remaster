@@ -415,6 +415,16 @@ void CFastRenderer::SortIntervals()
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Original Steam @0x492030: terrain occupies its surface in passability traces.
+void CFastRenderer::ReduceTerrain()
+{
+	for ( int y = 0; y < resGrid.GetYSize(); ++y )
+		for ( int x = 0; x < resGrid.GetXSize(); ++x )
+			for ( SResult *p = resGrid[y][x]; p; p = p->pNext )
+				if ( p->GetInfo().pUserData == 0 )
+					p->fEnter = p->fExit - 0.01f;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CFastRenderer::TraceEntity( const vector<SConvexHull> &hulls, bool bTerrain )
 {
 	if ( hulls.empty() )
