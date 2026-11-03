@@ -763,6 +763,7 @@ void CMission::GetActionInfo( EUnitAction eAction, SActionInfo *pInfo )
 		case UA_LOOK: pCmd = new NWorld::CCmdLook( NAI::SPosition() ); break;
 		case UA_HEAL: pCmd = new NWorld::CCmdHeal( 0 ); break;
 		case UA_MINE: pCmd = new NWorld::CCmdSetMineOnTile( NAI::SPosition() ); break;
+		case UA_SETTRAP: pCmd = new NWorld::CCmdSetGrenadeOnObject( 0 ); break;
 		case UA_ATTACK:
 			{
 				NWorld::CCmdShootObject *pAttack = new NWorld::CCmdShootObject( 0, 0 );
@@ -780,7 +781,6 @@ void CMission::GetActionInfo( EUnitAction eAction, SActionInfo *pInfo )
 		case UA_POSEWALK: pCmd = new NWorld::CCmdWishPose( NAI::WALK ); break;
 		case UA_POSECROUCH: pCmd = new NWorld::CCmdWishPose( NAI::CROUCH ); break;
 		case UA_POSECRAWL: pCmd = new NWorld::CCmdWishPose( NAI::CRAWL ); break;
-		case UA_SNIPE_ATTACK: pCmd = new NWorld::CCmdSnipeAttack(); break;
 		case UA_COLLECTAP_1AP: pCmd = new NWorld::CCmdCollectSnipeAP( NWorld::CSAP_1AP ); break;
 		case UA_COLLECTAP_10AP: pCmd = new NWorld::CCmdCollectSnipeAP( NWorld::CSAP_10AP ); break;
 		case UA_COLLECTAP_MAX: pCmd = new NWorld::CCmdCollectSnipeAP( NWorld::CSAP_MAX ); break;
@@ -2032,7 +2032,12 @@ bool CMission::ProcessEvent( const NInput::SEvent &sEvent )
 	else if ( bindDropCorpse.ProcessEvent( sEvent ) && CanPerformAction( UA_DROPCORPSE ) )
 		CommandState( new CStateDropCorpse() );
 	else if ( bindSetMine.ProcessEvent( sEvent ) )
-		CommandState( new CStateSetMine() );
+	{
+		if ( CanPerformAction( UA_MINE ) )
+			CommandState( new CStateSetMine() );
+		else if ( CanPerformAction( UA_SETTRAP ) )
+			CommandState( new CStateSetTrap() );
+	}
 	else if ( bindSetTrap.ProcessEvent( sEvent ) )
 		CommandState( new CStateSetTrap() );
 	else if ( bindExitPK.ProcessEvent( sEvent ) ) //// CRAP
@@ -2087,7 +2092,7 @@ bool CMission::ProcessEvent( const NInput::SEvent &sEvent )
 	if ( bindSnipeAttack.ProcessEvent( sEvent ) )
 	{
 		SActionInfo sAction;
-		GetActionInfo( UA_SNIPE_ATTACK, &sAction );
+		GetActionInfo( UA_ATTACK, &sAction );
 		if ( sAction.eResult == NWorld::UCR_OK )
 		{
 			vector< CPtr<NGame::IUnitTracker> > unitsSet;

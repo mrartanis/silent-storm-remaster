@@ -38,6 +38,7 @@
 #include "wUnitAttack.h"
 #include "wUnitAttackExec.h"
 #include "aiNearestPosition.h"
+#include "aiMoves.h"
 #include "aiMisc.h"            // NAI::IsAIPlayer (GetActionType AI-silent gate)
 #include "rpgPerkConstants.h"
 #include "wUnitQueue.h"
@@ -3972,6 +3973,43 @@ void CExecPlayAnimation::Cancel()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecTalk
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+int CExecSwap::GetStartAP() const
+{
+	return pUS->GetActionAP( NRPG::AC_SWAP );
+}
+EUnitCommandResult CExecSwap::CanDoIt( const NAI::SUnitPosition &from, bool bIgnoreTarget )
+{
+	if ( !IsValid( pUS ) || !IsValid( pUS->GetWorld() ) || !IsValid( pTarget ) || pUS->GetWorld()->IsBase() )
+		return UCR_GENERAL_FAILURE;
+	if ( !bIgnoreTarget )
+	{
+		const NAI::SUnitPosition &to = pTarget->GetPosition();
+		if ( from.GetPose() == NAI::CRAWL || to.GetPose() == NAI::CRAWL )
+			return UCR_TARGET_OUT_OF_RANGE;
+		NAI::ETransitionType type = NAI::GetTransitionType( from.pos.GetNetwork(), from.pos.p, to.pos.p );
+		if ( type != NAI::TT_MOVE && type != NAI::TT_MOVE_DIAGONAL && type != NAI::TT_INTERGRID )
+			return UCR_TARGET_OUT_OF_RANGE;
+	}
+	return UCR_OK;
+}
+void CExecSwap::Run()
+{
+	if ( !IsValid( pUS ) || !IsValid( pTarget ) ) { Finished(); return; }
+	pUS->DoAction( NRPG::AC_SWAP );
+	CObj<CExecSwap> pKeepAlive = this;
+	NAI::SUnitPosition from = pUS->GetPosition(), to = pTarget->GetPosition();
+	unsigned short nDirection = from.pos.p.GetDirection();
+	from.pos.p.SetDirection( to.pos.p.GetDirection() );
+	to.pos.p.SetDirection( nDirection );
+	pUS->animator.PlaceUnit( to );
+	pUS->SetPosition( to );
+	pUS->Update();
+	pTarget->animator.PlaceUnit( from );
+	pTarget->SetPosition( from );
+	pTarget->Update();
+	Finished();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 CExecTalk::CExecTalk( CUnitServer *_pUS, CUnitServer *_pTarget ):
 	CCommandExecute( _pUS ), pTarget( _pTarget )
 {
@@ -4037,6 +4075,7 @@ REGISTER_SAVELOAD_CLASS( 0x51892150, CExecUsePassage )
 REGISTER_SAVELOAD_CLASS( 0x52492170, CExecTakeCorpseOnDeploy )
 REGISTER_SAVELOAD_CLASS( 0x50112152, CExecPlayAnimation )
 REGISTER_SAVELOAD_CLASS( 0x51922130, CExecTalk )
+REGISTER_SAVELOAD_CLASS( 0x71983146, CExecSwap )
 // retail saveload ids (serialization-convergence W1; s2_scratch docs/SERIALIZATION_CONVERGENCE.md)
 REGISTER_SAVELOAD_CLASS( 0x71983141, CExecPanzerklein )
 REGISTER_SAVELOAD_CLASS( 0x71983142, CExecSetTrap )

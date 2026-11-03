@@ -1071,7 +1071,7 @@ static void ImportReleaseStorage( CStorageHash &storageTables,
 	list<NDatabase::SRelation> &relations, const char *source,
 	std::vector<std::int32_t>* animationRowOrder, bool overlay )
 {
-	if ( animationRowOrder && !overlay )
+	if ( animationRowOrder && ( !overlay || storageTables.find( 2 ) != storageTables.end() ) )
 	{
 		animationRowOrder->clear();
 		const CStorageHash::const_iterator animationTable = storageTables.find( 2 );
@@ -1087,7 +1087,10 @@ static void ImportReleaseStorage( CStorageHash &storageTables,
 			if ( idColumn >= (int)row.size() )
 				throw SFileIOError( "columnar Animations row missing ID" );
 			if ( !seenIds.insert( row[idColumn] ).second )
+			{
+				if ( overlay ) continue;
 				throw SFileIOError( "columnar Animations table has duplicate ID" );
+			}
 			animationRowOrder->push_back( row[idColumn] );
 		}
 	}
@@ -1164,7 +1167,8 @@ static void ImportReleaseStorage( CStorageHash &storageTables,
 	DebugTrace( "DB-STORAGE: loaded %d columnar tables via %s\n", nTables, source );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void NDatabase::Serialize( CDataStream &file, CStructureSaver::EMode mode, bool overlay )
+void NDatabase::Serialize( CDataStream &file, CStructureSaver::EMode mode, bool overlay,
+	bool buildBaseLinks, SDatabaseLoadContext *loadContext )
 {
 	CTablesHash &tables = GetTables();
 	NDatabase::bIsDatabaseLoading = true;
@@ -1172,6 +1176,11 @@ void NDatabase::Serialize( CDataStream &file, CStructureSaver::EMode mode, bool 
 	missingStorageFields.clear();
 	bool bDidColumnarLoad = false;
 	std::vector<std::int32_t> animationRowOrder;
+	if ( loadContext && !overlay && mode == CStructureSaver::READ )
+	{
+		loadContext->columnarBase = false;
+		loadContext->animationRowOrder.clear();
+	}
 	// The release v1 database is decoded without CStructureSaver or Windows
 	// object-table layout. Historical v0/dev data and writes keep their path.
 	bool bPortableRelease = false;
@@ -1253,10 +1262,20 @@ void NDatabase::Serialize( CDataStream &file, CStructureSaver::EMode mode, bool 
 	NDatabase::bIsDatabaseLoading = false;
 			ReportUnresolvedReferences();
 			ReportMissingStorageFields();
-	// The base v1 load needs cross-record links. Partial overlays retain live
-	// objects; the tested optional mod tables have no link-bearing fields, and the
-	// append-only builder must not run again for them.
-	if ( bDidColumnarLoad && !overlay )
+	// Defer derived links until the entire overlay set has updated live records.
+	if ( bDidColumnarLoad && loadContext )
+	{
+		if ( !overlay )
+		{
+			loadContext->columnarBase = true;
+			loadContext->animationRowOrder = animationRowOrder;
+		}
+		else if ( loadContext->columnarBase )
+			for ( std::int32_t id : animationRowOrder )
+				if ( std::find( loadContext->animationRowOrder.begin(), loadContext->animationRowOrder.end(), id ) == loadContext->animationRowOrder.end() )
+					loadContext->animationRowOrder.push_back( id );
+	}
+	if ( bDidColumnarLoad && !overlay && buildBaseLinks )
 		NDb::BuildMapLinks( false, &animationRowOrder );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

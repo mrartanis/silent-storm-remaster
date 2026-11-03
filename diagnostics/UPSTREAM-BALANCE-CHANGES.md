@@ -4852,3 +4852,19 @@ native12RED each (9visual+3API-only)->18GREEN each, old controls retained,
 freshGames311W289L/CI383/LAN12each361. Full5b complete,12 unfinished.
 
 Source: [5b7ed0510f6265088741bdb7cd333315b73a3f86](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5b7ed0510f6265088741bdb7cd333315b73a3f86).
+
+## 180. Complete scenario updates and native contextual actions
+
+Restore native contextual Swap action41/RPGAP10 with individual facing/actor-only AP,
+dedicated trap14/shared input, clue side paper/player callback, command-aware AI turn
+completion and final-after-overlay links with native animation ordering. Preserve prior
+selected-grid shots, physical8210, called-shot bonuses, scenario/tooltip fixes, portable
+overlays, original existing save/network fields and frozen HD assets. Native21
+canonical19REDeach+95controls ->114GREENeach; Swap physical/cost/save assertions are
+postfoundation GREEN only. SuccessfulSwap preserves native hearing rolls; rejection keeps
+RNG unchanged. One success-only postfoundation RNG expectation correction/separatehashes,
+finalwholefixture notbyte-identical. Original13strict spans, no full original
+cost-table/RNG/ABI claim. Full Games546W525L/CI383/LAN12each361. Source34 inactive guard
+remains separate; full360 complete,11 unfinished.
+
+Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).

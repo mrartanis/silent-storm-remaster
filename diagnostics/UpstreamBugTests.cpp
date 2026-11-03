@@ -186,6 +186,12 @@ namespace NRPG { int GetAttackerTileToHit(const NWorld::CUnit*,const CVec3,int,N
 #include "../Main/GRects.h"
 #include "../Main/2DScene.h"
 #include "../Main/GfxUtils.h"
+#include "../FileIO/PortableGameLinks.h"
+#include "../ADOImport/BasicDB.h"
+#include "../DBFormat/DataAnimation.h"
+#include "../Main/ModManager.h"
+#include "../DBFormat/DataRPG.h"
+#include "../Main/iShowClue.h"
 #include "../Game/Platform.h"
 #include <SDL3/SDL.h>
 #include "../Main/GGeometryPositionHash.h"
@@ -20348,7 +20354,8 @@ static void UnavailableAttackShortcut()
     CObj<SharedShortcutMission> mission = new SharedShortcutMission;
     mission->Prepare();
     vector<NGame::SActionInfo> actions(NGame::UA_MAXVALUE);
-    actions[NGame::UA_ATTACK].bValid = true;
+    for (auto& action: actions) action.bValid = true;
+    actions[NGame::UA_MINE].bAvailable = true;
     actions[NGame::UA_ATTACK].bAvailable = true;
     // Mode entry remains available even when a target or AP is still needed.
     Require(!actions[NGame::UA_ATTACK].bOk, "shortcut control unexpectedly permits immediate execution");
@@ -35689,6 +35696,210 @@ static void NativeFractionalUIPixels(const char* databasePath,const char* resour
     Require(mismatch==0 && (control || api),"actual native UI pipeline lost fractional position/clip or its float interface");
 }
 
+// Native contextual actions: actual world/mission/mod/modal paths and read-only field observers.
+namespace NWorld { class CCmdSwap; }
+template<class T> static auto NativeConstructSwapCommand(NWorld::CUnit* target,int)
+    -> decltype(sizeof(T), static_cast<NWorld::CCmd*>(static_cast<T*>(nullptr)))
+{return new T(target);}
+template<class T> static NWorld::CCmd* NativeConstructSwapCommand(NWorld::CUnit*,long){return nullptr;}
+
+static void NativeContextSwap(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=6,"unknown contextual swap case");
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* owner=nullptr;
+    for(auto unit:units)if(unit && !unit->IsAIUnit() && unit->CanFight() && unit->GetTBSPlayer()){owner=unit;break;}
+    Require(owner && !world->IsBase(),"swap fixture lacks its actual nonbase human owner");
+    auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;
+    network->GetNearPlaces(SSphere(owner->GetPosition().GetCP(),5.f),&places);
+    NAI::SPathPlace from,to;bool found=false;
+    for(auto a:places){a.SetPose(NAI::CM_STAND);a.SetMoving(0);if(!network->IsPassable(a) || network->IsLocked(a))continue;
+        for(auto b:places){b.SetPose(NAI::CM_STAND);b.SetMoving(0);if(!network->IsPassable(b) || network->IsLocked(b))continue;
+            const auto transition=NAI::GetTransitionType(network,a,b);
+            const bool wanted=mode==4 ? fabs(NAI::SPosition(a,network).GetCP()-NAI::SPosition(b,network).GetCP())>3.f
+                :transition==(mode==1 ? NAI::TT_MOVE_DIAGONAL : NAI::TT_MOVE);
+            if(wanted){from=a;to=b;found=true;break;}}
+        if(found)break;}
+    Require(found,"swap fixture cannot find its genuine unlocked native transition cells");
+    from.SetDirection(1);to.SetDirection(5);if(mode==2)from.SetPose(NAI::CM_LAY);if(mode==3)to.SetPose(NAI::CM_LAY);
+    CObj<NWorld::CUnitServer> actor=world->AddUnitInGame(from,NRPG::CreateUnit(NDb::GetPers(54)),owner->GetTBSPlayer(),"NativeSwapActor");
+    CObj<NWorld::CUnitServer> target=world->AddUnitInGame(to,NRPG::CreateUnit(NDb::GetPers(103)),owner->GetTBSPlayer(),"NativeSwapTarget");
+    Require(actor && target && actor->CanFight() && target->CanFight(),"swap fixture cannot deploy two real native units");
+    // Real-time actions do not debit AP. Establish the actual owned turn and
+    // native world callback context before observing cost or executor behavior.
+    struct NativeSwapWorldContext { NWorld::CWorld* previous=NWorld::pCurrentWorld;~NativeSwapWorldContext(){NWorld::pCurrentWorld=previous;} } restoreWorld;
+    NWorld::pCurrentWorld=world;world->GivePlayerTurn(actor->GetTBSPlayer());
+    Require(world->IsTurnBased() && world->IsUnitActive(actor),"swap fixture did not enter its actual owned native turn");
+    std::printf("CONTEXT-SWAP-SETUP mode=%d turnBased=%d active=%d\n",mode,int(world->IsTurnBased()),int(world->IsUnitActive(actor)));std::fflush(stdout);
+
+    const auto a=actor->GetPosition(),b=target->GetPosition();const int actorAP=actor->GetAP(),targetAP=target->GetAP();
+    const int actorHP=actor->GetUnitRPG()->GetTotalVP(),targetHP=target->GetUnitRPG()->GetTotalVP();const auto time=world->GetTime()->GetValue();auto random=GlobalGameRandom();
+    CObj<NWorld::CCmd> command=NativeConstructSwapCommand<NWorld::CCmdSwap>(mode==5?nullptr:target.GetPtr(),0);
+    std::printf("CONTEXT-SWAP mode=%d api=%d\n",mode,int(IsValid(command)));std::fflush(stdout);
+    Require(command,"native contextual swap command foundation is missing");
+    if(mode==6){CStructureNetworkContext refs;auto fields=BorrowedObjectFields(command,&refs);CObj<NWorld::CCmd> restored=dynamic_cast<NWorld::CCmd*>(pSSClasses->CreateObject(0x01093130));Require(restored,"native Swap command registered save type is missing");fields.Seek(0);{CStructureSaver reader(fields,CStructureSaver::READ,&refs);restored->operator&(reader);}Require(restored!=command,"Swap command restoration reused its original object");command=restored;}
+    NWorld::EUnitCommandResult error=NWorld::UCR_OK;CObj<NWorld::CCommandExecute> executor=NWorld::CreateActionExecutor(actor,command,&error);
+    const auto expected=mode==5?NWorld::UCR_NO_TARGET:(mode>=2 && mode<=4)?NWorld::UCR_TARGET_OUT_OF_RANGE:NWorld::UCR_OK;
+    Require(error==expected && bool(executor)==(expected==NWorld::UCR_OK),"actual swap dispatch lost native target/range/crawl eligibility");
+    if(mode==6){CStructureNetworkContext refs;auto fields=BorrowedObjectFields(executor,&refs);CObj<NWorld::CCommandExecute> restored=dynamic_cast<NWorld::CCommandExecute*>(pSSClasses->CreateObject(0x71983146));Require(restored,"native Swap executor registered save type is missing");fields.Seek(0);{CStructureSaver reader(fields,CStructureSaver::READ,&refs);restored->operator&(reader);}Require(restored!=executor && restored->GetUnitServer()==actor && restored->GetState()==executor->GetState(),"restored Swap executor lost actual actor or execution state");executor=restored;std::printf("CONTEXT-SWAP-SAVE commandClone=1 executorClone=1 actor=1\n");}
+    if(executor){auto* cost=NDb::GetRPGAP(10);Require(cost && cost->nAP>0 && actorAP>=cost->nAP && executor->GetStartAP()==cost->nAP,"native swap did not use action41/RPGAP10");
+        auto expectedActor=b,expectedTarget=a;expectedActor.pos.p.SetDirection(a.pos.p.GetDirection());expectedTarget.pos.p.SetDirection(b.pos.p.GetDirection());
+        executor->Run();Require(executor->GetState()==NWorld::CCommandExecute::FINISHED && actor->GetPosition()==expectedActor && target->GetPosition()==expectedTarget,"actual swap failed to exchange positions while retaining individual facing");
+        Require(actor->GetAP()==actorAP-cost->nAP && target->GetAP()==targetAP,"actual swap spent the wrong unit AP or cost");}
+    else Require(actor->GetPosition()==a && target->GetPosition()==b && actor->GetAP()==actorAP && target->GetAP()==targetAP,"rejected swap changed real units");
+    const bool healthSame=actor->GetUnitRPG()->GetTotalVP()==actorHP && target->GetUnitRPG()->GetTotalVP()==targetHP,timeSame=world->GetTime()->GetValue()==time,rngSame=random.Get()==GlobalGameRandom().Get();
+    std::printf("CONTEXT-SWAP-EFFECT mode=%d healthSame=%d timeSame=%d rngSame=%d executed=%d\n",mode,int(healthSame),int(timeSame),int(rngSame),int(IsValid(executor)));std::fflush(stdout);
+    // Real movement uses native SetPosition, whose step/visibility notifications
+    // can roll hearing probability. Rejecting a command must have no such effects.
+    Require(healthSame && timeSame && (executor || rngSame),"contextual swap changed health/time or a rejected query consumed gameplay RNG");
+}
+
+static void NativeContextEndTurn(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=4,"unknown contextual end-turn case");
+    if(mode==0){CObj<NAI::CAILogic> logic=new NAI::CAILogic;const bool ended=logic->IsEndOfTurn();std::printf("CONTEXT-ENDTURN mode=0 worldless=1 ended=%d expected=1\n",int(ended));std::fflush(stdout);Require(ended,"worldless native AI logic did not end its unavailable turn");return;}
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);NWorld::CUnitServer* actor=nullptr;
+    for(auto unit:units){auto* actual=dynamic_cast<NWorld::CUnitServer*>(unit.GetPtr());if(actual && actual->CanFight() && actual->GetAP()>0 && !actual->HasCommand() && world->IsUnitActive(actual) && NAI::GetAIUnit(actual)){actor=actual;break;}}
+    Require(actor && !world->IsExecuting(),"AI end-turn fixture lacks a healthy active native idle actor");
+    if(mode==4){struct RestoreWorld{NWorld::CWorld* previous=NWorld::pCurrentWorld;~RestoreWorld(){NWorld::pCurrentWorld=previous;}} restoreWorld;NWorld::pCurrentWorld=world;world->GivePlayerTurn(actor->GetTBSPlayer());Require(world->IsTurnBased() && world->IsUnitActive(actor),"busy end-turn fixture failed to enter the actual owned turn");}
+    CObj<NAI::IAIUnit> brain=NAI::GetAIUnit(actor);CObj<NAI::CAILogic> logic=new NAI::CAILogic(brain);
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();const auto position=actor->GetPosition();const auto time=world->GetTime()->GetValue();auto random=GlobalGameRandom();
+    CObj<NWorld::CActionCounter> action;if(mode==4){action=world->GetActiveCounter();Require(action && world->IsExecuting(),"busy end-turn fixture lacks its actual native action counter");}
+    if(mode==1)logic->Pause();if(mode==3 || mode==4)logic->Finish();const bool ended=logic->IsEndOfTurn(),expected=mode==1 || mode==3;
+    std::printf("CONTEXT-ENDTURN mode=%d active=%d ended=%d expected=%d ap=%d executing=%d\n",mode,int(logic->IsActive()),int(ended),int(expected),actor->GetAP(),int(world->IsExecuting()));std::fflush(stdout);
+    Require(ended==expected,"actual native AI end-turn ignored paused/active/finished command eligibility");
+    if(mode==1){logic->Resume();Require(!logic->IsEndOfTurn(),"resumed actual idle AI logic remained ended");}
+    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetPosition()==position && world->GetTime()->GetValue()==time && random.Get()==GlobalGameRandom().Get(),"AI end-turn query changed actor/time/gameplay RNG");
+}
+
+template<class T> static auto NativeConstructContextClue(NRPG::CGlobalGame* game,NRPG::CGlobalPlayer* player,NScenario::CScenarioClue* clue,int)
+    -> decltype(new T(nullptr,0,game,player,clue,nullptr))
+{return new T(nullptr,0,game,player,clue,nullptr);}
+template<class T> static T* NativeConstructContextClue(NRPG::CGlobalGame* game,NRPG::CGlobalPlayer*,NScenario::CScenarioClue* clue,long)
+{return new T(nullptr,0,game,clue,nullptr);}
+
+static void NativeContextClue(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=1,"unknown contextual clue case");Require(!NMainLoop::GetCurrentInterfaceForHarness(),"clue fixture starts with an interface");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm player clue paper regression");
+    vector<NDb::CSide*> sides;CDBIterator<NDb::CSide> records(*NDatabase::GetTable<NDb::CSide>());
+    while(records.MoveNext())if(IsValid(records.Get()->pCluePaperBackground))sides.push_back(records.Get());
+    std::sort(sides.begin(),sides.end(),[](NDb::CSide* a,NDb::CSide* b){return a->GetRecordID()<b->GetRecordID();});
+    Require(sides.size()>=2 && sides[0]->pCluePaperBackground!=sides[1]->pCluePaperBackground,"clue fixture lacks two different authored side papers");
+    CObj<NRPG::CGlobalGame> game=NRPG::CreateGlobalGame(1);CObj<NRPG::CGlobalPlayer> first=new NRPG::CGlobalPlayer,second=new NRPG::CGlobalPlayer;
+    first->pSide=sides[0];second->pSide=sides[1];game->players.push_back(first);game->players.push_back(second);
+    NDb::CDBScenarioClue* record=nullptr;CDBIterator<NDb::CDBScenarioClue> clues(*NDatabase::GetTable<NDb::CDBScenarioClue>());
+    while(clues.MoveNext())if(!record || clues.Get()->GetRecordID()<record->GetRecordID())record=clues.Get();Require(record && game->pScenarioTracker,"clue fixture lacks actual authored clue/scenario");
+    CObj<NScenario::CScenarioClue> clue=new NScenario::CScenarioClue(record,1);NRPG::CGlobalPlayer* selected=mode?second.GetPtr():first.GetPtr();
+    CObj<NMainLoop::CInterfaceCommand> open=NativeConstructContextClue<NGame::CICShowClue>(game,selected,clue,0);open->Exec();
+    CObj<NMainLoop::IInterfaceBase> modal=NMainLoop::GetCurrentInterfaceForHarness();Require(modal,"actual clue command did not open its native modal");
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(modal.GetPtr(),&refs);CObj<NUI::CWindow> root;CPtr<NRPG::CGlobalPlayer> interfacePlayer;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(5,&interfacePlayer);reader.Add(9,&root);}
+    Require(root,"clue modal lacks its actual saved UI root");auto* view=root->GetChildByID("view");Require(view,"clue modal lacks its actual view");
+    CStructureNetworkContext viewRefs;auto viewFields=BorrowedObjectFields(view,&viewRefs);CPtr<NRPG::CGlobalPlayer> viewPlayer;CPtr<NUI::CImage> background;
+    {CStructureSaver reader(viewFields,CStructureSaver::READ,&viewRefs);reader.Add(3,&viewPlayer);reader.Add(7,&background);}
+    auto* paper=background?background->GetImage():nullptr;
+    std::printf("CONTEXT-CLUE mode=%d player=%d interfacePlayer=%d viewPlayer=%d background=%d paper=%d expected=%d\n",mode,selected->pSide->GetRecordID(),int(interfacePlayer.GetPtr()==selected),int(viewPlayer.GetPtr()==selected),int(IsValid(background)),paper?paper->GetRecordID():-1,selected->pSide->pCluePaperBackground->GetRecordID());std::fflush(stdout);
+    Require(interfacePlayer.GetPtr()==selected && viewPlayer.GetPtr()==selected && background && paper==selected->pSide->pCluePaperBackground.GetPtr(),"actual clue modal lost player context, clue template background or authored side paper");
+    NMainLoop::DoneInterface();
+}
+
+// Native serialized DB input, not a replacement database loader or link builder.
+struct NativeContextColumn
+{
+    string name;int type=0;
+    int operator&(CStructureSaver& f){f.Add(2,&name);f.Add(3,&type);return 0;}
+};
+// An empty relation list has no element-type tag; no private SRelation access.
+struct NativeContextEmptyRelation { int operator&(CStructureSaver&) { Require(false,"fixture encodes only an empty relation list"); return 0; } };
+static void NativeWriteContextAnimationOverlay(const std::filesystem::path& destination,
+    const S2FileIO::GameDatabaseTable& source,std::size_t row,int id,int skeleton)
+{
+    vector<vector<int>> ints(1,source.intRows[row]);vector<vector<float>> floats(1,source.floatRows[row]);
+    vector<vector<wstring>> strings(1,source.stringRows[row]);vector<NativeContextColumn> columns;
+    for(const auto& q:source.columns){NativeContextColumn column;column.name=q.name;column.type=q.type;columns.push_back(column);}
+    auto intNames=source.intNames,floatNames=source.floatNames,stringNames=source.stringNames;
+    const auto idColumn=std::find(intNames.begin(),intNames.end(),"ID"),skeletonColumn=std::find(intNames.begin(),intNames.end(),"SkeletonID");
+    Require(idColumn!=intNames.end() && skeletonColumn!=intNames.end(),"native overlay lacks animation ID/SkeletonID");
+    ints[0][idColumn-intNames.begin()]=id;ints[0][skeletonColumn-intNames.begin()]=skeleton;
+    CObj<CObjectBase> storage=pSSClasses->CreateObject(int(0xa1843130u));Require(storage,"actual registered columnar storage is missing");
+    CMemoryStream fields;{CStructureSaver writer(fields,CStructureSaver::WRITE);writer.Add(2,&ints);writer.Add(3,&floats);writer.Add(4,&strings);writer.Add(5,&columns);writer.Add(6,&intNames);writer.Add(7,&floatNames);writer.Add(8,&stringNames);}
+    fields.Seek(0);{CStructureSaver reader(fields,CStructureSaver::READ);storage->operator&(reader);}
+    unordered_map<int,CObj<CObjectBase>> tables;tables[2]=storage;list<NativeContextEmptyRelation> relations;
+    CMemoryStream database;{CStructureSaver writer(database,CStructureSaver::WRITE);writer.Add(1,&tables);writer.Add(2,&relations);}
+    S2FileIO::PortableGameDatabase decoded;std::string error;Require(S2FileIO::LoadPortableGameDatabaseBytes(static_cast<const std::uint8_t*>(database.GetBuffer()),database.GetSize(),&decoded,&error) && decoded.tables.size()==1 && decoded.tables[0].intRows.size()==1,"native small animation overlay is not a valid release columnar database");
+    std::ofstream output(destination,std::ios::binary);Require(bool(output),"cannot create private native animation mod input");output.write(reinterpret_cast<const char*>(database.GetBuffer()),database.GetSize());Require(bool(output),"cannot write private native animation mod input");
+}
+
+static void NativeContextModLinks(const char* databasePath,int mode)
+{
+    Require(mode>=0 && mode<=2,"unknown contextual mod links case");
+    const auto base=std::filesystem::absolute(databasePath);const auto oldDirectory=std::filesystem::current_path();
+    struct Restore{std::filesystem::path directory;~Restore(){std::error_code error;std::filesystem::current_path(directory,error);}} restore{oldDirectory};
+    std::filesystem::current_path(base.parent_path());{CFileStream input;input.OpenRead(base.string().c_str());NDatabase::Serialize(input,CStructureSaver::READ);}
+    Require(CModManager::Activate(vector<SModInfo>{}),"native mod fixture cannot activate its actual base database");
+    S2FileIO::PortableGameDatabase database;std::string error;Require(S2FileIO::LoadPortableGameDatabase(base.string(),&database,&error),"mod fixture cannot decode authoritative animation input");
+    const S2FileIO::GameDatabaseTable* source=nullptr;for(const auto& q:database.tables)if(q.tableId==2)source=&q;
+    Require(source && source->intRows.size()==source->floatRows.size() && source->intRows.size()==source->stringRows.size(),"native mod fixture lacks aligned real animation rows");
+    const auto idColumn=std::find(source->intNames.begin(),source->intNames.end(),"ID");Require(idColumn!=source->intNames.end(),"native animation table lacks IDs");const auto idIndex=idColumn-source->intNames.begin();
+    std::map<int,std::pair<int,int>> expectedRecords;CDBIterator<NDb::CAnimation> animation(*NDatabase::GetTable<NDb::CAnimation>());
+    while(animation.MoveNext()){auto* a=animation.Get();if(IsValid(a->pSkeleton))expectedRecords[a->GetRecordID()]={a->pSkeleton->GetRecordID(),int(a->nType)};}
+    Require(!expectedRecords.empty(),"native mod fixture has no real skeleton animation groups");const int target=expectedRecords.begin()->first,oldSkeleton=expectedRecords.begin()->second.first;
+    vector<int> skeletons;CDBIterator<NDb::CSkeleton> skeleton(*NDatabase::GetTable<NDb::CSkeleton>());while(skeleton.MoveNext())if(skeleton.Get()->GetRecordID()!=oldSkeleton)skeletons.push_back(skeleton.Get()->GetRecordID());std::sort(skeletons.begin(),skeletons.end());Require(skeletons.size()>=2,"native mod fixture lacks distinct real skeletons");
+    std::size_t row=source->intRows.size();std::vector<std::int32_t> insertion;int maxID=0;
+    for(std::size_t i=0;i<source->intRows.size();++i){const int id=source->intRows[i][idIndex];insertion.push_back(id);maxID=Max(maxID,id);if(id==target)row=i;}
+    Require(row<source->intRows.size(),"native linked animation has no authoritative source row");
+    const char* userData=std::getenv("S2_USER_DATA_DIR");Require(userData && *userData,"mod fixture lacks its isolated user directory");
+    const auto root=std::filesystem::absolute(userData)/("context-mod-links-"+std::to_string(mode));std::filesystem::create_directories(root);
+    vector<SModInfo> mods;const int editedID=mode==2?maxID+1:target;const int count=mode==1?2:1;
+    for(int i=0;i<count;++i){const auto path=root/("layer-"+std::to_string(i));std::filesystem::create_directories(path);{std::ofstream description(path/"description.txt",std::ios::binary);description<<"Native animation link layer";}
+        NativeWriteContextAnimationOverlay(path/"game.db",*source,row,editedID,skeletons[i]);SModInfo info;info.szName="Native animation link layer";info.szDirectory=path.string();mods.push_back(info);}
+    if(mode==2){expectedRecords[editedID]={skeletons[0],expectedRecords[target].second};insertion.push_back(editedID);}else expectedRecords[target].first=skeletons[count-1];
+    std::map<std::pair<int,int>,std::vector<int>> expected;
+    for(auto id:S2FileIO::OrderGameDatabaseRecordIdsLikeStlport(insertion)){auto record=expectedRecords.find(id);if(record!=expectedRecords.end())expected[record->second].push_back(id);}
+    Require(CModManager::Activate(mods),"actual mod manager rejected valid native animation overlays");
+    std::map<std::pair<int,int>,std::vector<int>> actual;CDBIterator<NDb::CSkeleton> after(*NDatabase::GetTable<NDb::CSkeleton>());
+    while(after.MoveNext())for(const auto& group:after.Get()->pAnimations)for(auto a:group.second.anims){Require(a,"native skeleton has an expired animation link");actual[{after.Get()->GetRecordID(),group.first}].push_back(a->GetRecordID());}
+    auto* edited=NDb::GetDBAnimation(editedID);Require(edited && edited->pSkeleton && edited->pSkeleton->GetRecordID()==skeletons[count-1],"actual native animation overlay did not update its forward skeleton reference");
+    std::printf("CONTEXT-MOD-LINKS mode=%d layers=%d animation=%d oldSkeleton=%d newSkeleton=%d groups=%zu expectedGroups=%zu orderedEqual=%d\n",mode,count,editedID,oldSkeleton,skeletons[count-1],actual.size(),expected.size(),int(actual==expected));std::fflush(stdout);
+    Require(actual==expected,"native mod activation left stale/duplicate/missing reverse animation links or lost release insertion order");
+    Require(CModManager::Activate(vector<SModInfo>{}),"native mod fixture cannot restore the actual base database");
+}
+
+static void NativeContextTrap(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=3,"unknown contextual trap case");Require(!NMainLoop::GetCurrentInterfaceForHarness(),"trap fixture starts with an interface");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm contextual trap regression");
+    CObj<NRPG::CGlobalGame> game=NRPG::CreateGlobalGame(1);game->players.push_back(NRPG::CreateGlobalPlayer(std::vector<int>{54}));
+    CObj<NGame::CICBeginMission> open=new NGame::CICBeginMission(-1,810,vector<string>(),game);open->Exec();
+    CObj<NGame::CMission> mission=dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());Require(mission && mission->GetActivePlayer(),"trap fixture did not initialize its actual native human mission");
+    while(NMainLoop::HaveInterfaceCommand()){CObj<NMainLoop::CInterfaceCommand> queued=NMainLoop::TakeInterfaceCommandForHarness();Require(dynamic_cast<NMainLoop::CICSaveFile*>(queued.GetPtr()),"trap setup posted an unexpected native interface command");}
+    mission->PauseGame(true);auto* player=mission->GetActivePlayer();player->Update(true);vector<CPtr<NGame::IUnitTracker>> trackers;player->GetUnits(&trackers);NWorld::CUnitServer* actor=nullptr;
+    for(auto tracker:trackers){auto* unit=dynamic_cast<NWorld::CUnitServer*>(tracker->GetUnit());if(unit && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK()){actor=unit;break;}}
+    std::printf("CONTEXT-TRAP-SETUP mode=%d trackers=%zu actor=%d sequence=%d playerTurn=%d realtime=%d\n",mode,trackers.size(),int(actor!=nullptr),int(mission->IsSequence()),int(mission->IsPlayerTurn()),int(mission->IsRealTime()));std::fflush(stdout);
+    Require(actor && !mission->IsSequence() && mission->IsPlayerTurn(),"trap fixture lacks its real human controlled tactical actor");
+    NDb::CRPGGrenade* record=nullptr;CDBIterator<NDb::CRPGGrenade> grenades(*NDatabase::GetTable<NDb::CRPGGrenade>());
+    while(grenades.MoveNext()){auto* grenade=grenades.Get();if(grenade->pItem && (!record || grenade->GetRecordID()<record->GetRecordID()))record=grenade;}
+    Require(record,"trap fixture lacks an authored ordinary grenade");CObj<NRPG::CGrenadeItem> grenade=new NRPG::CGrenadeItem(record);grenade->nQuantity=1;grenade->SetMode(mode==0 || mode==3?NRPG::GM_THROW:NRPG::GM_SETTRAP);
+    auto* inventory=actor->GetUnitRPG()->GetInventory();CObj<NRPG::IInventoryItem> previous=inventory->Get(NDb::SLOT_1)?inventory->TakeOff(NDb::SLOT_1):nullptr;
+    Require(inventory->Equip(NDb::SLOT_1,grenade) && inventory->Activate(NDb::SLOT_1),"trap fixture cannot equip/activate its actual grenade");
+    actor->SetWalkWithoutWeapon(false);actor->SetUndrawItem(false);actor->animator.SetActiveItem(true);actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
+    mission->Select(actor,false);mission->RefreshPointerTarget();vector<CPtr<NGame::IUnitTracker>> selected;mission->GetSelectedUnits(&selected);Require(selected.size()==1 && selected.front()->GetUnit()==actor && mission->IsReady(),"trap fixture did not select its actual ready native actor");
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();const auto position=actor->GetPosition();auto random=GlobalGameRandom();
+    NGame::SActionInfo expected;mission->CanDoCommand(new NWorld::CCmdSetGrenadeOnObject(nullptr),true,&expected);
+    const bool trapMode=mode==1 || mode==2;Require(expected.bAvailable==trapMode,"native grenade command did not expose the intended throw/trap setup");
+    if(mode<=1){NGame::SActionInfo actual;mission->GetActionInfo(static_cast<NGame::EUnitAction>(14),&actual);
+        std::printf("CONTEXT-TRAP mode=%d grenadeMode=%d available=%d expectedAvailable=%d AP=%d,%d expectedAP=%d,%d result=%d expectedResult=%d\n",mode,int(grenade->GetMode()),int(actual.bAvailable),int(expected.bAvailable),actual.nMinAP,actual.nMaxAP,expected.nMinAP,expected.nMaxAP,int(actual.eResult),int(expected.eResult));std::fflush(stdout);
+        Require(actual.bAvailable==expected.bAvailable && actual.nMinAP==expected.nMinAP && actual.nMaxAP==expected.nMaxAP && actual.eResult==expected.eResult,"native action14 cache did not represent the real object-trap command");
+        NGame::SActionInfo attack;mission->GetActionInfo(NGame::UA_ATTACK,&attack);Require(attack.bAvailable==!trapMode,"ordinary attack still advertises object-trap mode or lost ordinary grenade throwing");}
+    else if(mode==2){auto event=SharedActionEvent({"setmine"});mission->ProcessEvent(event);const bool isTrap=dynamic_cast<NGame::CStateSetTrap*>(mission->GetState())!=nullptr;
+        std::printf("CONTEXT-TRAP mode=2 sharedSetMineTrap=%d expected=1\n",int(isTrap));std::fflush(stdout);Require(isTrap,"actual shared setmine input did not enter the available native object-trap state");}
+    else {CObj<NGame::CStateSetTrap> state=new NGame::CStateSetTrap;const bool accepted=state->Initialize(mission);std::printf("CONTEXT-TRAP mode=3 throwModeAccepted=%d expected=0\n",int(accepted));std::fflush(stdout);if(accepted)state->Terminate();Require(!accepted,"forced object-trap state used ordinary attack availability for a throw-mode grenade");}
+    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetPosition()==position && random.Get()==GlobalGameRandom().Get(),"contextual trap queries/input changed physical actor or gameplay RNG");
+    NMainLoop::DoneInterface();
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode,"native-knife-solver")) { Require(argc==5,"knife solver requires db/resources/mode"); NativeKnifeLaunchTarget(argv[2],argv[3],std::atoi(argv[4]),true); return true; }
@@ -36360,6 +36571,11 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-pk-pilot-exit")) { Require(argc==5,"PK pilot exit requires db/resources/mode"); NativePKPilotExit(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-pk-hide-gate")) { Require(argc==5,"PK hide gate requires db/resources/mode"); NativePKHideGate(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-camera-framing-bridge")) { Require(argc==5,"camera bridge requires db/resources/mode"); NativeCameraFramingBridge(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-context-modlinks")) { Require(argc==5,"context modlinks requires db/resources/mode"); NativeContextModLinks(argv[2],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-context-trap")) { Require(argc==5,"context trap requires db/resources/mode"); NativeContextTrap(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-context-swap")) { Require(argc==5,"context swap requires db/resources/mode"); NativeContextSwap(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-context-end-turn")) { Require(argc==5,"context end-turn requires db/resources/mode"); NativeContextEndTurn(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-context-clue")) { Require(argc==5,"context clue requires db/resources/mode"); NativeContextClue(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-fractional-ui-pixels")) { Require(argc==5,"fractional UI pixels requires db/resources/mode"); NativeFractionalUIPixels(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "automatic-camera-poi")) { Require(argc==5,"automatic camera requires db/resources/mode"); NativeAutomaticCameraPOI(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "automatic-camera-fov")) { Require(argc==5,"automatic camera requires db/resources/mode"); NativeAutomaticCameraFOV(argv[2],argv[3],std::atoi(argv[4])); return true; }

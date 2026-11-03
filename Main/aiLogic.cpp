@@ -203,12 +203,20 @@ void CAILogic::CheckCycling()
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// IsEndOfTurn / GetCommand-gating are situation specific; base end-of-turn = finished or no AP. @0x00462750
+// Native turn completion follows active commands and world execution, not raw AP.
+// Typed original primary binding: Gold 0x461ef0 -> Steam 0x462ae0.
 bool CAILogic::IsEndOfTurn()
 {
-	if ( bFinished )
+	CPtr<NWorld::CWorld> pWorld = CDynamicCast<NWorld::CWorld>( GetWorld() ).GetPtr();
+	CPtr<NWorld::CUnitServer> pUS = GetUnitServer();
+	if ( !IsValid( pWorld ) || !IsValid( pUS ) )
 		return true;
-	return IsValid( pUnit ) && pUnit->GetAP() <= 0;
+	if ( pWorld->IsTurnBased() && pWorld->IsExecuting() )
+		return false;
+	if ( IsFinished() || !IsActive() )
+		return true;
+	return !( pWorld->IsUnitActive( pUS ) && pUS->CanFight() &&
+		( pUS->IsPerformingAction() || !pUS->HasCommand() || pUS->HasEnoughAP() ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // @0x418350 -- retail wire (byte-walk-confirmed on slot-1 CAIRouteLogic instances): {2 nPause int4,

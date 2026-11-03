@@ -741,9 +741,10 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 					return curPose == NAI::CRAWL? 4 : 2;
 			}
 		// @0x2c0bd0 -- retail sources these from the RPGAP DB table (NDb::GetRPGAP, ids 11/12/13)
+		case AC_SWAP:
 		case AC_ITEM_TAKE:
 		{
-			NDb::CRPGAP *pAP = NDb::GetRPGAP( 11 );
+			NDb::CRPGAP *pAP = NDb::GetRPGAP( action == AC_SWAP ? 10 : 11 );
 			return pAP ? pAP->nAP : 0;
 		}
 		case AC_ITEM_SLOT:

@@ -223,7 +223,8 @@ bool CMissionBase::ExecWorldCommonCommand( NWorld::CUICmd *pCmd )
 		NWorld::CUICmdShowClue *pClue = CDynamicCast<NWorld::CUICmdShowClue>( pCmd );
 		// The clue modal needs a campaign; our backdrop worlds have no scenario.
 		if ( IsValid( pGlobalGame ) && IsValid( pClue->pClue ) )
-			NMainLoop::Command( new NGame::CICShowClue( this, pClue->GetID(), pGlobalGame, pClue->pClue ) );
+			NMainLoop::Command( new NGame::CICShowClue( this, pClue->GetID(), pGlobalGame,
+				IsValid( pActivePlayer ) ? pActivePlayer->GetGlobalPlayer() : 0, pClue->pClue ) );
 	}
 	// The AI-turn hint is an additive model flash with its own lifetime.
 	else if ( CDynamicCast<NWorld::CUICmdAIUnitWillMove>( pCmd ) )

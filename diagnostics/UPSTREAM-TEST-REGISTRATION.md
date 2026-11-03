@@ -3210,3 +3210,18 @@ no new exclusions. Initial header-guard compiler error is archived separately. F
 complete,12 unfinished.
 
 Source: [5b7ed0510f6265088741bdb7cd333315b73a3f86](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5b7ed0510f6265088741bdb7cd333315b73a3f86).
+
+## 180. Complete scenario updates and native contextual actions
+
+Register21 actual native contextual cases. Identical21case baseline before Main:19
+intended RED each (7 missing Swap foundations+12 behavior),2 native controls and93 old
+controls pass; after port114/114 each (one successfulSwap postfoundation RNG expectation
+corrected, exacttail transform andseparatehashes; finalwholefixture notbyte-identical),
+including real command/executor restoration/AP/facing. Actual human mission/trap input,
+native mod manager/order, native logic and clue modal paths; no new production test
+hook/fake producer. Initial compiler/probe/observer and legacy shortcut setup errors
+archived separately, full parent restored before final RED. Original13 strict spans;
+fullGames546W525L/Linuxcore/CI383/LAN12each361. Existing22W-only1L-only/inherited
+nested-save only; full360 complete,11 unfinished.
+
+Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).

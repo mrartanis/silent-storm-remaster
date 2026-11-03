@@ -567,9 +567,16 @@ bool NDatabase::ImportField( const char *pszFieldName, CDBRecord **pRef, CDBTabl
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void NDatabase::Serialize( CDataStream &file, CStructureSaver::EMode mode, bool overlay )
+void NDatabase::Serialize( CDataStream &file, CStructureSaver::EMode mode, bool overlay,
+	bool buildBaseLinks, NDatabase::SDatabaseLoadContext *loadContext )
 {
 	(void)overlay; // editor/dev storage does not use runtime mod overlays
+	(void)buildBaseLinks; // dev tables already contain their derived links
+	if ( loadContext && !overlay && mode == CStructureSaver::READ )
+	{
+		loadContext->columnarBase = false;
+		loadContext->animationRowOrder.clear();
+	}
 	CTablesHash &tables = GetTables();
 	NDatabase::bIsDatabaseLoading = true;
 	{

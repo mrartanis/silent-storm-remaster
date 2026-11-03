@@ -26819,3 +26819,103 @@ complete:234 imported/9 pending/3 partial,12 unfinished sources. Final laborator
 fractional-ui-verification.json.
 
 Source: [5b7ed0510f6265088741bdb7cd333315b73a3f86](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5b7ed0510f6265088741bdb7cd333315b73a3f86).
+
+## 180. Complete scenario updates and native contextual actions
+
+Complete all34 donor files, retaining the earlier selected-grid shot producers,
+called-shot damage, scalar overlay markers, clue discovery/death notifications,
+script-to-clue goal fallback and tooltip fixes. The remaining20 production files,
+including a shared dev-table tool adapter, add native adjacent-unit exchange,
+command/executor registrations01093130/71983146 and action41/RPGAP10; retain individual
+facing and debit only the actor. Friend cursor27 and click fallback follow existing
+talk/not-hero handling and keep the remaster LAN base-service branch. The separate34eee
+inactive-pose and late-run revalidation change remains pending until independently tested
+on this published foundation.
+
+AI turn completion now considers actual world execution, active logic, current commands,
+fighting eligibility and AP instead of raw AP alone. Keep the already-correct
+HasCommand-based retirement, point-of-interest behavior and saved fields. Dedicated trap
+action14 replaces the separate snipe availability slot while retaining max24; compute it
+in this fork's lazy action cache, dispatch shared setmine to mine or trap, preserve
+pending asynchronous results, and reject ordinary grenade shooting in trap mode. Restore
+all four iconbar changes, including trap17411 and exitPK686/687/19876. The actual
+mission-base clue caller and chapter map pass their global player through the existing
+mission/event/screenshot parameters; template429 uses the player's authored side paper and
+keeps the close callback and existing saved tags.
+
+The mod manager builds derived database links once after all overlays. This fork's
+existing third Serialize boolean still means overlay: separate buildBaseLinks and an
+unsaved load context collect base/new animation insertion IDs. Keep portable decoding, ADO
+behavior, FDF/missing-field semantics, live object identity, legacy-v0 derived links,
+default callers, Linux resource paths and original STLport group ordering. Reuse the
+existing builder; do not copy the donor's incompatible boolean calls or original
+translation-status ABI.
+
+The final identical21-case native fixture runs before production changes on both
+platforms:19 expected failures comprise7 missing Swap command foundations and12 actual
+behavioral failures (3 mod reverse-link/order,4 actual human-mission trap/cache/input,3
+worldless/paused/TBS-busy logic,2 real clue-modal player/paper). Two native logic controls
+and93 selected prior controls pass. After the port all114 cases pass on each platform,
+including actual Swap command/executor field restoration, cost, positions, facing and
+unchanged health/time. Rejected Swap queries preserve gameplay RNG; successful relocation
+retains native step/visibility and hearing rolls. Swap post-foundation assertions are
+GREEN evidence, not7 independent pre-port behavior bugs. Friend cursor/click is
+source/static-accounted, not claimed as independent native UI RED. No fake producer,
+private flag injection, test-only production hook or asset modification was introduced for
+the native fixture.
+
+One successful-Swap-only post-foundation assertion was corrected after the first GREEN
+attempt: the native position setter emits ordinary step/visibility notifications and
+hearing probability intentionally rolls gameplay RNG. All physical/AP/facing/save checks
+had passed; only the unsupported no-RNG-on-success assumption failed in3 cases. The final
+whole fixture is not byte-identical to baseline. An exact full-source transformation
+proves that only this unreachable-after-api0 tail changed; the other14 native cases and
+every pre-foundation Swap input/check are byte-identical. Keep separate baseline/final
+hashes, health/time checks and rejected-command no-RNG checks; success RNG is observed
+without a parity assertion. No production RNG suppression or fake producer was added.
+Linux compilation also required explicit namespace qualification for the load-context type
+in the global table class friend declaration; the compiler error is archived separately.
+Clang also requires the explicit raw-pointer extraction between the world dynamic-cast
+wrapper and CPtr, preserving the same cast and ownership. The final full Windows build
+covers both portable spellings too. Its first complete sweep also found the separate
+DataImport console serializer still defining the old3arg API; its matching5arg definition
+retains the same dev-table format and legacy derived links, with runtime build flags
+ignored and optional base-read context reset. This extra tool adapter is covered by the
+successful final ALL build; the initial compiler failure is archived separately. The
+asset-free NativeAILogicTests lifecycle control now expects an unattached logic to end its
+unavailable turn, matching independent native case0 and the original branch; its
+pause/resume/finish assertions remain. The initial CI382-pass/one-old-expectation failure
+is archived separately, then all383 cases pass after the test update. Initial fixture
+experiments are archived separately. MSVC rejected decltype(new T) because the command
+destructor is protected; the feature probe now tests completeness/base conversion and
+constructs through the normal native API. A second borrowed-field observer reused a
+network-reference context whose ID allocator resets, so it now owns a separate context.
+The old shortcut fixture explicitly caches its intended valid actions and available mine,
+retaining its prior behavioral assertions. The Swap fixture explicitly enters the actual
+owned TBS turn and installs its native world callback context before observing AP/run
+behavior; ordinary real-time actions intentionally do not debit AP. All19 production files
+were restored to the exact parent, then the corrected identical21 fixture was rerun RED on
+both platforms before restoring the complete selective port. These setup/compiler/probe
+failures are not runtime RED evidence.
+
+Original metadata binds typed primary entries and trap14/attack8/max24. Thirteen strict
+static spans use only decoded external-call displacement relocation; larger
+builder/UI/icon/state candidates retain unmasked field/frame/global/opcode differences and
+are rejected. Actual AI binding is Gold461ef0/604 to Steam462ae0, with583 bytes after
+omitted SEH21; stale source guide addresses are not evidence. Named native Swap primary
+GetStartAP16 supplies action41 and its full32-byte AP forwarder is matched; Gold lacks
+Swap metadata, and no whole cost-table/ABI/RNG/engine parity or original execution is
+claimed. Preserve physical8210 versus AI8200/tile200 and the existing empty cached-hit
+consumer.
+
+Fresh full Games pass546 Windows and525 Linux related scenarios, plus Linux portable
+core,383 local asset-free CI cases and12 LAN gates/361 encounter variants per platform.
+Existing22 Windows-only and1 Linux-only registrations and the inherited nested-save
+exclusion remain; no new exclusions. Original game.db
+hash314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged.
+Existing saved/DB/network formats and the frozen HD pack are preserved; native Swap types
+use their original field tags. Full360 complete:235 imported/9 pending/2 partial,11
+unfinished sources. See scenario-context-verification.json and
+scenario-context-integration-audit.json.
+
+Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).

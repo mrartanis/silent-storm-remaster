@@ -26,11 +26,12 @@ private:
 	CPtr<IMission> pMission;
 	CPtr<NUI::CScreenShot> pScreenShot;
 	CPtr<NRPG::CGlobalGame> pGame;
+	CPtr<NRPG::CGlobalPlayer> pPlayer;
 	CPtr<NScenario::CScenarioClue> pClue;
 
 public:
 	CICShowClue() {}
-	CICShowClue( IMission *pMission, int nEventID, NRPG::CGlobalGame *pGame, NScenario::CScenarioClue *pClue, NUI::CScreenShot *pScreenShot = 0 );
+	CICShowClue( IMission *pMission, int nEventID, NRPG::CGlobalGame *pGame, NRPG::CGlobalPlayer *pPlayer, NScenario::CScenarioClue *pClue, NUI::CScreenShot *pScreenShot = 0 );
 
 	virtual void Exec();
 };

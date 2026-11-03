@@ -6,9 +6,17 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "../Misc/Basic2.h"
 #include "../FileIO/BasicChunk1.h"
+#include <cstdint>
+#include <vector>
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CDBRecord;
 namespace NDatabase {
+	// Transient context shared by one base load and its overlays; never serialized.
+	struct SDatabaseLoadContext
+	{
+		bool columnarBase = false;
+		std::vector<std::int32_t> animationRowOrder;
+	};
 	extern CClassFactory<CDBRecord>& GetRecordTypes();
 	externA5 bool bIsDatabaseLoading;
 	//
@@ -16,7 +24,7 @@ namespace NDatabase {
 	void Refresh( int nTableID );
 	template<class T> void Refresh( T *pDest = 0 ) { T *p = 0; Refresh( GetRecordTypes().GetTypeID( p ) );	}
 	// forward-declared here so CDBTableBase can befriend it (full decl is below, after the class)
-	void Serialize( CDataStream &file, CStructureSaver::EMode mode, bool overlay = false );
+	void Serialize( CDataStream &file, CStructureSaver::EMode mode, bool overlay = false, bool buildBaseLinks = true, SDatabaseLoadContext *loadContext = 0 );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CDBTableBase;
@@ -94,7 +102,7 @@ public:
 	}
 	friend void NDatabase::Import();
 	friend void NDatabase::Refresh( int nTableID );
-	friend void NDatabase::Serialize( CDataStream &file, CStructureSaver::EMode mode, bool overlay );
+	friend void NDatabase::Serialize( CDataStream &file, CStructureSaver::EMode mode, bool overlay, bool buildBaseLinks, NDatabase::SDatabaseLoadContext *loadContext );
   friend class CDBIteratorBase;
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -156,7 +164,7 @@ namespace NDatabase
 			return pRes;
 		}
 	inline CDBTableBase* GetTableByRecord( CDBRecord *p ) { return GetTable( GetRecordTypes().GetObjectTypeID( p ) ); }
-	void Serialize( CDataStream &file, CStructureSaver::EMode mode, bool overlay );
+	void Serialize( CDataStream &file, CStructureSaver::EMode mode, bool overlay, bool buildBaseLinks, SDatabaseLoadContext *loadContext );
 	// release BasicDB.obj @0x3570 -- drop all tables/records/relations, then re-create one empty
 	// table entry per registered descriptor (CModManager::Activate teardown before the DB reload)
 	void ClearDatabaseTables();

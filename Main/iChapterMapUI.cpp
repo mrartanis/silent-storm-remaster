@@ -1100,7 +1100,8 @@ void CChapterMapUI::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 			if ( !(*iTemp)->IsJustFound() )
 				continue;
 
-			NMainLoop::Command( new NGame::CICShowClue( 0, 0, pChapter->GetRPGGame(), (*iTemp) ) );
+			NMainLoop::Command( new NGame::CICShowClue( 0, 0, pChapter->GetRPGGame(),
+				pChapter->GetRPGGame()->players.empty() ? 0 : pChapter->GetRPGGame()->players.front().GetPtr(), (*iTemp) ) );
 			(*iTemp)->SetJustFound( false );
 			if ( !pChapter->GetRPGGame()->players.empty() )
 				pChapter->GetRPGGame()->players.front()->AddMedalPointsForClue( pChapter->GetRPGGame() );
