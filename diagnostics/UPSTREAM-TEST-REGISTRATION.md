@@ -3251,3 +3251,22 @@ Games/selected regressions/core2/CI383/LAN12each361 pass without exclusions. Act
 in ai-loot-verification.json. Full13-file AFEE complete,9 unfinished.
 
 Source: [afee0c2eb6ee5cc6927eb48d9a273ef2622b6d72](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/afee0c2eb6ee5cc6927eb48d9a273ef2622b6d72).
+
+## 183. Defer turn notifications without reentrant movement release
+
+Register9 actual native deferred-turn cases and retain17 prior AI-loot controls. Canonical
+same-source baseline both6behaviorRED+2queue/wire foundations/18controls ->26GREEN each;
+captured-owner/roundtrip checks after foundation are GREEN-only. Final whole Cpp differs
+by an exact human7 post-first-failure else replacement (native EndMove/FAILED retirement
+before Continue; dispatch noAP/HPdebit, pending-step retirement can debit49->45) and one
+legacy AnimationReseat expected-ownership assertion outside canonical26. Other code/AI8
+guard/24case bodies unchanged; no fake producer/private injection/test hook. Broader
+first335326PASS9FAIL archived; live hotseat adapter and explicit new-turn fixture
+readiness plus expected human/AI ownership migration resolve all9.
+Campaign3Give+nativecommander delivery/boundedlegalContinue andpartial-network1Give setup
+preserve original action/AP/time/save assertions;12campaign runs pass3repeats. Windows
+ALL/freshGames/registeredrelated/core2/CI383/LAN12each361, no selected exclusions. Actual
+counts and exact platform registrations in deferred-turn-verification.json.
+Full5donor+2own consumer files complete,8 unfinished.
+
+Source: [890e4474fff18faad3d11d2682022ce8a5d43a19](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/890e4474fff18faad3d11d2682022ce8a5d43a19).

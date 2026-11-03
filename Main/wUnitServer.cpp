@@ -1000,7 +1000,7 @@ void CUnitServer::OnTBSEvent( ETBSEvent event )
 			if ( !animator.GetCannon() && CanFight() && ShouldReseatMoveAnimation( pExec, animator.bStandIfRecalcCommand ) )
 				animator.PlaceUnit( GetPosition() );
 			CancelAction();
-			// TURN-STALL FIX (dev-bugs s6 retest#5, bug B): retail @0x3c2a90 RELEASES the move executor
+			// AI turn-stall guard: retail @0x3c2a90 RELEASES the move executor
 			// here, so the interrupted move COMMAND is gone with it. The dev tree keeps pExec alive (the
 			// re-entrant-free hazard documented above) but must still abandon the command: CancelAction's
 			// own `pCurrentCmd = 0` is commented out and CheckCmdExecState clears pCurrentCmd only on
@@ -1010,12 +1010,19 @@ void CUnitServer::OnTBSEvent( ETBSEvent event )
 			// HasCommand(), which made the unit's think-job IsIdleJob()==true forever (@0x4331c0), the
 			// job manager never ran it, the tactical commander's WaitForJob dependency never finished,
 			// bEndOfTurn never latched -- the AI player's first turn never ended. Clearing the command
-			// here mirrors retail's executor release; the unit's route/logic re-decides from scratch.
-			pCurrentCmd = 0;
+			// here lets the AI re-decide; a human retains its route for Continue.
+			if ( IsAIUnit() )
+				pCurrentCmd = 0;
 			break;
 		default:
 			ASSERT( 0 );
 	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CUnitServer::HasAutoFirstTurnInterrupt() const
+{
+	// Retail v1.2 0x7bfda0, reached by first-turn interrupt collection.
+	return GetUnitRPG()->GetRPGUnit()->HasPerk( 0x1b );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnitServer::IsPerformingAction() const

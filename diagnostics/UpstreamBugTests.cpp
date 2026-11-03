@@ -25,6 +25,7 @@
 #include "../Main/wUnitGroup.h"
 #include "../Main/iCommonUI.h"
 #include "../Main/iTeamMngMenu.h"
+#include "../Main/eventUnit.h"
 #include "../Main/eventPlayer.h"
 #include "../Misc/EventsBase.h"
 #include "../Main/PerkToolTip.h"
@@ -20092,7 +20093,7 @@ static void AnimationReseat(const char* databasePath,const char* resourcePath,in
     actor->OnTBSEvent(stop?NWorld::TBS_STOP_MOVE_AND_CANCEL_ACTION:NWorld::TBS_RECALC_COMMAND);auto after=AnimationReseatOrder(actor);const auto current=NativeCannonAnimationClips(body);int added=0;for(auto* clip:current)if(std::find(clips.begin(),clips.end(),clip)==clips.end())++added;
     auto afterRandom=GlobalGameRandom();std::printf("native animation reseat: mode=%d ladder=%d legacy=%d stop=%d beforeMarker=%d afterMarker=%d newClips=%d beforeEnd=%u afterEnd=%u retainedExec=%d pendingCommand=%d aimed=%d->%d cannon=%d->%d AP=%d->%d HP=%d->%d ammo=%d->%d\n",mode,int(ladder),int(legacy),int(stop),int(marker),int(actor->animator.bStandIfRecalcCommand),added,unsigned(end),unsigned(actor->animator.GetTimeEnd()),int(after.first==before.first),int(after.second!=nullptr),int(aimed),int(actor->animator.IsAiming()),int(cannon!=nullptr),int(actor->animator.GetCannon()!=nullptr),ap,actor->GetAP(),hp,actor->GetUnitRPG()->GetTotalVP(),ammo,weapon?weapon->GetAmmoQuantity():0);std::fflush(stdout);
     Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetPosition()==position && actor->GetUnitRPG()->GetInventory()->GetActive()==item && (weapon?weapon->GetAmmoQuantity():0)==ammo && random.Get()==afterRandom.Get(),"native interruption animation policy changed AP/HP/position, equipment/ammunition or game RNG");
-    if(moveMode){Require(stop?after.first==before.first && !after.second:!after.first && after.second==before.second,"animation reseat changed our safe stop ownership or pending-order recalc policy");}
+    if(moveMode){const bool pending=stop && actor->IsAIUnit() ? !after.second : after.second==before.second;Require((stop?after.first==before.first:!after.first) && pending,"animation reseat changed safe stop ownership, human pending route or AI cleanup policy");}
     if(ladder || bodyPolicy)Require(added==0 && actor->animator.GetTimeEnd()==end && actor->animator.IsAiming()==aimed && actor->animator.GetCannon()==cannon,"command interruption reseated a native ladder/settled/aiming/mounted animation that must retain its own clip");
     else Require(added>0 && !actor->animator.IsAiming(),"command interruption did not reseat a real walking/turning actor, including an actual old-fork save");
     if(moveMode){dynamic_cast<NWorld::IExecMove*>(mover.GetPtr())->FullCancel();actor->Do(new NWorld::CCmdCancel(actor));mover=nullptr;before.first=nullptr;after.first=nullptr;}
@@ -36025,6 +36026,133 @@ static void NativeLootHotseat(const char* databasePath,const char* resourcePath,
     else {Require(!mission->CanDoCommand(new NWorld::CCmdEndOfTurn),"native hotseat setup did not enter its real turn-change cooldown");auto* before=world->GetTBSCurrentPlayer();auto* commander=mission->GetActivePlayer()->GetCommander();Require(!commander->HasCommands(),"native cooldown fixture starts with pending commands");auto event=SharedActionEvent({"endofturn"});Require(mission->ProcessEvent(event),"native end-of-turn input was not handled");Require(world->GetTBSCurrentPlayer()==before && !commander->HasCommands(),"keyboard end turn bypassed the native turn-change cooldown");}
 }
 
+
+namespace NWorld {struct STBSEvent;}
+template<class T> static auto NativeDrainTurnEvents(T* world,int)->decltype(world->ProcessTBSEvents(),bool()){world->ProcessTBSEvents();return true;}
+template<class T> static bool NativeDrainTurnEvents(T*,long){return false;}
+class NativeDeferredTurnObserver:public CObjectBase
+{
+    OBJECT_NOCOPY_METHODS(NativeDeferredTurnObserver);
+    NGlobal::CEventRegister<NativeDeferredTurnObserver,NWorld::CEventOnPassControl> registration;
+public:
+    NWorld::CWorld* world;NWorld::CPlayer* reenter=nullptr;bool once=false;int depth=0,maxDepth=0;
+    vector<CPtr<NWorld::CPlayer>> owners;
+    explicit NativeDeferredTurnObserver(NWorld::CWorld* value=nullptr):registration(this,&NativeDeferredTurnObserver::OnPass),world(value){}
+    void OnPass(const NWorld::CEventOnPassControl& event){if(NWorld::pCurrentWorld!=world)return;++depth;maxDepth=Max(maxDepth,depth);owners.push_back(event.pPlayer);if(reenter && !once){once=true;world->GivePlayerTurn(reenter);}--depth;}
+};
+struct NativeSavedTurnEventObserver {
+    int event=-1;CPtr<CObjectBase> param;
+    int operator&(CStructureSaver& saver){saver.Add(2,&event);saver.Add(3,&param);return 0;}
+};
+struct NativeSavedTBSObserver {
+    list<NativeSavedTurnEventObserver> events;
+    int operator&(CStructureSaver& saver){saver.Add(7,&events);return 0;}
+};
+template<class T> static auto NativeQueuedTurnWire(NWorld::CPlayer* owner,int)->decltype(sizeof(T),bool()) {
+    T event;event.event=static_cast<decltype(event.event)>(9);event.pParam=owner;
+    CStructureNetworkContext refs;refs.externalReferences=true;refs.ids[owner]=1;refs.refs[1]=owner;refs.nextID=100;refs.include=[](CObjectBase*){return false;};
+    CMemoryStream saved;{CStructureSaver writer(saved,CStructureSaver::WRITE,&refs);writer.Add(2,&event);}saved.Seek(0);
+    T restored;{CStructureSaver reader(saved,CStructureSaver::READ,&refs);reader.Add(2,&restored);}
+    Require(int(restored.event)==9 && restored.pParam==owner,"native queued-event roundtrip lost its event code or captured owner");return true;
+}
+template<class T> static bool NativeQueuedTurnWire(NWorld::CPlayer*,long){return false;}
+static void NativeDeferredMoveControl(const char* databasePath,const char* resourcePath,bool ai)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    struct Restore {NWorld::CWorld* previous=NWorld::pCurrentWorld;~Restore(){NWorld::pCurrentWorld=previous;}} restore;NWorld::pCurrentWorld=world;
+    vector<CPtr<NWorld::CUnit>> units;world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor=nullptr;
+    CObj<NAI::CPath> route;
+    for(auto entry: units) {
+        auto* unit=dynamic_cast<NWorld::CUnitServer*>(entry.GetPtr());
+        if(!unit || unit->IsAIUnit()!=ai || !unit->CanFight() || unit->IsWearingPK() || unit->IsEmptyPK() || !unit->GetUnitRPG()->CanMove())continue;
+        world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(unit->GetPlayer()));NativeDrainTurnEvents(world.GetPtr(),0);
+        vector<NAI::SPathPlace> places;
+        world->GetPathNetwork()->GetNearPlaces(SSphere(unit->GetPosition().GetCP(),6.f),&places);
+        for(auto destination: places) {
+            destination.SetPose(NAI::CM_STAND);destination.SetDirection(unit->GetPosition().GetDir());
+            auto target=unit->GetPosition().pos;target.p=destination;
+            if(!world->GetPathNetwork()->IsPassable(destination) || world->GetPathNetwork()->IsLocked(destination))continue;
+            const float distance2=fabs2(target.GetCP()-unit->GetPosition().GetCP());
+            if(distance2<9.f || distance2>16.f)continue;
+            CObj<NWorld::CCmdPath> command=new NWorld::CCmdPath(target);
+            if(unit->CanDo(command)!=NWorld::UCR_OK)continue;
+            route=NWorld::FindPath(world->GetPathNetwork(),unit,unit->GetPosition().pos.p,vector<NAI::SPathPlace>{destination},nullptr,true);
+            if(route && route->points.size()>=5 && route->points.size()<=7 && route->actions.empty() && std::all_of(route->points.begin(),route->points.end(),[&](const NAI::SPathPlace& p) { return p.IsIntegral() && p.GetLayer()==unit->GetPosition().pos.p.GetLayer() && p.GetPose()==NAI::CM_STAND; })) {actor=unit;break;}
+            route=nullptr;
+        }
+        if(actor)break;
+    }
+    Require(actor && route,"interrupted-route fixture has no native reachable multi-step actor path");
+    const auto initial=actor->GetPosition();
+    auto target=initial.pos;target.p=route->points.back();
+    CObj<NWorld::CCmdPath> command=new NWorld::CCmdPath(target);
+    auto readOrder = [&]() {
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(actor,&refs);
+        CObj<NWorld::CCommandExecute> executor;CObj<NWorld::CCmd> current;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(7,&executor);reader.Add(9,&current);}
+        return std::make_pair(executor,current);
+    };
+    auto sameCell = [](const NAI::SPathPlace& a,const NAI::SPathPlace& b) {
+        return a.GetX()==b.GetX() && a.GetY()==b.GetY() && a.GetLayer()==b.GetLayer();
+    };
+    actor->Do(new NWorld::CCmdSetCommand(actor,command));
+    auto prepared=readOrder();
+    CObj<NAI::CPath> preparedPath=actor->GetCurrentPath();
+    Require(prepared.first && prepared.second==command.GetPtr() && preparedPath,
+        "interrupted-route fixture did not prepare its real native command and path");
+
+    if(!ai){actor->Do(new NWorld::CCmdSetCommand(actor,new NWorld::CCmdContinue));
+    for(int edge=0;edge<32 && sameCell(actor->GetPosition().pos.p,initial.pos.p) && actor->IsPerformingAction();++edge){world->GetTime()->Set(actor->animator.GetTimeEnd());actor->Segment();}
+    Require(!sameCell(actor->GetPosition().pos.p,initial.pos.p) && !sameCell(actor->GetPosition().pos.p,target.p) && actor->IsPerformingAction() && actor->HasCommand(),"deferred stop fixture did not start a real intermediate movement step");}
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();
+    world->GlobalSituationHasChanged();
+    if(!ai)Require(actor->HasCommand(),"global interruption synchronously discarded the real human route");
+    NativeDrainTurnEvents(world.GetPtr(),0);
+    if(ai){actor->Do(new NWorld::CCmdSetCommand(actor,new NWorld::CCmdContinue));Require(!actor->HasCommand() && !actor->IsPerformingAction(),"queued global interruption retained a stale AI movement order");}
+    else {
+        Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp,"queued movement cancellation itself spent extra AP or health");
+        auto stopped=readOrder();Require(stopped.first && stopped.second==command.GetPtr() && actor->HasCommand(),"queued global interruption lost the human destination");
+        // Cancel queues native EndMove; the current animation must retire before Continue.
+        for(int edge=0;edge<32 && readOrder().first;++edge){world->GetTime()->Set(actor->animator.GetTimeEnd());actor->Segment();}
+        auto retired=readOrder();Require(!retired.first && retired.second==command.GetPtr() && stopped.first->GetState()==NWorld::CCommandExecute::FAILED && !actor->IsPerformingAction(),"queued human stop did not retire its genuine failed mover and retain its route");
+        Require(!sameCell(actor->GetPosition().pos.p,target.p) && actor->GetUnitRPG()->GetTotalVP()==hp && actor->CanDo(new NWorld::CCmdContinue)==NWorld::UCR_OK,"retired human route lost its destination or native Continue eligibility");
+        std::printf("DEFERRED-MOVE ai=%d retained=%d AP=%d\n",int(ai),int(actor->HasCommand()),actor->GetAP());
+        return;
+    }
+    Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp,"global movement interruption spent extra AP or health");
+    std::printf("DEFERRED-MOVE ai=%d retained=%d AP=%d\n",int(ai),int(actor->HasCommand()),actor->GetAP());
+}
+
+static void NativeDeferredTurns(const char* databasePath,const char* resourcePath,int mode)
+{
+    if(mode>=7){NativeDeferredMoveControl(databasePath,resourcePath,mode==8);return;}
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    struct Restore {NWorld::CWorld* previous=NWorld::pCurrentWorld;~Restore(){NWorld::pCurrentWorld=previous;}} restore;NWorld::pCurrentWorld=world;
+    vector<CPtr<NWorld::CPlayer>> players;world->GetPlayersList(&players);NWorld::CPlayer* first=nullptr;NWorld::CPlayer* second=nullptr;
+    for(auto player:players){if(!first && player && player->GetGlobalPlayer() && !player->GetGlobalPlayer()->bAIPlayer)first=player;}
+    Require(first,"deferred turn fixture lacks a real human owner");
+    for(auto player:players)if(player && player.GetPtr()!=first && !player->GetPlayerUnits().empty()){second=player;break;}
+    Require(second,"deferred turn fixture lacks a real second owner");
+    NativeDrainTurnEvents(world.GetPtr(),0);
+    CObj<NativeDeferredTurnObserver> observer=new NativeDeferredTurnObserver(world);
+    if(mode==3){const bool api=NativeQueuedTurnWire<NWorld::STBSEvent>(first,0);std::printf("DEFERRED-WIRE api=%d\n",int(api));std::fflush(stdout);Require(api,"native STBSEvent wire foundation is missing");return;}
+    if(mode==4){world->GivePlayerTurn(first);NativeDrainTurnEvents(world.GetPtr(),0);observer->owners.clear();auto* commander=first->GetCommander();commander->Do(new NWorld::CCmdEndOfTurn);Require(commander->HasCommands(),"deferred global-change setup did not queue its actual command");world->GlobalSituationHasChanged();Require(commander->HasCommands(),"global situation change synchronously cleared queued commands");Require(NativeDrainTurnEvents(world.GetPtr(),0),"native turn-event pump is missing");Require(!commander->HasCommands(),"queued global situation change did not clear the real command queue");return;}
+    if(mode==6){world->GivePlayerTurn(first);NativeDrainTurnEvents(world.GetPtr(),0);observer->owners.clear();world->StartSequence();world->EndOfTurn();Require(observer->owners.empty(),"sequence enter/exit notified owners before the event drain");Require(NativeDrainTurnEvents(world.GetPtr(),0),"native turn-event pump is missing");Require(observer->owners.size()==2 && !observer->owners[0] && observer->owners[1]==first,"queued sequence lost its ownerless entry or resumed owner");return;}
+    if(mode==2)observer->reenter=second;
+    world->GivePlayerTurn(first);
+    if(mode==5){CStructureNetworkContext refs;auto fields=BorrowedObjectFields(world,&refs);NativeSavedTBSObserver saved;{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(1,&saved);}std::printf("DEFERRED-SAVED count=%d\n",int(saved.events.size()));std::fflush(stdout);Require(saved.events.size()==3,"native world save omits its pending turn event queue");auto it=saved.events.begin();Require(it->event==7 && !it->param,"saved global change event is malformed");++it;Require(it->event==1 && it->param==first,"saved new-turn event lost its owner");++it;Require(it->event==9 && it->param==first,"saved control-pass event lost its captured owner");return;}
+    if(mode!=2)Require(observer->owners.empty(),"control-pass callback ran synchronously before the event drain");
+    if(mode==1)world->GivePlayerTurn(second);
+    if(mode==2 && observer->maxDepth>1)Require(false,"turn callback recursively reentered another turn instead of appending events");
+    Require(NativeDrainTurnEvents(world.GetPtr(),0),"native turn-event pump is missing");
+    const int expected=mode==0?1:2;Require(int(observer->owners.size())==expected && observer->owners.front()==first,"event drain lost or duplicated a captured owner");
+    if(expected==2)Require(observer->owners.back()==second,"event drain used current stack owner in place of its captured owner");
+    Require(observer->maxDepth==1,"turn callbacks recursively reentered dispatch");
+    std::printf("DEFERRED-TURN mode=%d callbacks=%d maxDepth=%d\n",mode,int(observer->owners.size()),observer->maxDepth);
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode,"native-knife-solver")) { Require(argc==5,"knife solver requires db/resources/mode"); NativeKnifeLaunchTarget(argv[2],argv[3],std::atoi(argv[4]),true); return true; }
@@ -36698,6 +36826,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-camera-framing-bridge")) { Require(argc==5,"camera bridge requires db/resources/mode"); NativeCameraFramingBridge(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-context-modlinks")) { Require(argc==5,"context modlinks requires db/resources/mode"); NativeContextModLinks(argv[2],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-context-trap")) { Require(argc==5,"context trap requires db/resources/mode"); NativeContextTrap(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-deferred-turns")) {Require(argc==5,"deferred turns requires db/resources/case");NativeDeferredTurns(argv[2],argv[3],std::atoi(argv[4]));return true;}
     if (!std::strcmp(mode, "native-loot-hotseat")) {Require(argc==5,"hotseat requires db/resources/case");NativeLootHotseat(argv[2],argv[3],std::atoi(argv[4]));return true;}
     if (!std::strcmp(mode, "native-shared-globals")) {Require(argc==3,"shared globals requires case");NativeSharedGlobals(std::atoi(argv[2]));return true;}
     if (!std::strcmp(mode, "native-loot-records")) {Require(argc==5,"loot requires db/resources/case");NativeLootRecords(argv[2],argv[3],std::atoi(argv[4]));return true;}

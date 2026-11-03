@@ -4896,3 +4896,19 @@ Games/selected/core2/CI383/LAN12each361/Windows ALL_BUILD. Saved inventory/log f
 DB unchanged, HD frozen/no PNG generation. Full13-file AFEE complete,9 unfinished.
 
 Source: [afee0c2eb6ee5cc6927eb48d9a273ef2622b6d72](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/afee0c2eb6ee5cc6927eb48d9a273ef2622b6d72).
+
+## 183. Defer turn notifications without reentrant movement release
+
+Restore native deferred notification order, captured owners, four turn-event pumps,
+weather at queued start and perk27 first-turn interrupts. Retain immediate interrupt-stack
+changes, safe reentrant cancellation/FAILED/waiting retirement and actual animation-phase
+guards. Preserve human pending route/Continue and AI stale-order cleanup. A pending
+movement step finishes naturally before Continue (AP49->45 observed); no invented
+zero-cost movement rule. Hotseat settles initial sequence notifications before accepting
+first commands; network match publishes settled initial turn state. New retail save queue
+tag7/record2-3 and stable event values0..11; DB schema/assets unchanged. Canonical26
+baseline6behavior+2foundations/18controls ->26GREEN each with explicitly documented final
+human7/legacy test transform. Full Games/related/core2/CI383/LAN12each361/WindowsALL, no
+exclusions; HD frozen/no PNG generation. Full890 complete,8 unfinished.
+
+Source: [890e4474fff18faad3d11d2682022ce8a5d43a19](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/890e4474fff18faad3d11d2682022ce8a5d43a19).

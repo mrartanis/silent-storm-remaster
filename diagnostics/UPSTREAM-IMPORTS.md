@@ -27024,3 +27024,80 @@ DB314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df unchanged; HD
 PNG generation. FullAFEE complete:237 imported/8 pending/1 partial,9 unfinished.
 
 Source: [afee0c2eb6ee5cc6927eb48d9a273ef2622b6d72](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/afee0c2eb6ee5cc6927eb48d9a273ef2622b6d72).
+
+## 183. Defer turn notifications without reentrant movement release
+
+Complete all5 donor files and2 own live-consumer adapters. CTBSWorld changes its interrupt
+stack immediately but queues notifications with their captured owner: event values0..11,
+saved parent tag7 and event-record tags2/3. Pop before dispatch, drain appended callbacks
+and run the action-tracker/recalculation tail once per pump. Keep the four segment
+boundaries, deferred turn/global-clear/grid/realtime/large-turn notifications, weather at
+queued turn start and perk27 first-turn interrupt collection. This intentionally adds the
+previously skipped retail saved queue field; existing other saved fields/counter chunks
+and the DB schema stay unchanged.
+
+Preserve this fork's safe CancelAction lifetime, FAILED/waiting-executor retirement and
+real animation-phase/cannon/jump guards. Global STOP retains a human destination for
+pending path/Continue while clearing a stale AI order so its scheduler can re-decide. Do
+not copy the donor's unconditional immediate move-executor release or remove the fork's
+proven retirement guards. Native Cancel queues EndMove: cancellation dispatch itself
+leaves AP/HP unchanged; the pending step then completes on its real animation edge
+(observed AP49->45) before the genuine FAILED mover retires and Continue becomes eligible.
+No zero-AP/RNG assertion across ordinary movement retirement.
+
+The public pump owns the CFWContext needed by outside-Segment callers. Hotseat setup
+explicitly drains its initial StartSequence notifications before the first hire/equipment
+command; otherwise the deferred global-clear discards that first command. Network match
+creation publishes an already-settled initial turn/AP/notification state, retaining its
+prior readiness contract. GivePlayerTurn/StartSequence themselves remain asynchronous.
+These are7 actual production files, not just the5 donor paths.
+
+The canonical same-source26-case fixture runs before production on both platforms:6
+behavioral failures,2 missing queue/wire foundations and18 passing controls, including
+actual prepared AI cleanup and all17 prior AI-loot cases. Afterwards26GREEN on both.
+Captured-owner and roundtrip assertions after absent foundations are GREEN-only, not
+evidence of a separate captured-owner bug in the old synchronous implementation. Final
+whole diagnostic source DIFFERENT from RED: the exact transform replaces only human7's
+post-parent-failure else branch to await real EndMove/FAILED retirement, plus one legacy
+AnimationReseat ownership assertion outside canonical26. All remaining code, AI8's
+branch/post-Continue AP guard and the other24 canonical case bodies are exact. See
+deferred_turn_fixture_proof.py and
+deferred-turn-postfoundation-expectation-correction.json. No fake producer, private-field
+injection or production test hook.
+
+The first broader Windows335 run caught9 failures (326 passes). Three actual hotseat
+failures required the live setup adapter. The legacy animation test's STOP expectation now
+distinguishes retained human orders from cleared AI orders without weakening its
+AP/HP/RNG/position/clip checks. Campaign controls settle3 explicit Give sites, deliver7
+pose/move/shoot commands through the actual commander queue, wait for both queue and unit
+completion, and request enabled Continue for retained interrupted human paths (max4 within
+the unchanged200-tick window). All movement/AP/ammo/save assertions remain. A second335
+run exposed one intermittent nested-save case; shortcut/full-admission/unlocked-goal and
+queue-only hypotheses did not fix it and are not claimed proven. Actual
+public-rule-enabled pending-route continuation stabilizes all4 campaign scenarios in3
+fresh repetitions (12/12), with a single legal resume observed in two runs. The
+partial-network fixture settles one direct Give before manually imposing its AP budget;
+this fixture failure does not independently prove the production network-publication
+adapter was necessary. All9 focused cases now pass. Initial failing logs are retained,
+with no selected case excluded. One standalone Windows native raw trace was incomplete
+because a concurrent CTest-N inventory overwrote LastTest.log; it was rejected and
+replaced by a complete serial26-case rerun, never represented as complete evidence.
+
+Independent original static evidence accepts three RAW capture/dequeue spans34/34/26, a
+bounded104-byte named-Gold Segment span with only6 decoded external E8 operands masked,
+and the named32-byte perk wrapper with one external E8 operand mask. Native pump767e40 has
+four decoded calls at76c543/76c569/76c57a/76c598; perk wrapper7bfda0 passes27. Correct the
+donor's wrong guide addresses. The longer120-byte Segment prefix was rejected for real
+frame/global differences. No unknown secondary-table lookup/invocation,
+field/frame/register/opcode/local-branch/global masks, whole912-byte pump/1452-byte
+Segment/ABI/RNG parity claim, or original gameplay execution.
+
+Windows ALL_BUILD and fresh Games pass335W/326L registered related cases,383 asset-free CI
+checks, Linux core2 and12 LAN gates/361 encounters per platform. Platform registrations
+differ (the full selected names are in deferred-turn-final-selection-policy.json); no
+selected test is missing, skipped or excluded. All selected helpers are rebuilt.
+DB314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df remains unchanged, HD
+stays frozen and no PNG generation runs. Full890 complete:238 imported/7 pending/1
+partial,8 unfinished. See deferred-turn-verification.json.
+
+Source: [890e4474fff18faad3d11d2682022ce8a5d43a19](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/890e4474fff18faad3d11d2682022ce8a5d43a19).

@@ -389,6 +389,7 @@ int main(int argc,char** argv) {
       S2Net::NetworkWorld host(true),client(false);client.Apply(host.Initial(),true);
       for(int tick=0;tick<20;++tick)client.Apply(host.Segment(),false);
       host.Match().world->GivePlayerTurn(host.Match().players[1]);
+      host.Match().world->ProcessTBSEvents(); // Settle the new turn before imposing the test AP budget.
       auto* actor=host.Match().players[1]->GetPlayerUnits().front().GetPtr();
       auto before=actor->GetPosition();NAI::SPosition destination;int start=0,full=0;bool found=false;
       for(int distance:{8,12,16,24})for(auto delta:{CTPoint<int>(distance,0),CTPoint<int>(0,distance),CTPoint<int>(-distance,0),CTPoint<int>(0,-distance)}) {

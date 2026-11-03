@@ -253,6 +253,8 @@ void CMultiPlayerInterface::Initialize()
 	pMenuUI->ShowWindow( NUI::SWTYPE_SHOW );
 	CDynamicCast<NWorld::CWorld> pSetupWorld( pWorld.GetPtr() );
 	pSetupWorld->StartSequence();
+	// Settle setup notifications before the first hire/equipment command is queued.
+	pSetupWorld->ProcessTBSEvents();
 	nSequence = 1;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
