@@ -3341,3 +3341,25 @@ CI/network/hosted gates are recorded after all three October30 imports; no per-s
 hosted success is claimed.
 
 Source: [97c4d9c8095e607a3e4818a118b536fdfad56f5a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/97c4d9c8095e607a3e4818a118b536fdfad56f5a).
+
+## 188. Replace the underlying healing pose when treatment ends
+
+Native cases use real authored START_HEAL clips, actual skeleton animation graph observers
+and evaluated bone frames with the idle overlay disabled. Standing/crouched ordinary
+treatment must add a fresh standing-pose clip; repair must retain its authored0x1184 end
+clip without adding ordinary standing. Canonical pre-Main RED2/3 with one repair control
+on both platforms, then GREEN3/3 and related animation/treatment cases. Actual
+AP/HP/position/world time stay unchanged by visual finish. Existing save fields and assets
+remain unchanged; no original-runtime or full engine/RNG parity claim. Preliminary setup
+runs kept firearm animation flags, so no authored START_HEAL existed; those setup failures
+are excluded. Canonical inputs select the public item animation mode before real
+StartHealing, and both ordinary cases require an actual START_HEAL clip before observing
+the bug.
+
+Fresh Games and 107 Windows/107 Linux related cases pass, including all3 focused cases; no
+selected exclusions. DB314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df
+unchanged, HD frozen/no PNG generation, user NO auto detection honored. The final combined
+CI/network/hosted gates are recorded after all three October30 imports; no per-source
+hosted success is claimed.
+
+Source: [e71f4da3fe69b9730901d5f08db3b79ee81d68d8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e71f4da3fe69b9730901d5f08db3b79ee81d68d8).

@@ -4972,3 +4972,15 @@ PNG generation, user NO auto detection honored. The final combined CI/network/ho
 are recorded after all three October30 imports; no per-source hosted success is claimed.
 
 Source: [97c4d9c8095e607a3e4818a118b536fdfad56f5a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/97c4d9c8095e607a3e4818a118b536fdfad56f5a).
+
+## 188. Replace the underlying healing pose when treatment ends
+
+No new balance coefficients or authored data. Replace the underlying healing pose when
+treatment ends. Preserve own native renderer/audio/LAN/face/font/HD policies and existing
+save fields. Fresh Games and 107 Windows/107 Linux related cases pass, including all3
+focused cases; no selected exclusions.
+DB314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df unchanged, HD frozen/no
+PNG generation, user NO auto detection honored. The final combined CI/network/hosted gates
+are recorded after all three October30 imports; no per-source hosted success is claimed.
+
+Source: [e71f4da3fe69b9730901d5f08db3b79ee81d68d8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e71f4da3fe69b9730901d5f08db3b79ee81d68d8).

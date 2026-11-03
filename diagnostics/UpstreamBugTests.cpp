@@ -35307,6 +35307,32 @@ static void NativeTemporaryCompanions(const char* databasePath,const char* resou
     }
 }
 
+static void NativeHealingPose(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<3,"unknown healing pose mode");
+    NativeHearingOwners f(databasePath,resourcePath);NWorld::CUnitServer* actor=nullptr;list<CPtr<NWorld::CUnitServer>> actual;f.world->GetAllUnits(&actual);
+    for(auto unit:actual)if(unit && unit->CanFight() && unit->GetTBSPlayer() && unit->GetTBSPlayer()->GetGlobalPlayer()==f.game->players.front().GetPtr()){actor=unit;break;}Require(actor,"healing fixture lacks its actual global human actor");
+    auto position=actor->GetPosition();position.SetPose(mode==1?NAI::CROUCH:NAI::WALK);
+    actor->SetPosition(position);actor->animator.SetWeaponAnimation(NDb::WT_DEFAULT);actor->animator.SetActiveItem(true);actor->animator.PlaceUnit(position);
+    actor->animator.StartHealing(position,NAI::BH_TOP,mode==2,mode==2);
+    f.world->GetTime()->Set(actor->animator.GetTimeEnd()+100);actor->animator.AlignTime();
+    auto* body=actor->animator.GetSkeletonAnimator();Require(body,"healing has no actual skeleton animator");
+    const auto prior=NativeCannonAnimationClips(body);if(mode!=2){bool started=false;for(auto* clip:prior){auto* record=NDb::GetAnimation(clip->GetRecordID());started|=record && record->nType==NDb::CAnimation::START_HEAL;}Require(started,"ordinary healing fixture did not produce an actual authored START_HEAL clip");}vector<CObj<NAnimation::CAnimation>> keep;for(auto* clip:prior)keep.push_back(clip);
+    const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP();const auto time=f.world->GetTime()->GetValue();
+    actor->animator.FinishHealing(position,mode==2);
+    const auto after=NativeCannonAnimationClips(body);int freshPose=0,freshRepair=0;
+    for(auto* clip:after)if(std::find(prior.begin(),prior.end(),clip)==prior.end()){
+        auto* record=NDb::GetAnimation(clip->GetRecordID());if(record && record->nType==NDb::CAnimation::POSE)++freshPose;if(clip->GetRecordID()==0x1184)++freshRepair;
+    }
+    actor->animator.IdleBan(NAnimation::E_INTERNAL_IDLE_OFF,true);
+    CStructureNetworkContext refs;auto fields=BorrowedObjectFields(body,&refs);int bones=0;CPtr<NAnimation::CASequence> sequence;{CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&sequence);reader.Add(3,&bones);}
+    Require(bones>0 && sequence,"healing skeleton has no actual sequence/bones");NAnimation::SSkeletonPose frame(bones);sequence->GetFrame(actor->animator.GetTimeEnd()+100,&frame);
+    bool finite=frame.size()==size_t(bones);for(const auto& joint:frame)finite&=std::isfinite(joint.pos.x) && std::isfinite(joint.pos.y) && std::isfinite(joint.pos.z);
+    std::printf("HEALING-POSE mode=%d pose=%d freshStanding=%d freshRepair=%d bones=%d finite=%d AP=%d HP=%d\n",mode,int(position.GetPose()),freshPose,freshRepair,bones,int(finite),ap,hp);std::fflush(stdout);
+    Require(finite && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetPosition()==position && f.world->GetTime()->GetValue()==time,"finishing the visual healing pose changed native AP/HP/position/world time or produced an invalid frame");
+    Require(mode==2?freshRepair>0 && freshPose==0:freshPose>0 && freshRepair==0,"healing idle overlay left the underlying healing pose, or repair lost its authored end clip");
+}
+
 static void NativeStorePassage(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=4,"unknown native store passage mode");
@@ -36975,6 +37001,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-health-knockout")) { Require(argc==5,"health knockout requires db/resources/mode"); NativeHealthKnockout(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-healed-damage")) { Require(argc==5,"healed damage requires db/resources/mode"); NativeHealedDamage(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-unaware-critical")) { Require(argc==5,"unaware critical requires db/resources/mode"); NativeUnawareCritical(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-healing-pose")) {Require(argc==5,"healing requires db/resources/case");NativeHealingPose(argv[2],argv[3],std::atoi(argv[4]));return true;}
     if (!std::strcmp(mode, "native-temporary-companions")) {Require(argc==5,"temporary companions require db/resources/case");NativeTemporaryCompanions(argv[2],argv[3],std::atoi(argv[4]));return true;}
     if (!std::strcmp(mode, "native-subzone-transition")) { Require(argc==5,"subzone transition requires db/resources/mode"); NativeSubzoneTransition(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-store-passage")) { Require(argc==5,"store passage requires db/resources/mode"); NativeStorePassage(argv[2],argv[3],std::atoi(argv[4])); return true; }

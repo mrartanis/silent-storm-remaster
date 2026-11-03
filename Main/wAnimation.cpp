@@ -2402,8 +2402,13 @@ void CUnitAnimator::FinishHealing( const NAI::SUnitPosition &cmdPos, bool bRepai
 		PlayAnimation( cmdPos, pAnim, false, false );
 		SetCustomIdleAnimation( 0 );
 		nAnimFlagsPoseWeapon = nFlags;
+		IdleOn( cmdPos );
 	}
-	IdleOn( cmdPos );
+	else
+	{
+		// Replace the underlying treatment pose before an idle overlay is removed.
+		Stand( cmdPos );
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnitAnimator::PlayLadderAnimation( const NAI::SUnitPosition &prevPos, int nType )
