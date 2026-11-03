@@ -3270,3 +3270,17 @@ counts and exact platform registrations in deferred-turn-verification.json.
 Full5donor+2own consumer files complete,8 unfinished.
 
 Source: [890e4474fff18faad3d11d2682022ce8a5d43a19](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/890e4474fff18faad3d11d2682022ce8a5d43a19).
+
+## 184. Apply live rendering and tactical input settings
+
+Add8 real mission input cases and one real GPU settings case alongside6 existing renderer
+controls. Final15 all pass again within the final fresh-build related selection on both
+platforms. Actual mouse drags/commander envelopes/native run-five-entry order/TB
+guard/pending-path visibility and GPU depth+retained-color/register sizes/decal
+suppression/point-specular operations are observed without production hooks. Fixtures were
+added after production, so no pre-Main RED claim. Earlier auto-detection API experiment is
+superseded by explicit user scope and not completion evidence. No selected exclusions.
+Fresh Games/Windows ALL, full related selection, core2/CI383/LAN12each361; exact counts in
+runtime-settings-verification.json. Seven source commits remain.
+
+Source: [34fee25e45545e40cf48c5d0313f2c83f3fa4e9c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/34fee25e45545e40cf48c5d0313f2c83f3fa4e9c).

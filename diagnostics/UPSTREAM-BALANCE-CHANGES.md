@@ -4912,3 +4912,18 @@ human7/legacy test transform. Full Games/related/core2/CI383/LAN12each361/Window
 exclusions; HD frozen/no PNG generation. Full890 complete,8 unfinished.
 
 Source: [890e4474fff18faad3d11d2682022ce8a5d43a19](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/890e4474fff18faad3d11d2682022ce8a5d43a19).
+
+## 184. Apply live rendering and tactical input settings
+
+Restore native input consumers for realtime path display, selection sensitivity,
+single/double-click movement and guarded realtime run via existing
+Cancel/WishPose/path/Continue commands. Keep own network admission,182 turn ownership
+and179 fractional UI rules. Restore actual depth-only clearing/GPU
+synchronization/decals/point-specular/bump/register-scale/anisotropy/texture loading
+consumers. No new AP cost, save-field or DB-schema policy. Auto detection is explicitly
+excluded by the user; keep32-bit RGBA8/full HD/ownFXAA behavior rather than reenable
+legacy16-bit/MSAA/mip dropping. Final actual input/GPU cases and fresh
+Games/related/core2/CI383/LAN12each361 pass; no pre-Main RED or original-runtime claim. HD
+frozen, no PNG generation. Seven source commits remain.
+
+Source: [34fee25e45545e40cf48c5d0313f2c83f3fa4e9c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/34fee25e45545e40cf48c5d0313f2c83f3fa4e9c).

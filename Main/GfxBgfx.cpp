@@ -101,6 +101,13 @@ bool GetDesktopVideoMode(SVideoMode* output) {
   *output=SVideoMode(mode->w,mode->h,32,FULL_SCREEN,int(mode->refresh_rate));
   return true;
 }
+void DXFinish() {
+  if(!Is3DActive()) return;
+  // The existing ordered readback waits for the submitted GPU frame, unlike
+  // locking the CPU staging vertex buffers used by this backend.
+  std::vector<unsigned char> pixels;unsigned width=0,height=0;
+  pDevice->Screenshot(&pixels,&width,&height);
+}
 void SetGamma(bool enabled) { gammaEnabled = enabled; }
 void ApplySceneAntialiasing() {
   if(initialized && pDevice) pDevice->ApplySceneAntialiasing();

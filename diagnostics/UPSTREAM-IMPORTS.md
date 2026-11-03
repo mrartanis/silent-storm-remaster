@@ -27101,3 +27101,67 @@ stays frozen and no PNG generation runs. Full890 complete:238 imported/7 pending
 partial,8 unfinished. See deferred-turn-verification.json.
 
 Source: [890e4474fff18faad3d11d2682022ce8a5d43a19](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/890e4474fff18faad3d11d2682022ce8a5d43a19).
+
+## 184. Apply live rendering and tactical input settings
+
+Handle all20 donor files/65 hunks within the current user request;15 production paths
+change. The user explicitly does not need auto detection, so do not add
+AutoDetectVideoConfig, GetVideoConfigInfo, card tables/probes or a new call from the
+Default button. GAutoDetect.cpp/.h and iOptionsMenu.cpp stay unchanged. Preserve the
+remaster's documented32-bit/RGBA8/full-HD mip-chain policy and existing scene-only FXAA,
+including the earlier67d766 own-behavior exclusion. Do not revive16-bit
+framebuffer/texture conversion/dither, mip dropping or D3D9 NONMASKABLE MSAA. These are
+explicit user/own-behavior exceptions, not claims that unsupported legacy modes have been
+implemented. Every donor hunk has an entry in runtime-settings-hunk-accounting.json.
+
+Restore actual depth-only mission-frame clear, optional blocking GPU synchronization, live
+decal suppression/null-target handling, independent static/dynamic point-specular gates,
+cached point-light bump/fast-update settings, register-area scaling/capability clamp and
+live anisotropy cache invalidation while retaining cube filtering. DXFinish uses the
+active bgfx ordered GPU readback/wait; locking a CPU staging vertex buffer would not
+synchronize this backend. No screenshot or PNG file is written. Clear both target lists
+when resetting SRenderTargetsInfo. The texture loader rejects missing records and failed2D
+allocations, bypasses8888-only atlases for incompatible input, preserves authored/logical
+HD dimensions and skips previews in low-RAM mode. No texture assets are rebuilt.
+
+Restore realtime path visibility, selection-frame sensitivity and click/double-click move
+semantics. Optional realtime run queues native Cancel/WishPose before the new path,
+guarded against turn-based mode, panzerklein and carrying a body. WishPose retains its
+native default instant Continue, so an explicit run move produces five real commander
+entries. Keep the fork's EUnitCommandResult result, asynchronous network intent
+holder/PENDING handling, proper Continue admission and182 IsPlayerTurn/current-unit
+ownership gates. Preserve179 fractional UI coordinates. All actions still use the existing
+native command/AP model; no invented free movement rule or save-field change.
+
+The final eight actual mission input cases and one graphics case were authored after
+production changes: GREEN/integration evidence, not pre-change RED. The earlier four-case
+experiment concerned an auto-detection API later removed at the user's request; its shared
+missing foundation is outside the final scope and is not completion evidence. One initial
+expectation also incorrectly requested16-bit restoration and was rejected before
+production. Final tests drive actual mouse drags, inspect real commander path/Continue/run
+identity/order, verify the turn-based run guard and actual prepared pending-path
+visibility1/0/1 without moving or spending AP. The GPU test reads real pixels to prove
+both depth reset and color preservation with buffering off/on, checks four actual register
+sizes and cube-list reset, toggles actual decal creation1/0/1, and generates native
+point-light operations from a real textured material/fragment with independent specular
+flags. Legal member access calls the real private per-fragment method; no production test
+hook or fake operation producer.
+
+Initial diagnostic errors were corrected only in fixtures: rebind the render context
+before writing its shader constant after the depth helper, include WishPose's native
+implicit Continue, and use a real textured material because the untextured factory
+intentionally returns before setting specular. The game implementation was not changed to
+satisfy these incorrect expectations. The small15-case Windows/Linux passes preceded the
+final independent null-allocation guard in GTexture.cpp; all15 names are required again in
+the final fresh-build related runs on the final production hashes.
+
+Windows ALL_BUILD/fresh Games pass161W/153L selected related cases,383 asset-free CI
+checks, Linux core2 and12 LAN gates/361 encounter variants per platform. Exact platform
+registrations and no selected exclusions are recorded in
+runtime-settings-final-selection-policy.json.
+DB314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged, HD
+remains frozen, and no original gameplay is executed or whole-binary/ABI/RNG parity
+asserted. Source handled within user scope:239 imported/6 pending/1 partial,7 unfinished.
+See runtime-settings-verification.json.
+
+Source: [34fee25e45545e40cf48c5d0313f2c83f3fa4e9c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/34fee25e45545e40cf48c5d0313f2c83f3fa4e9c).

@@ -32,6 +32,8 @@
 #include "../Main/Transform.h"
 #include "../MiscDll/Commands.h"
 #include "../Main/DisplayLayout.h"
+#include "../Main/GDecal.h"
+#include "../Main/GDecalInfo.h"
 #include "../FileIO/Streams.h"
 #include <SDL3/SDL.h>
 #include <bgfx/bgfx.h>
@@ -1561,6 +1563,101 @@ int RunFocusRestore() {
   return 0;
 }
 
+struct PointSettingsAccess {
+  using Member=void (NGScene::CPointLight::*)(NGScene::SOpGenContext&,NGScene::ERenderPath,const NGScene::SMaterialInfo&);
+  friend Member PointSettingsMethod(PointSettingsAccess);
+};
+template<PointSettingsAccess::Member member> struct PointSettingsFriend {
+  friend PointSettingsAccess::Member PointSettingsMethod(PointSettingsAccess) {return member;}
+};
+template struct PointSettingsFriend<&NGScene::CPointLight::Add>;
+
+int RunRuntimeSettings() {
+  const auto resolution=NGlobal::GetVar("gfx_register_resolution",1);
+  const auto buffering=NGlobal::GetVar("gfx_block_buffering",0);
+  const auto decals=NGlobal::GetVar("gfx_decals",1);
+  struct Restore {
+    NGlobal::CValue resolution,buffering,decals;
+    ~Restore() {
+      NGlobal::SetVar("gfx_register_resolution",resolution);
+      NGlobal::SetVar("gfx_block_buffering",buffering);
+      NGlobal::SetVar("gfx_decals",decals);
+    }
+  } restore{resolution,buffering,decals};
+  NGfx::SRenderTargetsInfo targets;targets.AddTex(16,1);targets.AddCube(16,1);targets.nRegisters=1;
+  targets.Clear();
+  if(!targets.targets.empty() || !targets.cubeTargets.empty() || targets.nRegisters)return 190;
+  targets.nRegisters=1;
+  for(float area:{.5f,1.f,2.f,4.f}) {
+    NGlobal::SetVar("gfx_register_resolution",area);
+    if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 191;
+    CTRect<float> size;NGfx::GetRegisterSize(&size);
+    if(size.x2!=Float2Int(128*sqrt(area)) || size.y2!=Float2Int(128*sqrt(area)*(564.f/768.f)))return 192;
+    CDynamicCast<NGfx::I2DBuffer> texture(NGfx::GetRegisterTexture(0));
+    if(!texture || texture->GetXSize()!=int(size.x2) || texture->GetYSize()!=int(size.y2))return 193;
+  }
+  // Both the ordinary and GPU-synchronized paths must reset real depth while
+  // retaining color. A no-op fails the farther green draw; a color clear loses
+  // the red right half. Readback files are never created.
+  for(int blocking:{0,1}) {
+    NGlobal::SetVar("gfx_block_buffering",blocking);
+    NGfx::CRenderContext context;context.SetScreenRT();context.SetCulling(NGfx::CULL_NONE);
+    context.SetDepth(NGfx::DEPTH_NORMAL);context.SetStencil(NGfx::STENCIL_NONE);
+    context.SetVertexShader(vsConstLight);context.SetPixelShader(psDiffuse);
+    context.ClearBuffers(0xff000000);
+    auto nearQuad=Quad(-1,1,1,-1,.2f),farQuad=Quad(-1,1,0,-1,.8f);
+    context.SetVSConst(16,CVec4(1,0,0,1));Draw(context,nearQuad);
+    context.SetVSConst(16,CVec4(0,1,0,1));Draw(context,farQuad);
+    CArray2D<NGfx::SPixel8888> image;NGfx::MakeScreenShot(&image,false);
+    if(!Color(image,32,64,255,0,0) || !Color(image,96,64,255,0,0))return 194;
+    NGScene::ClearScreenZBuffer();
+    context.Use(); // Constants belong to the rebound context/shader.
+    context.SetVSConst(16,CVec4(0,1,0,1));Draw(context,farQuad);
+    NGfx::MakeScreenShot(&image,false);
+    if(!Color(image,32,64,0,255,0) || !Color(image,96,64,255,0,0))return 195;
+  }
+  CObj<NGScene::IGScene> scene=NGScene::CreateScene();
+  NGScene::SDecalMappingInfo mapping{CVec3(0,0,0),CVec3(0,0,1),1,0};
+  NGlobal::SetVar("gfx_decals",1);
+  CObj<NGScene::CDecalTarget> first=scene->CreateDecalTarget(vector<CObjectBase*>(),mapping);
+  if(!first)return 196;
+  NGlobal::SetVar("gfx_decals",0);
+  CObj<NGScene::CDecalTarget> suppressed=scene->CreateDecalTarget(vector<CObjectBase*>(),mapping);
+  if(suppressed || scene->AddDecal(nullptr,nullptr))return 197;
+  NGlobal::SetVar("gfx_decals",1);
+  CObj<NGScene::CDecalTarget> restored=scene->CreateDecalTarget(vector<CObjectBase*>(),mapping);
+  if(!restored || !first)return 198;
+  // Generate the actual per-fragment point-light operations. Global specular
+  // and point specular are separate controls; neither should alias the other.
+  const auto specular=NGlobal::GetVar("gfx_specular",1),pointSpecular=NGlobal::GetVar("gfx_point_specular",1);
+  struct RestoreSpecular {NGlobal::CValue all,point;~RestoreSpecular(){NGlobal::SetVar("gfx_specular",all);NGlobal::SetVar("gfx_point_specular",point);}} restoreSpecular{specular,pointSpecular};
+  CObj<NGfx::CTexture> diffuseTexture=NGfx::MakeTexture(2,2,1,NGfx::SPixel8888::ID,NGfx::REGULAR,NGfx::CLAMP);
+  {NGfx::CTextureLock<NGfx::SPixel8888> pixels(diffuseTexture,0,NGfx::INPLACE);for(int y=0;y<2;++y)for(int x=0;x<2;++x)pixels[y][x]=NGfx::SPixel8888(255,255,255,255);}
+  CObj<AmbientTextureNode> diffuseNode=new AmbientTextureNode(diffuseTexture);
+  CObj<NGScene::IMaterial> material=NGScene::CreateMaterial(CVec3(1,1,1),diffuseNode,nullptr,16,CVec3(1,1,1));
+  const auto& info=material->GetMaterialInfo();
+  if(info.diffuse.type!=NGScene::SMaterialInfo::T_TEXTURE || info.specular.type!=NGScene::SMaterialInfo::T_COLOR)return 199;
+  NGScene::CSceneFragments fragments;NGScene::SRenderGeometryInfo geometry;SBound bounds;bounds.BoxInit(VNULL3,CVec3(1,1,1));
+  const int index=fragments.AddGeometry(nullptr,&geometry,bounds);NGScene::CPartFlags flags;flags.Clear();flags.Set(0);
+  fragments.AddElement(index,flags,material,nullptr,nullptr);
+  CObj<NGScene::CPointLight> point=new NGScene::CPointLight(CVec3(1,1,1),VNULL3,4,nullptr,false,false);
+  for(auto controls:{std::pair<int,int>(1,0),std::pair<int,int>(0,1),std::pair<int,int>(1,1)}) {
+    NGlobal::SetVar("gfx_specular",controls.first);NGlobal::SetVar("gfx_point_specular",controls.second);
+    NGScene::CRenderCmdList commands;NGScene::SOpGenContext op(&commands.ops,fragments.GetFragments()[1]);
+    (point.GetPtr()->*PointSettingsMethod(PointSettingsAccess{}))(op,NGScene::RP_GF3_CL,info);
+    int diffuse=0,gloss=0,halfVector=0;
+    for(const auto& command:commands.ops) {
+      diffuse+=command.op==NGScene::RO_PNT_LIT_TEXTURE;
+      gloss+=command.op==NGScene::RO_PP_SPECULAR_COLOR_PNT;
+      halfVector+=command.op==NGScene::RO_NHCALC;
+      if(command.pFrag!=fragments.GetFragments()[1])return 200;
+    }
+    if(diffuse!=1 || gloss!=controls.second || halfVector!=controls.second)return 201;
+  }
+  std::puts("Runtime settings: target-list reset, four real register sizes, depth/color GPU pixels with buffering off/on, live decal suppression/restoration and independent point specular passed");
+  return 0;
+}
+
 int Run() {
   NGfx::SRenderTargetsInfo targets;targets.nRegisters=1;targets.AddTex(16,1);
   if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 3;
@@ -1651,6 +1748,7 @@ int main(int argc,char** argv) {
              argc>1 && std::string(argv[1])=="--index-ring" ? RunIndexRing() :
              argc>1 && std::string(argv[1])=="--passes" ? RunPassStress() :
              argc>1 && std::string(argv[1])=="--graphics" ? RunGraphicsOptions() :
+             argc>1 && std::string(argv[1])=="--runtime-settings" ? RunRuntimeSettings() :
              argc>1 && std::string(argv[1])=="--shadow-pcf" ? RunShadowPcf() :
              argc>1 && std::string(argv[1])=="--specular-projection" ? RunSpecularProjection() :
              argc>1 && std::string(argv[1])=="--cached-point-shadow" ? RunCachedPointLighting(false,true) :

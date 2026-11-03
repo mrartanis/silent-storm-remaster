@@ -161,6 +161,7 @@ bool Is3DActive();
 void SetWireframe( bool bWire );
 void Clear( NGfx::CRenderContext *pRC, const CVec3 &vColor );
 void ClearScreen( const CVec3 &vColor );
+void ClearScreenZBuffer();
 enum ERegisterCopyMode
 {
 	RCM_COPY,
@@ -227,7 +228,6 @@ struct StructureFieldCodec<NGScene::SGroupSelect, void> {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif
-
 
 
 

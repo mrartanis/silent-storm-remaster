@@ -633,7 +633,11 @@ bool CStateMove::OnLButtonUp( int nX, int nY )
 	// band (CStateSelection) with the button already up.
 	bAnchorSet = false;
 
-	DoMove( GetType() == FORCED );
+	// Retail v1.2 0x5ddb80: with double-click movement enabled, a normal
+	// realtime click only queues the path. The forced Move action still executes.
+	bool bInstant = GetType() == FORCED || ( GetMission()->IsRealTime() &&
+		NGlobal::GetVar( "game_dblclkmoveinrealtime" ).GetInt() == 0 );
+	DoMove( bInstant );
 
 	if ( GetType() == FORCED )
 		GetMission()->ResetState();
@@ -650,7 +654,10 @@ bool CStateMove::OnLButtonDown( int nX, int nY )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CStateMove::OnLButtonDblClk( int nX, int nY )
 {
-	DoMove( true );
+	bool bRun = GetMission()->IsRealTime() &&
+		NGlobal::GetVar( "game_dblclkmoveinrealtime" ).GetInt() == 0;
+	DoMove( true, bRun );
+	bAnchorSet = false;
 
 	if ( GetType() == FORCED )
 		GetMission()->ResetState();
@@ -663,7 +670,7 @@ NUI::SCursorInfo CStateMove::GetCursorInfo() const
 	return sCursorInfo;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CStateMove::DoMove( bool bInstant )
+void CStateMove::DoMove( bool bInstant, bool bRun )
 {
 	vector< CPtr<NGame::IUnitTracker> > unitsSet;
 	GetMission()->GetSelectedUnits( &unitsSet );
@@ -701,7 +708,7 @@ void CStateMove::DoMove( bool bInstant )
 	bool bFirst = true;
 	for ( int nUnit = 0; nUnit < unitsSet.size(); ++nUnit )
 	{
-		NWorld::EUnitCommandResult eResult = unitsSet[nUnit]->SetTargetPosition( unitPlaces[nUnit], bInstant );
+		NWorld::EUnitCommandResult eResult = unitsSet[nUnit]->SetTargetPosition( unitPlaces[nUnit], bInstant, bRun );
 		if ( bFirst )
 		{
 			eAgg = eResult;
@@ -743,7 +750,9 @@ void CStateMove::Step()
 {
 	CStateBase::Step();
 
-	if ( bAnchorSet && ( fabs( GetMission()->GetCursor()->GetPos() - vAnchor ) > F_MIN_SELECTION_DIST ) )
+	// Retail v1.2 0x5d8ed0: the selection slider scales the drag threshold.
+	float fSelectionSensivity = NGlobal::GetVar( "game_selectionsensivity", 1 ).GetFloat();
+	if ( bAnchorSet && ( fabs( GetMission()->GetCursor()->GetPos() - vAnchor ) > F_MIN_SELECTION_DIST * fSelectionSensivity ) )
 		GetMission()->CommandState( new CStateSelection( vAnchor ) );
 
 	UpdateCursor();

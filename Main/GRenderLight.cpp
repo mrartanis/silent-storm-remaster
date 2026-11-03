@@ -1033,7 +1033,7 @@ void CPointLight::Add( SOpGenContext &op, ERenderPath renderPath, const SMateria
 			}
 		}
 		// add gloss ops
-		if ( bDrawSpecular )
+		if ( bDrawPointSpecular )
 		{
 			bool bCalcNH = false;
 			if ( info.specular.type == SMaterialInfo::T_TEXTURE )
@@ -1165,7 +1165,7 @@ void CDynamicPointLight::Add( SOpGenContext &op, ERenderPath renderPath, const S
 			}
 		}
 		// add gloss ops
-		if ( bDrawSpecular )
+		if ( bDrawPointSpecular )
 		{
 			bool bCalcNH = false;
 			if ( info.specular.type == SMaterialInfo::T_TEXTURE )

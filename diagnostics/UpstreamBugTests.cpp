@@ -36153,6 +36153,61 @@ static void NativeDeferredTurns(const char* databasePath,const char* resourcePat
     std::printf("DEFERRED-TURN mode=%d callbacks=%d maxDepth=%d\n",mode,int(observer->owners.size()),observer->maxDepth);
 }
 
+static void NativeRuntimeInputSettings(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<8,"unknown runtime input setting case");
+    NativeDisplayContext display;display.Initialize(databasePath,resourcePath,"Silent Storm actual input settings");NGame::InitLoadingScreen();
+    CObj<NRPG::CGlobalGame> game=NRPG::CreateGlobalGame(-1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    CObj<NGame::CICBeginMission> open=new NGame::CICBeginMission(810,-1,vector<string>(),game);open->Exec();
+    CObj<NGame::CMission> mission=dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());
+    Require(mission && mission->GetWorld(),"input setting did not open the actual mission");mission->PauseGame(true);
+    while(NMainLoop::HaveInterfaceCommand()){CObj<NMainLoop::CInterfaceCommand> pending=NMainLoop::TakeInterfaceCommandForHarness();Require(dynamic_cast<NMainLoop::CICSaveFile*>(pending.GetPtr()),"input startup has an unexpected transition");}
+    auto* world=dynamic_cast<NWorld::CWorld*>(mission->GetWorld());Require(world,"input setting lacks native world");
+    struct RestoreWorld {NWorld::CWorld* previous=NWorld::pCurrentWorld;~RestoreWorld(){NWorld::pCurrentWorld=previous;}} restoreWorld;NWorld::pCurrentWorld=world;world->ProcessTBSEvents();
+    mission->GetActivePlayer()->Update(false);vector<CPtr<NGame::IUnitTracker>> units;mission->GetActivePlayer()->GetUnits(&units);
+    Require(units.size()==1,"input setting needs its single actual party tracker");auto* tracker=dynamic_cast<NGame::CUnitTracker*>(units.front().GetPtr());auto* actor=dynamic_cast<NWorld::CUnitServer*>(tracker->GetUnit());
+    Require(actor && actor->CanFight() && !actor->IsWearingPK() && !actor->IsCarryingCorpse(),"input setting lacks an ordinary healthy actor");
+    if(mode<3){
+        const auto saved=NGlobal::GetVar("game_selectionsensivity",1);struct Restore {NGlobal::CValue value;~Restore(){NGlobal::SetVar("game_selectionsensivity",value);}} restore{saved};
+        const float sensitivity=mode==0?3.f:mode==1?.3f:1.f;NGlobal::SetVar("game_selectionsensivity",sensitivity);
+        CObj<NGame::CStateMove> move=new NGame::CStateMove(false);Require(mission->CommandState(move),"input setting did not install native move state");
+        mission->GetCursor()->SetPos(CVec2(100,100));Require(move->OnLButtonDown(100,100),"native mouse down was not handled");
+        mission->GetCursor()->SetPos(CVec2(mode==0?125:110,100));move->Step();
+        const bool selected=dynamic_cast<NGame::CStateSelection*>(mission->GetState())!=nullptr;
+        std::printf("ACTUAL-SELECTION sensitivity=%g delta=%d selected=%d\n",double(sensitivity),mode==0?25:10,int(selected));
+        Require(selected==(mode==1),"native mouse drag ignores the selection sensitivity slider");return;
+    }
+    Require(mission->IsRealTime() && !mission->IsSequence(),"input fixture must start in actual realtime without a sequence");
+    auto position=actor->GetPosition();position.SetPose(NAI::WALK);actor->SetPosition(position);
+    if(mode==6){world->GivePlayerTurn(actor->GetTBSPlayer());world->ProcessTBSEvents();Require(!mission->IsRealTime(),"turn-based run guard did not establish a native turn");}
+    auto* commander=mission->GetActivePlayer()->GetCommander();Require(!commander->HasCommands(),"input setup left queued commands");
+    auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(),4.f),&places);
+    NAI::SPosition destination;bool found=false;
+    for(auto p:places){p.SetPose(NAI::CM_STAND);p.SetMoving(0);if(fabs2(NAI::SPosition(p,network).GetCP()-actor->GetPosition().GetCP())<1.f || !network->IsPassable(p) || network->IsLocked(p))continue;
+        CObj<NAI::CPath> path=NWorld::FindPath(network,actor,actor->GetPosition().pos.p,vector<NAI::SPathPlace>{p},nullptr,true);if(path && path->points.size()>1){destination=NAI::SPosition(p,network);found=true;break;}}
+    Require(found,"input setting lacks a genuinely reachable native destination");
+    const bool instant=mode==4 || mode==5 || mode==6,run=mode==5 || mode==6;
+    Require(tracker->SetTargetPosition(destination,instant,run)==NWorld::UCR_OK,"actual unit tracker rejected reachable input");
+    vector<CObj<NWorld::CCommand>> commands;while(commander->HasCommands()){CObj<NWorld::CCommand> command=commander->GetCommand();Require(command,"commander queue has an empty command");commands.push_back(command);}
+    if(mode==7){
+        Require(commands.size()==1,"path overlay setup unexpectedly executed movement");world->ExecuteCommand(commands.front().GetPtr());
+        Require(actor->GetCurrentPath(),"path overlay lacks actual prepared pending movement");tracker->SetSelected(true);
+        const auto saved=NGlobal::GetVar("game_pathinrealtime",1);struct Restore {NGlobal::CValue value;~Restore(){NGlobal::SetVar("game_pathinrealtime",value);}} restore{saved};
+        auto pathVisible=[&](){CStructureNetworkContext refs;auto fields=BorrowedObjectFields(tracker,&refs);bool visible=false;CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(9,&visible);return visible;};
+        const auto before=actor->GetPosition();const auto ap=actor->GetAP();const auto hp=actor->GetUnitRPG()->GetTotalVP();
+        for(int enabled:{1,0,1}){NGlobal::SetVar("game_pathinrealtime",enabled);MarkNewDGFrame();tracker->Update();Require(pathVisible()==bool(enabled),"native realtime path visibility ignores gameplay option");}
+        Require(actor->GetPosition()==before && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp,"path option changed simulation instead of presentation");return;
+    }
+    const bool running=mode==5;const size_t count=running?5:instant?2:1;
+    std::printf("ACTUAL-MOVE realtime=%d instant=%d run=%d commands=%zu expected=%zu\n",int(mission->IsRealTime()),int(instant),int(run),commands.size(),count);
+    Require(commands.size()==count,"tracker queued an unexpected implicit Continue or run command");size_t offset=0;
+    if(running){Require(dynamic_cast<NWorld::CCmdCancel*>(commands[offset++].GetPtr()),"run did not cancel the old path first");auto* wish=dynamic_cast<NWorld::CCmdSetCommand*>(commands[offset++].GetPtr());auto* pose=wish?dynamic_cast<NWorld::CCmdWishPose*>(wish->GetCmd()):nullptr;Require(wish && wish->pUnit==actor && pose && pose->pose==NAI::RUN,"realtime run did not queue actual owned WishPose");auto* startPose=dynamic_cast<NWorld::CCmdSetCommand*>(commands[offset++].GetPtr());Require(startPose && startPose->pUnit==actor && dynamic_cast<NWorld::CCmdContinue*>(startPose->GetCmd()),"native WishPose lost its default instant Continue");}
+    auto* path=dynamic_cast<NWorld::CCmdSetCommand*>(commands[offset++].GetPtr());Require(path && path->pUnit==actor && dynamic_cast<NWorld::CCmdPath*>(path->GetCmd()),"tracker lost native path/actor identity");
+    if(instant){auto* continuation=dynamic_cast<NWorld::CCmdSetCommand*>(commands[offset++].GetPtr());Require(continuation && continuation->pUnit==actor && dynamic_cast<NWorld::CCmdContinue*>(continuation->GetCmd()),"explicit instant input did not queue native Continue");}
+    Require(offset==commands.size(),"input setting left unexamined native commands");
+}
+
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode,"native-knife-solver")) { Require(argc==5,"knife solver requires db/resources/mode"); NativeKnifeLaunchTarget(argv[2],argv[3],std::atoi(argv[4]),true); return true; }
@@ -36826,6 +36881,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-camera-framing-bridge")) { Require(argc==5,"camera bridge requires db/resources/mode"); NativeCameraFramingBridge(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-context-modlinks")) { Require(argc==5,"context modlinks requires db/resources/mode"); NativeContextModLinks(argv[2],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-context-trap")) { Require(argc==5,"context trap requires db/resources/mode"); NativeContextTrap(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-runtime-input")) {Require(argc==5,"runtime input requires db/resources/case");NativeRuntimeInputSettings(argv[2],argv[3],std::atoi(argv[4]));return true;}
     if (!std::strcmp(mode, "native-deferred-turns")) {Require(argc==5,"deferred turns requires db/resources/case");NativeDeferredTurns(argv[2],argv[3],std::atoi(argv[4]));return true;}
     if (!std::strcmp(mode, "native-loot-hotseat")) {Require(argc==5,"hotseat requires db/resources/case");NativeLootHotseat(argv[2],argv[3],std::atoi(argv[4]));return true;}
     if (!std::strcmp(mode, "native-shared-globals")) {Require(argc==3,"shared globals requires case");NativeSharedGlobals(std::atoi(argv[2]));return true;}
