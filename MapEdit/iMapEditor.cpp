@@ -302,7 +302,7 @@ void CMapViewer::Step()
 			{
 				CRect r;
 				GetWindowRect( hWnd, &r );
-				CTRect<int> drect( 0, 0, r.Width(), r.Height() );
+				CTRect<float> drect( 0, 0, r.Width(), r.Height() );
 				bool bCustom = GetUserSettings().GetParam( ME_SHOW_CUSTOMFRAME );
 				//if ( r != rLastWindowRect )
 				{
@@ -322,7 +322,7 @@ void CMapViewer::Step()
 					}
 					rLastWindowRect = r;
 				}
-				p2DScene->CreateDynamicRects( NDb::GetTexture( 1307 ), sLayout, CTPoint<int>( 0, 0), drect );
+				p2DScene->CreateDynamicRects( NDb::GetTexture( 1307 ), sLayout, CTPoint<float>( 0, 0), drect );
 				break;
 			}
 			case CICMapEditor::VIEW_MODEL:

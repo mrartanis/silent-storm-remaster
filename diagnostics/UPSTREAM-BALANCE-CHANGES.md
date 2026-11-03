@@ -4840,3 +4840,15 @@ CanonicalRED16both/control5 ->21GREENboth plusoldmovement1;
 freshGames714W690L/CI383/LAN12each361. Full4940 complete,13 unfinished.
 
 Source: [4940c8d8fb2fbf8786c8039bfa9e039162f95a69](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4940c8d8fb2fbf8786c8039bfa9e039162f95a69).
+
+## 179. Preserve fractional screen coordinates through the complete UI pipeline
+
+Preserve fractional UI screen positions, clipping and markup bounds through final GPU
+submission. Keep logical UI/input coordinates, adaptive layout, uniform display/DPI scale,
+font metrics, native cursor anchors and existing HD density/UV/logicalSource behavior. CPU
+text rasterization and integer harness logs explicitly use final pixel boundaries. No
+gameplay/AP/damage/RNG or saved/DB/network schema change, no HD PNG generation. Canonical
+native12RED each (9visual+3API-only)->18GREEN each, old controls retained,
+freshGames311W289L/CI383/LAN12each361. Full5b complete,12 unfinished.
+
+Source: [5b7ed0510f6265088741bdb7cd333315b73a3f86](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5b7ed0510f6265088741bdb7cd333315b73a3f86).

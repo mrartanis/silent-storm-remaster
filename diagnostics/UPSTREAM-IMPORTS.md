@@ -26761,3 +26761,61 @@ partial,13 unfinished sources. The final laboratory record is
 automatic-camera-verification.json.
 
 Source: [4940c8d8fb2fbf8786c8039bfa9e039162f95a69](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4940c8d8fb2fbf8786c8039bfa9e039162f95a69).
+
+## 179. Preserve fractional screen coordinates through the complete UI pipeline
+
+Screen positions and clipping edges remain float through I2DGameView, I2DScene and
+RenderRectLayoutClipped, with the renderer performing the final pixel snap. Markup submits
+fractional text/image offsets and reports float character rectangles. Windows, wrappers,
+cursor captions, editing controls, screenshots/video, unit previews, inventory and
+dialogue pagination use those coordinates. All18 donor files are accounted for. Keep the
+remaster uniform display scale, adaptive/wide-screen logical bounds, native cursor pixel
+anchors, video/logo fitting, font formatter, texture density/UVs and logicalSource
+argument. The existing edit formatter deliberately retains its integer glyph metrics; text
+and caret placement now share float screen coordinates. Model transforms and
+input/hit-test coordinates remain logical integers. Wide-screen backdrops, tiled panels,
+native LAN borders and editor submissions are adapted too. The CPU LAN text canvas and
+integer harness logs use an explicitly named final-pixel-boundary helper; GPU rendering
+does not pass through that rounding helper. No new saved member, DB/network schema or HD
+asset generation.
+
+Before Main changes, the same final native18-case fixture produced12 expected failures on
+both platforms:9 actual framebuffer mismatches at position/clip/negative-size boundaries
+through the real renderer, scene and game view, plus3 missing float-clear API foundations.
+Those3 clear cases have no pixel mismatch and are not visual RED. Six integer/empty-clip
+native controls and23 Windows/22 Linux existing markup/dialogue/font/edit/portrait/demo
+controls passed. The fixture uses real public native render calls, existing low-level
+AddRect reference quads and RAM readbacks, without a fake producer, private field
+injection, new production hook or image assets. The old-interface fallback explicitly
+truncates the fixture inputs; this does not assert every old UI caller used that rounding
+mode. Existing diagnostic callbacks and markup-bound observers deduce the current header
+argument types with all old behavioral assertions retained. After the port the identical
+fixture passes41 Windows/40 Linux cases, including all18 native images with zero pixel
+difference. Initial local compilation exposed a missing header end guard in patch
+preparation; it was repaired and archived as a compiler failure, never counted as runtime
+RED.
+
+Original Gold metadata explicitly types the screen arguments as
+CTPoint<float>/CTRect<float>. Independently named primary roots bind the original
+scene8/view11 method shapes and their known dynamic/clear slots; the remaster keeps its
+extra text overload and does not claim ABI identity. Six strict static spans are accepted:
+whole35-byte scene clear, two whole8-byte view forwarders,335-byte clip prefix,253-byte
+suffix and a bound19-byte middle. Only decoded external calls are relocated. The
+whole619-byte clip candidate is rejected because two zero-constant absolute operands
+differ in writable Steam.rdata; they are omitted from the accepted spans, never masked.
+Larger scene/view candidates also remain rejected. The actual scene-clear call binds
+native548290, correcting the old548190 guide. No original execution, private-global
+inspection, unknown secondary table read or whole-function/full-engine/RNG parity claim.
+See fractional-ui-original-static-proof.json.
+
+Fresh full Games pass311 Windows and289 Linux related scenarios covering
+UI/render/display, text/fonts/dialogues, menus, cameras/cinematics and saves/sequences.
+All existing registrations remain:23 Windows-only and1 Linux-only selected cases, only the
+inherited nested-save exclusion, no new exclusions. Required Linux portable
+mission/core,383 local Windows asset-free CI cases and12 LAN gates/361 encounter variants
+per platform pass. The game DB hash
+remains314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df. Full5b
+complete:234 imported/9 pending/3 partial,12 unfinished sources. Final laboratory record:
+fractional-ui-verification.json.
+
+Source: [5b7ed0510f6265088741bdb7cd333315b73a3f86](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5b7ed0510f6265088741bdb7cd333315b73a3f86).

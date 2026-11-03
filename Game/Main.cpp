@@ -607,7 +607,7 @@ static void HarnessDisplayTree(NUI::CWindow* window, int depth = 0) {
   NUI::SPoint pos;
   NUI::SRect clip;
   if (window->ClientToScreen(&pos,&clip)) {
-    window->VirtualToScreen(&pos,&clip);
+    window->VirtualToPixelBounds(&pos,&clip);
     const auto cursor=window->GetInterface()->GetCursorPos();
     SaveLoadDiag("[display-control] depth=%d id=%s position=%d,%d clip=%d,%d,%d,%d active=%d hit=%d transparent=%d enabled=%d\n",
       depth,window->GetWindowID().c_str(),pos.x,pos.y,clip.x1,clip.y1,clip.x2,clip.y2,window->IsActive(),

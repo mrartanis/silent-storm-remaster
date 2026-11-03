@@ -3196,3 +3196,17 @@ const-helper compiler adaptation is archived, not runtime RED. Full4940 complete
 unfinished.
 
 Source: [4940c8d8fb2fbf8786c8039bfa9e039162f95a69](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4940c8d8fb2fbf8786c8039bfa9e039162f95a69).
+
+## 179. Preserve fractional screen coordinates through the complete UI pipeline
+
+Register18 actual native framebuffer cases through renderer/scene/game-view layers:
+fractional position, clipping, negative baked size, integer/empty controls and float-clear
+API. Canonical unchanged fixture before Main:12 RED each (9 actual visual failures+3
+API-only foundations),6 native controls plus23W22L old controls pass. After port:18 native
+GREEN with zero pixel mismatch and all old controls,41W40L total. Header-deduced
+diagnostic signatures preserve old assertions. Full Games311W289L, Linux portable
+core,CI383,LAN12each361. Existing23W-only1L-only/inherited nested-save exclusion retained;
+no new exclusions. Initial header-guard compiler error is archived separately. Full5b
+complete,12 unfinished.
+
+Source: [5b7ed0510f6265088741bdb7cd333315b73a3f86](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5b7ed0510f6265088741bdb7cd333315b73a3f86).

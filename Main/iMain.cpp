@@ -82,7 +82,7 @@ void ShowLogo()
 	if ( pLogo )
 	{
 		CVec2 vSize = p2DScene->GetViewportSize();
-		CTRect<int> window( 0, 0, Float2Int(vSize.x), Float2Int(vSize.y) );
+		CTRect<float> window( 0, 0, vSize.x, vSize.y );
 		CRectLayout rl;
 
 		p2DScene->StartNewFrame();
@@ -90,7 +90,7 @@ void ShowLogo()
 		const auto fitted = S2Display::Fit(vSize.x, vSize.y, pLogo->nWidth, pLogo->nHeight);
 		rl.AddRect( fitted.x, fitted.y, fitted.width, fitted.height,
 			CRectLayout::STextureCoord( CTRect<float>( 0, pLogo->nHeight, pLogo->nWidth, 0 ) ) );
-		p2DScene->CreateDynamicRects( pLogo,  rl, CTPoint<int>( 0, 0 ), window );
+		p2DScene->CreateDynamicRects( pLogo,  rl, CTPoint<float>( 0, 0 ), window );
 		p2DScene->Flush();
 	}
 	NGScene::Flip();

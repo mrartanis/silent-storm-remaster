@@ -346,7 +346,24 @@ void CWindow::ScreenToClient( const SPoint &sScreenPos, SPoint *pPosition ) cons
 	pPosition->y = sScreenPos.y - sPosition.y;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CWindow::VirtualToScreen( SPoint *pPosition, SRect *pWindow )
+// Retail v1.2 0x7276e0/0x727680: virtual coordinates are integral, but screen
+// positions and clipping edges stay fractional until the renderer snaps them.
+void CWindow::VirtualToScreen( const SPoint *pPosition, CTPoint<float> *pRes )
+{
+	pRes->x = pPosition->x * S2UI::Scale();
+	pRes->y = pPosition->y * S2UI::Scale();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CWindow::VirtualToScreen( const SRect *pWindow, CTRect<float> *pRes )
+{
+	pRes->x1 = pWindow->x1 * S2UI::Scale();
+	pRes->x2 = pWindow->x2 * S2UI::Scale();
+	pRes->y1 = pWindow->y1 * S2UI::Scale();
+	pRes->y2 = pWindow->y2 * S2UI::Scale();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// CPU canvas rasterization needs final integer pixel boundaries.
+void CWindow::VirtualToPixelBounds( SPoint *pPosition, SRect *pWindow )
 {
 	if ( pPosition )
 	{
@@ -370,12 +387,11 @@ void CWindow::CreateClearRect( NGScene::I2DGameView *pView, float fZ )
 	if ( !ClientToScreen( &sPosition, &sWindow ) )
 		return;
 
-	SRect s2DWindow( sWindow );
-	SPoint s2DPosition( sPosition );
-	VirtualToScreen( &s2DPosition, &s2DWindow );
-
-	SPoint sRealSize( GetSize() );
-	VirtualToScreen( &sRealSize, 0 );
+	CTRect<float> s2DWindow;
+	CTPoint<float> s2DPosition, sRealSize;
+	VirtualToScreen( &sPosition, &s2DPosition );
+	VirtualToScreen( &sWindow, &s2DWindow );
+	VirtualToScreen( &GetSize(), &sRealSize );
 
 	CRectLayout sLayout;
 	sLayout.AddRect( 0, 0, sRealSize.x, sRealSize.y, CTRect<float>( 0, 0, 0, 0 ) );
@@ -688,14 +704,15 @@ void CWindow::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 		// Fill the area outside the centered authored form explicitly.
 		SPoint pos; SRect clip;
 		if(ClientToScreen(&pos,&clip)) {
-			VirtualToScreen(&pos,&clip);
+			CTPoint<float> screenPosition; CTRect<float> screenClip;
+			VirtualToScreen(&pos,&screenPosition); VirtualToScreen(&clip,&screenClip);
 			const float scale=S2UI::Scale(), w=GetSize().x*scale, h=GetSize().y*scale;
 			const float dx=(GetSize().x-1024)/2*scale, dy=(GetSize().y-768)/2*scale;
 			CRectLayout bars;
 			const CTRect<float> uv(0,0,1,1); const NGfx::SPixel8888 black(0,0,0,255);
 			if(dx>0) { bars.AddRect(0,0,dx,h,uv,black); bars.AddRect(dx+1024*scale,0,w-dx-1024*scale,h,uv,black); }
 			if(dy>0) { bars.AddRect(dx,0,1024*scale,dy,uv,black); bars.AddRect(dx,dy+768*scale,1024*scale,h-dy-768*scale,uv,black); }
-			pView->CreateDynamicRects((NDb::CTexture*)0,bars,pos,clip);
+			pView->CreateDynamicRects((NDb::CTexture*)0,bars,screenPosition,screenClip);
 		}
 	}
 	list< CPtr<CWindow> > windowsList;

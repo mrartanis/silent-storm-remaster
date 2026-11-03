@@ -183,6 +183,9 @@ namespace NRPG { int GetAttackerTileToHit(const NWorld::CUnit*,const CVec3,int,N
 #include "../Main/GLightmapStateWire.h"
 #include "../Main/GInit.h"
 #include "../Main/Gfx.h"
+#include "../Main/GRects.h"
+#include "../Main/2DScene.h"
+#include "../Main/GfxUtils.h"
 #include "../Game/Platform.h"
 #include <SDL3/SDL.h>
 #include "../Main/GGeometryPositionHash.h"
@@ -16367,6 +16370,18 @@ static void LatestRouteCommand(const char* databasePath, const char* resourcePat
 }
 
 
+template<class> struct NativeUIDrawArguments;
+template<class R,class C,class Layout,class Position,class Clip,class... Tail>
+struct NativeUIDrawArguments<R(C::*)(Layout,Position,Clip,Tail...)>
+{
+    using Point=std::decay_t<Position>;
+    using Rect=std::decay_t<Clip>;
+};
+using NativeUIDrawPoint=NativeUIDrawArguments<decltype(&NGScene::I2DGameView::CreateDynamicClearRects)>::Point;
+using NativeUIDrawRect=NativeUIDrawArguments<decltype(&NGScene::I2DGameView::CreateDynamicClearRects)>::Rect;
+template<class P> static NativeUIDrawPoint NativeUIDrawPosition(const P& p){return NativeUIDrawPoint(p.x,p.y);}
+template<class R> static NativeUIDrawRect NativeUIDrawWindow(const R& r){return NativeUIDrawRect(r.x1,r.y1,r.x2,r.y2);}
+
 class DialogueLayoutView: public NGScene::I2DGameView
 {
     OBJECT_BASIC_METHODS(DialogueLayoutView);
@@ -16376,11 +16391,11 @@ public:
     int queries = 0;
     int maxQueries = 100000;
     DialogueLayoutView(): locale(new NGScene::CTextLocaleInfo) { locale->Setup(viewport); }
-    void CreateDynamicRects(CFuncBase<NGScene::SText>*, const CTPoint<int>&, const CTRect<int>&) override {}
-    void CreateDynamicRects(NDb::CTexture*, const CRectLayout&, const CTPoint<int>&, const CTRect<int>&) override {}
-    void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>*, const CRectLayout&, const CTPoint<int>&, const CTRect<int>&) override {}
+    void CreateDynamicRects(CFuncBase<NGScene::SText>*, const NativeUIDrawPoint&, const NativeUIDrawRect&) override {}
+    void CreateDynamicRects(NDb::CTexture*, const CRectLayout&, const NativeUIDrawPoint&, const NativeUIDrawRect&) override {}
+    void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>*, const CRectLayout&, const NativeUIDrawPoint&, const NativeUIDrawRect&) override {}
     CFuncBase<NGScene::SText>* CreateText(CFuncBase<wstring>*, CFuncBase<CTPoint<int>>*, bool) override { return nullptr; }
-    void CreateDynamicClearRects(const CRectLayout&, const CTPoint<int>&, const CTRect<int>&, float) override {}
+    void CreateDynamicClearRects(const CRectLayout&, const NativeUIDrawPoint&, const NativeUIDrawRect&, float) override {}
     NGScene::CTextLocaleInfo* GetLocaleInfo() const override { return locale; }
     const CVec2& GetViewportSize() override {
         Require(++queries <= maxQueries, "dialogue pagination made no progress with markup-only content");
@@ -16504,12 +16519,12 @@ static void OversizedTooltipPosition(const char* databasePath,const char* resour
         CFuncBase<NGScene::SText>* CreateText(CFuncBase<wstring>* text,CFuncBase<CTPoint<int>>* size,bool tags) override {
             return NGScene::CreateTextFormater(GetLocaleInfo(),screen,text,size,tags);
         }
-        void CreateDynamicRects(CFuncBase<NGScene::SText>* node,const CTPoint<int>&,const CTRect<int>&) override {
+        void CreateDynamicRects(CFuncBase<NGScene::SText>* node,const NativeUIDrawPoint&,const NativeUIDrawRect&) override {
             CDGPtr<CFuncBase<NGScene::SText>> text=node;text.Refresh();
             Require(!text->GetValue().rectLayouts.empty(),"tooltip renderer lost its packaged font glyphs");++texts;
         }
-        void CreateDynamicRects(NDb::CTexture*,const CRectLayout&,const CTPoint<int>&,const CTRect<int>&) override { ++images; }
-        void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>*,const CRectLayout& layout,const CTPoint<int>&,const CTRect<int>&) override {
+        void CreateDynamicRects(NDb::CTexture*,const CRectLayout&,const NativeUIDrawPoint&,const NativeUIDrawRect&) override { ++images; }
+        void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>*,const CRectLayout& layout,const NativeUIDrawPoint&,const NativeUIDrawRect&) override {
             if (!layout.rects.empty()) ++texts;
         }
     };
@@ -16587,8 +16602,8 @@ static void MedalCursorVisible(const char* databasePath,const char* resourcePath
         OBJECT_NOCOPY_METHODS(CursorPaintView);
     public:
         int images = 0;
-        void CreateDynamicRects(NDb::CTexture*,const CRectLayout&,const CTPoint<int>&,const CTRect<int>&) override { ++images; }
-        void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>*,const CRectLayout&,const CTPoint<int>&,const CTRect<int>&) override { ++images; }
+        void CreateDynamicRects(NDb::CTexture*,const CRectLayout&,const NativeUIDrawPoint&,const NativeUIDrawRect&) override { ++images; }
+        void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>*,const CRectLayout&,const NativeUIDrawPoint&,const NativeUIDrawRect&) override { ++images; }
     };
     CObj<CursorPaintView> view = new CursorPaintView;
     const auto info = interface->GetDefaultCursorInfo();
@@ -17059,7 +17074,7 @@ static void RejectedHitLabelText(const char* databasePath,const char* resourcePa
         vector<DWORD> colours;
         int vectorGlyphs=0,bitmapGlyphs=0;
         const CVec2& GetViewportSize() override { if(!layout)throw HitLayoutReached();return DialogueLayoutView::GetViewportSize(); }
-        void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>* texture,const CRectLayout& glyphs,const CTPoint<int>&,const CTRect<int>&) override {
+        void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>* texture,const CRectLayout& glyphs,const NativeUIDrawPoint&,const NativeUIDrawRect&) override {
             for(const auto& glyph:glyphs.rects) {
                 colours.push_back(glyph.sColor.color);
                 if(NGScene::IsVectorTexture(texture))++vectorGlyphs;else ++bitmapGlyphs;
@@ -17157,7 +17172,7 @@ static void LocalizedLogStyle(const char* databasePath,const char* resourcePath,
         vector<DWORD> colours;
         vector<CRectLayout::SRect> glyphs;
         vector<CPtrFuncBase<NGfx::CTexture>*> textures;
-        void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>* texture,const CRectLayout& layout,const CTPoint<int>&,const CTRect<int>&) override {
+        void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>* texture,const CRectLayout& layout,const NativeUIDrawPoint&,const NativeUIDrawRect&) override {
             for(const auto& quad:layout.rects){colours.push_back(quad.sColor.color);textures.push_back(texture);glyphs.push_back(quad);}
         }
     };
@@ -17209,13 +17224,13 @@ static void ScaledEditTextLayout()
             dimensions = size;
             return NGScene::CreateTextFormater(GetLocaleInfo(),screen,text,size,tags);
         }
-        void CreateDynamicRects(CFuncBase<NGScene::SText>* node,const CTPoint<int>&,const CTRect<int>&) override {
+        void CreateDynamicRects(CFuncBase<NGScene::SText>* node,const NativeUIDrawPoint&,const NativeUIDrawRect&) override {
             CDGPtr<CFuncBase<NGScene::SText>> text = node;
             text.Refresh(); rendered = text->GetValue();
             for (const auto& layout: rendered.rectLayouts) textures.push_back(layout.pFontInfo->GetTexture());
         }
         void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>* texture,const CRectLayout& layout,
-            const CTPoint<int>&,const CTRect<int>&) override {
+            const NativeUIDrawPoint&,const NativeUIDrawRect&) override {
             if (!layout.rects.empty()) textures.push_back(texture);
         }
     };
@@ -17367,13 +17382,13 @@ static void MarkupLeadingWhitespace(const char* databasePath,const char* resourc
         previous->SetText(L"<font face=Courier size=32pt><left>Alpha<br>Beta<br>Gamma<br>Delta",0);
         previous->Generate(view,240);previous=nullptr;
         CObj<NUI::IML> text=NUI::CreateML();text->SetText(L"<font face=Courier size=32pt><left>  Alpha",0);text->Generate(view,240);
-        list<NUI::SRect> bounds;text->Render(&bounds,NUI::SPoint(0,0),NUI::SRect(0,0,0,0));
+        list<NativeUIDrawRect> bounds;text->Render(&bounds, NativeUIDrawPoint(0,0), NativeUIDrawRect(0,0,0,0));
         Require(bounds.size()==7,"native leading-space fixture lost its character bounds");
         const auto size=text->GetSize();
         for(const auto& bound:bounds) {
             if(bound.x1<0 || bound.y1<0 || bound.y2>size.y || bound.x2>240) {
-                std::printf("native ignored-space bounds: iteration=%d rect=%d,%d..%d,%d layout=%d,%d\n",
-                    iteration,bound.x1,bound.y1,bound.x2,bound.y2,size.x,size.y);std::fflush(stdout);
+                std::printf("native ignored-space bounds: iteration=%d rect=%.9g,%.9g..%.9g,%.9g layout=%d,%d\n",
+                    iteration,double(bound.x1),double(bound.y1),double(bound.x2),double(bound.y2),size.x,size.y);std::fflush(stdout);
                 Require(false,"native markup retained undefined coordinates for a leading space omitted from reflow");
             }
         }
@@ -17461,8 +17476,8 @@ static void OversizedDialogueLine(const char* databasePath, const char* resource
     layout->Generate(view, S2UI::ToPixel(text->GetSize().x));
     Require(layout->GetSize().y > text->GetSize().y, "dialogue fixture did not overflow its text box");
     if (markupOnly) {
-        list<NUI::SRect> bounds;
-        layout->Render(&bounds, NUI::SPoint(0, 0), NUI::SRect(0, 0, 0, 0));
+        list<NativeUIDrawRect> bounds;
+        layout->Render(&bounds, NativeUIDrawPoint(0,0), NativeUIDrawRect(0,0,0,0));
         Require(bounds.size() == 2, "markup dialogue fixture did not lay out both image bounds");
         for (const auto& bound : bounds) Require(bound.y2 <= 10, "markup fixture did not expose fitting bounds with overflowing line spacing");
         view->queries = 0; view->maxQueries = 512;
@@ -17492,8 +17507,8 @@ static void OversizedDialogueLine(const char* databasePath, const char* resource
             else Require(phrase == previousPhrase + 1 && offset == 0, "new dialogue phrase did not restart its source offset");
             if(formattedPages) {
                 layout->SetText(text->GetText(),0);layout->Generate(view,S2UI::ToPixel(text->GetSize().x));
-                list<NUI::SRect> glyphs;layout->Render(&glyphs,NUI::SPoint(0,0),NUI::SRect(0,0,0,0));
-                int bottom=0;for(const auto& glyph:glyphs)bottom=Max(bottom,glyph.y2);
+                list<NativeUIDrawRect> glyphs;layout->Render(&glyphs, NativeUIDrawPoint(0,0), NativeUIDrawRect(0,0,0,0));
+                float bottom=0;for(const auto& glyph:glyphs)bottom=Max(bottom,float(glyph.y2));
                 const float glyphBottom=S2UI::FromPixel(bottom);
                 std::printf("native formatted dialogue: page=%d phrase=%d offset=%d layoutHeight=%.1f glyphBottom=%.1f available=%d\n",
                     page,phrase,offset,S2UI::FromPixel(layout->GetSize().y),glyphBottom,text->GetSize().y);std::fflush(stdout);
@@ -30164,7 +30179,7 @@ class PortraitPanelView: public DialogueLayoutView
     OBJECT_NOCOPY_METHODS(PortraitPanelView);
 public:
     vector<float> clears;
-    void CreateDynamicClearRects(const CRectLayout&,const CTPoint<int>&,const CTRect<int>&,float depth) override
+    void CreateDynamicClearRects(const CRectLayout&,const NativeUIDrawPoint&,const NativeUIDrawRect&,float depth) override
     { clears.push_back(depth); }
 };
 
@@ -34783,10 +34798,10 @@ static void NativeTooltipPlacement(const char* db,const char* resources,int mode
         int glyphs=0;
         explicit PlacementView(CVec2 size=CVec2(1024,768)):locale(new NGScene::CTextLocaleInfo),screen(new NGScene::CCVec2(size)),viewport(size){locale->Setup(viewport);}
         CFuncBase<NGScene::SText>* CreateText(CFuncBase<wstring>* text,CFuncBase<CTPoint<int>>* size,bool tags) override{return NGScene::CreateTextFormater(locale,screen,text,size,tags);}
-        void CreateDynamicRects(CFuncBase<NGScene::SText>* value,const CTPoint<int>&,const CTRect<int>&) override{CDGPtr<CFuncBase<NGScene::SText>> node=value;node.Refresh();glyphs+=int(node->GetValue().charsSet.size());}
-        void CreateDynamicRects(NDb::CTexture*,const CRectLayout&,const CTPoint<int>&,const CTRect<int>&) override{}
-        void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>*,const CRectLayout& layout,const CTPoint<int>&,const CTRect<int>&) override{glyphs+=int(layout.rects.size());}
-        void CreateDynamicClearRects(const CRectLayout&,const CTPoint<int>&,const CTRect<int>&,float) override{}
+        void CreateDynamicRects(CFuncBase<NGScene::SText>* value,const NativeUIDrawPoint&,const NativeUIDrawRect&) override{CDGPtr<CFuncBase<NGScene::SText>> node=value;node.Refresh();glyphs+=int(node->GetValue().charsSet.size());}
+        void CreateDynamicRects(NDb::CTexture*,const CRectLayout&,const NativeUIDrawPoint&,const NativeUIDrawRect&) override{}
+        void CreateDynamicRects(CPtrFuncBase<NGfx::CTexture>*,const CRectLayout& layout,const NativeUIDrawPoint&,const NativeUIDrawRect&) override{glyphs+=int(layout.rects.size());}
+        void CreateDynamicClearRects(const CRectLayout&,const NativeUIDrawPoint&,const NativeUIDrawRect&,float) override{}
         NGScene::CTextLocaleInfo* GetLocaleInfo() const override{return locale;}
         const CVec2& GetViewportSize() override{return viewport;}
         void StartNewFrame() override{throw FrameBoundary();}
@@ -35632,6 +35647,48 @@ static void NativeAutomaticCameraMission(const char* databasePath,const char* re
 
 
 
+// LAB draft only. Required native headers: GRects.h,2DScene.h,GfxUtils.h.
+// Add after all existing native fixtures, only after178 has been pushed clean.
+template<class F,class... Args> static void NativeInvokeFractionalLegacy(F function,Args&&... args)
+{function(std::forward<Args>(args)...);}
+template<class T> static auto NativeFractionalDirect(NGfx::C2DQuadsRenderer* quads,const CRectLayout& layout,const CTPoint<T>& point,const CTRect<T>& clip,NGScene::ELayoutRenderMode mode,int)
+    -> decltype(static_cast<void(*)(NGfx::C2DQuadsRenderer*,NGfx::CTexture*,const CRectLayout&,const CTPoint<T>&,const CTRect<T>&,float,NGScene::ELayoutRenderMode,bool)>(&NGScene::RenderRectLayoutClipped),bool())
+{NGScene::RenderRectLayoutClipped(quads,nullptr,layout,point,clip,0.f,mode,false);return true;}
+template<class T> static bool NativeFractionalDirect(NGfx::C2DQuadsRenderer* quads,const CRectLayout& layout,const CTPoint<T>& point,const CTRect<T>& clip,NGScene::ELayoutRenderMode mode,long)
+{NativeInvokeFractionalLegacy(&NGScene::RenderRectLayoutClipped,quads,static_cast<NGfx::CTexture*>(nullptr),layout,CTPoint<int>(int(point.x),int(point.y)),CTRect<int>(int(clip.x1),int(clip.y1),int(clip.x2),int(clip.y2)),0.f,mode,false);return false;}
+template<class C> static auto NativeFractionalDraw(C* owner,const CRectLayout& layout,const CTPoint<float>& point,const CTRect<float>& clip,int)
+    -> decltype(static_cast<void(C::*)(CPtrFuncBase<NGfx::CTexture>*,const CRectLayout&,const CTPoint<float>&,const CTRect<float>&)>(&C::CreateDynamicRects),bool())
+{owner->CreateDynamicRects(static_cast<CPtrFuncBase<NGfx::CTexture>*>(nullptr),layout,point,clip);return true;}
+template<class C> static bool NativeFractionalDraw(C* owner,const CRectLayout& layout,const CTPoint<float>& point,const CTRect<float>& clip,long)
+{owner->CreateDynamicRects(static_cast<CPtrFuncBase<NGfx::CTexture>*>(nullptr),layout,CTPoint<int>(int(point.x),int(point.y)),CTRect<int>(int(clip.x1),int(clip.y1),int(clip.x2),int(clip.y2)));return false;}
+template<class C> static auto NativeFractionalClear(C* owner,const CRectLayout& layout,const CTPoint<float>& point,const CTRect<float>& clip,int)
+    -> decltype(static_cast<void(C::*)(const CRectLayout&,const CTPoint<float>&,const CTRect<float>&,float)>(&C::CreateDynamicClearRects),bool())
+{owner->CreateDynamicClearRects(layout,point,clip,0.f);return true;}
+template<class C> static bool NativeFractionalClear(C* owner,const CRectLayout& layout,const CTPoint<float>& point,const CTRect<float>& clip,long)
+{owner->CreateDynamicClearRects(layout,CTPoint<int>(int(point.x),int(point.y)),CTRect<int>(int(clip.x1),int(clip.y1),int(clip.x2),int(clip.y2)),0.f);return false;}
+
+static void NativeFractionalUIPixels(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<18,"unknown native fractional UI pixel mode");const int layer=mode/6,variant=mode%6;const bool clear=variant==5,empty=variant==4,control=variant==0 || empty;NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm fractional UI rendering regression");
+    const auto size=NGfx::GetScreenRect();Require(size.x>=64 && size.y>=64,"fractional UI lacks actual native render surface");CRectLayout layout;const NGfx::SPixel8888 white(255,255,255,255),zero(0,0,0,0);CTPoint<float> point(0,0);CTRect<float> clip(0,0,64,64),expected(0,0,0,0);
+    if(variant==0){point=CTPoint<float>(4,4);layout.AddRect(0,0,8,8,CTRect<float>(0,0,1,1),white);expected=CTRect<float>(4,4,12,12);}
+    if(variant==1 || clear){point=CTPoint<float>(.75f,.75f);layout.AddRect(0,0,8,8,CTRect<float>(0,0,1,1),white);expected=CTRect<float>(.75f,.75f,8.75f,8.75f);}
+    if(variant==2){clip=CTRect<float>(4.75f,4.75f,12.75f,12.75f);layout.AddRect(0,0,16,16,CTRect<float>(0,0,1,1),white);expected=clip;}
+    if(variant==3){point=CTPoint<float>(.75f,.75f);layout.AddRect(12,12,-8,-8,CTRect<float>(0,0,1,1),white);expected=CTRect<float>(4.75f,4.75f,12.75f,12.75f);}
+    if(empty){clip=CTRect<float>(32.75f,32.75f,40.75f,40.75f);layout.AddRect(0,0,8,8,CTRect<float>(0,0,1,1),white);}
+    auto context=[](){NGfx::CRenderContext rc;rc.SetAlphaCombine(NGfx::COMBINE_SMART_ALPHA);rc.SetStencil(NGfx::STENCIL_NONE);return rc;};
+    // The reference uses the existing actual float renderer, with simple fixed target rectangles.
+    // It does not duplicate the clipping implementation or intercept a production draw call.
+    {auto rc=context();rc.ClearBuffers(0xff315579);NGfx::C2DQuadsRenderer quads(rc,size,NGfx::QRM_OVERWRITE);if(!empty)quads.AddRect(expected,nullptr,CTRect<float>(0,0,1,1),clear?zero:white,0.f);quads.Flush();}
+    CArray2D<NGfx::SPixel8888> reference;NGfx::MakeScreenShot(&reference,false);Require(reference.GetXSize()==int(size.x) && reference.GetYSize()==int(size.y),"fractional UI reference readback lost native surface dimensions");
+    bool api=false;{auto rc=context();rc.ClearBuffers(0xff315579);if(layer==0){NGfx::C2DQuadsRenderer quads(rc,size,NGfx::QRM_OVERWRITE);api=NativeFractionalDirect(&quads,layout,point,clip,clear?NGScene::LRM_CLEAR_RECT:NGScene::LRM_NORMAL,0);quads.Flush();}else if(layer==1){CObj<NGScene::I2DScene> scene=NGScene::Make2DScene();Require(scene,"fractional UI lacks actual registered immediate scene");scene->StartNewFrame(nullptr,size);api=clear?NativeFractionalClear(scene.GetPtr(),layout,point,clip,0):NativeFractionalDraw(scene.GetPtr(),layout,point,clip,0);scene->Flush();}else{CObj<NGScene::I2DGameView> view=NGScene::CreateNew2DView();Require(view,"fractional UI lacks actual native game view");view->StartNewFrame();api=clear?NativeFractionalClear(view.GetPtr(),layout,point,clip,0):NativeFractionalDraw(view.GetPtr(),layout,point,clip,0);view->Flush();}}
+    CArray2D<NGfx::SPixel8888> observed;NGfx::MakeScreenShot(&observed,false);Require(observed.GetXSize()==reference.GetXSize() && observed.GetYSize()==reference.GetYSize(),"fractional UI changed native dimensions between reference and production draw");int mismatch=0,referenceInk=0,observedInk=0;
+    for(int y=0;y<48;++y)for(int x=0;x<48;++x){const auto& a=reference[y][x];const auto& b=observed[y][x];if(a.r!=b.r || a.g!=b.g || a.b!=b.b || a.a!=b.a)++mismatch;if(a.r==255 && a.g==255 && a.b==255)++referenceInk;if(b.r==255 && b.g==255 && b.b==255)++observedInk;}
+    if(!empty && !clear)Require(referenceInk>0,"fractional UI direct float reference drew no real pixels");
+    std::printf("FRACTIONAL-UI-PIXELS mode=%d layer=%d variant=%d api=%d mismatch=%d referenceInk=%d observedInk=%d control=%d clear=%d\n",mode,layer,variant,int(api),mismatch,referenceInk,observedInk,int(control),int(clear));std::fflush(stdout);
+    Require(mismatch==0 && (control || api),"actual native UI pipeline lost fractional position/clip or its float interface");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode,"native-knife-solver")) { Require(argc==5,"knife solver requires db/resources/mode"); NativeKnifeLaunchTarget(argv[2],argv[3],std::atoi(argv[4]),true); return true; }
@@ -36303,6 +36360,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-pk-pilot-exit")) { Require(argc==5,"PK pilot exit requires db/resources/mode"); NativePKPilotExit(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-pk-hide-gate")) { Require(argc==5,"PK hide gate requires db/resources/mode"); NativePKHideGate(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-camera-framing-bridge")) { Require(argc==5,"camera bridge requires db/resources/mode"); NativeCameraFramingBridge(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-fractional-ui-pixels")) { Require(argc==5,"fractional UI pixels requires db/resources/mode"); NativeFractionalUIPixels(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "automatic-camera-poi")) { Require(argc==5,"automatic camera requires db/resources/mode"); NativeAutomaticCameraPOI(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "automatic-camera-fov")) { Require(argc==5,"automatic camera requires db/resources/mode"); NativeAutomaticCameraFOV(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "automatic-camera-following")) { Require(argc==5,"automatic camera requires db/resources/mode"); NativeAutomaticCameraFollowing(argv[2],argv[3],std::atoi(argv[4])); return true; }

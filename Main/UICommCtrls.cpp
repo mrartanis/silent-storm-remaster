@@ -221,12 +221,15 @@ void CEdit::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 	if ( !ClientToScreen( &sPosition, &sWindow ) )
 		return;
 
-	VirtualToScreen( &sPosition, &sWindow );
+	CTPoint<float> sScreenPosition;
+	CTRect<float> sScreenWindow;
+	VirtualToScreen( &sPosition, &sScreenPosition );
+	VirtualToScreen( &sWindow, &sScreenWindow );
 
 	if ( !pText ) pText = pView->CreateText( pTextString, pSize );
 
 	pText.Refresh();
-	pView->CreateDynamicRects( pText, sPosition, sWindow );
+	pView->CreateDynamicRects( pText, sScreenPosition, sScreenWindow );
 
 	if ( bCursorVisible )
 	{
@@ -245,7 +248,7 @@ void CEdit::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 
 			sLayout.AddRect( sRect.x2, sRect.y1, 2, sRect.Height(), CRectLayout::STextureCoord( CTRect<float>( 0, 0, 2, sRect.Height() ) ) );
 		}
-		pView->CreateDynamicRects( (NDb::CTexture*)0, sLayout, sPosition, sWindow );
+		pView->CreateDynamicRects( (NDb::CTexture*)0, sLayout, sScreenPosition, sScreenWindow );
 	}
 
 	// Deliberate post-rebase divergence: retail Draw @0x314bd0 pushes wsFormat+wsText into the
@@ -1740,11 +1743,11 @@ void CScreenShot::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 		SPoint sScrPosition;
 		if ( !ClientToScreen( &sScrPosition, &sScrWindow ) )
 			return;
-		VirtualToScreen( &sScrPosition, &sScrWindow );
-
-		SRect sDummyRect( sScrWindow );
-		SPoint sRealSize( GetSize() );
-		VirtualToScreen( &sRealSize, &sDummyRect );
+		CTPoint<float> sScreenPosition, sRealSize;
+		CTRect<float> sScreenWindow;
+		VirtualToScreen( &sScrPosition, &sScreenPosition );
+		VirtualToScreen( &sScrWindow, &sScreenWindow );
+		VirtualToScreen( &GetSize(), &sRealSize );
 
 		SPoint sSTSize;
 		pTexture->GetSize( &sSTSize );
@@ -1752,7 +1755,7 @@ void CScreenShot::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 		// quad size = texture dims * (real/texture) scale = the real window size (baked; no layout scale)
 		CRectLayout sLayout;
 		sLayout.AddRect( 0, 0, sRealSize.x, sRealSize.y, CTRect<float>( 0, 0, sSTSize.x, sSTSize.y ) );
-		pView->CreateDynamicRects( pTexture, sLayout, sScrPosition, sScrWindow );
+		pView->CreateDynamicRects( pTexture, sLayout, sScreenPosition, sScreenWindow );
 	}
 
 	CWindow::Draw( sTime, pView );
@@ -1837,11 +1840,11 @@ void CVideoPlayer::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 		SPoint sScrPosition;
 		if ( ClientToScreen( &sScrPosition, &sScrWindow ) )
 		{
-			VirtualToScreen( &sScrPosition, &sScrWindow );
-
-			SRect sDummyRect( sScrWindow );
-			SPoint sRealSize( GetSize() );
-			VirtualToScreen( &sRealSize, &sDummyRect );
+			CTPoint<float> sScreenPosition, sRealSize;
+			CTRect<float> sScreenWindow;
+			VirtualToScreen( &sScrPosition, &sScreenPosition );
+			VirtualToScreen( &sScrWindow, &sScreenWindow );
+			VirtualToScreen( &GetSize(), &sRealSize );
 
 			SPoint sVidSize;
 			pTexture->GetSize( &sVidSize );             // the movie's pixel size
@@ -1853,9 +1856,9 @@ void CVideoPlayer::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 				const auto fitted = S2Display::Fit(sRealSize.x, sRealSize.y, sVidSize.x, sVidSize.y);
 				CRectLayout background;
 				background.AddRect(0, 0, sRealSize.x, sRealSize.y, CTRect<float>(0,0,1,1), NGfx::SPixel8888(0,0,0,255));
-				pView->CreateDynamicRects((NDb::CTexture*)0, background, sScrPosition, sScrWindow);
+				pView->CreateDynamicRects((NDb::CTexture*)0, background, sScreenPosition, sScreenWindow);
 				sLayout.AddRect(fitted.x, fitted.y, fitted.width, fitted.height, CTRect<float>(0,0,sVidSize.x,sVidSize.y));
-				pView->CreateDynamicRects( pTexture, sLayout, sScrPosition, sScrWindow );
+				pView->CreateDynamicRects( pTexture, sLayout, sScreenPosition, sScreenWindow );
 			}
 		}
 	}

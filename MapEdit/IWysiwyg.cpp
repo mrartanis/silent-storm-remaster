@@ -1326,7 +1326,7 @@ void CWysiwyg::DrawMoviewFrame()
 	//
 	CRect rw;
 	GetWindowRect( hWnd, &rw );
-	CTRect<int> drect( 0, 0, rw.Width(), rw.Height() );
+	CTRect<float> drect( 0, 0, rw.Width(), rw.Height() );
 	float fScale = (float)rw.Height() / 768;
 
 	CTRect<int> r;
@@ -1339,14 +1339,14 @@ void CWysiwyg::DrawMoviewFrame()
 	sLayout = CRectLayout();
 	sLayout.AddRect( r.left, r.top, rw.Width(), r.bottom - r.top, CRectLayout::STextureCoord( CTRect<float>( 0, 0, pFrameTex->nWidth, pFrameTex->nHeight ) ) );
 
-	p2DScene->CreateDynamicRects( pFrameTex, sLayout, CTPoint<int>( 0, 0), drect );
+	p2DScene->CreateDynamicRects( pFrameTex, sLayout, CTPoint<float>( 0, 0), drect );
 
 	r.top = rw.Height() - 111.0f * fScale;
 	r.bottom = rw.Height();
 	sLayout = CRectLayout();
 	sLayout.AddRect( r.left, r.top, rw.Width(), r.bottom - r.top, CRectLayout::STextureCoord( CTRect<float>( 0, 0, pFrameTex->nWidth, pFrameTex->nHeight ) ) );
 
-	p2DScene->CreateDynamicRects( pFrameTex, sLayout, CTPoint<int>( 0, 0), drect );
+	p2DScene->CreateDynamicRects( pFrameTex, sLayout, CTPoint<float>( 0, 0), drect );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 } // namespace
