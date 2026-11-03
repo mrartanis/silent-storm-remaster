@@ -3121,3 +3121,27 @@ guessed-address inference documented in imports; native input APIs/real draw, no
 OS/original runtime/ABI/RNG parity claim. Source3053 complete,17 unfinished.
 
 Source: [3053c3125ddb6be5fd7b0b6b30a375536d073200](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3053c3125ddb6be5fd7b0b6b30a375536d073200).
+
+## 175. Complete hero, hotseat and scenario defeat handling
+
+Register NativeHeroDefeat0..6, NativeMatchDefeat0..2 and NativeScenarioDefeat0..2 on both
+platforms, each in its isolated user directory with extended/native-display labels,
+headless audio and the existing120s limit. Final identical-source native RED4/13
+both/control9 -> GREEN13 both. Actual public native mission/party/StepApp inputs and
+read-only existing save fields/pending events provide observations; no production hook or
+synthetic callback/calculator. Ordinary death-after-refresh, healthy second hero,
+no-hero/empty party, healthy two-party match, intact scenario and ordinary4000ms
+defeat-delay controls remain strict. Hotseat GREEN also executes/closes the actual modal
+and checks no repeat. Existing diagnostics only gain lines; all pre175 assertions remain
+intact.
+
+First scenario fixed-content precondition failures are retained, then adapted to actual
+generated critical-clue discovery without private seed/flag changes; they are not runtime
+RED. The first screenshot bool-call compile rejection is retained and adapted to the
+existing Generate()->MakeScreenShotfalse API. Fresh Game/108 Windows/105 Linux related
+tests, CI382 and LAN12 each/361 encounter variants pass. Three pre-existing Windows-only
+CampaignSequence tests and the existing nested-save exclusion remain; no added exclusion.
+hero-defeat-verification.json records exact final fixture/production hashes and all gate
+observations. Source9af complete;16 unfinished.
+
+Source: [9af844d6b62ed800bb59a64057b03e0eafc83878](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9af844d6b62ed800bb59a64057b03e0eafc83878).

@@ -26398,3 +26398,86 @@ with no HD PNG generation/rebuild. Source3053 is complete;229 imported/12 pendin
 partial,17 unfinished sources.
 
 Source: [3053c3125ddb6be5fd7b0b6b30a375536d073200](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3053c3125ddb6be5fd7b0b6b30a375536d073200).
+
+## 175. Complete hero, hotseat and scenario defeat handling
+
+A party remains alive only while one of its heroes can fight. A healthy non-hero no longer
+keeps an unconscious hero's party alive. Local hotseat queues its real loss modal as soon
+as fewer than two parties remain capable, regardless of which party owns the turn; the
+existing acknowledgment latch makes that transition one-shot. An unwinnable campaign now
+sends OnPlayerLose(1) even while its hero is healthy. Ordinary hero defeat retains
+OnPlayerLose(0) wrapped in the existing 4000ms corpse-settle delay. Both new local defeat
+paths retain the remaster's network-session guard and server authority.
+
+All three donor files are accounted for. PlayerTracker receives the hero-and-CanFight
+predicate. The lazy GetActionInfo/UpdateActionsInfo cache hunks were imported earlier:
+retain every existing action enum/save slot, sniper entry, equipped-tool probe,
+replacement reload and network preview-selection hook. The existing file-local hide helper
+already has the correct nonempty/all-members reduction. Add the equivalent strafe helper
+and probe the opposite of the current group state. The donor's iMissionInternal.h member
+declaration is adapted to a file-local helper matching the existing hide arrangement, so
+no header, API or state-layout change is needed. Current CanDoStrafe does not depend on
+its desired bool, so no separate behavior RED is claimed for this query-parameter
+correction. The new screenshot call uses own Generate(), whose existing body already calls
+MakeScreenShot(...,false); the donor bool parameter does not exist here. The initial
+compile rejection is archived, not counted as a gameplay failure.
+
+The final identical diagnostic source reproduced four genuine runtime failures among
+thirteen cases on both Windows and Linux before Main changed: unconscious hero with
+healthy non-hero, inactive-party and active-party hotseat defeat, and real authored clue
+destruction leaving a healthy hero in an unwinnable campaign. Nine controls passed. Tests
+enter actual native tactical missions, execute their queued restart snapshots, refresh
+actual trackers, use public MakeUnconscious/Kill/SyncConscious, and reach the first
+GameStep through public paused StepApp plus the existing harness clock. Read-only existing
+save fields38/36 verify first-frame entry/scenario failure; read-only actual commander
+event objects verify immediate OnPlayerLose1 versus delayed OnPlayerLose0. No private
+flag/seed/command-cache injection, callback replacement, fake world/calculator, new
+production test hook or database record corruption is used.
+
+Campaign generation varies authored clue placement: the first scenario fixture's fixed
+zone2/template2240/two-clue preconditions failed and are retained as observer failures,
+not extra RED. The corrected fixture discovers an actual critical zone through public
+CanLeaveZone and immediate CheatDestroyClue before entering that zone's actual mission,
+then checks the mission's real CanLeaveZone writer. It never forces a private scenario
+seed. All thirteen cases pass after the two-file fix, including actual loss-modal
+open/close and no-repeat checks. The nine Windows control rows and four expected result
+changes were exact; broader per-platform checks allow only naturally generated
+destroyed-clue counts to differ between runs. Dead heroes removed by ordinary tracker
+refresh were already handled correctly and remain controls.
+
+Read-only original proof uses Steam Game.exe SHA256
+4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705. Typed Gold
+IsPlayerLoser681460/105 bytes matches Steam687550 uniquely with no masks, and the
+independently named CPlayerTracker root slot24 fits its27-method shape. Typed
+GetUnit34/GetRPG40/IsHero5c/CanFight0 establish predicate semantics. GameStep binds
+through the early CMission root Step slot14(decimal20) ->5a4690, direct
+call5a4803->5a35b0, and unique13 bytes Gold5a0d0e->5a369e with decoded E8 relocation only.
+The actual self-call5a36ab uses slot168 and proves minimum primary-table extent364 BEFORE
+reading that exact named CMission root entry ->602160. Gold GameStep uses15c; inherited
+slot shifts are nonuniform, not an assumed constant. A unique raw37-byte
+survivor-count/threshold2 block and17-byte screenshot-false/loss-constructor-minus1 block
+with only decoded E8 relocations support the actual native branches. Inspection confirms
+scenario57d bypasses the active-player predicate, passes0/1 and selects direct
+versus4000ms delayed commands.
+
+The group-strafe proof is unique212 bytes after the standard21-byte SEH prefix,
+Gold5fa785->Steam5feeb5 (entry5feea0), with only two decoded E8 relocations. The whole
+five-byte EH-handler push is excluded and its target never read; remaining prologue bytes
+agree. Typed GetSelectedUnits6c/GetUnit34/IsStrafing18 confirm the nonempty/all-members
+reduction. Earlier52/58-byte GameStep candidates are rejected for alignment and
+frame/register/local-branch differences; none are masked away. No original gameplay,
+private global data, unknown secondary-vtable entries, whole GameStep1223-versus1079
+identity or ABI/full-engine/RNG parity is claimed. Detailed proof:
+hero-defeat-original-static-proof.json and hero-defeat-red-verification.json in the
+laboratory evidence directory.
+
+Fresh full Game builds pass with 108 Windows and 105 Linux related tests, including all13
+new cases, prior hotseat setup/equipment/handoff, action availability and normal
+local/network save gates. Asset-free CI382 and twelve LAN gates with361 encounter variants
+pass on each platform. Three existing Windows-only CampaignSequence registrations and the
+existing nested-save exclusion remain as before; no new exclusion or old assertion
+removal. Game DB SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is
+unchanged. No combat formula, damage/AP/probability rule, save/DB/network schema or HD PNG
+work. Source9af complete;230 imported/12 pending/4 partial,16 unfinished sources.
+
+Source: [9af844d6b62ed800bb59a64057b03e0eafc83878](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9af844d6b62ed800bb59a64057b03e0eafc83878).

@@ -732,6 +732,19 @@ static bool GetGroupHideState( IMission *pMission )
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static bool GetGroupStrafeState( IMission *pMission )
+{
+	// Steam 1.2 0x5feea0: false for an empty group, true only when all strafe.
+	vector< CPtr<IUnitTracker> > unitsSet;
+	pMission->GetSelectedUnits( &unitsSet );
+	if ( unitsSet.empty() )
+		return false;
+	for ( int i = 0; i < unitsSet.size(); ++i )
+		if ( !unitsSet[i]->GetUnit()->IsStrafing() )
+			return false;
+	return true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMission::GetActionInfo( EUnitAction eAction, SActionInfo *pInfo )
 {
 	SActionInfo &info = actionsInfoSet[eAction];
@@ -760,7 +773,7 @@ void CMission::GetActionInfo( EUnitAction eAction, SActionInfo *pInfo )
 		case UA_WEAPONRELOAD: pCmd = new NWorld::CCmdReload(); break;
 		case UA_EXITPK: pCmd = new NWorld::CCmdExitPK(); break;
 		case UA_HIDE: pCmd = new NWorld::CCmdHide( !GetGroupHideState( this ) ); break;
-		case UA_STRAFE: pCmd = new NWorld::CCmdStrafe( true ); break;
+		case UA_STRAFE: pCmd = new NWorld::CCmdStrafe( !GetGroupStrafeState( this ) ); break;
 		case UA_POSERUN: pCmd = new NWorld::CCmdWishPose( NAI::RUN ); break;
 		case UA_POSEWALK: pCmd = new NWorld::CCmdWishPose( NAI::WALK ); break;
 		case UA_POSECROUCH: pCmd = new NWorld::CCmdWishPose( NAI::CROUCH ); break;
@@ -1377,7 +1390,24 @@ void CMission::GameStep()
 		}
 	}
 
-	if ( !networkSession && !bLoseSignalSended && pActivePlayer->IsPlayerLoser() )
+	// Steam 1.2 0x60234d..0x6023fd: finish local hotseat when fewer than two
+	// parties can fight, regardless of the current turn. LAN keeps server authority.
+	if ( !networkSession && !bLoseSignalSended && playersSet.size() > 1 )
+	{
+		int nPlayersLeft = 0;
+		for ( int i = 0; i < playersSet.size(); ++i )
+			if ( !playersSet[i]->IsPlayerLoser() )
+				++nPlayersLeft;
+		if ( nPlayersLeft < 2 )
+		{
+			bLoseSignalSended = true;
+			CObj<NGScene::CScreenshotTexture> pScreenshot = new NGScene::CScreenshotTexture;
+			pScreenshot->Generate();
+			NMainLoop::Command( new NGame::CICLoseMenu( -1, pScreenshot ) );
+		}
+	}
+
+	if ( !networkSession && !bLoseSignalSended && ( bScenarioGameOver || pActivePlayer->IsPlayerLoser() ) )
 	{
 		// BUG 3 (delayed Lose dialog) -- retail plumbing now ported (W3.3): GameStep @0x2017a0 (single-player
 		// defeat) fires OnPlayerLose wrapped in a CCmdDelayedCallGameOver (nMaxDelay = 4000ms, ctor @0x204b50).
@@ -1386,8 +1416,8 @@ void CMission::GameStep()
 		// The lose UI itself is lua-driven: OnPlayerLose -> ShowLoseDialog(20984/20985) -> CUICmdLoseDialog ->
 		// CICLoseMenu (ExecWorldCommand below) -- retail opens no menu here in single-player.
 		// Param = bScenarioGameOver (1) vs natural defeat (0). Retail skips the delay wrapper only when
-		// bScenarioGameOver is set (scenario failure = immediate game over); the member (retail tag 36,
-		// W4.2) has no dev scenario-failure writer yet, so the delayed path is the one that runs.
+		// bScenarioGameOver is set by CanLeaveZone's real unwinnable-scenario check (save tag 36).
+		// Steam 1.2 0x60240c checks that flag independently of the active hero's condition.
 		bLoseSignalSended = true;
 		if ( bScenarioGameOver )
 			DoEvent( new NWorld::CCmdCallScriptFunction( "OnPlayerLose", "i", 1 ) );

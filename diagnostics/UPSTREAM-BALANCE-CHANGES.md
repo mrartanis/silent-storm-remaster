@@ -4781,3 +4781,19 @@ All old test assertions retained/no new exclusion, source3053 complete;229 impor
 pending/5 partial,17 unfinished.
 
 Source: [3053c3125ddb6be5fd7b0b6b30a375536d073200](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3053c3125ddb6be5fd7b0b6b30a375536d073200).
+
+## 175. Complete hero, hotseat and scenario defeat handling
+
+Hero defeat now depends on a capable hero rather than a separate healthy non-hero. Local
+hotseat ends when fewer than two capable parties remain, and authored unrecoverable
+scenario failure is delivered even with a healthy hero. Natural defeat keeps the
+existing4000ms corpse-settle cap and OnPlayerLose0; scenario failure uses immediate
+OnPlayerLose1. Existing one-shot latch, LAN authority, action-cache slots/tool/reload
+behavior and combat formulas are retained. Group strafe availability queries the opposite
+nonempty/all-members state, with no distinct availability behavior change claimed because
+current CanDoStrafe ignores that parameter. No save/DB/network format, combat
+cost/probability or HD asset change. Native RED4/13 both/control9 -> GREEN13both; fresh
+Games/scoped/CI382/LAN12 each361 pass. Source9af complete;230 imported/12 pending/4
+partial,16 unfinished.
+
+Source: [9af844d6b62ed800bb59a64057b03e0eafc83878](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9af844d6b62ed800bb59a64057b03e0eafc83878).
