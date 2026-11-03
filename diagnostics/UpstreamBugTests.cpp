@@ -35193,7 +35193,7 @@ public:
     static auto Drain() { return &NativeSubzoneMissionAccess::ExecWorldCommands; }
 };
 
-static void NativeSubzoneTransition(const char* databasePath,const char* resourcePath,int mode)
+static void NativeSubzoneTransition(const char* databasePath,const char* resourcePath,int mode,bool withTemporaryCompanion=false)
 {
     Require(mode>=0 && mode<3,"unknown native subzone transition mode");
     Require(std::getenv("S2_USER_DATA_DIR") && !NMainLoop::GetCurrentInterfaceForHarness() && !NMainLoop::HaveInterfaceCommand(),"subzone transition requires its isolated native profile and empty interface stack");
@@ -35214,6 +35214,20 @@ static void NativeSubzoneTransition(const char* databasePath,const char* resourc
     CObj<NWorld::CWorld> oldWorld=dynamic_cast<NWorld::CWorld*>(mission->GetWorld());Require(oldWorld && oldWorld->IsLinkedZone(),"native ETStore entry did not retain its linked-zone lifecycle");
     auto* player=dynamic_cast<NWorld::CPlayer*>(mission->GetActivePlayer()->GetPlayer());Require(player,"native subzone entry has no active human owner");
     vector<CPtr<NWorld::CUnitServer>> units;player->GetUnits(&units);Require(units.size()==1 && units[0]->CanFight(),"native subzone entry did not deploy its genuine mercenary");
+    CObj<NRPG::CUnit> temporary;
+    if(withTemporaryCompanion){
+        list<CPtr<NWorld::CUnitServer>> all;oldWorld->GetAllUnits(&all);NWorld::CPlayer* previousOwner=nullptr;
+        for(auto unit:all)if(unit && unit->GetPlayer()!=player && unit->GetTBSPlayer()){previousOwner=unit->GetTBSPlayer();break;}
+        Require(previousOwner,"temporary subzone has no genuine non-party owner");
+        vector<NAI::SPathPlace> places;oldWorld->GetPathNetwork()->GetNearPlaces(SSphere(units[0]->GetPosition().GetCP(),20),&places);NAI::SPathPlace place;bool free=false;
+        for(auto p:places){p.SetPose(NAI::CM_STAND);p.SetMoving(0);if(oldWorld->GetPathNetwork()->IsPassable(p) && !oldWorld->GetPathNetwork()->IsLocked(p)){place=p;free=true;break;}}
+        Require(free,"temporary subzone has no actual free place");
+        CObj<NRPG::IUnitMission> recruit=NRPG::CreateUnit(NDb::GetPers(103));temporary=recruit->GetRPGUnit();
+        CObj<NWorld::CUnitServer> actor=oldWorld->AddUnitInGame(place,recruit,previousOwner,"NativeTemporaryCompanion");Require(actor,"temporary subzone could not deploy its native recruit");oldWorld->ChangeUnitPlayer(actor,player);
+        Require(std::count(game->players[0]->zoneMercs.begin(),game->players[0]->zoneMercs.end(),temporary)==1,"native recruited companion was not retained in its global owner before passage");
+        player->GetUnits(&units);Require(units.size()==2,"native recruitment did not create exactly two actual party actors");
+    }
+    const size_t expectedParty=withTemporaryCompanion?2:1;
     const string saveName=std::to_string(zone->GetDBZone()->GetRecordID())+"_"+std::to_string(from)+".sav";
     const wstring savedPath=manager->GetSlotFilePathW(NMainLoop::S_SLOT_ACTIVE,saveName);
     auto savedExists=[&](){CFileStream file;try{file.OpenRead(savedPath.c_str());return file.GetSize()>0;}catch(...){return false;}};
@@ -35227,7 +35241,7 @@ static void NativeSubzoneTransition(const char* databasePath,const char* resourc
     auto* transition=dynamic_cast<NGame::CICBeginMission*>(pending.GetPtr());Require(transition && !NMainLoop::HaveInterfaceCommand(),"real mission did not defer its single native passage transition");
     const int to=transition->*BeginMissionCommandAccess::Template();Require(to>0 && to!=from,"real passage transition did not select a different native template");
     vector<CPtr<NWorld::CUnitServer>> before;player->GetUnits(&before);
-    Require(before.size()==1 && !savedExists() && mission->GetWorld()==oldWorld.GetPtr() && NMainLoop::GetCurrentInterfaceForHarness()==mission.GetPtr(),"outgoing mission was terminated inside its UI update instead of its deferred main-loop command");
+    Require(before.size()==expectedParty && !savedExists() && mission->GetWorld()==oldWorld.GetPtr() && NMainLoop::GetCurrentInterfaceForHarness()==mission.GetPtr(),"outgoing mission was terminated inside its UI update instead of its deferred main-loop command");
     pending->Exec();
     auto* next=dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());
     Require(next && next!=mission.GetPtr() && next->GetWorld()!=oldWorld.GetPtr() && next->GetRPGGame()==game.GetPtr() && game->nCurrentTemplateID==to,"native subzone transition did not install its real replacement mission");
@@ -35237,7 +35251,60 @@ static void NativeSubzoneTransition(const char* databasePath,const char* resourc
     const bool saved=savedExists();
     std::printf("SUBZONE-TRANSITION mode=%d from=%d to=%d group=%d deferredParty=%u outgoingParty=%d newParty=%u saved=%d passageConsumed=%d\n",mode,from,to,passageGroup,unsigned(before.size()),oldParty,unsigned(newParty.size()),int(saved),int(!game->players[0]->deployData.bPassage));std::fflush(stdout);
     Require(oldParty==0 && saved,"deferred native subzone transition did not terminate/save the outgoing linked world before creating its replacement");
-    Require(newParty.size()==1 && newParty[0]->CanFight() && newParty[0]->GetUnitRPG()->GetRPGUnit()==game->players[0]->mercs[0].GetPtr() && !game->players[0]->deployData.bPassage,"native subzone transition duplicated/lost the actual mercenary or failed to consume its passage arrival");
+    Require(newParty.size()==expectedParty && newParty[0]->CanFight() && newParty[0]->GetUnitRPG()->GetRPGUnit()==game->players[0]->mercs[0].GetPtr() && !game->players[0]->deployData.bPassage,"native subzone transition duplicated/lost the actual mercenary or failed to consume its passage arrival");
+    if(withTemporaryCompanion){int found=0;for(auto unit:newParty)found+=unit->GetUnitRPG()->GetRPGUnit()==temporary.GetPtr();Require(found==1 && std::count(game->players[0]->zoneMercs.begin(),game->players[0]->zoneMercs.end(),temporary)==1,"linked subzone transition lost/duplicated/released its temporary recruit");std::puts("TEMPORARY-COMPANION actual linked passage/save/redeployment passed");}
+}
+
+static void NativeTemporaryCompanions(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<6,"unknown temporary companion case");
+    if(mode==4){NativeSubzoneTransition(databasePath,resourcePath,0,true);return;}
+    NativeHearingOwners f(databasePath,resourcePath);
+    auto* global=f.game->players.front().GetPtr();list<CPtr<NWorld::CUnitServer>> actual;f.world->GetAllUnits(&actual);f.human=nullptr;f.humanUnit=nullptr;
+    for(auto unit:actual)if(unit && unit->CanFight() && unit->GetTBSPlayer() && unit->GetTBSPlayer()->GetGlobalPlayer()==global){f.human=unit->GetTBSPlayer();f.humanUnit=unit;break;}
+    Require(f.human && f.humanUnit,"temporary companion fixture lacks its genuine global human owner");
+    CObj<NRPG::CGlobalPlayer> retainedOld;NRPG::CGlobalPlayer* oldGlobal=nullptr;
+    if(mode==0 || mode==5){retainedOld=NRPG::CreateGlobalPlayer(vector<int>{});retainedOld->bAIPlayer=true;f.game->players.push_back(retainedOld);f.ai=dynamic_cast<NWorld::CPlayer*>(f.world->AddPlayer(L"Temporary previous global owner",retainedOld,nullptr));Require(f.ai && f.ai->GetGlobalPlayer()==retainedOld.GetPtr(),"temporary previous owner not installed");f.world->ChangeUnitPlayer(f.aiUnit,f.ai);oldGlobal=retainedOld;}
+    CObj<NRPG::CUnit> companion=f.aiUnit->GetUnitRPG()->GetRPGUnit();
+    if(mode==0){
+        oldGlobal->zoneMercs.push_back(companion);
+        const auto position=f.aiUnit->GetPosition();const int ap=f.aiUnit->GetAP(),hp=f.aiUnit->GetUnitRPG()->GetTotalVP();const auto time=f.world->GetTime()->GetValue();
+        f.world->ChangeUnitPlayer(f.aiUnit,f.human);
+        Require(f.aiUnit->GetPlayer()==f.human && companion.GetPtr()==f.aiUnit->GetUnitRPG()->GetRPGUnit(),"native ownership transfer lost its actual actor/RPG identity");
+        std::printf("TEMPORARY-COMPANION transfer new=%zu old=%zu\n",global->zoneMercs.size(),oldGlobal->zoneMercs.size());std::fflush(stdout);
+        Require(std::count(global->zoneMercs.begin(),global->zoneMercs.end(),companion)==1 && std::count(oldGlobal->zoneMercs.begin(),oldGlobal->zoneMercs.end(),companion)==0,"actual owner transfer did not retain/release its temporary companion");
+        f.world->ChangeUnitPlayer(f.aiUnit,f.ai);f.world->ChangeUnitPlayer(f.aiUnit,f.human);
+        Require(std::count(global->zoneMercs.begin(),global->zoneMercs.end(),companion)==1 && std::count(oldGlobal->zoneMercs.begin(),oldGlobal->zoneMercs.end(),companion)==0,"repeated native ownership transfers duplicate or strand a companion");
+        Require(f.aiUnit->GetPosition()==position && f.aiUnit->GetAP()==ap && f.aiUnit->GetUnitRPG()->GetTotalVP()==hp && f.world->GetTime()->GetValue()==time,"temporary ownership retention changed AP/HP/position/time");
+    }else if(mode==1){
+        CObj<NRPG::IUnitMission> deadMission=NRPG::CreateUnit(NDb::GetPers(103));CObj<NRPG::CUnit> dead=deadMission->GetRPGUnit();dead->Kill();
+        global->zoneMercs={companion,dead};vector<CPtr<NRPG::CUnit>> alive;global->GetAliveUnits(&alive);
+        std::printf("TEMPORARY-COMPANION alive count=%zu temporary=%d dead=%d\n",alive.size(),int(std::count(alive.begin(),alive.end(),companion.GetPtr())),int(std::count(alive.begin(),alive.end(),dead.GetPtr())));std::fflush(stdout);
+        Require(std::count(alive.begin(),alive.end(),companion.GetPtr())==1 && std::count(alive.begin(),alive.end(),dead.GetPtr())==0 && std::count(alive.begin(),alive.end(),global->mercs.front().GetPtr())==1,"mission exit alive set omits a temporary companion or includes a dead actor");
+        global->deployData.unitsDeployData[global->mercs.front().GetPtr()].pCorpse=companion;
+        global->GetAliveUnits(&alive);Require(std::count(alive.begin(),alive.end(),companion.GetPtr())==1,"carried temporary companion duplicated in alive set");
+    }else if(mode==2){
+        f.aiUnit->MakeUnconscious(VNULL3,true,false);Require(companion->IsUnconscious() && !companion->IsDead(),"arrival control did not create actual unconscious RPG state");
+        CObj<NRPG::CGlobalPlayer> arriving=NRPG::CreateGlobalPlayer(vector<int>{54});
+        CObj<NRPG::IUnitMission> healthyMission=NRPG::CreateUnit(NDb::GetPers(103)),deadMission=NRPG::CreateUnit(NDb::GetPers(103));
+        CObj<NRPG::CUnit> healthy=healthyMission->GetRPGUnit(),dead=deadMission->GetRPGUnit();dead->Kill();arriving->zoneMercs={healthy,companion,dead};f.game->players.push_back(arriving);
+        CObj<NAI::CSequenceCommander> commander=new NAI::CSequenceCommander(f.world);
+        auto* player=dynamic_cast<NWorld::CPlayer*>(f.world->AddPlayer(L"Temporary arrivals",arriving,commander));Require(player,"actual temporary arrival owner failed");commander->SetPlayer(player);
+        vector<CPtr<NWorld::CUnitServer>> units;player->GetUnits(&units);int regular=0,temporary=0,downed=0;
+        for(auto unit:units){auto* identity=unit->GetUnitRPG()->GetRPGUnit();regular+=identity==arriving->mercs.front().GetPtr();temporary+=identity==healthy.GetPtr();downed+=identity==companion.GetPtr() || identity==dead.GetPtr();}
+        std::printf("TEMPORARY-COMPANION arrival regular=%d temporary=%d downed=%d total=%zu\n",regular,temporary,downed,units.size());std::fflush(stdout);
+        Require(regular==1 && temporary==1 && downed==0 && units.size()==2,"actual AddPlayer dropped a healthy temporary or directly redeployed an unconscious/dead companion");
+    }else if(mode==3){
+        global->zoneMercs.push_back(companion);const auto regular=global->mercs;
+        f.game->UpdateScenarioOnLeaveZone();
+        std::printf("TEMPORARY-COMPANION exit temporary=%zu regular=%zu\n",global->zoneMercs.size(),global->mercs.size());std::fflush(stdout);
+        Require(global->zoneMercs.empty() && global->mercs==regular,"scenario exit did not release temporary companions after processing, or changed the regular squad");
+    }else{
+        const auto own=global->zoneMercs,other=oldGlobal->zoneMercs;const int ap=f.aiUnit->GetAP(),hp=f.aiUnit->GetUnitRPG()->GetTotalVP();const auto position=f.aiUnit->GetPosition();auto random=GlobalGameRandom();
+        f.world->ChangeUnitPlayer(f.aiUnit,f.ai);f.world->ChangeUnitPlayer(nullptr,f.human);f.world->ChangeUnitPlayer(f.aiUnit,nullptr);
+        Require(global->zoneMercs==own && oldGlobal->zoneMercs==other && f.aiUnit->GetPlayer()==f.ai && f.aiUnit->GetAP()==ap && f.aiUnit->GetUnitRPG()->GetTotalVP()==hp && f.aiUnit->GetPosition()==position && random.Get()==GlobalGameRandom().Get(),"same-owner/null native transfer guards changed ownership, AP/HP/position/RNG");
+        std::puts("TEMPORARY-COMPANION same-owner/null controls passed");
+    }
 }
 
 static void NativeStorePassage(const char* databasePath,const char* resourcePath,int mode)
@@ -36908,6 +36975,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-health-knockout")) { Require(argc==5,"health knockout requires db/resources/mode"); NativeHealthKnockout(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-healed-damage")) { Require(argc==5,"healed damage requires db/resources/mode"); NativeHealedDamage(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-unaware-critical")) { Require(argc==5,"unaware critical requires db/resources/mode"); NativeUnawareCritical(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-temporary-companions")) {Require(argc==5,"temporary companions require db/resources/case");NativeTemporaryCompanions(argv[2],argv[3],std::atoi(argv[4]));return true;}
     if (!std::strcmp(mode, "native-subzone-transition")) { Require(argc==5,"subzone transition requires db/resources/mode"); NativeSubzoneTransition(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-store-passage")) { Require(argc==5,"store passage requires db/resources/mode"); NativeStorePassage(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-authored-light")) { Require(argc==5,"authored light requires db/resources/mode"); NativeAuthoredLight(argv[2],argv[3],std::atoi(argv[4])); return true; }

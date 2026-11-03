@@ -4960,3 +4960,15 @@ donor source remains pending.
 Source: [6781938bd3901a6ffe2c3c8bbb342881d573a5a6](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/6781938bd3901a6ffe2c3c8bbb342881d573a5a6).
 Source: [ea0eb485fef85c1c694c6355803a4155802e2bfe](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/ea0eb485fef85c1c694c6355803a4155802e2bfe).
 Source: [0589a3378fe3263f6e0a366620b6505e13b06f32](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0589a3378fe3263f6e0a366620b6505e13b06f32).
+
+## 187. Restore temporary companions across subzones
+
+No new balance coefficients or authored data. Restore temporary companions across
+subzones. Preserve own native renderer/audio/LAN/face/font/HD policies and existing save
+fields. Fresh Games and 134 Windows/130 Linux related cases pass, including all6 focused
+cases; no selected exclusions.
+DB314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df unchanged, HD frozen/no
+PNG generation, user NO auto detection honored. The final combined CI/network/hosted gates
+are recorded after all three October30 imports; no per-source hosted success is claimed.
+
+Source: [97c4d9c8095e607a3e4818a118b536fdfad56f5a](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/97c4d9c8095e607a3e4818a118b536fdfad56f5a).

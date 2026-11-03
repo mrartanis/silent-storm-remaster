@@ -128,6 +128,12 @@ void CGlobalPlayer::GetAliveUnits( vector< CPtr<NRPG::CUnit> > *pUnits )
 		if ( !(*i)->IsDead() )
 			pUnits->push_back( (*i).GetPtr() );
 	}
+	// Temporary companions also participate in scenario exit processing.
+	for ( vector<CObj<CUnit> >::iterator i = zoneMercs.begin(); i != zoneMercs.end(); ++i )
+	{
+		if ( !(*i)->IsDead() )
+			pUnits->push_back( (*i).GetPtr() );
+	}
 	//
 	unordered_map< CPtr<NRPG::CUnit>, SUnitDeployData, SPtrHash >::iterator i;
 	for ( i = deployData.unitsDeployData.begin(); i != deployData.unitsDeployData.end(); ++i )
@@ -349,6 +355,8 @@ void CGlobalGame::UpdateScenarioOnLeaveZone()
 		vector< CPtr<NRPG::CUnit> > units;
 		pPlayer->GetAliveUnits( &units );
 		pScenarioTracker->ProcessScenario( units );
+		// Keep companions through linked subzones; release after scenario exit.
+		pPlayer->zoneMercs.clear();
 		//
 		for ( vector<CObj<CUnit> >::iterator i = pPlayer->mercs.begin(); i != pPlayer->mercs.end(); ++i )
 			pPlayer->deployData.unitsDeployData[ (*i).GetPtr() ].pCorpse = 0;
