@@ -422,7 +422,7 @@ void CUnitTracker::Update()
 
 	// retail CUnitTracker::Update @0x32d520 HIDEs the path/selection while a scripted sequence runs (mission
 	// vtbl+0x44 IsSequence) -- so the script-assigned move path of your character is not shown during a sequence.
-	if ( pMission->IsSequence() || pMission->IsInterfaceHidden() || ( !IsSelected() && !IsHilighted() ) || !pMission->IsRealTime() && ( pUnit->GetPlayer() != pMission->GetActivePlayer()->GetPlayer() ) )
+	if ( pMission->IsSequence() || pMission->IsInterfaceHidden() || !pMission->IsPlayerTurn() || ( !IsSelected() && !IsHilighted() ) || !pMission->IsRealTime() && ( pUnit->GetPlayer() != pMission->GetActivePlayer()->GetPlayer() ) )
 	{
 		HidePath();
 		HideSelection();

@@ -26968,3 +26968,59 @@ frozen. Full34eee complete:236 imported/8 pending/2 partial,10 unfinished source
 inactive-swap-verification.json.
 
 Source: [34eee93698ec4eaefee89e2680d9df36429550d7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/34eee93698ec4eaefee89e2680d9df36429550d7).
+
+## 182. Complete AI looting, approach geometry and hotseat command ownership
+
+Complete all13 donor files, including144's existing radius prerequisite. Pickup/drop
+records commit to the actual AI inventory mirror and generate physical inventory commands:
+pickup wish-pose/arrange/actual ground identity/deferred backpack placement, drop
+backpack-or-equipment through hand to ground. Drop the gun plus spares, retaining its
+loaded magazine. Loot uses the shared native reach helper, FindPath and endpoint batching;
+recompute later drop lists after previous records commit. Normal after-combat loot is
+enabled. Preserve144's0.8 heal/tool wrapper, explicit0.625 AI reach, existing
+inventory/log save tags and the existing log's append/Commit/Clear semantics. Physical
+inventory is changed by command execution; no invented rollback behavior.
+
+Short-range approach returns direct native positions unless a downed ally is too near.
+Projection uses the normalized direction. Independent file-backed Gold PDB audit binds
+NAI::GetRoundUpPlaces49f760/2589, Normalize49fd26 ->40af90 and GetCP49fd32 ->4903c0. Four
+pushes shift normalized locals20/24/28 to30/34/38; separate native4a1e83 inspection
+confirms the stack accounting. The former cpOwn.x/original-bug comment was wrong. Exact
+cross-build projection candidates were rejected, with no
+frame/register/field/global/opcode masks. This is an algorithm audit, not
+whole-method/ABI/RNG/geometry identity. The inherited documented downed-ally
+CP0-versus-unit-centre approximation remains; original Game.exe is never executed.
+
+All player trackers receive the mission IsPlayerTurn value; inactive hotseat players lose
+stale selection. Keyboard EndOfTurn observes the same2s CanDoCommand cooldown as the
+button. Path visibility uses mission IsPlayerTurn and preserves this fork's existing
+unit-owner filter (the donor parent's IsReady expression was absent here). The native
+hotseat fixture executes a real StepApp frame; the cooldown test observes the actual
+commander queue rather than assuming synchronous turn rotation.
+
+The global registry keeps separately identified command/variable owners. Destructors
+remove only their token. Dispatch snapshots IDs and looks each registration up before
+invoking it, so callbacks may destroy later owners safely and new registrations wait for
+the next dispatch. Preserve preloaded/reopened configuration values/defaults, OR save
+flags and compatible one-argument unregistration. The donor data.empty default reset is
+intentionally adapted to retain existing configuration behavior. Tokens introduce no
+serialized format.
+
+Identical17-case fixture before production on Windows/Linux:14 behavioral failures,1
+missing clip-enumeration API foundation and2 passing preloaded-value/command-variable
+controls. Afterwards17GREEN each. Gun/spare/loaded membership assertions after the new API
+are GREEN-only, not additional independent pre-port failures. Actual worlds, public
+inventory/mirror methods, generated commands, real allied/downed actors, two-player
+missions, input and registration callbacks; no fake producer/private injection/new
+production hook. Initial fixture compiler/setup failures were corrected before the
+canonical baseline.
+
+Fresh full Games and selected inventory/heal/reaction/hotseat/console/Swap regressions
+pass on both platforms, as do383 asset-free CI checks, Linux portable core2 and12 LAN
+gates/361 encounters per platform. Windows ALL_BUILD passes; selected helpers are rebuilt,
+with no excluded/unrun selected test. Actual counts and proof: ai-loot-verification.json
+and ai-loot-final-selection-policy.json.
+DB314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df unchanged; HD frozen/no
+PNG generation. FullAFEE complete:237 imported/8 pending/1 partial,9 unfinished.
+
+Source: [afee0c2eb6ee5cc6927eb48d9a273ef2622b6d72](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/afee0c2eb6ee5cc6927eb48d9a273ef2622b6d72).

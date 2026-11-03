@@ -35948,6 +35948,83 @@ static void NativeInactiveSwap(const char* databasePath,const char* resourcePath
     Require(actor->GetUnitRPG()->GetTotalVP()==actorHP && target->GetUnitRPG()->GetTotalVP()==targetHP && world->GetTime()->GetValue()==time && (mode==7 || random.Get()==GlobalGameRandom().Get()),"inactive Swap query/run changed health/time or rejected-command gameplay RNG");
 }
 
+
+struct SharedGlobalProbe {
+    int calls=0; NGlobal::CCmd* remove=nullptr;
+    static void Command(const string&,const vector<wstring>&,void* context) { auto* self=static_cast<SharedGlobalProbe*>(context);++self->calls;if(self->remove){auto* old=self->remove;self->remove=nullptr;delete old;} }
+    static void Variable(const string&,const NGlobal::CValue&,void* context) {++static_cast<SharedGlobalProbe*>(context)->calls;}
+};
+static void NativeSharedGlobals(int mode)
+{
+    const string key="upstream_shared_registration"; SharedGlobalProbe first,second;
+    if(mode<=2){
+        NGlobal::CCmd a(key,SharedGlobalProbe::Command,&first);
+        auto* b=new NGlobal::CCmd(key,SharedGlobalProbe::Command,&second);
+        if(mode==0){NGlobal::ProcessCommand(L"upstream_shared_registration argument");delete b;Require(first.calls==1 && second.calls==1,"command registration overwrote an existing subscriber");}
+        if(mode==1){delete b;NGlobal::ProcessCommand(L"upstream_shared_registration");Require(first.calls==1 && second.calls==0,"destroying one command owner removed another owner");}
+        if(mode==2){first.remove=b;NGlobal::ProcessCommand(L"upstream_shared_registration");if(first.remove){delete first.remove;first.remove=nullptr;}Require(first.calls==1 && second.calls==0,"dispatch invoked a removed subscriber or skipped the first owner");}
+    } else if(mode<=4) {
+        NGlobal::CVar a(key,SharedGlobalProbe::Variable,&first,NGlobal::CValue(7.f),true);
+        auto* b=new NGlobal::CVar(key,SharedGlobalProbe::Variable,&second,NGlobal::CValue(99.f),false);
+        if(mode==3){NGlobal::SetVar(key,NGlobal::CValue(13.f));delete b;Require(first.calls==1 && second.calls==1 && a.Get().GetInt()==13,"variable update did not broadcast to both registrations");}
+        if(mode==4){delete b;NGlobal::SetVar(key,NGlobal::CValue(13.f));NGlobal::ResetVar(key);Require(first.calls==2 && second.calls==0 && a.Get().GetInt()==7,"variable destruction lost another observer or the original default");}
+    } else if(mode==5) {
+        NGlobal::SetVar(key,NGlobal::CValue(23.f));
+        {NGlobal::CVar a(key,SharedGlobalProbe::Variable,&first,NGlobal::CValue(7.f),true);Require(a.Get().GetInt()==23,"registration overwrote a preloaded configuration value");a.Set(NGlobal::CValue(17.f));}
+        NGlobal::CVar b(key,SharedGlobalProbe::Variable,&second,NGlobal::CValue(99.f),false);Require(b.Get().GetInt()==17,"reopening a variable reset its persistent value");
+    } else if(mode==6) {
+        NGlobal::CVar var(key,SharedGlobalProbe::Variable,&first,NGlobal::CValue(7.f));
+        {NGlobal::CCmd command(key,SharedGlobalProbe::Command,&second);NGlobal::ProcessCommand(L"upstream_shared_registration");}
+        NGlobal::SetVar(key,NGlobal::CValue(9.f));Require(first.calls==1 && second.calls==1 && var.Get().GetInt()==9,"command and variable registrations interfered");
+    } else throw std::runtime_error("unknown shared registration case");
+    std::printf("SHARED-GLOBALS mode=%d first=%d second=%d passed\n",mode,first.calls,second.calls);
+}
+template<class T> static auto NativeDropClipList(T* item,vector<CPtr<NRPG::IInventoryItem>>* out,int)->decltype(item->GetInventoryItemWithClips(out),bool()) {item->GetInventoryItemWithClips(out);return true;}
+template<class T> static bool NativeDropClipList(T*,vector<CPtr<NRPG::IInventoryItem>>*,long){return false;}
+static void NativeLootRecords(const char* databasePath,const char* resourcePath,int mode)
+{
+    auto world=FixtureWorld(databasePath,resourcePath,true);
+    struct Restore {NWorld::CWorld* previous=NWorld::pCurrentWorld;~Restore(){NWorld::pCurrentWorld=previous;}} restore;
+    NWorld::pCurrentWorld=world;
+    list<CPtr<NWorld::CUnitServer>> actors;world->GetAllUnits(&actors);
+    NWorld::CUnitServer* actor=nullptr;NAI::IAIUnit* brain=nullptr;
+    for(auto candidate:actors)if(candidate && candidate->CanFight() && !candidate->IsWearingPK() && !candidate->IsEmptyPK()) {
+        auto* ai=NAI::GetAIUnit(candidate);if(ai){ai->Synchronize(false);if(ai->GetAIInventory()->GetFirstFireArms()){actor=candidate;brain=ai;break;}}
+    }
+    Require(actor && brain,"native loot fixture has no real armed AI actor");
+    auto* mirror=brain->GetAIInventory();CObj<NAI::CAIFireArmsWeapon> gun=mirror->GetFirstFireArms();auto* item=gun->GetItem();
+    if(mode==0){CObj<NAI::CAILogDropItem> record=new NAI::CAILogDropItem(brain,item);record->Commit();Require(mirror->GetFirstFireArms()!=gun.GetPtr(),"AI drop record did not update its simulated inventory");return;}
+    if(mode==1 || mode==2){
+        CObj<NRPG::IInventoryItem> picked=NRPG::CreateWeaponItem(item->GetDBWeapon());
+        auto* body=world->AddFrozenItem(world->GetAIMap(),actor->GetPosition().GetCP()+CVec3(.25f,0,.25f),QNULL,picked);
+        Require(body && body->GetInvItem()==picked.GetPtr(),"native loot fixture could not create an actual ground weapon");
+        CObj<NAI::CAILogPickUpItem> record=new NAI::CAILogPickUpItem(brain,body,NAI::RUN);
+        if(mode==1){while(auto* held=mirror->GetFirstFireArms())mirror->RemoveItem(held->GetInventoryItem());record->Commit();Require(mirror->GetFirstFireArms() && mirror->GetFirstFireArms()->GetItem()==picked.GetPtr(),"AI pickup record did not update its simulated inventory");}
+        else {list<CPtr<NWorld::CCommand>> commands;record->GetCommands(&commands);Require(commands.size()==3,"AI pickup omitted pose or backpack arrangement");auto* set=dynamic_cast<NWorld::CCmdSetCommand*>(commands.back().GetPtr());auto* move=set?dynamic_cast<NWorld::CCmdMoveInventoryItem*>(set->GetCmd()):nullptr;Require(move && move->GetSource().pWorldItem==body && move->GetSource().pItem==picked.GetPtr() && !move->GetSource().pUnit && move->GetTarget().sPosition==CTPoint<int>(-1,-1),"AI pickup lost actual ground identity or selected backpack cells prematurely");}
+        return;
+    }
+    if(mode==3){CObj<NAI::CAILogDropItem> record=new NAI::CAILogDropItem(brain,item);list<CPtr<NWorld::CCommand>> commands;record->GetCommands(&commands);Require(commands.size()>=2,"AI drop did not produce its actual inventory commands");auto it=commands.begin();auto* a=dynamic_cast<NWorld::CCmdSetCommand*>((it++)->GetPtr());auto* b=dynamic_cast<NWorld::CCmdSetCommand*>(it->GetPtr());auto* first=a?dynamic_cast<NWorld::CCmdMoveInventoryItem*>(a->GetCmd()):nullptr;auto* second=b?dynamic_cast<NWorld::CCmdMoveInventoryItem*>(b->GetCmd()):nullptr;Require(first && second && first->GetSource().pItem==item && first->GetTarget().eType==NWorld::SItem::HAND && second->GetSource().eType==NWorld::SItem::HAND && second->GetTarget().eType==NWorld::SItem::GROUND,"AI drop did not route through the hand to the ground");return;}
+    if(mode==4){CObj<NRPG::IInventoryItem> spareItem=NRPG::CreateClipItem(item->GetDBWeapon()->pInnerClip);CPtr<NRPG::CClipItem> spare=CDynamicCast<NRPG::CClipItem>(spareItem.GetPtr()).GetPtr();CObj<NAI::CAIFireArmsWeaponClip> wrapper=NAI::CreateAIFireArmsWeaponClip(spare);gun->AddClip(wrapper);vector<CPtr<NRPG::IInventoryItem>> dropped;bool api=NativeDropClipList(static_cast<NAI::IAIInventoryItem*>(gun.GetPtr()),&dropped,0);std::printf("LOOT-CLIPS api=%d count=%d\n",int(api),int(dropped.size()));std::fflush(stdout);Require(api,"weapon plus spare-clip enumeration API is missing");Require(!dropped.empty() && dropped.front()==item && find(dropped.begin(),dropped.end(),spare.GetPtr())!=dropped.end(),"drop list lost its actual gun or spare clip");auto* loaded=gun->GetCurrentClip();if(loaded)Require(find(dropped.begin(),dropped.end(),loaded->GetItem())==dropped.end(),"loaded magazine was incorrectly separated from its gun");return;}
+    if(mode==5){NAI::SPosition stop,flank,attack;auto enemy=actor->GetPosition();enemy.pos.p.SetDirection((enemy.pos.p.GetDirection()+1)&7);bool accepted=NAI::GetRoundUpPlaces(actor,enemy,&stop,&flank,&attack,false);Require(accepted && stop.p==actor->GetPosition().pos.p && flank.p==stop.p && attack.p==enemy.pos.p,"short-range approach did not return the direct native positions");return;}
+    if(mode==6 || mode==7){auto position=actor->GetPosition();CObj<NWorld::CUnitServer> ally;for(auto other:actors)if(other && other.GetPtr()!=actor && other->CanFight() && !other->IsEmptyPK() && !other->IsWearingPK() && actor->GetDiplomacyState(other)==NDb::DS_ALLY){ally=other;break;}Require(ally,"native flank fixture lacks an existing allied actor");ally->SetPosition(position);Require(ally && ally->CanFight() && actor->GetDiplomacyState(ally)==NDb::DS_ALLY,"native flank fixture lacks a real ally");if(mode==7){ally->GetUnitRPG()->Kill();ally->Die(false,false);}Require(ally->CanFight()==(mode==6),"native flank fixture did not establish actual ally combat eligibility");std::printf("FLANK-SETUP mode=%d owner=%p allyOwner=%p alive=%d distance=%f\n",mode,(void*)actor->GetTBSPlayer(),(void*)ally->GetTBSPlayer(),int(ally->CanFight()),fabs(ally->GetPosition().GetCP()-position.GetCP()));std::fflush(stdout);NAI::SPosition stop,flank,attack;bool accepted=NAI::GetRoundUpPlaces(actor,position,&stop,&flank,&attack,true);Require(accepted==(mode==6),"direct approach inverted its downed-ally avoidance");return;}
+    throw std::runtime_error("unknown native loot records case");
+}
+
+static void NativeLootHotseat(const char* databasePath,const char* resourcePath,int mode)
+{
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm hotseat turn and selection");NGame::InitLoadingScreen();
+    CObj<NRPG::CGlobalGame> game=NRPG::CreateGlobalGame(-1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{103}));
+    CObj<NGame::CICBeginMission> open=new NGame::CICBeginMission(810,-1,vector<string>(),game);open->Exec();
+    CObj<NGame::CMission> mission=dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());Require(mission && mission->GetWorld(),"native hotseat did not open an actual two-player mission");
+    while(NMainLoop::HaveInterfaceCommand()){CObj<NMainLoop::CInterfaceCommand> queued=NMainLoop::TakeInterfaceCommandForHarness();Require(dynamic_cast<NMainLoop::CICSaveFile*>(queued.GetPtr()),"hotseat startup posted an unexpected transition");}
+    mission->PauseGame(true);vector<CPtr<NGame::IPlayerTracker>> players;mission->GetPlayers(&players);Require(players.size()==2,"native hotseat lost a player");
+    for(auto player:players)player->Update(false);
+    auto* world=dynamic_cast<NWorld::CWorld*>(mission->GetWorld());Require(world,"hotseat needs actual native world");std::printf("HOTSEAT-SETUP sequence=%d realtime=%d active=%p owner=%p current=%p\n",int(world->IsSequence()),int(mission->IsRealTime()),(void*)mission->GetActivePlayer()->GetPlayer(),(void*)players.front()->GetPlayer(),(void*)world->GetCurrentPlayer());std::fflush(stdout);world->GivePlayerTurn(dynamic_cast<NWorld::CPlayer*>(mission->GetActivePlayer()->GetPlayer()));MarkNewDGFrame();Require(NMainLoop::StepApp(true,false,false),"native hotseat frame did not execute");
+    Require(mission->IsPlayerTurn() && !mission->IsRealTime(),"native hotseat did not establish the active player turn");
+    if(mode==0){for(auto player:players)if(player!=mission->GetActivePlayer()){vector<CPtr<NGame::IUnitTracker>> units;player->GetUnits(&units);Require(!units.empty(),"inactive hotseat player has no actual unit tracker");for(auto unit:units)Require(!unit->IsActive() && !unit->IsSelected(),"inactive hotseat tracker retained selection or became selectable");}}
+    else {Require(!mission->CanDoCommand(new NWorld::CCmdEndOfTurn),"native hotseat setup did not enter its real turn-change cooldown");auto* before=world->GetTBSCurrentPlayer();auto* commander=mission->GetActivePlayer()->GetCommander();Require(!commander->HasCommands(),"native cooldown fixture starts with pending commands");auto event=SharedActionEvent({"endofturn"});Require(mission->ProcessEvent(event),"native end-of-turn input was not handled");Require(world->GetTBSCurrentPlayer()==before && !commander->HasCommands(),"keyboard end turn bypassed the native turn-change cooldown");}
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode,"native-knife-solver")) { Require(argc==5,"knife solver requires db/resources/mode"); NativeKnifeLaunchTarget(argv[2],argv[3],std::atoi(argv[4]),true); return true; }
@@ -36621,6 +36698,9 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-camera-framing-bridge")) { Require(argc==5,"camera bridge requires db/resources/mode"); NativeCameraFramingBridge(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-context-modlinks")) { Require(argc==5,"context modlinks requires db/resources/mode"); NativeContextModLinks(argv[2],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-context-trap")) { Require(argc==5,"context trap requires db/resources/mode"); NativeContextTrap(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-loot-hotseat")) {Require(argc==5,"hotseat requires db/resources/case");NativeLootHotseat(argv[2],argv[3],std::atoi(argv[4]));return true;}
+    if (!std::strcmp(mode, "native-shared-globals")) {Require(argc==3,"shared globals requires case");NativeSharedGlobals(std::atoi(argv[2]));return true;}
+    if (!std::strcmp(mode, "native-loot-records")) {Require(argc==5,"loot requires db/resources/case");NativeLootRecords(argv[2],argv[3],std::atoi(argv[4]));return true;}
     if (!std::strcmp(mode, "native-inactive-swap")) { Require(argc==5,"inactive swap requires db/resources/mode"); NativeInactiveSwap(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-context-swap")) { Require(argc==5,"context swap requires db/resources/mode"); NativeContextSwap(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-context-end-turn")) { Require(argc==5,"context end-turn requires db/resources/mode"); NativeContextEndTurn(argv[2],argv[3],std::atoi(argv[4])); return true; }

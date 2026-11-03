@@ -3238,3 +3238,16 @@ Games33related each/core2/CI383/LAN12each361, no exclusions. Prior180 broad546W5
 rerun for a local guard. Full34eee complete,10 unfinished.
 
 Source: [34eee93698ec4eaefee89e2680d9df36429550d7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/34eee93698ec4eaefee89e2680d9df36429550d7).
+
+## 182. Complete AI looting, approach geometry and hotseat command ownership
+
+Add17 native cases:7 shared command/variable ownership,8 actual
+loot-record/clip/short-approach cases and2 real hotseat selection/keyboard-cooldown cases.
+Same-source canonical Win/Linux baseline14behaviorRED+1APIRED/2controls ->17GREEN each;
+clip membership after API availability is GREEN-only. Actual world/public inventory/log
+commands/downed ally/StepApp/input/commander queue/callbacks, no fake producer/private
+flag/test hook. Initial compiler/setup errors are not RED. Windows ALL_BUILD/full
+Games/selected regressions/core2/CI383/LAN12each361 pass without exclusions. Actual counts
+in ai-loot-verification.json. Full13-file AFEE complete,9 unfinished.
+
+Source: [afee0c2eb6ee5cc6927eb48d9a273ef2622b6d72](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/afee0c2eb6ee5cc6927eb48d9a273ef2622b6d72).

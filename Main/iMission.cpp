@@ -1536,7 +1536,7 @@ void CMission::InternalStep()
 		++nFramesSameCameraPosition;
 
 	for ( vector< CObj<IPlayerTracker> >::iterator iPlayer = playersSet.begin(); iPlayer != playersSet.end(); iPlayer++ )
-		(*iPlayer)->Update( (*iPlayer)->GetPlayer() == pWorld->GetCurrentPlayer() );
+		(*iPlayer)->Update( IsPlayerTurn() );
 
 	pInterface->UpdateCursor();
 	GameStep();
@@ -1898,7 +1898,8 @@ bool CMission::ProcessEvent( const NInput::SEvent &sEvent )
 	{
 		if ( bindEndOfTurn.ProcessEvent( sEvent ) )
 		{
-			Command( new NWorld::CCmdEndOfTurn );
+			if ( CanDoCommand( new NWorld::CCmdEndOfTurn ) )
+				Command( new NWorld::CCmdEndOfTurn );
 			return true;
 		}
 	}

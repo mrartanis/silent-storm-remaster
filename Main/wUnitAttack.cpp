@@ -155,8 +155,8 @@ static void GetSnipeAttackPlaces( CUnitServer *pUS, CUnitServer *pTarget, vector
 	pRes->push_back( p );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-static void GetHumanReachPlaces( CUnitServer *pUS, const CVec3 &ptTarget, vector<NAI::SPathPlace> *pRes,
-	float fPlaneDist = F_HEAL_DISTANCE )
+void GetHumanReachPlaces( CUnitServer *pUS, const CVec3 &ptTarget, vector<NAI::SPathPlace> *pRes,
+	float fPlaneDist )
 {
 	NAI::IPathNetwork *pNet = pUS->GetWorld()->GetPathNetwork();
 	SSphere s;
@@ -173,6 +173,11 @@ static void GetHumanReachPlaces( CUnitServer *pUS, const CVec3 &ptTarget, vector
 		if ( IsWithinHumanReach( from.GetCP(), ptTarget, fPlaneDist ) )
 			GetDirectedPoints( pNet, from.pos.p, ptTarget, pRes );
 	}	
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+static void GetHumanReachPlaces( CUnitServer *pUS, const CVec3 &ptTarget, vector<NAI::SPathPlace> *pRes )
+{
+	GetHumanReachPlaces( pUS, ptTarget, pRes, F_HEAL_DISTANCE );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static int GetAttackPoseMask( const NAI::SPathPlace &place )

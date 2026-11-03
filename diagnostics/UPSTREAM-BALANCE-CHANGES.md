@@ -4881,3 +4881,18 @@ FreshGames33each/core2/CI383/LAN12each361. No DB/schema/HD changes. Full34eee co
 unfinished.
 
 Source: [34eee93698ec4eaefee89e2680d9df36429550d7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/34eee93698ec4eaefee89e2680d9df36429550d7).
+
+## 182. Complete AI looting, approach geometry and hotseat command ownership
+
+Restore normal post-combat looting, simulated inventory updates and physical pickup/drop
+commands. Preserve loaded magazines inside dropped guns and144's0.8 heal/tool radius;
+explicit0.625 AI reach, native path/endpoint batching and recomputed later drops. Correct
+short-range/downed-ally avoidance and normalized projection; remove false original cpOwn.x
+bug explanation after named-Gold static stack audit, retaining documented CP0-centre
+approximation and no whole ABI/RNG/geometry identity claim. Fix inactive hotseat
+selection, keyboard turn cooldown and independent registry lifetimes while retaining
+persistent configuration. Same17cases14behavior+1APIRED/2controls ->17GREEN each. Full
+Games/selected/core2/CI383/LAN12each361/Windows ALL_BUILD. Saved inventory/log fields and
+DB unchanged, HD frozen/no PNG generation. Full13-file AFEE complete,9 unfinished.
+
+Source: [afee0c2eb6ee5cc6927eb48d9a273ef2622b6d72](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/afee0c2eb6ee5cc6927eb48d9a273ef2622b6d72).
