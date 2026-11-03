@@ -4814,3 +4814,16 @@ freshGames616W612L/WindowsCI383/LAN12each361. Full285 complete, partial360
 remainspartial;15unfinished.
 
 Sources: [285f6a0cff9737d2789396a2543bc75d0ab11da7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/285f6a0cff9737d2789396a2543bc75d0ab11da7), [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 177. Complete thrown-knife solver and flight intent
+
+Carry the original selected throwing ray and hit decision from the actual equipped-blade
+solver into flight. An intended miss passes its target; an incidental unit gets one
+existing native roll and remembered miss; door/window frames bounce. Preserve
+accuracy/damage/AP/physics formulas, validated launch precision, integer range, physical
+current direction and hit floor, item ownership and successor handoff. No new medal award
+or lifecycle policy, saved fields or DB/network schema. CanonicalRED9both/control11
+->all91knifeGREENboth; freshGames628W624L/CI383/LAN12each361. Full578
+complete,14unfinished;HD assets remain frozen.
+
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).

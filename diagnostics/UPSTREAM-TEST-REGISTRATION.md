@@ -3165,3 +3165,18 @@ private flag/seed injection. Full285 complete;360producer prerequisite remains a
 partial-source import.15unfinished.
 
 Sources: [285f6a0cff9737d2789396a2543bc75d0ab11da7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/285f6a0cff9737d2789396a2543bc75d0ab11da7), [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 177. Complete thrown-knife solver and flight intent
+
+Add NativeKnifeSolver0..4, NativeKnifeFlightIntent0..4 and NativeKnifeFrame0..1 to both
+native registrations. Use actual executors/projectiles, world time, authored map geometry
+and public inputs, with isolated user data and existing120s limits. Canonical
+identical-final-fixture RED9 both with11 passing controls before Main; all91 knife
+controls GREEN both. Adapt8 prior guaranteed-impact cases through a public full-carrier
+API with a proven legacy fallback before Main; retain every prior physical assertion.
+Initial missing-door setup is not RED. Postgate exact incidental draw/ignore checks are
+not counted as extra preport RED. Full Games628W624L, Linux portable core, CI383,
+LAN12each361 pass;4 existingW-onlygrenades, no new exclusion. Full578
+complete,14unfinished.
+
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).

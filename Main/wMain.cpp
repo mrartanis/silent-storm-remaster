@@ -3193,6 +3193,14 @@ CObjectBase *CWorld::ThrowGrenade( const CVec3 &vFrom, const CVec3 &vSpeed, STim
 	return pBullet;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+CObjectBase *CWorld::ThrowKnife( const NRPG::SAttackRayInfo &rayInfo, float fSpeed, STime tThrow,
+	float fDistance, NDb::CModel *pModel, NRPG::IInventoryItem *pIItem )
+{
+	IDynamicObject *pBullet = CreateKnifeServer( this, rayInfo, fSpeed, tThrow, fDistance, pModel, pIItem );
+	miscObjects.push_back( pBullet );
+	return pBullet;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 CObjectBase *CWorld::ThrowKnife( const CVec3 &vFrom, const CVec3 &vSpeed, STime tThrow, float fDistance,
 	NDb::CModel *pModel, NRPG::CAttackPortion &attack, NRPG::IInventoryItem *pIItem, CUnitServer *pUnitServer )
 {

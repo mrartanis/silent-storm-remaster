@@ -637,6 +637,8 @@ public:
 	CObjectBase *ThrowGrenade( const CVec3 &vFrom, const CVec3 &vSpeed, STime tThrow, float fTFly,
 		NDb::CModel *pModel, NDb::CRPGGrenade *pRPGGrenade, CUnitServer *pUnitServer,
 		NDb::CRPGEngGrenade *pRPGEngGrenade = 0 );
+	CObjectBase *ThrowKnife( const NRPG::SAttackRayInfo &rayInfo, float fSpeed, STime tThrow,
+		float fDistance, NDb::CModel *pModel, NRPG::IInventoryItem *pIItem );
 	CObjectBase *ThrowKnife( const CVec3 &vFrom, const CVec3 &vSpeed, STime tThrow, float fDistance,
 		NDb::CModel *pModel, NRPG::CAttackPortion &attack, NRPG::IInventoryItem *pIItem, CUnitServer *pUnitServer );
 	CObjectBase *LaunchRocket( const CVec3 &vFrom, const CVec3 &vSpeed,

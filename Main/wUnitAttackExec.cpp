@@ -3545,7 +3545,7 @@ void CExecThrowKnife::OnLabel()
 	// bullet index, so nothing replaces the old NextBullet() advance here)
 	ThrowKnife();
 	// @0x3ab700 -- retail marks the attack canceled after the throw label fires so CExecAttack::TimeLabelReached
-	// finishes the executor for this one-shot throw (the decomp writes [esi+0x18]=1). Jan03 omitted this.
+	// closes the attack session (writes [esi+0x18]=1); AnimationFinished finishes the executor.
 	if ( !IsValid( pUS->GetWearingDBPK() ) )
 		pUS->GetWorld()->MakeSound( pUS->GetPosition().GetCP(), NDb::GetSound( 0x3285 ) );
 	bAttackCanceled = true;
@@ -3566,6 +3566,39 @@ void CExecThrowKnife::ThrowKnife()
 		return;
 	// Original Steam 0x7aaa02/0x7aaa0c: requested eHL30 -> portion3c.
 	attack.front().eWantedHL = eHL;
+	CWorld *pWorld = pUS->GetWorld();
+	NRPG::SAttackRayInfo rayInfo( attack.front(), VNULL3, VNULL3, pUS, pUS->GetPosition(),
+		0, 0, false, pUS->GetMinClearDistance(), 30.f, IsValid(pTarget) ? pTarget.GetBarePtr() : 0 );
+	rayInfo.pIgnore = const_cast<CObjectBase*>( pUS->GetAttackIgnore() );
+	int nToHit;
+	float fHit;
+	CObj<NRPG::CCoverInfo> pCover;
+	// Select the physical ray while the actual blade is still equipped.
+	if ( IsValid( pTarget ) )
+	{
+		vector<int> accessibleHLs;
+		pCover = pWorld->GetGame()->CalcCovers( pUS->GetAttackOrigin( pUS->GetPosition() ),
+			attack.front(), pUS, pTarget, eHL, pUS->GetMinClearDistance(), false, 0x8210 );
+		fHit = NRPG::CheckToHit( pUS, pTarget, 0, eHL, accessibleHLs, pCover,
+			pWorld->IsFirstTurn(), &nToHit, 0 );
+	}
+	else
+	{
+		pCover = pWorld->GetGame()->CalcCoversForTile( pUS->GetAttackOrigin( pUS->GetPosition() ),
+			attack.front(), pUS, ptTarget, pUS->GetMinClearDistance(), 0x8210 );
+		fHit = NRPG::CheckTileToHit( pUS, ptTarget, 0, NAI::THL_LOWER, pCover,
+			pWorld->IsFirstTurn(), &nToHit, 0 );
+	}
+	NRPG::PrepareAttackRay( pWorld->GetAIMap(), pCover, &rayInfo, fHit );
+	int nDistance = fabs( ptTarget - pUS->GetPosition().GetCP() ) / FP_GRID_STEP;
+	CPtr<NRPG::CThrowKnifeToHitCalcer> pPhysics =
+		new NRPG::CThrowKnifeToHitCalcer( pUS, pUS->GetPosition().GetPose(),
+			nDistance, pUS->GetPosition().GetCP(), 100.f, pWorld->IsFirstTurn(), false, CVec3(1,1,1), 0, false );
+	pPhysics->pMeleeWeapon = pMelee;
+	// Keep the validated integer range and wide 1.5 launch-speed calculation.
+	float fMaxDist = pPhysics->GetKnifeMaxDistance();
+	float fSpeed = pPhysics->GetKnifeLaunchSpeed();
+	STime tThrow = pUS->animator.GetTimeLabel1();
 	pUS->TearOffItem( &item, (NDb::ESlot)pInventory->GetActiveSlot(), &pNextSameItem );
 	if ( IsValid( pNextSameItem ) )
 	{
@@ -3576,49 +3609,7 @@ void CExecThrowKnife::ThrowKnife()
 	if ( IsActiveItemToShow( pInventory ) )
 		pUS->animator.SetWeaponAnimation( pRPG->GetWeaponType() );
 
-	int nToHit;
-	int nDistance = fabs( ptTarget - pUS->GetPosition().GetCP() ) / FP_GRID_STEP;
-	// Original 0x7aabde passes the truncated range unchanged to the flight timer.
-	float fMaxDist, fSpeed;
-	if ( pTarget )
-	{
-		CPtr<NRPG::CThrowKnifeToHitCalcer> pToHitCalcer =
-			new NRPG::CThrowKnifeToHitCalcer( pUS, pUS->GetPosition().GetPose(),
-			nDistance, pUS->GetPosition().GetCP(), 100.f, pUS->GetWorld()->IsFirstTurn(), false, CVec3(1,1,1), 0, false );
-		// Retain the actual blade after tear-off; range now consumes its weight.
-		pToHitCalcer->pMeleeWeapon = pMelee;
-		nToHit = pToHitCalcer->GetToHit();
-		pToHitCalcer->Log();
-		fMaxDist = pToHitCalcer->GetKnifeMaxDistance();
-		fSpeed = pToHitCalcer->GetKnifeLaunchSpeed();
-	}
-	else
-	{
-		CPtr<NRPG::CThrowKnifeTileToHitCalcer> pToHitCalcer =
-			new NRPG::CThrowKnifeTileToHitCalcer( pUS, pUS->GetPosition().GetPose(),
-			nDistance, pUS->GetPosition().GetCP(), 100.f, pUS->GetWorld()->IsFirstTurn(), false, CVec3(1,1,1), ptTarget, 0 );
-		// Retain the actual blade after tear-off; range now consumes its weight.
-		pToHitCalcer->pMeleeWeapon = pMelee;
-		nToHit = pToHitCalcer->GetToHit();
-		pToHitCalcer->Log();
-		fMaxDist = pToHitCalcer->GetKnifeMaxDistance();
-		fSpeed = pToHitCalcer->GetKnifeLaunchSpeed();
-	}
-
-	CVec3 speed = ptTarget - item.ptCenter;
-	Normalize(&speed);
-	speed *= fSpeed;
-	if ( AttackExecRandom().Get( 1, 100 ) > nToHit )
-	{
-		// we miss
-		// find where the knife will actually fly
-		float fD = 0.15f * fabs( fSpeed );
-		speed.x += AttackExecRandom().GetFloat( -fD, +fD );
-		speed.y += AttackExecRandom().GetFloat( -fD, +fD );
-		speed.z += AttackExecRandom().GetFloat( -fD, +fD );
-	}
-	CObjectBase *pBullet = pUS->GetWorld()->ThrowKnife( item.ptCenter, speed,
-		pUS->animator.GetTimeLabel1(), fMaxDist, item.pModel, attack.front(), item.pItem, pUS );
+	CObjectBase *pBullet = pWorld->ThrowKnife( rayInfo, fSpeed, tThrow, fMaxDist, item.pModel, item.pItem );
 	NRPG::IUnitMissionForMedals *pMedals = dynamic_cast<NRPG::IUnitMissionForMedals*>( pRPG );
 	if ( pMedals )
 		pMedals->AddWaitForBullet( pBullet );

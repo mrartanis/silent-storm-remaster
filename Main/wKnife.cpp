@@ -46,6 +46,8 @@ class CKnifeServer: public IDynamicObject, public IVisObj
 	ZEND int operator&( CStructureSaver &f ) { f.Add(2,&tFinish); f.Add(3,&pAnimator); f.Add(4,&pModel); f.Add(5,&pWorld); f.Add(6,&bindGlobal); f.Add(7,&pAction); f.Add(8,&pIItem); f.Add(9,&curPos); f.Add(10,&velocity); f.Add(11,&rayInfo); f.Add(12,&ignore); return 0; }
 public:
 	CKnifeServer() {}
+	CKnifeServer( CWorld *pWorld, const NRPG::SAttackRayInfo &rayInfo, float fSpeed,
+		STime tThrow, float fDistance, NDb::CModel *pModel, NRPG::IInventoryItem *pIItem );
 	CKnifeServer( CWorld *pWorld, const CVec3 &vFrom, const CVec3 &vSpeed,
 		STime tThrow, float fDistance, NDb::CModel *pModel, NRPG::CAttackPortion &_attack, 
 		NRPG::IInventoryItem *_pIItem, CUnitServer *_pIgnored );
@@ -125,6 +127,25 @@ CKnifeServer::CKnifeServer( CWorld *_pWorld, const CVec3 &vFrom, const CVec3 &vS
 	curPos = vFrom;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+CKnifeServer::CKnifeServer( CWorld *_pWorld, const NRPG::SAttackRayInfo &_rayInfo, float fSpeed,
+	STime tThrow, float fDistance, NDb::CModel *_pModel, NRPG::IInventoryItem *_pIItem )
+: pWorld(_pWorld), pModel(_pModel), pIItem(_pIItem), rayInfo(_rayInfo)
+{
+	// Original Steam 0x760e20: retain the selected ray, target and hit decision.
+	velocity = rayInfo.vDir;
+	Normalize( &velocity );
+	velocity *= fSpeed;
+	CKnifeAnimator *pLinear = new CKnifeAnimator( tThrow, rayInfo.vOrigin, velocity );
+	pAnimator = new NAnimation::CSkeletonAnimator(0);
+	pAnimator->pTime = pWorld->GetTime();
+	pAnimator->AddAnimator( pWorld->GetTime()->GetValue(), pLinear );
+	bindGlobal.Link( pWorld->GetActive(), this );
+	float fTFly = fDistance / fSpeed * 1000;
+	tFinish = tThrow + (STime)Float2Int( fTFly );
+	pAction = pWorld->GetActiveCounter();
+	curPos = rayInfo.vOrigin;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CKnifeServer::Visit( IRenderVisitor *p )
 {
 	p->AddItemMesh( pModel, pAnimator );
@@ -160,10 +181,31 @@ bool CKnifeServer::Segment()
 			if ( pCollided == rayInfo.pIgnore.GetPtr() )   // retail @0x35fe50: the carrier's ignore object
 				continue;
 			nCollFloor = i->pSrc->nFloor;   // retail @0x7600a8: the hit hull's floor (after the ignore test)
+			// Original Steam 0x760927: frames bounce before attackability is tested.
+			if ( i->pSrc->nTSFlags & ( NWorld::TS_STATE_OPEN | NWorld::TS_STATE_CLOSED ) )
+			{
+				res = NRPG::AR_BOUNCE;
+				break;
+			}
 			CDynamicCast<NRPG::IAttackable> pAttackCatcher( pCollided );
 			if ( pAttackCatcher )
 			{
-				// Original Steam 0x760824/0x760a15 forwards the current physical direction.
+				// Preserve intended misses; roll once for each incidental unit.
+				if ( pCollided == rayInfo.pTarget.GetPtr() && !rayInfo.bTargetIsHit )
+					continue;
+				CDynamicCast<CUnitServer> pUnit( pCollided );
+				if ( pUnit )
+				{
+					if ( find( ignore.begin(), ignore.end(), pCollided ) != ignore.end() )
+						continue;
+					if ( pCollided != rayInfo.pTarget.GetPtr() &&
+						!NRPG::CheckBulletToHit( rayInfo, pCollided, (NAI::EHitLocation)i->nUserID ) )
+					{
+						ignore.push_back( pCollided );
+						continue;
+					}
+				}
+				// Original Steam 0x760a15 forwards the current physical direction.
 				// Keep the retained Jan03 trajectory reader in sync with that callback.
 				rayInfo.atk.rTtrajectory = ray;
 				res = NRPG::PerformThrowingAttackPortion( pWorld, &rayInfo.atk,
@@ -204,6 +246,12 @@ bool CKnifeServer::Segment()
 	return false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+IDynamicObject *CreateKnifeServer( CWorld *pWorld, const NRPG::SAttackRayInfo &rayInfo, float fSpeed,
+	STime tThrow, float fDistance, NDb::CModel *pModel, NRPG::IInventoryItem *pIItem )
+{
+	return new CKnifeServer( pWorld, rayInfo, fSpeed, tThrow, fDistance, pModel, pIItem );
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 IDynamicObject *CreateKnifeServer( CWorld *pWorld, const CVec3 &vFrom, const CVec3 &vSpeed,
 		STime tThrow, float fDistance, NDb::CModel *pModel, NRPG::CAttackPortion &_attack, 

@@ -26599,3 +26599,78 @@ complete; partial360 remains partial.231 imported/11 pending/4 partial,15 unfini
 sources.
 
 Sources: [285f6a0cff9737d2789396a2543bc75d0ab11da7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/285f6a0cff9737d2789396a2543bc75d0ab11da7), [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 177. Complete thrown-knife solver and flight intent
+
+The actual knife executor selects its physical unit/tile cover ray while the blade is
+still equipped, through the existing CheckToHit/CheckTileToHit and PrepareAttackRay path.
+The carried attack retains the intended target, requested body part, shooter
+position/first-turn flag, actual attack origin, selected trail, ignore object and hit
+decision. The original physical8210 trace-purpose argument is explicit; preview/AI8200 and
+tile-preview200 defaults remain. Remove the superseded scalar accuracy/scatter path. Keep
+the validated integer flight range and GetKnifeLaunchSpeed wide1.5 math, successor
+handoff/weapon animation and actual returned projectile weak tracking from176. No change
+to the label-session/actual-animation lifecycle.
+
+New nonvirtual world/factory overloads copy SAttackRayInfo and launch its normalized
+direction at the supplied speed. CWorld retains and returns the actual projectile. The old
+scalar world/factory/constructor overloads remain for raw orientation and clock
+compatibility. The new constructor retains the original float distance/speed duration and
+current rounding behavior. Segment skips an intended miss, performs the existing
+incidental CheckBulletToHit roll once for a new incidental unit, and remembers a missed
+unit instead of rerolling each body hull. Door/window frame state flags select BOUNCE
+before attackability. Preserve physical-direction damage/trajectory synchronization,
+actual world, item ownership, hit floor,0.2 bounce dropback, registered class/save tags
+and the previously imported animator time rebase.
+
+All11 source files are accounted. The earlier imports already supply cover-origin
+distance, visibility-only backstab/night, thrown-action preview classification, blade
+skill/wounds/weight/strength/perks/gravity, ballistic range and accuracy truncation,
+fractional admission, HL_ANY target aim and directed unit dispatch. Retain the remaster's
+independently validated wider precision adapters and safe owner/origin/projection handling
+rather than copying donor files over them. RPGBullet.cpp already documents and forwards
+the physical direction; its donor comment hunk requires no edit. Rename only the stale
+header parameter. The source contains no separate drop-UI hunk; historical ledger wording
+is not an additional outstanding change.
+
+Before engine edits the final identical native fixture reproduced nine failures on both
+Windows and Linux, with eleven passing controls: five actual executor contexts lost
+selected-ray metadata; an intended miss and an incidental miss caused damage; actual
+open/closed authored Door439 in world4517 stuck the blade instead of bouncing. Three
+physical-hit controls and eight prior guaranteed-impact controls passed. Those eight older
+controls now explicitly supply an intended-hit carrier through the public world API, with
+an actual legacy-factory fallback before the new API existed; all old damage, blood
+direction, world, AP, pose and item assertions remain. New solver observations read saved
+fields only; pTarget is not serialized and is verified through actual cache/impact
+behavior. Public script chance0/100 and seed2026 yielding80 select the incidental miss
+without private-state injection. The postgate checks require exactly one incidental draw,
+one remembered unit and no second-hull reroll; no extra preport RED is claimed for checks
+not reached then. The initial world810 door search found no suitable collision and is
+retained as invalid setup, not runtime RED; canonical both-platform RED uses actual
+authored4517 geometry with no fake hull, material or flag change. All91 knife controls
+pass on both platforms after the port.
+
+Read-only original proof binds the named CExecThrowKnife OnLabel slot64 to actual
+Steam7ac1e0->7aa930, both native solver calls before tearoff, and the named
+world/factory/constructor chain764c40->7610f0->760e20. The named CKnifeServer Segment
+is7606e0. Six strict bounded comparisons prove frame flags, intended-miss branch,
+incidental-hit call branch, bounce result, full147-byte damage helper and constructor
+clock tail; only decoded external E8 relocations are allowed where needed. Actual
+target/ignore field differences between Gold and Steam remain unmasked. Whole
+producer/Segment signatures are rejected; native inspection buffers are not whole-function
+identity proofs. The writable Steam.rdata literal operand is not masked. No original
+gameplay, private globals, unknown secondary-vtable reads or whole ABI/full-engine/RNG
+parity claim.
+
+Fresh full Game builds pass628 Windows and624 Linux related cases, retaining every
+prior616/612 name and adding12. Linux's required portable mission archive/core test,383
+Windows asset-free CI cases, and12 LAN gates with361 encounter variants per platform pass.
+The four pre-existing Windows-only grenade registrations remain; no new exclusion. Game DB
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged. No new
+saved fields, virtual slots, DB/network schema, production test hook, combat-math rewrite
+or HD PNG generation. Full578 complete:232 imported/11 pending/3 partial,14 unfinished
+sources. Detailed laboratory records: knife-completion-red-verification.json,
+knife-completion-original-static-proof.json, knife-completion-hunk-accounting.json and
+knife-completion-verification.json.
+
+Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
