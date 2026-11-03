@@ -26266,3 +26266,135 @@ Source46b3 is complete for the supported own flows; ledger228 imported/13 pendin
 partial,18 unfinished sources.
 
 Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).
+
+## 174. Restore live hotseat team setup and equipment flow
+
+The local hotseat menu now uses a template-less CMission world with four empty live player
+trackers. Side changes clear hired and deployed actors, then rebuild the hireable roster
+for the selected side in hero mode. AI selection writes the actual global-party flag; team
+management opens its real modal and returning deploys the recruited mercenaries. Weapons
+issues actual UpdateStore for the selected party and exposes the existing HUD
+inventory/store; inventory/store/cancel returns to the setup menu. Play removes empty
+slots, applies the selected tech level and opens the chosen tactical mission with those
+same mercenary objects and AI flags. Tech level remains clamped0..20; the numeric map
+field and live-roster presence control play availability.
+
+All eight donor files are accounted for in nine Main files: the existing complex-combo
+definition moves verbatim into iCommonUI.h, retaining methods/registration/save ID in
+iOptionsMenu.cpp; the reusable AddTeamMngPerses helper uses the player's resolved side and
+preserves normal non-hero recruitment. That also fixes documented null-side fallback to
+side1 producing no recruits instead of the authored20. IsSetupMode defaults false and is
+true only for this local setup. CMission::Initialize admits the blank world only for that
+mode with template/variant-1, retaining the ordinary invalid-template rejection.
+CMissionUI adds the required setup guard from prior source46b3 now that setup actually has
+a MissionHUD. The donor's side local is adapted to CDBPtr for both platforms; its implicit
+CDBPtr->CPtr conversion compiled on Windows but failed on Linux. No Network sources, LAN
+preparation architecture, damage/AP/probability formulas, normal mission/save/network
+schemas, database or HD PNG assets change. Local setup row/desktop serialization follows
+the donor's live-tracker graph; no old detached-lobby save compatibility claim.
+
+Before Main changes, three actual native cases establish RED2/3 on both platforms:
+CICMultiPlayer has world0/players0/desktop0, and null-side recruitment produces0 instead
+of20; explicit-side recruitment passes. The first diagnostic candidate used a nonexistent
+RPG accessor and failed compilation, not runtime RED. Native setup then passes world/four
+empty cleared-side parties, real side1/2 changes, same-side reselect, AI on/off, actual
+team command, public native queued add/remove actor flow and hidden/unpaused handoff for
+another active human. Initial downstream observers incorrectly inspected the team-command
+queue before the existing restart snapshot and tried unsupported/private Segment APIs.
+Their compile failures and initial2/3 are retained; the final observer executes the actual
+CICSaveFile startup snapshot and uses public IWorld::UpdateWorld/GetAimTime and tracker
+Update without a private bypass or production hook. No production change was made for
+these observer errors.
+
+Three additional post-port cases exercise real UI/input/draw paths: opening team
+management, actual hire, modal return and deployed actor, native weapons/UpdateStore,
+nonempty stock and both equipment panels, return to menu with HP/AP/position unchanged;
+launching two selected parties at level7 into actual template810, removing two empty slots
+and retaining hero/person identity plus human/AI commanders; and rendered play
+availability0/1/0 for no actors/valid map+actor/empty map, tech bounds0/20 and actual
+cancel. The launch observer originally read an unrefreshed tracker immediately after
+CICBeginMission; the underlying world already had each chosen actor. Final read-only
+native actor assertions precede the public tracker refresh and verify exact
+identities/tech7/AI afterwards. The play widget observer follows its actual nested
+buttons-line parent. Earlier4/6 and5/6 logs remain, not extra gameplay RED claims. The
+first roster entry differs between platforms (observed Windows106/42 versus Linux2/129),
+so native flow assertions follow the actual selected objects and preserve physical state
+within each run. No cross-platform roster-order/person/HP/AP identity claim. Final6 pass
+both; initial RED2/3 and later six-case coverage are distinct, not a fabricated RED5/6 on
+an identical fixture. All pre174 UpstreamBugTests lines/assertions remain unchanged. These
+are native input/action API and real2D-render checks, not physical OS mouse/keyboard
+testing or original-game execution.
+
+File-backed actual Steam
+SHA4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705 independently supports
+the adapter. Unique68 Gold616a35->61b705 begins after the standard21-byte SEH prologue and
+binds actual setup Initialize61b6f0. Unique388 Gold616a79->61b749 proves four empty-vector
+CreateGlobalPlayer69acc0 calls. Unique42 Gold616c04->61b8d4 binds
+call61b8f9->CMission::Initialize601070 with template/variant-1. Unique101
+Gold694ad5->69ab05 begins after AddTeamMngPerses69aaf0's validated21-byte SEH prologue and
+clears its roster/validates current side. Unique40 Gold694be4->69ac14 filters CanHiredC0
+and current side2c and passes the hero argument to CreateMerc6ad250. Only decoded external
+E8 displacements normalize in these blocks. Whole5-byte SEH handler PUSH instructions are
+excluded, not operand-masked, and their targets never read. No full setup942/roster455
+identity claim.
+
+Named CPlayerLine root8bffc8 slot40, bounded by CWindow shape13 and typed Gold
+root/function616e40, binds actual row ProcessMessage61bb10. Its live
+tracker/current-side/team modal/remove/add-roster path is inspected directly; native
+call61bd72->69aaf0 uses DL1. Named CMultiPlayerInterface root8c006c matches known Gold
+ProcessEvent616530 at root ordinal28 within shape89, binding actual61b1f0. Initial offset0
+inference was rejected because Gold root0 is618d60; no code at that wrong target was read.
+Actual UpdateStore root8be534 is stored at61b4f7; unique raw23 Gold61683e->61b501 proves
+unit GetUnit34, instant1 and mission Command30. Unique raw11 Gold616d68->61ba38 proves
+world StartSequence1f4.
+
+Named MissionHUD root8bfe0c slot44 binds actual Update6126e0, with typed CWindow Update
+offset44 and CMissionUI shape22. Native call612728 uses mission slot14c; true
+branch612730->612791 skips handoff. Within named setup root8c006c and mission root8ba394,
+bounded89 slots, slot14c resolves to actual3-byte true488e70 and false696440 stubs. No
+Gold/Steam same-ordinal claim past their inherited table divergence. Initial unsupported
+HUD slot48 failed its Gold identity check; an ensuing guessed donor611d60 disassembly was
+unrelated and rejected/retained, contributing no accepted proof. Whole921
+initialization/tail76 and wider row blocks35/35/91/17 are rejected for field/table-offset
+differences. No field/frame/register/opcode/local-branch/global-address masking,
+private-global/BSS reads, secondary-table scan, original gameplay, full
+function/ABI/AI/RNG parity claim.
+
+A pre-existing standalone NetworkSessionTests failure surfaced at its one-Poll
+queued-state disconnect assertion. The target links unchanged
+NetworkSession/Transport/Diagnostics only, not Main/RPG/UI. The first failed5-gate attempt
+and unchanged full probes (two failures/one pass) are retained. A LAB-only public observer
+recorded raw-host Playing4 ->Failed7 after three polls/130 microseconds; its full
+runs/strace are observations, not production-test GREEN. Three analogous dedup/burst/raw
+close boundaries now use the existing Pump and original3-second deadline before the
+original Poll/Require. Every one of31 original Require blocks remains byte-exact and in
+order; no network production, callback, selection/exclusion or CTest-timeout change. The
+corrected standalone test passes five consecutive Linux runs under the same Xvfb/openbox
+display wrapper and three Windows runs. The old100-poll duplicate-event gate also failed
+in standalone and full-display runs. Failed logs and five initially passing LAB probes are
+retained; a same-display LAB observer then preserves its failed gate with
+Playing4/events7/baseline6/expected8 and reaches8 only after100 additional polls. The test
+now sends a valid trailing State11 on the same ordered TCP stream; its local raw-client
+applyState callback delegates unchanged validation and marks the batch complete. The
+original100-poll loop remains, followed by the existing3-second deadline wait and one new
+strict completion assertion before the unchanged exact dedup count. This detects both
+duplicate application and lost events after every packet has been handled; no accepting
+early merely because a duplicated first event produced count2. No specific Nagle/OS root
+cause for every individual failure is claimed. Complete standard LAN gates on both
+platforms and CI382 are rerun after the wait correction.
+Game/UpstreamBugTests/NetworkMatch binaries on both platforms and the Linux network
+library remain byte-identical to the prior complete builds. No claim of a new gameplay bug
+or complete network/timing parity.
+
+Fresh Game builds and59 Windows/56 Linux related cases pass, including all six new native
+cases, prior hotseat handoff/keyboard, recruitment facial idle, AI mercenary setup,
+combo/options, roster/store/deployment and normal/local-network save/restart boundaries.
+Three existing Windows-only CampaignSequence cases stay on Windows; the existing
+nested-save exclusion remains the only exclusion. Native observations match their final
+per-platform six-case runs. CI382 and twelve standard LAN gates/361 encounter variants
+each pass. Baseline/Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df remains unchanged,
+with no HD PNG generation/rebuild. Source3053 is complete;229 imported/12 pending/5
+partial,17 unfinished sources.
+
+Source: [3053c3125ddb6be5fd7b0b6b30a375536d073200](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3053c3125ddb6be5fd7b0b6b30a375536d073200).

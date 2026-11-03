@@ -266,7 +266,9 @@ bool CMission::Initialize( int _nTemplateID, int _nVariantID, NScenario::CScenar
 	// Retail writes this for both scenario missions and template-only random encounters.
 	pGlobalGame->nCurrentTemplateID = nTemplateID;
 
-	if ( nVariantID == -1 )
+	// The template-less world belongs to local hotseat equipment setup.
+	const bool bSetupWorld = IsSetupMode() && nTemplateID == -1 && nVariantID == -1;
+	if ( nVariantID == -1 && !bSetupWorld )
 	{
 		CPtr<NDb::CTemplate> pTemplate = NDb::GetTemplate( nTemplateID );
 		if ( !IsValid( pTemplate ) )
@@ -290,8 +292,11 @@ bool CMission::Initialize( int _nTemplateID, int _nVariantID, NScenario::CScenar
 	if ( !IsValid( pWorld ) )
 	{
 		pWorld = NWorld::CreateWorld( _pGlobalGame );
-		pWorld->CreateRandom( nVariantID, params, true, clues,
-			nMobsLevel, &pPostInfo, sSeed );
+		if ( bSetupWorld )
+			pWorld->CreateDefault();
+		else
+			pWorld->CreateRandom( nVariantID, params, true, clues,
+				nMobsLevel, &pPostInfo, sSeed );
 	}
 	else if (!networkSession)
 		pWorld->CreateRestored( pGlobalGame );	// retail @0x36e100: rebind the live global game + refresh buildings

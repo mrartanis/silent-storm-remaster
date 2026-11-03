@@ -4766,3 +4766,18 @@ equipment setup still requires its own handoff boundary.228 imported/13 pending/
 partial,18 unfinished.
 
 Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).
+
+## 174. Restore live hotseat team setup and equipment flow
+
+Hotseat preparation now operates on live empty parties, real team/equipment screens and
+selected-side hireable hero rosters. Play retains chosen mercenaries and AI flags and
+applies existing selected tech level0..20; no combat formula, normal campaign
+save/DB/network schema or HD asset change. Default-null-side roster resolves the
+documented side1 consistently (20 authored recruits); explicit-side normal roster control
+remains exact. Setup's new MissionHUD uses the previously deferred no-handoff guard; LAN
+still exposes one local tracker and its preparation architecture is unchanged. Native
+initialRED2/3both/control ->final6both, fresh Game59Win56Linux/CI382/LAN12each361 pass.
+All old test assertions retained/no new exclusion, source3053 complete;229 imported/12
+pending/5 partial,17 unfinished.
+
+Source: [3053c3125ddb6be5fd7b0b6b30a375536d073200](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3053c3125ddb6be5fd7b0b6b30a375536d073200).

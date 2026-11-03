@@ -3097,3 +3097,27 @@ Source46b3 ten-file accounting complete for supported flows,18 unfinished; pendi
 equipment-setup boundary remains separate.
 
 Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).
+
+## 174. Restore live hotseat team setup and equipment flow
+
+NativeHotseatSetup0..2: initial genuine RED2/3 both/control, then template-less native
+setup/live rows/side and AI controls/team command/queued actor add-remove/no setup handoff
+and resolved default/explicit-side authored20-person rosters.
+NativeHotseatEquipmentFlow0..2 add actual team-modal
+hire/deploy/weapon-stock/inventory-return with physical state preserved; real template810
+launch with two chosen hero mercenary objects, tech7 and human/AI commanders; real2D play
+enabled0/1/0, tech bounds0/20 and cancel. Final6both with all old assertions retained.
+Standalone NetworkSessionTests adds existing-deadline asynchronous waits before three
+close assertions; all31 original Require blocks byte-exact/in-order, production and game
+binaries unchanged, repeat5Linux3Windows/fullLAN+CI rerun. Firstinfra and subsequent
+oldeventgate failures retained, no newexclusion or claimedfulltimingcause. Startup
+snapshot, public world/tracker synchronization and nested-button observers corrected
+explicitly; compile/4-of6/5-of6 failures archived, not extra production RED. No claim
+identical-finalfixture RED5/6. Portable local CDBPtr compile adaptation checked by final
+fresh Windows59 and Linux56; all six new native rows exact per platform. Three existing
+Windows-only CampaignSequence registrations retained, known nested-save exclusion
+unchanged. CI382/LAN12 each361 pass. Original bounded blocks/root guard and rejected
+guessed-address inference documented in imports; native input APIs/real draw, no physical
+OS/original runtime/ABI/RNG parity claim. Source3053 complete,17 unfinished.
+
+Source: [3053c3125ddb6be5fd7b0b6b30a375536d073200](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/3053c3125ddb6be5fd7b0b6b30a375536d073200).

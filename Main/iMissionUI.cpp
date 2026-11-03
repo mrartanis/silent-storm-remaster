@@ -1226,7 +1226,7 @@ bool CMissionUI::Update( const STime &sTime, NGScene::I2DGameView *pView )
 	// LAN missions expose one local tracker; only local hotseat needs a handoff.
 	vector< CPtr<NGame::IPlayerTracker> > players;
 	pMission->GetPlayers( &players );
-	if ( players.size() > 1 )
+	if ( !pMission->IsSetupMode() && players.size() > 1 )
 	{
 		NGame::IPlayerTracker *pActive = pMission->GetActivePlayer();
 		NRPG::CGlobalPlayer *pGlobal = IsValid( pActive ) ? pActive->GetGlobalPlayer() : 0;
