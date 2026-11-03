@@ -444,7 +444,7 @@ public:
 	CUnitView() {}
 	CUnitView( const SWindowInfo &sInfo, NRender::IRenderGame *pRender = 0, float fScale = 1.0f );
 
-	void SetUnit( NRPG::CUnit *pUnit, ECameraType eType = CAMERA_PORTRAIT );
+	void SetUnit( NRPG::CUnit *pUnit, ECameraType eType = CAMERA_PORTRAIT, bool bPlayIdleEmotions = true );
 	void SetUnit( NWorld::CUnit *pUnit, ECameraType eType = CAMERA_PORTRAIT );
 	// release @0x1c03d0: SetUnit(unit, camera, b1, b2, b3) with b1=bItems, b2=bShowCap, b3=bPlayIdle -- the
 	// @0x1c043c..3e push order feeds CreateShowUnit's three bools as (b1, b3, b2) = (bItems, bPlayIdle, bShowCap).

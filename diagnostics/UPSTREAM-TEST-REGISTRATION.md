@@ -3064,3 +3064,18 @@ standard LAN gates and361 encounter variants each pass; no new exclusion. Actual
 callback6ffb40/unique161 E8-only proof; source46b3 remains partial.
 
 Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).
+
+## 172. Keep recruitment faces static while preserving FaceGen facial idle
+
+NativeRecruitmentIdle0..3 execute actual recruitment menus for persons54/103 and default
+FaceGen CUnitView controls. RED2/4 both/two controls ->GREEN4 both: recruitment head14/13
+idleNORMAL0->NONE1, other raw fields and both controls exact per platform. Read-only real
+serialized graph observer (145/146 nodes/one CHeadAnimator), actual IShowUnit::Update0, no
+private injection or production hook. All previous test lines/assertions unchanged. Fresh
+Game22Win20Linux/CI382/LAN12 each361 pass; old dead/unconscious shared heads keep DEATH2,
+topology/restored portraits pass. Two existing Win-only head resource/runtime tests kept;
+no new exclusion. Eleven bounded original blocks and typed native3-bool/own1-bool
+adaptation documented in UPSTREAM-IMPORTS.md. No pixel/full morph-timeline/RNG parity or
+HD asset generation claim. Source46b3 still partial,19 unfinished.
+
+Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).

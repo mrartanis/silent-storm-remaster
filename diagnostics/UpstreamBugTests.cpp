@@ -24,6 +24,7 @@
 #include "../Main/GParticles.h"
 #include "../Main/wUnitGroup.h"
 #include "../Main/iCommonUI.h"
+#include "../Main/iTeamMngMenu.h"
 #include "../Main/PerkToolTip.h"
 #include "../Main/UnitStepSound.h"
 #include "../Main/InventoryUnit.h"
@@ -22020,6 +22021,44 @@ static void TerrainGrassFloor(const char* databasePath,const char* resourcePath,
     Require(!view->grassRooms.empty() && !view->terrainFloors.empty(),"native grass fixture never reached actual grass/terrain render dispatch; not a floor RED");int wrong=0;for(const auto& room:view->grassRooms){Require(!room.pGroup,"native ungrouped terrain grass acquired a room light group");wrong+=room.nFloor!=0;}for(int floor:view->terrainFloors)Require(floor==0,"native terrain control unexpectedly lost its existing floor0");Require(NGScene::SRoomInfo().nFloor==-100,"grass fix incorrectly changed the shared default room for unrelated render nodes");std::printf("native terrain grass mode=%d variant=%d layers=%d sectors=%zu wrongFloor=%d firstFloor=%d expected=0 terrainControls=%zu defaultRoom=%d texture=%d\n",mode,variant,layers,view->grassRooms.size(),wrong,int(view->grassRooms.front().nFloor),view->terrainFloors.size(),int(NGScene::SRoomInfo().nFloor),view->textures.front());std::fflush(stdout);Require(wrong==0,"native terrain grass dispatch used always-visible default floor-100 instead of original floor0");
 }
 
+static CMemoryStream NativePortraitBaseFields(NUI::CUnitView* view,CStructureNetworkContext* references)
+{
+    vector<CObjectBase*> referenced;CStructureNetworkContext graph;graph.include=[&](CObjectBase* child){referenced.push_back(child);return false;};
+    CMemoryStream traversal;{CStructureSaver writer(traversal,CStructureSaver::WRITE,&graph);view->NUI::CUnitView::operator&(writer);}
+    references->externalReferences=true;references->nextID=100;references->include=[](CObjectBase*){return false;};
+    for(auto* child:referenced)if(!references->ids.count(child)){const auto id=references->nextID++;references->ids[child]=id;references->refs[id]=child;}
+    CMemoryStream fields;{CStructureSaver writer(fields,CStructureSaver::WRITE,references);view->NUI::CUnitView::operator&(writer);}fields.Seek(0);return fields;
+}
+static vector<NLSHead::CHeadAnimator*> NativePortraitHeadGraph(CObjectBase* root,int* count)
+{
+    vector<CObjectBase*> pending(1,root);std::set<CObjectBase*> visited;vector<NLSHead::CHeadAnimator*> result;
+    for(unsigned i=0;i<pending.size();++i){auto* object=pending[i];if(!object || !visited.insert(object).second)continue;Require(visited.size()<10000,"portrait graph exceeded its bounded read-only observer");
+        if(auto* animator=dynamic_cast<NLSHead::CHeadAnimator*>(object))result.push_back(animator);
+        CStructureNetworkContext graph;graph.include=[&](CObjectBase* child){if(child && !visited.count(child))pending.push_back(child);return false;};
+        CMemoryStream fields;{CStructureSaver writer(fields,CStructureSaver::WRITE,&graph);object->operator&(writer);}
+    }
+    *count=int(visited.size());return result;
+}
+static void NativeRecruitmentIdle(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=3,"unknown native recruitment idle mode");const bool recruitment=mode<2;const int person=mode%2?103:54;
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm recruitment facial idle regression");
+    CObj<NRPG::CGlobalPlayer> party=NRPG::CreateGlobalPlayer(vector<int>{person});Require(party && party->mercs.size()==1 && party->totalMercs.size()==1,"recruitment idle fixture lacks its actual authored mercenary");
+    CObj<NRPG::CUnit> merc=party->mercs.front();Require(merc->GetHead() && merc->GetHead()->pHead,"recruitment idle fixture lacks its actual complex facial head");
+    CObj<NUI::CInterface> interface;CPtr<NUI::CUnitView> portrait;
+    if(recruitment){CObj<NGame::CICTeamMngMenu> enter=new NGame::CICTeamMngMenu(party,nullptr);enter->Exec();auto* current=NMainLoop::GetCurrentInterfaceForHarness();Require(current,"recruitment idle did not open its actual native menu");
+        CStructureNetworkContext references;auto fields=BorrowedObjectFields(current,&references);CObj<NUI::CWindow> menu;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&references);reader.Add(6,&interface);reader.Add(7,&menu);}Require(interface && menu,"recruitment idle menu omitted its real interface/window");
+        list<CPtr<NUI::CWindow>> pending;menu->GetChildrenList(&pending);while(!pending.empty()){auto child=pending.front();pending.pop_front();if(child->GetWindowID()=="unit_view_0")if(auto* native=dynamic_cast<NUI::CUnitView*>(child.GetPtr()))portrait=native;list<CPtr<NUI::CWindow>> nested;child->GetChildrenList(&nested);pending.insert(pending.end(),nested.begin(),nested.end());}
+    }else{interface=new NUI::CInterface(NUI::ICursor::Create());portrait=new NUI::CUnitView(NUI::SWindowInfo(interface,NUI::SPoint(0,0),NUI::SPoint(160,160),"native_facegen_idle",NUI::STYLE_ENABLED|NUI::STYLE_VISIBLE));portrait->SetUnit(merc,NUI::CUnitView::CAMERA_FACEGEN);}
+    Require(portrait,"recruitment idle did not find an actual native portrait view");CStructureNetworkContext references;auto fields=NativePortraitBaseFields(portrait,&references);CObj<NRender::IShowUnit> show;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&references);reader.Add(8,&show);}Require(show,"recruitment idle native view did not create its actual shown RPG unit");show->Update(0);
+    int nodes=0;auto heads=NativePortraitHeadGraph(show,&nodes);Require(heads.size()==1,"recruitment idle observer did not reach exactly one real native head animator");
+    const auto expected=recruitment?NLSHead::IDLE_NONE:NLSHead::IDLE_NORMAL;
+    std::printf("RECRUITMENT-IDLE mode=%d person=%d recruitment=%d head=%d observed=%d expected=%d animators=%zu graphNodes=%d\n",mode,person,int(recruitment),merc->GetHead()->GetRecordID(),int(heads.front()->GetIdleType()),int(expected),heads.size(),nodes);std::fflush(stdout);
+    Require(heads.front()->GetIdleType()==expected,"native recruitment portrait did not suppress facial idle or default FaceGen lost it");
+}
+
 static void DownedHeadIdle(const char* databasePath,const char* resourcePath,bool dead)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -35345,6 +35384,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "default-item-detachment")) { Require(argc == 4, "item detachment requires db and res"); DefaultItemDetachment(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "unit-hit-roll-equality-log")) { Require(argc == 4, "unit hit log requires db and res"); HitRollEqualityLog(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "tile-hit-roll-equality-log")) { Require(argc == 4, "tile hit log requires db and res"); HitRollEqualityLog(argv[2],argv[3],true); return true; }
+    if (!std::strcmp(mode, "native-recruitment-idle")) { Require(argc==5,"recruitment idle requires db/resources/mode"); NativeRecruitmentIdle(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "dead-head-idle") && argc == 4) { DownedHeadIdle(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "unconscious-head-idle") && argc == 4) { DownedHeadIdle(argv[2],argv[3],false); return true; }
     if (!std::strcmp(mode, "active-door-hull-lookup") && argc == 4) { ActiveDoorHullLookup(argv[2],argv[3]); return true; }

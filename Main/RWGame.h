@@ -93,11 +93,12 @@ public:
 IRenderGame* CreateRenderGame( NWorld::IWorld *_pWorld, NGScene::IGameView *_pScene, NSound::ISoundScene *_pSoundScene );
 IRenderGame* CreateDummyRenderGame( NGScene::IGameView *_pScene );
 ////
-IShowUnit* CreateShowUnit( NGScene::IGameView *pView, NRPG::CUnit *pUnit, CFuncBase<STime>* pTime, IRenderGame *pRenderGame = 0 );
+// Original NRPG preview @0x6cecb0 takes three bools. Expose facial idle here;
+// the existing RPG preview retains its body-pose and cap handling.
+IShowUnit* CreateShowUnit( NGScene::IGameView *pView, NRPG::CUnit *pUnit, CFuncBase<STime>* pTime, IRenderGame *pRenderGame = 0, bool bPlayIdleEmotions = true );
 // release @0x2ce9c0: the NWorld overload threads THREE bools into the CFakeWorldUnit ctor (@0x2ce440 params
 // 4-6: bItems, bPlayIdle, bShowCap). Defaults reproduce the old dev path (item pose flags on, static POSE,
-// cap shown) so existing callers keep their behavior. (The NRPG overload @0x2ce730 threads the same bools
-// into CFakeRPGUnit; no dev caller needs them yet, so its signature is left alone.)
+// cap shown) so existing callers keep their behavior.
 IShowUnit* CreateShowUnit( NGScene::IGameView *pView, NWorld::CUnit *pUnit, CFuncBase<STime>* pTime, IRenderGame *pRenderGame = 0, bool bItems = true, bool bPlayIdle = false, bool bShowCap = true );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

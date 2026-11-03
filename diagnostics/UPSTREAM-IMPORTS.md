@@ -26118,3 +26118,67 @@ related runs, not those failed runs, supply the accepted counts above. This is d
 repair, not another game-behavior RED.
 
 Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).
+
+## 172. Keep recruitment faces static while preserving FaceGen facial idle
+
+The recruitment portrait now explicitly opts out of ambient facial idle. A default-true
+facial flag flows through the NRPG CUnitView/CreateShowUnit/CShowRPGUnit/CFakeRPGUnit
+chain into its existing transient CHeadTransformInfo. The standalone morph-head renderer
+uses that existing flag before arming IDLE_NORMAL. FaceGen retains its default; NWorld
+preview overloads, shared world heads, body-pose/cap handling, morph/texture pipeline and
+saved fields remain intact. Six Main files change; the new IsPlayIdle accessor adds no
+state or save tag.
+
+Actual native recruitment menus for authored persons54/103 establish RED2/4 on both
+platforms, with two default FaceGen CUnitView controls passing. GREEN4 changes only
+recruitment animator IDLE_NORMAL0 ->IDLE_NONE1 for complex heads14/13. Every other raw
+field and both control rows remain exact within each platform and in the broader runs. The
+observer reads the actual CUnitView base serialization field8, calls the public
+IShowUnit::Update(0) used by drawing, and walks a bounded read-only serialized render
+graph to the one real CHeadAnimator (145/146 nodes). It does not inject private state,
+replace gameplay/graphics calculations or add a production test hook. All previous
+diagnostic lines/assertions remain unchanged; no pixel, morph-weight, full
+animation-timeline or RNG parity claim.
+
+File-backed actual Steam
+SHA4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705 independently binds
+the portrait constructor644320 using typed Gold63ec40: unique41 prefix63ec55 ->644335
+normalizes one decoded E8 and the independently named root RTTI vptr8b294c ->8c1aac.
+Unique50 tail63ed2d ->64440d proves the five argument pushes and call644424
+->SetUnit5c0ba0; donor comment64456b is wrong. Unique25 Gold5be068 ->5c0be8 binds
+CreateShowUnit6cecb0. The original NRPG API has three bools: SetUnit(0,1,0) maps to
+CreateShowUnit(body0,emotions0,cap1). This remaster adapter exposes only facial idle and
+retains its existing body/cap path; it does not claim the original had a one-bool ABI.
+
+Unique266 CreateShowUnit post-prologue Gold6c81e5 ->6cecc5 and121 ShowRPGUnit constructor
+tail6c8155 ->6cec35 bind the actual constructor chain6cecb0 ->6ceb70 ->CFakeRPGUnit6ce610.
+Unique raw17 Gold6c7c00 ->6ce6e0 stores the second flag in the original bPlayIdleEmotions
+field38. Unique raw22 Gold6c79f1 ->6ce4d1 gates the visitor50 call on that field. Named
+CFakeRPGUnit root slot8 binds actual RenderVisit6ce320 within the three-overload IVisObj
+root (12 bytes); an initial unsupported first-slot assumption was rejected before
+acceptance, its target never dereferenced, with no secondary-table scan. The own transient
+transform flag is a policy adapter, not original field38 layout equivalence.
+
+Unique59 public AddHead Gold6c7500 ->6cdfe0 binds GetAnimator65dec0 and private
+AddHead6cdd70. Unique294 GetAnimator post-prologue657bf5 ->65ded5 creates a head with
+enum1 through65df51 ->665770; unique70 fallback Gold6c743b ->6cdf1b does the same. Full87
+CHeadAnimator constructor65f480 ->665770 matches with only independently typed root RTTI
+vptr8b3620 ->8c2748 normalized, storing its mode argument in field34. Gold enum values are
+NORMAL0/NONE1/DEATH2. Other masks are decoded external E8 displacements only. Contiguous
+standard21-byte SEH prologues are inspected; whole5-byte PUSH-handler instructions are
+excluded, never operand-masked or dereferenced. Whole SetUnit290 and portrait287 are
+rejected for actual field/camera/branch differences. No whole private
+AddHead563/FakeCtor933/ShowCtor318/Visit660 identity, own ABI, original gameplay,
+global/BSS read or field/frame/register/opcode/local-branch/global-address masking claim.
+
+Fresh Game builds,22 Windows/20 Linux related facial/head/portrait/hotseat/data/resource
+cases, CI382 and12 standard LAN gates/361 encounter variants each pass. Native downed
+shared-head cases retain DEATH2; head topology, restored portrait selection and default
+FaceGen controls pass. NativeHeadResourceTests and NativeHeadSequenceRuntimeTests are
+existing Windows-only registrations kept on Windows, with no new exclusion. Baseline/Steam
+game.db SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged.
+No HD PNG generation/rebuild or database/save-format change. Source46b3 remains partial:
+AI-merc AddPlayer initialization remains; ledger stays227 imported/13 pending/6 partial,19
+unfinished sources.
+
+Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).

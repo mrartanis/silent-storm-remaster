@@ -4739,3 +4739,15 @@ final all-six four-word zero-draw assertions pass; no original whole-call/Segmen
 parity claim. Source46b3 still partial;19 source commits unfinished.
 
 Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).
+
+## 172. Keep recruitment faces static while preserving FaceGen facial idle
+
+Recruitment portraits explicitly suppress ambient facial idle while default FaceGen
+previews retain it. The flag uses existing transient head-transform state; no added saved
+field, body/cap rule, NWorld shared-head route, skill/AP/damage/probability formula,
+DB/save/network format or HD asset change. Native RED2/4->GREEN4 both, two FaceGen
+controls and all other raw observations unchanged; fresh Game22Win20Linux/CI382/LAN12
+each361 pass. Existing dead/unconscious world heads keep DEATH2. Source46b3 remains
+partial pending AI-merc initialization;19 source commits unfinished.
+
+Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).
