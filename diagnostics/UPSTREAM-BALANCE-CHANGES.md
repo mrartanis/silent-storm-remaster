@@ -4984,3 +4984,15 @@ PNG generation, user NO auto detection honored. The final combined CI/network/ho
 are recorded after all three October30 imports; no per-source hosted success is claimed.
 
 Source: [e71f4da3fe69b9730901d5f08db3b79ee81d68d8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e71f4da3fe69b9730901d5f08db3b79ee81d68d8).
+
+## 189. Restore the seventh party-member selection command
+
+No new balance coefficients or authored data. Restore the seventh party-member selection
+command. Preserve own native renderer/audio/LAN/face/font/HD policies and existing save
+fields. Fresh Games and 59 Windows/54 Linux related cases pass, including all3 focused
+cases; no selected exclusions.
+DB314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df unchanged, HD frozen/no
+PNG generation, user NO auto detection honored. The final combined CI/network/hosted gates
+are recorded after all three October30 imports; no per-source hosted success is claimed.
+
+Source: [f5b5b620d4b251d7548b36134ae16d3abe4457e5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f5b5b620d4b251d7548b36134ae16d3abe4457e5).

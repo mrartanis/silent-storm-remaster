@@ -3363,3 +3363,27 @@ CI/network/hosted gates are recorded after all three October30 imports; no per-s
 hosted success is claimed.
 
 Source: [e71f4da3fe69b9730901d5f08db3b79ee81d68d8](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e71f4da3fe69b9730901d5f08db3b79ee81d68d8).
+
+## 189. Restore the seventh party-member selection command
+
+Native mission/input cases deploy six real regular RPG actors plus one temporary RPG
+companion through the actual AddPlayer/zoneMercs deployment path, send actual named input
+events through CMission::ProcessEvent and check the selected tracker. The hero_6 control
+still selects member six, and hero_7 with only six actors leaves the prior selection
+intact. Canonical pre-Main RED1/3 with two controls on both platforms, then GREEN3/3 and
+related input/selection cases. Selecting the party member preserves actual AP/HP/position.
+An initial setup incorrectly expected a foreign owner in the single-party match mission;
+its setup failures are excluded. The canonical fixture supplies a temporary actor through
+existing global party data before native mission entry. All three October30 source commits
+are now imported; the previously completed audit stopped at the October26 source head.
+Updated total:249 imported and40 previously
+classified/already-present/excluded/documentation sources,289 classified,0
+pending/partial.
+
+Fresh Games and 59 Windows/54 Linux related cases pass, including all3 focused cases; no
+selected exclusions. DB314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df
+unchanged, HD frozen/no PNG generation, user NO auto detection honored. The final combined
+CI/network/hosted gates are recorded after all three October30 imports; no per-source
+hosted success is claimed.
+
+Source: [f5b5b620d4b251d7548b36134ae16d3abe4457e5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f5b5b620d4b251d7548b36134ae16d3abe4457e5).

@@ -35333,6 +35333,28 @@ static void NativeHealingPose(const char* databasePath,const char* resourcePath,
     Require(mode==2?freshRepair>0 && freshPose==0:freshPose>0 && freshRepair==0,"healing idle overlay left the underlying healing pose, or repair lost its authored end clip");
 }
 
+static void NativeHeroSeven(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<3,"unknown hero seven mode");
+    NativeDisplayContext display;display.Initialize(databasePath,resourcePath,"Silent Storm seventh party member input");NGame::InitLoadingScreen();
+    CObj<NRPG::CGlobalGame> game=NRPG::CreateGlobalGame(-1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>(6,54)));
+    Require(game->players[0]->mercs.size()==6,"hero seven needs six genuine regular RPG actors");
+    CObj<NRPG::IUnitMission> temporary=NRPG::CreateUnit(NDb::GetPers(103));if(mode!=2)game->players[0]->zoneMercs.push_back(temporary->GetRPGUnit());
+    CObj<NGame::CICBeginMission> open=new NGame::CICBeginMission(810,-1,vector<string>(),game);open->Exec();
+    CObj<NGame::CMission> mission=dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());Require(mission && mission->GetWorld(),"hero seven did not open the actual mission");mission->PauseGame(true);mission->SetCheatVisibility(true);
+    while(NMainLoop::HaveInterfaceCommand()){CObj<NMainLoop::CInterfaceCommand> pending=NMainLoop::TakeInterfaceCommandForHarness();Require(dynamic_cast<NMainLoop::CICSaveFile*>(pending.GetPtr()),"hero seven has an unexpected startup command");}
+    auto* world=dynamic_cast<NWorld::CWorld*>(mission->GetWorld());auto* owner=dynamic_cast<NWorld::CPlayer*>(mission->GetActivePlayer()->GetPlayer());Require(world && owner && owner->GetGlobalPlayer()==game->players[0].GetPtr(),"hero seven lacks its genuine global human owner");
+    struct RestoreWorld {NWorld::CWorld* previous=NWorld::pCurrentWorld;~RestoreWorld(){NWorld::pCurrentWorld=previous;}} restore;NWorld::pCurrentWorld=world;world->ProcessTBSEvents();
+    mission->GetActivePlayer()->Update(false);vector<CPtr<NGame::IUnitTracker>> units;mission->GetUnits(&units);Require(units.size()==size_t(mode==2?6:7),"hero seven mission tracker set lost its real regular/temporary party");
+    vector<int> ap,hp;vector<NAI::SUnitPosition> positions;for(auto unit:units){auto* native=dynamic_cast<NWorld::CUnitServer*>(unit->GetUnit());Require(native,"hero seven tracker has no actual native actor");ap.push_back(native->GetAP());hp.push_back(native->GetUnitRPG()->GetTotalVP());positions.push_back(native->GetPosition());}
+    mission->Select(units[0]->GetUnit(),false);vector<CPtr<NGame::IUnitTracker>> before;mission->GetSelectedUnits(&before);Require(before.size()==1 && before[0]==units[0],"hero seven initial native selection failed");
+    NInput::SEvent event;while(NInput::GetEvent(&event)){};NInput::PostEvent(mode==1?"hero_6":"hero_7");Require(NInput::GetEvent(&event),"hero seven input queue did not deliver the real named bind");mission->ProcessEvent(event);
+    vector<CPtr<NGame::IUnitTracker>> selected;mission->GetSelectedUnits(&selected);const int expected=mode==0?6:mode==1?5:0;
+    std::printf("HERO-SEVEN mode=%d party=%zu selected=%zu expectedIndex=%d matched=%d\n",mode,units.size(),selected.size(),expected,int(selected.size()==1 && selected[0]==units[expected]));std::fflush(stdout);
+    Require(selected.size()==1 && selected[0]==units[expected],"actual hero_7 command did not select member seven or changed the six-person guard/hero_6 control");
+    for(size_t i=0;i<units.size();++i){auto* native=dynamic_cast<NWorld::CUnitServer*>(units[i]->GetUnit());Require(native->GetAP()==ap[i] && native->GetUnitRPG()->GetTotalVP()==hp[i] && native->GetPosition()==positions[i],"party selection changed native AP/HP/position");}
+}
+
 static void NativeStorePassage(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<=4,"unknown native store passage mode");
@@ -37002,6 +37024,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-healed-damage")) { Require(argc==5,"healed damage requires db/resources/mode"); NativeHealedDamage(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-unaware-critical")) { Require(argc==5,"unaware critical requires db/resources/mode"); NativeUnawareCritical(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-healing-pose")) {Require(argc==5,"healing requires db/resources/case");NativeHealingPose(argv[2],argv[3],std::atoi(argv[4]));return true;}
+    if (!std::strcmp(mode, "native-hero-seven")) {Require(argc==5,"hero requires db/resources/case");NativeHeroSeven(argv[2],argv[3],std::atoi(argv[4]));return true;}
     if (!std::strcmp(mode, "native-temporary-companions")) {Require(argc==5,"temporary companions require db/resources/case");NativeTemporaryCompanions(argv[2],argv[3],std::atoi(argv[4]));return true;}
     if (!std::strcmp(mode, "native-subzone-transition")) { Require(argc==5,"subzone transition requires db/resources/mode"); NativeSubzoneTransition(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-store-passage")) { Require(argc==5,"store passage requires db/resources/mode"); NativeStorePassage(argv[2],argv[3],std::atoi(argv[4])); return true; }
