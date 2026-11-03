@@ -14,6 +14,8 @@
 #include "wInterface.h"
 #include "wMain.h"
 #include "RPGUnitMission.h"
+#include "RPGItemInfo.h"
+#include "RPGToHit.h"
 #include "../DBFormat/DataRPG.h"
 #include "../DBFormat/DataMap.h"   // NDb::EDiplomacyState / DS_ALLY -- friendly-fire ally check in cover penetration
 #include "../MiscDll/LogStream.h"
@@ -786,15 +788,12 @@ int CGame::GetCompositeToHit( NWorld::CUnit *pAttacker,
 		pRealAttacker->PrintLog( true );
 		return 0;
 	}
-	// Preserve the native facing guard for object commands formerly previewed as tiles.
-	if ( !targetUnit )
-	{
-		NAI::SUnitPosition pos = pAttacker->GetPosition();
-		pos.pos.p.SetDirection( GetShootDirection( pos.pos.pNet, pos.pos.p, ptTarget ) );
-		const NAI::EPassable pass = pos.pos.pNet->GetPassability( pos.pos.p );
-		if ( pass == NAI::AIP_NOT_PASSABLE || pass == NAI::AIP_CANNOT_LAY )
-			return -1;
-	}
+	// Original 0x6b602e..0x6b605a checks the pose facing the ANY hull center.
+	NAI::SUnitPosition pos = pAttacker->GetPosition();
+	pos.pos.p.SetDirection( GetShootDirection( pos.pos.pNet, pos.pos.p, ptTarget ) );
+	const NAI::EPassable pass = pos.pos.pNet->GetPassability( pos.pos.p );
+	if ( pass == NAI::AIP_NOT_PASSABLE || pass == NAI::AIP_CANNOT_LAY )
+		return -1;
 	CVec3 ptAttackPos;
 	// retail NRPG::GetToHit @0x2b5ee0 and the executor CExecMeleeUnit::OnLabel (wUnitAttackExec.cpp:1645) pass
 	// min-clear 0 for melee -- there is no muzzle to pull the cover-walk origin back from. Using the ranged
@@ -813,9 +812,6 @@ int CGame::GetCompositeToHit( NWorld::CUnit *pAttacker,
 	}
 	else
 	{
-		NAI::SUnitPosition pos = pAttacker->GetPosition();
-		NAI::EDirection dir = GetShootDirection( pos.pos.pNet, pos.pos.p, targetUnit ? targetUnit->GetPosition().GetCP() : ptTarget );
-		pos.pos.p.SetDirection( dir );
 		ptAttackPos = pAttacker->GetAttackOrigin( pos );
 		fMinClearDistance = pAttacker->GetMinClearDistance();
 	}
@@ -823,21 +819,10 @@ int CGame::GetCompositeToHit( NWorld::CUnit *pAttacker,
 	if ( actionType == TH_RLAUNCHER )
 		attack.front().nK = 1;
 	CObj<NRPG::CCoverInfo> pCover = CalcCovers( ptAttackPos, attack.front(), pAttacker, pTarget, eHL, fMinClearDistance );
-	vector<int> accessibleHLs; // needed only for computing Melee ToHit
-	if ( actionType == TH_MELEE && targetUnit )
-	{
-		pAIMap->GetAccessibleUnitHL( &accessibleHLs, pAttacker->GetPosition().GetCenter(), pAIMap->GetHull(pTarget), F_MELEE_DISTANCE );
-		if ( NAI::HL_ANY != eHL && find( accessibleHLs.begin(), accessibleHLs.end(), eHL ) != accessibleHLs.end() )
-		{
-			accessibleHLs.clear();
-			accessibleHLs.push_back( eHL );
-		}
-		if ( accessibleHLs.empty() )
-		{
-			pRealAttacker->PrintLog( true );
-			return 0;
-		}
-	}
+	STargetHLInfo hlInfo( eHL );
+	// Original 0x6b617f continues to the calcer even when selection returns false.
+	if ( targetUnit )
+		SelectTargetHLs( actor, pos, &hlInfo, targetUnit, eHL );
 	int nToHit = 0;
 	int nRof = pRealAttacker->GetBulletsQuantityInShot();
 	// retail @0x2b5ee0: the burst preview passes the LOOP INDEX as the bullet number (no
@@ -846,7 +831,7 @@ int CGame::GetCompositeToHit( NWorld::CUnit *pAttacker,
 	{
 		if ( targetUnit )
 			nToHit += GetAttackerToHit( pAttacker, targetUnit, pAttacker->GetCarefulShotExtraAP(),
-				eHL, accessibleHLs, pCover, bFirstTurn, i );
+				hlInfo.eHL, hlInfo.accessibleHLs, pCover, bFirstTurn, i );
 		else
 			nToHit += GetAttackerTileToHit( pAttacker, ptTarget, pAttacker->GetCarefulShotExtraAP(),
 				NAI::THL_LOWER, pCover, bFirstTurn, i );

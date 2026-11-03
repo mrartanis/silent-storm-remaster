@@ -4694,3 +4694,20 @@ after164/166/167/168,20 unfinished; f638 unit pose/selector and combat/contact r
 separate.
 
 Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e). Dependencies only: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).
+
+## 169. Restore native unit composite preview callers
+
+Unit composite previews now check the current pose facing the actual hull center, reject
+native impossible direction1/2 with-1, and use the adjusted ranged origin. Existing
+hit-location selection is passed through even when it reports false; no new calcer
+formula. Blocked prone Script37->-1, clear standing/crouched/prone37 unchanged; empty-list
+game/Lua0->37 with nonempty37 control. Geometric reach is not a claim of full melee order
+legality. HP/AP/ammo/quantity/position/time/query RNG unchanged. Parent stages RED1/70 and
+extraRED1/2 ->final GREEN78 both; Game218 each/CI382/LAN12each361 pass. No damage, IC
+reduction, bullet, packet, action, database or save-format implementation change. All
+legacy hull observer assertions are retained via public real-world-map forwarding,
+including six prior rows; initial Win218 observer failures archived, no production change
+for observer. Sourcef638 cached-hit fallback remains pending;226 imported/13 pending/7
+partial/20 unfinished.
+
+Source: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).

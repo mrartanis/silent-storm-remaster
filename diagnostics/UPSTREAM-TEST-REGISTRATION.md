@@ -3008,3 +3008,23 @@ UPSTREAM-IMPORTS.md; no whole ABI/runtime/global masking claim. Source317 comple
 sources remain; f638 only dependency subset.
 
 Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e). Dependencies only: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).
+
+## 169. Restore native unit composite preview callers
+
+NativeUnitFacingPreview0..3 and NativeMeleeSelectorPreview0..1. Measured parent RED1/70
+plus separate extraRED1/2, both platforms/same unchanged Main, become final GREEN78; not a
+measured parent RED2/72. Actual blocked prone unit Script37->-1; standing/crouched/prone
+clear37 controls. Geometrically reachable empty native/legacy hit-location lists return
+false from selector but must continue to calcer: game/Lua0->37, nonempty37 control.
+Physical/input and seed733/734 zero-draw rows exact; prior66 assertions/critical rows
+exact. Initial missing-header Windows compile is archived/not runtime. Initial Win218
+observer3FAIL is archived; diagnostic public-world-map forwarding preserves all original
+assertions and restores six hull rows, now covered in78; Main unchanged for observer.
+Fresh Gameboth218 appropriate scoped/CI382/LAN12each361 pass; previous melee17/two named
+caption blocks, tile-helper5, pose8, ownership/object/grenade/rocket/TCP rows exact.
+Twelve existing UI controls pass; old knife skill/truncation outside broad filter
+covered78. Only old nested-save exclusion, no full552/unrelated suite claim. Static
+bounded proof and limits are in UPSTREAM-IMPORTS.md. Sourcef638 still partial/cached-hit
+trail pending;20 unfinished.
+
+Source: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).

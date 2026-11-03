@@ -25895,3 +25895,88 @@ combat/contact review are still partial. Final-head hosted success is required a
 whole-task completion.
 
 Source: [31725f2d03de84b3f3ec1972cc521db60eb5428e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/31725f2d03de84b3f3ec1972cc521db60eb5428e). Dependencies only: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).
+
+## 169. Restore native unit composite preview callers
+
+Unit previews now use the native pose facing the target ANY hull center. The shared
+passability guard rejects exactly1/2 before the existing unavailable-attack caption
+folding; locked3 and door4 remain legal. Ranged cover origins use that adjusted pose. The
+caller reuses the existing SelectTargetHLs helper with the adjusted position, then passes
+its selected location/vector to the existing calcer even when selection returns false. The
+old empty-vector early0 is removed. No scalar probability, damage, action, inventory,
+packet or save-format implementation changes. The existing melee-origin adapter remains
+unchanged.
+
+Two parent stages use the same unchanged Main bytes: RED1/70 on each platform with69
+controls, then an additional RED1/2 with one control. Do not claim a measured single
+parent RED2/72. Final GREEN78 (the prior72 plus six existing hull cases) passes on both
+platforms. Four real unit-facing cases use the existing authored loaded snap pistol,
+public valid placement and actual path-network classification: blocked prone Script37 now
+returns-1; clear standing/crouched/prone controls remain37. HP137/AP53/ammo8/targetHP147,
+inputs, physical state and seed733 zero-draw2646359344/927438468/1037524220/75684108 are
+exact. The two additional real melee/Lua cases use authored blade/native actor-target
+placement. The geometric CanMeleeAttack predicate succeeds while native and legacy
+accessible lists are both empty; the native helper returns false and the direct calcer
+yields Script37, but old game/Lua queries returned0. They now return37. Nonempty
+one-location control remains37. Reach=1 does not assert a legal full melee execution
+order; Script37 proves caller routing, not a new melee probability formula or the numeric
+value of an unread original global. Physical state and seed734
+zero-draw3577622975/3820222347/212297508/2161777521 remain exact. Previous66 assertions
+and critical rows are unchanged. Initial Windows compile failure required RPGItemInfo
+before RPGToHit for SWeaponInfo; it is archived as build-only, not runtime RED/GREEN. The
+first Windows218 gate failed three existing hull-observer cases although chances100/86/92
+and physical/RNG state stayed unchanged. Those raw failures are archived. The helper now
+uses the actor world map, while the old observer wrapped only a separately created CGame.
+A diagnostic-only optional FixtureWorld factory (default unchanged) constructs a CWorld
+subclass whose public GetAIMap forwards through the same real-map proxy for these six
+cases. Every old fixture Require remains byte-for-byte intact: exact target hull,
+locations, call counts, physical state and RNG. No private world/grid field, fake geometry
+or calcer is injected. Final78 explicitly includes these six cases and retains their prior
+raw rows. No production change was made for the observer correction; no existing assertion
+is weakened or failure excluded.
+
+Actual file-backed Steam
+SHA4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705 supplies bounded
+proof, with Gold PDB only a typed guide. Unique46 Gold6aff46 ->Steam6b602e retains native
+direction and passability1/2 before the later unit cast6b60d8. Unique selector
+blocks96/20/123 at6b49e0/6b4a46/6b4a5d match only decoded external E8 displacements.
+Unique97 Gold6b009f ->6b617f calls SelectTargetHLs6b49e0, immediately continues
+XOR-EBP/TEST-ESI without testing AL, and forwards the location/vector to
+GetAttackerToHit6b5090. Independently typed path-network slot3c and unit slot48
+retain443560 and7c0300 bindings. The previously bound unit cover builder6b44f0 receives
+the adjusted local pose and calls GetAttackOrigin via6b4558/slot48. The caller's
+local-position flow is inspected without changing its stack operands; the retained origin
+API differs from the original builder API.
+
+Wider selector146 is rejected for real AI-map vcall slot30(Gold) versus34(Steam); exclude
+the whole three-byte call, never mask that operand. Independently typed CAIMap root
+tables8a5a9c/8b4b34 bind Gold slot30 to465110 and actual slot34 to465fc0, binding only.
+Exploratory secondary-table tail values are rejected as method bindings. Whole absolute
+MOV6 Gold6ae910/Steam6b4a40 is excluded; target980b5c is never read or masked. The wider
+origin17 block differs in its whole LEA temporary destination10/18, and builder
+frames6c/78 differ. No whole972/553/248/572, own ABI/layout parity, original gameplay,
+global/BSS physics reads, field/frame/register/opcode/NOP/local-branch/global-address
+masking or new global distance value is claimed. Previous168 hull/type/rocket proof and166
+direction/origin bindings are reused.
+
+Fresh full Game builds and218 appropriate
+Preview/Melee/TileCoverOrigin/caption/hover/directed-pose scenarios pass on both
+platforms, plus CI382 and12 standard LAN gates/361 encounter variants each. All previous
+melee17/two named caption blocks, tile-helper5 query/input/environment/execution, eight
+pose input/result and preview ownership/object/grenade/rocket/TCP witnesses are exact. The
+focused78 additionally covers old knife skill/truncation cases outside the broad filter.
+Only the existing nested-save exclusion remains; no full552 or unrelated
+accuracy/ray/formula/font/camera/tactical suite claim. Baseline/Steam game.db
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df remains unchanged.
+
+Source f638 stays partial: the cached-hit empty-trail fallback is still pending. Other
+hunks are accounted for:168 classifier/rocket/nonunit dependencies; previous176/177 empty
+constructor/signed endpoint; melee valid-unit dedup already landed in d4b43e2f; early
+full-dodge deletion already landed in975e3ab3 via037c41d9. Exact deletion history corrects
+an initial research attribution based on neighboring line blame. The legitimate later
+CheckICForAttack proportional damage reduction remains; it is distinct from the removed
+early full-dodge check. No bullet or damage receiver code changes in169. Ledger remains226
+imported/13 pending/7 partial,20 unfinished. Hosted CI for the actual final head remains
+required at whole-task completion.
+
+Source: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).
