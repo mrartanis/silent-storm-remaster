@@ -26052,3 +26052,69 @@ partial,19 unfinished. Actual final-head hosted success remains required at whol
 completion.
 
 Source: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).
+
+## 171. Assign a group waypoint route through the native AI route slot
+
+GroupMoveToWaypoint now builds a one-waypoint CAIRoute and calls the existing
+SetGroupRoute with circled=false/AIM_SCRIPT. The Lua handler no longer calls unit
+Do(Path/Continue) directly. Existing per-unit route logic, human/sequence ownership gates,
+formation/synchronization and network authority remain in their existing implementations;
+aiRoute/aiUnit/NetworkWorld are unchanged. Only Main/scriptUnitGroup.cpp changes in
+production.
+
+Six actual Lua cases on real fixture-world actors establish canonical RED4/6 on both
+platforms with two no-op controls, then GREEN6 with seven member observations. An AI unit
+and a human unit inside a real c_BeginSequence receive new route logic without immediate
+commands or physical changes; an ordinary human outside a sequence keeps its route slot
+and receives no immediate command. Missing waypoint and empty group remain no-ops; two
+actual same-owner AI members both receive routes. Every position, HP/AP, world-time,
+owner/sequence and native sequence-exit assertion stays intact. No private waypoint/grid
+injection or fake AI calcer; the fixture adds authored waypoints through public
+CWorld::AddWaypoint and invokes actual Lua GroupMoveToWaypoint.
+
+The initial exploratory candidate stopped at a zero-RNG assertion before route
+observations; those logs are retained separately from the canonical pre-fix route/physical
+RED4/6. An interim diagnostic recorded active-route random words and enforced zero draws
+only on no-ops. Final verification restores all four zero-draw assertions for all six
+cases, with seed735 words2089344776/2710627834/3276963841/249826914 and seven member rows
+exact to the earlier small GREEN. FormationMoveTo contains no RNG calls; the earlier
+inference from its presence to RNG use was unsupported and is not a retained cause claim.
+The final strengthened six-case suite passes on both platforms. Windows103/CI382/LAN
+passed before this diagnostic-only strengthening, and final Windows Game/NetworkMatch
+binary hashes remain unchanged; Linux102/LAN follow the strengthened fixture. No original
+whole-call or Segment RNG parity claim.
+
+Actual file-backed Steam
+SHA4f417593a9f73e2bfde12d83cdbd694ae47eecb92812140d67b8b343e4a95705 independently
+registers name8c6778/callback6ffb40 at981b38; typed Gold registers
+name8b75b8/callback6f5aa0 at9709c8. Self-name PUSH instructions confirm both entries. The
+donor comment6ff030 is not the actual callback. Unique161 Gold6f5bf7 ->Steam6ffc9a matches
+with only eight decoded external E8 displacements normalized: append the real waypoint,
+allocate/construct CAIRoute (typedGold4953e0 ->actual496690), push manager1/circled0 and
+call typedGoldSetGroupRoute495d50 ->actual497000. Child functions are call bindings only.
+No whole Lua523 identity, own route ABI, original gameplay/private global read or
+field/frame/register/opcode/local-branch/global-address masking claim.
+
+Fresh Game builds and 103 Windows/102 Linux related
+route/waypoint/formation/placement/hotseat/AI cases pass on both platforms, along with
+asset-free CI382 and12 standard LAN gates/361 encounter variants each. Native six-case
+rows remain unchanged in the broader runs. No new exclusion, database/save schema or
+balance formula change. This completes only the GroupMoveToWaypoint hunk of46b3;
+facial-idle propagation and AI-merc AddPlayer initialization remain. Ledger stays227
+imported/13 pending/6 partial,19 unfinished source commits.
+
+NativeScriptRouteWaitTests is an existing Windows-only registered case: keep it on
+Windows; Linux has102 related cases. No test was excluded or deregistered.
+
+The first Windows broad run passed99/103 but failed four old handoff/keyboard cases. A
+parent-production attribution run fails the same four and records
+initialActive=1/hardcodedNext=1: since the prior c16a95ca initial-turn correction the
+native initial tracker can already be player2. The old fixture selected that same tracker
+and incorrectly expected a new handoff. Correct only the fixture to alternate from its
+actual starting tracker and select the AI-skip control from the opposite current tracker.
+Every previous Require block remains byte-identical and in order; no handoff runtime or
+exclusion changes. Archive the initial103 and parent-four failures. The corrected full
+related runs, not those failed runs, supply the accepted counts above. This is diagnostic
+repair, not another game-behavior RED.
+
+Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).

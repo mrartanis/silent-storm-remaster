@@ -4220,9 +4220,10 @@ static void HotseatDialogTemplate(const char* databasePath,const char* resourceP
             "automatic handoff retained an unusable legacy dialog layout");
         accept(); frame();
         Require(!visible() && !mission->IsGamePaused(),"the same active hotseat player reopened the accepted dialog");
+        const int initialPlayer = mission->GetActivePlayer() == players[0] ? 0 : 1;
         for (int turn = 0; turn < 4; ++turn) {
             const bool paused = turn >= 2;
-            mission->SetActivePlayer(players[(turn+1)%2]); mission->PauseGame(paused);
+            mission->SetActivePlayer(players[(initialPlayer+turn+1)%2]); mission->PauseGame(paused);
             frame();
             Require(visible() && mission->IsGamePaused() && nameCorrect(),
                 "a changed human hotseat player lost its automatic named handoff");
@@ -4231,7 +4232,7 @@ static void HotseatDialogTemplate(const char* databasePath,const char* resourceP
                 "accepting automatic handoff changed the prior pause or reopened on the next UI update");
         }
         // This is the UI's persisted AI-player flag, not a fabricated commander.
-        auto aiTurn = players[1];
+        auto aiTurn = players[mission->GetActivePlayer() == players[0] ? 1 : 0];
         aiTurn->GetGlobalPlayer()->bAIPlayer = true;
         mission->SetActivePlayer(aiTurn); mission->PauseGame(false); frame();
         Require(!visible() && !mission->IsGamePaused(),"an AI hotseat slot was interrupted by a human handoff dialog");
@@ -30670,6 +30671,36 @@ static void NativeSmoothRelocation(const char* databasePath,const char* resource
     Require(actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && !actor->HasCommand() && world->GetTime()->GetValue()==now,"smooth relocation changed HP/AP/commands or advanced simulation time");
 }
 
+static void NativeGroupWaypoint(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=5,"unknown group waypoint mode");const bool human=mode==1 || mode==2,sequence=mode==2,missing=mode==3,empty=mode==4;
+    CObj<NRPG::CGlobalGame> campaign;auto world=FixtureWorld(databasePath,resourcePath,true,&campaign);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);vector<CObj<NWorld::CUnitServer>> actors;
+    for(auto unit:units)if(unit && unit->CanFight() && !unit->HasCommand() && !unit->IsEmptyPK() && !unit->IsWearingPK() && unit->IsAIUnit()==!human && NAI::GetAIUnit(unit)){
+        if(actors.empty() || unit->GetTBSPlayer()==actors[0]->GetTBSPlayer())actors.push_back(unit.GetPtr());
+        if(actors.size()==(mode==5?2u:1u))break;
+    }
+    Require(actors.size()==(mode==5?2u:1u),"group waypoint lacks actual idle AI/human members");
+    auto point=NativeUnitAwareChoosePoint(world,actors[0]->GetPosition().GetCP(),false);auto* waypoint=NativeUnitAwareWaypoint(world,"native_group_waypoint",point);
+    Require(world->GetPathNetwork()->IsPassable(waypoint->pos.p),"group waypoint native destination is blocked");
+    CObj<NWorld::CUnitGroup> group=new NWorld::CUnitGroup; if(!empty)for(auto actor:actors)group->units.Add(actor);
+    CObj<NScript::CScript> script=NScript::CreateScript(world);NScript::luaPushCPtr(*script,group.GetPtr());script->SetGlobal("nativeRouteGroup");
+    if(sequence)RunScript(script,"c_BeginSequence(false)");Require(world->IsSequence()==sequence,"group waypoint sequence precondition failed");
+    vector<CObj<NAI::IAIUnit>> brains;vector<CObj<NAI::IAILogic>> oldRoutes;vector<unsigned> positions;vector<int> hp,ap;
+    for(auto actor:actors){brains.push_back(NAI::GetAIUnit(actor));oldRoutes.push_back(brains.back()->GetRouteLogic());positions.push_back(actor->GetPosition().pos.p.GetBits());hp.push_back(actor->GetUnitRPG()->GetTotalVP());ap.push_back(actor->GetAP());}
+    const STime time=world->GetTime()->GetValue();GlobalGameRandom().SeedForHarness(735);auto expectedRandom=GlobalGameRandom();
+    RunScript(script,missing?"GroupMoveToWaypoint(nativeRouteGroup, 'native_missing_group_waypoint')":"GroupMoveToWaypoint(nativeRouteGroup, 'native_group_waypoint')");
+    auto actualRandom=GlobalGameRandom();unsigned words[4];for(int i=0;i<4;++i){words[i]=actualRandom.Get();const unsigned expected=expectedRandom.Get();Require(words[i]==expected,"group waypoint assignment consumed random values");}
+    const bool expectedRoute=!missing && !empty && (!human || sequence);
+    for(int i=0;i<int(actors.size());++i){auto actor=actors[i];auto* route=brains[i]->GetRouteLogic();
+        std::printf("GROUP-WAYPOINT mode=%d member=%d AI=%d sequence=%d missing=%d empty=%d groupSize=%d oldRoute=%d route=%d replaced=%d expectedRoute=%d command=%d before=%08x after=%08x HP=%d AP=%d rng0=%u rng1=%u rng2=%u rng3=%u\n",mode,i,int(!human),int(sequence),int(missing),int(empty),group->units.GetSize(),int(oldRoutes[i].GetPtr()!=nullptr),int(route!=nullptr),int(route!=oldRoutes[i].GetPtr()),int(expectedRoute),int(actor->HasCommand()),positions[i],unsigned(actor->GetPosition().pos.p.GetBits()),actor->GetUnitRPG()->GetTotalVP(),actor->GetAP(),words[0],words[1],words[2],words[3]);std::fflush(stdout);
+        Require(expectedRoute?(route && route!=oldRoutes[i].GetPtr()):route==oldRoutes[i].GetPtr(),"Lua group waypoint failed native route ownership/no-op contract");
+        Require(!actor->HasCommand() && actor->GetPosition().pos.p.GetBits()==positions[i] && actor->GetUnitRPG()->GetTotalVP()==hp[i] && actor->GetAP()==ap[i] && actor->IsAIUnit()==!human,"Lua group waypoint issued immediate movement or changed physical state");
+    }
+    Require(world->GetTime()->GetValue()==time && world->IsSequence()==sequence,"group waypoint advanced time or sequence");
+    if(sequence){RunScript(script,"EndSequence(false, true)");Require(!world->IsSequence(),"group waypoint sequence did not finish");}
+}
+
 static void NativeWorldWaypointRoute(const char* databasePath,const char* resourcePath,int mode)
 {
     Require(mode>=0 && mode<4,"unknown native world waypoint route mode");const bool aiOwner=mode==0 || mode==3,sequence=mode==2,samePlace=mode==3;
@@ -35888,6 +35919,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-unit-aware-deploy")) { Require(argc==5,"unit-aware deploy requires db/resources/mode"); NativeUnitAwareDeployment(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-explosive-clearance")) { Require(argc==5,"explosive clearance requires db/resources/mode"); NativeExplosiveClearance(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-explosive-groups")) { Require(argc==5,"explosive groups requires db/resources/mode"); NativeExplosiveGroups(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-group-waypoint")) { Require(argc==5,"group waypoint requires db/resources/mode"); NativeGroupWaypoint(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-world-waypoint-route")) { Require(argc==5,"world waypoint route requires db/resources/mode"); NativeWorldWaypointRoute(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-placement-reservations")) { Require(argc==5,"placement reservations requires db/resources/mode"); NativePlacementReservations(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-health-knockout")) { Require(argc==5,"health knockout requires db/resources/mode"); NativeHealthKnockout(argv[2],argv[3],std::atoi(argv[4])); return true; }

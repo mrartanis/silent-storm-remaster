@@ -4726,3 +4726,16 @@ expectations, cause unproven/no fixed-row parity claim. All f638 hunks accounted
 prior steps;227 imported/13 pending/6 partial/19 unfinished.
 
 Source: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).
+
+## 171. Assign a group waypoint route through the native AI route slot
+
+Lua group waypoint assignment now installs its existing native AI route instead of issuing
+immediate Path/Continue orders. Existing AI/human/sequence gates and formation logic
+retain authority over execution. Native RED4/6 both ->GREEN6, two no-op controls
+unchanged; seven actor observations preserve HP/AP/position/time at call return and issue
+no immediate commands. Fresh Game/related route-hotseats/CI382/LAN12 each361 pass. No
+probability/damage/AP formula, database/save schema or network implementation change;
+final all-six four-word zero-draw assertions pass; no original whole-call/Segment RNG
+parity claim. Source46b3 still partial;19 source commits unfinished.
+
+Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).

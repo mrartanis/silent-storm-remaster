@@ -3044,3 +3044,23 @@ Other five requested-shot/selected incidental-impact-loose-ray witnesses exact; 
 and empty constructor/retirement pass. Sourcef638 complete,19 unfinished.
 
 Source: [f638aca9a410eef82afb20e926c97716dc448a90](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f638aca9a410eef82afb20e926c97716dc448a90).
+
+## 171. Assign a group waypoint route through the native AI route slot
+
+The first broad Windows run99/103 exposed four stale hotseat fixtures assuming player1
+initially; parent-production four-case attribution fails identically with actual
+initialActive=1/next=1. Diagnostic-only transition selection now follows actual initial
+tracker/opposite AI control. Every prior Require block is byte-identical/in order; failed
+logs retained, no runtime or exclusion changes. NativeGroupWaypoint0..5 use real
+Lua/public authored waypoints and actual native route slots. Canonical RED4/6 both/two
+no-op controls ->GREEN6/seven member rows. AI, human outside sequence, human inside actual
+script sequence, missing waypoint, empty group and two same-owner AI cases retain
+HP/AP/position/time/ownership/no-immediate-command assertions. Initial exploratory RNG
+stops and separate canonical route/physical RED are archived. Final all-six four-word
+zero-draw assertions are restored and pass both; seven raw rows stay exact.
+FormationMoveTo itself has no RNG calls; no original whole-call/Segment RNG parity claim.
+Final rows stay exact to small GREEN/between platforms. Fresh Game/related suites/CI382/12
+standard LAN gates and361 encounter variants each pass; no new exclusion. Actual Steam
+callback6ffb40/unique161 E8-only proof; source46b3 remains partial.
+
+Source: [46b3ace0a0354ef6b524216932de59b41d86c65b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/46b3ace0a0354ef6b524216932de59b41d86c65b).

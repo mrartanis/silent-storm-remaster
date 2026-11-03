@@ -12,6 +12,7 @@
 #include "wUnitGroup.h"
 #include "wUnitServer.h"
 #include "aiRoute.h"
+#include "aiControl.h"
 #include "RPGUnitMission.h"
 #include "RPGUnit.h"
 #include "rpgGlobal.h"			// NRPG::CGlobalPlayer money accessors (Player*Money)
@@ -148,19 +149,12 @@ BEGIN_SCRIPT_COMMAND( GroupMoveToWaypoint, "us" )
 	if ( !IsValid( pWaypoint ) )
 		return 0;
 	//
-	NAI::SPosition pos = pWaypoint->pos;
-	vector< NAI::SPosition > unitPlaces;
-	for ( int i = 0; i < pGroup->units.GetSize(); ++i )
-		unitPlaces.push_back( pGroup->units[ i ]->GetPosition().pos );
-	pScript->pWorld->GetPathNetwork()->FormationMoveTo( &unitPlaces, pos  );
-	//
-	for ( int i = 0; i < pGroup->units.GetSize(); ++i )
-	{
-		pGroup->units[ i ]->Do( 
-			new NWorld::CCmdSetCommand( pGroup->units[ i ], new NWorld::CCmdPath( unitPlaces[ i ] ) ) );
-		pGroup->units[ i ]->Do( 
-			new NWorld::CCmdSetCommand( pGroup->units[ i ], new NWorld::CCmdContinue() ) );
-	}
+	// Steam 1.2 luaGroupMoveToWaypoint @0x6ffb40: assign a one-waypoint route.
+	// Let the existing AI/sequence route slot control when the group moves.
+	vector< CPtr<NAI::CAIRouteWaypoint> > waypoints;
+	waypoints.push_back( pWaypoint );
+	CPtr<NAI::CAIRoute> pRoute = new NAI::CAIRoute( waypoints );
+	NAI::SetGroupRoute( pGroup, pRoute, false, NAI::AIM_SCRIPT );
 	return 0;
 END_SCRIPT_COMMAND
 ////////////////////////////////////////////////////////////////////////////////////////////////////
