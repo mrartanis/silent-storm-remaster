@@ -26674,3 +26674,90 @@ knife-completion-original-static-proof.json, knife-completion-hunk-accounting.js
 knife-completion-verification.json.
 
 Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 178. Complete automatic camera framing, effects and active AI interest
+
+The cinematic camera now receives its persistent scroll lock at mission initialization,
+preserving the separate per-player camera and existing temporary action-lock lifecycle.
+Actual active AI logic retains a point of interest from path, look, object/tile shooting
+and cannon commands. The remaster unwraps its CCmdSetCommand queue entries and ORs the
+result so a later pose/reload command does not erase the destination. Commander forwarding
+resolves GetLogic, including the scripted sequence route, and the actual unit delegates
+through its owner. Keep the remaster's unowned-unit and absent-world support through local
+validity guards. No change to AI control/reaction/route scheduling, physical execution,
+AP/time or gameplay RNG.
+
+Automatic UI framing now uses the active tracker's AI flag, actual visible/primary unit,
+original ownership/user-camera gates, half-height primary/interest anchors and the unit's
+interest when targetless. It uses the actual cinematic camera and active-player rod with
+a12 minimum, preserves a running hit effect, escalates the visible actor's floor where
+required and follows/releases the original command shooter. The remaster's IPlayerTracker
+lacks the donor's IsAIPlayer method: a file-local adapter reads the existing public
+GetGlobalPlayer()->bAIPlayer. This matches the original tracker getter; NAI's
+commander-identity query would be a different predicate. No new tracker vtable slot,
+global flag or saved field is introduced.
+
+The camera supports AddFOVEffect with its original integer probability divisor,
+independent local SRand, active-effect rejection, native LOS and backup restoration. Its
+existing portable56-byte effect record is updated through a file-local helper: initial
+divider1000 waits for yaw/rod settlement, changes to3 and expires only when unsigned
+elapsed time exceeds duration, resetting ratio/FOV/roll. Apply FOV/roll only outside movie
+mode. The locked non-orbit update follows the actual live unit until its10-second lease
+expires; free and expired controls do not follow. A point-of-interest argument changes
+only the intended rod-candidate order. Preserve existing saved records/codecs, all
+fields/tags, SDL/input/DPI, terrain/soft-limit refinements and the deliberate
+movie-placement hold. Constructor/Cancel/Finished action-lock code is identical to the
+parent. Movement already posted the correct arbitrated camera command after successful
+TestNextGameMove and before animation/next-tile lock; keep that entire file unchanged
+instead of adding a duplicate notification.
+
+All11 source files are accounted with10 scoped adapters. Before camera engine edits the
+final identical21-case native fixture produced16 genuine behavioral failures and5 passing
+controls on both platforms. Six direct command-interest contexts and two real active
+combat/script commander-unit chains lost the point; four positive FOV contexts lacked the
+public effect foundation; the actual initialized mission had zero persistent lock; real
+locked/live follow did not reframe; and two actual UI-executor contexts missed the
+original0.5 anchor height. Both parent UI commands already continued, so no separate
+target-only gating RED is claimed. The FOV timer, settlement, rejection and movie checks
+occur after that failed foundation gate and are GREEN evidence, not extra preport RED.
+Controls cover unknown-command interest, rejected probability/worldless FOV and
+free/expired following. Tests use actual worlds, brains, command wrappers, mission-created
+cameras with native views/height layers/map-safe limits, public locks/routes/sequence
+commands and native seed inputs. Actual UI framing uses its real mission/factory with the
+supported no-world camera context to isolate framing from terrain/LOS; no fake producer,
+private saved-state/flag injection or new production hook. The same21 fixture passes both
+platforms after the port, together with the existing real movement-camera control. First
+Windows compilation rejected a const tracker pointer in the new helper through the legacy
+IsValid template. Accept its existing nonconst accessor result locally; do not alter
+global pointer/refcount helpers. The archived compiler failure is not runtime RED, and no
+diagnostic body changed after canonical RED.
+
+Read-only original proof binds16 strict blocks and named primary methods.
+Logic/commander/unit interest, full310-byte command-point dispatch and38-byte typed
+cannon-cast wrapper match with only decoded external calls and independently named RTTI
+operands. The named original tracker IsAIPlayer slot32 binds Gold6813a0 to Steam687490
+with all7 bytes unchanged. Camera primary37-method slots bind actual
+Show4cf350/Update4cdab0/GetSloMo4d06c0/AddFOV4cf6f0; actual Update calls FOV4cbf60. Three
+disjoint raw FOV blocks, integer-window and active-AI gate blocks and the exact
+initialization Lock1 sequence at601945 are retained. Exact standard21-byte SEH and
+unique32-byte post-setup entry anchors bind actual movement/init entries; the native
+movement path writes the independently named CUICmdUnitCamera primary and posts it before
+animator movement. Native UI GetWorld138 differs nonuniformly from Gold130; use the
+existing named public accessor. Whole large FOV/AddFOV/UI/logic signatures remain rejected
+for actual field/frame/global differences. The writable Steam.rdata literal operands are
+not masked. No original execution, private-global inspection, unknown secondary-table
+lookup or whole-method/ABI/full-engine/RNG parity claim. Details:
+automatic-camera-original-static-proof.json and automatic-camera-hunk-accounting.json.
+
+Fresh full Games pass714 Windows and690 Linux related scenarios across camera/cinematic
+effects, AI, routes/movement, scripts/sequences, missions/saves, hotseat and demos. Keep
+all existing platform registrations:26 Windows-only wire/head/route/mission/sequence cases
+and2 Linux-only AIInterval/AILog cases; only the inherited nested-save exclusion remains,
+no new exclusion. The required Linux portable mission archive/core check,383 Windows
+asset-free CI cases and12 LAN gates/361 encounter variants per platform pass. Game DB
+SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged. No
+save/DB/network schema or HD PNG change. Full4940 complete:233 imported/10 pending/3
+partial,13 unfinished sources. The final laboratory record is
+automatic-camera-verification.json.
+
+Source: [4940c8d8fb2fbf8786c8039bfa9e039162f95a69](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4940c8d8fb2fbf8786c8039bfa9e039162f95a69).

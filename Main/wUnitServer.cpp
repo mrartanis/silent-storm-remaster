@@ -59,6 +59,15 @@ void CUnitServer::PrepareToRemove()
 	GetWorld()->GetPathNetwork()->Unlock( this );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CUnitServer::GetPointOfInterest( CVec3 *pOut )
+{
+	// Original Steam 0x7c05f0 forwards to the active commander's logic.
+	// The remaster also supports unowned units, including isolated native contexts.
+	auto *pOwner = GetPlayer();
+	return IsValid( pOwner ) && IsValid( pOwner->GetCommander() ) &&
+		pOwner->GetCommander()->GetPointOfInterest( this, pOut );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // CCommandExecute
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CCommandExecute::StartAction( CWorld *pWorld, EActionType actionType )

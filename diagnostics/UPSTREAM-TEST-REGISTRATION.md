@@ -3180,3 +3180,19 @@ LAN12each361 pass;4 existingW-onlygrenades, no new exclusion. Full578
 complete,14unfinished.
 
 Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 178. Complete automatic camera framing, effects and active AI interest
+
+Add21 actual native automatic-camera cases on both platforms: POI9, FOV6, following3 and
+initialized-mission/UI3, with isolated user data and120s limits. Canonical
+identical-fixture RED16/21 both/control5 before Main ->GREEN21 both plus the prior real
+movement notification1. Positive FOV foundation RED4; postgate strict
+timer/settle/reject/movie assertions are only GREEN evidence. Parent UI already continued;
+only0.5 anchor gap is RED there. No fake view/producer/private flag or new production
+hook. Existing save/wire/movie/temporary-lock/movement code invariants audited.
+FreshGames714W690L/Linuxportablecore/CI383/LAN12each361 pass. Existing26W-only/2L-only
+registrations and inherited nested-save exclusion retained; no new exclusion. Local
+const-helper compiler adaptation is archived, not runtime RED. Full4940 complete,13
+unfinished.
+
+Source: [4940c8d8fb2fbf8786c8039bfa9e039162f95a69](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4940c8d8fb2fbf8786c8039bfa9e039162f95a69).

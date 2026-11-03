@@ -14,6 +14,7 @@
 #include "wUnitCommands.h"   // NWorld::CCmd, CCmdEmpty, CCommand
 #include "../Misc/RandomGen.h"
 //
+#include "aiMap.h"
 #include "aiLogic.h"
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -69,7 +70,40 @@ bool CAILogic::GetPointOfInterest( CVec3 *pOut ) const
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // command queue
-void CAILogic::DoCommand( NWorld::CCommand *pCmd )    { if ( pCmd ) commands.push_back( pCmd ); }
+static bool GetCommandPointOfInterest( NWorld::IWorld *pWorld, NWorld::CCmd *pCmd, CVec3 *pOut )
+{
+	// Original Steam GetPointOfInterest @0x462620. The dev queue wraps unit commands in CCmdSetCommand.
+	if ( CDynamicCast<NWorld::CCmdPath> pPath = pCmd )
+		*pOut = pPath->ptDst.GetCP();
+	else if ( CDynamicCast<NWorld::CCmdLook> pLook = pCmd )
+		*pOut = pLook->ptDst.GetCP();
+	else if ( CDynamicCast<NWorld::CCmdShootObject> pShoot = pCmd )
+		return IsValid( pWorld ) && pWorld->GetAIMap()->GetUnitHLPos( pOut, pWorld->GetAIMap()->GetHull( pShoot->pTarget ), -1 );
+	else if ( CDynamicCast<NWorld::CCmdShootTile> pShootTile = pCmd )
+		*pOut = pShootTile->ptTarget;
+	else if ( CDynamicCast<NWorld::CCmdCannon> pCannon = pCmd )
+		return IsValid( pWorld ) && pWorld->GetAIMap()->GetUnitHLPos( pOut, pWorld->GetAIMap()->GetHull( pCannon->pObject ), -1 );
+	else
+		return false;
+	return true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CAILogic::DoCommand( NWorld::CCommand *pCmd )
+{
+	if ( !IsValid( pCmd ) )
+		return;
+	commands.push_back( pCmd );
+	if ( IsValid( pUnit ) )
+	{
+		CDynamicCast<NWorld::CCmdSetCommand> pSet( pCmd );
+		if ( pSet )
+		{
+			// Retail ORs the result: a later pose/reload command must not erase the destination.
+			bool bFound = GetCommandPointOfInterest( GetWorld(), pSet->GetCmd(), &vPointOfInterest );
+			bHasPointOfInterest = bHasPointOfInterest || bFound;
+		}
+	}
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // True if the unit is in a state where it can accept the next command this segment. @0x00462550
 bool CAILogic::CanGetCommand() const

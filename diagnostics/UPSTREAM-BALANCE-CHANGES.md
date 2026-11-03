@@ -4827,3 +4827,16 @@ or lifecycle policy, saved fields or DB/network schema. CanonicalRED9both/contro
 complete,14unfinished;HD assets remain frozen.
 
 Source: [5780c0be34f000c316e1239cd749ae96ccbea027](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5780c0be34f000c316e1239cd749ae96ccbea027).
+
+## 178. Complete automatic camera framing, effects and active AI interest
+
+Restore cinematic scroll locking, active AI point-of-interest metadata, actual UI
+ownership/framing/rod/floor selection, original transient FOV timing and locked live-unit
+following. Keep AI schedules, physical actions/AP/damage/RNG, per-player camera ownership,
+temporary action locks and movie-placement hold. The active tracker uses its existing
+global-player AI flag, not a new flag or commander-identity replacement. Preserve56-byte
+effect records/codecs and saved tags; no new save/DB/network schema or HD asset change.
+CanonicalRED16both/control5 ->21GREENboth plusoldmovement1;
+freshGames714W690L/CI383/LAN12each361. Full4940 complete,13 unfinished.
+
+Source: [4940c8d8fb2fbf8786c8039bfa9e039162f95a69](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4940c8d8fb2fbf8786c8039bfa9e039162f95a69).
