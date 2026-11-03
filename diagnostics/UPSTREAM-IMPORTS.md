@@ -26919,3 +26919,52 @@ unfinished sources. See scenario-context-verification.json and
 scenario-context-integration-audit.json.
 
 Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 181. Reject inactive or late-invalid unit exchanges before spending AP
+
+The native Swap executor checks the raw actor pose before the ignore-target gate, then the
+target's raw pose when target eligibility is requested. CM_INACTIVE is interpreted as
+crouch by the general pose accessor, so checking the raw transition state is necessary. A
+missing target in direct executor admission returns UCR_NO_TARGET. Run rechecks current
+eligibility before DoAction: a unit that started a transition, or a target that moved out
+of reach after admission, fails without exchanging positions or spending AP. Preserve this
+fork's inherited null-actor/world/base guards, the action41/RPGAP10 cost, per-unit facing,
+native position/visibility/hearing updates and all saved fields/registrations. This is the
+complete14-line donor guard semantics in one existing production file, on the separately
+published360 foundation.
+
+The identical15-case native fixture runs before the guard on both platforms:7 intended
+behavioral failures and8 passing controls. These are not missing-command API failures.
+Actor inactive admission already rejected with the wrong range result11; target inactive
+and ignore-target actor admission incorrectly returned OK0; three actual late Run cases
+(target inactive, actor inactive, distant target) incorrectly finished and debited AP53
+to41; direct missing-target admission returned general failure2 instead of no-target4. The
+standing Run control and all7 prior Swap cases, including
+diagonal/crawl/range/missing-command-target and registered command/executor save
+restoration, pass before and after. After the guard all15 pass on both platforms. Native
+setup uses actual owned turns, real public CanDoIt/Run and public pose/position setters.
+Late setup deliberately triggers native visibility/hearing, so
+AP/health/time/positions/RNG snapshots are taken after it. Rejected admission/run
+preserves those snapshots; successful standing exchange retains native hearing rolls, with
+no original full RNG parity assertion. No fake producer, private flag injection, new
+production test hook or asset change.
+
+Original evidence from180 binds the named native Swap through independently known base
+primary GetStartAP16/Run24 and action41. Gold has no Swap class metadata; the native
+Run500-byte inspection buffer is not a whole-method identity proof. The observed original
+Run did not perform this live revalidation: this source intentionally fixes that original
+transition bug, rather than asserting whole original/Gold Swap/ABI/RNG parity or reading
+an unknown secondary slot. No original process was executed. The original cost and saved
+tags remain unchanged.
+
+Fresh full Games pass33 relevant scenarios on each platform (the15 native exchange cases
+plus18 talk/approach controls), Linux portable core2,383 local asset-free CI cases and12
+LAN gates/361 encounter variants per platform. The narrow guard changes no public header,
+existing serialization or other command implementations; the just-published180 already
+passed the broader546W525L suite, which is not repeated for this local executor guard. No
+excluded or unrun selected test. game.db
+remains314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df; the HD pack is
+frozen. Full34eee complete:236 imported/8 pending/2 partial,10 unfinished sources. See
+inactive-swap-verification.json.
+
+Source: [34eee93698ec4eaefee89e2680d9df36429550d7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/34eee93698ec4eaefee89e2680d9df36429550d7).

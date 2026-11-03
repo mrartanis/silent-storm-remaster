@@ -35900,6 +35900,54 @@ static void NativeContextTrap(const char* databasePath,const char* resourcePath,
     NMainLoop::DoneInterface();
 }
 
+static void NativeInactiveSwap(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode>=0 && mode<=7,"unknown inactive Swap mode");
+    CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);NWorld::CUnitServer* owner=nullptr;
+    for(auto unit:units)if(unit && !unit->IsAIUnit() && unit->CanFight() && unit->GetTBSPlayer()){owner=unit;break;}
+    Require(owner && !world->IsBase(),"swap fixture lacks its actual nonbase human owner");
+    auto* network=world->GetPathNetwork();vector<NAI::SPathPlace> places;
+    network->GetNearPlaces(SSphere(owner->GetPosition().GetCP(),5.f),&places);
+    NAI::SPathPlace from,to;bool found=false;
+    for(auto a:places){a.SetPose(NAI::CM_STAND);a.SetMoving(0);if(!network->IsPassable(a) || network->IsLocked(a))continue;
+        for(auto b:places){b.SetPose(NAI::CM_STAND);b.SetMoving(0);if(!network->IsPassable(b) || network->IsLocked(b))continue;
+            const auto transition=NAI::GetTransitionType(network,a,b);
+            const bool wanted=transition==NAI::TT_MOVE;
+            if(wanted){from=a;to=b;found=true;break;}}
+        if(found)break;}
+    Require(found,"swap fixture cannot find its genuine unlocked native transition cells");
+    from.SetDirection(1);to.SetDirection(5);
+    CObj<NWorld::CUnitServer> actor=world->AddUnitInGame(from,NRPG::CreateUnit(NDb::GetPers(54)),owner->GetTBSPlayer(),"NativeSwapActor");
+    CObj<NWorld::CUnitServer> target=world->AddUnitInGame(to,NRPG::CreateUnit(NDb::GetPers(103)),owner->GetTBSPlayer(),"NativeSwapTarget");
+    Require(actor && target && actor->CanFight() && target->CanFight(),"swap fixture cannot deploy two real native units");
+    // Real-time actions do not debit AP. Establish the actual owned turn and
+    // native world callback context before observing cost or executor behavior.
+    struct NativeSwapWorldContext { NWorld::CWorld* previous=NWorld::pCurrentWorld;~NativeSwapWorldContext(){NWorld::pCurrentWorld=previous;} } restoreWorld;
+    NWorld::pCurrentWorld=world;world->GivePlayerTurn(actor->GetTBSPlayer());
+    Require(world->IsTurnBased() && world->IsUnitActive(actor),"swap fixture did not enter its actual owned native turn");
+    std::printf("CONTEXT-SWAP-SETUP mode=%d turnBased=%d active=%d\n",mode,int(world->IsTurnBased()),int(world->IsUnitActive(actor)));std::fflush(stdout);
+
+
+    auto makeInactive=[](NWorld::CUnitServer* unit){auto position=unit->GetPosition();position.pos.p.SetPose(NAI::CM_INACTIVE);unit->SetPosition(position);Require(unit->GetPosition().pos.p.GetPose()==NAI::CM_INACTIVE,"inactive Swap setup did not install the real raw transition pose");};
+    if(mode==0 || mode==5)makeInactive(actor);if(mode==1)makeInactive(target);
+    CObj<NWorld::CExecSwap> direct=new NWorld::CExecSwap(actor,mode==6?nullptr:target.GetPtr());
+    int initialAP=actor->GetAP(),targetAP=target->GetAP(),actorHP=actor->GetUnitRPG()->GetTotalVP(),targetHP=target->GetUnitRPG()->GetTotalVP();auto time=world->GetTime()->GetValue();auto random=GlobalGameRandom();
+    if(mode<=1 || mode==5 || mode==6){const auto before=actor->GetPosition(),targetBefore=target->GetPosition();const auto result=direct->CanDoIt(before,mode==5);const auto expected=mode==6?NWorld::UCR_NO_TARGET:NWorld::UCR_UNAVAILABLE;
+        std::printf("INACTIVE-SWAP mode=%d admission=%d expected=%d actorRaw=%d targetRaw=%d ignore=%d\n",mode,int(result),int(expected),int(before.pos.p.GetPose()),int(targetBefore.pos.p.GetPose()),int(mode==5));std::fflush(stdout);
+        Require(result==expected,"actual Swap admits inactive transition pose or loses missing-target result");Require(actor->GetPosition()==before && target->GetPosition()==targetBefore && actor->GetAP()==initialAP && target->GetAP()==targetAP,"rejected Swap admission changed native units");}
+    else {NWorld::EUnitCommandResult error=NWorld::UCR_OK;CObj<NWorld::CCommandExecute> executor=NWorld::CreateActionExecutor(actor,new NWorld::CCmdSwap(target),&error);Require(executor && error==NWorld::UCR_OK,"late Swap fixture lacks actual accepted native executor");
+        if(mode==2)makeInactive(target);if(mode==3)makeInactive(actor);
+        if(mode==4){bool distant=false;for(auto place:places){place.SetPose(NAI::CM_STAND);place.SetMoving(0);if(network->IsPassable(place) && !network->IsLocked(place) && fabs(NAI::SPosition(place,network).GetCP()-actor->GetPosition().GetCP())>3.f){auto position=target->GetPosition();position.pos=NAI::SPosition(place,network);target->SetPosition(position);distant=true;break;}}Require(distant,"late Swap lacks genuine unlocked distant target cell");}
+        // Late pose/position changes are deliberate native setup, including hearing notifications.
+        initialAP=actor->GetAP();targetAP=target->GetAP();actorHP=actor->GetUnitRPG()->GetTotalVP();targetHP=target->GetUnitRPG()->GetTotalVP();time=world->GetTime()->GetValue();random=GlobalGameRandom();
+        const auto before=actor->GetPosition(),targetBefore=target->GetPosition();executor->Run();const bool rejected=mode!=7;
+        std::printf("INACTIVE-SWAP mode=%d state=%d expected=%d actorAP=%d beforeAP=%d targetAP=%d\n",mode,int(executor->GetState()),int(rejected?NWorld::CCommandExecute::FAILED:NWorld::CCommandExecute::FINISHED),actor->GetAP(),initialAP,target->GetAP());std::fflush(stdout);
+        if(rejected)Require(executor->GetState()==NWorld::CCommandExecute::FAILED && actor->GetPosition()==before && target->GetPosition()==targetBefore && actor->GetAP()==initialAP && target->GetAP()==targetAP,"late-invalid Swap moved units or spent AP before live validation");
+        else {auto expectedActor=targetBefore,expectedTarget=before;expectedActor.pos.p.SetDirection(before.pos.p.GetDirection());expectedTarget.pos.p.SetDirection(targetBefore.pos.p.GetDirection());auto* cost=NDb::GetRPGAP(10);Require(cost && executor->GetState()==NWorld::CCommandExecute::FINISHED && actor->GetPosition()==expectedActor && target->GetPosition()==expectedTarget && actor->GetAP()==initialAP-cost->nAP && target->GetAP()==targetAP,"standing native Swap control lost execution/cost/facing");}}
+    Require(actor->GetUnitRPG()->GetTotalVP()==actorHP && target->GetUnitRPG()->GetTotalVP()==targetHP && world->GetTime()->GetValue()==time && (mode==7 || random.Get()==GlobalGameRandom().Get()),"inactive Swap query/run changed health/time or rejected-command gameplay RNG");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode,"native-knife-solver")) { Require(argc==5,"knife solver requires db/resources/mode"); NativeKnifeLaunchTarget(argv[2],argv[3],std::atoi(argv[4]),true); return true; }
@@ -36573,6 +36621,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-camera-framing-bridge")) { Require(argc==5,"camera bridge requires db/resources/mode"); NativeCameraFramingBridge(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-context-modlinks")) { Require(argc==5,"context modlinks requires db/resources/mode"); NativeContextModLinks(argv[2],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-context-trap")) { Require(argc==5,"context trap requires db/resources/mode"); NativeContextTrap(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-inactive-swap")) { Require(argc==5,"inactive swap requires db/resources/mode"); NativeInactiveSwap(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-context-swap")) { Require(argc==5,"context swap requires db/resources/mode"); NativeContextSwap(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-context-end-turn")) { Require(argc==5,"context end-turn requires db/resources/mode"); NativeContextEndTurn(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-context-clue")) { Require(argc==5,"context clue requires db/resources/mode"); NativeContextClue(argv[2],argv[3],std::atoi(argv[4])); return true; }

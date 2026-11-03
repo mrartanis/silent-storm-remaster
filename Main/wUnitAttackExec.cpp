@@ -3979,11 +3979,18 @@ int CExecSwap::GetStartAP() const
 }
 EUnitCommandResult CExecSwap::CanDoIt( const NAI::SUnitPosition &from, bool bIgnoreTarget )
 {
-	if ( !IsValid( pUS ) || !IsValid( pUS->GetWorld() ) || !IsValid( pTarget ) || pUS->GetWorld()->IsBase() )
+	if ( !IsValid( pUS ) || !IsValid( pUS->GetWorld() ) || pUS->GetWorld()->IsBase() )
 		return UCR_GENERAL_FAILURE;
+	// The interpreted pose maps CM_INACTIVE to crouch; retain the raw transition guard.
+	if ( from.pos.p.GetPose() == NAI::CM_INACTIVE )
+		return UCR_UNAVAILABLE;
 	if ( !bIgnoreTarget )
 	{
+		if ( !IsValid( pTarget ) )
+			return UCR_NO_TARGET;
 		const NAI::SUnitPosition &to = pTarget->GetPosition();
+		if ( to.pos.p.GetPose() == NAI::CM_INACTIVE )
+			return UCR_UNAVAILABLE;
 		if ( from.GetPose() == NAI::CRAWL || to.GetPose() == NAI::CRAWL )
 			return UCR_TARGET_OUT_OF_RANGE;
 		NAI::ETransitionType type = NAI::GetTransitionType( from.pos.GetNetwork(), from.pos.p, to.pos.p );
@@ -3994,7 +4001,12 @@ EUnitCommandResult CExecSwap::CanDoIt( const NAI::SUnitPosition &from, bool bIgn
 }
 void CExecSwap::Run()
 {
-	if ( !IsValid( pUS ) || !IsValid( pTarget ) ) { Finished(); return; }
+	// The target may have started a transition or moved since admission.
+	if ( !IsValid( pUS ) || CanDoIt( pUS->GetPosition() ) != UCR_OK )
+	{
+		Failed();
+		return;
+	}
 	pUS->DoAction( NRPG::AC_SWAP );
 	CObj<CExecSwap> pKeepAlive = this;
 	NAI::SUnitPosition from = pUS->GetPosition(), to = pTarget->GetPosition();

@@ -3225,3 +3225,16 @@ fullGames546W525L/Linuxcore/CI383/LAN12each361. Existing22W-only1L-only/inherite
 nested-save only; full360 complete,11 unfinished.
 
 Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 181. Reject inactive or late-invalid unit exchanges before spending AP
+
+Add8 native inactive/late-change Swap cases on the independently published360 foundation
+and retain7 prior Swap controls. Same15-case fixture baseline7behaviorRED/8controls each
+->15GREEN each. Distinguish wrong actor range/missing-target statuses from actual
+target/ignore admission and three late successful Run/AP53->41 failures. Real native
+ownedTBS/CanDoIt/Run/public position setup, postsetup snapshots; no API-only RED/fake
+producer/private flag/test hook. Successful control retains hearing RNG. Fresh
+Games33related each/core2/CI383/LAN12each361, no exclusions. Prior180 broad546W525L not
+rerun for a local guard. Full34eee complete,10 unfinished.
+
+Source: [34eee93698ec4eaefee89e2680d9df36429550d7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/34eee93698ec4eaefee89e2680d9df36429550d7).

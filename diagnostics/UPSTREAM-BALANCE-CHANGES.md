@@ -4868,3 +4868,16 @@ cost-table/RNG/ABI claim. Full Games546W525L/CI383/LAN12each361. Source34 inacti
 remains separate; full360 complete,11 unfinished.
 
 Source: [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).
+
+## 181. Reject inactive or late-invalid unit exchanges before spending AP
+
+Prevent exchange with a raw inactive actor/target and revalidate live eligibility before
+spending action41/RPGAP10 or moving either unit. Return proper missing-target result;
+preserve own null/world/base guards, cost12 in the authored fixture, individual facing,
+existing saved fields and native successful movement/hearing notifications. Intentional
+original transition bugfix; no whole original ABI/RNG/Gold Swap claim. Identical
+native15cases7behaviorRED+8controls ->15GREEN each; no fake producer or gameplay tuning.
+FreshGames33each/core2/CI383/LAN12each361. No DB/schema/HD changes. Full34eee complete,10
+unfinished.
+
+Source: [34eee93698ec4eaefee89e2680d9df36429550d7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/34eee93698ec4eaefee89e2680d9df36429550d7).
