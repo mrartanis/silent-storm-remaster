@@ -386,6 +386,18 @@ public:
 		pRC->SetPSConst( 3, CVec4( 0, 0, 0, 3.0f / 4 ) );
 	}
 };
+void CopyRegister( int nDestRegister, int nSrcRegister )
+{
+	// Retail v1.2 0x51f920: a full-register copy with independent render state.
+	CRenderContext rc;
+	rc.SetDepth( DEPTH_NONE );
+	rc.SetVirtualRT();
+	rc.SetRegister( nDestRegister );
+	CTRect<float> size;
+	GetRegisterSize( &size );
+	CopyTexture( rc, CVec2(size.Width(), size.Height()), size, GetRegisterTexture(nSrcRegister), size );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void BlurLight( NGfx::CRenderContext *pRC, int nSrcRegister, int nDestRegister, float fBlurStrength )
 {
 	CTRect<float> rDest;
@@ -435,6 +447,31 @@ void AlphaSqrtModulateRegister( NGfx::CRenderContext *pRC, int nDestRegister, in
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CShowAlphaEffect
+////////////////////////////////////////////////////////////////////////////////////////////////////
+class CLightmapCopyEffect : public I2DEffect
+{
+	OBJECT_NOCOPY_METHODS(CLightmapCopyEffect);
+	float fMul;
+public:
+	CLightmapCopyEffect( float _fMul = 1 ) : fMul(_fMul) {}
+	virtual void SetEffect( NGfx::CRenderContext *pRC, NGfx::CTexture *pTex, float fScaleU, float fScaleV )
+	{
+		pRC->SetPixelShader( psDiffuseTexture );
+		pRC->SetVertexShader( vsTextureSqrtModulate );
+		pRC->SetVSConst( 16, CVec4( fScaleU, fScaleV, 0, 0 ) );
+		pRC->SetVSConst( 17, CVec4( fMul, fMul, fMul, fMul ) );
+		pRC->SetTexture( 0, pTex );
+	}
+};
+void CopyLightmapRegister( NGfx::CRenderContext *pRC, int nDestRegister, int nSrcRegister, float fMul )
+{
+	CTRect<float> rDest;
+	GetRegisterSize( &rDest );
+	pRC->SetRegister( nDestRegister );
+	C2DQuadsRenderer qr( *pRC, CVec2( rDest.x2, rDest.y2 ), QRM_USER_EFFECT );
+	qr.SetUserEffect( new CLightmapCopyEffect( fMul ) );
+	qr.AddRect( rDest, GetRegisterTexture( nSrcRegister ), rDest );
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CShowAlphaEffect::SetEffect( NGfx::CRenderContext *pRC, NGfx::CTexture *pTex, float fScaleU, float fScaleV )
 {

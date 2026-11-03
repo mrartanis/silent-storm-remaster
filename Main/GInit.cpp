@@ -12,6 +12,7 @@ namespace NGScene
 {
 static int nDepthTexResolution = 512, nCLSkyTextures = 1, nCLCubeResolution = 16;
 static bool bCanCacheLighting = false, bCanCalcAmbient = false, bCanRenderShadows = false;
+static bool bPrecisePointShadows = false;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetDepthTexResolution() { return nDepthTexResolution; }
 int GetCLSkyTexturesNumber() { return nCLSkyTextures; }
@@ -19,6 +20,7 @@ int GetCLCubeResolution() { return nCLCubeResolution; }
 bool CanRenderShadows() { return bCanRenderShadows; }
 bool CanCacheLighting() { return bCanCacheLighting; }
 bool CanCalcAmbient() { return bCanCalcAmbient; }
+bool UsePrecisePointShadows() { return bPrecisePointShadows; }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // WIDESCREEN (Sentinels design): gfx_resolution accepts a "WxH" string (Sentinels stores it that
 // way -- its "gfx_resolution" @rdata 0x90b8d0 sits in a cmdline map of L"WxH" values, e.g.
@@ -95,13 +97,16 @@ bool SetModeFromConfig( bool bRecreate )
 	nCLCubeResolution = Float2Int( NGlobal::GetVar( "gfx_cl_cube_resolution", 16 ).GetFloat() );
 	nCLCubeResolution = Clamp( nCLCubeResolution, 16, 256 );
 	nCLCubeResolution = GetNextPow2( nCLCubeResolution );
+	bPrecisePointShadows = NGlobal::GetVar( "gfx_cl_use_precise_shadows", 0 ).GetFloat() != 0;
 
 	// determine number and types of buffers
 	rtInfo.Clear();
 	if ( bCanRenderShadows )
 	{
 		if ( hl >= NGfx::HL_GFORCE3 )
-			rtInfo.nRegisters = 5;
+			// Reserve the complete cached-lighting and effect register layout.
+			// Sun/depth history and specular intermediates use independent scratch.
+			rtInfo.nRegisters = 6;
 		else
 		{
 			if ( bCanCacheLighting )
@@ -115,7 +120,8 @@ bool SetModeFromConfig( bool bRecreate )
 	if ( bCanCacheLighting )
 	{
 		rtInfo.AddCube( GetCLCubeResolution(), 100 );
-		rtInfo.AddCube( 256, 1 );
+		if ( bPrecisePointShadows )
+			rtInfo.AddCube( 256, 1 );
 	}
 
 	bool bRes = NGfx::SetMode( NGfx::SVideoMode( nModeX, nModeY, 32, fullScreen ), rtInfo );

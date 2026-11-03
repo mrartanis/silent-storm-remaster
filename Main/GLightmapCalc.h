@@ -15,10 +15,13 @@ namespace NGfx
 namespace NGScene
 {
 class CMaterial;
+class CCubeTextureChannel;
 class CPerMaterialCombiner;
 struct SLightInfo;
 const int N_CL_TEMP_REGISTER = 2;
 const int N_CL_TARGET_REGISTER = 3;
+// Retail retains the unblurred sun pass's surface depth in register 4 alpha.
+const int N_CL_DEPTH_REGISTER = 4;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 struct SGlobalIlluminationInfo
 {
@@ -124,7 +127,9 @@ class CLightmapTracker : public CObjectBase
 		RC_SKY_DEPTH,
 		RC_COLOR_POINT,
 		RC_COLOR_SEMI,
-		RC_APPLY
+		RC_DEPTH_POINT,
+		RC_APPLY,
+		RC_SOFT_APPLY
 	};
 	struct SRecalcState
 	{
@@ -132,6 +137,7 @@ class CLightmapTracker : public CObjectBase
 		int nStep;
 		bool bCalcSky;
 		bool bCalcColor;
+		bool bColorReady = false;
 	};
 	ZDATA
 	SGlobalIlluminationInfo globalIllumination;
@@ -156,12 +162,21 @@ private:
 	};
 	int nLights, nPassesPerCalc;
 	SRecalcState rs;
+	int nPreparedSkySteps = 0;
+	int nPointLight = 0, nPointLightStart = 0;
 	IRender *pRender;
 	SBound currentBound;
 	SGroupSelect groupSelect;
 	SHMatrix mPrevView;
-	typedef unordered_map<SPointLightPos,CObj<NGfx::CCubeTexture>, SPointLightPosHash> CPointDepthHash;
+	// Transient: registers are shared between scenes and recreated on device reset.
+	CPtr<NGfx::CTexture> pHistoryDepth, pHistoryLight;
+	bool bLightStateUpdated;
+	typedef unordered_map<SPointLightPos,CObj<CCubeTextureChannel>, SPointLightPosHash> CPointDepthHash;
 	CPointDepthHash pointDepths;
+	// Transient receiver visibility, never serialized.
+	unordered_map<SPointLightPos,CPointHSRParts,SPointLightPosHash> pointHSR;
+	CCubeTextureChannel *GetPointDepth( const CVec3 &vCenter, float fRadius );
+	void SortLights( vector<int> *pOrder );
 	// Motion and idle use fixed sky samples; rotating channels are diagnostic-only.
 	// Transient GPU caches: save tags 2..6 are unchanged.
 	vector<SDirectionalDepthInfo> stableDepthInfos;
@@ -181,22 +196,29 @@ private:
 	};
 
 	static int GetSkyTexturesNum();
+	void RenderCachedPoints( SLightmapTargetGeom *pTarget );
+	void BeginPointRecalc();
 	void RenderLight( SLightmapTargetGeom *pTarget, const SLightInfo &lightInfo,
-		ERenderOperation op, CRenderCmdList::UParameter param1, CRenderCmdList::UParameter param2, int nStencilOp );
+		ERenderOperation op, CRenderCmdList::UParameter param1, CRenderCmdList::UParameter param2, int nStencilOp,
+		CRenderCmdList::UParameter param3 = CRenderCmdList::UParameter() );
 	void RenderCubeMapDepth( SLightmapTargetGeom *pTarget, 
-		const CVec3 &vCenter, float fRadius, int nDir );
+		const CVec3 &vCenter, float fRadius, int nDir, CCubeTextureChannel *pChannel = 0 );
 	void DownsampleCubeMapDepth( const CVec3 &vCenter, float fRadius );
 	void RenderPointLightShadowed( SLightmapTargetGeom *pTarget, 
-		const CVec3 &vCenter, float fRadius, const CVec3 &_vColor, NGfx::CCubeTexture *pDepth, int nDepthBias, bool bFast );
+		const CVec3 &vCenter, float fRadius, const CVec3 &_vColor, NGfx::CCubeTexture *pDepth, int nDepthBias, bool bFast, int nChannel = 0 );
 	void RenderPointNoShadows( SLightmapTargetGeom *pTarget, 
 		const CVec3 &_vCenter, float fRadius, const CVec3 &_vColor );
 	void RenderSkyCheck( SLightmapTargetGeom *pTarget, float fStrength, int nBuffer, bool bFast );
 	void ChooseNewSkyDirection( int nBuffer, int nTarget );
-	void RecalcStep( NGfx::CRenderContext *pRC, CSceneFragments *pScene, CTransformStack *pTS );
+	void ChooseNewSkyDirections();
+	void FinishRecalc();
+	void RecalcStep( NGfx::CRenderContext *pRC, CSceneFragments *pScene, CTransformStack *pTS, bool bSoftApply, int nScratchRegister );
 	void RecalcDepthChannel( int nBuffer, int nChannel, bool bFast, bool bStable = false );
 public:
 	CLightmapTracker();
-	void CatchUp( NGfx::CRenderContext *pRC, IRender *_pRender, CTransformStack *pTS, CSceneFragments *pScene, bool bHasNewLightmaps, const SGroupSelect &groupSelect );
+	void CatchUp( NGfx::CRenderContext *pRC, IRender *_pRender, CTransformStack *pTS, CSceneFragments *pScene,
+		bool bHasNewLightmaps, const SGroupSelect &groupSelect, bool bFirstCatch,
+		const CVec4 &vDepth, bool bReuseLight, int nScratchRegister );
 	void SetNewIllumination( const SGlobalIlluminationInfo &gl );
 	const CLightState& GetLightState() const { return lightState; }
 };

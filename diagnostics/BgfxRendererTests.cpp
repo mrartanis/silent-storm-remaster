@@ -29,6 +29,8 @@
 #include "../Main/GMaterial.h"
 #include "../Main/GRenderLight.h"
 #include "../Main/GLightmapCalc.h"
+#include "../Main/GShadowMap.h"
+#include "../Main/GRenderExecute.h"
 #include "../Main/Transform.h"
 #include "../MiscDll/Commands.h"
 #include "../Main/DisplayLayout.h"
@@ -508,7 +510,7 @@ class AmbientPassObserver: public NGScene::ICacheLightRender {
 public:
   bool observed=false;
   int GetLightingOptions() override {return 1;}
-  void RenderCL(NGfx::CRenderContext* context,NGScene::IRender*,CTransformStack*,NGScene::CSceneFragments*,bool) override {
+  void RenderCL(NGfx::CRenderContext* context,NGScene::IRender*,CTransformStack*,NGScene::CSceneFragments*,bool,const CVec4&,bool,int) override {
     // The real ambient producer/executor has drawn its diffuse stage to register1.
     // Observe that completed stage, before unrelated light-cache multiplication.
     CTransformStack identity;identity.Init();context->SetScreenRT();context->ClearBuffers(0xff000000);
@@ -573,7 +575,7 @@ class SurfaceLightingOptions: public NGScene::ICacheLightRender {
 public:
   bool unexpectedCacheCall=false;
   int GetLightingOptions() override {return 3;}
-  void RenderCL(NGfx::CRenderContext*,NGScene::IRender*,CTransformStack*,NGScene::CSceneFragments*,bool) override {unexpectedCacheCall=true;}
+  void RenderCL(NGfx::CRenderContext*,NGScene::IRender*,CTransformStack*,NGScene::CSceneFragments*,bool,const CVec4&,bool,int) override {unexpectedCacheCall=true;}
 };
 int RunLitSurfaceAlpha() {
   using namespace NGScene;
@@ -646,7 +648,7 @@ template<auto method> struct CachedPointShadowFriend {
   friend auto CachedPointShadowMethod(CachedPointShadowAccess) {return method;}
 };
 template struct CachedPointShadowFriend<&NGScene::CLightmapTracker::RenderPointLightShadowed>;
-int RunCachedPointLighting(bool bumped = false,bool fastShadow = false) {
+int RunCachedPointLighting(bool bumped = false,bool fastShadow = false,int packedChannel = -1) {
   using namespace NGScene;
   NGfx::SRenderTargetsInfo targets;
   if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets))return 280;
@@ -675,7 +677,7 @@ int RunCachedPointLighting(bool bumped = false,bool fastShadow = false) {
       for(int face=0;face<6;++face) {
         NGfx::CTextureLock<NGfx::SPixel8888> lock(depth[occluded],static_cast<NGfx::EFace>(face),0,NGfx::INPLACE);
         const int value=occluded?0:255;
-        for(int y=0;y<4;++y)for(int x=0;x<4;++x)lock[y][x]=NGfx::SPixel8888(value,value,value,value);
+        for(int y=0;y<4;++y)for(int x=0;x<4;++x){NGfx::SPixel8888 pixel(value,value,value,value);if(packedChannel>=0){pixel=NGfx::SPixel8888(255-value,255-value,255-value,255-value);switch(packedChannel){case 0:pixel.a=value;break;case 1:pixel.r=value;break;case 2:pixel.g=value;break;case 3:pixel.b=value;break;}}lock[y][x]=pixel;}
       }
     }
   }
@@ -697,7 +699,7 @@ int RunCachedPointLighting(bool bumped = false,bool fastShadow = false) {
     context.SetVertexShader(vsConstLight);context.SetPixelShader(psDiffuse);context.SetVSConst(16,CVec4(0,0,0,1));
     Draw(context,Quad(-1,1,1,-1,.5f));
     NativeCachedPointTarget target(&scene,&context,&identity,0);
-    if(bumped || fastShadow) (tracker.GetPtr()->*CachedPointShadowMethod(CachedPointShadowAccess{}))(&target,center,radius,color,depth[occluded?1:0].GetPtr(),0,fastShadow && !twoPassControl);
+    if(bumped || fastShadow) (tracker.GetPtr()->*CachedPointShadowMethod(CachedPointShadowAccess{}))(&target,center,radius,color,depth[occluded?1:0].GetPtr(),0,fastShadow && !twoPassControl,packedChannel<0?0:packedChannel);
     else (tracker.GetPtr()->*CachedPointMethod(CachedPointAccess{}))(&target,center,radius,color);
     CArray2D<NGfx::SPixel8888> image;NGfx::MakeScreenShot(&image,false);return image;
   };
@@ -739,6 +741,8 @@ int RunCachedPointLighting(bool bumped = false,bool fastShadow = false) {
   }
   return 0;
 }
+
+int RunPackedPointChannels() {for(int channel=0;channel<4;++channel){std::printf("PACKED-NATIVE-CHANNEL %d\n",channel);int result=RunCachedPointLighting(false,true,channel);if(result)return result;}return 0;}
 
 int RunResourceCleanup() {
   NGfx::SRenderTargetsInfo targets;
@@ -1563,6 +1567,62 @@ int RunFocusRestore() {
   return 0;
 }
 
+int RunCachedRendererContracts() {
+  using namespace NGScene;
+  NGfx::SRenderTargetsInfo targets;targets.nRegisters=6;targets.AddTex(GetDepthTexResolution(),3);targets.AddCube(GetCLCubeResolution(),38);
+  const int generation=NGfx::GetDeviceCreationID();
+  if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets) || NGfx::GetDeviceCreationID()==generation)return 210;
+  vector<CObj<CCubeTextureChannel>> leases;
+  for(int i=0;i<152;++i){CObj<CCubeTextureChannel> lease=shadowMapsShare.AllocCubeChannel();if(!lease || !lease->pTexture || lease->nChannel!=(i%4))return 211;leases.push_back(lease);}
+  const int masks[]={8,1,2,4};
+  for(int i=0;i<4;++i)if(leases[i]->pTexture!=leases[0]->pTexture || leases[i]->GetWriteMask()!=masks[i])return 212;
+  if(leases[4]->pTexture==leases[0]->pTexture)return 213;
+  shadowMapsShare.NextCubeFrame();shadowMapsShare.TouchCubeChannel(leases[0]);
+  CObj<CCubeTextureChannel> replacement=shadowMapsShare.AllocCubeChannel();
+  if(!replacement || !replacement->pTexture || leases[1]->pTexture || !leases[0]->pTexture || replacement->nChannel!=1)return 214;
+  NGfx::CRenderContext context;context.SetVirtualRT();context.SetRegister(0);context.ClearBuffers(0x804080c0);
+  context.SetColorWrite(NGfx::COLORWRITE_ALL);context.SetStencil(NGfx::STENCIL_NONE);context.SetDepth(NGfx::DEPTH_NONE);context.SetAlphaCombine(NGfx::COMBINE_NONE);
+  NGfx::CopyLightmapRegister(&context,3,0,.5f);
+  // CopyRegister owns its own render state, even when its caller has disabled
+  // all color writes. The old source register is read from the actual GPU.
+  context.SetColorWrite(NGfx::COLORWRITE_NONE);context.Use();NGfx::CopyRegister(0,3);
+  auto capture=[&](int reg){NGfx::CRenderContext screen;screen.SetScreenRT();screen.ClearBuffers(0);screen.SetColorWrite(NGfx::COLORWRITE_ALL);screen.SetStencil(NGfx::STENCIL_NONE);screen.SetDepth(NGfx::DEPTH_NONE);screen.SetAlphaCombine(NGfx::COMBINE_NONE);CTRect<float> size;NGfx::GetRegisterSize(&size);NGfx::CopyTexture(screen,NGfx::GetScreenRect(),CTRect<float>(0,0,128,128),NGfx::GetRegisterTexture(reg),size);CArray2D<NGfx::SPixel8888> image;NGfx::MakeScreenShot(&image,false);return image;};
+  auto copied=capture(0);if(!Color(copied,64,64,32,64,96) || abs(int(copied[64][64].a)-64)>3)return 215;
+  CObjectInfo::SData data;
+  for(auto position:{CVec3(-.75f,.75f,.5f),CVec3(.75f,.75f,.5f),CVec3(.75f,-.75f,.5f),CVec3(-.75f,-.75f,.5f)}){SVertex v{};v.pos=position;v.tex=CVec2(.5f,.5f);NGfx::CalcCompactVector(&v.normal,CVec3(0,0,1));data.verts.push_back(v);}
+  data.geometry.SetTriangles({STriangle(0,1,2),STriangle(0,2,3)});CObj<CObjectInfo> mesh=new CObjectInfo;mesh->AssignFast(data);CObj<SelectionMeshNode> node=new SelectionMeshNode(mesh);
+  CObj<IMaterial> material=CreateMaterial(CVec3(1,1,1));CObj<CNonePart> part=new CNonePart(node,material,SFullGroupInfo());CObj<CAutomaticCombiner> parts=new CAutomaticCombiner;parts->AddPart(part);
+  CObj<LowRamCombinerProbe> vertices=new LowRamCombinerProbe(parts,LT_NONE,CT_STATIC);vertices->Prepare();CObj<CIBCombiner> indices=new CIBCombiner(parts,LT_NONE,IBTT_VERTICES);
+  SRenderGeometryInfo geometry;geometry.pVertices=vertices.GetPtr();geometry.pTriLists[TLT_GEOM]=indices.GetPtr();geometry.pTriLists[TLT_POSITION]=indices.GetPtr();
+  CSceneFragments scene;SBound bound;mesh->CalcBound(&bound);CPartFlags flags;flags.Clear();flags.Set(0);int index=scene.AddGeometry(nullptr,&geometry,bound);scene.AddElement(index,flags,material,nullptr,nullptr);
+  CTransformStack identity;identity.Init();const CVec4 surfaceDepth(0,0,0,.5f);
+  auto seed=[&](int reg,DWORD color){context.SetRegister(reg);context.SetTransform(identity.Get());context.SetCulling(NGfx::CULL_NONE);context.SetStencil(NGfx::STENCIL_NONE);context.SetColorWrite(NGfx::COLORWRITE_ALL);context.SetDepth(NGfx::DEPTH_NORMAL);context.SetAlphaCombine(NGfx::COMBINE_NONE);context.ClearBuffers(color);context.SetColorWrite(NGfx::COLORWRITE_NONE);context.SetVertexShader(vsConstLight);context.SetPixelShader(psDiffuse);context.SetVSConst(16,CVec4(0,0,0,1));Draw(context,Quad(-1,1,1,-1,.5f));};
+  auto execute=[&](ERenderOperation operation,int reg,CRenderCmdList::UParameter p1,CRenderCmdList::UParameter p2,CRenderCmdList::UParameter p3,int mode){CRenderCmdList commands;SOpGenContext op(&commands.ops,scene.GetFragments()[1]);op.AddOperation(operation,100,mode,reg,p1,p2,p3);Execute(nullptr,&context,identity,commands,scene,SLightInfo());};
+  seed(4,0xff112233);context.SetColorWrite(NGfx::COLORWRITE_ALPHA);
+  // The final871 source stores depth in the combined sun pass, removing
+  // the intermediate standalone STORE opcode. Exercise the same history
+  // vertex encoding directly here, then its live TEST/COPY consumers below.
+  context.SetDepth(NGfx::DEPTH_TESTONLY);context.SetVertexShader(vsCLTestPrevFrame);context.SetPixelShader(psDiffuse);context.Use();context.SetVSConst(16,surfaceDepth);context.SetVSConst(25,&identity.Get().forward.x,4);Draw(context,vertices->GetValue());
+  auto stored=capture(4);if(!Color(stored,64,64,17,34,51) || abs(int(stored[64][64].a)-128)>4)return 216;
+  context.SetRegister(3);context.SetColorWrite(NGfx::COLORWRITE_ALL);context.ClearBuffers(0xff2468ac);
+  seed(2,0xff000000);context.SetColorWrite(NGfx::COLORWRITE_ALL);
+  execute(RO_CL_COPY_LAST,2,&identity.Get().forward.x,float(3),CRenderCmdList::UParameter(),DPM_EQUAL);
+  auto projected=capture(2);if(!Color(projected,64,64,36,104,172))return 217;
+  for(int oldAlpha:{128,32,224}) {
+    context.SetRegister(4);context.SetColorWrite(NGfx::COLORWRITE_ALL);context.ClearTarget((DWORD(oldAlpha)<<24)|0x112233);
+    seed(0,0xff000000);context.SetColorWrite(NGfx::COLORWRITE_NONE);
+    execute(RO_CL_TEST_PREV_FRAME,0,&surfaceDepth,&identity.Get().forward.x,float(4),DPM_EQUAL|STM_MARK_2);
+    context.SetRegister(0);context.SetColorWrite(NGfx::COLORWRITE_ALL);context.SetDepth(NGfx::DEPTH_NONE);context.SetStencil(NGfx::STENCIL_TEST,0x40,0x40);
+    context.SetVertexShader(vsConstLight);context.SetPixelShader(psDiffuse);context.Use();context.SetVSConst(16,CVec4(1,1,1,1));Draw(context,Quad(-1,1,1,-1,.5f));
+    auto match=capture(0);const int expected=oldAlpha==128?255:0;if(!Color(match,64,64,expected,expected,expected))return 218;
+  }
+  const int beforeReset=NGfx::GetDeviceCreationID();
+  if(!NGfx::SetMode(NGfx::SVideoMode(128,128,32,NGfx::WINDOWED),targets) || NGfx::GetDeviceCreationID()==beforeReset)return 219;
+  CObj<CCubeTextureChannel> fresh=shadowMapsShare.AllocCubeChannel();if(!fresh || !fresh->pTexture || leases[0]->pTexture || replacement->pTexture)return 220;
+  std::puts("Cached renderer contracts:152 real packed leases/four channels/LRU retirement, device invalidation, actual linear-register copies, native history shader store/project/test with both depth-mismatch signs passed");return 0;
+}
+
+
 struct PointSettingsAccess {
   using Member=void (NGScene::CPointLight::*)(NGScene::SOpGenContext&,NGScene::ERenderPath,const NGScene::SMaterialInfo&);
   friend Member PointSettingsMethod(PointSettingsAccess);
@@ -1749,6 +1809,8 @@ int main(int argc,char** argv) {
              argc>1 && std::string(argv[1])=="--passes" ? RunPassStress() :
              argc>1 && std::string(argv[1])=="--graphics" ? RunGraphicsOptions() :
              argc>1 && std::string(argv[1])=="--runtime-settings" ? RunRuntimeSettings() :
+             argc>1 && std::string(argv[1])=="--cached-renderer-contracts" ? RunCachedRendererContracts() :
+             argc>1 && std::string(argv[1])=="--packed-point-channels" ? RunPackedPointChannels() :
              argc>1 && std::string(argv[1])=="--shadow-pcf" ? RunShadowPcf() :
              argc>1 && std::string(argv[1])=="--specular-projection" ? RunSpecularProjection() :
              argc>1 && std::string(argv[1])=="--cached-point-shadow" ? RunCachedPointLighting(false,true) :

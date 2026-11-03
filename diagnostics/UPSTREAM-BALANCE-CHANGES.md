@@ -4927,3 +4927,21 @@ Games/related/core2/CI383/LAN12each361 pass; no pre-Main RED or original-runtime
 frozen, no PNG generation. Seven source commits remain.
 
 Source: [34fee25e45545e40cf48c5d0313f2c83f3fa4e9c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/34fee25e45545e40cf48c5d0313f2c83f3fa4e9c).
+
+## 185. Restore cached-light history, packed shadows and safe render reuse
+
+Restore cached-light reprojection, progressive point-light application, packed-channel
+shadow ownership, first-catch receiver/depth generation and safe
+render-history/scratch/index reuse. Preserve fixed-sky/high-quality
+cube256-count100/refinement256/bias3 policies, actual existing AP/action/paused-time
+rules, RGBA8/HD/FXAA/float UI and explicit no-auto-detection request. New rendering caches
+are transient, without DB/save field changes. Actual camera/device-reset cases retain
+paused actor position/AP/HP/world time; no zero-cost movement or engine RNG parity
+assertion. Real GPU contracts/current related cases and fresh
+Games/WindowsALL/core2/CI383/LAN12each361 pass. HD frozen/no PNG work. Four source commits
+complete, three remain.
+
+Source: [f6f6011fc301ace82317b9007ec6dd36b57f3369](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6f6011fc301ace82317b9007ec6dd36b57f3369).
+Source: [755b0bdc2de8da8166be8cb61fc5d8d921499947](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/755b0bdc2de8da8166be8cb61fc5d8d921499947).
+Source: [5369d7468bf1c5a0574d53d3ecabae84cdfe6bdf](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5369d7468bf1c5a0574d53d3ecabae84cdfe6bdf).
+Source: [8718138b4eddd431a96cdeb80c7a42621265f569](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8718138b4eddd431a96cdeb80c7a42621265f569).

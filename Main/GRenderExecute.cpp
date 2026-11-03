@@ -820,7 +820,16 @@ static void ExecOps( NGfx::CRenderContext *pRC, const vector<CRenderCmdList::SOp
 			triListType = TLT_GEOM;
 			break;
 		case RO_CL_PNT_DEPTH_CHECK:
-			pRC->SetPixelShader( psCLPointDepthCheck );
+			if ( op.p3.f != 0 )
+			{
+				pRC->SetPixelShader( psCLPointDepthCheckRGB );
+				CVec4 select(0,0,0,0);
+				(&select.x)[Clamp(int(op.p3.f) - 1, 0, 2)] = 1;
+				pRC->SetPSConst( 0, select );
+				pRC->SetPSConst( 1, CVec4(1,1,1,1) - select );
+			}
+			else
+				pRC->SetPixelShader( psCLPointDepthCheck );
 			pRC->SetAlphaRef( Float2Int( op.p2.f ) );
 			pRC->SetVertexShader( vsCLPointDepthCheck );
 			pRC->SetVSConst( 16, CVec4( 0.5f, 1 / ( lightInfo.vRadius.x + 4 ), 0, 0 ) );
@@ -829,7 +838,24 @@ static void ExecOps( NGfx::CRenderContext *pRC, const vector<CRenderCmdList::SOp
 			triListType = TLT_GEOM;
 			break;
 		case RO_CL_PNT_LIGHT_SHADOWED:
-			pRC->SetPixelShader( psCLPointDiffuseShadowed );
+			if ( NGfx::GetHardwareLevel() > NGfx::HL_GFORCE3 )
+			{
+				pRC->SetPixelShader( psCLPointDiffuseShadowedRGBA );
+				CVec4 select(0,0,0,0);
+				(&select.x)[op.p3.f <= 0 ? 3 : Clamp(int(op.p3.f) - 1, 0, 2)] = 1;
+				pRC->SetPSConst( 0, select );
+				pRC->SetPSConst( 1, CVec4(1,1,1,1) - select );
+			}
+			else if ( op.p3.f != 0 )
+			{
+				pRC->SetPixelShader( psCLPointDiffuseShadowedRGB );
+				CVec4 select(0,0,0,0);
+				(&select.x)[Clamp(int(op.p3.f) - 1, 0, 2)] = 1;
+				pRC->SetPSConst( 0, select );
+				pRC->SetPSConst( 1, CVec4(1,1,1,1) - select );
+			}
+			else
+				pRC->SetPixelShader( psCLPointDiffuseShadowed );
 			pRC->SetAlphaRef( Float2Int( op.p2.f ) );
 			pRC->SetVertexShader( vsCLPointDiffuseShadowed );
 			pRC->SetVSConst( 16, CVec4( 0.5f, 1 / ( lightInfo.vRadius.x + 4 ), 0, 0 ) );
@@ -910,6 +936,22 @@ static void ExecOps( NGfx::CRenderContext *pRC, const vector<CRenderCmdList::SOp
 			pRC->SetVertexShader( vsTextureTexU );
 			pRC->SetTexture( 0, op.p1.pTex );
 			triListType = TLT_GEOM;
+			break;
+		case RO_CL_COPY_LAST:
+			pRC->SetPixelShader( psProjectedTexture );
+			pRC->SetVertexShader( vsCLPrevFrameCopy );
+			pRC->SetVSConst( 25, op.p1.pVec4, 4 );
+			pRC->SetTexture( 0, NGfx::GetRegisterTexture( Float2Int( op.p2.f ) ) );
+			triListType = TLT_POSITION;
+			break;
+		case RO_CL_TEST_PREV_FRAME:
+			pRC->SetPixelShader( psCLTestPrevFrame );
+			pRC->SetVertexShader( vsCLTestPrevFrame );
+			pRC->SetVSConst( 16, *op.p1.pVec4 );
+			pRC->SetVSConst( 25, op.p2.pVec4, 4 );
+			pRC->SetAlphaRef( 1 );
+			pRC->SetTexture( 0, NGfx::GetRegisterTexture( Float2Int( op.p3.f ) ) );
+			triListType = TLT_POSITION;
 			break;
 		case RO_REGISTER:
 			pRC->SetPixelShader( psProjectedTexture );

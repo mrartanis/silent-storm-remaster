@@ -29,7 +29,7 @@ struct SRenderParam
 };
 typedef unordered_map<int, NWin32Helper::com_ptr<BgfxSurface> > CDepthHash;
 
-const int N_MAX_REGISTERS =	5;
+const int N_MAX_REGISTERS =	6;
 static int nScreenRegisters;
 bool bDoValidateDevice = false;
 static SRenderParam<EWireframe> wireframeMode( WIREFRAME_OFF );

@@ -980,14 +980,36 @@ template<class T, class TIB>
 class CDynamicTrisBase
 {
 protected:
+	DWORD dwWasLocked;
 	CObj<TIB> pDynamicTrisBuffer;
 	int nLast, nBuf;
 	int nStart; // start of queued triangles and number of them
 public:
-	void Clear() { pDynamicTrisBuffer = 0; nLast = 0; nBuf = 0;}
-	CDynamicTrisBase() { Clear(); }
+	void Unlock()
+	{
+		if ( dwWasLocked )
+		{
+			pDynamicTrisBuffer->Unlock();
+			dwWasLocked = 0;
+		}
+	}
+	void Lock( DWORD dwFlags )
+	{
+		// Retail v1.2 0x515952: keep the index buffer mapped until the
+		// lock mode changes or the queued batch is submitted to the device.
+		if ( dwWasLocked != dwFlags )
+		{
+			Unlock();
+			pDynamicTrisBuffer->Lock( dwFlags );
+			dwWasLocked = dwFlags;
+		}
+	}
+	void Clear() { Unlock(); pDynamicTrisBuffer = 0; nLast = 0; nBuf = 0;}
+	CDynamicTrisBase() : dwWasLocked(0) { Clear(); }
+	~CDynamicTrisBase() { Unlock(); }
 	virtual void Init()
 	{
+		Unlock();
 		int nBufSize = DynamicIndexBufferSize();
 		int n = nBufSize / T::N_TRIANGLE_SIZE;
 		n = n & (~1);
@@ -1048,13 +1070,12 @@ public:
 				dwFlags = D3DLOCK_DISCARD;
 				nToDraw = Min( nBuf - nLast, nTris );
 			}
-			pDynamicTrisBuffer->Lock( dwFlags );
+			Lock( dwFlags );
 			pDynamicTrisBuffer->obj->MarkWritten(nLast*sizeof(S32Triangle),nToDraw*sizeof(S32Triangle));
 			S32Triangle *pTri = (S32Triangle*)pDynamicTrisBuffer->pLocked;
 			pTri += nLast;
 			ReallyFastShiftingTransfer( (const unsigned short*)&pSrcTris[ nSrcStart ], (int*)pTri, nToDraw * 3, nVBStart );
-			// fill tris from source
-			pDynamicTrisBuffer->Unlock();
+			// Keep this mapping for subsequent submissions in the same batch.
 			nLast += nToDraw;
 			nSrcStart += nToDraw;
 			nTris -= nToDraw;
@@ -1083,6 +1104,7 @@ public:
 			FreeLinearBuffers();
 		if ( nLast - nStart > 0 )
 		{
+			Unlock();
 			HRESULT hr;
 			switch ( currentPrim )
 			{
@@ -1137,6 +1159,7 @@ class CDynamicTrisIndices16 : public CDynamicTrisBase<CDynamicTrisIndices16, CIB
 			FreeLinearBuffers();
 		if ( nLast - nStart > 0 )
 		{
+			Unlock();
 			HRESULT hr;
 			hr = pDevice->SetIndices( GetBuffer()->obj );
 			ASSERT( D3D_OK == hr );
@@ -1177,7 +1200,7 @@ public:
 				dwFlags = D3DLOCK_DISCARD;
 				nToDraw = Min( nBuf - nLast, nTris );
 			}
-			pDynamicTrisBuffer->Lock( dwFlags );
+			Lock( dwFlags );
 			pDynamicTrisBuffer->obj->MarkWritten(nLast*sizeof(S3DTriangle),nToDraw*sizeof(S3DTriangle));
 			S3DTriangle *pTri = (S3DTriangle*)pDynamicTrisBuffer->pLocked;
 			pTri += nLast;
@@ -1197,7 +1220,6 @@ public:
 				nMax = Max ( nMax, src.i2 );
 				nMax = Max ( nMax, src.i3 );
 			}
-			pDynamicTrisBuffer->Unlock();
 			nLast += nToDraw;
 			nSrcStart += nToDraw;
 			nTris -= nToDraw;

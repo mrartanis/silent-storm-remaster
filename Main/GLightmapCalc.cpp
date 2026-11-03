@@ -1,14 +1,20 @@
 #include "StdAfx.h"
+#include <cstdint>
+#include <limits>
 #include "GfxBuffers.h"
 #include "GfxInternal.h"
 #include "GLightmapStateWire.h"
 #include "GGeometry.h"
+#include "GCombiner.h"
 #include "..\Misc\RandomGen.h"
 #include "GRenderExecute.h"
 #include "GShadowMap.h"
+#include "GShadowVolume.h"
 #include "GfxUtils.h"
 #include "Transform.h"
 #include "GfxEffects.h"
+#include "RectLayout.h"
+#include "GRects.h"
 #include "GMaterial.h"
 #include "GScene.h"
 #include "Gfx.h"
@@ -224,7 +230,7 @@ CVec3 CLightState::GenerateSkyDir( SLightStateCalcSeed *pSeed )
 	CVec3 vSky;
 	int &nSeed = pSeed->nSeed;
 	int nTexs = Max( 1, shadowMapsShare.GetCLSkyTexturesNumber() );
-	int nDirBeta = Min( 6, nTexs * N_DEPTH_CHANNELS_PER_TEX );
+	int nDirBeta = nTexs * N_DEPTH_CHANNELS_PER_TEX;
 	for (;;)
 	{
 		CVec3 vAmbDir;
@@ -390,7 +396,7 @@ static void MakeLMTS( CTransformStack *pTS, CVec4 &vZ )
 	ts.Init( m );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-CLightmapTracker::CLightmapTracker() : nLights(1), nPassesPerCalc(2), groupSelect(0,0)
+CLightmapTracker::CLightmapTracker() : nLights(1), nPassesPerCalc(2), groupSelect(0,0), bLightStateUpdated(true)
 {
 	//LoadShit( pLMTextureCache->GetTexture() );
 	currentBound.SphereInit( CVec3(10,10,10), 20 );
@@ -405,7 +411,7 @@ int CLightmapTracker::GetSkyTexturesNum()
 void CLightmapTracker::RenderLight( 
 	SLightmapTargetGeom *pTarget, const SLightInfo &lightInfo,
 	ERenderOperation op, CRenderCmdList::UParameter param1, CRenderCmdList::UParameter param2,
-	int nStencilOp )
+	int nStencilOp, CRenderCmdList::UParameter param3 )
 {
 	NGfx::CRenderContext &rc = *pTarget->pRC;
 	//render;
@@ -418,8 +424,11 @@ void CLightmapTracker::RenderLight(
 		if ( pTarget->pGeom->IsFilteredFragment( i ) )
 			continue;
 		const SRenderFragmentInfo &frag = *fragments[i];
+		if ( (op == RO_CL_COPY_LAST || op == RO_CL_TEST_PREV_FRAME) &&
+			!frag.pMaterial->GetMaterialInfo().IsSolid() )
+			continue;
 		SOpGenContext fi( &res.ops, &frag );
-		fi.AddOperation( op, 100, nStencilOp, pTarget->nTargetRegister, param1, param2 );
+		fi.AddOperation( op, 100, nStencilOp, pTarget->nTargetRegister, param1, param2, param3 );
 	}
 	Execute( 0, &rc, *pTarget->pTS, res, *pTarget->pGeom, lightInfo );
 }
@@ -438,12 +447,28 @@ static void InitLightInfo( SLightInfo *pRes, const CVec3 &_vCenter, float fRadiu
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLightmapTracker::RenderCubeMapDepth(
 	SLightmapTargetGeom *pTarget, 
-	const CVec3 &_vCenter, float fRadius, int nDir )
+	const CVec3 &_vCenter, float fRadius, int nDir, CCubeTextureChannel *pChannel )
 {
 	SLightInfo lightInfo;
 	InitLightInfo( &lightInfo, _vCenter, fRadius, CVec3(0,0,0) );
 	// render occluders
-	NGfx::CCubeTexture *pDepth = shadowMapsShare.GetCubeDepth();
+	NGfx::CCubeTexture *pDepth = pChannel ? pChannel->pTexture.GetPtr() : shadowMapsShare.GetCubeDepth();
+	if ( !IsValid(pDepth) )
+		return;
+	if ( nDir == 0 )
+	{
+		// Retail v1.2 0x52e4e3..0x52e5fe builds receiver visibility once
+		// per cube, independent of the viewing camera and active floor.
+		CPointHSRParts &receivers = pointHSR[SPointLightPos(_vCenter, fRadius)];
+		list<SRenderPartSet> parts;
+		GeneratePartList( pRender, _vCenter, fRadius, &parts, IRender::DT_STATIC, SGroupSelect(0xfff, 0) );
+		for ( list<SRenderPartSet>::const_iterator i = parts.begin(); i != parts.end(); ++i )
+			receivers[i->pNode].Init( i->parts, *i->pParts );
+	}
+	CDynamicCast<NGfx::ICubeBuffer> pDepthBuffer( pDepth );
+	const int nResolution = pDepthBuffer->GetSize();
+	if ( pChannel )
+		shadowMapsShare.TouchCubeChannel(pChannel);
 	//for ( int k = 0; k < 6; ++k )
 	{
 		NGfx::CRenderContext rc;
@@ -472,18 +497,33 @@ void CLightmapTracker::RenderCubeMapDepth(
 		SHMatrix mCubeCenter;
 		MakeMatrix( &mCubeCenter, _vCenter, vDir );
 		tsFrustrum.SetCamera( mCubeCenter );
-		pRender->FormDirOccludersList( &tsFrustrum, vDir, &geom, MakeSelectAll(), false );
+		// Retail v1.2 0x52eb54 calls IRender::FormDepthList (vtbl +4), not
+		// FormDirOccludersList. The latter substitutes simplified occluders for
+		// off-camera nodes, making cached lamp shadows depend on camera history.
+		pRender->FormDepthList( &tsFrustrum, vDir, &geom, IRender::DT_STATIC );
 		
 		// form transform stack for render
 		camera.y = -camera.y;
 		camera.w = CVec4(0,0,0,1);
 		ts.Push43( camera );
 		camera = ts.Get().forward;
-		camera.x = camera.x - (1.0f / shadowMapsShare.GetCubeDepthResolution() ) * camera.w;
-		camera.y = camera.y + (1.0f / shadowMapsShare.GetCubeDepthResolution() ) * camera.w;
+		camera.x = camera.x - (1.0f / nResolution ) * camera.w;
+		camera.y = camera.y + (1.0f / nResolution ) * camera.w;
 		ts.Init( camera );
 		rc.SetCubeTextureRT( pDepth, face, 0 );
-		rc.ClearBuffers( 0xffffffff );
+		if ( pChannel )
+		{
+			// D3D Clear ignores COLORWRITEENABLE. Clear only this lease's
+			// channel with a fullscreen quad, preserving the other three lights.
+			rc.ClearZBuffer();
+			rc.SetColorWrite( (NGfx::EColorWriteMask)pChannel->GetWriteMask() );
+			CRectLayout white;
+			white.AddRect(0, 0, nResolution, nResolution, CTRect<float>(0,0,nResolution,nResolution), NGfx::SPixel8888(255,255,255,255));
+			NGfx::C2DQuadsRenderer qr(rc, CVec2(nResolution,nResolution), NGfx::QRM_OVERWRITE|NGfx::QRM_SOLID);
+			RenderRectLayout(&qr, 0, white);
+		}
+		else
+			rc.ClearBuffers( 0xffffffff );
 		rc.SetCulling( NGfx::CULL_CCW );
 
 		CRenderCmdList dp;
@@ -494,9 +534,9 @@ void CLightmapTracker::RenderCubeMapDepth(
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLightmapTracker::DownsampleCubeMapDepth( const CVec3 &_vCenter, float _fRadius )
 {
-	CObj<NGfx::CCubeTexture> &pDepth = pointDepths[ SPointLightPos( _vCenter, _fRadius ) ];
-	if ( !IsValid( pDepth ) )
-		pDepth = NGfx::MakeCubeTexture( GetCLCubeResolution(), 1, NGfx::SPixel8888::ID, NGfx::TARGET );
+	CCubeTextureChannel *pChannel = GetPointDepth( _vCenter, _fRadius );
+	NGfx::CCubeTexture *pDepth = pChannel->pTexture;
+	shadowMapsShare.TouchCubeChannel(pChannel);
 	NGfx::CCubeTexture *pSrc = shadowMapsShare.GetCubeDepth();
 	NGfx::CRenderContext rc;
 	SFBTransform id;
@@ -504,7 +544,10 @@ void CLightmapTracker::DownsampleCubeMapDepth( const CVec3 &_vCenter, float _fRa
 	Identity( &id.backward );
 	rc.SetTransform( id );
 	NGfx::STriangleList quad;
-	NGfx::MakeQuadTriList( 2, &quad );
+	// Retail v1.2 0x52d679 passes one RECT (two triangles), not two rects.
+	// There are only four vertices below; a second quad reads unrelated pooled
+	// vertices and corrupts the coarse cache with camera-dependent shapes.
+	NGfx::MakeQuadTriList( 1, &quad );
 	NGfx::SGeomVecFull v;
 	Zero( v );
 	CVec3 vX(1,0,0), vY(0,1,0), vZ(0,0,1);
@@ -541,7 +584,17 @@ void CLightmapTracker::DownsampleCubeMapDepth( const CVec3 &_vCenter, float _fRa
 			geom[3] = v;
 		}
 		rc.SetCubeTextureRT( pDepth, face, 0 );
-		rc.ClearBuffers(0);//ZBuffer();
+		rc.SetColorWrite( (NGfx::EColorWriteMask)pChannel->GetWriteMask() );
+		{
+			// Retail 0x52de5b clears only this channel, including its depth,
+			// before copying. D3D Clear would overwrite the other three lights.
+			const int nResolution = GetCLCubeResolution();
+			CRectLayout black;
+			black.AddRect( 0, 0, nResolution, nResolution,
+				CTRect<float>(0, 0, nResolution, nResolution), NGfx::SPixel8888(0,0,0,0) );
+			NGfx::C2DQuadsRenderer qr( rc, CVec2(nResolution, nResolution), NGfx::QRM_OVERWRITE|NGfx::QRM_SOLID );
+			RenderRectLayout( &qr, 0, black );
+		}
 		NGfx::SEffRenderCubemap effScale;
 		effScale.pTex = pSrc;
 		rc.SetEffect( &effScale );
@@ -552,7 +605,7 @@ void CLightmapTracker::DownsampleCubeMapDepth( const CVec3 &_vCenter, float _fRa
 void CLightmapTracker::RenderPointLightShadowed( 
 	SLightmapTargetGeom *pTarget, 
 	const CVec3 &_vCenter, float fRadius, const CVec3 &_vColor,
-	NGfx::CCubeTexture *pDepth, int nDepthBias, bool bFast )
+	NGfx::CCubeTexture *pDepth, int nDepthBias, bool bFast, int nChannel )
 {
 	if ( fabs2(_vColor) == 0 || fRadius < 0.1f )
 		return;
@@ -563,7 +616,9 @@ void CLightmapTracker::RenderPointLightShadowed(
 	}
 	SBound bTarget;
 	bTarget.SphereInit( _vCenter, fRadius );
-	CSelectGeometries selector( pTarget->pGeom, SBoundIntersectFilter( bTarget ) );
+	auto receivers = pointHSR.find(SPointLightPos(_vCenter, fRadius));
+	CSelectGeometries selector( pTarget->pGeom,
+		SIgnoredSphereFilter(receivers == pointHSR.end() ? 0 : &receivers->second, bTarget.s) );
 	if ( !pTarget->pGeom->HasSelectedFragments() )
 		return;
 	SLightInfo lightInfo;
@@ -578,12 +633,12 @@ void CLightmapTracker::RenderPointLightShadowed(
 		if ( !bUseBump )
 		{
 			pTarget->pRC->SetColorWrite( NGfx::COLORWRITE_COLOR );
-			RenderLight( pTarget, lightInfo, RO_CL_PNT_LIGHT_SHADOWED, pDepth, (float)nDepthBias, DPM_EQUAL|ABM_ADD );
+			RenderLight( pTarget, lightInfo, RO_CL_PNT_LIGHT_SHADOWED, pDepth, (float)nDepthBias, DPM_EQUAL|ABM_ADD, float(nChannel) );
 		}
 		else
 		{
 			pTarget->pRC->SetColorWrite( NGfx::COLORWRITE_NONE );
-			RenderLight( pTarget, lightInfo, RO_CL_PNT_DEPTH_CHECK, pDepth, (float)nDepthBias, DPM_EQUAL|STM_LIGHT );
+			RenderLight( pTarget, lightInfo, RO_CL_PNT_DEPTH_CHECK, pDepth, (float)nDepthBias, DPM_EQUAL|STM_LIGHT, float(nChannel) );
 			pTarget->pRC->SetColorWrite( NGfx::COLORWRITE_COLOR );
 			CRenderCmdList alphaTestOps;
 			const vector<SRenderFragmentInfo*> &fragments = pTarget->pGeom->GetFragments();
@@ -782,7 +837,80 @@ void CLightmapTracker::ChooseNewSkyDirection( int nBuffer, int nTarget )
 	skyDirs[ nBuffer * N_DEPTH_CHANNELS_PER_TEX + nTarget ] = lightState.GenerateSkyDir( &ambientLightSeed );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CLightmapTracker::RecalcStep( NGfx::CRenderContext *pRC, CSceneFragments *pScene, CTransformStack *pTS )
+void CLightmapTracker::ChooseNewSkyDirections()
+{
+	for ( int k = 0; k < GetSkyTexturesNum(); ++k )
+		for ( int i = 0; i < N_DEPTH_CHANNELS_PER_TEX; ++i )
+			ChooseNewSkyDirection( k, i );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CLightmapTracker::FinishRecalc()
+{
+	rs.bColorReady = false;
+	rs.nState = RC_START;
+	rs.bCalcSky = UseProgressiveSky();
+	rs.bCalcColor = !rs.bCalcSky || !rs.bCalcColor;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+CCubeTextureChannel *CLightmapTracker::GetPointDepth( const CVec3 &vCenter, float fRadius )
+{
+	CObj<CCubeTextureChannel> &p = pointDepths[SPointLightPos(vCenter, fRadius)];
+	if ( !IsValid(p) || !IsValid(p->pTexture) )
+		p = shadowMapsShare.AllocCubeChannel();
+	return p;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CLightmapTracker::SortLights( vector<int> *pOrder )
+{
+	pOrder->resize(lightState.points.size());
+	vector<std::intptr_t> keys(lightState.points.size());
+	for ( int i = 0; i < lightState.points.size(); ++i )
+	{
+		(*pOrder)[i] = i;
+		const CLightState::SPointLight &light = lightState.points[i];
+		std::intptr_t key = 10;
+		if ( light.bCastShadow )
+		{
+			CCubeTextureChannel *p = pointDepths[SPointLightPos(light.vCenter, light.fRadius)];
+			key = 0;
+			if ( IsValid(p) && IsValid(p->pTexture) )
+			{
+				shadowMapsShare.TouchCubeChannel(p);
+				key = reinterpret_cast<std::intptr_t>(p->pTexture.GetPtr());
+				if ( NGfx::GetHardwareLevel() == NGfx::HL_GFORCE3 && p->nChannel == 0 )
+					key |= (std::numeric_limits<std::intptr_t>::min)();
+			}
+		}
+		keys[i] = key;
+	}
+	std::sort(pOrder->begin(), pOrder->end(), [&keys](int a, int b) { return keys[a] > keys[b]; });
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CLightmapTracker::RenderCachedPoints( SLightmapTargetGeom *pTarget )
+{
+	vector<int> order;
+	SortLights(&order);
+	for ( int k = 0; k < order.size(); ++k )
+	{
+		const CLightState::SPointLight &p = lightState.points[order[k]];
+		CCubeTextureChannel *channel = p.bCastShadow ? pointDepths[SPointLightPos(p.vCenter, p.fRadius)].GetPtr() : 0;
+		RenderPointLightShadowed( pTarget, p.vCenter, p.fRadius, p.vColor,
+			IsValid(channel) ? channel->pTexture.GetPtr() : 0, 3, true, IsValid(channel) ? channel->nChannel : 0 );
+	}
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CLightmapTracker::BeginPointRecalc()
+{
+	rs.nState = UsePrecisePointShadows() ? RC_COLOR_POINT : RC_DEPTH_POINT;
+	rs.nStep = 0;
+	if ( !lightState.points.empty() )
+		nPointLight %= lightState.points.size();
+	else
+		nPointLight = 0;
+	nPointLightStart = nPointLight;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CLightmapTracker::RecalcStep( NGfx::CRenderContext *pRC, CSceneFragments *pScene, CTransformStack *pTS, bool bSoftApply, int nScratchRegister )
 {
 	ASSERT( GetSkyTexturesNum() == 0 || ( nPassesPerCalc % GetSkyTexturesNum() ) == 0 );
 	SLightmapTargetGeom lmTarget( pScene, pRC, pTS, N_CL_TEMP_REGISTER );
@@ -794,7 +922,7 @@ void CLightmapTracker::RecalcStep( NGfx::CRenderContext *pRC, CSceneFragments *p
 				if ( rs.bCalcSky )
 					rs.nState = RC_SKY_DEPTH;
 				else if ( rs.bCalcColor )
-					rs.nState = RC_COLOR_POINT;
+					BeginPointRecalc();
 				else
 				{
 					ASSERT( 0 && "asked to recalc no lightmaps" );
@@ -811,15 +939,21 @@ void CLightmapTracker::RecalcStep( NGfx::CRenderContext *pRC, CSceneFragments *p
 			// calc sky map
 			{
 				if ( !CanDrawSky() )
-					rs.nState = RC_COLOR_POINT;
+					BeginPointRecalc();
 				else
 				{
 					int nChannel = rs.nStep % ( N_DEPTH_CHANNELS_PER_TEX + 1 );
 					int nBuf = ( rs.nStep / ( N_DEPTH_CHANNELS_PER_TEX + 1 ) ) % GetSkyTexturesNum();
+					if ( nChannel < N_DEPTH_CHANNELS_PER_TEX && rs.nStep < nPreparedSkySteps )
+					{
+						++rs.nStep;
+						RecalcStep( pRC, pScene, pTS, bSoftApply, nScratchRegister );
+						return;
+					}
 					if ( nChannel < N_DEPTH_CHANNELS_PER_TEX )
 					{
-						// pick new channel & new dir
-						ChooseNewSkyDirection( nBuf, nChannel );
+						if ( nChannel == 0 && nBuf == 0 )
+							ChooseNewSkyDirections();
 						RecalcDepthChannel( nBuf, 1 << nChannel, false );
 					}
 					else
@@ -827,10 +961,10 @@ void CLightmapTracker::RecalcStep( NGfx::CRenderContext *pRC, CSceneFragments *p
 					++rs.nStep;
 					if ( rs.nStep == (N_DEPTH_CHANNELS_PER_TEX+1) * nPassesPerCalc )
 					{
+						nPreparedSkySteps = 0;
 						if ( rs.bCalcColor )
 						{
-							rs.nStep = 0;
-							rs.nState = RC_COLOR_POINT;
+							BeginPointRecalc();
 						}
 						else
 							rs.nState = RC_APPLY;
@@ -841,36 +975,37 @@ void CLightmapTracker::RecalcStep( NGfx::CRenderContext *pRC, CSceneFragments *p
 		case RC_COLOR_POINT:
 			{
 				int nStep = rs.nStep % N_POINT_LIGHT_RECALC_STEPS;
-				int nLight = rs.nStep / N_POINT_LIGHT_RECALC_STEPS;
-				if ( nLight < lightState.points.size() )
+				int nCount = lightState.points.size();
+				if ( nCount > 0 )
 				{
-					const CLightState::SPointLight &p = lightState.points[ nLight ];
+					const CLightState::SPointLight &p = lightState.points[ nPointLight % nCount ];
 					if ( !p.bCastShadow )
 					{
 						RenderPointNoShadows( &lmTarget, p.vCenter, p.fRadius, p.vColor );
 						rs.nStep += N_POINT_LIGHT_RECALC_STEPS;
-						break;
+						++nPointLight;
 					}
-					if ( nStep < 3 )
+					else if ( nStep < 3 )
 					{
 						RenderCubeMapDepth( &lmTarget, p.vCenter, p.fRadius, nStep * 2 );
 						RenderCubeMapDepth( &lmTarget, p.vCenter, p.fRadius, nStep * 2 + 1 );
+						++rs.nStep;
 					}
 					else
 					{
 						DownsampleCubeMapDepth( p.vCenter, p.fRadius );
-						// Match CatchUp's map resolution and depth bias. Switching between
-						// the full cube and its cached copy changes lamp shadow boundaries
-						// whenever camera/floor changes reset the screen lightmap.
 						RenderPointLightShadowed( &lmTarget, p.vCenter, p.fRadius, p.vColor,
-							pointDepths[ SPointLightPos( p.vCenter, p.fRadius ) ], 3, false );
+							shadowMapsShare.GetCubeDepth(), 3, false );
+						++nPointLight;
+						++rs.nStep;
 					}
-					++rs.nStep;
 				}
-				else
+				if ( nCount == 0 || ( nPointLight != nPointLightStart && nPointLight % nCount == nPointLightStart % nCount ) )
 				{
+					nPointLight = nPointLightStart = 0;
 					rs.nStep = 0;
-					rs.nState = RC_APPLY;//RC_COLOR_SEMI;
+					rs.nState = RC_APPLY;
+					rs.bColorReady = true;
 				}
 			}
 			break;
@@ -878,10 +1013,17 @@ void CLightmapTracker::RecalcStep( NGfx::CRenderContext *pRC, CSceneFragments *p
 			// store to lightmap
 			{
 				NGfx::CRenderContext rc( *lmTarget.pRC );
+				rc.SetAlphaCombine( NGfx::COMBINE_NONE );
+				rc.SetDepth( NGfx::DEPTH_NONE );
+				rc.SetStencil( NGfx::STENCIL_NONE );
+				rc.SetColorWrite( NGfx::COLORWRITE_ALL );
+				const int nApplyRegister = bSoftApply ? nScratchRegister : N_CL_TARGET_REGISTER;
+				if ( bSoftApply )
+					NGfx::CopyLightmapRegister( &rc, nApplyRegister, N_CL_TARGET_REGISTER );
 				if ( !rs.bCalcSky )
 				{
 					rc.SetColorWrite( NGfx::COLORWRITE_COLOR );
-					NGfx::AlphaSqrtModulateRegister( &rc, N_CL_TARGET_REGISTER, N_CL_TEMP_REGISTER, 1 );
+					NGfx::AlphaSqrtModulateRegister( &rc, nApplyRegister, N_CL_TEMP_REGISTER, 1 );
 				}
 				else
 				{
@@ -890,46 +1032,149 @@ void CLightmapTracker::RecalcStep( NGfx::CRenderContext *pRC, CSceneFragments *p
 						// blend with previous result
 						nLights = Min( nLights, 64 );
 						float fNewBlend = ((float)nPassesPerCalc ) / ( nPassesPerCalc + nLights );
-						if ( rs.bCalcColor )
+						if ( rs.bColorReady )
 						{
 							CVec4 vOldBlend( 0, 0, 0, 1 - fNewBlend );
-							NGfx::ModulateRegister( &rc, N_CL_TARGET_REGISTER, vOldBlend );
+							NGfx::ModulateRegister( &rc, nApplyRegister, vOldBlend );
 							rc.SetAlphaCombine( NGfx::COMBINE_ADD );
-							NGfx::AlphaSqrtModulateRegister( &rc, N_CL_TARGET_REGISTER, N_CL_TEMP_REGISTER, fNewBlend );
+							NGfx::AlphaSqrtModulateRegister( &rc, nApplyRegister, N_CL_TEMP_REGISTER, fNewBlend );
 						}
 						else
 						{
 							CVec4 vOldBlend( 1, 1, 1, 1 - fNewBlend );
-							NGfx::ModulateRegister( &rc, N_CL_TARGET_REGISTER, vOldBlend );
+							NGfx::ModulateRegister( &rc, nApplyRegister, vOldBlend );
 							rc.SetColorWrite( NGfx::COLORWRITE_ALPHA );
 							rc.SetAlphaCombine( NGfx::COMBINE_ADD );
-							NGfx::AlphaSqrtModulateRegister( &rc, N_CL_TARGET_REGISTER, N_CL_TEMP_REGISTER, fNewBlend );
+							NGfx::AlphaSqrtModulateRegister( &rc, nApplyRegister, N_CL_TEMP_REGISTER, fNewBlend );
 						}
 					}
 					else
 					{
 						// simple store
-						if ( !rs.bCalcColor )
+						if ( !rs.bColorReady )
 							rc.SetColorWrite( NGfx::COLORWRITE_ALPHA );
-						NGfx::AlphaSqrtModulateRegister( &rc, N_CL_TARGET_REGISTER, N_CL_TEMP_REGISTER, 1 );
+						NGfx::AlphaSqrtModulateRegister( &rc, nApplyRegister, N_CL_TEMP_REGISTER, 1 );
 					}
 					nLights += nPassesPerCalc;
 					nPassesPerCalc *= 2;
 					if ( nPassesPerCalc > 32 )
 						nPassesPerCalc = 32;
 				}
-				rs.nState = RC_START; // circle on the sand round and round ( (C)Belinda Carl..)
-			rs.bCalcSky = UseProgressiveSky();
-			rs.bCalcColor = !rs.bCalcSky || !rs.bCalcColor;
+				if ( bSoftApply )
+				{
+					rc.SetColorWrite( NGfx::COLORWRITE_ALL );
+					rc.SetAlphaCombine( NGfx::COMBINE_NONE );
+					NGfx::CopyLightmapRegister( &rc, N_CL_TEMP_REGISTER, nApplyRegister );
+					rs.nState = RC_SOFT_APPLY;
+					rs.nStep = 0;
+				}
+				else
+					FinishRecalc();
+			}
+			break;
+		case RC_DEPTH_POINT:
+			{
+				const int nCount = lightState.points.size();
+				const int nFace = rs.nStep % 6;
+				if ( nCount > 0 )
+				{
+					const CLightState::SPointLight &p = lightState.points[nPointLight % nCount];
+					if ( p.bCastShadow )
+						RenderCubeMapDepth( &lmTarget, p.vCenter, p.fRadius, nFace, GetPointDepth(p.vCenter, p.fRadius) );
+					if ( nFace == 5 )
+						++nPointLight;
+					++rs.nStep;
+				}
+				if ( nCount == 0 || ( nPointLight != nPointLightStart && nPointLight % nCount == nPointLightStart % nCount ) )
+				{
+					nPointLight = nPointLightStart = 0;
+					rs.nStep = 0;
+					rs.nState = RC_APPLY;
+					RenderCachedPoints(&lmTarget);
+					rs.bColorReady = true;
+				}
+			}
+			break;
+		case RC_SOFT_APPLY:
+			{
+				// Retail 0x52f5d4: prepare next sky sweep while blending this one.
+				if ( CanDrawSky() && UseProgressiveSky() )
+				{
+					if ( rs.nStep == 0 )
+						ChooseNewSkyDirections();
+					int nBuf = rs.nStep / N_DEPTH_CHANNELS_PER_TEX;
+					int nChannel = rs.nStep % N_DEPTH_CHANNELS_PER_TEX;
+					if ( nBuf < GetSkyTexturesNum() )
+						RecalcDepthChannel( nBuf, 1 << nChannel, false );
+					nPreparedSkySteps = nBuf * (N_DEPTH_CHANNELS_PER_TEX + 1) + nChannel + 1;
+				}
+				NGfx::CRenderContext rc( *pRC );
+				rc.SetColorWrite( NGfx::COLORWRITE_ALL );
+				rc.SetDepth( NGfx::DEPTH_NONE );
+				rc.SetStencil( NGfx::STENCIL_NONE );
+				if ( ++rs.nStep >= 12 )
+				{
+					rc.SetAlphaCombine( NGfx::COMBINE_NONE );
+					NGfx::CopyLightmapRegister( &rc, N_CL_TARGET_REGISTER, N_CL_TEMP_REGISTER );
+					FinishRecalc();
+				}
+				else
+				{
+					float fRemaining = 1 - rs.nStep * (1.f / 12.f);
+					float fOld = fRemaining / ( fRemaining + 1.f / 12.f );
+					NGfx::ModulateRegister( &rc, N_CL_TARGET_REGISTER, CVec4(fOld,fOld,fOld,fOld) );
+					rc.SetAlphaCombine( NGfx::COMBINE_ADD );
+					NGfx::CopyLightmapRegister( &rc, N_CL_TARGET_REGISTER, N_CL_TEMP_REGISTER, 1 - fOld );
+				}
 			}
 			break;
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CLightmapTracker::CatchUp( NGfx::CRenderContext *_pRC, IRender *_pRender, CTransformStack *pTS, CSceneFragments *pScene, bool bHasNewLightmaps, const SGroupSelect &_gs )
+// The screen registers belong to the most recently rendered scene, not to its tracker.
+static CPtr<CLightmapTracker> pPreviousCLTracker;
+////////////////////////////////////////////////////////////////////////////////////////////////////
+static void PrepareCLHistory( NGfx::CRenderContext *pRC, int nHistoryRegister )
 {
+	NGfx::CRenderContext rc( *pRC );
+	CTRect<float> size;
+	NGfx::GetRegisterSize( &size );
+	rc.SetVirtualRT();
+	rc.SetRegister( nHistoryRegister );
+	rc.SetColorWrite( NGfx::COLORWRITE_ALL );
+	rc.SetStencil( NGfx::STENCIL_NONE );
+	rc.SetAlphaCombine( NGfx::COMBINE_NONE );
+	{
+		// White depth cannot match ordinary scene geometry. Clamp sampling outside
+		// the old viewport must hit this border, never reuse an edge pixel forever.
+		NGfx::C2DQuadsRenderer qr( rc, CVec2(size.x2, size.y2), NGfx::QRM_SOLID );
+		qr.AddRect( CTRect<float>(0, 0, size.x2, 1), 0, size );
+		qr.AddRect( CTRect<float>(0, size.y2 - 1, size.x2, size.y2), 0, size );
+		qr.AddRect( CTRect<float>(0, 0, 1, size.y2), 0, size );
+		qr.AddRect( CTRect<float>(size.x2 - 1, 0, size.x2, size.y2), 0, size );
+	}
+	// Clear only our scratch stencil bit, preserving the sun/point-light bit.
+	rc.SetColorWrite( NGfx::COLORWRITE_NONE );
+	rc.SetStencil( NGfx::STENCIL_WRITE, 0, 0x40 );
+	NGfx::C2DQuadsRenderer qr( rc, CVec2(size.x2, size.y2), NGfx::QRM_SOLID );
+	qr.AddRect( size, 0, size );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void CLightmapTracker::CatchUp( NGfx::CRenderContext *_pRC, IRender *_pRender, CTransformStack *pTS, CSceneFragments *pScene,
+	bool bHasNewLightmaps, const SGroupSelect &_gs, bool bFirstCatch,
+	const CVec4 &vDepth, bool bReuseLight, int nScratchRegister )
+{
+	shadowMapsShare.NextCubeFrame();
 	NGfx::CRenderContext rc( *_pRC );
 	pRender = _pRender;
+	bReuseLight = bReuseLight && NGfx::GetHardwareLevel() >= NGfx::HL_GFORCE3;
+	const bool bHistoryValid = bReuseLight && pPreviousCLTracker == this &&
+		pHistoryDepth == NGfx::GetRegisterTexture( N_CL_DEPTH_REGISTER ) &&
+		pHistoryLight == NGfx::GetRegisterTexture( N_CL_TARGET_REGISTER );
+	const bool bKeepPrevious = bHistoryValid && !bHasNewLightmaps && !bLightStateUpdated && !(_gs != groupSelect);
+	if ( pPreviousCLTracker != this || (bReuseLight && !bHistoryValid) || bLightStateUpdated )
+		bHasNewLightmaps = true;
+	bLightStateUpdated = false;
 	bool bRecalcAllDepth = bHasNewLightmaps;
 	if ( _gs != groupSelect )
 	{
@@ -940,7 +1185,6 @@ void CLightmapTracker::CatchUp( NGfx::CRenderContext *_pRC, IRender *_pRender, C
 	}
 	if ( memcmp( &pTS->Get().forward, &mPrevView, sizeof(mPrevView) ) != 0 )
 	{
-		mPrevView = pTS->Get().forward;
 		bHasNewLightmaps = true;
 	}
 	CSelectFragments filterLightmapped( pScene, SLightmappedFilter() );
@@ -1001,11 +1245,44 @@ void CLightmapTracker::CatchUp( NGfx::CRenderContext *_pRC, IRender *_pRender, C
 		}
 	}
 
+	// Retail v1.2 0x52fad3: the first catch builds every coarse cube face, even
+	// while the camera moves. Later stationary frames refine these cached maps.
+	if ( bFirstCatch )
+	{
+		SLightmapTargetGeom target( pScene, &rc, pTS, N_CL_TEMP_REGISTER );
+		for ( int i = 0; i < lightState.points.size(); ++i )
+		{
+			const CLightState::SPointLight &p = lightState.points[i];
+			if ( !p.bCastShadow )
+				continue;
+			CCubeTextureChannel *pChannel = GetPointDepth( p.vCenter, p.fRadius );
+			for ( int nFace = 0; nFace < 6; ++nFace )
+				RenderCubeMapDepth( &target, p.vCenter, p.fRadius, nFace, pChannel );
+		}
+	}
+
 	// calc lightmap for new stuff
 	//CalcCorrectZBuffer( &rc, _pRender, pTS, pScene );
 	if ( bHasNewLightmaps )
 	{
 		SLightmapTargetGeom lmTarget( pScene, &rc, pTS, N_CL_TEMP_REGISTER );
+		if ( bKeepPrevious )
+		{
+			// Retail v1.2 CatchUp @0x52fb90: reproject last light onto the current
+			// geometry; only matching previous surface depths set stencil bit 0x40.
+			PrepareCLHistory( &rc, nScratchRegister );
+			rc.SetColorWrite( NGfx::COLORWRITE_NONE );
+			RenderLight( &lmTarget, SLightInfo(), RO_CL_TEST_PREV_FRAME, &vDepth, &mPrevView.x,
+				DPM_EQUAL | STM_MARK_2, float(nScratchRegister) );
+			rc.SetColorWrite( NGfx::COLORWRITE_ALL );
+			RenderLight( &lmTarget, SLightInfo(), RO_CL_COPY_LAST, &mPrevView.x,
+				float(N_CL_TARGET_REGISTER), DPM_EQUAL );
+			CTRect<float> size;
+			NGfx::GetRegisterSize( &size );
+			rc.SetRegister( N_CL_TARGET_REGISTER );
+			NGfx::CopyTexture( rc, CVec2(size.x2, size.y2), size,
+				NGfx::GetRegisterTexture(N_CL_TEMP_REGISTER), size );
+		}
 		// clear
 		lmTarget.pRC->SetRegister( N_CL_TEMP_REGISTER );
 		if ( CanDrawSky() )
@@ -1019,32 +1296,50 @@ void CLightmapTracker::CatchUp( NGfx::CRenderContext *_pRC, IRender *_pRender, C
 				RenderSkyCheck( &lmTarget, F_SKY_SINGLE_STRENGTH_MUL / N_DEPTH_CHANNELS_PER_TEX / GetSkyTexturesNum(), nBuf, true );
 		}
 		// color map
+		// Keep the reprojected sky alpha; point-light color is updated independently.
+		lmTarget.nTargetRegister = N_CL_TARGET_REGISTER;
 		lmTarget.pRC->SetColorWrite( NGfx::COLORWRITE_COLOR );
-		for ( int k = 0; k < lightState.points.size(); ++k )
-		{
-			const CLightState::SPointLight &p = lightState.points[ k ];
-			RenderPointLightShadowed( &lmTarget, p.vCenter, p.fRadius, p.vColor,
-				pointDepths[ SPointLightPos( p.vCenter, p.fRadius ) ], 3, false );//true );
-		}
-		// copy to origin
-		lmTarget.pRC->SetColorWrite( NGfx::COLORWRITE_ALL );
-		lmTarget.pRC->SetAlphaCombine( NGfx::COMBINE_NONE );
 		lmTarget.pRC->SetStencil( NGfx::STENCIL_NONE );
+		NGfx::ModulateRegister( lmTarget.pRC, N_CL_TARGET_REGISTER, CVec4(0,0,0,0) );
+		RenderCachedPoints(&lmTarget);
+		// copy to origin
+		lmTarget.pRC->SetColorWrite( NGfx::COLORWRITE_ALPHA );
+		lmTarget.pRC->SetAlphaCombine( NGfx::COMBINE_NONE );
+		lmTarget.pRC->SetStencil( bKeepPrevious ? NGfx::STENCIL_TEST_CLEAR : NGfx::STENCIL_NONE, 0, 0x40 );
 		lmTarget.pRC->SetDepth( NGfx::DEPTH_NONE );
 		NGfx::AlphaSqrtModulateRegister( lmTarget.pRC, N_CL_TARGET_REGISTER, N_CL_TEMP_REGISTER, 1 );
 		// initiate recalc
+		nPreparedSkySteps = 0;
 		rs.nState = RC_START;
 		rs.bCalcSky = UseProgressiveSky();
 		rs.bCalcColor = true;
+		rs.bColorReady = false;
 		nLights = GetSkyTexturesNum();
 		nPassesPerCalc = Max( 4, GetSkyTexturesNum() * 2 );
 	}
 	if ( pScene->HasSelectedFragments() && !bHasNewLightmaps && (movingSkySamples || !lightState.points.empty()) )
-		RecalcStep( &rc, pScene, pTS );
+		RecalcStep( &rc, pScene, pTS, bReuseLight, nScratchRegister );
+	if ( bReuseLight )
+	{
+		// The existing sun pass emits this depth together with shadow RGB.
+		// RenderPPShadowOps preserves the old alpha until reuse has finished.
+		pHistoryDepth = NGfx::GetRegisterTexture( N_CL_DEPTH_REGISTER );
+		pHistoryLight = NGfx::GetRegisterTexture( N_CL_TARGET_REGISTER );
+	}
+	else
+	{
+		pHistoryDepth = 0;
+		pHistoryLight = 0;
+	}
+	pPreviousCLTracker = this;
+	mPrevView = pTS->Get().forward;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CLightmapTracker::SetNewIllumination( const SGlobalIlluminationInfo &gl )
 {
+	rs.bColorReady = false;
+	nPreparedSkySteps = 0;
+	bLightStateUpdated = true;
 	globalIllumination = gl;
 	rs.nState = RC_START;
 	rs.bCalcColor = true;

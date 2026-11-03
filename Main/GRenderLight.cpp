@@ -22,6 +22,9 @@ namespace NGScene
 {
 bool bStaticShadowDepthRendered;
 const int N_GF3_TEMP_REG = 4;
+// Unlike retail's later specular pipeline, this renderer needs N.H scratch.
+// Keep it separate from the sun/depth history retained in register 4 alpha.
+const int N_GF3_SPECULAR_REG = 5;
 // retail globals: the depth-shadow source bound for the scene being drawn (@0x155730 preamble) --
 // a no-shadow scene gets the black texture, so an overlay scene never samples the world's shadow map
 static CObj<NGfx::CTexture> pCurrentDepthTexture;
@@ -226,19 +229,19 @@ static void RenderLight( SOpGenContext &op, const SMaterialInfo &info, const CVe
 						if ( info.specular.type == SMaterialInfo::T_TEXTURE )
 						{
 							bCalcNH = true;
-							op.AddOperation( RO_PP_SPECULAR_TEXTURE_DIR, 7, DPM_EQUAL, 1, N_GF3_TEMP_REG, info.specular.pTex );
+							op.AddOperation( RO_PP_SPECULAR_TEXTURE_DIR, 7, DPM_EQUAL, 1, N_GF3_SPECULAR_REG, info.specular.pTex );
 						}
 						else if ( info.specular.type == SMaterialInfo::T_COLOR )
 						{
 							bCalcNH = true;
-							op.AddOperation( RO_PP_SPECULAR_COLOR_DIR, 7, DPM_EQUAL, 1, N_GF3_TEMP_REG, &info.specular.color );
+							op.AddOperation( RO_PP_SPECULAR_COLOR_DIR, 7, DPM_EQUAL, 1, N_GF3_SPECULAR_REG, &info.specular.color );
 						}
 						if ( bCalcNH )
 						{
 							if ( info.pBump )
-								op.AddOperation( RO_NHCALC_BUMP, 3, DPM_EQUAL, N_GF3_TEMP_REG, info.pBump );
+								op.AddOperation( RO_NHCALC_BUMP, 3, DPM_EQUAL, N_GF3_SPECULAR_REG, info.pBump );
 							else
-								op.AddOperation( RO_NHCALC, 3, DPM_EQUAL, N_GF3_TEMP_REG, info.fSpecPower );
+								op.AddOperation( RO_NHCALC, 3, DPM_EQUAL, N_GF3_SPECULAR_REG, info.fSpecPower );
 						}
 					}
 					// diffuse
@@ -397,6 +400,12 @@ void CDirectionalLight::RenderPPShadowOps( CTransformStack *pTS, CTransformStack
 
 	if ( renderPath == RP_GF3_CL )
 	{
+		const bool bReuseLight = bBlurCL && NGfx::GetHardwareLevel() >= NGfx::HL_GFORCE3 &&
+			!(pCLRender->GetLightingOptions() & 2);
+		const int nHistoryRegister = bReuseLight && bBlurSun ? 1 : N_GF3_TEMP_REG;
+		// Retail v1.2 0x553eda: preserve last frame before the sun pass writes 4.
+		if ( bReuseLight && bBlurSun )
+			NGfx::CopyRegister( 1, N_GF3_TEMP_REG );
 		// fill zbuffer then update lightmaps then continue zchecking
 		{
 			CSelectFragments filterLightmapped( &scene, SLightmappedFilter() );
@@ -404,7 +413,10 @@ void CDirectionalLight::RenderPPShadowOps( CTransformStack *pTS, CTransformStack
 			Render( pTS, pRC, renderPath, pRender, scene, lightInfo, RenderShadowTest, depthInfo );
 		}
 		if ( !(pCLRender->GetLightingOptions() & 2) )   // retail gate in @0x153df0
-			pCLRender->RenderCL( pRC, pRender, pTS, &scene, pCLStaticTrack.Refresh() );
+			pCLRender->RenderCL( pRC, pRender, pTS, &scene, pCLStaticTrack.Refresh(), vDepth, bReuseLight, nHistoryRegister );
+		// Retail v1.2 0x55403b: unblurred sun writes 1, after consuming old 4.
+		if ( bReuseLight && !bBlurSun )
+			NGfx::CopyRegister( N_GF3_TEMP_REG, 1 );
 		{
 			CSelectFragments filterLightmapped( &scene, SNonLightmappedFilter() );
 			RenderAlphaTested( pTS, pRC, pRender, &scene );
@@ -518,7 +530,7 @@ void CDirectionalLight::RenderAmbientLightmaps( CTransformStack *pTS, NGfx::CRen
 	}
 
 	if ( !(pCLRender->GetLightingOptions() & 2) )   // retail @0x151b80 gate
-		pCLRender->RenderCL( pRC, pRender, pTS, &scene, pCLStaticTrack.Refresh() );
+		pCLRender->RenderCL( pRC, pRender, pTS, &scene, pCLStaticTrack.Refresh(), vDepth, false, N_GF3_TEMP_REG );
 	// multiply diffuse with lightmap
 	CTRect<float> regSize;
 	NGfx::GetRegisterSize( &regSize );
@@ -614,19 +626,19 @@ void CDirectionalLight::RenderInSinglePass( CTransformStack *pTS, CTransformStac
 							if ( info.specular.type == SMaterialInfo::T_TEXTURE )
 							{
 								bCalcNH = true;
-								op.AddOperation( RO_PP_SPECULAR_FULL_TEXTURE_DIR, 7, DPM_EQUAL, 0, N_GF3_TEMP_REG, info.specular.pTex );
+								op.AddOperation( RO_PP_SPECULAR_FULL_TEXTURE_DIR, 7, DPM_EQUAL, 0, N_GF3_SPECULAR_REG, info.specular.pTex );
 							}
 							else if ( info.specular.type == SMaterialInfo::T_COLOR )
 							{
 								bCalcNH = true;
-								op.AddOperation( RO_PP_SPECULAR_FULL_COLOR_DIR, 7, DPM_EQUAL, 0, N_GF3_TEMP_REG, &info.specular.color );
+								op.AddOperation( RO_PP_SPECULAR_FULL_COLOR_DIR, 7, DPM_EQUAL, 0, N_GF3_SPECULAR_REG, &info.specular.color );
 							}
 							if ( bCalcNH )
 							{
 								if ( info.pBump )
-									op.AddOperation( RO_NHCALC_BUMP, 3, DPM_EQUAL, N_GF3_TEMP_REG, info.pBump );
+									op.AddOperation( RO_NHCALC_BUMP, 3, DPM_EQUAL, N_GF3_SPECULAR_REG, info.pBump );
 								else
-									op.AddOperation( RO_NHCALC, 3, DPM_EQUAL, N_GF3_TEMP_REG, info.fSpecPower );
+									op.AddOperation( RO_NHCALC, 3, DPM_EQUAL, N_GF3_SPECULAR_REG, info.fSpecPower );
 							}
 						}
 						// diffuse
@@ -668,19 +680,19 @@ void CDirectionalLight::RenderInSinglePass( CTransformStack *pTS, CTransformStac
 							if ( info.specular.type == SMaterialInfo::T_TEXTURE )
 							{
 								bCalcNH = true;
-								op.AddOperation( RO_PP_SPECULAR_FULL_TEXTURE_DIR, 7, DPM_EQUAL, 0, N_GF3_TEMP_REG, info.specular.pTex );
+								op.AddOperation( RO_PP_SPECULAR_FULL_TEXTURE_DIR, 7, DPM_EQUAL, 0, N_GF3_SPECULAR_REG, info.specular.pTex );
 							}
 							else if ( info.specular.type == SMaterialInfo::T_COLOR )
 							{
 								bCalcNH = true;
-								op.AddOperation( RO_PP_SPECULAR_FULL_COLOR_DIR, 7, DPM_EQUAL, 0, N_GF3_TEMP_REG, &info.specular.color );
+								op.AddOperation( RO_PP_SPECULAR_FULL_COLOR_DIR, 7, DPM_EQUAL, 0, N_GF3_SPECULAR_REG, &info.specular.color );
 							}
 							if ( bCalcNH )
 							{
 								if ( info.pBump )
-									op.AddOperation( RO_NHCALC_BUMP, 3, DPM_EQUAL, N_GF3_TEMP_REG, info.pBump );
+									op.AddOperation( RO_NHCALC_BUMP, 3, DPM_EQUAL, N_GF3_SPECULAR_REG, info.pBump );
 								else
-									op.AddOperation( RO_NHCALC, 3, DPM_EQUAL, N_GF3_TEMP_REG, info.fSpecPower );
+									op.AddOperation( RO_NHCALC, 3, DPM_EQUAL, N_GF3_SPECULAR_REG, info.fSpecPower );
 							}
 						}
 						// diffuse
@@ -801,10 +813,25 @@ void CDirectionalLight::Render( CTransformStack *pTS, CTransformStack *pClipTS, 
 			RenderInSinglePass( pTS, pClipTS, pRC, renderPath, pRender, scene, particleLM, lightInfo );
 			return;
 		case RP_UPDATE_CL:
+		{
+			const bool bReuseLight = bBlurCL && NGfx::GetHardwareLevel() >= NGfx::HL_GFORCE3;
 			FillZBufferForLightmapped( pRC, pRender, pTS, &scene );
 			if ( !(pCLRender->GetLightingOptions() & 2) )   // retail gate in @0x155730 UPDATE_CL arm
-				pCLRender->RenderCL( pRC, pRender, pTS, &scene, pCLStaticTrack.Refresh() );
+				pCLRender->RenderCL( pRC, pRender, pTS, &scene, pCLStaticTrack.Refresh(), vDepth, bReuseLight, N_GF3_TEMP_REG );
+			// Retail refreshes the combined sun/depth output after the debug view's
+			// cached-light update, rather than adding a depth-only geometry pass.
+			if ( bReuseLight )
+			{
+				SPerspDirectionalDepthInfo depthInfo;
+				UpdateDepthTexture( pTS, pClipTS, pRender, lightInfo, &depthInfo );
+				pRC->ClearZBuffer();
+				RenderAlphaTested( pTS, pRC, pRender, &scene );
+				Render( pTS, pRC, renderPath, pRender, scene, lightInfo, RenderShadowTest, depthInfo );
+				if ( !bBlurSun )
+					NGfx::CopyRegister( N_GF3_TEMP_REG, 1 );
+			}
 			return;
+		}
 		case RP_GF2:
 		case RP_GF2_CL:
 			break;
@@ -1039,19 +1066,19 @@ void CPointLight::Add( SOpGenContext &op, ERenderPath renderPath, const SMateria
 			if ( info.specular.type == SMaterialInfo::T_TEXTURE )
 			{
 				bCalcNH = true;
-				op.AddOperation( RO_PP_SPECULAR_TEXTURE_PNT, 11, ABM_ADD|DPM_EQUAL, 1, N_GF3_TEMP_REG, info.specular.pTex );
+				op.AddOperation( RO_PP_SPECULAR_TEXTURE_PNT, 11, ABM_ADD|DPM_EQUAL, 1, N_GF3_SPECULAR_REG, info.specular.pTex );
 			}
 			else if ( info.specular.type == SMaterialInfo::T_COLOR )
 			{
 				bCalcNH = true;
-				op.AddOperation( RO_PP_SPECULAR_COLOR_PNT, 11, ABM_ADD|DPM_EQUAL, 1, N_GF3_TEMP_REG, &info.specular.color );
+				op.AddOperation( RO_PP_SPECULAR_COLOR_PNT, 11, ABM_ADD|DPM_EQUAL, 1, N_GF3_SPECULAR_REG, &info.specular.color );
 			}
 			if ( bCalcNH )
 			{
 				if ( info.pBump )
-					op.AddOperation( RO_NHCALC_BUMP, 3, DPM_EQUAL, N_GF3_TEMP_REG, info.pBump );
+				op.AddOperation( RO_NHCALC_BUMP, 3, DPM_EQUAL, N_GF3_SPECULAR_REG, info.pBump );
 				else
-					op.AddOperation( RO_NHCALC, 3, DPM_EQUAL, N_GF3_TEMP_REG, info.fSpecPower );
+				op.AddOperation( RO_NHCALC, 3, DPM_EQUAL, N_GF3_SPECULAR_REG, info.fSpecPower );
 			}
 		}
 		break;
@@ -1171,19 +1198,19 @@ void CDynamicPointLight::Add( SOpGenContext &op, ERenderPath renderPath, const S
 			if ( info.specular.type == SMaterialInfo::T_TEXTURE )
 			{
 				bCalcNH = true;
-				op.AddOperation( RO_PP_SPECULAR_TEXTURE_PNT, 11, ABM_ADD|DPM_EQUAL, nTargetReg, N_GF3_TEMP_REG, info.specular.pTex );
+				op.AddOperation( RO_PP_SPECULAR_TEXTURE_PNT, 11, ABM_ADD|DPM_EQUAL, nTargetReg, N_GF3_SPECULAR_REG, info.specular.pTex );
 			}
 			else if ( info.specular.type == SMaterialInfo::T_COLOR )
 			{
 				bCalcNH = true;
-				op.AddOperation( RO_PP_SPECULAR_COLOR_PNT, 11, ABM_ADD|DPM_EQUAL, nTargetReg, N_GF3_TEMP_REG, &info.specular.color );
+				op.AddOperation( RO_PP_SPECULAR_COLOR_PNT, 11, ABM_ADD|DPM_EQUAL, nTargetReg, N_GF3_SPECULAR_REG, &info.specular.color );
 			}
 			if ( bCalcNH )
 			{
 				if ( info.pBump )
-					op.AddOperation( RO_NHCALC_BUMP, 3, DPM_EQUAL, N_GF3_TEMP_REG, info.pBump );
+				op.AddOperation( RO_NHCALC_BUMP, 3, DPM_EQUAL, N_GF3_SPECULAR_REG, info.pBump );
 				else
-					op.AddOperation( RO_NHCALC, 3, DPM_EQUAL, N_GF3_TEMP_REG, info.fSpecPower );
+				op.AddOperation( RO_NHCALC, 3, DPM_EQUAL, N_GF3_SPECULAR_REG, info.fSpecPower );
 			}
 		}
 		break;

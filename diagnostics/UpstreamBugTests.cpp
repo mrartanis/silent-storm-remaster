@@ -35108,7 +35108,7 @@ template struct CachedPointStateAccess<&NGScene::CLightmapTracker::rs>;
 struct CachedPointRendererTag { friend auto CachedPointMember(CachedPointRendererTag); };
 template<auto Member> struct CachedPointRendererAccess { friend auto CachedPointMember(CachedPointRendererTag){return Member;} };
 template struct CachedPointRendererAccess<&NGScene::CLightmapTracker::pRender>;
-struct CachedPointStepTag { using type=void(NGScene::CLightmapTracker::*)(NGfx::CRenderContext*,NGScene::CSceneFragments*,CTransformStack*);friend type CachedPointMember(CachedPointStepTag); };
+struct CachedPointStepTag { using type=void(NGScene::CLightmapTracker::*)(NGfx::CRenderContext*,NGScene::CSceneFragments*,CTransformStack*,bool,int);friend type CachedPointMember(CachedPointStepTag); };
 template<auto Member> struct CachedPointStepAccess { friend CachedPointStepTag::type CachedPointMember(CachedPointStepTag){return Member;} };
 template struct CachedPointStepAccess<&NGScene::CLightmapTracker::RecalcStep>;
 
@@ -35118,8 +35118,8 @@ class ObservedCachedPointRenderer: public NGScene::CRenderWrapper
 public:
     int shadowViews=0;
     explicit ObservedCachedPointRenderer(NGScene::CGScene* scene):CRenderWrapper(scene){}
-    void FormDirOccludersList(CTransformStack* ts,const CVec3& direction,NGScene::CSceneFragments* result,const NGScene::SGroupSelect& groups,bool fast) override {
-        ++shadowViews;CRenderWrapper::FormDirOccludersList(ts,direction,result,groups,fast);
+    void FormDepthList(CTransformStack* ts,const CVec3& direction,NGScene::CSceneFragments* result,EDepthType type) override {
+        ++shadowViews;CRenderWrapper::FormDepthList(ts,direction,result,type);
     }
 };
 
@@ -35127,6 +35127,7 @@ static void NativeCachedPointShadowFlag(const char* databasePath,const char* res
 {
     Require(mode>=0 && mode<=7,"unknown cached point shadow-flag case");
     NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm cached point shadow flag regression");
+    NGlobal::SetVar("gfx_resolution",wstring(L"320x240"));NGlobal::SetVar("gfx_fullscreen",0);Require(NGScene::SetModeFromConfig(false) && NGScene::UsePrecisePointShadows(),"cached point fixture lacks actual configured refinement targets");
     CObj<NGScene::CGScene> scene=new NGScene::CGScene(0);ObservedCachedPointRenderer renderer(scene);
     CObj<NGScene::CLightmapTracker> tracker=new NGScene::CLightmapTracker;
     NGScene::CLightState input;input.vAmbientColor=VNULL3;input.vUpDifColor=VNULL3;
@@ -35143,15 +35144,15 @@ static void NativeCachedPointShadowFlag(const char* databasePath,const char* res
         CObj<CachedPointReceiverTriangles> triangles=new CachedPointReceiverTriangles;CObj<AnimatedLightMaterial> material=new AnimatedLightMaterial;
         NGScene::SRenderGeometryInfo geometry;geometry.pTriLists[NGScene::TLT_GEOM]=triangles.GetPtr();geometry.pTriLists[NGScene::TLT_POSITION]=triangles.GetPtr();
         SBound bound;bound.SphereInit(CVec3(0,0,2),1.f);const int index=receivers.AddGeometry(nullptr,&geometry,bound);NGScene::CPartFlags parts;parts.Clear();parts.Set(0);receivers.AddElement(index,parts,material,nullptr,nullptr);
-        bool reached=false;try{(tracker.GetPtr()->*CachedPointMember(CachedPointStepTag{}))(&context,&receivers,&transform);}catch(const CachedPointReceiverReached&){reached=true;}catch(const AnimatedLightRenderReached&){reached=true;}
+        bool reached=false;try{(tracker.GetPtr()->*CachedPointMember(CachedPointStepTag{}))(&context,&receivers,&transform,false,1);}catch(const CachedPointReceiverReached&){reached=true;}catch(const AnimatedLightRenderReached&){reached=true;}
         std::printf("CACHED-POINT-FLAG mode=7 receiverReached=%d expectedReceiver=1 shadowViews=%d expectedViews=0 state=%d step=%d\n",int(reached),renderer.shadowViews,int(state.nState),state.nStep);std::fflush(stdout);
         Require(reached && renderer.shadowViews==0,"nonshadowed cached point skipped its positive native receiver color traversal or still generated occluder views");return;
     }
     const int calls=mode==2 || mode==5?2:1;
-    for(int i=0;i<calls;++i)(tracker.GetPtr()->*CachedPointMember(CachedPointStepTag{}))(&context,&receivers,&transform);
+    for(int i=0;i<calls;++i)(tracker.GetPtr()->*CachedPointMember(CachedPointStepTag{}))(&context,&receivers,&transform,false,1);
     const int expectedViews=mode==0 || mode==4 || mode==5?2:0;
-    const int expectedStep=mode==0?1:mode==2?8:mode==4?2:mode==5?5:mode==6?0:4;
-    const int expectedState=mode==6?4:2;
+    const int expectedStep=mode==0?1:mode==4?2:mode==5?5:0;
+    const int expectedState=mode==0 || mode==4 || mode==5?2:5;
     std::printf("CACHED-POINT-FLAG mode=%d lights=%u firstShadow=%d calls=%d shadowViews=%d expectedViews=%d step=%d expectedStep=%d state=%d expectedState=%d\n",mode,unsigned(input.points.size()),int(firstShadow),calls,renderer.shadowViews,expectedViews,state.nStep,expectedStep,int(state.nState),expectedState);std::fflush(stdout);
     Require(renderer.shadowViews==expectedViews,"cached point light with shadows disabled still generated real cubemap occluder views or disturbed a shadow-casting neighbor");
     Require(state.nStep==expectedStep && int(state.nState)==expectedState,"cached point light did not complete its color work and advance to the next source without shadow passes");
@@ -36208,6 +36209,34 @@ static void NativeRuntimeInputSettings(const char* databasePath,const char* reso
 }
 
 
+static void NativeCachedLightingPipeline(const char* databasePath,const char* resourcePath,int mode)
+{
+    Require(mode==0 || mode==1,"unknown cached-lighting pipeline mode");
+    NativeDisplayContext display;display.Initialize(databasePath,resourcePath,"Silent Storm native cached-lighting pipeline");NGlobal::SetVar("gfx_resolution",wstring(L"320x240"));NGlobal::SetVar("gfx_fullscreen",0);Require(NGScene::SetModeFromConfig(false) && NGScene::CanCacheLighting() && NGScene::CanRenderShadows(),"cached lighting must enable the actual full shadow/cache pipeline");NGame::InitLoadingScreen();
+    CObj<NRPG::CGlobalGame> game=NRPG::CreateGlobalGame(-1);game->players.push_back(NRPG::CreateGlobalPlayer(vector<int>{54}));
+    CObj<NGame::CICBeginMission> open=new NGame::CICBeginMission(810,-1,vector<string>(),game);open->Exec();
+    CObj<NGame::CMission> mission=dynamic_cast<NGame::CMission*>(NMainLoop::GetCurrentInterfaceForHarness());Require(mission && mission->GetWorld(),"cached lighting did not open its actual mission");mission->PauseGame(true);mission->SetCheatVisibility(true);mission->GetDesktop()->SetStyle(NUI::STYLE_VISIBLE,false);
+    while(NMainLoop::HaveInterfaceCommand()){CObj<NMainLoop::CInterfaceCommand> pending=NMainLoop::TakeInterfaceCommandForHarness();Require(dynamic_cast<NMainLoop::CICSaveFile*>(pending.GetPtr()),"cached lighting has an unexpected startup transition");}
+    vector<CPtr<NGame::IUnitTracker>> units;mission->GetActivePlayer()->Update(false);mission->GetActivePlayer()->GetUnits(&units);Require(units.size()==1,"cached lighting lacks its real party actor");auto* actor=dynamic_cast<NWorld::CUnitServer*>(units.front()->GetUnit());Require(actor,"cached lighting actor is not native");auto* world=dynamic_cast<NWorld::CWorld*>(mission->GetWorld());Require(world,"cached lighting requires native world");
+    const CVec3 origin=actor->GetPosition().GetCP();
+    CObj<CObjectBase> shadow=mission->GetScene()->AddPointLight(CVec3(2,.6f,.2f),origin+CVec3(0,0,3),12,true,true);
+    CObj<CObjectBase> clear=mission->GetScene()->AddPointLight(CVec3(.2f,.4f,1),origin+CVec3(2,0,2),8,true,false);
+    Require(shadow && clear && dynamic_cast<NGScene::CPointLight*>(shadow.GetPtr()) && NativeAuthoredPointShadow(dynamic_cast<NGScene::CPointLight*>(shadow.GetPtr())) && !NativeAuthoredPointShadow(dynamic_cast<NGScene::CPointLight*>(clear.GetPtr())),"actual game-view light factory lost shadowed/unshadowed cache inputs");
+    auto* camera=mission->GetCamera();camera->FreezeCamera(true);ICamera::SCameraPos base;camera->GetPlacement(&base);base.ptAnchor=origin+CVec3(0,0,1);base.fRod=18;camera->SetPlacement(base);
+    struct RestoreClock {STime previous=NMainLoop::SetTimeForHarness(100000);~RestoreClock(){NMainLoop::SetTimeForHarness(previous);}} restoreClock;
+    int frame=0;
+    auto render=[&](const ICamera::SCameraPos& position,int count){for(int i=0;i<count;++i){camera->SetPlacement(position);NMainLoop::SetTimeForHarness(100000+(++frame)*40);MarkNewDGFrame();Require(NMainLoop::StepApp(true,false,false) && NMainLoop::GetCurrentInterfaceForHarness()==mission.GetPtr() && NGfx::Is3DActive(),"native cached-lighting frame failed or lost its real renderer");}CArray2D<NGfx::SPixel8888> pixels;NGfx::MakeScreenShot(&pixels,false);Require(pixels.GetXSize()>=128 && pixels.GetYSize()>=128,"cached lighting has no actual GPU image");int lit=0;for(int y=8;y<pixels.GetYSize()-8;++y)for(int x=8;x<pixels.GetXSize()-8;++x)lit+=pixels[y][x].r>8 || pixels[y][x].g>8 || pixels[y][x].b>8;Require(lit>(pixels.GetXSize()-16)*(pixels.GetYSize()-16)/10,"cached-lighting frame is blank");return pixels;};
+    auto first=render(base,36);const auto position=actor->GetPosition();const auto ap=actor->GetAP();const auto hp=actor->GetUnitRPG()->GetTotalVP();const auto time=world->GetTime()->GetValue();
+    auto moved=base;moved.fYaw+=.35f;moved.fRod=22;moved.ptAnchor+=CVec3(1,0,0);auto alternate=render(moved,18);auto returned=render(base,36);
+    Require(first.GetXSize()==returned.GetXSize() && first.GetYSize()==returned.GetYSize(),"camera-only cache reuse changed drawable dimensions");int changedView=0,changedReturn=0;const int total=(first.GetXSize()-16)*(first.GetYSize()-16);
+    for(int y=8;y<first.GetYSize()-8;++y)for(int x=8;x<first.GetXSize()-8;++x){const auto a=first[y][x],b=alternate[y][x],c=returned[y][x];changedView+=abs(int(a.r)-int(b.r))+abs(int(a.g)-int(b.g))+abs(int(a.b)-int(b.b))>24;changedReturn+=abs(int(a.r)-int(c.r))+abs(int(a.g)-int(c.g))+abs(int(a.b)-int(c.b))>24;}
+    std::printf("ACTUAL-CACHED-LIGHTING mode=%d frames=%d changedCamera=%d changedReturn=%d pixels=%d\n",mode,frame,changedView,changedReturn,total);std::fflush(stdout);
+    Require(changedView>total/20,"cached-lighting fixture did not actually change its rendered camera");Require(changedReturn<total/20,"returning the native camera left widespread cached-lighting artifacts");
+    if(mode==1){const int generation=NGfx::GetDeviceCreationID();NGlobal::SetVar("gfx_resolution",wstring(L"384x288"));Require(NGScene::SetModeFromConfig(false) && NGfx::GetDeviceCreationID()!=generation,"actual native graphics-object recreation did not invalidate cache generation");auto reset=render(base,36);Require(reset.GetXSize()==384 && reset.GetYSize()==288,"native graphics reset did not use its requested real dimensions");}
+    Require(actor->GetPosition()==position && actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && world->GetTime()->GetValue()==time,"camera/lighting cache changed paused simulation position/AP/HP/time");
+}
+
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode,"native-knife-solver")) { Require(argc==5,"knife solver requires db/resources/mode"); NativeKnifeLaunchTarget(argv[2],argv[3],std::atoi(argv[4]),true); return true; }
@@ -36881,6 +36910,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-camera-framing-bridge")) { Require(argc==5,"camera bridge requires db/resources/mode"); NativeCameraFramingBridge(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-context-modlinks")) { Require(argc==5,"context modlinks requires db/resources/mode"); NativeContextModLinks(argv[2],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-context-trap")) { Require(argc==5,"context trap requires db/resources/mode"); NativeContextTrap(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-cached-lighting-pipeline")) {Require(argc==5,"cached lighting pipeline requires db/resources/case");NativeCachedLightingPipeline(argv[2],argv[3],std::atoi(argv[4]));return true;}
     if (!std::strcmp(mode, "native-runtime-input")) {Require(argc==5,"runtime input requires db/resources/case");NativeRuntimeInputSettings(argv[2],argv[3],std::atoi(argv[4]));return true;}
     if (!std::strcmp(mode, "native-deferred-turns")) {Require(argc==5,"deferred turns requires db/resources/case");NativeDeferredTurns(argv[2],argv[3],std::atoi(argv[4]));return true;}
     if (!std::strcmp(mode, "native-loot-hotseat")) {Require(argc==5,"hotseat requires db/resources/case");NativeLootHotseat(argv[2],argv[3],std::atoi(argv[4]));return true;}

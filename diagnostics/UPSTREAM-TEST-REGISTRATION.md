@@ -3284,3 +3284,22 @@ Fresh Games/Windows ALL, full related selection, core2/CI383/LAN12each361; exact
 runtime-settings-verification.json. Seven source commits remain.
 
 Source: [34fee25e45545e40cf48c5d0313f2c83f3fa4e9c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/34fee25e45545e40cf48c5d0313f2c83f3fa4e9c).
+
+## 185. Restore cached-light history, packed shadows and safe render reuse
+
+Add actual GPU lease/copy/history/packed-channel contracts and2 real cached-light
+mission/camera/device-reset cases. Together with native legacy flag controls and prior
+renderer checks,24 focused names pass across both final fresh-build related selections and
+supplemental GPU runs. These were authored/adapted after production, so no canonical
+pre-Main RED claim. Mission cases explicitly enable actual CL/shadows and use public
+game-view light producers; camera return uses a bounded5percent artifact threshold, not
+original or pixel-perfect parity. Earlier private-state flag controls retain
+serialized-flag/positive-receiver/no-shadow-pass assertions with new real
+FormDepthList/refinement/ring completion adapters. Native original gameplay never runs.
+Fresh Games/Windows ALL/related/core2/CI383/LAN12each361 pass, no selected exclusions.
+Four connected lighting sources complete; three culling sources remain.
+
+Source: [f6f6011fc301ace82317b9007ec6dd36b57f3369](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6f6011fc301ace82317b9007ec6dd36b57f3369).
+Source: [755b0bdc2de8da8166be8cb61fc5d8d921499947](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/755b0bdc2de8da8166be8cb61fc5d8d921499947).
+Source: [5369d7468bf1c5a0574d53d3ecabae84cdfe6bdf](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5369d7468bf1c5a0574d53d3ecabae84cdfe6bdf).
+Source: [8718138b4eddd431a96cdeb80c7a42621265f569](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8718138b4eddd431a96cdeb80c7a42621265f569).

@@ -22,6 +22,8 @@ int nUseAnisotropy = 1, nVCacheSize = 10;
 static HWND windowHandle;
 static SVideoMode videoMode;
 static bool initialized = false, gammaEnabled = false;
+static unsigned deviceCreationID = 0;
+int GetDeviceCreationID() { return static_cast<int>(deviceCreationID); }
 bool Is16BitTextures() { return false; }
 bool Is16BitMode() { return false; }
 // bgfx exposes anisotropy as off / the device maximum, not individual levels.
@@ -57,6 +59,7 @@ bool SetMode(const SVideoMode& mode, const SRenderTargetsInfo& targets) {
     pDevice.Create(new BgfxDevice);
     if (!pDevice->Init(windowHandle, videoMode.nXSize, videoMode.nYSize)) { pDevice = 0; return false; }
   } else if (!pDevice->Resize(videoMode.nXSize, videoMode.nYSize)) return false;
+  ++deviceCreationID;
   if (!InitZBuffer(D3DFMT_D24S8)) return false;
   InitBuffers();
   initialized = SUCCEEDED(InitRender());
@@ -69,6 +72,7 @@ void CheckBackBufferSize() {
   if (width > 0 && height > 0 && (width != videoMode.nXSize || height != videoMode.nYSize)) {
     DoneRender(); DestroyLostableBuffers(); DoneZBuffer();
     videoMode.nXSize = width; videoMode.nYSize = height;
+    ++deviceCreationID;
     initialized = pDevice->Resize(width, height) && InitZBuffer(D3DFMT_D24S8);
     if (initialized) { InitBuffers(); initialized = SUCCEEDED(InitRender()); }
   }

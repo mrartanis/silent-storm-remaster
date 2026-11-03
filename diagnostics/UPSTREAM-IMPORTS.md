@@ -27165,3 +27165,73 @@ asserted. Source handled within user scope:239 imported/6 pending/1 partial,7 un
 See runtime-settings-verification.json.
 
 Source: [34fee25e45545e40cf48c5d0313f2c83f3fa4e9c](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/34fee25e45545e40cf48c5d0313f2c83f3fa4e9c).
+
+## 185. Restore cached-light history, packed shadows and safe render reuse
+
+Complete the four connected lighting sources f6f6011/755b0bd/5369d74/8718138 together:136
+donor hunks,23 actual production files. Restore previous-frame light reprojection/depth
+validation,12-step lightmap application and optional sky-channel prefetch, packed
+four-channel point-shadow leases/LRU/refinement, receiver visibility and first-catch
+coarse maps. Restore real static FormDepthList, single-quad downsampling, channel-only
+clears, full-register copies before sun-history overwrite, independent specular scratch
+and batched index-buffer mapping. All handoffs reach the active bgfx backend. Its existing
+CompileBgfxShaders translator compiles the actual new token arrays; retain the fork's
+three cached-point variants and assign nonconflicting IDs (final VS82/PS85 arrays).
+
+The later871 source supersedes f6's intermediate standalone STORE operation/register5
+history: final history comes from combined sun output/register4 alpha. Preserve old alpha
+until reuse finishes, and use a separate specular scratch. Do not reintroduce a removed
+STORE API just to compile a fixture. Actual device-object generations also change after
+drawable resize. The legacy Gfx.cpp remains unchanged. Persistent index locks retain our
+configurable ring size, per-append MarkWritten/versioned GPU banks and existing
+batching/overwrite guards; unlock before submission/reset/destruction.
+
+Preserve the explicit remaster policy:142 fixed sky directions/transient stable caches,
+optional rotating samples only under UseProgressiveSky, the configured100-cube256 pool
+and256 refinement target, matching bias3 and full RGBA8/HD/FXAA/179 fractional
+coordinates. Do not silently reapply the previously rejected half-resolution128/38-pool
+allocation tradeoff. Logical packed lease capacity152 is distinct from the retained
+configured pool count100. Sort texture identity with intptr_t rather than truncating64-bit
+pointers; retain channel0 ordering. Auto detection stays excluded at the user's request.
+Existing saved light fields, DB schema and assets are unchanged; the new GPU
+caches/receiver visibility are transient.
+
+The24 focused cases are post-production GREEN/integration evidence, not pre-Main RED.
+Actual GPU tests prove152 real leases/four independent channels/LRU retirement/device
+invalidation, independent linear register copies, history vertex depth encoding and live
+TEST/COPY shaders with both signs of depth mismatch. Each packed channel is exercised
+through actual two-pass and fast point-light shaders with opposite values in the other
+channels. Two real-mission cases explicitly enable the full cached-light/shadow
+configuration, add actual shadowed/unshadowed lights through IGameView, render90/126
+frames, move the camera A-B-A, then recreate384x288 graphics objects. They require a
+changed camera image and fewer than5 percent substantially changed pixels on return, plus
+unchanged paused position/AP/HP/world time. This is a bounded artifact test, not
+pixel-perfect/original-image or whole-engine RNG parity. NativeDisplayContext alone
+creates empty targets and does not enable CL; the explicit configuration call is essential
+to this proof.
+
+Retain all eight older shadow-flag controls. Adapt only their real refinement-target
+setup, RecalcStep signature, new ring terminal Apply state5/step0 and observer of the
+actual FormDepthList path. Serialized shadow flags, positive native receiver traversal and
+no-shadow-view assertions remain. Those older tests use pre-existing private input/state
+access; the new public mission/GPU cases are separate evidence. Fix fixture-only unsigned
+bitfield subtraction/abs overloads and signature assumptions without modifying the engine
+to satisfy an incorrect test. One871 mode argument initially depended on the
+still-unported query API; omit it from this batch's current Execute call (the donor
+explicitly ignores that mode) until the final three culling sources are integrated.
+
+Fresh Game builds, Windows ALL_BUILD, 180W/168L related cases plus supplemental current
+GPU cases covering all24 focused names, Linux core2,383 asset-free CI checks and12 LAN
+gates/361 encounter variants per platform pass. No selected case is skipped/excluded;
+exact platform registrations are in cached-renderer-batch-final-selection-policy.json.
+All136 hunk decisions/final supersessions are in
+cached-renderer-batch-hunk-accounting.json.
+DB314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged; HD is
+frozen and no PNG generation or original gameplay runs. No new whole-binary/ABI/RNG parity
+claim.243 imported/3 pending/0 partial: three source commits remain. See
+cached-renderer-batch-verification.json.
+
+Source: [f6f6011fc301ace82317b9007ec6dd36b57f3369](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f6f6011fc301ace82317b9007ec6dd36b57f3369).
+Source: [755b0bdc2de8da8166be8cb61fc5d8d921499947](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/755b0bdc2de8da8166be8cb61fc5d8d921499947).
+Source: [5369d7468bf1c5a0574d53d3ecabae84cdfe6bdf](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/5369d7468bf1c5a0574d53d3ecabae84cdfe6bdf).
+Source: [8718138b4eddd431a96cdeb80c7a42621265f569](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/8718138b4eddd431a96cdeb80c7a42621265f569).
