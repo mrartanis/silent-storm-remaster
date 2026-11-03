@@ -1,6 +1,6 @@
 Silent Storm Reconstruction - engine only
 
-This archive contains the x64 engine, runtime libraries and fonts.
+This archive contains the engine, runtime libraries and fonts.
 Original Silent Storm v1.2 game data and the optional HD pack are separate.
 Detailed Russian installation guide: INSTALLATION_RU.md.
 
@@ -8,7 +8,8 @@ Use a separate copy of your game installation. Place this archive's contents
 alongside game.db, start.cfg, tree.mma and the complete cfg, res and scripts
 directories. Keep all loose files in res, not just the .res archives.
 Use the data for Silent Storm, not the separate Sentinels campaign.
-Start Play.cmd (Windows) or ./Play.sh (Linux). Saves and settings use the
+Start Play.cmd (Windows), ./Play.sh (Linux) or ./Play.command (macOS).
+Saves and settings use the
 engine's normal user-data directory. The original Steam installation can stay
 untouched. Install an optional HD pack as res-hd alongside Game/Game.exe.
 
@@ -23,6 +24,11 @@ SDL3 and FFmpeg libraries are included in lib. System dependencies include
 libgsf-1-114, libpng16-16t64, zlib1g, libx11-6, libxi6 and libgl1, plus a working
 Vulkan driver/loader (libvulkan1). Hardware GPU/audio testing is separate from CI.
 Windows baseline: Windows 10/11 x64; MSVC runtime DLLs are included.
+macOS baseline: macOS 15+ on Apple silicon (ARM64), Metal renderer.
+SDL3, FFmpeg and their non-system dependencies are included in lib.
+Homebrew is not needed to play. The binaries use local ad-hoc signatures;
+Apple notarization is not provided. If macOS blocks a downloaded archive,
+allow the launch in System Settings > Privacy & Security.
 
 Source and releases: https://github.com/mrartanis/silent-storm-remaster
 Engine licensing: LICENSE.md. Component notices: licenses/ and fonts/.

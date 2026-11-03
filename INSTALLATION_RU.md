@@ -3,7 +3,9 @@
 Разработка переехала в [silent-storm-remaster](https://github.com/mrartanis/silent-storm-remaster).
 Релизы v0.1 и hd-v0.1 по ссылкам ниже сохраняются в прежнем репозитории без изменения архивов.
 
-Готовый движок выпускается для Windows 10/11 x64 и Linux x86_64. Для игры нужны данные **оригинальной Silent Storm версии 1.2** из вашей установленной копии. В Steam Gold Edition есть также Sentinels: для этой инструкции выбирайте основную Silent Storm.
+Готовый движок собирается для Windows 10/11 x64, Linux x86_64 и macOS 15+ на Apple silicon (ARM64). Для игры нужны данные **оригинальной Silent Storm версии 1.2** из вашей установленной копии. В Steam Gold Edition есть также Sentinels: для этой инструкции выбирайте основную Silent Storm.
+
+Новые релизы публикуются в [silent-storm-remaster](https://github.com/mrartanis/silent-storm-remaster/releases). Архив macOS называется `silent-storm-engine-<версия>-macos-arm64.tar.gz`; для Windows и Linux используются окончания `windows-x64.zip` и `linux-x64.tar.gz`. Ниже сохранены ссылки на исторический v0.1, в котором были только Windows и Linux.
 
 ## Что скачать
 
@@ -46,6 +48,14 @@ chmod +x Play.sh Game
 ```
 
 `Play.sh` подключает поставляемые библиотеки из `lib`. Движок запускается как обычная программа Linux.
+
+### macOS
+
+Нужен Mac с Apple silicon и macOS 15 или новее. Распакуйте архив `macos-arm64.tar.gz` и перенесите его содержимое в отдельную папку с оригинальными данными игры, как описано выше. Сохраните папку `lib`, шрифты и `network-version.txt` рядом с `Game`. Данные Windows-версии Silent Storm 1.2 подходят и для macOS.
+
+Откройте Terminal в папке игры и выполните `./Play.command`. Этот файл также можно открыть в Finder. Движок использует Metal; Homebrew, Python и компилятор для запуска не нужны. Библиотеки SDL3, FFmpeg, libgsf/libpng и их зависимости входят в архив и загружаются из `lib`.
+
+Бинарники подписаны локальной ad-hoc подписью, без нотариального заверения Apple. Если macOS блокирует первый запуск скачанного приложения, разрешите его в «Системные настройки → Конфиденциальность и безопасность».
 
 ## Установить HD-пак
 
@@ -93,6 +103,7 @@ HD включён по умолчанию. Переключатель **«HD т�
 
 - Windows: `%LOCALAPPDATA%\Silent Storm Reconstruction`.
 - Linux: `$XDG_DATA_HOME/silent-storm-reconstruction`, обычно `~/.local/share/silent-storm-reconstruction`.
+- macOS: `~/Library/Application Support/Silent Storm Reconstruction`.
 
 Если ранее задана переменная `S2_USER_DATA_DIR`, используется выбранная в ней папка.
 

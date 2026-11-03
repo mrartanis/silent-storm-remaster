@@ -12,6 +12,7 @@ import tarfile
 import tempfile
 import zipfile
 from CheckBgfxImports import imports as pe_imports
+from MacOSRuntime import bundle_runtime, verify_relocated
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -42,7 +43,8 @@ def package(args):
     build = args.build.resolve()
     deps = args.deps.resolve()
     args.output.mkdir(parents=True, exist_ok=True)
-    name = f'silent-storm-engine-{args.version}-{args.platform}-x64'
+    architecture = 'arm64' if args.platform == 'macos' else 'x64'
+    name = f'silent-storm-engine-{args.version}-{args.platform}-{architecture}'
     extension = '.zip' if args.platform == 'windows' else '.tar.gz'
     archive = args.output.resolve() / (name + extension)
     if archive.exists():
@@ -91,6 +93,11 @@ def package(args):
                     if not (system / dependency).is_file():
                         raise ValueError(f'Unpackaged runtime dependency: {path.name}: {dependency}')
             copy(ROOT / 'packaging/Play.cmd', stage / 'Play.cmd')
+        elif args.platform == 'macos':
+            bundle_runtime(build / 'Game', stage, deps)
+            copy(ROOT / 'packaging/Play.command', stage / 'Play.command')
+            (stage / 'Play.command').chmod(0o755)
+            (stage / 'Game').chmod(0o755)
         else:
             # Preserve each SONAME as an ordinary file; no absolute vendor links.
             for pattern in ('libSDL3.so*', 'libavcodec.so*', 'libavformat.so*',
@@ -128,7 +135,7 @@ def package(args):
         copy(ROOT / '.github/scripts/build-deps.sh', stage / 'dependencies/build-deps.sh')
         revision = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
         info = {'version': args.version, 'revision': revision, 'platform': args.platform,
-                'architecture': 'x64', 'networkBuild': build_id, 'networkData': lines[2],
+                'architecture': architecture, 'networkBuild': build_id, 'networkData': lines[2],
                 'gameData': False, 'hdTextures': False,
                 'sha256': {p.relative_to(stage).as_posix(): sha256(p)
                            for p in sorted(stage.rglob('*')) if p.is_file()}}
@@ -142,8 +149,12 @@ def package(args):
                 if output.testzip():
                     raise ValueError('ZIP integrity check failed')
         else:
+            def executable_modes(member):
+                if member.name in {name + '/Game', name + '/Play.sh', name + '/Play.command'}:
+                    member.mode = 0o755
+                return member
             with tarfile.open(archive, 'w:gz', dereference=True) as output:
-                output.add(stage, arcname=name)
+                output.add(stage, arcname=name, filter=executable_modes)
             with tarfile.open(archive) as output:
                 for member in output:
                     if member.isfile():
@@ -151,6 +162,11 @@ def package(args):
                         expected = info['sha256'].get(relative)
                         if expected and hashlib.sha256(output.extractfile(member).read()).hexdigest() != expected:
                             raise ValueError(f'Archive integrity check failed: {relative}')
+            if args.platform == 'macos':
+                with tempfile.TemporaryDirectory(prefix='s2-relocated-') as relocated:
+                    with tarfile.open(archive) as output:
+                        output.extractall(relocated, filter='data')
+                    verify_relocated(Path(relocated) / name)
     archive.with_name(archive.name + '.sha256').write_text(sha256(archive) + '  ' + archive.name + '\n', encoding='ascii')
     print(f'Engine package verified: {archive} ({archive.stat().st_size} bytes)', flush=True)
 
@@ -159,7 +175,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--build', type=Path, required=True)
     parser.add_argument('--deps', type=Path, required=True)
-    parser.add_argument('--platform', choices=('windows', 'linux'), required=True)
+    parser.add_argument('--platform', choices=('windows', 'linux', 'macos'), required=True)
     parser.add_argument('--version', required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--crt-runtime', type=Path)

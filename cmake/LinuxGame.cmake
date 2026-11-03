@@ -3098,7 +3098,7 @@ if(APPLE)
   # coordinates these regression tests encode; run them at 1:1 scale.
   set(_s2_display_tests BgfxRendererTests SDLPlatformInputTests
       SDLInputConfiguration DisplayRuntimeTests FocusRestoreRuntimeTests
-      GraphicsOptionsRuntimeTests)
+      GraphicsOptionsRuntimeTests RuntimeSettingsGraphicsTests)
   # Include newly added display regressions without maintaining a second
   # platform-specific copy of their names.
   get_property(_s2_tests DIRECTORY PROPERTY TESTS)
