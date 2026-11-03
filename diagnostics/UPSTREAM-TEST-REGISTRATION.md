@@ -3145,3 +3145,23 @@ hero-defeat-verification.json records exact final fixture/production hashes and 
 observations. Source9af complete;16 unfinished.
 
 Source: [9af844d6b62ed800bb59a64057b03e0eafc83878](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9af844d6b62ed800bb59a64057b03e0eafc83878).
+
+## 176. Complete transient attack sessions and populate selected-hit trails
+
+Add NativeAttackSession0..4 on both platforms with isolated user data and the existing120s
+limit. Canonical native sessionRED4/5 both/control1, then corrected postgate teardown
+observer GREEN5 both; no identical-final-fixture RED claim. Add meaningful asset-free
+UpstreamCoverLegacyRayWire: actual registered cover legacyRAW20 read/write byte
+equality145 bytes before and after. Register the three existing real
+NativeWorldMission810PartyShot/Save/Slot checks on Linux's already-existing
+NativeWorldInitProbe. Exact-parent native RED3 both ->GREEN3 both with original
+damage/bullet/cost/save assertions intact. Two old knife lifecycle observers use actual
+AnimationFinished, and six called-shot controls now require bounded populated cache and
+actual target instead of obsolete empty production cache. All prior physical assertions
+remain. Final32 bundle passes both; fresh Games616Win612Linux, Linux portable
+mission/core, WindowsCI383, LAN12each361 pass. Four existing Windows-only grenade smoke
+cases remain, no new exclusion. Temporary shot tracing removed, no production test hook or
+private flag/seed injection. Full285 complete;360producer prerequisite remains a
+partial-source import.15unfinished.
+
+Sources: [285f6a0cff9737d2789396a2543bc75d0ab11da7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/285f6a0cff9737d2789396a2543bc75d0ab11da7), [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).

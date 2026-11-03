@@ -33,6 +33,7 @@
 #include "../DBFormat/DataMisc.h"   // NDb::CRPGAP (GetActionAP RPGAP-table costs) + CRPGPicklock (AC_PICK_LOCK nAPToUse)
 
 #include "RPGUnitMission.h"
+#include "RPGAttackSession.h"
 
 #if defined(_WIN32)
 static CRandomGenerator &MissionRandom() { return random; }
@@ -83,7 +84,9 @@ struct SModifierHolder
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CUnitMission
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-class CUnitMission: public IUnitMission
+// Keep the CObject-facing base first: the remaster lifetime macro reads its
+// virtual-base refcounts after destruction, before reconstructing the object.
+class CUnitMission: public IUnitMission, public CUnitMissionForMedals
 {
 	friend class CUnitToHitCalcer;
 	friend class CTileToHitCalcer;
@@ -203,7 +206,18 @@ public:
 	// Retail threads it through the ctor (CreateUnit @0x2c4f50); this fork binds it in the
 	// CUnitServer ctor (SetGlobalGame).
 	CPtr<CGlobalGame> pGlobalGame;
-	virtual void SetGlobalGame( CGlobalGame *p ) { pGlobalGame = p; }
+	virtual void SetGlobalGame( CGlobalGame *p )
+	{
+		pGlobalGame = p;
+		// Bind fresh server context; the medal session remains transient on load.
+		CUnitMissionForMedals::pGame = p;
+		pMedalsGainer = pRPGUnit;
+	}
+	virtual void Segment() { CUnitMissionForMedals::Segment(); }
+	virtual NDb::EDiplomacyState MedalDiplomacyState( int nPlayer )
+	{
+		return GetDiplomacy().GetDiplomacyState( nPlayer );
+	}
 	virtual CGlobalGame* GetGlobalGame() const { return pGlobalGame; }
 	// retail @0x2c5b40/@0x2c5b50/@0x2c5b90/@0x2c5ba0/@0x2c5bb0 -- plain setters/getters.
 	bool IsAIPlayer() const { return bIsAIUnit; }

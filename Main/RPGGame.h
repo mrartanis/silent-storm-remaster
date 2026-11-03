@@ -93,10 +93,11 @@ class IVisionTracker;
 class IGame: public CObjectBase
 {
 public:
+	// Original callers distinguish preview/AI cover 0x8200 from physical hit grids 0x8210.
 	virtual CCoverInfo* CalcCovers( const CVec3 &src, const CAttackPortion &attack, 
-		NWorld::CUnit *pIgnore, CObjectBase *pDest, int nTargetUserID, float fMinClearDistance, bool bAIMode = false ) = 0;
+		NWorld::CUnit *pIgnore, CObjectBase *pDest, int nTargetUserID, float fMinClearDistance, bool bAIMode = false, int nTraceFlags = 0x8200 ) = 0;
 	virtual CCoverInfo* CalcCoversForTile( const CVec3 &src, const CAttackPortion &attack, NWorld::CUnit *pIgnore,
-	const CVec3 &ptTarget, float fMinClearDistance ) = 0;
+	const CVec3 &ptTarget, float fMinClearDistance, int nTraceFlags = 0x200 ) = 0;
 	virtual void ProcessMeleeAttackPortion( const CAttackPortion &a, const CRay &ray, const vector<IAttackable*> &ignores ) = 0;
 	// retail keeps the per-attack range cap on SAttackRayInfo.fMaxRange (TraceLooseRaySegment @0x292010
 	// gates fEnter/fExit on it and places the terminal trail point at origin+dir*fMaxRange); this tree's

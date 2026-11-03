@@ -5,9 +5,8 @@
 #endif // _MSC_VER > 1000
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Original per-shot cover queries operate on the native hit/loose ray cells.
-// The legacy serialized CCoverInfo keeps three SRay fields and tags2..6. Its
-// private runtime object union now serves the live AI safety overload without
-// adding saved grid/cell fields or copying CFastRenderer ownership.
+// CCoverInfo preserves the legacy 20-byte saved ray payload while retaining
+// grid ownership and selected-cell coordinates only at runtime.
 // CCoverGridInfo remains the earlier unregistered transient helper carrier;
 // it is not a substitute saved class and does not add a class-registry entry.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -50,8 +49,7 @@ void GetObjectsThatMayBeDamaged( CCoverInfo *pCover,
 	unordered_map<CPtr<CObjectBase>, int, SPtrHash> *pRes );
 // @0x293910 -- index a finished ray back into its grid cell, then hand that cell's SResult list to
 // the per-ray GetHitIntersections overload (RPGBullet.obj @0x2915d0). The cell indexing is
-// reconstructed faithfully; the per-ray forward is DEFERRED -- that overload is genuinely absent in
-// the dev tree (RPGBullet.h:17-22 explicitly defers it).
+// reconstructed faithfully; the per-ray overload builds the cached hit trail.
 void GetHitIntersections( NAI::IAIMap *pMap, vector<STrailPoint> *pTrail,
 	CCoverGridInfo *pCover, const CCoverGridInfo::SRay *pRay, SAttackRayInfo *pInfo );
 ////////////////////////////////////////////////////////////////////////////////////////////////////

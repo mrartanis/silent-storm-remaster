@@ -5,6 +5,9 @@
 #include "../FileIO/BasicChunk1.h"
 #include "../Misc/Geom.h"
 #endif
+#include <memory>
+#include <cstring>
+#include <cstddef>
 #include "RPGGame.h"
 #include "RPGCover.h"
 #include "aiMap.h"
@@ -66,19 +69,44 @@ class CCoverInfo: public CObjectBase
 {
 	OBJECT_BASIC_METHODS( CCoverInfo );
 public:
-	struct SRay
+	struct SStoredRay
 	{
 		CVec3 ptDir;		// direction of deflection
 		bool  isPenetrate;
 		float fDeviation;	// magnitude of deviation from the ideal hit
 	};
+	// Runtime cell coordinates must never widen the legacy raw 20-byte ray record.
+	struct SRay: SStoredRay
+	{
+		int nGrid = -1, nX = -1, nY = -1;
+	};
+	static_assert( sizeof(SStoredRay) == 20, "legacy cover ray payload" );
+	struct SGrids { NAI::CFastRenderer grids[2]; };
+	std::shared_ptr<SGrids> runtimeGrids;
+	static void SaveRays( CStructureSaver &f, int nTag, vector<SRay> *pRays )
+	{
+		vector<SStoredRay> stored( pRays->size() );
+		for ( int i = 0; i < pRays->size(); ++i )
+			std::memcpy( &stored[i], static_cast<SStoredRay*>( &(*pRays)[i] ), sizeof(SStoredRay) );
+		f.Add( nTag, &stored );
+		if ( f.IsReading() )
+		{
+			pRays->resize( stored.size() );
+			for ( int i = 0; i < stored.size(); ++i )
+			{
+				std::memcpy( static_cast<SStoredRay*>( &(*pRays)[i] ), &stored[i], sizeof(SStoredRay) );
+				(*pRays)[i].nGrid = (*pRays)[i].nX = (*pRays)[i].nY = -1;
+			}
+		}
+	}
+
 	ZDATA
 	vector<SRay> hitRays;	// set of rays that hit
 	CVec3 src;				// point from which the shot is fired
 	vector<SRay> looseRays;	// set of rays that missed
 	vector<SRay> obstRays; // set of rays that ran into an obstacle at a certain distance from the source point
 	float fSummAPA;
-	ZEND int operator&( CStructureSaver &f ) { if ( f.IsReading() ) potentialObjects.clear(); f.Add(2,&hitRays); f.Add(3,&src); f.Add(4,&looseRays); f.Add(5,&obstRays); f.Add(6,&fSummAPA); return 0; }
+	ZEND int operator&( CStructureSaver &f ) { if ( f.IsReading() ) { potentialObjects.clear(); runtimeGrids.reset(); } SaveRays(f,2,&hitRays); f.Add(3,&src); SaveRays(f,4,&looseRays); SaveRays(f,5,&obstRays); f.Add(6,&fSummAPA); return 0; }
 	// Runtime-only union of all hit/loose ray cells; never added to saved fields.
 	unordered_map<CPtr<CObjectBase>, int, SPtrHash> potentialObjects;
 };
@@ -118,9 +146,9 @@ public:
 	CGame( NAI::IAIMap *_pAIMap, NAI::IPathNetwork *_pNet, const STerrainInfo &terrainInfo ):
 		pAIMap(_pAIMap), pNet(_pNet) { if ( _pAIMap ) pVision = CreateVisionTracker( _pAIMap, terrainInfo ); }
 	virtual CCoverInfo* CalcCovers( const CVec3 &src, const CAttackPortion &attack, 
-		NWorld::CUnit *pIgnore, CObjectBase *pDest, int nTargetUserID, float fMinClearDistance, bool bAIMode = false );
+		NWorld::CUnit *pIgnore, CObjectBase *pDest, int nTargetUserID, float fMinClearDistance, bool bAIMode = false, int nTraceFlags = 0x8200 );
 	virtual CCoverInfo* CalcCoversForTile( const CVec3 &src, const CAttackPortion &attack, NWorld::CUnit *pIgnore,
-		const CVec3 &ptTarget, float fMinClearDistance );
+		const CVec3 &ptTarget, float fMinClearDistance, int nTraceFlags = 0x200 );
 	virtual void ProcessMeleeAttackPortion( const CAttackPortion &a, const CRay &ray, const vector<IAttackable*> &ignores );
 	virtual void ProcessRangedAttackPortion( const CAttackPortion &a, const CRay &ray, const vector<IAttackable*> &ignores, vector<STrailPoint> *pTrail, float fMaxRange );
 	virtual EAttackResult ProcessThrowingAttackPortion( CAttackPortion *pA, IAttackable *pTarget, NDb::CRPGArmor *pArmor, int nUserID );
@@ -158,7 +186,7 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static void AddGridToCovers( CCoverInfo *pRes, const NAI::CFastRenderer &res, const CVec3 &vTargetDir,
 	const CObjectBase *pIgnore, const CObjectBase *pTarget, int nTargetUserID, 
-	float fDistance, const CAttackPortion &att, float fMinClearDistance )
+	float fDistance, const CAttackPortion &att, float fMinClearDistance, int nGrid )
 {
 	float _fArmorPiercingAbility = att.nK;
 	NDb::CRPGArmor *pDefaultArmor = NDb::GetArmor( NDb::N_DEFAULT_ARMOR );
@@ -194,6 +222,7 @@ static void AddGridToCovers( CCoverInfo *pRes, const NAI::CFastRenderer &res, co
 			CVec3 ptRayDir;
 			res.GetDir( &ptRayDir, x, y );
 			CCoverInfo::SRay ray;
+			ray.nGrid = nGrid; ray.nX = x; ray.nY = y;
 			ray.isPenetrate = false;
 			ray.ptDir = ptRayDir;
 			float fRayProjection = vTargetDir * ptRayDir;
@@ -387,7 +416,7 @@ float CGame::GetCoverForAIUnitPrecise( CVec3 ptFrom, NWorld::CUnit *pIgnore,
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // nTargetUserID == -1 means without hit location targeting
 CCoverInfo* CGame::CalcCovers( const CVec3 &src, const CAttackPortion &attack, NWorld::CUnit *pIgnore,
-	CObjectBase *pDest, int nTargetUserID, float fMinClearDistance, bool bAIMode )
+	CObjectBase *pDest, int nTargetUserID, float fMinClearDistance, bool bAIMode, int nTraceFlags )
 {
 	const float F_VIEW_BOUND = 2.f;			// grid diameter
 	const int N_LOW_HALF_GRID = 5;
@@ -419,12 +448,13 @@ CCoverInfo* CGame::CalcCovers( const CVec3 &src, const CAttackPortion &attack, N
 	CVec2 viewSquare;
 	viewSquare.x = Min( F_VIEW_BOUND * 0.5f, fSquareLimit ) * fProjectionScale;
 	viewSquare.y = F_VIEW_BOUND * 0.5f * fProjectionScale;
-	// Retail AI and hit previews sample cover plus item blockers (0x8200).
-	const int nTraceFlags = NWorld::TS_COVER | NWorld::TS_ITEM_BLOCKER;
-	NAI::CFastRenderer res, resLow;
+	// Original preview/AI callers use 0x8200; physical shots supply 0x8210.
+	// Keep those distinct: WEAPON_BLOCKER (0x400) is a cell test, not a selection mask.
+	pRes->runtimeGrids = std::make_shared<CCoverInfo::SGrids>();
+	NAI::CFastRenderer &res = pRes->runtimeGrids->grids[0], &resLow = pRes->runtimeGrids->grids[1];
 	res.InitProjective( src, ptProjectionTarget, viewSquare, N_HALF_GRID );
 	pAIMap->TraceGrid( &res, nTraceFlags, NAI::IAIMap::STH_SORT_INTERVALS );
-	AddGridToCovers( pRes, res, vTargetDir, pIgnore->GetAttackIgnore(), CastToObjectBase(pDest), nTargetUserID, fDistance, attack, fMinClearDistance );
+	AddGridToCovers( pRes, res, vTargetDir, pIgnore->GetAttackIgnore(), CastToObjectBase(pDest), nTargetUserID, fDistance, attack, fMinClearDistance, 0 );
 	// add low res grid
 	if ( !bAIMode )
 	{
@@ -432,14 +462,14 @@ CCoverInfo* CGame::CalcCovers( const CVec3 &src, const CAttackPortion &attack, N
 		viewSquare.y = Max( F_VIEW_BOUND * 0.5f, fSquareLimit ) * fProjectionScale;
 		resLow.InitProjective( src, ptProjectionTarget, viewSquare, N_LOW_HALF_GRID );
 		pAIMap->TraceGrid( &resLow, nTraceFlags, NAI::IAIMap::STH_SORT_INTERVALS );
-		AddGridToCovers( pRes, resLow, vTargetDir, pIgnore->GetAttackIgnore(), CastToObjectBase(pDest), nTargetUserID, fDistance, attack, fMinClearDistance );
+		AddGridToCovers( pRes, resLow, vTargetDir, pIgnore->GetAttackIgnore(), CastToObjectBase(pDest), nTargetUserID, fDistance, attack, fMinClearDistance, 1 );
 	}
 	pRes->src = src;
 	return pRes;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CCoverInfo* CGame::CalcCoversForTile( const CVec3 &src, const CAttackPortion &attack, NWorld::CUnit *pIgnore,
-	const CVec3 &ptTarget, float fMinClearDistance )
+	const CVec3 &ptTarget, float fMinClearDistance, int nTraceFlags )
 {
 	// trace some rays and calc covers
 	// Steam 0x693d29: stop the penetration walk 0.625 before the tile.
@@ -454,13 +484,14 @@ CCoverInfo* CGame::CalcCoversForTile( const CVec3 &src, const CAttackPortion &at
 	CVec3 ptRealTarget = src + vTargetDir * fProjectionDistance;
 	float fProjectionScale = fProjectionDistance / fDistance;
 	CVec2 viewSquare;
-	NAI::CFastRenderer resLow;
+	pRes->runtimeGrids = std::make_shared<CCoverInfo::SGrids>();
+	NAI::CFastRenderer &resLow = pRes->runtimeGrids->grids[0];
 	viewSquare.x = F_TILE_HALF_VIEW_BOUND * fProjectionScale;
 	viewSquare.y = F_TILE_HALF_VIEW_BOUND * fProjectionScale;
 	resLow.InitProjective( src, ptRealTarget, viewSquare, N_TILE_LOW_HALF_GRID );
-	pAIMap->TraceGrid( &resLow, NWorld::TS_COVER, NAI::IAIMap::STH_SORT_INTERVALS );
+	pAIMap->TraceGrid( &resLow, nTraceFlags, NAI::IAIMap::STH_SORT_INTERVALS );
 	AddGridToCovers( pRes, resLow, vTargetDir, pIgnore->GetAttackIgnore(), 0, -1,
-		Min( fDistance, float(N_WEAPONTRAIL_MAXDISTANCE) ), attack, fMinClearDistance );
+		Min( fDistance, float(N_WEAPONTRAIL_MAXDISTANCE) ), attack, fMinClearDistance, 0 );
 	pRes->src = src;
 	return pRes;
 }
@@ -605,7 +636,7 @@ bool PeekRayForRocket( CCoverInfo *pCover, CRay *pRes, bool bHit )
 	return PeekRay( pCover, pRes, fHitFlag, &bIsMiss );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-bool PeekRay( CCoverInfo *pCover, CRay *pRes, float fHit, bool *bIsMiss, bool bStickTo_pRes )
+static bool RealPeekRay( CCoverInfo *pCover, CRay *pRes, float fHit, bool *bIsMiss, bool bStickTo_pRes, CCoverInfo::SRay *pSelected )
 {
 	*bIsMiss = true;
 	pRes->ptOrigin = pCover->src;
@@ -643,7 +674,8 @@ bool PeekRay( CCoverInfo *pCover, CRay *pRes, float fHit, bool *bIsMiss, bool bS
 		if ( *bIsMiss )
 			csRPG << CC_RED << "\tCan't hit target!\n";
 
-		pRes->ptDir = pCover->hitRays[roulette.GetRandomSector( &rand )].ptDir;
+		*pSelected = pCover->hitRays[roulette.GetRandomSector( &rand )];
+		pRes->ptDir = pSelected->ptDir;
 	}
 	else
 	{
@@ -669,8 +701,37 @@ bool PeekRay( CCoverInfo *pCover, CRay *pRes, float fHit, bool *bIsMiss, bool bS
 		}
 		int nPick = roulette.GetRandomSector( &rand );
 //		csRPG << "\tMiss index " << nPick << ", average = " << int( float(n) * fHit ) << " from " << n << "\n";
-		pRes->ptDir = pCover->looseRays[nPick].ptDir;
+		*pSelected = pCover->looseRays[nPick];
+		pRes->ptDir = pSelected->ptDir;
 	}
+	return true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool PeekRay( CCoverInfo *pCover, CRay *pRes, float fHit, bool *bIsMiss, bool bStickTo_pRes )
+{
+	CCoverInfo::SRay selected;
+	return RealPeekRay( pCover, pRes, fHit, bIsMiss, bStickTo_pRes, &selected );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool PrepareAttackRay( NAI::IAIMap *pAIMap, CCoverInfo *pCover, SAttackRayInfo *pInfo, float fHit )
+{
+	CCoverInfo::SRay selected;
+	CRay ray = pInfo->GetRay();
+	bool bMissed;
+	pInfo->trailPoints.clear();
+	pInfo->bTargetIsHit = false;
+	if ( !RealPeekRay( pCover, &ray, fHit, &bMissed, false, &selected ) )
+		return false;
+	pInfo->vOrigin = ray.ptOrigin;
+	pInfo->vDir = ray.ptDir;
+	pInfo->bTargetIsHit = !bMissed;
+	// Hits use the chosen grid cell; the separate precise trace supplies normals only.
+	if ( pInfo->bTargetIsHit && pCover->runtimeGrids && selected.nGrid >= 0 && selected.nGrid < 2 &&
+		selected.nX >= 0 && selected.nY >= 0 &&
+		selected.nX < pCover->runtimeGrids->grids[selected.nGrid].resGrid.GetXSize() &&
+		selected.nY < pCover->runtimeGrids->grids[selected.nGrid].resGrid.GetYSize() )
+		GetHitIntersections( pAIMap, &pInfo->trailPoints,
+			pCover->runtimeGrids->grids[selected.nGrid].resGrid[selected.nY][selected.nX], *pInfo );
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

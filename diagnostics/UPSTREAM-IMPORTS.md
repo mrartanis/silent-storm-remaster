@@ -26481,3 +26481,121 @@ unchanged. No combat formula, damage/AP/probability rule, save/DB/network schema
 work. Source9af complete;230 imported/12 pending/4 partial,16 unfinished sources.
 
 Source: [9af844d6b62ed800bb59a64057b03e0eafc83878](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9af844d6b62ed800bb59a64057b03e0eafc83878).
+
+## 176. Complete transient attack sessions and populate selected-hit trails
+
+The actual RPG mission now implements the four-method transient medal interface. Fresh
+server binding supplies the global game and medal recipient; scenario player identity
+follows the existing owner binding. Executed attacks record targets and weak references to
+the actual returned bullet, grenade, rocket or knife. Segment waits for those projectiles,
+drains expired references and resets the finished latch. It does not award medals, clear
+target lists or gate world/AI behavior. The reconstructed AddMedalPoints remains uncalled,
+matching the inspected original direct-reference evidence. Cancellation at the firing
+animation label closes the session, while actual AnimationFinished completes the executor.
+No new saved attack-session fields or load-time rebinding is introduced. Source285's nine
+files are fully accounted; retain the remaster's existing knife API/geometry, raw-ray miss
+carrier, owner AI identity and constructor owner binding.
+
+The first broad Windows run exposed three real mission-shot failures already present in
+the exact pre176 parent: ammo31->30 and AP46->36, with an attack event, but no bullet and
+no damage. Full-parent attribution reproduced the failures, and the same three existing
+native mission gates reproduced them on Linux. All physical bullet/damage/save assertions
+are retained. The required prerequisite comes from still-partial source360: retain
+completed cover grids and selected cell coordinates, return the exact selected ray through
+the existing roulette, and build SAttackRayInfo.trailPoints from that cell. Tile, unit and
+the remaster's separate object-shot producers now call PrepareAttackRay with
+GetAttackIgnore. A precise trace refines surface normals only; it does not replace
+grid-selected objects, body parts or damage decisions. Preserve the existing projection
+range/origin/HL/safety refinements and object union, roulette math and draw order,
+incidental-hit implementation, loose-ray path and checkpoint170's literal cached-hit
+consumer, including an empty cache. CalcCoverIntervals ignores the shooter and uses the
+original armor-ignored/damage conjunction. Other scenario/context/swap and knife-solver
+hunks remain separate.
+
+The first Linux bundle reached all aim-state observations but crashed during native world
+teardown. An own-process debugger and the actual thunk disassembly showed
+OBJECT_BASIC_METHODS reading a virtual CObjectBase offset through the already-destroyed
+primary medal base. Preserve the remaster's IUnitMission/CObject-facing base first and add
+the medal base second. This local inheritance-order adapter keeps dynamic cross-casts and
+saved fields while leaving the global refcount mechanism unchanged; the inspected original
+base offsets are not a live ABI promise. Fresh17 cases then pass on Linux before the
+separate trace-purpose correction. The recorded failure is production integration
+evidence, separate from the earlier grenade observer lifetime fault.
+
+The expanded first616-case Windows run passed609 and caught seven mask regressions from
+taking source360's literal enum expression: in this engine WEAPON_BLOCKER is0x400, whereas
+physical shots select ITEM_BLOCKER0x8000. Prior original evidence distinguishes
+preview/AI0x8200 from physical0x8210; the physical caller's Gold6b04f0/Steam6b65d0
+literal8210 and direct call to RealCalcCovers are rechecked. Keep preview/AI0x8200 and the
+existing tile-preview0x200 defaults. Add the original trace-purpose argument to the
+remaster cover helpers and pass0x8210 only from the three actual shot producers. Muzzle
+tests still inspect WEAPON_BLOCKER0x400 inside selected cells. All fourteen prior category
+controls and the actual fragment-parity assertion remain unchanged. A read-only actual-map
+decorator in the six called-shot cases additionally requires preview high/low8200 and
+physical high/low8210 while delegating rasterization unchanged. There is no second-trace
+workaround or whole-category enum remapping.
+
+The registered, copyable CCoverInfo retains class02841161 and its legacy saved tags2..6.
+Runtime rays gain coordinates and shared ownership of two completed grids, while an
+explicit SStoredRay adapter preserves the old raw20-byte ray payload including padding.
+Runtime grids/coordinates and safety union remain unsaved. The native registry-based
+compatibility control reads a legacy20-byte payload and writes the identical145 bytes on
+both platforms before and after the port. No replacement registered class, raw32-byte
+widening or blind donor noncopyable layout is used. Linux's existing PortableCore
+NativeWorldInitProbe receives the same three actual mission-shot registrations; no
+duplicate executable is defined. The mission archive now includes RPGAttackSession.cpp,
+the required new constructor/method dependency.
+
+Canonical session diagnostics reproduced four failures among five native cases on both
+platforms: three contexts lacked the real mission's medal cross-cast, and an actual
+aim-only shot prematurely finished at its label. The pending-aim control passed. The first
+weapon/zero-ammo fixture preconditions are retained as invalid setup, not extra RED; the
+original aim-only one-round consumption is preserved. After that failed gate, grenade
+tests initially read actor AP after destroying its owning world; an own-process debugger
+identified the observer lifetime fault. Move that same physical assertion before world
+teardown and retain the real RPG object for the post-teardown check. No engine change
+repairs the observer and no identical-final-fixture RED claim is made. Real
+regular/engineering grenades now demonstrate live wait, FinishAttackSession, natural world
+release and weak-reference draining. Two old knife observers now require RUNNING at the
+release label and FINISHED after actual AnimationFinished, retaining all
+projectile/successor/animation/AP/VP checks. Six called-shot observers replace the
+obsolete empty-producer expectation with bounded populated-hit-cache and actual-target
+assertions; their damage/injury/cost checks remain. The final32-case bundle passes both
+platforms: session5, mission shots3, called shots6, knife2 and legacy wire1 and prior
+mask/fragment controls15. The three mission shots each now create a bullet and reduce
+target HP, preserving ammo/AP/event costs. Temporary diagnostic tracing was removed.
+
+Read-only original session proof binds full127-byte Segment to Steam68fc30, full848-byte
+AddMedalPoints to68f8e0, raw5-byte FinishAttackSession to6c5770, and full31-byte
+TimeLabelReached to7a3120 using only decoded external E8 relocations. The actual call
+reaches106-byte FinishMe7a2720; independently typed RTTI operands and the named
+four-method medal root bind its FinishAttackSession call without an executor state write.
+Actual CUnitMission RTTI confirms medal base0 and IUnitMission base76. AddMedalPoints has
+no absolute/direct E8/E9 references in either inspected binary; this is not proof about
+computed callers. Typed world projectile methods return CObjectBase*. For the producer, a
+strict full65-byte Gold grid-forward overload68d620 matches Steam693580 uniquely with one
+E8 relocation; actual6935b6 calls691290. Inspection of that actual2304-byte function binds
+CalcCoverIntervals690a40 and normals6904e0. Whole Gold hit/normals/interval/object-ray
+signatures are rejected for real frame/field/size differences; none are hidden by broader
+masks. No original gameplay, private globals, unknown secondary-vtable reads or
+whole-method/ABI/full-engine/RNG equivalence is claimed. Detailed accepted laboratory
+records are attack-session-original-static-proof.json,
+attack-session-parent-attribution-verification.json, ray-producer-red-verification.json
+and ray-producer-original-binding-proof.json.
+
+Fresh full Game builds pass616 Windows and612 Linux related tests, including all13 prior
+defeat cases and cover/cache/shot/save/action/hotseat controls. The required Linux
+portable mission archive/core diagnostic,383 Windows asset-free CI cases, and12 LAN gates
+with361 encounter variants per platform pass. Four pre-existing Windows-only grenade
+mission registrations remain; no new exclusion. The first Windows ALL_BUILD also reported
+COMDAT link failures in three diagnostic executables. A serial retry of those targets
+passed with unchanged source and no artifact deletion; the subsequent ALL_BUILD and full
+gates pass. The cause of the first link failure remains unproven. The missing
+diplomacy-header Windows compile failure and platform-conditional include Linux compile
+failure are archived, corrected before final gates, and never counted as runtime RED. Game
+DB SHA314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df is unchanged. No
+save/DB/network schema, combat formula, medal-award policy or HD PNG change. Full285
+complete; partial360 remains partial.231 imported/11 pending/4 partial,15 unfinished
+sources.
+
+Sources: [285f6a0cff9737d2789396a2543bc75d0ab11da7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/285f6a0cff9737d2789396a2543bc75d0ab11da7), [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).

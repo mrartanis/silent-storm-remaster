@@ -1170,6 +1170,7 @@ void CUnitServer::Segment()
 	}
 	pState->Segment();
 	FetchRPGAcks();
+	GetUnitRPG()->Segment();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitServer::HearUnit( CUnitServer *pSource )
@@ -2093,6 +2094,8 @@ NDb::EDiplomacyState CUnitServer::GetDiplomacyState( CUnitServer *pTarget ) cons
 void CUnitServer::SetPlayer( CPlayer *_pPlayer )
 {
 	pPlayer = _pPlayer;
+	// Keep medal diplomacy aligned with the actual owner, including a null owner.
+	GetUnitRPG()->SetScenarioPlayerID( IsValid( pPlayer ) ? pPlayer->GetScenarioPlayerID() : -1 );
 	// Steam 0x7c1de0: persist owner AI identity when assigned, including a null owner.
 	GetUnitRPG()->SetIsAIPlayer( NAI::IsAIPlayer( _pPlayer ) );
 }

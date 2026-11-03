@@ -12,9 +12,7 @@
 // clear-distance/range bounds and reflection, carrying remaining energy between
 // segments. Each completed segment owns its endpoint; CGame helpers also remain.
 //
-// DEFERRED (genuine gaps -- see RPGBullet.cpp notes):
-//   * CanHitTarget (needs the shooter diplomacy/relation -> ally mapping) and the
-//     per-ray GetHitIntersections (reads a finished CCoverInfo) are deferred.
+// Hits consume the selected cover cell; loose rays retain their separate tracing path.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "A5Time.h"
 #include "RPGGame.h"      // NRPG::STrailPoint, NRPG::CAttackPortion, NRPG::IAttackable, EAttackResult, CRay, CObj/CPtr, vector, NDb::CRPGArmor
@@ -114,6 +112,10 @@ void PerformMeleeAttackPortion( NWorld::IWorld *pWorld, NAI::IAIMap *pAIMap, con
 // @0x290d80 -- build the cumulative AP-left profile across the cover chain.
 void CalcCoverIntervals( NAI::CFastRenderer::SResult *pList, const SAttackRayInfo &ray,
 	NDb::CRPGArmor *pFallbackArmor, vector<SCoverInterval> *pOut );
+// Prepare a shot from the chosen cover cell, keeping grid identity through roulette selection.
+bool PrepareAttackRay( NAI::IAIMap *pAIMap, CCoverInfo *pCover, SAttackRayInfo *pInfo, float fHit );
+void GetHitIntersections( NAI::IAIMap *pAIMap, vector<STrailPoint> *pTrail,
+	NAI::CFastRenderer::SResult *pList, const SAttackRayInfo &rayInfo );
 // Original incidental-unit hit chance/roll, independent of the intended shot result.
 int GetBulletToHit( const SAttackRayInfo &rayInfo, CObjectBase *pTarget, NAI::EHitLocation hl );
 bool CheckBulletToHit( const SAttackRayInfo &rayInfo, CObjectBase *pTarget, NAI::EHitLocation hl );

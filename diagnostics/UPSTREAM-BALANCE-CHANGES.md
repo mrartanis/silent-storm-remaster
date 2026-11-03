@@ -4797,3 +4797,20 @@ Games/scoped/CI382/LAN12 each361 pass. Source9af complete;230 imported/12 pendin
 partial,16 unfinished.
 
 Source: [9af844d6b62ed800bb59a64057b03e0eafc83878](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9af844d6b62ed800bb59a64057b03e0eafc83878).
+
+## 176. Complete transient attack sessions and populate selected-hit trails
+
+Restore transient target/projectile bookkeeping without enabling AddMedalPoints or
+changing medal awards. Keep the executor alive until its actual animation completes.
+Populate successful ranged-shot trails from the same selected cover grid so the existing
+cached-hit consumer can produce real bullets/damage; do not restore a second trace
+fallback. Preserve accuracy/roulette/draw order, damage/AP formulas, existing
+origin/projection/HL and ignore handling, loose misses and cached-empty-hit semantics.
+Existing physical mission gates retain one round and10 AP while now producing the bullet
+and target damage. Preserve legacy20-byte cover saves/class identity with runtime-only
+grids/coordinates, all network authority/save schemas and frozenHD assets. Native
+sessionRED4/5 both/control1 and actualmission-shotRED3 both ->GREEN17bundle both;
+freshGames616W612L/WindowsCI383/LAN12each361. Full285 complete, partial360
+remainspartial;15unfinished.
+
+Sources: [285f6a0cff9737d2789396a2543bc75d0ab11da7](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/285f6a0cff9737d2789396a2543bc75d0ab11da7), [360344ca1679d8bc7f4706d69e1270ee0caa3387](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/360344ca1679d8bc7f4706d69e1270ee0caa3387).

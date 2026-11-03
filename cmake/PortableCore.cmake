@@ -685,6 +685,7 @@ add_library(s2_game_rpg_mission STATIC
   "${root}/Main/RPGStore.cpp"
   "${root}/Main/RPGDiplomacy.cpp"
   "${root}/Main/RPGObject.cpp"
+  "${root}/Main/RPGAttackSession.cpp"
   "${root}/Main/RPGUnitMission.cpp")
 target_include_directories(s2_game_rpg_mission PRIVATE
   "${root}/Main" "${root}/FileIO" "${root}/Misc" "${root}/DBFormat"
