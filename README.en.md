@@ -34,10 +34,11 @@ Status as of **October 23, 2026**:
   for every possible FaceGen combination.
 - **Cross-platform game.** SDL3 handles windows, keyboard, mouse, text input,
   clipboard and system events. The complete game builds for Windows x64,
-  Linux x64 and Linux ARM64; the portable core includes Lua, AI, combat,
+  Linux x64, Linux ARM64 and macOS ARM64; the portable core includes Lua, AI, combat,
   resources, campaign logic and saves.
 - **bgfx renderer.** The direct D3D9 renderer and DirectInput have been replaced
-  by bgfx and SDL3. Windows uses bgfx's Direct3D 11 backend and Linux uses Vulkan;
+  by bgfx and SDL3. Windows uses bgfx's Direct3D 11 backend, Linux uses Vulkan,
+  and macOS uses Metal;
   the game engine no longer depends on the legacy DirectX runtime.
 - **Modern display and interface.** Resizable windows, borderless fullscreen,
   widescreen resolutions and Hor+ projection, adaptive panels and UI scaling,
@@ -94,8 +95,9 @@ scenarios and remaining differences.
 Installing a ready-made release, Steam data and HD: [Russian guide](INSTALLATION_RU.md).
 
 Engine releases are separate from original game data and the HD pack. The
-**Engine release** workflow builds Windows x64 and Linux x64 for `v*` tags and
-publishes a GitHub Release after successful checks. See
+**Engine CI and release** workflow builds Windows x64, Linux x64 and macOS ARM64
+for pull requests and pushes to `develop`, running common and native game tests.
+For `v*` tags it publishes all three archives after successful checks. See
 [RELEASING.md](packaging/RELEASING.md) for tagging and checks without publishing.
 
 ### Dependencies

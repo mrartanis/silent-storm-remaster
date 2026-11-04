@@ -110,8 +110,10 @@ int main(){try{
   // Reproduce a burst accumulated during scene loading. Each state is costly,
   // but one Poll must yield after the first instead of freezing for the batch.
   int burstApplied=0;SessionCallbacks burstMirror;
+  auto burstClock=std::chrono::steady_clock::time_point()+std::chrono::seconds(1);
+  burstMirror.now=[&]{return burstClock;};
   burstMirror.applyState=[&](const Bytes& bytes,bool initial){
-    if(!initial){Require(bytes==Bytes{static_cast<std::uint8_t>(burstApplied+1)},"burst order/state damaged");++burstApplied;std::this_thread::sleep_for(std::chrono::milliseconds(20));}
+    if(!initial){Require(bytes==Bytes{static_cast<std::uint8_t>(burstApplied+1)},"burst order/state damaged");++burstApplied;burstClock+=std::chrono::milliseconds(20);}
   };
   Transport burstHost;burstHost.Listen(0);NetworkSession burstClient({"build","data"},burstMirror);burstClient.Connect("127.0.0.1",burstHost.Port());
   bool burstWelcome=false;deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
@@ -124,14 +126,17 @@ int main(){try{
   }
   Require(burstClient.State()==SessionState::Playing,"burst fixture setup failed");
   for(int i=1;i<=12;++i)burstHost.Send({Message::State,0,{static_cast<std::uint8_t>(i)}});burstHost.Poll();
-  auto longestPoll=std::chrono::steady_clock::duration::zero();
   deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
   while(burstApplied<12 && std::chrono::steady_clock::now()<deadline) {
-    const auto started=std::chrono::steady_clock::now();burstClient.Poll();
-    const auto elapsed=std::chrono::steady_clock::now()-started;if(elapsed>longestPoll)longestPoll=elapsed;
+    // Nonblocking sends can leave part of the burst queued on any platform.
+    burstHost.Poll();
+    const int before=burstApplied;burstClient.Poll();
+    Require(burstApplied-before<=1,"world backlog froze a frame instead of yielding after one costly state");
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
-  Require(burstApplied==12 && longestPoll<std::chrono::milliseconds(150),"world backlog froze a frame or lost revisions");
+  if(burstApplied!=12)std::fprintf(stderr,"burst applied=%d queued=%zu state=%d error=%s\n",burstApplied,
+    burstHost.Diagnostics().queuedBytes,int(burstClient.State()),burstClient.Status().c_str());
+  Require(burstApplied==12,"world backlog lost revisions");
   burstHost.Close();AwaitDisconnect(burstClient,"queued-state disconnect ignored");
   rawHost.Close();AwaitDisconnect(rawClient,"raw host disconnect ignored");
   Transport loadingHost;loadingHost.Listen(0);NetworkSession loadingClient({"build","data"},mirror);loadingClient.Connect("127.0.0.1",loadingHost.Port());

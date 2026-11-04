@@ -169,6 +169,7 @@ jobs:
             -DS2_BUILD_HD_TEXTURES=OFF
 
       - name: Build engine and tests
+        id: engine-build
         run: cmake --build build --config Release --parallel "$S2_BUILD_JOBS"
 
       - name: Verify engine packaging
@@ -224,7 +225,9 @@ jobs:
             --deps "$S2_DEPS" --version "$RELEASE_VERSION" --output dist
 
       - name: Package macOS engine and verify relocated startup
-        if: runner.os == 'macOS'
+        # Packaging diagnostics are independent of a CTest failure. Publication
+        # still requires the entire build job (including CTest) to succeed.
+        if: ${{ !cancelled() && runner.os == 'macOS' && steps.engine-build.outcome == 'success' }}
         env:
           RELEASE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('check-{0}', github.run_number) }}
         run: |

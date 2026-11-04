@@ -1,8 +1,10 @@
 # Engine releases
 
 Push a tag beginning with `v` to `mrartanis/silent-storm-remaster`.
-The `Engine release` workflow builds and tests Windows x64 and Linux x64,
-then publishes both archives and `SHA256SUMS` as a GitHub Release.
+The `Engine CI and release` workflow builds and tests Windows x64, Linux x64
+and macOS ARM64, then publishes all three archives and `SHA256SUMS` as a
+GitHub Release. macOS archives are named
+`silent-storm-engine-<tag>-macos-arm64.tar.gz`.
 Tags with a hyphen, such as `v0.1.0-rc1`, produce prereleases.
 Use a new tag for each release; published assets are never overwritten.
 
@@ -18,18 +20,28 @@ needed. A failed build/test prevents publication. Failed uploads leave a draft
 that the same workflow can recover on rerun; an existing published release is
 left unchanged.
 
-For a check without publishing, select **Actions → Engine release → Run
+For a check without publishing, select **Actions → Engine CI and release → Run
 workflow** on the branch to test. Its archives remain downloadable as workflow
 artifacts for seven days. A manual run never publishes a release, even on a tag.
-The manual `platform` choice can limit a check to Windows or Linux; tag pushes
-always build and require both platforms.
+The manual `platform` choice can limit a check to Windows, Linux or macOS; tag
+pushes always build and require all three platforms.
 
-The workflow uses a sparse checkout that excludes `assets/terrain-hd` and
+Pull requests and pushes to `develop` run the same build/test/package matrix
+without publication. Common tests and applicable native game regressions run
+without original game data; asset-dependent diagnostics remain conditional on
+locally supplied assets. Linux display tests use Xvfb/Openbox and software Vulkan;
+macOS uses Cocoa/Metal with sequential window tests. New branch/PR commits cancel
+outdated checks; tagged releases finish intact. Manual checks run independently.
+
+The workflow uses a sparse checkout that excludes `assets/terrain-hd`,
+`data/hd-sources` and `data/hd-runtime`, and
 explicitly disables HD building. SDL3, bgfx/bimg/bx, miniaudio and FFmpeg inputs
 are pinned in `.github/scripts/prepare-deps.py`; FreeType is pinned in CMake.
-FFmpeg is built from the same LGPL source on both platforms without external
+FFmpeg is built from the same LGPL source on all platforms without external
 codec autodetection. Dependency caches are separate per runner image and keyed
-by the download/build recipes. Engine archives use an explicit file allowlist.
+by the download/build recipes. Linux/macOS compiler caches are also retained
+after test failures to speed subsequent fixes. Engine archives use an explicit
+file allowlist.
 
 No Steam data, historical DLLs, saves, laboratory files or HD textures are
 included. `Package-Game.py` remains the separate local full-game packaging tool.
@@ -42,7 +54,7 @@ a minimal README and network-version.txt. Players do not generate this file.
 `network-version.txt` in the repository is the source of truth. Its three lines
 are the format marker (`S2-NETWORK-1`), engine compatibility version (currently
 `1`) and data-family version (`silent-storm-1.2`). CMake copies this exact file
-into both platform builds and embeds the compatibility version in the engine.
+into all three platform builds and embeds the compatibility version in the engine.
 Neither Git commits, compiler/OS differences nor a player's installed files
 change the version automatically. Ordinary compatible changes keep it intact.
 
@@ -56,6 +68,15 @@ The Linux archive bundles SDL3/FFmpeg; system libraries and Vulkan drivers are
 provided by the operating system. It targets the Ubuntu 24.04/glibc 2.39 baseline.
 CI graphics checks use software Vulkan; they do not establish hardware GPU or
 audio-device compatibility.
+
+The macOS archive targets macOS 15+ on Apple silicon. It bundles SDL3, FFmpeg
+and the full non-system dylib dependency chain, including Homebrew libraries
+and their exact upstream source archives, formulae and notices. Install names
+use relative loader paths; build-machine rpaths are removed. Binaries are ad-hoc
+signed and verified, without Apple notarization. The package is extracted to
+a different directory and started without game data to verify loader closure
+and the expected missing-database error. Start the installed game with
+`./Play.command`; Homebrew is not required on the player's Mac.
 
 ## Separate HD release
 
