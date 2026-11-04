@@ -1,38 +1,45 @@
-name: Engine release
+name: Engine CI and release
 
 on:
   push:
+    branches: [develop]
     tags: ['v*']
+  pull_request:
+    branches: [develop]
   workflow_dispatch:
     inputs:
       platform:
         description: Platform to verify (manual runs never publish)
         type: choice
-        options: [all, windows, linux]
+        options: [all, windows, linux, macos]
         default: all
 
 permissions:
   contents: read
 
 concurrency:
-  # Manual checks never publish, so they need not queue behind an older check.
-  group: engine-release-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
-  cancel-in-progress: false
+  # New PR/branch commits replace stale checks; tagged releases finish intact.
+  # Manual checks of different platforms can run independently.
+  group: engine-${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
   build:
-    name: ${{ matrix.platform }} x64
+    name: ${{ matrix.platform }} ${{ matrix.arch }}
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(inputs.platform == 'windows' && '[{"os":"windows-2022","platform":"windows"}]' || inputs.platform == 'linux' && '[{"os":"ubuntu-24.04","platform":"linux"}]' || '[{"os":"windows-2022","platform":"windows"},{"os":"ubuntu-24.04","platform":"linux"}]') }}
+        include: ${{ fromJSON(inputs.platform == 'windows' && '[{"os":"windows-2022","platform":"windows","arch":"x64"}]' || inputs.platform == 'linux' && '[{"os":"ubuntu-24.04","platform":"linux","arch":"x64"}]' || inputs.platform == 'macos' && '[{"os":"macos-15","platform":"macos","arch":"arm64"}]' || '[{"os":"windows-2022","platform":"windows","arch":"x64"},{"os":"ubuntu-24.04","platform":"linux","arch":"x64"},{"os":"macos-15","platform":"macos","arch":"arm64"}]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     defaults:
       run:
         shell: bash
     env:
-      S2_BUILD_JOBS: '4'
+      S2_BUILD_JOBS: ${{ matrix.platform == 'macos' && '2' || '4' }}
+      MACOSX_DEPLOYMENT_TARGET: '15.0'
+      CCACHE_MAXSIZE: 750M
+      CCACHE_COMPILERCHECK: content
     steps:
       - uses: actions/checkout@v4
         with:
@@ -42,13 +49,17 @@ jobs:
           sparse-checkout: |
             /*
             !/assets/terrain-hd/
+            !/data/hd-sources/
+            !/data/hd-runtime/
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
 
       - name: Set dependency directory
-        run: echo "S2_DEPS=$RUNNER_TEMP/s2-release-deps" >> "$GITHUB_ENV"
+        run: |
+          echo "S2_DEPS=$RUNNER_TEMP/s2-release-deps" >> "$GITHUB_ENV"
+          echo "CCACHE_DIR=$RUNNER_TEMP/s2-ccache" >> "$GITHUB_ENV"
 
       - name: Select MSVC x64
         if: runner.os == 'Windows'
@@ -60,7 +71,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-18 ninja-build pkg-config \
+          sudo apt-get install -y clang-18 ninja-build pkg-config ccache \
             libgsf-1-dev libpng-dev zlib1g-dev libx11-dev libxext-dev libxi-dev \
             libxrandr-dev libxfixes-dev libxcursor-dev libxss-dev libxtst-dev \
             libgl1-mesa-dev libegl1-mesa-dev libasound2-dev libpulse-dev libudev-dev \
@@ -73,6 +84,21 @@ jobs:
           path: ${{ env.S2_DEPS }}
           key: engine-deps-${{ matrix.os }}-${{ hashFiles('.github/scripts/prepare-deps.py', '.github/scripts/build-deps.sh') }}
           restore-keys: engine-deps-${{ matrix.os }}-
+
+      - name: Install macOS build dependencies
+        if: runner.os == 'macOS'
+        run: |
+          test "$(uname -m)" = arm64
+          brew install ninja pkg-config libgsf libpng ccache
+
+      - name: Restore compiler cache
+        if: runner.os != 'Windows'
+        id: compiler-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: compiler-${{ matrix.os }}-${{ github.run_id }}
+          restore-keys: compiler-${{ matrix.os }}-
 
       - name: Fetch pinned sources
         if: steps.dependencies.outputs.cache-hit != 'true'
@@ -91,9 +117,9 @@ jobs:
         shell: msys2 {0}
         run: bash .github/scripts/build-deps.sh "$S2_DEPS" windows
 
-      - name: Build Linux SDL3 and FFmpeg shared libraries
-        if: runner.os == 'Linux' && steps.dependencies.outputs.cache-hit != 'true'
-        run: bash .github/scripts/build-deps.sh "$S2_DEPS" linux
+      - name: Build Unix SDL3 and FFmpeg shared libraries
+        if: runner.os != 'Windows' && steps.dependencies.outputs.cache-hit != 'true'
+        run: bash .github/scripts/build-deps.sh "$S2_DEPS" '${{ matrix.platform }}'
 
       - name: Save completed dependencies
         if: steps.dependencies.outputs.cache-hit != 'true'
@@ -121,6 +147,7 @@ jobs:
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DS2_BUILD_GAME=ON -DSDL3_DIR="$S2_DEPS/install/lib/cmake/SDL3" \
             -DS2_BGFX_CMAKE_ROOT="$S2_DEPS/bgfx.cmake" -DS2_BGFX_DIR="$S2_DEPS/bgfx" \
             -DS2_BIMG_DIR="$S2_DEPS/bimg" -DS2_BX_DIR="$S2_DEPS/bx" \
@@ -128,12 +155,27 @@ jobs:
             -DS2_FFMPEG_ROOT="$S2_DEPS/install" -DS2_MINIAUDIO_INCLUDE_DIR="$S2_DEPS" \
             -DBGFX_WITH_WAYLAND=OFF -DS2_BUILD_HD_TEXTURES=OFF
 
+      - name: Configure macOS game
+        if: runner.os == 'macOS'
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DS2_BUILD_GAME=ON -DSDL3_DIR="$S2_DEPS/install/lib/cmake/SDL3" \
+            -DS2_BGFX_CMAKE_ROOT="$S2_DEPS/bgfx.cmake" -DS2_BGFX_DIR="$S2_DEPS/bgfx" \
+            -DS2_BIMG_DIR="$S2_DEPS/bimg" -DS2_BX_DIR="$S2_DEPS/bx" \
+            -DS2_BUILD_MEDIA_PROBE=ON -DS2_BUILD_MINIAUDIO_MUSIC_PROBE=ON \
+            -DS2_FFMPEG_ROOT="$S2_DEPS/install" -DS2_MINIAUDIO_INCLUDE_DIR="$S2_DEPS" \
+            -DS2_BUILD_HD_TEXTURES=OFF
+
       - name: Build engine and tests
+        id: engine-build
         run: cmake --build build --config Release --parallel "$S2_BUILD_JOBS"
 
       - name: Verify engine packaging
         run: |
           python diagnostics/EnginePackageTests.py
+          python diagnostics/MacOSRuntimeTests.py
 
       - name: Test Windows engine
         if: runner.os == 'Windows'
@@ -153,6 +195,14 @@ jobs:
           export VK_ICD_FILENAMES="$(find /usr/share/vulkan/icd.d -name 'lvp_icd*.json' -print -quit)"
           test -n "$VK_ICD_FILENAMES"
           bash .github/scripts/test-linux.sh build
+
+      - name: Test macOS engine
+        if: runner.os == 'macOS'
+        env:
+          S2_AUDIO_HEADLESS: '1'
+        run: |
+          # Cocoa window tests share desktop focus and must run sequentially.
+          ctest --test-dir build -C Release --output-on-failure --no-tests=error --timeout 300 --parallel 1
 
       - name: Package Windows engine
         if: runner.os == 'Windows'
@@ -174,10 +224,20 @@ jobs:
           python diagnostics/Package-Engine.py --platform linux --build build \
             --deps "$S2_DEPS" --version "$RELEASE_VERSION" --output dist
 
+      - name: Package macOS engine and verify relocated startup
+        # Packaging diagnostics are independent of a CTest failure. Publication
+        # still requires the entire build job (including CTest) to succeed.
+        if: ${{ !cancelled() && runner.os == 'macOS' && steps.engine-build.outcome == 'success' }}
+        env:
+          RELEASE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('check-{0}', github.run_number) }}
+        run: |
+          python diagnostics/Package-Engine.py --platform macos --build build \
+            --deps "$S2_DEPS" --version "$RELEASE_VERSION" --output dist
+
       - name: Save engine archive
         uses: actions/upload-artifact@v4
         with:
-          name: engine-${{ matrix.platform }}-x64
+          name: engine-${{ matrix.platform }}-${{ matrix.arch }}-archive
           path: dist/*
           if-no-files-found: error
           compression-level: 0
@@ -195,6 +255,13 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: Save compiler cache, including after test failures
+        if: always() && runner.os != 'Windows' && steps.compiler-cache.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
+
   publish:
     name: Publish tagged engine release
     needs: build
@@ -205,7 +272,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: engine-*-x64
+          pattern: engine-*-archive
           merge-multiple: true
           path: dist
 
@@ -218,16 +285,23 @@ jobs:
         run: |
           set -euo pipefail
           cd dist
-          test "$(find . -maxdepth 1 -name '*.sha256' | wc -l)" -eq 2
+          test "$(find . -maxdepth 1 -name '*.sha256' | wc -l)" -eq 3
+          for asset in "silent-storm-engine-$RELEASE_TAG-windows-x64.zip" \
+                       "silent-storm-engine-$RELEASE_TAG-linux-x64.tar.gz" \
+                       "silent-storm-engine-$RELEASE_TAG-macos-arm64.tar.gz"; do
+            test -s "$asset"
+            test -s "$asset.sha256"
+          done
           cat ./*.sha256 > SHA256SUMS
           sha256sum --check SHA256SUMS
           rm ./*.sha256
           cat > release-notes.txt <<'NOTES'
-          Engine-only builds for Windows x64 and Linux x64 (Ubuntu 24.04 baseline).
+          Engine-only builds for Windows x64, Linux x64 (Ubuntu 24.04 baseline), and macOS ARM64 (Apple silicon, macOS 15+).
           Original Silent Storm v1.2 game data and the optional HD texture pack are supplied separately.
           Runtime libraries, fonts, component notices and minimal setup instructions are included.
-          The versioned network-version.txt is included and shared by both platform builds.
-          Both platform builds and their data-independent tests passed before publication.
+          The versioned network-version.txt is included and shared by all three platform builds.
+          All three platform builds and their data-independent tests passed before publication.
+          macOS libraries are bundled and use relative loader paths; start with ./Play.command.
           NOTES
           printf '\n[Installation guide (Russian)](https://github.com/%s/blob/%s/INSTALLATION_RU.md)\n' "$GH_REPO" "$RELEASE_TAG" >> release-notes.txt
           options=()

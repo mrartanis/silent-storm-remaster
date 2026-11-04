@@ -10,6 +10,14 @@ template<class Condition> void Pump(NetworkSession& host,NetworkSession& client,
   while(!done() && std::chrono::steady_clock::now()<deadline){host.Poll();client.Poll();std::this_thread::sleep_for(std::chrono::milliseconds(1));}
   Require(done(),"network session test timed out");
 }
+static void AwaitDisconnect(NetworkSession& session,const char* message) {
+  // close() does not synchronously deliver a loopback FIN to the other socket.
+  const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
+  while(session.State()!=SessionState::Failed && std::chrono::steady_clock::now()<deadline){
+    session.Poll();std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  Require(session.State()==SessionState::Failed,message);
+}
 int main(){try{
   int commands=0,queries=0,clientInitial=0,hostTicks=0,events=0,results=0;
   SessionCallbacks server,mirror;
@@ -28,19 +36,22 @@ int main(){try{
   Require(client.Submit({42})!=0 && client.Query({43})!=0,"request IDs");
   Pump(host,client,[&]{return results==2 && events>0;});
   Require(commands==1 && queries==1 && hostTicks>0,"commands or world ticks missing");
-  // A 20 ms snapshot exceeds the per-frame catch-up budget but still fits
-  // its 50 ms simulation period. Its cost must not be added to that period.
+  // A simulated 20 ms snapshot exceeds the per-frame catch-up budget but fits
+  // its 50 ms period. Use a monotonic test clock so OS timer coalescing/load
+  // cannot turn this scheduling regression into a machine-speed benchmark.
   {
     int ticks=0;SessionCallbacks timedServer,timedMirror;
+    auto clock=std::chrono::steady_clock::time_point()+std::chrono::seconds(1);
+    timedServer.now=timedMirror.now=[&]{return clock;};
     timedMirror.applyState=[](const Bytes&,bool) {};
     timedServer.createInitial=[] {return Bytes{1};};
-    timedServer.segment=[&]{++ticks;std::this_thread::sleep_for(std::chrono::milliseconds(20));return Bytes{2};};
+    timedServer.segment=[&]{++ticks;clock+=std::chrono::milliseconds(20);return Bytes{2};};
     NetworkSession timedHost({"timed","data"},timedServer),timedClient({"timed","data"},timedMirror);
     timedHost.Host(0);timedClient.Connect("127.0.0.1",timedHost.Port());
     Pump(timedHost,timedClient,[&]{return timedHost.State()==SessionState::Playing && timedClient.State()==SessionState::Playing;});
-    ticks=0;const auto until=std::chrono::steady_clock::now()+std::chrono::seconds(1);
-    while(std::chrono::steady_clock::now()<until){timedHost.Poll();timedClient.Poll();std::this_thread::sleep_for(std::chrono::milliseconds(1));}
-    Require(ticks>=17 && ticks<=22,"snapshot cost changed the simulation clock");
+    ticks=0;const auto until=clock+std::chrono::seconds(1);
+    while(clock<until){timedHost.Poll();timedClient.Poll();clock+=std::chrono::milliseconds(1);}
+    Require(ticks==19,"snapshot cost changed the simulation clock");
     timedClient.Finish("done");
   }
   // Preview requests and End can arrive in one receive batch followed by EOF.
@@ -71,9 +82,7 @@ int main(){try{
   for(int i=0;i<100;++i){peer.Poll();dedup.Poll();std::this_thread::sleep_for(std::chrono::milliseconds(1));}
   Require(commands==before+1,"duplicate command executed twice");
   peer.Close();
-  Pump(dedup,dedup,[&]{return dedup.State()==SessionState::Failed;});
-  dedup.Poll();
-  Require(dedup.State()==SessionState::Failed,"disconnect did not stop match");
+  AwaitDisconnect(dedup,"disconnect did not stop match");
   NetworkSession wrongBuildHost({"build","data"},server),wrongBuild({"other","data"},mirror);
   wrongBuildHost.Host(0);wrongBuild.Connect("127.0.0.1",wrongBuildHost.Port());
   Pump(wrongBuildHost,wrongBuild,[&]{return wrongBuildHost.State()==SessionState::Failed && wrongBuild.State()==SessionState::Failed;});
@@ -101,8 +110,10 @@ int main(){try{
   // Reproduce a burst accumulated during scene loading. Each state is costly,
   // but one Poll must yield after the first instead of freezing for the batch.
   int burstApplied=0;SessionCallbacks burstMirror;
+  auto burstClock=std::chrono::steady_clock::time_point()+std::chrono::seconds(1);
+  burstMirror.now=[&]{return burstClock;};
   burstMirror.applyState=[&](const Bytes& bytes,bool initial){
-    if(!initial){Require(bytes==Bytes{static_cast<std::uint8_t>(burstApplied+1)},"burst order/state damaged");++burstApplied;std::this_thread::sleep_for(std::chrono::milliseconds(20));}
+    if(!initial){Require(bytes==Bytes{static_cast<std::uint8_t>(burstApplied+1)},"burst order/state damaged");++burstApplied;burstClock+=std::chrono::milliseconds(20);}
   };
   Transport burstHost;burstHost.Listen(0);NetworkSession burstClient({"build","data"},burstMirror);burstClient.Connect("127.0.0.1",burstHost.Port());
   bool burstWelcome=false;deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
@@ -115,20 +126,19 @@ int main(){try{
   }
   Require(burstClient.State()==SessionState::Playing,"burst fixture setup failed");
   for(int i=1;i<=12;++i)burstHost.Send({Message::State,0,{static_cast<std::uint8_t>(i)}});burstHost.Poll();
-  auto longestPoll=std::chrono::steady_clock::duration::zero();
   deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
   while(burstApplied<12 && std::chrono::steady_clock::now()<deadline) {
-    const auto started=std::chrono::steady_clock::now();burstClient.Poll();
-    const auto elapsed=std::chrono::steady_clock::now()-started;if(elapsed>longestPoll)longestPoll=elapsed;
+    // Nonblocking sends can leave part of the burst queued on any platform.
+    burstHost.Poll();
+    const int before=burstApplied;burstClient.Poll();
+    Require(burstApplied-before<=1,"world backlog froze a frame instead of yielding after one costly state");
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
-  Require(burstApplied==12 && longestPoll<std::chrono::milliseconds(150),"world backlog froze a frame or lost revisions");
-  burstHost.Close();
-  Pump(burstClient,burstClient,[&]{return burstClient.State()==SessionState::Failed;});
-  burstClient.Poll();Require(burstClient.State()==SessionState::Failed,"queued-state disconnect ignored");
-  rawHost.Close();
-  Pump(rawClient,rawClient,[&]{return rawClient.State()==SessionState::Failed;});
-  rawClient.Poll();Require(rawClient.State()==SessionState::Failed,"raw host disconnect ignored");
+  if(burstApplied!=12)std::fprintf(stderr,"burst applied=%d queued=%zu state=%d error=%s\n",burstApplied,
+    burstHost.Diagnostics().queuedBytes,int(burstClient.State()),burstClient.Status().c_str());
+  Require(burstApplied==12,"world backlog lost revisions");
+  burstHost.Close();AwaitDisconnect(burstClient,"queued-state disconnect ignored");
+  rawHost.Close();AwaitDisconnect(rawClient,"raw host disconnect ignored");
   Transport loadingHost;loadingHost.Listen(0);NetworkSession loadingClient({"build","data"},mirror);loadingClient.Connect("127.0.0.1",loadingHost.Port());
   welcome=false;deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
   while(loadingClient.State()!=SessionState::Loading && std::chrono::steady_clock::now()<deadline){

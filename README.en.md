@@ -34,10 +34,11 @@ Status as of **October 23, 2026**:
   for every possible FaceGen combination.
 - **Cross-platform game.** SDL3 handles windows, keyboard, mouse, text input,
   clipboard and system events. The complete game builds for Windows x64,
-  Linux x64 and Linux ARM64; the portable core includes Lua, AI, combat,
+  Linux x64, Linux ARM64 and macOS ARM64; the portable core includes Lua, AI, combat,
   resources, campaign logic and saves.
 - **bgfx renderer.** The direct D3D9 renderer and DirectInput have been replaced
-  by bgfx and SDL3. Windows uses bgfx's Direct3D 11 backend and Linux uses Vulkan;
+  by bgfx and SDL3. Windows uses bgfx's Direct3D 11 backend, Linux uses Vulkan,
+  and macOS uses Metal;
   the game engine no longer depends on the legacy DirectX runtime.
 - **Modern display and interface.** Resizable windows, borderless fullscreen,
   widescreen resolutions and Hor+ projection, adaptive panels and UI scaling,
@@ -83,7 +84,7 @@ Status as of **October 23, 2026**:
 | **Linux x64** | Complete native game; Clang, SDL3/X11, bgfx/Vulkan. Gameplay and network runs use Xvfb/lavapipe, including Windows ↔ Linux. Physical GPUs, audio devices and HiDPI have not been separately verified. |
 | **Linux ARM64** | Complete AArch64 build; game, graphics and core/network checks have run through QEMU and ARM64 lavapipe. Physical ARM64 hardware and a graphical network client on that hardware remain unverified. |
 | **Windows x86** | Retained as a diagnostic reference for comparisons with the original 32-bit DLLs, rather than the main distribution target. |
-| **macOS** | Game support is not claimed yet: a complete build and run on a real Mac remain unverified. |
+| **macOS ARM64** | Native Apple clang/SDL3/Metal build on Apple silicon. Core, networking and renderer/input regressions run on real hardware. Full campaign and audio-device coverage remain unverified. |
 
 A full campaign playthrough and complete behavioral/visual parity with the
 Steam release have not yet been established. The reports below describe tested
@@ -94,8 +95,9 @@ scenarios and remaining differences.
 Installing a ready-made release, Steam data and HD: [Russian guide](INSTALLATION_RU.md).
 
 Engine releases are separate from original game data and the HD pack. The
-**Engine release** workflow builds Windows x64 and Linux x64 for `v*` tags and
-publishes a GitHub Release after successful checks. See
+**Engine CI and release** workflow builds Windows x64, Linux x64 and macOS ARM64
+for pull requests and pushes to `develop`, running common and native game tests.
+For `v*` tags it publishes all three archives after successful checks. See
 [RELEASING.md](packaging/RELEASING.md) for tagging and checks without publishing.
 
 ### Dependencies
@@ -237,6 +239,25 @@ For a complete environment example, see
 script requires prepared dependency directories. Verification and limits:
 [BGFX-LINUX.md](diagnostics/BGFX-LINUX.md),
 [MODERN-DISPLAY.md](diagnostics/MODERN-DISPLAY.md).
+
+### macOS (Apple silicon)
+
+Install Xcode command line tools and `brew install cmake ninja pkg-config libgsf libpng`,
+then run `./build-mac.sh`. Pinned SDL3, FFmpeg, bgfx and miniaudio dependencies
+live in `../ss-deps-mac` (override with `S2_DEPS`); incremental builds reuse
+`build-mac/`. The local executable is `build-mac/Game`, linked to the installed
+dependency paths. Run it with the original game data as the working directory.
+HD preparation is disabled by default; no textures are generated.
+
+Metal shaders are compiled by the pinned shaderc. The game enables Retina
+backing pixels; CTest uses `S2_NO_HIGHDPI=1` for pixel-exact renderer/input
+regressions; a separate native Retina test keeps HiDPI enabled. Cocoa display
+tests run serially because they share desktop focus. Borderless uses a desktop-sized
+window, not an animated macOS fullscreen Space. User data defaults to
+`~/Library/Application Support/Silent Storm Reconstruction`; `S2_USER_DATA_DIR`
+can select an isolated absolute directory for testing.
+
+Verification and remaining limits: [MACOS-ARM64.md](diagnostics/MACOS-ARM64.md).
 
 ## Running and settings
 

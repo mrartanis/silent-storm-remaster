@@ -60,7 +60,12 @@ const std::string& LinuxUserDataRoot() {
     env.home = EnvironmentValue("HOME");
     env.xdgDataHome = EnvironmentValue("XDG_DATA_HOME");
     std::string path;
-    if (!ResolveUserDataRoot(HostPlatform::Linux, env, &path) ||
+#if defined(__APPLE__)
+    constexpr HostPlatform platform = HostPlatform::MacOS;
+#else
+    constexpr HostPlatform platform = HostPlatform::Linux;
+#endif
+    if (!ResolveUserDataRoot(platform, env, &path) ||
         !EnsureDirectory(fs::path(path))) return std::string();
     return path;
   }();

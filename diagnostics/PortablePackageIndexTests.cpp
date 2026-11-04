@@ -92,14 +92,20 @@ int main() {
     std::replace(requested.begin(), requested.end(), '/', '\\');
     S2FileIO::PortablePackageIndex index;
     Bytes bytes;
-    casePath = index.Open(requested) && index.ResolvedPath() == actual.string() &&
+    casePath = index.Open(requested) && std::filesystem::equivalent(index.ResolvedPath(), actual) &&
                index.Read(17, &bytes) && bytes == Bytes({0x12, 0x34, 0x56});
+    // Two spellings differing only in case can only coexist on a
+    // case-sensitive file system; APFS volumes may be created case-insensitive.
+    const auto probe = caseDir / "CaseProbe.aB";
+    std::ofstream(probe) << 'x';
+    const bool caseInsensitiveFs = std::filesystem::exists(caseDir / "CaseProbe.Ab");
+    std::filesystem::remove(probe, caseError);
     const auto conflict = caseDir / "fonts.res";
-    if (casePath && Check(conflict, Package(), true)) {
+    if (!caseInsensitiveFs && casePath && Check(conflict, Package(), true)) {
       S2FileIO::PortablePackageIndex ambiguous;
       casePath = !ambiguous.Open(requested);
-    } else casePath = false;
-    std::filesystem::remove(conflict, caseError);
+    } else if (!caseInsensitiveFs) casePath = false;
+    if (!caseInsensitiveFs) std::filesystem::remove(conflict, caseError);
   }
   std::filesystem::remove(actual, caseError);
   std::filesystem::remove(caseDir, caseError);

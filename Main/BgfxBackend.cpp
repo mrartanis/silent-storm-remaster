@@ -705,6 +705,9 @@ bool BgfxDevice::Init(HWND window,unsigned w,unsigned h) {
   // changes. Keep D3D11 on that thread: waiting for bgfx's render worker
   // otherwise prevents dispatch of the very window messages it needs.
   bgfx::renderFrame();
+#elif defined(__APPLE__)
+  // The pinned bgfx no longer offers OpenGL on macOS; Metal is the backend.
+  init.type=bgfx::RendererType::Metal;
 #else
   init.type=bgfx::RendererType::Vulkan;
   init.swapChain.ndt=S2Platform::NativeDisplay();
@@ -742,6 +745,10 @@ BgfxDevice::~BgfxDevice() {
   impl->FlushDraw();
   impl->InvalidateQueries();
   FlushGeometry();
+  // Submit pending draws and texture uploads before retiring their resources.
+  // Metal encoders opened by the last upload must end with a real frame;
+  // EndFrame below only resets the engine's view bookkeeping.
+  bgfx::frame();
   impl->EndFrame();
   impl->ClearTargets();
   impl->vertices=0;impl->indices=0;impl->declaration=0;impl->vertexShader=0;impl->pixelShader=0;
@@ -771,11 +778,12 @@ bool BgfxDevice::Resize(unsigned w,unsigned h) {
 bool BgfxDevice::Healthy() const {return impl->initialized && impl->healthy;}
 bool BgfxDevice::SupportsOcclusionQueries() const {
   // bgfx API161 exposes query capacity, with baseline query support in the
-  // two backends selected by Init. Noop/other renderers stay conservative.
+  // three native backends selected by Init. Noop/other renderers stay conservative.
   if(!Healthy())return false;
   const auto* caps=bgfx::getCaps();
   return caps->limits.maxOcclusionQueries>0 &&
-    (caps->rendererType==bgfx::RendererType::Direct3D11 || caps->rendererType==bgfx::RendererType::Vulkan);
+    (caps->rendererType==bgfx::RendererType::Direct3D11 || caps->rendererType==bgfx::RendererType::Vulkan ||
+     caps->rendererType==bgfx::RendererType::Metal);
 }
 std::shared_ptr<BgfxOcclusionQuery> BgfxDevice::CreateOcclusionQuery() {
   if(!SupportsOcclusionQueries())return {};

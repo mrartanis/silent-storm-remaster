@@ -21,6 +21,9 @@ struct SessionCallbacks {
   std::function<void(const Bytes&)> event;
   std::function<void(std::uint64_t,const Bytes&,bool)> result;
   std::function<std::uint64_t()> revision;
+  // Optional monotonic clock for deterministic simulation/timing diagnostics.
+  // Production sessions use steady_clock unless explicitly supplied.
+  std::function<std::chrono::steady_clock::time_point()> now;
 };
 // Owned by the connection screen, then by the mission. Poll never waits on I/O.
 class NetworkSession {
@@ -41,6 +44,9 @@ class NetworkSession {
   void Handle(const Packet&);
   void Fail(const std::string&);
   Bytes Hello() const;
+  std::chrono::steady_clock::time_point Now() const {
+    return callbacks.now?callbacks.now():std::chrono::steady_clock::now();
+  }
   std::uint64_t Request(const Bytes&,bool);
  public:
   NetworkSession(Compatibility,SessionCallbacks);

@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 import struct
+import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -44,7 +45,7 @@ class EnginePackageTests(unittest.TestCase):
         for name in ('miniaudio.h', 'sources.json', 'ffmpeg-8.1.tar.xz', 'ffmpeg-config.log'):
             write(deps / name)
         for name in ('assets/fonts/LICENSE', 'assets/fonts/test.ttf', 'LICENSE.md', 'INSTALLATION_RU.md',
-                     'packaging/README-engine.txt', 'packaging/Play.cmd',
+                     'packaging/README-engine.txt', 'packaging/Play.cmd', 'packaging/Play.command',
                      '.github/scripts/build-deps.sh',
                      'third_party/squish/LICENSE.txt', 'third_party/zlib/zlib.h',
                      'third_party/libpng/png.h', 'Script/lua.h'):
@@ -86,6 +87,39 @@ class EnginePackageTests(unittest.TestCase):
             with patch.object(engine, 'ROOT', source):
                 with self.assertRaisesRegex(ValueError, 'different network compatibility version'):
                     engine.package(args)
+
+    def test_macos_archive_architecture_hashes_and_relocated_check(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source, args = self.fixture(Path(temporary))
+            args.platform = 'macos'
+            (args.build / 'Game').write_bytes(b'arm64 Mach-O fixture')
+            with patch.object(engine, 'ROOT', source), \
+                 patch.object(engine, 'bundle_runtime'), \
+                 patch.object(engine, 'verify_relocated') as relocated, \
+                 patch.object(engine.subprocess, 'check_output', return_value='a' * 40):
+                engine.package(args)
+            archive = next(args.output.glob('*-macos-arm64.tar.gz'))
+            with tarfile.open(archive) as package:
+                name = archive.name.removesuffix('.tar.gz')
+                info = json.load(package.extractfile(name + '/engine-build.json'))
+                self.assertEqual(info['architecture'], 'arm64')
+                self.assertEqual(info['platform'], 'macos')
+                self.assertTrue(package.getmember(name + '/Play.command').mode & 0o111)
+                for relative, expected in info['sha256'].items():
+                    self.assertEqual(hashlib.sha256(package.extractfile(name + '/' + relative).read()).hexdigest(), expected)
+                self.assertFalse(any('/res/' in p or '/save/' in p or p.endswith('/game.db') for p in package.getnames()))
+            relocated.assert_called_once()
+
+    def test_macos_missing_runtime_blocks_release(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source, args = self.fixture(Path(temporary))
+            args.platform = 'macos'
+            (args.build / 'Game').write_bytes(b'arm64 Mach-O fixture')
+            with patch.object(engine, 'ROOT', source), \
+                 patch.object(engine, 'bundle_runtime', side_effect=ValueError('Unresolved macOS runtime dependency')):
+                with self.assertRaisesRegex(ValueError, 'Unresolved macOS'):
+                    engine.package(args)
+            self.assertEqual(list(args.output.glob('*.tar.gz')), [])
 
 
 if __name__ == '__main__':
