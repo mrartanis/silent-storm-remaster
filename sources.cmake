@@ -450,6 +450,7 @@ set(Main_SRC
 )
 
 set(Game_SRC
+  "AgentPlay.cpp"
   "Main.cpp"
   "StdAfx.cpp"
   "Game.rc"

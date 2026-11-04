@@ -7,7 +7,9 @@
 #include "../Main/DisplayLayout.h"
 #include "../Main/Interface.h"
 #include "Platform.h"
+#include "AgentPlay.h"
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_video.h>
 #include "..\Main\iMain.h"
 #include "..\Input\Bind.h"
 #include "..\ADOImport\BasicDB.h"
@@ -1317,8 +1319,18 @@ static int RunGame( const char *lpCmdLine )
 	S2Net::StartupLog("begin");
 	vector<string> szParams;
 	NStr::SplitStringWithMultipleBrackets( lpCmdLine, szParams, ' ' );
+	const bool agentPlay=find(szParams.begin(),szParams.end(),"-agent-play")!=szParams.end();
+	const bool agentHidden=agentPlay && find(szParams.begin(),szParams.end(),"-agent-hidden")!=szParams.end();
+	if(agentPlay) {
+		for(const auto& arg:szParams)if(arg=="-harness" || arg=="-loadslot" || arg=="-noai" || arg=="-load") {
+			fprintf(stderr,"-agent-play cannot be combined with debug/load flags\n");return 2;
+		}
+		if(find(szParams.begin(),szParams.end(),"-net-host")==szParams.end() && find(szParams.begin(),szParams.end(),"-net-connect")==szParams.end()) {
+			fprintf(stderr,"-agent-play requires -net-host or -net-connect\n");return 2;
+		}
+	}
 	S2Platform::SetErrorDialogs( find( szParams.begin(), szParams.end(), "-harness" ) == szParams.end()
-		&& find( szParams.begin(), szParams.end(), "-loadslot" ) == szParams.end() );
+		&& find( szParams.begin(), szParams.end(), "-loadslot" ) == szParams.end() && !agentPlay );
 #ifdef _DEBUG
   int tmpFlag = _CrtSetDbgFlag( _CRTDBG_REPORT_FLAG );
 	//tmpFlag |= _CRTDBG_LEAK_CHECK_DF;// | _CRTDBG_CHECK_ALWAYS_DF;
@@ -1393,6 +1405,7 @@ static int RunGame( const char *lpCmdLine )
 	string szCfg( "start.cfg" );
 	int networkRole = 0;
 	int networkMap = 0;
+	int networkSquad = 0;
 	unsigned networkPort = 7780;
 	string networkAddress = "127.0.0.1";
 	for ( int i = 0; i < szParams.size(); ++i )
@@ -1491,6 +1504,11 @@ static int RunGame( const char *lpCmdLine )
 		}
 		else if (szParams[i] == "-net-map" && i + 1 < szParams.size())
 			networkMap=std::atoi(szParams[++i].c_str());
+		else if (szParams[i] == "-net-squad" && i + 1 < szParams.size())
+		{
+			networkSquad=std::atoi(szParams[++i].c_str());
+			if(networkSquad<1 || networkSquad>6){fprintf(stderr,"-net-squad must be 1..6\n");return 2;}
+		}
 		else if (szParams[i] == "-net-host" && i + 1 < szParams.size())
 		{
 			networkRole = 1; networkPort = static_cast<unsigned>(std::strtoul(szParams[++i].c_str(),nullptr,10));
@@ -1514,6 +1532,7 @@ static int RunGame( const char *lpCmdLine )
 	}
 	//
 	S2Net::StartupLog("renderer-ready");
+	if(agentHidden)SDL_HideWindow(S2Platform::Window());
 	if ( !NSound::SetModeFromConfig() )
 	{
 		ASSERT(0);
@@ -1533,7 +1552,7 @@ static int RunGame( const char *lpCmdLine )
 	NGame::ShowLoadingScreen(0);
 	S2Net::StartupLog("loading-screen-ready");
 	if (networkRole)
-		NMainLoop::Command(new NGame::CICNetworkMenu(networkRole,networkPort,networkAddress,"",networkMap));
+		NMainLoop::Command(new NGame::CICNetworkMenu(networkRole,networkPort,networkAddress,"",networkMap,networkSquad));
 	else if ( bDoLoad )
 		NMainLoop::Command( new NMainLoop::CICLoad( szLoadSlot.empty() ? NMainLoop::GetQuickSaveSlot( true ) : szLoadSlot ) );
 	else
@@ -1564,7 +1583,7 @@ static int RunGame( const char *lpCmdLine )
 		// A hidden debugger leaves the window inactive. The ordinary harness still
 		// preserves retail pause-on-background behavior; this explicit test mode
 		// advances mission/input frames exactly as a focused window would.
-		bool bStepActive = bActive || ( g_bHarnessLog && bHarnessActive );
+		bool bStepActive = bActive || agentPlay || ( g_bHarnessLog && bHarnessActive );
 		NInput::PumpMessages( bActive );
 
 		if ( S2Platform::Exiting() )
@@ -1576,10 +1595,13 @@ static int RunGame( const char *lpCmdLine )
 		S2Perf::End();
 		if ( g_bHarnessLog && !HarnessPoll() )   // [HARNESS] frame-polled command channel
 			break;
+		if ( agentPlay && !S2Agent::Poll() )
+			break;
 		if ( !bStepActive )
 			S2Platform::Delay( 40 );
 	}
 	//
+	if(agentPlay)S2Agent::Done();
 	S2Perf::Stop();
 	NGScene::RevertDisplayChange();
 	NGlobal::SaveConfig( ".\\cfg\\config.cfg" );

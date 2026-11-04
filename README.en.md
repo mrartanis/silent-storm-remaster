@@ -76,6 +76,15 @@ Status as of **October 23, 2026**:
   runs, FPS measurements and Windows packaging with game data, libraries,
   fonts and the HD pack.
 
+## Play with an LLM agent
+
+The repository includes the [silent-storm-play skill](.agents/skills/silent-storm-play/SKILL.md)
+for requests such as “let's play Silent Storm together.” The agent launches and
+connects a local host and client through binary arguments, receives screenshots
+and visible-enemy observations, and uses normal game commands. Human-versus-agent
+and agent-versus-agent matches are supported without adding menu entries.
+The launcher has been tested on Windows x64. See [skill installation, build and launch instructions](diagnostics/AGENT-PLAY.md).
+
 ## Supported platforms
 
 | Platform | Status and verification limits |

@@ -13,6 +13,7 @@
 // cast path too.
 namespace NUI { class CMissionUI; }
 namespace S2Net { class NetworkSession; class NetworkWorld; }
+namespace S2Agent { struct Controller; }
 #include <memory>
 namespace NGScene { class CPolyline; }
 namespace NDb { class CString; class CUITexture; }
@@ -85,6 +86,7 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CMission: public CMissionBase
 {
+	friend struct S2Agent::Controller;
 	friend class CAutoPlayInterface;
 	OBJECT_BASIC_METHODS(CMission)
 	friend class CMultiPlayerInterface;
