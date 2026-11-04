@@ -107,10 +107,9 @@ bool GetDesktopVideoMode(SVideoMode* output) {
 }
 void DXFinish() {
   if(!Is3DActive()) return;
-  // The existing ordered readback waits for the submitted GPU frame, unlike
-  // locking the CPU staging vertex buffers used by this backend.
-  std::vector<unsigned char> pixels;unsigned width=0,height=0;
-  pDevice->Screenshot(&pixels,&width,&height);
+  // An ordered one-pixel readback fences the submitted GPU work. Reading the
+  // entire screen here copied megabytes every frame with block buffering on.
+  pDevice->WaitForGPU();
 }
 void SetGamma(bool enabled) { gammaEnabled = enabled; }
 void ApplySceneAntialiasing() {

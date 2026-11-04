@@ -46,6 +46,8 @@
 #include "../Main/RPGUnitMission.h"
 #include "../Main/RPGItem.h"
 #include "../Main/RPGStore.h"
+#include "../Main/rpgPerk.h"
+#include "../DBFormat/DataPerk.h"
 #include "../Main/rpgCheatConstants.h"
 #include "../Main/wUnitServer.h"
 #include "../Main/wOSBase.h"
@@ -766,6 +768,23 @@ static bool HarnessPoll()   // returns false to request main-loop exit
       else for(wchar_t c:NStr::ToUnicode(sCmd.substr(7)))ui->ProcessMessage(NUI::SEvent(NUI::EVENT_WINCHAR,int(c)));
     }
   }
+  else if(sCmd.compare(0,7,"uirect ")==0) {
+    auto* window=HarnessFindWindow(NUI::CurrentInterfaceForDiagnostics(),sCmd.substr(7));
+    NUI::SPoint point;NUI::SRect rect;
+    if(window && window->ClientToScreen(&point,&rect))
+      SaveLoadDiag("[ui-rect] id=%s enabled=%d visible=%d transparent=%d rect=%d,%d,%d,%d scale=%.4f\n",window->GetWindowID().c_str(),window->GetStyle(NUI::STYLE_ENABLED),window->GetStyle(NUI::STYLE_VISIBLE),window->GetStyle(NUI::STYLE_TRANSPARENT),rect.x1,rect.y1,rect.x2,rect.y2,S2UI::Scale());
+    else SaveLoadDiag("[ui-rect] missing=%s\n",sCmd.substr(7).c_str());
+  }
+  else if(sCmd=="perksstatus") {
+    auto* mission=dynamic_cast<NGame::IMission*>(NMainLoop::GetCurrentInterfaceForHarness());
+    vector<CPtr<NGame::IUnitTracker>> selected;if(mission)mission->GetSelectedUnits(&selected);
+    for(auto tracker:selected) {
+      auto* tree=tracker->GetUnit()->GetRPG()->GetRPGUnit()->GetPerksTree();
+      vector<CPtr<NRPG::CPerk>> available;tree->GetAvailablePerks(&available);
+      SaveLoadDiag("[perks] points=%d available=%u\n",tree->GetPerkPoints(),unsigned(available.size()));
+      for(auto perk:available)SaveLoadDiag("[perk] id=%d name=%s\n",perk->GetDBPerk()->GetRecordID(),perk->GetDBPerk()->szUserName.c_str());
+    }
+  }
   else if(sCmd.compare(0,10,"uiinspect ")==0) {
     auto* window=HarnessFindWindow(NUI::CurrentInterfaceForDiagnostics(),sCmd.substr(10));
     NUI::CText* text=dynamic_cast<NUI::CText*>(window);
@@ -939,6 +958,7 @@ static bool HarnessPoll()   // returns false to request main-loop exit
 				auto* unit=static_cast<NWorld::CUnitServer*>(units[index].GetPtr());
 				if(string(verb)=="netmove" && fields==4) {auto destination=unit->GetPosition().pos;destination.p.SetXY(destination.p.GetX()+a,destination.p.GetY()+b);destination.p.SetFinal(0);mission->Command(unit,new NWorld::CCmdPath(destination));}
 				else if(string(verb)=="netfocus")mission->FocusCameraOnUnit(unit);
+        else if(string(verb)=="netselect")mission->Select(unit,false);
         else if(string(verb)=="netlook" && fields==4) {auto destination=unit->GetPosition().pos;destination.p.SetXY(destination.p.GetX()+a,destination.p.GetY()+b);mission->Command(unit,new NWorld::CCmdLook(destination));}
 				else if(string(verb)=="netshoot" && fields==4)mission->Command(unit,new NWorld::CCmdShootTile(unit->GetPosition().GetCP()+CVec3(float(a),float(b),1)));
 				else if(string(verb)=="netreload")mission->Command(unit,new NWorld::CCmdReload);

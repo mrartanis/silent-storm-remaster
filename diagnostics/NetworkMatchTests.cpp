@@ -164,13 +164,18 @@ int main(int argc,char** argv) {
       Require(checked>0,"no multistage object tested");
       std::puts("Intermediate object damage presentation passed");return 0;
     }
-    if(argc==4 && std::string(argv[3])=="--preparation") {
+    if(argc==4 && (std::string(argv[3])=="--preparation" || std::string(argv[3])=="--supply-only")) {
       Require(!S2Net::IsNetworkMapLargeEnough(16,16) && !S2Net::IsNetworkMapLargeEnough(32,32),"small maps retained");
       Require(!S2Net::IsNetworkMapLargeEnough(16,128) && S2Net::IsNetworkMapLargeEnough(64,64),"map dimensions filter");
       auto maps=S2Net::GetNetworkEncounterMaps();Require(!maps.empty(),"filter removed every encounter");
       for(auto map:maps){auto* t=NDb::GetTemplate(map.templateID);Require(S2Net::IsNetworkMapLargeEnough(t->nWidth,t->nHeight),"small encounter offered");}
       std::printf("PREPARATION selectable large maps=%zu first=%d\n",maps.size(),maps.front().variantID);std::fflush(stdout);
       std::set<int> previous;
+      std::set<NDb::CRPGWeapon*> mountedWeapons;
+      auto* guns=NDatabase::GetTable<NDb::CGun>();Require(guns!=nullptr,"missing mounted gun records");
+      CDBIterator<NDb::CGun> gun(*guns);
+      while(gun.MoveNext())if(gun.Get()->pWeapon)mountedWeapons.insert(gun.Get()->pWeapon.GetPtr());
+      Require(!mountedWeapons.empty(),"mounted gun fixture is empty");
       for(int level=1;level<=14;++level) {
         auto items=S2Net::GetNetworkSupplyItems(level);std::set<int> current(items.begin(),items.end());
         Require(!current.empty() && std::includes(current.begin(),current.end(),previous.begin(),previous.end()),"supply is not monotonic");
@@ -178,9 +183,11 @@ int main(int argc,char** argv) {
           auto* item=NDb::GetRPGItem(id);auto* record=item->pSuccessor.GetPtr();
           Require(!dynamic_cast<NDb::CPanzerklein*>(record),"panzerklein unlocked");
           if(auto* w=dynamic_cast<NDb::CRPGWeapon*>(record))Require(w->nPanzerkleinType==0 && w->pWeaponType->eStoreWeaponType!=NDb::SWT_PK_WEAPON,"PK weapon unlocked");
+          Require(!mountedWeapons.count(dynamic_cast<NDb::CRPGWeapon*>(record)),"mounted gun unlocked as portable supply");
         }
         previous=current;std::printf("SUPPLY level=%d items=%zu\n",level,items.size());
       }
+      if(std::string(argv[3])=="--supply-only") {std::printf("SUPPLY PASSED mounted weapon records=%zu\n",mountedWeapons.size());return 0;}
       auto recruits=S2Net::GetNetworkRecruitIDs();Require(recruits.size()>=6,"missing recruits");
       for(int id:recruits)for(int level:{1,5,10,20}) {
         auto unit=S2Net::CreateNetworkRecruit(id,level);
@@ -311,6 +318,25 @@ int main(int argc,char** argv) {
         Require(host.Match().game->players[1]->mercs.front()->GetInventory()->Get(NDb::SLOT_1)!=nullptr,"battle lost equipment");
         Require(host.Match().game->players[0]->networkSupplyLevel==0,"base supply remained active in battle");
         Require(code(host.Handle(0,host.PreparationCommand(S2Net::PreparationAction::Ready,0,1),false))!=NWorld::UCR_OK,"preparation reopened during battle");
+        auto takeBattlePerk=[&](unsigned side) {
+          auto* actor=host.Match().players[side]->GetPlayerUnits().front().GetPtr();
+          auto* tree=actor->GetUnitRPG()->GetRPGUnit()->GetPerksTree();
+          const int before=tree->GetPerkPoints(),ap=actor->GetAP();
+          vector<CPtr<NRPG::CPerk>> available;tree->GetAvailablePerks(&available);
+          Require(before>0 && !available.empty(),"battle perk fixture has no unspent points");
+          const int id=available.front()->GetDBPerk()->GetRecordID();
+          auto& encoder=side?client:host;
+          auto* sender=encoder.Match().players[side]->GetPlayerUnits().front().GetPtr();
+          auto request=encoder.EncodeCommand(new NWorld::CCmdSetCommand(sender,new NWorld::CCmdTakePerk(id)));
+          Require(code(host.Handle(side,request,false))==NWorld::UCR_OK,"perk selection rejected in tactical battle");
+          host.Handle(side,encoder.EncodeCommand(new NWorld::CCmdSetCommand(sender,new NWorld::CCmdContinue)),false);settled();
+          Require(tree->GetPerkPoints()==before-1 && tree->HasPerk(id,nullptr,nullptr,nullptr),"battle perk was not applied exactly once");
+          Require(actor->GetAP()==ap,"taking a battle perk spent AP");
+          auto* remote=client.Match().players[side]->GetPlayerUnits().front()->GetUnitRPG()->GetRPGUnit()->GetPerksTree();
+          Require(remote->GetPerkPoints()==before-1 && remote->HasPerk(id,nullptr,nullptr,nullptr),"battle perk not replicated");
+          Require(code(host.Handle(side,request,false))!=NWorld::UCR_OK,"duplicate battle perk accepted");
+        };
+        takeBattlePerk(0);
         // A completed transition must reopen tactical commands on both sides,
         // rather than leaving the one-frame launch barrier permanently closed.
         auto* battleUnit=host.Match().players[0]->GetPlayerUnits().front().GetPtr();
@@ -327,6 +353,7 @@ int main(int argc,char** argv) {
         auto* clientUnit=client.Match().players[1]->GetPlayerUnits().front().GetPtr();
         Require(code(host.Handle(1,client.EncodeCommand(new NWorld::CCmdSetCommand(clientUnit,new NWorld::CCmdWishPose(NAI::CROUCH))),false))==NWorld::UCR_OK,"client commands blocked after preparation");
         for(int i=0;i<5;++i)sync();
+        settled();takeBattlePerk(1);
         for(unsigned side=0;side<2;++side)for(int at=0;at<count;++at) {
           Require(host.Match().players[side]->GetPlayerUnits()[at]->GetUnitRPG()->GetRPGUnit()==host.Match().game->players[side]->mercs[at].GetPtr(),"battle actor/global identity mismatch");
           Require(client.Match().players[side]->GetPlayerUnits()[at]->GetUnitRPG()->GetRPGUnit()==client.Match().game->players[side]->mercs[at].GetPtr(),"battle replica/global identity mismatch");

@@ -25,6 +25,7 @@
 namespace NGfx {
 namespace {
 unsigned activeEpoch = 0, nextEpoch = 0;
+unsigned blockingReadbacks = 0;
 uint64_t geometryFrame = 1;
 std::function<void()> drawBarrier;
 uint32_t DisplayResetFlags() {
@@ -486,6 +487,8 @@ struct BgfxDevice::Impl {
   bool viewDirty=true,viewUsed=false;
   NWin32Helper::com_ptr<BgfxSurface> screenColor,screenDepth,color,depth;
   NWin32Helper::com_ptr<BgfxSurface> antialiasedScene;
+  bgfx::TextureHandle fenceTexture=BGFX_INVALID_HANDLE;
+  std::array<unsigned char,4> fencePixel{};
   NWin32Helper::com_ptr<BgfxBuffer> vertices,indices;
   NWin32Helper::com_ptr<BgfxDeclaration> declaration;
   NWin32Helper::com_ptr<BgfxShader> vertexShader,pixelShader;
@@ -696,6 +699,7 @@ struct BgfxDevice::Impl {
   }
 };
 BgfxDevice::BgfxDevice() : impl(new Impl) {}
+unsigned BlockingReadbackCountForDiagnostics() {return blockingReadbacks;}
 bool BgfxDevice::Init(HWND window,unsigned w,unsigned h) {
   if(!window || !w || !h || activeEpoch) return false;
   bgfx::Init init;
@@ -713,6 +717,8 @@ bool BgfxDevice::Init(HWND window,unsigned w,unsigned h) {
   init.swapChain.ndt=S2Platform::NativeDisplay();
 #endif
   init.swapChain.nwh=window;
+  // Keep input latency bounded without the legacy per-frame GPU drain.
+  init.swapChain.maxFrameLatency=2;
   init.swapChain.width=w;init.swapChain.height=h;init.reset=DisplayResetFlags();
   init.limits.maxTransientVbSize=64*1024*1024;init.limits.maxTransientIbSize=16*1024*1024;
   // Explicit diagnostic override for wide-view stress captures. Default stays 64/16 MiB.
@@ -754,6 +760,7 @@ BgfxDevice::~BgfxDevice() {
   impl->vertices=0;impl->indices=0;impl->declaration=0;impl->vertexShader=0;impl->pixelShader=0;
   for(auto& t:impl->textures)t=0;
   impl->color=0;impl->depth=0;impl->screenColor=0;impl->screenDepth=0;impl->antialiasedScene=0;
+  if(bgfx::isValid(impl->fenceTexture))bgfx::destroy(impl->fenceTexture);
   for(auto p:impl->programs)bgfx::destroy(p.second);
   if(bgfx::isValid(impl->presentProgram))bgfx::destroy(impl->presentProgram);
   for(auto s:impl->shaders)bgfx::destroy(s.second);
@@ -764,7 +771,7 @@ BgfxDevice::~BgfxDevice() {
 bool BgfxDevice::Resize(unsigned w,unsigned h) {
   if(!impl->initialized || !w || !h || w>16384 || h>16384)return false;
   try {
-    impl->FlushDraw();impl->InvalidateQueries();FlushGeometry();impl->EndFrame();impl->ClearTargets();bgfx::SwapChain swapChain;swapChain.width=w;swapChain.height=h;
+    impl->FlushDraw();impl->InvalidateQueries();FlushGeometry();impl->EndFrame();impl->ClearTargets();bgfx::SwapChain swapChain;swapChain.width=w;swapChain.height=h;swapChain.maxFrameLatency=2;
     impl->resetFlags=DisplayResetFlags();
     bgfx::reset(impl->resetFlags,&swapChain);
     impl->width=w;impl->height=h;
@@ -817,9 +824,7 @@ int BgfxDevice::ReadOcclusionQuery(const std::shared_ptr<BgfxOcclusionQuery>& qu
 }
 void BgfxDevice::FlushOcclusionQueries() {
   if(!SupportsOcclusionQueries())return;
-  // Both selected backends support the same readback fence used by DXFinish.
-  std::vector<unsigned char> pixels;unsigned width=0,height=0;
-  Screenshot(&pixels,&width,&height);
+  WaitForGPU();
   // Query delivery is asynchronous even after submitted GPU work finishes.
   // Advance a bounded number of empty frames, never spin on a driver query.
   // A delayed/lost result still falls back to visible in ReadOcclusionQuery.
@@ -831,7 +836,7 @@ void BgfxDevice::FlushOcclusionQueries() {
       for(auto handle:query->handles)pending|=bgfx::getResult(handle)==bgfx::OcclusionQueryResult::NoResult;
     }
     if(!pending)break;
-    bgfx::frame();impl->EndFrame();
+    bgfx::frame(BGFX_FRAME_FLUSH);impl->EndFrame();
   }
 }
 unsigned BgfxDevice::PresentationResetFlags() const {return impl->resetFlags;}
@@ -877,13 +882,30 @@ void BgfxDevice::Present(float gamma) {
     // scene targets alive: these two switches need no resource recreation.
     uint32_t flags=DisplayResetFlags();
     if(flags!=impl->resetFlags) {
-      bgfx::SwapChain swapChain;swapChain.width=impl->width;swapChain.height=impl->height;
+      bgfx::SwapChain swapChain;swapChain.width=impl->width;swapChain.height=impl->height;swapChain.maxFrameLatency=2;
       bgfx::reset(flags,&swapChain);impl->resetFlags=flags;
     }
   }catch(const std::exception& e){impl->Fail(e.what());}
 }
+void BgfxDevice::WaitForGPU() {
+  if(!Healthy())return;
+  ++blockingReadbacks;
+  impl->FlushDraw();
+  if(!bgfx::isValid(impl->fenceTexture))
+    impl->fenceTexture=bgfx::createTexture2D(1,1,false,1,bgfx::TextureFormat::BGRA8,BGFX_TEXTURE_BLIT_DST|BGFX_TEXTURE_READ_BACK);
+  if(!bgfx::isValid(impl->fenceTexture))throw std::runtime_error("GPU fence allocation failed");
+  bgfx::TextureRegion destination,source;
+  destination.init(impl->fenceTexture);source.init(impl->screenColor->storage->handle,0,0,1,1);
+  bgfx::blit(2046,destination,source);
+  const uint32_t ready=bgfx::read(destination,impl->fencePixel.data());
+  // Fence submissions must not present. Otherwise VSync waits on these
+  // internal frames as well as the actual game frame, capping the game FPS.
+  FlushGeometry();uint32_t frame=bgfx::frame(BGFX_FRAME_FLUSH);impl->EndFrame();
+  while(frame<ready)frame=bgfx::frame(BGFX_FRAME_FLUSH);
+}
 void BgfxDevice::Screenshot(std::vector<unsigned char>* pixels,unsigned* width,unsigned* height) {
   if(!Healthy())return;
+  ++blockingReadbacks;
   impl->FlushDraw();
   *width=impl->width;*height=impl->height;pixels->resize(*width**height*4);
   auto readback=bgfx::createTexture2D(*width,*height,false,1,bgfx::TextureFormat::BGRA8,BGFX_TEXTURE_BLIT_DST|BGFX_TEXTURE_READ_BACK);
@@ -893,7 +915,7 @@ void BgfxDevice::Screenshot(std::vector<unsigned char>* pixels,unsigned* width,u
   destination.init(readback);source.init(impl->screenColor->storage->handle);
   bgfx::blit(2046,destination,source);
   uint32_t ready=bgfx::read(destination,pixels->data());
-  FlushGeometry();uint32_t frame=bgfx::frame();impl->EndFrame();while(frame<ready)frame=bgfx::frame();
+  FlushGeometry();uint32_t frame=bgfx::frame(BGFX_FRAME_FLUSH);impl->EndFrame();while(frame<ready)frame=bgfx::frame(BGFX_FRAME_FLUSH);
   bgfx::destroy(readback);
 }
 HRESULT BgfxDevice::CreateTexture(unsigned w,unsigned h,unsigned levels,DWORD usage,D3DFORMAT format,D3DPOOL pool,BgfxTexture** out,HANDLE*) {

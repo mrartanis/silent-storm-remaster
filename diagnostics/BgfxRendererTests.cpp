@@ -1,4 +1,5 @@
 #include "../Main/StdAfx.h"
+namespace NGfx { unsigned BlockingReadbackCountForDiagnostics(); }
 #include <cstdint>
 #include <cstring>
 #include <new>
@@ -1732,9 +1733,10 @@ int RunRuntimeSettings() {
     CDynamicCast<NGfx::I2DBuffer> texture(NGfx::GetRegisterTexture(0));
     if(!texture || texture->GetXSize()!=int(size.x2) || texture->GetYSize()!=int(size.y2))return 193;
   }
-  // Both the ordinary and GPU-synchronized paths must reset real depth while
-  // retaining color. A no-op fails the farther green draw; a color clear loses
-  // the red right half. Readback files are never created.
+  // Legacy configs contain both buffering values. Neither may turn a depth
+  // clear into a color clear or force a screen readback. bgfx now bounds the
+  // presentation queue directly. A no-op fails the farther green draw; a
+  // color clear loses the red right half. Readback files are never created.
   for(int blocking:{0,1}) {
     NGlobal::SetVar("gfx_block_buffering",blocking);
     NGfx::CRenderContext context;context.SetScreenRT();context.SetCulling(NGfx::CULL_NONE);
@@ -1746,7 +1748,9 @@ int RunRuntimeSettings() {
     context.SetVSConst(16,CVec4(0,1,0,1));Draw(context,farQuad);
     CArray2D<NGfx::SPixel8888> image;NGfx::MakeScreenShot(&image,false);
     if(!Color(image,32,64,255,0,0) || !Color(image,96,64,255,0,0))return 194;
+    const auto readbacks=NGfx::BlockingReadbackCountForDiagnostics();
     NGScene::ClearScreenZBuffer();
+    if(NGfx::BlockingReadbackCountForDiagnostics()!=readbacks)return 198;
     context.Use(); // Constants belong to the rebound context/shader.
     context.SetVSConst(16,CVec4(0,1,0,1));Draw(context,farQuad);
     NGfx::MakeScreenShot(&image,false);

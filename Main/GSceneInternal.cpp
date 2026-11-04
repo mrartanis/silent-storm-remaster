@@ -2250,12 +2250,11 @@ void Clear( NGfx::CRenderContext *pRC, const CVec3 &vColor )
 		pRC->ClearBuffers( clearColor.color );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Retained for legacy config files. bgfx bounds the presentation queue;
+// draining the whole GPU before each depth clear defeats that pipeline.
 static bool bBlockBuffering = false;  // gfx_block_buffering
 void ClearScreenZBuffer()
 {
-	// Retail v1.2 0x5599f0: the input-latency option synchronizes before drawing.
-	if ( bBlockBuffering )
-		NGfx::DXFinish();
 	NGfx::CRenderContext rc;
 	rc.ClearZBuffer();
 }

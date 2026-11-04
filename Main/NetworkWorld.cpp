@@ -65,7 +65,7 @@ bool ValidAction(NWorld::CCmd* cmd,NWorld::CWorld* world) {
      dynamic_cast<CCmdUpdateStore*>(cmd) || dynamic_cast<CCmdUsePassage*>(cmd) ||
      dynamic_cast<CCmdTeleport*>(cmd) || dynamic_cast<CCmdFly*>(cmd) || dynamic_cast<CCmdExplode*>(cmd) ||
      dynamic_cast<CCmdTakeCorpseOnDeploy*>(cmd) || dynamic_cast<CCmdPlayAnimation*>(cmd) ||
-     dynamic_cast<CCmdTalk*>(cmd) || dynamic_cast<CCmdNotHeroWantsToTalk*>(cmd) || dynamic_cast<CCmdTakePerk*>(cmd))return false;
+     dynamic_cast<CCmdTalk*>(cmd) || dynamic_cast<CCmdNotHeroWantsToTalk*>(cmd))return false;
   if(auto* path=dynamic_cast<CCmdPath*>(cmd))return !path->bLeaveZone && path->eParams>=NAI::PF_DEFAULT && path->eParams<=NAI::PF_USE_POSEDIR && ValidPosition(path->ptDst,world);
   if(auto* look=dynamic_cast<CCmdLook*>(cmd))return ValidPosition(look->ptDst,world);
   if(auto* mine=dynamic_cast<CCmdSetMineOnTile*>(cmd))return ValidPosition(mine->ptDst,world);

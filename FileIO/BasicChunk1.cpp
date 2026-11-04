@@ -643,7 +643,20 @@ void CStructureSaver::FinishChunk()
 	{
 		CChunkLevelReverseIterator it = chunks.rbegin(), it1;
 		it1 = it; ++it1;
-		WriteShortChunk( *it1, it->idChunk, data.GetBuffer() + it->nStart, it->nLength );
+		if ( network )
+		{
+			// StartChunk already reserves five bytes. Keep that long header on
+			// the wire instead of compacting (and moving) every nested payload.
+			// Both header forms are accepted by the existing chunk reader.
+			data.SetSize( it->nStart + it->nLength );
+			unsigned char *header = data.GetBufferForWrite() + it->nStart - 5;
+			header[0] = static_cast<unsigned char>(it->idChunk);
+			const std::uint32_t length = (static_cast<std::uint32_t>(it->nLength) << 1) | 1;
+			for ( int byte = 0; byte < 4; ++byte ) header[byte+1] = static_cast<unsigned char>(length >> (8*byte));
+			it1->nLength += 5 + it->nLength;
+		}
+		else
+			WriteShortChunk( *it1, it->idChunk, data.GetBuffer() + it->nStart, it->nLength );
 		chunks.pop_back();
 		AlignDataFileSize();
 	}

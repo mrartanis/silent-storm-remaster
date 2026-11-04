@@ -322,10 +322,18 @@ vector<int> GetNetworkRecruitIDs() {
 vector<int> GetNetworkSupplyItems(int level) {
   if(level<1 || level>14)throw std::runtime_error("invalid network supply level");
   std::set<int> allowed;std::set<int> ammoGroups;
+  // Emplaced guns use ordinary machine-gun weapon categories too. Their
+  // inventory records are only for the mounted weapon, never portable stock.
+  std::set<NDb::CRPGWeapon*> mountedWeapons;
+  if(auto* guns=NDatabase::GetTable<NDb::CGun>()) {
+    CDBIterator<NDb::CGun> gun(*guns);
+    while(gun.MoveNext())if(gun.Get()->pWeapon)mountedWeapons.insert(gun.Get()->pWeapon.GetPtr());
+  }
   auto* items=NDatabase::GetTable<NDb::CRPGItem>();if(!items)return {};
   CDBIterator<NDb::CRPGItem> it(*items);
   while(it.MoveNext()) {
     auto* item=it.Get();if(!HumanEquipment(item))continue;
+    if(mountedWeapons.count(dynamic_cast<NDb::CRPGWeapon*>(item->pSuccessor.GetPtr())))continue;
     bool unlocked=level==14;
     if(!unlocked) {
       auto* stores=NDatabase::GetTable<NDb::CRPGStoreItem>();CDBIterator<NDb::CRPGStoreItem> rows(*stores);
