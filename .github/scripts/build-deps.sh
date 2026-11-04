@@ -11,6 +11,11 @@ if [[ "$platform" == windows ]]; then
 else
   deps=$(cd "$deps" && pwd)
   toolchain=()
+  if [[ "$platform" == macos ]]; then
+    # Apple's Bash 3.2 treats an empty array as unset under `set -u`.
+    # Leave room for relative install names when staging the release dylibs.
+    toolchain=(--target-os=darwin --extra-ldflags=-Wl,-headerpad_max_install_names)
+  fi
   sdl_options=(-DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TESTS=OFF)
   if [[ "$platform" == linux ]]; then
     sdl_options+=(-DSDL_X11=ON -DSDL_X11_XINPUT=ON -DSDL_WAYLAND=OFF)
