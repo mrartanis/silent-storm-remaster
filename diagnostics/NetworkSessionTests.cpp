@@ -36,19 +36,22 @@ int main(){try{
   Require(client.Submit({42})!=0 && client.Query({43})!=0,"request IDs");
   Pump(host,client,[&]{return results==2 && events>0;});
   Require(commands==1 && queries==1 && hostTicks>0,"commands or world ticks missing");
-  // A 20 ms snapshot exceeds the per-frame catch-up budget but still fits
-  // its 50 ms simulation period. Its cost must not be added to that period.
+  // A simulated 20 ms snapshot exceeds the per-frame catch-up budget but fits
+  // its 50 ms period. Use a monotonic test clock so OS timer coalescing/load
+  // cannot turn this scheduling regression into a machine-speed benchmark.
   {
     int ticks=0;SessionCallbacks timedServer,timedMirror;
+    auto clock=std::chrono::steady_clock::time_point()+std::chrono::seconds(1);
+    timedServer.now=timedMirror.now=[&]{return clock;};
     timedMirror.applyState=[](const Bytes&,bool) {};
     timedServer.createInitial=[] {return Bytes{1};};
-    timedServer.segment=[&]{++ticks;std::this_thread::sleep_for(std::chrono::milliseconds(20));return Bytes{2};};
+    timedServer.segment=[&]{++ticks;clock+=std::chrono::milliseconds(20);return Bytes{2};};
     NetworkSession timedHost({"timed","data"},timedServer),timedClient({"timed","data"},timedMirror);
     timedHost.Host(0);timedClient.Connect("127.0.0.1",timedHost.Port());
     Pump(timedHost,timedClient,[&]{return timedHost.State()==SessionState::Playing && timedClient.State()==SessionState::Playing;});
-    ticks=0;const auto until=std::chrono::steady_clock::now()+std::chrono::seconds(1);
-    while(std::chrono::steady_clock::now()<until){timedHost.Poll();timedClient.Poll();std::this_thread::sleep_for(std::chrono::milliseconds(1));}
-    Require(ticks>=17 && ticks<=22,"snapshot cost changed the simulation clock");
+    ticks=0;const auto until=clock+std::chrono::seconds(1);
+    while(clock<until){timedHost.Poll();timedClient.Poll();clock+=std::chrono::milliseconds(1);}
+    Require(ticks==19,"snapshot cost changed the simulation clock");
     timedClient.Finish("done");
   }
   // Preview requests and End can arrive in one receive batch followed by EOF.

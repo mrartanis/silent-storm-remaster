@@ -25,7 +25,7 @@ void NetworkSession::Connect(const std::string& ip,std::uint16_t port) {
   if(state!=SessionState::Idle) throw std::runtime_error("Session already started");
   host=false;transport.Connect(ip,port);state=SessionState::Connecting;status="Connecting";
   Log("connect ip="+ip+" port="+std::to_string(port)+" protocol="+std::to_string(ProtocolVersion)+" build="+compatibility.build+" data="+compatibility.dataFingerprint);
-  deadline=std::chrono::steady_clock::now()+std::chrono::seconds(30);
+  deadline=Now()+std::chrono::seconds(30);
   if(transport.Status()==Connection::Failed) Fail(transport.Error());
 }
 void NetworkSession::Fail(const std::string& error) {
@@ -45,7 +45,7 @@ void NetworkSession::Finish(const std::string& reason) {
   try {
     Bytes data;PutString(data,reason);transport.Send({Message::End,0,data});
     state=SessionState::Finishing;
-    finishDeadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
+    finishDeadline=Now()+std::chrono::seconds(3);
     Poll();
   } catch(const std::exception& error) {
     Log(std::string("finish could not be queued: ")+error.what());
@@ -72,7 +72,7 @@ void NetworkSession::Handle(const Packet& packet) {
       Bytes reason;PutString(reason,mismatch);transport.Send({Message::Reject,0,reason});transport.Poll();Fail(mismatch);return;
     }
     state=SessionState::Loading;status="Loading the match";
-    deadline=std::chrono::steady_clock::now()+std::chrono::seconds(60);
+    deadline=Now()+std::chrono::seconds(60);
     transport.Send({Message::Welcome,0,Hello()});
     if(!callbacks.createInitial) throw std::runtime_error("Missing host world constructor");
     transport.Send({Message::Initial,0,callbacks.createInitial()});return;
@@ -80,7 +80,7 @@ void NetworkSession::Handle(const Packet& packet) {
   if(!host && state==SessionState::Connecting && packet.type==Message::Welcome) {
     if(packet.data!=Hello()) throw std::runtime_error("Host compatibility mismatch");
     state=SessionState::Loading;status="Receiving the match";
-    deadline=std::chrono::steady_clock::now()+std::chrono::seconds(60);return;
+    deadline=Now()+std::chrono::seconds(60);return;
   }
   if(!host && state==SessionState::Loading && packet.type==Message::Initial) {
     if(receivedInitial) throw std::runtime_error("Duplicate initial world");
@@ -95,7 +95,7 @@ void NetworkSession::Handle(const Packet& packet) {
     if(!host && !receivedInitial) throw std::runtime_error("Readiness before initial world");
     if(host) transport.Send({Message::Ready,0,{}});
     state=SessionState::Playing;status="Connected";
-    nextTick=std::chrono::steady_clock::now()+std::chrono::milliseconds(50);return;
+    nextTick=Now()+std::chrono::milliseconds(50);return;
   }
   if(state!=SessionState::Playing) throw std::runtime_error("Unexpected message during match setup");
   if(!host && packet.type==Message::State) {
@@ -144,7 +144,7 @@ void NetworkSession::Poll() {
     auto packets=transport.Poll();
     if(state==SessionState::Finishing) {
       if(transport.Status()==Connection::Failed ||
-          std::chrono::steady_clock::now()>=finishDeadline) {
+          Now()>=finishDeadline) {
         Log("finish drained="+std::to_string(transport.Diagnostics().queuedBytes==0)+" transport="+transport.Error());
         state=SessionState::Finished;transport.Close();
       } else if(!finishWriteClosed && transport.Diagnostics().queuedBytes==0) {
@@ -177,15 +177,15 @@ void NetworkSession::Poll() {
         throw std::runtime_error("Network application queue overflow");
       incomingBytes+=packet.data.size();incoming.push_back(std::move(packet));
     }
-    const auto receiveStarted=std::chrono::steady_clock::now();
+    const auto receiveStarted=Now();
     while(!incoming.empty()) {
       auto packet=std::move(incoming.front());incoming.pop_front();incomingBytes-=packet.data.size();
       Handle(packet);
       if(state==SessionState::Failed || state==SessionState::Finished) return;
-      if(std::chrono::steady_clock::now()-receiveStarted>std::chrono::milliseconds(12))break;
+      if(Now()-receiveStarted>std::chrono::milliseconds(12))break;
     }
     if(transport.Status()==Connection::Failed) {Fail(transport.Error());return;}
-    auto now=std::chrono::steady_clock::now();
+    auto now=Now();
     if(now-lastDiagnostic>std::chrono::seconds(1)){Log("status "+status);lastDiagnostic=now;}
     if(host && state==SessionState::Waiting && transport.Status()==Connection::Connected) {
       if(deadline==std::chrono::steady_clock::time_point())deadline=now+std::chrono::seconds(30);
@@ -197,7 +197,7 @@ void NetworkSession::Poll() {
       // Bounded catch-up keeps the UI responsive. Never accelerate because
       // an individual spectator cannot see the currently executing action.
       int ticks=0;
-      const auto workStarted=std::chrono::steady_clock::now();
+      const auto workStarted=Now();
       while(now>=nextTick && ticks++<8) {
         // Keep ordered deltas intact when the peer reads slowly. Bounded
         // backpressure pauses the common clock instead of overflowing memory.
@@ -210,8 +210,8 @@ void NetworkSession::Poll() {
         }
         // A bounded tick count alone can still block the UI for seconds when
         // snapshots are expensive. Stop catch-up on a wall-time budget too.
-        if(std::chrono::steady_clock::now()-workStarted>std::chrono::milliseconds(12)) {
-          const auto finished=std::chrono::steady_clock::now();
+        if(Now()-workStarted>std::chrono::milliseconds(12)) {
+          const auto finished=Now();
           // Retain the 20 Hz clock when a tick fits inside its 50 ms period.
           // Only discard overdue catch-up, not the rest of the current period.
           if(nextTick<finished)nextTick=finished;

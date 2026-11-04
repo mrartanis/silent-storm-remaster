@@ -18,8 +18,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: engine-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  # New PR/branch commits replace stale checks; tagged releases finish intact.
+  # Manual checks of different platforms can run independently.
+  group: engine-${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
   build:
@@ -36,6 +38,8 @@ jobs:
     env:
       S2_BUILD_JOBS: ${{ matrix.platform == 'macos' && '2' || '4' }}
       MACOSX_DEPLOYMENT_TARGET: '15.0'
+      CCACHE_MAXSIZE: 750M
+      CCACHE_COMPILERCHECK: content
     steps:
       - uses: actions/checkout@v4
         with:
@@ -53,7 +57,9 @@ jobs:
           python-version: '3.13'
 
       - name: Set dependency directory
-        run: echo "S2_DEPS=$RUNNER_TEMP/s2-release-deps" >> "$GITHUB_ENV"
+        run: |
+          echo "S2_DEPS=$RUNNER_TEMP/s2-release-deps" >> "$GITHUB_ENV"
+          echo "CCACHE_DIR=$RUNNER_TEMP/s2-ccache" >> "$GITHUB_ENV"
 
       - name: Select MSVC x64
         if: runner.os == 'Windows'
@@ -65,7 +71,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-18 ninja-build pkg-config \
+          sudo apt-get install -y clang-18 ninja-build pkg-config ccache \
             libgsf-1-dev libpng-dev zlib1g-dev libx11-dev libxext-dev libxi-dev \
             libxrandr-dev libxfixes-dev libxcursor-dev libxss-dev libxtst-dev \
             libgl1-mesa-dev libegl1-mesa-dev libasound2-dev libpulse-dev libudev-dev \
@@ -83,7 +89,16 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           test "$(uname -m)" = arm64
-          brew install ninja pkg-config libgsf libpng
+          brew install ninja pkg-config libgsf libpng ccache
+
+      - name: Restore compiler cache
+        if: runner.os != 'Windows'
+        id: compiler-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: compiler-${{ matrix.os }}-${{ github.run_id }}
+          restore-keys: compiler-${{ matrix.os }}-
 
       - name: Fetch pinned sources
         if: steps.dependencies.outputs.cache-hit != 'true'
@@ -132,6 +147,7 @@ jobs:
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DS2_BUILD_GAME=ON -DSDL3_DIR="$S2_DEPS/install/lib/cmake/SDL3" \
             -DS2_BGFX_CMAKE_ROOT="$S2_DEPS/bgfx.cmake" -DS2_BGFX_DIR="$S2_DEPS/bgfx" \
             -DS2_BIMG_DIR="$S2_DEPS/bimg" -DS2_BX_DIR="$S2_DEPS/bx" \
@@ -144,6 +160,7 @@ jobs:
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DS2_BUILD_GAME=ON -DSDL3_DIR="$S2_DEPS/install/lib/cmake/SDL3" \
             -DS2_BGFX_CMAKE_ROOT="$S2_DEPS/bgfx.cmake" -DS2_BGFX_DIR="$S2_DEPS/bgfx" \
             -DS2_BIMG_DIR="$S2_DEPS/bimg" -DS2_BX_DIR="$S2_DEPS/bx" \
@@ -234,6 +251,13 @@ jobs:
             ${{ env.S2_DEPS }}/ffmpeg-build/ffbuild/config.log
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Save compiler cache, including after test failures
+        if: always() && runner.os != 'Windows' && steps.compiler-cache.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
 
   publish:
     name: Publish tagged engine release
