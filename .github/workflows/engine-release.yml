@@ -384,8 +384,13 @@ jobs:
           sudo udevadm trigger --name-match=kvm
           sudo udevadm settle
           export ANDROID_SERIAL=emulator-5554
+          export ANDROID_USER_HOME="$RUNNER_TEMP/android-user"
+          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
           printf 'no\n' | avdmanager create avd --name silent-storm-ci --force \
+            --path "$ANDROID_AVD_HOME/silent-storm-ci.avd" \
             --package 'system-images;android-35;google_apis;x86_64'
+          test -s "$ANDROID_AVD_HOME/silent-storm-ci.ini"
           adb start-server
           "$ANDROID_HOME/emulator/emulator" -avd silent-storm-ci -port 5554 -no-window \
             -gpu swiftshader -accel on -no-snapshot -no-audio -no-boot-anim -camera-back none \
