@@ -54,6 +54,20 @@ android {
         }
     }
 
+    buildTypes {
+        debug {
+            if (game) {
+                // Keep the test APK debuggable while measuring optimized native code.
+                externalNativeBuild {
+                    cmake {
+                        cFlags '-O2'
+                        cppFlags '-O2'
+                    }
+                }
+            }
+        }
+    }
+
     sourceSets.main.java.srcDir new File(sdl, 'android-project/app/src/main/java')
     if (game) sourceSets.main.assets.srcDir gameAssets
 }
