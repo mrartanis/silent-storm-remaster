@@ -141,9 +141,6 @@ void HandleTouch(S2Platform::InputEvent input)
         Push(CT_KEY, 12, -128, false, &input);
       }
       break;
-    case Action::Context:
-      Push(CT_TOUCH_CONTEXT, -1, 0, true, &input);
-      break;
     case Action::Camera:
       Push(CT_TOUCH_CAMERA, -1, 0, true);
       messages.back().touchGesture = gesture;
@@ -262,6 +259,20 @@ void PumpMessages(bool focus, bool force)
       default: break;
     }
   }
+#if defined(__ANDROID__)
+  if (focused) {
+    // Drain queued motion, release and focus events before recognizing a hold.
+    const auto point = touch.PollHold(SDL_GetTicks());
+    if (point && touchMapHitTest && touchMapHitTest(point->x, point->y)) {
+      const auto& display = S2Platform::Display();
+      S2Platform::InputEvent pointer{};
+      pointer.hasPointer = true;
+      pointer.pointerX = display.UIToPixel(point->x);
+      pointer.pointerY = display.UIToPixel(point->y);
+      Push(CT_TOUCH_CONTEXT, -1, 0, true, &pointer);
+    }
+  }
+#endif
 }
 bool GetMessage(SMessage* message)
 {

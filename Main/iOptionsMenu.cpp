@@ -369,8 +369,6 @@ static const wchar_t* VideoText(const wchar_t* english, const wchar_t* russian)
 	return english;
 }
 #if defined(__ANDROID__)
-static constexpr const char* extraVideoControl="dynamic_shadows";
-static constexpr const char* extraVideoVar="android_dynamic_shadows";
 static constexpr const char* antialiasingVar="android_msaa";
 #else
 static constexpr const char* extraVideoControl="hd_textures";
@@ -388,9 +386,13 @@ static NDb::CUIContainer* MakeVideoOptionsTemplate()
 		// Keep the book backdrop, but omit the old gamma preview artwork.
 		const bool backdrop=control->type==NDb::UI_IMAGE && control->rect.Width()>=original->nWidth/2 &&
 			control->rect.Height()>=original->nHeight/2;
-		if(backdrop || id=="base" || id=="cancel" || id=="default" || id=="resolution" ||
-			id=="quality" || id=="anisotropic_level" || id=="texture_quality" ||
+		if(backdrop || id=="base" || id=="cancel" || id=="default" ||
+#if !defined(__ANDROID__)
+			id=="resolution" || id=="quality" ||
+#endif
+			id=="anisotropic_level" || id=="texture_quality" ||
 			id=="smoothness" || id=="fsaa_level") modern->controls.push_back(control);
+#if !defined(__ANDROID__)
 		if(id=="fsaa_level")
 		{
 			// A separate control reuses the existing artwork and nested combo layout.
@@ -408,6 +410,7 @@ static NDb::CUIContainer* MakeVideoOptionsTemplate()
 			extra->toolTipAnchorType=NDb::UIA_NONE; extra->sToolTipAnchor=control->sToolTipAnchor;
 			modern->controls.push_back(extra);
 		}
+#endif
 	}
 	return modern;
 }
@@ -477,7 +480,7 @@ void CVideoOptionsUI::RefreshModes()
 }
 bool CVideoOptionsUI::Update(const STime& time, NGScene::I2DGameView* view)
 {
-	if(displayRevision!=S2Platform::Display().revision) RefreshModes();
+	if(IsValid(pResolution) && displayRevision!=S2Platform::Display().revision) RefreshModes();
 	UpdateFromConfig(); // Also tracks hotkeys and a display-mode rollback.
 	CEmptyOptionsUI::Update(time,view);
 	return true;
@@ -489,13 +492,15 @@ void CVideoOptionsUI::UpdateFromConfig()
 	auto select=[this](CComplexComboBox* combo,int value) {
 		if(IsValid(combo) && (!configInitialized || combo->GetSelectedItem()!=value)) combo->SetSelectedItem(value);
 	};
+#if !defined(__ANDROID__)
 	select(pResolution,GetCurrentResolution());
 	select(pFullscreen,NGlobal::GetVar("gfx_fullscreen",0).GetInt());
+	select(pExtraVideo,NGlobal::GetVar(extraVideoVar,0).GetInt()!=0);
+#endif
 	select(pAnisotropicLevel,NGlobal::GetVar("gfx_anisotropic_filter",1).GetInt()>1?16:1);
 	select(pVSync,NGlobal::GetVar("gfx_vsync",1).GetInt()!=0);
 	select(pAntialiasing,NGlobal::GetVar(antialiasingVar,0).GetInt()==1?1:0);
 	select(pShowFPS,NGlobal::GetVar("gfx_show_fps",0).GetInt()!=0);
-	select(pExtraVideo,NGlobal::GetVar(extraVideoVar,0).GetInt()!=0);
 	configInitialized=true;
 	bIgnoreNotify=previous;
 }
@@ -503,44 +508,47 @@ void CVideoOptionsUI::ArrangeControls()
 {
 	// Obsolete fields were excluded from the template. Do not disable sibling
 	// windows here: combo drop-down lists also belong directly to this panel.
-	CComplexComboBox* combos[]={pResolution,pFullscreen,pExtraVideo,pAnisotropicLevel,pVSync,pAntialiasing,pShowFPS};
-	const wchar_t* labels[]={VideoText(L"RESOLUTION",L"\u0420\u0410\u0417\u0420\u0415\u0428\u0415\u041d\u0418\u0415"),
-		VideoText(L"WINDOW MODE",L"\u0420\u0415\u0416\u0418\u041c \u041e\u041a\u041d\u0410"),
-#if defined(__ANDROID__)
-		VideoText(L"DYNAMIC SHADOWS",L"\u0414\u0418\u041d\u0410\u041c\u0418\u0427\u0415\u0421\u041a\u0418\u0415 \u0422\u0415\u041d\u0418"),
-#else
-		VideoText(L"HD TEXTURES",L"HD \u0422\u0415\u041a\u0421\u0422\u0423\u0420\u042b"),
+	const struct { CComplexComboBox* combo; const wchar_t* label; } rows[]={
+#if !defined(__ANDROID__)
+		{pResolution,VideoText(L"RESOLUTION",L"\u0420\u0410\u0417\u0420\u0415\u0428\u0415\u041d\u0418\u0415")},
+		{pFullscreen,VideoText(L"WINDOW MODE",L"\u0420\u0415\u0416\u0418\u041c \u041e\u041a\u041d\u0410")},
+		{pExtraVideo,VideoText(L"HD TEXTURES",L"HD \u0422\u0415\u041a\u0421\u0422\u0423\u0420\u042b")},
 #endif
-		VideoText(L"ANISOTROPY",L"\u0410\u041d\u0418\u0417\u041e\u0422\u0420\u041e\u041f\u0418\u042f"),L"V-SYNC",
-		VideoText(L"ANTIALIASING",L"\u0421\u0413\u041b\u0410\u0416\u0418\u0412\u0410\u041d\u0418\u0415"),
-		VideoText(L"SHOW FPS",L"\u041f\u041e\u041a\u0410\u0417\u0410\u0422\u042c FPS")};
+		{pAnisotropicLevel,VideoText(L"ANISOTROPY",L"\u0410\u041d\u0418\u0417\u041e\u0422\u0420\u041e\u041f\u0418\u042f")},
+		{pVSync,L"V-SYNC"},
+		{pAntialiasing,VideoText(L"ANTIALIASING",L"\u0421\u0413\u041b\u0410\u0416\u0418\u0412\u0410\u041d\u0418\u0415")},
+		{pShowFPS,VideoText(L"SHOW FPS",L"\u041f\u041e\u041a\u0410\u0417\u0410\u0422\u042c FPS")}
+	};
 	const int labelX=pDefault->GetAuthoredPosition().x;
 	const int fieldWidth=153;
-	const int valueX=pResolution->GetAuthoredPosition().x+pResolution->GetAuthoredSize().x-fieldWidth;
-	const int top=148; // Start beside the first tab, just below the book heading.
-	for(int row=0;row<7;++row)
+	const auto* first=rows[0].combo;
+	const int valueX=first->GetAuthoredPosition().x+first->GetAuthoredSize().x-fieldWidth;
+	int y=148; // Start beside the first tab, just below the book heading.
+	int row=0;
+	for(const auto& field:rows)
 	{
-		const int y=top+row*42;
-		const int reduction=combos[row]->GetAuthoredSize().x-fieldWidth;
+		auto* combo=field.combo;
+		const int reduction=combo->GetAuthoredSize().x-fieldWidth;
 		list<CPtr<CWindow>> parts;
-		combos[row]->GetChildrenList(&parts);
+		combo->GetChildrenList(&parts);
 		for(auto part:parts)
 		{
 			part->SetToolTip(0);
 			const SPoint size=part->GetSize();
 			if(size.x>=fieldWidth) part->SetSize(SPoint(size.x-reduction,size.y));
 		}
-		combos[row]->SetSize(SPoint(fieldWidth,combos[row]->GetSize().y));
-		combos[row]->SetToolTip(0); // The reused fields describe obsolete quality options.
-		combos[row]->SetPosition(combos[row]->AuthoredToLayout(SPoint(valueX,y)));
-		char id[40]; sprintf(id,"graphics_label_%d",row);
+		combo->SetSize(SPoint(fieldWidth,combo->GetSize().y));
+		combo->SetToolTip(0); // The reused fields describe obsolete quality options.
+		combo->SetPosition(combo->AuthoredToLayout(SPoint(valueX,y)));
+		char id[40]; sprintf(id,"graphics_label_%d",row++);
 		CText* label=new CText(SWindowInfo(this,SPoint(labelX,y-7),SPoint(valueX-labelX-10,42),id,
 			STYLE_VISIBLE|STYLE_ENABLED|STYLE_TRANSPARENT));
 		label->EnableAdaptiveLayout();
-		label->SetText(GetDBString(4404)+labels[row]);
+		label->SetText(GetDBString(4404)+field.label);
+		y+=42;
 	}
 	const SPoint reset=pDefault->GetAuthoredPosition();
-	pDefault->SetPosition(pDefault->AuthoredToLayout(SPoint(reset.x,top+7*42+16)));
+	pDefault->SetPosition(pDefault->AuthoredToLayout(SPoint(reset.x,y+16)));
 }
 bool CVideoOptionsUI::ProcessMessage(const SEvent& event)
 {
@@ -552,7 +560,6 @@ bool CVideoOptionsUI::ProcessMessage(const SEvent& event)
 			bIgnoreNotify=true;
 #if defined(__ANDROID__)
 			const int oldAA=NGlobal::GetVar(antialiasingVar,0).GetInt();
-			const int oldShadows=NGlobal::GetVar(extraVideoVar,0).GetInt();
 #endif
 			if(event.szID=="default")
 			{
@@ -560,8 +567,11 @@ bool CVideoOptionsUI::ProcessMessage(const SEvent& event)
 				NGlobal::ResetVar("gfx_vsync");
 				NGlobal::ResetVar(antialiasingVar);
 				NGlobal::ResetVar("gfx_show_fps");
+#if !defined(__ANDROID__)
 				NGlobal::ResetVar(extraVideoVar);
+#endif
 			}
+#if !defined(__ANDROID__)
 			else if((IsValid(pResolution) && event.szID==pResolution->GetWindowID()) ||
 				(IsValid(pFullscreen) && event.szID==pFullscreen->GetWindowID()))
 			{
@@ -583,6 +593,7 @@ bool CVideoOptionsUI::ProcessMessage(const SEvent& event)
 				}
 				if(!NGScene::SetModeFromConfig(false)) NGScene::RevertDisplayChange();
 			}
+#endif
 			else if(IsValid(pAnisotropicLevel) && event.szID==pAnisotropicLevel->GetWindowID())
 				NGlobal::SetVar("gfx_anisotropic_filter",pAnisotropicLevel->GetSelectedItem());
 			else if(IsValid(pVSync) && event.szID==pVSync->GetWindowID())
@@ -591,14 +602,13 @@ bool CVideoOptionsUI::ProcessMessage(const SEvent& event)
 				NGlobal::SetVar(antialiasingVar,pAntialiasing->GetSelectedItem());
 			else if(IsValid(pShowFPS) && event.szID==pShowFPS->GetWindowID())
 				NGlobal::SetVar("gfx_show_fps",pShowFPS->GetSelectedItem());
+#if !defined(__ANDROID__)
 			else if(IsValid(pExtraVideo) && event.szID==pExtraVideo->GetWindowID())
 				NGlobal::SetVar(extraVideoVar,pExtraVideo->GetSelectedItem());
-#if defined(__ANDROID__)
-			if((oldAA!=NGlobal::GetVar(antialiasingVar,0).GetInt() ||
-				oldShadows!=NGlobal::GetVar(extraVideoVar,0).GetInt()) && !NGScene::SetModeFromConfig(false))
+#else
+			if(oldAA!=NGlobal::GetVar(antialiasingVar,0).GetInt() && !NGScene::SetModeFromConfig(false))
 			{
 				NGlobal::SetVar(antialiasingVar,oldAA);
-				NGlobal::SetVar(extraVideoVar,oldShadows);
 				NGScene::SetModeFromConfig(true);
 			}
 #endif
@@ -611,12 +621,14 @@ bool CVideoOptionsUI::ProcessMessage(const SEvent& event)
 			pDefault=new CHoverButton(event.pLoader->GetControl("default"));
 			pDefault->AddTextState(CHoverButton::STATE_NORMAL,GetDBString(4404)+GetDBString(4377));
 			pDefault->AddTextState(CHoverButton::STATE_HOVER,GetDBString(4405)+GetDBString(4377));
+#if !defined(__ANDROID__)
 			pResolution=new CComplexComboBox(event.pLoader->GetControl("resolution"));
 			RefreshModes();
 			pFullscreen=new CComplexComboBox(event.pLoader->GetControl("quality"));
 			pFullscreen->AddItem(0,CComplexComboBox::SInfo(wstring(L"<right>")+VideoText(L"Window",L"\u041e\u043a\u043d\u043e")),171);
 			pFullscreen->AddItem(1,CComplexComboBox::SInfo(wstring(L"<right>")+VideoText(L"Fullscreen",L"\u041f\u043e\u043b\u043d\u044b\u0439 \u044d\u043a\u0440\u0430\u043d")),172);
 			pFullscreen->AddItem(2,CComplexComboBox::SInfo(wstring(L"<right>")+VideoText(L"Borderless",L"\u0411\u0435\u0437 \u0440\u0430\u043c\u043a\u0438")),173);
+#endif
 			pAnisotropicLevel=new CComplexComboBox(event.pLoader->GetControl("anisotropic_level"));
 			pAnisotropicLevel->AddItem(1,CComplexComboBox::SInfo(wstring(L"<right>")+VideoText(L"Off",L"\u0412\u044b\u043a\u043b.")),171);
 			pAnisotropicLevel->AddItem(16,CComplexComboBox::SInfo(wstring(L"<right>")+VideoText(L"Maximum",L"\u041c\u0430\u043a\u0441\u0438\u043c\u0443\u043c")),173);
@@ -631,8 +643,10 @@ bool CVideoOptionsUI::ProcessMessage(const SEvent& event)
 #endif
 			pShowFPS=new CComplexComboBox(event.pLoader->GetControl("fsaa_level"));
 			AddToggleItems(pShowFPS);
+#if !defined(__ANDROID__)
 			pExtraVideo=new CComplexComboBox(event.pLoader->GetControl(extraVideoControl));
 			AddToggleItems(pExtraVideo);
+#endif
 			break;
 		}
 	case EVENT_TEMPLATELOADCOMPLETE:
@@ -652,8 +666,14 @@ bool SelectGraphicsOptionForDiagnostics(const string& name, int value, int heigh
 	if(!IsValid(options) || !dynamic_cast<CVideoOptionsUI*>(options)) return false;
 	if(name=="dropdown")
 	{
-		const char* fields[]={"resolution","quality","anisotropic_level","texture_quality","smoothness","fsaa_level",extraVideoControl};
-		if(value<0 || value>=7) return false;
+		const char* fields[]={
+#if defined(__ANDROID__)
+			nullptr,nullptr,"anisotropic_level","texture_quality","smoothness","fsaa_level",nullptr
+#else
+			"resolution","quality","anisotropic_level","texture_quality","smoothness","fsaa_level",extraVideoControl
+#endif
+		};
+		if(value<0 || value>=7 || !fields[value]) return false;
 		CComboBox* combo=dynamic_cast<CComboBox*>(options->GetChildByID(fields[value]));
 		return IsValid(combo) && combo->ProcessMessage(SEvent(EVENT_NOTIFY,height?"list":"drop_list"));
 	}
@@ -664,9 +684,7 @@ bool SelectGraphicsOptionForDiagnostics(const string& name, int value, int heigh
 	else if(name=="vsync") control="texture_quality";
 	else if(name=="antialiasing") control="smoothness";
 	else if(name=="fps") control="fsaa_level";
-#if defined(__ANDROID__)
-	else if(name=="shadows") control=extraVideoControl;
-#else
+#if !defined(__ANDROID__)
 	else if(name=="hd") control=extraVideoControl;
 #endif
 	if(!control) return false;

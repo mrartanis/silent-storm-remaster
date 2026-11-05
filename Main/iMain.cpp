@@ -647,6 +647,8 @@ static bool TouchHitsMap(float x, float y)
 	auto *mission = interfaces.empty() ? nullptr : dynamic_cast<NGame::IMission*>(interfaces.back().GetPtr());
 	if (!mission || !mission->GetWorld() || !mission->IsReady() || mission->IsSequence())
 		return false;
+	if (mission->GetInterface()->GetTouchOverlay())
+		return false;
 	auto *desktop = mission->GetDesktop();
 	auto *view = desktop ? desktop->GetClientWindow() : nullptr;
 	const int px = static_cast<int>(x), py = static_cast<int>(y);

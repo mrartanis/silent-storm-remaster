@@ -43,8 +43,7 @@ bool SetModeFromConfig( bool bRecreate )
 {
 #if defined(__ANDROID__)
 	SetHDTexturesEnabled( false );
-	// Keep the shadow maps and cubemaps small when shadows are enabled.
-	SetSpeedMode( NGlobal::GetVar("android_dynamic_shadows", 0).GetInt() ? CV_HIGH : CV_VHIGH );
+	SetSpeedMode( CV_VHIGH );
 	SetTextureMode( CV_MED );
 	SetLightingQualityMode( CV_MED );
 	SetFSAAMode( CV_MED );
@@ -176,7 +175,6 @@ START_REGISTER(GInit)
 	REGISTER_CMD( "gfx_recreate", CommandGfxRecreate )
 	REGISTER_VAR( "gfx_resolution", 0, 1024, true )
 #if defined(__ANDROID__)
-	REGISTER_VAR( "android_dynamic_shadows", 0, 0, true )
 	REGISTER_VAR( "android_msaa", 0, 0, true )
 #else
 	REGISTER_VAR( "gfx_hd_textures", HDTexturesHandler, 1, true )

@@ -21,17 +21,29 @@ int main() {
         "A short tap should issue a primary click.");
 
   touch.Update(Phase::Down, 1, {10, 20}, 200, true);
-  Check(touch.Update(Phase::Up, 1, {10, 21}, 700, true).action == Action::Context,
-        "A stationary hold on the map should open the context menu.");
+  touch.Update(Phase::Move, 1, {10, 21}, 300, true);
+  Check(!touch.PollHold(649), "A hold should wait for the threshold.");
+  const auto hold = touch.PollHold(650);
+  Check(hold && hold->x == 10 && hold->y == 21,
+        "A hold should open the menu at the finger before release.");
+  Check(!touch.PollHold(690) && touch.Update(Phase::Move, 1, {40, 21}, 700, true).action == Action::None,
+        "A recognized hold should fire once and consume the rest of the gesture.");
+  Check(touch.Update(Phase::Up, 1, {40, 21}, 710, true).action == Action::None,
+        "Releasing the finger should not select a menu item.");
 
-  touch.Update(Phase::Down, 1, {10, 20}, 800, false);
-  Check(touch.Update(Phase::Up, 1, {10, 21}, 1400, true).action == Action::Tap,
+  touch.Update(Phase::Down, 1, {10, 20}, 720, true);
+  Check(touch.Update(Phase::Up, 1, {10, 20}, 1190, true).action == Action::None && !touch.PollHold(1190),
+        "If the input loop misses a hold, its release must not become a tap.");
+
+  touch.Update(Phase::Down, 1, {10, 20}, 1200, false);
+  Check(!touch.PollHold(1660) && touch.Update(Phase::Up, 1, {10, 21}, 1700, true).action == Action::Tap,
         "Holding an interface control should issue a primary click.");
 
   touch.Update(Phase::Down, 1, {10, 20}, 1500, true);
   const auto pan = touch.Update(Phase::Move, 1, {40, 20}, 1510, true);
   Check(pan.action == Action::Camera && pan.pan.x == 30,
         "Dragging should pan the camera.");
+  Check(!touch.PollHold(1960), "A drag must never become a context hold.");
   Check(touch.Update(Phase::Up, 1, {10, 20}, 1600, true).action == Action::None,
         "Dragging back to the start should never issue a click.");
 

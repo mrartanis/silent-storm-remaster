@@ -5,13 +5,14 @@
 #include <cmath>
 #include <cstdint>
 #include <map>
+#include <optional>
 
 namespace NInput {
 class TouchGestures {
 public:
   struct Point { float x = 0, y = 0; };
   enum class Phase { Down, Move, Up, Cancel };
-  enum class Action { None, Aim, Tap, Context, Camera };
+  enum class Action { None, Aim, Tap, Camera };
   struct Gesture {
     Action action = Action::None;
     Point point{};
@@ -22,6 +23,14 @@ public:
   };
 
   void Reset() { fingers.clear(); }
+
+  std::optional<Point> PollHold(std::uint64_t milliseconds) {
+    if (fingers.size() != 1 || !startedOnMap || moved || multiple || holdSent ||
+        !HoldElapsed(milliseconds))
+      return {};
+    holdSent = true;
+    return fingers.begin()->second;
+  }
 
   // Points are measured in UI units, with the same scale on both axes.
   Gesture Update(Phase phase, std::uint64_t finger, Point point, std::uint64_t milliseconds,
@@ -35,7 +44,7 @@ public:
         start = point;
         pressedAt = milliseconds;
         startedOnMap = cameraAllowed;
-        moved = multiple = false;
+        moved = multiple = holdSent = false;
       } else {
         multiple = true;
         startedOnMap = startedOnMap && cameraAllowed;
@@ -49,11 +58,14 @@ public:
     if (phase == Phase::Up) {
       fingers.erase(contact);
       if (fingers.size() == 2) BeginPair();
-      if (multiple || moved || Distance(point, start) >= dragThreshold) return {};
-      const bool held = milliseconds >= pressedAt && milliseconds - pressedAt >= holdMilliseconds;
-      return {held && startedOnMap && cameraAllowed ? Action::Context : Action::Tap, point};
+      // An overdue hold may have been released while the game missed a frame.
+      // Even then, it must never turn into a primary click on the map.
+      if (multiple || moved || holdSent || Distance(point, start) >= dragThreshold ||
+          (startedOnMap && HoldElapsed(milliseconds))) return {};
+      return {Action::Tap, point};
     }
 
+    if (holdSent) return {};
     const Point previous = contact->second;
     contact->second = point;
     if (!startedOnMap || !cameraAllowed || fingers.size() > 2) {
@@ -79,6 +91,9 @@ private:
   static Point Delta(Point a, Point b) { return {a.x - b.x, a.y - b.y}; }
   static float Distance(Point a, Point b) { return std::hypot(a.x - b.x, a.y - b.y); }
   Pair CurrentPair() const { return {fingers.begin()->second, fingers.rbegin()->second}; }
+  bool HoldElapsed(std::uint64_t milliseconds) const {
+    return milliseconds >= pressedAt && milliseconds - pressedAt >= holdMilliseconds;
+  }
 
   void BeginPair() {
     pair = CurrentPair();
@@ -141,5 +156,6 @@ private:
   bool startedOnMap = false;
   bool moved = false;
   bool multiple = false;
+  bool holdSent = false;
 };
 }
