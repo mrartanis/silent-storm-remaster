@@ -386,17 +386,23 @@ jobs:
           export ANDROID_SERIAL=emulator-5554
           printf 'no\n' | avdmanager create avd --name silent-storm-ci --force \
             --package 'system-images;android-35;google_apis;x86_64'
+          adb start-server
           "$ANDROID_HOME/emulator/emulator" -avd silent-storm-ci -port 5554 -no-window \
             -gpu swiftshader -accel on -no-snapshot -no-audio -no-boot-anim -camera-back none \
             > "$RUNNER_TEMP/android-emulator.log" 2>&1 &
-          emulator_pid=$!
+          export emulator_pid=$!
           cleanup() {
-            adb logcat -d > "$RUNNER_TEMP/android-logcat.txt" || true
-            adb emu kill || kill "$emulator_pid" || true
+            if [[ $? != 0 ]]; then tail -80 "$RUNNER_TEMP/android-emulator.log"; fi
+            timeout 15 adb logcat -d > "$RUNNER_TEMP/android-logcat.txt" 2>&1 || true
+            timeout 15 adb emu kill || kill "$emulator_pid" 2>/dev/null || true
           }
           trap cleanup EXIT
-          timeout 180 adb wait-for-device
-          timeout 180 bash -c 'until [[ "$(adb shell getprop sys.boot_completed | tr -d "\r")" == 1 ]]; do sleep 2; done'
+          timeout 300 bash -c '
+            until [[ "$(timeout 5 adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" == 1 ]]; do
+              if ! kill -0 "$emulator_pid" 2>/dev/null; then exit 1; fi
+              sleep 2
+            done
+          '
           adb shell wm dismiss-keyguard
           adb shell svc power stayon true
           adb shell settings put secure immersive_mode_confirmations confirmed
