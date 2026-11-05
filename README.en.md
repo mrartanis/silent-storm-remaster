@@ -15,7 +15,7 @@ behavior while bringing its engine to modern 64-bit systems.
 
 ## What has been implemented
 
-Status as of **October 23, 2026**:
+Status as of **November 5, 2026**
 
 - **64-bit engine and game.** A complete x64 game build, with fixes for pointer
   size assumptions, legacy inline assembly and 32-bit data structures.
@@ -33,13 +33,13 @@ Status as of **October 23, 2026**:
   This is a verified corpus, not a guarantee of identical rendered pixels
   for every possible FaceGen combination.
 - **Cross-platform game.** SDL3 handles windows, keyboard, mouse, text input,
-  clipboard and system events. The complete game builds for Windows x64,
-  Linux x64, Linux ARM64 and macOS ARM64; the portable core includes Lua, AI, combat,
-  resources, campaign logic and saves.
+  clipboard and system events. Releases include optimized builds for Windows x64,
+  Linux x64, macOS ARM64 (Apple silicon), and Android ARM64. Linux ARM64 also
+  builds from source. The portable core includes Lua, AI, combat, resources,
+  campaign logic, and saves.
 - **bgfx renderer.** The direct D3D9 renderer and DirectInput have been replaced
-  by bgfx and SDL3. Windows uses bgfx's Direct3D 11 backend, Linux uses Vulkan,
-  and macOS uses Metal;
-  the game engine no longer depends on the legacy DirectX runtime.
+  by bgfx and SDL3. Windows uses bgfx's Direct3D 11 backend, Linux and Android
+  use Vulkan, and macOS uses Metal. The game no longer needs the legacy DirectX runtime.
 - **Modern display and interface.** Resizable windows, borderless fullscreen,
   widescreen resolutions and Hor+ projection, adaptive panels and UI scaling,
   FreeType/Liberation vector fonts and aspect-preserving movies. Fixes cover
@@ -94,6 +94,7 @@ The launcher has been tested on Windows x64. See [skill installation, build and 
 | **Linux ARM64** | Complete AArch64 build; game, graphics and core/network checks have run through QEMU and ARM64 lavapipe. Physical ARM64 hardware and a graphical network client on that hardware remain unverified. |
 | **Windows x86** | Retained as a diagnostic reference for comparisons with the original 32-bit DLLs, rather than the main distribution target. |
 | **macOS ARM64** | Native Apple clang/SDL3/Metal build on Apple silicon. Core, networking and renderer/input regressions run on real hardware. Full campaign and audio-device coverage remain unverified. |
+| **Android ARM64** | Android 9+ with Vulkan. Touch controls, render scaling, and background autosave. CI checks the APK and app resume, while physical devices are used for gameplay testing. |
 
 A full campaign playthrough and complete behavioral/visual parity with the
 Steam release have not yet been established. The reports below describe tested
@@ -104,10 +105,11 @@ scenarios and remaining differences.
 Installation guides for [desktop](INSTALLATION_EN.md) and [Android](android/README.en.md).
 
 Engine releases are separate from original game data and the HD pack. The
-**Engine CI and release** workflow builds Windows x64, Linux x64 and macOS ARM64
-for pull requests and pushes to `develop`, running common and native game tests.
-For `v*` tags it publishes all three archives after successful checks. See
-[RELEASING.md](packaging/RELEASING.md) for tagging and checks without publishing.
+**Engine CI and release** workflow verifies Windows x64, Linux x64, macOS ARM64,
+and Android ARM64 for pull requests and pushes to `develop`. For `v*` tags it
+publishes the three desktop archives and the signed Android APK after all four
+platforms pass their checks. See the [release guide](packaging/RELEASING.md)
+for tagging and checks without publishing.
 
 ### Dependencies
 
