@@ -7,6 +7,7 @@
 #include "iMission.h"
 #include "iGameStates.h"
 #include "iMissionInternal.h"
+#include "iMissionUI.h"
 #include "UIWrap.h"
 #include "DisplayLayout.h"
 #include "RPGGame.h"
@@ -318,10 +319,16 @@ bool CMission::OpenTouchContext()
 	if (units.size() != 1)
 		return false;
 
-	// Use the ray for the hold's release rather than the hover cached last frame.
-	TraceCursor();
-	CPtr<CObjectBase> target = sTraceResult.pObject;
-	if (!sTraceResult.bObjectSet || !IsValid(target))
+	// Labels can be offset from their item and are easier to hold than the model.
+	const CVec2 pos = GetCursor()->GetPos();
+	auto* hud = dynamic_cast<NUI::CMissionUI*>(GetDesktop());
+	CPtr<CObjectBase> target = hud ? hud->HitItemLabel(S2UI::FromPixel(pos.x), S2UI::FromPixel(pos.y)) : nullptr;
+	if (!IsValid(target))
+	{
+		TraceCursor();
+		target = sTraceResult.pObject;
+	}
+	if (!IsValid(target))
 		return false;
 	auto* unit = units.front()->GetUnit();
 	auto* enemy = dynamic_cast<NWorld::CUnit*>(target.GetPtr());

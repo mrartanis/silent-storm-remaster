@@ -483,6 +483,7 @@ struct BgfxDevice::Impl {
     bgfx::ProgramHandle program=BGFX_INVALID_HANDLE;
   } pending;
   unsigned width=0,height=0;
+  unsigned outputWidth=0,outputHeight=0;
   uint32_t resetFlags=0;
   bgfx::ViewId nextView=0,currentView=0;
   bool viewDirty=true,viewUsed=false;
@@ -642,11 +643,14 @@ struct BgfxDevice::Impl {
     if(bgfx::getAvailTransientVertexBuffer(3,layout)<3) throw std::runtime_error("Presentation geometry budget exhausted");
     bgfx::TransientVertexBuffer buffer;
     bgfx::allocTransientVertexBuffer(&buffer,3,layout);memcpy(buffer.data,vertices,sizeof(vertices));
-    bgfx::setViewFrameBuffer(view,target);bgfx::setViewRect(view,0,0,width,height);
+    const unsigned destWidth=bgfx::isValid(target)?width:outputWidth;
+    const unsigned destHeight=bgfx::isValid(target)?height:outputHeight;
+    bgfx::setViewFrameBuffer(view,target);bgfx::setViewRect(view,0,0,destWidth,destHeight);
     bgfx::setViewMode(view,bgfx::ViewMode::Sequential);bgfx::setViewClear(view,BGFX_CLEAR_NONE);
     bgfx::setVertexBuffer(0,&buffer);
     uint32_t flags=BGFX_SAMPLER_U_CLAMP|BGFX_SAMPLER_V_CLAMP;
-    if(!antialias)flags|=BGFX_SAMPLER_MIN_POINT|BGFX_SAMPLER_MAG_POINT;
+    if(!antialias && destWidth==width && destHeight==height)
+      flags|=BGFX_SAMPLER_MIN_POINT|BGFX_SAMPLER_MAG_POINT;
     bgfx::setTexture(0,samplers[0],source,flags);
     float params[]={1.0f/std::max(0.1f,gamma),antialias?1.0f:0.0f,1.0f/width,1.0f/height};
     bgfx::setUniform(uPresent,params);
@@ -707,6 +711,11 @@ static bgfx::SwapChain GameSwapChain(unsigned width, unsigned height) {
   // Keep input latency bounded without the legacy per-frame GPU drain.
   swapChain.maxFrameLatency=2;
 #if defined(__ANDROID__)
+  int surfaceWidth=0,surfaceHeight=0;
+  if(S2Platform::SurfaceSize(&surfaceWidth,&surfaceHeight)) {
+    swapChain.width=surfaceWidth;
+    swapChain.height=surfaceHeight;
+  }
   // The Android SurfaceView exposes RGBA8 and inherits alpha handling.
   // The presentation pass writes opaque pixels.
   swapChain.formatColor=bgfx::TextureFormat::RGBA8;
@@ -794,6 +803,7 @@ bool BgfxDevice::Resize(unsigned w,unsigned h) {
     impl->resetFlags=DisplayResetFlags();
     bgfx::reset(impl->resetFlags,&swapChain);
     impl->width=w;impl->height=h;
+    impl->outputWidth=swapChain.width;impl->outputHeight=swapChain.height;
     impl->antialiasedScene=0;
     uint64_t targetFlags = BGFX_TEXTURE_RT;
     uint64_t depthFlags = BGFX_TEXTURE_RT;

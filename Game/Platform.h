@@ -27,6 +27,10 @@ void Exit();
 void Size(int* width, int* height);
 const S2Display::Metrics& Display();
 void UpdateDisplay(float uiPercent = -1);
+#if defined(__ANDROID__)
+void SetRenderScale(int percent);
+bool SurfaceSize(int* width, int* height);
+#endif
 enum class WindowMode { Windowed = 0, Fullscreen = 1, Borderless = 2 };
 bool SetMode(int width, int height, WindowMode mode);
 inline bool SetMode(int width, int height, bool fullscreen) {

@@ -4,6 +4,11 @@
 #include "Gfx.h"
 #include "GAutoDetect.h"
 #include "../Game/DisplayGeometry.h"
+#if defined(__ANDROID__)
+#include "../Game/Platform.h"
+#include "G2DView.h"
+#include "Cursor.h"
+#endif
 #include "../MiscDll/LogStream.h"
 #include "GfxRender.h"
 #include "..\MiscDll\Commands.h"
@@ -42,6 +47,9 @@ void GetConfiguredVideoMode( int *pModeX, int *pModeY )
 bool SetModeFromConfig( bool bRecreate )
 {
 #if defined(__ANDROID__)
+	const auto previousDisplay = S2Platform::Display();
+	const int scale = NGlobal::GetVar("android_render_scale", 100).GetInt();
+	S2Platform::SetRenderScale(scale == 75 || scale == 50 ? scale : 100);
 	SetHDTexturesEnabled( false );
 	SetSpeedMode( CV_VHIGH );
 	SetTextureMode( CV_MED );
@@ -145,6 +153,11 @@ bool SetModeFromConfig( bool bRecreate )
 		rtInfo.Clear();
 		bRes = NGfx::SetMode( NGfx::SVideoMode( nModeX, nModeY, 32, fullScreen ), rtInfo );
 	}
+#if defined(__ANDROID__)
+	const auto& display = S2Platform::Display();
+	NUI::RescaleTouchCursor(float(display.pixelWidth) / previousDisplay.pixelWidth,
+		float(display.pixelHeight) / previousDisplay.pixelHeight);
+#endif
 	return bRes;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -176,6 +189,7 @@ START_REGISTER(GInit)
 	REGISTER_VAR( "gfx_resolution", 0, 1024, true )
 #if defined(__ANDROID__)
 	REGISTER_VAR( "android_msaa", 0, 0, true )
+	REGISTER_VAR( "android_render_scale", 0, 100, true )
 #else
 	REGISTER_VAR( "gfx_hd_textures", HDTexturesHandler, 1, true )
 #endif

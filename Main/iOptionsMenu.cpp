@@ -386,9 +386,9 @@ static NDb::CUIContainer* MakeVideoOptionsTemplate()
 		// Keep the book backdrop, but omit the old gamma preview artwork.
 		const bool backdrop=control->type==NDb::UI_IMAGE && control->rect.Width()>=original->nWidth/2 &&
 			control->rect.Height()>=original->nHeight/2;
-		if(backdrop || id=="base" || id=="cancel" || id=="default" ||
+		if(backdrop || id=="base" || id=="cancel" || id=="default" || id=="resolution" ||
 #if !defined(__ANDROID__)
-			id=="resolution" || id=="quality" ||
+			id=="quality" ||
 #endif
 			id=="anisotropic_level" || id=="texture_quality" ||
 			id=="smoothness" || id=="fsaa_level") modern->controls.push_back(control);
@@ -433,6 +433,9 @@ private:
 	CObj<CComplexComboBox> pVSync;
 	CObj<CComplexComboBox> pShowFPS;
 	CObj<CComplexComboBox> pExtraVideo;
+#if defined(__ANDROID__)
+	CObj<CComplexComboBox> pRenderScale;
+#endif
 	ZEND int operator&(CStructureSaver& f) { f.Add(1,(CEmptyOptionsUI*)this); f.Add(2,&bIgnoreNotify); f.Add(3,&pDefault); f.Add(8,&pAntialiasing); f.Add(10,&pResolution); f.Add(12,&pAnisotropicLevel); f.Add(13,&pFullscreen); f.Add(14,&pVSync); f.Add(15,&pShowFPS); f.Add(16,&pExtraVideo); return 0; }
 
 	unsigned long long displayRevision = 0;
@@ -496,6 +499,9 @@ void CVideoOptionsUI::UpdateFromConfig()
 	select(pResolution,GetCurrentResolution());
 	select(pFullscreen,NGlobal::GetVar("gfx_fullscreen",0).GetInt());
 	select(pExtraVideo,NGlobal::GetVar(extraVideoVar,0).GetInt()!=0);
+#else
+	const int scale=NGlobal::GetVar("android_render_scale",100).GetInt();
+	select(pRenderScale,scale==75 || scale==50 ? scale : 100);
 #endif
 	select(pAnisotropicLevel,NGlobal::GetVar("gfx_anisotropic_filter",1).GetInt()>1?16:1);
 	select(pVSync,NGlobal::GetVar("gfx_vsync",1).GetInt()!=0);
@@ -513,6 +519,8 @@ void CVideoOptionsUI::ArrangeControls()
 		{pResolution,VideoText(L"RESOLUTION",L"\u0420\u0410\u0417\u0420\u0415\u0428\u0415\u041d\u0418\u0415")},
 		{pFullscreen,VideoText(L"WINDOW MODE",L"\u0420\u0415\u0416\u0418\u041c \u041e\u041a\u041d\u0410")},
 		{pExtraVideo,VideoText(L"HD TEXTURES",L"HD \u0422\u0415\u041a\u0421\u0422\u0423\u0420\u042b")},
+#else
+		{pRenderScale,VideoText(L"RENDER SCALE",L"\u0420\u0415\u041d\u0414\u0415\u0420\u0418\u041d\u0413")},
 #endif
 		{pAnisotropicLevel,VideoText(L"ANISOTROPY",L"\u0410\u041d\u0418\u0417\u041e\u0422\u0420\u041e\u041f\u0418\u042f")},
 		{pVSync,L"V-SYNC"},
@@ -560,6 +568,7 @@ bool CVideoOptionsUI::ProcessMessage(const SEvent& event)
 			bIgnoreNotify=true;
 #if defined(__ANDROID__)
 			const int oldAA=NGlobal::GetVar(antialiasingVar,0).GetInt();
+			const int oldScale=NGlobal::GetVar("android_render_scale",100).GetInt();
 #endif
 			if(event.szID=="default")
 			{
@@ -569,6 +578,8 @@ bool CVideoOptionsUI::ProcessMessage(const SEvent& event)
 				NGlobal::ResetVar("gfx_show_fps");
 #if !defined(__ANDROID__)
 				NGlobal::ResetVar(extraVideoVar);
+#else
+				NGlobal::ResetVar("android_render_scale");
 #endif
 			}
 #if !defined(__ANDROID__)
@@ -606,9 +617,13 @@ bool CVideoOptionsUI::ProcessMessage(const SEvent& event)
 			else if(IsValid(pExtraVideo) && event.szID==pExtraVideo->GetWindowID())
 				NGlobal::SetVar(extraVideoVar,pExtraVideo->GetSelectedItem());
 #else
-			if(oldAA!=NGlobal::GetVar(antialiasingVar,0).GetInt() && !NGScene::SetModeFromConfig(false))
+			else if(IsValid(pRenderScale) && event.szID==pRenderScale->GetWindowID())
+				NGlobal::SetVar("android_render_scale",pRenderScale->GetSelectedItem());
+			if((oldAA!=NGlobal::GetVar(antialiasingVar,0).GetInt() ||
+				oldScale!=NGlobal::GetVar("android_render_scale",100).GetInt()) && !NGScene::SetModeFromConfig(false))
 			{
 				NGlobal::SetVar(antialiasingVar,oldAA);
+				NGlobal::SetVar("android_render_scale",oldScale);
 				NGScene::SetModeFromConfig(true);
 			}
 #endif
@@ -628,6 +643,11 @@ bool CVideoOptionsUI::ProcessMessage(const SEvent& event)
 			pFullscreen->AddItem(0,CComplexComboBox::SInfo(wstring(L"<right>")+VideoText(L"Window",L"\u041e\u043a\u043d\u043e")),171);
 			pFullscreen->AddItem(1,CComplexComboBox::SInfo(wstring(L"<right>")+VideoText(L"Fullscreen",L"\u041f\u043e\u043b\u043d\u044b\u0439 \u044d\u043a\u0440\u0430\u043d")),172);
 			pFullscreen->AddItem(2,CComplexComboBox::SInfo(wstring(L"<right>")+VideoText(L"Borderless",L"\u0411\u0435\u0437 \u0440\u0430\u043c\u043a\u0438")),173);
+#else
+			pRenderScale=new CComplexComboBox(event.pLoader->GetControl("resolution"));
+			pRenderScale->AddItem(100,CComplexComboBox::SInfo(L"<right>100%"),171);
+			pRenderScale->AddItem(75,CComplexComboBox::SInfo(L"<right>75%"),172);
+			pRenderScale->AddItem(50,CComplexComboBox::SInfo(L"<right>50%"),173);
 #endif
 			pAnisotropicLevel=new CComplexComboBox(event.pLoader->GetControl("anisotropic_level"));
 			pAnisotropicLevel->AddItem(1,CComplexComboBox::SInfo(wstring(L"<right>")+VideoText(L"Off",L"\u0412\u044b\u043a\u043b.")),171);
@@ -668,7 +688,7 @@ bool SelectGraphicsOptionForDiagnostics(const string& name, int value, int heigh
 	{
 		const char* fields[]={
 #if defined(__ANDROID__)
-			nullptr,nullptr,"anisotropic_level","texture_quality","smoothness","fsaa_level",nullptr
+			"resolution",nullptr,"anisotropic_level","texture_quality","smoothness","fsaa_level",nullptr
 #else
 			"resolution","quality","anisotropic_level","texture_quality","smoothness","fsaa_level",extraVideoControl
 #endif
@@ -678,8 +698,12 @@ bool SelectGraphicsOptionForDiagnostics(const string& name, int value, int heigh
 		return IsValid(combo) && combo->ProcessMessage(SEvent(EVENT_NOTIFY,height?"list":"drop_list"));
 	}
 	const char* control=0;
+#if defined(__ANDROID__)
+	if(name=="scale" && (value==100 || value==75 || value==50)) control="resolution";
+#else
 	if(name=="resolution") {control="resolution"; value=EncodeVideoModeID(value,height);}
 	else if(name=="fullscreen") control="quality";
+#endif
 	else if(name=="anisotropy") control="anisotropic_level";
 	else if(name=="vsync") control="texture_quality";
 	else if(name=="antialiasing") control="smoothness";

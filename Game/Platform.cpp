@@ -336,6 +336,17 @@ void S2Platform::Size(int* width, int* height)
   *height = display.drawable ? display.pixelHeight : 0;
 }
 const S2Display::Metrics& S2Platform::Display() { return display; }
+#if defined(__ANDROID__)
+static int renderScalePercent = 100;
+void S2Platform::SetRenderScale(int percent)
+{
+  renderScalePercent = percent;
+}
+bool S2Platform::SurfaceSize(int* width, int* height)
+{
+  return window && SDL_GetWindowSizeInPixels(window, width, height) && *width > 0 && *height > 0;
+}
+#endif
 void S2Platform::UpdateDisplay(float percent)
 {
   if (percent >= 0 && std::isfinite(percent)) uiPercent = percent;
@@ -343,7 +354,15 @@ void S2Platform::UpdateDisplay(float percent)
   int w = 0, h = 0, pw = 0, ph = 0;
   SDL_GetWindowSize(window, &w, &h);
   SDL_GetWindowSizeInPixels(window, &pw, &ph);
-  display = S2Display::Update(display,w,h,pw,ph,SDL_GetWindowDisplayScale(window),
+  float displayScale = SDL_GetWindowDisplayScale(window);
+#if defined(__ANDROID__)
+  // Keep the logical canvas unchanged while mapping touch to the render pixels.
+  if (!(displayScale > 0)) displayScale = 1;
+  pw = (pw * renderScalePercent + 50) / 100;
+  ph = (ph * renderScalePercent + 50) / 100;
+  displayScale *= renderScalePercent / 100.0f;
+#endif
+  display = S2Display::Update(display,w,h,pw,ph,displayScale,
       SDL_GetDisplayForWindow(window),bool(SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED),uiPercent);
 }
 bool S2Platform::SetMode(int width, int height, WindowMode requested)

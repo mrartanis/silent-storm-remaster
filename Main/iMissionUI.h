@@ -46,6 +46,9 @@ private:
 	NInput::CBind bindPerks, bindStore, bindInventory, bindCharacter;
 	NInput::CBind bindMedals, bindBiography;	// retail ProcessEvent @0x20f7a0 routes all four tabs
 	NInput::CBind bindPoseSubMenu, bindWeaponModeSubMenu, bindGrenadeModeSubMenu;
+#if defined(__ANDROID__)
+	CPtr<CCheckButton> pTouchItemsToggle;
+#endif
 
 	ZDATA_(CDesktopWindow)
 	CPtr<NGame::IMission> pMission;
@@ -116,6 +119,9 @@ public:
 	CMissionUI();
 	CMissionUI( const SWindowInfo &sInfo, NGame::IMission *pMission );
 	bool IsReady() const override { return true; }
+#if defined(__ANDROID__)
+	CObjectBase* HitItemLabel(int x, int y) const;
+#endif
 
 	bool IsValidCommand( NWorld::CUICmd *pCmd ) override;
 	NGame::CUICmdExec* CreateExecutor( NWorld::CUICmd *pCmd );

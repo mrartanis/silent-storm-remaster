@@ -1024,6 +1024,11 @@ void CMissionUI::OnSerialize( CStructureSaver &f )
 {
 	if ( !IsValid( pPause ) )
 		pPause = GetUIWindow<CText>( this, "pause" );
+#if !defined(__ANDROID__)
+	if (f.IsReading())
+		if (auto* toggle = GetChildByID("touch_show_items"))
+			toggle->SetStyle(STYLE_VISIBLE, false);
+#endif
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CMissionUI::CMissionUI():
@@ -1145,6 +1150,12 @@ bool CMissionUI::ProcessMessage( const SEvent &sEvent )
 {
 	switch( sEvent.nEvent )
 	{
+#if defined(__ANDROID__)
+	case EVENT_NOTIFY:
+		if (sEvent.szID == "touch_show_items")
+			return true; // CCheckButton has already changed its checked state.
+		break;
+#endif
 	case EVENT_MOUSEMOVE:
 		{
 			GetInterface()->SetCursorInfo( pMission->GetState()->GetCursorInfo() );
@@ -1277,6 +1288,31 @@ bool CMissionUI::Update( const STime &sTime, NGScene::I2DGameView *pView )
 	pInventory->SetStyle( STYLE_VISIBLE, ( pMission->GetPanelState( NGame::PANEL_INVENTORY ) == 0 ) );
 	pCharacter->SetStyle( STYLE_VISIBLE, ( pMission->GetPanelState( NGame::PANEL_STORE | NGame::PANEL_PERKS | NGame::PANEL_CHARACTER | NGame::PANEL_MEDALS | NGame::PANEL_BIOGRAPHY ) == 0 ) );
 
+#if defined(__ANDROID__)
+	if (!IsValid(pTouchItemsToggle))
+	{
+		pTouchItemsToggle = dynamic_cast<CCheckButton*>(GetChildByID("touch_show_items"));
+		if (!IsValid(pTouchItemsToggle))
+		{
+			const SPoint size(52, 46);
+			pTouchItemsToggle = new CCheckButton(SWindowInfo(this, SPoint(0, 0), size, "touch_show_items",
+				STYLE_ENABLED | STYLE_VISIBLE | STYLE_TOPMOST));
+			new CFrame(SWindowInfo(pTouchItemsToggle, SPoint(0, 0), size, "", STYLE_VISIBLE | STYLE_TRANSPARENT));
+		}
+	}
+	const SPoint bag = pInventory->GetPosition();
+	const SPoint togglePosition(bag.x - pTouchItemsToggle->GetSize().x - 8, bag.y);
+	if (pTouchItemsToggle->GetPosition() != togglePosition)
+		pTouchItemsToggle->SetPosition(togglePosition);
+	pTouchItemsToggle->SetStyle(STYLE_VISIBLE, pInventory->GetStyle(STYLE_VISIBLE) && !pMission->IsInterfaceHidden());
+	pTouchItemsToggle->SetStyle(STYLE_ENABLED, pMission->IsReady());
+	const wchar_t* caption = pTouchItemsToggle->IsChecked()
+		? L"<font face=Impact size=17pt><center><color=0xffffbc56>ALT"
+		: L"<font face=Impact size=17pt><center><color=0xffe0dbcf>ALT";
+	if (pTouchItemsToggle->GetText() != caption)
+		pTouchItemsToggle->SetText(caption);
+#endif
+
 	// Retail v1.2 0x612703..0x6127be: a single selected unit is required;
 	// flash until its level change is acknowledged by the character panel.
 	vector<CPtr<NGame::IUnitTracker> > unitsSet;
@@ -1397,6 +1433,15 @@ static float ProjectOverlayIconPos( const CVec3 &vAnchor, CTransformStack &sTS, 
 	return fAngle;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+#if defined(__ANDROID__)
+CObjectBase* CMissionUI::HitItemLabel(int x, int y) const
+{
+	for (const auto& label : itemTextsList)
+		if (IsValid(label) && label->HitTest(x, y))
+			return label->GetTarget();
+	return nullptr;
+}
+#endif
 void CMissionUI::UpdateItems( NGScene::I2DGameView *pView )
 {
 	// retail CMissionUI::UpdateVisibleItems @0x2130c0 -- THREE passes over the ACTIVE player's
@@ -1411,7 +1456,11 @@ void CMissionUI::UpdateItems( NGScene::I2DGameView *pView )
 	// A clue item always wins over a hint item (the RTDynamicCast pair @0x6137b7 tests IClueItem
 	// first). All rebuilt lists are assigned at the end of the walk (@0x613c9f).
 	const bool bShowHints = NGlobal::GetVar( "ui_showhints" ).GetFloat() != 0;
-	const bool bShowItems = bindShowItems.IsActive();
+	const bool bShowItems = bindShowItems.IsActive()
+#if defined(__ANDROID__)
+		|| (IsValid(pTouchItemsToggle) && pTouchItemsToggle->IsChecked())
+#endif
+		;
 
 	// the discovered-set enumeration runs BEFORE any gate (@0x61318e..0x6131b4) -- it feeds all passes
 	NWorld::IPlayer *pPlayer = 0;
