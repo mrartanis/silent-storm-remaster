@@ -269,6 +269,7 @@ protected:
 
 public:
 	CStateUse() {}
+	static NWorld::CCmd* MakeTargetCommand( CObjectBase* pObject );
 
 	bool Initialize( IMission *pMission );
 	void Terminate();
@@ -299,6 +300,7 @@ protected:
 
 public:
 	CStatePickItem() {}
+	static NWorld::CCmd* MakeTargetCommand( IMission* pMission, CObjectBase* pObject );
 
 	bool Initialize( IMission *pMission );
 	void Terminate();

@@ -1261,7 +1261,11 @@ NUI::SCursorInfo CStateUse::GetCursorInfo() const
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 NWorld::CCmd* CStateUse::GetTargetCmd()
 {
-	CObjectBase* pObject = GetMission()->GetStateTarget();
+	return MakeTargetCommand( GetMission()->GetStateTarget() );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+NWorld::CCmd* CStateUse::MakeTargetCommand( CObjectBase* pObject )
+{
 	if ( !IsValid( pObject ) )
 		return 0;
 	CDynamicCast<NWorld::CUnit> pDeadUnit(pObject);
@@ -1405,15 +1409,19 @@ NUI::SCursorInfo CStatePickItem::GetCursorInfo() const
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 NWorld::CCmd* CStatePickItem::GetTargetCmd()
 {
+	return MakeTargetCommand( GetMission(), GetMission()->GetStateTarget() );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+NWorld::CCmd* CStatePickItem::MakeTargetCommand( IMission* pMission, CObjectBase* pObject )
+{
 	vector< CPtr<NGame::IUnitTracker> > unitsSet;
-	GetMission()->GetSelectedUnits( &unitsSet );
+	pMission->GetSelectedUnits( &unitsSet );
 
 	if ( unitsSet.size() != 1 )
 		return 0;
 
-	CPtr<CObjectBase> pObject = GetMission()->GetStateTarget();
 	CDynamicCast<NWorld::IItem> pTempItem(pObject);
-	if (pTempItem)
+	if (pTempItem && IsValid( pTempItem->GetInvItem() ))
 	{
 		NWorld::SItem sSource;
 		sSource.eType = NWorld::SItem::GROUND;
@@ -1422,7 +1430,7 @@ NWorld::CCmd* CStatePickItem::GetTargetCmd()
 		sSource.pUnit = 0;
 		sSource.nSlot = -1;
 
-		if ( GetMission()->GetPanelState( PANEL_INVENTORY ) == 0 )
+		if ( pMission->GetPanelState( PANEL_INVENTORY ) == 0 )
 		{
 			NWorld::SItem sTarget;
 			// Retail CStatePickItem::GetTargetCmd uses UNIT_ANYPLACE when the inventory is

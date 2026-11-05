@@ -135,14 +135,15 @@ void HandleTouch(S2Platform::InputEvent input)
     case Action::Aim:
       Push(CT_POINTER, -1, 0, true, &input);
       break;
-    case Action::Tap: case Action::Context: {
-      const int button = gesture.action == Action::Tap ? 0 : 1;
-      if (!buttons[button]) {
-        Push(CT_KEY, 12 + button, 128, true, &input);
-        Push(CT_KEY, 12 + button, -128, false, &input);
+    case Action::Tap:
+      if (!buttons[0]) {
+        Push(CT_KEY, 12, 128, true, &input);
+        Push(CT_KEY, 12, -128, false, &input);
       }
       break;
-    }
+    case Action::Context:
+      Push(CT_TOUCH_CONTEXT, -1, 0, true, &input);
+      break;
     case Action::Camera:
       Push(CT_TOUCH_CAMERA, -1, 0, true);
       messages.back().touchGesture = gesture;

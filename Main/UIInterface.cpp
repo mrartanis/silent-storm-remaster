@@ -685,7 +685,12 @@ void CInterface::Draw( const STime &sTime )
 		pFPSText->Draw( this, sTime, pView );
 	}
 
-	pCursor->Draw( sTime, pView );
+#if defined(__ANDROID__)
+	if (IsValid(touchOverlay))
+		touchOverlay->Draw(sTime, pView);
+	else
+#endif
+		pCursor->Draw(sTime, pView);
 	pView->Flush();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

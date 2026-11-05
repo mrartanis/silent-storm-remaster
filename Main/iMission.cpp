@@ -1270,6 +1270,10 @@ void CMission::SetPanelState( int nMask, bool bState )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMission::Step()
 {
+#if defined(__ANDROID__)
+	if (pInterface->GetTouchOverlay() && !CanOpenTouchContext())
+		pInterface->SetTouchOverlay(nullptr);
+#endif
 	if (networkSession)
 	{
 		{S2Perf::Scope measured(S2Perf::NetPoll);networkSession->Poll();}
@@ -1648,6 +1652,10 @@ bool CMission::CanLeaveZone( wstring *pwsReason )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMission::ProcessEvent( const NInput::SEvent &sEvent )
 {
+#if defined(__ANDROID__)
+	if (pInterface->GetTouchOverlay())
+		return ProcessTouchContext(sEvent);
+#endif
 	if (networkSession)
 	{
 		if (bindSaveMenu.ProcessEvent(sEvent) || bindLoadMenu.ProcessEvent(sEvent)) return true;
@@ -1662,6 +1670,10 @@ bool CMission::ProcessEvent( const NInput::SEvent &sEvent )
 	NInput::SetSection( "game" );
 
 	pCursor->ProcessEvent( sEvent );
+#if defined(__ANDROID__)
+	if (sEvent.mMessage.cType == NInput::CT_TOUCH_CONTEXT && OpenTouchContext())
+		return true;
+#endif
 
 	if ( bindHideInterface.ProcessEvent( sEvent ) )
 	{
@@ -1866,7 +1878,11 @@ bool CMission::ProcessEvent( const NInput::SEvent &sEvent )
 	if ( !IsPlayerTurn() )
 		return false;
 
-	if ( bindCancel.ProcessEvent( sEvent ) || bindCancelAction.ProcessEvent( sEvent ) )
+	if ( bindCancel.ProcessEvent( sEvent ) || bindCancelAction.ProcessEvent( sEvent )
+#if defined(__ANDROID__)
+		|| sEvent.mMessage.cType == NInput::CT_TOUCH_CONTEXT
+#endif
+		)
 	{
 		if ( pState->GetType() == IState::FORCED )
 			ResetState();

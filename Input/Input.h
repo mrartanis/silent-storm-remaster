@@ -33,6 +33,7 @@ typedef std::uint32_t STime;
 		CT_POINTER, // absolute position, including sub-pixel motion without an axis delta
 #if defined(__ANDROID__)
 		CT_TOUCH_CAMERA,
+		CT_TOUCH_CONTEXT,
 #endif
 	};
 ////////////////////////////////////////////////////////////////////////////////////////////////////

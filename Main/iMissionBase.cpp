@@ -313,6 +313,9 @@ void CMissionBase::OnGetFocus()
 // (this is why retail goes silent in the pause MENU but not on the Pause/Break realtime pause)
 void CMissionBase::OnLostFocus()
 {
+#if defined(__ANDROID__)
+	pInterface->SetTouchOverlay(nullptr);
+#endif
 	pSoundScene->Pause( true );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

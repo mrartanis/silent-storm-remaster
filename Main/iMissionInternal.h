@@ -95,7 +95,12 @@ class CMission: public CMissionBase
   CObj<NUI::CWindow> networkPreparationControls;
   CObj<NUI::CWindow> networkMenuControls;
 private:
-	NInput::CBind bindStartOfTurn, bindEndOfTurn, bindNextEnemy; 
+#if defined(__ANDROID__)
+	bool CanOpenTouchContext();
+	bool OpenTouchContext();
+	bool ProcessTouchContext(const NInput::SEvent& event);
+#endif
+	NInput::CBind bindStartOfTurn, bindEndOfTurn, bindNextEnemy;
 	NInput::CBind bindSaveMenu, bindLoadMenu, bindQuickSave;
 	NInput::CBind bindFocusUnit, bindAddFloor, bindSubFloor;
 

@@ -62,6 +62,9 @@ class CInterface: public CWindow
 	OBJECT_BASIC_METHODS(CInterface);
 private:
 	NInput::CBind cmdConsole, cmdLButtonDown, cmdLButtonUp, cmdRButtonDown, cmdRButtonUp, bindScroll, cmdFPSShow;
+#if defined(__ANDROID__)
+	CObj<CWindow> touchOverlay;
+#endif
 
 	ZDATA_(CWindow)
 	STime sLastLButtonDownTime, sLastRButtonDownTime, sDoubleClickTime;
@@ -107,6 +110,10 @@ public:
 	CInterface();
 	CInterface( ICursor* pCursor, NSound::ISoundScene *pSound = 0, NSound::ISoundScene *pInheritSound = 0 );
 
+#if defined(__ANDROID__)
+	void SetTouchOverlay(CWindow* window) { touchOverlay = window; }
+	CWindow* GetTouchOverlay() const { return touchOverlay; }
+#endif
 	const SPoint& GetCursorPos() const;
 	STime GetLastTime() const { return sLastTime; }		// UI ms clock, read by NScript::luaGetUITime
 
