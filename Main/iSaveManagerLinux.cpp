@@ -22,6 +22,12 @@
 #include <sys/stat.h>
 #include <system_error>
 #include <vector>
+#if defined(__ANDROID__)
+#include <fcntl.h>
+#include <linux/fs.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#endif
 
 namespace NMainLoop {
 namespace {
@@ -124,11 +130,12 @@ bool RemoveTree(const fs::path& path) {
   return !error && fs::remove(path, error) && !error;
 }
 
-void CopyFiles(const fs::path& source, const fs::path& target) {
-  if (!IsDirectory(source) || !IsDirectory(target)) return;
+bool CopyFiles(const fs::path& source, const fs::path& target, const char* skip = nullptr) {
+  if (!IsDirectory(source) || !IsDirectory(target)) return false;
   std::error_code error;
   for (const auto& entry : fs::directory_iterator(source, error)) {
-    if (error) return;
+    if (error) return false;
+    if (skip && entry.path().filename() == skip) continue;
     const fs::file_status status = entry.symlink_status(error);
     if (error || !fs::is_regular_file(status) ||
         EncodeName(entry.path().filename()).empty()) continue;
@@ -137,9 +144,30 @@ void CopyFiles(const fs::path& source, const fs::path& target) {
     if (error == std::errc::no_such_file_or_directory) error.clear();
     if (error || fs::is_symlink(existing)) continue;
     fs::copy_file(entry.path(), destination, fs::copy_options::overwrite_existing, error);
-    if (error) return;
+    if (error) return false;
   }
+  return !error;
 }
+#if defined(__ANDROID__)
+constexpr char suspendStagingDir[] = ".suspend-pending";
+
+bool SyncDirectory(const fs::path& path) {
+  const int fd = open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  if (fd < 0) return false;
+  const bool synced = fsync(fd) == 0;
+  close(fd);
+  return synced;
+}
+
+bool WriteSuspendFile(const fs::path& path, CMemoryStream& snapshot) {
+  FILE* file = std::fopen(path.c_str(), "wb");
+  if (!file) return false;
+  const auto size = static_cast<std::size_t>(snapshot.GetSize());
+  const bool written = std::fwrite(snapshot.GetBuffer(), 1, size, file) == size &&
+    std::fflush(file) == 0 && fsync(fileno(file)) == 0;
+  return std::fclose(file) == 0 && written;
+}
+#endif
 } // namespace
 
 void ReadSaveFileHeader(CFileStream& stream, SSaveFileHeader* header) {
@@ -159,7 +187,7 @@ void ReadSaveFileHeader(CFileStream& stream, SSaveFileHeader* header) {
     }
 }
 
-void WriteSaveFileHeader(CFileStream& stream, const SSaveFileHeader& header) {
+void WriteSaveFileHeader(CDataStream& stream, const SSaveFileHeader& header) {
   S2FileIO::SaveHeaderData value;
   value.magic = header.nMagic;
   value.activeMods = header.nMods;
@@ -210,6 +238,31 @@ void CSaveManager::SaveSlot(const string& name) {
   if (!RemoveTree(target)) return;
   if (EnsureDirectory(source) && EnsureDirectory(target)) CopyFiles(source, target);
 }
+#if defined(__ANDROID__)
+bool CSaveManager::SaveSuspendSlot(const string& name, CMemoryStream& snapshot) {
+  const string profile = GetActiveProfile();
+  const fs::path source = SlotDir(profile, S_SLOT_ACTIVE), target = SlotDir(profile, name);
+  if (source.empty() || target.empty() || source == target) return false;
+  const fs::path parent = target.parent_path(), staging = parent / suspendStagingDir;
+  if (!RemoveTree(staging) || !EnsureDirectory(staging)) return false;
+  if (IsDirectory(source) && !CopyFiles(source, staging, S_SAVE_FILENAME)) return false;
+  if (!WriteSuspendFile(staging / S_SAVE_FILENAME, snapshot) || !SyncDirectory(staging)) return false;
+
+  std::error_code error;
+  if (IsDirectory(target)) {
+    // Publish both the game and its restart/zone files together. The libc
+    // wrapper needs API 30, while the kernel operation also works on API 28.
+    if (syscall(SYS_renameat2, AT_FDCWD, staging.c_str(), AT_FDCWD, target.c_str(), RENAME_EXCHANGE) != 0)
+      return false;
+  } else {
+    fs::rename(staging, target, error);
+    if (error) return false;
+  }
+  if (!SyncDirectory(parent)) return false;
+  (void)RemoveTree(staging); // The exchanged directory contains the previous generation.
+  return true;
+}
+#endif
 void CSaveManager::LoadSlot(const string& name) {
   const string profile = GetActiveProfile();
   const fs::path source = SlotDir(profile, name), target = SlotDir(profile, S_SLOT_ACTIVE);
@@ -234,11 +287,15 @@ void CSaveManager::GetSlotsList(list<string>* result) const {
   const fs::path root = ProfileDir(GetActiveProfile());
   if (!result || !IsDirectory(root)) return;
   std::error_code error;
-  for (const auto& entry : fs::directory_iterator(root, error))
+  for (const auto& entry : fs::directory_iterator(root, error)) {
+#if defined(__ANDROID__)
+    if (entry.path().filename() == suspendStagingDir) continue;
+#endif
     if (!error && entry.path().filename() != S_SLOT_ACTIVE && IsDirectory(entry.path())) {
       const std::string name = EncodeName(entry.path().filename());
       if (!name.empty()) result->push_back(name);
     }
+  }
 }
 wstring CSaveManager::GetSlotFilePathW(const string& slot, const string& file) const {
   const fs::path path = SlotDir(GetActiveProfile(), slot);

@@ -79,6 +79,9 @@ public:
   ~BgfxDevice();
   bool Init(HWND, unsigned width, unsigned height);
   bool Resize(unsigned width, unsigned height);
+#if defined(__ANDROID__)
+  void RebindAndroidSurface();
+#endif
   bool Healthy() const;
   bool SupportsOcclusionQueries() const;
   std::shared_ptr<BgfxOcclusionQuery> CreateOcclusionQuery();

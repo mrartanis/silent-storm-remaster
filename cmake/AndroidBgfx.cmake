@@ -25,6 +25,15 @@ foreach(call_end IN ITEMS "${acquire_end}" "${present_end}")
   string(REPLACE "${call_end}" "${call_end}\n\t\t\tif (result == VK_SUBOPTIMAL_KHR) result = VK_SUCCESS;"
     vulkan_code "${vulkan_code}")
 endforeach()
+# The pinned Vulkan backend copies the old window into the framebuffer on
+# reset. The new Android SurfaceView needs to be used on this very frame.
+set(old_window "m_backBuffer.m_nwh != m_mainSwapChain.nwh")
+string(FIND "${vulkan_code}" "${old_window}" old_window_offset)
+if(old_window_offset EQUAL -1)
+  message(FATAL_ERROR "The Android window replacement needs updating for this bgfx source")
+endif()
+string(REPLACE "${old_window}" "m_backBuffer.m_nwh != _swapChain.nwh" vulkan_code "${vulkan_code}")
+string(REPLACE "m_backBuffer.m_nwh = m_mainSwapChain.nwh;" "m_backBuffer.m_nwh = _swapChain.nwh;" vulkan_code "${vulkan_code}")
 set(android_vulkan_source "${CMAKE_CURRENT_BINARY_DIR}/android-bgfx/renderer_vk.cpp")
 file(CONFIGURE OUTPUT "${android_vulkan_source}" CONTENT "@vulkan_code@" @ONLY)
 get_target_property(bgfx_sources bgfx SOURCES)

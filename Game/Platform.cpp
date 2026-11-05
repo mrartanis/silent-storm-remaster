@@ -8,6 +8,7 @@
 #include <tuple>
 #if defined(__ANDROID__)
 #include <android/native_window.h>
+#include <atomic>
 #endif
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -18,25 +19,45 @@ namespace {
 SDL_Window* window = nullptr;
 #if defined(__ANDROID__)
 ANativeWindow* androidWindow = nullptr;
+std::atomic_bool androidBackgrounded{false};
+std::atomic_bool androidBackgroundSavePending{false};
+
+bool SDLCALL WatchAndroidLifecycle(void*, SDL_Event* event)
+{
+  // SDL calls watchers directly for lifecycle events instead of queueing them.
+  // Save later, at the outer game loop's safe boundary on the game thread.
+  if (event->type == SDL_EVENT_WILL_ENTER_BACKGROUND && !androidBackgrounded.exchange(true))
+    androidBackgroundSavePending.store(true);
+  else if (event->type == SDL_EVENT_DID_ENTER_FOREGROUND)
+    androidBackgrounded.store(false);
+  return true;
+}
+
+ANativeWindow* AcquireAndroidWindow()
+{
+  if (!(SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS)) return nullptr;
+  const auto properties = SDL_GetWindowProperties(window);
+  if (!SDL_LockProperties(properties)) return nullptr;
+  auto* native = static_cast<ANativeWindow*>(SDL_GetPointerProperty(
+      properties, SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr));
+  const int height = native ? ANativeWindow_getHeight(native) : 0;
+  if (height > 0 && ANativeWindow_getWidth(native) >= height) {
+    // SDL can release its reference on the Android UI thread.
+    ANativeWindow_acquire(native);
+  } else {
+    native = nullptr;
+  }
+  SDL_UnlockProperties(properties);
+  return native;
+}
 
 bool WaitForAndroidWindow()
 {
   const Uint64 deadline = SDL_GetTicks() + 10000;
-  const auto properties = SDL_GetWindowProperties(window);
   do {
     SDL_PumpEvents();
-    if ((SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS) && SDL_LockProperties(properties)) {
-      auto* native = static_cast<ANativeWindow*>(SDL_GetPointerProperty(
-          properties, SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr));
-      const int height = native ? ANativeWindow_getHeight(native) : 0;
-      if (height > 0 && ANativeWindow_getWidth(native) >= height) {
-        // SDL can release its reference on the Android UI thread.
-        ANativeWindow_acquire(native);
-        androidWindow = native;
-      }
-      SDL_UnlockProperties(properties);
-      if (androidWindow) return true;
-    }
+    androidWindow = AcquireAndroidWindow();
+    if (androidWindow) return true;
     SDL_Delay(20);
   } while (SDL_GetTicks() < deadline);
   return SDL_SetError("Android did not provide a focused landscape surface");
@@ -157,6 +178,13 @@ bool S2Platform::Init(const char* title, int width, int height, bool hidden)
     Done();
     return false;
   }
+  androidBackgrounded.store(false);
+  androidBackgroundSavePending.store(false);
+  if (!SDL_AddEventWatch(WatchAndroidLifecycle, nullptr)) {
+    InitError("SDL_AddEventWatch");
+    Done();
+    return false;
+  }
 #endif
   active = (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS) != 0;
   UpdateDisplay();
@@ -180,6 +208,9 @@ void S2Platform::Done()
   }
 #endif
   if (window) {
+#if defined(__ANDROID__)
+    SDL_RemoveEventWatch(WatchAndroidLifecycle, nullptr);
+#endif
     CaptureMouse(false);
     SDL_SetCursor(SDL_GetDefaultCursor());
     for (auto& entry : cursors) if (entry.second) SDL_DestroyCursor(entry.second);
@@ -338,6 +369,21 @@ void S2Platform::Size(int* width, int* height)
 const S2Display::Metrics& S2Platform::Display() { return display; }
 #if defined(__ANDROID__)
 static int renderScalePercent = 100;
+bool S2Platform::Backgrounded() { return androidBackgrounded.load(); }
+bool S2Platform::TakeBackgroundSaveRequest()
+{
+  return androidBackgroundSavePending.exchange(false);
+}
+bool S2Platform::RefreshAndroidSurface(void (*onChanged)())
+{
+  auto* native = AcquireAndroidWindow();
+  if (!native) return false;
+  auto* previous = androidWindow;
+  androidWindow = native;
+  if (native != previous) onChanged();
+  ANativeWindow_release(previous);
+  return true;
+}
 void S2Platform::SetRenderScale(int percent)
 {
   renderScalePercent = percent;

@@ -312,6 +312,9 @@ public:
 	NWorld::CUnit::EState GetUnitsWorldState();
 	void GetActionInfo( EUnitAction eAction, SActionInfo *pInfo );
 	bool IsNetworkClient() const override;
+#if defined(__ANDROID__)
+	bool CanSaveOnSuspend() const override;
+#endif
 	bool CanDoCommand( NWorld::CCommand *pCmd );	// retail @0x1fbf10 (mission vtbl+0xa8)
 	void CanDoCommand( NWorld::CCmd *pCmd, bool bNoTarget, SActionInfo *pInfo );
 	NWorld::EUnitCommandResult CanDoCommand( NWorld::CCmd *pCmd, bool bNoTarget = false, int *pnMinAP = 0, int *pnMaxAP = 0, bool *pbEnoughAPToStart = 0 );

@@ -63,6 +63,9 @@ void Flip();
 void ApplySceneAntialiasing();
 void MakeScreenShot( CArray2D<SPixel8888> *pRes, bool bCorrectGamma );
 void CheckBackBufferSize();
+#if defined(__ANDROID__)
+void RebindAndroidSurface();
+#endif
 void CheckDeviceCaps();
 //
 struct SRenderStats

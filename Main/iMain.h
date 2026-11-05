@@ -21,6 +21,9 @@ int GetInterfaceStackDepth();
 // Harness clock override; returns the previous interface time for restoration.
 STime SetTimeForHarness( STime time );
 void ConfigureMouse();
+#if defined(__ANDROID__)
+bool SaveOnSuspend();
+#endif
 // Harness-only, borrowed pointer valid until the next interface command.
 IInterfaceBase* GetCurrentInterfaceForHarness();
 IInterfaceBase* GetMissionInterfaceForHarness(); // read through modal hint/dialog overlays

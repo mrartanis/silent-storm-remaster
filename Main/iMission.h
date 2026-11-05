@@ -406,6 +406,9 @@ public:
 	virtual int GetUnitsState() = 0;
 	virtual NWorld::CUnit::EState GetUnitsWorldState() = 0;
 	virtual bool IsNetworkClient() const { return false; }
+#if defined(__ANDROID__)
+	virtual bool CanSaveOnSuspend() const { return false; }
+#endif
 	virtual bool OpenNetworkBaseService(NWorld::CUnit*) { return false; }
 	virtual void GetActionInfo( EUnitAction eAction, SActionInfo *pInfo ) = 0;
 	// retail mission vtbl+0xe0 (CMission @0x1fcbd0): may the squad leave the zone now? Fills *pwsReason
@@ -675,6 +678,9 @@ public:
 	//// CMission overrides every one of these with its real body -- the menus never call them)
 	virtual bool Initialize( int nTemplateID, int nVariantID, NScenario::CScenarioZone *pZone, const vector<string> &params, NRPG::CGlobalGame *pGlobalGame, NDb::CUITexture *pPWLImage = 0 ) { return false; }
 	virtual void Terminate() {}
+#if defined(__ANDROID__)
+	bool CanSaveOnSuspend() const override { return IsValid(pGlobalGame); }
+#endif
 	virtual bool IsUpdated() const { return false; }
 	virtual IState* GetState() const { return 0; }
 	virtual bool CommandState( IState *pState ) { CObj<IState> pHold( pState ); return false; }	// retail CRenderBaseInterface @0x19f1a0

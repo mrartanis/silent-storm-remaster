@@ -44,7 +44,7 @@ void ReadSaveFileHeader( CFileStream &stream, SSaveFileHeader *header )
 		}
 }
 
-void WriteSaveFileHeader( CFileStream &stream, const SSaveFileHeader &header )
+void WriteSaveFileHeader( CDataStream &stream, const SSaveFileHeader &header )
 {
 	S2FileIO::SaveHeaderData value;
 	value.magic = header.nMagic;

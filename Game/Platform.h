@@ -30,6 +30,9 @@ void UpdateDisplay(float uiPercent = -1);
 #if defined(__ANDROID__)
 void SetRenderScale(int percent);
 bool SurfaceSize(int* width, int* height);
+bool Backgrounded();
+bool TakeBackgroundSaveRequest();
+bool RefreshAndroidSurface(void (*onChanged)());
 #endif
 enum class WindowMode { Windowed = 0, Fullscreen = 1, Borderless = 2 };
 bool SetMode(int width, int height, WindowMode mode);

@@ -8,6 +8,8 @@
 #include "../Misc/2Darray.h"
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CFileStream;
+class CDataStream;
+class CMemoryStream;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NMainLoop
 {
@@ -42,7 +44,7 @@ struct SSaveFileHeader
 // The save header has an explicit little-endian/BGRA wire format; never read or
 // write this host structure directly.
 void ReadSaveFileHeader( CFileStream &stream, SSaveFileHeader *header );
-void WriteSaveFileHeader( CFileStream &stream, const SSaveFileHeader &header );
+void WriteSaveFileHeader( CDataStream &stream, const SSaveFileHeader &header );
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CSaveManager
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -64,6 +66,9 @@ public:
 
 //// Slots
 	void SaveSlot( const string &szName );
+#if defined(__ANDROID__)
+	bool SaveSuspendSlot(const string& name, CMemoryStream& snapshot);
+#endif
 	void LoadSlot( const string &szName );
 	void ClearSlot( const string &szName );
 	void DeleteSlot( const string &szName );

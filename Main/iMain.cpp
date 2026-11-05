@@ -364,6 +364,71 @@ void CICLoad::Exec()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CICSave
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static void WriteSaveSnapshot(CDataStream& stream, CArray2D<NGfx::SPixel8888>* screenshot)
+{
+	SSaveFileHeader header;
+	header.nMagic = N_SAVE_MAGIC_NUMBER;
+	const auto& activeMods = *CModManager::GetActiveMods();
+	header.nMods = activeMods.size();
+	if (screenshot)
+	{
+		CDGPtr<NGScene::CBilinearTexture> texture =
+			new NGScene::CBilinearTexture(*screenshot, N_SAVE_SCREENSHOT_X, N_SAVE_SCREENSHOT_Y);
+		texture.Refresh();
+		CObj<NGScene::CSWTextureData> data = texture->GetValue();
+		const auto& thumbnail = data->mips.front();
+		for (int y = 0; y < N_SAVE_SCREENSHOT_Y; ++y)
+			for (int x = 0; x < N_SAVE_SCREENSHOT_X; ++x)
+				header.sScreenShot[y][x] = thumbnail[y][x];
+	}
+	else
+	{
+		for (auto& row : header.sScreenShot)
+			for (auto& pixel : row)
+				pixel = NGfx::SPixel8888(0, 0, 0, 255);
+	}
+	WriteSaveFileHeader(stream, header);
+	for (const auto& mod : activeMods)
+		stream.WriteString(mod.szDirectory);
+
+	CStructureSaver saver(stream, CStructureSaver::WRITE_COMPRESSED);
+	saver.Add(2, &interfaces);
+	SerializeShared(&saver);
+}
+
+#if defined(__ANDROID__)
+bool SaveOnSuspend()
+{
+	for (auto it = interfaces.rbegin(); it != interfaces.rend(); ++it)
+	{
+		const auto* mission = dynamic_cast<NGame::IMission*>(it->GetPtr());
+		if (!mission) continue;
+		if (!mission->CanSaveOnSuspend()) return false;
+		try
+		{
+			const wstring caption = NUI::GetDBString(11150);
+			const bool russian = std::any_of(caption.begin(), caption.end(),
+				[](wchar_t c) { return c >= 0x400 && c <= 0x4ff; });
+			const string name = S2FileIO::EncodeLinuxProfileConfig(
+				russian ? L"Автосохранение при сворачивании" : L"Background autosave");
+			// The Android surface may already be gone. Keep the save independent
+			// of the renderer and leave its thumbnail black.
+			CMemoryStream snapshot;
+			WriteSaveSnapshot(snapshot, nullptr);
+			if (GetSaveManager()->SaveSuspendSlot(name, snapshot))
+				return true;
+		}
+		catch (...)
+		{
+			// The previous generation is still available if publication failed.
+		}
+		fprintf(stderr, "Android background autosave failed\n");
+		return false;
+	}
+	return false;
+}
+#endif
+
 CICSave::CICSave( const string &_szName, bool _bSilent ):
 	szName( _szName ), bSilent( _bSilent )
 {
@@ -406,29 +471,7 @@ void CICSave::Exec()
 		CFileStream sFile;
 		sFile.OpenWrite( pSaveManager->GetSlotFilePathW( szName, S_SAVE_FILENAME ).c_str() );
 
-		SSaveFileHeader sHeader;
-		sHeader.nMagic = N_SAVE_MAGIC_NUMBER;
-		// retail @0x1f6390: the second header int = active-mod count; the mods' directory
-		// strings follow the header so the loader can re-activate the same DB set.
-		vector<SModInfo> &activeMods = *CModManager::GetActiveMods();
-		sHeader.nMods = activeMods.size();
-
-		CDGPtr<NGScene::CBilinearTexture> pTexture = new NGScene::CBilinearTexture( sScreenShot, N_SAVE_SCREENSHOT_X, N_SAVE_SCREENSHOT_Y );
-		pTexture.Refresh();
-		CObj<NGScene::CSWTextureData> pData = pTexture->GetValue();
-		CArray2D<NGfx::SPixel8888> &sScreenShot320x200 = pData->mips.front();
-
-		for ( int nTempY = 0; nTempY < N_SAVE_SCREENSHOT_Y; nTempY++ )
-			for ( int nTempX = 0; nTempX < N_SAVE_SCREENSHOT_X; nTempX++ )
-				sHeader.sScreenShot[nTempY][nTempX] = sScreenShot320x200[nTempY][nTempX];
-
-		WriteSaveFileHeader( sFile, sHeader );
-		for ( int nTemp = 0; nTemp < activeMods.size(); nTemp++ )
-			sFile.WriteString( activeMods[nTemp].szDirectory );
-
-		CStructureSaver sSaver( sFile, CStructureSaver::WRITE_COMPRESSED );
-		sSaver.Add( 2, &interfaces );
-		SerializeShared( &sSaver );
+		WriteSaveSnapshot(sFile, &sScreenShot);
 	}
 #ifndef _DEBUG
 	catch(...)

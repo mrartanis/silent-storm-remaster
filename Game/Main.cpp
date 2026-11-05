@@ -1589,11 +1589,34 @@ static int RunGame( const char *lpCmdLine )
 
 	int lastWindowWidth = S2Platform::Display().windowWidth;
 	int lastWindowHeight = S2Platform::Display().windowHeight;
+#if defined(__ANDROID__)
+	bool androidSurfaceNeedsRefresh = false;
+#endif
 	for (;;)
 	{
 		S2Perf::Begin();
 		NMainLoop::ConfigureMouse();
 		S2Platform::PumpEvents();
+#if defined(__ANDROID__)
+		if (S2Platform::TakeBackgroundSaveRequest())
+		{
+			androidSurfaceNeedsRefresh = true;
+			if (NMainLoop::SaveOnSuspend())
+				S2Net::StartupLog("background-autosave");
+		}
+		if (!S2Platform::Exiting())
+		{
+			if (S2Platform::Backgrounded() ||
+				(androidSurfaceNeedsRefresh && !S2Platform::RefreshAndroidSurface(NGfx::RebindAndroidSurface)))
+			{
+				NInput::PumpMessages(false);
+				S2Perf::End();
+				S2Platform::Delay(20);
+				continue;
+			}
+			androidSurfaceNeedsRefresh = false;
+		}
+#endif
 		S2Platform::UpdateDisplay( NGlobal::GetVar( "ui_scale", 0 ).GetFloat() );
 		const auto& currentDisplay = S2Platform::Display();
 		if (NGlobal::GetVar("gfx_fullscreen",0).GetFloat() == 0 &&

@@ -800,6 +800,12 @@ bool CMission::CanPerformAction( EUnitAction eAction )
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMission::IsNetworkClient() const {return networkSession && !networkSession->IsHost();}
+#if defined(__ANDROID__)
+bool CMission::CanSaveOnSuspend() const
+{
+	return !networkSession && !networkWorld && IsValid(pWorld) && CMissionBase::CanSaveOnSuspend();
+}
+#endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail CMission::CanDoCommand @0x1fbf10 (mission vtbl+0xa8): only CCmdEndOfTurn is gated -- a 2s
 // cooldown after the world current-player change (UI clock); every other command is true.

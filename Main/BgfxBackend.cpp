@@ -718,6 +718,7 @@ static bgfx::SwapChain GameSwapChain(unsigned width, unsigned height) {
   }
   // The Android SurfaceView exposes RGBA8 and inherits alpha handling.
   // The presentation pass writes opaque pixels.
+  swapChain.nwh=S2Platform::NativeWindow();
   swapChain.formatColor=bgfx::TextureFormat::RGBA8;
   swapChain.flags|=BGFX_SWAP_CHAIN_TRANSPARENT_BACKBUFFER;
 #endif
@@ -819,6 +820,16 @@ bool BgfxDevice::Resize(unsigned w,unsigned h) {
     return true;
   }catch(const std::exception& e){impl->Fail(e.what());return false;}
 }
+#if defined(__ANDROID__)
+void BgfxDevice::RebindAndroidSurface() {
+  const auto swapChain=GameSwapChain(impl->width,impl->height);
+  bgfx::reset(impl->resetFlags,&swapChain);
+  impl->outputWidth=swapChain.width;impl->outputHeight=swapChain.height;
+  // Let the render thread apply the reset before SDL's old surface is released.
+  bgfx::frame();
+  bgfx::frame();
+}
+#endif
 bool BgfxDevice::Healthy() const {return impl->initialized && impl->healthy;}
 bool BgfxDevice::SupportsOcclusionQueries() const {
   // bgfx API161 exposes query capacity, with baseline query support in the
