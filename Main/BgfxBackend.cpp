@@ -708,8 +708,7 @@ struct BgfxDevice::Impl {
 };
 BgfxDevice::BgfxDevice() : impl(new Impl) {}
 unsigned BlockingReadbackCountForDiagnostics() {return blockingReadbacks;}
-static bgfx::SwapChain GameSwapChain(unsigned width, unsigned height) {
-  bgfx::SwapChain swapChain;
+static bgfx::SwapChain GameSwapChain(unsigned width, unsigned height, bgfx::SwapChain swapChain = {}) {
   swapChain.width=width; swapChain.height=height;
   // Keep input latency bounded without the legacy per-frame GPU drain.
   swapChain.maxFrameLatency=2;
@@ -730,7 +729,7 @@ static bgfx::SwapChain GameSwapChain(unsigned width, unsigned height) {
 bool BgfxDevice::Init(HWND window,unsigned w,unsigned h) {
   if(!window || !w || !h || activeEpoch) return false;
   bgfx::Init init;
-  init.swapChain=GameSwapChain(w,h);
+  init.swapChain=GameSwapChain(w,h,init.swapChain);
 #if defined(_WIN32)
   init.type=bgfx::RendererType::Direct3D11;
   // DXGI Present may synchronously call the HWND owner during focus/mode
