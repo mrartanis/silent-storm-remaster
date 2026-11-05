@@ -3565,6 +3565,13 @@ void CWorld::OnPassControlNotify( CPlayer *pPlayer )
 		players[k]->GetCommander()->OnPassControl( pPlayer );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CWorld::NeedShowInterrupt() const
+{
+	// The replica does not fetch the authority's AI commands.
+	CPlayer *pPlayer = GetTBSCurrentPlayer();
+	return bNetworkReplica || !IsValid( pPlayer ) || !NAI::IsAIPlayer( pPlayer ) || HasCommandFromCurrentPlayer();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CWorld::ProcessTBSEvents()
 {
 	CFWContext world( &pCurrentWorld, this );

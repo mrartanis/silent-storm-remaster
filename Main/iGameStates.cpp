@@ -178,6 +178,8 @@ void ShowError( IMission *pMission, NWorld::EUnitCommandResult eResult )
 	case NWorld::UCR_NOT_ENOUGH_AP: nStringID = 18853; break;
 	case NWorld::UCR_PATH_NOT_FOUND:
 		nStringID = pMission->GetWorld()->GetAIJobManager() && pMission->GetWorld()->GetAIJobManager()->HasPassCalcerJobs() ? 21061 : 18844;
+		if ( nStringID == 21061 )
+			pMission->RequestPathCalculationNotification();
 		break;
 	case NWorld::UCR_NEED_RELOAD: nStringID = 18846; break;
 	case NWorld::UCR_NO_EQUIPMENT: nStringID = 18847; break;
@@ -2196,9 +2198,6 @@ NWorld::CCmd* CStateFirstAid::GetTargetCmd()
 
 	NWorld::CUnit* pUnit = dynamic_cast<NWorld::CUnit*>( pObject );
 	if ( !IsValid( pUnit ) )
-		return 0;
-
-	if ( pUnit->GetPlayer() != GetMission()->GetActivePlayer()->GetPlayer() )
 		return 0;
 
 	return new NWorld::CCmdHeal( pUnit );

@@ -11096,7 +11096,7 @@ static void AISnipeSelectedWeapon(const char* databasePath,const char* resourceP
     Require(rifle,"selected-snipe fixture has no authored loaded sniper rifle");
     CObj<NAI::IAIUnit> actor,target;CPtr<NAI::CAIFireArmsWeapon> selected;NAI::CAIBeginSnipeAction::SInfo baseline;
     int selectedHead=0;float distance=0;
-    const bool visibleEscape=mode==3 || mode==5;
+    const bool visibleEscape=mode==3 || mode==5 || mode==7;
     for(const auto& server:units) {
         if(!IsValid(server) || !server->CanFight() || server->HasCommand() || server->IsSniping() || !server->IsAIUnit()
             || server->IsEmptyPK() || server->IsWearingPK() || server->animator.GetCannon())continue;
@@ -11164,6 +11164,79 @@ static void AISnipeSelectedWeapon(const char* databasePath,const char* resourceP
         && selected->GetItem()->GetAmmoQuantity()==ammo && selected->GetCurrentClip()->GetAmmoCount()==planningAmmo
         && inventory->GetCurrentItem()==planningHand && server->HasCommand()==command && rng.Get()==GlobalGameRandom().Get(),
         "snipe prediction changed native equipment/ammo/AP/HP/positions/commands, planning hand/clip or RNG");
+    if (mode == 7)
+    {
+        Require(info.bCanDo, "snipe fixture lacks a visible target from the current firing position");
+        auto* net = world->GetPathNetwork();
+        auto* game = world->GetGame();
+        vector<NRPG::CAttackPortion> attacks;
+        selected->GetItem()->CreateNewAttackPortion(&attacks, false);
+        Require(!attacks.empty(), "snipe fixture lacks a real attack");
+        vector<NAI::SPathPlace> nearby;
+        net->GetNearPlaces(SSphere(position.GetCP(), 7.f), &nearby);
+        bool foundBlockedPose = false;
+        for (auto p : nearby)
+        {
+            if (!p.IsIntegral() || p.IsFinal() || p.GetLayer() != position.pos.p.GetLayer())
+                continue;
+            p.SetPose(NAI::CM_CROUCH);
+            p.SetDirection(net->GetClosestDir(p, targetPosition.pos.p));
+            if (net->GetPassability(p) != NAI::AIP_YES || fabs2(NAI::SPosition(p, net).GetCP() - position.GetCP()) < 1.f)
+                continue;
+            auto proposed = position;
+            proposed.pos.p = p;
+            proposed.bRun = false;
+            const float cover = game->GetCoverForAIUnitPrecise(server->GetAttackOrigin(proposed, false),
+                server, victim, attacks.front(), NAI::HL_ANY);
+            if (cover > 0)
+                continue;
+            Require(actor->GetToHitWithWeapon(target, proposed, NAI::HL_ANY, selected) == 0,
+                "AI shot calculation ignored the fully blocked proposed position");
+            NAI::CAIBeginSnipeAction::SInfo blocked;
+            action->GetInfoInner(NAI::SPlaceWithAP(proposed, actor->GetAP()), &blocked);
+            Require(!blocked.bCanDo && server->GetPosition() == position,
+                "AI chose the blocked firing position by testing its current position");
+            foundBlockedPose = true;
+            break;
+        }
+        Require(foundBlockedPose, "snipe fixture lacks a nearby crouching position behind real cover");
+
+        world->GivePlayerTurn(server->GetTBSPlayer());
+        server->GetUnitRPG()->StartNewTurn(position.GetCP());
+        // Refresh the planner's AP without replacing the inventory used by the fixture.
+        actor->SetAP(server->GetAP(), actor->GetMaxAP());
+        state->pEnemy = target;
+        state->pPossibleEnemy = nullptr;
+        CDynamicCast<NRPG::CWeaponItem> liveGun(server->GetUnitRPG()->GetInventory()->GetActive());
+        Require(liveGun && liveGun->SetShootMode(NDb::SM_Snipe), "unable to arm the real sniper rifle");
+        const auto location = game->GetCompositeToHit(server, victim, NAI::HL_HEAD, false) > 0 ?
+            NAI::HL_HEAD : NAI::HL_ANY;
+        CObj<NWorld::CUnitStateSniping> aiming = new NWorld::CUnitStateSniping(server, victim, 12, location);
+        server->SetState(aiming);
+        CObj<NAI::CAISnipeShotAction> shot = new NAI::CAISnipeShotAction(actor);
+        CObj<NAI::CAICollectSnipeAPAction> collect = new NAI::CAICollectSnipeAPAction(actor);
+        CObj<NAI::CAICancelSnipeAction> cancel = new NAI::CAICancelSnipeAction(actor);
+        const NAI::SPlaceWithAP here(position, actor->GetAP());
+        NAI::CAISnipeShotAction::SInfo shotInfo;
+        NAI::CAICollectSnipeAPAction::SInfo collectInfo;
+        NAI::CAICancelSnipeAction::SInfo cancelInfo;
+        shot->GetInfoInner(here, &shotInfo);
+        collect->GetInfoInner(here, &collectInfo);
+        cancel->GetInfoInner(here, &cancelInfo);
+        std::printf("stored snipe: location=%d chance=%d AP=%d shot=%d collect=%d cancel=%d\n",
+            int(location), game->GetCompositeToHit(server, victim, location, false), actor->GetAP(),
+            int(shotInfo.bCanDo), int(collectInfo.bCanDo), int(cancelInfo.bCanDo));
+        Require(shotInfo.bCanDo && collectInfo.bCanDo && !cancelInfo.bCanDo,
+            "the sniper could not continue aiming at a live, hittable target");
+        victim->Die();
+        Require(victim->IsDead() && server->IsSniping(), "the stored target did not die while aim remained active");
+        shot->GetInfoInner(here, &shotInfo);
+        collect->GetInfoInner(here, &collectInfo);
+        cancel->GetInfoInner(here, &cancelInfo);
+        Require(!shotInfo.bCanDo && !collectInfo.bCanDo && cancelInfo.bCanDo,
+            "the sniper kept planning shots or saving AP for a dead target");
+        return;
+    }
     if(mode>=3) {
         const auto four=NativeSnipeEscapeVisibility(actor,target,4),full=NativeSnipeEscapeVisibility(actor,target,target->GetMaxAP());
         std::printf("native snipe escape: mode=%d four=%d blocked4=%d full=%d blockedFull=%d maxAP=%d can=%d expected=%d location=%d\n",
@@ -14562,6 +14635,7 @@ public:
     CTransformStack transform;
     EnemyIconMission() { transform.Init(); }
     NGScene::IGameView* GetScene() const override { return view; }
+    ICamera* GetCamera() const override { return nullptr; }
     const CTransformStack& GetCameraTransform() const override { return transform; }
 };
 
@@ -33267,6 +33341,97 @@ static void TileCoverOrigin(const char* databasePath,const char* resourcePath,in
 }
 
 
+static void NativeLedgeRetreat(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game, 4517);
+    auto* net = world->GetPathNetwork();
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    for (auto unit : units)
+        if (!unit->IsAIUnit() && unit->CanFight() && !unit->IsWearingPK() && unit->GetUnitRPG()->CanMove())
+        {
+            actor = unit;
+            break;
+        }
+    Require(actor, "ledge fixture has no movable party member");
+    vector<NAI::SPathPlace> places;
+    net->GetNearPlaces(SSphere(actor->GetPosition().GetCP(), 40.f), &places);
+    NAI::SPathPlace edge, back;
+    bool found = false;
+    for (auto point : places)
+    {
+        if (!point.IsIntegral() || point.IsFinal())
+            continue;
+        for (int dir = 0; dir < 8; dir += 2)
+        {
+            point.SetPose(NAI::CM_INACTIVE);
+            point.SetDirection(dir);
+            point.SetMoving(0);
+            if (net->GetPassability(point) != NAI::AIP_YES)
+                continue;
+            const int dx = NAI::nMoveShift[dir][0], dy = NAI::nMoveShift[dir][1];
+            const int x = point.GetX(), y = point.GetY();
+            if (x < 1 || y < 1)
+                continue;
+            auto landing = NAI::SPathPlace(x + dx, y + dy, point.GetLayer(), dir, NAI::CM_CROUCH, 0);
+            auto approach = NAI::SPathPlace(x - dx, y - dy, point.GetLayer(), dir, NAI::CM_CROUCH, 0);
+            if (net->GetPassability(approach) != NAI::AIP_YES || net->GetPassability(landing) != NAI::AIP_YES ||
+                NAI::GetTransitionType(net, point, landing) != NAI::TT_JUMP ||
+                NAI::GetTransitionType(net, point, approach) != NAI::TT_MOVE ||
+                NAI::GetTransitionType(net, approach, point) != NAI::TT_MOVE)
+                continue;
+            edge = point;
+            back = approach;
+            found = true;
+            break;
+        }
+        if (found)
+            break;
+    }
+    Require(found, "fixture map has no authored ledge with a real drop and a flat approach");
+    auto from = actor->GetPosition(), atEdge = from;
+    from.pos.p = back;
+    from.bRun = false;
+    atEdge.pos.p = edge;
+    atEdge.bRun = false;
+    actor->SetPosition(from);
+    actor->animator.AlignTime();
+    actor->animator.PlaceUnit(from);
+    actor->animator.SetActiveItem(false);
+    actor->SetUndrawItem(true);
+    actor->animator.Climb(from, atEdge, false);
+    actor->SetPosition(atEdge);
+    world->GetTime()->Set(actor->animator.GetTimeEnd());
+    auto path = CObj<NAI::CPath>(NWorld::FindPath(net, actor, edge, vector<NAI::SPathPlace>{back},
+        nullptr, false, NAI::PF_USE_POSEDIR));
+    Require(path && path->points.size() == 2 && path->points.back() == back,
+        "the pathfinder could not back off directly from the authored ledge");
+    NWorld::EUnitCommandResult result = NWorld::UCR_OK;
+    CObj<NWorld::CCommandExecute> move = NWorld::CreateMoveExecutor(actor, path, NAI::PF_USE_POSEDIR,
+        NWorld::ITEM_NO_MATTER, &result);
+    Require(move && result == NWorld::UCR_OK, "the game refused the direct ledge retreat");
+    const int hp = actor->GetUnitRPG()->GetTotalVP();
+    const STime start = actor->animator.GetTimeEnd();
+    const auto canMove = actor->CanDoGameMove(from);
+    move->Run();
+    for (int step = 0; step < 8 && move->GetState() == NWorld::CCommandExecute::RUNNING; ++step)
+    {
+        move->TimeLabelReached();
+        world->GetTime()->Set(actor->animator.GetTimeEnd());
+        move->AnimationFinished();
+    }
+    const auto reached = actor->GetPosition().pos.p;
+    std::printf("ledge retreat: edge=%08x goal=%08x reached=%08x permission=%d state=%d clip=%lldms\n",
+        unsigned(edge.GetBits()), unsigned(back.GetBits()), unsigned(reached.GetBits()), int(canMove),
+        int(move->GetState()), static_cast<long long>(actor->animator.GetTimeEnd() - start));
+    Require(reached == back && actor->animator.GetTimeEnd() > start,
+        "the retreat did not step back from the ledge");
+    Require(move->GetState() == NWorld::CCommandExecute::FINISHED && actor->GetUnitRPG()->GetTotalVP() == hp,
+        "the retreat did not finish safely");
+}
+
 static void InactiveDoorTurn(const char* databasePath,const char* resourcePath,int mode)
 {
     CObj<NRPG::CGlobalGame> game;auto world=FixtureWorld(databasePath,resourcePath,true,&game,4517);auto* network=dynamic_cast<NAI::CPathNetwork*>(world->GetPathNetwork());Require(network,"inactive door turn lacks real path network");
@@ -33284,7 +33449,46 @@ static void InactiveDoorTurn(const char* databasePath,const char* resourcePath,i
     std::printf("INACTIVE-DOOR-INPUT mode=%d candidates=%d generated=%d opposed=%d found=%d\n",mode,candidates,generated,opposed,int(selected!=nullptr));std::fflush(stdout);Require(selected && selectedDoor,"inactive door turn lacks independently valid native ladder point with an explicit native door request and invalid turn");
     auto position=actor->GetPosition();position.pos.p=source;actor->SetPosition(position);actor->animator.AlignTime();actor->animator.PlaceUnit(position);world->GetAIMap()->Sync();network->Unlock(actor);const int sourcePass=int(network->GetPassability(source));network->Lock(actor,source);std::printf("INACTIVE-DOOR-PLACEMENT expected=%08X actual=%08X pass=%d\n",unsigned(source.GetBits()),unsigned(actor->GetPosition().pos.p.GetBits()),sourcePass);Require(actor->GetPosition().pos.p==source && sourcePass==NAI::AIP_YES,"inactive door turn lost real ladder position");
     CObj<NWorld::CCmdOpenClose> command=new NWorld::CCmdOpenClose(selectedDoor,opening);CObj<NWorld::CExecOpenClose> validator=new NWorld::CExecOpenClose(actor,command);Require(validator->CanDoIt(position)==NWorld::UCR_OK,"inactive door turn action is not independently allowed");
-    if(mode==1)selected->actions.clear();if(mode==2){bool free=false;vector<NAI::SPathPlace> approaches;selectedDoor->GetApproaches(&approaches,network);for(auto point:approaches){point.SetPose(NAI::CM_STAND);point.SetDirection(source.GetDirection());if(network->GetPassability(point)!=NAI::AIP_YES || network->IsLocked(point,false))continue;int diff=7,dirBest=-1;for(auto approach:approaches){int dir=network->GetClosestDir(point,approach);if(fabs2(NAI::SPosition(point,network).GetCP()-NAI::SPosition(approach,network).GetCP())<0.5f){int d=abs(approach.GetDirection()-dir);if(d>4)dir=(approach.GetDirection()+dir)/2+4;else if(d<4)dir=(approach.GetDirection()+dir)/2;if(dir>7)dir-=8;}int d=abs(dir-point.GetDirection());if(d>4)d=8-d;if(d<diff){diff=d;dirBest=dir;}}const auto swing=selectedDoor->GetChangeStateDirection(opening);const float angle=NAI::SPosition(point,network).GetDirection();auto turned=point;turned.SetDirection(dirBest);if(dirBest<0 || dirBest==point.GetDirection() || swing.x*cos(angle)+swing.y*sin(angle)>0 || network->GetPassability(turned)!=NAI::AIP_YES)continue;source=point;best=dirBest;free=true;break;}Require(free,"active door control lacks a real free authored approach and valid required turn");position.pos.p=source;actor->SetPosition(position);actor->animator.PlaceUnit(position);selected->points.front()=source;selected->actions.front().where=source;}
+    if(mode==1)selected->actions.clear();if(mode>=2){bool free=false;vector<NAI::SPathPlace> approaches;selectedDoor->GetApproaches(&approaches,network);for(auto point:approaches){point.SetPose(NAI::CM_STAND);point.SetDirection(source.GetDirection());if(network->GetPassability(point)!=NAI::AIP_YES || network->IsLocked(point,false))continue;int diff=7,dirBest=-1;for(auto approach:approaches){int dir=network->GetClosestDir(point,approach);if(fabs2(NAI::SPosition(point,network).GetCP()-NAI::SPosition(approach,network).GetCP())<0.5f){int d=abs(approach.GetDirection()-dir);if(d>4)dir=(approach.GetDirection()+dir)/2+4;else if(d<4)dir=(approach.GetDirection()+dir)/2;if(dir>7)dir-=8;}int d=abs(dir-point.GetDirection());if(d>4)d=8-d;if(d<diff){diff=d;dirBest=dir;}}const auto swing=selectedDoor->GetChangeStateDirection(opening);const float angle=NAI::SPosition(point,network).GetDirection();auto turned=point;turned.SetDirection(dirBest);if(dirBest<0 || dirBest==point.GetDirection() || swing.x*cos(angle)+swing.y*sin(angle)>0 || network->GetPassability(turned)!=NAI::AIP_YES)continue;source=point;best=dirBest;free=true;break;}Require(free,"active door control lacks a real free authored approach and valid required turn");position.pos.p=source;actor->SetPosition(position);actor->animator.PlaceUnit(position);selected->points.front()=source;selected->actions.front().where=source;}
+    if (mode >= 3)
+    {
+        Require(validator->CanDoIt(position) == NWorld::UCR_OK &&
+            actor->CanSpendAP(2 * validator->GetStartAP()),
+            "queued door fixture lacks a usable approach or AP for both actions");
+        CObj<NWorld::CExecQueue> queue = new NWorld::CExecQueue(actor);
+        queue->AddExecutor(validator);
+        validator = nullptr;
+        CObj<NWorld::CCmdOpenClose> opposite = new NWorld::CCmdOpenClose(selectedDoor, !opening);
+        queue->AddExecutor(new NWorld::CExecOpenClose(actor, opposite));
+        queue->Run();
+        auto* current = queue->GetFrontExecutor();
+        Require(current && current->IsExecuting() && selectedDoor->IsOpen() != opening,
+            "the first door animation did not begin before the interrupt");
+        const int remainingAP = actor->GetAP();
+        if (mode == 3)
+            queue->Cancel();
+        Require(queue->GetFrontExecutor() == current && current->IsExecuting(),
+            "the running door animation was discarded early");
+        queue->TimeLabelReached();
+        Require(selectedDoor->IsOpen() == opening, "the running door animation did not finish opening or closing");
+        queue->AnimationFinished();
+        if (mode == 3)
+        {
+            Require(queue->GetState() == NWorld::CCommandExecute::FAILED &&
+                !queue->GetFrontExecutor() && actor->GetAP() == remainingAP,
+                "interrupt allowed the next queued door action to start");
+        }
+        else
+        {
+            Require(queue->GetFrontExecutor() && queue->GetFrontExecutor()->IsExecuting(),
+                "the ordinary door queue did not continue");
+            queue->TimeLabelReached();
+            queue->AnimationFinished();
+            Require(queue->GetState() == NWorld::CCommandExecute::FINISHED &&
+                selectedDoor->IsOpen() != opening, "the second door action did not finish");
+        }
+        return;
+    }
     const int hp=actor->GetUnitRPG()->GetTotalVP(),ap=actor->GetAP();const auto time=world->GetTime()->GetValue();const bool doorState=selectedDoor->IsOpen();GlobalGameRandom().SeedForHarness(723);auto random=GlobalGameRandom();CObj<NWorld::CExecQueue> queue=new NWorld::CExecQueue(actor);queue->AddPath(selected,NAI::PF_DEFAULT,NWorld::ITEM_NO_MATTER);auto* front=queue->GetFrontExecutor();auto* mover=dynamic_cast<NWorld::IExecMove*>(front);Require(mover,"inactive door turn lost first native mover");NAI::SPathPlace goal;NAI::EFindPathParams params;NWorld::ENeedActiveItem active;mover->GetDesiredPlace(&goal,&params,&active);CObj<NAI::CPath> prepared=front->GetCurrentPath();int bad=0;network->Unlock(actor);if(prepared)for(auto point:prepared->points)if(!point.IsIntegral() && network->GetPassability(point)!=NAI::AIP_YES)++bad;network->Lock(actor,source);
     auto after=GlobalGameRandom();unsigned tails[4];bool same=true;for(int i=0;i<4;++i){tails[i]=after.Get();same&=tails[i]==random.Get();}bool pure=actor->GetAP()==ap && actor->GetUnitRPG()->GetTotalVP()==hp && actor->GetPosition()==position && time==world->GetTime()->GetValue() && doorState==selectedDoor->IsOpen();std::printf("INACTIVE-DOOR mode=%d pose=%d dir=%d best=%d goalDir=%d goalIntegral=%d points=%u bad=%d HP=%d AP=%d pure=%d RNGsame=%d rng0=%u rng1=%u rng2=%u rng3=%u\n",mode,int(source.GetPose()),source.GetDirection(),best,goal.GetDirection(),int(goal.IsIntegral()),prepared?unsigned(prepared->points.size()):0,bad,hp,ap,int(pure),int(same),tails[0],tails[1],tails[2],tails[3]);std::fflush(stdout);Require(pure && same,"inactive door preparation changed physical controls or RNG");Require(bad==0 && (mode!=0 || goal==source) && (mode!=2 || goal.GetDirection()==best),"door queue inserted a physically invalid turn on a native inactive ladder point");
 }
@@ -36996,6 +37200,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-preview-firstturn-lua") && argc==5) { PreviewFirstTurnLua(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tile-shot-preview") && argc==5) { TileShotPreview(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tile-cover-origin") && argc==5) { TileCoverOrigin(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "native-ledge-retreat") && argc==4) { NativeLedgeRetreat(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "native-inactive-door-turn") && argc==5) { InactiveDoorTurn(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-melee-selector-preview") && argc==5) { PreviewMeleeSelector(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-unit-facing-preview") && argc==5) { PreviewUnitFacing(argv[2],argv[3],std::atoi(argv[4])); return true; }
@@ -37314,6 +37519,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-tohit-server-valid-control") && argc == 4) { AIToHitServerValidity(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "ai-tohit-server-null-empty") && argc == 4) { AIToHitServerValidity(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "ai-tohit-server-invalid-empty") && argc == 4) { AIToHitServerValidity(argv[2],argv[3],4); return true; }
+    if (!std::strcmp(mode, "ai-snipe-proposed-pose-and-target") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],7); return true; }
     if (!std::strcmp(mode, "ai-snipe-selected-empty-hand") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-snipe-selected-current-hand") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-snipe-selected-no-ammo") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],2); return true; }

@@ -596,6 +596,7 @@ public:
 	virtual bool IsUnitActive( CUnit *pTest ) const { return IsTBSUnitActive( GetUnit(pTest) ); }
 	virtual void GetActiveUnits( IPlayer *pPlayer, list<CUnit*> *pRes );
 	virtual bool IsFirstTurn() const { return TTBSWorld::IsFirstTurn(); }
+	virtual bool NeedShowInterrupt() const;
 	virtual bool IsInterrupt() const { return TTBSWorld::IsInterrupt(); }
 	// retail CWorld::IsSequence @0x376ff0 -> CTBSWorld::IsSequence @0x375a30: "non-empty interrupt stack
 	// with an OWNERLESS top". luac_BeginSequence @0x2f1890 pushes that ownerless entry (StartSequence

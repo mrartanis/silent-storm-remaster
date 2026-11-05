@@ -13,9 +13,10 @@ class CSimpleExecQueue : public CCommandExecute
 	OBJECT_BASIC_METHODS(CSimpleExecQueue);
 protected:
 	ZDATA_(CCommandExecute)
+	bool bCancelled = false;
 	list<CObj<CCommandExecute> > execList;
 public:
-	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CCommandExecute*)this); f.Add(2,&execList); return 0; }
+	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CCommandExecute*)this); f.Add(2,&execList); f.Add(3,&bCancelled); return 0; }
 
 	CSimpleExecQueue( CUnitServer *_pUS = 0 ): CCommandExecute(_pUS) {}
 

@@ -461,6 +461,7 @@ public:
 	// game option (camera follows enemy actions) -- a gate of the GetCamera selector @0x1a1ee0.
 	virtual bool GetFollowCameraState() const = 0;
 	////
+	virtual void RequestPathCalculationNotification() {}
 	virtual void SetWaitForPartFinished( bool bState ) = 0;
 	virtual bool IsWaitForPartFinished() const = 0;
 	// retail mission vtbl+0xf8 (CMission @0x19def0): true while the scripted "first mission"
@@ -573,6 +574,7 @@ protected:
 	// general UI-command drain and can be preempted by a higher-priority one
 	// (MustReplaceCameraExecutor). Driven by ExecWorldCommand @0x1a30c0. CObj like retail (tag 21).
 	CObj<CUICmdLocatorExec> pExecLocator;
+	bool bNotifyPathCalculationDone = false;
 	bool bWaitForPartFinished;
 	list<CObj<NUI::CDesktopWindow> > desktopWindowsList;
 	//// light
@@ -653,6 +655,7 @@ public:
 	virtual NUI::ICursor* GetCursor() const;
 	virtual NUI::CInterface* GetInterface() const;
 	virtual bool IsInterfaceHidden() const;												// retail @0x19de80
+	virtual void RequestPathCalculationNotification() { bNotifyPathCalculationDone = true; }
 	virtual void SetWaitForPartFinished( bool bState );									// retail @0x19de90
 	virtual bool IsWaitForPartFinished() const;											// retail @0x19dea0
 	virtual bool IsSpecialFirstMissionMode() const { return false; }					// retail CMissionBase vtbl+0xf8 = ICF-folded false stub (@0x163980); CMission override @0x19def0

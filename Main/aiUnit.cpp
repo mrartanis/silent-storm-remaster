@@ -809,7 +809,7 @@ int CAIUnit::GetToHitWithWeapon( IAIUnit *pTarget, const NAI::SUnitPosition &pos
 	CPtr<CAIFireArmsWeapon> pWeapon = IsValid( pSelectedWeapon ) ? pSelectedWeapon : GetAIInventory()->GetCurrentFireArms();
 	if ( IsValid( pWeapon ) )
 	{
-		const float fHitCover = GetCoverForFixedUnitPrecise( GetUnitPosition(), pTarget->GetUnitServer(), pWeapon->GetItem(), hl );
+		const float fHitCover = GetCoverForFixedUnitPrecise( pos, pTarget->GetUnitServer(), pWeapon->GetItem(), hl );
 		CPtr<NRPG::CAIUnitToHitCalcer> pCalcer = new NRPG::CAIUnitToHitCalcer( this, pos, pTarget, fHitCover, hl, 0, pWeapon->GetItem(), 0 );
 		return pCalcer->GetToHit();
 	}

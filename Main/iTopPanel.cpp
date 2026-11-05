@@ -177,6 +177,11 @@ void LayoutTopStrip(CWindow* parent) {
 void CTopBar::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 {
 	LayoutTopStrip(this);
+	if ( pMission->GetWorld()->IsInterrupt() && !pMission->GetWorld()->NeedShowInterrupt() )
+	{
+		CWindow::Draw( sTime, pView );
+		return;
+	}
 	EMode ePrevMode = eMode;
 	if ( pMission->IsRealTime() )
 		eMode = REALTIME;

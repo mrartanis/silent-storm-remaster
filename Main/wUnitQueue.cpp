@@ -63,15 +63,25 @@ int CSimpleExecQueue::GetActionAP( int nAlreadyReservedAP ) const
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleExecQueue::Run()
 {
+	if ( bCancelled )
+	{
+		if ( !execList.empty() && execList.front()->IsExecuting() )
+			return;
+		Failed();
+		execList.clear();
+		return;
+	}
 	while ( !execList.empty() )
 	{
 		CObj<CSimpleExecQueue> pHold( this ); // in case the unit dies while the action is being executed
 		CObj<CCommandExecute> pFront = execList.front();
 		pFront->Run();
+		if ( !IsValid( this ) )
+			return;
 		EFinishType f = pFront->GetState();
 		if ( f == RUNNING )
 			return;
-		if ( f == FAILED )
+		if ( f == FAILED || bCancelled )
 		{
 			Failed();
 			execList.clear();
@@ -104,7 +114,7 @@ void CSimpleExecQueue::AnimationFinished()
 		EFinishType f = pFront->GetState();
 		if ( f != RUNNING )
 		{
-			if ( f == FAILED )
+			if ( f == FAILED || bCancelled )
 			{
 				Failed();
 				execList.clear();
@@ -124,15 +134,17 @@ void CSimpleExecQueue::AnimationFinished()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CSimpleExecQueue::Cancel()
 {
+	bCancelled = true;
+	CPtr<CSimpleExecQueue> pHoldSelf( this );
 	if ( !execList.empty() )
 	{
-		CCommandExecute *pFront = execList.front();
+		CObj<CCommandExecute> pFront = execList.front();
 		pFront->Cancel();
-		if ( pFront->GetState() == FINISHED )
-			Finished();
-		else if ( pFront->GetState() == FAILED )
-			Failed();
+		if ( !IsValid( this ) || pFront->GetState() == RUNNING )
+			return;
 	}
+	Failed();
+	execList.clear();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CSimpleExecQueue::IsExecuting()
@@ -253,6 +265,7 @@ void CExecQueue::GetPathPoints( list<SPathPoint> *pRes )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecQueue::SetNewPath( NAI::CPath *pPath, NAI::EFindPathParams _eParams, ENeedActiveItem eActive )
 {
+	bCancelled = false;
 	CObj<CCommandExecute> pHold = execList.front(); 
 	CDynamicCast<IExecMove> pOldCommand( pHold );
 	execList.pop_front();
@@ -569,6 +582,8 @@ void CExecOpenClose::Run()
 		Finished();
 		return;
 	}
+	// A queued approach can arrive before the action-finished event is dispatched.
+	pUS->RememberSupportPosition();
 	pUS->animator.OpenWindowDoor( pUS->GetPosition() );
 	StartAction( pUS->GetWorld(), SKIPPABLE );
 }

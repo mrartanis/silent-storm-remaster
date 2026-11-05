@@ -178,6 +178,7 @@ private:
 	void CancelHeal();
 	
 public:
+	void RememberSupportPosition();
 	int GetScriptToHit() const { return nScriptToHit; }			// UnitSetToHit override (-1 = none)
 	void SetScriptToHit( int n ) { nScriptToHit = n; }
 	bool IsWalkingWithoutWeapon() const { return bWalkWithoutWeapon; }

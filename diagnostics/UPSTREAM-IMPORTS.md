@@ -27390,3 +27390,56 @@ CI/network/hosted gates are recorded after all three October30 imports; no per-s
 hosted success is claimed.
 
 Source: [f5b5b620d4b251d7548b36134ae16d3abe4457e5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/f5b5b620d4b251d7548b36134ae16d3abe4457e5).
+
+## 190. Import the November 4 upstream batch
+
+The November 4 range adds nine source commits after the October 30 endpoint.
+Keep the remaster's deferred turn events, movement ownership, selected-rifle
+prediction, fractional UI, and LAN authority.
+
+- A cancelled queue can finish its active door animation, including the action
+  label, but cannot dispatch its tail. The cancellation flag is stored as
+  queue tag 3 and defaults to false for older saves. A prepared route that
+  never started is still retired on Continue; the AI can choose a new order
+  and a human keeps the interrupted destination. The local AI interrupt
+  banner waits for the first command; replicas do not have that command flag.
+- Door actions record the arrived floor and tile before changing collision.
+  Navigation recalculates existing ladders on the absolute floor and the
+  mission posts one completion message after the passability job queue drains.
+- A unit can retreat from an interrupted ledge approach using the reversed
+  approach clip; real backward jumps keep their existing clips. Movement
+  callbacks cannot execute or reinsert a travel command from a replaced path.
+- The sniper planner tests the proposed position and facing with the selected
+  rifle and existing precise cover calculation. Once aiming, it checks the
+  stored target and aim point with the live shot calculation, including
+  accumulated AP. The existing no-penetration and non-finite cover guards
+  already cover the donor's NaN case.
+- First aid can target another owner's ally while the executor still blocks
+  enemies. Damage labels use the current selected camera. Panzerklein shells
+  use the authored launch effect 1133 and sound 16459 before the existing
+  flight and impact paths.
+
+Both Game builds pass. Windows passed all 82 selected checks. Linux passed the
+other 80 selected cases and the corrected sniper fixture passed three
+consecutive runs. New cases cover a real door queue with and without
+cancellation, a direct retreat from an authored ledge, a crouching firing
+position blocked by real geometry, and loss of the stored sniper target.
+The ledger now has 298 classified source commits, including 258 imports.
+
+Source: [0c79e4f3](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/0c79e4f33b2a2b3f478c39a7f5501c7ec64a9c72).
+
+Source: [4cd34185](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/4cd3418533430440bc7057678c4b3208ce3521ff).
+
+Source: [d4f4e307](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d4f4e307a65ed4892fd88f18f5261f9c7ca97081).
+
+Source: [1019d85b](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1019d85bd79cc6f9e7b8089f77803499042a5b5b).
+
+Source: [23c9cb8e](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/23c9cb8e80443f6177cae5c86a72cfdeffe2e05c).
+
+Source: [e22f5efc](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/e22f5efcc60baa8f94087b93b022e9e4422cc25d).
+
+Source: [9c283d25](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/9c283d25c069225b2251afac09d0ed5849684479).
+
+Source: [1b1f0475](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1b1f04755b220a34aed90e51d7952854270b30bf).
+
+Source: [d29f3c74](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d29f3c7472393a0167277fa492f84794b2fae4cc).
