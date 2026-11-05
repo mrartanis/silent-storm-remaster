@@ -80,9 +80,14 @@ bool CInGameMenuUI::ProcessMessage( const SEvent &sEvent )
 			pReturnToGame->AddTextState( CHoverButton::STATE_DISABLED, GetDBString( 11145 ) + GetDBString( 11151 ) );
 
 			pExitToWindows = new CHoverButton( sEvent.pLoader->GetControl( "exitgame" ) );
-			pExitToWindows->AddTextState( CHoverButton::STATE_HOVER, GetDBString( 11144 ) + GetDBString( 11150 ) );
-			pExitToWindows->AddTextState( CHoverButton::STATE_NORMAL, GetDBString( 11143 ) + GetDBString( 11150 ) );
-			pExitToWindows->AddTextState( CHoverButton::STATE_DISABLED, GetDBString( 11145 ) + GetDBString( 11150 ) );
+			const wstring oldExitLabel = GetDBString( 11150 );
+			const bool russian = std::any_of( oldExitLabel.begin(), oldExitLabel.end(),
+				[]( wchar_t c ) { return c >= 0x400 && c <= 0x4ff; } );
+			const wchar_t* exitLabel = russian
+				? L"<center>\u0412\u042b\u0419\u0422\u0418 \u0418\u0417 \u0418\u0413\u0420\u042b" : L"<center>EXIT GAME";
+			pExitToWindows->AddTextState( CHoverButton::STATE_HOVER, GetDBString( 11144 ) + exitLabel );
+			pExitToWindows->AddTextState( CHoverButton::STATE_NORMAL, GetDBString( 11143 ) + exitLabel );
+			pExitToWindows->AddTextState( CHoverButton::STATE_DISABLED, GetDBString( 11145 ) + exitLabel );
 
 			pExitToMainMenu = new CHoverButton( sEvent.pLoader->GetControl( "exittomainmenu" ) );
 			pExitToMainMenu->AddTextState( CHoverButton::STATE_HOVER, GetDBString( 11144 ) + GetDBString( 11149 ) );
