@@ -10,6 +10,14 @@
 
 Релизы v0.1 и hd-v0.1 также доступны [в архиве прежнего форка](https://github.com/mrartanis/Silent-Storm-Reconstruction/releases).
 
+### Оригинальные и HD-текстуры
+
+Один и тот же двор при одинаковом ракурсе и освещении. Нажмите на кадр, чтобы открыть его в полном размере.
+
+| Оригинальные текстуры | HD-текстуры |
+| --- | --- |
+| [![Двор с оригинальными текстурами](assets/screenshots/courtyard-original.webp)](assets/screenshots/courtyard-original.webp) | [![Двор с HD-текстурами](assets/screenshots/courtyard-hd.webp)](assets/screenshots/courtyard-hd.webp) |
+
 ## Что сделано
 
 Состояние на **5 ноября 2026 года**

@@ -10,6 +10,14 @@ analysis of the v1.2 release. Nival owns the original game's source code.
 
 The v0.1 and hd-v0.1 releases are also available [in the previous fork's archive](https://github.com/mrartanis/Silent-Storm-Reconstruction/releases).
 
+### Original and HD textures
+
+The same courtyard from the same camera position and under the same lighting. Click either screenshot to view it at full size.
+
+| Original textures | HD textures |
+| --- | --- |
+| [![Courtyard with original textures](assets/screenshots/courtyard-original.webp)](assets/screenshots/courtyard-original.webp) | [![Courtyard with HD textures](assets/screenshots/courtyard-hd.webp)](assets/screenshots/courtyard-hd.webp) |
+
 ## What has been implemented
 
 Status as of **November 5, 2026**
