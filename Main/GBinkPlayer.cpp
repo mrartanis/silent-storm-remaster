@@ -8,7 +8,9 @@
 #include "..\FileIO\Streams.h"     // CFileStream (from-memory open path)
 #include "..\FModSound\FMSound.h"  // NFMSound::GetSoundAPI (Bink->DirectSound handoff)
 #include <bink.h>
+#if defined(_MSC_VER)
 #pragma comment( lib, "binkw32.lib" )
+#endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //  dwPlayFlags / dwCopyFlags bit constants (recovered from the decomp masks).
 ////////////////////////////////////////////////////////////////////////////////////////////////////

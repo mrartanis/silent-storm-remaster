@@ -6,6 +6,11 @@
 #include "GPixelFormat.h"
 #include "../MiscDll/LogStream.h"
 #include <SDL3/SDL_filesystem.h>
+#if defined(__ANDROID__)
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_log.h>
+#include <memory>
+#endif
 #include <map>
 
 namespace {
@@ -62,12 +67,22 @@ CFontInfo* GetVectorFont(const SFont& font) {
   const auto key = std::make_pair(file, pixels);
   const auto old = cache.find(key);
   if (old != cache.end()) return old->second;
-  const char* base = SDL_GetBasePath();
   S2Fonts::Atlas atlas; std::string error;
+#if defined(__ANDROID__)
+  const std::string path = "fonts/" + file;
+  std::size_t size = 0;
+  std::unique_ptr<void, decltype(&SDL_free)> data(SDL_LoadFile(path.c_str(), &size), SDL_free);
+  if (!data || !S2Fonts::RasterizeMemory(data.get(), size, pixels, &atlas, &error)) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s: %s", path.c_str(), data ? error.c_str() : SDL_GetError());
+    return nullptr;
+  }
+#else
+  const char* base = SDL_GetBasePath();
   if (!base || !S2Fonts::Rasterize(std::string(base) + "fonts/" + file, pixels, &atlas, &error)) {
     csSystem << "VECTOR-FONT: " << error << endl;
     return nullptr;
   }
+#endif
   CObj<CFontFormatInfo> format = CVectorFontBuilder::Format(atlas);
   CObj<CFontInfo> result = new CFontInfo(SFont(atlas.lineHeight, font.szName),
       new VectorTexture(std::move(atlas)), new VectorFormat(format));

@@ -10,7 +10,7 @@ if(NOT S2_FFMPEG_INCLUDE_DIR)
   message(FATAL_ERROR "FFmpeg development headers not found; set S2_FFMPEG_ROOT")
 endif()
 set(_ffmpeg_libs "")
-foreach(component IN ITEMS avformat avcodec avutil swscale swresample)
+foreach(component IN ITEMS avformat avcodec swscale swresample avutil)
   find_library(S2_FFMPEG_${component}_LIB NAMES ${component}
     HINTS "${S2_FFMPEG_ROOT}/lib")
   if(NOT S2_FFMPEG_${component}_LIB)

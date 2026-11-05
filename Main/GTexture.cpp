@@ -1,4 +1,7 @@
 #include "StdAfx.h"
+#if defined(__ANDROID__)
+#include <bgfx/bgfx.h>
+#endif
 #include "../diagnostics/TextureResidency.h"
 #include "GfxBuffers.h"
 #include "GTexture.h"
@@ -15,7 +18,16 @@ bool bDXTModeOn = true;
 static int GetRealTextureID( NDb::CTexture *pTex )
 {
 	int nID = pTex->GetRecordID();
+#if defined(__ANDROID__)
+	const auto *caps = bgfx::getCaps();
+	const bool supportsDXT = caps &&
+		(caps->formats[bgfx::TextureFormat::BC1] & BGFX_CAPS_FORMAT_TEXTURE_2D) &&
+		(caps->formats[bgfx::TextureFormat::BC2] & BGFX_CAPS_FORMAT_TEXTURE_2D) &&
+		(caps->formats[bgfx::TextureFormat::BC3] & BGFX_CAPS_FORMAT_TEXTURE_2D);
+	if ( bDXTModeOn && supportsDXT )
+#else
 	if ( bDXTModeOn )
+#endif
 		return nID;
 	if ( pTex->bIsDXT )
 		return nID | 0x01000000;

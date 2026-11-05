@@ -36,6 +36,10 @@
 #include "GResource.h"
 #include "iLoading.h"   // NGame::ShowLoadingScreen / TermLoadingScreen -- loading-screen lifecycle on the load path
 #include "ModManager.h" // CModManager -- retail saves carry the active-mod list in the header (CICLoad/CICSave)
+#if defined(__ANDROID__)
+#include "UIWindow.h"
+#include "iDesktopWindow.h"
+#endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void DumpMemoryStats() {}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -637,11 +641,36 @@ int GetInterfaceStackDepth()
 {
 	return interfaces.size();
 }
+#if defined(__ANDROID__)
+static bool TouchHitsMap(float x, float y)
+{
+	auto *mission = interfaces.empty() ? nullptr : dynamic_cast<NGame::IMission*>(interfaces.back().GetPtr());
+	if (!mission || !mission->GetWorld() || !mission->IsReady() || mission->IsSequence())
+		return false;
+	auto *desktop = mission->GetDesktop();
+	auto *view = desktop ? desktop->GetClientWindow() : nullptr;
+	const int px = static_cast<int>(x), py = static_cast<int>(y);
+	NUI::SPoint position;
+	NUI::SRect bounds;
+	if (!view || !view->ClientToScreen(&position, &bounds) ||
+	    px < bounds.x1 || py < bounds.y1 || px >= bounds.x2 || py >= bounds.y2)
+		return false;
+	list<CPtr<NUI::CWindow>> children;
+	desktop->GetChildrenList(&children);
+	for (const auto &child : children)
+		if (child.GetPtr() != view && child->HitTest(px, py))
+			return false;
+	return true;
+}
+#endif
 void ConfigureMouse()
 {
 	NUI::UpdateCursorMode();
 	NGame::IMission* mission=interfaces.empty() ? nullptr : dynamic_cast<NGame::IMission*>(interfaces.back().GetPtr());
 	S2Platform::AllowCameraMouseDrag(mission && mission->GetWorld() && mission->GetCamera());
+#if defined(__ANDROID__)
+	NInput::SetTouchMapHitTest(TouchHitsMap);
+#endif
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static void LoadSavedGame( const string &szID, const vector<wstring> &szParams, void *pContext )

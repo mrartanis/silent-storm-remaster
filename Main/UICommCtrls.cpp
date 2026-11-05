@@ -2,6 +2,9 @@
 #include "DisplayLayout.h"
 #include <cwctype>
 #include "../Game/Platform.h"
+#if defined(__ANDROID__)
+#include <SDL3/SDL_keyboard.h>
+#endif
 #include "Gfx.h"
 #include "GfxBuffers.h"
 #include "G2DView.h"
@@ -91,6 +94,12 @@ void CEdit::SetCursorPosition( int nPos )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CEdit::ProcessMessage( const SEvent &sEvent )
 {
+#if defined(__ANDROID__)
+	if (sEvent.nEvent == EVENT_LBUTTONUP && HitTest(sEvent.nX, sEvent.nY))
+		SDL_StartTextInput(S2Platform::Window());
+	if (sEvent.nEvent == EVENT_ACTIVATE && (sEvent.nVal & EAF_DEACTIVATE) && IsActive())
+		SDL_StopTextInput(S2Platform::Window());
+#endif
 	// CEdit::ProcessMessage @0x314720. Three keyboard events drive the edit:
 	//   EVENT_CHAR   (0x2000022): physical key edges, swallowed to avoid duplicate editing.
 	//   EVENT_WINKEY (0x2000021): SDL key-down/repeat in historical virtual-key numbering.
@@ -138,6 +147,9 @@ bool CEdit::ProcessMessage( const SEvent &sEvent )
 			}
 			return true;
 		case VK_RETURN:
+#if defined(__ANDROID__)
+			SDL_StopTextInput(S2Platform::Window());
+#endif
 			SendMessage( GetParent(), SEvent( EVENT_NOTIFY, GetWindowID() ) );
 			return true;
 		case 'V':

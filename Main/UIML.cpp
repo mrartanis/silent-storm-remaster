@@ -50,6 +50,10 @@ static void GetFontFormatInfo( NGScene::I2DGameView *pView, const NGScene::SFont
 		sSearch.nSize = nMinFontSize;
 
 	CPtr<NGScene::CFontInfo> pFont = pView->GetLocaleInfo()->GetFont( sSearch );
+#if defined(__ANDROID__)
+	if ( !pFont )
+		throw std::runtime_error( "Cannot load the bundled UI font" );
+#endif
 	CDGPtr< CPtrFuncBase<CFontFormatInfo> > pInfo( pFont->GetFormatInfo() );
 	pInfo.Refresh();
 	pFontInfo->pFont = pFont;

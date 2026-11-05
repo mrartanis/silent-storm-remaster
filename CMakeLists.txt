@@ -10,6 +10,13 @@
 cmake_minimum_required(VERSION 3.21)
 project(A5 LANGUAGES C CXX)
 
+if(ANDROID)
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+  # The game needs legacy code pages in addition to Bionic's Unicode encodings.
+  set(Iconv_IS_BUILT_IN FALSE)
+  find_package(Iconv REQUIRED)
+endif()
+
 # The game uses MSVC's historical /Gr calling convention. Keep the portable
 # libraries and their probes on the same ABI when built as diagnostic x86;
 # adding this only below their targets silently gives them __cdecl symbols.
@@ -30,6 +37,9 @@ add_test(NAME NetworkTransportTests COMMAND NetworkTransportTests)
 add_executable(TextureSamplingTests "${root}/diagnostics/TextureSamplingTests.cpp")
 target_compile_features(TextureSamplingTests PRIVATE cxx_std_17)
 add_test(NAME TextureSamplingTests COMMAND TextureSamplingTests)
+add_executable(TouchGestureTests "${root}/diagnostics/TouchGestureTests.cpp")
+target_compile_features(TouchGestureTests PRIVATE cxx_std_17)
+add_test(NAME TouchGestureTests COMMAND TouchGestureTests)
 add_executable(NativeBoundAccumulatorTests "${root}/diagnostics/NativeBoundAccumulatorTests.cpp")
 target_compile_features(NativeBoundAccumulatorTests PRIVATE cxx_std_17)
 add_test(NAME NativeBoundAccumulatorTests COMMAND NativeBoundAccumulatorTests)
@@ -260,7 +270,7 @@ target_compile_features(PortableVoxelObjectHashTests PRIVATE cxx_std_17)
 add_test(NAME PortableVoxelObjectHashTests COMMAND PortableVoxelObjectHashTests)
 if(NOT MSVC)
   include("${root}/cmake/PortableCore.cmake")
-  option(S2_BUILD_GAME "Build the SDL3/bgfx game on Linux/macOS" OFF)
+  option(S2_BUILD_GAME "Build the SDL3/bgfx game on Linux/macOS/Android" OFF)
   if(S2_BUILD_GAME)
     include("${root}/cmake/LinuxGame.cmake")
   endif()

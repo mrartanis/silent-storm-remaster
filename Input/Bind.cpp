@@ -332,6 +332,12 @@ float CBind::GetSpeed()
 {
 	return pBindCommand->fSpeed;
 }
+#if defined(__ANDROID__)
+void CBind::AddTouchDelta(float delta)
+{
+	fDelta += delta * pBindCommand->pCommand->fCoeff;
+}
+#endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CBind::ProcessEvent( const NInput::SEvent &eEvent )
 {

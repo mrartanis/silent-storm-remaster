@@ -16,4 +16,7 @@ struct Atlas {
 };
 std::string FamilyFile(const std::string& family);
 bool Rasterize(const std::string& path, int pixels, Atlas* result, std::string* error);
+#if defined(__ANDROID__)
+bool RasterizeMemory(const void* data, std::size_t size, int pixels, Atlas* result, std::string* error);
+#endif
 }

@@ -13,6 +13,10 @@ std::list<SMessage> messages;
 std::array<bool, 256> keys{};
 std::array<bool, 8> buttons{};
 float motionX = 0, motionY = 0, wheelRemainder = 0;
+#if defined(__ANDROID__)
+TouchGestures touch;
+bool (*touchMapHitTest)(float, float) = nullptr;
+#endif
 int KeyboardAction(int offset) { return (1 << 24) | offset; }
 
 int VirtualKey(SDL_Scancode scan)
@@ -89,6 +93,9 @@ void Push(EControlType type, int action, int value, bool down = true,
 }
 void ReleaseAll()
 {
+#if defined(__ANDROID__)
+  touch.Reset();
+#endif
   for (int i = 0; i < 256; ++i) if (keys[i]) {
     keys[i] = false; Push(CT_KEY, KeyboardAction(i), -128, false);
   }
@@ -105,6 +112,46 @@ int MouseButton(int button)
   if (button == SDL_BUTTON_MIDDLE) return 2;
   return button >= 4 && button <= 8 ? button - 1 : -1;
 }
+#if defined(__ANDROID__)
+void HandleTouch(S2Platform::InputEvent input)
+{
+  const auto& finger = input.event.tfinger;
+  const auto& display = S2Platform::Display();
+  input.hasPointer = true;
+  input.pointerX = SDL_clamp(finger.x * display.pixelWidth, 0.0f, float(display.pixelWidth - 1));
+  input.pointerY = SDL_clamp(finger.y * display.pixelHeight, 0.0f, float(display.pixelHeight - 1));
+  const TouchGestures::Point point{display.PixelToUI(input.pointerX), display.PixelToUI(input.pointerY)};
+  using Phase = TouchGestures::Phase;
+  const Phase phase = finger.type == SDL_EVENT_FINGER_DOWN ? Phase::Down
+      : finger.type == SDL_EVENT_FINGER_UP ? Phase::Up
+      : finger.type == SDL_EVENT_FINGER_CANCELED ? Phase::Cancel : Phase::Move;
+  // Hit-test only the starting contact. During motion the finger can cross the HUD.
+  const bool cameraAllowed = touchMapHitTest &&
+      (phase != Phase::Down || touchMapHitTest(point.x, point.y));
+  const auto gesture = touch.Update(phase, finger.fingerID, point,
+      finger.timestamp / SDL_NS_PER_MS, cameraAllowed);
+  using Action = TouchGestures::Action;
+  switch (gesture.action) {
+    case Action::Aim:
+      Push(CT_POINTER, -1, 0, true, &input);
+      break;
+    case Action::Tap: case Action::Context: {
+      const int button = gesture.action == Action::Tap ? 0 : 1;
+      if (!buttons[button]) {
+        Push(CT_KEY, 12 + button, 128, true, &input);
+        Push(CT_KEY, 12 + button, -128, false, &input);
+      }
+      break;
+    }
+    case Action::Camera:
+      Push(CT_TOUCH_CAMERA, -1, 0, true);
+      messages.back().touchGesture = gesture;
+      break;
+    case Action::None:
+      break;
+  }
+}
+#endif
 bool Axis(float* remainder, int action, float delta, const S2Platform::InputEvent* input = nullptr)
 {
   *remainder += delta;
@@ -133,6 +180,9 @@ bool DoneInput()
   initialized = focused = false;
   messages.clear(); return true;
 }
+#if defined(__ANDROID__)
+void SetTouchMapHitTest(bool (*hitTest)(float x, float y)) { touchMapHitTest = hitTest; }
+#endif
 void PumpMessages(bool focus) { PumpMessages(focus, false); }
 void PumpMessages(bool focus, bool force)
 {
@@ -155,16 +205,26 @@ void PumpMessages(bool focus, bool force)
     }
     if (!focused) continue;
     switch (event.type) {
+#if defined(__ANDROID__)
+      case SDL_EVENT_FINGER_DOWN: case SDL_EVENT_FINGER_UP:
+      case SDL_EVENT_FINGER_MOTION: case SDL_EVENT_FINGER_CANCELED:
+        HandleTouch(input);
+        break;
+#endif
       case SDL_EVENT_KEY_DOWN: case SDL_EVENT_KEY_UP: {
         const bool down = event.type == SDL_EVENT_KEY_DOWN;
+        SDL_Scancode scancode = event.key.scancode;
+#if defined(__ANDROID__)
+        if (scancode == SDL_SCANCODE_AC_BACK) scancode = SDL_SCANCODE_ESCAPE;
+#endif
         for (const SDLKeyInfo& key : sdlKeys) {
-          if (key.scancode == SDL_SCANCODE_UNKNOWN || key.scancode != event.key.scancode) continue;
+          if (key.scancode == SDL_SCANCODE_UNKNOWN || key.scancode != scancode) continue;
           if (!event.key.repeat && keys[key.offset] != down) {
             keys[key.offset] = down;
             Push(CT_KEY, KeyboardAction(key.offset), down ? 128 : -128, down);
           }
         }
-        const int vk = VirtualKey(event.key.scancode);
+        const int vk = VirtualKey(scancode);
         if (down && vk) Push(CT_WIN_KEY, -1, vk);
         break;
       }

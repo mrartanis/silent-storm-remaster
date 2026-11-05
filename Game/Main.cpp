@@ -7,6 +7,11 @@
 #include "../Main/DisplayLayout.h"
 #include "../Main/Interface.h"
 #include "Platform.h"
+#if defined(__ANDROID__)
+#include <SDL3/SDL_main.h>
+#include <SDL3/SDL_system.h>
+#include <unistd.h>
+#endif
 #include "AgentPlay.h"
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_video.h>
@@ -1639,6 +1644,17 @@ int main(int argc, char** argv)
 #endif
 {
 #if !defined(_WIN32)
+#if defined(__ANDROID__)
+ const char* gameData = SDL_GetAndroidExternalStoragePath();
+ const char* userData = SDL_GetAndroidInternalStoragePath();
+ const std::string importedData = userData ? std::string(userData) + "/game" : "";
+ const bool hasImportedData = !importedData.empty() && access((importedData + "/game.db").c_str(), R_OK) == 0;
+ const char* dataDirectory = hasImportedData ? importedData.c_str() : gameData;
+ if (!dataDirectory || !userData || chdir(dataDirectory) != 0 || setenv("S2_USER_DATA_DIR", userData, 1) != 0) {
+  S2Platform::Error("Cannot open Silent Storm's Android storage directory");
+  return 1;
+ }
+#endif
  std::string arguments;
  for (int i = 1; i < argc; ++i) { if (i > 1) arguments += " "; arguments += argv[i]; }
  const char* commandLine = arguments.c_str();

@@ -700,9 +700,21 @@ struct BgfxDevice::Impl {
 };
 BgfxDevice::BgfxDevice() : impl(new Impl) {}
 unsigned BlockingReadbackCountForDiagnostics() {return blockingReadbacks;}
+static bgfx::SwapChain GameSwapChain(unsigned width, unsigned height) {
+  bgfx::SwapChain swapChain;
+  swapChain.width=width; swapChain.height=height;
+  // Keep input latency bounded without the legacy per-frame GPU drain.
+  swapChain.maxFrameLatency=2;
+#if defined(__ANDROID__)
+  // The Android surface on Redmi exposes RGBA8 for presentation.
+  swapChain.formatColor=bgfx::TextureFormat::RGBA8;
+#endif
+  return swapChain;
+}
 bool BgfxDevice::Init(HWND window,unsigned w,unsigned h) {
   if(!window || !w || !h || activeEpoch) return false;
   bgfx::Init init;
+  init.swapChain=GameSwapChain(w,h);
 #if defined(_WIN32)
   init.type=bgfx::RendererType::Direct3D11;
   // DXGI Present may synchronously call the HWND owner during focus/mode
@@ -717,9 +729,7 @@ bool BgfxDevice::Init(HWND window,unsigned w,unsigned h) {
   init.swapChain.ndt=S2Platform::NativeDisplay();
 #endif
   init.swapChain.nwh=window;
-  // Keep input latency bounded without the legacy per-frame GPU drain.
-  init.swapChain.maxFrameLatency=2;
-  init.swapChain.width=w;init.swapChain.height=h;init.reset=DisplayResetFlags();
+  init.reset=DisplayResetFlags();
   init.limits.maxTransientVbSize=64*1024*1024;init.limits.maxTransientIbSize=16*1024*1024;
   // Explicit diagnostic override for wide-view stress captures. Default stays 64/16 MiB.
   if(const char* budget=std::getenv("S2_PERF_TRANSIENT_MB")) {
@@ -731,6 +741,11 @@ bool BgfxDevice::Init(HWND window,unsigned w,unsigned h) {
     }
   }
   if(!bgfx::init(init)) { impl->Fail("Cannot initialize bgfx renderer");return false; }
+#if defined(__ANDROID__)
+  if(bgfx::getRendererType()!=bgfx::RendererType::Vulkan) {
+    bgfx::shutdown(); impl->Fail("Cannot initialize Vulkan on this Android surface"); return false;
+  }
+#endif
   activeEpoch=++nextEpoch;impl->initialized=true;
   try {
     impl->uVertex=bgfx::createUniform("u_vertexRegisters",bgfx::UniformType::Vec4,96);
@@ -771,7 +786,8 @@ BgfxDevice::~BgfxDevice() {
 bool BgfxDevice::Resize(unsigned w,unsigned h) {
   if(!impl->initialized || !w || !h || w>16384 || h>16384)return false;
   try {
-    impl->FlushDraw();impl->InvalidateQueries();FlushGeometry();impl->EndFrame();impl->ClearTargets();bgfx::SwapChain swapChain;swapChain.width=w;swapChain.height=h;swapChain.maxFrameLatency=2;
+    impl->FlushDraw();impl->InvalidateQueries();FlushGeometry();impl->EndFrame();impl->ClearTargets();
+    const auto swapChain=GameSwapChain(w,h);
     impl->resetFlags=DisplayResetFlags();
     bgfx::reset(impl->resetFlags,&swapChain);
     impl->width=w;impl->height=h;
@@ -882,7 +898,7 @@ void BgfxDevice::Present(float gamma) {
     // scene targets alive: these two switches need no resource recreation.
     uint32_t flags=DisplayResetFlags();
     if(flags!=impl->resetFlags) {
-      bgfx::SwapChain swapChain;swapChain.width=impl->width;swapChain.height=impl->height;swapChain.maxFrameLatency=2;
+      const auto swapChain=GameSwapChain(impl->width,impl->height);
       bgfx::reset(flags,&swapChain);impl->resetFlags=flags;
     }
   }catch(const std::exception& e){impl->Fail(e.what());}

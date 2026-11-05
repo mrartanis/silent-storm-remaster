@@ -6,6 +6,9 @@
 #include <deque>
 #include <map>
 #include <tuple>
+#if defined(__ANDROID__)
+#include <android/native_window.h>
+#endif
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -13,6 +16,32 @@
 
 namespace {
 SDL_Window* window = nullptr;
+#if defined(__ANDROID__)
+ANativeWindow* androidWindow = nullptr;
+
+bool WaitForAndroidWindow()
+{
+  const Uint64 deadline = SDL_GetTicks() + 10000;
+  const auto properties = SDL_GetWindowProperties(window);
+  do {
+    SDL_PumpEvents();
+    if ((SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS) && SDL_LockProperties(properties)) {
+      auto* native = static_cast<ANativeWindow*>(SDL_GetPointerProperty(
+          properties, SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr));
+      const int height = native ? ANativeWindow_getHeight(native) : 0;
+      if (height > 0 && ANativeWindow_getWidth(native) >= height) {
+        // SDL can release its reference on the Android UI thread.
+        ANativeWindow_acquire(native);
+        androidWindow = native;
+      }
+      SDL_UnlockProperties(properties);
+      if (androidWindow) return true;
+    }
+    SDL_Delay(20);
+  } while (SDL_GetTicks() < deadline);
+  return SDL_SetError("Android did not provide a focused landscape surface");
+}
+#endif
 bool exiting = false;
 bool active = false;
 bool errorDialogs = true;
@@ -29,6 +58,7 @@ S2Platform::CursorStats cursorStats{};
 void ApplyMouseMode()
 {
   if (!window) return;
+#if !defined(__ANDROID__)
   const bool relative = mouseCaptured && (!nativeCursor || cameraButtons != 0);
   if (SDL_GetWindowRelativeMouseMode(window) != relative)
     SDL_SetWindowRelativeMouseMode(window, relative);
@@ -36,6 +66,7 @@ void ApplyMouseMode()
   SDL_CaptureMouse(mouseCaptured);
   const bool visible = !mouseCaptured || (nativeCursor && cursorVisible && !cameraButtons);
   if (SDL_CursorVisible() != visible) { if (visible) SDL_ShowCursor(); else SDL_HideCursor(); }
+#endif
 }
 void StopCameraDrag(bool restore)
 {
@@ -47,7 +78,12 @@ void StopCameraDrag(bool restore)
 void QueueMouse(const SDL_Event& event)
 {
   S2Platform::InputEvent item{event,0};
-  if (nativeCursor) {
+#if defined(__ANDROID__)
+  const bool absolute = true;
+#else
+  const bool absolute = nativeCursor;
+#endif
+  if (absolute) {
     item.hasPointer = true;
     float x = dragX, y = dragY;
     if (!cameraButtons) {
@@ -82,6 +118,13 @@ bool S2Platform::Init(const char* title, int width, int height, bool hidden)
   SDL_SetHint(SDL_HINT_MOUSE_AUTO_CAPTURE, "0");
   // Cursor images are already sized to drawable/UI pixels; avoid a second DPI scale.
   SDL_SetHint(SDL_HINT_MOUSE_DPI_SCALE_CURSORS, "0");
+#if defined(__ANDROID__)
+  SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+  SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");
+  SDL_SetHint(SDL_HINT_ANDROID_BLOCK_ON_PAUSE, "0");
+  // Match the activity's orientation so SDL does not replace the startup surface.
+  SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+#endif
 #if defined(__APPLE__)
   // Borderless is a desktop-sized window, not a separate animated macOS
   // fullscreen Space. Cocoa's toggleFullScreen path can accept the request
@@ -97,6 +140,9 @@ bool S2Platform::Init(const char* title, int width, int height, bool hidden)
   // The renderer regression tests compare screenshots against window-pixel
   // coordinates; on Retina displays they request this deterministic 1:1 mode.
   Uint32 windowFlags = SDL_WINDOW_RESIZABLE | (hidden ? SDL_WINDOW_HIDDEN : 0);
+#if defined(__ANDROID__)
+  windowFlags |= SDL_WINDOW_VULKAN;
+#endif
   if (!std::getenv("S2_NO_HIGHDPI")) windowFlags |= SDL_WINDOW_HIGH_PIXEL_DENSITY;
   window = SDL_CreateWindow(title, width, height, windowFlags);
   if (!window) {
@@ -105,19 +151,34 @@ bool S2Platform::Init(const char* title, int width, int height, bool hidden)
     return false;
   }
   SDL_SetWindowMinimumSize(window, 100, 100);
+#if defined(__ANDROID__)
+  if (!WaitForAndroidWindow()) {
+    InitError("Android window");
+    Done();
+    return false;
+  }
+#endif
   active = (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS) != 0;
   UpdateDisplay();
+#if !defined(__ANDROID__)
   if (!SDL_StartTextInput(window)) {
     InitError("SDL_StartTextInput");
     Done();
     return false;
   }
+#endif
   return true;
 }
 
 void S2Platform::Done()
 {
   input.clear();
+#if defined(__ANDROID__)
+  if (androidWindow) {
+    ANativeWindow_release(androidWindow);
+    androidWindow = nullptr;
+  }
+#endif
   if (window) {
     CaptureMouse(false);
     SDL_SetCursor(SDL_GetDefaultCursor());
@@ -145,6 +206,8 @@ void* S2Platform::NativeWindow()
   // toggle that only exists inside the SDL build itself.
   return window ? SDL_GetPointerProperty(SDL_GetWindowProperties(window),
       SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr) : nullptr;
+#elif defined(__ANDROID__)
+  return androidWindow;
 #else
   if (!window) return nullptr;
   const auto properties = SDL_GetWindowProperties(window);
@@ -157,7 +220,7 @@ void* S2Platform::NativeWindow()
 
 void* S2Platform::NativeDisplay()
 {
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(__ANDROID__)
   return nullptr;
 #else
   if (!window) return nullptr;
@@ -194,6 +257,12 @@ void S2Platform::PumpEvents()
       continue;
     }
     switch (event.type) {
+#if defined(__ANDROID__)
+      case SDL_EVENT_FINGER_DOWN: case SDL_EVENT_FINGER_MOTION:
+      case SDL_EVENT_FINGER_UP: case SDL_EVENT_FINGER_CANCELED:
+        if (event.tfinger.windowID == id) input.push_back({event, 0});
+        break;
+#endif
       case SDL_EVENT_KEY_DOWN: case SDL_EVENT_KEY_UP:
         if (event.key.windowID == id) input.push_back({event, 0});
         break;
@@ -279,6 +348,11 @@ void S2Platform::UpdateDisplay(float percent)
 }
 bool S2Platform::SetMode(int width, int height, WindowMode requested)
 {
+#if defined(__ANDROID__)
+  if (!window) return false;
+  UpdateDisplay();
+  return display.drawable;
+#else
   const bool fullscreen=requested==WindowMode::Fullscreen;
   const bool windowed=requested==WindowMode::Windowed;
   SDL_DisplayMode mode{};
@@ -303,6 +377,7 @@ bool S2Platform::SetMode(int width, int height, WindowMode requested)
 #endif
   UpdateDisplay();
   return true;
+#endif
 }
 void S2Platform::CursorPosition(float* x, float* y) {
   if (cameraButtons) { *x=dragX; *y=dragY; }
@@ -319,6 +394,9 @@ void S2Platform::SetCursorPosition(float x, float y)
 void S2Platform::CaptureMouse(bool capture)
 {
   if (!window) return;
+#if defined(__ANDROID__)
+  capture = false;
+#endif
   if (!capture) StopCameraDrag(false);
   mouseCaptured = capture;
   ApplyMouseMode();
@@ -382,7 +460,11 @@ S2Platform::CursorStats S2Platform::GetCursorStats()
 }
 void S2Platform::Error(const char* message)
 {
+#if defined(__ANDROID__)
+  SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Silent Storm: %s", message);
+#else
   std::fprintf(stderr, "Silent Storm: %s\n", message);
+#endif
   if (errorDialogs) SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Silent Storm", message, window);
 }
 void S2Platform::SetErrorDialogs(bool enabled) { errorDialogs = enabled; }

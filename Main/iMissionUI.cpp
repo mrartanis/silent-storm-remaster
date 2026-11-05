@@ -1960,6 +1960,9 @@ void CMissionUI::UpdateTraps()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMissionUI::UpdateCameraScroll( const STime &sTime )
 {
+#if defined(__ANDROID__)
+	return;
+#endif
 	STime sDelta = sTime - sCameraScrollUpdate;
 	sDelta = Min( sDelta, (STime)100 );
 	sCameraScrollUpdate = sTime;

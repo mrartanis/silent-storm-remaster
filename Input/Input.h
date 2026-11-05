@@ -2,6 +2,9 @@
 #define __INPUT_H__
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #include <cstdint>
+#if defined(__ANDROID__)
+#include "TouchGestures.h"
+#endif
 class CDataStream;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NInput
@@ -27,7 +30,10 @@ typedef std::uint32_t STime;
 		// numbering. Physical CT_KEY edges remain separate from text and repeat.
 		CT_WIN_CHAR,
 		CT_WIN_KEY,
-		CT_POINTER // absolute position, including sub-pixel motion without an axis delta
+		CT_POINTER, // absolute position, including sub-pixel motion without an axis delta
+#if defined(__ANDROID__)
+		CT_TOUCH_CAMERA,
+#endif
 	};
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 	struct SMessage
@@ -41,10 +47,16 @@ typedef std::uint32_t STime;
 		STime tTime;
 		bool hasPointer = false;
 		float pointerX = 0, pointerY = 0;
+#if defined(__ANDROID__)
+		TouchGestures::Gesture touchGesture;
+#endif
 	};
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 	bool InitInput( bool bNonExclusiveMode = false, int nSampleBufferSize = -1 );
 	bool DoneInput();
+#if defined(__ANDROID__)
+	void SetTouchMapHitTest(bool (*hitTest)(float x, float y));
+#endif
 
 	void PumpMessages( bool bFocus );
 	// Explicit queue draining must also poll when the normal frame clock has not advanced.

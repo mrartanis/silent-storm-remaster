@@ -211,6 +211,11 @@ void CCursor::Update()
 	pTimer.Refresh();
 	STime sDelta = pTimer->GetValue() - sLastUpdateTime;
 	sLastUpdateTime = pTimer->GetValue();
+#if defined(__ANDROID__)
+	bindX.GetDelta();
+	bindY.GetDelta();
+	return;
+#endif
 	if (S2Platform::NativeCursorEnabled()) {
 		bindX.GetDelta(); bindY.GetDelta();
 		if (S2Platform::Active()) S2Platform::CursorPosition(&vCursorPos.x,&vCursorPos.y);
@@ -288,7 +293,11 @@ void CCursor::ProcessEvent( const NInput::SEvent &sEvent )
 {
 	if ( nDisableCount > 0 )
 		return;
-	if (S2Platform::NativeCursorEnabled() && sEvent.mMessage.hasPointer)
+	if (sEvent.mMessage.hasPointer
+#if !defined(__ANDROID__)
+	    && S2Platform::NativeCursorEnabled()
+#endif
+	)
 		vCursorPos=CVec2(sEvent.mMessage.pointerX,sEvent.mMessage.pointerY);
 	bindX.ProcessEvent( sEvent );
 	bindY.ProcessEvent( sEvent );

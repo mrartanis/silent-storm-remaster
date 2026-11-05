@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <limits>
 
 namespace S2Fonts {
 std::string FamilyFile(const std::string& family) {
@@ -14,14 +15,18 @@ std::string FamilyFile(const std::string& family) {
   if (key == "courier" || key == "courier new" || key == "liberation mono") return "LiberationMono-Regular.ttf";
   return {};
 }
-bool Rasterize(const std::string& path, int pixels, Atlas* result, std::string* error) {
+static bool RasterizeFace(const FT_Open_Args& args, int pixels, Atlas* result, std::string* error) {
   if (!result || pixels < 1 || pixels > 512) { if (error) *error = "invalid font size"; return false; }
   FT_Library library = nullptr;
   FT_Face face = nullptr;
   if (FT_Init_FreeType(&library)) { if (error) *error = "FreeType initialization failed"; return false; }
   struct Cleanup { FT_Library lib; FT_Face& face; ~Cleanup() { if (face) FT_Done_Face(face); FT_Done_FreeType(lib); } } cleanup{library, face};
-  if (FT_New_Face(library, path.c_str(), 0, &face) || FT_Set_Pixel_Sizes(face, 0, pixels)) {
-    if (error) *error = "cannot load vector font: " + path; return false;
+  const FT_Error openError = FT_Open_Face(library, &args, 0, &face);
+  if (openError) { if (error) *error = "FreeType could not open font (" + std::to_string(openError) + ")"; return false; }
+  const FT_Error sizeError = FT_Set_Pixel_Sizes(face, 0, pixels);
+  if (sizeError) {
+    if (error) *error = "FreeType rejected the font size (" + std::to_string(sizeError) + ")";
+    return false;
   }
   Atlas atlas;
   const int ascent = (face->size->metrics.ascender + 63) >> 6;
@@ -78,4 +83,27 @@ bool Rasterize(const std::string& path, int pixels, Atlas* result, std::string* 
   if (atlas.glyphs.empty()) { if (error) *error = "font has no supported glyphs"; return false; }
   *result = std::move(atlas); return true;
 }
+
+bool Rasterize(const std::string& path, int pixels, Atlas* result, std::string* error) {
+  FT_Open_Args args{};
+  args.flags = FT_OPEN_PATHNAME;
+  args.pathname = const_cast<char*>(path.c_str());
+  if (RasterizeFace(args, pixels, result, error)) return true;
+  if (error) *error += ": " + path;
+  return false;
+}
+
+#if defined(__ANDROID__)
+bool RasterizeMemory(const void* data, std::size_t size, int pixels, Atlas* result, std::string* error) {
+  if (!data || !size || size > static_cast<std::size_t>((std::numeric_limits<FT_Long>::max)())) {
+    if (error) *error = "invalid font data";
+    return false;
+  }
+  FT_Open_Args args{};
+  args.flags = FT_OPEN_MEMORY;
+  args.memory_base = static_cast<const FT_Byte*>(data);
+  args.memory_size = static_cast<FT_Long>(size);
+  return RasterizeFace(args, pixels, result, error);
+}
+#endif
 }

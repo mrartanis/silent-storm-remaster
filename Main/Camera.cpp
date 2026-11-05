@@ -316,6 +316,22 @@ void CBaseCamera::SetLimits( const SCameraLimits &_sLimits )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBaseCamera::ProcessEvent( const NInput::SEvent &eEvent )
 {
+#if defined(__ANDROID__)
+	if ( eEvent.mMessage.cType == NInput::CT_TOUCH_CAMERA )
+	{
+		const auto &gesture = eEvent.mMessage.touchGesture;
+		strafe.AddTouchDelta(-gesture.pan.x * 0.0025f);
+		fwd.AddTouchDelta(gesture.pan.y * 0.0025f);
+		zoom.AddTouchDelta(-gesture.zoom);
+		rotate.AddTouchDelta(gesture.yaw);
+		if ( !bMustUnlockDueToUserDecision )
+		{
+			bUserJustWantedToUnlock = true;
+			bMustUnlockDueToUserDecision = true;
+		}
+		return;
+	}
+#endif
 	// release @0xcbd00: all five binds always run (ProcessEvent has side effects); if ANY of them
 	// consumed the event and the camera has not already been flagged, latch the "user wants to
 	// unlock" intent once (FreezeCamera(true) clears it).

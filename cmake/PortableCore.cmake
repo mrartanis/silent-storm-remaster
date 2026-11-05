@@ -113,6 +113,9 @@ add_library(s2_game_misc_runtime STATIC
 target_include_directories(s2_game_misc_runtime PRIVATE
   "${root}/Misc" "${root}/FileIO")
 s2_target_link_libraries(s2_game_misc_runtime PUBLIC s2_game_structure)
+if(ANDROID)
+  target_link_libraries(s2_game_misc_runtime PRIVATE Iconv::Iconv)
+endif()
 target_compile_features(s2_game_misc_runtime PUBLIC cxx_std_17)
 add_executable(NativeStrProcTests "${root}/diagnostics/NativeStrProcTests.cpp")
 s2_target_link_libraries(NativeStrProcTests PRIVATE s2_game_misc_runtime)

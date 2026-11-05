@@ -1,0 +1,67 @@
+plugins {
+    id 'com.android.application' version '8.10.1'
+}
+
+def deps = file(providers.gradleProperty('s2Deps').get())
+def sdl = new File(deps, 'SDL3-3.4.16')
+def game = providers.gradleProperty('s2Game').isPresent()
+def nativePrefix = new File(deps, 'android-arm64')
+def gameAssets = layout.buildDirectory.dir('generated/game-assets')
+
+android {
+    namespace 'org.libsdl.app'
+    compileSdk 36
+    ndkVersion '28.2.13676358'
+
+    defaultConfig {
+        applicationId game ? 'org.silentstorm.remaster' : 'org.silentstorm.remaster.probe'
+        manifestPlaceholders = [appLabel: game ? 'Silent Storm' : 'Silent Storm Probe']
+        minSdk 28
+        targetSdk 36
+        versionCode 1
+        versionName '0.1'
+        ndk { abiFilters 'arm64-v8a' }
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_shared',
+                    "-DS2_SDL_SOURCE_DIR=${sdl}",
+                    "-DS2_BGFX_CMAKE_ROOT=${deps}/bgfx.cmake",
+                    "-DS2_BGFX_DIR=${deps}/bgfx",
+                    "-DS2_BIMG_DIR=${deps}/bimg",
+                    "-DS2_BX_DIR=${deps}/bx"
+                if (game) {
+                    arguments '-DS2_BUILD_GAME=ON', '-DS2_BUILD_HD_TEXTURES=OFF',
+                        '-DS2_BUILD_MEDIA_PROBE=ON', '-DS2_BUILD_MINIAUDIO_MUSIC_PROBE=ON',
+                        "-DCMAKE_PREFIX_PATH=${nativePrefix}",
+                        "-DCMAKE_FIND_ROOT_PATH=${nativePrefix}",
+                        "-DS2_FFMPEG_ROOT=${nativePrefix}",
+                        "-DS2_MINIAUDIO_INCLUDE_DIR=${deps}",
+                        "-DS2_BGFX_SHADERC=${providers.gradleProperty('s2Shaderc').get()}",
+                        "-DPKG_CONFIG_EXECUTABLE=${new File(nativePrefix, 'bin/pkg-config-android')}"
+                    if (providers.gradleProperty('s2Freetype').isPresent()) {
+                        arguments "-DS2_FREETYPE_SOURCE_DIR=${providers.gradleProperty('s2Freetype').get()}"
+                    }
+                }
+                targets game ? 'Game' : 'S2SDL3BgfxProbe'
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path game ? '../CMakeLists.txt' : '../probes/sdl3-bgfx/CMakeLists.txt'
+            version '3.31.6'
+        }
+    }
+
+    sourceSets.main.java.srcDir new File(sdl, 'android-project/app/src/main/java')
+    if (game) sourceSets.main.assets.srcDir gameAssets
+}
+
+if (game) {
+    def stageGameAssets = tasks.register('stageGameAssets', Sync) {
+        from('../assets/fonts') { into 'fonts' }
+        into gameAssets
+    }
+    tasks.named('preBuild') { dependsOn stageGameAssets }
+}

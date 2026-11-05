@@ -38,6 +38,9 @@ public:
 	bool IsActive();
 	float GetDelta();
 	float GetSpeed();
+#if defined(__ANDROID__)
+	void AddTouchDelta(float delta);
+#endif
 
 	bool ProcessEvent( const NInput::SEvent &eEvent );
 };
