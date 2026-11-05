@@ -80,6 +80,8 @@ bool CInGameMenuUI::ProcessMessage( const SEvent &sEvent )
 			pReturnToGame->AddTextState( CHoverButton::STATE_DISABLED, GetDBString( 11145 ) + GetDBString( 11151 ) );
 
 			pExitToWindows = new CHoverButton( sEvent.pLoader->GetControl( "exitgame" ) );
+			pExitToWindows->SetPosition( SPoint( pReturnToGame->GetAuthoredPosition().x, pExitToWindows->GetAuthoredPosition().y ) );
+			pExitToWindows->SetSize( SPoint( pReturnToGame->GetAuthoredSize().x, pExitToWindows->GetAuthoredSize().y ) );
 			const wstring oldExitLabel = GetDBString( 11150 );
 			const bool russian = std::any_of( oldExitLabel.begin(), oldExitLabel.end(),
 				[]( wchar_t c ) { return c >= 0x400 && c <= 0x4ff; } );
