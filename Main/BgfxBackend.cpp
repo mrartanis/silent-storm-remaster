@@ -706,8 +706,10 @@ static bgfx::SwapChain GameSwapChain(unsigned width, unsigned height) {
   // Keep input latency bounded without the legacy per-frame GPU drain.
   swapChain.maxFrameLatency=2;
 #if defined(__ANDROID__)
-  // The Android surface on Redmi exposes RGBA8 for presentation.
+  // The Android SurfaceView exposes RGBA8 and inherits alpha handling.
+  // The presentation pass writes opaque pixels.
   swapChain.formatColor=bgfx::TextureFormat::RGBA8;
+  swapChain.flags|=BGFX_SWAP_CHAIN_TRANSPARENT_BACKBUFFER;
 #endif
   return swapChain;
 }

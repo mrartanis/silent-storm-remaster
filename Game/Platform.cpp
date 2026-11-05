@@ -141,7 +141,7 @@ bool S2Platform::Init(const char* title, int width, int height, bool hidden)
   // coordinates; on Retina displays they request this deterministic 1:1 mode.
   Uint32 windowFlags = SDL_WINDOW_RESIZABLE | (hidden ? SDL_WINDOW_HIDDEN : 0);
 #if defined(__ANDROID__)
-  windowFlags |= SDL_WINDOW_VULKAN;
+  windowFlags |= SDL_WINDOW_VULKAN | SDL_WINDOW_FULLSCREEN;
 #endif
   if (!std::getenv("S2_NO_HIGHDPI")) windowFlags |= SDL_WINDOW_HIGH_PIXEL_DENSITY;
   window = SDL_CreateWindow(title, width, height, windowFlags);

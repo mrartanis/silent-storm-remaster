@@ -42,7 +42,16 @@ void GetConfiguredVideoMode( int *pModeX, int *pModeY )
 bool SetModeFromConfig( bool bRecreate )
 {
 	SetHDTexturesEnabled( NGlobal::GetVar("gfx_hd_textures",1).GetInt()!=0 );
+#if defined(__ANDROID__)
+	// The desktop preset reserves 100 large cubemaps and the full lighting
+	// register set. Start Android on the lightweight renderer instead.
+	SetSpeedMode( CV_VHIGH );
+	SetTextureMode( CV_MED );
+	SetFSAAMode( CV_MED );
+	NGlobal::SetVar( "gfx_hsr", 0 );
+#else
 	ApplyMaximumQuality(); // Also overrides quality values in existing saved configurations.
+#endif
 	// retail @0x1292e0 head: the gfx_recreate path tears the device down and re-initializes
 	// before applying the mode (this is what makes an in-game resolution switch take effect)
 	if ( bRecreate )

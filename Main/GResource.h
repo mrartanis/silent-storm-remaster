@@ -54,6 +54,7 @@ public:
 };
 void ReleaseFileRequestHolder();
 bool HDTexturesEnabled();
+bool HasHDTextureDirectory();
 void SetHDTexturesEnabled( bool enabled );
 unsigned GetTextureResourceRevision();
 void AddFileRequest( CFileRequest *pReq );

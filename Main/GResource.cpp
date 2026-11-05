@@ -49,6 +49,7 @@ static std::atomic<bool> hdTexturesEnabled{true};
 static std::atomic<unsigned> textureResourceRevision{1};
 static void WaitAllPendingLoad();
 bool HDTexturesEnabled() { return hdTexturesEnabled.load(); }
+bool HasHDTextureDirectory() { return !hdDirectory.empty(); }
 unsigned GetTextureResourceRevision() { return textureResourceRevision.load(); }
 vector<string> GetNetworkResourceDirectories()
 {
