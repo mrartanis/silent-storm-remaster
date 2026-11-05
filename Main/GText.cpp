@@ -444,7 +444,7 @@ void SplitString( const wstring &wsString, list<SWString> *pParts )
 			eThisChar = CHAR_SPACE;
 		else if ( wcChar == L'\"' )
 			bBracketsBlock = !bBracketsBlock;
-		else if ( iswpunct( wcChar ) )
+		else if ( wcChar == L'=' || iswpunct( wcChar ) )
 			eThisChar = CHAR_PUNCTUATION;
 		else if ( iswalnum( wcChar ) || ( bBracketsBlock && ( wcChar == L' ' ) ) )
 			eThisChar = CHAR_ALNUM;

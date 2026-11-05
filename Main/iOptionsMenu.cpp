@@ -368,6 +368,15 @@ static const wchar_t* VideoText(const wchar_t* english, const wchar_t* russian)
 	for(wchar_t c:caption) if(c>=0x400 && c<=0x4ff) return russian;
 	return english;
 }
+#if defined(__ANDROID__)
+static constexpr const char* extraVideoControl="dynamic_shadows";
+static constexpr const char* extraVideoVar="android_dynamic_shadows";
+static constexpr const char* antialiasingVar="android_msaa";
+#else
+static constexpr const char* extraVideoControl="hd_textures";
+static constexpr const char* extraVideoVar="gfx_hd_textures";
+static constexpr const char* antialiasingVar="gfx_antialiasing";
+#endif
 static NDb::CUIContainer* MakeVideoOptionsTemplate()
 {
 	NDb::CUIContainer* original=NDb::GetUIContainer(161);
@@ -385,19 +394,19 @@ static NDb::CUIContainer* MakeVideoOptionsTemplate()
 		if(id=="fsaa_level")
 		{
 			// A separate control reuses the existing artwork and nested combo layout.
-			NDb::CUIControl* hd=new NDb::CUIControl;
-			hd->type=control->type; hd->szID="hd_textures";
-			hd->nColor=control->nColor; hd->nDepth=control->nDepth;
-			hd->bVisible=control->bVisible; hd->bDefault=false;
-			hd->bTopmost=control->bTopmost; hd->bBottommost=control->bBottommost;
-			hd->bTransparent=control->bTransparent; hd->rect=control->rect;
-			for(int n=0;n<NDb::N_CTRL_SOUNDS;++n)hd->pSounds[n]=control->pSounds[n];
-			for(int n=0;n<NDb::N_CTRL_TEXTURES;++n)hd->pTextures[n]=control->pTextures[n];
-			for(int n=0;n<NDb::N_CTRL_MODELS;++n)hd->pModels[n]=control->pModels[n];
-			hd->pString=control->pString; hd->pContainer=control->pContainer;
-			hd->pNestedUIContainer=control->pNestedUIContainer;
-			hd->toolTipAnchorType=NDb::UIA_NONE; hd->sToolTipAnchor=control->sToolTipAnchor;
-			modern->controls.push_back(hd);
+			NDb::CUIControl* extra=new NDb::CUIControl;
+			extra->type=control->type; extra->szID=extraVideoControl;
+			extra->nColor=control->nColor; extra->nDepth=control->nDepth;
+			extra->bVisible=control->bVisible; extra->bDefault=false;
+			extra->bTopmost=control->bTopmost; extra->bBottommost=control->bBottommost;
+			extra->bTransparent=control->bTransparent; extra->rect=control->rect;
+			for(int n=0;n<NDb::N_CTRL_SOUNDS;++n)extra->pSounds[n]=control->pSounds[n];
+			for(int n=0;n<NDb::N_CTRL_TEXTURES;++n)extra->pTextures[n]=control->pTextures[n];
+			for(int n=0;n<NDb::N_CTRL_MODELS;++n)extra->pModels[n]=control->pModels[n];
+			extra->pString=control->pString; extra->pContainer=control->pContainer;
+			extra->pNestedUIContainer=control->pNestedUIContainer;
+			extra->toolTipAnchorType=NDb::UIA_NONE; extra->sToolTipAnchor=control->sToolTipAnchor;
+			modern->controls.push_back(extra);
 		}
 	}
 	return modern;
@@ -420,8 +429,8 @@ private:
 	CObj<CComplexComboBox> pFullscreen;
 	CObj<CComplexComboBox> pVSync;
 	CObj<CComplexComboBox> pShowFPS;
-	CObj<CComplexComboBox> pHDTextures;
-	ZEND int operator&(CStructureSaver& f) { f.Add(1,(CEmptyOptionsUI*)this); f.Add(2,&bIgnoreNotify); f.Add(3,&pDefault); f.Add(8,&pAntialiasing); f.Add(10,&pResolution); f.Add(12,&pAnisotropicLevel); f.Add(13,&pFullscreen); f.Add(14,&pVSync); f.Add(15,&pShowFPS); f.Add(16,&pHDTextures); return 0; }
+	CObj<CComplexComboBox> pExtraVideo;
+	ZEND int operator&(CStructureSaver& f) { f.Add(1,(CEmptyOptionsUI*)this); f.Add(2,&bIgnoreNotify); f.Add(3,&pDefault); f.Add(8,&pAntialiasing); f.Add(10,&pResolution); f.Add(12,&pAnisotropicLevel); f.Add(13,&pFullscreen); f.Add(14,&pVSync); f.Add(15,&pShowFPS); f.Add(16,&pExtraVideo); return 0; }
 
 	unsigned long long displayRevision = 0;
 	bool configInitialized = false; // Combo view children are bound after template loading.
@@ -484,9 +493,9 @@ void CVideoOptionsUI::UpdateFromConfig()
 	select(pFullscreen,NGlobal::GetVar("gfx_fullscreen",0).GetInt());
 	select(pAnisotropicLevel,NGlobal::GetVar("gfx_anisotropic_filter",1).GetInt()>1?16:1);
 	select(pVSync,NGlobal::GetVar("gfx_vsync",1).GetInt()!=0);
-	select(pAntialiasing,NGlobal::GetVar("gfx_antialiasing",0).GetInt()==1?1:0);
+	select(pAntialiasing,NGlobal::GetVar(antialiasingVar,0).GetInt()==1?1:0);
 	select(pShowFPS,NGlobal::GetVar("gfx_show_fps",0).GetInt()!=0);
-	select(pHDTextures,NGlobal::GetVar("gfx_hd_textures",1).GetInt()!=0);
+	select(pExtraVideo,NGlobal::GetVar(extraVideoVar,0).GetInt()!=0);
 	configInitialized=true;
 	bIgnoreNotify=previous;
 }
@@ -494,10 +503,14 @@ void CVideoOptionsUI::ArrangeControls()
 {
 	// Obsolete fields were excluded from the template. Do not disable sibling
 	// windows here: combo drop-down lists also belong directly to this panel.
-	CComplexComboBox* combos[]={pResolution,pFullscreen,pHDTextures,pAnisotropicLevel,pVSync,pAntialiasing,pShowFPS};
+	CComplexComboBox* combos[]={pResolution,pFullscreen,pExtraVideo,pAnisotropicLevel,pVSync,pAntialiasing,pShowFPS};
 	const wchar_t* labels[]={VideoText(L"RESOLUTION",L"\u0420\u0410\u0417\u0420\u0415\u0428\u0415\u041d\u0418\u0415"),
 		VideoText(L"WINDOW MODE",L"\u0420\u0415\u0416\u0418\u041c \u041e\u041a\u041d\u0410"),
+#if defined(__ANDROID__)
+		VideoText(L"DYNAMIC SHADOWS",L"\u0414\u0418\u041d\u0410\u041c\u0418\u0427\u0415\u0421\u041a\u0418\u0415 \u0422\u0415\u041d\u0418"),
+#else
 		VideoText(L"HD TEXTURES",L"HD \u0422\u0415\u041a\u0421\u0422\u0423\u0420\u042b"),
+#endif
 		VideoText(L"ANISOTROPY",L"\u0410\u041d\u0418\u0417\u041e\u0422\u0420\u041e\u041f\u0418\u042f"),L"V-SYNC",
 		VideoText(L"ANTIALIASING",L"\u0421\u0413\u041b\u0410\u0416\u0418\u0412\u0410\u041d\u0418\u0415"),
 		VideoText(L"SHOW FPS",L"\u041f\u041e\u041a\u0410\u0417\u0410\u0422\u042c FPS")};
@@ -537,13 +550,17 @@ bool CVideoOptionsUI::ProcessMessage(const SEvent& event)
 		{
 			if(bIgnoreNotify) return true;
 			bIgnoreNotify=true;
+#if defined(__ANDROID__)
+			const int oldAA=NGlobal::GetVar(antialiasingVar,0).GetInt();
+			const int oldShadows=NGlobal::GetVar(extraVideoVar,0).GetInt();
+#endif
 			if(event.szID=="default")
 			{
 				NGlobal::ResetVar("gfx_anisotropic_filter");
 				NGlobal::ResetVar("gfx_vsync");
-				NGlobal::ResetVar("gfx_antialiasing");
+				NGlobal::ResetVar(antialiasingVar);
 				NGlobal::ResetVar("gfx_show_fps");
-				NGlobal::ResetVar("gfx_hd_textures");
+				NGlobal::ResetVar(extraVideoVar);
 			}
 			else if((IsValid(pResolution) && event.szID==pResolution->GetWindowID()) ||
 				(IsValid(pFullscreen) && event.szID==pFullscreen->GetWindowID()))
@@ -571,11 +588,20 @@ bool CVideoOptionsUI::ProcessMessage(const SEvent& event)
 			else if(IsValid(pVSync) && event.szID==pVSync->GetWindowID())
 				NGlobal::SetVar("gfx_vsync",pVSync->GetSelectedItem());
 			else if(IsValid(pAntialiasing) && event.szID==pAntialiasing->GetWindowID())
-				NGlobal::SetVar("gfx_antialiasing",pAntialiasing->GetSelectedItem());
+				NGlobal::SetVar(antialiasingVar,pAntialiasing->GetSelectedItem());
 			else if(IsValid(pShowFPS) && event.szID==pShowFPS->GetWindowID())
 				NGlobal::SetVar("gfx_show_fps",pShowFPS->GetSelectedItem());
-			else if(IsValid(pHDTextures) && event.szID==pHDTextures->GetWindowID())
-				NGlobal::SetVar("gfx_hd_textures",pHDTextures->GetSelectedItem());
+			else if(IsValid(pExtraVideo) && event.szID==pExtraVideo->GetWindowID())
+				NGlobal::SetVar(extraVideoVar,pExtraVideo->GetSelectedItem());
+#if defined(__ANDROID__)
+			if((oldAA!=NGlobal::GetVar(antialiasingVar,0).GetInt() ||
+				oldShadows!=NGlobal::GetVar(extraVideoVar,0).GetInt()) && !NGScene::SetModeFromConfig(false))
+			{
+				NGlobal::SetVar(antialiasingVar,oldAA);
+				NGlobal::SetVar(extraVideoVar,oldShadows);
+				NGScene::SetModeFromConfig(true);
+			}
+#endif
 			bIgnoreNotify=false;
 			UpdateFromConfig();
 			break;
@@ -598,11 +624,15 @@ bool CVideoOptionsUI::ProcessMessage(const SEvent& event)
 			AddToggleItems(pVSync);
 			pAntialiasing=new CComplexComboBox(event.pLoader->GetControl("smoothness"));
 			pAntialiasing->AddItem(0,CComplexComboBox::SInfo(wstring(L"<right>")+VideoText(L"Off",L"\u0412\u044b\u043a\u043b.")),171);
+#if defined(__ANDROID__)
+			pAntialiasing->AddItem(1,CComplexComboBox::SInfo(L"<right>MSAA 4x"),173);
+#else
 			pAntialiasing->AddItem(1,CComplexComboBox::SInfo(L"<right>FXAA"),173);
+#endif
 			pShowFPS=new CComplexComboBox(event.pLoader->GetControl("fsaa_level"));
 			AddToggleItems(pShowFPS);
-			pHDTextures=new CComplexComboBox(event.pLoader->GetControl("hd_textures"));
-			AddToggleItems(pHDTextures);
+			pExtraVideo=new CComplexComboBox(event.pLoader->GetControl(extraVideoControl));
+			AddToggleItems(pExtraVideo);
 			break;
 		}
 	case EVENT_TEMPLATELOADCOMPLETE:
@@ -622,7 +652,7 @@ bool SelectGraphicsOptionForDiagnostics(const string& name, int value, int heigh
 	if(!IsValid(options) || !dynamic_cast<CVideoOptionsUI*>(options)) return false;
 	if(name=="dropdown")
 	{
-		const char* fields[]={"resolution","quality","anisotropic_level","texture_quality","smoothness","fsaa_level","hd_textures"};
+		const char* fields[]={"resolution","quality","anisotropic_level","texture_quality","smoothness","fsaa_level",extraVideoControl};
 		if(value<0 || value>=7) return false;
 		CComboBox* combo=dynamic_cast<CComboBox*>(options->GetChildByID(fields[value]));
 		return IsValid(combo) && combo->ProcessMessage(SEvent(EVENT_NOTIFY,height?"list":"drop_list"));
@@ -634,7 +664,11 @@ bool SelectGraphicsOptionForDiagnostics(const string& name, int value, int heigh
 	else if(name=="vsync") control="texture_quality";
 	else if(name=="antialiasing") control="smoothness";
 	else if(name=="fps") control="fsaa_level";
-	else if(name=="hd") control="hd_textures";
+#if defined(__ANDROID__)
+	else if(name=="shadows") control=extraVideoControl;
+#else
+	else if(name=="hd") control=extraVideoControl;
+#endif
 	if(!control) return false;
 	CComplexComboBox* combo=dynamic_cast<CComplexComboBox*>(options->GetChildByID(control));
 	if(!IsValid(combo)) return false;

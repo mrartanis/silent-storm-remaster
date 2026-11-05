@@ -860,8 +860,8 @@ void CML::Generate( NGScene::I2DGameView *pView, int nWidth )
 			bBracketsBlock = !bBracketsBlock;
 		else if ( iswalnum( wcChar ) != 0 )
 			eThisChar = CHAR_ALNUM;
-		else if ( iswpunct( wcChar ) )
-			eThisChar = bTAG ? CHAR_PUNCTUATION : CHAR_ALNUM; //// CRAP: Tag need separate '='
+		else if ( wcChar == L'=' || iswpunct( wcChar ) )
+			eThisChar = bTAG ? CHAR_PUNCTUATION : CHAR_ALNUM; // Tag assignment is independent of locale.
 		else if  ( !bBracketsBlock && ( wcChar == L' ' ) )
 			eThisChar = CHAR_SPACE;
 		else if  ( bBracketsBlock && ( wcChar == L' ' ) )

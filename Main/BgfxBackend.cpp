@@ -117,12 +117,13 @@ struct BgfxTextureStorage {
   bool cube, system;
   bgfx::TextureHandle handle = BGFX_INVALID_HANDLE;
   std::vector<std::vector<unsigned char>> pixels;
-  BgfxTextureStorage(unsigned w, unsigned h, unsigned l, D3DFORMAT f, bool c, bool s, bool target)
+  BgfxTextureStorage(unsigned w, unsigned h, unsigned l, D3DFORMAT f, bool c, bool s, bool target,
+                     uint64_t renderTargetFlags = BGFX_TEXTURE_RT)
       : width(w), height(h), levels(l ? l : 1), epoch(activeEpoch), format(f), cube(c), system(s) {
     if (!l) { unsigned size = std::max(w,h); while (size > 1) { ++levels; size >>= 1; } }
     pixels.resize(levels * (cube ? 6 : 1));
     if (!system) {
-      uint64_t flags = target ? BGFX_TEXTURE_RT : 0;
+      uint64_t flags = target ? renderTargetFlags : 0;
       if (!cube && !target) flags |= BGFX_TEXTURE_BLIT_DST;
       const auto native = TextureFormat(format);
       if (!bgfx::isTextureValid(0, cube, 1, native, flags)) throw std::runtime_error("Unsupported GPU texture format/usage");
@@ -794,8 +795,16 @@ bool BgfxDevice::Resize(unsigned w,unsigned h) {
     bgfx::reset(impl->resetFlags,&swapChain);
     impl->width=w;impl->height=h;
     impl->antialiasedScene=0;
-    impl->screenColor.Create(new BgfxSurface(std::make_shared<BgfxTextureStorage>(w,h,1,D3DFMT_A8R8G8B8,false,false,true)));
-    impl->screenDepth.Create(new BgfxSurface(std::make_shared<BgfxTextureStorage>(w,h,1,D3DFMT_D24S8,false,false,true)));
+    uint64_t targetFlags = BGFX_TEXTURE_RT;
+    uint64_t depthFlags = BGFX_TEXTURE_RT;
+#if defined(__ANDROID__)
+    if(NGlobal::GetVar("android_msaa",0).GetInt() != 0) {
+      targetFlags = BGFX_TEXTURE_RT_MSAA_X4;
+      depthFlags = BGFX_TEXTURE_RT_MSAA_X4 | BGFX_TEXTURE_RT_WRITE_ONLY;
+    }
+#endif
+    impl->screenColor.Create(new BgfxSurface(std::make_shared<BgfxTextureStorage>(w,h,1,D3DFMT_A8R8G8B8,false,false,true,targetFlags)));
+    impl->screenDepth.Create(new BgfxSurface(std::make_shared<BgfxTextureStorage>(w,h,1,D3DFMT_D24S8,false,false,true,depthFlags)));
     impl->color=impl->screenColor;impl->depth=impl->screenDepth;
     return true;
   }catch(const std::exception& e){impl->Fail(e.what());return false;}
