@@ -1,8 +1,9 @@
 #pragma once
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
-#include <iterator>
 #include <map>
 
 namespace NInput {
@@ -17,6 +18,7 @@ public:
     Point pan{};
     float zoom = 0;
     float yaw = 0;
+    float tilt = 0;
   };
 
   void Reset() { fingers.clear(); }
@@ -36,14 +38,17 @@ public:
         moved = multiple = false;
       } else {
         multiple = true;
+        startedOnMap = startedOnMap && cameraAllowed;
       }
       fingers.emplace(finger, point);
+      if (fingers.size() == 2) BeginPair();
       return multiple ? Gesture{} : Gesture{Action::Aim, point};
     }
     auto contact = fingers.find(finger);
     if (contact == fingers.end()) return {};
     if (phase == Phase::Up) {
       fingers.erase(contact);
+      if (fingers.size() == 2) BeginPair();
       if (multiple || moved || Distance(point, start) >= dragThreshold) return {};
       const bool held = milliseconds >= pressedAt && milliseconds - pressedAt >= holdMilliseconds;
       return {held && startedOnMap && cameraAllowed ? Action::Context : Action::Tap, point};
@@ -55,20 +60,8 @@ public:
       moved = moved || Distance(point, start) >= dragThreshold;
       return {};
     }
-    if (fingers.size() == 2) {
-      const auto other = contact == fingers.begin() ? std::next(contact) : fingers.begin();
-      const Point before = Delta(previous, other->second);
-      const Point after = Delta(point, other->second);
-      const float oldDistance = std::hypot(before.x, before.y);
-      const float newDistance = std::hypot(after.x, after.y);
-      Gesture gesture{Action::Camera, point, {(point.x - previous.x) / 2, (point.y - previous.y) / 2}};
-      if (oldDistance >= dragThreshold && newDistance >= dragThreshold) {
-        gesture.zoom = std::log(newDistance / oldDistance);
-        gesture.yaw = std::atan2(before.x * after.y - before.y * after.x,
-                                 before.x * after.x + before.y * after.y);
-      }
-      return gesture;
-    }
+    if (fingers.size() == 2)
+      return UpdatePair(point, milliseconds);
     // After a pinch, the remaining finger cannot initiate a tap or a new drag.
     if (multiple) return {};
     if (!moved && Distance(point, start) < dragThreshold) return {};
@@ -78,12 +71,71 @@ public:
   }
 
 private:
+  using Pair = std::array<Point, 2>;
+  enum class PairMode { Pending, Tilt, Transform };
   static constexpr float dragThreshold = 12;
   static constexpr std::uint64_t holdMilliseconds = 450;
+  static constexpr std::uint64_t pairDecisionMilliseconds = 48;
   static Point Delta(Point a, Point b) { return {a.x - b.x, a.y - b.y}; }
   static float Distance(Point a, Point b) { return std::hypot(a.x - b.x, a.y - b.y); }
+  Pair CurrentPair() const { return {fingers.begin()->second, fingers.rbegin()->second}; }
+
+  void BeginPair() {
+    pair = CurrentPair();
+    pairMode = PairMode::Pending;
+    firstPairMotion = 0;
+  }
+
+  Gesture UpdatePair(Point point, std::uint64_t milliseconds) {
+    const Pair current = CurrentPair();
+    const Point a = Delta(current[0], pair[0]);
+    const Point b = Delta(current[1], pair[1]);
+    const Point center{(a.x + b.x) / 2, (a.y + b.y) / 2};
+    if (pairMode == PairMode::Pending) {
+      const float aTravel = Distance(a, {});
+      const float bTravel = Distance(b, {});
+      if ((std::max)(aTravel, bTravel) < dragThreshold) return {};
+      if (!firstPairMotion) firstPairMotion = milliseconds;
+
+      // SDL reports a separate move for each finger. Decide using both fingers'
+      // displacement from touch-down so a vertical drag cannot start as a twist.
+      const float vertical = std::abs(center.y);
+      if (vertical >= dragThreshold && std::abs(center.x) < 0.65f * vertical &&
+          Distance(a, b) < vertical) {
+        pairMode = PairMode::Tilt;
+      } else if ((std::min)(aTravel, bTravel) >= dragThreshold / 2 &&
+                 (a.y * b.y <= 0 || std::abs(center.x) >= vertical)) {
+        pairMode = PairMode::Transform;
+      } else if (milliseconds - firstPairMotion >= pairDecisionMilliseconds) {
+        pairMode = PairMode::Transform;
+      } else {
+        return {};
+      }
+    }
+
+    Gesture gesture{Action::Camera, point};
+    if (pairMode == PairMode::Tilt) {
+      gesture.tilt = center.y;
+    } else {
+      gesture.pan = center;
+      const Point before = Delta(pair[1], pair[0]);
+      const Point after = Delta(current[1], current[0]);
+      const float oldDistance = Distance(before, {});
+      const float newDistance = Distance(after, {});
+      if (oldDistance >= dragThreshold && newDistance >= dragThreshold) {
+        gesture.zoom = std::log(newDistance / oldDistance);
+        gesture.yaw = std::atan2(before.x * after.y - before.y * after.x,
+                                 before.x * after.x + before.y * after.y);
+      }
+    }
+    pair = current;
+    return gesture;
+  }
 
   std::map<std::uint64_t, Point> fingers;
+  Pair pair{};
+  PairMode pairMode = PairMode::Pending;
+  std::uint64_t firstPairMotion = 0;
   Point start;
   std::uint64_t pressedAt = 0;
   bool startedOnMap = false;

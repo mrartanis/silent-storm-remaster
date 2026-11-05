@@ -324,6 +324,7 @@ void CBaseCamera::ProcessEvent( const NInput::SEvent &eEvent )
 		fwd.AddTouchDelta(gesture.pan.y * 0.0025f);
 		zoom.AddTouchDelta(-gesture.zoom);
 		rotate.AddTouchDelta(gesture.yaw);
+		pitch.AddTouchDelta(gesture.tilt * 0.003f);
 		if ( !bMustUnlockDueToUserDecision )
 		{
 			bUserJustWantedToUnlock = true;
