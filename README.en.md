@@ -1,17 +1,14 @@
 # Silent Storm Remaster
 
-Development moved here on 24 October 2026: **[mrartanis/silent-storm-remaster](https://github.com/mrartanis/silent-storm-remaster)**.
-The rewritten history excludes loose PNGs; frozen source and runtime archives use LFS.
-Existing v0.1 and hd-v0.1 releases remain [in the previous repository](https://github.com/mrartanis/Silent-Storm-Reconstruction/releases).
-
-
 *[Русский](README.md) | English*
 
-Reconstruction and modernization of the **Silent Storm v1.2** engine, based on
-[Nival's source code](https://github.com/nival/Silent-Storm), v1.1 PDB files
-(RussianPatch1) and analysis of the v1.2 release. The original Silent Storm
-source code belongs to Nival. This project aims to preserve the original game's
-behavior while bringing its engine to modern 64-bit systems.
+Reconstruction and modernization of the **Silent Storm v1.2** engine for
+modern 64-bit systems. This project builds on [Silent Storm Reconstruction](https://github.com/met-nikita/Silent-Storm-Reconstruction)
+and uses the [Silent Storm source code published by Nival](https://github.com/nival/Silent-Storm).
+The reconstruction also draws on the v1.1 PDB files (RussianPatch1) and
+analysis of the v1.2 release. Nival owns the original game's source code.
+
+The v0.1 and hd-v0.1 releases are also available [in the previous fork's archive](https://github.com/mrartanis/Silent-Storm-Reconstruction/releases).
 
 ## What has been implemented
 

@@ -104,8 +104,7 @@ Windows x64 CTest — 26/26, Linux x86-64 и ARM64/QEMU под ASan/UBSan —
 Повторение выборки: `diagnostics/Test-PackageParity.ps1 -GameRoot
 G:\SS\lab\baseline` (пути к трём пробам можно переопределить параметрами).
 
-На предоставленном Linux-хосте `artanis.c.ibgene.org` (x86-64,
-GCC 11.4) тот же оригинальный `Fonts.res` с той же SHA-256 прочитан
+На Linux x86-64 с GCC 11.4 тот же оригинальный `Fonts.res` с той же SHA-256 прочитан
 `PortablePackageProbe`, собранным с `-std=c++17 -Wall -Wextra -Werror
 -fsanitize=address,undefined -fno-omit-frame-pointer`; все 18 пар
 длина/FNV-1a-64 совпали с Windows и старым x86-загрузчиком. ASan/UBSan

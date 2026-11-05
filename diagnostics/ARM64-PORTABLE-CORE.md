@@ -1,7 +1,7 @@
 # Этап 2: ARM64-проверка переносимых модулей
 
-2026-09-24, исходный коммит `c4c80be`. На разрешённом Linux-хосте
-`artanis.c.ibgene.org` (Ubuntu 22.04, x86-64) установлены
+Проверка исходного коммита `c4c80be` выполнена на Ubuntu 22.04 x86-64.
+Из системных пакетов установлены
 `g++-aarch64-linux-gnu`, `qemu-user-static`, `cmake` и `ninja-build` из
 репозиториев Ubuntu. `git archive HEAD` распакован в изолированный
 `/tmp/s2-arm64.8vX0vt/src`; лицензионные `game.db` и `Fonts.res` передавались

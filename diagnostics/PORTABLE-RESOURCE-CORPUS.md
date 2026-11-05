@@ -56,25 +56,21 @@ $cmake='G:\SS\lab\tools\VS2022\Common7\IDE\CommonExtensions\Microsoft\CMake\CMak
 & 'G:\SS\lab\build-x64\RelWithDebInfo\PortablePackageCorpusProbe.exe' 'G:\SteamLibrary\steamapps\common\Silent Storm\res'
 ```
 
-На `artanis.c.ibgene.org` только эти 23 файла были скопированы в
-`/tmp/s2-steam-res.rjIGfU/res`: число архивов и сумма размеров совпали,
-23/23 SHA-256 равны файлам установленной Steam-версии. Linux x86-64 и
+Эти 23 файла скопированы в отдельный каталог на Linux. Число архивов,
+сумма размеров и все 23 SHA-256 совпали с установленной Steam-версией. Linux x86-64 и
 ARM64/QEMU под ASan/UBSan (`ASAN_OPTIONS=detect_leaks=0`) прочли весь
 корпус с кодом возврата 0. Все 24 строки (23 архива и итог) совпали с
-Windows x64 дословно после нормализации перевода строк. Повторение до
-удаления временной копии:
+Windows x64 дословно после нормализации перевода строк. Для повтора укажите
+путь к папке ресурсов оригинальной игры в `S2_RES_DIR`.
 
 ```sh
-ASAN_OPTIONS=detect_leaks=0 /tmp/s2-matrix-links.zCkO0O/build-x64/PortablePackageCorpusProbe /tmp/s2-steam-res.rjIGfU/res
+ASAN_OPTIONS=detect_leaks=0 ./build-x64/PortablePackageCorpusProbe "$S2_RES_DIR"
 ASAN_OPTIONS=detect_leaks=0 qemu-aarch64-static -L /usr/aarch64-linux-gnu \
-  /tmp/s2-matrix-links.zCkO0O/build-arm64/PortablePackageCorpusProbe /tmp/s2-steam-res.rjIGfU/res
+  ./build-arm64/PortablePackageCorpusProbe "$S2_RES_DIR"
 ```
 
-Копировать следует только 23 файла `*.res`, не служебные распакованные
-деревья из `res`. Временная Linux-копия после проверки удалена из
-`/tmp/s2-steam-res.rjIGfU`; оригинальная установка Steam не менялась.
-Для повторения заново создать временную директорию и передать туда
-исходные `.res` из Steam, затем проверить все SHA-256.
+Для переноса ресурсов на отдельную машину достаточно 23 исходных файлов
+`*.res`. После копирования проверьте их SHA-256.
 
 Граница проверки: охвачены все индексные записи 23 архивов базовой игры.
 Это не проверяет loose-файлы, моды, декодирование изображений/звука,

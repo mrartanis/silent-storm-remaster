@@ -1,6 +1,6 @@
 # Linux Clang headless world gate (stage 2)
 
-Clang 14 on `artanis.c.ibgene.org` was used as an additional compiler check
+Clang 14 was used as an additional compiler check
 for the game-used headless `CWorld` path. This is not a Linux graphical
 `Game.exe`, a macOS check, or a substitute for the GCC x86-64/ARM64 matrix.
 

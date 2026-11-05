@@ -41,5 +41,9 @@ Linux x86-64 и ARM64/QEMU по 38/38 с ASan/UBSan. Чистый x64-архив
 ```powershell
 & 'G:\SS\lab\tools\VS2022\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\ctest.exe' --test-dir D:\SS-lab\build-x64-stage2 -C RelWithDebInfo --output-on-failure -j 16
 & 'G:\SS\lab\tools\VS2022\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\ctest.exe' --test-dir D:\SS-lab\build-x86-stage2 -C RelWithDebInfo -R SquareMove --output-on-failure
-ssh artanis.c.ibgene.org 'ASAN_OPTIONS=detect_leaks=0 ctest --test-dir /tmp/s2-matrix-links.zCkO0O/build-x64 --output-on-failure -j 16 && ASAN_OPTIONS=detect_leaks=0 ctest --test-dir /tmp/s2-matrix-links.zCkO0O/build-arm64 --output-on-failure -j 4'
+```
+
+```sh
+ASAN_OPTIONS=detect_leaks=0 ctest --test-dir build-x64 --output-on-failure
+ASAN_OPTIONS=detect_leaks=0 ctest --test-dir build-arm64 --output-on-failure
 ```

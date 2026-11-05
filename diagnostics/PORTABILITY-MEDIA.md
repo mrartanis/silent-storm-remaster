@@ -11,7 +11,7 @@ macOS или полной Linux-сборки игры. Проверка на н�
 
 ## Переносимый модуль
 
-На `artanis.c.ibgene.org` (Linux x86-64, GCC 11.4) CMake собирает
+На Linux x86-64 с GCC 11.4 CMake собирает
 `s2_portable_core`: нативные декодеры/вычисления LifeStudio и FaceGen без
 Windows SDK и оригинальных DLL. Четыре синтетических CTest проходят.
 Windows/x64 и Windows/x86 `Game` после изменения CMake собираются; четыре

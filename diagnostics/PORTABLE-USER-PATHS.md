@@ -14,7 +14,6 @@ macOS — `HOME/Library/Application Support/Silent Storm Reconstruction`.
 
 `PortableUserPathsTests` прошёл на Windows x64 (`ctest -C RelWithDebInfo`) и
 Linux x86-64 (`g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined`).
-Linux-проба лежала в `/tmp/s2-userpaths.hiYMCj` на `artanis.c.ibgene.org`.
 
 `CSaveManager` теперь использует этот корень для всех профилей, слотов и
 вспомогательных файлов `temp`. Ресурсы и `game.db` остаются в каталоге игры.
