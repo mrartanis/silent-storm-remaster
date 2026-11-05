@@ -1260,9 +1260,13 @@ static CTextureCache textureCache, transparentCache;
 static void EnsureTransparentTextureCache()
 {
 	// Crowns, grass sheets and other sprites share one texture in the renderer.
-	// HD sheets need room to coexist. With only original assets, use the
-	// original cache size even when the HD option is enabled in the config.
-	const int size=NGScene::HDTexturesEnabled() && NGScene::HasHDTextureDirectory()?4096:1024;
+	// HD sheets need room to coexist. Android uses the original cache size
+	// when there is no HD pack.
+	bool useHDCache=NGScene::HDTexturesEnabled();
+#if defined(__ANDROID__)
+	useHDCache=useHDCache && NGScene::HasHDTextureDirectory();
+#endif
+	const int size=useHDCache?4096:1024;
 	CTB* existing=transparentCache.GetTB();
 	if(!IsValid(existing) || existing->GetXSize()!=size)
 		transparentCache.Init(new CTB(size,size,4,PixelID2D3DFormat(SPixel8888::ID),REGULAR));

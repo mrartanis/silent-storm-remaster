@@ -498,7 +498,7 @@ void CVideoOptionsUI::UpdateFromConfig()
 #if !defined(__ANDROID__)
 	select(pResolution,GetCurrentResolution());
 	select(pFullscreen,NGlobal::GetVar("gfx_fullscreen",0).GetInt());
-	select(pExtraVideo,NGlobal::GetVar(extraVideoVar,0).GetInt()!=0);
+	select(pExtraVideo,NGlobal::GetVar(extraVideoVar,1).GetInt()!=0);
 #else
 	const int scale=NGlobal::GetVar("android_render_scale",100).GetInt();
 	select(pRenderScale,scale==75 || scale==50 ? scale : 100);

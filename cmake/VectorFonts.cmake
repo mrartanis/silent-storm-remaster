@@ -25,6 +25,14 @@ add_executable(VectorFontTests "${root}/diagnostics/VectorFontTests.cpp")
 target_link_libraries(VectorFontTests PRIVATE s2_vector_fonts)
 add_test(NAME VectorFontTests COMMAND VectorFontTests "${root}/assets/fonts")
 function(s2_copy_fonts target)
-  add_custom_command(TARGET ${target} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory "${root}/assets/fonts" "$<TARGET_FILE_DIR:${target}>/fonts")
+  if(ANDROID)
+    return() # Gradle packages the font assets in the APK.
+  endif()
+  # Game and its graphics tests share one runtime directory per configuration.
+  if(NOT TARGET s2_runtime_fonts)
+    add_custom_target(s2_runtime_fonts
+      COMMAND ${CMAKE_COMMAND} -E copy_directory "${root}/assets/fonts" "$<TARGET_FILE_DIR:${target}>/fonts"
+      VERBATIM)
+  endif()
+  add_dependencies(${target} s2_runtime_fonts)
 endfunction()
