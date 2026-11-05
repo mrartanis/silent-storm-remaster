@@ -5,6 +5,10 @@ plugins {
 def deps = file(providers.gradleProperty('s2Deps').get())
 def sdl = new File(deps, 'SDL3-3.4.16')
 def game = providers.gradleProperty('s2Game').isPresent()
+def abi = providers.gradleProperty('s2Abi').getOrElse('arm64-v8a')
+if (game && abi != 'arm64-v8a') {
+    throw new GradleException('The game dependencies are built for ARM64')
+}
 def nativePrefix = new File(deps, 'android-arm64')
 def gameAssets = layout.buildDirectory.dir('generated/game-assets')
 
@@ -18,9 +22,9 @@ android {
         manifestPlaceholders = [appLabel: game ? 'Silent Storm' : 'Silent Storm Probe']
         minSdk 28
         targetSdk 36
-        versionCode 1
-        versionName '0.1'
-        ndk { abiFilters 'arm64-v8a' }
+        versionCode providers.gradleProperty('s2VersionCode').getOrElse('1').toInteger()
+        versionName providers.gradleProperty('s2VersionName').getOrElse('0.1')
+        ndk { abiFilters abi }
         externalNativeBuild {
             cmake {
                 arguments '-DANDROID_STL=c++_shared',
@@ -75,6 +79,10 @@ android {
 if (game) {
     def stageGameAssets = tasks.register('stageGameAssets', Sync) {
         from('../assets/fonts') { into 'fonts' }
+        from(new File(deps, 'android-notices')) { into 'licenses' }
+        from('../LICENSE.md') { into 'licenses' }
+        from('THIRD_PARTY.md') { into 'licenses' }
+        from(new File(deps, 'miniaudio.h')) { into 'licenses' }
         into gameAssets
     }
     tasks.named('preBuild') { dependsOn stageGameAssets }

@@ -101,7 +101,7 @@ scenarios and remaining differences.
 
 ## Build
 
-Installing a ready-made release, Steam data and HD: [Russian guide](INSTALLATION_RU.md).
+Installation guides for [desktop](INSTALLATION_EN.md) and [Android](android/README.en.md).
 
 Engine releases are separate from original game data and the HD pack. The
 **Engine CI and release** workflow builds Windows x64, Linux x64 and macOS ARM64

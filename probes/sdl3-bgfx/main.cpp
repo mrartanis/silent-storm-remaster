@@ -1,6 +1,7 @@
 #include <SDL3/SDL.h>
 #if defined(__ANDROID__)
 #include <SDL3/SDL_main.h>
+#include "../../Game/AndroidSwapChain.h"
 #include "../../Game/Platform.h"
 #include "../../Input/TouchGestures.h"
 #endif
@@ -13,6 +14,28 @@
 namespace {
 constexpr int kWidth = 640;
 constexpr int kHeight = 360;
+constexpr uint32_t clearColor = 0x25314bff;
+#if defined(__ANDROID__)
+bgfx::SwapChain AndroidSwapChain()
+{
+  int width = 0, height = 0;
+  S2Platform::SurfaceSize(&width, &height);
+  bgfx::SwapChain swapChain;
+  swapChain.nwh = S2Platform::NativeWindow();
+  swapChain.width = width;
+  swapChain.height = height;
+  swapChain.formatColor = bgfx::TextureFormat::RGBA8;
+  swapChain.flags = BGFX_SWAP_CHAIN_TRANSPARENT_BACKBUFFER;
+  return swapChain;
+}
+
+void RebindAndroidSurface()
+{
+  const auto swapChain = AndroidSwapChain();
+  S2Android::RebindSwapChain(BGFX_RESET_VSYNC, swapChain);
+  bgfx::setViewRect(0, 0, 0, swapChain.width, swapChain.height);
+}
+#endif
 
 bool attachWindow(SDL_Window* window, bgfx::Init& init)
 {
@@ -94,10 +117,13 @@ int main(int argc, char** argv)
   int width = kWidth, height = kHeight;
 #if defined(__ANDROID__)
   init.type = bgfx::RendererType::Vulkan;
-  SDL_GetWindowSizeInPixels(window, &width, &height);
-#endif
+  init.swapChain = AndroidSwapChain();
+  width = init.swapChain.width;
+  height = init.swapChain.height;
+#else
   init.swapChain.width = width;
   init.swapChain.height = height;
+#endif
   init.reset = BGFX_RESET_VSYNC;
   if (!headless && !attachWindow(window, init)) {
     std::fprintf(stderr, "No native window handle for SDL driver %s\n",
@@ -122,22 +148,36 @@ int main(int argc, char** argv)
   NInput::TouchGestures touch;
   using Phase = NInput::TouchGestures::Phase;
   using Action = NInput::TouchGestures::Action;
+  bool resumePending = false;
   const auto* caps = bgfx::getCaps();
   for (const auto format : {bgfx::TextureFormat::BC1, bgfx::TextureFormat::BC2, bgfx::TextureFormat::BC3,
                             bgfx::TextureFormat::ETC2A, bgfx::TextureFormat::ASTC4x4}) {
     SDL_Log("Texture format %d caps: 0x%x", static_cast<int>(format), caps->formats[format]);
   }
 #endif
-  bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x25314bff, 1.0f, 0);
+  bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, clearColor, 1.0f, 0);
   bgfx::setViewRect(0, 0, 0, width, height);
   int submitted = 0;
-  for (int i = 0; i < (headless ? 3 : frames); ++i) {
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-      if (event.type == SDL_EVENT_QUIT) i = frames;
+  bool exiting = false;
+  while (!exiting && submitted < (headless ? 3 : frames)) {
 #if defined(__ANDROID__)
+    S2Platform::PumpEvents();
+    if (S2Platform::Exiting()) break;
+    if (S2Platform::TakeBackgroundSaveRequest()) {
+      resumePending = true;
+      touch.Reset();
+      SDL_Log("Android probe background");
+    }
+    if (S2Platform::Backgrounded() ||
+        (resumePending && !S2Platform::RefreshAndroidSurface(RebindAndroidSurface))) {
+      SDL_Delay(20);
+      continue;
+    }
+    S2Platform::InputEvent input;
+    while (S2Platform::PollInput(&input)) {
+      const SDL_Event& event = input.event;
       if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) touch.Reset();
-      if (event.type == SDL_EVENT_KEY_DOWN && event.key.scancode == SDL_SCANCODE_AC_BACK) i = frames;
+      if (event.type == SDL_EVENT_KEY_DOWN && event.key.scancode == SDL_SCANCODE_AC_BACK) exiting = true;
       if (event.type < SDL_EVENT_FINGER_DOWN || event.type > SDL_EVENT_FINGER_CANCELED) continue;
       const auto& finger = event.tfinger;
       const auto phase = event.type == SDL_EVENT_FINGER_DOWN ? Phase::Down
@@ -145,23 +185,37 @@ int main(int argc, char** argv)
           : event.type == SDL_EVENT_FINGER_CANCELED ? Phase::Cancel : Phase::Move;
       const auto gesture = touch.Update(phase, finger.fingerID, {finger.x * width, finger.y * height},
                                         finger.timestamp / SDL_NS_PER_MS, true);
-      if (gesture.action == Action::Tap || gesture.action == Action::Context)
-        SDL_Log("%s at %.0f, %.0f", gesture.action == Action::Tap ? "Tap" : "Context",
-                gesture.point.x, gesture.point.y);
+      if (gesture.action == Action::Tap)
+        SDL_Log("Android probe tap");
       if (gesture.action == Action::Camera)
         bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x43825bff, 1.0f, 0);
       if (phase == Phase::Up || phase == Phase::Cancel)
-        bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x25314bff, 1.0f, 0);
-#endif
+        bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, clearColor, 1.0f, 0);
     }
-    if (i >= frames) break;
+    if (touch.PollHold(SDL_GetTicks())) SDL_Log("Android probe hold");
+#else
+    SDL_Event event;
+    while (SDL_PollEvent(&event))
+      if (event.type == SDL_EVENT_QUIT) exiting = true;
+#endif
+    if (exiting) break;
     bgfx::touch(0);
     bgfx::frame();
     ++submitted;
+#if defined(__ANDROID__)
+    if (submitted == 1) SDL_Log("Android probe first frame");
+    if (resumePending) {
+      SDL_Log("Android probe resumed");
+      resumePending = false;
+    }
+#endif
     if (!headless) SDL_Delay(16);
   }
   std::printf("submitted %d frames\n", submitted);
   bgfx::shutdown();
   destroyWindow();
+#if defined(__ANDROID__)
+  SDL_Log("Android probe normal exit");
+#endif
   return 0;
 }

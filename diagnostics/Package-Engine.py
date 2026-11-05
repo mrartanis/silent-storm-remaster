@@ -65,6 +65,7 @@ def package(args):
         shutil.copytree(ROOT / 'assets/fonts', stage / 'fonts')
         copy(ROOT / 'packaging/README-engine.txt', stage / 'README.txt')
         copy(ROOT / 'INSTALLATION_RU.md', stage / 'INSTALLATION_RU.md')
+        copy(ROOT / 'INSTALLATION_EN.md', stage / 'INSTALLATION_EN.md')
         copy(ROOT / 'LICENSE.md', stage / 'LICENSE.md')
         runtime = stage if args.platform == 'windows' else stage / 'lib'
         runtime.mkdir(exist_ok=True)

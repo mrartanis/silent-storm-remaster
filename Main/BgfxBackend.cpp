@@ -9,6 +9,9 @@
 #include "GameShaders.h"
 #include "../Misc/Win32Helper.h"
 #include "../Game/Platform.h"
+#if defined(__ANDROID__)
+#include "../Game/AndroidSwapChain.h"
+#endif
 #include "../MiscDll/Commands.h"
 #undef min
 #undef max
@@ -823,11 +826,8 @@ bool BgfxDevice::Resize(unsigned w,unsigned h) {
 #if defined(__ANDROID__)
 void BgfxDevice::RebindAndroidSurface() {
   const auto swapChain=GameSwapChain(impl->width,impl->height);
-  bgfx::reset(impl->resetFlags,&swapChain);
+  S2Android::RebindSwapChain(impl->resetFlags,swapChain);
   impl->outputWidth=swapChain.width;impl->outputHeight=swapChain.height;
-  // Let the render thread apply the reset before SDL's old surface is released.
-  bgfx::frame();
-  bgfx::frame();
 }
 #endif
 bool BgfxDevice::Healthy() const {return impl->initialized && impl->healthy;}

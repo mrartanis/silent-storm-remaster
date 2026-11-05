@@ -1,55 +1,50 @@
-# Android ARM64
+# Silent Storm Remaster для Android
 
-Основной стенд — Redmi Note 12 4G. Сборка использует SDK 36, NDK r28c,
-CMake 3.31.6, JDK 17 и Gradle 8.12 из поставки SDL3.
+[English](README.en.md)
 
-## Проверка платформы
+## Установка
 
-Подготовьте зависимости существующим скриптом `.github/scripts/prepare-deps.py`
-для Linux. Передайте абсолютный путь к каталогу через `S2_DEPS` и задайте
-`ANDROID_HOME` для установленного SDK.
+1. Скачайте `silent-storm-engine-<версия>-android-arm64.apk` из [релизов движка](https://github.com/mrartanis/silent-storm-remaster/releases). Требуется устройство ARM64 с Android 9 или новее и Vulkan. Порт проверялся на Redmi Note 12 4G.
+2. Установите APK. Система может попросить разрешить установку приложений из источника, через который вы открыли файл. При подключённом телефоне также можно выполнить `adb install -r silent-storm-engine-<версия>-android-arm64.apk`, подставив имя скачанного файла.
+3. Найдите на компьютере установленную **Silent Storm 1.2** из вашей копии [Steam](https://store.steampowered.com/app/254960/Silent_Storm_Gold_Edition/) или [GOG](https://www.gog.com/en/game/silent_storm_gold). В Gold Edition выберите основную Silent Storm. Нужна папка с `game.db`, `start.cfg`, `tree.mma` и папками `cfg`, `res`, `scripts`.
 
-```sh
-bash "$S2_DEPS/SDL3-3.4.16/android-project/gradlew" -p android \
-  -Ps2Deps="$S2_DEPS" assembleDebug
-adb install -r android/build/outputs/apk/debug/SilentStormAndroid-debug.apk
-adb shell am start -n org.silentstorm.remaster.probe/org.libsdl.app.SDLActivity
+APK содержит движок и шрифты. Для Android используются оригинальные текстуры.
+
+## Куда скопировать ресурсы
+
+Перенесите перечисленные файлы и папки целиком во внутреннюю память телефона. `game.db` должен лежать прямо в каталоге `files`.
+
+```text
+Android/data/org.silentstorm.remaster/files/
+  game.db
+  start.cfg
+  tree.mma
+  cfg/
+  res/
+  scripts/
 ```
 
-Сине-серый экран подтверждает вывод кадра, зелёный показывает жест камеры.
-В журнале SDL видны результат инициализации Vulkan, форматы текстур, касания и
-удержания. Кнопка «Назад» завершает проверку.
-
-## Сборка игры
-
-Добавьте `-Ps2Game` и `-Ps2Shaderc=/absolute/path/to/shaderc` к команде сборки.
-`shaderc` должен быть собран для компьютера, на котором запускается сборка.
-В `$S2_DEPS/android-arm64` нужны ARM64-библиотеки FFmpeg, GNU libiconv, libpng, zlib и
-libgsf с его зависимостями. `bin/pkg-config-android` в этом каталоге должен
-искать `.pc` в каталоге целевых библиотек. Можно передать локальные исходники
-FreeType 2.14.3 через `-Ps2Freetype=/absolute/path/to/freetype`.
-
-Для отладочного запуска установите APK и импортируйте оригинальные данные
-с компьютера. `S2_GAME_DATA` указывает на каталог оригинальной игры.
+На Android доступ к `Android/data` из файлового менеджера может быть ограничен. Для переноса с компьютера установите [Android Platform Tools](https://developer.android.com/tools/releases/platform-tools), включите на телефоне отладку по USB и подтвердите подключение компьютера. В терминале перейдите в папку оригинальной игры и выполните:
 
 ```sh
-adb shell mkdir -p /data/local/tmp/s2-import
-adb push "$S2_GAME_DATA/game.db" "$S2_GAME_DATA/start.cfg" "$S2_GAME_DATA/tree.mma" \
-  "$S2_GAME_DATA/cfg" "$S2_GAME_DATA/res" "$S2_GAME_DATA/scripts" /data/local/tmp/s2-import/
-adb shell run-as org.silentstorm.remaster mkdir -p files/game-upload
-adb shell 'set -o pipefail; cd /data/local/tmp/s2-import &&
-  tar -cf - game.db start.cfg tree.mma cfg res scripts |
-  run-as org.silentstorm.remaster tar -xf - -C files/game-upload'
-adb shell 'run-as org.silentstorm.remaster sh -c "test ! -e files/game && mv files/game-upload files/game"'
+adb devices
+adb shell mkdir -p /sdcard/Android/data/org.silentstorm.remaster/files
+adb push game.db start.cfg tree.mma cfg res scripts /sdcard/Android/data/org.silentstorm.remaster/files/
 ```
 
-Для сетевой игры нужен `network-version.txt` из репозитория в `files/game`.
-Сохранения и настройки хранятся отдельно, в `files`.
+После переноса откройте Silent Storm на телефоне. Для сетевой игры также скопируйте в `files` файл [network-version.txt](../network-version.txt) из той же версии движка.
 
-## Управление
+Релизные APK подписываются одним ключом. Для обновления установите новый APK поверх старого, чтобы сохранить данные. У ранее установленных отладочных APK может быть другая подпись. Android потребует удалить такую сборку перед установкой релизной. Если нужны сохранения из отладочной сборки, сделайте резервную копию до удаления.
 
-- Касание выбирает цель или нажимает кнопку интерфейса.
-- Отпускание после удержания на карте открывает контекстное меню.
-- Перетаскивание карты двигает камеру. Сведение и разведение двух пальцев
-  меняет масштаб, поворот двух пальцев разворачивает камеру.
-- Ход завершается существующей кнопкой на панели боя.
+## Управление и сохранения
+
+- Касание выбирает цель или нажимает кнопку. Удержание на карте открывает контекстное меню, пока палец ещё на экране.
+- Перетаскивание двигает камеру. Двумя пальцами можно менять масштаб и поворачивать камеру, а вертикальное движение двумя пальцами меняет её наклон.
+- Кнопка **ALT** переключает подсветку предметов на земле.
+- При сворачивании и выключении экрана игра записывает отдельный слот **«Автосохранение при сворачивании»**. Если Android выгрузил игру, этот слот можно открыть через **«Загрузить игру»**. При обычном возврате продолжается текущая сессия.
+
+## Сборка и проверки
+
+[Релизный workflow](../.github/workflows/engine-release.yml) собирает ARM64 APK на Ubuntu с JDK 17, SDK 36, NDK r28c и CMake 3.31.6. Версии и сборка зависимостей описаны в [скрипте подготовки](../.github/scripts/prepare-deps.py) и [скрипте Android-сборки](../.github/scripts/build-android-deps.sh).
+
+На GitHub Actions запускаются тесты жестов и проверка содержимого APK. Эмулятор Android x86-64 запускает отдельный тестовый APK без игровых ресурсов. Он проверяет вывод Vulkan, короткое касание, удержание до отпускания пальца и возврат после Home в том же процессе с видимым кадром. Прохождение миссий, автосохранение с реальными данными и производительность проверяются на физических устройствах.

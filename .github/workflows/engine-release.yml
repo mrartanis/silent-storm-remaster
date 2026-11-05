@@ -2,7 +2,7 @@ name: Engine CI and release
 
 on:
   push:
-    branches: [develop]
+    branches: [develop, android]
     tags: ['v*']
   pull_request:
     branches: [develop]
@@ -11,7 +11,7 @@ on:
       platform:
         description: Platform to verify (manual runs never publish)
         type: choice
-        options: [all, windows, linux, macos]
+        options: [all, windows, linux, macos, android]
         default: all
 
 permissions:
@@ -26,6 +26,7 @@ concurrency:
 jobs:
   build:
     name: ${{ matrix.platform }} ${{ matrix.arch }}
+    if: inputs.platform != 'android' && !(github.event_name == 'push' && github.ref == 'refs/heads/android')
     strategy:
       fail-fast: false
       matrix:
@@ -262,9 +263,166 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
 
+  android:
+    name: Android ARM64 package and emulator
+    if: inputs.platform == '' || inputs.platform == 'all' || inputs.platform == 'android'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      S2_BUILD_JOBS: '4'
+      CMAKE_BUILD_PARALLEL_LEVEL: '4'
+      CCACHE_MAXSIZE: 1G
+      CCACHE_COMPILERCHECK: content
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/assets/terrain-hd/
+            !/data/hd-sources/
+            !/data/hd-runtime/
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Android and host build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf-archive automake build-essential ccache cmake curl \
+            gettext libtool libtool-bin libgl1-mesa-dev libx11-dev libxext-dev libxi-dev \
+            ninja-build pkg-config xz-utils
+          sdkmanager --install 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0' \
+            'ndk;28.2.13676358' 'cmake;3.31.6' 'emulator' 'system-images;android-35;google_apis;x86_64'
+          echo "S2_DEPS=$RUNNER_TEMP/s2-android-deps" >> "$GITHUB_ENV"
+          echo "CCACHE_DIR=$RUNNER_TEMP/s2-android-ccache" >> "$GITHUB_ENV"
+          echo "CMAKE_C_COMPILER_LAUNCHER=ccache" >> "$GITHUB_ENV"
+          echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> "$GITHUB_ENV"
+
+      - name: Cache pinned Android dependencies
+        id: android-deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.S2_DEPS }}/android-arm64
+            ${{ env.S2_DEPS }}/android-notices
+            ${{ env.S2_DEPS }}/bgfx.cmake
+            ${{ env.S2_DEPS }}/bgfx
+            ${{ env.S2_DEPS }}/bimg
+            ${{ env.S2_DEPS }}/bx
+            ${{ env.S2_DEPS }}/SDL3-3.4.16
+            ${{ env.S2_DEPS }}/freetype-2.14.3
+            ${{ env.S2_DEPS }}/miniaudio.h
+            ${{ env.S2_DEPS }}/shaderc
+          key: android-deps-${{ runner.os }}-ndk28c-${{ hashFiles('.github/scripts/prepare-deps.py', '.github/scripts/build-android-deps.sh') }}
+
+      - name: Build pinned Android dependencies and host shader compiler
+        if: steps.android-deps.outputs.cache-hit != 'true'
+        run: |
+          python .github/scripts/prepare-deps.py --root "$S2_DEPS" --platform linux
+          bash .github/scripts/build-android-deps.sh "$S2_DEPS"
+
+      - name: Restore compiler cache
+        id: android-compiler-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: android-compiler-ndk28c-${{ github.run_id }}
+          restore-keys: android-compiler-ndk28c-
+
+      - name: Test touch gestures on the host
+        run: |
+          c++ -std=c++17 diagnostics/TouchGestureTests.cpp -o "$RUNNER_TEMP/touch-tests"
+          "$RUNNER_TEMP/touch-tests"
+
+      - name: Build the Android release APK and the emulator probe
+        env:
+          RELEASE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('check-{0}', github.run_number) }}
+          VERSION_CODE: ${{ github.run_number }}
+        run: |
+          gradle="$S2_DEPS/SDL3-3.4.16/android-project/gradlew"
+          bash "$gradle" -p android --max-workers "$S2_BUILD_JOBS" -Ps2Deps="$S2_DEPS" \
+            -Ps2Game -Ps2Shaderc="$S2_DEPS/shaderc" -Ps2Freetype="$S2_DEPS/freetype-2.14.3" \
+            -Ps2VersionName="$RELEASE_VERSION" -Ps2VersionCode="$((VERSION_CODE + 1))" assembleRelease
+          bash "$gradle" -p android --max-workers "$S2_BUILD_JOBS" -Ps2Deps="$S2_DEPS" \
+            -Ps2Abi=x86_64 assembleDebug
+
+      - name: Verify Android lifecycle, Vulkan presentation and touch in the emulator
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          sudo udevadm settle
+          export ANDROID_SERIAL=emulator-5554
+          printf 'no\n' | avdmanager create avd --name silent-storm-ci --force \
+            --package 'system-images;android-35;google_apis;x86_64'
+          "$ANDROID_HOME/emulator/emulator" -avd silent-storm-ci -port 5554 -no-window \
+            -gpu swiftshader -accel on -no-snapshot -no-audio -no-boot-anim -camera-back none \
+            > "$RUNNER_TEMP/android-emulator.log" 2>&1 &
+          emulator_pid=$!
+          cleanup() {
+            adb logcat -d > "$RUNNER_TEMP/android-logcat.txt" || true
+            adb emu kill || kill "$emulator_pid" || true
+          }
+          trap cleanup EXIT
+          timeout 180 adb wait-for-device
+          timeout 180 bash -c 'until [[ "$(adb shell getprop sys.boot_completed | tr -d "\r")" == 1 ]]; do sleep 2; done'
+          adb shell wm dismiss-keyguard
+          adb shell svc power stayon true
+          python .github/scripts/test-android.py android/build/outputs/apk/debug/SilentStormAndroid-debug.apk
+
+      - name: Sign and verify the Android APK
+        env:
+          RELEASE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('check-{0}', github.run_number) }}
+          ANDROID_REQUIRE_RELEASE_KEY: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
+          ANDROID_RELEASE_KEYSTORE: ${{ github.event_name == 'push' && github.ref_type == 'tag' && secrets.ANDROID_RELEASE_KEYSTORE || '' }}
+          ANDROID_RELEASE_KEYSTORE_PASSWORD: ${{ github.event_name == 'push' && github.ref_type == 'tag' && secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD || '' }}
+        run: |
+          apk="dist/silent-storm-engine-$RELEASE_VERSION-android-arm64.apk"
+          bash .github/scripts/package-android.sh android/build/outputs/apk/release/SilentStormAndroid-release-unsigned.apk "$apk"
+          python diagnostics/AndroidPackageTests.py --aapt "$ANDROID_HOME/build-tools/36.0.0/aapt2" \
+            --version "$RELEASE_VERSION" "$apk"
+
+      - name: Save Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-android-arm64-archive
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+      - name: Save Android diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-android-arm64-logs
+          path: |
+            ${{ runner.temp }}/android-emulator.log
+            ${{ runner.temp }}/android-logcat.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Save compiler cache
+        if: always() && steps.android-compiler-cache.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ steps.android-compiler-cache.outputs.cache-primary-key }}
+
   publish:
     name: Publish tagged engine release
-    needs: build
+    needs: [build, android]
     if: github.event_name == 'push' && github.ref_type == 'tag'
     runs-on: ubuntu-24.04
     permissions:
@@ -285,10 +443,11 @@ jobs:
         run: |
           set -euo pipefail
           cd dist
-          test "$(find . -maxdepth 1 -name '*.sha256' | wc -l)" -eq 3
+          test "$(find . -maxdepth 1 -name '*.sha256' | wc -l)" -eq 4
           for asset in "silent-storm-engine-$RELEASE_TAG-windows-x64.zip" \
                        "silent-storm-engine-$RELEASE_TAG-linux-x64.tar.gz" \
-                       "silent-storm-engine-$RELEASE_TAG-macos-arm64.tar.gz"; do
+                       "silent-storm-engine-$RELEASE_TAG-macos-arm64.tar.gz" \
+                       "silent-storm-engine-$RELEASE_TAG-android-arm64.apk"; do
             test -s "$asset"
             test -s "$asset.sha256"
           done
@@ -296,14 +455,21 @@ jobs:
           sha256sum --check SHA256SUMS
           rm ./*.sha256
           cat > release-notes.txt <<'NOTES'
-          Engine-only builds for Windows x64, Linux x64 (Ubuntu 24.04 baseline), and macOS ARM64 (Apple silicon, macOS 15+).
-          Original Silent Storm v1.2 game data and the optional HD texture pack are supplied separately.
-          Runtime libraries, fonts, component notices and minimal setup instructions are included.
-          The versioned network-version.txt is included and shared by all three platform builds.
-          All three platform builds and their data-independent tests passed before publication.
-          macOS libraries are bundled and use relative loader paths; start with ./Play.command.
+          ## Русский
+          Движок для Windows x64, Linux x64 (Ubuntu 24.04), macOS ARM64 (Apple silicon, macOS 15+) и Android ARM64 (Android 9+ с Vulkan).
+          Нужны данные оригинальной Silent Storm 1.2 из вашей копии игры. Для ПК доступен отдельный HD-пак. Android использует оригинальные текстуры.
+          macOS запускается через Play.command. Для Android скачайте APK и перенесите ресурсы по инструкции ниже.
+
+          ## English
+          Engine builds for Windows x64, Linux x64 (Ubuntu 24.04), macOS ARM64 (Apple silicon, macOS 15+), and Android ARM64 (Android 9+ with Vulkan).
+          Use the original Silent Storm 1.2 data from your own copy. The separate HD pack is available for desktop. Android uses the original textures.
+          Start macOS with Play.command. For Android, install the APK and copy the game files using the guide below.
           NOTES
-          printf '\n[Installation guide (Russian)](https://github.com/%s/blob/%s/INSTALLATION_RU.md)\n' "$GH_REPO" "$RELEASE_TAG" >> release-notes.txt
+          for guide in 'ПК (русский)|INSTALLATION_RU.md' 'Desktop (English)|INSTALLATION_EN.md' \
+                       'Android (русский)|android/README.md' 'Android (English)|android/README.en.md' \
+                       'Компоненты Android / Android components|android/THIRD_PARTY.md'; do
+            printf '\n- [%s](https://github.com/%s/blob/%s/%s)\n' "${guide%%|*}" "$GH_REPO" "$RELEASE_TAG" "${guide#*|}" >> release-notes.txt
+          done
           options=()
           if [[ "$RELEASE_TAG" == *-* ]]; then options+=(--prerelease); fi
           # Stage uploads as a draft; publish only after every asset is present.
@@ -316,5 +482,5 @@ jobs:
             gh release create "$RELEASE_TAG" --verify-tag --draft --title "$RELEASE_TAG" \
               --notes-file release-notes.txt "${options[@]}"
           fi
-          gh release upload "$RELEASE_TAG" ./*.zip ./*.tar.gz SHA256SUMS --clobber
+          gh release upload "$RELEASE_TAG" ./*.zip ./*.tar.gz ./*.apk SHA256SUMS --clobber
           gh release edit "$RELEASE_TAG" --draft=false "${options[@]}"

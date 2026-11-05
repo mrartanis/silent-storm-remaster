@@ -101,7 +101,7 @@ Steam-версией ещё не подтверждены. Проверенны�
 
 ## Сборка
 
-Установка готового релиза, данных Steam и HD: [инструкция](INSTALLATION_RU.md).
+Инструкции по установке [на ПК](INSTALLATION_RU.md) и [на Android](android/README.md).
 
 Движок выпускается отдельно от игровых данных и HD-пака. Workflow **Engine
 CI and release** собирает Windows x64, Linux x64 и macOS ARM64 для pull request

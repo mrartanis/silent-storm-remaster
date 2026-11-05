@@ -2,7 +2,7 @@ Silent Storm Reconstruction - engine only
 
 This archive contains the engine, runtime libraries and fonts.
 Original Silent Storm v1.2 game data and the optional HD pack are separate.
-Detailed Russian installation guide: INSTALLATION_RU.md.
+Installation guides: INSTALLATION_EN.md and INSTALLATION_RU.md.
 
 Use a separate copy of your game installation. Place this archive's contents
 alongside game.db, start.cfg, tree.mma and the complete cfg, res and scripts
@@ -39,3 +39,12 @@ external components. Exact source, build configuration and recipe are included
 under dependencies/. SDL3/bgfx/bimg/bx/miniaudio source references are recorded
 in dependencies/sources.json. Microsoft runtime terms:
 https://visualstudio.microsoft.com/license-terms/vs2022-cruntime/
+Русский
+
+В архиве находятся движок, библиотеки и шрифты. Инструкция по установке
+на русском находится в INSTALLATION_RU.md, английская — в INSTALLATION_EN.md.
+Скопируйте содержимое архива в отдельную папку с game.db, start.cfg, tree.mma
+и полными каталогами cfg, res и scripts оригинальной Silent Storm 1.2.
+Запустите Play.cmd (Windows), ./Play.sh (Linux) или ./Play.command (macOS).
+Для сетевой игры оставьте network-version.txt рядом с game.db.
+Дополнительный HD-пак распаковывается в каталог res-hd рядом с движком.

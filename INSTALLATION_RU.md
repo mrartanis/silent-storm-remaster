@@ -1,5 +1,7 @@
 # Установка Silent Storm Reconstruction v0.1
 
+[English](INSTALLATION_EN.md) · [Установка на Android](android/README.md)
+
 Разработка переехала в [silent-storm-remaster](https://github.com/mrartanis/silent-storm-remaster).
 Релизы v0.1 и hd-v0.1 по ссылкам ниже сохраняются в прежнем репозитории без изменения архивов.
 

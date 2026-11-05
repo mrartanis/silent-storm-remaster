@@ -1,10 +1,11 @@
 # Engine releases
 
+[Русский](RELEASING_RU.md)
+
 Push a tag beginning with `v` to `mrartanis/silent-storm-remaster`.
-The `Engine CI and release` workflow builds and tests Windows x64, Linux x64
-and macOS ARM64, then publishes all three archives and `SHA256SUMS` as a
-GitHub Release. macOS archives are named
-`silent-storm-engine-<tag>-macos-arm64.tar.gz`.
+The `Engine CI and release` workflow builds and tests Windows x64, Linux x64,
+macOS ARM64, and Android ARM64. It publishes the three desktop archives, the
+`silent-storm-engine-<tag>-android-arm64.apk`, and `SHA256SUMS` as a GitHub Release.
 Tags with a hyphen, such as `v0.1.0-rc1`, produce prereleases.
 Use a new tag for each release; published assets are never overwritten.
 
@@ -23,14 +24,17 @@ left unchanged.
 For a check without publishing, select **Actions → Engine CI and release → Run
 workflow** on the branch to test. Its archives remain downloadable as workflow
 artifacts for seven days. A manual run never publishes a release, even on a tag.
-The manual `platform` choice can limit a check to Windows, Linux or macOS; tag
-pushes always build and require all three platforms.
+The manual `platform` choice can limit a check to one of the four platforms.
+Tag pushes require all four to pass.
 
 Pull requests and pushes to `develop` run the same build/test/package matrix
 without publication. Common tests and applicable native game regressions run
 without original game data; asset-dependent diagnostics remain conditional on
 locally supplied assets. Linux display tests use Xvfb/Openbox and software Vulkan;
-macOS uses Cocoa/Metal with sequential window tests. New branch/PR commits cancel
+macOS uses Cocoa/Metal with sequential window tests. The Android job validates
+the ARM64 APK and tests Vulkan, touch, and app resume in an x86-64 Android
+emulator. Pushes to the `android` branch run the Android job only.
+New branch/PR commits cancel
 outdated checks; tagged releases finish intact. Manual checks run independently.
 
 The workflow uses a sparse checkout that excludes `assets/terrain-hd`,
@@ -45,16 +49,22 @@ file allowlist.
 
 No Steam data, historical DLLs, saves, laboratory files or HD textures are
 included. `Package-Game.py` remains the separate local full-game packaging tool.
-HD is built and uploaded independently. The end-user guide is
-[INSTALLATION_RU.md](../INSTALLATION_RU.md); each engine archive also includes it,
-a minimal README and network-version.txt. Players do not generate this file.
+HD is built and uploaded independently. Desktop archives include
+[INSTALLATION_EN.md](../INSTALLATION_EN.md), [INSTALLATION_RU.md](../INSTALLATION_RU.md),
+a short README and network-version.txt. The release links to the Android guides
+in [English](../android/README.en.md) and [Russian](../android/README.md).
+
+Tagged builds use the repository secrets `ANDROID_RELEASE_KEYSTORE` (base64 PKCS#12)
+and `ANDROID_RELEASE_KEYSTORE_PASSWORD`. Preserve the key for future updates.
+Other builds sign with a temporary key for package checks.
 
 ## Network compatibility
 
 `network-version.txt` in the repository is the source of truth. Its three lines
 are the format marker (`S2-NETWORK-1`), engine compatibility version (currently
 `1`) and data-family version (`silent-storm-1.2`). CMake copies this exact file
-into all three platform builds and embeds the compatibility version in the engine.
+into the desktop archives and embeds the compatibility version in every engine.
+Android players copy the file from the matching tag for multiplayer.
 Neither Git commits, compiler/OS differences nor a player's installed files
 change the version automatically. Ordinary compatible changes keep it intact.
 
