@@ -33,7 +33,7 @@ def main():
         return result.stdout.strip()
 
     def count(message):
-        return run('logcat', '-d', f'--pid={original_pid}', '-s', 'SDL').count(message.encode())
+        return run('logcat', '-d', f'--pid={original_pid}', '-s', 'SDL/APP').count(message.encode())
 
     def presented():
         frame = run('exec-out', 'screencap')

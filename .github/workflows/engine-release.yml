@@ -312,7 +312,7 @@ jobs:
 
       - name: Cache pinned Android dependencies
         id: android-deps
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             ${{ env.S2_DEPS }}/android-arm64
@@ -332,6 +332,23 @@ jobs:
         run: |
           python .github/scripts/prepare-deps.py --root "$S2_DEPS" --platform linux
           bash .github/scripts/build-android-deps.sh "$S2_DEPS"
+
+      - name: Save built Android dependencies
+        if: steps.android-deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.S2_DEPS }}/android-arm64
+            ${{ env.S2_DEPS }}/android-notices
+            ${{ env.S2_DEPS }}/bgfx.cmake
+            ${{ env.S2_DEPS }}/bgfx
+            ${{ env.S2_DEPS }}/bimg
+            ${{ env.S2_DEPS }}/bx
+            ${{ env.S2_DEPS }}/SDL3-3.4.16
+            ${{ env.S2_DEPS }}/freetype-2.14.3
+            ${{ env.S2_DEPS }}/miniaudio.h
+            ${{ env.S2_DEPS }}/shaderc
+          key: ${{ steps.android-deps.outputs.cache-primary-key }}
 
       - name: Restore compiler cache
         id: android-compiler-cache
@@ -382,6 +399,7 @@ jobs:
           timeout 180 bash -c 'until [[ "$(adb shell getprop sys.boot_completed | tr -d "\r")" == 1 ]]; do sleep 2; done'
           adb shell wm dismiss-keyguard
           adb shell svc power stayon true
+          adb shell settings put secure immersive_mode_confirmations confirmed
           python .github/scripts/test-android.py android/build/outputs/apk/debug/SilentStormAndroid-debug.apk
 
       - name: Sign and verify the Android APK
