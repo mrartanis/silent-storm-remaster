@@ -27,7 +27,7 @@ A modern engine for **Silent Storm 1.2**, based on [Silent Storm Reconstruction]
 ## Releases
 
 - [Latest engine release](https://github.com/mrartanis/silent-storm-remaster/releases/latest) · Windows x64, Linux x64, macOS ARM64, Android ARM64.
-- [All releases](https://github.com/mrartanis/silent-storm-remaster/releases) · The HD pack and desktop launcher are released separately.
+- [All releases](https://github.com/mrartanis/silent-storm-remaster/releases) · The engine releases include the launcher. The HD pack is released separately.
 
 ## Documentation
 

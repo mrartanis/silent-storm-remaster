@@ -67,15 +67,16 @@ archives.
 
 ## Verify and publish on GitHub
 
-1. Run [Desktop launcher](../.github/workflows/launcher-release.yml) manually once
-   it is on the default branch. To verify a branch before merging, use a
+1. Run [Desktop launcher](../.github/workflows/launcher-release.yml) manually for
+   test archives. To verify a branch before merging, use a
    `launcher-check/…` branch name. The workflow packages all three platforms,
    opens the launcher from each extracted archive, checks the window,
    reads release metadata and installs a tiny local archive with SHA-256
    verification. Linux is checked separately under X11 and native Wayland.
-2. For a release, tag the verified commit `launcher-vX.Y.Z` and push the tag.
-   After all checks pass, the workflow creates a draft with three archives
-   and `SHA256SUMS`.
-3. Review the draft and publish it with **Set as the latest release** cleared.
-   The CI macOS build uses an ad hoc signature. Prepare Developer ID signing
-   and Apple notarization for Gatekeeper distribution.
+2. For publication, use the usual `v*` engine tag. The [engine release](releasing.en.md)
+   includes three verified `silent-storm-launcher-*` archives and lists their
+   hashes in `SHA256SUMS`. Archive names stay the same across releases for the
+   direct download links in the README.
+
+The CI macOS build uses an ad hoc signature. For a standard Gatekeeper launch
+after download, the app needs Developer ID signing and Apple notarization.

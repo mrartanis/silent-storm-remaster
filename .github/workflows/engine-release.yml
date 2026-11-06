@@ -8,6 +8,8 @@ on:
       - 'launcher/**'
       - 'docs/launcher.md'
       - 'docs/launcher.en.md'
+      - 'docs/releasing.md'
+      - 'docs/releasing.en.md'
       - '.github/workflows/launcher-release.yml'
       - 'README.md'
       - 'README.en.md'
@@ -17,6 +19,8 @@ on:
       - 'launcher/**'
       - 'docs/launcher.md'
       - 'docs/launcher.en.md'
+      - 'docs/releasing.md'
+      - 'docs/releasing.en.md'
       - '.github/workflows/launcher-release.yml'
       - 'README.md'
       - 'README.en.md'
@@ -466,9 +470,14 @@ jobs:
           path: ${{ env.CCACHE_DIR }}
           key: ${{ steps.android-compiler-cache.outputs.cache-primary-key }}
 
+  launcher:
+    name: Build and verify desktop launcher archives
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    uses: ./.github/workflows/launcher-release.yml
+
   publish:
     name: Publish tagged engine release
-    needs: [build, android]
+    needs: [build, android, launcher]
     if: github.event_name == 'push' && github.ref_type == 'tag'
     runs-on: ubuntu-24.04
     permissions:
@@ -480,7 +489,13 @@ jobs:
           merge-multiple: true
           path: dist
 
-      - name: Verify and publish archives
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: launcher-package-*
+          merge-multiple: true
+          path: dist
+
+      - name: Verify and publish engine and launcher archives
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -497,21 +512,31 @@ jobs:
             test -s "$asset"
             test -s "$asset.sha256"
           done
+          launcher_assets=(silent-storm-launcher-windows-x64.zip
+                           silent-storm-launcher-linux-x64.tar.gz
+                           silent-storm-launcher-macos-arm64.zip)
+          for asset in "${launcher_assets[@]}"; do
+            test -s "$asset"
+          done
           cat ./*.sha256 > SHA256SUMS
+          sha256sum "${launcher_assets[@]}" >> SHA256SUMS
           sha256sum --check SHA256SUMS
           rm ./*.sha256
           cat > release-notes.txt <<'NOTES'
           ## Русский
           Движок для Windows x64, Linux x64 (Ubuntu 24.04), macOS ARM64 (Apple silicon, macOS 15+) и Android ARM64 (Android 9+ с Vulkan).
+          Для запуска на компьютере скачайте архив `silent-storm-launcher-*` для своей платформы.
           Нужны данные оригинальной Silent Storm 1.2 из вашей копии игры. Для ПК доступен отдельный HD-пак. Android использует оригинальные текстуры.
-          macOS запускается через Play.command. Для Android скачайте APK и перенесите ресурсы по инструкции ниже.
+          При ручной установке движка на macOS используйте Play.command. Для Android скачайте APK и перенесите ресурсы по инструкции ниже.
 
           ## English
           Engine builds for Windows x64, Linux x64 (Ubuntu 24.04), macOS ARM64 (Apple silicon, macOS 15+), and Android ARM64 (Android 9+ with Vulkan).
+          To get started on desktop, download the `silent-storm-launcher-*` archive for your platform.
           Use the original Silent Storm 1.2 data from your own copy. The separate HD pack is available for desktop. Android uses the original textures.
-          Start macOS with Play.command. For Android, install the APK and copy the game files using the guide below.
+          For manual engine installation on macOS, use Play.command. On Android, install the APK and copy the game files using the guide below.
           NOTES
-          for guide in 'ПК (русский)|docs/install.md' 'Desktop (English)|docs/install.en.md' \
+          for guide in 'Лаунчер (русский)|docs/launcher.md' 'Launcher (English)|docs/launcher.en.md' \
+                       'Ручная установка (русский)|docs/install.md' 'Manual installation (English)|docs/install.en.md' \
                        'Android (русский)|docs/android.md' 'Android (English)|docs/android.en.md' \
                        'Компоненты Android / Android components|android/THIRD_PARTY.md'; do
             printf '\n- [%s](https://github.com/%s/blob/HEAD/%s)\n' "${guide%%|*}" "$GH_REPO" "${guide#*|}" >> release-notes.txt

@@ -5,10 +5,10 @@
 ## Engine
 
 1. Tag the commit with a tag beginning with `v` and push the tag to the repository. Use a hyphen in the tag for a prerelease.
-2. Wait for [Engine CI and release](../.github/workflows/engine-release.yml) to finish. The workflow builds, checks, and publishes the three desktop archives and the Android APK with `SHA256SUMS`.
+2. Wait for [Engine CI and release](../.github/workflows/engine-release.yml) to finish. The workflow builds and checks the three desktop engine archives, the Android APK, and three [launcher](launcher.en.md) archives. It publishes them in one release with `SHA256SUMS`.
 3. Check the assets and installation links on the [Releases page](https://github.com/mrartanis/silent-storm-remaster/releases). If an upload stops at a draft, rerun the workflow.
 
-To build archives without publishing, run **Engine CI and release** manually for the branch. Download the archives from that run.
+For test archives, run **Engine CI and release** manually for the engine or **Desktop launcher** for the launcher. Download the archives from that run.
 
 When changing network formats or replication in a way that breaks compatibility, increment the protocol version on the second line of [network-version.txt](../network-version.txt). The third line identifies the game data family.
 

@@ -2,15 +2,15 @@ name: Desktop launcher
 
 on:
   workflow_dispatch:
+  workflow_call:
   push:
     branches: ['launcher-check/**']
-    tags: ['launcher-v*']
 
 permissions:
   contents: read
 
 concurrency:
-  group: launcher-${{ github.ref }}
+  group: launcher-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
@@ -70,12 +70,7 @@ jobs:
         env:
           S2_LAUNCHER_SMOKE_TOKEN: ${{ github.token }}
         run: |
-          version="launcher-check-$GITHUB_RUN_NUMBER"
-          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
-            version="$GITHUB_REF_NAME"
-            [[ "$version" =~ ^launcher-v[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          fi
-          archive="silent-storm-$version-$TARGET"
+          archive="silent-storm-launcher-$TARGET"
           mkdir -p artifacts smoke
           case "$TARGET" in
             windows-x64)
@@ -143,31 +138,3 @@ jobs:
           name: launcher-smoke-${{ matrix.target }}
           path: smoke/*.log
           if-no-files-found: ignore
-
-  draft:
-    if: github.ref_type == 'tag'
-    needs: package
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: launcher-package-*
-          path: artifacts
-          merge-multiple: true
-
-      - name: Create launcher release draft
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        working-directory: artifacts
-        run: |
-          tag="$GITHUB_REF_NAME"
-          files=("silent-storm-$tag-windows-x64.zip"
-                 "silent-storm-$tag-linux-x64.tar.gz"
-                 "silent-storm-$tag-macos-arm64.zip")
-          sha256sum "${files[@]}" > SHA256SUMS
-          gh release create "$tag" "${files[@]}" SHA256SUMS \
-            --draft --latest=false --verify-tag --title "Silent Storm Launcher ${tag#launcher-v}" \
-            --notes "Desktop launcher for Windows x64, Linux x64 and macOS ARM64. Original Silent Storm 1.2 game data is required. See docs/launcher.en.md and docs/launcher.md."
