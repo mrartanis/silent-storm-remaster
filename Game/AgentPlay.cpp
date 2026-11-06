@@ -81,7 +81,10 @@ std::string Observe(NGame::CMission* mission) {
   const int local=player->GetScenarioPlayerID();
   auto network=Controller::World(mission);
   auto* map=NDb::GetTemplate(network->Match().templateID);
-  out << "{\"phase\":\"playing\",\"side\":" << local;
+  out << "{\"phase\":" << Quote(network->IsPreparing()?"preparing":"playing") << ",\"side\":" << local;
+  out << ",\"starting_level\":" << network->Preset().startingLevel << ",\"supply_level\":" << network->Preset().supplyLevel;
+  if(network->IsPreparing())out << ",\"ready\":" << (network->IsReady(local)?"true":"false")
+    << ",\"opponent_ready\":" << (network->IsReady(1-local)?"true":"false");
   if(map)out << ",\"map\":{\"width\":" << map->nWidth << ",\"height\":" << map->nHeight << '}';
   out << ",\"turn\":"
       << (world->GetCurrentPlayer()?world->GetCurrentPlayer()->GetScenarioPlayerID():-1)
@@ -115,7 +118,7 @@ std::string Observe(NGame::CMission* mission) {
   out << "],\"visible_enemies\":[";
   list<CPtr<NWorld::CUnit>> visible;player->GetVisible(&visible);bool first=true;
   // Never enumerate the opponent's roster or retain last-known positions here.
-  for(auto u:visible)if(u && u->GetPlayer()!=player && !u->IsDead()) {
+  for(auto u:visible)if(u && world->GetDiplomacyState(player,u->GetPlayer())==NDb::DS_ENEMY && !u->IsDead()) {
     if(!first)out << ',';first=false;
     out << "{\"contact\":" << Contact(u) << ',';Position(out,u);
     NWorld::SEnemyInfo info;player->GetEnemyUnitInfo(u,&info);
@@ -135,6 +138,10 @@ bool Execute(NGame::CMission* mission,std::istringstream& input,const std::strin
   }
   if(!mission || !Controller::Session(mission))return false;
   auto* player=mission->GetActivePlayer()->GetPlayer();auto* world=mission->GetWorld();
+  if(verb=="ready" && end()) {
+    auto network=Controller::World(mission);if(!network->IsPreparing() || network->IsStartingBattle())return false;
+    Controller::Session(mission)->Submit(network->PreparationCommand(S2Net::PreparationAction::Ready,0,1));return true;
+  }
   if(verb=="hover" || verb=="click" || verb=="right_click") {
     int x=-1,y=-1;const auto screen=mission->GetScene()->GetScreenRect();
     if(!(input>>x>>y) || !end() || x<0 || y<0 || x>=screen.x || y>=screen.y)return false;
@@ -187,7 +194,7 @@ bool Execute(NGame::CMission* mission,std::istringstream& input,const std::strin
   } else if(actionVerb=="attack") {
     unsigned id=0;if(!(input>>id) || !end())return false;
     list<CPtr<NWorld::CUnit>> visible;player->GetVisible(&visible);NWorld::CUnit* target=nullptr;
-    for(auto u:visible)if(u && u->GetPlayer()!=player && !u->IsDead() && Contact(u)==id)target=u;
+    for(auto u:visible)if(u && world->GetDiplomacyState(player,u->GetPlayer())==NDb::DS_ENEMY && !u->IsDead() && Contact(u)==id)target=u;
     if(!target)return false;
     attackTarget=target;
     action=new NWorld::CCmdShootObject(target,0,NAI::HL_ANY);

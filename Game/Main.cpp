@@ -1431,6 +1431,8 @@ static int RunGame( const char *lpCmdLine )
 	int networkRole = 0;
 	int networkMap = 0;
 	int networkSquad = 0;
+	int networkLevel = 1, networkSupply = 1;
+	bool networkPrepare = false;
 	unsigned networkPort = 7780;
 	string networkAddress = "127.0.0.1";
 	for ( int i = 0; i < szParams.size(); ++i )
@@ -1538,6 +1540,15 @@ static int RunGame( const char *lpCmdLine )
 		{
 			networkRole = 1; networkPort = static_cast<unsigned>(std::strtoul(szParams[++i].c_str(),nullptr,10));
 		}
+		else if (szParams[i] == "-net-level" && i + 1 < szParams.size()) {
+			networkLevel=std::atoi(szParams[++i].c_str());
+			if(networkLevel<1 || networkLevel>20){fprintf(stderr,"-net-level must be 1..20\n");return 2;}
+		}
+		else if (szParams[i] == "-net-supply" && i + 1 < szParams.size()) {
+			networkSupply=std::atoi(szParams[++i].c_str());
+			if(networkSupply<1 || networkSupply>14){fprintf(stderr,"-net-supply must be 1..14\n");return 2;}
+		}
+		else if (szParams[i] == "-net-prepare")networkPrepare=true;
 		else if (szParams[i] == "-net-connect" && i + 2 < szParams.size())
 		{
 			networkRole = 2; networkAddress = szParams[++i];
@@ -1577,7 +1588,7 @@ static int RunGame( const char *lpCmdLine )
 	NGame::ShowLoadingScreen(0);
 	S2Net::StartupLog("loading-screen-ready");
 	if (networkRole)
-		NMainLoop::Command(new NGame::CICNetworkMenu(networkRole,networkPort,networkAddress,"",networkMap,networkSquad));
+		NMainLoop::Command(new NGame::CICNetworkMenu(networkRole,networkPort,networkAddress,"",networkMap,networkSquad,networkLevel,networkSupply,networkPrepare || networkLevel!=1 || networkSupply!=1));
 	else if ( bDoLoad )
 		NMainLoop::Command( new NMainLoop::CICLoad( szLoadSlot.empty() ? NMainLoop::GetQuickSaveSlot( true ) : szLoadSlot ) );
 	else

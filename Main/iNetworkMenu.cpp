@@ -434,10 +434,14 @@ class NetworkScreen:public CMissionBase {
       preparing=true;
     }catch(const std::exception& e){SetStatus(e.what());controls->Enable(true);}
   }
-  void Autostart(int role,unsigned port,const string& address,int variant,int squad=0) {
+  void Autostart(int role,unsigned port,const string& address,int variant,int squad=0,int level=1,int supply=1,bool prepare=false) {
     if(role){controls->port->SetText(std::to_wstring(port));controls->address->SetText(wstring(address.begin(),address.end()));}
     if(variant && !controls->SelectVariant(variant)){SetStatus("Selected map is not a random encounter");return;}
-    if(role){if(squad>=1 && squad<=6){preset.squadSize=squad;preset.personas.resize(squad);}controls->useBase=false;Start(role==1);}
+    if(role){
+      if(squad>=1 && squad<=6){preset.squadSize=squad;preset.personas.resize(squad);controls->squadSize->SetText(std::to_wstring(squad));}
+      controls->startingLevel->SetText(std::to_wstring(level));controls->supplyLevel->SetText(std::to_wstring(supply));
+      controls->useBase=prepare;Start(role==1);
+    }
   }
   void Step() {
     try {
@@ -599,7 +603,7 @@ CObj<NUI::CWindow> CreateNetworkPreparationControls(CMission* mission,std::share
 CObj<NUI::CWindow> CreateNetworkMatchMenu(CMission* mission,std::shared_ptr<S2Net::NetworkSession> session) {return new NetworkMatchMenu(mission,session);}
 void CICNetworkMenu::Exec() {
   ResetStack();
-  CObj<NetworkScreen> screen=new NetworkScreen;screen->Initialize(status);screen->Autostart(role,port,ip,variant,squad);
+  CObj<NetworkScreen> screen=new NetworkScreen;screen->Initialize(status);screen->Autostart(role,port,ip,variant,squad,level,supply,preparation);
   SetInterface(screen);
 }
 START_REGISTER(NetworkMenu)

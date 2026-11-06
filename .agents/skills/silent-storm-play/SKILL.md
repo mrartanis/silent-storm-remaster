@@ -19,6 +19,8 @@ python tools/agent_play.py start --package "GAME_DATA_DIR" --exe "PATH_TO_GAME_E
 
 Use a fresh output directory. The host window belongs to the human; the agent controls `client-player.json`. Tell the human the match is connected and which side starts. A one-fighter squad is the default; `--squad 1..6` changes both squads. `--human-side client` reverses the visible window. `--map VARIANT` selects an existing random encounter; omit it to use the usual network default. Startup can take several minutes while checking resources. Inspect startup/process logs only for a failed launch, before playing.
 
+`--starting-level 1..20` and `--supply-level 1..14` set the match levels. Non-default levels or `--prepare` start both players on their normal preparation bases. Maximum-level two-fighter squads use `--squad 2 --starting-level 20 --supply-level 14`. On a preparation base `phase` is `preparing`, and the observation includes the public level settings, `ready` and `opponent_ready`. Recruits start without equipment: choose gear and perks through the normal store/inventory UI before `ready`. The battle begins when both players are ready. Do not mark the human side ready or control their gear.
+
 For an expressly requested agent-versus-agent match, add `--hidden` and give each player only its own player capability file plus these instructions. If the user specifies a model, use it for the player agents. Neither player should see the other's observations or tactical messages. A coordinator may watch progress, but should not feed opponents' information to players.
 
 The launcher returns paths for `session.json`, `host-player.json`, and `client-player.json`. Keep `session.json` for lifecycle management; it is not a player tool. If an already-running match and a player capability were provided, use those instead of launching another match.
@@ -51,6 +53,7 @@ Read screenshot images using your image viewing tool. The `screenshot` field is 
 | `continue UNIT` | Resume a pending movement/order on a later turn |
 | `stop` | Stop your current action |
 | `end_turn` | Pass the turn normally |
+| `ready` | Mark your side ready on its preparation base |
 | `focus UNIT` | Select and center your own fighter |
 | `camera DX DY YAW_DELTA ZOOM_DELTA` | Pan in world units, rotate in radians, adjust camera distance |
 | `floor -3..4` | Change the normal cutaway floor |

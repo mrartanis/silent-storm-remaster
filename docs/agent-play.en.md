@@ -18,6 +18,8 @@ python tools/agent_play.py start `
 
 By default, the human plays in the host window and the agent controls the client. Use `--human-side client` to swap sides or `--hidden` for a match between two agents.
 
+Use `--starting-level 1..20` and `--supply-level 1..14` to set the fighter and supply levels. Levels above one or `--prepare` enable the preparation stage, when both sides choose equipment and perks. For two fighters at the maximum levels, use `--squad 2 --starting-level 20 --supply-level 14`. The agent marks its own side ready with `ready`, and the human marks theirs ready in the game.
+
 Close both game instances when the match ends.
 
 ```powershell

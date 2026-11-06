@@ -57,7 +57,7 @@ def png_from_bmp(source, destination):
 ARITIES = {'observe': 0, 'screenshot': 0, 'end_turn': 0, 'stop': 0,
            'focus': 1, 'move': 3, 'look': 3, 'attack': 2, 'shoot': 4,
            'reload': 1, 'continue': 1, 'mode': 2, 'pose': 2, 'hide': 2, 'slot': 2, 'heal': 2,
-           'equip': 3, 'camera': 4, 'floor': 1, 'hover': 2, 'click': 2, 'right_click': 2}
+           'equip': 3, 'camera': 4, 'floor': 1, 'hover': 2, 'click': 2, 'right_click': 2, 'ready': 0}
 
 
 def validate_command(command):
@@ -198,6 +198,9 @@ def launch_game(config, root, role):
     arguments = [str(game / 'Game.exe'), '-agent-play', '-windowed', '-1024', '-cfg', 'agent.cfg']
     if role == 'host':
         arguments += ['-net-host', str(config['game_port']), '-net-squad', str(config['squad'])]
+        arguments += ['-net-level', str(config.get('starting_level', 1)), '-net-supply', str(config.get('supply_level', 1))]
+        if config.get('prepare'):
+            arguments += ['-net-prepare']
         if config.get('map'):
             arguments += ['-net-map', str(config['map'])]
     else:
@@ -278,7 +281,7 @@ def serve(path):
                         raise RuntimeError('Host failed to listen; see host startup/process logs')
                     time.sleep(.25)
         deadline = time.monotonic() + 180
-        while not all(p.call('observe')['observation']['phase'] == 'playing' for p in players.values()):
+        while not all(p.call('observe')['observation']['phase'] in ('playing', 'preparing') for p in players.values()):
             if stop.is_set():
                 return
             for role in players:
@@ -329,6 +332,9 @@ def main():
     start.add_argument('--exe', type=Path, required=True, help='Built Game.exe, alongside DLLs/fonts/network-version.txt')
     start.add_argument('--output', type=Path, required=True, help='New isolated session directory')
     start.add_argument('--squad', type=int, choices=range(1, 7), default=1)
+    start.add_argument('--starting-level', type=int, choices=range(1, 21), default=1)
+    start.add_argument('--supply-level', type=int, choices=range(1, 15), default=1)
+    start.add_argument('--prepare', action='store_true', help='Start on preparation bases; also enabled by non-default levels')
     start.add_argument('--map', type=int, default=0, help='Existing network random encounter variant; 0 uses default')
     start.add_argument('--human-side', choices=('host', 'client'), default='host')
     start.add_argument('--hidden', action='store_true', help='Hide both rendered windows for agent-vs-agent')
@@ -350,7 +356,8 @@ def main():
         root.mkdir(parents=True, exist_ok=False)
         config = {'game_port': free_port(), 'api_port': free_port(), 'tokens': {r: secrets.token_urlsafe(24) for r in ('host', 'client')},
                   'admin_token': secrets.token_urlsafe(24), 'human_side': args.human_side, 'hidden': args.hidden,
-                  'squad': args.squad, 'map': args.map}
+                  'squad': args.squad, 'map': args.map, 'starting_level': args.starting_level,
+                  'supply_level': args.supply_level, 'prepare': args.prepare or args.starting_level != 1 or args.supply_level != 1}
         while config['game_port'] == config['api_port']:
             config['api_port'] = free_port()
         for role in ('host', 'client'):
