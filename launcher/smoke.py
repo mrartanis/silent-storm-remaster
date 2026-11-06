@@ -1,6 +1,8 @@
 """Exercise the packaged launcher on a clean desktop and temporary install."""
 
 import hashlib
+from functools import partial
+import os
 from pathlib import Path
 import tarfile
 from tempfile import TemporaryDirectory
@@ -37,7 +39,8 @@ def smoke_test(app, launcher, hero, log):
     with TemporaryDirectory(prefix="silent-storm-launcher-smoke-") as directory:
         root = Path(directory)
         log.write_text("Starting packaged launcher\n", encoding="utf-8")
-        window = launcher(root, False)
+        release_check = partial(install.check_releases, api_token=os.environ.get("S2_LAUNCHER_SMOKE_TOKEN"))
+        window = launcher(root, False, release_check=release_check)
 
         def record(line):
             with log.open("a", encoding="utf-8") as stream:

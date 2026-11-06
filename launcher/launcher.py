@@ -60,10 +60,11 @@ class Launcher(QWidget):
     failed = Signal(object)
     progress = Signal(str, int, object)
 
-    def __init__(self, root, russian):
+    def __init__(self, root, russian, *, release_check=install.check_releases):
         super().__init__()
         self.root = root
         self.russian = russian
+        self.release_check = release_check
         self.target = install.desktop_target()
         self.config = root / "settings.json"
         self.settings = self.read_settings()
@@ -363,7 +364,7 @@ class Launcher(QWidget):
         Thread(target=work, daemon=True).start()
 
     def check(self):
-        self.run_job("check", lambda: install.check_releases(self.target),
+        self.run_job("check", lambda: self.release_check(self.target),
                      self.t("Проверяю релизы GitHub…", "Checking GitHub releases…"))
 
     def begin_install(self, name, action):

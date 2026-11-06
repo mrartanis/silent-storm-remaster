@@ -67,6 +67,8 @@ jobs:
           python -m PyInstaller --noconfirm launcher/launcher.spec
 
       - name: Archive and launch from a clean directory
+        env:
+          S2_LAUNCHER_SMOKE_TOKEN: ${{ github.token }}
         run: |
           version="launcher-check-$GITHUB_RUN_NUMBER"
           if [[ "$GITHUB_REF_TYPE" == tag ]]; then
@@ -103,6 +105,8 @@ jobs:
 
       - name: Launch natively on Wayland
         if: runner.os == 'Linux'
+        env:
+          S2_LAUNCHER_SMOKE_TOKEN: ${{ github.token }}
         run: |
           unset DISPLAY
           export XDG_RUNTIME_DIR

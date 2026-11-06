@@ -85,16 +85,19 @@ def choose_releases(releases, target):
             max(hd, key=lambda r: r["published_at"], default=None))
 
 
-def github_open(url):
+def github_open(url, *, api_token=None):
     context = ssl.create_default_context()
     context.load_verify_locations(cafile=certifi.where())
-    return urlopen(Request(url, headers={"User-Agent": USER_AGENT}), timeout=20, context=context)
+    request = Request(url, headers={"User-Agent": USER_AGENT})
+    if api_token:
+        request.add_unredirected_header("Authorization", f"Bearer {api_token}")
+    return urlopen(request, timeout=20, context=context)
 
 
-def check_releases(target):
+def check_releases(target, *, api_token=None):
     releases = []
     for page in range(1, 101):
-        with github_open(f"{RELEASES}?per_page=100&page={page}") as response:
+        with github_open(f"{RELEASES}?per_page=100&page={page}", api_token=api_token) as response:
             batch = json.load(response)
         releases.extend(batch)
         if len(batch) < 100:
