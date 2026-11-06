@@ -34,7 +34,8 @@ GOG. В ней должны лежать `game.db`, `start.cfg`, `tree.mma`, `cf
 # Wayland
 sudo apt install libegl1 libwayland-client0 libwayland-cursor0 libwayland-egl1 libxkbcommon0
 # X11
-sudo apt install libegl1 libgl1 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-xinerama0 libxcb-xinput0 libxkbcommon-x11-0
+sudo apt install libegl1 libgl1 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 \
+  libxcb-shape0 libxcb-xinerama0 libxcb-xinput0 libxkbcommon-x11-0
 ```
 
 ## Запуск из репозитория
