@@ -7,14 +7,14 @@ Play through the restricted player channel. All setup uses binary parameters; no
 
 ## Find and launch
 
-Find the checkout containing `tools/agent_play.py` and this repository skill at `.agents/skills/silent-storm-play/SKILL.md`. Use the user's configured game data and a binary built from this checkout. The paths below are tested examples for the original workstation; replace them with the actual checkout, binary and data locations on another machine.
+Find the checkout containing `tools/agent_play.py` and this repository skill at `.agents/skills/silent-storm-play/SKILL.md`. Run commands from that checkout. Use the configured paths to the user's game data and a suitable binary. Machine-specific settings can be stored in the ignored `.codeagents/local/` directory.
 
-On the original workstation the checkout is `G:\SS\silent-storm-remaster`, a prepared binary is normally `G:\SS\lab\build-x64-stage4\RelWithDebInfo\Game.exe`, and data is `G:\SS\lab\baseline`. Check those files exist; do not rebuild or change the game merely to play. Both binary and adjacent runtime DLLs/fonts/network-version.txt must come from the same build. The launcher also uses the existing `data/res-hd` pack when the data directory lacks it. Runtime: Python 3.11+; pip dependencies: none (standard library only). Virtual-environment setup and installation/build instructions are in `diagnostics/AGENT-PLAY.md` in the checkout; the C++ channel is part of the ordinary `Game` target.
+Check that the existing data and binary are usable. Keep the binary, runtime DLLs, fonts, and `network-version.txt` from the same build. The launcher uses the existing `data/res-hd` pack when the data directory lacks it. Setup and tooling details are in [.codeagents/agent-play.en.md](../../../.codeagents/agent-play.en.md).
 
 For a human saying «поиграем вдвоём», run:
 
 ```powershell
-python G:\SS\silent-storm-remaster\tools\agent_play.py start --package G:\SS\lab\baseline --exe G:\SS\lab\build-x64-stage4\RelWithDebInfo\Game.exe --output G:\SS\lab\agent-play-UNIQUE --squad 1
+python tools/agent_play.py start --package "GAME_DATA_DIR" --exe "PATH_TO_GAME_EXE" --output "NEW_SESSION_DIR" --squad 1
 ```
 
 Use a fresh output directory. The host window belongs to the human; the agent controls `client-player.json`. Tell the human the match is connected and which side starts. A one-fighter squad is the default; `--squad 1..6` changes both squads. `--human-side client` reverses the visible window. `--map VARIANT` selects an existing random encounter; omit it to use the usual network default. Startup can take several minutes while checking resources. Inspect startup/process logs only for a failed launch, before playing.
@@ -26,9 +26,9 @@ The launcher returns paths for `session.json`, `host-player.json`, and `client-p
 ## Player tools
 
 ```powershell
-python G:\SS\silent-storm-remaster\tools\agent_play.py call --player PLAYER_JSON observe
-python G:\SS\silent-storm-remaster\tools\agent_play.py call --player PLAYER_JSON screenshot
-python G:\SS\silent-storm-remaster\tools\agent_play.py call --player PLAYER_JSON --wait-turn 20 observe
+python tools/agent_play.py call --player "PLAYER_JSON" observe
+python tools/agent_play.py call --player "PLAYER_JSON" screenshot
+python tools/agent_play.py call --player "PLAYER_JSON" --wait-turn 20 observe
 ```
 
 Every response contains `ok` and an `observation`. `phase` is `connecting`, `playing`, or `finished`. During play, `side` is yours, `turn` is the active side, and `executing` means an action is animating. `units` lists only your squad: zero-based `id`, grid/world coordinates, AP, HP, pose, ammo, shoot mode and pending command. `visible_enemies` contains only currently visible contacts; enemy HP is included only when the normal UI allows it. Contact IDs are local to this player. A contact disappears when no longer visible; remembered positions must come from your own previous observations.
@@ -74,7 +74,7 @@ The player HTTP capability accepts POST JSON `{"command":"observe","settle":true
 When `phase:finished`, record the public `status` (winner/draw/failure), report what you learned, and do not issue tactical actions. Before closing, keep useful screenshots. Unless the user asked to leave the game running, the coordinator closes only its own session:
 
 ```powershell
-python G:\SS\silent-storm-remaster\tools\agent_play.py close --session SESSION_JSON
+python tools/agent_play.py close --session "SESSION_JSON"
 ```
 
 Require both exit codes to be zero. Preserve logs/captures/transcripts. Never close an unrelated game. If a process fails to exit, report its owned session and the failure instead of killing arbitrary game processes.

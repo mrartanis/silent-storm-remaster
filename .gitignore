@@ -397,3 +397,6 @@ res-hd/
 
 # Restored locally from the verified .json.gz; exceeds GitHub's file limit.
 /assets/terrain-hd/expanded/native-matrices-clothing-forty-fifth.json
+
+# Private machine settings for repository agents.
+/.codeagents/local/
