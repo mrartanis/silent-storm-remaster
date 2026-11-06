@@ -16,6 +16,7 @@ float motionX = 0, motionY = 0, wheelRemainder = 0;
 #if defined(__ANDROID__)
 TouchGestures touch;
 bool (*touchMapHitTest)(float, float) = nullptr;
+const void* (*getTouchSkipTarget)() = nullptr;
 #endif
 int KeyboardAction(int offset) { return (1 << 24) | offset; }
 
@@ -129,7 +130,8 @@ void HandleTouch(S2Platform::InputEvent input)
   const bool cameraAllowed = touchMapHitTest &&
       (phase != Phase::Down || touchMapHitTest(point.x, point.y));
   const auto gesture = touch.Update(phase, finger.fingerID, point,
-      finger.timestamp / SDL_NS_PER_MS, cameraAllowed);
+      finger.timestamp / SDL_NS_PER_MS, cameraAllowed,
+      getTouchSkipTarget ? getTouchSkipTarget() : nullptr);
   using Action = TouchGestures::Action;
   switch (gesture.action) {
     case Action::Aim:
@@ -180,6 +182,11 @@ bool DoneInput()
 }
 #if defined(__ANDROID__)
 void SetTouchMapHitTest(bool (*hitTest)(float x, float y)) { touchMapHitTest = hitTest; }
+void SetTouchSkipTarget(const void* (*getTarget)()) { getTouchSkipTarget = getTarget; }
+std::optional<TouchGestures::SkipProgress> GetTouchSkipProgress()
+{
+  return touch.GetSkipProgress(SDL_GetTicks(), getTouchSkipTarget ? getTouchSkipTarget() : nullptr);
+}
 #endif
 void PumpMessages(bool focus) { PumpMessages(focus, false); }
 void PumpMessages(bool focus, bool force)
@@ -262,7 +269,13 @@ void PumpMessages(bool focus, bool force)
 #if defined(__ANDROID__)
   if (focused) {
     // Drain queued motion, release and focus events before recognizing a hold.
-    const auto point = touch.PollHold(SDL_GetTicks());
+    const auto ticks = SDL_GetTicks();
+    const void* target = getTouchSkipTarget ? getTouchSkipTarget() : nullptr;
+    if (touch.PollSkip(ticks, target)) {
+      Push(CT_TOUCH_SKIP, -1, 0);
+      messages.back().touchSkipTarget = target;
+    }
+    const auto point = touch.PollHold(ticks);
     if (point && touchMapHitTest && touchMapHitTest(point->x, point->y)) {
       const auto& display = S2Platform::Display();
       S2Platform::InputEvent pointer{};

@@ -59,6 +59,9 @@ public:
 	virtual void Step();                                       // @0x1ed010
 	virtual void OnGetFocus();                                 // @0x1ecb90 (empty)
 	virtual bool ProcessEvent( const NInput::SEvent &eEvent ); // @0x1ecf20
+#if defined(__ANDROID__)
+	const void* GetTouchSkipTarget() const override { return pVideoPlayer->IsPlaying() ? this : nullptr; }
+#endif
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CICPlaySequence  --  the queued main-loop command that builds + installs a CSequence.
@@ -100,6 +103,14 @@ void NGame::CSequence::OnGetFocus()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool NGame::CSequence::ProcessEvent( const NInput::SEvent &eEvent )
 {
+#if defined(__ANDROID__)
+	if ( eEvent.mMessage.cType == NInput::CT_TOUCH_SKIP )
+	{
+		pVideoPlayer->Stop();
+		ExecCommand( true );
+		return true;
+	}
+#endif
 	NInput::SetSection( "menu" );
 
 	pCursor->ProcessEvent( eEvent );                  // cursor sees the event first (result ignored)
@@ -133,6 +144,9 @@ void NGame::CSequence::Step()
 		pInterface->Step( GetTime() );
 		NGScene::ClearScreen( CVec3( 0, 0, 0 ) );      // release ClearScreenZBuffer() (absent) -> black clear
 		pInterface->Draw( GetTime() );
+#if defined(__ANDROID__)
+		NMainLoop::DrawTouchSkipProgress();
+#endif
 		NGScene::Flip();
 	}
 }

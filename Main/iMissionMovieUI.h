@@ -65,6 +65,9 @@ public:
 	bool IsValidCommand( NWorld::CUICmd *pCmd );
 	NGame::CUICmdExec* CreateExecutor( NWorld::CUICmd *pCmd );
 
+#if defined(__ANDROID__)
+	bool CanTouchSkip() const override { return !bSkipPart && eStage < FINISH; }
+#endif
 	bool ProcessEvent( const NInput::SEvent &sEvent );
 	bool ProcessMessage( const SEvent &sEvent );
 };

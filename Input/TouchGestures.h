@@ -11,6 +11,7 @@ namespace NInput {
 class TouchGestures {
 public:
   struct Point { float x = 0, y = 0; };
+  struct SkipProgress { Point point; float fraction; };
   enum class Phase { Down, Move, Up, Cancel };
   enum class Action { None, Aim, Tap, Camera };
   struct Gesture {
@@ -26,15 +27,32 @@ public:
 
   std::optional<Point> PollHold(std::uint64_t milliseconds) {
     if (fingers.size() != 1 || !startedOnMap || moved || multiple || holdSent ||
-        !HoldElapsed(milliseconds))
+        Elapsed(milliseconds) < contextHoldMilliseconds)
       return {};
     holdSent = true;
     return fingers.begin()->second;
   }
 
+  std::optional<SkipProgress> GetSkipProgress(std::uint64_t milliseconds, const void* target) const {
+    if (!target || target != skipTarget || fingers.size() != 1 || moved || multiple || holdSent)
+      return {};
+    const float fraction = static_cast<float>(Elapsed(milliseconds)) / skipHoldMilliseconds;
+    return SkipProgress{fingers.begin()->second, (std::min)(fraction, 1.0f)};
+  }
+
+  bool PollSkip(std::uint64_t milliseconds, const void* target) {
+    if (skipTarget && target != skipTarget)
+      holdSent = true;  // The gesture belongs to the screen that received the press.
+    const auto progress = GetSkipProgress(milliseconds, target);
+    if (!progress || Elapsed(milliseconds) < skipHoldMilliseconds)
+      return false;
+    holdSent = true;
+    return true;
+  }
+
   // Points are measured in UI units, with the same scale on both axes.
   Gesture Update(Phase phase, std::uint64_t finger, Point point, std::uint64_t milliseconds,
-                 bool cameraAllowed) {
+                 bool cameraAllowed, const void* target = nullptr) {
     if (phase == Phase::Cancel) {
       Reset();
       return {};
@@ -43,7 +61,8 @@ public:
       if (fingers.empty()) {
         start = point;
         pressedAt = milliseconds;
-        startedOnMap = cameraAllowed;
+        skipTarget = target;
+        startedOnMap = cameraAllowed && !skipTarget;
         moved = multiple = holdSent = false;
       } else {
         multiple = true;
@@ -61,7 +80,8 @@ public:
       // An overdue hold may have been released while the game missed a frame.
       // Even then, it must never turn into a primary click on the map.
       if (multiple || moved || holdSent || Distance(point, start) >= dragThreshold ||
-          (startedOnMap && HoldElapsed(milliseconds))) return {};
+          (startedOnMap && Elapsed(milliseconds) >= contextHoldMilliseconds) ||
+          (skipTarget && (target != skipTarget || Elapsed(milliseconds) >= skipHoldMilliseconds))) return {};
       return {Action::Tap, point};
     }
 
@@ -86,13 +106,14 @@ private:
   using Pair = std::array<Point, 2>;
   enum class PairMode { Pending, Tilt, Transform };
   static constexpr float dragThreshold = 12;
-  static constexpr std::uint64_t holdMilliseconds = 450;
+  static constexpr std::uint64_t contextHoldMilliseconds = 450;
+  static constexpr std::uint64_t skipHoldMilliseconds = 2000;
   static constexpr std::uint64_t pairDecisionMilliseconds = 48;
   static Point Delta(Point a, Point b) { return {a.x - b.x, a.y - b.y}; }
   static float Distance(Point a, Point b) { return std::hypot(a.x - b.x, a.y - b.y); }
   Pair CurrentPair() const { return {fingers.begin()->second, fingers.rbegin()->second}; }
-  bool HoldElapsed(std::uint64_t milliseconds) const {
-    return milliseconds >= pressedAt && milliseconds - pressedAt >= holdMilliseconds;
+  std::uint64_t Elapsed(std::uint64_t milliseconds) const {
+    return milliseconds >= pressedAt ? milliseconds - pressedAt : 0;
   }
 
   void BeginPair() {
@@ -153,6 +174,7 @@ private:
   std::uint64_t firstPairMotion = 0;
   Point start;
   std::uint64_t pressedAt = 0;
+  const void* skipTarget = nullptr;
   bool startedOnMap = false;
   bool moved = false;
   bool multiple = false;

@@ -19,6 +19,7 @@ Use an ARM64 phone or tablet with Android 9 or later and Vulkan support. The gam
 ## Controls
 
 - Tap a target to select it. Press and hold on the map to open the context menu.
+- During a video, cutscene, or dialogue, hold one finger down for two seconds to skip. The ring under your finger shows how long to keep holding.
 - Drag with one finger to pan the camera. Pinch with two fingers to zoom, twist to rotate, or move both fingers up or down to tilt.
 - Tap **ALT** to toggle ground item highlighting.
 - Minimizing the game or turning off the screen updates the **Background autosave** slot.

@@ -23,6 +23,7 @@ STime SetTimeForHarness( STime time );
 void ConfigureMouse();
 #if defined(__ANDROID__)
 bool SaveOnSuspend();
+void DrawTouchSkipProgress();
 #endif
 // Harness-only, borrowed pointer valid until the next interface command.
 IInterfaceBase* GetCurrentInterfaceForHarness();
@@ -51,6 +52,9 @@ public:
 	virtual void OnGetFocus() = 0;
 	// Visible menus must paint even if the OS has not granted keyboard focus.
 	virtual bool RenderWhenInactive() const { return false; }
+#if defined(__ANDROID__)
+	virtual const void* GetTouchSkipTarget() const { return nullptr; }
+#endif
 	// retail IInterfaceBase vtbl+0x24: fired on the interface being COVERED (PushInterface) or
 	// REMOVED (PopInterface). CMissionBase pauses its sound scene here (the menu-over-mission pause).
 	virtual void OnLostFocus() {}

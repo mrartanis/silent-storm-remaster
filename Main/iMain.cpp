@@ -39,6 +39,7 @@
 #if defined(__ANDROID__)
 #include "UIWindow.h"
 #include "iDesktopWindow.h"
+#include "GfxUtils.h"
 #endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void DumpMemoryStats() {}
@@ -634,6 +635,11 @@ bool StepApp( bool bActive, bool bSetGamma, bool bInput )
 		NInput::SEvent event;
 		while ( NInput::GetEvent( &event ) )
 		{
+#if defined(__ANDROID__)
+			if ( event.mMessage.cType == NInput::CT_TOUCH_SKIP &&
+				event.mMessage.touchSkipTarget != interfaces.back()->GetTouchSkipTarget() )
+				continue;
+#endif
 			if ( !interfaces.back()->ProcessEvent( event ) )
 				ProcessStandardEvents( event );
 			if ( !ProcessInterfaceCmds() )
@@ -685,6 +691,75 @@ int GetInterfaceStackDepth()
 	return interfaces.size();
 }
 #if defined(__ANDROID__)
+static const void* GetTouchSkipTarget()
+{
+	return interfaces.empty() ? nullptr : interfaces.back()->GetTouchSkipTarget();
+}
+
+void DrawTouchSkipProgress()
+{
+	const auto progress = NInput::GetTouchSkipProgress();
+	if (!progress)
+		return;
+
+	constexpr int size = 96;
+	constexpr float displayRadius = 68.0f;
+	constexpr int steps = 120;
+	constexpr float tau = 6.28318530718f;
+	static CObj<NGfx::CTexture> ring;
+	static int previousStep = -1;
+	static int previousDevice = -1;
+	const int device = NGfx::GetDeviceCreationID();
+	if (!IsValid(ring) || previousDevice != device)
+	{
+		ring = NGfx::MakeTexture(size, size, 1, NGfx::SPixel8888::ID, NGfx::REGULAR, NGfx::CLAMP);
+		if (!IsValid(ring))
+			return;
+		previousStep = -1;
+		previousDevice = device;
+	}
+
+	const int step = static_cast<int>(progress->fraction * steps);
+	if (step != previousStep)
+	{
+		NGfx::CTextureLock<NGfx::SPixel8888> pixels(ring, 0, NGfx::INPLACE);
+		for (int y = 0; y < size; ++y)
+			for (int x = 0; x < size; ++x)
+			{
+				const float dx = x + 0.5f - size / 2;
+				const float dy = y + 0.5f - size / 2;
+				const float distance = std::abs(std::sqrt(dx * dx + dy * dy) - 41.0f);
+				if (distance >= 5.0f)
+				{
+					pixels[y][x] = NGfx::SPixel8888(0, 0, 0, 0);
+					continue;
+				}
+				const float angle = std::atan2(dx, -dy);
+				const float phase = angle < 0 ? angle + tau : angle;
+				const bool filled = phase < step * tau / steps;
+				const auto opacity = static_cast<int>(230 * std::clamp(5.0f - distance, 0.0f, 1.0f));
+				if (distance > 3.0f)
+					pixels[y][x] = NGfx::SPixel8888(12, 11, 9, opacity);
+				else if (filled)
+					pixels[y][x] = NGfx::SPixel8888(255, 218, 138, opacity);
+				else
+					pixels[y][x] = NGfx::SPixel8888(158, 151, 137, opacity);
+			}
+		previousStep = step;
+	}
+
+	const auto& display = S2Platform::Display();
+	const float x = display.UIToPixel(progress->point.x);
+	const float y = display.UIToPixel(progress->point.y);
+	const float radius = display.UIToPixel(displayRadius);
+	NGfx::CRenderContext context;
+	context.SetAlphaCombine(NGfx::COMBINE_ALPHA);
+	context.SetStencil(NGfx::STENCIL_NONE);
+	NGfx::C2DQuadsRenderer renderer(context, NGfx::GetScreenRect(), NGfx::QRM_NOCOLOR | NGfx::QRM_DEPTH_NONE);
+	renderer.AddRect(CTRect<float>(x - radius, y - radius, x + radius, y + radius), ring,
+		CTRect<float>(0, 0, size, size));
+}
+
 static bool TouchHitsMap(float x, float y)
 {
 	auto *mission = interfaces.empty() ? nullptr : dynamic_cast<NGame::IMission*>(interfaces.back().GetPtr());
@@ -715,6 +790,7 @@ void ConfigureMouse()
 	S2Platform::AllowCameraMouseDrag(mission && mission->GetWorld() && mission->GetCamera());
 #if defined(__ANDROID__)
 	NInput::SetTouchMapHitTest(TouchHitsMap);
+	NInput::SetTouchSkipTarget(GetTouchSkipTarget);
 #endif
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

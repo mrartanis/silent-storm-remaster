@@ -626,6 +626,9 @@ public:
 	virtual void DoEvent( NWorld::CCommand *pCmd );										// retail @0x1a2fa0 (vtbl+0x2c, events channel)
 	virtual void OnGetFocus();															// retail @0x1a19c0: ResetTiming + sound-scene unpause
 	virtual void OnLostFocus();															// retail @0x1a19e0: sound-scene pause (menu over mission)
+#if defined(__ANDROID__)
+	const void* GetTouchSkipTarget() const override;
+#endif
 	virtual void StopAction();															// retail @0x1a29d0
 	virtual bool IsReady() const;														// retail @0x1a1e60
 	virtual bool IsActionExecuted() const;												// retail @0x1a3e30

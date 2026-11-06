@@ -1659,6 +1659,8 @@ bool CMission::CanLeaveZone( wstring *pwsReason )
 bool CMission::ProcessEvent( const NInput::SEvent &sEvent )
 {
 #if defined(__ANDROID__)
+	if (sEvent.mMessage.cType == NInput::CT_TOUCH_SKIP)
+		return GetDesktop()->ProcessEvent(sEvent);
 	if (pInterface->GetTouchOverlay())
 		return ProcessTouchContext(sEvent);
 #endif

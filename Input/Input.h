@@ -34,6 +34,7 @@ typedef std::uint32_t STime;
 #if defined(__ANDROID__)
 		CT_TOUCH_CAMERA,
 		CT_TOUCH_CONTEXT,
+		CT_TOUCH_SKIP,
 #endif
 	};
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -50,6 +51,7 @@ typedef std::uint32_t STime;
 		float pointerX = 0, pointerY = 0;
 #if defined(__ANDROID__)
 		TouchGestures::Gesture touchGesture;
+		const void* touchSkipTarget = nullptr;
 #endif
 	};
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -57,6 +59,8 @@ typedef std::uint32_t STime;
 	bool DoneInput();
 #if defined(__ANDROID__)
 	void SetTouchMapHitTest(bool (*hitTest)(float x, float y));
+	void SetTouchSkipTarget(const void* (*getTarget)());
+	std::optional<TouchGestures::SkipProgress> GetTouchSkipProgress();
 #endif
 
 	void PumpMessages( bool bFocus );

@@ -153,7 +153,11 @@ NGame::CUICmdExec* CMissionMovieUI::CreateExecutor( NWorld::CUICmd *pCmd )
 // is still up (eStage < FINISH) -- the bSkipPart latch stops a held key from eating the next part too.
 bool CMissionMovieUI::ProcessEvent( const NInput::SEvent &sEvent )
 {
-	if ( bindCancel.ProcessEvent( sEvent ) && !bSkipPart && eStage < FINISH )
+	if ( ( bindCancel.ProcessEvent( sEvent )
+#if defined(__ANDROID__)
+		|| sEvent.mMessage.cType == NInput::CT_TOUCH_SKIP
+#endif
+		) && !bSkipPart && eStage < FINISH )
 	{
 		bSkipPart = true;
 		pMission->SetWaitForPartFinished( true );

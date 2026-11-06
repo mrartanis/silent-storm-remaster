@@ -265,7 +265,11 @@ NGame::CUICmdExec* CMissionDlgUI::CreateExecutor( NWorld::CUICmd *pCmd )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMissionDlgUI::ProcessEvent( const NInput::SEvent &sEvent )
 {
-	if ( bindCancel.ProcessEvent( sEvent ) )
+	if ( bindCancel.ProcessEvent( sEvent )
+#if defined(__ANDROID__)
+		|| sEvent.mMessage.cType == NInput::CT_TOUCH_SKIP
+#endif
+		)
 	{
 		HideDesktop();
 		return true;

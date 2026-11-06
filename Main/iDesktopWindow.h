@@ -88,6 +88,9 @@ public:
 	virtual void HideDesktop() {}
 	virtual void UpdateDesktop( const STime &sTime ) {}
 	virtual bool IsReady() const { return false; }
+#if defined(__ANDROID__)
+	virtual bool CanTouchSkip() const { return false; }
+#endif
 
 	virtual void PlayAck( NWorld::CAckEvent *pEvent );
 	virtual bool IsValidCommand( NWorld::CUICmd *pCmd ) { return true; }

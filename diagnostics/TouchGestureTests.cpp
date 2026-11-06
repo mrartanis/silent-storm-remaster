@@ -83,4 +83,45 @@ int main() {
   const auto anchoredPinch = touch.Update(Phase::Move, 2, {100, 40}, 2280, true);
   Check(anchoredPinch.zoom > 0 && anchoredPinch.tilt == 0,
         "An anchored pinch should still work when only one finger moves.");
+
+  int movie = 0, dialogue = 0;
+  touch.Reset();
+  touch.Update(Phase::Down, 1, {40, 60}, 3000, false, &movie);
+  Check(!touch.PollHold(3450) && !touch.PollSkip(3999, &movie),
+        "A movie hold should wait two seconds and never open the map menu.");
+  touch.Update(Phase::Move, 1, {41, 60}, 4000, false, &movie);
+  const auto progress = touch.GetSkipProgress(4000, &movie);
+  Check(progress && progress->fraction == 0.5f && progress->point.x == 41 && progress->point.y == 60,
+        "The progress ring should follow small finger movements and report elapsed time.");
+  Check(!touch.PollSkip(4999, &movie) && touch.PollSkip(5000, &movie) &&
+        !touch.PollSkip(5001, &movie) && !touch.GetSkipProgress(5001, &movie),
+        "A skip should fire at two seconds, once per hold, and hide the ring.");
+  Check(touch.Update(Phase::Up, 1, {41, 60}, 5010, false, &movie).action == Action::None,
+        "Releasing a completed skip should not click.");
+
+  touch.Update(Phase::Down, 1, {40, 60}, 6000, false, &dialogue);
+  Check(touch.Update(Phase::Up, 1, {40, 60}, 6100, false, &dialogue).action == Action::Tap,
+        "A short tap should still operate dialogue buttons.");
+  touch.Update(Phase::Down, 1, {40, 60}, 6200, false, &movie);
+  Check(touch.Update(Phase::Up, 1, {40, 60}, 8250, false, &movie).action == Action::None,
+        "A late release after a stalled frame should not click.");
+
+  touch.Update(Phase::Down, 1, {40, 60}, 8300, false, &movie);
+  Check(!touch.PollSkip(9000, &dialogue) && !touch.GetSkipProgress(9500, &movie) &&
+        touch.Update(Phase::Up, 1, {40, 60}, 9600, false, &dialogue).action == Action::None,
+        "A screen transition should cancel the hold and consume its release.");
+
+  touch.Update(Phase::Down, 1, {40, 60}, 9700, false, &dialogue);
+  touch.Update(Phase::Move, 1, {60, 60}, 9800, false, &dialogue);
+  Check(!touch.GetSkipProgress(10000, &dialogue) && !touch.PollSkip(11700, &dialogue),
+        "Dragging should dismiss the skip ring and cancel the hold.");
+  touch.Reset();
+  touch.Update(Phase::Down, 1, {40, 60}, 11800, false, &dialogue);
+  touch.Update(Phase::Down, 2, {65, 60}, 11900, false, &dialogue);
+  touch.Update(Phase::Up, 2, {65, 60}, 12000, false, &dialogue);
+  Check(!touch.GetSkipProgress(12500, &dialogue) && !touch.PollSkip(13800, &dialogue),
+        "A second finger should cancel the skip even after it leaves.");
+  touch.Reset();
+  Check(!touch.GetSkipProgress(14000, &dialogue) && !touch.PollSkip(14000, &dialogue),
+        "Losing focus should discard the skip and its progress.");
 }

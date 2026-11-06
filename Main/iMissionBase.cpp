@@ -42,6 +42,13 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NGame
 {
+#if defined(__ANDROID__)
+const void* CMissionBase::GetTouchSkipTarget() const
+{
+	const auto* desktop = GetDesktop();
+	return desktop && desktop->CanTouchSkip() ? desktop : nullptr;
+}
+#endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMissionBase::InitializeWorld()
 {
@@ -705,7 +712,12 @@ void CMissionBase::RenderFrame( int nMode, bool bAdvanceTime, ICamera *pCamera, 
 	}
 
 	if ( !( nMode & 8 ) )	// retail @0x5a1c29: bit 8 (CAutoPlayInterface logo frame) suppresses the present
+	{
+#if defined(__ANDROID__)
+		NMainLoop::DrawTouchSkipProgress();
+#endif
 		NGScene::Flip();
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 } // NAMESPACE
