@@ -1,0 +1,59 @@
+QWidget {
+    background: #0d0b0a;
+    color: #f4e6cd;
+    font-size: 14px;
+}
+QLabel, QCheckBox { background: transparent; }
+QLabel#masthead { color: #efbd68; font-weight: 700; }
+QLabel#platform { color: #bca88e; font-size: 12px; }
+QLabel#heroKicker { color: #d29850; font-size: 13px; font-weight: 700; }
+QLabel#title { color: #ffd27a; font-size: 51px; font-weight: 900; }
+QLabel#remaster { color: #edaa51; font-size: 18px; font-weight: 700; }
+QFrame#card { background: #1b1410; border: 1px solid #573b28; }
+QLabel#eyebrow { color: #e9a958; font-size: 11px; font-weight: 700; }
+QLabel#section { color: #f7e2ba; font-size: 24px; font-weight: 700; }
+QLabel#component { color: #f7e2ba; font-size: 16px; font-weight: 700; }
+QLabel#muted, QLabel#status { color: #cbb59c; font-size: 13px; }
+QLabel#path {
+    background: #120e0c;
+    color: #ead8be;
+    border: 1px solid #493122;
+    padding: 7px;
+}
+QCheckBox { color: #dfc9ac; font-size: 13px; spacing: 7px; }
+QCheckBox::indicator { width: 13px; height: 13px; border: 1px solid #a27b50; background: #120d0a; }
+QCheckBox::indicator:checked { background: #d98f3b; border: 1px solid #f3bc6a; }
+QCheckBox:focus { color: #ffdc96; }
+QPushButton {
+    color: #f2d8b4;
+    background: #2b1c13;
+    border: 1px solid #815835;
+    border-radius: 2px;
+    font-weight: 600;
+    padding: 7px 11px;
+}
+QPushButton:hover { background: #3b2618; border-color: #c78849; }
+QPushButton:pressed { background: #1d130e; }
+QPushButton:focus { border-color: #f3bc6a; }
+QPushButton:disabled { background: #231a14; border-color: #4c3628; color: #a48d78; }
+QPushButton#link { background: transparent; border: 1px solid transparent; color: #efbb72; }
+QPushButton#link:hover, QPushButton#link:focus { border-color: #8c5f36; }
+QPushButton#link:disabled { color: #8d7460; }
+QPushButton#primary {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f1bf6a, stop:1 #d58a37);
+    color: #1a0d06;
+    border-color: #ffcf80;
+    font-size: 17px;
+    font-weight: 800;
+}
+QPushButton#primary:hover, QPushButton#primary:focus { background: #ffce80; border-color: #ffe6b4; }
+QPushButton#primary:pressed { background: #cb8033; }
+QPushButton#primary:disabled { background: #342219; border-color: #65452c; color: #bca183; }
+QProgressBar {
+    background: #1d150f;
+    border: 1px solid #785335;
+    color: #fff0d4;
+    font-size: 11px;
+    text-align: center;
+}
+QProgressBar::chunk { background: #a15c26; }

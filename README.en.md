@@ -9,6 +9,7 @@ A modern engine for **Silent Storm 1.2**, based on [Silent Storm Reconstruction]
 - A 64-bit engine for Windows, Linux, macOS, and Android that reads the original game data.
 - Widescreen support, scalable UI, vector fonts, and a modern renderer.
 - HD textures on desktop and touch controls on Android.
+- A [desktop launcher](docs/launcher.en.md) for installing and updating the engine and HD pack.
 - Two-player tactical matches with an option to [play against an LLM agent](docs/agent-play.en.md).
 - Native playback of the original audio and cutscenes, plus a new implementation of facial animation.
 
@@ -19,7 +20,7 @@ A modern engine for **Silent Storm 1.2**, based on [Silent Storm Reconstruction]
 ## Releases
 
 - [Latest engine release](https://github.com/mrartanis/silent-storm-remaster/releases/latest) · Windows x64, Linux x64, macOS ARM64, Android ARM64.
-- [All releases, including the HD pack](https://github.com/mrartanis/silent-storm-remaster/releases).
+- [All releases](https://github.com/mrartanis/silent-storm-remaster/releases) · The HD pack and desktop launcher are released separately.
 
 ## Documentation
 

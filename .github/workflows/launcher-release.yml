@@ -1,0 +1,135 @@
+name: Desktop launcher
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['launcher-check/**']
+    tags: ['launcher-v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: launcher-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+jobs:
+  package:
+    name: ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2022
+            target: windows-x64
+          - runner: ubuntu-24.04
+            target: linux-x64
+          - runner: macos-15
+            target: macos-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    env:
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            launcher
+            packaging
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Qt display dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxcb-cursor0 libxkbcommon-x11-0 xvfb
+
+      - name: Build launcher
+        run: |
+          case "$TARGET" in
+            macos-arm64) test "$(uname -m)" = arm64 ;;
+            *) test "$(uname -m)" = x86_64 ;;
+          esac
+          python -m pip install -r launcher/requirements-build.txt
+          python -m PyInstaller --noconfirm launcher/launcher.spec
+
+      - name: Archive and launch from a clean directory
+        run: |
+          version="launcher-check-$GITHUB_RUN_NUMBER"
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            version="$GITHUB_REF_NAME"
+            [[ "$version" =~ ^launcher-v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          fi
+          archive="silent-storm-$version-$TARGET"
+          mkdir -p artifacts smoke
+          case "$TARGET" in
+            windows-x64)
+              (cd dist && python -m zipfile -c "../artifacts/$archive.zip" SilentStormLauncher)
+              python -m zipfile -e "artifacts/$archive.zip" smoke
+              command=(./smoke/SilentStormLauncher/SilentStormLauncher.exe)
+              ;;
+            linux-x64)
+              tar -C dist -czf "artifacts/$archive.tar.gz" SilentStormLauncher
+              tar -C smoke -xzf "artifacts/$archive.tar.gz"
+              command=(xvfb-run -a ./smoke/SilentStormLauncher/SilentStormLauncher)
+              ;;
+            macos-arm64)
+              ditto -c -k --sequesterRsrc --keepParent dist/SilentStormLauncher.app "artifacts/$archive.zip"
+              ditto -x -k "artifacts/$archive.zip" smoke
+              command=(./smoke/SilentStormLauncher.app/Contents/MacOS/SilentStormLauncher)
+              ;;
+          esac
+          status=0
+          "${command[@]}" --smoke-test smoke/result.log || status=$?
+          if [[ -f smoke/result.log ]]; then cat smoke/result.log; fi
+          test "$status" = 0
+          grep -q '^Installed and verified ' smoke/result.log
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: launcher-package-${{ matrix.target }}
+          path: artifacts/*
+          if-no-files-found: error
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: launcher-smoke-${{ matrix.target }}
+          path: smoke/result.log
+          if-no-files-found: ignore
+
+  draft:
+    if: github.ref_type == 'tag'
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: launcher-package-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create launcher release draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        working-directory: artifacts
+        run: |
+          tag="$GITHUB_REF_NAME"
+          files=("silent-storm-$tag-windows-x64.zip"
+                 "silent-storm-$tag-linux-x64.tar.gz"
+                 "silent-storm-$tag-macos-arm64.zip")
+          sha256sum "${files[@]}" > SHA256SUMS
+          gh release create "$tag" "${files[@]}" SHA256SUMS \
+            --draft --latest=false --verify-tag --title "Silent Storm Launcher ${tag#launcher-v}" \
+            --notes "Desktop launcher for Windows x64, Linux x64 and macOS ARM64. Original Silent Storm 1.2 game data is required. See docs/launcher.en.md and docs/launcher.md."

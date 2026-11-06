@@ -4,8 +4,22 @@ on:
   push:
     branches: [develop, android]
     tags: ['v*']
+    paths-ignore:
+      - 'launcher/**'
+      - 'docs/launcher.md'
+      - 'docs/launcher.en.md'
+      - '.github/workflows/launcher-release.yml'
+      - 'README.md'
+      - 'README.en.md'
   pull_request:
     branches: [develop]
+    paths-ignore:
+      - 'launcher/**'
+      - 'docs/launcher.md'
+      - 'docs/launcher.en.md'
+      - '.github/workflows/launcher-release.yml'
+      - 'README.md'
+      - 'README.en.md'
   workflow_dispatch:
     inputs:
       platform:
